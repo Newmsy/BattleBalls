@@ -60,7 +60,7 @@ static func data() -> Dictionary:
 	if _data.is_empty():
 		_data = _read(BUNDLED)
 		var cached := _read(CACHE)
-		if not cached.is_empty() and validate(cached).is_empty() and int(cached.get("version", 0)) >= int(_data.get("version", 0)):
+		if not cached.is_empty() and validate(cached).is_empty() and int(cached.revision) >= int(_data.get("revision", 0)):
 			_data = cached
 	return _data
 
@@ -95,7 +95,7 @@ static func fetch(parent: Node, on_change: Callable) -> void:
 		if not parsed is Dictionary or not validate(parsed).is_empty():
 			print("LIVEOPS rejected download from ", url)
 			return
-		if int(parsed.get("version", 0)) < int(_read(BUNDLED).get("version", 0)):
+		if int(parsed.revision) < int(_read(BUNDLED).get("revision", 0)):
 			return
 		var f := FileAccess.open(CACHE, FileAccess.WRITE)
 		if f:
@@ -112,8 +112,9 @@ static func fetch(parent: Node, on_change: Callable) -> void:
 ## Every problem with a schedule, or [] if it is good to use.
 static func validate(d: Dictionary) -> Array:
 	var errors := []
-	if not _num(d.get("version")):
-		errors.append("version must be a number")
+	for key in ["version", "revision"]:
+		if not _num(d.get(key)):
+			errors.append("%s must be a number" % key)
 	for key in ["seasons", "spotlight", "chaos", "fights"]:
 		if not d.get(key, []) is Array:
 			errors.append("%s must be a list" % key)

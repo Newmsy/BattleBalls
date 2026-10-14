@@ -21,7 +21,8 @@ All dates are `YYYY-MM-DD`, UTC. Weeks start Monday 00:00 UTC.
 
 | Key | Entry | Notes |
 |---|---|---|
-| `version` | number | Bump it on a breaking format change; a download older than the bundled file is ignored. |
+| `version` | number | The format version. Bump it only if the format changes. |
+| `revision` | number | **Bump it on every edit.** A cached or downloaded schedule is only used if its revision is at least the bundled one, so an old cache never hides a newer build's plan. |
 | `seasons` | `{name, start, weeks}` | `start` is a Monday. Seven weeks per season (design/monetisation.md). |
 | `spotlight` | `{week, critter, blurb}` | `week` is a Monday; `critter` is any roster id (`game/ui/roster.gd`). It takes half the rolls of its rarity in the Summon Portal. |
 | `chaos` | `{weekend, modifier}` | `weekend` is the Friday; `modifier` is an id from `sim/modifiers.gd` (design/events.md). |

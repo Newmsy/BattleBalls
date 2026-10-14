@@ -26,7 +26,7 @@ func test_bundled_schedule_is_valid() -> void:
 
 
 func test_validation_catches_mistakes() -> void:
-	var bad := {"version": 1, "seasons": [{"name": "S", "start": "2026-10-13", "weeks": 7}],
+	var bad := {"version": 1, "revision": 1, "seasons": [{"name": "S", "start": "2026-10-13", "weeks": 7}],
 		"spotlight": [{"week": "2026-10-12", "critter": "nobody"}],
 		"chaos": [{"weekend": "2026-10-17", "modifier": "big_head"}, {"weekend": "2026-10-16", "modifier": "moon_gravity"}],
 		"fights": [{"date": "2026-02-30", "p1": "vampire", "p2": "laser", "seed": 1}, {"date": "2026-10-14", "p1": "boulder", "p2": "laser", "seed": 1}]}
@@ -86,7 +86,7 @@ func test_fight_of_the_day_replays_exactly() -> void:
 	check_eq(sim.winner, f.winner, "the arena replay ends the same way")
 	LiveOps.use({})
 	check_eq(LiveOps.fight_of_the_day(t).seed, f.seed, "generated from the date alone")
-	var picked := {"version": 1, "fights": [{"date": "2026-10-20", "p1": "laser", "p2": "laser", "seed": 42, "angles": [-450, 1350], "title": "Mirror night"}]}
+	var picked := {"version": 1, "revision": 1, "fights": [{"date": "2026-10-20", "p1": "laser", "p2": "laser", "seed": 42, "angles": [-450, 1350], "title": "Mirror night"}]}
 	LiveOps.use(picked)
 	var g := LiveOps.fight_of_the_day(t)
 	check_eq([g.p1, g.seed, g.angles, g.title], ["laser", 42, [-450, 1350], "Mirror night"], "scheduled fight wins")

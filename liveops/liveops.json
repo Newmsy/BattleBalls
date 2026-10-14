@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "revision": 1,
   "seasons": [
     {"name": "Preseason", "start": "2026-10-12", "weeks": 7}
   ],
