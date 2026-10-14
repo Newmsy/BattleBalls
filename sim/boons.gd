@@ -32,15 +32,15 @@ const DEFS := {
 	},
 	"zoomies": {
 		"name": "Zoomies",
-		"text": "Move 10% faster.",
+		"text": "Move 8% faster.",
 		"icon": "bolt",
-		"speed": 1.10,
+		"speed": 1.08,
 	},
 	"wall_snack": {
 		"name": "Wall Snack",
-		"text": "Heal 0.5 HP every time you bounce off a wall.",
+		"text": "Heal 0.4 HP every time you bounce off a wall.",
 		"icon": "heart",
-		"bounce_heal": 0.5,
+		"bounce_heal": 0.4,
 	},
 	"overtime_bubble": {
 		"name": "Overtime Bubble",
@@ -56,9 +56,9 @@ const DEFS := {
 	},
 	"bank_shot": {
 		"name": "Bank Shot",
-		"text": "After a wall bounce, your next hit deals +12%.",
+		"text": "After a wall bounce, your next hit deals +10%.",
 		"icon": "bank",
-		"bank_bonus": 0.12,
+		"bank_bonus": 0.1,
 	},
 	"bumper_guard": {
 		"name": "Bumper Guard",
@@ -68,10 +68,10 @@ const DEFS := {
 	},
 	"sharper_fangs": {
 		"name": "Sharper Fangs",
-		"text": "Vampires heal 8% more of the damage they deal.",
+		"text": "Vampires heal 6% more of the damage they deal.",
 		"icon": "fang",
 		"for": "vampire",
-		"heal_ratio": 0.08,
+		"heal_ratio": 0.06,
 	},
 	"prism": {
 		"name": "Prism",

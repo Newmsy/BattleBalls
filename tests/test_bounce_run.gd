@@ -112,9 +112,10 @@ func test_no_boons_changes_nothing() -> void:
 
 func test_stat_boons_scale_the_def() -> void:
 	var def := Boons.apply_to_def(BallDefs.get_def("laser"), ["thick_shell", "spiky_rim", "prism", "sharper_fangs"])
-	check_near(def.hp, 100.0 * Boons.get_def("thick_shell").hp, 0.001, "hp")
-	check_near(def.beam_damage, 7.0 * Boons.get_def("spiky_rim").damage, 0.001, "beam damage")
-	check_eq(def.beam_max, 6 + Boons.get_def("prism").beam_max, "prism adds beams")
+	check_near(def.hp, BallDefs.get_def("laser").hp * Boons.get_def("thick_shell").hp, 0.001, "hp")
+	var base := BallDefs.get_def("laser")
+	check_near(def.beam_damage, base.beam_damage * Boons.get_def("spiky_rim").damage, 0.001, "beam damage")
+	check_eq(def.beam_max, base.beam_max + Boons.get_def("prism").beam_max, "prism adds beams")
 	check(not def.has("heal_ratio"), "vampire boon does nothing for a laser")
 
 
