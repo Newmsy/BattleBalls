@@ -40,3 +40,9 @@ URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto
 - If a change alters the outcome of a golden replay, re-record it with
   `tools/record_golden.gd` and say so in the PR as an intended balance change.
 - Paste the balance-sim matrix from CI into PRs that touch ball stats.
+
+## Merging
+
+When every CI job passes on a PR that is **not a draft**, the `Auto-merge` job
+squash-merges it and rebuilds `main`. Keep a PR in draft until its code review
+is done; marking it ready re-runs CI and merges it once green.

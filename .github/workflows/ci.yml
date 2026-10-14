@@ -2,8 +2,12 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+  # Lets the auto-merge job rebuild main: merges made with GITHUB_TOKEN don't
+  # fire push events, but they may dispatch a workflow.
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -12,6 +16,7 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 defaults:
   run:
@@ -121,3 +126,22 @@ jobs:
             } else {
               await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
             }
+
+  # A green, non-draft PR merges itself. Drafts never auto-merge, so a PR
+  # stays draft until its code review is done.
+  automerge:
+    name: Auto-merge
+    needs: [test, smoke, preview]
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Squash-merge the PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --repo "${{ github.repository }}" --squash \
+            --match-head-commit "${{ github.event.pull_request.head.sha }}"
+      - name: Rebuild main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run ci.yml --repo "${{ github.repository }}" --ref main
