@@ -54,7 +54,13 @@ static func progress(d) -> int:
 	if not d is Dictionary:
 		return -1
 	var stats = d.get("stats", {})
-	return int(stats.get("fights", 0)) if stats is Dictionary else 0
+	var n := int(stats.get("fights", 0)) if stats is Dictionary else 0
+	# Glow Gems, cosmetics and pass progress (game/glow): every grant or
+	# spend is a ledger line, so a purchase alone still counts as progress.
+	var glow = d.get("glow", {})
+	if glow is Dictionary and glow.get("ledger") is Array:
+		n += glow.ledger.size()
+	return n
 
 
 func load_local() -> void:

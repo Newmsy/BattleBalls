@@ -11,6 +11,9 @@ const Friends := preload("res://game/online/friends.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const SettingsSheet := preload("res://game/ui/screens/settings_sheet.gd")
+const SaveGame := preload("res://game/online/save_game.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
+const Store := preload("res://game/glow/store.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -25,6 +28,8 @@ const SCREENS := {
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
 	"spire": preload("res://game/ui/screens/spire_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
+	"shop": preload("res://game/ui/screens/shop_screen.gd"),
+	"pass": preload("res://game/ui/screens/pass_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
@@ -55,6 +60,9 @@ var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.
 var backend = null
 var play_with := "" ## Ball to pick in the arena menu on the next request_play().
+## Glow Gems, cosmetics and the Glow Pass (game/glow/glow_state.gd). main.gd
+## sets one backed by the real save; tests get a throwaway one.
+var glow
 var current := ""
 var current_params := {}
 var _stack: Array = []
@@ -84,6 +92,9 @@ func build() -> void:
 	if _built:
 		return
 	_built = true
+	if glow == null:
+		glow = GlowState.new(SaveGame.new("user://shell_preview_save.json"), profile, Store.new())
+	glow.purchase_finished.connect(_on_purchase)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = Kit.theme()
 	var bg := ColorRect.new()
@@ -226,15 +237,31 @@ func sheet(content: Control) -> void:
 	panel.add_theme_stylebox_override("panel", st)
 	panel.add_child(content)
 	root.add_child(panel)
-	overlay(root, "sheet")
-	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE, Control.PRESET_MODE_MINSIZE)
+	overlay(root, "-") # Reported once it has slid in, so taps land where it stops.
+	_overlay_tag = "sheet" # Back and the edge swipe close it.
+	# A zero-height rect on the bottom edge, growing upwards: the panel is
+	# always exactly as tall as its content, even after wrapped text reflows.
+	panel.anchor_left = 0.0
+	panel.anchor_right = 1.0
+	panel.anchor_top = 1.0
+	panel.anchor_bottom = 1.0
+	panel.offset_left = 0.0
+	panel.offset_right = 0.0
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	panel.position.y = size.y
-	var h := panel.get_combined_minimum_size().y
-	var slide := create_tween()
-	slide.tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	# Report tap positions again once the sheet has slid into place.
-	slide.finished.connect(_report.bind("sheet"))
+	var slide := func(v: float) -> void:
+		panel.offset_top = v
+		panel.offset_bottom = v
+	slide.call(size.y)
+	var tw := create_tween()
+	tw.tween_method(slide, size.y, 0.0, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.finished.connect(func(): _report("sheet"))
+
+
+func _on_purchase(_id: String, _ok: bool, message: String) -> void:
+	if current in ["shop", "pass"]:
+		close_overlay()
+		refresh()
+	toast(message)
 
 
 func set_friends(f) -> void:

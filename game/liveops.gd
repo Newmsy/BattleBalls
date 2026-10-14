@@ -124,6 +124,8 @@ static func validate(d: Dictionary) -> Array:
 			errors.append("season needs a name and weeks: %s" % [s])
 		elif _monday(s.get("start")) < 0:
 			errors.append("season %s must start on a Monday" % s.name)
+		elif s.has("debut") and Roster.CRITTERS.all(func(c): return c.id != s.get("debut")):
+			errors.append("season debut critter unknown: %s" % [s.get("debut")])
 	for s in d.get("spotlight", []):
 		if not s is Dictionary or _monday(s.get("week")) < 0:
 			errors.append("spotlight week must be a Monday: %s" % [s])
@@ -203,13 +205,15 @@ static func _week_index(t: int) -> int:
 
 # --- What's on -------------------------------------------------------------------
 
-## { name, week, weeks, ends } for the season running at `t`, or {}.
+## { name, week, weeks, starts, ends, debut } for the season running at `t`,
+## or {}. `debut` is the season's debut critter id, or "".
 static func season(t: int) -> Dictionary:
 	for s in data().get("seasons", []):
 		var start := _monday(s.start)
 		var end := start + int(s.weeks) * WEEK
 		if t >= start and t < end:
-			return {"name": s.name, "week": (t - start) / WEEK + 1, "weeks": int(s.weeks), "ends": end}
+			return {"name": s.name, "week": (t - start) / WEEK + 1, "weeks": int(s.weeks), "starts": start, "ends": end,
+				"debut": str(s.get("debut", ""))}
 	return {}
 
 
