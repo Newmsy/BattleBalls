@@ -11,6 +11,8 @@ enum State { MENU, AIM, FIGHT, RESULT }
 
 const VERSION := "0.1.0"
 const ARENA_PIXELS := 680.0
+const INFO_HEIGHT := 100.0
+const CONTROLS_HEIGHT := 490.0 ## Tallest control panel (the menu).
 const SPEEDS := [1.0, 2.0, 4.0, 0.5]
 const OPPONENT_RANDOM := "random"
 
@@ -254,19 +256,34 @@ func _build_ui() -> void:
 		ui.add_child(c)
 
 
+## Portrait stacks arena over controls; wide screens put controls beside the
+## arena. Either way the arena shrinks before the controls are pushed off screen.
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
-	var side := minf(ARENA_PIXELS, size.x - 40.0)
-	var left := (size.x - side) / 2.0
 	var top := 190.0
+	var bottom_margin := 50.0
+	var panel_width := 680.0
+	var landscape := size.x >= size.y
+	var side: float
+	var left: float
+	var panel_pos: Vector2
+	if landscape:
+		side = minf(size.y - top - bottom_margin, size.x - panel_width - 100.0)
+		left = maxf(20.0, (size.x - side - panel_width - 40.0) / 2.0)
+		panel_pos = Vector2(left + side + 40.0, top)
+	else:
+		side = clampf(size.y - top - INFO_HEIGHT - CONTROLS_HEIGHT - bottom_margin, 300.0, minf(ARENA_PIXELS, size.x - 40.0))
+		left = (size.x - side) / 2.0
+		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
+		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 20.0)
 	arena.view_scale = side / MatchSim.ARENA_SIZE
 	arena.position = Vector2(left, top)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	_place(hud_label, Vector2(left, 110), Vector2(side, 50))
-	_place(info_label, Vector2(left, top + side + 20), Vector2(side, 90))
-	var controls_top := top + side + 120
+	_place(info_label, panel_pos, Vector2(panel_width, 90))
+	var controls_top := panel_pos.y + INFO_HEIGHT
 	for box in [menu_box, aim_box, fight_box, result_box]:
-		_place(box, Vector2(left, controls_top), Vector2(side, size.y - controls_top - 50))
+		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	_place(stamp_label, Vector2(12, size.y - 34), Vector2(size.x, 30))
 	arena.queue_redraw()
 

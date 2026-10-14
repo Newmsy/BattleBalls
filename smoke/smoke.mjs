@@ -30,9 +30,9 @@ if (process.env.CHROMIUM_PATH) launchOptions.executablePath = process.env.CHROMI
 const browser = await chromium.launch(launchOptions);
 const errors = [];
 
-async function openGame(query) {
-  // iPhone 14-ish viewport.
-  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true });
+async function openGame(query, viewport = { width: 390, height: 844 }) {
+  // Default: iPhone 14-ish viewport.
+  const page = await browser.newPage({ viewport, deviceScaleFactor: 2, hasTouch: true });
   const logs = [];
   page.on("console", (m) => {
     logs.push(m.text());
@@ -53,9 +53,11 @@ async function waitForLog(logs, prefix, timeoutMs) {
   throw new Error(`Timed out waiting for "${prefix}". Last logs:\n${logs.slice(-15).join("\n")}`);
 }
 
-// Godot's canvas maps the 720-wide design space onto the page width.
+// Godot's canvas maps the 720x1280 design space onto the page, keeping
+// whichever side is tighter and expanding the other.
 function toPage(page, x, y) {
-  const s = page.viewportSize().width / 720;
+  const { width, height } = page.viewportSize();
+  const s = Math.min(width / 720, height / 1280);
   return [x * s, y * s];
 }
 
@@ -94,6 +96,22 @@ try {
     console.log("menu fight:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "5-flow-fight.png") });
+    await page.close();
+  }
+
+  // 3. Wide screen: controls sit beside the arena and FIGHT! is reachable.
+  {
+    const { page, logs } = await openGame("?seed=7", { width: 1376, height: 1263 });
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(shots, "6-wide-menu.png") });
+    // Visible area is 1394x1280: arena 614px at x=30, panel at x=684, FIGHT! at the panel's bottom.
+    await page.mouse.click(...toPage(page, 684 + 340, 190 + 100 + 478 - 42));
+    await page.waitForTimeout(800);
+    await page.mouse.click(...toPage(page, 684 + 170, 190 + 100 + 42)); // Launch
+    console.log("wide menu:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(shots, "7-wide-fight.png") });
     await page.close();
   }
 } catch (e) {
