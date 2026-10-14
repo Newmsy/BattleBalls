@@ -8,6 +8,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const Friends := preload("res://game/online/friends.gd")
 const FightLink := preload("res://game/fight_link.gd")
+const SettingsSheet := preload("res://game/ui/screens/settings_sheet.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -55,6 +56,7 @@ var _toast_tween: Tween
 var _marks := {}
 var _built := false
 var _overlay: Control
+var _gear: Control ## Settings button in the top bar.
 var _share := {} ## kind -> {button, url, text} on the current screen.
 
 
@@ -191,7 +193,10 @@ func sheet(content: Control) -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	panel.position.y = size.y
 	var h := panel.get_combined_minimum_size().y
-	create_tween().tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	var slide := create_tween()
+	slide.tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Report again once it has landed, so smoke taps hit the settled buttons.
+	slide.finished.connect(func(): if root.is_inside_tree(): _report("sheet"))
 
 
 func set_friends(f) -> void:
@@ -280,6 +285,7 @@ func _report(name: String) -> void:
 	var all := _marks.duplicate()
 	for t in _tab_buttons:
 		all["tab_" + t] = _tab_buttons[t]
+	all["settings"] = _gear
 	for k in all:
 		var c: Control = all[k]
 		if is_instance_valid(c) and c.is_visible_in_tree():
@@ -299,7 +305,10 @@ func _top_bar() -> Control:
 	lvl.custom_minimum_size = Vector2(64, 64)
 	_top_labels["level"] = lvl.get_child(0)
 	(lvl.get_child(0) as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	var row := Kit.hbox(10, [lvl, _pill("energy"), Kit.spacer(), _pill("coin"), _pill("orb")])
+	var gear := Kit.card_button(Glyph.make("gear", 40, Kit.FG), func(): SettingsSheet.open(self), Kit.LINE, Kit.PANEL, 999, 12)
+	gear.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_gear = gear
+	var row := Kit.hbox(10, [lvl, _pill("energy"), Kit.spacer(), _pill("coin"), _pill("orb"), gear])
 	m.add_child(row)
 	return m
 
