@@ -81,6 +81,14 @@ MatchSim config). `game/pvp/ladder.gd` holds leagues, divisions and the
 trophy rules per opponent card; `game/pvp/arena_ghosts.gd` generates the
 labelled bot defences and the three daily opponent cards from fixed seeds.
 
+Play tab -> Ghost Arena (`game/ui/screens/arena_screen.gd`) shows your league,
+your trio (tap a slot to swap it) and the three cards; picking one opens
+`game/ghost_arena.tscn`, which plays the relay: you aim each of your balls as
+it first comes out, the ghost fires its saved shots. Trophies, your trio and
+its last shots live in `user://ghost_arena.cfg` (`game/pvp/arena_store.gd`)
+until the online ladder takes over trophies. An attack that is started but
+not finished counts as a loss.
+
 ## Online backend (Supabase)
 
 The game plays fully offline; the backend adds guest accounts, cloud save and

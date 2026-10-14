@@ -6,6 +6,8 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const ArenaStore := preload("res://game/pvp/arena_store.gd")
+const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
 
 
@@ -57,6 +59,12 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(mode_card(shell, "trickshot", "Daily · new puzzle every day", "Trick Shot",
 		"Call your walls, line up one launch and bank it in. Keep your streak going.", "Play today's shot", Color("ffd36b"),
 		func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")))
+
+	# Ghost Arena (async PvP, design/pvp.md).
+	var arena_store = ArenaStore.open()
+	root.add_child(mode_card(shell, "arena", "PvP · %s trophies · %s" % [Kit.commas(arena_store.trophies), Ladder.league_label(arena_store.trophies)],
+		"Ghost Arena", "Your trio against other trios. Climb from Bronze to Neon.", "Enter the Arena", Color("ff4fd8"),
+		func(): shell.go("arena")))
 
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
