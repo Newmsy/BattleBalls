@@ -27,8 +27,10 @@ cd smoke && npm ci && node smoke.mjs ../build/web
 
 ## Previews
 
-CI builds every PR for the web and publishes it to GitHub Pages at
-`https://newmsy.github.io/BattleBalls/pr-<number>/`; `main` is at the root.
+CI builds every PR for the web and deploys it to Vercel (project
+`battleballs`, token in the `VERCEL` repo secret). Each PR gets a comment
+with its preview URL; `main` deploys to production. Smoke-test screenshots
+are served at `<preview>/smoke/`.
 
 URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
 (`aim` is the launch angle in tenths of a degree, screen space, y down).
