@@ -84,6 +84,11 @@ func _ready() -> void:
 		get_viewport().size_changed.connect(_layout)
 	print("BOUNCERUN_READY day=%d ranked=%s cards=%s" % [day, ranked, ",".join(setup.cards.map(func(c): return c.critter + "+" + c.boon))])
 	_retry_pending_post()
+	if run.has("launched"):
+		_settle_launched_fight()
+		if run.over:
+			_finish_run()
+			return
 	if run.is_empty():
 		_show_draft()
 	elif run.over:
@@ -248,6 +253,9 @@ func _launch() -> void:
 	if state != State.AIM:
 		return
 	sfx.play("launch")
+	# Saved before the fight plays, so closing the app mid-fight can't undo a loss.
+	run.launched = {"slot": slot, "aim": aim}
+	_save_run()
 	sim = MatchSim.new(BounceRun.fight_config(setup, run, slot, aim))
 	arena.sim = sim
 	arena.aim_dir = Vector2.ZERO
@@ -278,6 +286,7 @@ func _finish_fight() -> void:
 	state = State.RESULT
 	var won := sim.winner == 0
 	var cleared_floor: int = run.floor + 1
+	run.erase("launched")
 	BounceRun.record(setup, run, slot, aim, sim.winner, sim.tick)
 	_save_run()
 	sfx.on_result(sim.winner)
@@ -294,6 +303,17 @@ func _finish_fight() -> void:
 	var next := Kit.button("Continue", _after_result, "go", 34)
 	_mark("br_continue", next)
 	_set_panel([head, next], "br_result")
+
+
+## A fight launched before the app closed: the sim is deterministic, so play
+## it out now and count it.
+func _settle_launched_fight() -> void:
+	var l: Dictionary = run.launched
+	run.erase("launched")
+	var result := MatchSim.new(BounceRun.fight_config(setup, run, int(l.slot), int(l.aim))).run_to_end()
+	BounceRun.record(setup, run, int(l.slot), int(l.aim), result.winner, result.ticks)
+	_save_run()
+	print("BOUNCERUN_SETTLED slot=%d won=%s" % [int(l.slot), result.winner == 0])
 
 
 func _after_result() -> void:

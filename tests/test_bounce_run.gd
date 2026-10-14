@@ -183,3 +183,27 @@ func test_scene_plays_a_run_to_the_end() -> void:
 	scene.queue_free()
 	again.queue_free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+## Closing the app mid-fight doesn't undo the fight: it's settled on reopen.
+func test_a_fight_left_mid_way_still_counts() -> void:
+	var path := "user://test_bounce_run_quit.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var scene = load("res://game/bounce_run.tscn").instantiate()
+	scene.save_path = path
+	runner.root.add_child(scene)
+	scene._ready()
+	for i in [0, 1, 2]:
+		scene._toggle_pick(i)
+	scene._start_run()
+	scene._choose_fighter(0)
+	scene._launch()
+	var again = load("res://game/bounce_run.tscn").instantiate()
+	again.save_path = path
+	runner.root.add_child(again)
+	again._ready()
+	check_eq(again.run.log.size(), 1, "the abandoned fight was recorded")
+	check(not again.run.has("launched"), "and cleared")
+	scene.queue_free()
+	again.queue_free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
