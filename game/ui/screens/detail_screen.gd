@@ -96,6 +96,16 @@ static func build(shell, params: Dictionary) -> Control:
 	fuse.disabled = ready.is_empty()
 	shell.mark("fuse_this", fuse)
 	root.add_child(Kit.hbox(16, [lineup, fuse]))
+	var wished: bool = p.on_wishlist(c.id)
+	var wish := Kit.button("On your wishlist" if wished else "Add to wishlist", func():
+		if p.toggle_wishlist(c.id):
+			shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"])
+		else:
+			shell.toast("Your wishlist is full (3). Remove one at the Summon Portal.")
+		shell.refresh(), "ghost", 24, 80)
+	shell.mark("wish_this", wish)
+	root.add_child(wish)
+	root.add_child(Kit.label("Wishlisted critters come up twice as often in summons and drops.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 	return root
 
 

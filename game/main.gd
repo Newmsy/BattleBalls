@@ -12,8 +12,10 @@ const SaveGame := preload("res://game/online/save_game.gd")
 const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
+const A11y := preload("res://game/a11y.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
+const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const ClipExport := preload("res://game/clip/clip_export.gd")
@@ -140,7 +142,7 @@ func _ready() -> void:
 	_layout()
 	_install_share_listener()
 	ClipExport.install()
-	print("BOOT_OK build=", _build_stamp())
+	print("BOOT_OK build=", _build_stamp(), " reduced_motion=", A11y.reduced_motion)
 	_build_shell()
 	if auto_start:
 		_start_fight()
@@ -235,6 +237,10 @@ func _refresh_menu() -> void:
 	seed_label.text = "Seed %d" % seed_value
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
+	for id in player_buttons:
+		player_buttons[id].text = BallDefs.get_def(id).display_name + (" · loan" if _is_loan(id) else "")
+	if _is_loan(player_type):
+		info_label.text = "%s is on loan today. Practice only: loaner fights don't count for Ghost Arena or your record." % def.display_name
 	if mode == Mode.RIVAL:
 		info_label.text = "RIVAL! %s's %s is waiting. Pick a ball and beat it (just for fun)." % \
 			[rival.name, BallDefs.get_def(opponent_type).display_name]
@@ -289,14 +295,16 @@ func _start_fight() -> void:
 
 ## Steps the fight in real time at `speed`, slowing into the finisher cam
 ## and holding on the KO face. True once the fight and its finisher are over.
+## With Reduced motion there's no slow motion or zoom, just the KO face.
 func _advance_fight(delta: float, speed: float) -> bool:
 	var finishing := finisher.ko_tick >= 0 and not _skipped
+	var cinematic := finishing and not A11y.reduced_motion
 	var rate := speed
 	_accumulator += delta
 	# Cap catch-up so a slow frame can't freeze the page.
 	var steps := 0
 	while not sim.finished and steps < 32:
-		rate = finisher.time_scale(sim.tick, speed) if finishing else speed
+		rate = finisher.time_scale(sim.tick, speed) if cinematic else speed
 		if _accumulator < MatchSim.DT / rate:
 			break
 		_accumulator -= MatchSim.DT / rate
@@ -315,7 +323,7 @@ func _advance_fight(delta: float, speed: float) -> bool:
 		else:
 			_hold += delta
 		rate = 0.5
-	if finisher.active(sim.tick):
+	if cinematic and finisher.active(sim.tick):
 		var z := finisher.zoom(sim.tick, maxf(0.0, _hold))
 		arena.set_camera(z, finisher.focus(sim, z))
 		arena.finisher_amount = clampf(finisher.progress(sim.tick) / 0.25, 0.0, 1.0)
@@ -391,7 +399,15 @@ func _apply_picks() -> void:
 	speed_index = clampi(int(picks.speed), 0, SPEEDS.size() - 1)
 
 
+## Today's Try-a-Critter loaner, for a player who doesn't own it.
+func _is_loan(id: String) -> bool:
+	return shell != null and Loaner.is_loan(shell.profile, id)
+
+
 func _record_fight() -> void:
+	# A loaner is practice: no stats, no aim history, never your ghost.
+	if _is_loan(player_type):
+		return
 	save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
 	_sync_online()
@@ -528,7 +544,13 @@ func _build_shell() -> void:
 	shell = Shell.new()
 	shell.friends = friends
 	shell.link_base = _link_base()
-	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _play_normal())
+	shell.play_requested.connect(func():
+		shell_layer.visible = false
+		sfx.toggle_lift = 0.0
+		if shell.play_with in BallDefs.PLAYABLE:
+			player_type = shell.play_with
+		shell.play_with = ""
+		_play_normal())
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.rival_requested.connect(_start_rival)
 	shell.share_tapped.connect(_on_shell_share)
@@ -587,7 +609,7 @@ func _layout() -> void:
 static func _neon_theme() -> Theme:
 	var theme := Theme.new()
 	theme.default_font = FONT
-	theme.default_font_size = 30
+	theme.default_font_size = A11y.font(30)
 	theme.set_color("font_color", "Label", Color("f0eeff"))
 	var states := {
 		"normal": [Color("1b1842"), Color("2b2760")],
@@ -791,7 +813,8 @@ func _label(text: String, font_size: int) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_font_size_override("font_size", A11y.font(font_size))
+	l.set_meta("base_font", font_size)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
@@ -802,7 +825,8 @@ func _button(text: String, on_press: Callable, font_size := 30) -> Button:
 	b.custom_minimum_size = Vector2(0, 84)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	b.add_theme_font_size_override("font_size", font_size)
+	b.add_theme_font_size_override("font_size", A11y.font(font_size))
+	b.set_meta("base_font", font_size)
 	b.pressed.connect(on_press)
 	return b
 
