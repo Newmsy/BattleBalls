@@ -55,6 +55,7 @@ var friends: Friends
 var rival := {} ## The friend entry a RIVAL fight is against.
 var link_friend := "" ## Friend code from the link the page was opened with (&f=).
 var _count_fight := false ## The running fight came from the menu, not a replay or URL.
+var _last_logged_fight := "" ## Report code of the last replay sent to analytics.
 
 var _accumulator := 0.0
 var _dragging := false
@@ -290,7 +291,9 @@ func _show_result() -> void:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
 	if mode == Mode.RIVAL and _count_fight:
 		_record_rival()
-	if _count_fight or mode == Mode.REPLAY:
+	# A replay counts once, not again for every Replay tap.
+	if _count_fight or (mode == Mode.REPLAY and _report_code() != _last_logged_fight):
+		_last_logged_fight = _report_code()
 		Analytics.track("fight_end", {"mode": "fight_of_day" if _board_pick >= 0 else Mode.keys()[mode].to_lower(),
 			"picked": mode != Mode.REPLAY, "team": [player_type], "foe": [opponent_type],
 			"result": Analytics.result_of(sim.winner), "secs": snappedf(sim.time(), 0.1)})

@@ -131,7 +131,8 @@ begin
     values (me, lo, hi, left(coalesce(p_platform, ''), 20), left(coalesce(p_app_version, ''), 20), coalesce(p_test, false))
     on conflict (user_id) do update
       set first_at = least(p.first_at, excluded.first_at), last_at = greatest(p.last_at, excluded.last_at),
-          platform = excluded.platform, app_version = excluded.app_version;
+          platform = excluded.platform, app_version = excluded.app_version,
+          is_test = p.is_test and excluded.is_test; -- one real batch makes a real player
   end if;
   return n;
 end;

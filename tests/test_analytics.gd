@@ -51,6 +51,34 @@ func test_opting_out_clears_and_stops_tracking() -> void:
 	b.free()
 
 
+func test_sent_events_are_removed_by_number() -> void:
+	var a := _fresh()
+	for i in 5:
+		a.add("e%d" % i)
+	var last := int(a.queue[2].i)
+	a.queue = a.queue.slice(1) # Trimmed while the batch of three was in flight.
+	a.add("late")
+	a.drop_sent(last)
+	check_eq(a.queue.map(func(e): return e.name), ["e3", "e4", "late"], "unsent ones kept")
+	var b := Analytics.new(TEST_STATE)
+	b.load_state()
+	b.add("next")
+	check(int(b.queue[-1].i) > int(a.queue[-1].i), "numbers keep rising after a restart")
+	a.free()
+	b.free()
+
+
+func test_opt_out_waits_to_delete_until_it_can() -> void:
+	var a := _fresh()
+	a.set_opted_out(true)
+	check(a.forget_pending, "delete owed with no session yet")
+	var b := Analytics.new(TEST_STATE)
+	b.load_state()
+	check(b.forget_pending, "still owed after a restart")
+	a.free()
+	b.free()
+
+
 func test_no_backend_means_no_send() -> void:
 	var a := _fresh()
 	a.add("screen", {"name": "play"})
@@ -64,9 +92,9 @@ func test_result_names() -> void:
 
 
 func test_stats_key_prefers_the_fragment() -> void:
-	check_eq(Stats.key_from("#k=abc123", "?stats=zzz"), "abc123", "fragment")
-	check_eq(Stats.key_from("", "?stats=zzz&x=1"), "zzz", "query fallback")
-	check_eq(Stats.key_from("#other=1", "?stats"), "", "no key")
+	check_eq(Stats.key_from("#k=abc123"), "abc123", "fragment")
+	check_eq(Stats.key_from("#x=1&k=abc"), "abc", "among other params")
+	check_eq(Stats.key_from("#other=1"), "", "no key")
 
 
 func test_retention_counts_only_mature_cohorts() -> void:

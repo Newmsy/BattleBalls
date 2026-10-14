@@ -23,6 +23,7 @@ const MAX_QUEUE := 500 ## Oldest events are dropped past this.
 const FLUSH_EVERY := 20.0 ## Seconds between sends while events are waiting.
 const FLUSH_AT := 20 ## Send straight away once this many are waiting.
 const SAVE_EVERY := 3.0 ## Seconds between writes of the queue to user://.
+const RETRY_MAX := 300.0 ## Longest wait (seconds) between failed sends.
 
 static var _instance ## The one running Analytics node, or null before start().
 static var _opened := false ## app_open goes out once per launch, not per scene.
@@ -33,7 +34,10 @@ var is_test := false ## Debug builds and automated browsers: kept off the dashbo
 var session_id := ""
 var app_version := ""
 var queue: Array = []
+var forget_pending := false ## Opted out, but the server hasn't deleted their events yet.
+var _seq := 0 ## Last event number: a sent batch is removed by number, not position.
 var _sending := false
+var _retry_wait := 0.0 ## Seconds to wait before sending again after a failure.
 var _send_started := 0 ## Ticks (ms) when the current send began.
 var _since_flush := 0.0
 var _since_save := 0.0
@@ -93,9 +97,12 @@ func _process(delta: float) -> void:
 	if _sending and Time.get_ticks_msec() - _send_started > 30000:
 		_sending = false
 	_since_flush += delta
-	if _since_flush >= FLUSH_EVERY or queue.size() >= FLUSH_AT:
+	if _since_flush >= maxf(FLUSH_EVERY, _retry_wait) or (queue.size() >= FLUSH_AT and _retry_wait == 0.0):
 		_since_flush = 0.0
-		flush()
+		if forget_pending:
+			_forget()
+		else:
+			flush()
 
 
 func _notification(what: int) -> void:
@@ -110,7 +117,8 @@ func _notification(what: int) -> void:
 func add(event: String, props := {}) -> void:
 	if opt_out:
 		return
-	queue.append({"name": event, "props": props, "t": int(Time.get_unix_time_from_system() * 1000.0)})
+	_seq += 1
+	queue.append({"name": event, "props": props, "t": int(Time.get_unix_time_from_system() * 1000.0), "i": _seq})
 	if queue.size() > MAX_QUEUE:
 		queue = queue.slice(queue.size() - MAX_QUEUE)
 	# Written a few seconds later (or on leaving the app), not per event: a
@@ -133,27 +141,51 @@ func flush() -> void:
 		"p_platform": OS.get_name(), "p_test": is_test,
 	})
 	_sending = false
-	if res.ok:
-		# New events may have been added (or the player opted out) meanwhile.
-		queue = queue.slice(mini(batch.size(), queue.size()))
-		save_state()
-		print("ANALYTICS_OK sent=%d" % batch.size())
-	elif res.code == 400:
-		# The server refused the batch itself (a bug, not the network): drop it
-		# so it can't block everything behind it.
-		queue = queue.slice(mini(batch.size(), queue.size()))
-		save_state()
+	# A 400 is the server refusing the batch itself (a bug, not the network):
+	# drop it so it can't block everything behind it.
+	if res.ok or res.code == 400:
+		drop_sent(int(batch.back().get("i", 0)))
+		_retry_wait = 0.0
+		if res.ok:
+			print("ANALYTICS_OK sent=%d" % batch.size())
+	else:
+		_retry_wait = minf(RETRY_MAX, maxf(FLUSH_EVERY, _retry_wait * 2.0))
+	if opt_out and forget_pending:
+		# Opted out while this batch was on its way: delete it too.
+		_forget()
+
+
+## Removes the events up to number `last` (events added during a send, or
+## the queue being trimmed meanwhile, leave the right ones behind).
+func drop_sent(last: int) -> void:
+	queue = queue.filter(func(e): return int(e.get("i", 0)) > last)
+	save_state()
 
 
 func set_opted_out(value: bool) -> void:
 	if value == opt_out:
 		return
 	opt_out = value
+	forget_pending = opt_out
 	if opt_out:
 		queue.clear()
-		if _can_send():
-			backend.call_rpc("forget_my_analytics", {})
 	save_state()
+	if opt_out:
+		_forget()
+
+
+## Asks the server to delete this player's events; retried until it works
+## (no session yet, offline, or a batch still being sent).
+func _forget() -> void:
+	if not forget_pending or _sending or not _can_send():
+		return
+	_sending = true
+	_send_started = Time.get_ticks_msec()
+	var res: Dictionary = await backend.call_rpc("forget_my_analytics", {})
+	_sending = false
+	if res.ok and opt_out:
+		forget_pending = false
+		save_state()
 
 
 ## Browser privacy settings (Global Privacy Control, Do Not Track) opt a new
@@ -180,7 +212,10 @@ func load_state() -> void:
 	var data = JSON.parse_string(FileAccess.get_file_as_string(_state_path))
 	if data is Dictionary:
 		opt_out = data.get("opt_out", false) == true
+		forget_pending = data.get("forget_pending", false) == true
 		queue = data.get("queue", []) if data.get("queue") is Array else []
+		for e in queue:
+			_seq = maxi(_seq, int(e.get("i", 0)) if e is Dictionary else 0)
 
 
 func save_state() -> void:
@@ -188,7 +223,7 @@ func save_state() -> void:
 	_since_save = 0.0
 	var f := FileAccess.open(_state_path, FileAccess.WRITE)
 	if f != null:
-		f.store_string(JSON.stringify({"opt_out": opt_out, "queue": queue}))
+		f.store_string(JSON.stringify({"opt_out": opt_out, "forget_pending": forget_pending, "queue": queue}))
 
 
 func _can_send() -> bool:

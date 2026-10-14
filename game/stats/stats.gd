@@ -19,6 +19,7 @@ var data := {}
 ## loading, ready, no_key, offline, denied, error
 var status := "loading"
 var _content: VBoxContainer
+var _request := 0 ## Only the latest load_stats() call may fill the screen.
 
 
 func _ready() -> void:
@@ -47,7 +48,7 @@ func _ready() -> void:
 	backend = Backend.new()
 	add_child(backend)
 	var search := _js("window.location.search")
-	key = key_from(_js("window.location.hash"), search)
+	key = key_from(_js("window.location.hash"))
 	backend.disabled = "offline=1" in search
 	if "demo=1" in search:
 		# Sample numbers, for screenshots and UI work without a server.
@@ -64,6 +65,8 @@ func _ready() -> void:
 
 
 func load_stats() -> void:
+	_request += 1
+	var mine := _request
 	status = "loading"
 	_render()
 	if "demo=1" in _js("window.location.search"):
@@ -72,6 +75,8 @@ func load_stats() -> void:
 		_render()
 		return
 	var res: Dictionary = await backend.call_rpc_public("analytics_dashboard", {"p_key": key, "p_days": days})
+	if mine != _request:
+		return
 	if res.ok and res.data is Dictionary:
 		data = res.data
 		status = "ready"
@@ -256,15 +261,12 @@ static func _js(expr: String) -> String:
 
 # --- Pure helpers (tests/test_analytics.gd) -------------------------------------
 
-## The dashboard key from "#k=<key>" (preferred: fragments aren't sent to the
-## server) or, failing that, "?stats=<key>".
-static func key_from(hash: String, search: String) -> String:
+## The dashboard key from "#k=<key>". Only the fragment counts: it never
+## leaves the browser, so the key stays out of server logs and referrers.
+static func key_from(hash: String) -> String:
 	for part in hash.trim_prefix("#").split("&", false):
 		if part.begins_with("k="):
 			return part.substr(2).uri_decode().strip_edges()
-	for part in search.trim_prefix("?").split("&", false):
-		if part.begins_with("stats="):
-			return part.substr(6).uri_decode().strip_edges()
 	return ""
 
 
