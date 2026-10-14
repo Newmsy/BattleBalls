@@ -1,22 +1,26 @@
 ## Static definitions for every ball type. Pure data: the sim reads these,
-## the renderer reads `color` and `display_name`.
+## the renderer reads `color`, `display_name`, `rarity` and `badge_top`.
 extends RefCounted
 
 const DEFS := {
 	"vampire": {
-		"display_name": "Vampire",
-		"description": "Heals for half the damage it deals on hit.",
+		"display_name": "Count Nibbles",
+		"description": "Vampire. Heals for half the damage it deals when it hits.",
+		"rarity": "common",
+		"badge_top": 1.3,
 		"hp": 100.0,
 		"radius": 68.0,
 		"speed": 400.0,
 		"contact_damage": 16.0,
 		"ability": "vampire",
 		"heal_ratio": 0.5,
-		"color": Color(0.85, 0.15, 0.25),
+		"color": Color("c2264a"),
 	},
 	"laser": {
-		"display_name": "Laser",
-		"description": "Every wall bounce fires a beam back to its last bounce point.",
+		"display_name": "Optic",
+		"description": "Laser. Every wall bounce fires a beam back to its last bounce point.",
+		"rarity": "rare",
+		"badge_top": 1.6,
 		"hp": 100.0,
 		"radius": 58.0,
 		"speed": 420.0,
@@ -26,7 +30,7 @@ const DEFS := {
 		"beam_damage": 7.0,
 		"beam_hit_cooldown": 0.5,
 		"beam_max": 6,
-		"color": Color(0.2, 0.85, 1.0),
+		"color": Color("27c8ff"),
 	},
 	# Ability-free baseline used by tests and as a balance reference.
 	"plain": {
@@ -37,7 +41,7 @@ const DEFS := {
 		"speed": 400.0,
 		"contact_damage": 10.0,
 		"ability": "",
-		"color": Color(0.75, 0.75, 0.8),
+		"color": Color("8a94a8"),
 	},
 }
 
