@@ -35,6 +35,11 @@ are served at `<preview>/smoke/`.
 URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
 (`aim` is the launch angle in tenths of a degree, screen space, y down).
 
+Share links (`game/fight_link.gd`) need no server because fights are
+deterministic: `?r=1.laser.vampire.11.-300.1066` replays one exact fight, and
+`?c=1.laser.11.-300` challenges a friend to beat that ball and shot. Result
+screens make both links (Share fight, Challenge friend).
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
