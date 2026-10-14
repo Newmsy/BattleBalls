@@ -150,9 +150,10 @@ try {
     await tapUi(page, logs, "tab_play", "play");
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "3-menu.png") });
-    // Layout: arena 680px at y=190, controls start at 190+680+120=990.
-    // Menu rows: label, ball row, label, opponent row, seed row, FIGHT! (last).
-    await page.mouse.click(...toPage(page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
+    await waitForLog(logs, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "pick_laser");
+    await page.waitForTimeout(300);
+    await tapUi(page, logs, "menu_fight");
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "4-aim.png") });
     // Drag from the player's corner toward the top middle.
@@ -196,10 +197,11 @@ try {
     await page.screenshot({ path: path.join(shots, "6a-wide-home.png") });
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "6-wide-menu.png") });
-    // Visible area is 1394x1280: arena 614px at x=30, panel at x=684, FIGHT! at the panel's bottom.
-    await page.mouse.click(...toPage(page, 684 + 340, 190 + 100 + 478 - 42));
+    await waitForLog(logs, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "menu_fight");
     await page.waitForTimeout(800);
-    await page.mouse.click(...toPage(page, 684 + 170, 190 + 100 + 42)); // Launch
+    await waitForLog(logs, "UI_AT aim_launch ", 5000);
+    await tapUi(page, logs, "aim_launch");
     console.log("wide menu:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "7-wide-fight.png") });
@@ -253,9 +255,9 @@ try {
     await waitForLog(challenge.logs, "BOOT_OK", 60000);
     await challenge.page.waitForTimeout(1500);
     await challenge.page.screenshot({ path: path.join(shots, "11-challenge-menu.png") });
-    await challenge.page.mouse.click(...toPage(challenge.page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
-    await challenge.page.waitForTimeout(800);
-    await challenge.page.mouse.click(...toPage(challenge.page, 20 + 170, 990 + 42)); // Launch
+    await tapUi(challenge.page, challenge.logs, "menu_fight");
+    await waitForLog(challenge.logs, "UI_AT aim_launch ", 5000);
+    await tapUi(challenge.page, challenge.logs, "aim_launch");
     console.log("challenge fight:", await waitForLog(challenge.logs, "FIGHT_START", 5000));
     await challenge.page.close();
   }
