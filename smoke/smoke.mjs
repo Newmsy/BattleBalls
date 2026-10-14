@@ -1,6 +1,6 @@
 // Smoke test for the web build: boots it in a phone-sized headless Chromium,
 // plays one auto fight and one fight through the real menu, fails on any
-// page error, and saves screenshots.
+// page error, and saves screenshots. Also opens Daily Trick Shot and solves one.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -209,6 +209,36 @@ try {
     await challenge.page.mouse.click(...toPage(challenge.page, 20 + 170, 990 + 42)); // Launch
     console.log("challenge fight:", await waitForLog(challenge.logs, "FIGHT_START", 5000));
     await challenge.page.close();
+  }
+
+  // 6. Daily Trick Shot opens from the quick-fight menu's button (top right).
+  {
+    const { page, logs } = await openGame("?seed=7");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "quickfight");
+    await page.mouse.click(...toPage(page, 720 - 95, 140));
+    const ready = await waitForLog(logs, "TRICKSHOT_READY", 10000);
+    console.log("trick shot:", ready);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "12-trickshot-aim.png") });
+    await page.close();
+  }
+
+  // 7. A known solution of day 1 solves it.
+  {
+    const probe = await openGame("?mode=trickshot&day=1");
+    const [lo, hi] = (await waitForLog(probe.logs, "TRICKSHOT_READY", 60000)).match(/solutions=(\d+)-(\d+)/).slice(1).map(Number);
+    await probe.page.close();
+    const aim = Math.round((lo + hi) / 2);
+    const { page, logs } = await openGame(`?mode=trickshot&day=1&aim=${aim}&auto=1`);
+    const result = await waitForLog(logs, "TRICKSHOT_RESULT", 60000);
+    console.log("trick shot result:", result);
+    if (!result.includes("result=solved")) throw new Error(`Aim ${aim} should solve day 1: ${result}`);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "13-trickshot-solved.png") });
+    await page.close();
   }
 } catch (e) {
   errors.push(String(e.stack ?? e));

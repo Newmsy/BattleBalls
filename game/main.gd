@@ -68,12 +68,20 @@ var challenge_button: Button
 var report_row: HBoxContainer
 var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
+var daily_button: Button
+
+static var _mode_redirected := false
 
 
 func _ready() -> void:
 	_rng.randomize()
 	seed_value = _rng.randi_range(1, 99999)
-	_read_url_params()
+	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
+	if _read_url_params().get("mode", "") == "trickshot" and not _mode_redirected:
+		_mode_redirected = true
+		set_process(false)
+		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
+		return
 	arena = ArenaView.new()
 	add_child(arena)
 	sfx = Sfx.new()
@@ -307,7 +315,10 @@ func _build_ui() -> void:
 	])
 	result_box.add_child(report_row)
 
-	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
+	daily_button = _button("Trick Shot", func(): get_tree().change_scene_to_file("res://game/trick_shot.tscn"), 22)
+	daily_button.custom_minimum_size = Vector2(0, 60)
+
+	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box, daily_button]:
 		ui.add_child(c)
 
 
@@ -354,12 +365,13 @@ func _layout() -> void:
 	for box in [menu_box, aim_box, fight_box, result_box]:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	_place(stamp_label, Vector2(12, size.y - 34), Vector2(size.x, 30))
+	_place(daily_button, Vector2(size.x - 170, 110), Vector2(150, 60))
 	arena.queue_redraw()
 	_sync_share_targets()
 
 
 ## Dark panels with a purple accent, matching the Neon Critters arena.
-func _neon_theme() -> Theme:
+static func _neon_theme() -> Theme:
 	var theme := Theme.new()
 	theme.default_font = FONT
 	theme.default_font_size = 30
@@ -394,6 +406,7 @@ func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 func _show_only(box: Control) -> void:
 	for b in [menu_box, aim_box, fight_box, result_box]:
 		b.visible = b == box
+	daily_button.visible = box == menu_box
 	_sync_share_targets()
 
 
@@ -625,9 +638,9 @@ func _build_stamp() -> String:
 	return "v%s %s" % [VERSION, commit]
 
 
-func _read_url_params() -> void:
+func _read_url_params() -> Dictionary:
 	if not OS.has_feature("web"):
-		return
+		return {}
 	var query: String = str(JavaScriptBridge.eval("window.location.search", true))
 	var params := {}
 	for pair in query.trim_prefix("?").split("&", false):
@@ -672,3 +685,4 @@ func _read_url_params() -> void:
 			auto_start = false
 	if auto_start and opponent_choice == OPPONENT_RANDOM:
 		opponent_type = _pick_opponent()
+	return params
