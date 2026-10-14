@@ -19,6 +19,8 @@ const MIN_HALF := 200.0
 const OVERTIME_DAMAGE_RAMP := 0.05 ## +5% damage per second of overtime.
 const TIME_LIMIT := 120.0
 const CONTACT_COOLDOWN := 0.25
+## Contact damage ranges from (1 - spread)x to (1 + spread)x by who rammed whom.
+const IMPACT_SPREAD := 0.5
 const BEAM_HALF_WIDTH := 5.0
 const MIN_BEAM_LENGTH := 30.0
 const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre line.
@@ -240,6 +242,8 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			var approach := (a.vel - b.vel).dot(n)
 			if approach <= 0.0:
 				continue
+			# Share of the closing speed each ball supplied, from before the bounce.
+			var a_share := clampf(a.vel.dot(n) / approach, 0.0, 1.0)
 			var impulse := 2.0 * approach / (1.0 / ma + 1.0 / mb)
 			a.vel -= n * (impulse / ma)
 			b.vel += n * (impulse / mb)
@@ -252,8 +256,14 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			if tick < int(_contact_cooldown_until.get(key, 0)):
 				continue
 			_contact_cooldown_until[key] = tick + int(round(CONTACT_COOLDOWN * TICK_RATE))
-			hits.append({"source": i, "target": j, "amount": a.contact_damage, "kind": "contact", "pos": b.pos})
-			hits.append({"source": j, "target": i, "amount": b.contact_damage, "kind": "contact", "pos": a.pos})
+			# The ball that rams harder hits harder, so even mirror matches trade unevenly.
+			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share), "kind": "contact", "pos": b.pos})
+			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share), "kind": "contact", "pos": a.pos})
+
+
+## 0 share (was hit while moving away) -> 1 - IMPACT_SPREAD; 1 share -> 1 + IMPACT_SPREAD.
+func _impact_scale(share: float) -> float:
+	return 1.0 + IMPACT_SPREAD * (2.0 * share - 1.0)
 
 
 func _update_beams(hits: Array[Dictionary]) -> void:

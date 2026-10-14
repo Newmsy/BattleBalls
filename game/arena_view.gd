@@ -6,6 +6,9 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 
 const POPUP_LIFE := 0.9
+## Side markers so mirror matches stay readable: index 0 is always the player.
+const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
+const TEAM_TAGS := ["YOU", "FOE"]
 const FLASH_LIFE := 0.12
 
 var sim: MatchSim
@@ -76,7 +79,7 @@ func _draw() -> void:
 	if sim == null:
 		for i in 2:
 			var def := BallDefs.get_def(preview_types[i])
-			_draw_ball(MatchSim.START_CORNERS[i] * s, def.radius * s, def, def.hp, 0.0)
+			_draw_ball(MatchSim.START_CORNERS[i] * s, def.radius * s, def, def.hp, 0.0, i)
 		return
 
 	for beam in sim.beams:
@@ -93,7 +96,7 @@ func _draw() -> void:
 
 	for b in sim.balls:
 		if b.alive():
-			_draw_ball(b.pos * s, b.radius * s, b.def, b.hp, _flash[b.index] / FLASH_LIFE)
+			_draw_ball(b.pos * s, b.radius * s, b.def, b.hp, _flash[b.index] / FLASH_LIFE, b.index)
 
 	for p in _popups:
 		var t: float = p.age / POPUP_LIFE
@@ -113,9 +116,13 @@ func _draw_grid(r: Rect2) -> void:
 		y += step
 
 
-func _draw_ball(pos: Vector2, radius: float, def: Dictionary, hp: float, flash: float) -> void:
+func _draw_ball(pos: Vector2, radius: float, def: Dictionary, hp: float, flash: float, team: int) -> void:
 	var col: Color = def.color
+	var team_col: Color = TEAM_COLORS[team]
 	draw_circle(pos + Vector2(4, 6), radius, Color(0, 0, 0, 0.35))
+	draw_arc(pos, radius + 7.0, 0, TAU, 56, Color(team_col, 0.25), 10.0, true)
+	draw_arc(pos, radius + 5.0, 0, TAU, 56, team_col, 3.0, true)
+	_draw_text_centered(pos + Vector2(0, radius + 24.0), TEAM_TAGS[team], 18, team_col, 4)
 	draw_circle(pos, radius, col.lerp(Color.WHITE, flash * 0.7))
 	draw_arc(pos, radius - 2.0, 0, TAU, 48, col.darkened(0.45), 4.0, true)
 	match def.ability:

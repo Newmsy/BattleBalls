@@ -234,3 +234,27 @@ func test_every_pairing_always_finishes() -> void:
 				var s := MatchSim.new({"seed": seed_value, "p1": a, "p2": b, "angles": [null, null]}).run_to_end()
 				check(s.time <= MatchSim.TIME_LIMIT + 0.001, "%s vs %s seed %d ran past the limit" % [a, b, seed_value])
 				check(s.reason != "", "%s vs %s seed %d has no result" % [a, b, seed_value])
+
+
+func test_ramming_ball_deals_more_contact_damage() -> void:
+	var sim := _sim("plain", "plain")
+	var a := sim.balls[0]
+	var b := sim.balls[1]
+	var dmg: float = BallDefs.get_def("plain").contact_damage
+	# a drives into b from behind while b moves away more slowly.
+	a.pos = Vector2(400, 500)
+	b.pos = Vector2(400 + a.radius + b.radius - 1.0, 500)
+	a.vel = Vector2(a.speed, 0)
+	b.vel = Vector2(b.speed * 0.25, b.speed * 0.968)
+	sim.step()
+	check(100.0 - b.hp > 100.0 - a.hp, "rammed ball takes more damage")
+	check_near((100.0 - a.hp) + (100.0 - b.hp), 2.0 * dmg, 0.001, "total contact damage unchanged")
+
+
+func test_mirror_matches_rarely_draw() -> void:
+	for id in BallDefs.PLAYABLE:
+		var draws := 0
+		for seed_value in 40:
+			if MatchSim.new({"seed": seed_value, "p1": id, "p2": id, "angles": [null, null]}).run_to_end().winner == -1:
+				draws += 1
+		check(draws <= 2, "%s mirror drew %d of 40 fights" % [id, draws])

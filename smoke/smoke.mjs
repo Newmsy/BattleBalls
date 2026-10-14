@@ -64,7 +64,7 @@ function toPage(page, x, y) {
 try {
   // 1. Auto fight from URL params runs to a result.
   {
-    const { page, logs } = await openGame("?p1=vampire&p2=laser&seed=42&auto=1&speed=4");
+    const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4");
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "1-fight.png") });
