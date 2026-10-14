@@ -25,7 +25,8 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}/`;
 
-const launchOptions = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] };
+// Autoplay allowed so the audio code paths really run (on a phone, the first tap unlocks them).
+const launchOptions = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"] };
 if (process.env.CHROMIUM_PATH) launchOptions.executablePath = process.env.CHROMIUM_PATH;
 const browser = await chromium.launch(launchOptions);
 const errors = [];
@@ -112,6 +113,20 @@ try {
     console.log("wide menu:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "7-wide-fight.png") });
+    await page.close();
+  }
+
+  // 4. Sound board opens over the menu and its buttons play without errors.
+  {
+    const { page, logs } = await openGame("?sounds=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(1500);
+    for (const y of [140, 230, 320, 410]) {
+      await page.mouse.click(...toPage(page, 180, y));
+      await page.mouse.click(...toPage(page, 540, y));
+      await page.waitForTimeout(200);
+    }
+    await page.screenshot({ path: path.join(shots, "8-sound-board.png") });
     await page.close();
   }
 } catch (e) {

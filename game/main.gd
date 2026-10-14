@@ -6,6 +6,7 @@ extends Node2D
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const ArenaView := preload("res://game/arena_view.gd")
+const Sfx := preload("res://game/audio/sfx.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 
@@ -31,6 +32,7 @@ var _dragging := false
 var _rng := RandomNumberGenerator.new() ## UI-only randomness (new seeds), never used by the sim.
 
 var arena: ArenaView
+var sfx: Sfx
 var ui: Control
 var title_label: Label
 var hud_label: Label
@@ -54,6 +56,8 @@ func _ready() -> void:
 	_read_url_params()
 	arena = ArenaView.new()
 	add_child(arena)
+	sfx = Sfx.new()
+	add_child(sfx)
 	_build_ui()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -72,6 +76,7 @@ func _process(delta: float) -> void:
 		while _accumulator >= MatchSim.DT and steps < 32 and not sim.finished:
 			sim.step()
 			arena.consume_events(sim.events)
+			sfx.consume_events(sim.events, sim)
 			_accumulator -= MatchSim.DT
 			steps += 1
 		if sim.finished:
@@ -100,6 +105,7 @@ func _aim_towards(screen_pos: Vector2) -> void:
 	if dir.length() < 10.0:
 		return
 	aim = roundi(rad_to_deg(dir.angle()) * 10.0)
+	sfx.on_aim_drag(dir.length() / 600.0)
 	_set_aim_preview()
 
 
@@ -121,6 +127,7 @@ func _show_menu() -> void:
 	arena.sim = null
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
+	sfx.on_menu()
 	_refresh_menu()
 	_show_only(menu_box)
 
@@ -155,6 +162,7 @@ func _pick_opponent() -> String:
 
 
 func _launch() -> void:
+	sfx.play("launch")
 	_start_fight()
 
 
@@ -169,6 +177,7 @@ func _start_fight() -> void:
 	info_label.text = "%s vs %s" % [BallDefs.get_def(player_type).display_name, BallDefs.get_def(opponent_type).display_name]
 	speed_button.text = "Speed %sx" % _speed_text()
 	_show_only(fight_box)
+	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
 
@@ -186,6 +195,7 @@ func _show_result() -> void:
 	report_label.text = "Report code: " + _report_code()
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 	_show_only(result_box)
+	sfx.on_result(sim.winner)
 
 
 func _report_code() -> String:
