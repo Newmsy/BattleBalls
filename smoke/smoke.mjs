@@ -257,14 +257,31 @@ try {
     await page.close();
   }
 
-  // 8. Chaos Weekend modifier from the URL reaches the sim and the report code.
+  // 8. This Week board on a Chaos Saturday: open it from the Play tab, call
+  // the Fight of the Day, watch it to the end and come back to the board.
+  {
+    const { page, logs } = await openGame("?today=2026-10-17&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "thisweek", "week");
+    await page.screenshot({ path: path.join(shots, "14-this-week.png") });
+    await tapUi(page, logs, "fotd_pick0");
+    console.log("fight of the day:", await waitForLog(logs, "FIGHT_START", 5000));
+    console.log("fight of the day end:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
+    await page.close();
+  }
+
+  // 9. Chaos Weekend modifier from the URL reaches the sim and the report code.
   {
     const { page, logs } = await openGame("?p1=vampire&p2=laser&seed=7&auto=1&speed=4&mod=big_head");
     await waitForLog(logs, "BOOT_OK", 60000);
     const start = await waitForLog(logs, "FIGHT_START", 5000);
     if (!start.endsWith(".big_head")) throw new Error(`modifier missing from report code: ${start}`);
     await page.waitForTimeout(3000);
-    await page.screenshot({ path: path.join(shots, "14-big-head.png") });
+    await page.screenshot({ path: path.join(shots, "16-big-head.png") });
     console.log("modifier fight:", await waitForLog(logs, "MATCH_END", 90000));
     await page.close();
   }

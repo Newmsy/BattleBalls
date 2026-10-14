@@ -6,11 +6,13 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(26)
+	root.add_child(WeekScreen.banner(shell))
 
 	# Campaign card (the PvE thread is building zone 1).
 	var zone := Kit.vbox(10, [
