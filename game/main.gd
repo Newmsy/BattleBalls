@@ -7,10 +7,15 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const ArenaView := preload("res://game/arena_view.gd")
+const Sfx := preload("res://game/audio/sfx.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 
-const VERSION := "0.1.0"
+const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
+const ACCENT := Color("8f7bff")
+const MUTED := Color("a29fc9")
+
+const VERSION := "0.2.0"
 const ARENA_PIXELS := 680.0
 const INFO_HEIGHT := 100.0
 const CONTROLS_HEIGHT := 490.0 ## Tallest control panel (the menu).
@@ -35,6 +40,7 @@ var _dragging := false
 var _rng := RandomNumberGenerator.new() ## UI-only randomness (new seeds), never used by the sim.
 
 var arena: ArenaView
+var sfx: Sfx
 var ui: Control
 var title_label: Label
 var hud_label: Label
@@ -60,6 +66,8 @@ func _ready() -> void:
 	_read_url_params()
 	arena = ArenaView.new()
 	add_child(arena)
+	sfx = Sfx.new()
+	add_child(sfx)
 	_build_ui()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -78,6 +86,7 @@ func _process(delta: float) -> void:
 		while _accumulator >= MatchSim.DT and steps < 32 and not sim.finished:
 			sim.step()
 			arena.consume_events(sim.events)
+			sfx.consume_events(sim.events, sim)
 			_accumulator -= MatchSim.DT
 			steps += 1
 		if sim.finished:
@@ -106,6 +115,7 @@ func _aim_towards(screen_pos: Vector2) -> void:
 	if dir.length() < 10.0:
 		return
 	aim = roundi(rad_to_deg(dir.angle()) * 10.0)
+	sfx.on_aim_drag(dir.length() / 600.0)
 	_set_aim_preview()
 
 
@@ -127,6 +137,7 @@ func _show_menu() -> void:
 	arena.sim = null
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
+	sfx.on_menu()
 	_refresh_menu()
 	_show_only(menu_box)
 
@@ -180,6 +191,7 @@ func _cycle_rules() -> void:
 
 
 func _launch() -> void:
+	sfx.play("launch")
 	_start_fight()
 
 
@@ -196,6 +208,7 @@ func _start_fight() -> void:
 		info_label.text += " · " + Modifiers.display_name(modifier)
 	speed_button.text = "Speed %sx" % _speed_text()
 	_show_only(fight_box)
+	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
 
@@ -213,6 +226,7 @@ func _show_result() -> void:
 	report_label.text = "Report code: " + _report_code()
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 	_show_only(result_box)
+	sfx.on_result(sim.winner)
 
 
 func _report_code() -> String:
@@ -228,14 +242,15 @@ func _build_ui() -> void:
 	ui = Control.new()
 	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var theme := Theme.new()
-	theme.default_font_size = 30
-	ui.theme = theme
+	ui.theme = _neon_theme()
 	layer.add_child(ui)
 
-	title_label = _label("BATTLE BALLS", 44)
+	title_label = _label("BATTLE BALLS", 48)
+	title_label.add_theme_color_override("font_outline_color", Color(ACCENT, 0.45))
+	title_label.add_theme_constant_override("outline_size", 12)
 	hud_label = _label("", 30)
 	info_label = _label("", 26)
+	info_label.add_theme_color_override("font_color", MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stamp_label = _label(_build_stamp(), 18)
 	stamp_label.modulate = Color(1, 1, 1, 0.45)
@@ -317,6 +332,34 @@ func _layout() -> void:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	_place(stamp_label, Vector2(12, size.y - 34), Vector2(size.x, 30))
 	arena.queue_redraw()
+
+
+## Dark panels with a purple accent, matching the Neon Critters arena.
+func _neon_theme() -> Theme:
+	var theme := Theme.new()
+	theme.default_font = FONT
+	theme.default_font_size = 30
+	theme.set_color("font_color", "Label", Color("f0eeff"))
+	var states := {
+		"normal": [Color("1b1842"), Color("2b2760")],
+		"hover": [Color("241f55"), Color("3a3480")],
+		"pressed": [ACCENT, ACCENT],
+		"hover_pressed": [ACCENT.lightened(0.1), ACCENT.lightened(0.1)],
+		"focus": [Color(0, 0, 0, 0), Color(0, 0, 0, 0)],
+	}
+	for state in states:
+		var box := StyleBoxFlat.new()
+		box.bg_color = states[state][0]
+		box.border_color = states[state][1]
+		box.set_border_width_all(2)
+		box.set_corner_radius_all(22)
+		theme.set_stylebox(state, "Button", box)
+	theme.set_color("font_color", "Button", Color("f0eeff"))
+	theme.set_color("font_hover_color", "Button", Color.WHITE)
+	theme.set_color("font_pressed_color", "Button", Color("0b0a1f"))
+	theme.set_color("font_hover_pressed_color", "Button", Color("0b0a1f"))
+	theme.set_color("font_focus_color", "Button", Color("f0eeff"))
+	return theme
 
 
 func _place(c: Control, pos: Vector2, size: Vector2) -> void:

@@ -25,7 +25,8 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}/`;
 
-const launchOptions = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] };
+// Autoplay allowed so the audio code paths really run (on a phone, the first tap unlocks them).
+const launchOptions = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"] };
 if (process.env.CHROMIUM_PATH) launchOptions.executablePath = process.env.CHROMIUM_PATH;
 const browser = await chromium.launch(launchOptions);
 const errors = [];
@@ -115,14 +116,28 @@ try {
     await page.close();
   }
 
-  // 4. Chaos Weekend modifier from the URL reaches the sim and the report code.
+  // 4. Sound board opens over the menu and its buttons play without errors.
+  {
+    const { page, logs } = await openGame("?sounds=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(1500);
+    for (const y of [140, 230, 320, 410]) {
+      await page.mouse.click(...toPage(page, 180, y));
+      await page.mouse.click(...toPage(page, 540, y));
+      await page.waitForTimeout(200);
+    }
+    await page.screenshot({ path: path.join(shots, "8-sound-board.png") });
+    await page.close();
+  }
+
+  // 5. Chaos Weekend modifier from the URL reaches the sim and the report code.
   {
     const { page, logs } = await openGame("?p1=vampire&p2=laser&seed=7&auto=1&speed=4&mod=big_head");
     await waitForLog(logs, "BOOT_OK", 60000);
     const start = await waitForLog(logs, "FIGHT_START", 5000);
     if (!start.endsWith(".big_head")) throw new Error(`modifier missing from report code: ${start}`);
     await page.waitForTimeout(3000);
-    await page.screenshot({ path: path.join(shots, "8-big-head.png") });
+    await page.screenshot({ path: path.join(shots, "9-big-head.png") });
     console.log("modifier fight:", await waitForLog(logs, "MATCH_END", 90000));
     await page.close();
   }
