@@ -65,6 +65,15 @@ Changing ball radius or speed, or adding playable balls, reshapes the
 puzzles. That is fine; `tests/test_trick_shot.gd` only fails if days stop
 being solvable or fair.
 
+## Ghost Arena (PvP)
+
+Async PvP from design/pvp.md in the project files. `sim/relay.gd` runs a
+lineup relay: each side brings 1-3 balls, legs are ordinary 1v1 MatchSim
+fights, and a leg's winner stays in with the HP it has left (`hp` in the
+MatchSim config). `game/pvp/ladder.gd` holds leagues, divisions and the
+trophy rules per opponent card; `game/pvp/arena_ghosts.gd` generates the
+labelled bot defences and the three daily opponent cards from fixed seeds.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
