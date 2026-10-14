@@ -1,8 +1,8 @@
 -- Bracket of Legends picks: one per player per event, changeable, private,
 -- and only counted (never listed) for everyone else.
 
-\set dana '''dddddddd-0000-0000-0000-000000000004'''
-\set eli  '''eeeeeeee-0000-0000-0000-000000000005'''
+\set dana '''b0b0b0b0-0000-0000-0000-00000000000d'''
+\set eli  '''b0b0b0b0-0000-0000-0000-00000000000e'''
 
 insert into auth.users (id) values (:dana), (:eli);
 
@@ -23,7 +23,7 @@ begin
   end;
   begin
     insert into public.bracket_predictions (user_id, event_id, champion)
-    values ('dddddddd-0000-0000-0000-000000000004', 'other', 'laser');
+    values ('b0b0b0b0-0000-0000-0000-00000000000d', 'other', 'laser');
     assert false, 'direct insert should be refused';
   exception when insufficient_privilege then null;
   end;

@@ -24,6 +24,10 @@ var items: Array[Dictionary] = []
 var free_summon := true
 ## Rare-or-better rolls left before a guaranteed Legendary (shared with drops).
 var legendary_pity := 112
+## Critters the player is chasing: they come up twice as often within their
+## rarity in summons and drops (game/ui/summon.gd). Free to change any time.
+var wishlist: Array[String] = []
+const WISHLIST_MAX := 3
 
 
 static func sample():
@@ -184,6 +188,23 @@ func add_copies(ids: Array) -> void:
 			s.count += 1
 		seen[id] = true
 	changed.emit()
+
+
+func on_wishlist(id: String) -> bool:
+	return id in wishlist
+
+
+## Adds or removes a wishlist pick. Returns false (and changes nothing) when
+## adding to a full wishlist.
+func toggle_wishlist(id: String) -> bool:
+	if on_wishlist(id):
+		wishlist.erase(id)
+	elif wishlist.size() >= WISHLIST_MAX:
+		return false
+	else:
+		wishlist.append(id)
+	changed.emit()
+	return true
 
 
 func spend_orbs(n: int) -> bool:
