@@ -14,6 +14,7 @@ const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
+const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 
@@ -218,6 +219,10 @@ func _refresh_menu() -> void:
 	seed_label.text = "Seed %d" % seed_value
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
+	for id in player_buttons:
+		player_buttons[id].text = BallDefs.get_def(id).display_name + (" · loan" if _is_loan(id) else "")
+	if _is_loan(player_type):
+		info_label.text = "%s is on loan today. Practice only: loaner fights don't count for Ghost Arena or your record." % def.display_name
 	if mode == Mode.RIVAL:
 		info_label.text = "RIVAL! %s's %s is waiting. Pick a ball and beat it (just for fun)." % \
 			[rival.name, BallDefs.get_def(opponent_type).display_name]
@@ -320,7 +325,15 @@ func _apply_picks() -> void:
 	speed_index = clampi(int(picks.speed), 0, SPEEDS.size() - 1)
 
 
+## Today's Try-a-Critter loaner, for a player who doesn't own it.
+func _is_loan(id: String) -> bool:
+	return shell != null and Loaner.is_loan(shell.profile, id)
+
+
 func _record_fight() -> void:
+	# A loaner is practice: no stats, no aim history, never your ghost.
+	if _is_loan(player_type):
+		return
 	save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
 	_sync_online()
@@ -456,7 +469,13 @@ func _build_shell() -> void:
 	shell = Shell.new()
 	shell.friends = friends
 	shell.link_base = _link_base()
-	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _play_normal())
+	shell.play_requested.connect(func():
+		shell_layer.visible = false
+		sfx.toggle_lift = 0.0
+		if shell.play_with in BallDefs.PLAYABLE:
+			player_type = shell.play_with
+		shell.play_with = ""
+		_play_normal())
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.rival_requested.connect(_start_rival)
 	shell.share_tapped.connect(_on_shell_share)

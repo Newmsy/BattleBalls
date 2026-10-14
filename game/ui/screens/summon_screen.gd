@@ -1,6 +1,7 @@
 ## Summon Portal: random Tier 1 critters for Summon Orbs (earned, never sold).
 ## Odds on screen, x10 guarantees a Rare or better, shared Legendary pity, one
-## free summon a day, weekly featured critter. Capsules glow in their rarity's
+## free summon a day, weekly featured critter, and the Wishlist (3 picks that
+## come up twice as often within their rarity). Capsules glow in their rarity's
 ## colour before they open.
 extends RefCounted
 
@@ -28,6 +29,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	feat.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var st := Kit.box(Color("221046"), Color("6b3fb0"), 40, 2, 26)
 	root.add_child(Kit.panel(Kit.vbox(8, [portal, feat]), st))
+	root.add_child(_wishlist_panel(shell))
 
 	var one := Kit.button("Free x1" if p.free_summon else "x1  (1 orb)", func(): _pull(shell, 1), "ghost", 28, 96)
 	var ten := Kit.button("x10  (10 orbs)", func(): _pull(shell, 10), "primary", 28, 96)
@@ -59,6 +61,98 @@ static func build(shell, _params: Dictionary) -> Control:
 		Kit.label("Shared with campaign and hunt drops, so switching never resets it.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])))
 	root.add_child(Kit.label("Summon Orbs come from boss first clears, daily login, account levels and achievements. They are never sold.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	return root
+
+
+const WISH := Color("ff5fc8")
+
+
+static func _wishlist_panel(shell) -> Control:
+	var p = shell.profile
+	var edit := Kit.button("Edit", func(): _open_picker(shell), "ghost", 22, 64)
+	edit.size_flags_horizontal = Control.SIZE_SHRINK_END
+	edit.custom_minimum_size.x = 150
+	shell.mark("wishlist_edit", edit)
+	var head := Kit.hbox(12, [Kit.caption("Wishlist", WISH), Kit.label("%d / %d" % [p.wishlist.size(), p.WISHLIST_MAX], 22, Kit.MUTED), Kit.spacer(), edit])
+	head.alignment = BoxContainer.ALIGNMENT_CENTER
+	var slots := Kit.hbox(12)
+	for i in p.WISHLIST_MAX:
+		var v: Control
+		if i < p.wishlist.size():
+			var id: String = p.wishlist[i]
+			var c := Roster.get_critter(id)
+			var name := Kit.label(c.name, 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+			name.clip_text = true
+			name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			v = Kit.vbox(0, [_centered(CritterIcon.make(id, 1, 96, false, not p.owns(id))), name,
+				Kit.label(_pct(Summon.chance(p, id)) + " a pull", 18, Roster.RARITY_COLORS[c.rarity], HORIZONTAL_ALIGNMENT_CENTER)])
+		else:
+			v = Kit.vbox(0, [Kit.label("+", 64, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), Kit.label("Pick one", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
+		var slot := Kit.card_button(v, func(): _open_picker(shell), Color(WISH, .6) if i < p.wishlist.size() else Kit.LINE, Kit.PANEL2, 24, 8)
+		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		slots.add_child(slot)
+	return Kit.panel(Kit.vbox(12, [head, slots,
+		Kit.label("Wishlisted critters come up twice as often as others of their rarity, in summons and campaign drops. Rarity odds and pity stay the same.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]))
+
+
+## Bottom sheet listing every critter by rarity; tap to add or remove a pick.
+static func _open_picker(shell) -> void:
+	var p = shell.profile
+	var count := Kit.label("", 22, Kit.MUTED)
+	var tiles := {}
+	var refresh := func():
+		count.text = "%d / %d picked" % [p.wishlist.size(), p.WISHLIST_MAX]
+		for id in tiles:
+			var on: bool = p.on_wishlist(id)
+			tiles[id].get_theme_stylebox("normal").border_color = WISH if on else Kit.LINE
+			tiles[id].get_theme_stylebox("normal").bg_color = Color(WISH, .18) if on else Kit.PANEL2
+	var list := Kit.vbox(14)
+	var rows := 0
+	for r in Roster.RARITIES:
+		var pool: Array = Roster.CRITTERS.filter(func(c): return c.rarity == r)
+		if pool.is_empty():
+			continue
+		list.add_child(Kit.caption(Roster.RARITY_NAMES[r], Roster.RARITY_COLORS[r]))
+		var grid := GridContainer.new()
+		grid.columns = 5
+		grid.add_theme_constant_override("h_separation", 8)
+		grid.add_theme_constant_override("v_separation", 8)
+		for c in pool:
+			var name := Kit.label(c.name, 16, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+			name.clip_text = true
+			name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			var id: String = c.id
+			var t := Kit.card_button(Kit.vbox(0, [_centered(CritterIcon.make(id, 1, 84, false, not p.owns(id))), name]), func():
+				if not p.toggle_wishlist(id):
+					shell.toast("Your wishlist is full. Tap a pick to remove it.")
+				refresh.call(), Kit.LINE, Kit.PANEL2, 20, 6)
+			t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tiles[id] = t
+			shell.mark("wish_" + id, t)
+			grid.add_child(t)
+		rows += ceili(pool.size() / 5.0)
+		list.add_child(grid)
+	refresh.call()
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size.y = minf(rows * 130.0 + Roster.RARITIES.size() * 44.0, maxf(400.0, shell.size.y * .55))
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+	var done := Kit.button("Done", func(): shell.close_overlay(); shell.refresh(), "go", 28, 90)
+	shell.mark("wishlist_done", done)
+	shell.sheet(Kit.vbox(16, [Kit.hbox(0, [Kit.label("Wishlist", 36), Kit.spacer(), count]),
+		# Fixed line breaks: a wrapping label has no width yet when the sheet measures itself.
+		Kit.label("Pick up to 3 critters you're chasing. Each comes up\ntwice as often as others of its rarity. Change any time.", 21, Kit.MUTED),
+		scroll, done]))
+
+
+static func _pct(x: float) -> String:
+	return ("%.2f%%" % x) if x < 1.0 else ("%.1f%%" % x)
+
+
+static func _centered(c: Control) -> Control:
+	var cc := CenterContainer.new()
+	cc.add_child(c)
+	return cc
 
 
 static func _pull(shell, n: int) -> void:
