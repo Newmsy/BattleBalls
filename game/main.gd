@@ -10,6 +10,7 @@ const ArenaView := preload("res://game/arena_view.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
 const Shell := preload("res://game/ui/shell.gd")
+const LiveOps := preload("res://game/liveops.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 ## NORMAL: pick both balls. REPLAY: watching a shared fight. CHALLENGE: beating
@@ -69,6 +70,8 @@ var report_row: HBoxContainer
 var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var daily_button: Button
+var shell: Shell
+var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
 
 static var _mode_redirected := false
 
@@ -221,7 +224,7 @@ func _start_fight() -> void:
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
-		info_label.text = "Shared fight: " + info_label.text
+		info_label.text = ("Fight of the Day: " if _board_pick >= 0 else "Shared fight: ") + info_label.text
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -241,6 +244,8 @@ func _show_result() -> void:
 	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if mode == Mode.REPLAY else "You",
 		roundi(you.damage_dealt), (" and healed %d" % roundi(you.healed)) if you.healed > 0.0 else ""]
 	report_label.text = "Report code: " + _report_code()
+	if _board_pick >= 0:
+		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 	_show_only(result_box)
 	sfx.on_result(sim.winner)
@@ -327,9 +332,11 @@ func _build_shell() -> void:
 	shell_layer.layer = 5
 	shell_layer.visible = false
 	add_child(shell_layer)
-	var shell := Shell.new()
+	shell = Shell.new()
 	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _show_menu())
+	shell.watch_requested.connect(_watch_board_fight)
 	shell_layer.add_child(shell)
+	LiveOps.fetch(self, func(): if shell.current in ["play", "week"]: shell.refresh())
 
 
 func _show_home() -> void:
@@ -452,7 +459,9 @@ func _again() -> void:
 
 
 func _on_challenge_button() -> void:
-	if mode == Mode.REPLAY:
+	if _board_pick >= 0:
+		_back_to_board()
+	elif mode == Mode.REPLAY:
 		_play_normal()
 	else:
 		_share("c")
@@ -461,6 +470,8 @@ func _on_challenge_button() -> void:
 func _label_result_buttons() -> void:
 	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot"}[mode]
 	challenge_button.text = "Play my own" if mode == Mode.REPLAY else "Challenge friend"
+	if _board_pick >= 0:
+		challenge_button.text = "This Week"
 	share_button.text = "Send result" if mode == Mode.CHALLENGE else "Share fight"
 	report_row.visible = mode != Mode.REPLAY
 
@@ -468,6 +479,7 @@ func _label_result_buttons() -> void:
 ## Fight the given ball and shot from the opponent corner, on the same seed.
 func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> void:
 	mode = Mode.CHALLENGE
+	_board_pick = -1
 	opponent_choice = ball
 	opponent_type = ball
 	seed_value = challenge_seed
@@ -477,6 +489,7 @@ func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> v
 
 ## Back to picking both balls, dropping any link the page was opened with.
 func _play_normal() -> void:
+	_board_pick = -1
 	if mode != Mode.NORMAL:
 		opponent_choice = OPPONENT_RANDOM
 	mode = Mode.NORMAL
@@ -484,6 +497,28 @@ func _play_normal() -> void:
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("history.replaceState(null, '', location.pathname)")
 	_show_menu()
+
+
+## Watch the Fight of the Day from the This Week board, as a replay.
+func _watch_board_fight(f: Dictionary) -> void:
+	shell_layer.visible = false
+	sfx.toggle_lift = 0.0
+	mode = Mode.REPLAY
+	player_type = f.p1
+	opponent_choice = f.p2
+	opponent_type = f.p2
+	seed_value = f.seed
+	aim = f.angles[0]
+	foe_aim = f.angles[1]
+	_board_pick = f.pick
+	_start_fight()
+
+
+func _back_to_board() -> void:
+	_play_normal()
+	_show_home()
+	shell.show_tab("play")
+	shell.go("week")
 
 
 func _label(text: String, font_size: int) -> Label:
@@ -660,6 +695,9 @@ func _read_url_params() -> Dictionary:
 		var i := SPEEDS.find(float(params.speed))
 		speed_index = maxi(0, i)
 	auto_start = params.get("auto", "") == "1"
+	# ?today=2026-10-17 pins the live-ops clock to that day's noon (UTC).
+	if LiveOps.date_unix(params.get("today", "")) >= 0:
+		LiveOps.now_override = LiveOps.date_unix(params.today) + 12 * 3600
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():
