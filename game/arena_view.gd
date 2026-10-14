@@ -32,6 +32,9 @@ var team_tags: Array = TEAM_TAGS ## Labels under each ball; a shared replay uses
 var view_scale := 0.68
 ## Launch aim preview for the player's ball (world direction), or ZERO to hide.
 var aim_dir := Vector2.ZERO
+## Onboarding's suggested launch (world direction), drawn as a pulsing ghost
+## arrow, or ZERO to hide.
+var ghost_dir := Vector2.ZERO
 ## Ball types to show before a sim exists (menu preview).
 var preview_types: Array = ["vampire", "laser"]
 
@@ -185,6 +188,9 @@ func _draw() -> void:
 		for i in 12:
 			draw_circle(b.pos * s + aim_dir * (b.radius + 40.0 + i * 38.0) * s, 5.0, Color(TEAM_COLORS[0], 1.0 - i / 12.0))
 
+	if ghost_dir != Vector2.ZERO:
+		_ghost_arrow(sim.balls[0], s)
+
 	for w in _wisps:
 		if w.age < 0.0:
 			continue
@@ -206,6 +212,19 @@ func _draw() -> void:
 		var t: float = p.age / POPUP_LIFE
 		var pos: Vector2 = p.pos * s + Vector2(0, -40.0 * t)
 		_text_centered(pos, p.text, 26, Color(p.color, 1.0 - t * t), 6)
+
+
+func _ghost_arrow(b, s: float) -> void:
+	var pulse := 0.45 + 0.35 * sin(_time * 4.0)
+	var col := Color(1, 1, 1, pulse)
+	var from: Vector2 = b.pos + ghost_dir * (b.radius + 30.0)
+	var to: Vector2 = b.pos + ghost_dir * (b.radius + 330.0)
+	var dash := 0.0
+	while dash < 260.0:
+		draw_line((from + ghost_dir * dash) * s, (from + ghost_dir * minf(dash + 22.0, 270.0)) * s, col, 6.0, true)
+		dash += 38.0
+	var side := ghost_dir.orthogonal()
+	draw_colored_polygon(PackedVector2Array([to * s, (to - ghost_dir * 46.0 + side * 30.0) * s, (to - ghost_dir * 46.0 - side * 30.0) * s]), col)
 
 
 func _draw_grid(r: Rect2) -> void:

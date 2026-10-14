@@ -32,6 +32,30 @@ const DEFS := {
 		"beam_max": 6,
 		"color": Color("27c8ff"),
 	},
+	# Onboarding foes (design/onboarding.md): weak on purpose, never offered in
+	# pickers and skipped by the balance sim.
+	"dummy": {
+		"display_name": "Training Dummy",
+		"description": "A practice target. It barely fights back.",
+		"tutorial": true,
+		"hp": 32.0,
+		"radius": 76.0,
+		"speed": 380.0,
+		"contact_damage": 3.0,
+		"ability": "",
+		"color": Color("d9a066"),
+	},
+	"sparring": {
+		"display_name": "Sparring Bot",
+		"description": "A practice bot that hits back a little.",
+		"tutorial": true,
+		"hp": 45.0,
+		"radius": 70.0,
+		"speed": 420.0,
+		"contact_damage": 5.0,
+		"ability": "",
+		"color": Color("9aa4ff"),
+	},
 	# Ability-free baseline used by tests and as a balance reference.
 	"plain": {
 		"display_name": "Plain",

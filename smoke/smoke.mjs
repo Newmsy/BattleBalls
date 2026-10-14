@@ -1,6 +1,7 @@
 // Smoke test for the web build: boots it in a phone-sized headless Chromium,
 // plays one auto fight and one fight through the real menu, fails on any
-// page error, and saves screenshots. Also opens Daily Trick Shot and solves one.
+// page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
+// and plays the whole onboarding.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -250,6 +251,54 @@ try {
     if (!result.includes("result=solved")) throw new Error(`Aim ${aim} should solve day 1: ${result}`);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "13-trickshot-solved.png") });
+    await page.close();
+  }
+
+  // 8. Onboarding: cold open, starter pick, two aimed tutorial wins, the
+  // guided first fusion, the boss teaser and on to the Play tab.
+  {
+    const { page, logs } = await openGame("?tutorial=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN onboard_cold_open", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "14a-onboard-cold-open.png") });
+    await tapUi(page, logs, "pick_laser");
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "14b-onboard-cold-fight.png") });
+    await waitForLog(logs, "UI_SCREEN onboard_cold_result", 90000);
+    await page.screenshot({ path: path.join(shots, "14c-onboard-cold-result.png") });
+    await tapUi(page, logs, "next", "onboard_starter");
+    await page.screenshot({ path: path.join(shots, "14d-onboard-starter.png") });
+    const aimAndWin = async (n) => {
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: path.join(shots, `14e-onboard-aim${n}.png`) });
+      const [sx, sy] = toPage(page, 20 + 170 * 0.68, 190 + 830 * 0.68);
+      const [ex, ey] = toPage(page, 360, 300);
+      const start = logs.length;
+      await page.mouse.move(sx, sy);
+      await page.mouse.down();
+      await page.mouse.move(ex, ey, { steps: 8 });
+      await page.mouse.up();
+      await waitForLogAfter(logs, start, "FIGHT_START", 5000);
+      await waitForLogAfter(logs, start, "UI_SCREEN onboard_reward", 120000);
+      await page.screenshot({ path: path.join(shots, `14f-onboard-reward${n}.png`) });
+    };
+    await tapUi(page, logs, "starter_laser");
+    await aimAndWin(1);
+    await tapUi(page, logs, "next");
+    await aimAndWin(2);
+    await tapUi(page, logs, "next", "fuse");
+    await page.screenshot({ path: path.join(shots, "14g-onboard-fuse.png") });
+    const before = logs.length;
+    await tapUi(page, logs, "fuse");
+    console.log("onboarding fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
+    await waitForLogAfter(logs, before, "UI_SCREEN onboard_boss", 10000);
+    await page.screenshot({ path: path.join(shots, "14h-onboard-boss.png") });
+    await tapUi(page, logs, "lets_go");
+    await waitForLog(logs, "ONBOARD step=done", 5000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "14i-onboard-home.png") });
+    console.log("onboarding:", logs.filter((l) => l.startsWith("ONBOARD")).map((l) => l.split(" ")[1]).join(" "));
     await page.close();
   }
 } catch (e) {

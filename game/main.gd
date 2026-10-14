@@ -2,6 +2,8 @@
 ## URL params on the web build skip straight to a fight, e.g.
 ## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2
 ## Share links (see fight_link.gd) open a replay (?r=) or a challenge (?c=).
+## A first visit with no params plays the onboarding (game/onboarding.gd);
+## ?tutorial=1 forces it, ?tutorial=0 skips it.
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -10,11 +12,15 @@ const ArenaView := preload("res://game/arena_view.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
 const Shell := preload("res://game/ui/shell.gd")
+const Onboarding := preload("res://game/onboarding.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 ## NORMAL: pick both balls. REPLAY: watching a shared fight. CHALLENGE: beating
-## a friend's ball and shot.
-enum Mode { NORMAL, REPLAY, CHALLENGE }
+## a friend's ball and shot. TUTORIAL: onboarding drives the arena.
+enum Mode { NORMAL, REPLAY, CHALLENGE, TUTORIAL }
+
+## Onboarding fights report here instead of showing the result panel.
+signal tutorial_fight_ended(winner: int)
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const ACCENT := Color("8f7bff")
@@ -68,6 +74,13 @@ var challenge_button: Button
 var report_row: HBoxContainer
 var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
+var shell: Shell
+var aim_back_button: Button
+var tutorial_tags: Array = [] ## HUD names during onboarding fights.
+var tutorial_side := 0 ## The ball the player is rooting for, for the result jingle.
+var url_params := {}
+## Where the info line and controls sit (under or beside the arena).
+var controls_rect := Rect2()
 var daily_button: Button
 
 static var _mode_redirected := false
@@ -77,7 +90,8 @@ func _ready() -> void:
 	_rng.randomize()
 	seed_value = _rng.randi_range(1, 99999)
 	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
-	if _read_url_params().get("mode", "") == "trickshot" and not _mode_redirected:
+	url_params = _read_url_params()
+	if url_params.get("mode", "") == "trickshot" and not _mode_redirected:
 		_mode_redirected = true
 		set_process(false)
 		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
@@ -92,7 +106,9 @@ func _ready() -> void:
 	_install_share_listener()
 	print("BOOT_OK build=", _build_stamp())
 	_build_shell()
-	if auto_start:
+	if _wants_tutorial():
+		_start_tutorial()
+	elif auto_start:
 		_start_fight()
 	else:
 		_show_menu()
@@ -204,6 +220,7 @@ func _pick_opponent() -> String:
 
 
 func _launch() -> void:
+	arena.ghost_dir = Vector2.ZERO
 	sfx.play("launch")
 	_start_fight()
 
@@ -228,6 +245,12 @@ func _start_fight() -> void:
 
 func _show_result() -> void:
 	state = State.RESULT
+	if mode == Mode.TUTORIAL:
+		print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
+		_show_only(null)
+		sfx.on_result(0 if sim.winner == tutorial_side else 1)
+		tutorial_fight_ended.emit(sim.winner)
+		return
 	var you := sim.balls[0]
 	var text := "DRAW"
 	if mode == Mode.REPLAY and sim.winner >= 0:
@@ -289,10 +312,8 @@ func _build_ui() -> void:
 	menu_box.add_child(seed_row)
 	menu_box.add_child(_button("FIGHT!", _begin_aim, 40))
 
-	aim_box = _row([
-		_button("Launch", _launch),
-		_button("Back", _show_menu),
-	])
+	aim_back_button = _button("Back", _show_menu)
+	aim_box = _row([_button("Launch", _launch), aim_back_button])
 
 	speed_button = _button("Speed 1x", _cycle_speed)
 	fight_box = _row([speed_button, _button("Skip to end", _skip_to_end)])
@@ -327,7 +348,7 @@ func _build_shell() -> void:
 	shell_layer.layer = 5
 	shell_layer.visible = false
 	add_child(shell_layer)
-	var shell := Shell.new()
+	shell = Shell.new()
 	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _show_menu())
 	shell_layer.add_child(shell)
 
@@ -362,6 +383,7 @@ func _layout() -> void:
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	_place(hud_label, Vector2(left, 110), Vector2(side, 50))
 	_place(info_label, panel_pos, Vector2(panel_width, 90))
+	controls_rect = Rect2(panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
 	var controls_top := panel_pos.y + INFO_HEIGHT
 	for box in [menu_box, aim_box, fight_box, result_box]:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
@@ -407,6 +429,7 @@ func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 func _show_only(box: Control) -> void:
 	for b in [menu_box, aim_box, fight_box, result_box]:
 		b.visible = b == box
+	aim_back_button.visible = mode != Mode.TUTORIAL
 	daily_button.visible = box == menu_box
 	_sync_share_targets()
 
@@ -421,6 +444,8 @@ func _update_hud() -> void:
 	if sim.in_overtime():
 		clock = "OVERTIME x%.1f" % sim.damage_multiplier()
 	var tags: Array = ["P1", "P2"] if mode == Mode.REPLAY else ["You", "Foe"]
+	if mode == Mode.TUTORIAL and not tutorial_tags.is_empty():
+		tags = tutorial_tags
 	hud_label.text = "%s %d   |   %s   |   %d %s" % [tags[0], maxi(0, ceili(a.hp)), clock, maxi(0, ceili(b.hp)), tags[1]]
 
 
@@ -526,6 +551,93 @@ func _choice_row(ids: Array, store: Dictionary, on_pick: Callable) -> HBoxContai
 		store[id] = b
 		row.add_child(b)
 	return row
+
+
+# --- Onboarding ----------------------------------------------------------------
+# game/onboarding.gd calls these to drive the arena; see design/onboarding.md.
+
+func _wants_tutorial() -> bool:
+	var forced: String = url_params.get("tutorial", "")
+	if forced != "":
+		return forced == "1"
+	return url_params.is_empty() and OS.has_feature("web") and not Onboarding.is_done()
+
+
+func _start_tutorial() -> void:
+	mode = Mode.TUTORIAL
+	shell_layer.visible = false
+	var ob := Onboarding.new()
+	ob.main = self
+	add_child(ob)
+
+
+## The two balls in their corners, no sim yet, no controls.
+func tutorial_preview(types: Array, tags: Array) -> void:
+	_show_menu()
+	_show_only(null)
+	arena.preview_types = types
+	arena.team_tags = tags
+	arena.queue_redraw()
+	info_label.text = ""
+
+
+## Watch a fight with both launches picked by the seed. `tags` go under the
+## balls, `hud_names` in the HP line; `side` is the ball the player backs.
+func tutorial_watch(p1: String, p2: String, fight_seed: int, tags: Array, hud_names: Array, side: int) -> void:
+	player_type = p1
+	opponent_type = p2
+	seed_value = fight_seed
+	aim = MatchSim.new({"seed": fight_seed, "p1": p1, "p2": p2}).launch_angles[0]
+	foe_aim = null
+	tutorial_tags = hud_names
+	tutorial_side = side
+	speed_index = 0
+	_start_fight()
+	arena.team_tags = tags
+
+
+## Aim and launch the player's ball against a fixed foe shot, with a ghost
+## arrow suggesting a launch.
+func tutorial_aim(p1: String, p2: String, fight_seed: int, foe_angle: int, ghost_angle: int, text: String) -> void:
+	player_type = p1
+	opponent_type = p2
+	seed_value = fight_seed
+	foe_aim = foe_angle
+	tutorial_tags = ["You", BallDefs.get_def(p2).display_name]
+	tutorial_side = 0
+	speed_index = 0
+	state = State.AIM
+	aim = ghost_angle
+	arena.clear_effects()
+	arena.team_tags = ArenaView.TEAM_TAGS
+	_set_aim_preview()
+	arena.ghost_dir = Vector2.from_angle(deg_to_rad(ghost_angle / 10.0))
+	info_label.text = text
+	_show_only(aim_box)
+
+
+## Opens the home shell with the onboarding's profile and returns the shell.
+func tutorial_home(profile) -> Shell:
+	sim = null
+	arena.sim = null
+	arena.ghost_dir = Vector2.ZERO
+	_show_only(null)
+	shell.set_profile(profile)
+	_show_home()
+	return shell
+
+
+## Onboarding finished or skipped: normal play from the Play tab.
+func tutorial_end(profile) -> void:
+	mode = Mode.NORMAL
+	tutorial_tags = []
+	arena.ghost_dir = Vector2.ZERO
+	arena.team_tags = ArenaView.TEAM_TAGS
+	if profile != null and shell.profile != profile:
+		shell.set_profile(profile)
+	_show_menu()
+	shell.show_tab("play")
+	_show_home()
 
 
 # --- Share links -------------------------------------------------------------
