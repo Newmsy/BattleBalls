@@ -1,6 +1,7 @@
 // Smoke test for the web build: boots it in a phone-sized headless Chromium,
 // plays one auto fight and one fight through the real menu, fails on any
-// page error, and saves screenshots. Also opens Daily Trick Shot and solves one.
+// page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
+// and follows a Bracket of Legends from picks to the final.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -271,6 +272,33 @@ try {
     console.log("fight of the day end:", await waitForLog(logs, "MATCH_END", 90000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
+    await page.close();
+  }
+
+  // 9. Bracket of Legends: pick a champion while picks are open, then on
+  // final day open the final and watch its first game.
+  {
+    const { page, logs } = await openGame("?mode=bracket&today=2026-10-14&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN bracket", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "champ_laser", "bracket");
+    await page.screenshot({ path: path.join(shots, "16-bracket-picks.png") });
+    await page.close();
+  }
+  {
+    const { page, logs } = await openGame("?mode=bracket&today=2026-10-25&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN bracket", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "17-bracket-final-day.png") });
+    await tapUi(page, logs, "match_0_0", "sheet");
+    await page.screenshot({ path: path.join(shots, "18-bracket-series.png") });
+    await tapUi(page, logs, "game_0");
+    console.log("bracket game:", await waitForLog(logs, "FIGHT_START", 5000));
+    console.log("bracket game end:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "19-bracket-game-result.png") });
     await page.close();
   }
 } catch (e) {

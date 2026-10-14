@@ -15,6 +15,7 @@ const SCREENS := {
 	"bag": preload("res://game/ui/screens/bag_screen.gd"),
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
+	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
@@ -23,10 +24,14 @@ const TAB_HEIGHT := 128.0
 ## Emitted when the player starts a quick fight from the Play tab.
 signal play_requested
 ## Emitted to watch a fight in the arena, e.g. the Fight of the Day. `fight`
-## has p1, p2, seed, angles and pick (the side the player called).
+## has p1, p2, seed, angles and pick (the side the player called, or -1), and
+## optionally board_title, return_to (the screen to come back to, default "week")
+## and return_params.
 signal watch_requested(fight: Dictionary)
 
 var profile = UiProfile.sample()
+## The online backend (game/online/backend.gd), or null in tests.
+var backend = null
 var current := ""
 var current_params := {}
 var _stack: Array = []
@@ -170,7 +175,10 @@ func sheet(content: Control) -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	panel.position.y = size.y
 	var h := panel.get_combined_minimum_size().y
-	create_tween().tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	var tw := create_tween()
+	tw.tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Report again once it has slid in, so the smoke test taps where buttons ended up.
+	tw.finished.connect(func(): _report("sheet"))
 
 
 ## Register a control so the smoke test can find and tap it ("UI_AT name x y").

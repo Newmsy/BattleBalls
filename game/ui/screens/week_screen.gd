@@ -9,6 +9,8 @@ const Roster := preload("res://game/ui/roster.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Legends := preload("res://game/legends.gd")
+const BracketScreen := preload("res://game/ui/screens/bracket_screen.gd")
 
 const SAVE_PATH := "user://this_week.cfg"
 const TRICK_SAVE := "user://trick_shot.cfg"
@@ -31,6 +33,9 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(_strip(t))
 	root.add_child(_trick_shot(shell))
 	root.add_child(_fight(shell, t))
+	var bracket := BracketScreen.board_card(shell, t)
+	if bracket != null:
+		root.add_child(bracket)
 	var counters := []
 	root.add_child(_spotlight(shell, t, counters))
 	root.add_child(_chaos(t, counters))
@@ -223,7 +228,7 @@ static func banner(shell) -> Control:
 	var v := Kit.vbox(6, [
 		Kit.hbox(8, [Kit.caption(top, Color("e8c8ff")), Kit.spacer(), Kit.label("Open ›", 22, Kit.ACCENT)]),
 		Kit.label(chaos, 26, CHAOS, HORIZONTAL_ALIGNMENT_LEFT, true),
-		Kit.label("Trick Shot · Fight of the Day · %s Spotlight" % s.name, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label("Trick Shot · Fight of the Day · %s" % ("Bracket of Legends" if not Legends.current(t).is_empty() else "%s Spotlight" % s.name), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
 	var b := Kit.card_button(v, func(): shell.go("week"), Color("6b3fb0"), Color("1c1040"), 36, 24)
 	shell.mark("thisweek", b)

@@ -27,11 +27,15 @@ All dates are `YYYY-MM-DD`, UTC. Weeks start Monday 00:00 UTC.
 | `spotlight` | `{week, critter, blurb}` | `week` is a Monday; `critter` is any roster id (`game/ui/roster.gd`). It takes half the rolls of its rarity in the Summon Portal. |
 | `chaos` | `{weekend, modifier}` | `weekend` is the Friday; `modifier` is an id from `sim/modifiers.gd` (design/events.md). |
 | `fights` | `{date, p1, p2, seed, angles?, title?}` | Optional showcase fights; `p1`/`p2` must be playable in the sim. Days without one get a close fight generated from the date. |
+| `brackets` | `{week, seed, name?, entrants?}` | Bracket of Legends (`game/legends.gd`, `sim/bracket.gd`). `week` is the Monday of the week its rounds come out; picks open the Monday before. `entrants` (2 to 64 playable ids) defaults to every playable critter in the build. A season with no entry gets one in its last week. |
 
 ## Planning a season
 
 1. Add the season, its seven Spotlight weeks and seven Chaos weekends.
-2. Optionally pin showcase fights (find a good seed with `?p1=..&p2=..&seed=..&auto=1`).
-3. `tests/run.sh` checks the file (`test_liveops.gd`). Merge; the next deploy
+2. Optionally schedule the season's Bracket of Legends (otherwise it runs in
+   the last week). Once store builds exist, list `entrants` before picks open
+   so an old build can't run a different field.
+3. Optionally pin showcase fights (find a good seed with `?p1=..&p2=..&seed=..&auto=1`).
+4. `tests/run.sh` checks the file (`test_liveops.gd`). Merge; the next deploy
    serves it.
-4. Preview any day on the board with `?today=2026-11-20`.
+5. Preview any day on the board with `?today=2026-11-20`.

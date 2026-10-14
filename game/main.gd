@@ -80,6 +80,9 @@ var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
 var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
+## The board fight being watched (Fight of the Day, a Bracket of Legends game):
+## its title and the screen to go back to. Empty otherwise.
+var _board := {}
 
 static var _mode_redirected := false
 
@@ -115,6 +118,10 @@ func _ready() -> void:
 		# Shared fight links open straight on their menu; everyone else starts at home.
 		if mode == Mode.NORMAL and link_error == "":
 			_show_home()
+			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
+			if _read_url_params().get("mode", "") == "bracket":
+				shell.go("week")
+				shell.go("bracket")
 	if link_error != "":
 		info_label.text = link_error
 	_go_online()
@@ -240,7 +247,7 @@ func _start_fight() -> void:
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
-		info_label.text = ("Fight of the Day: " if _board_pick >= 0 else "Shared fight: ") + info_label.text
+		info_label.text = (_board.title + ": " if not _board.is_empty() else "Shared fight: ") + info_label.text
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -414,8 +421,9 @@ func _build_shell() -> void:
 	shell = Shell.new()
 	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _show_menu())
 	shell.watch_requested.connect(_watch_board_fight)
+	shell.backend = backend
 	shell_layer.add_child(shell)
-	LiveOps.fetch(self, func(): if shell.current in ["play", "week"]: shell.refresh())
+	LiveOps.fetch(self, func(): if shell.current in ["play", "week", "bracket"]: shell.refresh())
 
 
 func _show_home() -> void:
@@ -536,7 +544,7 @@ func _again() -> void:
 
 
 func _on_challenge_button() -> void:
-	if _board_pick >= 0:
+	if not _board.is_empty():
 		_back_to_board()
 	elif mode == Mode.REPLAY:
 		_play_normal()
@@ -547,8 +555,8 @@ func _on_challenge_button() -> void:
 func _label_result_buttons() -> void:
 	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot"}[mode]
 	challenge_button.text = "Play my own" if mode == Mode.REPLAY else "Challenge friend"
-	if _board_pick >= 0:
-		challenge_button.text = "This Week"
+	if not _board.is_empty():
+		challenge_button.text = "Bracket" if _board.return_to == "bracket" else "This Week"
 	share_button.text = "Send result" if mode == Mode.CHALLENGE else "Share fight"
 	report_row.visible = mode != Mode.REPLAY
 
@@ -557,6 +565,7 @@ func _label_result_buttons() -> void:
 func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> void:
 	mode = Mode.CHALLENGE
 	_board_pick = -1
+	_board = {}
 	opponent_choice = ball
 	opponent_type = ball
 	seed_value = challenge_seed
@@ -567,6 +576,7 @@ func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> v
 ## Back to picking both balls, dropping any link the page was opened with.
 func _play_normal() -> void:
 	_board_pick = -1
+	_board = {}
 	if mode != Mode.NORMAL:
 		opponent_choice = OPPONENT_RANDOM
 	mode = Mode.NORMAL
@@ -588,14 +598,18 @@ func _watch_board_fight(f: Dictionary) -> void:
 	aim = f.angles[0]
 	foe_aim = f.angles[1]
 	_board_pick = f.pick
+	_board = {"title": f.get("board_title", "Fight of the Day"), "return_to": f.get("return_to", "week"), "return_params": f.get("return_params", {})}
 	_start_fight()
 
 
 func _back_to_board() -> void:
+	var from := _board
 	_play_normal()
 	_show_home()
 	shell.show_tab("play")
 	shell.go("week")
+	if from.return_to != "week":
+		shell.go(from.return_to, from.return_params)
 
 
 func _label(text: String, font_size: int) -> Label:

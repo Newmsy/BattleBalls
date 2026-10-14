@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": 1,
+  "revision": 2,
   "seasons": [
     {"name": "Preseason", "start": "2026-10-12", "weeks": 7}
   ],
@@ -22,5 +22,8 @@
     {"weekend": "2026-11-20", "modifier": "hyper_speed"},
     {"weekend": "2026-11-27", "modifier": "closing_walls"}
   ],
-  "fights": []
+  "fights": [],
+  "brackets": [
+    {"week": "2026-10-19", "seed": 20261019, "name": "Preseason Bracket of Legends"}
+  ]
 }
