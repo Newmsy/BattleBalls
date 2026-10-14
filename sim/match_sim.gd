@@ -2,16 +2,22 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], arena: String }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2], arena: String }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
-## or null to let the seed pick one. `arena` is an id from sim/arenas.gd
-## (default "square").
+## or null to let the seed pick one. `starts` (optional) overrides the start
+## corners with arena positions; random aims still centre on the corners.
+## `hp` (optional) sets each ball's starting HP (null = full), for relays
+## where a winner stays in with what it has left. `arena` (optional) is an id
+## from sim/arenas.gd (default "square").
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Arenas := preload("res://sim/arenas.gd")
 
+## Bump whenever a change alters fight outcomes (i.e. golden replays are
+## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
+const RULES_VERSION := 1
 const TICK_RATE := 60
 const DT := 1.0 / TICK_RATE
 const ARENA_SIZE := 1000.0
@@ -104,6 +110,8 @@ func _init(cfg: Dictionary) -> void:
 	rng = Rng.new(int(cfg.get("seed", 1)))
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	var angles: Array = cfg.get("angles", [null, null])
+	var starts: Array = cfg.get("starts", START_CORNERS)
+	var start_hp: Array = cfg.get("hp", [null, null])
 	for i in 2:
 		var def := BallDefs.get_def(types[i])
 		var b := Ball.new()
@@ -112,10 +120,10 @@ func _init(cfg: Dictionary) -> void:
 		b.def = def
 		b.radius = def.radius
 		b.speed = def.speed
-		b.hp = def.hp
 		b.max_hp = def.hp
+		b.hp = def.hp if start_hp[i] == null else clampf(float(start_hp[i]), 0.01, def.hp)
 		b.contact_damage = def.contact_damage
-		b.pos = START_CORNERS[i]
+		b.pos = starts[i]
 		# Always draw from the rng so a given aim doesn't shift later rolls.
 		var random_aim: int = AIM_AT_CENTRE[i] + rng.range_int(-RANDOM_AIM_SPREAD, RANDOM_AIM_SPREAD)
 		var aim: int = random_aim if angles[i] == null else int(angles[i])

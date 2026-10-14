@@ -31,6 +31,7 @@ const BUMPER := Color("ff6fae")
 const BUMPER_FLASH_LIFE := 0.2
 
 var sim: MatchSim
+var team_tags: Array = TEAM_TAGS ## Labels under each ball; a shared replay uses P1/P2.
 var view_scale := 0.68
 ## Launch aim preview for the player's ball (world direction), or ZERO to hide.
 var aim_dir := Vector2.ZERO
@@ -283,7 +284,7 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	draw_set_transform(shake)
 	draw_arc(pos, r + 9.0, 0, TAU, 64, Color(team_col, 0.18), 9.0, true)
 	draw_arc(pos, r + 7.0, 0, TAU, 64, Color(team_col, 0.85), 2.5, true)
-	_text_centered(pos + Vector2(0, r + 26.0), TEAM_TAGS[i], 17, team_col, 4)
+	_text_centered(pos + Vector2(0, r + 26.0), team_tags[i], 17, team_col, 4)
 
 	var ang := look.angle()
 	var sq: float = _squash[i] * 1.6

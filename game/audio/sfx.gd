@@ -53,6 +53,12 @@ var _heartbeat_in := 0.0
 var _rng := RandomNumberGenerator.new() ## Render-side only: never the sim's.
 var _clock := 0.0
 var _toggle: Button
+## Raise the mute toggle by this much, e.g. to clear the home screen's tab bar.
+var toggle_lift := 0.0:
+	set(v):
+		toggle_lift = v
+		if _toggle:
+			_place_toggle()
 var _board: Control
 
 
@@ -303,7 +309,7 @@ func _build_toggle() -> void:
 func _place_toggle() -> void:
 	var size := get_viewport().get_visible_rect().size
 	_toggle.size = Vector2(170, 56)
-	_toggle.position = Vector2(size.x - 182, size.y - 66)
+	_toggle.position = Vector2(size.x - 182, size.y - 66 - toggle_lift)
 	if _board:
 		_board.size = size
 
