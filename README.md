@@ -24,6 +24,7 @@ godot --headless --import                                   # once, after clonin
 GODOT=godot tests/run.sh                                    # all tests
 godot --headless --script res://tools/balance.gd -- --fights=200 --power-step
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
+godot --headless --script res://tools/spire_curve.gd        # The Spire's floor power curve
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
 DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS tests on an empty Postgres

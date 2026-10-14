@@ -41,6 +41,11 @@ static func build(shell, _params: Dictionary) -> Control:
 		"Call your walls, line up one launch and bank it in. Keep your streak going.", "Play today's shot", Color("ffd36b"),
 		func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")))
 
+	# The Spire: the weekly 50-floor tower (design/spire.md).
+	root.add_child(mode_card(shell, "spire", "Weekly · resets Monday", "The Spire",
+		"50 floors, one tower for everyone this week. Critters that fight get tired, so the whole collection climbs.", "Climb the Spire", Color("ffc23d"),
+		func(): shell.go("spire")))
+
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)

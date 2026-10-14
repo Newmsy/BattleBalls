@@ -1,6 +1,7 @@
 // Smoke test for the web build: boots it in a phone-sized headless Chromium,
 // plays one auto fight and one fight through the real menu, fails on any
-// page error, and saves screenshots. Also opens Daily Trick Shot and solves one.
+// page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
+// and climbs the first floor of The Spire.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -288,6 +289,32 @@ try {
     console.log("fight of the day end:", await waitForLog(logs, "MATCH_END", 90000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
+    await page.close();
+  }
+
+  // 9. The Spire: open it from its link, pick a critter, climb floor 1 and
+  // come back to the Spire screen.
+  {
+    const { page, logs } = await openGame("?mode=spire&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN spire", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "16-spire.png") });
+    await tapUi(page, logs, "spire_pick_vampire", "spire");
+    await tapUi(page, logs, "spire_climb");
+    console.log("spire:", await waitForLog(logs, "SPIRE_READY", 10000));
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "SpireFight");
+    await tapUi(page, logs, "SpireLaunch");
+    await tapUi(page, logs, "SpireSkip");
+    console.log("spire result:", await waitForLog(logs, "SPIRE_RESULT", 30000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "17-spire-result.png") });
+    const back = logs.length;
+    await tapUi(page, logs, "SpireBack");
+    await waitForLogAfter(logs, back, "UI_SCREEN spire", 30000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "18-spire-after.png") });
     await page.close();
   }
 } catch (e) {

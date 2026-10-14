@@ -15,6 +15,7 @@ const Sfx := preload("res://game/audio/sfx.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Friends := preload("res://game/online/friends.gd")
+const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 ## NORMAL: pick both balls. REPLAY: watching a shared fight. CHALLENGE: beating
@@ -125,6 +126,8 @@ func _ready() -> void:
 			_show_home()
 			if link_friend != "":
 				shell.go("friends")
+			elif SpireScreen.should_open(_read_url_params()):
+				shell.go("spire")
 	friends.changed.connect(func(): if state == State.RESULT: _label_result_buttons())
 	if link_friend != "":
 		friends.set_invite(link_friend)

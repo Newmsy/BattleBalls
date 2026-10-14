@@ -4,10 +4,13 @@
 ## ball comes out. A drawn leg knocks out both balls. The side with a ball
 ## left at the end wins.
 ##
-## Config: { seed: int, sides: [[type, ...], [type, ...]], aims: [[aim, ...], [aim, ...]] }
+## Config: { seed: int, sides: [[type, ...], [type, ...]], aims: [[aim, ...], [aim, ...]],
+##           powers: [[w, ...], [w, ...]], sizes: [[s, ...], [s, ...]] }
 ## `aims[side][slot]` is that ball's launch angle in tenths of a degree from
 ## its own corner (screen space), or null to let the leg seed pick. A ball
-## that stays in launches with the same aim again.
+## that stays in launches with the same aim again. `powers` and `sizes`
+## (optional) are per-ball MatchSim `powers` / `sizes` (progression and boss
+## scale); left out, legs use the MatchSim defaults.
 ##
 ## The game can drive it leg by leg (leg_config() -> run a MatchSim, maybe
 ## rendering it -> record_leg(sim)) or call run_to_end() headless; both give
@@ -51,13 +54,17 @@ func _init(cfg: Dictionary) -> void:
 ## order, so a relay is reproducible from its config alone.
 func leg_config() -> Dictionary:
 	assert(not finished, "Relay already finished")
-	return {
+	var leg := {
 		"seed": _leg_seed(legs.size()),
 		"p1": sides[0][slot[0]],
 		"p2": sides[1][slot[1]],
 		"angles": [aims[0][slot[0]], aims[1][slot[1]]],
 		"hp": carry_hp.duplicate(),
 	}
+	for key in ["powers", "sizes"]:
+		if config.has(key):
+			leg[key] = [config[key][0][slot[0]], config[key][1][slot[1]]]
+	return leg
 
 
 ## Records a finished leg and brings out the next balls.

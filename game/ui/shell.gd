@@ -18,6 +18,7 @@ const SCREENS := {
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
+	"spire": preload("res://game/ui/screens/spire_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
