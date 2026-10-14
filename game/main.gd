@@ -7,6 +7,9 @@ extends Node2D
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const ArenaView := preload("res://game/arena_view.gd")
+const Backend := preload("res://game/online/backend.gd")
+const SaveGame := preload("res://game/online/save_game.gd")
+const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
 const Shell := preload("res://game/ui/shell.gd")
@@ -39,6 +42,12 @@ var foe_aim = null ## Opponent launch angle, or null to let the seed pick it.
 var link_error := ""
 var speed_index := 0
 var auto_start := false
+var url_picks := false ## URL params chose the balls: don't overwrite them from the save.
+
+var backend: Backend
+var save := SaveGame.new()
+var account_text := "" ## Guest name and trophies once signed in.
+var _count_fight := false ## The running fight came from the menu, not a replay or URL.
 
 var _accumulator := 0.0
 var _dragging := false
@@ -76,6 +85,11 @@ static var _mode_redirected := false
 func _ready() -> void:
 	_rng.randomize()
 	seed_value = _rng.randi_range(1, 99999)
+	backend = Backend.new()
+	add_child(backend)
+	save.app_version = VERSION
+	save.load_local()
+	_apply_picks()
 	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
 	if _read_url_params().get("mode", "") == "trickshot" and not _mode_redirected:
 		_mode_redirected = true
@@ -101,6 +115,7 @@ func _ready() -> void:
 			_show_home()
 	if link_error != "":
 		info_label.text = link_error
+	_go_online()
 
 
 func _process(delta: float) -> void:
@@ -206,10 +221,12 @@ func _pick_opponent() -> String:
 func _launch() -> void:
 	sfx.play("launch")
 	_start_fight()
+	_count_fight = true
 
 
 ## Starts (or replays) the fight described by the current config.
 func _start_fight() -> void:
+	_count_fight = false
 	sim = MatchSim.new(_config())
 	arena.sim = sim
 	arena.aim_dir = Vector2.ZERO
@@ -241,6 +258,9 @@ func _show_result() -> void:
 	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if mode == Mode.REPLAY else "You",
 		roundi(you.damage_dealt), (" and healed %d" % roundi(you.healed)) if you.healed > 0.0 else ""]
 	report_label.text = "Report code: " + _report_code()
+	if _count_fight:
+		_count_fight = false
+		_record_fight()
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 	_show_only(result_box)
 	sfx.on_result(sim.winner)
@@ -248,6 +268,68 @@ func _show_result() -> void:
 
 func _report_code() -> String:
 	return "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
+
+
+# --- Save and online ----------------------------------------------------------
+
+func _apply_picks() -> void:
+	var picks: Dictionary = save.data.picks
+	if str(picks.player) in BallDefs.PLAYABLE:
+		player_type = picks.player
+	if str(picks.opponent) in BallDefs.PLAYABLE + [OPPONENT_RANDOM]:
+		opponent_choice = picks.opponent
+	speed_index = clampi(int(picks.speed), 0, SPEEDS.size() - 1)
+
+
+func _record_fight() -> void:
+	save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
+	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
+	_sync_online()
+
+
+## Signs in (a guest the first time), syncs the save and refreshes the menu.
+## Offline or unconfigured, this does nothing and the game plays as before.
+func _go_online() -> void:
+	if not backend.enabled():
+		return
+	if await save.sync(backend) and not url_picks:
+		_apply_picks()
+		if state == State.MENU:
+			_refresh_menu()
+	if not await backend.ensure_session():
+		return
+	await _publish_lineup()
+	await _refresh_account()
+
+
+func _sync_online() -> void:
+	if not backend.enabled():
+		return
+	await save.push(backend)
+	await _publish_lineup()
+
+
+## Keeps this player's Ghost Arena defence in step with their current ball.
+## Nobody becomes a ghost before their first fight (so test runs and
+## drive-by visits don't fill the opponent pool with idle lineups).
+func _publish_lineup() -> void:
+	if int(save.data.stats.fights) == 0:
+		return
+	var lineup := GhostLineup.make([player_type], save.data.aim_offsets)
+	var key := JSON.stringify(lineup, "", true)
+	if key == str(save.data.published_lineup):
+		return
+	if await GhostLineup.publish(backend, lineup):
+		save.data.published_lineup = key
+		save.save_local()
+
+
+func _refresh_account() -> void:
+	var res: Dictionary = await backend.rest("GET", "/rest/v1/profiles?select=display_name,trophies&id=eq." + backend.user_id())
+	if res.ok and res.data is Array and not res.data.is_empty():
+		print("ONLINE_OK user=", backend.user_id().left(8))
+		account_text = "%s · %d trophies" % [res.data[0].display_name, int(res.data[0].trophies)]
+		stamp_label.text = _stamp_text()
 
 
 # --- UI ---------------------------------------------------------------------
@@ -268,7 +350,7 @@ func _build_ui() -> void:
 	info_label = _label("", 26)
 	info_label.add_theme_color_override("font_color", MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stamp_label = _label(_build_stamp(), 18)
+	stamp_label = _label(_stamp_text(), 18)
 	stamp_label.modulate = Color(1, 1, 1, 0.45)
 	stamp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 
@@ -639,6 +721,10 @@ func _build_stamp() -> String:
 	return "v%s %s" % [VERSION, commit]
 
 
+func _stamp_text() -> String:
+	return _build_stamp() + (" · " + account_text if account_text != "" else "")
+
+
 func _read_url_params() -> Dictionary:
 	if not OS.has_feature("web"):
 		return {}
@@ -649,9 +735,12 @@ func _read_url_params() -> Dictionary:
 		params[kv[0].uri_decode()] = kv[1].uri_decode() if kv.size() > 1 else ""
 	if params.get("p1", "") in BallDefs.PLAYABLE:
 		player_type = params.p1
+		url_picks = true
 	if params.get("p2", "") in BallDefs.PLAYABLE:
 		opponent_choice = params.p2
 		opponent_type = params.p2
+		url_picks = true
+	backend.disabled = params.get("offline", "") == "1"
 	if params.has("seed") and params.seed.is_valid_int():
 		seed_value = int(params.seed)
 	if params.has("aim") and params.aim.is_valid_int():
@@ -684,6 +773,8 @@ func _read_url_params() -> Dictionary:
 			seed_value = c.seed
 			foe_aim = FightLink.mirror_angle(c.aim)
 			auto_start = false
+	if mode != Mode.NORMAL:
+		url_picks = true
 	if auto_start and opponent_choice == OPPONENT_RANDOM:
 		opponent_type = _pick_opponent()
 	return params
