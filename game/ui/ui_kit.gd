@@ -4,6 +4,7 @@ extends RefCounted
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const Glyph := preload("res://game/ui/glyph.gd")
+const A11y := preload("res://game/a11y.gd")
 
 const BG := Color("0b0a1f")
 const PANEL := Color("141233")
@@ -26,7 +27,7 @@ const BUTTON_STYLES := {
 static func theme() -> Theme:
 	var t := Theme.new()
 	t.default_font = FONT
-	t.default_font_size = 26
+	t.default_font_size = A11y.font(26)
 	t.set_color("font_color", "Label", FG)
 	var empty := StyleBoxEmpty.new()
 	for s in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
@@ -49,7 +50,8 @@ static func box(bg: Color, border := Color(0, 0, 0, 0), radius := 32, border_w :
 static func label(text: String, size := 26, color := FG, align := HORIZONTAL_ALIGNMENT_LEFT, wrap := false) -> Label:
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_font_size_override("font_size", A11y.font(size))
+	l.set_meta("base_font", size)
 	l.add_theme_color_override("font_color", color)
 	l.horizontal_alignment = align
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -103,7 +105,8 @@ static func button(text: String, on_press: Callable, kind := "primary", font_siz
 	b.text = text.to_upper()
 	b.custom_minimum_size = Vector2(0, height)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.add_theme_font_size_override("font_size", font_size)
+	b.add_theme_font_size_override("font_size", A11y.font(font_size))
+	b.set_meta("base_font", font_size)
 	var cols: Array = BUTTON_STYLES[kind]
 	var normal := box(cols[0], LINE if kind == "ghost" else Color(0, 0, 0, 0), 26, 2, 12)
 	normal.shadow_color = cols[1]
