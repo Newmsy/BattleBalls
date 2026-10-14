@@ -45,6 +45,25 @@ jobs:
           set -o pipefail
           timeout 900 godot --headless --script res://tools/boon_balance.gd -- --fights=40 --strict | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
 
+  # Applies supabase/migrations to a plain Postgres with a stub of Supabase's
+  # auth schema and checks row-level security and the game's RPCs.
+  db:
+    name: Database tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Migrations, row-level security and RPC tests
+        run: tests/db/run.sh
+
   # One job builds, smoke-tests and deploys, so no Actions artifacts are needed.
   web:
     name: Web build, smoke test and preview
@@ -74,12 +93,49 @@ jobs:
           cp ~/godot/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
       - name: Stamp build
         run: echo "${{ github.event.pull_request.head.sha || github.sha }}" | cut -c1-7 > build_info.txt
+      # Only the public anon/publishable key may ship in the game: anyone can
+      # read it out of the web build. Row-level security protects the data.
+      - name: Online backend config (public key only)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::notice::SUPABASE_URL / SUPABASE_ANON_KEY secrets not set: this build plays offline."
+            exit 0
+          fi
+          python3 - <<'PY'
+          import base64, json, os, re, sys
+          # The dashboard's "API URL" can carry /rest/v1; the game wants the project root.
+          url = re.sub(r"/(rest|auth)/v1/?$", "", os.environ["SUPABASE_URL"].strip().rstrip("/"))
+          key = os.environ["SUPABASE_ANON_KEY"].strip()
+          def fail(msg):
+              print(f"::error::{msg}")
+              sys.exit(1)
+          if not url.startswith("https://"):
+              fail("SUPABASE_URL should look like https://<project>.supabase.co")
+          if key.startswith("sb_secret_"):
+              fail("SUPABASE_ANON_KEY is a secret key. Use the publishable (or legacy anon) key; never ship a secret key.")
+          if not key.startswith("sb_publishable_"):
+              parts = key.split(".")
+              try:
+                  claims = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+              except Exception:
+                  fail("SUPABASE_ANON_KEY is not a Supabase publishable or anon key")
+              if claims.get("role") != "anon":
+                  fail(f"SUPABASE_ANON_KEY has role {claims.get('role')!r}, expected 'anon'. Never ship the service_role key.")
+          with open("backend_config.json", "w") as f:
+              json.dump({"url": url, "anon_key": key}, f)
+          print("Backend config written for", url)
+          PY
       - name: Export
         run: |
           timeout 180 ~/godot/godot --headless --import || true
           mkdir -p build/web
           timeout 300 ~/godot/godot --headless --export-release "Web" build/web/index.html
           test -s build/web/index.wasm
+          # The live-ops schedule, served next to the game so builds can refresh it.
+          cp liveops/liveops.json build/web/liveops.json
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -128,7 +184,7 @@ jobs:
   # stays draft until its code review is done.
   automerge:
     name: Auto-merge
-    needs: [test, web]
+    needs: [test, db, web]
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
@@ -142,3 +198,35 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run ci.yml --repo "${{ github.repository }}" --ref main
+
+  # Pushes new supabase/migrations to the live project once they are on main.
+  # Skips (green) until the Supabase secrets exist.
+  migrate:
+    name: Apply database migrations
+    needs: [test, db]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the Supabase secrets
+        id: secrets
+        run: |
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_DB_PASSWORD" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Supabase secrets not set yet: migrations not applied."
+          fi
+      - uses: supabase/setup-cli@v1
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          version: latest
+      - name: Push migrations
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          ref=$(echo "$SUPABASE_URL" | sed -E 's#^ *https://([a-z0-9]+)\.supabase\.co.*#\1#')
+          supabase link --project-ref "$ref"
+          supabase db push

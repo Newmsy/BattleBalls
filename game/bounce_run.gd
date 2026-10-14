@@ -1,7 +1,8 @@
 ## Bounce Run: draft a trio, climb 8 floors, pick a boon after every win.
 ## The run comes from sim/bounce_run.gd and the UTC day; one ranked run a day
 ## posts to the shared leaderboard, then practice runs are unranked.
-## URL params: ?mode=bouncerun&day=3 (play another day's run, unranked).
+## URL params: ?mode=bouncerun&day=3 (play another day's run, unranked),
+## &offline=1 (never touch the leaderboard).
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -76,6 +77,8 @@ func _ready() -> void:
 	add_child(sfx)
 	board = BounceBoard.new()
 	add_child(board)
+	if params.get("offline", "") == "1" and board.backend != null:
+		board.backend.disabled = true
 	_build_ui()
 	if get_viewport():
 		get_viewport().size_changed.connect(_layout)

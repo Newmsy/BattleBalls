@@ -1,5 +1,5 @@
 ## Play tab (home): quick fight into the arena, your fighter, and what's coming
-## (the Neon Circuit campaign and the daily modes).
+## (the Neon Circuit campaign and the daily modes), and Daily Trick Shot.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -7,11 +7,13 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const BounceRun := preload("res://sim/bounce_run.gd")
+const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(26)
+	root.add_child(WeekScreen.banner(shell))
 
 	# Campaign card (the PvE thread is building zone 1).
 	var zone := Kit.vbox(10, [
@@ -35,17 +37,15 @@ static func build(shell, _params: Dictionary) -> Control:
 	])
 	root.add_child(Kit.panel(quick, Kit.box(Kit.PANEL, Kit.LINE, 40, 2, 30)))
 
-	# Bounce Run: the daily roguelite, open from day one (no power ladder).
-	var run_go := Kit.button("Play today's run", func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"), "go", 32, 96)
-	shell.mark("bouncerun", run_go)
+	# Daily Trick Shot: one called bank shot a day, open to everyone.
+	root.add_child(mode_card(shell, "trickshot", "Daily · new puzzle every day", "Trick Shot",
+		"Call your walls, line up one launch and bank it in. Keep your streak going.", "Play today's shot", Color("ffd36b"),
+		func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")))
+	# Bounce Run: the daily roguelite, open from day one (equal power, no ladder).
 	var run_day := BounceRun.day_number(Time.get_unix_time_from_system())
-	var bounce := Kit.vbox(12, [
-		Kit.hbox(0, [Kit.caption("Daily event", Color("ffc23d")), Kit.spacer(), Kit.label("Same run for everyone", 22, Kit.MUTED)]),
-		Kit.label("Bounce Run #%d" % run_day, 40),
-		Kit.label("Draft 3 critters, climb 8 floors, grab a boon after every win. Equal power, one daily leaderboard.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
-		run_go,
-	])
-	root.add_child(Kit.panel(bounce, Kit.box(Color("2a1a40"), Color("ffc23d"), 40, 2, 30)))
+	root.add_child(mode_card(shell, "bouncerun", "Daily event · same run for everyone", "Bounce Run #%d" % run_day,
+		"Draft 3 critters, climb 8 floors, grab a boon after every win. Equal power, one daily leaderboard.", "Play today's run", Color("ffc23d"),
+		func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")))
 
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
@@ -69,3 +69,13 @@ static func build(shell, _params: Dictionary) -> Control:
 		modes.add_child(card)
 	root.add_child(Kit.vbox(12, [Kit.caption("Daily modes"), modes]))
 	return root
+
+
+## A full-width mode card: caption, title, one line of text and a button.
+## Other modes (Bounce Run, Arena...) add one line each with this. The button
+## is registered as `mark` for the smoke test.
+static func mode_card(shell, mark: String, caption: String, title: String, text: String, button_text: String, accent: Color, on_press: Callable) -> Control:
+	var btn := Kit.button(button_text, on_press, "primary", 30, 90)
+	shell.mark(mark, btn)
+	var v := Kit.vbox(10, [Kit.caption(caption, accent), Kit.label(title, 40), Kit.label(text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
+	return Kit.panel(v, Kit.box(accent.darkened(.82), accent.darkened(.5), 40, 2, 30))

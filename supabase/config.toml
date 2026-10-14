@@ -1,0 +1,3 @@
+# Supabase CLI project config. CI only uses it to `supabase link` and
+# `supabase db push` the migrations in supabase/migrations to the live project.
+project_id = "battleballs"

@@ -3,3 +3,5 @@ build/
 node_modules/
 smoke/screenshots/
 *.tmp
+# Written by CI from the SUPABASE_* secrets; local builds play offline.
+backend_config.json
