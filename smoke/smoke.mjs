@@ -149,6 +149,14 @@ try {
     await page.waitForTimeout(2000);
     await page.screenshot({ path: path.join(shots, "3i-reveal.png") });
     await tapUi(page, logs, "reveal_done", "summon");
+    // Accessibility settings: open the sheet, try Larger text, then put it back.
+    await tapUi(page, logs, "settings", "sheet");
+    await page.screenshot({ path: path.join(shots, "3j-settings.png") });
+    await tapUi(page, logs, "a11y_large_text", "sheet");
+    await page.screenshot({ path: path.join(shots, "3j-settings-large-text.png") });
+    await tapUi(page, logs, "a11y_large_text", "sheet");
+    await page.mouse.click(...toPage(page, 360, 120));
+    await page.waitForTimeout(400);
     await tapUi(page, logs, "tab_play", "play");
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "3-menu.png") });
