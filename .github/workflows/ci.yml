@@ -93,10 +93,10 @@ jobs:
         if: env.VERCEL_TOKEN != ''
         working-directory: build/web
         run: |
-          npx --yes vercel@39.4.2 link --yes --project battleballs --token "$VERCEL_TOKEN"
+          npx --yes vercel@60.1.3 link --yes --project battleballs --token "$VERCEL_TOKEN"
           prod=""
           if [ "${{ github.event_name }}" != "pull_request" ]; then prod="--prod"; fi
-          url=$(npx --yes vercel@39.4.2 deploy --yes $prod --token "$VERCEL_TOKEN")
+          url=$(npx --yes vercel@60.1.3 deploy --yes $prod --token "$VERCEL_TOKEN")
           echo "Deployed: $url"
           echo "url=$url" >> "$GITHUB_OUTPUT"
       - name: Comment preview link on the PR
