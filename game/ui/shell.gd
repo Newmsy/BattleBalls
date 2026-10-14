@@ -7,6 +7,8 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
+const Friends := preload("res://game/online/friends.gd")
+const FightLink := preload("res://game/fight_link.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -17,6 +19,7 @@ const SCREENS := {
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 	"arena": preload("res://game/ui/screens/arena_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
+	"friends": preload("res://game/ui/screens/friends_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
@@ -27,6 +30,17 @@ signal play_requested
 ## Emitted to watch a fight in the arena, e.g. the Fight of the Day. `fight`
 ## has p1, p2, seed, angles and pick (the side the player called).
 signal watch_requested(fight: Dictionary)
+## A friend's Rematch button: fight their saved team (unranked).
+signal rival_requested(friend: Dictionary)
+## A share button was tapped (kind as registered with share_link).
+signal share_tapped(kind: String)
+## The current screen's share buttons moved (see share_targets).
+signal share_layout_changed
+
+## Friends state (game/online/friends.gd). main.gd swaps in one with the backend.
+var friends = Friends.new()
+## Where invite links point: main.gd sets the page's own address on the web.
+var link_base := FightLink.HOME
 
 var profile = UiProfile.sample()
 var current := ""
@@ -43,6 +57,7 @@ var _toast_tween: Tween
 var _marks := {}
 var _built := false
 var _overlay: Control
+var _share := {} ## kind -> {button, url, text} on the current screen.
 
 
 func _ready() -> void:
@@ -78,6 +93,7 @@ func build() -> void:
 	_toast.modulate.a = 0.0
 	add_child(_toast)
 	profile.changed.connect(_refresh_top)
+	set_friends(friends)
 	resized.connect(func(): if current != "": refresh())
 	show_tab("play")
 	# Coming back from a Ghost Arena fight lands on the Arena again.
@@ -146,10 +162,15 @@ func overlay(c: Control, tag := "overlay") -> void:
 	_report.call_deferred(tag)
 
 
+func overlay_open() -> bool:
+	return _overlay.mouse_filter == Control.MOUSE_FILTER_STOP
+
+
 func close_overlay() -> void:
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for c in _overlay.get_children():
 		c.queue_free()
+	share_layout_changed.emit()
 
 
 ## A bottom sheet over a dimmed screen; tapping the dim area closes it.
@@ -179,6 +200,38 @@ func sheet(content: Control) -> void:
 	create_tween().tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
+func set_friends(f) -> void:
+	if friends.changed.is_connected(_on_friends_changed):
+		friends.changed.disconnect(_on_friends_changed)
+	friends = f
+	friends.changed.connect(_on_friends_changed)
+
+
+func _on_friends_changed() -> void:
+	if current in ["friends", "play"] and not overlay_open():
+		refresh()
+	elif current != "":
+		_refresh_top()
+
+
+## Register a button as a share target. On the web the page shares `url` from
+## inside the tap itself (browsers require that); see main.gd's share links.
+func share_link(kind: String, button: Control, url: String, text: String) -> void:
+	_share[kind] = {"button": button, "url": url, "text": text}
+
+
+## [{kind, url, text, rect}] for the visible share buttons, in screen pixels.
+func share_targets() -> Array:
+	var out := []
+	if overlay_open():
+		return out
+	for kind in _share:
+		var t: Dictionary = _share[kind]
+		if is_instance_valid(t.button) and t.button.is_visible_in_tree():
+			out.append({"kind": kind, "url": t.url, "text": t.text, "rect": t.button.get_global_rect()})
+	return out
+
+
 ## Register a control so the smoke test can find and tap it ("UI_AT name x y").
 func mark(name: String, c: Control) -> void:
 	_marks[name] = c
@@ -198,6 +251,7 @@ func _show(name: String, params: Dictionary) -> void:
 	current = name
 	current_params = params
 	_marks.clear()
+	_share.clear()
 	for c in _holder.get_children():
 		c.queue_free()
 	_scroll = ScrollContainer.new()
@@ -206,7 +260,7 @@ func _show(name: String, params: Dictionary) -> void:
 	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	_holder.add_child(_scroll)
 	# Re-log control positions after a scroll so the smoke test can tap below the fold.
-	_scroll.get_v_scroll_bar().value_changed.connect(func(_v): _report.call_deferred(name))
+	_scroll.get_v_scroll_bar().value_changed.connect(func(_v): if _overlay.get_child_count() == 0: _report.call_deferred(name))
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Phones fill the width; wide screens keep a phone-width column in the middle.
@@ -230,6 +284,7 @@ func _report(name: String) -> void:
 	if name != current and name not in ["overlay", "sheet", "reveal"]:
 		return
 	print("UI_SCREEN ", name)
+	share_layout_changed.emit()
 	var all := _marks.duplicate()
 	for t in _tab_buttons:
 		all["tab_" + t] = _tab_buttons[t]
@@ -276,6 +331,7 @@ func _refresh_top() -> void:
 	_top_labels.coin.text = Kit.commas(profile.coins)
 	_top_labels.orb.text = str(profile.orbs)
 	_dots.fuse.visible = not profile.ready_to_fuse().is_empty()
+	_dots.play.visible = friends.attention() > 0
 
 
 # --- Tab bar -------------------------------------------------------------------

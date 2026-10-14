@@ -106,6 +106,17 @@ key) into the web build from repo secrets; without them the build is offline.
   tests in `tests/db/`. They reach the live project when merged to `main`.
 - `?offline=1` runs the web build without touching the backend.
 
+### Friends
+
+`game/online/friends.gd` + `game/ui/screens/friends_screen.gd`, tables and
+RPCs in `supabase/migrations/*_friends.sql`. Every player has an 8-character
+friend code; invite links are `?f=<code>`, and signed-in players' replay and
+challenge links carry `&f=<code>` so the receiver can add them. Friends can
+rematch each other's saved Ghost Arena lineup (unranked, only a head-to-head
+record moves), send one energy gift a day (2 energy; up to 10 gifts claimed a
+day; the server sets the amount) and send **preset phrases only**, never free
+text (Newms, 2026-10-14). `?demo=friends` shows sample friends with no server.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
