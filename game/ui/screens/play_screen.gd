@@ -51,6 +51,8 @@ static func build(shell, _params: Dictionary) -> Control:
 	var fighter := Kit.card_button(row, func(): shell.go("detail", {"id": p.lineup}), Color("3a3480"), Kit.PANEL2, 32, 18)
 	root.add_child(Kit.vbox(12, [Kit.hbox(0, [Kit.caption("Your fighter"), Kit.spacer(), Kit.label("Zone 1 is 1v1", 22, Kit.MUTED)]), fighter]))
 
+	root.add_child(_friends_card(shell))
+
 	# Daily modes, locked until zone 1 is cleared.
 	var modes := GridContainer.new()
 	modes.columns = 3
@@ -73,3 +75,26 @@ static func mode_card(shell, mark: String, caption: String, title: String, text:
 	shell.mark(mark, btn)
 	var v := Kit.vbox(10, [Kit.caption(caption, accent), Kit.label(title, 40), Kit.label(text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
 	return Kit.panel(v, Kit.box(accent.darkened(.82), accent.darkened(.5), 40, 2, 30))
+
+
+## Friends: a count and whatever is waiting (requests, energy gifts).
+static func _friends_card(shell) -> Control:
+	var fr = shell.friends
+	var line := "Add friends, gift energy and rematch their teams."
+	if fr.status == "ready":
+		var bits := ["%d friend%s" % [fr.friends().size(), "" if fr.friends().size() == 1 else "s"]]
+		if not fr.incoming().is_empty():
+			bits.append("%d request%s" % [fr.incoming().size(), "" if fr.incoming().size() == 1 else "s"])
+		if fr.gifts_claimable > 0:
+			bits.append("%d gift%s waiting" % [fr.gifts_claimable, "" if fr.gifts_claimable == 1 else "s"])
+		line = " · ".join(bits)
+	elif not fr.enabled():
+		line = "Go online to add friends."
+	var text := Kit.vbox(4, [Kit.label("Friends", 32), Kit.label(line, 22, Kit.GOOD if fr.attention() > 0 else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var bolt := Glyph.make("energy", 56, Color("5ce1ff"))
+	bolt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var row := Kit.hbox(16, [bolt, text, Kit.chip("Open", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
+	var card := Kit.card_button(row, func(): shell.go("friends"), Color("5ce1ff") if fr.attention() > 0 else Kit.LINE, Kit.PANEL, 32, 18)
+	shell.mark("friends", card)
+	return card

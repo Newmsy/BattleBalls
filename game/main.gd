@@ -15,11 +15,13 @@ const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
+const Friends := preload("res://game/online/friends.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 ## NORMAL: pick both balls. REPLAY: watching a shared fight. CHALLENGE: beating
-## a friend's ball and shot.
-enum Mode { NORMAL, REPLAY, CHALLENGE }
+## a friend's ball and shot. RIVAL: an unranked rematch against a friend's
+## saved team (their Ghost Arena lineup, aimed the way they usually aim).
+enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL }
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const ACCENT := Color("8f7bff")
@@ -52,6 +54,9 @@ var url_picks := false ## URL params chose the balls: don't overwrite them from 
 var backend: Backend
 var save := SaveGame.new()
 var account_text := "" ## Guest name and trophies once signed in.
+var friends: Friends
+var rival := {} ## The friend entry a RIVAL fight is against.
+var link_friend := "" ## Friend code from the link the page was opened with (&f=).
 var _count_fight := false ## The running fight came from the menu, not a replay or URL.
 
 var _accumulator := 0.0
@@ -81,6 +86,8 @@ var again_button: Button
 var share_button: Button
 var challenge_button: Button
 var report_row: HBoxContainer
+var friend_row: HBoxContainer
+var friend_button: Button
 var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
@@ -95,6 +102,7 @@ func _ready() -> void:
 	modifier = _weekend_modifier()
 	backend = Backend.new()
 	add_child(backend)
+	friends = Friends.new(backend)
 	save.app_version = VERSION
 	save.load_local()
 	_apply_picks()
@@ -121,6 +129,11 @@ func _ready() -> void:
 		# Shared fight links open straight on their menu; everyone else starts at home.
 		if mode == Mode.NORMAL and link_error == "":
 			_show_home()
+			if link_friend != "":
+				shell.go("friends")
+	friends.changed.connect(func(): if state == State.RESULT: _label_result_buttons())
+	if link_friend != "":
+		friends.set_invite(link_friend)
 	if link_error != "":
 		info_label.text = link_error
 	_go_online()
@@ -197,13 +210,16 @@ func _refresh_menu() -> void:
 		player_buttons[id].button_pressed = id == player_type
 	for id in opponent_buttons:
 		opponent_buttons[id].button_pressed = id == opponent_choice
-		opponent_buttons[id].disabled = mode == Mode.CHALLENGE
+		opponent_buttons[id].disabled = mode in [Mode.CHALLENGE, Mode.RIVAL]
 	new_seed_button.disabled = mode == Mode.CHALLENGE
 	seed_label.text = "Seed %d" % seed_value
 	rules_button.text = Modifiers.display_name(modifier)
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
-	if mode == Mode.CHALLENGE:
+	if mode == Mode.RIVAL:
+		info_label.text = "RIVAL! %s's %s is waiting. Pick a ball and beat it (just for fun)." % \
+			[rival.name, BallDefs.get_def(opponent_type).display_name]
+	elif mode == Mode.CHALLENGE:
 		info_label.text = "CHALLENGE! Your friend's %s has its shot lined up. Pick a ball and beat it." % \
 			BallDefs.get_def(opponent_type).display_name
 	if modifier != Modifiers.NONE:
@@ -215,6 +231,8 @@ func _refresh_menu() -> void:
 
 func _begin_aim() -> void:
 	opponent_type = _pick_opponent()
+	if mode == Mode.RIVAL:
+		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
 	aim = MatchSim.AIM_AT_CENTRE[0]
 	arena.clear_effects()
@@ -294,6 +312,8 @@ func _show_result() -> void:
 	report_label.text = "Report code: " + _report_code()
 	if _board_pick >= 0:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
+	if mode == Mode.RIVAL and _count_fight:
+		_record_rival()
 	if _count_fight:
 		_count_fight = false
 		_record_fight()
@@ -337,6 +357,9 @@ func _go_online() -> void:
 		return
 	await _publish_lineup()
 	await _refresh_account()
+	await friends.refresh()
+	if state == State.RESULT:
+		_label_result_buttons()
 
 
 func _sync_online() -> void:
@@ -436,6 +459,10 @@ func _build_ui() -> void:
 		_button("Change balls", _play_normal),
 	])
 	result_box.add_child(report_row)
+	friend_button = _button("Add as a friend", _add_link_friend, 26)
+	friend_row = _row([friend_button])
+	friend_row.visible = false
+	result_box.add_child(friend_row)
 
 
 	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
@@ -448,8 +475,13 @@ func _build_shell() -> void:
 	shell_layer.visible = false
 	add_child(shell_layer)
 	shell = Shell.new()
-	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _show_menu())
+	shell.friends = friends
+	shell.link_base = _link_base()
+	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _play_normal())
 	shell.watch_requested.connect(_watch_board_fight)
+	shell.rival_requested.connect(_start_rival)
+	shell.share_tapped.connect(_on_shell_share)
+	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
 	LiveOps.fetch(self, func(): if shell.current in ["play", "week"]: shell.refresh())
 
@@ -457,6 +489,7 @@ func _build_shell() -> void:
 func _show_home() -> void:
 	shell_layer.visible = true
 	sfx.toggle_lift = Shell.TAB_HEIGHT
+	_sync_share_targets()
 
 
 ## Portrait stacks arena over controls; wide screens put controls beside the
@@ -567,6 +600,9 @@ func _again() -> void:
 			_begin_aim()
 		Mode.CHALLENGE:
 			_begin_aim()
+		Mode.RIVAL:
+			seed_value = _rng.randi_range(1, 99999)
+			_begin_aim()
 		Mode.REPLAY:
 			_take_challenge(player_type, seed_value, sim.launch_angles[0])
 
@@ -576,17 +612,65 @@ func _on_challenge_button() -> void:
 		_back_to_board()
 	elif mode == Mode.REPLAY:
 		_play_normal()
+	elif mode == Mode.RIVAL:
+		_show_home()
+		if shell.current != "friends":
+			shell.go("friends")
 	else:
 		_share("c")
 
 
 func _label_result_buttons() -> void:
-	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot"}[mode]
-	challenge_button.text = "Play my own" if mode == Mode.REPLAY else "Challenge friend"
+	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch"}[mode]
+	challenge_button.text = {Mode.REPLAY: "Play my own", Mode.RIVAL: "Friends"}.get(mode, "Challenge friend")
 	if _board_pick >= 0:
 		challenge_button.text = "This Week"
 	share_button.text = "Send result" if mode == Mode.CHALLENGE else "Share fight"
-	report_row.visible = mode != Mode.REPLAY
+	# A link from someone who isn't a friend yet offers to add them, in place
+	# of the report row (there's only room for one).
+	friend_row.visible = _can_add_link_friend()
+	report_row.visible = mode != Mode.REPLAY and not friend_row.visible
+	if friend_row.visible and not friend_button.disabled:
+		var who: String = friends.invite.get("name", "")
+		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"
+	_sync_share_targets()
+
+
+func _can_add_link_friend() -> bool:
+	if link_friend == "" or mode not in [Mode.CHALLENGE, Mode.REPLAY] or _board_pick >= 0 or friends.status != "ready":
+		return false
+	return friend_button.disabled or (link_friend != str(friends.me.get("code", "")) and not friends.is_friend_code(link_friend))
+
+
+func _add_link_friend() -> void:
+	friend_button.disabled = true
+	friend_button.text = "Adding…"
+	var res: Dictionary = await friends.add_by_code(link_friend)
+	friend_button.text = {"requested": "Request sent!", "friends": "Friends now!", "already": "Already added"}.get(res.get("status", ""), "Couldn't add them")
+
+
+## Rematch a friend's saved team: their lead critter, aimed the way they
+## usually aim. Unranked; the result only updates your record against them.
+func _start_rival(f: Dictionary) -> void:
+	var lead := Friends.lead_critter(f)
+	if lead == "":
+		return
+	mode = Mode.RIVAL
+	_board_pick = -1
+	rival = f
+	opponent_choice = lead
+	opponent_type = lead
+	seed_value = _rng.randi_range(1, 99999)
+	shell_layer.visible = false
+	sfx.toggle_lift = 0.0
+	_show_menu()
+	print("RIVAL_MENU vs=%s ball=%s" % [str(f.name), lead])
+
+
+func _record_rival() -> void:
+	var rec: Dictionary = await friends.record_rival(str(rival.id), sim.winner)
+	if not rec.is_empty() and state == State.RESULT and mode == Mode.RIVAL:
+		info_label.text = "Vs %s: %s." % [rival.name, Friends.record_text(rec).trim_prefix("Rematches: ")]
 
 
 ## Fight the given ball and shot from the opponent corner, on the same seed.
@@ -608,6 +692,7 @@ func _play_normal() -> void:
 	mode = Mode.NORMAL
 	foe_aim = null
 	modifier = _weekend_modifier()
+	rival = {}
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("history.replaceState(null, '', location.pathname)")
 	_show_menu()
@@ -723,15 +808,24 @@ func _install_share_listener() -> void:
 		JavaScriptBridge.eval(SHARE_JS, true)
 
 
-func _share_url(kind: String) -> String:
-	var base := FightLink.HOME
+func _link_base() -> String:
 	if OS.has_feature("web"):
-		base = str(JavaScriptBridge.eval("location.origin + location.pathname", true))
+		return str(JavaScriptBridge.eval("location.origin + location.pathname", true))
+	return FightLink.HOME
+
+
+## Signed-in players' links carry their friend code (&f=), so whoever opens
+## one can add them as a friend.
+func _share_url(kind: String) -> String:
 	var angles := sim.launch_angles
 	var code := FightLink.challenge_code(player_type, seed_value, angles[0]) if kind == "c" \
 		else FightLink.replay_code(player_type, opponent_type, seed_value, angles[0], angles[1])
+	var url := FightLink.url(_link_base(), kind, code)
+	var mine := str(friends.me.get("code", ""))
+	if mine != "":
+		url += "&f=" + mine
 	# The fight's Chaos Weekend twist rides along, so it replays the same any day.
-	return FightLink.url(base, kind, code) + ("&mod=" + modifier if modifier != Modifiers.NONE else "")
+	return url + ("&mod=" + modifier if modifier != Modifiers.NONE else "")
 
 
 func _share_text(kind: String) -> String:
@@ -750,15 +844,19 @@ func _sync_share_targets() -> void:
 		return
 	await get_tree().process_frame
 	var targets := []
-	if state == State.RESULT and result_box.visible and sim != null:
+	var view := get_viewport().get_visible_rect().size
+	var add := func(kind: String, url: String, text: String, r: Rect2):
+		targets.append({"kind": kind, "url": url, "text": text,
+			"x": r.position.x / view.x, "y": r.position.y / view.y, "w": r.size.x / view.x, "h": r.size.y / view.y})
+	if shell_layer != null and shell_layer.visible:
+		for t in shell.share_targets():
+			add.call(t.kind, t.url, t.text, t.rect)
+	elif state == State.RESULT and result_box.visible and sim != null:
 		var buttons := {"r": share_button}
-		if mode != Mode.REPLAY:
+		if mode not in [Mode.REPLAY, Mode.RIVAL]:
 			buttons["c"] = challenge_button
-		var view := get_viewport().get_visible_rect().size
 		for kind in buttons:
-			var r: Rect2 = buttons[kind].get_global_rect()
-			targets.append({"kind": kind, "url": _share_url(kind), "text": _share_text(kind),
-				"x": r.position.x / view.x, "y": r.position.y / view.y, "w": r.size.x / view.x, "h": r.size.y / view.y})
+			add.call(kind, _share_url(kind), _share_text(kind), buttons[kind].get_global_rect())
 	JavaScriptBridge.eval("window.bbShare && (window.bbShare.targets = %s)" % JSON.stringify(targets), true)
 
 
@@ -771,13 +869,26 @@ func _share(kind: String) -> void:
 	report_label.text = "Link copied: " + _share_url(kind)
 
 
+## A share button on the home screens (e.g. the friend invite link).
+func _on_shell_share(kind: String) -> void:
+	if OS.has_feature("web"):
+		_share_pending = true
+		return
+	for t in shell.share_targets():
+		if t.kind == kind:
+			DisplayServer.clipboard_set(t.url)
+			shell.toast("Link copied: " + t.url)
+
+
 func _poll_share_status() -> void:
 	var status := str(JavaScriptBridge.eval("window.bbShare ? window.bbShare.status : ''", true))
 	var messages := {"shared": "Shared!", "copied": "Link copied. Paste it to a friend!", "shown": "", "cancelled": ""}
 	if status in messages:
 		_share_pending = false
 		JavaScriptBridge.eval("window.bbShare.status = ''", true)
-		if messages[status] != "":
+		if messages[status] != "" and shell_layer.visible:
+			shell.toast(messages[status])
+		elif messages[status] != "":
 			report_label.text = messages[status]
 
 
@@ -827,6 +938,10 @@ func _read_url_params() -> Dictionary:
 		modifier = Modifiers.NONE ## A shared fight without a twist was played on normal rules.
 	else:
 		modifier = _weekend_modifier()
+	if params.get("demo", "") == "friends":
+		friends.show_demo()
+	if Friends.is_code(params.get("f", "")):
+		link_friend = Friends.normalize_code(params.f)
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():

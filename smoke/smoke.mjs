@@ -127,6 +127,13 @@ try {
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
     await tapUi(page, logs, "tab_summon", "summon");
     await page.screenshot({ path: path.join(shots, "3h-summon.png") });
+    await tapUi(page, logs, "wishlist_edit", "sheet");
+    await tapUi(page, logs, "wish_laser");
+    await tapUi(page, logs, "wish_blackhole");
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(shots, "3h2-wishlist-picker.png") });
+    await tapUi(page, logs, "wishlist_done", "summon");
+    await page.screenshot({ path: path.join(shots, "3h3-wishlist.png") });
     await tapUi(page, logs, "pull10", "reveal");
     await tapUi(page, logs, "open_all");
     await page.waitForTimeout(2000);
@@ -151,6 +158,23 @@ try {
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "5-flow-fight.png") });
     console.log("online:", logs.find((l) => l.startsWith("ONLINE")) ?? "no backend configured");
+    await page.close();
+  }
+
+  // 2b. An invite link (?f=<friend code>) opens the Friends screen. demo=friends fills in sample friends (no server):
+  // preset phrases sheet, then a rematch against a friend's saved team.
+  {
+    const { page, logs } = await openGame("?f=RBNW-XYZ2&demo=friends&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN friends", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "3k-friends-invite.png") });
+    await tapUi(page, logs, "say_Theo", "sheet");
+    await page.screenshot({ path: path.join(shots, "3l-friends-say.png") });
+    await tapUi(page, logs, "preset_1");
+    await tapUi(page, logs, "rematch_Theo");
+    console.log("rival:", await waitForLog(logs, "RIVAL_MENU", 5000));
+    await page.screenshot({ path: path.join(shots, "3m-rival-menu.png") });
     await page.close();
   }
 
