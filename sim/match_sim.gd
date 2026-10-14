@@ -2,7 +2,7 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2],
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2], hp: [h1, h2],
 ##           powers: [w1, w2], sizes: [s1, s2] }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
