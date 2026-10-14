@@ -16,6 +16,7 @@ const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
+const Account := preload("res://game/online/account.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 ## NORMAL: pick both balls. REPLAY: watching a shared fight. CHALLENGE: beating
@@ -52,6 +53,8 @@ var backend: Backend
 var save := SaveGame.new()
 var account_text := "" ## Guest name and trophies once signed in.
 var friends: Friends
+var account: Account
+var _retry_timer: Timer ## Retries the cloud save while it has unsynced changes.
 var rival := {} ## The friend entry a RIVAL fight is against.
 var link_friend := "" ## Friend code from the link the page was opened with (&f=).
 var _count_fight := false ## The running fight came from the menu, not a replay or URL.
@@ -98,6 +101,7 @@ func _ready() -> void:
 	backend = Backend.new()
 	add_child(backend)
 	friends = Friends.new(backend)
+	account = Account.new(backend)
 	save.app_version = VERSION
 	save.load_local()
 	_apply_picks()
@@ -329,14 +333,28 @@ func _record_fight() -> void:
 func _go_online() -> void:
 	if not backend.enabled():
 		return
-	if await save.sync(backend) and not url_picks:
-		_apply_picks()
-		if state == State.MENU:
-			_refresh_menu()
-	if not await backend.ensure_session():
+	# Back from an emailed link or an Apple/Google sign-in: take that session.
+	var from_page := backend.take_session_from_page()
+	if from_page != "" and from_page != "ok":
+		shell.toast("Sign-in didn't finish: " + from_page)
+	save.changed.connect(_on_save_changed)
+	backend.signed_out.connect(save.reset_for_sign_out)
+	_retry_timer = Timer.new()
+	_retry_timer.wait_time = 60.0
+	_retry_timer.timeout.connect(func(): if save.dirty: _sync_online())
+	add_child(_retry_timer)
+	_retry_timer.start()
+	await save.sync(backend)
+	var online := await backend.ensure_session()
+	# Connected after the first sign-in so booting doesn't do everything twice.
+	backend.account_changed.connect(_on_account_changed)
+	if not online:
 		return
 	await _publish_lineup()
 	await _refresh_account()
+	await account.refresh()
+	if from_page == "ok":
+		shell.toast("Signed in. Your progress is on your account." if not account.is_guest() else "Signed in.")
 	await friends.refresh()
 	if state == State.RESULT:
 		_label_result_buttons()
@@ -345,8 +363,31 @@ func _go_online() -> void:
 func _sync_online() -> void:
 	if not backend.enabled():
 		return
-	await save.push(backend)
+	await save.sync(backend)
 	await _publish_lineup()
+
+
+## The save was replaced (a newer cloud copy, another account): show it.
+func _on_save_changed() -> void:
+	if not url_picks:
+		_apply_picks()
+	if state == State.MENU:
+		_refresh_menu()
+
+
+## Signed in, out, or as a new guest: bring everything over to that account.
+func _on_account_changed() -> void:
+	await save.sync(backend)
+	await _publish_lineup()
+	await _refresh_account()
+	await account.refresh()
+	await friends.refresh()
+
+
+func _notification(what: int) -> void:
+	# Coming back to the tab or app: pick up anything another device saved.
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN and backend != null and backend.enabled() and _retry_timer != null:
+		_sync_online()
 
 
 ## Keeps this player's Ghost Arena defence in step with their current ball.
@@ -453,6 +494,7 @@ func _build_shell() -> void:
 	add_child(shell_layer)
 	shell = Shell.new()
 	shell.friends = friends
+	shell.set_account(account)
 	shell.link_base = _link_base()
 	shell.play_requested.connect(func():
 		shell_layer.visible = false
