@@ -19,7 +19,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 ```sh
 godot --headless --import                                   # once, after cloning
 GODOT=godot tests/run.sh                                    # all tests
-godot --headless --script res://tools/balance.gd -- --fights=200
+godot --headless --script res://tools/balance.gd -- --fights=200 --power-step
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
@@ -39,7 +39,9 @@ URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto
   frame-rate-dependent logic in `sim/`. Use `sim/rng.gd`.
 - If a change alters the outcome of a golden replay, re-record it with
   `tools/record_golden.gd` and say so in the PR as an intended balance change.
-- Paste the balance-sim matrix from CI into PRs that touch ball stats.
+- Balance follows [BALANCE.md](BALANCE.md): power beats counters, no equal-power
+  matchup over 65%, no hard counters. PRs that add a critter or touch ball stats
+  paste the `balance.gd --power-step` output.
 
 ## Merging
 
