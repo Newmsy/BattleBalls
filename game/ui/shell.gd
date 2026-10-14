@@ -191,7 +191,10 @@ func sheet(content: Control) -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	panel.position.y = size.y
 	var h := panel.get_combined_minimum_size().y
-	create_tween().tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	var slide := create_tween()
+	slide.tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Report tap positions again once the sheet has slid into place.
+	slide.finished.connect(_report.bind("sheet"))
 
 
 func set_friends(f) -> void:

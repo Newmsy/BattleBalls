@@ -127,6 +127,13 @@ try {
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
     await tapUi(page, logs, "tab_summon", "summon");
     await page.screenshot({ path: path.join(shots, "3h-summon.png") });
+    await tapUi(page, logs, "wishlist_edit", "sheet");
+    await tapUi(page, logs, "wish_laser");
+    await tapUi(page, logs, "wish_blackhole");
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(shots, "3h2-wishlist-picker.png") });
+    await tapUi(page, logs, "wishlist_done", "summon");
+    await page.screenshot({ path: path.join(shots, "3h3-wishlist.png") });
     await tapUi(page, logs, "pull10", "reveal");
     await tapUi(page, logs, "open_all");
     await page.waitForTimeout(2000);
