@@ -10,6 +10,9 @@ extends RefCounted
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 
+## Bump whenever a change alters fight outcomes (i.e. golden replays are
+## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
+const RULES_VERSION := 1
 const TICK_RATE := 60
 const DT := 1.0 / TICK_RATE
 const ARENA_SIZE := 1000.0

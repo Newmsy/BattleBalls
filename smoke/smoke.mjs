@@ -36,7 +36,10 @@ async function openGame(query, viewport = { width: 390, height: 844 }) {
   const logs = [];
   page.on("console", (m) => {
     logs.push(m.text());
-    if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
+    // The online backend is best-effort (the game plays offline), so a failed
+    // request to it is reported but doesn't fail the smoke test.
+    if (m.type() === "error" && /supabase\.co/.test(m.location()?.url ?? "")) console.log(`backend request failed: ${m.text()}`);
+    else if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
   });
   page.on("pageerror", (e) => errors.push(`${query}: ${e.message}`));
   await page.goto(base + "index.html" + query);
@@ -64,7 +67,7 @@ function toPage(page, x, y) {
 try {
   // 1. Auto fight from URL params runs to a result.
   {
-    const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4");
+    const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "1-fight.png") });
@@ -75,7 +78,8 @@ try {
     await page.close();
   }
 
-  // 2. Real flow: menu -> FIGHT! -> drag to aim -> fight runs.
+  // 2. Real flow: menu -> FIGHT! -> drag to aim -> fight runs. The only case
+  // that goes online (signs in a guest) when the build has a backend.
   {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
@@ -96,12 +100,13 @@ try {
     console.log("menu fight:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "5-flow-fight.png") });
+    console.log("online:", logs.find((l) => l.startsWith("ONLINE")) ?? "no backend configured");
     await page.close();
   }
 
   // 3. Wide screen: controls sit beside the arena and FIGHT! is reachable.
   {
-    const { page, logs } = await openGame("?seed=7", { width: 1376, height: 1263 });
+    const { page, logs } = await openGame("?seed=7&offline=1", { width: 1376, height: 1263 });
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "6-wide-menu.png") });
