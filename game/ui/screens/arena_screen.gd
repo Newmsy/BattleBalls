@@ -22,13 +22,15 @@ static func build(shell, params: Dictionary) -> Control:
 	var abandoned: int = store.settle_abandoned()
 	if abandoned != 0:
 		shell.toast.call_deferred("Your last attack wasn't finished, so it counted as a loss (%d)." % abandoned)
+	var owned := owned_critters(shell.profile)
+	store.fit_to(owned)
 	var root := Kit.vbox(26)
 
 	var back := Kit.card_button(Glyph.make("back", 34, Kit.FG), shell.back, Kit.LINE, Kit.PANEL, 999, 14)
 	shell.mark("back", back)
 	root.add_child(Kit.hbox(18, [back, Kit.label("Ghost Arena", 40)]))
 	root.add_child(_league_panel(store))
-	root.add_child(_trio_panel(shell, store, params))
+	root.add_child(_trio_panel(shell, store, owned))
 
 	var refresh_left: int = store.refreshes_left()
 	var refresh := Kit.chip("Refresh" if refresh_left > 0 else "New cards tomorrow", Kit.ACCENT if refresh_left > 0 else Kit.MUTED)
@@ -78,7 +80,13 @@ static func _league_panel(store) -> Control:
 	return Kit.panel(v, Kit.box(Color("17143e"), lg.color, 40, 2, 28))
 
 
-static func _trio_panel(shell, store, params: Dictionary) -> Control:
+## Critters that can go in a ranked trio: owned ones only, so no loaner
+## (Try-a-Critter) and nothing the player hasn't got.
+static func owned_critters(profile) -> Array:
+	return BallDefs.PLAYABLE.filter(func(id): return profile.owns(id))
+
+
+static func _trio_panel(shell, store, owned: Array) -> Control:
 	var row := Kit.hbox(12, [], BoxContainer.ALIGNMENT_CENTER)
 	for i in 3:
 		var critter: String = store.trio[i]
@@ -95,7 +103,7 @@ static func _trio_panel(shell, store, params: Dictionary) -> Control:
 		shell.mark("arena_slot_%d" % i, slot)
 		row.add_child(slot)
 	return Kit.vbox(12, [
-		Kit.hbox(0, [Kit.caption("Your trio"), Kit.spacer(), Kit.label("Tap to swap", 20, Kit.MUTED)]),
+		Kit.hbox(0, [Kit.caption("Your trio"), Kit.spacer(), Kit.label("Tap to swap (owned critters)", 20, Kit.MUTED)]),
 		row,
 		Kit.label("They fight in this order. Each ball's last shot is saved for your ghost.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
