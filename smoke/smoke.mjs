@@ -275,14 +275,16 @@ try {
     await page.close();
   }
 
-  // 9. Bounce Run: open it from the Play tab, draft three, fight floor 1.
+  // 9. Bounce Run: the Play tab has its card; open it by link (the card sits
+  // below the fold), draft three, fight floor 1.
   {
-    const { page, logs } = await openGame("?seed=7");
-    await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN play", 10000);
+    const home = await openGame("?seed=7&offline=1");
+    await waitForLog(home.logs, "UI_AT bouncerun ", 60000);
+    await home.page.close();
+    const { page, logs } = await openGame("?mode=bouncerun&offline=1");
+    console.log("bounce run:", await waitForLog(logs, "BOUNCERUN_READY", 60000));
+    await waitForLog(logs, "UI_SCREEN br_draft", 5000);
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "bouncerun", "br_draft");
-    console.log("bounce run:", await waitForLog(logs, "BOUNCERUN_READY", 5000));
     for (const i of [0, 1, 2]) await tapUi(page, logs, `br_card_${i}`, "br_draft");
     await page.screenshot({ path: path.join(shots, "20-bouncerun-draft.png") });
     await tapUi(page, logs, "br_start", "br_floor");
