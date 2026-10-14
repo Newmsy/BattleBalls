@@ -6,6 +6,7 @@ extends Control
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
+const ArenaStore := preload("res://game/pvp/arena_store.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -14,6 +15,7 @@ const SCREENS := {
 	"fuse": preload("res://game/ui/screens/fuse_screen.gd"),
 	"bag": preload("res://game/ui/screens/bag_screen.gd"),
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
+	"arena": preload("res://game/ui/screens/arena_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
@@ -78,6 +80,10 @@ func build() -> void:
 	profile.changed.connect(_refresh_top)
 	resized.connect(func(): if current != "": refresh())
 	show_tab("play")
+	# Coming back from a Ghost Arena fight lands on the Arena again.
+	if ArenaStore.reopen:
+		ArenaStore.reopen = false
+		go("arena")
 
 
 func show_tab(t: String) -> void:
@@ -199,6 +205,8 @@ func _show(name: String, params: Dictionary) -> void:
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	_holder.add_child(_scroll)
+	# Re-log control positions after a scroll so the smoke test can tap below the fold.
+	_scroll.get_v_scroll_bar().value_changed.connect(func(_v): _report.call_deferred(name))
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Phones fill the width; wide screens keep a phone-width column in the middle.

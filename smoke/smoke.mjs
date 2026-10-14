@@ -273,6 +273,43 @@ try {
     await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
     await page.close();
   }
+
+  // 9. Ghost Arena: Play -> Arena screen -> pick a card -> play the relay to a result -> back to the Arena.
+  {
+    const { page, logs } = await openGame("?seed=7&offline=1");
+    await waitForLog(logs, "UI_SCREEN play", 60000);
+    await page.waitForTimeout(800);
+    // The Arena card sits below the fold on a phone: scroll the Play tab first.
+    await page.mouse.move(...toPage(page, 360, 800));
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(150);
+    }
+    await page.waitForTimeout(600);
+    await tapUi(page, logs, "arena", "arena");
+    await page.screenshot({ path: path.join(shots, "16-arena.png") });
+    await tapUi(page, logs, "arena_card_0");
+    console.log("ghost arena:", await waitForLog(logs, "ARENA_READY", 10000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "17-arena-intro.png") });
+    // FIGHT!, Launch and Skip all sit under this point (first panel row, right half).
+    const start = logs.length;
+    let result = null;
+    for (let i = 0; i < 60 && !result; i++) {
+      await page.mouse.click(...toPage(page, 530, 1032));
+      await page.waitForTimeout(700);
+      result = logs.slice(start).find((l) => l.startsWith("ARENA_RESULT"));
+    }
+    if (!result) throw new Error(`Ghost Arena fight never finished. Last logs:\n${logs.slice(-15).join("\n")}`);
+    console.log("ghost arena result:", result);
+    await page.screenshot({ path: path.join(shots, "18-arena-result.png") });
+    const back = logs.length;
+    // Back to Arena sits under the result headline.
+    await page.mouse.click(...toPage(page, 360, 1118));
+    await waitForLogAfter(logs, back, "UI_SCREEN arena", 15000);
+    await page.screenshot({ path: path.join(shots, "19-arena-after.png") });
+    await page.close();
+  }
 } catch (e) {
   errors.push(String(e.stack ?? e));
 } finally {
