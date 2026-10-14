@@ -12,9 +12,9 @@ const CRITTER := {
 	"color": "27c8ff",
 	"vibe": "A calm, calculating little robot with one big eye.",
 	"description": "Laser. Every wall bounce fires a beam back to its last bounce point.",
-	"stats": {"hp": 100.0, "radius": 58.0, "speed": 420.0, "contact_damage": 4.0},
+	"stats": {"hp": 100.0, "radius": 58.0, "speed": 420.0, "contact_damage": 10.0},
 	"ability": [{"on": "wall", "do": "beam"}],
-	"params": {"beam_life": 3.0, "beam_damage": 7.0, "beam_hit_cooldown": 0.5, "beam_max": 6},
+	"params": {"beam_life": 3.0, "beam_damage": 4.5, "beam_hit_cooldown": 0.5, "beam_max": 6},
 	"tiers": [
 		{"text": "Beams last 3s"},
 		{"text": "Beams last 3.5s", "beam_life": 3.5},

@@ -137,6 +137,13 @@ try {
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
     await tapUi(page, logs, "tab_summon", "summon");
     await page.screenshot({ path: path.join(shots, "3h-summon.png") });
+    await tapUi(page, logs, "wishlist_edit", "sheet");
+    await tapUi(page, logs, "wish_laser");
+    await tapUi(page, logs, "wish_blackhole");
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(shots, "3h2-wishlist-picker.png") });
+    await tapUi(page, logs, "wishlist_done", "summon");
+    await page.screenshot({ path: path.join(shots, "3h3-wishlist.png") });
     await tapUi(page, logs, "pull10", "reveal");
     await tapUi(page, logs, "open_all");
     await page.waitForTimeout(2000);
@@ -299,6 +306,34 @@ try {
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
     await page.close();
+  }
+
+  // 9. Try-a-Critter: the board's loaner card, then that day's Critter Shot
+  // (a separate puzzle shot with the loaner) solved with a known aim.
+  {
+    const { page, logs } = await openGame("?today=2026-10-15");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "thisweek", "week");
+    const { width, height } = page.viewportSize();
+    await page.mouse.move(width / 2, height / 2);
+    await page.mouse.wheel(0, 1100);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "16-try-a-critter.png") });
+    await page.close();
+    const probe = await openGame("?mode=trickshot&day=2&shooter=laser");
+    const ready = await waitForLog(probe.logs, "TRICKSHOT_READY", 60000);
+    if (!ready.includes("shooter=laser")) throw new Error(`Critter Shot should be shot by Optic: ${ready}`);
+    const [lo, hi] = ready.match(/solutions=(\d+)-(\d+)/).slice(1).map(Number);
+    await probe.page.close();
+    const shot = await openGame(`?mode=trickshot&day=2&shooter=laser&aim=${Math.round((lo + hi) / 2)}&auto=1`);
+    const result = await waitForLog(shot.logs, "TRICKSHOT_RESULT", 60000);
+    console.log("critter shot result:", result);
+    if (!result.includes("result=solved")) throw new Error(`The middle aim should solve the Critter Shot: ${result}`);
+    await shot.page.waitForTimeout(800);
+    await shot.page.screenshot({ path: path.join(shots, "17-critter-shot.png") });
+    await shot.page.close();
   }
 } catch (e) {
   errors.push(String(e.stack ?? e));

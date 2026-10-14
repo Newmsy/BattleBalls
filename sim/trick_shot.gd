@@ -38,11 +38,23 @@ static func day_number(date: Dictionary) -> int:
 	return int(floor((Time.get_unix_time_from_datetime_dict(d) - Time.get_unix_time_from_datetime_dict(EPOCH)) / 86400.0)) + 1
 
 
+## Whether `id` can take a Critter Shot: an ability that acts every tick (Flux's
+## field) bends the flight that the puzzle's straight-line check assumes.
+static func can_shoot(id: String) -> bool:
+	for e in BallDefs.get_def(id).effects:
+		if e.on == "always":
+			return false
+	return true
+
+
 ## Setup number `k` for a day. Generation tries k = 0, 1, 2... until one has a
-## fair number of solutions.
-static func candidate(day: int, k: int) -> Dictionary:
-	var rng := Rng.new(day * 7919 + k * 104729 + 17)
+## fair number of solutions. `shooter` forces your ball (the Try-a-Critter
+## Critter Shot) and makes a different puzzle from the day's main one.
+static func candidate(day: int, k: int, shooter := "") -> Dictionary:
+	var rng := Rng.new(day * 7919 + k * 104729 + (17 if shooter == "" else 31337 + shooter.hash() % 9973))
 	var p1: String = BALLS[rng.range_int(0, BALLS.size() - 1)]
+	if shooter != "":
+		p1 = shooter
 	var p2: String = BALLS[rng.range_int(0, BALLS.size() - 1)]
 	var starts: Array[Vector2] = []
 	while starts.size() < 2:
@@ -174,10 +186,10 @@ static func fast_judge(puzzle: Dictionary, aim_deg: int) -> String:
 ## The puzzle for a day: the first candidate with a fair number of solving
 ## aims (or, failing that, the hardest solvable one), plus `solutions`, every
 ## solving whole-degree aim. Takes a few milliseconds per candidate.
-static func generate(day: int) -> Dictionary:
+static func generate(day: int, shooter := "") -> Dictionary:
 	var best := {}
 	for k in MAX_CANDIDATES:
-		var puzzle := candidate(day, k)
+		var puzzle := candidate(day, k, shooter)
 		var solutions: Array[int] = []
 		for aim in 360:
 			if fast_judge(puzzle, aim) == SOLVED:
