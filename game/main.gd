@@ -131,7 +131,7 @@ func _refresh_menu() -> void:
 	seed_label.text = "Seed %d" % seed_value
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
-	arena.preview_types = [player_type, opponent_type if opponent_choice == OPPONENT_RANDOM else opponent_choice]
+	arena.preview_types = [player_type, _pick_opponent()]
 	arena.queue_redraw()
 
 
