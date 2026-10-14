@@ -1,0 +1,186 @@
+## Neon Critters UI kit: colours, theme and small factories for labels,
+## panels, buttons and chips. Sizes are in the 720-wide design space.
+extends RefCounted
+
+const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
+const Glyph := preload("res://game/ui/glyph.gd")
+
+const BG := Color("0b0a1f")
+const PANEL := Color("141233")
+const PANEL2 := Color("1b1842")
+const LINE := Color("2b2760")
+const FG := Color("f0eeff")
+const MUTED := Color("a29fc9")
+const ACCENT := Color("8f7bff")
+const GOOD := Color("45f5a6")
+const WARN := Color("ffb020")
+const BAD := Color("ff5a7a")
+
+const BUTTON_STYLES := {
+	"primary": [ACCENT, Color("4b3bb0"), BG],
+	"go": [GOOD, Color("1d9a65"), BG],
+	"ghost": [PANEL2, Color("0a0820"), FG],
+}
+
+
+static func theme() -> Theme:
+	var t := Theme.new()
+	t.default_font = FONT
+	t.default_font_size = 26
+	t.set_color("font_color", "Label", FG)
+	var empty := StyleBoxEmpty.new()
+	for s in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
+		t.set_stylebox(s, "Button", empty)
+	t.set_stylebox("panel", "ScrollContainer", empty)
+	return t
+
+
+static func box(bg: Color, border := Color(0, 0, 0, 0), radius := 32, border_w := 2, pad := 24) -> StyleBoxFlat:
+	var b := StyleBoxFlat.new()
+	b.bg_color = bg
+	b.border_color = border
+	b.set_border_width_all(border_w if border.a > 0.0 else 0)
+	b.set_corner_radius_all(radius)
+	b.set_content_margin_all(pad)
+	b.anti_aliasing = true
+	return b
+
+
+static func label(text: String, size := 26, color := FG, align := HORIZONTAL_ALIGNMENT_LEFT, wrap := false) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	l.horizontal_alignment = align
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if wrap:
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.custom_minimum_size.x = 40
+	return l
+
+
+## Small uppercase section label.
+static func caption(text: String, color := MUTED) -> Label:
+	var l := label(text.to_upper(), 20, color)
+	return l
+
+
+static func vbox(sep := 16, children: Array = []) -> VBoxContainer:
+	var b := VBoxContainer.new()
+	b.add_theme_constant_override("separation", sep)
+	for c in children:
+		b.add_child(c)
+	return b
+
+
+static func hbox(sep := 16, children: Array = [], align := BoxContainer.ALIGNMENT_BEGIN) -> HBoxContainer:
+	var b := HBoxContainer.new()
+	b.add_theme_constant_override("separation", sep)
+	b.alignment = align
+	for c in children:
+		b.add_child(c)
+	return b
+
+
+static func spacer() -> Control:
+	var c := Control.new()
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
+
+
+static func panel(child: Control, style: StyleBox = null) -> PanelContainer:
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", style if style else box(PANEL, LINE))
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(child)
+	return p
+
+
+## A chunky arcade button with a darker "lip" under it.
+static func button(text: String, on_press: Callable, kind := "primary", font_size := 30, height := 96) -> Button:
+	var b := Button.new()
+	b.text = text.to_upper()
+	b.custom_minimum_size = Vector2(0, height)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_theme_font_size_override("font_size", font_size)
+	var cols: Array = BUTTON_STYLES[kind]
+	var normal := box(cols[0], LINE if kind == "ghost" else Color(0, 0, 0, 0), 26, 2, 12)
+	normal.shadow_color = cols[1]
+	normal.shadow_offset = Vector2(0, 8)
+	normal.shadow_size = 1
+	var pressed := normal.duplicate()
+	pressed.shadow_offset = Vector2(0, 3)
+	pressed.expand_margin_top = -5
+	var disabled := normal.duplicate()
+	disabled.bg_color = Color(cols[0], .35)
+	disabled.shadow_color = Color(cols[1], .35)
+	for s in ["normal", "hover", "focus"]:
+		b.add_theme_stylebox_override(s, normal)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("hover_pressed", pressed)
+	b.add_theme_stylebox_override("disabled", disabled)
+	for s in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(s, cols[2])
+	b.add_theme_color_override("font_disabled_color", Color(cols[2], .5))
+	b.pressed.connect(on_press)
+	return b
+
+
+## A tappable card: a flat Button with a panel look and arbitrary content.
+static func card_button(content: Control, on_press: Callable, border := LINE, bg := PANEL, radius := 32, pad := 12) -> Button:
+	var b := Button.new()
+	var st := box(bg, border, radius, 3, pad)
+	for s in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(s, st)
+	b.pressed.connect(on_press)
+	var m := MarginContainer.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, pad)
+	m.add_child(content)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(m)
+	m.minimum_size_changed.connect(func(): b.custom_minimum_size = m.get_combined_minimum_size())
+	b.custom_minimum_size = m.get_combined_minimum_size()
+	return b
+
+
+static func chip(text: String, color: Color, font_size := 18) -> PanelContainer:
+	var st := box(Color(0, 0, 0, 0), color, 999, 2, 0)
+	st.content_margin_left = 14
+	st.content_margin_right = 14
+	st.content_margin_top = 2
+	st.content_margin_bottom = 2
+	var p := panel(label(text.to_upper(), font_size, color), st)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return p
+
+
+## "⚡1,789" with a drawn bolt.
+static func power(value: int, size := 26, color := FG) -> HBoxContainer:
+	return hbox(2, [Glyph.make("bolt", size * .8, WARN), label(commas(value), size, color)])
+
+
+static func bar(frac: float, color: Color, height := 18) -> Control:
+	var p := ProgressBar.new()
+	p.show_percentage = false
+	p.min_value = 0.0
+	p.max_value = 1.0
+	p.value = clampf(frac, 0.0, 1.0)
+	p.custom_minimum_size = Vector2(0, height)
+	p.add_theme_stylebox_override("background", box(Color("221e4f"), Color(0, 0, 0, 0), 999, 0, 0))
+	p.add_theme_stylebox_override("fill", box(color, Color(0, 0, 0, 0), 999, 0, 0))
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return p
+
+
+static func commas(n: int) -> String:
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return ("-" if n < 0 else "") + s + out

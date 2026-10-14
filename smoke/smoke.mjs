@@ -53,6 +53,28 @@ async function waitForLog(logs, prefix, timeoutMs) {
   throw new Error(`Timed out waiting for "${prefix}". Last logs:\n${logs.slice(-15).join("\n")}`);
 }
 
+async function waitForLogAfter(logs, start, prefix, timeoutMs) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    const hit = logs.slice(start).find((l) => l.startsWith(prefix));
+    if (hit) return hit;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  throw new Error(`Timed out waiting for "${prefix}". Last logs:\n${logs.slice(-15).join("\n")}`);
+}
+
+// Taps a menu control by the name the shell logs for it ("UI_AT name x y"),
+// then waits for the screen it leads to (if any) and returns.
+async function tapUi(page, logs, name, nextScreen) {
+  const at = [...logs].reverse().find((l) => l.startsWith(`UI_AT ${name} `));
+  if (!at) throw new Error(`No UI_AT for ${name}. Last logs:\n${logs.slice(-15).join("\n")}`);
+  const [x, y] = at.split(" ").slice(2).map(Number);
+  const start = logs.length;
+  await page.mouse.click(...toPage(page, x, y));
+  if (nextScreen) await waitForLogAfter(logs, start, `UI_SCREEN ${nextScreen}`, 5000);
+  await page.waitForTimeout(600);
+}
+
 // Godot's canvas maps the 720x1280 design space onto the page, keeping
 // whichever side is tighter and expanding the other.
 function toPage(page, x, y) {
@@ -75,11 +97,26 @@ try {
     await page.close();
   }
 
-  // 2. Real flow: menu -> FIGHT! -> drag to aim -> fight runs.
+  // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs.
   {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(shots, "3a-home.png") });
+    await tapUi(page, logs, "tab_critters", "critters");
+    await page.screenshot({ path: path.join(shots, "3b-critters.png") });
+    await tapUi(page, logs, "tile_vampire", "detail");
+    await page.screenshot({ path: path.join(shots, "3c-detail.png") });
+    await tapUi(page, logs, "tab_fuse", "fuse");
+    await page.screenshot({ path: path.join(shots, "3d-fuse.png") });
+    const before = logs.length;
+    await tapUi(page, logs, "fuse");
+    console.log("fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "3e-fused.png") });
+    await tapUi(page, logs, "tab_play", "play");
+    await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "3-menu.png") });
     // Layout: arena 680px at y=190, controls start at 190+680+120=990.
     // Menu rows: label, ball row, label, opponent row, seed row, FIGHT! (last).
@@ -104,6 +141,10 @@ try {
     const { page, logs } = await openGame("?seed=7", { width: 1376, height: 1263 });
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(1500);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "6a-wide-home.png") });
+    await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "6-wide-menu.png") });
     // Visible area is 1394x1280: arena 614px at x=30, panel at x=684, FIGHT! at the panel's bottom.
     await page.mouse.click(...toPage(page, 684 + 340, 190 + 100 + 478 - 42));

@@ -6,6 +6,7 @@ extends Node2D
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const ArenaView := preload("res://game/arena_view.gd")
+const Shell := preload("res://game/ui/shell.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 
@@ -50,6 +51,7 @@ var aim_box: HBoxContainer
 var result_box: VBoxContainer
 var result_label: Label
 var report_label: Label
+var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 
 
 func _ready() -> void:
@@ -62,10 +64,12 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	print("BOOT_OK build=", _build_stamp())
+	_build_shell()
 	if auto_start:
 		_start_fight()
 	else:
 		_show_menu()
+		_show_home()
 
 
 func _process(delta: float) -> void:
@@ -230,6 +234,7 @@ func _build_ui() -> void:
 	seed_label = _label("", 26)
 	seed_row.add_child(seed_label)
 	seed_row.add_child(_button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu()))
+	seed_row.add_child(_button("Home", _show_home))
 	menu_box.add_child(seed_row)
 	menu_box.add_child(_button("FIGHT!", _begin_aim, 40))
 
@@ -259,6 +264,20 @@ func _build_ui() -> void:
 
 	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
 		ui.add_child(c)
+
+
+func _build_shell() -> void:
+	shell_layer = CanvasLayer.new()
+	shell_layer.layer = 5
+	shell_layer.visible = false
+	add_child(shell_layer)
+	var shell := Shell.new()
+	shell.play_requested.connect(func(): shell_layer.visible = false; _show_menu())
+	shell_layer.add_child(shell)
+
+
+func _show_home() -> void:
+	shell_layer.visible = true
 
 
 ## Portrait stacks arena over controls; wide screens put controls beside the
