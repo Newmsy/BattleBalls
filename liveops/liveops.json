@@ -24,5 +24,9 @@
     {"weekend": "2026-11-20", "modifier": "hyper_speed"},
     {"weekend": "2026-11-27", "modifier": "closing_walls"}
   ],
-  "fights": []
+  "fights": [],
+  "loaners": [
+    {"date": "2026-10-15", "critter": "laser", "blurb": "Optic is this week's Spotlight. Borrow it for a day and see if the beams are worth chasing."},
+    {"date": "2026-10-16", "critter": "vampire", "blurb": "Count Nibbles drinks up every hit. Chaos Weekend starts today: try it with the walls closing in."}
+  ]
 }

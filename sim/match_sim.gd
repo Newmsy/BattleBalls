@@ -6,6 +6,8 @@
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
+## `fields: false` (optional) switches off Flux's magnet field, so Daily Trick
+## Shot balls fly straight.
 ## `hp` (optional) sets each ball's starting HP (null = full), for relays
 ## where a winner stays in with what it has left.
 extends RefCounted
@@ -236,6 +238,8 @@ func _on_wall_bounce(b: Ball, point: Vector2) -> void:
 ## (Pull) or away from (Push) the magnet. Steering only turns a ball; it keeps
 ## its own speed, like every other bounce in the sim.
 func _update_fields() -> void:
+	if not config.get("fields", true):
+		return
 	for m in balls:
 		if m.def.ability != "magnet" or not m.alive():
 			continue

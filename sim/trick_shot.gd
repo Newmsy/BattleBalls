@@ -22,9 +22,9 @@ const MAX_CANDIDATES := 40
 const EDGE_MARGIN := 140.0
 const MIN_START_GAP := 300.0
 const WALLS := ["left", "top", "right", "bottom"]
-## Balls a puzzle can use: ones that fly straight until the first contact.
-## A fixed list, so adding a critter never changes a published day's puzzle
-## (and fields like Flux's would bend the shot that fast_judge assumes).
+## Balls the day's puzzle picks from. A fixed list, so adding a critter never
+## changes a published day's puzzle. (A Critter Shot can force any playable
+## shooter; trick shots switch Flux's field off so every shot flies straight.)
 const BALLS := ["vampire", "laser"]
 
 const SOLVED := "solved"
@@ -39,10 +39,13 @@ static func day_number(date: Dictionary) -> int:
 
 
 ## Setup number `k` for a day. Generation tries k = 0, 1, 2... until one has a
-## fair number of solutions.
-static func candidate(day: int, k: int) -> Dictionary:
-	var rng := Rng.new(day * 7919 + k * 104729 + 17)
+## fair number of solutions. `shooter` forces your ball (the Try-a-Critter
+## Critter Shot) and makes a different puzzle from the day's main one.
+static func candidate(day: int, k: int, shooter := "") -> Dictionary:
+	var rng := Rng.new(day * 7919 + k * 104729 + (17 if shooter == "" else 31337 + shooter.hash() % 9973))
 	var p1: String = BALLS[rng.range_int(0, BALLS.size() - 1)]
+	if shooter != "":
+		p1 = shooter
 	var p2: String = BALLS[rng.range_int(0, BALLS.size() - 1)]
 	var starts: Array[Vector2] = []
 	while starts.size() < 2:
@@ -64,7 +67,7 @@ static func _coord(rng) -> float:
 
 ## The real sim for a shot: the foe waits until it is hit.
 static func make_sim(puzzle: Dictionary, aim_deg: int) -> MatchSim:
-	var sim := MatchSim.new({"seed": 1, "p1": puzzle.p1, "p2": puzzle.p2, "starts": puzzle.starts, "angles": [aim_deg * 10, 0]})
+	var sim := MatchSim.new({"seed": 1, "p1": puzzle.p1, "p2": puzzle.p2, "starts": puzzle.starts, "angles": [aim_deg * 10, 0], "fields": false})
 	sim.balls[1].vel = Vector2.ZERO
 	return sim
 
@@ -174,10 +177,10 @@ static func fast_judge(puzzle: Dictionary, aim_deg: int) -> String:
 ## The puzzle for a day: the first candidate with a fair number of solving
 ## aims (or, failing that, the hardest solvable one), plus `solutions`, every
 ## solving whole-degree aim. Takes a few milliseconds per candidate.
-static func generate(day: int) -> Dictionary:
+static func generate(day: int, shooter := "") -> Dictionary:
 	var best := {}
 	for k in MAX_CANDIDATES:
-		var puzzle := candidate(day, k)
+		var puzzle := candidate(day, k, shooter)
 		var solutions: Array[int] = []
 		for aim in 360:
 			if fast_judge(puzzle, aim) == SOLVED:
