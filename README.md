@@ -11,7 +11,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `sim/` | The deterministic fight simulation. Pure GDScript, no nodes or engine physics. Same config, same fight. |
 | `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim; never changes its rules. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -34,6 +34,14 @@ are served at `<preview>/smoke/`.
 
 URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
 (`aim` is the launch angle in tenths of a degree, screen space, y down).
+`?sounds=1` opens the sound board: every sound with a play button.
+
+## Sound
+
+All sounds are generated from recipes in `tools/sfx/make_sfx.py`
+(`python3 tools/sfx/make_sfx.py`, needs numpy and ffmpeg) and the rendered
+files are committed. `game/audio/sfx.gd` plays them from sim events only and
+uses its own random generator, so sound can never change a fight.
 
 Share links (`game/fight_link.gd`) need no server because fights are
 deterministic: `?r=1.laser.vampire.11.-300.1066` replays one exact fight, and
