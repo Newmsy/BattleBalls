@@ -12,6 +12,7 @@ const SaveGame := preload("res://game/online/save_game.gd")
 const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
+const A11y := preload("res://game/a11y.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Loaner := preload("res://game/loaner.gd")
@@ -512,7 +513,7 @@ func _layout() -> void:
 static func _neon_theme() -> Theme:
 	var theme := Theme.new()
 	theme.default_font = FONT
-	theme.default_font_size = 30
+	theme.default_font_size = A11y.font(30)
 	theme.set_color("font_color", "Label", Color("f0eeff"))
 	var states := {
 		"normal": [Color("1b1842"), Color("2b2760")],
@@ -706,7 +707,8 @@ func _label(text: String, font_size: int) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_font_size_override("font_size", A11y.font(font_size))
+	l.set_meta("base_font", font_size)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
@@ -717,7 +719,8 @@ func _button(text: String, on_press: Callable, font_size := 30) -> Button:
 	b.custom_minimum_size = Vector2(0, 84)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	b.add_theme_font_size_override("font_size", font_size)
+	b.add_theme_font_size_override("font_size", A11y.font(font_size))
+	b.set_meta("base_font", font_size)
 	b.pressed.connect(on_press)
 	return b
 
