@@ -9,7 +9,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const ODDS := [["legendary", 0.5], ["epic", 4.5], ["rare", 25.0], ["common", 70.0]]
 const PITY_RESET := 150
 ## This week's featured critter takes half of the rolls of its rarity.
-const FEATURED := "laser"
+const FEATURED := "magnet" ## Season 1 debut critter.
 
 
 ## Rolls `count` critters and updates profile.legendary_pity. Returns ids.

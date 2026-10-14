@@ -44,7 +44,7 @@ func test_power_grows_about_a_quarter_per_tier() -> void:
 
 
 func test_every_critter_has_art_and_a_full_ladder() -> void:
-	check_eq(Roster.CRITTERS.size(), 15, "roster size")
+	check_eq(Roster.CRITTERS.size(), 16, "roster size")
 	for c in Roster.CRITTERS:
 		check_eq(c.ladder.size(), Roster.MAX_TIER, c.id + " ladder")
 		check(CritterArt.EYES.has(c.id), c.id + " has a face")
