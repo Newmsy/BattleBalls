@@ -128,6 +128,13 @@ try {
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
     await tapUi(page, logs, "tab_summon", "summon");
     await page.screenshot({ path: path.join(shots, "3h-summon.png") });
+    await tapUi(page, logs, "wishlist_edit", "sheet");
+    await tapUi(page, logs, "wish_laser");
+    await tapUi(page, logs, "wish_blackhole");
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: path.join(shots, "3h2-wishlist-picker.png") });
+    await tapUi(page, logs, "wishlist_done", "summon");
+    await page.screenshot({ path: path.join(shots, "3h3-wishlist.png") });
     await tapUi(page, logs, "pull10", "reveal");
     await tapUi(page, logs, "open_all");
     await page.waitForTimeout(2000);
@@ -292,24 +299,52 @@ try {
     await page.close();
   }
 
-  // 9. Onboarding: cold open, starter pick, two aimed tutorial wins, the
+  // 9. Try-a-Critter: the board's loaner card, then that day's Critter Shot
+  // (a separate puzzle shot with the loaner) solved with a known aim.
+  {
+    const { page, logs } = await openGame("?today=2026-10-15");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "thisweek", "week");
+    const { width, height } = page.viewportSize();
+    await page.mouse.move(width / 2, height / 2);
+    await page.mouse.wheel(0, 1100);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "16-try-a-critter.png") });
+    await page.close();
+    const probe = await openGame("?mode=trickshot&day=2&shooter=laser");
+    const ready = await waitForLog(probe.logs, "TRICKSHOT_READY", 60000);
+    if (!ready.includes("shooter=laser")) throw new Error(`Critter Shot should be shot by Optic: ${ready}`);
+    const [lo, hi] = ready.match(/solutions=(\d+)-(\d+)/).slice(1).map(Number);
+    await probe.page.close();
+    const shot = await openGame(`?mode=trickshot&day=2&shooter=laser&aim=${Math.round((lo + hi) / 2)}&auto=1`);
+    const result = await waitForLog(shot.logs, "TRICKSHOT_RESULT", 60000);
+    console.log("critter shot result:", result);
+    if (!result.includes("result=solved")) throw new Error(`The middle aim should solve the Critter Shot: ${result}`);
+    await shot.page.waitForTimeout(800);
+    await shot.page.screenshot({ path: path.join(shots, "17-critter-shot.png") });
+    await shot.page.close();
+  }
+
+  // 10. Onboarding: cold open, starter pick, two aimed tutorial wins, the
   // guided first fusion, the boss teaser and on to the Play tab.
   {
     const { page, logs } = await openGame("?tutorial=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN onboard_cold_open", 10000);
     await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "16a-onboard-cold-open.png") });
+    await page.screenshot({ path: path.join(shots, "18a-onboard-cold-open.png") });
     await tapUi(page, logs, "pick_laser");
     await page.waitForTimeout(4000);
-    await page.screenshot({ path: path.join(shots, "16b-onboard-cold-fight.png") });
+    await page.screenshot({ path: path.join(shots, "18b-onboard-cold-fight.png") });
     await waitForLog(logs, "UI_SCREEN onboard_cold_result", 90000);
-    await page.screenshot({ path: path.join(shots, "16c-onboard-cold-result.png") });
+    await page.screenshot({ path: path.join(shots, "18c-onboard-cold-result.png") });
     await tapUi(page, logs, "next", "onboard_starter");
-    await page.screenshot({ path: path.join(shots, "16d-onboard-starter.png") });
+    await page.screenshot({ path: path.join(shots, "18d-onboard-starter.png") });
     const aimAndWin = async (n) => {
       await page.waitForTimeout(800);
-      await page.screenshot({ path: path.join(shots, `16e-onboard-aim${n}.png`) });
+      await page.screenshot({ path: path.join(shots, `18e-onboard-aim${n}.png`) });
       const [sx, sy] = toPage(page, 20 + 170 * 0.68, 190 + 830 * 0.68);
       const [ex, ey] = toPage(page, 360, 300);
       const start = logs.length;
@@ -319,23 +354,23 @@ try {
       await page.mouse.up();
       await waitForLogAfter(logs, start, "FIGHT_START", 5000);
       await waitForLogAfter(logs, start, "UI_SCREEN onboard_reward", 120000);
-      await page.screenshot({ path: path.join(shots, `16f-onboard-reward${n}.png`) });
+      await page.screenshot({ path: path.join(shots, `18f-onboard-reward${n}.png`) });
     };
     await tapUi(page, logs, "starter_laser");
     await aimAndWin(1);
     await tapUi(page, logs, "next");
     await aimAndWin(2);
     await tapUi(page, logs, "next", "fuse");
-    await page.screenshot({ path: path.join(shots, "16g-onboard-fuse.png") });
+    await page.screenshot({ path: path.join(shots, "18g-onboard-fuse.png") });
     const before = logs.length;
     await tapUi(page, logs, "fuse");
     console.log("onboarding fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
     await waitForLogAfter(logs, before, "UI_SCREEN onboard_boss", 10000);
-    await page.screenshot({ path: path.join(shots, "16h-onboard-boss.png") });
+    await page.screenshot({ path: path.join(shots, "18h-onboard-boss.png") });
     await tapUi(page, logs, "lets_go");
     await waitForLog(logs, "ONBOARD step=done", 5000);
     await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "16i-onboard-home.png") });
+    await page.screenshot({ path: path.join(shots, "18i-onboard-home.png") });
     console.log("onboarding:", logs.filter((l) => l.startsWith("ONBOARD")).map((l) => l.split(" ")[1]).join(" "));
     await page.close();
   }
