@@ -40,6 +40,10 @@ jobs:
         run: |
           set -o pipefail
           timeout 900 godot --headless --script res://tools/balance.gd -- --fights=100 --strict | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Bounce Run boons stay a tilt, not a verdict
+        run: |
+          set -o pipefail
+          timeout 900 godot --headless --script res://tools/boon_balance.gd -- --fights=40 --strict | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
 
   # One job builds, smoke-tests and deploys, so no Actions artifacts are needed.
   web:

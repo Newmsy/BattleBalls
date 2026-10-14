@@ -6,10 +6,13 @@
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
+## `boons` (optional, [[ids], [ids]]) gives each ball Bounce Run boons from
+## sim/boons.gd.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Boons := preload("res://sim/boons.gd")
 
 const TICK_RATE := 60
 const DT := 1.0 / TICK_RATE
@@ -45,6 +48,9 @@ class Ball:
 	var last_bounce := Vector2.ZERO
 	var damage_dealt := 0.0
 	var healed := 0.0
+	var shield := 0.0 ## Absorbs damage before HP (Bounce Run boons).
+	var landed_hit := false
+	var banked := false ## Bounced off a wall since its last contact hit.
 
 	func alive() -> bool:
 		return hp > 0.0
@@ -89,6 +95,8 @@ func _init(cfg: Dictionary) -> void:
 	var starts: Array = cfg.get("starts", START_CORNERS)
 	for i in 2:
 		var def := BallDefs.get_def(types[i])
+		if cfg.has("boons"):
+			def = Boons.apply_to_def(def, cfg.boons[i])
 		var b := Ball.new()
 		b.index = i
 		b.type_id = types[i]
@@ -131,6 +139,11 @@ func step() -> void:
 	for b in balls:
 		hp_before.append(b.hp)
 
+	if tick == int(OVERTIME_START * TICK_RATE):
+		for b in balls:
+			if b.def.get("overtime_shield", 0.0) > 0.0 and b.alive():
+				b.shield += b.def.overtime_shield
+				events.append({"type": "shield", "target": b.index, "amount": b.def.overtime_shield, "pos": b.pos})
 	if in_overtime():
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
 
@@ -205,6 +218,14 @@ func _resolve_walls(b: Ball) -> void:
 
 func _on_wall_bounce(b: Ball, point: Vector2) -> void:
 	events.append({"type": "bounce", "ball": b.index, "pos": point})
+	b.banked = true
+	var bounce_heal: float = b.def.get("bounce_heal", 0.0)
+	if bounce_heal > 0.0:
+		var gained := minf(bounce_heal, b.max_hp - b.hp)
+		if gained > 0.0:
+			b.hp += gained
+			b.healed += gained
+			events.append({"type": "heal", "target": b.index, "amount": gained, "pos": b.pos, "boon": true})
 	if b.def.ability == "laser" and b.has_bounce and b.last_bounce.distance_to(point) >= MIN_BEAM_LENGTH:
 		var beam := Beam.new()
 		beam.owner = b.index
@@ -291,11 +312,22 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 	var mult := damage_multiplier()
 	var heals: Array[Dictionary] = []
 	for h in hits:
-		var amount: float = h.amount * mult
-		if amount <= 0.0:
-			continue
+		var amount: float = h.amount
 		var target := balls[h.target]
 		var source := balls[h.source]
+		if h.kind == "contact":
+			amount = _boon_contact_damage(source, target, amount)
+		amount *= mult
+		if amount <= 0.0:
+			continue
+		if target.shield > 0.0:
+			var absorbed := minf(target.shield, amount)
+			target.shield -= absorbed
+			source.damage_dealt += absorbed
+			amount -= absorbed
+			events.append({"type": "shield_hit", "target": h.target, "amount": absorbed, "pos": h.pos})
+			if amount <= 0.0:
+				continue
 		target.hp -= amount
 		source.damage_dealt += amount
 		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos})
@@ -311,6 +343,18 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			b.hp += gained
 			b.healed += gained
 			events.append({"type": "heal", "target": b.index, "amount": gained, "pos": b.pos})
+
+
+## Contact damage after the source's and target's boons. Without boons every
+## term is zero and `amount` comes back unchanged.
+func _boon_contact_damage(source: Ball, target: Ball, amount: float) -> float:
+	if not source.landed_hit:
+		source.landed_hit = true
+		amount += source.def.get("first_strike", 0.0)
+	if source.banked:
+		source.banked = false
+		amount *= 1.0 + source.def.get("bank_bonus", 0.0)
+	return amount * (1.0 - target.def.get("contact_armor", 0.0))
 
 
 func _check_end(hp_before: Array[float]) -> void:

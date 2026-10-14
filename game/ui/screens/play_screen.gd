@@ -6,6 +6,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const BounceRun := preload("res://sim/bounce_run.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -33,6 +34,18 @@ static func build(shell, _params: Dictionary) -> Control:
 		vs, fight,
 	])
 	root.add_child(Kit.panel(quick, Kit.box(Kit.PANEL, Kit.LINE, 40, 2, 30)))
+
+	# Bounce Run: the daily roguelite, open from day one (no power ladder).
+	var run_go := Kit.button("Play today's run", func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"), "go", 32, 96)
+	shell.mark("bouncerun", run_go)
+	var run_day := BounceRun.day_number(Time.get_unix_time_from_system())
+	var bounce := Kit.vbox(12, [
+		Kit.hbox(0, [Kit.caption("Daily event", Color("ffc23d")), Kit.spacer(), Kit.label("Same run for everyone", 22, Kit.MUTED)]),
+		Kit.label("Bounce Run #%d" % run_day, 40),
+		Kit.label("Draft 3 critters, climb 8 floors, grab a boon after every win. Equal power, one daily leaderboard.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		run_go,
+	])
+	root.add_child(Kit.panel(bounce, Kit.box(Color("2a1a40"), Color("ffc23d"), 40, 2, 30)))
 
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)

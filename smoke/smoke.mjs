@@ -1,6 +1,7 @@
 // Smoke test for the web build: boots it in a phone-sized headless Chromium,
 // plays one auto fight and one fight through the real menu, fails on any
-// page error, and saves screenshots. Also opens Daily Trick Shot and solves one.
+// page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
+// and plays the first floor of Bounce Run.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -250,6 +251,32 @@ try {
     if (!result.includes("result=solved")) throw new Error(`Aim ${aim} should solve day 1: ${result}`);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "13-trickshot-solved.png") });
+    await page.close();
+  }
+
+  // 8. Bounce Run: open it from the Play tab, draft three, fight floor 1.
+  {
+    const { page, logs } = await openGame("?seed=7");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "bouncerun", "br_draft");
+    console.log("bounce run:", await waitForLog(logs, "BOUNCERUN_READY", 5000));
+    for (const i of [0, 1, 2]) await tapUi(page, logs, `br_card_${i}`, "br_draft");
+    await page.screenshot({ path: path.join(shots, "14-bouncerun-draft.png") });
+    await tapUi(page, logs, "br_start", "br_floor");
+    await page.screenshot({ path: path.join(shots, "15-bouncerun-floor.png") });
+    await tapUi(page, logs, "br_send_0", "br_aim");
+    await page.screenshot({ path: path.join(shots, "16-bouncerun-aim.png") });
+    await tapUi(page, logs, "br_launch", "br_fight");
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, "17-bouncerun-fight.png") });
+    await tapUi(page, logs, "br_skip", "br_result");
+    console.log("bounce run fight:", await waitForLog(logs, "BOUNCERUN_RESULT", 5000));
+    await page.screenshot({ path: path.join(shots, "18-bouncerun-result.png") });
+    const won = logs.some((l) => l.startsWith("BOUNCERUN_RESULT") && l.includes("won=true"));
+    await tapUi(page, logs, "br_continue", won ? "br_boon" : "br_floor");
+    await page.screenshot({ path: path.join(shots, won ? "19-bouncerun-boon.png" : "19-bouncerun-retry.png") });
     await page.close();
   }
 } catch (e) {

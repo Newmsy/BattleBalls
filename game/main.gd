@@ -26,6 +26,7 @@ const INFO_HEIGHT := 100.0
 const CONTROLS_HEIGHT := 490.0 ## Tallest control panel (the menu).
 const SPEEDS := [1.0, 2.0, 4.0, 0.5]
 const OPPONENT_RANDOM := "random"
+const MODE_SCENES := {"trickshot": "res://game/trick_shot.tscn", "bouncerun": "res://game/bounce_run.tscn"}
 
 var state := State.MENU
 var mode := Mode.NORMAL
@@ -76,11 +77,12 @@ static var _mode_redirected := false
 func _ready() -> void:
 	_rng.randomize()
 	seed_value = _rng.randi_range(1, 99999)
-	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
-	if _read_url_params().get("mode", "") == "trickshot" and not _mode_redirected:
+	# ?mode=trickshot / ?mode=bouncerun open that daily mode, once: its Back button comes here.
+	var mode_scene: String = MODE_SCENES.get(_read_url_params().get("mode", ""), "")
+	if mode_scene != "" and not _mode_redirected:
 		_mode_redirected = true
 		set_process(false)
-		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
+		get_tree().change_scene_to_file.call_deferred(mode_scene)
 		return
 	arena = ArenaView.new()
 	add_child(arena)
