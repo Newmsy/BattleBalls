@@ -1,9 +1,10 @@
 -- Bounce Run leaderboard: possible scores only, one per player per day,
--- ranked floors > lives > time, and no direct table access.
+-- ranked floors > lives > time, and no direct table access. Player ids use
+-- their own prefixes so other suites' `like 'dddddddd%'` filters miss them.
 
-\set dana '''dddddddd-0000-0000-0000-000000000004'''
-\set eli  '''eeeeeeee-0000-0000-0000-000000000005'''
-\set fay  '''ffffffff-0000-0000-0000-000000000006'''
+\set dana '''d5000000-0000-0000-0000-000000000004'''
+\set eli  '''e5000000-0000-0000-0000-000000000005'''
+\set fay  '''f5000000-0000-0000-0000-000000000006'''
 
 reset role;
 insert into auth.users (id) values (:dana), (:eli), (:fay);
@@ -59,7 +60,7 @@ begin
     = array['8:16200', '3:6000', '3:7200'], 'floors, then lives, then time';
   assert (select rank from public.bounce_run_board(today) where is_me) = 2, 'fay is second';
   assert (select count(*) from public.bounce_run_board(today, 1)) = 2, 'top 1 plus my own row';
-  assert (select display_name from public.bounce_run_board(today) where rank = 1) = 'Guest-DDDD', 'guest names';
+  assert (select display_name from public.bounce_run_board(today) where rank = 1) = 'Guest-D500', 'guest names';
   begin
     perform count(*) from public.bounce_run_scores;
     assert false, 'scores are not directly readable';
