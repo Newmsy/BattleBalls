@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  # Lets the auto-merge job rebuild main: merges made with GITHUB_TOKEN don't
+  # fire push events, but they may dispatch a workflow.
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GODOT_VERSION: "4.3"
+
+jobs:
+  test:
+    name: Sim tests
+    runs-on: ubuntu-latest
+    container: barichello/godot-ci:4.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Import project
+        run: timeout 180 godot --headless --import || true
+      - name: Unit, determinism and golden replay tests
+        run: tests/run.sh
+      - name: Balance sim (win-rate matrix in the job summary)
+        run: |
+          set -o pipefail
+          timeout 900 godot --headless --script res://tools/balance.gd -- --fights=100 | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # One job builds, smoke-tests and deploys, so no Actions artifacts are needed.
+  web:
+    name: Web build, smoke test and preview
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot and web export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+      - name: Download Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot/templates && cd ~/godot
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -sSfL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip && mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && rm godot.zip
+          curl -sSfL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q -j templates.tpz 'templates/web_nothreads_*' 'templates/version.txt' -d templates && rm templates.tpz
+      - name: Install export templates where Godot looks for them
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          cp ~/godot/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+      - name: Stamp build
+        run: echo "${{ github.event.pull_request.head.sha || github.sha }}" | cut -c1-7 > build_info.txt
+      - name: Export
+        run: |
+          timeout 180 ~/godot/godot --headless --import || true
+          mkdir -p build/web
+          timeout 300 ~/godot/godot --headless --export-release "Web" build/web/index.html
+          test -s build/web/index.wasm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        working-directory: smoke
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Play two fights in a phone-sized browser
+        working-directory: smoke
+        run: node smoke.mjs ../build/web
+      - name: Publish screenshots with the preview
+        if: always()
+        run: mkdir -p build/web/smoke && cp smoke/screenshots/*.png build/web/smoke/ || true
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build/web
+          destination_dir: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || '.' }}
+          keep_files: true
+          commit_message: "Deploy ${{ github.event_name == 'pull_request' && format('PR #{0}', github.event.pull_request.number) || 'main' }}"
+      - name: Comment preview link on the PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner.toLowerCase();
+            const url = `https://${owner}.github.io/${context.repo.repo}/pr-${context.issue.number}/`;
+            const sha = context.payload.pull_request.head.sha.slice(0, 7);
+            const marker = '<!-- preview-link -->';
+            const body = `${marker}\n**Preview:** ${url} (build ${sha}) · [smoke screenshots](${url}smoke/3-menu.png)`;
+            const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
+            const existing = comments.find((c) => c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+            }
+
+  # A green, non-draft PR merges itself. Drafts never auto-merge, so a PR
+  # stays draft until its code review is done.
+  automerge:
+    name: Auto-merge
+    needs: [test, web]
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Squash-merge the PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge ${{ github.event.pull_request.number }} --repo "${{ github.repository }}" --squash \
+            --match-head-commit "${{ github.event.pull_request.head.sha }}"
+      - name: Rebuild main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run ci.yml --repo "${{ github.repository }}" --ref main
