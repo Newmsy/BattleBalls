@@ -400,7 +400,7 @@ func _build_ui() -> void:
 	menu_box = VBoxContainer.new()
 	menu_box.add_theme_constant_override("separation", 14)
 	menu_box.add_child(_label("Your critter (opponent is random)", 26))
-	menu_box.add_child(_pick_grid(BallDefs.PLAYABLE, func(id): player_type = id; _refresh_menu()))
+	menu_box.add_child(_pick_grid(BallDefs.PLAYABLE, _pick_player))
 	var seed_row := HBoxContainer.new()
 	seed_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	seed_row.add_theme_constant_override("separation", 20)
@@ -457,13 +457,28 @@ func _build_shell() -> void:
 	shell = Shell.new()
 	shell.friends = friends
 	shell.link_base = _link_base()
-	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _play_normal())
+	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _use_lineup(); _play_normal())
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.rival_requested.connect(_start_rival)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
 	LiveOps.fetch(self, func(): if shell.current in ["play", "week"]: shell.refresh())
+
+
+## Quick fight starts on the fighter chosen in the home screen (Use in lineup).
+func _use_lineup() -> void:
+	var id := str(shell.profile.lineup)
+	if id in BallDefs.PLAYABLE:
+		player_type = id
+
+
+## Picking on Quick fight also makes that critter your fighter, when you own it.
+func _pick_player(id: String) -> void:
+	player_type = id
+	if mode == Mode.NORMAL and shell != null:
+		shell.profile.set_lineup(id)
+	_refresh_menu()
 
 
 func _show_home() -> void:
