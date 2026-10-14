@@ -45,6 +45,8 @@ jobs:
   web:
     name: Web build, smoke test and preview
     runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - name: Cache Godot and web export templates
@@ -86,24 +88,30 @@ jobs:
       - name: Publish screenshots with the preview
         if: always()
         run: mkdir -p build/web/smoke && cp smoke/screenshots/*.png build/web/smoke/ || true
-      - name: Publish to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build/web
-          destination_dir: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || '.' }}
-          keep_files: true
-          commit_message: "Deploy ${{ github.event_name == 'pull_request' && format('PR #{0}', github.event.pull_request.number) || 'main' }}"
+      - name: Deploy to Vercel
+        id: vercel
+        if: env.VERCEL_TOKEN != ''
+        working-directory: build/web
+        run: |
+          npx --yes vercel@39.4.2 link --yes --project battleballs --token "$VERCEL_TOKEN"
+          prod=""
+          if [ "${{ github.event_name }}" != "pull_request" ]; then prod="--prod"; fi
+          url=$(npx --yes vercel@39.4.2 deploy --yes $prod --token "$VERCEL_TOKEN")
+          echo "Deployed: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
       - name: Comment preview link on the PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.vercel.outputs.url }}
         with:
           script: |
-            const owner = context.repo.owner.toLowerCase();
-            const url = `https://${owner}.github.io/${context.repo.repo}/pr-${context.issue.number}/`;
+            const url = process.env.PREVIEW_URL;
             const sha = context.payload.pull_request.head.sha.slice(0, 7);
             const marker = '<!-- preview-link -->';
-            const body = `${marker}\n**Preview:** ${url} (build ${sha}) · [smoke screenshots](${url}smoke/3-menu.png)`;
+            const body = url
+              ? `${marker}\n**Preview:** ${url} (build ${sha}) · [smoke screenshots](${url}/smoke/3-menu.png)`
+              : `${marker}\n**Preview not deployed** (build ${sha}): the \`VERCEL_TOKEN\` repo secret is missing.`;
             const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
             const existing = comments.find((c) => c.body.includes(marker));
             if (existing) {
