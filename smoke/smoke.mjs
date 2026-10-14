@@ -155,6 +155,23 @@ try {
     await page.close();
   }
 
+  // 2b. An invite link (?f=<friend code>) opens the Friends screen. demo=friends fills in sample friends (no server):
+  // preset phrases sheet, then a rematch against a friend's saved team.
+  {
+    const { page, logs } = await openGame("?f=RBNW-XYZ2&demo=friends&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN friends", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "3k-friends-invite.png") });
+    await tapUi(page, logs, "say_Theo", "sheet");
+    await page.screenshot({ path: path.join(shots, "3l-friends-say.png") });
+    await tapUi(page, logs, "preset_1");
+    await tapUi(page, logs, "rematch_Theo");
+    console.log("rival:", await waitForLog(logs, "RIVAL_MENU", 5000));
+    await page.screenshot({ path: path.join(shots, "3m-rival-menu.png") });
+    await page.close();
+  }
+
   // 3. Wide screen: controls sit beside the arena and FIGHT! is reachable.
   {
     const { page, logs } = await openGame("?seed=7&offline=1", { width: 1376, height: 1263 });
