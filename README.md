@@ -13,7 +13,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -37,6 +37,36 @@ are served at `<preview>/smoke/`.
 
 URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
 (`aim` is the launch angle in tenths of a degree, screen space, y down).
+`?sounds=1` opens the sound board: every sound with a play button.
+
+## Sound
+
+All sounds are generated from recipes in `tools/sfx/make_sfx.py`
+(`python3 tools/sfx/make_sfx.py`, needs numpy and ffmpeg) and the rendered
+files are committed. `game/audio/sfx.gd` plays them from sim events only and
+uses its own random generator, so sound can never change a fight.
+
+Share links (`game/fight_link.gd`) need no server because fights are
+deterministic: `?r=1.laser.vampire.11.-300.1066` replays one exact fight, and
+`?c=1.laser.11.-300` challenges a friend to beat that ball and shot. Result
+screens make both links (Share fight, Challenge friend).
+
+## Daily Trick Shot
+
+A daily called bank shot (`sim/trick_shot.gd`, `game/trick_shot.gd`): your
+ball and a resting foe are placed, and you get three tries to find the launch
+angle that banks off the called walls in order and then hits the foe. The
+puzzle comes from the local date alone (#1 is 2026-10-14), so every device
+gets the same one with no server. The generator tries setups until 4-12 of
+the 360 whole-degree aims solve it; a test checks every day of the first year.
+Progress and streaks are saved to `user://trick_shot.cfg`.
+
+Open it from the menu's Trick Shot button or with
+`?mode=trickshot` (`&day=12` for another day, `&aim=166&auto=1` to shoot at once).
+
+Changing ball radius or speed, or adding playable balls, reshapes the
+puzzles. That is fine; `tests/test_trick_shot.gd` only fails if days stop
+being solvable or fair.
 
 ## Online backend (Supabase)
 
