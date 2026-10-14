@@ -2,13 +2,15 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2] }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], arena: String }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
-## or null to let the seed pick one.
+## or null to let the seed pick one. `arena` is an id from sim/arenas.gd
+## (default "square").
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Arenas := preload("res://sim/arenas.gd")
 
 const TICK_RATE := 60
 const DT := 1.0 / TICK_RATE
@@ -24,6 +26,13 @@ const IMPACT_SPREAD := 0.5
 const BEAM_HALF_WIDTH := 5.0
 const MIN_BEAM_LENGTH := 30.0
 const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre line.
+const BUMPER_BOOST := 1.3 ## Speed multiplier after bouncing off a bumper.
+const BUMPER_BOOST_TIME := 1.0 ## Seconds.
+## Obstacles vanish once overtime has shrunk the arena below this share of its
+## width, so the final squeeze is always a clean box.
+const OBSTACLE_MIN_SCALE := 0.7
+## Inward normals of the four cut corners: bottom-left, top-left, top-right, bottom-right.
+const CORNER_NORMALS := [Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1)]
 
 const START_CORNERS := [Vector2(170, 830), Vector2(830, 170)]
 const AIM_AT_CENTRE := [-450, 1350] ## Tenths of a degree from each corner.
@@ -44,9 +53,13 @@ class Ball:
 	var last_bounce := Vector2.ZERO
 	var damage_dealt := 0.0
 	var healed := 0.0
+	var boost_ticks := 0 ## Ticks of bumper speed boost left.
 
 	func alive() -> bool:
 		return hp > 0.0
+
+	func current_speed() -> float:
+		return speed * BUMPER_BOOST if boost_ticks > 0 else speed
 
 
 class Beam:
@@ -64,6 +77,8 @@ class Beam:
 
 
 var config: Dictionary
+var arena_id: String
+var arena: Dictionary
 var rng
 var balls: Array[Ball] = []
 var beams: Array[Beam] = []
@@ -82,6 +97,8 @@ var _contact_cooldown_until := {} ## "i:j" -> tick
 
 func _init(cfg: Dictionary) -> void:
 	config = cfg
+	arena_id = cfg.get("arena", "square")
+	arena = Arenas.get_def(arena_id)
 	rng = Rng.new(int(cfg.get("seed", 1)))
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	var angles: Array = cfg.get("angles", [null, null])
@@ -121,6 +138,47 @@ func arena_rect() -> Rect2:
 	return Rect2(centre - Vector2(half_size, half_size), Vector2(half_size, half_size) * 2.0)
 
 
+## 1.0 at full size, shrinking toward MIN_HALF / half the arena in overtime.
+func arena_scale() -> float:
+	return half_size / (ARENA_SIZE / 2.0)
+
+
+## Obstacles at the current overtime scale, moved toward the centre with the walls.
+func obstacles() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var k := arena_scale()
+	if k < OBSTACLE_MIN_SCALE:
+		return out
+	for o in arena.obstacles:
+		out.append({"pos": centre + (o.pos - centre) * k, "radius": o.radius * k, "kind": o.kind})
+	return out
+
+
+## Cut-corner walls as [inward unit normal, distance from the centre].
+## A point p is inside when normal.dot(p - centre) + distance >= 0.
+func corner_walls() -> Array:
+	var out := []
+	if arena.corner_cut <= 0.0:
+		return out
+	var distance: float = arena_scale() * (ARENA_SIZE - arena.corner_cut) / sqrt(2.0)
+	for n in CORNER_NORMALS:
+		out.append([n.normalized(), distance])
+	return out
+
+
+## Outline of the playable area at the current scale, for rendering.
+func arena_outline() -> PackedVector2Array:
+	var r := arena_rect()
+	var cut: float = arena.corner_cut * arena_scale()
+	if cut <= 0.0:
+		return PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+	var a := r.position
+	var b := r.end
+	return PackedVector2Array([
+		Vector2(a.x + cut, a.y), Vector2(b.x - cut, a.y), Vector2(b.x, a.y + cut), Vector2(b.x, b.y - cut),
+		Vector2(b.x - cut, b.y), Vector2(a.x + cut, b.y), Vector2(a.x, b.y - cut), Vector2(a.x, a.y + cut)])
+
+
 func step() -> void:
 	if finished:
 		return
@@ -135,6 +193,10 @@ func step() -> void:
 	var hits: Array[Dictionary] = []
 	for b in balls:
 		if b.alive():
+			if b.boost_ticks > 0:
+				b.boost_ticks -= 1
+				if b.boost_ticks == 0:
+					b.vel = b.vel.normalized() * b.speed
 			b.pos += b.vel * DT
 			_resolve_walls(b)
 	_resolve_ball_collisions(hits)
@@ -199,6 +261,29 @@ func _resolve_walls(b: Ball) -> void:
 		if b.vel.y > 0.0:
 			b.vel.y = -b.vel.y
 			_on_wall_bounce(b, Vector2(b.pos.x, r.end.y))
+	for wall in corner_walls():
+		var n: Vector2 = wall[0]
+		var dist: float = n.dot(b.pos - centre) + wall[1]
+		if dist < b.radius:
+			b.pos += n * (b.radius - dist)
+			if b.vel.dot(n) < 0.0:
+				b.vel -= 2.0 * b.vel.dot(n) * n
+				_on_wall_bounce(b, b.pos - n * b.radius)
+	for o in obstacles():
+		var delta: Vector2 = b.pos - o.pos
+		var reach: float = b.radius + o.radius
+		var dist := delta.length()
+		if dist >= reach:
+			continue
+		var n := delta / dist if dist > 0.0001 else Vector2.UP
+		b.pos = o.pos + n * reach
+		if b.vel.dot(n) < 0.0:
+			b.vel -= 2.0 * b.vel.dot(n) * n
+			if o.kind == "bumper":
+				b.boost_ticks = int(round(BUMPER_BOOST_TIME * TICK_RATE))
+				b.vel = b.vel.normalized() * b.current_speed()
+				events.append({"type": "bumper", "ball": b.index, "pos": o.pos + n * o.radius})
+			_on_wall_bounce(b, o.pos + n * o.radius)
 
 
 func _on_wall_bounce(b: Ball, point: Vector2) -> void:
@@ -248,8 +333,8 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			a.vel -= n * (impulse / ma)
 			b.vel += n * (impulse / mb)
 			# Balls keep a constant speed: only direction changes.
-			a.vel = a.vel.normalized() * a.speed if a.vel.length() > 0.001 else -n * a.speed
-			b.vel = b.vel.normalized() * b.speed if b.vel.length() > 0.001 else n * b.speed
+			a.vel = a.vel.normalized() * a.current_speed() if a.vel.length() > 0.001 else -n * a.current_speed()
+			b.vel = b.vel.normalized() * b.current_speed() if b.vel.length() > 0.001 else n * b.current_speed()
 			var contact := a.pos + n * a.radius
 			events.append({"type": "collide", "a": i, "b": j, "pos": contact})
 			var key := "%d:%d" % [i, j]

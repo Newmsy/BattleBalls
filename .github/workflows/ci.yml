@@ -39,7 +39,7 @@ jobs:
       - name: Balance sim (win-rate matrix in the job summary)
         run: |
           set -o pipefail
-          timeout 900 godot --headless --script res://tools/balance.gd -- --fights=100 --strict | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
+          timeout 900 godot --headless --script res://tools/balance.gd -- --fights=100 --strict --arena=all | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
 
   # One job builds, smoke-tests and deploys, so no Actions artifacts are needed.
   web:

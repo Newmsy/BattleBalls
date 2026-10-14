@@ -10,6 +10,12 @@ const POPUP_LIFE := 0.9
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const TEAM_TAGS := ["YOU", "FOE"]
 const FLASH_LIFE := 0.12
+const FLOOR_COLOR := Color(0.13, 0.13, 0.18)
+const OUTSIDE_COLOR := Color(0.11, 0.12, 0.16)
+const OVERTIME_TINT := Color(0.35, 0.05, 0.08, 0.5)
+const PILLAR_COLOR := Color(0.43, 0.47, 0.72)
+const BUMPER_COLOR := Color(1.0, 0.44, 0.68)
+const BUMPER_FLASH_LIFE := 0.2
 
 var sim: MatchSim
 var view_scale := 0.68
@@ -17,9 +23,12 @@ var view_scale := 0.68
 var aim_dir := Vector2.ZERO
 ## Ball types to show before a sim exists (menu preview).
 var preview_types: Array = ["vampire", "laser"]
+## Arena to show before a sim exists (menu preview).
+var preview_arena := "square"
 
 var _popups: Array[Dictionary] = []
 var _flash := [0.0, 0.0]
+var _bumper_flash := 0.0
 var _font: Font
 
 
@@ -34,6 +43,7 @@ func to_world(screen_pos: Vector2) -> Vector2:
 func clear_effects() -> void:
 	_popups.clear()
 	_flash = [0.0, 0.0]
+	_bumper_flash = 0.0
 
 
 ## Turns the events of the latest sim step into visual effects.
@@ -43,6 +53,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"damage":
 				_flash[e.target] = FLASH_LIFE
 				_add_popup(e.pos, "-%d" % ceili(e.amount), Color(1, 0.35, 0.3) if e.kind == "contact" else Color(0.5, 0.95, 1))
+			"bumper":
+				_bumper_flash = BUMPER_FLASH_LIFE
 			"heal":
 				_add_popup(e.pos + Vector2(0, -30), "+%d" % ceili(e.amount), Color(0.4, 1, 0.5))
 
@@ -53,6 +65,7 @@ func advance_effects(delta: float) -> void:
 	_popups = _popups.filter(func(p): return p.age < POPUP_LIFE)
 	for i in 2:
 		_flash[i] = maxf(0.0, _flash[i] - delta)
+	_bumper_flash = maxf(0.0, _bumper_flash - delta)
 	queue_redraw()
 
 
@@ -64,17 +77,41 @@ func _draw() -> void:
 	var s := view_scale
 	var full := Rect2(Vector2.ZERO, Vector2.ONE * MatchSim.ARENA_SIZE * s)
 	draw_rect(full, Color(0.11, 0.12, 0.16))
-	var arena := full
-	var overtime := false
-	if sim:
-		var r := sim.arena_rect()
-		arena = Rect2(r.position * s, r.size * s)
-		overtime = sim.in_overtime()
+	# The menu has no fight yet; a fresh sim gives the arena's starting shape.
+	var shape: MatchSim = sim if sim else MatchSim.new({"arena": preview_arena})
+	var r := shape.arena_rect()
+	var arena := Rect2(r.position * s, r.size * s)
+	var overtime := shape.in_overtime()
+	var outside := OUTSIDE_COLOR
 	if overtime:
-		draw_rect(full, Color(0.35, 0.05, 0.08, 0.5))
-		draw_rect(arena, Color(0.13, 0.13, 0.18))
+		draw_rect(full, OVERTIME_TINT)
+		outside = OUTSIDE_COLOR.blend(OVERTIME_TINT)
+		draw_rect(arena, FLOOR_COLOR)
 	_draw_grid(arena)
-	draw_rect(arena, Color(1, 0.3, 0.3) if overtime else Color(0.85, 0.87, 0.95), false, 4.0)
+	var outline := shape.arena_outline()
+	for i in outline.size():
+		outline[i] *= s
+	if outline.size() > 4:
+		# Cover the cut corners: every other edge of the octagon is a diagonal.
+		var corners := [arena.position, Vector2(arena.end.x, arena.position.y), arena.end, Vector2(arena.position.x, arena.end.y)]
+		for i in 4:
+			draw_colored_polygon(PackedVector2Array([outline[(i * 2 + 7) % 8], corners[i], outline[i * 2]]), outside)
+	var closed := outline.duplicate()
+	closed.append(outline[0])
+	draw_polyline(closed, Color(1, 0.3, 0.3) if overtime else Color(0.85, 0.87, 0.95), 4.0, true)
+	for o in shape.obstacles():
+		var p: Vector2 = o.pos * s
+		var rad: float = o.radius * s
+		if o.kind == "bumper":
+			var k := _bumper_flash / BUMPER_FLASH_LIFE
+			draw_circle(p, rad, Color(BUMPER_COLOR, 0.22 + 0.4 * k))
+			draw_arc(p, rad + 4.0, 0, TAU, 48, Color(BUMPER_COLOR, 0.35), 10.0, true)
+			draw_arc(p, rad, 0, TAU, 48, BUMPER_COLOR.lerp(Color.WHITE, k), 5.0, true)
+			draw_circle(p, rad * 0.45, BUMPER_COLOR.lerp(Color.WHITE, k))
+		else:
+			draw_circle(p + Vector2(4, 6), rad, Color(0, 0, 0, 0.35))
+			draw_circle(p, rad, PILLAR_COLOR.darkened(0.55))
+			draw_arc(p, rad - 2.0, 0, TAU, 48, PILLAR_COLOR, 5.0, true)
 
 	if sim == null:
 		for i in 2:

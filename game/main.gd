@@ -1,10 +1,11 @@
 ## Game flow: pick balls -> aim -> watch the fight -> result.
 ## URL params on the web build skip straight to a fight, e.g.
-## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2
+## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Arenas := preload("res://sim/arenas.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
@@ -22,6 +23,7 @@ var player_type := "vampire"
 var opponent_choice := OPPONENT_RANDOM
 var opponent_type := "laser"
 var seed_value := 1
+var arena_id := "square"
 var aim := -450 ## Player launch angle, tenths of a degree.
 var speed_index := 0
 var auto_start := false
@@ -40,6 +42,7 @@ var menu_box: VBoxContainer
 var player_buttons := {}
 var opponent_buttons := {}
 var seed_label: Label
+var arena_button: Button
 var fight_box: HBoxContainer
 var speed_button: Button
 var aim_box: HBoxContainer
@@ -112,7 +115,7 @@ func _set_aim_preview() -> void:
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
-	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, null]}
+	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, null], "arena": arena_id}
 
 
 func _show_menu() -> void:
@@ -131,9 +134,11 @@ func _refresh_menu() -> void:
 	for id in opponent_buttons:
 		opponent_buttons[id].button_pressed = id == opponent_choice
 	seed_label.text = "Seed %d" % seed_value
+	arena_button.text = Arenas.get_def(arena_id).display_name
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
 	arena.preview_types = [player_type, _pick_opponent()]
+	arena.preview_arena = arena_id
 	arena.queue_redraw()
 
 
@@ -189,7 +194,8 @@ func _show_result() -> void:
 
 
 func _report_code() -> String:
-	return "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
+	var code := "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
+	return code if arena_id == "square" else code + "." + arena_id
 
 
 # --- UI ---------------------------------------------------------------------
@@ -225,6 +231,8 @@ func _build_ui() -> void:
 	seed_label = _label("", 26)
 	seed_row.add_child(seed_label)
 	seed_row.add_child(_button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu()))
+	arena_button = _button("", _cycle_arena)
+	seed_row.add_child(arena_button)
 	menu_box.add_child(seed_row)
 	menu_box.add_child(_button("FIGHT!", _begin_aim, 40))
 
@@ -308,6 +316,11 @@ func _update_hud() -> void:
 	if sim.in_overtime():
 		clock = "OVERTIME x%.1f" % sim.damage_multiplier()
 	hud_label.text = "You %d   |   %s   |   %d Foe" % [maxi(0, ceili(a.hp)), clock, maxi(0, ceili(b.hp))]
+
+
+func _cycle_arena() -> void:
+	arena_id = Arenas.PLAYABLE[(Arenas.PLAYABLE.find(arena_id) + 1) % Arenas.PLAYABLE.size()]
+	_refresh_menu()
 
 
 func _cycle_speed() -> void:
@@ -395,6 +408,8 @@ func _read_url_params() -> void:
 	if params.get("p2", "") in BallDefs.PLAYABLE:
 		opponent_choice = params.p2
 		opponent_type = params.p2
+	if params.get("arena", "") in Arenas.PLAYABLE:
+		arena_id = params.arena
 	if params.has("seed") and params.seed.is_valid_int():
 		seed_value = int(params.seed)
 	if params.has("aim") and params.aim.is_valid_int():
