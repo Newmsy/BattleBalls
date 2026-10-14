@@ -1,14 +1,19 @@
 ## Game flow: pick balls -> aim -> watch the fight -> result.
 ## URL params on the web build skip straight to a fight, e.g.
 ## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2
+## Share links (see fight_link.gd) open a replay (?r=) or a challenge (?c=).
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const ArenaView := preload("res://game/arena_view.gd")
+const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
+## NORMAL: pick both balls. REPLAY: watching a shared fight. CHALLENGE: beating
+## a friend's ball and shot.
+enum Mode { NORMAL, REPLAY, CHALLENGE }
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const ACCENT := Color("8f7bff")
@@ -22,12 +27,15 @@ const SPEEDS := [1.0, 2.0, 4.0, 0.5]
 const OPPONENT_RANDOM := "random"
 
 var state := State.MENU
+var mode := Mode.NORMAL
 var sim: MatchSim
 var player_type := "vampire"
 var opponent_choice := OPPONENT_RANDOM
 var opponent_type := "laser"
 var seed_value := 1
 var aim := -450 ## Player launch angle, tenths of a degree.
+var foe_aim = null ## Opponent launch angle, or null to let the seed pick it.
+var link_error := ""
 var speed_index := 0
 var auto_start := false
 
@@ -52,6 +60,12 @@ var aim_box: HBoxContainer
 var result_box: VBoxContainer
 var result_label: Label
 var report_label: Label
+var new_seed_button: Button
+var again_button: Button
+var share_button: Button
+var challenge_button: Button
+var report_row: HBoxContainer
+var _share_pending := false
 
 
 func _ready() -> void:
@@ -65,11 +79,14 @@ func _ready() -> void:
 	_build_ui()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+	_install_share_listener()
 	print("BOOT_OK build=", _build_stamp())
 	if auto_start:
 		_start_fight()
 	else:
 		_show_menu()
+	if link_error != "":
+		info_label.text = link_error
 
 
 func _process(delta: float) -> void:
@@ -86,6 +103,8 @@ func _process(delta: float) -> void:
 		if sim.finished:
 			_show_result()
 	arena.advance_effects(delta * (SPEEDS[speed_index] if state == State.FIGHT else 1.0))
+	if _share_pending:
+		_poll_share_status()
 	_update_hud()
 
 
@@ -122,7 +141,7 @@ func _set_aim_preview() -> void:
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
-	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, null]}
+	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim]}
 
 
 func _show_menu() -> void:
@@ -141,9 +160,14 @@ func _refresh_menu() -> void:
 		player_buttons[id].button_pressed = id == player_type
 	for id in opponent_buttons:
 		opponent_buttons[id].button_pressed = id == opponent_choice
+		opponent_buttons[id].disabled = mode == Mode.CHALLENGE
+	new_seed_button.disabled = mode == Mode.CHALLENGE
 	seed_label.text = "Seed %d" % seed_value
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
+	if mode == Mode.CHALLENGE:
+		info_label.text = "CHALLENGE! Your friend's %s has its shot lined up. Pick a ball and beat it." % \
+			BallDefs.get_def(opponent_type).display_name
 	arena.preview_types = [player_type, _pick_opponent()]
 	arena.queue_redraw()
 
@@ -181,6 +205,9 @@ func _start_fight() -> void:
 	info_label.text = "%s vs %s" % [BallDefs.get_def(player_type).display_name, BallDefs.get_def(opponent_type).display_name]
 	speed_button.text = "Speed %sx" % _speed_text()
 	_show_only(fight_box)
+	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
+	if mode == Mode.REPLAY:
+		info_label.text = "Shared fight: " + info_label.text
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -189,13 +216,16 @@ func _show_result() -> void:
 	state = State.RESULT
 	var you := sim.balls[0]
 	var text := "DRAW"
-	if sim.winner == 0:
+	if mode == Mode.REPLAY and sim.winner >= 0:
+		text = "%s WINS" % sim.balls[sim.winner].def.display_name.to_upper()
+	elif sim.winner == 0:
 		text = "YOU WIN!"
 	elif sim.winner == 1:
 		text = "YOU LOSE"
 	result_label.text = text
-	info_label.text = "%.1fs. You dealt %d damage%s." % [sim.time(), roundi(you.damage_dealt),
-		(" and healed %d" % roundi(you.healed)) if you.healed > 0.0 else ""]
+	_label_result_buttons()
+	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if mode == Mode.REPLAY else "You",
+		roundi(you.damage_dealt), (" and healed %d" % roundi(you.healed)) if you.healed > 0.0 else ""]
 	report_label.text = "Report code: " + _report_code()
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 	_show_only(result_box)
@@ -239,7 +269,8 @@ func _build_ui() -> void:
 	seed_row.add_theme_constant_override("separation", 20)
 	seed_label = _label("", 26)
 	seed_row.add_child(seed_label)
-	seed_row.add_child(_button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu()))
+	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu())
+	seed_row.add_child(new_seed_button)
 	menu_box.add_child(seed_row)
 	menu_box.add_child(_button("FIGHT!", _begin_aim, 40))
 
@@ -258,14 +289,16 @@ func _build_ui() -> void:
 	report_label = _label("", 20)
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result_box.add_child(report_label)
-	result_box.add_child(_row([
-		_button("Replay", func(): _start_fight()),
-		_button("Rematch", _rematch),
-	]))
-	result_box.add_child(_row([
+	again_button = _button("Rematch", _again)
+	result_box.add_child(_row([_button("Replay", func(): _start_fight()), again_button]))
+	share_button = _button("Share fight", _share.bind("r"))
+	challenge_button = _button("Challenge", _on_challenge_button)
+	result_box.add_child(_row([share_button, challenge_button]))
+	report_row = _row([
 		_button("Copy report", func(): DisplayServer.clipboard_set(_report_code()); report_label.text = "Copied: " + _report_code()),
-		_button("Change balls", _show_menu),
-	]))
+		_button("Change balls", _play_normal),
+	])
+	result_box.add_child(report_row)
 
 	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
 		ui.add_child(c)
@@ -301,6 +334,7 @@ func _layout() -> void:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	_place(stamp_label, Vector2(12, size.y - 34), Vector2(size.x, 30))
 	arena.queue_redraw()
+	_sync_share_targets()
 
 
 ## Dark panels with a purple accent, matching the Neon Critters arena.
@@ -339,6 +373,7 @@ func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 func _show_only(box: Control) -> void:
 	for b in [menu_box, aim_box, fight_box, result_box]:
 		b.visible = b == box
+	_sync_share_targets()
 
 
 func _update_hud() -> void:
@@ -350,7 +385,8 @@ func _update_hud() -> void:
 	var clock := "%.0fs" % sim.time()
 	if sim.in_overtime():
 		clock = "OVERTIME x%.1f" % sim.damage_multiplier()
-	hud_label.text = "You %d   |   %s   |   %d Foe" % [maxi(0, ceili(a.hp)), clock, maxi(0, ceili(b.hp))]
+	var tags: Array = ["P1", "P2"] if mode == Mode.REPLAY else ["You", "Foe"]
+	hud_label.text = "%s %d   |   %s   |   %d %s" % [tags[0], maxi(0, ceili(a.hp)), clock, maxi(0, ceili(b.hp)), tags[1]]
 
 
 func _cycle_speed() -> void:
@@ -369,9 +405,50 @@ func _skip_to_end() -> void:
 	arena.clear_effects()
 
 
-func _rematch() -> void:
-	seed_value = _rng.randi_range(1, 99999)
-	_begin_aim()
+func _again() -> void:
+	match mode:
+		Mode.NORMAL:
+			seed_value = _rng.randi_range(1, 99999)
+			_begin_aim()
+		Mode.CHALLENGE:
+			_begin_aim()
+		Mode.REPLAY:
+			_take_challenge(player_type, seed_value, sim.launch_angles[0])
+
+
+func _on_challenge_button() -> void:
+	if mode == Mode.REPLAY:
+		_play_normal()
+	else:
+		_share("c")
+
+
+func _label_result_buttons() -> void:
+	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot"}[mode]
+	challenge_button.text = "Play my own" if mode == Mode.REPLAY else "Challenge friend"
+	share_button.text = "Send result" if mode == Mode.CHALLENGE else "Share fight"
+	report_row.visible = mode != Mode.REPLAY
+
+
+## Fight the given ball and shot from the opponent corner, on the same seed.
+func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> void:
+	mode = Mode.CHALLENGE
+	opponent_choice = ball
+	opponent_type = ball
+	seed_value = challenge_seed
+	foe_aim = FightLink.mirror_angle(challenge_aim)
+	_show_menu()
+
+
+## Back to picking both balls, dropping any link the page was opened with.
+func _play_normal() -> void:
+	if mode != Mode.NORMAL:
+		opponent_choice = OPPONENT_RANDOM
+	mode = Mode.NORMAL
+	foe_aim = null
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("history.replaceState(null, '', location.pathname)")
+	_show_menu()
 
 
 func _label(text: String, font_size: int) -> Label:
@@ -416,6 +493,108 @@ func _choice_row(ids: Array, store: Dictionary, on_pick: Callable) -> HBoxContai
 	return row
 
 
+# --- Share links -------------------------------------------------------------
+# Browsers only let a page share or copy inside the user's own tap, and Godot
+# handles taps a frame later. So the page itself watches taps on the share
+# buttons (window.bbShare.targets, in canvas fractions) and shares from there;
+# the Godot button only reports the outcome.
+
+const SHARE_JS := """
+if (!window.bbShare) {
+	window.bbShare = { targets: [], status: "" };
+	const done = (s) => { window.bbShare.status = s; };
+	const copy = (t) => {
+		const ask = () => { window.prompt("Copy this link:", t.url); done("shown"); };
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			navigator.clipboard.writeText(t.text + " " + t.url).then(() => done("copied"), ask);
+		} else {
+			ask();
+		}
+	};
+	window.addEventListener("pointerup", (e) => {
+		const canvas = document.querySelector("canvas");
+		if (!canvas) return;
+		const r = canvas.getBoundingClientRect();
+		const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+		for (const t of window.bbShare.targets) {
+			if (x < t.x || x > t.x + t.w || y < t.y || y > t.y + t.h) continue;
+			console.log("SHARE " + t.kind + " " + t.url);
+			done("pending");
+			if (navigator.share) {
+				navigator.share({ title: "Battle Balls", text: t.text, url: t.url })
+					.then(() => done("shared"), (err) => err && err.name === "AbortError" ? done("cancelled") : copy(t));
+			} else {
+				copy(t);
+			}
+			return;
+		}
+	}, true);
+}
+"""
+
+
+func _install_share_listener() -> void:
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(SHARE_JS, true)
+
+
+func _share_url(kind: String) -> String:
+	var base := FightLink.HOME
+	if OS.has_feature("web"):
+		base = str(JavaScriptBridge.eval("location.origin + location.pathname", true))
+	var angles := sim.launch_angles
+	var code := FightLink.challenge_code(player_type, seed_value, angles[0]) if kind == "c" \
+		else FightLink.replay_code(player_type, opponent_type, seed_value, angles[0], angles[1])
+	return FightLink.url(base, kind, code)
+
+
+func _share_text(kind: String) -> String:
+	var mine: String = BallDefs.get_def(player_type).display_name
+	var theirs: String = BallDefs.get_def(opponent_type).display_name
+	if kind == "c":
+		return "Can your ball beat my %s's shot in Battle Balls?" % mine
+	if mode == Mode.CHALLENGE:
+		return ("I beat your %s challenge with my %s!" if sim.winner == 0 else "Your %s beat my %s. Watch:") % [theirs, mine]
+	return "Watch %s vs %s in Battle Balls!" % [mine, theirs]
+
+
+## Tells the page where the share buttons are, once their layout has settled.
+func _sync_share_targets() -> void:
+	if not OS.has_feature("web"):
+		return
+	await get_tree().process_frame
+	var targets := []
+	if state == State.RESULT and result_box.visible and sim != null:
+		var buttons := {"r": share_button}
+		if mode != Mode.REPLAY:
+			buttons["c"] = challenge_button
+		var view := get_viewport().get_visible_rect().size
+		for kind in buttons:
+			var r: Rect2 = buttons[kind].get_global_rect()
+			targets.append({"kind": kind, "url": _share_url(kind), "text": _share_text(kind),
+				"x": r.position.x / view.x, "y": r.position.y / view.y, "w": r.size.x / view.x, "h": r.size.y / view.y})
+	JavaScriptBridge.eval("window.bbShare && (window.bbShare.targets = %s)" % JSON.stringify(targets), true)
+
+
+func _share(kind: String) -> void:
+	if OS.has_feature("web"):
+		# The page already started sharing on this tap; just watch how it went.
+		_share_pending = true
+		return
+	DisplayServer.clipboard_set(_share_url(kind))
+	report_label.text = "Link copied: " + _share_url(kind)
+
+
+func _poll_share_status() -> void:
+	var status := str(JavaScriptBridge.eval("window.bbShare ? window.bbShare.status : ''", true))
+	var messages := {"shared": "Shared!", "copied": "Link copied. Paste it to a friend!", "shown": "", "cancelled": ""}
+	if status in messages:
+		_share_pending = false
+		JavaScriptBridge.eval("window.bbShare.status = ''", true)
+		if messages[status] != "":
+			report_label.text = messages[status]
+
+
 # --- Build info and URL params ---------------------------------------------
 
 func _build_stamp() -> String:
@@ -446,5 +625,29 @@ func _read_url_params() -> void:
 		var i := SPEEDS.find(float(params.speed))
 		speed_index = maxi(0, i)
 	auto_start = params.get("auto", "") == "1"
+	if params.has("r"):
+		var r := FightLink.parse_replay(params.r)
+		if r.is_empty():
+			link_error = "That fight link didn't work. Pick your balls and play!"
+		else:
+			mode = Mode.REPLAY
+			player_type = r.p1
+			opponent_choice = r.p2
+			opponent_type = r.p2
+			seed_value = r.seed
+			aim = r.angles[0]
+			foe_aim = r.angles[1]
+			auto_start = true
+	elif params.has("c"):
+		var c := FightLink.parse_challenge(params.c)
+		if c.is_empty():
+			link_error = "That challenge link didn't work. Pick your balls and play!"
+		else:
+			mode = Mode.CHALLENGE
+			opponent_choice = c.ball
+			opponent_type = c.ball
+			seed_value = c.seed
+			foe_aim = FightLink.mirror_angle(c.aim)
+			auto_start = false
 	if auto_start and opponent_choice == OPPONENT_RANDOM:
 		opponent_type = _pick_opponent()

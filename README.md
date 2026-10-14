@@ -43,6 +43,11 @@ All sounds are generated from recipes in `tools/sfx/make_sfx.py`
 files are committed. `game/audio/sfx.gd` plays them from sim events only and
 uses its own random generator, so sound can never change a fight.
 
+Share links (`game/fight_link.gd`) need no server because fights are
+deterministic: `?r=1.laser.vampire.11.-300.1066` replays one exact fight, and
+`?c=1.laser.11.-300` challenges a friend to beat that ball and shot. Result
+screens make both links (Share fight, Challenge friend).
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
