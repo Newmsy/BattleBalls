@@ -19,6 +19,11 @@ var seen: Dictionary = {}
 var stacks: Array[Dictionary] = []
 ## Gear pieces: {uid, name, slot ("Shell"/"Core"), rarity, text, on (critter id or "")}.
 var gear: Array[Dictionary] = []
+## Consumables: {name, count, text, color}.
+var items: Array[Dictionary] = []
+var free_summon := true
+## Rare-or-better rolls left before a guaranteed Legendary (shared with drops).
+var legendary_pity := 112
 
 
 static func sample():
@@ -33,6 +38,14 @@ static func sample():
 		{"uid": 2, "name": "Leech Core", "slot": "Core", "rarity": "rare", "text": "Heal 5% of damage dealt", "on": "vampire"},
 		{"uid": 3, "name": "Rubber Shell", "slot": "Shell", "rarity": "rare", "text": "+8% bounce speed", "on": "speedster"},
 		{"uid": 4, "name": "Overclock Core", "slot": "Core", "rarity": "epic", "text": "Ability triggers 15% sooner", "on": ""},
+		{"uid": 5, "name": "Iron Shell", "slot": "Shell", "rarity": "common", "text": "Take 2 less damage per hit", "on": ""},
+		{"uid": 6, "name": "Spiked Shell", "slot": "Shell", "rarity": "rare", "text": "Take 1 less damage; attackers take 2", "on": ""},
+		{"uid": 7, "name": "Echo Core", "slot": "Core", "rarity": "legendary", "text": "8% chance the ability fires twice", "on": ""},
+	])
+	p.items.assign([
+		{"name": "Energy Pack", "count": 3, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
+		{"name": "XP Chip", "count": 12, "text": "+200 XP to one critter.", "color": Color("45f5a6")},
+		{"name": "Summon Orb", "count": 14, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
 	])
 	return p
 
@@ -134,6 +147,66 @@ func set_lineup(id: String) -> void:
 	if owns(id):
 		lineup = id
 		changed.emit()
+
+
+## Put a gear piece on a critter, replacing whatever it wore in that slot.
+func equip(uid: int, id: String) -> void:
+	var piece := _gear(uid)
+	for g in gear:
+		if g.on == id and g.slot == piece.slot:
+			g.on = ""
+	piece.on = id
+	changed.emit()
+
+
+func unequip(uid: int) -> void:
+	_gear(uid).on = ""
+	changed.emit()
+
+
+func use_energy_pack() -> bool:
+	var pack := _item("Energy Pack")
+	if pack.get("count", 0) <= 0:
+		return false
+	pack.count -= 1
+	energy += 30
+	changed.emit()
+	return true
+
+
+## Adds T1 copies from a summon (or a drop) and marks them seen.
+func add_copies(ids: Array) -> void:
+	for id in ids:
+		var s := _stack(id, 1)
+		if s.is_empty():
+			stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
+		else:
+			s.count += 1
+		seen[id] = true
+	changed.emit()
+
+
+func spend_orbs(n: int) -> bool:
+	if orbs < n:
+		return false
+	orbs -= n
+	_item("Summon Orb").count = orbs
+	changed.emit()
+	return true
+
+
+func _gear(uid: int) -> Dictionary:
+	for g in gear:
+		if g.uid == uid:
+			return g
+	return {}
+
+
+func _item(name: String) -> Dictionary:
+	for i in items:
+		if i.name == name:
+			return i
+	return {}
 
 
 func _stack(id: String, tier: int) -> Dictionary:

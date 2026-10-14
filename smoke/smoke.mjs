@@ -116,6 +116,18 @@ try {
     console.log("fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "3e-fused.png") });
+    await tapUi(page, logs, "tab_bag", "bag");
+    await tapUi(page, logs, "gear_5", "sheet");
+    await page.screenshot({ path: path.join(shots, "3f-bag-sheet.png") });
+    await tapUi(page, logs, "equip_juggernaut", "bag");
+    await page.screenshot({ path: path.join(shots, "3g-bag.png") });
+    await tapUi(page, logs, "tab_summon", "summon");
+    await page.screenshot({ path: path.join(shots, "3h-summon.png") });
+    await tapUi(page, logs, "pull10", "reveal");
+    await tapUi(page, logs, "open_all");
+    await page.waitForTimeout(2000);
+    await page.screenshot({ path: path.join(shots, "3i-reveal.png") });
+    await tapUi(page, logs, "reveal_done", "summon");
     await tapUi(page, logs, "tab_play", "play");
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "3-menu.png") });

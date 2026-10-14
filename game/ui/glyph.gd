@@ -72,6 +72,23 @@ func _draw() -> void:
 			draw_arc(Vector2(.3, .34) * s, s * .16, 0, TAU, 16, color, s * .08, true)
 			draw_arc(Vector2(.7, .34) * s, s * .16, 0, TAU, 16, color, s * .08, true)
 			draw_arc(Vector2(.5, .7) * s, s * .16, 0, TAU, 16, color, s * .08, true)
+		"shell":
+			draw_circle(c, s * .4, Color("1b1842"))
+			draw_arc(c, s * .4, 0, TAU, 32, color, s * .08, true)
+			for a in [0.0, PI / 3, 2 * PI / 3]:
+				var d := Vector2(cos(a), sin(a)) * s * .36
+				draw_line(c - d, c + d, Color(color, .6), s * .04, true)
+			draw_circle(c, s * .15, color)
+		"core":
+			var hexa := PackedVector2Array()
+			for i in 6:
+				var a := -PI / 2 + i * TAU / 6
+				hexa.append(c + Vector2(cos(a), sin(a)) * s * .42)
+			draw_colored_polygon(hexa, Color("1b1842"))
+			hexa.append(hexa[0])
+			draw_polyline(hexa, color, s * .08, true)
+			draw_circle(c, s * .17, color)
+			draw_circle(c + Vector2(-.05, -.05) * s, s * .06, Color(1, 1, 1, .8))
 		"summon":
 			var e := CritterArt.ellipse_pts(c + Vector2(0, s * .1), s * .36, s * .26, 0.0, 0.0, TAU, 24)
 			draw_polyline(e, color, s * .08, true)

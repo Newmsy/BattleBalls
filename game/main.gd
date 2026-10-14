@@ -328,12 +328,13 @@ func _build_shell() -> void:
 	shell_layer.visible = false
 	add_child(shell_layer)
 	var shell := Shell.new()
-	shell.play_requested.connect(func(): shell_layer.visible = false; _show_menu())
+	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _show_menu())
 	shell_layer.add_child(shell)
 
 
 func _show_home() -> void:
 	shell_layer.visible = true
+	sfx.toggle_lift = Shell.TAB_HEIGHT
 
 
 ## Portrait stacks arena over controls; wide screens put controls beside the
