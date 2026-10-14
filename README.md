@@ -1,0 +1,42 @@
+# Battle Balls
+
+A mobile auto-battler: balls with abilities bounce around a square arena and
+fight. Built with Godot 4.3 (GDScript, Compatibility renderer) so it runs in
+mobile Safari as a web build and later ships to iOS / Google Play.
+
+## Layout
+
+| Path | What lives there |
+|---|---|
+| `sim/` | The deterministic fight simulation. Pure GDScript, no nodes or engine physics. Same config, same fight. |
+| `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim; never changes its rules. |
+| `tests/` | Headless test suite: unit tests, determinism, golden replays. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. |
+| `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
+
+## Commands
+
+```sh
+godot --headless --import                                   # once, after cloning
+GODOT=godot tests/run.sh                                    # all tests
+godot --headless --script res://tools/balance.gd -- --fights=200
+godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
+godot --headless --export-release "Web" build/web/index.html
+cd smoke && npm ci && node smoke.mjs ../build/web
+```
+
+## Previews
+
+CI builds every PR for the web and publishes it to GitHub Pages at
+`https://newmsy.github.io/BattleBalls/pr-<number>/`; `main` is at the root.
+
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
+(`aim` is the launch angle in tenths of a degree, screen space, y down).
+
+## Rules for changes
+
+- Fights must stay deterministic: no `randf()`, `Time`, engine physics or
+  frame-rate-dependent logic in `sim/`. Use `sim/rng.gd`.
+- If a change alters the outcome of a golden replay, re-record it with
+  `tools/record_golden.gd` and say so in the PR as an intended balance change.
+- Paste the balance-sim matrix from CI into PRs that touch ball stats.
