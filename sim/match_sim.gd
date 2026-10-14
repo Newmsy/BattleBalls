@@ -26,7 +26,9 @@ const IMPACT_SPREAD := 0.5
 const BEAM_HALF_WIDTH := 5.0
 const MIN_BEAM_LENGTH := 30.0
 const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre line.
-const BUMPER_BOOST := 1.3 ## Speed multiplier after bouncing off a bumper.
+## Speed multiplier after bouncing off a bumper. 1.3 gave Laser 64% over
+## Vampire (11 points off the square); bumpers already add Laser bounces.
+const BUMPER_BOOST := 1.15
 const BUMPER_BOOST_TIME := 1.0 ## Seconds.
 ## Obstacles vanish once overtime has shrunk the arena below this share of its
 ## width, so the final squeeze is always a clean box.

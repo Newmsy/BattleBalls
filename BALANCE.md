@@ -17,8 +17,13 @@ and a design doc disagree, the design doc wins and this file gets fixed.
    to Laser).
 4. **Tiers change the ability, not just the numbers.** Higher tiers feel
    different (longer beams, chained mines), and the T5 step is spectacular.
-5. **Rarity is a small edge.** One rarity step is about +5-10% base power, so a
-   T2 Common beats a T1 Legendary more often than not.
+5. **One rarity step is worth about half a tier** (Newms, 2026-10-14), so
+   about +12% power. A Legendary sits about 1.5 tiers above a Common of the
+   same tier: a T1 Legendary roughly matches a T2-T3 Common, and a T3 Common
+   beats a T1 Legendary more often than not. A ball one rarity up against a
+   same-tier ball one rarity down should win about **60%**, between equal
+   power (50%) and a full tier (70%+). "Equal power" in rule 2 means same tier
+   and same rarity.
 6. **Fights stay watchable.** Median fight 20-60s, overtime ends stalls, and
    no build wins by running out the clock.
 7. **The sim decides, not intuition.** Numbers come from the headless balance
@@ -53,7 +58,8 @@ excluded from the checks.
 
 Until tiers exist in the sim, the power-step check stands in for a tier by
 scaling HP and every damage stat by sqrt(1.25), so HP x damage is +25%. Replace
-`_boost` in `tools/balance.gd` with the real tier system when it lands.
+`_boost` in `tools/balance.gd` with the real tier system when it lands, and
+add a rarity-step check (target ~60%, rule 5) once rarity is in the sim.
 
 ## Arenas
 
