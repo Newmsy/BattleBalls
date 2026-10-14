@@ -28,7 +28,7 @@ cd smoke && npm ci && node smoke.mjs ../build/web
 ## Previews
 
 CI builds every PR for the web and deploys it to Vercel (project
-`battleballs`, needs the `VERCEL_TOKEN` repo secret). Each PR gets a comment
+`battleballs`, token in the `VERCEL` repo secret). Each PR gets a comment
 with its preview URL; `main` deploys to production. Smoke-test screenshots
 are served at `<preview>/smoke/`.
 

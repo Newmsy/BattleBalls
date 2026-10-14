@@ -46,7 +46,7 @@ jobs:
     name: Web build, smoke test and preview
     runs-on: ubuntu-latest
     env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || secrets.VERCEL }}
     steps:
       - uses: actions/checkout@v4
       - name: Cache Godot and web export templates
@@ -111,7 +111,7 @@ jobs:
             const marker = '<!-- preview-link -->';
             const body = url
               ? `${marker}\n**Preview:** ${url} (build ${sha}) · [smoke screenshots](${url}/smoke/3-menu.png)`
-              : `${marker}\n**Preview not deployed** (build ${sha}): the \`VERCEL_TOKEN\` repo secret is missing.`;
+              : `${marker}\n**Preview not deployed** (build ${sha}): the \`VERCEL\` repo secret is missing.`;
             const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
             const existing = comments.find((c) => c.body.includes(marker));
             if (existing) {
