@@ -44,6 +44,7 @@ var link_base := FightLink.HOME
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
 
 var profile = UiProfile.sample()
+var play_with := "" ## Ball to pick in the arena menu on the next request_play().
 var current := ""
 var current_params := {}
 var _stack: Array = []
@@ -205,7 +206,10 @@ func sheet(content: Control) -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	panel.position.y = size.y
 	var h := panel.get_combined_minimum_size().y
-	create_tween().tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	var slide := create_tween()
+	slide.tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Report tap positions again once the sheet has slid into place.
+	slide.finished.connect(_report.bind("sheet"))
 
 
 func set_friends(f) -> void:
@@ -245,8 +249,10 @@ func mark(name: String, c: Control) -> void:
 	_marks[name] = c
 
 
-## Screens call this to get back to the arena menu.
-func request_play() -> void:
+## Screens call this to get back to the arena menu, optionally with `ball`
+## picked as yours (the Try-a-Critter card does).
+func request_play(ball := "") -> void:
+	play_with = ball
 	play_requested.emit()
 
 

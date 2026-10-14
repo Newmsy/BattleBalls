@@ -184,12 +184,14 @@ func test_save_round_trip() -> void:
 	p.add_copies(["laser", "laser", "spiker"])
 	p.stars["1-1"] = 3
 	p.spend_energy(6, T0)
+	p.toggle_wishlist("laser")
 	p.gear.append({"uid": 3, "name": "Iron Shell", "slot": "Shell", "rarity": "common", "text": "x", "on": "laser"})
 	var json := JSON.stringify(p.to_dict())
 	var q = Profile.from_dict(JSON.parse_string(json), T0)
 	check_eq(JSON.stringify(q.to_dict()), json, "profile survives a JSON round trip")
 	check_eq(typeof(q.stacks[0].tier), TYPE_INT, "ints stay ints")
 	check_eq(q.items[0].color, p.items[0].color, "colours survive")
+	check(q.on_wishlist("laser"), "wishlist survives")
 
 
 func test_a_broken_save_starts_a_new_game() -> void:
