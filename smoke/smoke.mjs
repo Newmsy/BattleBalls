@@ -256,6 +256,23 @@ try {
     await page.screenshot({ path: path.join(shots, "13-trickshot-solved.png") });
     await page.close();
   }
+
+  // 8. This Week board on a Chaos Saturday: open it from the Play tab, call
+  // the Fight of the Day, watch it to the end and come back to the board.
+  {
+    const { page, logs } = await openGame("?today=2026-10-17&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "thisweek", "week");
+    await page.screenshot({ path: path.join(shots, "14-this-week.png") });
+    await tapUi(page, logs, "fotd_pick0");
+    console.log("fight of the day:", await waitForLog(logs, "FIGHT_START", 5000));
+    console.log("fight of the day end:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
+    await page.close();
+  }
 } catch (e) {
   errors.push(String(e.stack ?? e));
 } finally {

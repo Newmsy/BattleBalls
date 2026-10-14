@@ -18,11 +18,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(22)
 	root.add_child(Kit.hbox(0, [Kit.label("Summon Portal", 44), Kit.spacer(), Kit.label("Orbs: %d" % p.orbs, 24, Kit.MUTED)]))
 
-	var featured := Roster.get_critter(Summon.FEATURED)
+	var featured := Roster.get_critter(Summon.featured())
 	var portal := _Portal.new()
 	portal.custom_minimum_size = Vector2(0, 300)
 	portal.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var feat := Kit.hbox(14, [CritterIcon.make(featured.id, 1, 96), Kit.vbox(2, [Kit.caption("This week · featured", Color("e8c8ff")),
+	var feat := Kit.hbox(14, [CritterIcon.make(featured.id, 1, 96), Kit.vbox(2, [Kit.caption("This week · Spotlight", Color("e8c8ff")),
 		Kit.label("%s week" % featured.name, 32), Kit.label("%s gets half of all %s rolls." % [featured.name, Roster.RARITY_NAMES[featured.rarity]], 21, Color("e8c8ff"), HORIZONTAL_ALIGNMENT_LEFT, true)])])
 	feat.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var st := Kit.box(Color("221046"), Color("6b3fb0"), 40, 2, 26)
