@@ -14,6 +14,7 @@ const SCREENS := {
 	"fuse": preload("res://game/ui/screens/fuse_screen.gd"),
 	"bag": preload("res://game/ui/screens/bag_screen.gd"),
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
+	"week": preload("res://game/ui/screens/week_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
@@ -21,6 +22,9 @@ const TAB_HEIGHT := 128.0
 
 ## Emitted when the player starts a quick fight from the Play tab.
 signal play_requested
+## Emitted to watch a fight in the arena, e.g. the Fight of the Day. `fight`
+## has p1, p2, seed, angles and pick (the side the player called).
+signal watch_requested(fight: Dictionary)
 
 var profile = UiProfile.sample()
 var current := ""
@@ -187,6 +191,10 @@ func mark(name: String, c: Control) -> void:
 ## Screens call this to get back to the arena menu.
 func request_play() -> void:
 	play_requested.emit()
+
+
+func watch(fight: Dictionary) -> void:
+	watch_requested.emit(fight)
 
 
 func _show(name: String, params: Dictionary) -> void:

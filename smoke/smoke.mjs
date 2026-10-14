@@ -38,7 +38,10 @@ async function openGame(query, viewport = { width: 390, height: 844 }) {
   const logs = [];
   page.on("console", (m) => {
     logs.push(m.text());
-    if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
+    // The online backend is best-effort (the game plays offline), so a failed
+    // request to it is reported but doesn't fail the smoke test.
+    if (m.type() === "error" && /supabase\.co/.test(m.location()?.url ?? "")) console.log(`backend request failed: ${m.text()}`);
+    else if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
   });
   page.on("pageerror", (e) => errors.push(`${query}: ${e.message}`));
   await page.goto(base + "index.html" + query);
@@ -88,7 +91,7 @@ function toPage(page, x, y) {
 try {
   // 1. Auto fight from URL params runs to a result.
   {
-    const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4");
+    const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "1-fight.png") });
@@ -99,7 +102,8 @@ try {
     await page.close();
   }
 
-  // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs.
+  // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs. Only this case
+  // goes online (signs in a guest) when the build has a backend.
   {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
@@ -147,12 +151,13 @@ try {
     console.log("menu fight:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "5-flow-fight.png") });
+    console.log("online:", logs.find((l) => l.startsWith("ONLINE")) ?? "no backend configured");
     await page.close();
   }
 
   // 3. Wide screen: controls sit beside the arena and FIGHT! is reachable.
   {
-    const { page, logs } = await openGame("?seed=7", { width: 1376, height: 1263 });
+    const { page, logs } = await openGame("?seed=7&offline=1", { width: 1376, height: 1263 });
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(1500);
     await waitForLog(logs, "UI_SCREEN play", 10000);
@@ -224,14 +229,13 @@ try {
     await challenge.page.close();
   }
 
-  // 6. Daily Trick Shot opens from the quick-fight menu's button (top right).
+  // 6. Daily Trick Shot opens from its card on the Play tab.
   {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "quickfight");
-    await page.mouse.click(...toPage(page, 720 - 95, 140));
+    await tapUi(page, logs, "trickshot");
     const ready = await waitForLog(logs, "TRICKSHOT_READY", 10000);
     console.log("trick shot:", ready);
     await page.waitForTimeout(800);
@@ -254,24 +258,41 @@ try {
     await page.close();
   }
 
-  // 8. Onboarding: cold open, starter pick, two aimed tutorial wins, the
+  // 8. This Week board on a Chaos Saturday: open it from the Play tab, call
+  // the Fight of the Day, watch it to the end and come back to the board.
+  {
+    const { page, logs } = await openGame("?today=2026-10-17&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "thisweek", "week");
+    await page.screenshot({ path: path.join(shots, "14-this-week.png") });
+    await tapUi(page, logs, "fotd_pick0");
+    console.log("fight of the day:", await waitForLog(logs, "FIGHT_START", 5000));
+    console.log("fight of the day end:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
+    await page.close();
+  }
+
+  // 9. Onboarding: cold open, starter pick, two aimed tutorial wins, the
   // guided first fusion, the boss teaser and on to the Play tab.
   {
     const { page, logs } = await openGame("?tutorial=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN onboard_cold_open", 10000);
     await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "14a-onboard-cold-open.png") });
+    await page.screenshot({ path: path.join(shots, "16a-onboard-cold-open.png") });
     await tapUi(page, logs, "pick_laser");
     await page.waitForTimeout(4000);
-    await page.screenshot({ path: path.join(shots, "14b-onboard-cold-fight.png") });
+    await page.screenshot({ path: path.join(shots, "16b-onboard-cold-fight.png") });
     await waitForLog(logs, "UI_SCREEN onboard_cold_result", 90000);
-    await page.screenshot({ path: path.join(shots, "14c-onboard-cold-result.png") });
+    await page.screenshot({ path: path.join(shots, "16c-onboard-cold-result.png") });
     await tapUi(page, logs, "next", "onboard_starter");
-    await page.screenshot({ path: path.join(shots, "14d-onboard-starter.png") });
+    await page.screenshot({ path: path.join(shots, "16d-onboard-starter.png") });
     const aimAndWin = async (n) => {
       await page.waitForTimeout(800);
-      await page.screenshot({ path: path.join(shots, `14e-onboard-aim${n}.png`) });
+      await page.screenshot({ path: path.join(shots, `16e-onboard-aim${n}.png`) });
       const [sx, sy] = toPage(page, 20 + 170 * 0.68, 190 + 830 * 0.68);
       const [ex, ey] = toPage(page, 360, 300);
       const start = logs.length;
@@ -281,23 +302,23 @@ try {
       await page.mouse.up();
       await waitForLogAfter(logs, start, "FIGHT_START", 5000);
       await waitForLogAfter(logs, start, "UI_SCREEN onboard_reward", 120000);
-      await page.screenshot({ path: path.join(shots, `14f-onboard-reward${n}.png`) });
+      await page.screenshot({ path: path.join(shots, `16f-onboard-reward${n}.png`) });
     };
     await tapUi(page, logs, "starter_laser");
     await aimAndWin(1);
     await tapUi(page, logs, "next");
     await aimAndWin(2);
     await tapUi(page, logs, "next", "fuse");
-    await page.screenshot({ path: path.join(shots, "14g-onboard-fuse.png") });
+    await page.screenshot({ path: path.join(shots, "16g-onboard-fuse.png") });
     const before = logs.length;
     await tapUi(page, logs, "fuse");
     console.log("onboarding fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
     await waitForLogAfter(logs, before, "UI_SCREEN onboard_boss", 10000);
-    await page.screenshot({ path: path.join(shots, "14h-onboard-boss.png") });
+    await page.screenshot({ path: path.join(shots, "16h-onboard-boss.png") });
     await tapUi(page, logs, "lets_go");
     await waitForLog(logs, "ONBOARD step=done", 5000);
     await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "14i-onboard-home.png") });
+    await page.screenshot({ path: path.join(shots, "16i-onboard-home.png") });
     console.log("onboarding:", logs.filter((l) => l.startsWith("ONBOARD")).map((l) => l.split(" ")[1]).join(" "));
     await page.close();
   }
