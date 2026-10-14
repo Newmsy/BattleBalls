@@ -5,11 +5,14 @@
 extends RefCounted
 
 const Roster := preload("res://game/ui/roster.gd")
+const LiveOps := preload("res://game/liveops.gd")
 
 const ODDS := [["legendary", 0.5], ["epic", 4.5], ["rare", 25.0], ["common", 70.0]]
 const PITY_RESET := 150
-## This week's featured critter takes half of the rolls of its rarity.
-const FEATURED := "magnet" ## Season 1 debut critter.
+## This week's featured critter (the Critter Spotlight in liveops.json)
+## takes half of the rolls of its rarity.
+static func featured() -> String:
+	return LiveOps.spotlight(LiveOps.now()).critter
 
 
 ## Rolls `count` critters and updates profile.legendary_pity. Returns ids.
@@ -48,7 +51,8 @@ static func _roll(profile, rng: RandomNumberGenerator, rare_plus: bool) -> Strin
 			rarity = "legendary"
 	if rarity == "legendary":
 		profile.legendary_pity = PITY_RESET
-	if rarity == rarity_of(FEATURED) and rng.randf() < .5:
-		return FEATURED
+	var spotlight := featured()
+	if rarity == rarity_of(spotlight) and rng.randf() < .5:
+		return spotlight
 	var pool: Array = Roster.CRITTERS.filter(func(c): return c.rarity == rarity)
 	return pool[rng.randi_range(0, pool.size() - 1)].id

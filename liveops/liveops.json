@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "revision": 2,
+  "seasons": [
+    {"name": "Preseason", "start": "2026-10-12", "weeks": 7},
+    {"name": "Season 1: Neon Nights", "start": "2026-11-30", "weeks": 7}
+  ],
+  "spotlight": [
+    {"week": "2026-10-12", "critter": "laser", "blurb": "Optic bounces beams off every wall. Line up the angles and let geometry do the work."},
+    {"week": "2026-10-19", "critter": "bomber", "blurb": "Fuse drops a mine on every bounce. Corners get dangerous fast."},
+    {"week": "2026-10-26", "critter": "frost", "blurb": "Chill's icy trail slows everything down to its sleepy pace."},
+    {"week": "2026-11-02", "critter": "thorns", "blurb": "Bramble hits back whenever it gets hit. Leave it alone if you can."},
+    {"week": "2026-11-09", "critter": "splitter", "blurb": "Dupe splits in two at half HP. Double the jelly, double the trouble."},
+    {"week": "2026-11-16", "critter": "ghost", "blurb": "Now you see it, now you don't."},
+    {"week": "2026-11-23", "critter": "gravity", "blurb": "Everything drifts towards it in the end."},
+    {"week": "2026-11-30", "critter": "magnet", "blurb": "Season 1 debut! Flux pulls, then pushes. Its first hit on every Pull snaps for big damage."}
+  ],
+  "chaos": [
+    {"weekend": "2026-10-16", "modifier": "closing_walls"},
+    {"weekend": "2026-10-23", "modifier": "double_trouble"},
+    {"weekend": "2026-10-30", "modifier": "big_head"},
+    {"weekend": "2026-11-06", "modifier": "glass_cannon"},
+    {"weekend": "2026-11-13", "modifier": "mirror_match"},
+    {"weekend": "2026-11-20", "modifier": "hyper_speed"},
+    {"weekend": "2026-11-27", "modifier": "closing_walls"}
+  ],
+  "fights": []
+}

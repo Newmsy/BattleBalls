@@ -6,11 +6,16 @@
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
+## `hp` (optional) sets each ball's starting HP (null = full), for relays
+## where a winner stays in with what it has left.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 
+## Bump whenever a change alters fight outcomes (i.e. golden replays are
+## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
+const RULES_VERSION := 1
 const TICK_RATE := 60
 const DT := 1.0 / TICK_RATE
 const ARENA_SIZE := 1000.0
@@ -90,6 +95,7 @@ func _init(cfg: Dictionary) -> void:
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	var angles: Array = cfg.get("angles", [null, null])
 	var starts: Array = cfg.get("starts", START_CORNERS)
+	var start_hp: Array = cfg.get("hp", [null, null])
 	for i in 2:
 		var def := BallDefs.get_def(types[i])
 		var b := Ball.new()
@@ -98,8 +104,8 @@ func _init(cfg: Dictionary) -> void:
 		b.def = def
 		b.radius = def.radius
 		b.speed = def.speed
-		b.hp = def.hp
 		b.max_hp = def.hp
+		b.hp = def.hp if start_hp[i] == null else clampf(float(start_hp[i]), 0.01, def.hp)
 		b.contact_damage = def.contact_damage
 		b.pos = starts[i]
 		# Always draw from the rng so a given aim doesn't shift later rolls.

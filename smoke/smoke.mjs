@@ -37,7 +37,10 @@ async function openGame(query, viewport = { width: 390, height: 844 }) {
   const logs = [];
   page.on("console", (m) => {
     logs.push(m.text());
-    if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
+    // The online backend is best-effort (the game plays offline), so a failed
+    // request to it is reported but doesn't fail the smoke test.
+    if (m.type() === "error" && /supabase\.co/.test(m.location()?.url ?? "")) console.log(`backend request failed: ${m.text()}`);
+    else if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
   });
   page.on("pageerror", (e) => errors.push(`${query}: ${e.message}`));
   await page.goto(base + "index.html" + query);
@@ -87,7 +90,7 @@ function toPage(page, x, y) {
 try {
   // 1. Auto fight from URL params runs to a result.
   {
-    const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4");
+    const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "1-fight.png") });
@@ -108,7 +111,8 @@ try {
     await page.close();
   }
 
-  // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs.
+  // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs. Only this case
+  // goes online (signs in a guest) when the build has a backend.
   {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
@@ -156,12 +160,30 @@ try {
     console.log("menu fight:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "5-flow-fight.png") });
+    console.log("online:", logs.find((l) => l.startsWith("ONLINE")) ?? "no backend configured");
+    await page.close();
+  }
+
+  // 2b. An invite link (?f=<friend code>) opens the Friends screen. demo=friends fills in sample friends (no server):
+  // preset phrases sheet, then a rematch against a friend's saved team.
+  {
+    const { page, logs } = await openGame("?f=RBNW-XYZ2&demo=friends&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN friends", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "3k-friends-invite.png") });
+    await tapUi(page, logs, "say_Theo", "sheet");
+    await page.screenshot({ path: path.join(shots, "3l-friends-say.png") });
+    await tapUi(page, logs, "preset_1");
+    await tapUi(page, logs, "rematch_Theo");
+    console.log("rival:", await waitForLog(logs, "RIVAL_MENU", 5000));
+    await page.screenshot({ path: path.join(shots, "3m-rival-menu.png") });
     await page.close();
   }
 
   // 3. Wide screen: controls sit beside the arena and FIGHT! is reachable.
   {
-    const { page, logs } = await openGame("?seed=7", { width: 1376, height: 1263 });
+    const { page, logs } = await openGame("?seed=7&offline=1", { width: 1376, height: 1263 });
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(1500);
     await waitForLog(logs, "UI_SCREEN play", 10000);
@@ -233,14 +255,13 @@ try {
     await challenge.page.close();
   }
 
-  // 6. Daily Trick Shot opens from the quick-fight menu's button (top right).
+  // 6. Daily Trick Shot opens from its card on the Play tab.
   {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "quickfight");
-    await page.mouse.click(...toPage(page, 720 - 95, 140));
+    await tapUi(page, logs, "trickshot");
     const ready = await waitForLog(logs, "TRICKSHOT_READY", 10000);
     console.log("trick shot:", ready);
     await page.waitForTimeout(800);
@@ -260,6 +281,23 @@ try {
     if (!result.includes("result=solved")) throw new Error(`Aim ${aim} should solve day 1: ${result}`);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "13-trickshot-solved.png") });
+    await page.close();
+  }
+
+  // 8. This Week board on a Chaos Saturday: open it from the Play tab, call
+  // the Fight of the Day, watch it to the end and come back to the board.
+  {
+    const { page, logs } = await openGame("?today=2026-10-17&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "thisweek", "week");
+    await page.screenshot({ path: path.join(shots, "14-this-week.png") });
+    await tapUi(page, logs, "fotd_pick0");
+    console.log("fight of the day:", await waitForLog(logs, "FIGHT_START", 5000));
+    console.log("fight of the day end:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
     await page.close();
   }
 } catch (e) {
