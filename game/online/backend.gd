@@ -119,6 +119,9 @@ func _auth(endpoint: String, body: Dictionary) -> Dictionary:
 func _send(method: String, path: String, body, headers: PackedStringArray, as_user: bool) -> Dictionary:
 	var http := HTTPRequest.new()
 	http.timeout = TIMEOUT
+	# Browsers already un-gzip fetch responses; letting Godot try again fails
+	# (RESULT_BODY_DECOMPRESS_FAILED) on the web build.
+	http.accept_gzip = false
 	add_child(http)
 	var all := PackedStringArray(["apikey: " + key, "Content-Type: application/json", "Accept: application/json"])
 	if as_user:
