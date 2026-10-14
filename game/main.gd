@@ -1,15 +1,24 @@
 ## Game flow: pick balls -> aim -> watch the fight -> result.
 ## URL params on the web build skip straight to a fight, e.g.
 ## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&mod=big_head
+## Share links (see fight_link.gd) open a replay (?r=) or a challenge (?c=).
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const ArenaView := preload("res://game/arena_view.gd")
+const Backend := preload("res://game/online/backend.gd")
+const SaveGame := preload("res://game/online/save_game.gd")
+const GhostLineup := preload("res://game/online/ghost_lineup.gd")
+const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
+const Shell := preload("res://game/ui/shell.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
+## NORMAL: pick both balls. REPLAY: watching a shared fight. CHALLENGE: beating
+## a friend's ball and shot.
+enum Mode { NORMAL, REPLAY, CHALLENGE }
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const ACCENT := Color("8f7bff")
@@ -23,17 +32,26 @@ const SPEEDS := [1.0, 2.0, 4.0, 0.5]
 const OPPONENT_RANDOM := "random"
 
 var state := State.MENU
+var mode := Mode.NORMAL
 var sim: MatchSim
 var player_type := "vampire"
 var opponent_choice := OPPONENT_RANDOM
 var opponent_type := "laser"
 var seed_value := 1
 var aim := -450 ## Player launch angle, tenths of a degree.
+var foe_aim = null ## Opponent launch angle, or null to let the seed pick it.
+var link_error := ""
 var speed_index := 0
 var auto_start := false
 ## Chaos Weekend rule twist. Starts on this weekend's modifier (Normal on
 ## weekdays); the menu's Rules button cycles through all of them for testing.
 var modifier := Modifiers.NONE
+var url_picks := false ## URL params chose the balls: don't overwrite them from the save.
+
+var backend: Backend
+var save := SaveGame.new()
+var account_text := "" ## Guest name and trophies once signed in.
+var _count_fight := false ## The running fight came from the menu, not a replay or URL.
 
 var _accumulator := 0.0
 var _dragging := false
@@ -57,13 +75,32 @@ var aim_box: HBoxContainer
 var result_box: VBoxContainer
 var result_label: Label
 var report_label: Label
+var new_seed_button: Button
+var again_button: Button
+var share_button: Button
+var challenge_button: Button
+var report_row: HBoxContainer
+var _share_pending := false
+var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
+
+static var _mode_redirected := false
 
 
 func _ready() -> void:
 	_rng.randomize()
 	seed_value = _rng.randi_range(1, 99999)
 	modifier = Modifiers.weekend_modifier(int(Time.get_unix_time_from_system()))
-	_read_url_params()
+	backend = Backend.new()
+	add_child(backend)
+	save.app_version = VERSION
+	save.load_local()
+	_apply_picks()
+	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
+	if _read_url_params().get("mode", "") == "trickshot" and not _mode_redirected:
+		_mode_redirected = true
+		set_process(false)
+		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
+		return
 	arena = ArenaView.new()
 	add_child(arena)
 	sfx = Sfx.new()
@@ -71,11 +108,19 @@ func _ready() -> void:
 	_build_ui()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
+	_install_share_listener()
 	print("BOOT_OK build=", _build_stamp())
+	_build_shell()
 	if auto_start:
 		_start_fight()
 	else:
 		_show_menu()
+		# Shared fight links open straight on their menu; everyone else starts at home.
+		if mode == Mode.NORMAL and link_error == "":
+			_show_home()
+	if link_error != "":
+		info_label.text = link_error
+	_go_online()
 
 
 func _process(delta: float) -> void:
@@ -92,6 +137,8 @@ func _process(delta: float) -> void:
 		if sim.finished:
 			_show_result()
 	arena.advance_effects(delta * (SPEEDS[speed_index] if state == State.FIGHT else 1.0))
+	if _share_pending:
+		_poll_share_status()
 	_update_hud()
 
 
@@ -128,7 +175,7 @@ func _set_aim_preview() -> void:
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
-	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, null], "modifier": modifier}
+	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "modifier": modifier}
 
 
 func _show_menu() -> void:
@@ -147,12 +194,16 @@ func _refresh_menu() -> void:
 		player_buttons[id].button_pressed = id == player_type
 	for id in opponent_buttons:
 		opponent_buttons[id].button_pressed = id == opponent_choice
+		opponent_buttons[id].disabled = mode == Mode.CHALLENGE
+	new_seed_button.disabled = mode == Mode.CHALLENGE
 	seed_label.text = "Seed %d" % seed_value
 	rules_button.text = Modifiers.display_name(modifier)
-	if modifier == Modifiers.NONE:
-		var def := BallDefs.get_def(player_type)
-		info_label.text = "%s: %s" % [def.display_name, def.description]
-	else:
+	var def := BallDefs.get_def(player_type)
+	info_label.text = "%s: %s" % [def.display_name, def.description]
+	if mode == Mode.CHALLENGE:
+		info_label.text = "CHALLENGE! Your friend's %s has its shot lined up. Pick a ball and beat it." % \
+			BallDefs.get_def(opponent_type).display_name
+	if modifier != Modifiers.NONE:
 		info_label.text = "%s: %s" % [Modifiers.display_name(modifier), Modifiers.get_def(modifier).description]
 	arena.preview_types = _fight_types(player_type, _pick_opponent())
 	arena.preview_modifier = modifier
@@ -193,10 +244,12 @@ func _cycle_rules() -> void:
 func _launch() -> void:
 	sfx.play("launch")
 	_start_fight()
+	_count_fight = true
 
 
 ## Starts (or replays) the fight described by the current config.
 func _start_fight() -> void:
+	_count_fight = false
 	sim = MatchSim.new(_config())
 	arena.sim = sim
 	arena.aim_dir = Vector2.ZERO
@@ -208,6 +261,9 @@ func _start_fight() -> void:
 		info_label.text += " · " + Modifiers.display_name(modifier)
 	speed_button.text = "Speed %sx" % _speed_text()
 	_show_only(fight_box)
+	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
+	if mode == Mode.REPLAY:
+		info_label.text = "Shared fight: " + info_label.text
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -216,14 +272,20 @@ func _show_result() -> void:
 	state = State.RESULT
 	var you := sim.balls[0]
 	var text := "DRAW"
-	if sim.winner == 0:
+	if mode == Mode.REPLAY and sim.winner >= 0:
+		text = "%s WINS" % sim.balls[sim.winner].def.display_name.to_upper()
+	elif sim.winner == 0:
 		text = "YOU WIN!"
 	elif sim.winner == 1:
 		text = "YOU LOSE"
 	result_label.text = text
-	info_label.text = "%.1fs. You dealt %d damage%s." % [sim.time(), roundi(you.damage_dealt),
-		(" and healed %d" % roundi(you.healed)) if you.healed > 0.0 else ""]
+	_label_result_buttons()
+	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if mode == Mode.REPLAY else "You",
+		roundi(you.damage_dealt), (" and healed %d" % roundi(you.healed)) if you.healed > 0.0 else ""]
 	report_label.text = "Report code: " + _report_code()
+	if _count_fight:
+		_count_fight = false
+		_record_fight()
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 	_show_only(result_box)
 	sfx.on_result(sim.winner)
@@ -232,6 +294,68 @@ func _show_result() -> void:
 func _report_code() -> String:
 	var code := "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
 	return code + ("." + modifier if modifier != Modifiers.NONE else "")
+
+
+# --- Save and online ----------------------------------------------------------
+
+func _apply_picks() -> void:
+	var picks: Dictionary = save.data.picks
+	if str(picks.player) in BallDefs.PLAYABLE:
+		player_type = picks.player
+	if str(picks.opponent) in BallDefs.PLAYABLE + [OPPONENT_RANDOM]:
+		opponent_choice = picks.opponent
+	speed_index = clampi(int(picks.speed), 0, SPEEDS.size() - 1)
+
+
+func _record_fight() -> void:
+	save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
+	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
+	_sync_online()
+
+
+## Signs in (a guest the first time), syncs the save and refreshes the menu.
+## Offline or unconfigured, this does nothing and the game plays as before.
+func _go_online() -> void:
+	if not backend.enabled():
+		return
+	if await save.sync(backend) and not url_picks:
+		_apply_picks()
+		if state == State.MENU:
+			_refresh_menu()
+	if not await backend.ensure_session():
+		return
+	await _publish_lineup()
+	await _refresh_account()
+
+
+func _sync_online() -> void:
+	if not backend.enabled():
+		return
+	await save.push(backend)
+	await _publish_lineup()
+
+
+## Keeps this player's Ghost Arena defence in step with their current ball.
+## Nobody becomes a ghost before their first fight (so test runs and
+## drive-by visits don't fill the opponent pool with idle lineups).
+func _publish_lineup() -> void:
+	if int(save.data.stats.fights) == 0:
+		return
+	var lineup := GhostLineup.make([player_type], save.data.aim_offsets)
+	var key := JSON.stringify(lineup, "", true)
+	if key == str(save.data.published_lineup):
+		return
+	if await GhostLineup.publish(backend, lineup):
+		save.data.published_lineup = key
+		save.save_local()
+
+
+func _refresh_account() -> void:
+	var res: Dictionary = await backend.rest("GET", "/rest/v1/profiles?select=display_name,trophies&id=eq." + backend.user_id())
+	if res.ok and res.data is Array and not res.data.is_empty():
+		print("ONLINE_OK user=", backend.user_id().left(8))
+		account_text = "%s · %d trophies" % [res.data[0].display_name, int(res.data[0].trophies)]
+		stamp_label.text = _stamp_text()
 
 
 # --- UI ---------------------------------------------------------------------
@@ -252,7 +376,7 @@ func _build_ui() -> void:
 	info_label = _label("", 26)
 	info_label.add_theme_color_override("font_color", MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	stamp_label = _label(_build_stamp(), 18)
+	stamp_label = _label(_stamp_text(), 18)
 	stamp_label.modulate = Color(1, 1, 1, 0.45)
 	stamp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 
@@ -267,9 +391,11 @@ func _build_ui() -> void:
 	seed_row.add_theme_constant_override("separation", 20)
 	seed_label = _label("", 26)
 	seed_row.add_child(seed_label)
-	seed_row.add_child(_button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu()))
+	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu())
+	seed_row.add_child(new_seed_button)
+	seed_row.add_child(_button("Home", _show_home))
 	# Debug toggle for Chaos Weekend modifiers until the event screen exists.
-	rules_button = _button("", _cycle_rules, 26)
+	rules_button = _button("", _cycle_rules, 22)
 	seed_row.add_child(rules_button)
 	menu_box.add_child(seed_row)
 	menu_box.add_child(_button("FIGHT!", _begin_aim, 40))
@@ -289,17 +415,35 @@ func _build_ui() -> void:
 	report_label = _label("", 20)
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result_box.add_child(report_label)
-	result_box.add_child(_row([
-		_button("Replay", func(): _start_fight()),
-		_button("Rematch", _rematch),
-	]))
-	result_box.add_child(_row([
+	again_button = _button("Rematch", _again)
+	result_box.add_child(_row([_button("Replay", func(): _start_fight()), again_button]))
+	share_button = _button("Share fight", _share.bind("r"))
+	challenge_button = _button("Challenge", _on_challenge_button)
+	result_box.add_child(_row([share_button, challenge_button]))
+	report_row = _row([
 		_button("Copy report", func(): DisplayServer.clipboard_set(_report_code()); report_label.text = "Copied: " + _report_code()),
-		_button("Change balls", _show_menu),
-	]))
+		_button("Change balls", _play_normal),
+	])
+	result_box.add_child(report_row)
+
 
 	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
 		ui.add_child(c)
+
+
+func _build_shell() -> void:
+	shell_layer = CanvasLayer.new()
+	shell_layer.layer = 5
+	shell_layer.visible = false
+	add_child(shell_layer)
+	var shell := Shell.new()
+	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _show_menu())
+	shell_layer.add_child(shell)
+
+
+func _show_home() -> void:
+	shell_layer.visible = true
+	sfx.toggle_lift = Shell.TAB_HEIGHT
 
 
 ## Portrait stacks arena over controls; wide screens put controls beside the
@@ -332,10 +476,11 @@ func _layout() -> void:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	_place(stamp_label, Vector2(12, size.y - 34), Vector2(size.x, 30))
 	arena.queue_redraw()
+	_sync_share_targets()
 
 
 ## Dark panels with a purple accent, matching the Neon Critters arena.
-func _neon_theme() -> Theme:
+static func _neon_theme() -> Theme:
 	var theme := Theme.new()
 	theme.default_font = FONT
 	theme.default_font_size = 30
@@ -370,6 +515,7 @@ func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 func _show_only(box: Control) -> void:
 	for b in [menu_box, aim_box, fight_box, result_box]:
 		b.visible = b == box
+	_sync_share_targets()
 
 
 func _update_hud() -> void:
@@ -381,7 +527,8 @@ func _update_hud() -> void:
 	var clock := "%.0fs" % sim.time()
 	if sim.in_overtime():
 		clock = "OVERTIME x%.1f" % sim.damage_multiplier()
-	hud_label.text = "You %d   |   %s   |   %d Foe" % [maxi(0, ceili(a.hp)), clock, maxi(0, ceili(b.hp))]
+	var tags: Array = ["P1", "P2"] if mode == Mode.REPLAY else ["You", "Foe"]
+	hud_label.text = "%s %d   |   %s   |   %d %s" % [tags[0], maxi(0, ceili(a.hp)), clock, maxi(0, ceili(b.hp)), tags[1]]
 
 
 func _cycle_speed() -> void:
@@ -400,9 +547,50 @@ func _skip_to_end() -> void:
 	arena.clear_effects()
 
 
-func _rematch() -> void:
-	seed_value = _rng.randi_range(1, 99999)
-	_begin_aim()
+func _again() -> void:
+	match mode:
+		Mode.NORMAL:
+			seed_value = _rng.randi_range(1, 99999)
+			_begin_aim()
+		Mode.CHALLENGE:
+			_begin_aim()
+		Mode.REPLAY:
+			_take_challenge(player_type, seed_value, sim.launch_angles[0])
+
+
+func _on_challenge_button() -> void:
+	if mode == Mode.REPLAY:
+		_play_normal()
+	else:
+		_share("c")
+
+
+func _label_result_buttons() -> void:
+	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot"}[mode]
+	challenge_button.text = "Play my own" if mode == Mode.REPLAY else "Challenge friend"
+	share_button.text = "Send result" if mode == Mode.CHALLENGE else "Share fight"
+	report_row.visible = mode != Mode.REPLAY
+
+
+## Fight the given ball and shot from the opponent corner, on the same seed.
+func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> void:
+	mode = Mode.CHALLENGE
+	opponent_choice = ball
+	opponent_type = ball
+	seed_value = challenge_seed
+	foe_aim = FightLink.mirror_angle(challenge_aim)
+	_show_menu()
+
+
+## Back to picking both balls, dropping any link the page was opened with.
+func _play_normal() -> void:
+	if mode != Mode.NORMAL:
+		opponent_choice = OPPONENT_RANDOM
+	mode = Mode.NORMAL
+	foe_aim = null
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("history.replaceState(null, '', location.pathname)")
+	_show_menu()
 
 
 func _label(text: String, font_size: int) -> Label:
@@ -447,6 +635,109 @@ func _choice_row(ids: Array, store: Dictionary, on_pick: Callable) -> HBoxContai
 	return row
 
 
+# --- Share links -------------------------------------------------------------
+# Browsers only let a page share or copy inside the user's own tap, and Godot
+# handles taps a frame later. So the page itself watches taps on the share
+# buttons (window.bbShare.targets, in canvas fractions) and shares from there;
+# the Godot button only reports the outcome.
+
+const SHARE_JS := """
+if (!window.bbShare) {
+	window.bbShare = { targets: [], status: "" };
+	const done = (s) => { window.bbShare.status = s; };
+	const copy = (t) => {
+		const ask = () => { window.prompt("Copy this link:", t.url); done("shown"); };
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			navigator.clipboard.writeText(t.text + " " + t.url).then(() => done("copied"), ask);
+		} else {
+			ask();
+		}
+	};
+	window.addEventListener("pointerup", (e) => {
+		const canvas = document.querySelector("canvas");
+		if (!canvas) return;
+		const r = canvas.getBoundingClientRect();
+		const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+		for (const t of window.bbShare.targets) {
+			if (x < t.x || x > t.x + t.w || y < t.y || y > t.y + t.h) continue;
+			console.log("SHARE " + t.kind + " " + t.url);
+			done("pending");
+			if (navigator.share) {
+				navigator.share({ title: "Battle Balls", text: t.text, url: t.url })
+					.then(() => done("shared"), (err) => err && err.name === "AbortError" ? done("cancelled") : copy(t));
+			} else {
+				copy(t);
+			}
+			return;
+		}
+	}, true);
+}
+"""
+
+
+func _install_share_listener() -> void:
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(SHARE_JS, true)
+
+
+func _share_url(kind: String) -> String:
+	var base := FightLink.HOME
+	if OS.has_feature("web"):
+		base = str(JavaScriptBridge.eval("location.origin + location.pathname", true))
+	var angles := sim.launch_angles
+	var code := FightLink.challenge_code(player_type, seed_value, angles[0]) if kind == "c" \
+		else FightLink.replay_code(player_type, opponent_type, seed_value, angles[0], angles[1])
+	# The fight's Chaos Weekend twist rides along, so it replays the same any day.
+	return FightLink.url(base, kind, code) + ("&mod=" + modifier if modifier != Modifiers.NONE else "")
+
+
+func _share_text(kind: String) -> String:
+	var mine: String = BallDefs.get_def(player_type).display_name
+	var theirs: String = BallDefs.get_def(opponent_type).display_name
+	if kind == "c":
+		return "Can your ball beat my %s's shot in Battle Balls?" % mine
+	if mode == Mode.CHALLENGE:
+		return ("I beat your %s challenge with my %s!" if sim.winner == 0 else "Your %s beat my %s. Watch:") % [theirs, mine]
+	return "Watch %s vs %s in Battle Balls!" % [mine, theirs]
+
+
+## Tells the page where the share buttons are, once their layout has settled.
+func _sync_share_targets() -> void:
+	if not OS.has_feature("web"):
+		return
+	await get_tree().process_frame
+	var targets := []
+	if state == State.RESULT and result_box.visible and sim != null:
+		var buttons := {"r": share_button}
+		if mode != Mode.REPLAY:
+			buttons["c"] = challenge_button
+		var view := get_viewport().get_visible_rect().size
+		for kind in buttons:
+			var r: Rect2 = buttons[kind].get_global_rect()
+			targets.append({"kind": kind, "url": _share_url(kind), "text": _share_text(kind),
+				"x": r.position.x / view.x, "y": r.position.y / view.y, "w": r.size.x / view.x, "h": r.size.y / view.y})
+	JavaScriptBridge.eval("window.bbShare && (window.bbShare.targets = %s)" % JSON.stringify(targets), true)
+
+
+func _share(kind: String) -> void:
+	if OS.has_feature("web"):
+		# The page already started sharing on this tap; just watch how it went.
+		_share_pending = true
+		return
+	DisplayServer.clipboard_set(_share_url(kind))
+	report_label.text = "Link copied: " + _share_url(kind)
+
+
+func _poll_share_status() -> void:
+	var status := str(JavaScriptBridge.eval("window.bbShare ? window.bbShare.status : ''", true))
+	var messages := {"shared": "Shared!", "copied": "Link copied. Paste it to a friend!", "shown": "", "cancelled": ""}
+	if status in messages:
+		_share_pending = false
+		JavaScriptBridge.eval("window.bbShare.status = ''", true)
+		if messages[status] != "":
+			report_label.text = messages[status]
+
+
 # --- Build info and URL params ---------------------------------------------
 
 func _build_stamp() -> String:
@@ -456,9 +747,13 @@ func _build_stamp() -> String:
 	return "v%s %s" % [VERSION, commit]
 
 
-func _read_url_params() -> void:
+func _stamp_text() -> String:
+	return _build_stamp() + (" · " + account_text if account_text != "" else "")
+
+
+func _read_url_params() -> Dictionary:
 	if not OS.has_feature("web"):
-		return
+		return {}
 	var query: String = str(JavaScriptBridge.eval("window.location.search", true))
 	var params := {}
 	for pair in query.trim_prefix("?").split("&", false):
@@ -466,9 +761,12 @@ func _read_url_params() -> void:
 		params[kv[0].uri_decode()] = kv[1].uri_decode() if kv.size() > 1 else ""
 	if params.get("p1", "") in BallDefs.PLAYABLE:
 		player_type = params.p1
+		url_picks = true
 	if params.get("p2", "") in BallDefs.PLAYABLE:
 		opponent_choice = params.p2
 		opponent_type = params.p2
+		url_picks = true
+	backend.disabled = params.get("offline", "") == "1"
 	if params.has("seed") and params.seed.is_valid_int():
 		seed_value = int(params.seed)
 	if params.has("aim") and params.aim.is_valid_int():
@@ -478,6 +776,35 @@ func _read_url_params() -> void:
 		speed_index = maxi(0, i)
 	if Modifiers.has(params.get("mod", "-")):
 		modifier = params.mod
+	elif params.has("r") or params.has("c"):
+		modifier = Modifiers.NONE ## A shared fight without a twist was played on normal rules.
 	auto_start = params.get("auto", "") == "1"
+	if params.has("r"):
+		var r := FightLink.parse_replay(params.r)
+		if r.is_empty():
+			link_error = "That fight link didn't work. Pick your balls and play!"
+		else:
+			mode = Mode.REPLAY
+			player_type = r.p1
+			opponent_choice = r.p2
+			opponent_type = r.p2
+			seed_value = r.seed
+			aim = r.angles[0]
+			foe_aim = r.angles[1]
+			auto_start = true
+	elif params.has("c"):
+		var c := FightLink.parse_challenge(params.c)
+		if c.is_empty():
+			link_error = "That challenge link didn't work. Pick your balls and play!"
+		else:
+			mode = Mode.CHALLENGE
+			opponent_choice = c.ball
+			opponent_type = c.ball
+			seed_value = c.seed
+			foe_aim = FightLink.mirror_angle(c.aim)
+			auto_start = false
+	if mode != Mode.NORMAL:
+		url_picks = true
 	if auto_start and opponent_choice == OPPONENT_RANDOM:
 		opponent_type = _pick_opponent()
+	return params

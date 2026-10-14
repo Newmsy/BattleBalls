@@ -1,6 +1,6 @@
 // Smoke test for the web build: boots it in a phone-sized headless Chromium,
 // plays one auto fight and one fight through the real menu, fails on any
-// page error, and saves screenshots.
+// page error, and saves screenshots. Also opens Daily Trick Shot and solves one.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -37,7 +37,10 @@ async function openGame(query, viewport = { width: 390, height: 844 }) {
   const logs = [];
   page.on("console", (m) => {
     logs.push(m.text());
-    if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
+    // The online backend is best-effort (the game plays offline), so a failed
+    // request to it is reported but doesn't fail the smoke test.
+    if (m.type() === "error" && /supabase\.co/.test(m.location()?.url ?? "")) console.log(`backend request failed: ${m.text()}`);
+    else if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
   });
   page.on("pageerror", (e) => errors.push(`${query}: ${e.message}`));
   await page.goto(base + "index.html" + query);
@@ -54,6 +57,28 @@ async function waitForLog(logs, prefix, timeoutMs) {
   throw new Error(`Timed out waiting for "${prefix}". Last logs:\n${logs.slice(-15).join("\n")}`);
 }
 
+async function waitForLogAfter(logs, start, prefix, timeoutMs) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    const hit = logs.slice(start).find((l) => l.startsWith(prefix));
+    if (hit) return hit;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  throw new Error(`Timed out waiting for "${prefix}". Last logs:\n${logs.slice(-15).join("\n")}`);
+}
+
+// Taps a menu control by the name the shell logs for it ("UI_AT name x y"),
+// then waits for the screen it leads to (if any) and returns.
+async function tapUi(page, logs, name, nextScreen) {
+  const at = [...logs].reverse().find((l) => l.startsWith(`UI_AT ${name} `));
+  if (!at) throw new Error(`No UI_AT for ${name}. Last logs:\n${logs.slice(-15).join("\n")}`);
+  const [x, y] = at.split(" ").slice(2).map(Number);
+  const start = logs.length;
+  await page.mouse.click(...toPage(page, x, y));
+  if (nextScreen) await waitForLogAfter(logs, start, `UI_SCREEN ${nextScreen}`, 5000);
+  await page.waitForTimeout(600);
+}
+
 // Godot's canvas maps the 720x1280 design space onto the page, keeping
 // whichever side is tighter and expanding the other.
 function toPage(page, x, y) {
@@ -65,7 +90,7 @@ function toPage(page, x, y) {
 try {
   // 1. Auto fight from URL params runs to a result.
   {
-    const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4");
+    const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "1-fight.png") });
@@ -76,11 +101,39 @@ try {
     await page.close();
   }
 
-  // 2. Real flow: menu -> FIGHT! -> drag to aim -> fight runs.
+  // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs. Only this case
+  // goes online (signs in a guest) when the build has a backend.
   {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(shots, "3a-home.png") });
+    await tapUi(page, logs, "tab_critters", "critters");
+    await page.screenshot({ path: path.join(shots, "3b-critters.png") });
+    await tapUi(page, logs, "tile_vampire", "detail");
+    await page.screenshot({ path: path.join(shots, "3c-detail.png") });
+    await tapUi(page, logs, "tab_fuse", "fuse");
+    await page.screenshot({ path: path.join(shots, "3d-fuse.png") });
+    const before = logs.length;
+    await tapUi(page, logs, "fuse");
+    console.log("fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "3e-fused.png") });
+    await tapUi(page, logs, "tab_bag", "bag");
+    await tapUi(page, logs, "gear_5", "sheet");
+    await page.screenshot({ path: path.join(shots, "3f-bag-sheet.png") });
+    await tapUi(page, logs, "equip_juggernaut", "bag");
+    await page.screenshot({ path: path.join(shots, "3g-bag.png") });
+    await tapUi(page, logs, "tab_summon", "summon");
+    await page.screenshot({ path: path.join(shots, "3h-summon.png") });
+    await tapUi(page, logs, "pull10", "reveal");
+    await tapUi(page, logs, "open_all");
+    await page.waitForTimeout(2000);
+    await page.screenshot({ path: path.join(shots, "3i-reveal.png") });
+    await tapUi(page, logs, "reveal_done", "summon");
+    await tapUi(page, logs, "tab_play", "play");
+    await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "3-menu.png") });
     // Layout: arena 680px at y=190, controls start at 190+680+120=990.
     // Menu rows: label, ball row, label, opponent row, seed row, FIGHT! (last).
@@ -97,14 +150,19 @@ try {
     console.log("menu fight:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "5-flow-fight.png") });
+    console.log("online:", logs.find((l) => l.startsWith("ONLINE")) ?? "no backend configured");
     await page.close();
   }
 
   // 3. Wide screen: controls sit beside the arena and FIGHT! is reachable.
   {
-    const { page, logs } = await openGame("?seed=7", { width: 1376, height: 1263 });
+    const { page, logs } = await openGame("?seed=7&offline=1", { width: 1376, height: 1263 });
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(1500);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "6a-wide-home.png") });
+    await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "6-wide-menu.png") });
     // Visible area is 1394x1280: arena 614px at x=30, panel at x=684, FIGHT! at the panel's bottom.
     await page.mouse.click(...toPage(page, 684 + 340, 190 + 100 + 478 - 42));
@@ -130,14 +188,83 @@ try {
     await page.close();
   }
 
-  // 5. Chaos Weekend modifier from the URL reaches the sim and the report code.
+  // 5. Share: tap "Share fight" on a result, open the link it made, and the
+  // same fight replays to the same end state. Then tap "Challenge friend" and
+  // open that link: the challenge menu shows and its fight starts.
+  {
+    const { page, logs } = await openGame("?p1=laser&p2=vampire&seed=11&aim=-300&auto=1&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    const end = (await waitForLog(logs, "MATCH_END", 90000)).split("hash=")[1];
+    const tapTarget = async (kind) => {
+      await page.waitForFunction((k) => window.bbShare?.targets.some((t) => t.kind === k), kind, { timeout: 5000 });
+      const t = await page.evaluate((k) => window.bbShare.targets.find((t) => t.kind === k), kind);
+      const box = await page.locator("canvas").boundingBox();
+      await page.mouse.click(box.x + (t.x + t.w / 2) * box.width, box.y + (t.y + t.h / 2) * box.height);
+      return (await waitForLog(logs, `SHARE ${kind} `, 5000)).split(" ")[2];
+    };
+    await page.waitForTimeout(500);
+    const replayUrl = await tapTarget("r");
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(shots, "9-share.png") });
+    const challengeUrl = await tapTarget("c");
+    await page.close();
+    console.log("share links:", replayUrl, challengeUrl);
+
+    const replay = await openGame(new URL(replayUrl).search);
+    const replayEnd = (await waitForLog(replay.logs, "MATCH_END", 120000)).split("hash=")[1];
+    if (replayEnd !== end) throw new Error(`Replay link ended differently: ${replayEnd} vs ${end}`);
+    await replay.page.waitForTimeout(500);
+    await replay.page.screenshot({ path: path.join(shots, "10-replay-result.png") });
+    await replay.page.close();
+
+    const challenge = await openGame(new URL(challengeUrl).search);
+    await waitForLog(challenge.logs, "BOOT_OK", 60000);
+    await challenge.page.waitForTimeout(1500);
+    await challenge.page.screenshot({ path: path.join(shots, "11-challenge-menu.png") });
+    await challenge.page.mouse.click(...toPage(challenge.page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
+    await challenge.page.waitForTimeout(800);
+    await challenge.page.mouse.click(...toPage(challenge.page, 20 + 170, 990 + 42)); // Launch
+    console.log("challenge fight:", await waitForLog(challenge.logs, "FIGHT_START", 5000));
+    await challenge.page.close();
+  }
+
+  // 6. Daily Trick Shot opens from its card on the Play tab.
+  {
+    const { page, logs } = await openGame("?seed=7");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "trickshot");
+    const ready = await waitForLog(logs, "TRICKSHOT_READY", 10000);
+    console.log("trick shot:", ready);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "12-trickshot-aim.png") });
+    await page.close();
+  }
+
+  // 7. A known solution of day 1 solves it.
+  {
+    const probe = await openGame("?mode=trickshot&day=1");
+    const [lo, hi] = (await waitForLog(probe.logs, "TRICKSHOT_READY", 60000)).match(/solutions=(\d+)-(\d+)/).slice(1).map(Number);
+    await probe.page.close();
+    const aim = Math.round((lo + hi) / 2);
+    const { page, logs } = await openGame(`?mode=trickshot&day=1&aim=${aim}&auto=1`);
+    const result = await waitForLog(logs, "TRICKSHOT_RESULT", 60000);
+    console.log("trick shot result:", result);
+    if (!result.includes("result=solved")) throw new Error(`Aim ${aim} should solve day 1: ${result}`);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "13-trickshot-solved.png") });
+    await page.close();
+  }
+
+  // 8. Chaos Weekend modifier from the URL reaches the sim and the report code.
   {
     const { page, logs } = await openGame("?p1=vampire&p2=laser&seed=7&auto=1&speed=4&mod=big_head");
     await waitForLog(logs, "BOOT_OK", 60000);
     const start = await waitForLog(logs, "FIGHT_START", 5000);
     if (!start.endsWith(".big_head")) throw new Error(`modifier missing from report code: ${start}`);
     await page.waitForTimeout(3000);
-    await page.screenshot({ path: path.join(shots, "9-big-head.png") });
+    await page.screenshot({ path: path.join(shots, "14-big-head.png") });
     console.log("modifier fight:", await waitForLog(logs, "MATCH_END", 90000));
     await page.close();
   }

@@ -2,16 +2,22 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], modifier: String }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2],
+##          modifier: String }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
-## or null to let the seed pick one. `modifier` is an optional Chaos Weekend
-## rule twist from sim/modifiers.gd, applied to both balls.
+## or null to let the seed pick one. `starts` (optional) overrides the start
+## corners with arena positions; random aims still centre on the corners.
+## `modifier` is an optional Chaos Weekend rule twist from sim/modifiers.gd,
+## applied to both balls.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 
+## Bump whenever a change alters fight outcomes (i.e. golden replays are
+## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
+const RULES_VERSION := 1
 const TICK_RATE := 60
 const DT := 1.0 / TICK_RATE
 const ARENA_SIZE := 1000.0
@@ -95,6 +101,7 @@ func _init(cfg: Dictionary) -> void:
 		var mirrored := Modifiers.mirror_ball(int(cfg.get("seed", 1)), BallDefs.PLAYABLE)
 		types = [mirrored, mirrored]
 	var angles: Array = cfg.get("angles", [null, null])
+	var starts: Array = cfg.get("starts", START_CORNERS)
 	for i in 2:
 		var def := Modifiers.apply_to_def(BallDefs.get_def(types[i]), modifier)
 		var b := Ball.new()
@@ -106,7 +113,7 @@ func _init(cfg: Dictionary) -> void:
 		b.hp = def.hp
 		b.max_hp = def.hp
 		b.contact_damage = def.contact_damage
-		b.pos = START_CORNERS[i]
+		b.pos = starts[i]
 		# Always draw from the rng so a given aim doesn't shift later rolls.
 		var random_aim: int = AIM_AT_CENTRE[i] + rng.range_int(-RANDOM_AIM_SPREAD, RANDOM_AIM_SPREAD)
 		var aim: int = random_aim if angles[i] == null else int(angles[i])
