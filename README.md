@@ -10,7 +10,10 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 |---|---|
 | `sim/` | The deterministic fight simulation. Pure GDScript, no nodes or engine physics. Same config, same fight. |
 | `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim; never changes its rules. |
-| `tests/` | Headless test suite: unit tests, determinism, golden replays. |
+| `liveops/` | The live-ops schedule (`liveops.json`): seasons, Spotlight weeks, Chaos Weekends, Fight of the Day. See its README. |
+| `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
+| `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
+| `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
 | `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
@@ -23,6 +26,7 @@ godot --headless --script res://tools/balance.gd -- --fights=200 --power-step
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
+DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS tests on an empty Postgres
 ```
 
 ## Previews
@@ -73,6 +77,26 @@ fights, and a leg's winner stays in with the HP it has left (`hp` in the
 MatchSim config). `game/pvp/ladder.gd` holds leagues, divisions and the
 trophy rules per opponent card; `game/pvp/arena_ghosts.gd` generates the
 labelled bot defences and the three daily opponent cards from fixed seeds.
+
+## Online backend (Supabase)
+
+The game plays fully offline; the backend adds guest accounts, cloud save and
+Ghost Arena (async PvP) storage. CI writes `backend_config.json` (URL + public
+key) into the web build from repo secrets; without them the build is offline.
+
+| Repo secret | What | Used by |
+|---|---|---|
+| `SUPABASE_URL` | `https://<ref>.supabase.co` | web build, migrations |
+| `SUPABASE_ANON_KEY` | publishable (`sb_publishable_...`) or legacy anon key | web build (public by design) |
+| `SUPABASE_ACCESS_TOKEN` | personal access token for the Supabase CLI | migrations only |
+| `SUPABASE_DB_PASSWORD` | database password | migrations only |
+
+- Never put a secret / `service_role` key in the game or a `SUPABASE_*` var the
+  web job reads; CI refuses to build with one. All access control is
+  row-level security plus `SECURITY DEFINER` functions in `supabase/migrations`.
+- Schema changes are new migration files (never edit an applied one), with
+  tests in `tests/db/`. They reach the live project when merged to `main`.
+- `?offline=1` runs the web build without touching the backend.
 
 ## Rules for changes
 
