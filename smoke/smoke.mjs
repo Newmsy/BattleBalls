@@ -290,6 +290,39 @@ try {
     await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
     await page.close();
   }
+
+  // 9. Finisher cam, then Save clip: the KO is shown zoomed in, the clip
+  // plays in its "Who wins?" layout, gets recorded and downloads as a video.
+  {
+    const { page, logs } = await openGame("?p1=laser&p2=vampire&seed=11&aim=-300&auto=1&speed=4&offline=1&clip=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    console.log("finisher:", await waitForLog(logs, "FINISHER_KO", 90000));
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(shots, "16-finisher.png") });
+    console.log("clip:", await waitForLog(logs, "CLIP_START", 10000));
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: path.join(shots, "17-clip-title.png") });
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: path.join(shots, "18-clip-fight.png") });
+    const done = await waitForLog(logs, "CLIP_READY", 120000).catch(() => {
+      throw new Error(`Clip was not made: ${logs.filter((l) => l.startsWith("CLIP")).join(" | ")}`);
+    });
+    console.log("clip made:", done, logs.find((l) => l.startsWith("CLIP_BLOB")));
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(shots, "19-clip-ready.png") });
+    await page.waitForFunction(() => window.bbShare?.targets.some((t) => t.kind === "clip"), null, { timeout: 5000 });
+    const t = await page.evaluate(() => window.bbShare.targets.find((t) => t.kind === "clip"));
+    const box = await page.locator("canvas").boundingBox();
+    const download = page.waitForEvent("download", { timeout: 10000 });
+    await page.mouse.click(box.x + (t.x + t.w / 2) * box.width, box.y + (t.y + t.h / 2) * box.height);
+    const file = await download;
+    const saved = path.join(shots, "clip-" + file.suggestedFilename());
+    await file.saveAs(saved);
+    const bytes = fs.statSync(saved).size;
+    console.log("clip file:", file.suggestedFilename(), bytes, "bytes");
+    if (bytes < 20000) throw new Error(`Clip file too small: ${bytes} bytes`);
+    await page.close();
+  }
 } catch (e) {
   errors.push(String(e.stack ?? e));
 } finally {

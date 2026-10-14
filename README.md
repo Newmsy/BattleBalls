@@ -38,6 +38,17 @@ are served at `<preview>/smoke/`.
 
 URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
 (`aim` is the launch angle in tenths of a degree, screen space, y down).
+Add `&clip=1` to make a "Save clip" video as soon as the fight ends.
+
+## Finisher cam and clips
+
+The finisher cam (`game/finisher_cam.gd`) slows and zooms into the knockout
+blow. It is render-only: it plans from its own copy of the fight and only
+changes playback speed and the camera. **Save clip** on the result screen
+replays the fight in a 720x1280 "Who wins?" layout (`game/clip/`) and records
+it in the browser (MP4 on iPhone Safari); browsers without MediaRecorder get
+the same layout to screen-record. The export preset's `head_include` turns on
+`preserveDrawingBuffer` and taps the game's audio so the page can record both.
 `?sounds=1` opens the sound board: every sound with a play button.
 
 ## Sound

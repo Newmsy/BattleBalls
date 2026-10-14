@@ -34,6 +34,14 @@ var view_scale := 0.68
 var aim_dir := Vector2.ZERO
 ## Ball types to show before a sim exists (menu preview).
 var preview_types: Array = ["vampire", "laser"]
+## Where the arena sits at zoom 1; the finisher cam moves and scales from here.
+var origin := Vector2.ZERO
+var cam_zoom := 1.0
+var cam_focus := Vector2.ONE * MatchSim.ARENA_SIZE / 2.0
+## Finisher cam: the knocked-out ball, drawn with its KO face after it falls.
+var ko_ball := -1
+## 0..1: how far into the finisher (letterbox bars and the K.O. banner).
+var finisher_amount := 0.0
 
 var _time := 0.0
 var _shake := 0.0
@@ -46,10 +54,26 @@ var _hit := [0.0, 0.0]
 var _squash := [0.0, 0.0]
 var _eye_flash := [0.0, 0.0]
 var _fx_rng := RandomNumberGenerator.new()
+var _ko_age := 0.0
 
 
 func to_world(screen_pos: Vector2) -> Vector2:
-	return (screen_pos - global_position) / view_scale
+	return (get_global_transform().affine_inverse() * screen_pos) / view_scale
+
+
+## Zooms the view in on a world point. Zoom 1 shows the whole arena at `origin`.
+func set_camera(zoom: float, focus: Vector2) -> void:
+	cam_zoom = zoom
+	cam_focus = focus
+	scale = Vector2.ONE * zoom
+	var side := MatchSim.ARENA_SIZE * view_scale
+	position = origin + Vector2.ONE * side / 2.0 - focus * view_scale * zoom
+
+
+func reset_camera() -> void:
+	ko_ball = -1
+	finisher_amount = 0.0
+	set_camera(1.0, Vector2.ONE * MatchSim.ARENA_SIZE / 2.0)
 
 
 func clear_effects() -> void:
@@ -100,6 +124,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 
 func advance_effects(delta: float) -> void:
 	_time += delta
+	_ko_age = _ko_age + delta if ko_ball >= 0 else 0.0
 	_shake = maxf(0.0, _shake - delta * 30.0)
 	for i in 2:
 		_hit[i] = maxf(0.0, _hit[i] - delta)
@@ -196,6 +221,8 @@ func _draw() -> void:
 	for b in sim.balls:
 		if b.alive():
 			_draw_critter(b.index, b.def, b.pos * s, b.radius * s, b.hp, b.max_hp, shake)
+		elif b.index == ko_ball:
+			_draw_critter(b.index, b.def, b.pos * s, b.radius * s, 0.0, b.max_hp, shake, true)
 
 	for p in _particles:
 		var a: float = 1.0 - p.age / p.life
@@ -206,6 +233,29 @@ func _draw() -> void:
 		var t: float = p.age / POPUP_LIFE
 		var pos: Vector2 = p.pos * s + Vector2(0, -40.0 * t)
 		_text_centered(pos, p.text, 26, Color(p.color, 1.0 - t * t), 6)
+
+	if finisher_amount > 0.0:
+		_draw_finisher_frame()
+
+
+## Letterbox bars and, once the blow lands, a K.O. banner. Drawn at screen
+## size whatever the zoom, over the part of the arena in view.
+func _draw_finisher_frame() -> void:
+	var s := view_scale
+	var half := MatchSim.ARENA_SIZE * s / (2.0 * cam_zoom)
+	var c := cam_focus * s
+	var view := Rect2(c - Vector2(half, half), Vector2(half, half) * 2.0)
+	var bar := view.size.y * 0.09 * finisher_amount
+	draw_set_transform(Vector2.ZERO)
+	draw_rect(Rect2(view.position, Vector2(view.size.x, bar)), Color(0, 0, 0, 0.85))
+	draw_rect(Rect2(Vector2(view.position.x, view.end.y - bar), Vector2(view.size.x, bar)), Color(0, 0, 0, 0.85))
+	if ko_ball < 0:
+		return
+	draw_set_transform(c, 0.0, Vector2.ONE / cam_zoom)
+	var pop := minf(1.0, _ko_age / 0.18)
+	var size := roundi(lerpf(150.0, 96.0, pop) * view_scale / 0.68)
+	_text_centered(Vector2(0, -half * cam_zoom * 0.7), "K.O.!", size, Color(BURST, pop), 14)
+	draw_set_transform(Vector2.ZERO)
 
 
 func _draw_grid(r: Rect2) -> void:
@@ -222,7 +272,7 @@ func _draw_grid(r: Rect2) -> void:
 
 ## One critter at `pos` (screen space) with radius `r`. Squash, wince, blink
 ## and eye direction come from the per-ball effect state.
-func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2) -> void:
+func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2, ko := false) -> void:
 	var look: Vector2 = _look[i]
 	var team_col: Color = TEAM_COLORS[i]
 	# Team ring and tag sit outside the squash so they stay steady.
@@ -233,6 +283,9 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 
 	var ang := look.angle()
 	var sq: float = _squash[i] * 1.6
+	if ko:
+		# Flattened and wobbling, as if it just got bonked.
+		sq = 0.12 + 0.05 * sin(_ko_age * 14.0) * exp(-_ko_age * 2.0)
 	var squash := Transform2D(Vector2(1.0 - sq * 0.6, 0), Vector2(0, 1.0 + sq * 0.5), Vector2.ZERO)
 	draw_set_transform_matrix(Transform2D(0, pos + shake) * Transform2D(ang, Vector2.ZERO) * squash * Transform2D(-ang, Vector2.ZERO))
 
@@ -246,7 +299,13 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var hit: float = _hit[i]
 	if hit > 0.0:
 		draw_circle(Vector2.ZERO, r, Color(1, 1, 1, minf(0.85, hit * 2.4)))
-	_face(def, r, look, hp / max_hp, hit, i)
+	if ko:
+		draw_circle(Vector2.ZERO, r, Color(0.1, 0.05, 0.2, 0.25))
+		_ko_face(r)
+		draw_set_transform(shake)
+		_dizzy_stars(pos, r)
+	else:
+		_face(def, r, look, hp / max_hp, hit, i)
 
 	draw_set_transform(shake)
 	_hp_badge(def, pos, r, hp)
@@ -361,6 +420,28 @@ func _mouth(m: Vector2, r: float, kind: String, hp_frac: float) -> void:
 			var x: float = m.x + k * r * 0.1
 			draw_colored_polygon(PackedVector2Array([
 				Vector2(x - r * 0.035, m.y + r * 0.03), Vector2(x + r * 0.035, m.y + r * 0.03), Vector2(x, m.y + r * 0.15)]), Color.WHITE)
+
+
+## Cross eyes and a stunned little "o" mouth.
+func _ko_face(r: float) -> void:
+	var lw := maxf(2.0, r * 0.09)
+	var e := Vector2(0, -r * 0.08)
+	for k in [-1.0, 1.0]:
+		var c := e + Vector2(k * r * 0.3, 0)
+		var d := r * 0.13
+		draw_line(c + Vector2(-d, -d), c + Vector2(d, d), INK, lw, true)
+		draw_line(c + Vector2(-d, d), c + Vector2(d, -d), INK, lw, true)
+	var m := e + Vector2(0, r * 0.4)
+	_ellipse(m, r * 0.13, r * 0.16, INK)
+	_ellipse(m + Vector2(0, r * 0.05), r * 0.07, r * 0.06, Color("ff6b8a"))
+
+
+## Stars circling the head of a knocked-out critter.
+func _dizzy_stars(pos: Vector2, r: float) -> void:
+	for k in 3:
+		var a := _ko_age * 4.0 + k * TAU / 3.0
+		var p := pos + Vector2(cos(a) * r * 0.75, -r * 1.05 + sin(a) * r * 0.22)
+		_star(p, r * 0.16, r * 0.07, 5, Color(BURST, 0.6 + 0.4 * sin(a)))
 
 
 func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float) -> void:
