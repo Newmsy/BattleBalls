@@ -2,9 +2,10 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2] }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2] }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
-## or null to let the seed pick one.
+## or null to let the seed pick one. `starts` (optional) overrides the start
+## corners with arena positions; random aims still centre on the corners.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
@@ -85,6 +86,7 @@ func _init(cfg: Dictionary) -> void:
 	rng = Rng.new(int(cfg.get("seed", 1)))
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	var angles: Array = cfg.get("angles", [null, null])
+	var starts: Array = cfg.get("starts", START_CORNERS)
 	for i in 2:
 		var def := BallDefs.get_def(types[i])
 		var b := Ball.new()
@@ -96,7 +98,7 @@ func _init(cfg: Dictionary) -> void:
 		b.hp = def.hp
 		b.max_hp = def.hp
 		b.contact_damage = def.contact_damage
-		b.pos = START_CORNERS[i]
+		b.pos = starts[i]
 		# Always draw from the rng so a given aim doesn't shift later rolls.
 		var random_aim: int = AIM_AT_CENTRE[i] + rng.range_int(-RANDOM_AIM_SPREAD, RANDOM_AIM_SPREAD)
 		var aim: int = random_aim if angles[i] == null else int(angles[i])

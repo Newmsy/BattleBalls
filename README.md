@@ -48,6 +48,23 @@ deterministic: `?r=1.laser.vampire.11.-300.1066` replays one exact fight, and
 `?c=1.laser.11.-300` challenges a friend to beat that ball and shot. Result
 screens make both links (Share fight, Challenge friend).
 
+## Daily Trick Shot
+
+A daily called bank shot (`sim/trick_shot.gd`, `game/trick_shot.gd`): your
+ball and a resting foe are placed, and you get three tries to find the launch
+angle that banks off the called walls in order and then hits the foe. The
+puzzle comes from the local date alone (#1 is 2026-10-14), so every device
+gets the same one with no server. The generator tries setups until 4-12 of
+the 360 whole-degree aims solve it; a test checks every day of the first year.
+Progress and streaks are saved to `user://trick_shot.cfg`.
+
+Open it from the menu's Trick Shot button or with
+`?mode=trickshot` (`&day=12` for another day, `&aim=166&auto=1` to shoot at once).
+
+Changing ball radius or speed, or adding playable balls, reshapes the
+puzzles. That is fine; `tests/test_trick_shot.gd` only fails if days stop
+being solvable or fair.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
