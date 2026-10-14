@@ -2,18 +2,20 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2] }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], modifier: String }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
-## or null to let the seed pick one.
+## or null to let the seed pick one. `modifier` is an optional Chaos Weekend
+## rule twist from sim/modifiers.gd, applied to both balls.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
 
 const TICK_RATE := 60
 const DT := 1.0 / TICK_RATE
 const ARENA_SIZE := 1000.0
-const OVERTIME_START := 45.0
+const OVERTIME_START := 45.0 ## Default; a modifier can move it (see overtime_start).
 const SHRINK_SPEED := 12.0 ## Arena units per second, per side.
 const MIN_HALF := 200.0
 const OVERTIME_DAMAGE_RAMP := 0.05 ## +5% damage per second of overtime.
@@ -64,6 +66,8 @@ class Beam:
 
 
 var config: Dictionary
+var modifier := Modifiers.NONE
+var overtime_start := OVERTIME_START
 var rng
 var balls: Array[Ball] = []
 var beams: Array[Beam] = []
@@ -83,10 +87,16 @@ var _contact_cooldown_until := {} ## "i:j" -> tick
 func _init(cfg: Dictionary) -> void:
 	config = cfg
 	rng = Rng.new(int(cfg.get("seed", 1)))
+	modifier = cfg.get("modifier", Modifiers.NONE)
+	var mod := Modifiers.get_def(modifier)
+	overtime_start = mod.get("overtime_start", OVERTIME_START)
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
+	if mod.get("mirror", false):
+		var mirrored := Modifiers.mirror_ball(int(cfg.get("seed", 1)), BallDefs.PLAYABLE)
+		types = [mirrored, mirrored]
 	var angles: Array = cfg.get("angles", [null, null])
 	for i in 2:
-		var def := BallDefs.get_def(types[i])
+		var def := Modifiers.apply_to_def(BallDefs.get_def(types[i]), modifier)
 		var b := Ball.new()
 		b.index = i
 		b.type_id = types[i]
@@ -110,11 +120,11 @@ func time() -> float:
 
 
 func in_overtime() -> bool:
-	return time() >= OVERTIME_START
+	return time() >= overtime_start
 
 
 func damage_multiplier() -> float:
-	return 1.0 + maxf(0.0, time() - OVERTIME_START) * OVERTIME_DAMAGE_RAMP
+	return 1.0 + maxf(0.0, time() - overtime_start) * OVERTIME_DAMAGE_RAMP
 
 
 func arena_rect() -> Rect2:
@@ -130,7 +140,7 @@ func step() -> void:
 		hp_before.append(b.hp)
 
 	if in_overtime():
-		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
+		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - overtime_start))
 
 	var hits: Array[Dictionary] = []
 	for b in balls:

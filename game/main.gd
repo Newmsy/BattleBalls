@@ -1,10 +1,11 @@
 ## Game flow: pick balls -> aim -> watch the fight -> result.
 ## URL params on the web build skip straight to a fight, e.g.
-## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2
+## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&mod=big_head
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
@@ -25,6 +26,9 @@ var seed_value := 1
 var aim := -450 ## Player launch angle, tenths of a degree.
 var speed_index := 0
 var auto_start := false
+## Chaos Weekend rule twist. Starts on this weekend's modifier (Normal on
+## weekdays); the menu's Rules button cycles through all of them for testing.
+var modifier := Modifiers.NONE
 
 var _accumulator := 0.0
 var _dragging := false
@@ -40,6 +44,7 @@ var menu_box: VBoxContainer
 var player_buttons := {}
 var opponent_buttons := {}
 var seed_label: Label
+var rules_button: Button
 var fight_box: HBoxContainer
 var speed_button: Button
 var aim_box: HBoxContainer
@@ -51,6 +56,7 @@ var report_label: Label
 func _ready() -> void:
 	_rng.randomize()
 	seed_value = _rng.randi_range(1, 99999)
+	modifier = Modifiers.weekend_modifier(int(Time.get_unix_time_from_system()))
 	_read_url_params()
 	arena = ArenaView.new()
 	add_child(arena)
@@ -112,7 +118,7 @@ func _set_aim_preview() -> void:
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
-	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, null]}
+	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, null], "modifier": modifier}
 
 
 func _show_menu() -> void:
@@ -131,9 +137,14 @@ func _refresh_menu() -> void:
 	for id in opponent_buttons:
 		opponent_buttons[id].button_pressed = id == opponent_choice
 	seed_label.text = "Seed %d" % seed_value
-	var def := BallDefs.get_def(player_type)
-	info_label.text = "%s: %s" % [def.display_name, def.description]
-	arena.preview_types = [player_type, _pick_opponent()]
+	rules_button.text = Modifiers.display_name(modifier)
+	if modifier == Modifiers.NONE:
+		var def := BallDefs.get_def(player_type)
+		info_label.text = "%s: %s" % [def.display_name, def.description]
+	else:
+		info_label.text = "%s: %s" % [Modifiers.display_name(modifier), Modifiers.get_def(modifier).description]
+	arena.preview_types = _fight_types(player_type, _pick_opponent())
+	arena.preview_modifier = modifier
 	arena.queue_redraw()
 
 
@@ -143,7 +154,7 @@ func _begin_aim() -> void:
 	aim = MatchSim.AIM_AT_CENTRE[0]
 	arena.clear_effects()
 	_set_aim_preview()
-	info_label.text = "Drag on the arena to aim your %s, then let go to launch." % BallDefs.get_def(player_type).display_name
+	info_label.text = "Drag on the arena to aim your %s, then let go to launch." % sim.balls[0].def.display_name
 	_show_only(aim_box)
 
 
@@ -152,6 +163,20 @@ func _pick_opponent() -> String:
 		return opponent_choice
 	# Derived from the seed so a seed always means the same matchup.
 	return BallDefs.PLAYABLE[seed_value % BallDefs.PLAYABLE.size()]
+
+
+## The balls that will actually fight: Mirror Match overrides both picks.
+func _fight_types(p1: String, p2: String) -> Array:
+	if Modifiers.get_def(modifier).get("mirror", false):
+		var m := Modifiers.mirror_ball(seed_value, BallDefs.PLAYABLE)
+		return [m, m]
+	return [p1, p2]
+
+
+func _cycle_rules() -> void:
+	var ids: Array = [Modifiers.NONE] + Modifiers.DEFS.keys()
+	modifier = ids[(ids.find(modifier) + 1) % ids.size()]
+	_refresh_menu()
 
 
 func _launch() -> void:
@@ -166,7 +191,9 @@ func _start_fight() -> void:
 	arena.clear_effects()
 	_accumulator = 0.0
 	state = State.FIGHT
-	info_label.text = "%s vs %s" % [BallDefs.get_def(player_type).display_name, BallDefs.get_def(opponent_type).display_name]
+	info_label.text = "%s vs %s" % [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
+	if modifier != Modifiers.NONE:
+		info_label.text += " · " + Modifiers.display_name(modifier)
 	speed_button.text = "Speed %sx" % _speed_text()
 	_show_only(fight_box)
 	print("FIGHT_START ", _report_code())
@@ -189,7 +216,8 @@ func _show_result() -> void:
 
 
 func _report_code() -> String:
-	return "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
+	var code := "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
+	return code + ("." + modifier if modifier != Modifiers.NONE else "")
 
 
 # --- UI ---------------------------------------------------------------------
@@ -225,6 +253,9 @@ func _build_ui() -> void:
 	seed_label = _label("", 26)
 	seed_row.add_child(seed_label)
 	seed_row.add_child(_button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu()))
+	# Debug toggle for Chaos Weekend modifiers until the event screen exists.
+	rules_button = _button("", _cycle_rules, 26)
+	seed_row.add_child(rules_button)
 	menu_box.add_child(seed_row)
 	menu_box.add_child(_button("FIGHT!", _begin_aim, 40))
 
@@ -402,6 +433,8 @@ func _read_url_params() -> void:
 	if params.has("speed"):
 		var i := SPEEDS.find(float(params.speed))
 		speed_index = maxi(0, i)
+	if Modifiers.has(params.get("mod", "-")):
+		modifier = params.mod
 	auto_start = params.get("auto", "") == "1"
 	if auto_start and opponent_choice == OPPONENT_RANDOM:
 		opponent_type = _pick_opponent()

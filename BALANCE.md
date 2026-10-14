@@ -39,11 +39,18 @@ In the PR that adds or changes it:
 - Add it to `BallDefs.PLAYABLE` so CI and the audit include it.
 - Golden replays and unit tests for the ability, as for any sim change.
 
+## Chaos Weekend modifiers
+
+Weekend rule twists (`sim/modifiers.gd`) apply to both balls, but they still
+shift matchups, so the same 65% limit and 20-60s median hold under every
+modifier. Aim for 60% or less so new critters have headroom. A new critter
+is checked under every modifier as well as base rules.
+
 ## What checks it
 
 | Check | When | Command |
 |---|---|---|
-| Equal-power matrix, `FAIL` blocks merge | Every PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict` |
+| Equal-power matrix, base rules and every Chaos Weekend modifier, `FAIL` blocks merge | Every PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --modifiers --strict` |
 | Full audit: equal power and power step at higher sample size | Weekly scheduled balance audit on `main`, plus any PR touching ball stats | `balance.gd -- --fights=500 --power-step` |
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%

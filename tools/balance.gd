@@ -2,14 +2,18 @@
 ## win-rate matrix, fight-length stats and balance flags as Markdown. The
 ## targets it checks are the ones in BALANCE.md.
 ## Usage: godot --headless --script res://tools/balance.gd -- [--fights=200] [--power-step] [--strict]
+##        [--modifier=<id> | --modifiers]
 ##   --fights=N    seeds per pairing; each seed is fought from both corners (2N fights)
 ##   --power-step  also fights every ball one power step up against every ball,
 ##                 checking that power beats counters (slow: n^2 pairings)
 ##   --strict      exit 1 when a check fails beyond sampling noise
+##   --modifier=ID run every check under one Chaos Weekend modifier (sim/modifiers.gd)
+##   --modifiers   also run the equal-power checks under every modifier
 extends SceneTree
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
 
 ## Targets from BALANCE.md.
 const EQUAL_POWER_MAX := 0.65 ## No equal-power matchup above this.
@@ -22,11 +26,13 @@ var fights := 200
 var durations: Array[float] = []
 var timeouts := 0
 var failures := 0
+var modifier := Modifiers.NONE
 
 
 func _init() -> void:
 	var strict := false
 	var power_step := false
+	var all_modifiers := false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--fights="):
 			fights = int(arg.split("=")[1])
@@ -34,12 +40,27 @@ func _init() -> void:
 			strict = true
 		elif arg == "--power-step":
 			power_step = true
+		elif arg.begins_with("--modifier="):
+			modifier = arg.split("=")[1]
+			if not Modifiers.has(modifier):
+				printerr("Unknown modifier: %s (known: %s)" % [modifier, ", ".join(Modifiers.DEFS.keys())])
+				quit(2)
+				return
+		elif arg == "--modifiers":
+			all_modifiers = true
 	var ids: Array = BallDefs.DEFS.keys()
 	var lines: Array[String] = []
 	lines.append_array(_equal_power(ids))
 	if power_step:
 		lines.append("")
 		lines.append_array(_power_step(ids))
+	if all_modifiers:
+		for id in Modifiers.DEFS:
+			modifier = id
+			durations.clear()
+			timeouts = 0
+			lines.append("")
+			lines.append_array(_equal_power(ids))
 	print("\n".join(lines))
 	quit(1 if strict and failures > 0 else 0)
 
@@ -56,7 +77,7 @@ func _equal_power(ids: Array) -> Array[String]:
 			rate[a + ":" + b] = r
 			rate[b + ":" + a] = 1.0 - r
 	var lines: Array[String] = []
-	lines.append("### Balance sim, equal power (%d fights per pairing, both corners)" % (fights * 2))
+	lines.append("### Balance sim, equal power%s (%d fights per pairing, both corners)" % [_modifier_suffix(), fights * 2])
 	lines.append("")
 	lines.append("| Row beats column | " + " | ".join(ids) + " |")
 	lines.append("|---".repeat(ids.size() + 1) + "|")
@@ -102,7 +123,7 @@ func _equal_power(ids: Array) -> Array[String]:
 func _power_step(ids: Array) -> Array[String]:
 	var playable: Array = BallDefs.PLAYABLE
 	var lines: Array[String] = []
-	lines.append("### Power step (row at x%.2f power vs column at base, %d fights per pairing)" % [POWER_STEP, fights * 2])
+	lines.append("### Power step%s (row at x%.2f power vs column at base, %d fights per pairing)" % [_modifier_suffix(), POWER_STEP, fights * 2])
 	lines.append("")
 	lines.append("| Stronger row beats column | " + " | ".join(playable) + " | worst |")
 	lines.append("|---".repeat(playable.size() + 2) + "|")
@@ -135,7 +156,7 @@ func _win_rate(a: String, a_power: float, b: String) -> float:
 	var wins := 0.0
 	for i in fights:
 		for a_index in 2:
-			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null]})
+			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "modifier": modifier})
 			if a_power != 1.0:
 				_boost(sim.balls[a_index], a_power)
 			var s := sim.run_to_end()
@@ -162,6 +183,10 @@ static func _boost(ball, power: float) -> void:
 		if String(key).ends_with("_damage"):
 			def[key] *= k
 	ball.def = def
+
+
+func _modifier_suffix() -> String:
+	return "" if modifier == Modifiers.NONE else ", " + Modifiers.display_name(modifier)
 
 
 ## FAIL when the miss is clear of sampling noise, WARN otherwise.

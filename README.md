@@ -32,8 +32,9 @@ CI builds every PR for the web and deploys it to Vercel (project
 with its preview URL; `main` deploys to production. Smoke-test screenshots
 are served at `<preview>/smoke/`.
 
-URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
-(`aim` is the launch angle in tenths of a degree, screen space, y down).
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&mod=big_head`
+(`aim` is the launch angle in tenths of a degree, screen space, y down; `mod` is an
+optional Chaos Weekend modifier id from `sim/modifiers.gd`).
 
 ## Rules for changes
 

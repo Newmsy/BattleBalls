@@ -4,6 +4,7 @@ extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
 
 const POPUP_LIFE := 0.9
 ## Side markers so mirror matches stay readable: index 0 is always the player.
@@ -17,6 +18,7 @@ var view_scale := 0.68
 var aim_dir := Vector2.ZERO
 ## Ball types to show before a sim exists (menu preview).
 var preview_types: Array = ["vampire", "laser"]
+var preview_modifier := Modifiers.NONE
 
 var _popups: Array[Dictionary] = []
 var _flash := [0.0, 0.0]
@@ -78,7 +80,7 @@ func _draw() -> void:
 
 	if sim == null:
 		for i in 2:
-			var def := BallDefs.get_def(preview_types[i])
+			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
 			_draw_ball(MatchSim.START_CORNERS[i] * s, def.radius * s, def, def.hp, 0.0, i)
 		return
 
