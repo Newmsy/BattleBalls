@@ -5,6 +5,8 @@ extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const CritterArt := preload("res://game/ui/critter_art.gd")
+const Roster := preload("res://game/ui/roster.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 
 const INK := Color("1a1530")
@@ -17,7 +19,7 @@ const BURST := Color("ffe28a")
 const POP_DAMAGE := Color("ff5a7a")
 const POP_HEAL := Color("45f5a6")
 const POP_BEAM := Color("7cc4ff")
-const RARITY_COLORS := {"common": Color("c9d3e0"), "rare": Color("3d9bff"), "epic": Color("b366ff"), "legendary": Color("ffc23d")}
+const RARITY_COLORS := Roster.RARITY_COLORS
 ## Side markers so mirror matches stay readable: index 0 is always the player.
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const TEAM_TAGS := ["YOU", "FOE"]
@@ -34,6 +36,8 @@ var view_scale := 0.68
 var aim_dir := Vector2.ZERO
 ## Ball types to show before a sim exists (menu preview).
 var preview_types: Array = ["vampire", "laser"]
+## Tier of each ball (stars on the badge, how big its feature grows).
+var tiers: Array = [1, 1]
 
 var _time := 0.0
 var _shake := 0.0
@@ -89,8 +93,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_spawn_particles(e.pos, 10)
 			"bounce":
 				_squash[e.ball] = maxf(_squash[e.ball], 0.15)
-				if sim.balls[e.ball].def.ability == "laser":
-					_eye_flash[e.ball] = 0.3
+				_eye_flash[e.ball] = 0.3
 			"end":
 				for b in sim.balls:
 					if not b.alive():
@@ -236,131 +239,14 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var squash := Transform2D(Vector2(1.0 - sq * 0.6, 0), Vector2(0, 1.0 + sq * 0.5), Vector2.ZERO)
 	draw_set_transform_matrix(Transform2D(0, pos + shake) * Transform2D(ang, Vector2.ZERO) * squash * Transform2D(-ang, Vector2.ZERO))
 
-	var col: Color = def.color
-	match def.ability:
-		"vampire":
-			_vampire_collar(r, col)
-		"laser":
-			_laser_antenna(r, col)
-	_body(r, col)
-	var hit: float = _hit[i]
-	if hit > 0.0:
-		draw_circle(Vector2.ZERO, r, Color(1, 1, 1, minf(0.85, hit * 2.4)))
-	_face(def, r, look, hp / max_hp, hit, i)
+	draw_circle(Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
+	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
+	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
+	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": tiers[i], "look": look, "blink": blink,
+		"hit": _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp})
 
 	draw_set_transform(shake)
 	_hp_badge(def, pos, r, hp)
-
-
-func _body(r: float, col: Color) -> void:
-	draw_circle(Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
-	# Radial gradient: shrinking discs drifting toward the top-left highlight.
-	var dark := col.darkened(0.2)
-	var light := col.lightened(0.45)
-	var steps := 12
-	for k in steps:
-		var t := float(k) / (steps - 1)
-		var rad := r * (1.0 - t * 0.88)
-		var centre := Vector2(-0.35, -0.4) * r * t * 0.85
-		draw_circle(centre, rad, dark.lerp(light, t * t))
-	draw_arc(Vector2.ZERO, r, 0, TAU, 64, col.darkened(0.5), maxf(1.5, r * 0.07), true)
-
-
-func _vampire_collar(r: float, col: Color) -> void:
-	var cape := col.darkened(0.55)
-	for side in [-1.0, 1.0]:
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(side * r * 0.25, -r * 0.9), Vector2(side * r * 1.12, -r * 1.13), Vector2(side * r * 0.95, -r * 0.15)]), cape)
-
-
-func _laser_antenna(r: float, col: Color) -> void:
-	var tip := Vector2(0, -r * 1.45)
-	draw_line(Vector2(0, -r * 0.8), tip, col.darkened(0.5), maxf(1.5, r * 0.07), true)
-	var on := sin(_time * 5.0) > -0.2
-	if on:
-		draw_circle(tip, r * 0.2, Color("7fe6ff", 0.3))
-	draw_circle(tip, r * 0.1, Color("bff4ff") if on else Color("3b6f80"))
-
-
-func _face(def: Dictionary, r: float, look: Vector2, hp_frac: float, hit: float, i: int) -> void:
-	var e := look * r * 0.2 + Vector2(0, -r * 0.08)
-	if hit > 0.0:
-		_wince(r, e)
-		return
-	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
-	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
-	var open := maxf(0.08, 1.0 - blink)
-	match def.ability:
-		"laser":
-			_eye(e, r * 0.4, r * 0.4 * open, r * 0.16, look, Color("0a7bb0"), Color("7fe6ff"), 0.0, def.color, _eye_flash[i])
-		"vampire":
-			for k in [-1.0, 1.0]:
-				_eye(e + Vector2(k * r * 0.3, 0), r * 0.19, r * 0.22 * open, r * 0.1, look, Color.TRANSPARENT, Color.TRANSPARENT, 0.45, def.color, 0.0)
-				_brow(e + Vector2(k * r * 0.3, 0), r * 0.19, r * 0.22, k, r * 0.12, r)
-			_mouth(e + Vector2(0, r * 0.34), r, "fangs", hp_frac)
-		_:
-			for k in [-1.0, 1.0]:
-				_eye(e + Vector2(k * r * 0.3, 0), r * 0.2, r * 0.24 * open, r * 0.1, look, Color.TRANSPARENT, Color.TRANSPARENT, 0.0, def.color, 0.0)
-			_mouth(e + Vector2(0, r * 0.34), r, "smile", hp_frac)
-
-
-func _eye(c: Vector2, w: float, h: float, pupil: float, look: Vector2, iris: Color, glow: Color, lid: float, body: Color, flash: float) -> void:
-	if glow.a > 0.0:
-		var g := 0.25 + flash * 1.5
-		for k in 3:
-			_ellipse(c, w * (1.25 + k * 0.18), h * (1.25 + k * 0.18), Color(glow, g / (k + 2)))
-	_ellipse(c, w, h, Color.WHITE)
-	var p := c + Vector2(look.x * w, look.y * h) * 0.45
-	# Keep the pupil inside the (possibly blinking) eye.
-	var ph := minf(pupil, h * 0.95)
-	if iris.a > 0.0:
-		_ellipse(p, minf(pupil * 1.7, w * 0.95), minf(pupil * 1.7, h * 0.95), iris)
-	_ellipse(p, pupil, ph, INK)
-	if ph > pupil * 0.5:
-		draw_circle(p - Vector2(pupil, pupil) * 0.4, pupil * 0.35, Color.WHITE)
-	if lid > 0.0:
-		# Sleepy upper lid in body colour, with a darker edge.
-		var y := c.y - h + h * 2.0 * lid
-		# Arc of the eye above the lid line; the chord closes the polygon.
-		var d := clampf((y - c.y) / (h * 1.04), -0.99, 0.99)
-		var a0 := PI - asin(d)
-		var a1 := TAU + asin(d)
-		var pts := PackedVector2Array()
-		for k in 17:
-			var a := lerpf(a0, a1, k / 16.0)
-			pts.append(c + Vector2(cos(a) * w * 1.04, sin(a) * h * 1.04))
-		draw_colored_polygon(pts, body.lightened(0.05))
-		draw_line(Vector2(c.x - w, y), Vector2(c.x + w, y), body.darkened(0.45), maxf(1.0, w * 0.25), true)
-
-
-func _brow(c: Vector2, w: float, h: float, side: float, slant: float, r: float) -> void:
-	var top := c.y - h - r * 0.08
-	draw_line(Vector2(c.x + side * w * 1.1, top - slant * 0.5), Vector2(c.x - side * w * 0.9, top + slant * 0.5), INK, maxf(1.6, r * 0.08), true)
-
-
-func _wince(r: float, e: Vector2) -> void:
-	var lw := maxf(1.6, r * 0.08)
-	for k in [-1.0, 1.0]:
-		var c := e + Vector2(k * r * 0.3, 0)
-		draw_polyline(PackedVector2Array([
-			c + Vector2(-k * r * 0.12, -r * 0.1), c + Vector2(k * r * 0.08, 0), c + Vector2(-k * r * 0.12, r * 0.1)]), INK, lw, true)
-	_ellipse(e + Vector2(0, r * 0.38), r * 0.12, r * 0.09, INK)
-
-
-func _mouth(m: Vector2, r: float, kind: String, hp_frac: float) -> void:
-	var lw := maxf(1.4, r * 0.065)
-	if hp_frac < 0.35:
-		var pts := PackedVector2Array()
-		for k in 5:
-			pts.append(m + Vector2(-r * 0.16 + k * r * 0.08, -r * 0.05 if k % 2 == 1 else 0.0))
-		draw_polyline(pts, INK, lw, true)
-		return
-	draw_arc(m + Vector2(0, -r * 0.07), r * 0.14, 0.2 * PI, 0.8 * PI, 16, INK, lw, true)
-	if kind == "fangs":
-		for k in [-1.0, 1.0]:
-			var x: float = m.x + k * r * 0.1
-			draw_colored_polygon(PackedVector2Array([
-				Vector2(x - r * 0.035, m.y + r * 0.03), Vector2(x + r * 0.035, m.y + r * 0.03), Vector2(x, m.y + r * 0.15)]), Color.WHITE)
 
 
 func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float) -> void:

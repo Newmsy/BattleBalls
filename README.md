@@ -9,6 +9,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | Path | What lives there |
 |---|---|
 | `sim/` | The deterministic fight simulation. Pure GDScript, no nodes or engine physics. Same config, same fight. |
+| `sim/critters/` | One file per critter: everything about it (see Adding a critter). |
 | `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim; never changes its rules. |
 | `liveops/` | The live-ops schedule (`liveops.json`): seasons, Spotlight weeks, Chaos Weekends, Fight of the Day. See its README. |
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
@@ -88,6 +89,25 @@ key) into the web build from repo secrets; without them the build is offline.
 - Schema changes are new migration files (never edit an applied one), with
   tests in `tests/db/`. They reach the live project when merged to `main`.
 - `?offline=1` runs the web build without touching the backend.
+
+## Adding a critter
+
+A critter is one file: `sim/critters/<id>.gd` (copy `sim/critters/_template.gd`).
+It holds the name, rarity, role, stats, ability, T1-T5 ladder, look and voice.
+`sim/critter_db.gd` finds every file, so the critter shows up in the fight sim,
+the collection, summons, art, sound, the balance sim and the tests with no
+other code.
+
+- **Ability** = trigger + effect pairs from `sim/abilities.gd`, e.g.
+  `{"on": "wall", "do": "beam"}`, with numbers in `params`. If the effect you
+  need doesn't exist, add one `fx_<name>` method and its `EFFECTS` entry there.
+- **Tiers** list the ladder text and any `params` that change at each tier.
+- **Look** comes from the kit in `game/ui/critter_art.gd`: a body style, a face
+  and named features. A new feature is one branch in `_feature()`.
+- **Status**: `planned` critters appear in the collection only; set `live` once
+  the ability is built and the balance check passes (BALANCE.md).
+- `tests/test_critters.gd` checks every file; `CritterDb.validate` explains
+  what's wrong.
 
 ## Rules for changes
 

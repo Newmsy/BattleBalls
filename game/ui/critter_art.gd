@@ -1,53 +1,46 @@
-## Draws any of the 15 Neon Critters with plain CanvasItem draw calls, so menus
-## can show every critter (the arena renderer only covers the playable ones).
-## Ported from the approved roster page. Call from a CanvasItem's _draw():
+## Draws any Neon Critter with plain CanvasItem draw calls, for menus and the
+## arena alike. Each critter's look is data in its file (sim/critters/<id>.gd,
+## the "art" key): a body style, a face (eyes + mouth) and a list of features
+## drawn behind ("back") and in front of ("front") the body. New critters mix
+## the existing bodies, faces and features; a new feature is one more branch
+## in _feature(). Call from a CanvasItem's _draw():
 ##   CritterArt.draw_critter(self, "vampire", centre, radius, {"t": time, "tier": 2})
 ## State keys (all optional): t, tier, look (Vector2), blink (0-1), hit, flash,
 ## stacks, silhouette (bool: draw as an unfound dark shape).
 extends RefCounted
 
-const Roster := preload("res://game/ui/roster.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 
 const INK := Color("1a1530")
+## The kit a critter's "art" can use; tests check every critter file against it.
+const BODIES := ["gradient", "bomb", "ghost", "chrome", "starfield", "prism"]
+const FEATURES := ["cape_collar", "spike_ring", "speed_streaks", "antennae", "ice_crown", "thorn_ring", "wisp_tail", "orbit_ring",
+	"swirl_arms", "flame_crest", "rock_band", "headband", "fuse", "frost_freckles", "vines", "seam"]
+const MOUTHS := ["smile", "grin", "smirk", "flat", "frown", "o", "fangs", "teeth", "none"]
 const SILHOUETTE := Color("232052")
-
-const EYES := {
-	"vampire": {"sep": .3, "w": .19, "h": .22, "p": .1, "lid": .45, "brow": .12, "mouth": "fangs"},
-	"juggernaut": {"sep": .24, "w": .11, "h": .12, "p": .08, "uni": true, "mouth": "flat"},
-	"spiker": {"sep": .32, "w": .24, "h": .28, "p": .12, "mouth": "grin"},
-	"speedster": {"sep": .3, "w": .21, "h": .14, "p": .09, "brow": .22, "mouth": "smirk"},
-	"laser": {"one": true, "w": .4, "h": .4, "p": .16, "iris": Color("0a7bb0"), "glow": Color("7fe6ff"), "mouth": "none"},
-	"bomber": {"sep": .3, "w": .23, "h": .26, "p": .07, "mis": true, "mouth": "teeth"},
-	"frost": {"sep": .3, "w": .19, "h": .2, "p": .09, "lid": .55, "mouth": "o"},
-	"thorns": {"sep": .3, "w": .17, "h": .19, "p": .09, "brow": .32, "mouth": "frown"},
-	"splitter": {"sep": .3, "w": .2, "h": .24, "p": .1, "mis": true, "mouth": "smile"},
-	"ghost": {"sep": .3, "w": .15, "h": .24, "hollow": true, "mouth": "o"},
-	"gravity": {"sep": .3, "w": .17, "closed": true, "mouth": "smile"},
-	"mirror": {"sep": .3, "w": .2, "h": .25, "p": .1, "mouth": "smile"},
-	"blackhole": {"sep": .3, "dot": true, "mouth": "none"},
-	"phoenix": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": Color("ffb300"), "brow": .3, "mouth": "smirk"},
-	"prism": {"sep": .3, "w": .21, "h": .26, "p": .11, "sparkle": true, "mouth": "smile"},
-}
 
 static var _sil := false
 
 
 static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Dictionary = {}) -> void:
-	var d := Roster.get_critter(id)
+	var d := CritterDb.get_critter(id)
 	var st := {"t": 0.0, "tier": 1, "look": Vector2.RIGHT, "blink": 0.0, "hit": 0.0, "flash": 0.0, "stacks": 0, "hp_frac": 1.0}
 	st.merge(s, true)
 	_sil = st.get("silhouette", false)
-	if id == "juggernaut":
-		r *= 1.15
+	var art: Dictionary = d.art
+	var col := Color(d.color)
+	r *= art.get("scale", 1.0)
 	if not _sil:
 		_aura(ci, d.rarity, c, r, st.t)
-	_back(ci, id, d, c, r, st)
-	_body_for(ci, id, d, c, r, st)
-	_front(ci, id, d, c, r, st)
+	for f in art.get("back", []):
+		_feature(ci, f, true, col, c, r, st)
+	_body_for(ci, art.get("body", "gradient"), col, c, r, st)
+	for f in art.get("front", []):
+		_feature(ci, f, false, col, c, r, st)
 	if not _sil:
 		if st.hit > 0.0:
 			_circ(ci, c, r, Color(1, 1, 1, minf(.85, st.hit * 2.4)))
-		_face(ci, id, d, c, r, st)
+		_face(ci, art.get("eyes", {}), col, c, r, st)
 	_sil = false
 
 
@@ -167,11 +160,12 @@ static func _aura(ci: CanvasItem, rarity: String, c: Vector2, r: float, t: float
 			ci.draw_colored_polygon(star_pts(p, r * .12, r * .04, 4), Color(1, .95, .77, .6 + .4 * sin(t * 6.0 + i)))
 
 
-static func _body_for(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: float, s: Dictionary) -> void:
+## Body styles: gradient (default), bomb, ghost, chrome, starfield, prism.
+static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: float, s: Dictionary) -> void:
 	var t: float = s.t
-	match id:
-		"bomber":
-			_body(ci, c, r, d.color)
+	match style:
+		"bomb":
+			_body(ci, c, r, col)
 			_ell(ci, c + Vector2(-.42, -.45) * r, r * .18, r * .1, Color(1, 1, 1, .35), -.7)
 		"ghost":
 			var a := .75 + .2 * sin(t * 2.0)
@@ -180,7 +174,7 @@ static func _body_for(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: 
 			for k in range(1, 6):
 				var f := k / 5.0
 				_circ(ci, c + Vector2(-.3, -.35) * r * f * .9, r * (1.0 - f * .8), Color(.85 + .15 * f, .8 + .2 * f, 1.0, (.6 + .35 * f) * a))
-		"mirror":
+		"chrome":
 			var cols := [Color("f7f9fd"), Color("c4ccd8"), Color("8a95a8"), Color("e9eef5"), Color("aab4c3"), Color("5f6a7d")]
 			for i in cols.size():
 				_band(ci, c, r, -r + i * r * 2.0 / cols.size(), -r + (i + 1) * r * 2.0 / cols.size() + 1.0, cols[i])
@@ -190,7 +184,7 @@ static func _body_for(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: 
 				if absf(x) < r * .8:
 					_ell(ci, c + Vector2(x, 0), r * (.09 - .025 * i), _chord_x(r, x) * .92, Color(1, 1, 1, .55), -.6)
 			_ring(ci, c, r, Color("4a5466"), maxf(1.5, r * .07))
-		"blackhole":
+		"starfield":
 			_circ(ci, c, r * 1.12, Color(.56, .36, 1.0, .25))
 			_circ(ci, c, r, Color("07060d"))
 			for i in 14:
@@ -217,33 +211,35 @@ static func _body_for(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: 
 				var h := fmod(float(i) / segs + t * .32, 1.0)
 				ci.draw_arc(c, r, a0, a0 + TAU / segs + .02, 3, _c(Color.from_hsv(h, .7, 1.0)), maxf(2.0, r * .09), true)
 		_:
-			_body(ci, c, r, d.color)
+			_body(ci, c, r, col)
 
 
 # --- Back and front features --------------------------------------------------
 
-static func _back(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: float, s: Dictionary) -> void:
+## One named feature from a critter's art "back"/"front" lists. `back` says
+## which layer is drawing, for features that wrap around the body.
+static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Vector2, r: float, s: Dictionary) -> void:
 	var t: float = s.t
 	var tier: int = s.tier
 	var look: Vector2 = s.look
-	match id:
-		"vampire":
+	match name:
+		"cape_collar":
 			var h := 1.05 + .08 * tier
 			for k in [-1, 1]:
-				_poly(ci, PackedVector2Array([c + Vector2(k * .25, -.9) * r, c + Vector2(k * 1.12, -h) * r, c + Vector2(k * .95, -.15) * r]), shade(d.color, -.55))
+				_poly(ci, PackedVector2Array([c + Vector2(k * .25, -.9) * r, c + Vector2(k * 1.12, -h) * r, c + Vector2(k * .95, -.15) * r]), shade(col, -.55))
 			if tier >= 5:
 				for i in 10:
 					var a := i * TAU / 10 + t
 					ci.draw_arc(c, r * 1.25, a, a + .35, 4, _c(Color(1, .24, .35, .7)), 2.0, true)
-		"spiker":
+		"spike_ring":
 			var n := 8 + tier * 2
 			var L: float = r * (.22 + .04 * tier + minf(.25, s.stacks * .04))
-			var col := Color.WHITE if s.flash > 0.0 else shade(d.color, -.35)
+			var spike := Color.WHITE if s.flash > 0.0 else shade(col, -.35)
 			for i in n:
 				var a := float(i) / n * TAU + .2
 				var w := PI / n * .7
-				_poly(ci, PackedVector2Array([c + Vector2(cos(a - w), sin(a - w)) * r * .92, c + Vector2(cos(a), sin(a)) * (r + L), c + Vector2(cos(a + w), sin(a + w)) * r * .92]), col)
-		"speedster":
+				_poly(ci, PackedVector2Array([c + Vector2(cos(a - w), sin(a - w)) * r * .92, c + Vector2(cos(a), sin(a)) * (r + L), c + Vector2(cos(a + w), sin(a + w)) * r * .92]), spike)
+		"speed_streaks":
 			var n := 1 + tier
 			var perp := Vector2(-look.y, look.x)
 			for i in n:
@@ -257,17 +253,17 @@ static func _back(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: floa
 				var ctrl := anchor - look * r * .4 + Vector2(w, -w + k * r * .15)
 				var tip := anchor - look * r * .75 + Vector2(0, k * r * .25 + w)
 				_pline(ci, _quad(anchor, ctrl, tip), Color("e8344a"), maxf(2.0, r * .12))
-		"laser":
+		"antennae":
 			var ants := [-.45, 0.0, .45] if tier >= 5 else ([-.3, .3] if tier >= 3 else [0.0])
 			for a in ants:
 				var base := c + Vector2(sin(a), -cos(a)) * r * .8
 				var tip := c + Vector2(sin(a), -cos(a)) * r * 1.45
-				_line(ci, base, tip, shade(d.color, -.5), maxf(1.5, r * .07))
+				_line(ci, base, tip, shade(col, -.5), maxf(1.5, r * .07))
 				var on := sin(t * 5.0 + a * 3.0) > -.2
 				if on and not _sil:
 					ci.draw_circle(tip, r * .2, Color(.5, .9, 1.0, .3))
 				_circ(ci, tip, r * .1, Color("bff4ff") if on else Color("3b6f80"))
-		"frost":
+		"ice_crown":
 			var n := 2 + tier
 			for i in n:
 				var a := -PI / 2 + (i - (n - 1) / 2.0) * .32
@@ -281,12 +277,12 @@ static func _back(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: floa
 				_poly(ci, pts, Color("eafaff"))
 				pts.append(b + nrm)
 				_pline(ci, pts, Color("7cc7ea"), 1.0)
-		"thorns":
+		"thorn_ring":
 			var n := 4 + tier
 			for i in n:
 				var a := float(i) / n * TAU + .5
 				_poly(ci, PackedVector2Array([c + Vector2(cos(a - .12), sin(a - .12)) * r * .95, c + Vector2(cos(a), sin(a)) * r * 1.25, c + Vector2(cos(a + .12), sin(a + .12)) * r * .95]), Color("2e4a1f"))
-		"ghost":
+		"wisp_tail":
 			var L := r * (.6 + .18 * tier)
 			var perp := Vector2(-look.y, look.x)
 			for i in 3:
@@ -297,15 +293,15 @@ static func _back(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: floa
 					var f := j / 6.0
 					pts.append(start - look * L * f + perp * sin(t * 5.0 + j + i) * r * .12 * f)
 				_pline(ci, pts, Color(.89, .84, 1.0, .6), r * (.22 - .04 * absi(i - 1)))
-		"gravity":
-			_orbit_ring(ci, c, r, tier, t, true)
-		"blackhole":
+		"orbit_ring":
+			_orbit_ring(ci, c, r, tier, t, back)
+		"swirl_arms":
 			var n := 1 + tier
 			for i in n:
 				var a := t * 1.4 + i * TAU / n
-				var col := Color(1, .35, .78, .75) if i % 2 else Color(.59, .43, 1.0, .8)
-				ci.draw_arc(c, r * (1.12 + .08 * (i % 3)), a, a + 1.4, 16, _c(col), r * .09, true)
-		"phoenix":
+				var arm := Color(1, .35, .78, .75) if i % 2 else Color(.59, .43, 1.0, .8)
+				ci.draw_arc(c, r * (1.12 + .08 * (i % 3)), a, a + 1.4, 16, _c(arm), r * .09, true)
+		"flame_crest":
 			var n := 2 + tier
 			for i in n:
 				var a := -PI / 2 + (i - (n - 1) / 2.0) * .36
@@ -316,22 +312,16 @@ static func _back(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: floa
 				for i in 5:
 					var p := fmod(t * .6 + _hash(i), 1.0)
 					ci.draw_circle(c + Vector2((_hash(i + 3) - .5) * r * 1.4, -r * (.9 + p * 1.1)), r * .04, Color(1, (150 + _hash(i + 9) * 90) / 255.0, .24, 1.0 - p))
-
-
-static func _front(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: float, s: Dictionary) -> void:
-	var t: float = s.t
-	var tier: int = s.tier
-	match id:
-		"juggernaut":
+		"rock_band":
 			for crack in [[Vector2(-.7, -.5), Vector2(-.5, -.35), Vector2(-.55, -.15)], [Vector2(.55, -.65), Vector2(.42, -.45), Vector2(.6, -.3)]]:
-				_pline(ci, PackedVector2Array(crack.map(func(v): return c + v * r)), shade(d.color, -.45), maxf(1.0, r * .04))
+				_pline(ci, PackedVector2Array(crack.map(func(v): return c + v * r)), shade(col, -.45), maxf(1.0, r * .04))
 			var gold := tier >= 5
 			_band(ci, c, r * .97, r * .58, r * .82, Color("d9a32a") if gold else Color("4b5260"))
 			for i in tier:
 				_circ(ci, c + Vector2((i - (tier - 1) / 2.0) * r * .32, r * .7), r * .055, Color("fff1b8") if gold else Color("a9b2c2"))
-		"speedster":
+		"headband":
 			_band(ci, c, r * .97, -r * .66, -r * .46, Color("e8344a"))
-		"bomber":
+		"fuse":
 			var cap := Rect2(c + Vector2(-.2, -1.08) * r, Vector2(.4, .2) * r)
 			_poly(ci, PackedVector2Array([cap.position, cap.position + Vector2(cap.size.x, 0), cap.end, cap.position + Vector2(0, cap.size.y)]), Color("6b7280"))
 			var L := 1.25 + .07 * tier
@@ -349,11 +339,11 @@ static func _front(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: flo
 				ci.draw_circle(p3, r * .3 * f, Color(1, .8, .23, .3))
 			_star(ci, p3, r * (.16 + .03 * tier) * f, r * .06, 6, Color("ffe066"))
 			_circ(ci, p3, r * .05, Color("ff7a1a"))
-		"frost":
+		"frost_freckles":
 			for k in [-1, 1]:
 				for i in 3:
 					_circ(ci, c + Vector2(k * r * (.5 + i * .08), r * .18 + (i % 2) * r * .07), r * .03, Color(1, 1, 1, .8))
-		"thorns":
+		"vines":
 			for row in [[-.8, 0.0], [.75, 2.0]]:
 				var y0: float = row[0] * r
 				var pts := PackedVector2Array()
@@ -371,18 +361,16 @@ static func _front(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: flo
 						if absf(tx) <= _chord_x(r * .9, ty):
 							_poly(ci, PackedVector2Array([c + Vector2(tx - r * .05, ty), c + Vector2(tx, ty - r * .13), c + Vector2(tx + r * .05, ty)]), Color("d9e8b0"))
 						tx += r * .4
-		"splitter":
+		"seam":
 			var seam := _quad(c + Vector2(0, -.97) * r, c + Vector2(.08, 0) * r, c + Vector2(0, .97) * r, 24)
 			for i in range(0, seam.size() - 1, 2):
-				_line(ci, seam[i], seam[i + 1], shade(d.color, -.4), maxf(1.2, r * .05))
+				_line(ci, seam[i], seam[i + 1], shade(col, -.4), maxf(1.2, r * .05))
 			var n := tier + 2
 			for i in n:
 				var y := -r * .75 + i * r * 1.5 / (n - 1)
 				if absf(y + r * .08) < r * .22:
 					continue
-				_line(ci, c + Vector2(-r * .08, y - r * .03), c + Vector2(r * .1, y + r * .03), shade(d.color, -.4), maxf(1.2, r * .05))
-		"gravity":
-			_orbit_ring(ci, c, r, tier, t, false)
+				_line(ci, c + Vector2(-r * .08, y - r * .03), c + Vector2(r * .1, y + r * .03), shade(col, -.4), maxf(1.2, r * .05))
 
 
 static func _orbit_ring(ci: CanvasItem, c: Vector2, r: float, tier: int, t: float, back: bool) -> void:
@@ -410,11 +398,13 @@ static func _flame(ci: CanvasItem, p: Vector2, a: float, L: float, w: float) -> 
 
 # --- Face -------------------------------------------------------------------
 
-static func _face(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: float, s: Dictionary) -> void:
-	var e: Dictionary = EYES[id]
+## Face keys (art "eyes"): sep, w, h, p (pupil), one, mis (mismatched), lid,
+## brow, uni (unibrow), dot, closed, hollow, iris, glow, sparkle, ink,
+## mouth_ink, mouth (smile, grin, smirk, flat, frown, o, fangs, teeth, none).
+static func _face(ci: CanvasItem, e: Dictionary, col: Color, c: Vector2, r: float, s: Dictionary) -> void:
 	var look: Vector2 = s.look
 	var eye := c + look * r * .2 + Vector2(0, -r * .08)
-	var ink := Color.WHITE if id == "blackhole" else INK
+	var ink := Color(e.get("ink", INK.to_html()))
 	if s.hit > 0.0:
 		for k in [-1, 1]:
 			var ec := eye + Vector2(k * r * .3, 0)
@@ -440,12 +430,12 @@ static func _face(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: floa
 			_ell(ci, ec, w, h, Color("2a1f4a"))
 			continue
 		if e.has("glow"):
-			_ell(ci, ec, w * 1.25, h * 1.25, Color(e.glow, .35))
+			_ell(ci, ec, w * 1.25, h * 1.25, Color(Color(e.glow), minf(1.0, .35 + float(s.get("eye_flash", 0.0)) * 1.5)))
 		_ell(ci, ec, w, h, Color.WHITE)
 		var p: float = e.p
 		var pupil := ec + Vector2(look.x * w * .45, look.y * h * .45)
 		if e.has("iris"):
-			ci.draw_circle(pupil, minf(r * p * 1.7 * m, minf(w, h) * .95), e.iris)
+			ci.draw_circle(pupil, minf(r * p * 1.7 * m, minf(w, h) * .95), Color(e.iris))
 		ci.draw_circle(pupil, minf(r * p * m, h * .9), INK)
 		ci.draw_circle(pupil - Vector2(1, 1) * r * p * .4, r * p * .35, Color.WHITE)
 		if e.get("sparkle", false):
@@ -454,15 +444,15 @@ static func _face(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: floa
 			var lid: float = e.lid
 			var phi := asin(clampf(-1.0 + 2.0 * lid, -1.0, 1.0))
 			var cap := ellipse_pts(ec, w, h, 0.0, PI - phi, TAU + phi, 16)
-			_poly(ci, cap, shade(d.color, .05))
-			ci.draw_line(cap[0], cap[cap.size() - 1], shade(d.color, -.45), maxf(1.0, r * .05), true)
+			_poly(ci, cap, shade(col, .05))
+			ci.draw_line(cap[0], cap[cap.size() - 1], shade(col, -.45), maxf(1.0, r * .05), true)
 		if e.has("brow"):
 			var a: float = e.brow * r
 			var top := ec.y - h - r * .08
 			ci.draw_line(Vector2(ec.x + k * w * 1.1, top - a * .5), Vector2(ec.x - k * w * .9, top + a * .5), INK, maxf(1.6, r * .08), true)
 	if e.get("uni", false):
 		ci.draw_polyline(_quad(eye + Vector2(-.42, -.2) * r, eye + Vector2(0, -.08) * r, eye + Vector2(.42, -.2) * r, 10), INK, maxf(2.5, r * .13), true)
-	_mouth(ci, e.mouth, r, eye + Vector2(0, r * .34), float(s.hp_frac), Color("e8e0ff") if id == "blackhole" else INK)
+	_mouth(ci, e.get("mouth", "smile"), r, eye + Vector2(0, r * .34), float(s.hp_frac), Color(e.get("mouth_ink", INK.to_html())))
 
 
 static func _mouth(ci: CanvasItem, kind: String, r: float, m: Vector2, hp_frac: float, ink: Color) -> void:
