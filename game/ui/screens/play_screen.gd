@@ -1,5 +1,5 @@
 ## Play tab (home): quick fight into the arena, your fighter, and what's coming
-## (the Neon Circuit campaign and the daily modes).
+## (the Neon Circuit campaign and the daily modes), and Daily Trick Shot.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -34,6 +34,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	])
 	root.add_child(Kit.panel(quick, Kit.box(Kit.PANEL, Kit.LINE, 40, 2, 30)))
 
+	# Daily Trick Shot: one called bank shot a day, open to everyone.
+	root.add_child(mode_card(shell, "trickshot", "Daily · new puzzle every day", "Trick Shot",
+		"Call your walls, line up one launch and bank it in. Keep your streak going.", "Play today's shot", Color("ffd36b"),
+		func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")))
+
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
@@ -56,3 +61,13 @@ static func build(shell, _params: Dictionary) -> Control:
 		modes.add_child(card)
 	root.add_child(Kit.vbox(12, [Kit.caption("Daily modes"), modes]))
 	return root
+
+
+## A full-width mode card: caption, title, one line of text and a button.
+## Other modes (Bounce Run, Arena...) add one line each with this. The button
+## is registered as `mark` for the smoke test.
+static func mode_card(shell, mark: String, caption: String, title: String, text: String, button_text: String, accent: Color, on_press: Callable) -> Control:
+	var btn := Kit.button(button_text, on_press, "primary", 30, 90)
+	shell.mark(mark, btn)
+	var v := Kit.vbox(10, [Kit.caption(caption, accent), Kit.label(title, 40), Kit.label(text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
+	return Kit.panel(v, Kit.box(accent.darkened(.82), accent.darkened(.5), 40, 2, 30))

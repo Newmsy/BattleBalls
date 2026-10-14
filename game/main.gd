@@ -77,7 +77,6 @@ var challenge_button: Button
 var report_row: HBoxContainer
 var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
-var daily_button: Button
 
 static var _mode_redirected := false
 
@@ -397,10 +396,8 @@ func _build_ui() -> void:
 	])
 	result_box.add_child(report_row)
 
-	daily_button = _button("Trick Shot", func(): get_tree().change_scene_to_file("res://game/trick_shot.tscn"), 22)
-	daily_button.custom_minimum_size = Vector2(0, 60)
 
-	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box, daily_button]:
+	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
 		ui.add_child(c)
 
 
@@ -448,7 +445,6 @@ func _layout() -> void:
 	for box in [menu_box, aim_box, fight_box, result_box]:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	_place(stamp_label, Vector2(12, size.y - 34), Vector2(size.x, 30))
-	_place(daily_button, Vector2(size.x - 170, 110), Vector2(150, 60))
 	arena.queue_redraw()
 	_sync_share_targets()
 
@@ -489,7 +485,6 @@ func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 func _show_only(box: Control) -> void:
 	for b in [menu_box, aim_box, fight_box, result_box]:
 		b.visible = b == box
-	daily_button.visible = box == menu_box
 	_sync_share_targets()
 
 

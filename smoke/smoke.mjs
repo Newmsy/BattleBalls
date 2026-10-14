@@ -228,14 +228,13 @@ try {
     await challenge.page.close();
   }
 
-  // 6. Daily Trick Shot opens from the quick-fight menu's button (top right).
+  // 6. Daily Trick Shot opens from its card on the Play tab.
   {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "quickfight");
-    await page.mouse.click(...toPage(page, 720 - 95, 140));
+    await tapUi(page, logs, "trickshot");
     const ready = await waitForLog(logs, "TRICKSHOT_READY", 10000);
     console.log("trick shot:", ready);
     await page.waitForTimeout(800);
