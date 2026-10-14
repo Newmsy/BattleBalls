@@ -101,8 +101,9 @@ jobs:
             exit 0
           fi
           python3 - <<'PY'
-          import base64, json, os, sys
-          url = os.environ["SUPABASE_URL"].strip().rstrip("/")
+          import base64, json, os, re, sys
+          # The dashboard's "API URL" can carry /rest/v1; the game wants the project root.
+          url = re.sub(r"/(rest|auth)/v1/?$", "", os.environ["SUPABASE_URL"].strip().rstrip("/"))
           key = os.environ["SUPABASE_ANON_KEY"].strip()
           def fail(msg):
               print(f"::error::{msg}")
@@ -220,6 +221,6 @@ jobs:
       - name: Push migrations
         if: steps.secrets.outputs.ready == 'true'
         run: |
-          ref=$(echo "$SUPABASE_URL" | sed -E 's#^https://([a-z0-9]+)\.supabase\.co.*#\1#')
+          ref=$(echo "$SUPABASE_URL" | sed -E 's#^ *https://([a-z0-9]+)\.supabase\.co.*#\1#')
           supabase link --project-ref "$ref"
           supabase db push
