@@ -8,6 +8,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const Friends := preload("res://game/online/friends.gd")
 const FightLink := preload("res://game/fight_link.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -191,7 +192,11 @@ func sheet(content: Control) -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	panel.position.y = size.y
 	var h := panel.get_combined_minimum_size().y
-	create_tween().tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	var slide := create_tween()
+	slide.tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Report again where the sheet's buttons came to rest (the first report
+	# lands mid-slide).
+	slide.finished.connect(_report.bind("sheet"))
 
 
 func set_friends(f) -> void:
@@ -242,6 +247,8 @@ func watch(fight: Dictionary) -> void:
 
 func _show(name: String, params: Dictionary) -> void:
 	close_overlay()
+	if name != current:
+		Analytics.track("screen", {"name": name})
 	current = name
 	current_params = params
 	_marks.clear()

@@ -15,6 +15,7 @@ const Sfx := preload("res://game/audio/sfx.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Friends := preload("res://game/online/friends.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 ## NORMAL: pick both balls. REPLAY: watching a shared fight. CHALLENGE: beating
@@ -100,11 +101,18 @@ func _ready() -> void:
 	save.app_version = VERSION
 	save.load_local()
 	_apply_picks()
+	var params := _read_url_params()
+	# ?stats opens the owner's stats screen (game/stats/), which isn't play.
+	if params.has("stats"):
+		get_tree().change_scene_to_file.call_deferred("res://game/stats/stats.tscn")
+		return
+	Analytics.start(get_tree(), backend, VERSION, params)
 	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
-	if _read_url_params().get("mode", "") == "trickshot" and not _mode_redirected:
+	var redirect: String = {"trickshot": "res://game/trick_shot.tscn"}.get(params.get("mode", ""), "")
+	if redirect != "" and not _mode_redirected:
 		_mode_redirected = true
 		set_process(false)
-		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
+		get_tree().change_scene_to_file.call_deferred(redirect)
 		return
 	arena = ArenaView.new()
 	add_child(arena)
@@ -282,6 +290,10 @@ func _show_result() -> void:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
 	if mode == Mode.RIVAL and _count_fight:
 		_record_rival()
+	if _count_fight or mode == Mode.REPLAY:
+		Analytics.track("fight_end", {"mode": "fight_of_day" if _board_pick >= 0 else Mode.keys()[mode].to_lower(),
+			"picked": mode != Mode.REPLAY, "team": [player_type], "foe": [opponent_type],
+			"result": Analytics.result_of(sim.winner), "secs": snappedf(sim.time(), 0.1)})
 	if _count_fight:
 		_count_fight = false
 		_record_fight()
@@ -820,6 +832,7 @@ func _sync_share_targets() -> void:
 
 
 func _share(kind: String) -> void:
+	Analytics.track("share", {"kind": kind})
 	if OS.has_feature("web"):
 		# The page already started sharing on this tap; just watch how it went.
 		_share_pending = true

@@ -9,6 +9,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Summon := preload("res://game/ui/summon.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 
 static var _rng: RandomNumberGenerator
 
@@ -74,6 +75,7 @@ static func _pull(shell, n: int) -> void:
 	var fresh: Array = ids.map(func(id): return not p.owns(id))
 	p.add_copies(ids)
 	print("UI_SUMMON ", ",".join(ids))
+	Analytics.track("summon", {"count": n, "new": fresh.count(true)})
 	shell.overlay(_reveal(shell, ids, fresh), "reveal")
 
 
