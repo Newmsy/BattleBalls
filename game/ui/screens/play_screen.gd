@@ -14,12 +14,29 @@ static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(26)
 	root.add_child(WeekScreen.banner(shell))
 
-	# Campaign card (the PvE thread is building zone 1).
+	# Campaign card: Glow Garden progress and the way into the stage list.
+	var Zones := preload("res://meta/zones.gd")
+	var Campaign := preload("res://meta/campaign.gd")
+	var stages: Array = Zones.zone(0).stages
+	var cleared := 0
+	var star_total := 0
+	for i in stages.size():
+		cleared += 1 if Campaign.is_cleared(p, 0, i) else 0
+		star_total += Campaign.stars_of(p, 0, i)
+	var next_text := "All %d stages cleared. Go for 3 stars to unlock sweeps." % stages.size()
+	if cleared < stages.size():
+		var st: Dictionary = stages[cleared]
+		next_text = "Next: %s %s, Recommended Power %s." % [Zones.stage_key(0, cleared), st.get("name", Roster.get_critter(st.enemy).name),
+			Kit.commas(Campaign.enemy_rating(0, cleared))]
+	var open := Kit.button("Open the map", func(): shell.go("campaign", {"zone": 0}), "go", 30, 90)
+	shell.mark("campaign", open)
 	var zone := Kit.vbox(10, [
 		Kit.caption("Zone 1 · The Neon Circuit", Color("9be89a")),
 		Kit.label("Glow Garden", 48),
-		Kit.label("10 stages and the Mega Boulder boss. The campaign map is on its way.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
-		Kit.hbox(8, [Glyph.make("lock", 30, Kit.MUTED), Kit.label("Coming soon", 24, Kit.MUTED)]),
+		Kit.hbox(12, [Glyph.make("stars", 26, Kit.FG, 1),
+			Kit.label("%d/%d stages · %d/%d stars" % [cleared, stages.size(), star_total, stages.size() * 3], 22, Kit.MUTED)]),
+		Kit.label(next_text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		open,
 	])
 	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 40, 2, 30)
 	root.add_child(Kit.panel(zone, zst))

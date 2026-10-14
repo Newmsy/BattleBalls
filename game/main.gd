@@ -2,6 +2,7 @@
 ## URL params on the web build skip straight to a fight, e.g.
 ## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2
 ## Share links (see fight_link.gd) open a replay (?r=) or a challenge (?c=).
+## ?pve=1-3 plays campaign stage 1-3 on a fresh, unsaved profile (with auto=1, unaimed).
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -15,12 +16,17 @@ const Sfx := preload("res://game/audio/sfx.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Friends := preload("res://game/online/friends.gd")
+const Profile := preload("res://meta/profile.gd")
+const Campaign := preload("res://meta/campaign.gd")
+const Zones := preload("res://meta/zones.gd")
+const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 ## NORMAL: pick both balls. REPLAY: watching a shared fight. CHALLENGE: beating
 ## a friend's ball and shot. RIVAL: an unranked rematch against a friend's
 ## saved team (their Ghost Arena lineup, aimed the way they usually aim).
-enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL }
+## CAMPAIGN: a campaign stage (energy already spent).
+enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL, CAMPAIGN }
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const ACCENT := Color("8f7bff")
@@ -87,6 +93,15 @@ var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
 var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
+var campaign_row: HBoxContainer
+## The player's collection, energy and campaign progress, kept in save.data.profile.
+var profile
+## The campaign stage being fought: {config, zone, stage, fighter, result?}.
+var pve := {}
+var pve_param := ""
+## ?demo=1 (smoke tests, previews): a filled-in sample profile that is never saved.
+var demo_profile := false
+var profile_unsaved := false
 
 static var _mode_redirected := false
 
@@ -106,6 +121,7 @@ func _ready() -> void:
 		set_process(false)
 		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
 		return
+	_load_profile()
 	arena = ArenaView.new()
 	add_child(arena)
 	sfx = Sfx.new()
@@ -116,7 +132,9 @@ func _ready() -> void:
 	_install_share_listener()
 	print("BOOT_OK build=", _build_stamp())
 	_build_shell()
-	if auto_start:
+	if pve_param != "":
+		_start_url_stage()
+	elif auto_start:
 		_start_fight()
 	else:
 		_show_menu()
@@ -185,6 +203,10 @@ func _set_aim_preview() -> void:
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
+	if mode == Mode.CAMPAIGN:
+		var cfg: Dictionary = pve.config.duplicate()
+		cfg.angles = [aim, null]
+		return cfg
 	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim]}
 
 
@@ -220,7 +242,8 @@ func _refresh_menu() -> void:
 
 
 func _begin_aim() -> void:
-	opponent_type = _pick_opponent()
+	if mode != Mode.CAMPAIGN:
+		opponent_type = _pick_opponent()
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
@@ -282,6 +305,8 @@ func _show_result() -> void:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
 	if mode == Mode.RIVAL and _count_fight:
 		_record_rival()
+	if mode == Mode.CAMPAIGN:
+		_finish_stage()
 	if _count_fight:
 		_count_fight = false
 		_record_fight()
@@ -292,6 +317,91 @@ func _show_result() -> void:
 
 func _report_code() -> String:
 	return "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
+
+
+# --- Campaign -------------------------------------------------------------------
+
+func _load_profile() -> void:
+	var now := int(Time.get_unix_time_from_system())
+	var d = save.data.get("profile")
+	if demo_profile:
+		profile = preload("res://game/ui/ui_profile.gd").sample()
+		profile_unsaved = true
+	else:
+		profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
+	profile.changed.connect(_save_profile)
+
+
+func _save_profile() -> void:
+	if profile_unsaved:
+		return
+	save.data.profile = profile.to_dict()
+	save.commit()
+
+
+## A stage from the campaign screen: aim, then fight it in the arena.
+func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter: String) -> void:
+	pve = {"config": config, "zone": zone_index, "stage": stage_index, "fighter": fighter}
+	mode = Mode.CAMPAIGN
+	player_type = config.p1
+	opponent_type = config.p2
+	seed_value = config.seed
+	foe_aim = null
+	shell_layer.visible = false
+	sfx.toggle_lift = 0.0
+	_begin_aim()
+	var st := Zones.stage(zone_index, stage_index)
+	info_label.text = "%s %s. Drag on the arena to aim, then let go to launch." % [
+		Zones.stage_key(zone_index, stage_index), st.get("name", BallDefs.get_def(st.enemy).display_name)]
+
+
+## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).
+func _start_url_stage() -> void:
+	var parts := pve_param.split("-")
+	var z := clampi(int(parts[0]) - 1, 0, Zones.ZONES.size() - 1)
+	var i := clampi(int(parts[1]) - 1, 0, Zones.zone(z).stages.size() - 1)
+	var now := int(Time.get_unix_time_from_system())
+	profile = Profile.new_game(now)
+	profile_unsaved = true
+	shell.use_profile(profile)
+	for k in i:
+		profile.stars[Zones.stage_key(z, k)] = 1
+	var cfg := Campaign.start(profile, z, i, Profile.STARTER, now)
+	_start_stage(cfg, z, i, Profile.STARTER)
+	if auto_start:
+		_start_fight()
+
+
+func _finish_stage() -> void:
+	var fight := sim.summary()
+	fight.max_hp = sim.balls[0].max_hp
+	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight)
+	pve.result = CampaignScreen.result_text(r)
+	report_label.text = pve.result
+	print("STAGE_END stage=%s won=%s stars=%d drops=%d" % [Zones.stage_key(pve.zone, pve.stage), r.won, r.stars, r.drops.size()])
+
+
+## Backing out of aiming. A campaign stage has already spent its energy, so
+## leaving before launch refunds it.
+func _aim_back() -> void:
+	if mode != Mode.CAMPAIGN:
+		_show_menu()
+		return
+	profile.refund_energy(Zones.cost(Zones.stage(pve.zone, pve.stage)))
+	_back_to_campaign()
+
+
+func _back_to_campaign() -> void:
+	var params := {"zone": pve.get("zone", 0)}
+	if pve.has("result"):
+		params.notice = "%s: %s" % [Zones.stage_key(pve.zone, pve.stage), pve.result]
+	mode = Mode.NORMAL
+	_board_pick = -1
+	pve = {}
+	_show_menu()
+	_show_home()
+	shell.show_tab("play")
+	shell.go("campaign", params)
 
 
 # --- Save and online ----------------------------------------------------------
@@ -306,7 +416,8 @@ func _apply_picks() -> void:
 
 
 func _record_fight() -> void:
-	save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
+	if mode != Mode.CAMPAIGN:
+		save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
 	_sync_online()
 
@@ -318,6 +429,9 @@ func _go_online() -> void:
 		return
 	if await save.sync(backend) and not url_picks:
 		_apply_picks()
+		if not profile_unsaved:
+			_load_profile()
+			shell.use_profile(profile)
 		if state == State.MENU:
 			_refresh_menu()
 	if not await backend.ensure_session():
@@ -400,7 +514,7 @@ func _build_ui() -> void:
 
 	aim_box = _row([
 		_button("Launch", _launch),
-		_button("Back", _show_menu),
+		_button("Back", _aim_back),
 	])
 
 	speed_button = _button("Speed 1x", _cycle_speed)
@@ -427,6 +541,8 @@ func _build_ui() -> void:
 	friend_row = _row([friend_button])
 	friend_row.visible = false
 	result_box.add_child(friend_row)
+	campaign_row = _row([_button("Back to the map", _back_to_campaign)])
+	result_box.add_child(campaign_row)
 
 
 	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
@@ -440,10 +556,12 @@ func _build_shell() -> void:
 	add_child(shell_layer)
 	shell = Shell.new()
 	shell.friends = friends
+	shell.profile = profile
 	shell.link_base = _link_base()
 	shell.play_requested.connect(func(): shell_layer.visible = false; sfx.toggle_lift = 0.0; _play_normal())
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.rival_requested.connect(_start_rival)
+	shell.stage_requested.connect(_start_stage)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
@@ -585,7 +703,7 @@ func _on_challenge_button() -> void:
 
 
 func _label_result_buttons() -> void:
-	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch"}[mode]
+	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch", Mode.CAMPAIGN: ""}[mode]
 	challenge_button.text = {Mode.REPLAY: "Play my own", Mode.RIVAL: "Friends"}.get(mode, "Challenge friend")
 	if _board_pick >= 0:
 		challenge_button.text = "This Week"
@@ -593,7 +711,10 @@ func _label_result_buttons() -> void:
 	# A link from someone who isn't a friend yet offers to add them, in place
 	# of the report row (there's only room for one).
 	friend_row.visible = _can_add_link_friend()
-	report_row.visible = mode != Mode.REPLAY and not friend_row.visible
+	report_row.visible = mode != Mode.REPLAY and mode != Mode.CAMPAIGN and not friend_row.visible
+	for row in [again_button.get_parent(), share_button.get_parent()]:
+		row.visible = mode != Mode.CAMPAIGN
+	campaign_row.visible = mode == Mode.CAMPAIGN
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"
@@ -810,7 +931,7 @@ func _sync_share_targets() -> void:
 	if shell_layer != null and shell_layer.visible:
 		for t in shell.share_targets():
 			add.call(t.kind, t.url, t.text, t.rect)
-	elif state == State.RESULT and result_box.visible and sim != null:
+	elif state == State.RESULT and result_box.visible and sim != null and mode != Mode.CAMPAIGN:
 		var buttons := {"r": share_button}
 		if mode not in [Mode.REPLAY, Mode.RIVAL]:
 			buttons["c"] = challenge_button
@@ -895,6 +1016,9 @@ func _read_url_params() -> Dictionary:
 		friends.show_demo()
 	if Friends.is_code(params.get("f", "")):
 		link_friend = Friends.normalize_code(params.f)
+	if params.get("pve", "").count("-") == 1:
+		pve_param = params.pve
+	demo_profile = params.get("demo", "") == "1"
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():

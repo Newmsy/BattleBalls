@@ -135,9 +135,8 @@ func _win_rate(a: String, a_power: float, b: String) -> float:
 	var wins := 0.0
 	for i in fights:
 		for a_index in 2:
-			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null]})
-			if a_power != 1.0:
-				_boost(sim.balls[a_index], a_power)
+			var powers := [a_power, 1.0] if a_index == 0 else [1.0, a_power]
+			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers})
 			var s := sim.run_to_end()
 			if s.winner == a_index:
 				wins += 1.0
@@ -148,20 +147,6 @@ func _win_rate(a: String, a_power: float, b: String) -> float:
 				if s.reason == "time_limit":
 					timeouts += 1
 	return wins / (fights * 2)
-
-
-## Stand-in for one tier until tiers exist in the sim: HP and every damage
-## stat each scale by sqrt(power), so HP x damage scales by `power`.
-static func _boost(ball, power: float) -> void:
-	var k := sqrt(power)
-	ball.hp *= k
-	ball.max_hp *= k
-	ball.contact_damage *= k
-	var def: Dictionary = ball.def.duplicate()
-	for key in def:
-		if String(key).ends_with("_damage"):
-			def[key] *= k
-	ball.def = def
 
 
 ## FAIL when the miss is clear of sampling noise, WARN otherwise.

@@ -9,12 +9,13 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | Path | What lives there |
 |---|---|
 | `sim/` | The deterministic fight simulation. Pure GDScript, no nodes or engine physics. Same config, same fight. |
-| `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim; never changes its rules. |
+| `meta/` | Progression outside a fight: the player profile (collection, fusion, energy, account level, campaign stars), campaign zones, drops. Pure logic, clock passed in. Saved in the SaveGame as `data.profile`. |
+| `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim and meta; never changes their rules. |
 | `liveops/` | The live-ops schedule (`liveops.json`): seasons, Spotlight weeks, Chaos Weekends, Fight of the Day. See its README. |
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -39,6 +40,8 @@ are served at `<preview>/smoke/`.
 URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
 (`aim` is the launch angle in tenths of a degree, screen space, y down).
 `?sounds=1` opens the sound board: every sound with a play button.
+`?pve=1-3&auto=1` plays campaign stage 1-3 on a fresh, unsaved profile.
+`?demo=1` loads the filled-in sample profile (unsaved), for previews and the smoke test.
 
 ## Sound
 

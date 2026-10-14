@@ -2,16 +2,20 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2] }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2],
+##           powers: [w1, w2], sizes: [s1, s2] }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
 ## `hp` (optional) sets each ball's starting HP (null = full), for relays
 ## where a winner stays in with what it has left.
+## `powers` (optional) are progression multipliers (sim/power.gd); 1.0 is a T1
+## level 1 Common. `sizes` (optional) scale the radius (campaign bosses).
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Power := preload("res://sim/power.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
@@ -50,6 +54,9 @@ class Ball:
 	var last_bounce := Vector2.ZERO
 	var damage_dealt := 0.0
 	var healed := 0.0
+	var spikes := 0 ## Spiker: hits landed this fight.
+	var slam_until := -1 ## Tick until which a wall bounce hurts (after a Juggernaut hit).
+	var slam_by := -1
 
 	func alive() -> bool:
 		return hp > 0.0
@@ -84,6 +91,7 @@ var launch_angles: Array[int] = []
 var events: Array[Dictionary] = []
 
 var _contact_cooldown_until := {} ## "i:j" -> tick
+var _pending_hits: Array[Dictionary] = [] ## Hits raised during wall resolution.
 
 
 func _init(cfg: Dictionary) -> void:
@@ -93,13 +101,15 @@ func _init(cfg: Dictionary) -> void:
 	var angles: Array = cfg.get("angles", [null, null])
 	var starts: Array = cfg.get("starts", START_CORNERS)
 	var start_hp: Array = cfg.get("hp", [null, null])
+	var powers: Array = cfg.get("powers", [1.0, 1.0])
+	var sizes: Array = cfg.get("sizes", [1.0, 1.0])
 	for i in 2:
-		var def := BallDefs.get_def(types[i])
+		var def := Power.scale_def(BallDefs.get_def(types[i]), float(powers[i]))
 		var b := Ball.new()
 		b.index = i
 		b.type_id = types[i]
 		b.def = def
-		b.radius = def.radius
+		b.radius = def.radius * float(sizes[i])
 		b.speed = def.speed
 		b.max_hp = def.hp
 		b.hp = def.hp if start_hp[i] == null else clampf(float(start_hp[i]), 0.01, def.hp)
@@ -141,6 +151,7 @@ func step() -> void:
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
 
 	var hits: Array[Dictionary] = []
+	_pending_hits = hits
 	for b in balls:
 		if b.alive():
 			b.pos += b.vel * DT
@@ -224,6 +235,12 @@ func _on_wall_bounce(b: Ball, point: Vector2) -> void:
 		if own_beams.size() > b.def.beam_max:
 			beams.erase(own_beams[0])
 		events.append({"type": "beam", "owner": b.index, "a": beam.a, "b": beam.b})
+	elif b.def.ability == "speedster":
+		b.speed = minf(b.def.speed * b.def.max_speed_mult, b.speed * (1.0 + b.def.speed_gain))
+		b.vel = b.vel.normalized() * b.speed
+	if tick <= b.slam_until:
+		b.slam_until = -1
+		_pending_hits.append({"source": b.slam_by, "target": b.index, "amount": balls[b.slam_by].def.slam_damage, "kind": "slam", "pos": point})
 	b.has_bounce = true
 	b.last_bounce = point
 
@@ -265,8 +282,19 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 				continue
 			_contact_cooldown_until[key] = tick + int(round(CONTACT_COOLDOWN * TICK_RATE))
 			# The ball that rams harder hits harder, so even mirror matches trade unevenly.
-			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share), "kind": "contact", "pos": b.pos})
-			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share), "kind": "contact", "pos": a.pos})
+			hits.append({"source": i, "target": j, "amount": _contact_damage(a) * _impact_scale(a_share), "kind": "contact", "pos": b.pos})
+			hits.append({"source": j, "target": i, "amount": _contact_damage(b) * _impact_scale(1.0 - a_share), "kind": "contact", "pos": a.pos})
+
+
+## Contact damage including ability bonuses: Spiker's grown spikes and
+## Speedster's built-up speed.
+func _contact_damage(b: Ball) -> float:
+	match b.def.ability:
+		"spiker":
+			return b.contact_damage + b.def.spike_damage * mini(b.spikes, b.def.spike_max)
+		"speedster":
+			return b.contact_damage * b.speed / b.def.speed
+	return b.contact_damage
 
 
 ## 0 share (was hit while moving away) -> 1 - IMPACT_SPREAD; 1 share -> 1 + IMPACT_SPREAD.
@@ -305,8 +333,8 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		target.hp -= amount
 		source.damage_dealt += amount
 		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos})
-		if source.def.ability == "vampire" and h.kind == "contact":
-			heals.append({"ball": h.source, "amount": amount * source.def.heal_ratio})
+		if h.kind == "contact":
+			_on_contact_hit(source, target, amount, heals)
 	# Heals land after damage, so a lethal hit can't be out-healed in the same tick.
 	for heal in heals:
 		var b := balls[heal.ball]
@@ -317,6 +345,23 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			b.hp += gained
 			b.healed += gained
 			events.append({"type": "heal", "target": b.index, "amount": gained, "pos": b.pos})
+
+
+func _on_contact_hit(source: Ball, target: Ball, amount: float, heals: Array[Dictionary]) -> void:
+	match source.def.ability:
+		"vampire":
+			heals.append({"ball": source.index, "amount": amount * source.def.heal_ratio})
+		"spiker":
+			if source.spikes < source.def.spike_max:
+				source.spikes += 1
+				events.append({"type": "spike", "ball": source.index, "spikes": source.spikes})
+		"juggernaut":
+			target.slam_until = tick + int(round(source.def.slam_window * TICK_RATE))
+			target.slam_by = source.index
+	# Getting hit knocks a Speedster back to its base speed.
+	if target.def.ability == "speedster" and target.speed > target.def.speed:
+		target.speed = target.def.speed
+		target.vel = target.vel.normalized() * target.speed
 
 
 func _check_end(hp_before: Array[float]) -> void:

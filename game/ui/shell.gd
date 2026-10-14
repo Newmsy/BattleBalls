@@ -18,6 +18,7 @@ const SCREENS := {
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
+	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
@@ -39,6 +40,8 @@ signal share_layout_changed
 var friends = Friends.new()
 ## Where invite links point: main.gd sets the page's own address on the web.
 var link_base := FightLink.HOME
+## Emitted when a campaign stage starts; energy is already spent.
+signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
 
 var profile = UiProfile.sample()
 var current := ""
@@ -94,6 +97,17 @@ func build() -> void:
 	set_friends(friends)
 	resized.connect(func(): if current != "": refresh())
 	show_tab("play")
+
+
+## Swap in another profile (e.g. after a cloud save arrives) and redraw.
+func use_profile(p) -> void:
+	if profile.changed.is_connected(_refresh_top):
+		profile.changed.disconnect(_refresh_top)
+	profile = p
+	if _built:
+		profile.changed.connect(_refresh_top)
+		if current != "":
+			refresh()
 
 
 func show_tab(t: String) -> void:
