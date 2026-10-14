@@ -6,16 +6,17 @@
 ## in _feature(). Call from a CanvasItem's _draw():
 ##   CritterArt.draw_critter(self, "vampire", centre, radius, {"t": time, "tier": 2})
 ## State keys (all optional): t, tier, look (Vector2), blink (0-1), hit, flash,
-## stacks, silhouette (bool: draw as an unfound dark shape).
+## stacks, eye_flash, hp_frac, pole_swap (0-1, a magnet mid-flip), silhouette
+## (bool: draw as an unfound dark shape).
 extends RefCounted
 
 const CritterDb := preload("res://sim/critter_db.gd")
 
 const INK := Color("1a1530")
 ## The kit a critter's "art" can use; tests check every critter file against it.
-const BODIES := ["gradient", "bomb", "ghost", "chrome", "starfield", "prism"]
+const BODIES := ["gradient", "bomb", "ghost", "chrome", "starfield", "prism", "magnet"]
 const FEATURES := ["cape_collar", "spike_ring", "speed_streaks", "antennae", "ice_crown", "thorn_ring", "wisp_tail", "orbit_ring",
-	"swirl_arms", "flame_crest", "rock_band", "headband", "fuse", "frost_freckles", "vines", "seam"]
+	"swirl_arms", "flame_crest", "rock_band", "headband", "fuse", "frost_freckles", "vines", "seam", "magnet_prongs"]
 const MOUTHS := ["smile", "grin", "smirk", "flat", "frown", "o", "fangs", "teeth", "none"]
 const SILHOUETTE := Color("232052")
 
@@ -24,8 +25,9 @@ static var _sil := false
 
 static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Dictionary = {}) -> void:
 	var d := CritterDb.get_critter(id)
-	var st := {"t": 0.0, "tier": 1, "look": Vector2.RIGHT, "blink": 0.0, "hit": 0.0, "flash": 0.0, "stacks": 0, "hp_frac": 1.0}
+	var st := {"t": 0.0, "tier": 1, "look": Vector2.RIGHT, "blink": 0.0, "hit": 0.0, "flash": 0.0, "stacks": 0, "hp_frac": 1.0, "pole_swap": 0.0}
 	st.merge(s, true)
+	st.art = d.art
 	_sil = st.get("silhouette", false)
 	var art: Dictionary = d.art
 	var col := Color(d.color)
@@ -160,10 +162,12 @@ static func _aura(ci: CanvasItem, rarity: String, c: Vector2, r: float, t: float
 			ci.draw_colored_polygon(star_pts(p, r * .12, r * .04, 4), Color(1, .95, .77, .6 + .4 * sin(t * 6.0 + i)))
 
 
-## Body styles: gradient (default), bomb, ghost, chrome, starfield, prism.
+## Body styles: gradient (default), bomb, ghost, chrome, starfield, prism, magnet.
 static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: float, s: Dictionary) -> void:
 	var t: float = s.t
 	match style:
+		"magnet":
+			magnet_body(ci, c, r, col, Color(s.art.get("pole", "2f7bff")), s.pole_swap)
 		"bomb":
 			_body(ci, c, r, col)
 			_ell(ci, c + Vector2(-.42, -.45) * r, r * .18, r * .1, Color(1, 1, 1, .35), -.7)
@@ -223,6 +227,8 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 	var tier: int = s.tier
 	var look: Vector2 = s.look
 	match name:
+		"magnet_prongs":
+			magnet_prongs(ci, c, r, tier, t, col, Color(s.art.get("pole", "2f7bff")), s.pole_swap)
 		"cape_collar":
 			var h := 1.05 + .08 * tier
 			for k in [-1, 1]:
@@ -371,6 +377,50 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 				if absf(y + r * .08) < r * .22:
 					continue
 				_line(ci, c + Vector2(-r * .08, y - r * .03), c + Vector2(r * .1, y + r * .03), shade(col, -.4), maxf(1.2, r * .05))
+
+
+## Flux's two-pole body: red and blue halves split down the middle. `swap`
+## runs 0 -> 1 as the poles spin half a turn when the field flips.
+static func magnet_body(ci: CanvasItem, c: Vector2, r: float, red: Color, blue: Color, swap: float) -> void:
+	var rot := PI * swap
+	var halves := [[red, rot + PI / 2], [blue, rot - PI / 2]]
+	for h in halves:
+		var pts := ellipse_pts(c, r, r, 0.0, h[1], h[1] + PI, 24)
+		_poly(ci, pts, shade(h[0], -.12))
+	if not _sil:
+		for k in range(1, 7):
+			var f := k / 6.0
+			ci.draw_circle(c + Vector2(-.35, -.4) * r * f * .9, r * (1.0 - f * .82), Color(1, 1, 1, .07))
+	var axis := Vector2(cos(rot + PI / 2), sin(rot + PI / 2)) * r * .97
+	_line(ci, c - axis, c + axis, Color("e6ecf5"), maxf(1.5, r * .06))
+	_ring(ci, c, r, Color("2a1f4a"), maxf(1.5, r * .07))
+
+
+## The horseshoe: two silver prongs out of the head with painted pole tips and
+## sparks jumping between them (more sparks per tier).
+static func magnet_prongs(ci: CanvasItem, c: Vector2, r: float, tier: int, t: float, red: Color, blue: Color, swap: float) -> void:
+	var w := maxf(3.0, r * .2)
+	var tips: Array[Vector2] = []
+	for k in [-1, 1]:
+		var base := c + Vector2(k * .42, -.72) * r
+		var tip := c + Vector2(k * .55, -1.32) * r
+		_line(ci, base, tip, Color("b9c3d3"), w)
+		_line(ci, base + Vector2(-k * w * .2, 0), tip + Vector2(-k * w * .2, 0), Color("e9eef6"), w * .35)
+		var pole := red if (k < 0) == (swap < .5) else blue
+		_line(ci, tip, tip + (tip - base).normalized() * r * .2, pole, w * 1.05)
+		tips.append(tip + (tip - base).normalized() * r * .2)
+	if _sil:
+		return
+	for i in mini(1 + tier, 4):
+		var seed_ := floorf(t * 14.0) + i * 7.0
+		if _hash(seed_) < .35:
+			continue
+		var pts := PackedVector2Array([tips[0]])
+		for j in range(1, 5):
+			var f := j / 5.0
+			pts.append(tips[0].lerp(tips[1], f) + Vector2(0, (_hash(seed_ + j) - .5) * r * .35 - sin(f * PI) * r * .15))
+		pts.append(tips[1])
+		ci.draw_polyline(pts, Color(1, .95, .6, .85), maxf(1.0, r * .04), true)
 
 
 static func _orbit_ring(ci: CanvasItem, c: Vector2, r: float, tier: int, t: float, back: bool) -> void:

@@ -46,7 +46,7 @@ func test_power_grows_about_a_quarter_per_tier() -> void:
 
 
 func test_every_critter_has_art_and_a_full_ladder() -> void:
-	check_eq(Roster.CRITTERS.size(), 15, "roster size")
+	check_eq(Roster.CRITTERS.size(), CritterDb.ids().size() - 1, "every critter but Plain")
 	for c in Roster.CRITTERS:
 		check_eq(c.ladder.size(), Roster.MAX_TIER, c.id + " ladder")
 		check(not CritterDb.get_critter(c.id).art.get("eyes", {}).is_empty(), c.id + " has a face")

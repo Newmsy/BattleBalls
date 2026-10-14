@@ -55,6 +55,7 @@ class Ball:
 	var damage_dealt := 0.0
 	var healed := 0.0
 	var fired := {} ## One-shot triggers already used (Abilities.tick_triggers).
+	var state := {} ## Per-ball ability state, e.g. a field's "pulling" (read by the renderer).
 
 	func alive() -> bool:
 		return hp > 0.0
@@ -149,6 +150,9 @@ func step() -> void:
 	if in_overtime():
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
 
+	for b in balls:
+		if b.alive():
+			abilities.fire(self, "always", b)
 	var hits: Array[Dictionary] = []
 	for b in balls:
 		if b.alive():
@@ -284,8 +288,22 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 				continue
 			_contact_cooldown_until[key] = tick + int(round(CONTACT_COOLDOWN * TICK_RATE))
 			# The ball that rams harder hits harder, so even mirror matches trade unevenly.
-			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share), "kind": "contact", "pos": b.pos})
-			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share), "kind": "contact", "pos": a.pos})
+			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _strike(a, b), "kind": "contact", "pos": b.pos})
+			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _strike(b, a), "kind": "contact", "pos": a.pos})
+
+
+## Contact damage multiplier from the striker's "strike" effects (e.g. snap).
+func _strike(striker: Ball, target: Ball) -> float:
+	var ctx := {"target": target, "mult": 1.0}
+	abilities.fire(self, "strike", striker, ctx)
+	return ctx.mult
+
+
+## Turns a ball by `accel` (units/s^2) for one tick, keeping its speed.
+func steer(b: Ball, accel: Vector2) -> void:
+	var v := b.vel + accel * DT
+	if v.length() > 0.001:
+		b.vel = v.normalized() * b.speed
 
 
 ## 0 share (was hit while moving away) -> 1 - IMPACT_SPREAD; 1 share -> 1 + IMPACT_SPREAD.

@@ -22,6 +22,10 @@ const MAX_CANDIDATES := 40
 const EDGE_MARGIN := 140.0
 const MIN_START_GAP := 300.0
 const WALLS := ["left", "top", "right", "bottom"]
+## Balls a puzzle can use: ones that fly straight until the first contact.
+## A fixed list, so adding a critter never changes a published day's puzzle
+## (and fields like Flux's would bend the shot that fast_judge assumes).
+const BALLS := ["vampire", "laser"]
 
 const SOLVED := "solved"
 const WRONG_WALLS := "wrong_walls" ## Hit the foe before banking off every called wall.
@@ -38,8 +42,8 @@ static func day_number(date: Dictionary) -> int:
 ## fair number of solutions.
 static func candidate(day: int, k: int) -> Dictionary:
 	var rng := Rng.new(day * 7919 + k * 104729 + 17)
-	var p1: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
-	var p2: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
+	var p1: String = BALLS[rng.range_int(0, BALLS.size() - 1)]
+	var p2: String = BALLS[rng.range_int(0, BALLS.size() - 1)]
 	var starts: Array[Vector2] = []
 	while starts.size() < 2:
 		var p := Vector2(_coord(rng), _coord(rng))

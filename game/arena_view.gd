@@ -19,6 +19,10 @@ const BURST := Color("ffe28a")
 const POP_DAMAGE := Color("ff5a7a")
 const POP_HEAL := Color("45f5a6")
 const POP_BEAM := Color("7cc4ff")
+const POP_SNAP := Color("ffe066")
+## Field rings (the "field" effect): Pull draws in blue, Push pushes out red.
+const FIELD_PULL := Color("4d8dff")
+const FIELD_PUSH := Color("ff4d6a")
 const RARITY_COLORS := Roster.RARITY_COLORS
 ## Side markers so mirror matches stay readable: index 0 is always the player.
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
@@ -49,6 +53,8 @@ var _look: Array[Vector2] = [Vector2(1, -1).normalized(), Vector2(-1, 1).normali
 var _hit := [0.0, 0.0]
 var _squash := [0.0, 0.0]
 var _eye_flash := [0.0, 0.0]
+## Field pole spin: eases 0 (Pull) <-> 1 (Push) after each flip.
+var _pole_swap := [0.0, 0.0]
 var _fx_rng := RandomNumberGenerator.new()
 
 
@@ -65,6 +71,7 @@ func clear_effects() -> void:
 	_hit = [0.0, 0.0]
 	_squash = [0.0, 0.0]
 	_eye_flash = [0.0, 0.0]
+	_pole_swap = [0.0, 0.0]
 	if sim:
 		for b in sim.balls:
 			_look[b.index] = b.vel.normalized()
@@ -91,6 +98,14 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_shake = maxf(_shake, 5.0)
 				_bursts.append({"pos": e.pos, "age": 0.0})
 				_spawn_particles(e.pos, 10)
+			"flip":
+				var m := sim.balls[e.ball]
+				for i in 6:
+					_particles.append({"pos": m.pos + Vector2(0, -m.radius * 1.3), "vel": _rand_dir() * _fx_rng.randf_range(80.0, 260.0), "age": 0.0, "life": 0.4})
+			"snap":
+				var m := sim.balls[e.ball]
+				_add_popup(m.pos + Vector2(-34, -m.radius - 34), "SNAP!", POP_SNAP)
+				_shake = maxf(_shake, 9.0)
 			"bounce":
 				_squash[e.ball] = maxf(_squash[e.ball], 0.15)
 				_eye_flash[e.ball] = 0.3
@@ -109,6 +124,8 @@ func advance_effects(delta: float) -> void:
 		_squash[i] = maxf(0.0, _squash[i] - delta)
 		_eye_flash[i] = maxf(0.0, _eye_flash[i] - delta)
 	if sim:
+		for b in sim.balls:
+			_pole_swap[b.index] = move_toward(_pole_swap[b.index], 0.0 if b.state.get("pulling", true) else 1.0, delta / 0.25)
 		for b in sim.balls:
 			if b.vel.length() > 0.001:
 				_look[b.index] = _look[b.index].lerp(b.vel.normalized(), clampf(delta * 9.0, 0.0, 1.0)).normalized()
@@ -179,6 +196,10 @@ func _draw() -> void:
 		draw_line(a, b, Color(BEAM, 0.9 * k), 3.5, true)
 		draw_line(a, b, Color("e6f7ff", k), 1.4, true)
 
+	for b in sim.balls:
+		if b.alive() and b.def.has("field_range"):
+			_draw_field(b, s)
+
 	for k in _bursts:
 		var t: float = k.age / BURST_LIFE
 		_star(k.pos * s, 10.0 + t * 70.0, 5.0 + t * 30.0, 8, Color(BURST, 1.0 - t))
@@ -243,10 +264,24 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
 	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": tiers[i], "look": look, "blink": blink,
-		"hit": _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp})
+		"hit": _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i]})
 
 	draw_set_transform(shake)
 	_hp_badge(def, pos, r, hp)
+
+
+## A field (Flux's magnet): faint rings flowing in (Pull) or out (Push) so
+## players can read the rhythm. Inner rings are brighter, like its strength.
+func _draw_field(m, s: float) -> void:
+	var reach: float = m.def.field_range * 0.75
+	var pulling: bool = m.state.get("pulling", true)
+	var col := FIELD_PULL if pulling else FIELD_PUSH
+	for k in 3:
+		var f := fmod(_time * 0.9 + k / 3.0, 1.0)
+		if pulling:
+			f = 1.0 - f
+		var rad: float = lerpf(m.radius * 1.3, reach, f)
+		draw_arc(m.pos * s, rad * s, 0.0, TAU, 64, Color(col, 0.28 * (1.0 - f)), 3.0, true)
 
 
 func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float) -> void:

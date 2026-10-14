@@ -16,11 +16,15 @@ const TRIGGERS := {
 	"every": "every `secs` seconds of fight time, first at `secs`",
 	"hp_below": "once, when its HP first drops below `hp` (a 0-1 share of max HP)",
 	"start": "once, on the first tick",
+	"always": "every tick, before balls move (auras, fields)",
+	"strike": "its contact hit is about to land (ctx: target, mult); effects scale ctx.mult",
 }
 ## Effect -> the params it reads from the critter's "params".
 const EFFECTS := {
 	"heal": ["heal_ratio"],
 	"beam": ["beam_life", "beam_damage", "beam_hit_cooldown", "beam_max"],
+	"field": ["field_period", "field_range", "field_accel", "push_scale"],
+	"snap": ["snap_mult"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -81,3 +85,41 @@ func fx_beam(sim, b, ctx: Dictionary) -> void:
 	if not ctx.has("point") or not b.has_bounce or b.last_bounce.distance_to(ctx.point) < sim.MIN_BEAM_LENGTH:
 		return
 	sim.add_beam(b, b.last_bounce, ctx.point)
+
+
+## A pull/push field that flips every field_period seconds (Pull first). It
+## steers both balls, the owner too, so they really attract; steering only
+## turns a ball and keeps its speed. Strength fades to 0 at field_range; Push
+## steers at push_scale of Pull. State: b.state.pulling, and a flip back to
+## Pull re-arms snap. Emits "flip" events.
+func fx_field(sim, b, _ctx: Dictionary) -> void:
+	var period := maxi(1, int(round(b.def.field_period * sim.TICK_RATE)))
+	var pulling: bool = (sim.tick / period) % 2 == 0
+	if pulling != b.state.get("pulling", true):
+		b.state.pulling = pulling
+		if pulling:
+			b.state.snap_ready = true
+		sim.events.append({"type": "flip", "ball": b.index, "pulling": pulling, "pos": b.pos})
+	for other in sim.balls:
+		if other == b or not other.alive():
+			continue
+		var delta: Vector2 = b.pos - other.pos
+		var dist := delta.length()
+		if dist < 0.001 or dist >= b.def.field_range:
+			continue
+		var strength: float = b.def.field_accel * (1.0 - dist / b.def.field_range)
+		if not pulling:
+			strength *= -b.def.push_scale
+		var pull := delta / dist * strength
+		sim.steer(other, pull)
+		sim.steer(b, -pull)
+
+
+## The first contact hit while a field is on Pull deals snap_mult damage; it
+## re-arms on the next flip to Pull (see fx_field). Emits "snap" events.
+func fx_snap(sim, b, ctx: Dictionary) -> void:
+	if not b.state.get("pulling", true) or not b.state.get("snap_ready", true):
+		return
+	b.state.snap_ready = false
+	sim.events.append({"type": "snap", "ball": b.index, "pos": b.pos})
+	ctx.mult *= b.def.snap_mult
