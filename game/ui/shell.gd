@@ -12,8 +12,8 @@ const SCREENS := {
 	"critters": preload("res://game/ui/screens/critters_screen.gd"),
 	"detail": preload("res://game/ui/screens/detail_screen.gd"),
 	"fuse": preload("res://game/ui/screens/fuse_screen.gd"),
-	"bag": preload("res://game/ui/screens/soon_screen.gd"),
-	"summon": preload("res://game/ui/screens/soon_screen.gd"),
+	"bag": preload("res://game/ui/screens/bag_screen.gd"),
+	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
@@ -36,6 +36,7 @@ var _toast: Label
 var _toast_tween: Tween
 var _marks := {}
 var _built := false
+var _overlay: Control
 
 
 func _ready() -> void:
@@ -62,6 +63,10 @@ func build() -> void:
 	_holder.clip_contents = true
 	col.add_child(_holder)
 	col.add_child(_tab_bar())
+	_overlay = Control.new()
+	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_overlay)
 	_toast = Kit.label("", 24, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)
 	_toast.add_theme_stylebox_override("normal", Kit.box(Color("221e55"), Kit.ACCENT, 24, 2, 18))
 	_toast.modulate.a = 0.0
@@ -110,9 +115,9 @@ func refresh_with(params: Dictionary) -> void:
 
 func toast(text: String) -> void:
 	_toast.text = text
-	_toast.size = Vector2(minf(620.0, size.x - 60.0), 0)
-	_toast.reset_size()
-	_toast.size.x = minf(620.0, size.x - 60.0)
+	var w := minf(620.0, size.x - 60.0)
+	_toast.size = Vector2(w, 0)
+	_toast.size.y = _toast.get_line_count() * 34.0 + 40.0
 	_toast.position = Vector2((size.x - _toast.size.x) / 2.0, size.y - TAB_HEIGHT - _toast.size.y - 40.0)
 	if _toast_tween:
 		_toast_tween.kill()
@@ -120,6 +125,48 @@ func toast(text: String) -> void:
 	_toast.modulate.a = 1.0
 	_toast_tween.tween_interval(2.2)
 	_toast_tween.tween_property(_toast, "modulate:a", 0.0, .3)
+
+
+## Cover the whole shell (tabs included) with `c`, e.g. the summon reveal.
+func overlay(c: Control, tag := "overlay") -> void:
+	close_overlay()
+	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_overlay.add_child(c)
+	_report.call_deferred(tag)
+
+
+func close_overlay() -> void:
+	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in _overlay.get_children():
+		c.queue_free()
+
+
+## A bottom sheet over a dimmed screen; tapping the dim area closes it.
+func sheet(content: Control) -> void:
+	var root := Control.new()
+	var dim := Button.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var dim_style := Kit.box(Color(.02, .015, .06, .65), Color(0, 0, 0, 0), 0, 0, 0)
+	for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		dim.add_theme_stylebox_override(st, dim_style)
+	dim.pressed.connect(close_overlay)
+	root.add_child(dim)
+	var st := Kit.box(Color("16133a"), Kit.ACCENT, 0, 0, 32)
+	st.border_width_top = 3
+	st.corner_radius_top_left = 44
+	st.corner_radius_top_right = 44
+	st.content_margin_bottom = 60
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", st)
+	panel.add_child(content)
+	root.add_child(panel)
+	overlay(root, "sheet")
+	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE, Control.PRESET_MODE_MINSIZE)
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	panel.position.y = size.y
+	var h := panel.get_combined_minimum_size().y
+	create_tween().tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
 ## Register a control so the smoke test can find and tap it ("UI_AT name x y").
@@ -133,6 +180,7 @@ func request_play() -> void:
 
 
 func _show(name: String, params: Dictionary) -> void:
+	close_overlay()
 	current = name
 	current_params = params
 	_marks.clear()
@@ -163,7 +211,7 @@ func _show(name: String, params: Dictionary) -> void:
 func _report(name: String) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
-	if name != current:
+	if name != current and name not in ["overlay", "sheet", "reveal"]:
 		return
 	print("UI_SCREEN ", name)
 	var all := _marks.duplicate()

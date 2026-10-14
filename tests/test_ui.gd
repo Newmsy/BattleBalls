@@ -5,6 +5,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const Shell := preload("res://game/ui/shell.gd")
+const Summon := preload("res://game/ui/summon.gd")
 
 
 func test_fusing_three_copies_makes_one_of_the_next_tier() -> void:
@@ -47,6 +48,38 @@ func test_every_critter_has_art_and_a_full_ladder() -> void:
 	for c in Roster.CRITTERS:
 		check_eq(c.ladder.size(), Roster.MAX_TIER, c.id + " ladder")
 		check(CritterArt.EYES.has(c.id), c.id + " has a face")
+
+
+func test_a_ten_pull_always_has_a_rare_or_better() -> void:
+	var rng := RandomNumberGenerator.new()
+	for seed in 200:
+		rng.seed = seed
+		var ids: Array = Summon.pull(UiProfile.sample(), 10, rng)
+		check_eq(ids.size(), 10, "ten critters")
+		check(ids.any(func(id): return Summon.rarity_of(id) != "common"), "seed %d has a Rare+" % seed)
+
+
+func test_pity_guarantees_a_legendary() -> void:
+	var p = UiProfile.sample()
+	p.legendary_pity = 1
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var got_legendary := false
+	for i in 40:
+		for id in Summon.pull(p, 1, rng):
+			got_legendary = got_legendary or Summon.rarity_of(id) == "legendary"
+		if got_legendary:
+			break
+	check(got_legendary, "first Rare+ roll at pity 1 is Legendary")
+	check(p.legendary_pity > 100, "pity resets after a Legendary")
+
+
+func test_equipping_gear_replaces_the_same_slot() -> void:
+	var p = UiProfile.sample()
+	p.equip(5, "vampire") # A second Iron Shell onto Count Nibbles.
+	var shells: Array = p.gear_on("vampire").filter(func(g): return g.slot == "Shell")
+	check_eq(shells.size(), 1, "one shell on")
+	check_eq(shells[0].uid, 5, "the new one")
 
 
 func test_every_screen_builds() -> void:
