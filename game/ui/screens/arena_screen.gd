@@ -10,6 +10,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
+const Loaner := preload("res://game/loaner.gd")
 
 const CARD_COLORS := {"easier": Kit.GOOD, "even": Kit.ACCENT, "harder": Kit.WARN}
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
@@ -83,7 +84,7 @@ static func _league_panel(store) -> Control:
 ## Critters that can go in a ranked trio: owned ones only, so no loaner
 ## (Try-a-Critter) and nothing the player hasn't got.
 static func owned_critters(profile) -> Array:
-	return BallDefs.PLAYABLE.filter(func(id): return profile.owns(id))
+	return BallDefs.PLAYABLE.filter(func(id): return Loaner.can_use(profile, id, "ghost_arena"))
 
 
 static func _trio_panel(shell, store, owned: Array) -> Control:
