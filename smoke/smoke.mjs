@@ -25,7 +25,8 @@ const server = http.createServer((req, res) => {
 await new Promise((r) => server.listen(0, "127.0.0.1", r));
 const base = `http://127.0.0.1:${server.address().port}/`;
 
-const launchOptions = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] };
+// Autoplay allowed so the audio code paths really run (on a phone, the first tap unlocks them).
+const launchOptions = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--autoplay-policy=no-user-gesture-required"] };
 if (process.env.CHROMIUM_PATH) launchOptions.executablePath = process.env.CHROMIUM_PATH;
 const browser = await chromium.launch(launchOptions);
 const errors = [];
@@ -154,6 +155,60 @@ try {
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "7-wide-fight.png") });
     await page.close();
+  }
+
+  // 4. Sound board opens over the menu and its buttons play without errors.
+  {
+    const { page, logs } = await openGame("?sounds=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(1500);
+    for (const y of [140, 230, 320, 410]) {
+      await page.mouse.click(...toPage(page, 180, y));
+      await page.mouse.click(...toPage(page, 540, y));
+      await page.waitForTimeout(200);
+    }
+    await page.screenshot({ path: path.join(shots, "8-sound-board.png") });
+    await page.close();
+  }
+
+  // 5. Share: tap "Share fight" on a result, open the link it made, and the
+  // same fight replays to the same end state. Then tap "Challenge friend" and
+  // open that link: the challenge menu shows and its fight starts.
+  {
+    const { page, logs } = await openGame("?p1=laser&p2=vampire&seed=11&aim=-300&auto=1&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    const end = (await waitForLog(logs, "MATCH_END", 90000)).split("hash=")[1];
+    const tapTarget = async (kind) => {
+      await page.waitForFunction((k) => window.bbShare?.targets.some((t) => t.kind === k), kind, { timeout: 5000 });
+      const t = await page.evaluate((k) => window.bbShare.targets.find((t) => t.kind === k), kind);
+      const box = await page.locator("canvas").boundingBox();
+      await page.mouse.click(box.x + (t.x + t.w / 2) * box.width, box.y + (t.y + t.h / 2) * box.height);
+      return (await waitForLog(logs, `SHARE ${kind} `, 5000)).split(" ")[2];
+    };
+    await page.waitForTimeout(500);
+    const replayUrl = await tapTarget("r");
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(shots, "9-share.png") });
+    const challengeUrl = await tapTarget("c");
+    await page.close();
+    console.log("share links:", replayUrl, challengeUrl);
+
+    const replay = await openGame(new URL(replayUrl).search);
+    const replayEnd = (await waitForLog(replay.logs, "MATCH_END", 120000)).split("hash=")[1];
+    if (replayEnd !== end) throw new Error(`Replay link ended differently: ${replayEnd} vs ${end}`);
+    await replay.page.waitForTimeout(500);
+    await replay.page.screenshot({ path: path.join(shots, "10-replay-result.png") });
+    await replay.page.close();
+
+    const challenge = await openGame(new URL(challengeUrl).search);
+    await waitForLog(challenge.logs, "BOOT_OK", 60000);
+    await challenge.page.waitForTimeout(1500);
+    await challenge.page.screenshot({ path: path.join(shots, "11-challenge-menu.png") });
+    await challenge.page.mouse.click(...toPage(challenge.page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
+    await challenge.page.waitForTimeout(800);
+    await challenge.page.mouse.click(...toPage(challenge.page, 20 + 170, 990 + 42)); // Launch
+    console.log("challenge fight:", await waitForLog(challenge.logs, "FIGHT_START", 5000));
+    await challenge.page.close();
   }
 } catch (e) {
   errors.push(String(e.stack ?? e));
