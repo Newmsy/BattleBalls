@@ -7,6 +7,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
+const RisingStar := preload("res://meta/rising_star.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -58,6 +59,11 @@ static func build(shell, _params: Dictionary) -> Control:
 		"Call your walls, line up one launch and bank it in. Keep your streak going.", "Play today's shot", Color("ffd36b"),
 		func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")))
 
+	# Rising Star: catch-up XP for new accounts, shown only while it is on.
+	var rising := _rising_star_card(p)
+	if rising != null:
+		root.add_child(rising)
+
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
@@ -92,6 +98,20 @@ static func mode_card(shell, mark: String, caption: String, title: String, text:
 	shell.mark(mark, btn)
 	var v := Kit.vbox(10, [Kit.caption(caption, accent), Kit.label(title, 40), Kit.label(text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
 	return Kit.panel(v, Kit.box(accent.darkened(.82), accent.darkened(.5), 40, 2, 30))
+
+
+## The Rising Star banner, or null when it is off (caught up, or past 30 days).
+static func _rising_star_card(p) -> Control:
+	var text := RisingStar.banner_text(p, int(Time.get_unix_time_from_system()))
+	if text == "":
+		return null
+	var gold := Color("ffd36b")
+	var star := Glyph.make("stars", 44, gold, 1)
+	star.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var words := Kit.vbox(4, [Kit.caption("Rising Star", gold), Kit.label(text, 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label("Helps new players catch up. It ends on its own and is never sold.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return Kit.panel(Kit.hbox(16, [star, words]), Kit.box(gold.darkened(.85), gold.darkened(.45), 32, 2, 22))
 
 
 ## Friends: a count and whatever is waiting (requests, energy gifts).

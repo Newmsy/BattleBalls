@@ -73,7 +73,7 @@ func test_account_xp_comes_from_finished_runs_only() -> void:
 	p.spend_energy(Zones.STAGE_COST, T0)
 	check_eq(p.account_xp, 0, "spending alone earns nothing (a cancelled run is refunded)")
 	Campaign.start(p, 0, 0, "vampire", T0)
-	Campaign.finish(p, 0, 0, "vampire", _win())
+	Campaign.finish(p, 0, 0, "vampire", _win(), T0 + 31 * 86400) # Past the Rising Star window.
 	check_eq(p.account_xp, Zones.STAGE_COST, "a finished win earns its cost")
 
 

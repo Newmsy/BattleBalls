@@ -7,6 +7,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const Rng := preload("res://sim/rng.gd")
 const Power := preload("res://sim/power.gd")
+const RisingStar := preload("res://meta/rising_star.gd")
 
 const RARE_BONUS_CHANCE := 0.05
 ## Second star: win before overtime. Third star: win with this share of HP
@@ -81,18 +82,22 @@ static func start(profile, zone_index: int, stage_index: int, fighter: String, n
 ## Applies a finished stage fight. `fight` is MatchSim.summary() plus the
 ## player's max HP ("max_hp"). Returns what happened for the result screen:
 ## {won, stars, first_clear, drops: [critter ids], xp, levels, refund,
-## account_levels}.
-static func finish(profile, zone_index: int, stage_index: int, fighter: String, fight: Dictionary) -> Dictionary:
+## account_levels, rising_star}. XP includes the Rising Star boost when it is
+## on at `now` (unix seconds; -1 reads the clock).
+static func finish(profile, zone_index: int, stage_index: int, fighter: String, fight: Dictionary, now := -1) -> Dictionary:
+	if now < 0:
+		now = int(Time.get_unix_time_from_system())
 	var st := Zones.stage(zone_index, stage_index)
 	var key := Zones.stage_key(zone_index, stage_index)
 	var won: bool = fight.winner == 0
-	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0}
+	var boosted := RisingStar.active(profile, now)
+	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0, "rising_star": boosted}
 	if not won:
 		result.refund = Zones.cost(st) - Zones.LOSS_COST
 		profile.refund_energy(result.refund)
-		result.account_levels = profile.add_account_xp(Zones.LOSS_COST)
-		result.xp = LOSS_XP
-		result.levels = profile.add_xp(fighter, LOSS_XP)
+		result.account_levels = profile.add_account_xp(RisingStar.account_xp(profile, Zones.LOSS_COST, now))
+		result.xp = RisingStar.critter_xp(profile, LOSS_XP, now)
+		result.levels = profile.add_xp(fighter, result.xp)
 		return result
 	var hp_fraction: float = fight.hp[0] / fight.max_hp
 	var stars := 1
@@ -103,10 +108,10 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 	result.stars = stars
 	result.first_clear = profile.stars.get(key, 0) == 0
 	profile.stars[key] = maxi(profile.stars.get(key, 0), stars)
-	result.xp = WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index
+	result.xp = RisingStar.critter_xp(profile, WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index, now)
 	result.levels = profile.add_xp(fighter, result.xp)
 	result.drops = _roll_drops(profile, zone_index, stage_index, result.first_clear)
-	result.account_levels = profile.add_account_xp(Zones.cost(st))
+	result.account_levels = profile.add_account_xp(RisingStar.account_xp(profile, Zones.cost(st), now))
 	profile.runs += 1
 	profile.changed.emit()
 	return result
@@ -123,7 +128,7 @@ static func sweep(profile, zone_index: int, stage_index: int, fighter: String, n
 	var sim := MatchSim.new(cfg)
 	var fight := sim.run_to_end()
 	fight.max_hp = sim.balls[0].max_hp
-	return finish(profile, zone_index, stage_index, fighter, fight)
+	return finish(profile, zone_index, stage_index, fighter, fight, now)
 
 
 ## One copy per win from the zone's featured critters (with a small chance of

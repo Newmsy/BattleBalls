@@ -122,11 +122,11 @@ static func _error_text(error: String) -> String:
 ## One line summing up a stage result, for the result screen and sweeps.
 static func result_text(r: Dictionary) -> String:
 	if not r.won:
-		return "Lost. %d energy back, +%d XP. Try a stronger critter, or fuse one up." % [r.refund, r.xp]
+		return "Lost. %d energy back, +%d XP%s. Try a stronger critter, or fuse one up." % [r.refund, r.xp, " (Rising Star)" if r.get("rising_star", false) else ""]
 	var parts: Array[String] = ["%d of 3 stars" % r.stars]
 	if not r.drops.is_empty():
 		parts.append("got " + ", ".join(r.drops.map(func(id): return Roster.get_critter(id).name)))
-	parts.append("+%d XP" % r.xp)
+	parts.append("+%d XP%s" % [r.xp, " (Rising Star)" if r.get("rising_star", false) else ""])
 	if r.levels > 0:
 		parts.append("level up!")
 	if r.account_levels > 0:

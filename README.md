@@ -112,6 +112,16 @@ record moves), send one energy gift a day (2 energy; up to 10 gifts claimed a
 day; the server sets the amount) and send **preset phrases only**, never free
 text (Newms, 2026-10-14). `?demo=friends` shows sample friends with no server.
 
+## Rising Star (catch-up XP)
+
+`meta/rising_star.gd`: for an account's first 30 days, while it is below the
+median player's account level, campaign runs give double account XP and +50%
+critter XP. It stops at the median or after 30 days, never touches drops, and
+is never sold. The median comes from the `rising_star_median` RPC (signed-in
+players active in the last 14 days, withheld below 20 players) and is cached
+in the profile; offline, the cached value or `FALLBACK_MEDIAN` is used. The
+Play tab shows a banner while it is on.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or

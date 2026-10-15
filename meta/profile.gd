@@ -44,11 +44,17 @@ var legendary_pity := PITY_START
 var stars: Dictionary = {}
 ## Finished campaign runs; feeds fight and drop seeds so every run differs.
 var runs := 0
+## Rising Star (meta/rising_star.gd): when this account started (unix seconds,
+## 0 = unknown) and the server's median player level, with when it was fetched.
+var started := 0
+var rising_median := 0
+var rising_median_at := 0
 
 
 static func new_game(now: int):
 	var p = load("res://meta/profile.gd").new()
 	p.energy_time = now
+	p.started = now
 	p.stacks.append({"id": STARTER, "tier": 1, "count": 1, "level": 1, "xp": 0})
 	p.seen[STARTER] = true
 	p.items.assign([
@@ -303,7 +309,8 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "lineup",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs",
+	"started", "rising_median", "rising_median_at"]
 
 
 func to_dict() -> Dictionary:
@@ -321,7 +328,8 @@ static func from_dict(d: Dictionary, now: int):
 	var p = new_game(now)
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "legendary_pity", "runs"]:
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "legendary_pity", "runs",
+			"started", "rising_median", "rising_median_at"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))

@@ -17,6 +17,7 @@ const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Profile := preload("res://meta/profile.gd")
+const RisingStar := preload("res://meta/rising_star.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const Zones := preload("res://meta/zones.gd")
 const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
@@ -438,6 +439,7 @@ func _go_online() -> void:
 		return
 	await _publish_lineup()
 	await _refresh_account()
+	await _refresh_rising_star()
 	await friends.refresh()
 	if state == State.RESULT:
 		_label_result_buttons()
@@ -463,6 +465,17 @@ func _publish_lineup() -> void:
 	if await GhostLineup.publish(backend, lineup):
 		save.data.published_lineup = key
 		save.save_local()
+
+
+## Rising Star's target level: the median player level, fetched now and then
+## while the boost window is open (meta/rising_star.gd keeps the offline fallback).
+func _refresh_rising_star() -> void:
+	var now := int(Time.get_unix_time_from_system())
+	if profile_unsaved or not RisingStar.needs_refresh(profile, now):
+		return
+	var res: Dictionary = await backend.call_rpc("rising_star_median", {})
+	if res.ok:
+		RisingStar.apply_server(profile, res.data, now)
 
 
 func _refresh_account() -> void:
