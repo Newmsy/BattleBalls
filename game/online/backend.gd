@@ -86,6 +86,14 @@ func call_rpc(name: String, args: Dictionary) -> Dictionary:
 	return await rest("POST", "/rest/v1/rpc/" + name, args)
 
 
+## Calls a Postgres function with the public key only: no guest session is
+## made or used (the stats screen, which is keyed by its own secret).
+func call_rpc_public(name: String, args: Dictionary) -> Dictionary:
+	if not enabled():
+		return {"ok": false, "code": 0, "data": null}
+	return await _send("POST", "/rest/v1/rpc/" + name, args, [], false)
+
+
 ## Authenticated REST call. Retries once with a fresh token on a 401.
 func rest(method: String, path: String, body = null, headers: PackedStringArray = []) -> Dictionary:
 	if not await ensure_session():

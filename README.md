@@ -193,6 +193,17 @@ record moves), send one energy gift a day (2 energy; up to 10 gifts claimed a
 day; the server sets the amount) and send **preset phrases only**, never free
 text (Newms, 2026-10-14). `?demo=friends` shows sample friends with no server.
 
+## Analytics
+
+`game/online/analytics.gd` queues anonymous play events (`Analytics.track(name, props)`)
+and sends them in batches to `log_events()` as the signed-in guest. No names,
+free text or device ids; players can turn it off in Settings (the gear) (which also
+deletes what was sent), and browsers with Global Privacy Control or Do Not
+Track start opted out. Smoke tests and debug builds are flagged as test
+traffic. The owner's stats screen is `?stats#k=<dashboard key>` (`game/stats/`);
+mint or revoke keys in the Supabase SQL editor (see the analytics migration).
+`?stats&demo=1` shows it with sample numbers.
+
 ## Adding a critter
 
 A critter is one file: `sim/critters/<id>.gd` (copy `sim/critters/_template.gd`).
