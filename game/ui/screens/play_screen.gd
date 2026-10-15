@@ -6,6 +6,8 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const ArenaStore := preload("res://game/pvp/arena_store.gd")
+const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
 
 
@@ -45,6 +47,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(mode_card(shell, "spire", "Weekly · resets Monday", "The Spire",
 		"50 floors, one tower for everyone this week. Critters that fight get tired, so the whole collection climbs.", "Climb the Spire", Color("ffc23d"),
 		func(): shell.go("spire")))
+	# Ghost Arena (async PvP, design/pvp.md).
+	var arena_store = ArenaStore.open()
+	root.add_child(mode_card(shell, "arena", "PvP · %s trophies · %s" % [Kit.commas(arena_store.trophies), Ladder.league_label(arena_store.trophies)],
+		"Ghost Arena", "Your trio against other trios. Climb from Bronze to Neon.", "Enter the Arena", Color("ff4fd8"),
+		func(): shell.go("arena")))
 
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)

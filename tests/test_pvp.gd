@@ -90,3 +90,74 @@ func test_slot_angles_mirror_to_each_corner() -> void:
 	check_eq(ArenaGhosts.slot_angle(lineup, 0, 0), MatchSim.AIM_AT_CENTRE[0] + 100, "own corner")
 	check_eq(ArenaGhosts.slot_angle(lineup, 0, 1), MatchSim.AIM_AT_CENTRE[1] + 100, "other corner")
 	check_eq(ArenaGhosts.slot_angle(lineup, 1, 0), MatchSim.AIM_AT_CENTRE[0] - 50, "v1 aims list")
+
+
+const ArenaStore := preload("res://game/pvp/arena_store.gd")
+const Shell := preload("res://game/ui/shell.gd")
+const UiProfile := preload("res://game/ui/ui_profile.gd")
+const ArenaScreen := preload("res://game/ui/screens/arena_screen.gd")
+const TEST_SAVE := "user://test_ghost_arena.cfg"
+
+
+func _fresh_store():
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+	return ArenaStore.open(TEST_SAVE)
+
+
+func test_store_applies_trophies_and_saves() -> void:
+	var s = _fresh_store()
+	var cards: Array[Dictionary] = s.offers(20261014)
+	s.start_attack("harder", cards[2].bot.id, 42)
+	check_eq(s.finish_attack(true, [120, null, -40]), 35, "harder win")
+	check_eq(s.trophies, 35, "trophies")
+	check_eq(s.shots, [120, 0, -40], "used shots saved, unused kept")
+	check_eq(s.history[0].name, cards[2].bot.name, "history")
+	var again = ArenaStore.open(TEST_SAVE)
+	check_eq(again.trophies, 35, "reloaded trophies")
+	check_eq(again.shots, [120, 0, -40], "reloaded shots")
+	check(again.pending.is_empty(), "nothing pending")
+
+
+func test_unfinished_attack_counts_as_a_loss() -> void:
+	var s = _fresh_store()
+	s.trophies = 500
+	s.peak = 500
+	s.start_attack("even", ArenaGhosts.pool()[0].id, 1)
+	var reopened = ArenaStore.open(TEST_SAVE)
+	check_eq(reopened.settle_abandoned(), -15, "even loss")
+	check_eq(reopened.trophies, 485, "trophies")
+	check_eq(reopened.settle_abandoned(), 0, "only once")
+
+
+func test_one_free_refresh_a_day() -> void:
+	var s = _fresh_store()
+	var before: Array[Dictionary] = s.offers(7)
+	check(s.refresh(7), "first refresh")
+	check(not s.refresh(7), "second refused")
+	check_eq(s.refreshes_left(8), 1, "new day")
+	check_eq(s.offers(8), ArenaGhosts.offers(s.trophies, 8, "local", 0), "new day starts fresh")
+	check(before.size() == 3, "three cards")
+
+
+func test_ranked_trio_uses_owned_critters_only() -> void:
+	var s = _fresh_store()
+	s.trio = ["vampire", "flux", "laser"]
+	check(s.fit_to(["laser", "vampire"]), "unowned slot swapped")
+	check_eq(s.trio, ["vampire", "laser", "laser"], "unowned slot becomes the first owned critter")
+	check(not s.fit_to(["laser", "vampire"]), "owned trio unchanged")
+	var p = UiProfile.new()
+	p.stacks.append({"id": "laser", "tier": 1, "count": 1, "level": 1})
+	check_eq(ArenaScreen.owned_critters(p), ["laser"], "only owned critters can be picked")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_arena_screen_and_fight_scene_build() -> void:
+	var s = _fresh_store()
+	var shell = Shell.new()
+	shell.build()
+	shell.go("arena", {"store": s})
+	check_eq(shell.current, "arena", "arena screen")
+	shell.free()
+	var scene: PackedScene = load("res://game/ghost_arena.tscn")
+	check(scene != null, "fight scene loads")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))

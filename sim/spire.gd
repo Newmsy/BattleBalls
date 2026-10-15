@@ -55,7 +55,9 @@ static func power_at(floor_no: int) -> float:
 
 ## The floor's fight seed and enemy lineup.
 ## Returns {floor, seed, boss, lineup (balls per side), enemies: [{id, power, scale}]}.
-static func floor_def(week: int, floor_no: int, pool: Array = BallDefs.PLAYABLE) -> Dictionary:
+static func floor_def(week: int, floor_no: int, pool: Array = []) -> Dictionary:
+	if pool.is_empty():
+		pool = BallDefs.PLAYABLE
 	assert(floor_no >= 1 and floor_no <= FLOORS, "No such floor: %d" % floor_no)
 	var rng := Rng.new(_mix(week, floor_no))
 	var fight_seed := int(rng.next_u32() & 0x7FFFFFFF)

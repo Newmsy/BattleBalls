@@ -258,3 +258,85 @@ func test_mirror_matches_rarely_draw() -> void:
 			if MatchSim.new({"seed": seed_value, "p1": id, "p2": id, "angles": [null, null]}).run_to_end().winner == -1:
 				draws += 1
 		check(draws <= 2, "%s mirror drew %d of 40 fights" % [id, draws])
+
+
+func test_magnet_pull_turns_the_foe_toward_it() -> void:
+	var sim := _sim("magnet", "plain")
+	_park(sim)
+	var m := sim.balls[0]
+	var foe := sim.balls[1]
+	m.pos = Vector2(300, 500)
+	foe.pos = Vector2(600, 500)
+	foe.vel = Vector2(0, -400)
+	sim.step()
+	check(sim.balls[0].state.get("pulling", true), "the field starts on Pull")
+	check(foe.vel.x < 0.0, "Pull steers the foe toward the magnet")
+	check_near(foe.vel.length(), foe.speed, 0.001, "steering keeps the foe's speed")
+
+
+func test_magnet_flips_to_a_weaker_push() -> void:
+	var sim := _sim("magnet", "plain")
+	_park(sim)
+	var m := sim.balls[0]
+	var foe := sim.balls[1]
+	m.pos = Vector2(300, 500)
+	foe.pos = Vector2(600, 500)
+	sim.tick = int(m.def.field_period * MatchSim.TICK_RATE)
+	foe.vel = Vector2(0, -400)
+	sim.step()
+	check(not m.state.pulling, "the field flips to Push after one period")
+	check(sim.events.any(func(e): return e.type == "flip" and not e.pulling), "flip event emitted")
+	var push_turn := foe.vel.x
+	check(push_turn > 0.0, "Push steers the foe away")
+	# Same setup on Pull: Push turns the foe less sharply.
+	var pull_sim := _sim("magnet", "plain")
+	_park(pull_sim)
+	pull_sim.balls[0].pos = Vector2(300, 500)
+	pull_sim.balls[1].pos = Vector2(600, 500)
+	pull_sim.balls[1].vel = Vector2(0, -400)
+	pull_sim.step()
+	check(push_turn < absf(pull_sim.balls[1].vel.x), "Push is weaker than Pull")
+
+
+func test_magnet_field_fades_out_of_range() -> void:
+	var sim := _sim("magnet", "plain")
+	_park(sim)
+	var foe := sim.balls[1]
+	sim.balls[0].pos = Vector2(150, 150)
+	foe.pos = Vector2(850, 850)
+	foe.vel = Vector2(0, -400)
+	sim.step()
+	check_near(foe.vel.x, 0.0, 0.0001, "no steering beyond field range")
+
+
+## Rams the magnet into a parked plain ball and returns the damage dealt.
+func _magnet_ram(sim: MatchSim) -> float:
+	var m := sim.balls[0]
+	var foe := sim.balls[1]
+	m.pos = Vector2(400, 500)
+	foe.pos = Vector2(400 + m.radius + foe.radius - 2.0, 500)
+	m.vel = Vector2(400, 0)
+	foe.vel = Vector2.ZERO
+	var before := foe.hp
+	sim.step()
+	return before - foe.hp
+
+
+func test_magnet_snaps_once_per_pull() -> void:
+	var sim := _sim("magnet", "plain")
+	_park(sim)
+	var first := _magnet_ram(sim)
+	check(sim.events.any(func(e): return e.type == "snap"), "first Pull hit snaps")
+	sim._contact_cooldown_until.clear()
+	var second := _magnet_ram(sim)
+	check(not sim.events.any(func(e): return e.type == "snap"), "second hit in the same Pull does not snap")
+	check_near(first, second * sim.balls[0].def.snap_mult, 0.01, "snap multiplies contact damage")
+	# Push gives no snap; the next Pull re-arms it.
+	sim._contact_cooldown_until.clear()
+	sim.tick = int(sim.balls[0].def.field_period * MatchSim.TICK_RATE)
+	_magnet_ram(sim)
+	check(not sim.events.any(func(e): return e.type == "snap"), "no snap on Push")
+	sim._contact_cooldown_until.clear()
+	sim.tick = int(2 * sim.balls[0].def.field_period * MatchSim.TICK_RATE)
+	_magnet_ram(sim)
+	check(sim.events.any(func(e): return e.type == "snap"), "next Pull snaps again")

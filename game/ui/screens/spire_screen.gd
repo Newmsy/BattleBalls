@@ -87,8 +87,7 @@ static func _floor_card(spec: Dictionary) -> Control:
 	var title := "Floor %d" % n + (" · Boss" if spec.boss else "")
 	var foes := Kit.hbox(14, [], BoxContainer.ALIGNMENT_CENTER)
 	for e in spec.enemies:
-		var rarity := String(BallDefs.get_def(e.id).get("rarity", "common"))
-		var tier := Spire.display_tier(e.power, Roster.RARITY_BASE.get(rarity, 100.0) / 100.0)
+		var tier := Spire.display_tier(e.power, Roster.rarity_base(Roster.get_critter(e.id).rarity) / 100.0)
 		var side := 190.0 if spec.boss else 130.0
 		foes.add_child(Kit.vbox(4, [CritterIcon.make(e.id, tier, side), Kit.label(BallDefs.get_def(e.id).display_name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 			Kit.power(roundi(e.power * 1000.0), 22)]))

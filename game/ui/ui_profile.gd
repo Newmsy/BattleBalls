@@ -23,13 +23,17 @@ var gear: Array[Dictionary] = []
 var items: Array[Dictionary] = []
 var free_summon := true
 ## Rare-or-better rolls left before a guaranteed Legendary (shared with drops).
-var legendary_pity := 112
+var legendary_pity := 37
+## Critters the player is chasing: they come up twice as often within their
+## rarity in summons and drops (game/ui/summon.gd). Free to change any time.
+var wishlist: Array[String] = []
+const WISHLIST_MAX := 3
 
 
 static func sample():
 	var p = load("res://game/ui/ui_profile.gd").new()
 	for s in [["vampire", 2, 1, 14], ["vampire", 1, 3, 6], ["juggernaut", 1, 2, 7], ["spiker", 2, 1, 12],
-			["spiker", 1, 1, 3], ["speedster", 1, 3, 9], ["laser", 1, 2, 8], ["bomber", 1, 1, 3],
+			["spiker", 1, 1, 3], ["speedster", 1, 3, 9], ["bomber", 1, 1, 3],
 			["thorns", 1, 1, 2], ["splitter", 1, 1, 5]]:
 		p.stacks.append({"id": s[0], "tier": s[1], "count": s[2], "level": s[3]})
 		p.seen[s[0]] = true
@@ -46,6 +50,24 @@ static func sample():
 		{"name": "Energy Pack", "count": 3, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
 		{"name": "XP Chip", "count": 12, "text": "+200 XP to one critter.", "color": Color("45f5a6")},
 		{"name": "Summon Orb", "count": 14, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
+	])
+	return p
+
+
+## A brand-new player straight out of onboarding: one T1 copy of the starter
+## (the tutorial fights drop two more), a free summon and a few orbs.
+static func starter(id: String):
+	var p = load("res://game/ui/ui_profile.gd").new()
+	p.account_level = 1
+	p.energy = p.energy_max
+	p.coins = 200
+	p.orbs = 10
+	p.lineup = id
+	p.legendary_pity = load("res://game/ui/summon.gd").PITY_RESET
+	p.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
+	p.seen[id] = true
+	p.items.assign([
+		{"name": "Summon Orb", "count": p.orbs, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
 	])
 	return p
 
@@ -184,6 +206,23 @@ func add_copies(ids: Array) -> void:
 			s.count += 1
 		seen[id] = true
 	changed.emit()
+
+
+func on_wishlist(id: String) -> bool:
+	return id in wishlist
+
+
+## Adds or removes a wishlist pick. Returns false (and changes nothing) when
+## adding to a full wishlist.
+func toggle_wishlist(id: String) -> bool:
+	if on_wishlist(id):
+		wishlist.erase(id)
+	elif wishlist.size() >= WISHLIST_MAX:
+		return false
+	else:
+		wishlist.append(id)
+	changed.emit()
+	return true
 
 
 func spend_orbs(n: int) -> bool:
