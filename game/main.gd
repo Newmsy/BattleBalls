@@ -23,8 +23,12 @@ const Friends := preload("res://game/online/friends.gd")
 const Account := preload("res://game/online/account.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const ResultText := preload("res://game/result_text.gd")
+const FinisherCam := preload("res://game/finisher_cam.gd")
+const ClipExport := preload("res://game/clip/clip_export.gd")
+const ClipCard := preload("res://game/clip/clip_card.gd")
 
-enum State { MENU, AIM, FIGHT, RESULT }
+## CLIP plays the finished fight again in the vertical clip layout.
+enum State { MENU, AIM, FIGHT, RESULT, CLIP }
 ## NORMAL: pick your ball, the opponent is random. REPLAY: watching a shared fight. CHALLENGE: beating
 ## a friend's ball and shot. RIVAL: an unranked rematch against a friend's
 ## saved team (their Ghost Arena lineup, aimed the way they usually aim).
@@ -60,6 +64,7 @@ var foe_aim = null ## Opponent launch angle, or null to let the seed pick it.
 var link_error := ""
 var speed_index := 0
 var auto_start := false
+var auto_clip := false ## ?clip=1: make a clip as soon as the fight ends (smoke test).
 var url_picks := false ## URL params chose the balls: don't overwrite them from the save.
 
 var backend: Backend
@@ -73,10 +78,24 @@ var link_friend := "" ## Friend code from the link the page was opened with (&f=
 var _count_fight := false ## The running fight came from the menu, not a replay or URL.
 
 var _accumulator := 0.0
+var finisher: FinisherCam
+var _hold := -1.0 ## Real seconds since the finishing blow, or -1 before it.
+var _skipped := false ## "Skip to end" also skips the finisher.
 var _dragging := false
 var _rng := RandomNumberGenerator.new() ## UI-only randomness (new seeds), never used by the sim.
 
 var arena: ArenaView
+var arena_clip: Control ## Holds the arena; clips it while the finisher cam zooms.
+var ui_layer: CanvasLayer
+var clip_card: ClipCard
+var clip_button: Button
+var copy_button: Button
+var change_button: Button
+var _clip_speed := 1.0
+var _clip_recording := false
+var _clip_wait := false ## Waiting for the page to finish encoding.
+var _clip_ready := false ## A video is ready to save.
+var _clip_hint := false ## Told the player to screen-record instead.
 var sfx: Sfx
 var ui: Control
 var title_label: Label
@@ -133,15 +152,22 @@ func _ready() -> void:
 		set_process(false)
 		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
 		return
+	arena_clip = Control.new()
+	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(arena_clip)
 	arena = ArenaView.new()
-	add_child(arena)
+	arena_clip.add_child(arena)
+	clip_card = ClipCard.new()
+	clip_card.visible = false
+	add_child(clip_card)
 	sfx = Sfx.new()
 	add_child(sfx)
 	_build_ui()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	_install_share_listener()
-	print("BOOT_OK build=", _build_stamp())
+	ClipExport.install()
+	print("BOOT_OK build=", _build_stamp(), " reduced_motion=", A11y.reduced_motion)
 	_build_shell()
 	if _wants_tutorial():
 		_start_tutorial()
@@ -164,24 +190,23 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if state == State.FIGHT:
-		_accumulator += delta * SPEEDS[speed_index]
-		# Cap catch-up so a slow frame can't freeze the page.
-		var steps := 0
-		while _accumulator >= MatchSim.DT and steps < 32 and not sim.finished:
-			sim.step()
-			arena.consume_events(sim.events)
-			sfx.consume_events(sim.events, sim)
-			_accumulator -= MatchSim.DT
-			steps += 1
-		if sim.finished:
+		if _advance_fight(delta, SPEEDS[speed_index]):
 			_show_result()
-	arena.advance_effects(delta * (SPEEDS[speed_index] if state == State.FIGHT else 1.0))
+	elif state == State.CLIP:
+		_advance_clip(delta)
+	else:
+		arena.advance_effects(delta)
+	if _clip_wait:
+		_poll_clip()
 	if _share_pending:
 		_poll_share_status()
 	_update_hud()
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if state == State.CLIP and event is InputEventMouseButton and event.pressed:
+		_cancel_clip()
+		return
 	if state != State.AIM:
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -223,6 +248,7 @@ func _show_menu() -> void:
 	arena.sim = null
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
+	arena.reset_camera()
 	sfx.on_menu()
 	_refresh_menu()
 	_show_only(menu_box)
@@ -270,6 +296,7 @@ func _begin_aim() -> void:
 	state = State.AIM
 	aim = MatchSim.AIM_AT_CENTRE[0]
 	arena.clear_effects()
+	arena.reset_camera()
 	_set_aim_preview()
 	info_label.text = "Drag on the arena to aim your %s, then let go to launch." % BallDefs.get_def(player_type).display_name
 	_show_only(aim_box)
@@ -294,10 +321,7 @@ func _launch() -> void:
 func _start_fight() -> void:
 	_count_fight = false
 	sim = MatchSim.new(_config())
-	arena.sim = sim
-	arena.aim_dir = Vector2.ZERO
-	arena.clear_effects()
-	_accumulator = 0.0
+	_prepare_fight(sim.config)
 	state = State.FIGHT
 	info_label.text = "%s vs %s" % [BallDefs.get_def(player_type).display_name, BallDefs.get_def(opponent_type).display_name]
 	speed_button.text = "Speed %sx" % _speed_text()
@@ -309,8 +333,69 @@ func _start_fight() -> void:
 	print("FIGHT_START ", _report_code())
 
 
+## Steps the fight in real time at `speed`, slowing into the finisher cam
+## and holding on the KO face. True once the fight and its finisher are over.
+## With Reduced motion there's no slow motion or zoom, just the KO face.
+func _advance_fight(delta: float, speed: float) -> bool:
+	var finishing := finisher.ko_tick >= 0 and not _skipped
+	var cinematic := finishing and not A11y.reduced_motion
+	var rate := speed
+	_accumulator += delta
+	# Cap catch-up so a slow frame can't freeze the page.
+	var steps := 0
+	while not sim.finished and steps < 32:
+		rate = finisher.time_scale(sim.tick, speed) if cinematic else speed
+		if _accumulator < MatchSim.DT / rate:
+			break
+		_accumulator -= MatchSim.DT / rate
+		sim.step()
+		arena.consume_events(sim.events)
+		sfx.consume_events(sim.events, sim)
+		steps += 1
+	if not finishing:
+		arena.advance_effects(delta * speed)
+		return sim.finished
+	if sim.finished:
+		if _hold < 0.0:
+			_hold = 0.0
+			arena.ko_ball = finisher.loser
+			print("FINISHER_KO loser=%d tick=%d" % [finisher.loser, sim.tick])
+		else:
+			_hold += delta
+		rate = 0.5
+	if cinematic and finisher.active(sim.tick):
+		var z := finisher.zoom(sim.tick, maxf(0.0, _hold))
+		arena.set_camera(z, finisher.focus(sim, z))
+		arena.finisher_amount = clampf(finisher.progress(sim.tick) / 0.25, 0.0, 1.0)
+		arena_clip.clip_contents = true
+	arena.advance_effects(delta * rate)
+	return _hold >= FinisherCam.HOLD
+
+
+## Fresh effects, camera and finisher plan for a fight about to play.
+func _prepare_fight(config: Dictionary) -> void:
+	arena.sim = sim
+	arena.aim_dir = Vector2.ZERO
+	arena.clear_effects()
+	arena.reset_camera()
+	arena_clip.clip_contents = false
+	finisher = FinisherCam.plan(config)
+	_accumulator = 0.0
+	_hold = -1.0
+	_skipped = false
+
+
+## Back to the whole arena, keeping the KO face on the critter that fell.
+func _unzoom() -> void:
+	arena.finisher_amount = 0.0
+	arena.set_camera(1.0, Vector2.ONE * MatchSim.ARENA_SIZE / 2.0)
+	arena_clip.clip_contents = false
+
+
 func _show_result() -> void:
 	state = State.RESULT
+	_unzoom()
+	_reset_clip()
 	if mode == Mode.TUTORIAL:
 		print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 		_show_only(null)
@@ -339,6 +424,9 @@ func _show_result() -> void:
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 	_show_only(result_box)
 	sfx.on_result(sim.winner)
+	if auto_clip:
+		auto_clip = false
+		_on_clip_button()
 
 
 func _report_code() -> String:
@@ -460,6 +548,7 @@ func _refresh_account() -> void:
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
+	ui_layer = layer
 	add_child(layer)
 	ui = Control.new()
 	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -513,10 +602,10 @@ func _build_ui() -> void:
 	share_button = _button("Share fight", _share.bind("r"))
 	challenge_button = _button("Challenge", _on_challenge_button)
 	result_box.add_child(_row([share_button, challenge_button]))
-	report_row = _row([
-		_button("Copy report", func(): DisplayServer.clipboard_set(_report_code()); report_label.text = "Copied: " + _report_code()),
-		_button("Change critter", _play_normal),
-	])
+	clip_button = _button("Save clip", _on_clip_button, 26)
+	copy_button = _button("Copy report", func(): DisplayServer.clipboard_set(_report_code()); report_label.text = "Copied: " + _report_code(), 26)
+	change_button = _button("Change critter", _play_normal, 26)
+	report_row = _row([clip_button, copy_button, change_button])
 	result_box.add_child(report_row)
 	friend_button = _button("Add as a friend", _add_link_friend, 26)
 	friend_row = _row([friend_button])
@@ -595,8 +684,15 @@ func _layout() -> void:
 		left = (size.x - side) / 2.0
 		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
 		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 20.0)
+	var arena_pos := Vector2(left, top)
+	if state == State.CLIP:
+		clip_card.position = ((size - ClipCard.SIZE) / 2.0).floor()
+		arena_pos = clip_card.position + ClipCard.ARENA_POS
+		side = ClipCard.ARENA_SIDE
 	arena.view_scale = side / MatchSim.ARENA_SIZE
-	arena.position = Vector2(left, top)
+	arena_clip.position = arena_pos
+	arena_clip.size = Vector2(side, side)
+	arena.set_camera(arena.cam_zoom, arena.cam_focus)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	_place(hud_label, Vector2(left, 110), Vector2(side, 50))
 	_place(info_label, panel_pos, Vector2(panel_width, 90))
@@ -675,9 +771,12 @@ func _speed_text() -> String:
 
 
 func _skip_to_end() -> void:
+	_skipped = true
 	while not sim.finished:
 		sim.step()
 	arena.clear_effects()
+	arena.reset_camera()
+	arena_clip.clip_contents = false
 
 
 func _again() -> void:
@@ -716,7 +815,14 @@ func _label_result_buttons() -> void:
 	# A link from someone who isn't a friend yet offers to add them, in place
 	# of the report row (there's only room for one).
 	friend_row.visible = _can_add_link_friend()
-	report_row.visible = mode != Mode.REPLAY and not friend_row.visible
+	report_row.visible = not friend_row.visible
+	copy_button.visible = mode != Mode.REPLAY
+	change_button.visible = mode != Mode.REPLAY
+	# Save clip rides in whichever of the two rows is showing.
+	var row := friend_row if friend_row.visible else report_row
+	if clip_button.get_parent() != row:
+		clip_button.reparent(row)
+		row.move_child(clip_button, 0)
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"
@@ -878,6 +984,127 @@ func _pick_grid(ids: Array, on_pick: Callable) -> ScrollContainer:
 	return pick_scroll
 
 
+# --- Clips -------------------------------------------------------------------
+# Save clip replays the fight in a 720x1280 "Who wins?" layout and records it
+# (clip/clip_export.gd). Where the browser can't record, the same layout
+# plays for the phone's own screen recorder.
+
+func _on_clip_button() -> void:
+	if _clip_ready:
+		if OS.has_feature("web"):
+			# The page already started saving on this tap; just watch how it went.
+			_share_pending = true
+		return
+	if _clip_wait or sim == null:
+		return
+	if OS.has_feature("web") and not ClipExport.can_record() and not _clip_hint:
+		_clip_hint = true
+		clip_button.text = "Play clip"
+		report_label.text = "This browser can't save video. Start your phone's screen recorder, then tap Play clip."
+		return
+	_start_clip()
+
+
+func _start_clip() -> void:
+	var config: Dictionary = sim.config
+	state = State.CLIP
+	ui_layer.visible = false
+	sim = MatchSim.new(config)
+	_prepare_fight(config)
+	_clip_speed = ClipExport.fight_speed(finisher.ticks * MatchSim.DT)
+	var names := [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
+	arena.team_tags = ["P1", "P2"] if names[0] == names[1] else [names[0].to_upper(), names[1].to_upper()]
+	clip_card.names = names
+	clip_card.sim = sim
+	clip_card.visible = true
+	clip_card.set_phase("title")
+	_layout()
+	_sync_share_targets() # No share buttons on screen while the clip plays.
+	_clip_recording = false
+	if ClipExport.can_record():
+		var view := get_viewport().get_visible_rect().size
+		var rect := Rect2(clip_card.position / view, ClipCard.SIZE / view)
+		_clip_recording = ClipExport.start(rect, ClipExport.file_name(sim.balls[0].type_id, sim.balls[1].type_id))
+	sfx.on_menu()
+	print("CLIP_START record=%s speed=%.2f" % [_clip_recording, _clip_speed])
+
+
+func _advance_clip(delta: float) -> void:
+	match clip_card.phase:
+		"title":
+			arena.advance_effects(delta)
+			if clip_card.t >= ClipCard.TITLE_TIME:
+				clip_card.set_phase("fight")
+				sfx.on_fight_start(sim)
+		"fight":
+			if _advance_fight(delta, _clip_speed):
+				_unzoom()
+				clip_card.set_phase("end")
+				sfx.on_result(0)
+		"end":
+			arena.advance_effects(delta)
+			if clip_card.t >= ClipCard.END_TIME:
+				_end_clip(false)
+
+
+## Back to the result screen. A recorded take goes off to be encoded.
+func _end_clip(cancelled: bool) -> void:
+	state = State.RESULT
+	clip_card.visible = false
+	ui_layer.visible = true
+	if not sim.finished:
+		# Cancelled part way: show the fight's end, as the result screen did.
+		sim.run_to_end()
+		arena.clear_effects()
+		arena.ko_ball = finisher.loser
+	_unzoom()
+	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
+	_layout()
+	_show_only(result_box)
+	if _clip_recording:
+		_clip_recording = false
+		ClipExport.stop(cancelled)
+		if not cancelled:
+			_clip_wait = true
+			clip_button.disabled = true
+			clip_button.text = "Making…"
+			report_label.text = "Making your clip…"
+	elif not cancelled:
+		report_label.text = "That's the clip! Share fight sends the link."
+	print("CLIP_END cancelled=%s" % cancelled)
+
+
+func _cancel_clip() -> void:
+	sfx.on_menu()
+	_end_clip(true)
+
+
+func _poll_clip() -> void:
+	var status := ClipExport.status()
+	if status in ["recording", "encoding"]:
+		return
+	_clip_wait = false
+	clip_button.disabled = false
+	if status == "ready":
+		_clip_ready = true
+		clip_button.text = "Save video"
+		report_label.text = "Clip ready! Tap Save video, then post it."
+		_sync_share_targets()
+	else:
+		clip_button.text = "Save clip"
+		report_label.text = "Couldn't make the video this time. Tap Save clip to try again."
+	print("CLIP_", status.to_upper() if status != "" else "FAILED")
+
+
+## A new fight or result starts with a fresh Save clip button.
+func _reset_clip() -> void:
+	_clip_ready = false
+	_clip_hint = false
+	_clip_wait = false
+	clip_button.disabled = false
+	clip_button.text = "Save clip"
+
+
 # --- Onboarding ----------------------------------------------------------------
 # game/onboarding.gd calls these to drive the arena; see design/onboarding.md.
 
@@ -998,6 +1225,10 @@ if (!window.bbShare) {
 			if (x < t.x || x > t.x + t.w || y < t.y || y > t.y + t.h) continue;
 			console.log("SHARE " + t.kind + " " + t.url);
 			done("pending");
+			if (t.kind === "clip") {
+				if (window.bbClip) window.bbClip.save(done); else done("failed");
+				return;
+			}
 			if (navigator.share) {
 				navigator.share({ title: "Battle Balls", text: t.text, url: t.url })
 					.then(() => done("shared"), (err) => err && err.name === "AbortError" ? done("cancelled") : copy(t));
@@ -1064,6 +1295,8 @@ func _sync_share_targets() -> void:
 			buttons["c"] = challenge_button
 		for kind in buttons:
 			add.call(kind, _share_url(kind), _share_text(kind), buttons[kind].get_global_rect())
+		if _clip_ready and clip_button.is_visible_in_tree():
+			add.call("clip", "", "", clip_button.get_global_rect())
 	JavaScriptBridge.eval("window.bbShare && (window.bbShare.targets = %s)" % JSON.stringify(targets), true)
 
 
@@ -1089,7 +1322,9 @@ func _on_shell_share(kind: String) -> void:
 
 func _poll_share_status() -> void:
 	var status := str(JavaScriptBridge.eval("window.bbShare ? window.bbShare.status : ''", true))
-	var messages := {"shared": "Shared!", "copied": "Link copied. Paste it to a friend!", "shown": "", "cancelled": ""}
+	var messages := {"shared": "Shared!", "copied": "Link copied. Paste it to a friend!", "shown": "", "cancelled": "",
+		"saved": "Clip saved! Post it and ask: who wins?", "downloaded": "Clip downloaded. Post it and ask: who wins?",
+		"failed": "Couldn't save the clip. Try Save clip again."}
 	if status in messages:
 		_share_pending = false
 		JavaScriptBridge.eval("window.bbShare.status = ''", true)
@@ -1136,6 +1371,7 @@ func _read_url_params() -> Dictionary:
 		var i := SPEEDS.find(float(params.speed))
 		speed_index = maxi(0, i)
 	auto_start = params.get("auto", "") == "1"
+	auto_clip = params.get("clip", "") == "1"
 	# ?today=2026-10-17 pins the live-ops clock to that day's noon (UTC).
 	if LiveOps.date_unix(params.get("today", "")) >= 0:
 		LiveOps.now_override = LiveOps.date_unix(params.today) + 12 * 3600
