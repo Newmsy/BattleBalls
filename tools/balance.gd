@@ -2,6 +2,7 @@
 ## win-rate matrix, fight-length stats and balance flags as Markdown. The
 ## targets it checks are the ones in BALANCE.md.
 ## Usage: godot --headless --script res://tools/balance.gd -- [--fights=200] [--power-step] [--gear] [--strict] [--arena=square]
+##        [--modifier=<id> | --modifiers]
 ##   --fights=N    seeds per pairing; each seed is fought from both corners (2N fights)
 ##   --power-step  also fights every ball one power step up against every ball,
 ##                 checking that power beats counters (slow: n^2 pairings)
@@ -10,12 +11,15 @@
 ##   --strict      exit 1 when a check fails beyond sampling noise
 ##   --arena=ID    arena from sim/arenas.gd, or "all" for every playable arena;
 ##                 non-square arenas also get a tilt check against the square
+##   --modifier=ID run every check under one Chaos Weekend modifier (sim/modifiers.gd)
+##   --modifiers   also run the equal-power checks under every modifier
 ##   --workers=N   fight in N separate processes (default: one per CPU core).
 ##                 Every fight is seeded, so the report is the same for any N.
 extends SceneTree
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
 const Gear := preload("res://sim/gear.gd")
 const Arenas := preload("res://sim/arenas.gd")
 
@@ -39,14 +43,16 @@ var fights := 200
 var durations: Array[float] = []
 var timeouts := 0
 var failures := 0
+var modifier := Modifiers.NONE
 var arena_id := "square"
-## Finished pairings, "arena|a|power|b|gear" -> {wins, durations, timeouts}.
+## Finished pairings, "arena|a|power|b|gear|modifier" -> {wins, durations, timeouts}.
 var results := {}
 
 
 func _init() -> void:
 	var strict := false
 	var power_step := false
+	var all_modifiers := false
 	var gear := false
 	var arena_arg := "square"
 	var workers := OS.get_processor_count()
@@ -62,6 +68,14 @@ func _init() -> void:
 			strict = true
 		elif arg == "--power-step":
 			power_step = true
+		elif arg.begins_with("--modifier="):
+			modifier = arg.split("=")[1]
+			if not Modifiers.has(modifier):
+				printerr("Unknown modifier: %s (known: %s)" % [modifier, ", ".join(Modifiers.DEFS.keys())])
+				quit(2)
+				return
+		elif arg == "--modifiers":
+			all_modifiers = true
 		elif arg == "--gear":
 			gear = true
 		elif arg.begins_with("--arena="):
@@ -78,16 +92,21 @@ func _init() -> void:
 			return
 		for i in ids.size():
 			for j in range(i, ids.size()):
-				jobs.append([id, ids[i], 1.0, ids[j], null])
+				jobs.append([id, ids[i], 1.0, ids[j], null, modifier])
 		if power_step and not (id == "square" and arena_arg != "square" and arena_arg != "all"):
 			for a in BallDefs.PLAYABLE:
 				for b in BallDefs.PLAYABLE:
-					jobs.append([id, a, POWER_STEP, b, null])
+					jobs.append([id, a, POWER_STEP, b, null, modifier])
 	if gear:
 		for g in _gear_kits():
 			for a in BallDefs.PLAYABLE:
 				if _gear_applies(a, g[1]):
-					jobs.append(["square", a, 1.0, a, g[1]])
+					jobs.append(["square", a, 1.0, a, g[1], modifier])
+	if all_modifiers:
+		for id in Modifiers.DEFS:
+			for i in ids.size():
+				for j in range(i, ids.size()):
+					jobs.append(["square", ids[i], 1.0, ids[j], null, id])
 	if not _run_jobs(jobs, workers):
 		quit(2)
 		return
@@ -111,8 +130,19 @@ func _init() -> void:
 				lines.append_array(_power_step(ids))
 		if id == "square":
 			square_rates = rates
+	var base_modifier := modifier
+	if all_modifiers:
+		# Every twist on the square: arenas and twists don't stack in the game yet.
+		arena_id = "square"
+		for id in Modifiers.DEFS:
+			modifier = id
+			durations.clear()
+			timeouts = 0
+			lines.append("")
+			lines.append_array(_equal_power(ids, {}))
 	if gear:
 		arena_id = "square"
+		modifier = base_modifier
 		lines.append("")
 		lines.append_array(_gear_lines())
 	print("\n".join(lines))
@@ -130,7 +160,7 @@ func _equal_power(ids: Array, rate: Dictionary) -> Array[String]:
 			rate[a + ":" + b] = r
 			rate[b + ":" + a] = 1.0 - r
 	var lines: Array[String] = []
-	lines.append("### Balance sim, equal power, %s arena (%d fights per pairing, both corners)" % [Arenas.get_def(arena_id).display_name, fights * 2])
+	lines.append("### Balance sim, equal power, %s arena%s (%d fights per pairing, both corners)" % [Arenas.get_def(arena_id).display_name, _modifier_suffix(), fights * 2])
 	lines.append("")
 	lines.append("| Row beats column | " + " | ".join(ids) + " |")
 	lines.append("|---".repeat(ids.size() + 1) + "|")
@@ -209,7 +239,7 @@ func _tilt(rate: Dictionary, square: Dictionary) -> Array[String]:
 func _power_step(ids: Array) -> Array[String]:
 	var playable: Array = BallDefs.PLAYABLE
 	var lines: Array[String] = []
-	lines.append("### Power step, %s arena (row at x%.2f power vs column at base, %d fights per pairing)" % [Arenas.get_def(arena_id).display_name, POWER_STEP, fights * 2])
+	lines.append("### Power step, %s arena%s (row at x%.2f power vs column at base, %d fights per pairing)" % [Arenas.get_def(arena_id).display_name, _modifier_suffix(), POWER_STEP, fights * 2])
 	lines.append("")
 	lines.append("| Stronger row beats column | " + " | ".join(playable) + " | worst |")
 	lines.append("|---".repeat(playable.size() + 2) + "|")
@@ -296,7 +326,7 @@ func _gear_lines() -> Array[String]:
 ## base power; draws count half. Each seed is played with `a` in both corners.
 ## Read from the results `_run_jobs` collected.
 func _win_rate(a: String, a_power: float, b: String, a_gear = null) -> float:
-	var r: Dictionary = results[_key([arena_id, a, a_power, b, a_gear])]
+	var r: Dictionary = results[_key([arena_id, a, a_power, b, a_gear, modifier])]
 	if a_power == 1.0 and a_gear == null:
 		for d in r.durations:
 			durations.append(float(d))
@@ -305,10 +335,10 @@ func _win_rate(a: String, a_power: float, b: String, a_gear = null) -> float:
 
 
 static func _key(job: Array) -> String:
-	return "%s|%s|%s|%s|%s" % [job[0], job[1], job[2], job[3], job[4]]
+	return "%s|%s|%s|%s|%s|%s" % job
 
 
-## Plays one pairing, [arena, a, a_power, b, a_gear]: every seed from both corners.
+## Plays one pairing, [arena, a, a_power, b, a_gear, modifier]: every seed from both corners.
 func _fight(job: Array) -> Dictionary:
 	var a: String = job[1]
 	var a_power: float = job[2]
@@ -319,7 +349,7 @@ func _fight(job: Array) -> Dictionary:
 			var powers := [a_power, 1.0] if a_index == 0 else [1.0, a_power]
 			var gear := [null, null]
 			gear[a_index] = job[4]
-			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers, "gear": gear, "arena": job[0]})
+			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers, "gear": gear, "arena": job[0], "modifier": job[5]})
 			var s := sim.run_to_end()
 			if s.winner == a_index:
 				out.wins += 1.0
@@ -383,6 +413,10 @@ func _work(path: String) -> void:
 	f.store_var(out)
 	f.close()
 	quit(0)
+
+
+func _modifier_suffix() -> String:
+	return "" if modifier == Modifiers.NONE else ", " + Modifiers.display_name(modifier)
 
 
 ## FAIL when the miss is clear of sampling noise, WARN otherwise.

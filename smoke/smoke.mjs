@@ -632,6 +632,18 @@ try {
     await page.screenshot({ path: path.join(shots, "33-bracket-game-result.png") });
     await page.close();
   }
+
+  // 14. Chaos Weekend modifier from the URL reaches the sim and the report code.
+  {
+    const { page, logs } = await openGame("?p1=vampire&p2=laser&seed=7&auto=1&speed=4&mod=big_head");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    const start = await waitForLog(logs, "FIGHT_START", 5000);
+    if (!start.endsWith(".big_head")) throw new Error(`modifier missing from report code: ${start}`);
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: path.join(shots, "26-big-head.png") });
+    console.log("modifier fight:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.close();
+  }
 } catch (e) {
   errors.push(String(e.stack ?? e));
 } finally {

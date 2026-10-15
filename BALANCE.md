@@ -48,11 +48,19 @@ In the PR that adds or changes it:
 - Set `"status": "live"` in its file (`sim/critters/<id>.gd`) so the game, CI and the audit include it.
 - Golden replays and unit tests for the ability, as for any sim change.
 
+## Chaos Weekend modifiers
+
+Weekend rule twists (`sim/modifiers.gd`) apply to both balls, but they still
+shift matchups, so the same 65% limit and 20-60s median hold under every
+modifier. Aim for 60% or less so new critters have headroom. A new critter
+is checked under every modifier as well as base rules.
+
 ## What checks it
 
 | Check | When | Command |
 |---|---|---|
 | Equal-power matrix and arena tilt on every playable arena, `FAIL` blocks merge | Every ready (non-draft) PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict --arena=all` |
+| Equal-power matrix on the square under every Chaos Weekend modifier, `FAIL` blocks merge | Every ready (non-draft) PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --modifiers --strict` |
 | Full audit: equal power and power step at higher sample size | Weekly scheduled balance audit on `main`, plus any PR touching ball stats | `balance.gd -- --fights=500 --power-step` |
 | Gear lines: one Legendary piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
 
