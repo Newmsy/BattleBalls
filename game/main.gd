@@ -2,6 +2,7 @@
 ## URL params on the web build skip straight to a fight, e.g.
 ## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink&mod=big_head
 ## Share links (see fight_link.gd) open a replay (?r=) or a challenge (?c=).
+## ?pve=1-3 plays campaign stage 1-3 on a fresh, unsaved profile (with auto=1, unaimed).
 ## A first visit with no params plays the onboarding (game/onboarding.gd);
 ## ?tutorial=1 forces it, ?tutorial=0 skips it.
 extends Node2D
@@ -22,6 +23,10 @@ const LiveOps := preload("res://game/liveops.gd")
 const Onboarding := preload("res://game/onboarding.gd")
 const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
+const Profile := preload("res://meta/profile.gd")
+const Campaign := preload("res://meta/campaign.gd")
+const Zones := preload("res://meta/zones.gd")
+const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const Account := preload("res://game/online/account.gd")
@@ -30,14 +35,19 @@ const ResultText := preload("res://game/result_text.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const ClipExport := preload("res://game/clip/clip_export.gd")
 const ClipCard := preload("res://game/clip/clip_card.gd")
+const TouchInput := preload("res://game/ui/touch_input.gd")
+const Kit := preload("res://game/ui/ui_kit.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
+const Store := preload("res://game/glow/store.gd")
 
 ## CLIP plays the finished fight again in the vertical clip layout.
 enum State { MENU, AIM, FIGHT, RESULT, CLIP }
 ## NORMAL: pick your ball, the opponent is random. REPLAY: watching a shared fight. CHALLENGE: beating
 ## a friend's ball and shot. RIVAL: an unranked rematch against a friend's
 ## saved team (their Ghost Arena lineup, aimed the way they usually aim).
-## TUTORIAL: onboarding drives the arena.
-enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL, TUTORIAL }
+## TUTORIAL: onboarding drives the arena. CAMPAIGN: a campaign stage (energy
+## already spent).
+enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL, TUTORIAL, CAMPAIGN }
 
 ## Onboarding fights report here instead of showing the result panel.
 signal tutorial_fight_ended(winner: int)
@@ -48,12 +58,13 @@ const MUTED := Color("a29fc9")
 
 const VERSION := "0.2.0"
 const ARENA_PIXELS := 680.0
-const INFO_HEIGHT := 100.0
-const CONTROLS_HEIGHT := 490.0 ## Tallest control panel (the menu).
+const INFO_HEIGHT := 116.0 ## Two lines of the info text, three with Larger text.
+const CONTROLS_HEIGHT := 500.0 ## Tallest control panel (the menu).
 const SPEEDS := [1.0, 2.0, 4.0, 0.5]
 const OPPONENT_RANDOM := "random"
+const MODE_SCENES := {"trickshot": "res://game/trick_shot.tscn", "bouncerun": "res://game/bounce_run.tscn"}
 const PICK_COLUMNS := 3
-const PICK_TILE_HEIGHT := 112.0
+const PICK_TILE_HEIGHT := 108.0
 const PICK_ROWS_SHOWN := 2 ## More rows than this scroll.
 
 var state := State.MENU
@@ -116,6 +127,7 @@ var info_label: Label
 var stamp_label: Label
 var menu_box: VBoxContainer
 var player_buttons := {}
+var player_loan_tags := {} ## id -> the LOAN tag on its pick tile.
 var pick_scroll: ScrollContainer
 var fight_button: Button
 var launch_button: Button
@@ -138,6 +150,15 @@ var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
 var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
+var campaign_row: HBoxContainer
+## The player's collection, energy and campaign progress, kept in save.data.profile.
+var profile
+## The campaign stage being fought: {config, zone, stage, fighter, result?}.
+var pve := {}
+var pve_param := ""
+## ?demo=1 (smoke tests, previews): a filled-in sample profile that is never saved.
+var demo_profile := false
+var profile_unsaved := false
 ## The board fight being watched (Fight of the Day, a Bracket of Legends game):
 ## its title and the screen to go back to. Empty otherwise.
 var _board := {}
@@ -168,13 +189,14 @@ func _ready() -> void:
 		get_tree().change_scene_to_file.call_deferred("res://game/stats/stats.tscn")
 		return
 	Analytics.start(get_tree(), backend, VERSION, url_params)
-	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
-	var redirect: String = {"trickshot": "res://game/trick_shot.tscn"}.get(url_params.get("mode", ""), "")
+	# ?mode=trickshot / ?mode=bouncerun open that daily mode, once: its Back button comes here.
+	var redirect: String = MODE_SCENES.get(url_params.get("mode", ""), "")
 	if redirect != "" and not _mode_redirected:
 		_mode_redirected = true
 		set_process(false)
 		get_tree().change_scene_to_file.call_deferred(redirect)
 		return
+	_load_profile()
 	arena_clip = Control.new()
 	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(arena_clip)
@@ -192,7 +214,11 @@ func _ready() -> void:
 	ClipExport.install()
 	print("BOOT_OK build=", _build_stamp(), " reduced_motion=", A11y.reduced_motion)
 	_build_shell()
-	if _wants_tutorial():
+	TouchInput.ensure(self)
+	TouchInput.set_back(self, _swipe_back)
+	if pve_param != "":
+		_start_url_stage()
+	elif _wants_tutorial():
 		_start_tutorial()
 	elif auto_start:
 		_start_fight()
@@ -205,6 +231,8 @@ func _ready() -> void:
 				shell.go("friends")
 			elif SpireScreen.should_open(url_params):
 				shell.go("spire")
+			elif url_params.get("screen", "") in ["shop", "pass"]:
+				shell.go(url_params.screen) # ?screen=shop or ?screen=pass
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")
@@ -263,11 +291,24 @@ func _set_aim_preview() -> void:
 	sim = MatchSim.new(_config())
 	arena.sim = sim
 	arena.aim_dir = Vector2.from_angle(deg_to_rad(aim / 10.0))
+	_apply_cosmetics()
+
+
+## Your equipped cosmetics on your ball. Render-only: they never reach the
+## sim config, so every fight still replays from angles + seed. Shared
+## replays show plain balls (P1/P2 aren't you).
+func _apply_cosmetics() -> void:
+	var mine: Dictionary = shell.glow.loadout() if shell and mode != Mode.REPLAY else {}
+	arena.loadouts = [mine, {}]
 
 
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
+	if mode == Mode.CAMPAIGN:
+		var cfg: Dictionary = pve.config.duplicate()
+		cfg.angles = [aim, null]
+		return cfg
 	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena(), "modifier": modifier}
 
 
@@ -278,6 +319,7 @@ func _show_menu() -> void:
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
 	arena.reset_camera()
+	_apply_cosmetics()
 	sfx.on_menu()
 	_refresh_menu()
 	_show_only(menu_box)
@@ -287,12 +329,12 @@ func _refresh_menu() -> void:
 	for id in player_buttons:
 		player_buttons[id].button_pressed = id == player_type
 	new_seed_button.disabled = mode == Mode.CHALLENGE
-	seed_label.text = "Seed %d, %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]
+	seed_label.text = "Seed %d · %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]
 	rules_button.text = Modifiers.display_name(modifier)
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
-	for id in player_buttons:
-		player_buttons[id].text = BallDefs.get_def(id).display_name + (" · loan" if _is_loan(id) else "")
+	for id in player_loan_tags:
+		player_loan_tags[id].visible = _is_loan(id)
 	if _is_loan(player_type):
 		info_label.text = "%s is on loan today. Practice only: loaner fights don't count for Ghost Arena or your record." % def.display_name
 	if mode == Mode.RIVAL:
@@ -324,7 +366,8 @@ func _report_menu() -> void:
 
 
 func _begin_aim() -> void:
-	opponent_type = _pick_opponent()
+	if mode != Mode.CAMPAIGN:
+		opponent_type = _pick_opponent()
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
@@ -376,6 +419,7 @@ func _start_fight() -> void:
 	_count_fight = false
 	sim = MatchSim.new(_config())
 	_prepare_fight(sim.config)
+	_apply_cosmetics()
 	state = State.FIGHT
 	info_label.text = "%s vs %s" % [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
 	if modifier != Modifiers.NONE:
@@ -474,6 +518,8 @@ func _show_result() -> void:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
 	if mode == Mode.RIVAL and _count_fight:
 		_record_rival()
+	if mode == Mode.CAMPAIGN:
+		_finish_stage()
 	# A replay counts once, not again for every Replay tap.
 	if _count_fight or (mode == Mode.REPLAY and _report_code() != _last_logged_fight):
 		_last_logged_fight = _report_code()
@@ -498,6 +544,93 @@ func _report_code() -> String:
 	return code + ("." + modifier if modifier != Modifiers.NONE else "")
 
 
+# --- Campaign -------------------------------------------------------------------
+
+func _load_profile() -> void:
+	var now := int(Time.get_unix_time_from_system())
+	var d = save.data.get("profile")
+	if profile != null and profile.changed.is_connected(_save_profile):
+		profile.changed.disconnect(_save_profile)
+	if demo_profile:
+		profile = preload("res://game/ui/ui_profile.gd").sample()
+		profile_unsaved = true
+	else:
+		profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
+	profile.changed.connect(_save_profile)
+
+
+func _save_profile() -> void:
+	if profile_unsaved:
+		return
+	save.data.profile = profile.to_dict()
+	save.commit()
+
+
+## A stage from the campaign screen: aim, then fight it in the arena.
+func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter: String) -> void:
+	pve = {"config": config, "zone": zone_index, "stage": stage_index, "fighter": fighter}
+	mode = Mode.CAMPAIGN
+	player_type = config.p1
+	opponent_type = config.p2
+	seed_value = config.seed
+	foe_aim = null
+	shell_layer.visible = false
+	sfx.toggle_lift = 0.0
+	_begin_aim()
+	var st := Zones.stage(zone_index, stage_index)
+	info_label.text = "%s %s. Drag on the arena to aim, then let go to launch." % [
+		Zones.stage_key(zone_index, stage_index), st.get("name", BallDefs.get_def(st.enemy).display_name)]
+
+
+## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).
+func _start_url_stage() -> void:
+	var parts := pve_param.split("-")
+	var z := clampi(int(parts[0]) - 1, 0, Zones.ZONES.size() - 1)
+	var i := clampi(int(parts[1]) - 1, 0, Zones.zone(z).stages.size() - 1)
+	var now := int(Time.get_unix_time_from_system())
+	profile = Profile.new_game(now)
+	profile_unsaved = true
+	shell.set_profile(profile)
+	for k in i:
+		profile.stars[Zones.stage_key(z, k)] = 1
+	var cfg := Campaign.start(profile, z, i, Profile.STARTER, now)
+	_start_stage(cfg, z, i, Profile.STARTER)
+	if auto_start:
+		_start_fight()
+
+
+func _finish_stage() -> void:
+	var fight := sim.summary()
+	fight.max_hp = sim.balls[0].max_hp
+	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight)
+	pve.result = CampaignScreen.result_text(r)
+	report_label.text = pve.result
+	print("STAGE_END stage=%s won=%s stars=%d drops=%d" % [Zones.stage_key(pve.zone, pve.stage), r.won, r.stars, r.drops.size()])
+
+
+## Backing out of aiming. A campaign stage has already spent its energy, so
+## leaving before launch refunds it.
+func _aim_back() -> void:
+	if mode != Mode.CAMPAIGN:
+		_show_menu()
+		return
+	profile.refund_energy(Zones.cost(Zones.stage(pve.zone, pve.stage)))
+	_back_to_campaign()
+
+
+func _back_to_campaign() -> void:
+	var params := {"zone": pve.get("zone", 0)}
+	if pve.has("result"):
+		params.notice = "%s: %s" % [Zones.stage_key(pve.zone, pve.stage), pve.result]
+	mode = Mode.NORMAL
+	_board_pick = -1
+	pve = {}
+	_show_menu()
+	_show_home()
+	shell.show_tab("play")
+	shell.go("campaign", params)
+
+
 # --- Save and online ----------------------------------------------------------
 
 func _apply_picks() -> void:
@@ -516,8 +649,12 @@ func _record_fight() -> void:
 	# A loaner is practice: no stats, no aim history, never your ghost.
 	if _is_loan(player_type):
 		return
-	save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
+	if mode != Mode.CAMPAIGN:
+		save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
+	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt)
+	if xp > 0:
+		info_label.text += " +%d pass XP." % xp
 	_sync_online()
 
 
@@ -567,6 +704,10 @@ func _on_save_changed() -> void:
 		return
 	if not url_picks:
 		_apply_picks()
+	# A newer cloud copy or another account: its profile replaces this one.
+	if not profile_unsaved:
+		_load_profile()
+		shell.set_profile(profile)
 	if state == State.MENU:
 		_refresh_menu()
 
@@ -632,27 +773,23 @@ func _build_ui() -> void:
 	stamp_label.modulate = Color(1, 1, 1, 0.45)
 	stamp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 
+	# Quick fight: pick a critter, then the seed/arena line and its buttons,
+	# then one big FIGHT!. Every row fits the panel width at any text size.
 	menu_box = VBoxContainer.new()
 	menu_box.add_theme_constant_override("separation", 14)
-	menu_box.add_child(_label("Your critter (opponent is random)", 26))
+	menu_box.add_child(Kit.caption("Your critter · opponent is random"))
 	menu_box.add_child(_pick_grid(BallDefs.PLAYABLE, _pick_player))
-	var seed_row := HBoxContainer.new()
-	seed_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	seed_row.add_theme_constant_override("separation", 20)
-	seed_label = _label("", 26)
-	seed_row.add_child(seed_label)
-	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu())
-	seed_row.add_child(new_seed_button)
-	seed_row.add_child(_button("Home", _show_home))
+	seed_label = Kit.label("", 22, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 22, "ghost", 68)
 	# Debug toggle for Chaos Weekend modifiers until the event screen exists.
-	rules_button = _button("", _cycle_rules, 22)
-	seed_row.add_child(rules_button)
-	menu_box.add_child(seed_row)
-	fight_button = _button("FIGHT!", _begin_aim, 40)
+	rules_button = _button("", _cycle_rules, 22, "ghost", 68)
+	menu_box.add_child(seed_label)
+	menu_box.add_child(_row([new_seed_button, rules_button, _button("Home", _show_home, 22, "ghost", 68)]))
+	fight_button = _button("FIGHT!", _begin_aim, 40, "go", 96)
 	menu_box.add_child(fight_button)
 
-	launch_button = _button("Launch", _launch)
-	aim_back_button = _button("Back", _show_menu)
+	launch_button = _button("Launch", _launch, 34, "go", 96)
+	aim_back_button = _button("Back", _aim_back, 26, "ghost", 96)
 	aim_box = _row([launch_button, aim_back_button])
 
 	speed_button = _button("Speed 1x", _cycle_speed)
@@ -665,20 +802,22 @@ func _build_ui() -> void:
 	report_label = _label("", 20)
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result_box.add_child(report_label)
-	again_button = _button("Rematch", _again)
+	again_button = _button("Rematch", _again, 30, "primary")
 	result_box.add_child(_row([_button("Replay", func(): _start_fight()), again_button]))
 	share_button = _button("Share fight", _share.bind("r"))
 	challenge_button = _button("Challenge", _on_challenge_button)
 	result_box.add_child(_row([share_button, challenge_button]))
-	clip_button = _button("Save clip", _on_clip_button, 26)
-	copy_button = _button("Copy report", func(): DisplayServer.clipboard_set(_report_code()); report_label.text = "Copied: " + _report_code(), 26)
-	change_button = _button("Change critter", _play_normal, 26)
+	clip_button = _button("Save clip", _on_clip_button, 22, "ghost", 72)
+	copy_button = _button("Copy report", func(): DisplayServer.clipboard_set(_report_code()); report_label.text = "Copied: " + _report_code(), 22, "ghost", 72)
+	change_button = _button("Change critter", _play_normal, 22, "ghost", 72)
 	report_row = _row([clip_button, copy_button, change_button])
 	result_box.add_child(report_row)
-	friend_button = _button("Add as a friend", _add_link_friend, 26)
+	friend_button = _button("Add as a friend", _add_link_friend, 22, "ghost", 72)
 	friend_row = _row([friend_button])
 	friend_row.visible = false
 	result_box.add_child(friend_row)
+	campaign_row = _row([_button("Back to the map", _back_to_campaign)])
+	result_box.add_child(campaign_row)
 
 
 	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
@@ -691,7 +830,9 @@ func _build_shell() -> void:
 	shell_layer.visible = false
 	add_child(shell_layer)
 	shell = Shell.new()
+	shell.glow = GlowState.new(save, shell.profile, Store.new())
 	shell.friends = friends
+	shell.profile = profile
 	shell.set_account(account)
 	shell.link_base = _link_base()
 	shell.play_requested.connect(func():
@@ -706,6 +847,7 @@ func _build_shell() -> void:
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
+	shell.stage_requested.connect(_start_stage)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
@@ -733,12 +875,30 @@ func _show_home() -> void:
 	_sync_share_targets()
 
 
+## What a swipe in from the left edge does: the shell's Back on the home
+## screens, Home from the Quick fight menu, the menu from a result. Not while
+## aiming or fighting (the arena owns those drags).
+func _swipe_back() -> Callable:
+	if shell_layer != null and shell_layer.visible:
+		return shell.back_action()
+	if mode == Mode.TUTORIAL:
+		return Callable()
+	if mode == Mode.CAMPAIGN:
+		return _back_to_campaign if state == State.RESULT else Callable()
+	match state:
+		State.MENU:
+			return _show_home
+		State.RESULT:
+			return _back_to_board if not _board.is_empty() else _show_menu
+	return Callable()
+
+
 ## Portrait stacks arena over controls; wide screens put controls beside the
 ## arena. Either way the arena shrinks before the controls are pushed off screen.
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
 	var top := 190.0
-	var bottom_margin := 50.0
+	var bottom_margin := 90.0 ## Clears the build stamp and the sound toggle.
 	var panel_width := 680.0
 	var landscape := size.x >= size.y
 	var side: float
@@ -764,12 +924,13 @@ func _layout() -> void:
 	arena.set_camera(arena.cam_zoom, arena.cam_focus)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	_place(hud_label, Vector2(left, 110), Vector2(side, 50))
-	_place(info_label, panel_pos, Vector2(panel_width, 90))
+	_place(info_label, panel_pos, Vector2(panel_width, INFO_HEIGHT - 6.0))
 	controls_rect = Rect2(panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
 	var controls_top := panel_pos.y + INFO_HEIGHT
 	for box in [menu_box, aim_box, fight_box, result_box]:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
-	_place(stamp_label, Vector2(12, size.y - 34), Vector2(size.x, 30))
+	# The build stamp stops short of the sound toggle in the other corner.
+	_place(stamp_label, Vector2(16, size.y - 40), Vector2(maxf(100.0, size.x - Sfx.TOGGLE_SIZE.x - 48.0), 30))
 	arena.queue_redraw()
 	_sync_share_targets()
 
@@ -883,7 +1044,7 @@ func _on_challenge_button() -> void:
 
 
 func _label_result_buttons() -> void:
-	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch"}[mode]
+	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch", Mode.CAMPAIGN: ""}[mode]
 	challenge_button.text = {Mode.REPLAY: "Play my own", Mode.RIVAL: "Friends"}.get(mode, "Challenge friend")
 	if not _board.is_empty():
 		challenge_button.text = "Bracket" if _board.return_to == "bracket" else "This Week"
@@ -891,7 +1052,7 @@ func _label_result_buttons() -> void:
 	# A link from someone who isn't a friend yet offers to add them, in place
 	# of the report row (there's only room for one).
 	friend_row.visible = _can_add_link_friend()
-	report_row.visible = not friend_row.visible
+	report_row.visible = mode != Mode.CAMPAIGN and not friend_row.visible
 	copy_button.visible = mode != Mode.REPLAY
 	change_button.visible = mode != Mode.REPLAY
 	# Save clip rides in whichever of the two rows is showing.
@@ -899,6 +1060,9 @@ func _label_result_buttons() -> void:
 	if clip_button.get_parent() != row:
 		clip_button.reparent(row)
 		row.move_child(clip_button, 0)
+	for r in [again_button.get_parent(), share_button.get_parent()]:
+		r.visible = mode != Mode.CAMPAIGN
+	campaign_row.visible = mode == Mode.CAMPAIGN
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"
@@ -1008,15 +1172,15 @@ func _label(text: String, font_size: int) -> Label:
 	return l
 
 
-func _button(text: String, on_press: Callable, font_size := 30) -> Button:
-	var b := Button.new()
+## A Neon Critters kit button (game/ui/ui_kit.gd) in the arena's own words:
+## kept in the case it's written, sharing its row equally with its neighbours
+## and trimming its text rather than pushing the row off screen.
+func _button(text: String, on_press: Callable, font_size := 26, kind := "ghost", height := 84) -> Button:
+	var b := Kit.button(text, on_press, kind, font_size, height)
 	b.text = text
-	b.custom_minimum_size = Vector2(0, 84)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	b.add_theme_font_size_override("font_size", A11y.font(font_size))
-	b.set_meta("base_font", font_size)
-	b.pressed.connect(on_press)
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	return b
 
 
@@ -1038,33 +1202,45 @@ func _pick_grid(ids: Array, on_pick: Callable) -> ScrollContainer:
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	for id in ids:
-		var b := _button("", on_pick.bind(id), 20)
+		var b := Button.new()
+		b.pressed.connect(on_pick.bind(id))
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.toggle_mode = true
 		b.button_group = group
 		b.custom_minimum_size = Vector2(0, PICK_TILE_HEIGHT)
 		b.size_flags_vertical = Control.SIZE_FILL
-		# PASS lets a drag that starts on a tile scroll the grid.
-		b.mouse_filter = Control.MOUSE_FILTER_PASS
-		var icon := CritterIcon.make(id, 1, 64.0)
+		# Icon on top, the name once underneath (trimmed with … if it's long).
+		var icon := CritterIcon.make(id, 1, 76.0)
 		icon.anchor_left = 0.5
 		icon.anchor_right = 0.5
-		icon.offset_left = -32.0
-		icon.offset_right = 32.0
-		icon.offset_top = 6.0
-		icon.offset_bottom = 70.0
+		icon.offset_left = -38.0
+		icon.offset_right = 38.0
+		icon.offset_top = -2.0
+		icon.offset_bottom = 74.0
+		icon.radius_frac = .36
 		b.add_child(icon)
 		var name_label := _label(BallDefs.get_def(id).display_name, 20)
 		name_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-		name_label.offset_top = -38.0
-		name_label.offset_bottom = -8.0
-		name_label.clip_text = true
+		name_label.offset_left = 8.0
+		name_label.offset_right = -8.0
+		name_label.offset_top = -36.0
+		name_label.offset_bottom = -6.0
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.add_child(name_label)
+		var loan := Kit.chip("Loan", Kit.WARN, 16)
+		loan.anchor_left = 1.0
+		loan.anchor_right = 1.0
+		loan.offset_right = -8.0
+		loan.offset_top = 8.0
+		loan.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		loan.visible = false
+		b.add_child(loan)
+		player_loan_tags[id] = loan
 		b.toggled.connect(func(on): name_label.add_theme_color_override("font_color", Color("0b0a1f") if on else Color("f0eeff")))
 		player_buttons[id] = b
 		grid.add_child(b)
 	pick_scroll = ScrollContainer.new()
 	pick_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	pick_scroll.scroll_deadzone = 12
 	pick_scroll.add_child(grid)
 	var rows := mini(PICK_ROWS_SHOWN, ceili(float(ids.size()) / PICK_COLUMNS))
 	pick_scroll.custom_minimum_size = Vector2(0, rows * PICK_TILE_HEIGHT + (rows - 1) * 12)
@@ -1261,28 +1437,44 @@ func tutorial_home(profile) -> Shell:
 	arena.sim = null
 	arena.ghost_dir = Vector2.ZERO
 	_show_only(null)
-	shell.set_profile(profile)
+	_adopt_profile(profile)
 	_show_home()
 	return shell
 
 
-## Onboarding finished or skipped: normal play from the Play tab.
-func tutorial_end(profile) -> void:
+## Onboarding finished or skipped: normal play from the Play tab, or the
+## Glow Garden map when `to_campaign` (the boss teaser's "Let's go!").
+func tutorial_end(new_profile, to_campaign := false) -> void:
 	mode = Mode.NORMAL
 	tutorial_tags = []
 	arena.ghost_dir = Vector2.ZERO
 	arena.team_tags = ArenaView.TEAM_TAGS
 	_apply_picks()
-	if profile != null:
+	if new_profile != null:
+		_adopt_profile(new_profile)
 		# Quick fight starts on the new starter.
 		player_type = profile.lineup
 		save.data.picks.player = player_type
 		save.commit()
-		if shell.profile != profile:
-			shell.set_profile(profile)
 	_show_menu()
 	shell.show_tab("play")
 	_show_home()
+	if to_campaign:
+		shell.go("campaign", {"zone": 0})
+
+
+## The onboarding's new player becomes the saved profile, unless this save
+## already has progress of its own (onboarding replayed with ?tutorial=1).
+func _adopt_profile(p) -> void:
+	if p == profile or profile_unsaved or profile.runs > 0 or profile.account_level > 1:
+		if shell.profile != profile:
+			shell.set_profile(profile)
+		return
+	profile.changed.disconnect(_save_profile)
+	profile = p
+	profile.changed.connect(_save_profile)
+	shell.set_profile(profile)
+	_save_profile()
 
 
 # --- Share links -------------------------------------------------------------
@@ -1379,7 +1571,7 @@ func _sync_share_targets() -> void:
 	if shell_layer != null and shell_layer.visible:
 		for t in shell.share_targets():
 			add.call(t.kind, t.url, t.text, t.rect)
-	elif state == State.RESULT and result_box.visible and sim != null:
+	elif state == State.RESULT and result_box.visible and sim != null and mode != Mode.CAMPAIGN:
 		var buttons := {"r": share_button}
 		if mode not in [Mode.REPLAY, Mode.RIVAL]:
 			buttons["c"] = challenge_button
@@ -1479,6 +1671,9 @@ func _read_url_params() -> Dictionary:
 		friends.show_demo()
 	if Friends.is_code(params.get("f", "")):
 		link_friend = Friends.normalize_code(params.f)
+	if params.get("pve", "").count("-") == 1:
+		pve_param = params.pve
+	demo_profile = params.get("demo", "") == "1"
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():

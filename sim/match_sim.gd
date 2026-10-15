@@ -2,16 +2,20 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2],
-##          tiers: [t1, t2], arena: String, modifier: String }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2], hp: [h1, h2],
+##           tiers: [t1, t2], powers: [w1, w2], sizes: [s1, s2], arena: String, modifier: String }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
 ## `hp` (optional) sets each ball's starting HP (null = full), for relays
 ## where a winner stays in with what it has left.
+## `boons` (optional, [[ids], [ids]]) gives each ball Bounce Run boons from
+## sim/boons.gd.
 ## `fields: false` (optional) switches off every-tick abilities (fields like
 ## Flux's), so Daily Trick Shot balls fly straight.
 ## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
+## `powers` (optional) are progression multipliers (sim/power.gd); 1.0 is a T1
+## level 1 Common. `sizes` (optional) scale the radius (campaign bosses).
 ## Critters and their abilities come from sim/critters/ via sim/ball_defs.gd;
 ## this file only fires their triggers (sim/abilities.gd).
 ## `modifier` is an optional Chaos Weekend rule twist from sim/modifiers.gd,
@@ -28,9 +32,11 @@ extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Boons := preload("res://sim/boons.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const Abilities := preload("res://sim/abilities.gd")
+const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
@@ -91,8 +97,10 @@ class Ball:
 	var healed := 0.0
 	var team: int ## 0 or 1; the two starting balls are teams 0 and 1.
 	var slow := 0.0 ## 0-1 share of movement lost this tick (zones set it).
-	var shield := 0.0 ## Absorbs damage before HP.
+	var shield := 0.0 ## Absorbs damage before HP (abilities, Bounce Run boons).
 	var dots: Array[Dictionary] = [] ## Damage over time: {source, dps, until, next}.
+	var landed_hit := false
+	var banked := false ## Bounced off a wall since its last contact hit.
 	var boost_ticks := 0 ## Ticks of bumper speed boost left.
 	var fired := {} ## One-shot triggers already used (Abilities.tick_triggers).
 	var state := {} ## Per-ball ability state, e.g. a field's "pulling" (read by the renderer).
@@ -176,8 +184,8 @@ var events: Array[Dictionary] = []
 var abilities: Abilities
 
 var _contact_cooldown_until := {} ## "i:j" -> tick
-## Damage queued by effects and collisions, applied in _apply_hits. Damage
-## queued after that (revive blasts, timed pulses) lands next tick.
+## Damage queued by effects and collisions (add_hit), applied in _apply_hits.
+## Damage queued after that (revive blasts, timed pulses) lands next tick.
 var _hits: Array[Dictionary] = []
 
 
@@ -200,16 +208,20 @@ func _init(cfg: Dictionary) -> void:
 	var starts: Array = cfg.get("starts", START_CORNERS)
 	var start_hp: Array = cfg.get("hp", [null, null])
 	var tiers: Array = cfg.get("tiers", [1, 1])
+	var powers: Array = cfg.get("powers", [1.0, 1.0])
+	var sizes: Array = cfg.get("sizes", [1.0, 1.0])
 	var gear: Array = cfg.get("gear", [null, null])
 	for i in 2:
 		var kit := Gear.totals(gear[i])
-		var def := Modifiers.apply_to_def(Gear.apply_def(BallDefs.get_def(types[i], int(tiers[i])), kit), modifier)
+		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i])), float(powers[i])), kit), modifier)
+		if cfg.has("boons"):
+			def = Boons.apply_to_def(def, cfg.boons[i])
 		var b := Ball.new()
 		b.index = i
 		b.team = i
 		b.type_id = types[i]
 		b.def = def
-		b.radius = def.radius
+		b.radius = def.radius * float(sizes[i])
 		b.speed = def.speed
 		b.max_hp = def.hp
 		b.hp = def.hp if start_hp[i] == null else clampf(float(start_hp[i]), 0.01, def.hp)
@@ -292,6 +304,11 @@ func step() -> void:
 	for b in balls:
 		hp_before.append(b.hp)
 
+	if tick == int(round(overtime_start * TICK_RATE)):
+		for b in balls:
+			if b.def.get("overtime_shield", 0.0) > 0.0 and b.alive():
+				b.shield += b.def.overtime_shield
+				events.append({"type": "shield", "target": b.index, "amount": b.def.overtime_shield, "pos": b.pos})
 	if in_overtime():
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - overtime_start))
 
@@ -317,8 +334,11 @@ func step() -> void:
 	_resolve_ball_collisions(_hits)
 	_update_beams(_hits)
 	_apply_hits(_hits)
+	# "fall" (e.g. a revive) only while a foe still stands: when both drop on
+	# the same tick the fight is already over, and the double-knockout rule
+	# decides it.
 	for b in balls:
-		if not b.alive() and not b.fired.has("fall"):
+		if not b.alive() and not b.fired.has("fall") and not foes(b).is_empty():
 			b.fired["fall"] = true
 			abilities.fire(self, "fall", b)
 	for b in balls:
@@ -421,9 +441,25 @@ func _on_wall_bounce(b: Ball, point: Vector2) -> void:
 	if not slam.is_empty() and tick <= slam.until:
 		b.state.erase("slam")
 		deal(balls[slam.source], b, slam.damage, "slam", point)
+	b.banked = true
+	var bounce_heal: float = b.def.get("bounce_heal", 0.0)
+	if bounce_heal > 0.0:
+		var gained := minf(bounce_heal, b.max_hp - b.hp)
+		if gained > 0.0:
+			b.hp += gained
+			b.healed += gained
+			events.append({"type": "heal", "target": b.index, "amount": gained, "pos": b.pos, "boon": true})
 	abilities.fire(self, "wall", b, {"point": point})
+	for other in balls:
+		if other != b and other.alive():
+			abilities.fire(self, "foe_wall", other, {"other": b, "point": point})
 	b.has_bounce = true
 	b.last_bounce = point
+
+
+## Adds a hit to this tick's damage (e.g. a slam raised during a wall bounce).
+func add_hit(source: Ball, target: Ball, amount: float, kind: String, pos: Vector2) -> void:
+	_hits.append({"source": source.index, "target": target.index, "amount": amount, "kind": kind, "pos": pos})
 
 
 ## A beam from `a` to `b` owned by ball `owner`, using its beam_* params. Keeps
@@ -553,11 +589,14 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 	while k < hits.size():
 		var h: Dictionary = hits[k]
 		k += 1
-		var amount: float = h.amount * mult
-		if amount <= 0.0:
-			continue
+		var amount: float = h.amount
 		var target := balls[h.target]
 		var source := balls[h.source]
+		if h.kind == "contact":
+			amount = _boon_contact_damage(source, target, amount)
+		amount *= mult
+		if amount <= 0.0:
+			continue
 		var backstab: bool = h.get("backstab", false)
 		# Always two rolls per hit, so the stream never depends on the outcome.
 		var spread: float = 1.0 + DAMAGE_VARIANCE * (2.0 * rolls.next_float() - 1.0)
@@ -576,9 +615,10 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		if target.shield > 0.0:
 			var absorbed := minf(target.shield, amount)
 			target.shield -= absorbed
+			source.damage_dealt += absorbed
 			amount -= absorbed
+			events.append({"type": "shield_hit", "target": h.target, "amount": absorbed, "pos": h.pos})
 			if amount <= 0.0:
-				events.append({"type": "shielded", "target": h.target, "pos": h.pos})
 				continue
 		target.hp -= amount
 		source.damage_dealt += amount
@@ -597,6 +637,18 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			b.hp += gained
 			b.healed += gained
 			events.append({"type": "heal", "target": b.index, "amount": gained, "pos": b.pos})
+
+
+## Contact damage after the source's and target's boons. Without boons every
+## term is zero and `amount` comes back unchanged.
+func _boon_contact_damage(source: Ball, target: Ball, amount: float) -> float:
+	if not source.landed_hit:
+		source.landed_hit = true
+		amount += source.def.get("first_strike", 0.0)
+	if source.banked:
+		source.banked = false
+		amount *= 1.0 + source.def.get("bank_bonus", 0.0)
+	return amount * (1.0 - target.def.get("contact_armor", 0.0))
 
 
 func _check_end(hp_before: Array[float]) -> void:

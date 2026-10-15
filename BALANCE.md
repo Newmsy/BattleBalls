@@ -81,10 +81,13 @@ Wilson interval) and `WARN` when it might be noise; rerun a `WARN` with more
 fights before acting on it. The `plain` ball is a reference baseline and is
 excluded from the checks.
 
-Until tiers exist in the sim, the power-step check stands in for a tier by
-scaling HP and every damage stat by sqrt(1.25), so HP x damage is +25%. Replace
-`_boost` in `tools/balance.gd` with the real tier system when it lands, and
-add a rarity-step check (target ~60%, rule 5) once rarity is in the sim.
+Progression power lives in `sim/power.gd`: rarity, tier and level combine into
+one multiplier, passed to a fight as `powers`, which scales HP and every damage
+stat by its square root (so HP x damage scales by the multiplier). The
+power-step check fights at x1.25, one tier. Tier-specific ability upgrades
+(longer beams, T5 behaviour) are still to come and will add on top. Add a
+rarity-step check (target ~60%, rule 5) once there are same-role balls of
+different rarity to compare.
 
 ## Arenas
 
@@ -98,3 +101,13 @@ the square, plus two more (design/arenas.md):
 
 Audit reports are kept in the project's shared folder under
 `balance/audits/`, one file per run, so trends are visible over time.
+
+## Bounce Run boons
+
+Boons are run-only perks (`sim/boons.gd`), so permanent balance is untouched,
+but they still follow rule 2: one ball holding a boon against the same matchup
+without it should win **52-62%** (a boon worth picking, never a verdict);
+**over 65%** is a `FAIL` in CI (`tools/boon_balance.gd -- --fights=40 --strict`).
+The sim amplifies stat edges: +14% HP alone won 63%, so boon numbers stay
+small. A new boon or a change to one pastes `boon_balance.gd -- --fights=200`
+output into its PR.
