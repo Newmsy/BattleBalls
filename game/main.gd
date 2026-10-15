@@ -254,7 +254,7 @@ func _ready() -> void:
 				shell.go("spire")
 			elif url_params.get("screen", "") in Shell.TAB_IDS:
 				shell.show_tab(url_params.screen) # ?screen=fuse
-			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen != "detail" or url_params.has("id")):
+			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen not in ["detail", "dex_entry"] or url_params.has("id")):
 				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
 				var screen_params := {"id": url_params.id} if url_params.has("id") else {}
 				if demo_profile and url_params.screen in ["arena", "boosts"]:
@@ -1365,11 +1365,10 @@ func _rarity_style(b: Button, id: String) -> void:
 	var rarity := str(Roster.get_critter(id).get("rarity", "common"))
 	if rarity == "common":
 		return
-	var col: Color = Roster.RARITY_COLORS[rarity]
 	for st in ["normal", "hover"]:
 		var box := StyleBoxFlat.new()
-		box.bg_color = Color("1b1842").lerp(col, .22 if st == "normal" else .3)
-		box.border_color = col
+		box.bg_color = Roster.rarity_bg(rarity, Color("1b1842"), .22 if st == "normal" else .3)
+		box.border_color = Roster.rarity_border(rarity, Color("1b1842"))
 		box.set_border_width_all(3)
 		box.set_corner_radius_all(22)
 		b.add_theme_stylebox_override(st, box)

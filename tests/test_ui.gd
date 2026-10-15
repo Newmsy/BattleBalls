@@ -230,6 +230,42 @@ func test_lineup_tags_show_the_same_power_as_the_critter_screen() -> void:
 	tag.free()
 
 
+func test_my_critters_lists_each_owned_copy_strongest_first() -> void:
+	var CrittersScreen = load("res://game/ui/screens/critters_screen.gd")
+	var p = UiProfile.sample()
+	var cards: Array = CrittersScreen.cards(p)
+	var copies := 0
+	for c in Roster.CRITTERS:
+		copies += p.total_copies(c.id)
+	check_eq(cards.size(), copies, "one card per copy, none stacked")
+	for i in cards.size() - 1:
+		check(cards[i].power >= cards[i + 1].power, "sorted by power at %d" % i)
+	for k in cards:
+		check(p.owns(k.id), "only owned critters: " + k.id)
+	check_eq(cards.filter(func(k): return k.id == "speedster" and k.tier == 1).size(), p.copies("speedster")[0].count, "three T1 Zips are three cards")
+
+
+func test_the_critterpedia_shows_every_critter_and_each_page_builds() -> void:
+	var Families = load("res://sim/families.gd")
+	var shell = Shell.new()
+	shell.build()
+	shell.show_tab("critters")
+	check(shell._marks.has("critterpedia"), "My critters has a Critterpedia button")
+	shell.go("dex")
+	check_eq(shell.current, "dex", "Critterpedia opens")
+	for c in Roster.CRITTERS:
+		check(shell._marks.has("dex_" + c.id), "Critterpedia lists " + c.id)
+		check(Families.of(c.id) != "", "%s has a theme family" % c.id)
+	for c in Roster.CRITTERS:
+		shell.go("dex_entry", {"id": c.id})
+		check_eq(shell.current, "dex_entry", "page " + c.id)
+		check(shell._footer.is_ancestor_of(shell._marks.dex_mine), "My card is pinned on " + c.id)
+		shell.back()
+	shell.back()
+	check_eq(shell.current, "critters", "back to My critters")
+	shell.free()
+
+
 func test_a_sweep_shows_a_results_popup() -> void:
 	var shell = Shell.new()
 	shell.profile = preload("res://meta/profile.gd").new_game(1_800_000_000)
