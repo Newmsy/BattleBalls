@@ -28,6 +28,7 @@ All dates are `YYYY-MM-DD`, UTC. Weeks start Monday 00:00 UTC.
 | `spotlight` | `{week, critter, blurb}` | `week` is a Monday; `critter` is any roster id (`game/ui/roster.gd`). It takes half the rolls of its rarity in the Summon Portal. |
 | `chaos` | `{weekend, modifier}` | `weekend` is the Friday; `modifier` is an id from `sim/modifiers.gd` (design/events.md). |
 | `fights` | `{date, p1, p2, seed, angles?, title?}` | Optional showcase fights; `p1`/`p2` must be playable in the sim. Days without one get a close fight generated from the date. |
+| `derbies` | `{start, end?, title, blurb?, theme?, racers?, seed?}` | Bounce Derby events (holidays, watch parties): from `start` to `end` (default: one day) the Play tab's Derby card shows `title` and the race uses `theme` (`neon`, `spooky`, `frost`, `festive`). `racers` (2-8 roster ids) pins the line-up; `seed` pins the course for every day of the event. Days without an event run a daily race from the date alone. |
 | `loaners` | `{date, critter, blurb?}` | Try-a-Critter: the critter lent for the day (UTC) to everyone who doesn't own it (`game/loaner.gd`). Any roster id passes validation, but the bundled file may only name critters the sim can play; a build that can't play a downloaded pick uses the rotation instead. Days without one rotate through the playable critters, rarest first. |
 
 ## Planning a season

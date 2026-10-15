@@ -15,7 +15,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`, `derby_stats.gd` (Bounce Derby fairness). `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -86,6 +86,24 @@ Open it from the menu's Trick Shot button or with
 Changing ball radius or speed, or adding playable balls, reshapes the
 puzzles. That is fine; `tests/test_trick_shot.gd` only fails if days stop
 being solvable or fair.
+
+## Bounce Derby
+
+A no-combat marble race (`sim/derby.gd`, `game/derby.gd`): six critters drop
+down a course of pegs, bumpers, ramps and funnels, and you call the winner
+before the gate opens. Picking is free and nothing is staked; calling the
+daily race earns Derby Stars (1, or 6 when you call it right), earned only.
+Every racer is the same size and weight and has one race trick (Boost, Phase
+or Hop) that fires when it stalls; `tests/test_derby.gd` holds each trick to
+a fair share of wins, and `tools/derby_stats.gd` prints the full table.
+Tapping cheers your pick on; cheers are render-only and never touch the race.
+
+Races are deterministic like fights, so everyone gets the same race on the
+same day (good for Discord watch parties) and a race replays from its seed.
+Liveops `derbies` entries turn days into events with a title, a course theme
+and an optional pinned line-up (liveops/README.md). Open it from the Play
+tab's Derby card or `?mode=derby` (`&day=3` an earlier day, `&race=123` a
+practice race, `&pick=2&auto=1` call racer 2 and start, `&speed=4`).
 
 ## Ghost Arena (PvP)
 

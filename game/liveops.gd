@@ -16,6 +16,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Rng := preload("res://sim/rng.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const Derby := preload("res://sim/derby.gd")
 
 const BUNDLED := "res://liveops/liveops.json"
 const CACHE := "user://liveops.json"
@@ -39,6 +40,12 @@ const CHAOS_TEXT := {
 	"closing_walls": ["Closing Walls", "Overtime starts at 10 seconds: the arena shrinks early."],
 	"double_trouble": ["Double Trouble", "Abilities hit 1.5x harder: bigger heals, more beams at once."],
 }
+
+## Bounce Derby #1 is 2026-10-14 (the same launch day as Trick Shot).
+const DERBY_EPOCH := 1791936000
+## Course colour themes for derby events (render only, game/derby_view.gd).
+const DERBY_THEMES := ["neon", "spooky", "frost", "festive"]
+const DERBY_MAX_RACERS := 8
 
 ## Fight of the Day generator: keep the first seed whose fight is close.
 const FIGHT_TRIES := 12
@@ -115,7 +122,7 @@ static func validate(d: Dictionary) -> Array:
 	for key in ["version", "revision"]:
 		if not _num(d.get(key)):
 			errors.append("%s must be a number" % key)
-	for key in ["seasons", "spotlight", "chaos", "fights", "loaners"]:
+	for key in ["seasons", "spotlight", "chaos", "fights", "loaners", "derbies"]:
 		if not d.get(key, []) is Array:
 			errors.append("%s must be a list" % key)
 			return errors
@@ -141,6 +148,8 @@ static func validate(d: Dictionary) -> Array:
 			errors.append("loaner needs a date: %s" % [l])
 		elif Roster.CRITTERS.all(func(c): return c.id != l.get("critter")):
 			errors.append("loaner critter unknown: %s" % [l.get("critter")])
+	for e in d.get("derbies", []):
+		errors.append_array(_derby_errors(e))
 	for f in d.get("fights", []):
 		if not f is Dictionary or date_unix(f.get("date")) < 0:
 			errors.append("fight needs a date: %s" % [f])
@@ -151,6 +160,25 @@ static func validate(d: Dictionary) -> Array:
 		elif f.has("angles") and not (f.angles is Array and f.angles.size() == 2 and f.angles.all(_num)):
 			errors.append("fight angles must be two numbers: %s" % [f])
 	return errors
+
+
+static func _derby_errors(e) -> Array:
+	if not e is Dictionary or date_unix(e.get("start")) < 0 or not e.get("title") is String or e.title == "":
+		return ["derby needs a start date and a title: %s" % [e]]
+	if e.has("end") and date_unix(e.end) < date_unix(e.start):
+		return ["derby %s must end on or after its start" % e.title]
+	if e.has("theme") and not e.theme in DERBY_THEMES:
+		return ["derby %s theme unknown: %s" % [e.title, e.theme]]
+	if e.has("seed") and not _num(e.seed):
+		return ["derby %s seed must be a number" % e.title]
+	if e.has("racers"):
+		var ids = e.racers
+		if not ids is Array or ids.size() < 2 or ids.size() > DERBY_MAX_RACERS:
+			return ["derby %s needs 2-%d racers" % [e.title, DERBY_MAX_RACERS]]
+		for id in ids:
+			if Roster.CRITTERS.all(func(c): return c.id != id) or ids.count(id) > 1:
+				return ["derby %s racer unknown or repeated: %s" % [e.title, id]]
+	return []
 
 
 static func _num(v) -> bool:
@@ -247,6 +275,34 @@ static func loaner_pool() -> Array:
 	var rank := func(c): return Roster.RARITIES.find(c.rarity) * 1000 - Roster.CRITTERS.find(c)
 	pool.sort_custom(func(a, b): return rank.call(a) > rank.call(b))
 	return pool.map(func(c): return c.id)
+
+
+## Today's Bounce Derby: { number, date, title, blurb, theme, seed, racers,
+## event, ends }. Every device gets the same race on the same day (so a
+## Discord watch party sees one race), and a scheduled derby event renames
+## it, picks its theme and can pin its racers or seed.
+static func derby(t: int) -> Dictionary:
+	var day := day_start(t)
+	var date := Time.get_date_string_from_unix_time(day)
+	var number := floori(float(day - DERBY_EPOCH) / DAY) + 1
+	var out := {"number": number, "date": date, "title": "Bounce Derby", "blurb": "", "theme": "neon",
+		"seed": number * 7349 + 101, "racers": Derby.draw_racers(number * 7349 + 101), "event": false, "ends": day + DAY}
+	for e in data().get("derbies", []):
+		var start := date_unix(e.start)
+		var end := date_unix(e.get("end", e.start))
+		if day < start or day > end:
+			continue
+		out.title = e.title
+		out.blurb = e.get("blurb", "")
+		out.theme = e.get("theme", "neon")
+		out.event = true
+		out.ends = end + DAY
+		if e.has("seed"):
+			out.seed = int(e.seed)
+			out.racers = Derby.draw_racers(out.seed)
+		if e.has("racers"):
+			out.racers = e.racers.duplicate()
+	return out
 
 
 ## Today's Fight of the Day: { date, p1, p2, seed, angles, title, winner,
