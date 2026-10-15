@@ -149,6 +149,8 @@ static func result_text(r: Dictionary) -> String:
 	var parts: Array[String] = ["%d of 3 stars" % r.stars]
 	if not r.drops.is_empty():
 		parts.append("got " + ", ".join(r.drops.map(func(id): return Roster.get_critter(id).name)))
+	for g in r.get("gear", []):
+		parts.append("found a %d-star %s" % [g.tier, g.name])
 	parts.append("+%d XP" % r.xp)
 	if r.levels > 0:
 		parts.append("level up!")

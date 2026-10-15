@@ -63,7 +63,7 @@ is checked under every modifier as well as base rules.
 | Equal-power matrix and arena tilt on every playable arena, and on the square under every Chaos Weekend modifier. A square matchup at 80%+ blocks merge; square misses under 80% and arena and modifier ("edge") misses show as `WARN (audit FAIL)` and don't | Every ready (non-draft) PR that touches `sim/` or `tools/balance.gd` (CI `Balance` shards) | `balance.gd -- --fights=100 --variant-fights=25 --arena=all --modifiers --strict` |
 | Full audit: every pairing everywhere, power step and gear lines, strict on every cell | Weekly on `main` (`Balance audit` workflow, Mondays 06:17 UTC), read by the weekly balance review | see `.github/workflows/balance-audit.yml` |
 | Power step for a new or changed critter | The PR that adds or changes it (paste the output) | `balance.gd -- --fights=200 --power-step --only=<id>` |
-| Gear lines: one Legendary piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
+| Gear lines: one 5-star piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
 
 How the PR gate scales: with 12 or fewer live critters it fights every
 pairing. Above that, `tools/ci/balance_plan.sh` limits it to pairings involving

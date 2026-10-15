@@ -98,16 +98,22 @@ static func relay_config(spec: Dictionary, picks: Array, aims: Array = []) -> Di
 	}
 
 
+## Boss floors' gear piece (design/gear.md section 4): [type, tier], one per
+## boss floor in BOSS_FLOORS order.
+const BOSS_GEAR := [["bubble_shell", 2], ["spike_core", 2], ["iron_shell", 3], ["echo_core", 3], ["jet_charm", 4]]
+
+
 ## First-clear reward for a floor, paid once per week.
-## {coins, orbs, xp_chips, gear: "" or a gear rarity}.
+## {coins, orbs, xp_chips, gear: {} or {type, tier}}.
 static func reward(floor_no: int) -> Dictionary:
-	var r := {"coins": 40 + 10 * floor_no, "orbs": 0, "xp_chips": 0, "gear": ""}
+	var r := {"coins": 40 + 10 * floor_no, "orbs": 0, "xp_chips": 0, "gear": {}}
 	if floor_no % 3 == 0:
 		r.xp_chips = 1
 	if floor_no % 5 == 0:
 		r.orbs = 1
 	if is_boss(floor_no):
-		r.gear = ["rare", "rare", "epic", "epic", "legendary"][BOSS_FLOORS.find(floor_no)]
+		var g: Array = BOSS_GEAR[BOSS_FLOORS.find(floor_no)]
+		r.gear = {"type": g[0], "tier": g[1]}
 	return r
 
 

@@ -14,14 +14,15 @@ const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 const T0 := 1_800_000_000
-const TEST_SAVE := "user://test_lineup_arena.cfg"
+## Per process: tests/run.sh runs shards side by side.
+var TEST_SAVE := "user://test_lineup_arena_%d.cfg" % OS.get_process_id()
 
 
-## A player with a T3 level 12 Laser wearing a Legendary attack Core.
+## A player with a T3 level 12 Laser wearing a 5-star attack Core.
 func _veteran():
 	var p = Profile.new_game(T0)
 	p.stacks.append({"id": "laser", "tier": 3, "count": 1, "level": 12, "xp": 0})
-	var core: Dictionary = p.add_gear("Summit Core", "Core", "legendary")
+	var core: Dictionary = p.add_gear("spike_core", 5)
 	p.equip(core.uid, "laser")
 	p.set_lineup("laser")
 	return p
@@ -36,7 +37,7 @@ func test_slots_are_clamped_to_the_rules() -> void:
 	check_eq(s.tier, 5, "tier capped at T5")
 	check_eq(s.level, 50, "level capped at the tier's cap")
 	check_eq(s.gear.size(), 1, "one piece per gear slot, known slots only")
-	check_near(s.gear[0].stats.attack, Gear.LINES.attack.legendary, 0.0001, "a line can't beat a Legendary piece")
+	check_near(s.gear[0].stats.attack, Gear.LINES.attack.t5, 0.0001, "a line can't beat a 5-star piece")
 	check(not s.gear[0].stats.has("laser_eyes"), "unknown lines dropped")
 	check_eq(Lineup.clean({"critter": "vampire", "tier": -2, "level": 0}).tier, 1, "tier floor")
 
@@ -51,7 +52,7 @@ func test_profile_slot_is_what_the_player_owns() -> void:
 	var s: Dictionary = p.slot_of("laser")
 	check_eq([s.critter, s.tier, s.level], ["laser", 3, 12], "best stack")
 	check_eq(s.gear.size(), 1, "worn gear")
-	check_near(s.gear[0].stats.attack, Gear.value("attack", "legendary"), 0.0001, "Summit Core hits")
+	check_near(s.gear[0].stats.attack, Gear.value("attack", 5), 0.0001, "Spike Core hits")
 	check(p.slot_of("magnet").is_empty(), "nothing for a critter not owned")
 
 
@@ -63,7 +64,8 @@ func test_old_gear_gets_stat_lines_and_honest_text() -> void:
 	var back = Profile.from_dict(JSON.parse_string(JSON.stringify(d)), T0)
 	check_near(back.gear[0].stats.defense, Gear.value("defense", "common"), 0.0001, "named piece keeps its theme")
 	check_near(back.gear[1].stats.attack, Gear.value("attack", "rare"), 0.0001, "unknown Core hits")
-	check_eq(back.gear[0].text, "-3% damage taken", "text says what fights")
+	check_eq(back.gear[0].text, "-2% damage taken", "text says what fights")
+	check_eq([back.gear[0].type, back.gear[0].tier, back.gear[1].type, back.gear[1].tier], ["iron_shell", 1, "spike_core", 3], "old rarity becomes a tier")
 	var again = Profile.from_dict(JSON.parse_string(JSON.stringify(back.to_dict())), T0)
 	check_eq(again.gear[0].stats, back.gear[0].stats, "stats survive a save")
 

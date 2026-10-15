@@ -4,10 +4,11 @@
 ## Ghost Arena lineup (game/online/ghost_lineup.gd), so a fight replays from
 ## the slots, the seed and the launch angles alone.
 ##
-## Slot: {critter, tier, level, gear: [{slot, rarity, stats: {line: value}}]}.
+## Slot: {critter, tier, level, gear: [{slot, tier, stats: {line: value}}]}.
 ## Reading a slot clamps everything to the game's rules (tier 1-5, level up to
-## the tier's cap, one piece per gear slot, gear lines capped in sim/gear.gd),
-## so a tampered lineup can't field a T9 or stack ten Legendary cores.
+## the tier's cap, one piece per gear slot, a Charm only from 3 stars, no line
+## above a 5-star piece's), so a tampered lineup can't field a T9 or stack ten
+## 5-star cores.
 extends RefCounted
 
 const CritterDb := preload("res://sim/critter_db.gd")
@@ -15,7 +16,7 @@ const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
 
 const MAX_TIER := 5
-const GEAR_SLOTS := ["Shell", "Core"]
+const GEAR_SLOTS := Gear.SLOTS
 
 
 ## Highest level a critter can reach at `tier` (game/ui/roster.gd agrees).
@@ -38,26 +39,33 @@ static func clean(slot: Dictionary) -> Dictionary:
 			if not piece is Dictionary or not piece.get("stats") is Dictionary:
 				continue
 			var gs := str(piece.get("slot", ""))
-			if not gs in GEAR_SLOTS or taken.has(gs):
+			if not gs in GEAR_SLOTS or taken.has(gs) or (gs == "Charm" and tier < Gear.CHARM_TIER):
 				continue
 			taken[gs] = true
 			var stats := {}
 			for line in piece.stats:
 				if Gear.LINES.has(line):
-					stats[line] = clampf(float(piece.stats[line]), 0.0, float(Gear.LINES[line].legendary))
-			pieces.append({"slot": gs, "rarity": str(piece.get("rarity", "common")), "stats": stats})
+					stats[line] = clampf(float(piece.stats[line]), 0.0, float(Gear.LINES[line].t5))
+			pieces.append({"slot": gs, "tier": Gear.tier_of(piece.get("tier", piece.get("rarity", 1))), "stats": stats})
 	return {"critter": str(slot.get("critter", "")), "tier": tier,
 		"level": clampi(int(slot.get("level", 1)), 1, level_cap(tier)), "gear": pieces}
 
 
 ## The slot's progression multiplier (sim/power.gd): rarity, tier and level.
-## Gear isn't in it; it fights as its own stat lines.
+## Gear isn't in it; it fights as its own stat lines (rating() adds it).
 static func power(slot: Dictionary) -> float:
 	var s := clean(slot)
 	var rarity := "common"
 	if CritterDb.has(s.critter):
 		rarity = CritterDb.get_critter(s.critter).rarity
 	return Power.multiplier(rarity, s.tier, s.level)
+
+
+## The Power Rating players see for a slot: power() plus its gear's worth
+## (sim/gear.gd stats_power), on the 1000-for-a-base-ball scale.
+static func rating(slot: Dictionary) -> int:
+	var s := clean(slot)
+	return Power.rating(power(s) * (1.0 + Gear.gear_power(s.gear)))
 
 
 ## One side of a relay (sim/relay.gd) or the per-ball MatchSim keys, from its
