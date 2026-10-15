@@ -624,9 +624,9 @@
       "p2": "magnet",
       "seed": 33
     },
-    "hash": "d7dfbd7aad5372346067934c5a678cc8fdd33653c81789fc2036ac91440b9b46",
+    "hash": "a0456f5f1c194db089683b124847c73f35a4175435b7e7b31118d567a33258be",
     "reason": "knockout",
-    "ticks": 3522,
+    "ticks": 828,
     "winner": 0
   },
   {
@@ -786,7 +786,7 @@
         5
       ]
     },
-    "hash": "a0d3341427ced606c6c29a2bacd4fef197a0e6dc5ddcf731114d5f29b47d6e23",
+    "hash": "ed9ea1a48e2dd0020f1649350edd9e8ba4cd3b8a489521af9e99a439235fd4a7",
     "reason": "knockout",
     "ticks": 3516,
     "winner": 1
