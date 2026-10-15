@@ -32,10 +32,10 @@ DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS t
 
 ## Previews
 
-CI builds every PR for the web and deploys it to Vercel (project
-`battleballs`, token in the `VERCEL` repo secret). Each PR gets a comment
-with its preview URL; `main` deploys to production. Smoke-test screenshots
-are served at `<preview>/smoke/`.
+CI builds every ready (non-draft) PR for the web and deploys it to Vercel
+(project `battleballs`, token in the `VERCEL` repo secret). Each PR gets a
+comment with its preview URL; `main` deploys to production. Smoke-test
+screenshots are served at `<preview>/smoke/`.
 
 URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink&mod=big_head`
 (`aim` is the launch angle in tenths of a degree, screen space, y down;
@@ -239,3 +239,10 @@ other code.
 When every CI job passes on a PR that is **not a draft**, the `Auto-merge` job
 squash-merges it and rebuilds `main`. Keep a PR in draft until its code review
 is done; marking it ready re-runs CI and merges it once green.
+
+Actions minutes are limited (private repo), so CI spends them where they gate a
+merge. Draft pushes run only the unit and database tests; the balance matrix,
+web build and smoke test run once a PR is ready; `main` runs the unit and
+database tests, then builds, deploys and migrates without repeating the smoke
+test. Run the full checks locally before pushing (see CLAUDE.md), and push a
+draft in a few larger steps rather than many small ones.

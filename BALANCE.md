@@ -59,8 +59,8 @@ is checked under every modifier as well as base rules.
 
 | Check | When | Command |
 |---|---|---|
-| Equal-power matrix and arena tilt on every playable arena, `FAIL` blocks merge | Every PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict --arena=all` |
-| Equal-power matrix on the square under every Chaos Weekend modifier, `FAIL` blocks merge | Every PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --modifiers --strict` |
+| Equal-power matrix and arena tilt on every playable arena, `FAIL` blocks merge | Every ready (non-draft) PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict --arena=all` |
+| Equal-power matrix on the square under every Chaos Weekend modifier, `FAIL` blocks merge | Every ready (non-draft) PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --modifiers --strict` |
 | Full audit: equal power and power step at higher sample size | Weekly scheduled balance audit on `main`, plus any PR touching ball stats | `balance.gd -- --fights=500 --power-step` |
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%
