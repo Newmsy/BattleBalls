@@ -700,7 +700,7 @@ try {
   if (mine(20)) {
     const { page, logs } = await openGame("?mode=bracket&today=2026-10-14&speed=4");
     await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN bracket", 90000);
+    await waitForLog(logs, "UI_SCREEN bracket", 30000);
     await page.waitForTimeout(800);
     // The first card in the grid: later ones sit below the fold as the roster grows.
     const champ = logs.find((l) => l.startsWith("UI_AT champ_"));
@@ -712,7 +712,7 @@ try {
   if (mine(25)) {
     const { page, logs } = await openGame("?mode=bracket&today=2026-10-25&speed=4");
     await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN bracket", 90000);
+    await waitForLog(logs, "UI_SCREEN bracket", 30000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "31-bracket-final-day.png") });
     // The final: the screen opens on the latest round out, whatever the field size.
