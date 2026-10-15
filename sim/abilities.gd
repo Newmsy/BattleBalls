@@ -111,6 +111,25 @@ const EFFECTS := {
 	"mega": ["mega_secs"],
 	"lob": ["lob_damage", "lob_radius", "lob_lead", "lob_flight", "lob_crater_dps", "lob_barrage_every"],
 	"brew": ["brew_count", "brew_spread", "brew_radius", "brew_life", "brew_dps", "brew_slow", "brew_flight", "brew_big_every", "brew_big_radius"],
+	"stack": ["stack_max", "stack_radius", "stack_add", "stack_heal"],
+	"stack_guard": ["stack_max", "stack_armor", "stack_full_armor"],
+	"stack_burp": ["stack_max", "burp_radius", "burp_damage", "burp_keep"],
+	"stack_breath": ["stack_max", "stack_radius", "stack_add", "fire_count", "fire_cone", "fire_range", "fire_damage", "fire_burn", "fire_streak"],
+	"stack_drop": ["drop_at", "splat_radius", "splat_slow", "splat_dps"],
+	"stack_spray": ["stack_max", "spray_count", "bolt_damage"],
+	"face": ["stack_max", "face_damage", "face_speed"],
+	"face_guard": ["face_armor"],
+	"face_shout": ["shout_radius", "shout_damage"],
+	"kaleido": ["mode_count", "mode_secs", "mode_damage", "mode_shield", "mode_speed", "mode_pulse_radius", "mode_pulse_damage"],
+	"eclipse": ["eclipse_secs", "flip_radius", "moon_shield", "total_secs", "total_damage"],
+	"corona": ["sun_radius", "sun_dps", "moon_hps"],
+	"bubble": ["bubble_every", "bubble_size", "bubble_secs"],
+	"bubble_guard": ["bubble_min", "bubble_knock", "bubble_bolts", "bolt_damage"],
+	"roar": ["roar_radius", "roar_damage", "roar_slow", "roar_secs", "roar_drifts"],
+	"snow_mine": ["mine_arm", "mine_radius", "mine_damage", "mine_max", "mine_life", "mine_trigger", "frost_radius", "frost_secs", "frost_slow"],
+	"snow_freeze": ["freeze_secs"],
+	"nova": ["nova_every", "nova_radius", "nova_damage", "nova_burn", "nova_ring"],
+	"nova_early": [],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -1382,3 +1401,308 @@ func fx_brew(sim, b, _ctx: Dictionary) -> void:
 			else {"kind": "goo", "radius": b.def.brew_radius, "life": b.def.brew_life, "slow": b.def.brew_slow}
 		sim.add_lob(b, at, b.def.brew_flight, {"kind": "blob", "zone": zone})
 	b.state.blobs = int(b.state.get("blobs", 0)) + int(b.def.brew_count)
+
+
+# --- Stacks and forms: stacking counters and mode switching -------------------
+
+## Sets the ball's stack count (b.state.stacks, clamped to 0..stack_max) and
+## the stat mod that goes with it: +stack_radius size and +stack_add contact
+## damage per stack (Munch's bites, Sundae's scoops, Drako's stokes,
+## Supernova's swell). A critter with face_* params (Totem) gets its faces'
+## buffs instead. Emits "stack" with the count and whether it went up.
+static func set_stacks(sim, b, n: int) -> void:
+	var old := int(b.state.get("stacks", 0))
+	n = clampi(n, 0, int(b.def.stack_max))
+	b.state.stacks = n
+	if n == old:
+		return
+	if n == 0:
+		sim.clear_mod(b, "stack")
+	elif b.def.has("face_damage"):
+		sim.set_mod(b, "stack", {"add": b.def.face_damage, "speed": 1.0 + (b.def.face_speed if n >= 3 else 0.0)})
+	else:
+		sim.set_mod(b, "stack", {"radius": 1.0 + b.def.stack_radius * n, "add": b.def.stack_add * n})
+	sim.events.append({"type": "stack", "ball": b.index, "pos": b.pos, "stacks": n, "up": n > old})
+
+
+static func stacks(b) -> int:
+	return int(b.state.get("stacks", 0))
+
+
+## Adds a stack, up to stack_max, and heals stack_heal (a bite heals even when
+## it's already full).
+func fx_stack(sim, b, _ctx: Dictionary) -> void:
+	_heal_now(sim, b, b.def.stack_heal)
+	set_stacks(sim, b, stacks(b) + 1)
+
+
+## stack_armor less damage per stack, plus stack_full_armor at stack_max.
+func fx_stack_guard(_sim, b, ctx: Dictionary) -> void:
+	var n := stacks(b)
+	var armor: float = b.def.stack_armor * n
+	if n >= int(b.def.stack_max):
+		armor += b.def.stack_full_armor
+	ctx.mult *= 1.0 - minf(armor, 0.6)
+
+
+## At full stacks (when burp_radius > 0) it burps: burp_damage to foes within
+## burp_radius, knocking them away, and drops back to burp_keep stacks.
+func fx_stack_burp(sim, b, _ctx: Dictionary) -> void:
+	if b.def.burp_radius <= 0.0 or stacks(b) < int(b.def.stack_max):
+		return
+	sim.events.append({"type": "burp", "ball": b.index, "pos": b.pos})
+	sim.pulse(b, b.pos, b.def.burp_radius, b.def.burp_damage, true, "pulse")
+	set_stacks(sim, b, int(b.def.burp_keep))
+
+
+## Each contact hit stokes a stack (+stack_add contact damage) up to
+## stack_max; with its throat full, the next hit breathes instead: fire_count
+## short fire bolts fanned over fire_cone degrees at the nearest foe
+## (fire_damage each, fire_range long), a burn on a foe inside the cone
+## (fire_burn a second for 2s), and the stokes start again. fire_streak > 0
+## leaves a burning streak along the cone's middle. Breathing on the hit after
+## the throat fills (not the filling hit) gives a fading foe (Flicker) time to
+## come back, and a full throat is the foe's cue to dodge.
+func fx_stack_breath(sim, b, _ctx: Dictionary) -> void:
+	if stacks(b) < int(b.def.stack_max):
+		set_stacks(sim, b, stacks(b) + 1)
+		return
+	set_stacks(sim, b, 0)
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	var aim: Vector2 = f.pos - b.pos
+	var dir: Vector2 = aim.normalized() if aim.length() > 0.001 else Vector2.RIGHT
+	var n := int(b.def.fire_count)
+	var cone: float = deg_to_rad(b.def.fire_cone)
+	var reach: float = b.radius + b.def.fire_range
+	sim.events.append({"type": "breath", "ball": b.index, "pos": b.pos, "dir": dir})
+	# The fireballs land this tick (deal), so they hit before a fade the same
+	# bump sets off; the beams only draw them.
+	for k in n:
+		var d := dir.rotated(cone * ((k / float(n - 1)) - 0.5) if n > 1 else 0.0)
+		var from: Vector2 = b.pos + d * b.radius
+		var to: Vector2 = b.pos + d * reach
+		sim.add_beam(b, from, to, {"life": 0.3, "damage": 0.0, "cooldown": 1.0})
+		for o in sim.foes(b):
+			if Geometry2D.get_closest_point_to_segment(o.pos, from, to).distance_to(o.pos) <= o.radius + sim.BEAM_HALF_WIDTH:
+				sim.deal(b, o, b.def.fire_damage, "fire", o.pos)
+	for o in sim.foes(b):
+		var off: Vector2 = o.pos - b.pos
+		var half_width := asin(clampf(o.radius / maxf(off.length(), o.radius), 0.0, 1.0))
+		if off.length() <= reach + o.radius and absf(dir.angle_to(off)) <= cone / 2.0 + half_width:
+			sim.add_burn(b, o, b.def.fire_burn, 2.0)
+	if b.def.fire_streak > 0.0:
+		var steps := int(b.def.fire_range / 70.0)
+		for k in steps:
+			sim.add_zone(b, b.pos + dir * (b.radius + 40.0 + 70.0 * k), {"kind": "fire", "radius": 40.0, "life": 2.0, "dps": b.def.fire_streak})
+
+
+## A foe's hit of drop_at or more knocks a stack off; splat_radius > 0 leaves
+## a sticky puddle where it landed (splat_slow, splat_dps, 3s).
+func fx_stack_drop(sim, b, ctx: Dictionary) -> void:
+	if ctx.source == b or ctx.source.team == b.team or ctx.amount < b.def.drop_at or stacks(b) == 0:
+		return
+	set_stacks(sim, b, stacks(b) - 1)
+	if b.def.splat_radius > 0.0:
+		sim.add_zone(b, b.pos, {"kind": "splat", "radius": b.def.splat_radius, "life": 3.0, "slow": b.def.splat_slow, "dps": b.def.splat_dps})
+
+
+## At full stacks, each contact hit sprays spray_count bolts (bolt_damage each).
+func fx_stack_spray(sim, b, _ctx: Dictionary) -> void:
+	if b.def.spray_count > 0 and stacks(b) >= int(b.def.stack_max):
+		_spray(sim, b, int(b.def.spray_count), b.def.bolt_damage)
+
+
+## Bumping a foe (or the start of the fight) adds a carved face, up to
+## stack_max: the first hits face_damage harder, the second is face_armor
+## tougher (fx_face_guard), the third rolls face_speed faster.
+func fx_face(sim, b, ctx: Dictionary) -> void:
+	if ctx.has("other") and ctx.other.team == b.team:
+		return
+	set_stacks(sim, b, stacks(b) + 1)
+
+
+func fx_face_guard(_sim, b, ctx: Dictionary) -> void:
+	if stacks(b) >= 2:
+		ctx.mult *= 1.0 - b.def.face_armor
+
+
+## With four faces the stack shouts: shout_damage to foes within shout_radius.
+func fx_face_shout(sim, b, _ctx: Dictionary) -> void:
+	if stacks(b) >= 4:
+		sim.events.append({"type": "shout", "ball": b.index, "pos": b.pos})
+		sim.pulse(b, b.pos, b.def.shout_radius, b.def.shout_damage, false, "pulse")
+
+
+## Moves to the next of `count` modes (b.state.mode, from 0) and emits "mode".
+static func next_mode(sim, b, count: int) -> int:
+	var m := (int(b.state.get("mode", -1)) + 1) % count
+	b.state.mode = m
+	sim.events.append({"type": "mode", "ball": b.index, "pos": b.pos, "mode": m})
+	return m
+
+
+## Kaleido clicks to its next mode for mode_secs: 0 spikes (+mode_damage
+## contact damage), 1 a mode_shield shield, 2 +mode_speed speed, and with
+## mode_count 4 a prism mode with all three at half. mode_pulse_radius > 0
+## flashes a small pulse each click.
+func fx_kaleido(sim, b, _ctx: Dictionary) -> void:
+	var m := next_mode(sim, b, int(b.def.mode_count))
+	var k := 0.5 if m == 3 else 1.0
+	b.shield = maxf(0.0, b.shield - float(b.state.get("mode_shield", 0.0)))
+	b.state.mode_shield = 0.0
+	var mod := {}
+	if m == 0 or m == 3:
+		mod.add = b.def.mode_damage * k
+	if m == 2 or m == 3:
+		mod.speed = 1.0 + b.def.mode_speed * k
+	if mod.is_empty():
+		sim.clear_mod(b, "mode")
+	else:
+		sim.set_mod(b, "mode", mod, b.def.mode_secs)
+	if m == 1 or m == 3:
+		b.state.mode_shield = b.def.mode_shield * k
+		b.shield = maxf(b.shield, b.state.mode_shield)
+	if b.def.mode_pulse_radius > 0.0:
+		sim.pulse(b, b.pos, b.def.mode_pulse_radius, b.def.mode_pulse_damage, false, "pulse")
+
+
+## Eclipse flips between Sun (mode 0, the start) and Moon (1), flashing a ring
+## that knocks foes within flip_radius away. Moon arrives with a moon_shield
+## shield; total_secs > 0 runs both for that long after each flip (Total
+## Eclipse), and the flash then deals total_damage.
+func fx_eclipse(sim, b, _ctx: Dictionary) -> void:
+	if not b.state.has("mode"):
+		b.state.mode = 0 # It starts in Sun, so the first flip is to Moon.
+	var m := next_mode(sim, b, 2)
+	var total: bool = b.def.total_secs > 0.0
+	sim.pulse(b, b.pos, b.def.flip_radius, b.def.total_damage if total else 0.0, true, "flare")
+	if m == 1 and b.def.moon_shield > 0.0:
+		b.shield = maxf(b.shield, b.def.moon_shield)
+	if total:
+		b.state.total_until = sim.tick + int(round(b.def.total_secs * sim.TICK_RATE))
+
+
+## Every half second: in Sun the corona sets foes within sun_radius of its
+## edge burning (sun_dps a second, lasting 1s after they leave it, and a
+## burning ball can't heal); in Moon it heals moon_hps a second.
+func fx_corona(sim, b, _ctx: Dictionary) -> void:
+	if sim.tick == 0 or sim.tick % (sim.TICK_RATE / 2) != 0:
+		return
+	var m := int(b.state.get("mode", 0))
+	var both: bool = sim.tick < int(b.state.get("total_until", -1))
+	if m == 0 or both:
+		for o in sim.foes(b):
+			if o.pos.distance_to(b.pos) <= b.radius + b.def.sun_radius + o.radius:
+				sim.add_burn(b, o, b.def.sun_dps, 1.0)
+	if m == 1 or both:
+		_heal_now(sim, b, b.def.moon_hps * 0.5)
+
+
+## Blows a bubble that soaks up to bubble_size of the next hit, then pops
+## (fx_bubble_guard); it bursts on its own after bubble_secs.
+func fx_bubble(sim, b, _ctx: Dictionary) -> void:
+	b.state.bubble = b.def.bubble_size
+	b.state.bubble_until = sim.tick + int(round(b.def.bubble_secs * sim.TICK_RATE))
+	sim.events.append({"type": "bubble", "ball": b.index, "pos": b.pos})
+
+
+## The first hit of bubble_min or more pops the bubble, soaking up to
+## bubble_size; smaller pings land as normal and leave it. bubble_knock
+## > 0 shoves the attacker away; bubble_bolts > 0 sprays little bubbles.
+func fx_bubble_guard(sim, b, ctx: Dictionary) -> void:
+	var size: float = b.state.get("bubble", 0.0)
+	if size <= 0.0 or sim.tick >= int(b.state.get("bubble_until", -1)) or ctx.source.team == b.team:
+		return
+	if ctx.amount * ctx.mult < b.def.bubble_min:
+		return # Pings (Spectra's beams, burns) land but don't pop it.
+	b.state.bubble = 0.0
+	var raw: float = ctx.amount * ctx.mult
+	if raw > 0.0:
+		ctx.mult *= maxf(0.0, raw - size) / raw
+	sim.events.append({"type": "bubble_pop", "ball": b.index, "pos": b.pos})
+	var src = ctx.source
+	if b.def.bubble_knock > 0 and src.alive() and src.pos.distance_to(b.pos) > 0.001:
+		src.vel = (src.pos - b.pos).normalized() * src.current_speed()
+	if b.def.bubble_bolts > 0:
+		_spray(sim, b, int(b.def.bubble_bolts), b.def.bolt_damage)
+
+
+## Slows `o` by `amount` for `secs`: a timed slow status (MatchSim.add_status)
+## keyed to `b`, kept at the stronger of the old and new chill.
+static func chill(sim, b, o, amount: float, secs: float) -> void:
+	var key := "chill:%d" % b.index
+	var held: Dictionary = sim.status(o, key)
+	if held.is_empty() or amount >= float(held.amount):
+		sim.add_status(b, o, key, "slow", amount, secs)
+
+
+## Yeti's avalanche: roar_damage to foes within roar_radius, knocking them
+## away and chilling them (roar_slow for roar_secs). roar_drifts > 0 leaves
+## that many snowdrifts around it (radius 70, 4s, 30% slow).
+func fx_roar(sim, b, _ctx: Dictionary) -> void:
+	sim.events.append({"type": "roar", "ball": b.index, "pos": b.pos})
+	sim.pulse(b, b.pos, b.def.roar_radius, b.def.roar_damage, true, "frost")
+	for o in sim.foes(b):
+		if o.pos.distance_to(b.pos) <= b.def.roar_radius + o.radius:
+			chill(sim, b, o, b.def.roar_slow, b.def.roar_secs)
+	for k in int(b.def.roar_drifts):
+		var p: Vector2 = b.pos + Vector2.from_angle(k * TAU / b.def.roar_drifts) * (b.radius + 90.0)
+		sim.add_zone(b, p, {"kind": "frost", "radius": 70.0, "life": 4.0, "slow": 0.3})
+
+
+## Drops a snowflake mine where it is (see fx_mine): it arms after mine_arm,
+## goes off when a foe comes within mine_trigger of it, and its blast leaves a
+## frost patch (frost_radius, frost_secs, frost_slow).
+func fx_snow_mine(sim, b, _ctx: Dictionary) -> void:
+	var own: Array = sim.zones.filter(func(z): return z.owner == b.index and z.kind == "mine")
+	if own.size() >= int(b.def.mine_max):
+		sim.zones.erase(own[0])
+	sim.add_zone(b, b.pos, {"kind": "mine", "radius": b.def.mine_trigger, "life": b.def.mine_life, "arm": b.def.mine_arm,
+		"blast": b.def.mine_damage, "blast_radius": b.def.mine_radius,
+		"after": {"kind": "snow", "radius": b.def.frost_radius, "life": b.def.frost_secs, "slow": b.def.frost_slow}})
+
+
+## A foe standing in two of its frost patches at once freezes (a stun) for
+## freeze_secs; the stun's own immunity keeps it from chaining.
+func fx_snow_freeze(sim, b, _ctx: Dictionary) -> void:
+	if b.def.freeze_secs <= 0.0:
+		return
+	for o in sim.foes(b):
+		if sim.stunned(o):
+			continue
+		var n := 0
+		for z in sim.zones:
+			if z.owner == b.index and z.kind == "snow" and o.pos.distance_to(z.pos) <= z.radius + o.radius:
+				n += 1
+		if n >= 2:
+			sim.stun(b, o, b.def.freeze_secs)
+
+
+## Every nova_every seconds it goes nova: after a 1s flicker (b.state.nova_warn)
+## it deals nova_damage to foes within nova_radius and burns them (nova_burn a
+## second for 3s), then shrinks back to no stacks. nova_ring > 0 leaves a
+## burning ring (radius 120, 3s, that much damage a second).
+func fx_nova(sim, b, _ctx: Dictionary) -> void:
+	var warn := int(sim.TICK_RATE)
+	if not b.state.has("nova_at"):
+		b.state.nova_at = int(round(b.def.nova_every * sim.TICK_RATE))
+	var at: int = b.state.nova_at
+	b.state.nova_warn = sim.tick >= at - warn
+	if sim.tick < at:
+		return
+	sim.pulse(b, b.pos, b.def.nova_radius, b.def.nova_damage, false, "nova")
+	for o in sim.foes(b):
+		if o.pos.distance_to(b.pos) <= b.def.nova_radius + o.radius:
+			sim.add_burn(b, o, b.def.nova_burn, 3.0)
+	if b.def.nova_ring > 0.0:
+		sim.add_zone(b, b.pos, {"kind": "ring", "radius": 120.0, "life": 3.0, "dps": b.def.nova_ring})
+	set_stacks(sim, b, 0)
+	b.state.nova_at = sim.tick + int(round(b.def.nova_every * sim.TICK_RATE))
+	b.state.nova_warn = false
+
+
+## Goes nova early: one second from now, unless it's due sooner.
+func fx_nova_early(sim, b, _ctx: Dictionary) -> void:
+	b.state.nova_at = mini(int(b.state.get("nova_at", 1 << 30)), sim.tick + sim.TICK_RATE)

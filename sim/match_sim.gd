@@ -168,6 +168,7 @@ class Zone:
 	var follow := -1 ## Ball index it rides on (a stink cloud, a clinging chill); -1 stays put.
 	var vulnerable := 0.0 ## Foes inside take this much more damage...
 	var vulnerable_linger := 0.0 ## ...until this many seconds after they leave.
+	var after := {} ## add_zone opts for a zone the blast leaves behind (Blizz's frost).
 	var next_hit := {} ## target index -> tick it may next take dps damage
 
 	func armed() -> bool:
@@ -684,11 +685,14 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			amount *= source.crit_mult
 		if backstab:
 			amount *= BACKSTAB_MULT
-		var guard := {"source": source, "kind": h.kind, "mult": 1.0}
+		var guard := {"source": source, "kind": h.kind, "mult": 1.0, "amount": amount}
 		abilities.fire(self, "guard", target, guard)
 		amount *= guard.mult
 		if not target.statuses.is_empty():
 			amount *= 1.0 + vulnerable(target)
+		if amount <= 0.0: # Soaked whole (a bubble).
+			events.append({"type": "shielded", "target": h.target, "pos": h.pos})
+			continue
 		if target.shield > 0.0:
 			var absorbed := minf(target.shield, amount)
 			target.shield -= absorbed
@@ -840,7 +844,7 @@ func nearest_foe(b: Ball) -> Ball:
 
 ## A floor zone owned by `owner`. `opts`: kind, radius, life, arm, slow, dps,
 ## blast, blast_radius, chain, follow (a ball index), vulnerable,
-## vulnerable_linger. Returns it.
+## vulnerable_linger, after. Returns it.
 func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 	var z := Zone.new()
 	z.owner = owner.index
@@ -859,6 +863,7 @@ func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 		z.pos = balls[z.follow].pos
 	z.vulnerable = opts.get("vulnerable", 0.0)
 	z.vulnerable_linger = opts.get("vulnerable_linger", 0.0)
+	z.after = opts.get("after", {})
 	zones.append(z)
 	return z
 
@@ -939,6 +944,8 @@ func _explode(z: Zone) -> void:
 	for o in foes(owner):
 		if o.pos.distance_to(z.pos) <= z.blast_radius + o.radius:
 			deal(owner, o, z.blast, "mine", z.pos)
+	if not z.after.is_empty():
+		add_zone(owner, z.pos, z.after)
 	if z.chain:
 		for other in zones.duplicate():
 			if other.owner == z.owner and other.blast > 0.0 and other.armed() and zones.has(other) and other.pos.distance_to(z.pos) <= z.blast_radius * 2.0:
