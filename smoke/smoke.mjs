@@ -2,7 +2,8 @@
 // plays one auto fight and one fight through the real menu, fails on any
 // page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
 // plays the whole onboarding, follows a Bracket of Legends from picks to the
-// final and climbs the first floor of The Spire.
+// final and climbs the first floor of The Spire, and fights
+// the first floor of Bounce Run.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -483,9 +484,11 @@ try {
     await page.waitForTimeout(800);
     // The Arena card sits below the fold on a phone: scroll the Play tab first.
     await page.mouse.move(...toPage(page, 360, 800));
-    for (let i = 0; i < 6; i++) {
+    // Scroll until the card's centre sits above the tab bar (more daily cards push it further down).
+    const arenaY = () => Number([...logs].reverse().find((l) => l.startsWith("UI_AT arena "))?.split(" ")[3] ?? 9999);
+    for (let i = 0; i < 20 && arenaY() > 1300; i++) {
       await page.mouse.wheel(0, 300);
-      await page.waitForTimeout(150);
+      await page.waitForTimeout(250);
     }
     await page.waitForTimeout(600);
     await tapUi(page, logs, "arena", "arena");
@@ -671,6 +674,34 @@ try {
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "26-big-head.png") });
     console.log("modifier fight:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.close();
+  }
+
+  // 15. Bounce Run: the Play tab has its card; open it by link (the card sits
+  // below the fold), draft three, fight floor 1.
+  {
+    const home = await openGame("?seed=7&offline=1");
+    await waitForLog(home.logs, "UI_AT bouncerun ", 60000);
+    await home.page.close();
+    const { page, logs } = await openGame("?mode=bouncerun&offline=1");
+    console.log("bounce run:", await waitForLog(logs, "BOUNCERUN_READY", 60000));
+    await waitForLog(logs, "UI_SCREEN br_draft", 5000);
+    await page.waitForTimeout(800);
+    for (const i of [0, 1, 2]) await tapUi(page, logs, `br_card_${i}`, "br_draft");
+    await page.screenshot({ path: path.join(shots, "40-bouncerun-draft.png") });
+    await tapUi(page, logs, "br_start", "br_floor");
+    await page.screenshot({ path: path.join(shots, "41-bouncerun-floor.png") });
+    await tapUi(page, logs, "br_send_0", "br_aim");
+    await page.screenshot({ path: path.join(shots, "42-bouncerun-aim.png") });
+    await tapUi(page, logs, "br_launch", "br_fight");
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, "43-bouncerun-fight.png") });
+    await tapUi(page, logs, "br_skip", "br_result");
+    console.log("bounce run fight:", await waitForLog(logs, "BOUNCERUN_RESULT", 5000));
+    await page.screenshot({ path: path.join(shots, "44-bouncerun-result.png") });
+    const won = logs.some((l) => l.startsWith("BOUNCERUN_RESULT") && l.includes("won=true"));
+    await tapUi(page, logs, "br_continue", won ? "br_boon" : "br_floor");
+    await page.screenshot({ path: path.join(shots, won ? "45-bouncerun-boon.png" : "45-bouncerun-retry.png") });
     await page.close();
   }
 } catch (e) {

@@ -101,3 +101,13 @@ the square, plus two more (design/arenas.md):
 
 Audit reports are kept in the project's shared folder under
 `balance/audits/`, one file per run, so trends are visible over time.
+
+## Bounce Run boons
+
+Boons are run-only perks (`sim/boons.gd`), so permanent balance is untouched,
+but they still follow rule 2: one ball holding a boon against the same matchup
+without it should win **52-62%** (a boon worth picking, never a verdict);
+**over 65%** is a `FAIL` in CI (`tools/boon_balance.gd -- --fights=40 --strict`).
+The sim amplifies stat edges: +14% HP alone won 63%, so boon numbers stay
+small. A new boon or a change to one pastes `boon_balance.gd -- --fights=200`
+output into its PR.
