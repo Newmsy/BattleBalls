@@ -8,6 +8,8 @@
 ##   --strict      exit 1 when a check fails beyond sampling noise
 ##   --arena=ID    arena from sim/arenas.gd, or "all" for every playable arena;
 ##                 non-square arenas also get a tilt check against the square
+##   --workers=N   fight in N separate processes (default: one per CPU core).
+##                 Every fight is seeded, so the report is the same for any N.
 extends SceneTree
 
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -30,15 +32,23 @@ var durations: Array[float] = []
 var timeouts := 0
 var failures := 0
 var arena_id := "square"
+## Finished pairings, "arena|a|power|b" -> {wins, durations, timeouts}.
+var results := {}
 
 
 func _init() -> void:
 	var strict := false
 	var power_step := false
 	var arena_arg := "square"
+	var workers := OS.get_processor_count()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--fights="):
 			fights = int(arg.split("=")[1])
+		elif arg.begins_with("--workers="):
+			workers = int(arg.split("=")[1])
+		elif arg.begins_with("--worker-jobs="):
+			_work(arg.split("=")[1])
+			return
 		elif arg == "--strict":
 			strict = true
 		elif arg == "--power-step":
@@ -49,13 +59,25 @@ func _init() -> void:
 	if not arenas.has("square") and arenas.size() > 0:
 		arenas = ["square"] + arenas # The tilt check needs the square as reference.
 	var ids: Array = BallDefs.DEFS.keys().filter(func(id): return not BallDefs.DEFS[id].get("tutorial", false))
-	var lines: Array[String] = []
-	var square_rates := {}
+	var jobs := []
 	for id in arenas:
 		if not Arenas.DEFS.has(id):
 			push_error("Unknown arena: %s" % id)
 			quit(2)
 			return
+		for i in ids.size():
+			for j in range(i, ids.size()):
+				jobs.append([id, ids[i], 1.0, ids[j]])
+		if power_step and not (id == "square" and arena_arg != "square" and arena_arg != "all"):
+			for a in BallDefs.PLAYABLE:
+				for b in BallDefs.PLAYABLE:
+					jobs.append([id, a, POWER_STEP, b])
+	if not _run_jobs(jobs, workers):
+		quit(2)
+		return
+	var lines: Array[String] = []
+	var square_rates := {}
+	for id in arenas:
 		arena_id = id
 		durations.clear()
 		timeouts = 0
@@ -195,23 +217,94 @@ func _power_step(ids: Array) -> Array[String]:
 
 
 ## Share of fights `a` (at `a_power`) wins against `b` at base power; draws
-## count half. Each seed is played with `a` in both corners.
+## count half. Each seed is played with `a` in both corners. Read from the
+## results `_run_jobs` collected.
 func _win_rate(a: String, a_power: float, b: String) -> float:
-	var wins := 0.0
+	var r: Dictionary = results[_key([arena_id, a, a_power, b])]
+	if a_power == 1.0:
+		for d in r.durations:
+			durations.append(float(d))
+		timeouts += int(r.timeouts)
+	return float(r.wins) / (fights * 2)
+
+
+static func _key(job: Array) -> String:
+	return "%s|%s|%s|%s" % [job[0], job[1], job[2], job[3]]
+
+
+## Plays one pairing: every seed from both corners.
+func _fight(job: Array) -> Dictionary:
+	var a: String = job[1]
+	var a_power: float = job[2]
+	var b: String = job[3]
+	var out := {"wins": 0.0, "durations": [], "timeouts": 0}
 	for i in fights:
 		for a_index in 2:
 			var powers := [a_power, 1.0] if a_index == 0 else [1.0, a_power]
-			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers, "arena": arena_id})
+			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers, "arena": job[0]})
 			var s := sim.run_to_end()
 			if s.winner == a_index:
-				wins += 1.0
+				out.wins += 1.0
 			elif s.winner == -1:
-				wins += 0.5
-			if a_power == 1.0:
-				durations.append(s.time)
-				if s.reason == "time_limit":
-					timeouts += 1
-	return wins / (fights * 2)
+				out.wins += 0.5
+			out.durations.append(s.time)
+			if s.reason == "time_limit":
+				out.timeouts += 1
+	return out
+
+
+## Fills `results` for every job, split round-robin over separate Godot
+## processes (the sim is not thread-safe, processes share nothing). Returns
+## false when a worker died without writing its results.
+func _run_jobs(jobs: Array, workers: int) -> bool:
+	workers = clampi(workers, 1, jobs.size())
+	if workers == 1:
+		for job in jobs:
+			results[_key(job)] = _fight(job)
+		return true
+	var base := "user://balance_%d_" % OS.get_process_id()
+	var pids := []
+	for w in workers:
+		var mine := []
+		for k in range(w, jobs.size(), workers):
+			mine.append(jobs[k])
+		var path := ProjectSettings.globalize_path(base + str(w) + ".bin")
+		DirAccess.remove_absolute(path + ".out")
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_var(mine)
+		f.close()
+		pids.append(OS.create_process(OS.get_executable_path(), ["--headless", "--quiet", "--path", ProjectSettings.globalize_path("res://"),
+			"--script", "res://tools/balance.gd", "--", "--fights=%d" % fights, "--worker-jobs=" + path]))
+	while pids.any(func(pid): return OS.is_process_running(pid)):
+		OS.delay_msec(100)
+	var ok := true
+	for w in workers:
+		var path := ProjectSettings.globalize_path(base + str(w) + ".bin")
+		var f := FileAccess.open(path + ".out", FileAccess.READ)
+		var got = f.get_var() if f else null
+		if f:
+			f.close()
+		if got is Dictionary:
+			results.merge(got)
+		else:
+			push_error("Balance worker %d wrote no results" % w)
+			ok = false
+		DirAccess.remove_absolute(path)
+		DirAccess.remove_absolute(path + ".out")
+	return ok
+
+
+## Worker process: plays the jobs in `path` and writes their results next to it.
+func _work(path: String) -> void:
+	var out := {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	for job in f.get_var():
+		out[_key(job)] = _fight(job)
+	f.close()
+	f = FileAccess.open(path + ".out", FileAccess.WRITE)
+	f.store_var(out)
+	f.close()
+	quit(0)
 
 
 ## FAIL when the miss is clear of sampling noise, WARN otherwise.
