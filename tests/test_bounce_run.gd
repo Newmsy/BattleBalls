@@ -34,8 +34,14 @@ func test_foes_are_power_equalised() -> void:
 		for c in setup.cards:
 			check(Boons.applies_to(c.boon, BallDefs.get_def(c.critter).ability), "day %d card boon fits its critter" % day)
 		var critters: Array = setup.cards.map(func(c): return c.critter)
-		for id in BallDefs.PLAYABLE:
-			check(id in critters, "day %d draft offers every critter (missing %s)" % [day, id])
+		# Every critter shows up before any repeats: all of them while the
+		# roster fits in one draft, five different ones once it doesn't.
+		if BallDefs.PLAYABLE.size() <= BounceRun.DRAFT:
+			for id in BallDefs.PLAYABLE:
+				check(id in critters, "day %d draft offers every critter (missing %s)" % [day, id])
+		else:
+			for id in critters:
+				check(critters.count(id) == 1, "day %d draft repeats %s" % [day, id])
 
 
 func test_offers_are_new_usable_boons() -> void:
