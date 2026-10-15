@@ -54,7 +54,7 @@ func test_offers_are_new_usable_boons() -> void:
 		# Nibbles or Optic only has the 8 general ones).
 		var left := 0
 		for id in Boons.ALL:
-			if not id in run.boons and range(3).any(func(s): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, s).critter).ability)):
+			if not id in run.boons and range(BounceRun.PICKS).any(func(s): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, s).critter).ability)):
 				left += 1
 		check_eq(offer.size(), mini(BounceRun.OFFER, left), "floor %d offer size" % (f + 1))
 		check(offer.size() >= 2, "floor %d offers a real choice" % (f + 1))
@@ -83,9 +83,11 @@ func test_winning_every_floor_clears_the_run() -> void:
 	for f in BounceRun.FLOORS:
 		BounceRun.record(setup, run, 0, 0, 0, 100)
 		if not run.over:
-			# Late offers can run short: 8 boons suit everyone, the rest only
-			# Vampire or Laser, and the draft changes as the roster grows.
-			check(run.offer.size() > 0 and run.offer.size() <= BounceRun.OFFER, "a win deals an offer")
+			# Up to OFFER boons, fewer once the trio has taken most of those it can use.
+			var usable := Boons.ALL.filter(func(id): return not id in run.boons and range(BounceRun.PICKS).any(
+				func(slot): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, slot).critter).ability)))
+			check_eq(run.offer.size(), mini(BounceRun.OFFER, usable.size()), "a win deals an offer")
+			check(not run.offer.is_empty(), "every win before the last offers a boon")
 			BounceRun.take_boon(run, run.offer[0])
 	check(run.over, "eight wins end the run")
 	check_eq(BounceRun.score(run), {"floors": 8, "lives": 3, "ticks": 800}, "perfect run")

@@ -583,5 +583,345 @@
     "reason": "double_knockout",
     "ticks": 1483,
     "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "static",
+      "p2": "laser",
+      "seed": 31
+    },
+    "hash": "ae5b2a0e41f6be1fef15a2b2318717f0700d844cf12fd93b1df32d97fd7de6cd",
+    "reason": "knockout",
+    "ticks": 2846,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "drum",
+      "p2": "vampire",
+      "seed": 32
+    },
+    "hash": "9f7c44cf7fc8e87a1f530270450aaf2f7b698b9f62ff79d2cbbac59aea94ef95",
+    "reason": "double_knockout",
+    "ticks": 2702,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "magmo",
+      "p2": "magnet",
+      "seed": 33
+    },
+    "hash": "d7dfbd7aad5372346067934c5a678cc8fdd33653c81789fc2036ac91440b9b46",
+    "reason": "knockout",
+    "ticks": 3522,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "comet",
+      "p2": "bomber",
+      "seed": 34
+    },
+    "hash": "74a0cc5f96440856ee202c3afbb3ba12db046edbf0e7eff6af2476df88379882",
+    "reason": "knockout",
+    "ticks": 2109,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "gust",
+      "p2": "frost",
+      "seed": 35
+    },
+    "hash": "7089784ddfdee67eeac327820374dd8cd9083d4c56174f2a070cb80027071556",
+    "reason": "knockout",
+    "ticks": 2090,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "sooty",
+      "p2": "thorns",
+      "seed": 36
+    },
+    "hash": "1299ba8d5dd37ab36179bdce8640673841b16abbb152155c7273b959c1d3496f",
+    "reason": "knockout",
+    "ticks": 952,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "honey",
+      "p2": "ghost",
+      "seed": 37
+    },
+    "hash": "cda73f0c283a84cef6162f51431f3db911c8110499840fc9d5ed7df8ccc784c9",
+    "reason": "knockout",
+    "ticks": 3123,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "ink",
+      "p2": "mirror",
+      "seed": 38
+    },
+    "hash": "17a6788f0938ec3391f59850c5541ca73d836fe47bc8fe0f329f25012c4b3c40",
+    "reason": "knockout",
+    "ticks": 1380,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "whiff",
+      "p2": "phoenix",
+      "seed": 39
+    },
+    "hash": "47a03ea7bb1b0433485e16b3cd43d0511b3b9e1874c9a1d4af7b7eadd8763a3a",
+    "reason": "double_knockout",
+    "ticks": 3929,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "drizzle",
+      "p2": "gravity",
+      "seed": 40
+    },
+    "hash": "b075fce951c39314723f3d8172bb4d55877463e585e68deb1645d8b66c3bbd95",
+    "reason": "knockout",
+    "ticks": 2348,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "static",
+      "p2": "gravity",
+      "seed": 41,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "b57c7162bacca59424258744d00f3e6c2e1fa654b11c15904b575da366cf8962",
+    "reason": "knockout",
+    "ticks": 1944,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "drum",
+      "p2": "phoenix",
+      "seed": 42,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "568ba26db44e9edb07df53ea2d2a981d6ee9ff8bece9435834ac68a584ffffe3",
+    "reason": "knockout",
+    "ticks": 3474,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "magmo",
+      "p2": "mirror",
+      "seed": 43,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "a0d3341427ced606c6c29a2bacd4fef197a0e6dc5ddcf731114d5f29b47d6e23",
+    "reason": "knockout",
+    "ticks": 3516,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "comet",
+      "p2": "ghost",
+      "seed": 44,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "e5cf76afd6d8d45414c91c12c1c05842f5b65d28bc4167418da929b37fb96f2e",
+    "reason": "knockout",
+    "ticks": 828,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "gust",
+      "p2": "thorns",
+      "seed": 45,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "c3001906e9a2bc407f880d75c0771767bd01112409f9795ca7c573752cddc35d",
+    "reason": "knockout",
+    "ticks": 3116,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "sooty",
+      "p2": "frost",
+      "seed": 46,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "184f4ba3d0bb7f64b717ee3a348074f954b7c13961d18a2e74f9cdca5ac7e485",
+    "reason": "knockout",
+    "ticks": 3430,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "honey",
+      "p2": "bomber",
+      "seed": 47,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "09580ef2f189b4922f42c1dddcd10eabb3f8eef91da4b67b919dc476497326a5",
+    "reason": "knockout",
+    "ticks": 1354,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "ink",
+      "p2": "magnet",
+      "seed": 48,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "409d654237352b23e6162b6b8273bf2c510b5155eced92cc58a3ecd84ecb7e22",
+    "reason": "double_knockout",
+    "ticks": 1693,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "whiff",
+      "p2": "vampire",
+      "seed": 49,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "388c7b098eceec6cb20a58b26a6767ec384f1d313e722c1dba3235ffaaec6b43",
+    "reason": "knockout",
+    "ticks": 1951,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "drizzle",
+      "p2": "laser",
+      "seed": 50,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "e3a0f9afa179f56c6f607528540aa61007a00c480d7f11fde18e9a88a10eaa85",
+    "reason": "knockout",
+    "ticks": 1602,
+    "winner": 1
   }
 ]

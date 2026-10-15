@@ -152,6 +152,7 @@ class Zone:
 	var blast := 0.0
 	var blast_radius := 0.0
 	var chain := false ## A blast sets off the owner's other armed mines in reach.
+	var follow := -1 ## Ball index it rides on (a stink cloud, a clinging chill); -1 stays put.
 	var next_hit := {} ## target index -> tick it may next take dps damage
 
 	func armed() -> bool:
@@ -763,7 +764,7 @@ func nearest_foe(b: Ball) -> Ball:
 
 
 ## A floor zone owned by `owner`. `opts`: kind, radius, life, arm, slow, dps,
-## blast, blast_radius, chain. Returns it.
+## blast, blast_radius, chain, follow (a ball index). Returns it.
 func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 	var z := Zone.new()
 	z.owner = owner.index
@@ -777,6 +778,9 @@ func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 	z.blast = opts.get("blast", 0.0)
 	z.blast_radius = opts.get("blast_radius", z.radius)
 	z.chain = opts.get("chain", false)
+	z.follow = opts.get("follow", -1)
+	if z.follow >= 0:
+		z.pos = balls[z.follow].pos
 	zones.append(z)
 	return z
 
@@ -805,6 +809,18 @@ func pulse(owner: Ball, pos: Vector2, radius: float, damage: float, knock := fal
 			o.vel = d.normalized() * o.speed
 
 
+## Wind: turns every foe of `owner` within `reach` of `pos` away from it, at
+## `accel` (units/s^2) next to `pos`, fading to 0 at the edge of `reach`.
+## Like steer(), it bends a ball's path and keeps its speed.
+func push_away(owner: Ball, pos: Vector2, reach: float, accel: float) -> void:
+	for o in foes(owner):
+		var d := o.pos - pos
+		var dist := d.length()
+		if dist < 0.001 or dist >= reach:
+			continue
+		steer(o, d / dist * accel * (1.0 - dist / reach))
+
+
 func _update_zones() -> void:
 	if zones.is_empty():
 		return
@@ -817,6 +833,8 @@ func _update_zones() -> void:
 		if z.age >= z.life:
 			zones.erase(z)
 			continue
+		if z.follow >= 0:
+			z.pos = balls[z.follow].pos
 		if not z.armed():
 			continue
 		var owner := balls[z.owner]

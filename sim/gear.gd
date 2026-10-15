@@ -69,7 +69,9 @@ static func apply_def(def: Dictionary, t: Dictionary) -> Dictionary:
 			var effects: Array = def.effects.duplicate(true)
 			for e in effects:
 				if e.get("on") == "every":
-					e.secs = float(e.secs) / rate
+					# "secs" may name a param (Ghost's phase_every): read it from the def.
+					var secs: float = float(def[e.secs]) if e.secs is String else float(e.secs)
+					e.secs = secs / rate
 			out.effects = effects
 	return out
 
