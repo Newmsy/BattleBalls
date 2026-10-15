@@ -101,6 +101,16 @@ try {
     await page.close();
   }
 
+  // 1b. Season 1 debut: Flux (Magnet) fights Optic; its field rings and poles render.
+  {
+    const { page, logs } = await openGame("?p1=magnet&p2=laser&seed=42&auto=1&speed=2");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, "1b-flux.png") });
+    console.log("flux fight:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.close();
+  }
+
   // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs. Only this case
   // goes online (signs in a guest) when the build has a backend.
   {
@@ -150,9 +160,10 @@ try {
     await tapUi(page, logs, "tab_play", "play");
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "3-menu.png") });
-    // Layout: arena 680px at y=190, controls start at 190+680+120=990.
-    // Menu rows: label, ball row, label, opponent row, seed row, FIGHT! (last).
-    await page.mouse.click(...toPage(page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
+    await waitForLog(logs, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "pick_laser");
+    await page.waitForTimeout(300);
+    await tapUi(page, logs, "menu_fight");
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "4-aim.png") });
     // Drag from the player's corner toward the top middle.
@@ -196,10 +207,11 @@ try {
     await page.screenshot({ path: path.join(shots, "6a-wide-home.png") });
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "6-wide-menu.png") });
-    // Visible area is 1394x1280: arena 614px at x=30, panel at x=684, FIGHT! at the panel's bottom.
-    await page.mouse.click(...toPage(page, 684 + 340, 190 + 100 + 478 - 42));
+    await waitForLog(logs, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "menu_fight");
     await page.waitForTimeout(800);
-    await page.mouse.click(...toPage(page, 684 + 170, 190 + 100 + 42)); // Launch
+    await waitForLog(logs, "UI_AT aim_launch ", 5000);
+    await tapUi(page, logs, "aim_launch");
     console.log("wide menu:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "7-wide-fight.png") });
@@ -253,9 +265,9 @@ try {
     await waitForLog(challenge.logs, "BOOT_OK", 60000);
     await challenge.page.waitForTimeout(1500);
     await challenge.page.screenshot({ path: path.join(shots, "11-challenge-menu.png") });
-    await challenge.page.mouse.click(...toPage(challenge.page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
-    await challenge.page.waitForTimeout(800);
-    await challenge.page.mouse.click(...toPage(challenge.page, 20 + 170, 990 + 42)); // Launch
+    await tapUi(challenge.page, challenge.logs, "menu_fight");
+    await waitForLog(challenge.logs, "UI_AT aim_launch ", 5000);
+    await tapUi(challenge.page, challenge.logs, "aim_launch");
     console.log("challenge fight:", await waitForLog(challenge.logs, "FIGHT_START", 5000));
     await challenge.page.close();
   }
@@ -334,25 +346,25 @@ try {
     await shot.page.close();
   }
 
-  // 10. Finisher cam, then Save clip: the KO is shown zoomed in, the clip
+  // 9b. Finisher cam, then Save clip: the KO is shown zoomed in, the clip
   // plays in its "Who wins?" layout, gets recorded and downloads as a video.
   {
     const { page, logs } = await openGame("?p1=laser&p2=vampire&seed=11&aim=-300&auto=1&speed=4&offline=1&clip=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     console.log("finisher:", await waitForLog(logs, "FINISHER_KO", 90000));
     await page.waitForTimeout(400);
-    await page.screenshot({ path: path.join(shots, "20-finisher.png") });
+    await page.screenshot({ path: path.join(shots, "30-finisher.png") });
     console.log("clip:", await waitForLog(logs, "CLIP_START", 10000));
     await page.waitForTimeout(1200);
-    await page.screenshot({ path: path.join(shots, "21-clip-title.png") });
+    await page.screenshot({ path: path.join(shots, "31-clip-title.png") });
     await page.waitForTimeout(3000);
-    await page.screenshot({ path: path.join(shots, "22-clip-fight.png") });
+    await page.screenshot({ path: path.join(shots, "32-clip-fight.png") });
     const done = await waitForLog(logs, "CLIP_READY", 120000).catch(() => {
       throw new Error(`Clip was not made: ${logs.filter((l) => l.startsWith("CLIP")).join(" | ")}`);
     });
     console.log("clip made:", done, logs.find((l) => l.startsWith("CLIP_BLOB")));
     await page.waitForTimeout(500);
-    await page.screenshot({ path: path.join(shots, "23-clip-ready.png") });
+    await page.screenshot({ path: path.join(shots, "33-clip-ready.png") });
     await page.waitForFunction(() => window.bbShare?.targets.some((t) => t.kind === "clip"), null, { timeout: 5000 });
     const t = await page.evaluate(() => window.bbShare.targets.find((t) => t.kind === "clip"));
     const box = await page.locator("canvas").boundingBox();
@@ -364,6 +376,43 @@ try {
     const bytes = fs.statSync(saved).size;
     console.log("clip file:", file.suggestedFilename(), bytes, "bytes");
     if (bytes < 20000) throw new Error(`Clip file too small: ${bytes} bytes`);
+    await page.close();
+  }
+
+  // 10. Ghost Arena: Play -> Arena screen -> pick a card -> play the relay to a result -> back to the Arena.
+  {
+    const { page, logs } = await openGame("?seed=7&offline=1");
+    await waitForLog(logs, "UI_SCREEN play", 60000);
+    await page.waitForTimeout(800);
+    // The Arena card sits below the fold on a phone: scroll the Play tab first.
+    await page.mouse.move(...toPage(page, 360, 800));
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(150);
+    }
+    await page.waitForTimeout(600);
+    await tapUi(page, logs, "arena", "arena");
+    await page.screenshot({ path: path.join(shots, "18-arena.png") });
+    await tapUi(page, logs, "arena_card_0");
+    console.log("ghost arena:", await waitForLog(logs, "ARENA_READY", 10000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "19-arena-intro.png") });
+    // FIGHT!, Launch and Skip all sit under this point (first panel row, right half).
+    const start = logs.length;
+    let result = null;
+    for (let i = 0; i < 60 && !result; i++) {
+      await page.mouse.click(...toPage(page, 530, 1032));
+      await page.waitForTimeout(700);
+      result = logs.slice(start).find((l) => l.startsWith("ARENA_RESULT"));
+    }
+    if (!result) throw new Error(`Ghost Arena fight never finished. Last logs:\n${logs.slice(-15).join("\n")}`);
+    console.log("ghost arena result:", result);
+    await page.screenshot({ path: path.join(shots, "20-arena-result.png") });
+    const back = logs.length;
+    // Back to Arena sits under the result headline.
+    await page.mouse.click(...toPage(page, 360, 1118));
+    await waitForLogAfter(logs, back, "UI_SCREEN arena", 15000);
+    await page.screenshot({ path: path.join(shots, "21-arena-after.png") });
     await page.close();
   }
 } catch (e) {

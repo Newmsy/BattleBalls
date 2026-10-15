@@ -1,4 +1,4 @@
-## Draws any of the 15 Neon Critters with plain CanvasItem draw calls, so menus
+## Draws any of the Neon Critters with plain CanvasItem draw calls, so menus
 ## can show every critter (the arena renderer only covers the playable ones).
 ## Ported from the approved roster page. Call from a CanvasItem's _draw():
 ##   CritterArt.draw_critter(self, "vampire", centre, radius, {"t": time, "tier": 2})
@@ -24,6 +24,7 @@ const EYES := {
 	"ghost": {"sep": .3, "w": .15, "h": .24, "hollow": true, "mouth": "o"},
 	"gravity": {"sep": .3, "w": .17, "closed": true, "mouth": "smile"},
 	"mirror": {"sep": .3, "w": .2, "h": .25, "p": .1, "mouth": "smile"},
+	"magnet": {"sep": .3, "w": .19, "h": .23, "p": .1, "brow": .16, "mouth": "grin"},
 	"blackhole": {"sep": .3, "dot": true, "mouth": "none"},
 	"phoenix": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": Color("ffb300"), "brow": .3, "mouth": "smirk"},
 	"prism": {"sep": .3, "w": .21, "h": .26, "p": .11, "sparkle": true, "mouth": "smile"},
@@ -190,6 +191,8 @@ static func _body_for(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: 
 				if absf(x) < r * .8:
 					_ell(ci, c + Vector2(x, 0), r * (.09 - .025 * i), _chord_x(r, x) * .92, Color(1, 1, 1, .55), -.6)
 			_ring(ci, c, r, Color("4a5466"), maxf(1.5, r * .07))
+		"magnet":
+			magnet_body(ci, c, r, d.color, d.pole_color, 0.0)
 		"blackhole":
 			_circ(ci, c, r * 1.12, Color(.56, .36, 1.0, .25))
 			_circ(ci, c, r, Color("07060d"))
@@ -299,6 +302,8 @@ static func _back(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: floa
 				_pline(ci, pts, Color(.89, .84, 1.0, .6), r * (.22 - .04 * absi(i - 1)))
 		"gravity":
 			_orbit_ring(ci, c, r, tier, t, true)
+		"magnet":
+			magnet_prongs(ci, c, r, tier, t, d.color, d.pole_color, 0.0)
 		"blackhole":
 			var n := 1 + tier
 			for i in n:
@@ -383,6 +388,50 @@ static func _front(ci: CanvasItem, id: String, d: Dictionary, c: Vector2, r: flo
 				_line(ci, c + Vector2(-r * .08, y - r * .03), c + Vector2(r * .1, y + r * .03), shade(d.color, -.4), maxf(1.2, r * .05))
 		"gravity":
 			_orbit_ring(ci, c, r, tier, t, false)
+
+
+## Flux's two-pole body: red and blue halves split down the middle. `swap`
+## runs 0 -> 1 as the poles spin half a turn when the field flips.
+static func magnet_body(ci: CanvasItem, c: Vector2, r: float, red: Color, blue: Color, swap: float) -> void:
+	var rot := PI * swap
+	var halves := [[red, rot + PI / 2], [blue, rot - PI / 2]]
+	for h in halves:
+		var pts := ellipse_pts(c, r, r, 0.0, h[1], h[1] + PI, 24)
+		_poly(ci, pts, shade(h[0], -.12))
+	if not _sil:
+		for k in range(1, 7):
+			var f := k / 6.0
+			ci.draw_circle(c + Vector2(-.35, -.4) * r * f * .9, r * (1.0 - f * .82), Color(1, 1, 1, .07))
+	var axis := Vector2(cos(rot + PI / 2), sin(rot + PI / 2)) * r * .97
+	_line(ci, c - axis, c + axis, Color("e6ecf5"), maxf(1.5, r * .06))
+	_ring(ci, c, r, Color("2a1f4a"), maxf(1.5, r * .07))
+
+
+## The horseshoe: two silver prongs out of the head with painted pole tips and
+## sparks jumping between them (more sparks per tier).
+static func magnet_prongs(ci: CanvasItem, c: Vector2, r: float, tier: int, t: float, red: Color, blue: Color, swap: float) -> void:
+	var w := maxf(3.0, r * .2)
+	var tips: Array[Vector2] = []
+	for k in [-1, 1]:
+		var base := c + Vector2(k * .42, -.72) * r
+		var tip := c + Vector2(k * .55, -1.32) * r
+		_line(ci, base, tip, Color("b9c3d3"), w)
+		_line(ci, base + Vector2(-k * w * .2, 0), tip + Vector2(-k * w * .2, 0), Color("e9eef6"), w * .35)
+		var pole := red if (k < 0) == (swap < .5) else blue
+		_line(ci, tip, tip + (tip - base).normalized() * r * .2, pole, w * 1.05)
+		tips.append(tip + (tip - base).normalized() * r * .2)
+	if _sil:
+		return
+	for i in mini(1 + tier, 4):
+		var seed_ := floorf(t * 14.0) + i * 7.0
+		if _hash(seed_) < .35:
+			continue
+		var pts := PackedVector2Array([tips[0]])
+		for j in range(1, 5):
+			var f := j / 5.0
+			pts.append(tips[0].lerp(tips[1], f) + Vector2(0, (_hash(seed_ + j) - .5) * r * .35 - sin(f * PI) * r * .15))
+		pts.append(tips[1])
+		ci.draw_polyline(pts, Color(1, .95, .6, .85), maxf(1.0, r * .04), true)
 
 
 static func _orbit_ring(ci: CanvasItem, c: Vector2, r: float, tier: int, t: float, back: bool) -> void:
