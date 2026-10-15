@@ -49,3 +49,15 @@ func test_caps_limit_simultaneous_copies_of_a_sound() -> void:
 	var playing := sfx.playing_count("hit")
 	check_eq(playing, Sfx.RULES["hit"][0], "copies of hit playing")
 	sfx.free()
+
+
+## Godot 4.3's web build drops the route to the speakers when buses are added
+## at runtime, so every sound must stay on the Master bus.
+func test_sounds_stay_on_the_master_bus() -> void:
+	var buses_before := AudioServer.bus_count
+	var sfx := _sfx()
+	check_eq(AudioServer.bus_count, buses_before, "bus count after creating Sfx")
+	for p in sfx._players:
+		check_eq(p.bus, &"Master", "sound player bus")
+	check_eq(sfx._music.bus, &"Master", "music player bus")
+	sfx.free()

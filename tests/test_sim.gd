@@ -269,7 +269,7 @@ func test_magnet_pull_turns_the_foe_toward_it() -> void:
 	foe.pos = Vector2(600, 500)
 	foe.vel = Vector2(0, -400)
 	sim.step()
-	check(sim.balls[0].pulling, "the field starts on Pull")
+	check(sim.balls[0].state.get("pulling", true), "the field starts on Pull")
 	check(foe.vel.x < 0.0, "Pull steers the foe toward the magnet")
 	check_near(foe.vel.length(), foe.speed, 0.001, "steering keeps the foe's speed")
 
@@ -284,7 +284,7 @@ func test_magnet_flips_to_a_weaker_push() -> void:
 	sim.tick = int(m.def.field_period * MatchSim.TICK_RATE)
 	foe.vel = Vector2(0, -400)
 	sim.step()
-	check(not m.pulling, "the field flips to Push after one period")
+	check(not m.state.pulling, "the field flips to Push after one period")
 	check(sim.events.any(func(e): return e.type == "flip" and not e.pulling), "flip event emitted")
 	var push_turn := foe.vel.x
 	check(push_turn > 0.0, "Push steers the foe away")

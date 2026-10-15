@@ -19,7 +19,7 @@ const DEFS := {
 	"rink": {
 		"display_name": "Neon Rink",
 		"description": "An octagon: no corners to get pinned in.",
-		"corner_cut": 220.0,
+		"corner_cut": 200.0,
 		"obstacles": [],
 	},
 	"pillars": {

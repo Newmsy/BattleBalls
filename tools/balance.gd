@@ -48,7 +48,7 @@ func _init() -> void:
 	var arenas: Array = Arenas.PLAYABLE if arena_arg == "all" else [arena_arg]
 	if not arenas.has("square") and arenas.size() > 0:
 		arenas = ["square"] + arenas # The tilt check needs the square as reference.
-	var ids: Array = BallDefs.DEFS.keys()
+	var ids: Array = BallDefs.DEFS.keys().filter(func(id): return not BallDefs.DEFS[id].get("tutorial", false))
 	var lines: Array[String] = []
 	var square_rates := {}
 	for id in arenas:
