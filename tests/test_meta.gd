@@ -185,7 +185,7 @@ func test_save_round_trip() -> void:
 	p.stars["1-1"] = 3
 	p.spend_energy(6, T0)
 	p.toggle_wishlist("laser")
-	p.gear.append({"uid": 3, "name": "Iron Shell", "slot": "Shell", "rarity": "common", "text": "x", "on": "laser"})
+	p.gear.append(Profile.gear_piece({"uid": 3, "name": "Iron Shell", "slot": "Shell", "rarity": "common", "on": "laser"}))
 	var json := JSON.stringify(p.to_dict())
 	var q = Profile.from_dict(JSON.parse_string(json), T0)
 	check_eq(JSON.stringify(q.to_dict()), json, "profile survives a JSON round trip")

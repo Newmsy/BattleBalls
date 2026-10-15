@@ -5,12 +5,14 @@
 ## left at the end wins.
 ##
 ## Config: { seed: int, sides: [[type, ...], [type, ...]], aims: [[aim, ...], [aim, ...]],
-##           powers: [[w, ...], [w, ...]], sizes: [[s, ...], [s, ...]] }
+##           powers: [[w, ...], [w, ...]], sizes: [[s, ...], [s, ...]],
+##           tiers: [[t, ...], [t, ...]] }
 ## `aims[side][slot]` is that ball's launch angle in tenths of a degree from
 ## its own corner (screen space), or null to let the leg seed pick. A ball
-## that stays in launches with the same aim again. `powers` and `sizes`
-## (optional) are per-ball MatchSim `powers` / `sizes` (progression and boss
-## scale); left out, legs use the MatchSim defaults. `gear[side][slot]`
+## that stays in launches with the same aim again. `powers`, `sizes` and
+## `tiers` (optional) are per-ball MatchSim `powers` / `sizes` / `tiers`
+## (progression, boss scale, tier ability upgrades); left out, legs use the
+## MatchSim defaults. sim/lineup.gd side() builds them from lineup slots. `gear[side][slot]`
 ## (optional) is that ball's gear (sim/gear.gd), null for none.
 ##
 ## The game can drive it leg by leg (leg_config() -> run a MatchSim, maybe
@@ -67,7 +69,7 @@ func leg_config() -> Dictionary:
 		"hp": carry_hp.duplicate(),
 		"gear": [gear[0][slot[0]], gear[1][slot[1]]],
 	}
-	for key in ["powers", "sizes"]:
+	for key in ["powers", "sizes", "tiers"]:
 		if config.has(key):
 			leg[key] = [config[key][0][slot[0]], config[key][1][slot[1]]]
 	return leg

@@ -30,6 +30,7 @@ godot --headless --script res://tools/record_golden.gd      # only for intended 
 godot --headless --script res://tools/spire_curve.gd        # The Spire's floor power curve
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
+node screens.mjs ../build/web out-dir                       # every home screen, 2 phone sizes, normal + Larger text
 DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS tests on an empty Postgres
 ```
 
@@ -175,6 +176,9 @@ key) into the web build from repo secrets; without them the build is offline.
   row-level security plus `SECURITY DEFINER` functions in `supabase/migrations`.
 - Schema changes are new migration files (never edit an applied one), with
   tests in `tests/db/`. They reach the live project when merged to `main`.
+  Name a new file with a timestamp later than every migration on `main` (and
+  never one already taken): `supabase db push` refuses to apply a file dated
+  before the newest one already live, which stops every later migration too.
 - `?offline=1` runs the web build without touching the backend.
 
 ### Accounts and cloud save
@@ -194,6 +198,28 @@ when the app regains focus, every 60 s while dirty). When two devices
 collide, the save with more progress (`SaveGame.progress`) wins and the other
 is written to `user://save_backups` (newest 8 kept). Widen `progress` as more
 of the game is saved (account level, critters).
+
+The whole game is in the save: features that keep their own file
+(`ghost_arena.cfg`, `spire.json`, `bounce_run.cfg`, `trick_shot.cfg`,
+`this_week.cfg`, `legends.cfg`, `onboarding.cfg`; `SaveGame.MIRRORED`) ride
+along as text in `data.files` and are written back when a cloud copy is
+adopted. A new feature that saves anything either stores it in `save.data`
+or adds its file to `MIRRORED`. Device settings (`settings.cfg`: sound,
+accessibility), the sign-in session and caches stay on the device. The game
+checks for changes every 3 s and syncs right away, plus on launch, on
+focus in/out and every 60 s while unsynced.
+
+**Test mode** (`game/online/test_user.gd`, `ID := 1`): devices don't start
+their own guest; they sign in to shared test account 1, so its save, Ghost
+Arena trophies and league, friends and leaderboard entries are the same on
+every device. CI's migrate job creates the account and gives it a fresh
+random password on every deploy (`tools/supabase_auth_config.mjs`, using the
+access token to read the project's server key in memory); the public
+`test_login` RPC (`*_test_account.sql`) hands the login to the game, so it is
+never in the repo. Anyone with the URL plays as that account, with a normal
+player's rights only. If the account isn't there yet, devices carry on as
+guests. The CI smoke test (an automated browser) always uses its own guests.
+Set `ID := 0` to go back to one guest per device and real sign-in.
 
 Auth settings live in code: CI's migrate job runs `tools/supabase_auth_config.mjs`
 on every merge to `main` (guest linking, allowed return URLs, email codes) and
@@ -293,6 +319,28 @@ relays take `gear[side][slot]`, each a list of pieces or summed stat lines.
 `sim/gear.gd` holds the seven lines (attack, health, defense, speed, crit
 chance, crit damage, cooldown speed), their per-rarity values and caps.
 `balance.gd --gear` checks the lines stay worth about the same.
+
+## Collection battles: owned critters fight as owned
+
+Every progression mode fights with the critters the player owns, at their
+best tier and level and with the gear they wear: the campaign, Ghost Arena
+(attack and the published defence) and the Spire. `sim/lineup.gd` is the one
+place that turns a lineup slot `{critter, tier, level, gear}` into fight setup
+(tier ability upgrades, the `sim/power.gd` multiplier, gear stat lines), with
+everything clamped to the rules so a tampered ghost can't field a T9.
+`Profile.slot_of(id)` gives an owned critter's slot. The slot is stored with
+the fight (campaign config, `ArenaStore.pending.slots`, Spire picks), so it
+still replays from setup, seed and launch angles.
+
+Gear pieces in the save carry `stats` (sim/gear.gd lines) and a `text` that
+says exactly what they do; older pieces get their name's line on load
+(`Profile.GEAR_LINES`). The Power Rating on screen still counts +4% per piece.
+
+Practice modes stay open to every critter: Quick fight, share links and
+friend challenges, Rival rematches, Trick Shot, Bounce Run's drafted cards
+and Bracket picks. Arena Ghost bots grow with the ladder (T1 below 1200
+trophies up to T5 from 4800; Bronze ghosts bring only Commons and Uncommons),
+so ranked stays a fair climb once tiers count.
 
 ## Rules for changes
 

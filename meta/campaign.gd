@@ -7,6 +7,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const Rng := preload("res://sim/rng.gd")
 const Power := preload("res://sim/power.gd")
+const Lineup := preload("res://sim/lineup.gd")
 
 const RARE_BONUS_CHANCE := 0.05
 ## Second star: win before overtime. Third star: win with this share of HP
@@ -68,14 +69,18 @@ static func start(profile, zone_index: int, stage_index: int, fighter: String, n
 	var st := Zones.stage(zone_index, stage_index)
 	if not profile.spend_energy(Zones.cost(st), now):
 		return {"error": "energy"}
-	return {
+	# Your critter fights as you own it: its tier (ability upgrades and power),
+	# level and gear. All of it is in the config, so the fight replays.
+	var cfg := {
 		"seed": _seed(profile.runs, zone_index, stage_index),
-		"p1": fighter,
 		"p2": st.enemy,
 		"angles": [null, null],
-		"powers": [profile.fight_power(fighter), st.power],
+		"tiers": [1, 1],
+		"powers": [1.0, st.power],
+		"gear": [null, null],
 		"sizes": [1.0, Zones.BOSS_SIZE if Zones.is_boss(st) else 1.0],
 	}
+	return Lineup.apply(cfg, 0, profile.slot_of(fighter))
 
 
 ## Applies a finished stage fight. `fight` is MatchSim.summary() plus the
