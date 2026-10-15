@@ -12,13 +12,13 @@ const CRITTER := {
 	"color": "4a3b36",
 	"vibe": "A grumpy little lump of coal that leaves hot spots wherever it sulks.",
 	"description": "Coal. Every 4 seconds it drops a hot patch that burns foes standing in it.",
-	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
+	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.0},
 	"ability": [{"on": "every", "secs": "patch_every", "do": "patch"}],
 	"params": {
 		"patch_every": 4.0, ## Seconds between hot patches.
 		"patch_radius": 60.0,
 		"patch_life": 4.0,
-		"patch_dps": 4.0,
+		"patch_dps": 3.0,
 		"linger_dps": 2.0, ## T3: a foe that was in a patch keeps burning this much...
 		"linger_slow": 0.0,
 		"linger_secs": 2.0, ## ...for this long.
@@ -26,8 +26,8 @@ const CRITTER := {
 		"patch_flare_damage": 6.0,
 	},
 	"tiers": [
-		{"text": "Hot patch every 4s: 4 damage/s"},
-		{"text": "Patches burn for 5/s", "patch_dps": 5.0},
+		{"text": "Hot patch every 4s: 3 damage/s"},
+		{"text": "Patches burn for 4/s", "patch_dps": 4.0},
 		{"text": "Leaving a patch keeps the foe burning (2/s for 2s)", "ability": [{"on": "always", "do": "linger"}]},
 		{"text": "A patch every 3s", "patch_every": 3.0},
 		{"text": "Hurt Sooty and every patch flares once (6 damage)", "ability": [{"on": "hurt", "do": "patch_flare"}]},

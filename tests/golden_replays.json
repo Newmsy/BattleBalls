@@ -484,10 +484,10 @@
       "p2": "bomber",
       "seed": 24
     },
-    "hash": "627d5d258f7c1df3b30cad7d0fe3c3ab31a8df0f1ede4725e56176824bce805d",
-    "reason": "double_knockout",
+    "hash": "e468d88a2dd71c3e495cee526e69fba94fc86c6c3440be122466b4a847888b81",
+    "reason": "knockout",
     "ticks": 3043,
-    "winner": 1
+    "winner": 0
   },
   {
     "config": {
@@ -514,7 +514,7 @@
       "p2": "thorns",
       "seed": 26
     },
-    "hash": "783a0f13a575805558181876092bb58a450e847a79122de1c9d12f2f29ec9641",
+    "hash": "63af00778a513b14f2fab604709dc718a54432ff29ea6024d6d9d734727746cc",
     "reason": "double_knockout",
     "ticks": 3647,
     "winner": 0
@@ -650,9 +650,9 @@
         5
       ]
     },
-    "hash": "7226dd8b8d794304b90335aa303ebdc2c191fed88588437e26d73ec8786c4ab8",
+    "hash": "a39d1b8aa8f21c6532f8f9d9987a29dccb5721eae0beea103e2f1612491b948d",
     "reason": "knockout",
-    "ticks": 902,
+    "ticks": 915,
     "winner": 0
   },
   {
@@ -688,10 +688,10 @@
         5
       ]
     },
-    "hash": "6ffe4c0c655f01ba5486723084c88f9220d4a7169cceef0c8f8c1e80d347d2e9",
+    "hash": "3b1fc3d4cce4a83d57e699e5b2b5ba6d3b4a9334784339091baf3d592caa0759",
     "reason": "double_knockout",
     "ticks": 2305,
-    "winner": 1
+    "winner": 0
   },
   {
     "config": {
