@@ -109,6 +109,16 @@ func build() -> void:
 		go("arena")
 
 
+## Swap in another player's profile (e.g. the new player from onboarding).
+func set_profile(p) -> void:
+	if profile.changed.is_connected(_refresh_top):
+		profile.changed.disconnect(_refresh_top)
+	profile = p
+	if _built:
+		profile.changed.connect(_refresh_top)
+		refresh()
+
+
 func show_tab(t: String) -> void:
 	open_tab(t, {})
 

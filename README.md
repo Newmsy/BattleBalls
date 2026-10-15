@@ -39,6 +39,11 @@ are served at `<preview>/smoke/`.
 
 URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
 (`aim` is the launch angle in tenths of a degree, screen space, y down).
+
+A first visit with no URL params plays the onboarding
+(`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
+`?tutorial=1` replays it, `?tutorial=0` skips it.
+
 Add `&clip=1` to make a "Save clip" video as soon as the fight ends.
 
 ## Finisher cam and clips
