@@ -294,7 +294,7 @@ class _Flash extends Control:
 
 	func _draw() -> void:
 		if _t < 1.0:
-			draw_rect(Rect2(Vector2.ZERO, size), Color(_col.lerp(Color.WHITE, .5), .55 * (1.0 - _t) * (1.0 - _t)))
+			draw_rect(Rect2(-Vector2(80, 80), size + Vector2(160, 160)), Color(_col.lerp(Color.WHITE, .5), .55 * (1.0 - _t) * (1.0 - _t)))
 
 
 ## A capsule that glows in its critter's rarity colour, then bursts open:
