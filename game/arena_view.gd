@@ -75,6 +75,8 @@ const RARITY_COLORS := Roster.RARITY_COLORS
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const TEAM_TAGS := ["YOU", "FOE"]
 const TEAM_RING_ALPHA := 0.5
+## Critters whose speed-ups trail bubbles instead of a blur.
+const SWIMMERS := ["minnow", "fin", "ripple", "narwhal", "leviathan", "kraken"]
 
 const POPUP_LIFE := 0.9
 const HIT_LIFE := 0.35
@@ -141,6 +143,7 @@ var _was_overtime := false
 var _trails: Array = [[], []] ## Recent world positions per ball, oldest first.
 var _kos: Array[Dictionary] = []
 var _chomps: Array[Dictionary] = [] ## Count Nibbles' bites: {pos, dir, size, age}.
+var _bolts: Array[Dictionary] = [] ## Lightning: {from, to, age, seed}; ring ones have a radius instead of to.
 var _grow_flash := [0.0, 0.0] ## Prickles' spike flash.
 var _dot_seen: Array = [[], []] ## Damage-over-time looks each side already showed a popup for.
 const TRAIL_LEN := 18
@@ -196,6 +199,7 @@ func clear_effects() -> void:
 	_rays.clear()
 	_kos.clear()
 	_chomps.clear()
+	_bolts.clear()
 	_dot_seen = [[], []]
 	_trails = [[], []]
 	_wisps.clear()
@@ -288,7 +292,19 @@ func consume_events(events: Array[Dictionary]) -> void:
 				for i in 6:
 					_particles.append({"pos": m.pos + Vector2(0, -m.radius * 1.3), "vel": _rand_dir() * _fx_rng.randf_range(80.0, 260.0), "age": 0.0, "life": 0.4})
 			"pulse", "boom":
-				_rings.append({"pos": e.pos, "radius": e.radius, "color": RING_COLORS.get(e.get("kind", "boom"), BURST), "age": 0.0})
+				var pk: String = e.get("kind", "")
+				if pk in ["zap", "bigzap"]:
+					# Lightning forks out to every foe in reach, inside a crackling ring.
+					_bolts.append({"from": e.pos, "radius": e.radius, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+					var team: int = sim.balls[e.ball].team if e.get("ball", -1) >= 0 and e.ball < sim.balls.size() else -1
+					var owner_pos: Vector2 = sim.balls[e.ball].pos if team >= 0 else e.pos
+					if owner_pos.distance_to(e.pos) > 1.0: # A strike from the sky (Drizzle's thunder).
+						_bolts.append({"from": e.pos + Vector2(_fx_rng.randf_range(-60.0, 60.0), -520.0), "to": e.pos, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+					for o in sim.balls:
+						if o.alive() and o.team != team and o.pos.distance_to(e.pos) <= e.radius + o.radius:
+							_bolts.append({"from": e.pos, "to": o.pos, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+				else:
+					_rings.append({"pos": e.pos, "radius": e.radius, "color": RING_COLORS.get(e.get("kind", "boom"), BURST), "age": 0.0})
 				if e.type == "boom" or e.get("kind", "") in ["nova", "fire", "bigzap", "drum"]:
 					_shake = maxf(_shake, 8.0 * A11y.motion())
 					_spawn_particles(e.pos, 14)
@@ -343,6 +359,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"chomp":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-50, -g.radius - 34), "CHOMP!", POP_SNAP)
+				var dir: Vector2 = _look[e.ball] if e.ball < _look.size() else Vector2.RIGHT
+				_chomps.append({"pos": g.pos + dir * g.radius * 1.05, "dir": dir, "size": g.radius * 0.8, "age": 0.0})
 				_shake = maxf(_shake, 7.0 * A11y.motion())
 			"unwind":
 				var g := sim.balls[e.ball]
@@ -351,6 +369,12 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "POP!", POP_SNAP)
 				_spawn_particles(g.pos, 10)
+				if g.type_id == "fizz": # A shaken can bursting: a fizzy spray out the back.
+					var back: Vector2 = -g.vel.normalized() if g.vel.length() > 0.001 else Vector2.DOWN
+					for i in 26:
+						var spread := back.rotated(_fx_rng.randf_range(-0.5, 0.5))
+						_particles.append({"pos": g.pos + back * g.radius, "vel": spread * _fx_rng.randf_range(250.0, 650.0), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.8), "col": Color("ffd6ec") if i % 3 else Color.WHITE, "size": _fx_rng.randf_range(3.0, 6.0)})
+					_rings.append({"pos": g.pos, "radius": g.radius * 1.6, "color": ZONE_COLORS.fizz, "age": 0.0})
 			"stun":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-40, -g.radius - 34), "FROZEN!", FROZEN)
@@ -524,6 +548,9 @@ func advance_effects(delta: float) -> void:
 	for k in _chomps:
 		k.age += delta
 	_chomps = _chomps.filter(func(k): return k.age < BattleFx.CHOMP_LIFE)
+	for k in _bolts:
+		k.age += delta
+	_bolts = _bolts.filter(func(k): return k.age < BattleFx.BOLT_LIFE)
 	for i in 2:
 		_grow_flash[i] = maxf(0.0, _grow_flash[i] - delta)
 	_kos = _kos.filter(func(k): return k.age < CosmeticArt.KO_LIFE)
@@ -698,7 +725,9 @@ func _draw() -> void:
 	for b in sim.balls:
 		if b.alive() and b.charge_ticks == 0:
 			var base_speed: float = b.base.get("speed", b.def.get("speed", b.speed))
-			if base_speed > 0.0:
+			if base_speed > 0.0 and b.type_id in SWIMMERS:
+				BattleFx.draw_bubble_trail(self, ball_pos(b) * s, b.radius * s, b.vel, b.vel.length() / base_speed, _time)
+			elif base_speed > 0.0:
 				BattleFx.draw_speed_blur(self, Color(b.def.color), ball_pos(b) * s, b.radius * s, b.vel, b.vel.length() / base_speed, _time)
 	for b in sim.balls:
 		if b.alive():
@@ -715,6 +744,11 @@ func _draw() -> void:
 		draw_circle(p.pos * s, ps, Color(pc, a))
 	for k in _chomps:
 		BattleFx.draw_chomp(self, k.pos * s, k.dir, k.size * s, k.age)
+	for k in _bolts:
+		if k.has("to"):
+			BattleFx.draw_bolt(self, k.from * s, k.to * s, k.age, k.seed)
+		else:
+			BattleFx.draw_zap_ring(self, k.from * s, k.radius * s, k.age, k.seed)
 
 	for k in _kos:
 		CosmeticArt.draw_ko(self, k.item, k.pos * s, k.r * s, k.age / CosmeticArt.KO_LIFE, k.seed)
@@ -912,7 +946,9 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
 	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": tiers[_side(i)], "look": look, "blink": blink,
 		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko,
-		"stacks": int(sim.balls[i].state.get("spikes", 0)) if sim and i < sim.balls.size() else 0, "flash": _grow_flash[i] if i < 2 else 0.0})
+		"stacks": int(sim.balls[i].state.get("spikes", 0)) if sim and i < sim.balls.size() else 0, "flash": _grow_flash[i] if i < 2 else 0.0,
+		"phased": sim != null and i < sim.balls.size() and sim.tick < int(sim.balls[i].state.get("phase_until", -1)),
+		"wind": _art_meter(i, "wind"), "pressure": _art_meter(i, "pressure")})
 	var hat := _cosmetic(_side(i), "hat")
 	if not hat.is_empty():
 		CosmeticArt.draw_hat(self, hat, Vector2.ZERO, r, _time)
@@ -932,6 +968,18 @@ func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	_team_ring(side, pos, r, team_col)
 	_text_centered(pos + Vector2(0, r + 26.0), team_tags[side], A11y.font(18), Color(team_col, 0.7), 4)
 	_hp_badge(def, pos, r, hp, max_hp, 0.4 if _cosmetic(side, "hat") else 0.0)
+
+
+## Cogs' wind-up or Fizz's pressure as 0-1, for the critter art.
+func _art_meter(i: int, key: String) -> float:
+	if sim == null or i >= sim.balls.size():
+		return 0.0
+	var b := sim.balls[i]
+	if key == "wind" and b.def.has("wind_step") and b.mods.has("wind"):
+		return minf(1.0, b.def.wind_step * int(b.state.get("wind", 0)) / b.def.wind_cap)
+	if key == "pressure" and b.def.has("fizz_at"):
+		return int(b.state.get("pressure", 0)) / float(b.def.fizz_at)
+	return 0.0
 
 
 ## The cosmetic `slot` worn by side `i`, as a catalog entry, or {}.
@@ -983,6 +1031,8 @@ func _draw_zone(z, s: float) -> void:
 			BattleFx.draw_bomb(self, p, s, z.armed(), z.blast_radius, z.age, z.pos.x * 0.01, _time)
 		"ice":
 			BattleFx.draw_ice(self, p, z.radius * s, fade, fmod(z.pos.x * 0.13 + z.pos.y * 0.07, 6.28), _time)
+		"honey":
+			BattleFx.draw_honey(self, p, z.radius * s, fade, fmod(z.pos.x * 0.07 + z.pos.y * 0.03, 6.28), _time)
 		"ember":
 			BattleFx.draw_embers(self, p, z.radius * s, fade, fmod(z.pos.x * 0.11 + z.pos.y * 0.05, 6.28), _time)
 		"mine":
@@ -1010,11 +1060,7 @@ func _draw_zone(z, s: float) -> void:
 					var a := k * TAU / 12.0 + _time
 					draw_arc(p, z.radius * s, a, a + TAU / 24.0, 4, Color(col, 0.8), 2.0, true)
 			else:
-				draw_circle(p, z.radius * s, Color(col, 0.22 * fade))
-				for k in 8:
-					var x: float = fmod(k * 37.0 + z.pos.x, z.radius * 1.4) - z.radius * 0.7
-					var y: float = fmod(_time * 500.0 + k * 53.0, z.radius * 1.6) - z.radius * 0.8
-					draw_line(p + Vector2(x, y) * s, p + Vector2(x - 3.0, y + 14.0) * s, Color(col, 0.7 * fade), 2.0, true)
+				BattleFx.draw_rain(self, p, z.radius * s, fade, fmod(z.pos.x * 0.05, 6.28), _time, col)
 		"stardust":
 			var col: Color = ZONE_COLORS.stardust
 			draw_circle(p, z.radius * 0.6 * s, Color(col, 0.25 * fade))
@@ -1246,9 +1292,9 @@ func _draw_status(b, s: float) -> void:
 	if b.slow > 0.0 and not sim.stunned(b):
 		BattleFx.draw_slow(self, BattleFx.slow_goo(sim, b), b.slow, p, r, _time)
 	if b.def.get("grow_armor", 0.0) > 0.0 and b.mods.has("grow"): # Shelly tucked in.
-		for k in 6:
-			var a0 := k * TAU / 6.0
-			draw_arc(p, r * 1.1, a0 + 0.08, a0 + TAU / 6.0 - 0.08, 12, Color("b7f5d6", 0.85), 5.0, true)
+		BattleFx.draw_shell(self, p, r, Color(b.def.color), _time)
+	elif b.type_id == "puff" and b.mods.has("grow"): # Puffed up.
+		BattleFx.draw_spines(self, p, r, Color(b.def.color), _time)
 	if b.state.get("regrowing", false) and b.hp < b.max_hp: # Mossy's sparkles.
 		for k in 3:
 			var f := fmod(_time * 0.8 + k / 3.0, 1.0)
@@ -1260,7 +1306,9 @@ func _draw_status(b, s: float) -> void:
 		meter = int(b.state.get("pressure", 0)) / b.def.fizz_at
 	if meter > 0.0:
 		draw_arc(p, r * 1.16, -PI / 2.0, -PI / 2.0 + TAU * meter, 48, Color(b.def.color, 0.9).lightened(0.35), 4.0, true)
-	if not b.statuses.is_empty() and sim.vulnerable(b) > 0.0:
+	if not b.statuses.is_empty() and sim.vulnerable(b) > 0.0 and _soured_by(b, "pucker"):
+		BattleFx.draw_sour(self, p, r, _time)
+	elif not b.statuses.is_empty() and sim.vulnerable(b) > 0.0:
 		for k in 5:
 			var a := k * TAU / 5.0 + 0.6
 			draw_circle(p + Vector2(cos(a), sin(a)) * r * 0.62, r * 0.09, Color(VULNERABLE, 0.55 + 0.3 * sin(_time * 6.0 + k)))
@@ -1290,6 +1338,15 @@ func _draw_status(b, s: float) -> void:
 		BattleFx.draw_pinball(self, p, r, int(b.state.get("lit", 0)), int(b.def.bulb_max), _time)
 
 	_draw_forms(b, p, r, s)
+
+
+## Whether a live vulnerable status on `b` came from a `type_id` critter.
+func _soured_by(b, type_id: String) -> bool:
+	for key in b.statuses:
+		var st: Dictionary = b.statuses[key]
+		if st.kind == "vulnerable" and sim.tick < st.until and st.source >= 0 and st.source < sim.balls.size() and sim.balls[st.source].type_id == type_id:
+			return true
+	return false
 
 
 ## Stacks and forms: stack pips over the head (bites, faces, scoops, stokes,

@@ -95,7 +95,7 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 	var st := Zones.stage(zone_index, stage_index)
 	var key := Zones.stage_key(zone_index, stage_index)
 	var won: bool = fight.winner == 0
-	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "gear": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0}
+	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "orbs": 0, "gear": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0}
 	if not won:
 		result.refund = Zones.cost(st) - Zones.LOSS_COST
 		profile.refund_energy(result.refund)
@@ -114,7 +114,7 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 	profile.stars[key] = maxi(profile.stars.get(key, 0), stars)
 	result.xp = WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index
 	result.levels = profile.add_xp(fighter, result.xp)
-	result.drops = _roll_drops(profile, zone_index, stage_index, result.first_clear)
+	result.drops = _roll_drops(profile, zone_index, stage_index, result.first_clear, result)
 	result.gear = _roll_gear(profile, zone_index, stage_index, stars, result.first_clear)
 	result.account_levels = profile.add_account_xp(Zones.cost(st))
 	profile.runs += 1
@@ -136,15 +136,19 @@ static func sweep(profile, zone_index: int, stage_index: int, fighter: String, n
 	return finish(profile, zone_index, stage_index, fighter, fight)
 
 
-## One copy per win from the zone's featured critters (with a small chance of
-## the next rarity up), plus a copy of the beaten enemy on first clear, plus
+## A copy from the zone's featured critters on Economy.CAMPAIGN_DROP_CHANCE of
+## wins (with a small chance of the next rarity up), Summon Orbs on the rest
+## (into `result.orbs`), plus a copy of the beaten enemy on first clear, plus
 ## the zone's guaranteed reward on the boss's first clear.
-static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear: bool) -> Array:
+static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear: bool, result := {}) -> Array:
 	var z := Zones.zone(zone_index)
 	var st := Zones.stage(zone_index, stage_index)
 	var rng := Rng.new(_seed(profile.runs, zone_index, stage_index) ^ 0x5bd1e995)
 	var types: Array[String] = []
-	if rng.next_float() < RARE_BONUS_CHANCE and not z.rare_bonus.is_empty():
+	if rng.next_float() >= Economy.CAMPAIGN_DROP_CHANCE:
+		result.orbs = Economy.ORBS_CAMPAIGN_WIN
+		profile.orbs += Economy.ORBS_CAMPAIGN_WIN
+	elif rng.next_float() < RARE_BONUS_CHANCE and not z.rare_bonus.is_empty():
 		types.append(z.rare_bonus[rng.range_int(0, z.rare_bonus.size() - 1)])
 	else:
 		types.append(z.featured[rng.range_int(0, z.featured.size() - 1)])
@@ -156,16 +160,16 @@ static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear:
 	return types
 
 
-## A 1-star piece now and then (more often for 3 stars), and a boss's first
-## clear always gives one at Economy.GEAR_BOSS_TIER. Rolled from the run seed.
+## A piece on Economy.GEAR_CAMPAIGN_CHANCE of wins at Economy.gear_tier for
+## the stage, and a boss's first clear always gives one at
+## Economy.GEAR_BOSS_TIER (+1 per zone). Rolled from the run seed.
 static func _roll_gear(profile, zone_index: int, stage_index: int, stars: int, first_clear: bool) -> Array:
 	var rng := Rng.new(_seed(profile.runs, zone_index, stage_index) ^ 0x2545f491)
-	var chance := Economy.GEAR_CAMPAIGN_CHANCE_3STAR if stars >= 3 else Economy.GEAR_CAMPAIGN_CHANCE
 	var out := []
-	if rng.next_float() < chance:
-		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], 1))
+	if rng.next_float() < Economy.GEAR_CAMPAIGN_CHANCE:
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_tier(zone_index, stage_index)))
 	if first_clear and Zones.is_boss(Zones.stage(zone_index, stage_index)):
-		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.GEAR_BOSS_TIER))
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], mini(5, Economy.GEAR_BOSS_TIER + zone_index)))
 	return out
 
 
