@@ -13,6 +13,7 @@ const Catalog := preload("res://game/glow/catalog.gd")
 const CosmeticArt := preload("res://game/glow/cosmetic_art.gd")
 const A11y := preload("res://game/a11y.gd")
 const RarityMark := preload("res://game/ui/rarity_mark.gd")
+const Abilities := preload("res://sim/abilities.gd")
 
 const INK := Color("1a1530")
 const ARENA_FILL := Color("120f33")
@@ -27,10 +28,35 @@ const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
 const MINE := Color("ff4d4d")
 ## Floor zone fills by kind (sim Zone.kind).
-const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "spore": Color("8fd16a"), "fizz": Color("ff8cc6")}
+const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "spore": Color("8fd16a"), "fizz": Color("ff8cc6"),
+	"lava": Color("ff4500"), "stardust": Color("ff8ae2"), "ember": Color("ff9a3d"), "honey": Color("ffb627"), "ink": Color("8a5cc8"),
+	"stink": Color("9be36b"), "rain": Color("8fa2ff"), "goo": Color("7cff6b"), "brew": Color("b6ff3b"), "sour": Color("9ef01a"),
+	"snow": Color("dff6ff"), "splat": Color("ffc2d1"), "inkpool": Color("5a2a8a"), "whirlpool": Color("3fd0c9"), "clod": Color("b08968"), "thorn": Color("3fbf6a")}
 ## Pulse and blast ring colours by kind.
-const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d")}
+const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"),
+	"zap": Color("c9a6ff"), "bigzap": Color("f0e2ff"), "drum": Color("ff5a6a"), "wind": Color("c7f9cc"), "ink": Color("8a5cc8"), "stink": Color("9be36b"),
+	"shell": Color("ffb347"), "blob": Color("7cff6b"),
+	"shards": Color("cdf3ff"), "paint": Color("ffd23f"), "confetti": Color("f15bb5"), "thunder": Color("8ecbff"),
+	"bugflare": Color("e8ff7a"), "candy": Color("ff9de2"), "inkslam": Color("b36bff"), "wave": Color("5ff0e6"), "quasar": Color("e0b3ff"),
+	"glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968"),
+	"petal": Color("ff9ecf"), "tick": Color("ffd166"), "root": Color("a5743a")}
+## Statuses: frozen (stunned) balls sit in an ice block; vulnerable ones glow sour green.
+const FROZEN := Color("bfefff")
+const VULNERABLE := Color("9ef01a")
+const STRING := Color("ffd1e8")
+const MARK := Color("ff5a5a")
+## Placed arena pieces (sim Piece.kind): {body, rim}.
+const PIECE_COLORS := {"seed": [Color("2f6b12"), Color("8ac926")], "vine": [Color("0b4f37"), Color("2ee59d")],
+	"ice": [Color("4b4a8f"), Color("d9d0ff")], "root": [Color("4a2c10"), Color("b7864a")]}
+## Instant shots (sim "rays" events) by kind; "disco" cycles the rainbow.
+const RAY_COLORS := {"shard": Color("d9d0ff"), "coin": Color("ffd23f"), "seed": Color("8ac926")}
+const RAY_LIFE := 0.35
+## What Jackpot's reels landed on.
+const PRIZE_TEXT := {"mines": "MINES!", "cross": "LASERS!", "coins": "COINS!", "shield": "SHIELD!"}
 const RING_LIFE := 0.45
+## Mode call-outs by critter (Kaleido's clicks, Eclipse's flips), by b.state.mode.
+const MODE_NAMES := {"kaleido": ["SPIKES!", "SHIELD!", "SPEED!", "PRISM!"], "eclipse": ["SUN!", "MOON!"]}
+const MODE_COLORS := {"kaleido": [Color("ff4d6d"), Color("7fe6ff"), Color("ffe066"), Color("ffffff")], "eclipse": [Color("ffb347"), Color("b8c4ff")]}
 ## Crits pop bigger in gold; backstabs get their own call-out.
 const POP_CRIT := Color("ffb627")
 const POP_BACKSTAB := Color("d68cff")
@@ -94,6 +120,7 @@ var _bursts: Array[Dictionary] = []
 var _wisps: Array[Dictionary] = []
 var _rings: Array[Dictionary] = [] ## Expanding pulse / blast rings: {pos, radius, color, age}.
 var _flashes: Array[Dictionary] = [] ## Reflect zaps: {from, to, age}.
+var _rays: Array[Dictionary] = [] ## Instant shots: {segments, kind, age, life}.
 var _look: Array[Vector2] = [Vector2(1, -1).normalized(), Vector2(-1, 1).normalized()]
 var _hit := [0.0, 0.0]
 var _squash := [0.0, 0.0]
@@ -157,6 +184,7 @@ func clear_effects() -> void:
 	_bursts.clear()
 	_rings.clear()
 	_flashes.clear()
+	_rays.clear()
 	_kos.clear()
 	_trails = [[], []]
 	_wisps.clear()
@@ -208,7 +236,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_particles.append({"pos": m.pos + Vector2(0, -m.radius * 1.3), "vel": _rand_dir() * _fx_rng.randf_range(80.0, 260.0), "age": 0.0, "life": 0.4})
 			"pulse", "boom":
 				_rings.append({"pos": e.pos, "radius": e.radius, "color": RING_COLORS.get(e.get("kind", "boom"), BURST), "age": 0.0})
-				if e.type == "boom" or e.get("kind", "") in ["nova", "fire"]:
+				if e.type == "boom" or e.get("kind", "") in ["nova", "fire", "bigzap", "drum"]:
 					_shake = maxf(_shake, 8.0 * A11y.motion())
 					_spawn_particles(e.pos, 14)
 			"reflect":
@@ -225,6 +253,26 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"revive":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "REBORN!", POP_SNAP)
+			"shut":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-34, -g.radius - 34), "CLAMP!", POP_SNAP)
+			"salvo":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 34), "SALVO!", POP_SNAP)
+			"mega":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-60, -g.radius - 46), "MEGA MODE!", POP_CRIT, CRIT_POP_SCALE)
+				_shake = maxf(_shake, 8.0 * A11y.motion())
+			"shot_pop":
+				_spawn_particles(e.pos, 3)
+			"orb_lost":
+				_spawn_particles(e.pos, 6)
+			"yoyo", "fling", "hug", "dive":
+				var g := sim.balls[e.ball]
+				var words := {"yoyo": "SWING!", "fling": "WALK THE DOG!", "hug": "HUG!", "dive": "DIVE!"}
+				_add_popup(g.pos + Vector2(-40, -g.radius - 34), words[e.type], POP_SNAP)
+			"launch":
+				_spawn_particles(e.pos, 4)
 			"shielded":
 				var g := sim.balls[e.target]
 				_add_popup(g.pos + Vector2(28, -g.radius - 10), "0", POP_BEAM)
@@ -244,6 +292,74 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "POP!", POP_SNAP)
 				_spawn_particles(g.pos, 10)
+			"stun":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 34), "FROZEN!", FROZEN)
+				_spawn_particles(g.pos, 8)
+			"wrap":
+				var g := sim.balls[e.ball]
+				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
+				_add_popup(g.pos + Vector2(-44, -g.radius - 60), "WRAPPED!", RING_COLORS.confetti)
+			"wrap_pop":
+				_spawn_particles(e.pos, 16)
+			"shatter":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-44, -g.radius - 60), "SHATTER!", FROZEN, 1.2)
+				_shake = maxf(_shake, 9.0 * A11y.motion())
+				_spawn_particles(e.pos, 18)
+			"storm":
+				var m := sim.balls[e.ball]
+				if e.sparks >= 3:
+					_add_popup(m.pos + Vector2(-34, -m.radius - 34), "ZAP!", RING_COLORS.thunder)
+			"stack":
+				# Stacks and forms: a little squash per stack gained.
+				if e.up:
+					_squash[e.ball] = maxf(_squash[e.ball], 0.15)
+			"burp", "breath", "shout", "roar":
+				var g := sim.balls[e.ball]
+				var call: String = {"burp": "BURP!", "breath": "FWOOSH!", "shout": "HOO!", "roar": "ROAR!"}[e.type]
+				_add_popup(g.pos + Vector2(-48, -g.radius - 34), call, POP_SNAP)
+				_shake = maxf(_shake, (8.0 if e.type == "roar" else 5.0) * A11y.motion())
+			"mode":
+				var g := sim.balls[e.ball]
+				var names: Array = MODE_NAMES.get(g.type_id, [])
+				if e.mode < names.size():
+					_add_popup(g.pos + Vector2(-44, -g.radius - 34), names[e.mode], MODE_COLORS[g.type_id][e.mode])
+			"bubble_pop":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "POP!", Color("9ff3f6"))
+				_rings.append({"pos": g.pos, "radius": g.radius * 1.3, "color": Color("9ff3f6"), "age": 0.0})
+				_spawn_particles(g.pos, 12)
+			"teleport":
+				var g := sim.balls[e.ball]
+				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
+				_spawn_particles(e.from, 10)
+				_spawn_particles(e.to, 10)
+				_bursts.append({"pos": e.to, "age": 0.0})
+				_squash[g.index] = 0.25
+			"yank":
+				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
+				if e.big:
+					var g := sim.balls[e.ball]
+					_add_popup(g.pos + Vector2(-40, -g.radius - 34), "REEL IN!", POP_SNAP)
+			"charge":
+				_squash[e.ball] = maxf(_squash[e.ball], 0.2)
+			"mark":
+				var t := sim.balls[e.target]
+				_add_popup(t.pos + Vector2(-30, -t.radius - 34), "MARKED", MARK)
+			"pounce", "lance", "ping_crit", "gear_slam", "tilt":
+				var g := sim.balls[e.ball]
+				var call: String = {"pounce": "POUNCE!", "lance": "CHARGE!", "ping_crit": "ECHO HIT!", "gear_slam": "TOP GEAR!", "tilt": "TILT!"}[e.type]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 40), call, POP_SNAP, 1.15)
+				_shake = maxf(_shake, 8.0 * A11y.motion())
+			"ding":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "DING x%d" % e.lit, POP_SNAP)
+			"bow":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "BOW!", POP_SNAP)
+			"dig":
+				_rings.append({"pos": e.pos, "radius": sim.balls[e.ball].radius * 1.2, "color": RING_COLORS.dirt, "age": 0.0})
 			"snap":
 				var m := sim.balls[e.ball]
 				_add_popup(m.pos + Vector2(-34, -m.radius - 34), "SNAP!", POP_SNAP)
@@ -255,6 +371,28 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"bumper":
 				_bumper_flash = BUMPER_FLASH_LIFE
 				_spawn_particles(e.pos, 6)
+			"rays":
+				_rays.append({"segments": e.segments, "kind": e.kind, "age": 0.0, "life": 0.6 if e.kind == "disco" else RAY_LIFE})
+			"piece":
+				if e.kind != "illusion":
+					_spawn_particles(e.pos, 4)
+			"lash":
+				var t := sim.balls[e.target]
+				_add_popup(t.pos + Vector2(-40, -t.radius - 34), "LASHED!", POP_SNAP)
+			"root":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-46, -g.radius - 40), "ROOTED!", POP_HEAL)
+			"rewind":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-46, -g.radius - 40), "REWIND!", POP_SNAP)
+				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
+			"swap":
+				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
+				_spawn_particles(e.pos, 10)
+			"spin":
+				var g := sim.balls[e.ball]
+				var text: String = "JACKPOT!" if e.prizes.size() > 1 else PRIZE_TEXT.get(e.prizes[0], "")
+				_add_popup(g.pos + Vector2(-40, -g.radius - 40), text, POP_CRIT if e.prizes.size() > 1 else POP_SNAP, 1.2 if e.prizes.size() > 1 else 1.0)
 			"end":
 				for b in sim.balls:
 					if not b.alive():
@@ -315,6 +453,9 @@ func advance_effects(delta: float) -> void:
 	for k in _flashes:
 		k.age += delta
 	_flashes = _flashes.filter(func(k): return k.age < 0.25)
+	for k in _rays:
+		k.age += delta
+	_rays = _rays.filter(func(k): return k.age < k.life)
 	queue_redraw()
 
 
@@ -376,6 +517,16 @@ func _draw() -> void:
 
 	for z in sim.zones:
 		_draw_zone(z, s)
+	for p in sim.pieces:
+		_draw_piece(p, s, shake)
+	for b in sim.balls:
+		_draw_lash(b, s)
+		_draw_prize_tells(b, s)
+
+	for shot in sim.shots:
+		_draw_shot(shot, s)
+	for t in sim.tethers:
+		_draw_string(sim.balls[t.owner].pos * s, sim.balls[t.target].pos * s)
 
 	var bi := 0
 	for beam in sim.beams:
@@ -383,7 +534,11 @@ func _draw() -> void:
 		var a: Vector2 = beam.a * s
 		var b: Vector2 = beam.b * s
 		var col := BEAM
-		if sim.balls[beam.owner].def.get("beam_rainbow", 0):
+		if sim.balls[beam.owner].def.has("fire_count"): # Drako's fireballs.
+			col = ZONE_COLORS.fire
+		elif sim.balls[beam.owner].def.has("beam_color"):
+			col = Color(sim.balls[beam.owner].def.beam_color)
+		elif sim.balls[beam.owner].def.get("beam_rainbow", 0):
 			col = Color.from_hsv(fmod(bi * 0.14 + _time * 0.5, 1.0), 0.7, 1.0)
 		bi += 1
 		draw_line(a, b, Color(col, 0.18 * k), 14.0, true)
@@ -398,16 +553,29 @@ func _draw() -> void:
 			_draw_field(b, s)
 		if b.def.has("pull_range"):
 			_draw_inflow(ball_pos(b) * s, b.radius * s, b.def.pull_range * s, Color("8f7bff"), 0.18)
+		if b.def.has("wind_range"):
+			var huffing: bool = sim.tick < int(b.state.get("huff_until", -1))
+			_draw_outflow(ball_pos(b) * s, b.radius * s, b.def.wind_range * s, ZONE_COLORS.stink.lightened(0.5), 0.5 if huffing else 0.2, 3.0 if huffing else 0.8)
 		if b.state.get("collapsing", false):
 			_draw_inflow(ball_pos(b) * s, b.radius * s, b.def.collapse_range * s, Color("c58bff"), 0.45)
-		for m in b.state.get("moons", []):
-			draw_circle(m * s, (b.def.moon_size + 4.0) * s, Color("d9d4ff", 0.25))
-			draw_circle(m * s, b.def.moon_size * s, Color("d9d4ff"))
-			draw_circle((m + Vector2(-3, -3)) * s, b.def.moon_size * 0.4 * s, Color.WHITE)
+		if sim.tick < int(b.state.get("dive_until", -1)):
+			_draw_dive(b, s)
+		for item in Abilities.orb_items(sim, b):
+			_draw_orb(b, item, s)
 
 	for k in _rings:
 		var t: float = k.age / RING_LIFE
 		draw_arc(k.pos * s, k.radius * s * (0.3 + 0.7 * sqrt(t)), 0.0, TAU, 64, Color(k.color, 0.8 * (1.0 - t)), 6.0 * (1.0 - t) + 1.0, true)
+	for k in _rays:
+		var t: float = k.age / k.life
+		var col: Color = RAY_COLORS.get(k.kind, BEAM)
+		for i in k.segments.size():
+			if k.kind == "disco":
+				col = Color.from_hsv(fmod(i * 0.13 + _time * 0.6, 1.0), 0.55, 1.0)
+			var a: Vector2 = k.segments[i][0] * s
+			var b: Vector2 = k.segments[i][1] * s
+			draw_line(a, b, Color(col, 0.3 * (1.0 - t)), 10.0, true)
+			draw_line(a, b, Color(col, 0.95 * (1.0 - t)), 3.0, true)
 	for k in _flashes:
 		var t: float = k.age / 0.25
 		draw_line(k.from * s, k.to * s, Color(Color.from_hsv(fmod(_time, 1.0), 0.5, 1.0), 0.9 * (1.0 - t)), 3.0, true)
@@ -548,6 +716,8 @@ func _grid_line(a: Vector2, b: Vector2, clip: PackedVector2Array) -> void:
 func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 	var s := view_scale
 	for o in obstacles:
+		if o.has("piece"):
+			continue # Placed pieces draw themselves (_draw_piece).
 		var p: Vector2 = o.pos * s
 		var rad: float = o.radius * s
 		if o.kind == "bumper":
@@ -657,10 +827,232 @@ func _draw_zone(z, s: float) -> void:
 			draw_circle(p, 6.0 * s, MINE if on else Color(MINE, 0.35))
 		"ring":
 			draw_arc(p, z.radius * s, 0.0, TAU, 64, Color(ZONE_COLORS.ring, 0.6 * fade), 10.0 * s, true)
+		"stink":
+			# Rides on Whiff: lumpy green puffs drifting round it.
+			for k in 6:
+				var a := _time * 0.6 + k * TAU / 6.0
+				draw_circle(p + Vector2(cos(a), sin(a)) * z.radius * 0.55 * s, z.radius * 0.45 * s, Color(ZONE_COLORS.stink, 0.07))
+			draw_arc(p, z.radius * s, 0.0, TAU, 48, Color(ZONE_COLORS.stink, 0.25), 2.0, true)
+		"rain":
+			var col: Color = ZONE_COLORS.rain
+			if not z.armed():
+				# The warning: a dark circle with a dashed rim.
+				draw_circle(p, z.radius * s, Color(0.0, 0.0, 0.08, 0.35))
+				for k in 12:
+					var a := k * TAU / 12.0 + _time
+					draw_arc(p, z.radius * s, a, a + TAU / 24.0, 4, Color(col, 0.8), 2.0, true)
+			else:
+				draw_circle(p, z.radius * s, Color(col, 0.22 * fade))
+				for k in 8:
+					var x: float = fmod(k * 37.0 + z.pos.x, z.radius * 1.4) - z.radius * 0.7
+					var y: float = fmod(_time * 500.0 + k * 53.0, z.radius * 1.6) - z.radius * 0.8
+					draw_line(p + Vector2(x, y) * s, p + Vector2(x - 3.0, y + 14.0) * s, Color(col, 0.7 * fade), 2.0, true)
+		"stardust":
+			var col: Color = ZONE_COLORS.stardust
+			draw_circle(p, z.radius * 0.6 * s, Color(col, 0.25 * fade))
+			_star(p, z.radius * 0.35 * s * fade, z.radius * 0.14 * s * fade, 4, Color(col.lightened(0.4), 0.8 * fade))
+		"paint":
+			# Wet rainbow paint: the hue walks along the trail.
+			var col := Color.from_hsv(fmod((z.pos.x + z.pos.y) * 0.0015, 1.0), 0.65, 1.0)
+			draw_circle(p, z.radius * s, Color(col, 0.3 * fade))
+			draw_circle(p, z.radius * 0.5 * s, Color(col, 0.25 * fade))
+		"pixel":
+			# Pixel's bomb: a chunky square that flickers between frames.
+			var on: bool = z.armed() and fmod(_time * 4.0 + z.pos.y * 0.01, 1.0) < 0.5
+			var half: float = 14.0 * s
+			if z.armed():
+				draw_arc(p, z.blast_radius * s, 0.0, TAU, 40, Color("7cff4f", 0.12), 2.0, true)
+			draw_rect(Rect2(p - Vector2(half, half), Vector2(half, half) * 2.0), Color("1f4d12"))
+			draw_rect(Rect2(p - Vector2(half, half) * 0.5, Vector2(half, half)), Color("7cff4f") if on else Color("7cff4f", 0.35))
+		"clod":
+			var land: float = clampf(z.age / maxf(z.arm, 0.01), 0.0, 1.0)
+			draw_circle(p, z.radius * s * (0.4 + 0.6 * land), Color(ZONE_COLORS.clod, 0.25 + 0.5 * land))
 		_:
+			if z.follow >= 0:
+				return # A clinging slow: the ball's own slow ring shows it.
 			var col: Color = ZONE_COLORS.get(z.kind, Color.WHITE)
 			draw_circle(p, z.radius * s, Color(col, 0.28 * fade))
 			draw_circle(p, z.radius * 0.55 * s, Color(col, 0.22 * fade))
+
+
+## Wind streaks flowing outward (Gust); `speed` quickens them during a huff.
+func _draw_outflow(c: Vector2, inner: float, reach: float, col: Color, alpha: float, speed: float) -> void:
+	for k in 3:
+		var f := fmod(_time * speed + k / 3.0, 1.0)
+		var r := lerpf(inner * 1.1, reach, f)
+		for j in 4:
+			var a := j * TAU / 4.0 + k * 0.5 + _time * 0.3
+			draw_arc(c, r, a, a + 0.7, 12, Color(col, alpha * (1.0 - f)), 3.0, true)
+
+
+## Projectiles in the owner's colour with a bright core. A lobbed shot arcs
+## over a shadow toward a blinking target ring where it will land.
+func _draw_shot(shot, s: float) -> void:
+	var col: Color = sim.balls[shot.owner].def.color.lightened(0.25)
+	var p: Vector2 = shot.pos * s
+	var r: float = shot.radius * s
+	if shot.lob:
+		var t: float = clampf(shot.age / shot.flight, 0.0, 1.0)
+		var land: Vector2 = shot.land * s
+		var reach: float = maxf(shot.land_radius, shot.zone.get("radius", 40.0)) * s
+		var blink := 0.35 + 0.35 * absf(sin(_time * 10.0))
+		draw_arc(land, reach, 0.0, TAU, 48, Color(RING_COLORS.get(shot.kind, BURST), blink), 3.0, true)
+		draw_arc(land, reach * 0.25 * (1.0 - t) + 6.0, 0.0, TAU, 24, Color(RING_COLORS.get(shot.kind, BURST), blink), 2.0, true)
+		draw_circle(p, 9.0 * s, Color(0, 0, 0, 0.35))
+		var lift := Vector2(0, -sin(PI * t) * 150.0 * s)
+		draw_circle(p + lift, 22.0 * s, Color(col, 0.35))
+		draw_circle(p + lift, 15.0 * s, col)
+		draw_circle(p + lift + Vector2(-3, -3) * s, 4.0 * s, Color.WHITE)
+		return
+	var back: Vector2 = -shot.vel.normalized() if shot.vel.length() > 0.001 else Vector2.ZERO
+	if shot.kind in ["rocket", "stinger"]:
+		draw_line(p, p + back * r * 3.0, Color(Color("ffb347") if shot.kind == "rocket" else col, 0.6), r * 0.9, true)
+	else:
+		draw_line(p, p + back * r * 2.0, Color(col, 0.25), r * 1.2, true)
+	draw_circle(p, r * 1.6, Color(col, 0.25))
+	draw_circle(p, r, col)
+	draw_circle(p + Vector2(-0.3, -0.3) * r, r * 0.4, Color.WHITE)
+
+
+## One orbiter or attachment (sim/abilities.gd, batch E), by its look.
+func _draw_orb(b, item: Dictionary, s: float) -> void:
+	var p: Vector2 = item.pos * s
+	var r: float = item.size * s
+	var col: Color = b.def.color
+	if item.has("from"):
+		var thick := 10.0 if item.look == "tentacle" else 4.0
+		draw_line(item.from * s, p, Color(col.lightened(0.25), 0.85), thick * s, true)
+		if item.look == "wreck":
+			draw_line(item.from * s, p, Color("ffe066", 0.5), 1.5, true)
+	match item.look:
+		"bug":
+			draw_circle(p, r * 2.2, Color("eaff6a", 0.18 + 0.1 * sin(_time * 8.0)))
+			draw_circle(p, r, Color("eaff6a"))
+			draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.4, Color.WHITE)
+		"candy":
+			var hues := [Color("ff5fa2"), Color("ffd23f"), Color("6ee7ff"), Color("a6ff6e")]
+			draw_circle(p, r * 1.3, Color(hues[int(item.get("hue", 0)) % 4], 0.25))
+			draw_circle(p, r, hues[int(item.get("hue", 0)) % 4])
+			draw_arc(p, r * 0.6, _time * 4.0, _time * 4.0 + PI, 12, Color.WHITE, 2.0, true)
+		"wreck":
+			var big: bool = item.get("big", false)
+			draw_circle(p, r * 1.25, Color("ffe066", 0.35 if big else 0.12))
+			draw_circle(p, r, Color("3a3f45"))
+			draw_arc(p, r, 0.0, TAU, 24, Color("ffe066"), 2.5, true)
+			draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.25, Color(1, 1, 1, 0.6))
+		"bee":
+			draw_circle(p, r, Color("ffc93c"))
+			draw_line(p + Vector2(-r * 0.3, -r), p + Vector2(-r * 0.3, r), Color("2a1d05"), 2.5)
+			draw_line(p + Vector2(r * 0.3, -r), p + Vector2(r * 0.3, r), Color("2a1d05"), 2.5)
+			draw_circle(p + Vector2(0, -r * 0.9), r * 0.5, Color(1, 1, 1, 0.55))
+		"tentacle":
+			draw_circle(p, r, col.lightened(0.25))
+			draw_circle(p, r * 0.45, Color("ffd6f5", 0.8))
+		"segment":
+			draw_circle(p, r * 1.3, Color("5ff0e6", 0.18))
+			draw_circle(p, r, col.lightened(0.15))
+			draw_arc(p, r * 0.7, 0.0, TAU, 20, Color("5ff0e6", 0.85), 2.5, true)
+		"yoyo":
+			draw_circle(p, r, Color(col, 0.55))
+			draw_arc(p, r, 0.0, TAU, 24, Color("7ff3ff", 0.8), 2.0, true)
+		_:
+			draw_circle(p, r + 4.0 * s, Color("d9d4ff", 0.25))
+			draw_circle(p, r, Color("d9d4ff"))
+			draw_circle(p + Vector2(-3, -3) * s, r * 0.4, Color.WHITE)
+
+
+## Leviathan's dive: a swirl where it went down and a shrinking ring where it
+## will burst up.
+func _draw_dive(b, s: float) -> void:
+	for k in 3:
+		var a := _time * 6.0 + k * TAU / 3.0
+		draw_arc(b.pos * s, b.radius * s * (0.6 + 0.2 * k), a, a + PI * 0.9, 16, Color("5ff0e6", 0.6), 3.0, true)
+	var t: Vector2 = b.state.get("dive_target", b.pos)
+	var left: float = (int(b.state.dive_until) - sim.tick) / float(MatchSim.TICK_RATE)
+	var reach: float = b.def.get("wave_radius", 200.0)
+	draw_arc(t * s, reach * s, 0.0, TAU, 48, Color("5ff0e6", 0.25), 2.0, true)
+	draw_arc(t * s, reach * s * clampf(left / 1.2, 0.1, 1.0), 0.0, TAU, 48, Color("5ff0e6", 0.7), 3.0, true)
+
+
+## A piece a critter placed: pillars grow up out of the floor (dashed while a
+## ball still stands on them, as they don't block yet) and sink as they end;
+## Foxfire's illusions are see-through copies of it with no HP badge.
+func _draw_piece(p, s: float, shake: Vector2) -> void:
+	var grow: float = clampf(p.age / maxf(p.grow, 0.15), 0.0, 1.0)
+	var sink: float = clampf((p.life - p.age) / 0.3, 0.0, 1.0)
+	var k := minf(grow, sink)
+	var pos: Vector2 = p.pos * s
+	var rad: float = p.radius * s * (0.35 + 0.65 * k)
+	if p.kind == "illusion":
+		var owner = sim.balls[p.owner]
+		var look: Vector2 = p.vel.normalized() if p.vel.length() > 0.001 else Vector2.RIGHT
+		draw_set_transform(pos + shake)
+		CritterArt.draw_critter(self, owner.def.id, Vector2.ZERO, p.radius * s, {"t": _time, "tier": tiers[p.owner], "look": look})
+		draw_set_transform(shake)
+		draw_circle(pos, p.radius * s * 1.04, Color(ARENA_FILL, 0.45))
+		for f in 5:
+			var a := _time * 5.0 + f * TAU / 5.0
+			draw_circle(pos + Vector2(cos(a), sin(a)) * p.radius * s * 0.95, 5.0, Color("6fb7ff", 0.7 * sink))
+		return
+	var cols: Array = PIECE_COLORS.get(p.kind, [PILLAR.darkened(0.6), PILLAR.lightened(0.2)])
+	draw_circle(pos + Vector2(3, 5) * k, rad, Color(0, 0, 0, 0.3 * k))
+	draw_circle(pos, rad, Color(cols[0], 0.5 + 0.5 * k))
+	draw_circle(pos + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(cols[1], 0.25))
+	if p.blocking:
+		draw_arc(pos, rad, 0, TAU, 40, cols[1], 2.5, true)
+	else:
+		for d in 10:
+			draw_arc(pos, rad, d * TAU / 10.0, (d + 0.5) * TAU / 10.0, 4, Color(cols[1], 0.8), 2.0, true)
+	match p.kind:
+		"seed", "vine":
+			for l in 2:
+				var a := -PI / 2.0 + (l - 0.5) * 1.1
+				_ellipse(pos + Vector2(cos(a), sin(a)) * rad * 0.55, rad * 0.32, rad * 0.18, Color(cols[1], 0.9))
+		"ice":
+			_star(pos, rad * 0.7, rad * 0.25, 6, Color(cols[1], 0.85))
+		"root":
+			for l in 3:
+				var a := l * TAU / 3.0 + 0.4
+				draw_line(pos, pos + Vector2(cos(a), sin(a)) * rad * 0.8, Color(cols[1], 0.8), 3.0, true)
+
+
+## Ivy's lash: a taut vine from the lashed foe to each vine pillar.
+func _draw_lash(b, s: float) -> void:
+	var lash: Dictionary = b.state.get("lash", {})
+	if lash.is_empty():
+		return
+	var f = sim.balls[lash.target]
+	for a in lash.anchors:
+		var from: Vector2 = a.piece.pos * s
+		var to: Vector2 = f.pos * s
+		draw_line(from, to, Color("0b4f37"), 7.0, true)
+		draw_line(from, to, Color("2ee59d"), 3.0, true)
+		for l in 4:
+			var q := from.lerp(to, (l + 0.5) / 4.0)
+			_ellipse(q, 5.0, 3.0, Color("ff9ecf"))
+
+
+## Jackpot's next payout, shown where it will land before it fires: a dashed
+## cross through the locked spot, or a ring of coin marks round itself.
+func _draw_prize_tells(b, s: float) -> void:
+	for p in b.state.get("prizes", []):
+		var blink := 0.35 + 0.35 * sin(_time * 18.0)
+		if p.prize == "cross":
+			var r := sim.arena_rect()
+			var c: Vector2 = p.spot
+			_dashed(Vector2(r.position.x, c.y) * s, Vector2(r.end.x, c.y) * s, Color(BEAM, blink))
+			_dashed(Vector2(c.x, r.position.y) * s, Vector2(c.x, r.end.y) * s, Color(BEAM, blink))
+		elif p.prize == "coins":
+			draw_arc(b.pos * s, (b.radius + b.def.prize_coin_reach) * s, 0.0, TAU, 64, Color(RAY_COLORS.coin, blink * 0.6), 2.0, true)
+
+
+func _dashed(a: Vector2, b: Vector2, col: Color) -> void:
+	var length := a.distance_to(b)
+	var dir := (b - a) / maxf(length, 0.001)
+	var d := 0.0
+	while d < length:
+		draw_line(a + dir * d, a + dir * minf(d + 12.0, length), col, 2.0, true)
+		d += 22.0
 
 
 ## Flow lines drifting inward: a pull field (Orbit) or a collapse (Void).
@@ -683,6 +1075,8 @@ func _draw_status(b, s: float) -> void:
 		for k in 4:
 			var a := _time * 3.0 + k * TAU / 4.0
 			draw_circle(p + Vector2(cos(a), sin(a) * 0.6 - 0.4) * r * 0.9, 4.0, Color("ff8a1f", 0.8))
+	if sim.tick < int(b.state.get("shut_until", -1)):
+		draw_arc(p, r * 1.08, 0.0, TAU, 48, Color("f7c6d9", 0.9), 6.0, true)
 	if b.slow > 0.0:
 		draw_arc(p, r * 1.02, 0.0, TAU, 48, Color("bfe9ff", 0.6), 3.0, true)
 	if b.def.get("grow_armor", 0.0) > 0.0 and b.mods.has("grow"): # Shelly tucked in.
@@ -700,12 +1094,94 @@ func _draw_status(b, s: float) -> void:
 		meter = int(b.state.get("pressure", 0)) / b.def.fizz_at
 	if meter > 0.0:
 		draw_arc(p, r * 1.16, -PI / 2.0, -PI / 2.0 + TAU * meter, 48, Color(b.def.color, 0.9).lightened(0.35), 4.0, true)
+	if not b.statuses.is_empty() and sim.vulnerable(b) > 0.0:
+		for k in 5:
+			var a := k * TAU / 5.0 + 0.6
+			draw_circle(p + Vector2(cos(a), sin(a)) * r * 0.62, r * 0.09, Color(VULNERABLE, 0.55 + 0.3 * sin(_time * 6.0 + k)))
+	if sim.stunned(b):
+		var block := Rect2(p - Vector2(r, r) * 1.1, Vector2(r, r) * 2.2)
+		_rounded_rect(block, r * 0.25, Color(FROZEN, 0.35))
+		_rounded_rect_outline(block, r * 0.25, Color(FROZEN, 0.9), 3.0)
+		draw_line(block.position + Vector2(r * 0.3, r * 0.4), block.position + Vector2(r * 0.7, r * 0.2), Color.WHITE, 3.0, true)
+	if sim.tick < int(b.state.get("marked_until", -1)):
+		# Pounce's target ring: a crosshair that tightens.
+		var k := 1.25 + 0.1 * sin(_time * 10.0)
+		draw_arc(p, r * k, 0.0, TAU, 48, Color(MARK, 0.85), 3.0, true)
+		for q in 4:
+			var d := Vector2.from_angle(q * TAU / 4.0)
+			draw_line(p + d * r * (k - 0.2), p + d * r * (k + 0.15), Color(MARK, 0.85), 3.0, true)
+	if sim.tick < int(b.state.get("dizzy_until", -1)):
+		_dizzy_stars(p, r, _time)
+	if b.charge_ticks > 0 and b.vel.length() > 0.001:
+		# Speed streaks behind a charging ball.
+		var back: Vector2 = -b.vel.normalized()
+		for q in 3:
+			var side: Vector2 = back.orthogonal() * r * (q - 1) * 0.5
+			draw_line(p + back * r + side, p + back * r * 2.0 + side, Color(1, 1, 1, 0.45), 3.0, true)
+	if b.def.has("gear_step"):
+		_pips(p + Vector2(0, r + 38.0), int(b.state.get("gear", 0)), int(b.def.gear_max), Color("a7c957"))
+	if b.def.has("bulb_max"):
+		_pips(p + Vector2(0, r + 38.0), int(b.state.get("lit", 0)), int(b.def.bulb_max), Color("ffe066"))
+
+	_draw_forms(b, p, r, s)
+
+
+## Stacks and forms: stack pips over the head (bites, faces, scoops, stokes,
+## swell), Bubbles' bubble, Supernova's pre-blast flicker, Eclipse's corona
+## and Kaleido's mode, and a chilled or frozen foe.
+func _draw_forms(b, p: Vector2, r: float, s: float) -> void:
+	var n := int(b.state.get("stacks", 0))
+	var full: int = int(b.def.get("stack_max", 0))
+	if full > 0 and full <= 6:
+		for k in full:
+			var at := p + Vector2((k - (full - 1) / 2.0) * 13.0, r + 52.0) # Under the team tag.
+			draw_circle(at, 4.5, Color(b.def.color, 0.9).lightened(0.4) if k < n else Color(1, 1, 1, 0.18))
+		if b.def.has("fire_count") and n >= full: # Drako's throat glows.
+			draw_circle(p + _look[b.index] * r * 0.55, r * 0.28, Color(ZONE_COLORS.fire, 0.45 + 0.3 * sin(_time * 18.0)))
+	if b.state.get("bubble", 0.0) > 0.0 and sim.tick < int(b.state.get("bubble_until", -1)):
+		draw_circle(p, r * 1.22, Color("9ff3f6", 0.12))
+		draw_arc(p, r * 1.22, 0.0, TAU, 48, Color.from_hsv(fmod(_time * 0.4, 1.0), 0.35, 1.0, 0.8), 3.0, true)
+		draw_circle(p + Vector2(-r * 0.5, -r * 0.7), r * 0.12, Color(1, 1, 1, 0.6))
+	if b.state.get("nova_warn", false):
+		var k := 0.5 + 0.5 * sin(_time * 30.0)
+		draw_circle(p, r * 1.3, Color("fff3c4", 0.25 + 0.35 * k))
+		draw_arc(p, b.def.nova_radius * s, 0.0, TAU, 72, Color("ffd6a5", 0.3 * k), 3.0, true)
+	if MODE_COLORS.has(b.type_id) and (b.state.has("mode") or b.type_id == "eclipse"):
+		var m := int(b.state.get("mode", 0))
+		var col: Color = MODE_COLORS[b.type_id][m]
+		var both: bool = sim.tick < int(b.state.get("total_until", -1))
+		if b.type_id == "eclipse" and (m == 0 or both):
+			var reach: float = (b.radius + b.def.sun_radius) * s
+			draw_circle(p, reach, Color(col, 0.08))
+			for k in 12:
+				var a := _time * 0.6 + k * TAU / 12.0
+				draw_line(p + Vector2.from_angle(a) * r * 1.08, p + Vector2.from_angle(a) * reach, Color(col, 0.35), 3.0, true)
+		draw_arc(p, r * 1.07, 0.0, TAU, 48, Color(col, 0.7), 3.0, true)
+
+
+## A row of meter lights under a ball: Gearbox's gears, Pinball's bulbs.
+func _pips(c: Vector2, lit: int, total: int, col: Color) -> void:
+	for q in total:
+		var at := c + Vector2((q - (total - 1) / 2.0) * 13.0, 0)
+		draw_circle(at, 5.0, Color(col, 0.95) if q < lit else Color(INK, 0.8))
+		draw_arc(at, 5.0, 0.0, TAU, 12, Color(col, 0.6), 1.5, true)
+
+
+## Puppeteer's string: a sagging glowing line from the owner to the foe.
+func _draw_string(a: Vector2, b: Vector2) -> void:
+	var pts := PackedVector2Array()
+	var sag := minf(a.distance_to(b) * 0.12, 30.0)
+	for q in 13:
+		var t := q / 12.0
+		pts.append(a.lerp(b, t) + Vector2(0, sag * sin(t * PI)))
+	draw_polyline(pts, Color(STRING, 0.3), 7.0, true)
+	draw_polyline(pts, STRING, 2.5, true)
 
 
 ## Stars circling the head of a knocked-out critter.
-func _dizzy_stars(pos: Vector2, r: float) -> void:
+func _dizzy_stars(pos: Vector2, r: float, clock := -1.0) -> void:
 	for k in 3:
-		var a := _ko_age * 4.0 * A11y.motion() + k * TAU / 3.0
+		var a := (_ko_age if clock < 0.0 else clock) * 4.0 * A11y.motion() + k * TAU / 3.0
 		var p := pos + Vector2(cos(a) * r * 0.75, -r * 1.05 + sin(a) * r * 0.22)
 		_star(p, r * 0.16, r * 0.07, 5, Color(BURST, 0.6 + 0.4 * sin(a)))
 

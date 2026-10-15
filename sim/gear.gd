@@ -69,7 +69,11 @@ static func apply_def(def: Dictionary, t: Dictionary) -> Dictionary:
 			var effects: Array = def.effects.duplicate(true)
 			for e in effects:
 				if e.get("on") == "every":
-					e.secs = float(e.secs) / rate
+					# A named timer param (Wisp's phase_every) keeps its name.
+					if e.secs is String:
+						out[e.secs] = def[e.secs] / rate
+					else:
+						e.secs = float(e.secs) / rate
 			out.effects = effects
 	return out
 

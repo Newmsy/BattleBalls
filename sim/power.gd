@@ -23,8 +23,9 @@ static func rating(power: float) -> int:
 	return roundi(1000.0 * power)
 
 
-## HP and every damage stat scale by sqrt(power), so HP x damage scales by
-## `power`. Returns the def unchanged at 1.0, so unpowered fights are untouched.
+## HP and every damage stat (contact, *_damage and per-second *_dps) scale by
+## sqrt(power), so HP x damage scales by `power`. Returns the def unchanged
+## at 1.0, so unpowered fights are untouched.
 static func scale_def(def: Dictionary, power: float) -> Dictionary:
 	if power == 1.0:
 		return def
@@ -33,6 +34,6 @@ static func scale_def(def: Dictionary, power: float) -> Dictionary:
 	scaled.hp = def.hp * k
 	scaled.contact_damage = def.contact_damage * k
 	for key in scaled:
-		if String(key).ends_with("_damage") and key != "contact_damage":
+		if (String(key).ends_with("_damage") and key != "contact_damage") or String(key).ends_with("_dps"):
 			scaled[key] = def[key] * k
 	return scaled

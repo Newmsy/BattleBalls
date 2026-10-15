@@ -14,6 +14,9 @@ const MODE_LABELS := {"all": "Sound: On", "sfx": "Music: Off", "off": "Sound: Of
 const TOGGLE_SIZE := Vector2(164, 56)
 ## Per sound: [max playing at once, min seconds between starts, volume dB].
 ## Lower caps on frequent sounds keep the chaos readable.
+## Pitch of the hit_big thud per pulse kind (sim pulse events), so each
+## critter's pulse has its own voice.
+const PULSE_PITCH := {"drum": 0.7, "wind": 1.6, "ink": 1.3, "stink": 0.9}
 const RULES := {
 	"hit": [3, 0.05, -2.0],
 	"hit_big": [1, 0.25, 0.0],
@@ -171,9 +174,19 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"snap":
 				play("snap")
 			"boom", "pulse":
-				play("hit_big", 0.0, 0.8 if e.type == "boom" else 1.1)
+				var kind: String = e.get("kind", "")
+				if kind in ["zap", "bigzap"]:
+					play("zap", 0.0, 1.3 if kind == "zap" else 0.9)
+				else:
+					play("hit_big", 0.0, 0.8 if e.type == "boom" else PULSE_PITCH.get(kind, 1.1))
 			"reflect":
 				play("hit", -4.0, 1.5)
+			"shot":
+				play("launch", -6.0, 1.8 if e.kind != "shell" and e.kind != "blob" else 0.9)
+			"shut":
+				play("snap", 0.0, 0.8)
+			"salvo", "mega":
+				play("snap", 0.0, 0.7)
 			"phase":
 				play("flip", 0.0, 1.4)
 			"ambush", "copy":
@@ -186,6 +199,68 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("snap", 0.0, 0.8)
 			"pop":
 				play("flip", 0.0, 1.8)
+			"stun":
+				play("zap", 0.0, 0.6)
+			"wrap":
+				play("stretch", 0.0, 1.3)
+			"wrap_pop", "shatter":
+				play("snap", 0.0, 1.4 if e.type == "wrap_pop" else 0.8)
+			"storm":
+				play("sizzle", 0.0, 0.8)
+			"stack": # Stacks and forms: a rising tick per stack.
+				if e.up:
+					play("flip", -6.0, 1.1 + 0.08 * e.stacks)
+			"burp", "roar":
+				play("hit_big", 0.0, 0.7)
+			"breath", "shout":
+				play("snap", 0.0, 0.75)
+			"mode":
+				play("flip", -2.0, 1.3)
+			"bubble", "bubble_pop":
+				play("flip", -4.0 if e.type == "bubble" else 0.0, 2.0)
+			"launch":
+				play("zap", -4.0, 1.6)
+			"yoyo", "fling":
+				play("stretch", 0.0, 1.3 if e.type == "yoyo" else 1.6)
+			"hug", "dive":
+				play("flip", 0.0, 0.7 if e.type == "dive" else 0.9)
+			"orb_lost":
+				play("click", 0.0, 1.4)
+			# Movement critters (batch F) reuse the existing sounds at new pitches.
+			"teleport":
+				play("zap", 0.0, 1.5)
+			"charge":
+				play("launch", -3.0, 1.2)
+			"tether", "yank":
+				play("stretch", 0.0, 0.8 if e.type == "tether" else (0.9 if e.get("big", false) else 1.2))
+			"tether_end", "bow":
+				play("click", 0.0, 0.7)
+			"mark":
+				play("click", 0.0, 1.6)
+			"pounce", "lance", "ping_crit", "gear_slam", "tilt":
+				play("snap", 0.0, 1.1)
+			"ding":
+				play("click", 0.0, 1.3 + 0.1 * e.lit)
+			"gear":
+				play("click", -4.0, 0.8 + 0.15 * e.gear)
+			"dig":
+				play("flip", 0.0, 0.6)
+			"clod":
+				play("hit", -6.0, 0.7)
+			# Batch H set pieces reuse existing sounds at their own pitch.
+			"piece":
+				if e.kind != "illusion":
+					play("wall", -3.0, 0.7)
+			"rays":
+				play("zap", -2.0, 1.4 if e.kind == "disco" else 1.15)
+			"lash", "root":
+				play("snap", 0.0, 0.8)
+			"rewind":
+				play("flip", 0.0, 0.7)
+			"illusions", "swap":
+				play("flip", 0.0, 1.3)
+			"spin":
+				play("crit", 0.0, 1.3 if e.prizes.size() > 1 else 1.1)
 			"end":
 				if e.reason != "time_limit":
 					play("ko")
