@@ -74,6 +74,24 @@ const DEFS := {
 		"max_speed_mult": 1.8,
 		"color": Color("ffb020"),
 	},
+	"magnet": {
+		"display_name": "Flux",
+		"description": "Magnet. Every 3s its field flips: Pull drags the foe in and its first hit of each Pull snaps for 2.5x damage; a weaker Push shoves it away.",
+		"rarity": "epic",
+		"badge_top": 1.55,
+		"hp": 100.0,
+		"radius": 62.0,
+		"speed": 400.0,
+		"contact_damage": 13.0,
+		"ability": "magnet",
+		"field_period": 3.0, ## Seconds per phase; Pull comes first.
+		"field_range": 520.0, ## The field fades to nothing at this distance.
+		"field_accel": 700.0, ## Steering at point blank, units/s^2, on both balls.
+		"push_scale": 0.5, ## Push steers at this share of Pull's strength.
+		"snap_mult": 2.5, ## Contact damage multiplier on the first hit of each Pull.
+		"color": Color("ff3b5c"),
+		"pole_color": Color("2f7bff"),
+	},
 	# Ability-free baseline used by tests and as a balance reference.
 	"plain": {
 		"display_name": "Plain",
@@ -88,7 +106,7 @@ const DEFS := {
 }
 
 ## Balls offered in the in-game picker.
-const PLAYABLE := ["vampire", "laser", "juggernaut", "spiker", "speedster"]
+const PLAYABLE := ["vampire", "laser", "juggernaut", "spiker", "speedster", "magnet"]
 
 
 static func get_def(id: String) -> Dictionary:

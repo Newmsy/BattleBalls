@@ -68,6 +68,22 @@ func set_slot(slot: int, critter: String) -> void:
 	save()
 
 
+## Ranked trios use only critters the player owns: never a loaner or one
+## they haven't got. Swaps any other slot for the first owned critter.
+## Returns true if the trio changed.
+func fit_to(owned: Array) -> bool:
+	if owned.is_empty():
+		return false
+	var changed := false
+	for i in trio.size():
+		if not trio[i] in owned:
+			trio[i] = owned[0]
+			changed = true
+	if changed:
+		save()
+	return changed
+
+
 ## The trio as a lineup in the backend's v1 shape, plus per-slot shots.
 func lineup() -> Dictionary:
 	var slots: Array = []
