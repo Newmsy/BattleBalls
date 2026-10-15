@@ -232,7 +232,7 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 			_circ(ci, c + Vector2(-.4, -.45) * r, r * .3, Color(1, 1, 1, .3))
 			_ring(ci, c, r, Color("3a2440"), maxf(1.5, r * .07))
 		_ when "bite" in s.art.get("front", []):
-			_bitten_body(ci, c, r, col)
+			_bitten_body(ci, c, r, col, s.hp_frac)
 		"starfield":
 			_circ(ci, c, r * 1.12, Color(.56, .36, 1.0, .25))
 			_circ(ci, c, r, Color("07060d"))
@@ -283,12 +283,15 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 					var a := i * TAU / 10 + t
 					ci.draw_arc(c, r * 1.25, a, a + .35, 4, _c(Color(1, .24, .35, .7)), 2.0, true)
 		"spike_ring":
-			var n := 8 + tier * 2
-			var L: float = r * (.22 + .04 * tier + minf(.25, s.stacks * .04))
-			var spike := Color.WHITE if s.flash > 0.0 else shade(col, -.35)
+			# Each hit landed (stacks) grows one more spike and makes them all
+			# longer and brighter, so a pumped-up Prickles looks it.
+			var n := 8 + tier * 2 + int(s.stacks)
+			var grown := minf(1.0, s.stacks / 8.0)
+			var L: float = r * (.2 + .03 * tier + .45 * grown)
+			var spike := Color.WHITE if s.flash > 0.0 else shade(col, -.35).lerp(Color("eaff7a"), grown * .6)
 			for i in n:
 				var a := float(i) / n * TAU + .2
-				var w := PI / n * .7
+				var w := PI / n * (.7 + .2 * grown)
 				_poly(ci, PackedVector2Array([c + Vector2(cos(a - w), sin(a - w)) * r * .92, c + Vector2(cos(a), sin(a)) * (r + L), c + Vector2(cos(a + w), sin(a + w)) * r * .92]), spike)
 		"speed_streaks":
 			var n := 1 + tier
@@ -425,7 +428,7 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 		_:
 			_C = c
 			_R = r
-			_kit_feature(ci, name, col, t, tier)
+			_kit_feature(ci, name, col, t, tier, s)
 			_xf = Transform2D.IDENTITY
 			_clip = false
 
@@ -555,8 +558,17 @@ static func _hsl(h: float, s: float, l: float, a := 1.0) -> Color:
 
 
 ## The default body with bites taken out of its right side (Crumb).
-static func _bitten_body(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
+## Crumb's cookie: two bites out of it at full health, and a fresh chunk
+## missing for every sixth of its health gone.
+const CRUMB_BITES := [Vector2(-.95, .45), Vector2(.15, 1.0), Vector2(-.55, -.9), Vector2(.85, .7), Vector2(-1.0, -.2)]
+
+
+static func _bitten_body(ci: CanvasItem, c: Vector2, r: float, col: Color, hp_frac := 1.0) -> void:
 	var bites := [ellipse_pts(c + Vector2(.95, -.55) * r, r * .25, r * .25, 0.0, 0.0, TAU, 20), ellipse_pts(c + Vector2(1.05, -.2) * r, r * .2, r * .2, 0.0, 0.0, TAU, 20)]
+	var lost := clampi(int((1.0 - hp_frac) * 6.0), 0, CRUMB_BITES.size())
+	for k in lost:
+		var at: Vector2 = CRUMB_BITES[k]
+		bites.append(ellipse_pts(c + at * r, r * (.3 + .04 * k), r * (.3 + .04 * k), 0.0, 0.0, TAU, 20))
 	var cut := func(pts: PackedVector2Array) -> Array:
 		var polys: Array = [pts]
 		for b in bites:
@@ -582,7 +594,7 @@ static func _bitten_body(ci: CanvasItem, c: Vector2, r: float, col: Color) -> vo
 
 ## Features from the roster's builder kit, in unit space (see _C/_R above).
 ## `n` is the tier.
-static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: int) -> void:
+static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: int, s: Dictionary = {}) -> void:
 	match name:
 		"antenna2":
 			for k in [-1, 1]:
@@ -641,9 +653,16 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				var a := PI * .15 + float(i) / (k - 1) * PI * .7
 				_ucirc(ci, _P(a, .87), .07, Color("ffe14a") if sin(t * 5.0 + i) > 0.0 else Color("7d6a2a"))
 		"candle":
-			var fl := 1.0 + .15 * sin(t * 10.0)
-			_uell(ci, Vector2(0, -1.25), .16, .3 * fl, Color("ff8a1f"))
-			_uell(ci, Vector2(0, -1.18), .08, .16 * fl, Color("ffe066"))
+			if s.get("phased", false):
+				# Faded out: the flame is snuffed, leaving a glowing wick and a curl of smoke.
+				_ucirc(ci, Vector2(0, -1.07), .05, Color("ff5a1f"))
+				for i in 3:
+					var p := fmod(t * .9 + i / 3.0, 1.0)
+					_ucirc(ci, Vector2(sin(t * 3.0 + i * 2.0) * .12, -1.15 - p * .7), .07 + p * .12, Color(.75, .72, .8, .55 * (1.0 - p)))
+			else:
+				var fl := 1.0 + .15 * sin(t * 10.0)
+				_uell(ci, Vector2(0, -1.25), .16, .3 * fl, Color("ff8a1f"))
+				_uell(ci, Vector2(0, -1.18), .08, .16 * fl, Color("ffe066"))
 			_uline(ci, Vector2(0, -.95), Vector2(0, -1.05), INK, .04)
 		"candyrings":
 			var rings := [.9, .7, .5, .3]
@@ -745,10 +764,12 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 		"fantail":
 			_ufill(ci, PackedVector2Array([Vector2(-.85, 0), Vector2(-1.5, -.55), Vector2(-1.35, 0), Vector2(-1.5, .55)]), shade(c, -.15))
 		"fizz":
+			# Pressure (0-1) shakes the can up: more, faster bubbles.
+			var pr: float = s.get("pressure", 0.0)
 			_clip_on()
-			for i in 9:
-				var p := fmod(t * .4 + _hash(i), 1.0)
-				_ucirc(ci, Vector2((_hash(i + 4) - .5) * 1.4, .9 - p * 1.8), .04 + _hash(i + 7) * .04, Color(1, 1, 1, .55))
+			for i in 9 + int(pr * 14.0):
+				var p := fmod(t * (.4 + 1.8 * pr) + _hash(i), 1.0)
+				_ucirc(ci, Vector2((_hash(i + 4) - .5) * 1.4, .9 - p * 1.8), .04 + _hash(i + 7) * .04, Color(1, 1, 1, .55 + .3 * pr))
 		"flowercrown":
 			for i in 5:
 				var p := _P(-PI / 2 + (i - 2) * .38, 1.0)
@@ -782,7 +803,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				_ustar(ci, Vector2.ZERO, g.z, g.z * .75, 8, Color("e0b04a"), 0.0)
 				_ucirc(ci, Vector2.ZERO, g.z * .4, Color("7a5a1e"))
 		"gears":
-			_xf = Transform2D(t * .5, Vector2.ZERO)
+			_xf = Transform2D(t * (.5 + 9.0 * float(s.get("wind", 0.0))), Vector2.ZERO) # Spins faster as Cogs winds up.
 			for i in 14:
 				var a := i / 14.0 * TAU
 				_urect(ci, cos(a) * 1.05 - .09, sin(a) * 1.05 - .09, .18, .18, Color("b8743f"))

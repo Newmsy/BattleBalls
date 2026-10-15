@@ -12,6 +12,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const ArenaView := preload("res://game/arena_view.gd")
+const FightHud := preload("res://game/fight_hud.gd")
 const Backend := preload("res://game/online/backend.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
 const TestUser := preload("res://game/online/test_user.gd")
@@ -122,6 +123,7 @@ var _dragging := false
 var _rng := RandomNumberGenerator.new() ## UI-only randomness (new seeds), never used by the sim.
 
 var arena: ArenaView
+var fight_hud: FightHud ## Both health bars, above the arena.
 var arena_clip: Control ## Holds the arena; clips it while the finisher cam zooms.
 var ui_layer: CanvasLayer
 var clip_card: ClipCard
@@ -925,6 +927,9 @@ func _build_ui() -> void:
 	title_label.add_theme_color_override("font_outline_color", Color(ACCENT, 0.45))
 	title_label.add_theme_constant_override("outline_size", 12)
 	hud_label = _label("", 30)
+	fight_hud = FightHud.new()
+	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(fight_hud)
 	info_label = _label("", 26)
 	info_label.add_theme_color_override("font_color", MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1089,6 +1094,7 @@ func _layout() -> void:
 	arena.set_camera(arena.cam_zoom, arena.cam_focus)
 	_place(title_label, Vector2(0, 14), Vector2(size.x, 56))
 	_place(hud_label, Vector2(left, 72), Vector2(side, 48))
+	_place(fight_hud, Vector2(left, 60), Vector2(side, 62))
 	_place(info_label, panel_pos, Vector2(panel_width, INFO_HEIGHT - 6.0))
 	controls_rect = Rect2(panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
 	var controls_top := panel_pos.y + INFO_HEIGHT
@@ -1141,18 +1147,18 @@ func _show_only(box: Control) -> void:
 
 
 func _update_hud() -> void:
+	hud_label.text = ""
 	if sim == null:
-		hud_label.text = ""
+		fight_hud.show_fight(null)
 		return
-	var a := sim.balls[0]
-	var b := sim.balls[1]
 	var clock := "%.0fs" % sim.time()
 	if sim.in_overtime():
 		clock = "OVERTIME x%.1f" % sim.damage_multiplier()
-	var tags: Array = ["P1", "P2"] if mode == Mode.REPLAY else ["You", "Foe"]
+	var tags: Array = ["P1", "P2"] if mode == Mode.REPLAY else ["YOU", "FOE"]
 	if mode == Mode.TUTORIAL and not tutorial_tags.is_empty():
 		tags = tutorial_tags
-	hud_label.text = "%s %d   |   %s   |   %d %s" % [tags[0], maxi(0, ceili(a.hp)), clock, maxi(0, ceili(b.hp)), tags[1]]
+	fight_hud.tags = tags.map(func(t): return str(t).to_upper())
+	fight_hud.show_fight(sim, clock)
 
 
 ## The seed picks the arena too, independently of the opponent it picks.

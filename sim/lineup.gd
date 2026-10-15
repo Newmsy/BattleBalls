@@ -4,7 +4,8 @@
 ## Ghost Arena lineup (game/online/ghost_lineup.gd), so a fight replays from
 ## the slots, the seed and the launch angles alone.
 ##
-## Slot: {critter, tier, level, gear: [{slot, tier, stats: {line: value}}]}.
+## Slot: {critter, tier, level, gear: [{slot, tier, stats: {line: value}}],
+##        talents: {node: rank}} (talents optional: the faction tree, sim/talents.gd).
 ## Reading a slot clamps everything to the game's rules (tier 1-5, level up to
 ## the tier's cap, one piece per gear slot, a Charm only from 3 stars, no line
 ## above a 5-star piece's), so a tampered lineup can't field a T9 or stack ten
@@ -16,6 +17,7 @@ extends RefCounted
 const CritterDb := preload("res://sim/critter_db.gd")
 const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
+const Talents := preload("res://sim/talents.gd")
 const ArenaBoosts := preload("res://sim/arena_boosts.gd")
 
 const MAX_TIER := 5
@@ -27,8 +29,8 @@ static func level_cap(tier: int) -> int:
 	return tier * 10
 
 
-static func make(critter: String, tier := 1, level := 1, gear: Array = []) -> Dictionary:
-	return clean({"critter": critter, "tier": tier, "level": level, "gear": gear})
+static func make(critter: String, tier := 1, level := 1, gear: Array = [], talents := {}) -> Dictionary:
+	return clean({"critter": critter, "tier": tier, "level": level, "gear": gear, "talents": talents})
 
 
 ## A slot with every value inside the rules.
@@ -50,11 +52,15 @@ static func clean(slot: Dictionary) -> Dictionary:
 				if Gear.LINES.has(line):
 					stats[line] = clampf(float(piece.stats[line]), 0.0, float(Gear.LINES[line].t5))
 			pieces.append({"slot": gs, "tier": Gear.tier_of(piece.get("tier", piece.get("rarity", 1))), "stats": stats})
-	var out := {"critter": str(slot.get("critter", "")), "tier": tier,
+	var critter := str(slot.get("critter", ""))
+	var out := {"critter": critter, "tier": tier,
 		"level": clampi(int(slot.get("level", 1)), 1, level_cap(tier)), "gear": pieces}
 	var boost := ArenaBoosts.clean(slot.get("boost"))
 	if not boost.is_empty():
 		out.boost = boost
+	var talents := Talents.clean(Talents.faction_of(critter), slot.get("talents", {}), tier)
+	if not talents.is_empty():
+		out.talents = talents
 	return out
 
 
@@ -80,30 +86,53 @@ static func power(slot: Dictionary) -> float:
 ## scale.
 static func rating(slot: Dictionary) -> int:
 	var s := clean(slot)
-	return Power.rating(power(s) * (1.0 + Gear.gear_power(s.gear)) * (1.0 + ArenaBoosts.power(s.get("boost", {}))))
+	return Power.rating(power(s) * (1.0 + Gear.gear_power(s.gear)) * (1.0 + ArenaBoosts.power(s.get("boost", {}))) * (1.0 + talent_power(s)))
+
+
+## What a slot's active talents add to its Power Rating, as a fraction.
+static func talent_power(slot: Dictionary) -> float:
+	return Talents.power(Talents.faction_of(str(slot.get("critter", ""))), slot.get("talents", {}))
+
+
+## Faction Bond (relays): a critter with its faction's capstone gets
+## +BOND_POWER per other same-faction critter in the team, up to BOND_MAX.
+static func bond(slots: Array, i: int) -> float:
+	var s: Dictionary = slots[i]
+	var faction := Talents.faction_of(s.critter)
+	var cap: Array = Talents.tree(faction).filter(func(n): return n.row == 5)
+	if cap.is_empty() or not s.get("talents", {}).has(cap[0].id):
+		return 1.0
+	var n := 0
+	for j in slots.size():
+		if j != i and Talents.faction_of(slots[j].critter) == faction:
+			n += 1
+	return 1.0 + Talents.BOND_POWER * mini(n, Talents.BOND_MAX)
 
 
 ## One side of a relay (sim/relay.gd) or the per-ball MatchSim keys, from its
-## slots: {sides, tiers, powers, gear}.
+## slots: {sides, tiers, powers, gear, talents}.
 static func side(slots: Array) -> Dictionary:
-	var out := {"sides": [], "tiers": [], "powers": [], "gear": []}
-	for raw in slots:
-		var s := clean(raw)
+	var out := {"sides": [], "tiers": [], "powers": [], "gear": [], "talents": []}
+	var cleaned: Array = slots.map(func(raw): return clean(raw))
+	for i in cleaned.size():
+		var s: Dictionary = cleaned[i]
 		out.sides.append(s.critter)
 		out.tiers.append(s.tier)
-		out.powers.append(power(s))
+		out.powers.append(power(s) * bond(cleaned, i))
 		out.gear.append(kit(s))
+		out.talents.append(s.get("talents", {}))
 	return out
 
 
 ## Adds one fighter's setup to a MatchSim config as player `i` (0 or 1).
 static func apply(cfg: Dictionary, i: int, slot: Dictionary) -> Dictionary:
 	var s := clean(slot)
-	for key in ["tiers", "powers", "gear"]:
+	for key in ["tiers", "powers", "gear", "talents"]:
 		if not cfg.has(key):
 			cfg[key] = [1, 1] if key == "tiers" else ([1.0, 1.0] if key == "powers" else [null, null])
 	cfg["p%d" % (i + 1)] = s.critter
 	cfg.tiers[i] = s.tier
 	cfg.powers[i] = power(s)
 	cfg.gear[i] = kit(s)
+	cfg.talents[i] = s.get("talents", {})
 	return cfg

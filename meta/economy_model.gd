@@ -193,6 +193,8 @@ func _run_stage(z: int, s: int) -> bool:
 			drops.append(_pick(zd.bonus))
 		else:
 			drops.append(_pick(zd.featured))
+	else:
+		_orbs(cfg.get("orbs_win", 0))
 	var key := z * 100 + s
 	if not cleared.has(key):
 		cleared[key] = true

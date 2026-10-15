@@ -26,6 +26,8 @@ static func build(shell) -> Control:
 	for o in OPTIONS:
 		v.add_child(_row(shell, o[0], o[1], o[2]))
 	v.add_child(_stats_row(shell))
+	if Dev.TOOLS_ENABLED:
+		v.add_child(_testing(shell))
 	var note := Kit.label("Colourblind-friendly marks are always on: your critter has a solid ring, the foe a dashed spiky one, and every rarity has its own shape.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	# The sheet measures itself before layout, so wrapped text needs a real width.
 	note.custom_minimum_size.x = 600
@@ -97,13 +99,21 @@ static func _testing(shell) -> Control:
 	shell.mark("dev_refill_energy", energy)
 	var orbs := Kit.button("+10 orbs", func(): _add_orbs(shell), "ghost", 26, 72)
 	shell.mark("dev_add_orbs", orbs)
-	var speeds := Kit.button("All speeds: " + ("on" if FightSpeed.all_unlocked() else "off"), func():
-		FightSpeed.set_unlock_all(not FightSpeed.all_unlocked())
-		open(shell), "ghost", 26, 72)
-	shell.mark("dev_all_speeds", speeds)
-	for b in [energy, orbs, speeds]:
+	for b in [energy, orbs]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs, speeds])])
+	var free := Dev.free_summons()
+	var sw := Kit.button("On" if free else "Off", func(): Dev.set_free_summons(not free); open(shell), "go" if free else "ghost", 26, 72)
+	sw.custom_minimum_size.x = 132
+	shell.mark("dev_free_summons", sw)
+	var words := Kit.label("Unlimited summons", 30)
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var all := FightSpeed.all_unlocked()
+	var speeds := Kit.button("On" if all else "Off", func(): FightSpeed.set_unlock_all(not all); open(shell), "go" if all else "ghost", 26, 72)
+	speeds.custom_minimum_size.x = 132
+	shell.mark("dev_all_speeds", speeds)
+	var speed_words := Kit.label("All fight speeds", 30)
+	speed_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds])])
 
 
 static func _refill_energy(shell) -> void:

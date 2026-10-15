@@ -27,6 +27,7 @@ static func sample():
 		{"uid": 7, "type": "jet_charm", "tier": 2, "on": ""},
 		{"uid": 8, "type": "overclock_charm", "tier": 1, "on": ""},
 	].map(func(g): return gear_piece(g)))
+	p.factions = {"spooky": {"xp": 900, "picks": {"siphon": 3, "launch_kick": 2, "haunt": 1}}, "nature": {"xp": 300, "picks": {}}}
 	p.items.assign([
 		{"name": "Energy Pack", "count": 3, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
 		{"name": "XP Chip", "count": 12, "text": "+200 XP to one critter.", "color": Color("45f5a6")},
