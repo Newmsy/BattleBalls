@@ -1,5 +1,6 @@
 ## Small drawn icons the font doesn't have: tier stars, power bolt, energy,
-## coins, orbs, Glow Gems, the pass star, locks, the back arrow and the tab icons.
+## coins, orbs, Glow Gems, the pass star, locks, the back arrow, the info "i"
+## and the tab icons.
 extends Control
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
@@ -106,6 +107,10 @@ func _draw() -> void:
 				draw_line(c + d * s * .26, c + d * s * .46, color, s * .16)
 			draw_circle(c, s * .32, color)
 			draw_circle(c, s * .13, Color("0b0a1f"))
+		"info":
+			draw_arc(c, s * .42, 0, TAU, 32, color, s * .08, true)
+			draw_circle(c + Vector2(0, -s * .2), s * .065, color)
+			draw_line(c + Vector2(0, -s * .06), c + Vector2(0, s * .24), color, s * .11)
 		"summon":
 			var e := CritterArt.ellipse_pts(c + Vector2(0, s * .1), s * .36, s * .26, 0.0, 0.0, TAU, 24)
 			draw_polyline(e, color, s * .08, true)

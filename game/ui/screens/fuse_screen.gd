@@ -8,8 +8,8 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 
-const LAB_HEIGHT := 440.0
-const SLOT := 150.0
+const LAB_HEIGHT := 330.0
+const SLOT := 116.0
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -22,12 +22,17 @@ static func build(shell, params: Dictionary) -> Control:
 	if sel.is_empty() and not ready.is_empty():
 		sel = ready[0]
 
-	var root := Kit.vbox(24)
-	root.add_child(Kit.hbox(0, [Kit.label("Fusion Lab", 44), Kit.spacer(), Kit.label("3 of a kind → next tier", 22, Kit.MUTED)]))
+	var root := Kit.vbox(18)
+	var how: Control = shell.info_button("How fusing works", [
+		"Fuse 3 copies of the same critter at the same tier to get one copy a tier higher, up to Tier 5.",
+		"The new copy keeps the highest level of the three, and its level cap goes up.",
+		"Gear on the used copies goes back to your Bag.",
+		"Critter Hunts will be the best place to farm copies."], "fuse_info")
+	root.add_child(Kit.hbox(12, [Kit.label("Fusion Lab", 40), Kit.label("3 of a kind → next tier", 22, Kit.MUTED), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
 
 	var list := Kit.vbox(12, [Kit.caption("Ready to fuse")])
 	if ready.is_empty():
-		list.add_child(Kit.panel(Kit.label("Nothing ready yet. Collect 3 copies of the same critter at the same tier. Critter Hunts will be the best place to farm them.", 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)))
+		list.add_child(Kit.panel(Kit.label("Nothing ready yet. Collect 3 copies of the same critter at the same tier.", 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)))
 	else:
 		var scroll := ScrollContainer.new()
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -35,10 +40,10 @@ static func build(shell, params: Dictionary) -> Control:
 		var row := Kit.hbox(12)
 		for s in ready:
 			var on: bool = s == sel
-			var v := Kit.vbox(2, [CritterIcon.make(s.id, s.tier, 130), Kit.label(Roster.get_critter(s.id).name, 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+			var v := Kit.vbox(2, [CritterIcon.make(s.id, s.tier, 96), Kit.label(Roster.get_critter(s.id).name, 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 				_center(Glyph.make("stars", 20, Kit.FG, s.tier)), Kit.label("x%d copies" % s.count, 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
 			var card := Kit.card_button(v, func(): shell.refresh_with({"id": s.id, "tier": s.tier}), Kit.GOOD if on else Kit.LINE, Kit.PANEL, 28, 8)
-			card.custom_minimum_size.x = 176
+			card.custom_minimum_size.x = 160
 			shell.mark("ready_%s_%d" % [s.id, s.tier], card)
 			row.add_child(card)
 		scroll.add_child(row)
@@ -52,17 +57,20 @@ static func build(shell, params: Dictionary) -> Control:
 	if not sel.is_empty():
 		var c := Roster.get_critter(sel.id)
 		var pv: Dictionary = p.fuse_preview(sel.id, sel.tier)
-		var rows := Kit.vbox(10, [Kit.caption("Result: %s T%d" % [c.name, pv.tier])])
-		rows.add_child(_kv("Ability", "%s (was: %s)" % [c.ladder[pv.tier - 1], c.ladder[sel.tier - 1]], true))
-		rows.add_child(_kv("Level cap", "%d → %d" % [pv.cap_before, pv.cap_after], true))
-		rows.add_child(_kv("Level", "Keeps the highest: Lv %d" % pv.level))
+		# The two things that change most up front; the rest behind the "i".
+		var more: Control = shell.info_button("%s T%d after fusing" % [c.name, pv.tier], [
+			"Ability: %s (was: %s)" % [c.ladder[pv.tier - 1], c.ladder[sel.tier - 1]],
+			"Power: %s → %s" % [Kit.commas(pv.power_before), Kit.commas(pv.power_after)],
+			"Level cap: %d → %d. It keeps the highest level of the three: Lv %d." % [pv.cap_before, pv.cap_after, pv.level],
+			"Gear on the used copies goes back to your Bag."], "fuse_result_info")
+		var rows := Kit.vbox(8, [Kit.hbox(8, [Kit.caption("Result: %s T%d" % [c.name, pv.tier]), Kit.spacer(), more], BoxContainer.ALIGNMENT_CENTER)])
 		rows.add_child(_kv("Power", "%s → %s" % [Kit.commas(pv.power_before), Kit.commas(pv.power_after)], true))
-		rows.add_child(_kv("Gear", "Gear on used copies goes back to your Bag"))
-		root.add_child(Kit.panel(rows))
-		var btn := Kit.button("Fuse  (-3 T%d)" % sel.tier, func(): pass, "go", 34, 100)
+		rows.add_child(_kv("Ability", c.ladder[pv.tier - 1], true))
+		root.add_child(Kit.panel(rows, Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20)))
+		var btn := Kit.button("Fuse  (-3 T%d)" % sel.tier, func(): pass, "go", 34, 96)
 		btn.pressed.connect(func(): _do_fuse(shell, lab, btn, sel))
 		shell.mark("fuse", btn)
-		root.add_child(btn)
+		shell.pin(btn)
 	return root
 
 
@@ -108,7 +116,7 @@ static func _place_slots(lab: Control) -> void:
 	var centre := Vector2(lab.size.x / 2.0, LAB_HEIGHT / 2.0)
 	for s in lab.get_meta("slots"):
 		var a: float = s.get_meta("angle")
-		s.position = centre + Vector2(cos(a) * 165.0, sin(a) * 125.0) - s.size / 2.0
+		s.position = centre + Vector2(cos(a) * 150.0, sin(a) * 100.0) - s.size / 2.0
 
 
 static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
@@ -128,7 +136,7 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		var flash: ColorRect = lab.get_meta("flash")
 		flash.color.a = .95
 		lab.create_tween().tween_property(flash, "color:a", 0.0, .55)
-		var out := Kit.vbox(4, [CritterIcon.make(sel.id, result.tier, 250, true), Kit.label("%s T%d" % [Roster.get_critter(sel.id).name, result.tier], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+		var out := Kit.vbox(4, [CritterIcon.make(sel.id, result.tier, 200, true), Kit.label("%s T%d" % [Roster.get_critter(sel.id).name, result.tier], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 			_center(Glyph.make("stars", 30, Kit.FG, result.tier))])
 		lab.add_child(out)
 		lab.move_child(out, lab.get_child_count() - 2)
@@ -148,7 +156,7 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 
 static func _kv(k: String, v: String, good := false) -> Control:
 	var key := Kit.label(k, 23, Kit.MUTED)
-	key.custom_minimum_size.x = 150
+	key.custom_minimum_size.x = 120
 	var val := Kit.label(v, 23, Kit.GOOD if good else Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
 	val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return Kit.hbox(12, [key, val])
@@ -173,5 +181,5 @@ class _Ring extends Control:
 		var c := size / 2.0
 		for i in 24:
 			var a := _a + i * TAU / 24
-			draw_arc(c, 150.0, a, a + .14, 4, Color(.56, .48, 1.0, .5), 4.0, true)
-		draw_circle(c, 120.0, Color(.56, .48, 1.0, .08))
+			draw_arc(c, 125.0, a, a + .14, 4, Color(.56, .48, 1.0, .5), 4.0, true)
+		draw_circle(c, 100.0, Color(.56, .48, 1.0, .08))
