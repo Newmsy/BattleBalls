@@ -132,6 +132,9 @@ var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
 var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
+## The board fight being watched (Fight of the Day, a Bracket of Legends game):
+## its title and the screen to go back to. Empty otherwise.
+var _board := {}
 var aim_back_button: Button
 var tutorial_tags: Array = [] ## HUD names during onboarding fights.
 var tutorial_side := 0 ## The ball the player is rooting for, for the result jingle.
@@ -193,6 +196,10 @@ func _ready() -> void:
 			_show_home()
 			if link_friend != "":
 				shell.go("friends")
+			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
+			if url_params.get("mode", "") == "bracket":
+				shell.go("week")
+				shell.go("bracket")
 	friends.changed.connect(func(): if state == State.RESULT: _label_result_buttons())
 	if link_friend != "":
 		friends.set_invite(link_friend)
@@ -342,7 +349,7 @@ func _start_fight() -> void:
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
-		info_label.text = ("Fight of the Day: " if _board_pick >= 0 else "Shared fight: ") + info_label.text
+		info_label.text = (_board.title + ": " if not _board.is_empty() else "Shared fight: ") + info_label.text
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -657,11 +664,12 @@ func _build_shell() -> void:
 		shell.play_with = ""
 		_play_normal())
 	shell.watch_requested.connect(_watch_board_fight)
+	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
-	LiveOps.fetch(self, func(): if shell.current in ["play", "week"]: shell.refresh())
+	LiveOps.fetch(self, func(): if shell.current in ["play", "week", "bracket"]: shell.refresh())
 
 
 ## Quick fight starts on the fighter chosen in the home screen (Use in lineup).
@@ -822,7 +830,7 @@ func _again() -> void:
 
 
 func _on_challenge_button() -> void:
-	if _board_pick >= 0:
+	if not _board.is_empty():
 		_back_to_board()
 	elif mode == Mode.REPLAY:
 		_play_normal()
@@ -837,8 +845,8 @@ func _on_challenge_button() -> void:
 func _label_result_buttons() -> void:
 	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch"}[mode]
 	challenge_button.text = {Mode.REPLAY: "Play my own", Mode.RIVAL: "Friends"}.get(mode, "Challenge friend")
-	if _board_pick >= 0:
-		challenge_button.text = "This Week"
+	if not _board.is_empty():
+		challenge_button.text = "Bracket" if _board.return_to == "bracket" else "This Week"
 	share_button.text = "Send result" if mode == Mode.CHALLENGE else "Share fight"
 	# A link from someone who isn't a friend yet offers to add them, in place
 	# of the report row (there's only room for one).
@@ -858,7 +866,7 @@ func _label_result_buttons() -> void:
 
 
 func _can_add_link_friend() -> bool:
-	if link_friend == "" or mode not in [Mode.CHALLENGE, Mode.REPLAY] or _board_pick >= 0 or friends.status != "ready":
+	if link_friend == "" or mode not in [Mode.CHALLENGE, Mode.REPLAY] or not _board.is_empty() or friends.status != "ready":
 		return false
 	return friend_button.disabled or (link_friend != str(friends.me.get("code", "")) and not friends.is_friend_code(link_friend))
 
@@ -878,6 +886,7 @@ func _start_rival(f: Dictionary) -> void:
 		return
 	mode = Mode.RIVAL
 	_board_pick = -1
+	_board = {}
 	rival = f
 	opponent_choice = lead
 	opponent_type = lead
@@ -898,6 +907,7 @@ func _record_rival() -> void:
 func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> void:
 	mode = Mode.CHALLENGE
 	_board_pick = -1
+	_board = {}
 	opponent_choice = ball
 	opponent_type = ball
 	seed_value = challenge_seed
@@ -908,6 +918,7 @@ func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> v
 ## Back to picking your ball against a random foe, dropping any link the page was opened with.
 func _play_normal() -> void:
 	_board_pick = -1
+	_board = {}
 	opponent_choice = OPPONENT_RANDOM
 	mode = Mode.NORMAL
 	foe_aim = null
@@ -931,14 +942,18 @@ func _watch_board_fight(f: Dictionary) -> void:
 	foe_aim = f.angles[1]
 	arena_override = f.get("arena", "square")
 	_board_pick = f.pick
+	_board = {"title": f.get("board_title", "Fight of the Day"), "return_to": f.get("return_to", "week"), "return_params": f.get("return_params", {})}
 	_start_fight()
 
 
 func _back_to_board() -> void:
+	var from := _board
 	_play_normal()
 	_show_home()
 	shell.show_tab("play")
 	shell.go("week")
+	if from.return_to != "week":
+		shell.go(from.return_to, from.return_params)
 
 
 func _label(text: String, font_size: int) -> Label:

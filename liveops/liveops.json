@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": 2,
+  "revision": 3,
   "seasons": [
     {"name": "Preseason", "start": "2026-10-12", "weeks": 7},
     {"name": "Season 1: Neon Nights", "start": "2026-11-30", "weeks": 7}
@@ -28,5 +28,8 @@
   "loaners": [
     {"date": "2026-10-15", "critter": "laser", "blurb": "Optic is this week's Spotlight. Borrow it for a day and see if the beams are worth chasing."},
     {"date": "2026-10-16", "critter": "vampire", "blurb": "Count Nibbles drinks up every hit. Chaos Weekend starts today: try it with the walls closing in."}
+  ],
+  "brackets": [
+    {"week": "2026-10-19", "seed": 20261019, "name": "Preseason Bracket of Legends"}
   ]
 }
