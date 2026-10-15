@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "ffb4a2",
 	"vibe": "A mischievous fox spirit who loves a good trick.",
 	"description": "Fox spirit. Every 6 seconds it splits off two fox-fire illusions, and an illusion that's touched bursts into flame.",
-	"stats": {"hp": 96.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
+	"stats": {"hp": 104.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
 	"ability": [{"on": "every", "secs": 6.0, "do": "illusions"}, {"on": "always", "do": "illusion_tick"}],
 	"params": {
 		"illusion_count": 2,
@@ -20,14 +20,14 @@ const CRITTER := {
 		"illusion_size": 0.8, ## Of its radius.
 		"illusion_damage": 8.0,
 		"illusion_radius": 100.0,
-		"illusion_burn_dps": 2.0, ## A second, for 2s.
-		"illusion_trail_dps": 0.0, ## Flame trail damage a second.
+		"illusion_burn_damage": 2.0, ## A second, for 2s.
+		"illusion_trail_damage": 0.0, ## Flame trail damage a second.
 		"illusion_swap": 0, ## 1: Foxfire blinks to a bursting illusion.
 	},
 	"tiers": [
 		{"text": "Every 6s splits off 2 fiery illusions"},
 		{"text": "Illusions burst for 10", "illusion_damage": 10.0},
-		{"text": "Illusions leave flame trails", "illusion_trail_dps": 4.0},
+		{"text": "Illusions leave flame trails", "illusion_trail_damage": 4.0},
 		{"text": "3 illusions", "illusion_count": 3},
 		{"text": "A touched illusion swaps with Foxfire", "illusion_swap": 1},
 	],

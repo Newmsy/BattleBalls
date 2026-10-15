@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "6f4518",
 	"vibe": "A slow, kind forest elder who has seen a thousand fights.",
 	"description": "Ancient tree. At half HP it takes root: four root pillars burst up around it and it regrows health while they stand.",
-	"stats": {"hp": 131.0, "radius": 76.8, "speed": 400.0, "contact_damage": 17.5},
+	"stats": {"hp": 122.0, "radius": 76.8, "speed": 400.0, "contact_damage": 17.5},
 	"ability": [{"on": "hp_below", "hp": 0.5, "do": "root"}, {"on": "always", "do": "root_tick"}],
 	"params": {
 		"root_count": 4,

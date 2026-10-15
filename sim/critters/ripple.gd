@@ -17,14 +17,14 @@ const CRITTER := {
 	"params": {
 		"ripple_reach": 200.0, ## Each way along the wall.
 		"ripple_life": 1.0,
-		"ripple_dps": 10.0,
+		"ripple_damage": 10.0, ## A second.
 		"ripple_slow": 0.0,
 		"ripple_corner": 0, ## 1: ripples turn corners.
 		"beam_max": 8,
 	},
 	"tiers": [
 		{"text": "Wall bounces send a ripple along the wall"},
-		{"text": "Ripples deal 12/s", "ripple_dps": 12.0},
+		{"text": "Ripples deal 12/s", "ripple_damage": 12.0},
 		{"text": "The ripple slows 20%", "ripple_slow": 0.2},
 		{"text": "Ripples run further", "ripple_reach": 300.0},
 		{"text": "Ripples turn corners", "ripple_corner": 1},

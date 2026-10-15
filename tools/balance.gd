@@ -50,9 +50,6 @@ const TILT_WARN := 0.10
 const TILT_MAX := 0.15
 ## Above this many critters a matrix is unreadable: print one row per critter.
 const MATRIX_MAX := 16
-## Until sim/power.gd lands (PR #35) the sim ignores "powers", so the power
-## step falls back to _boost. Drop this and _boost once it has.
-static var SIM_HAS_POWERS: bool = ResourceLoader.exists("res://sim/power.gd")
 ## Critters in "--only=@sample", spread evenly over the live roster.
 const SAMPLE_SIZE := 8
 
@@ -520,8 +517,6 @@ static func _fight(job: Array) -> Dictionary:
 			gear[a_index] = a_kit
 			var powers := [a_power, 1.0] if a_index == 0 else [1.0, a_power]
 			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers, "gear": gear, "arena": job[0], "modifier": job[1]})
-			if a_power != 1.0 and not SIM_HAS_POWERS:
-				_boost(sim.balls[a_index], a_power)
 			var s := sim.run_to_end()
 			out.n += 1
 			if s.winner == a_index:
@@ -618,20 +613,6 @@ func _load_results(dir: String) -> bool:
 			return false
 		results.merge(data)
 	return true
-
-
-## Stand-in for one tier: HP and every damage stat scale by sqrt(power), so
-## HP x damage scales by `power` (what sim/power.gd does inside the sim).
-static func _boost(ball, power: float) -> void:
-	var k := sqrt(power)
-	ball.hp *= k
-	ball.max_hp *= k
-	ball.contact_damage *= k
-	var def: Dictionary = ball.def.duplicate()
-	for key in def:
-		if String(key).ends_with("_damage"):
-			def[key] *= k
-	ball.def = def
 
 
 static func _modifier_suffix(id: String) -> String:

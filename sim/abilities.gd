@@ -12,6 +12,7 @@ const TRIGGERS := {
 	"hit": "lands a contact hit (ctx: target, amount, heals)",
 	"hurt": "takes damage from anything (ctx: source, amount, kind)",
 	"wall": "bounces off a wall (ctx: point)",
+	"foe_wall": "the other ball bounces off a wall (ctx: other, point)",
 	"bump": "touches the other ball, even during the contact cooldown (ctx: other)",
 	"every": "every `secs` seconds of fight time, first at `secs`",
 	"hp_below": "once, when its HP first drops below `hp` (a 0-1 share of max HP)",
@@ -37,13 +38,13 @@ const EFFECTS := {
 	"phase_dash": [],
 	"phase_trail": ["trail_every", "trail_width", "trail_life", "trail_slow", "trail_dps"],
 	"pull": ["pull_range", "pull_accel", "pull_close"],
-	"moons": ["moon_count", "moon_orbit", "moon_size", "moon_damage", "moon_spin", "moon_cooldown"],
+	"moons": ["moon_count", "moon_orbit", "moon_size", "moon_damage", "moon_spin", "moon_cooldown", "moon_burn"],
 	"flare": ["flare_radius", "flare_slam"],
 	"copy": ["copy_secs", "copy_cooldown", "copy_shield", "copy_scale"],
 	"revive": ["revive_hp", "revive_radius", "revive_damage", "revive_burn", "revive_shield", "revive_bolts"],
 	"fire_trail": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"beam_at": ["prism_damage", "prism_life", "prism_fan", "prism_full_every", "prism_gap"],
-	"collapse": ["collapse_every", "collapse_secs", "collapse_range", "collapse_accel", "collapse_damage", "collapse_radius", "collapse_ring"],
+	"collapse": ["collapse_every", "collapse_secs", "collapse_range", "collapse_accel", "collapse_damage", "collapse_radius", "collapse_ring", "collapse_burn"],
 	"collapse_guard": ["collapse_guard"],
 	"copy_tick": [],
 	"scorch": ["scorch_dps", "scorch_secs"],
@@ -52,7 +53,7 @@ const EFFECTS := {
 	"seed": ["seed_radius", "seed_life", "seed_grow", "seed_max", "seed_damage"],
 	"seed_wilt": ["seed_shots", "seed_shot_damage"],
 	"vine": ["vine_offset", "vine_radius", "vine_life", "vine_lash", "vine_slack", "vine_pairs"],
-	"vine_tick": ["vine_damage", "vine_burst_radius", "vine_thorn_dps"],
+	"vine_tick": ["vine_damage", "vine_burst_radius", "vine_thorn_damage"],
 	"ice_ring": ["ring_count", "ring_radius", "ring_pillar", "ring_life", "ring_big_every", "ring_big_count"],
 	"ice_ring_tick": ["shard_damage", "shard_hits", "shard_slow", "ring_volley_gap"],
 	"root": ["root_count", "root_radius", "root_life", "root_pin", "root_shove", "root_shove_damage"],
@@ -61,13 +62,20 @@ const EFFECTS := {
 	"rewind_track": ["rewind_secs"],
 	"rewind": ["rewind_secs", "rewind_share", "rewind_place", "rewind_stop"],
 	"illusions": ["illusion_count", "illusion_life", "illusion_size"],
-	"illusion_tick": ["illusion_damage", "illusion_radius", "illusion_burn_dps", "illusion_trail_dps", "illusion_swap"],
+	"illusion_tick": ["illusion_damage", "illusion_radius", "illusion_burn_damage", "illusion_trail_damage", "illusion_swap"],
 	"spin": ["spin_prizes", "spin_jackpot_every", "spin_delay", "prize_mult", "prize_mine_damage", "prize_mine_radius", "prize_shield"],
-	"spin_tick": ["prize_mult", "prize_beam_dps", "prize_coin_count", "prize_coin_damage", "prize_coin_reach"],
+	"spin_tick": ["prize_mult", "prize_beam_damage", "prize_coin_count", "prize_coin_damage", "prize_coin_reach"],
 	"disco": ["disco_rays", "disco_length", "disco_damage", "disco_slow", "disco_slow_secs", "disco_bounce"],
-	"ripple": ["ripple_reach", "ripple_life", "ripple_dps", "ripple_slow", "ripple_corner"],
+	"ripple": ["ripple_reach", "ripple_life", "ripple_damage", "ripple_slow", "ripple_corner"],
 	"zz_arm": ["zz_segments"],
-	"zz_beam": ["zz_life", "zz_dps", "zz_slow"],
+	"zz_beam": ["zz_life", "zz_damage", "zz_slow"],
+	"grow_spike": ["spike_max"],
+	"spikes": ["spike_damage", "spike_max"],
+	"accelerate": ["speed_gain", "max_speed_mult"],
+	"momentum": [],
+	"brake": [],
+	"mark_slam": ["slam_window"],
+	"slam": ["slam_damage"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -210,7 +218,7 @@ func fx_breath(sim, b, _ctx: Dictionary) -> void:
 ## Sends reflect_ratio of damage taken back at the attacker (reflect_low below
 ## half HP when > 0), at most reflect_cap per hit when > 0. reflect_from
 ## "ability" ignores contact hits, "contact" only answers contact hits, "copying"
-## only works while copying. reflect_burn > 0 also burns them for 2s.
+## only answers contact hits while copying. reflect_burn > 0 also burns them for 2s.
 ## Reflected damage and burns never reflect.
 func fx_reflect(sim, b, ctx: Dictionary) -> void:
 	if ctx.kind in ["reflect", "burn", "slam"] or ctx.source == b or ctx.source.team == b.team:
@@ -223,7 +231,7 @@ func fx_reflect(sim, b, ctx: Dictionary) -> void:
 			if ctx.kind != "contact":
 				return
 		"copying":
-			if not b.state.has("copy_until"):
+			if ctx.kind != "contact" or not b.state.has("copy_until"):
 				return
 	var ratio: float = b.def.reflect_ratio
 	if b.def.reflect_low > 0.0 and b.hp < b.max_hp * 0.5:
@@ -289,7 +297,8 @@ func fx_pull(sim, b, _ctx: Dictionary) -> void:
 
 
 ## moon_count moons circle it moon_orbit beyond its edge; each hits a foe it
-## touches for moon_damage, at most once per moon_cooldown. Positions are in
+## touches for moon_damage, at most once per moon_cooldown, and moon_burn > 0
+## sets it burning (that much a second for 2s). Positions are in
 ## b.state.moons for the renderer.
 func fx_moons(sim, b, _ctx: Dictionary) -> void:
 	var n := int(b.def.moon_count)
@@ -306,6 +315,8 @@ func fx_moons(sim, b, _ctx: Dictionary) -> void:
 			if p.distance_to(o.pos) <= o.radius + b.def.moon_size and sim.tick >= int(hit_at.get(key, 0)):
 				hit_at[key] = sim.tick + int(round(b.def.moon_cooldown * sim.TICK_RATE))
 				sim.deal(b, o, b.def.moon_damage, "moon", p)
+				if b.def.moon_burn > 0.0:
+					sim.add_burn(b, o, b.def.moon_burn, 2.0)
 	b.state.moons = moons
 
 
@@ -336,8 +347,10 @@ func fx_copy(sim, b, ctx: Dictionary) -> void:
 	for key in src.def:
 		if not copied.has(key):
 			copied[key] = src.def[key]
-			if key.ends_with("_damage") or key.ends_with("_dps"): # A copy hits softer.
+			if key.ends_with("_damage") or key.ends_with("_dps") or key.ends_with("_accel"): # A copy hits (and pulls) softer.
 				copied[key] = src.def[key] * base.copy_scale
+			elif key.ends_with("_mult"): # ...and multiplies softer.
+				copied[key] = 1.0 + (src.def[key] - 1.0) * base.copy_scale
 	var effects: Array = base.effects.duplicate()
 	for e in src.def.effects:
 		if not e.do in ["copy", "revive", "reflect", "rewind"]:
@@ -422,7 +435,8 @@ func fx_beam_at(sim, b, ctx: Dictionary) -> void:
 ## Every collapse_every seconds it collapses for collapse_secs, dragging foes
 ## within collapse_range in hard, then explodes: collapse_damage within
 ## collapse_radius, knocking them away. collapse_ring > 0 leaves a burning ring
-## (that much damage a second, 3s). State: b.state.collapsing.
+## (that much damage a second, 3s); collapse_burn > 0 sets foes it blasts
+## burning for 3s. State: b.state.collapsing.
 func fx_collapse(sim, b, _ctx: Dictionary) -> void:
 	var every := int(round(b.def.collapse_every * sim.TICK_RATE))
 	var dur := int(round(b.def.collapse_secs * sim.TICK_RATE))
@@ -437,6 +451,10 @@ func fx_collapse(sim, b, _ctx: Dictionary) -> void:
 				sim.steer(o, delta / dist * b.def.collapse_accel)
 	elif sim.tick >= every and t == dur:
 		sim.pulse(b, b.pos, b.def.collapse_radius, b.def.collapse_damage, true, "nova")
+		if b.def.collapse_burn > 0.0:
+			for o in sim.foes(b):
+				if o.pos.distance_to(b.pos) <= b.def.collapse_radius + o.radius:
+					sim.add_burn(b, o, b.def.collapse_burn, 3.0)
 		if b.def.collapse_ring > 0.0:
 			sim.add_zone(b, b.pos, {"kind": "ring", "radius": b.def.collapse_radius, "life": 3.0, "dps": b.def.collapse_ring})
 
@@ -446,6 +464,52 @@ func fx_collapse_guard(_sim, b, ctx: Dictionary) -> void:
 	if b.state.get("collapsing", false):
 		ctx.mult *= b.def.collapse_guard
 
+
+
+## Grows one spike per contact hit landed, up to spike_max. State:
+## b.state.spikes. Emits "spike" events.
+func fx_grow_spike(sim, b, _ctx: Dictionary) -> void:
+	var spikes: int = b.state.get("spikes", 0)
+	if spikes < b.def.spike_max:
+		b.state.spikes = spikes + 1
+		sim.events.append({"type": "spike", "ball": b.index, "spikes": spikes + 1})
+
+
+## Each grown spike adds spike_damage to the owner's contact hits.
+func fx_spikes(_sim, b, ctx: Dictionary) -> void:
+	var spikes: int = mini(b.state.get("spikes", 0), b.def.spike_max)
+	if spikes > 0:
+		ctx.mult *= (b.contact_damage + b.def.spike_damage * spikes) / b.contact_damage
+
+
+## Speeds up by speed_gain on every wall bounce, up to max_speed_mult of base.
+func fx_accelerate(_sim, b, _ctx: Dictionary) -> void:
+	b.speed = minf(b.def.speed * b.def.max_speed_mult, b.speed * (1.0 + b.def.speed_gain))
+	b.vel = b.vel.normalized() * b.speed
+
+
+## Contact hits scale with speed above base (see fx_accelerate).
+func fx_momentum(_sim, b, ctx: Dictionary) -> void:
+	ctx.mult *= b.speed / b.def.speed
+
+
+## A contact hit taken knocks the ball back to its base speed.
+func fx_brake(_sim, b, ctx: Dictionary) -> void:
+	if ctx.get("kind") == "contact" and b.speed > b.def.speed:
+		b.speed = b.def.speed
+		b.vel = b.vel.normalized() * b.speed
+
+
+## A contact hit landed arms a slam for slam_window seconds (see fx_slam).
+func fx_mark_slam(sim, b, _ctx: Dictionary) -> void:
+	b.state.slam_until = sim.tick + int(round(b.def.slam_window * sim.TICK_RATE))
+
+
+## If the foe hits a wall while a slam is armed, it takes slam_damage.
+func fx_slam(sim, b, ctx: Dictionary) -> void:
+	if sim.tick <= b.state.get("slam_until", -1):
+		b.state.slam_until = -1
+		sim.add_hit(b, ctx.other, b.def.slam_damage, "slam", ctx.point)
 
 
 # --- Batch H: arena pieces and set pieces --------------------------------------
@@ -561,11 +625,15 @@ func fx_vine(sim, b, _ctx: Dictionary) -> void:
 		return
 	var ang: float = sim.rng.next_float() * TAU
 	var anchors := []
-	for k in int(b.def.vine_pairs):
-		var p = sim.add_piece(b, f.pos + Vector2.from_angle(ang + k * PI) * b.def.vine_offset,
-			{"kind": "vine", "radius": b.def.vine_radius, "life": b.def.vine_life, "grow": 0.2})
-		if p != null:
-			anchors.append({"piece": p, "length": maxf(p.pos.distance_to(f.pos), f.radius + p.radius) + b.def.vine_slack})
+	# A spot an arena obstacle crowds out tries the next quarter turn.
+	for turn in 4:
+		for k in int(b.def.vine_pairs):
+			var p = sim.add_piece(b, f.pos + Vector2.from_angle(ang + turn * PI / 2.0 + k * PI) * b.def.vine_offset,
+				{"kind": "vine", "radius": b.def.vine_radius, "life": b.def.vine_life, "grow": 0.2})
+			if p != null:
+				anchors.append({"piece": p, "length": maxf(p.pos.distance_to(f.pos), f.radius + p.radius) + b.def.vine_slack})
+		if not anchors.is_empty():
+			break
 	if anchors.is_empty():
 		return
 	b.state.lash = {"target": f.index, "anchors": anchors, "until": sim.tick + int(round(b.def.vine_lash * sim.TICK_RATE))}
@@ -573,8 +641,9 @@ func fx_vine(sim, b, _ctx: Dictionary) -> void:
 
 
 ## Holds the lashed foe within its vine's length (it swings round the pillar
-## at full speed), then snaps: vine_damage within vine_burst_radius of each
-## pillar, plus a thorn patch (vine_thorn_dps per second) when above 0.
+## at full speed), then snaps round it: vine_damage within vine_burst_radius
+## of the foe, plus a thorn patch at each pillar (vine_thorn_damage a second)
+## when above 0.
 func fx_vine_tick(sim, b, _ctx: Dictionary) -> void:
 	var lash: Dictionary = b.state.get("lash", {})
 	if lash.is_empty():
@@ -582,11 +651,12 @@ func fx_vine_tick(sim, b, _ctx: Dictionary) -> void:
 	var f = sim.balls[lash.target]
 	if sim.tick >= int(lash.until) or not f.alive():
 		b.state.erase("lash")
+		# The vine snaps round the foe it held, wherever it swung to.
+		if f.alive():
+			sim.pulse(b, f.pos, b.def.vine_burst_radius, b.def.vine_damage, false, "petal")
 		for a in lash.anchors:
-			var pos: Vector2 = a.piece.pos
-			sim.pulse(b, pos, b.def.vine_burst_radius, b.def.vine_damage, false, "petal")
-			if b.def.vine_thorn_dps > 0.0:
-				sim.add_zone(b, pos, {"kind": "thorn", "radius": 80.0, "life": 3.0, "dps": b.def.vine_thorn_dps})
+			if b.def.vine_thorn_damage > 0.0:
+				sim.add_zone(b, a.piece.pos, {"kind": "thorn", "radius": 80.0, "life": 3.0, "dps": b.def.vine_thorn_damage})
 		return
 	for a in lash.anchors:
 		var anchor: Vector2 = a.piece.pos
@@ -729,8 +799,8 @@ func fx_illusions(sim, b, _ctx: Dictionary) -> void:
 
 
 ## An illusion a foe touches bursts: illusion_damage within
-## illusion_radius, burning them (illusion_burn_dps a second, 2s).
-## illusion_trail_dps > 0 leaves flame patches behind illusions; illusion_swap 1
+## illusion_radius, burning them (illusion_burn_damage a second, 2s).
+## illusion_trail_damage > 0 leaves flame patches behind illusions; illusion_swap 1
 ## blinks the real Foxfire to a bursting illusion's spot.
 func fx_illusion_tick(sim, b, _ctx: Dictionary) -> void:
 	for p in sim.pieces_of(b, "illusion"):
@@ -740,14 +810,14 @@ func fx_illusion_tick(sim, b, _ctx: Dictionary) -> void:
 				touched = true
 				break
 		if not touched:
-			if b.def.illusion_trail_dps > 0.0 and sim.tick % 12 == 0:
-				sim.add_zone(b, p.pos, {"kind": "fire", "radius": 26.0, "life": 1.2, "dps": b.def.illusion_trail_dps})
+			if b.def.illusion_trail_damage > 0.0 and sim.tick % 12 == 0:
+				sim.add_zone(b, p.pos, {"kind": "fire", "radius": 26.0, "life": 1.2, "dps": b.def.illusion_trail_damage})
 			continue
 		sim.pieces.erase(p)
 		sim.pulse(b, p.pos, b.def.illusion_radius, b.def.illusion_damage, false, "fire")
 		for o in sim.foes(b):
 			if o.pos.distance_to(p.pos) <= b.def.illusion_radius + o.radius:
-				sim.add_burn(b, o, b.def.illusion_burn_dps, 2.0)
+				sim.add_burn(b, o, b.def.illusion_burn_damage, 2.0)
 		if b.def.illusion_swap > 0:
 			var from: Vector2 = b.pos
 			b.pos = p.pos
@@ -796,7 +866,7 @@ func fx_spin_tick(sim, b, _ctx: Dictionary) -> void:
 			"cross":
 				var r: Rect2 = sim.arena_rect()
 				var c: Vector2 = p.spot
-				var dmg: float = b.def.prize_beam_dps * b.def.prize_mult * 0.5
+				var dmg: float = b.def.prize_beam_damage * b.def.prize_mult * 0.5
 				sim.add_beam(b, Vector2(r.position.x, c.y), Vector2(r.end.x, c.y), {"life": 1.0, "damage": dmg, "cooldown": 0.5})
 				sim.add_beam(b, Vector2(c.x, r.position.y), Vector2(c.x, r.end.y), {"life": 1.0, "damage": dmg, "cooldown": 0.5})
 			"coins":
@@ -852,7 +922,7 @@ static func _exit_t(r: Rect2, from: Vector2, dir: Vector2) -> float:
 
 
 ## Ripple: a bounce off the arena's edge sends a damaging ripple along that
-## wall, ripple_reach each way (ripple_dps a second for ripple_life). ripple_slow
+## wall, ripple_reach each way (ripple_damage a second for ripple_life). ripple_slow
 ## > 0 also slows; ripple_corner 1 turns a ripple that reaches a corner up the
 ## next wall with the reach it has left.
 func fx_ripple(sim, b, ctx: Dictionary) -> void:
@@ -876,7 +946,7 @@ func fx_ripple(sim, b, ctx: Dictionary) -> void:
 func _ripple_seg(sim, b, a: Vector2, c: Vector2) -> void:
 	if a.distance_to(c) < 1.0:
 		return
-	sim.add_beam(b, a, c, {"life": b.def.ripple_life, "damage": b.def.ripple_dps * 0.5, "cooldown": 0.5})
+	sim.add_beam(b, a, c, {"life": b.def.ripple_life, "damage": b.def.ripple_damage * 0.5, "cooldown": 0.5})
 	_add_slow_seg(sim, b, a, c, b.def.ripple_life, b.def.ripple_slow)
 
 
@@ -892,7 +962,7 @@ func fx_zz_beam(sim, b, ctx: Dictionary) -> void:
 		return
 	var from: Vector2 = zz.from
 	if from.distance_to(ctx.point) >= sim.MIN_BEAM_LENGTH:
-		sim.add_beam(b, from, ctx.point, {"life": b.def.zz_life, "damage": b.def.zz_dps * 0.5, "cooldown": 0.5})
+		sim.add_beam(b, from, ctx.point, {"life": b.def.zz_life, "damage": b.def.zz_damage * 0.5, "cooldown": 0.5})
 		_add_slow_seg(sim, b, from, ctx.point, b.def.zz_life, b.def.zz_slow)
 	zz.left -= 1
 	zz.from = ctx.point

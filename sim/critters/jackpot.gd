@@ -22,7 +22,7 @@ const CRITTER := {
 		"prize_mult": 1.0,
 		"prize_mine_damage": 10.0,
 		"prize_mine_radius": 70.0,
-		"prize_beam_dps": 12.0,
+		"prize_beam_damage": 12.0, ## A second, per beam.
 		"prize_coin_count": 8,
 		"prize_coin_damage": 5.0,
 		"prize_coin_reach": 300.0,

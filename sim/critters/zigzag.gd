@@ -16,14 +16,14 @@ const CRITTER := {
 	"ability": [{"on": "hit", "do": "zz_arm"}, {"on": "wall", "do": "zz_beam"}, {"on": "always", "do": "slows"}],
 	"params": {
 		"zz_life": 1.5,
-		"zz_dps": 8.0,
+		"zz_damage": 8.0, ## A second.
 		"zz_slow": 0.0,
 		"zz_segments": 1, ## 2: the beam zigzags one more bounce.
 		"beam_max": 6,
 	},
 	"tiers": [
 		{"text": "After a hit, its path crackles for 1.5s"},
-		{"text": "Beam deals 10/s", "zz_dps": 10.0},
+		{"text": "Beam deals 10/s", "zz_damage": 10.0},
 		{"text": "The beam slows 20%", "zz_slow": 0.2},
 		{"text": "The beam lasts 2s", "zz_life": 2.0},
 		{"text": "The beam zigzags one more bounce", "zz_segments": 2},

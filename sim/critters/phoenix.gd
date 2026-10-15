@@ -12,13 +12,13 @@ const CRITTER := {
 	"color": "ff6a2a",
 	"vibe": "Proud and fiery; refuses to stay down.",
 	"description": "Phoenix. Its hits scorch (a burning foe can't heal), and the first time it falls it bursts back to life at 20% HP in a blast of flame.",
-	"stats": {"hp": 110.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
+	"stats": {"hp": 112.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "fall", "do": "revive"}, {"on": "hit", "do": "scorch"}],
 	"params": {
 		"revive_hp": 0.2,
 		"revive_radius": 200.0,
-		"revive_damage": 8.0,
-		"revive_burn": 2.0, ## Per second, 3s.
+		"revive_damage": 4.0,
+		"revive_burn": 1.0, ## Per second, 3s.
 		"revive_shield": 0.0,
 		"revive_bolts": 0,
 		"scorch_dps": 0.5,
@@ -35,6 +35,7 @@ const CRITTER := {
 		{"text": "Revives at 30%", "revive_hp": 0.3},
 		{"text": "The rebirth is a firestorm: 8 fire bolts and a 20 shield", "revive_bolts": 8, "revive_shield": 20.0},
 	],
+	"chaos": {"double_trouble": {"hp": 1.05}, "glass_cannon": {"revive_hp": 0.75}}, ## Bigger beams pick off a fresh revive; in Glass Cannon a revive is worth more.
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": "ffb300", "brow": .3, "mouth": "smirk"}, "back": ["flame_crest"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.25},
 }

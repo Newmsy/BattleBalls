@@ -28,7 +28,7 @@ func test_modifiers_apply_to_both_balls() -> void:
 	for b in fast.balls:
 		check_near(b.vel.length(), BallDefs.get_def(b.type_id).speed * 1.4, 0.01, "Hyper Speed for " + b.type_id)
 	var double := _sim("double_trouble")
-	check_near(double.balls[0].def.heal_ratio, 0.75, 0.001, "Double Trouble heal ratio")
+	check_near(double.balls[0].def.heal_ratio, 0.5 * sqrt(1.5), 0.001, "Double Trouble heal ratio (square root)")
 	check_eq(double.balls[1].def.beam_max, 9, "Double Trouble beam cap")
 
 
@@ -54,6 +54,14 @@ func test_closing_walls_starts_overtime_early() -> void:
 		sim.step()
 	check(sim.in_overtime(), "overtime by 11s")
 	check(sim.half_size < MatchSim.ARENA_SIZE / 2.0, "arena has started shrinking")
+
+
+func test_a_critters_chaos_block_tunes_only_its_twist() -> void:
+	var base := BallDefs.get_def("juggernaut")
+	var tuned: Dictionary = base.chaos.big_head
+	check_near(Modifiers.apply_to_def(base, "big_head").contact_damage, base.contact_damage * tuned.contact_damage, 0.001, "chaos multiplier applied")
+	check_near(Modifiers.apply_to_def(base, "glass_cannon").contact_damage, base.contact_damage * 1.35, 0.001, "other twists untouched")
+	check_near(Modifiers.apply_to_def(base, Modifiers.NONE).contact_damage, base.contact_damage, 0.001, "normal rules untouched")
 
 
 func test_every_modifier_is_deterministic_and_finishes() -> void:
