@@ -54,6 +54,9 @@ const RULES := {
 	"drum": [2, 0.08, -4.0],
 	"rain": [1, 0.85, -12.0],
 	"hum": [1, 0.5, -4.0],
+	"ticktock": [1, 0.2, -4.0],
+	"splash": [1, 0.3, -2.0],
+	"shatter": [1, 0.2, -3.0],
 }
 ## Seconds between rain patters while one of Drizzle's showers is falling.
 const RAIN_EVERY := 0.9
@@ -212,6 +215,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("crackle", 0.0, 1.15 if kind == "zap" else 0.8)
 				elif kind == "drum":
 					play("drum", 0.0, 0.9)
+				elif kind == "tick": # Clockwork's tick ring.
+					play("ticktock")
+				elif kind == "wave": # Leviathan bursting up.
+					play("splash")
 				elif kind == "quasar":
 					play("hum")
 				else:
@@ -254,8 +261,11 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("zap", 0.0, 0.6)
 			"wrap":
 				play("stretch", 0.0, 1.3)
-			"wrap_pop", "shatter":
-				play("snap", 0.0, 1.4 if e.type == "wrap_pop" else 0.8)
+			"wrap_pop":
+				play("snap", 0.0, 1.4)
+			"shatter": # Frostfang breaking the ice.
+				play("shatter")
+				play("hit_big", -4.0, 0.9)
 			"storm": # Thunderbird's storm: a big electric crack.
 				play("crackle", 0.0, 0.7)
 				play("sizzle", -4.0, 0.8)
@@ -274,8 +284,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("zap", -4.0, 1.6)
 			"yoyo", "fling":
 				play("stretch", 0.0, 1.3 if e.type == "yoyo" else 1.6)
-			"hug", "dive":
-				play("flip", 0.0, 0.7 if e.type == "dive" else 0.9)
+			"hug":
+				play("flip", 0.0, 0.9)
+			"dive": # Leviathan plunging under.
+				play("splash", -4.0, 1.4)
 			"orb_lost":
 				play("click", 0.0, 1.4)
 			# Movement critters (batch F) reuse the existing sounds at new pitches.
@@ -301,14 +313,24 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("hit", -6.0, 0.7)
 			# Batch H set pieces reuse existing sounds at their own pitch.
 			"piece":
-				if e.kind != "illusion":
+				if e.kind == "vine": # Ivy's vine sprouting: grassy.
+					play("rustle", -2.0, 1.3)
+				elif e.kind != "illusion":
 					play("wall", -3.0, 0.7)
 			"rays":
-				play("zap", -2.0, 1.4 if e.kind == "disco" else 1.15)
-			"lash", "root":
-				play("snap", 0.0, 0.8)
+				if e.kind == "shard": # Glacia's ice shards.
+					play("shatter", -3.0, 1.3)
+				else:
+					play("zap", -2.0, 1.4 if e.kind == "disco" else 1.15)
+			"lash": # Ivy's vine: a leafy rustle and a whip.
+				play("rustle", 0.0, 1.1)
+				play("snap", -6.0, 0.9)
+			"root": # Old Oak taking root: creaking wood and a heavy thud.
+				play("rustle", 0.0, 0.6)
+				play("thwomp", -3.0, 0.8)
 			"rewind":
-				play("flip", 0.0, 0.7)
+				play("ticktock", 0.0, 1.3)
+				play("flip", -4.0, 0.7)
 			"illusions", "swap":
 				play("flip", 0.0, 1.3)
 			"spin":

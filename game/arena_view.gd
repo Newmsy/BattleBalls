@@ -144,6 +144,7 @@ var _trails: Array = [[], []] ## Recent world positions per ball, oldest first.
 var _kos: Array[Dictionary] = []
 var _chomps: Array[Dictionary] = [] ## Count Nibbles' bites: {pos, dir, size, age}.
 var _novas: Array[Dictionary] = [] ## Void/Supernova blasts: {pos, radius, color, age}.
+var _fx: Array[Dictionary] = [] ## One-off effects: {kind, pos, age, life, ...} (see _draw_fx).
 var _rebirths: Array[Dictionary] = [] ## Ember rising again: {ball, age}.
 var _bolts: Array[Dictionary] = [] ## Lightning: {from, to, age, seed}; ring ones have a radius instead of to.
 var _grow_flash := [0.0, 0.0] ## Prickles' spike flash.
@@ -203,6 +204,7 @@ func clear_effects() -> void:
 	_chomps.clear()
 	_bolts.clear()
 	_novas.clear()
+	_fx.clear()
 	_rebirths.clear()
 	_dot_seen = [[], []]
 	_trails = [[], []]
@@ -307,6 +309,15 @@ func consume_events(events: Array[Dictionary]) -> void:
 					for o in sim.balls:
 						if o.alive() and o.team != team and o.pos.distance_to(e.pos) <= e.radius + o.radius:
 							_bolts.append({"from": e.pos, "to": o.pos, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+				elif pk == "tick": # Clockwork: a clock face ticks out.
+					_fx.append({"kind": "clock", "pos": e.pos, "radius": e.radius, "age": 0.0, "life": BattleFx.CLOCK_LIFE})
+				elif pk == "wave": # Leviathan bursts up in a wall of spray.
+					_fx.append({"kind": "splash", "pos": e.pos, "radius": e.radius, "age": 0.0, "life": BattleFx.SPLASH_LIFE, "seed": _fx_rng.randf() * TAU})
+					for q in 22:
+						var dir := Vector2.from_angle(_fx_rng.randf() * TAU)
+						_particles.append({"pos": e.pos + dir * 20.0, "vel": dir * _fx_rng.randf_range(200.0, 520.0) + Vector2(0, -150.0), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.8), "col": Color("bff8ff") if q % 3 else Color.WHITE, "size": _fx_rng.randf_range(3.0, 6.0)})
+					_shake = maxf(_shake, 10.0 * A11y.motion())
+					_add_popup(e.pos + Vector2(-50, -110), "SPLASH!", BattleFx.WATER, 1.2)
 				elif pk == "nova":
 					var owner_type: String = sim.balls[e.ball].type_id if e.get("ball", -1) >= 0 and e.ball < sim.balls.size() else ""
 					_novas.append({"pos": e.pos, "radius": e.radius, "color": Color("c58bff") if owner_type == "blackhole" else Color("ffd6a5"), "age": 0.0})
@@ -354,7 +365,10 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"yoyo", "fling", "hug", "dive":
 				var g := sim.balls[e.ball]
 				var words := {"yoyo": "SWING!", "fling": "WALK THE DOG!", "hug": "HUG!", "dive": "DIVE!"}
-				_add_popup(g.pos + Vector2(-40, -g.radius - 34), words[e.type], POP_SNAP)
+				var word: String = "THROWN!" if e.type == "fling" and e.has("source") else words[e.type]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 34), word, POP_SNAP)
+				if e.type == "dive": # Leviathan plunges under.
+					_fx.append({"kind": "splash", "pos": g.pos, "radius": g.radius * 1.6, "age": 0.0, "life": BattleFx.SPLASH_LIFE, "seed": 0.0})
 			"launch":
 				_spawn_particles(e.pos, 4)
 			"shielded":
@@ -392,13 +406,18 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var g := sim.balls[e.ball]
 				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
 				_add_popup(g.pos + Vector2(-44, -g.radius - 60), "WRAPPED!", RING_COLORS.confetti)
-			"wrap_pop":
-				_spawn_particles(e.pos, 16)
+			"wrap_pop": # The ribbon bursts into confetti.
+				var hues := [Color("ff5fa2"), Color("ffd23f"), Color("6ee7ff"), Color("a6ff6e"), Color.WHITE]
+				for q in 26:
+					var dir := Vector2.from_angle(_fx_rng.randf() * TAU)
+					_particles.append({"pos": e.pos, "vel": dir * _fx_rng.randf_range(160.0, 460.0), "age": 0.0, "life": _fx_rng.randf_range(0.5, 0.9), "col": hues[q % hues.size()], "size": _fx_rng.randf_range(3.0, 5.5)})
 			"shatter":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-44, -g.radius - 60), "SHATTER!", FROZEN, 1.2)
 				_shake = maxf(_shake, 9.0 * A11y.motion())
-				_spawn_particles(e.pos, 18)
+				for q in 20: # Ice chunks fly off.
+					var dir := Vector2.from_angle(_fx_rng.randf() * TAU)
+					_particles.append({"pos": e.pos + dir * g.radius * 0.6, "vel": dir * _fx_rng.randf_range(220.0, 560.0), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.8), "col": Color("d9f6ff") if q % 2 else Color("6fb7ff"), "size": _fx_rng.randf_range(4.0, 8.0)})
 			"storm":
 				var m := sim.balls[e.ball]
 				if e.sparks >= 3:
@@ -422,6 +441,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var names: Array = MODE_NAMES.get(g.type_id, [])
 				if e.mode < names.size():
 					_add_popup(g.pos + Vector2(-44, -g.radius - 34), names[e.mode], MODE_COLORS[g.type_id][e.mode])
+				if g.type_id == "eclipse": # The moon slides over the sun, or off it.
+					_fx.append({"kind": "eclipse", "ball": e.ball, "moon": int(e.mode) == 1, "age": 0.0, "life": BattleFx.FLIP_LIFE})
 			"bubble_pop":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "POP!", Color("9ff3f6"))
@@ -489,8 +510,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_add_popup(g.pos + Vector2(-46, -g.radius - 40), "ROOTED!", POP_HEAL)
 			"rewind":
 				var g := sim.balls[e.ball]
-				_add_popup(g.pos + Vector2(-46, -g.radius - 40), "REWIND!", POP_SNAP)
-				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
+				_add_popup(g.pos + Vector2(-46, -g.radius - 40), "REWIND!", BattleFx.CLOCK)
+				_fx.append({"kind": "rewind", "from": e.from, "pos": e.pos, "ball": e.ball, "age": 0.0, "life": 0.9})
 			"swap":
 				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
 				_spawn_particles(e.pos, 10)
@@ -568,6 +589,9 @@ func advance_effects(delta: float) -> void:
 	for k in _novas:
 		k.age += delta
 	_novas = _novas.filter(func(k): return k.age < BattleFx.NOVA_LIFE)
+	for k in _fx:
+		k.age += delta
+	_fx = _fx.filter(func(k): return k.age < k.life)
 	for k in _rebirths:
 		k.age += delta
 	_rebirths = _rebirths.filter(func(k): return k.age < BattleFx.REBIRTH_LIFE)
@@ -704,6 +728,10 @@ func _draw() -> void:
 	for k in _rays:
 		var t: float = k.age / k.life
 		var col: Color = RAY_COLORS.get(k.kind, BEAM)
+		if k.kind == "shard": # Glacia's shards fly inward as crystals.
+			for i in k.segments.size():
+				BattleFx.draw_shard(self, k.segments[i][0] * s, k.segments[i][1] * s, minf(1.0, t * 1.8), 11.0)
+			continue
 		for i in k.segments.size():
 			if k.kind == "disco":
 				col = Color.from_hsv(fmod(i * 0.13 + _time * 0.6, 1.0), 0.55, 1.0)
@@ -763,7 +791,9 @@ func _draw() -> void:
 			elif base_speed > 0.0:
 				BattleFx.draw_speed_blur(self, Color(b.def.color), ball_pos(b) * s, b.radius * s, b.vel, b.vel.length() / base_speed, _time)
 	for b in sim.balls:
-		if b.alive():
+		if b.alive() and b.type_id == "leviathan" and sim.tick < int(b.state.get("dive_until", -1)):
+			BattleFx.draw_fin(self, ball_pos(b) * s, b.radius * s, b.vel, _time)
+		elif b.alive():
 			_draw_critter(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
 			_draw_status(b, s)
 		elif b.index == ko_ball:
@@ -779,6 +809,8 @@ func _draw() -> void:
 		BattleFx.draw_chomp(self, k.pos * s, k.dir, k.size * s, k.age)
 	for k in _novas:
 		BattleFx.draw_nova(self, k.pos * s, k.radius * s, k.age, k.color)
+	for k in _fx:
+		_draw_fx(k, s)
 	for k in _rebirths:
 		if k.ball < sim.balls.size():
 			var g := sim.balls[k.ball]
@@ -1071,6 +1103,8 @@ func _draw_zone(z, s: float) -> void:
 			BattleFx.draw_bomb(self, p, s, z.armed(), z.blast_radius, z.age, z.pos.x * 0.01, _time)
 		"mine" when z.owner >= 0 and z.owner < sim.balls.size() and sim.balls[z.owner].type_id == "blizz":
 			BattleFx.draw_ice_mine(self, p, s, z.armed(), z.blast_radius, z.age, z.pos.y * 0.01, _time)
+		"inkpool":
+			BattleFx.draw_ink(self, p, z.radius * s, fade, fmod(z.pos.x * 0.09 + z.pos.y * 0.05, 6.28), _time)
 		"ice":
 			BattleFx.draw_ice(self, p, z.radius * s, fade, fmod(z.pos.x * 0.13 + z.pos.y * 0.07, 6.28), _time)
 		"honey":
@@ -1175,6 +1209,9 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 	var p: Vector2 = item.pos * s
 	var r: float = item.size * s
 	var col: Color = b.def.color
+	if item.look == "tentacle" and item.has("from"):
+		BattleFx.draw_tentacle(self, item.from * s, p, r, col, _time, (item.pos - b.pos).angle())
+		return
 	if item.has("from"):
 		var thick := 10.0 if item.look == "tentacle" else 4.0
 		draw_line(item.from * s, p, Color(col.lightened(0.25), 0.85), thick * s, true)
@@ -1217,6 +1254,21 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 			draw_circle(p + Vector2(-3, -3) * s, r * 0.4, Color.WHITE)
 
 
+## One-off effects from _fx.
+func _draw_fx(k: Dictionary, s: float) -> void:
+	match k.kind:
+		"clock":
+			BattleFx.draw_clock_ring(self, k.pos * s, k.radius * s, k.age)
+		"splash":
+			BattleFx.draw_splash(self, k.pos * s, k.radius * s, k.age, k.seed)
+		"rewind":
+			var g := sim.balls[k.ball]
+			BattleFx.draw_rewind(self, k.from * s, ball_pos(g) * s, g.radius * s, k.age, k.life)
+		"eclipse":
+			var g := sim.balls[k.ball]
+			BattleFx.draw_eclipse_flip(self, ball_pos(g) * s, g.radius * s, g.def.get("flip_radius", 160.0) * s, k.age, k.moon)
+
+
 ## Leviathan's dive: a swirl where it went down and a shrinking ring where it
 ## will burst up.
 func _draw_dive(b, s: float) -> void:
@@ -1251,6 +1303,16 @@ func _draw_piece(p, s: float, shake: Vector2) -> void:
 			draw_circle(pos + Vector2(cos(a), sin(a)) * p.radius * s * 0.95, 5.0, Color("6fb7ff", 0.7 * sink))
 		return
 	var cols: Array = PIECE_COLORS.get(p.kind, [PILLAR.darkened(0.6), PILLAR.lightened(0.2)])
+	if p.kind in ["root", "vine", "ice"]:
+		var seed := fmod(p.pos.x * 0.013 + p.pos.y * 0.007, TAU)
+		match p.kind:
+			"root": BattleFx.draw_tree(self, pos, p.radius * s, k, seed, _time)
+			"vine": BattleFx.draw_vine_pillar(self, pos, p.radius * s, k, seed, _time)
+			"ice": BattleFx.draw_crystal_pillar(self, pos, p.radius * s, k, seed, _time)
+		if not p.blocking: # Still see-through: a dashed rim.
+			for d in 10:
+				draw_arc(pos, rad, d * TAU / 10.0, (d + 0.5) * TAU / 10.0, 4, Color(cols[1], 0.8), 2.0, true)
+		return
 	draw_circle(pos + Vector2(3, 5) * k, rad, Color(0, 0, 0, 0.3 * k))
 	draw_circle(pos, rad, Color(cols[0], 0.5 + 0.5 * k))
 	draw_circle(pos + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(cols[1], 0.25))
@@ -1279,13 +1341,7 @@ func _draw_lash(b, s: float) -> void:
 		return
 	var f = sim.balls[lash.target]
 	for a in lash.anchors:
-		var from: Vector2 = a.piece.pos * s
-		var to: Vector2 = f.pos * s
-		draw_line(from, to, Color("0b4f37"), 7.0, true)
-		draw_line(from, to, Color("2ee59d"), 3.0, true)
-		for l in 4:
-			var q := from.lerp(to, (l + 0.5) / 4.0)
-			_ellipse(q, 5.0, 3.0, Color("ff9ecf"))
+		BattleFx.draw_lash_vine(self, a.piece.pos * s, f.pos * s, _time)
 
 
 ## Jackpot's next payout, shown where it will land before it fires: a dashed
@@ -1322,7 +1378,7 @@ func _draw_inflow(c: Vector2, inner: float, reach: float, col: Color, alpha: flo
 func _draw_status(b, s: float) -> void:
 	var p: Vector2 = ball_pos(b) * s
 	var r: float = b.radius * s
-	if sim.tick < int(b.state.get("phase_until", -1)):
+	if sim.tick < int(b.state.get("phase_until", -1)) and b.type_id != "leviathan":
 		draw_circle(p, r * 1.05, Color(ARENA_FILL, 0.6))
 	if b.shield > 0.0 and b.type_id == "megabot":
 		BattleFx.draw_hex_shield(self, p, r, _time, clampf(b.shield / maxf(1.0, b.def.get("salvo_shield", 10.0)), 0.0, 1.0))
@@ -1356,7 +1412,27 @@ func _draw_status(b, s: float) -> void:
 		for k in 5:
 			var a := k * TAU / 5.0 + 0.6
 			draw_circle(p + Vector2(cos(a), sin(a)) * r * 0.62, r * 0.09, Color(VULNERABLE, 0.55 + 0.3 * sin(_time * 6.0 + k)))
-	if sim.stunned(b):
+	for key in b.statuses: # Frostfang's frost creeping over the foe.
+		if str(key).begins_with("bite:") and b.statuses[key].has("stacks"):
+			var src = sim.balls[int(b.statuses[key].source)]
+			BattleFx.draw_frost_stacks(self, p, r, int(b.statuses[key].stacks), int(src.def.get("bite_max", 2)), _time)
+	var wrapped := false
+	for o in sim.balls: # Bonbon's gift wrap while it holds.
+		var w: Dictionary = o.state.get("wrap", {})
+		if not w.is_empty() and int(w.target) == b.index and sim.tick < int(w.pop):
+			wrapped = true
+			BattleFx.draw_wrap(self, p, r, _time, (int(w.pop) - sim.tick) / maxf(1.0, o.def.get("wrap_hold", 0.5) * MatchSim.TICK_RATE))
+	if b.def.has("hunt_accel"): # Frostfang hunting a foe it froze.
+		for o in sim.foes(b):
+			if sim.stunned(o) and int(o.state.get("stun_source", -1)) == b.index:
+				BattleFx.draw_frost_breath(self, p, r, b.vel, _time)
+				break
+	if b.type_id == "eclipse" and int(b.state.get("mode", 0)) == 1:
+		BattleFx.draw_moonlight(self, p, r, _time)
+	var slam: Dictionary = b.state.get("slam", {})
+	if not slam.is_empty() and int(slam.get("source", -1)) >= 0 and sim.balls[int(slam.source)].type_id == "puppeteer":
+		BattleFx.draw_thrown(self, p, r, b.vel, _time)
+	if sim.stunned(b) and not wrapped:
 		var block := Rect2(p - Vector2(r, r) * 1.1, Vector2(r, r) * 2.2)
 		_rounded_rect(block, r * 0.25, Color(FROZEN, 0.35))
 		_rounded_rect_outline(block, r * 0.25, Color(FROZEN, 0.9), 3.0)
