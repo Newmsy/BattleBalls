@@ -39,10 +39,10 @@ static func build(shell, params: Dictionary) -> Control:
 	var fighter: String = Campaign.fighter_for(p)
 	var b: Dictionary = p.best(fighter)
 	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30),
-		Kit.hbox(10, [Kit.label("Lv %d" % b.level, 22, Kit.MUTED), Kit.power(p.power_of(fighter), 24)])])
+		Kit.power(p.power_of(fighter), 24)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var change := Kit.chip("Change", Kit.ACCENT)
-	var fighter_row := Kit.hbox(16, [FighterTag.icon(fighter, b.tier, 120), info, change])
+	var fighter_row := Kit.hbox(16, [FighterTag.icon(fighter, b.tier, 120, false, b.level), info, change])
 	fighter_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	root.add_child(Kit.card_button(fighter_row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 16))
 
@@ -103,7 +103,7 @@ static func enemy_tier(st: Dictionary) -> int:
 static func matchup_text(p, z: int, i: int, fighter: String) -> String:
 	var st := Zones.stage(z, i)
 	var b: Dictionary = p.best(fighter)
-	return "%s vs %s" % [FighterTag.text(Roster.get_critter(fighter).name, b.get("tier", 1), p.power_of(fighter)),
+	return "%s vs %s" % [FighterTag.text(Roster.get_critter(fighter).name, b.get("tier", 1), p.power_of(fighter), b.get("level", 0)),
 		FighterTag.text(st.get("name", Roster.get_critter(st.enemy).name), enemy_tier(st), Campaign.enemy_rating(z, i))]
 
 

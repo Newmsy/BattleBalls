@@ -89,9 +89,10 @@ static func _trio_panel(shell, store, owned: Array) -> Control:
 	var slots: Array = store.slots(shell.profile)
 	for i in 3:
 		var critter: String = store.trio[i]
-		var content := Kit.vbox(2, [
-			Kit.label("%d · %s" % [i + 1, BallDefs.get_def(critter).display_name], 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-			FighterTag.of_slot(slots[i], 80),
+		var name := _fit(Kit.label("%d · %s" % [i + 1, BallDefs.get_def(critter).display_name], 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))
+		var content := Kit.vbox(0, [
+			name,
+			FighterTag.of_slot(slots[i], 72),
 		])
 		var slot := Kit.card_button(content, func():
 			if owned.is_empty():
@@ -120,7 +121,7 @@ static func _opponent_card(shell, store, offer: Dictionary) -> Button:
 		icons.add_child(FighterTag.of_slot(s, 68))
 	var info := Kit.vbox(4, [
 		Kit.hbox(8, [Kit.chip(card.name, col), Kit.chip("Arena Ghost", Kit.MUTED)]),
-		Kit.label(str(bot.name), 28),
+		_fit(Kit.label(str(bot.name), 28)),
 		Kit.hbox(6, [Glyph.make("stars", 22), Kit.label(Kit.commas(bot.trophies), 22, Kit.MUTED), Kit.label("·  +%d / %d" % [card.win, card.loss], 22, Kit.MUTED)]),
 	])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -129,3 +130,10 @@ static func _opponent_card(shell, store, offer: Dictionary) -> Button:
 	return Kit.card_button(row, func():
 		store.start_attack(offer.card, bot.id, randi_range(1, 0x7FFFFFFF), store.slots(shell.profile))
 		shell.get_tree().change_scene_to_file(FIGHT_SCENE), col, Kit.PANEL, 28, 14)
+
+
+## A label that ends in "..." rather than widening the screen.
+static func _fit(l: Label) -> Label:
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	l.custom_minimum_size.x = 40
+	return l

@@ -152,6 +152,7 @@ func _show_intro() -> void:
 func _lineups() -> Control:
 	var row := _row([])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 4)
 	for s in slots[0]:
 		row.add_child(FighterTag.of_slot(s, 64))
 	row.add_child(_label("VS", 28))
@@ -216,7 +217,7 @@ func _start_leg() -> void:
 ## "T2 Optic · 1,250 power" for the ball `side` has out this leg.
 func _fighter_text(side: int) -> String:
 	var s := Lineup.clean(slots[side][relay.slot[side]])
-	return FighterTag.text(BallDefs.get_def(s.critter).display_name, s.tier, FighterTag.rating(s))
+	return FighterTag.text(BallDefs.get_def(s.critter).display_name, s.tier, FighterTag.rating(s), s.level)
 
 
 func _skip_leg() -> void:

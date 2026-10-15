@@ -131,7 +131,7 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 		var tired: bool = f.stamina <= 0
 		var col := Kit.MUTED if tired else Kit.FG
 		var tag := Kit.label("#%d" % (order + 1) if order >= 0 else ("Tired" if tired else ""), 20, TOWER if order >= 0 else Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
-		var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96)
+		var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96, false, p.best(f.id).level)
 		if tired:
 			icon.modulate = Color(1, 1, 1, 0.35)
 		var cell := Kit.vbox(4, [
