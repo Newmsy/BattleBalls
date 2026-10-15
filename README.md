@@ -44,6 +44,18 @@ URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto
 A first visit with no URL params plays the onboarding
 (`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
 `?tutorial=1` replays it, `?tutorial=0` skips it.
+
+Add `&clip=1` to make a "Save clip" video as soon as the fight ends.
+
+## Finisher cam and clips
+
+The finisher cam (`game/finisher_cam.gd`) slows and zooms into the knockout
+blow. It is render-only: it plans from its own copy of the fight and only
+changes playback speed and the camera. **Save clip** on the result screen
+replays the fight in a 720x1280 "Who wins?" layout (`game/clip/`) and records
+it in the browser (MP4 on iPhone Safari); browsers without MediaRecorder get
+the same layout to screen-record. The export preset's `head_include` turns on
+`preserveDrawingBuffer` and taps the game's audio so the page can record both.
 `?sounds=1` opens the sound board: every sound with a play button.
 
 ## Icon and loading screen
