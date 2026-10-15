@@ -5,6 +5,7 @@ extends RefCounted
 const Kit := preload("res://game/ui/ui_kit.gd")
 const A11y := preload("res://game/a11y.gd")
 const Dev := preload("res://game/dev.gd")
+const FightSpeed := preload("res://game/fight_speed.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 
 const OPTIONS := [
@@ -106,7 +107,13 @@ static func _testing(shell) -> Control:
 	shell.mark("dev_free_summons", sw)
 	var words := Kit.label("Unlimited summons", 30)
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw])])
+	var all := FightSpeed.all_unlocked()
+	var speeds := Kit.button("On" if all else "Off", func(): FightSpeed.set_unlock_all(not all); open(shell), "go" if all else "ghost", 26, 72)
+	speeds.custom_minimum_size.x = 132
+	shell.mark("dev_all_speeds", speeds)
+	var speed_words := Kit.label("All fight speeds", 30)
+	speed_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds])])
 
 
 static func _refill_energy(shell) -> void:

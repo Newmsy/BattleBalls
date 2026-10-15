@@ -46,6 +46,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const Lineup := preload("res://sim/lineup.gd")
+const FightSpeed := preload("res://game/fight_speed.gd")
 
 ## CLIP plays the finished fight again in the vertical clip layout.
 enum State { MENU, AIM, FIGHT, RESULT, CLIP }
@@ -68,7 +69,6 @@ const ARENA_PIXELS := 680.0
 const INFO_HEIGHT := 100.0 ## Two lines of the info text.
 const CONTROLS_HEIGHT := 452.0 ## Tallest control panel (the menu).
 const TOP := 124.0 ## Title and HUD above the arena.
-const SPEEDS := [1.0, 2.0, 4.0, 0.5]
 const OPPONENT_RANDOM := "random"
 const MODE_SCENES := {"trickshot": "res://game/trick_shot.tscn", "bouncerun": "res://game/bounce_run.tscn"}
 const PICK_COLUMNS := 3
@@ -89,7 +89,6 @@ var url_arena := ""
 var aim := -450 ## Player launch angle, tenths of a degree.
 var foe_aim = null ## Opponent launch angle, or null to let the seed pick it.
 var link_error := ""
-var speed_index := 0
 var auto_start := false
 ## Chaos Weekend rule twist. Starts on this weekend's modifier (Normal on
 ## weekdays); the menu's Rules button cycles through all of them for testing.
@@ -151,7 +150,7 @@ var launch_button: Button
 var seed_label: Label
 var rules_button: Button
 var fight_box: HBoxContainer
-var speed_button: Button
+var speed_picker: FightSpeed.Picker
 var aim_box: HBoxContainer
 var result_box: VBoxContainer
 var result_label: Label
@@ -276,7 +275,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if state == State.FIGHT:
-		if _advance_fight(delta, SPEEDS[speed_index]):
+		if _advance_fight(delta, FightSpeed.current()):
 			_show_result()
 	elif state == State.CLIP:
 		_advance_clip(delta)
@@ -507,7 +506,7 @@ func _start_fight() -> void:
 		info_label.text = _pve_matchup_text()
 	if modifier != Modifiers.NONE:
 		info_label.text += " · " + Modifiers.display_name(modifier)
-	speed_button.text = "Speed %sx" % _speed_text()
+	speed_picker.refresh()
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
@@ -651,11 +650,13 @@ func _load_profile() -> void:
 	else:
 		profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
 	profile.changed.connect(_save_profile)
+	FightSpeed.account_level = profile.account_level
 
 
 func _save_profile() -> void:
 	if profile_unsaved:
 		return
+	FightSpeed.account_level = profile.account_level
 	save.data.profile = profile.to_dict()
 	save.commit()
 
@@ -772,7 +773,6 @@ func _apply_picks() -> void:
 	var picks: Dictionary = save.data.picks
 	if str(picks.player) in BallDefs.PLAYABLE:
 		player_type = picks.player
-	speed_index = clampi(int(picks.speed), 0, SPEEDS.size() - 1)
 
 
 ## Today's Try-a-Critter loaner, for a player who doesn't own it.
@@ -785,7 +785,7 @@ func _record_fight() -> void:
 	if _is_loan(player_type):
 		return
 	if mode != Mode.CAMPAIGN:
-		save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
+		save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": FightSpeed.index()}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
 	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt)
 	if xp > 0:
@@ -960,8 +960,8 @@ func _build_ui() -> void:
 	aim_back_button = _button("Back", _aim_back, 26, "ghost", 96)
 	aim_box = _row([launch_button, aim_back_button])
 
-	speed_button = _button("Speed 1x", _cycle_speed)
-	fight_box = _row([speed_button, _button("Skip to end", _skip_to_end)])
+	speed_picker = FightSpeed.picker()
+	fight_box = _row([speed_picker, _button("Skip", _skip_to_end)])
 
 	result_box = VBoxContainer.new()
 	result_box.add_theme_constant_override("separation", 14)
@@ -1166,16 +1166,6 @@ func _pick_arena() -> String:
 	if arena_override != "":
 		return arena_override
 	return Arenas.PLAYABLE[posmod(("arena:%d" % seed_value).hash(), Arenas.PLAYABLE.size())]
-
-
-func _cycle_speed() -> void:
-	speed_index = (speed_index + 1) % SPEEDS.size()
-	speed_button.text = "Speed %sx" % _speed_text()
-
-
-func _speed_text() -> String:
-	var v: float = SPEEDS[speed_index]
-	return str(int(v)) if v == floorf(v) else str(v)
 
 
 func _skip_to_end() -> void:
@@ -1595,7 +1585,6 @@ func tutorial_watch(p1: String, p2: String, fight_seed: int, tags: Array, hud_na
 	foe_aim = null
 	tutorial_tags = hud_names
 	tutorial_side = side
-	speed_index = 0
 	_start_fight()
 	arena.team_tags = tags
 
@@ -1609,7 +1598,6 @@ func tutorial_aim(p1: String, p2: String, fight_seed: int, foe_angle: int, ghost
 	foe_aim = foe_angle
 	tutorial_tags = ["You", BallDefs.get_def(p2).display_name]
 	tutorial_side = 0
-	speed_index = 0
 	state = State.AIM
 	aim = ghost_angle
 	arena.clear_effects()
@@ -1663,6 +1651,7 @@ func _adopt_profile(p) -> void:
 	profile.changed.disconnect(_save_profile)
 	profile = p
 	profile.changed.connect(_save_profile)
+	FightSpeed.account_level = profile.account_level
 	shell.set_profile(profile)
 	_save_profile()
 
@@ -1852,8 +1841,7 @@ func _read_url_params() -> Dictionary:
 	if params.has("aim") and params.aim.is_valid_int():
 		aim = int(params.aim)
 	if params.has("speed"):
-		var i := SPEEDS.find(float(params.speed))
-		speed_index = maxi(0, i)
+		FightSpeed.url_speed = maxf(0.0, float(params.speed))
 	auto_start = params.get("auto", "") == "1"
 	auto_clip = params.get("clip", "") == "1"
 	# ?today=2026-10-17 pins the live-ops clock to that day's noon (UTC).
