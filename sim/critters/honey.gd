@@ -11,22 +11,24 @@ const CRITTER := {
 	"status": "live",
 	"color": "d97706",
 	"vibe": "A sweet, slow-talking honey pot that leaves everyone a little sticky.",
-	"description": "Honey pot. Every wall bounce drips a honey puddle that slows foes who roll through it.",
+	"description": "Honey pot. Every wall bounce drips a honey puddle; a foe that rolls in gets stuck fast, and Honey's next hit on a stuck foe crushes it for extra damage.",
 	"stats": {"hp": 120.0, "radius": 64.0, "speed": 400.0, "contact_damage": 20.0},
-	"ability": [{"on": "wall", "do": "honey"}],
+	"ability": [{"on": "wall", "do": "honey"}, {"on": "always", "do": "honey_trap"}, {"on": "strike", "do": "honey_crush"}],
 	"params": {
 		"honey_radius": 55.0,
 		"honey_life": 4.0,
 		"honey_slow": 0.35, ## Share of movement a foe loses in honey.
 		"honey_max": 4, ## Oldest puddle goes when a new one would pass this.
+		"honey_stick": 0.6, ## A foe that rolls in is stuck (stunned) this long; the puddle is used up.
+		"honey_crush": 1.5, ## Honey's hit on a foe stuck in its honey.
 		"honey_merge_radius": 0.0, ## T5: touching puddles merge into a pool this big.
 		"linger_dps": 0.0,
 		"linger_slow": 0.35, ## T3: a foe that was in honey stays this slow...
 		"linger_secs": 1.0, ## ...for this long.
 	},
 	"tiers": [
-		{"text": "Bounces drip honey: slow 35%, max 4"},
-		{"text": "Puddles last 5s", "honey_life": 5.0},
+		{"text": "Bounces drip honey (max 4): a foe that rolls in is stuck 0.6s, and Honey's hit on it deals +50%"},
+		{"text": "Puddles last 5s and crush hits deal +75%", "honey_life": 5.0, "honey_crush": 1.75},
 		{"text": "Foes stay sticky for 1s after", "ability": [{"on": "always", "do": "linger"}]},
 		{"text": "Up to 6 puddles", "honey_max": 6},
 		{"text": "Touching puddles merge into a big pool (radius 90)", "honey_merge_radius": 90.0},

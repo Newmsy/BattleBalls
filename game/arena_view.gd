@@ -335,7 +335,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
 				_spawn_particles(e.from, 10)
 				_spawn_particles(e.to, 10)
-				_bursts.append({"pos": e.to, "age": 0.0})
+				_bursts.append({"pos": e.to, "age": 0.0, "spark": {}, "seed": 0.0})
 				_squash[g.index] = 0.25
 			"yank":
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})

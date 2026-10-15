@@ -187,7 +187,12 @@ func test_honey_puddles_slow_are_capped_and_t5_merge() -> void:
 	check_eq(_zones(sim, "honey").size(), 4, "at most 4 puddles")
 	sim.balls[1].pos = Vector2(60, 900)
 	sim.step()
-	check_near(sim.balls[1].slow, 0.35, 0.001, "honey slows 35%")
+	check(sim.stunned(sim.balls[1]), "a foe that rolls in gets stuck")
+	check_eq(_zones(sim, "honey").size(), 3, "and uses the puddle up")
+	sim.balls[1].stun_until = sim.tick
+	sim.balls[1].pos = Vector2(60, 700)
+	sim.step()
+	check_near(sim.balls[1].slow, 0.35, 0.001, "still stuck-immune: honey just slows 35%")
 	var t5 := _sim("honey", "plain", 5)
 	_park(t5)
 	t5.abilities.fx_honey(t5, t5.balls[0], {"point": Vector2(0, 500)})
