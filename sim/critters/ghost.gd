@@ -13,12 +13,12 @@ const CRITTER := {
 	"vibe": "Shy and spooky, giggles when you miss it.",
 	"description": "Ghost. Every 5s it phases out, taking much less damage, and its next hit after doubles.",
 	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
-	"ability": [{"on": "every", "secs": "phase_every", "do": "phase"}, {"on": "guard", "do": "phased"}, {"on": "strike", "do": "crit"}],
+	"ability": [{"on": "every", "secs": "phase_every", "do": "phase"}, {"on": "guard", "do": "phased"}, {"on": "strike", "do": "ambush"}],
 	"params": {
 		"phase_every": 5.0,
 		"phase_secs": 1.2,
 		"phase_guard": 0.2, ## Damage taken while phased.
-		"crit_mult": 2.0,
+		"ambush_mult": 2.0,
 		"trail_every": 0.1, ## T5 wisp trail.
 		"trail_width": 30.0,
 		"trail_life": 1.5,

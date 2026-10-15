@@ -33,7 +33,7 @@ const EFFECTS := {
 	"reflect": ["reflect_ratio", "reflect_low", "reflect_burn", "reflect_from", "reflect_cap"],
 	"phase": ["phase_secs"],
 	"phased": ["phase_guard"],
-	"crit": ["crit_mult"],
+	"ambush": ["ambush_mult"],
 	"phase_dash": [],
 	"phase_trail": ["trail_every", "trail_width", "trail_life", "trail_slow", "trail_dps"],
 	"pull": ["pull_range", "pull_accel", "pull_close"],
@@ -216,10 +216,10 @@ func fx_reflect(sim, b, ctx: Dictionary) -> void:
 		sim.add_burn(b, ctx.source, b.def.reflect_burn, 2.0)
 
 
-## Fades out for phase_secs (see fx_phased) and readies a crit (fx_crit).
+## Fades out for phase_secs (see fx_phased) and readies an ambush (fx_ambush).
 func fx_phase(sim, b, _ctx: Dictionary) -> void:
 	b.state.phase_until = sim.tick + int(round(b.def.phase_secs * sim.TICK_RATE))
-	b.state.crit_ready = true
+	b.state.ambush_ready = true
 	sim.events.append({"type": "phase", "ball": b.index, "pos": b.pos})
 
 
@@ -233,12 +233,12 @@ func fx_phased(sim, b, ctx: Dictionary) -> void:
 		ctx.mult *= b.def.phase_guard
 
 
-## Its first contact hit after phasing deals crit_mult x.
-func fx_crit(sim, b, ctx: Dictionary) -> void:
-	if b.state.get("crit_ready", false) and not phased(sim, b):
-		b.state.crit_ready = false
-		ctx.mult *= b.def.crit_mult
-		sim.events.append({"type": "crit", "ball": b.index, "pos": b.pos})
+## Its first contact hit after phasing deals ambush_mult x.
+func fx_ambush(sim, b, ctx: Dictionary) -> void:
+	if b.state.get("ambush_ready", false) and not phased(sim, b):
+		b.state.ambush_ready = false
+		ctx.mult *= b.def.ambush_mult
+		sim.events.append({"type": "ambush", "ball": b.index, "pos": b.pos})
 
 
 ## When a phase ends, it turns to fly straight at the nearest foe.

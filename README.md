@@ -23,7 +23,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 ```sh
 godot --headless --import                                   # once, after cloning
 GODOT=godot tests/run.sh                                    # all tests
-godot --headless --script res://tools/balance.gd -- --fights=200 --power-step
+godot --headless --script res://tools/balance.gd -- --fights=200 --power-step [--arena=all]
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
@@ -32,17 +32,30 @@ DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS t
 
 ## Previews
 
-CI builds every PR for the web and deploys it to Vercel (project
-`battleballs`, token in the `VERCEL` repo secret). Each PR gets a comment
-with its preview URL; `main` deploys to production. Smoke-test screenshots
-are served at `<preview>/smoke/`.
+CI builds every ready (non-draft) PR for the web and deploys it to Vercel
+(project `battleballs`, token in the `VERCEL` repo secret). Each PR gets a
+comment with its preview URL; `main` deploys to production. Smoke-test
+screenshots are served at `<preview>/smoke/`.
 
-URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
-(`aim` is the launch angle in tenths of a degree, screen space, y down).
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink`
+(`aim` is the launch angle in tenths of a degree, screen space, y down;
+`arena` is an id from `sim/arenas.gd`).
 
 A first visit with no URL params plays the onboarding
 (`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
 `?tutorial=1` replays it, `?tutorial=0` skips it.
+
+Add `&clip=1` to make a "Save clip" video as soon as the fight ends.
+
+## Finisher cam and clips
+
+The finisher cam (`game/finisher_cam.gd`) slows and zooms into the knockout
+blow. It is render-only: it plans from its own copy of the fight and only
+changes playback speed and the camera. **Save clip** on the result screen
+replays the fight in a 720x1280 "Who wins?" layout (`game/clip/`) and records
+it in the browser (MP4 on iPhone Safari); browsers without MediaRecorder get
+the same layout to screen-record. The export preset's `head_include` turns on
+`preserveDrawingBuffer` and taps the game's audio so the page can record both.
 `?sounds=1` opens the sound board: every sound with a play button.
 
 ## Icon and loading screen
@@ -147,8 +160,11 @@ is written to `user://save_backups` (newest 8 kept). Widen `progress` as more
 of the game is saved (account level, critters).
 
 Auth settings live in code: CI's migrate job runs `tools/supabase_auth_config.mjs`
-on every merge to `main` (email code templates, guest linking, allowed return
-URLs) and switches on Apple, Google and custom email when their secrets exist:
+on every merge to `main` (guest linking, allowed return URLs, email codes) and
+switches on Apple, Google and custom email when their secrets exist. The code
+email templates go up with the `SMTP_*` secrets: Supabase's free built-in
+mailer refuses custom templates, so until then its default emails carry a
+sign-in link but no typed code:
 
 | Repo secret | What |
 |---|---|
@@ -180,6 +196,17 @@ record moves), send one energy gift a day (2 energy; up to 10 gifts claimed a
 day; the server sets the amount) and send **preset phrases only**, never free
 text (Newms, 2026-10-14). `?demo=friends` shows sample friends with no server.
 
+## Analytics
+
+`game/online/analytics.gd` queues anonymous play events (`Analytics.track(name, props)`)
+and sends them in batches to `log_events()` as the signed-in guest. No names,
+free text or device ids; players can turn it off in Settings (the gear) (which also
+deletes what was sent), and browsers with Global Privacy Control or Do Not
+Track start opted out. Smoke tests and debug builds are flagged as test
+traffic. The owner's stats screen is `?stats#k=<dashboard key>` (`game/stats/`);
+mint or revoke keys in the Supabase SQL editor (see the analytics migration).
+`?stats&demo=1` shows it with sample numbers.
+
 ## Adding a critter
 
 A critter is one file: `sim/critters/<id>.gd` (copy `sim/critters/_template.gd`).
@@ -199,6 +226,21 @@ other code.
 - `tests/test_critters.gd` checks every file; `CritterDb.validate` explains
   what's wrong.
 
+## Damage rolls, crits, backstabs and gear
+
+Every hit's damage is rolled within +-10% and can crit (5% base chance, x1.5),
+from a roll stream seeded by the fight seed (`MatchSim.rolls`), so fights still
+replay from the seed and the launch angles. A contact hit from behind (both
+balls heading within 45 degrees of each other, the striker catching the other
+up) is a backstab for x1.3. Damage events carry `crit` and `backstab` flags;
+the arena shows gold CRIT pops and a BACKSTAB! call-out, with their own sounds.
+
+Gear is known fight setup like tiers: `MatchSim` takes `gear: [g1, g2]` and
+relays take `gear[side][slot]`, each a list of pieces or summed stat lines.
+`sim/gear.gd` holds the seven lines (attack, health, defense, speed, crit
+chance, crit damage, cooldown speed), their per-rarity values and caps.
+`balance.gd --gear` checks the lines stay worth about the same.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
@@ -214,3 +256,10 @@ other code.
 When every CI job passes on a PR that is **not a draft**, the `Auto-merge` job
 squash-merges it and rebuilds `main`. Keep a PR in draft until its code review
 is done; marking it ready re-runs CI and merges it once green.
+
+Actions minutes are limited (private repo), so CI spends them where they gate a
+merge. Draft pushes run only the unit and database tests; the balance matrix,
+web build and smoke test run once a PR is ready; `main` runs the unit and
+database tests, then builds, deploys and migrates without repeating the smoke
+test. Run the full checks locally before pushing (see CLAUDE.md), and push a
+draft in a few larger steps rather than many small ones.

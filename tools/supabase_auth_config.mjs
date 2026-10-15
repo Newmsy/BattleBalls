@@ -49,10 +49,6 @@ export function authSettings() {
     mailer_otp_length: 6,
     mailer_otp_exp: 3600,
     mailer_secure_email_change_enabled: false, // A guest has no old address to confirm.
-    mailer_subjects_magic_link: "Your BattleBalls sign-in code",
-    mailer_templates_magic_link_content: code("sign in"),
-    mailer_subjects_email_change: "Your BattleBalls code to save your progress",
-    mailer_templates_email_change_content: code("save your progress"),
   };
   const on = ["email"];
   if (has("APPLE_TEAM_ID", "APPLE_KEY_ID", "APPLE_SERVICES_ID", "APPLE_PRIVATE_KEY")) {
@@ -84,8 +80,17 @@ export function authSettings() {
       smtp_admin_email: env.SMTP_SENDER.trim(),
       smtp_sender_name: "BattleBalls",
       rate_limit_email_sent: 60,
+      // Supabase only lets a project change its email subjects and templates
+      // once it sends through its own SMTP (the free tier's built-in mailer
+      // refuses them), so the code emails ride along with the SMTP settings.
+      mailer_subjects_magic_link: "Your BattleBalls sign-in code",
+      mailer_templates_magic_link_content: code("sign in"),
+      mailer_subjects_email_change: "Your BattleBalls code to save your progress",
+      mailer_templates_email_change_content: code("save your progress"),
     });
     on.push("smtp");
+  } else {
+    console.log("::notice::No SMTP secrets: Supabase's built-in mailer sends its default emails (no custom code templates).");
   }
   return { settings: s, on };
 }

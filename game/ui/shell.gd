@@ -9,6 +9,7 @@ const UiProfile := preload("res://game/ui/ui_profile.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Friends := preload("res://game/online/friends.gd")
 const FightLink := preload("res://game/fight_link.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 const SettingsSheet := preload("res://game/ui/screens/settings_sheet.gd")
 
 const SCREENS := {
@@ -20,6 +21,7 @@ const SCREENS := {
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 	"arena": preload("res://game/ui/screens/arena_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
+	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
 }
@@ -30,7 +32,9 @@ const TAB_HEIGHT := 128.0
 ## Emitted when the player starts a quick fight from the Play tab.
 signal play_requested
 ## Emitted to watch a fight in the arena, e.g. the Fight of the Day. `fight`
-## has p1, p2, seed, angles and pick (the side the player called).
+## has p1, p2, seed, angles and pick (the side the player called, or -1), and
+## optionally board_title, return_to (the screen to come back to, default "week")
+## and return_params.
 signal watch_requested(fight: Dictionary)
 ## A friend's Rematch button: fight their saved team (unranked).
 signal rival_requested(friend: Dictionary)
@@ -47,6 +51,8 @@ var account = null
 var link_base := FightLink.HOME
 
 var profile = UiProfile.sample()
+## The online backend (game/online/backend.gd), or null in tests.
+var backend = null
 var play_with := "" ## Ball to pick in the arena menu on the next request_play().
 var current := ""
 var current_params := {}
@@ -277,6 +283,8 @@ func watch(fight: Dictionary) -> void:
 
 func _show(name: String, params: Dictionary) -> void:
 	close_overlay()
+	if name != current:
+		Analytics.track("screen", {"name": name})
 	current = name
 	current_params = params
 	_marks.clear()

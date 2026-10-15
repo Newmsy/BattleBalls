@@ -52,8 +52,9 @@ In the PR that adds or changes it:
 
 | Check | When | Command |
 |---|---|---|
-| Equal-power matrix, `FAIL` blocks merge | Every PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict` |
+| Equal-power matrix and arena tilt on every playable arena, `FAIL` blocks merge | Every ready (non-draft) PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict --arena=all` |
 | Full audit: equal power and power step at higher sample size | Weekly scheduled balance audit on `main`, plus any PR touching ball stats | `balance.gd -- --fights=500 --power-step` |
+| Gear lines: one Legendary piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%
 Wilson interval) and `WARN` when it might be noise; rerun a `WARN` with more
@@ -64,6 +65,16 @@ Until tiers exist in the sim, the power-step check stands in for a tier by
 scaling HP and every damage stat by sqrt(1.25), so HP x damage is +25%. Replace
 `_boost` in `tools/balance.gd` with the real tier system when it lands, and
 add a rarity-step check (target ~60%, rule 5) once rarity is in the sim.
+
+## Arenas
+
+Every arena in `Arenas.PLAYABLE` (`sim/arenas.gd`) is held to the same rules as
+the square, plus two more (design/arenas.md):
+
+- **Point-symmetric through the centre**, so neither start corner has an edge
+  (`tests/test_arenas.gd` checks the layout and that mirror fights split evenly).
+- **A tilt, not a verdict:** no playable matchup moves more than 10 points from
+  its square result (`WARN`), and over 15 points clear of noise is a `FAIL`.
 
 Audit reports are kept in the project's shared folder under
 `balance/audits/`, one file per run, so trends are visible over time.
