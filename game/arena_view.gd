@@ -63,6 +63,9 @@ const POP_BACKSTAB := Color("d68cff")
 const CRIT_POP_SCALE := 1.5
 ## Field rings (the "field" effect): Pull draws in blue, Push pushes out red.
 const FIELD_PULL := Color("4d8dff")
+const WELL := Color("b36bff")
+const WELL_CORE := Color("07051a")
+const SPIKE := Color("ff3d7f")
 const FIELD_PUSH := Color("ff4d6a")
 const RARITY_COLORS := Roster.RARITY_COLORS
 ## Side markers so mirror matches stay readable: index 0 is always the player.
@@ -126,6 +129,7 @@ var _hit := [0.0, 0.0]
 var _squash := [0.0, 0.0]
 var _eye_flash := [0.0, 0.0]
 var _bumper_flash := 0.0
+var _spike_flash := 0.0
 ## Field pole spin: eases 0 (Pull) <-> 1 (Push) after each flip.
 var _pole_swap := [0.0, 0.0]
 var _fx_rng := RandomNumberGenerator.new()
@@ -193,6 +197,7 @@ func clear_effects() -> void:
 	_squash = [0.0, 0.0]
 	_eye_flash = [0.0, 0.0]
 	_bumper_flash = 0.0
+	_spike_flash = 0.0
 	_pole_swap = [0.0, 0.0]
 	_banner = 0.0
 	_was_overtime = false
@@ -399,6 +404,10 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"bumper":
 				_bumper_flash = BUMPER_FLASH_LIFE
 				_spawn_particles(e.pos, 6)
+			"spike":
+				_spike_flash = BUMPER_FLASH_LIFE
+				_spawn_particles(e.pos, 5)
+				_rings.append({"pos": e.pos, "radius": 34.0, "color": SPIKE, "age": 0.0})
 			"rays":
 				_rays.append({"segments": e.segments, "kind": e.kind, "age": 0.0, "life": 0.6 if e.kind == "disco" else RAY_LIFE})
 			"piece":
@@ -448,6 +457,7 @@ func advance_effects(delta: float) -> void:
 		_squash[i] = maxf(0.0, _squash[i] - delta)
 		_eye_flash[i] = maxf(0.0, _eye_flash[i] - delta)
 	_bumper_flash = maxf(0.0, _bumper_flash - delta)
+	_spike_flash = maxf(0.0, _spike_flash - delta)
 	if sim:
 		for b in sim.balls:
 			_pole_swap[b.index] = move_toward(_pole_swap[b.index], 0.0 if b.state.get("pulling", true) else 1.0, delta / 0.25)
@@ -534,6 +544,8 @@ func _draw() -> void:
 		for i in 4:
 			draw_polyline(closed, Color(border, 0.22 - i * 0.05), 4.0 + i * 4.0, true)
 		draw_polyline(closed, border, 2.5, true)
+	_draw_wells(shape.wells())
+	_draw_spike_walls(shape)
 	_draw_obstacles(shape.obstacles())
 
 	if sim == null:
@@ -750,7 +762,9 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 			continue # Placed pieces draw themselves (_draw_piece).
 		var p: Vector2 = o.pos * s
 		var rad: float = o.radius * s
-		if o.kind == "bumper":
+		if o.kind == "spike":
+			_draw_spike_post(p, rad)
+		elif o.kind == "bumper":
 			var k := _bumper_flash / BUMPER_FLASH_LIFE
 			var col := BUMPER.lerp(Color.WHITE, k * 0.7)
 			draw_circle(p, rad, Color(BUMPER, 0.16 + 0.3 * k))
@@ -764,6 +778,68 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 			draw_circle(p + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(PILLAR, 0.25))
 			draw_arc(p, rad + 3.0, 0, TAU, 56, Color(BORDER, 0.2), 6.0, true)
 			draw_arc(p, rad, 0, TAU, 56, PILLAR.lightened(0.2), 2.5, true)
+
+
+## Gravity wells: a dark core, a spiral swirling in and rings flowing inward.
+func _draw_wells(wells: Array[Dictionary]) -> void:
+	var s := view_scale
+	for w in wells:
+		var c: Vector2 = w.pos * s
+		var reach: float = w.reach * s
+		draw_circle(c, reach, Color(WELL, 0.05))
+		draw_arc(c, reach, 0.0, TAU, 72, Color(WELL, 0.22), 2.0, true)
+		_draw_inflow(c, w.core * s * 1.4, reach, WELL, 0.35)
+		for arm in 3: # A three-armed spiral, turning slowly.
+			var pts := PackedVector2Array()
+			for j in 24:
+				var f := j / 23.0
+				var a := arm * TAU / 3.0 + f * 2.6 - _time * 1.4
+				pts.append(c + Vector2.from_angle(a) * lerpf(reach * 0.9, w.core * s, f))
+			draw_polyline(pts, Color(WELL, 0.3), 3.0, true)
+		draw_circle(c, w.core * s * 1.6, Color(WELL_CORE, 0.9))
+		draw_arc(c, w.core * s * 1.6, 0.0, TAU, 40, WELL, 2.5, true)
+		draw_circle(c, w.core * s * 0.7, Color(WELL, 0.25 + 0.15 * sin(_time * 3.0)))
+
+
+## The spiked stretch of the left and right walls: a row of glowing teeth.
+func _draw_spike_walls(shape) -> void:
+	var half: float = shape.spike_wall_half()
+	if half <= 0.0:
+		return
+	var s := view_scale
+	var r: Rect2 = shape.arena_rect()
+	var col := SPIKE.lerp(Color.WHITE, 0.6 * _spike_flash / BUMPER_FLASH_LIFE)
+	var teeth := 7
+	var tooth := half * 2.0 / teeth
+	for side in [-1.0, 1.0]:
+		var x: float = r.position.x if side < 0.0 else r.end.x
+		var top: float = shape.centre.y - half
+		draw_line(Vector2(x, top) * s, Vector2(x, top + half * 2.0) * s, Color(SPIKE, 0.35), 8.0, true)
+		for t in teeth:
+			var y0 := top + t * tooth
+			var tri := PackedVector2Array([Vector2(x, y0) * s, Vector2(x - side * tooth * 0.75, y0 + tooth * 0.5) * s, Vector2(x, y0 + tooth) * s])
+			draw_colored_polygon(tri, Color(SPIKE.darkened(0.45), 0.95))
+			draw_polyline(PackedVector2Array([tri[0], tri[1], tri[2]]), col, 2.0, true)
+
+
+## A Spike Yard post: a dark core ringed with glowing spikes.
+func _draw_spike_post(p: Vector2, rad: float) -> void:
+	var k := _spike_flash / BUMPER_FLASH_LIFE
+	var col := SPIKE.lerp(Color.WHITE, k * 0.6)
+	draw_circle(p + Vector2(3, 5), rad, Color(0, 0, 0, 0.35))
+	var n := 10
+	var spin := _time * 0.25
+	for i in n:
+		var a := spin + i * TAU / n
+		var tip := p + Vector2.from_angle(a) * rad * 1.28
+		var l := p + Vector2.from_angle(a - 0.24) * rad * 0.82
+		var rr := p + Vector2.from_angle(a + 0.24) * rad * 0.82
+		draw_colored_polygon(PackedVector2Array([l, tip, rr]), Color(SPIKE.darkened(0.4), 0.95))
+		draw_polyline(PackedVector2Array([l, tip, rr]), col, 2.0, true)
+	draw_circle(p, rad * 0.85, Color("2a0f22"))
+	draw_arc(p, rad * 0.85 + 3.0, 0, TAU, 48, Color(SPIKE, 0.2 + 0.3 * k), 6.0, true)
+	draw_arc(p, rad * 0.85, 0, TAU, 48, col, 2.5, true)
+	draw_circle(p, rad * 0.3, Color(col, 0.6))
 
 
 ## One critter at `pos` (screen space) with radius `r`. Squash, wince, blink
