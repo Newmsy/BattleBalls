@@ -3,6 +3,7 @@ extends "res://tests/test_case.gd"
 const SaveGame := preload("res://game/online/save_game.gd")
 const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const Backend := preload("res://game/online/backend.gd")
+const Account := preload("res://game/online/account.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 
 const TEST_SAVE := "user://test_save.json"
@@ -14,16 +15,28 @@ func _fresh_save() -> SaveGame:
 	return SaveGame.new(TEST_SAVE)
 
 
-func test_save_round_trips_and_bumps_rev() -> void:
+func test_save_round_trips_and_marks_unsynced() -> void:
 	var s := _fresh_save()
 	s.record_fight(0, -30)
 	s.record_fight(1, 15)
 	var t := SaveGame.new(TEST_SAVE)
 	t.load_local()
-	check_eq(t.rev, 2, "rev")
+	check(t.dirty, "unsynced until pushed")
+	check_eq(t.base_rev, 0, "never in the cloud")
 	check_eq(int(t.data.stats.wins), 1, "wins")
 	check_eq(int(t.data.stats.losses), 1, "losses")
 	check_eq(t.data.aim_offsets.map(func(a): return int(a)), [-30, 15], "aim history")
+
+
+func test_format_1_saves_load() -> void:
+	var f := FileAccess.open(TEST_SAVE, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"rev": 3, "data": {"stats": {"fights": 3, "wins": 2}}}))
+	f.close()
+	var s := SaveGame.new(TEST_SAVE)
+	s.load_local()
+	check(s.dirty, "old local progress still goes up")
+	check_eq(s.base_rev, 0, "old device counter isn't a cloud revision")
+	check_eq(int(s.data.stats.wins), 2, "data kept")
 
 
 func test_aim_history_is_capped() -> void:
@@ -34,16 +47,119 @@ func test_aim_history_is_capped() -> void:
 	check_eq(int(s.data.aim_offsets[-1]), SaveGame.AIM_HISTORY + 4, "keeps the newest")
 
 
-func test_only_newer_cloud_saves_are_adopted() -> void:
+## Stands in for Supabase: one user's cloud save with sync_save's rules.
+class FakeCloud:
+	var me := "user-a"
+	var online := true
+	var rev := 0
+	var data = null
+	var pushes := 0
+
+	func ensure_session() -> bool:
+		return online
+
+	func user_id() -> String:
+		return me
+
+	func rest(_method: String, _path: String, _body = null) -> Dictionary:
+		if not online:
+			return {"ok": false, "code": 0, "data": null}
+		return {"ok": true, "code": 200, "data": [] if rev == 0 else [{"rev": rev, "data": data.duplicate(true)}]}
+
+	func call_rpc(_name: String, args: Dictionary) -> Dictionary:
+		if not online:
+			return {"ok": false, "code": 0, "data": null}
+		pushes += 1
+		if int(args.p_base_rev) != rev:
+			return {"ok": true, "code": 200, "data": {"saved": false, "rev": rev, "data": data}}
+		rev += 1
+		data = JSON.parse_string(JSON.stringify(args.p_data))
+		return {"ok": true, "code": 200, "data": {"saved": true, "rev": rev}}
+
+
+func _played(fights: int) -> SaveGame:
 	var s := _fresh_save()
-	s.record_fight(0, 0)
-	s.record_fight(0, 0)
-	check(not s.adopt_if_newer(1, {"stats": {"wins": 9}}), "older cloud ignored")
-	check(not s.adopt_if_newer(2, {"stats": {"wins": 9}}), "equal cloud ignored")
-	check_eq(int(s.data.stats.wins), 2, "local kept")
-	check(s.adopt_if_newer(5, {"stats": {"wins": 9}}), "newer cloud adopted")
-	check_eq(s.rev, 5, "rev follows cloud")
+	for i in fights:
+		s.record_fight(0, 0)
+	return s
+
+
+func test_offline_changes_wait_then_go_up() -> void:
+	var cloud := FakeCloud.new()
+	cloud.online = false
+	var s := _played(2)
+	s.sync(cloud)
+	check(s.dirty, "still unsynced offline")
+	cloud.online = true
+	s.sync(cloud)
+	check(not s.dirty, "pushed once back online")
+	check_eq(cloud.rev, 1, "cloud revision")
+	check_eq(int(cloud.data.stats.fights), 2, "cloud has the fights")
+	s.record_fight(1, 0)
+	s.sync(cloud)
+	check_eq([cloud.rev, s.base_rev], [2, 2], "next push builds on the last")
+
+
+func test_newer_cloud_save_comes_down() -> void:
+	var cloud := FakeCloud.new()
+	var s := _played(1)
+	s.sync(cloud)
+	cloud.rev = 7
+	cloud.data = {"stats": {"fights": 9, "wins": 9}}
+	s.sync(cloud)
+	check_eq(s.base_rev, 7, "follows the cloud")
 	check_eq(int(s.data.stats.wins), 9, "cloud data")
+	check(not s.dirty, "clean")
+
+
+func test_conflict_keeps_the_further_save_and_backs_up_the_other() -> void:
+	var cloud := FakeCloud.new()
+	var s := _played(1)
+	s.sync(cloud)
+	# Another device on this account plays a lot; this one plays a little.
+	cloud.rev = 4
+	cloud.data = {"stats": {"fights": 20, "wins": 15}}
+	var backups := DirAccess.get_files_at(SaveGame.BACKUP_DIR).size() if DirAccess.dir_exists_absolute(SaveGame.BACKUP_DIR) else 0
+	s.record_fight(0, 0)
+	s.sync(cloud)
+	check_eq(int(s.data.stats.fights), 20, "the further save wins")
+	check_eq(s.base_rev, 4, "on the cloud revision")
+	check(DirAccess.get_files_at(SaveGame.BACKUP_DIR).size() > backups or backups >= SaveGame.MAX_BACKUPS, "the other is backed up")
+
+	# The reverse: this device is further along, so it overwrites on top.
+	for i in 30:
+		s.record_fight(0, 0)
+	cloud.rev = 6
+	cloud.data = {"stats": {"fights": 21}}
+	s.sync(cloud)
+	check_eq(int(cloud.data.stats.fights), 50, "local progress pushed over the cloud")
+	check_eq(cloud.rev, 7, "as a new revision")
+	check(not s.dirty, "clean")
+
+
+func test_signing_in_takes_the_accounts_save() -> void:
+	var cloud := FakeCloud.new()
+	cloud.me = "guest"
+	var s := _played(3)
+	s.sync(cloud)
+	check_eq(s.owner, "guest", "guest owns it")
+	# Signs in on this device to an account that already has progress.
+	cloud.me = "account"
+	cloud.rev = 2
+	cloud.data = {"stats": {"fights": 1}}
+	s.sync(cloud)
+	check_eq(s.owner, "account", "switched")
+	check_eq(int(s.data.stats.fights), 1, "the account's save, not the guest's")
+	s.reset_for_sign_out()
+	check_eq([s.owner, s.base_rev, int(s.data.stats.fights)], ["", 0, 0], "signed out starts fresh")
+
+
+func test_first_sync_into_an_empty_account_keeps_local_progress() -> void:
+	var cloud := FakeCloud.new()
+	var s := _played(4)
+	s.sync(cloud)
+	check_eq(s.owner, "user-a", "owned")
+	check_eq(int(cloud.data.stats.fights), 4, "pushed")
 
 
 func test_old_saves_gain_new_keys() -> void:
@@ -85,6 +201,22 @@ func test_ghost_aim_is_deterministic_and_mirrored() -> void:
 	check_eq(GhostLineup.ghost_angle(GhostLineup.make(["laser"], []), 5), MatchSim.AIM_AT_CENTRE[1], "no habits: centre")
 	check_eq(GhostLineup.aim_offset(MatchSim.AIM_AT_CENTRE[0] + 40), 40, "offset")
 	check_eq(GhostLineup.aim_offset(MatchSim.AIM_AT_CENTRE[0] + 3590), -10, "offset wraps")
+
+
+func test_session_from_a_redirect() -> void:
+	var p := Backend.parse_fragment("access_token=a.b.c&refresh_token=r%2B1&type=magiclink&error_description=Email+link+is+invalid")
+	check_eq(p.refresh_token, "r+1", "decoded")
+	check_eq(p.type, "magiclink", "type")
+	var body := Marshalls.utf8_to_base64(JSON.stringify({"sub": "abc-123", "is_anonymous": false})).replace("+", "-").replace("/", "_").trim_suffix("=").trim_suffix("=")
+	check_eq(Backend.jwt_claims("x.%s.y" % body).get("sub"), "abc-123", "claims")
+	check_eq(Backend.jwt_claims("nope"), {}, "not a token")
+
+
+func test_email_check() -> void:
+	for good in ["a@b.co", "  sam.lee+bb@mail.example.org "]:
+		check(Account.valid_email(good), good)
+	for bad in ["", "a@b", "@b.co", "a b@c.co", "a@b.", "a@.co"]:
+		check(not Account.valid_email(bad), bad)
 
 
 func test_backend_is_offline_without_config() -> void:

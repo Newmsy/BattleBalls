@@ -107,6 +107,47 @@ key) into the web build from repo secrets; without them the build is offline.
   tests in `tests/db/`. They reach the live project when merged to `main`.
 - `?offline=1` runs the web build without touching the backend.
 
+### Accounts and cloud save
+
+Everyone starts as a guest (an anonymous Supabase user). Tapping the level
+badge opens **Account** (`game/online/account.gd`, `game/ui/screens/account_screen.gd`):
+a guest saves their progress by email code, which links the email to the same
+user id, so nothing moves. "Sign in instead" switches a device to an existing
+account (the guest's local progress goes to a backup). Apple and Google
+buttons appear on their own once those providers are switched on.
+
+Cloud save (`game/online/save_game.gd`, `*_save_sync.sql`) is compare-and-swap:
+the client sends the cloud revision its edits grew from, the server only
+writes if that still matches and numbers revisions itself. Offline, changes
+stay `dirty` on the device and go up on the next sync (boot, after fights,
+when the app regains focus, every 60 s while dirty). When two devices
+collide, the save with more progress (`SaveGame.progress`) wins and the other
+is written to `user://save_backups` (newest 8 kept). Widen `progress` as more
+of the game is saved (account level, critters).
+
+Auth settings live in code: CI's migrate job runs `tools/supabase_auth_config.mjs`
+on every merge to `main` (email code templates, guest linking, allowed return
+URLs) and switches on Apple, Google and custom email when their secrets exist:
+
+| Repo secret | What |
+|---|---|
+| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_SERVICES_ID`, `APPLE_PRIVATE_KEY` (the .p8 text), `APPLE_BUNDLE_ID` | Sign in with Apple. The client secret Apple needs expires within 6 months, so CI makes a new one from the key each run. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in (web OAuth client). |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SENDER` | Email from our own domain. Supabase's built-in email only reaches the project's team (a few an hour). |
+
+**Before soft launch (iOS + Android):**
+1. Custom email: a domain plus a sender such as Resend (free tier); add the `SMTP_*` secrets.
+2. Apple, once the Apple Developer account exists: App ID with Sign in with
+   Apple; a Services ID with domain `<ref>.supabase.co` and return URL
+   `https://<ref>.supabase.co/auth/v1/callback`; a Sign in with Apple key
+   (.p8, downloadable once); add the `APPLE_*` secrets. App Store rule 4.8:
+   if Google sign-in is offered on iOS, Apple must be too.
+3. Google (optional on the web, expected on Android): OAuth client with the
+   same callback URL; add the `GOOGLE_*` secrets.
+4. Store builds: the web build uses redirects; native iOS/Android builds need a
+   sign-in plugin that passes Apple's/Google's id token to
+   `/auth/v1/token?grant_type=id_token` (not built yet).
+
 ### Friends
 
 `game/online/friends.gd` + `game/ui/screens/friends_screen.gd`, tables and
