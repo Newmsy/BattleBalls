@@ -686,7 +686,10 @@ try {
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN bracket", 10000);
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "champ_laser", "bracket");
+    // The first card in the grid: later ones sit below the fold as the roster grows.
+    const champ = logs.find((l) => l.startsWith("UI_AT champ_"));
+    if (!champ) throw new Error(`No champion cards. Last logs:\n${logs.slice(-15).join("\n")}`);
+    await tapUi(page, logs, champ.split(" ")[1], "bracket");
     await page.screenshot({ path: path.join(shots, "30-bracket-picks.png") });
     await page.close();
   }

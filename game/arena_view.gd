@@ -27,9 +27,13 @@ const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
 const MINE := Color("ff4d4d")
 ## Floor zone fills by kind (sim Zone.kind).
-const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff")}
+const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "sour": Color("9ef01a")}
 ## Pulse and blast ring colours by kind.
-const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d")}
+const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"),
+	"shards": Color("cdf3ff"), "paint": Color("ffd23f"), "confetti": Color("f15bb5"), "thunder": Color("8ecbff")}
+## Statuses: frozen (stunned) balls sit in an ice block; vulnerable ones glow sour green.
+const FROZEN := Color("bfefff")
+const VULNERABLE := Color("9ef01a")
 const RING_LIFE := 0.45
 ## Crits pop bigger in gold; backstabs get their own call-out.
 const POP_CRIT := Color("ffb627")
@@ -203,6 +207,25 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"shielded":
 				var g := sim.balls[e.target]
 				_add_popup(g.pos + Vector2(28, -g.radius - 10), "0", POP_BEAM)
+			"stun":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 34), "FROZEN!", FROZEN)
+				_spawn_particles(g.pos, 8)
+			"wrap":
+				var g := sim.balls[e.ball]
+				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
+				_add_popup(g.pos + Vector2(-44, -g.radius - 60), "WRAPPED!", RING_COLORS.confetti)
+			"pop":
+				_spawn_particles(e.pos, 16)
+			"shatter":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-44, -g.radius - 60), "SHATTER!", FROZEN, 1.2)
+				_shake = maxf(_shake, 9.0 * A11y.motion())
+				_spawn_particles(e.pos, 18)
+			"storm":
+				var m := sim.balls[e.ball]
+				if e.sparks >= 3:
+					_add_popup(m.pos + Vector2(-34, -m.radius - 34), "ZAP!", RING_COLORS.thunder)
 			"snap":
 				var m := sim.balls[e.ball]
 				_add_popup(m.pos + Vector2(-34, -m.radius - 34), "SNAP!", POP_SNAP)
@@ -616,6 +639,11 @@ func _draw_zone(z, s: float) -> void:
 			draw_circle(p, 6.0 * s, MINE if on else Color(MINE, 0.35))
 		"ring":
 			draw_arc(p, z.radius * s, 0.0, TAU, 64, Color(ZONE_COLORS.ring, 0.6 * fade), 10.0 * s, true)
+		"paint":
+			# Wet rainbow paint: the hue walks along the trail.
+			var col := Color.from_hsv(fmod((z.pos.x + z.pos.y) * 0.0015, 1.0), 0.65, 1.0)
+			draw_circle(p, z.radius * s, Color(col, 0.3 * fade))
+			draw_circle(p, z.radius * 0.5 * s, Color(col, 0.25 * fade))
 		_:
 			var col: Color = ZONE_COLORS.get(z.kind, Color.WHITE)
 			draw_circle(p, z.radius * s, Color(col, 0.28 * fade))
@@ -644,6 +672,15 @@ func _draw_status(b, s: float) -> void:
 			draw_circle(p + Vector2(cos(a), sin(a) * 0.6 - 0.4) * r * 0.9, 4.0, Color("ff8a1f", 0.8))
 	if b.slow > 0.0:
 		draw_arc(p, r * 1.02, 0.0, TAU, 48, Color("bfe9ff", 0.6), 3.0, true)
+	if not b.statuses.is_empty() and sim.vulnerable(b) > 0.0:
+		for k in 5:
+			var a := k * TAU / 5.0 + 0.6
+			draw_circle(p + Vector2(cos(a), sin(a)) * r * 0.62, r * 0.09, Color(VULNERABLE, 0.55 + 0.3 * sin(_time * 6.0 + k)))
+	if sim.stunned(b):
+		var block := Rect2(p - Vector2(r, r) * 1.1, Vector2(r, r) * 2.2)
+		_rounded_rect(block, r * 0.25, Color(FROZEN, 0.35))
+		_rounded_rect_outline(block, r * 0.25, Color(FROZEN, 0.9), 3.0)
+		draw_line(block.position + Vector2(r * 0.3, r * 0.4), block.position + Vector2(r * 0.7, r * 0.2), Color.WHITE, 3.0, true)
 
 
 ## Stars circling the head of a knocked-out critter.

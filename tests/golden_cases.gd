@@ -29,4 +29,14 @@ const CASES := [
 	{"seed": 18, "p1": "prism", "p2": "laser", "angles": [null, null]},
 	{"seed": 19, "p1": "blackhole", "p2": "magnet", "angles": [null, null]},
 	{"seed": 20, "p1": "mirror", "p2": "phoenix", "angles": [300, -700]},
+	# Batch D statuses: stun (freeze), vulnerable, timed slows.
+	{"seed": 21, "p1": "gumdrop", "p2": "vampire", "angles": [null, null]},
+	{"seed": 22, "p1": "pucker", "p2": "laser", "angles": [null, null]},
+	{"seed": 23, "p1": "zapper", "p2": "magnet", "angles": [null, null]},
+	{"seed": 24, "p1": "frostfang", "p2": "vampire", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 25, "p1": "painter", "p2": "laser", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 26, "p1": "beacon", "p2": "magnet", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 27, "p1": "bonbon", "p2": "vampire", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 28, "p1": "mammoth", "p2": "laser", "angles": [null, null], "arena": "pillars"},
+	{"seed": 29, "p1": "stormwing", "p2": "zapper", "angles": [null, null], "tiers": [5, 5]},
 ]

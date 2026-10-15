@@ -428,5 +428,161 @@
     "reason": "knockout",
     "ticks": 1482,
     "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "gumdrop",
+      "p2": "vampire",
+      "seed": 21
+    },
+    "hash": "c0cc0b313c0f1195a7cec1085881bde9377aa201f1f9bfe57b4c4b98353de2b1",
+    "reason": "knockout",
+    "ticks": 3551,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "pucker",
+      "p2": "laser",
+      "seed": 22
+    },
+    "hash": "487b37a7caf40fd3f7e8a5430bd39df27c3e70ef9b09fab85434f1f3505c63c1",
+    "reason": "double_knockout",
+    "ticks": 1528,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "zapper",
+      "p2": "magnet",
+      "seed": 23
+    },
+    "hash": "51c733eab9002f36180fe34351bbaa46d59bef742807343be4e7b206e924de15",
+    "reason": "knockout",
+    "ticks": 1875,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "frostfang",
+      "p2": "vampire",
+      "seed": 24,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "8096a5bd1c5ac619ad2c32774dbc829b18759680673e32a95b1ed05e951cdeae",
+    "reason": "double_knockout",
+    "ticks": 3687,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "painter",
+      "p2": "laser",
+      "seed": 25,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "b8362e18b70d385c72a2264aa35b69adecac5b11a6df955d390c37d2841b2af0",
+    "reason": "knockout",
+    "ticks": 1868,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "beacon",
+      "p2": "magnet",
+      "seed": 26,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "760439bc2f41f48dc113b866e028dbcbe61f6cd8f6f46c6dfc28371270ef3bfa",
+    "reason": "knockout",
+    "ticks": 1799,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "bonbon",
+      "p2": "vampire",
+      "seed": 27,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "2566dd61198c9ac4b2265b3955e8517aa756bbd5ab933addff61256a5d886da4",
+    "reason": "knockout",
+    "ticks": 1780,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "pillars",
+      "p1": "mammoth",
+      "p2": "laser",
+      "seed": 28
+    },
+    "hash": "0b1eb26f40537da2846f3fd8970c7311c4b8ad7bec0756d7162f427ff1da31a2",
+    "reason": "knockout",
+    "ticks": 2181,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "stormwing",
+      "p2": "zapper",
+      "seed": 29,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "1617efd52064d72c049ab009193c1aa4b8c0939212c85605af2ce8ab13f115ab",
+    "reason": "knockout",
+    "ticks": 1472,
+    "winner": 1
   }
 ]
