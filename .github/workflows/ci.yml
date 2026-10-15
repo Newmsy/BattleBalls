@@ -25,31 +25,55 @@ defaults:
 env:
   GODOT_VERSION: "4.3"
 
+# Actions minutes are a budget (the repo is private). Where the heavy checks run:
+# - Draft PR pushes: unit tests and database tests only. Drafts never merge, and
+#   CLAUDE.md asks for the full checks locally before pushing.
+# - Ready PRs (and every push to one): everything, including the balance matrix
+#   and the browser smoke test. This is the merge gate.
+# - main: unit and database tests, then build, deploy and migrate. Its commits
+#   already passed the full gate as a PR, and the next PR's run (on its merge
+#   with main) catches anything two merges break together.
+# Each job has a timeout so a hang can't burn hours of minutes.
+
 jobs:
   test:
     name: Sim tests
     runs-on: ubuntu-latest
-    container: barichello/godot-ci:4.3
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      # The cached editor binary starts in seconds; pulling a Godot container
+      # image took about a minute and a half per run.
+      - name: Cache Godot and web export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+      - name: Download Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: tools/ci/download_godot.sh
       - name: Import project
-        run: timeout 180 godot --headless --import || true
+        run: timeout 180 ~/godot/godot --headless --import || true
       - name: Unit, determinism and golden replay tests
-        run: tests/run.sh
+        run: GODOT=~/godot/godot tests/run.sh
       - name: Balance sim (win-rate matrix in the job summary)
+        if: github.event_name == 'pull_request' && !github.event.pull_request.draft
         run: |
           set -o pipefail
-          timeout 900 godot --headless --script res://tools/balance.gd -- --fights=100 --strict | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
+          timeout 900 ~/godot/godot --headless --script res://tools/balance.gd -- --fights=100 --strict --arena=all | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Bounce Run boons stay a tilt, not a verdict
+        if: github.event_name == 'pull_request' && !github.event.pull_request.draft
         run: |
           set -o pipefail
-          timeout 900 godot --headless --script res://tools/boon_balance.gd -- --fights=40 --strict | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
+          timeout 900 ~/godot/godot --headless --script res://tools/boon_balance.gd -- --fights=40 --strict | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
 
   # Applies supabase/migrations to a plain Postgres with a stub of Supabase's
   # auth schema and checks row-level security and the game's RPCs.
   db:
     name: Database tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       postgres:
         image: postgres:15
@@ -67,7 +91,10 @@ jobs:
   # One job builds, smoke-tests and deploys, so no Actions artifacts are needed.
   web:
     name: Web build, smoke test and preview
+    # Not on drafts: nothing previews or merges from a draft.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || secrets.VERCEL }}
     steps:
@@ -80,13 +107,7 @@ jobs:
           key: godot-${{ env.GODOT_VERSION }}-web-nothreads
       - name: Download Godot
         if: steps.godot-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p ~/godot/templates && cd ~/godot
-          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
-          curl -sSfL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          unzip -q godot.zip && mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot && rm godot.zip
-          curl -sSfL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
-          unzip -q -j templates.tpz 'templates/web_nothreads_*' 'templates/version.txt' -d templates && rm templates.tpz
+        run: tools/ci/download_godot.sh
       - name: Install export templates where Godot looks for them
         run: |
           mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
@@ -139,14 +160,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      # The smoke test is most of CI's minutes, so it runs on PRs (the merge
+      # gate) and not again on main.
       - name: Install Playwright
+        if: github.event_name == 'pull_request'
         working-directory: smoke
         run: npm ci && npx playwright install --with-deps chromium
       - name: Play two fights in a phone-sized browser
+        if: github.event_name == 'pull_request'
         working-directory: smoke
         run: node smoke.mjs ../build/web
       - name: Publish screenshots with the preview
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         run: mkdir -p build/web/smoke && cp smoke/screenshots/*.png build/web/smoke/ || true
       - name: Deploy to Vercel
         id: vercel
@@ -187,6 +212,7 @@ jobs:
     needs: [test, db, web]
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Squash-merge the PR
         env:
@@ -206,6 +232,7 @@ jobs:
     needs: [test, db]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -230,3 +257,19 @@ jobs:
           ref=$(echo "$SUPABASE_URL" | sed -E 's#^ *https://([a-z0-9]+)\.supabase\.co.*#\1#')
           supabase link --project-ref "$ref"
           supabase db push
+      - name: Apply auth settings (email codes, Apple / Google when set up)
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_KEY_ID: ${{ secrets.APPLE_KEY_ID }}
+          APPLE_SERVICES_ID: ${{ secrets.APPLE_SERVICES_ID }}
+          APPLE_PRIVATE_KEY: ${{ secrets.APPLE_PRIVATE_KEY }}
+          APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_SENDER: ${{ secrets.SMTP_SENDER }}
+        run: node tools/supabase_auth_config.mjs

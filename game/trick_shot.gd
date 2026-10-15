@@ -13,6 +13,7 @@ const TrickShot := preload("res://sim/trick_shot.gd")
 const TrickShotView := preload("res://game/trick_shot_view.gd")
 const A11y := preload("res://game/a11y.gd")
 const Main := preload("res://game/main.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 
 enum State { AIM, SHOT, RESULT, DONE }
@@ -185,6 +186,7 @@ func _skip_shot() -> void:
 func _finish_try() -> void:
 	tries.append({"aim": aim, "result": shot.result, "walls": shot.walls})
 	print("TRICKSHOT_RESULT day=%d aim=%d result=%s walls=%s" % [day, aim, shot.result, ",".join(shot.walls)])
+	Analytics.track("trick_shot", {"result": shot.result})
 	if _is_over():
 		_record_finish()
 	_save_day()

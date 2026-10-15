@@ -2,21 +2,27 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2] }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2], tiers: [t1, t2], arena: String }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
-## `fields: false` (optional) switches off Flux's magnet field, so Daily Trick
-## Shot balls fly straight.
 ## `hp` (optional) sets each ball's starting HP (null = full), for relays
 ## where a winner stays in with what it has left.
 ## `boons` (optional, [[ids], [ids]]) gives each ball Bounce Run boons from
 ## sim/boons.gd.
+## `fields: false` (optional) switches off every-tick abilities (fields like
+## Flux's), so Daily Trick Shot balls fly straight.
+## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
+## Critters and their abilities come from sim/critters/ via sim/ball_defs.gd;
+## this file only fires their triggers (sim/abilities.gd).
+## `arena` (optional) is an id from sim/arenas.gd (default "square").
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Boons := preload("res://sim/boons.gd")
+const Arenas := preload("res://sim/arenas.gd")
+const Abilities := preload("res://sim/abilities.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
@@ -35,6 +41,15 @@ const IMPACT_SPREAD := 0.5
 const BEAM_HALF_WIDTH := 5.0
 const MIN_BEAM_LENGTH := 30.0
 const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre line.
+## Speed multiplier after bouncing off a bumper. 1.3 gave Laser 64% over
+## Vampire (11 points off the square); bumpers already add Laser bounces.
+const BUMPER_BOOST := 1.15
+const BUMPER_BOOST_TIME := 1.0 ## Seconds.
+## Obstacles vanish once overtime has shrunk the arena below this share of its
+## width, so the final squeeze is always a clean box.
+const OBSTACLE_MIN_SCALE := 0.7
+## Inward normals of the four cut corners: bottom-left, top-left, top-right, bottom-right.
+const CORNER_NORMALS := [Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1)]
 
 const START_CORNERS := [Vector2(170, 830), Vector2(830, 170)]
 const AIM_AT_CENTRE := [-450, 1350] ## Tenths of a degree from each corner.
@@ -58,12 +73,15 @@ class Ball:
 	var shield := 0.0 ## Absorbs damage before HP (Bounce Run boons).
 	var landed_hit := false
 	var banked := false ## Bounced off a wall since its last contact hit.
-	## Magnet: which way the field points, and whether this Pull's snap is unused.
-	var pulling := true
-	var snap_ready := true
+	var boost_ticks := 0 ## Ticks of bumper speed boost left.
+	var fired := {} ## One-shot triggers already used (Abilities.tick_triggers).
+	var state := {} ## Per-ball ability state, e.g. a field's "pulling" (read by the renderer).
 
 	func alive() -> bool:
 		return hp > 0.0
+
+	func current_speed() -> float:
+		return speed * BUMPER_BOOST if boost_ticks > 0 else speed
 
 
 class Beam:
@@ -81,6 +99,8 @@ class Beam:
 
 
 var config: Dictionary
+var arena_id: String
+var arena: Dictionary
 var rng
 var balls: Array[Ball] = []
 var beams: Array[Beam] = []
@@ -90,22 +110,29 @@ var centre := Vector2(ARENA_SIZE / 2.0, ARENA_SIZE / 2.0)
 var finished := false
 var winner := -1 ## Ball index, or -1 for a draw (only meaningful when finished).
 var end_reason := ""
+var ko_hp: Array[float] = [] ## On a double knockout, each ball's HP going into the final tick.
 var launch_angles: Array[int] = []
 ## Events produced by the most recent step(), for the renderer and tests.
 var events: Array[Dictionary] = []
+
+var abilities: Abilities
 
 var _contact_cooldown_until := {} ## "i:j" -> tick
 
 
 func _init(cfg: Dictionary) -> void:
 	config = cfg
+	arena_id = cfg.get("arena", "square")
+	arena = Arenas.get_def(arena_id)
 	rng = Rng.new(int(cfg.get("seed", 1)))
+	abilities = Abilities.new()
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	var angles: Array = cfg.get("angles", [null, null])
 	var starts: Array = cfg.get("starts", START_CORNERS)
 	var start_hp: Array = cfg.get("hp", [null, null])
+	var tiers: Array = cfg.get("tiers", [1, 1])
 	for i in 2:
-		var def := BallDefs.get_def(types[i])
+		var def := BallDefs.get_def(types[i], int(tiers[i]))
 		if cfg.has("boons"):
 			def = Boons.apply_to_def(def, cfg.boons[i])
 		var b := Ball.new()
@@ -142,6 +169,47 @@ func arena_rect() -> Rect2:
 	return Rect2(centre - Vector2(half_size, half_size), Vector2(half_size, half_size) * 2.0)
 
 
+## 1.0 at full size, shrinking toward MIN_HALF / half the arena in overtime.
+func arena_scale() -> float:
+	return half_size / (ARENA_SIZE / 2.0)
+
+
+## Obstacles at the current overtime scale, moved toward the centre with the walls.
+func obstacles() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var k := arena_scale()
+	if k < OBSTACLE_MIN_SCALE:
+		return out
+	for o in arena.obstacles:
+		out.append({"pos": centre + (o.pos - centre) * k, "radius": o.radius * k, "kind": o.kind})
+	return out
+
+
+## Cut-corner walls as [inward unit normal, distance from the centre].
+## A point p is inside when normal.dot(p - centre) + distance >= 0.
+func corner_walls() -> Array:
+	var out := []
+	if arena.corner_cut <= 0.0:
+		return out
+	var distance: float = arena_scale() * (ARENA_SIZE - arena.corner_cut) / sqrt(2.0)
+	for n in CORNER_NORMALS:
+		out.append([n.normalized(), distance])
+	return out
+
+
+## Outline of the playable area at the current scale, for rendering.
+func arena_outline() -> PackedVector2Array:
+	var r := arena_rect()
+	var cut: float = arena.corner_cut * arena_scale()
+	if cut <= 0.0:
+		return PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+	var a := r.position
+	var b := r.end
+	return PackedVector2Array([
+		Vector2(a.x + cut, a.y), Vector2(b.x - cut, a.y), Vector2(b.x, a.y + cut), Vector2(b.x, b.y - cut),
+		Vector2(b.x - cut, b.y), Vector2(a.x + cut, b.y), Vector2(a.x, b.y - cut), Vector2(a.x, a.y + cut)])
+
+
 func step() -> void:
 	if finished:
 		return
@@ -158,15 +226,25 @@ func step() -> void:
 	if in_overtime():
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
 
-	_update_fields()
+	if config.get("fields", true):
+		for b in balls:
+			if b.alive():
+				abilities.fire(self, "always", b)
 	var hits: Array[Dictionary] = []
 	for b in balls:
 		if b.alive():
+			if b.boost_ticks > 0:
+				b.boost_ticks -= 1
+				if b.boost_ticks == 0:
+					b.vel = b.vel.normalized() * b.speed
 			b.pos += b.vel * DT
 			_resolve_walls(b)
 	_resolve_ball_collisions(hits)
 	_update_beams(hits)
 	_apply_hits(hits)
+	for b in balls:
+		if b.alive():
+			abilities.tick_triggers(self, b)
 
 	tick += 1
 	_check_end(hp_before)
@@ -226,6 +304,29 @@ func _resolve_walls(b: Ball) -> void:
 		if b.vel.y > 0.0:
 			b.vel.y = -b.vel.y
 			_on_wall_bounce(b, Vector2(b.pos.x, r.end.y))
+	for wall in corner_walls():
+		var n: Vector2 = wall[0]
+		var dist: float = n.dot(b.pos - centre) + wall[1]
+		if dist < b.radius:
+			b.pos += n * (b.radius - dist)
+			if b.vel.dot(n) < 0.0:
+				b.vel -= 2.0 * b.vel.dot(n) * n
+				_on_wall_bounce(b, b.pos - n * b.radius)
+	for o in obstacles():
+		var delta: Vector2 = b.pos - o.pos
+		var reach: float = b.radius + o.radius
+		var dist := delta.length()
+		if dist >= reach:
+			continue
+		var n := delta / dist if dist > 0.0001 else Vector2.UP
+		b.pos = o.pos + n * reach
+		if b.vel.dot(n) < 0.0:
+			b.vel -= 2.0 * b.vel.dot(n) * n
+			if o.kind == "bumper":
+				b.boost_ticks = int(round(BUMPER_BOOST_TIME * TICK_RATE))
+				b.vel = b.vel.normalized() * b.current_speed()
+				events.append({"type": "bumper", "ball": b.index, "pos": o.pos + n * o.radius})
+			_on_wall_bounce(b, o.pos + n * o.radius)
 
 
 func _on_wall_bounce(b: Ball, point: Vector2) -> void:
@@ -238,59 +339,26 @@ func _on_wall_bounce(b: Ball, point: Vector2) -> void:
 			b.hp += gained
 			b.healed += gained
 			events.append({"type": "heal", "target": b.index, "amount": gained, "pos": b.pos, "boon": true})
-	if b.def.ability == "laser" and b.has_bounce and b.last_bounce.distance_to(point) >= MIN_BEAM_LENGTH:
-		var beam := Beam.new()
-		beam.owner = b.index
-		beam.a = b.last_bounce
-		beam.b = point
-		beam.life = b.def.beam_life
-		beam.damage = b.def.beam_damage
-		beam.cooldown_ticks = int(round(b.def.beam_hit_cooldown * TICK_RATE))
-		beams.append(beam)
-		var own_beams := beams.filter(func(x: Beam) -> bool: return x.owner == b.index)
-		if own_beams.size() > b.def.beam_max:
-			beams.erase(own_beams[0])
-		events.append({"type": "beam", "owner": b.index, "a": beam.a, "b": beam.b})
+	abilities.fire(self, "wall", b, {"point": point})
 	b.has_bounce = true
 	b.last_bounce = point
 
 
-## Magnet fields: flip on the period, then steer every other ball toward
-## (Pull) or away from (Push) the magnet. Steering only turns a ball; it keeps
-## its own speed, like every other bounce in the sim.
-func _update_fields() -> void:
-	if not config.get("fields", true):
-		return
-	for m in balls:
-		if m.def.ability != "magnet" or not m.alive():
-			continue
-		var period_ticks := maxi(1, int(round(m.def.field_period * TICK_RATE)))
-		var pulling := (tick / period_ticks) % 2 == 0
-		if pulling != m.pulling:
-			m.pulling = pulling
-			if pulling:
-				m.snap_ready = true
-			events.append({"type": "flip", "ball": m.index, "pulling": pulling, "pos": m.pos})
-		for other in balls:
-			if other == m or not other.alive():
-				continue
-			var delta := m.pos - other.pos
-			var dist := delta.length()
-			if dist < 0.001 or dist >= m.def.field_range:
-				continue
-			var strength: float = m.def.field_accel * (1.0 - dist / m.def.field_range)
-			if not m.pulling:
-				strength *= -m.def.push_scale
-			var pull := delta / dist * strength
-			_steer(other, pull)
-			# Magnets attract both ways: the magnet turns toward (or away from) the foe too.
-			_steer(m, -pull)
-
-
-func _steer(b: Ball, accel: Vector2) -> void:
-	var v := b.vel + accel * DT
-	if v.length() > 0.001:
-		b.vel = v.normalized() * b.speed
+## A beam from `a` to `b` owned by ball `owner`, using its beam_* params. Keeps
+## at most beam_max of the owner's beams, dropping the oldest.
+func add_beam(owner: Ball, a: Vector2, b: Vector2) -> void:
+	var beam := Beam.new()
+	beam.owner = owner.index
+	beam.a = a
+	beam.b = b
+	beam.life = owner.def.beam_life
+	beam.damage = owner.def.beam_damage
+	beam.cooldown_ticks = int(round(owner.def.beam_hit_cooldown * TICK_RATE))
+	beams.append(beam)
+	var own_beams := beams.filter(func(x: Beam) -> bool: return x.owner == owner.index)
+	if own_beams.size() > owner.def.beam_max:
+		beams.erase(own_beams[0])
+	events.append({"type": "beam", "owner": owner.index, "a": beam.a, "b": beam.b})
 
 
 func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
@@ -321,26 +389,33 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			a.vel -= n * (impulse / ma)
 			b.vel += n * (impulse / mb)
 			# Balls keep a constant speed: only direction changes.
-			a.vel = a.vel.normalized() * a.speed if a.vel.length() > 0.001 else -n * a.speed
-			b.vel = b.vel.normalized() * b.speed if b.vel.length() > 0.001 else n * b.speed
+			a.vel = a.vel.normalized() * a.current_speed() if a.vel.length() > 0.001 else -n * a.current_speed()
+			b.vel = b.vel.normalized() * b.current_speed() if b.vel.length() > 0.001 else n * b.current_speed()
 			var contact := a.pos + n * a.radius
 			events.append({"type": "collide", "a": i, "b": j, "pos": contact})
+			abilities.fire(self, "bump", a, {"other": b})
+			abilities.fire(self, "bump", b, {"other": a})
 			var key := "%d:%d" % [i, j]
 			if tick < int(_contact_cooldown_until.get(key, 0)):
 				continue
 			_contact_cooldown_until[key] = tick + int(round(CONTACT_COOLDOWN * TICK_RATE))
 			# The ball that rams harder hits harder, so even mirror matches trade unevenly.
-			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _snap(a), "kind": "contact", "pos": b.pos})
-			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _snap(b), "kind": "contact", "pos": a.pos})
+			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _strike(a, b), "kind": "contact", "pos": b.pos})
+			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _strike(b, a), "kind": "contact", "pos": a.pos})
 
 
-## Magnet's first contact hit of each Pull phase snaps for extra damage.
-func _snap(b: Ball) -> float:
-	if b.def.ability != "magnet" or not b.pulling or not b.snap_ready:
-		return 1.0
-	b.snap_ready = false
-	events.append({"type": "snap", "ball": b.index, "pos": b.pos})
-	return b.def.snap_mult
+## Contact damage multiplier from the striker's "strike" effects (e.g. snap).
+func _strike(striker: Ball, target: Ball) -> float:
+	var ctx := {"target": target, "mult": 1.0}
+	abilities.fire(self, "strike", striker, ctx)
+	return ctx.mult
+
+
+## Turns a ball by `accel` (units/s^2) for one tick, keeping its speed.
+func steer(b: Ball, accel: Vector2) -> void:
+	var v := b.vel + accel * DT
+	if v.length() > 0.001:
+		b.vel = v.normalized() * b.current_speed()
 
 
 ## 0 share (was hit while moving away) -> 1 - IMPACT_SPREAD; 1 share -> 1 + IMPACT_SPREAD.
@@ -390,8 +465,9 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		target.hp -= amount
 		source.damage_dealt += amount
 		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos})
-		if source.def.ability == "vampire" and h.kind == "contact":
-			heals.append({"ball": h.source, "amount": amount * source.def.heal_ratio})
+		if h.kind == "contact":
+			abilities.fire(self, "hit", source, {"target": target, "amount": amount, "heals": heals})
+		abilities.fire(self, "hurt", target, {"source": source, "amount": amount, "kind": h.kind})
 	# Heals land after damage, so a lethal hit can't be out-healed in the same tick.
 	for heal in heals:
 		var b := balls[heal.ball]
@@ -425,6 +501,7 @@ func _check_end(hp_before: Array[float]) -> void:
 		_finish(alive[0], "knockout")
 	elif alive.is_empty():
 		# Both died on the same tick: whoever had more HP going into it wins.
+		ko_hp = hp_before.duplicate()
 		if hp_before[0] == hp_before[1]:
 			_finish(-1, "double_knockout")
 		else:

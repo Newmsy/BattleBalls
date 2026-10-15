@@ -6,6 +6,7 @@ extends Node2D
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
+const Roster := preload("res://game/ui/roster.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const A11y := preload("res://game/a11y.gd")
 const RarityMark := preload("res://game/ui/rarity_mark.gd")
@@ -21,10 +22,10 @@ const POP_DAMAGE := Color("ff5a7a")
 const POP_HEAL := Color("45f5a6")
 const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
-## Magnet field rings: Pull draws in blue, Push pushes out red.
+## Field rings (the "field" effect): Pull draws in blue, Push pushes out red.
 const FIELD_PULL := Color("4d8dff")
 const FIELD_PUSH := Color("ff4d6a")
-const RARITY_COLORS := {"common": Color("c9d3e0"), "uncommon": Color("5ee08a"), "rare": Color("3d9bff"), "epic": Color("b366ff"), "legendary": Color("ffc23d")}
+const RARITY_COLORS := Roster.RARITY_COLORS
 ## Side markers so mirror matches stay readable: index 0 is always the player.
 ## Colour is never the only cue: the player's ring is solid, the foe's is
 ## dashed with four spikes, so red-green colourblind players can tell them apart.
@@ -35,6 +36,9 @@ const POPUP_LIFE := 0.9
 const HIT_LIFE := 0.35
 const BURST_LIFE := 0.35
 const BLINK_PERIOD := 4.3
+const PILLAR := Color("6d79b8")
+const BUMPER := Color("ff6fae")
+const BUMPER_FLASH_LIFE := 0.2
 const BANNER_LIFE := 1.6
 ## HP share under which the badge turns red (matches the heartbeat sound).
 const LOW_HP_SHARE := 0.35
@@ -44,8 +48,23 @@ var team_tags: Array = TEAM_TAGS ## Labels under each ball; a shared replay uses
 var view_scale := 0.68
 ## Launch aim preview for the player's ball (world direction), or ZERO to hide.
 var aim_dir := Vector2.ZERO
+## Onboarding's suggested launch (world direction), drawn as a pulsing ghost
+## arrow, or ZERO to hide.
+var ghost_dir := Vector2.ZERO
 ## Ball types to show before a sim exists (menu preview).
 var preview_types: Array = ["vampire", "laser"]
+## Arena to show before a sim exists (menu preview).
+var preview_arena := "square"
+## Tier of each ball (stars on the badge, how big its feature grows).
+var tiers: Array = [1, 1]
+## Where the arena sits at zoom 1; the finisher cam moves and scales from here.
+var origin := Vector2.ZERO
+var cam_zoom := 1.0
+var cam_focus := Vector2.ONE * MatchSim.ARENA_SIZE / 2.0
+## Finisher cam: the knocked-out ball, drawn with its KO face after it falls.
+var ko_ball := -1
+## 0..1: how far into the finisher (letterbox bars and the K.O. banner).
+var finisher_amount := 0.0
 
 var _time := 0.0
 var _shake := 0.0
@@ -57,15 +76,32 @@ var _look: Array[Vector2] = [Vector2(1, -1).normalized(), Vector2(-1, 1).normali
 var _hit := [0.0, 0.0]
 var _squash := [0.0, 0.0]
 var _eye_flash := [0.0, 0.0]
-## Magnet pole spin: eases 0 (Pull) <-> 1 (Push) after each flip.
+var _bumper_flash := 0.0
+## Field pole spin: eases 0 (Pull) <-> 1 (Push) after each flip.
 var _pole_swap := [0.0, 0.0]
 var _fx_rng := RandomNumberGenerator.new()
+var _ko_age := 0.0
 var _banner := 0.0 ## Seconds left on the OVERTIME banner.
 var _was_overtime := false
 
 
 func to_world(screen_pos: Vector2) -> Vector2:
-	return (screen_pos - global_position) / view_scale
+	return (get_global_transform().affine_inverse() * screen_pos) / view_scale
+
+
+## Zooms the view in on a world point. Zoom 1 shows the whole arena at `origin`.
+func set_camera(zoom: float, focus: Vector2) -> void:
+	cam_zoom = zoom
+	cam_focus = focus
+	scale = Vector2.ONE * zoom
+	var side := MatchSim.ARENA_SIZE * view_scale
+	position = origin + Vector2.ONE * side / 2.0 - focus * view_scale * zoom
+
+
+func reset_camera() -> void:
+	ko_ball = -1
+	finisher_amount = 0.0
+	set_camera(1.0, Vector2.ONE * MatchSim.ARENA_SIZE / 2.0)
 
 
 func clear_effects() -> void:
@@ -77,6 +113,7 @@ func clear_effects() -> void:
 	_hit = [0.0, 0.0]
 	_squash = [0.0, 0.0]
 	_eye_flash = [0.0, 0.0]
+	_bumper_flash = 0.0
 	_pole_swap = [0.0, 0.0]
 	_banner = 0.0
 	_was_overtime = false
@@ -116,8 +153,11 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_shake = maxf(_shake, 9.0 * A11y.motion())
 			"bounce":
 				_squash[e.ball] = maxf(_squash[e.ball], 0.15)
-				if sim.balls[e.ball].def.ability == "laser" and not A11y.reduced_motion:
+				if not A11y.reduced_motion:
 					_eye_flash[e.ball] = 0.3
+			"bumper":
+				_bumper_flash = BUMPER_FLASH_LIFE
+				_spawn_particles(e.pos, 6)
 			"end":
 				for b in sim.balls:
 					if not b.alive():
@@ -127,6 +167,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 
 func advance_effects(delta: float) -> void:
 	_time += delta
+	_ko_age = _ko_age + delta if ko_ball >= 0 else 0.0
 	_shake = maxf(0.0, _shake - delta * 30.0)
 	_banner = maxf(0.0, _banner - delta)
 	if sim:
@@ -139,9 +180,10 @@ func advance_effects(delta: float) -> void:
 		_hit[i] = maxf(0.0, _hit[i] - delta)
 		_squash[i] = maxf(0.0, _squash[i] - delta)
 		_eye_flash[i] = maxf(0.0, _eye_flash[i] - delta)
+	_bumper_flash = maxf(0.0, _bumper_flash - delta)
 	if sim:
 		for b in sim.balls:
-			_pole_swap[b.index] = move_toward(_pole_swap[b.index], 0.0 if b.pulling else 1.0, delta / 0.25)
+			_pole_swap[b.index] = move_toward(_pole_swap[b.index], 0.0 if b.state.get("pulling", true) else 1.0, delta / 0.25)
 		for b in sim.balls:
 			if b.vel.length() > 0.001:
 				_look[b.index] = _look[b.index].lerp(b.vel.normalized(), clampf(delta * 9.0, 0.0, 1.0)).normalized()
@@ -182,20 +224,32 @@ func _draw() -> void:
 	var shake := Vector2(_fx_rng.randf_range(-1, 1), _fx_rng.randf_range(-1, 1)) * _shake if _shake > 0.0 else Vector2.ZERO
 	draw_set_transform(shake)
 	var full := Rect2(Vector2.ZERO, Vector2.ONE * MatchSim.ARENA_SIZE * s)
-	var arena := full
-	var overtime := false
-	if sim:
-		var r := sim.arena_rect()
-		arena = Rect2(r.position * s, r.size * s)
-		overtime = sim.in_overtime()
+	# The menu has no fight yet; a fresh sim gives the arena's starting shape.
+	var shape: MatchSim = sim if sim else MatchSim.new({"arena": preview_arena})
+	var r := shape.arena_rect()
+	var arena := Rect2(r.position * s, r.size * s)
+	var overtime := shape.in_overtime()
 	if overtime:
 		_rounded_rect(full, 14.0, Color(0.35, 0.05, 0.12, 0.35))
-	_rounded_rect(arena, 14.0, ARENA_FILL)
-	_draw_grid(arena)
 	var border := OVERTIME_BORDER if overtime else BORDER
-	for i in 4:
-		_rounded_rect_outline(arena.grow(i * 2.0), 14.0 + i * 2.0, Color(border, 0.22 - i * 0.05), 4.0)
-	_rounded_rect_outline(arena, 14.0, border, 2.5)
+	var outline := shape.arena_outline()
+	if outline.size() == 4:
+		_rounded_rect(arena, 14.0, ARENA_FILL)
+		_draw_grid(arena)
+		for i in 4:
+			_rounded_rect_outline(arena.grow(i * 2.0), 14.0 + i * 2.0, Color(border, 0.22 - i * 0.05), 4.0)
+		_rounded_rect_outline(arena, 14.0, border, 2.5)
+	else:
+		for i in outline.size():
+			outline[i] *= s
+		draw_colored_polygon(outline, ARENA_FILL)
+		_draw_grid(arena, outline)
+		var closed := outline.duplicate()
+		closed.append(outline[0])
+		for i in 4:
+			draw_polyline(closed, Color(border, 0.22 - i * 0.05), 4.0 + i * 4.0, true)
+		draw_polyline(closed, border, 2.5, true)
+	_draw_obstacles(shape.obstacles())
 
 	if sim == null:
 		for i in 2:
@@ -213,7 +267,7 @@ func _draw() -> void:
 		draw_line(a, b, Color("e6f7ff", k), 1.4, true)
 
 	for b in sim.balls:
-		if b.alive() and b.def.ability == "magnet":
+		if b.alive() and b.def.has("field_range"):
 			_draw_field(b, s)
 
 	for k in _bursts:
@@ -226,6 +280,9 @@ func _draw() -> void:
 		for i in 12:
 			draw_circle(b.pos * s + aim_dir * (b.radius + 40.0 + i * 38.0) * s, 5.0, Color(TEAM_COLORS[0], 1.0 - i / 12.0))
 
+	if ghost_dir != Vector2.ZERO:
+		_ghost_arrow(sim.balls[0], s)
+
 	for w in _wisps:
 		if w.age < 0.0:
 			continue
@@ -237,6 +294,8 @@ func _draw() -> void:
 	for b in sim.balls:
 		if b.alive():
 			_draw_critter(b.index, b.def, b.pos * s, b.radius * s, b.hp, b.max_hp, shake)
+		elif b.index == ko_ball:
+			_draw_critter(b.index, b.def, b.pos * s, b.radius * s, 0.0, b.max_hp, shake, true)
 
 	for p in _particles:
 		var a: float = 1.0 - p.age / p.life
@@ -263,22 +322,90 @@ func _draw_banner(full: Rect2) -> void:
 	_rounded_rect(Rect2(c.x - full.size.x * 0.36, c.y - h / 2.0, full.size.x * 0.72, h), h / 2.0, Color(0.1, 0.02, 0.08, 0.8 * a))
 	_text_centered(c, "OVERTIME!", roundi(A11y.font(36) * pop), Color(OVERTIME_BORDER, a), 6)
 
+	if finisher_amount > 0.0:
+		_draw_finisher_frame()
 
-func _draw_grid(r: Rect2) -> void:
+
+## Letterbox bars and, once the blow lands, a K.O. banner. Drawn at screen
+## size whatever the zoom, over the part of the arena in view.
+func _draw_finisher_frame() -> void:
+	var s := view_scale
+	var half := MatchSim.ARENA_SIZE * s / (2.0 * cam_zoom)
+	var c := cam_focus * s
+	var view := Rect2(c - Vector2(half, half), Vector2(half, half) * 2.0)
+	var bar := view.size.y * 0.09 * finisher_amount
+	draw_set_transform(Vector2.ZERO)
+	draw_rect(Rect2(view.position, Vector2(view.size.x, bar)), Color(0, 0, 0, 0.85))
+	draw_rect(Rect2(Vector2(view.position.x, view.end.y - bar), Vector2(view.size.x, bar)), Color(0, 0, 0, 0.85))
+	if ko_ball < 0:
+		return
+	draw_set_transform(c, 0.0, Vector2.ONE / cam_zoom)
+	var pop := minf(1.0, _ko_age / 0.18)
+	var size := roundi(lerpf(150.0, 96.0, pop) * view_scale / 0.68)
+	_text_centered(Vector2(0, -half * cam_zoom * 0.7), "K.O.!", size, Color(BURST, pop), 14)
+	draw_set_transform(Vector2.ZERO)
+
+
+func _ghost_arrow(b, s: float) -> void:
+	var pulse := 0.45 + 0.35 * sin(_time * 4.0)
+	var col := Color(1, 1, 1, pulse)
+	var from: Vector2 = b.pos + ghost_dir * (b.radius + 30.0)
+	var to: Vector2 = b.pos + ghost_dir * (b.radius + 330.0)
+	var dash := 0.0
+	while dash < 260.0:
+		draw_line((from + ghost_dir * dash) * s, (from + ghost_dir * minf(dash + 22.0, 270.0)) * s, col, 6.0, true)
+		dash += 38.0
+	var side := ghost_dir.orthogonal()
+	draw_colored_polygon(PackedVector2Array([to * s, (to - ghost_dir * 46.0 + side * 30.0) * s, (to - ghost_dir * 46.0 - side * 30.0) * s]), col)
+
+
+## Grid lines across `r`, clipped to the convex `clip` outline when given.
+func _draw_grid(r: Rect2, clip := PackedVector2Array()) -> void:
 	var step := 80.0 * view_scale
 	var x := r.position.x + step
 	while x < r.end.x - 1.0:
-		draw_line(Vector2(x, r.position.y), Vector2(x, r.end.y), GRID, 1.0)
+		_grid_line(Vector2(x, r.position.y), Vector2(x, r.end.y), clip)
 		x += step
 	var y := r.position.y + step
 	while y < r.end.y - 1.0:
-		draw_line(Vector2(r.position.x, y), Vector2(r.end.x, y), GRID, 1.0)
+		_grid_line(Vector2(r.position.x, y), Vector2(r.end.x, y), clip)
 		y += step
+
+
+func _grid_line(a: Vector2, b: Vector2, clip: PackedVector2Array) -> void:
+	if clip.is_empty():
+		draw_line(a, b, GRID, 1.0)
+		return
+	var hits := Geometry2D.clip_polyline_with_polygon(PackedVector2Array([a, b]), clip)
+	for part in hits:
+		if part.size() >= 2:
+			draw_line(part[0], part[part.size() - 1], GRID, 1.0)
+
+
+func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
+	var s := view_scale
+	for o in obstacles:
+		var p: Vector2 = o.pos * s
+		var rad: float = o.radius * s
+		if o.kind == "bumper":
+			var k := _bumper_flash / BUMPER_FLASH_LIFE
+			var col := BUMPER.lerp(Color.WHITE, k * 0.7)
+			draw_circle(p, rad, Color(BUMPER, 0.16 + 0.3 * k))
+			for i in 3:
+				draw_arc(p, rad + i * 3.0, 0, TAU, 56, Color(col, 0.3 - i * 0.08), 4.0 + i * 3.0, true)
+			draw_arc(p, rad, 0, TAU, 56, col, 2.5, true)
+			draw_circle(p, rad * 0.42, col)
+		else:
+			draw_circle(p + Vector2(3, 5), rad, Color(0, 0, 0, 0.35))
+			draw_circle(p, rad, PILLAR.darkened(0.6))
+			draw_circle(p + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(PILLAR, 0.25))
+			draw_arc(p, rad + 3.0, 0, TAU, 56, Color(BORDER, 0.2), 6.0, true)
+			draw_arc(p, rad, 0, TAU, 56, PILLAR.lightened(0.2), 2.5, true)
 
 
 ## One critter at `pos` (screen space) with radius `r`. Squash, wince, blink
 ## and eye direction come from the per-ball effect state.
-func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2) -> void:
+func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2, ko := false) -> void:
 	var look: Vector2 = _look[i]
 	var team_col: Color = TEAM_COLORS[i]
 	# Team ring and tag sit outside the squash so they stay steady.
@@ -288,27 +415,20 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 
 	var ang := look.angle()
 	var sq: float = _squash[i] * 1.6
+	if ko:
+		# Flattened and wobbling, as if it just got bonked.
+		sq = 0.12 + 0.05 * sin(_ko_age * 14.0) * exp(-_ko_age * 2.0) * A11y.motion()
 	var squash := Transform2D(Vector2(1.0 - sq * 0.6, 0), Vector2(0, 1.0 + sq * 0.5), Vector2.ZERO)
 	draw_set_transform_matrix(Transform2D(0, pos + shake) * Transform2D(ang, Vector2.ZERO) * squash * Transform2D(-ang, Vector2.ZERO))
 
-	var col: Color = def.color
-	match def.ability:
-		"vampire":
-			_vampire_collar(r, col)
-		"laser":
-			_laser_antenna(r, col)
-		"magnet":
-			CritterArt.magnet_prongs(self, Vector2.ZERO, r, 1, _time, col, def.pole_color, _pole_swap[i])
-	if def.ability == "magnet":
-		draw_circle(Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
-		CritterArt.magnet_body(self, Vector2.ZERO, r, col, def.pole_color, _pole_swap[i])
-	else:
-		_body(r, col)
-	var hit: float = _hit[i]
-	if hit > 0.0:
-		var flash_cap := 0.3 if A11y.reduced_motion else 0.85
-		draw_circle(Vector2.ZERO, r, Color(1, 1, 1, minf(flash_cap, hit * 2.4)))
-	_face(def, r, look, hp / max_hp, hit, i)
+	draw_circle(Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
+	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
+	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
+	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": tiers[i], "look": look, "blink": blink,
+		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko})
+	if ko:
+		draw_set_transform(shake)
+		_dizzy_stars(pos, r)
 
 	draw_set_transform(shake)
 	_hp_badge(def, pos, r, hp, max_hp)
@@ -332,133 +452,26 @@ func _team_ring(i: int, pos: Vector2, r: float, col: Color) -> void:
 		draw_colored_polygon(PackedVector2Array([base + side * 6.0, base + d * 14.0, base - side * 6.0]), Color(col, 0.9))
 
 
-## Flux's field: faint rings flowing in (Pull) or out (Push) so players can
-## read the rhythm. Inner rings are brighter, like the field's strength.
+## A field (Flux's magnet): faint rings flowing in (Pull) or out (Push) so
+## players can read the rhythm. Inner rings are brighter, like its strength.
 func _draw_field(m, s: float) -> void:
 	var reach: float = m.def.field_range * 0.75
-	var col := FIELD_PULL if m.pulling else FIELD_PUSH
+	var pulling: bool = m.state.get("pulling", true)
+	var col := FIELD_PULL if pulling else FIELD_PUSH
 	for k in 3:
 		var f := fmod(_time * 0.9 + k / 3.0, 1.0)
-		if m.pulling:
+		if pulling:
 			f = 1.0 - f
 		var rad: float = lerpf(m.radius * 1.3, reach, f)
 		draw_arc(m.pos * s, rad * s, 0.0, TAU, 64, Color(col, 0.28 * (1.0 - f)), 3.0, true)
 
 
-func _body(r: float, col: Color) -> void:
-	draw_circle(Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
-	# Radial gradient: shrinking discs drifting toward the top-left highlight.
-	var dark := col.darkened(0.2)
-	var light := col.lightened(0.45)
-	var steps := 12
-	for k in steps:
-		var t := float(k) / (steps - 1)
-		var rad := r * (1.0 - t * 0.88)
-		var centre := Vector2(-0.35, -0.4) * r * t * 0.85
-		draw_circle(centre, rad, dark.lerp(light, t * t))
-	draw_arc(Vector2.ZERO, r, 0, TAU, 64, col.darkened(0.5), maxf(1.5, r * 0.07), true)
-
-
-func _vampire_collar(r: float, col: Color) -> void:
-	var cape := col.darkened(0.55)
-	for side in [-1.0, 1.0]:
-		draw_colored_polygon(PackedVector2Array([
-			Vector2(side * r * 0.25, -r * 0.9), Vector2(side * r * 1.12, -r * 1.13), Vector2(side * r * 0.95, -r * 0.15)]), cape)
-
-
-func _laser_antenna(r: float, col: Color) -> void:
-	var tip := Vector2(0, -r * 1.45)
-	draw_line(Vector2(0, -r * 0.8), tip, col.darkened(0.5), maxf(1.5, r * 0.07), true)
-	var on := sin(_time * 5.0) > -0.2
-	if on:
-		draw_circle(tip, r * 0.2, Color("7fe6ff", 0.3))
-	draw_circle(tip, r * 0.1, Color("bff4ff") if on else Color("3b6f80"))
-
-
-func _face(def: Dictionary, r: float, look: Vector2, hp_frac: float, hit: float, i: int) -> void:
-	var e := look * r * 0.2 + Vector2(0, -r * 0.08)
-	if hit > 0.0:
-		_wince(r, e)
-		return
-	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
-	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
-	var open := maxf(0.08, 1.0 - blink)
-	match def.ability:
-		"laser":
-			_eye(e, r * 0.4, r * 0.4 * open, r * 0.16, look, Color("0a7bb0"), Color("7fe6ff"), 0.0, def.color, _eye_flash[i])
-		"magnet":
-			for k in [-1.0, 1.0]:
-				_eye(e + Vector2(k * r * 0.3, 0), r * 0.19, r * 0.23 * open, r * 0.1, look, Color.TRANSPARENT, Color.TRANSPARENT, 0.0, def.color, 0.0)
-				_brow(e + Vector2(k * r * 0.3, 0), r * 0.19, r * 0.23, k, r * 0.16, r)
-			_mouth(e + Vector2(0, r * 0.34), r, "smile", hp_frac)
-		"vampire":
-			for k in [-1.0, 1.0]:
-				_eye(e + Vector2(k * r * 0.3, 0), r * 0.19, r * 0.22 * open, r * 0.1, look, Color.TRANSPARENT, Color.TRANSPARENT, 0.45, def.color, 0.0)
-				_brow(e + Vector2(k * r * 0.3, 0), r * 0.19, r * 0.22, k, r * 0.12, r)
-			_mouth(e + Vector2(0, r * 0.34), r, "fangs", hp_frac)
-		_:
-			for k in [-1.0, 1.0]:
-				_eye(e + Vector2(k * r * 0.3, 0), r * 0.2, r * 0.24 * open, r * 0.1, look, Color.TRANSPARENT, Color.TRANSPARENT, 0.0, def.color, 0.0)
-			_mouth(e + Vector2(0, r * 0.34), r, "smile", hp_frac)
-
-
-func _eye(c: Vector2, w: float, h: float, pupil: float, look: Vector2, iris: Color, glow: Color, lid: float, body: Color, flash: float) -> void:
-	if glow.a > 0.0:
-		var g := 0.25 + flash * 1.5
-		for k in 3:
-			_ellipse(c, w * (1.25 + k * 0.18), h * (1.25 + k * 0.18), Color(glow, g / (k + 2)))
-	_ellipse(c, w, h, Color.WHITE)
-	var p := c + Vector2(look.x * w, look.y * h) * 0.45
-	# Keep the pupil inside the (possibly blinking) eye.
-	var ph := minf(pupil, h * 0.95)
-	if iris.a > 0.0:
-		_ellipse(p, minf(pupil * 1.7, w * 0.95), minf(pupil * 1.7, h * 0.95), iris)
-	_ellipse(p, pupil, ph, INK)
-	if ph > pupil * 0.5:
-		draw_circle(p - Vector2(pupil, pupil) * 0.4, pupil * 0.35, Color.WHITE)
-	if lid > 0.0:
-		# Sleepy upper lid in body colour, with a darker edge.
-		var y := c.y - h + h * 2.0 * lid
-		# Arc of the eye above the lid line; the chord closes the polygon.
-		var d := clampf((y - c.y) / (h * 1.04), -0.99, 0.99)
-		var a0 := PI - asin(d)
-		var a1 := TAU + asin(d)
-		var pts := PackedVector2Array()
-		for k in 17:
-			var a := lerpf(a0, a1, k / 16.0)
-			pts.append(c + Vector2(cos(a) * w * 1.04, sin(a) * h * 1.04))
-		draw_colored_polygon(pts, body.lightened(0.05))
-		draw_line(Vector2(c.x - w, y), Vector2(c.x + w, y), body.darkened(0.45), maxf(1.0, w * 0.25), true)
-
-
-func _brow(c: Vector2, w: float, h: float, side: float, slant: float, r: float) -> void:
-	var top := c.y - h - r * 0.08
-	draw_line(Vector2(c.x + side * w * 1.1, top - slant * 0.5), Vector2(c.x - side * w * 0.9, top + slant * 0.5), INK, maxf(1.6, r * 0.08), true)
-
-
-func _wince(r: float, e: Vector2) -> void:
-	var lw := maxf(1.6, r * 0.08)
-	for k in [-1.0, 1.0]:
-		var c := e + Vector2(k * r * 0.3, 0)
-		draw_polyline(PackedVector2Array([
-			c + Vector2(-k * r * 0.12, -r * 0.1), c + Vector2(k * r * 0.08, 0), c + Vector2(-k * r * 0.12, r * 0.1)]), INK, lw, true)
-	_ellipse(e + Vector2(0, r * 0.38), r * 0.12, r * 0.09, INK)
-
-
-func _mouth(m: Vector2, r: float, kind: String, hp_frac: float) -> void:
-	var lw := maxf(1.4, r * 0.065)
-	if hp_frac < 0.35:
-		var pts := PackedVector2Array()
-		for k in 5:
-			pts.append(m + Vector2(-r * 0.16 + k * r * 0.08, -r * 0.05 if k % 2 == 1 else 0.0))
-		draw_polyline(pts, INK, lw, true)
-		return
-	draw_arc(m + Vector2(0, -r * 0.07), r * 0.14, 0.2 * PI, 0.8 * PI, 16, INK, lw, true)
-	if kind == "fangs":
-		for k in [-1.0, 1.0]:
-			var x: float = m.x + k * r * 0.1
-			draw_colored_polygon(PackedVector2Array([
-				Vector2(x - r * 0.035, m.y + r * 0.03), Vector2(x + r * 0.035, m.y + r * 0.03), Vector2(x, m.y + r * 0.15)]), Color.WHITE)
+## Stars circling the head of a knocked-out critter.
+func _dizzy_stars(pos: Vector2, r: float) -> void:
+	for k in 3:
+		var a := _ko_age * 4.0 * A11y.motion() + k * TAU / 3.0
+		var p := pos + Vector2(cos(a) * r * 0.75, -r * 1.05 + sin(a) * r * 0.22)
+		_star(p, r * 0.16, r * 0.07, 5, Color(BURST, 0.6 + 0.4 * sin(a)))
 
 
 func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float) -> void:

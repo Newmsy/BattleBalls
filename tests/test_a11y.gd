@@ -58,6 +58,6 @@ func test_settings_sheet_builds() -> void:
 	var shell = Shell.new()
 	shell.build()
 	var sheet: Control = SettingsSheet.build(shell)
-	check(sheet.get_child_count() == SettingsSheet.OPTIONS.size() + 3, "title, a row per option, the note and a spacer")
+	check(sheet.get_child_count() == SettingsSheet.OPTIONS.size() + 4, "title, a row per option, play stats, the note and a spacer")
 	sheet.free()
 	shell.free()
