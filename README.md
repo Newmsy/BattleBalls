@@ -176,6 +176,9 @@ key) into the web build from repo secrets; without them the build is offline.
   row-level security plus `SECURITY DEFINER` functions in `supabase/migrations`.
 - Schema changes are new migration files (never edit an applied one), with
   tests in `tests/db/`. They reach the live project when merged to `main`.
+  Name a new file with a timestamp later than every migration on `main` (and
+  never one already taken): `supabase db push` refuses to apply a file dated
+  before the newest one already live, which stops every later migration too.
 - `?offline=1` runs the web build without touching the backend.
 
 ### Accounts and cloud save
@@ -206,14 +209,17 @@ accessibility), the sign-in session and caches stay on the device. The game
 checks for changes every 3 s and syncs right away, plus on launch, on
 focus in/out and every 60 s while unsynced.
 
-**Test mode** (`game/online/test_user.gd`, `ID := 1`): every device syncs
-with shared test save slot 1 (`public.test_saves`, `*_test_saves.sql`)
-instead of its own account's row, so one game follows Newms across devices
-before real sign-in works. Each device is still its own guest underneath
-(PvP, friends, analytics). Nothing server-side reads a test slot, so the
-worst anyone with the URL can do is read or overwrite that test save. The
-CI smoke test (an automated browser) never uses the slot. Set `ID := 0` to
-switch real per-account saves back on.
+**Test mode** (`game/online/test_user.gd`, `ID := 1`): devices don't start
+their own guest; they sign in to shared test account 1, so its save, Ghost
+Arena trophies and league, friends and leaderboard entries are the same on
+every device. CI's migrate job creates the account and gives it a fresh
+random password on every deploy (`tools/supabase_auth_config.mjs`, using the
+access token to read the project's server key in memory); the public
+`test_login` RPC (`*_test_account.sql`) hands the login to the game, so it is
+never in the repo. Anyone with the URL plays as that account, with a normal
+player's rights only. If the account isn't there yet, devices carry on as
+guests. The CI smoke test (an automated browser) always uses its own guests.
+Set `ID := 0` to go back to one guest per device and real sign-in.
 
 Auth settings live in code: CI's migrate job runs `tools/supabase_auth_config.mjs`
 on every merge to `main` (guest linking, allowed return URLs, email codes) and

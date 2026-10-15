@@ -4,12 +4,20 @@
 ## Usage: godot --headless --script res://tools/balance.gd -- [--fights=200] [--power-step] [--gear] [--strict] [--arena=square]
 ##        [--modifier=<id> | --modifiers] [--variant-fights=N] [--only=id,id | --only=@sample]
 ##        [--shard=k/n] [--out=file.json] [--from=dir] [--no-equal] [--workers=N]
+##        [--edge-warn | --edge-strict]
 ##   --fights=N    seeds per pairing; each seed is fought from both corners (2N fights)
 ##   --power-step  also fights every ball one power step up against every ball,
 ##                 checking that power beats counters (slow: n^2 pairings)
 ##   --gear        fights every playable ball wearing one Legendary piece of each
 ##                 gear stat line against itself bare, so the lines stay even
 ##   --strict      exit 1 when a check fails beyond sampling noise
+##   --edge-warn   report equal-power and tilt misses on non-square arenas and
+##                 under Chaos Weekend modifiers ("edge cells") as WARN, not
+##                 FAIL, so they don't fail --strict. The square matchups and
+##                 the power step still FAIL. On by default when
+##                 GITHUB_EVENT_NAME is "pull_request" (the PR gate); the
+##                 weekly audit stays strict on every cell.
+##   --edge-strict edge cells FAIL as usual, even on a pull request
 ##   --arena=ID    arena from sim/arenas.gd, or "all" for every playable arena;
 ##                 non-square arenas also get a tilt check against the square
 ##   --modifier=ID run every check under one Chaos Weekend modifier (sim/modifiers.gd)
@@ -54,6 +62,10 @@ const MATRIX_MAX := 16
 const SAMPLE_SIZE := 8
 
 var failures := 0
+## Edge cells (non-square arena or Chaos modifier) WARN instead of FAIL.
+var edge_warn := OS.get_environment("GITHUB_EVENT_NAME") == "pull_request"
+## Edge-cell misses that would have been a FAIL under --edge-strict.
+var edge_misses := 0
 var only := [] ## Empty: every pairing.
 ## Finished pairings, job key -> {wins, n, durations, timeouts}.
 var results := {}
@@ -83,6 +95,10 @@ func _init() -> void:
 			variant_fights = int(arg.split("=")[1])
 		elif arg == "--strict":
 			strict = true
+		elif arg == "--edge-warn":
+			edge_warn = true
+		elif arg == "--edge-strict":
+			edge_warn = false
 		elif arg == "--power-step":
 			power_step = true
 		elif arg.begins_with("--modifier="):
@@ -183,6 +199,9 @@ func _init() -> void:
 			f.close()
 
 	var lines: Array[String] = []
+	if edge_warn:
+		lines.append("_Edge cells (other arenas, Chaos Weekend twists) report `WARN (audit FAIL)` instead of failing this run; the square matchups and power step still fail. The weekly Balance audit is strict on every cell (BALANCE.md)._")
+		lines.append("")
 	if shard[1] > 1:
 		lines.append("_Shard %d of %d: checks below cover %d of this run's pairings._" % [shard[0], shard[1], results.size()])
 		lines.append("")
@@ -203,6 +222,9 @@ func _init() -> void:
 				lines.append_array(_power_step(s))
 			"gear":
 				lines.append_array(_gear_lines(s))
+	if edge_misses > 0:
+		lines.append("")
+		lines.append("**Edge cells:** %d miss(es) reported as `WARN (audit FAIL)` above. They don't block this PR, but the weekly audit will fail on them: fix them in a follow-up." % edge_misses)
 	print("\n".join(lines))
 	quit(1 if strict and failures > 0 else 0)
 
@@ -344,7 +366,7 @@ func _equal_power(ids: Array, s: Dictionary) -> Array[String]:
 			var low := b if r >= 0.5 else a
 			var p := maxf(r, 1.0 - r)
 			if p > EQUAL_POWER_MAX:
-				flags.append(_flag(_lower_bound(p, s.fights * 2) > EQUAL_POWER_MAX,
+				flags.append(_flag(_lower_bound(p, s.fights * 2) > EQUAL_POWER_MAX, _is_edge(s),
 					"%s beats %s %d%% at equal power (limit %d%%)" % [top, low, roundi(100 * p), roundi(100 * EQUAL_POWER_MAX)]))
 	flags.append_array(length_flags)
 	lines.append("**Checks:** " + ("all equal-power matchups within %d%%, fight length on target." % roundi(100 * EQUAL_POWER_MAX) if flags.is_empty() else ""))
@@ -378,8 +400,7 @@ func _tilt(s: Dictionary, square: Dictionary) -> Array[String]:
 			var text := "%s vs %s moved %+d points from the square (%d%% -> %d%%, limit %d)" % [
 				a, b, roundi(100 * delta), roundi(100 * before), roundi(100 * now), roundi(100 * TILT_MAX)]
 			if absf(delta) - Z95 * se > TILT_MAX:
-				failures += 1
-				flags.append("FAIL: " + text)
+				flags.append(_flag(true, _is_edge(s), text))
 			else:
 				flags.append("WARN: " + text)
 	lines.append("")
@@ -415,7 +436,7 @@ func _power_step(s: Dictionary) -> Array[String]:
 	for a in playable:
 		var w := _worst(a, playable, rate)
 		if w[0] != "" and w[1] < POWER_STEP_MIN:
-			flags.append(_flag(_upper_bound(w[1], s.fights * 2) < POWER_STEP_MIN,
+			flags.append(_flag(_upper_bound(w[1], s.fights * 2) < POWER_STEP_MIN, false,
 				"%s one step up only beats %s %d%% (needs %d%%)" % [a, w[0], roundi(100 * w[1]), roundi(100 * POWER_STEP_MIN)]))
 	lines.append("")
 	lines.append("**Checks:** " + ("one power step beats every counter." if flags.is_empty() else ""))
@@ -619,8 +640,17 @@ static func _modifier_suffix(id: String) -> String:
 	return "" if id == Modifiers.NONE else ", " + Modifiers.display_name(id)
 
 
-## FAIL when the miss is clear of sampling noise, WARN otherwise.
-func _flag(certain: bool, text: String) -> String:
+## True for a section off the plain square: another arena or a Chaos modifier.
+static func _is_edge(s: Dictionary) -> bool:
+	return s.arena != "square" or s.modifier != Modifiers.NONE
+
+
+## FAIL when the miss is clear of sampling noise, WARN otherwise. An edge
+## cell under --edge-warn says WARN (audit FAIL) and doesn't count as a failure.
+func _flag(certain: bool, edge: bool, text: String) -> String:
+	if certain and edge and edge_warn:
+		edge_misses += 1
+		return "WARN (audit FAIL): " + text
 	if certain:
 		failures += 1
 		return "FAIL: " + text

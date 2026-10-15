@@ -161,7 +161,7 @@ func test_echo_does_not_borrow_wind() -> void:
 	_park(sim)
 	sim.abilities.fire(sim, "hurt", sim.balls[0], {"source": sim.balls[1], "amount": 5.0, "kind": "contact"})
 	check(sim.balls[0].state.has("copy_until"), "Echo copies Gust")
-	check(not sim.balls[0].def.effects.any(func(e): return e.do == "wind"), "but not its wind")
+	check(not sim.balls[0].def.effects.any(func(e): return e.do == "gale"), "but not its wind")
 
 
 func test_sooty_drops_patches_and_t5_flares_each_once() -> void:

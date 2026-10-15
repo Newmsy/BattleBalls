@@ -16,8 +16,8 @@
 ## adopting a cloud copy writes them back. Device settings (sound,
 ## accessibility), the sign-in session and caches stay on the device.
 ##
-## In test mode (game/online/test_user.gd) the cloud copy is a shared test
-## slot instead of the signed-in account's save; the sync rules are the same.
+## In test mode (game/online/test_user.gd) every device signs in to one test
+## account, so they all share its cloud save; the sync rules are the same.
 extends RefCounted
 
 ## Local or cloud data changed (adopted a newer copy, switched account):
@@ -46,7 +46,7 @@ var owner := "" ## Account base_rev belongs to ("" until the first sync).
 var path := PATH
 var app_version := "" ## Stored with cloud pushes, for support and migrations.
 var mirrored: Array = [] ## Side files carried in data.files (main.gd sets MIRRORED).
-var test_slot := 0 ## Above 0: sync with that shared test slot (test_user.gd).
+var test_mode := false ## Devices joining the shared test account: the further one wins.
 var edits := 0 ## Counts commits, so main.gd can sync as soon as something changes.
 
 var _syncing := false
@@ -251,7 +251,7 @@ func sync(backend) -> void:
 func _sync_once(backend) -> void:
 	if not await backend.ensure_session():
 		return
-	var me := _account(backend)
+	var me: String = backend.user_id()
 	if owner != me:
 		await _join_account(backend, me)
 	elif dirty:
@@ -285,9 +285,9 @@ func _join_account(backend, me: String) -> void:
 		if dirty:
 			await _push(backend, me)
 		return
-	if (owner == "" or test_slot > 0) and progress(data) > progress(cloud.data):
-		# Never synced from this device (or joining the shared test slot), and
-		# it is further along.
+	if (owner == "" or test_mode) and progress(data) > progress(cloud.data):
+		# Never synced from this device (or joining the shared test account),
+		# and it is further along.
 		backup("cloud-replaced", cloud.data)
 		owner = me
 		base_rev = cloud.rev
@@ -296,16 +296,13 @@ func _join_account(backend, me: String) -> void:
 		await _push(backend, me)
 		return
 	# The account's save wins (signing in on a device someone played as a guest).
-	if progress(data) > 0 and (dirty or test_slot > 0):
+	if progress(data) > 0 and (dirty or test_mode):
 		backup("before-sign-in")
 	adopt(cloud.rev, cloud.data, me)
 
 
 func _push(backend, me: String) -> void:
-	var args := {"p_base_rev": base_rev, "p_data": data, "p_app_version": app_version}
-	if test_slot > 0:
-		args.p_slot = test_slot
-	var res: Dictionary = await backend.call_rpc("test_sync_save" if test_slot > 0 else "sync_save", args)
+	var res: Dictionary = await backend.call_rpc("sync_save", {"p_base_rev": base_rev, "p_data": data, "p_app_version": app_version})
 	if not (res.ok and res.data is Dictionary):
 		return # Offline or a server hiccup: stay dirty and retry later.
 	var r: Dictionary = res.data
@@ -331,19 +328,9 @@ func _push(backend, me: String) -> void:
 ## The account's cloud save as {rev, data}, {rev: 0} when there is none, or
 ## {} when the call failed.
 func _fetch(backend, me: String) -> Dictionary:
-	if test_slot > 0:
-		var slot: Dictionary = await backend.call_rpc("test_load_save", {"p_slot": test_slot})
-		if not slot.ok or not slot.data is Dictionary:
-			return {}
-		return {"rev": int(slot.data.get("rev", 0)), "data": slot.data.get("data")}
 	var got: Dictionary = await backend.rest("GET", "/rest/v1/saves?select=rev,data&user_id=eq." + me)
 	if not got.ok or not got.data is Array:
 		return {}
 	if got.data.is_empty():
 		return {"rev": 0, "data": null}
 	return {"rev": int(got.data[0].rev), "data": got.data[0].data}
-
-
-## Who the cloud copy belongs to: the signed-in account, or the test slot.
-func _account(backend) -> String:
-	return "test:%d" % test_slot if test_slot > 0 else backend.user_id()

@@ -13,7 +13,7 @@ const CRITTER := {
 	"vibe": "A puffed-cheek little breeze who just wants some personal space.",
 	"description": "Breeze. Its wind always pushes foes gently away from it.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
-	"ability": [{"on": "always", "do": "wind"}],
+	"ability": [{"on": "always", "do": "gale"}],
 	"params": {
 		"wind_range": 220.0, ## Wind reach from Gust's centre; it fades to nothing at the edge.
 		"wind_accel": 100.0, ## Push next to Gust (units/s^2); it bends paths, never slows.
