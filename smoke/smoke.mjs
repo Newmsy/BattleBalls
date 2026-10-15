@@ -210,6 +210,15 @@ try {
       console.log("edge swipe: detail -> critters");
       await tapUi(page, logs, "tile_vampire", "detail");
     }
+    // Faction talent trees: the grid, one tree, a suggested fill and back out.
+    await tapUi(page, logs, "tab_critters", "critters");
+    await tapUi(page, logs, "factions", "factions");
+    await page.screenshot({ path: path.join(shots, "3c2-factions.png") });
+    await tapUi(page, logs, "faction_spooky", "faction");
+    await tapUi(page, logs, "talent_suggest", "faction");
+    await page.screenshot({ path: path.join(shots, "3c3-faction-tree.png") });
+    await tapUi(page, logs, "back", "factions");
+    await tapUi(page, logs, "back", "critters");
     await tapUi(page, logs, "tab_fuse", "fuse");
     await page.screenshot({ path: path.join(shots, "3d-fuse.png") });
     const before = logs.length;
