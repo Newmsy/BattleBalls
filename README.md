@@ -38,9 +38,10 @@ CI builds every ready (non-draft) PR for the web and deploys it to Vercel
 comment with its preview URL; `main` deploys to production. Smoke-test
 screenshots are served at `<preview>/smoke/`.
 
-URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink`
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink&mod=big_head`
 (`aim` is the launch angle in tenths of a degree, screen space, y down;
-`arena` is an id from `sim/arenas.gd`).
+`arena` is an id from `sim/arenas.gd`; `mod` is an optional Chaos Weekend
+modifier id from `sim/modifiers.gd`).
 
 A first visit with no URL params plays the onboarding
 (`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
