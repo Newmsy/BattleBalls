@@ -14,6 +14,7 @@ const Arenas := preload("res://sim/arenas.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 const Backend := preload("res://game/online/backend.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
+const TestUser := preload("res://game/online/test_user.gd")
 const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
@@ -95,6 +96,8 @@ var account_text := "" ## Guest name and trophies once signed in.
 var friends: Friends
 var account: Account
 var _retry_timer: Timer ## Retries the cloud save while it has unsynced changes.
+var _watch_timer: Timer ## Notices save changes (side files too) and syncs them.
+var _synced_edits := -1 ## save.edits when the last sync started.
 var rival := {} ## The friend entry a RIVAL fight is against.
 var link_friend := "" ## Friend code from the link the page was opened with (&f=).
 var _count_fight := false ## The running fight came from the menu, not a replay or URL.
@@ -181,7 +184,11 @@ func _ready() -> void:
 	friends = Friends.new(backend)
 	account = Account.new(backend)
 	save.app_version = VERSION
+	save.mirrored = SaveGame.MIRRORED
+	save.test_mode = TestUser.slot() > 0
+	backend.test_user = TestUser.slot()
 	save.load_local()
+	save.capture_files()
 	_apply_picks()
 	url_params = _read_url_params()
 	# ?stats opens the owner's stats screen (game/stats/), which isn't play.
@@ -677,6 +684,11 @@ func _go_online() -> void:
 	_retry_timer.timeout.connect(func(): if save.dirty: _sync_online())
 	add_child(_retry_timer)
 	_retry_timer.start()
+	_watch_timer = Timer.new()
+	_watch_timer.wait_time = 3.0
+	_watch_timer.timeout.connect(_watch_save)
+	add_child(_watch_timer)
+	_watch_timer.start()
 	await save.sync(backend)
 	var online := await backend.ensure_session()
 	# Connected after the first sign-in so booting doesn't do everything twice.
@@ -696,14 +708,27 @@ func _go_online() -> void:
 func _sync_online() -> void:
 	if not backend.enabled():
 		return
+	_synced_edits = save.edits
 	await save.sync(backend)
 	await _publish_lineup()
+
+
+## Syncs as soon as anything in the save changed (the 60 s retry timer
+## covers changes that couldn't go up, e.g. offline).
+func _watch_save() -> void:
+	save.capture_files()
+	if save.dirty and save.edits != _synced_edits:
+		_sync_online()
 
 
 ## The save was replaced (a newer cloud copy, another account): show it.
 func _on_save_changed() -> void:
 	# Onboarding owns the arena until it ends; tutorial_end applies the picks.
+	# Still take the new profile, so tutorial_end sees its progress and keeps
+	# it instead of the onboarding's fresh one.
 	if mode == Mode.TUTORIAL:
+		if not profile_unsaved:
+			_load_profile()
 		return
 	if not url_picks:
 		_apply_picks()
@@ -711,6 +736,8 @@ func _on_save_changed() -> void:
 	if not profile_unsaved:
 		_load_profile()
 		shell.set_profile(profile)
+		if shell.glow != null:
+			shell.glow.profile = profile
 	if state == State.MENU:
 		_refresh_menu()
 
@@ -726,7 +753,9 @@ func _on_account_changed() -> void:
 
 func _notification(what: int) -> void:
 	# Coming back to the tab or app: pick up anything another device saved.
-	if what == NOTIFICATION_APPLICATION_FOCUS_IN and backend != null and backend.enabled() and _retry_timer != null:
+	# Leaving it: send this device's changes before the phone suspends the tab.
+	if what in [NOTIFICATION_APPLICATION_FOCUS_IN, NOTIFICATION_APPLICATION_FOCUS_OUT] \
+			and backend != null and backend.enabled() and _retry_timer != null:
 		_sync_online()
 
 
@@ -1635,7 +1664,8 @@ func _build_stamp() -> String:
 
 
 func _stamp_text() -> String:
-	return _build_stamp() + (" · " + account_text if account_text != "" else "")
+	var text := _build_stamp() + (" · " + account_text if account_text != "" else "")
+	return text + (" · test user %d" % backend.test_user if backend.test_user > 0 else "")
 
 
 func _read_url_params() -> Dictionary:
