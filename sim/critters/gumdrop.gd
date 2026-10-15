@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "9b5de5",
 	"vibe": "A clingy candy who just wants to stick around.",
-	"description": "Gumdrop. Every hit gums up the foe, slowing it for a moment.",
+	"description": "Gumdrop. Every hit gums up the foe, slowing it, and every few seconds a gum string sticks the foe to Gumdrop and drags it along.",
 	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 21.0},
 	"ability": [{"on": "hit", "do": "gum"}],
 	"params": {
@@ -20,9 +20,11 @@ const CRITTER := {
 		"gum_burn": 0.0, ## T3: burn per second, 2s.
 		"gum_stacks": 1, ## T5: repeat hits stack this many times.
 		"gum_cap": 0.45, ## Most a stacked slow can reach.
+		"gum_string": 1.0, ## Seconds a gum string holds the foe to it...
+		"gum_string_cooldown": 4.0, ## ...at most this often.
 	},
 	"tiers": [
-		{"text": "Hits slow the foe 25% for 1.5s"},
+		{"text": "Hits slow the foe 25%; every 4s a hit sticks it on a gum string for 1s"},
 		{"text": "Slow 30%", "gum_slow": 0.3},
 		{"text": "The goo also stings (burn 1/s for 2s)", "gum_burn": 1.0},
 		{"text": "Slow lasts 2s", "gum_secs": 2.0},

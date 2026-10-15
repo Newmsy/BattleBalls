@@ -98,18 +98,17 @@ func test_gumdrop_hits_slow_and_stack_at_t5() -> void:
 	check(not t5.balls[1].dots.is_empty(), "T3+ goo burns")
 
 
-func test_pucker_makes_the_foe_sour_and_stacks_at_t3() -> void:
+func test_pucker_makes_the_foe_sour_then_puckers_it() -> void:
 	var sim := _sim("pucker", "plain")
 	_ram(sim)
 	sim.step()
 	check_near(sim.vulnerable(sim.balls[1]), 0.15, 0.001, "T1 +15%")
-	var t3 := _sim("pucker", "plain", [3, 1])
-	_ram(t3)
-	t3.step()
-	t3.tick += MatchSim.TICK_RATE
-	_ram(t3)
-	t3.step()
-	check_near(t3.vulnerable(t3.balls[1]), 0.25, 0.001, "repeat hits stack to +25%")
+	check(not sim.stunned(sim.balls[1]), "not puckered yet")
+	sim.tick += MatchSim.TICK_RATE
+	_ram(sim)
+	sim.step()
+	check(sim.stunned(sim.balls[1]), "full sour puckers the foe")
+	check_near(sim.vulnerable(sim.balls[1]), 0.0, 0.001, "and spends the sour")
 
 
 func test_zapper_zaps_and_stuns_on_its_timer() -> void:

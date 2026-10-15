@@ -21,13 +21,15 @@ const CRITTER := {
 		"field_accel": 700.0, ## Steering at point blank, units/s^2, on both balls.
 		"push_scale": 0.5, ## Push steers at this share of Pull's strength.
 		"snap_mult": 2.5, ## Contact damage multiplier on the first hit of each Pull.
+		"flip_pulse": 0.0, ## T5: damage of the pulse ring each flip fires.
+		"flip_pulse_radius": 220.0,
 	},
 	"tiers": [
 		{"text": "Field flips every 3s; first Pull hit snaps for 2.5x"},
 		{"text": "Stronger field", "field_accel": 800.0},
 		{"text": "Snaps for 3x", "snap_mult": 3.0},
 		{"text": "Flips every 2.5s", "field_period": 2.5},
-		{"text": "Every flip fires a pulse ring"},
+		{"text": "Every flip fires a pulse ring (6 damage, knocks back)", "flip_pulse": 6.0},
 	],
 	"art": {"badge_top": 1.55, "body": "magnet", "pole": "2f7bff", "back": ["magnet_prongs"],
 		"eyes": {"sep": .3, "w": .19, "h": .23, "p": .1, "brow": .16, "mouth": "grin"}},

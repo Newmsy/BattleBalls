@@ -15,18 +15,18 @@ const CRITTER := {
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.5},
 	"ability": [{"on": "hurt", "do": "wind"}, {"on": "strike", "do": "unwind"}],
 	"params": {
-		"wind_step": 0.06,
-		"wind_cap": 0.36,
-		"wind_secs": 4.0,
+		"wind_step": 0.09,
+		"wind_cap": 0.36, ## Fully wound at 4 bumps.
+		"wind_secs": 10.0,
 		"wind_add": 0.0,
-		"wind_crit": 0.0,
+		"wind_crit": 1.6,
 	},
 	"tiers": [
-		{"text": "Bumped: winds up +6% speed, max +36%, for 4s"},
-		{"text": "+8% per bump", "wind_step": 0.08},
+		{"text": "Bumped: winds up +9% speed (max +36%, holds 10s); fully wound, its next hit unwinds for x1.6"},
+		{"text": "+12% per bump (wound in 3)", "wind_step": 0.12},
 		{"text": "Fully wound: +2 contact damage", "wind_add": 2.0},
 		{"text": "Winds up to +48%", "wind_cap": 0.48},
-		{"text": "Fully wound, its next hit crits (x2) and unwinds", "wind_crit": 2.0},
+		{"text": "The unwind hits x2.4", "wind_crit": 2.4},
 	],
 	"chaos": {"glass_cannon": {"wind_step": 0.7}}, ## Glass Cannon bumps hurt more, so each wind-up is worth more
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "flat"}, "back": ["gears", "key"]},
