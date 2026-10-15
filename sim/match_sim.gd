@@ -87,6 +87,7 @@ var centre := Vector2(ARENA_SIZE / 2.0, ARENA_SIZE / 2.0)
 var finished := false
 var winner := -1 ## Ball index, or -1 for a draw (only meaningful when finished).
 var end_reason := ""
+var ko_hp: Array[float] = [] ## On a double knockout, each ball's HP going into the final tick.
 var launch_angles: Array[int] = []
 ## Events produced by the most recent step(), for the renderer and tests.
 var events: Array[Dictionary] = []
@@ -369,6 +370,7 @@ func _check_end(hp_before: Array[float]) -> void:
 		_finish(alive[0], "knockout")
 	elif alive.is_empty():
 		# Both died on the same tick: whoever had more HP going into it wins.
+		ko_hp = hp_before.duplicate()
 		if hp_before[0] == hp_before[1]:
 			_finish(-1, "double_knockout")
 		else:

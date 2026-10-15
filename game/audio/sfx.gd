@@ -30,6 +30,7 @@ const RULES := {
 	"heartbeat": [1, 0.5, -6.0],
 	"win": [1, 0.5, -3.0],
 	"lose": [1, 0.5, -3.0],
+	"draw": [1, 0.5, -3.0],
 	"go": [1, 0.3, -5.0],
 	"launch": [1, 0.1, -4.0],
 	"stretch": [1, 0.07, -14.0],
@@ -126,7 +127,7 @@ func on_fight_start(sim) -> void:
 func on_result(winner: int) -> void:
 	fight_sim = null
 	_music.pitch_scale = 1.0
-	var jingle := "win" if winner == 0 else "lose"
+	var jingle := "draw" if winner < 0 else ("win" if winner == 0 else "lose")
 	if is_inside_tree():
 		get_tree().create_timer(0.45).timeout.connect(func(): play(jingle))
 	play_music("menu")

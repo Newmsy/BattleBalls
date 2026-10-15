@@ -19,6 +19,7 @@ const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Account := preload("res://game/online/account.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const ResultText := preload("res://game/result_text.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 ## NORMAL: pick your ball, the opponent is random. REPLAY: watching a shared fight. CHALLENGE: beating
@@ -294,17 +295,16 @@ func _start_fight() -> void:
 func _show_result() -> void:
 	state = State.RESULT
 	var you := sim.balls[0]
-	var text := "DRAW"
-	if mode == Mode.REPLAY and sim.winner >= 0:
-		text = "%s WINS" % sim.balls[sim.winner].def.display_name.to_upper()
-	elif sim.winner == 0:
-		text = "YOU WIN!"
-	elif sim.winner == 1:
-		text = "YOU LOSE"
-	result_label.text = text
+	var replay := mode == Mode.REPLAY
+	var names := [sim.balls[0].def.display_name, sim.balls[1].def.display_name] if replay else ["You", "The foe"]
+	var result := ResultText.describe(sim, names, replay)
+	result_label.text = result.headline
+	result_label.modulate = result.color
 	_label_result_buttons()
-	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if mode == Mode.REPLAY else "You",
+	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if replay else "You",
 		roundi(you.damage_dealt), (" and healed %d" % roundi(you.healed)) if you.healed > 0.0 else ""]
+	if result.detail != "":
+		info_label.text = "%.1fs. %s" % [sim.time(), result.detail]
 	report_label.text = "Report code: " + _report_code()
 	if _board_pick >= 0:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
@@ -918,6 +918,8 @@ func _share_text(kind: String) -> String:
 	if kind == "c":
 		return "Can your ball beat my %s's shot in Battle Balls?" % mine
 	if mode == Mode.CHALLENGE:
+		if sim.winner == -1:
+			return "My %s drew with your %s challenge. Watch:" % [mine, theirs]
 		return ("I beat your %s challenge with my %s!" if sim.winner == 0 else "Your %s beat my %s. Watch:") % [theirs, mine]
 	return "Watch %s vs %s in Battle Balls!" % [mine, theirs]
 
