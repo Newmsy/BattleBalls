@@ -68,10 +68,15 @@ static func apply_def(def: Dictionary, t: Dictionary) -> Dictionary:
 		if def.has("effects"):
 			var effects: Array = def.effects.duplicate(true)
 			for e in effects:
-				if e.get("on") == "every":
-					# "secs" may name a param (Ghost's phase_every): read it from the def.
-					var secs: float = float(def[e.secs]) if e.secs is String else float(e.secs)
-					e.secs = secs / rate
+				if e.get("on") != "every":
+					continue
+				if e.secs is String:
+					# A named timer param (Pip's fire_cooldown) is already scaled by its
+					# suffix above; any other name (Sooty's patch_every) is read and scaled.
+					if not TIMER_SUFFIXES.any(func(sfx): return String(e.secs).ends_with(sfx)):
+						e.secs = float(def[e.secs]) / rate
+				else:
+					e.secs = float(e.secs) / rate
 			out.effects = effects
 	return out
 
