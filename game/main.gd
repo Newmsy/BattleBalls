@@ -248,7 +248,10 @@ func _ready() -> void:
 				shell.show_tab(url_params.screen) # ?screen=fuse
 			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen != "detail" or url_params.has("id")):
 				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
-				shell.go(url_params.screen, {"id": url_params.id} if url_params.has("id") else {})
+				var screen_params := {"id": url_params.id} if url_params.has("id") else {}
+				if demo_profile and url_params.screen in ["arena", "boosts"]:
+					screen_params.store = preload("res://game/pvp/arena_store.gd").sample()
+				shell.go(url_params.screen, screen_params)
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")

@@ -23,6 +23,7 @@ const SCREENS := {
 	"bag": preload("res://game/ui/screens/bag_screen.gd"),
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 	"arena": preload("res://game/ui/screens/arena_screen.gd"),
+	"boosts": preload("res://game/ui/screens/boosts_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
@@ -42,7 +43,7 @@ const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## 720x1280 phone without scrolling: put detail behind an "i" (info()) and
 ## the main action in pin(). See design/ui.md, "No scrolling".
 ## Play scrolls only below its two big cards: its mode groups grow too.
-const SCROLLS := ["play", "critters", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket"]
+const SCROLLS := ["play", "critters", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
 
