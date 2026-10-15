@@ -116,6 +116,18 @@ async function tapUi(page, logs, name, nextScreen) {
   await page.waitForTimeout(600);
 }
 
+// A finger drag in design-space coordinates, in small steps like a real swipe.
+async function swipe(page, x, y, dx, dy) {
+  await page.mouse.move(...toPage(page, x, y));
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(...toPage(page, x + (dx * i) / 10, y + (dy * i) / 10));
+    await page.waitForTimeout(16);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(700);
+}
+
 // Godot's canvas maps the 720x1280 design space onto the page, keeping
 // whichever side is tighter and expanding the other.
 function toPage(page, x, y) {
@@ -161,8 +173,25 @@ try {
     await page.screenshot({ path: path.join(shots, "3a-home.png") });
     await tapUi(page, logs, "tab_critters", "critters");
     await page.screenshot({ path: path.join(shots, "3b-critters.png") });
+    // A drag that starts on a critter card scrolls the list (and doesn't open the card).
+    {
+      const before = logs.length;
+      await swipe(page, 360, 700, 0, -400);
+      await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000);
+      if (logs.slice(before).some((l) => l.startsWith("UI_SCREEN detail"))) errors.push("a scroll drag opened a critter card");
+      await page.screenshot({ path: path.join(shots, "3b2-critters-scrolled.png") });
+      await swipe(page, 360, 500, 0, 600);
+    }
     await tapUi(page, logs, "tile_vampire", "detail");
     await page.screenshot({ path: path.join(shots, "3c-detail.png") });
+    // Swiping in from the left edge goes back to the list, then reopen the card.
+    {
+      const before = logs.length;
+      await swipe(page, 4, 700, 420, 0);
+      await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000);
+      console.log("edge swipe: detail -> critters");
+      await tapUi(page, logs, "tile_vampire", "detail");
+    }
     await tapUi(page, logs, "tab_fuse", "fuse");
     await page.screenshot({ path: path.join(shots, "3d-fuse.png") });
     const before = logs.length;

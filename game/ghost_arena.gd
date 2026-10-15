@@ -5,6 +5,7 @@
 ## ArenaStore; the result goes back to it.
 extends Node2D
 
+const TouchInput := preload("res://game/ui/touch_input.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const Relay := preload("res://sim/relay.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -47,6 +48,8 @@ var panel: VBoxContainer
 
 
 func _ready() -> void:
+	TouchInput.ensure(self)
+	TouchInput.set_back(self, func(): return _back_to_arena if state == State.RESULT else Callable())
 	store = ArenaStore.open()
 	bot = ArenaGhosts.by_id(str(store.pending.get("bot_id", "")))
 	if bot.is_empty():

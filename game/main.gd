@@ -30,6 +30,8 @@ const ResultText := preload("res://game/result_text.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const ClipExport := preload("res://game/clip/clip_export.gd")
 const ClipCard := preload("res://game/clip/clip_card.gd")
+const TouchInput := preload("res://game/ui/touch_input.gd")
+const Kit := preload("res://game/ui/ui_kit.gd")
 
 ## CLIP plays the finished fight again in the vertical clip layout.
 enum State { MENU, AIM, FIGHT, RESULT, CLIP }
@@ -48,12 +50,12 @@ const MUTED := Color("a29fc9")
 
 const VERSION := "0.2.0"
 const ARENA_PIXELS := 680.0
-const INFO_HEIGHT := 100.0
-const CONTROLS_HEIGHT := 490.0 ## Tallest control panel (the menu).
+const INFO_HEIGHT := 116.0 ## Two lines of the info text, three with Larger text.
+const CONTROLS_HEIGHT := 500.0 ## Tallest control panel (the menu).
 const SPEEDS := [1.0, 2.0, 4.0, 0.5]
 const OPPONENT_RANDOM := "random"
 const PICK_COLUMNS := 3
-const PICK_TILE_HEIGHT := 112.0
+const PICK_TILE_HEIGHT := 108.0
 const PICK_ROWS_SHOWN := 2 ## More rows than this scroll.
 
 var state := State.MENU
@@ -116,6 +118,7 @@ var info_label: Label
 var stamp_label: Label
 var menu_box: VBoxContainer
 var player_buttons := {}
+var player_loan_tags := {} ## id -> the LOAN tag on its pick tile.
 var pick_scroll: ScrollContainer
 var fight_button: Button
 var launch_button: Button
@@ -192,6 +195,8 @@ func _ready() -> void:
 	ClipExport.install()
 	print("BOOT_OK build=", _build_stamp(), " reduced_motion=", A11y.reduced_motion)
 	_build_shell()
+	TouchInput.ensure(self)
+	TouchInput.set_back(self, _swipe_back)
 	if _wants_tutorial():
 		_start_tutorial()
 	elif auto_start:
@@ -287,12 +292,12 @@ func _refresh_menu() -> void:
 	for id in player_buttons:
 		player_buttons[id].button_pressed = id == player_type
 	new_seed_button.disabled = mode == Mode.CHALLENGE
-	seed_label.text = "Seed %d, %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]
+	seed_label.text = "Seed %d · %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]
 	rules_button.text = Modifiers.display_name(modifier)
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
-	for id in player_buttons:
-		player_buttons[id].text = BallDefs.get_def(id).display_name + (" · loan" if _is_loan(id) else "")
+	for id in player_loan_tags:
+		player_loan_tags[id].visible = _is_loan(id)
 	if _is_loan(player_type):
 		info_label.text = "%s is on loan today. Practice only: loaner fights don't count for Ghost Arena or your record." % def.display_name
 	if mode == Mode.RIVAL:
@@ -632,27 +637,23 @@ func _build_ui() -> void:
 	stamp_label.modulate = Color(1, 1, 1, 0.45)
 	stamp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 
+	# Quick fight: pick a critter, then the seed/arena line and its buttons,
+	# then one big FIGHT!. Every row fits the panel width at any text size.
 	menu_box = VBoxContainer.new()
 	menu_box.add_theme_constant_override("separation", 14)
-	menu_box.add_child(_label("Your critter (opponent is random)", 26))
+	menu_box.add_child(Kit.caption("Your critter · opponent is random"))
 	menu_box.add_child(_pick_grid(BallDefs.PLAYABLE, _pick_player))
-	var seed_row := HBoxContainer.new()
-	seed_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	seed_row.add_theme_constant_override("separation", 20)
-	seed_label = _label("", 26)
-	seed_row.add_child(seed_label)
-	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu())
-	seed_row.add_child(new_seed_button)
-	seed_row.add_child(_button("Home", _show_home))
+	seed_label = Kit.label("", 22, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 22, "ghost", 68)
 	# Debug toggle for Chaos Weekend modifiers until the event screen exists.
-	rules_button = _button("", _cycle_rules, 22)
-	seed_row.add_child(rules_button)
-	menu_box.add_child(seed_row)
-	fight_button = _button("FIGHT!", _begin_aim, 40)
+	rules_button = _button("", _cycle_rules, 22, "ghost", 68)
+	menu_box.add_child(seed_label)
+	menu_box.add_child(_row([new_seed_button, rules_button, _button("Home", _show_home, 22, "ghost", 68)]))
+	fight_button = _button("FIGHT!", _begin_aim, 40, "go", 96)
 	menu_box.add_child(fight_button)
 
-	launch_button = _button("Launch", _launch)
-	aim_back_button = _button("Back", _show_menu)
+	launch_button = _button("Launch", _launch, 34, "go", 96)
+	aim_back_button = _button("Back", _show_menu, 26, "ghost", 96)
 	aim_box = _row([launch_button, aim_back_button])
 
 	speed_button = _button("Speed 1x", _cycle_speed)
@@ -665,17 +666,17 @@ func _build_ui() -> void:
 	report_label = _label("", 20)
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result_box.add_child(report_label)
-	again_button = _button("Rematch", _again)
+	again_button = _button("Rematch", _again, 30, "primary")
 	result_box.add_child(_row([_button("Replay", func(): _start_fight()), again_button]))
 	share_button = _button("Share fight", _share.bind("r"))
 	challenge_button = _button("Challenge", _on_challenge_button)
 	result_box.add_child(_row([share_button, challenge_button]))
-	clip_button = _button("Save clip", _on_clip_button, 26)
-	copy_button = _button("Copy report", func(): DisplayServer.clipboard_set(_report_code()); report_label.text = "Copied: " + _report_code(), 26)
-	change_button = _button("Change critter", _play_normal, 26)
+	clip_button = _button("Save clip", _on_clip_button, 22, "ghost", 72)
+	copy_button = _button("Copy report", func(): DisplayServer.clipboard_set(_report_code()); report_label.text = "Copied: " + _report_code(), 22, "ghost", 72)
+	change_button = _button("Change critter", _play_normal, 22, "ghost", 72)
 	report_row = _row([clip_button, copy_button, change_button])
 	result_box.add_child(report_row)
-	friend_button = _button("Add as a friend", _add_link_friend, 26)
+	friend_button = _button("Add as a friend", _add_link_friend, 22, "ghost", 72)
 	friend_row = _row([friend_button])
 	friend_row.visible = false
 	result_box.add_child(friend_row)
@@ -733,12 +734,28 @@ func _show_home() -> void:
 	_sync_share_targets()
 
 
+## What a swipe in from the left edge does: the shell's Back on the home
+## screens, Home from the Quick fight menu, the menu from a result. Not while
+## aiming or fighting (the arena owns those drags).
+func _swipe_back() -> Callable:
+	if shell_layer != null and shell_layer.visible:
+		return shell.back_action()
+	if mode == Mode.TUTORIAL:
+		return Callable()
+	match state:
+		State.MENU:
+			return _show_home
+		State.RESULT:
+			return _back_to_board if not _board.is_empty() else _show_menu
+	return Callable()
+
+
 ## Portrait stacks arena over controls; wide screens put controls beside the
 ## arena. Either way the arena shrinks before the controls are pushed off screen.
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
 	var top := 190.0
-	var bottom_margin := 50.0
+	var bottom_margin := 90.0 ## Clears the build stamp and the sound toggle.
 	var panel_width := 680.0
 	var landscape := size.x >= size.y
 	var side: float
@@ -764,12 +781,13 @@ func _layout() -> void:
 	arena.set_camera(arena.cam_zoom, arena.cam_focus)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	_place(hud_label, Vector2(left, 110), Vector2(side, 50))
-	_place(info_label, panel_pos, Vector2(panel_width, 90))
+	_place(info_label, panel_pos, Vector2(panel_width, INFO_HEIGHT - 6.0))
 	controls_rect = Rect2(panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
 	var controls_top := panel_pos.y + INFO_HEIGHT
 	for box in [menu_box, aim_box, fight_box, result_box]:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
-	_place(stamp_label, Vector2(12, size.y - 34), Vector2(size.x, 30))
+	# The build stamp stops short of the sound toggle in the other corner.
+	_place(stamp_label, Vector2(16, size.y - 40), Vector2(maxf(100.0, size.x - Sfx.TOGGLE_SIZE.x - 48.0), 30))
 	arena.queue_redraw()
 	_sync_share_targets()
 
@@ -1008,15 +1026,15 @@ func _label(text: String, font_size: int) -> Label:
 	return l
 
 
-func _button(text: String, on_press: Callable, font_size := 30) -> Button:
-	var b := Button.new()
+## A Neon Critters kit button (game/ui/ui_kit.gd) in the arena's own words:
+## kept in the case it's written, sharing its row equally with its neighbours
+## and trimming its text rather than pushing the row off screen.
+func _button(text: String, on_press: Callable, font_size := 26, kind := "ghost", height := 84) -> Button:
+	var b := Kit.button(text, on_press, kind, font_size, height)
 	b.text = text
-	b.custom_minimum_size = Vector2(0, 84)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	b.add_theme_font_size_override("font_size", A11y.font(font_size))
-	b.set_meta("base_font", font_size)
-	b.pressed.connect(on_press)
+	b.clip_text = true
+	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	return b
 
 
@@ -1038,33 +1056,45 @@ func _pick_grid(ids: Array, on_pick: Callable) -> ScrollContainer:
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	for id in ids:
-		var b := _button("", on_pick.bind(id), 20)
+		var b := Button.new()
+		b.pressed.connect(on_pick.bind(id))
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.toggle_mode = true
 		b.button_group = group
 		b.custom_minimum_size = Vector2(0, PICK_TILE_HEIGHT)
 		b.size_flags_vertical = Control.SIZE_FILL
-		# PASS lets a drag that starts on a tile scroll the grid.
-		b.mouse_filter = Control.MOUSE_FILTER_PASS
-		var icon := CritterIcon.make(id, 1, 64.0)
+		# Icon on top, the name once underneath (trimmed with … if it's long).
+		var icon := CritterIcon.make(id, 1, 76.0)
 		icon.anchor_left = 0.5
 		icon.anchor_right = 0.5
-		icon.offset_left = -32.0
-		icon.offset_right = 32.0
-		icon.offset_top = 6.0
-		icon.offset_bottom = 70.0
+		icon.offset_left = -38.0
+		icon.offset_right = 38.0
+		icon.offset_top = -2.0
+		icon.offset_bottom = 74.0
+		icon.radius_frac = .36
 		b.add_child(icon)
 		var name_label := _label(BallDefs.get_def(id).display_name, 20)
 		name_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-		name_label.offset_top = -38.0
-		name_label.offset_bottom = -8.0
-		name_label.clip_text = true
+		name_label.offset_left = 8.0
+		name_label.offset_right = -8.0
+		name_label.offset_top = -36.0
+		name_label.offset_bottom = -6.0
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.add_child(name_label)
+		var loan := Kit.chip("Loan", Kit.WARN, 16)
+		loan.anchor_left = 1.0
+		loan.anchor_right = 1.0
+		loan.offset_right = -8.0
+		loan.offset_top = 8.0
+		loan.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		loan.visible = false
+		b.add_child(loan)
+		player_loan_tags[id] = loan
 		b.toggled.connect(func(on): name_label.add_theme_color_override("font_color", Color("0b0a1f") if on else Color("f0eeff")))
 		player_buttons[id] = b
 		grid.add_child(b)
 	pick_scroll = ScrollContainer.new()
 	pick_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	pick_scroll.scroll_deadzone = 12
 	pick_scroll.add_child(grid)
 	var rows := mini(PICK_ROWS_SHOWN, ceili(float(ids.size()) / PICK_COLUMNS))
 	pick_scroll.custom_minimum_size = Vector2(0, rows * PICK_TILE_HEIGHT + (rows - 1) * 12)
