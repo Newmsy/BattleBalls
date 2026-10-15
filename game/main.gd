@@ -727,13 +727,17 @@ func _notification(what: int) -> void:
 		_sync_online()
 
 
-## Keeps this player's Ghost Arena defence in step with their current ball.
-## Nobody becomes a ghost before their first fight (so test runs and
-## drive-by visits don't fill the opponent pool with idle lineups).
+## Keeps this player's Ghost Arena defence in step with their lineup critter,
+## as they own it (tier, level, gear). Nobody becomes a ghost before their
+## first fight (so test runs and drive-by visits don't fill the opponent pool
+## with idle lineups).
 func _publish_lineup() -> void:
-	if int(save.data.stats.fights) == 0:
+	if int(save.data.stats.fights) == 0 or profile == null:
 		return
-	var lineup := GhostLineup.make([player_type], save.data.aim_offsets)
+	var mine: Dictionary = profile.slot_of(profile.lineup)
+	if mine.is_empty():
+		return
+	var lineup := GhostLineup.make([mine], save.data.aim_offsets)
 	var key := JSON.stringify(lineup, "", true)
 	if key == str(save.data.published_lineup):
 		return
