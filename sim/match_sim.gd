@@ -209,6 +209,7 @@ func _init(cfg: Dictionary) -> void:
 	for i in 2:
 		var kit := Gear.totals(gear[i])
 		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i])), float(powers[i])), kit), modifier)
+		def = Modifiers.apply_arena_tweaks(def, arena_id)
 		if cfg.has("boons"):
 			def = Boons.apply_to_def(def, cfg.boons[i])
 		var b := Ball.new()

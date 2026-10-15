@@ -28,6 +28,7 @@ const CRITTER := {
 		{"text": "26%", "reflect_ratio": 0.26},
 		{"text": "Below half HP the vine bursts: 50%", "reflect_low": 0.5},
 	],
+	"chaos": {"closing_walls": {"reflect_cap": 0.7}}, ## Short fights: big hitters can't outlast the sting.
 	"art": {"eyes": {"sep": .3, "w": .17, "h": .19, "p": .09, "brow": .32, "mouth": "frown"}, "back": ["thorn_ring"], "front": ["vines"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.8},
 }

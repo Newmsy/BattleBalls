@@ -6,6 +6,7 @@ extends RefCounted
 
 const Abilities := preload("res://sim/abilities.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
+const Arenas := preload("res://sim/arenas.gd")
 
 const DIR := "res://sim/critters/"
 const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
@@ -109,8 +110,8 @@ static func validate(id: String, c: Dictionary) -> Array[String]:
 			if key != "text" and key != "ability" and not c.params.has(key):
 				errors.append("%s: tier %d changes \"%s\", which isn't in params" % [id, t + 1, key])
 	for mod in c.get("chaos", {}):
-		if not Modifiers.DEFS.has(mod):
-			errors.append("%s: chaos names unknown modifier \"%s\"" % [id, mod])
+		if not (Modifiers.DEFS.has(mod) or Arenas.DEFS.has(mod)):
+			errors.append("%s: chaos names unknown modifier or arena \"%s\"" % [id, mod])
 			continue
 		for key in c.chaos[mod]:
 			if not (c.stats.has(key) or c.params.has(key)):
