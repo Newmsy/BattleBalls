@@ -1,4 +1,5 @@
-## Whiff, the Skunk (Rare Bruiser). Planned: see design/roster.md.
+## Whiff, the Skunk (Rare Bruiser). One file is the whole critter:
+## see "Adding a critter" in README.md for what each key does.
 extends RefCounted
 
 const CRITTER := {
@@ -7,19 +8,25 @@ const CRITTER := {
 	"type": "Skunk",
 	"rarity": "rare",
 	"role": "Bruiser",
-	"status": "planned",
+	"status": "live",
 	"color": "9d8ec7",
 	"vibe": "A sweet-natured skunk who has no idea why everyone backs away.",
 	"description": "Skunk. A stinky cloud always surrounds it, hurting foes that stay close.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
-	"ability": [],
-	"params": {},
+	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
+	"ability": [{"on": "always", "do": "stink"}],
+	"params": {
+		"stink_radius": 120.0, ## Cloud reach from Whiff's centre.
+		"stink_dps": 2.0,
+		"stink_slow": 0.0, ## T3: the stink slows.
+		"stink_bloom_radius": 220.0, ## T5: cloud size while blooming.
+		"stink_bloom_secs": 4.0,
+	},
 	"tiers": [
-		{"text": "A stink cloud hurts close foes 3/s"},
-		{"text": "Stink deals 4/s"},
-		{"text": "The stink also slows 10%"},
-		{"text": "The cloud grows"},
-		{"text": "Below 40% HP the cloud blooms huge"},
+		{"text": "A stink cloud hurts close foes 2/s"},
+		{"text": "Stink deals 3/s", "stink_dps": 3.0},
+		{"text": "The stink also slows 10%", "stink_slow": 0.1},
+		{"text": "The cloud grows (120 -> 150)", "stink_radius": 150.0},
+		{"text": "Below 40% HP the cloud blooms huge for 4s", "ability": [{"on": "hp_below", "hp": 0.4, "do": "bloom"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["bigtail"], "front": ["stripe"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.05},

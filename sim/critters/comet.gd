@@ -1,4 +1,5 @@
-## Comet, the Comet (Rare Skirmisher). Planned: see design/roster.md.
+## Comet, the Comet (Rare Skirmisher). One file is the whole critter:
+## see "Adding a critter" in README.md for what each key does.
 extends RefCounted
 
 const CRITTER := {
@@ -7,19 +8,28 @@ const CRITTER := {
 	"type": "Comet",
 	"rarity": "rare",
 	"role": "Skirmisher",
-	"status": "planned",
+	"status": "live",
 	"color": "ff5ad1",
 	"vibe": "A starry show-off that leaves a sparkly mess wherever it zooms.",
 	"description": "Comet. It leaves a stardust trail that hurts foes who cross it.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
-	"ability": [],
-	"params": {},
+	"stats": {"hp": 111.0, "radius": 64.0, "speed": 420.0, "contact_damage": 15.0},
+	"ability": [{"on": "always", "do": "stardust"}],
+	"params": {
+		"trail_every": 0.1, ## Seconds between stardust blobs.
+		"trail_width": 30.0,
+		"trail_life": 1.5,
+		"trail_dps": 2.5,
+		"linger_dps": 2.0, ## T3: crossing the trail burns this much...
+		"linger_slow": 0.0,
+		"linger_secs": 2.0, ## ...for this long.
+		"star_damage": 5.0, ## T5: the shooting star's hit.
+	},
 	"tiers": [
-		{"text": "Stardust trail burns 5/s for 1.5s"},
-		{"text": "Trail deals 6/s"},
-		{"text": "Crossing the trail also burns"},
-		{"text": "The trail lasts 2s"},
-		{"text": "Every 3s its tail flicks a homing star"},
+		{"text": "Stardust trail stings 2.5/s, lasts 1.5s"},
+		{"text": "Trail deals 3.5/s", "trail_dps": 3.5},
+		{"text": "Crossing the trail also burns (2/s for 2s)", "ability": [{"on": "always", "do": "linger"}]},
+		{"text": "The trail lasts 2s", "trail_life": 2.0},
+		{"text": "Every 3s its tail flicks a shooting star at the foe (5 damage)", "ability": [{"on": "every", "secs": 3.0, "do": "star"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "back": ["comettail"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 1.15},

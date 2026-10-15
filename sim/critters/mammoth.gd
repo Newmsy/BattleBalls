@@ -1,4 +1,5 @@
-## Mammoth, the Mammoth (Epic Bruiser). Planned: see design/roster.md.
+## Mammoth, the Mammoth (Epic Bruiser). One file is the whole critter:
+## see "Adding a critter" in README.md for what each key does.
 extends RefCounted
 
 const CRITTER := {
@@ -7,19 +8,26 @@ const CRITTER := {
 	"type": "Mammoth",
 	"rarity": "epic",
 	"role": "Bruiser",
-	"status": "planned",
+	"status": "live",
 	"color": "7f5539",
 	"vibe": "A woolly giant who believes every wall is a friend.",
 	"description": "Mammoth. Its hits shove foes hard, and a foe that slams into a wall right after is frozen for a moment.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
-	"ability": [],
-	"params": {},
+	"stats": {"hp": 125.0, "radius": 80.0, "speed": 400.0, "contact_damage": 16.75},
+	"ability": [{"on": "hit", "do": "shove"}, {"on": "strike", "do": "shatter"}],
+	"params": {
+		"slam_damage": 6.0, ## A shoved foe that hits a wall in time.
+		"slam_window": 0.6,
+		"slam_freeze": 0.5,
+		"slam_patch": 0.0, ## T3: icy patch on the wall (3s).
+		"slam_patch_slow": 0.3,
+		"shatter_mult": 0.0, ## T5: hitting a frozen foe.
+	},
 	"tiers": [
-		{"text": "Hits shove hard; wall slams freeze"},
-		{"text": "Slams deal +8"},
-		{"text": "Slams leave an icy patch"},
-		{"text": "Slam window 0.8s"},
-		{"text": "Frozen foes shatter for double"},
+		{"text": "Hits shove foes away; one that slams a wall within 0.6s takes 6 and freezes 0.5s"},
+		{"text": "Slam 8", "slam_damage": 8.0},
+		{"text": "The slam leaves an icy patch on the wall that slows 30% for 3s", "slam_patch": 70.0},
+		{"text": "Slam window 0.8s", "slam_window": 0.8},
+		{"text": "A frozen foe shatters on its next hit for double damage", "shatter_mult": 2.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "none"}, "back": ["fur"], "front": ["tusks", "trunk"], "scale": 1.12},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.7},

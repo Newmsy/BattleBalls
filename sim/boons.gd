@@ -66,6 +66,13 @@ const DEFS := {
 		"icon": "guard",
 		"contact_armor": 0.07,
 	},
+	"pep_talk": {
+		"name": "Pep Talk",
+		"text": "+4% max HP and +3% damage.",
+		"icon": "shield",
+		"hp": 1.04,
+		"damage": 1.03,
+	},
 	"sharper_fangs": {
 		"name": "Sharper Fangs",
 		"text": "Vampires heal 6% more of the damage they deal.",
@@ -85,7 +92,7 @@ const DEFS := {
 
 ## Every boon, in a fixed order (offers and drafts index into this).
 const ALL := ["thick_shell", "spiky_rim", "zoomies", "wall_snack", "overtime_bubble",
-	"opening_bite", "bank_shot", "bumper_guard", "sharper_fangs", "prism"]
+	"opening_bite", "bank_shot", "bumper_guard", "sharper_fangs", "prism", "pep_talk"]
 
 ## Runtime boon fields the sim reads straight off the def (0 = off).
 const RUNTIME := ["bounce_heal", "overtime_shield", "first_strike", "bank_bonus", "contact_armor"]

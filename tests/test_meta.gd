@@ -95,8 +95,8 @@ func test_stages_unlock_in_order() -> void:
 func test_only_owned_critters_with_a_built_ability_fight() -> void:
 	var p = Profile.new_game(T0)
 	check_eq(Campaign.start(p, 0, 0, "laser", T0).get("error"), "no_ball", "not owned")
-	p.add_copies(["leviathan"])
-	p.set_lineup("leviathan")
+	p.add_copies(["splitter"])
+	p.set_lineup("splitter")
 	check_eq(Campaign.fighter_for(p), "vampire", "falls back to a critter that can fight")
 
 

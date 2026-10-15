@@ -9,7 +9,7 @@
 ##
 ## The bracket itself is the same on every device: it comes from the seed and
 ## the entrant list alone. When a schedule entry leaves `entrants` out, every
-## critter playable in this build enters.
+## critter playable in this build enters (a seeded 64 of them past 64).
 extends RefCounted
 
 const LiveOps := preload("res://game/liveops.gd")
@@ -47,9 +47,24 @@ static func events() -> Array:
 
 
 static func _event(name: String, week: int, seed_value: int, entrants: Array) -> Dictionary:
-	var e: Array = entrants if not entrants.is_empty() else BallDefs.PLAYABLE.duplicate()
+	var e: Array = entrants if not entrants.is_empty() else _field(seed_value)
 	return {"id": "%s-%d" % [Time.get_date_string_from_unix_time(week), seed_value], "name": name,
 		"week": week, "seed": seed_value, "entrants": e}
+
+
+## Every live critter, or a seeded pick of MAX_ENTRANTS of them once the
+## roster outgrows a bracket (same pick on every device).
+static func _field(seed_value: int) -> Array:
+	var ids: Array = BallDefs.PLAYABLE.duplicate()
+	if ids.size() <= Bracket.MAX_ENTRANTS:
+		return ids
+	var rng := Bracket.Rng.new(seed_value)
+	for i in Bracket.MAX_ENTRANTS:
+		var j := rng.range_int(i, ids.size() - 1)
+		var t = ids[i]
+		ids[i] = ids[j]
+		ids[j] = t
+	return ids.slice(0, Bracket.MAX_ENTRANTS)
 
 
 ## The bracket on the board at `t` (picks open, running or just finished), or {}.

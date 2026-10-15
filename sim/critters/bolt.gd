@@ -1,4 +1,5 @@
-## Bolt, the Robot (Uncommon Skirmisher). Planned: see design/roster.md.
+## Bolt, the Robot (Uncommon Skirmisher). One file is the whole critter:
+## see "Adding a critter" in README.md for what each key does.
 extends RefCounted
 
 const CRITTER := {
@@ -7,19 +8,26 @@ const CRITTER := {
 	"type": "Robot",
 	"rarity": "uncommon",
 	"role": "Skirmisher",
-	"status": "planned",
+	"status": "live",
 	"color": "3a3aff",
 	"vibe": "An overeager little robot that zaps itself somewhere new after every punch.",
 	"description": "Robot. After every second hit it teleports to a new spot.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
-	"ability": [],
-	"params": {},
+	"stats": {"hp": 122.0, "radius": 64.0, "speed": 400.0, "contact_damage": 20.0},
+	"ability": [{"on": "hit", "do": "blink"}, {"on": "strike", "do": "blink_bonus"}],
+	"params": {
+		"blink_every": 2, ## Teleports after every this-many contact hits.
+		"blink_away": 300.0, ## Lands at least this far from the foe.
+		"blink_bonus": 0.0, ## T2: extra damage on its first hit after landing.
+		"blink_crackle": 0.0, ## T3: pulse damage where it left.
+		"blink_crackle_radius": 70.0,
+		"blink_zap": 0.0, ## T5: beam damage a second from its old spot to its new one.
+	},
 	"tiers": [
 		{"text": "Teleports after every 2nd hit"},
-		{"text": "First hit after landing deals +2"},
-		{"text": "The spot it leaves crackles"},
-		{"text": "Teleports after every hit"},
-		{"text": "Arrives with a zap beam"},
+		{"text": "First hit after landing deals +2", "blink_bonus": 2.0},
+		{"text": "The spot it leaves crackles for 5", "blink_crackle": 5.0},
+		{"text": "Teleports after every hit", "blink_every": 1},
+		{"text": "Arrives with a zap beam", "blink_zap": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "flat"}, "back": ["boltant"], "front": ["panel"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 1.25},
