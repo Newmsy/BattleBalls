@@ -9,6 +9,7 @@ extends RefCounted
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Lineup := preload("res://sim/lineup.gd")
 
 const VERSION := 1
 const MAX_SLOTS := 3
@@ -16,12 +17,12 @@ const MAX_AIM := 12
 const MAX_AIM_OFFSET := 1800
 
 
-## Builds a lineup from critter ids (tiers, levels and gear come with
-## progression; everything is T1 until then).
+## Builds a lineup from critter ids (bare T1) or lineup slots (sim/lineup.gd,
+## e.g. Profile.slot_of: the tier, level and gear the player owns).
 static func make(critters: Array, aim_offsets: Array) -> Dictionary:
 	var slots := []
-	for id in critters.slice(0, MAX_SLOTS):
-		slots.append({"critter": id, "tier": 1, "level": 1, "gear": []})
+	for c in critters.slice(0, MAX_SLOTS):
+		slots.append(Lineup.clean(c) if c is Dictionary else Lineup.make(str(c)))
 	var aim := []
 	for a in aim_offsets.slice(-MAX_AIM):
 		aim.append(clampi(int(a), -MAX_AIM_OFFSET, MAX_AIM_OFFSET))

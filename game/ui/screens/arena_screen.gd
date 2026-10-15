@@ -93,12 +93,13 @@ static func _trio_panel(shell, store, owned: Array) -> Control:
 		var critter: String = store.trio[i]
 		var content := Kit.vbox(4, [
 			Kit.label(str(i + 1), 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
-			CritterIcon.make(critter, 1, 120),
+			CritterIcon.make(critter, shell.profile.best(critter).get("tier", 1), 120),
 			Kit.label(BallDefs.get_def(critter).display_name, 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 		])
 		var slot := Kit.card_button(content, func():
-			var at := BallDefs.PLAYABLE.find(critter)
-			store.set_slot(i, BallDefs.PLAYABLE[(at + 1) % BallDefs.PLAYABLE.size()])
+			if owned.is_empty():
+				return
+			store.set_slot(i, owned[(owned.find(critter) + 1) % owned.size()])
 			shell.refresh_with({"store": store}), Kit.LINE, Kit.PANEL2, 28, 10)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("arena_slot_%d" % i, slot)
@@ -118,8 +119,9 @@ static func _opponent_card(shell, store, offer: Dictionary) -> Button:
 	var critters: Array = ArenaGhosts.critters(bot.lineup)
 	critters.sort()
 	var icons := Kit.hbox(0)
+	var tier: int = bot.lineup.slots[0].get("tier", 1)
 	for c in critters:
-		icons.add_child(CritterIcon.make(c, 1, 76))
+		icons.add_child(CritterIcon.make(c, tier, 76))
 	var info := Kit.vbox(4, [
 		Kit.hbox(8, [Kit.chip(card.name, col), Kit.chip("Arena Ghost", Kit.MUTED)]),
 		Kit.label(str(bot.name), 30),
@@ -129,5 +131,5 @@ static func _opponent_card(shell, store, offer: Dictionary) -> Button:
 	var row := Kit.hbox(10, [info, icons])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	return Kit.card_button(row, func():
-		store.start_attack(offer.card, bot.id, randi_range(1, 0x7FFFFFFF))
+		store.start_attack(offer.card, bot.id, randi_range(1, 0x7FFFFFFF), store.slots(shell.profile))
 		shell.get_tree().change_scene_to_file(FIGHT_SCENE), col, Kit.PANEL, 32, 18)
