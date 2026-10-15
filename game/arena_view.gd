@@ -5,6 +5,7 @@ extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const CritterArt := preload("res://game/ui/critter_art.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const A11y := preload("res://game/a11y.gd")
 const RarityMark := preload("res://game/ui/rarity_mark.gd")
@@ -19,6 +20,10 @@ const BURST := Color("ffe28a")
 const POP_DAMAGE := Color("ff5a7a")
 const POP_HEAL := Color("45f5a6")
 const POP_BEAM := Color("7cc4ff")
+const POP_SNAP := Color("ffe066")
+## Magnet field rings: Pull draws in blue, Push pushes out red.
+const FIELD_PULL := Color("4d8dff")
+const FIELD_PUSH := Color("ff4d6a")
 const RARITY_COLORS := {"common": Color("c9d3e0"), "uncommon": Color("5ee08a"), "rare": Color("3d9bff"), "epic": Color("b366ff"), "legendary": Color("ffc23d")}
 ## Side markers so mirror matches stay readable: index 0 is always the player.
 ## Colour is never the only cue: the player's ring is solid, the foe's is
@@ -52,6 +57,8 @@ var _look: Array[Vector2] = [Vector2(1, -1).normalized(), Vector2(-1, 1).normali
 var _hit := [0.0, 0.0]
 var _squash := [0.0, 0.0]
 var _eye_flash := [0.0, 0.0]
+## Magnet pole spin: eases 0 (Pull) <-> 1 (Push) after each flip.
+var _pole_swap := [0.0, 0.0]
 var _fx_rng := RandomNumberGenerator.new()
 var _banner := 0.0 ## Seconds left on the OVERTIME banner.
 var _was_overtime := false
@@ -70,6 +77,7 @@ func clear_effects() -> void:
 	_hit = [0.0, 0.0]
 	_squash = [0.0, 0.0]
 	_eye_flash = [0.0, 0.0]
+	_pole_swap = [0.0, 0.0]
 	_banner = 0.0
 	_was_overtime = false
 	if sim:
@@ -98,6 +106,14 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_shake = maxf(_shake, 5.0 * A11y.motion())
 				_bursts.append({"pos": e.pos, "age": 0.0})
 				_spawn_particles(e.pos, 10)
+			"flip":
+				var m := sim.balls[e.ball]
+				for i in 6:
+					_particles.append({"pos": m.pos + Vector2(0, -m.radius * 1.3), "vel": _rand_dir() * _fx_rng.randf_range(80.0, 260.0), "age": 0.0, "life": 0.4})
+			"snap":
+				var m := sim.balls[e.ball]
+				_add_popup(m.pos + Vector2(-34, -m.radius - 34), "SNAP!", POP_SNAP)
+				_shake = maxf(_shake, 9.0 * A11y.motion())
 			"bounce":
 				_squash[e.ball] = maxf(_squash[e.ball], 0.15)
 				if sim.balls[e.ball].def.ability == "laser" and not A11y.reduced_motion:
@@ -124,6 +140,8 @@ func advance_effects(delta: float) -> void:
 		_squash[i] = maxf(0.0, _squash[i] - delta)
 		_eye_flash[i] = maxf(0.0, _eye_flash[i] - delta)
 	if sim:
+		for b in sim.balls:
+			_pole_swap[b.index] = move_toward(_pole_swap[b.index], 0.0 if b.pulling else 1.0, delta / 0.25)
 		for b in sim.balls:
 			if b.vel.length() > 0.001:
 				_look[b.index] = _look[b.index].lerp(b.vel.normalized(), clampf(delta * 9.0, 0.0, 1.0)).normalized()
@@ -193,6 +211,10 @@ func _draw() -> void:
 		draw_line(a, b, Color(BEAM, 0.35 * k), 7.0, true)
 		draw_line(a, b, Color(BEAM, 0.9 * k), 3.5, true)
 		draw_line(a, b, Color("e6f7ff", k), 1.4, true)
+
+	for b in sim.balls:
+		if b.alive() and b.def.ability == "magnet":
+			_draw_field(b, s)
 
 	for k in _bursts:
 		var t: float = k.age / BURST_LIFE
@@ -275,7 +297,13 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 			_vampire_collar(r, col)
 		"laser":
 			_laser_antenna(r, col)
-	_body(r, col)
+		"magnet":
+			CritterArt.magnet_prongs(self, Vector2.ZERO, r, 1, _time, col, def.pole_color, _pole_swap[i])
+	if def.ability == "magnet":
+		draw_circle(Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
+		CritterArt.magnet_body(self, Vector2.ZERO, r, col, def.pole_color, _pole_swap[i])
+	else:
+		_body(r, col)
 	var hit: float = _hit[i]
 	if hit > 0.0:
 		var flash_cap := 0.3 if A11y.reduced_motion else 0.85
@@ -302,6 +330,19 @@ func _team_ring(i: int, pos: Vector2, r: float, col: Color) -> void:
 		var side := d.orthogonal()
 		var base := pos + d * (r + 6.0)
 		draw_colored_polygon(PackedVector2Array([base + side * 6.0, base + d * 14.0, base - side * 6.0]), Color(col, 0.9))
+
+
+## Flux's field: faint rings flowing in (Pull) or out (Push) so players can
+## read the rhythm. Inner rings are brighter, like the field's strength.
+func _draw_field(m, s: float) -> void:
+	var reach: float = m.def.field_range * 0.75
+	var col := FIELD_PULL if m.pulling else FIELD_PUSH
+	for k in 3:
+		var f := fmod(_time * 0.9 + k / 3.0, 1.0)
+		if m.pulling:
+			f = 1.0 - f
+		var rad: float = lerpf(m.radius * 1.3, reach, f)
+		draw_arc(m.pos * s, rad * s, 0.0, TAU, 64, Color(col, 0.28 * (1.0 - f)), 3.0, true)
 
 
 func _body(r: float, col: Color) -> void:
@@ -345,6 +386,11 @@ func _face(def: Dictionary, r: float, look: Vector2, hp_frac: float, hit: float,
 	match def.ability:
 		"laser":
 			_eye(e, r * 0.4, r * 0.4 * open, r * 0.16, look, Color("0a7bb0"), Color("7fe6ff"), 0.0, def.color, _eye_flash[i])
+		"magnet":
+			for k in [-1.0, 1.0]:
+				_eye(e + Vector2(k * r * 0.3, 0), r * 0.19, r * 0.23 * open, r * 0.1, look, Color.TRANSPARENT, Color.TRANSPARENT, 0.0, def.color, 0.0)
+				_brow(e + Vector2(k * r * 0.3, 0), r * 0.19, r * 0.23, k, r * 0.16, r)
+			_mouth(e + Vector2(0, r * 0.34), r, "smile", hp_frac)
 		"vampire":
 			for k in [-1.0, 1.0]:
 				_eye(e + Vector2(k * r * 0.3, 0), r * 0.19, r * 0.22 * open, r * 0.1, look, Color.TRANSPARENT, Color.TRANSPARENT, 0.45, def.color, 0.0)

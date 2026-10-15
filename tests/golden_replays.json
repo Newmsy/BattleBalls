@@ -88,5 +88,50 @@
     "reason": "knockout",
     "ticks": 2218,
     "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "magnet",
+      "p2": "vampire",
+      "seed": 42
+    },
+    "hash": "e88cae116beeb6579dd6de7ea91a197dd8e699d5a4af160b4d7d54a88e0563e8",
+    "reason": "knockout",
+    "ticks": 2218,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "laser",
+      "p2": "magnet",
+      "seed": 9
+    },
+    "hash": "25f3e3de934b021ea471b64f31e0a9e3e455df847074ebdee7d2645878173e7d",
+    "reason": "knockout",
+    "ticks": 2561,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "magnet",
+      "p2": "magnet",
+      "seed": 7
+    },
+    "hash": "ae3b533288e8c95ec90e16688fdf7fb66ab0b7bf6a86181afdf69443dffb6277",
+    "reason": "knockout",
+    "ticks": 1538,
+    "winner": 1
   }
 ]
