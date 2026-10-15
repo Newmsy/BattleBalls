@@ -35,6 +35,7 @@ const CRITTER := {
 		{"text": "Revives at 30%", "revive_hp": 0.3},
 		{"text": "The rebirth is a firestorm: 8 fire bolts and a 20 shield", "revive_bolts": 8, "revive_shield": 20.0},
 	],
+	"chaos": {"double_trouble": {"hp": 1.05}}, ## Bigger beams pick off a fresh revive.
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": "ffb300", "brow": .3, "mouth": "smirk"}, "back": ["flame_crest"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.25},
 }
