@@ -144,11 +144,47 @@ func test_ranked_trio_uses_owned_critters_only() -> void:
 	var s = _fresh_store()
 	s.trio = ["vampire", "flux", "laser"]
 	check(s.fit_to(["laser", "vampire"]), "unowned slot swapped")
-	check_eq(s.trio, ["vampire", "laser", "laser"], "unowned slot becomes the first owned critter")
+	check_eq(s.trio, ["vampire", "vampire", "laser"], "with only two owned, a repeat is the only way to fill three")
 	check(not s.fit_to(["laser", "vampire"]), "owned trio unchanged")
 	var p = UiProfile.new()
 	p.stacks.append({"id": "laser", "tier": 1, "count": 1, "level": 1})
 	check_eq(ArenaScreen.owned_critters(p), ["laser"], "only owned critters can be picked")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_trio_never_holds_a_critter_twice() -> void:
+	var s = _fresh_store()
+	s.trio = ["laser", "vampire", "laser"]
+	check(s.fit_to(["spiker", "laser", "vampire", "speedster"]), "duplicate repaired")
+	check_eq(s.trio, ["laser", "vampire", "spiker"], "repeat becomes the strongest critter not in the trio")
+	s.set_slot(0, "spiker")
+	check_eq(s.trio, ["spiker", "vampire", "laser"], "picking a trio member swaps the two slots")
+	s.set_slot(1, "speedster")
+	check_eq(s.trio, ["spiker", "speedster", "laser"], "picking a new critter replaces the slot")
+	s.fill_best(["laser", "vampire", "spiker", "speedster"])
+	check_eq(s.trio, ["laser", "vampire", "spiker"], "best trio = strongest three")
+	check_eq(ArenaStore.best_trio(["laser"]), ["laser", "laser", "laser"], "one critter owned fills all three")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_trio_slot_opens_the_picker() -> void:
+	var s = _fresh_store()
+	var shell = Shell.new()
+	shell.build()
+	for id in ["laser", "vampire", "spiker", "speedster"]:
+		shell.profile.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
+	shell.go("arena", {"store": s})
+	var trio: Array = s.trio.duplicate()
+	check_eq(trio.size(), 3, "three slots")
+	check(trio[0] != trio[1] and trio[1] != trio[2] and trio[0] != trio[2], "trio is three different critters")
+	shell._marks["arena_slot_0"].pressed.emit()
+	check(shell._marks.has("pick_" + trio[1]), "picker lists owned critters")
+	shell._marks["pick_" + trio[1]].pressed.emit()
+	check_eq(s.trio[0], trio[1], "picked into slot 1")
+	check_eq(s.trio[1], trio[0], "and swapped with the slot it was in")
+	shell._marks["arena_best_trio"].pressed.emit()
+	check_eq(s.trio, ArenaStore.best_trio(ArenaScreen.owned_critters(shell.profile)), "Best trio fills the strongest three")
+	shell.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
 
