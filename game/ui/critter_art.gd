@@ -232,7 +232,7 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 			_circ(ci, c + Vector2(-.4, -.45) * r, r * .3, Color(1, 1, 1, .3))
 			_ring(ci, c, r, Color("3a2440"), maxf(1.5, r * .07))
 		_ when "bite" in s.art.get("front", []):
-			_bitten_body(ci, c, r, col)
+			_bitten_body(ci, c, r, col, s.hp_frac)
 		"starfield":
 			_circ(ci, c, r * 1.12, Color(.56, .36, 1.0, .25))
 			_circ(ci, c, r, Color("07060d"))
@@ -283,12 +283,15 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 					var a := i * TAU / 10 + t
 					ci.draw_arc(c, r * 1.25, a, a + .35, 4, _c(Color(1, .24, .35, .7)), 2.0, true)
 		"spike_ring":
-			var n := 8 + tier * 2
-			var L: float = r * (.22 + .04 * tier + minf(.25, s.stacks * .04))
-			var spike := Color.WHITE if s.flash > 0.0 else shade(col, -.35)
+			# Each hit landed (stacks) grows one more spike and makes them all
+			# longer and brighter, so a pumped-up Prickles looks it.
+			var n := 8 + tier * 2 + int(s.stacks)
+			var grown := minf(1.0, s.stacks / 8.0)
+			var L: float = r * (.2 + .03 * tier + .45 * grown)
+			var spike := Color.WHITE if s.flash > 0.0 else shade(col, -.35).lerp(Color("eaff7a"), grown * .6)
 			for i in n:
 				var a := float(i) / n * TAU + .2
-				var w := PI / n * .7
+				var w := PI / n * (.7 + .2 * grown)
 				_poly(ci, PackedVector2Array([c + Vector2(cos(a - w), sin(a - w)) * r * .92, c + Vector2(cos(a), sin(a)) * (r + L), c + Vector2(cos(a + w), sin(a + w)) * r * .92]), spike)
 		"speed_streaks":
 			var n := 1 + tier
@@ -555,8 +558,17 @@ static func _hsl(h: float, s: float, l: float, a := 1.0) -> Color:
 
 
 ## The default body with bites taken out of its right side (Crumb).
-static func _bitten_body(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
+## Crumb's cookie: two bites out of it at full health, and a fresh chunk
+## missing for every sixth of its health gone.
+const CRUMB_BITES := [Vector2(-.95, .45), Vector2(.15, 1.0), Vector2(-.55, -.9), Vector2(.85, .7), Vector2(-1.0, -.2)]
+
+
+static func _bitten_body(ci: CanvasItem, c: Vector2, r: float, col: Color, hp_frac := 1.0) -> void:
 	var bites := [ellipse_pts(c + Vector2(.95, -.55) * r, r * .25, r * .25, 0.0, 0.0, TAU, 20), ellipse_pts(c + Vector2(1.05, -.2) * r, r * .2, r * .2, 0.0, 0.0, TAU, 20)]
+	var lost := clampi(int((1.0 - hp_frac) * 6.0), 0, CRUMB_BITES.size())
+	for k in lost:
+		var at: Vector2 = CRUMB_BITES[k]
+		bites.append(ellipse_pts(c + at * r, r * (.3 + .04 * k), r * (.3 + .04 * k), 0.0, 0.0, TAU, 20))
 	var cut := func(pts: PackedVector2Array) -> Array:
 		var polys: Array = [pts]
 		for b in bites:

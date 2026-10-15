@@ -1,15 +1,17 @@
 ## Bounce Run: a daily roguelite run built from the UTC day number alone, so
 ## every device gets the same draft, foes and boon offers without a server.
 ##
-## Draft 3 of 5 cards (a critter plus its own starter boon), then climb
-## FLOORS fights. Before each fight you see the foe and send one of your
-## living critters. A win earns a boon for the whole trio (pick 1 of 3); a
+## Draft 3 of DRAFT critters, then 3 of START_OFFER starting boons for the
+## whole trio, then climb FLOORS fights. Before each fight you see the foe and
+## send one of your living critters. A win earns another boon (pick 1 of 3); a
 ## loss knocks that critter out of the run, and you retry the floor with
 ## another. The run ends when the top floor falls or your trio is out.
 ##
-## Power stays equal: a floor's foe carries exactly as many boons as you can
-## have there (its starter plus one per floor cleared), drawn from the same
-## pool. Your edge is picking boons that suit your trio, and your aim.
+## A floor's foe carries exactly as many boons as you can have there (three
+## to start plus one per floor cleared), drawn from the same pool, and its
+## power follows FOE_POWER: well under yours on the first floors, over it at
+## the top. Everyone climbs the same tower, so the board stays fair. Your
+## edge is picking boons that suit your trio, who you send, and your aim.
 ##
 ## A run is plain data (see new_run) so it can be saved, resumed, posted to
 ## the leaderboard and re-checked later by replaying its log.
@@ -22,15 +24,21 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 1
+const RULES_VERSION := 2
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
-const FLOORS := 8
-const DRAFT := 5
+const FLOORS := 10
+const DRAFT := 6 ## Critter cards in the draft.
 const PICKS := 3
+const START_OFFER := 6 ## General boons offered at the start.
+const START_BOONS := 3 ## Of those, how many the trio starts with.
 const OFFER := 3
 ## Foe names per floor, for flavour. The top floor is the day's champion.
-const FOE_TITLES := ["Rookie", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Elite", "Champion"]
+const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Elite", "Legend", "Champion"]
+## Foe power per floor (sim/power.gd: 1.0 is your trio's). The first floors
+## are a warm-up; most runs end around floor 7, and a full clear is rare
+## (tools/boon_balance.gd --runs checks the curve).
+const FOE_POWER := [0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.35, 1.45]
 
 
 ## 1 on 2026-10-14 (UTC), counting up one per day.
@@ -38,33 +46,33 @@ static func day_number(unix_time: float) -> int:
 	return maxi(1, floori((unix_time - EPOCH_UNIX) / DAY) + 1)
 
 
-## The day's run setup: draft cards and the foe on every floor.
+## The day's run setup: the critter draft, the starting boon offer and the
+## foe on every floor.
 static func generate(day: int) -> Dictionary:
 	var rng := Rng.new(day * 2654435 + 977)
 	var cards: Array = []
 	var critters := _shuffled(BallDefs.PLAYABLE, rng)
-	var used_boons: Array = []
 	for i in DRAFT:
 		# Every playable critter shows up before any repeats.
-		var critter: String = critters[i % critters.size()]
-		var boon := _pick_boon(rng, critter, used_boons)
-		used_boons.append(boon)
-		cards.append({"critter": critter, "boon": boon})
+		cards.append({"critter": critters[i % critters.size()]})
+	var start_offer: Array = _shuffled(Boons.GENERAL, rng).slice(0, START_OFFER)
 	var floors: Array = []
 	for f in FLOORS:
 		var critter: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
 		var boons: Array = []
-		for k in f + 1:
+		for k in START_BOONS + f:
 			boons.append(_pick_boon(rng, critter, boons))
 		floors.append({"critter": critter, "boons": boons, "seed": rng.range_int(1, 999999), "title": FOE_TITLES[f]})
-	return {"day": day, "cards": cards, "floors": floors}
+	return {"day": day, "cards": cards, "start_offer": start_offer, "floors": floors}
 
 
-## A fresh run for `setup` with the drafted card indices.
-static func new_run(setup: Dictionary, picks: Array) -> Dictionary:
-	assert(picks.size() == PICKS)
-	return {"day": setup.day, "picks": picks.duplicate(), "boons": [], "floor": 0, "out": [false, false, false],
-		"ticks": 0, "log": [], "offer": [], "over": false}
+## A fresh run for `setup` with the drafted card indices and the starting
+## boons picked from setup.start_offer.
+static func new_run(setup: Dictionary, picks: Array, start: Array) -> Dictionary:
+	assert(picks.size() == PICKS and start.size() == START_BOONS)
+	assert(start.all(func(id): return id in setup.start_offer))
+	return {"day": setup.day, "rules": RULES_VERSION, "picks": picks.duplicate(), "start": start.duplicate(),
+		"boons": start.duplicate(), "floor": 0, "out": [false, false, false], "ticks": 0, "log": [], "offer": [], "over": false}
 
 
 ## The pick slot's card.
@@ -72,16 +80,17 @@ static func card(setup: Dictionary, run: Dictionary, slot: int) -> Dictionary:
 	return setup.cards[run.picks[slot]]
 
 
-## Boons a pick slot fights with: its starter plus the run's boons.
-static func fighter_boons(setup: Dictionary, run: Dictionary, slot: int) -> Array:
-	return [card(setup, run, slot).boon] + run.boons
+## Boons a pick slot fights with: the run's boons, shared by the whole trio
+## (ability boons only work on critters with that ability).
+static func fighter_boons(_setup: Dictionary, run: Dictionary, _slot: int) -> Array:
+	return run.boons
 
 
 ## MatchSim config for sending `slot` at the current floor with `aim`.
 static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> Dictionary:
 	var foe: Dictionary = setup.floors[run.floor]
 	return {"seed": foe.seed, "p1": card(setup, run, slot).critter, "p2": foe.critter,
-		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons]}
+		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons], "powers": [1.0, FOE_POWER[run.floor]]}
 
 
 ## Records a fight. A win climbs a floor and, unless the run is won, deals a
@@ -150,8 +159,8 @@ static func better(a: Dictionary, b: Dictionary) -> bool:
 ## Replays a run's log from its picks and returns the rebuilt run, so a
 ## posted score can be checked against the sim. Boon picks come from `run`.
 static func replay(setup: Dictionary, run: Dictionary) -> Dictionary:
-	var check := new_run(setup, run.picks)
-	var boon_i := 0
+	var check := new_run(setup, run.picks, run.start)
+	var boon_i := START_BOONS
 	for entry in run.log:
 		var sim := MatchSim.new(fight_config(setup, check, entry.slot, entry.aim))
 		var result := sim.run_to_end()
