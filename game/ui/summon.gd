@@ -1,6 +1,8 @@
 ## Summon Portal rolls (design/ui.md section 4). Every summon is a Tier 1
 ## critter. Odds match campaign drops; a x10 always holds a Rare or better;
-## the Legendary pity counter is shared with drops. UI-side randomness only,
+## the Legendary pity counter (Rare+ rolls until a Legendary) is shared with
+## drops. Pools come from the critter files, so new critters join on their own;
+## a rarity with no critters yet rolls the next rarity down. UI-side randomness only,
 ## never used by the fight sim.
 ##
 ## Wishlist: the player's (up to 3) wishlisted critters count double when the
@@ -13,8 +15,8 @@ extends RefCounted
 const Roster := preload("res://game/ui/roster.gd")
 const LiveOps := preload("res://game/liveops.gd")
 
-const ODDS := [["legendary", 0.5], ["epic", 4.5], ["rare", 25.0], ["common", 70.0]]
-const PITY_RESET := 150
+const ODDS := [["legendary", 1.5], ["epic", 5.5], ["rare", 15.0], ["uncommon", 28.0], ["common", 50.0]]
+const PITY_RESET := 50
 ## How much more often a wishlisted critter comes up than others of its rarity.
 const WISHLIST_WEIGHT := 2.0
 ## This week's featured critter (the Critter Spotlight in liveops.json)
@@ -43,7 +45,11 @@ static func pick_in_rarity(profile, rarity: String, rng: RandomNumberGenerator) 
 	var spotlight := featured()
 	if rarity == rarity_of(spotlight) and rng.randf() < .5:
 		return spotlight
-	var pool: Array = Roster.CRITTERS.filter(func(c): return c.rarity == rarity)
+	var pool: Array = []
+	for k in range(_rank(rarity), -1, -1):
+		pool = Roster.CRITTERS.filter(func(c): return c.rarity == Roster.RARITIES[k])
+		if not pool.is_empty():
+			break
 	var total := 0.0
 	for c in pool:
 		total += _weight(profile, c.id)
@@ -86,7 +92,7 @@ static func rarity_of(id: String) -> String:
 
 static func _has_rare_plus(ids: Array) -> bool:
 	for id in ids:
-		if rarity_of(id) != "common":
+		if _rank(rarity_of(id)) >= _rank("rare"):
 			return true
 	return false
 
@@ -100,12 +106,16 @@ static func _roll(profile, rng: RandomNumberGenerator, rare_plus: bool) -> Strin
 		if r < acc:
 			rarity = o[0]
 			break
-	if rare_plus and rarity == "common":
+	if rare_plus and _rank(rarity) < _rank("rare"):
 		rarity = "rare"
-	if rarity != "common":
+	if _rank(rarity) >= _rank("rare"):
 		profile.legendary_pity -= 1
 		if profile.legendary_pity <= 0:
 			rarity = "legendary"
 	if rarity == "legendary":
 		profile.legendary_pity = PITY_RESET
 	return pick_in_rarity(profile, rarity, rng)
+
+
+static func _rank(rarity: String) -> int:
+	return Roster.RARITIES.find(rarity)

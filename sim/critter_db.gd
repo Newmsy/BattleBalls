@@ -1,0 +1,123 @@
+## Every critter, read from its own file in sim/critters/<id>.gd. This is the
+## one place the sim, menus, art, sound, summons and tests learn what critters
+## exist: adding a file adds the critter everywhere. "Adding a critter" in
+## README.md documents the keys; validate() enforces them.
+extends RefCounted
+
+const Abilities := preload("res://sim/abilities.gd")
+
+const DIR := "res://sim/critters/"
+const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
+const ROLES := ["Bruiser", "Zoner", "Skirmisher", "Disruptor", "Baseline"]
+## live: fights in the sim and is offered to players. planned: shown in the
+## collection (art, ladder) but its ability isn't built yet. baseline: Plain.
+const STATUSES := ["live", "planned", "baseline"]
+const REQUIRED := ["no", "name", "type", "rarity", "role", "status", "color", "vibe", "description", "stats", "ability", "params", "tiers", "art", "sound"]
+const STATS := ["hp", "radius", "speed", "contact_damage"]
+const TIERS := 5
+
+static var _critters := {}
+static var _ids: Array = []
+
+
+## Every critter id (Plain included), in Critterpedia number order.
+static func ids() -> Array:
+	_load()
+	return _ids
+
+
+## Critters that fight in the sim and are offered to players, by number.
+static func live_ids() -> Array:
+	return ids().filter(func(id): return _critters[id].status == "live")
+
+
+## Everything the sim can fight with: live critters plus the Plain baseline.
+static func sim_ids() -> Array:
+	return ids().filter(func(id): return _critters[id].status != "planned")
+
+
+static func has(id: String) -> bool:
+	_load()
+	return _critters.has(id)
+
+
+## The critter's file contents, plus "id".
+static func get_critter(id: String) -> Dictionary:
+	_load()
+	assert(_critters.has(id), "Unknown critter: %s" % id)
+	return _critters.get(id, {})
+
+
+## The flat definition the fight sim reads: stats, then ability params with the
+## tier upgrades up to `tier` applied, plus the bits the renderer needs.
+static func sim_def(id: String, tier := 1) -> Dictionary:
+	var c := get_critter(id)
+	var def := {
+		"id": id,
+		"ability": id,
+		"effects": c.ability,
+		"display_name": c.name,
+		"description": c.description,
+		"rarity": c.rarity,
+		"color": Color(c.color),
+		"badge_top": c.art.get("badge_top", 1.15),
+		"ouch": c.sound.get("ouch", ""),
+		"voice_pitch": c.sound.get("pitch", 1.0),
+	}
+	def.merge(c.stats, true)
+	def.merge(c.params, true)
+	for t in clampi(tier, 1, TIERS):
+		for key in c.tiers[t]:
+			if key != "text":
+				def[key] = c.tiers[t][key]
+	return def
+
+
+## Problems with one critter file, as readable strings; empty when it's fine.
+static func validate(id: String, c: Dictionary) -> Array[String]:
+	var errors: Array[String] = []
+	for key in REQUIRED:
+		if not c.has(key):
+			errors.append("%s: missing \"%s\"" % [id, key])
+	if not errors.is_empty():
+		return errors
+	if not id.is_valid_identifier() or id != id.to_lower():
+		errors.append("%s: file name must be a lowercase snake_case id" % id)
+	if not c.rarity in RARITIES:
+		errors.append("%s: rarity \"%s\" is not one of %s" % [id, c.rarity, RARITIES])
+	if not c.role in ROLES:
+		errors.append("%s: role \"%s\" is not one of %s" % [id, c.role, ROLES])
+	if not c.status in STATUSES:
+		errors.append("%s: status \"%s\" is not one of %s" % [id, c.status, STATUSES])
+	if not Color.html_is_valid(c.color):
+		errors.append("%s: color \"%s\" is not a hex colour" % [id, c.color])
+	for s in STATS:
+		if not (c.stats.get(s) is float or c.stats.get(s) is int) or float(c.stats.get(s)) <= 0.0:
+			errors.append("%s: stats.%s must be a positive number" % [id, s])
+	if c.tiers.size() != TIERS:
+		errors.append("%s: needs exactly %d tiers (T1 to T5)" % [id, TIERS])
+	for t in c.tiers.size():
+		if str(c.tiers[t].get("text", "")) == "":
+			errors.append("%s: tier %d has no text" % [id, t + 1])
+		for key in c.tiers[t]:
+			if key != "text" and not c.params.has(key):
+				errors.append("%s: tier %d changes \"%s\", which isn't in params" % [id, t + 1, key])
+	if c.status == "live":
+		errors.append_array(Abilities.validate(id, c.ability, c.params))
+	return errors
+
+
+static func _load() -> void:
+	if not _ids.is_empty():
+		return
+	for file in DirAccess.get_files_at(DIR):
+		# Exported builds list scripts as .gd.remap (and the compiled .gdc).
+		file = file.trim_suffix(".remap")
+		if not file.ends_with(".gd") or file.begins_with("_"):
+			continue
+		var id := file.get_basename()
+		var c: Dictionary = load(DIR + file).CRITTER.duplicate(true)
+		c.id = id
+		_critters[id] = c
+	_ids = _critters.keys()
+	_ids.sort_custom(func(a, b): return _critters[a].no < _critters[b].no)

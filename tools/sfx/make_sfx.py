@@ -303,6 +303,11 @@ def lose():
     return jingle([67, 66, 65, 62], 0.16, 0.7, shape="tri", cutoff=2500)
 
 
+def draw():
+    """A shrug: up a step, back down, ending on the note it started on."""
+    return jingle([69, 72, 69], 0.14, 0.6, shape="tri", cutoff=3500)
+
+
 def go():
     """Fight start: a quick rising whoosh with a bright 'ding'."""
     dur = 0.35
@@ -344,7 +349,7 @@ SOUNDS = {
     "flip": flip, "snap": snap,
     "ko": ko, "heal": heal, "slurp": slurp, "zap": zap, "sizzle": sizzle,
     "overtime": overtime, "heartbeat": heartbeat,
-    "win": win, "lose": lose, "go": go, "launch": launch, "stretch": stretch, "click": click,
+    "win": win, "lose": lose, "draw": draw, "go": go, "launch": launch, "stretch": stretch, "click": click,
 }
 
 
