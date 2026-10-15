@@ -707,9 +707,9 @@ func _draw_status(b, s: float) -> void:
 			var side: Vector2 = back.orthogonal() * r * (q - 1) * 0.5
 			draw_line(p + back * r + side, p + back * r * 2.0 + side, Color(1, 1, 1, 0.45), 3.0, true)
 	if b.def.has("gear_step"):
-		_pips(p + Vector2(0, r + 14.0), int(b.state.get("gear", 0)), int(b.def.gear_max), Color("a7c957"))
+		_pips(p + Vector2(0, r + 38.0), int(b.state.get("gear", 0)), int(b.def.gear_max), Color("a7c957"))
 	if b.def.has("bulb_max"):
-		_pips(p + Vector2(0, r + 14.0), int(b.state.get("lit", 0)), int(b.def.bulb_max), Color("ffe066"))
+		_pips(p + Vector2(0, r + 38.0), int(b.state.get("lit", 0)), int(b.def.bulb_max), Color("ffe066"))
 
 
 ## A row of meter lights under a ball: Gearbox's gears, Pinball's bulbs.
