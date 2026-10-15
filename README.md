@@ -23,7 +23,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 ```sh
 godot --headless --import                                   # once, after cloning
 GODOT=godot tests/run.sh                                    # all tests
-godot --headless --script res://tools/balance.gd -- --fights=200 --power-step
+godot --headless --script res://tools/balance.gd -- --fights=200 --power-step [--arena=all]
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
@@ -37,12 +37,25 @@ CI builds every PR for the web and deploys it to Vercel (project
 with its preview URL; `main` deploys to production. Smoke-test screenshots
 are served at `<preview>/smoke/`.
 
-URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
-(`aim` is the launch angle in tenths of a degree, screen space, y down).
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink`
+(`aim` is the launch angle in tenths of a degree, screen space, y down;
+`arena` is an id from `sim/arenas.gd`).
 
 A first visit with no URL params plays the onboarding
 (`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
 `?tutorial=1` replays it, `?tutorial=0` skips it.
+
+Add `&clip=1` to make a "Save clip" video as soon as the fight ends.
+
+## Finisher cam and clips
+
+The finisher cam (`game/finisher_cam.gd`) slows and zooms into the knockout
+blow. It is render-only: it plans from its own copy of the fight and only
+changes playback speed and the camera. **Save clip** on the result screen
+replays the fight in a 720x1280 "Who wins?" layout (`game/clip/`) and records
+it in the browser (MP4 on iPhone Safari); browsers without MediaRecorder get
+the same layout to screen-record. The export preset's `head_include` turns on
+`preserveDrawingBuffer` and taps the game's audio so the page can record both.
 `?sounds=1` opens the sound board: every sound with a play button.
 
 ## Icon and loading screen
@@ -179,6 +192,17 @@ rematch each other's saved Ghost Arena lineup (unranked, only a head-to-head
 record moves), send one energy gift a day (2 energy; up to 10 gifts claimed a
 day; the server sets the amount) and send **preset phrases only**, never free
 text (Newms, 2026-10-14). `?demo=friends` shows sample friends with no server.
+
+## Analytics
+
+`game/online/analytics.gd` queues anonymous play events (`Analytics.track(name, props)`)
+and sends them in batches to `log_events()` as the signed-in guest. No names,
+free text or device ids; players can turn it off in Settings (the gear) (which also
+deletes what was sent), and browsers with Global Privacy Control or Do Not
+Track start opted out. Smoke tests and debug builds are flagged as test
+traffic. The owner's stats screen is `?stats#k=<dashboard key>` (`game/stats/`);
+mint or revoke keys in the Supabase SQL editor (see the analytics migration).
+`?stats&demo=1` shows it with sample numbers.
 
 ## Adding a critter
 
