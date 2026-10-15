@@ -35,10 +35,12 @@ const SCREENS := {
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## Screens that hold a list which keeps growing (collection, gear, the shop,
-## the pass track, friends, the stage map). Every other screen must fit a
+## the pass track, friends, the stage map, the Spire's critter picker, the
+## week's events and the bracket). Every other screen must fit a
 ## 720x1280 phone without scrolling: put detail behind an "i" (info()) and
 ## the main action in pin(). See design/ui.md, "No scrolling".
-const SCROLLS := ["critters", "bag", "shop", "pass", "friends", "campaign", "week", "bracket"]
+## Play scrolls only below its two big cards: its mode groups grow too.
+const SCROLLS := ["play", "critters", "bag", "shop", "pass", "friends", "campaign", "spire", "week", "bracket"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
 
