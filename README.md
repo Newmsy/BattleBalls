@@ -197,6 +197,23 @@ record moves), send one energy gift a day (2 energy; up to 10 gifts claimed a
 day; the server sets the amount) and send **preset phrases only**, never free
 text (Newms, 2026-10-14). `?demo=friends` shows sample friends with no server.
 
+## Economy pacing
+
+`meta/economy.gd` holds the economy numbers (summon odds, campaign drop
+chance and zone drop pools, Summon Orb income) and the pacing targets from
+design/pve.md section 6. `meta/economy_model.gd` plays simulated casual,
+regular (~20 minutes a day) and heavy players through them, day by day, and
+`tests/test_economy.gd` fails if the regular player's first fusion, T3, Rare
+at T2, Legendary, T4 or T5 drifts out of its window.
+
+```sh
+godot --headless --script res://tools/economy_sim.gd -- --players=200 --as-built   # report, with the old numbers for comparison
+godot --headless --script res://tools/economy_sim.gd -- --wishlist                 # players wishlist their top Rare+ critters
+```
+
+Changing drops, orb income, energy or the launch roster: re-run the report and
+paste it in the PR.
+
 ## Analytics
 
 `game/online/analytics.gd` queues anonymous play events (`Analytics.track(name, props)`)
