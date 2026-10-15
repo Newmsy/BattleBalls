@@ -68,8 +68,6 @@ static func build(shell, _params: Dictionary) -> Control:
 
 static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 	var c := Roster.get_critter(k.id)
-	var rcol: Color = Roster.RARITY_COLORS[c.rarity]
-	var border := Kit.LINE if c.rarity == "common" else Color(rcol, .6)
 	var info := Kit.hbox(6, [Kit.label("Lv %d" % k.level, 20, Kit.MUTED), Kit.power(k.power, 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	var stars := CenterContainer.new()
 	stars.add_child(Glyph.make("stars", 22, Kit.FG, k.tier))
@@ -88,7 +86,7 @@ static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 		rib.get_theme_stylebox("panel").content_margin_right = 10
 		icon_layer.add_child(rib)
 	var v := Kit.vbox(4, [icon_layer, name, stars, info])
-	var t := Kit.card_button(v, func(): shell.go("detail", {"id": k.id, "tier": k.tier}), border, Kit.PANEL, 28, 8)
+	var t := Kit.card_button(v, func(): shell.go("detail", {"id": k.id, "tier": k.tier}), Roster.rarity_border(c.rarity, Kit.LINE), Roster.rarity_bg(c.rarity, Kit.PANEL), 28, 8)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark(mark_as, t)
 	return t

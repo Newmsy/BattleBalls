@@ -45,8 +45,10 @@ static func _entry(shell, owned: bool, c: Dictionary) -> Control:
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var rarity := Kit.label(Roster.RARITY_NAMES[c.rarity], 17, Color(rcol, 1.0 if owned else .7), HORIZONTAL_ALIGNMENT_CENTER)
 	var v := Kit.vbox(0, [num, CritterIcon.make(c.id, 1, 124, false, not owned), name, rarity])
-	var border := Color(rcol, .6) if owned and c.rarity != "common" else Kit.LINE
-	var t := Kit.card_button(v, func(): shell.go("dex_entry", {"id": c.id}), border, Kit.PANEL if owned else Color("0f0d27"), 24, 6)
+	# Found critters get the full rarity tint; unfound ones a faint one, so the silhouette still reads.
+	var border := Roster.rarity_border(c.rarity, Kit.LINE) if owned else Color(Roster.rarity_border(c.rarity, Kit.LINE), .45)
+	var bg := Roster.rarity_bg(c.rarity, Kit.PANEL) if owned else Roster.rarity_bg(c.rarity, Color("0f0d27"), .08)
+	var t := Kit.card_button(v, func(): shell.go("dex_entry", {"id": c.id}), border, bg, 24, 6)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("dex_" + c.id, t)
 	return t
