@@ -220,6 +220,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("hit", -4.0, 1.5)
 			"spike": # Spike Yard: a sharp, high snap.
 				play("snap", -2.0, 1.7)
+			"lava":
+				play("sizzle", -6.0, 0.8)
+			"portal":
+				play("flip", 0.0, 1.6)
 			"shot":
 				if e.kind == "pea":
 					play("pew")

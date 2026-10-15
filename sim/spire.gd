@@ -6,6 +6,7 @@
 ## Pure data and rules, no nodes or clock: callers pass the week in.
 extends RefCounted
 
+const Arenas := preload("res://sim/arenas.gd")
 const Rng := preload("res://sim/rng.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -75,7 +76,7 @@ static func floor_def(week: int, floor_no: int, pool: Array = []) -> Dictionary:
 				bag = pool.duplicate()
 			var id: String = bag.pop_at(rng.range_int(0, bag.size() - 1))
 			enemies.append({"id": id, "power": power, "scale": 1.0})
-	return {"floor": floor_no, "seed": fight_seed, "boss": is_boss(floor_no), "lineup": size, "enemies": enemies}
+	return {"floor": floor_no, "seed": fight_seed, "boss": is_boss(floor_no), "lineup": size, "enemies": enemies, "arena": Arenas.pick(fight_seed)}
 
 
 ## Relay config (sim/relay.gd) for an attempt. `picks` are your balls in
@@ -89,6 +90,7 @@ static func relay_config(spec: Dictionary, picks: Array, aims: Array = []) -> Di
 		my_aims.append(aims[i] if i < aims.size() else null)
 	return {
 		"seed": spec.seed,
+		"arena": spec.get("arena", "square"),
 		"sides": [picks.map(func(p): return p.id), spec.enemies.map(func(e): return e.id)],
 		"aims": [my_aims, spec.enemies.map(func(_e): return null)],
 		"powers": [picks.map(func(p): return Lineup.power(p.slot) if p.has("slot") else float(p.power)), spec.enemies.map(func(e): return float(e.power))],

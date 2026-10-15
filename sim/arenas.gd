@@ -14,6 +14,13 @@
 ##   ball can't be pinned on the centre.
 ## spike_walls: the middle of the left and right walls (`half` units either
 ##   side of the centre line) is spiked: bouncing there deals spike damage.
+## floors: pads balls pass over, each a circle (pos, radius) or a rect. A ball
+##   is on one when it overlaps it by half its radius (portals: its centre
+##   reaches the inner 60%). kind "ice" speeds it up, "goo" slows it by `slow`,
+##   "lava" burns (capped with spikes), "conveyor" pushes it along `dir` at
+##   `accel` (by weight), "portal" sends it to floor `to` keeping its velocity.
+## orbit (on an obstacle): circles the centre at this many rad/s from pos.
+## shrink_start / shrink_speed: the walls start closing in early, slower.
 extends RefCounted
 
 const DEFS := {
@@ -71,10 +78,144 @@ const DEFS := {
 		],
 		"spike_walls": {"half": 150.0},
 	},
+	"frost": {
+		"display_name": "Frostbite Lake",
+		"description": "A frozen lake in the middle: balls skate 30% faster on the ice.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"floors": [{"kind": "ice", "pos": Vector2(500, 500), "radius": 230.0}],
+	},
+	"magma": {
+		"display_name": "Magma Core",
+		"description": "Lava pools in the two empty corners burn whoever rolls through.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"floors": [
+			{"kind": "lava", "pos": Vector2(160, 160), "radius": 150.0},
+			{"kind": "lava", "pos": Vector2(840, 840), "radius": 150.0},
+		],
+	},
+	"arcade": {
+		"display_name": "Haunted Arcade",
+		"description": "Two portals: roll into one, pop out of the other.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"floors": [
+			{"kind": "portal", "pos": Vector2(150, 500), "radius": 70.0, "to": 1},
+			{"kind": "portal", "pos": Vector2(850, 500), "radius": 70.0, "to": 0},
+		],
+	},
+	"starfall": {
+		"display_name": "Starfall Rim",
+		"description": "The rim starts closing in at 15 seconds. Fights end up close.",
+		"corner_cut": 120.0,
+		"obstacles": [],
+		"shrink_start": 15.0,
+		"shrink_speed": 6.0,
+	},
+	"factory": {
+		"display_name": "Conveyor Factory",
+		"description": "Two belts run opposite ways. Light critters get carried furthest.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"floors": [
+			{"kind": "conveyor", "rect": Rect2(80, 260, 840, 120), "dir": Vector2.RIGHT, "accel": 520.0},
+			{"kind": "conveyor", "rect": Rect2(80, 620, 840, 120), "dir": Vector2.LEFT, "accel": 520.0},
+		],
+	},
+	"orbit": {
+		"display_name": "Orbit Station",
+		"description": "Two moons circle the middle. Time your bounces.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(500, 280), "radius": 52.0, "kind": "pillar", "orbit": 0.55},
+			{"pos": Vector2(500, 720), "radius": 52.0, "kind": "pillar", "orbit": 0.55},
+		],
+	},
+	"hive": {
+		"display_name": "Honey Hive",
+		"description": "Sticky honey slows anyone rolling through it.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"floors": [
+			{"kind": "goo", "pos": Vector2(300, 300), "radius": 140.0, "slow": 0.35},
+			{"kind": "goo", "pos": Vector2(700, 700), "radius": 140.0, "slow": 0.35},
+			{"kind": "goo", "pos": Vector2(500, 500), "radius": 80.0, "slow": 0.35},
+		],
+	},
+	"horizon": {
+		"display_name": "Event Horizon",
+		"description": "One huge well in the middle drags every fight together.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"wells": [{"pos": Vector2(500, 500), "reach": 380.0, "accel": 900.0, "core": 34.0}],
+	},
+	"pinball": {
+		"display_name": "Pinball Palace",
+		"description": "Bumpers fling you, spiked side walls bite.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(500, 500), "radius": 60.0, "kind": "bumper"},
+			{"pos": Vector2(300, 300), "radius": 44.0, "kind": "bumper"},
+			{"pos": Vector2(700, 700), "radius": 44.0, "kind": "bumper"},
+		],
+		"spike_walls": {"half": 120.0},
+	},
+	"reef": {
+		"display_name": "Coral Reef",
+		"description": "Four coral heads to bank off, and a whirlpool current in the middle.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(500, 250), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(500, 750), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(250, 500), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(750, 500), "radius": 40.0, "kind": "pillar"},
+		],
+		"wells": [{"pos": Vector2(500, 500), "reach": 150.0, "accel": 700.0, "core": 20.0}],
+	},
+	"glitch": {
+		"display_name": "Glitch Grid",
+		"description": "Two pairs of portals swap you across the grid.",
+		"corner_cut": 160.0,
+		"obstacles": [],
+		"floors": [
+			{"kind": "portal", "pos": Vector2(300, 300), "radius": 60.0, "to": 1},
+			{"kind": "portal", "pos": Vector2(700, 700), "radius": 60.0, "to": 0},
+			{"kind": "portal", "pos": Vector2(700, 300), "radius": 60.0, "to": 3},
+			{"kind": "portal", "pos": Vector2(300, 700), "radius": 60.0, "to": 2},
+		],
+	},
+	"inferno": {
+		"display_name": "Inferno Ring",
+		"description": "Lava runs along the side walls. Stay off the edges.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"floors": [
+			{"kind": "lava", "rect": Rect2(0, 220, 60, 560)},
+			{"kind": "lava", "rect": Rect2(940, 220, 60, 560)},
+		],
+	},
+	"thorn": {
+		"display_name": "Thorn Garden",
+		"description": "Thorny walls and two hedges in the middle.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(330, 500), "radius": 50.0, "kind": "spike"},
+			{"pos": Vector2(670, 500), "radius": 50.0, "kind": "spike"},
+		],
+		"spike_walls": {"half": 200.0},
+	},
 }
 
 ## Arenas offered in the in-game picker and checked by the balance sim.
-const PLAYABLE := ["square", "rink", "pillars", "bumpers", "wells", "spikes"]
+const PLAYABLE := ["square", "rink", "pillars", "bumpers", "wells", "spikes", "frost", "magma", "arcade",
+	"starfall", "factory", "orbit", "hive", "horizon", "pinball", "reef", "glitch", "inferno", "thorn"]
+
+
+## The map a fight with this seed is played on: every mode that rolls a map
+## stores the result in its fight config, so later pool changes never move it.
+static func pick(seed_value: int) -> String:
+	return PLAYABLE[posmod(("arena:%d" % seed_value).hash(), PLAYABLE.size())]
 
 
 static func get_def(id: String) -> Dictionary:

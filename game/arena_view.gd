@@ -15,6 +15,7 @@ const A11y := preload("res://game/a11y.gd")
 const RarityMark := preload("res://game/ui/rarity_mark.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const BattleFx := preload("res://game/battle_fx.gd")
+const ArenaTheme := preload("res://game/arena_theme.gd")
 
 const INK := Color("1a1530")
 const ARENA_FILL := Color("120f33")
@@ -67,6 +68,12 @@ const FIELD_PULL := Color("4d8dff")
 const WELL := Color("b36bff")
 const WELL_CORE := Color("07051a")
 const SPIKE := Color("ff3d7f")
+const LAVA := Color("ff5a1f")
+const PORTAL := Color("7cff9b")
+const PORTAL_B := Color("c77dff")
+const ICE := Color("bfe9ff")
+const GOO := Color("ffb627")
+const CONVEYOR := Color("ffd23f")
 const FIELD_PUSH := Color("ff4d6a")
 const RARITY_COLORS := Roster.RARITY_COLORS
 ## Side markers so mirror matches stay readable: index 0 is always the player.
@@ -134,6 +141,8 @@ var _squash := [0.0, 0.0]
 var _eye_flash := [0.0, 0.0]
 var _bumper_flash := 0.0
 var _spike_flash := 0.0
+var _grid := GRID ## This arena's grid colour (game/arena_theme.gd).
+var _pillar := PILLAR
 ## Field pole spin: eases 0 (Pull) <-> 1 (Push) after each flip.
 var _pole_swap := [0.0, 0.0]
 var _fx_rng := RandomNumberGenerator.new()
@@ -472,6 +481,13 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"bumper":
 				_bumper_flash = BUMPER_FLASH_LIFE
 				_spawn_particles(e.pos, 6)
+			"lava":
+				_spawn_particles(e.pos, 3)
+				_rings.append({"pos": e.pos, "radius": 40.0, "color": LAVA, "age": 0.0})
+			"portal":
+				_rings.append({"pos": e.from, "radius": 70.0, "color": PORTAL, "age": 0.0})
+				_rings.append({"pos": e.to, "radius": 70.0, "color": PORTAL, "age": 0.0})
+				_spawn_particles(e.to, 6)
 			"spike":
 				_spike_flash = BUMPER_FLASH_LIFE
 				_spawn_particles(e.pos, 5)
@@ -617,24 +633,33 @@ func _draw() -> void:
 	var overtime := shape.in_overtime()
 	if overtime:
 		_rounded_rect(full, 14.0, Color(0.35, 0.05, 0.12, 0.35))
-	var border := OVERTIME_BORDER if overtime else BORDER
+	var theme := ArenaTheme.get_theme(shape.arena_id)
+	_pillar = Color(theme.pillar)
+	var border := OVERTIME_BORDER if overtime else Color(theme.border)
+	var fill := Color(theme.fill)
+	_grid = Color(Color(theme.grid), 0.08)
 	var outline := shape.arena_outline()
 	if outline.size() == 4:
-		_rounded_rect(arena, 14.0, ARENA_FILL)
+		_rounded_rect(arena, 14.0, fill)
+		_draw_glows(theme, shape, PackedVector2Array())
 		_draw_grid(arena)
+		_draw_ambient(theme.ambient, arena, PackedVector2Array())
 		for i in 4:
 			_rounded_rect_outline(arena.grow(i * 2.0), 14.0 + i * 2.0, Color(border, 0.22 - i * 0.05), 4.0)
 		_rounded_rect_outline(arena, 14.0, border, 2.5)
 	else:
 		for i in outline.size():
 			outline[i] *= s
-		draw_colored_polygon(outline, ARENA_FILL)
+		draw_colored_polygon(outline, fill)
+		_draw_glows(theme, shape, outline)
 		_draw_grid(arena, outline)
+		_draw_ambient(theme.ambient, arena, outline)
 		var closed := outline.duplicate()
 		closed.append(outline[0])
 		for i in 4:
 			draw_polyline(closed, Color(border, 0.22 - i * 0.05), 4.0 + i * 4.0, true)
 		draw_polyline(closed, border, 2.5, true)
+	_draw_floors(shape.floors())
 	_draw_wells(shape.wells())
 	_draw_spike_walls(shape)
 	_draw_obstacles(shape.obstacles())
@@ -873,12 +898,12 @@ func _draw_grid(r: Rect2, clip := PackedVector2Array()) -> void:
 
 func _grid_line(a: Vector2, b: Vector2, clip: PackedVector2Array) -> void:
 	if clip.is_empty():
-		draw_line(a, b, GRID, 1.0)
+		draw_line(a, b, _grid, 1.0)
 		return
 	var hits := Geometry2D.clip_polyline_with_polygon(PackedVector2Array([a, b]), clip)
 	for part in hits:
 		if part.size() >= 2:
-			draw_line(part[0], part[part.size() - 1], GRID, 1.0)
+			draw_line(part[0], part[part.size() - 1], _grid, 1.0)
 
 
 func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
@@ -900,10 +925,180 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 			draw_circle(p, rad * 0.42, col)
 		else:
 			draw_circle(p + Vector2(3, 5), rad, Color(0, 0, 0, 0.35))
-			draw_circle(p, rad, PILLAR.darkened(0.6))
-			draw_circle(p + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(PILLAR, 0.25))
-			draw_arc(p, rad + 3.0, 0, TAU, 56, Color(BORDER, 0.2), 6.0, true)
-			draw_arc(p, rad, 0, TAU, 56, PILLAR.lightened(0.2), 2.5, true)
+			draw_circle(p, rad, _pillar.darkened(0.6))
+			draw_circle(p + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(_pillar, 0.25))
+			draw_arc(p, rad + 3.0, 0, TAU, 56, Color(_pillar.lightened(0.3), 0.25), 6.0, true)
+			draw_arc(p, rad, 0, TAU, 56, _pillar.lightened(0.2), 2.5, true)
+
+
+## Soft pools of light on the floor in the arena's theme colours.
+func _draw_glows(theme: Dictionary, shape, clip: PackedVector2Array) -> void:
+	var s := view_scale
+	var k: float = shape.arena_scale()
+	for g in theme.glows:
+		var c: Vector2 = (shape.centre + (g[0] - shape.centre) * k) * s
+		var r: float = g[1] * k * s
+		var col := Color(g[2])
+		for i in 5:
+			var f := 1.0 - i / 5.0
+			var pts := _circle_points(c, r * f, 40)
+			if not clip.is_empty():
+				var parts := Geometry2D.intersect_polygons(pts, clip)
+				for part in parts:
+					draw_colored_polygon(part, Color(col, 0.025))
+			else:
+				draw_colored_polygon(pts, Color(col, 0.025))
+
+
+func _circle_points(c: Vector2, r: float, n: int) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in n:
+		pts.append(c + Vector2.from_angle(i * TAU / n) * r)
+	return pts
+
+
+## Ambient motion over the floor, from _time alone (no randomness), so it
+## never touches the fight. Points outside `clip` (a cut-corner outline) are
+## skipped.
+func _draw_ambient(kind: String, r: Rect2, clip: PackedVector2Array) -> void:
+	if kind == "none":
+		return
+	var n := 22
+	for i in n:
+		var u := fmod(i * 0.6180339 + 0.13, 1.0)
+		var v := fmod(i * 0.3819660 + 0.71, 1.0)
+		var t := _time * (0.6 + 0.4 * fmod(i * 0.77, 1.0))
+		var p := Vector2.ZERO
+		var col := Color.WHITE
+		var size := 2.0
+		match kind:
+			"snow", "petals", "pollen":
+				p = Vector2(u + 0.03 * sin(t * 1.3 + i), fmod(v + t * 0.05, 1.0))
+				col = {"snow": Color("e8f6ff"), "petals": Color("ff9ecf"), "pollen": Color("ffe08a")}[kind]
+				size = 2.5 if kind == "snow" else 3.0
+			"embers", "bubbles":
+				p = Vector2(u + 0.02 * sin(t * 2.0 + i), 1.0 - fmod(v + t * 0.07, 1.0))
+				col = Color("ff8a3d") if kind == "embers" else Color("bff6ff")
+				size = 2.2 if kind == "embers" else 3.5
+			"stars":
+				p = Vector2(u, v)
+				col = Color("fff4d6")
+				size = 1.2 + 1.3 * (0.5 + 0.5 * sin(t * 3.0 + i * 1.7))
+			"fireflies", "wisps", "sparks":
+				p = Vector2(u + 0.04 * sin(t * 0.9 + i * 2.1), v + 0.04 * cos(t * 0.7 + i * 1.3))
+				col = {"fireflies": Color("c8ff8a"), "wisps": Color("b8ffd0"), "sparks": Color("ffe28a")}[kind]
+				size = 2.2 if kind != "wisps" else 4.0
+			"glitch":
+				p = Vector2(u, v)
+				col = Color("7cff4f") if i % 2 == 0 else Color("ff4fd8")
+				if fmod(t * 1.7 + i * 0.37, 1.0) > 0.25:
+					continue
+				var q := r.position + Vector2(p.x * r.size.x, p.y * r.size.y)
+				if clip.is_empty() or Geometry2D.is_point_in_polygon(q, clip):
+					draw_rect(Rect2(q, Vector2(18, 6) * view_scale * 1.4), Color(col, 0.35))
+				continue
+		var at := r.position + Vector2(clampf(p.x, 0.0, 1.0) * r.size.x, clampf(p.y, 0.0, 1.0) * r.size.y)
+		if not clip.is_empty() and not Geometry2D.is_point_in_polygon(at, clip):
+			continue
+		var a := 0.35 + 0.25 * sin(t * 2.3 + i)
+		if kind in ["stars", "fireflies", "wisps", "sparks", "embers"]:
+			draw_circle(at, size * 2.6, Color(col, a * 0.18))
+		draw_circle(at, size, Color(col, a))
+
+
+## Floor pads: ice, honey, lava, conveyor belts and portals.
+func _draw_floors(floors: Array[Dictionary]) -> void:
+	var s := view_scale
+	var portal_no := 0
+	for f in floors:
+		match f.kind:
+			"ice":
+				var c: Vector2 = f.pos * s
+				var r: float = f.radius * s
+				draw_circle(c, r, Color(ICE, 0.12))
+				draw_arc(c, r, 0, TAU, 72, Color(ICE, 0.55), 2.5, true)
+				draw_arc(c, r - 6.0, 0, TAU, 72, Color(ICE, 0.15), 6.0, true)
+				for j in 6: # Cracks in the ice.
+					var a := j * TAU / 6.0 + 0.4
+					var mid := c + Vector2.from_angle(a) * r * 0.45 + Vector2.from_angle(a + 1.2) * r * 0.08
+					draw_polyline(PackedVector2Array([c + Vector2.from_angle(a) * r * 0.12, mid, c + Vector2.from_angle(a + 0.15) * r * 0.85]), Color(ICE, 0.25), 1.5, true)
+				var sheen := fmod(_time * 0.25, 1.0) # A glint sweeping across.
+				draw_arc(c, r * 0.7, -2.2 + sheen * 2.0, -1.7 + sheen * 2.0, 16, Color(1, 1, 1, 0.3), 3.0, true)
+			"goo":
+				var c: Vector2 = f.pos * s
+				var r: float = f.radius * s
+				draw_circle(c, r, Color(GOO, 0.22))
+				for j in 7: # Honeycomb cells.
+					var off := Vector2.ZERO if j == 0 else Vector2.from_angle(j * TAU / 6.0) * r * 0.5
+					var hex := PackedVector2Array()
+					for q in 7:
+						hex.append(c + off + Vector2.from_angle(q * TAU / 6.0 + TAU / 12.0) * r * 0.27)
+					draw_polyline(hex, Color(GOO, 0.4), 1.5, true)
+				draw_arc(c, r, 0, TAU, 60, Color(GOO, 0.75), 3.0, true)
+				for j in 5: # Drips wobbling on the rim.
+					var a := j * TAU / 5.0 + _time * 0.2
+					draw_circle(c + Vector2.from_angle(a) * r, r * (0.08 + 0.02 * sin(_time * 2.0 + j)), Color(GOO, 0.7))
+			"lava":
+				_draw_lava(f, s)
+			"conveyor":
+				var rr: Rect2 = Rect2(f.rect.position * s, f.rect.size * s)
+				draw_rect(rr, Color("2a2a33"))
+				draw_rect(rr, Color(CONVEYOR, 0.7), false, 2.0)
+				var step := 46.0 * s
+				var dir: Vector2 = f.dir
+				var shift := fmod(_time * 120.0 * s, step)
+				var x := rr.position.x - step + (shift if dir.x > 0.0 else step - shift)
+				var mid := rr.position.y + rr.size.y / 2.0
+				var h := rr.size.y * 0.3
+				while x < rr.end.x:
+					if x > rr.position.x + 4.0 and x + h * 0.6 < rr.end.x - 4.0:
+						var tip := x + h * 0.6 * dir.x
+						draw_polyline(PackedVector2Array([Vector2(x, mid - h), Vector2(tip, mid), Vector2(x, mid + h)]), Color(CONVEYOR, 0.75), 4.0, true)
+					x += step
+				for edge in [rr.position.y + 3.0, rr.end.y - 3.0]: # Hazard stripes.
+					var sx := rr.position.x
+					while sx < rr.end.x - 10.0:
+						draw_line(Vector2(sx, edge), Vector2(minf(sx + 10.0, rr.end.x), edge), Color(CONVEYOR, 0.5) if int(sx / 10.0) % 2 == 0 else Color(INK, 0.6), 4.0)
+						sx += 10.0
+			"portal":
+				var c: Vector2 = f.pos * s
+				var r: float = f.radius * s
+				var col := PORTAL if (portal_no / 2) % 2 == 0 else PORTAL_B
+				if portal_no % 2 == 1:
+					col = col.lerp(Color.WHITE, 0.25)
+				portal_no += 1
+				draw_circle(c, r, Color(col.darkened(0.7), 0.85))
+				for j in 3:
+					var a := _time * (2.0 + j) + j * 2.0
+					draw_arc(c, r * (0.45 + j * 0.2), a, a + 4.0, 32, Color(col, 0.6 - j * 0.12), 3.0, true)
+				draw_arc(c, r, 0, TAU, 56, col, 3.0, true)
+				draw_arc(c, r + 5.0, 0, TAU, 56, Color(col, 0.25), 8.0, true)
+
+
+func _draw_lava(f: Dictionary, s: float) -> void:
+	if f.has("rect"):
+		var rr: Rect2 = Rect2(f.rect.position * s, f.rect.size * s)
+		draw_rect(rr, Color("5a1405"))
+		draw_rect(rr.grow(-3.0), Color(LAVA, 0.55))
+		var n := 6
+		for j in n:
+			var y := rr.position.y + rr.size.y * fmod(j / float(n) + _time * 0.05, 1.0)
+			var bub := 0.5 + 0.5 * sin(_time * 3.0 + j * 1.9)
+			draw_circle(Vector2(rr.position.x + rr.size.x * (0.3 + 0.4 * fmod(j * 0.618, 1.0)), y), rr.size.x * 0.18 * bub, Color("ffd166", 0.7))
+		draw_rect(rr, Color("ffb347"), false, 2.0)
+		return
+	var c: Vector2 = f.pos * s
+	var r: float = f.radius * s
+	draw_circle(c, r, Color("5a1405"))
+	draw_circle(c, r * 0.92, Color(LAVA, 0.6))
+	draw_circle(c, r * 0.6, Color("ff8a3d", 0.5 + 0.1 * sin(_time * 2.0)))
+	for j in 7: # Bubbles that swell and pop.
+		var ph := fmod(_time * 0.6 + j * 0.37, 1.0)
+		var at := c + Vector2.from_angle(j * 2.4) * r * (0.25 + 0.55 * fmod(j * 0.618, 1.0))
+		draw_circle(at, r * 0.09 * ph, Color("ffd166", 0.8 * (1.0 - ph)))
+		draw_arc(at, r * 0.09 * ph, 0, TAU, 16, Color("fff0b3", 0.6 * (1.0 - ph)), 1.5, true)
+	draw_arc(c, r, 0, TAU, 72, Color("ffb347"), 2.5, true)
+	draw_arc(c, r + 4.0, 0, TAU, 72, Color(LAVA, 0.3), 8.0, true)
 
 
 ## Gravity wells: a dark core, a spiral swirling in and rings flowing inward.

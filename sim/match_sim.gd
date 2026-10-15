@@ -76,11 +76,15 @@ const PIECE_OBSTACLE_GAP := 140.0
 ## width, so the final squeeze is always a clean box.
 const OBSTACLE_MIN_SCALE := 0.7
 ## Spikes (Spike Yard posts and spiked walls): a small hit per bounce, at most
-## once per SPIKE_COOLDOWN per ball, and never more than SPIKE_CAP of a ball's
-## max HP over a whole fight, so the arena nicks but never decides a fight.
+## once per SPIKE_COOLDOWN per ball. Arena hazards (spikes, lava) together
+## never take more than HAZARD_CAP of a ball's max HP over a whole fight, so
+## the arena nicks but never decides a fight.
 const SPIKE_DAMAGE := 4.0
 const SPIKE_COOLDOWN := 0.5
-const SPIKE_CAP := 0.15
+const HAZARD_CAP := 0.15
+const LAVA_DPS := 6.0 ## Dealt in half-second ticks while a ball overlaps lava.
+const ICE_SPEED := 1.3 ## Speed multiplier while a ball's centre is on ice.
+const PORTAL_COOLDOWN := 1.0 ## Seconds before a ball can take a portal again.
 ## Inward normals of the four cut corners: bottom-left, top-left, top-right, bottom-right.
 const CORNER_NORMALS := [Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1)]
 ## Each hit deals between (1 - variance)x and (1 + variance)x its damage (Newms).
@@ -150,14 +154,18 @@ class Ball:
 	var tal_state := {} ## Talent timers and counters (a foe's Haunt lands here too).
 	var base := {} ## radius, speed and contact_damage before any mod.
 	var weight := 1.0 ## How hard pulls move it (sim/weight.gd); heavier = less.
-	var spiked := 0.0 ## Spike damage taken so far (before overtime scaling).
+	var hazard_taken := 0.0 ## Arena hazard damage so far (before overtime scaling).
 	var spike_ready := 0 ## Tick it may next be spiked.
+	var lava_ready := 0 ## Tick lava may next burn it.
+	var portal_ready := 0 ## Tick it may next take a portal.
+	var floor_speed := 1.0 ## Ice under it (see ICE_SPEED).
 
 	func alive() -> bool:
 		return hp > 0.0
 
 	func current_speed() -> float:
 		var v := speed * BUMPER_BOOST if boost_ticks > 0 else speed
+		v *= floor_speed
 		return v * charge_mult if charge_ticks > 0 else v
 
 
@@ -379,7 +387,10 @@ func obstacles() -> Array[Dictionary]:
 	if k < OBSTACLE_MIN_SCALE:
 		return out
 	for o in arena.obstacles:
-		out.append({"pos": centre + (o.pos - centre) * k, "radius": o.radius * k, "kind": o.kind})
+		var at: Vector2 = o.pos
+		if o.has("orbit"): # Circles the centre at orbit rad/s, starting at pos.
+			at = centre + (o.pos - centre).rotated(o.orbit * time())
+		out.append({"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind})
 	for p in pieces:
 		if p.blocking:
 			out.append({"pos": p.pos, "radius": p.radius, "kind": p.kind, "piece": p})
@@ -395,6 +406,66 @@ func wells() -> Array[Dictionary]:
 	for w in arena.get("wells", []):
 		out.append({"pos": centre + (w.pos - centre) * k, "reach": w.reach * k, "accel": w.accel, "core": w.core * k})
 	return out
+
+
+## Floor pads at the current overtime scale (gone with the obstacles): each
+## a copy of its def with pos/radius (or rect) moved toward the centre.
+func floors() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var k := arena_scale()
+	if k < OBSTACLE_MIN_SCALE:
+		return out
+	for f in arena.get("floors", []):
+		var g: Dictionary = f.duplicate()
+		if f.has("rect"):
+			g.rect = Rect2(centre + (f.rect.position - centre) * k, f.rect.size * k)
+		else:
+			g.pos = centre + (f.pos - centre) * k
+			g.radius = f.radius * k
+		out.append(g)
+	return out
+
+
+static func on_floor(f: Dictionary, p: Vector2, margin := 0.0) -> bool:
+	if f.has("rect"):
+		return f.rect.grow(margin).has_point(p)
+	return p.distance_to(f.pos) <= f.radius + margin
+
+
+## Ice speeds balls up, goo slows them, lava burns, conveyors push (by
+## weight) and portals send a ball to their partner pad with its velocity.
+## A ball is on a pad when its centre is.
+func _update_floors() -> void:
+	var pads := floors()
+	for b in balls:
+		if not b.alive():
+			continue
+		var ice := 1.0
+		for i in pads.size():
+			var f: Dictionary = pads[i]
+			if not on_floor(f, b.pos, 0.0 if f.kind == "portal" else b.radius * 0.5):
+				continue
+			match f.kind:
+				"ice":
+					ice = ICE_SPEED
+				"goo":
+					b.slow = maxf(b.slow, f.slow)
+				"lava":
+					if tick >= b.lava_ready:
+						b.lava_ready = tick + TICK_RATE / 2
+						if _hazard(b, LAVA_DPS * 0.5, "lava", b.pos):
+							events.append({"type": "lava", "ball": b.index, "pos": b.pos})
+				"conveyor":
+					pull(b, f.dir * f.accel)
+				"portal":
+					if tick >= b.portal_ready and b.pos.distance_to(f.pos) <= f.radius * 0.6:
+						var to: Vector2 = pads[f.to].pos
+						b.portal_ready = tick + int(round(PORTAL_COOLDOWN * TICK_RATE))
+						events.append({"type": "portal", "ball": b.index, "from": b.pos, "to": to})
+						b.pos = to
+		if ice != b.floor_speed:
+			b.floor_speed = ice
+			b.vel = b.vel.normalized() * b.current_speed()
 
 
 ## Half-length of the spiked stretch in the middle of the left and right
@@ -444,8 +515,13 @@ func step() -> void:
 			if b.def.get("overtime_shield", 0.0) > 0.0 and b.alive():
 				b.shield += b.def.overtime_shield
 				events.append({"type": "shield", "target": b.index, "amount": b.def.overtime_shield, "pos": b.pos})
-	if in_overtime():
-		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - overtime_start))
+	# An arena may start its own slower squeeze early (shrink_start /
+	# shrink_speed); overtime's squeeze takes over once it is the tighter one.
+	var shrink_from: float = minf(overtime_start, arena.get("shrink_start", overtime_start))
+	if time() >= shrink_from:
+		var early: float = arena.get("shrink_speed", SHRINK_SPEED) * (time() - shrink_from)
+		var late := SHRINK_SPEED * maxf(0.0, time() - overtime_start)
+		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - maxf(early, late))
 
 	for b in balls:
 		b.slow = b.slow_amount if tick < b.slow_until else 0.0
@@ -462,6 +538,8 @@ func step() -> void:
 				abilities.fire(self, "always", b)
 	if arena.has("wells"):
 		_update_wells()
+	if arena.has("floors"):
+		_update_floors()
 	_update_zones()
 	_update_pieces()
 	for b in balls:
@@ -635,13 +713,20 @@ func _spike_wall(b: Ball, point: Vector2) -> void:
 func _spike(b: Ball, point: Vector2) -> void:
 	if not b.alive() or tick < b.spike_ready:
 		return
-	var amount := minf(SPIKE_DAMAGE, SPIKE_CAP * b.max_hp - b.spiked)
+	if _hazard(b, SPIKE_DAMAGE, "spike", point):
+		b.spike_ready = tick + int(round(SPIKE_COOLDOWN * TICK_RATE))
+		events.append({"type": "spike", "ball": b.index, "pos": point})
+
+
+## Queues `amount` of arena damage on `b`, cut to what HAZARD_CAP leaves.
+## False when the cap is used up.
+func _hazard(b: Ball, amount: float, kind: String, point: Vector2) -> bool:
+	amount = minf(amount, HAZARD_CAP * b.max_hp - b.hazard_taken)
 	if amount <= 0.0:
-		return
-	b.spiked += amount
-	b.spike_ready = tick + int(round(SPIKE_COOLDOWN * TICK_RATE))
-	_hits.append({"source": b.index, "target": b.index, "amount": amount, "kind": "spike", "pos": point, "env": true})
-	events.append({"type": "spike", "ball": b.index, "pos": point})
+		return false
+	b.hazard_taken += amount
+	_hits.append({"source": b.index, "target": b.index, "amount": amount, "kind": kind, "pos": point, "env": true})
+	return true
 
 
 ## `obstacle`: it bounced off a pillar or bumper, not the arena's edge.
