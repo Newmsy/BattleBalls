@@ -10,6 +10,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 
 const SAVE_PATH := "user://onboarding.cfg"
 const STARTERS := ["vampire", "laser"]
@@ -102,6 +103,7 @@ func _layout() -> void:
 
 func _log(step: String, done := false) -> void:
 	print("ONBOARD step=%s ms=%d" % [step, Time.get_ticks_msec() - _start_ms])
+	Analytics.track("onboarding_step", {"step": step, "ms": Time.get_ticks_msec() - _start_ms})
 	_save(step, done)
 
 
