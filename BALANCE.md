@@ -42,10 +42,8 @@ Before the stats:
   The full roster plan is `design/roster.md` in the project folder.
 
 In the PR that adds or changes it:
-- Run `godot --headless --script res://tools/balance.gd -- --fights=200 --power-step --only=<id>`
-  and paste the output (both tables) into the PR.
-- No `FAIL` lines. Every `WARN` is either fixed or explained in the PR, and a
-  `WARN (audit FAIL)` edge cell from CI gets a follow-up fix before the weekly audit.
+- Optional: a quick `godot --headless --script res://tools/balance.gd -- --fights=50 --power-step --only=<id>`
+  sanity check. Balance never blocks a PR; misses get fixed in the next balance tune.
 - Set `"status": "live"` in its file (`sim/critters/<id>.gd`) so the game, CI and the audit include it.
 - Golden replays and unit tests for the ability, as for any sim change.
 
@@ -58,39 +56,26 @@ is checked under every modifier as well as base rules.
 
 ## What checks it
 
-| Check | When | Command |
-|---|---|---|
-| Equal-power matrix and arena tilt on every playable arena, and on the square under every Chaos Weekend modifier. A square matchup at 80%+ blocks merge; square misses under 80% and arena and modifier ("edge") misses show as `WARN (audit FAIL)` and don't | Every ready (non-draft) PR that touches `sim/` or `tools/balance.gd` (CI `Balance` shards) | `balance.gd -- --fights=100 --variant-fights=25 --arena=all --modifiers --strict` |
-| Full audit: every pairing everywhere, power step and gear lines, strict on every cell | Weekly on `main` (`Balance audit` workflow, Mondays 06:17 UTC), read by the weekly balance review | see `.github/workflows/balance-audit.yml` |
-| Power step for a new or changed critter | The PR that adds or changes it (paste the output) | `balance.gd -- --fights=200 --power-step --only=<id>` |
-| Gear lines: one 5-star piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
+**Balance is not checked in CI** (Newms, 2026-10-15: "turn off the balance
+checks for now and we can just periodically run them when we want to do a
+balance tune"; "as little friction as possible from idea, implementation then
+testing"). Only unit, determinism and golden replay tests, the web build and
+the smoke test block a merge. Balance is tuned in batches: run the checks,
+then fix every miss in one tuning PR.
 
-How the PR gate scales: with 12 or fewer live critters it fights every
-pairing. Above that, `tools/ci/balance_plan.sh` limits it to pairings involving
-the critters whose `sim/critters/<id>.gd` the PR changed, each against the whole
-field (`--only`). An engine change (anything else under `sim/`, or this tool)
-adds `@sample`, a fixed spread of 8 live critters against the field. The
-pairings are split over up to 14 parallel shards (`--shard=k/n`), and each
-shard fails on its own `FAIL`. Non-square arenas and modifiers only `WARN` on
-a PR, so they use 25 seeds per pairing (50 fights) to keep the gate quick; the
-weekly audit fights every pairing at full strength.
-`--out` / `--from` save and merge shard results; past 16 critters the report
-prints one row per critter (mean vs field, worst and best matchup) instead of a
-matrix.
+| Check | How |
+|---|---|
+| Full audit: every pairing on every arena and Chaos Weekend modifier, power step and gear lines, 20 machines, one merged report | Actions > `Balance audit` > Run workflow (`.github/workflows/balance-audit.yml`) |
+| One critter against the field | `balance.gd -- --fights=200 --power-step --arena=all --modifiers --only=<id>` |
+| Gear lines: one 5-star piece of each stat line vs the same ball bare | `balance.gd -- --fights=300 --gear` |
+| Bounce Run boons | `GODOT=<godot> tools/ci/boons.sh --fights=40` |
 
-**PR gate vs audit.** On a PR, the power step (power beats counters) always
-fails, and so does a square equal-power matchup at 80% or more. A square
-matchup between 65% and 80%, or a miss that only shows on one arena or under
-one Chaos Weekend twist (an "edge cell"), is reported on the PR as
-`WARN (audit FAIL)` with a count at the end of the shard's job summary, and
-doesn't block merge (`PR_SQUARE_FAIL` in `tools/balance.gd`). Newms asked for
-looser PR checks on 2026-10-15 ("we can be a bit unbalanced"): shipping
-critters beats tuning every matchup, so don't spend rounds on square cells
-under 80%. The weekly audit stays strict on every cell (65% everywhere), so
-these misses still show up there: fix them in a follow-up when they matter.
-`balance.gd` turns this on by itself when `GITHUB_EVENT_NAME` is
-`pull_request` (or with `--edge-warn`); `--edge-strict` forces every cell to
-fail, as a local run without either flag does.
+`balance.gd` options for big rosters: `--only=<ids|@sample>` limits the run to
+pairings involving those critters, `--shard=k/n` splits it across machines,
+`--out` / `--from` save and merge shard results, `--variant-fights=N` sets the
+seeds for non-square arenas and modifiers, and past 16 critters the report
+prints one row per critter instead of a matrix. `--strict` exits 1 on a `FAIL`
+(`--edge-warn` softens arena and modifier misses to `WARN (audit FAIL)`).
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%
 Wilson interval) and `WARN` when it might be noise; rerun a `WARN` with more
@@ -123,8 +108,8 @@ Audit reports are kept in the project's shared folder under
 Boons are run-only perks (`sim/boons.gd`), so permanent balance is untouched,
 but they still follow rule 2: one ball holding a boon against the same matchup
 without it should win **52-62%** (a boon worth picking, never a verdict);
-**over 65%** is a `FAIL` in CI (`tools/boon_balance.gd -- --fights=40 --strict`,
-run one boon per core by `tools/ci/boons.sh` on PRs that touch `sim/`).
+**over 65%** is a miss for the next balance tune (`tools/boon_balance.gd`, or
+`tools/ci/boons.sh` for one boon per core; not run in CI).
 The sim amplifies stat edges: +14% HP alone won 63%, so boon numbers stay
 small. A new boon or a change to one pastes `boon_balance.gd -- --fights=200`
 output into its PR.
