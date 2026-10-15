@@ -66,29 +66,35 @@ func _init() -> void:
 ## Win rate of a ball holding `id` against the same ball types without it.
 ## Ability boons only count pairings where the holder has that ability.
 ## `seeds` is per pairing, capped so one boon plays at most FIGHT_BUDGET
-## fights (at least one seed per pairing): the roster grows, the run time
-## doesn't.
+## fights: the roster grows, the run time doesn't. Past one seed per pairing,
+## an evenly spread, fixed sample of the pairings is fought instead.
 static func boon_win_rate(id: String, seeds: int) -> Dictionary:
 	var score := 0.0
 	var n := 0
-	var holders := 0
-	for a in BallDefs.PLAYABLE:
-		if Boons.applies_to(id, BallDefs.get_def(a).ability):
-			holders += 1
-	var pairs: int = maxi(1, holders * BallDefs.PLAYABLE.size())
-	seeds = clampi(FIGHT_BUDGET / (2 * pairs), 1, seeds)
+	var pairs: Array = []
 	for a in BallDefs.PLAYABLE:
 		if not Boons.applies_to(id, BallDefs.get_def(a).ability):
 			continue
 		for b in BallDefs.PLAYABLE:
-			for s in seeds:
-				for side in 2:
-					var cfg := {"seed": 1000 + s, "p1": a, "p2": b, "boons": [[id], []]}
-					if side == 1:
-						cfg = {"seed": 1000 + s, "p1": b, "p2": a, "boons": [[], [id]]}
-					var w: int = MatchSim.new(cfg).run_to_end().winner
-					score += 0.5 if w == -1 else (1.0 if w == side else 0.0)
-					n += 1
+			pairs.append([a, b])
+	var most: int = FIGHT_BUDGET / 2
+	if pairs.size() > most:
+		var sample: Array = []
+		for i in most:
+			sample.append(pairs[i * pairs.size() / most])
+		pairs = sample
+	seeds = clampi(FIGHT_BUDGET / (2 * maxi(1, pairs.size())), 1, seeds)
+	for pair in pairs:
+		var a: String = pair[0]
+		var b: String = pair[1]
+		for s in seeds:
+			for side in 2:
+				var cfg := {"seed": 1000 + s, "p1": a, "p2": b, "boons": [[id], []]}
+				if side == 1:
+					cfg = {"seed": 1000 + s, "p1": b, "p2": a, "boons": [[], [id]]}
+				var w: int = MatchSim.new(cfg).run_to_end().winner
+				score += 0.5 if w == -1 else (1.0 if w == side else 0.0)
+				n += 1
 	return {"rate": score / maxf(1.0, n), "n": n}
 
 

@@ -466,10 +466,13 @@ func _advance_fight(delta: float, speed: float) -> bool:
 		if _accumulator < MatchSim.DT / rate:
 			break
 		_accumulator -= MatchSim.DT / rate
+		arena.snapshot_positions()
 		sim.step()
 		arena.consume_events(sim.events)
 		sfx.consume_events(sim.events, sim)
 		steps += 1
+	# Draw between the last two steps; a finished fight shows its final frame.
+	arena.render_alpha = 1.0 if sim.finished else clampf(_accumulator / (MatchSim.DT / rate), 0.0, 1.0)
 	if not finishing:
 		arena.advance_effects(delta * speed)
 		return sim.finished
@@ -482,9 +485,13 @@ func _advance_fight(delta: float, speed: float) -> bool:
 			_hold += delta
 		rate = 0.5
 	if cinematic and finisher.active(sim.tick):
-		var z := finisher.zoom(sim.tick, maxf(0.0, _hold))
-		arena.set_camera(z, finisher.focus(sim, z))
-		arena.finisher_amount = clampf(finisher.progress(sim.tick) / 0.25, 0.0, 1.0)
+		# Fractional tick: zoom and bars move every frame, not only on sim steps.
+		var t := sim.tick - 1.0 + arena.render_alpha
+		var z := finisher.zoom(t, maxf(0.0, _hold))
+		var target := finisher.focus(arena.ball_pos(sim.balls[finisher.loser]), arena.ball_pos(sim.balls[finisher.winner]), z)
+		var start := not arena_clip.clip_contents
+		arena.set_camera(z, target if start else FinisherCam.follow(arena.cam_focus, target, delta))
+		arena.finisher_amount = clampf(finisher.progress(t) / 0.25, 0.0, 1.0)
 		arena_clip.clip_contents = true
 	arena.advance_effects(delta * rate)
 	return _hold >= FinisherCam.HOLD

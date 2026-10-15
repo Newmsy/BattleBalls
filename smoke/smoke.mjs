@@ -140,9 +140,22 @@ function toPage(page, x, y) {
   return [x * s, y * s];
 }
 
+// SMOKE_SHARD=k/n runs only this machine's share of the cases below, so CI can
+// spread the test over n machines. Each case's weight is about its seconds in
+// CI; cases go, in order, to the least-loaded shard, so every shard computes the
+// same split. No SMOKE_SHARD runs everything.
+const [shardK, shardN] = (process.env.SMOKE_SHARD ?? "1/1").split("/").map(Number);
+if (!(shardN >= 1 && shardK >= 1 && shardK <= shardN)) throw new Error(`Bad SMOKE_SHARD: ${process.env.SMOKE_SHARD}`);
+const shardLoad = new Array(shardN).fill(0);
+function mine(weight) {
+  const least = shardLoad.indexOf(Math.min(...shardLoad));
+  shardLoad[least] += weight;
+  return least === shardK - 1;
+}
+
 try {
   // 1. Auto fight from URL params runs to a result.
-  {
+  if (mine(20)) {
     const { page, logs } = await openGame("?p1=vampire&p2=vampire&seed=7&auto=1&speed=4&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(3000);
@@ -158,7 +171,7 @@ try {
   }
 
   // 1b. Season 1 debut: Flux (Magnet) fights Optic; its field rings and poles render.
-  {
+  if (mine(24)) {
     const { page, logs } = await openGame("?p1=magnet&p2=laser&seed=42&auto=1&speed=2");
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(2500);
@@ -170,7 +183,7 @@ try {
   // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs. Only this case
   // goes online (signs in a guest) when the build has a backend. demo=1 gives the
   // filled-in sample profile, so there is something to fuse, equip and summon.
-  {
+  if (mine(115)) {
     const { page, logs } = await openGame("?seed=7&demo=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
@@ -265,7 +278,7 @@ try {
 
   // 2b. An invite link (?f=<friend code>) opens the Friends screen. demo=friends fills in sample friends (no server):
   // preset phrases sheet, then a rematch against a friend's saved team.
-  {
+  if (mine(14)) {
     const { page, logs } = await openGame("?f=RBNW-XYZ2&demo=friends&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN friends", 10000);
@@ -282,7 +295,7 @@ try {
 
   // 2c. Shop and Glow Pass (?screen=shop): buy gems from the test store, buy this week's first bundle (it goes
   // on at once), then fight wearing it. Then the pass: unlock the premium track from the test store.
-  {
+  if (mine(68)) {
     const { page, logs } = await openGame("?screen=shop&seed=7&today=2026-10-20&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN shop", 10000);
@@ -311,7 +324,7 @@ try {
     await page.screenshot({ path: path.join(shots, "3q-dressed-fight.png") });
     await page.close();
   }
-  {
+  if (mine(15)) {
     const { page, logs } = await openGame("?screen=pass&today=2026-10-20&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN pass", 10000);
@@ -323,7 +336,7 @@ try {
   }
 
   // 3. Wide screen: controls sit beside the arena and FIGHT! is reachable.
-  {
+  if (mine(41)) {
     const { page, logs } = await openGame("?seed=7&offline=1", { width: 1376, height: 1263 });
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(1500);
@@ -345,7 +358,7 @@ try {
 
   // 3b. The owner's stats screen (?stats#k=<key>) with sample numbers, and
   // without a backend it says so instead of failing.
-  {
+  if (mine(12)) {
     const { page, logs } = await openGame("?stats&demo=1&offline=1#k=demo");
     console.log("stats:", await waitForLog(logs, "STATS_SCREEN", 60000));
     await page.waitForTimeout(1000);
@@ -358,7 +371,7 @@ try {
   }
 
   // 4. Sound board opens over the menu and its buttons play without errors.
-  {
+  if (mine(15)) {
     const { page, logs } = await openGame("?sounds=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(1500);
@@ -374,7 +387,7 @@ try {
   // 5. Share: tap "Share fight" on a result, open the link it made, and the
   // same fight replays to the same end state. Then tap "Challenge friend" and
   // open that link: the challenge menu shows and its fight starts.
-  {
+  if (mine(72)) {
     const { page, logs } = await openGame("?p1=laser&p2=vampire&seed=11&aim=-300&auto=1&speed=4");
     await waitForLog(logs, "BOOT_OK", 60000);
     const end = (await waitForLog(logs, "MATCH_END", 90000)).split("hash=")[1];
@@ -412,7 +425,7 @@ try {
   }
 
   // 6. Daily Trick Shot opens from its card on the Play tab.
-  {
+  if (mine(8)) {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
@@ -433,7 +446,7 @@ try {
   }
 
   // 7. A known solution of day 1 solves it.
-  {
+  if (mine(13)) {
     const probe = await openGame("?mode=trickshot&day=1");
     const [lo, hi] = (await waitForLog(probe.logs, "TRICKSHOT_READY", 60000)).match(/solutions=(\d+)-(\d+)/).slice(1).map(Number);
     await probe.page.close();
@@ -449,7 +462,7 @@ try {
 
   // 8. This Week board on a Chaos Saturday: open it from the Play tab, call
   // the Fight of the Day, watch it to the end and come back to the board.
-  {
+  if (mine(22)) {
     const { page, logs } = await openGame("?today=2026-10-17&speed=4");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
@@ -466,7 +479,7 @@ try {
 
   // 9. Try-a-Critter: the board's loaner card, then that day's Critter Shot
   // (a separate puzzle shot with the loaner) solved with a known aim.
-  {
+  if (mine(21)) {
     const { page, logs } = await openGame("?today=2026-10-15");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
@@ -491,7 +504,7 @@ try {
 
   // 9b. Finisher cam, then Save clip: the KO is shown zoomed in, the clip
   // plays in its "Who wins?" layout, gets recorded and downloads as a video.
-  {
+  if (mine(70)) {
     const { page, logs } = await openGame("?p1=laser&p2=vampire&seed=11&aim=-300&auto=1&speed=4&offline=1&clip=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     console.log("finisher:", await waitForLog(logs, "FINISHER_KO", 90000));
@@ -523,7 +536,7 @@ try {
   }
 
   // 10. Ghost Arena: Play -> Arena screen -> pick a card -> play the relay to a result -> back to the Arena.
-  {
+  if (mine(25)) {
     const { page, logs } = await openGame("?seed=7&offline=1");
     await waitForLog(logs, "UI_SCREEN play", 60000);
     await page.waitForTimeout(800);
@@ -563,7 +576,7 @@ try {
 
   // 11. Onboarding: cold open, starter pick, two aimed tutorial wins, the
   // guided first fusion, the boss teaser and on to the Glow Garden map.
-  {
+  if (mine(102)) {
     const { page, logs } = await openGame("?tutorial=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN onboard_cold_open", 10000);
@@ -613,7 +626,7 @@ try {
 
   // Spire. The Spire: open it from its link, pick a critter, climb floor 1 and
   // come back to the Spire screen.
-  {
+  if (mine(14)) {
     const { page, logs } = await openGame("?mode=spire&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN spire", 10000);
@@ -638,7 +651,7 @@ try {
   }
 
   // 12. Every non-square arena boots, draws and finishes a fight.
-  for (const [i, arena] of ["rink", "pillars", "bumpers"].entries()) {
+  if (mine(57)) for (const [i, arena] of ["rink", "pillars", "bumpers"].entries()) {
     const { page, logs } = await openGame(`?p1=vampire&p2=laser&seed=42&auto=1&speed=4&arena=${arena}`);
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(2500);
@@ -649,7 +662,7 @@ try {
 
   // 13. Campaign: a new player opens the Glow Garden map from the Play tab,
   // fights stage 1-1, and comes back to the map with the result.
-  {
+  if (mine(54)) {
     const { page, logs } = await openGame("?seed=7&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
@@ -674,7 +687,7 @@ try {
   }
 
   // 14. A campaign stage straight from the URL plays through to its rewards.
-  {
+  if (mine(19)) {
     const { page, logs } = await openGame("?pve=1-4&auto=1&speed=4&offline=1");
     console.log("url stage:", await waitForLog(logs, "STAGE_END", 120000));
     await page.close();
@@ -682,7 +695,7 @@ try {
 
   // 15. Bracket of Legends: pick a champion while picks are open, then on
   // final day open the final and watch its first game.
-  {
+  if (mine(20)) {
     const { page, logs } = await openGame("?mode=bracket&today=2026-10-14&speed=4");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN bracket", 10000);
@@ -691,7 +704,7 @@ try {
     await page.screenshot({ path: path.join(shots, "30-bracket-picks.png") });
     await page.close();
   }
-  {
+  if (mine(25)) {
     const { page, logs } = await openGame("?mode=bracket&today=2026-10-25&speed=4");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN bracket", 10000);
@@ -711,7 +724,7 @@ try {
   }
 
   // 14. Chaos Weekend modifier from the URL reaches the sim and the report code.
-  {
+  if (mine(15)) {
     const { page, logs } = await openGame("?p1=vampire&p2=laser&seed=7&auto=1&speed=4&mod=big_head");
     await waitForLog(logs, "BOOT_OK", 60000);
     const start = await waitForLog(logs, "FIGHT_START", 5000);
@@ -724,7 +737,7 @@ try {
 
   // 15. Bounce Run: the Play tab has its card; open it by link (the card sits
   // below the fold), draft three, fight floor 1.
-  {
+  if (mine(27)) {
     const home = await openGame("?seed=7&offline=1");
     await waitForLog(home.logs, "UI_AT bouncerun ", 60000);
     await home.page.close();
@@ -760,4 +773,4 @@ if (errors.length) {
   console.error("Smoke test FAILED:\n" + errors.join("\n"));
   process.exit(1);
 }
-console.log(`Smoke test passed. Screenshots in ${shots}`);
+console.log(`Smoke test passed${shardN > 1 ? ` (shard ${shardK} of ${shardN})` : ""}. Screenshots in ${shots}`);

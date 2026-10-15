@@ -13,6 +13,10 @@ const SLOW := 0.22 ## Playback speed (sim seconds per real second) at the blow.
 const HOLD := 1.4 ## Real seconds on the KO face after the blow.
 const ZOOM := 1.9
 const MATE_PULL := 0.35 ## How far the camera leans from the loser toward the winner.
+## The lean never puts the loser further than this share of the half-view from
+## centre, so a long-range blow (a beam from across the arena) still frames it.
+const KEEP_IN := 0.4
+const FOLLOW := 10.0 ## How quickly the camera catches up with its target (per second).
 
 var ko_tick := -1 ## Tick on which the fight ends by knockout, or -1 (no finisher).
 var loser := -1
@@ -34,7 +38,8 @@ static func plan(config: Dictionary):
 
 
 ## Sim seconds from the start of slow motion to the blow, at `tick`; < 0 before it.
-func progress(tick: int) -> float:
+## `tick` may be fractional (between two steps) so the zoom moves every frame.
+func progress(tick: float) -> float:
 	if ko_tick < 0:
 		return -1.0
 	return (tick - ko_tick) * MatchSim.DT + LEAD
@@ -54,7 +59,7 @@ func time_scale(tick: int, speed := 1.0) -> float:
 
 
 ## Zoom at `tick`, plus `hold` real seconds after the blow.
-func zoom(tick: int, hold := 0.0) -> float:
+func zoom(tick: float, hold := 0.0) -> float:
 	var p := progress(tick)
 	if p < 0.0:
 		return 1.0
@@ -63,11 +68,16 @@ func zoom(tick: int, hold := 0.0) -> float:
 	return z + 0.15 * smoothstep(0.0, HOLD, hold)
 
 
-## World point to centre the camera on: the loser, leaning toward the winner,
-## kept so the zoomed view never leaves the arena.
-func focus(sim, zoom_value: float) -> Vector2:
-	var a: Vector2 = sim.balls[loser].pos
-	var b: Vector2 = sim.balls[winner].pos
-	var f := a.lerp(b, MATE_PULL)
+## World point to centre the camera on: the loser, leaning toward the winner
+## but never so far that the loser leaves the middle of the view, kept so the
+## zoomed view never leaves the arena. Positions are the drawn (interpolated) ones.
+func focus(loser_pos: Vector2, winner_pos: Vector2, zoom_value: float) -> Vector2:
 	var half := MatchSim.ARENA_SIZE / (2.0 * zoom_value)
+	var lean := ((winner_pos - loser_pos) * MATE_PULL).limit_length(half * KEEP_IN)
+	var f := loser_pos + lean
 	return f.clamp(Vector2(half, half), Vector2.ONE * (MatchSim.ARENA_SIZE - half))
+
+
+## Eases the camera from `current` toward `target` over `delta` real seconds.
+static func follow(current: Vector2, target: Vector2, delta: float) -> Vector2:
+	return current.lerp(target, 1.0 - exp(-FOLLOW * delta))
