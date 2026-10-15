@@ -52,7 +52,7 @@ In the PR that adds or changes it:
 
 | Check | When | Command |
 |---|---|---|
-| Equal-power matrix and arena tilt on every playable arena, `FAIL` blocks merge | Every PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict --arena=all` |
+| Equal-power matrix and arena tilt on every playable arena, `FAIL` blocks merge | Every ready (non-draft) PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict --arena=all` |
 | Full audit: equal power and power step at higher sample size | Weekly scheduled balance audit on `main`, plus any PR touching ball stats | `balance.gd -- --fights=500 --power-step` |
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%
