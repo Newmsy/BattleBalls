@@ -34,6 +34,31 @@ const errors = [];
 async function openGame(query, viewport = { width: 390, height: 844 }) {
   // Default: iPhone 14-ish viewport.
   const page = await browser.newPage({ viewport, deviceScaleFactor: 2, hasTouch: true });
+  // Taps the audio output so tests can check sound really reaches the speakers
+  // (Godot can start sounds into a broken route and stay silent).
+  await page.addInitScript(() => {
+    window.__audioPeak = 0;
+    const real = Object.getOwnPropertyDescriptor(BaseAudioContext.prototype, "destination").get;
+    const taps = new WeakMap();
+    Object.defineProperty(BaseAudioContext.prototype, "destination", {
+      get() {
+        if (!taps.has(this)) {
+          const out = real.call(this);
+          const tap = this.createGain();
+          const meter = this.createAnalyser();
+          tap.connect(out);
+          tap.connect(meter);
+          const buf = new Float32Array(meter.fftSize);
+          setInterval(() => {
+            meter.getFloatTimeDomainData(buf);
+            for (const v of buf) window.__audioPeak = Math.max(window.__audioPeak, Math.abs(v));
+          }, 40);
+          taps.set(this, tap);
+        }
+        return taps.get(this);
+      },
+    });
+  });
   const logs = [];
   page.on("console", (m) => {
     logs.push(m.text());
@@ -42,6 +67,7 @@ async function openGame(query, viewport = { width: 390, height: 844 }) {
     if (m.type() === "error" && /supabase\.co/.test(m.location()?.url ?? "")) console.log(`backend request failed: ${m.text()}`);
     else if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
   });
+  page.on("response", (r) => { if (r.status() === 404) console.log("404:", r.url()); });
   page.on("pageerror", (e) => errors.push(`${query}: ${e.message}`));
   await page.goto(base + "index.html" + query);
   return { page, logs };
@@ -75,7 +101,16 @@ async function tapUi(page, logs, name, nextScreen) {
   const [x, y] = at.split(" ").slice(2).map(Number);
   const start = logs.length;
   await page.mouse.click(...toPage(page, x, y));
-  if (nextScreen) await waitForLogAfter(logs, start, `UI_SCREEN ${nextScreen}`, 5000);
+  if (nextScreen) {
+    // Software-rendered Chromium with audio playing can drop a tap on a slow
+    // frame; one retry keeps the tour from failing on that.
+    try {
+      await waitForLogAfter(logs, start, `UI_SCREEN ${nextScreen}`, 5000);
+    } catch {
+      await page.mouse.click(...toPage(page, x, y));
+      await waitForLogAfter(logs, start, `UI_SCREEN ${nextScreen}`, 5000);
+    }
+  }
   await page.waitForTimeout(600);
 }
 
@@ -96,6 +131,9 @@ try {
     await page.screenshot({ path: path.join(shots, "1-fight.png") });
     const end = await waitForLog(logs, "MATCH_END", 90000);
     console.log("auto fight:", end);
+    const peak = await page.evaluate(() => window.__audioPeak);
+    console.log("audio peak:", peak.toFixed(3));
+    if (!(peak > 0.02)) errors.push(`auto fight was silent (audio peak ${peak})`);
     await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(shots, "2-result.png") });
     await page.close();
