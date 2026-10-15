@@ -174,6 +174,24 @@ func test_a_new_game_builds_every_screen() -> void:
 	shell.free()
 
 
+func test_the_world_map_opens_zones_and_shows_coming_ones() -> void:
+	var shell = Shell.new()
+	shell.profile = preload("res://meta/profile.gd").new_game(1_800_000_000)
+	shell.build()
+	shell.show_tab("play")
+	shell._marks.campaign.pressed.emit()
+	check_eq(shell.current, "world", "Open the map goes to the world map")
+	check(shell._marks.has("zone_7"), "all seven zones are on the map")
+	check(shell._footer.is_ancestor_of(shell._marks.enter_zone), "the way in is pinned")
+	shell._marks.zone_2.pressed.emit()
+	check_eq(shell.current, "world", "a coming zone stays on the map")
+	shell._marks.zone_1.pressed.emit()
+	check_eq(shell.current, "campaign", "zone 1 opens its stages")
+	shell.back()
+	check_eq(shell.current, "world", "Back returns to the world map")
+	shell.free()
+
+
 func test_main_actions_are_pinned_and_detail_sits_behind_an_i() -> void:
 	var shell = Shell.new()
 	shell.build()

@@ -14,6 +14,9 @@ const ZONES := [
 		"id": "glow_garden",
 		"name": "Glow Garden",
 		"lineup": 1,
+		"color": "45f5a6", ## Its node and path on the world map.
+		"twist": "Plain arena",
+		"boss": "Mega Boulder",
 		"featured": ["spiker", "speedster", "vampire", "juggernaut"],
 		"rare_bonus": ["laser"], ## Small chance at the next rarity up.
 		"boss_reward": "laser", ## Guaranteed on first boss clear.
@@ -32,6 +35,22 @@ const ZONES := [
 		],
 	},
 ]
+
+## Zones on the world map that aren't built yet (pve.md section 3, glitch.md
+## bosses). When one is built it moves into ZONES with its stages.
+const COMING := [
+	{"id": "circuit_lab", "name": "Circuit Lab", "lineup": 2, "color": "39d7ff", "twist": "Bumpers in the middle", "boss": "Overclocked Optic"},
+	{"id": "frostbite_caves", "name": "Frostbite Caves", "lineup": 3, "color": "a8e6ff", "twist": "Ice patches", "boss": "Glacier Chill"},
+	{"id": "bramble_hollow", "name": "Bramble Hollow", "lineup": 3, "color": "9bd84a", "twist": "Thorn walls", "boss": "Thornking Bramble"},
+	{"id": "haunted_arcade", "name": "Haunted Arcade", "lineup": 3, "color": "c77dff", "twist": "Portals", "boss": "Wisp Swarm"},
+	{"id": "starfall_rim", "name": "Starfall Rim", "lineup": 3, "color": "ffd23d", "twist": "Shrinking arena", "boss": "Void Titan"},
+	{"id": "magma_core", "name": "Magma Core", "lineup": 3, "color": "ff6a3d", "twist": "Lava zones", "boss": "Ember Reborn"},
+]
+
+
+## Every zone on the world map in order: the built ones, then the coming ones.
+static func map_zones() -> Array:
+	return ZONES + COMING
 
 
 static func zone(zone_index: int) -> Dictionary:
