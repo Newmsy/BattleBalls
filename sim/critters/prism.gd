@@ -15,7 +15,7 @@ const CRITTER := {
 	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
 	"ability": [{"on": "wall", "do": "beam_at"}, {"on": "hurt", "do": "reflect"}],
 	"params": {
-		"prism_damage": 2.5, ## Per hit, 4 hits a second.
+		"prism_damage": 1.5, ## Per hit, 4 hits a second.
 		"prism_life": 0.8,
 		"prism_fan": 1,
 		"prism_full_every": 0, ## Every Nth bounce fans 7, when above 0.
@@ -24,6 +24,7 @@ const CRITTER := {
 		"reflect_ratio": 0.3,
 		"reflect_low": 0.0,
 		"reflect_burn": 0.0,
+		"reflect_cap": 0.0,
 		"reflect_from": "ability",
 	},
 	"tiers": [

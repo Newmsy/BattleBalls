@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "e3d6ff",
 	"vibe": "Shy and spooky, giggles when you miss it.",
 	"description": "Ghost. Every 5s it phases out, taking much less damage, and its next hit after doubles.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
+	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.0},
 	"ability": [{"on": "every", "secs": "phase_every", "do": "phase"}, {"on": "guard", "do": "phased"}, {"on": "strike", "do": "crit"}],
 	"params": {
 		"phase_every": 5.0,

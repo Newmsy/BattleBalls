@@ -12,12 +12,13 @@ const CRITTER := {
 	"color": "4f7a3a",
 	"vibe": "Grumpy hedge that just wants to be left alone.",
 	"description": "Bramble. When hurt, sends a quarter of the damage back at the attacker.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
+	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "hurt", "do": "reflect"}],
 	"params": {
-		"reflect_ratio": 0.25, ## Share of damage taken sent back.
+		"reflect_ratio": 0.3, ## Share of damage taken sent back.
 		"reflect_low": 0.0, ## Share below half HP, when above 0.
 		"reflect_burn": 0.0, ## Burn per second on the attacker for 2s, when above 0.
+		"reflect_cap": 5.0, ## Most sent back from one hit.
 		"reflect_from": "all", ## all, ability (not contact) or copying.
 	},
 	"tiers": [

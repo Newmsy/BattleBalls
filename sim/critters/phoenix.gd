@@ -12,13 +12,13 @@ const CRITTER := {
 	"color": "ff6a2a",
 	"vibe": "Proud and fiery; refuses to stay down.",
 	"description": "Phoenix. The first time it falls, it bursts back to life at 30% HP in a blast of flame.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
+	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.0},
 	"ability": [{"on": "fall", "do": "revive"}],
 	"params": {
 		"revive_hp": 0.3,
 		"revive_radius": 200.0,
-		"revive_damage": 12.0,
-		"revive_burn": 4.0, ## Per second, 3s.
+		"revive_damage": 8.0,
+		"revive_burn": 2.0, ## Per second, 3s.
 		"revive_shield": 0.0,
 		"revive_bolts": 0,
 		"trail_every": 0.1, ## T3 flame trail.

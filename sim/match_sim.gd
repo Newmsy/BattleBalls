@@ -122,7 +122,9 @@ var events: Array[Dictionary] = []
 var abilities: Abilities
 
 var _contact_cooldown_until := {} ## "i:j" -> tick
-var _hits: Array[Dictionary] = [] ## This tick's damage, applied in _apply_hits.
+## Damage queued by effects and collisions, applied in _apply_hits. Damage
+## queued after that (revive blasts, timed pulses) lands next tick.
+var _hits: Array[Dictionary] = []
 
 
 func _init(cfg: Dictionary) -> void:
@@ -182,7 +184,6 @@ func step() -> void:
 	if in_overtime():
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
 
-	_hits = []
 	for b in balls:
 		b.slow = 0.0
 	if config.get("fields", true):
@@ -413,6 +414,7 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		if h.kind == "contact":
 			abilities.fire(self, "hit", source, {"target": target, "amount": amount, "heals": heals})
 		abilities.fire(self, "hurt", target, {"source": source, "amount": amount, "kind": h.kind})
+	hits.clear()
 	# Heals land after damage, so a lethal hit can't be out-healed in the same tick.
 	for heal in heals:
 		var b := balls[heal.ball]

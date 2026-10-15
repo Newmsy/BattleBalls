@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "5b4bd6",
 	"vibe": "Serene little planet; everything comes to it eventually.",
 	"description": "Gravity. Gently pulls foes toward itself, and its little moons bonk anything that comes close.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
+	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "always", "do": "pull"}, {"on": "always", "do": "moons"}],
 	"params": {
 		"pull_range": 300.0,
@@ -21,7 +21,7 @@ const CRITTER := {
 		"moon_count": 1,
 		"moon_orbit": 40.0, ## Distance beyond its edge.
 		"moon_size": 14.0,
-		"moon_damage": 4.0,
+		"moon_damage": 5.0,
 		"moon_spin": 3.0, ## Radians a second.
 		"moon_cooldown": 0.5,
 		"flare_radius": 200.0, ## T5 ring flare.

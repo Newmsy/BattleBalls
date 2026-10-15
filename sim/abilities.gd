@@ -30,7 +30,7 @@ const EFFECTS := {
 	"mine": ["mine_arm", "mine_radius", "mine_damage", "mine_max", "mine_life", "mine_chain"],
 	"trail": ["trail_every", "trail_width", "trail_life", "trail_slow", "trail_dps"],
 	"breath": ["breath_radius", "breath_slow", "breath_secs"],
-	"reflect": ["reflect_ratio", "reflect_low", "reflect_burn", "reflect_from"],
+	"reflect": ["reflect_ratio", "reflect_low", "reflect_burn", "reflect_from", "reflect_cap"],
 	"phase": ["phase_secs"],
 	"phased": ["phase_guard"],
 	"crit": ["crit_mult"],
@@ -186,7 +186,8 @@ func fx_breath(sim, b, _ctx: Dictionary) -> void:
 
 
 ## Sends reflect_ratio of damage taken back at the attacker (reflect_low below
-## half HP when > 0). reflect_from "ability" ignores contact hits, "copying"
+## half HP when > 0), at most reflect_cap per hit when > 0. reflect_from
+## "ability" ignores contact hits, "copying"
 ## only works while copying. reflect_burn > 0 also burns them for 2s.
 ## Reflected damage and burns never reflect.
 func fx_reflect(sim, b, ctx: Dictionary) -> void:
@@ -202,7 +203,10 @@ func fx_reflect(sim, b, ctx: Dictionary) -> void:
 	var ratio: float = b.def.reflect_ratio
 	if b.def.reflect_low > 0.0 and b.hp < b.max_hp * 0.5:
 		ratio = b.def.reflect_low
-	sim.deal(b, ctx.source, ctx.amount * ratio, "reflect")
+	var amount: float = ctx.amount * ratio
+	if b.def.reflect_cap > 0.0:
+		amount = minf(amount, b.def.reflect_cap)
+	sim.deal(b, ctx.source, amount, "reflect")
 	sim.events.append({"type": "reflect", "ball": b.index, "from": b.pos, "to": ctx.source.pos})
 	if b.def.reflect_burn > 0.0:
 		sim.add_burn(b, ctx.source, b.def.reflect_burn, 2.0)

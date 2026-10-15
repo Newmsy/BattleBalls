@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "bfe9ff",
 	"vibe": "Sleepy and unhurried; everything near it slows down to its pace.",
 	"description": "Frost. Leaves an icy trail that slows foes who cross it.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 11.0},
+	"stats": {"hp": 120.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
 	"ability": [{"on": "always", "do": "trail"}],
 	"params": {
 		"trail_every": 0.1, ## Seconds between trail blobs.
