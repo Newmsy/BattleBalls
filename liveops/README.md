@@ -1,9 +1,10 @@
 # Live-ops schedule
 
 `liveops.json` plans the season ahead: the season and its week number, the
-weekly Critter Spotlight, each Chaos Weekend's twist and any hand-picked Fight
-of the Day. The This Week board (Play tab), the Summon Portal's featured
-critter and the Fight of the Day all read it through `game/liveops.gd`.
+weekly Critter Spotlight, each Chaos Weekend's twist, any hand-picked Fight
+of the Day and each day's Try-a-Critter loaner. The This Week board (Play
+tab), the Summon Portal's featured critter, the Fight of the Day and the
+loaner all read it through `game/liveops.gd`.
 
 The file ships inside every build and is also served next to the web build
 (`/liveops.json`, copied by CI). At boot the game downloads it, and a valid
@@ -27,6 +28,7 @@ All dates are `YYYY-MM-DD`, UTC. Weeks start Monday 00:00 UTC.
 | `spotlight` | `{week, critter, blurb}` | `week` is a Monday; `critter` is any roster id (`game/ui/roster.gd`). It takes half the rolls of its rarity in the Summon Portal. |
 | `chaos` | `{weekend, modifier}` | `weekend` is the Friday; `modifier` is an id from `sim/modifiers.gd` (design/events.md). |
 | `fights` | `{date, p1, p2, seed, angles?, title?}` | Optional showcase fights; `p1`/`p2` must be playable in the sim. Days without one get a close fight generated from the date. |
+| `loaners` | `{date, critter, blurb?}` | Try-a-Critter: the critter lent for the day (UTC) to everyone who doesn't own it (`game/loaner.gd`). Any roster id passes validation, but the bundled file may only name critters the sim can play; a build that can't play a downloaded pick uses the rotation instead. Days without one rotate through the playable critters, rarest first. |
 
 ## Planning a season
 

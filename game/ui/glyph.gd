@@ -89,6 +89,13 @@ func _draw() -> void:
 			draw_polyline(hexa, color, s * .08, true)
 			draw_circle(c, s * .17, color)
 			draw_circle(c + Vector2(-.05, -.05) * s, s * .06, Color(1, 1, 1, .8))
+		"gear":
+			for i in 8:
+				var a := i * TAU / 8
+				var d := Vector2(cos(a), sin(a))
+				draw_line(c + d * s * .26, c + d * s * .46, color, s * .16)
+			draw_circle(c, s * .32, color)
+			draw_circle(c, s * .13, Color("0b0a1f"))
 		"summon":
 			var e := CritterArt.ellipse_pts(c + Vector2(0, s * .1), s * .36, s * .26, 0.0, 0.0, TAU, 24)
 			draw_polyline(e, color, s * .08, true)

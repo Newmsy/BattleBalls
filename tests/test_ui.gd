@@ -6,6 +6,7 @@ const UiProfile := preload("res://game/ui/ui_profile.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const Summon := preload("res://game/ui/summon.gd")
+const SummonScreen := preload("res://game/ui/screens/summon_screen.gd")
 
 
 func test_fusing_three_copies_makes_one_of_the_next_tier() -> void:
@@ -29,8 +30,8 @@ func test_fusion_keeps_the_highest_level() -> void:
 
 func test_cannot_fuse_without_three_or_past_tier_five() -> void:
 	var p = UiProfile.sample()
-	check(not p.can_fuse("laser", 1), "only 2 Optics")
-	check(p.fuse("laser", 1).is_empty(), "fuse refuses")
+	check(not p.can_fuse("bomber", 1), "only 1 Fuse")
+	check(p.fuse("bomber", 1).is_empty(), "fuse refuses")
 	p.stacks.append({"id": "laser", "tier": 5, "count": 3, "level": 50})
 	check(not p.can_fuse("laser", 5), "T5 is the top")
 
@@ -44,7 +45,7 @@ func test_power_grows_about_a_quarter_per_tier() -> void:
 
 
 func test_every_critter_has_art_and_a_full_ladder() -> void:
-	check_eq(Roster.CRITTERS.size(), 15, "roster size")
+	check_eq(Roster.CRITTERS.size(), 16, "roster size")
 	for c in Roster.CRITTERS:
 		check_eq(c.ladder.size(), Roster.MAX_TIER, c.id + " ladder")
 		check(CritterArt.EYES.has(c.id), c.id + " has a face")
@@ -74,6 +75,58 @@ func test_pity_guarantees_a_legendary() -> void:
 	check(p.legendary_pity > 100, "pity resets after a Legendary")
 
 
+func test_wishlist_holds_three_and_toggles() -> void:
+	var p = UiProfile.sample()
+	for id in ["laser", "speedster", "blackhole"]:
+		check(p.toggle_wishlist(id), "add " + id)
+	check(not p.toggle_wishlist("ghost"), "a fourth pick is refused")
+	check_eq(p.wishlist.size(), 3, "still three")
+	check(p.toggle_wishlist("laser"), "tapping a pick removes it")
+	check(not p.on_wishlist("laser"), "laser removed")
+	check(p.toggle_wishlist("ghost"), "room again")
+
+
+func test_wishlisted_critters_come_up_twice_as_often() -> void:
+	var p = UiProfile.sample()
+	var commons: Array = Roster.CRITTERS.filter(func(c): return c.rarity == "common" and c.id != Summon.featured()).map(func(c): return c.id)
+	var wished: String = commons[0]
+	var other: String = commons[1]
+	p.toggle_wishlist(wished)
+	check_near(Summon.share_in_rarity(p, wished), 2.0 * Summon.share_in_rarity(p, other), 1e-9, "double weight")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 11
+	var got := {wished: 0, other: 0}
+	var n := 40000
+	for i in n:
+		var id := Summon.pick_in_rarity(p, "common", rng)
+		if got.has(id):
+			got[id] += 1
+	check_near(float(got[wished]) / n, Summon.share_in_rarity(p, wished), .01, "rolls match the shown share")
+	check_near(float(got[other]) / n, Summon.share_in_rarity(p, other), .01, "others keep the rest")
+
+
+func test_wishlist_never_changes_rarity_odds_or_pity() -> void:
+	var p = UiProfile.sample()
+	for id in ["vampire", "laser", "phoenix"]:
+		p.toggle_wishlist(id)
+	for r in Roster.RARITIES:
+		var share := 0.0
+		for c in Roster.CRITTERS:
+			if c.rarity == r:
+				share += Summon.share_in_rarity(p, c.id)
+		check_near(share, 1.0, 1e-9, r + " shares add up to the rarity")
+	var plain = UiProfile.sample()
+	var a := RandomNumberGenerator.new()
+	var b := RandomNumberGenerator.new()
+	a.seed = 5
+	b.seed = 5
+	for i in 50:
+		var x: Array = Summon.pull(p, 10, a).map(Summon.rarity_of)
+		var y: Array = Summon.pull(plain, 10, b).map(Summon.rarity_of)
+		check_eq(x, y, "same rarities with and without a wishlist, pull %d" % i)
+	check_eq(p.legendary_pity, plain.legendary_pity, "same pity")
+
+
 func test_equipping_gear_replaces_the_same_slot() -> void:
 	var p = UiProfile.sample()
 	p.equip(5, "vampire") # A second Iron Shell onto Count Nibbles.
@@ -94,6 +147,10 @@ func test_every_screen_builds() -> void:
 			check_eq(shell.current, "detail", "detail " + c.id)
 	shell.back()
 	check_eq(shell.current, "detail", "back goes to the previous detail")
+	shell.profile.toggle_wishlist("blackhole")
+	shell.show_tab("summon")
+	SummonScreen._open_picker(shell)
+	check_eq(shell.profile.wishlist.size(), 1, "picker opens without changing picks")
 	shell.open_tab("fuse", {"id": "speedster", "tier": 1})
 	check_eq(shell.current_params.id, "speedster", "fuse opens on the picked critter")
 	shell.free()
