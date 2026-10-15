@@ -9,6 +9,7 @@ const UiProfile := preload("res://game/ui/ui_profile.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Friends := preload("res://game/online/friends.gd")
 const FightLink := preload("res://game/fight_link.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 const SettingsSheet := preload("res://game/ui/screens/settings_sheet.gd")
 
 const SCREENS := {
@@ -21,6 +22,7 @@ const SCREENS := {
 	"arena": preload("res://game/ui/screens/arena_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
+	"account": preload("res://game/ui/screens/account_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
@@ -40,6 +42,8 @@ signal share_layout_changed
 
 ## Friends state (game/online/friends.gd). main.gd swaps in one with the backend.
 var friends = Friends.new()
+## Account state (game/online/account.gd); null until main.gd sets it.
+var account = null
 ## Where invite links point: main.gd sets the page's own address on the web.
 var link_base := FightLink.HOME
 
@@ -57,6 +61,7 @@ var _top_labels := {}
 var _toast: Label
 var _toast_tween: Tween
 var _marks := {}
+var _badge: Control ## The level badge (opens the account screen).
 var _built := false
 var _overlay: Control
 var _gear: Control ## Settings button in the top bar.
@@ -103,6 +108,16 @@ func build() -> void:
 	if ArenaStore.reopen:
 		ArenaStore.reopen = false
 		go("arena")
+
+
+## Swap in another player's profile (e.g. the new player from onboarding).
+func set_profile(p) -> void:
+	if profile.changed.is_connected(_refresh_top):
+		profile.changed.disconnect(_refresh_top)
+	profile = p
+	if _built:
+		profile.changed.connect(_refresh_top)
+		refresh()
 
 
 func show_tab(t: String) -> void:
@@ -213,6 +228,13 @@ func set_friends(f) -> void:
 	friends.changed.connect(_on_friends_changed)
 
 
+func set_account(a) -> void:
+	account = a
+	account.changed.connect(func():
+		if current == "account" and not overlay_open():
+			refresh())
+
+
 func _on_friends_changed() -> void:
 	if current in ["friends", "play"] and not overlay_open():
 		refresh()
@@ -256,6 +278,8 @@ func watch(fight: Dictionary) -> void:
 
 func _show(name: String, params: Dictionary) -> void:
 	close_overlay()
+	if name != current:
+		Analytics.track("screen", {"name": name})
 	current = name
 	current_params = params
 	_marks.clear()
@@ -296,6 +320,7 @@ func _report(name: String) -> void:
 	var all := _marks.duplicate()
 	for t in _tab_buttons:
 		all["tab_" + t] = _tab_buttons[t]
+	all["account"] = _badge
 	all["settings"] = _gear
 	for k in all:
 		var c: Control = all[k]
@@ -316,6 +341,12 @@ func _top_bar() -> Control:
 	lvl.custom_minimum_size = Vector2(64, 64)
 	_top_labels["level"] = lvl.get_child(0)
 	(lvl.get_child(0) as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# The level badge opens the account screen (save progress, sign in).
+	lvl.mouse_filter = Control.MOUSE_FILTER_STOP
+	lvl.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and current != "account":
+			go("account"))
+	_badge = lvl
 	var gear := Kit.card_button(Glyph.make("gear", 40, Kit.FG), func(): SettingsSheet.open(self), Kit.LINE, Kit.PANEL, 999, 12)
 	gear.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_gear = gear

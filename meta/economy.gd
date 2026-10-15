@@ -12,11 +12,13 @@ extends RefCounted
 
 const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
 
-## The launch set (design/roster.md: 35 critters), by rarity.
+## The launch set (design/roster.md: 35 critters), by rarity as the critter
+## files in sim/critters/ have it (Chill and Bramble are Rare there, Uncommon
+## in roster.md).
 const LAUNCH := {
 	"common": ["vampire", "juggernaut", "spiker", "speedster", "crumb", "pip", "gumdrop"],
-	"uncommon": ["shelly", "fin", "frost", "static", "cogs", "bolt", "thorns", "drum"],
-	"rare": ["magmo", "clam", "laser", "bomber", "comet", "zing", "gust"],
+	"uncommon": ["shelly", "fin", "static", "cogs", "bolt", "drum"],
+	"rare": ["magmo", "clam", "laser", "bomber", "comet", "zing", "gust", "frost", "thorns"],
 	"epic": ["wrecker", "brewster", "splitter", "ghost", "gravity", "mirror", "magnet"],
 	"legendary": ["phoenix", "megabot", "prism", "quasar", "frostfang", "blackhole"],
 }
@@ -38,7 +40,7 @@ const PITY_RESET := 50
 ## a treat next to campaign drops.
 const STARTER_ORBS := 10
 const ORBS_DAILY_LOGIN := 2 ## Includes the Daily Trick Shot reward.
-const ORBS_PER_WEEK_STREAK := 10 ## On every 7th day played in a row.
+const ORBS_PER_WEEK_STREAK := 12 ## On every 7th day played in a row.
 const ORBS_BOSS_FIRST_CLEAR := 5
 const ORBS_PER_ACCOUNT_LEVEL := 0 ## Account levels already refill energy.
 

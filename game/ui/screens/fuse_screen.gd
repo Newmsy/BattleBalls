@@ -6,6 +6,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 
 const LAB_HEIGHT := 440.0
 const SLOT := 150.0
@@ -137,6 +138,7 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		out.scale = Vector2(.2, .2)
 		lab.create_tween().tween_property(out, "scale", Vector2.ONE, .45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		print("UI_FUSED %s T%d" % [sel.id, result.tier])
+		Analytics.track("fuse", {"critter": sel.id, "tier": result.tier})
 		btn.text = "CONTINUE"
 		btn.disabled = false
 		for conn in btn.pressed.get_connections():

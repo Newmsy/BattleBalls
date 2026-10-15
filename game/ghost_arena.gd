@@ -14,6 +14,7 @@ const Main := preload("res://game/main.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
+const ResultText := preload("res://game/result_text.gd")
 
 enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
 
@@ -210,9 +211,9 @@ func _show_result() -> void:
 		var a = relay.aims[0][i]
 		used.append(null if a == null or not aimed[i] else int(a) - MatchSim.AIM_AT_CENTRE[0])
 	result_delta = store.finish_attack(won, used)
-	sfx.on_result(0 if won else 1)
+	sfx.on_result(relay.winner)
 	var headline := _label("YOU WIN!" if won else ("DRAW" if relay.winner == -1 else "YOU LOSE"), 56)
-	headline.modulate = Color("45f5a6") if won else Color("ff5a7a")
+	headline.modulate = ResultText.WIN if won else (ResultText.DRAW if relay.winner == -1 else ResultText.LOSE)
 	var change := "%+d trophies." % result_delta if result_delta != 0 else "No trophies lost at your league's floor."
 	info_label.text = "%s You're on %d, %s." % [change, store.trophies, Ladder.league_label(store.trophies)]
 	print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s" % [won, result_delta, store.trophies, relay.state_hash()])

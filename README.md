@@ -9,6 +9,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | Path | What lives there |
 |---|---|
 | `sim/` | The deterministic fight simulation. Pure GDScript, no nodes or engine physics. Same config, same fight. |
+| `sim/critters/` | One file per critter: everything about it (see Adding a critter). |
 | `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim; never changes its rules. |
 | `liveops/` | The live-ops schedule (`liveops.json`): seasons, Spotlight weeks, Chaos Weekends, Fight of the Day. See its README. |
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
@@ -22,7 +23,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 ```sh
 godot --headless --import                                   # once, after cloning
 GODOT=godot tests/run.sh                                    # all tests
-godot --headless --script res://tools/balance.gd -- --fights=200 --power-step
+godot --headless --script res://tools/balance.gd -- --fights=200 --power-step [--arena=all]
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
@@ -31,14 +32,48 @@ DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS t
 
 ## Previews
 
-CI builds every PR for the web and deploys it to Vercel (project
-`battleballs`, token in the `VERCEL` repo secret). Each PR gets a comment
-with its preview URL; `main` deploys to production. Smoke-test screenshots
-are served at `<preview>/smoke/`.
+CI builds every ready (non-draft) PR for the web and deploys it to Vercel
+(project `battleballs`, token in the `VERCEL` repo secret). Each PR gets a
+comment with its preview URL; `main` deploys to production. Smoke-test
+screenshots are served at `<preview>/smoke/`.
 
-URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
-(`aim` is the launch angle in tenths of a degree, screen space, y down).
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink`
+(`aim` is the launch angle in tenths of a degree, screen space, y down;
+`arena` is an id from `sim/arenas.gd`).
+
+A first visit with no URL params plays the onboarding
+(`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
+`?tutorial=1` replays it, `?tutorial=0` skips it.
+
+Add `&clip=1` to make a "Save clip" video as soon as the fight ends.
+
+## Finisher cam and clips
+
+The finisher cam (`game/finisher_cam.gd`) slows and zooms into the knockout
+blow. It is render-only: it plans from its own copy of the fight and only
+changes playback speed and the camera. **Save clip** on the result screen
+replays the fight in a 720x1280 "Who wins?" layout (`game/clip/`) and records
+it in the browser (MP4 on iPhone Safari); browsers without MediaRecorder get
+the same layout to screen-record. The export preset's `head_include` turns on
+`preserveDrawingBuffer` and taps the game's audio so the page can record both.
 `?sounds=1` opens the sound board: every sound with a play button.
+
+## Icon and loading screen
+
+All brand art is drawn in code in `tools/brand/designs.mjs` (Neon Critters
+style) and rendered by `node tools/brand/render.mjs` (needs `smoke/`'s
+Playwright and ImageMagick) into `game/brand/`:
+
+- `icon.png` is the project icon: Godot turns it into the web favicon and the
+  iPhone home-screen icon (`index.apple-touch-icon.png`).
+- `splash.png` is the boot splash and the logo on the web loading screen,
+  `game/web/shell.html` (the custom HTML shell with the progress bar and tips).
+- `store/` holds the iOS and Android icon sizes (wired into the iOS and
+  Android export presets), the Play Store 512 icon and feature graphic. It is
+  excluded from the game pack.
+
+designs.mjs also keeps the two runner-up icon options (`OPTIONS`); switch
+`icon` to one of them and re-render to swap.
 
 ## Sound
 
@@ -106,6 +141,47 @@ key) into the web build from repo secrets; without them the build is offline.
   tests in `tests/db/`. They reach the live project when merged to `main`.
 - `?offline=1` runs the web build without touching the backend.
 
+### Accounts and cloud save
+
+Everyone starts as a guest (an anonymous Supabase user). Tapping the level
+badge opens **Account** (`game/online/account.gd`, `game/ui/screens/account_screen.gd`):
+a guest saves their progress by email code, which links the email to the same
+user id, so nothing moves. "Sign in instead" switches a device to an existing
+account (the guest's local progress goes to a backup). Apple and Google
+buttons appear on their own once those providers are switched on.
+
+Cloud save (`game/online/save_game.gd`, `*_save_sync.sql`) is compare-and-swap:
+the client sends the cloud revision its edits grew from, the server only
+writes if that still matches and numbers revisions itself. Offline, changes
+stay `dirty` on the device and go up on the next sync (boot, after fights,
+when the app regains focus, every 60 s while dirty). When two devices
+collide, the save with more progress (`SaveGame.progress`) wins and the other
+is written to `user://save_backups` (newest 8 kept). Widen `progress` as more
+of the game is saved (account level, critters).
+
+Auth settings live in code: CI's migrate job runs `tools/supabase_auth_config.mjs`
+on every merge to `main` (email code templates, guest linking, allowed return
+URLs) and switches on Apple, Google and custom email when their secrets exist:
+
+| Repo secret | What |
+|---|---|
+| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_SERVICES_ID`, `APPLE_PRIVATE_KEY` (the .p8 text), `APPLE_BUNDLE_ID` | Sign in with Apple. The client secret Apple needs expires within 6 months, so CI makes a new one from the key each run. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in (web OAuth client). |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SENDER` | Email from our own domain. Supabase's built-in email only reaches the project's team (a few an hour). |
+
+**Before soft launch (iOS + Android):**
+1. Custom email: a domain plus a sender such as Resend (free tier); add the `SMTP_*` secrets.
+2. Apple, once the Apple Developer account exists: App ID with Sign in with
+   Apple; a Services ID with domain `<ref>.supabase.co` and return URL
+   `https://<ref>.supabase.co/auth/v1/callback`; a Sign in with Apple key
+   (.p8, downloadable once); add the `APPLE_*` secrets. App Store rule 4.8:
+   if Google sign-in is offered on iOS, Apple must be too.
+3. Google (optional on the web, expected on Android): OAuth client with the
+   same callback URL; add the `GOOGLE_*` secrets.
+4. Store builds: the web build uses redirects; native iOS/Android builds need a
+   sign-in plugin that passes Apple's/Google's id token to
+   `/auth/v1/token?grant_type=id_token` (not built yet).
+
 ### Friends
 
 `game/online/friends.gd` + `game/ui/screens/friends_screen.gd`, tables and
@@ -134,6 +210,36 @@ godot --headless --script res://tools/economy_sim.gd -- --wishlist              
 Changing drops, orb income, energy or the launch roster: re-run the report and
 paste it in the PR.
 
+## Analytics
+
+`game/online/analytics.gd` queues anonymous play events (`Analytics.track(name, props)`)
+and sends them in batches to `log_events()` as the signed-in guest. No names,
+free text or device ids; players can turn it off in Settings (the gear) (which also
+deletes what was sent), and browsers with Global Privacy Control or Do Not
+Track start opted out. Smoke tests and debug builds are flagged as test
+traffic. The owner's stats screen is `?stats#k=<dashboard key>` (`game/stats/`);
+mint or revoke keys in the Supabase SQL editor (see the analytics migration).
+`?stats&demo=1` shows it with sample numbers.
+
+## Adding a critter
+
+A critter is one file: `sim/critters/<id>.gd` (copy `sim/critters/_template.gd`).
+It holds the name, rarity, role, stats, ability, T1-T5 ladder, look and voice.
+`sim/critter_db.gd` finds every file, so the critter shows up in the fight sim,
+the collection, summons, art, sound, the balance sim and the tests with no
+other code.
+
+- **Ability** = trigger + effect pairs from `sim/abilities.gd`, e.g.
+  `{"on": "wall", "do": "beam"}`, with numbers in `params`. If the effect you
+  need doesn't exist, add one `fx_<name>` method and its `EFFECTS` entry there.
+- **Tiers** list the ladder text and any `params` that change at each tier.
+- **Look** comes from the kit in `game/ui/critter_art.gd`: a body style, a face
+  and named features. A new feature is one branch in `_feature()`.
+- **Status**: `planned` critters appear in the collection only; set `live` once
+  the ability is built and the balance check passes (BALANCE.md).
+- `tests/test_critters.gd` checks every file; `CritterDb.validate` explains
+  what's wrong.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
@@ -149,3 +255,10 @@ paste it in the PR.
 When every CI job passes on a PR that is **not a draft**, the `Auto-merge` job
 squash-merges it and rebuilds `main`. Keep a PR in draft until its code review
 is done; marking it ready re-runs CI and merges it once green.
+
+Actions minutes are limited (private repo), so CI spends them where they gate a
+merge. Draft pushes run only the unit and database tests; the balance matrix,
+web build and smoke test run once a PR is ready; `main` runs the unit and
+database tests, then builds, deploys and migrates without repeating the smoke
+test. Run the full checks locally before pushing (see CLAUDE.md), and push a
+draft in a few larger steps rather than many small ones.

@@ -1,6 +1,7 @@
 // Smoke test for the web build: boots it in a phone-sized headless Chromium,
 // plays one auto fight and one fight through the real menu, fails on any
-// page error, and saves screenshots. Also opens Daily Trick Shot and solves one.
+// page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
+// and plays the whole onboarding.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -34,6 +35,31 @@ const errors = [];
 async function openGame(query, viewport = { width: 390, height: 844 }) {
   // Default: iPhone 14-ish viewport.
   const page = await browser.newPage({ viewport, deviceScaleFactor: 2, hasTouch: true });
+  // Taps the audio output so tests can check sound really reaches the speakers
+  // (Godot can start sounds into a broken route and stay silent).
+  await page.addInitScript(() => {
+    window.__audioPeak = 0;
+    const real = Object.getOwnPropertyDescriptor(BaseAudioContext.prototype, "destination").get;
+    const taps = new WeakMap();
+    Object.defineProperty(BaseAudioContext.prototype, "destination", {
+      get() {
+        if (!taps.has(this)) {
+          const out = real.call(this);
+          const tap = this.createGain();
+          const meter = this.createAnalyser();
+          tap.connect(out);
+          tap.connect(meter);
+          const buf = new Float32Array(meter.fftSize);
+          setInterval(() => {
+            meter.getFloatTimeDomainData(buf);
+            for (const v of buf) window.__audioPeak = Math.max(window.__audioPeak, Math.abs(v));
+          }, 40);
+          taps.set(this, tap);
+        }
+        return taps.get(this);
+      },
+    });
+  });
   const logs = [];
   page.on("console", (m) => {
     logs.push(m.text());
@@ -42,6 +68,7 @@ async function openGame(query, viewport = { width: 390, height: 844 }) {
     if (m.type() === "error" && /supabase\.co/.test(m.location()?.url ?? "")) console.log(`backend request failed: ${m.text()}`);
     else if (m.type() === "error") errors.push(`${query}: ${m.text()}`);
   });
+  page.on("response", (r) => { if (r.status() === 404) console.log("404:", r.url()); });
   page.on("pageerror", (e) => errors.push(`${query}: ${e.message}`));
   await page.goto(base + "index.html" + query);
   return { page, logs };
@@ -75,7 +102,16 @@ async function tapUi(page, logs, name, nextScreen) {
   const [x, y] = at.split(" ").slice(2).map(Number);
   const start = logs.length;
   await page.mouse.click(...toPage(page, x, y));
-  if (nextScreen) await waitForLogAfter(logs, start, `UI_SCREEN ${nextScreen}`, 5000);
+  if (nextScreen) {
+    // Software-rendered Chromium with audio playing can drop a tap on a slow
+    // frame; one retry keeps the tour from failing on that.
+    try {
+      await waitForLogAfter(logs, start, `UI_SCREEN ${nextScreen}`, 5000);
+    } catch {
+      await page.mouse.click(...toPage(page, x, y));
+      await waitForLogAfter(logs, start, `UI_SCREEN ${nextScreen}`, 5000);
+    }
+  }
   await page.waitForTimeout(600);
 }
 
@@ -96,8 +132,21 @@ try {
     await page.screenshot({ path: path.join(shots, "1-fight.png") });
     const end = await waitForLog(logs, "MATCH_END", 90000);
     console.log("auto fight:", end);
+    const peak = await page.evaluate(() => window.__audioPeak);
+    console.log("audio peak:", peak.toFixed(3));
+    if (!(peak > 0.02)) errors.push(`auto fight was silent (audio peak ${peak})`);
     await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(shots, "2-result.png") });
+    await page.close();
+  }
+
+  // 1b. Season 1 debut: Flux (Magnet) fights Optic; its field rings and poles render.
+  {
+    const { page, logs } = await openGame("?p1=magnet&p2=laser&seed=42&auto=1&speed=2");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, "1b-flux.png") });
+    console.log("flux fight:", await waitForLog(logs, "MATCH_END", 90000));
     await page.close();
   }
 
@@ -147,12 +196,18 @@ try {
     await tapUi(page, logs, "a11y_large_text", "sheet");
     await page.mouse.click(...toPage(page, 360, 120));
     await page.waitForTimeout(400);
+    // The level badge opens Account (save progress / sign in).
+    await tapUi(page, logs, "account", "account");
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(shots, "3j2-account.png") });
+    await tapUi(page, logs, "back", "summon");
     await tapUi(page, logs, "tab_play", "play");
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "3-menu.png") });
-    // Layout: arena 680px at y=190, controls start at 190+680+120=990.
-    // Menu rows: label, ball row, label, opponent row, seed row, FIGHT! (last).
-    await page.mouse.click(...toPage(page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
+    await waitForLog(logs, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "pick_laser");
+    await page.waitForTimeout(300);
+    await tapUi(page, logs, "menu_fight");
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "4-aim.png") });
     // Drag from the player's corner toward the top middle.
@@ -166,6 +221,7 @@ try {
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "5-flow-fight.png") });
     console.log("online:", logs.find((l) => l.startsWith("ONLINE")) ?? "no backend configured");
+    console.log("analytics:", logs.find((l) => l.startsWith("ANALYTICS_OK")) ?? "nothing sent yet");
     await page.close();
   }
 
@@ -196,14 +252,29 @@ try {
     await page.screenshot({ path: path.join(shots, "6a-wide-home.png") });
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "6-wide-menu.png") });
-    // Visible area is 1394x1280: arena 614px at x=30, panel at x=684, FIGHT! at the panel's bottom.
-    await page.mouse.click(...toPage(page, 684 + 340, 190 + 100 + 478 - 42));
+    await waitForLog(logs, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "menu_fight");
     await page.waitForTimeout(800);
-    await page.mouse.click(...toPage(page, 684 + 170, 190 + 100 + 42)); // Launch
+    await waitForLog(logs, "UI_AT aim_launch ", 5000);
+    await tapUi(page, logs, "aim_launch");
     console.log("wide menu:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "7-wide-fight.png") });
     await page.close();
+  }
+
+  // 3b. The owner's stats screen (?stats#k=<key>) with sample numbers, and
+  // without a backend it says so instead of failing.
+  {
+    const { page, logs } = await openGame("?stats&demo=1&offline=1#k=demo");
+    console.log("stats:", await waitForLog(logs, "STATS_SCREEN", 60000));
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(shots, "6s-stats.png") });
+    await page.close();
+    const off = await openGame("?stats&offline=1#k=demo");
+    const status = await waitForLog(off.logs, "STATS_SCREEN", 60000);
+    if (status !== "STATS_SCREEN offline") throw new Error(`stats without a backend: ${status}`);
+    await off.page.close();
   }
 
   // 4. Sound board opens over the menu and its buttons play without errors.
@@ -253,9 +324,9 @@ try {
     await waitForLog(challenge.logs, "BOOT_OK", 60000);
     await challenge.page.waitForTimeout(1500);
     await challenge.page.screenshot({ path: path.join(shots, "11-challenge-menu.png") });
-    await challenge.page.mouse.click(...toPage(challenge.page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
-    await challenge.page.waitForTimeout(800);
-    await challenge.page.mouse.click(...toPage(challenge.page, 20 + 170, 990 + 42)); // Launch
+    await tapUi(challenge.page, challenge.logs, "menu_fight");
+    await waitForLog(challenge.logs, "UI_AT aim_launch ", 5000);
+    await tapUi(challenge.page, challenge.logs, "aim_launch");
     console.log("challenge fight:", await waitForLog(challenge.logs, "FIGHT_START", 5000));
     await challenge.page.close();
   }
@@ -334,6 +405,39 @@ try {
     await shot.page.close();
   }
 
+  // 9b. Finisher cam, then Save clip: the KO is shown zoomed in, the clip
+  // plays in its "Who wins?" layout, gets recorded and downloads as a video.
+  {
+    const { page, logs } = await openGame("?p1=laser&p2=vampire&seed=11&aim=-300&auto=1&speed=4&offline=1&clip=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    console.log("finisher:", await waitForLog(logs, "FINISHER_KO", 90000));
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: path.join(shots, "30-finisher.png") });
+    console.log("clip:", await waitForLog(logs, "CLIP_START", 10000));
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: path.join(shots, "31-clip-title.png") });
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: path.join(shots, "32-clip-fight.png") });
+    const done = await waitForLog(logs, "CLIP_READY", 120000).catch(() => {
+      throw new Error(`Clip was not made: ${logs.filter((l) => l.startsWith("CLIP")).join(" | ")}`);
+    });
+    console.log("clip made:", done, logs.find((l) => l.startsWith("CLIP_BLOB")));
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(shots, "33-clip-ready.png") });
+    await page.waitForFunction(() => window.bbShare?.targets.some((t) => t.kind === "clip"), null, { timeout: 5000 });
+    const t = await page.evaluate(() => window.bbShare.targets.find((t) => t.kind === "clip"));
+    const box = await page.locator("canvas").boundingBox();
+    const download = page.waitForEvent("download", { timeout: 10000 });
+    await page.mouse.click(box.x + (t.x + t.w / 2) * box.width, box.y + (t.y + t.h / 2) * box.height);
+    const file = await download;
+    const saved = path.join(shots, "clip-" + file.suggestedFilename());
+    await file.saveAs(saved);
+    const bytes = fs.statSync(saved).size;
+    console.log("clip file:", file.suggestedFilename(), bytes, "bytes");
+    if (bytes < 20000) throw new Error(`Clip file too small: ${bytes} bytes`);
+    await page.close();
+  }
+
   // 10. Ghost Arena: Play -> Arena screen -> pick a card -> play the relay to a result -> back to the Arena.
   {
     const { page, logs } = await openGame("?seed=7&offline=1");
@@ -368,6 +472,64 @@ try {
     await page.mouse.click(...toPage(page, 360, 1118));
     await waitForLogAfter(logs, back, "UI_SCREEN arena", 15000);
     await page.screenshot({ path: path.join(shots, "21-arena-after.png") });
+    await page.close();
+  }
+
+  // 11. Onboarding: cold open, starter pick, two aimed tutorial wins, the
+  // guided first fusion, the boss teaser and on to the Play tab.
+  {
+    const { page, logs } = await openGame("?tutorial=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN onboard_cold_open", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "22a-onboard-cold-open.png") });
+    await tapUi(page, logs, "pick_laser");
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "22b-onboard-cold-fight.png") });
+    await waitForLog(logs, "UI_SCREEN onboard_cold_result", 90000);
+    await page.screenshot({ path: path.join(shots, "22c-onboard-cold-result.png") });
+    await tapUi(page, logs, "next", "onboard_starter");
+    await page.screenshot({ path: path.join(shots, "22d-onboard-starter.png") });
+    const aimAndWin = async (n) => {
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: path.join(shots, `22e-onboard-aim${n}.png`) });
+      const [sx, sy] = toPage(page, 20 + 170 * 0.68, 190 + 830 * 0.68);
+      const [ex, ey] = toPage(page, 360, 300);
+      const start = logs.length;
+      await page.mouse.move(sx, sy);
+      await page.mouse.down();
+      await page.mouse.move(ex, ey, { steps: 8 });
+      await page.mouse.up();
+      await waitForLogAfter(logs, start, "FIGHT_START", 5000);
+      await waitForLogAfter(logs, start, "UI_SCREEN onboard_reward", 120000);
+      await page.screenshot({ path: path.join(shots, `22f-onboard-reward${n}.png`) });
+    };
+    await tapUi(page, logs, "starter_laser");
+    await aimAndWin(1);
+    await tapUi(page, logs, "next");
+    await aimAndWin(2);
+    await tapUi(page, logs, "next", "fuse");
+    await page.screenshot({ path: path.join(shots, "22g-onboard-fuse.png") });
+    const before = logs.length;
+    await tapUi(page, logs, "fuse");
+    console.log("onboarding fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
+    await waitForLogAfter(logs, before, "UI_SCREEN onboard_boss", 10000);
+    await page.screenshot({ path: path.join(shots, "22h-onboard-boss.png") });
+    await tapUi(page, logs, "lets_go");
+    await waitForLog(logs, "ONBOARD step=done", 5000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "22i-onboard-home.png") });
+    console.log("onboarding:", logs.filter((l) => l.startsWith("ONBOARD")).map((l) => l.split(" ")[1]).join(" "));
+    await page.close();
+  }
+
+  // 12. Every non-square arena boots, draws and finishes a fight.
+  for (const [i, arena] of ["rink", "pillars", "bumpers"].entries()) {
+    const { page, logs } = await openGame(`?p1=vampire&p2=laser&seed=42&auto=1&speed=4&arena=${arena}`);
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, `${23 + i}-arena-${arena}.png`) });
+    console.log(`arena ${arena}:`, await waitForLog(logs, "MATCH_END", 90000));
     await page.close();
   }
 } catch (e) {

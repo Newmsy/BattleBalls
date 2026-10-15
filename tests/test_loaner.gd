@@ -62,7 +62,8 @@ func test_unplayable_pick_falls_back() -> void:
 
 
 func test_only_non_owners_borrow_and_only_in_casual_modes() -> void:
-	LiveOps.use({"version": 1, "revision": 1, "loaners": [{"date": "2026-10-20", "critter": "laser"}]})
+	# The next day lends someone else, so the check below doesn't depend on the fallback rotation.
+	LiveOps.use({"version": 1, "revision": 1, "loaners": [{"date": "2026-10-20", "critter": "laser"}, {"date": "2026-10-21", "critter": "magnet"}]})
 	var t := _at("2026-10-20")
 	var p = _newcomer()
 	var l := Loaner.today(p, t)

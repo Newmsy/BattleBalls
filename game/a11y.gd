@@ -47,7 +47,8 @@ static func ensure_loaded() -> void:
 	elif OS.has_feature("web"):
 		# First run on the web: follow the phone's own Reduce Motion setting.
 		var js := "window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches"
-		reduced_motion = str(JavaScriptBridge.eval(js, true)) == "true"
+		# The bridge hands JS booleans back as 0/1.
+		reduced_motion = bool(JavaScriptBridge.eval(js, true))
 
 
 static func get_value(key: String) -> bool:
