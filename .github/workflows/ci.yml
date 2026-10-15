@@ -25,15 +25,17 @@ defaults:
 env:
   GODOT_VERSION: "4.3"
 
-# Actions minutes are a budget (the repo is private). Where the heavy checks run:
+# Where the heavy checks run:
 # - Draft PR pushes: unit tests and database tests only. Drafts never merge, and
 #   CLAUDE.md asks for the full checks locally before pushing.
-# - Ready PRs (and every push to one): everything, including the balance matrix
-#   and the browser smoke test. This is the merge gate.
+# - Ready PRs (and every push to one): everything the diff can affect, including
+#   the balance matrix and the browser smoke test. This is the merge gate.
 # - main: unit and database tests, then build, deploy and migrate. Its commits
 #   already passed the full gate as a PR, and the next PR's run (on its merge
 #   with main) catches anything two merges break together.
-# Each job has a timeout so a hang can't burn hours of minutes.
+# The repo is public, so minutes are free but an account runs at most 20 jobs at
+# once: the smoke shards (4) plus balance shards (up to 14) plus Sim and Database
+# tests fit in one wave. Each job has a timeout so a hang can't run for hours.
 
 jobs:
   test:
@@ -42,6 +44,8 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       # The cached editor binary starts in seconds; pulling a Godot container
       # image took about a minute and a half per run.
       - name: Cache Godot and web export templates
@@ -57,18 +61,24 @@ jobs:
         run: timeout 180 ~/godot/godot --headless --import || true
       - name: Unit, determinism and golden replay tests
         run: GODOT=~/godot/godot tests/run.sh
-      - name: Bounce Run boons stay a tilt, not a verdict
+      - name: Which checks this PR needs
+        id: changes
         if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+        run: tools/ci/changes.sh "${{ github.event.pull_request.base.sha }}" | tee -a "$GITHUB_OUTPUT"
+      # One boon per process on every core; skipped when nothing under sim/ changed.
+      - name: Bounce Run boons stay a tilt, not a verdict
+        if: steps.changes.outputs.sim == 'true'
         run: |
           set -o pipefail
-          timeout 900 ~/godot/godot --headless --script res://tools/boon_balance.gd -- --fights=40 --strict | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
+          GODOT=~/godot/godot timeout 900 tools/ci/boons.sh --fights=40 --strict | tee -a "$GITHUB_STEP_SUMMARY"
 
   # The balance gate (BALANCE.md), split so it scales to the full roster.
   # balance-plan picks the pairings (every pairing for a small roster, else
   # only the critters this PR changed, plus a fixed sample on an engine change)
   # and how many machines to spread them over; each Balance shard fights its
   # share and fails on a FAIL. The weekly Balance audit workflow fights every
-  # pairing on main.
+  # pairing on main. balance-plan also says whether the diff can affect the
+  # web build, so a docs-only PR skips the smoke test.
   balance-plan:
     name: Balance plan
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
@@ -77,12 +87,15 @@ jobs:
     outputs:
       only: ${{ steps.plan.outputs.only }}
       shards: ${{ steps.plan.outputs.shards }}
+      web: ${{ steps.changes.outputs.web }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - id: plan
         run: tools/ci/balance_plan.sh "${{ github.event.pull_request.base.sha }}" | tee -a "$GITHUB_OUTPUT"
+      - id: changes
+        run: tools/ci/changes.sh "${{ github.event.pull_request.base.sha }}" | tee -a "$GITHUB_OUTPUT"
 
   balance:
     name: Balance (shard ${{ matrix.shard }})
@@ -107,6 +120,9 @@ jobs:
         run: tools/ci/download_godot.sh
       - name: Import project
         run: timeout 180 ~/godot/godot --headless --import || true
+      # Square matchups (the cells that FAIL a PR) get 100 seeds. Arena and
+      # Chaos twist cells only WARN on a PR (#67), so 25 seeds report them;
+      # the weekly audit fights them at full strength.
       - name: Equal power on every arena and under every Chaos Weekend modifier (report in the job summary)
         env:
           ONLY: ${{ needs.balance-plan.outputs.only }}
@@ -114,7 +130,7 @@ jobs:
         run: |
           set -o pipefail
           timeout 2100 ~/godot/godot --headless --script res://tools/balance.gd -- \
-            --fights=100 --variant-fights=50 --arena=all --modifiers --strict \
+            --fights=100 --variant-fights=25 --arena=all --modifiers --strict \
             --shard=${{ matrix.shard }}/$SHARDS ${ONLY:+--only=$ONLY} \
             | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
 
@@ -138,13 +154,70 @@ jobs:
       - name: Migrations, row-level security and RPC tests
         run: tests/db/run.sh
 
-  # One job builds, smoke-tests and deploys, so no Actions artifacts are needed.
-  web:
-    name: Web build, smoke test and preview
-    # Not on drafts: nothing previews or merges from a draft.
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+  # The browser smoke test, spread over machines (SMOKE_SHARD in smoke.mjs).
+  # Each shard exports its own build (about 20 seconds) and hands its
+  # screenshots to the Web job for the preview.
+  smoke:
+    name: Smoke test (shard ${{ matrix.shard }})
+    needs: balance-plan
+    if: needs.balance-plan.result == 'success' && needs.balance-plan.outputs.web == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot and web export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+      - name: Download Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: tools/ci/download_godot.sh
+      - name: Export
+        env:
+          BUILD_SHA: ${{ github.event.pull_request.head.sha }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: tools/ci/export_web.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        working-directory: smoke
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Play this shard's smoke cases in a phone-sized browser
+        working-directory: smoke
+        env:
+          SMOKE_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+        run: node smoke.mjs ../build/web
+      # Screenshots ride along with the preview. Best effort: a storage hiccup
+      # loses screenshots, never the merge gate.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        continue-on-error: true
+        with:
+          name: smoke-${{ matrix.shard }}
+          path: smoke/screenshots/*.png
+          retention-days: 1
+          if-no-files-found: ignore
+
+  # Builds and deploys the preview (PRs) or the live site (main). On a PR it
+  # waits for the smoke test, so a broken build never gets a preview link.
+  web:
+    name: Web build and preview
+    needs: [balance-plan, smoke]
+    # Not on drafts: nothing previews or merges from a draft.
+    if: >-
+      always() && !cancelled() && (github.event_name != 'pull_request'
+      || (!github.event.pull_request.draft && needs.balance-plan.result == 'success'
+      && contains(fromJSON('["success","skipped"]'), needs.smoke.result)))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || secrets.VERCEL }}
     steps:
@@ -158,71 +231,23 @@ jobs:
       - name: Download Godot
         if: steps.godot-cache.outputs.cache-hit != 'true'
         run: tools/ci/download_godot.sh
-      - name: Install export templates where Godot looks for them
-        run: |
-          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
-          cp ~/godot/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
-      - name: Stamp build
-        run: echo "${{ github.event.pull_request.head.sha || github.sha }}" | cut -c1-7 > build_info.txt
-      # Only the public anon/publishable key may ship in the game: anyone can
-      # read it out of the web build. Row-level security protects the data.
-      - name: Online backend config (public key only)
+      - name: Export
         env:
+          BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::notice::SUPABASE_URL / SUPABASE_ANON_KEY secrets not set: this build plays offline."
-            exit 0
-          fi
-          python3 - <<'PY'
-          import base64, json, os, re, sys
-          # The dashboard's "API URL" can carry /rest/v1; the game wants the project root.
-          url = re.sub(r"/(rest|auth)/v1/?$", "", os.environ["SUPABASE_URL"].strip().rstrip("/"))
-          key = os.environ["SUPABASE_ANON_KEY"].strip()
-          def fail(msg):
-              print(f"::error::{msg}")
-              sys.exit(1)
-          if not url.startswith("https://"):
-              fail("SUPABASE_URL should look like https://<project>.supabase.co")
-          if key.startswith("sb_secret_"):
-              fail("SUPABASE_ANON_KEY is a secret key. Use the publishable (or legacy anon) key; never ship a secret key.")
-          if not key.startswith("sb_publishable_"):
-              parts = key.split(".")
-              try:
-                  claims = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
-              except Exception:
-                  fail("SUPABASE_ANON_KEY is not a Supabase publishable or anon key")
-              if claims.get("role") != "anon":
-                  fail(f"SUPABASE_ANON_KEY has role {claims.get('role')!r}, expected 'anon'. Never ship the service_role key.")
-          with open("backend_config.json", "w") as f:
-              json.dump({"url": url, "anon_key": key}, f)
-          print("Backend config written for", url)
-          PY
-      - name: Export
-        run: |
-          timeout 180 ~/godot/godot --headless --import || true
-          mkdir -p build/web
-          timeout 300 ~/godot/godot --headless --export-release "Web" build/web/index.html
-          test -s build/web/index.wasm
-          # The live-ops schedule, served next to the game so builds can refresh it.
-          cp liveops/liveops.json build/web/liveops.json
+        run: tools/ci/export_web.sh
+      - name: Publish smoke screenshots with the preview
+        if: github.event_name == 'pull_request' && needs.smoke.result == 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: smoke-*
+          merge-multiple: true
+          path: build/web/smoke
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # The smoke test is most of CI's minutes, so it runs on PRs (the merge
-      # gate) and not again on main.
-      - name: Install Playwright
-        if: github.event_name == 'pull_request'
-        working-directory: smoke
-        run: npm ci && npx playwright install --with-deps chromium
-      - name: Play two fights in a phone-sized browser
-        if: github.event_name == 'pull_request'
-        working-directory: smoke
-        run: node smoke.mjs ../build/web
-      - name: Publish screenshots with the preview
-        if: always() && github.event_name == 'pull_request'
-        run: mkdir -p build/web/smoke && cp smoke/screenshots/*.png build/web/smoke/ || true
       - name: Deploy to Vercel
         id: vercel
         if: env.VERCEL_TOKEN != ''
@@ -239,13 +264,15 @@ jobs:
         uses: actions/github-script@v7
         env:
           PREVIEW_URL: ${{ steps.vercel.outputs.url }}
+          SMOKE: ${{ needs.smoke.result }}
         with:
           script: |
             const url = process.env.PREVIEW_URL;
             const sha = context.payload.pull_request.head.sha.slice(0, 7);
             const marker = '<!-- preview-link -->';
+            const shots = process.env.SMOKE === 'success' ? ` · [smoke screenshots](${url}/smoke/3-menu.png)` : ' · smoke test skipped (nothing it checks changed)';
             const body = url
-              ? `${marker}\n**Preview:** ${url} (build ${sha}) · [smoke screenshots](${url}/smoke/3-menu.png)`
+              ? `${marker}\n**Preview:** ${url} (build ${sha})${shots}`
               : `${marker}\n**Preview not deployed** (build ${sha}): the \`VERCEL\` repo secret is missing.`;
             const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
             const existing = comments.find((c) => c.body.includes(marker));
@@ -259,14 +286,15 @@ jobs:
   # stays draft until its code review is done.
   automerge:
     name: Auto-merge
-    needs: [test, db, web, balance-plan, balance]
-    # Balance is skipped when a PR touches nothing it checks; skipped is fine,
-    # anything else that isn't success blocks the merge.
+    needs: [test, db, web, balance-plan, balance, smoke]
+    # Balance and the smoke test are skipped when a PR touches nothing they
+    # check; skipped is fine, anything else that isn't success blocks the merge.
     if: >-
       always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
       && github.event.pull_request.head.repo.full_name == github.repository
       && needs.test.result == 'success' && needs.db.result == 'success' && needs.web.result == 'success'
       && needs.balance-plan.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.balance.result)
+      && contains(fromJSON('["success","skipped"]'), needs.smoke.result)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
