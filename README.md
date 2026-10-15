@@ -196,6 +196,25 @@ collide, the save with more progress (`SaveGame.progress`) wins and the other
 is written to `user://save_backups` (newest 8 kept). Widen `progress` as more
 of the game is saved (account level, critters).
 
+The whole game is in the save: features that keep their own file
+(`ghost_arena.cfg`, `spire.json`, `bounce_run.cfg`, `trick_shot.cfg`,
+`this_week.cfg`, `legends.cfg`, `onboarding.cfg`; `SaveGame.MIRRORED`) ride
+along as text in `data.files` and are written back when a cloud copy is
+adopted. A new feature that saves anything either stores it in `save.data`
+or adds its file to `MIRRORED`. Device settings (`settings.cfg`: sound,
+accessibility), the sign-in session and caches stay on the device. The game
+checks for changes every 3 s and syncs right away, plus on launch, on
+focus in/out and every 60 s while unsynced.
+
+**Test mode** (`game/online/test_user.gd`, `ID := 1`): every device syncs
+with shared test save slot 1 (`public.test_saves`, `*_test_saves.sql`)
+instead of its own account's row, so one game follows Newms across devices
+before real sign-in works. Each device is still its own guest underneath
+(PvP, friends, analytics). Nothing server-side reads a test slot, so the
+worst anyone with the URL can do is read or overwrite that test save. The
+CI smoke test (an automated browser) never uses the slot. Set `ID := 0` to
+switch real per-account saves back on.
+
 Auth settings live in code: CI's migrate job runs `tools/supabase_auth_config.mjs`
 on every merge to `main` (guest linking, allowed return URLs, email codes) and
 switches on Apple, Google and custom email when their secrets exist. The code

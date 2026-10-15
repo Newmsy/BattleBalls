@@ -54,6 +54,7 @@ class FakeCloud:
 	var rev := 0
 	var data = null
 	var pushes := 0
+	var calls: Array = [] ## Names of the RPCs and REST reads made.
 
 	func ensure_session() -> bool:
 		return online
@@ -62,13 +63,17 @@ class FakeCloud:
 		return me
 
 	func rest(_method: String, _path: String, _body = null) -> Dictionary:
+		calls.append("rest")
 		if not online:
 			return {"ok": false, "code": 0, "data": null}
 		return {"ok": true, "code": 200, "data": [] if rev == 0 else [{"rev": rev, "data": data.duplicate(true)}]}
 
-	func call_rpc(_name: String, args: Dictionary) -> Dictionary:
+	func call_rpc(name: String, args: Dictionary) -> Dictionary:
+		calls.append(name)
 		if not online:
 			return {"ok": false, "code": 0, "data": null}
+		if name == "test_load_save":
+			return {"ok": true, "code": 200, "data": {"rev": rev, "data": data}}
 		pushes += 1
 		if int(args.p_base_rev) != rev:
 			return {"ok": true, "code": 200, "data": {"saved": false, "rev": rev, "data": data}}
@@ -160,6 +165,90 @@ func test_first_sync_into_an_empty_account_keeps_local_progress() -> void:
 	s.sync(cloud)
 	check_eq(s.owner, "user-a", "owned")
 	check_eq(int(cloud.data.stats.fights), 4, "pushed")
+
+
+const SIDE_FILE := "user://test_side.cfg"
+
+
+func _write(path: String, text: String) -> void:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(text)
+	f.close()
+
+
+func test_side_files_ride_along_and_come_back() -> void:
+	if FileAccess.file_exists(SIDE_FILE):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SIDE_FILE))
+	var cloud := FakeCloud.new()
+	var s := _fresh_save()
+	s.mirrored = [SIDE_FILE]
+	check(not s.capture_files(), "nothing to pick up yet")
+	_write(SIDE_FILE, "[stats]\nbest=3\n")
+	var edits := s.edits
+	check(s.capture_files(), "a changed side file is noticed")
+	check(s.dirty and s.edits > edits, "and committed")
+	check(not s.capture_files(), "only once")
+	s.sync(cloud)
+	check_eq(str(cloud.data.files["test_side.cfg"]), "[stats]\nbest=3\n", "the cloud holds the file")
+
+	# Another device improves the record; this one adopts it.
+	var other: Dictionary = cloud.data.duplicate(true)
+	other.files["test_side.cfg"] = "[stats]\nbest=9\n"
+	cloud.rev += 1
+	cloud.data = other
+	s.sync(cloud)
+	check_eq(FileAccess.get_file_as_string(SIDE_FILE), "[stats]\nbest=9\n", "written back to the device")
+	check(not s.dirty, "and clean")
+
+	# Older cloud saves without side files leave the device's file alone.
+	cloud.rev += 1
+	cloud.data = {"stats": {"fights": 1}}
+	s.sync(cloud)
+	check(FileAccess.file_exists(SIDE_FILE), "legacy cloud copy keeps the file")
+	s.reset_for_sign_out()
+	check(not FileAccess.file_exists(SIDE_FILE), "signing out clears side files")
+
+
+func test_test_slot_is_shared_by_devices() -> void:
+	var cloud := FakeCloud.new()
+	var phone := _played(3)
+	phone.test_slot = 1
+	cloud.me = "guest-phone"
+	phone.sync(cloud)
+	check_eq(phone.owner, "test:1", "owned by the test slot, not the guest")
+	check(cloud.calls.has("test_sync_save") and not cloud.calls.has("sync_save"), "pushed to the slot")
+	check(not cloud.calls.has("rest"), "never reads the guest's own save")
+
+	# A laptop that played less as its own guest joins and takes the slot.
+	var laptop := SaveGame.new("user://test_save_laptop.json")
+	laptop.record_fight(0, 0)
+	laptop.owner = "guest-laptop"
+	laptop.base_rev = 2
+	laptop.dirty = false
+	laptop.test_slot = 1
+	cloud.me = "guest-laptop"
+	laptop.sync(cloud)
+	check_eq(int(laptop.data.stats.fights), 3, "the slot's progress comes down")
+	check_eq([laptop.owner, laptop.base_rev], ["test:1", cloud.rev], "now on the slot")
+
+	laptop.record_fight(0, 0)
+	laptop.sync(cloud)
+	phone.sync(cloud)
+	check_eq(int(phone.data.stats.fights), 4, "the phone sees the laptop's fight")
+
+
+func test_joining_the_test_slot_keeps_the_further_device() -> void:
+	var cloud := FakeCloud.new()
+	cloud.rev = 3
+	cloud.data = {"stats": {"fights": 2}}
+	var s := _played(10)
+	s.owner = "guest"
+	s.base_rev = 5
+	s.dirty = false
+	s.test_slot = 1
+	s.sync(cloud)
+	check_eq(int(cloud.data.stats.fights), 10, "the further device fills the slot")
+	check_eq(cloud.rev, 4, "on top of the slot's revision")
 
 
 func test_old_saves_gain_new_keys() -> void:
