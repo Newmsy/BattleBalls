@@ -39,13 +39,14 @@ const EFFECTS := {
 	"pull": ["pull_range", "pull_accel", "pull_close"],
 	"moons": ["moon_count", "moon_orbit", "moon_size", "moon_damage", "moon_spin", "moon_cooldown"],
 	"flare": ["flare_radius", "flare_slam"],
-	"copy": ["copy_secs", "copy_cooldown", "copy_shield"],
+	"copy": ["copy_secs", "copy_cooldown", "copy_shield", "copy_scale"],
 	"revive": ["revive_hp", "revive_radius", "revive_damage", "revive_burn", "revive_shield", "revive_bolts"],
 	"fire_trail": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"beam_at": ["prism_damage", "prism_life", "prism_fan", "prism_full_every"],
 	"collapse": ["collapse_every", "collapse_secs", "collapse_range", "collapse_accel", "collapse_damage", "collapse_radius", "collapse_ring"],
 	"collapse_guard": ["collapse_guard"],
 	"copy_tick": [],
+	"scorch": ["scorch_dps", "scorch_secs"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -105,7 +106,7 @@ func tick_triggers(sim, b) -> void:
 ## Heals for heal_ratio of the damage just dealt. Heals land after all damage
 ## in the tick, so a lethal hit can't be out-healed.
 func fx_heal(_sim, b, ctx: Dictionary) -> void:
-	if ctx.has("heals"):
+	if ctx.has("heals") and b.dots.is_empty(): # Burning balls can't heal.
 		ctx.heals.append({"ball": b.index, "amount": ctx.amount * b.def.heal_ratio})
 
 
@@ -187,7 +188,7 @@ func fx_breath(sim, b, _ctx: Dictionary) -> void:
 
 ## Sends reflect_ratio of damage taken back at the attacker (reflect_low below
 ## half HP when > 0), at most reflect_cap per hit when > 0. reflect_from
-## "ability" ignores contact hits, "copying"
+## "ability" ignores contact hits, "contact" only answers contact hits, "copying"
 ## only works while copying. reflect_burn > 0 also burns them for 2s.
 ## Reflected damage and burns never reflect.
 func fx_reflect(sim, b, ctx: Dictionary) -> void:
@@ -196,6 +197,9 @@ func fx_reflect(sim, b, ctx: Dictionary) -> void:
 	match str(b.def.reflect_from):
 		"ability":
 			if ctx.kind == "contact":
+				return
+		"contact":
+			if ctx.kind != "contact":
 				return
 		"copying":
 			if not b.state.has("copy_until"):
@@ -311,9 +315,11 @@ func fx_copy(sim, b, ctx: Dictionary) -> void:
 	for key in src.def:
 		if not copied.has(key):
 			copied[key] = src.def[key]
+			if key.ends_with("_damage") or key.ends_with("_dps"): # A copy hits softer.
+				copied[key] = src.def[key] * base.copy_scale
 	var effects: Array = base.effects.duplicate()
 	for e in src.def.effects:
-		if not e.do in ["copy", "revive"]:
+		if not e.do in ["copy", "revive", "reflect"]:
 			effects.append(e)
 	copied.effects = effects
 	b.state.base_def = base
@@ -357,6 +363,13 @@ func fx_revive(sim, b, _ctx: Dictionary) -> void:
 	for k in int(b.def.revive_bolts):
 		var dir := Vector2.from_angle(k * TAU / b.def.revive_bolts)
 		sim.add_beam(b, b.pos + dir * b.radius, b.pos + dir * (b.radius + 260.0), {"life": 0.6, "damage": 5.0, "cooldown": 1.0})
+
+
+## Hits set the target burning (scorch_dps per second for scorch_secs).
+## A burning ball can't heal.
+func fx_scorch(sim, b, ctx: Dictionary) -> void:
+	if ctx.has("target"):
+		sim.add_burn(b, ctx.target, b.def.scorch_dps, b.def.scorch_secs)
 
 
 ## After reviving, a fire trail (dps zones) for the rest of the fight.

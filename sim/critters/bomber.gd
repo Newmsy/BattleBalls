@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "2b3a67",
 	"vibe": "Chaotic gremlin who laughs at its own explosions.",
 	"description": "Bomb. Every wall bounce drops a mine that blows up when a foe touches it.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
+	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "wall", "do": "mine"}],
 	"params": {
 		"mine_arm": 0.5, ## Seconds before a mine is live.

@@ -501,7 +501,12 @@ func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 
 ## Damage over time on `target`, ticking every half second.
 func add_burn(source: Ball, target: Ball, dps: float, secs: float) -> void:
-	target.dots.append({"source": source.index, "dps": dps, "until": tick + int(round(secs * TICK_RATE)), "next": tick + TICK_RATE / 2})
+	var until := tick + int(round(secs * TICK_RATE))
+	for d in target.dots: # Burns don't stack: the same burn again just lasts longer.
+		if d.source == source.index and d.dps == dps:
+			d.until = maxi(d.until, until)
+			return
+	target.dots.append({"source": source.index, "dps": dps, "until": until, "next": tick + TICK_RATE / 2})
 
 
 ## Hits every foe of `owner` within `radius` of `pos` for `damage` and, with
