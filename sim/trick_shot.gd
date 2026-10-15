@@ -22,9 +22,9 @@ const MAX_CANDIDATES := 40
 const EDGE_MARGIN := 140.0
 const MIN_START_GAP := 300.0
 const WALLS := ["left", "top", "right", "bottom"]
-## Balls a puzzle can use: ones that fly straight until the first contact.
-## A fixed list, so adding a critter never changes a published day's puzzle
-## (and fields like Flux's would bend the shot that fast_judge assumes).
+## Balls the day's puzzle picks from. A fixed list, so adding a critter never
+## changes a published day's puzzle. (A Critter Shot can force any playable
+## shooter; trick shots switch Flux's field off so every shot flies straight.)
 const BALLS := ["vampire", "laser"]
 
 const SOLVED := "solved"
@@ -36,15 +36,6 @@ const MISS := "miss"
 static func day_number(date: Dictionary) -> int:
 	var d := {"year": date.year, "month": date.month, "day": date.day}
 	return int(floor((Time.get_unix_time_from_datetime_dict(d) - Time.get_unix_time_from_datetime_dict(EPOCH)) / 86400.0)) + 1
-
-
-## Whether `id` can take a Critter Shot: an ability that acts every tick (Flux's
-## field) bends the flight that the puzzle's straight-line check assumes.
-static func can_shoot(id: String) -> bool:
-	for e in BallDefs.get_def(id).effects:
-		if e.on == "always":
-			return false
-	return true
 
 
 ## Setup number `k` for a day. Generation tries k = 0, 1, 2... until one has a
@@ -76,7 +67,7 @@ static func _coord(rng) -> float:
 
 ## The real sim for a shot: the foe waits until it is hit.
 static func make_sim(puzzle: Dictionary, aim_deg: int) -> MatchSim:
-	var sim := MatchSim.new({"seed": 1, "p1": puzzle.p1, "p2": puzzle.p2, "starts": puzzle.starts, "angles": [aim_deg * 10, 0]})
+	var sim := MatchSim.new({"seed": 1, "p1": puzzle.p1, "p2": puzzle.p2, "starts": puzzle.starts, "angles": [aim_deg * 10, 0], "fields": false})
 	sim.balls[1].vel = Vector2.ZERO
 	return sim
 

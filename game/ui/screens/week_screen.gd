@@ -202,7 +202,6 @@ static func _try_critter(shell, t: int, counters: Array) -> Control:
 		shot_label = "Shot done"
 	var shot := Kit.button(shot_label, func(): open_critter_shot(shell, l.critter), "primary", 24, 80)
 	shell.mark("try_shot", shot)
-	shot.visible = TrickShot.can_shoot(l.critter)
 	var fight := Kit.button("Quick fight", func(): shell.request_play(l.critter), "ghost", 24, 80)
 	shell.mark("try_fight", fight)
 	return _card([

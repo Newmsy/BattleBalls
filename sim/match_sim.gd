@@ -8,6 +8,8 @@
 ## corners with arena positions; random aims still centre on the corners.
 ## `hp` (optional) sets each ball's starting HP (null = full), for relays
 ## where a winner stays in with what it has left.
+## `fields: false` (optional) switches off every-tick abilities (fields like
+## Flux's), so Daily Trick Shot balls fly straight.
 ## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
 ## Critters and their abilities come from sim/critters/ via sim/ball_defs.gd;
 ## this file only fires their triggers (sim/abilities.gd).
@@ -150,9 +152,10 @@ func step() -> void:
 	if in_overtime():
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
 
-	for b in balls:
-		if b.alive():
-			abilities.fire(self, "always", b)
+	if config.get("fields", true):
+		for b in balls:
+			if b.alive():
+				abilities.fire(self, "always", b)
 	var hits: Array[Dictionary] = []
 	for b in balls:
 		if b.alive():

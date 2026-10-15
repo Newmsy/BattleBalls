@@ -62,7 +62,8 @@ func test_unplayable_pick_falls_back() -> void:
 
 
 func test_only_non_owners_borrow_and_only_in_casual_modes() -> void:
-	LiveOps.use({"version": 1, "revision": 1, "loaners": [{"date": "2026-10-20", "critter": "laser"}, {"date": "2026-10-21", "critter": "vampire"}]})
+	# The next day lends someone else, so the check below doesn't depend on the fallback rotation.
+	LiveOps.use({"version": 1, "revision": 1, "loaners": [{"date": "2026-10-20", "critter": "laser"}, {"date": "2026-10-21", "critter": "magnet"}]})
 	var t := _at("2026-10-20")
 	var p = _newcomer()
 	var l := Loaner.today(p, t)
@@ -86,7 +87,7 @@ func test_critter_shot_is_a_separate_fair_puzzle() -> void:
 	for day in [1, 2, 30]:
 		var main := TrickShot.generate(day)
 		check_eq(main, TrickShot.generate(day, ""), "main puzzle unchanged")
-		for id in BallDefs.PLAYABLE.filter(TrickShot.can_shoot):
+		for id in BallDefs.PLAYABLE:
 			var shot := TrickShot.generate(day, id)
 			check_eq(shot.p1, id, "the loaner shoots")
 			check(shot.starts != main.starts or shot.walls != main.walls, "a different puzzle from the main one")
