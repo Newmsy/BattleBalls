@@ -83,7 +83,8 @@ func test_winning_every_floor_clears_the_run() -> void:
 	for f in BounceRun.FLOORS:
 		BounceRun.record(setup, run, 0, 0, 0, 100)
 		if not run.over:
-			check_eq(run.offer.size(), BounceRun.OFFER, "a win deals an offer")
+			# Short (2) once a trio with only the general boons runs low; see test_offers_are_new_usable_boons.
+			check(run.offer.size() >= 2, "a win deals an offer")
 			BounceRun.take_boon(run, run.offer[0])
 	check(run.over, "eight wins end the run")
 	check_eq(BounceRun.score(run), {"floors": 8, "lives": 3, "ticks": 800}, "perfect run")
