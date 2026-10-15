@@ -95,7 +95,10 @@ class Ball:
 	var last_bounce := Vector2.ZERO
 	var damage_dealt := 0.0
 	var healed := 0.0
-	var shield := 0.0 ## Absorbs damage before HP (Bounce Run boons).
+	var team: int ## 0 or 1; the two starting balls are teams 0 and 1.
+	var slow := 0.0 ## 0-1 share of movement lost this tick (zones set it).
+	var shield := 0.0 ## Absorbs damage before HP (abilities, Bounce Run boons).
+	var dots: Array[Dictionary] = [] ## Damage over time: {source, dps, until, next}.
 	var landed_hit := false
 	var banked := false ## Bounced off a wall since its last contact hit.
 	var boost_ticks := 0 ## Ticks of bumper speed boost left.
@@ -128,6 +131,28 @@ class Beam:
 		return clampf(1.0 - age / life, 0.0, 1.0)
 
 
+## A circle on the floor owned by a ball: a mine, an icy trail blob, a fire
+## patch. It slows and/or damages the owner's foes while they overlap it; a
+## mine (blast > 0) explodes once on the first foe that touches it.
+class Zone:
+	var owner: int
+	var kind: String ## For the renderer: "mine", "ice", "fire", "ring"...
+	var pos: Vector2
+	var radius: float
+	var life: float
+	var age := 0.0
+	var arm := 0.0 ## Seconds before it does anything.
+	var slow := 0.0
+	var dps := 0.0
+	var blast := 0.0
+	var blast_radius := 0.0
+	var chain := false ## A blast sets off the owner's other armed mines in reach.
+	var next_hit := {} ## target index -> tick it may next take dps damage
+
+	func armed() -> bool:
+		return age >= arm
+
+
 var config: Dictionary
 var modifier := Modifiers.NONE
 var overtime_start := OVERTIME_START
@@ -139,6 +164,7 @@ var rolls
 var damage_rolls := true
 var balls: Array[Ball] = []
 var beams: Array[Beam] = []
+var zones: Array[Zone] = []
 var tick := 0
 var half_size := ARENA_SIZE / 2.0
 var centre := Vector2(ARENA_SIZE / 2.0, ARENA_SIZE / 2.0)
@@ -153,7 +179,9 @@ var events: Array[Dictionary] = []
 var abilities: Abilities
 
 var _contact_cooldown_until := {} ## "i:j" -> tick
-var _hits: Array[Dictionary] = [] ## This tick's hits, so effects can add some (add_hit).
+## Damage queued by effects and collisions (add_hit), applied in _apply_hits.
+## Damage queued after that (revive blasts, timed pulses) lands next tick.
+var _hits: Array[Dictionary] = []
 
 
 func _init(cfg: Dictionary) -> void:
@@ -181,10 +209,12 @@ func _init(cfg: Dictionary) -> void:
 	for i in 2:
 		var kit := Gear.totals(gear[i])
 		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i])), float(powers[i])), kit), modifier)
+		def = Modifiers.apply_arena_tweaks(def, arena_id)
 		if cfg.has("boons"):
 			def = Boons.apply_to_def(def, cfg.boons[i])
 		var b := Ball.new()
 		b.index = i
+		b.team = i
 		b.type_id = types[i]
 		b.def = def
 		b.radius = def.radius * float(sizes[i])
@@ -278,23 +308,32 @@ func step() -> void:
 	if in_overtime():
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - overtime_start))
 
+	for b in balls:
+		b.slow = 0.0
 	if config.get("fields", true):
 		for b in balls:
 			if b.alive():
 				abilities.fire(self, "always", b)
-	var hits: Array[Dictionary] = []
-	_hits = hits
+	_update_zones()
+	_update_dots()
 	for b in balls:
 		if b.alive():
 			if b.boost_ticks > 0:
 				b.boost_ticks -= 1
 				if b.boost_ticks == 0:
 					b.vel = b.vel.normalized() * b.speed
-			b.pos += b.vel * DT
+			b.pos += b.vel * DT * (1.0 - b.slow)
 			_resolve_walls(b)
-	_resolve_ball_collisions(hits)
-	_update_beams(hits)
-	_apply_hits(hits)
+	_resolve_ball_collisions(_hits)
+	_update_beams(_hits)
+	_apply_hits(_hits)
+	# "fall" (e.g. a revive) only while a foe still stands: when both drop on
+	# the same tick the fight is already over, and the double-knockout rule
+	# decides it.
+	for b in balls:
+		if not b.alive() and not b.fired.has("fall") and not foes(b).is_empty():
+			b.fired["fall"] = true
+			abilities.fire(self, "fall", b)
 	for b in balls:
 		if b.alive():
 			abilities.tick_triggers(self, b)
@@ -329,6 +368,11 @@ func state_hash() -> String:
 		data.append_array([b.pos.x, b.pos.y, b.vel.x, b.vel.y, b.hp])
 	for beam in beams:
 		data.append_array([beam.a.x, beam.a.y, beam.b.x, beam.b.y, beam.age])
+	for z in zones:
+		data.append_array([z.pos.x, z.pos.y, z.age])
+	for b in balls:
+		if b.shield > 0.0 or not b.dots.is_empty():
+			data.append_array([b.index, b.shield, b.dots.size()])
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(data.to_byte_array())
@@ -384,6 +428,10 @@ func _resolve_walls(b: Ball) -> void:
 
 func _on_wall_bounce(b: Ball, point: Vector2) -> void:
 	events.append({"type": "bounce", "ball": b.index, "pos": point})
+	var slam: Dictionary = b.state.get("slam", {})
+	if not slam.is_empty() and tick <= slam.until:
+		b.state.erase("slam")
+		deal(balls[slam.source], b, slam.damage, "slam", point)
 	b.banked = true
 	var bounce_heal: float = b.def.get("bounce_heal", 0.0)
 	if bounce_heal > 0.0:
@@ -407,17 +455,18 @@ func add_hit(source: Ball, target: Ball, amount: float, kind: String, pos: Vecto
 
 ## A beam from `a` to `b` owned by ball `owner`, using its beam_* params. Keeps
 ## at most beam_max of the owner's beams, dropping the oldest.
-func add_beam(owner: Ball, a: Vector2, b: Vector2) -> void:
+## `opts` may override "life", "damage" and "cooldown" (seconds).
+func add_beam(owner: Ball, a: Vector2, b: Vector2, opts := {}) -> void:
 	var beam := Beam.new()
 	beam.owner = owner.index
 	beam.a = a
 	beam.b = b
-	beam.life = owner.def.beam_life
-	beam.damage = owner.def.beam_damage
-	beam.cooldown_ticks = int(round(owner.def.beam_hit_cooldown * TICK_RATE))
+	beam.life = opts.get("life", owner.def.get("beam_life", 1.0))
+	beam.damage = opts.get("damage", owner.def.get("beam_damage", 0.0))
+	beam.cooldown_ticks = int(round(opts.get("cooldown", owner.def.get("beam_hit_cooldown", 0.5)) * TICK_RATE))
 	beams.append(beam)
 	var own_beams := beams.filter(func(x: Beam) -> bool: return x.owner == owner.index)
-	if own_beams.size() > owner.def.beam_max:
+	if own_beams.size() > owner.def.get("beam_max", 6):
 		beams.erase(own_beams[0])
 	events.append({"type": "beam", "owner": owner.index, "a": beam.a, "b": beam.b})
 
@@ -457,6 +506,8 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			events.append({"type": "collide", "a": i, "b": j, "pos": contact})
 			abilities.fire(self, "bump", a, {"other": b})
 			abilities.fire(self, "bump", b, {"other": a})
+			if a.team == b.team:
+				continue
 			var key := "%d:%d" % [i, j]
 			if tick < int(_contact_cooldown_until.get(key, 0)):
 				continue
@@ -508,7 +559,7 @@ func _update_beams(hits: Array[Dictionary]) -> void:
 			beams.erase(beam)
 			continue
 		for target in balls:
-			if target.index == beam.owner or not target.alive():
+			if target.team == balls[beam.owner].team or not target.alive():
 				continue
 			var closest := Geometry2D.get_closest_point_to_segment(target.pos, beam.a, beam.b)
 			if closest.distance_to(target.pos) > target.radius + BEAM_HALF_WIDTH:
@@ -520,10 +571,15 @@ func _update_beams(hits: Array[Dictionary]) -> void:
 			hits.append({"source": beam.owner, "target": target.index, "amount": beam.damage, "kind": "beam", "pos": closest})
 
 
+## Effects reacting to a hit (reflect) may add more hits while this runs;
+## they land in the same tick.
 func _apply_hits(hits: Array[Dictionary]) -> void:
 	var mult := damage_multiplier()
 	var heals: Array[Dictionary] = []
-	for h in hits:
+	var k := 0
+	while k < hits.size():
+		var h: Dictionary = hits[k]
+		k += 1
 		var amount: float = h.amount
 		var target := balls[h.target]
 		var source := balls[h.source]
@@ -544,6 +600,9 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			amount *= source.crit_mult
 		if backstab:
 			amount *= BACKSTAB_MULT
+		var guard := {"source": source, "kind": h.kind, "mult": 1.0}
+		abilities.fire(self, "guard", target, guard)
+		amount *= guard.mult
 		if target.shield > 0.0:
 			var absorbed := minf(target.shield, amount)
 			target.shield -= absorbed
@@ -558,6 +617,7 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		if h.kind == "contact":
 			abilities.fire(self, "hit", source, {"target": target, "amount": amount, "heals": heals})
 		abilities.fire(self, "hurt", target, {"source": source, "amount": amount, "kind": h.kind})
+	hits.clear()
 	# Heals land after damage, so a lethal hit can't be out-healed in the same tick.
 	for heal in heals:
 		var b := balls[heal.ball]
@@ -607,3 +667,126 @@ func _finish(winning_index: int, reason: String) -> void:
 	winner = winning_index
 	end_reason = reason
 	events.append({"type": "end", "winner": winning_index, "reason": reason})
+
+
+# --- Helpers for ability effects (sim/abilities.gd) ---------------------------
+
+## Queues damage from `source` to `target` this tick (`kind` names the cause:
+## "mine", "burn", "reflect"...). Overtime scaling applies when it lands.
+func deal(source: Ball, target: Ball, amount: float, kind: String, pos = null) -> void:
+	_hits.append({"source": source.index, "target": target.index, "amount": amount, "kind": kind, "pos": target.pos if pos == null else pos})
+
+
+## The living balls on the other team from `b`.
+func foes(b: Ball) -> Array[Ball]:
+	var out: Array[Ball] = []
+	for o in balls:
+		if o.team != b.team and o.alive():
+			out.append(o)
+	return out
+
+
+## The nearest living foe of `b`, or null.
+func nearest_foe(b: Ball) -> Ball:
+	var best: Ball = null
+	for o in foes(b):
+		if best == null or b.pos.distance_squared_to(o.pos) < b.pos.distance_squared_to(best.pos):
+			best = o
+	return best
+
+
+## A floor zone owned by `owner`. `opts`: kind, radius, life, arm, slow, dps,
+## blast, blast_radius, chain. Returns it.
+func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
+	var z := Zone.new()
+	z.owner = owner.index
+	z.pos = pos
+	z.kind = opts.get("kind", "zone")
+	z.radius = opts.get("radius", 30.0)
+	z.life = opts.get("life", 1.0)
+	z.arm = opts.get("arm", 0.0)
+	z.slow = opts.get("slow", 0.0)
+	z.dps = opts.get("dps", 0.0)
+	z.blast = opts.get("blast", 0.0)
+	z.blast_radius = opts.get("blast_radius", z.radius)
+	z.chain = opts.get("chain", false)
+	zones.append(z)
+	return z
+
+
+## Damage over time on `target`, ticking every half second.
+func add_burn(source: Ball, target: Ball, dps: float, secs: float) -> void:
+	var until := tick + int(round(secs * TICK_RATE))
+	for d in target.dots: # Burns don't stack: the same burn again just lasts longer.
+		if d.source == source.index and d.dps == dps:
+			d.until = maxi(d.until, until)
+			return
+	target.dots.append({"source": source.index, "dps": dps, "until": until, "next": tick + TICK_RATE / 2})
+
+
+## Hits every foe of `owner` within `radius` of `pos` for `damage` and, with
+## knock, turns them to fly straight away from `pos`. Emits "pulse".
+func pulse(owner: Ball, pos: Vector2, radius: float, damage: float, knock := false, kind := "pulse") -> void:
+	events.append({"type": "pulse", "ball": owner.index, "pos": pos, "radius": radius, "kind": kind})
+	for o in foes(owner):
+		var d := o.pos - pos
+		if d.length() > radius + o.radius:
+			continue
+		if damage > 0.0:
+			deal(owner, o, damage, kind)
+		if knock and d.length() > 0.001:
+			o.vel = d.normalized() * o.speed
+
+
+func _update_zones() -> void:
+	if zones.is_empty():
+		return
+	var half := TICK_RATE / 2
+	var foes_of := {}
+	for z in zones.duplicate():
+		if not zones.has(z):
+			continue
+		z.age += DT
+		if z.age >= z.life:
+			zones.erase(z)
+			continue
+		if not z.armed():
+			continue
+		var owner := balls[z.owner]
+		if not foes_of.has(z.owner):
+			foes_of[z.owner] = foes(owner)
+		for o in foes_of[z.owner]:
+			if not o.alive() or o.pos.distance_to(z.pos) > z.radius + o.radius:
+				continue
+			if z.blast > 0.0:
+				_explode(z)
+				break
+			o.slow = maxf(o.slow, z.slow)
+			if z.dps > 0.0 and tick >= int(z.next_hit.get(o.index, 0)):
+				z.next_hit[o.index] = tick + half
+				deal(owner, o, z.dps * 0.5, z.kind, z.pos)
+
+
+func _explode(z: Zone) -> void:
+	zones.erase(z)
+	var owner := balls[z.owner]
+	events.append({"type": "boom", "ball": z.owner, "pos": z.pos, "radius": z.blast_radius})
+	for o in foes(owner):
+		if o.pos.distance_to(z.pos) <= z.blast_radius + o.radius:
+			deal(owner, o, z.blast, "mine", z.pos)
+	if z.chain:
+		for other in zones.duplicate():
+			if other.owner == z.owner and other.blast > 0.0 and other.armed() and zones.has(other) and other.pos.distance_to(z.pos) <= z.blast_radius * 2.0:
+				_explode(other)
+
+
+func _update_dots() -> void:
+	for b in balls:
+		if b.dots.is_empty() or not b.alive():
+			continue
+		for d in b.dots.duplicate():
+			if tick > d.until:
+				b.dots.erase(d)
+			elif tick >= d.next:
+				d.next = tick + TICK_RATE / 2
+				deal(balls[d.source], b, d.dps * 0.5, "burn")

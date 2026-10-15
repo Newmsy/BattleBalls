@@ -6,6 +6,7 @@ extends RefCounted
 
 const Abilities := preload("res://sim/abilities.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
+const Arenas := preload("res://sim/arenas.gd")
 
 const DIR := "res://sim/critters/"
 const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
@@ -68,10 +69,14 @@ static func sim_def(id: String, tier := 1) -> Dictionary:
 	}
 	def.merge(c.stats, true)
 	def.merge(c.params, true)
+	var effects: Array = c.ability.duplicate()
 	for t in clampi(tier, 1, TIERS):
 		for key in c.tiers[t]:
-			if key != "text":
+			if key == "ability":
+				effects.append_array(c.tiers[t].ability) # A tier can add new behaviour.
+			elif key != "text":
 				def[key] = c.tiers[t][key]
+	def.effects = effects
 	return def
 
 
@@ -102,17 +107,20 @@ static func validate(id: String, c: Dictionary) -> Array[String]:
 		if str(c.tiers[t].get("text", "")) == "":
 			errors.append("%s: tier %d has no text" % [id, t + 1])
 		for key in c.tiers[t]:
-			if key != "text" and not c.params.has(key):
+			if key != "text" and key != "ability" and not c.params.has(key):
 				errors.append("%s: tier %d changes \"%s\", which isn't in params" % [id, t + 1, key])
 	for mod in c.get("chaos", {}):
-		if not Modifiers.DEFS.has(mod):
-			errors.append("%s: chaos names unknown modifier \"%s\"" % [id, mod])
+		if not (Modifiers.DEFS.has(mod) or Arenas.DEFS.has(mod)):
+			errors.append("%s: chaos names unknown modifier or arena \"%s\"" % [id, mod])
 			continue
 		for key in c.chaos[mod]:
 			if not (c.stats.has(key) or c.params.has(key)):
 				errors.append("%s: chaos.%s changes \"%s\", which isn't in stats or params" % [id, mod, key])
 	if c.status == "live":
-		errors.append_array(Abilities.validate(id, c.ability, c.params))
+		var all: Array = c.ability.duplicate()
+		for t in c.tiers:
+			all.append_array(t.get("ability", []))
+		errors.append_array(Abilities.validate(id, all, c.params))
 	return errors
 
 

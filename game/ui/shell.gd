@@ -467,9 +467,12 @@ func _report_fit() -> void:
 		return
 	var need: Vector2 = _scroll.get_child(0).get_combined_minimum_size()
 	var room: Vector2 = _scroll.size
-	# The scroll grows with too-wide content, so measure width against the
-	# screen, keeping the scroll's left margin on the right too.
-	room.x = minf(room.x, get_viewport_rect().size.x - 2.0 * _scroll.global_position.x)
+	# The scroll grows with too-wide content, so measure the screen itself
+	# against the phone-width column it gets (side margins of 28 each).
+	var margin := _scroll.get_child(0) as MarginContainer
+	if margin != null and margin.get_child_count() > 0:
+		need.x = margin.get_child(0).get_combined_minimum_size().x
+		room.x = minf(_holder.size.x, 720.0) - 56.0
 	print("UI_FIT %s %d %d width %d %d" % [current, roundi(need.y), roundi(room.y), roundi(need.x), roundi(room.x)])
 	if need.y > room.y + 1.0 and current not in SCROLLS:
 		print("UI_OVERFLOW %s %d" % [current, roundi(need.y - room.y)])

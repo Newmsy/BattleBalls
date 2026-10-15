@@ -128,11 +128,16 @@ func test_mirror_fights_are_even_on_every_arena() -> void:
 		check(total > 0 and absf(float(wins[0]) / total - 0.5) <= 0.2, "%s corner split %s" % [id, wins])
 
 
-func test_every_pairing_finishes_on_every_arena() -> void:
+func test_every_critter_finishes_on_every_arena() -> void:
+	# Each critter against itself and its next two neighbours in the list, so
+	# the cost grows with the roster rather than its square.
+	var ids: Array = BallDefs.PLAYABLE
 	for id in Arenas.PLAYABLE:
-		for a in BallDefs.PLAYABLE:
-			for b in BallDefs.PLAYABLE:
-				for seed_value in 8:
+		for i in ids.size():
+			for step in 3:
+				var a: String = ids[i]
+				var b: String = ids[(i + step) % ids.size()]
+				for seed_value in 3:
 					var s := _sim(id, a, b, seed_value).run_to_end()
 					check(s.time <= MatchSim.TIME_LIMIT + 0.001, "%s %s vs %s seed %d ran past the limit" % [id, a, b, seed_value])
 					check(s.reason != "", "%s %s vs %s seed %d has no result" % [id, a, b, seed_value])

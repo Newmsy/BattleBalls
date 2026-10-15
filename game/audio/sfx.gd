@@ -170,6 +170,16 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("flip", 0.0, 1.0 if e.pulling else 0.85)
 			"snap":
 				play("snap")
+			"boom", "pulse":
+				play("hit_big", 0.0, 0.8 if e.type == "boom" else 1.1)
+			"reflect":
+				play("hit", -4.0, 1.5)
+			"phase":
+				play("flip", 0.0, 1.4)
+			"ambush", "copy":
+				play("snap", 0.0, 1.25)
+			"revive":
+				play("heal", 0.0, 0.8)
 			"end":
 				if e.reason != "time_limit":
 					play("ko")

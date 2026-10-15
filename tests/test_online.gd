@@ -162,6 +162,92 @@ func test_first_sync_into_an_empty_account_keeps_local_progress() -> void:
 	check_eq(int(cloud.data.stats.fights), 4, "pushed")
 
 
+const SIDE_FILE := "user://test_side.cfg"
+
+
+func _write(path: String, text: String) -> void:
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	f.store_string(text)
+	f.close()
+
+
+func test_side_files_ride_along_and_come_back() -> void:
+	if FileAccess.file_exists(SIDE_FILE):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SIDE_FILE))
+	var cloud := FakeCloud.new()
+	var s := _fresh_save()
+	s.mirrored = [SIDE_FILE]
+	check(not s.capture_files(), "nothing to pick up yet")
+	_write(SIDE_FILE, "[stats]\nbest=3\n")
+	var edits := s.edits
+	check(s.capture_files(), "a changed side file is noticed")
+	check(s.dirty and s.edits > edits, "and committed")
+	check(not s.capture_files(), "only once")
+	s.sync(cloud)
+	check_eq(str(cloud.data.files["test_side.cfg"]), "[stats]\nbest=3\n", "the cloud holds the file")
+
+	# Another device improves the record; this one adopts it.
+	var other: Dictionary = cloud.data.duplicate(true)
+	other.files["test_side.cfg"] = "[stats]\nbest=9\n"
+	cloud.rev += 1
+	cloud.data = other
+	s.sync(cloud)
+	check_eq(FileAccess.get_file_as_string(SIDE_FILE), "[stats]\nbest=9\n", "written back to the device")
+	check(not s.dirty, "and clean")
+
+	# Older cloud saves without side files leave the device's file alone.
+	cloud.rev += 1
+	cloud.data = {"stats": {"fights": 1}}
+	s.sync(cloud)
+	check(FileAccess.file_exists(SIDE_FILE), "legacy cloud copy keeps the file")
+	s.reset_for_sign_out()
+	check(not FileAccess.file_exists(SIDE_FILE), "signing out clears side files")
+
+
+func test_devices_share_the_test_account() -> void:
+	var cloud := FakeCloud.new()
+	cloud.me = "test-account"
+	var phone := _played(3)
+	phone.owner = "guest-phone"
+	phone.base_rev = 1
+	phone.dirty = false
+	phone.test_mode = true
+	phone.sync(cloud)
+	check_eq(phone.owner, "test-account", "the phone moves onto the test account")
+	check_eq(int(cloud.data.stats.fights), 3, "and fills its empty save")
+
+	# A laptop that played less as its own guest joins and takes the account's save.
+	var laptop := SaveGame.new("user://test_save_laptop.json")
+	laptop.record_fight(0, 0)
+	laptop.owner = "guest-laptop"
+	laptop.base_rev = 2
+	laptop.dirty = false
+	laptop.test_mode = true
+	laptop.sync(cloud)
+	check_eq(int(laptop.data.stats.fights), 3, "the account's progress comes down")
+	check_eq([laptop.owner, laptop.base_rev], ["test-account", cloud.rev], "now on the account")
+
+	laptop.record_fight(0, 0)
+	laptop.sync(cloud)
+	phone.sync(cloud)
+	check_eq(int(phone.data.stats.fights), 4, "the phone sees the laptop's fight")
+
+
+func test_joining_the_test_account_keeps_the_further_device() -> void:
+	var cloud := FakeCloud.new()
+	cloud.me = "test-account"
+	cloud.rev = 3
+	cloud.data = {"stats": {"fights": 2}}
+	var s := _played(10)
+	s.owner = "test:1" # Synced with the old shared test slot (PR #59).
+	s.base_rev = 5
+	s.dirty = false
+	s.test_mode = true
+	s.sync(cloud)
+	check_eq(int(cloud.data.stats.fights), 10, "the further device fills the account")
+	check_eq(cloud.rev, 4, "on top of the account's revision")
+
+
 func test_old_saves_gain_new_keys() -> void:
 	var up := SaveGame.upgrade({"stats": {"wins": 4}})
 	check_eq(int(up.stats.wins), 4, "kept value")

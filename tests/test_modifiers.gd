@@ -28,7 +28,7 @@ func test_modifiers_apply_to_both_balls() -> void:
 	for b in fast.balls:
 		check_near(b.vel.length(), BallDefs.get_def(b.type_id).speed * 1.4, 0.01, "Hyper Speed for " + b.type_id)
 	var double := _sim("double_trouble")
-	check_near(double.balls[0].def.heal_ratio, 0.75, 0.001, "Double Trouble heal ratio")
+	check_near(double.balls[0].def.heal_ratio, 0.5 * sqrt(1.5), 0.001, "Double Trouble heal ratio (square root)")
 	check_eq(double.balls[1].def.beam_max, 9, "Double Trouble beam cap")
 
 

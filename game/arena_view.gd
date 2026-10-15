@@ -25,6 +25,12 @@ const POP_DAMAGE := Color("ff5a7a")
 const POP_HEAL := Color("45f5a6")
 const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
+const MINE := Color("ff4d4d")
+## Floor zone fills by kind (sim Zone.kind).
+const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff")}
+## Pulse and blast ring colours by kind.
+const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d")}
+const RING_LIFE := 0.45
 ## Crits pop bigger in gold; backstabs get their own call-out.
 const POP_CRIT := Color("ffb627")
 const POP_BACKSTAB := Color("d68cff")
@@ -83,6 +89,8 @@ var _popups: Array[Dictionary] = []
 var _particles: Array[Dictionary] = []
 var _bursts: Array[Dictionary] = []
 var _wisps: Array[Dictionary] = []
+var _rings: Array[Dictionary] = [] ## Expanding pulse / blast rings: {pos, radius, color, age}.
+var _flashes: Array[Dictionary] = [] ## Reflect zaps: {from, to, age}.
 var _look: Array[Vector2] = [Vector2(1, -1).normalized(), Vector2(-1, 1).normalized()]
 var _hit := [0.0, 0.0]
 var _squash := [0.0, 0.0]
@@ -122,6 +130,8 @@ func clear_effects() -> void:
 	_popups.clear()
 	_particles.clear()
 	_bursts.clear()
+	_rings.clear()
+	_flashes.clear()
 	_kos.clear()
 	_trails = [[], []]
 	_wisps.clear()
@@ -171,6 +181,28 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var m := sim.balls[e.ball]
 				for i in 6:
 					_particles.append({"pos": m.pos + Vector2(0, -m.radius * 1.3), "vel": _rand_dir() * _fx_rng.randf_range(80.0, 260.0), "age": 0.0, "life": 0.4})
+			"pulse", "boom":
+				_rings.append({"pos": e.pos, "radius": e.radius, "color": RING_COLORS.get(e.get("kind", "boom"), BURST), "age": 0.0})
+				if e.type == "boom" or e.get("kind", "") in ["nova", "fire"]:
+					_shake = maxf(_shake, 8.0 * A11y.motion())
+					_spawn_particles(e.pos, 14)
+			"reflect":
+				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
+			"phase":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "BOO!", POP_SNAP)
+			"ambush":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 34), "AMBUSH!", POP_SNAP)
+			"copy":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "COPY!", POP_SNAP)
+			"revive":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "REBORN!", POP_SNAP)
+			"shielded":
+				var g := sim.balls[e.target]
+				_add_popup(g.pos + Vector2(28, -g.radius - 10), "0", POP_BEAM)
 			"snap":
 				var m := sim.balls[e.ball]
 				_add_popup(m.pos + Vector2(-34, -m.radius - 34), "SNAP!", POP_SNAP)
@@ -236,6 +268,12 @@ func advance_effects(delta: float) -> void:
 	for w in _wisps:
 		w.age += delta
 	_wisps = _wisps.filter(func(w): return w.age < w.life)
+	for k in _rings:
+		k.age += delta
+	_rings = _rings.filter(func(k): return k.age < RING_LIFE)
+	for k in _flashes:
+		k.age += delta
+	_flashes = _flashes.filter(func(k): return k.age < 0.25)
 	queue_redraw()
 
 
@@ -295,18 +333,43 @@ func _draw() -> void:
 			_draw_overlay(i, def, MatchSim.START_CORNERS[i] * s, def.radius * s, def.hp, def.hp, shake)
 		return
 
+	for z in sim.zones:
+		_draw_zone(z, s)
+
+	var bi := 0
 	for beam in sim.beams:
 		var k := beam.strength()
 		var a: Vector2 = beam.a * s
 		var b: Vector2 = beam.b * s
-		draw_line(a, b, Color(BEAM, 0.18 * k), 14.0, true)
-		draw_line(a, b, Color(BEAM, 0.35 * k), 7.0, true)
-		draw_line(a, b, Color(BEAM, 0.9 * k), 3.5, true)
+		var col := BEAM
+		if sim.balls[beam.owner].def.get("beam_rainbow", 0):
+			col = Color.from_hsv(fmod(bi * 0.14 + _time * 0.5, 1.0), 0.7, 1.0)
+		bi += 1
+		draw_line(a, b, Color(col, 0.18 * k), 14.0, true)
+		draw_line(a, b, Color(col, 0.35 * k), 7.0, true)
+		draw_line(a, b, Color(col, 0.9 * k), 3.5, true)
 		draw_line(a, b, Color("e6f7ff", k), 1.4, true)
 
 	for b in sim.balls:
-		if b.alive() and b.def.has("field_range"):
+		if not b.alive():
+			continue
+		if b.def.has("field_range"):
 			_draw_field(b, s)
+		if b.def.has("pull_range"):
+			_draw_inflow(b.pos * s, b.radius * s, b.def.pull_range * s, Color("8f7bff"), 0.18)
+		if b.state.get("collapsing", false):
+			_draw_inflow(b.pos * s, b.radius * s, b.def.collapse_range * s, Color("c58bff"), 0.45)
+		for m in b.state.get("moons", []):
+			draw_circle(m * s, (b.def.moon_size + 4.0) * s, Color("d9d4ff", 0.25))
+			draw_circle(m * s, b.def.moon_size * s, Color("d9d4ff"))
+			draw_circle((m + Vector2(-3, -3)) * s, b.def.moon_size * 0.4 * s, Color.WHITE)
+
+	for k in _rings:
+		var t: float = k.age / RING_LIFE
+		draw_arc(k.pos * s, k.radius * s * (0.3 + 0.7 * sqrt(t)), 0.0, TAU, 64, Color(k.color, 0.8 * (1.0 - t)), 6.0 * (1.0 - t) + 1.0, true)
+	for k in _flashes:
+		var t: float = k.age / 0.25
+		draw_line(k.from * s, k.to * s, Color(Color.from_hsv(fmod(_time, 1.0), 0.5, 1.0), 0.9 * (1.0 - t)), 3.0, true)
 
 	for b in sim.balls:
 		var trail := _cosmetic(b.index, "trail")
@@ -340,6 +403,7 @@ func _draw() -> void:
 	for b in sim.balls:
 		if b.alive():
 			_draw_critter(b.index, b.def, b.pos * s, b.radius * s, b.hp, b.max_hp, shake)
+			_draw_status(b, s)
 		elif b.index == ko_ball:
 			_draw_critter(b.index, b.def, b.pos * s, b.radius * s, 0.0, b.max_hp, shake, true)
 
@@ -535,6 +599,51 @@ func _draw_field(m, s: float) -> void:
 			f = 1.0 - f
 		var rad: float = lerpf(m.radius * 1.3, reach, f)
 		draw_arc(m.pos * s, rad * s, 0.0, TAU, 64, Color(col, 0.28 * (1.0 - f)), 3.0, true)
+
+
+## Floor zones: mines blink until they blow; trails and patches fade out.
+func _draw_zone(z, s: float) -> void:
+	var fade: float = clampf(1.0 - z.age / z.life, 0.0, 1.0)
+	var p: Vector2 = z.pos * s
+	match z.kind:
+		"mine":
+			var armed: bool = z.armed()
+			if armed:
+				draw_arc(p, z.blast_radius * s, 0.0, TAU, 40, Color(MINE, 0.12), 2.0, true)
+			draw_circle(p, 16.0 * s, Color("2b3a67"))
+			draw_arc(p, 16.0 * s, 0.0, TAU, 20, Color("10162b"), 2.0, true)
+			var on := armed and fmod(_time * 3.0 + z.pos.x * 0.01, 1.0) < 0.5
+			draw_circle(p, 6.0 * s, MINE if on else Color(MINE, 0.35))
+		"ring":
+			draw_arc(p, z.radius * s, 0.0, TAU, 64, Color(ZONE_COLORS.ring, 0.6 * fade), 10.0 * s, true)
+		_:
+			var col: Color = ZONE_COLORS.get(z.kind, Color.WHITE)
+			draw_circle(p, z.radius * s, Color(col, 0.28 * fade))
+			draw_circle(p, z.radius * 0.55 * s, Color(col, 0.22 * fade))
+
+
+## Flow lines drifting inward: a pull field (Orbit) or a collapse (Void).
+func _draw_inflow(c: Vector2, inner: float, reach: float, col: Color, alpha: float) -> void:
+	for k in 3:
+		var f := 1.0 - fmod(_time * 0.9 + k / 3.0, 1.0)
+		draw_arc(c, lerpf(inner * 1.3, reach, f), 0.0, TAU, 64, Color(col, alpha * (1.0 - f)), 3.0, true)
+
+
+## Per-ball status on top of the critter: phased (faded), shield, burning.
+func _draw_status(b, s: float) -> void:
+	var p: Vector2 = b.pos * s
+	var r: float = b.radius * s
+	if sim.tick < int(b.state.get("phase_until", -1)):
+		draw_circle(p, r * 1.05, Color(ARENA_FILL, 0.6))
+	if b.shield > 0.0:
+		draw_arc(p, r * 1.12, 0.0, TAU, 48, Color("7fe6ff", 0.85), 4.0, true)
+		draw_arc(p, r * 1.18, 0.0, TAU, 48, Color("7fe6ff", 0.25), 6.0, true)
+	if not b.dots.is_empty():
+		for k in 4:
+			var a := _time * 3.0 + k * TAU / 4.0
+			draw_circle(p + Vector2(cos(a), sin(a) * 0.6 - 0.4) * r * 0.9, 4.0, Color("ff8a1f", 0.8))
+	if b.slow > 0.0:
+		draw_arc(p, r * 1.02, 0.0, TAU, 48, Color("bfe9ff", 0.6), 3.0, true)
 
 
 ## Stars circling the head of a knocked-out critter.
