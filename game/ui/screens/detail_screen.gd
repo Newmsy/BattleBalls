@@ -1,5 +1,6 @@
-## One critter: power, stats, level against the tier cap, the T1-T5 ability
-## ladder, gear slots and the copies owned per tier.
+## One critter on one phone screen: power, stats, level against the tier
+## cap, this tier's ability and the next, gear and copies. The whole T1-T5
+## ladder and the flavour text sit behind the "i"; Use in lineup and Fuse are pinned.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -24,49 +25,47 @@ static func build(shell, params: Dictionary) -> Control:
 	var c := Roster.get_critter(params.id)
 	var b: Dictionary = p.best(c.id)
 	var rcol: Color = Roster.RARITY_COLORS[c.rarity]
-	var root := Kit.vbox(24)
-	root.add_child(header(shell, c.name, Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol)))
-
-	var hero_icon := CritterIcon.make(c.id, b.tier, 320, true)
-	var stars := CenterContainer.new()
-	stars.add_child(Glyph.make("stars", 34, Kit.FG, b.tier, Roster.MAX_TIER))
-	var pw := CenterContainer.new()
-	pw.add_child(Kit.power(p.power_of(c.id), 40))
-	var hero := Kit.vbox(8, [_centered(hero_icon), stars, Kit.label("%s · %s" % [c.type, c.role], 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), pw,
-		Kit.label(c.vibe, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)])
-	root.add_child(hero)
-
-	var gear: Array = p.gear_on(c.id)
-	var hp := roundi(120.0 * (1.0 + .03 * (b.level - 1)))
-	var dmg := roundi(10.0 * (1.0 + .03 * (b.level - 1)))
-	var stats := GridContainer.new()
-	stats.columns = 3
-	stats.add_theme_constant_override("h_separation", 12)
-	for s in [["HP", str(hp)], ["Damage", str(dmg)], ["Speed", {"juggernaut": "Slow", "speedster": "Fast", "ghost": "Fast", "splitter": "Fast"}.get(c.id, "Normal")]]:
-		var cell := Kit.panel(Kit.vbox(2, [Kit.label(s[0].to_upper(), 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), Kit.label(s[1], 34, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]), Kit.box(Kit.PANEL2, Color(0, 0, 0, 0), 24, 0, 14))
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		stats.add_child(cell)
-	root.add_child(stats)
-
+	var root := Kit.vbox(18)
 	var cap := Roster.level_cap(b.tier)
 	var note := "Max level. Fuse to raise the cap to %d." % Roster.level_cap(b.tier + 1) if b.level >= cap else "Tier %d caps at level %d. Fuse to raise it." % [b.tier, cap]
-	root.add_child(Kit.panel(Kit.vbox(10, [Kit.hbox(0, [Kit.caption("Level"), Kit.spacer(), Kit.label("%d / %d" % [b.level, cap], 24)]),
-		Kit.bar(float(b.level) / cap, Kit.GOOD), Kit.label(note, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])))
-
-	var ladder := Kit.vbox(8, [Kit.caption("Ability by tier")])
+	var more := [c.vibe, note]
 	for i in Roster.MAX_TIER:
+		more.append("T%d: %s%s" % [i + 1, c.ladder[i], "  (now)" if i == b.tier - 1 else ""])
+	more.append("3 of the same tier fuse into 1 of the next tier. Wishlisted critters come up twice as often in summons and drops.")
+	var info: Control = shell.info_button(c.name, more, "detail_info")
+	root.add_child(header(shell, c.name, Kit.hbox(12, [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol), info], BoxContainer.ALIGNMENT_CENTER)))
+
+	# Hero: the critter on the left, its numbers on the right.
+	var hp := roundi(120.0 * (1.0 + .03 * (b.level - 1)))
+	var dmg := roundi(10.0 * (1.0 + .03 * (b.level - 1)))
+	var speed: String = {"juggernaut": "Slow", "speedster": "Fast", "ghost": "Fast", "splitter": "Fast"}.get(c.id, "Normal")
+	var stats := Kit.hbox(18)
+	for st in [["HP", str(hp)], ["DMG", str(dmg)], ["SPEED", speed]]:
+		stats.add_child(Kit.vbox(0, [Kit.label(st[0], 19, Kit.MUTED), Kit.label(st[1], 28)]))
+	var side := Kit.vbox(8, [Glyph.make("stars", 30, Kit.FG, b.tier, Roster.MAX_TIER), Kit.label("%s · %s" % [c.type, c.role], 22, Kit.MUTED),
+		Kit.power(p.power_of(c.id), 36), stats])
+	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	side.alignment = BoxContainer.ALIGNMENT_CENTER
+	root.add_child(Kit.hbox(16, [CritterIcon.make(c.id, b.tier, 220, true), side], BoxContainer.ALIGNMENT_CENTER))
+
+	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(0, [Kit.caption("Level"), Kit.spacer(), Kit.label("%d / %d" % [b.level, cap], 24)]),
+		Kit.bar(float(b.level) / cap, Kit.GOOD)]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
+
+	# Ability: this tier and the next; the whole ladder is behind the "i".
+	var ladder := Kit.vbox(8, [Kit.caption("Ability")])
+	for i in range(b.tier - 1, mini(b.tier + 1, Roster.MAX_TIER)):
 		var have: bool = i < b.tier
 		var tag := Kit.panel(Kit.label("T%d" % (i + 1), 22, Kit.BG if have else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(Kit.ACCENT if have else Color("221e4f"), Color(0, 0, 0, 0), 14, 0, 4))
 		tag.custom_minimum_size = Vector2(62, 0)
-		var l := Kit.label(c.ladder[i], 23, Kit.FG if have else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var l := Kit.label(c.ladder[i] if have else "Next: " + c.ladder[i], 23, Kit.FG if have else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var row := Kit.hbox(14, [tag, l])
 		if i == 4:
 			row.add_child(Kit.chip("Special", Glyph.GOLD, 16))
-		var st := Kit.box(Color(Kit.ACCENT, .14) if i == b.tier - 1 else Color(0, 0, 0, 0), Color(Kit.ACCENT, .5) if i == b.tier - 1 else Color(0, 0, 0, 0), 18, 2, 10)
-		ladder.add_child(Kit.panel(row, st))
-	root.add_child(Kit.panel(ladder))
+		ladder.add_child(row)
+	root.add_child(Kit.panel(ladder, Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
+	var gear: Array = p.gear_on(c.id)
 	var slots := Kit.hbox(12)
 	for slot in ["Shell", "Core"]:
 		var g: Dictionary = {}
@@ -79,13 +78,22 @@ static func build(shell, params: Dictionary) -> Control:
 		var card := Kit.card_button(v, shell.toast.bind("Gear swapping arrives with the Bag screen."), Kit.LINE, Kit.PANEL2, 24, 14)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slots.add_child(card)
-	root.add_child(Kit.vbox(12, [Kit.caption("Gear"), slots]))
+	root.add_child(Kit.vbox(10, [Kit.caption("Gear"), slots]))
 
-	var chips := Kit.hbox(10)
+	var chips := Kit.hbox(10, [Kit.caption("Copies")], BoxContainer.ALIGNMENT_BEGIN)
 	for s in p.copies(c.id):
-		chips.add_child(Kit.panel(Kit.label("T%d  x%d" % [s.tier, s.count], 22), Kit.box(Kit.PANEL2, Kit.LINE, 16, 2, 10)))
-	root.add_child(Kit.panel(Kit.vbox(10, [Kit.caption("Copies you own"), chips,
-		Kit.label("3 of the same tier fuse into 1 of the next tier.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])))
+		chips.add_child(Kit.panel(Kit.label("T%d  x%d" % [s.tier, s.count], 22), Kit.box(Kit.PANEL2, Kit.LINE, 16, 2, 8)))
+	chips.add_child(Kit.spacer())
+	var wished: bool = p.on_wishlist(c.id)
+	var wish := Kit.card_button(Kit.chip("Wishlisted" if wished else "+ Wishlist", Color("ff5fc8")), func():
+		if p.toggle_wishlist(c.id):
+			shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"])
+		else:
+			shell.toast("Your wishlist is full (3). Remove one at the Summon Portal.")
+		shell.refresh(), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 4)
+	shell.mark("wish_this", wish)
+	chips.add_child(wish)
+	root.add_child(chips)
 
 	var ready: Dictionary = {}
 	for s in p.copies(c.id):
@@ -95,17 +103,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var fuse := Kit.button("Fuse T%d" % ready.get("tier", b.tier), func(): shell.open_tab("fuse", {"id": c.id, "tier": ready.tier}), "go", 26, 90)
 	fuse.disabled = ready.is_empty()
 	shell.mark("fuse_this", fuse)
-	root.add_child(Kit.hbox(16, [lineup, fuse]))
-	var wished: bool = p.on_wishlist(c.id)
-	var wish := Kit.button("On your wishlist" if wished else "Add to wishlist", func():
-		if p.toggle_wishlist(c.id):
-			shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"])
-		else:
-			shell.toast("Your wishlist is full (3). Remove one at the Summon Portal.")
-		shell.refresh(), "ghost", 24, 80)
-	shell.mark("wish_this", wish)
-	root.add_child(wish)
-	root.add_child(Kit.label("Wishlisted critters come up twice as often in summons and drops.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+	shell.pin(Kit.hbox(16, [lineup, fuse]))
 	return root
 
 

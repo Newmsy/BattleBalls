@@ -18,6 +18,7 @@ const BOON_MIN := 0.52 ## Below this a boon is a dud pick.
 const BOON_MAX := 0.62 ## Above this a boon decides fights. 0.65 is a FAIL.
 const BOON_FAIL := 0.65
 const Z95 := 1.96
+const FIGHT_BUDGET := 640 ## Most fights per boon (a CI time limit).
 
 var fights := 100
 var only := "" ## --only=<boon id> checks just that boon.
@@ -38,7 +39,7 @@ func _init() -> void:
 			return
 	var failures := 0
 	var lines: Array[String] = []
-	lines.append("### Bounce Run boons at equal power (%d fights per pairing, both corners)" % (fights * 2))
+	lines.append("### Bounce Run boons at equal power (up to %d fights per pairing and %d per boon, both corners)" % [fights * 2, FIGHT_BUDGET])
 	lines.append("")
 	lines.append("| Boon | Win rate with it | Flag |")
 	lines.append("|---|---|---|")
@@ -64,9 +65,18 @@ func _init() -> void:
 
 ## Win rate of a ball holding `id` against the same ball types without it.
 ## Ability boons only count pairings where the holder has that ability.
+## `seeds` is per pairing, capped so one boon plays at most FIGHT_BUDGET
+## fights (at least one seed per pairing): the roster grows, the run time
+## doesn't.
 static func boon_win_rate(id: String, seeds: int) -> Dictionary:
 	var score := 0.0
 	var n := 0
+	var holders := 0
+	for a in BallDefs.PLAYABLE:
+		if Boons.applies_to(id, BallDefs.get_def(a).ability):
+			holders += 1
+	var pairs: int = maxi(1, holders * BallDefs.PLAYABLE.size())
+	seeds = clampi(FIGHT_BUDGET / (2 * pairs), 1, seeds)
 	for a in BallDefs.PLAYABLE:
 		if not Boons.applies_to(id, BallDefs.get_def(a).ability):
 			continue

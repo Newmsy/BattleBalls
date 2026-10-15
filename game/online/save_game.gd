@@ -9,7 +9,15 @@
 ## progress wins and the other goes to a backup file: nothing is thrown away.
 ##
 ## Offline, changes just stay dirty on the device and go up on the next sync
-## (main.gd syncs on start, after fights, on resume and on a retry timer).
+## (main.gd syncs on start, on any change, on resume and on a retry timer).
+##
+## Older features keep their own files next to save.json (MIRRORED). Their
+## text rides along in data.files, so the cloud holds the whole game, and
+## adopting a cloud copy writes them back. Device settings (sound,
+## accessibility), the sign-in session and caches stay on the device.
+##
+## In test mode (game/online/test_user.gd) the cloud copy is a shared test
+## slot instead of the signed-in account's save; the sync rules are the same.
 extends RefCounted
 
 ## Local or cloud data changed (adopted a newer copy, switched account):
@@ -21,6 +29,15 @@ const FORMAT := 2
 const AIM_HISTORY := 12 ## Launch angles kept for the Ghost Arena AI.
 const BACKUP_DIR := "user://save_backups"
 const MAX_BACKUPS := 8
+const MIRRORED := [
+	"user://ghost_arena.cfg", # game/pvp/arena_store.gd
+	"user://spire.json", # meta/spire_climb.gd
+	"user://bounce_run.cfg", # game/bounce_run.gd
+	"user://trick_shot.cfg", # game/trick_shot.gd
+	"user://this_week.cfg", # game/ui/screens/week_screen.gd (Fight of the Day)
+	"user://legends.cfg", # game/legends.gd
+	"user://onboarding.cfg", # game/onboarding.gd
+]
 
 var data := {}
 var base_rev := 0 ## Cloud revision `data` is based on (0: never in the cloud).
@@ -28,6 +45,9 @@ var dirty := false ## Changed since base_rev.
 var owner := "" ## Account base_rev belongs to ("" until the first sync).
 var path := PATH
 var app_version := "" ## Stored with cloud pushes, for support and migrations.
+var mirrored: Array = [] ## Side files carried in data.files (main.gd sets MIRRORED).
+var test_slot := 0 ## Above 0: sync with that shared test slot (test_user.gd).
+var edits := 0 ## Counts commits, so main.gd can sync as soon as something changes.
 
 var _syncing := false
 var _sync_again := false
@@ -63,6 +83,11 @@ static func progress(d) -> int:
 	var glow = d.get("glow", {})
 	if glow is Dictionary and glow.get("ledger") is Array:
 		n += glow.ledger.size()
+	# Side files (data.files) grow a line per day played, record or run.
+	var files = d.get("files", {})
+	if files is Dictionary:
+		for text in files.values():
+			n += str(text).count("\n")
 	return n
 
 
@@ -93,7 +118,46 @@ func save_local() -> void:
 ## Call after changing `data`: marks it unsynced and writes to disk.
 func commit() -> void:
 	dirty = true
+	edits += 1
 	save_local()
+
+
+## Picks up changes the older features wrote to their own files. Cheap enough
+## to call every few seconds; returns true (and commits) when any changed.
+func capture_files() -> bool:
+	if mirrored.is_empty():
+		return false
+	var files: Dictionary = data.files.duplicate() if data.get("files") is Dictionary else {}
+	var any := false
+	for p in mirrored:
+		var name: String = p.get_file()
+		var text := FileAccess.get_file_as_string(p) if FileAccess.file_exists(p) else ""
+		if str(files.get(name, "")) == text:
+			continue
+		any = true
+		if text == "":
+			files.erase(name)
+		else:
+			files[name] = text
+	if any:
+		data["files"] = files
+		commit()
+	return any
+
+
+## Writes a cloud copy's side files to the device. Saves from before side
+## files were mirrored have no "files" and leave the device's files alone.
+func _restore_files(d: Dictionary) -> void:
+	if not d.get("files") is Dictionary:
+		return
+	for p in mirrored:
+		var text := str(d.files.get(p.get_file(), ""))
+		if text != "":
+			var f := FileAccess.open(p, FileAccess.WRITE)
+			if f != null:
+				f.store_string(text)
+		elif FileAccess.file_exists(p):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 
 
 ## Fills in keys added since the save was written (old saves, older clients).
@@ -141,6 +205,7 @@ func backup(reason: String, d = null) -> void:
 
 ## Replaces local data with a cloud copy.
 func adopt(rev: int, d: Dictionary, account: String) -> void:
+	_restore_files(d)
 	data = upgrade(d)
 	base_rev = rev
 	dirty = false
@@ -152,8 +217,12 @@ func adopt(rev: int, d: Dictionary, account: String) -> void:
 ## Signing out: keep a backup, then start this device fresh (the account's
 ## progress stays in the cloud for the next sign-in).
 func reset_for_sign_out() -> void:
+	capture_files()
 	if progress(data) > 0:
 		backup("signed-out")
+	for p in mirrored:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
 	data = defaults()
 	base_rev = 0
 	dirty = false
@@ -170,6 +239,7 @@ func sync(backend) -> void:
 		return
 	_syncing = true
 	_sync_again = true
+	capture_files()
 	var passes := 0
 	while _sync_again and passes < 4:
 		_sync_again = false
@@ -181,7 +251,7 @@ func sync(backend) -> void:
 func _sync_once(backend) -> void:
 	if not await backend.ensure_session():
 		return
-	var me: String = backend.user_id()
+	var me := _account(backend)
 	if owner != me:
 		await _join_account(backend, me)
 	elif dirty:
@@ -215,8 +285,9 @@ func _join_account(backend, me: String) -> void:
 		if dirty:
 			await _push(backend, me)
 		return
-	if owner == "" and progress(data) > progress(cloud.data):
-		# Never synced from this device, and it is further along.
+	if (owner == "" or test_slot > 0) and progress(data) > progress(cloud.data):
+		# Never synced from this device (or joining the shared test slot), and
+		# it is further along.
 		backup("cloud-replaced", cloud.data)
 		owner = me
 		base_rev = cloud.rev
@@ -225,13 +296,16 @@ func _join_account(backend, me: String) -> void:
 		await _push(backend, me)
 		return
 	# The account's save wins (signing in on a device someone played as a guest).
-	if progress(data) > 0 and dirty:
+	if progress(data) > 0 and (dirty or test_slot > 0):
 		backup("before-sign-in")
 	adopt(cloud.rev, cloud.data, me)
 
 
 func _push(backend, me: String) -> void:
-	var res: Dictionary = await backend.call_rpc("sync_save", {"p_base_rev": base_rev, "p_data": data, "p_app_version": app_version})
+	var args := {"p_base_rev": base_rev, "p_data": data, "p_app_version": app_version}
+	if test_slot > 0:
+		args.p_slot = test_slot
+	var res: Dictionary = await backend.call_rpc("test_sync_save" if test_slot > 0 else "sync_save", args)
 	if not (res.ok and res.data is Dictionary):
 		return # Offline or a server hiccup: stay dirty and retry later.
 	var r: Dictionary = res.data
@@ -257,9 +331,19 @@ func _push(backend, me: String) -> void:
 ## The account's cloud save as {rev, data}, {rev: 0} when there is none, or
 ## {} when the call failed.
 func _fetch(backend, me: String) -> Dictionary:
+	if test_slot > 0:
+		var slot: Dictionary = await backend.call_rpc("test_load_save", {"p_slot": test_slot})
+		if not slot.ok or not slot.data is Dictionary:
+			return {}
+		return {"rev": int(slot.data.get("rev", 0)), "data": slot.data.get("data")}
 	var got: Dictionary = await backend.rest("GET", "/rest/v1/saves?select=rev,data&user_id=eq." + me)
 	if not got.ok or not got.data is Array:
 		return {}
 	if got.data.is_empty():
 		return {"rev": 0, "data": null}
 	return {"rev": int(got.data[0].rev), "data": got.data[0].data}
+
+
+## Who the cloud copy belongs to: the signed-in account, or the test slot.
+func _account(backend) -> String:
+	return "test:%d" % test_slot if test_slot > 0 else backend.user_id()

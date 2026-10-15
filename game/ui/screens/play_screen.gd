@@ -1,5 +1,8 @@
-## Play tab (home): quick fight into the arena, your fighter, and what's coming
-## (the Neon Circuit campaign and the daily modes), and Daily Trick Shot.
+## Play tab (home). Three bands, top to bottom, so it reads at a glance:
+## the This Week banner, the two big ways to fight (the campaign and Quick
+## fight with your fighter), then every other mode as a small tile in a
+## labelled group (Daily and weekly, Versus, Style). New modes add one tile
+## to a group with mode_tile(); the groups grow, the big cards never move.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -11,13 +14,54 @@ const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
 const LiveOps := preload("res://game/liveops.gd")
+const TrickShot := preload("res://sim/trick_shot.gd")
+const Spire := preload("res://sim/spire.gd")
+const SpireClimb := preload("res://meta/spire_climb.gd")
+
+const DAILY := Color("ffd36b")
+const VERSUS := Color("ff4fd8")
+const STYLE := Color("5ce1ff")
 
 
 static func build(shell, _params: Dictionary) -> Control:
-	var p = shell.profile
-	var root := Kit.vbox(26)
+	var root := Kit.vbox(20)
 	root.add_child(WeekScreen.banner(shell))
+	root.add_child(_campaign_card(shell))
+	root.add_child(_quick_fight_card(shell))
 
+	# Daily and weekly: same puzzle, run or tower for everyone.
+	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
+	var trick: Dictionary = WeekScreen.trick_status(day)
+	var trick_line := "Solved · streak %d" % trick.streak if trick.solved else ("Out of tries" if trick.tries >= WeekScreen.TRICK_TRIES else "New shot today")
+	var run_day := BounceRun.day_number(Time.get_unix_time_from_system())
+	var climb = SpireClimb.load_file(LiveOps.now())
+	root.add_child(group("Daily and weekly", DAILY, [
+		mode_tile(shell, "trickshot", "Trick Shot", trick_line, DAILY,
+			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")),
+		mode_tile(shell, "bouncerun", "Bounce Run", "Run #%d · daily" % run_day, Color("ffc23d"),
+			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")),
+		mode_tile(shell, "spire", "The Spire", "Floor %d/%d · weekly" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
+			func(): shell.go("spire")),
+		_locked_tile(shell),
+	]))
+
+	# Versus: other players' teams.
+	var arena_store = ArenaStore.open()
+	root.add_child(group("Versus", VERSUS, [
+		mode_tile(shell, "arena", "Ghost Arena", "%s · %s" % [Ladder.league_label(arena_store.trophies), Kit.commas(arena_store.trophies)], VERSUS,
+			func(): shell.go("arena")),
+		_friends_tile(shell),
+	]))
+
+	# Style: looks only, never power.
+	root.add_child(group("Style", STYLE, [_pass_tile(shell),
+		mode_tile(shell, "shop", "Cosmetics", "Looks only", STYLE, func(): shell.go("shop"))]))
+	return root
+
+
+## The campaign: the main way forward, so it gets the first big card.
+static func _campaign_card(shell) -> Control:
+	var p = shell.profile
 	# Campaign card: Glow Garden progress and the way into the stage list.
 	var Zones := preload("res://meta/zones.gd")
 	var Campaign := preload("res://meta/campaign.gd")
@@ -27,128 +71,105 @@ static func build(shell, _params: Dictionary) -> Control:
 	for i in stages.size():
 		cleared += 1 if Campaign.is_cleared(p, 0, i) else 0
 		star_total += Campaign.stars_of(p, 0, i)
-	var next_text := "All %d stages cleared. Go for 3 stars to unlock sweeps." % stages.size()
+	var next_text := "All %d stages cleared. 3-star them to sweep." % stages.size()
 	if cleared < stages.size():
 		var st: Dictionary = stages[cleared]
-		next_text = "Next: %s %s, Recommended Power %s." % [Zones.stage_key(0, cleared), st.get("name", Roster.get_critter(st.enemy).name),
+		next_text = "Next: %s %s · Recommended %s" % [Zones.stage_key(0, cleared), st.get("name", Roster.get_critter(st.enemy).name),
 			Kit.commas(Campaign.enemy_rating(0, cleared))]
-	var open := Kit.button("Open the map", func(): shell.go("campaign", {"zone": 0}), "go", 30, 90)
+	var open := Kit.button("Open the map", func(): shell.go("campaign", {"zone": 0}), "go", 30, 84)
 	shell.mark("campaign", open)
-	var zone := Kit.vbox(10, [
-		Kit.caption("Zone 1 · The Neon Circuit", Color("9be89a")),
-		Kit.label("Glow Garden", 48),
-		Kit.hbox(12, [Glyph.make("stars", 26, Kit.FG, 1),
-			Kit.label("%d/%d stages · %d/%d stars" % [cleared, stages.size(), star_total, stages.size() * 3], 22, Kit.MUTED)]),
-		Kit.label(next_text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+	var zone := Kit.vbox(8, [
+		Kit.caption("Campaign · Zone 1 · The Neon Circuit", Color("9be89a")),
+		Kit.hbox(10, [Kit.label("Glow Garden", 40), Kit.spacer(), Glyph.make("stars", 26, Kit.FG, 1),
+			Kit.label("%d/%d" % [star_total, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
+		Kit.label("%d/%d stages cleared. %s" % [cleared, stages.size(), next_text], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 		open,
 	])
-	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 40, 2, 30)
-	root.add_child(Kit.panel(zone, zst))
+	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 36, 2, 24)
+	return Kit.panel(zone, zst)
 
-	# Quick fight: the existing arena menu.
-	var vs := Kit.hbox(12, [CritterIcon.make("vampire", 1, 150), Kit.label("VS", 30, Kit.MUTED), CritterIcon.make("laser", 1, 150)], BoxContainer.ALIGNMENT_CENTER)
-	var fight := Kit.button("Quick fight", shell.request_play, "go", 34, 100)
-	shell.mark("quickfight", fight)
-	var quick := Kit.vbox(12, [
-		Kit.caption("Arena"),
-		Kit.label("Quick fight", 40),
-		Kit.label("Pick a ball, aim your launch and fight.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
-		vs, fight,
-	])
-	root.add_child(Kit.panel(quick, Kit.box(Kit.PANEL, Kit.LINE, 40, 2, 30)))
 
-	# Daily Trick Shot: one called bank shot a day, open to everyone.
-	root.add_child(mode_card(shell, "trickshot", "Daily · new puzzle every day", "Trick Shot",
-		"Call your walls, line up one launch and bank it in. Keep your streak going.", "Play today's shot", Color("ffd36b"),
-		func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")))
-	# Bounce Run: the daily roguelite, open from day one (equal power, no ladder).
-	var run_day := BounceRun.day_number(Time.get_unix_time_from_system())
-	root.add_child(mode_card(shell, "bouncerun", "Daily event · same run for everyone", "Bounce Run #%d" % run_day,
-		"Draft 3 critters, climb 8 floors, grab a boon after every win. Equal power, one daily leaderboard.", "Play today's run", Color("ffc23d"),
-		func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")))
-
-	# The Spire: the weekly 50-floor tower (design/spire.md).
-	root.add_child(mode_card(shell, "spire", "Weekly · resets Monday", "The Spire",
-		"50 floors, one tower for everyone this week. Critters that fight get tired, so the whole collection climbs.", "Climb the Spire", Color("ffc23d"),
-		func(): shell.go("spire")))
-	# Ghost Arena (async PvP, design/pvp.md).
-	var arena_store = ArenaStore.open()
-	root.add_child(mode_card(shell, "arena", "PvP · %s trophies · %s" % [Kit.commas(arena_store.trophies), Ladder.league_label(arena_store.trophies)],
-		"Ghost Arena", "Your trio against other trios. Climb from Bronze to Neon.", "Enter the Arena", Color("ff4fd8"),
-		func(): shell.go("arena")))
-	# Glow Pass and the cosmetics shop.
-	root.add_child(_pass_card(shell))
-	root.add_child(mode_card(shell, "shop", "Shop · looks only", "Cosmetics",
-		"Hats, trails, hit sparks and KO pops. Try them on first; they never change a fight.", "Open the shop", Color("5ce1ff"),
-		func(): shell.go("shop")))
-
-	# Your fighter.
+## Quick fight with your fighter on it: tap the fighter to change it.
+static func _quick_fight_card(shell) -> Control:
+	var p = shell.profile
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
-	var info := Kit.vbox(4, [Kit.label(c.name, 30), Glyph.make("stars", 26, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 22, Kit.MUTED), Kit.power(p.power_of(p.lineup), 26)])
+	var info := Kit.vbox(2, [Kit.caption("Quick fight · your fighter"), Kit.label(c.name, 30),
+		Kit.hbox(10, [Glyph.make("stars", 24, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 22, Kit.MUTED), Kit.power(p.power_of(p.lineup), 24)])])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(16, [CritterIcon.make(p.lineup, b.tier, 150), info, Kit.chip("Change", Kit.ACCENT)])
+	var row := Kit.hbox(16, [CritterIcon.make(p.lineup, b.tier, 104), info, Kit.chip("Change", Kit.ACCENT)])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var fighter := Kit.card_button(row, func(): shell.go("detail", {"id": p.lineup}), Color("3a3480"), Kit.PANEL2, 32, 18)
-	root.add_child(Kit.vbox(12, [Kit.hbox(0, [Kit.caption("Your fighter"), Kit.spacer(), Kit.label("Zone 1 is 1v1", 22, Kit.MUTED)]), fighter]))
-
-	root.add_child(_friends_card(shell))
-
-	# Daily modes, locked until zone 1 is cleared.
-	var modes := GridContainer.new()
-	modes.columns = 3
-	modes.add_theme_constant_override("h_separation", 14)
-	for m in [["Critter Hunts", "Copies to fuse", Color("ff6fae")], ["Training Gym", "XP for levels", Kit.GOOD], ["Gear Vault", "Shells and Cores", Color("3d9bff")]]:
-		var v := Kit.vbox(6, [Kit.label(m[0], 24, m[2], HORIZONTAL_ALIGNMENT_LEFT, true), Kit.label(m[1], 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
-			Kit.hbox(6, [Glyph.make("lock", 22, Kit.MUTED), Kit.label("After zone 1", 18, Kit.MUTED)])])
-		var card := Kit.card_button(v, shell.toast.bind("%s unlocks after you beat Mega Boulder, the zone 1 boss." % m[0]), Kit.LINE, Kit.PANEL, 28, 16)
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		modes.add_child(card)
-	root.add_child(Kit.vbox(12, [Kit.caption("Daily modes"), modes]))
-	return root
+	var fighter := Kit.card_button(row, func(): shell.go("detail", {"id": p.lineup}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 24, 0)
+	shell.mark("fighter", fighter)
+	var fight := Kit.button("Quick fight", shell.request_play, "primary", 30, 84)
+	shell.mark("quickfight", fight)
+	return Kit.panel(Kit.vbox(14, [fighter, fight]), Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 24))
 
 
-## A full-width mode card: caption, title, one line of text and a button.
-## Other modes (Bounce Run, Arena...) add one line each with this. The button
-## is registered as `mark` for the smoke test.
-static func mode_card(shell, mark: String, caption: String, title: String, text: String, button_text: String, accent: Color, on_press: Callable) -> Control:
-	var btn := Kit.button(button_text, on_press, "primary", 30, 90)
-	shell.mark(mark, btn)
-	var v := Kit.vbox(10, [Kit.caption(caption, accent), Kit.label(title, 40), Kit.label(text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
-	return Kit.panel(v, Kit.box(accent.darkened(.82), accent.darkened(.5), 40, 2, 30))
+## A labelled group of mode tiles, two to a row, tinted in the group's colour.
+static func group(title: String, accent: Color, tiles: Array) -> Control:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	for t in tiles:
+		grid.add_child(t)
+	return Kit.vbox(10, [Kit.caption(title, accent), grid])
 
 
-static func _pass_card(shell) -> Control:
+## A small mode tile: title and one short status line. The whole tile is the
+## button; `mark` names it for the smoke test.
+static func mode_tile(shell, mark: String, title: String, status: String, accent: Color, on_press: Callable) -> Control:
+	var name := Kit.label(title, 28)
+	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name.clip_text = true
+	var line := Kit.label(status, 20, accent)
+	line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	line.clip_text = true
+	var v := Kit.vbox(2, [name, line])
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	var tile := Kit.card_button(v, on_press, accent.darkened(.45), accent.darkened(.84), 28, 18)
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tile.custom_minimum_size.x = 0
+	shell.mark(mark, tile)
+	return tile
+
+
+## Older full-width card API: now a tile (button_text and text are dropped).
+static func mode_card(shell, mark: String, caption: String, title: String, _text: String, _button_text: String, accent: Color, on_press: Callable) -> Control:
+	return mode_tile(shell, mark, title, caption, accent, on_press)
+
+
+## Critter Hunts, Training Gym and Gear Vault open after zone 1: one tile.
+static func _locked_tile(shell) -> Control:
+	var t := mode_tile(shell, "locked_dailies", "Hunts · Gym · Vault", "After zone 1", Kit.MUTED,
+		shell.info.bind("After zone 1", ["Beat Mega Boulder, the zone 1 boss, to open three daily modes:",
+			"Critter Hunts: copies of one critter to fuse.", "Training Gym: XP for levels.", "Gear Vault: Shells and Cores."]))
+	return t
+
+
+static func _pass_tile(shell) -> Control:
 	var glow = shell.glow
 	var season: Dictionary = glow.season()
 	if season.is_empty():
-		return mode_card(shell, "glowpass", "Glow Pass", "Between seasons", "The next pass opens with the next season.", "Open the pass", Color("ffd36b"), func(): shell.go("pass"))
+		return mode_tile(shell, "glowpass", "Glow Pass", "Between seasons", DAILY, func(): shell.go("pass"))
 	var n: int = glow.claimable_count()
-	var line := "Level %d of 50. Earn pass XP from fights and daily bounties." % glow.pass_level()
+	var line := "Level %d of 50" % glow.pass_level()
 	if n > 0:
-		line = "Level %d · %d reward%s ready to claim!" % [glow.pass_level(), n, "" if n == 1 else "s"]
-	return mode_card(shell, "glowpass", "Glow Pass · %s · ends in %s" % [season.name, LiveOps.countdown(LiveOps.now(), season.ends)], "Glow Pass",
-		line, "Claim rewards" if n > 0 else "Open the pass", Color("ffd36b"), func(): shell.go("pass"))
+		line = "%d reward%s to claim!" % [n, "" if n == 1 else "s"]
+	return mode_tile(shell, "glowpass", "Glow Pass", line, DAILY if n > 0 else STYLE, func(): shell.go("pass"))
 
 
 ## Friends: a count and whatever is waiting (requests, energy gifts).
-static func _friends_card(shell) -> Control:
+static func _friends_tile(shell) -> Control:
 	var fr = shell.friends
-	var line := "Add friends, gift energy and rematch their teams."
+	var line := "Add friends"
 	if fr.status == "ready":
-		var bits := ["%d friend%s" % [fr.friends().size(), "" if fr.friends().size() == 1 else "s"]]
+		line = "%d friend%s" % [fr.friends().size(), "" if fr.friends().size() == 1 else "s"]
 		if not fr.incoming().is_empty():
-			bits.append("%d request%s" % [fr.incoming().size(), "" if fr.incoming().size() == 1 else "s"])
-		if fr.gifts_claimable > 0:
-			bits.append("%d gift%s waiting" % [fr.gifts_claimable, "" if fr.gifts_claimable == 1 else "s"])
-		line = " · ".join(bits)
+			line = "%d request%s" % [fr.incoming().size(), "" if fr.incoming().size() == 1 else "s"]
+		elif fr.gifts_claimable > 0:
+			line = "%d gift%s waiting" % [fr.gifts_claimable, "" if fr.gifts_claimable == 1 else "s"]
 	elif not fr.enabled():
-		line = "Go online to add friends."
-	var text := Kit.vbox(4, [Kit.label("Friends", 32), Kit.label(line, 22, Kit.GOOD if fr.attention() > 0 else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var bolt := Glyph.make("energy", 56, Color("5ce1ff"))
-	bolt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var row := Kit.hbox(16, [bolt, text, Kit.chip("Open", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
-	var card := Kit.card_button(row, func(): shell.go("friends"), Color("5ce1ff") if fr.attention() > 0 else Kit.LINE, Kit.PANEL, 32, 18)
-	shell.mark("friends", card)
-	return card
+		line = "Go online to add"
+	return mode_tile(shell, "friends", "Friends", line, Kit.GOOD if fr.attention() > 0 else VERSUS, func(): shell.go("friends"))

@@ -7,6 +7,7 @@
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
+const Lineup := preload("res://sim/lineup.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 
 const FLOORS := 50
@@ -78,7 +79,9 @@ static func floor_def(week: int, floor_no: int, pool: Array = []) -> Dictionary:
 
 
 ## Relay config (sim/relay.gd) for an attempt. `picks` are your balls in
-## order as {id, power}; `aims` your launch angles per slot (null = unaimed).
+## order as {id, power}, or with `slot` (sim/lineup.gd) a ball fights at that
+## owned tier, level and gear instead; `aims` your launch angles per slot
+## (null = unaimed).
 static func relay_config(spec: Dictionary, picks: Array, aims: Array = []) -> Dictionary:
 	assert(picks.size() >= 1 and picks.size() <= spec.lineup, "Bring 1 to %d balls" % spec.lineup)
 	var my_aims: Array = []
@@ -88,7 +91,9 @@ static func relay_config(spec: Dictionary, picks: Array, aims: Array = []) -> Di
 		"seed": spec.seed,
 		"sides": [picks.map(func(p): return p.id), spec.enemies.map(func(e): return e.id)],
 		"aims": [my_aims, spec.enemies.map(func(_e): return null)],
-		"powers": [picks.map(func(p): return float(p.power)), spec.enemies.map(func(e): return float(e.power))],
+		"powers": [picks.map(func(p): return Lineup.power(p.slot) if p.has("slot") else float(p.power)), spec.enemies.map(func(e): return float(e.power))],
+		"tiers": [picks.map(func(p): return Lineup.clean(p.slot).tier if p.has("slot") else 1), spec.enemies.map(func(_e): return 1)],
+		"gear": [picks.map(func(p): return Lineup.clean(p.slot).gear if p.has("slot") else null), spec.enemies.map(func(_e): return null)],
 		"sizes": [picks.map(func(_p): return 1.0), spec.enemies.map(func(e): return float(e.scale))],
 	}
 
