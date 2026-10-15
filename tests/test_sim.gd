@@ -229,12 +229,16 @@ func test_explicit_aim_is_used_and_keeps_rng_stream() -> void:
 	check_eq(aimed.launch_angles[1], free.launch_angles[1], "opponent aim unaffected by player aim")
 
 
-func test_every_pairing_always_finishes() -> void:
-	# About 2500 fights in all, however big the roster gets.
-	var seeds := maxi(3, 2500 / (BallDefs.DEFS.size() * BallDefs.DEFS.size()))
-	for a in BallDefs.DEFS:
-		for b in BallDefs.DEFS:
-			for seed_value in seeds:
+func test_every_critter_always_finishes() -> void:
+	# Each critter against itself and its next four neighbours, so the cost
+	# grows with the roster rather than its square (the balance matrix covers
+	# every pairing).
+	var ids: Array = BallDefs.DEFS.keys()
+	for i in ids.size():
+		for step in 5:
+			var a: String = ids[i]
+			var b: String = ids[(i + step) % ids.size()]
+			for seed_value in 4:
 				var s := MatchSim.new({"seed": seed_value, "p1": a, "p2": b, "angles": [null, null]}).run_to_end()
 				check(s.time <= MatchSim.TIME_LIMIT + 0.001, "%s vs %s seed %d ran past the limit" % [a, b, seed_value])
 				check(s.reason != "", "%s vs %s seed %d has no result" % [a, b, seed_value])
