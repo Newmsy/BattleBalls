@@ -1,7 +1,12 @@
 ## A live critter in a menu: idles, blinks, looks around and squishes when poked.
+## Drawing a critter is a lot of GDScript, so a long list stays smooth only
+## if most icons don't redraw: an icon scrolled out of view, a silhouette (it
+## doesn't move) and every icon while a list is being dragged or flung all
+## keep their last drawing.
 extends Control
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
+const TouchInput := preload("res://game/ui/touch_input.gd")
 
 var critter_id := "vampire"
 var tier := 1
@@ -16,6 +21,7 @@ var _hit := 0.0
 var _flash := 0.0
 var _squash := 0.0
 var _stacks := 0
+var _clip: Control ## The nearest scrolling ancestor, if any: off it means off screen.
 
 
 static func make(id: String, tier_: int, side: float, pokeable_ := false, silhouette_ := false) -> Control:
@@ -31,6 +37,11 @@ static func make(id: String, tier_: int, side: float, pokeable_ := false, silhou
 
 func _ready() -> void:
 	_phase = float(hash(critter_id + str(get_instance_id())) % 1000) / 100.0
+	var node := get_parent()
+	while node != null and _clip == null:
+		if node is ScrollContainer:
+			_clip = node
+		node = node.get_parent()
 
 
 func poke() -> void:
@@ -46,13 +57,24 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
-	if not is_visible_in_tree():
+	if silhouette or not is_visible_in_tree():
 		return
-	_t += delta
+	var poked := _hit > 0.0 or _flash > 0.0 or _squash > 0.0
 	_hit = maxf(0.0, _hit - delta)
 	_flash = maxf(0.0, _flash - delta)
 	_squash = maxf(0.0, _squash - delta)
+	if not poked and (TouchInput.scrolling() or not on_screen()):
+		return
+	_t += delta
 	queue_redraw()
+
+
+## True when some of the icon shows: inside its scroll area and the window.
+func on_screen() -> bool:
+	var r := get_global_rect()
+	if is_instance_valid(_clip) and not r.intersects(_clip.get_global_rect()):
+		return false
+	return r.intersects(get_viewport_rect())
 
 
 func _draw() -> void:
