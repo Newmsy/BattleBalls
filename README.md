@@ -40,6 +40,10 @@ are served at `<preview>/smoke/`.
 
 URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
 (`aim` is the launch angle in tenths of a degree, screen space, y down).
+
+A first visit with no URL params plays the onboarding
+(`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
+`?tutorial=1` replays it, `?tutorial=0` skips it.
 `?sounds=1` opens the sound board: every sound with a play button.
 `?pve=1-3&auto=1` plays campaign stage 1-3 on a fresh, unsaved profile.
 `?demo=1` loads the filled-in sample profile (unsaved), for previews and the smoke test.

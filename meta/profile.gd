@@ -50,16 +50,23 @@ var stars: Dictionary = {}
 var runs := 0
 
 
-static func new_game(now: int):
+static func new_game(now: int, starter := STARTER):
 	var p = load("res://meta/profile.gd").new()
-	p.energy_time = now
-	p.stacks.append({"id": STARTER, "tier": 1, "count": 1, "level": 1, "xp": 0})
-	p.seen[STARTER] = true
-	p.items.assign([
+	p.setup_new_game(now, starter)
+	return p
+
+
+## Fills a blank profile as a brand-new player with one T1 `starter`.
+func setup_new_game(now: int, starter := STARTER) -> void:
+	energy_time = now
+	coins = 200
+	lineup = starter
+	stacks.assign([{"id": starter, "tier": 1, "count": 1, "level": 1, "xp": 0}])
+	seen = {starter: true}
+	items.assign([
 		{"name": "Energy Pack", "count": 1, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
 		{"name": "Summon Orb", "count": STARTER_ORBS, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
 	])
-	return p
 
 
 # --- Collection (the UI's API) ------------------------------------------------

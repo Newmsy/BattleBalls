@@ -1,5 +1,6 @@
 ## A filled-in sample profile for building and testing screens. The real save
-## and every rule live in meta/profile.gd; this only adds sample().
+## and every rule live in meta/profile.gd; this only adds sample()
+## and starter() (onboarding).
 extends "res://meta/profile.gd"
 
 
@@ -32,3 +33,11 @@ static func sample():
 	])
 	return p
 
+
+
+## A brand-new player straight out of onboarding: one T1 copy of the starter
+## (the tutorial fights drop two more), a free summon and a few orbs.
+static func starter(id: String):
+	var p = load("res://game/ui/ui_profile.gd").new()
+	p.setup_new_game(int(Time.get_unix_time_from_system()), id)
+	return p

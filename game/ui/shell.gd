@@ -112,8 +112,8 @@ func build() -> void:
 		go("arena")
 
 
-## Swap in another profile (e.g. after a cloud save arrives) and redraw.
-func use_profile(p) -> void:
+## Swap in another profile (the new player from onboarding, or a newer cloud save).
+func set_profile(p) -> void:
 	if profile.changed.is_connected(_refresh_top):
 		profile.changed.disconnect(_refresh_top)
 	profile = p

@@ -34,7 +34,7 @@ func _init() -> void:
 			strict = true
 		elif arg == "--power-step":
 			power_step = true
-	var ids: Array = BallDefs.DEFS.keys()
+	var ids: Array = BallDefs.DEFS.keys().filter(func(id): return not BallDefs.DEFS[id].get("tutorial", false))
 	var lines: Array[String] = []
 	lines.append_array(_equal_power(ids))
 	if power_step:
