@@ -6,8 +6,9 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const ArenaStore := preload("res://game/pvp/arena_store.gd")
+const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
-const Analytics := preload("res://game/online/analytics.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -42,6 +43,12 @@ static func build(shell, _params: Dictionary) -> Control:
 		"Call your walls, line up one launch and bank it in. Keep your streak going.", "Play today's shot", Color("ffd36b"),
 		func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")))
 
+	# Ghost Arena (async PvP, design/pvp.md).
+	var arena_store = ArenaStore.open()
+	root.add_child(mode_card(shell, "arena", "PvP · %s trophies · %s" % [Kit.commas(arena_store.trophies), Ladder.league_label(arena_store.trophies)],
+		"Ghost Arena", "Your trio against other trios. Climb from Bronze to Neon.", "Enter the Arena", Color("ff4fd8"),
+		func(): shell.go("arena")))
+
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
@@ -65,24 +72,7 @@ static func build(shell, _params: Dictionary) -> Control:
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		modes.add_child(card)
 	root.add_child(Kit.vbox(12, [Kit.caption("Daily modes"), modes]))
-	root.add_child(_privacy_row(shell))
 	return root
-
-
-## Anonymous play stats, on by default, with a one-tap opt-out (which also
-## deletes what was already sent). See game/online/analytics.gd.
-static func _privacy_row(shell) -> Control:
-	var off := Analytics.opted_out()
-	var on_press := func():
-		Analytics.set_opt_out(not off)
-		shell.refresh()
-		shell.toast("Play stats off. Anything already sent is deleted." if not off else "Thanks! Anonymous play stats are on.")
-	var toggle := Kit.button("Turn on" if off else "Turn off", on_press, "ghost", 22, 64)
-	shell.mark("stats_toggle", toggle)
-	var text := Kit.label("Anonymous play stats help us balance critters and fix the tutorial: %s." % ("off" if off else "on"),
-		20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.hbox(14, [text, toggle])
 
 
 ## A full-width mode card: caption, title, one line of text and a button.

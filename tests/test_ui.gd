@@ -3,9 +3,10 @@ extends "res://tests/test_case.gd"
 
 const Roster := preload("res://game/ui/roster.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
-const CritterArt := preload("res://game/ui/critter_art.gd")
+
 const Shell := preload("res://game/ui/shell.gd")
 const Summon := preload("res://game/ui/summon.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 const SummonScreen := preload("res://game/ui/screens/summon_screen.gd")
 
 
@@ -41,14 +42,15 @@ func test_power_grows_about_a_quarter_per_tier() -> void:
 	var t2 := Roster.power("vampire", 2, 1)
 	check_near(float(t2) / t1, 1.25, .01, "one tier")
 	check(Roster.power("blackhole", 1, 1) > t1, "Legendary base is higher")
-	check(t2 > Roster.power("blackhole", 1, 1), "a tier beats a rarity step")
+	check_near(float(Roster.power("laser", 1, 1)) / t1, 1.25, .01, "two rarity steps (Common to Rare) are one tier")
+	check_near(float(Roster.power("blackhole", 1, 1)) / t1, 1.5625, .01, "a Legendary starts two tiers above a Common")
 
 
 func test_every_critter_has_art_and_a_full_ladder() -> void:
-	check_eq(Roster.CRITTERS.size(), 15, "roster size")
+	check_eq(Roster.CRITTERS.size(), CritterDb.ids().size() - 1, "every critter but Plain")
 	for c in Roster.CRITTERS:
 		check_eq(c.ladder.size(), Roster.MAX_TIER, c.id + " ladder")
-		check(CritterArt.EYES.has(c.id), c.id + " has a face")
+		check(not CritterDb.get_critter(c.id).art.get("eyes", {}).is_empty(), c.id + " has a face")
 
 
 func test_a_ten_pull_always_has_a_rare_or_better() -> void:
@@ -57,7 +59,7 @@ func test_a_ten_pull_always_has_a_rare_or_better() -> void:
 		rng.seed = seed
 		var ids: Array = Summon.pull(UiProfile.sample(), 10, rng)
 		check_eq(ids.size(), 10, "ten critters")
-		check(ids.any(func(id): return Summon.rarity_of(id) != "common"), "seed %d has a Rare+" % seed)
+		check(ids.any(func(id): return Roster.RARITIES.find(Summon.rarity_of(id)) >= Roster.RARITIES.find("rare")), "seed %d has a Rare+" % seed)
 
 
 func test_pity_guarantees_a_legendary() -> void:
@@ -72,7 +74,7 @@ func test_pity_guarantees_a_legendary() -> void:
 		if got_legendary:
 			break
 	check(got_legendary, "first Rare+ roll at pity 1 is Legendary")
-	check(p.legendary_pity > 100, "pity resets after a Legendary")
+	check_eq(p.legendary_pity, Summon.PITY_RESET, "pity resets after a Legendary")
 
 
 func test_wishlist_holds_three_and_toggles() -> void:
@@ -110,6 +112,8 @@ func test_wishlist_never_changes_rarity_odds_or_pity() -> void:
 	for id in ["vampire", "laser", "phoenix"]:
 		p.toggle_wishlist(id)
 	for r in Roster.RARITIES:
+		if not Roster.CRITTERS.any(func(c): return c.rarity == r):
+			continue # No critters of this rarity yet: its rolls go a rarity down.
 		var share := 0.0
 		for c in Roster.CRITTERS:
 			if c.rarity == r:

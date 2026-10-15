@@ -11,6 +11,7 @@ extends Node2D
 const MatchSim := preload("res://sim/match_sim.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const TrickShotView := preload("res://game/trick_shot_view.gd")
+const A11y := preload("res://game/a11y.gd")
 const Main := preload("res://game/main.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -408,7 +409,8 @@ func _label(text: String, font_size: int) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_font_size_override("font_size", A11y.font(font_size))
+	l.set_meta("base_font", font_size)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
@@ -418,7 +420,8 @@ func _button(text: String, on_press: Callable, font_size := 30) -> Button:
 	b.text = text
 	b.custom_minimum_size = Vector2(0, 84)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.add_theme_font_size_override("font_size", font_size)
+	b.add_theme_font_size_override("font_size", A11y.font(font_size))
+	b.set_meta("base_font", font_size)
 	if on_press.is_valid():
 		b.pressed.connect(on_press)
 	return b

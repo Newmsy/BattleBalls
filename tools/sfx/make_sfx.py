@@ -188,6 +188,33 @@ def ouch_laser(variant):
     return lowpass(seq([(0, a), (0.055, b)]), 4500) * 0.8
 
 
+def ouch_magnet(variant):
+    """Flux: a buzzy 'bzzt-ow!' with a little metal ring."""
+    p = [1.0, 1.12][variant]
+    dur = 0.15
+    f = sweep(1000 * p, 620 * p, dur, 1)
+    buzz = 1 + 0.5 * np.sign(np.sin(2 * np.pi * 90 * t_axis(dur)))
+    voice = lowpass(osc(f, "square") * buzz * 0.4, 3000) * env(dur, 0.003, 4)
+    ring = osc(np.full(int(0.12 * SR), 2950 * p), "sine") * env(0.12, 0.001, 6) * 0.25
+    return mix(voice, ring)
+
+
+def flip():
+    """Flux's field flipping: a short rising 'vwom' hum."""
+    dur = 0.2
+    f = sweep(140, 420, dur, 0.7)
+    hum = lowpass(osc(f, "saw"), 1800) * env(dur, 0.03, 2) * 0.6
+    return mix(hum, osc(f * 2, "sine") * env(dur, 0.03, 3) * 0.3)
+
+
+def snap():
+    """Flux's Snap hit: a hard metal clack with a spark."""
+    clack = mix(bandnoise(0.04, 1500, 9000) * env(0.04, 0.0003, 8),
+                osc(np.full(int(0.09 * SR), 1720.0), "square") * env(0.09, 0.0005, 7) * 0.4)
+    spark = bandnoise(0.12, 5000, 12000) * env(0.12, 0.002, 5) * 0.3
+    return lowpass(seq([(0, clack), (0.02, spark)]), 9000)
+
+
 def ko():
     """Deflating squeak, then a pop and a sparkle."""
     dur = 0.55
@@ -276,6 +303,11 @@ def lose():
     return jingle([67, 66, 65, 62], 0.16, 0.7, shape="tri", cutoff=2500)
 
 
+def draw():
+    """A shrug: up a step, back down, ending on the note it started on."""
+    return jingle([69, 72, 69], 0.14, 0.6, shape="tri", cutoff=3500)
+
+
 def go():
     """Fight start: a quick rising whoosh with a bright 'ding'."""
     dur = 0.35
@@ -313,9 +345,11 @@ SOUNDS = {
     "wall_0": lambda: wall(0), "wall_1": lambda: wall(1), "wall_2": lambda: wall(2),
     "ouch_vampire_0": lambda: ouch_vampire(0), "ouch_vampire_1": lambda: ouch_vampire(1),
     "ouch_laser_0": lambda: ouch_laser(0), "ouch_laser_1": lambda: ouch_laser(1),
+    "ouch_magnet_0": lambda: ouch_magnet(0), "ouch_magnet_1": lambda: ouch_magnet(1),
+    "flip": flip, "snap": snap,
     "ko": ko, "heal": heal, "slurp": slurp, "zap": zap, "sizzle": sizzle,
     "overtime": overtime, "heartbeat": heartbeat,
-    "win": win, "lose": lose, "go": go, "launch": launch, "stretch": stretch, "click": click,
+    "win": win, "lose": lose, "draw": draw, "go": go, "launch": launch, "stretch": stretch, "click": click,
 }
 
 

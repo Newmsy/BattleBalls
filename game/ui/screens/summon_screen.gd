@@ -41,16 +41,16 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(Kit.label("Every summon is Tier 1. A x10 always has a Rare or better.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 
 	var odds := GridContainer.new()
-	odds.columns = 4
-	odds.add_theme_constant_override("h_separation", 10)
-	for r in ["common", "rare", "epic", "legendary"]:
+	odds.columns = Roster.RARITIES.size()
+	odds.add_theme_constant_override("h_separation", 6)
+	for r in Roster.RARITIES:
 		var pct: float = 0.0
 		for o in Summon.ODDS:
 			if o[0] == r:
 				pct = o[1]
 		var col: Color = Roster.RARITY_COLORS[r]
-		var cell := Kit.panel(Kit.vbox(0, [Kit.label(("%.1f%%" % pct).replace(".0%", "%"), 28, col, HORIZONTAL_ALIGNMENT_CENTER), Kit.label(Roster.RARITY_NAMES[r], 18, col, HORIZONTAL_ALIGNMENT_CENTER)]),
-			Kit.box(Kit.PANEL2, Kit.LINE, 20, 2, 10))
+		var cell := Kit.panel(Kit.vbox(0, [Kit.label(("%.1f%%" % pct).replace(".0%", "%"), 24, col, HORIZONTAL_ALIGNMENT_CENTER), Kit.label(Roster.RARITY_NAMES[r], 15, col, HORIZONTAL_ALIGNMENT_CENTER)]),
+			Kit.box(Kit.PANEL2, Kit.LINE, 16, 2, 6))
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		odds.add_child(cell)
 	root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Odds (same as campaign drops)"), odds])))

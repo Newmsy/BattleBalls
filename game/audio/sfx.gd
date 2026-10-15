@@ -18,6 +18,9 @@ const RULES := {
 	"wall": [2, 0.07, -15.0],
 	"ouch_vampire": [1, 0.18, -7.0],
 	"ouch_laser": [1, 0.18, -9.0],
+	"ouch_magnet": [1, 0.18, -9.0],
+	"flip": [1, 0.3, -14.0],
+	"snap": [1, 0.2, -4.0],
 	"ko": [1, 0.5, 0.0],
 	"heal": [1, 0.3, -10.0],
 	"slurp": [1, 0.25, -8.0],
@@ -27,11 +30,14 @@ const RULES := {
 	"heartbeat": [1, 0.5, -6.0],
 	"win": [1, 0.5, -3.0],
 	"lose": [1, 0.5, -3.0],
+	"draw": [1, 0.5, -3.0],
 	"go": [1, 0.3, -5.0],
 	"launch": [1, 0.1, -4.0],
 	"stretch": [1, 0.07, -14.0],
 	"click": [2, 0.04, -8.0],
 }
+## Applied to every sound and the music so busy moments don't clip.
+const MASTER_DB := -7.0
 const MUSIC := {"menu": ["music_menu", -12.0], "fight": ["music_fight", -10.0]}
 ## Contact damage at or above this share of the target's max HP is a "big hit".
 const BIG_HIT_SHARE := 0.18
@@ -64,17 +70,13 @@ var _board: Control
 
 func _init() -> void:
 	_rng.randomize()
-	_ensure_bus("Music")
-	_ensure_bus("SFX")
 	for name in RULES:
 		_variants[name] = _load_variants(name)
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
-		p.bus = "SFX"
 		add_child(p)
 		_players.append(p)
 	_music = AudioStreamPlayer.new()
-	_music.bus = "Music"
 	add_child(_music)
 	_load_settings()
 
@@ -123,7 +125,7 @@ func on_fight_start(sim) -> void:
 func on_result(winner: int) -> void:
 	fight_sim = null
 	_music.pitch_scale = 1.0
-	var jingle := "win" if winner == 0 else "lose"
+	var jingle := "draw" if winner < 0 else ("win" if winner == 0 else "lose")
 	if is_inside_tree():
 		get_tree().create_timer(0.45).timeout.connect(func(): play(jingle))
 	play_music("menu")
@@ -144,8 +146,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("sizzle")
 				elif e.amount >= target.max_hp * BIG_HIT_SHARE:
 					play("hit_big")
-				if target.alive():
-					play("ouch_" + target.def.ability)
+				# Each critter file names its ouch voice and pitch, so new critters
+				# reuse the existing chirps.
+				if target.alive() and target.def.ouch != "":
+					play(target.def.ouch, 0.0, target.def.voice_pitch)
 			"heal":
 				play("slurp")
 				play("heal", 0.0, 1.0 + clampf(e.amount / 20.0, 0.0, 0.3))
@@ -153,6 +157,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("wall", 0.0, 0.9 + _rng.randf() * 0.25)
 			"beam":
 				play("zap")
+			"flip":
+				play("flip", 0.0, 1.0 if e.pulling else 0.85)
+			"snap":
+				play("snap")
 			"end":
 				if e.reason != "time_limit":
 					play("ko")
@@ -199,7 +207,7 @@ func play_music(track: String) -> void:
 		return
 	stream.loop = true
 	_music.stream = stream
-	_music.volume_db = info[1]
+	_music.volume_db = info[1] + MASTER_DB
 	if is_inside_tree():
 		_music.play()
 
@@ -215,7 +223,7 @@ func _start(stream: AudioStream, volume_db: float, pitch: float) -> void:
 		return
 	var player := _free_player()
 	player.stream = stream
-	player.volume_db = volume_db
+	player.volume_db = volume_db + MASTER_DB
 	player.pitch_scale = pitch
 	player.play()
 
@@ -245,18 +253,13 @@ func _load_variants(name: String) -> Array:
 	return out
 
 
-func _ensure_bus(bus_name: String) -> void:
-	if AudioServer.get_bus_index(bus_name) != -1:
-		return
-	AudioServer.add_bus()
-	var idx := AudioServer.bus_count - 1
-	AudioServer.set_bus_name(idx, bus_name)
-	AudioServer.set_bus_send(idx, "Master")
-
-
 func _apply_mode() -> void:
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), mode != "all")
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("SFX"), mode == "off")
+	# Everything plays on the Master bus: Godot 4.3's web build loses the route
+	# to the speakers when buses are added at runtime, so the game goes silent.
+	# Muting is done by not starting sounds instead.
+	if mode == "off":
+		for p in _players:
+			p.stop()
 	if mode == "all" and _music_track != "" and not _music.playing:
 		var track := _music_track
 		_music_track = ""

@@ -14,12 +14,17 @@ const SESSION_PATH := "user://session.json"
 const TIMEOUT := 12.0
 const REFRESH_MARGIN := 60 ## Refresh the access token this many seconds early.
 
+## The signed-in user changed: a new guest, a sign-in to another account, or
+## a sign-out. Not emitted when a guest links an email or provider (same id).
 signal account_changed
+## sign_out() ran; emitted just before account_changed so the save can reset first.
+signal signed_out
 signal _session_settled(ok: bool)
 
 var url := ""
 var key := ""
-## access_token, refresh_token, expires_at (unix seconds), user_id.
+## access_token, refresh_token, expires_at (unix seconds), user_id, and
+## anonymous (true for a guest that hasn't linked an email or provider yet).
 var session := {}
 var disabled := false ## Set by ?offline=1.
 var _settling := false
@@ -101,26 +106,95 @@ func rest(method: String, path: String, body = null, headers: PackedStringArray 
 	return res
 
 
+# --- Accounts (game/online/account.gd drives these) ---------------------------
+
+## A call to Supabase Auth (/auth/v1/...). `as_user` sends the session token
+## (needed to change or link the signed-in user).
+func auth_call(method: String, path: String, body = null, as_user := false) -> Dictionary:
+	if not enabled():
+		return {"ok": false, "code": 0, "data": null}
+	if as_user and not await ensure_session():
+		return {"ok": false, "code": 0, "data": null}
+	return await _send(method, "/auth/v1/" + path, body, [], as_user)
+
+
+## Takes the session from a sign-in or verify response. Returns false if the
+## response had none.
+func take_session(data) -> bool:
+	if not (data is Dictionary and data.has("access_token") and data.has("refresh_token")):
+		return false
+	var now := int(Time.get_unix_time_from_system())
+	var user = data.get("user")
+	var claims := jwt_claims(str(data.access_token))
+	var previous := user_id()
+	session = {
+		"access_token": data.access_token,
+		"refresh_token": data.refresh_token,
+		"expires_at": int(data.get("expires_at", now + int(data.get("expires_in", 3600)))),
+		"user_id": str(user.get("id", "")) if user is Dictionary else str(claims.get("sub", "")),
+		"anonymous": bool(user.get("is_anonymous", false)) if user is Dictionary else bool(claims.get("is_anonymous", false)),
+	}
+	_write_json(SESSION_PATH, session)
+	if user_id() != previous:
+		account_changed.emit()
+	return true
+
+
+## Forgets this device's session. The next online call starts a new guest.
+func sign_out() -> void:
+	if session.has("access_token"):
+		await _send("POST", "/auth/v1/logout", {}, [], true)
+	session = {}
+	if FileAccess.file_exists(SESSION_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SESSION_PATH))
+	signed_out.emit()
+	account_changed.emit()
+
+
+## After an Apple/Google redirect or an emailed sign-in link, the web page
+## opens with the session in its #fragment. Takes it, cleans the address bar,
+## and returns "" (nothing there), "ok", or the error the page carried.
+func take_session_from_page() -> String:
+	if not OS.has_feature("web"):
+		return ""
+	var hash := str(JavaScriptBridge.eval("window.location.hash", true)).trim_prefix("#")
+	if hash == "" or not ("access_token=" in hash or "error" in hash):
+		return ""
+	JavaScriptBridge.eval("history.replaceState(null, '', window.location.pathname + window.location.search)", true)
+	var params := parse_fragment(hash)
+	if params.has("error") or params.has("error_description"):
+		return str(params.get("error_description", params.get("error", "sign-in failed"))).replace("+", " ")
+	return "ok" if take_session(params) else "sign-in failed"
+
+
+static func parse_fragment(hash: String) -> Dictionary:
+	var out := {}
+	for pair in hash.split("&", false):
+		var kv := pair.split("=")
+		out[kv[0].uri_decode()] = kv[1].uri_decode() if kv.size() > 1 else ""
+	return out
+
+
+## The claims inside a Supabase access token (not verified: only used to read
+## our own user id after a redirect; the server checks every token it gets).
+static func jwt_claims(token: String) -> Dictionary:
+	var parts := token.split(".")
+	if parts.size() != 3:
+		return {}
+	var b64 := parts[1].replace("-", "+").replace("_", "/")
+	while b64.length() % 4 != 0:
+		b64 += "="
+	var parsed = JSON.parse_string(Marshalls.base64_to_utf8(b64))
+	return parsed if parsed is Dictionary else {}
+
+
 # --- Internals --------------------------------------------------------------
 
 func _auth(endpoint: String, body: Dictionary) -> Dictionary:
 	var res := await _send("POST", "/auth/v1/" + endpoint, body, [], false)
-	var data = res.data
-	if res.ok and data is Dictionary and data.has("access_token") and data.has("user"):
-		var now := int(Time.get_unix_time_from_system())
-		var previous := user_id()
-		session = {
-			"access_token": data.access_token,
-			"refresh_token": data.refresh_token,
-			"expires_at": int(data.get("expires_at", now + int(data.get("expires_in", 3600)))),
-			"user_id": str(data.user.get("id", "")),
-		}
-		_write_json(SESSION_PATH, session)
-		if user_id() != previous:
-			account_changed.emit()
-	else:
+	if not (res.ok and take_session(res.data)):
 		res.ok = false
-		print("ONLINE auth %s failed: %d %s" % [endpoint.get_slice("?", 0), res.code, str(data).left(200)])
+		print("ONLINE auth %s failed: %d %s" % [endpoint.get_slice("?", 0), res.code, str(res.data).left(200)])
 	return res
 
 
@@ -135,7 +209,7 @@ func _send(method: String, path: String, body, headers: PackedStringArray, as_us
 	if as_user:
 		all.append("Authorization: Bearer " + str(session.get("access_token", "")))
 	all.append_array(headers)
-	var methods := {"GET": HTTPClient.METHOD_GET, "POST": HTTPClient.METHOD_POST, "PATCH": HTTPClient.METHOD_PATCH, "DELETE": HTTPClient.METHOD_DELETE}
+	var methods := {"GET": HTTPClient.METHOD_GET, "POST": HTTPClient.METHOD_POST, "PUT": HTTPClient.METHOD_PUT, "PATCH": HTTPClient.METHOD_PATCH, "DELETE": HTTPClient.METHOD_DELETE}
 	var payload := "" if body == null else JSON.stringify(body)
 	var err := http.request(url + path, all, methods[method], payload)
 	if err != OK:

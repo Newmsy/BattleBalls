@@ -24,7 +24,7 @@ var gear: Array[Dictionary] = []
 var items: Array[Dictionary] = []
 var free_summon := true
 ## Rare-or-better rolls left before a guaranteed Legendary (shared with drops).
-var legendary_pity := 112
+var legendary_pity := 37
 ## Critters the player is chasing: they come up twice as often within their
 ## rarity in summons and drops (game/ui/summon.gd). Free to change any time.
 var wishlist: Array[String] = []
@@ -51,6 +51,24 @@ static func sample():
 		{"name": "Energy Pack", "count": 3, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
 		{"name": "XP Chip", "count": 12, "text": "+200 XP to one critter.", "color": Color("45f5a6")},
 		{"name": "Summon Orb", "count": 14, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
+	])
+	return p
+
+
+## A brand-new player straight out of onboarding: one T1 copy of the starter
+## (the tutorial fights drop two more), a free summon and a few orbs.
+static func starter(id: String):
+	var p = load("res://game/ui/ui_profile.gd").new()
+	p.account_level = 1
+	p.energy = p.energy_max
+	p.coins = 200
+	p.orbs = 10
+	p.lineup = id
+	p.legendary_pity = load("res://game/ui/summon.gd").PITY_RESET
+	p.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
+	p.seen[id] = true
+	p.items.assign([
+		{"name": "Summon Orb", "count": p.orbs, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
 	])
 	return p
 
