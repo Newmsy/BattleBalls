@@ -40,7 +40,7 @@ const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## 720x1280 phone without scrolling: put detail behind an "i" (info()) and
 ## the main action in pin(). See design/ui.md, "No scrolling".
 ## Play scrolls only below its two big cards: its mode groups grow too.
-const SCROLLS := ["play", "critters", "bag", "shop", "pass", "friends", "campaign", "spire", "week", "bracket"]
+const SCROLLS := ["play", "critters", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
 
@@ -265,6 +265,15 @@ func info(title: String, paragraphs: Array) -> void:
 	sheet(v)
 
 
+## The round Back button every pushed screen puts at the start of its title row.
+func back_button(mark_as := "back") -> Control:
+	var b := Kit.card_button(Glyph.make("back", 30, Kit.FG), back, Kit.LINE, Kit.PANEL, 999, 16)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	mark(mark_as, b)
+	return b
+
+
 ## A round "i" button that opens info(title, paragraphs).
 func info_button(title: String, paragraphs: Array, mark_as := "info") -> Control:
 	var b := Kit.card_button(Glyph.make("info", 34, Kit.FG), info.bind(title, paragraphs), Kit.LINE, Kit.PANEL, 999, 12)
@@ -450,16 +459,23 @@ func _report(name: String) -> void:
 			print("UI_AT %s %d %d" % [k, roundi(p.x), roundi(p.y)])
 
 
-## Logs how tall the screen is against the room it has; a screen outside
-## SCROLLS that needs scrolling logs UI_OVERFLOW (smoke.mjs fails on it).
+## Logs how big the screen is against the room it has; a screen outside
+## SCROLLS that needs scrolling logs UI_OVERFLOW, and any screen wider than
+## the phone logs UI_OVERFLOW_X (smoke.mjs fails on both).
 func _report_fit() -> void:
 	if not is_instance_valid(_scroll) or _scroll.get_child_count() == 0:
 		return
-	var need: float = _scroll.get_child(0).get_combined_minimum_size().y
-	var room: float = _scroll.size.y
-	print("UI_FIT %s %d %d" % [current, roundi(need), roundi(room)])
-	if need > room + 1.0 and current not in SCROLLS:
-		print("UI_OVERFLOW %s %d" % [current, roundi(need - room)])
+	var need: Vector2 = _scroll.get_child(0).get_combined_minimum_size()
+	var room: Vector2 = _scroll.size
+	# The scroll grows with too-wide content, so measure width against the
+	# screen, keeping the scroll's left margin on the right too.
+	room.x = minf(room.x, get_viewport_rect().size.x - 2.0 * _scroll.global_position.x)
+	print("UI_FIT %s %d %d width %d %d" % [current, roundi(need.y), roundi(room.y), roundi(need.x), roundi(room.x)])
+	if need.y > room.y + 1.0 and current not in SCROLLS:
+		print("UI_OVERFLOW %s %d" % [current, roundi(need.y - room.y)])
+	# No screen may be wider than the phone: cards would run off the right edge.
+	if need.x > room.x + 1.0:
+		print("UI_OVERFLOW_X %s %d" % [current, roundi(need.x - room.x)])
 
 
 # --- Top bar -------------------------------------------------------------------

@@ -20,8 +20,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var glow = shell.glow
 	var t := LiveOps.now()
 	var root := Kit.vbox(24)
-	var back := Kit.card_button(Glyph.make("back", 40, Kit.FG), shell.back, Kit.LINE, Kit.PANEL, 22, 8)
-	shell.mark("shop_back", back)
+	var back: Control = shell.back_button("shop_back")
 	var gems_btn := Kit.card_button(Kit.hbox(8, [Glyph.make("gem", 34), Kit.label(Kit.commas(glow.gems()), 28), Kit.chip("+", GEM, 22)]),
 		func(): gem_sheet(shell), Color(GEM, .6), Kit.PANEL, 999, 10)
 	shell.mark("get_gems", gems_btn)

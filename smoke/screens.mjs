@@ -1,6 +1,6 @@
 // Screenshots every home screen at two phone sizes, with normal and Larger
 // text, for UI reviews (before/after shots in PRs). Not part of CI.
-// Usage: node screens.mjs [path/to/build/web] [out dir] [screen,screen,...]
+// Usage: [EXTRA=&today=2026-10-17] node screens.mjs [path/to/build/web] [out dir] [screen,screen,...]
 import { chromium } from "playwright";
 import http from "node:http";
 import fs from "node:fs";
@@ -28,7 +28,7 @@ const launchOptions = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--e
 if (process.env.CHROMIUM_PATH) launchOptions.executablePath = process.env.CHROMIUM_PATH;
 const browser = await chromium.launch(launchOptions);
 
-async function shoot(screen, sizeName, large, extra = "") {
+async function shoot(screen, sizeName, large, extra = process.env.EXTRA ?? "") {
   const page = await browser.newPage({ viewport: SIZES[sizeName], deviceScaleFactor: 2, hasTouch: true });
   const logs = [];
   page.on("console", (m) => logs.push(m.text()));

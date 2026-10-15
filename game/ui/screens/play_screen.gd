@@ -82,7 +82,7 @@ static func _campaign_card(shell) -> Control:
 		Kit.caption("Campaign · Zone 1 · The Neon Circuit", Color("9be89a")),
 		Kit.hbox(10, [Kit.label("Glow Garden", 40), Kit.spacer(), Glyph.make("stars", 26, Kit.FG, 1),
 			Kit.label("%d/%d" % [star_total, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
-		Kit.label("%d/%d stages cleared. %s" % [cleared, stages.size(), next_text], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label(next_text if cleared == stages.size() else "%d/%d stages cleared. %s" % [cleared, stages.size(), next_text], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 		open,
 	])
 	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 36, 2, 24)

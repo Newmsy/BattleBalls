@@ -20,8 +20,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var glow = shell.glow
 	var t := LiveOps.now()
 	var root := Kit.vbox(24)
-	var back := Kit.card_button(Glyph.make("back", 40, Kit.FG), shell.back, Kit.LINE, Kit.PANEL, 22, 8)
-	shell.mark("pass_back", back)
+	var back: Control = shell.back_button("pass_back")
 	root.add_child(Kit.hbox(14, [back, Kit.label("Glow Pass", 44)], BoxContainer.ALIGNMENT_CENTER))
 	var season: Dictionary = glow.season(t)
 	if season.is_empty():

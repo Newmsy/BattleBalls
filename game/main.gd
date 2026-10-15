@@ -158,6 +158,7 @@ var pve := {}
 var pve_param := ""
 ## ?demo=1 (smoke tests, previews): a filled-in sample profile that is never saved.
 var demo_profile := false
+var demo_stars := 0 ## ?demo=1&stars=3: every Zone 1 stage starred (UI screenshots).
 var profile_unsaved := false
 ## The board fight being watched (Fight of the Day, a Bracket of Legends game):
 ## its title and the screen to go back to. Empty otherwise.
@@ -557,6 +558,8 @@ func _load_profile() -> void:
 	if demo_profile:
 		profile = preload("res://game/ui/ui_profile.gd").sample()
 		profile_unsaved = true
+		for k in Zones.zone(0).stages.size() if demo_stars > 0 else 0:
+			profile.stars[Zones.stage_key(0, k)] = demo_stars
 	else:
 		profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
 	profile.changed.connect(_save_profile)
@@ -1686,6 +1689,7 @@ func _read_url_params() -> Dictionary:
 	if params.get("pve", "").count("-") == 1:
 		pve_param = params.pve
 	demo_profile = params.get("demo", "") == "1"
+	demo_stars = clampi(int(params.get("stars", "0")), 0, 3)
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():
