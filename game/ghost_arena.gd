@@ -23,7 +23,7 @@ enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
 
 const ARENA_PIXELS := 680.0
 const PANEL_HEIGHT := 400.0
-const SPEEDS := [1.0, 2.0, 4.0]
+const FightSpeed := preload("res://game/fight_speed.gd")
 const LEG_PAUSE := 1.4 ## Seconds to show a leg's winner before the next leg.
 
 var state := State.INTRO
@@ -33,7 +33,6 @@ var relay: Relay
 var sim: MatchSim
 var aimed: Array[bool] = [false, false, false]
 var aim := 0 ## Current aim for your ball, tenths of a degree, screen space.
-var speed_index := 0
 var result_delta := 0
 var slots := [[], []] ## Both trios as lineup slots, for the tier and power on show.
 
@@ -88,7 +87,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	match state:
 		State.FIGHT:
-			_accumulator += delta * SPEEDS[speed_index]
+			_accumulator += delta * FightSpeed.current()
 			var steps := 0
 			while _accumulator >= MatchSim.DT and steps < 32 and not sim.finished:
 				sim.step()
@@ -103,7 +102,7 @@ func _process(delta: float) -> void:
 			if _pause <= 0.0:
 				_next_leg()
 	if arena:
-		arena.advance_effects(delta * (SPEEDS[speed_index] if state == State.FIGHT else 1.0))
+		arena.advance_effects(delta * (FightSpeed.current() if state == State.FIGHT else 1.0))
 		_update_hud()
 
 
@@ -206,10 +205,7 @@ func _start_leg() -> void:
 	_accumulator = 0.0
 	state = State.FIGHT
 	info_label.text = "%s vs %s" % [_fighter_text(0), _fighter_text(1)]
-	var speed := _button("Speed %dx" % int(SPEEDS[speed_index]), Callable())
-	speed.pressed.connect(func():
-		speed_index = (speed_index + 1) % SPEEDS.size()
-		speed.text = "Speed %dx" % int(SPEEDS[speed_index]))
+	var speed := FightSpeed.picker()
 	_set_panel([_row([speed, _button("Skip", _skip_leg)])])
 	sfx.on_fight_start(sim)
 

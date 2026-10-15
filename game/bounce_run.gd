@@ -21,7 +21,7 @@ const SAVE_PATH := "user://bounce_run.cfg"
 const SHARE_URL := "https://battleballs.vercel.app/?mode=bouncerun"
 const ARENA_PIXELS := 680.0
 const PANEL_HEIGHT := 330.0
-const SPEEDS := [1.0, 2.0, 4.0]
+const FightSpeed := preload("res://game/fight_speed.gd")
 const GOLD := Color("ffc23d")
 const PINK := Color("ff5a7a")
 
@@ -35,7 +35,6 @@ var picks: Array = [] ## Draft selection in progress.
 var slot := 0 ## Pick slot fighting this floor.
 var aim := MatchSim.AIM_AT_CENTRE[0]
 var sim: MatchSim
-var speed_index := 0
 var stats := {"played": 0, "best_floors": 0, "clears": 0}
 var save_path := SAVE_PATH ## Tests point this elsewhere.
 
@@ -57,7 +56,6 @@ var info_label: Label
 var panel: VBoxContainer
 var scroll: ScrollContainer
 var page: VBoxContainer
-var speed_button: Button
 var share_button: Button
 
 
@@ -101,7 +99,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if state == State.FIGHT:
-		_accumulator += delta * SPEEDS[speed_index]
+		_accumulator += delta * FightSpeed.current()
 		var steps := 0
 		while _accumulator >= MatchSim.DT and steps < 32 and not sim.finished:
 			sim.step()
@@ -111,7 +109,7 @@ func _process(delta: float) -> void:
 		if sim.finished:
 			_finish_fight()
 		_update_hud()
-	arena.advance_effects(delta * (SPEEDS[speed_index] if state == State.FIGHT else 1.0))
+	arena.advance_effects(delta * (FightSpeed.current() if state == State.FIGHT else 1.0))
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -264,16 +262,11 @@ func _launch() -> void:
 	state = State.FIGHT
 	sfx.on_fight_start(sim)
 	info_label.text = ""
-	speed_button = Kit.button("Speed %dx" % SPEEDS[speed_index], _cycle_speed, "ghost", 28)
+	var speed := FightSpeed.picker(28)
 	var skip := Kit.button("Skip", _skip, "ghost", 28)
 	_mark("br_skip", skip)
-	_set_panel([Kit.hbox(14, [speed_button, skip])], "br_fight")
+	_set_panel([Kit.hbox(14, [speed, skip])], "br_fight")
 	print("BOUNCERUN_FIGHT floor=%d slot=%d aim=%d" % [run.floor + 1, slot, aim])
-
-
-func _cycle_speed() -> void:
-	speed_index = (speed_index + 1) % SPEEDS.size()
-	speed_button.text = "SPEED %dX" % SPEEDS[speed_index]
 
 
 func _skip() -> void:

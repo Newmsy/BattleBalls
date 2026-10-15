@@ -5,6 +5,7 @@ extends RefCounted
 const Kit := preload("res://game/ui/ui_kit.gd")
 const A11y := preload("res://game/a11y.gd")
 const Dev := preload("res://game/dev.gd")
+const FightSpeed := preload("res://game/fight_speed.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 
 const OPTIONS := [
@@ -96,9 +97,13 @@ static func _testing(shell) -> Control:
 	shell.mark("dev_refill_energy", energy)
 	var orbs := Kit.button("+10 orbs", func(): _add_orbs(shell), "ghost", 26, 72)
 	shell.mark("dev_add_orbs", orbs)
-	for b in [energy, orbs]:
+	var speeds := Kit.button("All speeds: " + ("on" if FightSpeed.all_unlocked() else "off"), func():
+		FightSpeed.set_unlock_all(not FightSpeed.all_unlocked())
+		open(shell), "ghost", 26, 72)
+	shell.mark("dev_all_speeds", speeds)
+	for b in [energy, orbs, speeds]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs])])
+	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs, speeds])])
 
 
 static func _refill_energy(shell) -> void:
