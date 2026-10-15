@@ -110,11 +110,12 @@ func test_picks_lock_and_results_stay_hidden_until_seen() -> void:
 	LiveOps.use(LiveOps._read(LiveOps.BUNDLED))
 	var ev := Legends.current(_at("2026-10-14"))
 	ev = ev.merged({"id": "test-%d" % Time.get_ticks_usec()})
-	check(Legends.set_pick(ev, "laser", _at("2026-10-14")), "pick before the lock")
-	check_eq(Legends.pick_of(ev), "laser", "stored")
-	check(not Legends.set_pick(ev, "vampire", Legends.locks(ev)), "refused at the lock")
+	var pick: String = ev.entrants[0]
+	check(Legends.set_pick(ev, pick, _at("2026-10-14")), "pick before the lock")
+	check_eq(Legends.pick_of(ev), pick, "stored")
+	check(not Legends.set_pick(ev, ev.entrants[1], Legends.locks(ev)), "refused at the lock")
 	check(not Legends.set_pick(ev, "nobody", _at("2026-10-14")), "only entrants")
-	check_eq(Legends.pick_of(ev), "laser", "unchanged")
+	check_eq(Legends.pick_of(ev), pick, "unchanged")
 	var last := Legends.bracket(ev).rounds - 1
 	var day := Legends.reveal_at(ev, last) + 3600
 	check(not Legends.shows_result(ev, last, 0, Legends.reveal_at(ev, last) - 1), "not out yet")

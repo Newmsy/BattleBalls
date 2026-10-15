@@ -668,7 +668,9 @@ try {
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "26-home-new-player.png") });
-    await tapUi(page, logs, "campaign", "campaign");
+    await tapUi(page, logs, "campaign", "world");
+    await page.screenshot({ path: path.join(shots, "27-world-map.png") });
+    await tapUi(page, logs, "zone_1", "campaign");
     await page.screenshot({ path: path.join(shots, "27-campaign-map.png") });
     await tapUi(page, logs, "stage_1_1");
     await page.screenshot({ path: path.join(shots, "28-stage-aim.png") });

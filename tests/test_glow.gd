@@ -135,7 +135,8 @@ func test_cosmetics_do_not_change_a_fight() -> void:
 func test_sim_never_reads_cosmetics() -> void:
 	for f in DirAccess.get_files_at("res://sim"):
 		if f.ends_with(".gd"):
-			var src := FileAccess.get_file_as_string("res://sim/" + f)
+			# Glowbug is a critter (sim/families.gd), not a cosmetic.
+			var src := FileAccess.get_file_as_string("res://sim/" + f).replace("glowbug", "")
 			check(not src.contains("glow") and not src.contains("cosmetic"), "sim/%s doesn't know about cosmetics" % f)
 
 
