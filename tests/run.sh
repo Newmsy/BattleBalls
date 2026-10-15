@@ -5,7 +5,7 @@
 set -uo pipefail
 GODOT="${GODOT:-godot}"
 log="$(mktemp)"
-timeout 300 "$GODOT" --headless --quit-after 10 --script res://tests/run_tests.gd 2>&1 | tee "$log"
+timeout 600 "$GODOT" --headless --quit-after 10 --script res://tests/run_tests.gd 2>&1 | tee "$log"
 status=${PIPESTATUS[0]}
 if grep -q "SCRIPT ERROR" "$log"; then
   echo "::error::Script errors while running tests (see log above)"

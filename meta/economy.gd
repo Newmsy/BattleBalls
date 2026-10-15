@@ -17,8 +17,8 @@ const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
 ## in roster.md).
 const LAUNCH := {
 	"common": ["vampire", "juggernaut", "spiker", "speedster", "crumb", "pip", "gumdrop"],
-	"uncommon": ["shelly", "fin", "static", "cogs", "bolt", "drum"],
-	"rare": ["magmo", "clam", "laser", "bomber", "comet", "zing", "gust", "frost", "thorns"],
+	"uncommon": ["shelly", "fin", "static", "cogs", "bolt", "drum", "frost", "thorns"],
+	"rare": ["magmo", "clam", "laser", "bomber", "comet", "zing", "gust"],
 	"epic": ["wrecker", "brewster", "splitter", "ghost", "gravity", "mirror", "magnet"],
 	"legendary": ["phoenix", "megabot", "prism", "quasar", "frostfang", "blackhole"],
 }
