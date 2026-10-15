@@ -241,7 +241,7 @@ func _ready() -> void:
 				shell.go("spire")
 			elif url_params.get("screen", "") in Shell.TAB_IDS:
 				shell.show_tab(url_params.screen) # ?screen=fuse
-			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen != "detail" or url_params.has("id")):
+			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen not in ["detail", "dex_entry"] or url_params.has("id")):
 				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
 				shell.go(url_params.screen, {"id": url_params.id} if url_params.has("id") else {})
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
