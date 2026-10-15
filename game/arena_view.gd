@@ -5,6 +5,7 @@ extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
@@ -22,6 +23,10 @@ const POP_DAMAGE := Color("ff5a7a")
 const POP_HEAL := Color("45f5a6")
 const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
+## Crits pop bigger in gold; backstabs get their own call-out.
+const POP_CRIT := Color("ffb627")
+const POP_BACKSTAB := Color("d68cff")
+const CRIT_POP_SCALE := 1.5
 ## Field rings (the "field" effect): Pull draws in blue, Push pushes out red.
 const FIELD_PULL := Color("4d8dff")
 const FIELD_PUSH := Color("ff4d6a")
@@ -53,6 +58,7 @@ var aim_dir := Vector2.ZERO
 var ghost_dir := Vector2.ZERO
 ## Ball types to show before a sim exists (menu preview).
 var preview_types: Array = ["vampire", "laser"]
+var preview_modifier := Modifiers.NONE
 ## Arena to show before a sim exists (menu preview).
 var preview_arena := "square"
 ## Tier of each ball (stars on the badge, how big its feature grows).
@@ -130,7 +136,15 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_hit[e.target] = HIT_LIFE
 				var col := POP_DAMAGE if e.kind == "contact" else POP_BEAM
 				var t := sim.balls[e.target]
-				_add_popup(t.pos + Vector2(28, -t.radius - 10), "-%d" % ceili(e.amount), col)
+				if e.get("crit", false):
+					_add_popup(t.pos + Vector2(28, -t.radius - 10), "CRIT -%d" % ceili(e.amount), POP_CRIT, CRIT_POP_SCALE)
+					_shake = maxf(_shake, 7.0 * A11y.motion())
+					_spawn_particles(t.pos, 8)
+				else:
+					_add_popup(t.pos + Vector2(28, -t.radius - 10), "-%d" % ceili(e.amount), col)
+				if e.get("backstab", false):
+					_add_popup(t.pos + Vector2(-30, -t.radius - 52), "BACKSTAB!", POP_BACKSTAB, 1.15)
+					_shake = maxf(_shake, 8.0 * A11y.motion())
 			"heal":
 				var b := sim.balls[e.target]
 				_add_popup(b.pos + Vector2(48, -b.radius - 40), "+%d" % ceili(e.amount), POP_HEAL)
@@ -204,8 +218,8 @@ func advance_effects(delta: float) -> void:
 	queue_redraw()
 
 
-func _add_popup(pos: Vector2, text: String, color: Color) -> void:
-	_popups.append({"pos": pos, "text": text, "color": color, "age": 0.0})
+func _add_popup(pos: Vector2, text: String, color: Color, size := 1.0) -> void:
+	_popups.append({"pos": pos, "text": text, "color": color, "age": 0.0, "size": size})
 
 
 func _spawn_particles(pos: Vector2, count: int) -> void:
@@ -253,7 +267,7 @@ func _draw() -> void:
 
 	if sim == null:
 		for i in 2:
-			var def := BallDefs.get_def(preview_types[i])
+			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
 			_draw_critter(i, def, MatchSim.START_CORNERS[i] * s, def.radius * s, def.hp, def.hp, shake)
 		return
 
@@ -306,7 +320,10 @@ func _draw() -> void:
 		var t: float = p.age / POPUP_LIFE
 		var pos: Vector2 = p.pos * s + Vector2(0, -40.0 * t)
 		var rise := 40.0 if not A11y.reduced_motion else 16.0
-		_text_centered(pos + Vector2(0, (40.0 - rise) * t), p.text, A11y.font(26), Color(p.color, 1.0 - t * t), 6)
+		var grow: float = p.size
+		if grow > 1.0 and not A11y.reduced_motion:
+			grow *= 1.0 + 0.3 * maxf(0.0, 1.0 - t * 6.0) ## A quick punch-in on big pops.
+		_text_centered(pos + Vector2(0, (40.0 - rise) * t), p.text, roundi(A11y.font(26) * grow), Color(p.color, 1.0 - t * t), 6)
 
 	if _banner > 0.0:
 		_draw_banner(full)

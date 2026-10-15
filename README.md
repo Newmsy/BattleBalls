@@ -23,8 +23,9 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 ```sh
 godot --headless --import                                   # once, after cloning
 GODOT=godot tests/run.sh                                    # all tests
-godot --headless --script res://tools/balance.gd -- --fights=200 --power-step [--arena=all]
+godot --headless --script res://tools/balance.gd -- --fights=200 --power-step [--arena=all] [--only=<id>]
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
+godot --headless --script res://tools/spire_curve.gd        # The Spire's floor power curve
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
 DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS tests on an empty Postgres
@@ -37,9 +38,10 @@ CI builds every ready (non-draft) PR for the web and deploys it to Vercel
 comment with its preview URL; `main` deploys to production. Smoke-test
 screenshots are served at `<preview>/smoke/`.
 
-URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink`
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink&mod=big_head`
 (`aim` is the launch angle in tenths of a degree, screen space, y down;
-`arena` is an id from `sim/arenas.gd`).
+`arena` is an id from `sim/arenas.gd`; `mod` is an optional Chaos Weekend
+modifier id from `sim/modifiers.gd`).
 
 A first visit with no URL params plays the onboarding
 (`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
@@ -179,8 +181,11 @@ is written to `user://save_backups` (newest 8 kept). Widen `progress` as more
 of the game is saved (account level, critters).
 
 Auth settings live in code: CI's migrate job runs `tools/supabase_auth_config.mjs`
-on every merge to `main` (email code templates, guest linking, allowed return
-URLs) and switches on Apple, Google and custom email when their secrets exist:
+on every merge to `main` (guest linking, allowed return URLs, email codes) and
+switches on Apple, Google and custom email when their secrets exist. The code
+email templates go up with the `SMTP_*` secrets: Supabase's free built-in
+mailer refuses custom templates, so until then its default emails carry a
+sign-in link but no typed code:
 
 | Repo secret | What |
 |---|---|
@@ -212,6 +217,23 @@ record moves), send one energy gift a day (2 energy; up to 10 gifts claimed a
 day; the server sets the amount) and send **preset phrases only**, never free
 text (Newms, 2026-10-14). `?demo=friends` shows sample friends with no server.
 
+## Economy pacing
+
+`meta/economy.gd` holds the economy numbers (summon odds, campaign drop
+chance and zone drop pools, Summon Orb income) and the pacing targets from
+design/pve.md section 6. `meta/economy_model.gd` plays simulated casual,
+regular (~20 minutes a day) and heavy players through them, day by day, and
+`tests/test_economy.gd` fails if the regular player's first fusion, T3, Rare
+at T2, Legendary, T4 or T5 drifts out of its window.
+
+```sh
+godot --headless --script res://tools/economy_sim.gd -- --players=200 --as-built   # report, with the old numbers for comparison
+godot --headless --script res://tools/economy_sim.gd -- --wishlist                 # players wishlist their top Rare+ critters
+```
+
+Changing drops, orb income, energy or the launch roster: re-run the report and
+paste it in the PR.
+
 ## Analytics
 
 `game/online/analytics.gd` queues anonymous play events (`Analytics.track(name, props)`)
@@ -242,6 +264,21 @@ other code.
 - `tests/test_critters.gd` checks every file; `CritterDb.validate` explains
   what's wrong.
 
+## Damage rolls, crits, backstabs and gear
+
+Every hit's damage is rolled within +-10% and can crit (5% base chance, x1.5),
+from a roll stream seeded by the fight seed (`MatchSim.rolls`), so fights still
+replay from the seed and the launch angles. A contact hit from behind (both
+balls heading within 45 degrees of each other, the striker catching the other
+up) is a backstab for x1.3. Damage events carry `crit` and `backstab` flags;
+the arena shows gold CRIT pops and a BACKSTAB! call-out, with their own sounds.
+
+Gear is known fight setup like tiers: `MatchSim` takes `gear: [g1, g2]` and
+relays take `gear[side][slot]`, each a list of pieces or summed stat lines.
+`sim/gear.gd` holds the seven lines (attack, health, defense, speed, crit
+chance, crit damage, cooldown speed), their per-rarity values and caps.
+`balance.gd --gear` checks the lines stay worth about the same.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
@@ -264,3 +301,8 @@ web build and smoke test run once a PR is ready; `main` runs the unit and
 database tests, then builds, deploys and migrates without repeating the smoke
 test. Run the full checks locally before pushing (see CLAUDE.md), and push a
 draft in a few larger steps rather than many small ones.
+
+The balance gate is its own set of `Balance` jobs: `tools/ci/balance_plan.sh`
+picks which pairings a PR needs and how many parallel shards to spread them
+over, so it stays inside the time limit as the roster grows (BALANCE.md, "What
+checks it"). The `Balance audit` workflow fights every pairing weekly on `main`.

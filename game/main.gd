@@ -1,6 +1,6 @@
 ## Game flow: pick balls -> aim -> watch the fight -> result.
 ## URL params on the web build skip straight to a fight, e.g.
-## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink
+## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink&mod=big_head
 ## Share links (see fight_link.gd) open a replay (?r=) or a challenge (?c=).
 ## A first visit with no params plays the onboarding (game/onboarding.gd);
 ## ?tutorial=1 forces it, ?tutorial=0 skips it.
@@ -8,6 +8,7 @@ extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 const Backend := preload("res://game/online/backend.gd")
@@ -21,6 +22,7 @@ const LiveOps := preload("res://game/liveops.gd")
 const Onboarding := preload("res://game/onboarding.gd")
 const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
+const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const Account := preload("res://game/online/account.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
@@ -71,6 +73,9 @@ var foe_aim = null ## Opponent launch angle, or null to let the seed pick it.
 var link_error := ""
 var speed_index := 0
 var auto_start := false
+## Chaos Weekend rule twist. Starts on this weekend's modifier (Normal on
+## weekdays); the menu's Rules button cycles through all of them for testing.
+var modifier := Modifiers.NONE
 var auto_clip := false ## ?clip=1: make a clip as soon as the fight ends (smoke test).
 var url_picks := false ## URL params chose the balls: don't overwrite them from the save.
 
@@ -116,6 +121,7 @@ var pick_scroll: ScrollContainer
 var fight_button: Button
 var launch_button: Button
 var seed_label: Label
+var rules_button: Button
 var fight_box: HBoxContainer
 var speed_button: Button
 var aim_box: HBoxContainer
@@ -133,6 +139,9 @@ var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
 var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
+## The board fight being watched (Fight of the Day, a Bracket of Legends game):
+## its title and the screen to go back to. Empty otherwise.
+var _board := {}
 var aim_back_button: Button
 var tutorial_tags: Array = [] ## HUD names during onboarding fights.
 var tutorial_side := 0 ## The ball the player is rooting for, for the result jingle.
@@ -146,6 +155,7 @@ static var _mode_redirected := false
 func _ready() -> void:
 	_rng.randomize()
 	seed_value = _rng.randi_range(1, 99999)
+	modifier = _weekend_modifier()
 	backend = Backend.new()
 	add_child(backend)
 	friends = Friends.new(backend)
@@ -194,6 +204,12 @@ func _ready() -> void:
 			_show_home()
 			if link_friend != "":
 				shell.go("friends")
+			elif SpireScreen.should_open(url_params):
+				shell.go("spire")
+			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
+			if url_params.get("mode", "") == "bracket":
+				shell.go("week")
+				shell.go("bracket")
 	friends.changed.connect(func(): if state == State.RESULT: _label_result_buttons())
 	if link_friend != "":
 		friends.set_invite(link_friend)
@@ -253,7 +269,7 @@ func _set_aim_preview() -> void:
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
-	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena()}
+	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena(), "modifier": modifier}
 
 
 func _show_menu() -> void:
@@ -273,6 +289,7 @@ func _refresh_menu() -> void:
 		player_buttons[id].button_pressed = id == player_type
 	new_seed_button.disabled = mode == Mode.CHALLENGE
 	seed_label.text = "Seed %d, %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]
+	rules_button.text = Modifiers.display_name(modifier)
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
 	for id in player_buttons:
@@ -285,7 +302,10 @@ func _refresh_menu() -> void:
 	elif mode == Mode.CHALLENGE:
 		info_label.text = "CHALLENGE! Your friend's %s has its shot lined up. Pick a ball and beat it." % \
 			BallDefs.get_def(opponent_type).display_name
-	arena.preview_types = [player_type, _pick_opponent()]
+	if modifier != Modifiers.NONE:
+		info_label.text = "%s: %s" % [Modifiers.display_name(modifier), Modifiers.get_def(modifier).description]
+	arena.preview_types = _fight_types(player_type, _pick_opponent())
+	arena.preview_modifier = modifier
 	arena.preview_arena = _pick_arena()
 	arena.queue_redraw()
 	_report_menu.call_deferred()
@@ -313,7 +333,7 @@ func _begin_aim() -> void:
 	arena.clear_effects()
 	arena.reset_camera()
 	_set_aim_preview()
-	info_label.text = "Drag on the arena to aim your %s, then let go to launch." % BallDefs.get_def(player_type).display_name
+	info_label.text = "Drag on the arena to aim your %s, then let go to launch." % sim.balls[0].def.display_name
 	_show_only(aim_box)
 	_report_menu.call_deferred()
 
@@ -323,6 +343,26 @@ func _pick_opponent() -> String:
 		return opponent_choice
 	# Derived from the seed so a seed always means the same matchup.
 	return BallDefs.PLAYABLE[seed_value % BallDefs.PLAYABLE.size()]
+
+
+## The balls that will actually fight: Mirror Match overrides both picks.
+func _fight_types(p1: String, p2: String) -> Array:
+	if Modifiers.get_def(modifier).get("mirror", false):
+		var m := Modifiers.mirror_ball(seed_value)
+		return [m, m]
+	return [p1, p2]
+
+
+## This weekend's Chaos twist from the live-ops schedule, or NONE off-weekend.
+func _weekend_modifier() -> String:
+	var c := LiveOps.chaos(LiveOps.now())
+	return c.modifier if c.live else Modifiers.NONE
+
+
+func _cycle_rules() -> void:
+	var ids: Array = [Modifiers.NONE] + Modifiers.DEFS.keys()
+	modifier = ids[(ids.find(modifier) + 1) % ids.size()]
+	_refresh_menu()
 
 
 func _launch() -> void:
@@ -338,12 +378,14 @@ func _start_fight() -> void:
 	sim = MatchSim.new(_config())
 	_prepare_fight(sim.config)
 	state = State.FIGHT
-	info_label.text = "%s vs %s" % [BallDefs.get_def(player_type).display_name, BallDefs.get_def(opponent_type).display_name]
+	info_label.text = "%s vs %s" % [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
+	if modifier != Modifiers.NONE:
+		info_label.text += " · " + Modifiers.display_name(modifier)
 	speed_button.text = "Speed %sx" % _speed_text()
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
-		info_label.text = ("Fight of the Day: " if _board_pick >= 0 else "Shared fight: ") + info_label.text
+		info_label.text = (_board.title + ": " if not _board.is_empty() else "Shared fight: ") + info_label.text
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -452,7 +494,9 @@ func _show_result() -> void:
 
 func _report_code() -> String:
 	var code := "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
-	return code if _pick_arena() == "square" else code + "." + _pick_arena()
+	if _pick_arena() != "square":
+		code += "." + _pick_arena()
+	return code + ("." + modifier if modifier != Modifiers.NONE else "")
 
 
 # --- Save and online ----------------------------------------------------------
@@ -601,6 +645,9 @@ func _build_ui() -> void:
 	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu())
 	seed_row.add_child(new_seed_button)
 	seed_row.add_child(_button("Home", _show_home))
+	# Debug toggle for Chaos Weekend modifiers until the event screen exists.
+	rules_button = _button("", _cycle_rules, 22)
+	seed_row.add_child(rules_button)
 	menu_box.add_child(seed_row)
 	fight_button = _button("FIGHT!", _begin_aim, 40)
 	menu_box.add_child(fight_button)
@@ -658,11 +705,12 @@ func _build_shell() -> void:
 		shell.play_with = ""
 		_play_normal())
 	shell.watch_requested.connect(_watch_board_fight)
+	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
-	LiveOps.fetch(self, func(): if shell.current in ["play", "week"]: shell.refresh())
+	LiveOps.fetch(self, func(): if shell.current in ["play", "week", "bracket"]: shell.refresh())
 
 
 ## Quick fight starts on the fighter chosen in the home screen (Use in lineup).
@@ -823,7 +871,7 @@ func _again() -> void:
 
 
 func _on_challenge_button() -> void:
-	if _board_pick >= 0:
+	if not _board.is_empty():
 		_back_to_board()
 	elif mode == Mode.REPLAY:
 		_play_normal()
@@ -838,8 +886,8 @@ func _on_challenge_button() -> void:
 func _label_result_buttons() -> void:
 	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch"}[mode]
 	challenge_button.text = {Mode.REPLAY: "Play my own", Mode.RIVAL: "Friends"}.get(mode, "Challenge friend")
-	if _board_pick >= 0:
-		challenge_button.text = "This Week"
+	if not _board.is_empty():
+		challenge_button.text = "Bracket" if _board.return_to == "bracket" else "This Week"
 	share_button.text = "Send result" if mode == Mode.CHALLENGE else "Share fight"
 	# A link from someone who isn't a friend yet offers to add them, in place
 	# of the report row (there's only room for one).
@@ -859,7 +907,7 @@ func _label_result_buttons() -> void:
 
 
 func _can_add_link_friend() -> bool:
-	if link_friend == "" or mode not in [Mode.CHALLENGE, Mode.REPLAY] or _board_pick >= 0 or friends.status != "ready":
+	if link_friend == "" or mode not in [Mode.CHALLENGE, Mode.REPLAY] or not _board.is_empty() or friends.status != "ready":
 		return false
 	return friend_button.disabled or (link_friend != str(friends.me.get("code", "")) and not friends.is_friend_code(link_friend))
 
@@ -879,6 +927,7 @@ func _start_rival(f: Dictionary) -> void:
 		return
 	mode = Mode.RIVAL
 	_board_pick = -1
+	_board = {}
 	rival = f
 	opponent_choice = lead
 	opponent_type = lead
@@ -899,6 +948,7 @@ func _record_rival() -> void:
 func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> void:
 	mode = Mode.CHALLENGE
 	_board_pick = -1
+	_board = {}
 	opponent_choice = ball
 	opponent_type = ball
 	seed_value = challenge_seed
@@ -909,9 +959,11 @@ func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> v
 ## Back to picking your ball against a random foe, dropping any link the page was opened with.
 func _play_normal() -> void:
 	_board_pick = -1
+	_board = {}
 	opponent_choice = OPPONENT_RANDOM
 	mode = Mode.NORMAL
 	foe_aim = null
+	modifier = _weekend_modifier()
 	arena_override = url_arena
 	rival = {}
 	if OS.has_feature("web"):
@@ -930,16 +982,21 @@ func _watch_board_fight(f: Dictionary) -> void:
 	seed_value = f.seed
 	aim = f.angles[0]
 	foe_aim = f.angles[1]
+	modifier = Modifiers.NONE ## The Fight of the Day's known result is on normal rules.
 	arena_override = f.get("arena", "square")
 	_board_pick = f.pick
+	_board = {"title": f.get("board_title", "Fight of the Day"), "return_to": f.get("return_to", "week"), "return_params": f.get("return_params", {})}
 	_start_fight()
 
 
 func _back_to_board() -> void:
+	var from := _board
 	_play_normal()
 	_show_home()
 	shell.show_tab("play")
 	shell.go("week")
+	if from.return_to != "week":
+		shell.go(from.return_to, from.return_params)
 
 
 func _label(text: String, font_size: int) -> Label:
@@ -1292,7 +1349,10 @@ func _share_url(kind: String) -> String:
 		else FightLink.replay_code(player_type, opponent_type, seed_value, angles[0], angles[1], _pick_arena())
 	var url := FightLink.url(_link_base(), kind, code)
 	var mine := str(friends.me.get("code", ""))
-	return url + "&f=" + mine if mine != "" else url
+	if mine != "":
+		url += "&f=" + mine
+	# The fight's Chaos Weekend twist rides along, so it replays the same any day.
+	return url + ("&mod=" + modifier if modifier != Modifiers.NONE else "")
 
 
 func _share_text(kind: String) -> String:
@@ -1410,6 +1470,12 @@ func _read_url_params() -> Dictionary:
 	# ?today=2026-10-17 pins the live-ops clock to that day's noon (UTC).
 	if LiveOps.date_unix(params.get("today", "")) >= 0:
 		LiveOps.now_override = LiveOps.date_unix(params.today) + 12 * 3600
+	if Modifiers.has(params.get("mod", "-")):
+		modifier = params.mod
+	elif params.has("r") or params.has("c"):
+		modifier = Modifiers.NONE ## A shared fight without a twist was played on normal rules.
+	else:
+		modifier = _weekend_modifier()
 	if params.get("demo", "") == "friends":
 		friends.show_demo()
 	if Friends.is_code(params.get("f", "")):

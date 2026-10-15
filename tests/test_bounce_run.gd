@@ -131,7 +131,7 @@ func test_overtime_bubble_absorbs_damage() -> void:
 
 func test_opening_bite_lands_on_the_first_hit_only() -> void:
 	var sim := MatchSim.new({"seed": 1, "p1": "plain", "p2": "plain", "boons": [["opening_bite"], []],
-		"starts": [Vector2(400, 500), Vector2(600, 500)], "angles": [0, 1800]})
+		"starts": [Vector2(400, 500), Vector2(600, 500)], "angles": [0, 1800], "damage_rolls": false})
 	var hits: Array = []
 	while hits.size() < 2 and not sim.finished:
 		sim.step()
