@@ -12,19 +12,19 @@ const CRITTER := {
 	"color": "8e3bbd",
 	"vibe": "A playful deep-sea giant who just wants to hug everything at once.",
 	"description": "Kraken. Four long tentacles sweep in a wide circle around it, and every 6 seconds they slam down, leaving ink puddles that slow foes.",
-	"stats": {"hp": 112.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.5},
+	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
 	"ability": [{"on": "always", "do": "tentacles"}, {"on": "every", "secs": 6.0, "do": "ink_slam"}],
 	"params": {
 		"tentacle_count": 4,
 		"tentacle_orbit": 76.0, ## Reach beyond its edge.
 		"tentacle_size": 18.0,
-		"tentacle_damage": 2.5,
+		"tentacle_damage": 1.5,
 		"tentacle_spin": 1.2, ## Radians a second.
-		"tentacle_cooldown": 0.6,
+		"tentacle_cooldown": 1.0,
 		"ink_radius": 70.0,
 		"ink_life": 3.0,
 		"ink_slow": 0.25,
-		"ink_dps": 2.0,
+		"ink_dps": 1.0,
 		"ink_shove": 0, ## T3: slams knock foes near a tip away.
 		"hug_every": 0, ## T5: every this many slams is a hug.
 		"hug_secs": 1.0,

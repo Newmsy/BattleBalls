@@ -11,27 +11,27 @@ const CRITTER := {
 	"status": "live",
 	"color": "bb8a2d",
 	"vibe": "A busy beehive that is never, ever alone.",
-	"description": "Beehive. Three bees circle it and sting foes they touch, and every 4 seconds one flies off at the foe while a new one hatches.",
-	"stats": {"hp": 105.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
+	"description": "Beehive. Three bees circle it and sting foes they touch, and every 8 seconds one flies off at the foe while a new one hatches.",
+	"stats": {"hp": 119.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "always", "do": "swarm"}, {"on": "every", "secs": "bee_every", "do": "bee_launch"}],
 	"params": {
 		"bee_count": 3,
 		"bee_orbit": 30.0, ## Distance beyond its edge.
 		"bee_size": 10.0,
-		"bee_damage": 2.0,
+		"bee_damage": 3.0,
 		"bee_spin": 4.0, ## Radians a second.
 		"bee_cooldown": 0.5,
-		"bee_every": 4.0, ## One bee flies off at the foe this often.
+		"bee_every": 8.0, ## One bee flies off at the foe this often.
 		"bee_respawn": 2.0, ## Seconds for a launched bee to hatch again.
 		"bee_speed": 560.0,
 		"bee_turn": 5.0, ## Homing, radians a second.
 		"bee_life": 3.0,
-		"bee_launch_damage": 5.0,
+		"bee_launch_damage": 3.0,
 		"bee_poison_dps": 0.0, ## T3: launched bees poison for 2s.
 	},
 	"tiers": [
-		{"text": "3 bees sting; one launches every 4s"},
-		{"text": "Bees deal 3", "bee_damage": 3.0},
+		{"text": "3 bees sting; one launches every 8s"},
+		{"text": "Bees deal 4", "bee_damage": 4.0},
 		{"text": "Launched bees poison", "bee_poison_dps": 2.0},
 		{"text": "4 bees", "bee_count": 4},
 		{"text": "Below 50% HP the whole swarm launches", "ability": [{"on": "hp_below", "hp": 0.5, "do": "swarm_all"}]},

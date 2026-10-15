@@ -111,9 +111,9 @@ func test_wrecker_t3_chain_beam_and_t5_windup() -> void:
 func test_swarm_launches_a_homing_bee_that_respawns() -> void:
 	var sim := _sim("swarm")
 	_park(sim)
-	for i in 5 * 60 + 1:
+	for i in 8 * 60 + 1:
 		sim.step()
-	check_eq(sim.balls[0].state.bees_out.size(), 1, "one bee flies off at 5s")
+	check_eq(sim.balls[0].state.bees_out.size(), 1, "one bee flies off at 8s")
 	var gone: Array = sim.balls[0].state.bee_ready.filter(func(t): return t > sim.tick)
 	check_eq(gone.size(), 1, "its slot is empty until it hatches again")
 	check(_until_damage(sim, "bee", 180) > 0.0, "the bee homes in and stings")
