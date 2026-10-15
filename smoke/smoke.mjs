@@ -102,6 +102,16 @@ try {
     await page.close();
   }
 
+  // 1b. Season 1 debut: Flux (Magnet) fights Optic; its field rings and poles render.
+  {
+    const { page, logs } = await openGame("?p1=magnet&p2=laser&seed=42&auto=1&speed=2");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, "1b-flux.png") });
+    console.log("flux fight:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.close();
+  }
+
   // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs. Only this case
   // goes online (signs in a guest) when the build has a backend.
   {
