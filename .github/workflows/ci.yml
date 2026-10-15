@@ -9,12 +9,12 @@ on:
   # fire push events, but they may dispatch a workflow.
   workflow_dispatch:
 
-# A new push to a PR cancels its older run. On main, runs queue instead: the one
-# deploying keeps going and only the newest waits (GitHub replaces an older
-# pending run), so every merge burst still ends with the latest main live.
+# A new push to a PR cancels its older run. Runs on main don't wait for each
+# other: only their deploys queue (the Web job's concurrency below), so a merge
+# reaches the live site without waiting for the previous merge's tests.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -164,6 +164,12 @@ jobs:
       always() && !cancelled() && (github.event_name != 'pull_request'
       || (!github.event.pull_request.draft && needs.changes.result == 'success'
       && contains(fromJSON('["success","skipped"]'), needs.smoke.result)))
+    # One deploy at a time per PR or branch. A deploy that has started keeps
+    # going; a newer one waits, replacing any older one still waiting, so a
+    # burst of merges ends with the latest main live.
+    concurrency:
+      group: deploy-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

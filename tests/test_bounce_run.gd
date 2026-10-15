@@ -6,6 +6,11 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 
 
+## The first START_BOONS boons of the day's offer.
+static func _start(setup: Dictionary) -> Array:
+	return setup.start_offer.slice(0, BounceRun.START_BOONS)
+
+
 func test_day_numbers_follow_utc_days() -> void:
 	check_eq(BounceRun.day_number(BounceRun.EPOCH_UNIX), 1, "launch day")
 	check_eq(BounceRun.day_number(BounceRun.EPOCH_UNIX + 86399), 1, "launch day, last second")
@@ -27,12 +32,13 @@ func test_foes_are_power_equalised() -> void:
 		check_eq(setup.floors.size(), BounceRun.FLOORS, "floors")
 		for f in BounceRun.FLOORS:
 			var foe: Dictionary = setup.floors[f]
-			check_eq(foe.boons.size(), f + 1, "day %d floor %d boon count" % [day, f + 1])
+			check_eq(foe.boons.size(), BounceRun.START_BOONS + f, "day %d floor %d boon count" % [day, f + 1])
 			var ability: String = BallDefs.get_def(foe.critter).ability
 			for id in foe.boons:
 				check(Boons.applies_to(id, ability), "day %d floor %d: %s is useless on %s" % [day, f + 1, id, foe.critter])
-		for c in setup.cards:
-			check(Boons.applies_to(c.boon, BallDefs.get_def(c.critter).ability), "day %d card boon fits its critter" % day)
+		check_eq(setup.start_offer.size(), BounceRun.START_OFFER, "day %d start offer size" % day)
+		for id in setup.start_offer:
+			check(id in Boons.GENERAL and setup.start_offer.count(id) == 1, "day %d start offer: %s is a general boon, once" % [day, id])
 		var critters: Array = setup.cards.map(func(c): return c.critter)
 		# Every critter shows up before any repeats: all of them while the
 		# roster fits in one draft, five different ones once it doesn't.
@@ -46,12 +52,11 @@ func test_foes_are_power_equalised() -> void:
 
 func test_offers_are_new_usable_boons() -> void:
 	var setup := BounceRun.generate(3)
-	var run := BounceRun.new_run(setup, [0, 1, 2])
+	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
 	for f in BounceRun.FLOORS - 1:
 		run.floor = f + 1
 		var offer := BounceRun.offer(setup, run)
-		# Full offers while enough usable boons are left (a trio without
-		# Nibbles or Optic only has the 8 general ones).
+		# Full offers while enough usable boons are left.
 		var left := 0
 		for id in Boons.ALL:
 			if not id in run.boons and range(BounceRun.PICKS).any(func(s): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, s).critter).ability)):
@@ -66,7 +71,7 @@ func test_offers_are_new_usable_boons() -> void:
 
 func test_a_loss_costs_the_fighter_and_three_end_the_run() -> void:
 	var setup := BounceRun.generate(1)
-	var run := BounceRun.new_run(setup, [0, 2, 4])
+	var run := BounceRun.new_run(setup, [0, 2, 4], _start(setup))
 	BounceRun.record(setup, run, 1, 0, 1, 600)
 	check(run.out[1] and not run.over, "first loss knocks out the fighter only")
 	check_eq(run.floor, 0, "a loss doesn't climb")
@@ -79,19 +84,39 @@ func test_a_loss_costs_the_fighter_and_three_end_the_run() -> void:
 
 func test_winning_every_floor_clears_the_run() -> void:
 	var setup := BounceRun.generate(2)
-	var run := BounceRun.new_run(setup, [0, 1, 2])
+	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
 	for f in BounceRun.FLOORS:
 		BounceRun.record(setup, run, 0, 0, 0, 100)
 		if not run.over:
-			# Up to OFFER boons, fewer once the trio has taken most of those it can use.
-			var usable := Boons.ALL.filter(func(id): return not id in run.boons and range(BounceRun.PICKS).any(
-				func(slot): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, slot).critter).ability)))
-			check_eq(run.offer.size(), mini(BounceRun.OFFER, usable.size()), "a win deals an offer")
-			check(not run.offer.is_empty(), "every win before the last offers a boon")
+			check_eq(run.offer.size(), BounceRun.OFFER, "a win deals a full offer")
 			BounceRun.take_boon(run, run.offer[0])
-	check(run.over, "eight wins end the run")
-	check_eq(BounceRun.score(run), {"floors": 8, "lives": 3, "ticks": 800}, "perfect run")
-	check_eq(run.boons.size(), BounceRun.FLOORS - 1, "a boon after every win but the last")
+	check(run.over, "the top floor ends the run")
+	check_eq(BounceRun.score(run), {"floors": BounceRun.FLOORS, "lives": 3, "ticks": 100 * BounceRun.FLOORS}, "perfect run")
+	check_eq(run.boons.size(), BounceRun.START_BOONS + BounceRun.FLOORS - 1, "the starting boons, then one after every win but the last")
+
+
+## There are enough general boons that every win offers a full choice, even
+## on the last floor of a perfect run.
+func test_every_offer_is_full() -> void:
+	for day in range(1, 40):
+		var setup := BounceRun.generate(day)
+		var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
+		while not run.over:
+			BounceRun.record(setup, run, 0, 0, 0, 100)
+			if not run.over:
+				check_eq(run.offer.size(), BounceRun.OFFER, "day %d floor %d offer" % [day, run.floor])
+				BounceRun.take_boon(run, run.offer[run.offer.size() - 1])
+
+
+## Foes start well under your power and end over it.
+func test_floors_get_harder() -> void:
+	check_eq(BounceRun.FOE_POWER.size(), BounceRun.FLOORS, "a power per floor")
+	check(BounceRun.FOE_POWER[0] < 1.0 and BounceRun.FOE_POWER[BounceRun.FLOORS - 1] > 1.0, "easy start, hard top")
+	for f in range(1, BounceRun.FLOORS):
+		check(BounceRun.FOE_POWER[f] > BounceRun.FOE_POWER[f - 1], "floor %d is harder than the one before" % (f + 1))
+	var setup := BounceRun.generate(1)
+	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
+	check_eq(BounceRun.fight_config(setup, run, 0, -450).powers, [1.0, BounceRun.FOE_POWER[0]], "the fight uses the floor's power")
 
 
 func test_scores_rank_floors_then_lives_then_time() -> void:
@@ -103,7 +128,7 @@ func test_scores_rank_floors_then_lives_then_time() -> void:
 ## A played run replays to the same score from its log alone.
 func test_runs_replay_from_their_log() -> void:
 	var setup := BounceRun.generate(4)
-	var run := BounceRun.new_run(setup, [1, 2, 3])
+	var run := BounceRun.new_run(setup, [1, 2, 3], _start(setup))
 	var aims := [-450, -300, -600, -500, -400, -350, -550, -450, -420, -480, -380]
 	var i := 0
 	while not run.over:
@@ -174,6 +199,9 @@ func test_scene_plays_a_run_to_the_end() -> void:
 	check_eq(scene.state, scene.State.DRAFT, "opens on the draft")
 	for i in [0, 2, 4]:
 		scene._toggle_pick(i)
+	scene._show_start_boons()
+	for i in [0, 2, 4]:
+		scene._toggle_start_boon(i)
 	scene._start_run()
 	var fights := 0
 	while scene.state != scene.State.OVER and fights < 20:
@@ -213,6 +241,9 @@ func test_a_fight_left_mid_way_still_counts() -> void:
 	scene._ready()
 	for i in [0, 1, 2]:
 		scene._toggle_pick(i)
+	scene._show_start_boons()
+	for i in [0, 2, 4]:
+		scene._toggle_start_boon(i)
 	scene._start_run()
 	scene._choose_fighter(0)
 	scene._launch()

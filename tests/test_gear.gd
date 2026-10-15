@@ -198,7 +198,9 @@ func test_campaign_boss_first_clear_drops_gear() -> void:
 	var found := 0
 	for i in 200:
 		found += Campaign.finish(p, 0, 0, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 20.0, "max_hp": 50.0}).gear.size()
-	check(found > 20 and found < 80, "about one win in four or five drops gear (%d of 200)" % found)
+	check(found > 20 and found < 65, "about one win in five drops gear (%d of 200)" % found)
+	check_eq(Economy.gear_tier(0, 0), 1, "early stages drop 1-star gear")
+	check(Economy.gear_tier(0, 8) > Economy.gear_tier(0, 0) and Economy.gear_tier(2, 0) > Economy.gear_tier(0, 8), "later stages and zones drop better gear")
 
 
 func test_glow_pass_gear_is_free_track_only() -> void:

@@ -13,6 +13,7 @@ const Gear := preload("res://sim/gear.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const Economy := preload("res://meta/economy.gd")
+const Talents := preload("res://sim/talents.gd")
 
 signal changed
 
@@ -64,6 +65,12 @@ var stars: Dictionary = {}
 var runs := 0
 ## Gear Vault runs used today: {day (unix day), runs} (meta/gear_vault.gd).
 var vault := {}
+## Faction talent trees (sim/talents.gd): faction -> {xp, picks: {node: rank}}.
+## Points come only from play: Faction XP from progression fights, plus one
+## point for each of T2-T5 that any of the faction's critters has reached
+## (worked out from the stacks, so it counts critters fused before trees existed).
+## Respecs are free.
+var factions := {}
 
 
 static func new_game(now: int, starter := STARTER):
@@ -131,7 +138,8 @@ func power_of(id: String) -> int:
 	var b := best(id)
 	if b.is_empty():
 		return 0
-	return Roster.power(id, b.tier, b.level, gear_power(id))
+	var t := Lineup.talent_power(slot_of(id))
+	return Roster.power(id, b.tier, b.level, (1.0 + gear_power(id)) * (1.0 + t) - 1.0)
 
 
 ## The fight multiplier for a critter's best stack: the same number as
@@ -140,7 +148,7 @@ func fight_power(id: String) -> float:
 	var b := best(id)
 	if b.is_empty():
 		return 1.0
-	return Power.multiplier(Roster.get_critter(id).rarity, b.tier, b.level) * (1.0 + gear_power(id))
+	return Power.multiplier(Roster.get_critter(id).rarity, b.tier, b.level) * (1.0 + gear_power(id)) * (1.0 + Lineup.talent_power(slot_of(id)))
 
 
 ## The critter's best stack as a lineup slot (sim/lineup.gd): what it brings
@@ -150,7 +158,7 @@ func slot_of(id: String) -> Dictionary:
 	if b.is_empty():
 		return {}
 	var pieces: Array = gear_on(id).map(func(g): return gear_piece(g))
-	return Lineup.make(id, b.tier, b.level, pieces)
+	return Lineup.make(id, b.tier, b.level, pieces, talent_picks(Talents.faction_of(id)))
 
 
 func found_count() -> int:
@@ -431,6 +439,7 @@ func add_xp(id: String, amount: int) -> int:
 	var b := best(id)
 	if b.is_empty():
 		return 0
+	add_faction_xp(Talents.faction_of(id), amount)
 	var gained := 0
 	b.xp = b.get("xp", 0) + amount
 	var cap := Roster.level_cap(b.tier)
@@ -441,6 +450,105 @@ func add_xp(id: String, amount: int) -> int:
 	if b.level >= cap:
 		b.xp = 0
 	return gained
+
+
+# --- Faction talent trees ------------------------------------------------------
+
+## Faction XP needed to go from rank `rank` to `rank + 1` (design/talents.md).
+static func faction_xp_to_next(rank: int) -> int:
+	return 20 + 20 * (rank + 1)
+
+
+func _faction(f: String) -> Dictionary:
+	if not factions.has(f):
+		factions[f] = {"xp": 0, "picks": {}}
+	return factions[f]
+
+
+## Ranks from Faction XP alone, and the XP into the next one: {rank, xp, need}.
+func faction_xp_rank(f: String) -> Dictionary:
+	var xp := int(factions.get(f, {}).get("xp", 0))
+	var rank := 0
+	while xp >= faction_xp_to_next(rank) and rank < Talents.MAX_POINTS:
+		xp -= faction_xp_to_next(rank)
+		rank += 1
+	return {"rank": rank, "xp": xp, "need": faction_xp_to_next(rank)}
+
+
+## Points from tier milestones: one for each of T2-T5 any of the faction's critters has reached.
+func faction_marks(f: String) -> int:
+	var top := 1
+	for s in stacks:
+		if s.count > 0 and Talents.faction_of(s.id) == f:
+			top = maxi(top, s.tier)
+	return top - 1
+
+
+## Faction Rank: talent points earned in that tree (XP ranks + tier milestones), max 30.
+func faction_rank(f: String) -> int:
+	return mini(Talents.MAX_POINTS, faction_xp_rank(f).rank + faction_marks(f))
+
+
+func talent_picks(f: String) -> Dictionary:
+	return factions.get(f, {}).get("picks", {}).duplicate()
+
+
+func talent_points_free(f: String) -> int:
+	return faction_rank(f) - Talents.spent(f, talent_picks(f))
+
+
+func add_faction_xp(f: String, amount: int) -> void:
+	if f == "" or amount <= 0:
+		return
+	var fd := _faction(f)
+	fd.xp = int(fd.xp) + amount
+
+
+## True when one more rank can go into `node` now.
+func can_add_talent(f: String, node: String) -> bool:
+	var n := Talents.node(f, node)
+	if n.is_empty():
+		return false
+	var picks := talent_picks(f)
+	return int(picks.get(node, 0)) < int(n.max) and talent_points_free(f) >= int(n.cost) and Talents.row_open(f, picks, n.row)
+
+
+## Spends points on one rank of `node`. Returns true if it went in.
+func add_talent(f: String, node: String) -> bool:
+	if not can_add_talent(f, node):
+		return false
+	var fd := _faction(f)
+	fd.picks[node] = int(fd.picks.get(node, 0)) + 1
+	changed.emit()
+	return true
+
+
+## Takes one rank back out, unless rows above still need those points.
+func remove_talent(f: String, node: String) -> bool:
+	var picks := talent_picks(f)
+	if int(picks.get(node, 0)) <= 0:
+		return false
+	picks[node] = int(picks[node]) - 1
+	if picks[node] == 0:
+		picks.erase(node)
+	if Talents.clean(f, picks) != picks:
+		return false
+	_faction(f).picks = picks
+	changed.emit()
+	return true
+
+
+## Free respec: every point back.
+func reset_talents(f: String) -> void:
+	if factions.has(f):
+		factions[f].picks = {}
+		changed.emit()
+
+
+## Drops picks beyond the points owned (e.g. a save edited by hand).
+func _trim_picks(f: String) -> void:
+	if Talents.spent(f, talent_picks(f)) > faction_rank(f):
+		factions[f].picks = {}
 
 
 # --- Energy and account level ---------------------------------------------------
@@ -502,7 +610,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "lineup",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "factions"]
 
 
 func to_dict() -> Dictionary:
@@ -545,6 +653,14 @@ static func from_dict(d: Dictionary, now: int):
 		if piece.uid <= 0 or p._gear(piece.uid).size() > 0:
 			piece.uid = p._next_gear_uid()
 		p.gear.append(piece)
+	p.factions.clear()
+	var fs = d.get("factions", {})
+	if fs is Dictionary:
+		for f in fs:
+			if f in Talents.FACTIONS and fs[f] is Dictionary:
+				p.factions[f] = {"xp": maxi(0, int(fs[f].get("xp", 0))), "picks": {}}
+				p.factions[f].picks = Talents.clean(f, fs[f].get("picks", {}))
+				p._trim_picks(f)
 	if d.has("items"):
 		p.items.clear()
 		for i in d.items:
