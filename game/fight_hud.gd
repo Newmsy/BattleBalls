@@ -16,7 +16,7 @@ const LOW := Color("ff5a7a")
 const LOW_SHARE := 0.35
 const CHIP_DELAY := 0.35 ## Seconds the chip holds before it drains.
 const CHIP_RATE := 1.4 ## Share of the bar the chip drains per second.
-const CENTER_W := 0.2 ## Share of the width kept for the clock between the bars.
+const CENTER_W := 0.22 ## Share of the width kept for the clock between the bars.
 
 var tags: Array = ["YOU", "FOE"]
 var center_text := ""
@@ -86,8 +86,9 @@ func _draw() -> void:
 		draw_string(FONT, Vector2(x, bar_y - 8.0), label, align, bar_w, fs, TEAM_COLORS[i])
 	if center_text != "":
 		var col := LOW if center_text.begins_with("OVERTIME") else Color("f0eeff")
-		var cfs := A11y.font(22) if center_text.length() <= 5 else A11y.font(16)
-		_text(Vector2(size.x / 2.0, bar_y + bar_h / 2.0), center_text, cfs, col)
+		var text := center_text.replace("OVERTIME ", "OT ") # The arena banner says OVERTIME in full.
+		var cfs := A11y.font(22) if text.length() <= 5 else A11y.font(16)
+		_text(Vector2(size.x / 2.0, bar_y + bar_h / 2.0), text, cfs, col)
 
 
 ## One side's bar: the fill drains toward the arena centre (YOU from the right
