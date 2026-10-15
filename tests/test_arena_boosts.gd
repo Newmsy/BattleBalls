@@ -74,8 +74,9 @@ func test_old_saves_start_with_a_point_per_trophy() -> void:
 	var f := ConfigFile.new()
 	f.load(TEST_SAVE)
 	f.set_value("arena", "trophies", 640)
-	f.erase_section_key("arena", "points")
-	f.erase_section_key("arena", "points_earned")
+	for key in ["points", "points_earned"]:
+		if f.has_section_key("arena", key):
+			f.erase_section_key("arena", key)
 	f.save(TEST_SAVE)
 	check_eq(ArenaStore.open(TEST_SAVE).points, 640, "retro points")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
