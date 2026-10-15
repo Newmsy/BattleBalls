@@ -8,20 +8,26 @@ const CRITTER := {
 	"type": "Juggernaut",
 	"rarity": "common",
 	"role": "Bruiser",
-	"status": "planned",
+	"status": "live",
 	"color": "7d8799",
 	"vibe": "Big, slow and completely unbothered.",
-	"description": "Juggernaut.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
-	"ability": [{"on": "always", "do": "armor"}],
-	"params": {},
+	"description": "Juggernaut. Huge and slow. Balls it hits take slam damage if they hit a wall soon after.",
+	"stats": {"hp": 115.0, "radius": 82.0, "speed": 320.0, "contact_damage": 23.0},
+	"ability": [{"on": "hit", "do": "mark_slam"}, {"on": "foe_wall", "do": "slam"}],
+	"params": {
+		"slam_damage": 9.0, ## Damage when a foe it just hit meets a wall.
+		"slam_window": 0.3, ## Seconds after a hit that a wall bounce counts.
+	},
 	"tiers": [
-		{"text": "Takes 20% less damage"},
-		{"text": "25% less"},
-		{"text": "30% less, hits stun briefly"},
-		{"text": "35% less"},
+		{"text": "Foes it hits take 9 slam damage off a wall within 0.3s"},
+		{"text": "Slams for 10", "slam_damage": 10.0},
+		{"text": "0.4s slam window", "slam_window": 0.4},
+		{"text": "Slams for 12", "slam_damage": 12.0},
 		{"text": "Shockwave on every hit"},
 	],
+	## Chaos Weekends: fast, cramped twists favour its big hits; Double Trouble
+	## feeds Vampire's heal off them. Tuned with tools/balance.gd --modifiers.
+	"chaos": {"big_head": {"contact_damage": 0.97}, "hyper_speed": {"contact_damage": 0.97}, "double_trouble": {"contact_damage": 1.1}},
 	"art": {"eyes": {"sep": .24, "w": .11, "h": .12, "p": .08, "uni": true, "mouth": "flat"}, "front": ["rock_band"], "scale": 1.15},
 	"sound": {},
 }

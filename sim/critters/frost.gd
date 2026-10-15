@@ -12,22 +12,22 @@ const CRITTER := {
 	"color": "bfe9ff",
 	"vibe": "Sleepy and unhurried; everything near it slows down to its pace.",
 	"description": "Frost. Leaves an icy trail that slows foes who cross it.",
-	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
+	"stats": {"hp": 128.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.0},
 	"ability": [{"on": "always", "do": "trail"}],
 	"params": {
 		"trail_every": 0.1, ## Seconds between trail blobs.
 		"trail_width": 30.0,
 		"trail_life": 2.0,
 		"trail_slow": 0.3, ## Share of a foe's movement lost on the ice.
-		"trail_dps": 0.0,
+		"trail_dps": 0.2,
 		"breath_radius": 120.0, ## T5 frost breath.
 		"breath_slow": 0.5,
 		"breath_secs": 1.0,
 	},
 	"tiers": [
-		{"text": "Icy trail slows foes 30%, lasts 2s"},
+		{"text": "Icy trail slows foes 30% and stings, lasts 2s"},
 		{"text": "Trail lasts 2.5s", "trail_life": 2.5},
-		{"text": "The ice also stings", "trail_dps": 1.0},
+		{"text": "The ice stings harder", "trail_dps": 0.5},
 		{"text": "Slows 40%", "trail_slow": 0.4},
 		{"text": "Every 5s it puffs frost breath that slows 50%", "ability": [{"on": "every", "secs": 5.0, "do": "breath"}]},
 	],

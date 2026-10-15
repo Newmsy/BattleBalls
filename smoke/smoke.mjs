@@ -2,7 +2,8 @@
 // plays one auto fight and one fight through the real menu, fails on any
 // page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
 // plays the whole onboarding, follows a Bracket of Legends from picks to the
-// final and climbs the first floor of The Spire.
+// final and climbs the first floor of The Spire, and fights
+// the first floor of Bounce Run.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -116,6 +117,18 @@ async function tapUi(page, logs, name, nextScreen) {
   await page.waitForTimeout(600);
 }
 
+// A finger drag in design-space coordinates, in small steps like a real swipe.
+async function swipe(page, x, y, dx, dy) {
+  await page.mouse.move(...toPage(page, x, y));
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(...toPage(page, x + (dx * i) / 10, y + (dy * i) / 10));
+    await page.waitForTimeout(16);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(700);
+}
+
 // Godot's canvas maps the 720x1280 design space onto the page, keeping
 // whichever side is tighter and expanding the other.
 function toPage(page, x, y) {
@@ -152,17 +165,35 @@ try {
   }
 
   // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs. Only this case
-  // goes online (signs in a guest) when the build has a backend.
+  // goes online (signs in a guest) when the build has a backend. demo=1 gives the
+  // filled-in sample profile, so there is something to fuse, equip and summon.
   {
-    const { page, logs } = await openGame("?seed=7");
+    const { page, logs } = await openGame("?seed=7&demo=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "3a-home.png") });
     await tapUi(page, logs, "tab_critters", "critters");
     await page.screenshot({ path: path.join(shots, "3b-critters.png") });
+    // A drag that starts on a critter card scrolls the list (and doesn't open the card).
+    {
+      const before = logs.length;
+      await swipe(page, 360, 700, 0, -400);
+      await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000);
+      if (logs.slice(before).some((l) => l.startsWith("UI_SCREEN detail"))) errors.push("a scroll drag opened a critter card");
+      await page.screenshot({ path: path.join(shots, "3b2-critters-scrolled.png") });
+      await swipe(page, 360, 500, 0, 600);
+    }
     await tapUi(page, logs, "tile_vampire", "detail");
     await page.screenshot({ path: path.join(shots, "3c-detail.png") });
+    // Swiping in from the left edge goes back to the list, then reopen the card.
+    {
+      const before = logs.length;
+      await swipe(page, 4, 700, 420, 0);
+      await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000);
+      console.log("edge swipe: detail -> critters");
+      await tapUi(page, logs, "tile_vampire", "detail");
+    }
     await tapUi(page, logs, "tab_fuse", "fuse");
     await page.screenshot({ path: path.join(shots, "3d-fuse.png") });
     const before = logs.length;
@@ -240,6 +271,48 @@ try {
     await tapUi(page, logs, "rematch_Theo");
     console.log("rival:", await waitForLog(logs, "RIVAL_MENU", 5000));
     await page.screenshot({ path: path.join(shots, "3m-rival-menu.png") });
+    await page.close();
+  }
+
+  // 2c. Shop and Glow Pass (?screen=shop): buy gems from the test store, buy this week's first bundle (it goes
+  // on at once), then fight wearing it. Then the pass: unlock the premium track from the test store.
+  {
+    const { page, logs } = await openGame("?screen=shop&seed=7&today=2026-10-20&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN shop", 10000);
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: path.join(shots, "3n-shop.png") });
+    await tapUi(page, logs, "get_gems", "sheet");
+    await page.screenshot({ path: path.join(shots, "3o-gems.png") });
+    await tapUi(page, logs, "buy_gems_2000", "shop");
+    const bundle = [...logs].reverse().find((l) => l.startsWith("UI_AT buy_bundle_")).split(" ")[1];
+    await tapUi(page, logs, bundle, "shop");
+    await page.screenshot({ path: path.join(shots, "3p-shop-bought.png") });
+    await tapUi(page, logs, "shop_back", "play");
+    const menuAt = logs.length;
+    await tapUi(page, logs, "quickfight");
+    await waitForLogAfter(logs, menuAt, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "menu_fight");
+    await page.waitForTimeout(800);
+    const [sx, sy] = toPage(page, 20 + 170 * 0.68, 190 + 830 * 0.68);
+    const [ex, ey] = toPage(page, 360, 300);
+    await page.mouse.move(sx, sy);
+    await page.mouse.down();
+    await page.mouse.move(ex, ey, { steps: 8 });
+    await page.mouse.up();
+    console.log("dressed fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, "3q-dressed-fight.png") });
+    await page.close();
+  }
+  {
+    const { page, logs } = await openGame("?screen=pass&today=2026-10-20&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN pass", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "3r-pass.png") });
+    await tapUi(page, logs, "pass_buy", "pass");
+    await page.screenshot({ path: path.join(shots, "3s-pass-premium.png") });
     await page.close();
   }
 
@@ -338,6 +411,13 @@ try {
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
+    // The campaign card above it pushes the Trick Shot card below the fold.
+    await page.mouse.move(...toPage(page, 360, 800));
+    for (let i = 0; i < 2; i++) {
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(150);
+    }
+    await page.waitForTimeout(600);
     await tapUi(page, logs, "trickshot");
     const ready = await waitForLog(logs, "TRICKSHOT_READY", 10000);
     console.log("trick shot:", ready);
@@ -446,9 +526,11 @@ try {
     await page.waitForTimeout(800);
     // The Arena card sits below the fold on a phone: scroll the Play tab first.
     await page.mouse.move(...toPage(page, 360, 800));
-    for (let i = 0; i < 6; i++) {
+    // Scroll until the card's centre sits above the tab bar (more daily cards push it further down).
+    const arenaY = () => Number([...logs].reverse().find((l) => l.startsWith("UI_AT arena "))?.split(" ")[3] ?? 9999);
+    for (let i = 0; i < 20 && arenaY() > 1300; i++) {
       await page.mouse.wheel(0, 300);
-      await page.waitForTimeout(150);
+      await page.waitForTimeout(250);
     }
     await page.waitForTimeout(600);
     await tapUi(page, logs, "arena", "arena");
@@ -477,7 +559,7 @@ try {
   }
 
   // 11. Onboarding: cold open, starter pick, two aimed tutorial wins, the
-  // guided first fusion, the boss teaser and on to the Play tab.
+  // guided first fusion, the boss teaser and on to the Glow Garden map.
   {
     const { page, logs } = await openGame("?tutorial=1");
     await waitForLog(logs, "BOOT_OK", 60000);
@@ -518,6 +600,8 @@ try {
     await page.screenshot({ path: path.join(shots, "22h-onboard-boss.png") });
     await tapUi(page, logs, "lets_go");
     await waitForLog(logs, "ONBOARD step=done", 5000);
+    // "Let's go!" opens the Glow Garden map the teaser points at.
+    await waitForLog(logs, "UI_SCREEN campaign", 5000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "22i-onboard-home.png") });
     console.log("onboarding:", logs.filter((l) => l.startsWith("ONBOARD")).map((l) => l.split(" ")[1]).join(" "));
@@ -560,7 +644,40 @@ try {
     await page.close();
   }
 
-  // 13. Bracket of Legends: pick a champion while picks are open, then on
+  // 13. Campaign: a new player opens the Glow Garden map from the Play tab,
+  // fights stage 1-1, and comes back to the map with the result.
+  {
+    const { page, logs } = await openGame("?seed=7&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "26-home-new-player.png") });
+    await tapUi(page, logs, "campaign", "campaign");
+    await page.screenshot({ path: path.join(shots, "27-campaign-map.png") });
+    await tapUi(page, logs, "stage_1_1");
+    await page.screenshot({ path: path.join(shots, "28-stage-aim.png") });
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("campaign fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    const end = await waitForLog(logs, "STAGE_END", 120000);
+    console.log("campaign stage:", end);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "29-stage-result.png") });
+    // Result screen: result label, report, then the "Back to the map" row.
+    await page.mouse.click(...toPage(page, 360, 990 + 56 + 14 + 60 + 14 + 42));
+    await waitForLog(logs, "UI_SCREEN campaign", 5000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "30-campaign-after.png") });
+    await page.close();
+  }
+
+  // 14. A campaign stage straight from the URL plays through to its rewards.
+  {
+    const { page, logs } = await openGame("?pve=1-4&auto=1&speed=4&offline=1");
+    console.log("url stage:", await waitForLog(logs, "STAGE_END", 120000));
+    await page.close();
+  }
+
+  // 15. Bracket of Legends: pick a champion while picks are open, then on
   // final day open the final and watch its first game.
   {
     const { page, logs } = await openGame("?mode=bracket&today=2026-10-14&speed=4");
@@ -599,6 +716,34 @@ try {
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "26-big-head.png") });
     console.log("modifier fight:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.close();
+  }
+
+  // 15. Bounce Run: the Play tab has its card; open it by link (the card sits
+  // below the fold), draft three, fight floor 1.
+  {
+    const home = await openGame("?seed=7&offline=1");
+    await waitForLog(home.logs, "UI_AT bouncerun ", 60000);
+    await home.page.close();
+    const { page, logs } = await openGame("?mode=bouncerun&offline=1");
+    console.log("bounce run:", await waitForLog(logs, "BOUNCERUN_READY", 60000));
+    await waitForLog(logs, "UI_SCREEN br_draft", 5000);
+    await page.waitForTimeout(800);
+    for (const i of [0, 1, 2]) await tapUi(page, logs, `br_card_${i}`, "br_draft");
+    await page.screenshot({ path: path.join(shots, "40-bouncerun-draft.png") });
+    await tapUi(page, logs, "br_start", "br_floor");
+    await page.screenshot({ path: path.join(shots, "41-bouncerun-floor.png") });
+    await tapUi(page, logs, "br_send_0", "br_aim");
+    await page.screenshot({ path: path.join(shots, "42-bouncerun-aim.png") });
+    await tapUi(page, logs, "br_launch", "br_fight");
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, "43-bouncerun-fight.png") });
+    await tapUi(page, logs, "br_skip", "br_result");
+    console.log("bounce run fight:", await waitForLog(logs, "BOUNCERUN_RESULT", 5000));
+    await page.screenshot({ path: path.join(shots, "44-bouncerun-result.png") });
+    const won = logs.some((l) => l.startsWith("BOUNCERUN_RESULT") && l.includes("won=true"));
+    await tapUi(page, logs, "br_continue", won ? "br_boon" : "br_floor");
+    await page.screenshot({ path: path.join(shots, won ? "45-bouncerun-boon.png" : "45-bouncerun-retry.png") });
     await page.close();
   }
 } catch (e) {

@@ -57,6 +57,11 @@ jobs:
         run: timeout 180 ~/godot/godot --headless --import || true
       - name: Unit, determinism and golden replay tests
         run: GODOT=~/godot/godot tests/run.sh
+      - name: Bounce Run boons stay a tilt, not a verdict
+        if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+        run: |
+          set -o pipefail
+          timeout 900 ~/godot/godot --headless --script res://tools/boon_balance.gd -- --fights=40 --strict | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
 
   # The balance gate (BALANCE.md), split so it scales to the full roster.
   # balance-plan picks the pairings (every pairing for a small roster, else

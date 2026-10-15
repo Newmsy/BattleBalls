@@ -12,13 +12,13 @@ const CRITTER := {
 	"color": "ff6a2a",
 	"vibe": "Proud and fiery; refuses to stay down.",
 	"description": "Phoenix. Its hits scorch (a burning foe can't heal), and the first time it falls it bursts back to life at 20% HP in a blast of flame.",
-	"stats": {"hp": 110.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
+	"stats": {"hp": 112.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "fall", "do": "revive"}, {"on": "hit", "do": "scorch"}],
 	"params": {
 		"revive_hp": 0.2,
 		"revive_radius": 200.0,
-		"revive_damage": 8.0,
-		"revive_burn": 2.0, ## Per second, 3s.
+		"revive_damage": 4.0,
+		"revive_burn": 1.0, ## Per second, 3s.
 		"revive_shield": 0.0,
 		"revive_bolts": 0,
 		"scorch_dps": 0.5,

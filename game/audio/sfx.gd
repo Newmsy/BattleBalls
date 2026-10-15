@@ -5,11 +5,13 @@
 extends Node
 
 const AUDIO_DIR := "res://game/audio/"
+const Kit := preload("res://game/ui/ui_kit.gd")
 const SETTINGS_PATH := "user://settings.cfg"
 const VOICES := 16
 ## Sound modes the toggle cycles through.
 const MODES := ["all", "sfx", "off"]
 const MODE_LABELS := {"all": "Sound: On", "sfx": "Music: Off", "off": "Sound: Off"}
+const TOGGLE_SIZE := Vector2(164, 56)
 ## Per sound: [max playing at once, min seconds between starts, volume dB].
 ## Lower caps on frequent sounds keep the chaos readable.
 const RULES := {
@@ -315,11 +317,12 @@ func _build_toggle() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
-	_toggle = Button.new()
-	_toggle.set_meta("silent", true)
-	_toggle.add_theme_font_size_override("font_size", 20)
+	# A small ghost pill in the kit's style, in the bottom-right corner.
+	_toggle = Kit.button(MODE_LABELS[mode], func(): _cycle_mode(); play("click"), "ghost", 20, TOGGLE_SIZE.y)
 	_toggle.text = MODE_LABELS[mode]
-	_toggle.pressed.connect(func(): _cycle_mode(); play("click"))
+	_toggle.set_meta("silent", true)
+	_toggle.clip_text = true
+	_toggle.add_theme_font_override("font", Kit.FONT)
 	layer.add_child(_toggle)
 	get_viewport().size_changed.connect(_place_toggle)
 	_place_toggle()
@@ -327,8 +330,8 @@ func _build_toggle() -> void:
 
 func _place_toggle() -> void:
 	var size := get_viewport().get_visible_rect().size
-	_toggle.size = Vector2(170, 56)
-	_toggle.position = Vector2(size.x - 182, size.y - 66 - toggle_lift)
+	_toggle.size = TOGGLE_SIZE
+	_toggle.position = Vector2(size.x - TOGGLE_SIZE.x - 16, size.y - TOGGLE_SIZE.y - 18 - toggle_lift)
 	if _board:
 		_board.size = size
 
