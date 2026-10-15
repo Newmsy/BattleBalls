@@ -6,3 +6,5 @@ smoke/screenshots/
 # Written by CI from the SUPABASE_* secrets; local builds play offline.
 backend_config.json
 smoke/screens/
+# Written at export time by tools/bracket_results.gd.
+liveops/bracket_results.json
