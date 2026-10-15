@@ -57,11 +57,61 @@ jobs:
         run: timeout 180 ~/godot/godot --headless --import || true
       - name: Unit, determinism and golden replay tests
         run: GODOT=~/godot/godot tests/run.sh
-      - name: Balance sim (win-rate matrix in the job summary)
-        if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+
+  # The balance gate (BALANCE.md), split so it scales to the full roster.
+  # balance-plan picks the pairings (every pairing for a small roster, else
+  # only the critters this PR changed, plus a fixed sample on an engine change)
+  # and how many machines to spread them over; each Balance shard fights its
+  # share and fails on a FAIL. The weekly Balance audit workflow fights every
+  # pairing on main.
+  balance-plan:
+    name: Balance plan
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      only: ${{ steps.plan.outputs.only }}
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: plan
+        run: tools/ci/balance_plan.sh "${{ github.event.pull_request.base.sha }}" | tee -a "$GITHUB_OUTPUT"
+
+  balance:
+    name: Balance (shard ${{ matrix.shard }})
+    needs: balance-plan
+    if: needs.balance-plan.result == 'success' && needs.balance-plan.outputs.shards != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.balance-plan.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot and web export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+      - name: Download Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: tools/ci/download_godot.sh
+      - name: Import project
+        run: timeout 180 ~/godot/godot --headless --import || true
+      - name: Equal power on every arena and under every Chaos Weekend modifier (report in the job summary)
+        env:
+          ONLY: ${{ needs.balance-plan.outputs.only }}
+          SHARDS: ${{ strategy.job-total }}
         run: |
           set -o pipefail
-          timeout 900 ~/godot/godot --headless --script res://tools/balance.gd -- --fights=100 --strict --arena=all | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
+          timeout 2100 ~/godot/godot --headless --script res://tools/balance.gd -- \
+            --fights=100 --variant-fights=50 --arena=all --modifiers --strict \
+            --shard=${{ matrix.shard }}/$SHARDS ${ONLY:+--only=$ONLY} \
+            | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
 
   # Applies supabase/migrations to a plain Postgres with a stub of Supabase's
   # auth schema and checks row-level security and the game's RPCs.
@@ -204,8 +254,14 @@ jobs:
   # stays draft until its code review is done.
   automerge:
     name: Auto-merge
-    needs: [test, db, web]
-    if: github.event_name == 'pull_request' && !github.event.pull_request.draft && github.event.pull_request.head.repo.full_name == github.repository
+    needs: [test, db, web, balance-plan, balance]
+    # Balance is skipped when a PR touches nothing it checks; skipped is fine,
+    # anything else that isn't success blocks the merge.
+    if: >-
+      always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && needs.test.result == 'success' && needs.db.result == 'success' && needs.web.result == 'success'
+      && needs.balance-plan.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.balance.result)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

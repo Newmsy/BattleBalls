@@ -5,6 +5,7 @@ extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
@@ -63,6 +64,7 @@ var aim_dir := Vector2.ZERO
 var ghost_dir := Vector2.ZERO
 ## Ball types to show before a sim exists (menu preview).
 var preview_types: Array = ["vampire", "laser"]
+var preview_modifier := Modifiers.NONE
 ## Arena to show before a sim exists (menu preview).
 var preview_arena := "square"
 ## Tier of each ball (stars on the badge, how big its feature grows).
@@ -315,7 +317,7 @@ func _draw() -> void:
 
 	if sim == null:
 		for i in 2:
-			var def := BallDefs.get_def(preview_types[i])
+			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
 			_draw_critter(i, def, MatchSim.START_CORNERS[i] * s, def.radius * s, def.hp, def.hp, shake)
 		return
 
