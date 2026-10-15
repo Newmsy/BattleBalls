@@ -23,7 +23,7 @@ var gear: Array[Dictionary] = []
 var items: Array[Dictionary] = []
 var free_summon := true
 ## Rare-or-better rolls left before a guaranteed Legendary (shared with drops).
-var legendary_pity := 112
+var legendary_pity := 37
 ## Critters the player is chasing: they come up twice as often within their
 ## rarity in summons and drops (game/ui/summon.gd). Free to change any time.
 var wishlist: Array[String] = []

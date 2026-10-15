@@ -158,6 +158,11 @@ try {
     await tapUi(page, logs, "a11y_large_text", "sheet");
     await page.mouse.click(...toPage(page, 360, 120));
     await page.waitForTimeout(400);
+    // The level badge opens Account (save progress / sign in).
+    await tapUi(page, logs, "account", "account");
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(shots, "3j2-account.png") });
+    await tapUi(page, logs, "back", "summon");
     await tapUi(page, logs, "tab_play", "play");
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "3-menu.png") });
