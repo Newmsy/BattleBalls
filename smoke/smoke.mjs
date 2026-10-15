@@ -339,6 +339,13 @@ try {
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
+    // The campaign card above it pushes the Trick Shot card below the fold.
+    await page.mouse.move(...toPage(page, 360, 800));
+    for (let i = 0; i < 2; i++) {
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(150);
+    }
+    await page.waitForTimeout(600);
     await tapUi(page, logs, "trickshot");
     const ready = await waitForLog(logs, "TRICKSHOT_READY", 10000);
     console.log("trick shot:", ready);
