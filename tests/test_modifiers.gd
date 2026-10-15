@@ -56,6 +56,14 @@ func test_closing_walls_starts_overtime_early() -> void:
 	check(sim.half_size < MatchSim.ARENA_SIZE / 2.0, "arena has started shrinking")
 
 
+func test_a_critters_chaos_block_tunes_only_its_twist() -> void:
+	var base := BallDefs.get_def("juggernaut")
+	var tuned: Dictionary = base.chaos.big_head
+	check_near(Modifiers.apply_to_def(base, "big_head").contact_damage, base.contact_damage * tuned.contact_damage, 0.001, "chaos multiplier applied")
+	check_near(Modifiers.apply_to_def(base, "glass_cannon").contact_damage, base.contact_damage * 1.35, 0.001, "other twists untouched")
+	check_near(Modifiers.apply_to_def(base, Modifiers.NONE).contact_damage, base.contact_damage, 0.001, "normal rules untouched")
+
+
 func test_every_modifier_is_deterministic_and_finishes() -> void:
 	for id in Modifiers.DEFS:
 		var a := _sim(id, 11).run_to_end()

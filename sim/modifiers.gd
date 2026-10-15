@@ -101,6 +101,16 @@ static func apply_to_def(def: Dictionary, id: String) -> Dictionary:
 		out.beam_damage *= sqrt(ability)
 	if out.has("snap_mult"):
 		out.snap_mult = 1.0 + (out.snap_mult - 1.0) * sqrt(ability)
+	# Prickles's spikes and Zip's build-up are their abilities: they grow in full.
+	# (Boulder's slam is a small share of its damage, so it gains nothing here.)
+	if out.has("spike_damage"):
+		out.spike_damage *= ability
+	if out.has("speed_gain"):
+		out.speed_gain *= ability
+	# A critter file's optional "chaos" block fine-tunes how one twist treats
+	# that critter: {modifier_id: {stat_or_param: multiplier}}.
+	for key in def.get("chaos", {}).get(id, {}):
+		out[key] *= float(def.chaos[id][key])
 	return out
 
 
