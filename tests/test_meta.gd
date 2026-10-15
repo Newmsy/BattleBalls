@@ -114,7 +114,7 @@ func test_win_spends_energy_gives_stars_xp_and_drops() -> void:
 	check(r.won, "won")
 	check_eq(r.stars, 3, "a quick, healthy win is 3 stars")
 	check(r.first_clear, "first clear")
-	check_eq(r.drops.size(), 2, "a drop plus the first-clear copy")
+	check_eq(r.drops.size() + (1 if r.orbs > 0 else 0), 2, "a copy or orbs, plus the first-clear copy")
 	check(p.owns(enemy), "first clear gives the beaten critter")
 	check(Campaign.is_unlocked(p, 0, 1), "next stage opens")
 	check(p.best("vampire").level > 1, "fighter levelled")
@@ -131,7 +131,7 @@ func test_stars_track_speed_and_remaining_hp() -> void:
 	check_eq(r.stars, 2, "healthy win in overtime")
 	check_eq(Campaign.stars_of(p, 0, 0), 2, "best stars kept")
 	check(not r.first_clear, "replays aren't first clears")
-	check_eq(r.drops.size(), 1, "replays drop one copy")
+	check_eq(r.drops.size() + (1 if r.orbs > 0 else 0), 1, "replays drop one copy or orbs")
 
 
 func test_loss_refunds_all_but_one_energy() -> void:
@@ -171,9 +171,13 @@ func test_drops_vary_between_runs_but_are_repeatable() -> void:
 		var p = Profile.new_game(T0)
 		p.stars["1-1"] = 1
 		var types: Array = []
-		for i in 30:
+		var orb_wins := 0
+		for i in 60:
 			Campaign.start(p, 0, 0, "vampire", T0 + i * 10000)
-			types.append_array(Campaign.finish(p, 0, 0, "vampire", _win()).drops)
+			var r: Dictionary = Campaign.finish(p, 0, 0, "vampire", _win())
+			types.append_array(r.drops)
+			orb_wins += 1 if r.orbs > 0 else 0
+		check(orb_wins > 30 and orb_wins < 55, "most wins drop orbs (%d of 60)" % orb_wins)
 		seen[",".join(types)] = true
 		var distinct := {}
 		for t in types:

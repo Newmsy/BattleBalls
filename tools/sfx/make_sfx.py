@@ -385,6 +385,52 @@ def pew():
     return mix(pop, air)
 
 
+def crackle():
+    """Static's zap: a sharp electric snap with a buzzing crackle tail."""
+    dur = 0.3
+    snap = bandnoise(0.015, 3000, 12000) * env(0.015, 0.0003, 5) * 1.2
+    sparks = bandnoise(dur, 2000, 10000) * (rng.uniform(0, 1, int(dur * SR)) > 0.82) * env(dur, 0.001, 5)
+    buzz = osc(np.full(int(dur * SR), 95.0), "square") * bandnoise(dur, 800, 4000) * env(dur, 0.001, 6) * 0.6
+    tone = osc(sweep(1800, 600, dur, 0.5), "saw") * env(dur, 0.001, 8) * 0.25
+    return mix(snap, sparks, buzz, tone)
+
+
+def rustle():
+    """Tumble gathering a twig: a dry crackle of sticks and a soft whoomp."""
+    dur = 0.28
+    sticks = bandnoise(dur, 1500, 7000) * (rng.uniform(0, 1, int(dur * SR)) > 0.9) * env(dur, 0.005, 3)
+    swish = bandnoise(dur, 600, 3000) * env(dur, 0.04, 4) * 0.4
+    whoomp = osc(sweep(260, 420, dur, 0.7), "sine") * env(dur, 0.01, 6) * 0.5
+    return mix(sticks * 1.4, swish, whoomp)
+
+
+def fizzpop():
+    """Fizz bursting: a can-tab 'pssshk' with bubbling hiss."""
+    tab = bandnoise(0.02, 1500, 8000) * env(0.02, 0.0005, 6)
+    dur = 0.55
+    hiss = bandnoise(dur, 3000, 11000) * env(dur, 0.003, 3) * 0.8
+    fizz = bandnoise(dur, 2500, 9000) * (rng.uniform(0, 1, int(dur * SR)) > 0.93) * env(dur, 0.01, 2)
+    return mix(tab, delay(hiss, 0.01), delay(fizz * 1.3, 0.05))
+
+
+def drum():
+    """Drum: a punchy tom with a snare rattle."""
+    dur = 0.3
+    tom = osc(sweep(330, 180, dur, 0.5), "sine") * env(dur, 0.001, 6)
+    skin = osc(sweep(560, 300, 0.08, 0.5), "tri") * env(0.08, 0.001, 7) * 0.5
+    snare = bandnoise(0.15, 1500, 7000) * env(0.15, 0.001, 6) * 0.45
+    return mix(tom, skin, snare)
+
+
+def rain():
+    """Drizzle's shower: a second of soft rain patter."""
+    dur = 1.0
+    wash = bandnoise(dur, 1200, 6000) * 0.35
+    drops = bandnoise(dur, 2500, 9000) * (rng.uniform(0, 1, int(dur * SR)) > 0.97) * 1.4
+    e = np.minimum(1, np.minimum(t_axis(dur) / 0.15, (dur - t_axis(dur)) / 0.25))
+    return mix(wash, drops) * e
+
+
 SOUNDS = {
     "hit_0": lambda: hit(0), "hit_1": lambda: hit(1), "hit_2": lambda: hit(2),
     "hit_big": lambda: hit(0, big=True),
@@ -397,6 +443,7 @@ SOUNDS = {
     "overtime": overtime, "heartbeat": heartbeat,
     "win": win, "lose": lose, "draw": draw, "go": go, "launch": launch, "stretch": stretch, "click": click,
     "chomp": chomp, "thwomp": thwomp, "pew": pew,
+    "crackle": crackle, "rustle": rustle, "fizzpop": fizzpop, "drum": drum, "rain": rain,
 }
 
 

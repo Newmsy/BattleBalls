@@ -25,6 +25,8 @@ static func build(shell) -> Control:
 	for o in OPTIONS:
 		v.add_child(_row(shell, o[0], o[1], o[2]))
 	v.add_child(_stats_row(shell))
+	if Dev.TOOLS_ENABLED:
+		v.add_child(_testing(shell))
 	var note := Kit.label("Colourblind-friendly marks are always on: your critter has a solid ring, the foe a dashed spiky one, and every rarity has its own shape.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	# The sheet measures itself before layout, so wrapped text needs a real width.
 	note.custom_minimum_size.x = 600

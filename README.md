@@ -358,6 +358,33 @@ and Bracket picks. Arena Ghost bots grow with the ladder (T1 below 1200
 trophies up to T5 from 4800; Bronze ghosts bring only Commons and Uncommons),
 so ranked stays a fair climb once tiers count.
 
+## Faction talent trees
+
+Every critter belongs to one of nine factions (roster.md's theme families:
+Fire, Frost, Nature, Sea, Tech, Spooky, Cosmic, Sweet, Toybox). Each faction
+has one account-wide talent tree in `sim/talents.gd`: Core, faction and
+Ability columns over four rows plus a capstone, 30 points max, rows opened by
+points spent lower down. A critter only uses the rows its tier unlocks (T1 row
+1 up to T5 for the capstone). Talents are conditional or faction flavour (first
+seconds, after a wall bounce, below an HP line, burns, slows); flat stats stay
+gear's. All of it is deterministic, so fights still replay.
+
+The slot carries the tree as `talents: {node: rank}`; `Lineup.clean` and
+`MatchSim` clean it against the critter's faction and tier, `Lineup.side` adds
+Faction Bond (a capstone gets +2% power per other same-faction critter in a
+relay team, up to two), and `Lineup.rating` counts +0.33% per active point.
+Points come only from play (`Profile.add_xp` gives the critter's faction the
+same Faction XP, and each of T2-T5 reached in the faction is a point); respecs
+are free. The UI is Critters > Factions (`factions_screen.gd`,
+`faction_screen.gd`).
+
+```
+godot --headless --script res://tools/talent_check.gd -- --fights=40 --per=4   # each faction's full tree vs bare
+```
+
+`Talents.STRENGTH` scales every node; the check wants each faction's full tree
+to win 55-80% against the same critter bare (it landed 60-74%).
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or

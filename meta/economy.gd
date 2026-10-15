@@ -44,11 +44,13 @@ const ORBS_PER_WEEK_STREAK := 12 ## On every 7th day played in a row.
 const ORBS_BOSS_FIRST_CLEAR := 5
 const ORBS_PER_ACCOUNT_LEVEL := 0 ## Account levels already refill energy.
 
-## Campaign drops: a win drops a copy of one of the zone's featured critters
-## with this chance (otherwise just XP), and that copy is the zone's
-## next-rarity-up critter instead with the bonus chance. First clears always
-## add the beaten enemy; a boss's first clear adds its guaranteed reward.
-const CAMPAIGN_DROP_CHANCE := 0.4
+## Campaign drops (Newms 2026-10-15: "heavier on orbs, 25% for a specific
+## critter"): a win drops a copy of one of the zone's featured critters with
+## this chance, otherwise ORBS_CAMPAIGN_WIN Summon Orbs. That copy is the
+## zone's next-rarity-up critter instead with the bonus chance. First clears
+## always add the beaten enemy; a boss's first clear adds its guaranteed reward.
+const CAMPAIGN_DROP_CHANCE := 0.25
+const ORBS_CAMPAIGN_WIN := 1
 const CAMPAIGN_RARE_BONUS := 0.08
 
 ## Campaign drop pools per zone: six featured critters (what a win drops), the
@@ -78,11 +80,19 @@ const ZONE1_AS_BUILT := {"featured": ["spiker", "speedster", "vampire", "juggern
 ## tier (index 0 is 1 star, which is never merged into). Coins are earned
 ## only, so this is a progression sink, never a price.
 const GEAR_MERGE_COST := [0, 50, 150, 400, 1000]
-## A campaign win drops a 1-star piece this often (more for a 3-star win); a
-## boss's first clear always drops one at GEAR_BOSS_TIER.
-const GEAR_CAMPAIGN_CHANCE := 0.15
-const GEAR_CAMPAIGN_CHANCE_3STAR := 0.25
+## A campaign win drops a piece this often (Newms 2026-10-15: 20%), better on
+## later stages and zones (gear_tier); a boss's first clear always drops one
+## at GEAR_BOSS_TIER, plus one more star per zone.
+const GEAR_CAMPAIGN_CHANCE := 0.2
 const GEAR_BOSS_TIER := 2
+## Stages from this one on (0-based) in a zone drop gear one star better.
+const GEAR_STEP_STAGE := 6
+
+
+## The star tier of a campaign win's gear drop: 1 star in Glow Garden's first
+## stages, +1 from GEAR_STEP_STAGE on, +1 per zone after the first, up to 5.
+static func gear_tier(zone_index: int, stage_index: int) -> int:
+	return clampi(1 + zone_index + (1 if stage_index >= GEAR_STEP_STAGE else 0), 1, 5)
 ## The Spire's boss-floor gear is in sim/spire.gd (BOSS_GEAR).
 
 ## Pacing targets for a ~15-20 minute a day player (pve.md section 6), as
@@ -90,13 +100,16 @@ const GEAR_BOSS_TIER := 2
 ## must land inside each window. First T4 was "week 3-4"; it is "week 2-4"
 ## now because onboarding hands out a T2 starter, a head start the 15-critter
 ## targets didn't have.
+## Orb-heavy campaign drops (2026-10-15) bring Rare+, Legendary and T4
+## earlier through summons, so those windows open sooner (Newms' drop ask
+## wins over the old windows).
 const TARGETS := {
 	"first_fusion": [1, 1],
 	"t2_uncommon": [1, 3],
-	"t3_common": [2, 4],
-	"t2_rare": [3, 6],
-	"legendary": [8, 16],
-	"t4": [14, 30],
+	"t3_common": [1, 4],
+	"t2_rare": [1, 6],
+	"legendary": [2, 16],
+	"t4": [10, 30],
 	"t5_common": [45, 90],
 }
 ## Casual players may take up to this many times the target's latest day;
@@ -112,7 +125,7 @@ static func tuned() -> Dictionary:
 		"name": "tuned",
 		"odds": SUMMON_ODDS, "pity": PITY_RESET,
 		"starter_orbs": STARTER_ORBS, "orbs_daily": ORBS_DAILY_LOGIN,
-		"orbs_level": ORBS_PER_ACCOUNT_LEVEL, "orbs_boss": ORBS_BOSS_FIRST_CLEAR,
+		"orbs_level": ORBS_PER_ACCOUNT_LEVEL, "orbs_boss": ORBS_BOSS_FIRST_CLEAR, "orbs_win": ORBS_CAMPAIGN_WIN,
 		"orbs_streak": ORBS_PER_WEEK_STREAK,
 		"campaign_drop": CAMPAIGN_DROP_CHANCE, "zone_drops": ZONE_DROPS, "campaign_bonus": CAMPAIGN_RARE_BONUS,
 	}
@@ -127,6 +140,7 @@ static func as_built() -> Dictionary:
 	c.orbs_daily = 0
 	c.orbs_level = 0
 	c.orbs_boss = 0
+	c.orbs_win = 0
 	c.orbs_streak = 0
 	c.campaign_drop = 1.0
 	c.campaign_bonus = 0.05
