@@ -10,12 +10,15 @@
 ## the tier's cap, one piece per gear slot, a Charm only from 3 stars, no line
 ## above a 5-star piece's), so a tampered lineup can't field a T9 or stack ten
 ## 5-star cores.
+## Optional `boost`: {line: value} from Arena Boosts (sim/arena_boosts.gd),
+## clamped to a fully boosted family and fought as one more gear piece.
 extends RefCounted
 
 const CritterDb := preload("res://sim/critter_db.gd")
 const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
 const Talents := preload("res://sim/talents.gd")
+const ArenaBoosts := preload("res://sim/arena_boosts.gd")
 
 const MAX_TIER := 5
 const GEAR_SLOTS := Gear.SLOTS
@@ -52,10 +55,20 @@ static func clean(slot: Dictionary) -> Dictionary:
 	var critter := str(slot.get("critter", ""))
 	var out := {"critter": critter, "tier": tier,
 		"level": clampi(int(slot.get("level", 1)), 1, level_cap(tier)), "gear": pieces}
+	var boost := ArenaBoosts.clean(slot.get("boost"))
+	if not boost.is_empty():
+		out.boost = boost
 	var talents := Talents.clean(Talents.faction_of(critter), slot.get("talents", {}), tier)
 	if not talents.is_empty():
 		out.talents = talents
 	return out
+
+
+## The pieces a slot fights with: its gear plus its Arena Boost, if any.
+static func kit(s: Dictionary) -> Array:
+	if not s.has("boost"):
+		return s.gear
+	return s.gear + [{"slot": "Boost", "stats": s.boost}]
 
 
 ## The slot's progression multiplier (sim/power.gd): rarity, tier and level.
@@ -69,10 +82,11 @@ static func power(slot: Dictionary) -> float:
 
 
 ## The Power Rating players see for a slot: power() plus its gear's worth
-## (sim/gear.gd stats_power), on the 1000-for-a-base-ball scale.
+## (sim/gear.gd stats_power) and any Arena Boost, on the 1000-for-a-base-ball
+## scale.
 static func rating(slot: Dictionary) -> int:
 	var s := clean(slot)
-	return Power.rating(power(s) * (1.0 + Gear.gear_power(s.gear)) * (1.0 + talent_power(s)))
+	return Power.rating(power(s) * (1.0 + Gear.gear_power(s.gear)) * (1.0 + ArenaBoosts.power(s.get("boost", {}))) * (1.0 + talent_power(s)))
 
 
 ## What a slot's active talents add to its Power Rating, as a fraction.
@@ -105,7 +119,7 @@ static func side(slots: Array) -> Dictionary:
 		out.sides.append(s.critter)
 		out.tiers.append(s.tier)
 		out.powers.append(power(s) * bond(cleaned, i))
-		out.gear.append(s.gear)
+		out.gear.append(kit(s))
 		out.talents.append(s.get("talents", {}))
 	return out
 
@@ -119,6 +133,6 @@ static func apply(cfg: Dictionary, i: int, slot: Dictionary) -> Dictionary:
 	cfg["p%d" % (i + 1)] = s.critter
 	cfg.tiers[i] = s.tier
 	cfg.powers[i] = power(s)
-	cfg.gear[i] = s.gear
+	cfg.gear[i] = kit(s)
 	cfg.talents[i] = s.get("talents", {})
 	return cfg

@@ -44,10 +44,38 @@ static func build(shell, params: Dictionary) -> Control:
 	else:
 		root.add_child(_your_pick(ev, b, t))
 	var out := Legends.rounds_out(ev, t)
+	if out > 0 and not b.ready_through(out - 1):
+		root.add_child(_fighting(shell, ev, b, out - 1))
 	var r: int = clampi(int(params.get("round", maxi(0, out - 1))), 0, b.rounds - 1)
 	root.add_child(_round_tabs(shell, b, r, out))
 	root.add_child(_round(shell, ev, b, r, t))
 	return root
+
+
+## Shown while the rounds that are out are still being fought out on this
+## device: a progress line, and a timer that fights a little every frame and
+## redraws the screen once everything is in. Finished matches are kept, so
+## this only happens once per round.
+static func _fighting(shell, ev: Dictionary, b, through: int) -> Control:
+	var label := Kit.label("", 22, Kit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var show := func():
+		var p: Array = b.progress(through)
+		label.text = "Fighting out the bracket: %d of %d matches..." % [p[0], p[1]]
+	show.call()
+	print("BRACKET_FIGHTING ", ev.id)
+	var timer := Timer.new()
+	timer.wait_time = 0.016
+	timer.autostart = true
+	timer.timeout.connect(func():
+		if Legends.pump(ev, LiveOps.now(), 10000):
+			timer.stop()
+			print("BRACKET_READY ", ev.id)
+			if is_instance_valid(shell) and shell.current == "bracket" and not shell.overlay_open():
+				shell.refresh()
+		else:
+			show.call())
+	label.add_child(timer)
+	return label
 
 
 static func _blurb(ev: Dictionary, b) -> String:
@@ -73,7 +101,7 @@ static func _status(ev: Dictionary, t: int, phase: String) -> Control:
 			text = "%s: out now. %s comes out in %s." % [b.round_name(out - 1), b.round_name(out), LiveOps.countdown(t, Legends.reveal_at(ev, out))]
 			col = GOLD
 		"done":
-			if Legends.champion_known(ev, t):
+			if Legends.champion_known(ev, t) and Legends.bracket(ev).has_match(Legends.round_count(ev) - 1, 0):
 				text = "Champion: %s." % _name(Legends.bracket(ev).champion())
 			else:
 				text = "The final is out. Open it to see who won."
@@ -142,6 +170,8 @@ static func _your_pick(ev: Dictionary, b, t: int) -> Control:
 	var text := "Still in. Every round they win is one closer."
 	var col := Kit.FG
 	for r in Legends.rounds_out(ev, t):
+		if not b.ready_through(r):
+			break
 		var i := _match_index(b, r, pick)
 		if i < 0 or not Legends.shows_result(ev, r, i, t):
 			break
@@ -199,6 +229,10 @@ static func _round(shell, ev: Dictionary, b, r: int, t: int) -> Control:
 			var c := _feeder(ev, b, r, i * 2 + 1, out, t)
 			v.add_child(_row(shell, ev, b, {"index": i, "a": a, "b": c, "bye": r == 0 and (a == "" or c == "")}, r, false, false))
 			continue
+		if not b.has_match(r, i):
+			# Still being fought out (see _fighting).
+			v.add_child(_row(shell, ev, b, {"index": i, "a": "", "b": "", "bye": false}, r, false, false))
+			continue
 		v.add_child(_row(shell, ev, b, b.get_match(r, i), r, true, Legends.shows_result(ev, r, i, t)))
 	return v
 
@@ -208,7 +242,7 @@ static func _round(shell, ev: Dictionary, b, r: int, t: int) -> Control:
 static func _feeder(ev: Dictionary, b, r: int, k: int, out: int, t: int) -> String:
 	if r == 0:
 		return b.slots[k]
-	if r == out and Legends.shows_result(ev, r - 1, k, t):
+	if r == out and b.has_match(r - 1, k) and Legends.shows_result(ev, r - 1, k, t):
 		return b.get_match(r - 1, k).winner
 	return ""
 
@@ -327,8 +361,9 @@ static func board_card(shell, t: int, tile: Callable) -> Control:
 			text = "%s out today." % b.round_name(Legends.rounds_out(ev, t) - 1)
 			button = "Watch"
 		"done":
-			text = "Champion: %s." % _name(b.champion()) if Legends.champion_known(ev, t) else "The final is out."
-			button = "See the final" if not Legends.champion_known(ev, t) else button
+			var known := Legends.champion_known(ev, t) and b.has_match(b.rounds - 1, 0)
+			text = "Champion: %s." % _name(b.champion()) if known else "The final is out."
+			button = "See the final" if not known else button
 	if pick != "" and phase != "done":
 		text += " Yours: %s." % _name(pick)
 	var icons := Kit.hbox(-22)
