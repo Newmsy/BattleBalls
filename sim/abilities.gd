@@ -42,7 +42,7 @@ const EFFECTS := {
 	"copy": ["copy_secs", "copy_cooldown", "copy_shield", "copy_scale"],
 	"revive": ["revive_hp", "revive_radius", "revive_damage", "revive_burn", "revive_shield", "revive_bolts"],
 	"fire_trail": ["trail_every", "trail_width", "trail_life", "trail_dps"],
-	"beam_at": ["prism_damage", "prism_life", "prism_fan", "prism_full_every"],
+	"beam_at": ["prism_damage", "prism_life", "prism_fan", "prism_full_every", "prism_gap"],
 	"collapse": ["collapse_every", "collapse_secs", "collapse_range", "collapse_accel", "collapse_damage", "collapse_radius", "collapse_ring"],
 	"collapse_guard": ["collapse_guard"],
 	"copy_tick": [],
@@ -399,12 +399,14 @@ func fx_fire_trail(sim, b, _ctx: Dictionary) -> void:
 
 
 ## On a wall bounce, a rainbow beam from the bounce point toward the nearest
-## foe (prism_damage per hit, 4 hits a second). prism_fan beams spread 15
-## degrees apart; every prism_full_every-th bounce (when > 0) fans 7.
+## foe (prism_damage per hit, 4 hits a second), at most one cast every
+## prism_gap seconds (pillar and bumper arenas bounce a lot). prism_fan beams
+## spread 15 degrees apart; every prism_full_every-th cast (when > 0) fans 7.
 func fx_beam_at(sim, b, ctx: Dictionary) -> void:
 	var f = sim.nearest_foe(b)
-	if f == null or not ctx.has("point"):
+	if f == null or not ctx.has("point") or sim.tick < int(b.state.get("prism_next", 0)):
 		return
+	b.state.prism_next = sim.tick + int(round(b.def.prism_gap * sim.TICK_RATE))
 	b.state.bounces = int(b.state.get("bounces", 0)) + 1
 	var n := int(b.def.prism_fan)
 	if b.def.prism_full_every > 0 and b.state.bounces % int(b.def.prism_full_every) == 0:

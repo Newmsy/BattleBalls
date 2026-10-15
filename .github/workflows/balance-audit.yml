@@ -1,0 +1,115 @@
+name: Balance audit
+
+# The full balance sweep (BALANCE.md): every pairing of the live roster on
+# every arena and Chaos Weekend modifier, the power step and the gear lines.
+# Too big for one machine or for a PR, so it runs weekly on main, split over
+# SHARDS machines; the report job merges their results into one report (job
+# summary and the balance-audit-report artifact). The PR gate (ci.yml) only
+# fights the critters a PR changes.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1" # Mondays 06:17 UTC, ahead of the weekly balance review.
+  workflow_dispatch:
+    inputs:
+      fights:
+        description: Seeds per pairing on the square (each fought from both corners)
+        default: "100"
+
+concurrency:
+  group: balance-audit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  GODOT_VERSION: "4.3"
+  FIGHTS: ${{ inputs.fights || '100' }}
+  # Equal power everywhere; power step and gear lines on the square.
+  EQUAL_ARGS: --arena=all --modifiers --variant-fights=50
+  POWER_ARGS: --no-equal --power-step --gear
+
+jobs:
+  shard:
+    name: Audit shard ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot and web export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+      - name: Download Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: tools/ci/download_godot.sh
+      - name: Import project
+        run: timeout 180 ~/godot/godot --headless --import || true
+      - name: Fight this shard
+        run: |
+          set -o pipefail
+          mkdir -p out
+          s="--shard=${{ matrix.shard }}/${{ strategy.job-total }}"
+          ~/godot/godot --headless --script res://tools/balance.gd -- --fights=$FIGHTS $EQUAL_ARGS $s --out=out/equal-${{ matrix.shard }}.json | grep -v '^Godot Engine' > /dev/null
+          ~/godot/godot --headless --script res://tools/balance.gd -- --fights=$FIGHTS $POWER_ARGS $s --out=out/power-${{ matrix.shard }}.json | grep -v '^Godot Engine' > /dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: balance-shard-${{ matrix.shard }}
+          path: out/*.json
+          retention-days: 7
+
+  report:
+    name: Audit report
+    needs: shard
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache Godot and web export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
+      - name: Download Godot
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: tools/ci/download_godot.sh
+      - name: Import project
+        run: timeout 180 ~/godot/godot --headless --import || true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: balance-shard-*
+          path: results
+          merge-multiple: true
+      # A missing shard leaves "·" cells; the shard job's own status shows it.
+      - name: Merge the shards into one report
+        run: |
+          set -o pipefail
+          {
+            echo "## Balance audit, $(date -u +%Y-%m-%d), main @ ${GITHUB_SHA::7}"
+            echo
+            ~/godot/godot --headless --script res://tools/balance.gd -- --fights=$FIGHTS $EQUAL_ARGS --from=results --strict | grep -v '^Godot Engine'; a=${PIPESTATUS[0]}
+            echo
+            ~/godot/godot --headless --script res://tools/balance.gd -- --fights=$FIGHTS $POWER_ARGS --from=results --strict | grep -v '^Godot Engine'; b=${PIPESTATUS[0]}
+            echo "exit codes: equal=$a power=$b" >&2
+            echo $(( a | b )) > status
+          } | tee report.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$(cat status)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: balance-audit-report
+          path: report.md
+          retention-days: 90

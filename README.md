@@ -23,7 +23,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 ```sh
 godot --headless --import                                   # once, after cloning
 GODOT=godot tests/run.sh                                    # all tests
-godot --headless --script res://tools/balance.gd -- --fights=200 --power-step [--arena=all]
+godot --headless --script res://tools/balance.gd -- --fights=200 --power-step [--arena=all] [--only=<id>]
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
 godot --headless --script res://tools/spire_curve.gd        # The Spire's floor power curve
 godot --headless --export-release "Web" build/web/index.html
@@ -38,9 +38,10 @@ CI builds every ready (non-draft) PR for the web and deploys it to Vercel
 comment with its preview URL; `main` deploys to production. Smoke-test
 screenshots are served at `<preview>/smoke/`.
 
-URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink`
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink&mod=big_head`
 (`aim` is the launch angle in tenths of a degree, screen space, y down;
-`arena` is an id from `sim/arenas.gd`).
+`arena` is an id from `sim/arenas.gd`; `mod` is an optional Chaos Weekend
+modifier id from `sim/modifiers.gd`).
 
 A first visit with no URL params plays the onboarding
 (`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
@@ -281,3 +282,8 @@ web build and smoke test run once a PR is ready; `main` runs the unit and
 database tests, then builds, deploys and migrates without repeating the smoke
 test. Run the full checks locally before pushing (see CLAUDE.md), and push a
 draft in a few larger steps rather than many small ones.
+
+The balance gate is its own set of `Balance` jobs: `tools/ci/balance_plan.sh`
+picks which pairings a PR needs and how many parallel shards to spread them
+over, so it stays inside the time limit as the roster grows (BALANCE.md, "What
+checks it"). The `Balance audit` workflow fights every pairing weekly on `main`.

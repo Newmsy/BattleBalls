@@ -2,7 +2,8 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2], tiers: [t1, t2], arena: String }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2],
+##          tiers: [t1, t2], arena: String, modifier: String }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
@@ -13,6 +14,8 @@
 ## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
 ## Critters and their abilities come from sim/critters/ via sim/ball_defs.gd;
 ## this file only fires their triggers (sim/abilities.gd).
+## `modifier` is an optional Chaos Weekend rule twist from sim/modifiers.gd,
+## applied to both balls.
 ## `arena` (optional) is an id from sim/arenas.gd (default "square").
 ## `gear` (optional) is each ball's gear: a list of pieces or stat totals
 ## (sim/gear.gd), or null for none.
@@ -25,6 +28,7 @@ extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const Gear := preload("res://sim/gear.gd")
@@ -35,7 +39,7 @@ const RULES_VERSION := 2
 const TICK_RATE := 60
 const DT := 1.0 / TICK_RATE
 const ARENA_SIZE := 1000.0
-const OVERTIME_START := 45.0
+const OVERTIME_START := 45.0 ## Default; a modifier can move it (see overtime_start).
 const SHRINK_SPEED := 12.0 ## Arena units per second, per side.
 const MIN_HALF := 200.0
 const OVERTIME_DAMAGE_RAMP := 0.05 ## +5% damage per second of overtime.
@@ -143,6 +147,8 @@ class Zone:
 
 
 var config: Dictionary
+var modifier := Modifiers.NONE
+var overtime_start := OVERTIME_START
 var arena_id: String
 var arena: Dictionary
 var rng
@@ -176,10 +182,16 @@ func _init(cfg: Dictionary) -> void:
 	arena_id = cfg.get("arena", "square")
 	arena = Arenas.get_def(arena_id)
 	rng = Rng.new(int(cfg.get("seed", 1)))
+	modifier = cfg.get("modifier", Modifiers.NONE)
+	var mod := Modifiers.get_def(modifier)
+	overtime_start = mod.get("overtime_start", OVERTIME_START)
 	abilities = Abilities.new()
 	rolls = Rng.new(int(cfg.get("seed", 1)) ^ ROLL_SALT)
 	damage_rolls = cfg.get("damage_rolls", true)
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
+	if mod.get("mirror", false):
+		var mirrored := Modifiers.mirror_ball(int(cfg.get("seed", 1)))
+		types = [mirrored, mirrored]
 	var angles: Array = cfg.get("angles", [null, null])
 	var starts: Array = cfg.get("starts", START_CORNERS)
 	var start_hp: Array = cfg.get("hp", [null, null])
@@ -187,7 +199,7 @@ func _init(cfg: Dictionary) -> void:
 	var gear: Array = cfg.get("gear", [null, null])
 	for i in 2:
 		var kit := Gear.totals(gear[i])
-		var def := Gear.apply_def(BallDefs.get_def(types[i], int(tiers[i])), kit)
+		var def := Modifiers.apply_to_def(Gear.apply_def(BallDefs.get_def(types[i], int(tiers[i])), kit), modifier)
 		var b := Ball.new()
 		b.index = i
 		b.team = i
@@ -216,11 +228,11 @@ func time() -> float:
 
 
 func in_overtime() -> bool:
-	return time() >= OVERTIME_START
+	return time() >= overtime_start
 
 
 func damage_multiplier() -> float:
-	return 1.0 + maxf(0.0, time() - OVERTIME_START) * OVERTIME_DAMAGE_RAMP
+	return 1.0 + maxf(0.0, time() - overtime_start) * OVERTIME_DAMAGE_RAMP
 
 
 func arena_rect() -> Rect2:
@@ -277,7 +289,7 @@ func step() -> void:
 		hp_before.append(b.hp)
 
 	if in_overtime():
-		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
+		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - overtime_start))
 
 	for b in balls:
 		b.slow = 0.0

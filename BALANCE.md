@@ -42,19 +42,39 @@ Before the stats:
   The full roster plan is `design/roster.md` in the project folder.
 
 In the PR that adds or changes it:
-- Run `godot --headless --script res://tools/balance.gd -- --fights=200 --power-step`
+- Run `godot --headless --script res://tools/balance.gd -- --fights=200 --power-step --only=<id>`
   and paste the output (both tables) into the PR.
 - No `FAIL` lines. Every `WARN` is either fixed or explained in the PR.
 - Set `"status": "live"` in its file (`sim/critters/<id>.gd`) so the game, CI and the audit include it.
 - Golden replays and unit tests for the ability, as for any sim change.
 
+## Chaos Weekend modifiers
+
+Weekend rule twists (`sim/modifiers.gd`) apply to both balls, but they still
+shift matchups, so the same 65% limit and 20-60s median hold under every
+modifier. Aim for 60% or less so new critters have headroom. A new critter
+is checked under every modifier as well as base rules.
+
 ## What checks it
 
 | Check | When | Command |
 |---|---|---|
-| Equal-power matrix and arena tilt on every playable arena, `FAIL` blocks merge | Every ready (non-draft) PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict --arena=all` |
-| Full audit: equal power and power step at higher sample size | Weekly scheduled balance audit on `main`, plus any PR touching ball stats | `balance.gd -- --fights=500 --power-step` |
+| Equal-power matrix and arena tilt on every playable arena, and on the square under every Chaos Weekend modifier, `FAIL` blocks merge | Every ready (non-draft) PR that touches `sim/` or `tools/balance.gd` (CI `Balance` shards) | `balance.gd -- --fights=100 --variant-fights=50 --arena=all --modifiers --strict` |
+| Full audit: every pairing everywhere, power step and gear lines | Weekly on `main` (`Balance audit` workflow, Mondays 06:17 UTC), read by the weekly balance review | see `.github/workflows/balance-audit.yml` |
+| Power step for a new or changed critter | The PR that adds or changes it (paste the output) | `balance.gd -- --fights=200 --power-step --only=<id>` |
 | Gear lines: one Legendary piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
+
+How the PR gate scales: with 12 or fewer live critters it fights every
+pairing. Above that, `tools/ci/balance_plan.sh` limits it to pairings involving
+the critters whose `sim/critters/<id>.gd` the PR changed, each against the whole
+field (`--only`). An engine change (anything else under `sim/`, or this tool)
+adds `@sample`, a fixed spread of 8 live critters against the field. The
+pairings are split over up to 16 parallel shards (`--shard=k/n`), and each
+shard fails on its own `FAIL`. Non-square arenas and modifiers use 50 seeds
+per pairing (100 fights) to fit; the weekly audit covers every pairing.
+`--out` / `--from` save and merge shard results; past 16 critters the report
+prints one row per critter (mean vs field, worst and best matchup) instead of a
+matrix.
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%
 Wilson interval) and `WARN` when it might be noise; rerun a `WARN` with more
