@@ -12,11 +12,11 @@ const CRITTER := {
 	"color": "f5c400",
 	"vibe": "A buzzy little wasp that never misses a chance to sting.",
 	"description": "Wasp. Every wall bounce it fires a homing stinger at the foe.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.5},
+	"stats": {"hp": 105.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "wall", "do": "shoot"}],
 	"params": {
 		"fire_cooldown": 0.6, ## At most one stinger this often (corners and pillars bounce fast).
-		"shot_damage": 3.5,
+		"shot_damage": 2.5,
 		"shot_speed": 450.0,
 		"shot_count": 1,
 		"shot_aim": "foe",
@@ -30,8 +30,8 @@ const CRITTER := {
 		"shot_kind": "stinger",
 	},
 	"tiers": [
-		{"text": "Bounces fire a homing stinger for 3.5"},
-		{"text": "Stingers deal 4", "shot_damage": 4.0},
+		{"text": "Bounces fire a homing stinger for 2.5"},
+		{"text": "Stingers deal 3", "shot_damage": 3.0},
 		{"text": "Stingers poison (2/s for 2s)", "shot_burn": 2.0},
 		{"text": "Stingers home harder", "shot_homing": 3.5},
 		{"text": "Every 4th bounce fires a swarm of 4", "shot_big_every": 4},

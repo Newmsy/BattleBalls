@@ -445,8 +445,11 @@ func fx_collapse_guard(_sim, b, ctx: Dictionary) -> void:
 ## (splits off a wall), shot_burn (per second, 2s), shot_knock, shot_slow (1s),
 ## shot_life, shot_radius, shot_kind (look), shot_burst_damage and
 ## shot_burst_radius (a pop when it fizzles), and fire_cooldown (seconds
-## between volleys, e.g. on a hurt trigger).
-func fx_shoot(sim, b, _ctx: Dictionary) -> void:
+## between volleys, e.g. on a hurt trigger) and shot_when_bumped (on a hurt
+## trigger, only contact hits fire it).
+func fx_shoot(sim, b, ctx: Dictionary) -> void:
+	if b.def.get("shot_when_bumped", 0) > 0 and ctx.get("kind", "contact") != "contact":
+		return
 	if b.def.has("fire_cooldown"):
 		if sim.tick < int(b.state.get("fire_ready", 0)):
 			return

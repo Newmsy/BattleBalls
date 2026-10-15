@@ -11,11 +11,12 @@ const CRITTER := {
 	"status": "live",
 	"color": "caffbf",
 	"vibe": "A dreamy dandelion puff that sneezes seeds everywhere when bumped.",
-	"description": "Dandelion. When hurt, it puffs out seeds that drift slowly and sting anything they touch.",
+	"description": "Dandelion. When bumped, it puffs out seeds that drift slowly and sting anything they touch.",
 	"stats": {"hp": 120.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.5},
 	"ability": [{"on": "hurt", "do": "shoot"}],
 	"params": {
 		"fire_cooldown": 1.5, ## Seconds between puffs.
+		"shot_when_bumped": 1, ## Only contact hits shake seeds loose, so ability damage can't farm puffs.
 		"shot_damage": 4.0,
 		"shot_speed": 150.0,
 		"shot_count": 4,
@@ -27,7 +28,7 @@ const CRITTER := {
 		"shot_burst_radius": 40.0,
 	},
 	"tiers": [
-		{"text": "Hurt: puffs 4 stinging seeds for 4"},
+		{"text": "Bumped: puffs 4 stinging seeds for 4"},
 		{"text": "Seeds deal 5", "shot_damage": 5.0},
 		{"text": "6 seeds", "shot_count": 6},
 		{"text": "Puffs every 1s", "fire_cooldown": 1.0},
