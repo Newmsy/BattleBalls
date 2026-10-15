@@ -33,11 +33,11 @@ const WEEKEND_START := 4 * DAY ## Friday, from Monday 00:00.
 const CHAOS_ROTATION := ["big_head", "glass_cannon", "mirror_match", "hyper_speed", "closing_walls", "double_trouble"]
 const CHAOS_TEXT := {
 	"big_head": ["Big Head", "Every ball is 1.35x bigger. More bumps, fewer misses."],
-	"glass_cannon": ["Glass Cannon", "Three quarters HP, 1.5x damage. Fights end fast."],
+	"glass_cannon": ["Glass Cannon", "Three quarters HP, 1.35x damage. Fights end fast."],
 	"mirror_match": ["Mirror Match", "Both sides get the same random ball. Only your aim decides."],
 	"hyper_speed": ["Hyper Speed", "Every ball moves 1.4x faster. Beams fade faster too."],
 	"closing_walls": ["Closing Walls", "Overtime starts at 10 seconds: the arena shrinks early."],
-	"double_trouble": ["Double Trouble", "Abilities hit 1.5x harder: bigger heals, more beams at once."],
+	"double_trouble": ["Double Trouble", "Abilities hit harder: bigger heals, more and hotter beams, bigger snaps."],
 }
 
 ## Fight of the Day generator: keep the first seed whose fight is close.
