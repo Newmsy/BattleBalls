@@ -144,9 +144,9 @@
       "p2": "speedster",
       "seed": 11
     },
-    "hash": "c1983a53371d929d8c26d0ae8a3427f91474b3a761a67640412da539bda20f49",
+    "hash": "1627a62042cc2156b1c04d0a870fabaa266e6cb8c678725cd5a3925ed54ed443",
     "reason": "knockout",
-    "ticks": 2207,
+    "ticks": 1815,
     "winner": 0
   },
   {
@@ -201,7 +201,7 @@
         1.35
       ]
     },
-    "hash": "6ce2c451b7a4dc80e53a82d1d726588a89f66b99b2a3903414daf2ceb401630b",
+    "hash": "499ad90064d05f40018968b53b4478e7c296276ef3f7550907553cdc02bbd172",
     "reason": "knockout",
     "ticks": 3188,
     "winner": 1
