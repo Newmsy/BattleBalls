@@ -295,3 +295,138 @@ static func draw_chomp(ci: CanvasItem, at: Vector2, dir: Vector2, size: float, a
 			ci.draw_colored_polygon(PackedVector2Array([q - dir * size * 0.08, q + toward * size * 0.28, q + dir * size * 0.08]), Color(1, 1, 1, alpha))
 	if close >= 1.0:
 		ci.draw_circle(at, size * 0.25 * (1.0 - u), Color(BLEED, 0.6 * alpha))
+
+
+# --- Batch 2 ---------------------------------------------------------------------
+
+const BOLT_LIFE := 0.3
+const SOUR := Color("d4ff3a")
+
+## A jagged lightning bolt from `a` to `b` (Static, thunder). `seed` picks
+## the zigzag; it re-rolls every few frames so the bolt crackles.
+static func draw_bolt(ci: CanvasItem, a: Vector2, b: Vector2, age: float, seed: float, col := Color("bfe8ff")) -> void:
+	var u := clampf(age / BOLT_LIFE, 0.0, 1.0)
+	var alpha := 1.0 - u
+	var flick := floori(age * 30.0)
+	var pts := PackedVector2Array([a])
+	var side := (b - a).orthogonal().normalized()
+	var len := a.distance_to(b)
+	var steps := clampi(int(len / 18.0), 4, 14)
+	for k in range(1, steps):
+		var f := float(k) / steps
+		var j := sin(seed * 13.7 + k * 7.3 + flick * 3.1) * len * 0.09
+		pts.append(a.lerp(b, f) + side * j)
+	pts.append(b)
+	ci.draw_polyline(pts, Color(col, 0.35 * alpha), 9.0, true)
+	ci.draw_polyline(pts, Color(col, 0.9 * alpha), 3.5, true)
+	ci.draw_polyline(pts, Color(1, 1, 1, alpha), 1.5, true)
+
+
+## A crackling electric ring (Static's zap reach).
+static func draw_zap_ring(ci: CanvasItem, c: Vector2, rad: float, age: float, seed: float) -> void:
+	var u := clampf(age / BOLT_LIFE, 0.0, 1.0)
+	var r := rad * (0.5 + 0.5 * sqrt(u))
+	var pts := PackedVector2Array()
+	var flick := floori(age * 30.0)
+	for k in 37:
+		var a := k * TAU / 36.0
+		pts.append(c + Vector2.from_angle(a) * r * (1.0 + 0.06 * sin(seed * 5.0 + k * 2.9 + flick)))
+	ci.draw_polyline(pts, Color(Color("9fe6ff"), 0.8 * (1.0 - u)), 3.0, true)
+
+
+## Honey's puddle: glossy amber with lobes, a shine and a slow drip ring.
+static func draw_honey(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	for q in 5:
+		var a := seed + q * TAU / 5.0
+		ci.draw_circle(p + Vector2.from_angle(a) * rad * 0.45, rad * 0.55, Color(HONEY, 0.32 * fade))
+	ci.draw_circle(p, rad * 0.8, Color(Color("ffcf4d"), 0.35 * fade))
+	ci.draw_arc(p, rad * 0.9, 0.0, TAU, 32, Color(Color("8a4b00"), 0.45 * fade), 2.0, true)
+	ci.draw_arc(p + Vector2(-rad * 0.15, -rad * 0.15), rad * 0.45, PI * 1.05, PI * 1.5, 10, Color(1, 1, 1, 0.55 * fade), 3.0, true)
+	var f := fmod(t * 0.5 + seed, 1.0)
+	ci.draw_arc(p, rad * (0.3 + 0.6 * f), 0.0, TAU, 24, Color(Color("fff0b3"), 0.35 * (1.0 - f) * fade), 1.5, true)
+
+
+## Drizzle's shower once it lands: a dark patch, slanted rain, splashes and
+## ripples. The warning (before it arms) stays the dashed circle.
+static func draw_rain(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float, col: Color) -> void:
+	ci.draw_circle(p, rad, Color(Color("1b2550"), 0.4 * fade))
+	ci.draw_circle(p, rad, Color(col, 0.12 * fade))
+	for q in 3:
+		var f := fmod(t * 0.9 + q / 3.0 + seed, 1.0)
+		var at := p + Vector2(sin(seed * 3.0 + q * 2.2), cos(seed * 2.0 + q * 1.7)) * rad * 0.45
+		ci.draw_arc(at, rad * 0.35 * f, 0.0, TAU, 20, Color(Color("dfe6ff"), 0.5 * (1.0 - f) * fade), 1.5, true)
+	for q in 14:
+		var x := fmod(q * 37.0 + seed * 50.0, rad * 1.6) - rad * 0.8
+		var y := fmod(t * rad * 3.2 + q * 53.0, rad * 1.8) - rad * 0.9
+		if Vector2(x, y).length() > rad:
+			continue
+		ci.draw_line(p + Vector2(x, y), p + Vector2(x - rad * 0.06, y + rad * 0.2), Color(Color("dfe6ff"), 0.75 * fade), 2.0, true)
+	for q in 4:
+		var f := fmod(t * 2.0 + q * 0.25 + seed, 1.0)
+		var at := p + Vector2(sin(q * 4.1 + seed) * rad * 0.6, cos(q * 2.3 + seed) * rad * 0.6)
+		ci.draw_arc(at, 3.0 + 8.0 * f, PI, TAU, 8, Color(Color("dfe6ff"), (1.0 - f) * fade), 1.5, true)
+
+
+## Pucker's sour: the foe's face puckers green-yellow with sour drips and
+## swirls, so you can see it takes extra damage.
+static func draw_sour(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	ci.draw_circle(p, r, Color(SOUR, 0.18))
+	ci.draw_arc(p, r * 1.04, 0.0, TAU, 40, Color(SOUR, 0.8), 3.0, true)
+	for q in 3:
+		var a := t * 2.5 + q * TAU / 3.0
+		var at := p + Vector2.from_angle(a) * r * 1.18
+		ci.draw_arc(at, r * 0.13, a, a + PI * 1.4, 10, Color(SOUR, 0.9), 2.5, true)
+	for q in 3:
+		var f := fmod(t * 1.1 + q * 0.33, 1.0)
+		_drop(ci, p + Vector2((q - 1) * r * 0.45, r * (0.7 + 0.6 * f)), r * 0.08, Color(SOUR, 0.9 * (1.0 - f)))
+
+
+## Puff puffed up: a ring of long spines bristling out.
+static func draw_spines(ci: CanvasItem, p: Vector2, r: float, col: Color, t: float) -> void:
+	var n := 18
+	for q in n:
+		var a := q * TAU / n + 0.1 * sin(t * 3.0)
+		var d := Vector2.from_angle(a)
+		var side := d.orthogonal() * r * 0.07
+		var len := r * (0.38 + 0.06 * sin(t * 12.0 + q))
+		ci.draw_colored_polygon(PackedVector2Array([p + d * r * 0.92 - side, p + d * (r + len), p + d * r * 0.92 + side]), Color(col.lightened(0.55), 0.95))
+	ci.draw_arc(p, r * 1.02, 0.0, TAU, 48, Color(Color.WHITE, 0.35), 2.0, true)
+
+
+## Shelly tucked in: a domed hex shell over the body, eyes peeking out under it.
+static func draw_shell(ci: CanvasItem, p: Vector2, r: float, col: Color, t: float) -> void:
+	var shell := Color("2e8b57").lerp(col, 0.3)
+	var bob := sin(t * 3.0) * r * 0.02
+	var pts := PackedVector2Array()
+	for q in 25:
+		var a := PI + q * PI / 24.0
+		pts.append(p + Vector2(cos(a) * r * 1.12, sin(a) * r * 1.1 + r * 0.25 + bob))
+	pts.append(p + Vector2(r * 1.12, r * 0.35 + bob))
+	pts.append(p + Vector2(-r * 1.12, r * 0.35 + bob))
+	ci.draw_colored_polygon(pts, shell)
+	for q in range(-2, 3):
+		var c := p + Vector2(q * r * 0.42, -r * 0.35 + absi(q) * r * 0.22 + bob)
+		var hex := PackedVector2Array()
+		for k in 6:
+			hex.append(c + Vector2.from_angle(k * TAU / 6.0) * r * 0.2)
+		ci.draw_colored_polygon(hex, shell.lightened(0.25))
+		hex.append(hex[0])
+		ci.draw_polyline(hex, shell.darkened(0.4), 2.0, true)
+	ci.draw_line(p + Vector2(-r * 1.12, r * 0.35 + bob), p + Vector2(r * 1.12, r * 0.35 + bob), shell.darkened(0.45), 4.0, true)
+	ci.draw_polyline(pts, shell.darkened(0.45), 3.0, true)
+	ci.draw_arc(p + Vector2(-r * 0.25, -r * 0.6 + bob), r * 0.35, PI * 1.1, PI * 1.5, 10, Color(1, 1, 1, 0.45), 3.0, true)
+
+
+## Little bubbles streaming behind a fast swimmer (Minnow, sea critters).
+static func draw_bubble_trail(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, ratio: float, t: float) -> void:
+	var k := clampf((ratio - 1.05) / 0.6, 0.0, 1.0)
+	if k <= 0.0 or vel.length() < 0.001:
+		return
+	var back := -vel.normalized()
+	var side := back.orthogonal()
+	for q in 8:
+		var f := fmod(t * 2.5 + q * 0.125, 1.0)
+		var at := p + back * r * (0.9 + 1.8 * f) + side * sin(q * 2.3 + t * 6.0) * r * 0.4
+		var rad := r * (0.06 + 0.07 * (1.0 - f))
+		ci.draw_arc(at, rad, 0.0, TAU, 12, Color(Color("dff6ff"), 0.85 * (1.0 - f) * k), 2.0, true)
+		ci.draw_circle(at + Vector2(-rad, -rad) * 0.35, rad * 0.25, Color(1, 1, 1, 0.8 * (1.0 - f) * k))

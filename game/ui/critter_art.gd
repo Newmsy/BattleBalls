@@ -428,7 +428,7 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 		_:
 			_C = c
 			_R = r
-			_kit_feature(ci, name, col, t, tier)
+			_kit_feature(ci, name, col, t, tier, s)
 			_xf = Transform2D.IDENTITY
 			_clip = false
 
@@ -594,7 +594,7 @@ static func _bitten_body(ci: CanvasItem, c: Vector2, r: float, col: Color, hp_fr
 
 ## Features from the roster's builder kit, in unit space (see _C/_R above).
 ## `n` is the tier.
-static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: int) -> void:
+static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: int, s: Dictionary = {}) -> void:
 	match name:
 		"antenna2":
 			for k in [-1, 1]:
@@ -653,9 +653,16 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				var a := PI * .15 + float(i) / (k - 1) * PI * .7
 				_ucirc(ci, _P(a, .87), .07, Color("ffe14a") if sin(t * 5.0 + i) > 0.0 else Color("7d6a2a"))
 		"candle":
-			var fl := 1.0 + .15 * sin(t * 10.0)
-			_uell(ci, Vector2(0, -1.25), .16, .3 * fl, Color("ff8a1f"))
-			_uell(ci, Vector2(0, -1.18), .08, .16 * fl, Color("ffe066"))
+			if s.get("phased", false):
+				# Faded out: the flame is snuffed, leaving a glowing wick and a curl of smoke.
+				_ucirc(ci, Vector2(0, -1.07), .05, Color("ff5a1f"))
+				for i in 3:
+					var p := fmod(t * .9 + i / 3.0, 1.0)
+					_ucirc(ci, Vector2(sin(t * 3.0 + i * 2.0) * .12, -1.15 - p * .7), .07 + p * .12, Color(.75, .72, .8, .55 * (1.0 - p)))
+			else:
+				var fl := 1.0 + .15 * sin(t * 10.0)
+				_uell(ci, Vector2(0, -1.25), .16, .3 * fl, Color("ff8a1f"))
+				_uell(ci, Vector2(0, -1.18), .08, .16 * fl, Color("ffe066"))
 			_uline(ci, Vector2(0, -.95), Vector2(0, -1.05), INK, .04)
 		"candyrings":
 			var rings := [.9, .7, .5, .3]
@@ -757,10 +764,12 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 		"fantail":
 			_ufill(ci, PackedVector2Array([Vector2(-.85, 0), Vector2(-1.5, -.55), Vector2(-1.35, 0), Vector2(-1.5, .55)]), shade(c, -.15))
 		"fizz":
+			# Pressure (0-1) shakes the can up: more, faster bubbles.
+			var pr: float = s.get("pressure", 0.0)
 			_clip_on()
-			for i in 9:
-				var p := fmod(t * .4 + _hash(i), 1.0)
-				_ucirc(ci, Vector2((_hash(i + 4) - .5) * 1.4, .9 - p * 1.8), .04 + _hash(i + 7) * .04, Color(1, 1, 1, .55))
+			for i in 9 + int(pr * 14.0):
+				var p := fmod(t * (.4 + 1.8 * pr) + _hash(i), 1.0)
+				_ucirc(ci, Vector2((_hash(i + 4) - .5) * 1.4, .9 - p * 1.8), .04 + _hash(i + 7) * .04, Color(1, 1, 1, .55 + .3 * pr))
 		"flowercrown":
 			for i in 5:
 				var p := _P(-PI / 2 + (i - 2) * .38, 1.0)
@@ -794,7 +803,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				_ustar(ci, Vector2.ZERO, g.z, g.z * .75, 8, Color("e0b04a"), 0.0)
 				_ucirc(ci, Vector2.ZERO, g.z * .4, Color("7a5a1e"))
 		"gears":
-			_xf = Transform2D(t * .5, Vector2.ZERO)
+			_xf = Transform2D(t * (.5 + 9.0 * float(s.get("wind", 0.0))), Vector2.ZERO) # Spins faster as Cogs winds up.
 			for i in 14:
 				var a := i / 14.0 * TAU
 				_urect(ci, cos(a) * 1.05 - .09, sin(a) * 1.05 - .09, .18, .18, Color("b8743f"))

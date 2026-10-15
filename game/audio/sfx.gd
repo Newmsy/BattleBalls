@@ -45,7 +45,14 @@ const RULES := {
 	"chomp": [1, 0.15, -3.0],
 	"thwomp": [1, 0.2, -1.0],
 	"pew": [2, 0.06, -6.0],
+	"crackle": [2, 0.08, -6.0],
+	"rustle": [1, 0.15, -5.0],
+	"fizzpop": [1, 0.3, -4.0],
+	"drum": [2, 0.08, -4.0],
+	"rain": [1, 0.85, -12.0],
 }
+## Seconds between rain patters while one of Drizzle's showers is falling.
+const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
 const MUSIC := {"menu": ["music_menu", -12.0], "fight": ["music_fight", -10.0]}
@@ -66,6 +73,8 @@ var _music: AudioStreamPlayer
 var _music_track := ""
 var _was_overtime := false
 var _heartbeat_in := 0.0
+var _rain_in := 0.0
+var _drum_beat := 0 ## Alternates Drum's wall taps between two pitches.
 var _rng := RandomNumberGenerator.new() ## Render-side only: never the sim's.
 var _clock := 0.0
 var _toggle: Button
@@ -103,6 +112,13 @@ func _process(delta: float) -> void:
 	_clock += delta
 	if fight_sim == null or fight_sim.finished:
 		return
+	_rain_in -= delta
+	if _rain_in <= 0.0:
+		for z in fight_sim.zones:
+			if z.kind == "rain" and z.armed():
+				play("rain")
+				_rain_in = RAIN_EVERY
+				break
 	var you = fight_sim.balls[0]
 	if you.alive() and you.hp < you.max_hp * LOW_HP_SHARE:
 		_heartbeat_in -= delta
@@ -166,6 +182,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("hit_big")
 				if src == "vampire" and e.kind == "contact": # Count Nibbles.
 					play("chomp")
+				elif src == "glowbug" and e.kind != "contact": # Its light-bug's sting.
+					play("crackle", -4.0, 1.5)
 				# Each critter file names its ouch voice and pitch, so new critters
 				# reuse the existing chirps.
 				if target.alive() and target.def.ouch != "":
@@ -175,6 +193,9 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("heal", 0.0, 1.0 + clampf(e.amount / 20.0, 0.0, 0.3))
 			"bounce":
 				play("wall", 0.0, 0.9 + _rng.randf() * 0.25)
+				if e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "drum": # A little beat off the walls.
+					_drum_beat += 1
+					play("drum", -6.0, 1.5 if _drum_beat % 2 else 1.2)
 			"beam":
 				play("zap")
 			"flip":
@@ -184,7 +205,9 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"boom", "pulse":
 				var kind: String = e.get("kind", "")
 				if kind in ["zap", "bigzap"]:
-					play("zap", 0.0, 1.3 if kind == "zap" else 0.9)
+					play("crackle", 0.0, 1.15 if kind == "zap" else 0.8)
+				elif kind == "drum":
+					play("drum", 0.0, 0.9)
 				else:
 					play("hit_big", 0.0, 0.8 if e.type == "boom" else PULSE_PITCH.get(kind, 1.1))
 			"reflect":
@@ -207,11 +230,20 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"revive":
 				play("heal", 0.0, 0.8)
 			"grow": # Grow and shrink (Puff, Crumb, Tumble): higher when shrinking.
-				play("flip", -3.0, 0.75 if e.bigger else 1.6)
-			"chomp", "unwind":
+				if e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "tumble" and e.bigger:
+					play("rustle", 0.0, 0.9 + 0.05 * int(sim.balls[e.ball].state.get("twigs", 0)))
+				else:
+					play("flip", -3.0, 0.75 if e.bigger else 1.6)
+			"chomp": # Fin's big bite.
+				play("chomp", 0.0, 0.8)
+				play("hit_big", -3.0, 0.9)
+			"unwind":
 				play("snap", 0.0, 0.8)
 			"pop":
-				play("flip", 0.0, 1.8)
+				if e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "fizz":
+					play("fizzpop")
+				else:
+					play("flip", 0.0, 1.8)
 			"stun":
 				play("zap", 0.0, 0.6)
 			"wrap":
