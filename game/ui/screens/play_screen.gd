@@ -38,11 +38,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	var climb = SpireClimb.load_file(LiveOps.now())
 	root.add_child(group("Daily and weekly", DAILY, [
 		mode_tile(shell, "trickshot", "Trick Shot", trick_line, DAILY,
-			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")),
+			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), "target"),
 		mode_tile(shell, "bouncerun", "Bounce Run", "Run #%d · daily" % run_day, Color("ffc23d"),
-			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")),
+			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"), "bounce"),
 		mode_tile(shell, "spire", "The Spire", "Floor %d/%d · weekly" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
-			func(): shell.go("spire")),
+			func(): shell.go("spire"), "tower"),
 		_vault_tile(shell) if GearVault.is_unlocked(shell.profile) else _locked_tile(shell),
 	]))
 
@@ -50,13 +50,13 @@ static func build(shell, _params: Dictionary) -> Control:
 	var arena_store = ArenaStore.open()
 	root.add_child(group("Versus", VERSUS, [
 		mode_tile(shell, "arena", "Ghost Arena", "%s · %s" % [Ladder.league_label(arena_store.trophies), Kit.commas(arena_store.trophies)], VERSUS,
-			func(): shell.go("arena")),
+			func(): shell.go("arena"), "ghost"),
 		_friends_tile(shell),
 	]))
 
 	# Style: looks only, never power.
 	root.add_child(group("Style", STYLE, [_pass_tile(shell),
-		mode_tile(shell, "shop", "Cosmetics", "Looks only", STYLE, func(): shell.go("shop"))]))
+		mode_tile(shell, "shop", "Cosmetics", "Looks only", STYLE, func(): shell.go("shop"), "sparkle")]))
 	return root
 
 
@@ -80,7 +80,7 @@ static func _campaign_card(shell) -> Control:
 	var open := Kit.button("Open the map", func(): shell.go("world"), "go", 30, 84)
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
-		Kit.caption("Campaign · Zone 1 · The Neon Circuit", Color("9be89a")),
+		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone 1 · The Neon Circuit", Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
 		Kit.hbox(10, [Kit.label("Glow Garden", 40), Kit.spacer(), Glyph.make("stars", 26, Kit.FG, 1),
 			Kit.label("%d/%d" % [star_total, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label(next_text if cleared == stages.size() else "%d/%d stages cleared. %s" % [cleared, stages.size(), next_text], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
@@ -95,7 +95,7 @@ static func _quick_fight_card(shell) -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
-	var info := Kit.vbox(2, [Kit.caption("Quick fight · your fighter"), Kit.label(c.name, 30),
+	var info := Kit.vbox(2, [Kit.hbox(8, [Glyph.make("swords", 22, Kit.MUTED), Kit.caption("Quick fight · your fighter")]), Kit.label(c.name, 30),
 		Kit.hbox(10, [Glyph.make("stars", 24, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 22, Kit.MUTED), Kit.power(p.power_of(p.lineup), 24)])])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(16, [CritterIcon.make(p.lineup, b.tier, 104), info, Kit.chip("Change", Kit.ACCENT)])
@@ -118,9 +118,10 @@ static func group(title: String, accent: Color, tiles: Array) -> Control:
 	return Kit.vbox(10, [Kit.caption(title, accent), grid])
 
 
-## A small mode tile: title and one short status line. The whole tile is the
-## button; `mark` names it for the smoke test.
-static func mode_tile(shell, mark: String, title: String, status: String, accent: Color, on_press: Callable) -> Control:
+## A small mode tile: an icon badge (a Glyph kind, optional), the title and one
+## short status line. The whole tile is the button; `mark` names it for the
+## smoke test.
+static func mode_tile(shell, mark: String, title: String, status: String, accent: Color, on_press: Callable, icon := "") -> Control:
 	var name := Kit.label(title, 28)
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name.clip_text = true
@@ -129,11 +130,31 @@ static func mode_tile(shell, mark: String, title: String, status: String, accent
 	line.clip_text = true
 	var v := Kit.vbox(2, [name, line])
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	var tile := Kit.card_button(v, on_press, accent.darkened(.45), accent.darkened(.84), 28, 18)
+	var content: Control = v
+	if icon != "":
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		content = Kit.hbox(12, [icon_badge(icon, accent, 56), v], BoxContainer.ALIGNMENT_BEGIN)
+	var tile := Kit.card_button(content, on_press, accent.darkened(.45), accent.darkened(.84), 28, 18)
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tile.custom_minimum_size.x = 0
 	shell.mark(mark, tile)
 	return tile
+
+
+## A mode icon in a round, softly glowing badge of the mode's colour.
+static func icon_badge(icon: String, accent: Color, side := 56) -> Control:
+	var st := Kit.box(accent.darkened(.72), Color(accent, .55), 999, 2, 0)
+	st.shadow_color = Color(accent, .28)
+	st.shadow_size = 8
+	var g := Glyph.make(icon, side * .64, accent)
+	g.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var c := CenterContainer.new()
+	c.custom_minimum_size = Vector2(side, side)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.add_child(g)
+	var p := Kit.panel(c, st)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return p
 
 
 ## Older full-width card API: now a tile (button_text and text are dropped).
@@ -145,7 +166,7 @@ static func mode_card(shell, mark: String, caption: String, title: String, _text
 static func _locked_tile(shell) -> Control:
 	var t := mode_tile(shell, "locked_dailies", "Hunts · Gym · Vault", "After zone 1", Kit.MUTED,
 		shell.info.bind("After zone 1", ["Beat Mega Boulder, the zone 1 boss, to open three daily modes:",
-			"Critter Hunts: copies of one critter to fuse.", "Training Gym: XP for levels.", "Gear Vault: Shells and Cores."]))
+			"Critter Hunts: copies of one critter to fuse.", "Training Gym: XP for levels.", "Gear Vault: Shells and Cores."]), "lock")
 	return t
 
 
@@ -155,19 +176,19 @@ static func _vault_tile(shell) -> Control:
 	var slot: String = GearVault.today(now).slot
 	var left := GearVault.runs_left(shell.profile, now)
 	var line := "%s · %d runs left" % ["Any gear" if slot == "" else slot + "s", left] if left > 0 else "Done for today"
-	return mode_tile(shell, "vault", "Gear Vault", line, Color("5ce1ff") if left > 0 else Kit.MUTED, func(): shell.go("vault"))
+	return mode_tile(shell, "vault", "Gear Vault", line, Color("5ce1ff") if left > 0 else Kit.MUTED, func(): shell.go("vault"), "vault")
 
 
 static func _pass_tile(shell) -> Control:
 	var glow = shell.glow
 	var season: Dictionary = glow.season()
 	if season.is_empty():
-		return mode_tile(shell, "glowpass", "Glow Pass", "Between seasons", DAILY, func(): shell.go("pass"))
+		return mode_tile(shell, "glowpass", "Glow Pass", "Between seasons", DAILY, func(): shell.go("pass"), "pass")
 	var n: int = glow.claimable_count()
 	var line := "Level %d of 50" % glow.pass_level()
 	if n > 0:
 		line = "%d reward%s to claim!" % [n, "" if n == 1 else "s"]
-	return mode_tile(shell, "glowpass", "Glow Pass", line, DAILY if n > 0 else STYLE, func(): shell.go("pass"))
+	return mode_tile(shell, "glowpass", "Glow Pass", line, DAILY if n > 0 else STYLE, func(): shell.go("pass"), "pass")
 
 
 ## Friends: a count and whatever is waiting (requests, energy gifts).
@@ -182,4 +203,4 @@ static func _friends_tile(shell) -> Control:
 			line = "%d gift%s waiting" % [fr.gifts_claimable, "" if fr.gifts_claimable == 1 else "s"]
 	elif not fr.enabled():
 		line = "Go online to add"
-	return mode_tile(shell, "friends", "Friends", line, Kit.GOOD if fr.attention() > 0 else VERSUS, func(): shell.go("friends"))
+	return mode_tile(shell, "friends", "Friends", line, Kit.GOOD if fr.attention() > 0 else VERSUS, func(): shell.go("friends"), "friends")

@@ -1,6 +1,7 @@
 ## Small drawn icons the font doesn't have: tier stars, power bolt, energy,
 ## coins, orbs, Glow Gems, the pass star, gear (shell, core, charm), locks, the back arrow, the info "i"
-## and the tab icons.
+## the tab icons and the home mode icons (target, bounce, tower, vault, ghost,
+## friends, map, swords, sparkle).
 extends Control
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
@@ -124,3 +125,76 @@ func _draw() -> void:
 			var e := CritterArt.ellipse_pts(c + Vector2(0, s * .1), s * .36, s * .26, 0.0, 0.0, TAU, 24)
 			draw_polyline(e, color, s * .08, true)
 			draw_colored_polygon(CritterArt.star_pts(c + Vector2(0, -s * .18), s * .2, s * .07, 4), color)
+		"target":
+			draw_arc(c, s * .42, 0, TAU, 32, color, s * .08, true)
+			draw_arc(c, s * .25, 0, TAU, 24, color, s * .08, true)
+			draw_circle(c, s * .09, color)
+			draw_line(Vector2(.9, .1) * s, Vector2(.56, .44) * s, Color.WHITE, s * .07, true)
+			draw_colored_polygon(PackedVector2Array([Vector2(.96, .04) * s, Vector2(.96, .2) * s, Vector2(.8, .04) * s]), Color.WHITE)
+		"bounce":
+			var arc := PackedVector2Array()
+			for i in 13:
+				var t := i / 12.0
+				arc.append(Vector2(.06 + t * .62, .86 - sin(t * PI) * .62) * s)
+			for i in range(0, 12, 2):
+				draw_line(arc[i], arc[i + 1], color, s * .08, true)
+			draw_line(Vector2(.04, .92) * s, Vector2(.96, .92) * s, Color(color, .5), s * .05)
+			draw_circle(Vector2(.76, .7) * s, s * .17, color)
+			draw_circle(Vector2(.71, .65) * s, s * .05, Color(1, 1, 1, .8))
+		"tower":
+			draw_colored_polygon(PackedVector2Array([Vector2(.5, .02) * s, Vector2(.7, .3) * s, Vector2(.3, .3) * s]), color)
+			draw_colored_polygon(PackedVector2Array([Vector2(.32, .34) * s, Vector2(.68, .34) * s, Vector2(.8, .94) * s, Vector2(.2, .94) * s]), Color(color, .55))
+			for y in [.5, .66, .82]:
+				draw_line(Vector2(.5 - y * .27, y) * s, Vector2(.5 + y * .27, y) * s, color, s * .05)
+			draw_rect(Rect2(Vector2(.43, .78) * s, Vector2(.14, .16) * s), color)
+		"vault":
+			draw_rect(Rect2(Vector2(.08, .12) * s, Vector2(.84, .76) * s), Color(color, .25))
+			draw_rect(Rect2(Vector2(.08, .12) * s, Vector2(.84, .76) * s), color, false, s * .07)
+			var d := Vector2(.46, .5) * s
+			draw_arc(d, s * .2, 0, TAU, 24, color, s * .07, true)
+			for i in 4:
+				var a := i * TAU / 4 + PI / 4
+				draw_line(d, d + Vector2(cos(a), sin(a)) * s * .2, color, s * .05, true)
+			draw_rect(Rect2(Vector2(.8, .36) * s, Vector2(.06, .28) * s), color)
+			draw_line(Vector2(.2, .88) * s, Vector2(.2, .96) * s, color, s * .07)
+			draw_line(Vector2(.8, .88) * s, Vector2(.8, .96) * s, color, s * .07)
+		"ghost":
+			var body := PackedVector2Array()
+			for i in 13:
+				var a := PI + i * PI / 12
+				body.append(Vector2(.5, .44) * s + Vector2(cos(a), sin(a)) * s * .36)
+			for i in 7:
+				var x := .86 - i * .12
+				body.append(Vector2(x, .92 if i % 2 == 0 else .8) * s)
+			draw_colored_polygon(body, color)
+			draw_circle(Vector2(.38, .44) * s, s * .08, Color("0b0a1f"))
+			draw_circle(Vector2(.62, .44) * s, s * .08, Color("0b0a1f"))
+			draw_circle(Vector2(.36, .42) * s, s * .03, Color.WHITE)
+			draw_circle(Vector2(.6, .42) * s, s * .03, Color.WHITE)
+		"friends":
+			var back := Color(color, .5)
+			draw_circle(Vector2(.68, .34) * s, s * .14, back)
+			draw_colored_polygon(CritterArt.ellipse_pts(Vector2(.68, .8) * s, s * .24, s * .2, 0.0, PI, TAU, 16), back)
+			draw_circle(Vector2(.38, .4) * s, s * .17, color)
+			draw_colored_polygon(CritterArt.ellipse_pts(Vector2(.38, .94) * s, s * .3, s * .26, 0.0, PI, TAU, 16), color)
+		"map":
+			var pin := Vector2(.5, .38) * s
+			var drop := PackedVector2Array()
+			for i in 17:
+				var a := PI * .7 + i * PI * 1.6 / 16
+				drop.append(pin + Vector2(cos(a), sin(a)) * s * .3)
+			drop.append(Vector2(.5, .96) * s)
+			draw_colored_polygon(drop, color)
+			draw_circle(pin, s * .12, Color("0b0a1f"))
+		"swords":
+			for side in [-1.0, 1.0]:
+				var tip := Vector2(.5 - side * .38, .1) * s
+				var hilt := Vector2(.5 + side * .26, .74) * s
+				draw_line(tip, hilt, color, s * .1, true)
+				var n := (hilt - tip).normalized().orthogonal() * s * .14
+				draw_line(hilt - n, hilt + n, Color.WHITE, s * .08, true)
+				draw_line(hilt, hilt + (hilt - tip).normalized() * s * .2, Color.WHITE, s * .09, true)
+		"sparkle":
+			draw_colored_polygon(CritterArt.star_pts(Vector2(.42, .56) * s, s * .38, s * .1, 4), color)
+			draw_colored_polygon(CritterArt.star_pts(Vector2(.8, .2) * s, s * .18, s * .05, 4), Color.WHITE)
+			draw_circle(Vector2(.84, .78) * s, s * .06, color)
