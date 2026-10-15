@@ -222,6 +222,7 @@ try {
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "5-flow-fight.png") });
     console.log("online:", logs.find((l) => l.startsWith("ONLINE")) ?? "no backend configured");
+    console.log("analytics:", logs.find((l) => l.startsWith("ANALYTICS_OK")) ?? "nothing sent yet");
     await page.close();
   }
 
@@ -261,6 +262,20 @@ try {
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "7-wide-fight.png") });
     await page.close();
+  }
+
+  // 3b. The owner's stats screen (?stats#k=<key>) with sample numbers, and
+  // without a backend it says so instead of failing.
+  {
+    const { page, logs } = await openGame("?stats&demo=1&offline=1#k=demo");
+    console.log("stats:", await waitForLog(logs, "STATS_SCREEN", 60000));
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(shots, "6s-stats.png") });
+    await page.close();
+    const off = await openGame("?stats&offline=1#k=demo");
+    const status = await waitForLog(off.logs, "STATS_SCREEN", 60000);
+    if (status !== "STATS_SCREEN offline") throw new Error(`stats without a backend: ${status}`);
+    await off.page.close();
   }
 
   // 4. Sound board opens over the menu and its buttons play without errors.
@@ -511,33 +526,43 @@ try {
     await page.close();
   }
 
-  // 12. Campaign: a new player opens the Glow Garden map from the Play tab,
+  // 12. Every non-square arena boots, draws and finishes a fight.
+  for (const [i, arena] of ["rink", "pillars", "bumpers"].entries()) {
+    const { page, logs } = await openGame(`?p1=vampire&p2=laser&seed=42&auto=1&speed=4&arena=${arena}`);
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, `${23 + i}-arena-${arena}.png`) });
+    console.log(`arena ${arena}:`, await waitForLog(logs, "MATCH_END", 90000));
+    await page.close();
+  }
+
+  // 13. Campaign: a new player opens the Glow Garden map from the Play tab,
   // fights stage 1-1, and comes back to the map with the result.
   {
     const { page, logs } = await openGame("?seed=7&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "23-home-new-player.png") });
+    await page.screenshot({ path: path.join(shots, "26-home-new-player.png") });
     await tapUi(page, logs, "campaign", "campaign");
-    await page.screenshot({ path: path.join(shots, "24-campaign-map.png") });
+    await page.screenshot({ path: path.join(shots, "27-campaign-map.png") });
     await tapUi(page, logs, "stage_1_1");
-    await page.screenshot({ path: path.join(shots, "25-stage-aim.png") });
+    await page.screenshot({ path: path.join(shots, "28-stage-aim.png") });
     await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
     console.log("campaign fight:", await waitForLog(logs, "FIGHT_START", 5000));
     const end = await waitForLog(logs, "STAGE_END", 120000);
     console.log("campaign stage:", end);
     await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "26-stage-result.png") });
+    await page.screenshot({ path: path.join(shots, "29-stage-result.png") });
     // Result screen: result label, report, then the "Back to the map" row.
     await page.mouse.click(...toPage(page, 360, 990 + 56 + 14 + 60 + 14 + 42));
     await waitForLog(logs, "UI_SCREEN campaign", 5000);
     await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "27-campaign-after.png") });
+    await page.screenshot({ path: path.join(shots, "30-campaign-after.png") });
     await page.close();
   }
 
-  // 13. A campaign stage straight from the URL plays through to its rewards.
+  // 14. A campaign stage straight from the URL plays through to its rewards.
   {
     const { page, logs } = await openGame("?pve=1-4&auto=1&speed=4&offline=1");
     console.log("url stage:", await waitForLog(logs, "STAGE_END", 120000));

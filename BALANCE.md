@@ -52,7 +52,7 @@ In the PR that adds or changes it:
 
 | Check | When | Command |
 |---|---|---|
-| Equal-power matrix, `FAIL` blocks merge | Every PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict` |
+| Equal-power matrix and arena tilt on every playable arena, `FAIL` blocks merge | Every PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict --arena=all` |
 | Full audit: equal power and power step at higher sample size | Weekly scheduled balance audit on `main`, plus any PR touching ball stats | `balance.gd -- --fights=500 --power-step` |
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%
@@ -67,6 +67,16 @@ power-step check fights at x1.25, one tier. Tier-specific ability upgrades
 (longer beams, T5 behaviour) are still to come and will add on top. Add a
 rarity-step check (target ~60%, rule 5) once there are same-role balls of
 different rarity to compare.
+
+## Arenas
+
+Every arena in `Arenas.PLAYABLE` (`sim/arenas.gd`) is held to the same rules as
+the square, plus two more (design/arenas.md):
+
+- **Point-symmetric through the centre**, so neither start corner has an edge
+  (`tests/test_arenas.gd` checks the layout and that mirror fights split evenly).
+- **A tilt, not a verdict:** no playable matchup moves more than 10 points from
+  its square result (`WARN`), and over 15 points clear of noise is a `FAIL`.
 
 Audit reports are kept in the project's shared folder under
 `balance/audits/`, one file per run, so trends are visible over time.

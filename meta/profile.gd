@@ -9,6 +9,7 @@ extends RefCounted
 
 const Roster := preload("res://game/ui/roster.gd")
 const Power := preload("res://sim/power.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 
 signal changed
 
@@ -203,6 +204,7 @@ func use_energy_pack() -> bool:
 		return false
 	pack.count -= 1
 	energy += ENERGY_PACK
+	Analytics.track("energy", {"delta": ENERGY_PACK, "source": "pack"})
 	changed.emit()
 	return true
 
