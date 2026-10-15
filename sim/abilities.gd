@@ -502,7 +502,7 @@ func fx_slam(sim, b, ctx: Dictionary) -> void:
 
 # --- Orbiters and attachments (batch E) -------------------------------------
 # Things that circle, swing from or trail a ball and hit foes they touch:
-# Orbit's moons, Glowbug's bugs, Jawbreaker's candies, Wrecker's ball, Swarm's
+# Orbit's moons, the firefly's bugs, Jawbreaker's candies, Wrecker's ball, Swarm's
 # bees, Kraken's tentacles, Leviathan's tail. Each effect publishes what it
 # draws in b.state.orbs (see _publish_orbs), and beams that follow their owner
 # (Wrecker's chain, Quasar's jets, Yo-Yo's string) go through _hold_beam.
@@ -577,10 +577,10 @@ func _drop_beam(sim, b, name: String) -> void:
 
 
 ## Every orbiter it has flares: a pulse of orb_flare_damage within
-## orb_flare_radius of each one (Glowbug).
+## orb_flare_radius of each one (the firefly's bugs).
 func fx_orb_flare(sim, b, _ctx: Dictionary) -> void:
 	for item in orb_items(sim, b):
-		sim.pulse(b, item.pos, b.def.orb_flare_radius, b.def.orb_flare_damage, false, "glow")
+		sim.pulse(b, item.pos, b.def.orb_flare_radius, b.def.orb_flare_damage, false, "bugflare")
 
 
 ## Jawbreaker's candies: b.state.candies of them (candy_start at first) circle
@@ -863,7 +863,7 @@ func fx_yoyo(sim, b, _ctx: Dictionary) -> void:
 		_publish_orbs(sim, b, "yoyo", [{"pos": mirror, "size": b.radius * 0.5, "look": "yoyo"}])
 
 
-## Leviathan's tail: tail_count glowing segments follow its path, each
+## Leviathan's tail: tail_count bright segments follow its path, each
 ## stinging foes it touches for tail_damage (and slowing them by tail_slow).
 ## Hidden, and harmless, while it dives.
 func fx_tail(sim, b, _ctx: Dictionary) -> void:

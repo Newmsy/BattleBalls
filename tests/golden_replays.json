@@ -519,9 +519,9 @@
         5
       ]
     },
-    "hash": "d70d5c4f18589e70e57d18084e05153432a3f4ed7d2410f8e56a6753921e7e86",
-    "reason": "double_knockout",
-    "ticks": 2392,
+    "hash": "68287b6304a6d4439dbc2828225eb615f9b3ea5345ea1924d4970be34af4913b",
+    "reason": "knockout",
+    "ticks": 2465,
     "winner": 0
   },
   {
@@ -576,9 +576,9 @@
         5
       ]
     },
-    "hash": "bddaae1972faedf41aa5aa8539a2125ba2794b7ae818c148d91312af661f6f02",
+    "hash": "47733ad2e762384427f15715cd7585caf883744ad007452fdea5acbd78693404",
     "reason": "knockout",
-    "ticks": 2733,
+    "ticks": 2953,
     "winner": 1
   }
 ]

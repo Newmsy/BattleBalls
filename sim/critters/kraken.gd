@@ -32,8 +32,8 @@ const CRITTER := {
 		"hug_accel": 900.0,
 	},
 	"tiers": [
-		{"text": "4 tentacles sweep; slams every 6s"},
-		{"text": "Tentacles deal 3.5", "tentacle_damage": 3.5},
+		{"text": "4 tentacles sweep for 1.5; slams every 6s"},
+		{"text": "Tentacles deal 2.5", "tentacle_damage": 2.5},
 		{"text": "Slams also shove", "ink_shove": 1},
 		{"text": "Tentacles reach further", "tentacle_orbit": 106.0},
 		{"text": "Every third slam is a giant hug", "hug_every": 3},

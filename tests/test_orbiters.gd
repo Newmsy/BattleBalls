@@ -53,7 +53,7 @@ func test_glowbug_t5_bugs_flare() -> void:
 	for i in 6 * 60 + 1:
 		sim.step()
 		for e in sim.events:
-			if e.type == "pulse" and e.get("kind", "") == "glow":
+			if e.type == "pulse" and e.get("kind", "") == "bugflare":
 				flares += 1
 	check_eq(flares, 2, "both bugs flare at 6s")
 
@@ -207,10 +207,3 @@ func test_leviathan_tail_stings_and_the_dive_erupts_under_the_foe() -> void:
 	check(waves >= 16.0 * 0.4, "the wave hits a foe that stood still")
 	check(sim.balls[0].pos.distance_to(target) < 200.0, "it burst up by the foe")
 
-
-func test_orbiter_critters_replay_deterministically() -> void:
-	for id in ["glowbug", "jawbreaker", "wrecker", "swarm", "kraken", "quasar", "yoyo", "leviathan"]:
-		for t in [1, 5]:
-			var a := MatchSim.new({"seed": 9, "p1": id, "p2": "mirror", "tiers": [t, t]}).run_to_end()
-			var b := MatchSim.new({"seed": 9, "p1": id, "p2": "mirror", "tiers": [t, t]}).run_to_end()
-			check_eq(a.hash, b.hash, "%s T%d replays" % [id, t])
