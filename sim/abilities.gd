@@ -64,7 +64,7 @@ const EFFECTS := {
 	"illusions": ["illusion_count", "illusion_life", "illusion_size"],
 	"illusion_tick": ["illusion_damage", "illusion_radius", "illusion_burn_damage", "illusion_trail_damage", "illusion_swap"],
 	"spin": ["spin_prizes", "spin_jackpot_every", "spin_delay", "prize_mult", "prize_mine_damage", "prize_mine_radius", "prize_shield"],
-	"spin_tick": ["prize_mult", "prize_beam_damage", "prize_coin_count", "prize_coin_damage", "prize_coin_reach"],
+	"spin_tick": ["prize_mult", "prize_beam_damage", "prize_coin_count", "prize_coin_damage", "prize_coin_reach", "prize_coin_hits"],
 	"disco": ["disco_rays", "disco_length", "disco_damage", "disco_slow", "disco_slow_secs", "disco_bounce"],
 	"ripple": ["ripple_reach", "ripple_life", "ripple_damage", "ripple_slow", "ripple_corner"],
 	"zz_arm": ["zz_segments"],
@@ -826,9 +826,10 @@ func fx_illusion_tick(sim, b, _ctx: Dictionary) -> void:
 
 ## Jackpot: spins its reels and, spin_delay seconds later, pays out one seeded
 ## prize of spin_prizes (mines round the foe, a laser cross through its spot,
-## a ring of coins, a shield). Every spin_jackpot_every-th spin (when above 0)
+## a spray of coins at the foe, a shield). Every spin_jackpot_every-th spin (when above 0)
 ## pays them all. The target spot is locked when the reels stop.
 const PRIZES := ["mines", "cross", "coins", "shield"]
+const COIN_FAN := 50.0 ## Degrees the coin spray spans.
 
 func fx_spin(sim, b, _ctx: Dictionary) -> void:
 	var f = sim.nearest_foe(b)
@@ -845,10 +846,11 @@ func fx_spin(sim, b, _ctx: Dictionary) -> void:
 	var pending: Array = b.state.get("prizes", [])
 	for prize in won:
 		match prize:
-			"mines": # Placed now, armed when the reels stop: they show where they'll land.
+			"mines": # Placed now round where the foe is heading, armed when the reels stop.
 				var turn: float = sim.rng.next_float() * TAU
+				var ahead: Vector2 = spot + f.vel * b.def.spin_delay
 				for k in 3:
-					sim.add_zone(b, sim.inside(spot + Vector2.from_angle(turn + k * TAU / 3.0) * 90.0, 30.0), {"kind": "mine", "radius": 16.0,
+					sim.add_zone(b, sim.inside(ahead + Vector2.from_angle(turn + k * TAU / 3.0) * 90.0, 30.0), {"kind": "mine", "radius": 16.0,
 						"life": 4.0, "arm": b.def.spin_delay, "blast": b.def.prize_mine_damage * b.def.prize_mult, "blast_radius": b.def.prize_mine_radius})
 			"shield":
 				b.shield = maxf(b.shield, b.def.prize_shield)
@@ -863,19 +865,25 @@ func fx_spin_tick(sim, b, _ctx: Dictionary) -> void:
 	while not pending.is_empty() and sim.tick >= int(pending[0].at):
 		var p: Dictionary = pending.pop_front()
 		match p.prize:
-			"cross":
+			"cross": # Through the foe's spot as the reels stop.
+				var f = sim.nearest_foe(b)
 				var r: Rect2 = sim.arena_rect()
-				var c: Vector2 = p.spot
+				var c: Vector2 = f.pos if f != null else p.spot
 				var dmg: float = b.def.prize_beam_damage * b.def.prize_mult * 0.5
 				sim.add_beam(b, Vector2(r.position.x, c.y), Vector2(r.end.x, c.y), {"life": 1.0, "damage": dmg, "cooldown": 0.5})
 				sim.add_beam(b, Vector2(c.x, r.position.y), Vector2(c.x, r.end.y), {"life": 1.0, "damage": dmg, "cooldown": 0.5})
 			"coins":
+				# A fan of coins sprayed at the nearest foe, at most prize_coin_hits landing.
+				var f = sim.nearest_foe(b)
+				if f == null:
+					continue
 				var segs := []
 				var n := int(b.def.prize_coin_count)
+				var aim: float = (f.pos - b.pos).angle()
 				for k in n:
-					var dir := Vector2.from_angle(k * TAU / n + PI / 8.0)
+					var dir := Vector2.from_angle(aim + (k - (n - 1) / 2.0) * deg_to_rad(COIN_FAN) / maxf(n - 1, 1))
 					segs.append([b.pos + dir * b.radius, b.pos + dir * (b.radius + b.def.prize_coin_reach)])
-				_shoot(sim, b, segs, b.def.prize_coin_damage * b.def.prize_mult, "coin")
+				_shoot(sim, b, segs, b.def.prize_coin_damage * b.def.prize_mult, "coin", 0.0, 1.0, int(b.def.prize_coin_hits))
 
 
 ## Disco: flashes disco_rays light rays outward (disco_length long), each

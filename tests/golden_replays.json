@@ -545,10 +545,10 @@
         5
       ]
     },
-    "hash": "3a1f9abb20a30f10e7c2047e296622e0d8bfd35954cb73b1fefaae01996a3cb9",
-    "reason": "double_knockout",
-    "ticks": 1361,
-    "winner": 1
+    "hash": "2196313253e1ce204a43a61987da90d25df60edeaf67ca334f6c8dad38145874",
+    "reason": "knockout",
+    "ticks": 2732,
+    "winner": 0
   },
   {
     "config": {
