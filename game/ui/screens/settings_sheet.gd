@@ -98,7 +98,13 @@ static func _testing(shell) -> Control:
 	shell.mark("dev_add_orbs", orbs)
 	for b in [energy, orbs]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs])])
+	var free := Dev.free_summons()
+	var sw := Kit.button("On" if free else "Off", func(): Dev.set_free_summons(not free); open(shell), "go" if free else "ghost", 26, 72)
+	sw.custom_minimum_size.x = 132
+	shell.mark("dev_free_summons", sw)
+	var words := Kit.label("Unlimited summons", 30)
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw])])
 
 
 static func _refill_energy(shell) -> void:
