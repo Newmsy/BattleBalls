@@ -247,11 +247,11 @@ func _show_floor() -> void:
 	var foe_box := Kit.vbox(8, [
 		Kit.hbox(10, [Kit.caption("Floor %d · %s" % [run.floor + 1, foe.title], PINK), Kit.spacer(),
 			Kit.caption("Foe · %d%% power" % roundi(100.0 * BounceRun.FOE_POWER[run.floor]))]),
-		Kit.hbox(16, [CritterIcon.make(foe.critter, 1, 110), Kit.vbox(4, [
+		Kit.hbox(16, [CritterIcon.make(foe.critter, 1, 110), _expand(Kit.vbox(4, [
 			Kit.label(_name(foe.critter), 30),
 			_ability_label(foe.critter),
 			_boon_names(foe.boons),
-		])]),
+		]))]),
 	])
 	var items: Array = [_ladder(), Kit.panel(foe_box, Kit.box(Color("2a1030"), PINK, 32, 2, 20)), Kit.caption("Your trio")]
 	for s in BounceRun.PICKS:
@@ -693,8 +693,7 @@ func _critter_card(critter: String, on_press: Callable, border: Color, picked :=
 
 func _ability_label(critter: String) -> Label:
 	var what := Kit.label(_ability_text(critter), 19, ABILITY, HORIZONTAL_ALIGNMENT_LEFT, true)
-	what.max_lines_visible = 5
-	what.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return what
 
 
@@ -708,8 +707,13 @@ func _boon_list(ids: Array) -> Control:
 
 
 ## A foe's boons by name only: a top-floor foe carries a dozen.
-func _boon_names(ids: Array) -> Label:
-	return Kit.label("Boons: " + ", ".join(ids.map(func(id): return Boons.get_def(id).name)), 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT, true)
+func _boon_names(ids: Array) -> Control:
+	return _expand(Kit.label("Boons: " + ", ".join(ids.map(func(id): return Boons.get_def(id).name)), 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT, true))
+
+
+func _expand(c: Control) -> Control:
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return c
 
 
 func _grid() -> GridContainer:
