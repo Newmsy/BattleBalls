@@ -23,7 +23,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 ```sh
 godot --headless --import                                   # once, after cloning
 GODOT=godot tests/run.sh                                    # all tests
-godot --headless --script res://tools/balance.gd -- --fights=200 --power-step
+godot --headless --script res://tools/balance.gd -- --fights=200 --power-step [--arena=all]
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
@@ -37,8 +37,9 @@ CI builds every PR for the web and deploys it to Vercel (project
 with its preview URL; `main` deploys to production. Smoke-test screenshots
 are served at `<preview>/smoke/`.
 
-URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2`
-(`aim` is the launch angle in tenths of a degree, screen space, y down).
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink`
+(`aim` is the launch angle in tenths of a degree, screen space, y down;
+`arena` is an id from `sim/arenas.gd`).
 
 A first visit with no URL params plays the onboarding
 (`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
