@@ -318,8 +318,18 @@ the arena shows gold CRIT pops and a BACKSTAB! call-out, with their own sounds.
 Gear is known fight setup like tiers: `MatchSim` takes `gear: [g1, g2]` and
 relays take `gear[side][slot]`, each a list of pieces or summed stat lines.
 `sim/gear.gd` holds the seven lines (attack, health, defense, speed, crit
-chance, crit damage, cooldown speed), their per-rarity values and caps.
+chance, crit damage, cooldown speed), their 5-star values and caps, and the
+six gear types over three slots (Shell, Core, and Charm from 3-star critters).
 `balance.gd --gear` checks the lines stay worth about the same.
+
+Gear merges like critters (design/gear.md): three of one type and tier make
+one of the next tier, 1 to 5 stars, for coins (`Profile.merge_gear`,
+`merge_all_gear`; costs in `meta/economy.gd`). A piece's stats come from its
+type and tier alone, and every piece is worth the same power at a tier
+(+1.75% at 1 star up to +5% at 5), so three 5-star pieces are the +15%
+best-in-slot budget. Gear drops from the Gear Vault (`meta/gear_vault.gd`, a
+daily mode after the Zone 1 boss with a slot rotation by weekday), campaign
+wins, Spire boss floors and the Glow Pass free track.
 
 ## Collection battles: owned critters fight as owned
 
@@ -333,9 +343,11 @@ everything clamped to the rules so a tampered ghost can't field a T9.
 the fight (campaign config, `ArenaStore.pending.slots`, Spire picks), so it
 still replays from setup, seed and launch angles.
 
-Gear pieces in the save carry `stats` (sim/gear.gd lines) and a `text` that
-says exactly what they do; older pieces get their name's line on load
-(`Profile.GEAR_LINES`). The Power Rating on screen still counts +4% per piece.
+Gear pieces in the save are `{uid, type, tier, on}`; `Profile.gear_piece`
+fills in their name, slot, `stats` and `text` on load. Older pieces (a name
+and a rarity) become the closest type, their rarity a tier
+(`Profile.GEAR_TYPES`). The Power Rating counts each worn piece's worth from
+its stat lines (`Gear.stats_power`), so the number matches what fights.
 
 Practice modes stay open to every critter: Quick fight, share links and
 friend challenges, Rival rematches, Trick Shot, Bounce Run's drafted cards

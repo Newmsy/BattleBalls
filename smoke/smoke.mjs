@@ -209,6 +209,9 @@ try {
     await page.screenshot({ path: path.join(shots, "3f-bag-sheet.png") });
     await tapUi(page, logs, "equip_juggernaut", "bag");
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
+    // Three 1-star Bubble Shells now: Merge all makes a 2-star (design/gear.md).
+    await tapUi(page, logs, "merge_all", "bag");
+    await page.screenshot({ path: path.join(shots, "3g-bag-merged.png") });
     await tapUi(page, logs, "tab_summon", "summon");
     await page.screenshot({ path: path.join(shots, "3h-summon.png") });
     await tapUi(page, logs, "wishlist_edit", "sheet");

@@ -15,6 +15,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
+const Gear := preload("res://sim/gear.gd")
 
 const POOL_SEED := 0x6E05
 const BAND_SIZE := 100 ## Trophies per band.
@@ -113,6 +114,19 @@ static func bot_level(band: int) -> int:
 	return clampi(1 + into * (tier * 10 - 1) / (BANDS_PER_TIER - 1), 1, tier * 10)
 
 
+## Gear every bot ball in a band wears, matching what a player there owns
+## (design/gear.md): none while bots are 1-star, then a Shell and a Core one
+## star under the bot's tier, and a Charm too from 3-star bots.
+static func bot_gear(band: int) -> Array:
+	var tier := bot_tier(band)
+	if tier < 2:
+		return []
+	var types := ["bubble_shell", "spike_core"]
+	if tier >= Gear.CHARM_TIER:
+		types.append("jet_charm")
+	return types.map(func(t): return {"slot": Gear.PIECES[t].slot, "tier": tier - 1, "stats": Gear.stats_for(t, tier - 1)})
+
+
 static func _generate() -> Array[Dictionary]:
 	var rng = Rng.new(POOL_SEED)
 	var bots: Array[Dictionary] = []
@@ -125,7 +139,7 @@ static func _generate() -> Array[Dictionary]:
 			for i in 3:
 				var critter: String = allowed[rng.range_int(0, allowed.size() - 1)]
 				var aim := rng.range_int(-AIM_SPREAD, AIM_SPREAD)
-				slots.append({"critter": critter, "tier": bot_tier(band), "level": bot_level(band), "gear": [], "aim": aim})
+				slots.append({"critter": critter, "tier": bot_tier(band), "level": bot_level(band), "gear": bot_gear(band), "aim": aim})
 				shots.append(aim)
 			var name := _name(rng, used_names)
 			bots.append({

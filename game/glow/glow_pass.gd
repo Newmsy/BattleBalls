@@ -3,8 +3,8 @@
 ##
 ## Pass XP comes from play only (fights, daily bounties, the weekly chest,
 ## Trick Shot). Levels are never sold. Every power reward (orbs, coins,
-## energy, XP chips, the debut critter's copies) is on the free track; the
-## premium track has none, so paying never makes anyone stronger.
+## energy, XP chips, gear, the debut critter's copies) is on the free track;
+## the premium track has none, so paying never makes anyone stronger.
 extends RefCounted
 
 const LEVELS := 50
@@ -38,6 +38,8 @@ const BOUNTY_POOL := [
 const PREMIUM_COSMETICS := {1: "hat_halo", 10: "spark_neon", 20: "trail_synth", 30: "hat_visor", 40: "hat_horns", 50: "ko_fireworks"}
 const FREE_COSMETICS := {5: "hat_cap", 15: "trail_comet", 30: "ko_stars"}
 const DEBUT_LEVELS := [10, 25, 40]
+## Free-track gear (design/gear.md section 4): level -> [type, tier].
+const FREE_GEAR := {9: ["bubble_shell", 1], 21: ["spike_core", 2], 33: ["iron_shell", 3], 46: ["jet_charm", 3]}
 
 
 ## The free-track reward at `level` (1-50). `debut` is the season's debut
@@ -45,6 +47,8 @@ const DEBUT_LEVELS := [10, 25, 40]
 static func free_reward(level: int, debut := "") -> Dictionary:
 	if FREE_COSMETICS.has(level):
 		return {"kind": "cosmetic", "id": FREE_COSMETICS[level]}
+	if FREE_GEAR.has(level):
+		return {"kind": "gear", "type": FREE_GEAR[level][0], "tier": FREE_GEAR[level][1]}
 	if level in DEBUT_LEVELS:
 		return {"kind": "copies", "id": debut, "n": 1} if debut != "" else {"kind": "orbs", "n": 3}
 	if level in [20, 35, 45, 50]:
