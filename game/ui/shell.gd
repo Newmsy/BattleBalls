@@ -33,6 +33,14 @@ const SCREENS := {
 	"pass": preload("res://game/ui/screens/pass_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
+const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
+## Screens that hold a list which keeps growing (collection, gear, the shop,
+## the pass track, friends, the stage map, the Spire's critter picker, the
+## week's events and the bracket). Every other screen must fit a
+## 720x1280 phone without scrolling: put detail behind an "i" (info()) and
+## the main action in pin(). See design/ui.md, "No scrolling".
+## Play scrolls only below its two big cards: its mode groups grow too.
+const SCROLLS := ["play", "critters", "bag", "shop", "pass", "friends", "campaign", "spire", "week", "bracket"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
 
@@ -71,6 +79,7 @@ var current_params := {}
 var _stack: Array = []
 var _tab := "play"
 var _holder: Control
+var _footer: MarginContainer ## Pinned actions (pin()), above the tab bar.
 var _scroll: ScrollContainer
 var _tab_buttons := {}
 var _dots := {}
@@ -84,6 +93,11 @@ var _overlay: Control
 var _gear: Control ## Settings button in the top bar.
 var _share := {} ## kind -> {button, url, text} on the current screen.
 var _overlay_tag := "" ## What the open overlay is ("sheet", "reveal", ...).
+## The game's sound (game/audio/sfx.gd); main.gd sets it. The settings sheet
+## has its switch, since the corner toggle is hidden on home screens.
+var sfx = null
+var _scroll_settle := 0.0 ## Seconds left before a scroll counts as settled.
+var _settling := false
 
 
 func _ready() -> void:
@@ -112,6 +126,11 @@ func build() -> void:
 	_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_holder.clip_contents = true
 	col.add_child(_holder)
+	_footer = MarginContainer.new()
+	_footer.add_theme_constant_override("margin_top", 10)
+	_footer.add_theme_constant_override("margin_bottom", 14)
+	_footer.visible = false
+	col.add_child(_footer)
 	col.add_child(_tab_bar())
 	_overlay = Control.new()
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -192,7 +211,8 @@ func toast(text: String) -> void:
 	var w := minf(620.0, size.x - 60.0)
 	_toast.size = Vector2(w, 0)
 	_toast.size.y = _toast.get_line_count() * 34.0 + 40.0
-	_toast.position = Vector2((size.x - _toast.size.x) / 2.0, size.y - TAB_HEIGHT - _toast.size.y - 40.0)
+	var lift := TAB_HEIGHT + (_footer.size.y if _footer.visible else 0.0)
+	_toast.position = Vector2((size.x - _toast.size.x) / 2.0, size.y - lift - _toast.size.y - 40.0)
 	if _toast_tween:
 		_toast_tween.kill()
 	_toast_tween = create_tween()
@@ -220,6 +240,38 @@ func close_overlay() -> void:
 	for c in _overlay.get_children():
 		c.queue_free()
 	share_layout_changed.emit()
+
+
+## Pin a screen's main action (Fuse, Summon, Climb...) under the screen,
+## above the tab bar, so it never ends up below the fold. Cleared on every
+## screen change.
+func pin(c: Control) -> void:
+	_footer.add_child(c)
+	_footer.visible = true
+
+
+## A sheet with a title and a few short paragraphs: the detail behind a
+## screen's "i" button, so the screen itself can stay short.
+func info(title: String, paragraphs: Array) -> void:
+	var v := Kit.vbox(18, [Kit.label(title, 36)])
+	for t in paragraphs:
+		var l := Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		# The sheet measures itself before layout, so wrapped text needs a real width.
+		l.custom_minimum_size.x = minf(640.0, size.x - 80.0)
+		v.add_child(l)
+	var ok := Kit.button("Got it", close_overlay, "ghost", 26, 80)
+	mark("info_close", ok)
+	v.add_child(ok)
+	sheet(v)
+
+
+## A round "i" button that opens info(title, paragraphs).
+func info_button(title: String, paragraphs: Array, mark_as := "info") -> Control:
+	var b := Kit.card_button(Glyph.make("info", 34, Kit.FG), info.bind(title, paragraphs), Kit.LINE, Kit.PANEL, 999, 12)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.size_flags_horizontal = Control.SIZE_SHRINK_END
+	mark(mark_as, b)
+	return b
 
 
 ## A bottom sheet over a dimmed screen; tapping the dim area closes it.
@@ -333,21 +385,28 @@ func _show(name: String, params: Dictionary) -> void:
 	_share.clear()
 	for c in _holder.get_children():
 		c.queue_free()
+	for c in _footer.get_children():
+		_footer.remove_child(c)
+		c.queue_free()
+	_footer.visible = false
 	_scroll = ScrollContainer.new()
 	_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	_holder.add_child(_scroll)
-	# Re-log control positions after a scroll so the smoke test can tap below the fold.
-	_scroll.get_v_scroll_bar().value_changed.connect(func(_v): if _overlay.get_child_count() == 0: _report.call_deferred(name))
+	# Re-log control positions once a scroll settles so the smoke test can tap
+	# below the fold. Not on every scroll step: logging every mark each frame
+	# made long lists stutter.
+	_scroll.get_v_scroll_bar().value_changed.connect(func(_v): _report_after_scroll(name))
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Phones fill the width; wide screens keep a phone-width column in the middle.
 	var side_margin := maxi(28, int((size.x - 720.0) / 2.0) + 28)
 	for side in ["left", "right"]:
 		margin.add_theme_constant_override("margin_" + side, side_margin)
+		_footer.add_theme_constant_override("margin_" + side, side_margin)
 	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_bottom", 40)
+	margin.add_theme_constant_override("margin_bottom", 24)
 	_scroll.add_child(margin)
 	var screen: Control = SCREENS[name].build(self, params)
 	margin.add_child(screen)
@@ -357,12 +416,27 @@ func _show(name: String, params: Dictionary) -> void:
 	_report.call_deferred(name)
 
 
+func _report_after_scroll(name: String) -> void:
+	_scroll_settle = 0.25
+	if _settling:
+		return
+	_settling = true
+	while _scroll_settle > 0.0:
+		await get_tree().process_frame
+		_scroll_settle -= get_process_delta_time()
+	_settling = false
+	if name == current and _overlay.get_child_count() == 0:
+		_report(name)
+
+
 func _report(name: String) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	if name != current and name not in ["overlay", "sheet", "reveal"]:
 		return
 	print("UI_SCREEN ", name)
+	if name == current:
+		_report_fit()
 	share_layout_changed.emit()
 	var all := _marks.duplicate()
 	for t in _tab_buttons:
@@ -374,6 +448,18 @@ func _report(name: String) -> void:
 		if is_instance_valid(c) and c.is_visible_in_tree():
 			var p := c.get_global_rect().get_center()
 			print("UI_AT %s %d %d" % [k, roundi(p.x), roundi(p.y)])
+
+
+## Logs how tall the screen is against the room it has; a screen outside
+## SCROLLS that needs scrolling logs UI_OVERFLOW (smoke.mjs fails on it).
+func _report_fit() -> void:
+	if not is_instance_valid(_scroll) or _scroll.get_child_count() == 0:
+		return
+	var need: float = _scroll.get_child(0).get_combined_minimum_size().y
+	var room: float = _scroll.size.y
+	print("UI_FIT %s %d %d" % [current, roundi(need), roundi(room)])
+	if need > room + 1.0 and current not in SCROLLS:
+		print("UI_OVERFLOW %s %d" % [current, roundi(need - room)])
 
 
 # --- Top bar -------------------------------------------------------------------

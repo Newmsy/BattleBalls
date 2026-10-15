@@ -132,6 +132,18 @@ static func apply_to_def(def: Dictionary, id: String) -> Dictionary:
 	return out
 
 
+## A copy of a ball def with its critter file's "chaos" entry for this arena
+## applied ({arena_id: {stat_or_param: multiplier}}), like the modifier ones.
+static func apply_arena_tweaks(def: Dictionary, arena_id: String) -> Dictionary:
+	var tweaks: Dictionary = def.get("chaos", {}).get(arena_id, {})
+	if tweaks.is_empty():
+		return def
+	var out := def.duplicate()
+	for key in tweaks:
+		out[key] *= float(tweaks[key])
+	return out
+
+
 ## Balls a Mirror Match picks from. Fixed rather than every live critter, so a
 ## mirror replay code still plays the same ball after new critters go live.
 ## Adding to it changes mirror fights: bump MatchSim.RULES_VERSION and

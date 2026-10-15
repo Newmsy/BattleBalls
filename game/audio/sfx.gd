@@ -66,12 +66,13 @@ var _heartbeat_in := 0.0
 var _rng := RandomNumberGenerator.new() ## Render-side only: never the sim's.
 var _clock := 0.0
 var _toggle: Button
-## Raise the mute toggle by this much, e.g. to clear the home screen's tab bar.
-var toggle_lift := 0.0:
+## Hide the corner toggle, e.g. on the home screens, where the settings sheet
+## has the same switch and the corner would sit on top of screen buttons.
+var toggle_hidden := false:
 	set(v):
-		toggle_lift = v
+		toggle_hidden = v
 		if _toggle:
-			_place_toggle()
+			_toggle.visible = not v
 var _board: Control
 
 
@@ -295,7 +296,8 @@ func _apply_mode() -> void:
 		_toggle.text = MODE_LABELS[mode]
 
 
-func _cycle_mode() -> void:
+## Next sound mode: all, effects only, off. Saved for next time.
+func cycle_mode() -> void:
 	mode = MODES[(MODES.find(mode) + 1) % MODES.size()]
 	_apply_mode()
 	var cfg := ConfigFile.new()
@@ -325,7 +327,7 @@ func _build_toggle() -> void:
 	layer.layer = 10
 	add_child(layer)
 	# A small ghost pill in the kit's style, in the bottom-right corner.
-	_toggle = Kit.button(MODE_LABELS[mode], func(): _cycle_mode(); play("click"), "ghost", 20, TOGGLE_SIZE.y)
+	_toggle = Kit.button(MODE_LABELS[mode], func(): cycle_mode(); play("click"), "ghost", 20, TOGGLE_SIZE.y)
 	_toggle.text = MODE_LABELS[mode]
 	_toggle.set_meta("silent", true)
 	_toggle.clip_text = true
@@ -338,7 +340,7 @@ func _build_toggle() -> void:
 func _place_toggle() -> void:
 	var size := get_viewport().get_visible_rect().size
 	_toggle.size = TOGGLE_SIZE
-	_toggle.position = Vector2(size.x - TOGGLE_SIZE.x - 16, size.y - TOGGLE_SIZE.y - 18 - toggle_lift)
+	_toggle.position = Vector2(size.x - TOGGLE_SIZE.x - 16, size.y - TOGGLE_SIZE.y - 18)
 	if _board:
 		_board.size = size
 

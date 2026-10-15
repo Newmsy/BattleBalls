@@ -14,6 +14,7 @@ const Arenas := preload("res://sim/arenas.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 const Backend := preload("res://game/online/backend.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
+const TestUser := preload("res://game/online/test_user.gd")
 const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
@@ -95,6 +96,8 @@ var account_text := "" ## Guest name and trophies once signed in.
 var friends: Friends
 var account: Account
 var _retry_timer: Timer ## Retries the cloud save while it has unsynced changes.
+var _watch_timer: Timer ## Notices save changes (side files too) and syncs them.
+var _synced_edits := -1 ## save.edits when the last sync started.
 var rival := {} ## The friend entry a RIVAL fight is against.
 var link_friend := "" ## Friend code from the link the page was opened with (&f=).
 var _count_fight := false ## The running fight came from the menu, not a replay or URL.
@@ -181,7 +184,10 @@ func _ready() -> void:
 	friends = Friends.new(backend)
 	account = Account.new(backend)
 	save.app_version = VERSION
+	save.mirrored = SaveGame.MIRRORED
+	save.test_slot = TestUser.slot()
 	save.load_local()
+	save.capture_files()
 	_apply_picks()
 	url_params = _read_url_params()
 	# ?stats opens the owner's stats screen (game/stats/), which isn't play.
@@ -231,8 +237,11 @@ func _ready() -> void:
 				shell.go("friends")
 			elif SpireScreen.should_open(url_params):
 				shell.go("spire")
-			elif url_params.get("screen", "") in ["shop", "pass"]:
-				shell.go(url_params.screen) # ?screen=shop or ?screen=pass
+			elif url_params.get("screen", "") in Shell.TAB_IDS:
+				shell.show_tab(url_params.screen) # ?screen=fuse
+			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen != "detail" or url_params.has("id")):
+				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
+				shell.go(url_params.screen, {"id": url_params.id} if url_params.has("id") else {})
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")
@@ -575,7 +584,7 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	seed_value = config.seed
 	foe_aim = null
 	shell_layer.visible = false
-	sfx.toggle_lift = 0.0
+	sfx.toggle_hidden = false
 	_begin_aim()
 	var st := Zones.stage(zone_index, stage_index)
 	info_label.text = "%s %s. Drag on the arena to aim, then let go to launch." % [
@@ -674,6 +683,11 @@ func _go_online() -> void:
 	_retry_timer.timeout.connect(func(): if save.dirty: _sync_online())
 	add_child(_retry_timer)
 	_retry_timer.start()
+	_watch_timer = Timer.new()
+	_watch_timer.wait_time = 3.0
+	_watch_timer.timeout.connect(_watch_save)
+	add_child(_watch_timer)
+	_watch_timer.start()
 	await save.sync(backend)
 	var online := await backend.ensure_session()
 	# Connected after the first sign-in so booting doesn't do everything twice.
@@ -693,14 +707,27 @@ func _go_online() -> void:
 func _sync_online() -> void:
 	if not backend.enabled():
 		return
+	_synced_edits = save.edits
 	await save.sync(backend)
 	await _publish_lineup()
+
+
+## Syncs as soon as anything in the save changed (the 60 s retry timer
+## covers changes that couldn't go up, e.g. offline).
+func _watch_save() -> void:
+	save.capture_files()
+	if save.dirty and save.edits != _synced_edits:
+		_sync_online()
 
 
 ## The save was replaced (a newer cloud copy, another account): show it.
 func _on_save_changed() -> void:
 	# Onboarding owns the arena until it ends; tutorial_end applies the picks.
+	# Still take the new profile, so tutorial_end sees its progress and keeps
+	# it instead of the onboarding's fresh one.
 	if mode == Mode.TUTORIAL:
+		if not profile_unsaved:
+			_load_profile()
 		return
 	if not url_picks:
 		_apply_picks()
@@ -708,6 +735,8 @@ func _on_save_changed() -> void:
 	if not profile_unsaved:
 		_load_profile()
 		shell.set_profile(profile)
+		if shell.glow != null:
+			shell.glow.profile = profile
 	if state == State.MENU:
 		_refresh_menu()
 
@@ -723,17 +752,23 @@ func _on_account_changed() -> void:
 
 func _notification(what: int) -> void:
 	# Coming back to the tab or app: pick up anything another device saved.
-	if what == NOTIFICATION_APPLICATION_FOCUS_IN and backend != null and backend.enabled() and _retry_timer != null:
+	# Leaving it: send this device's changes before the phone suspends the tab.
+	if what in [NOTIFICATION_APPLICATION_FOCUS_IN, NOTIFICATION_APPLICATION_FOCUS_OUT] \
+			and backend != null and backend.enabled() and _retry_timer != null:
 		_sync_online()
 
 
-## Keeps this player's Ghost Arena defence in step with their current ball.
-## Nobody becomes a ghost before their first fight (so test runs and
-## drive-by visits don't fill the opponent pool with idle lineups).
+## Keeps this player's Ghost Arena defence in step with their lineup critter,
+## as they own it (tier, level, gear). Nobody becomes a ghost before their
+## first fight (so test runs and drive-by visits don't fill the opponent pool
+## with idle lineups).
 func _publish_lineup() -> void:
-	if int(save.data.stats.fights) == 0:
+	if int(save.data.stats.fights) == 0 or profile == null:
 		return
-	var lineup := GhostLineup.make([player_type], save.data.aim_offsets)
+	var mine: Dictionary = profile.slot_of(profile.lineup)
+	if mine.is_empty():
+		return
+	var lineup := GhostLineup.make([mine], save.data.aim_offsets)
 	var key := JSON.stringify(lineup, "", true)
 	if key == str(save.data.published_lineup):
 		return
@@ -835,9 +870,10 @@ func _build_shell() -> void:
 	shell.profile = profile
 	shell.set_account(account)
 	shell.link_base = _link_base()
+	shell.sfx = sfx
 	shell.play_requested.connect(func():
 		shell_layer.visible = false
-		sfx.toggle_lift = 0.0
+		sfx.toggle_hidden = false
 		_use_lineup()
 		# A loaner (Try-a-Critter) wins over your own fighter for this fight.
 		if shell.play_with in BallDefs.PLAYABLE:
@@ -871,7 +907,7 @@ func _pick_player(id: String) -> void:
 
 func _show_home() -> void:
 	shell_layer.visible = true
-	sfx.toggle_lift = Shell.TAB_HEIGHT
+	sfx.toggle_hidden = true # Home has the sound switch in Settings.
 	_sync_share_targets()
 
 
@@ -1096,7 +1132,7 @@ func _start_rival(f: Dictionary) -> void:
 	opponent_type = lead
 	seed_value = _rng.randi_range(1, 99999)
 	shell_layer.visible = false
-	sfx.toggle_lift = 0.0
+	sfx.toggle_hidden = false
 	_show_menu()
 	print("RIVAL_MENU vs=%s ball=%s" % [str(f.name), lead])
 
@@ -1137,7 +1173,7 @@ func _play_normal() -> void:
 ## Watch the Fight of the Day from the This Week board, as a replay.
 func _watch_board_fight(f: Dictionary) -> void:
 	shell_layer.visible = false
-	sfx.toggle_lift = 0.0
+	sfx.toggle_hidden = false
 	mode = Mode.REPLAY
 	player_type = f.p1
 	opponent_choice = f.p2
@@ -1627,7 +1663,8 @@ func _build_stamp() -> String:
 
 
 func _stamp_text() -> String:
-	return _build_stamp() + (" · " + account_text if account_text != "" else "")
+	var text := _build_stamp() + (" · " + account_text if account_text != "" else "")
+	return text + (" · test user %d" % save.test_slot if save.test_slot > 0 else "")
 
 
 func _read_url_params() -> Dictionary:
@@ -1646,6 +1683,10 @@ func _read_url_params() -> Dictionary:
 		opponent_type = params.p2
 		url_picks = true
 	backend.disabled = params.get("offline", "") == "1"
+	# ?text=large turns on Larger text for this visit only (screenshots, testing).
+	if params.get("text", "") == "large":
+		A11y.ensure_loaded()
+		A11y.large_text = true
 	if params.get("arena", "") in Arenas.PLAYABLE:
 		url_arena = params.arena
 		arena_override = url_arena

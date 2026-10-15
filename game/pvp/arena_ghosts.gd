@@ -12,6 +12,7 @@ extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 
@@ -21,6 +22,15 @@ const BANDS := 50 ## Bands 0-99 up to 4900-4999.
 const PER_BAND := 4
 const AIM_SPREAD := 300 ## Bots aim up to 30 degrees either side of the centre line.
 const CANDIDATES := 4 ## A card picks among this many nearest bots.
+## Bots grow with the ladder the way players' collections do: one tier per
+## this many bands (T1 below 1200 trophies, T5 from 4800), and their level
+## climbs through each tier's range across its bands.
+const BANDS_PER_TIER := 12
+## Rarest critter a bot brings, by band: Bronze ghosts bring Commons and
+## Uncommons, Silver adds Rares, Gold Epics, Platinum up everything. A T1
+## Legendary fights like a T3 Common, so this keeps a new player's first
+## attacks winnable.
+const RARITY_BANDS := [[4, 1], [10, 2], [18, 3]]
 
 const NAME_FIRST := ["Sir", "Lady", "Captain", "Tiny", "Mega", "Pixel", "Neon", "Turbo", "Lord", "Doctor",
 	"Sneaky", "Wobbly", "Glitchy", "Sparkle", "Cosmic", "Fuzzy", "Zippy", "Grumpy", "Lucky", "Disco"]
@@ -81,6 +91,28 @@ static func critters(lineup: Dictionary) -> Array:
 	return lineup.slots.map(func(s: Dictionary) -> String: return s.critter)
 
 
+## Critters a bot in this band can bring (BallDefs.PLAYABLE order).
+static func bot_critters(band: int) -> Array:
+	var top := CritterDb.RARITIES.size() - 1
+	for b in RARITY_BANDS:
+		if band < b[0]:
+			top = b[1]
+			break
+	var out: Array = BallDefs.PLAYABLE.filter(func(id): return CritterDb.RARITIES.find(CritterDb.get_critter(id).rarity) <= top)
+	return out if not out.is_empty() else BallDefs.PLAYABLE
+
+
+## Tier and level of every bot ball in a trophy band.
+static func bot_tier(band: int) -> int:
+	return mini(1 + band / BANDS_PER_TIER, 5)
+
+
+static func bot_level(band: int) -> int:
+	var tier := bot_tier(band)
+	var into := band - (tier - 1) * BANDS_PER_TIER
+	return clampi(1 + into * (tier * 10 - 1) / (BANDS_PER_TIER - 1), 1, tier * 10)
+
+
 static func _generate() -> Array[Dictionary]:
 	var rng = Rng.new(POOL_SEED)
 	var bots: Array[Dictionary] = []
@@ -89,10 +121,11 @@ static func _generate() -> Array[Dictionary]:
 		for n in PER_BAND:
 			var slots: Array = []
 			var shots: Array = []
+			var allowed := bot_critters(band)
 			for i in 3:
-				var critter: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
+				var critter: String = allowed[rng.range_int(0, allowed.size() - 1)]
 				var aim := rng.range_int(-AIM_SPREAD, AIM_SPREAD)
-				slots.append({"critter": critter, "tier": 1, "level": 1, "gear": {}, "aim": aim})
+				slots.append({"critter": critter, "tier": bot_tier(band), "level": bot_level(band), "gear": [], "aim": aim})
 				shots.append(aim)
 			var name := _name(rng, used_names)
 			bots.append({

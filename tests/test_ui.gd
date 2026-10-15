@@ -172,3 +172,30 @@ func test_a_new_game_builds_every_screen() -> void:
 	shell.go("campaign", {"zone": 0})
 	check_eq(shell.current, "campaign", "campaign map")
 	shell.free()
+
+
+func test_main_actions_are_pinned_and_detail_sits_behind_an_i() -> void:
+	var shell = Shell.new()
+	shell.build()
+	shell.open_tab("fuse", {"id": "speedster", "tier": 1})
+	check(shell._footer.visible, "the Fuse button sits under the screen")
+	check(shell._footer.is_ancestor_of(shell._marks.fuse), "it is the Fuse button")
+	check(shell._marks.has("fuse_result_info"), "the full fuse result is behind an i")
+	shell.show_tab("summon")
+	check(shell._footer.is_ancestor_of(shell._marks.pull10), "x10 is pinned")
+	check(shell._marks.has("summon_info"), "odds and pity are behind an i")
+	shell.show_tab("critters")
+	check(not shell._footer.visible, "a screen without a main action has no footer")
+	shell.info("Title", ["One", "Two"])
+	check(shell.overlay_open(), "the i opens a sheet")
+	shell.free()
+
+
+func test_home_groups_every_mode_as_a_tile() -> void:
+	var shell = Shell.new()
+	shell.build()
+	shell.show_tab("play")
+	for m in ["thisweek", "campaign", "quickfight", "trickshot", "bouncerun", "spire", "arena", "friends", "glowpass", "shop"]:
+		check(shell._marks.has(m), "home has " + m)
+	shell.free()
+

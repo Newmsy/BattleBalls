@@ -8,6 +8,7 @@ extends Node2D
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const Relay := preload("res://sim/relay.gd")
+const Lineup := preload("res://sim/lineup.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
@@ -58,10 +59,16 @@ func _ready() -> void:
 	var ghost_aims: Array = []
 	for i in bot.lineup.slots.size():
 		ghost_aims.append(ArenaGhosts.slot_angle(bot.lineup, i, 1))
+	# Both trios fight at their known tier, level and gear (sim/lineup.gd).
+	var mine := Lineup.side(store.pending.get("slots", store.slots()))
+	var theirs := Lineup.side(bot.lineup.slots)
 	relay = Relay.new({
 		"seed": int(store.pending.seed),
-		"sides": [store.trio.duplicate(), ArenaGhosts.critters(bot.lineup)],
-		"aims": [[null, null, null], ghost_aims],
+		"sides": [mine.sides, theirs.sides],
+		"aims": [mine.sides.map(func(_c): return null), ghost_aims],
+		"tiers": [mine.tiers, theirs.tiers],
+		"powers": [mine.powers, theirs.powers],
+		"gear": [mine.gear, theirs.gear],
 	})
 	arena = ArenaView.new()
 	arena.team_tags = ["YOU", "GHOST"]
@@ -154,7 +161,7 @@ func _begin_aim(slot: int) -> void:
 	aim = MatchSim.AIM_AT_CENTRE[0] + (int(shot) if shot != null else 0)
 	arena.clear_effects()
 	_preview()
-	info_label.text = "Ball %d of 3: drag on the arena to aim your %s, then let go to launch." % [slot + 1, BallDefs.get_def(store.trio[slot]).display_name]
+	info_label.text = "Ball %d of 3: drag on the arena to aim your %s, then let go to launch." % [slot + 1, BallDefs.get_def(relay.sides[0][slot]).display_name]
 	_set_panel([_button("Launch", _launch, 36)])
 
 
