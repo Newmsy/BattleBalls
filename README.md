@@ -15,6 +15,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `liveops/` | The live-ops schedule (`liveops.json`): seasons, Spotlight weeks, Chaos Weekends, Fight of the Day. See its README. |
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
+| `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
 | `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
@@ -320,3 +321,24 @@ The balance gate is its own set of `Balance` jobs: `tools/ci/balance_plan.sh`
 picks which pairings a PR needs and how many parallel shards to spread them
 over, so it stays inside the time limit as the roster grows (BALANCE.md, "What
 checks it"). The `Balance audit` workflow fights every pairing weekly on `main`.
+
+## Cosmetics, the shop and the Glow Pass
+
+Design: `design/monetisation.md`. Money never buys power: real money buys only
+Glow Gems, the season's premium pass track and the Founder Pack; gems buy only
+cosmetics and the pass. Every power reward sits on the pass's free track.
+
+- `game/glow/catalog.gd` is all the data: cosmetics (hat, trail, hit spark, KO
+  effect), bundles, store products. A new cosmetic is one entry there plus, if
+  it needs a new look, one `style` branch in `cosmetic_art.gd`.
+- Cosmetics are drawn by `arena_view.gd`, never passed to the sim, so fights
+  still replay from angles + seed. The YOU/FOE rings, tags and HP badges are
+  drawn last, over every cosmetic.
+- `game/glow/store.gd` is the store interface and, for now, a fake store
+  (purchases are free and labelled "Test store"). Real StoreKit / Play
+  Billing goes in a subclass; nothing else changes.
+- Pass levels come from play (fights, daily bounties, the weekly chest, Trick
+  Shot); a new season in `liveops/liveops.json` starts a fresh pass.
+- `tests/test_glow.gd` guards the rules: no power for money, fixed prices,
+  cosmetics don't change a fight, rings draw last, colours stay clear of the
+  team rings. `?screen=shop` and `?screen=pass` open the screens directly.

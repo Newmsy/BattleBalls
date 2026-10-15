@@ -58,6 +58,11 @@ static func progress(d) -> int:
 	var profile = d.get("profile", {})
 	if profile is Dictionary:
 		n += int(profile.get("runs", 0)) # Campaign runs (meta/profile.gd).
+	# Glow Gems, cosmetics and pass progress (game/glow): every grant or
+	# spend is a ledger line, so a purchase alone still counts as progress.
+	var glow = d.get("glow", {})
+	if glow is Dictionary and glow.get("ledger") is Array:
+		n += glow.ledger.size()
 	return n
 
 

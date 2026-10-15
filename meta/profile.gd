@@ -388,6 +388,35 @@ func _gear(uid: int) -> Dictionary:
 	return {}
 
 
+func spend_coins(n: int) -> bool:
+	if coins < n:
+		return false
+	coins -= n
+	changed.emit()
+	return true
+
+
+## An earned reward (Glow Pass free track, bounties): {kind, n} with kind
+## orbs, coins, energy, xp_chip, or copies (with id).
+func grant(r: Dictionary) -> void:
+	var n := int(r.get("n", 1))
+	match r.kind:
+		"orbs":
+			orbs += n
+			_item("Summon Orb").count = orbs
+		"coins":
+			coins += n
+		"energy":
+			energy += n
+		"xp_chip":
+			_item("XP Chip").count = int(_item("XP Chip").get("count", 0)) + n
+		"copies":
+			if str(r.id) in Roster.ids():
+				for i in n:
+					add_copies([r.id])
+	changed.emit()
+
+
 func _item(name: String) -> Dictionary:
 	for i in items:
 		if i.name == name:

@@ -274,6 +274,48 @@ try {
     await page.close();
   }
 
+  // 2c. Shop and Glow Pass (?screen=shop): buy gems from the test store, buy this week's first bundle (it goes
+  // on at once), then fight wearing it. Then the pass: unlock the premium track from the test store.
+  {
+    const { page, logs } = await openGame("?screen=shop&seed=7&today=2026-10-20&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN shop", 10000);
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: path.join(shots, "3n-shop.png") });
+    await tapUi(page, logs, "get_gems", "sheet");
+    await page.screenshot({ path: path.join(shots, "3o-gems.png") });
+    await tapUi(page, logs, "buy_gems_2000", "shop");
+    const bundle = [...logs].reverse().find((l) => l.startsWith("UI_AT buy_bundle_")).split(" ")[1];
+    await tapUi(page, logs, bundle, "shop");
+    await page.screenshot({ path: path.join(shots, "3p-shop-bought.png") });
+    await tapUi(page, logs, "shop_back", "play");
+    const menuAt = logs.length;
+    await tapUi(page, logs, "quickfight");
+    await waitForLogAfter(logs, menuAt, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "menu_fight");
+    await page.waitForTimeout(800);
+    const [sx, sy] = toPage(page, 20 + 170 * 0.68, 190 + 830 * 0.68);
+    const [ex, ey] = toPage(page, 360, 300);
+    await page.mouse.move(sx, sy);
+    await page.mouse.down();
+    await page.mouse.move(ex, ey, { steps: 8 });
+    await page.mouse.up();
+    console.log("dressed fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, "3q-dressed-fight.png") });
+    await page.close();
+  }
+  {
+    const { page, logs } = await openGame("?screen=pass&today=2026-10-20&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN pass", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "3r-pass.png") });
+    await tapUi(page, logs, "pass_buy", "pass");
+    await page.screenshot({ path: path.join(shots, "3s-pass-premium.png") });
+    await page.close();
+  }
+
   // 3. Wide screen: controls sit beside the arena and FIGHT! is reachable.
   {
     const { page, logs } = await openGame("?seed=7&offline=1", { width: 1376, height: 1263 });
