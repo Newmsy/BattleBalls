@@ -28,3 +28,13 @@ reset role;
 do $$ begin
   assert to_regclass('public.test_saves') is null, 'old shared save slot is gone';
 end $$;
+
+-- The deploy script writes the login as service_role.
+set role service_role;
+do $$ begin
+  insert into public.test_logins (slot, user_id, email, password)
+  values (1, '11111111-0000-0000-0000-000000000099', 'test-user-1@example.com', 'next-deploy')
+  on conflict (slot) do update set password = excluded.password;
+  assert (select password from public.test_logins where slot = 1) = 'next-deploy', 'deploy script can store the login';
+end $$;
+reset role;

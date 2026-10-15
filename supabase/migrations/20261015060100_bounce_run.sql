@@ -1,3 +1,11 @@
+-- The live project already has this migration's objects: it ran there under
+-- its old file name before the rename that unblocked `supabase db push`
+-- (PR #64). So it only runs where they're missing (a fresh database).
+do $mig$ begin
+if to_regclass('public.bounce_run_scores') is not null then
+  return;
+end if;
+execute $body$
 -- Bounce Run daily leaderboard (game/online/bounce_board.gd, design/bounce-run.md).
 --
 -- One score per player per day, posted once at the end of the ranked run and
@@ -89,3 +97,6 @@ revoke all on function public.bounce_run_board(integer, integer) from public, an
 grant execute on function public.bounce_run_today() to authenticated;
 grant execute on function public.submit_bounce_run(integer, integer, integer, integer, jsonb, integer) to authenticated;
 grant execute on function public.bounce_run_board(integer, integer) to authenticated;
+
+$body$;
+end $mig$;
