@@ -29,6 +29,7 @@ const CRITTER := {
 		{"text": "+1.5 damage per bounce", "twig_damage": 1.5},
 		{"text": "At max size, the next bump on it bursts in dust (10 damage)", "twig_burst": 10.0},
 	],
+	"chaos": {"hyper_speed": {"twig_damage": 0.75}}, ## Hyper Speed piles on twigs too fast
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "smirk"}, "front": ["twigs"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.05},
 }

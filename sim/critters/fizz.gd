@@ -31,6 +31,7 @@ const CRITTER := {
 		{"text": "The pop adds +8 damage", "fizz_damage": 8.0},
 		{"text": "Popping dashes at the foe and the hit splashes (6 damage)", "fizz_dash": 1.0, "fizz_splash": 6.0},
 	],
+	"chaos": {"closing_walls": {"fizz_at": 1.5}}, ## A shrinking arena means walls every few frames
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["ringpull"], "front": ["fizz"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},
 }

@@ -26,6 +26,7 @@ const CRITTER := {
 		{"text": "Regrow 1.2 HP/s", "regrow_hps": 1.2},
 		{"text": "While regrowing it sheds stinging spores (3/s)", "regrow_spores": 3.0},
 	],
+	"chaos": {"closing_walls": {"hp": 1.1}, "bumpers": {"hp": 1.1}}, ## Shrinking walls and bumper knocks leave no quiet moment to regrow
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["fuzz", "mushroom"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.9},
 }

@@ -27,6 +27,7 @@ const CRITTER := {
 		{"text": "Bites on every 3rd hit", "chomp_every": 3.0},
 		{"text": "A big bite heals Fin for half its damage", "chomp_heal": 0.5},
 	],
+	"chaos": {"closing_walls": {"chomp_mult": 0.75}, "glass_cannon": {"chomp_mult": 1.2}}, ## Closing Walls crowds foes into more bites; Glass Cannon fights end before many bites land
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "teeth"}, "back": ["dorsal"], "front": ["belly"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.95},
 }
