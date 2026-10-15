@@ -335,7 +335,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
 				_spawn_particles(e.from, 10)
 				_spawn_particles(e.to, 10)
-				_bursts.append({"pos": e.to, "age": 0.0})
+				_bursts.append({"pos": e.to, "age": 0.0, "spark": {}, "seed": 0.0})
 				_squash[g.index] = 0.25
 			"yank":
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
@@ -440,7 +440,7 @@ func advance_effects(delta: float) -> void:
 	_particles = _particles.filter(func(p): return p.age < p.life)
 	for k in _bursts:
 		k.age += delta
-	_bursts = _bursts.filter(func(k): return k.age < (CosmeticArt.SPARK_LIFE if k.spark else BURST_LIFE))
+	_bursts = _bursts.filter(func(k): return k.age < (CosmeticArt.SPARK_LIFE if k.get("spark") else BURST_LIFE))
 	for k in _kos:
 		k.age += delta
 	_kos = _kos.filter(func(k): return k.age < CosmeticArt.KO_LIFE)
@@ -586,8 +586,8 @@ func _draw() -> void:
 			CosmeticArt.draw_trail(self, trail, _trails[b.index].map(func(p): return p * s), b.radius * s, _time)
 
 	for k in _bursts:
-		if k.spark:
-			CosmeticArt.draw_spark(self, k.spark, k.pos * s, k.age / CosmeticArt.SPARK_LIFE, 1.0, k.seed)
+		if k.get("spark"):
+			CosmeticArt.draw_spark(self, k.spark, k.pos * s, k.age / CosmeticArt.SPARK_LIFE, 1.0, k.get("seed", 0.0))
 			continue
 		var t: float = k.age / BURST_LIFE
 		var grow := 70.0 if not A11y.reduced_motion else 25.0
