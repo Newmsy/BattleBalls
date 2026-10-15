@@ -155,7 +155,7 @@ func test_fizz_pops_after_enough_bounces() -> void:
 		sim._on_wall_bounce(b, Vector2(0, 500))
 	check_near(b.speed, b.def.speed, 0.001, "no pop yet")
 	sim._on_wall_bounce(b, Vector2(0, 500))
-	check_near(b.speed, b.def.speed * 1.4, 0.001, "pops for speed")
+	check_near(b.speed, b.def.speed * (1.0 + b.def.fizz_speed), 0.001, "pops for speed")
 	check_near(b.contact_damage, b.def.contact_damage + b.def.fizz_damage, 0.001, "and a harder hit")
 	sim._strike(b, sim.balls[1])
 	check_near(b.contact_damage, b.def.contact_damage, 0.001, "the hit spends it")

@@ -62,6 +62,8 @@ const EFFECTS := {
 	"patch": ["patch_radius", "patch_life", "patch_dps"],
 	"patch_flare": ["patch_flare_radius", "patch_flare_damage"],
 	"honey": ["honey_radius", "honey_life", "honey_slow", "honey_max", "honey_merge_radius"],
+	"honey_trap": ["honey_stick"],
+	"honey_crush": ["honey_crush"],
 	"ink": ["ink_radius", "ink_life", "ink_slow", "ink_dps", "ink_cooldown", "ink_dash"],
 	"stink": ["stink_radius", "stink_dps", "stink_slow", "stink_bloom_radius"],
 	"bloom": ["stink_bloom_secs"],
@@ -78,7 +80,7 @@ const EFFECTS := {
 	"phase_fire": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"wind": ["wind_step", "wind_cap", "wind_secs", "wind_add"],
 	"unwind": ["wind_crit"],
-	"fizz": ["fizz_at", "fizz_speed", "fizz_secs", "fizz_damage", "fizz_puddle", "fizz_dash"],
+	"fizz": ["fizz_at", "fizz_speed", "fizz_secs", "fizz_damage", "fizz_puddle", "fizz_dash", "fizz_blast", "fizz_blast_radius"],
 	"fizz_hit": ["fizz_splash", "fizz_splash_radius"],
 	# Batch D statuses: stun (freeze), vulnerable and timed slows (MatchSim.stun, add_status).
 	"gum": ["gum_slow", "gum_secs", "gum_burn", "gum_stacks", "gum_cap"],
@@ -87,6 +89,7 @@ const EFFECTS := {
 	"arc_tick": [],
 	"frostbite": ["bite_slow", "bite_max", "bite_secs", "bite_freeze", "shard_damage", "shard_radius", "bite_sour", "bite_sour_secs"],
 	"shatter": ["shatter_mult"],
+	"frost_hunt": ["hunt_accel"],
 	"paint": ["paint_every", "paint_width", "paint_life", "paint_vuln", "paint_linger"],
 	"paint_flash": ["paint_flash_damage"],
 	"lamp": ["lamp_life", "lamp_dps", "lamp_vuln", "lamp_vuln_secs", "lamp_sweep", "lamp_back"],
@@ -128,7 +131,7 @@ const EFFECTS := {
 	"shut": ["shut_secs", "shut_armor"],
 	"shut_guard": ["shut_armor"],
 	"shut_open": ["shot_damage", "shot_speed", "shot_count", "shot_aim"],
-	"salvo": ["salvo_hits", "salvo_shield", "salvo_shield_secs", "shot_damage", "shot_speed", "shot_count"],
+	"salvo": ["salvo_hits", "salvo_shield", "salvo_shield_secs", "salvo_delay", "shot_damage", "shot_speed", "shot_count"],
 	"salvo_tick": [],
 	"mega": ["mega_secs"],
 	"lob": ["lob_damage", "lob_radius", "lob_lead", "lob_flight", "lob_crater_dps", "lob_barrage_every"],
@@ -176,7 +179,8 @@ const EFFECTS := {
 	"glitch": ["glitch_away", "bomb_arm", "bomb_radius", "bomb_damage", "bomb_max", "bomb_line", "glitch_pulse", "glitch_pulse_radius"],
 	"yank": ["yank_impulse", "yank_big_every", "yank_big_slow"],
 	"yank_bonus": ["yank_bonus"],
-	"string": ["string_cooldown", "string_length", "string_secs", "string_slam"],
+	"string": ["string_cooldown", "string_length", "string_secs"],
+	"string_fling": ["string_fling", "string_slam", "string_slam_stun"],
 	"string_snap": ["string_stun", "string_shield"],
 	"mark": ["mark_cooldown", "mark_min", "mark_secs", "pounce_delay"],
 	"pounce": ["pounce_speed_mult", "pounce_secs"],
@@ -795,6 +799,9 @@ func fx_fizz(sim, b, ctx: Dictionary) -> void:
 	sim.set_mod(b, "fizz_rush", {"speed": 1.0 + b.def.fizz_speed}, b.def.fizz_secs)
 	sim.set_mod(b, "fizz_hit", {"add": b.def.fizz_damage})
 	sim.events.append({"type": "pop", "ball": b.index, "pos": b.pos})
+	if b.def.fizz_blast > 0.0:
+		# The can bursts: a soda geyser that blasts nearby foes away.
+		sim.pulse(b, b.pos, b.def.fizz_blast_radius, b.def.fizz_blast, true, "fizz")
 	if b.def.fizz_puddle > 0.0:
 		sim.add_zone(b, b.pos, {"kind": "fizz", "radius": 70.0, "life": 2.0, "slow": b.def.fizz_puddle})
 	if b.def.fizz_dash > 0:
@@ -898,14 +905,15 @@ func fx_frostbite(sim, b, ctx: Dictionary) -> void:
 		t.statuses[key].stacks = stacks
 		return
 	sim.clear_status(t, key)
-	sim.stun(b, t, b.def.bite_freeze)
+	if sim.stun(b, t, b.def.bite_freeze):
+		_lunge(sim, b, t)
 	sim.pulse(b, t.pos, b.def.shard_radius, b.def.shard_damage, false, "shards")
 	if b.def.bite_sour > 0.0:
 		sim.add_status(b, t, "bite_sour:%d" % b.index, "vulnerable", b.def.bite_sour, b.def.bite_sour_secs)
 
 
 ## Its first contact hit on a foe it froze, while still frozen, deals
-## shatter_mult x (0 = off), once per freeze.
+## shatter_mult x (0 = off) and bursts a second round of ice shards, once per freeze.
 func fx_shatter(sim, b, ctx: Dictionary) -> void:
 	var t = ctx.target
 	if b.def.shatter_mult <= 0.0 or not sim.stunned(t) or int(t.state.get("stun_source", -1)) != b.index:
@@ -915,6 +923,26 @@ func fx_shatter(sim, b, ctx: Dictionary) -> void:
 	b.state.shattered = t.stun_until
 	ctx.mult *= b.def.shatter_mult
 	sim.events.append({"type": "shatter", "ball": t.index, "pos": t.pos})
+	if b.def.get("shard_damage", 0.0) > 0.0:
+		sim.pulse(b, t.pos, b.def.shard_radius, b.def.shard_damage, false, "shards")
+
+
+## Rushes at `target` (1.5x speed for half a second) to cash in a stun it set up.
+static func _lunge(sim, b, target) -> void:
+	var d: Vector2 = target.pos - b.pos
+	if d.length() > 0.001:
+		sim.charge(b, d, 1.5, 0.5)
+
+
+## While a foe it froze is frozen, it hunts it down (turns toward it at
+## hunt_accel) to land the shatter.
+func fx_frost_hunt(sim, b, _ctx: Dictionary) -> void:
+	for o in sim.foes(b):
+		if sim.stunned(o) and int(o.state.get("stun_source", -1)) == b.index and int(b.state.get("shattered", -1)) != o.stun_until:
+			var d: Vector2 = o.pos - b.pos
+			if d.length() > 0.001:
+				sim.steer(b, d.normalized() * b.def.hunt_accel)
+			return
 
 
 ## Leaves a paint trail: blobs every paint_every seconds, paint_width wide,
@@ -1286,6 +1314,29 @@ func fx_honey(sim, b, ctx: Dictionary) -> void:
 	sim.add_zone(b, pos, {"kind": "honey", "radius": radius, "life": b.def.honey_life, "slow": b.def.honey_slow})
 
 
+## Honey trap: a foe that rolls into one of its puddles gets stuck fast
+## (stunned honey_stick seconds) and the puddle is used up. The stun's own
+## immunity window lets it wade through puddles for a while after.
+func fx_honey_trap(sim, b, _ctx: Dictionary) -> void:
+	for z in _own_zones(sim, b, "honey"):
+		for o in sim.foes(b):
+			if not o.alive() or sim.stunned(o) or o.pos.distance_to(z.pos) > z.radius + o.radius:
+				continue
+			if sim.stun(b, o, b.def.honey_stick):
+				sim.zones.erase(z)
+				sim.events.append({"type": "honey_stuck", "ball": o.index, "source": b.index, "pos": o.pos})
+				_lunge(sim, b, o)
+				break
+
+
+## Its contact hit on a foe stuck in its honey deals honey_crush x.
+func fx_honey_crush(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.target
+	if sim.stunned(t) and int(t.state.get("stun_source", -1)) == b.index:
+		ctx.mult *= b.def.honey_crush
+		sim.events.append({"type": "honey_crush", "ball": t.index, "source": b.index, "pos": t.pos})
+
+
 ## Ink: when hurt (at most every ink_cooldown) it squirts an ink cloud where
 ## it is (ink_radius, ink_slow for ink_life, ink_dps). ink_dash > 0 also gives
 ## it a bumper-style speed burst for that many seconds.
@@ -1415,14 +1466,30 @@ func fx_salvo(sim, b, _ctx: Dictionary) -> void:
 	if b.state.salvo < int(b.def.salvo_hits):
 		return
 	b.state.salvo = 0
-	_volley(sim, b, int(b.def.shot_count), str(b.def.get("shot_aim", "foe")))
 	b.shield = maxf(b.shield, b.def.salvo_shield)
 	b.state.salvo_shield_until = sim.tick + int(round(b.def.salvo_shield_secs * sim.TICK_RATE))
+	var delay := int(round(b.def.get("salvo_delay", 0.0) * sim.TICK_RATE))
+	if delay <= 0:
+		_salvo_fire(sim, b)
+		return
+	# Locks on first: it brakes and its launchers open, so the salvo reads.
+	b.state.salvo_at = sim.tick + delay
+	sim.events.append({"type": "salvo_lock", "ball": b.index, "pos": b.pos, "secs": b.def.salvo_delay})
+
+
+func _salvo_fire(sim, b) -> void:
+	_volley(sim, b, int(b.def.shot_count), str(b.def.get("shot_aim", "foe")))
 	sim.events.append({"type": "salvo", "ball": b.index, "pos": b.pos})
 
 
 ## Drops what's left of a salvo shield when its time is up (an "always" entry).
 func fx_salvo_tick(sim, b, _ctx: Dictionary) -> void:
+	if b.state.has("salvo_at"):
+		if sim.tick >= int(b.state.salvo_at):
+			b.state.erase("salvo_at")
+			_salvo_fire(sim, b)
+		else:
+			b.slow = maxf(b.slow, 0.7)
 	if b.state.has("salvo_shield_until") and sim.tick >= b.state.salvo_shield_until:
 		b.state.erase("salvo_shield_until")
 		b.shield = 0.0
@@ -2316,8 +2383,24 @@ func fx_string(sim, b, ctx: Dictionary) -> void:
 	b.state.string_until = sim.tick + secs
 	b.state.string_target = ctx.target.index
 	sim.tether(b, ctx.target, b.def.string_length, b.def.string_secs)
-	if b.def.string_slam > 0.0:
-		ctx.target.state.slam = {"source": b.index, "damage": b.def.string_slam, "until": sim.tick + secs}
+
+
+## Puppet throw: when its string runs out it hurls the foe straight away from
+## it at 1.8x speed for string_fling seconds; the first wall (or pillar) the
+## foe hits in that time slams it for string_slam, stunned string_stun at T3+.
+func fx_string_fling(sim, b, _ctx: Dictionary) -> void:
+	if not b.state.has("string_until") or sim.tick != int(b.state.string_until) + 1:
+		return
+	var t = sim.balls[int(b.state.string_target)]
+	if not t.alive() or not sim.ability_moves():
+		return
+	var away: Vector2 = t.pos - b.pos
+	if away.length() < 0.001:
+		away = t.vel
+	sim.charge(t, away, 1.8, b.def.string_fling)
+	t.state.slam = {"source": b.index, "damage": b.def.string_slam, "stun": b.def.get("string_slam_stun", 0.0),
+		"until": sim.tick + int(round(b.def.string_fling * sim.TICK_RATE))}
+	sim.events.append({"type": "fling", "ball": t.index, "source": b.index, "pos": t.pos})
 
 
 ## When a string runs out, the foe spins out dizzy (slowed 90% for string_stun
@@ -2326,7 +2409,7 @@ func fx_string_snap(sim, b, _ctx: Dictionary) -> void:
 	if not b.state.has("string_until") or sim.tick != int(b.state.string_until) + 1:
 		return
 	var t = sim.balls[int(b.state.string_target)]
-	if t.alive():
+	if t.alive() and b.def.get("string_fling", 0.0) <= 0.0: # A thrown foe isn't stopped.
 		sim.slow_for(t, 0.9, b.def.string_stun)
 		t.state.dizzy_until = sim.tick + int(round(b.def.string_stun * sim.TICK_RATE))
 	b.shield = maxf(b.shield, b.def.string_shield)
@@ -2745,9 +2828,12 @@ func fx_ice_ring_tick(sim, b, _ctx: Dictionary) -> void:
 		return
 	ring.volleys.pop_front()
 	var segs := []
+	var f = sim.nearest_foe(b)
 	for spot in ring.spots:
-		var c: Vector2 = ring.centre
-		segs.append([spot, c + (c - spot) * 0.25])
+		# Aim at where the foe is when they fire, not where it was ringed.
+		var c: Vector2 = f.pos if f != null else ring.centre
+		var to: Vector2 = c - spot
+		segs.append([spot, spot + to.normalized() * (to.length() + 60.0)] if to.length() > 0.001 else [spot, c])
 	_shoot(sim, b, segs, b.def.shard_damage, "shard", b.def.shard_slow, 1.0, int(b.def.shard_hits))
 	if ring.volleys.is_empty():
 		b.state.erase("ring")

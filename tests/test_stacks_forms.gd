@@ -166,7 +166,7 @@ func test_supernova_swells_then_blows() -> void:
 	_steps(sim, 2 * 60 * 5 + 1)
 	check_eq(Abilities.stacks(b), 5, "a swell step every 2s")
 	check(b.radius > b.def.radius, "bigger")
-	_steps(sim, 20 * 60 - sim.tick)
+	_steps(sim, int(b.def.nova_every) * 60 - sim.tick)
 	check(b.state.nova_warn, "flickers before it blows")
 	foe.pos = b.pos + Vector2(200, 0)
 	var before := foe.hp

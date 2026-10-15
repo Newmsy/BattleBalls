@@ -18,9 +18,9 @@ const CRITTER := {
 		"collapse_every": 8.0,
 		"collapse_secs": 1.5,
 		"collapse_range": 450.0,
-		"collapse_accel": 700.0,
+		"collapse_accel": 950.0,
 		"collapse_damage": 18.0,
-		"collapse_radius": 180.0,
+		"collapse_radius": 260.0,
 		"collapse_burn": 1.0, ## The blast burns this much a second for 3s (a burning foe can't heal).
 		"collapse_ring": 0.0, ## Burning ring damage a second, 3s, when above 0.
 		"collapse_guard": 1.0, ## Damage taken while collapsing.

@@ -124,16 +124,17 @@ func test_zapper_zaps_and_stuns_on_its_timer() -> void:
 	check(p.stun_until > 0, "zap stuns")
 
 
-func test_frostfang_freezes_on_the_third_hit() -> void:
+func test_frostfang_freezes_on_the_second_hit() -> void:
 	var sim := _sim("frostfang", "plain")
 	var p := sim.balls[1]
-	for k in 3:
+	for k in 2:
 		sim.tick += MatchSim.TICK_RATE
 		_ram(sim)
 		sim.step()
-		if k < 2:
+		if k < 1:
 			check_near(sim.status_amount(p, "slow"), 0.1 * (k + 1), 0.001, "frost stacks")
-	check(sim.stunned(p), "third hit freezes")
+	check(sim.stunned(p), "second hit freezes")
+	check(sim.balls[0].charge_ticks > 0, "and it lunges at the frozen foe")
 	check_near(sim.status_amount(p, "slow"), 0.0, 0.001, "frost resets")
 
 
