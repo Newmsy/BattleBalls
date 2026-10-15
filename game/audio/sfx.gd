@@ -21,6 +21,8 @@ const RULES := {
 	"ouch_magnet": [1, 0.18, -9.0],
 	"flip": [1, 0.3, -14.0],
 	"snap": [1, 0.2, -4.0],
+	"crit": [1, 0.15, -5.0],
+	"backstab": [1, 0.2, -4.0],
 	"ko": [1, 0.5, 0.0],
 	"heal": [1, 0.3, -10.0],
 	"slurp": [1, 0.25, -8.0],
@@ -142,6 +144,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("hit", 0.0, clampf(64.0 / avg_radius, 0.7, 1.4))
 			"damage":
 				var target = sim.balls[e.target]
+				if e.get("backstab", false):
+					play("backstab")
+				if e.get("crit", false):
+					play("crit", 0.0, 1.0 if e.kind == "contact" else 1.25)
 				if e.kind == "beam":
 					play("sizzle")
 				elif e.amount >= target.max_hp * BIG_HIT_SHARE:

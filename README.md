@@ -223,6 +223,21 @@ other code.
 - `tests/test_critters.gd` checks every file; `CritterDb.validate` explains
   what's wrong.
 
+## Damage rolls, crits, backstabs and gear
+
+Every hit's damage is rolled within +-10% and can crit (5% base chance, x1.5),
+from a roll stream seeded by the fight seed (`MatchSim.rolls`), so fights still
+replay from the seed and the launch angles. A contact hit from behind (both
+balls heading within 45 degrees of each other, the striker catching the other
+up) is a backstab for x1.3. Damage events carry `crit` and `backstab` flags;
+the arena shows gold CRIT pops and a BACKSTAB! call-out, with their own sounds.
+
+Gear is known fight setup like tiers: `MatchSim` takes `gear: [g1, g2]` and
+relays take `gear[side][slot]`, each a list of pieces or summed stat lines.
+`sim/gear.gd` holds the seven lines (attack, health, defense, speed, crit
+chance, crit damage, cooldown speed), their per-rarity values and caps.
+`balance.gd --gear` checks the lines stay worth about the same.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or

@@ -215,6 +215,23 @@ def snap():
     return lowpass(seq([(0, clack), (0.02, spark)]), 9000)
 
 
+def crit():
+    """A critical hit: a bright two-note 'ka-ching' ring over a hard crack."""
+    crack = bandnoise(0.05, 1200, 9000) * env(0.05, 0.0004, 6)
+    ring = mix(osc(np.full(int(0.22 * SR), midi(91)), "sine") * env(0.22, 0.001, 5) * 0.45,
+               osc(np.full(int(0.22 * SR), midi(91) * 2.76), "sine") * env(0.22, 0.001, 8) * 0.15)
+    ring2 = osc(np.full(int(0.26 * SR), midi(96)), "sine") * env(0.26, 0.001, 5) * 0.4
+    return seq([(0, crack), (0.005, ring), (0.06, ring2)])
+
+
+def backstab():
+    """A hit from behind: a quick rising swish, then a sharp low 'thwack'."""
+    swish = bandnoise(0.12, 2000, 8000) * env(0.12, 0.08, 2) * 0.35
+    thwack = mix(bandnoise(0.03, 600, 6000) * env(0.03, 0.0004, 6),
+                 osc(sweep(520, 180, 0.12, 0.5), "tri") * env(0.12, 0.001, 6) * 0.8)
+    return seq([(0, swish), (0.1, thwack)])
+
+
 def ko():
     """Deflating squeak, then a pop and a sparkle."""
     dur = 0.55
@@ -346,7 +363,7 @@ SOUNDS = {
     "ouch_vampire_0": lambda: ouch_vampire(0), "ouch_vampire_1": lambda: ouch_vampire(1),
     "ouch_laser_0": lambda: ouch_laser(0), "ouch_laser_1": lambda: ouch_laser(1),
     "ouch_magnet_0": lambda: ouch_magnet(0), "ouch_magnet_1": lambda: ouch_magnet(1),
-    "flip": flip, "snap": snap,
+    "flip": flip, "snap": snap, "crit": crit, "backstab": backstab,
     "ko": ko, "heal": heal, "slurp": slurp, "zap": zap, "sizzle": sizzle,
     "overtime": overtime, "heartbeat": heartbeat,
     "win": win, "lose": lose, "draw": draw, "go": go, "launch": launch, "stretch": stretch, "click": click,
