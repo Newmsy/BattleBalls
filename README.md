@@ -126,11 +126,12 @@ being solvable or fair.
 ## Bounce Run
 
 A daily roguelite (`sim/bounce_run.gd`, `sim/boons.gd`, `game/bounce_run.gd`;
-design in the project's `design/bounce-run.md`). Draft 3 of 5 critter cards
-(each with its own starter boon), climb 8 floors, and pick 1 of 3 boons for
-the whole trio after every win. A loss knocks that critter out; lose all three
+design in the project's `design/bounce-run.md`). Draft 3 of 6 critters (each
+card shows its ability), pick 3 of 6 starting boons for the whole trio, then
+climb 10 floors and pick 1 of 3 more boons after every win. A loss knocks that critter out; lose all three
 and the run ends. Each floor's foe carries as many boons as you can hold there,
-so every fight stays at equal power. The run comes from the UTC day (#1 is
+and its power follows `FOE_POWER`: well under yours on the first floors, over
+it at the top, so most runs end around floor 7 and a full clear is rare. The run comes from the UTC day (#1 is
 2026-10-14) and is saved after every step to `user://bounce_run.cfg`.
 
 The first run of the day is ranked and posts to the daily leaderboard
@@ -139,8 +140,10 @@ offline it plays the same and posts later. Open it from the Play tab or with
 `?mode=bouncerun` (`&day=3` plays another day's run, unranked).
 
 Boons are balanced by `tools/boon_balance.gd`: each one held at equal power
-must win 52-62%, and CI fails one over 65%. `--runs=300` plays whole random
-runs to check every floor stays near 50%.
+must win 52-62%, and one over 65% is a miss to tune. `--runs=400` plays whole
+runs with random picks and aims and reports where they end (`--runs-from=K`
+splits the runs over processes); retune `FOE_POWER` if the median moves off
+floor 7.
 
 ## Ghost Arena (PvP)
 
@@ -302,7 +305,7 @@ other code.
 - **Look** comes from the kit in `game/ui/critter_art.gd`: a body style, a face
   and named features. A new feature is one branch in `_feature()`.
 - **Status**: `planned` critters appear in the collection only; set `live` once
-  the ability is built and the balance check passes (BALANCE.md).
+  the ability is built (BALANCE.md).
 - `tests/test_critters.gd` checks every file; `CritterDb.validate` explains
   what's wrong.
 
@@ -362,8 +365,8 @@ so ranked stays a fair climb once tiers count.
 - If a change alters the outcome of a golden replay, re-record it with
   `tools/record_golden.gd` and say so in the PR as an intended balance change.
 - Balance follows [BALANCE.md](BALANCE.md): power beats counters, no equal-power
-  matchup over 65%, no hard counters. PRs that add a critter or touch ball stats
-  paste the `balance.gd --power-step` output.
+  matchup over 65%, no hard counters. Balance is not checked in CI and never
+  blocks a PR; it's tuned in batches with the on-demand `Balance audit` workflow.
 
 ## Merging
 
@@ -371,24 +374,23 @@ When every CI job passes on a PR that is **not a draft**, the `Auto-merge` job
 squash-merges it and rebuilds `main`. Keep a PR in draft until its code review
 is done; marking it ready re-runs CI and merges it once green.
 
-Draft pushes run only the unit and database tests; the balance matrix, Bounce
-Run boon check, web build and smoke test run once a PR is ready; `main` runs
+Draft pushes run only the unit and database tests; the web build and smoke
+test run once a PR is ready; `main` runs
 the unit and database tests, then builds, deploys and migrates without
 repeating the smoke test. Run the full checks locally before pushing (see
 CLAUDE.md), and push a draft in a few larger steps rather than many small ones.
 
 A ready PR's slow checks run side by side, and only where the diff can reach
 them (`tools/ci/changes.sh`): the smoke test is split over 4 machines
-(`SMOKE_SHARD=k/n node smoke.mjs`, each runs its share of the cases), the boon
-check runs one boon per core and only when `sim/` changed, and a PR that only
-changes docs, notes or the headless balance tools skips the smoke test. GitHub
-runs at most 20 jobs at once per account, which is why balance stops at 14
-shards.
+(`SMOKE_SHARD=k/n node smoke.mjs`, each runs its share of the cases), and a PR
+that only changes docs, notes or the headless balance tools skips the smoke
+test.
 
-The balance gate is its own set of `Balance` jobs: `tools/ci/balance_plan.sh`
-picks which pairings a PR needs and how many parallel shards to spread them
-over, so it stays inside the time limit as the roster grows (BALANCE.md, "What
-checks it"). The `Balance audit` workflow fights every pairing weekly on `main`.
+Balance checks don't run in CI (Newms, 2026-10-15: as little friction as
+possible from idea to testing). The `Balance audit` workflow (run it from
+Actions > Balance audit > Run workflow) fights every pairing everywhere when
+we do a balance tune; `tools/balance.gd` and `tools/boon_balance.gd` run
+locally too (BALANCE.md, "What checks it").
 
 ## Cosmetics, the shop and the Glow Pass
 

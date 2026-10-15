@@ -9,8 +9,11 @@ on:
   # fire push events, but they may dispatch a workflow.
   workflow_dispatch:
 
+# A new push to a PR cancels its older run. Runs on main don't wait for each
+# other: only their deploys queue (the Web job's concurrency below), so a merge
+# reaches the live site without waiting for the previous merge's tests.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -28,14 +31,14 @@ env:
 # Where the heavy checks run:
 # - Draft PR pushes: unit tests and database tests only. Drafts never merge, and
 #   CLAUDE.md asks for the full checks locally before pushing.
-# - Ready PRs (and every push to one): everything the diff can affect, including
-#   the balance matrix and the browser smoke test. This is the merge gate.
+# - Ready PRs (and every push to one): unit, determinism and golden replay
+#   tests, database tests, the web build and the browser smoke test. This is
+#   the merge gate. Balance checks are not in CI; they run on demand (BALANCE.md).
 # - main: unit and database tests, then build, deploy and migrate. Its commits
 #   already passed the full gate as a PR, and the next PR's run (on its merge
 #   with main) catches anything two merges break together.
 # The repo is public, so minutes are free but an account runs at most 20 jobs at
-# once: the smoke shards (4) plus balance shards (up to 14) plus Sim and Database
-# tests fit in one wave. Each job has a timeout so a hang can't run for hours.
+# once: the smoke shards (4) plus Sim and Database tests fit in one wave. Each job has a timeout so a hang can't run for hours.
 
 jobs:
   test:
@@ -61,78 +64,23 @@ jobs:
         run: timeout 180 ~/godot/godot --headless --import || true
       - name: Unit, determinism and golden replay tests
         run: GODOT=~/godot/godot tests/run.sh
-      - name: Which checks this PR needs
-        id: changes
-        if: github.event_name == 'pull_request' && !github.event.pull_request.draft
-        run: tools/ci/changes.sh "${{ github.event.pull_request.base.sha }}" | tee -a "$GITHUB_OUTPUT"
-      # One boon per process on every core; skipped when nothing under sim/ changed.
-      - name: Bounce Run boons stay a tilt, not a verdict
-        if: steps.changes.outputs.sim == 'true'
-        run: |
-          set -o pipefail
-          GODOT=~/godot/godot timeout 900 tools/ci/boons.sh --fights=40 --strict | tee -a "$GITHUB_STEP_SUMMARY"
 
-  # The balance gate (BALANCE.md), split so it scales to the full roster.
-  # balance-plan picks the pairings (every pairing for a small roster, else
-  # only the critters this PR changed, plus a fixed sample on an engine change)
-  # and how many machines to spread them over; each Balance shard fights its
-  # share and fails on a FAIL. The weekly Balance audit workflow fights every
-  # pairing on main. balance-plan also says whether the diff can affect the
-  # web build, so a docs-only PR skips the smoke test.
-  balance-plan:
-    name: Balance plan
+  # Says whether the diff can affect the web build, so a docs-only PR skips the
+  # smoke test. Balance checks don't run in CI (Newms, 2026-10-15): run them on
+  # demand with the Balance audit workflow (BALANCE.md).
+  changes:
+    name: Which checks this PR needs
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      only: ${{ steps.plan.outputs.only }}
-      shards: ${{ steps.plan.outputs.shards }}
       web: ${{ steps.changes.outputs.web }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - id: plan
-        run: tools/ci/balance_plan.sh "${{ github.event.pull_request.base.sha }}" | tee -a "$GITHUB_OUTPUT"
       - id: changes
         run: tools/ci/changes.sh "${{ github.event.pull_request.base.sha }}" | tee -a "$GITHUB_OUTPUT"
-
-  balance:
-    name: Balance (shard ${{ matrix.shard }})
-    needs: balance-plan
-    if: needs.balance-plan.result == 'success' && needs.balance-plan.outputs.shards != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: ${{ fromJSON(needs.balance-plan.outputs.shards) }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Cache Godot and web export templates
-        id: godot-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/godot
-          key: godot-${{ env.GODOT_VERSION }}-web-nothreads
-      - name: Download Godot
-        if: steps.godot-cache.outputs.cache-hit != 'true'
-        run: tools/ci/download_godot.sh
-      - name: Import project
-        run: timeout 180 ~/godot/godot --headless --import || true
-      # Square matchups (the cells that FAIL a PR) get 100 seeds. Arena and
-      # Chaos twist cells only WARN on a PR (#67), so 25 seeds report them;
-      # the weekly audit fights them at full strength.
-      - name: Equal power on every arena and under every Chaos Weekend modifier (report in the job summary)
-        env:
-          ONLY: ${{ needs.balance-plan.outputs.only }}
-          SHARDS: ${{ strategy.job-total }}
-        run: |
-          set -o pipefail
-          timeout 2100 ~/godot/godot --headless --script res://tools/balance.gd -- \
-            --fights=100 --variant-fights=25 --arena=all --modifiers --strict \
-            --shard=${{ matrix.shard }}/$SHARDS ${ONLY:+--only=$ONLY} \
-            | grep -v '^Godot Engine' | tee -a "$GITHUB_STEP_SUMMARY"
 
   # Applies supabase/migrations to a plain Postgres with a stub of Supabase's
   # auth schema and checks row-level security and the game's RPCs.
@@ -159,8 +107,8 @@ jobs:
   # screenshots to the Web job for the preview.
   smoke:
     name: Smoke test (shard ${{ matrix.shard }})
-    needs: balance-plan
-    if: needs.balance-plan.result == 'success' && needs.balance-plan.outputs.web == 'true'
+    needs: changes
+    if: needs.changes.result == 'success' && needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -210,12 +158,18 @@ jobs:
   # waits for the smoke test, so a broken build never gets a preview link.
   web:
     name: Web build and preview
-    needs: [balance-plan, smoke]
+    needs: [changes, smoke]
     # Not on drafts: nothing previews or merges from a draft.
     if: >-
       always() && !cancelled() && (github.event_name != 'pull_request'
-      || (!github.event.pull_request.draft && needs.balance-plan.result == 'success'
+      || (!github.event.pull_request.draft && needs.changes.result == 'success'
       && contains(fromJSON('["success","skipped"]'), needs.smoke.result)))
+    # One deploy at a time per PR or branch. A deploy that has started keeps
+    # going; a newer one waits, replacing any older one still waiting, so a
+    # burst of merges ends with the latest main live.
+    concurrency:
+      group: deploy-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -286,14 +240,13 @@ jobs:
   # stays draft until its code review is done.
   automerge:
     name: Auto-merge
-    needs: [test, db, web, balance-plan, balance, smoke]
-    # Balance and the smoke test are skipped when a PR touches nothing they
-    # check; skipped is fine, anything else that isn't success blocks the merge.
+    needs: [test, db, web, changes, smoke]
+    # The smoke test is skipped when a PR touches nothing it checks; skipped is fine.
     if: >-
       always() && github.event_name == 'pull_request' && !github.event.pull_request.draft
       && github.event.pull_request.head.repo.full_name == github.repository
       && needs.test.result == 'success' && needs.db.result == 'success' && needs.web.result == 'success'
-      && needs.balance-plan.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.balance.result)
+      && needs.changes.result == 'success'
       && contains(fromJSON('["success","skipped"]'), needs.smoke.result)
     runs-on: ubuntu-latest
     timeout-minutes: 5

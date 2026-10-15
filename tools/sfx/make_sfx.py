@@ -356,6 +356,35 @@ def click():
     return osc(sweep(500, 1400, dur, 0.4), "sine") * env(dur, 0.001, 5)
 
 
+# --- Critter signature sounds (render + sound pass, 2026-10) -------------------
+
+def chomp():
+    """Count Nibbles' bite: two quick teeth clacks and a wet crunch."""
+    def clack(f):
+        return mix(bandnoise(0.02, 2000, 9000) * env(0.02, 0.0005, 8),
+                   osc(sweep(f, f * 0.6, 0.05, 0.5), "tri") * env(0.05, 0.0005, 9) * 0.8)
+    crunch = bandnoise(0.12, 600, 4000) * (rng.uniform(0, 1, int(0.12 * SR)) > 0.5) * env(0.12, 0.002, 5) * 0.7
+    return seq([(0.0, clack(1500)), (0.055, clack(1100)), (0.06, crunch)])
+
+
+def thwomp():
+    """Boulder landing a hit: a heavy stone 'THWOMP' with gravel rattle."""
+    dur = 0.42
+    thud = osc(sweep(420, 95, dur, 0.4), "sine") * env(dur, 0.001, 5) * 1.0
+    body = osc(sweep(260, 120, dur, 0.5), "tri") * env(dur, 0.001, 7) * 0.6
+    crack = bandnoise(0.05, 800, 6000) * env(0.05, 0.0005, 6) * 0.9
+    gravel = bandnoise(0.3, 1200, 5000) * (rng.uniform(0, 1, int(0.3 * SR)) > 0.85) * env(0.3, 0.01, 4) * 0.6
+    return mix(crack, thud, body, delay(gravel, 0.04))
+
+
+def pew():
+    """Pip's pea: a springy 'thoop' as it spits."""
+    dur = 0.13
+    pop = osc(sweep(380, 1500, dur, 0.6), "sine") * env(dur, 0.002, 6)
+    air = bandnoise(0.05, 1500, 7000) * env(0.05, 0.001, 7) * 0.4
+    return mix(pop, air)
+
+
 SOUNDS = {
     "hit_0": lambda: hit(0), "hit_1": lambda: hit(1), "hit_2": lambda: hit(2),
     "hit_big": lambda: hit(0, big=True),
@@ -367,6 +396,7 @@ SOUNDS = {
     "ko": ko, "heal": heal, "slurp": slurp, "zap": zap, "sizzle": sizzle,
     "overtime": overtime, "heartbeat": heartbeat,
     "win": win, "lose": lose, "draw": draw, "go": go, "launch": launch, "stretch": stretch, "click": click,
+    "chomp": chomp, "thwomp": thwomp, "pew": pew,
 }
 
 

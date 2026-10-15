@@ -274,3 +274,36 @@ func test_new_state_is_cleaned_up_with_the_cloud() -> void:
 	for k in 20:
 		sim.step()
 	check(not sim.zones.any(func(z): return z.kind == "stink" and z.owner == 0), "and it fades when the copy ends")
+
+
+func test_splitter_tears_into_two_minis_sharing_its_hp() -> void:
+	var sim := _sim("splitter")
+	_park(sim)
+	var b = sim.balls[0]
+	var r: float = b.radius
+	b.hp = b.max_hp * 0.4
+	var left: float = b.hp
+	sim.step()
+	check_eq(sim.balls.size(), 3, "a mini joins the fight")
+	var twin = sim.balls[2]
+	check_eq(twin.team, 0, "the mini fights for Splitter's side")
+	check(absf(b.hp + twin.hp - left) < 0.01, "the two halves share the HP that was left")
+	check(b.radius < r and is_equal_approx(twin.radius, b.radius), "both halves are smaller")
+	sim.step()
+	check_eq(sim.balls.size(), 3, "a T1 Splitter splits only once")
+	twin.hp = 0.0
+	check(not sim.finished, "Splitter's side stands while one half lives")
+
+
+func test_t3_splitter_minis_split_once_more() -> void:
+	var sim := _sim("splitter", "plain", 3)
+	_park(sim)
+	sim.balls[0].hp = sim.balls[0].max_hp * 0.4
+	sim.step()
+	sim.balls[0].hp = sim.balls[0].max_hp * 0.4
+	sim.balls[2].hp = sim.balls[2].max_hp * 0.4
+	sim.step()
+	check_eq(sim.balls.size(), 5, "both minis split again")
+	sim.balls[0].hp = sim.balls[0].max_hp * 0.4
+	sim.step()
+	check_eq(sim.balls.size(), 5, "no third split")

@@ -40,6 +40,8 @@ PY
 fi
 
 timeout 180 ~/godot/godot --headless --import || true
+# Every scheduled Bracket of Legends, fought out now so phones don't have to.
+timeout 300 ~/godot/godot --headless --script res://tools/bracket_results.gd
 mkdir -p build/web
 timeout 300 ~/godot/godot --headless --export-release "Web" build/web/index.html
 test -s build/web/index.wasm

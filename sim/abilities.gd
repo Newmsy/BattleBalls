@@ -42,6 +42,7 @@ const EFFECTS := {
 	"flare": ["flare_radius", "flare_slam"],
 	"copy": ["copy_secs", "copy_cooldown", "copy_shield", "copy_scale"],
 	"revive": ["revive_hp", "revive_radius", "revive_damage", "revive_burn", "revive_shield", "revive_bolts"],
+	"split": ["split_gens", "split_radius", "split_speed", "split_damage"],
 	"fire_trail": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"beam_at": ["prism_damage", "prism_life", "prism_fan", "prism_full_every", "prism_gap"],
 	"collapse": ["collapse_every", "collapse_secs", "collapse_range", "collapse_accel", "collapse_damage", "collapse_radius", "collapse_ring", "collapse_burn"],
@@ -291,8 +292,8 @@ func fx_field(sim, b, _ctx: Dictionary) -> void:
 		if not pulling:
 			strength *= -b.def.push_scale
 		var pull := delta / dist * strength
-		sim.steer(other, pull)
-		sim.steer(b, -pull)
+		sim.pull(other, pull)
+		sim.pull(b, -pull)
 
 
 ## The first contact hit while a field is on Pull deals snap_mult damage; it
@@ -417,7 +418,7 @@ func fx_pull(sim, b, _ctx: Dictionary) -> void:
 		if dist < 0.001 or dist >= b.def.pull_range:
 			continue
 		var k: float = 1.0 - dist / b.def.pull_range if b.def.pull_close > 0 else 1.0
-		sim.steer(o, delta / dist * b.def.pull_accel * k)
+		sim.pull(o, delta / dist * b.def.pull_accel * k)
 
 
 ## moon_count moons circle it moon_orbit beyond its edge; each hits a foe it
@@ -471,7 +472,7 @@ func fx_copy(sim, b, ctx: Dictionary) -> void:
 	var effects: Array = base.effects.duplicate()
 	for e in src.def.effects:
 		# A borrowed wind (Gust) would only blow foes out of reach of its reflect.
-		if not e.do in ["copy", "revive", "reflect", "gale", "rewind"]:
+		if not e.do in ["copy", "revive", "reflect", "gale", "rewind", "split"]:
 			effects.append(e)
 	copied.effects = effects
 	b.state.base_def = base
@@ -505,6 +506,25 @@ static func _end_copy(sim, b) -> void:
 ## within revive_radius for revive_damage and burning them (revive_burn per
 ## second for 3s). revive_shield > 0 adds a shield; revive_bolts > 0 also fires
 ## that many short beams outward (5 damage each).
+## Splits into two minis, each with half its HP left (that is also their max
+## HP), split_radius x size, split_speed x speed and split_damage more contact
+## damage. Each ball splits at most split_gens times in all; a mini with a
+## split left splits again below half of its own HP.
+func fx_split(sim, b, _ctx: Dictionary) -> void:
+	var gen: int = b.state.get("split_gen", 0)
+	var hp: float = b.hp * 0.5
+	if gen >= int(b.def.split_gens) or hp < 1.0:
+		return
+	b.state.split_gen = gen + 1
+	var twin = sim.spawn_twin(b, hp, b.def.split_radius, b.def.split_speed, b.def.split_damage, deg_to_rad(35.0))
+	if gen + 1 < int(b.def.split_gens):
+		for m in [b, twin]:
+			for key in m.fired.keys():
+				if String(key).begins_with("hp_below:"):
+					m.fired.erase(key)
+	sim.events.append({"type": "split", "ball": b.index, "twin": twin.index, "pos": b.pos})
+
+
 func fx_revive(sim, b, _ctx: Dictionary) -> void:
 	b.hp = b.max_hp * b.def.revive_hp
 	b.state.revived = true
@@ -570,7 +590,7 @@ func fx_collapse(sim, b, _ctx: Dictionary) -> void:
 			var delta: Vector2 = b.pos - o.pos
 			var dist := delta.length()
 			if dist > 0.001 and dist < b.def.collapse_range:
-				sim.steer(o, delta / dist * b.def.collapse_accel)
+				sim.pull(o, delta / dist * b.def.collapse_accel)
 	elif sim.tick >= every and t == dur:
 		sim.pulse(b, b.pos, b.def.collapse_radius, b.def.collapse_damage, true, "nova")
 		if b.def.collapse_burn > 0.0:
@@ -1022,7 +1042,7 @@ func fx_wrap_tick(sim, b, _ctx: Dictionary) -> void:
 	if w.pull and sim.tick >= w.pop and sim.tick < w.pop + sim.TICK_RATE / 2 and f.alive():
 		var delta: Vector2 = b.pos - f.pos
 		if delta.length() > 0.001:
-			sim.steer(f, delta.normalized() * b.def.wrap_pull)
+			sim.pull(f, delta.normalized() * b.def.wrap_pull)
 	elif sim.tick >= w.pop + sim.TICK_RATE / 2:
 		b.state.erase("wrap")
 
@@ -2079,7 +2099,7 @@ func fx_tentacles(sim, b, _ctx: Dictionary) -> void:
 			var delta: Vector2 = b.pos - o.pos
 			var dist := delta.length()
 			if dist > 0.001 and dist < b.def.hug_range:
-				sim.steer(o, delta / dist * b.def.hug_accel)
+				sim.pull(o, delta / dist * b.def.hug_accel)
 
 
 ## The tentacles slam down: an ink puddle at each tip (ink_radius, ink_life

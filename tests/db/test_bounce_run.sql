@@ -30,6 +30,15 @@ begin
     assert false, 'a run can only end on floor 8 or with no lives';
   exception when invalid_parameter_value then null;
   end;
+  -- Rules 2 runs are 10 floors: floor 8 with lives left is unfinished there,
+  -- and a 10-floor clear is accepted (a no-op here, the first score stands).
+  begin
+    perform public.submit_bounce_run(today, 8, 2, 9 * 1800, '{"fights": [1,2,3,4,5,6,7,8,9]}', 2);
+    assert false, 'rules 2 runs end on floor 10 or with no lives';
+  exception when invalid_parameter_value then null;
+  end;
+  perform public.submit_bounce_run(today, 10, 1, 12 * 1800,
+    jsonb_build_object('fights', (select jsonb_agg(i) from generate_series(1, 12) i)), 2);
   begin
     perform public.submit_bounce_run(today - 5, 0, 0, 9000, '{"fights": [1,2,3]}', 1);
     assert false, 'old days are closed';

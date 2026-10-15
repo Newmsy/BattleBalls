@@ -1,6 +1,7 @@
-## Critters tab: the whole roster. Owned critters are live with tier stars,
-## level, power and copy count; a FUSE ribbon marks 3 copies at one tier;
-## unfound critters are dark silhouettes.
+## Critters tab ("My critters"): only the critters you own, one card per copy
+## (three T1 Zips are three cards), strongest first. Each card shows tier
+## stars, level and power; a FUSE ribbon marks copies with 3 at one tier.
+## The Critterpedia button opens every critter, found or not (dex_screen.gd).
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -11,10 +12,28 @@ const Roster := preload("res://game/ui/roster.gd")
 static var filter := "all"
 
 
+## Every owned copy as {id, tier, level, power, stack}, strongest first. Gear
+## sits on a critter's best copy, so only that copy counts it.
+static func cards(p) -> Array:
+	var out: Array = []
+	for c in Roster.CRITTERS:
+		var best: Dictionary = p.best(c.id)
+		for s in p.copies(c.id):
+			var pw: int = p.power_of(c.id) if s == best else Roster.power(c.id, s.tier, s.level)
+			for i in s.count:
+				out.append({"id": c.id, "tier": s.tier, "level": s.level, "power": pw, "stack": s})
+	out.sort_custom(func(a, b): return a.power > b.power if a.power != b.power else a.id < b.id)
+	return out
+
+
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(22)
-	root.add_child(Kit.hbox(0, [Kit.label("Critters", 44), Kit.spacer(), Kit.label("%d / %d found" % [p.found_count(), Roster.CRITTERS.size()], 24, Kit.MUTED)]))
+	var dex := Kit.card_button(Kit.hbox(8, [Kit.glyph("critters", 26, Kit.ACCENT), Kit.label("Critterpedia", 22, Kit.FG)], BoxContainer.ALIGNMENT_CENTER),
+		func(): shell.go("dex"), Kit.ACCENT, Kit.PANEL2, 999, 12)
+	dex.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	shell.mark("critterpedia", dex)
+	root.add_child(Kit.hbox(12, [Kit.label("My critters", 40), Kit.spacer(), dex], BoxContainer.ALIGNMENT_CENTER))
 
 	var chips := Kit.hbox(6)
 	for f in ["all"] + Roster.RARITIES:
@@ -26,56 +45,48 @@ static func build(shell, _params: Dictionary) -> Control:
 		chips.add_child(b)
 	root.add_child(chips)
 
+	var all := cards(p)
+	var shown := all.filter(func(k): return filter == "all" or Roster.get_critter(k.id).rarity == filter)
+	root.add_child(Kit.label("%d critters · %d / %d species found" % [all.size(), p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED))
+	if shown.is_empty():
+		var what: String = "" if filter == "all" else Roster.RARITY_NAMES[filter] + " "
+		root.add_child(Kit.label("No %scritters yet. Summon or win them, and see them all in the Critterpedia." % what, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+		return root
+
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 14)
-	for c in Roster.CRITTERS:
-		if filter != "all" and c.rarity != filter:
-			continue
-		grid.add_child(_tile(shell, p, c))
+	var seen := {}
+	for k in shown:
+		var n: int = seen.get(k.id, 0)
+		seen[k.id] = n + 1
+		grid.add_child(_tile(shell, k, "tile_" + k.id + ("" if n == 0 else "_%d" % n)))
 	root.add_child(grid)
 	return root
 
 
-static func _tile(shell, p, c: Dictionary) -> Control:
-	var rcol: Color = Roster.RARITY_COLORS[c.rarity]
-	var border := Kit.LINE if c.rarity == "common" else Color(rcol, .6)
-	if not p.owns(c.id):
-		var v := Kit.vbox(2, [CritterIcon.make(c.id, 1, 170, false, true), Kit.label("???", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
-			Kit.label(Roster.RARITY_NAMES[c.rarity], 20, Color(rcol, .7), HORIZONTAL_ALIGNMENT_CENTER)])
-		var t := Kit.card_button(v, shell.toast.bind("Not found yet. Summon it, or look for it in a later zone."), border, Kit.PANEL, 28, 8)
-		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		return t
-	var b: Dictionary = p.best(c.id)
-	var info := Kit.hbox(6, [Kit.label("Lv %d" % b.level, 20, Kit.MUTED), Kit.power(p.power_of(c.id), 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
+	var c := Roster.get_critter(k.id)
+	var info := Kit.hbox(6, [Kit.label("Lv %d" % k.level, 20, Kit.MUTED), Kit.power(k.power, 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	var stars := CenterContainer.new()
-	stars.add_child(Glyph.make("stars", 22, Kit.FG, b.tier))
+	stars.add_child(Glyph.make("stars", 22, Kit.FG, k.tier))
 	var name := Kit.label(c.name, 23, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	name.clip_text = true
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var icon_layer := Control.new()
 	icon_layer.custom_minimum_size = Vector2(170, 170)
 	icon_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon := CritterIcon.make(c.id, b.tier, 170)
+	var icon := CritterIcon.make(k.id, k.tier, 170)
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	icon_layer.add_child(icon)
-	var count := Kit.panel(Kit.label("x%d" % p.total_copies(c.id), 20), Kit.box(Kit.BG, Kit.LINE, 14, 2, 4))
-	count.get_theme_stylebox("panel").content_margin_left = 10
-	count.get_theme_stylebox("panel").content_margin_right = 10
-	count.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	count.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	icon_layer.add_child(count)
-	var ready := false
-	for s in p.copies(c.id):
-		ready = ready or (s.count >= 3 and s.tier < Roster.MAX_TIER)
-	if ready:
+	if k.stack.count >= 3 and k.tier < Roster.MAX_TIER:
 		var rib := Kit.panel(Kit.label("FUSE", 18, Kit.BG), Kit.box(Kit.GOOD, Color(0, 0, 0, 0), 10, 0, 4))
 		rib.get_theme_stylebox("panel").content_margin_left = 10
 		rib.get_theme_stylebox("panel").content_margin_right = 10
 		icon_layer.add_child(rib)
 	var v := Kit.vbox(4, [icon_layer, name, stars, info])
-	var t := Kit.card_button(v, func(): shell.go("detail", {"id": c.id}), border, Kit.PANEL, 28, 8)
+	var t := Kit.card_button(v, func(): shell.go("detail", {"id": k.id, "tier": k.tier}), Roster.rarity_border(c.rarity, Kit.LINE), Roster.rarity_bg(c.rarity, Kit.PANEL), 28, 8)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shell.mark("tile_" + c.id, t)
+	shell.mark(mark_as, t)
 	return t

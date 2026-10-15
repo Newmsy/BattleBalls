@@ -16,7 +16,10 @@
 ## better seed goes through.
 ##
 ## Matches are simulated the first time they are asked for and then cached,
-## so showing round 1 doesn't pay for the final.
+## so showing round 1 doesn't pay for the final. work() fights them out a bit
+## at a time (the game calls it once a frame), and results() / load_results()
+## let the game keep finished matches on the device; the results are the same
+## whichever way a match gets played.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
@@ -37,6 +40,8 @@ var rounds := 1
 var slots: Array = []
 
 var _matches := {} ## "round:index" -> match
+## The series work() is part-way through: { m, need, rng, draws, sim, sides, seed }.
+var _job := {}
 
 
 func _init(cfg: Dictionary) -> void:
@@ -106,9 +111,97 @@ func get_match(round_index: int, index: int) -> Dictionary:
 	var m := {"round": round_index, "index": index, "a": a, "b": b, "bye": a == "" or b == "",
 		"games": [], "wins": [0, 0], "winner": a if b == "" else b}
 	if not m.bye:
-		_play_series(m)
+		var job := _job if not _job.is_empty() and _job.m.round == round_index and _job.m.index == index else _start_series(m)
+		_advance(job, Callable())
+		_job = {}
+		m = job.m
 	_matches[key] = m
 	return m
+
+
+## Whether match (r, i) is already fought out (asking for it costs nothing).
+func has_match(round_index: int, index: int) -> bool:
+	return _matches.has("%d:%d" % [round_index, index])
+
+
+## Only round 1 has byes: a top seed with no opponent.
+func is_bye(round_index: int, index: int) -> bool:
+	return round_index == 0 and (slots[index * 2] == "" or slots[index * 2 + 1] == "")
+
+
+## Whether every match up to and including round `through` is fought out.
+func ready_through(through: int) -> bool:
+	return _next_missing(through).is_empty()
+
+
+## [matches fought out, matches] for rounds 0 to `through`.
+func progress(through: int) -> Array:
+	var done := 0
+	var total := 0
+	for r in through + 1:
+		for i in matches_in(r):
+			total += 1
+			done += 1 if has_match(r, i) else 0
+	return [done, total]
+
+
+## Fights out rounds 0 to `through` in order, a few ticks at a time, until
+## `out_of_time` returns true (an empty Callable never does). Returns true
+## once they are all done. Picks up where it left off on the next call.
+func work(through: int, out_of_time: Callable) -> bool:
+	while true:
+		var next := _next_missing(through)
+		if next.is_empty():
+			return true
+		if is_bye(next[0], next[1]):
+			get_match(next[0], next[1])
+			continue
+		if _job.is_empty() or _job.m.round != next[0] or _job.m.index != next[1]:
+			_job = _start_series({"round": next[0], "index": next[1],
+				"a": get_match(next[0] - 1, next[1] * 2).winner if next[0] > 0 else slots[next[1] * 2],
+				"b": get_match(next[0] - 1, next[1] * 2 + 1).winner if next[0] > 0 else slots[next[1] * 2 + 1],
+				"bye": false, "games": [], "wins": [0, 0], "winner": ""})
+		if not _advance(_job, out_of_time):
+			return false
+		_matches["%d:%d" % next] = _job.m
+		_job = {}
+		if out_of_time.is_valid() and out_of_time.call():
+			return ready_through(through)
+	return true
+
+
+## Every finished match, for keeping on the device.
+func results() -> Dictionary:
+	return {"key": cache_key(), "matches": _matches.duplicate(true)}
+
+
+## Takes back what results() gave, if it was for this same bracket.
+func load_results(saved) -> void:
+	if not saved is Dictionary or saved.get("key") != cache_key() or not saved.get("matches") is Dictionary:
+		return
+	for key in saved.matches:
+		var m: Dictionary = saved.matches[key]
+		# JSON brings numbers back as floats.
+		for k in ["round", "index"]:
+			m[k] = int(m[k])
+		m.wins = [int(m.wins[0]), int(m.wins[1])]
+		for g in m.games:
+			g.seed = int(g.seed)
+			g.angles = [int(g.angles[0]), int(g.angles[1])]
+		_matches[key] = m
+
+
+## Changes whenever the same seed would give different fights.
+func cache_key() -> String:
+	return "%d|%d|%s" % [seed_value, MatchSim.RULES_VERSION, ",".join(draw)]
+
+
+func _next_missing(through: int) -> Array:
+	for r in through + 1:
+		for i in matches_in(r):
+			if not has_match(r, i):
+				return [r, i]
+	return []
 
 
 func champion() -> String:
@@ -145,26 +238,43 @@ func state_hash() -> String:
 	return ctx.finish().hex_encode()
 
 
-func _play_series(m: Dictionary) -> void:
-	var need := FINAL_WINS_NEEDED if m.round == rounds - 1 else WINS_NEEDED
-	var rng := Rng.new((seed_value * 31 + (m.round + 1) * 7919 + m.index * 104729) & Rng.MASK)
-	var draws := 0
-	while m.wins[0] < need and m.wins[1] < need:
-		var n: int = m.games.size()
-		var sides: Array = [m.a, m.b] if n % 2 == 0 else [m.b, m.a]
-		var game_seed := int(rng.next_u32() & 0x7FFFFFFF)
-		var sim := MatchSim.new({"seed": game_seed, "p1": sides[0], "p2": sides[1], "angles": [null, null]})
-		var result := sim.run_to_end()
-		var won: String = "" if result.winner < 0 else sides[result.winner]
-		m.games.append({"seed": game_seed, "p1": sides[0], "p2": sides[1], "angles": sim.launch_angles.duplicate(),
+func _start_series(m: Dictionary) -> Dictionary:
+	return {"m": m, "need": FINAL_WINS_NEEDED if m.round == rounds - 1 else WINS_NEEDED,
+		"rng": Rng.new((seed_value * 31 + (m.round + 1) * 7919 + m.index * 104729) & Rng.MASK),
+		"draws": 0, "sim": null, "sides": [], "seed": 0}
+
+
+## Plays the series on. Returns true once it is decided, or false when
+## `out_of_time` (checked every few ticks; an empty Callable never runs out)
+## says to stop for now.
+func _advance(job: Dictionary, out_of_time: Callable) -> bool:
+	var m: Dictionary = job.m
+	var max_ticks := int(MatchSim.TIME_LIMIT * MatchSim.TICK_RATE) + 1
+	while true:
+		if job.sim == null:
+			if m.wins[0] >= job.need or m.wins[1] >= job.need:
+				m.winner = m.a if m.wins[0] >= job.need else m.b
+				return true
+			var n: int = m.games.size()
+			job.sides = [m.a, m.b] if n % 2 == 0 else [m.b, m.a]
+			job.seed = int(job.rng.next_u32() & 0x7FFFFFFF)
+			job.sim = MatchSim.new({"seed": job.seed, "p1": job.sides[0], "p2": job.sides[1], "angles": [null, null]})
+		var sim = job.sim
+		while not sim.finished and sim.tick <= max_ticks:
+			sim.step()
+			if sim.tick % 30 == 0 and out_of_time.is_valid() and out_of_time.call():
+				return false
+		var result: Dictionary = sim.summary()
+		var won: String = "" if result.winner < 0 else job.sides[result.winner]
+		m.games.append({"seed": job.seed, "p1": job.sides[0], "p2": job.sides[1], "angles": sim.launch_angles.duplicate(),
 			"winner": won, "reason": result.reason, "time": result.time, "hash": result.hash})
+		job.sim = null
 		if won == "":
-			draws += 1
-			if draws > MAX_EXTRA_GAMES:
+			job.draws += 1
+			if job.draws > MAX_EXTRA_GAMES:
 				# Endless stalemate: the better seed goes through.
-				var better: String = m.a if seed_of(m.a) < seed_of(m.b) else m.b
-				m.winner = better
-				return
+				m.winner = m.a if seed_of(m.a) < seed_of(m.b) else m.b
+				return true
 			continue
 		m.wins[0 if won == m.a else 1] += 1
-	m.winner = m.a if m.wins[0] >= need else m.b
+	return true

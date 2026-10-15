@@ -7,6 +7,7 @@ extends Node2D
 
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
+const FightHud := preload("res://game/fight_hud.gd")
 const Relay := preload("res://sim/relay.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -45,6 +46,7 @@ var arena: ArenaView
 var sfx: Sfx
 var title_label: Label
 var hud_label: Label
+var fight_hud: FightHud ## Both health bars, above the arena.
 var lineup_label: Label
 var info_label: Label
 var panel: VBoxContainer
@@ -250,6 +252,8 @@ func _show_result() -> void:
 	var headline := _label("YOU WIN!" if won else ("DRAW" if relay.winner == -1 else "YOU LOSE"), 56)
 	headline.modulate = ResultText.WIN if won else (ResultText.DRAW if relay.winner == -1 else ResultText.LOSE)
 	var change := "%+d trophies." % result_delta if result_delta != 0 else "No trophies lost at your league's floor."
+	if result_delta > 0:
+		change = "%+d trophies and Arena Points." % result_delta
 	info_label.text = "%s You're on %d, %s." % [change, store.trophies, Ladder.league_label(store.trophies)]
 	print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s" % [won, result_delta, store.trophies, relay.state_hash()])
 	_set_panel([headline, _button("Back to Arena", _back_to_arena, 36)])
@@ -272,11 +276,14 @@ func _update_hud() -> void:
 		return
 	# Balls each side still has, the one fighting included.
 	var left := [relay.sides[0].size() - relay.slot[0], relay.sides[1].size() - relay.slot[1]]
-	var marks := "%d left  vs  %d left" % left
-	if sim and state in [State.FIGHT, State.LEG_END]:
-		hud_label.text = "You %d  %s  %d Ghost" % [maxi(0, ceili(sim.balls[0].hp)), marks, maxi(0, ceili(sim.balls[1].hp))]
+	var fighting: bool = sim != null and state in [State.FIGHT, State.LEG_END]
+	lineup_label.visible = not fighting
+	if fighting:
+		hud_label.text = ""
+		fight_hud.show_fight(sim, "%d v %d" % left)
 	else:
-		hud_label.text = marks
+		fight_hud.show_fight(null)
+		hud_label.text = "%d left  vs  %d left" % left
 
 
 func _build_ui() -> void:
@@ -291,6 +298,10 @@ func _build_ui() -> void:
 	title_label.add_theme_color_override("font_outline_color", Color(Main.ACCENT, 0.45))
 	title_label.add_theme_constant_override("outline_size", 12)
 	hud_label = _label("", 28)
+	fight_hud = FightHud.new()
+	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fight_hud.tags = ["YOU", "GHOST"]
+	ui.add_child(fight_hud)
 	lineup_label = _label("", 24)
 	lineup_label.modulate = Color("a29fc9")
 	info_label = _label("", 26)
@@ -325,6 +336,7 @@ func _layout() -> void:
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	_place(hud_label, Vector2(0, 100), Vector2(size.x, 44))
 	_place(lineup_label, Vector2(0, 144), Vector2(size.x, 36))
+	_place(fight_hud, Vector2(left, 100), Vector2(side, 84))
 	_place(info_label, panel_pos, Vector2(panel_width, 90))
 	_place(panel, panel_pos + Vector2(0, 100), Vector2(panel_width, PANEL_HEIGHT - 100.0))
 	arena.queue_redraw()

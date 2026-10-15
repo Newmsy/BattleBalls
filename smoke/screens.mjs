@@ -11,7 +11,7 @@ const out = path.resolve(process.argv[3] ?? "screens");
 const only = process.argv[4]?.split(",");
 fs.mkdirSync(out, { recursive: true });
 
-const SCREENS = ["play", "critters", "detail", "bag", "fuse", "summon", "week", "arena", "spire", "bracket", "friends", "account", "shop", "pass", "campaign"];
+const SCREENS = ["play", "critters", "detail", "dex", "dex_entry", "bag", "fuse", "summon", "week", "arena", "spire", "bracket", "friends", "account", "shop", "pass", "world", "campaign"];
 const SIZES = { phone: { width: 390, height: 844 }, small: { width: 375, height: 667 } };
 
 const types = { ".html": "text/html", ".js": "text/javascript", ".wasm": "application/wasm", ".pck": "application/octet-stream", ".png": "image/png" };
@@ -32,7 +32,7 @@ async function shoot(screen, sizeName, large, extra = process.env.EXTRA ?? "") {
   const page = await browser.newPage({ viewport: SIZES[sizeName], deviceScaleFactor: 2, hasTouch: true });
   const logs = [];
   page.on("console", (m) => logs.push(m.text()));
-  const id = screen === "detail" ? "&id=vampire" : "";
+  const id = screen === "detail" || screen === "dex_entry" ? "&id=vampire" : "";
   await page.goto(`${base}?demo=1&offline=1&seed=7&screen=${screen}${id}${large ? "&text=large" : ""}${extra}`);
   const t0 = Date.now();
   while (!logs.some((l) => l.startsWith(`UI_SCREEN ${screen}`)) && Date.now() - t0 < 60000) await page.waitForTimeout(200);

@@ -668,7 +668,9 @@ try {
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "26-home-new-player.png") });
-    await tapUi(page, logs, "campaign", "campaign");
+    await tapUi(page, logs, "campaign", "world");
+    await page.screenshot({ path: path.join(shots, "27-world-map.png") });
+    await tapUi(page, logs, "zone_1", "campaign");
     await page.screenshot({ path: path.join(shots, "27-campaign-map.png") });
     await tapUi(page, logs, "stage_1_1");
     await page.screenshot({ path: path.join(shots, "28-stage-aim.png") });
@@ -698,7 +700,7 @@ try {
   if (mine(20)) {
     const { page, logs } = await openGame("?mode=bracket&today=2026-10-14&speed=4");
     await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN bracket", 30000);
+    await waitForLog(logs, "UI_SCREEN bracket", 10000);
     await page.waitForTimeout(800);
     // The first card in the grid: later ones sit below the fold as the roster grows.
     const champ = logs.find((l) => l.startsWith("UI_AT champ_"));
@@ -710,8 +712,11 @@ try {
   if (mine(25)) {
     const { page, logs } = await openGame("?mode=bracket&today=2026-10-25&speed=4");
     await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN bracket", 30000);
+    await waitForLog(logs, "UI_SCREEN bracket", 10000);
     await page.waitForTimeout(800);
+    // Builds ship every bracket already fought out (tools/bracket_results.gd);
+    // a phone fighting it out itself takes minutes.
+    if (logs.some((l) => l.startsWith("BRACKET_FIGHTING"))) throw new Error("The build has no fought-out bracket: did tools/bracket_results.gd run before the export?");
     await page.screenshot({ path: path.join(shots, "31-bracket-final-day.png") });
     // The final: the screen opens on the latest round out, whatever the field size.
     const final = [...logs].reverse().find((l) => l.startsWith("UI_AT match_"));
@@ -739,7 +744,7 @@ try {
   }
 
   // 15. Bounce Run: the Play tab has its card; open it by link (the card sits
-  // below the fold), draft three, fight floor 1.
+  // below the fold), draft three critters and three boons, fight floor 1.
   if (mine(27)) {
     const home = await openGame("?seed=7&offline=1");
     await waitForLog(home.logs, "UI_AT bouncerun ", 60000);
@@ -750,6 +755,9 @@ try {
     await page.waitForTimeout(800);
     for (const i of [0, 1, 2]) await tapUi(page, logs, `br_card_${i}`, "br_draft");
     await page.screenshot({ path: path.join(shots, "40-bouncerun-draft.png") });
+    await tapUi(page, logs, "br_next", "br_start_boons");
+    for (const i of [0, 1, 2]) await tapUi(page, logs, `br_sboon_${i}`, "br_start_boons");
+    await page.screenshot({ path: path.join(shots, "40b-bouncerun-start-boons.png") });
     await tapUi(page, logs, "br_start", "br_floor");
     await page.screenshot({ path: path.join(shots, "41-bouncerun-floor.png") });
     await tapUi(page, logs, "br_send_0", "br_aim");

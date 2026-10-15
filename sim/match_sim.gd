@@ -39,6 +39,7 @@ const Arenas := preload("res://sim/arenas.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
+const Weight := preload("res://sim/weight.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
@@ -71,6 +72,12 @@ const PIECE_OBSTACLE_GAP := 140.0
 ## Obstacles vanish once overtime has shrunk the arena below this share of its
 ## width, so the final squeeze is always a clean box.
 const OBSTACLE_MIN_SCALE := 0.7
+## Spikes (Spike Yard posts and spiked walls): a small hit per bounce, at most
+## once per SPIKE_COOLDOWN per ball, and never more than SPIKE_CAP of a ball's
+## max HP over a whole fight, so the arena nicks but never decides a fight.
+const SPIKE_DAMAGE := 4.0
+const SPIKE_COOLDOWN := 0.5
+const SPIKE_CAP := 0.15
 ## Inward normals of the four cut corners: bottom-left, top-left, top-right, bottom-right.
 const CORNER_NORMALS := [Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1)]
 ## Each hit deals between (1 - variance)x and (1 + variance)x its damage (Newms).
@@ -137,6 +144,9 @@ class Ball:
 	## of fight)}. Set them with MatchSim.set_mod, never by hand.
 	var mods := {}
 	var base := {} ## radius, speed and contact_damage before any mod.
+	var weight := 1.0 ## How hard pulls move it (sim/weight.gd); heavier = less.
+	var spiked := 0.0 ## Spike damage taken so far (before overtime scaling).
+	var spike_ready := 0 ## Tick it may next be spiked.
 
 	func alive() -> bool:
 		return hp > 0.0
@@ -321,6 +331,7 @@ func _init(cfg: Dictionary) -> void:
 		b.defense = kit.get("defense", 0.0)
 		b.crit_chance = BASE_CRIT_CHANCE + kit.get("crit_chance", 0.0)
 		b.crit_mult = BASE_CRIT_MULT + kit.get("crit_damage", 0.0)
+		b.weight = Weight.of(types[i], float(sizes[i]))
 		b.pos = starts[i]
 		# Always draw from the rng so a given aim doesn't shift later rolls.
 		var random_aim: int = AIM_AT_CENTRE[i] + rng.range_int(-RANDOM_AIM_SPREAD, RANDOM_AIM_SPREAD)
@@ -363,6 +374,26 @@ func obstacles() -> Array[Dictionary]:
 		if p.blocking:
 			out.append({"pos": p.pos, "radius": p.radius, "kind": p.kind, "piece": p})
 	return out
+
+
+## Gravity wells at the current overtime scale (gone with the obstacles).
+func wells() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var k := arena_scale()
+	if k < OBSTACLE_MIN_SCALE:
+		return out
+	for w in arena.get("wells", []):
+		out.append({"pos": centre + (w.pos - centre) * k, "reach": w.reach * k, "accel": w.accel, "core": w.core * k})
+	return out
+
+
+## Half-length of the spiked stretch in the middle of the left and right
+## walls at the current scale; 0 when the arena has none (or overtime ate it).
+func spike_wall_half() -> float:
+	var k := arena_scale()
+	if not arena.has("spike_walls") or k < OBSTACLE_MIN_SCALE:
+		return 0.0
+	return arena.spike_walls.half * k
 
 
 ## Cut-corner walls as [inward unit normal, distance from the centre].
@@ -419,6 +450,8 @@ func step() -> void:
 		for b in balls:
 			if b.alive():
 				abilities.fire(self, "always", b)
+	if arena.has("wells"):
+		_update_wells()
 	_update_zones()
 	_update_pieces()
 	_update_dots()
@@ -452,9 +485,9 @@ func step() -> void:
 		if not b.alive() and not b.fired.has("fall") and not foes(b).is_empty():
 			b.fired["fall"] = true
 			abilities.fire(self, "fall", b)
-	for b in balls:
-		if b.alive():
-			abilities.tick_triggers(self, b)
+	for i in balls.size(): # A split adds balls here; they start next tick.
+		if balls[i].alive():
+			abilities.tick_triggers(self, balls[i])
 
 	tick += 1
 	_check_end(hp_before)
@@ -474,7 +507,7 @@ func summary() -> Dictionary:
 		"reason": end_reason,
 		"ticks": tick,
 		"time": time(),
-		"hp": [balls[0].hp, balls[1].hp],
+		"hp": [team_hp(0), team_hp(1)],
 		"hash": state_hash(),
 	}
 
@@ -511,11 +544,13 @@ func _resolve_walls(b: Ball) -> void:
 		b.pos.x = r.position.x + b.radius
 		if b.vel.x < 0.0:
 			b.vel.x = -b.vel.x
+			_spike_wall(b, Vector2(r.position.x, b.pos.y))
 			_on_wall_bounce(b, Vector2(r.position.x, b.pos.y))
 	elif b.pos.x + b.radius > r.end.x:
 		b.pos.x = r.end.x - b.radius
 		if b.vel.x > 0.0:
 			b.vel.x = -b.vel.x
+			_spike_wall(b, Vector2(r.end.x, b.pos.y))
 			_on_wall_bounce(b, Vector2(r.end.x, b.pos.y))
 	if b.pos.y - b.radius < r.position.y:
 		b.pos.y = r.position.y + b.radius
@@ -549,6 +584,8 @@ func _resolve_walls(b: Ball) -> void:
 				b.boost_ticks = int(round(BUMPER_BOOST_TIME * TICK_RATE))
 				b.vel = b.vel.normalized() * b.current_speed()
 				events.append({"type": "bumper", "ball": b.index, "pos": o.pos + n * o.radius})
+			elif o.kind == "spike":
+				_spike(b, o.pos + n * o.radius)
 			if o.has("piece"):
 				# A critter's piece isn't a wall for abilities: bounce-fed
 				# abilities (Optic's beams, Zip's speed-up) would farm the
@@ -558,6 +595,40 @@ func _resolve_walls(b: Ball) -> void:
 				events.append({"type": "bounce", "ball": b.index, "pos": o.pos + n * o.radius, "piece": true})
 				continue
 			_on_wall_bounce(b, o.pos + n * o.radius, true)
+
+
+## Pulls every ball toward each gravity well, fading to 0 at its reach.
+func _update_wells() -> void:
+	for w in wells():
+		for b in balls:
+			if not b.alive():
+				continue
+			var d: Vector2 = w.pos - b.pos
+			var dist := d.length()
+			if dist <= w.core or dist >= w.reach:
+				continue
+			pull(b, d / dist * w.accel * (1.0 - dist / w.reach))
+
+
+func _spike_wall(b: Ball, point: Vector2) -> void:
+	var half := spike_wall_half()
+	if half > 0.0 and absf(point.y - centre.y) <= half:
+		_spike(b, point)
+
+
+## A spike hit on `b` at `point`, within the cooldown and the per-fight cap.
+## The ball is its own source: no crits, gear or reflects, and nobody's
+## damage dealt goes up.
+func _spike(b: Ball, point: Vector2) -> void:
+	if not b.alive() or tick < b.spike_ready:
+		return
+	var amount := minf(SPIKE_DAMAGE, SPIKE_CAP * b.max_hp - b.spiked)
+	if amount <= 0.0:
+		return
+	b.spiked += amount
+	b.spike_ready = tick + int(round(SPIKE_COOLDOWN * TICK_RATE))
+	_hits.append({"source": b.index, "target": b.index, "amount": amount, "kind": "spike", "pos": point, "env": true})
+	events.append({"type": "spike", "ball": b.index, "pos": point})
 
 
 ## `obstacle`: it bounced off a pillar or bumper, not the arena's edge.
@@ -690,6 +761,14 @@ func steer(b: Ball, accel: Vector2) -> void:
 		b.vel = v.normalized() * b.current_speed()
 
 
+## Turns `b` like steer(), scaled by its weight (sim/weight.gd): light balls
+## are dragged harder, heavy ones resist. Use it for anything that pulls or
+## pushes a ball from outside (wells, fields, wind); steer() is for a ball's
+## own movement.
+func pull(b: Ball, accel: Vector2) -> void:
+	steer(b, accel * Weight.pull_scale(b.weight))
+
+
 ## 0 share (was hit while moving away) -> 1 - IMPACT_SPREAD; 1 share -> 1 + IMPACT_SPREAD.
 func _impact_scale(share: float) -> float:
 	return 1.0 + IMPACT_SPREAD * (2.0 * share - 1.0)
@@ -744,7 +823,11 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		if not damage_rolls:
 			spread = 1.0
 			crit = false
-		amount *= spread * (1.0 + source.attack) * (1.0 - target.defense)
+		var env: bool = h.get("env", false) # The arena's own damage (spikes).
+		if env:
+			crit = false
+		else:
+			amount *= spread * (1.0 + source.attack) * (1.0 - target.defense)
 		if crit:
 			amount *= source.crit_mult
 		if backstab:
@@ -760,13 +843,15 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		if target.shield > 0.0:
 			var absorbed := minf(target.shield, amount)
 			target.shield -= absorbed
-			source.damage_dealt += absorbed
+			if not env:
+				source.damage_dealt += absorbed
 			amount -= absorbed
 			events.append({"type": "shield_hit", "target": h.target, "amount": absorbed, "pos": h.pos})
 			if amount <= 0.0:
 				continue
 		target.hp -= amount
-		source.damage_dealt += amount
+		if not env:
+			source.damage_dealt += amount
 		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos, "crit": crit, "backstab": backstab})
 		if h.kind == "contact":
 			abilities.fire(self, "hit", source, {"target": target, "amount": amount, "heals": heals})
@@ -796,23 +881,46 @@ func _boon_contact_damage(source: Ball, target: Ball, amount: float) -> float:
 	return amount * (1.0 - target.def.get("contact_armor", 0.0))
 
 
+## A team's HP: its starting ball's, plus what its split-off balls have left.
+func team_hp(team: int) -> float:
+	var hp := balls[team].hp
+	for i in range(2, balls.size()):
+		if balls[i].team == team:
+			hp += maxf(0.0, balls[i].hp)
+	return hp
+
+
+func _team_max_hp(team: int) -> float:
+	var hp := balls[team].max_hp
+	for i in range(2, balls.size()):
+		if balls[i].team == team:
+			hp += balls[i].max_hp
+	return hp
+
+
+## Teams win, not balls: a team is out once all its balls are (a Splitter's
+## minis). The starting balls are teams 0 and 1, so winner is a team index.
 func _check_end(hp_before: Array[float]) -> void:
-	var alive: Array[int] = []
+	var standing := [false, false]
 	for b in balls:
 		if b.alive():
-			alive.append(b.index)
-	if alive.size() == 1:
-		_finish(alive[0], "knockout")
-	elif alive.is_empty():
-		# Both died on the same tick: whoever had more HP going into it wins.
-		ko_hp = hp_before.duplicate()
-		if hp_before[0] == hp_before[1]:
+			standing[b.team] = true
+	if standing[0] != standing[1]:
+		_finish(0 if standing[0] else 1, "knockout")
+	elif not standing[0]:
+		# Both teams fell on the same tick: whoever had more HP going into it wins.
+		var before := [hp_before[0], hp_before[1]]
+		for i in range(2, balls.size()):
+			if i < hp_before.size():
+				before[balls[i].team] += maxf(0.0, hp_before[i])
+		ko_hp.assign(before)
+		if before[0] == before[1]:
 			_finish(-1, "double_knockout")
 		else:
-			_finish(0 if hp_before[0] > hp_before[1] else 1, "double_knockout")
+			_finish(0 if before[0] > before[1] else 1, "double_knockout")
 	elif time() >= TIME_LIMIT:
-		var f0 := balls[0].hp / balls[0].max_hp
-		var f1 := balls[1].hp / balls[1].max_hp
+		var f0 := team_hp(0) / _team_max_hp(0)
+		var f1 := team_hp(1) / _team_max_hp(1)
 		_finish(-1 if f0 == f1 else (0 if f0 > f1 else 1), "time_limit")
 
 
@@ -906,6 +1014,49 @@ func nearest_foe(b: Ball) -> Ball:
 	return best
 
 
+## Splits `parent` into two: it shrinks into a mini with `hp` (also its new
+## max HP), and a twin mini with the same HP joins its team, heading off
+## `turn` radians from it. The twin copies its def, tier stats, gear and
+## one-shot triggers. Returns the twin (index 2 and up).
+func spawn_twin(parent: Ball, hp: float, radius_mult: float, speed_mult: float, add_damage: float, turn: float) -> Ball:
+	parent.max_hp = hp
+	parent.hp = hp
+	if parent.base.is_empty():
+		parent.radius *= radius_mult
+		parent.speed *= speed_mult
+		parent.contact_damage += add_damage
+	else: # Grown or shrunk right now: split the base and keep the mods.
+		parent.base.radius *= radius_mult
+		parent.base.speed *= speed_mult
+		parent.base.contact_damage += add_damage
+		_apply_mods(parent)
+	var b := Ball.new()
+	b.index = balls.size()
+	b.team = parent.team
+	b.type_id = parent.type_id
+	b.def = parent.def
+	b.radius = parent.radius
+	b.speed = parent.speed
+	b.max_hp = hp
+	b.hp = hp
+	b.contact_damage = parent.contact_damage
+	b.attack = parent.attack
+	b.defense = parent.defense
+	b.crit_chance = parent.crit_chance
+	b.crit_mult = parent.crit_mult
+	b.fired = parent.fired.duplicate()
+	b.mods = parent.mods.duplicate(true)
+	b.base = parent.base.duplicate()
+	b.state = {"split_gen": parent.state.get("split_gen", 0)}
+	var dir := parent.vel.normalized() if parent.vel.length() > 0.001 else Vector2.RIGHT
+	parent.vel = dir.rotated(-turn) * parent.speed
+	b.vel = dir.rotated(turn) * b.speed
+	b.pos = inside(parent.pos + dir.rotated(turn).orthogonal() * parent.radius, b.radius + 4.0)
+	parent.pos = inside(parent.pos - dir.rotated(turn).orthogonal() * parent.radius, parent.radius + 4.0)
+	balls.append(b)
+	return b
+
+
 ## A floor zone owned by `owner`. `opts`: kind, radius, life, arm, slow, dps,
 ## blast, blast_radius, chain, follow (a ball index), vulnerable,
 ## vulnerable_linger, after. Returns it.
@@ -965,7 +1116,7 @@ func push_away(owner: Ball, pos: Vector2, reach: float, accel: float) -> void:
 		var dist := d.length()
 		if dist < 0.001 or dist >= reach:
 			continue
-		steer(o, d / dist * accel * (1.0 - dist / reach))
+		pull(o, d / dist * accel * (1.0 - dist / reach))
 
 
 func _update_zones() -> void:
