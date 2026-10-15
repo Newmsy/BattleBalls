@@ -209,7 +209,8 @@ func toast(text: String) -> void:
 	var w := minf(620.0, size.x - 60.0)
 	_toast.size = Vector2(w, 0)
 	_toast.size.y = _toast.get_line_count() * 34.0 + 40.0
-	_toast.position = Vector2((size.x - _toast.size.x) / 2.0, size.y - TAB_HEIGHT - _toast.size.y - 40.0)
+	var lift := TAB_HEIGHT + (_footer.size.y if _footer.visible else 0.0)
+	_toast.position = Vector2((size.x - _toast.size.x) / 2.0, size.y - lift - _toast.size.y - 40.0)
 	if _toast_tween:
 		_toast_tween.kill()
 	_toast_tween = create_tween()
