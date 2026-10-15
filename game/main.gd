@@ -687,7 +687,11 @@ func _back_to_campaign() -> void:
 	_show_menu()
 	_show_home()
 	shell.show_tab("play")
-	shell.go("vault" if vault else "campaign", params)
+	if vault:
+		shell.go("vault", params)
+	else:
+		shell.go("world") # Back from the stage list lands on the world map.
+		shell.go("campaign", params)
 
 
 # --- Save and online ----------------------------------------------------------
@@ -1548,6 +1552,7 @@ func tutorial_end(new_profile, to_campaign := false) -> void:
 	shell.show_tab("play")
 	_show_home()
 	if to_campaign:
+		shell.go("world")
 		shell.go("campaign", {"zone": 0})
 
 

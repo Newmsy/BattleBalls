@@ -11,7 +11,7 @@ const out = path.resolve(process.argv[3] ?? "screens");
 const only = process.argv[4]?.split(",");
 fs.mkdirSync(out, { recursive: true });
 
-const SCREENS = ["play", "critters", "detail", "dex", "dex_entry", "bag", "fuse", "summon", "week", "arena", "spire", "bracket", "friends", "account", "shop", "pass", "campaign"];
+const SCREENS = ["play", "critters", "detail", "dex", "dex_entry", "bag", "fuse", "summon", "week", "arena", "spire", "bracket", "friends", "account", "shop", "pass", "world", "campaign"];
 const SIZES = { phone: { width: 390, height: 844 }, small: { width: 375, height: 667 } };
 
 const types = { ".html": "text/html", ".js": "text/javascript", ".wasm": "application/wasm", ".pck": "application/octet-stream", ".png": "image/png" };

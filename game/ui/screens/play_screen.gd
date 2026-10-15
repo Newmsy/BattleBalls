@@ -77,7 +77,7 @@ static func _campaign_card(shell) -> Control:
 		var st: Dictionary = stages[cleared]
 		next_text = "Next: %s %s · Recommended %s" % [Zones.stage_key(0, cleared), st.get("name", Roster.get_critter(st.enemy).name),
 			Kit.commas(Campaign.enemy_rating(0, cleared))]
-	var open := Kit.button("Open the map", func(): shell.go("campaign", {"zone": 0}), "go", 30, 84)
+	var open := Kit.button("Open the map", func(): shell.go("world"), "go", 30, 84)
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
 		Kit.caption("Campaign · Zone 1 · The Neon Circuit", Color("9be89a")),
