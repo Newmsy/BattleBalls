@@ -26,7 +26,7 @@ func test_seed_order_keeps_top_seeds_apart() -> void:
 
 
 func test_same_seed_same_bracket() -> void:
-	var cfg := {"seed": 77, "entrants": BallDefs.PLAYABLE}
+	var cfg := {"seed": 77, "entrants": BallDefs.PLAYABLE.slice(0, Bracket.MAX_ENTRANTS)}
 	var a := Bracket.new(cfg)
 	var b := Bracket.new(cfg)
 	check_eq(a.draw, b.draw, "same draw")
@@ -55,7 +55,7 @@ func test_byes_go_to_the_top_seeds() -> void:
 
 
 func test_series_are_real_fights() -> void:
-	var b := Bracket.new({"seed": 2026, "entrants": BallDefs.PLAYABLE})
+	var b := Bracket.new({"seed": 2026, "entrants": BallDefs.PLAYABLE.slice(0, Bracket.MAX_ENTRANTS)})
 	var final: Dictionary = b.get_match(b.rounds - 1, 0)
 	var need := Bracket.FINAL_WINS_NEEDED
 	check(final.wins.max() == need or final.games.size() > 2 * need, "series played to %d wins: %s" % [need, final.wins])
@@ -91,7 +91,8 @@ func test_schedule_and_fallback_events() -> void:
 	check_eq(LiveOps.validate(LiveOps.data()), [], "bundled schedule valid")
 	var ev := Legends.current(_at("2026-10-14"))
 	check(not ev.is_empty(), "a bracket is open for picks now")
-	check_eq(ev.entrants, BallDefs.PLAYABLE, "every playable critter enters by default")
+	check_eq(ev.entrants.size(), mini(BallDefs.PLAYABLE.size(), Bracket.MAX_ENTRANTS), "every playable critter enters by default, up to a full bracket")
+	check(ev.entrants.all(func(id): return id in BallDefs.PLAYABLE and ev.entrants.count(id) == 1), "different playable critters")
 	check_eq(Legends.phase(ev, _at("2026-10-14")), "picks", "picks phase")
 	# A season without its own entry gets one in its last week.
 	LiveOps.use({"version": 1, "revision": 1, "seasons": [{"name": "S9", "start": "2027-01-04", "weeks": 7}]})
