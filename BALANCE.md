@@ -44,7 +44,8 @@ Before the stats:
 In the PR that adds or changes it:
 - Run `godot --headless --script res://tools/balance.gd -- --fights=200 --power-step --only=<id>`
   and paste the output (both tables) into the PR.
-- No `FAIL` lines. Every `WARN` is either fixed or explained in the PR.
+- No `FAIL` lines. Every `WARN` is either fixed or explained in the PR, and a
+  `WARN (audit FAIL)` edge cell from CI gets a follow-up fix before the weekly audit.
 - Set `"status": "live"` in its file (`sim/critters/<id>.gd`) so the game, CI and the audit include it.
 - Golden replays and unit tests for the ability, as for any sim change.
 
@@ -59,8 +60,8 @@ is checked under every modifier as well as base rules.
 
 | Check | When | Command |
 |---|---|---|
-| Equal-power matrix and arena tilt on every playable arena, and on the square under every Chaos Weekend modifier, `FAIL` blocks merge | Every ready (non-draft) PR that touches `sim/` or `tools/balance.gd` (CI `Balance` shards) | `balance.gd -- --fights=100 --variant-fights=50 --arena=all --modifiers --strict` |
-| Full audit: every pairing everywhere, power step and gear lines | Weekly on `main` (`Balance audit` workflow, Mondays 06:17 UTC), read by the weekly balance review | see `.github/workflows/balance-audit.yml` |
+| Equal-power matrix and arena tilt on every playable arena, and on the square under every Chaos Weekend modifier. A square `FAIL` blocks merge; arena and modifier ("edge") misses show as `WARN (audit FAIL)` and don't | Every ready (non-draft) PR that touches `sim/` or `tools/balance.gd` (CI `Balance` shards) | `balance.gd -- --fights=100 --variant-fights=50 --arena=all --modifiers --strict` |
+| Full audit: every pairing everywhere, power step and gear lines, strict on every cell | Weekly on `main` (`Balance audit` workflow, Mondays 06:17 UTC), read by the weekly balance review | see `.github/workflows/balance-audit.yml` |
 | Power step for a new or changed critter | The PR that adds or changes it (paste the output) | `balance.gd -- --fights=200 --power-step --only=<id>` |
 | Gear lines: one Legendary piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
 
@@ -75,6 +76,17 @@ per pairing (100 fights) to fit; the weekly audit covers every pairing.
 `--out` / `--from` save and merge shard results; past 16 critters the report
 prints one row per critter (mean vs field, worst and best matchup) instead of a
 matrix.
+
+**PR gate vs audit.** The core rules (no equal-power matchup over 65% on the
+square, power beats counters) fail a PR. A miss that only shows on one arena
+or under one Chaos Weekend twist (an "edge cell") is reported on the PR as
+`WARN (audit FAIL)`, with a count at the end of the shard's job summary, and
+doesn't block merge, so one edge cell can't hold up a critter batch. The
+weekly audit is strict on every cell, so edge misses still get fixed there:
+fix any `WARN (audit FAIL)` your PR shows in a follow-up before Monday.
+`balance.gd` turns this on by itself when `GITHUB_EVENT_NAME` is
+`pull_request` (or with `--edge-warn`); `--edge-strict` forces every cell to
+fail, as a local run without either flag does.
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%
 Wilson interval) and `WARN` when it might be noise; rerun a `WARN` with more
