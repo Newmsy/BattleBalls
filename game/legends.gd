@@ -17,6 +17,11 @@ const Bracket := preload("res://sim/bracket.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 
 const SAVE_PATH := "user://legends.cfg"
+const CACHE_PATH := "user://legends_results.json" ## Fought-out matches, see pump().
+## Every scheduled bracket already fought out, written at export time by
+## tools/bracket_results.gd (not in git).
+const BUNDLED_RESULTS := "res://liveops/bracket_results.json"
+const CACHE_EVERY := 4 ## Save the cache every this many matches while pumping.
 const DAY := LiveOps.DAY
 const WEEK := LiveOps.WEEK
 const SHOW_AFTER := WEEK ## Results stay on the board this long after the final.
@@ -88,10 +93,60 @@ static func next_event(t: int) -> Dictionary:
 	return {}
 
 
+## The event's bracket, with the results the build shipped with, or else any
+## matches already fought out on this device.
 static func bracket(ev: Dictionary) -> Bracket:
 	if not _brackets.has(ev.id):
-		_brackets[ev.id] = Bracket.new({"seed": ev.seed, "entrants": ev.entrants})
+		var b := Bracket.new({"seed": ev.seed, "entrants": ev.entrants})
+		b.load_results(_read_json(BUNDLED_RESULTS).get(ev.id))
+		if not b.ready_through(b.rounds - 1):
+			b.load_results(_read_cache().get(ev.id))
+		_brackets[ev.id] = b
 	return _brackets[ev.id]
+
+
+## Fights out the rounds that are out at `t` for up to `budget_usec`, keeping
+## finished matches on the device so the next visit (and the next day's
+## round) starts from them. Returns true when everything that's out is done.
+static func pump(ev: Dictionary, t: int, budget_usec: int) -> bool:
+	var through := rounds_out(ev, t) - 1
+	var b := bracket(ev)
+	if through < 0 or b.ready_through(through):
+		return true
+	var before: int = b.progress(through)[0]
+	var deadline := Time.get_ticks_usec() + budget_usec
+	var done := b.work(through, func(): return Time.get_ticks_usec() > deadline)
+	var after: int = b.progress(through)[0]
+	if done or after - before > 0 and after % CACHE_EVERY == 0:
+		var cache := _read_cache()
+		# Only brackets still on the board are worth keeping.
+		for id in cache.keys():
+			if id != ev.id and events().all(func(e): return e.id != id or e.week + WEEK + SHOW_AFTER < t):
+				cache.erase(id)
+		cache[ev.id] = b.results()
+		cache["build"] = _build()
+		var f := FileAccess.open(CACHE_PATH, FileAccess.WRITE)
+		if f:
+			f.store_string(JSON.stringify(cache))
+	return done
+
+
+## The device's fought-out matches, if this same build fought them (a new
+## build can fight differently without the seed or rules version changing).
+static func _read_cache() -> Dictionary:
+	var cache := _read_json(CACHE_PATH)
+	return cache if cache.get("build") == _build() else {}
+
+
+static func _build() -> String:
+	return FileAccess.get_file_as_string("res://build_info.txt").strip_edges() if FileAccess.file_exists("res://build_info.txt") else "dev"
+
+
+static func _read_json(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
+	return parsed if parsed is Dictionary else {}
 
 
 static func round_count(ev: Dictionary) -> int:
@@ -171,7 +226,7 @@ static func shows_result(ev: Dictionary, r: int, i: int, t: int) -> bool:
 	var out := rounds_out(ev, t)
 	if r >= out:
 		return false
-	if r < out - 1 or bracket(ev).get_match(r, i).bye:
+	if r < out - 1 or bracket(ev).is_bye(r, i):
 		return true
 	return is_seen(ev, r, i)
 
@@ -186,7 +241,7 @@ static func champion_known(ev: Dictionary, t: int) -> bool:
 static func oracle_titles(t: int) -> Array:
 	var out := []
 	for ev in events():
-		if phase(ev, t) == "done" and pick_of(ev) != "" and pick_of(ev) == bracket(ev).champion():
+		if phase(ev, t) == "done" and pick_of(ev) != "" and bracket(ev).has_match(round_count(ev) - 1, 0) and pick_of(ev) == bracket(ev).champion():
 			out.push_front({"name": ev.name, "champion": pick_of(ev)})
 	return out
 
