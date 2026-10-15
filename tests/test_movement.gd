@@ -229,6 +229,7 @@ func test_narwhal_charges_lays_a_lance_and_its_charge_hit_doubles() -> void:
 	_park(sim)
 	var a := sim.balls[0]
 	var b := sim.balls[1]
+	b.pos.x = 650.0 # Within one charge's reach.
 	sim.abilities.fx_lance(sim, a, {})
 	check(sim.charging(a), "charges")
 	check(a.vel.normalized().dot((b.pos - a.pos).normalized()) > 0.99, "straight at the foe")

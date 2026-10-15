@@ -12,14 +12,14 @@ const CRITTER := {
 	"color": "7cff4f",
 	"vibe": "A glitchy 8-bit sprite who blinks between frames.",
 	"description": "Sprite. Every 5 seconds it teleports, leaving a pixel bomb where it was.",
-	"stats": {"hp": 120.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.5},
+	"stats": {"hp": 124.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.5},
 	"ability": [{"on": "every", "secs": "glitch_every", "do": "glitch"}],
 	"params": {
 		"glitch_every": 5.0,
 		"glitch_away": 250.0, ## Lands at least this far from where it was.
 		"bomb_arm": 0.6,
 		"bomb_radius": 80.0, ## Blast reach.
-		"bomb_damage": 12.0,
+		"bomb_damage": 11.0,
 		"bomb_max": 2, ## Oldest bomb goes when a new one would pass this.
 		"bomb_line": 1, ## Bombs dropped per teleport, back along its path.
 		"glitch_pulse": 0.0, ## T3: pulse damage where it lands.

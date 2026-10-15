@@ -12,12 +12,12 @@ const CRITTER := {
 	"color": "b8e0d2",
 	"vibe": "A dreamy arctic unicorn of the sea who charges like a knight.",
 	"description": "Narwhal. Every 4.5 seconds it charges at the foe, its horn leaving a glittering beam along the path, and the charge hit deals double.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.0},
+	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.0},
 	"ability": [{"on": "every", "secs": "lance_every", "do": "lance"}, {"on": "always", "do": "lance_tick"}, {"on": "strike", "do": "lance_hit"}],
 	"params": {
 		"lance_every": 4.5, ## Off Wisp's 5s phase beat, so the two never lock in step.
 		"lance_speed_mult": 2.0, ## Charge speed, x its own.
-		"lance_secs": 0.5,
+		"lance_secs": 0.45,
 		"lance_beam_life": 1.5,
 		"lance_beam_dps": 8.0,
 		"lance_hit_mult": 2.0, ## Its hit during a charge.

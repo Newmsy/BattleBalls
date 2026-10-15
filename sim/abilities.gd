@@ -794,13 +794,15 @@ func fx_shift(sim, b, _ctx: Dictionary) -> void:
 		_set_gear(sim, b, g + 1)
 
 
-## A contact hit on it knocks it down a gear (not out of top gear), unless
-## gear_keep > 0.
+## Every gear_drop-th contact hit on it knocks it down a gear (not out of top
+## gear), unless gear_keep > 0.
 func fx_downshift(sim, b, ctx: Dictionary) -> void:
 	var g := int(b.state.get("gear", 0))
 	if b.def.gear_keep > 0 or ctx.kind != "contact" or g <= 0 or g >= int(b.def.gear_max):
 		return
-	_set_gear(sim, b, g - 1)
+	b.state.gear_jolts = int(b.state.get("gear_jolts", 0)) + 1
+	if b.state.gear_jolts % int(b.def.get("gear_drop", 1)) == 0:
+		_set_gear(sim, b, g - 1)
 
 
 ## In top gear its contact hit deals gear_slam_mult x, sends the foe flying

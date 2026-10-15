@@ -16,7 +16,7 @@ const CRITTER := {
 	"ability": [{"on": "hurt", "do": "mark"}, {"on": "always", "do": "pounce"}, {"on": "strike", "do": "marked"}],
 	"params": {
 		"mark_cooldown": 4.0, ## Seconds between marks.
-		"mark_min": 3.0, ## A scratch smaller than this doesn't wake it.
+		"mark_min": 5.0, ## A scratch smaller than this doesn't wake it.
 		"mark_secs": 3.0,
 		"pounce_delay": 1.0, ## Seconds from mark to pounce.
 		"pounce_speed_mult": 1.8, ## Pounce speed, x its own.
