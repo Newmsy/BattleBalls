@@ -94,6 +94,8 @@ func test_slot_angles_mirror_to_each_corner() -> void:
 
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Shell := preload("res://game/ui/shell.gd")
+const UiProfile := preload("res://game/ui/ui_profile.gd")
+const ArenaScreen := preload("res://game/ui/screens/arena_screen.gd")
 const TEST_SAVE := "user://test_ghost_arena.cfg"
 
 
@@ -135,6 +137,18 @@ func test_one_free_refresh_a_day() -> void:
 	check_eq(s.refreshes_left(8), 1, "new day")
 	check_eq(s.offers(8), ArenaGhosts.offers(s.trophies, 8, "local", 0), "new day starts fresh")
 	check(before.size() == 3, "three cards")
+
+
+func test_ranked_trio_uses_owned_critters_only() -> void:
+	var s = _fresh_store()
+	s.trio = ["vampire", "flux", "laser"]
+	check(s.fit_to(["laser", "vampire"]), "unowned slot swapped")
+	check_eq(s.trio, ["vampire", "laser", "laser"], "unowned slot becomes the first owned critter")
+	check(not s.fit_to(["laser", "vampire"]), "owned trio unchanged")
+	var p = UiProfile.new()
+	p.stacks.append({"id": "laser", "tier": 1, "count": 1, "level": 1})
+	check_eq(ArenaScreen.owned_critters(p), ["laser"], "only owned critters can be picked")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
 
 func test_arena_screen_and_fight_scene_build() -> void:

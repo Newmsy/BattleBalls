@@ -1,4 +1,4 @@
-## UI catalogue of all 15 Neon Critters (design/critters.md): names, rarity,
+## UI catalogue of the Neon Critters (design/critters.md): names, rarity,
 ## colours and the per-tier ability text shown on the detail and fuse screens.
 ## The sim only knows the critters in sim/ball_defs.gd; this file is display data.
 extends RefCounted
@@ -47,6 +47,9 @@ const CRITTERS := [
 	{"id": "mirror", "name": "Echo", "type": "Mirror", "rarity": "epic", "role": "Disruptor", "color": Color("cfd8e6"),
 		"vibe": "A copycat show-off that mimics whoever just hit it.",
 		"ladder": ["Copies the last ability that hit it", "Copy lasts longer", "Copies at full strength", "Keeps 2 copies", "Reflects the copy back"]},
+	{"id": "magnet", "name": "Flux", "type": "Magnet", "rarity": "epic", "role": "Disruptor", "color": Color("ff3b5c"), "pole_color": Color("2f7bff"),
+		"vibe": "A buzzing little horseshoe that can't decide if it loves you or hates you.",
+		"ladder": ["Field flips every 3s; first Pull hit snaps for 2.5x", "Stronger field", "Snaps for 3x", "Flips every 2.5s", "Every flip fires a pulse ring"]},
 	{"id": "blackhole", "name": "Void", "type": "Black Hole", "rarity": "legendary", "role": "Legendary", "color": Color("0d0b17"),
 		"vibe": "Ancient, silent and a little terrifying.",
 		"ladder": ["Collapses every 10s", "Every 9s", "Stronger pull", "Every 8s", "Leaves a mini black hole"]},
