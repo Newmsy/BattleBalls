@@ -1,5 +1,5 @@
 ## Small drawn icons the font doesn't have: tier stars, power bolt, energy,
-## coins, orbs, Glow Gems, the pass star, locks, the back arrow, the info "i"
+## coins, orbs, Glow Gems, the pass star, gear (shell, core, charm), locks, the back arrow, the info "i"
 ## and the tab icons.
 extends Control
 
@@ -102,6 +102,13 @@ func _draw() -> void:
 			draw_polyline(hexa, color, s * .08, true)
 			draw_circle(c, s * .17, color)
 			draw_circle(c + Vector2(-.05, -.05) * s, s * .06, Color(1, 1, 1, .8))
+		"charm":
+			draw_arc(Vector2(.5, .22) * s, s * .14, PI, TAU, 12, color, s * .07, true)
+			var diamond := PackedVector2Array([Vector2(.5, .26) * s, Vector2(.82, .6) * s, Vector2(.5, .96) * s, Vector2(.18, .6) * s])
+			draw_colored_polygon(diamond, Color("1b1842"))
+			diamond.append(diamond[0])
+			draw_polyline(diamond, color, s * .08, true)
+			draw_circle(Vector2(.5, .61) * s, s * .12, color)
 		"gear":
 			for i in 8:
 				var a := i * TAU / 8

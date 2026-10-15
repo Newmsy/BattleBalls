@@ -11,6 +11,8 @@ const CosmeticIcon := preload("res://game/glow/cosmetic_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const ShopScreen := preload("res://game/ui/screens/shop_screen.gd")
+const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
+const Gear := preload("res://sim/gear.gd")
 
 const GLOW := Color("ffd36b")
 const PREMIUM := Color("b366ff")
@@ -199,6 +201,8 @@ static func reward_text(r: Dictionary) -> String:
 			return "%d XP Chip%s" % [n, "" if n == 1 else "s"]
 		"copies":
 			return "%s copy" % Roster.get_critter(r.id).name
+		"gear":
+			return "%d-star %s" % [int(r.tier), Gear.PIECES[r.type].name]
 	return r.kind
 
 
@@ -218,6 +222,8 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 		"copies":
 			var CritterIcon = load("res://game/ui/critter_icon.gd")
 			g = CritterIcon.make(r.id, 1, side)
+		"gear":
+			g = Glyph.make(Gear.PIECES[r.type].glyph, side * .7, BagScreen.tier_color(int(r.tier)))
 		_:
 			g = Glyph.make("bolt", side * .7, Kit.GOOD)
 	var cc := CenterContainer.new()

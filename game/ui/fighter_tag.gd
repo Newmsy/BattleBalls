@@ -9,15 +9,13 @@ extends RefCounted
 const Kit := preload("res://game/ui/ui_kit.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Lineup := preload("res://sim/lineup.gd")
-const Power := preload("res://sim/power.gd")
 const ART_SHRINK := .7
 
 
 ## Power Rating of a lineup slot ({critter, tier, level, gear}): the number
 ## on the critter's detail screen (Profile.power_of) for the same setup.
 static func rating(slot: Dictionary) -> int:
-	var s := Lineup.clean(slot)
-	return roundi(1000.0 * Lineup.power(s) * (1.0 + Power.GEAR_STEP * s.gear.size()))
+	return Lineup.rating(slot)
 
 
 ## Icon with tier stars and level above, power underneath. `level` 0 leaves the level out

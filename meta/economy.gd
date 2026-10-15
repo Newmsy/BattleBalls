@@ -74,6 +74,17 @@ const ZONE_DROPS := [
 const ZONE1_AS_BUILT := {"featured": ["spiker", "speedster", "vampire", "juggernaut"], "bonus": ["laser"], "boss": "laser",
 	"enemies": ["spiker", "speedster", "vampire", "juggernaut", "spiker", "speedster", "juggernaut", "vampire", "spiker", "speedster", "juggernaut"]}
 
+## Gear (design/gear.md). Coins to merge three pieces into a piece of each
+## tier (index 0 is 1 star, which is never merged into). Coins are earned
+## only, so this is a progression sink, never a price.
+const GEAR_MERGE_COST := [0, 50, 150, 400, 1000]
+## A campaign win drops a 1-star piece this often (more for a 3-star win); a
+## boss's first clear always drops one at GEAR_BOSS_TIER.
+const GEAR_CAMPAIGN_CHANCE := 0.15
+const GEAR_CAMPAIGN_CHANCE_3STAR := 0.25
+const GEAR_BOSS_TIER := 2
+## The Spire's boss-floor gear is in sim/spire.gd (BOSS_GEAR).
+
 ## Pacing targets for a ~15-20 minute a day player (pve.md section 6), as
 ## [earliest, latest] day; day 1 is install day. The regular player's median
 ## must land inside each window. First T4 was "week 3-4"; it is "week 2-4"

@@ -48,8 +48,9 @@ static func level_cap(tier: int) -> int:
 	return tier * 10
 
 
-## Power Rating: rarity base (+half a tier per step), +25% per tier, +2.5% per level, +4% per gear piece.
-static func power(id: String, tier: int, level: int, gear_count := 0) -> int:
+## Power Rating: rarity base (+half a tier per step), +25% per tier, +2.5% per
+## level, times 1 + `gear` (the worn pieces' worth, sim/gear.gd gear_power).
+static func power(id: String, tier: int, level: int, gear := 0.0) -> int:
 	var p: float = rarity_base(get_critter(id).rarity) * pow(1.25, tier - 1) * (1.0 + 0.025 * (level - 1))
-	p *= 1.0 + 0.04 * gear_count
+	p *= 1.0 + gear
 	return roundi(p * 10.0)

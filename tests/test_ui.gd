@@ -133,7 +133,7 @@ func test_wishlist_never_changes_rarity_odds_or_pity() -> void:
 
 func test_equipping_gear_replaces_the_same_slot() -> void:
 	var p = UiProfile.sample()
-	p.equip(5, "vampire") # A second Iron Shell onto Count Nibbles.
+	p.equip(5, "vampire") # A spare Bubble Shell onto Count Nibbles.
 	var shells: Array = p.gear_on("vampire").filter(func(g): return g.slot == "Shell")
 	check_eq(shells.size(), 1, "one shell on")
 	check_eq(shells[0].uid, 5, "the new one")
