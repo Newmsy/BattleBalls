@@ -30,8 +30,8 @@ func test_fusion_keeps_the_highest_level() -> void:
 
 func test_cannot_fuse_without_three_or_past_tier_five() -> void:
 	var p = UiProfile.sample()
-	check(not p.can_fuse("laser", 1), "only 2 Optics")
-	check(p.fuse("laser", 1).is_empty(), "fuse refuses")
+	check(not p.can_fuse("bomber", 1), "only 1 Fuse")
+	check(p.fuse("bomber", 1).is_empty(), "fuse refuses")
 	p.stacks.append({"id": "laser", "tier": 5, "count": 3, "level": 50})
 	check(not p.can_fuse("laser", 5), "T5 is the top")
 

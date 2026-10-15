@@ -9,9 +9,9 @@
       "p2": "laser",
       "seed": 42
     },
-    "hash": "b1d90868c0b36b32528561eba2a981b046f0384f18d4b5f259c1f4768a80a3f9",
+    "hash": "39b9a88ae128442e8549eac005cadf5fd6e0e164fef70fcb70db387f59802114",
     "reason": "knockout",
-    "ticks": 1961,
+    "ticks": 2078,
     "winner": 1
   },
   {
@@ -24,7 +24,7 @@
       "p2": "vampire",
       "seed": 42
     },
-    "hash": "ba64c6ea44fd4d18d88f1bbe69f85c73d10c8159cf5da71cab98b6750a024d0c",
+    "hash": "a12cbaf8c1a682fb8b72b757b9017554d862ced828c0763ba597c4cb7cac8d3c",
     "reason": "knockout",
     "ticks": 2544,
     "winner": 1
@@ -54,9 +54,9 @@
       "p2": "laser",
       "seed": 7
     },
-    "hash": "1c16c798d3b8c6e655f1514b32e8683fb448778602d9bcdb66114c3180ff86d0",
+    "hash": "21f3ad9cf349623ef7b29ae42c60826546f820589f1179c7a8d380d1f9254d50",
     "reason": "knockout",
-    "ticks": 1245,
+    "ticks": 1581,
     "winner": 0
   },
   {
@@ -69,9 +69,9 @@
       "p2": "laser",
       "seed": 123
     },
-    "hash": "2bb7d6938b051bb050a7e90872f4bf40baa44dc1bdb72340782c679ac8d1bcb1",
+    "hash": "2bd1733a4fccb44915106dc3c7047baedc35dd00d5f644cb3ca6d87f91f7a73e",
     "reason": "knockout",
-    "ticks": 2475,
+    "ticks": 2628,
     "winner": 1
   },
   {
@@ -84,9 +84,9 @@
       "p2": "plain",
       "seed": 2026
     },
-    "hash": "38e87d677235e841463027e118ad8bca32a5ecffe984f592d43e2e50b410145e",
+    "hash": "b5f6c788b860d126710473e6e9df2e3ea5e2ea0b2a86fc9ed1763b660423cfc7",
     "reason": "knockout",
-    "ticks": 1333,
+    "ticks": 2218,
     "winner": 0
   },
   {
@@ -100,9 +100,9 @@
       "p2": "laser",
       "seed": 42
     },
-    "hash": "d43d37ad0f6e0a49c40a77cf7aa1b885afe5bfb4bc3f220c53f4c99e16488e60",
+    "hash": "2fa4cd40c7675e39347c1c85d9d424fbdf5f1cc54373052c4f7a7de4ccb25263",
     "reason": "knockout",
-    "ticks": 1740,
+    "ticks": 1977,
     "winner": 1
   },
   {
@@ -116,7 +116,7 @@
       "p2": "laser",
       "seed": 42
     },
-    "hash": "7e44d694702e0183440c4e8a926be11571b6bd3ba3632d9a87060ee31733e20b",
+    "hash": "3d75a4edce9024c42bb850d9e27108f9e038bbdf2addfa7723f6fb91dae75050",
     "reason": "knockout",
     "ticks": 1766,
     "winner": 0
@@ -132,9 +132,9 @@
       "p2": "laser",
       "seed": 42
     },
-    "hash": "d025ab9aa2915d393fb9215e5a3eaa562b7ab9faa53af1a78c99ba258534940e",
+    "hash": "cfb0da9e3675bd7d308d526cf084c61eca4653feaacba25452ca3b18c361d6cf",
     "reason": "knockout",
-    "ticks": 1159,
+    "ticks": 1339,
     "winner": 1
   }
 ]
