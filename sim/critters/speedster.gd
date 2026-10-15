@@ -25,6 +25,7 @@ const CRITTER := {
 		{"text": "Up to 2.2x", "max_speed_mult": 2.2},
 		{"text": "Leaves a damaging afterimage"},
 	],
+	"chaos": {"rink": {"hp": 1.06}, "big_head": {"hp": 1.05}, "hyper_speed": {"speed_gain": 0.85}, "double_trouble": {"speed_gain": 0.67}}, ## Small and quick: Neon Rink and Big Head hit it more; fast twists overfeed it.
 	"art": {"eyes": {"sep": .3, "w": .21, "h": .14, "p": .09, "brow": .22, "mouth": "smirk"}, "back": ["speed_streaks"], "front": ["headband"]},
 	"sound": {},
 }

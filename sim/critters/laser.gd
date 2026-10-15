@@ -24,7 +24,7 @@ const CRITTER := {
 	],
 	## Chaos Weekends: short fights cut off its beam build-up, so beams hit
 	## harder under Big Head and Hyper Speed. Tuned with tools/balance.gd --modifiers.
-	"chaos": {"big_head": {"beam_damage": 1.2}, "hyper_speed": {"beam_damage": 1.3}},
+	"chaos": {"big_head": {"beam_damage": 1.2}, "hyper_speed": {"beam_damage": 1.3}, "double_trouble": {"beam_damage": 0.9}},
 	"art": {"badge_top": 1.6, "eyes": {"one": true, "w": .4, "h": .4, "p": .16, "iris": "0a7bb0", "glow": "7fe6ff", "mouth": "none"}, "back": ["antennae"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 1.0},
 }

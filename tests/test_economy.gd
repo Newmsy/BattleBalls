@@ -61,7 +61,8 @@ func test_same_seed_same_player() -> void:
 ## casual players within CASUAL_SLACK of it, heavy players not racing past
 ## the week-scale ones (a day-1 or day-3 goal can't be reached much sooner).
 func test_tuned_economy_hits_the_pacing_targets() -> void:
-	var r := Model.report(Economy.tuned(), 60, DAYS, 1, false, ["regular"])
+	# 120 regulars: at 60 the medians moved by days when only the pool order changed.
+	var r := Model.report(Economy.tuned(), 120, DAYS, 1, false, ["regular"])
 	r.merge(Model.report(Economy.tuned(), 20, DAYS, 2, false, ["casual", "heavy"]))
 	for m in Model.MILESTONES:
 		var t: Array = Economy.TARGETS[m]

@@ -8,20 +8,27 @@ const CRITTER := {
 	"type": "Bomber",
 	"rarity": "rare",
 	"role": "Zoner",
-	"status": "planned",
+	"status": "live",
 	"color": "2b3a67",
 	"vibe": "Chaotic gremlin who laughs at its own explosions.",
-	"description": "Bomber.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
+	"description": "Bomb. Every wall bounce drops a mine that blows up when a foe touches it.",
+	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "wall", "do": "mine"}],
-	"params": {},
+	"params": {
+		"mine_arm": 0.5, ## Seconds before a mine is live.
+		"mine_radius": 70.0, ## Blast reach beyond the mine.
+		"mine_damage": 14.0,
+		"mine_max": 3, ## Oldest mine goes when a new one would pass this.
+		"mine_life": 15.0, ## Seconds before an untouched mine fizzles.
+		"mine_chain": 0, ## 1: a blast sets off its other mines in reach.
+	},
 	"tiers": [
-		{"text": "1 mine per bounce, max 3"},
-		{"text": "Max 4 mines"},
-		{"text": "Bigger blast"},
-		{"text": "Max 6 mines"},
-		{"text": "Mines chain-detonate"},
+		{"text": "A mine on every bounce, up to 3"},
+		{"text": "Up to 4 mines", "mine_max": 4},
+		{"text": "Bigger blasts", "mine_radius": 90.0},
+		{"text": "Up to 6 mines", "mine_max": 6},
+		{"text": "Mines chain-detonate", "mine_chain": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .23, "h": .26, "p": .07, "mis": true, "mouth": "teeth"}, "body": "bomb", "front": ["fuse"]},
-	"sound": {},
+	"sound": {"ouch": "ouch_magnet", "pitch": 0.85},
 }

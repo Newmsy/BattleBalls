@@ -50,7 +50,14 @@ func test_offers_are_new_usable_boons() -> void:
 	for f in BounceRun.FLOORS - 1:
 		run.floor = f + 1
 		var offer := BounceRun.offer(setup, run)
-		check_eq(offer.size(), BounceRun.OFFER, "floor %d offer size" % (f + 1))
+		# Full offers while enough usable boons are left (a trio without
+		# Nibbles or Optic only has the 8 general ones).
+		var left := 0
+		for id in Boons.ALL:
+			if not id in run.boons and range(3).any(func(s): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, s).critter).ability)):
+				left += 1
+		check_eq(offer.size(), mini(BounceRun.OFFER, left), "floor %d offer size" % (f + 1))
+		check(offer.size() >= 2, "floor %d offers a real choice" % (f + 1))
 		for id in offer:
 			check(not id in run.boons, "offer repeats an owned boon")
 		run.boons.append(offer[0])
