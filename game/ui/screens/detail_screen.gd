@@ -7,6 +7,8 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const Gear := preload("res://sim/gear.gd")
+const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 
 
 static func header(shell, title: String, extra: Control = null) -> Control:
@@ -72,16 +74,27 @@ static func build(shell, params: Dictionary) -> Control:
 
 	var gear: Array = p.gear_on(c.id)
 	var slots := Kit.hbox(12)
-	for slot in ["Shell", "Core"]:
+	for slot in Gear.SLOTS:
 		var g: Dictionary = {}
 		for x in gear:
 			if x.slot == slot:
 				g = x
-		var col: Color = Roster.RARITY_COLORS[g.rarity] if not g.is_empty() else Kit.MUTED
-		var v := Kit.vbox(2, [Kit.label(g.get("name", "Empty " + slot), 24, col, HORIZONTAL_ALIGNMENT_LEFT, true),
-			Kit.label(g.get("text", "Tap to equip"), 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
-		var card := Kit.card_button(v, shell.toast.bind("Gear swapping arrives with the Bag screen."), Kit.LINE, Kit.PANEL2, 24, 14)
+		var open: bool = p.slot_open(c.id, slot)
+		var col: Color = BagScreen.tier_color(g.tier) if not g.is_empty() else Kit.MUTED
+		var head := Kit.hbox(6, [Glyph.make(Gear.PIECES[g.type].glyph if not g.is_empty() else slot.to_lower(), 26, col if open else Glyph.OFF),
+			Kit.label(slot, 20, col)], BoxContainer.ALIGNMENT_CENTER)
+		var line: Control
+		if not open:
+			line = Kit.hbox(6, [Glyph.make("lock", 20, Kit.MUTED), Kit.label("3 stars", 19, Kit.MUTED)])
+		elif g.is_empty():
+			line = Kit.label("Tap to equip", 19, Kit.MUTED)
+		else:
+			line = Glyph.make("stars", 18, col, g.tier)
+		var v := Kit.vbox(4, [head, line])
+		var tap: Callable = _slot_sheet.bind(shell, c.id, slot) if open else shell.toast.bind("Charms unlock when %s reaches 3 stars." % c.name)
+		var card := Kit.card_button(v, tap, Color(col, .5) if not g.is_empty() else Kit.LINE, Kit.PANEL2, 24, 12)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		shell.mark("slot_" + slot.to_lower(), card)
 		slots.add_child(card)
 	root.add_child(Kit.vbox(10, [Kit.caption("Gear"), slots]))
 
@@ -110,6 +123,42 @@ static func build(shell, params: Dictionary) -> Control:
 	shell.mark("fuse_this", fuse)
 	shell.pin(Kit.hbox(16, [lineup, fuse]))
 	return root
+
+
+## Pick a piece for one of a critter's gear slots: every piece that fits,
+## best first, plus Unequip when it wears one.
+static func _slot_sheet(shell, id: String, slot: String) -> void:
+	var p = shell.profile
+	var worn: Dictionary = {}
+	for g in p.gear_on(id):
+		if g.slot == slot:
+			worn = g
+	var v := Kit.vbox(16, [Kit.label("%s · %s" % [Roster.get_critter(id).name, slot], 34)])
+	var pieces: Array = p.gear.filter(func(g): return g.slot == slot)
+	pieces.sort_custom(func(a, b): return a.tier > b.tier if a.tier != b.tier else (a.on == "" and b.on != ""))
+	var seen := {}
+	var list := Kit.vbox(10)
+	for g in pieces:
+		# One row per type, tier and wearer: identical spares are the same choice.
+		var k := "%s/%d/%s" % [g.type, g.tier, g.on]
+		if seen.has(k) or list.get_child_count() >= 5:
+			continue
+		seen[k] = true
+		var col: Color = BagScreen.tier_color(g.tier)
+		var who: String = "" if g.on == "" else "On " + Roster.get_critter(g.on).name
+		var info := Kit.vbox(2, [Kit.label(g.name, 24), Kit.label(g.text + ("  ·  " + who if who != "" else ""), 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var row := Kit.hbox(12, [Glyph.make(Gear.PIECES[g.type].glyph, 56, col), info, Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER)
+		var card := Kit.card_button(row, func(): p.equip(g.uid, id); shell.close_overlay(); shell.refresh(),
+			Kit.GOOD if g.on == id else Kit.LINE, Kit.PANEL2, 24, 10)
+		shell.mark("pick_%d" % g.uid, card)
+		list.add_child(card)
+	if list.get_child_count() == 0:
+		list.add_child(Kit.label("No %ss yet. The Gear Vault, campaign wins and Spire boss floors drop gear." % slot, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	v.add_child(list)
+	if not worn.is_empty():
+		v.add_child(Kit.button("Unequip", func(): p.unequip(worn.uid); shell.close_overlay(); shell.refresh(), "ghost", 26, 80))
+	shell.sheet(v)
 
 
 static func _centered(c: Control) -> Control:

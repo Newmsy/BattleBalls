@@ -8,7 +8,7 @@
 ##   --fights=N    seeds per pairing; each seed is fought from both corners (2N fights)
 ##   --power-step  also fights every ball one power step up against every ball,
 ##                 checking that power beats counters (slow: n^2 pairings)
-##   --gear        fights every playable ball wearing one Legendary piece of each
+##   --gear        fights every playable ball wearing one 5-star piece of each
 ##                 gear stat line against itself bare, so the lines stay even
 ##   --strict      exit 1 when a check fails beyond sampling noise
 ##   --edge-warn   report equal-power and tilt misses on non-square arenas and
@@ -51,11 +51,11 @@ const POWER_STEP_MIN := 0.70 ## One power step up wins at least this into anythi
 const POWER_STEP := 1.25 ## One tier ~ +25% power (power-progression.md).
 const MEDIAN_LENGTH := [20.0, 60.0] ## Seconds.
 const Z95 := 1.96
-## One Legendary gear piece is ~+7% power; its mirror win rate should land here.
+## One 5-star gear piece is ~+5% power (design/gear.md); its mirror win rate should land here.
 ## (Mirrors are touchy: attack and health, the reference lines, sit ~65%.)
-const GEAR_LINE_RANGE := [0.58, 0.72]
-## Two Legendary lines (Crit + Crit damage) together.
-const GEAR_PAIR_RANGE := [0.66, 0.82]
+const GEAR_LINE_RANGE := [0.55, 0.68]
+## Two 5-star lines (Crit + Crit damage) together.
+const GEAR_PAIR_RANGE := [0.62, 0.78]
 ## A map may move a matchup this far from its square result (design/arenas.md):
 ## WARN beyond TILT_WARN, FAIL beyond TILT_MAX when clear of sampling noise.
 const TILT_WARN := 0.10
@@ -292,11 +292,11 @@ func _gear_jobs(s: Dictionary) -> Array:
 	return jobs
 
 
-## One Legendary piece of `line`. Crit damage rides on Crit, so it comes as a pair.
+## One 5-star piece of `line`. Crit damage rides on Crit, so it comes as a pair.
 static func _kit(line: String) -> Dictionary:
-	var kit := {line: Gear.value(line, "legendary")}
+	var kit := {line: Gear.value(line, 5)}
 	if line == "crit_damage":
-		kit.crit_chance = Gear.value("crit_chance", "legendary")
+		kit.crit_chance = Gear.value("crit_chance", 5)
 	return kit
 
 
@@ -460,12 +460,12 @@ static func _worst(a: String, field: Array, rate: Callable) -> Array:
 	return worst
 
 
-## Each playable ball wearing one Legendary piece of a single stat line,
+## Each playable ball wearing one 5-star piece of a single stat line,
 ## against the same ball bare. Lines should be worth about the same.
 func _gear_lines(s: Dictionary) -> Array[String]:
 	var playable: Array = BallDefs.PLAYABLE
 	var lines: Array[String] = []
-	lines.append("### Gear lines (row: one Legendary piece vs the same ball bare, %d fights per cell)" % (s.fights * 2))
+	lines.append("### Gear lines (row: one 5-star piece vs the same ball bare, %d fights per cell)" % (s.fights * 2))
 	lines.append("")
 	var wide := playable.size() > MATRIX_MAX
 	lines.append("| Line | mean |" if wide else "| Line | " + " | ".join(playable) + " | mean |")

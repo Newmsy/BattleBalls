@@ -12,6 +12,7 @@ const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const Economy := preload("res://meta/economy.gd")
 
 signal changed
 
@@ -22,12 +23,13 @@ const ENERGY_PACK := 30
 const STARTER := "vampire"
 const STARTER_ORBS := 10
 const PITY_START := 50 ## Matches Summon.PITY_RESET.
-## The stat line a named piece fights with, for pieces saved before gear had
-## stats. Anything else gets its slot's line: Shells guard, Cores hit.
-const GEAR_LINES := {"Iron Shell": "defense", "Spiked Shell": "defense", "Spire Shell": "defense",
-	"Rubber Shell": "speed", "Leech Core": "health", "Overclock Core": "cooldown", "Spire Core": "cooldown",
-	"Summit Core": "attack", "Echo Core": "crit_chance"}
-const SLOT_LINES := {"Shell": "health", "Core": "attack"}
+## The gear type (sim/gear.gd PIECES) an old named piece becomes, for pieces
+## saved before gear had types (design/gear.md section 7). Anything else gets
+## its slot's type: Shells keep you alive, Cores hit.
+const GEAR_TYPES := {"Iron Shell": "iron_shell", "Spiked Shell": "iron_shell", "Spire Shell": "iron_shell",
+	"Rubber Shell": "jet_charm", "Leech Core": "bubble_shell", "Overclock Core": "overclock_charm",
+	"Spire Core": "overclock_charm", "Summit Core": "spike_core", "Echo Core": "echo_core"}
+const SLOT_TYPES := {"Shell": "bubble_shell", "Core": "spike_core", "Charm": "jet_charm"}
 
 var account_level := 1
 var account_xp := 0
@@ -42,9 +44,10 @@ var seen: Dictionary = {}
 ## One entry per (type, tier): {id, tier, count, level, xp}. The copies in a
 ## stack share its level; fusing 3 makes one copy of the next tier's stack.
 var stacks: Array[Dictionary] = []
-## Gear pieces: {uid, name, slot ("Shell"/"Core"), rarity, stats, text, on
-## (critter id or "")}. `stats` are the sim/gear.gd lines the piece fights
-## with; `text` describes them.
+## Gear pieces: {uid, type, tier, on (critter id or "")} plus, filled in by
+## gear_piece(), name, slot ("Shell"/"Core"/"Charm"), stats (the sim/gear.gd
+## lines it fights with) and text. Three of a type and tier merge into one of
+## the next tier (merge_gear).
 var gear: Array[Dictionary] = []
 ## Consumables: {name, count, text, color}.
 var items: Array[Dictionary] = []
@@ -59,6 +62,8 @@ const WISHLIST_MAX := 3
 var stars: Dictionary = {}
 ## Finished campaign runs; feeds fight and drop seeds so every run differs.
 var runs := 0
+## Gear Vault runs used today: {day (unix day), runs} (meta/gear_vault.gd).
+var vault := {}
 
 
 static func new_game(now: int, starter := STARTER):
@@ -117,11 +122,16 @@ func gear_on(id: String) -> Array[Dictionary]:
 	return out
 
 
+## What a critter's worn gear adds to its Power Rating, as a fraction.
+func gear_power(id: String) -> float:
+	return Gear.gear_power(gear_on(id))
+
+
 func power_of(id: String) -> int:
 	var b := best(id)
 	if b.is_empty():
 		return 0
-	return Roster.power(id, b.tier, b.level, gear_on(id).size())
+	return Roster.power(id, b.tier, b.level, gear_power(id))
 
 
 ## The fight multiplier for a critter's best stack: the same number as
@@ -130,7 +140,7 @@ func fight_power(id: String) -> float:
 	var b := best(id)
 	if b.is_empty():
 		return 1.0
-	return Power.multiplier(Roster.get_critter(id).rarity, b.tier, b.level) * (1.0 + Power.GEAR_STEP * gear_on(id).size())
+	return Power.multiplier(Roster.get_critter(id).rarity, b.tier, b.level) * (1.0 + gear_power(id))
 
 
 ## The critter's best stack as a lineup slot (sim/lineup.gd): what it brings
@@ -203,32 +213,26 @@ func set_lineup(id: String) -> void:
 		changed.emit()
 
 
-## Adds an unequipped piece and returns it. Without `stats` it fights with
-## its name's (or slot's) main line at its rarity.
-func add_gear(name: String, slot: String, rarity: String, stats := {}) -> Dictionary:
-	var uid := 1
-	for g in gear:
-		uid = maxi(uid, int(g.uid) + 1)
-	var piece := gear_piece({"uid": uid, "name": name, "slot": slot, "rarity": rarity, "stats": stats, "on": ""})
+## Adds an unequipped piece of a gear type (sim/gear.gd PIECES) and returns it.
+func add_gear(type: String, tier := 1) -> Dictionary:
+	var piece := gear_piece({"uid": _next_gear_uid(), "type": type, "tier": tier, "on": ""})
 	gear.append(piece)
 	changed.emit()
 	return piece
 
 
-## A gear piece with its stat lines filled in (and its text saying what they
-## do), from a saved or hand-written piece.
+## A gear piece with its name, slot, stat lines and text filled in from its
+## type and tier. Pieces saved before types (a name and a rarity) become the
+## closest type, their rarity a tier (design/gear.md section 7).
 static func gear_piece(g: Dictionary) -> Dictionary:
-	var stats := {}
-	var saved = g.get("stats", {})
-	if saved is Dictionary:
-		for line in saved:
-			if Gear.LINES.has(line):
-				stats[line] = float(saved[line])
-	if stats.is_empty():
-		var line: String = GEAR_LINES.get(str(g.name), SLOT_LINES.get(str(g.slot), "health"))
-		stats[line] = roundf(Gear.value(line, str(g.rarity)) * 1000.0) / 1000.0
-	return {"uid": int(g.uid), "name": str(g.name), "slot": str(g.slot), "rarity": str(g.rarity), "stats": stats,
-		"text": _gear_text(stats), "on": str(g.get("on", ""))}
+	var type := str(g.get("type", ""))
+	if not Gear.PIECES.has(type):
+		type = GEAR_TYPES.get(str(g.get("name", "")), SLOT_TYPES.get(str(g.get("slot", "")), "bubble_shell"))
+	var tier := Gear.tier_of(g.get("tier", g.get("rarity", 1)))
+	var def: Dictionary = Gear.PIECES[type]
+	var stats := Gear.stats_for(type, tier)
+	return {"uid": int(g.get("uid", 0)), "type": type, "tier": tier, "name": def.name, "slot": def.slot,
+		"stats": stats, "text": _gear_text(stats), "on": str(g.get("on", ""))}
 
 
 static func _gear_text(stats: Dictionary) -> String:
@@ -236,14 +240,126 @@ static func _gear_text(stats: Dictionary) -> String:
 	return t.left(1).to_upper() + t.substr(1)
 
 
+## True when `id` can wear a piece in `slot`: the Charm slot opens at 3 stars.
+func slot_open(id: String, slot: String) -> bool:
+	return slot != "Charm" or int(best(id).get("tier", 0)) >= Gear.CHARM_TIER
+
+
 ## Put a gear piece on a critter, replacing whatever it wore in that slot.
-func equip(uid: int, id: String) -> void:
+## False (and nothing changes) when the critter's slot isn't open yet.
+func equip(uid: int, id: String) -> bool:
 	var piece := _gear(uid)
+	if piece.is_empty() or not slot_open(id, piece.slot):
+		return false
 	for g in gear:
 		if g.on == id and g.slot == piece.slot:
 			g.on = ""
 	piece.on = id
 	changed.emit()
+	return true
+
+
+# --- Gear merging (design/gear.md section 3) ------------------------------------
+
+## Pieces of one type and tier, unworn first, so merging touches as few
+## lineups as it can.
+func gear_of(type: String, tier: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for g in gear:
+		if g.type == type and g.tier == tier:
+			out.append(g)
+	out.sort_custom(func(a, b): return a.on == "" and b.on != "")
+	return out
+
+
+## Coins to merge three `tier` pieces into one of the next tier.
+static func merge_cost(tier: int) -> int:
+	return Economy.GEAR_MERGE_COST[clampi(tier, 1, Gear.MAX_TIER - 1)]
+
+
+## True when three pieces of type+tier exist below the top tier. Coins are
+## checked by merge_gear, so the Bag can show "150 coins" on a set you can't
+## afford yet.
+func has_gear_set(type: String, tier: int) -> bool:
+	return tier < Gear.MAX_TIER and gear_of(type, tier).size() >= 3
+
+
+func can_merge_gear(type: String, tier: int) -> bool:
+	return has_gear_set(type, tier) and coins >= merge_cost(tier)
+
+
+## Every [type, tier] with a full set, lowest tier first.
+func gear_sets() -> Array:
+	var out := []
+	for tier in range(1, Gear.MAX_TIER):
+		for type in Gear.TYPES:
+			if has_gear_set(type, tier):
+				out.append([type, tier])
+	return out
+
+
+## 3 pieces of type+tier become 1 of the next tier, for coins. The new piece
+## goes on whichever critter wore one of the three (the strongest, if more
+## than one did). Returns the new piece, or {} when it can't merge.
+func merge_gear(type: String, tier: int) -> Dictionary:
+	if not can_merge_gear(type, tier):
+		return {}
+	coins -= merge_cost(tier)
+	var used := gear_of(type, tier).slice(0, 3)
+	var wearer := ""
+	for g in used:
+		if g.on != "" and (wearer == "" or power_of(g.on) > power_of(wearer)):
+			wearer = g.on
+		gear.erase(g)
+	var piece := gear_piece({"uid": _next_gear_uid(), "type": type, "tier": tier + 1, "on": wearer})
+	gear.append(piece)
+	Analytics.track("gear_merge", {"type": type, "tier": tier + 1})
+	changed.emit()
+	return piece
+
+
+## What merge_all_gear would do: {merges, coins} with merges as [type, tier]
+## in order. Lower tiers merge first, so their results can complete sets above.
+func merge_all_plan() -> Dictionary:
+	var counts := {}
+	for g in gear:
+		var k := "%s/%d" % [g.type, g.tier]
+		counts[k] = counts.get(k, 0) + 1
+	var plan := {"merges": [], "coins": 0}
+	var budget := coins
+	for tier in range(1, Gear.MAX_TIER):
+		for type in Gear.TYPES:
+			var k := "%s/%d" % [type, tier]
+			while counts.get(k, 0) >= 3 and budget >= merge_cost(tier):
+				counts[k] -= 3
+				budget -= merge_cost(tier)
+				var up := "%s/%d" % [type, tier + 1]
+				counts[up] = counts.get(up, 0) + 1
+				plan.merges.append([type, tier])
+				plan.coins += merge_cost(tier)
+	return plan
+
+
+## Merges every set the player can afford, lowest tier first. Returns the new
+## pieces that weren't merged again.
+func merge_all_gear() -> Array[Dictionary]:
+	var made: Array[Dictionary] = []
+	for m in merge_all_plan().merges:
+		var piece := merge_gear(m[0], m[1])
+		if piece.is_empty():
+			break
+		for g in made.duplicate():
+			if not gear.has(g):
+				made.erase(g)
+		made.append(piece)
+	return made
+
+
+func _next_gear_uid() -> int:
+	var uid := 1
+	for g in gear:
+		uid = maxi(uid, int(g.uid) + 1)
+	return uid
 
 
 func unequip(uid: int) -> void:
@@ -386,7 +502,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "lineup",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault"]
 
 
 func to_dict() -> Dictionary:
@@ -414,6 +530,9 @@ static func from_dict(d: Dictionary, now: int):
 	for id in d.get("wishlist", []):
 		if p.wishlist.size() < WISHLIST_MAX:
 			p.wishlist.append(str(id))
+	var v = d.get("vault", {})
+	if v is Dictionary and v.has("day"):
+		p.vault = {"day": int(v.day), "runs": int(v.get("runs", 0))}
 	p.stars.clear()
 	for k in d.get("stars", {}):
 		p.stars[str(k)] = int(d.stars[k])
@@ -422,13 +541,20 @@ static func from_dict(d: Dictionary, now: int):
 		p.stacks.append({"id": str(s.id), "tier": int(s.tier), "count": int(s.count), "level": int(s.level), "xp": int(s.get("xp", 0))})
 	p.gear.clear()
 	for g in d.get("gear", []):
-		p.gear.append(gear_piece(g))
+		var piece := gear_piece(g)
+		if piece.uid <= 0 or p._gear(piece.uid).size() > 0:
+			piece.uid = p._next_gear_uid()
+		p.gear.append(piece)
 	if d.has("items"):
 		p.items.clear()
 		for i in d.items:
 			p.items.append({"name": str(i.name), "count": int(i.count), "text": str(i.text), "color": Color(str(i.color))})
 	if not p.owns(p.lineup):
 		p.lineup = p.stacks[0].id
+	# A converted Charm on a critter under 3 stars goes back to the Bag.
+	for g in p.gear:
+		if g.on != "" and not p.slot_open(g.on, g.slot):
+			g.on = ""
 	return p
 
 
@@ -450,7 +576,7 @@ func spend_coins(n: int) -> bool:
 
 
 ## An earned reward (Glow Pass free track, bounties): {kind, n} with kind
-## orbs, coins, energy, xp_chip, or copies (with id).
+## orbs, coins, energy, xp_chip, copies (with id) or gear (type and tier).
 func grant(r: Dictionary) -> void:
 	var n := int(r.get("n", 1))
 	match r.kind:
@@ -467,6 +593,10 @@ func grant(r: Dictionary) -> void:
 			if str(r.id) in Roster.ids():
 				for i in n:
 					add_copies([r.id])
+		"gear":
+			if Gear.PIECES.has(str(r.get("type", ""))):
+				for i in n:
+					add_gear(str(r.type), int(r.get("tier", 1)))
 	changed.emit()
 
 

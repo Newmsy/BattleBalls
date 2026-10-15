@@ -30,6 +30,7 @@ const SCREENS := {
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
 	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
 	"spire": preload("res://game/ui/screens/spire_screen.gd"),
+	"vault": preload("res://game/ui/screens/vault_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
 	"shop": preload("res://game/ui/screens/shop_screen.gd"),
 	"pass": preload("res://game/ui/screens/pass_screen.gd"),
@@ -68,6 +69,8 @@ var account = null
 var link_base := FightLink.HOME
 ## Emitted when a campaign stage starts; energy is already spent.
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
+## Emitted when a Gear Vault run starts; energy and the run are already spent.
+signal vault_requested(config: Dictionary, difficulty: int, fighter: String)
 
 var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.

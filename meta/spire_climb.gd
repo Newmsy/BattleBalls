@@ -170,7 +170,7 @@ func abandon() -> Array:
 	return used
 
 
-## Rewards waiting to be collected, summed: {coins, orbs, xp_chips, gear: [rarity...], floors}.
+## Rewards waiting to be collected, summed: {coins, orbs, xp_chips, gear: [{type, tier}...], floors}.
 func unclaimed_total() -> Dictionary:
 	var t := {"coins": 0, "orbs": 0, "xp_chips": 0, "gear": [], "floors": unclaimed.duplicate()}
 	for f in unclaimed:
@@ -178,7 +178,7 @@ func unclaimed_total() -> Dictionary:
 		t.coins += r.coins
 		t.orbs += r.orbs
 		t.xp_chips += r.xp_chips
-		if r.gear != "":
+		if not r.gear.is_empty():
 			t.gear.append(r.gear)
 	return t
 

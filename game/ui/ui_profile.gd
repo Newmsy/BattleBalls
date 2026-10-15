@@ -18,13 +18,14 @@ static func sample():
 		p.stacks.append({"id": s[0], "tier": s[1], "count": s[2], "level": s[3]})
 		p.seen[s[0]] = true
 	p.gear.assign([
-		{"uid": 1, "name": "Iron Shell", "slot": "Shell", "rarity": "common", "text": "Take 2 less damage per hit", "on": "vampire"},
-		{"uid": 2, "name": "Leech Core", "slot": "Core", "rarity": "rare", "text": "Heal 5% of damage dealt", "on": "vampire"},
-		{"uid": 3, "name": "Rubber Shell", "slot": "Shell", "rarity": "rare", "text": "+8% bounce speed", "on": "speedster"},
-		{"uid": 4, "name": "Overclock Core", "slot": "Core", "rarity": "epic", "text": "Ability triggers 15% sooner", "on": ""},
-		{"uid": 5, "name": "Iron Shell", "slot": "Shell", "rarity": "common", "text": "Take 2 less damage per hit", "on": ""},
-		{"uid": 6, "name": "Spiked Shell", "slot": "Shell", "rarity": "rare", "text": "Take 1 less damage; attackers take 2", "on": ""},
-		{"uid": 7, "name": "Echo Core", "slot": "Core", "rarity": "legendary", "text": "8% chance the ability fires twice", "on": ""},
+		{"uid": 1, "type": "iron_shell", "tier": 2, "on": "vampire"},
+		{"uid": 2, "type": "spike_core", "tier": 3, "on": "vampire"},
+		{"uid": 3, "type": "bubble_shell", "tier": 1, "on": "speedster"},
+		{"uid": 4, "type": "echo_core", "tier": 4, "on": ""},
+		{"uid": 5, "type": "bubble_shell", "tier": 1, "on": ""},
+		{"uid": 6, "type": "bubble_shell", "tier": 1, "on": ""},
+		{"uid": 7, "type": "jet_charm", "tier": 2, "on": ""},
+		{"uid": 8, "type": "overclock_charm", "tier": 1, "on": ""},
 	].map(func(g): return gear_piece(g)))
 	p.items.assign([
 		{"name": "Energy Pack", "count": 3, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
