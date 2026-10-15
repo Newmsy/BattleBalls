@@ -1,4 +1,5 @@
-## Glowbug, the Firefly (Uncommon Zoner). Planned: see design/roster.md.
+## Glowbug, the Firefly (Uncommon Zoner). One file is the whole critter:
+## see "Adding a critter" in README.md for what each key does.
 extends RefCounted
 
 const CRITTER := {
@@ -7,19 +8,30 @@ const CRITTER := {
 	"type": "Firefly",
 	"rarity": "uncommon",
 	"role": "Zoner",
-	"status": "planned",
+	"status": "live",
 	"color": "d4ff3a",
 	"vibe": "A dreamy firefly that brings its own little lights to every fight.",
 	"description": "Firefly. A tiny light-bug circles it and stings foes it touches.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
-	"ability": [],
-	"params": {},
+	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
+	"ability": [{"on": "always", "do": "moons"}],
+	"params": {
+		"moon_count": 1,
+		"moon_orbit": 40.0, ## Distance beyond its edge.
+		"moon_size": 12.0,
+		"moon_damage": 4.0,
+		"moon_spin": 3.5, ## Radians a second.
+		"moon_cooldown": 0.5,
+		"moon_look": "bug",
+		"moon_burn": 0.0,
+		"orb_flare_radius": 120.0, ## T5 flare round each bug.
+		"orb_flare_damage": 6.0,
+	},
 	"tiers": [
-		{"text": "A light-bug circles and stings"},
-		{"text": "Bug stings for 5"},
-		{"text": "Two bugs"},
-		{"text": "Bugs orbit wider"},
-		{"text": "Every 6s the bugs flare"},
+		{"text": "A light-bug circles and stings for 4"},
+		{"text": "Bug stings for 5", "moon_damage": 5.0},
+		{"text": "Two bugs", "moon_count": 2},
+		{"text": "Bugs orbit wider", "moon_orbit": 60.0},
+		{"text": "Every 6s the bugs flare for 6", "ability": [{"on": "every", "secs": 6.0, "do": "orb_flare"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["antenna2"], "front": ["glowbelly"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 1.4},

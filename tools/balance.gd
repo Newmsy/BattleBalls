@@ -13,10 +13,11 @@
 ##   --strict      exit 1 when a check fails beyond sampling noise
 ##   --edge-warn   report equal-power and tilt misses on non-square arenas and
 ##                 under Chaos Weekend modifiers ("edge cells") as WARN, not
-##                 FAIL, so they don't fail --strict. The square matchups and
-##                 the power step still FAIL. On by default when
-##                 GITHUB_EVENT_NAME is "pull_request" (the PR gate); the
-##                 weekly audit stays strict on every cell.
+##                 FAIL, so they don't fail --strict. Square equal-power
+##                 misses below PR_SQUARE_FAIL WARN the same way; square
+##                 matchups at or above it and the power step still FAIL. On by
+##                 default when GITHUB_EVENT_NAME is "pull_request" (the PR
+##                 gate); the weekly audit stays strict on every cell.
 ##   --edge-strict edge cells FAIL as usual, even on a pull request
 ##   --arena=ID    arena from sim/arenas.gd, or "all" for every playable arena;
 ##                 non-square arenas also get a tilt check against the square
@@ -43,6 +44,9 @@ const Arenas := preload("res://sim/arenas.gd")
 
 ## Targets from BALANCE.md.
 const EQUAL_POWER_MAX := 0.65 ## No equal-power matchup above this.
+## On a PR (--edge-warn) a square equal-power miss only FAILs at this win rate
+## or more; below it, it's a WARN (audit FAIL) for the weekly audit to catch.
+const PR_SQUARE_FAIL := 0.80
 const POWER_STEP_MIN := 0.70 ## One power step up wins at least this into anything.
 const POWER_STEP := 1.25 ## One tier ~ +25% power (power-progression.md).
 const MEDIAN_LENGTH := [20.0, 60.0] ## Seconds.
@@ -62,9 +66,10 @@ const MATRIX_MAX := 16
 const SAMPLE_SIZE := 8
 
 var failures := 0
-## Edge cells (non-square arena or Chaos modifier) WARN instead of FAIL.
+## PR mode: edge cells (non-square arena or Chaos modifier) and square
+## equal-power misses under PR_SQUARE_FAIL WARN instead of FAIL.
 var edge_warn := OS.get_environment("GITHUB_EVENT_NAME") == "pull_request"
-## Edge-cell misses that would have been a FAIL under --edge-strict.
+## Soft misses that would have been a FAIL under --edge-strict.
 var edge_misses := 0
 var only := [] ## Empty: every pairing.
 ## Finished pairings, job key -> {wins, n, durations, timeouts}.
@@ -200,7 +205,7 @@ func _init() -> void:
 
 	var lines: Array[String] = []
 	if edge_warn:
-		lines.append("_Edge cells (other arenas, Chaos Weekend twists) report `WARN (audit FAIL)` instead of failing this run; the square matchups and power step still fail. The weekly Balance audit is strict on every cell (BALANCE.md)._")
+		lines.append("_Edge cells (other arenas, Chaos Weekend twists) and square equal-power misses under %d%% report `WARN (audit FAIL)` instead of failing this run; square matchups at %d%%+ and the power step still fail. The weekly Balance audit is strict on every cell (BALANCE.md)._" % [roundi(100 * PR_SQUARE_FAIL), roundi(100 * PR_SQUARE_FAIL)])
 		lines.append("")
 	if shard[1] > 1:
 		lines.append("_Shard %d of %d: checks below cover %d of this run's pairings._" % [shard[0], shard[1], results.size()])
@@ -224,7 +229,7 @@ func _init() -> void:
 				lines.append_array(_gear_lines(s))
 	if edge_misses > 0:
 		lines.append("")
-		lines.append("**Edge cells:** %d miss(es) reported as `WARN (audit FAIL)` above. They don't block this PR, but the weekly audit will fail on them: fix them in a follow-up." % edge_misses)
+		lines.append("**Soft misses:** %d reported as `WARN (audit FAIL)` above. They don't block this PR, but the weekly audit will fail on them: fix them in a follow-up." % edge_misses)
 	print("\n".join(lines))
 	quit(1 if strict and failures > 0 else 0)
 
@@ -366,7 +371,7 @@ func _equal_power(ids: Array, s: Dictionary) -> Array[String]:
 			var low := b if r >= 0.5 else a
 			var p := maxf(r, 1.0 - r)
 			if p > EQUAL_POWER_MAX:
-				flags.append(_flag(_lower_bound(p, s.fights * 2) > EQUAL_POWER_MAX, _is_edge(s),
+				flags.append(_flag(_lower_bound(p, s.fights * 2) > EQUAL_POWER_MAX, _is_edge(s) or p < PR_SQUARE_FAIL,
 					"%s beats %s %d%% at equal power (limit %d%%)" % [top, low, roundi(100 * p), roundi(100 * EQUAL_POWER_MAX)]))
 	flags.append_array(length_flags)
 	lines.append("**Checks:** " + ("all equal-power matchups within %d%%, fight length on target." % roundi(100 * EQUAL_POWER_MAX) if flags.is_empty() else ""))
@@ -645,10 +650,11 @@ static func _is_edge(s: Dictionary) -> bool:
 	return s.arena != "square" or s.modifier != Modifiers.NONE
 
 
-## FAIL when the miss is clear of sampling noise, WARN otherwise. An edge
-## cell under --edge-warn says WARN (audit FAIL) and doesn't count as a failure.
-func _flag(certain: bool, edge: bool, text: String) -> String:
-	if certain and edge and edge_warn:
+## FAIL when the miss is clear of sampling noise, WARN otherwise. A soft miss
+## (an edge cell, or a square one under PR_SQUARE_FAIL) under --edge-warn says
+## WARN (audit FAIL) and doesn't count as a failure.
+func _flag(certain: bool, soft: bool, text: String) -> String:
+	if certain and soft and edge_warn:
 		edge_misses += 1
 		return "WARN (audit FAIL): " + text
 	if certain:

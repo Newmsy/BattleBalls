@@ -12,7 +12,8 @@
 ## `boons` (optional, [[ids], [ids]]) gives each ball Bounce Run boons from
 ## sim/boons.gd.
 ## `fields: false` (optional) switches off every-tick abilities (fields like
-## Flux's), so Daily Trick Shot balls fly straight.
+## Flux's) and ability movement (teleports, charges, strings, yanks, gear
+## speed), so Daily Trick Shot balls fly straight.
 ## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
 ## `powers` (optional) are progression multipliers (sim/power.gd); 1.0 is a T1
 ## level 1 Common. `sizes` (optional) scale the radius (campaign bosses).
@@ -60,6 +61,13 @@ const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre l
 ## Vampire (11 points off the square); bumpers already add Laser bounces.
 const BUMPER_BOOST := 1.15
 const BUMPER_BOOST_TIME := 1.0 ## Seconds.
+## A blocking piece closer than this (plus its radius) to the arena's edge
+## snaps onto the edge (add_piece): a ball wedged in a narrower gap would
+## rattle between the two.
+const PIECE_WALL_GAP := 160.0
+## A blocking piece leaving a narrower gap than this to an arena obstacle
+## isn't placed (it may touch or overlap one: no gap, no wedge).
+const PIECE_OBSTACLE_GAP := 140.0
 ## Obstacles vanish once overtime has shrunk the arena below this share of its
 ## width, so the final squeeze is always a clean box.
 const OBSTACLE_MIN_SCALE := 0.7
@@ -75,6 +83,13 @@ const BACKSTAB_MULT := 1.3
 const BACKSTAB_ANGLE := 45.0
 ## Mixed into the fight seed for the per-hit roll stream.
 const ROLL_SALT := 0x2F6B3C1D
+## Statuses (roster.md): a stun (freeze) holds a ball still for at most
+## STUN_MAX seconds, then it can't be stunned again for STUN_IMMUNITY seconds,
+## so nothing chain-locks. Vulnerable makes a ball take more damage; all its
+## sources add up to at most VULNERABLE_CAP.
+const STUN_MAX := 0.6
+const STUN_IMMUNITY := 3.0
+const VULNERABLE_CAP := 0.5
 
 const START_CORNERS := [Vector2(170, 830), Vector2(830, 170)]
 const AIM_AT_CENTRE := [-450, 1350] ## Tenths of a degree from each corner.
@@ -102,8 +117,16 @@ class Ball:
 	var landed_hit := false
 	var banked := false ## Bounced off a wall since its last contact hit.
 	var boost_ticks := 0 ## Ticks of bumper speed boost left.
+	var charge_mult := 1.0 ## Speed multiplier while charging (see charge()).
+	var charge_ticks := 0 ## Ticks of charge left.
+	var slow_amount := 0.0 ## A timed slow (slow_for()), on top of zone slows.
+	var slow_until := -1
 	var fired := {} ## One-shot triggers already used (Abilities.tick_triggers).
 	var state := {} ## Per-ball ability state, e.g. a field's "pulling" (read by the renderer).
+	var stun_until := -1 ## Stunned (frozen in place) while tick < this.
+	var stun_immune_until := -1
+	## Timed statuses by key: {kind: "vulnerable" | "slow", amount, until (tick, exclusive), source}.
+	var statuses := {}
 	## Per-hit stats, from gear (sim/gear.gd).
 	var attack := 0.0
 	var defense := 0.0
@@ -119,7 +142,8 @@ class Ball:
 		return hp > 0.0
 
 	func current_speed() -> float:
-		return speed * BUMPER_BOOST if boost_ticks > 0 else speed
+		var v := speed * BUMPER_BOOST if boost_ticks > 0 else speed
+		return v * charge_mult if charge_ticks > 0 else v
 
 
 class Beam:
@@ -131,6 +155,8 @@ class Beam:
 	var damage: float
 	var cooldown_ticks: int
 	var last_hit_tick := {} ## target index -> tick of last hit
+	## Extra on each hit: vulnerable / vulnerable_secs, burn / burn_secs.
+	var on_hit := {}
 
 	func strength() -> float:
 		return clampf(1.0 - age / life, 0.0, 1.0)
@@ -152,10 +178,70 @@ class Zone:
 	var blast := 0.0
 	var blast_radius := 0.0
 	var chain := false ## A blast sets off the owner's other armed mines in reach.
+	var follow := -1 ## Ball index it rides on (a stink cloud, a clinging chill); -1 stays put.
+	var vulnerable := 0.0 ## Foes inside take this much more damage...
+	var vulnerable_linger := 0.0 ## ...until this many seconds after they leave.
+	var after := {} ## add_zone opts for a zone the blast leaves behind (Blizz's frost).
 	var next_hit := {} ## target index -> tick it may next take dps damage
 
 	func armed() -> bool:
 		return age >= arm
+
+
+## A projectile owned by a ball. A straight shot flies at a constant speed
+## (turning toward the nearest foe at `homing` radians a second when above 0)
+## and hits the first foe it touches; a lobbed shot (lob) flies over
+## everything from `from` to `land` in `flight` seconds and acts on landing.
+class Shot:
+	var owner: int
+	var kind: String ## For the renderer: "pea", "stinger", "pearl", "seed", "rocket", "shell", "blob"...
+	var pos: Vector2
+	var vel: Vector2
+	var radius := 10.0
+	var damage := 0.0
+	var life := 3.0
+	var age := 0.0
+	var homing := 0.0
+	var bounces := 0 ## Wall bounces left before it vanishes.
+	var split := 0 ## Splits into this many when it hits a wall with no bounces left.
+	var burn := 0.0 ## Burn per second on the struck foe, for 2s.
+	var knock := false ## Turns the struck foe to fly the shot's way.
+	var slow := 0.0 ## Slows the struck foe by this share for 1s.
+	var burst_radius := 0.0 ## A pulse when its life runs out, when above 0.
+	var burst_damage := 0.0
+	var lob := false
+	var from := Vector2.ZERO
+	var land := Vector2.ZERO
+	var flight := 1.0
+	var land_radius := 0.0 ## Landing pulse, when above 0.
+	var zone := {} ## add_zone opts for a puddle left where it lands.
+
+
+## A piece a critter places in the arena (batch H): Sprout's seed pillars,
+## Glacia's ice ring, Old Oak's roots, Foxfire's illusions. A blocking piece
+## is a solid round obstacle balls of both teams bounce off, once it has grown
+## (`grow` seconds) and no ball overlaps it, so it never shoves a ball out of
+## the way; bouncing off one isn't a wall bounce for abilities. A piece with
+## `vel` drifts and bounces off the arena's edge.
+## Effects in sim/abilities.gd decide what a piece does; the sim only moves,
+## blocks and expires it.
+class Piece:
+	var owner: int
+	var kind: String ## For the renderer and the owner's effects: "seed", "vine", "ice", "root", "illusion".
+	var pos: Vector2
+	var vel := Vector2.ZERO
+	var radius: float
+	var life: float
+	var age := 0.0
+	var grow := 0.0
+	var block := true ## Wants to block balls...
+	var blocking := false ## ...and does, once grown and clear of balls.
+	var damage := 0.0 ## Dealt to a foe of the owner that bounces off it.
+
+	## True on the piece's last tick, so its owner can act as it ends (the sim
+	## removes it right after "always" effects run).
+	func ending(dt: float) -> bool:
+		return age + dt >= life
 
 
 var config: Dictionary
@@ -170,6 +256,10 @@ var damage_rolls := true
 var balls: Array[Ball] = []
 var beams: Array[Beam] = []
 var zones: Array[Zone] = []
+## Strings tying a foe to a ball (tether()): {owner, target, length, until}.
+var tethers: Array[Dictionary] = []
+var shots: Array[Shot] = []
+var pieces: Array[Piece] = []
 var tick := 0
 var half_size := ARENA_SIZE / 2.0
 var centre := Vector2(ARENA_SIZE / 2.0, ARENA_SIZE / 2.0)
@@ -269,6 +359,9 @@ func obstacles() -> Array[Dictionary]:
 		return out
 	for o in arena.obstacles:
 		out.append({"pos": centre + (o.pos - centre) * k, "radius": o.radius * k, "kind": o.kind})
+	for p in pieces:
+		if p.blocking:
+			out.append({"pos": p.pos, "radius": p.radius, "kind": p.kind, "piece": p})
 	return out
 
 
@@ -314,12 +407,20 @@ func step() -> void:
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - overtime_start))
 
 	for b in balls:
-		b.slow = 0.0
+		b.slow = b.slow_amount if tick < b.slow_until else 0.0
+		if b.state.has("shot_slow"): # A slowing shot's hold (Shot.slow).
+			if tick < b.state.shot_slow.until:
+				b.slow = maxf(b.slow, b.state.shot_slow.amount)
+			else:
+				b.state.erase("shot_slow")
+		if not b.statuses.is_empty():
+			_update_statuses(b)
 	if config.get("fields", true):
 		for b in balls:
 			if b.alive():
 				abilities.fire(self, "always", b)
 	_update_zones()
+	_update_pieces()
 	_update_dots()
 	for b in balls:
 		if not b.mods.is_empty():
@@ -329,11 +430,20 @@ func step() -> void:
 			if b.boost_ticks > 0:
 				b.boost_ticks -= 1
 				if b.boost_ticks == 0:
-					b.vel = b.vel.normalized() * b.speed
-			b.pos += b.vel * DT * (1.0 - b.slow)
+					b.vel = b.vel.normalized() * b.current_speed()
+			if b.charge_ticks > 0:
+				b.charge_ticks -= 1
+				if b.charge_ticks == 0:
+					b.vel = b.vel.normalized() * b.current_speed()
+			if tick >= b.stun_until:
+				# A charge carries its own momentum: slows don't drag it.
+				b.pos += b.vel * DT * (1.0 - (b.slow if b.charge_ticks == 0 else 0.0))
 			_resolve_walls(b)
+	if not tethers.is_empty():
+		_update_tethers()
 	_resolve_ball_collisions(_hits)
 	_update_beams(_hits)
+	_update_shots()
 	_apply_hits(_hits)
 	# "fall" (e.g. a revive) only while a foe still stands: when both drop on
 	# the same tick the fight is already over, and the double-knockout rule
@@ -383,6 +493,12 @@ func state_hash() -> String:
 			data.append_array([b.index, b.shield, b.dots.size()])
 		if not b.base.is_empty(): # Only once a mod was used, so older goldens keep their hash.
 			data.append_array([b.index, b.radius, b.speed, b.contact_damage])
+		if b.stun_until >= 0 or not b.statuses.is_empty():
+			data.append_array([b.index, b.stun_until, vulnerable(b), status_amount(b, "slow")])
+	for s in shots:
+		data.append_array([s.pos.x, s.pos.y, s.vel.x, s.vel.y, s.age])
+	for p in pieces: # Empty unless a critter placed one, so older goldens keep their hash.
+		data.append_array([p.pos.x, p.pos.y, p.age, 1.0 if p.blocking else 0.0])
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(data.to_byte_array())
@@ -433,15 +549,29 @@ func _resolve_walls(b: Ball) -> void:
 				b.boost_ticks = int(round(BUMPER_BOOST_TIME * TICK_RATE))
 				b.vel = b.vel.normalized() * b.current_speed()
 				events.append({"type": "bumper", "ball": b.index, "pos": o.pos + n * o.radius})
-			_on_wall_bounce(b, o.pos + n * o.radius)
+			if o.has("piece"):
+				# A critter's piece isn't a wall for abilities: bounce-fed
+				# abilities (Optic's beams, Zip's speed-up) would farm the
+				# rattle of a ball lashed or ringed by one.
+				if o.piece.damage > 0.0 and balls[o.piece.owner].team != b.team:
+					deal(balls[o.piece.owner], b, o.piece.damage, "pillar", o.pos + n * o.radius)
+				events.append({"type": "bounce", "ball": b.index, "pos": o.pos + n * o.radius, "piece": true})
+				continue
+			_on_wall_bounce(b, o.pos + n * o.radius, true)
 
 
-func _on_wall_bounce(b: Ball, point: Vector2) -> void:
+## `obstacle`: it bounced off a pillar or bumper, not the arena's edge.
+func _on_wall_bounce(b: Ball, point: Vector2, obstacle := false) -> void:
 	events.append({"type": "bounce", "ball": b.index, "pos": point})
 	var slam: Dictionary = b.state.get("slam", {})
-	if not slam.is_empty() and tick <= slam.until:
+	# A slam with "walls_only" (Mammoth's) waits for the arena's edge.
+	if not slam.is_empty() and tick <= slam.until and not (obstacle and slam.get("walls_only", false)):
 		b.state.erase("slam")
 		deal(balls[slam.source], b, slam.damage, "slam", point)
+		if slam.get("stun", 0.0) > 0.0:
+			stun(balls[slam.source], b, slam.stun)
+		if slam.has("zone"):
+			add_zone(balls[slam.source], point, slam.zone)
 	b.banked = true
 	var bounce_heal: float = b.def.get("bounce_heal", 0.0)
 	if bounce_heal > 0.0:
@@ -465,8 +595,9 @@ func add_hit(source: Ball, target: Ball, amount: float, kind: String, pos: Vecto
 
 ## A beam from `a` to `b` owned by ball `owner`, using its beam_* params. Keeps
 ## at most beam_max of the owner's beams, dropping the oldest.
-## `opts` may override "life", "damage" and "cooldown" (seconds).
-func add_beam(owner: Ball, a: Vector2, b: Vector2, opts := {}) -> void:
+## `opts` may override "life", "damage" and "cooldown" (seconds), and add
+## "on_hit" (see Beam.on_hit). Returns the beam.
+func add_beam(owner: Ball, a: Vector2, b: Vector2, opts := {}) -> Beam:
 	var beam := Beam.new()
 	beam.owner = owner.index
 	beam.a = a
@@ -474,11 +605,13 @@ func add_beam(owner: Ball, a: Vector2, b: Vector2, opts := {}) -> void:
 	beam.life = opts.get("life", owner.def.get("beam_life", 1.0))
 	beam.damage = opts.get("damage", owner.def.get("beam_damage", 0.0))
 	beam.cooldown_ticks = int(round(opts.get("cooldown", owner.def.get("beam_hit_cooldown", 0.5)) * TICK_RATE))
+	beam.on_hit = opts.get("on_hit", {})
 	beams.append(beam)
 	var own_beams := beams.filter(func(x: Beam) -> bool: return x.owner == owner.index)
 	if own_beams.size() > owner.def.get("beam_max", 6):
 		beams.erase(own_beams[0])
 	events.append({"type": "beam", "owner": owner.index, "a": beam.a, "b": beam.b})
+	return beam
 
 
 func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
@@ -578,6 +711,12 @@ func _update_beams(hits: Array[Dictionary]) -> void:
 			if tick - last < beam.cooldown_ticks:
 				continue
 			beam.last_hit_tick[target.index] = tick
+			if not beam.on_hit.is_empty():
+				var owner := balls[beam.owner]
+				if beam.on_hit.get("vulnerable", 0.0) > 0.0:
+					add_status(owner, target, "beam:%d" % beam.owner, "vulnerable", beam.on_hit.vulnerable, beam.on_hit.vulnerable_secs)
+				if beam.on_hit.get("burn", 0.0) > 0.0:
+					add_burn(owner, target, beam.on_hit.burn, beam.on_hit.burn_secs)
 			hits.append({"source": beam.owner, "target": target.index, "amount": beam.damage, "kind": "beam", "pos": closest})
 
 
@@ -610,9 +749,14 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			amount *= source.crit_mult
 		if backstab:
 			amount *= BACKSTAB_MULT
-		var guard := {"source": source, "kind": h.kind, "mult": 1.0}
+		var guard := {"source": source, "kind": h.kind, "mult": 1.0, "amount": amount}
 		abilities.fire(self, "guard", target, guard)
 		amount *= guard.mult
+		if not target.statuses.is_empty():
+			amount *= 1.0 + vulnerable(target)
+		if amount <= 0.0: # Soaked whole (a bubble).
+			events.append({"type": "shielded", "target": h.target, "pos": h.pos})
+			continue
 		if target.shield > 0.0:
 			var absorbed := minf(target.shield, amount)
 			target.shield -= absorbed
@@ -763,7 +907,8 @@ func nearest_foe(b: Ball) -> Ball:
 
 
 ## A floor zone owned by `owner`. `opts`: kind, radius, life, arm, slow, dps,
-## blast, blast_radius, chain. Returns it.
+## blast, blast_radius, chain, follow (a ball index), vulnerable,
+## vulnerable_linger, after. Returns it.
 func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 	var z := Zone.new()
 	z.owner = owner.index
@@ -777,6 +922,12 @@ func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 	z.blast = opts.get("blast", 0.0)
 	z.blast_radius = opts.get("blast_radius", z.radius)
 	z.chain = opts.get("chain", false)
+	z.follow = opts.get("follow", -1)
+	if z.follow >= 0:
+		z.pos = balls[z.follow].pos
+	z.vulnerable = opts.get("vulnerable", 0.0)
+	z.vulnerable_linger = opts.get("vulnerable_linger", 0.0)
+	z.after = opts.get("after", {})
 	zones.append(z)
 	return z
 
@@ -805,6 +956,18 @@ func pulse(owner: Ball, pos: Vector2, radius: float, damage: float, knock := fal
 			o.vel = d.normalized() * o.speed
 
 
+## Wind: turns every foe of `owner` within `reach` of `pos` away from it, at
+## `accel` (units/s^2) next to `pos`, fading to 0 at the edge of `reach`.
+## Like steer(), it bends a ball's path and keeps its speed.
+func push_away(owner: Ball, pos: Vector2, reach: float, accel: float) -> void:
+	for o in foes(owner):
+		var d := o.pos - pos
+		var dist := d.length()
+		if dist < 0.001 or dist >= reach:
+			continue
+		steer(o, d / dist * accel * (1.0 - dist / reach))
+
+
 func _update_zones() -> void:
 	if zones.is_empty():
 		return
@@ -817,6 +980,8 @@ func _update_zones() -> void:
 		if z.age >= z.life:
 			zones.erase(z)
 			continue
+		if z.follow >= 0:
+			z.pos = balls[z.follow].pos
 		if not z.armed():
 			continue
 		var owner := balls[z.owner]
@@ -829,6 +994,8 @@ func _update_zones() -> void:
 				_explode(z)
 				break
 			o.slow = maxf(o.slow, z.slow)
+			if z.vulnerable > 0.0:
+				add_status(owner, o, "zone:%d" % z.owner, "vulnerable", z.vulnerable, DT + z.vulnerable_linger)
 			if z.dps > 0.0 and tick >= int(z.next_hit.get(o.index, 0)):
 				z.next_hit[o.index] = tick + half
 				deal(owner, o, z.dps * 0.5, z.kind, z.pos)
@@ -841,6 +1008,8 @@ func _explode(z: Zone) -> void:
 	for o in foes(owner):
 		if o.pos.distance_to(z.pos) <= z.blast_radius + o.radius:
 			deal(owner, o, z.blast, "mine", z.pos)
+	if not z.after.is_empty():
+		add_zone(owner, z.pos, z.after)
 	if z.chain:
 		for other in zones.duplicate():
 			if other.owner == z.owner and other.blast > 0.0 and other.armed() and zones.has(other) and other.pos.distance_to(z.pos) <= z.blast_radius * 2.0:
@@ -857,3 +1026,419 @@ func _update_dots() -> void:
 			elif tick >= d.next:
 				d.next = tick + TICK_RATE / 2
 				deal(balls[d.source], b, d.dps * 0.5, "burn")
+
+
+## A straight (or homing) shot owned by `owner`, flying from `pos` with
+## velocity `vel`. `opts` sets any Shot field by name (kind, radius, damage,
+## life, homing, bounces, split, burn, knock, slow, burst_radius, burst_damage).
+## Emits "shot". Returns it.
+func add_shot(owner: Ball, pos: Vector2, vel: Vector2, opts := {}) -> Shot:
+	var s := Shot.new()
+	s.owner = owner.index
+	s.pos = pos
+	s.vel = vel
+	for key in opts:
+		s.set(key, opts[key])
+	shots.append(s)
+	events.append({"type": "shot", "ball": owner.index, "pos": pos, "kind": s.kind})
+	return s
+
+
+## A lobbed shot from `owner` landing at `to` (kept inside the arena) after
+## `flight` seconds. On landing it pulses land_radius for `damage` (knocking
+## when `knock`) and leaves `zone` (add_zone opts) when given. Emits "shot".
+func add_lob(owner: Ball, to: Vector2, flight: float, opts := {}) -> Shot:
+	var r := arena_rect().grow(-20.0)
+	var s := add_shot(owner, owner.pos, Vector2.ZERO, opts)
+	s.lob = true
+	s.from = owner.pos
+	s.land = to.clamp(r.position, r.end)
+	s.flight = flight
+	s.life = flight
+	return s
+
+
+func _update_shots() -> void:
+	if shots.is_empty():
+		return
+	for s in shots.duplicate():
+		s.age += DT
+		var owner := balls[s.owner]
+		if s.lob:
+			s.pos = s.from.lerp(s.land, minf(1.0, s.age / s.flight))
+			if s.age >= s.flight:
+				shots.erase(s)
+				if s.land_radius > 0.0:
+					pulse(owner, s.land, s.land_radius, s.damage, s.knock, s.kind)
+				if not s.zone.is_empty():
+					add_zone(owner, s.land, s.zone)
+			continue
+		if s.age >= s.life:
+			shots.erase(s)
+			if s.burst_radius > 0.0:
+				pulse(owner, s.pos, s.burst_radius, s.burst_damage, false, "pulse")
+			continue
+		if s.homing > 0.0:
+			var target: Ball = null
+			for o in foes(owner):
+				if target == null or s.pos.distance_squared_to(o.pos) < s.pos.distance_squared_to(target.pos):
+					target = o
+			if target != null:
+				var turn := clampf(s.vel.angle_to(target.pos - s.pos), -s.homing * DT, s.homing * DT)
+				s.vel = s.vel.rotated(turn)
+		s.pos += s.vel * DT
+		var struck := false
+		for o in foes(owner):
+			if s.pos.distance_to(o.pos) > o.radius + s.radius:
+				continue
+			struck = true
+			deal(owner, o, s.damage, "shot", s.pos)
+			if s.burn > 0.0:
+				add_burn(owner, o, s.burn, 2.0)
+			if s.knock and s.vel.length() > 0.001:
+				o.vel = s.vel.normalized() * o.speed
+			if s.slow > 0.0:
+				o.state.shot_slow = {"amount": s.slow, "until": tick + TICK_RATE}
+			break
+		if struck:
+			shots.erase(s)
+		elif _shot_walls(s):
+			if s.bounces > 0:
+				s.bounces -= 1
+			else:
+				shots.erase(s)
+				events.append({"type": "shot_pop", "ball": s.owner, "pos": s.pos, "kind": s.kind})
+				for k in s.split:
+					var dir: Vector2 = s.vel.rotated(deg_to_rad(30.0 * (k - (s.split - 1) / 2.0)))
+					add_shot(owner, s.pos, dir, {"kind": s.kind, "radius": s.radius * 0.7, "damage": s.damage * 0.5,
+						"life": 1.5, "burn": s.burn, "slow": s.slow})
+
+
+## Where ball `b` will be in `secs` if nothing but walls and obstacles turn
+## it (no other balls, no steering). Changes nothing.
+func predict(b: Ball, secs: float) -> Vector2:
+	var s := Shot.new()
+	s.pos = b.pos
+	s.vel = b.vel
+	s.radius = b.radius
+	for i in int(round(secs * TICK_RATE)):
+		s.pos += s.vel * DT
+		_shot_walls(s)
+	return s.pos
+
+
+## Bounces a shot off the walls, cut corners and obstacles; true if it hit one.
+func _shot_walls(s: Shot) -> bool:
+	var hit := false
+	var r := arena_rect()
+	if (s.pos.x - s.radius < r.position.x and s.vel.x < 0.0) or (s.pos.x + s.radius > r.end.x and s.vel.x > 0.0):
+		s.vel.x = -s.vel.x
+		hit = true
+	if (s.pos.y - s.radius < r.position.y and s.vel.y < 0.0) or (s.pos.y + s.radius > r.end.y and s.vel.y > 0.0):
+		s.vel.y = -s.vel.y
+		hit = true
+	s.pos = s.pos.clamp(r.position + Vector2.ONE * s.radius, r.end - Vector2.ONE * s.radius)
+	for wall in corner_walls():
+		var n: Vector2 = wall[0]
+		if n.dot(s.pos - centre) + wall[1] < s.radius and s.vel.dot(n) < 0.0:
+			s.vel -= 2.0 * s.vel.dot(n) * n
+			hit = true
+	for o in obstacles():
+		var delta: Vector2 = s.pos - o.pos
+		if delta.length() < s.radius + o.radius and delta.length() > 0.0001:
+			var n := delta.normalized()
+			if s.vel.dot(n) < 0.0:
+				s.vel -= 2.0 * s.vel.dot(n) * n
+				hit = true
+	return hit
+
+
+# --- Statuses: stun (freeze), vulnerable, timed slow ---------------------------
+
+func stunned(b: Ball) -> bool:
+	return tick < b.stun_until
+
+
+## Freezes `target` in place for `secs` (at most STUN_MAX). Does nothing while
+## it is already stunned or in its STUN_IMMUNITY window. Returns whether it
+## took. Emits "stun".
+func stun(source: Ball, target: Ball, secs: float) -> bool:
+	if not target.alive() or tick < target.stun_immune_until:
+		return false
+	target.stun_until = tick + maxi(1, int(round(minf(secs, STUN_MAX) * TICK_RATE)))
+	target.stun_immune_until = target.stun_until + int(round(STUN_IMMUNITY * TICK_RATE))
+	target.state.stun_source = source.index
+	events.append({"type": "stun", "ball": target.index, "source": source.index, "pos": target.pos, "secs": minf(secs, STUN_MAX)})
+	return true
+
+
+## Sets the timed status `key` on `target` (kind "vulnerable": takes `amount`
+## more damage; "slow": loses `amount` of its movement) for `secs`, replacing
+## whatever that key held. Effects that stack read status() first.
+func add_status(source: Ball, target: Ball, key: String, kind: String, amount: float, secs: float) -> void:
+	target.statuses[key] = {"kind": kind, "amount": amount, "until": tick + maxi(1, int(round(secs * TICK_RATE))), "source": source.index}
+
+
+## The live status under `key`, or an empty dictionary.
+func status(b: Ball, key: String) -> Dictionary:
+	var st: Dictionary = b.statuses.get(key, {})
+	return st if not st.is_empty() and tick < st.until else {}
+
+
+func clear_status(b: Ball, key: String) -> void:
+	b.statuses.erase(key)
+
+
+## Extra damage share `b` takes: its vulnerable statuses added up, capped.
+func vulnerable(b: Ball) -> float:
+	return minf(status_amount(b, "vulnerable"), VULNERABLE_CAP)
+
+
+## Sum of `b`'s live statuses of `kind` ("slow" takes the strongest).
+func status_amount(b: Ball, kind: String) -> float:
+	var total := 0.0
+	for key in b.statuses:
+		var st: Dictionary = b.statuses[key]
+		if st.kind == kind and tick < st.until:
+			total = maxf(total, st.amount) if kind == "slow" else total + st.amount
+	return total
+
+
+## Drops expired statuses and applies timed slows (zones may slow it more).
+func _update_statuses(b: Ball) -> void:
+	for key in b.statuses.keys():
+		if tick >= b.statuses[key].until:
+			b.statuses.erase(key)
+	b.slow = maxf(b.slow, status_amount(b, "slow"))
+
+
+# --- Movement: teleport, charge, tether (critter batch F) ---------------------
+
+## False when the fight is a Trick Shot (`fields: false`): balls fly straight.
+func ability_moves() -> bool:
+	return config.get("fields", true)
+
+
+## Moves `b` straight to `to`, keeping its heading. Emits "teleport".
+func teleport(b: Ball, to: Vector2) -> void:
+	if not ability_moves():
+		return
+	events.append({"type": "teleport", "ball": b.index, "from": b.pos, "to": to})
+	b.pos = to
+
+
+## A seeded open spot for `b` at least `min_dist` from `away`: inside the
+## walls, clear of obstacles and other balls. Falls back to the farthest of
+## its tries when none is that far.
+func teleport_spot(b: Ball, away: Vector2, min_dist: float) -> Vector2:
+	var r := arena_rect().grow(-(b.radius + 10.0))
+	var best := b.pos
+	var best_dist := -1.0
+	for i in 24:
+		var p := Vector2(lerpf(r.position.x, r.end.x, rng.next_float()), lerpf(r.position.y, r.end.y, rng.next_float()))
+		if not _open_spot(b, p):
+			continue
+		var d := p.distance_to(away)
+		if d >= min_dist:
+			return p
+		if d > best_dist:
+			best = p
+			best_dist = d
+	return best
+
+
+func _open_spot(b: Ball, p: Vector2) -> bool:
+	for wall in corner_walls():
+		if wall[0].dot(p - centre) + wall[1] < b.radius + 10.0:
+			return false
+	for o in obstacles():
+		if p.distance_to(o.pos) < o.radius + b.radius + 10.0:
+			return false
+	for o in balls:
+		if o != b and o.alive() and p.distance_to(o.pos) < o.radius + b.radius + 20.0:
+			return false
+	return true
+
+
+## Launches `b` along `dir` at `mult` x its speed for `secs`; it keeps the
+## extra speed through bounces until the charge runs out, and slows don't
+## hold it back meanwhile. Emits "charge".
+func charge(b: Ball, dir: Vector2, mult: float, secs: float) -> void:
+	if dir.length() < 0.001 or not ability_moves():
+		return
+	b.charge_mult = mult
+	b.charge_ticks = maxi(1, int(round(secs * TICK_RATE)))
+	b.vel = dir.normalized() * b.current_speed()
+	events.append({"type": "charge", "ball": b.index, "pos": b.pos, "dir": dir.normalized()})
+
+
+func charging(b: Ball) -> bool:
+	return b.charge_ticks > 0
+
+
+## Ends a charge early (back to normal speed).
+func end_charge(b: Ball) -> void:
+	if b.charge_ticks > 0:
+		b.charge_ticks = 0
+		if b.vel.length() > 0.001:
+			b.vel = b.vel.normalized() * b.current_speed()
+
+
+## Puts a ball moved by an effect back inside the walls (bouncing as usual).
+func keep_inside(b: Ball) -> void:
+	_resolve_walls(b)
+
+
+## Slows `target` by `amount` (0-1) for `secs`. A stronger or longer slow
+## already on it is kept.
+func slow_for(target: Ball, amount: float, secs: float) -> void:
+	var until := tick + int(round(secs * TICK_RATE))
+	if tick >= target.slow_until:
+		target.slow_amount = 0.0
+	target.slow_amount = maxf(target.slow_amount, amount)
+	target.slow_until = maxi(target.slow_until, until)
+
+
+## Ties `target` to `owner` for `secs`: the gap between them can't grow past
+## `length`, so the target is dragged along behind, and it can't charge
+## while tied. Emits "tether".
+func tether(owner: Ball, target: Ball, length: float, secs: float) -> void:
+	if not ability_moves():
+		return
+	tethers = tethers.filter(func(t): return t.owner != owner.index)
+	tethers.append({"owner": owner.index, "target": target.index, "length": length, "until": tick + int(round(secs * TICK_RATE))})
+	events.append({"type": "tether", "ball": owner.index, "target": target.index, "pos": target.pos})
+
+
+## The string held by `owner`, or an empty dictionary.
+func tether_of(owner: Ball) -> Dictionary:
+	for t in tethers:
+		if t.owner == owner.index:
+			return t
+	return {}
+
+
+func _update_tethers() -> void:
+	for t in tethers.duplicate():
+		var o := balls[t.owner]
+		var f := balls[t.target]
+		if tick > t.until or not o.alive() or not f.alive():
+			tethers.erase(t)
+			events.append({"type": "tether_end", "ball": t.owner, "target": t.target, "pos": f.pos})
+			continue
+		end_charge(f) # A tied ball can't charge or pounce.
+		var reach: float = o.radius + f.radius + t.length
+		var d := f.pos - o.pos
+		var dist := d.length()
+		if dist <= reach or dist < 0.001:
+			continue
+		var n := d / dist
+		f.pos = o.pos + n * reach
+		# Drop the part of its heading that pulls away from the string.
+		var out := f.vel.dot(n)
+		if out > 0.0:
+			f.vel -= n * out
+		f.vel = f.vel.normalized() * f.current_speed() if f.vel.length() > 0.001 else -n * f.current_speed()
+		_resolve_walls(f)
+
+
+## A piece (see Piece) owned by `owner` at `pos`. `opts`: kind, radius, life,
+## grow, block, vel, damage. A blocking piece whose gap to the arena's edge
+## would be narrower than a ball snaps onto the edge instead, so no ball gets
+## wedged behind it; one that would leave such a gap to an arena obstacle
+## isn't placed. Returns it, or null when not placed, or once overtime has
+## shrunk the arena below OBSTACLE_MIN_SCALE (blocking pieces only: the final
+## squeeze stays a clean box).
+func add_piece(owner: Ball, pos: Vector2, opts: Dictionary) -> Piece:
+	var p := Piece.new()
+	p.owner = owner.index
+	p.kind = opts.get("kind", "pillar")
+	p.radius = opts.get("radius", 30.0)
+	p.life = opts.get("life", 3.0)
+	p.grow = opts.get("grow", 0.0)
+	p.block = opts.get("block", true)
+	p.vel = opts.get("vel", Vector2.ZERO)
+	p.damage = opts.get("damage", 0.0)
+	var r := arena_rect()
+	if p.block:
+		if arena_scale() < OBSTACLE_MIN_SCALE:
+			return null
+		var gap := PIECE_WALL_GAP + p.radius
+		pos = pos.clamp(r.position, r.end)
+		for axis in 2:
+			if pos[axis] - r.position[axis] < gap:
+				pos[axis] = r.position[axis]
+			elif r.end[axis] - pos[axis] < gap:
+				pos[axis] = r.end[axis]
+		for wall in corner_walls(): # The same onto a cut corner.
+			var d: float = wall[0].dot(pos - centre) + wall[1]
+			if d < gap:
+				pos -= wall[0] * d
+		for o in obstacles():
+			var surface_gap: float = pos.distance_to(o.pos) - o.radius - p.radius
+			if not o.has("piece") and surface_gap > 0.0 and surface_gap < PIECE_OBSTACLE_GAP:
+				return null
+	else:
+		pos = inside(pos, p.radius)
+	p.pos = pos
+	pieces.append(p)
+	events.append({"type": "piece", "ball": owner.index, "kind": p.kind, "pos": p.pos, "radius": p.radius})
+	return p
+
+
+## `pos` moved just far enough to sit at least `margin` inside the arena's
+## walls (cut corners included).
+func inside(pos: Vector2, margin: float) -> Vector2:
+	var r := arena_rect()
+	pos = pos.clamp(r.position + Vector2.ONE * margin, r.end - Vector2.ONE * margin)
+	for wall in corner_walls():
+		var d: float = wall[0].dot(pos - centre) + wall[1]
+		if d < margin:
+			pos += wall[0] * (margin - d)
+	return pos
+
+
+## Ages, moves and expires pieces; a blocking piece starts blocking once grown
+## and clear of every ball.
+func _update_pieces() -> void:
+	if pieces.is_empty():
+		return
+	var r := arena_rect()
+	var squeezed := arena_scale() < OBSTACLE_MIN_SCALE
+	for p in pieces.duplicate():
+		p.age += DT
+		if p.age >= p.life or (p.block and (squeezed or not r.grow(1.0).has_point(p.pos))):
+			pieces.erase(p)
+			continue
+		if p.vel != Vector2.ZERO:
+			p.pos += p.vel * DT
+			for axis in 2:
+				if p.pos[axis] - p.radius < r.position[axis]:
+					p.pos[axis] = r.position[axis] + p.radius
+					p.vel[axis] = absf(p.vel[axis])
+				elif p.pos[axis] + p.radius > r.end[axis]:
+					p.pos[axis] = r.end[axis] - p.radius
+					p.vel[axis] = -absf(p.vel[axis])
+			for wall in corner_walls():
+				var n: Vector2 = wall[0]
+				var d: float = n.dot(p.pos - centre) + wall[1]
+				if d < p.radius:
+					p.pos += n * (p.radius - d)
+					if p.vel.dot(n) < 0.0:
+						p.vel -= 2.0 * p.vel.dot(n) * n
+		if p.block and not p.blocking and p.age >= p.grow:
+			var clear := true
+			for b in balls:
+				if b.alive() and b.pos.distance_to(p.pos) < b.radius + p.radius:
+					clear = false
+					break
+			p.blocking = clear
+
+
+## Pieces owned by `owner` of `kind` ("" for any).
+func pieces_of(owner: Ball, kind := "") -> Array[Piece]:
+	var out: Array[Piece] = []
+	for p in pieces:
+		if p.owner == owner.index and (kind == "" or p.kind == kind):
+			out.append(p)
+	return out
