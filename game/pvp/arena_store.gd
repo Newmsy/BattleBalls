@@ -8,6 +8,7 @@ extends RefCounted
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Lineup := preload("res://sim/lineup.gd")
 
 const SAVE_PATH := "user://ghost_arena.cfg"
 const HISTORY_SIZE := 10
@@ -26,8 +27,10 @@ var refreshes := 0
 var wins := 0
 var losses := 0
 var history: Array = [] ## Newest first: {name, card, won, delta}
-## The attack in progress: {card, bot_id, seed}. A started attack is a spent
-## attack, so one left unfinished counts as a loss next time the Arena opens.
+## The attack in progress: {card, bot_id, seed, slots}. `slots` freezes the
+## trio as it fought (sim/lineup.gd), so the attack replays from it. A
+## started attack is a spent attack, so one left unfinished counts as a loss
+## next time the Arena opens.
 var pending: Dictionary = {}
 
 
@@ -84,17 +87,29 @@ func fit_to(owned: Array) -> bool:
 	return changed
 
 
+## The trio as lineup slots (sim/lineup.gd): each critter at the tier, level
+## and gear the player owns it with (Profile.slot_of). Without a profile, or
+## for a critter not owned, a bare T1.
+func slots(profile = null) -> Array:
+	var out: Array = []
+	for id in trio:
+		var s: Dictionary = profile.slot_of(id) if profile != null else {}
+		out.append(s if not s.is_empty() else Lineup.make(id))
+	return out
+
+
 ## The trio as a lineup in the backend's v1 shape, plus per-slot shots.
-func lineup() -> Dictionary:
-	var slots: Array = []
-	for i in trio.size():
-		slots.append({"critter": trio[i], "tier": 1, "level": 1, "gear": {}, "aim": shots[i]})
-	return {"v": 1, "slots": slots, "aim": shots.duplicate()}
+func lineup(profile = null) -> Dictionary:
+	var out: Array = slots(profile)
+	for i in out.size():
+		out[i].aim = shots[i]
+	return {"v": 1, "slots": out, "aim": shots.duplicate()}
 
 
-func start_attack(card: String, bot_id: String, seed_value: int) -> void:
+func start_attack(card: String, bot_id: String, seed_value: int, attack_slots: Array = []) -> void:
 	settle_abandoned()
-	pending = {"card": card, "bot_id": bot_id, "seed": seed_value}
+	pending = {"card": card, "bot_id": bot_id, "seed": seed_value,
+		"slots": attack_slots if not attack_slots.is_empty() else slots()}
 	save()
 
 

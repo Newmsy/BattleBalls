@@ -30,6 +30,7 @@ godot --headless --script res://tools/record_golden.gd      # only for intended 
 godot --headless --script res://tools/spire_curve.gd        # The Spire's floor power curve
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
+node screens.mjs ../build/web out-dir                       # every home screen, 2 phone sizes, normal + Larger text
 DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS tests on an empty Postgres
 ```
 
@@ -293,6 +294,28 @@ relays take `gear[side][slot]`, each a list of pieces or summed stat lines.
 `sim/gear.gd` holds the seven lines (attack, health, defense, speed, crit
 chance, crit damage, cooldown speed), their per-rarity values and caps.
 `balance.gd --gear` checks the lines stay worth about the same.
+
+## Collection battles: owned critters fight as owned
+
+Every progression mode fights with the critters the player owns, at their
+best tier and level and with the gear they wear: the campaign, Ghost Arena
+(attack and the published defence) and the Spire. `sim/lineup.gd` is the one
+place that turns a lineup slot `{critter, tier, level, gear}` into fight setup
+(tier ability upgrades, the `sim/power.gd` multiplier, gear stat lines), with
+everything clamped to the rules so a tampered ghost can't field a T9.
+`Profile.slot_of(id)` gives an owned critter's slot. The slot is stored with
+the fight (campaign config, `ArenaStore.pending.slots`, Spire picks), so it
+still replays from setup, seed and launch angles.
+
+Gear pieces in the save carry `stats` (sim/gear.gd lines) and a `text` that
+says exactly what they do; older pieces get their name's line on load
+(`Profile.GEAR_LINES`). The Power Rating on screen still counts +4% per piece.
+
+Practice modes stay open to every critter: Quick fight, share links and
+friend challenges, Rival rematches, Trick Shot, Bounce Run's drafted cards
+and Bracket picks. Arena Ghost bots grow with the ladder (T1 below 1200
+trophies up to T5 from 4800; Bronze ghosts bring only Commons and Uncommons),
+so ranked stays a fair climb once tiers count.
 
 ## Rules for changes
 

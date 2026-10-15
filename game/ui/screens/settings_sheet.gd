@@ -1,5 +1,5 @@
-## Settings sheet behind the gear in the top bar: the accessibility options
-## from game/a11y.gd. Each switch says ON or OFF in words, not just colour.
+## Settings sheet behind the gear in the top bar: sound and the accessibility
+## options from game/a11y.gd. Each switch says ON or OFF in words, not just colour.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -19,6 +19,8 @@ static func open(shell) -> void:
 
 static func build(shell) -> Control:
 	var v := Kit.vbox(22, [Kit.label("Settings", 40)])
+	if shell.sfx != null:
+		v.add_child(_sound_row(shell))
 	for o in OPTIONS:
 		v.add_child(_row(shell, o[0], o[1], o[2]))
 	v.add_child(_stats_row(shell))
@@ -26,10 +28,25 @@ static func build(shell) -> Control:
 	# The sheet measures itself before layout, so wrapped text needs a real width.
 	note.custom_minimum_size.x = 600
 	v.add_child(note)
-	var clear := Control.new() ## Room for the sound toggle in the corner.
-	clear.custom_minimum_size.y = 40
-	v.add_child(clear)
 	return v
+
+
+## Sound: all, effects only (music off), or off. The same switch as the
+## corner toggle in fights.
+static func _sound_row(shell) -> Control:
+	var sfx = shell.sfx
+	var words: Dictionary = {"all": "On", "sfx": "No music", "off": "Off"}
+	var sw := Kit.button(words[sfx.mode], func():
+		sfx.cycle_mode()
+		open(shell), "go" if sfx.mode != "off" else "ghost", 24, 72)
+	sw.custom_minimum_size.x = 170
+	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
+	shell.mark("sound_mode", sw)
+	var desc := Kit.label("Music and sound effects, effects only, or silent.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+	desc.custom_minimum_size.x = 400
+	var text := Kit.vbox(4, [Kit.label("Sound", 30), desc])
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return Kit.hbox(16, [text, sw])
 
 
 static func _row(shell, key: String, title: String, text: String) -> Control:

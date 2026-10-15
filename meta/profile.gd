@@ -9,6 +9,8 @@ extends RefCounted
 
 const Roster := preload("res://game/ui/roster.gd")
 const Power := preload("res://sim/power.gd")
+const Gear := preload("res://sim/gear.gd")
+const Lineup := preload("res://sim/lineup.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 
 signal changed
@@ -20,6 +22,12 @@ const ENERGY_PACK := 30
 const STARTER := "vampire"
 const STARTER_ORBS := 10
 const PITY_START := 50 ## Matches Summon.PITY_RESET.
+## The stat line a named piece fights with, for pieces saved before gear had
+## stats. Anything else gets its slot's line: Shells guard, Cores hit.
+const GEAR_LINES := {"Iron Shell": "defense", "Spiked Shell": "defense", "Spire Shell": "defense",
+	"Rubber Shell": "speed", "Leech Core": "health", "Overclock Core": "cooldown", "Spire Core": "cooldown",
+	"Summit Core": "attack", "Echo Core": "crit_chance"}
+const SLOT_LINES := {"Shell": "health", "Core": "attack"}
 
 var account_level := 1
 var account_xp := 0
@@ -34,7 +42,9 @@ var seen: Dictionary = {}
 ## One entry per (type, tier): {id, tier, count, level, xp}. The copies in a
 ## stack share its level; fusing 3 makes one copy of the next tier's stack.
 var stacks: Array[Dictionary] = []
-## Gear pieces: {uid, name, slot ("Shell"/"Core"), rarity, text, on (critter id or "")}.
+## Gear pieces: {uid, name, slot ("Shell"/"Core"), rarity, stats, text, on
+## (critter id or "")}. `stats` are the sim/gear.gd lines the piece fights
+## with; `text` describes them.
 var gear: Array[Dictionary] = []
 ## Consumables: {name, count, text, color}.
 var items: Array[Dictionary] = []
@@ -123,6 +133,16 @@ func fight_power(id: String) -> float:
 	return Power.multiplier(Roster.get_critter(id).rarity, b.tier, b.level) * (1.0 + Power.GEAR_STEP * gear_on(id).size())
 
 
+## The critter's best stack as a lineup slot (sim/lineup.gd): what it brings
+## to a progression fight. Empty when the player doesn't own it.
+func slot_of(id: String) -> Dictionary:
+	var b := best(id)
+	if b.is_empty():
+		return {}
+	var pieces: Array = gear_on(id).map(func(g): return gear_piece(g))
+	return Lineup.make(id, b.tier, b.level, pieces)
+
+
 func found_count() -> int:
 	var n := 0
 	for id in Roster.ids():
@@ -181,6 +201,39 @@ func set_lineup(id: String) -> void:
 	if owns(id):
 		lineup = id
 		changed.emit()
+
+
+## Adds an unequipped piece and returns it. Without `stats` it fights with
+## its name's (or slot's) main line at its rarity.
+func add_gear(name: String, slot: String, rarity: String, stats := {}) -> Dictionary:
+	var uid := 1
+	for g in gear:
+		uid = maxi(uid, int(g.uid) + 1)
+	var piece := gear_piece({"uid": uid, "name": name, "slot": slot, "rarity": rarity, "stats": stats, "on": ""})
+	gear.append(piece)
+	changed.emit()
+	return piece
+
+
+## A gear piece with its stat lines filled in (and its text saying what they
+## do), from a saved or hand-written piece.
+static func gear_piece(g: Dictionary) -> Dictionary:
+	var stats := {}
+	var saved = g.get("stats", {})
+	if saved is Dictionary:
+		for line in saved:
+			if Gear.LINES.has(line):
+				stats[line] = float(saved[line])
+	if stats.is_empty():
+		var line: String = GEAR_LINES.get(str(g.name), SLOT_LINES.get(str(g.slot), "health"))
+		stats[line] = roundf(Gear.value(line, str(g.rarity)) * 1000.0) / 1000.0
+	return {"uid": int(g.uid), "name": str(g.name), "slot": str(g.slot), "rarity": str(g.rarity), "stats": stats,
+		"text": _gear_text(stats), "on": str(g.get("on", ""))}
+
+
+static func _gear_text(stats: Dictionary) -> String:
+	var t := Gear.describe(stats)
+	return t.left(1).to_upper() + t.substr(1)
 
 
 ## Put a gear piece on a critter, replacing whatever it wore in that slot.
@@ -369,7 +422,7 @@ static func from_dict(d: Dictionary, now: int):
 		p.stacks.append({"id": str(s.id), "tier": int(s.tier), "count": int(s.count), "level": int(s.level), "xp": int(s.get("xp", 0))})
 	p.gear.clear()
 	for g in d.get("gear", []):
-		p.gear.append({"uid": int(g.uid), "name": str(g.name), "slot": str(g.slot), "rarity": str(g.rarity), "text": str(g.text), "on": str(g.on)})
+		p.gear.append(gear_piece(g))
 	if d.has("items"):
 		p.items.clear()
 		for i in d.items:

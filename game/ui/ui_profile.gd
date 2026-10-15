@@ -25,7 +25,7 @@ static func sample():
 		{"uid": 5, "name": "Iron Shell", "slot": "Shell", "rarity": "common", "text": "Take 2 less damage per hit", "on": ""},
 		{"uid": 6, "name": "Spiked Shell", "slot": "Shell", "rarity": "rare", "text": "Take 1 less damage; attackers take 2", "on": ""},
 		{"uid": 7, "name": "Echo Core", "slot": "Core", "rarity": "legendary", "text": "8% chance the ability fires twice", "on": ""},
-	])
+	].map(func(g): return gear_piece(g)))
 	p.items.assign([
 		{"name": "Energy Pack", "count": 3, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
 		{"name": "XP Chip", "count": 12, "text": "+200 XP to one critter.", "color": Color("45f5a6")},

@@ -58,6 +58,7 @@ func test_settings_sheet_builds() -> void:
 	var shell = Shell.new()
 	shell.build()
 	var sheet: Control = SettingsSheet.build(shell)
-	check(sheet.get_child_count() == SettingsSheet.OPTIONS.size() + 4, "title, a row per option, play stats, the note and a spacer")
+	# No sound row here: tests have no sfx (main.gd sets shell.sfx).
+	check(sheet.get_child_count() == SettingsSheet.OPTIONS.size() + 3, "title, a row per option, play stats and the note")
 	sheet.free()
 	shell.free()
