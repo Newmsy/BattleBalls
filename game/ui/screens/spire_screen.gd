@@ -14,10 +14,12 @@ const SpireClimb := preload("res://meta/spire_climb.gd")
 const LiveOps := preload("res://game/liveops.gd")
 
 const TOWER := Color("ffc23d")
+## Boss-floor gear by rarity: [name, slot]. Its stat line comes from
+## Profile.GEAR_LINES (Spire Shell defense, Spire Core cooldown, Summit Core attack).
 const GEAR := {
-	"rare": ["Spire Shell", "Shell", "Take 2 less damage per hit"],
-	"epic": ["Spire Core", "Core", "Ability triggers 10% sooner"],
-	"legendary": ["Summit Core", "Core", "+6% damage after a wall bounce"],
+	"rare": ["Spire Shell", "Shell"],
+	"epic": ["Spire Core", "Core"],
+	"legendary": ["Summit Core", "Core"],
 }
 
 ## Set by the fight scene so the home screen opens back on the Spire.
@@ -72,12 +74,13 @@ static func build(shell, params: Dictionary) -> Control:
 	return root
 
 
-## Critters the sim can field, best first, as {id, power, stamina}.
+## Critters the sim can field, best first, as {id, power, stamina, slot}:
+## `power` is the Power Rating shown, `slot` what fights (Profile.slot_of).
 static func fighters(p, climb) -> Array:
 	var out: Array = []
 	for id in BallDefs.PLAYABLE:
 		if p.owns(id):
-			out.append({"id": id, "power": p.power_of(id) / 1000.0, "stamina": climb.stamina(id)})
+			out.append({"id": id, "power": p.power_of(id) / 1000.0, "stamina": climb.stamina(id), "slot": p.slot_of(id)})
 	out.sort_custom(func(a, b): return a.power > b.power)
 	return out
 
@@ -216,7 +219,7 @@ static func _climb(shell, climb, picks: Array) -> void:
 	for id in picks:
 		for f in list:
 			if f.id == id:
-				chosen.append({"id": id, "power": f.power})
+				chosen.append({"id": id, "power": f.power, "slot": f.slot})
 	var why: String = climb.check_picks(chosen)
 	if why != "":
 		shell.toast(why)
@@ -251,10 +254,7 @@ static func grant(p, t: Dictionary) -> void:
 	if t.xp_chips > 0:
 		_add_item(p, "XP Chip", t.xp_chips, "+200 XP to one critter.", Color("45f5a6"))
 	for g in t.gear:
-		var uid := 1
-		for piece in p.gear:
-			uid = maxi(uid, int(piece.uid) + 1)
-		p.gear.append({"uid": uid, "name": GEAR[g][0], "slot": GEAR[g][1], "rarity": g, "text": GEAR[g][2], "on": ""})
+		p.add_gear(GEAR[g][0], GEAR[g][1], g)
 	p.changed.emit()
 
 
