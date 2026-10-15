@@ -51,6 +51,10 @@ static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Di
 	for f in art.get("front", []):
 		_feature(ci, f, false, col, c, r, st)
 	if not _sil:
+		if st.get("ko", false):
+			_ko_face(ci, c, r)
+			_sil = false
+			return
 		if st.hit > 0.0:
 			_circ(ci, c, r, Color(1, 1, 1, minf(.85, st.hit * 2.4)))
 		_face(ci, art.get("eyes", {}), col, c, r, st)
@@ -1176,6 +1180,21 @@ static func _flame(ci: CanvasItem, p: Vector2, a: float, L: float, w: float) -> 
 
 
 # --- Face -------------------------------------------------------------------
+
+## Knocked out (finisher cam): a dim wash, cross eyes and a stunned "o".
+static func _ko_face(ci: CanvasItem, c: Vector2, r: float) -> void:
+	_circ(ci, c, r, Color(0.1, 0.05, 0.2, 0.25))
+	var lw := maxf(2.0, r * .09)
+	var e := c + Vector2(0, -r * .08)
+	for k in [-1.0, 1.0]:
+		var ec: Vector2 = e + Vector2(k * r * .3, 0)
+		var d := r * .13
+		_line(ci, ec + Vector2(-d, -d), ec + Vector2(d, d), INK, lw)
+		_line(ci, ec + Vector2(-d, d), ec + Vector2(d, -d), INK, lw)
+	var m := e + Vector2(0, r * .4)
+	_ell(ci, m, r * .13, r * .16, INK)
+	_ell(ci, m + Vector2(0, r * .05), r * .07, r * .06, Color("ff6b8a"))
+
 
 ## Face keys (art "eyes"): sep, w, h, p (pupil), one, mis (mismatched), lid,
 ## brow (negative: worried), uni (unibrow), dot, closed, hollow, iris, glow,
