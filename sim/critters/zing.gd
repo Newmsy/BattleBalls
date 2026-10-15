@@ -16,7 +16,7 @@ const CRITTER := {
 	"ability": [{"on": "wall", "do": "shoot"}],
 	"params": {
 		"fire_cooldown": 0.6, ## At most one stinger this often (corners and pillars bounce fast).
-		"shot_damage": 2.0,
+		"shot_damage": 1.8,
 		"shot_speed": 600.0,
 		"shot_count": 1,
 		"shot_aim": "foe",
@@ -30,7 +30,7 @@ const CRITTER := {
 		"shot_kind": "stinger",
 	},
 	"tiers": [
-		{"text": "Bounces fire a homing stinger for 2"},
+		{"text": "Bounces fire a homing stinger for 1.8"},
 		{"text": "Stingers deal 2.5", "shot_damage": 2.5},
 		{"text": "Stingers poison (2/s for 2s)", "shot_burn": 2.0},
 		{"text": "Stingers home harder", "shot_homing": 3.5},
