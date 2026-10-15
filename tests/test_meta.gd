@@ -45,7 +45,7 @@ func test_power_steps_match_the_design_budget() -> void:
 func test_power_scales_hp_and_damage_but_not_speed() -> void:
 	var sim := MatchSim.new({"seed": 1, "p1": "laser", "p2": "laser", "powers": [1.44, 1.0]})
 	check_near(sim.balls[0].max_hp, 120.0, 0.001, "hp x sqrt(1.44)")
-	check_near(sim.balls[0].def.beam_damage, 7.0 * 1.2, 0.001, "beam damage scales")
+	check_near(sim.balls[0].def.beam_damage, sim.balls[1].def.beam_damage * 1.2, 0.001, "beam damage scales")
 	check_eq(sim.balls[0].speed, sim.balls[1].speed, "speed unchanged")
 
 
@@ -184,12 +184,14 @@ func test_save_round_trip() -> void:
 	p.add_copies(["laser", "laser", "spiker"])
 	p.stars["1-1"] = 3
 	p.spend_energy(6, T0)
+	p.toggle_wishlist("laser")
 	p.gear.append({"uid": 3, "name": "Iron Shell", "slot": "Shell", "rarity": "common", "text": "x", "on": "laser"})
 	var json := JSON.stringify(p.to_dict())
 	var q = Profile.from_dict(JSON.parse_string(json), T0)
 	check_eq(JSON.stringify(q.to_dict()), json, "profile survives a JSON round trip")
 	check_eq(typeof(q.stacks[0].tier), TYPE_INT, "ints stay ints")
 	check_eq(q.items[0].color, p.items[0].color, "colours survive")
+	check(q.on_wishlist("laser"), "wishlist survives")
 
 
 func test_a_broken_save_starts_a_new_game() -> void:

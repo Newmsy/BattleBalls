@@ -6,8 +6,10 @@ extends Control
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
+const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Friends := preload("res://game/online/friends.gd")
 const FightLink := preload("res://game/fight_link.gd")
+const SettingsSheet := preload("res://game/ui/screens/settings_sheet.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -16,6 +18,7 @@ const SCREENS := {
 	"fuse": preload("res://game/ui/screens/fuse_screen.gd"),
 	"bag": preload("res://game/ui/screens/bag_screen.gd"),
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
+	"arena": preload("res://game/ui/screens/arena_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
 	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
@@ -44,6 +47,7 @@ var link_base := FightLink.HOME
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
 
 var profile = UiProfile.sample()
+var play_with := "" ## Ball to pick in the arena menu on the next request_play().
 var current := ""
 var current_params := {}
 var _stack: Array = []
@@ -58,6 +62,7 @@ var _toast_tween: Tween
 var _marks := {}
 var _built := false
 var _overlay: Control
+var _gear: Control ## Settings button in the top bar.
 var _share := {} ## kind -> {button, url, text} on the current screen.
 
 
@@ -97,6 +102,10 @@ func build() -> void:
 	set_friends(friends)
 	resized.connect(func(): if current != "": refresh())
 	show_tab("play")
+	# Coming back from a Ghost Arena fight lands on the Arena again.
+	if ArenaStore.reopen:
+		ArenaStore.reopen = false
+		go("arena")
 
 
 ## Swap in another profile (e.g. after a cloud save arrives) and redraw.
@@ -205,7 +214,10 @@ func sheet(content: Control) -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	panel.position.y = size.y
 	var h := panel.get_combined_minimum_size().y
-	create_tween().tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	var slide := create_tween()
+	slide.tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	# Report tap positions again once the sheet has slid into place.
+	slide.finished.connect(_report.bind("sheet"))
 
 
 func set_friends(f) -> void:
@@ -245,8 +257,10 @@ func mark(name: String, c: Control) -> void:
 	_marks[name] = c
 
 
-## Screens call this to get back to the arena menu.
-func request_play() -> void:
+## Screens call this to get back to the arena menu, optionally with `ball`
+## picked as yours (the Try-a-Critter card does).
+func request_play(ball := "") -> void:
+	play_with = ball
 	play_requested.emit()
 
 
@@ -267,6 +281,8 @@ func _show(name: String, params: Dictionary) -> void:
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	_holder.add_child(_scroll)
+	# Re-log control positions after a scroll so the smoke test can tap below the fold.
+	_scroll.get_v_scroll_bar().value_changed.connect(func(_v): if _overlay.get_child_count() == 0: _report.call_deferred(name))
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Phones fill the width; wide screens keep a phone-width column in the middle.
@@ -294,6 +310,7 @@ func _report(name: String) -> void:
 	var all := _marks.duplicate()
 	for t in _tab_buttons:
 		all["tab_" + t] = _tab_buttons[t]
+	all["settings"] = _gear
 	for k in all:
 		var c: Control = all[k]
 		if is_instance_valid(c) and c.is_visible_in_tree():
@@ -313,7 +330,10 @@ func _top_bar() -> Control:
 	lvl.custom_minimum_size = Vector2(64, 64)
 	_top_labels["level"] = lvl.get_child(0)
 	(lvl.get_child(0) as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	var row := Kit.hbox(10, [lvl, _pill("energy"), Kit.spacer(), _pill("coin"), _pill("orb")])
+	var gear := Kit.card_button(Glyph.make("gear", 40, Kit.FG), func(): SettingsSheet.open(self), Kit.LINE, Kit.PANEL, 999, 12)
+	gear.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_gear = gear
+	var row := Kit.hbox(10, [lvl, _pill("energy"), Kit.spacer(), _pill("coin"), _pill("orb"), gear])
 	m.add_child(row)
 	return m
 

@@ -40,6 +40,10 @@ var items: Array[Dictionary] = []
 var free_summon := true
 ## Rare-or-better rolls left before a guaranteed Legendary (shared with drops).
 var legendary_pity := PITY_START
+## Critters the player is chasing: they come up twice as often within their
+## rarity in summons and drops (game/ui/summon.gd). Free to change any time.
+var wishlist: Array[String] = []
+const WISHLIST_MAX := 3
 ## Campaign stage key ("1-3") -> best star count.
 var stars: Dictionary = {}
 ## Finished campaign runs; feeds fight and drop seeds so every run differs.
@@ -214,6 +218,23 @@ func add_copies(ids: Array) -> void:
 	changed.emit()
 
 
+func on_wishlist(id: String) -> bool:
+	return id in wishlist
+
+
+## Adds or removes a wishlist pick. Returns false (and changes nothing) when
+## adding to a full wishlist.
+func toggle_wishlist(id: String) -> bool:
+	if on_wishlist(id):
+		wishlist.erase(id)
+	elif wishlist.size() >= WISHLIST_MAX:
+		return false
+	else:
+		wishlist.append(id)
+	changed.emit()
+	return true
+
+
 func spend_orbs(n: int) -> bool:
 	if orbs < n:
 		return false
@@ -309,7 +330,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "lineup",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs",
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist",
 	"started", "rising_median", "rising_median_at"]
 
 
@@ -335,6 +356,10 @@ static func from_dict(d: Dictionary, now: int):
 	p.lineup = str(d.get("lineup", STARTER))
 	p.free_summon = bool(d.get("free_summon", true))
 	p.seen = d.get("seen", {})
+	p.wishlist.clear()
+	for id in d.get("wishlist", []):
+		if p.wishlist.size() < WISHLIST_MAX:
+			p.wishlist.append(str(id))
 	p.stars.clear()
 	for k in d.get("stars", {}):
 		p.stars[str(k)] = int(d.stars[k])
