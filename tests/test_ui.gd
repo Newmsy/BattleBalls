@@ -228,3 +228,18 @@ func test_lineup_tags_show_the_same_power_as_the_critter_screen() -> void:
 	var tag: Control = FighterTag.of_slot(p.slot_of("vampire"), 80)
 	check(tag.get_child(0).get_child(0).get_child(0).count == 2, "two tier stars above the critter")
 	tag.free()
+
+
+func test_a_sweep_shows_a_results_popup() -> void:
+	var shell = Shell.new()
+	shell.profile = preload("res://meta/profile.gd").new_game(1_800_000_000)
+	shell.profile.stars["1-1"] = 3
+	shell.build()
+	shell.go("campaign", {"zone": 0})
+	shell._marks.sweep_1_1.pressed.emit()
+	check(shell.overlay_open(), "the sweep result is a popup")
+	check(shell._marks.has("result_continue"), "it has Continue")
+	check_eq(shell.current_params.get("focus", -1), 0, "the list stays on the swept stage")
+	shell._marks.result_continue.pressed.emit()
+	check(not shell.overlay_open(), "Continue closes it")
+	shell.free()
