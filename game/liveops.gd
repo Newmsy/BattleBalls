@@ -115,7 +115,7 @@ static func validate(d: Dictionary) -> Array:
 	for key in ["version", "revision"]:
 		if not _num(d.get(key)):
 			errors.append("%s must be a number" % key)
-	for key in ["seasons", "spotlight", "chaos", "fights", "loaners"]:
+	for key in ["seasons", "spotlight", "chaos", "fights", "loaners", "brackets"]:
 		if not d.get(key, []) is Array:
 			errors.append("%s must be a list" % key)
 			return errors
@@ -150,6 +150,15 @@ static func validate(d: Dictionary) -> Array:
 			errors.append("fight needs a seed: %s" % [f])
 		elif f.has("angles") and not (f.angles is Array and f.angles.size() == 2 and f.angles.all(_num)):
 			errors.append("fight angles must be two numbers: %s" % [f])
+	for b in d.get("brackets", []):
+		if not b is Dictionary or _monday(b.get("week")) < 0:
+			errors.append("bracket week must be a Monday: %s" % [b])
+		elif not _num(b.get("seed")):
+			errors.append("bracket needs a seed: %s" % [b])
+		elif b.has("entrants") and not (b.entrants is Array and b.entrants.size() >= 2 and b.entrants.size() <= 64
+				and b.entrants.all(func(id): return id in BallDefs.PLAYABLE)
+				and b.entrants.all(func(id): return b.entrants.count(id) == 1)):
+			errors.append("bracket entrants must be 2-64 different playable critters: %s" % [b])
 	return errors
 
 
