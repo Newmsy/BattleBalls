@@ -25,10 +25,9 @@ static func build(shell, params: Dictionary) -> Control:
 		shell.toast.call_deferred("Your last attack wasn't finished, so it counted as a loss (%d)." % abandoned)
 	var owned := owned_critters(shell.profile)
 	store.fit_to(owned)
-	var root := Kit.vbox(14)
+	var root := Kit.vbox(12)
 
-	var back := Kit.card_button(Glyph.make("back", 34, Kit.FG), shell.back, Kit.LINE, Kit.PANEL, 999, 14)
-	shell.mark("back", back)
+	var back: Control = shell.back_button("back")
 	var how := [
 		"Your trio fights theirs in order. A winner stays in with the HP it has left. Each ball's last shot is saved for your ghost.",
 		"Tap a trio slot to swap in another critter you own.",

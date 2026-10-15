@@ -20,6 +20,8 @@ static func make(kind_: String, side: float, color_ := Color.WHITE, count_ := 1,
 	g.count = count_
 	g.of = of_
 	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Drawn from its own height: a taller row must not blow the icon up.
+	g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var slots: int = maxi(count_, of_) if kind_ == "stars" else 1
 	g.custom_minimum_size = Vector2(side * slots * (.92 if kind_ == "stars" else 1.0), side)
 	return g

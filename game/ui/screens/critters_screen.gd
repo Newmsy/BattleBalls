@@ -16,13 +16,13 @@ static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(22)
 	root.add_child(Kit.hbox(0, [Kit.label("Critters", 44), Kit.spacer(), Kit.label("%d / %d found" % [p.found_count(), Roster.CRITTERS.size()], 24, Kit.MUTED)]))
 
-	var chips := Kit.hbox(10)
+	var chips := Kit.hbox(6)
 	for f in ["all"] + Roster.RARITIES:
 		var on: bool = f == filter
 		var col: Color = Kit.FG if f == "all" else Roster.RARITY_COLORS[f]
 		var name: String = "All" if f == "all" else Roster.RARITY_NAMES[f]
-		var l := Kit.label(name.to_upper(), 20, Kit.BG if on else col, HORIZONTAL_ALIGNMENT_CENTER)
-		var b := Kit.card_button(l, func(): filter = f; shell.refresh(), Kit.ACCENT if on else Kit.LINE, Kit.ACCENT if on else Kit.PANEL, 999, 10)
+		var l := Kit.label(name, 20, Kit.BG if on else col, HORIZONTAL_ALIGNMENT_CENTER)
+		var b := Kit.card_button(l, func(): filter = f; shell.refresh(), Kit.ACCENT if on else Kit.LINE, Kit.ACCENT if on else Kit.PANEL, 999, 8)
 		chips.add_child(b)
 	root.add_child(chips)
 

@@ -54,8 +54,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"Every critter that comes out to fight spends 1 of its %d Stamina, win or lose. Tired critters rest until Monday, so spread the climb across your whole collection." % SpireClimb.STAMINA,
 		"Coming up: " + _upcoming_text(climb),
 	], "spire_info")
-	var back := Kit.card_button(Glyph.make("back", 34, Kit.FG), shell.back, Kit.LINE, Kit.PANEL, 999, 14)
-	shell.mark("spire_back", back)
+	var back: Control = shell.back_button("spire_back")
 	root.add_child(Kit.hbox(18, [back, Kit.label("The Spire", 40), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
 	var sub := "Floor %d of %d cleared. Resets in %s." % [climb.cleared, Spire.FLOORS, LiveOps.countdown(now, Spire.week_end(climb.week))]
 	if climb.last_week_best > 0:

@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Legends := preload("res://game/legends.gd")
 const LiveOps := preload("res://game/liveops.gd")
@@ -17,24 +18,26 @@ const WEEKDAYS := ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
 static func build(shell, params: Dictionary) -> Control:
 	var t := LiveOps.now()
 	var ev := Legends.current(t)
-	var root := Kit.vbox(22)
-	var back := Kit.button("Back", shell.back, "ghost", 24, 64)
-	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	back.custom_minimum_size.x = 150
-	shell.mark("bracket_back", back)
+	var root := Kit.vbox(16)
+	var back: Control = shell.back_button("bracket_back")
 	var titles := Legends.oracle_titles(t)
 	var badge := "Oracle x%d" % titles.size() if not titles.is_empty() else "Cosmetic rewards only"
-	root.add_child(Kit.hbox(16, [back, Kit.spacer(), Kit.label(badge, 20, GOLD if not titles.is_empty() else Kit.MUTED)]))
+	var name: String = ev.name if not ev.is_empty() else "Bracket of Legends"
+	var title := Kit.vbox(0, [Kit.label(name, 32, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.label(badge, 18, GOLD if not titles.is_empty() else Kit.MUTED)])
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	(title.get_child(0) as Label).custom_minimum_size.x = 300
+	var about := ["Once a season every critter enters one bracket at equal power.",
+		"Pick your champion before the first round. Call it right and you earn the Oracle title for that bracket. Rewards are cosmetic only."]
+	if not ev.is_empty():
+		about[0] = _blurb(ev, Legends.bracket(ev))
+	root.add_child(Kit.hbox(14, [back, title, shell.info_button("Bracket of Legends", about, "bracket_info")]))
 	if ev.is_empty():
-		root.add_child(Kit.label("Bracket of Legends", 44))
 		var nxt := Legends.next_event(t)
 		var when := "The next one is announced %s." % _date(Legends.opens(nxt)) if not nxt.is_empty() else "The next one is announced with the next season."
 		root.add_child(Kit.label("Once a season every critter enters one bracket at equal power. " + when, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		return root
 	var b := Legends.bracket(ev)
 	var phase := Legends.phase(ev, t)
-	root.add_child(Kit.label(ev.name, 44, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true))
-	root.add_child(Kit.label(_blurb(ev, b), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	root.add_child(_status(ev, t, phase))
 	if phase == "picks":
 		root.add_child(_pick_grid(shell, ev, t))
@@ -62,7 +65,7 @@ static func _status(ev: Dictionary, t: int, phase: String) -> Control:
 	var col := Kit.ACCENT
 	match phase:
 		"picks":
-			text = "Picks lock in %s (%s, when the first round comes out)." % [LiveOps.countdown(t, Legends.locks(ev)), _date(Legends.locks(ev))]
+			text = "Picks lock in %s, when the first round comes out." % LiveOps.countdown(t, Legends.locks(ev))
 			col = Kit.GOOD
 		"live":
 			var out := Legends.rounds_out(ev, t)
@@ -75,7 +78,7 @@ static func _status(ev: Dictionary, t: int, phase: String) -> Control:
 			else:
 				text = "The final is out. Open it to see who won."
 			col = GOLD
-	return Kit.label(text, 26, col, HORIZONTAL_ALIGNMENT_LEFT, true)
+	return Kit.label(text, 23, col, HORIZONTAL_ALIGNMENT_LEFT, true)
 
 
 # --- Picks ----------------------------------------------------------------------
@@ -85,23 +88,24 @@ static func _pick_grid(shell, ev: Dictionary, t: int) -> Control:
 	var b := Legends.bracket(ev)
 	var shares: Dictionary = shell.get_meta("bracket_shares", {}).get(ev.id, {})
 	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
 	for id in b.draw:
-		var lines := [CritterIcon.make(id, 1, 110), Kit.label(_name(id), 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
-			Kit.label("Seed %d" % b.seed_of(id), 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)]
-		if shares.has(id):
-			lines.append(Kit.label("%d%% picked" % roundi(shares[id] * 100.0), 18, Kit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER))
-		var card := Kit.card_button(Kit.vbox(2, lines), func(): _choose(shell, ev, id), GOLD if id == pick else Kit.LINE,
-			Color("2a2208") if id == pick else Kit.PANEL, 26, 8)
+		var nm := Kit.label(_name(id), 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+		nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		nm.clip_text = true
+		var lines := [CritterIcon.make(id, 1, 72), nm,
+			Kit.label("%d%% picked" % roundi(shares[id] * 100.0) if shares.has(id) else "Seed %d" % b.seed_of(id), 16, Kit.ACCENT if shares.has(id) else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)]
+		var card := Kit.card_button(Kit.vbox(0, lines), func(): _choose(shell, ev, id), GOLD if id == pick else Kit.LINE,
+			Color("2a2208") if id == pick else Kit.PANEL, 22, 6)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.custom_minimum_size.x = 0
 		shell.mark("champ_" + id, card)
 		grid.add_child(card)
-	var head := "Your champion: %s. Tap another to change it." % _name(pick) if pick != "" else "Who goes all the way? Pick your champion."
+	var head := "Your champion: %s. Tap another to change." % _name(pick) if pick != "" else "Who goes all the way? Tap your champion."
 	_load_shares(shell, ev)
-	return _card([Kit.caption("Pick your champion", GOLD), Kit.label(head, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), grid,
-		Kit.label("Call it right and you earn the Oracle title for this bracket.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)], Color("5a4a1e"))
+	return Kit.vbox(10, [Kit.label(head, 22, GOLD, HORIZONTAL_ALIGNMENT_LEFT, true), grid])
 
 
 static func _choose(shell, ev: Dictionary, id: String) -> void:
@@ -132,7 +136,7 @@ static func _load_shares(shell, ev: Dictionary) -> void:
 static func _your_pick(ev: Dictionary, b, t: int) -> Control:
 	var pick := Legends.pick_of(ev)
 	if pick == "":
-		return _card([Kit.caption("Your champion", GOLD), Kit.label("You didn't pick a champion for this one. Picks for the next bracket open the week before it.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+		return Kit.label("No champion picked for this one. Picks for the next bracket open the week before it.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	# Follow the pick through the rounds that are out and seen: today's round
 	# stays a surprise until the player opens it.
 	var text := "Still in. Every round they win is one closer."
@@ -148,9 +152,9 @@ static func _your_pick(ev: Dictionary, b, t: int) -> Control:
 		if r == b.rounds - 1:
 			text = "CHAMPION! You called it: the Oracle title is yours."
 			col = GOLD
-	var info := Kit.vbox(4, [Kit.label(_name(pick), 34), Kit.label(text, 24, col, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	var info := Kit.vbox(2, [Kit.caption("Your champion · " + _name(pick), GOLD), Kit.label(text, 22, col, HORIZONTAL_ALIGNMENT_LEFT, true)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return _card([Kit.caption("Your champion", GOLD), Kit.hbox(16, [CritterIcon.make(pick, 1, 120), info])], Color("5a4a1e"))
+	return _card([Kit.hbox(14, [CritterIcon.make(pick, 1, 80), info])], Color("5a4a1e"))
 
 
 ## The match `id` plays in round `r`, or -1 (out before it).
@@ -181,7 +185,7 @@ static func _round_tabs(shell, b, selected: int, out: int) -> Control:
 
 static func _round(shell, ev: Dictionary, b, r: int, t: int) -> Control:
 	var out := Legends.rounds_out(ev, t)
-	var v := Kit.vbox(12)
+	var v := Kit.vbox(8)
 	if r >= out:
 		var when := Legends.reveal_at(ev, r)
 		v.add_child(Kit.label("Comes out %s at 00:00 UTC." % _date(when), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
@@ -209,27 +213,43 @@ static func _feeder(ev: Dictionary, b, r: int, k: int, out: int, t: int) -> Stri
 	return ""
 
 
+## One match on one line: seed, icon and name each side, the score between.
 static func _row(shell, ev: Dictionary, b, m: Dictionary, r: int, played: bool, show: bool) -> Control:
-	var sides := Kit.vbox(6)
+	var line := Kit.hbox(8)
 	for k in 2:
 		var id: String = m.a if k == 0 else m.b
-		var line := Kit.hbox(10)
+		var side := Kit.hbox(6, [], BoxContainer.ALIGNMENT_END if k == 0 else BoxContainer.ALIGNMENT_BEGIN)
+		side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if id == "":
-			line.add_child(Kit.label("Bye" if m.bye else "To be decided", 22, Kit.MUTED))
+			side.add_child(Kit.label("Bye" if m.bye else "TBD", 20, Kit.MUTED))
 		else:
 			var won: bool = show and m.winner == id
 			var lost: bool = show and m.winner != id
-			line.add_child(CritterIcon.make(id, 1, 56))
-			line.add_child(Kit.label("%d  %s" % [b.seed_of(id), _name(id)], 24, Kit.MUTED if lost else (GOLD if won else Kit.FG)))
-			line.add_child(Kit.spacer())
+			var nm := Kit.label("%s %d" % [_name(id), b.seed_of(id)] if k == 0 else "%d %s" % [b.seed_of(id), _name(id)], 20, Kit.MUTED if lost else (GOLD if won else Kit.FG))
+			nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			nm.clip_text = true
+			nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if k == 0 else HORIZONTAL_ALIGNMENT_LEFT
+			var icon := CritterIcon.make(id, 1, 44)
+			if k == 0:
+				side.add_child(nm)
+				side.add_child(icon)
+			else:
+				side.add_child(icon)
+				side.add_child(nm)
+		line.add_child(side)
+		if k == 0:
+			var mid := "vs"
 			if show and not m.bye:
-				line.add_child(Kit.label(str(m.wins[k]), 26, GOLD if won else Kit.MUTED))
-		sides.add_child(line)
+				mid = "%d-%d" % [m.wins[0], m.wins[1]]
+			elif played and not m.bye:
+				mid = "Watch"
+			var score := Kit.label(mid, 20, GOLD if played and not show and not m.bye else (Kit.FG if show else Kit.MUTED), HORIZONTAL_ALIGNMENT_CENTER)
+			score.custom_minimum_size.x = 76
+			line.add_child(score)
 	if m.bye or not played:
-		return Kit.panel(sides, Kit.box(Kit.PANEL, Kit.LINE, 24, 2, 14))
-	var label := "Watch" if not show else "Replays"
-	sides.add_child(Kit.label(label + " ›", 19, Kit.ACCENT, HORIZONTAL_ALIGNMENT_RIGHT))
-	var card := Kit.card_button(sides, func(): _series_sheet(shell, ev, b, r, m.index), GOLD if not show else Kit.LINE, Kit.PANEL, 24, 14)
+		return Kit.panel(line, Kit.box(Kit.PANEL, Kit.LINE, 22, 2, 8))
+	var card := Kit.card_button(line, func(): _series_sheet(shell, ev, b, r, m.index), GOLD if not show else Kit.LINE, Kit.PANEL, 22, 8)
 	shell.mark("match_%d_%d" % [r, m.index], card)
 	return card
 
@@ -275,7 +295,7 @@ static func _watch(shell, ev: Dictionary, b, r: int, game: Dictionary) -> void:
 # --- Helpers --------------------------------------------------------------------
 
 static func _card(children: Array, border := Kit.LINE, bg := Kit.PANEL) -> Control:
-	return Kit.panel(Kit.vbox(12, children), Kit.box(bg, border, 36, 2, 26))
+	return Kit.panel(Kit.vbox(10, children), Kit.box(bg, border, 30, 2, 18))
 
 
 static func _name(id: String) -> String:
@@ -289,8 +309,8 @@ static func _date(t: int) -> String:
 	return "%s %d %s" % [WEEKDAYS[LiveOps._weekday(t)], d.day, months[d.month - 1]]
 
 
-## The bracket card on the This Week board.
-static func board_card(shell, t: int) -> Control:
+## The bracket tile on the This Week board, built with WeekScreen.tile.
+static func board_card(shell, t: int, tile: Callable) -> Control:
 	var ev := Legends.current(t)
 	if ev.is_empty():
 		return null
@@ -298,27 +318,26 @@ static func board_card(shell, t: int) -> Control:
 	var phase := Legends.phase(ev, t)
 	var pick := Legends.pick_of(ev)
 	var text := ""
-	var button := "Open bracket"
+	var button := "Open"
 	match phase:
 		"picks":
-			text = "%d critters, one bracket, equal power. Picks lock in %s." % [ev.entrants.size(), LiveOps.countdown(t, Legends.locks(ev))]
-			button = "Change your pick" if pick != "" else "Pick your champion"
-			if pick != "":
-				text += " Your champion: %s." % _name(pick)
+			text = "Picks lock in %s." % LiveOps.countdown(t, Legends.locks(ev))
+			button = "Change pick" if pick != "" else "Pick"
 		"live":
-			text = "%s out today. %s" % [b.round_name(Legends.rounds_out(ev, t) - 1), ("Your champion: %s." % _name(pick)) if pick != "" else "Watch the matches."]
-			button = "Watch today's round"
+			text = "%s out today." % b.round_name(Legends.rounds_out(ev, t) - 1)
+			button = "Watch"
 		"done":
-			text = "Champion: %s." % _name(b.champion()) if Legends.champion_known(ev, t) else "The final is out. Who won?"
+			text = "Champion: %s." % _name(b.champion()) if Legends.champion_known(ev, t) else "The final is out."
 			button = "See the final" if not Legends.champion_known(ev, t) else button
-	var icons := Kit.hbox(-18)
-	for id in b.draw.slice(0, 6):
-		icons.add_child(CritterIcon.make(id, 1, 84))
-	var go := Kit.button(button, func(): shell.go("bracket"), "primary", 26, 80)
+	if pick != "" and phase != "done":
+		text += " Yours: %s." % _name(pick)
+	var icons := Kit.hbox(-22)
+	for id in b.draw.slice(0, 4):
+		icons.add_child(CritterIcon.make(id, 1, 64))
+	var go := Kit.button(button, func(): shell.go("bracket"), "primary", 22, 64)
 	shell.mark("week_bracket", go)
-	return _card([
-		Kit.hbox(8, [Kit.caption("Bracket of Legends", GOLD), Kit.spacer(), Kit.chip({"picks": "Picks open", "live": "Live", "done": "Final"}[phase], GOLD)]),
-		icons,
-		Kit.label(text, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
-		go,
-	], Color("7a5a12"), Color("1f1806"))
+	var words := Kit.label(text, 20, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
+	words.max_lines_visible = 2
+	words.custom_minimum_size.x = 200
+	return tile.call("Bracket", GOLD, Color("7a5a12"), Color("1f1806"), [icons, words], go,
+		Kit.chip({"picks": "Picks", "live": "Live", "done": "Final"}[phase], GOLD, 16))
