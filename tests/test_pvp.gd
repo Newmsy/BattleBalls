@@ -96,7 +96,8 @@ const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const ArenaScreen := preload("res://game/ui/screens/arena_screen.gd")
-const TEST_SAVE := "user://test_ghost_arena.cfg"
+## Per process: tests/run.sh runs shards side by side.
+var TEST_SAVE := "user://test_ghost_arena_%d.cfg" % OS.get_process_id()
 
 
 func _fresh_store():

@@ -3,12 +3,19 @@
 ## daily card refresh, and the attack in progress. Until the online trophy
 ## rules land this is the source of truth; the server takes over trophies
 ## later and this keeps the trio and shots.
+##
+## Arena Points and Arena Boosts live here too: every trophy won on attack
+## also earns one spendable point (losing trophies never costs points), spent
+## on per-family stat lines (sim/arena_boosts.gd). Points come only from
+## arena play; nothing sells them.
 extends RefCounted
 
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Lineup := preload("res://sim/lineup.gd")
+const ArenaBoosts := preload("res://sim/arena_boosts.gd")
+const Families := preload("res://sim/families.gd")
 
 const SAVE_PATH := "user://ghost_arena.cfg"
 const HISTORY_SIZE := 10
@@ -32,12 +39,30 @@ var history: Array = [] ## Newest first: {name, card, won, delta}
 ## started attack is a spent attack, so one left unfinished counts as a loss
 ## next time the Arena opens.
 var pending: Dictionary = {}
+var points := 0 ## Arena Points to spend.
+var points_earned := 0 ## Every point ever earned.
+var boosts: Dictionary = {} ## {family: {line: level}}
 
 
 static func open(save_path := SAVE_PATH):
 	var s = load("res://game/pvp/arena_store.gd").new()
 	s.path = save_path
 	s._load()
+	return s
+
+
+## A filled-in store for ?demo=1 screenshots, saved apart from the real one.
+static func sample():
+	var s = load("res://game/pvp/arena_store.gd").new()
+	s.path = "user://demo_ghost_arena.cfg"
+	s.trophies = 1240
+	s.peak = 1240
+	s.wins = 41
+	s.losses = 17
+	s.points = 385
+	s.points_earned = 1240
+	s.trio = ["vampire", "spiker", "speedster"]
+	s.boosts = {"spooky": {"health": 3, "attack": 4, "defense": 2, "speed": 1}, "nature": {"attack": 2, "health": 1}, "fire": {"speed": 1}}
 	return s
 
 
@@ -94,8 +119,53 @@ func slots(profile = null) -> Array:
 	var out: Array = []
 	for id in trio:
 		var s: Dictionary = profile.slot_of(id) if profile != null else {}
-		out.append(s if not s.is_empty() else Lineup.make(id))
+		s = s.duplicate() if not s.is_empty() else Lineup.make(id)
+		var b := boost_of(id)
+		if not b.is_empty():
+			s.boost = b
+		out.append(s)
 	return out
+
+
+## The stat lines a critter's family boosts add (sim/arena_boosts.gd).
+func boost_of(critter: String) -> Dictionary:
+	return ArenaBoosts.stats(boosts.get(Families.of(critter), {}))
+
+
+func level_of(family: String, line: String) -> int:
+	return int(boosts.get(family, {}).get(line, 0))
+
+
+## Points the next level of a line costs, or 0 when it is maxed.
+func next_cost(family: String, line: String) -> int:
+	var lv := level_of(family, line)
+	return 0 if lv >= ArenaBoosts.MAX_LEVEL else ArenaBoosts.cost(lv + 1)
+
+
+## Buys the next level of a family's line. False if maxed or short of points.
+func upgrade(family: String, line: String) -> bool:
+	var c := next_cost(family, line)
+	if c == 0 or points < c or not family in Families.ids() or not ArenaBoosts.LINES.has(line):
+		return false
+	points -= c
+	if not boosts.has(family):
+		boosts[family] = {}
+	boosts[family][line] = level_of(family, line) + 1
+	save()
+	return true
+
+
+## Gives back every point spent on boosts, so the player can plan again.
+func reset_boosts() -> int:
+	var back := 0
+	for fam in boosts:
+		for line in boosts[fam]:
+			for lv in range(1, int(boosts[fam][line]) + 1):
+				back += ArenaBoosts.cost(lv)
+	boosts = {}
+	points += back
+	save()
+	return back
 
 
 ## The trio as a lineup in the backend's v1 shape, plus per-slot shots.
@@ -140,6 +210,9 @@ func _apply(won: bool) -> int:
 	var delta := Ladder.attack_delta(trophies, peak, pending.card, won)
 	trophies += delta
 	peak = maxi(peak, trophies)
+	if delta > 0:
+		points += delta
+		points_earned += delta
 	if won:
 		wins += 1
 	else:
@@ -152,7 +225,7 @@ func _apply(won: bool) -> int:
 
 func save() -> void:
 	var f := ConfigFile.new()
-	for key in ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending"]:
+	for key in ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "points", "points_earned", "boosts"]:
 		f.set_value("arena", key, get(key))
 	f.save(path)
 
@@ -165,6 +238,19 @@ func _load() -> void:
 		set(key, int(f.get_value("arena", key, get(key))))
 	for key in ["history", "pending"]:
 		set(key, f.get_value("arena", key, get(key)))
+	# Saves from before Arena Points start with a point per trophy they hold.
+	points_earned = int(f.get_value("arena", "points_earned", trophies))
+	points = maxi(0, int(f.get_value("arena", "points", points_earned)))
+	var saved_boosts = f.get_value("arena", "boosts", {})
+	boosts = {}
+	if saved_boosts is Dictionary:
+		for fam in saved_boosts:
+			if str(fam) in Families.ids() and saved_boosts[fam] is Dictionary:
+				var lines := {}
+				for line in saved_boosts[fam]:
+					if ArenaBoosts.LINES.has(str(line)):
+						lines[str(line)] = clampi(int(saved_boosts[fam][line]), 0, ArenaBoosts.MAX_LEVEL)
+				boosts[str(fam)] = lines
 	var saved_trio: Array = f.get_value("arena", "trio", trio)
 	var saved_shots: Array = f.get_value("arena", "shots", shots)
 	if saved_trio.size() == 3 and saved_trio.all(func(c): return c in BallDefs.PLAYABLE):

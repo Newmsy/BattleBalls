@@ -11,6 +11,9 @@ const Spire := preload("res://sim/spire.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const Zones := preload("res://meta/zones.gd")
+const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
+const Gear := preload("res://sim/gear.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -49,6 +52,11 @@ static func build(shell, params: Dictionary) -> Control:
 	for i in zone.stages.size():
 		list.add_child(_stage_card(shell, p, z, i, fighter))
 	root.add_child(list)
+	# Land on the stage just played, not the top of the list.
+	if params.has("focus"):
+		shell.scroll_to(list.get_child(clampi(params.focus, 0, zone.stages.size() - 1)))
+	if params.has("result"):
+		_result_popup(shell, z, params.result.stage, params.result.r, params.result.get("kind", "fight"), fighter)
 	return root
 
 
@@ -130,7 +138,7 @@ static func _sweep(shell, z: int, i: int, fighter: String) -> void:
 		shell.toast(_error_text(r.error))
 		shell.refresh()
 		return
-	shell.refresh_with({"zone": z, "notice": "Sweep %s: %s" % [Zones.stage_key(z, i), result_text(r)]})
+	shell.refresh_with({"zone": z, "focus": i, "result": {"stage": i, "r": r, "kind": "sweep"}})
 
 
 static func _error_text(error: String) -> String:
@@ -149,9 +157,67 @@ static func result_text(r: Dictionary) -> String:
 	var parts: Array[String] = ["%d of 3 stars" % r.stars]
 	if not r.drops.is_empty():
 		parts.append("got " + ", ".join(r.drops.map(func(id): return Roster.get_critter(id).name)))
+	for g in r.get("gear", []):
+		parts.append("found a %d-star %s" % [g.tier, g.name])
 	parts.append("+%d XP" % r.xp)
 	if r.levels > 0:
 		parts.append("level up!")
 	if r.account_levels > 0:
 		parts.append("account level up, energy refilled!")
 	return ", ".join(parts)
+
+
+## The popup after a stage fight or sweep: win or loss, stars, what dropped,
+## XP and energy, with Next stage when there is one to fight.
+static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fighter: String) -> void:
+	var st := Zones.stage(z, i)
+	var name: String = st.get("name", Roster.get_critter(st.enemy).name)
+	var v := Kit.vbox(18)
+	var title := "Victory!" if r.won else "Defeated"
+	v.add_child(Kit.vbox(2, [Kit.caption("%s %s · %s" % ["Sweep" if kind == "sweep" else "Stage", Zones.stage_key(z, i), name]),
+		Kit.label(title, 52, Kit.GOOD if r.won else Kit.BAD)]))
+	if r.won:
+		var star_row := Kit.hbox(12, [Glyph.make("stars", 48, Kit.FG, r.stars, 3)], BoxContainer.ALIGNMENT_CENTER)
+		v.add_child(star_row)
+		if not r.drops.is_empty() or not r.get("gear", []).is_empty():
+			var drops := GridContainer.new()
+			drops.columns = 3
+			drops.add_theme_constant_override("h_separation", 14)
+			drops.add_theme_constant_override("v_separation", 14)
+			for id in r.drops:
+				var c := Roster.get_critter(id)
+				var cell := Kit.vbox(4, [CritterIcon.make(id, 1, 96), _fit(Kit.label(c.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
+				cell.custom_minimum_size.x = 150
+				drops.add_child(Kit.panel(cell, Kit.box(Kit.PANEL2, Kit.LINE, 24, 2, 10)))
+			for g in r.get("gear", []):
+				var col := BagScreen.tier_color(g.tier)
+				var cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make(Gear.PIECES[g.type].glyph, 72, col)], BoxContainer.ALIGNMENT_CENTER),
+					Kit.hbox(0, [Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER), _fit(Kit.label(g.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
+				cell.custom_minimum_size.x = 150
+				drops.add_child(Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10)))
+			v.add_child(Kit.vbox(8, [Kit.caption("Drops"), drops]))
+	else:
+		v.add_child(Kit.label("Try a stronger critter, or fuse one up.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	var spent := Zones.cost(st) - int(r.refund)
+	var lines := Kit.vbox(8, [
+		Kit.hbox(10, [Glyph.make("energy", 28), Kit.label("%d energy spent%s" % [spent, (" · %d back" % r.refund) if r.refund > 0 else ""], 24, Kit.MUTED)]),
+		Kit.label("+%d XP for %s%s" % [r.xp, Roster.get_critter(fighter).name, " · level up!" if r.levels > 0 else ""], 24, Kit.MUTED),
+	])
+	if r.account_levels > 0:
+		lines.add_child(Kit.label("Account level up! Energy refilled.", 24, Kit.GOOD))
+	v.add_child(lines)
+	var buttons := Kit.hbox(14)
+	var ok := Kit.button("Continue", shell.close_overlay, "ghost" if r.won and i + 1 < Zones.zone(z).stages.size() else "go", 26, 84)
+	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.mark("result_continue", ok)
+	buttons.add_child(ok)
+	var next := i + 1 if r.won else i
+	if next < Zones.zone(z).stages.size() and Campaign.is_unlocked(shell.profile, z, next):
+		var again := Kit.button(("Next  %s" % Zones.stage_key(z, next)) if r.won else "Try again", func():
+			shell.close_overlay()
+			_fight(shell, z, next, Campaign.fighter_for(shell.profile)), "go", 26, 84)
+		again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		shell.mark("result_next", again)
+		buttons.add_child(again)
+	v.add_child(buttons)
+	shell.sheet(v)

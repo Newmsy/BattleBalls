@@ -16,7 +16,8 @@ const Shell := preload("res://game/ui/shell.gd")
 const ShopScreen := preload("res://game/ui/screens/shop_screen.gd")
 const PassScreen := preload("res://game/ui/screens/pass_screen.gd")
 
-const TEST_SAVE := "user://test_glow_save.json"
+## Per process: tests/run.sh runs shards side by side.
+var TEST_SAVE := "user://test_glow_save_%d.json" % OS.get_process_id()
 
 
 func _schedule() -> Dictionary:
@@ -134,7 +135,8 @@ func test_cosmetics_do_not_change_a_fight() -> void:
 func test_sim_never_reads_cosmetics() -> void:
 	for f in DirAccess.get_files_at("res://sim"):
 		if f.ends_with(".gd"):
-			var src := FileAccess.get_file_as_string("res://sim/" + f)
+			# Glowbug is a critter (sim/families.gd), not a cosmetic.
+			var src := FileAccess.get_file_as_string("res://sim/" + f).replace("glowbug", "")
 			check(not src.contains("glow") and not src.contains("cosmetic"), "sim/%s doesn't know about cosmetics" % f)
 
 

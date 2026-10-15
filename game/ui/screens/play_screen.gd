@@ -17,6 +17,7 @@ const LiveOps := preload("res://game/liveops.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
+const GearVault := preload("res://meta/gear_vault.gd")
 
 const DAILY := Color("ffd36b")
 const VERSUS := Color("ff4fd8")
@@ -42,7 +43,7 @@ static func build(shell, _params: Dictionary) -> Control:
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")),
 		mode_tile(shell, "spire", "The Spire", "Floor %d/%d · weekly" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
 			func(): shell.go("spire")),
-		_locked_tile(shell),
+		_vault_tile(shell) if GearVault.is_unlocked(shell.profile) else _locked_tile(shell),
 	]))
 
 	# Versus: other players' teams.
@@ -76,7 +77,7 @@ static func _campaign_card(shell) -> Control:
 		var st: Dictionary = stages[cleared]
 		next_text = "Next: %s %s · Recommended %s" % [Zones.stage_key(0, cleared), st.get("name", Roster.get_critter(st.enemy).name),
 			Kit.commas(Campaign.enemy_rating(0, cleared))]
-	var open := Kit.button("Open the map", func(): shell.go("campaign", {"zone": 0}), "go", 30, 84)
+	var open := Kit.button("Open the map", func(): shell.go("world"), "go", 30, 84)
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
 		Kit.caption("Campaign · Zone 1 · The Neon Circuit", Color("9be89a")),
@@ -146,6 +147,15 @@ static func _locked_tile(shell) -> Control:
 		shell.info.bind("After zone 1", ["Beat Mega Boulder, the zone 1 boss, to open three daily modes:",
 			"Critter Hunts: copies of one critter to fuse.", "Training Gym: XP for levels.", "Gear Vault: Shells and Cores."]))
 	return t
+
+
+## Gear Vault, once zone 1 is beaten: today's slot and runs left.
+static func _vault_tile(shell) -> Control:
+	var now := int(Time.get_unix_time_from_system())
+	var slot: String = GearVault.today(now).slot
+	var left := GearVault.runs_left(shell.profile, now)
+	var line := "%s · %d runs left" % ["Any gear" if slot == "" else slot + "s", left] if left > 0 else "Done for today"
+	return mode_tile(shell, "vault", "Gear Vault", line, Color("5ce1ff") if left > 0 else Kit.MUTED, func(): shell.go("vault"))
 
 
 static func _pass_tile(shell) -> Control:

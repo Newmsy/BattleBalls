@@ -23,11 +23,14 @@ const SCREENS := {
 	"bag": preload("res://game/ui/screens/bag_screen.gd"),
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 	"arena": preload("res://game/ui/screens/arena_screen.gd"),
+	"boosts": preload("res://game/ui/screens/boosts_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
+	"world": preload("res://game/ui/screens/world_screen.gd"),
 	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
 	"spire": preload("res://game/ui/screens/spire_screen.gd"),
+	"vault": preload("res://game/ui/screens/vault_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
 	"shop": preload("res://game/ui/screens/shop_screen.gd"),
 	"pass": preload("res://game/ui/screens/pass_screen.gd"),
@@ -40,7 +43,7 @@ const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## 720x1280 phone without scrolling: put detail behind an "i" (info()) and
 ## the main action in pin(). See design/ui.md, "No scrolling".
 ## Play scrolls only below its two big cards: its mode groups grow too.
-const SCROLLS := ["play", "critters", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket"]
+const SCROLLS := ["play", "critters", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
 
@@ -66,6 +69,8 @@ var account = null
 var link_base := FightLink.HOME
 ## Emitted when a campaign stage starts; energy is already spent.
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
+## Emitted when a Gear Vault run starts; energy and the run are already spent.
+signal vault_requested(config: Dictionary, difficulty: int, fighter: String)
 
 var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.
@@ -196,15 +201,43 @@ func back() -> void:
 	_show(top[0], top[1])
 
 
-## Rebuild the current screen in place, e.g. after the data changed.
+## Rebuild the current screen in place, e.g. after the data changed. Keeps
+## the scroll position.
 func refresh() -> void:
+	var at := _scroll.scroll_vertical
 	_show(current, current_params)
+	_restore_scroll(at)
 
 
 ## Rebuild the current screen with new parameters, replacing it in the history.
 func refresh_with(params: Dictionary) -> void:
+	var at := _scroll.scroll_vertical
 	_stack[-1] = [current, params]
 	_show(current, params)
+	if not params.has("focus"):
+		_restore_scroll(at)
+
+
+## Scroll the current screen so `c` is in view once it has been laid out.
+func scroll_to(c: Control) -> void:
+	var sc := _scroll
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(sc) and is_instance_valid(c) and sc == _scroll:
+		# A little of the card above stays in view, so it's clear where you are.
+		sc.scroll_vertical = int(c.global_position.y - sc.global_position.y + sc.scroll_vertical - 160.0)
+
+
+func _restore_scroll(at: int) -> void:
+	var sc := _scroll
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(sc) and sc == _scroll:
+		sc.scroll_vertical = at
 
 
 func toast(text: String) -> void:
