@@ -36,8 +36,13 @@ static func build(shell, params: Dictionary) -> Control:
 	]
 	for h in store.history.slice(0, 5):
 		how.append("%s vs %s (%+d)" % ["Won" if h.won else "Lost", str(h.name), int(h.delta)])
+	how.insert(3, "Every trophy you win also earns an Arena Point. Spend them in Boosts on your families' stats.")
 	var info: Control = shell.info_button("How the Arena works", how, "arena_info")
-	root.add_child(Kit.hbox(18, [back, Kit.label("Ghost Arena", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
+	var boosts := Kit.card_button(Kit.hbox(6, [Kit.label("Boosts", 22, Kit.WARN), Kit.label(Kit.commas(store.points), 22)], BoxContainer.ALIGNMENT_CENTER),
+		func(): shell.go("boosts", {"store": store}), Kit.WARN, Kit.PANEL, 999, 10)
+	boosts.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	shell.mark("arena_boosts", boosts)
+	root.add_child(Kit.hbox(14, [back, Kit.label("Ghost Arena", 40), Kit.spacer(), boosts, info], BoxContainer.ALIGNMENT_CENTER))
 	root.add_child(_league_panel(store))
 	root.add_child(_trio_panel(shell, store, owned))
 
