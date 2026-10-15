@@ -38,4 +38,5 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"none": true, "mouth": "grin"}, "back": ["lever"], "front": ["reels"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 1.1},
+	"chaos": {"rink": {"hp": 1.04}, "pillars": {"hp": 0.95}, "bumpers": {"hp": 0.97}}, ## The rink spreads its prizes thin; pillars bank them.
 }

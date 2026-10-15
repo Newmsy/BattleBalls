@@ -32,4 +32,5 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["canopy"], "front": ["beard"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.7},
+	"chaos": {"pillars": {"hp": 1.05}, "bumpers": {"hp": 1.04}}, ## Obstacles crowd out its root pillars.
 }

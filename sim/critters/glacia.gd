@@ -35,4 +35,5 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smirk"}, "back": ["tallcrystals", "cape_collar"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 1.05},
+	"chaos": {"rink": {"hp": 1.02}, "pillars": {"hp": 1.02}},
 }
