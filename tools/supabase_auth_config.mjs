@@ -10,8 +10,13 @@
 //   Google: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 //   Email:  SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SENDER
 //
+// It also keeps the test-mode account (game/online/test_user.gd) ready: it
+// creates test user 1 if missing, gives it a new random password and stores
+// the login in public.test_logins, where the game picks it up. The password
+// never touches the repo or the log.
+//
 // `--dry-run` prints which settings would change (names only) and exits.
-import { createPrivateKey, sign } from "node:crypto";
+import { createPrivateKey, randomBytes, sign } from "node:crypto";
 
 const env = process.env;
 const dryRun = process.argv.includes("--dry-run");
@@ -115,6 +120,70 @@ async function main() {
     process.exit(1);
   }
   console.log("Supabase auth settings applied.");
+  // A problem here must not stop deploys: the game falls back to guests.
+  try {
+    await ensureTestAccounts(ref);
+  } catch (e) {
+    console.log(`::warning::Test account not refreshed: ${String(e.message).slice(0, 200)}`);
+  }
+}
+
+const TEST_SLOTS = [1]; // game/online/test_user.gd ID
+
+// The project's server key, read with the access token and kept in memory.
+async function serverKey(ref) {
+  const res = await fetch(`https://api.supabase.com/v1/projects/${ref}/api-keys?reveal=true`, {
+    headers: { Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN.trim()}` },
+  });
+  if (!res.ok) throw new Error(`api-keys HTTP ${res.status}`);
+  const keys = await res.json();
+  const key = keys.find((k) => k.name === "service_role")?.api_key ?? keys.find((k) => k.type === "secret")?.api_key;
+  if (!key || key.includes("·")) throw new Error("no server key returned");
+  return key;
+}
+
+export function serverHeaders(key) {
+  // New secret keys go in apikey only; the legacy service_role JWT in both.
+  const h = { apikey: key, "Content-Type": "application/json" };
+  if (!key.startsWith("sb_secret_")) h.Authorization = `Bearer ${key}`;
+  return h;
+}
+
+export const testEmail = (slot) => `test-user-${slot}@example.com`;
+
+export async function ensureTestAccounts(ref) {
+  const base = `https://${ref}.supabase.co`;
+  const headers = serverHeaders(await serverKey(ref));
+  const call = async (method, path, body) => {
+    const res = await fetch(base + path, { method, headers: { ...headers, Prefer: "resolution=merge-duplicates,return=representation" }, body: body && JSON.stringify(body) });
+    const text = await res.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch { /* not JSON: status says enough */ }
+    return { status: res.status, ok: res.ok, data };
+  };
+  const known = await call("GET", "/rest/v1/test_logins?select=slot,user_id");
+  if (!known.ok) throw new Error(`test_logins HTTP ${known.status}`);
+  for (const slot of TEST_SLOTS) {
+    const email = testEmail(slot);
+    const password = randomBytes(24).toString("base64url");
+    let id = known.data.find((r) => r.slot === slot)?.user_id;
+    let res = id ? await call("PUT", `/auth/v1/admin/users/${id}`, { password, email_confirm: true }) : { ok: false, status: 404 };
+    if (!res.ok) {
+      res = await call("POST", "/auth/v1/admin/users", { email, password, email_confirm: true, user_metadata: { test_user: slot } });
+      if (res.ok) id = res.data.id;
+    }
+    if (!res.ok) {
+      // Made before its login was stored: find it by email.
+      const list = await call("GET", "/auth/v1/admin/users?page=1&per_page=1000");
+      id = list.data?.users?.find((u) => u.email === email)?.id;
+      if (!id) throw new Error(`creating ${email} HTTP ${res.status}`);
+      res = await call("PUT", `/auth/v1/admin/users/${id}`, { password, email_confirm: true });
+      if (!res.ok) throw new Error(`updating ${email} HTTP ${res.status}`);
+    }
+    const saved = await call("POST", "/rest/v1/test_logins?on_conflict=slot", { slot, user_id: id, email, password, updated_at: new Date().toISOString() });
+    if (!saved.ok) throw new Error(`storing test login HTTP ${saved.status}`);
+    console.log(`Test user ${slot} ready (${email}).`);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();

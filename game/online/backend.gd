@@ -27,6 +27,9 @@ var key := ""
 ## anonymous (true for a guest that hasn't linked an email or provider yet).
 var session := {}
 var disabled := false ## Set by ?offline=1.
+## Test mode (game/online/test_user.gd): sign in as shared test account N
+## instead of a guest. 0 = off.
+var test_user := 0
 var _settling := false
 
 
@@ -66,6 +69,11 @@ func ensure_session() -> bool:
 
 func _settle_session() -> bool:
 	var now := int(Time.get_unix_time_from_system())
+	if test_user > 0 and int(session.get("test_user", 0)) != test_user:
+		if await _sign_in_test_user():
+			return true
+		# No test account on the server yet (before the deploy that makes it):
+		# carry on as this device's guest. The save moves over once it works.
 	if session.has("access_token") and int(session.get("expires_at", 0)) - REFRESH_MARGIN > now:
 		return true
 	if session.has("refresh_token"):
@@ -76,6 +84,8 @@ func _settle_session() -> bool:
 		# else is the network: keep the guest and try again later.
 		if refreshed.code < 400 or refreshed.code >= 500:
 			return false
+		if int(session.get("test_user", 0)) > 0:
+			return await _sign_in_test_user()
 		print("ONLINE guest session expired, starting a new guest")
 	var signed_up := await _auth("signup", {"data": {}})
 	return signed_up.ok
@@ -127,6 +137,7 @@ func take_session(data) -> bool:
 	var user = data.get("user")
 	var claims := jwt_claims(str(data.access_token))
 	var previous := user_id()
+	var was_test_user := int(session.get("test_user", 0))
 	session = {
 		"access_token": data.access_token,
 		"refresh_token": data.refresh_token,
@@ -134,6 +145,8 @@ func take_session(data) -> bool:
 		"user_id": str(user.get("id", "")) if user is Dictionary else str(claims.get("sub", "")),
 		"anonymous": bool(user.get("is_anonymous", false)) if user is Dictionary else bool(claims.get("is_anonymous", false)),
 	}
+	if was_test_user > 0 and user_id() == previous:
+		session.test_user = was_test_user # A refresh keeps the test account.
 	_write_json(SESSION_PATH, session)
 	if user_id() != previous:
 		account_changed.emit()
@@ -189,6 +202,22 @@ static func jwt_claims(token: String) -> Dictionary:
 
 
 # --- Internals --------------------------------------------------------------
+
+## Signs in to the shared test account. Its password is made fresh on every
+## deploy (tools/supabase_auth_config.mjs) and handed out by test_login, so
+## it never sits in the repo.
+func _sign_in_test_user() -> bool:
+	var login: Dictionary = await call_rpc_public("test_login", {"p_slot": test_user})
+	if not (login.ok and login.data is Dictionary and login.data.has("email")):
+		return false
+	var res := await _auth("token?grant_type=password", {"email": login.data.email, "password": login.data.password})
+	if not res.ok:
+		return false
+	session.test_user = test_user
+	_write_json(SESSION_PATH, session)
+	print("ONLINE signed in as test user ", test_user)
+	return true
+
 
 func _auth(endpoint: String, body: Dictionary) -> Dictionary:
 	var res := await _send("POST", "/auth/v1/" + endpoint, body, [], false)

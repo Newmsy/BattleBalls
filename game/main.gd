@@ -185,7 +185,8 @@ func _ready() -> void:
 	account = Account.new(backend)
 	save.app_version = VERSION
 	save.mirrored = SaveGame.MIRRORED
-	save.test_slot = TestUser.slot()
+	save.test_mode = TestUser.slot() > 0
+	backend.test_user = TestUser.slot()
 	save.load_local()
 	save.capture_files()
 	_apply_picks()
@@ -1664,7 +1665,7 @@ func _build_stamp() -> String:
 
 func _stamp_text() -> String:
 	var text := _build_stamp() + (" · " + account_text if account_text != "" else "")
-	return text + (" · test user %d" % save.test_slot if save.test_slot > 0 else "")
+	return text + (" · test user %d" % backend.test_user if backend.test_user > 0 else "")
 
 
 func _read_url_params() -> Dictionary:
