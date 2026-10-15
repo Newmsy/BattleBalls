@@ -109,6 +109,11 @@ class Ball:
 	var defense := 0.0
 	var crit_chance := BASE_CRIT_CHANCE
 	var crit_mult := BASE_CRIT_MULT
+	## Size/speed/damage modifiers (grow and shrink): key -> {radius, speed,
+	## damage (multipliers), add (flat contact damage), until (tick, -1 = rest
+	## of fight)}. Set them with MatchSim.set_mod, never by hand.
+	var mods := {}
+	var base := {} ## radius, speed and contact_damage before any mod.
 
 	func alive() -> bool:
 		return hp > 0.0
@@ -317,6 +322,9 @@ func step() -> void:
 	_update_zones()
 	_update_dots()
 	for b in balls:
+		if not b.mods.is_empty():
+			_expire_mods(b)
+	for b in balls:
 		if b.alive():
 			if b.boost_ticks > 0:
 				b.boost_ticks -= 1
@@ -373,6 +381,8 @@ func state_hash() -> String:
 	for b in balls:
 		if b.shield > 0.0 or not b.dots.is_empty():
 			data.append_array([b.index, b.shield, b.dots.size()])
+		if not b.base.is_empty(): # Only once a mod was used, so older goldens keep their hash.
+			data.append_array([b.index, b.radius, b.speed, b.contact_damage])
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(data.to_byte_array())
@@ -675,6 +685,63 @@ func _finish(winning_index: int, reason: String) -> void:
 ## "mine", "burn", "reflect"...). Overtime scaling applies when it lands.
 func deal(source: Ball, target: Ball, amount: float, kind: String, pos = null) -> void:
 	_hits.append({"source": source.index, "target": target.index, "amount": amount, "kind": kind, "pos": target.pos if pos == null else pos})
+
+
+## Sets (or replaces) the size/speed/damage modifier `key` on `b`: `mod` may
+## hold "radius", "speed" and "damage" multipliers and "add" (flat contact
+## damage). It lasts `secs` seconds, or the rest of the fight when <= 0. The
+## ball's speed changes at once and keeps its direction; a bigger ball is
+## pushed off the walls on its next move. Emits "grow" with the new size.
+func set_mod(b: Ball, key: String, mod: Dictionary, secs := 0.0) -> void:
+	var m := mod.duplicate()
+	if b.state.has("copy_until"):
+		m.copied = true # Echo borrowed this; it ends with the copy (Abilities._end_copy).
+	m.until = tick + int(round(secs * TICK_RATE)) if secs > 0.0 else -1
+	b.mods[key] = m
+	_apply_mods(b)
+
+
+func clear_mod(b: Ball, key: String) -> void:
+	if b.mods.erase(key):
+		_apply_mods(b)
+
+
+func has_mod(b: Ball, key: String) -> bool:
+	return b.mods.has(key)
+
+
+func _expire_mods(b: Ball) -> void:
+	var gone := false
+	for key in b.mods.keys():
+		var until: int = b.mods[key].until
+		if until >= 0 and tick >= until:
+			b.mods.erase(key)
+			gone = true
+	if gone:
+		_apply_mods(b)
+
+
+## Recomputes radius, speed and contact damage from the base stats and every mod.
+func _apply_mods(b: Ball) -> void:
+	if b.base.is_empty():
+		b.base = {"radius": b.radius, "speed": b.speed, "contact_damage": b.contact_damage}
+	var size := 1.0
+	var pace := 1.0
+	var hit := 1.0
+	var add := 0.0
+	for m in b.mods.values():
+		size *= m.get("radius", 1.0)
+		pace *= m.get("speed", 1.0)
+		hit *= m.get("damage", 1.0)
+		add += m.get("add", 0.0)
+	var old_radius := b.radius
+	b.radius = b.base.radius * size
+	b.speed = b.base.speed * pace
+	b.contact_damage = maxf(0.0, b.base.contact_damage * hit + add)
+	if b.vel.length() > 0.001:
+		b.vel = b.vel.normalized() * b.current_speed()
+	if not is_equal_approx(old_radius, b.radius):
+		events.append({"type": "grow", "ball": b.index, "pos": b.pos, "scale": size, "bigger": b.radius > old_radius})
 
 
 ## The living balls on the other team from `b`.

@@ -180,6 +180,12 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("snap", 0.0, 1.25)
 			"revive":
 				play("heal", 0.0, 0.8)
+			"grow": # Grow and shrink (Puff, Crumb, Tumble): higher when shrinking.
+				play("flip", -3.0, 0.75 if e.bigger else 1.6)
+			"chomp", "unwind":
+				play("snap", 0.0, 0.8)
+			"pop":
+				play("flip", 0.0, 1.8)
 			"end":
 				if e.reason != "time_limit":
 					play("ko")
