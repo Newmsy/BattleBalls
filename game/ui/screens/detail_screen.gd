@@ -1,4 +1,4 @@
-## One critter on one phone screen: power, stats, level against the tier
+## One critter on one phone screen (its best copy, or the tier in params.tier): power, stats, level against the tier
 ## cap, this tier's ability and the next, gear and copies. The whole T1-T5
 ## ladder and the flavour text sit behind the "i"; Use in lineup and Fuse are pinned.
 extends RefCounted
@@ -25,6 +25,12 @@ static func build(shell, params: Dictionary) -> Control:
 	var p = shell.profile
 	var c := Roster.get_critter(params.id)
 	var b: Dictionary = p.best(c.id)
+	var is_best := true
+	for s in p.copies(c.id):
+		if s.tier == params.get("tier", b.tier) and s != b:
+			b = s # A lower-tier copy tapped on My critters.
+			is_best = false
+	var power: int = p.power_of(c.id) if is_best else Roster.power(c.id, b.tier, b.level)
 	var rcol: Color = Roster.RARITY_COLORS[c.rarity]
 	var root := Kit.vbox(18)
 	var cap := Roster.level_cap(b.tier)
@@ -44,7 +50,7 @@ static func build(shell, params: Dictionary) -> Control:
 	for st in [["HP", str(hp)], ["DMG", str(dmg)], ["SPEED", speed]]:
 		stats.add_child(Kit.vbox(0, [Kit.label(st[0], 19, Kit.MUTED), Kit.label(st[1], 28)]))
 	var side := Kit.vbox(8, [Glyph.make("stars", 30, Kit.FG, b.tier, Roster.MAX_TIER), Kit.label("%s · %s" % [c.type, c.role], 22, Kit.MUTED),
-		Kit.power(p.power_of(c.id), 36), stats])
+		Kit.power(power, 36), stats])
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	root.add_child(Kit.hbox(16, [CritterIcon.make(c.id, b.tier, 220, true), side], BoxContainer.ALIGNMENT_CENTER))

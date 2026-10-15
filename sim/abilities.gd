@@ -288,8 +288,8 @@ func fx_field(sim, b, _ctx: Dictionary) -> void:
 		if not pulling:
 			strength *= -b.def.push_scale
 		var pull := delta / dist * strength
-		sim.steer(other, pull)
-		sim.steer(b, -pull)
+		sim.pull(other, pull)
+		sim.pull(b, -pull)
 
 
 ## The first contact hit while a field is on Pull deals snap_mult damage; it
@@ -414,7 +414,7 @@ func fx_pull(sim, b, _ctx: Dictionary) -> void:
 		if dist < 0.001 or dist >= b.def.pull_range:
 			continue
 		var k: float = 1.0 - dist / b.def.pull_range if b.def.pull_close > 0 else 1.0
-		sim.steer(o, delta / dist * b.def.pull_accel * k)
+		sim.pull(o, delta / dist * b.def.pull_accel * k)
 
 
 ## moon_count moons circle it moon_orbit beyond its edge; each hits a foe it
@@ -586,7 +586,7 @@ func fx_collapse(sim, b, _ctx: Dictionary) -> void:
 			var delta: Vector2 = b.pos - o.pos
 			var dist := delta.length()
 			if dist > 0.001 and dist < b.def.collapse_range:
-				sim.steer(o, delta / dist * b.def.collapse_accel)
+				sim.pull(o, delta / dist * b.def.collapse_accel)
 	elif sim.tick >= every and t == dur:
 		sim.pulse(b, b.pos, b.def.collapse_radius, b.def.collapse_damage, true, "nova")
 		if b.def.collapse_burn > 0.0:
@@ -1014,7 +1014,7 @@ func fx_wrap_tick(sim, b, _ctx: Dictionary) -> void:
 	if w.pull and sim.tick >= w.pop and sim.tick < w.pop + sim.TICK_RATE / 2 and f.alive():
 		var delta: Vector2 = b.pos - f.pos
 		if delta.length() > 0.001:
-			sim.steer(f, delta.normalized() * b.def.wrap_pull)
+			sim.pull(f, delta.normalized() * b.def.wrap_pull)
 	elif sim.tick >= w.pop + sim.TICK_RATE / 2:
 		b.state.erase("wrap")
 
@@ -2032,7 +2032,7 @@ func fx_tentacles(sim, b, _ctx: Dictionary) -> void:
 			var delta: Vector2 = b.pos - o.pos
 			var dist := delta.length()
 			if dist > 0.001 and dist < b.def.hug_range:
-				sim.steer(o, delta / dist * b.def.hug_accel)
+				sim.pull(o, delta / dist * b.def.hug_accel)
 
 
 ## The tentacles slam down: an ink puddle at each tip (ink_radius, ink_life

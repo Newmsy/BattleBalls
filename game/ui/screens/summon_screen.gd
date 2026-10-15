@@ -11,6 +11,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Summon := preload("res://game/ui/summon.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const Dev := preload("res://game/dev.gd")
 
 static var _rng: RandomNumberGenerator
 
@@ -48,10 +49,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(0, [Kit.caption("Legendary pity"), Kit.spacer(), Kit.label("%d Rare+ rolls left" % pity, 22)]),
 		Kit.bar(float(Summon.PITY_RESET - pity) / Summon.PITY_RESET, Glyph.GOLD)]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
-	var one := Kit.button("Free x1" if p.free_summon else "x1  (1 orb)", func(): _pull(shell, 1), "ghost", 28, 96)
-	var ten := Kit.button("x10  (10 orbs)", func(): _pull(shell, 10), "primary", 28, 96)
-	one.disabled = not p.free_summon and p.orbs < 1
-	ten.disabled = p.orbs < 10
+	var free := Dev.free_summons()
+	var one := Kit.button("Free x1" if p.free_summon or free else "x1  (1 orb)", func(): _pull(shell, 1), "ghost", 28, 96)
+	var ten := Kit.button("Free x10" if free else "x10  (10 orbs)", func(): _pull(shell, 10), "primary", 28, 96)
+	one.disabled = not (p.free_summon or free) and p.orbs < 1
+	ten.disabled = not free and p.orbs < 10
 	shell.mark("pull1", one)
 	shell.mark("pull10", ten)
 	shell.pin(Kit.hbox(14, [one, ten]))
@@ -152,7 +154,9 @@ static func _centered(c: Control) -> Control:
 
 static func _pull(shell, n: int) -> void:
 	var p = shell.profile
-	if n == 1 and p.free_summon:
+	if Dev.free_summons():
+		pass # Testing: summons cost nothing.
+	elif n == 1 and p.free_summon:
 		p.free_summon = false
 	elif not p.spend_orbs(n):
 		shell.toast("Not enough Summon Orbs.")

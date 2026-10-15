@@ -19,6 +19,8 @@ const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
 	"critters": preload("res://game/ui/screens/critters_screen.gd"),
 	"detail": preload("res://game/ui/screens/detail_screen.gd"),
+	"dex": preload("res://game/ui/screens/dex_screen.gd"),
+	"dex_entry": preload("res://game/ui/screens/dex_entry_screen.gd"),
 	"fuse": preload("res://game/ui/screens/fuse_screen.gd"),
 	"bag": preload("res://game/ui/screens/bag_screen.gd"),
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
@@ -37,13 +39,13 @@ const SCREENS := {
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
-## Screens that hold a list which keeps growing (collection, gear, the shop,
+## Screens that hold a list which keeps growing (collection, Critterpedia, gear, the shop,
 ## the pass track, friends, the stage map, the Spire's critter picker, the
 ## week's events and the bracket). Every other screen must fit a
 ## 720x1280 phone without scrolling: put detail behind an "i" (info()) and
 ## the main action in pin(). See design/ui.md, "No scrolling".
 ## Play scrolls only below its two big cards: its mode groups grow too.
-const SCROLLS := ["play", "critters", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
+const SCROLLS := ["play", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
 
