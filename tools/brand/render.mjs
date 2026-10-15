@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as D from "./designs.mjs";
+import { NAVY } from "./parts.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../..");
@@ -32,7 +33,7 @@ async function render(svg, file, w, h = w, { transparent = false, opaque = false
   await page.setContent(`<html><body style="margin:0;background:transparent">${sized}</body></html>`);
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: file, omitBackground: transparent, clip: { x: 0, y: 0, width: w, height: h } });
-  if (opaque) execFileSync("convert", [file, "-background", D.NAVY, "-alpha", "remove", "-alpha", "off", file]);
+  if (opaque) execFileSync("convert", [file, "-background", NAVY, "-alpha", "remove", "-alpha", "off", file]);
   console.log(path.relative(repo, file));
 }
 
