@@ -4,6 +4,7 @@ extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const A11y := preload("res://game/a11y.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 
 const OPTIONS := [
 	["reduced_motion", "Reduced motion", "No screen shake, softer hit flashes, no finisher zoom."],
@@ -20,6 +21,7 @@ static func build(shell) -> Control:
 	var v := Kit.vbox(22, [Kit.label("Settings", 40)])
 	for o in OPTIONS:
 		v.add_child(_row(shell, o[0], o[1], o[2]))
+	v.add_child(_stats_row(shell))
 	var note := Kit.label("Colourblind-friendly marks are always on: your critter has a solid ring, the foe a dashed spiky one, and every rarity has its own shape.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	# The sheet measures itself before layout, so wrapped text needs a real width.
 	note.custom_minimum_size.x = 600
@@ -39,6 +41,25 @@ static func _row(shell, key: String, title: String, text: String) -> Control:
 	var desc := Kit.label(text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	desc.custom_minimum_size.x = 440
 	var words := Kit.vbox(4, [Kit.label(title, 30), desc])
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return Kit.hbox(16, [words, sw])
+
+
+## Anonymous play stats (game/online/analytics.gd), on by default. Turning
+## them off also deletes what was already sent.
+static func _stats_row(shell) -> Control:
+	var on := not Analytics.opted_out()
+	var flip := func():
+		Analytics.set_opt_out(on)
+		shell.toast("Play stats off. Anything already sent is deleted." if on else "Thanks! Anonymous play stats are on.")
+		open(shell)
+	var sw := Kit.button("On" if on else "Off", flip, "go" if on else "ghost", 26, 72)
+	sw.custom_minimum_size.x = 132
+	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
+	shell.mark("stats_toggle", sw)
+	var desc := Kit.label("Anonymous stats on how fights and the tutorial go, so we can balance critters. No names, no ads.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+	desc.custom_minimum_size.x = 440
+	var words := Kit.vbox(4, [Kit.label("Play stats", 30), desc])
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return Kit.hbox(16, [words, sw])
 

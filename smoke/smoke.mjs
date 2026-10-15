@@ -221,6 +221,7 @@ try {
     await page.waitForTimeout(3000);
     await page.screenshot({ path: path.join(shots, "5-flow-fight.png") });
     console.log("online:", logs.find((l) => l.startsWith("ONLINE")) ?? "no backend configured");
+    console.log("analytics:", logs.find((l) => l.startsWith("ANALYTICS_OK")) ?? "nothing sent yet");
     await page.close();
   }
 
@@ -260,6 +261,20 @@ try {
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "7-wide-fight.png") });
     await page.close();
+  }
+
+  // 3b. The owner's stats screen (?stats#k=<key>) with sample numbers, and
+  // without a backend it says so instead of failing.
+  {
+    const { page, logs } = await openGame("?stats&demo=1&offline=1#k=demo");
+    console.log("stats:", await waitForLog(logs, "STATS_SCREEN", 60000));
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(shots, "6s-stats.png") });
+    await page.close();
+    const off = await openGame("?stats&offline=1#k=demo");
+    const status = await waitForLog(off.logs, "STATS_SCREEN", 60000);
+    if (status !== "STATS_SCREEN offline") throw new Error(`stats without a backend: ${status}`);
+    await off.page.close();
   }
 
   // 4. Sound board opens over the menu and its buttons play without errors.

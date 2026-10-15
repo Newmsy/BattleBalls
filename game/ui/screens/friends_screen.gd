@@ -10,6 +10,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const DetailScreen := preload("res://game/ui/screens/detail_screen.gd")
 const Friends := preload("res://game/online/friends.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -116,6 +117,7 @@ static func _gifts_card(shell, fr) -> Control:
 	var on_claim := func():
 		var energy: int = await fr.claim_gifts()
 		if energy > 0:
+			Analytics.track("energy", {"delta": energy, "source": "friend_gift"})
 			shell.profile.energy += energy
 			shell.profile.changed.emit()
 			shell.toast("+%d energy from your friends!" % energy)

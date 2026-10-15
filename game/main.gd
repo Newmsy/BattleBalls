@@ -20,6 +20,7 @@ const LiveOps := preload("res://game/liveops.gd")
 const Onboarding := preload("res://game/onboarding.gd")
 const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 const Account := preload("res://game/online/account.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const ResultText := preload("res://game/result_text.gd")
@@ -76,6 +77,7 @@ var _retry_timer: Timer ## Retries the cloud save while it has unsynced changes.
 var rival := {} ## The friend entry a RIVAL fight is against.
 var link_friend := "" ## Friend code from the link the page was opened with (&f=).
 var _count_fight := false ## The running fight came from the menu, not a replay or URL.
+var _last_logged_fight := "" ## Report code of the last replay sent to analytics.
 
 var _accumulator := 0.0
 var finisher: FinisherCam
@@ -145,12 +147,18 @@ func _ready() -> void:
 	save.app_version = VERSION
 	save.load_local()
 	_apply_picks()
-	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
 	url_params = _read_url_params()
-	if url_params.get("mode", "") == "trickshot" and not _mode_redirected:
+	# ?stats opens the owner's stats screen (game/stats/), which isn't play.
+	if url_params.has("stats"):
+		get_tree().change_scene_to_file.call_deferred("res://game/stats/stats.tscn")
+		return
+	Analytics.start(get_tree(), backend, VERSION, url_params)
+	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
+	var redirect: String = {"trickshot": "res://game/trick_shot.tscn"}.get(url_params.get("mode", ""), "")
+	if redirect != "" and not _mode_redirected:
 		_mode_redirected = true
 		set_process(false)
-		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
+		get_tree().change_scene_to_file.call_deferred(redirect)
 		return
 	arena_clip = Control.new()
 	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -418,6 +426,12 @@ func _show_result() -> void:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
 	if mode == Mode.RIVAL and _count_fight:
 		_record_rival()
+	# A replay counts once, not again for every Replay tap.
+	if _count_fight or (mode == Mode.REPLAY and _report_code() != _last_logged_fight):
+		_last_logged_fight = _report_code()
+		Analytics.track("fight_end", {"mode": "fight_of_day" if _board_pick >= 0 else Mode.keys()[mode].to_lower(),
+			"picked": mode != Mode.REPLAY, "team": [player_type], "foe": [opponent_type],
+			"result": Analytics.result_of(sim.winner), "secs": snappedf(sim.time(), 0.1)})
 	if _count_fight:
 		_count_fight = false
 		_record_fight()
@@ -1301,6 +1315,7 @@ func _sync_share_targets() -> void:
 
 
 func _share(kind: String) -> void:
+	Analytics.track("share", {"kind": kind})
 	if OS.has_feature("web"):
 		# The page already started sharing on this tap; just watch how it went.
 		_share_pending = true
