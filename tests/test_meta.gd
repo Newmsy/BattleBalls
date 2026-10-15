@@ -39,7 +39,7 @@ func test_fight_power_matches_the_power_rating_players_see() -> void:
 func test_power_steps_match_the_design_budget() -> void:
 	check_near(Power.multiplier("common", 2, 1), 1.25, 0.0001, "one tier")
 	check_near(Power.multiplier("common", 1, 11), 1.25, 0.0001, "ten levels")
-	check(Power.multiplier("legendary", 1, 1) < Power.multiplier("common", 2, 1), "a T2 Common out-powers a T1 Legendary")
+	check_near(Power.multiplier("legendary", 1, 1), Power.multiplier("common", 3, 1), 0.001, "a T1 Legendary is two tiers above a T1 Common")
 
 
 func test_power_scales_hp_and_damage_but_not_speed() -> void:

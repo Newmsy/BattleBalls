@@ -1,79 +1,102 @@
+## The critter pipeline: every file in sim/critters/ is valid, and everything
+## that reads critters (sim, art, sound, summons) picks each one up.
 extends "res://tests/test_case.gd"
 
+const CritterDb := preload("res://sim/critter_db.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
+const Abilities := preload("res://sim/abilities.gd")
+const CritterArt := preload("res://game/ui/critter_art.gd")
+const Roster := preload("res://game/ui/roster.gd")
+const Sfx := preload("res://game/audio/sfx.gd")
 
 
-func _sim(p1: String, p2: String) -> MatchSim:
-	var sim := MatchSim.new({"seed": 1, "p1": p1, "p2": p2, "angles": [null, null]})
-	sim.balls[0].pos = Vector2(200, 200)
-	sim.balls[1].pos = Vector2(800, 800)
-	for b in sim.balls:
-		b.vel = Vector2.ZERO
-	return sim
+## Records every effect call instead of running it.
+class Probe extends Abilities:
+	var calls: Array = []
+
+	func fx_probe(sim, b, ctx: Dictionary) -> void:
+		calls.append([sim.tick, b.index, ctx.keys()])
 
 
-## Rams ball 0 into a parked ball 1 and steps until they've collided.
-func _ram(sim: MatchSim) -> void:
-	var a := sim.balls[0]
-	var b := sim.balls[1]
-	b.pos = Vector2(500, 500)
-	b.vel = Vector2.ZERO
-	a.pos = b.pos - Vector2(a.radius + b.radius + 2.0, 0)
-	a.vel = Vector2(a.speed, 0)
-	for i in 5:
-		sim.step()
+func test_every_critter_file_is_valid() -> void:
+	check(CritterDb.ids().size() >= 16, "critter files found")
+	for id in CritterDb.ids():
+		var errors := CritterDb.validate(id, CritterDb.get_critter(id))
+		check(errors.is_empty(), "\n".join(errors))
 
 
-func test_spiker_grows_spikes_on_hits_up_to_the_cap() -> void:
-	var sim := _sim("spiker", "plain")
-	var s := sim.balls[0]
-	_ram(sim)
-	check_eq(s.spikes, 1, "one spike after one hit")
-	var base := sim._contact_damage(s)
-	check_near(base, s.contact_damage + s.def.spike_damage, 0.001, "spike adds damage")
-	s.spikes = 100
-	check_near(sim._contact_damage(s), s.contact_damage + s.def.spike_damage * s.def.spike_max, 0.001, "capped")
+func test_numbers_and_names_are_unique() -> void:
+	var numbers := {}
+	var names := {}
+	for id in CritterDb.ids():
+		var c := CritterDb.get_critter(id)
+		check(not numbers.has(c.no), "%s reuses number %d (%s)" % [id, c.no, numbers.get(c.no, "")])
+		check(not names.has(c.name), "%s reuses the name %s" % [id, c.name])
+		numbers[c.no] = id
+		names[c.name] = id
 
 
-func test_speedster_speeds_up_on_bounces_and_resets_when_hit() -> void:
-	var sim := _sim("speedster", "plain")
-	var z := sim.balls[0]
-	z.pos = Vector2(z.radius + 2.0, 500)
-	z.vel = Vector2(-z.speed, 0)
-	sim.step()
-	check(z.speed > z.def.speed, "faster after a bounce")
-	check_near(z.vel.length(), z.speed, 0.01, "velocity matches speed")
-	for i in 100:
-		sim._on_wall_bounce(z, Vector2.ZERO)
-	check_near(z.speed, z.def.speed * z.def.max_speed_mult, 0.01, "speed is capped")
-	check(sim._contact_damage(z) > z.contact_damage, "faster hits harder")
-	# The plain ball rams the speedster.
-	var p := sim.balls[1]
-	z.pos = Vector2(500, 500)
-	z.vel = Vector2.ZERO
-	p.pos = z.pos + Vector2(z.radius + p.radius + 2.0, 0)
-	p.vel = Vector2(-p.speed, 0)
-	for i in 5:
-		sim.step()
-	check_near(z.speed, z.def.speed, 0.01, "reset after being hit")
+func test_art_and_sound_use_the_kit() -> void:
+	for id in CritterDb.ids():
+		var art: Dictionary = CritterDb.get_critter(id).art
+		check(art.get("body", "gradient") in CritterArt.BODIES, "%s: unknown body %s" % [id, art.get("body")])
+		for f in art.get("back", []) + art.get("front", []):
+			check(f in CritterArt.FEATURES, "%s: unknown art feature %s" % [id, f])
+		check(not art.get("eyes", {}).is_empty(), id + " has a face")
+		check(art.get("eyes", {}).get("mouth", "smile") in CritterArt.MOUTHS, id + " mouth")
+		var ouch: String = CritterDb.get_critter(id).sound.get("ouch", "")
+		check(ouch == "" or Sfx.RULES.has(ouch), "%s: unknown ouch sound %s" % [id, ouch])
 
 
-func test_juggernaut_hit_makes_the_next_wall_bounce_hurt() -> void:
-	var sim := _sim("juggernaut", "plain")
-	_ram(sim)
-	var victim := sim.balls[1]
-	check(victim.slam_until > sim.tick, "victim is primed for a slam")
-	var hp := victim.hp
-	victim.pos = Vector2(1000 - victim.radius - 1.0, 500)
-	victim.vel = Vector2(victim.speed, 0)
-	sim.balls[0].pos = Vector2(200, 200)
-	sim.balls[0].vel = Vector2.ZERO
-	sim.step()
-	check(sim.events.any(func(e): return e.type == "damage" and e.kind == "slam"), "slam damage event")
-	check_near(hp - victim.hp, sim.balls[0].def.slam_damage, 0.01, "slam damage applied")
-	check_eq(victim.slam_until, -1, "a slam is used up")
+func test_live_critters_reach_the_sim_menus_and_summons() -> void:
+	for id in CritterDb.live_ids():
+		check(id in BallDefs.PLAYABLE, id + " is playable")
+		check(Roster.ids().has(id), id + " is in the collection")
+		var s1 := MatchSim.new({"seed": 5, "p1": id, "p2": "plain"}).run_to_end()
+		var s2 := MatchSim.new({"seed": 5, "p1": id, "p2": "plain"}).run_to_end()
+		check_eq(s1.hash, s2.hash, id + " fights deterministically")
+	check(not "plain" in BallDefs.PLAYABLE, "the baseline is never offered")
+	check(not Roster.ids().has("plain"), "the baseline isn't collectable")
 
 
-func test_boss_size_scales_radius() -> void:
-	var sim := MatchSim.new({"seed": 1, "p1": "plain", "p2": "juggernaut", "sizes": [1.0, 1.5]})
-	check_near(sim.balls[1].radius, sim.balls[1].def.radius * 1.5, 0.001, "radius scaled")
+func test_tiers_apply_the_ladder_upgrades() -> void:
+	check_near(BallDefs.get_def("vampire").heal_ratio, 0.5, 0.0001, "T1")
+	check_near(BallDefs.get_def("vampire", 3).heal_ratio, 0.7, 0.0001, "T3 keeps the T2 and T3 upgrades")
+	var sim := MatchSim.new({"seed": 1, "p1": "laser", "p2": "laser", "tiers": [4, 1]})
+	check_near(sim.balls[0].def.beam_life, 4.5, 0.0001, "the fight uses the T4 ladder")
+	check_near(sim.balls[1].def.beam_life, 3.0, 0.0001, "the other ball stays T1")
+
+
+func test_validation_catches_mistakes() -> void:
+	var c := CritterDb.get_critter("vampire").duplicate(true)
+	c.rarity = "mythic"
+	c.ability = [{"on": "hit", "do": "explode"}, {"on": "sometimes", "do": "heal"}]
+	c.tiers[2]["oops"] = 1.0
+	var text := "\n".join(CritterDb.validate("vampire", c))
+	for word in ["mythic", "explode", "sometimes", "oops"]:
+		check(word in text, "flags " + word)
+
+
+func test_every_trigger_fires() -> void:
+	var sim := MatchSim.new({"seed": 3, "p1": "plain", "p2": "plain"})
+	var probe := Probe.new()
+	sim.abilities = probe
+	var def: Dictionary = sim.balls[0].def.duplicate()
+	def.effects = []
+	for on in ["hit", "hurt", "wall", "bump", "start"]:
+		def.effects.append({"on": on, "do": "probe"})
+	def.effects.append({"on": "every", "secs": 2.0, "do": "probe"})
+	def.effects.append({"on": "hp_below", "hp": 0.9, "do": "probe"})
+	sim.balls[0].def = def
+	sim.run_to_end()
+	var keys := {}
+	for c in probe.calls:
+		keys[str(c[2])] = true
+	check(probe.calls.any(func(c): return c[0] == 0), "start fires on the first tick")
+	check(probe.calls.any(func(c): return c[0] == 120), "every 2s fires at 2s")
+	check(keys.has(str(["point"])), "wall")
+	check(keys.has(str(["other"])), "bump")
+	check(keys.has(str(["target", "amount", "heals"])), "hit")
+	check(keys.has(str(["source", "amount", "kind"])), "hurt")
+	check(probe.calls.all(func(c): return c[1] == 0), "only the owner's effects fire")

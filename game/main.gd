@@ -22,7 +22,9 @@ const Profile := preload("res://meta/profile.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const Zones := preload("res://meta/zones.gd")
 const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
+const Account := preload("res://game/online/account.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const ResultText := preload("res://game/result_text.gd")
 
 enum State { MENU, AIM, FIGHT, RESULT }
 ## NORMAL: pick your ball, the opponent is random. REPLAY: watching a shared fight. CHALLENGE: beating
@@ -63,6 +65,8 @@ var backend: Backend
 var save := SaveGame.new()
 var account_text := "" ## Guest name and trophies once signed in.
 var friends: Friends
+var account: Account
+var _retry_timer: Timer ## Retries the cloud save while it has unsynced changes.
 var rival := {} ## The friend entry a RIVAL fight is against.
 var link_friend := "" ## Friend code from the link the page was opened with (&f=).
 var _count_fight := false ## The running fight came from the menu, not a replay or URL.
@@ -120,6 +124,7 @@ func _ready() -> void:
 	backend = Backend.new()
 	add_child(backend)
 	friends = Friends.new(backend)
+	account = Account.new(backend)
 	save.app_version = VERSION
 	save.load_local()
 	_apply_picks()
@@ -313,17 +318,16 @@ func _start_fight() -> void:
 func _show_result() -> void:
 	state = State.RESULT
 	var you := sim.balls[0]
-	var text := "DRAW"
-	if mode == Mode.REPLAY and sim.winner >= 0:
-		text = "%s WINS" % sim.balls[sim.winner].def.display_name.to_upper()
-	elif sim.winner == 0:
-		text = "YOU WIN!"
-	elif sim.winner == 1:
-		text = "YOU LOSE"
-	result_label.text = text
+	var replay := mode == Mode.REPLAY
+	var names := [sim.balls[0].def.display_name, sim.balls[1].def.display_name] if replay else ["You", "The foe"]
+	var result := ResultText.describe(sim, names, replay)
+	result_label.text = result.headline
+	result_label.modulate = result.color
 	_label_result_buttons()
-	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if mode == Mode.REPLAY else "You",
+	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if replay else "You",
 		roundi(you.damage_dealt), (" and healed %d" % roundi(you.healed)) if you.healed > 0.0 else ""]
+	if result.detail != "":
+		info_label.text = "%.1fs. %s" % [sim.time(), result.detail]
 	report_label.text = "Report code: " + _report_code()
 	if _board_pick >= 0:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
@@ -457,17 +461,28 @@ func _record_fight() -> void:
 func _go_online() -> void:
 	if not backend.enabled():
 		return
-	if await save.sync(backend) and not url_picks:
-		_apply_picks()
-		if not profile_unsaved:
-			_load_profile()
-			shell.use_profile(profile)
-		if state == State.MENU:
-			_refresh_menu()
-	if not await backend.ensure_session():
+	# Back from an emailed link or an Apple/Google sign-in: take that session.
+	var from_page := backend.take_session_from_page()
+	if from_page != "" and from_page != "ok":
+		shell.toast("Sign-in didn't finish: " + from_page)
+	save.changed.connect(_on_save_changed)
+	backend.signed_out.connect(save.reset_for_sign_out)
+	_retry_timer = Timer.new()
+	_retry_timer.wait_time = 60.0
+	_retry_timer.timeout.connect(func(): if save.dirty: _sync_online())
+	add_child(_retry_timer)
+	_retry_timer.start()
+	await save.sync(backend)
+	var online := await backend.ensure_session()
+	# Connected after the first sign-in so booting doesn't do everything twice.
+	backend.account_changed.connect(_on_account_changed)
+	if not online:
 		return
 	await _publish_lineup()
 	await _refresh_account()
+	await account.refresh()
+	if from_page == "ok":
+		shell.toast("Signed in. Your progress is on your account." if not account.is_guest() else "Signed in.")
 	await friends.refresh()
 	if state == State.RESULT:
 		_label_result_buttons()
@@ -476,8 +491,35 @@ func _go_online() -> void:
 func _sync_online() -> void:
 	if not backend.enabled():
 		return
-	await save.push(backend)
+	await save.sync(backend)
 	await _publish_lineup()
+
+
+## The save was replaced (a newer cloud copy, another account): show it.
+func _on_save_changed() -> void:
+	if not url_picks:
+		_apply_picks()
+	# A newer cloud copy or another account: its profile replaces this one.
+	if not profile_unsaved:
+		_load_profile()
+		shell.use_profile(profile)
+	if state == State.MENU:
+		_refresh_menu()
+
+
+## Signed in, out, or as a new guest: bring everything over to that account.
+func _on_account_changed() -> void:
+	await save.sync(backend)
+	await _publish_lineup()
+	await _refresh_account()
+	await account.refresh()
+	await friends.refresh()
+
+
+func _notification(what: int) -> void:
+	# Coming back to the tab or app: pick up anything another device saved.
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN and backend != null and backend.enabled() and _retry_timer != null:
+		_sync_online()
 
 
 ## Keeps this player's Ghost Arena defence in step with their current ball.
@@ -587,6 +629,7 @@ func _build_shell() -> void:
 	shell = Shell.new()
 	shell.friends = friends
 	shell.profile = profile
+	shell.set_account(account)
 	shell.link_base = _link_base()
 	shell.play_requested.connect(func():
 		shell_layer.visible = false
@@ -997,6 +1040,8 @@ func _share_text(kind: String) -> String:
 	if kind == "c":
 		return "Can your ball beat my %s's shot in Battle Balls?" % mine
 	if mode == Mode.CHALLENGE:
+		if sim.winner == -1:
+			return "My %s drew with your %s challenge. Watch:" % [mine, theirs]
 		return ("I beat your %s challenge with my %s!" if sim.winner == 0 else "Your %s beat my %s. Watch:") % [theirs, mine]
 	return "Watch %s vs %s in Battle Balls!" % [mine, theirs]
 

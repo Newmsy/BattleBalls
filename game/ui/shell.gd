@@ -22,6 +22,7 @@ const SCREENS := {
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
 	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
+	"account": preload("res://game/ui/screens/account_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
@@ -41,6 +42,8 @@ signal share_layout_changed
 
 ## Friends state (game/online/friends.gd). main.gd swaps in one with the backend.
 var friends = Friends.new()
+## Account state (game/online/account.gd); null until main.gd sets it.
+var account = null
 ## Where invite links point: main.gd sets the page's own address on the web.
 var link_base := FightLink.HOME
 ## Emitted when a campaign stage starts; energy is already spent.
@@ -60,6 +63,7 @@ var _top_labels := {}
 var _toast: Label
 var _toast_tween: Tween
 var _marks := {}
+var _badge: Control ## The level badge (opens the account screen).
 var _built := false
 var _overlay: Control
 var _gear: Control ## Settings button in the top bar.
@@ -227,6 +231,13 @@ func set_friends(f) -> void:
 	friends.changed.connect(_on_friends_changed)
 
 
+func set_account(a) -> void:
+	account = a
+	account.changed.connect(func():
+		if current == "account" and not overlay_open():
+			refresh())
+
+
 func _on_friends_changed() -> void:
 	if current in ["friends", "play"] and not overlay_open():
 		refresh()
@@ -310,6 +321,7 @@ func _report(name: String) -> void:
 	var all := _marks.duplicate()
 	for t in _tab_buttons:
 		all["tab_" + t] = _tab_buttons[t]
+	all["account"] = _badge
 	all["settings"] = _gear
 	for k in all:
 		var c: Control = all[k]
@@ -330,6 +342,12 @@ func _top_bar() -> Control:
 	lvl.custom_minimum_size = Vector2(64, 64)
 	_top_labels["level"] = lvl.get_child(0)
 	(lvl.get_child(0) as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# The level badge opens the account screen (save progress, sign in).
+	lvl.mouse_filter = Control.MOUSE_FILTER_STOP
+	lvl.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and current != "account":
+			go("account"))
+	_badge = lvl
 	var gear := Kit.card_button(Glyph.make("gear", 40, Kit.FG), func(): SettingsSheet.open(self), Kit.LINE, Kit.PANEL, 999, 12)
 	gear.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_gear = gear

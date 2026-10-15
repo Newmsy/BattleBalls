@@ -8,11 +8,14 @@ extends RefCounted
 const TIER_STEP := 1.25
 const LEVEL_STEP := 0.025 ## Per level above 1, so level 11 is +25%.
 const GEAR_STEP := 0.04 ## Per gear piece worn.
-const RARITY := {"common": 1.0, "rare": 1.08, "epic": 1.15, "legendary": 1.22}
+## One rarity step is worth half a tier (BALANCE.md rule 5), as in
+## Roster.rarity_base: a T1 Legendary fights like a T3 Common.
+const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
+const RARITY_STEP := 1.118034 ## sqrt(TIER_STEP)
 
 
 static func multiplier(rarity: String, tier: int, level: int) -> float:
-	return RARITY.get(rarity, 1.0) * pow(TIER_STEP, tier - 1) * (1.0 + LEVEL_STEP * (level - 1))
+	return pow(RARITY_STEP, maxi(0, RARITIES.find(rarity))) * pow(TIER_STEP, tier - 1) * (1.0 + LEVEL_STEP * (level - 1))
 
 
 ## Power Rating on the same scale as Roster.power: 1000 for a base ball.

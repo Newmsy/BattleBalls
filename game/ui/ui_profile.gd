@@ -9,7 +9,7 @@ static func sample():
 	p.energy = 42
 	p.coins = 2480
 	p.orbs = 14
-	p.legendary_pity = 112
+	p.legendary_pity = 37
 	p.seen = {}
 	for s in [["vampire", 2, 1, 14], ["vampire", 1, 3, 6], ["juggernaut", 1, 2, 7], ["spiker", 2, 1, 12],
 			["spiker", 1, 1, 3], ["speedster", 1, 3, 9], ["bomber", 1, 1, 3],

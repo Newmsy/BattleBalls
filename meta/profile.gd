@@ -18,7 +18,7 @@ const ENERGY_REGEN_SECONDS := 300 ## One energy every 5 minutes.
 const ENERGY_PACK := 30
 const STARTER := "vampire"
 const STARTER_ORBS := 10
-const PITY_START := 150
+const PITY_START := 50 ## Matches Summon.PITY_RESET.
 
 var account_level := 1
 var account_xp := 0
