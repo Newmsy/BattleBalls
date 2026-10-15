@@ -452,9 +452,9 @@ func step() -> void:
 		if not b.alive() and not b.fired.has("fall") and not foes(b).is_empty():
 			b.fired["fall"] = true
 			abilities.fire(self, "fall", b)
-	for b in balls:
-		if b.alive():
-			abilities.tick_triggers(self, b)
+	for i in balls.size(): # A split adds balls here; they start next tick.
+		if balls[i].alive():
+			abilities.tick_triggers(self, balls[i])
 
 	tick += 1
 	_check_end(hp_before)
@@ -474,7 +474,7 @@ func summary() -> Dictionary:
 		"reason": end_reason,
 		"ticks": tick,
 		"time": time(),
-		"hp": [balls[0].hp, balls[1].hp],
+		"hp": [team_hp(0), team_hp(1)],
 		"hash": state_hash(),
 	}
 
@@ -796,23 +796,46 @@ func _boon_contact_damage(source: Ball, target: Ball, amount: float) -> float:
 	return amount * (1.0 - target.def.get("contact_armor", 0.0))
 
 
+## A team's HP: its starting ball's, plus what its split-off balls have left.
+func team_hp(team: int) -> float:
+	var hp := balls[team].hp
+	for i in range(2, balls.size()):
+		if balls[i].team == team:
+			hp += maxf(0.0, balls[i].hp)
+	return hp
+
+
+func _team_max_hp(team: int) -> float:
+	var hp := balls[team].max_hp
+	for i in range(2, balls.size()):
+		if balls[i].team == team:
+			hp += balls[i].max_hp
+	return hp
+
+
+## Teams win, not balls: a team is out once all its balls are (a Splitter's
+## minis). The starting balls are teams 0 and 1, so winner is a team index.
 func _check_end(hp_before: Array[float]) -> void:
-	var alive: Array[int] = []
+	var standing := [false, false]
 	for b in balls:
 		if b.alive():
-			alive.append(b.index)
-	if alive.size() == 1:
-		_finish(alive[0], "knockout")
-	elif alive.is_empty():
-		# Both died on the same tick: whoever had more HP going into it wins.
-		ko_hp = hp_before.duplicate()
-		if hp_before[0] == hp_before[1]:
+			standing[b.team] = true
+	if standing[0] != standing[1]:
+		_finish(0 if standing[0] else 1, "knockout")
+	elif not standing[0]:
+		# Both teams fell on the same tick: whoever had more HP going into it wins.
+		var before := [hp_before[0], hp_before[1]]
+		for i in range(2, balls.size()):
+			if i < hp_before.size():
+				before[balls[i].team] += maxf(0.0, hp_before[i])
+		ko_hp.assign(before)
+		if before[0] == before[1]:
 			_finish(-1, "double_knockout")
 		else:
-			_finish(0 if hp_before[0] > hp_before[1] else 1, "double_knockout")
+			_finish(0 if before[0] > before[1] else 1, "double_knockout")
 	elif time() >= TIME_LIMIT:
-		var f0 := balls[0].hp / balls[0].max_hp
-		var f1 := balls[1].hp / balls[1].max_hp
+		var f0 := team_hp(0) / _team_max_hp(0)
+		var f1 := team_hp(1) / _team_max_hp(1)
 		_finish(-1 if f0 == f1 else (0 if f0 > f1 else 1), "time_limit")
 
 
@@ -904,6 +927,49 @@ func nearest_foe(b: Ball) -> Ball:
 		if best == null or b.pos.distance_squared_to(o.pos) < b.pos.distance_squared_to(best.pos):
 			best = o
 	return best
+
+
+## Splits `parent` into two: it shrinks into a mini with `hp` (also its new
+## max HP), and a twin mini with the same HP joins its team, heading off
+## `turn` radians from it. The twin copies its def, tier stats, gear and
+## one-shot triggers. Returns the twin (index 2 and up).
+func spawn_twin(parent: Ball, hp: float, radius_mult: float, speed_mult: float, add_damage: float, turn: float) -> Ball:
+	parent.max_hp = hp
+	parent.hp = hp
+	if parent.base.is_empty():
+		parent.radius *= radius_mult
+		parent.speed *= speed_mult
+		parent.contact_damage += add_damage
+	else: # Grown or shrunk right now: split the base and keep the mods.
+		parent.base.radius *= radius_mult
+		parent.base.speed *= speed_mult
+		parent.base.contact_damage += add_damage
+		_apply_mods(parent)
+	var b := Ball.new()
+	b.index = balls.size()
+	b.team = parent.team
+	b.type_id = parent.type_id
+	b.def = parent.def
+	b.radius = parent.radius
+	b.speed = parent.speed
+	b.max_hp = hp
+	b.hp = hp
+	b.contact_damage = parent.contact_damage
+	b.attack = parent.attack
+	b.defense = parent.defense
+	b.crit_chance = parent.crit_chance
+	b.crit_mult = parent.crit_mult
+	b.fired = parent.fired.duplicate()
+	b.mods = parent.mods.duplicate(true)
+	b.base = parent.base.duplicate()
+	b.state = {"split_gen": parent.state.get("split_gen", 0)}
+	var dir := parent.vel.normalized() if parent.vel.length() > 0.001 else Vector2.RIGHT
+	parent.vel = dir.rotated(-turn) * parent.speed
+	b.vel = dir.rotated(turn) * b.speed
+	b.pos = inside(parent.pos + dir.rotated(turn).orthogonal() * parent.radius, b.radius + 4.0)
+	parent.pos = inside(parent.pos - dir.rotated(turn).orthogonal() * parent.radius, parent.radius + 4.0)
+	balls.append(b)
+	return b
 
 
 ## A floor zone owned by `owner`. `opts`: kind, radius, life, arm, slow, dps,
