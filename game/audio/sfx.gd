@@ -226,6 +226,27 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("flip", 0.0, 0.7 if e.type == "dive" else 0.9)
 			"orb_lost":
 				play("click", 0.0, 1.4)
+			# Movement critters (batch F) reuse the existing sounds at new pitches.
+			"teleport":
+				play("zap", 0.0, 1.5)
+			"charge":
+				play("launch", -3.0, 1.2)
+			"tether", "yank":
+				play("stretch", 0.0, 0.8 if e.type == "tether" else (0.9 if e.get("big", false) else 1.2))
+			"tether_end", "bow":
+				play("click", 0.0, 0.7)
+			"mark":
+				play("click", 0.0, 1.6)
+			"pounce", "lance", "ping_crit", "gear_slam", "tilt":
+				play("snap", 0.0, 1.1)
+			"ding":
+				play("click", 0.0, 1.3 + 0.1 * e.lit)
+			"gear":
+				play("click", -4.0, 0.8 + 0.15 * e.gear)
+			"dig":
+				play("flip", 0.0, 0.6)
+			"clod":
+				play("hit", -6.0, 0.7)
 			"end":
 				if e.reason != "time_limit":
 					play("ko")

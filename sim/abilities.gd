@@ -148,6 +148,30 @@ const EFFECTS := {
 	"dive": ["dive_secs"],
 	"dive_tick": ["dive_lock", "wave_radius", "wave_damage", "pool_radius", "pool_life", "pool_dps", "pool_slow"],
 	"dive_guard": ["dive_guard"],
+	# Movement (batch F): teleport, charge, tether.
+	"blink": ["blink_every", "blink_away", "blink_crackle", "blink_crackle_radius", "blink_zap"],
+	"blink_bonus": ["blink_bonus"],
+	"glitch": ["glitch_away", "bomb_arm", "bomb_radius", "bomb_damage", "bomb_max", "bomb_line", "glitch_pulse", "glitch_pulse_radius"],
+	"yank": ["yank_impulse", "yank_big_every", "yank_big_slow"],
+	"yank_bonus": ["yank_bonus"],
+	"string": ["string_cooldown", "string_length", "string_secs", "string_slam"],
+	"string_snap": ["string_stun", "string_shield"],
+	"mark": ["mark_cooldown", "mark_min", "mark_secs", "pounce_delay"],
+	"pounce": ["pounce_speed_mult", "pounce_secs"],
+	"marked": ["marked_mult", "pounce_slow", "pounce_remark"],
+	"ping": ["ping_gap", "ping_turn", "ping_dash_mult", "ping_dash_secs", "ping_radius", "ping_damage", "ping_slow", "ping_slow_secs"],
+	"ping_crit": ["ping_hit_mult"],
+	"dig": ["phase_secs"],
+	"surface": ["dig_radius", "dig_damage", "dig_rush", "dig_clods", "clod_damage"],
+	"lance": ["lance_speed_mult", "lance_secs", "lance_retry"],
+	"lance_tick": ["lance_beam_life", "lance_beam_dps"],
+	"lance_hit": ["lance_hit_mult", "lance_knock"],
+	"shift": ["gear_step", "gear_max"],
+	"downshift": ["gear_keep"],
+	"gear_slam": ["gear_slam_mult", "gear_knock"],
+	"gear_trail": ["trail_every", "trail_width", "trail_life", "trail_dps"],
+	"light": ["bulb_max"],
+	"cash_in": ["bulb_damage", "bulb_knock", "bulb_tilt"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -2152,3 +2176,334 @@ func fx_dive_tick(sim, b, _ctx: Dictionary) -> void:
 func fx_dive_guard(sim, b, ctx: Dictionary) -> void:
 	if sim.tick < int(b.state.get("dive_until", -1)):
 		ctx.mult *= b.def.dive_guard
+
+
+# --- Movement (batch F): teleport, charge and tether -----------------------------
+# The primitives live in MatchSim: teleport()/teleport_spot(), charge()/
+# end_charge(), tether(), plus slow_for() for timed slows.
+
+## Flings `target` straight away from `from`, at `mult` x speed for `secs`.
+static func _knock(sim, target, from: Vector2, mult: float, secs: float) -> void:
+	var away: Vector2 = target.pos - from
+	if away.length() > 0.001:
+		sim.charge(target, away, mult, secs)
+
+
+## Every blink_every-th contact hit it teleports to a seeded spot at least
+## blink_away from the foe. blink_crackle > 0 pulses the spot it left;
+## blink_zap > 0 leaves a beam (that much damage a second) from there to where
+## it lands. Readies blink_bonus.
+func fx_blink(sim, b, ctx: Dictionary) -> void:
+	b.state.blink_hits = int(b.state.get("blink_hits", 0)) + 1
+	if b.state.blink_hits % int(b.def.blink_every) != 0 or not ctx.has("target"):
+		return
+	var old: Vector2 = b.pos
+	sim.teleport(b, sim.teleport_spot(b, ctx.target.pos, b.def.blink_away))
+	b.state.landed = true
+	if b.def.blink_crackle > 0.0:
+		sim.pulse(b, old, b.def.blink_crackle_radius, b.def.blink_crackle, false, "zap")
+	if b.def.blink_zap > 0.0:
+		sim.add_beam(b, old, b.pos, {"life": 0.5, "damage": b.def.blink_zap * 0.25, "cooldown": 0.25})
+
+
+## Its first contact hit after a teleport deals blink_bonus more.
+func fx_blink_bonus(_sim, b, ctx: Dictionary) -> void:
+	if b.state.get("landed", false) and b.def.blink_bonus > 0.0:
+		b.state.landed = false
+		ctx.mult *= 1.0 + b.def.blink_bonus / b.contact_damage
+
+
+## Teleports to a seeded spot at least glitch_away from where it was and leaves
+## a pixel bomb there (bomb_line bombs back along its path when > 1), keeping
+## at most bomb_max. glitch_pulse > 0 pulses where it lands.
+func fx_glitch(sim, b, _ctx: Dictionary) -> void:
+	var old: Vector2 = b.pos
+	var back: Vector2 = -b.vel.normalized() if b.vel.length() > 0.001 else Vector2.ZERO
+	sim.teleport(b, sim.teleport_spot(b, old, b.def.glitch_away))
+	var r: Rect2 = sim.arena_rect().grow(-20.0)
+	for k in int(b.def.bomb_line):
+		var own: Array = sim.zones.filter(func(z): return z.owner == b.index and z.kind == "pixel")
+		if own.size() >= int(b.def.bomb_max):
+			sim.zones.erase(own[0])
+		var p: Vector2 = (old + back * 90.0 * k).clamp(r.position, r.end)
+		sim.add_zone(b, p, {"kind": "pixel", "radius": 18.0, "life": 12.0, "arm": b.def.bomb_arm,
+			"blast": b.def.bomb_damage, "blast_radius": b.def.bomb_radius})
+	if b.def.glitch_pulse > 0.0:
+		sim.pulse(b, b.pos, b.def.glitch_pulse_radius, b.def.glitch_pulse, false, "glitch")
+
+
+## On a wall bounce it yanks the foe toward itself: a quarter second of
+## yank_impulse (units/s), so 220 drags it 55 closer, never past touching.
+## The foe keeps its heading, so it isn't thrown into Hook. Every yank_big_every-th
+## bounce (when > 0) yanks twice as hard and slows by yank_big_slow for 1s.
+## Marks the foe yanked for 1s (see fx_yank_bonus). Emits "yank".
+func fx_yank(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null or f.pos.distance_to(b.pos) < 0.001:
+		return
+	b.state.yanks = int(b.state.get("yanks", 0)) + 1
+	var big: bool = b.def.yank_big_every > 0 and b.state.yanks % int(b.def.yank_big_every) == 0
+	if not sim.ability_moves():
+		return
+	var gap: float = f.pos.distance_to(b.pos) - f.radius - b.radius
+	var pull: float = minf(b.def.yank_impulse * (2.0 if big else 1.0) * 0.25, maxf(0.0, gap))
+	f.pos += (b.pos - f.pos).normalized() * pull
+	sim.keep_inside(f)
+	if big:
+		sim.slow_for(f, b.def.yank_big_slow, 1.0)
+	f.state["yanked_by_%d" % b.index] = sim.tick + sim.TICK_RATE
+	sim.events.append({"type": "yank", "ball": b.index, "target": f.index, "from": b.pos, "to": f.pos, "big": big})
+
+
+## A foe it yanked in the last second takes yank_bonus more when they collide.
+func fx_yank_bonus(sim, b, ctx: Dictionary) -> void:
+	var key := "yanked_by_%d" % b.index
+	if ctx.has("target") and sim.tick < int(ctx.target.state.get(key, -1)):
+		ctx.target.state.erase(key)
+		sim.deal(b, ctx.target, b.def.yank_bonus, "hook")
+
+
+## A contact hit (at most every string_cooldown) ties the foe on a string
+## string_length long for string_secs, dragging it along. string_slam > 0: the
+## first wall the foe hits while tied deals that much.
+func fx_string(sim, b, ctx: Dictionary) -> void:
+	if not ctx.has("target") or sim.tick < int(b.state.get("string_ready", 0)):
+		return
+	var secs := int(round(b.def.string_secs * sim.TICK_RATE))
+	b.state.string_ready = sim.tick + int(round(b.def.string_cooldown * sim.TICK_RATE))
+	b.state.string_until = sim.tick + secs
+	b.state.string_target = ctx.target.index
+	sim.tether(b, ctx.target, b.def.string_length, b.def.string_secs)
+	if b.def.string_slam > 0.0:
+		ctx.target.state.slam = {"source": b.index, "damage": b.def.string_slam, "until": sim.tick + secs}
+
+
+## When a string runs out, the foe spins out dizzy (slowed 90% for string_stun
+## seconds) and it bows behind a string_shield shield.
+func fx_string_snap(sim, b, _ctx: Dictionary) -> void:
+	if not b.state.has("string_until") or sim.tick != int(b.state.string_until) + 1:
+		return
+	var t = sim.balls[int(b.state.string_target)]
+	if t.alive():
+		sim.slow_for(t, 0.9, b.def.string_stun)
+		t.state.dizzy_until = sim.tick + int(round(b.def.string_stun * sim.TICK_RATE))
+	b.shield = maxf(b.shield, b.def.string_shield)
+	sim.events.append({"type": "bow", "ball": b.index, "pos": b.pos})
+
+
+## When a foe hurts it for at least mark_min (at most every mark_cooldown) it
+## marks that foe for mark_secs and pounces at it pounce_delay later (fx_pounce).
+func fx_mark(sim, b, ctx: Dictionary) -> void:
+	var src = ctx.get("source")
+	if src == null or src.team == b.team or not src.alive() or ctx.amount < b.def.mark_min or sim.tick < int(b.state.get("mark_ready", 0)):
+		return
+	b.state.mark_ready = sim.tick + int(round(b.def.mark_cooldown * sim.TICK_RATE))
+	b.state.remarked = false
+	_mark(sim, b, src)
+
+
+static func _mark(sim, b, target) -> void:
+	var until: int = sim.tick + int(round(b.def.mark_secs * sim.TICK_RATE))
+	b.state.mark = {"target": target.index, "until": until}
+	b.state.pounce_at = sim.tick + int(round(b.def.pounce_delay * sim.TICK_RATE))
+	target.state.marked_until = until
+	sim.events.append({"type": "mark", "ball": b.index, "target": target.index, "pos": target.pos})
+
+
+## The pounce: a charge at the marked foe (pounce_speed_mult x speed, pounce_secs).
+func fx_pounce(sim, b, _ctx: Dictionary) -> void:
+	if sim.tick != int(b.state.get("pounce_at", -1)) or not b.state.has("mark"):
+		return
+	var t = sim.balls[int(b.state.mark.target)]
+	if t.alive() and sim.tick < int(b.state.mark.until):
+		sim.charge(b, t.pos - b.pos, b.def.pounce_speed_mult, b.def.pounce_secs)
+
+
+## Its contact hit on the marked foe deals marked_mult x and spends the mark.
+## pounce_slow > 0 slows that foe for 1.5s; pounce_remark > 0 marks it again
+## for one more pounce (once per mark from being hurt).
+func fx_marked(sim, b, ctx: Dictionary) -> void:
+	var m: Dictionary = b.state.get("mark", {})
+	if m.is_empty() or m.target != ctx.target.index or sim.tick >= int(m.until):
+		return
+	b.state.erase("mark")
+	ctx.target.state.erase("marked_until")
+	ctx.mult *= b.def.marked_mult
+	sim.end_charge(b)
+	sim.events.append({"type": "pounce", "ball": b.index, "pos": ctx.target.pos})
+	if b.def.pounce_slow > 0.0:
+		sim.slow_for(ctx.target, b.def.pounce_slow, 1.5)
+	if b.def.pounce_remark > 0 and not b.state.get("remarked", false):
+		b.state.remarked = true
+		_mark(sim, b, ctx.target)
+
+
+## On a wall bounce (at most every ping_gap seconds) it swerves up to
+## ping_turn degrees to cut the foe off (ping_dash_mult x speed for ping_dash_secs) and pings: a ring of ping_radius
+## dealing ping_damage and slowing foes by ping_slow for ping_slow_secs.
+func fx_ping(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null or sim.tick < int(b.state.get("ping_next", 0)):
+		return
+	b.state.ping_next = sim.tick + int(round(b.def.ping_gap * sim.TICK_RATE))
+	# It hears where the foe is going and turns up to ping_turn degrees to cut
+	# it off: a swerve, not a straight chase down the foe's trail.
+	var to: Vector2 = f.pos + f.vel * 0.5 - b.pos
+	var turn: float = clampf(b.vel.angle_to(to), -deg_to_rad(b.def.ping_turn), deg_to_rad(b.def.ping_turn))
+	sim.charge(b, b.vel.rotated(turn) if b.vel.length() > 0.001 else to, b.def.ping_dash_mult, b.def.ping_dash_secs)
+	b.state.ping_until = sim.tick + int(round(b.def.ping_dash_secs * sim.TICK_RATE))
+	sim.pulse(b, b.pos, b.def.ping_radius, b.def.ping_damage, false, "ping")
+	for o in sim.foes(b):
+		if o.pos.distance_to(b.pos) <= b.def.ping_radius + o.radius:
+			sim.slow_for(o, b.def.ping_slow, b.def.ping_slow_secs)
+
+
+## A contact hit while still swerving from a ping deals ping_hit_mult x.
+func fx_ping_crit(sim, b, ctx: Dictionary) -> void:
+	if sim.charging(b) and sim.tick < int(b.state.get("ping_until", -1)):
+		b.state.ping_until = -1
+		ctx.mult *= b.def.ping_hit_mult
+		sim.events.append({"type": "ping_crit", "ball": b.index, "pos": ctx.target.pos})
+
+
+## Burrows for phase_secs: phased (fx_phased guards it), then fx_surface.
+func fx_dig(sim, b, _ctx: Dictionary) -> void:
+	b.state.phase_until = sim.tick + int(round(b.def.phase_secs * sim.TICK_RATE))
+	b.state.digging = true
+	sim.events.append({"type": "dig", "ball": b.index, "pos": b.pos})
+
+
+## As it surfaces: a shove (dig_damage within dig_radius, knocking foes away),
+## dig_rush > 0 speeds it up that much for 1s, and dig_clods > 0 lobs that
+## many dirt clods (clod_damage each) where the foe is heading.
+func fx_surface(sim, b, _ctx: Dictionary) -> void:
+	if not b.state.get("digging", false) or sim.tick < int(b.state.get("phase_until", -1)):
+		return
+	b.state.digging = false
+	sim.pulse(b, b.pos, b.def.dig_radius, b.def.dig_damage, true, "dirt")
+	if b.def.dig_rush > 0.0:
+		sim.charge(b, b.vel, 1.0 + b.def.dig_rush, 1.0)
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	var aim: Vector2 = f.pos + f.vel * 0.4
+	var side: Vector2 = (aim - b.pos).normalized().orthogonal() if aim.distance_to(b.pos) > 0.001 else Vector2.RIGHT
+	for k in int(b.def.dig_clods):
+		var p: Vector2 = aim + side * 45.0 * (k - (b.def.dig_clods - 1) / 2.0)
+		sim.add_zone(b, p, {"kind": "clod", "radius": 26.0, "life": 0.7, "arm": 0.4, "blast": b.def.clod_damage, "blast_radius": 30.0})
+		sim.events.append({"type": "clod", "ball": b.index, "from": b.pos, "to": p})
+
+
+## Charges at the foe (lance_speed_mult x speed, lance_secs). fx_lance_tick lays the
+## glittering beam along its path; fx_lance_hit makes the charge hit count.
+func fx_lance(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	_start_lance(sim, b, f, b.def.lance_retry > 0)
+
+
+static func _start_lance(sim, b, f, retry: bool) -> void:
+	sim.charge(b, f.pos - b.pos, b.def.lance_speed_mult, b.def.lance_secs)
+	b.state.lance = {"from": b.pos, "bounce": b.last_bounce, "start": sim.tick, "hit": false, "retry": retry}
+
+
+## When a charge ends: a beam along the path it took (lance_beam_dps a second,
+## lance_beam_life), bent at the wall it bounced off. A charge that missed
+## curves round for one more when lance_retry > 0.
+func fx_lance_tick(sim, b, _ctx: Dictionary) -> void:
+	var l: Dictionary = b.state.get("lance", {})
+	if l.is_empty() or sim.tick <= int(l.start) or sim.charging(b):
+		return
+	b.state.erase("lance")
+	var path: Array[Vector2] = [l.from]
+	if b.last_bounce != l.bounce:
+		path.append(b.last_bounce)
+	path.append(b.pos)
+	for k in path.size() - 1:
+		if path[k].distance_to(path[k + 1]) >= sim.MIN_BEAM_LENGTH:
+			sim.add_beam(b, path[k], path[k + 1], {"life": b.def.lance_beam_life, "damage": b.def.lance_beam_dps * 0.25, "cooldown": 0.25})
+	var f = sim.nearest_foe(b)
+	if not l.hit and l.retry and f != null:
+		_start_lance(sim, b, f, false)
+
+
+## A contact hit during its charge deals lance_hit_mult x and ends the charge;
+## lance_knock > 0 sends the foe flying (that x speed for 0.4s).
+func fx_lance_hit(sim, b, ctx: Dictionary) -> void:
+	var l: Dictionary = b.state.get("lance", {})
+	if l.is_empty() or l.hit or not sim.charging(b):
+		return
+	l.hit = true
+	ctx.mult *= b.def.lance_hit_mult
+	sim.end_charge(b)
+	sim.events.append({"type": "lance", "ball": b.index, "pos": ctx.target.pos})
+	if b.def.lance_knock > 0.0:
+		_knock(sim, ctx.target, b.pos, b.def.lance_knock, 0.4)
+
+
+static func _set_gear(sim, b, gear: int) -> void:
+	b.state.gear = gear
+	if sim.ability_moves():
+		b.speed = b.def.speed * (1.0 + b.def.gear_step * gear)
+	if b.vel.length() > 0.001:
+		b.vel = b.vel.normalized() * b.current_speed()
+	sim.events.append({"type": "gear", "ball": b.index, "gear": gear, "pos": b.pos})
+
+
+## Shifts up a gear (gear_step more speed each), up to gear_max.
+func fx_shift(sim, b, _ctx: Dictionary) -> void:
+	var g := int(b.state.get("gear", 0))
+	if g < int(b.def.gear_max):
+		_set_gear(sim, b, g + 1)
+
+
+## Every gear_drop-th contact hit on it knocks it down a gear (not out of top
+## gear), unless gear_keep > 0.
+func fx_downshift(sim, b, ctx: Dictionary) -> void:
+	var g := int(b.state.get("gear", 0))
+	if b.def.gear_keep > 0 or ctx.kind != "contact" or g <= 0 or g >= int(b.def.gear_max):
+		return
+	b.state.gear_jolts = int(b.state.get("gear_jolts", 0)) + 1
+	if b.state.gear_jolts % int(b.def.get("gear_drop", 1)) == 0:
+		_set_gear(sim, b, g - 1)
+
+
+## In top gear its contact hit deals gear_slam_mult x, sends the foe flying
+## (gear_knock x speed for 0.4s) and drops it back to first.
+func fx_gear_slam(sim, b, ctx: Dictionary) -> void:
+	if int(b.state.get("gear", 0)) < int(b.def.gear_max):
+		return
+	ctx.mult *= b.def.gear_slam_mult
+	if b.def.gear_knock > 0.0:
+		_knock(sim, ctx.target, b.pos, b.def.gear_knock, 0.4)
+	sim.events.append({"type": "gear_slam", "ball": b.index, "pos": ctx.target.pos})
+	_set_gear(sim, b, 0)
+
+
+## A burning trail while in its fourth (turbo) gear.
+func fx_gear_trail(sim, b, _ctx: Dictionary) -> void:
+	if int(b.state.get("gear", 0)) >= 4:
+		_drop_trail(sim, b, "fire")
+
+
+## Each wall bounce lights a bulb, up to bulb_max.
+func fx_light(sim, b, _ctx: Dictionary) -> void:
+	b.state.lit = mini(int(b.def.bulb_max), int(b.state.get("lit", 0)) + 1)
+
+
+## Its next contact hit cashes the bulbs in: bulb_damage more per bulb.
+## bulb_knock > 0: cashing that many or more also knocks the foe back.
+## bulb_tilt > 0: a full board deals that x on top (TILT!).
+func fx_cash_in(sim, b, ctx: Dictionary) -> void:
+	var lit := int(b.state.get("lit", 0))
+	if lit <= 0:
+		return
+	b.state.lit = 0
+	ctx.mult *= 1.0 + lit * b.def.bulb_damage / b.contact_damage
+	var tilt: bool = b.def.bulb_tilt > 0.0 and lit >= int(b.def.bulb_max)
+	if tilt:
+		ctx.mult *= b.def.bulb_tilt
+	if b.def.bulb_knock > 0 and lit >= int(b.def.bulb_knock):
+		_knock(sim, ctx.target, b.pos, 1.3, 0.3)
+	sim.events.append({"type": "tilt" if tilt else "ding", "ball": b.index, "lit": lit, "pos": ctx.target.pos})
