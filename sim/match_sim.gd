@@ -61,6 +61,13 @@ const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre l
 ## Vampire (11 points off the square); bumpers already add Laser bounces.
 const BUMPER_BOOST := 1.15
 const BUMPER_BOOST_TIME := 1.0 ## Seconds.
+## A blocking piece closer than this (plus its radius) to the arena's edge
+## snaps onto the edge (add_piece): a ball wedged in a narrower gap would
+## rattle between the two.
+const PIECE_WALL_GAP := 160.0
+## A blocking piece leaving a narrower gap than this to an arena obstacle
+## isn't placed (it may touch or overlap one: no gap, no wedge).
+const PIECE_OBSTACLE_GAP := 140.0
 ## Obstacles vanish once overtime has shrunk the arena below this share of its
 ## width, so the final squeeze is always a clean box.
 const OBSTACLE_MIN_SCALE := 0.7
@@ -210,6 +217,33 @@ class Shot:
 	var zone := {} ## add_zone opts for a puddle left where it lands.
 
 
+## A piece a critter places in the arena (batch H): Sprout's seed pillars,
+## Glacia's ice ring, Old Oak's roots, Foxfire's illusions. A blocking piece
+## is a solid round obstacle balls of both teams bounce off, once it has grown
+## (`grow` seconds) and no ball overlaps it, so it never shoves a ball out of
+## the way; bouncing off one isn't a wall bounce for abilities. A piece with
+## `vel` drifts and bounces off the arena's edge.
+## Effects in sim/abilities.gd decide what a piece does; the sim only moves,
+## blocks and expires it.
+class Piece:
+	var owner: int
+	var kind: String ## For the renderer and the owner's effects: "seed", "vine", "ice", "root", "illusion".
+	var pos: Vector2
+	var vel := Vector2.ZERO
+	var radius: float
+	var life: float
+	var age := 0.0
+	var grow := 0.0
+	var block := true ## Wants to block balls...
+	var blocking := false ## ...and does, once grown and clear of balls.
+	var damage := 0.0 ## Dealt to a foe of the owner that bounces off it.
+
+	## True on the piece's last tick, so its owner can act as it ends (the sim
+	## removes it right after "always" effects run).
+	func ending(dt: float) -> bool:
+		return age + dt >= life
+
+
 var config: Dictionary
 var modifier := Modifiers.NONE
 var overtime_start := OVERTIME_START
@@ -225,6 +259,7 @@ var zones: Array[Zone] = []
 ## Strings tying a foe to a ball (tether()): {owner, target, length, until}.
 var tethers: Array[Dictionary] = []
 var shots: Array[Shot] = []
+var pieces: Array[Piece] = []
 var tick := 0
 var half_size := ARENA_SIZE / 2.0
 var centre := Vector2(ARENA_SIZE / 2.0, ARENA_SIZE / 2.0)
@@ -324,6 +359,9 @@ func obstacles() -> Array[Dictionary]:
 		return out
 	for o in arena.obstacles:
 		out.append({"pos": centre + (o.pos - centre) * k, "radius": o.radius * k, "kind": o.kind})
+	for p in pieces:
+		if p.blocking:
+			out.append({"pos": p.pos, "radius": p.radius, "kind": p.kind, "piece": p})
 	return out
 
 
@@ -382,6 +420,7 @@ func step() -> void:
 			if b.alive():
 				abilities.fire(self, "always", b)
 	_update_zones()
+	_update_pieces()
 	_update_dots()
 	for b in balls:
 		if not b.mods.is_empty():
@@ -462,6 +501,8 @@ func state_hash() -> String:
 			data.append_array([b.index, b.stun_until, vulnerable(b), status_amount(b, "slow")])
 	for s in shots:
 		data.append_array([s.pos.x, s.pos.y, s.vel.x, s.vel.y, s.age])
+	for p in pieces: # Empty unless a critter placed one, so older goldens keep their hash.
+		data.append_array([p.pos.x, p.pos.y, p.age, 1.0 if p.blocking else 0.0])
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(data.to_byte_array())
@@ -512,6 +553,14 @@ func _resolve_walls(b: Ball) -> void:
 				b.boost_ticks = int(round(BUMPER_BOOST_TIME * TICK_RATE))
 				b.vel = b.vel.normalized() * b.current_speed()
 				events.append({"type": "bumper", "ball": b.index, "pos": o.pos + n * o.radius})
+			if o.has("piece"):
+				# A critter's piece isn't a wall for abilities: bounce-fed
+				# abilities (Optic's beams, Zip's speed-up) would farm the
+				# rattle of a ball lashed or ringed by one.
+				if o.piece.damage > 0.0 and balls[o.piece.owner].team != b.team:
+					deal(balls[o.piece.owner], b, o.piece.damage, "pillar", o.pos + n * o.radius)
+				events.append({"type": "bounce", "ball": b.index, "pos": o.pos + n * o.radius, "piece": true})
+				continue
 			_on_wall_bounce(b, o.pos + n * o.radius, true)
 
 
@@ -1293,3 +1342,105 @@ func _update_tethers() -> void:
 			f.vel -= n * out
 		f.vel = f.vel.normalized() * f.current_speed() if f.vel.length() > 0.001 else -n * f.current_speed()
 		_resolve_walls(f)
+
+
+## A piece (see Piece) owned by `owner` at `pos`. `opts`: kind, radius, life,
+## grow, block, vel, damage. A blocking piece whose gap to the arena's edge
+## would be narrower than a ball snaps onto the edge instead, so no ball gets
+## wedged behind it; one that would leave such a gap to an arena obstacle
+## isn't placed. Returns it, or null when not placed, or once overtime has
+## shrunk the arena below OBSTACLE_MIN_SCALE (blocking pieces only: the final
+## squeeze stays a clean box).
+func add_piece(owner: Ball, pos: Vector2, opts: Dictionary) -> Piece:
+	var p := Piece.new()
+	p.owner = owner.index
+	p.kind = opts.get("kind", "pillar")
+	p.radius = opts.get("radius", 30.0)
+	p.life = opts.get("life", 3.0)
+	p.grow = opts.get("grow", 0.0)
+	p.block = opts.get("block", true)
+	p.vel = opts.get("vel", Vector2.ZERO)
+	p.damage = opts.get("damage", 0.0)
+	var r := arena_rect()
+	if p.block:
+		if arena_scale() < OBSTACLE_MIN_SCALE:
+			return null
+		var gap := PIECE_WALL_GAP + p.radius
+		pos = pos.clamp(r.position, r.end)
+		for axis in 2:
+			if pos[axis] - r.position[axis] < gap:
+				pos[axis] = r.position[axis]
+			elif r.end[axis] - pos[axis] < gap:
+				pos[axis] = r.end[axis]
+		for wall in corner_walls(): # The same onto a cut corner.
+			var d: float = wall[0].dot(pos - centre) + wall[1]
+			if d < gap:
+				pos -= wall[0] * d
+		for o in obstacles():
+			var surface_gap: float = pos.distance_to(o.pos) - o.radius - p.radius
+			if not o.has("piece") and surface_gap > 0.0 and surface_gap < PIECE_OBSTACLE_GAP:
+				return null
+	else:
+		pos = inside(pos, p.radius)
+	p.pos = pos
+	pieces.append(p)
+	events.append({"type": "piece", "ball": owner.index, "kind": p.kind, "pos": p.pos, "radius": p.radius})
+	return p
+
+
+## `pos` moved just far enough to sit at least `margin` inside the arena's
+## walls (cut corners included).
+func inside(pos: Vector2, margin: float) -> Vector2:
+	var r := arena_rect()
+	pos = pos.clamp(r.position + Vector2.ONE * margin, r.end - Vector2.ONE * margin)
+	for wall in corner_walls():
+		var d: float = wall[0].dot(pos - centre) + wall[1]
+		if d < margin:
+			pos += wall[0] * (margin - d)
+	return pos
+
+
+## Ages, moves and expires pieces; a blocking piece starts blocking once grown
+## and clear of every ball.
+func _update_pieces() -> void:
+	if pieces.is_empty():
+		return
+	var r := arena_rect()
+	var squeezed := arena_scale() < OBSTACLE_MIN_SCALE
+	for p in pieces.duplicate():
+		p.age += DT
+		if p.age >= p.life or (p.block and (squeezed or not r.grow(1.0).has_point(p.pos))):
+			pieces.erase(p)
+			continue
+		if p.vel != Vector2.ZERO:
+			p.pos += p.vel * DT
+			for axis in 2:
+				if p.pos[axis] - p.radius < r.position[axis]:
+					p.pos[axis] = r.position[axis] + p.radius
+					p.vel[axis] = absf(p.vel[axis])
+				elif p.pos[axis] + p.radius > r.end[axis]:
+					p.pos[axis] = r.end[axis] - p.radius
+					p.vel[axis] = -absf(p.vel[axis])
+			for wall in corner_walls():
+				var n: Vector2 = wall[0]
+				var d: float = n.dot(p.pos - centre) + wall[1]
+				if d < p.radius:
+					p.pos += n * (p.radius - d)
+					if p.vel.dot(n) < 0.0:
+						p.vel -= 2.0 * p.vel.dot(n) * n
+		if p.block and not p.blocking and p.age >= p.grow:
+			var clear := true
+			for b in balls:
+				if b.alive() and b.pos.distance_to(p.pos) < b.radius + p.radius:
+					clear = false
+					break
+			p.blocking = clear
+
+
+## Pieces owned by `owner` of `kind` ("" for any).
+func pieces_of(owner: Ball, kind := "") -> Array[Piece]:
+	var out: Array[Piece] = []
+	for p in pieces:
+		if p.owner == owner.index and (kind == "" or p.kind == kind):
+			out.append(p)
+	return out

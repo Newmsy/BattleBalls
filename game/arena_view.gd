@@ -31,19 +31,28 @@ const MINE := Color("ff4d4d")
 const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "spore": Color("8fd16a"), "fizz": Color("ff8cc6"),
 	"lava": Color("ff4500"), "stardust": Color("ff8ae2"), "ember": Color("ff9a3d"), "honey": Color("ffb627"), "ink": Color("8a5cc8"),
 	"stink": Color("9be36b"), "rain": Color("8fa2ff"), "goo": Color("7cff6b"), "brew": Color("b6ff3b"), "sour": Color("9ef01a"),
-	"snow": Color("dff6ff"), "splat": Color("ffc2d1"), "inkpool": Color("5a2a8a"), "whirlpool": Color("3fd0c9"), "clod": Color("b08968")}
+	"snow": Color("dff6ff"), "splat": Color("ffc2d1"), "inkpool": Color("5a2a8a"), "whirlpool": Color("3fd0c9"), "clod": Color("b08968"), "thorn": Color("3fbf6a")}
 ## Pulse and blast ring colours by kind.
 const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"),
 	"zap": Color("c9a6ff"), "bigzap": Color("f0e2ff"), "drum": Color("ff5a6a"), "wind": Color("c7f9cc"), "ink": Color("8a5cc8"), "stink": Color("9be36b"),
 	"shell": Color("ffb347"), "blob": Color("7cff6b"),
 	"shards": Color("cdf3ff"), "paint": Color("ffd23f"), "confetti": Color("f15bb5"), "thunder": Color("8ecbff"),
 	"bugflare": Color("e8ff7a"), "candy": Color("ff9de2"), "inkslam": Color("b36bff"), "wave": Color("5ff0e6"), "quasar": Color("e0b3ff"),
-	"glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968")}
+	"glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968"),
+	"petal": Color("ff9ecf"), "tick": Color("ffd166"), "root": Color("a5743a")}
 ## Statuses: frozen (stunned) balls sit in an ice block; vulnerable ones glow sour green.
 const FROZEN := Color("bfefff")
 const VULNERABLE := Color("9ef01a")
 const STRING := Color("ffd1e8")
 const MARK := Color("ff5a5a")
+## Placed arena pieces (sim Piece.kind): {body, rim}.
+const PIECE_COLORS := {"seed": [Color("2f6b12"), Color("8ac926")], "vine": [Color("0b4f37"), Color("2ee59d")],
+	"ice": [Color("4b4a8f"), Color("d9d0ff")], "root": [Color("4a2c10"), Color("b7864a")]}
+## Instant shots (sim "rays" events) by kind; "disco" cycles the rainbow.
+const RAY_COLORS := {"shard": Color("d9d0ff"), "coin": Color("ffd23f"), "seed": Color("8ac926")}
+const RAY_LIFE := 0.35
+## What Jackpot's reels landed on.
+const PRIZE_TEXT := {"mines": "MINES!", "cross": "LASERS!", "coins": "COINS!", "shield": "SHIELD!"}
 const RING_LIFE := 0.45
 ## Mode call-outs by critter (Kaleido's clicks, Eclipse's flips), by b.state.mode.
 const MODE_NAMES := {"kaleido": ["SPIKES!", "SHIELD!", "SPEED!", "PRISM!"], "eclipse": ["SUN!", "MOON!"]}
@@ -108,6 +117,7 @@ var _bursts: Array[Dictionary] = []
 var _wisps: Array[Dictionary] = []
 var _rings: Array[Dictionary] = [] ## Expanding pulse / blast rings: {pos, radius, color, age}.
 var _flashes: Array[Dictionary] = [] ## Reflect zaps: {from, to, age}.
+var _rays: Array[Dictionary] = [] ## Instant shots: {segments, kind, age, life}.
 var _look: Array[Vector2] = [Vector2(1, -1).normalized(), Vector2(-1, 1).normalized()]
 var _hit := [0.0, 0.0]
 var _squash := [0.0, 0.0]
@@ -149,6 +159,7 @@ func clear_effects() -> void:
 	_bursts.clear()
 	_rings.clear()
 	_flashes.clear()
+	_rays.clear()
 	_kos.clear()
 	_trails = [[], []]
 	_wisps.clear()
@@ -335,6 +346,28 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"bumper":
 				_bumper_flash = BUMPER_FLASH_LIFE
 				_spawn_particles(e.pos, 6)
+			"rays":
+				_rays.append({"segments": e.segments, "kind": e.kind, "age": 0.0, "life": 0.6 if e.kind == "disco" else RAY_LIFE})
+			"piece":
+				if e.kind != "illusion":
+					_spawn_particles(e.pos, 4)
+			"lash":
+				var t := sim.balls[e.target]
+				_add_popup(t.pos + Vector2(-40, -t.radius - 34), "LASHED!", POP_SNAP)
+			"root":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-46, -g.radius - 40), "ROOTED!", POP_HEAL)
+			"rewind":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-46, -g.radius - 40), "REWIND!", POP_SNAP)
+				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
+			"swap":
+				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
+				_spawn_particles(e.pos, 10)
+			"spin":
+				var g := sim.balls[e.ball]
+				var text: String = "JACKPOT!" if e.prizes.size() > 1 else PRIZE_TEXT.get(e.prizes[0], "")
+				_add_popup(g.pos + Vector2(-40, -g.radius - 40), text, POP_CRIT if e.prizes.size() > 1 else POP_SNAP, 1.2 if e.prizes.size() > 1 else 1.0)
 			"end":
 				for b in sim.balls:
 					if not b.alive():
@@ -395,6 +428,9 @@ func advance_effects(delta: float) -> void:
 	for k in _flashes:
 		k.age += delta
 	_flashes = _flashes.filter(func(k): return k.age < 0.25)
+	for k in _rays:
+		k.age += delta
+	_rays = _rays.filter(func(k): return k.age < k.life)
 	queue_redraw()
 
 
@@ -456,6 +492,11 @@ func _draw() -> void:
 
 	for z in sim.zones:
 		_draw_zone(z, s)
+	for p in sim.pieces:
+		_draw_piece(p, s, shake)
+	for b in sim.balls:
+		_draw_lash(b, s)
+		_draw_prize_tells(b, s)
 
 	for shot in sim.shots:
 		_draw_shot(shot, s)
@@ -500,6 +541,16 @@ func _draw() -> void:
 	for k in _rings:
 		var t: float = k.age / RING_LIFE
 		draw_arc(k.pos * s, k.radius * s * (0.3 + 0.7 * sqrt(t)), 0.0, TAU, 64, Color(k.color, 0.8 * (1.0 - t)), 6.0 * (1.0 - t) + 1.0, true)
+	for k in _rays:
+		var t: float = k.age / k.life
+		var col: Color = RAY_COLORS.get(k.kind, BEAM)
+		for i in k.segments.size():
+			if k.kind == "disco":
+				col = Color.from_hsv(fmod(i * 0.13 + _time * 0.6, 1.0), 0.55, 1.0)
+			var a: Vector2 = k.segments[i][0] * s
+			var b: Vector2 = k.segments[i][1] * s
+			draw_line(a, b, Color(col, 0.3 * (1.0 - t)), 10.0, true)
+			draw_line(a, b, Color(col, 0.95 * (1.0 - t)), 3.0, true)
 	for k in _flashes:
 		var t: float = k.age / 0.25
 		draw_line(k.from * s, k.to * s, Color(Color.from_hsv(fmod(_time, 1.0), 0.5, 1.0), 0.9 * (1.0 - t)), 3.0, true)
@@ -640,6 +691,8 @@ func _grid_line(a: Vector2, b: Vector2, clip: PackedVector2Array) -> void:
 func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 	var s := view_scale
 	for o in obstacles:
+		if o.has("piece"):
+			continue # Placed pieces draw themselves (_draw_piece).
 		var p: Vector2 = o.pos * s
 		var rad: float = o.radius * s
 		if o.kind == "bumper":
@@ -894,6 +947,87 @@ func _draw_dive(b, s: float) -> void:
 	var reach: float = b.def.get("wave_radius", 200.0)
 	draw_arc(t * s, reach * s, 0.0, TAU, 48, Color("5ff0e6", 0.25), 2.0, true)
 	draw_arc(t * s, reach * s * clampf(left / 1.2, 0.1, 1.0), 0.0, TAU, 48, Color("5ff0e6", 0.7), 3.0, true)
+
+
+## A piece a critter placed: pillars grow up out of the floor (dashed while a
+## ball still stands on them, as they don't block yet) and sink as they end;
+## Foxfire's illusions are see-through copies of it with no HP badge.
+func _draw_piece(p, s: float, shake: Vector2) -> void:
+	var grow: float = clampf(p.age / maxf(p.grow, 0.15), 0.0, 1.0)
+	var sink: float = clampf((p.life - p.age) / 0.3, 0.0, 1.0)
+	var k := minf(grow, sink)
+	var pos: Vector2 = p.pos * s
+	var rad: float = p.radius * s * (0.35 + 0.65 * k)
+	if p.kind == "illusion":
+		var owner = sim.balls[p.owner]
+		var look: Vector2 = p.vel.normalized() if p.vel.length() > 0.001 else Vector2.RIGHT
+		draw_set_transform(pos + shake)
+		CritterArt.draw_critter(self, owner.def.id, Vector2.ZERO, p.radius * s, {"t": _time, "tier": tiers[p.owner], "look": look})
+		draw_set_transform(shake)
+		draw_circle(pos, p.radius * s * 1.04, Color(ARENA_FILL, 0.45))
+		for f in 5:
+			var a := _time * 5.0 + f * TAU / 5.0
+			draw_circle(pos + Vector2(cos(a), sin(a)) * p.radius * s * 0.95, 5.0, Color("6fb7ff", 0.7 * sink))
+		return
+	var cols: Array = PIECE_COLORS.get(p.kind, [PILLAR.darkened(0.6), PILLAR.lightened(0.2)])
+	draw_circle(pos + Vector2(3, 5) * k, rad, Color(0, 0, 0, 0.3 * k))
+	draw_circle(pos, rad, Color(cols[0], 0.5 + 0.5 * k))
+	draw_circle(pos + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(cols[1], 0.25))
+	if p.blocking:
+		draw_arc(pos, rad, 0, TAU, 40, cols[1], 2.5, true)
+	else:
+		for d in 10:
+			draw_arc(pos, rad, d * TAU / 10.0, (d + 0.5) * TAU / 10.0, 4, Color(cols[1], 0.8), 2.0, true)
+	match p.kind:
+		"seed", "vine":
+			for l in 2:
+				var a := -PI / 2.0 + (l - 0.5) * 1.1
+				_ellipse(pos + Vector2(cos(a), sin(a)) * rad * 0.55, rad * 0.32, rad * 0.18, Color(cols[1], 0.9))
+		"ice":
+			_star(pos, rad * 0.7, rad * 0.25, 6, Color(cols[1], 0.85))
+		"root":
+			for l in 3:
+				var a := l * TAU / 3.0 + 0.4
+				draw_line(pos, pos + Vector2(cos(a), sin(a)) * rad * 0.8, Color(cols[1], 0.8), 3.0, true)
+
+
+## Ivy's lash: a taut vine from the lashed foe to each vine pillar.
+func _draw_lash(b, s: float) -> void:
+	var lash: Dictionary = b.state.get("lash", {})
+	if lash.is_empty():
+		return
+	var f = sim.balls[lash.target]
+	for a in lash.anchors:
+		var from: Vector2 = a.piece.pos * s
+		var to: Vector2 = f.pos * s
+		draw_line(from, to, Color("0b4f37"), 7.0, true)
+		draw_line(from, to, Color("2ee59d"), 3.0, true)
+		for l in 4:
+			var q := from.lerp(to, (l + 0.5) / 4.0)
+			_ellipse(q, 5.0, 3.0, Color("ff9ecf"))
+
+
+## Jackpot's next payout, shown where it will land before it fires: a dashed
+## cross through the locked spot, or a ring of coin marks round itself.
+func _draw_prize_tells(b, s: float) -> void:
+	for p in b.state.get("prizes", []):
+		var blink := 0.35 + 0.35 * sin(_time * 18.0)
+		if p.prize == "cross":
+			var r := sim.arena_rect()
+			var c: Vector2 = p.spot
+			_dashed(Vector2(r.position.x, c.y) * s, Vector2(r.end.x, c.y) * s, Color(BEAM, blink))
+			_dashed(Vector2(c.x, r.position.y) * s, Vector2(c.x, r.end.y) * s, Color(BEAM, blink))
+		elif p.prize == "coins":
+			draw_arc(b.pos * s, (b.radius + b.def.prize_coin_reach) * s, 0.0, TAU, 64, Color(RAY_COLORS.coin, blink * 0.6), 2.0, true)
+
+
+func _dashed(a: Vector2, b: Vector2, col: Color) -> void:
+	var length := a.distance_to(b)
+	var dir := (b - a) / maxf(length, 0.001)
+	var d := 0.0
+	while d < length:
+		draw_line(a + dir * d, a + dir * minf(d + 12.0, length), col, 2.0, true)
+		d += 22.0
 
 
 ## Flow lines drifting inward: a pull field (Orbit) or a collapse (Void).
