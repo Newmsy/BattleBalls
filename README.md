@@ -9,14 +9,15 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | Path | What lives there |
 |---|---|
 | `sim/` | The deterministic fight simulation. Pure GDScript, no nodes or engine physics. Same config, same fight. |
+| `meta/` | Progression outside a fight: the player profile (collection, fusion, energy, account level, campaign stars), campaign zones, drops. Pure logic, clock passed in. Saved in the SaveGame as `data.profile`. |
 | `sim/critters/` | One file per critter: everything about it (see Adding a critter). |
-| `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim; never changes its rules. |
+| `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim and meta; never changes their rules. |
 | `liveops/` | The live-ops schedule (`liveops.json`): seasons, Spotlight weeks, Chaos Weekends, Fight of the Day. See its README. |
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `boon_balance.gd` (Bounce Run boons), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -60,6 +61,8 @@ it in the browser (MP4 on iPhone Safari); browsers without MediaRecorder get
 the same layout to screen-record. The export preset's `head_include` turns on
 `preserveDrawingBuffer` and taps the game's audio so the page can record both.
 `?sounds=1` opens the sound board: every sound with a play button.
+`?pve=1-3&auto=1` plays campaign stage 1-3 on a fresh, unsaved profile.
+`?demo=1` loads the filled-in sample profile (unsaved), for previews and the smoke test.
 
 ## Icon and loading screen
 

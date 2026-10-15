@@ -2,6 +2,7 @@
 ## URL params on the web build skip straight to a fight, e.g.
 ## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink&mod=big_head
 ## Share links (see fight_link.gd) open a replay (?r=) or a challenge (?c=).
+## ?pve=1-3 plays campaign stage 1-3 on a fresh, unsaved profile (with auto=1, unaimed).
 ## A first visit with no params plays the onboarding (game/onboarding.gd);
 ## ?tutorial=1 forces it, ?tutorial=0 skips it.
 extends Node2D
@@ -22,6 +23,10 @@ const LiveOps := preload("res://game/liveops.gd")
 const Onboarding := preload("res://game/onboarding.gd")
 const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
+const Profile := preload("res://meta/profile.gd")
+const Campaign := preload("res://meta/campaign.gd")
+const Zones := preload("res://meta/zones.gd")
+const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const Account := preload("res://game/online/account.gd")
@@ -40,8 +45,9 @@ enum State { MENU, AIM, FIGHT, RESULT, CLIP }
 ## NORMAL: pick your ball, the opponent is random. REPLAY: watching a shared fight. CHALLENGE: beating
 ## a friend's ball and shot. RIVAL: an unranked rematch against a friend's
 ## saved team (their Ghost Arena lineup, aimed the way they usually aim).
-## TUTORIAL: onboarding drives the arena.
-enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL, TUTORIAL }
+## TUTORIAL: onboarding drives the arena. CAMPAIGN: a campaign stage (energy
+## already spent).
+enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL, TUTORIAL, CAMPAIGN }
 
 ## Onboarding fights report here instead of showing the result panel.
 signal tutorial_fight_ended(winner: int)
@@ -144,6 +150,15 @@ var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
 var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
+var campaign_row: HBoxContainer
+## The player's collection, energy and campaign progress, kept in save.data.profile.
+var profile
+## The campaign stage being fought: {config, zone, stage, fighter, result?}.
+var pve := {}
+var pve_param := ""
+## ?demo=1 (smoke tests, previews): a filled-in sample profile that is never saved.
+var demo_profile := false
+var profile_unsaved := false
 ## The board fight being watched (Fight of the Day, a Bracket of Legends game):
 ## its title and the screen to go back to. Empty otherwise.
 var _board := {}
@@ -181,6 +196,7 @@ func _ready() -> void:
 		set_process(false)
 		get_tree().change_scene_to_file.call_deferred(redirect)
 		return
+	_load_profile()
 	arena_clip = Control.new()
 	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(arena_clip)
@@ -200,7 +216,9 @@ func _ready() -> void:
 	_build_shell()
 	TouchInput.ensure(self)
 	TouchInput.set_back(self, _swipe_back)
-	if _wants_tutorial():
+	if pve_param != "":
+		_start_url_stage()
+	elif _wants_tutorial():
 		_start_tutorial()
 	elif auto_start:
 		_start_fight()
@@ -287,6 +305,10 @@ func _apply_cosmetics() -> void:
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
+	if mode == Mode.CAMPAIGN:
+		var cfg: Dictionary = pve.config.duplicate()
+		cfg.angles = [aim, null]
+		return cfg
 	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena(), "modifier": modifier}
 
 
@@ -344,7 +366,8 @@ func _report_menu() -> void:
 
 
 func _begin_aim() -> void:
-	opponent_type = _pick_opponent()
+	if mode != Mode.CAMPAIGN:
+		opponent_type = _pick_opponent()
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
@@ -495,6 +518,8 @@ func _show_result() -> void:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
 	if mode == Mode.RIVAL and _count_fight:
 		_record_rival()
+	if mode == Mode.CAMPAIGN:
+		_finish_stage()
 	# A replay counts once, not again for every Replay tap.
 	if _count_fight or (mode == Mode.REPLAY and _report_code() != _last_logged_fight):
 		_last_logged_fight = _report_code()
@@ -519,6 +544,93 @@ func _report_code() -> String:
 	return code + ("." + modifier if modifier != Modifiers.NONE else "")
 
 
+# --- Campaign -------------------------------------------------------------------
+
+func _load_profile() -> void:
+	var now := int(Time.get_unix_time_from_system())
+	var d = save.data.get("profile")
+	if profile != null and profile.changed.is_connected(_save_profile):
+		profile.changed.disconnect(_save_profile)
+	if demo_profile:
+		profile = preload("res://game/ui/ui_profile.gd").sample()
+		profile_unsaved = true
+	else:
+		profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
+	profile.changed.connect(_save_profile)
+
+
+func _save_profile() -> void:
+	if profile_unsaved:
+		return
+	save.data.profile = profile.to_dict()
+	save.commit()
+
+
+## A stage from the campaign screen: aim, then fight it in the arena.
+func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter: String) -> void:
+	pve = {"config": config, "zone": zone_index, "stage": stage_index, "fighter": fighter}
+	mode = Mode.CAMPAIGN
+	player_type = config.p1
+	opponent_type = config.p2
+	seed_value = config.seed
+	foe_aim = null
+	shell_layer.visible = false
+	sfx.toggle_lift = 0.0
+	_begin_aim()
+	var st := Zones.stage(zone_index, stage_index)
+	info_label.text = "%s %s. Drag on the arena to aim, then let go to launch." % [
+		Zones.stage_key(zone_index, stage_index), st.get("name", BallDefs.get_def(st.enemy).display_name)]
+
+
+## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).
+func _start_url_stage() -> void:
+	var parts := pve_param.split("-")
+	var z := clampi(int(parts[0]) - 1, 0, Zones.ZONES.size() - 1)
+	var i := clampi(int(parts[1]) - 1, 0, Zones.zone(z).stages.size() - 1)
+	var now := int(Time.get_unix_time_from_system())
+	profile = Profile.new_game(now)
+	profile_unsaved = true
+	shell.set_profile(profile)
+	for k in i:
+		profile.stars[Zones.stage_key(z, k)] = 1
+	var cfg := Campaign.start(profile, z, i, Profile.STARTER, now)
+	_start_stage(cfg, z, i, Profile.STARTER)
+	if auto_start:
+		_start_fight()
+
+
+func _finish_stage() -> void:
+	var fight := sim.summary()
+	fight.max_hp = sim.balls[0].max_hp
+	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight)
+	pve.result = CampaignScreen.result_text(r)
+	report_label.text = pve.result
+	print("STAGE_END stage=%s won=%s stars=%d drops=%d" % [Zones.stage_key(pve.zone, pve.stage), r.won, r.stars, r.drops.size()])
+
+
+## Backing out of aiming. A campaign stage has already spent its energy, so
+## leaving before launch refunds it.
+func _aim_back() -> void:
+	if mode != Mode.CAMPAIGN:
+		_show_menu()
+		return
+	profile.refund_energy(Zones.cost(Zones.stage(pve.zone, pve.stage)))
+	_back_to_campaign()
+
+
+func _back_to_campaign() -> void:
+	var params := {"zone": pve.get("zone", 0)}
+	if pve.has("result"):
+		params.notice = "%s: %s" % [Zones.stage_key(pve.zone, pve.stage), pve.result]
+	mode = Mode.NORMAL
+	_board_pick = -1
+	pve = {}
+	_show_menu()
+	_show_home()
+	shell.show_tab("play")
+	shell.go("campaign", params)
+
+
 # --- Save and online ----------------------------------------------------------
 
 func _apply_picks() -> void:
@@ -537,7 +649,8 @@ func _record_fight() -> void:
 	# A loaner is practice: no stats, no aim history, never your ghost.
 	if _is_loan(player_type):
 		return
-	save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
+	if mode != Mode.CAMPAIGN:
+		save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
 	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt)
 	if xp > 0:
@@ -591,6 +704,10 @@ func _on_save_changed() -> void:
 		return
 	if not url_picks:
 		_apply_picks()
+	# A newer cloud copy or another account: its profile replaces this one.
+	if not profile_unsaved:
+		_load_profile()
+		shell.set_profile(profile)
 	if state == State.MENU:
 		_refresh_menu()
 
@@ -672,7 +789,7 @@ func _build_ui() -> void:
 	menu_box.add_child(fight_button)
 
 	launch_button = _button("Launch", _launch, 34, "go", 96)
-	aim_back_button = _button("Back", _show_menu, 26, "ghost", 96)
+	aim_back_button = _button("Back", _aim_back, 26, "ghost", 96)
 	aim_box = _row([launch_button, aim_back_button])
 
 	speed_button = _button("Speed 1x", _cycle_speed)
@@ -699,6 +816,8 @@ func _build_ui() -> void:
 	friend_row = _row([friend_button])
 	friend_row.visible = false
 	result_box.add_child(friend_row)
+	campaign_row = _row([_button("Back to the map", _back_to_campaign)])
+	result_box.add_child(campaign_row)
 
 
 	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
@@ -713,6 +832,7 @@ func _build_shell() -> void:
 	shell = Shell.new()
 	shell.glow = GlowState.new(save, shell.profile, Store.new())
 	shell.friends = friends
+	shell.profile = profile
 	shell.set_account(account)
 	shell.link_base = _link_base()
 	shell.play_requested.connect(func():
@@ -727,6 +847,7 @@ func _build_shell() -> void:
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
+	shell.stage_requested.connect(_start_stage)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
@@ -762,6 +883,8 @@ func _swipe_back() -> Callable:
 		return shell.back_action()
 	if mode == Mode.TUTORIAL:
 		return Callable()
+	if mode == Mode.CAMPAIGN:
+		return _back_to_campaign if state == State.RESULT else Callable()
 	match state:
 		State.MENU:
 			return _show_home
@@ -921,7 +1044,7 @@ func _on_challenge_button() -> void:
 
 
 func _label_result_buttons() -> void:
-	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch"}[mode]
+	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch", Mode.CAMPAIGN: ""}[mode]
 	challenge_button.text = {Mode.REPLAY: "Play my own", Mode.RIVAL: "Friends"}.get(mode, "Challenge friend")
 	if not _board.is_empty():
 		challenge_button.text = "Bracket" if _board.return_to == "bracket" else "This Week"
@@ -929,7 +1052,7 @@ func _label_result_buttons() -> void:
 	# A link from someone who isn't a friend yet offers to add them, in place
 	# of the report row (there's only room for one).
 	friend_row.visible = _can_add_link_friend()
-	report_row.visible = not friend_row.visible
+	report_row.visible = mode != Mode.CAMPAIGN and not friend_row.visible
 	copy_button.visible = mode != Mode.REPLAY
 	change_button.visible = mode != Mode.REPLAY
 	# Save clip rides in whichever of the two rows is showing.
@@ -937,6 +1060,9 @@ func _label_result_buttons() -> void:
 	if clip_button.get_parent() != row:
 		clip_button.reparent(row)
 		row.move_child(clip_button, 0)
+	for r in [again_button.get_parent(), share_button.get_parent()]:
+		r.visible = mode != Mode.CAMPAIGN
+	campaign_row.visible = mode == Mode.CAMPAIGN
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"
@@ -1311,28 +1437,44 @@ func tutorial_home(profile) -> Shell:
 	arena.sim = null
 	arena.ghost_dir = Vector2.ZERO
 	_show_only(null)
-	shell.set_profile(profile)
+	_adopt_profile(profile)
 	_show_home()
 	return shell
 
 
-## Onboarding finished or skipped: normal play from the Play tab.
-func tutorial_end(profile) -> void:
+## Onboarding finished or skipped: normal play from the Play tab, or the
+## Glow Garden map when `to_campaign` (the boss teaser's "Let's go!").
+func tutorial_end(new_profile, to_campaign := false) -> void:
 	mode = Mode.NORMAL
 	tutorial_tags = []
 	arena.ghost_dir = Vector2.ZERO
 	arena.team_tags = ArenaView.TEAM_TAGS
 	_apply_picks()
-	if profile != null:
+	if new_profile != null:
+		_adopt_profile(new_profile)
 		# Quick fight starts on the new starter.
 		player_type = profile.lineup
 		save.data.picks.player = player_type
 		save.commit()
-		if shell.profile != profile:
-			shell.set_profile(profile)
 	_show_menu()
 	shell.show_tab("play")
 	_show_home()
+	if to_campaign:
+		shell.go("campaign", {"zone": 0})
+
+
+## The onboarding's new player becomes the saved profile, unless this save
+## already has progress of its own (onboarding replayed with ?tutorial=1).
+func _adopt_profile(p) -> void:
+	if p == profile or profile_unsaved or profile.runs > 0 or profile.account_level > 1:
+		if shell.profile != profile:
+			shell.set_profile(profile)
+		return
+	profile.changed.disconnect(_save_profile)
+	profile = p
+	profile.changed.connect(_save_profile)
+	shell.set_profile(profile)
+	_save_profile()
 
 
 # --- Share links -------------------------------------------------------------
@@ -1429,7 +1571,7 @@ func _sync_share_targets() -> void:
 	if shell_layer != null and shell_layer.visible:
 		for t in shell.share_targets():
 			add.call(t.kind, t.url, t.text, t.rect)
-	elif state == State.RESULT and result_box.visible and sim != null:
+	elif state == State.RESULT and result_box.visible and sim != null and mode != Mode.CAMPAIGN:
 		var buttons := {"r": share_button}
 		if mode not in [Mode.REPLAY, Mode.RIVAL]:
 			buttons["c"] = challenge_button
@@ -1529,6 +1671,9 @@ func _read_url_params() -> Dictionary:
 		friends.show_demo()
 	if Friends.is_code(params.get("f", "")):
 		link_friend = Friends.normalize_code(params.f)
+	if params.get("pve", "").count("-") == 1:
+		pve_param = params.pve
+	demo_profile = params.get("demo", "") == "1"
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():

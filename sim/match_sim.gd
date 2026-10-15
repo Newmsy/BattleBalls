@@ -2,8 +2,8 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2],
-##          tiers: [t1, t2], arena: String, modifier: String }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2], hp: [h1, h2],
+##           tiers: [t1, t2], powers: [w1, w2], sizes: [s1, s2], arena: String, modifier: String }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
@@ -14,6 +14,8 @@
 ## `fields: false` (optional) switches off every-tick abilities (fields like
 ## Flux's), so Daily Trick Shot balls fly straight.
 ## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
+## `powers` (optional) are progression multipliers (sim/power.gd); 1.0 is a T1
+## level 1 Common. `sizes` (optional) scale the radius (campaign bosses).
 ## Critters and their abilities come from sim/critters/ via sim/ball_defs.gd;
 ## this file only fires their triggers (sim/abilities.gd).
 ## `modifier` is an optional Chaos Weekend rule twist from sim/modifiers.gd,
@@ -34,6 +36,7 @@ const Boons := preload("res://sim/boons.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const Abilities := preload("res://sim/abilities.gd")
+const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
@@ -150,6 +153,7 @@ var events: Array[Dictionary] = []
 var abilities: Abilities
 
 var _contact_cooldown_until := {} ## "i:j" -> tick
+var _hits: Array[Dictionary] = [] ## This tick's hits, so effects can add some (add_hit).
 
 
 func _init(cfg: Dictionary) -> void:
@@ -171,17 +175,19 @@ func _init(cfg: Dictionary) -> void:
 	var starts: Array = cfg.get("starts", START_CORNERS)
 	var start_hp: Array = cfg.get("hp", [null, null])
 	var tiers: Array = cfg.get("tiers", [1, 1])
+	var powers: Array = cfg.get("powers", [1.0, 1.0])
+	var sizes: Array = cfg.get("sizes", [1.0, 1.0])
 	var gear: Array = cfg.get("gear", [null, null])
 	for i in 2:
 		var kit := Gear.totals(gear[i])
-		var def := Modifiers.apply_to_def(Gear.apply_def(BallDefs.get_def(types[i], int(tiers[i])), kit), modifier)
+		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i])), float(powers[i])), kit), modifier)
 		if cfg.has("boons"):
 			def = Boons.apply_to_def(def, cfg.boons[i])
 		var b := Ball.new()
 		b.index = i
 		b.type_id = types[i]
 		b.def = def
-		b.radius = def.radius
+		b.radius = def.radius * float(sizes[i])
 		b.speed = def.speed
 		b.max_hp = def.hp
 		b.hp = def.hp if start_hp[i] == null else clampf(float(start_hp[i]), 0.01, def.hp)
@@ -277,6 +283,7 @@ func step() -> void:
 			if b.alive():
 				abilities.fire(self, "always", b)
 	var hits: Array[Dictionary] = []
+	_hits = hits
 	for b in balls:
 		if b.alive():
 			if b.boost_ticks > 0:
@@ -386,8 +393,16 @@ func _on_wall_bounce(b: Ball, point: Vector2) -> void:
 			b.healed += gained
 			events.append({"type": "heal", "target": b.index, "amount": gained, "pos": b.pos, "boon": true})
 	abilities.fire(self, "wall", b, {"point": point})
+	for other in balls:
+		if other != b and other.alive():
+			abilities.fire(self, "foe_wall", other, {"other": b, "point": point})
 	b.has_bounce = true
 	b.last_bounce = point
+
+
+## Adds a hit to this tick's damage (e.g. a slam raised during a wall bounce).
+func add_hit(source: Ball, target: Ball, amount: float, kind: String, pos: Vector2) -> void:
+	_hits.append({"source": source.index, "target": target.index, "amount": amount, "kind": kind, "pos": pos})
 
 
 ## A beam from `a` to `b` owned by ball `owner`, using its beam_* params. Keeps

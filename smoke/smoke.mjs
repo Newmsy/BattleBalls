@@ -165,9 +165,10 @@ try {
   }
 
   // 2. Real flow: home -> menus tour -> fuse -> quick fight -> FIGHT! -> drag to aim -> fight runs. Only this case
-  // goes online (signs in a guest) when the build has a backend.
+  // goes online (signs in a guest) when the build has a backend. demo=1 gives the
+  // filled-in sample profile, so there is something to fuse, equip and summon.
   {
-    const { page, logs } = await openGame("?seed=7");
+    const { page, logs } = await openGame("?seed=7&demo=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(1500);
@@ -410,6 +411,13 @@ try {
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
+    // The campaign card above it pushes the Trick Shot card below the fold.
+    await page.mouse.move(...toPage(page, 360, 800));
+    for (let i = 0; i < 2; i++) {
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(150);
+    }
+    await page.waitForTimeout(600);
     await tapUi(page, logs, "trickshot");
     const ready = await waitForLog(logs, "TRICKSHOT_READY", 10000);
     console.log("trick shot:", ready);
@@ -551,7 +559,7 @@ try {
   }
 
   // 11. Onboarding: cold open, starter pick, two aimed tutorial wins, the
-  // guided first fusion, the boss teaser and on to the Play tab.
+  // guided first fusion, the boss teaser and on to the Glow Garden map.
   {
     const { page, logs } = await openGame("?tutorial=1");
     await waitForLog(logs, "BOOT_OK", 60000);
@@ -592,6 +600,8 @@ try {
     await page.screenshot({ path: path.join(shots, "22h-onboard-boss.png") });
     await tapUi(page, logs, "lets_go");
     await waitForLog(logs, "ONBOARD step=done", 5000);
+    // "Let's go!" opens the Glow Garden map the teaser points at.
+    await waitForLog(logs, "UI_SCREEN campaign", 5000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "22i-onboard-home.png") });
     console.log("onboarding:", logs.filter((l) => l.startsWith("ONBOARD")).map((l) => l.split(" ")[1]).join(" "));
@@ -634,7 +644,40 @@ try {
     await page.close();
   }
 
-  // 13. Bracket of Legends: pick a champion while picks are open, then on
+  // 13. Campaign: a new player opens the Glow Garden map from the Play tab,
+  // fights stage 1-1, and comes back to the map with the result.
+  {
+    const { page, logs } = await openGame("?seed=7&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "26-home-new-player.png") });
+    await tapUi(page, logs, "campaign", "campaign");
+    await page.screenshot({ path: path.join(shots, "27-campaign-map.png") });
+    await tapUi(page, logs, "stage_1_1");
+    await page.screenshot({ path: path.join(shots, "28-stage-aim.png") });
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("campaign fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    const end = await waitForLog(logs, "STAGE_END", 120000);
+    console.log("campaign stage:", end);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "29-stage-result.png") });
+    // Result screen: result label, report, then the "Back to the map" row.
+    await page.mouse.click(...toPage(page, 360, 990 + 56 + 14 + 60 + 14 + 42));
+    await waitForLog(logs, "UI_SCREEN campaign", 5000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "30-campaign-after.png") });
+    await page.close();
+  }
+
+  // 14. A campaign stage straight from the URL plays through to its rewards.
+  {
+    const { page, logs } = await openGame("?pve=1-4&auto=1&speed=4&offline=1");
+    console.log("url stage:", await waitForLog(logs, "STAGE_END", 120000));
+    await page.close();
+  }
+
+  // 15. Bracket of Legends: pick a champion while picks are open, then on
   // final day open the final and watch its first game.
   {
     const { page, logs } = await openGame("?mode=bracket&today=2026-10-14&speed=4");

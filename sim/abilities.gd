@@ -12,6 +12,7 @@ const TRIGGERS := {
 	"hit": "lands a contact hit (ctx: target, amount, heals)",
 	"hurt": "takes damage from anything (ctx: source, amount, kind)",
 	"wall": "bounces off a wall (ctx: point)",
+	"foe_wall": "the other ball bounces off a wall (ctx: other, point)",
 	"bump": "touches the other ball, even during the contact cooldown (ctx: other)",
 	"every": "every `secs` seconds of fight time, first at `secs`",
 	"hp_below": "once, when its HP first drops below `hp` (a 0-1 share of max HP)",
@@ -25,6 +26,13 @@ const EFFECTS := {
 	"beam": ["beam_life", "beam_damage", "beam_hit_cooldown", "beam_max"],
 	"field": ["field_period", "field_range", "field_accel", "push_scale"],
 	"snap": ["snap_mult"],
+	"grow_spike": ["spike_max"],
+	"spikes": ["spike_damage", "spike_max"],
+	"accelerate": ["speed_gain", "max_speed_mult"],
+	"momentum": [],
+	"brake": [],
+	"mark_slam": ["slam_window"],
+	"slam": ["slam_damage"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -123,3 +131,49 @@ func fx_snap(sim, b, ctx: Dictionary) -> void:
 	b.state.snap_ready = false
 	sim.events.append({"type": "snap", "ball": b.index, "pos": b.pos})
 	ctx.mult *= b.def.snap_mult
+
+
+## Grows one spike per contact hit landed, up to spike_max. State:
+## b.state.spikes. Emits "spike" events.
+func fx_grow_spike(sim, b, _ctx: Dictionary) -> void:
+	var spikes: int = b.state.get("spikes", 0)
+	if spikes < b.def.spike_max:
+		b.state.spikes = spikes + 1
+		sim.events.append({"type": "spike", "ball": b.index, "spikes": spikes + 1})
+
+
+## Each grown spike adds spike_damage to the owner's contact hits.
+func fx_spikes(_sim, b, ctx: Dictionary) -> void:
+	var spikes: int = mini(b.state.get("spikes", 0), b.def.spike_max)
+	if spikes > 0:
+		ctx.mult *= (b.contact_damage + b.def.spike_damage * spikes) / b.contact_damage
+
+
+## Speeds up by speed_gain on every wall bounce, up to max_speed_mult of base.
+func fx_accelerate(_sim, b, _ctx: Dictionary) -> void:
+	b.speed = minf(b.def.speed * b.def.max_speed_mult, b.speed * (1.0 + b.def.speed_gain))
+	b.vel = b.vel.normalized() * b.speed
+
+
+## Contact hits scale with speed above base (see fx_accelerate).
+func fx_momentum(_sim, b, ctx: Dictionary) -> void:
+	ctx.mult *= b.speed / b.def.speed
+
+
+## A contact hit taken knocks the ball back to its base speed.
+func fx_brake(_sim, b, ctx: Dictionary) -> void:
+	if ctx.get("kind") == "contact" and b.speed > b.def.speed:
+		b.speed = b.def.speed
+		b.vel = b.vel.normalized() * b.speed
+
+
+## A contact hit landed arms a slam for slam_window seconds (see fx_slam).
+func fx_mark_slam(sim, b, _ctx: Dictionary) -> void:
+	b.state.slam_until = sim.tick + int(round(b.def.slam_window * sim.TICK_RATE))
+
+
+## If the foe hits a wall while a slam is armed, it takes slam_damage.
+func fx_slam(sim, b, ctx: Dictionary) -> void:
+	if sim.tick <= b.state.get("slam_until", -1):
+		b.state.slam_until = -1
+		sim.add_hit(b, ctx.other, b.def.slam_damage, "slam", ctx.point)

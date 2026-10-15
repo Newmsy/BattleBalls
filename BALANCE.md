@@ -81,10 +81,13 @@ Wilson interval) and `WARN` when it might be noise; rerun a `WARN` with more
 fights before acting on it. The `plain` ball is a reference baseline and is
 excluded from the checks.
 
-Until tiers exist in the sim, the power-step check stands in for a tier by
-scaling HP and every damage stat by sqrt(1.25), so HP x damage is +25%. Replace
-`_boost` in `tools/balance.gd` with the real tier system when it lands, and
-add a rarity-step check (target ~60%, rule 5) once rarity is in the sim.
+Progression power lives in `sim/power.gd`: rarity, tier and level combine into
+one multiplier, passed to a fight as `powers`, which scales HP and every damage
+stat by its square root (so HP x damage scales by the multiplier). The
+power-step check fights at x1.25, one tier. Tier-specific ability upgrades
+(longer beams, T5 behaviour) are still to come and will add on top. Add a
+rarity-step check (target ~60%, rule 5) once there are same-role balls of
+different rarity to compare.
 
 ## Arenas
 

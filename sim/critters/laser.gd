@@ -22,6 +22,9 @@ const CRITTER := {
 		{"text": "Beams last 4.5s", "beam_life": 4.5},
 		{"text": "Beams also link the 2 previous bounces"},
 	],
+	## Chaos Weekends: short fights cut off its beam build-up, so beams hit
+	## harder under Big Head and Hyper Speed. Tuned with tools/balance.gd --modifiers.
+	"chaos": {"big_head": {"beam_damage": 1.2}, "hyper_speed": {"beam_damage": 1.3}},
 	"art": {"badge_top": 1.6, "eyes": {"one": true, "w": .4, "h": .4, "p": .16, "iris": "0a7bb0", "glow": "7fe6ff", "mouth": "none"}, "back": ["antennae"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 1.0},
 }

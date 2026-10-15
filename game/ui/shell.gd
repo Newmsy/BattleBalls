@@ -26,6 +26,7 @@ const SCREENS := {
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
+	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
 	"spire": preload("res://game/ui/screens/spire_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
 	"shop": preload("res://game/ui/screens/shop_screen.gd"),
@@ -55,6 +56,8 @@ var friends = Friends.new()
 var account = null
 ## Where invite links point: main.gd sets the page's own address on the web.
 var link_base := FightLink.HOME
+## Emitted when a campaign stage starts; energy is already spent.
+signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
 
 var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.
@@ -128,14 +131,15 @@ func build() -> void:
 		go("arena")
 
 
-## Swap in another player's profile (e.g. the new player from onboarding).
+## Swap in another profile (the new player from onboarding, or a newer cloud save).
 func set_profile(p) -> void:
 	if profile.changed.is_connected(_refresh_top):
 		profile.changed.disconnect(_refresh_top)
 	profile = p
 	if _built:
 		profile.changed.connect(_refresh_top)
-		refresh()
+		if current != "":
+			refresh()
 
 
 func show_tab(t: String) -> void:

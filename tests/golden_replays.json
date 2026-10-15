@@ -188,6 +188,78 @@
         null,
         null
       ],
+      "p1": "juggernaut",
+      "p2": "speedster",
+      "seed": 11
+    },
+    "hash": "f5b12f29307dce7ae7e0d37e0b9bfb28a3d4f1c79c1b33ac13e387e16221e80f",
+    "reason": "knockout",
+    "ticks": 1815,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "spiker",
+      "p2": "vampire",
+      "seed": 12
+    },
+    "hash": "aaa16465a72549ed81251cd4ffbb6c222913b820e38c64eb681ab4fa92ac2c83",
+    "reason": "knockout",
+    "ticks": 2278,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "speedster",
+      "p2": "laser",
+      "powers": [
+        1.25,
+        1
+      ],
+      "seed": 13
+    },
+    "hash": "a51847a9349254ab5aa4c11c98e9031727d73b7801ed8bf90bad418f037f7d78",
+    "reason": "knockout",
+    "ticks": 2048,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "vampire",
+      "p2": "juggernaut",
+      "powers": [
+        1,
+        1.75
+      ],
+      "seed": 14,
+      "sizes": [
+        1,
+        1.35
+      ]
+    },
+    "hash": "3ace982935e5d74be0998d8e1fcf78fdd9f867e124b254483d60c330c608c8bb",
+    "reason": "knockout",
+    "ticks": 3061,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
       "gear": [
         {
           "crit_chance": 0.15,
