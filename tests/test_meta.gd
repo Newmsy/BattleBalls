@@ -97,7 +97,10 @@ func test_only_owned_critters_with_a_built_ability_fight() -> void:
 	check_eq(Campaign.start(p, 0, 0, "laser", T0).get("error"), "no_ball", "not owned")
 	p.add_copies(["splitter"])
 	p.set_lineup("splitter")
-	check_eq(Campaign.fighter_for(p), "vampire", "falls back to a critter that can fight")
+	check_eq(Campaign.fighter_for(p), "splitter", "every critter is built now, so an owned one fights")
+	p.lineup = "no_such_critter"
+	var fallback := Campaign.fighter_for(p)
+	check(p.owns(fallback) and Campaign.can_fight(p, fallback), "falls back to an owned critter that can fight")
 
 
 func test_win_spends_energy_gives_stars_xp_and_drops() -> void:

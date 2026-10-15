@@ -263,4 +263,18 @@ func test_the_critterpedia_shows_every_critter_and_each_page_builds() -> void:
 		shell.back()
 	shell.back()
 	check_eq(shell.current, "critters", "back to My critters")
+
+
+func test_a_sweep_shows_a_results_popup() -> void:
+	var shell = Shell.new()
+	shell.profile = preload("res://meta/profile.gd").new_game(1_800_000_000)
+	shell.profile.stars["1-1"] = 3
+	shell.build()
+	shell.go("campaign", {"zone": 0})
+	shell._marks.sweep_1_1.pressed.emit()
+	check(shell.overlay_open(), "the sweep result is a popup")
+	check(shell._marks.has("result_continue"), "it has Continue")
+	check_eq(shell.current_params.get("focus", -1), 0, "the list stays on the swept stage")
+	shell._marks.result_continue.pressed.emit()
+	check(not shell.overlay_open(), "Continue closes it")
 	shell.free()

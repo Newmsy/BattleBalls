@@ -13,7 +13,8 @@ const ART_SHRINK := .7
 
 
 ## Power Rating of a lineup slot ({critter, tier, level, gear}): the number
-## on the critter's detail screen (Profile.power_of) for the same setup.
+## on the critter's detail screen (Profile.power_of) for the same setup, plus
+## any Arena Boost the slot carries.
 static func rating(slot: Dictionary) -> int:
 	return Lineup.rating(slot)
 
