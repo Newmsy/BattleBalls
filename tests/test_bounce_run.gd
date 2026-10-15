@@ -83,15 +83,35 @@ func test_winning_every_floor_clears_the_run() -> void:
 	for f in BounceRun.FLOORS:
 		BounceRun.record(setup, run, 0, 0, 0, 100)
 		if not run.over:
-			# Up to OFFER boons, fewer once the trio has taken most of those it can use.
-			var usable := Boons.ALL.filter(func(id): return not id in run.boons and range(BounceRun.PICKS).any(
-				func(slot): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, slot).critter).ability)))
-			check_eq(run.offer.size(), mini(BounceRun.OFFER, usable.size()), "a win deals an offer")
-			check(not run.offer.is_empty(), "every win before the last offers a boon")
+			check_eq(run.offer.size(), BounceRun.OFFER, "a win deals a full offer")
 			BounceRun.take_boon(run, run.offer[0])
-	check(run.over, "eight wins end the run")
-	check_eq(BounceRun.score(run), {"floors": 8, "lives": 3, "ticks": 800}, "perfect run")
+	check(run.over, "the top floor ends the run")
+	check_eq(BounceRun.score(run), {"floors": BounceRun.FLOORS, "lives": 3, "ticks": 100 * BounceRun.FLOORS}, "perfect run")
 	check_eq(run.boons.size(), BounceRun.FLOORS - 1, "a boon after every win but the last")
+
+
+## There are enough general boons that every win offers a full choice, even
+## on the last floor of a perfect run.
+func test_every_offer_is_full() -> void:
+	for day in range(1, 40):
+		var setup := BounceRun.generate(day)
+		var run := BounceRun.new_run(setup, [0, 1, 2])
+		while not run.over:
+			BounceRun.record(setup, run, 0, 0, 0, 100)
+			if not run.over:
+				check_eq(run.offer.size(), BounceRun.OFFER, "day %d floor %d offer" % [day, run.floor])
+				BounceRun.take_boon(run, run.offer[run.offer.size() - 1])
+
+
+## Foes start well under your power and end over it.
+func test_floors_get_harder() -> void:
+	check_eq(BounceRun.FOE_POWER.size(), BounceRun.FLOORS, "a power per floor")
+	check(BounceRun.FOE_POWER[0] < 1.0 and BounceRun.FOE_POWER[BounceRun.FLOORS - 1] > 1.0, "easy start, hard top")
+	for f in range(1, BounceRun.FLOORS):
+		check(BounceRun.FOE_POWER[f] > BounceRun.FOE_POWER[f - 1], "floor %d is harder than the one before" % (f + 1))
+	var setup := BounceRun.generate(1)
+	var run := BounceRun.new_run(setup, [0, 1, 2])
+	check_eq(BounceRun.fight_config(setup, run, 0, -450).powers, [1.0, BounceRun.FOE_POWER[0]], "the fight uses the floor's power")
 
 
 func test_scores_rank_floors_then_lives_then_time() -> void:

@@ -1,4 +1,4 @@
-## Bounce Run: draft a trio, climb 8 floors, pick a boon after every win.
+## Bounce Run: draft a trio, climb 10 floors, pick a boon after every win.
 ## The run comes from sim/bounce_run.gd and the UTC day; one ranked run a day
 ## posts to the shared leaderboard, then practice runs are unranked.
 ## URL params: ?mode=bouncerun&day=3 (play another day's run, unranked),
@@ -24,6 +24,7 @@ const PANEL_HEIGHT := 330.0
 const SPEEDS := [1.0, 2.0, 4.0]
 const GOLD := Color("ffc23d")
 const PINK := Color("ff5a7a")
+const ABILITY := Color("8fd8ff") ## The critter's own ability, apart from boon gold.
 
 var state := State.DRAFT
 var today := 1
@@ -174,16 +175,18 @@ func _show_draft() -> void:
 	for i in setup.cards.size():
 		var c: Dictionary = setup.cards[i]
 		var picked: bool = i in picks
-		var card := _critter_card(c.critter, c.boon, func(): _toggle_pick(i), GOLD if picked else Kit.LINE, picked)
+		var card := _critter_card(c.critter, c.boon, func(): _toggle_pick(i), GOLD if picked else Kit.LINE, picked, false, true)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(card)
 		_mark("br_card_%d" % i, card)
 	var start := Kit.button("Start run (%d/3)" % picks.size(), _start_run, "go" if picks.size() == BounceRun.PICKS else "ghost", 32)
 	start.disabled = picks.size() != BounceRun.PICKS
 	_mark("br_start", start)
-	var how := Kit.label("Climb %d floors. Win to pick a boon for your whole trio. Lose and that critter is out; lose all three and the run ends. Every foe has as many boons as you." % BounceRun.FLOORS,
+	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var how := Kit.label("Climb %d floors: foes start easy and get tougher. Win to pick a boon for your whole trio. Lose and that critter is out; lose all three and the run ends." % BounceRun.FLOORS,
 		22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-	_set_page([how, grid, start, _menu_button()], "br_draft")
+	# Start and Menu share a row so Start stays on screen above five taller cards.
+	_set_page([how, grid, Kit.hbox(14, [start, _menu_button()])], "br_draft")
 
 
 func _toggle_pick(i: int) -> void:
@@ -209,7 +212,8 @@ func _show_floor() -> void:
 	var foe: Dictionary = setup.floors[run.floor]
 	sub_label.text = "Floor %d of %d. Pick who to send." % [run.floor + 1, BounceRun.FLOORS]
 	var foe_box := Kit.vbox(8, [
-		Kit.hbox(10, [Kit.caption("Floor %d · %s" % [run.floor + 1, foe.title], PINK), Kit.spacer(), Kit.caption("Foe")]),
+		Kit.hbox(10, [Kit.caption("Floor %d · %s" % [run.floor + 1, foe.title], PINK), Kit.spacer(),
+			Kit.caption("Foe · %d%% power" % roundi(100.0 * BounceRun.FOE_POWER[run.floor]))]),
 		Kit.hbox(16, [CritterIcon.make(foe.critter, 1, 130), _boon_list(foe.boons, BallDefs.get_def(foe.critter).display_name)]),
 	])
 	var items: Array = [_ladder(), Kit.panel(foe_box, Kit.box(Color("2a1030"), PINK, 32, 2, 20)), Kit.caption("Your trio")]
@@ -633,16 +637,20 @@ func _update_hud() -> void:
 	hud_label.text = "You %s   |   %s   |   %s Foe" % [parts[0], clock, parts[1]]
 
 
-## A critter with its starter boon, as a tappable card.
-func _critter_card(critter: String, boon: String, on_press: Callable, border: Color, picked := false, out := false) -> Button:
+## A critter with its starter boon, as a tappable card. `ability` adds what
+## the critter itself does (the draft, where you're choosing critters).
+func _critter_card(critter: String, boon: String, on_press: Callable, border: Color, picked := false, out := false, ability := false) -> Button:
 	var b := Boons.get_def(boon)
-	var text := Kit.vbox(2, [
-		Kit.label(_name(critter), 28, Kit.MUTED if out else (GOLD if picked else Kit.FG)),
-		Kit.label("OUT" if out else b.name, 22, PINK if out else GOLD),
-		Kit.label(b.text, 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
-	])
+	var text := Kit.vbox(2, [Kit.label(_name(critter), 28, Kit.MUTED if out else (GOLD if picked else Kit.FG))])
+	if ability:
+		var what := Kit.label(_ability_text(critter), 18, ABILITY, HORIZONTAL_ALIGNMENT_LEFT, true)
+		what.max_lines_visible = 3
+		what.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		text.add_child(what)
+	text.add_child(Kit.label("OUT" if out else b.name, 22, PINK if out else GOLD))
+	text.add_child(Kit.label(b.text, 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var icon := CritterIcon.make(critter, 1, 96)
+	var icon := CritterIcon.make(critter, 1, 80 if ability else 96)
 	if out:
 		icon.modulate = Color(1, 1, 1, 0.35)
 	var row := Kit.hbox(12, [icon, text])
@@ -660,9 +668,9 @@ func _boon_list(ids: Array, heading: String) -> Control:
 	return col
 
 
-## Eight pips: cleared floors green, the current one outlined.
+## One pip per floor: cleared floors green, the current one outlined.
 func _ladder() -> Control:
-	var row := Kit.hbox(8, [], BoxContainer.ALIGNMENT_CENTER)
+	var row := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
 	for f in BounceRun.FLOORS:
 		var done: bool = not run.is_empty() and f < run.floor
 		var current: bool = not run.is_empty() and f == run.floor and not run.over
@@ -670,7 +678,7 @@ func _ladder() -> Control:
 		var col := Kit.GOOD if done else (PINK if lost else (Kit.ACCENT if current else Kit.LINE))
 		var pip := Kit.panel(Kit.label(str(f + 1), 22, Kit.BG if done else Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 			Kit.box(col if done else Kit.PANEL, col, 14, 3, 6))
-		pip.custom_minimum_size = Vector2(62, 52)
+		pip.custom_minimum_size = Vector2(56, 52)
 		row.add_child(pip)
 	return row
 
@@ -690,6 +698,14 @@ func _trio_with(ability: String) -> Array:
 
 static func _name(critter: String) -> String:
 	return BallDefs.get_def(critter).display_name
+
+
+## The critter's ability in a sentence, without the leading "Type." its
+## description starts with (the card already shows the name).
+static func _ability_text(critter: String) -> String:
+	var d: String = BallDefs.get_def(critter).description
+	var cut := d.find(". ")
+	return d.substr(cut + 2) if cut >= 0 and cut < 24 else d
 
 
 static func _clock(ticks: int) -> String:

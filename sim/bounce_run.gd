@@ -7,9 +7,11 @@
 ## loss knocks that critter out of the run, and you retry the floor with
 ## another. The run ends when the top floor falls or your trio is out.
 ##
-## Power stays equal: a floor's foe carries exactly as many boons as you can
-## have there (its starter plus one per floor cleared), drawn from the same
-## pool. Your edge is picking boons that suit your trio, and your aim.
+## A floor's foe carries exactly as many boons as you can have there (its
+## starter plus one per floor cleared), drawn from the same pool, and its
+## power follows FOE_POWER: well under yours on the first floors, over it at
+## the top. Everyone climbs the same tower, so the board stays fair. Your
+## edge is picking boons that suit your trio, who you send, and your aim.
 ##
 ## A run is plain data (see new_run) so it can be saved, resumed, posted to
 ## the leaderboard and re-checked later by replaying its log.
@@ -22,15 +24,19 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 1
+const RULES_VERSION := 2
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
-const FLOORS := 8
+const FLOORS := 10
 const DRAFT := 5
 const PICKS := 3
 const OFFER := 3
 ## Foe names per floor, for flavour. The top floor is the day's champion.
-const FOE_TITLES := ["Rookie", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Elite", "Champion"]
+const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Elite", "Legend", "Champion"]
+## Foe power per floor (sim/power.gd: 1.0 is your trio's). The first floors
+## are a warm-up; most runs end around floor 7, and a full clear is rare
+## (tools/boon_balance.gd --runs checks the curve).
+const FOE_POWER := [0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.35, 1.45]
 
 
 ## 1 on 2026-10-14 (UTC), counting up one per day.
@@ -81,7 +87,7 @@ static func fighter_boons(setup: Dictionary, run: Dictionary, slot: int) -> Arra
 static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> Dictionary:
 	var foe: Dictionary = setup.floors[run.floor]
 	return {"seed": foe.seed, "p1": card(setup, run, slot).critter, "p2": foe.critter,
-		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons]}
+		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons], "powers": [1.0, FOE_POWER[run.floor]]}
 
 
 ## Records a fight. A win climbs a floor and, unless the run is won, deals a
