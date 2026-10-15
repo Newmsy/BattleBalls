@@ -356,6 +356,38 @@ def click():
     return osc(sweep(500, 1400, dur, 0.4), "sine") * env(dur, 0.001, 5)
 
 
+# --- Summons -----------------------------------------------------------------
+
+def summon_pop():
+    """A capsule popping open: a bubbly 'pok' then a quick rising sparkle.
+    The game raises its pitch a step per rarity."""
+    pop = mix(bandnoise(0.025, 400, 7000) * env(0.025, 0.0004, 6) * 0.7,
+              osc(sweep(380, 1300, 0.09, 0.5), "sine") * env(0.09, 0.0008, 5))
+    sparkle = mix(*[delay(osc(np.full(int(0.14 * SR), midi(n)), "sine") * env(0.14, 0.001, 6) * 0.32, i * 0.035)
+                    for i, n in enumerate([84, 88, 91])])
+    return seq([(0, pop), (0.05, sparkle)])
+
+
+def summon_charge():
+    """A Legendary capsule shaking before it bursts: a rising shimmering swell."""
+    dur = 0.6
+    f = sweep(300, 1400, dur, 1.6) * (1 + 0.04 * np.sin(2 * np.pi * 22 * t_axis(dur)))
+    swell = lowpass(osc(f, "saw"), 3000) * np.linspace(0.05, 1, int(dur * SR)) ** 2 * 0.45
+    air = lowpass(noise(dur), sweep(800, 8000, dur, 1.5)) * np.linspace(0, 1, int(dur * SR)) ** 2 * 0.35
+    return mix(swell, air)
+
+
+def summon_legend():
+    """A Legendary bursting out: a big crack, then a bright major fanfare and shimmer."""
+    crack = mix(bandnoise(0.06, 500, 9000) * env(0.06, 0.0004, 5),
+                osc(sweep(900, 200, 0.15, 0.5), "tri") * env(0.15, 0.001, 5) * 0.7)
+    fan = jingle([72, 76, 79, 84, 88], 0.07, 0.9, shape="square", cutoff=5000)
+    chord = mix(*[osc(np.full(int(1.0 * SR), midi(n)), "tri") * env(1.0, 0.01, 2.5) * 0.22 for n in [76, 79, 84, 88]])
+    shimmer = mix(*[delay(osc(np.full(int(0.16 * SR), midi(n)), "sine") * env(0.16, 0.001, 6) * 0.25, 0.3 + i * 0.05)
+                    for i, n in enumerate([96, 100, 103, 108, 103, 108])])
+    return seq([(0, crack), (0.04, fan), (0.32, chord), (0, shimmer)])
+
+
 # --- Critter signature sounds (render + sound pass, 2026-10) -------------------
 
 def chomp():
@@ -442,6 +474,7 @@ SOUNDS = {
     "ko": ko, "heal": heal, "slurp": slurp, "zap": zap, "sizzle": sizzle,
     "overtime": overtime, "heartbeat": heartbeat,
     "win": win, "lose": lose, "draw": draw, "go": go, "launch": launch, "stretch": stretch, "click": click,
+    "summon_pop": summon_pop, "summon_charge": summon_charge, "summon_legend": summon_legend,
     "chomp": chomp, "thwomp": thwomp, "pew": pew,
     "crackle": crackle, "rustle": rustle, "fizzpop": fizzpop, "drum": drum, "rain": rain,
 }
