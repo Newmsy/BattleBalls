@@ -14,6 +14,8 @@ const Zones := preload("res://meta/zones.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const Gear := preload("res://sim/gear.gd")
+const CritterPicker := preload("res://game/ui/critter_picker.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -46,7 +48,14 @@ static func build(shell, params: Dictionary) -> Control:
 	var change := Kit.chip("Change", Kit.ACCENT)
 	var fighter_row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 100, false, b.level), info, change])
 	fighter_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	root.add_child(Kit.card_button(fighter_row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 16))
+	var on_pick := func(id: String) -> void:
+		p.set_lineup(id)
+		shell.refresh()
+	var pick := func() -> void:
+		CritterPicker.open(shell, CritterPicker.by_power(p, BallDefs.PLAYABLE), {"title": "Your fighter", "current": fighter, "on_pick": on_pick})
+	var change_btn := Kit.card_button(fighter_row, pick, Color("3a3480"), Kit.PANEL2, 32, 16)
+	shell.mark("campaign_fighter", change_btn)
+	root.add_child(change_btn)
 
 	var list := Kit.vbox(14)
 	for i in zone.stages.size():
