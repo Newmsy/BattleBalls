@@ -65,6 +65,8 @@ async function openGame(query, viewport = { width: 390, height: 844 }) {
   const logs = [];
   page.on("console", (m) => {
     logs.push(m.text());
+    // A screen that should fit a phone (design/ui.md, "No scrolling") needs scrolling.
+    if (m.text().startsWith("UI_OVERFLOW ")) errors.push(`${m.text()} (fit it, or put detail behind an "i")`);
     // The online backend is best-effort (the game plays offline), so a failed
     // request to it is reported but doesn't fail the smoke test.
     if (m.type() === "error" && /supabase\.co/.test(m.location()?.url ?? "")) console.log(`backend request failed: ${m.text()}`);

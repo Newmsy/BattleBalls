@@ -30,6 +30,7 @@ godot --headless --script res://tools/record_golden.gd      # only for intended 
 godot --headless --script res://tools/spire_curve.gd        # The Spire's floor power curve
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
+node screens.mjs ../build/web out-dir                       # every home screen, 2 phone sizes, normal + Larger text
 DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS tests on an empty Postgres
 ```
 

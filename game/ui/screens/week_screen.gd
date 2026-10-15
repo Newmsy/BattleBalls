@@ -272,9 +272,9 @@ static func banner(shell) -> Control:
 	var chaos := ("Chaos Weekend: %s, live for %s" if c.live else "Chaos Weekend: %s in %s") % [c.name, LiveOps.countdown(t, c.ends if c.live else c.starts)]
 	var v := Kit.vbox(6, [
 		Kit.hbox(8, [Kit.caption(top, Color("e8c8ff")), Kit.spacer(), Kit.label("Open ›", 22, Kit.ACCENT)]),
-		Kit.label(chaos, 26, CHAOS, HORIZONTAL_ALIGNMENT_LEFT, true),
-		Kit.label("Trick Shot · Fight of the Day · Try %s · %s" % [loan.name, "Bracket of Legends" if not Legends.current(t).is_empty() else "%s Spotlight" % s.name], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label(chaos, 24, CHAOS, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label("Fight of the Day · Try %s · %s" % [loan.name, "Bracket of Legends" if not Legends.current(t).is_empty() else "%s Spotlight" % s.name], 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
-	var b := Kit.card_button(v, func(): shell.go("week"), Color("6b3fb0"), Color("1c1040"), 36, 24)
+	var b := Kit.card_button(v, func(): shell.go("week"), Color("6b3fb0"), Color("1c1040"), 32, 18)
 	shell.mark("thisweek", b)
 	return b

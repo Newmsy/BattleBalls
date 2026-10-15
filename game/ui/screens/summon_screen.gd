@@ -17,19 +17,36 @@ static var _rng: RandomNumberGenerator
 
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
-	var root := Kit.vbox(22)
-	root.add_child(Kit.hbox(0, [Kit.label("Summon Portal", 44), Kit.spacer(), Kit.label("Orbs: %d" % p.orbs, 24, Kit.MUTED)]))
+	var root := Kit.vbox(18)
+	var odds_lines := []
+	for r in Roster.RARITIES:
+		for o in Summon.ODDS:
+			if o[0] == r:
+				odds_lines.append("%s %s" % [Roster.RARITY_NAMES[r], ("%.1f%%" % o[1]).replace(".0%", "%")])
+	var how: Control = shell.info_button("Odds and pity", [
+		"Every summon is a Tier 1 critter. Odds (the same as campaign drops): " + ", ".join(odds_lines) + ".",
+		"A x10 always has a Rare or better.",
+		"Wishlist: your picks come up twice as often as others of their rarity, in summons and campaign drops. Rarity odds and pity stay the same.",
+		"Legendary pity: a Legendary is guaranteed within %d Rare+ rolls. It's shared with campaign and hunt drops, so switching never resets it." % Summon.PITY_RESET,
+		"Summon Orbs come from boss first clears, daily login, account levels and achievements. They are never sold."], "summon_info")
+	var orb := Glyph.make("orb", 30)
+	orb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	root.add_child(Kit.hbox(10, [Kit.label("Summon Portal", 40), Kit.spacer(), orb, Kit.label(str(p.orbs), 26), how], BoxContainer.ALIGNMENT_CENTER))
 
 	var featured := Roster.get_critter(Summon.featured())
 	var portal := _Portal.new()
-	portal.custom_minimum_size = Vector2(0, 300)
+	portal.custom_minimum_size = Vector2(0, 200)
 	portal.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var feat := Kit.hbox(14, [CritterIcon.make(featured.id, 1, 96), Kit.vbox(2, [Kit.caption("This week · Spotlight", Color("e8c8ff")),
-		Kit.label("%s week" % featured.name, 32), Kit.label("%s gets half of all %s rolls." % [featured.name, Roster.RARITY_NAMES[featured.rarity]], 21, Color("e8c8ff"), HORIZONTAL_ALIGNMENT_LEFT, true)])])
+	var feat := Kit.hbox(14, [CritterIcon.make(featured.id, 1, 84), Kit.vbox(2, [Kit.caption("This week · Spotlight", Color("e8c8ff")),
+		Kit.label("%s week" % featured.name, 30), Kit.label("%s gets half of all %s rolls." % [featured.name, Roster.RARITY_NAMES[featured.rarity]], 21, Color("e8c8ff"), HORIZONTAL_ALIGNMENT_LEFT, true)])])
 	feat.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var st := Kit.box(Color("221046"), Color("6b3fb0"), 40, 2, 26)
-	root.add_child(Kit.panel(Kit.vbox(8, [portal, feat]), st))
+	var st := Kit.box(Color("221046"), Color("6b3fb0"), 36, 2, 20)
+	root.add_child(Kit.panel(Kit.vbox(4, [portal, feat]), st))
 	root.add_child(_wishlist_panel(shell))
+
+	var pity: int = p.legendary_pity
+	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(0, [Kit.caption("Legendary pity"), Kit.spacer(), Kit.label("%d Rare+ rolls left" % pity, 22)]),
+		Kit.bar(float(Summon.PITY_RESET - pity) / Summon.PITY_RESET, Glyph.GOLD)]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
 	var one := Kit.button("Free x1" if p.free_summon else "x1  (1 orb)", func(): _pull(shell, 1), "ghost", 28, 96)
 	var ten := Kit.button("x10  (10 orbs)", func(): _pull(shell, 10), "primary", 28, 96)
@@ -37,29 +54,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	ten.disabled = p.orbs < 10
 	shell.mark("pull1", one)
 	shell.mark("pull10", ten)
-	root.add_child(Kit.hbox(14, [one, ten]))
-	root.add_child(Kit.label("Every summon is Tier 1. A x10 always has a Rare or better.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
-
-	var odds := GridContainer.new()
-	odds.columns = Roster.RARITIES.size()
-	odds.add_theme_constant_override("h_separation", 6)
-	for r in Roster.RARITIES:
-		var pct: float = 0.0
-		for o in Summon.ODDS:
-			if o[0] == r:
-				pct = o[1]
-		var col: Color = Roster.RARITY_COLORS[r]
-		var cell := Kit.panel(Kit.vbox(0, [Kit.label(("%.1f%%" % pct).replace(".0%", "%"), 24, col, HORIZONTAL_ALIGNMENT_CENTER), Kit.label(Roster.RARITY_NAMES[r], 15, col, HORIZONTAL_ALIGNMENT_CENTER)]),
-			Kit.box(Kit.PANEL2, Kit.LINE, 16, 2, 6))
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		odds.add_child(cell)
-	root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Odds (same as campaign drops)"), odds])))
-
-	var pity: int = p.legendary_pity
-	root.add_child(Kit.panel(Kit.vbox(10, [Kit.hbox(0, [Kit.caption("Legendary pity"), Kit.spacer(), Kit.label("%d Rare+ rolls left" % pity, 22)]),
-		Kit.bar(float(Summon.PITY_RESET - pity) / Summon.PITY_RESET, Glyph.GOLD),
-		Kit.label("Shared with campaign and hunt drops, so switching never resets it.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])))
-	root.add_child(Kit.label("Summon Orbs come from boss first clears, daily login, account levels and achievements. They are never sold.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	shell.pin(Kit.hbox(14, [one, ten]))
 	return root
 
 
@@ -91,7 +86,7 @@ static func _wishlist_panel(shell) -> Control:
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slots.add_child(slot)
 	return Kit.panel(Kit.vbox(12, [head, slots,
-		Kit.label("Wishlisted critters come up twice as often as others of their rarity, in summons and campaign drops. Rarity odds and pity stay the same.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]))
+		Kit.label("Picks come up twice as often within their rarity.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]), Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20))
 
 
 ## Bottom sheet listing every critter by rarity; tap to add or remove a pick.

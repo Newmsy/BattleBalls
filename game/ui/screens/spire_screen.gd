@@ -48,13 +48,16 @@ static func build(shell, params: Dictionary) -> Control:
 		climb.save_file()
 	_collect(shell, climb)
 	var root := Kit.vbox(22)
-	var back := Kit.button("Back", shell.back, "ghost", 24, 64)
-	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	back.custom_minimum_size.x = 150
+
+	var how: Control = shell.info_button("How the Spire works", [
+		"One %d-floor tower for everyone, rebuilt every Monday. Pick your lineup for each floor; they fight in the order you pick them, and a winner stays in with the HP it has left." % Spire.FLOORS,
+		"Every critter that comes out to fight spends 1 of its %d Stamina, win or lose. Tired critters rest until Monday, so spread the climb across your whole collection." % SpireClimb.STAMINA,
+		"Coming up: " + _upcoming_text(climb),
+	], "spire_info")
+	var back := Kit.card_button(Glyph.make("back", 34, Kit.FG), shell.back, Kit.LINE, Kit.PANEL, 999, 14)
 	shell.mark("spire_back", back)
-	root.add_child(Kit.hbox(16, [back, Kit.spacer(), Kit.label("Resets in " + LiveOps.countdown(now, Spire.week_end(climb.week)), 22, Kit.MUTED)]))
-	root.add_child(Kit.label("The Spire", 48))
-	var sub := "Floor %d of %d cleared this week." % [climb.cleared, Spire.FLOORS]
+	root.add_child(Kit.hbox(18, [back, Kit.label("The Spire", 40), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
+	var sub := "Floor %d of %d cleared. Resets in %s." % [climb.cleared, Spire.FLOORS, LiveOps.countdown(now, Spire.week_end(climb.week))]
 	if climb.last_week_best > 0:
 		sub += " Last week: floor %d." % climb.last_week_best
 	root.add_child(Kit.label(sub, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
@@ -68,9 +71,6 @@ static func build(shell, params: Dictionary) -> Control:
 	var picks: Array = params.get("picks", [])
 	root.add_child(_floor_card(spec))
 	root.add_child(_picker(shell, climb, spec, picks))
-	root.add_child(_upcoming(climb))
-	root.add_child(Kit.label("Every critter that comes out to fight spends 1 of its %d Stamina, win or lose. Tired critters rest until Monday, so spread the climb across your whole collection." % SpireClimb.STAMINA,
-		22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	return root
 
 
@@ -91,7 +91,7 @@ static func _floor_card(spec: Dictionary) -> Control:
 	var foes := Kit.hbox(14, [], BoxContainer.ALIGNMENT_CENTER)
 	for e in spec.enemies:
 		var tier := Spire.display_tier(e.power, Roster.rarity_base(Roster.get_critter(e.id).rarity) / 100.0)
-		var side := 190.0 if spec.boss else 130.0
+		var side := 150.0 if spec.boss else 104.0
 		foes.add_child(Kit.vbox(4, [CritterIcon.make(e.id, tier, side), Kit.label(BallDefs.get_def(e.id).display_name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 			Kit.power(roundi(e.power * 1000.0), 22)]))
 	var r := Spire.reward(n)
@@ -104,13 +104,13 @@ static func _floor_card(spec: Dictionary) -> Control:
 		bits.append("%s gear" % Roster.RARITY_NAMES[r.gear])
 	var v := Kit.vbox(12, [
 		Kit.caption("Next floor · plain arena · %d vs %d" % [spec.lineup, spec.enemies.size()], TOWER),
-		Kit.label(title, 44),
+		Kit.label(title, 36),
 		Kit.label("They fight in this order. The boss is huge and takes on your whole lineup alone." if spec.boss else "They fight in this order. Winners stay in with the HP they have left.",
 			22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 		foes,
 		Kit.label("First clear: " + ", ".join(bits), 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
-	return Kit.panel(v, Kit.box(Color("221a0c"), TOWER.darkened(.45), 40, 2, 28))
+	return Kit.panel(v, Kit.box(Color("221a0c"), TOWER.darkened(.45), 36, 2, 22))
 
 
 static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
@@ -159,13 +159,17 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 		shell.mark("spire_pick_" + f.id, card)
 		grid.add_child(card)
 	v.add_child(grid)
+	# The climb button stays put under the list, however many critters it holds.
 	var climb_btn := Kit.button("Climb floor %d" % spec.floor, func(): _climb(shell, climb, picks), "primary" if not picks.is_empty() else "ghost", 32, 96)
 	shell.mark("spire_climb", climb_btn)
-	v.add_child(climb_btn)
+	var actions := Kit.hbox(12, [climb_btn])
 	if picks.is_empty() and spec.lineup > 1:
-		var auto := Kit.button("Suggest a lineup", func(): shell.refresh_with({"picks": suggest(list, spec)}), "ghost", 24, 72)
+		var auto := Kit.button("Suggest", func(): shell.refresh_with({"picks": suggest(list, spec)}), "ghost", 26, 96)
+		auto.size_flags_horizontal = Control.SIZE_SHRINK_END
+		auto.custom_minimum_size.x = 200
 		shell.mark("spire_suggest", auto)
-		v.add_child(auto)
+		actions.add_child(auto)
+	shell.pin(actions)
 	return v
 
 
@@ -190,8 +194,9 @@ static func _pips(left: int) -> Control:
 	return row
 
 
-static func _upcoming(climb) -> Control:
-	var v := Kit.vbox(8, [Kit.caption("Coming up")])
+## The next few floors in one line each, for the info sheet.
+static func _upcoming_text(climb) -> String:
+	var out := []
 	var start: int = climb.next_floor() + 1
 	for n in range(start, mini(start + 4, Spire.FLOORS + 1)):
 		var r := Spire.reward(n)
@@ -200,12 +205,12 @@ static func _upcoming(climb) -> Control:
 			extra.append("Summon Orb")
 		if r.gear != "":
 			extra.append("%s gear" % Roster.RARITY_NAMES[r.gear])
-		var name := "Floor %d" % n + (" · Boss" if Spire.is_boss(n) else "")
-		v.add_child(Kit.hbox(12, [Kit.label(name, 24, TOWER if Spire.is_boss(n) else Kit.FG), Kit.spacer(),
-			Kit.label("%d vs %d" % [Spire.lineup_size(n), Spire.lineup_size(n)], 22, Kit.MUTED),
-			Kit.power(roundi(Spire.power_at(n) * 1000.0), 22, Kit.MUTED),
-			Kit.label(", ".join(extra), 20, Kit.GOOD)]))
-	return Kit.panel(v, Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 22))
+		var name := "floor %d" % n + (" (boss)" if Spire.is_boss(n) else "")
+		var line := "%s, %d vs %d, power %s" % [name, Spire.lineup_size(n), Spire.lineup_size(n), Kit.commas(roundi(Spire.power_at(n) * 1000.0))]
+		if not extra.is_empty():
+			line += ", " + ", ".join(extra)
+		out.append(line)
+	return "; ".join(out) + "." if not out.is_empty() else "the summit."
 
 
 static func _climb(shell, climb, picks: Array) -> void:

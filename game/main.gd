@@ -231,8 +231,11 @@ func _ready() -> void:
 				shell.go("friends")
 			elif SpireScreen.should_open(url_params):
 				shell.go("spire")
-			elif url_params.get("screen", "") in ["shop", "pass"]:
-				shell.go(url_params.screen) # ?screen=shop or ?screen=pass
+			elif url_params.get("screen", "") in Shell.TAB_IDS:
+				shell.show_tab(url_params.screen) # ?screen=fuse
+			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen != "detail" or url_params.has("id")):
+				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
+				shell.go(url_params.screen, {"id": url_params.id} if url_params.has("id") else {})
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")
@@ -575,7 +578,7 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	seed_value = config.seed
 	foe_aim = null
 	shell_layer.visible = false
-	sfx.toggle_lift = 0.0
+	sfx.toggle_hidden = false
 	_begin_aim()
 	var st := Zones.stage(zone_index, stage_index)
 	info_label.text = "%s %s. Drag on the arena to aim, then let go to launch." % [
@@ -839,9 +842,10 @@ func _build_shell() -> void:
 	shell.profile = profile
 	shell.set_account(account)
 	shell.link_base = _link_base()
+	shell.sfx = sfx
 	shell.play_requested.connect(func():
 		shell_layer.visible = false
-		sfx.toggle_lift = 0.0
+		sfx.toggle_hidden = false
 		_use_lineup()
 		# A loaner (Try-a-Critter) wins over your own fighter for this fight.
 		if shell.play_with in BallDefs.PLAYABLE:
@@ -875,7 +879,7 @@ func _pick_player(id: String) -> void:
 
 func _show_home() -> void:
 	shell_layer.visible = true
-	sfx.toggle_lift = Shell.TAB_HEIGHT
+	sfx.toggle_hidden = true # Home has the sound switch in Settings.
 	_sync_share_targets()
 
 
@@ -1100,7 +1104,7 @@ func _start_rival(f: Dictionary) -> void:
 	opponent_type = lead
 	seed_value = _rng.randi_range(1, 99999)
 	shell_layer.visible = false
-	sfx.toggle_lift = 0.0
+	sfx.toggle_hidden = false
 	_show_menu()
 	print("RIVAL_MENU vs=%s ball=%s" % [str(f.name), lead])
 
@@ -1141,7 +1145,7 @@ func _play_normal() -> void:
 ## Watch the Fight of the Day from the This Week board, as a replay.
 func _watch_board_fight(f: Dictionary) -> void:
 	shell_layer.visible = false
-	sfx.toggle_lift = 0.0
+	sfx.toggle_hidden = false
 	mode = Mode.REPLAY
 	player_type = f.p1
 	opponent_choice = f.p2
@@ -1650,6 +1654,10 @@ func _read_url_params() -> Dictionary:
 		opponent_type = params.p2
 		url_picks = true
 	backend.disabled = params.get("offline", "") == "1"
+	# ?text=large turns on Larger text for this visit only (screenshots, testing).
+	if params.get("text", "") == "large":
+		A11y.ensure_loaded()
+		A11y.large_text = true
 	if params.get("arena", "") in Arenas.PLAYABLE:
 		url_arena = params.arena
 		arena_override = url_arena
