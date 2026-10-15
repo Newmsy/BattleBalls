@@ -42,6 +42,9 @@ const RULES := {
 	"launch": [1, 0.1, -4.0],
 	"stretch": [1, 0.07, -14.0],
 	"click": [2, 0.04, -8.0],
+	"chomp": [1, 0.15, -3.0],
+	"thwomp": [1, 0.2, -1.0],
+	"pew": [2, 0.06, -6.0],
 }
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
@@ -154,10 +157,15 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("backstab")
 				if e.get("crit", false):
 					play("crit", 0.0, 1.0 if e.kind == "contact" else 1.25)
+				var src: String = sim.balls[e.source].type_id if e.get("source", -1) >= 0 and e.source < sim.balls.size() else ""
 				if e.kind == "beam":
 					play("sizzle")
+				elif src == "juggernaut" and e.kind in ["contact", "slam"]: # Boulder.
+					play("thwomp", 0.0, 1.0 if e.kind == "contact" else 0.85)
 				elif e.amount >= target.max_hp * BIG_HIT_SHARE:
 					play("hit_big")
+				if src == "vampire" and e.kind == "contact": # Count Nibbles.
+					play("chomp")
 				# Each critter file names its ouch voice and pitch, so new critters
 				# reuse the existing chirps.
 				if target.alive() and target.def.ouch != "":
@@ -181,8 +189,13 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("hit_big", 0.0, 0.8 if e.type == "boom" else PULSE_PITCH.get(kind, 1.1))
 			"reflect":
 				play("hit", -4.0, 1.5)
+			"spike": # Spike Yard: a sharp, high snap.
+				play("snap", -2.0, 1.7)
 			"shot":
-				play("launch", -6.0, 1.8 if e.kind != "shell" and e.kind != "blob" else 0.9)
+				if e.kind == "pea":
+					play("pew")
+				else:
+					play("launch", -6.0, 1.8 if e.kind != "shell" and e.kind != "blob" else 0.9)
 			"shut":
 				play("snap", 0.0, 0.8)
 			"salvo", "mega":

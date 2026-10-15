@@ -126,11 +126,12 @@ being solvable or fair.
 ## Bounce Run
 
 A daily roguelite (`sim/bounce_run.gd`, `sim/boons.gd`, `game/bounce_run.gd`;
-design in the project's `design/bounce-run.md`). Draft 3 of 5 critter cards
-(each with its own starter boon), climb 8 floors, and pick 1 of 3 boons for
-the whole trio after every win. A loss knocks that critter out; lose all three
+design in the project's `design/bounce-run.md`). Draft 3 of 6 critters (each
+card shows its ability), pick 3 of 6 starting boons for the whole trio, then
+climb 10 floors and pick 1 of 3 more boons after every win. A loss knocks that critter out; lose all three
 and the run ends. Each floor's foe carries as many boons as you can hold there,
-so every fight stays at equal power. The run comes from the UTC day (#1 is
+and its power follows `FOE_POWER`: well under yours on the first floors, over
+it at the top, so most runs end around floor 7 and a full clear is rare. The run comes from the UTC day (#1 is
 2026-10-14) and is saved after every step to `user://bounce_run.cfg`.
 
 The first run of the day is ranked and posts to the daily leaderboard
@@ -139,8 +140,10 @@ offline it plays the same and posts later. Open it from the Play tab or with
 `?mode=bouncerun` (`&day=3` plays another day's run, unranked).
 
 Boons are balanced by `tools/boon_balance.gd`: each one held at equal power
-must win 52-62%, and one over 65% is a miss to tune. `--runs=300` plays whole random
-runs to check every floor stays near 50%.
+must win 52-62%, and one over 65% is a miss to tune. `--runs=400` plays whole
+runs with random picks and aims and reports where they end (`--runs-from=K`
+splits the runs over processes); retune `FOE_POWER` if the median moves off
+floor 7.
 
 ## Ghost Arena (PvP)
 

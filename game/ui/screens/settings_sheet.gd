@@ -4,6 +4,7 @@ extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const A11y := preload("res://game/a11y.gd")
+const Dev := preload("res://game/dev.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 
 const OPTIONS := [
@@ -87,3 +88,36 @@ static func _toggle(shell, key: String) -> void:
 		A11y.apply_fonts(shell.get_tree().root)
 		shell.refresh()
 	open(shell)
+
+
+## Playtest shortcuts on the real save. Hidden when Dev.TOOLS_ENABLED is off.
+static func _testing(shell) -> Control:
+	var energy := Kit.button("Refill energy", func(): _refill_energy(shell), "primary", 26, 72)
+	shell.mark("dev_refill_energy", energy)
+	var orbs := Kit.button("+10 orbs", func(): _add_orbs(shell), "ghost", 26, 72)
+	shell.mark("dev_add_orbs", orbs)
+	for b in [energy, orbs]:
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var free := Dev.free_summons()
+	var sw := Kit.button("On" if free else "Off", func(): Dev.set_free_summons(not free); open(shell), "go" if free else "ghost", 26, 72)
+	sw.custom_minimum_size.x = 132
+	shell.mark("dev_free_summons", sw)
+	var words := Kit.label("Unlimited summons", 30)
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw])])
+
+
+static func _refill_energy(shell) -> void:
+	var p = shell.profile
+	p.energy = maxi(p.energy, p.energy_max)
+	p.energy_time = int(Time.get_unix_time_from_system())
+	p.changed.emit() # main.gd saves the profile on changed.
+	shell.toast("Energy full")
+	shell.refresh()
+
+
+static func _add_orbs(shell) -> void:
+	shell.profile.orbs += 10
+	shell.profile.changed.emit()
+	shell.toast("+10 orbs")
+	shell.refresh()

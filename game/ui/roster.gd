@@ -44,6 +44,16 @@ static func get_critter(id: String) -> Dictionary:
 	return {}
 
 
+## A card background tinted by rarity (Commons stay plain), with the rarity
+## colour as its border: every critter tile uses this so rarity reads at a glance.
+static func rarity_bg(rarity: String, base: Color, amount := .22) -> Color:
+	return base if rarity == "common" else base.lerp(RARITY_COLORS[rarity], amount)
+
+
+static func rarity_border(rarity: String, plain: Color) -> Color:
+	return plain if rarity == "common" else RARITY_COLORS[rarity]
+
+
 static func level_cap(tier: int) -> int:
 	return tier * 10
 

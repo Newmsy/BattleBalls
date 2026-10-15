@@ -66,6 +66,41 @@ const DEFS := {
 		"icon": "guard",
 		"contact_armor": 0.07,
 	},
+	"rubber_band": {
+		"name": "Rubber Band",
+		"text": "Move 4% faster and heal 0.2 HP on every wall bounce.",
+		"icon": "bolt",
+		"speed": 1.04,
+		"bounce_heal": 0.2,
+	},
+	"lucky_charm": {
+		"name": "Lucky Charm",
+		"text": "Your first hit of every fight deals +3, and an 8 HP bubble pops on in overtime.",
+		"icon": "bubble",
+		"first_strike": 3.0,
+		"overtime_shield": 8.0,
+	},
+	"hard_hat": {
+		"name": "Hard Hat",
+		"text": "+3% max HP and take 3% less damage from bumps.",
+		"icon": "guard",
+		"hp": 1.03,
+		"contact_armor": 0.03,
+	},
+	"rally_cap": {
+		"name": "Rally Cap",
+		"text": "Take 3% less damage from bumps, and a 12 HP bubble pops on in overtime.",
+		"icon": "guard",
+		"contact_armor": 0.03,
+		"overtime_shield": 12.0,
+	},
+	"snack_stash": {
+		"name": "Snack Stash",
+		"text": "+2% max HP and heal 0.2 HP on every wall bounce.",
+		"icon": "heart",
+		"hp": 1.02,
+		"bounce_heal": 0.2,
+	},
 	"pep_talk": {
 		"name": "Pep Talk",
 		"text": "+4% max HP and +3% damage.",
@@ -92,7 +127,11 @@ const DEFS := {
 
 ## Every boon, in a fixed order (offers and drafts index into this).
 const ALL := ["thick_shell", "spiky_rim", "zoomies", "wall_snack", "overtime_bubble",
-	"opening_bite", "bank_shot", "bumper_guard", "sharper_fangs", "prism", "pep_talk"]
+	"opening_bite", "bank_shot", "bumper_guard", "sharper_fangs", "prism", "pep_talk",
+	"rubber_band", "lucky_charm", "hard_hat", "rally_cap", "snack_stash"]
+
+## Boons any critter can use (no `for`): the starting picks come from these.
+static var GENERAL: Array = ALL.filter(func(id): return not DEFS[id].has("for"))
 
 ## Runtime boon fields the sim reads straight off the def (0 = off).
 const RUNTIME := ["bounce_heal", "overtime_shield", "first_strike", "bank_bonus", "contact_armor"]
