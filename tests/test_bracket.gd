@@ -142,3 +142,34 @@ func test_bracket_screen_builds_in_every_phase() -> void:
 		shell.refresh_with({"round": 0})
 	LiveOps.now_override = 0
 	shell.free()
+
+
+func test_fighting_a_bit_at_a_time_gives_the_same_bracket() -> void:
+	var cfg := {"seed": 4242, "entrants": BallDefs.PLAYABLE.slice(0, 6)}
+	var whole := Bracket.new(cfg)
+	var bits := Bracket.new(cfg)
+	var calls := 0
+	var budget := [0]
+	# Stop after every few ticks, so every series is resumed mid-game.
+	while not bits.work(bits.rounds - 1, func(): budget[0] += 1; return budget[0] % 3 == 0):
+		calls += 1
+	check(calls > 10, "it really stopped part-way (%d calls)" % calls)
+	check_eq(bits.state_hash(), whole.state_hash(), "same fights")
+	check_eq(bits.champion(), whole.champion(), "same champion")
+	check_eq(bits.progress(bits.rounds - 1), [bits.size - 1, bits.size - 1], "all done")
+
+
+func test_saved_results_come_back_the_same() -> void:
+	var cfg := {"seed": 99, "entrants": BallDefs.PLAYABLE.slice(0, 5)}
+	var a := Bracket.new(cfg)
+	a.work(0, func(): return false)
+	var saved = JSON.parse_string(JSON.stringify(a.results()))
+	var b := Bracket.new(cfg)
+	b.load_results(saved)
+	check(b.ready_through(0), "round 1 restored without fighting")
+	check_eq(b.get_match(0, 0).games.map(func(g): return g.angles), a.get_match(0, 0).games.map(func(g): return g.angles), "angles come back as ints")
+	check_eq(typeof(b.get_match(0, 0).games[0].angles[0]) if not b.get_match(0, 0).bye else TYPE_INT, TYPE_INT, "int angles")
+	check_eq(b.state_hash(), Bracket.new(cfg).state_hash(), "rest fights out the same")
+	var other := Bracket.new({"seed": 100, "entrants": cfg.entrants})
+	other.load_results(saved)
+	check(not other.has_match(0, 0) or other.is_bye(0, 0), "another bracket's results are ignored")
