@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "ff4500",
 	"vibe": "A hot-headed lava blob who leaves a splash in every fight.",
 	"description": "Lava blob. Every hit splashes a lava puddle that burns foes who stay in it.",
-	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.0},
+	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "hit", "do": "lava"}],
 	"params": {
 		"lava_radius": 60.0,
