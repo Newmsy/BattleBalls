@@ -1,13 +1,12 @@
 ## Turns progression (rarity, tier, level) into one power multiplier, and
 ## applies a multiplier to a ball's stats. 1.0 is a T1, level 1 Common.
 ## Matches the Power Rating players see (game/ui/roster.gd: rarity base, +25%
-## per tier, +2.5% per level, +4% per gear piece), so a number on screen is
-## the strength that fights.
+## per tier, +2.5% per level, plus each gear piece's worth from sim/gear.gd),
+## so a number on screen is the strength that fights.
 extends RefCounted
 
 const TIER_STEP := 1.25
 const LEVEL_STEP := 0.025 ## Per level above 1, so level 11 is +25%.
-const GEAR_STEP := 0.04 ## Per gear piece worn.
 ## One rarity step is worth half a tier (BALANCE.md rule 5), as in
 ## Roster.rarity_base: a T1 Legendary fights like a T3 Common.
 const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]

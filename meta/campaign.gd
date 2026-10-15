@@ -8,6 +8,10 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const Rng := preload("res://sim/rng.gd")
 const Power := preload("res://sim/power.gd")
 const Lineup := preload("res://sim/lineup.gd")
+const Economy := preload("res://meta/economy.gd")
+## Gear a campaign win can drop (design/gear.md section 4): Shells and Cores,
+## since Charms only fit 3-star critters.
+const GEAR_POOL := ["iron_shell", "bubble_shell", "spike_core", "echo_core"]
 
 const RARE_BONUS_CHANCE := 0.05
 ## Second star: win before overtime. Third star: win with this share of HP
@@ -85,13 +89,13 @@ static func start(profile, zone_index: int, stage_index: int, fighter: String, n
 
 ## Applies a finished stage fight. `fight` is MatchSim.summary() plus the
 ## player's max HP ("max_hp"). Returns what happened for the result screen:
-## {won, stars, first_clear, drops: [critter ids], xp, levels, refund,
-## account_levels}.
+## {won, stars, first_clear, drops: [critter ids], gear: [new pieces], xp,
+## levels, refund, account_levels}.
 static func finish(profile, zone_index: int, stage_index: int, fighter: String, fight: Dictionary) -> Dictionary:
 	var st := Zones.stage(zone_index, stage_index)
 	var key := Zones.stage_key(zone_index, stage_index)
 	var won: bool = fight.winner == 0
-	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0}
+	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "gear": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0}
 	if not won:
 		result.refund = Zones.cost(st) - Zones.LOSS_COST
 		profile.refund_energy(result.refund)
@@ -111,6 +115,7 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 	result.xp = WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index
 	result.levels = profile.add_xp(fighter, result.xp)
 	result.drops = _roll_drops(profile, zone_index, stage_index, result.first_clear)
+	result.gear = _roll_gear(profile, zone_index, stage_index, stars, result.first_clear)
 	result.account_levels = profile.add_account_xp(Zones.cost(st))
 	profile.runs += 1
 	profile.changed.emit()
@@ -149,6 +154,19 @@ static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear:
 			types.append(z.boss_reward)
 	profile.add_copies(types)
 	return types
+
+
+## A 1-star piece now and then (more often for 3 stars), and a boss's first
+## clear always gives one at Economy.GEAR_BOSS_TIER. Rolled from the run seed.
+static func _roll_gear(profile, zone_index: int, stage_index: int, stars: int, first_clear: bool) -> Array:
+	var rng := Rng.new(_seed(profile.runs, zone_index, stage_index) ^ 0x2545f491)
+	var chance := Economy.GEAR_CAMPAIGN_CHANCE_3STAR if stars >= 3 else Economy.GEAR_CAMPAIGN_CHANCE
+	var out := []
+	if rng.next_float() < chance:
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], 1))
+	if first_clear and Zones.is_boss(Zones.stage(zone_index, stage_index)):
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.GEAR_BOSS_TIER))
+	return out
 
 
 static func _seed(runs: int, zone_index: int, stage_index: int) -> int:

@@ -14,13 +14,7 @@ const SpireClimb := preload("res://meta/spire_climb.gd")
 const LiveOps := preload("res://game/liveops.gd")
 
 const TOWER := Color("ffc23d")
-## Boss-floor gear by rarity: [name, slot]. Its stat line comes from
-## Profile.GEAR_LINES (Spire Shell defense, Spire Core cooldown, Summit Core attack).
-const GEAR := {
-	"rare": ["Spire Shell", "Shell"],
-	"epic": ["Spire Core", "Core"],
-	"legendary": ["Summit Core", "Core"],
-}
+const Gear := preload("res://sim/gear.gd")
 
 ## Set by the fight scene so the home screen opens back on the Spire.
 static var reopen := false
@@ -99,8 +93,8 @@ static func _floor_card(spec: Dictionary) -> Control:
 		bits.append("XP Chip")
 	if r.orbs > 0:
 		bits.append("Summon Orb")
-	if r.gear != "":
-		bits.append("%s gear" % Roster.RARITY_NAMES[r.gear])
+	if not r.gear.is_empty():
+		bits.append(gear_name(r.gear))
 	var v := Kit.vbox(12, [
 		Kit.caption("Next floor · plain arena · %d vs %d" % [spec.lineup, spec.enemies.size()], TOWER),
 		Kit.label(title, 36),
@@ -202,8 +196,8 @@ static func _upcoming_text(climb) -> String:
 		var extra := []
 		if r.orbs > 0:
 			extra.append("Summon Orb")
-		if r.gear != "":
-			extra.append("%s gear" % Roster.RARITY_NAMES[r.gear])
+		if not r.gear.is_empty():
+			extra.append(gear_name(r.gear))
 		var name := "floor %d" % n + (" (boss)" if Spire.is_boss(n) else "")
 		var line := "%s, %d vs %d, power %s" % [name, Spire.lineup_size(n), Spire.lineup_size(n), Kit.commas(roundi(Spire.power_at(n) * 1000.0))]
 		if not extra.is_empty():
@@ -241,7 +235,7 @@ static func _collect(shell, climb) -> void:
 	if t.xp_chips > 0:
 		bits.append("%d XP Chip%s" % [t.xp_chips, "" if t.xp_chips == 1 else "s"])
 	for g in t.gear:
-		bits.append(GEAR[g][0])
+		bits.append(gear_name(g))
 	shell.toast("Spire rewards: " + ", ".join(bits))
 
 
@@ -253,8 +247,13 @@ static func grant(p, t: Dictionary) -> void:
 	if t.xp_chips > 0:
 		_add_item(p, "XP Chip", t.xp_chips, "+200 XP to one critter.", Color("45f5a6"))
 	for g in t.gear:
-		p.add_gear(GEAR[g][0], GEAR[g][1], g)
+		p.add_gear(g.type, g.tier)
 	p.changed.emit()
+
+
+## "3-star Iron Shell" for a gear reward {type, tier}.
+static func gear_name(g: Dictionary) -> String:
+	return "%d-star %s" % [g.tier, Gear.PIECES[g.type].name]
 
 
 static func _add_item(p, name: String, n: int, text: String, color: Color) -> Dictionary:
