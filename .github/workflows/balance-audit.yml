@@ -1,15 +1,13 @@
 name: Balance audit
 
 # The full balance sweep (BALANCE.md): every pairing of the live roster on
-# every arena and Chaos Weekend modifier, the power step and the gear lines.
-# Too big for one machine or for a PR, so it runs weekly on main, split over
-# SHARDS machines; the report job merges their results into one report (job
-# summary and the balance-audit-report artifact). The PR gate (ci.yml) only
-# fights the critters a PR changes.
+# every arena and Chaos Weekend modifier, the power step and the gear lines,
+# split over 20 machines; the report job merges their results into one report
+# (job summary and the balance-audit-report artifact). Balance checks are not
+# in PR CI (Newms, 2026-10-15): run this by hand (Actions > Balance audit > Run
+# workflow) when doing a balance tune.
 
 on:
-  schedule:
-    - cron: "17 6 * * 1" # Mondays 06:17 UTC, ahead of the weekly balance review.
   workflow_dispatch:
     inputs:
       fights:
