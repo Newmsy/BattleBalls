@@ -208,5 +208,5 @@ func test_lineup_tags_show_the_same_power_as_the_critter_screen() -> void:
 		check_eq(FighterTag.rating(p.slot_of(id)), p.power_of(id), "%s tag power" % id)
 	check_eq(FighterTag.rating({"critter": "vampire", "tier": 1, "level": 1, "gear": []}), Roster.power("vampire", 1, 1), "bare slot")
 	var tag: Control = FighterTag.of_slot(p.slot_of("vampire"), 80)
-	check(tag.get_child(0).get_child(0) is PanelContainer, "tier pill sits on the icon")
+	check(tag.get_child(0).get_child(0).get_child(0).count == 2, "two tier stars above the critter")
 	tag.free()

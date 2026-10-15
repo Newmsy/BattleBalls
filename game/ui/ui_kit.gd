@@ -164,7 +164,15 @@ static func chip(text: String, color: Color, font_size := 18) -> PanelContainer:
 
 ## "⚡1,789" with a drawn bolt.
 static func power(value: int, size := 26, color := FG) -> HBoxContainer:
-	return hbox(2, [Glyph.make("bolt", size * .8, WARN), label(commas(value), size, color)])
+	return hbox(4, [glyph("bolt", size, WARN), label(commas(value), size, color)])
+
+
+## A glyph kept at its own height in a row: glyphs draw to their height, so a
+## row that stretched one to the text's height would draw it into the text.
+static func glyph(kind: String, side: float, color: Color, count := 1) -> Control:
+	var g := Glyph.make(kind, side, color, count)
+	g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return g
 
 
 static func bar(frac: float, color: Color, height := 18) -> Control:
