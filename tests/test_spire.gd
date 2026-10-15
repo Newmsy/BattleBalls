@@ -8,7 +8,8 @@ const UiProfile := preload("res://game/ui/ui_profile.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 
 const MONDAY := 1767571200 + 40 * 7 * 86400 ## Week 40, Monday 00:00 UTC.
-const TMP := "user://test_spire.json"
+## Per process: tests/run.sh runs shards side by side.
+var TMP := "user://test_spire_%d.json" % OS.get_process_id()
 
 
 func _climb(now := MONDAY):
@@ -142,7 +143,7 @@ func test_rewards_are_paid_once() -> void:
 	var t: Dictionary = c.take_rewards()
 	check_eq(t.coins, Spire.reward(5).coins + Spire.reward(10).coins)
 	check_eq(t.orbs, 2, "orbs every 5th floor")
-	check_eq(t.gear, ["rare"], "boss gear on floor 10")
+	check_eq(t.gear, [{"type": Spire.BOSS_GEAR[0][0], "tier": Spire.BOSS_GEAR[0][1]}], "boss gear on floor 10")
 	check(c.take_rewards().coins == 0, "nothing left the second time")
 	var p = UiProfile.sample()
 	var coins: int = p.coins
