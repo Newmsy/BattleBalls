@@ -79,6 +79,7 @@ var current_params := {}
 var _stack: Array = []
 var _tab := "play"
 var _holder: Control
+var _column := 664.0 ## Width the current screen gets: the phone column inside its side margins.
 var _footer: MarginContainer ## Pinned actions (pin()), above the tab bar.
 var _scroll: ScrollContainer
 var _tab_buttons := {}
@@ -411,6 +412,7 @@ func _show(name: String, params: Dictionary) -> void:
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Phones fill the width; wide screens keep a phone-width column in the middle.
 	var side_margin := maxi(28, int((size.x - 720.0) / 2.0) + 28)
+	_column = size.x - 2.0 * side_margin
 	for side in ["left", "right"]:
 		margin.add_theme_constant_override("margin_" + side, side_margin)
 		_footer.add_theme_constant_override("margin_" + side, side_margin)
@@ -472,7 +474,7 @@ func _report_fit() -> void:
 	var margin := _scroll.get_child(0) as MarginContainer
 	if margin != null and margin.get_child_count() > 0:
 		need.x = margin.get_child(0).get_combined_minimum_size().x
-		room.x = minf(_holder.size.x, 720.0) - 56.0
+		room.x = _column
 	print("UI_FIT %s %d %d width %d %d" % [current, roundi(need.y), roundi(room.y), roundi(need.x), roundi(room.x)])
 	if need.y > room.y + 1.0 and current not in SCROLLS:
 		print("UI_OVERFLOW %s %d" % [current, roundi(need.y - room.y)])
