@@ -75,11 +75,11 @@ const DEFS := {
 	},
 	"prism": {
 		"name": "Prism",
-		"text": "Lasers keep 1 more beam up, and beams last 0.25s longer.",
+		"text": "Lasers keep 1 more beam up, and beams last 0.5s longer.",
 		"icon": "beam",
 		"for": "laser",
 		"beam_max": 1,
-		"beam_life": 0.25,
+		"beam_life": 0.5,
 	},
 }
 
