@@ -430,3 +430,113 @@ static func draw_bubble_trail(ci: CanvasItem, p: Vector2, r: float, vel: Vector2
 		var rad := r * (0.06 + 0.07 * (1.0 - f))
 		ci.draw_arc(at, rad, 0.0, TAU, 12, Color(Color("dff6ff"), 0.85 * (1.0 - f) * k), 2.0, true)
 		ci.draw_circle(at + Vector2(-rad, -rad) * 0.35, rad * 0.25, Color(1, 1, 1, 0.8 * (1.0 - f) * k))
+
+
+# --- Batch 3 ---------------------------------------------------------------------
+
+const NOVA_LIFE := 0.7
+const REBIRTH_LIFE := 1.0
+
+## Void's and Supernova's blast: a white flash, a starburst of rays and a
+## thick shockwave ring racing out to the full reach.
+static func draw_nova(ci: CanvasItem, c: Vector2, reach: float, age: float, col: Color) -> void:
+	var u := clampf(age / NOVA_LIFE, 0.0, 1.0)
+	var ease := 1.0 - pow(1.0 - u, 3.0)
+	var r := reach * ease
+	var a := 1.0 - u
+	ci.draw_circle(c, reach * 0.35 * (1.0 - u), Color(1, 1, 1, 0.9 * a))
+	ci.draw_circle(c, r, Color(col, 0.12 * a))
+	for k in 16:
+		var d := Vector2.from_angle(k * TAU / 16.0 + 0.2)
+		var inner := r * (0.25 + 0.1 * (k % 2))
+		ci.draw_line(c + d * inner, c + d * r * (0.95 if k % 2 else 0.75), Color(Color.WHITE.lerp(col, 0.4), 0.7 * a), 3.0 + 3.0 * a, true)
+	ci.draw_arc(c, r, 0.0, TAU, 72, Color(col, 0.9 * a), 6.0 + 12.0 * a, true)
+	ci.draw_arc(c, r * 0.92, 0.0, TAU, 72, Color(1, 1, 1, 0.6 * a), 2.5, true)
+
+
+## Ember's rebirth: a pillar of fire, flame wings unfolding and sparks.
+static func draw_rebirth(ci: CanvasItem, c: Vector2, r: float, age: float, t: float) -> void:
+	var u := clampf(age / REBIRTH_LIFE, 0.0, 1.0)
+	var a := 1.0 - maxf(0.0, (u - 0.6) / 0.4)
+	var rise := minf(1.0, u * 3.0)
+	# Pillar.
+	var w := r * (0.9 - 0.4 * u)
+	ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-w, r * 0.6), c + Vector2(-w * 0.3, -r * 3.2 * rise), c + Vector2(w * 0.3, -r * 3.2 * rise), c + Vector2(w, r * 0.6)]), Color(BURN, 0.45 * a))
+	ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-w * 0.5, r * 0.4), c + Vector2(0, -r * 2.6 * rise), c + Vector2(w * 0.5, r * 0.4)]), Color(BURN_CORE, 0.6 * a))
+	# Wings.
+	var spread := minf(1.0, u * 2.0)
+	for side in [-1.0, 1.0]:
+		var pts := PackedVector2Array([c + Vector2(side * r * 0.5, -r * 0.2)])
+		for k in 5:
+			var f := k / 4.0
+			pts.append(c + Vector2(side * r * (0.8 + 1.6 * spread * f), -r * (0.6 + 1.3 * spread * sin(f * PI * 0.8)) + sin(t * 9.0 + k) * r * 0.08))
+		pts.append(c + Vector2(side * r * (0.6 + 1.2 * spread), r * 0.3))
+		ci.draw_colored_polygon(pts, Color(BURN, 0.7 * a))
+		ci.draw_polyline(pts, Color(BURN_CORE, 0.9 * a), 2.5, true)
+	for k in 10:
+		var f := fmod(u * 1.5 + k * 0.1, 1.0)
+		ci.draw_circle(c + Vector2(sin(k * 2.7) * r * 1.2 * f, -r * 2.5 * f), 4.0 * (1.0 - f) + 1.0, Color(BURN_CORE, a * (1.0 - f)))
+
+
+## Megabot's shield: a hex-grid energy bubble that ripples.
+static func draw_hex_shield(ci: CanvasItem, c: Vector2, r: float, t: float, strength: float) -> void:
+	var rad := r * 1.25
+	var col := Color("7fe6ff")
+	ci.draw_circle(c, rad, Color(col, 0.1 + 0.08 * strength))
+	var cell := rad * 0.32
+	for q in range(-3, 4):
+		for k in range(-3, 4):
+			var at := c + Vector2(q * cell * 1.5, (k + (q % 2) * 0.5) * cell * 1.732)
+			if at.distance_to(c) > rad - cell * 0.6:
+				continue
+			var hex := PackedVector2Array()
+			for v in 7:
+				hex.append(at + Vector2.from_angle(v * TAU / 6.0) * cell * 0.9)
+			var pulse := 0.25 + 0.25 * sin(t * 6.0 - at.distance_to(c) * 0.08)
+			ci.draw_polyline(hex, Color(col, pulse * (0.5 + 0.5 * strength)), 1.5, true)
+	ci.draw_arc(c, rad, 0.0, TAU, 48, Color(col, 0.9), 3.0, true)
+	ci.draw_arc(c, rad * 1.06, 0.0, TAU, 48, Color(col, 0.3), 5.0, true)
+
+
+## Blizz's snowflake mine: an icy crystal that glints, with a frosty blast ring.
+static func draw_ice_mine(ci: CanvasItem, p: Vector2, s: float, armed: bool, blast: float, age: float, seed: float, t: float) -> void:
+	var grow := clampf(age / 0.25, 0.0, 1.0)
+	var rad := 24.0 * s * (0.4 + 0.6 * grow)
+	if armed:
+		ci.draw_circle(p, blast * s, Color(ICE, 0.07))
+		ci.draw_arc(p, blast * s, 0.0, TAU, 40, Color(ICE, 0.45), 2.0, true)
+	ci.draw_circle(p, rad * 1.1, Color(Color("7fd4ff"), 0.35))
+	var spin := t * 0.6 + seed
+	for k in 6:
+		var d := Vector2.from_angle(spin + k * TAU / 6.0)
+		ci.draw_line(p, p + d * rad, Color("f2fbff"), 3.0, true)
+		var mid := p + d * rad * 0.6
+		ci.draw_line(mid, mid + d.rotated(0.8) * rad * 0.3, Color("f2fbff"), 2.0, true)
+		ci.draw_line(mid, mid + d.rotated(-0.8) * rad * 0.3, Color("f2fbff"), 2.0, true)
+	var on := armed and fmod(t * 3.0 + seed, 1.0) < 0.5
+	ci.draw_circle(p, rad * 0.28, Color("bfefff") if on else Color(Color("bfefff"), 0.4))
+
+
+## Beacon's light: a widening lighthouse cone along the beam.
+static func draw_cone(ci: CanvasItem, a: Vector2, b: Vector2, k: float, near_w: float, far_w: float) -> void:
+	var side := (b - a).orthogonal().normalized()
+	var col := Color("fff2a0")
+	ci.draw_colored_polygon(PackedVector2Array([a + side * near_w, b + side * far_w, b - side * far_w, a - side * near_w]), Color(col, 0.16 * k))
+	ci.draw_colored_polygon(PackedVector2Array([a + side * near_w * 0.5, b + side * far_w * 0.45, b - side * far_w * 0.45, a - side * near_w * 0.5]), Color(col, 0.22 * k))
+	ci.draw_circle(a, near_w * 1.6, Color(col, 0.5 * k))
+
+
+## Yo-Yo mid-swing: a taut glowing string to its wall pin and a swoosh arc.
+static func draw_swing(ci: CanvasItem, anchor: Vector2, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	ci.draw_line(anchor, p, Color(Color("7ff3ff"), 0.3), 8.0, true)
+	ci.draw_line(anchor, p, Color("e8feff"), 2.5, true)
+	ci.draw_circle(anchor, 7.0, Color("ffe066"))
+	ci.draw_arc(anchor, 11.0, 0.0, TAU, 16, Color(Color("ffe066"), 0.6), 2.0, true)
+	var rad := anchor.distance_to(p)
+	if rad < 1.0 or vel.length() < 0.001:
+		return
+	var ang := (p - anchor).angle()
+	var dir := signf((p - anchor).cross(vel))
+	for k in 3:
+		var back := 0.25 + k * 0.18
+		ci.draw_arc(anchor, rad + (k - 1) * r * 0.35, ang - dir * back - 0.15, ang - dir * back + 0.15, 10, Color(1, 1, 1, 0.5 - k * 0.12), 3.0, true)

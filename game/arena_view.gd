@@ -143,6 +143,8 @@ var _was_overtime := false
 var _trails: Array = [[], []] ## Recent world positions per ball, oldest first.
 var _kos: Array[Dictionary] = []
 var _chomps: Array[Dictionary] = [] ## Count Nibbles' bites: {pos, dir, size, age}.
+var _novas: Array[Dictionary] = [] ## Void/Supernova blasts: {pos, radius, color, age}.
+var _rebirths: Array[Dictionary] = [] ## Ember rising again: {ball, age}.
 var _bolts: Array[Dictionary] = [] ## Lightning: {from, to, age, seed}; ring ones have a radius instead of to.
 var _grow_flash := [0.0, 0.0] ## Prickles' spike flash.
 var _dot_seen: Array = [[], []] ## Damage-over-time looks each side already showed a popup for.
@@ -200,6 +202,8 @@ func clear_effects() -> void:
 	_kos.clear()
 	_chomps.clear()
 	_bolts.clear()
+	_novas.clear()
+	_rebirths.clear()
 	_dot_seen = [[], []]
 	_trails = [[], []]
 	_wisps.clear()
@@ -303,6 +307,9 @@ func consume_events(events: Array[Dictionary]) -> void:
 					for o in sim.balls:
 						if o.alive() and o.team != team and o.pos.distance_to(e.pos) <= e.radius + o.radius:
 							_bolts.append({"from": e.pos, "to": o.pos, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+				elif pk == "nova":
+					var owner_type: String = sim.balls[e.ball].type_id if e.get("ball", -1) >= 0 and e.ball < sim.balls.size() else ""
+					_novas.append({"pos": e.pos, "radius": e.radius, "color": Color("c58bff") if owner_type == "blackhole" else Color("ffd6a5"), "age": 0.0})
 				else:
 					_rings.append({"pos": e.pos, "radius": e.radius, "color": RING_COLORS.get(e.get("kind", "boom"), BURST), "age": 0.0})
 				if e.type == "boom" or e.get("kind", "") in ["nova", "fire", "bigzap", "drum"]:
@@ -328,6 +335,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"revive":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "REBORN!", POP_SNAP)
+				_rebirths.append({"ball": e.ball, "age": 0.0})
+				_shake = maxf(_shake, 9.0 * A11y.motion())
 			"shut":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-34, -g.radius - 34), "CLAMP!", POP_SNAP)
@@ -394,6 +403,11 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var m := sim.balls[e.ball]
 				if e.sparks >= 3:
 					_add_popup(m.pos + Vector2(-34, -m.radius - 34), "ZAP!", RING_COLORS.thunder)
+				# Thunderbird calls lightning down on the foe, forking to Thunderbird too.
+				_bolts.append({"from": e.pos + Vector2(_fx_rng.randf_range(-80.0, 80.0), -560.0), "to": e.pos, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+				_bolts.append({"from": m.pos, "to": e.pos, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+				_bolts.append({"from": e.pos, "radius": 90.0, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+				_shake = maxf(_shake, 6.0 * A11y.motion())
 			"stack":
 				# Stacks and forms: a little squash per stack gained.
 				if e.up:
@@ -551,6 +565,12 @@ func advance_effects(delta: float) -> void:
 	for k in _bolts:
 		k.age += delta
 	_bolts = _bolts.filter(func(k): return k.age < BattleFx.BOLT_LIFE)
+	for k in _novas:
+		k.age += delta
+	_novas = _novas.filter(func(k): return k.age < BattleFx.NOVA_LIFE)
+	for k in _rebirths:
+		k.age += delta
+	_rebirths = _rebirths.filter(func(k): return k.age < BattleFx.REBIRTH_LIFE)
 	for i in 2:
 		_grow_flash[i] = maxf(0.0, _grow_flash[i] - delta)
 	_kos = _kos.filter(func(k): return k.age < CosmeticArt.KO_LIFE)
@@ -654,6 +674,8 @@ func _draw() -> void:
 		elif sim.balls[beam.owner].def.get("beam_rainbow", 0):
 			col = Color.from_hsv(fmod(bi * 0.14 + _time * 0.5, 1.0), 0.7, 1.0)
 		bi += 1
+		if sim.balls[beam.owner].type_id == "beacon": # A lighthouse cone, not a laser.
+			BattleFx.draw_cone(self, a, b, k, 10.0 * s * 3.0, 90.0 * s * 3.0)
 		draw_line(a, b, Color(col, 0.18 * k), 14.0, true)
 		draw_line(a, b, Color(col, 0.35 * k), 7.0, true)
 		draw_line(a, b, Color(col, 0.9 * k), 3.5, true)
@@ -723,6 +745,17 @@ func _draw() -> void:
 		draw_circle(p * s, 6.0 * (1.0 - t) + 2.0, Color(1.0, 0.2, 0.35, 0.8 * (1.0 - t)))
 
 	for b in sim.balls:
+		if not b.alive():
+			continue
+		if b.type_id == "yoyo" and sim.tick < int(b.state.get("swing_until", -1)) and b.state.has("anchor"):
+			BattleFx.draw_swing(self, b.state.anchor * s, ball_pos(b) * s, b.radius * s, b.vel, _time)
+		if b.def.has("field_range") and b.state.get("pulling", false):
+			# Flux pulling: static zips out to the foes it's dragging in.
+			for o in sim.balls:
+				if o.alive() and o.team != b.team and o.pos.distance_to(b.pos) <= b.def.field_range + o.radius:
+					var from: Vector2 = ball_pos(b) + (o.pos - b.pos).normalized() * b.radius
+					BattleFx.draw_bolt(self, from * s, ball_pos(o) * s, 0.12, float(o.index) + floorf(_time * 14.0), Color("8fb8ff"))
+	for b in sim.balls:
 		if b.alive() and b.charge_ticks == 0:
 			var base_speed: float = b.base.get("speed", b.def.get("speed", b.speed))
 			if base_speed > 0.0 and b.type_id in SWIMMERS:
@@ -744,6 +777,12 @@ func _draw() -> void:
 		draw_circle(p.pos * s, ps, Color(pc, a))
 	for k in _chomps:
 		BattleFx.draw_chomp(self, k.pos * s, k.dir, k.size * s, k.age)
+	for k in _novas:
+		BattleFx.draw_nova(self, k.pos * s, k.radius * s, k.age, k.color)
+	for k in _rebirths:
+		if k.ball < sim.balls.size():
+			var g := sim.balls[k.ball]
+			BattleFx.draw_rebirth(self, ball_pos(g) * s, g.radius * s, k.age, _time)
 	for k in _bolts:
 		if k.has("to"):
 			BattleFx.draw_bolt(self, k.from * s, k.to * s, k.age, k.seed)
@@ -948,7 +987,8 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko,
 		"stacks": int(sim.balls[i].state.get("spikes", 0)) if sim and i < sim.balls.size() else 0, "flash": _grow_flash[i] if i < 2 else 0.0,
 		"phased": sim != null and i < sim.balls.size() and sim.tick < int(sim.balls[i].state.get("phase_until", -1)),
-		"wind": _art_meter(i, "wind"), "pressure": _art_meter(i, "pressure")})
+		"wind": _art_meter(i, "wind"), "pressure": _art_meter(i, "pressure"),
+		"live_stacks": int(sim.balls[i].state.get("stacks", 0)) if sim and i < sim.balls.size() and sim.balls[i].def.has("stack_max") else -1})
 	var hat := _cosmetic(_side(i), "hat")
 	if not hat.is_empty():
 		CosmeticArt.draw_hat(self, hat, Vector2.ZERO, r, _time)
@@ -1029,6 +1069,8 @@ func _draw_zone(z, s: float) -> void:
 	match z.kind:
 		"mine" when z.owner >= 0 and z.owner < sim.balls.size() and sim.balls[z.owner].type_id == "bomber":
 			BattleFx.draw_bomb(self, p, s, z.armed(), z.blast_radius, z.age, z.pos.x * 0.01, _time)
+		"mine" when z.owner >= 0 and z.owner < sim.balls.size() and sim.balls[z.owner].type_id == "blizz":
+			BattleFx.draw_ice_mine(self, p, s, z.armed(), z.blast_radius, z.age, z.pos.y * 0.01, _time)
 		"ice":
 			BattleFx.draw_ice(self, p, z.radius * s, fade, fmod(z.pos.x * 0.13 + z.pos.y * 0.07, 6.28), _time)
 		"honey":
@@ -1282,7 +1324,9 @@ func _draw_status(b, s: float) -> void:
 	var r: float = b.radius * s
 	if sim.tick < int(b.state.get("phase_until", -1)):
 		draw_circle(p, r * 1.05, Color(ARENA_FILL, 0.6))
-	if b.shield > 0.0:
+	if b.shield > 0.0 and b.type_id == "megabot":
+		BattleFx.draw_hex_shield(self, p, r, _time, clampf(b.shield / maxf(1.0, b.def.get("salvo_shield", 10.0)), 0.0, 1.0))
+	elif b.shield > 0.0:
 		draw_arc(p, r * 1.12, 0.0, TAU, 48, Color("7fe6ff", 0.85), 4.0, true)
 		draw_arc(p, r * 1.18, 0.0, TAU, 48, Color("7fe6ff", 0.25), 6.0, true)
 	if not b.dots.is_empty():

@@ -463,6 +463,16 @@ def rain():
     return mix(wash, drops) * e
 
 
+def hum():
+    """Quasar flaring its beams to the walls: a deep rising 'vwoooom'."""
+    dur = 0.9
+    f = sweep(140, 260, dur, 0.6)
+    body = osc(f, "saw") * 0.5 + osc(f * 2.0, "square") * 0.25 + osc(f * 3.01, "sine") * 0.3
+    body = lowpass(body, sweep(900, 2500, dur, 0.8)) * env(dur, 0.08, 2, hold=0.3)
+    shimmer = bandnoise(dur, 2000, 6000) * env(dur, 0.1, 3) * 0.15
+    return mix(body, shimmer)
+
+
 SOUNDS = {
     "hit_0": lambda: hit(0), "hit_1": lambda: hit(1), "hit_2": lambda: hit(2),
     "hit_big": lambda: hit(0, big=True),
@@ -476,7 +486,7 @@ SOUNDS = {
     "win": win, "lose": lose, "draw": draw, "go": go, "launch": launch, "stretch": stretch, "click": click,
     "summon_pop": summon_pop, "summon_charge": summon_charge, "summon_legend": summon_legend,
     "chomp": chomp, "thwomp": thwomp, "pew": pew,
-    "crackle": crackle, "rustle": rustle, "fizzpop": fizzpop, "drum": drum, "rain": rain,
+    "crackle": crackle, "rustle": rustle, "fizzpop": fizzpop, "drum": drum, "rain": rain, "hum": hum,
 }
 
 
