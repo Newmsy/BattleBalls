@@ -206,8 +206,28 @@ func clear_effects() -> void:
 			_look[b.index] = b.vel.normalized()
 
 
+## Per-ball effect slots for balls that joined mid-fight (a Splitter's minis).
+func _fit_slots() -> void:
+	if sim == null:
+		return
+	while _hit.size() < sim.balls.size():
+		var b = sim.balls[_hit.size()]
+		_hit.append(0.0)
+		_squash.append(0.3)
+		_eye_flash.append(0.0)
+		_pole_swap.append(0.0)
+		_trails.append([])
+		_look.append(b.vel.normalized() if b.vel.length() > 0.001 else Vector2.RIGHT)
+
+
+## The side (0 = you, 1 = foe) ball `i` fights for: its team.
+func _side(i: int) -> int:
+	return sim.balls[i].team if sim and i < sim.balls.size() else i
+
+
 ## Turns the events of the latest sim step into visual effects.
 func consume_events(events: Array[Dictionary]) -> void:
+	_fit_slots()
 	for e in events:
 		match e.type:
 			"damage":
@@ -226,7 +246,9 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"heal":
 				var b := sim.balls[e.target]
 				_add_popup(b.pos + Vector2(48, -b.radius - 40), "+%d" % ceili(e.amount), POP_HEAL)
-				var victim := sim.balls[1 - e.target]
+				var victim = sim.nearest_foe(b)
+				if victim == null:
+					continue
 				for i in 8:
 					_wisps.append({"from": victim.pos + _rand_dir() * victim.radius * 0.5, "to": e.target, "age": -i * 0.03, "life": 0.45})
 			"collide":
@@ -255,6 +277,12 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"copy":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "COPY!", POP_SNAP)
+			"split":
+				var g := sim.balls[e.ball]
+				_add_popup(e.pos + Vector2(-34, -g.radius - 40), "SPLIT!", POP_SNAP)
+				_rings.append({"pos": e.pos, "radius": g.radius * 2.2, "color": g.def.color, "age": 0.0})
+				_spawn_particles(e.pos, 16)
+				_squash[g.index] = 0.3
 			"revive":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "REBORN!", POP_SNAP)
@@ -340,7 +368,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
 				_spawn_particles(e.from, 10)
 				_spawn_particles(e.to, 10)
-				_bursts.append({"pos": e.to, "age": 0.0})
+				_bursts.append({"pos": e.to, "age": 0.0, "spark": {}, "seed": 0.0})
 				_squash[g.index] = 0.25
 			"yank":
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
@@ -407,7 +435,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 					if not b.alive():
 						_spawn_particles(b.pos, 36)
 						_shake = 10.0 * A11y.motion()
-						var ko := _cosmetic(1 - b.index, "ko")
+						var ko := _cosmetic(1 - _side(b.index), "ko")
 						if not ko.is_empty():
 							_kos.append({"pos": b.pos, "r": b.radius, "item": ko, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
 
@@ -423,7 +451,8 @@ func advance_effects(delta: float) -> void:
 		if ot and not _was_overtime and A11y.sound_cues:
 			_banner = BANNER_LIFE
 		_was_overtime = ot
-	for i in 2:
+	_fit_slots()
+	for i in _hit.size():
 		_hit[i] = maxf(0.0, _hit[i] - delta)
 		_squash[i] = maxf(0.0, _squash[i] - delta)
 		_eye_flash[i] = maxf(0.0, _eye_flash[i] - delta)
@@ -450,7 +479,7 @@ func advance_effects(delta: float) -> void:
 	_particles = _particles.filter(func(p): return p.age < p.life)
 	for k in _bursts:
 		k.age += delta
-	_bursts = _bursts.filter(func(k): return k.age < (CosmeticArt.SPARK_LIFE if k.spark else BURST_LIFE))
+	_bursts = _bursts.filter(func(k): return k.age < (CosmeticArt.SPARK_LIFE if k.get("spark") else BURST_LIFE))
 	for k in _kos:
 		k.age += delta
 	_kos = _kos.filter(func(k): return k.age < CosmeticArt.KO_LIFE)
@@ -485,6 +514,7 @@ func _rand_dir() -> Vector2:
 # --- Drawing ----------------------------------------------------------------
 
 func _draw() -> void:
+	_fit_slots()
 	var s := view_scale
 	var shake := Vector2(_fx_rng.randf_range(-1, 1), _fx_rng.randf_range(-1, 1)) * _shake if _shake > 0.0 else Vector2.ZERO
 	draw_set_transform(shake)
@@ -593,13 +623,13 @@ func _draw() -> void:
 		draw_line(k.from * s, k.to * s, Color(Color.from_hsv(fmod(_time, 1.0), 0.5, 1.0), 0.9 * (1.0 - t)), 3.0, true)
 
 	for b in sim.balls:
-		var trail := _cosmetic(b.index, "trail")
+		var trail := _cosmetic(_side(b.index), "trail")
 		if not trail.is_empty():
 			CosmeticArt.draw_trail(self, trail, _trails[b.index].map(func(p): return p * s), b.radius * s, _time)
 
 	for k in _bursts:
-		if k.spark:
-			CosmeticArt.draw_spark(self, k.spark, k.pos * s, k.age / CosmeticArt.SPARK_LIFE, 1.0, k.seed)
+		if k.get("spark"):
+			CosmeticArt.draw_spark(self, k.spark, k.pos * s, k.age / CosmeticArt.SPARK_LIFE, 1.0, k.get("seed", 0.0))
 			continue
 		var t: float = k.age / BURST_LIFE
 		var grow := 70.0 if not A11y.reduced_motion else 25.0
@@ -827,9 +857,9 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	draw_circle(Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
 	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
-	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": tiers[i], "look": look, "blink": blink,
+	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": tiers[_side(i)], "look": look, "blink": blink,
 		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko})
-	var hat := _cosmetic(i, "hat")
+	var hat := _cosmetic(_side(i), "hat")
 	if not hat.is_empty():
 		CosmeticArt.draw_hat(self, hat, Vector2.ZERO, r, _time)
 	if ko:
@@ -842,11 +872,12 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 ## Team ring, tag and HP badge: drawn after everything else (cosmetics
 ## included), outside the squash so they stay steady and readable.
 func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2) -> void:
-	var team_col: Color = TEAM_COLORS[i]
+	var side := _side(i)
+	var team_col: Color = TEAM_COLORS[side]
 	draw_set_transform(shake)
-	_team_ring(i, pos, r, team_col)
-	_text_centered(pos + Vector2(0, r + 30.0), team_tags[i], A11y.font(20), team_col, 5)
-	_hp_badge(def, pos, r, hp, max_hp, 0.4 if _cosmetic(i, "hat") else 0.0)
+	_team_ring(side, pos, r, team_col)
+	_text_centered(pos + Vector2(0, r + 30.0), team_tags[side], A11y.font(20), team_col, 5)
+	_hp_badge(def, pos, r, hp, max_hp, 0.4 if _cosmetic(side, "hat") else 0.0)
 
 
 ## The cosmetic `slot` worn by side `i`, as a catalog entry, or {}.

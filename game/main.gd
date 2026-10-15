@@ -44,6 +44,7 @@ const TouchInput := preload("res://game/ui/touch_input.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
+const Lineup := preload("res://sim/lineup.gd")
 
 ## CLIP plays the finished fight again in the vertical clip layout.
 enum State { MENU, AIM, FIGHT, RESULT, CLIP }
@@ -63,13 +64,14 @@ const MUTED := Color("a29fc9")
 
 const VERSION := "0.2.0"
 const ARENA_PIXELS := 680.0
-const INFO_HEIGHT := 116.0 ## Two lines of the info text, three with Larger text.
-const CONTROLS_HEIGHT := 500.0 ## Tallest control panel (the menu).
+const INFO_HEIGHT := 100.0 ## Two lines of the info text.
+const CONTROLS_HEIGHT := 452.0 ## Tallest control panel (the menu).
+const TOP := 124.0 ## Title and HUD above the arena.
 const SPEEDS := [1.0, 2.0, 4.0, 0.5]
 const OPPONENT_RANDOM := "random"
 const MODE_SCENES := {"trickshot": "res://game/trick_shot.tscn", "bouncerun": "res://game/bounce_run.tscn"}
 const PICK_COLUMNS := 3
-const PICK_TILE_HEIGHT := 108.0
+const PICK_TILE_HEIGHT := 104.0
 const PICK_ROWS_SHOWN := 2 ## More rows than this scroll.
 
 var state := State.MENU
@@ -93,6 +95,12 @@ var auto_start := false
 var modifier := Modifiers.NONE
 var auto_clip := false ## ?clip=1: make a clip as soon as the fight ends (smoke test).
 var url_picks := false ## URL params chose the balls: don't overwrite them from the save.
+## Quick fight tiers for testing: [yours, the foe's]. Yours 0 is equal stats
+## (no tiers, the old practice fight); the foe's 0 is "same as mine".
+var pick_tiers := [0, 0]
+## Tiers a shared fight link (&t=) was played at, for REPLAY; [0, 0] is none.
+var link_tiers := [0, 0]
+var tier_buttons: Array = []
 
 var backend: Backend
 var save := SaveGame.new()
@@ -248,7 +256,10 @@ func _ready() -> void:
 				shell.show_tab(url_params.screen) # ?screen=fuse
 			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen != "detail" or url_params.has("id")):
 				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
-				shell.go(url_params.screen, {"id": url_params.id} if url_params.has("id") else {})
+				var screen_params := {"id": url_params.id} if url_params.has("id") else {}
+				if demo_profile and url_params.screen in ["arena", "boosts"]:
+					screen_params.store = preload("res://game/pvp/arena_store.gd").sample()
+				shell.go(url_params.screen, screen_params)
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")
@@ -325,7 +336,58 @@ func _config() -> Dictionary:
 		var cfg: Dictionary = pve.config.duplicate()
 		cfg.angles = [aim, null]
 		return cfg
-	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena(), "modifier": modifier}
+	var cfg := {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena(), "modifier": modifier}
+	var t := _fight_tiers()
+	if t[0] > 0:
+		# Same path as the progression modes: tier ability upgrades and power.
+		Lineup.apply(cfg, 0, Lineup.make(player_type, t[0]))
+		Lineup.apply(cfg, 1, Lineup.make(opponent_type, t[1]))
+	return cfg
+
+
+## [yours, the foe's] tiers this fight plays at, or [0, 0] for equal stats.
+## Only Quick fight (and a replay of a tiered Quick fight) has tiers.
+func _fight_tiers() -> Array:
+	if mode == Mode.REPLAY:
+		return link_tiers
+	if mode != Mode.NORMAL or pick_tiers[0] == 0:
+		return [0, 0]
+	return [pick_tiers[0], pick_tiers[1] if pick_tiers[1] > 0 else pick_tiers[0]]
+
+
+## Taps cycle Equal (or Same), then one to five stars.
+func _cycle_tier(i: int) -> void:
+	pick_tiers[i] = (pick_tiers[i] + 1) % (Lineup.MAX_TIER + 1)
+	_refresh_menu()
+
+
+## "You" / "Foe" and gold stars out of five, or the word when tiers are off.
+func _tier_button(i: int) -> Button:
+	var b := _button("", _cycle_tier.bind(i), 22, "ghost", 68)
+	var row := Kit.hbox(8, [], BoxContainer.ALIGNMENT_CENTER)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(row)
+	return b
+
+
+func _refresh_tier_buttons() -> void:
+	for b in tier_buttons:
+		b.visible = mode == Mode.NORMAL
+	for i in 2:
+		var b: Button = tier_buttons[i]
+		var row: HBoxContainer = b.get_child(0)
+		for c in row.get_children():
+			row.remove_child(c)
+			c.queue_free()
+		var n: int = pick_tiers[i]
+		var off: bool = pick_tiers[0] == 0
+		b.disabled = i == 1 and off
+		row.add_child(Kit.label("You" if i == 0 else "Foe", 22, Kit.FG if not b.disabled else Kit.MUTED))
+		if n > 0 and not (i == 1 and off):
+			row.add_child(Kit.glyph("stars", 22, Kit.FG, n))
+		else:
+			row.add_child(Kit.label("equal stats" if off else "same tier", 20, Kit.MUTED))
 
 
 func _show_menu() -> void:
@@ -345,8 +407,9 @@ func _refresh_menu() -> void:
 	for id in player_buttons:
 		player_buttons[id].button_pressed = id == player_type
 	new_seed_button.disabled = mode == Mode.CHALLENGE
-	seed_label.text = "Seed %d · %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]
+	seed_label.text = ("Your critter · seed %d · %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]).to_upper()
 	rules_button.text = Modifiers.display_name(modifier)
+	_refresh_tier_buttons()
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
 	for id in player_loan_tags:
@@ -371,7 +434,7 @@ func _refresh_menu() -> void:
 ## Logs where the menu buttons are so the smoke test can tap them ("UI_AT name x y").
 func _report_menu() -> void:
 	await get_tree().process_frame
-	var marks := {"menu_fight": fight_button, "aim_launch": launch_button}
+	var marks := {"menu_fight": fight_button, "aim_launch": launch_button, "tier_you": tier_buttons[0], "tier_foe": tier_buttons[1]}
 	for id in player_buttons:
 		marks["pick_" + id] = player_buttons[id]
 	for k in marks:
@@ -566,7 +629,9 @@ func _report_code() -> String:
 	var code := "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
 	if _pick_arena() != "square":
 		code += "." + _pick_arena()
-	return code + ("." + modifier if modifier != Modifiers.NONE else "")
+	code += "." + modifier if modifier != Modifiers.NONE else ""
+	var t := _fight_tiers()
+	return code + (".t%d%d" % t if t[0] > 0 else "")
 
 
 # --- Campaign -------------------------------------------------------------------
@@ -659,6 +724,7 @@ func _finish_stage() -> void:
 		return
 	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight)
 	pve.result = CampaignScreen.result_text(r)
+	pve.r = r
 	report_label.text = pve.result
 	print("STAGE_END stage=%s won=%s stars=%d drops=%d" % [Zones.stage_key(pve.zone, pve.stage), r.won, r.stars, r.drops.size()])
 
@@ -679,15 +745,23 @@ func _aim_back() -> void:
 func _back_to_campaign() -> void:
 	var params := {"zone": pve.get("zone", 0)}
 	var vault := pve.has("vault")
-	if pve.has("result"):
-		params.notice = pve.result if vault else "%s: %s" % [Zones.stage_key(pve.zone, pve.stage), pve.result]
+	if vault and pve.has("result"):
+		params.notice = pve.result
+	if pve.has("r"):
+		params.result = {"stage": pve.stage, "r": pve.r, "kind": "fight"}
+	if pve.has("stage") and not vault:
+		params.focus = pve.stage
 	mode = Mode.NORMAL
 	_board_pick = -1
 	pve = {}
 	_show_menu()
 	_show_home()
 	shell.show_tab("play")
-	shell.go("vault" if vault else "campaign", params)
+	if vault:
+		shell.go("vault", params)
+	else:
+		shell.go("world") # Back from the stage list lands on the world map.
+		shell.go("campaign", params)
 
 
 # --- Save and online ----------------------------------------------------------
@@ -847,7 +921,7 @@ func _build_ui() -> void:
 	ui.theme = _neon_theme()
 	layer.add_child(ui)
 
-	title_label = _label("BATTLE BALLS", 48)
+	title_label = _label("BATTLE BALLS", 40)
 	title_label.add_theme_color_override("font_outline_color", Color(ACCENT, 0.45))
 	title_label.add_theme_constant_override("outline_size", 12)
 	hud_label = _label("", 30)
@@ -862,16 +936,20 @@ func _build_ui() -> void:
 	# then one big FIGHT!. Every row fits the panel width at any text size.
 	menu_box = VBoxContainer.new()
 	menu_box.add_theme_constant_override("separation", 14)
-	menu_box.add_child(Kit.caption("Your critter · opponent is random"))
+	# The caption carries the seed and arena, so the arena above gets the room.
+	seed_label = Kit.caption("")
+	seed_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	menu_box.add_child(seed_label)
 	menu_box.add_child(_pick_grid(BallDefs.PLAYABLE, _pick_player))
-	seed_label = Kit.label("", 22, MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 22, "ghost", 68)
+	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 22, "ghost", 96)
 	# Debug toggle for Chaos Weekend modifiers until the event screen exists.
 	rules_button = _button("", _cycle_rules, 22, "ghost", 68)
-	menu_box.add_child(seed_label)
-	menu_box.add_child(_row([new_seed_button, rules_button, _button("Home", _show_home, 22, "ghost", 68)]))
+	# Tiers to test with: tap to cycle equal stats, then one to five stars.
+	tier_buttons = [_tier_button(0), _tier_button(1)]
+	menu_box.add_child(_row(tier_buttons + [rules_button]))
 	fight_button = _button("FIGHT!", _begin_aim, 40, "go", 96)
-	menu_box.add_child(fight_button)
+	fight_button.size_flags_stretch_ratio = 2.0
+	menu_box.add_child(_row([_button("Home", _show_home, 22, "ghost", 96), new_seed_button, fight_button]))
 
 	launch_button = _button("Launch", _launch, 34, "go", 96)
 	aim_back_button = _button("Back", _aim_back, 26, "ghost", 96)
@@ -984,7 +1062,7 @@ func _swipe_back() -> Callable:
 ## arena. Either way the arena shrinks before the controls are pushed off screen.
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
-	var top := 190.0
+	var top := TOP
 	var bottom_margin := 90.0 ## Clears the build stamp and the sound toggle.
 	var panel_width := 680.0
 	var landscape := size.x >= size.y
@@ -999,7 +1077,7 @@ func _layout() -> void:
 		side = clampf(size.y - top - INFO_HEIGHT - CONTROLS_HEIGHT - bottom_margin, 300.0, minf(ARENA_PIXELS, size.x - 40.0))
 		left = (size.x - side) / 2.0
 		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
-		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 20.0)
+		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 12.0)
 	var arena_pos := Vector2(left, top)
 	if state == State.CLIP:
 		clip_card.position = ((size - ClipCard.SIZE) / 2.0).floor()
@@ -1009,8 +1087,8 @@ func _layout() -> void:
 	arena_clip.position = arena_pos
 	arena_clip.size = Vector2(side, side)
 	arena.set_camera(arena.cam_zoom, arena.cam_focus)
-	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
-	_place(hud_label, Vector2(left, 110), Vector2(side, 50))
+	_place(title_label, Vector2(0, 14), Vector2(size.x, 56))
+	_place(hud_label, Vector2(left, 72), Vector2(side, 48))
 	_place(info_label, panel_pos, Vector2(panel_width, INFO_HEIGHT - 6.0))
 	controls_rect = Rect2(panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
 	var controls_top := panel_pos.y + INFO_HEIGHT
@@ -1234,6 +1312,7 @@ func _watch_board_fight(f: Dictionary) -> void:
 	aim = f.angles[0]
 	foe_aim = f.angles[1]
 	modifier = Modifiers.NONE ## The Fight of the Day's known result is on normal rules.
+	link_tiers = [0, 0]
 	arena_override = f.get("arena", "square")
 	_board_pick = f.pick
 	_board = {"title": f.get("board_title", "Fight of the Day"), "return_to": f.get("return_to", "week"), "return_params": f.get("return_params", {})}
@@ -1280,6 +1359,22 @@ func _row(children: Array) -> HBoxContainer:
 	return row
 
 
+## A pick tile in its rarity's colour: Common stays plain, the rest get a
+## tinted background and a border in the colour the critter list uses.
+func _rarity_style(b: Button, id: String) -> void:
+	var rarity := str(Roster.get_critter(id).get("rarity", "common"))
+	if rarity == "common":
+		return
+	var col: Color = Roster.RARITY_COLORS[rarity]
+	for st in ["normal", "hover"]:
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color("1b1842").lerp(col, .22 if st == "normal" else .3)
+		box.border_color = col
+		box.set_border_width_all(3)
+		box.set_corner_radius_all(22)
+		b.add_theme_stylebox_override(st, box)
+
+
 ## Every fightable critter as a tile (icon + name), three across. Past two
 ## rows the grid scrolls, so new critters just appear.
 func _pick_grid(ids: Array, on_pick: Callable) -> ScrollContainer:
@@ -1297,6 +1392,7 @@ func _pick_grid(ids: Array, on_pick: Callable) -> ScrollContainer:
 		b.button_group = group
 		b.custom_minimum_size = Vector2(0, PICK_TILE_HEIGHT)
 		b.size_flags_vertical = Control.SIZE_FILL
+		_rarity_style(b, id)
 		# Icon on top, the name once underneath (trimmed with … if it's long).
 		var icon := CritterIcon.make(id, 1, 76.0)
 		icon.anchor_left = 0.5
@@ -1548,6 +1644,7 @@ func tutorial_end(new_profile, to_campaign := false) -> void:
 	shell.show_tab("play")
 	_show_home()
 	if to_campaign:
+		shell.go("world")
 		shell.go("campaign", {"zone": 0})
 
 
@@ -1631,7 +1728,10 @@ func _share_url(kind: String) -> String:
 	if mine != "":
 		url += "&f=" + mine
 	# The fight's Chaos Weekend twist rides along, so it replays the same any day.
-	return url + ("&mod=" + modifier if modifier != Modifiers.NONE else "")
+	url += "&mod=" + modifier if modifier != Modifiers.NONE else ""
+	# A tiered Quick fight replays at its tiers; a challenge is taken at equal stats.
+	var t := _fight_tiers()
+	return url + ("&t=%d%d" % t if kind == "r" and t[0] > 0 else "")
 
 
 func _share_text(kind: String) -> String:
@@ -1768,6 +1868,9 @@ func _read_url_params() -> Dictionary:
 		pve_param = params.pve
 	demo_profile = params.get("demo", "") == "1"
 	demo_stars = clampi(int(params.get("stars", "0")), 0, 3)
+	var t := str(params.get("t", ""))
+	if t.length() == 2 and t.is_valid_int():
+		link_tiers = [clampi(int(t[0]), 1, Lineup.MAX_TIER), clampi(int(t[1]), 1, Lineup.MAX_TIER)]
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():

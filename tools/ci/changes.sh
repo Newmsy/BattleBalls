@@ -8,7 +8,7 @@
 set -euo pipefail
 changed=$(git diff --name-only "$1"...HEAD)
 if echo "$changed" | grep -qE '^(sim/|tools/boon_balance\.gd$)'; then echo "sim=true"; else echo "sim=false"; fi
-if echo "$changed" | grep -vE '(\.md$|^balance/|^\.claude/|^tests/|^tools/(balance|boon_balance)\.gd$|^tools/ci/balance_plan\.sh$)' | grep -q .; then
+if echo "$changed" | grep -vE '(\.md$|^balance/|^\.claude/|^tests/|^tools/(balance|boon_balance)\.gd$)' | grep -q .; then
   echo "web=true"
 else
   echo "web=false"

@@ -121,6 +121,8 @@ const CASES := [
 	{"seed": 88, "p1": "disco", "p2": "gravity", "angles": [null, null]},
 	{"seed": 89, "p1": "ripple", "p2": "prism", "angles": [null, null], "arena": "pillars"},
 	{"seed": 90, "p1": "zigzag", "p2": "blackhole", "angles": [null, null]},
+	{"seed": 91, "p1": "splitter", "p2": "vampire", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 92, "p1": "laser", "p2": "splitter", "angles": [null, null]},
 	# Gravity Wells and Spike Yard, with light and heavy critters (sim/weight.gd).
 	{"seed": 91, "p1": "bubbles", "p2": "juggernaut", "angles": [null, null], "arena": "wells"},
 	{"seed": 92, "p1": "magnet", "p2": "vampire", "angles": [null, null], "arena": "wells"},

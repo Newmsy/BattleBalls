@@ -1900,6 +1900,40 @@
         null,
         null
       ],
+      "p1": "splitter",
+      "p2": "vampire",
+      "seed": 91,
+      "tiers": [
+        5,
+        5
+      ]
+    },
+    "hash": "8379ea4914c1a7e217e27560cb1398cd90a9f921a849ee016a9efde1a4a91e17",
+    "reason": "knockout",
+    "ticks": 2704,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "laser",
+      "p2": "splitter",
+      "seed": 92
+    },
+    "hash": "c4c09cef15d096f42db499f167191206564d033a3c42c08372a42d8fc2d3a313",
+    "reason": "knockout",
+    "ticks": 1834,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
       "arena": "wells",
       "p1": "bubbles",
       "p2": "juggernaut",
