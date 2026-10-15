@@ -25,6 +25,7 @@ godot --headless --import                                   # once, after clonin
 GODOT=godot tests/run.sh                                    # all tests
 godot --headless --script res://tools/balance.gd -- --fights=200 --power-step [--arena=all]
 godot --headless --script res://tools/record_golden.gd      # only for intended sim changes
+godot --headless --script res://tools/spire_curve.gd        # The Spire's floor power curve
 godot --headless --export-release "Web" build/web/index.html
 cd smoke && npm ci && node smoke.mjs ../build/web
 DATABASE_URL=postgresql://... tests/db/run.sh               # migrations + RLS tests on an empty Postgres
@@ -161,8 +162,11 @@ is written to `user://save_backups` (newest 8 kept). Widen `progress` as more
 of the game is saved (account level, critters).
 
 Auth settings live in code: CI's migrate job runs `tools/supabase_auth_config.mjs`
-on every merge to `main` (email code templates, guest linking, allowed return
-URLs) and switches on Apple, Google and custom email when their secrets exist:
+on every merge to `main` (guest linking, allowed return URLs, email codes) and
+switches on Apple, Google and custom email when their secrets exist. The code
+email templates go up with the `SMTP_*` secrets: Supabase's free built-in
+mailer refuses custom templates, so until then its default emails carry a
+sign-in link but no typed code:
 
 | Repo secret | What |
 |---|---|
