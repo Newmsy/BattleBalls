@@ -1,7 +1,8 @@
 // Smoke test for the web build: boots it in a phone-sized headless Chromium,
 // plays one auto fight and one fight through the real menu, fails on any
 // page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
-// and plays the whole onboarding.
+// plays the whole onboarding, follows a Bracket of Legends from picks to the
+// final and climbs the first floor of The Spire.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -526,6 +527,32 @@ try {
     await page.close();
   }
 
+  // Spire. The Spire: open it from its link, pick a critter, climb floor 1 and
+  // come back to the Spire screen.
+  {
+    const { page, logs } = await openGame("?mode=spire&offline=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN spire", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "16-spire.png") });
+    await tapUi(page, logs, "spire_pick_vampire", "spire");
+    await tapUi(page, logs, "spire_climb");
+    console.log("spire:", await waitForLog(logs, "SPIRE_READY", 10000));
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "SpireFight");
+    await tapUi(page, logs, "SpireLaunch");
+    await tapUi(page, logs, "SpireSkip");
+    console.log("spire result:", await waitForLog(logs, "SPIRE_RESULT", 30000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "17-spire-result.png") });
+    const back = logs.length;
+    await tapUi(page, logs, "SpireBack");
+    await waitForLogAfter(logs, back, "UI_SCREEN spire", 30000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "18-spire-after.png") });
+    await page.close();
+  }
+
   // 12. Every non-square arena boots, draws and finishes a fight.
   for (const [i, arena] of ["rink", "pillars", "bumpers"].entries()) {
     const { page, logs } = await openGame(`?p1=vampire&p2=laser&seed=42&auto=1&speed=4&arena=${arena}`);
@@ -566,6 +593,36 @@ try {
   {
     const { page, logs } = await openGame("?pve=1-4&auto=1&speed=4&offline=1");
     console.log("url stage:", await waitForLog(logs, "STAGE_END", 120000));
+    await page.close();
+  }
+
+  // 15. Bracket of Legends: pick a champion while picks are open, then on
+  // final day open the final and watch its first game.
+  {
+    const { page, logs } = await openGame("?mode=bracket&today=2026-10-14&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN bracket", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "champ_laser", "bracket");
+    await page.screenshot({ path: path.join(shots, "30-bracket-picks.png") });
+    await page.close();
+  }
+  {
+    const { page, logs } = await openGame("?mode=bracket&today=2026-10-25&speed=4");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN bracket", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "31-bracket-final-day.png") });
+    // The final: the screen opens on the latest round out, whatever the field size.
+    const final = [...logs].reverse().find((l) => l.startsWith("UI_AT match_"));
+    if (!final) throw new Error(`No playable bracket match on final day. Last logs:\n${logs.slice(-15).join("\n")}`);
+    await tapUi(page, logs, final.split(" ")[1], "sheet");
+    await page.screenshot({ path: path.join(shots, "32-bracket-series.png") });
+    await tapUi(page, logs, "game_0");
+    console.log("bracket game:", await waitForLog(logs, "FIGHT_START", 5000));
+    console.log("bracket game end:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "33-bracket-game-result.png") });
     await page.close();
   }
 } catch (e) {

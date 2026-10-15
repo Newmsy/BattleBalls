@@ -1,10 +1,12 @@
 ## Headless balance sim: runs many seeded fights for every pairing and prints a
 ## win-rate matrix, fight-length stats and balance flags as Markdown. The
 ## targets it checks are the ones in BALANCE.md.
-## Usage: godot --headless --script res://tools/balance.gd -- [--fights=200] [--power-step] [--strict] [--arena=square]
+## Usage: godot --headless --script res://tools/balance.gd -- [--fights=200] [--power-step] [--gear] [--strict] [--arena=square]
 ##   --fights=N    seeds per pairing; each seed is fought from both corners (2N fights)
 ##   --power-step  also fights every ball one power step up against every ball,
 ##                 checking that power beats counters (slow: n^2 pairings)
+##   --gear        fights every playable ball wearing one Legendary piece of each
+##                 gear stat line against itself bare, so the lines stay even
 ##   --strict      exit 1 when a check fails beyond sampling noise
 ##   --arena=ID    arena from sim/arenas.gd, or "all" for every playable arena;
 ##                 non-square arenas also get a tilt check against the square
@@ -14,6 +16,7 @@ extends SceneTree
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Gear := preload("res://sim/gear.gd")
 const Arenas := preload("res://sim/arenas.gd")
 
 ## Targets from BALANCE.md.
@@ -22,6 +25,11 @@ const POWER_STEP_MIN := 0.70 ## One power step up wins at least this into anythi
 const POWER_STEP := 1.25 ## One tier ~ +25% power (power-progression.md).
 const MEDIAN_LENGTH := [20.0, 60.0] ## Seconds.
 const Z95 := 1.96
+## One Legendary gear piece is ~+7% power; its mirror win rate should land here.
+## (Mirrors are touchy: attack and health, the reference lines, sit ~65%.)
+const GEAR_LINE_RANGE := [0.58, 0.72]
+## Two Legendary lines (Crit + Crit damage) together.
+const GEAR_PAIR_RANGE := [0.66, 0.82]
 ## A map may move a matchup this far from its square result (design/arenas.md):
 ## WARN beyond TILT_WARN, FAIL beyond TILT_MAX when clear of sampling noise.
 const TILT_WARN := 0.10
@@ -32,13 +40,14 @@ var durations: Array[float] = []
 var timeouts := 0
 var failures := 0
 var arena_id := "square"
-## Finished pairings, "arena|a|power|b" -> {wins, durations, timeouts}.
+## Finished pairings, "arena|a|power|b|gear" -> {wins, durations, timeouts}.
 var results := {}
 
 
 func _init() -> void:
 	var strict := false
 	var power_step := false
+	var gear := false
 	var arena_arg := "square"
 	var workers := OS.get_processor_count()
 	for arg in OS.get_cmdline_user_args():
@@ -53,6 +62,8 @@ func _init() -> void:
 			strict = true
 		elif arg == "--power-step":
 			power_step = true
+		elif arg == "--gear":
+			gear = true
 		elif arg.begins_with("--arena="):
 			arena_arg = arg.split("=")[1]
 	var arenas: Array = Arenas.PLAYABLE if arena_arg == "all" else [arena_arg]
@@ -67,11 +78,16 @@ func _init() -> void:
 			return
 		for i in ids.size():
 			for j in range(i, ids.size()):
-				jobs.append([id, ids[i], 1.0, ids[j]])
+				jobs.append([id, ids[i], 1.0, ids[j], null])
 		if power_step and not (id == "square" and arena_arg != "square" and arena_arg != "all"):
 			for a in BallDefs.PLAYABLE:
 				for b in BallDefs.PLAYABLE:
-					jobs.append([id, a, POWER_STEP, b])
+					jobs.append([id, a, POWER_STEP, b, null])
+	if gear:
+		for g in _gear_kits():
+			for a in BallDefs.PLAYABLE:
+				if _gear_applies(a, g[1]):
+					jobs.append(["square", a, 1.0, a, g[1]])
 	if not _run_jobs(jobs, workers):
 		quit(2)
 		return
@@ -95,6 +111,10 @@ func _init() -> void:
 				lines.append_array(_power_step(ids))
 		if id == "square":
 			square_rates = rates
+	if gear:
+		arena_id = "square"
+		lines.append("")
+		lines.append_array(_gear_lines())
 	print("\n".join(lines))
 	quit(1 if strict and failures > 0 else 0)
 
@@ -216,12 +236,68 @@ func _power_step(ids: Array) -> Array[String]:
 	return lines
 
 
-## Share of fights `a` (at `a_power`) wins against `b` at base power; draws
-## count half. Each seed is played with `a` in both corners. Read from the
-## results `_run_jobs` collected.
-func _win_rate(a: String, a_power: float, b: String) -> float:
-	var r: Dictionary = results[_key([arena_id, a, a_power, b])]
-	if a_power == 1.0:
+## Each gear line's test kit: [label, kit, band]. Crit damage rides on Crit,
+## so it is checked as the pair.
+static func _gear_kits() -> Array:
+	var out := []
+	for line in Gear.ORDER:
+		var kit := {line: Gear.value(line, "legendary")}
+		if line == "crit_damage":
+			kit.crit_chance = Gear.value("crit_chance", "legendary")
+			out.append(["crit_chance + crit_damage", kit, GEAR_PAIR_RANGE])
+		else:
+			out.append([line, kit, GEAR_LINE_RANGE])
+	return out
+
+
+## Cooldown speed only reaches critters with ability timers.
+static func _gear_applies(a: String, kit: Dictionary) -> bool:
+	var def := BallDefs.get_def(a)
+	return not (kit.has("cooldown") and Gear.apply_def(def, kit) == def)
+
+
+## Each playable ball wearing one Legendary piece of a single stat line,
+## against the same ball bare. Lines should be worth about the same.
+func _gear_lines() -> Array[String]:
+	var playable: Array = BallDefs.PLAYABLE
+	var lines: Array[String] = []
+	lines.append("### Gear lines (row: one Legendary piece vs the same ball bare, %d fights per cell)" % (fights * 2))
+	lines.append("")
+	lines.append("| Line | " + " | ".join(playable) + " | mean |")
+	lines.append("|---".repeat(playable.size() + 2) + "|")
+	var flags: Array[String] = []
+	for g in _gear_kits():
+		var kit: Dictionary = g[1]
+		var band: Array = g[2]
+		var row: Array[String] = [g[0]]
+		var mean := 0.0
+		var cells := 0
+		for a in playable:
+			if not _gear_applies(a, kit):
+				row.append("n/a")
+				continue
+			var r := _win_rate(a, 1.0, a, kit)
+			row.append("%d%%" % roundi(100.0 * r))
+			mean += r
+			cells += 1
+		mean /= maxi(1, cells)
+		row.append("%d%%" % roundi(100.0 * mean))
+		lines.append("| " + " | ".join(row) + " |")
+		if mean < band[0] or mean > band[1]:
+			flags.append("WARN: %s averages %d%% (aim %d-%d%%)" % [row[0], roundi(100 * mean), roundi(100 * band[0]), roundi(100 * band[1])])
+	lines.append("")
+	lines.append("**Checks:** " + ("every gear line within range." if flags.is_empty() else ""))
+	for f in flags:
+		lines.append("- " + f)
+	return lines
+
+
+## Share of fights `a` (at `a_power`, wearing `a_gear`) wins against `b` at
+## base power; draws count half. Each seed is played with `a` in both corners.
+## Read from the results `_run_jobs` collected.
+func _win_rate(a: String, a_power: float, b: String, a_gear = null) -> float:
+	var r: Dictionary = results[_key([arena_id, a, a_power, b, a_gear])]
+	if a_power == 1.0 and a_gear == null:
 		for d in r.durations:
 			durations.append(float(d))
 		timeouts += int(r.timeouts)
@@ -229,10 +305,10 @@ func _win_rate(a: String, a_power: float, b: String) -> float:
 
 
 static func _key(job: Array) -> String:
-	return "%s|%s|%s|%s" % [job[0], job[1], job[2], job[3]]
+	return "%s|%s|%s|%s|%s" % [job[0], job[1], job[2], job[3], job[4]]
 
 
-## Plays one pairing: every seed from both corners.
+## Plays one pairing, [arena, a, a_power, b, a_gear]: every seed from both corners.
 func _fight(job: Array) -> Dictionary:
 	var a: String = job[1]
 	var a_power: float = job[2]
@@ -241,7 +317,9 @@ func _fight(job: Array) -> Dictionary:
 	for i in fights:
 		for a_index in 2:
 			var powers := [a_power, 1.0] if a_index == 0 else [1.0, a_power]
-			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers, "arena": job[0]})
+			var gear := [null, null]
+			gear[a_index] = job[4]
+			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers, "gear": gear, "arena": job[0]})
 			var s := sim.run_to_end()
 			if s.winner == a_index:
 				out.wins += 1.0

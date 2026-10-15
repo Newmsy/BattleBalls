@@ -18,4 +18,5 @@ const CASES := [
 	{"seed": 12, "p1": "spiker", "p2": "vampire", "angles": [null, null]},
 	{"seed": 13, "p1": "speedster", "p2": "laser", "angles": [null, null], "powers": [1.25, 1.0]},
 	{"seed": 14, "p1": "vampire", "p2": "juggernaut", "angles": [null, null], "powers": [1.0, 1.75], "sizes": [1.0, 1.35]},
+	{"seed": 31, "p1": "vampire", "p2": "magnet", "angles": [null, null], "gear": [{"crit_chance": 0.15, "crit_damage": 0.6}, {"defense": 0.065, "speed": 0.1}]},
 ]

@@ -54,6 +54,7 @@ In the PR that adds or changes it:
 |---|---|---|
 | Equal-power matrix and arena tilt on every playable arena, `FAIL` blocks merge | Every ready (non-draft) PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict --arena=all` |
 | Full audit: equal power and power step at higher sample size | Weekly scheduled balance audit on `main`, plus any PR touching ball stats | `balance.gd -- --fights=500 --power-step` |
+| Gear lines: one Legendary piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%
 Wilson interval) and `WARN` when it might be noise; rerun a `WARN` with more

@@ -17,6 +17,13 @@
 ## Critters and their abilities come from sim/critters/ via sim/ball_defs.gd;
 ## this file only fires their triggers (sim/abilities.gd).
 ## `arena` (optional) is an id from sim/arenas.gd (default "square").
+## `gear` (optional) is each ball's gear: a list of pieces or stat totals
+## (sim/gear.gd), or null for none.
+##
+## Every hit rolls its damage (+-DAMAGE_VARIANCE) and a crit from its own
+## stream seeded by the fight seed, so a fight still replays from the seed and
+## the launch angles alone. `damage_rolls: false` (optional) turns the spread
+## and crits off, for unit tests that check exact damage.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
@@ -24,10 +31,11 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const Power := preload("res://sim/power.gd")
+const Gear := preload("res://sim/gear.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
-const RULES_VERSION := 1
+const RULES_VERSION := 2
 const TICK_RATE := 60
 const DT := 1.0 / TICK_RATE
 const ARENA_SIZE := 1000.0
@@ -38,7 +46,7 @@ const OVERTIME_DAMAGE_RAMP := 0.05 ## +5% damage per second of overtime.
 const TIME_LIMIT := 120.0
 const CONTACT_COOLDOWN := 0.25
 ## Contact damage ranges from (1 - spread)x to (1 + spread)x by who rammed whom.
-const IMPACT_SPREAD := 0.5
+const IMPACT_SPREAD := 0.4
 const BEAM_HALF_WIDTH := 5.0
 const MIN_BEAM_LENGTH := 30.0
 const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre line.
@@ -51,6 +59,16 @@ const BUMPER_BOOST_TIME := 1.0 ## Seconds.
 const OBSTACLE_MIN_SCALE := 0.7
 ## Inward normals of the four cut corners: bottom-left, top-left, top-right, bottom-right.
 const CORNER_NORMALS := [Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1)]
+## Each hit deals between (1 - variance)x and (1 + variance)x its damage (Newms).
+const DAMAGE_VARIANCE := 0.10
+const BASE_CRIT_CHANCE := 0.05
+const BASE_CRIT_MULT := 1.5
+## A contact hit from behind: both balls heading within BACKSTAB_ANGLE degrees
+## of each other, the striker catching the target up.
+const BACKSTAB_MULT := 1.3
+const BACKSTAB_ANGLE := 45.0
+## Mixed into the fight seed for the per-hit roll stream.
+const ROLL_SALT := 0x2F6B3C1D
 
 const START_CORNERS := [Vector2(170, 830), Vector2(830, 170)]
 const AIM_AT_CENTRE := [-450, 1350] ## Tenths of a degree from each corner.
@@ -74,6 +92,11 @@ class Ball:
 	var boost_ticks := 0 ## Ticks of bumper speed boost left.
 	var fired := {} ## One-shot triggers already used (Abilities.tick_triggers).
 	var state := {} ## Per-ball ability state, e.g. a field's "pulling" (read by the renderer).
+	## Per-hit stats, from gear (sim/gear.gd).
+	var attack := 0.0
+	var defense := 0.0
+	var crit_chance := BASE_CRIT_CHANCE
+	var crit_mult := BASE_CRIT_MULT
 
 	func alive() -> bool:
 		return hp > 0.0
@@ -100,6 +123,9 @@ var config: Dictionary
 var arena_id: String
 var arena: Dictionary
 var rng
+## Damage and crit rolls only, so abilities that use `rng` never shift them.
+var rolls
+var damage_rolls := true
 var balls: Array[Ball] = []
 var beams: Array[Beam] = []
 var tick := 0
@@ -125,6 +151,8 @@ func _init(cfg: Dictionary) -> void:
 	arena = Arenas.get_def(arena_id)
 	rng = Rng.new(int(cfg.get("seed", 1)))
 	abilities = Abilities.new()
+	rolls = Rng.new(int(cfg.get("seed", 1)) ^ ROLL_SALT)
+	damage_rolls = cfg.get("damage_rolls", true)
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	var angles: Array = cfg.get("angles", [null, null])
 	var starts: Array = cfg.get("starts", START_CORNERS)
@@ -132,8 +160,10 @@ func _init(cfg: Dictionary) -> void:
 	var tiers: Array = cfg.get("tiers", [1, 1])
 	var powers: Array = cfg.get("powers", [1.0, 1.0])
 	var sizes: Array = cfg.get("sizes", [1.0, 1.0])
+	var gear: Array = cfg.get("gear", [null, null])
 	for i in 2:
-		var def := Power.scale_def(BallDefs.get_def(types[i], int(tiers[i])), float(powers[i]))
+		var kit := Gear.totals(gear[i])
+		var def := Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i])), float(powers[i])), kit)
 		var b := Ball.new()
 		b.index = i
 		b.type_id = types[i]
@@ -143,6 +173,10 @@ func _init(cfg: Dictionary) -> void:
 		b.max_hp = def.hp
 		b.hp = def.hp if start_hp[i] == null else clampf(float(start_hp[i]), 0.01, def.hp)
 		b.contact_damage = def.contact_damage
+		b.attack = kit.get("attack", 0.0)
+		b.defense = kit.get("defense", 0.0)
+		b.crit_chance = BASE_CRIT_CHANCE + kit.get("crit_chance", 0.0)
+		b.crit_mult = BASE_CRIT_MULT + kit.get("crit_damage", 0.0)
 		b.pos = starts[i]
 		# Always draw from the rng so a given aim doesn't shift later rolls.
 		var random_aim: int = AIM_AT_CENTRE[i] + rng.range_int(-RANDOM_AIM_SPREAD, RANDOM_AIM_SPREAD)
@@ -378,6 +412,7 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			var approach := (a.vel - b.vel).dot(n)
 			if approach <= 0.0:
 				continue
+			var stab := _backstabber(a.vel, b.vel, n)
 			# Share of the closing speed each ball supplied, from before the bounce.
 			var a_share := clampf(a.vel.dot(n) / approach, 0.0, 1.0)
 			var impulse := 2.0 * approach / (1.0 / ma + 1.0 / mb)
@@ -395,8 +430,24 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 				continue
 			_contact_cooldown_until[key] = tick + int(round(CONTACT_COOLDOWN * TICK_RATE))
 			# The ball that rams harder hits harder, so even mirror matches trade unevenly.
-			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _strike(a, b), "kind": "contact", "pos": b.pos})
-			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _strike(b, a), "kind": "contact", "pos": a.pos})
+			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _strike(a, b), "kind": "contact", "pos": b.pos, "backstab": stab == 0})
+			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _strike(b, a), "kind": "contact", "pos": a.pos, "backstab": stab == 1})
+
+
+## Which ball (0 = a, 1 = b) rams the other from behind, from velocities before
+## the bounce and the normal from a to b; -1 when it's not a backstab. Both
+## must head the same way within BACKSTAB_ANGLE, and the struck ball must be
+## moving away from the striker. They close in, so only one can qualify.
+static func _backstabber(va: Vector2, vb: Vector2, n: Vector2) -> int:
+	if va.length() < 0.001 or vb.length() < 0.001:
+		return -1
+	if va.normalized().dot(vb.normalized()) < cos(deg_to_rad(BACKSTAB_ANGLE)):
+		return -1
+	if vb.dot(n) > 0.0:
+		return 0
+	if va.dot(n) < 0.0:
+		return 1
+	return -1
 
 
 ## Contact damage multiplier from the striker's "strike" effects (e.g. snap).
@@ -446,9 +497,21 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			continue
 		var target := balls[h.target]
 		var source := balls[h.source]
+		var backstab: bool = h.get("backstab", false)
+		# Always two rolls per hit, so the stream never depends on the outcome.
+		var spread: float = 1.0 + DAMAGE_VARIANCE * (2.0 * rolls.next_float() - 1.0)
+		var crit: bool = rolls.next_float() < source.crit_chance
+		if not damage_rolls:
+			spread = 1.0
+			crit = false
+		amount *= spread * (1.0 + source.attack) * (1.0 - target.defense)
+		if crit:
+			amount *= source.crit_mult
+		if backstab:
+			amount *= BACKSTAB_MULT
 		target.hp -= amount
 		source.damage_dealt += amount
-		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos})
+		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos, "crit": crit, "backstab": backstab})
 		if h.kind == "contact":
 			abilities.fire(self, "hit", source, {"target": target, "amount": amount, "heals": heals})
 		abilities.fire(self, "hurt", target, {"source": source, "amount": amount, "kind": h.kind})

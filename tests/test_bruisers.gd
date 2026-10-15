@@ -6,7 +6,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 
 func _sim(p1: String, p2: String) -> MatchSim:
-	var sim := MatchSim.new({"seed": 1, "p1": p1, "p2": p2, "angles": [null, null]})
+	var sim := MatchSim.new({"seed": 1, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false})
 	sim.balls[0].pos = Vector2(200, 200)
 	sim.balls[1].pos = Vector2(800, 800)
 	for b in sim.balls:

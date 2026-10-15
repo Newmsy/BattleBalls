@@ -21,8 +21,10 @@ const SCREENS := {
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 	"arena": preload("res://game/ui/screens/arena_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
+	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
 	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
+	"spire": preload("res://game/ui/screens/spire_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
@@ -32,7 +34,9 @@ const TAB_HEIGHT := 128.0
 ## Emitted when the player starts a quick fight from the Play tab.
 signal play_requested
 ## Emitted to watch a fight in the arena, e.g. the Fight of the Day. `fight`
-## has p1, p2, seed, angles and pick (the side the player called).
+## has p1, p2, seed, angles and pick (the side the player called, or -1), and
+## optionally board_title, return_to (the screen to come back to, default "week")
+## and return_params.
 signal watch_requested(fight: Dictionary)
 ## A friend's Rematch button: fight their saved team (unranked).
 signal rival_requested(friend: Dictionary)
@@ -51,6 +55,8 @@ var link_base := FightLink.HOME
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
 
 var profile = UiProfile.sample()
+## The online backend (game/online/backend.gd), or null in tests.
+var backend = null
 var play_with := "" ## Ball to pick in the arena menu on the next request_play().
 var current := ""
 var current_params := {}

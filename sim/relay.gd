@@ -4,10 +4,14 @@
 ## ball comes out. A drawn leg knocks out both balls. The side with a ball
 ## left at the end wins.
 ##
-## Config: { seed: int, sides: [[type, ...], [type, ...]], aims: [[aim, ...], [aim, ...]] }
+## Config: { seed: int, sides: [[type, ...], [type, ...]], aims: [[aim, ...], [aim, ...]],
+##           powers: [[w, ...], [w, ...]], sizes: [[s, ...], [s, ...]] }
 ## `aims[side][slot]` is that ball's launch angle in tenths of a degree from
 ## its own corner (screen space), or null to let the leg seed pick. A ball
-## that stays in launches with the same aim again.
+## that stays in launches with the same aim again. `powers` and `sizes`
+## (optional) are per-ball MatchSim `powers` / `sizes` (progression and boss
+## scale); left out, legs use the MatchSim defaults. `gear[side][slot]`
+## (optional) is that ball's gear (sim/gear.gd), null for none.
 ##
 ## The game can drive it leg by leg (leg_config() -> run a MatchSim, maybe
 ## rendering it -> record_leg(sim)) or call run_to_end() headless; both give
@@ -22,6 +26,7 @@ const MAX_SLOTS := 3
 var config: Dictionary
 var sides: Array = [[], []]
 var aims: Array = [[], []]
+var gear: Array = [[], []]
 ## Index of the ball currently in (or next up) for each side.
 var slot: Array[int] = [0, 0]
 ## HP each side's current ball carries into its next leg (null = full).
@@ -38,26 +43,34 @@ func _init(cfg: Dictionary) -> void:
 	config = cfg
 	_rng = Rng.new(int(cfg.get("seed", 1)))
 	var cfg_aims: Array = cfg.get("aims", [[], []])
+	var cfg_gear: Array = cfg.get("gear", [[], []])
 	for s in 2:
 		var lineup: Array = cfg.sides[s]
 		assert(lineup.size() >= 1 and lineup.size() <= MAX_SLOTS, "A side brings 1-3 balls")
 		sides[s] = lineup.duplicate()
 		var side_aims: Array = cfg_aims[s] if s < cfg_aims.size() else []
+		var side_gear: Array = cfg_gear[s] if s < cfg_gear.size() else []
 		for i in lineup.size():
 			aims[s].append(side_aims[i] if i < side_aims.size() else null)
+			gear[s].append(side_gear[i] if i < side_gear.size() else null)
 
 
 ## Config for the next leg's MatchSim. Leg seeds come from the relay seed in
 ## order, so a relay is reproducible from its config alone.
 func leg_config() -> Dictionary:
 	assert(not finished, "Relay already finished")
-	return {
+	var leg := {
 		"seed": _leg_seed(legs.size()),
 		"p1": sides[0][slot[0]],
 		"p2": sides[1][slot[1]],
 		"angles": [aims[0][slot[0]], aims[1][slot[1]]],
 		"hp": carry_hp.duplicate(),
+		"gear": [gear[0][slot[0]], gear[1][slot[1]]],
 	}
+	for key in ["powers", "sizes"]:
+		if config.has(key):
+			leg[key] = [config[key][0][slot[0]], config[key][1][slot[1]]]
+	return leg
 
 
 ## Records a finished leg and brings out the next balls.
