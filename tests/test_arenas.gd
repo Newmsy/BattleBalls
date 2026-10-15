@@ -3,6 +3,8 @@ extends "res://tests/test_case.gd"
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Arenas := preload("res://sim/arenas.gd")
+const Weight := preload("res://sim/weight.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 
 
 func _sim(arena: String, p1 := "plain", p2 := "plain", seed_value := 1) -> MatchSim:
@@ -31,6 +33,11 @@ func test_every_arena_is_point_symmetric() -> void:
 			var mirrored: Vector2 = c * 2.0 - o.pos
 			var found := obstacles.any(func(p): return p.pos.distance_to(mirrored) < 0.01 and p.radius == o.radius and p.kind == o.kind)
 			check(found, "%s obstacle at %s has no mirror at %s" % [id, o.pos, mirrored])
+		var wells: Array = Arenas.get_def(id).get("wells", [])
+		for w in wells:
+			var mirrored: Vector2 = c * 2.0 - w.pos
+			var found := wells.any(func(v): return v.pos.distance_to(mirrored) < 0.01 and v.reach == w.reach and v.accel == w.accel)
+			check(found, "%s well at %s has no mirror at %s" % [id, w.pos, mirrored])
 
 
 func test_starts_are_clear_of_every_obstacle_and_corner() -> void:
@@ -141,3 +148,111 @@ func test_every_critter_finishes_on_every_arena() -> void:
 					var s := _sim(id, a, b, seed_value).run_to_end()
 					check(s.time <= MatchSim.TIME_LIMIT + 0.001, "%s %s vs %s seed %d ran past the limit" % [id, a, b, seed_value])
 					check(s.reason != "", "%s %s vs %s seed %d has no result" % [id, a, b, seed_value])
+
+
+func test_starts_are_outside_every_well() -> void:
+	for id in Arenas.DEFS:
+		var sim := _sim(id)
+		for start in MatchSim.START_CORNERS:
+			for w in sim.wells():
+				check(start.distance_to(w.pos) >= w.reach + 60.0, "%s start %s inside a well" % [id, start])
+
+
+## How far a ball heading past a well at (320, 320) is bent in 40 ticks.
+func _bend(critter: String) -> float:
+	var sim := MatchSim.new({"seed": 1, "p1": critter, "p2": "plain", "angles": [null, null], "arena": "wells"})
+	_park(sim)
+	sim.balls[1].pos = Vector2(850, 150)
+	var b := sim.balls[0]
+	b.pos = Vector2(150, 480)
+	b.vel = Vector2.RIGHT * b.speed
+	for i in 40:
+		sim.step()
+	return absf(b.vel.angle())
+
+
+func test_wells_bend_paths_and_light_critters_most() -> void:
+	var light := _bend("bubbles")
+	var plain := _bend("plain")
+	var heavy := _bend("juggernaut")
+	check(plain > 0.05, "a well bends a passing ball (%.3f rad)" % plain)
+	check(light > plain and plain > heavy, "lighter bends more: bubbles %.3f, plain %.3f, boulder %.3f" % [light, plain, heavy])
+	var square := MatchSim.new({"seed": 1, "p1": "plain", "p2": "plain", "angles": [null, null]})
+	check(square.wells().is_empty(), "no wells on the square")
+
+
+func test_wells_keep_speed_and_fade_in_overtime() -> void:
+	var sim := _sim("wells")
+	_park(sim)
+	var b := sim.balls[0]
+	b.pos = Vector2(150, 480)
+	b.vel = Vector2.RIGHT * b.speed
+	for i in 40:
+		sim.step()
+	check_near(b.vel.length(), b.speed, 0.01, "a well turns, never speeds up")
+	sim.half_size = MatchSim.ARENA_SIZE / 2.0 * (MatchSim.OBSTACLE_MIN_SCALE - 0.01)
+	check(sim.wells().is_empty(), "wells gone near the end of the squeeze")
+
+
+func test_weight_table() -> void:
+	for id in Weight.OVERRIDES:
+		check(CritterDb.has(id), "weight override for unknown critter %s" % id)
+	check_eq(Weight.of("plain"), 1.0, "Plain weighs 1")
+	check_eq(Weight.of("dummy"), 1.0, "tutorial foes weigh 1")
+	check(Weight.of("bubbles") < Weight.of("plain") and Weight.of("plain") < Weight.of("juggernaut"), "bubbles < plain < boulder")
+	check(Weight.of("plain", 1.3) > Weight.of("plain"), "bigger is heavier")
+	for id in CritterDb.ids():
+		var w := Weight.of(id)
+		check(w >= Weight.MIN and w <= Weight.MAX, "%s weight %s in range" % [id, w])
+	var sim := MatchSim.new({"seed": 1, "p1": "bubbles", "p2": "juggernaut", "angles": [null, null]})
+	check(sim.balls[0].weight < sim.balls[1].weight, "balls carry their weight")
+
+
+func test_a_spike_post_nicks_with_a_cooldown_and_a_cap() -> void:
+	var sim := _sim("spikes")
+	_park(sim)
+	sim.balls[1].pos = Vector2(850, 850)
+	var b := sim.balls[0]
+	b.pos = Vector2(500, 150)
+	b.vel = Vector2.DOWN * b.speed
+	var spiked := 0
+	for i in 40:
+		sim.step()
+		spiked += sim.events.filter(func(e): return e.type == "spike" and e.ball == 0).size()
+		if spiked > 0:
+			break
+	check_eq(spiked, 1, "one spike hit off the post")
+	check(b.vel.y < 0.0, "bounced back off the post")
+	check_near(b.hp, b.max_hp - MatchSim.SPIKE_DAMAGE, 0.001, "small flat damage, no rolls")
+	check_eq(b.damage_dealt, 0.0, "spikes credit nobody")
+	check_eq(sim.balls[1].damage_dealt, 0.0, "not even the foe")
+	# Bouncing on the post again and again stops hurting at the cap.
+	for i in 20:
+		b.spike_ready = 0
+		sim._spike(b, b.pos)
+	sim._apply_hits(sim._hits)
+	check_near(b.max_hp - b.hp, MatchSim.SPIKE_CAP * b.max_hp, 0.01, "capped at SPIKE_CAP of max HP")
+
+
+func test_spiked_walls_only_in_the_middle() -> void:
+	var sim := _sim("spikes")
+	_park(sim)
+	var b := sim.balls[0]
+	b.pos = Vector2(120, 500)
+	b.vel = Vector2.LEFT * b.speed
+	var hit := false
+	for i in 20:
+		sim.step()
+		hit = hit or sim.events.any(func(e): return e.type == "spike")
+	check(hit, "the middle of the left wall is spiked")
+	var safe := _sim("spikes")
+	_park(safe)
+	safe.balls[1].pos = Vector2(500, 850)
+	var c := safe.balls[0]
+	c.pos = Vector2(120, 200)
+	c.vel = Vector2.LEFT * c.speed
+	var spiked := false
+	for i in 20:
+		safe.step()
+		spiked = spiked or safe.events.any(func(e): return e.type == "spike")
+	check(not spiked, "the ends of the wall are safe")
