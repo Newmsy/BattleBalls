@@ -91,7 +91,7 @@ func test_schedule_and_fallback_events() -> void:
 	check_eq(LiveOps.validate(LiveOps.data()), [], "bundled schedule valid")
 	var ev := Legends.current(_at("2026-10-14"))
 	check(not ev.is_empty(), "a bracket is open for picks now")
-	check_eq(ev.entrants.size(), mini(BallDefs.PLAYABLE.size(), Bracket.MAX_ENTRANTS), "every playable critter enters by default, up to a full bracket")
+	check_eq(ev.entrants.size(), mini(BallDefs.PLAYABLE.size(), Legends.FIELD_SIZE), "every playable critter enters by default, up to FIELD_SIZE")
 	check(ev.entrants.all(func(id): return id in BallDefs.PLAYABLE and ev.entrants.count(id) == 1), "different playable critters")
 	check_eq(Legends.phase(ev, _at("2026-10-14")), "picks", "picks phase")
 	# A season without its own entry gets one in its last week.
