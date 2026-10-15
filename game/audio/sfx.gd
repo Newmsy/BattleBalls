@@ -147,8 +147,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("sizzle")
 				elif e.amount >= target.max_hp * BIG_HIT_SHARE:
 					play("hit_big")
-				if target.alive():
-					play("ouch_" + target.def.ability)
+				# Each critter file names its ouch voice and pitch, so new critters
+				# reuse the existing chirps.
+				if target.alive() and target.def.ouch != "":
+					play(target.def.ouch, 0.0, target.def.voice_pitch)
 			"heal":
 				play("slurp")
 				play("heal", 0.0, 1.0 + clampf(e.amount / 20.0, 0.0, 0.3))
