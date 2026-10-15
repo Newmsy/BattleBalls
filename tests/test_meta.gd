@@ -8,6 +8,8 @@ const Zones := preload("res://meta/zones.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Power := preload("res://sim/power.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
+const Relay := preload("res://sim/relay.gd")
 
 const T0 := 1_800_000_000
 
@@ -204,3 +206,33 @@ func test_save_round_trip() -> void:
 func test_a_broken_save_starts_a_new_game() -> void:
 	var q = Profile.from_dict({"stacks": []}, T0)
 	check(q.owns(Profile.STARTER), "fresh starter")
+
+
+func test_zone_two_is_pairs_on_bumpers_after_the_zone_one_boss() -> void:
+	var p = Profile.new_game(T0)
+	check_eq(Zones.zone(1).lineup, 2, "Circuit Lab is pairs")
+	check(not Campaign.is_unlocked(p, 1, 0), "locked until Mega Boulder falls")
+	for i in Zones.zone(0).stages.size():
+		p.stars[Zones.stage_key(0, i)] = 3
+	check(Campaign.is_unlocked(p, 1, 0), "open after the zone 1 boss")
+	for st in Zones.zone(1).stages:
+		for id in Zones.enemies(st):
+			check(BallDefs.PLAYABLE.has(id), "zone 2 foe %s can fight" % id)
+	p.add_copies(["laser"])
+	var picks := Campaign.team_for(p, 2)
+	check_eq(picks.size(), 2, "a team of two")
+	var cfg: Dictionary = Campaign.start_team(p, 1, 0, picks, T0)
+	check_eq(cfg.get("arena"), "bumpers", "fought on the Bumpers arena")
+	check_eq(cfg.sides[1].size(), 2, "two foes")
+	var relay := Relay.new(cfg)
+	var last = null
+	while not relay.finished:
+		last = MatchSim.new(relay.leg_config())
+		last.run_to_end()
+		relay.record_leg(last)
+	var r: Dictionary = Campaign.finish_team(p, 1, 0, picks, Campaign.relay_fight(relay, last))
+	check(r.has("won"), "the relay settles like a stage")
+	if r.won:
+		check(Campaign.is_cleared(p, 1, 0), "a win clears 2-1")
+	p.stars["2-1"] = 3
+	check(Campaign.sweep(p, 1, 0, picks[0], T0).has("won"), "pairs stages sweep too")
