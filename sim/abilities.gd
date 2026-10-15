@@ -47,6 +47,15 @@ const EFFECTS := {
 	"collapse_guard": ["collapse_guard"],
 	"copy_tick": [],
 	"scorch": ["scorch_dps", "scorch_secs"],
+	"shoot": ["shot_damage", "shot_speed", "shot_count", "shot_aim"],
+	"shut": ["shut_secs", "shut_armor"],
+	"shut_guard": ["shut_armor"],
+	"shut_open": ["shot_damage", "shot_speed", "shot_count", "shot_aim"],
+	"salvo": ["salvo_hits", "salvo_shield", "salvo_shield_secs", "shot_damage", "shot_speed", "shot_count"],
+	"salvo_tick": [],
+	"mega": ["mega_secs"],
+	"lob": ["lob_damage", "lob_radius", "lob_lead", "lob_flight", "lob_crater_dps", "lob_barrage_every"],
+	"brew": ["brew_count", "brew_spread", "brew_radius", "brew_life", "brew_dps", "brew_slow", "brew_flight", "brew_big_every", "brew_big_radius"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -422,3 +431,141 @@ func fx_collapse(sim, b, _ctx: Dictionary) -> void:
 func fx_collapse_guard(_sim, b, ctx: Dictionary) -> void:
 	if b.state.get("collapsing", false):
 		ctx.mult *= b.def.collapse_guard
+
+
+# --- Projectiles (MatchSim.add_shot / add_lob) ----------------------------------
+
+## Fires a volley of shot_count shots at shot_speed for shot_damage each.
+## shot_aim: "heading" (the way it's moving), "foe" (at the nearest foe) or
+## "ring" (evenly all round). Volleys fan shot_spread degrees apart (default
+## 20); every shot_big_every-th volley (when > 0) is shot_big_count shots.
+## Optional riders: shot_homing (radians a second), shot_bounces, shot_split
+## (splits off a wall), shot_burn (per second, 2s), shot_knock, shot_slow (1s),
+## shot_life, shot_radius, shot_kind (look), shot_burst_damage and
+## shot_burst_radius (a pop when it fizzles), and fire_cooldown (seconds
+## between volleys, e.g. on a hurt trigger).
+func fx_shoot(sim, b, _ctx: Dictionary) -> void:
+	if b.def.has("fire_cooldown"):
+		if sim.tick < int(b.state.get("fire_ready", 0)):
+			return
+		b.state.fire_ready = sim.tick + int(round(b.def.fire_cooldown * sim.TICK_RATE))
+	var n := int(b.def.shot_count)
+	var big := int(b.def.get("shot_big_every", 0))
+	b.state.volleys = int(b.state.get("volleys", 0)) + 1
+	if big > 0 and b.state.volleys % big == 0:
+		n = int(b.def.shot_big_count)
+	_volley(sim, b, n, str(b.def.shot_aim))
+
+
+func _volley(sim, b, n: int, aim: String) -> void:
+	var dir: Vector2 = b.vel.normalized() if b.vel.length() > 0.001 else Vector2.RIGHT
+	if aim == "foe":
+		var f = sim.nearest_foe(b)
+		if f == null:
+			return
+		if f.pos.distance_to(b.pos) > 0.001:
+			dir = (f.pos - b.pos).normalized()
+	var spread: float = deg_to_rad(b.def.get("shot_spread", 20.0))
+	var radius: float = b.def.get("shot_radius", 10.0)
+	var opts: Dictionary = {
+		"kind": b.def.get("shot_kind", "pea"), "radius": radius, "damage": b.def.shot_damage,
+		"life": b.def.get("shot_life", 3.0), "homing": b.def.get("shot_homing", 0.0),
+		"bounces": int(b.def.get("shot_bounces", 0)), "split": int(b.def.get("shot_split", 0)),
+		"burn": b.def.get("shot_burn", 0.0), "knock": b.def.get("shot_knock", 0) > 0,
+		"slow": b.def.get("shot_slow", 0.0), "burst_damage": b.def.get("shot_burst_damage", 0.0),
+		"burst_radius": b.def.get("shot_burst_radius", 0.0) if b.def.get("shot_burst_damage", 0.0) > 0.0 else 0.0,
+	}
+	for k in n:
+		var d: Vector2 = dir.rotated(k * TAU / n) if aim == "ring" else dir.rotated(spread * (k - (n - 1) / 2.0))
+		sim.add_shot(b, b.pos + d * (b.radius + radius + 2.0), d * b.def.shot_speed, opts)
+
+
+## Snaps shut for shut_secs, taking shut_armor less damage (shut_guard), then
+## pops open and fires its shot volley (shut_open, an "always" entry).
+## State: b.state.shut_until.
+func fx_shut(sim, b, _ctx: Dictionary) -> void:
+	b.state.shut_until = sim.tick + int(round(b.def.shut_secs * sim.TICK_RATE))
+	sim.events.append({"type": "shut", "ball": b.index, "pos": b.pos})
+
+
+func fx_shut_guard(sim, b, ctx: Dictionary) -> void:
+	if sim.tick < int(b.state.get("shut_until", -1)):
+		ctx.mult *= 1.0 - b.def.shut_armor
+
+
+func fx_shut_open(sim, b, _ctx: Dictionary) -> void:
+	if sim.tick == int(b.state.get("shut_until", -1)):
+		_volley(sim, b, int(b.def.shot_count), str(b.def.shot_aim))
+
+
+## Every salvo_hits-th contact hit fires shot_count shots (aimed as
+## shot_aim, usually homing) and raises a salvo_shield shield for
+## salvo_shield_secs. During Mega Mode (fx_mega) each hit counts double.
+func fx_salvo(sim, b, _ctx: Dictionary) -> void:
+	var step: int = 2 if sim.tick < int(b.state.get("mega_until", -1)) else 1
+	b.state.salvo = int(b.state.get("salvo", 0)) + step
+	if b.state.salvo < int(b.def.salvo_hits):
+		return
+	b.state.salvo = 0
+	_volley(sim, b, int(b.def.shot_count), str(b.def.get("shot_aim", "foe")))
+	b.shield = maxf(b.shield, b.def.salvo_shield)
+	b.state.salvo_shield_until = sim.tick + int(round(b.def.salvo_shield_secs * sim.TICK_RATE))
+	sim.events.append({"type": "salvo", "ball": b.index, "pos": b.pos})
+
+
+## Drops what's left of a salvo shield when its time is up (an "always" entry).
+func fx_salvo_tick(sim, b, _ctx: Dictionary) -> void:
+	if b.state.has("salvo_shield_until") and sim.tick >= b.state.salvo_shield_until:
+		b.state.erase("salvo_shield_until")
+		b.shield = 0.0
+
+
+## Mega Mode: for mega_secs every contact hit counts double toward the salvo.
+func fx_mega(sim, b, _ctx: Dictionary) -> void:
+	b.state.mega_until = sim.tick + int(round(b.def.mega_secs * sim.TICK_RATE))
+	sim.events.append({"type": "mega", "ball": b.index, "pos": b.pos})
+
+
+## Lobs a shell at where the nearest foe will be in lob_lead seconds (if no
+## other ball turns it: the maths banks off walls and pillars); after lob_flight it lands for lob_damage within
+## lob_radius. lob_crater_dps > 0 leaves a burning crater (radius 70, 2s);
+## every lob_barrage_every-th shot (when > 0) is 3 shells around the spot.
+func fx_lob(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	var spot: Vector2 = sim.predict(f, b.def.lob_lead)
+	b.state.lobs = int(b.state.get("lobs", 0)) + 1
+	var spots: Array = [spot]
+	if b.def.lob_barrage_every > 0 and b.state.lobs % int(b.def.lob_barrage_every) == 0:
+		var turn: float = sim.rng.next_float() * TAU
+		spots = [spot]
+		for k in 2:
+			spots.append(spot + Vector2.from_angle(turn + k * PI) * b.def.lob_radius * 1.2)
+	for p in spots:
+		var opts: Dictionary = {"kind": "shell", "damage": b.def.lob_damage, "land_radius": b.def.lob_radius}
+		if b.def.lob_crater_dps > 0.0:
+			opts.zone = {"kind": "fire", "radius": 70.0, "life": 2.0, "dps": b.def.lob_crater_dps}
+		sim.add_lob(b, p, b.def.lob_flight, opts)
+
+
+## Lobs brew_count blobs to seeded spots within brew_spread of the nearest
+## foe; each lands as a puddle (brew_radius, brew_life), alternating burning
+## (brew_dps a second) and slowing (brew_slow). Every brew_big_every-th brew
+## (when > 0) is one huge puddle (brew_big_radius) that does both.
+func fx_brew(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	b.state.brews = int(b.state.get("brews", 0)) + 1
+	if b.def.brew_big_every > 0 and b.state.brews % int(b.def.brew_big_every) == 0:
+		sim.add_lob(b, f.pos, b.def.brew_flight, {"kind": "blob", "zone": {"kind": "brew", "radius": b.def.brew_big_radius,
+			"life": b.def.brew_life, "dps": b.def.brew_dps, "slow": b.def.brew_slow}})
+		return
+	for k in int(b.def.brew_count):
+		var at: Vector2 = f.pos + Vector2.from_angle(sim.rng.next_float() * TAU) * b.def.brew_spread * sqrt(sim.rng.next_float())
+		var burn: bool = (int(b.state.get("blobs", 0)) + k) % 2 == 0
+		var zone: Dictionary = {"kind": "fire", "radius": b.def.brew_radius, "life": b.def.brew_life, "dps": b.def.brew_dps} if burn \
+			else {"kind": "goo", "radius": b.def.brew_radius, "life": b.def.brew_life, "slow": b.def.brew_slow}
+		sim.add_lob(b, at, b.def.brew_flight, {"kind": "blob", "zone": zone})
+	b.state.blobs = int(b.state.get("blobs", 0)) + int(b.def.brew_count)

@@ -24,9 +24,9 @@ const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
 const MINE := Color("ff4d4d")
 ## Floor zone fills by kind (sim Zone.kind).
-const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff")}
+const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "goo": Color("7cff6b"), "brew": Color("b6ff3b")}
 ## Pulse and blast ring colours by kind.
-const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d")}
+const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"), "shell": Color("ffb347"), "blob": Color("7cff6b")}
 const RING_LIFE := 0.45
 ## Crits pop bigger in gold; backstabs get their own call-out.
 const POP_CRIT := Color("ffb627")
@@ -188,6 +188,18 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"revive":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "REBORN!", POP_SNAP)
+			"shut":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-34, -g.radius - 34), "CLAMP!", POP_SNAP)
+			"salvo":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 34), "SALVO!", POP_SNAP)
+			"mega":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-60, -g.radius - 46), "MEGA MODE!", POP_CRIT, CRIT_POP_SCALE)
+				_shake = maxf(_shake, 8.0 * A11y.motion())
+			"shot_pop":
+				_spawn_particles(e.pos, 3)
 			"shielded":
 				var g := sim.balls[e.target]
 				_add_popup(g.pos + Vector2(28, -g.radius - 10), "0", POP_BEAM)
@@ -309,6 +321,9 @@ func _draw() -> void:
 
 	for z in sim.zones:
 		_draw_zone(z, s)
+
+	for shot in sim.shots:
+		_draw_shot(shot, s)
 
 	var bi := 0
 	for beam in sim.beams:
@@ -566,6 +581,35 @@ func _draw_zone(z, s: float) -> void:
 			draw_circle(p, z.radius * 0.55 * s, Color(col, 0.22 * fade))
 
 
+## Projectiles in the owner's colour with a bright core. A lobbed shot arcs
+## over a shadow toward a blinking target ring where it will land.
+func _draw_shot(shot, s: float) -> void:
+	var col: Color = sim.balls[shot.owner].def.color.lightened(0.25)
+	var p: Vector2 = shot.pos * s
+	var r: float = shot.radius * s
+	if shot.lob:
+		var t: float = clampf(shot.age / shot.flight, 0.0, 1.0)
+		var land: Vector2 = shot.land * s
+		var reach: float = maxf(shot.land_radius, shot.zone.get("radius", 40.0)) * s
+		var blink := 0.35 + 0.35 * absf(sin(_time * 10.0))
+		draw_arc(land, reach, 0.0, TAU, 48, Color(RING_COLORS.get(shot.kind, BURST), blink), 3.0, true)
+		draw_arc(land, reach * 0.25 * (1.0 - t) + 6.0, 0.0, TAU, 24, Color(RING_COLORS.get(shot.kind, BURST), blink), 2.0, true)
+		draw_circle(p, 9.0 * s, Color(0, 0, 0, 0.35))
+		var lift := Vector2(0, -sin(PI * t) * 150.0 * s)
+		draw_circle(p + lift, 22.0 * s, Color(col, 0.35))
+		draw_circle(p + lift, 15.0 * s, col)
+		draw_circle(p + lift + Vector2(-3, -3) * s, 4.0 * s, Color.WHITE)
+		return
+	var back: Vector2 = -shot.vel.normalized() if shot.vel.length() > 0.001 else Vector2.ZERO
+	if shot.kind in ["rocket", "stinger"]:
+		draw_line(p, p + back * r * 3.0, Color(Color("ffb347") if shot.kind == "rocket" else col, 0.6), r * 0.9, true)
+	else:
+		draw_line(p, p + back * r * 2.0, Color(col, 0.25), r * 1.2, true)
+	draw_circle(p, r * 1.6, Color(col, 0.25))
+	draw_circle(p, r, col)
+	draw_circle(p + Vector2(-0.3, -0.3) * r, r * 0.4, Color.WHITE)
+
+
 ## Flow lines drifting inward: a pull field (Orbit) or a collapse (Void).
 func _draw_inflow(c: Vector2, inner: float, reach: float, col: Color, alpha: float) -> void:
 	for k in 3:
@@ -586,6 +630,8 @@ func _draw_status(b, s: float) -> void:
 		for k in 4:
 			var a := _time * 3.0 + k * TAU / 4.0
 			draw_circle(p + Vector2(cos(a), sin(a) * 0.6 - 0.4) * r * 0.9, 4.0, Color("ff8a1f", 0.8))
+	if sim.tick < int(b.state.get("shut_until", -1)):
+		draw_arc(p, r * 1.08, 0.0, TAU, 48, Color("f7c6d9", 0.9), 6.0, true)
 	if b.slow > 0.0:
 		draw_arc(p, r * 1.02, 0.0, TAU, 48, Color("bfe9ff", 0.6), 3.0, true)
 

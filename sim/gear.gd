@@ -68,7 +68,7 @@ static func apply_def(def: Dictionary, t: Dictionary) -> Dictionary:
 		if def.has("effects"):
 			var effects: Array = def.effects.duplicate(true)
 			for e in effects:
-				if e.get("on") == "every":
+				if e.get("on") == "every" and not e.secs is String: # A named param scales by its own suffix.
 					e.secs = float(e.secs) / rate
 			out.effects = effects
 	return out

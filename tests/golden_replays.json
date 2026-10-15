@@ -356,5 +356,139 @@
     "reason": "knockout",
     "ticks": 953,
     "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "pip",
+      "p2": "vampire",
+      "seed": 21,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "6da3d417523e11c57bc7102d0423dc64010c484a8822e1f4cf8b27327a20e2c5",
+    "reason": "knockout",
+    "ticks": 3290,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "zing",
+      "p2": "laser",
+      "seed": 22,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "ba6d840f5eababbe1bd026051392c8c1e09fa2974648c18a4f0bf77c1b688cc8",
+    "reason": "knockout",
+    "ticks": 949,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "clam",
+      "p2": "magnet",
+      "seed": 23,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "864a010c3e652969697e8aaadca2140f36a1caaae11c0608522b735cb046df2e",
+    "reason": "double_knockout",
+    "ticks": 3316,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "pillars",
+      "p1": "mortar",
+      "p2": "frost",
+      "seed": 24,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "1d0482a13e16a522c6603f313184c1369a5aed1d24a81ea4614e73fd4eb803a9",
+    "reason": "knockout",
+    "ticks": 1741,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "pollen",
+      "p2": "thorns",
+      "seed": 25,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "e412a3b1989617cfa20b92a138cf8f27be2cfaa3cf2217f814656678b2206ff5",
+    "reason": "knockout",
+    "ticks": 3017,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "megabot",
+      "p2": "vampire",
+      "seed": 26,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "59d49e31ecef4ed72b9adb4610a2c316dd753966c145fa3e3ad8f29f8c9325d8",
+    "reason": "knockout",
+    "ticks": 2309,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "brewster",
+      "p2": "ghost",
+      "seed": 27,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "5e61a8637ec12c2120f50cc680547b37a2d0bf8a3148718c4308774e270a904c",
+    "reason": "knockout",
+    "ticks": 2082,
+    "winner": 0
   }
 ]
