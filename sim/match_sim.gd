@@ -12,7 +12,8 @@
 ## `boons` (optional, [[ids], [ids]]) gives each ball Bounce Run boons from
 ## sim/boons.gd.
 ## `fields: false` (optional) switches off every-tick abilities (fields like
-## Flux's), so Daily Trick Shot balls fly straight.
+## Flux's) and ability movement (teleports, charges, strings, yanks, gear
+## speed), so Daily Trick Shot balls fly straight.
 ## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
 ## `powers` (optional) are progression multipliers (sim/power.gd); 1.0 is a T1
 ## level 1 Common. `sizes` (optional) scale the radius (campaign bosses).
@@ -102,6 +103,10 @@ class Ball:
 	var landed_hit := false
 	var banked := false ## Bounced off a wall since its last contact hit.
 	var boost_ticks := 0 ## Ticks of bumper speed boost left.
+	var charge_mult := 1.0 ## Speed multiplier while charging (see charge()).
+	var charge_ticks := 0 ## Ticks of charge left.
+	var slow_amount := 0.0 ## A timed slow (slow_for()), on top of zone slows.
+	var slow_until := -1
 	var fired := {} ## One-shot triggers already used (Abilities.tick_triggers).
 	var state := {} ## Per-ball ability state, e.g. a field's "pulling" (read by the renderer).
 	## Per-hit stats, from gear (sim/gear.gd).
@@ -114,7 +119,8 @@ class Ball:
 		return hp > 0.0
 
 	func current_speed() -> float:
-		return speed * BUMPER_BOOST if boost_ticks > 0 else speed
+		var v := speed * BUMPER_BOOST if boost_ticks > 0 else speed
+		return v * charge_mult if charge_ticks > 0 else v
 
 
 class Beam:
@@ -165,6 +171,8 @@ var damage_rolls := true
 var balls: Array[Ball] = []
 var beams: Array[Beam] = []
 var zones: Array[Zone] = []
+## Strings tying a foe to a ball (tether()): {owner, target, length, until}.
+var tethers: Array[Dictionary] = []
 var tick := 0
 var half_size := ARENA_SIZE / 2.0
 var centre := Vector2(ARENA_SIZE / 2.0, ARENA_SIZE / 2.0)
@@ -309,7 +317,7 @@ func step() -> void:
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - overtime_start))
 
 	for b in balls:
-		b.slow = 0.0
+		b.slow = b.slow_amount if tick < b.slow_until else 0.0
 	if config.get("fields", true):
 		for b in balls:
 			if b.alive():
@@ -321,9 +329,16 @@ func step() -> void:
 			if b.boost_ticks > 0:
 				b.boost_ticks -= 1
 				if b.boost_ticks == 0:
-					b.vel = b.vel.normalized() * b.speed
-			b.pos += b.vel * DT * (1.0 - b.slow)
+					b.vel = b.vel.normalized() * b.current_speed()
+			if b.charge_ticks > 0:
+				b.charge_ticks -= 1
+				if b.charge_ticks == 0:
+					b.vel = b.vel.normalized() * b.current_speed()
+			# A charge carries its own momentum: slows don't drag it.
+			b.pos += b.vel * DT * (1.0 - (b.slow if b.charge_ticks == 0 else 0.0))
 			_resolve_walls(b)
+	if not tethers.is_empty():
+		_update_tethers()
 	_resolve_ball_collisions(_hits)
 	_update_beams(_hits)
 	_apply_hits(_hits)
@@ -790,3 +805,133 @@ func _update_dots() -> void:
 			elif tick >= d.next:
 				d.next = tick + TICK_RATE / 2
 				deal(balls[d.source], b, d.dps * 0.5, "burn")
+
+
+# --- Movement: teleport, charge, tether (critter batch F) ---------------------
+
+## False when the fight is a Trick Shot (`fields: false`): balls fly straight.
+func ability_moves() -> bool:
+	return config.get("fields", true)
+
+
+## Moves `b` straight to `to`, keeping its heading. Emits "teleport".
+func teleport(b: Ball, to: Vector2) -> void:
+	if not ability_moves():
+		return
+	events.append({"type": "teleport", "ball": b.index, "from": b.pos, "to": to})
+	b.pos = to
+
+
+## A seeded open spot for `b` at least `min_dist` from `away`: inside the
+## walls, clear of obstacles and other balls. Falls back to the farthest of
+## its tries when none is that far.
+func teleport_spot(b: Ball, away: Vector2, min_dist: float) -> Vector2:
+	var r := arena_rect().grow(-(b.radius + 10.0))
+	var best := b.pos
+	var best_dist := -1.0
+	for i in 24:
+		var p := Vector2(lerpf(r.position.x, r.end.x, rng.next_float()), lerpf(r.position.y, r.end.y, rng.next_float()))
+		if not _open_spot(b, p):
+			continue
+		var d := p.distance_to(away)
+		if d >= min_dist:
+			return p
+		if d > best_dist:
+			best = p
+			best_dist = d
+	return best
+
+
+func _open_spot(b: Ball, p: Vector2) -> bool:
+	for wall in corner_walls():
+		if wall[0].dot(p - centre) + wall[1] < b.radius + 10.0:
+			return false
+	for o in obstacles():
+		if p.distance_to(o.pos) < o.radius + b.radius + 10.0:
+			return false
+	for o in balls:
+		if o != b and o.alive() and p.distance_to(o.pos) < o.radius + b.radius + 20.0:
+			return false
+	return true
+
+
+## Launches `b` along `dir` at `mult` x its speed for `secs`; it keeps the
+## extra speed through bounces until the charge runs out, and slows don't
+## hold it back meanwhile. Emits "charge".
+func charge(b: Ball, dir: Vector2, mult: float, secs: float) -> void:
+	if dir.length() < 0.001 or not ability_moves():
+		return
+	b.charge_mult = mult
+	b.charge_ticks = maxi(1, int(round(secs * TICK_RATE)))
+	b.vel = dir.normalized() * b.current_speed()
+	events.append({"type": "charge", "ball": b.index, "pos": b.pos, "dir": dir.normalized()})
+
+
+func charging(b: Ball) -> bool:
+	return b.charge_ticks > 0
+
+
+## Ends a charge early (back to normal speed).
+func end_charge(b: Ball) -> void:
+	if b.charge_ticks > 0:
+		b.charge_ticks = 0
+		if b.vel.length() > 0.001:
+			b.vel = b.vel.normalized() * b.current_speed()
+
+
+## Puts a ball moved by an effect back inside the walls (bouncing as usual).
+func keep_inside(b: Ball) -> void:
+	_resolve_walls(b)
+
+
+## Slows `target` by `amount` (0-1) for `secs`. A stronger or longer slow
+## already on it is kept.
+func slow_for(target: Ball, amount: float, secs: float) -> void:
+	var until := tick + int(round(secs * TICK_RATE))
+	if tick >= target.slow_until:
+		target.slow_amount = 0.0
+	target.slow_amount = maxf(target.slow_amount, amount)
+	target.slow_until = maxi(target.slow_until, until)
+
+
+## Ties `target` to `owner` for `secs`: the gap between them can't grow past
+## `length`, so the target is dragged along behind, and it can't charge
+## while tied. Emits "tether".
+func tether(owner: Ball, target: Ball, length: float, secs: float) -> void:
+	if not ability_moves():
+		return
+	tethers = tethers.filter(func(t): return t.owner != owner.index)
+	tethers.append({"owner": owner.index, "target": target.index, "length": length, "until": tick + int(round(secs * TICK_RATE))})
+	events.append({"type": "tether", "ball": owner.index, "target": target.index, "pos": target.pos})
+
+
+## The string held by `owner`, or an empty dictionary.
+func tether_of(owner: Ball) -> Dictionary:
+	for t in tethers:
+		if t.owner == owner.index:
+			return t
+	return {}
+
+
+func _update_tethers() -> void:
+	for t in tethers.duplicate():
+		var o := balls[t.owner]
+		var f := balls[t.target]
+		if tick > t.until or not o.alive() or not f.alive():
+			tethers.erase(t)
+			events.append({"type": "tether_end", "ball": t.owner, "target": t.target, "pos": f.pos})
+			continue
+		end_charge(f) # A tied ball can't charge or pounce.
+		var reach: float = o.radius + f.radius + t.length
+		var d := f.pos - o.pos
+		var dist := d.length()
+		if dist <= reach or dist < 0.001:
+			continue
+		var n := d / dist
+		f.pos = o.pos + n * reach
+		# Drop the part of its heading that pulls away from the string.
+		var out := f.vel.dot(n)
+		if out > 0.0:
+			f.vel -= n * out
+		f.vel = f.vel.normalized() * f.current_speed() if f.vel.length() > 0.001 else -n * f.current_speed()
+		_resolve_walls(f)

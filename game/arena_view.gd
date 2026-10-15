@@ -27,9 +27,12 @@ const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
 const MINE := Color("ff4d4d")
 ## Floor zone fills by kind (sim Zone.kind).
-const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff")}
+const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "clod": Color("b08968")}
 ## Pulse and blast ring colours by kind.
-const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d")}
+const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"),
+	"zap": Color("6f8bff"), "glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968")}
+const STRING := Color("ffd1e8")
+const MARK := Color("ff5a5a")
 const RING_LIFE := 0.45
 ## Crits pop bigger in gold; backstabs get their own call-out.
 const POP_CRIT := Color("ffb627")
@@ -203,6 +206,36 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"shielded":
 				var g := sim.balls[e.target]
 				_add_popup(g.pos + Vector2(28, -g.radius - 10), "0", POP_BEAM)
+			"teleport":
+				var g := sim.balls[e.ball]
+				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
+				_spawn_particles(e.from, 10)
+				_spawn_particles(e.to, 10)
+				_bursts.append({"pos": e.to, "age": 0.0})
+				_squash[g.index] = 0.25
+			"yank":
+				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
+				if e.big:
+					var g := sim.balls[e.ball]
+					_add_popup(g.pos + Vector2(-40, -g.radius - 34), "REEL IN!", POP_SNAP)
+			"charge":
+				_squash[e.ball] = maxf(_squash[e.ball], 0.2)
+			"mark":
+				var t := sim.balls[e.target]
+				_add_popup(t.pos + Vector2(-30, -t.radius - 34), "MARKED", MARK)
+			"pounce", "lance", "ping_crit", "gear_slam", "tilt":
+				var g := sim.balls[e.ball]
+				var call: String = {"pounce": "POUNCE!", "lance": "CHARGE!", "ping_crit": "ECHO HIT!", "gear_slam": "TOP GEAR!", "tilt": "TILT!"}[e.type]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 40), call, POP_SNAP, 1.15)
+				_shake = maxf(_shake, 8.0 * A11y.motion())
+			"ding":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "DING x%d" % e.lit, POP_SNAP)
+			"bow":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "BOW!", POP_SNAP)
+			"dig":
+				_rings.append({"pos": e.pos, "radius": sim.balls[e.ball].radius * 1.2, "color": RING_COLORS.dirt, "age": 0.0})
 			"snap":
 				var m := sim.balls[e.ball]
 				_add_popup(m.pos + Vector2(-34, -m.radius - 34), "SNAP!", POP_SNAP)
@@ -335,6 +368,9 @@ func _draw() -> void:
 
 	for z in sim.zones:
 		_draw_zone(z, s)
+
+	for t in sim.tethers:
+		_draw_string(sim.balls[t.owner].pos * s, sim.balls[t.target].pos * s)
 
 	var bi := 0
 	for beam in sim.beams:
@@ -616,6 +652,17 @@ func _draw_zone(z, s: float) -> void:
 			draw_circle(p, 6.0 * s, MINE if on else Color(MINE, 0.35))
 		"ring":
 			draw_arc(p, z.radius * s, 0.0, TAU, 64, Color(ZONE_COLORS.ring, 0.6 * fade), 10.0 * s, true)
+		"pixel":
+			# Pixel's bomb: a chunky square that flickers between frames.
+			var on: bool = z.armed() and fmod(_time * 4.0 + z.pos.y * 0.01, 1.0) < 0.5
+			var half: float = 14.0 * s
+			if z.armed():
+				draw_arc(p, z.blast_radius * s, 0.0, TAU, 40, Color("7cff4f", 0.12), 2.0, true)
+			draw_rect(Rect2(p - Vector2(half, half), Vector2(half, half) * 2.0), Color("1f4d12"))
+			draw_rect(Rect2(p - Vector2(half, half) * 0.5, Vector2(half, half)), Color("7cff4f") if on else Color("7cff4f", 0.35))
+		"clod":
+			var land: float = clampf(z.age / maxf(z.arm, 0.01), 0.0, 1.0)
+			draw_circle(p, z.radius * s * (0.4 + 0.6 * land), Color(ZONE_COLORS.clod, 0.25 + 0.5 * land))
 		_:
 			var col: Color = ZONE_COLORS.get(z.kind, Color.WHITE)
 			draw_circle(p, z.radius * s, Color(col, 0.28 * fade))
@@ -644,12 +691,50 @@ func _draw_status(b, s: float) -> void:
 			draw_circle(p + Vector2(cos(a), sin(a) * 0.6 - 0.4) * r * 0.9, 4.0, Color("ff8a1f", 0.8))
 	if b.slow > 0.0:
 		draw_arc(p, r * 1.02, 0.0, TAU, 48, Color("bfe9ff", 0.6), 3.0, true)
+	if sim.tick < int(b.state.get("marked_until", -1)):
+		# Pounce's target ring: a crosshair that tightens.
+		var k := 1.25 + 0.1 * sin(_time * 10.0)
+		draw_arc(p, r * k, 0.0, TAU, 48, Color(MARK, 0.85), 3.0, true)
+		for q in 4:
+			var d := Vector2.from_angle(q * TAU / 4.0)
+			draw_line(p + d * r * (k - 0.2), p + d * r * (k + 0.15), Color(MARK, 0.85), 3.0, true)
+	if sim.tick < int(b.state.get("dizzy_until", -1)):
+		_dizzy_stars(p, r, _time)
+	if b.charge_ticks > 0 and b.vel.length() > 0.001:
+		# Speed streaks behind a charging ball.
+		var back: Vector2 = -b.vel.normalized()
+		for q in 3:
+			var side: Vector2 = back.orthogonal() * r * (q - 1) * 0.5
+			draw_line(p + back * r + side, p + back * r * 2.0 + side, Color(1, 1, 1, 0.45), 3.0, true)
+	if b.def.has("gear_step"):
+		_pips(p + Vector2(0, r + 14.0), int(b.state.get("gear", 0)), int(b.def.gear_max), Color("a7c957"))
+	if b.def.has("bulb_max"):
+		_pips(p + Vector2(0, r + 14.0), int(b.state.get("lit", 0)), int(b.def.bulb_max), Color("ffe066"))
+
+
+## A row of meter lights under a ball: Gearbox's gears, Pinball's bulbs.
+func _pips(c: Vector2, lit: int, total: int, col: Color) -> void:
+	for q in total:
+		var at := c + Vector2((q - (total - 1) / 2.0) * 13.0, 0)
+		draw_circle(at, 5.0, Color(col, 0.95) if q < lit else Color(INK, 0.8))
+		draw_arc(at, 5.0, 0.0, TAU, 12, Color(col, 0.6), 1.5, true)
+
+
+## Puppeteer's string: a sagging glowing line from the owner to the foe.
+func _draw_string(a: Vector2, b: Vector2) -> void:
+	var pts := PackedVector2Array()
+	var sag := minf(a.distance_to(b) * 0.12, 30.0)
+	for q in 13:
+		var t := q / 12.0
+		pts.append(a.lerp(b, t) + Vector2(0, sag * sin(t * PI)))
+	draw_polyline(pts, Color(STRING, 0.3), 7.0, true)
+	draw_polyline(pts, STRING, 2.5, true)
 
 
 ## Stars circling the head of a knocked-out critter.
-func _dizzy_stars(pos: Vector2, r: float) -> void:
+func _dizzy_stars(pos: Vector2, r: float, clock := -1.0) -> void:
 	for k in 3:
-		var a := _ko_age * 4.0 * A11y.motion() + k * TAU / 3.0
+		var a := (_ko_age if clock < 0.0 else clock) * 4.0 * A11y.motion() + k * TAU / 3.0
 		var p := pos + Vector2(cos(a) * r * 0.75, -r * 1.05 + sin(a) * r * 0.22)
 		_star(p, r * 0.16, r * 0.07, 5, Color(BURST, 0.6 + 0.4 * sin(a)))
 

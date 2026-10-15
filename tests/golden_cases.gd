@@ -29,4 +29,15 @@ const CASES := [
 	{"seed": 18, "p1": "prism", "p2": "laser", "angles": [null, null]},
 	{"seed": 19, "p1": "blackhole", "p2": "magnet", "angles": [null, null]},
 	{"seed": 20, "p1": "mirror", "p2": "phoenix", "angles": [300, -700]},
+	# Batch F movement critters, half at T5 so every tier's twist is pinned too.
+	{"seed": 61, "p1": "bolt", "p2": "vampire", "angles": [null, null]},
+	{"seed": 62, "p1": "pixel", "p2": "laser", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 63, "p1": "hook", "p2": "bomber", "angles": [null, null]},
+	{"seed": 64, "p1": "puppeteer", "p2": "frost", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 65, "p1": "pounce", "p2": "thorns", "angles": [null, null]},
+	{"seed": 66, "p1": "sonar", "p2": "ghost", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 67, "p1": "mole", "p2": "gravity", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 68, "p1": "narwhal", "p2": "mirror", "angles": [null, null]},
+	{"seed": 69, "p1": "gearbox", "p2": "prism", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 70, "p1": "pinball", "p2": "blackhole", "angles": [null, null], "arena": "pillars"},
 ]

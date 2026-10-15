@@ -1,4 +1,5 @@
-## Narwhal, the Narwhal (Legendary Skirmisher). Planned: see design/roster.md.
+## Narwhal, the Narwhal (Legendary Skirmisher). One file is the whole critter:
+## see "Adding a critter" in README.md for what each key does.
 extends RefCounted
 
 const CRITTER := {
@@ -7,19 +8,28 @@ const CRITTER := {
 	"type": "Narwhal",
 	"rarity": "legendary",
 	"role": "Skirmisher",
-	"status": "planned",
+	"status": "live",
 	"color": "b8e0d2",
 	"vibe": "A dreamy arctic unicorn of the sea who charges like a knight.",
-	"description": "Narwhal. Every 5 seconds it charges at the foe, its horn leaving a glittering beam along the path, and the charge hit deals double.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
-	"ability": [],
-	"params": {},
+	"description": "Narwhal. Every 4.5 seconds it charges at the foe, its horn leaving a glittering beam along the path, and the charge hit deals double.",
+	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.0},
+	"ability": [{"on": "every", "secs": "lance_every", "do": "lance"}, {"on": "always", "do": "lance_tick"}, {"on": "strike", "do": "lance_hit"}],
+	"params": {
+		"lance_every": 4.5, ## Off Wisp's 5s phase beat, so the two never lock in step.
+		"lance_speed_mult": 2.0, ## Charge speed, x its own.
+		"lance_secs": 0.5,
+		"lance_beam_life": 1.5,
+		"lance_beam_dps": 8.0,
+		"lance_hit_mult": 2.0, ## Its hit during a charge.
+		"lance_knock": 0.0, ## T3: the charge hit flings the foe (x speed).
+		"lance_retry": 0, ## T5: a charge that misses curves round once.
+	},
 	"tiers": [
-		{"text": "Charges every 5s for x2, beam trail"},
-		{"text": "Beam deals 10/s"},
-		{"text": "The charge knocks the foe back hard"},
-		{"text": "Charges every 4s"},
-		{"text": "A missed charge curves round again"},
+		{"text": "Charges every 4.5s; the charge hit deals x2"},
+		{"text": "Beam deals 10 a second", "lance_beam_dps": 10.0},
+		{"text": "The charge knocks the foe back hard", "lance_knock": 1.8},
+		{"text": "Charges every 3.5s", "lance_every": 3.5},
+		{"text": "A charge that misses curves round again", "lance_retry": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["horn", "fluke"], "front": ["speckles"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.05},
