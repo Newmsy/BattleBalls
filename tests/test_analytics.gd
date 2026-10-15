@@ -3,7 +3,8 @@ extends "res://tests/test_case.gd"
 const Analytics := preload("res://game/online/analytics.gd")
 const Stats := preload("res://game/stats/stats.gd")
 
-const TEST_STATE := "user://test_analytics.json"
+## Per process: tests/run.sh runs shards side by side.
+var TEST_STATE := "user://test_analytics_%d.json" % OS.get_process_id()
 
 
 func _fresh() -> Analytics:

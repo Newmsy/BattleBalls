@@ -8,7 +8,8 @@ const UiProfile := preload("res://game/ui/ui_profile.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 
 const MONDAY := 1767571200 + 40 * 7 * 86400 ## Week 40, Monday 00:00 UTC.
-const TMP := "user://test_spire.json"
+## Per process: tests/run.sh runs shards side by side.
+var TMP := "user://test_spire_%d.json" % OS.get_process_id()
 
 
 func _climb(now := MONDAY):

@@ -14,7 +14,8 @@ const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 const T0 := 1_800_000_000
-const TEST_SAVE := "user://test_lineup_arena.cfg"
+## Per process: tests/run.sh runs shards side by side.
+var TEST_SAVE := "user://test_lineup_arena_%d.cfg" % OS.get_process_id()
 
 
 ## A player with a T3 level 12 Laser wearing a 5-star attack Core.

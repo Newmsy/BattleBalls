@@ -6,7 +6,8 @@ const Backend := preload("res://game/online/backend.gd")
 const Account := preload("res://game/online/account.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 
-const TEST_SAVE := "user://test_save.json"
+## Per process: tests/run.sh runs shards side by side.
+var TEST_SAVE := "user://test_save_%d.json" % OS.get_process_id()
 
 
 func _fresh_save() -> SaveGame:
