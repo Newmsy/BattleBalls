@@ -98,7 +98,6 @@ var pick_tiers := [0, 0]
 ## Tiers a shared fight link (&t=) was played at, for REPLAY; [0, 0] is none.
 var link_tiers := [0, 0]
 var tier_buttons: Array = []
-var tier_row: HBoxContainer
 
 var backend: Backend
 var save := SaveGame.new()
@@ -899,8 +898,7 @@ func _build_ui() -> void:
 	rules_button = _button("", _cycle_rules, 22, "ghost", 68)
 	# Tiers to test with: tap to cycle equal stats, then one to five stars.
 	tier_buttons = [_tier_button(0), _tier_button(1)]
-	tier_row = _row(tier_buttons + [rules_button])
-	menu_box.add_child(tier_row)
+	menu_box.add_child(_row(tier_buttons + [rules_button]))
 	fight_button = _button("FIGHT!", _begin_aim, 40, "go", 96)
 	fight_button.size_flags_stretch_ratio = 2.0
 	menu_box.add_child(_row([_button("Home", _show_home, 22, "ghost", 96), new_seed_button, fight_button]))
