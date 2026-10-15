@@ -473,10 +473,10 @@
       "p2": "prism",
       "seed": 28
     },
-    "hash": "5ba40ba8091361252169b792c425ee6169a0b02e6103072664d55aa68e8fdb00",
+    "hash": "4400f059d5821bcccac50c3f152a3d41ab26cc587053c001a0944cf4adef581e",
     "reason": "knockout",
-    "ticks": 942,
-    "winner": 0
+    "ticks": 2140,
+    "winner": 1
   },
   {
     "config": {

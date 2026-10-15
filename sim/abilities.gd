@@ -527,9 +527,24 @@ func fx_chomp_heal(_sim, b, ctx: Dictionary) -> void:
 		ctx.heals.append({"ball": b.index, "amount": ctx.amount * b.def.chomp_heal})
 
 
-## Each wall bounce snags twigs: +twig_grow radius and +twig_damage contact
-## damage per twig, up to twig_max. State: b.state.twigs.
-func fx_twig(sim, b, _ctx: Dictionary) -> void:
+## True when a wall bounce at `point` was off the arena's edge (walls or cut
+## corners), not a pillar or bumper. Bounce-counting critters only count those:
+## Pillar Hall and Bumper Bash doubled their bounces (Fizz beat Mossy 80% there).
+static func _outer_wall(sim, point: Vector2) -> bool:
+	var r: Rect2 = sim.arena_rect()
+	if not r.grow(-1.0).has_point(point):
+		return true
+	for wall in sim.corner_walls():
+		if wall[0].dot(point - sim.centre) + wall[1] < 1.0:
+			return true
+	return false
+
+
+## Each bounce off the arena's edge snags twigs: +twig_grow radius and
+## +twig_damage contact damage per twig, up to twig_max. State: b.state.twigs.
+func fx_twig(sim, b, ctx: Dictionary) -> void:
+	if not _outer_wall(sim, ctx.point):
+		return
 	var n := mini(int(b.state.get("twigs", 0)) + 1, int(b.def.twig_max))
 	if n == int(b.state.get("twigs", 0)):
 		return
@@ -608,11 +623,13 @@ func fx_unwind(sim, b, ctx: Dictionary) -> void:
 	sim.events.append({"type": "unwind", "ball": b.index, "pos": b.pos})
 
 
-## Each wall bounce adds pressure; at fizz_at it pops: +fizz_speed speed for
+## Each bounce off the arena's edge adds pressure; at fizz_at it pops: +fizz_speed speed for
 ## fizz_secs and fizz_damage more on its next contact hit. fizz_puddle > 0
 ## leaves a slowing puddle (that share) behind; fizz_dash 1 turns it at the
 ## nearest foe. State: b.state.pressure. Emits "pop".
-func fx_fizz(sim, b, _ctx: Dictionary) -> void:
+func fx_fizz(sim, b, ctx: Dictionary) -> void:
+	if not _outer_wall(sim, ctx.point):
+		return
 	var n := int(b.state.get("pressure", 0)) + 1
 	if n < int(b.def.fizz_at):
 		b.state.pressure = n

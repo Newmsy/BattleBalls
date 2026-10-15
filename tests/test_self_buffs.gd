@@ -97,8 +97,10 @@ func test_tumble_grows_on_bounces_and_drops_when_hurt() -> void:
 	var sim := _sim("tumble")
 	var b := sim.balls[0]
 	for i in 10:
-		sim._on_wall_bounce(b, b.pos)
+		sim._on_wall_bounce(b, Vector2(0, 500))
 	check_near(b.radius, b.def.radius * 1.3, 0.001, "max 6 twigs")
+	sim._on_wall_bounce(b, Vector2(500, 500)) # A pillar or bumper, not the edge.
+	check_eq(b.state.twigs, 6, "obstacles don't count")
 	check_near(b.contact_damage, b.def.contact_damage + 6.0, 0.001, "+1 damage each")
 	sim.deal(sim.balls[1], b, 1.0, "mine")
 	sim._apply_hits(sim._hits)
@@ -108,7 +110,7 @@ func test_tumble_grows_on_bounces_and_drops_when_hurt() -> void:
 	check_near(b.radius, b.def.radius, 0.001, "a hit knocks them all off")
 	var t3 := _sim("tumble", "plain", [3, 1])
 	for i in 8:
-		t3._on_wall_bounce(t3.balls[0], t3.balls[0].pos)
+		t3._on_wall_bounce(t3.balls[0], Vector2(0, 500))
 	t3.deal(t3.balls[1], t3.balls[0], 1.0, "contact")
 	t3._apply_hits(t3._hits)
 	check_eq(t3.balls[0].state.twigs, 4, "T3 keeps half")
@@ -150,9 +152,9 @@ func test_fizz_pops_after_enough_bounces() -> void:
 	var sim := _sim("fizz")
 	var b := sim.balls[0]
 	for i in int(b.def.fizz_at) - 1:
-		sim._on_wall_bounce(b, b.pos)
+		sim._on_wall_bounce(b, Vector2(0, 500))
 	check_near(b.speed, b.def.speed, 0.001, "no pop yet")
-	sim._on_wall_bounce(b, b.pos)
+	sim._on_wall_bounce(b, Vector2(0, 500))
 	check_near(b.speed, b.def.speed * 1.4, 0.001, "pops for speed")
 	check_near(b.contact_damage, b.def.contact_damage + b.def.fizz_damage, 0.001, "and a harder hit")
 	sim._strike(b, sim.balls[1])
