@@ -686,7 +686,10 @@ try {
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN bracket", 10000);
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "champ_laser", "bracket");
+    // Every live critter enters, so tap the first-drawn card: it sits at the
+    // top of the grid, whatever the roster's size.
+    const first = logs.find((l) => l.startsWith("UI_AT champ_")).split(" ")[1];
+    await tapUi(page, logs, first, "bracket");
     await page.screenshot({ path: path.join(shots, "30-bracket-picks.png") });
     await page.close();
   }
