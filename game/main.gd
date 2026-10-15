@@ -659,6 +659,7 @@ func _finish_stage() -> void:
 		return
 	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight)
 	pve.result = CampaignScreen.result_text(r)
+	pve.r = r
 	report_label.text = pve.result
 	print("STAGE_END stage=%s won=%s stars=%d drops=%d" % [Zones.stage_key(pve.zone, pve.stage), r.won, r.stars, r.drops.size()])
 
@@ -679,8 +680,12 @@ func _aim_back() -> void:
 func _back_to_campaign() -> void:
 	var params := {"zone": pve.get("zone", 0)}
 	var vault := pve.has("vault")
-	if pve.has("result"):
-		params.notice = pve.result if vault else "%s: %s" % [Zones.stage_key(pve.zone, pve.stage), pve.result]
+	if vault and pve.has("result"):
+		params.notice = pve.result
+	if pve.has("r"):
+		params.result = {"stage": pve.stage, "r": pve.r, "kind": "fight"}
+	if pve.has("stage") and not vault:
+		params.focus = pve.stage
 	mode = Mode.NORMAL
 	_board_pick = -1
 	pve = {}

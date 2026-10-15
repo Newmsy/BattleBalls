@@ -200,15 +200,43 @@ func back() -> void:
 	_show(top[0], top[1])
 
 
-## Rebuild the current screen in place, e.g. after the data changed.
+## Rebuild the current screen in place, e.g. after the data changed. Keeps
+## the scroll position.
 func refresh() -> void:
+	var at := _scroll.scroll_vertical
 	_show(current, current_params)
+	_restore_scroll(at)
 
 
 ## Rebuild the current screen with new parameters, replacing it in the history.
 func refresh_with(params: Dictionary) -> void:
+	var at := _scroll.scroll_vertical
 	_stack[-1] = [current, params]
 	_show(current, params)
+	if not params.has("focus"):
+		_restore_scroll(at)
+
+
+## Scroll the current screen so `c` is in view once it has been laid out.
+func scroll_to(c: Control) -> void:
+	var sc := _scroll
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(sc) and is_instance_valid(c) and sc == _scroll:
+		# A little of the card above stays in view, so it's clear where you are.
+		sc.scroll_vertical = int(c.global_position.y - sc.global_position.y + sc.scroll_vertical - 160.0)
+
+
+func _restore_scroll(at: int) -> void:
+	var sc := _scroll
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(sc) and sc == _scroll:
+		sc.scroll_vertical = at
 
 
 func toast(text: String) -> void:
