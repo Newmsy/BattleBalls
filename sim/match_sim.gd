@@ -75,6 +75,13 @@ const BACKSTAB_MULT := 1.3
 const BACKSTAB_ANGLE := 45.0
 ## Mixed into the fight seed for the per-hit roll stream.
 const ROLL_SALT := 0x2F6B3C1D
+## Statuses (roster.md): a stun (freeze) holds a ball still for at most
+## STUN_MAX seconds, then it can't be stunned again for STUN_IMMUNITY seconds,
+## so nothing chain-locks. Vulnerable makes a ball take more damage; all its
+## sources add up to at most VULNERABLE_CAP.
+const STUN_MAX := 0.6
+const STUN_IMMUNITY := 3.0
+const VULNERABLE_CAP := 0.5
 
 const START_CORNERS := [Vector2(170, 830), Vector2(830, 170)]
 const AIM_AT_CENTRE := [-450, 1350] ## Tenths of a degree from each corner.
@@ -104,6 +111,10 @@ class Ball:
 	var boost_ticks := 0 ## Ticks of bumper speed boost left.
 	var fired := {} ## One-shot triggers already used (Abilities.tick_triggers).
 	var state := {} ## Per-ball ability state, e.g. a field's "pulling" (read by the renderer).
+	var stun_until := -1 ## Stunned (frozen in place) while tick < this.
+	var stun_immune_until := -1
+	## Timed statuses by key: {kind: "vulnerable" | "slow", amount, until (tick, exclusive), source}.
+	var statuses := {}
 	## Per-hit stats, from gear (sim/gear.gd).
 	var attack := 0.0
 	var defense := 0.0
@@ -131,6 +142,8 @@ class Beam:
 	var damage: float
 	var cooldown_ticks: int
 	var last_hit_tick := {} ## target index -> tick of last hit
+	## Extra on each hit: vulnerable / vulnerable_secs, burn / burn_secs.
+	var on_hit := {}
 
 	func strength() -> float:
 		return clampf(1.0 - age / life, 0.0, 1.0)
@@ -153,6 +166,8 @@ class Zone:
 	var blast_radius := 0.0
 	var chain := false ## A blast sets off the owner's other armed mines in reach.
 	var follow := -1 ## Ball index it rides on (a stink cloud, a clinging chill); -1 stays put.
+	var vulnerable := 0.0 ## Foes inside take this much more damage...
+	var vulnerable_linger := 0.0 ## ...until this many seconds after they leave.
 	var next_hit := {} ## target index -> tick it may next take dps damage
 
 	func armed() -> bool:
@@ -351,6 +366,8 @@ func step() -> void:
 				b.slow = b.state.shot_slow.amount
 			else:
 				b.state.erase("shot_slow")
+		if not b.statuses.is_empty():
+			_update_statuses(b)
 	if config.get("fields", true):
 		for b in balls:
 			if b.alive():
@@ -366,7 +383,8 @@ func step() -> void:
 				b.boost_ticks -= 1
 				if b.boost_ticks == 0:
 					b.vel = b.vel.normalized() * b.speed
-			b.pos += b.vel * DT * (1.0 - b.slow)
+			if tick >= b.stun_until:
+				b.pos += b.vel * DT * (1.0 - b.slow)
 			_resolve_walls(b)
 	_resolve_ball_collisions(_hits)
 	_update_beams(_hits)
@@ -422,6 +440,8 @@ func state_hash() -> String:
 			data.append_array([b.index, b.radius, b.speed, b.contact_damage])
 	for s in shots:
 		data.append_array([s.pos.x, s.pos.y, s.vel.x, s.vel.y, s.age])
+		if b.stun_until >= 0 or not b.statuses.is_empty():
+			data.append_array([b.index, b.stun_until, vulnerable(b), status_amount(b, "slow")])
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(data.to_byte_array())
@@ -472,15 +492,21 @@ func _resolve_walls(b: Ball) -> void:
 				b.boost_ticks = int(round(BUMPER_BOOST_TIME * TICK_RATE))
 				b.vel = b.vel.normalized() * b.current_speed()
 				events.append({"type": "bumper", "ball": b.index, "pos": o.pos + n * o.radius})
-			_on_wall_bounce(b, o.pos + n * o.radius)
+			_on_wall_bounce(b, o.pos + n * o.radius, true)
 
 
-func _on_wall_bounce(b: Ball, point: Vector2) -> void:
+## `obstacle`: it bounced off a pillar or bumper, not the arena's edge.
+func _on_wall_bounce(b: Ball, point: Vector2, obstacle := false) -> void:
 	events.append({"type": "bounce", "ball": b.index, "pos": point})
 	var slam: Dictionary = b.state.get("slam", {})
-	if not slam.is_empty() and tick <= slam.until:
+	# A slam with "walls_only" (Mammoth's) waits for the arena's edge.
+	if not slam.is_empty() and tick <= slam.until and not (obstacle and slam.get("walls_only", false)):
 		b.state.erase("slam")
 		deal(balls[slam.source], b, slam.damage, "slam", point)
+		if slam.get("stun", 0.0) > 0.0:
+			stun(balls[slam.source], b, slam.stun)
+		if slam.has("zone"):
+			add_zone(balls[slam.source], point, slam.zone)
 	b.banked = true
 	var bounce_heal: float = b.def.get("bounce_heal", 0.0)
 	if bounce_heal > 0.0:
@@ -504,8 +530,9 @@ func add_hit(source: Ball, target: Ball, amount: float, kind: String, pos: Vecto
 
 ## A beam from `a` to `b` owned by ball `owner`, using its beam_* params. Keeps
 ## at most beam_max of the owner's beams, dropping the oldest.
-## `opts` may override "life", "damage" and "cooldown" (seconds).
-func add_beam(owner: Ball, a: Vector2, b: Vector2, opts := {}) -> void:
+## `opts` may override "life", "damage" and "cooldown" (seconds), and add
+## "on_hit" (see Beam.on_hit). Returns the beam.
+func add_beam(owner: Ball, a: Vector2, b: Vector2, opts := {}) -> Beam:
 	var beam := Beam.new()
 	beam.owner = owner.index
 	beam.a = a
@@ -513,11 +540,13 @@ func add_beam(owner: Ball, a: Vector2, b: Vector2, opts := {}) -> void:
 	beam.life = opts.get("life", owner.def.get("beam_life", 1.0))
 	beam.damage = opts.get("damage", owner.def.get("beam_damage", 0.0))
 	beam.cooldown_ticks = int(round(opts.get("cooldown", owner.def.get("beam_hit_cooldown", 0.5)) * TICK_RATE))
+	beam.on_hit = opts.get("on_hit", {})
 	beams.append(beam)
 	var own_beams := beams.filter(func(x: Beam) -> bool: return x.owner == owner.index)
 	if own_beams.size() > owner.def.get("beam_max", 6):
 		beams.erase(own_beams[0])
 	events.append({"type": "beam", "owner": owner.index, "a": beam.a, "b": beam.b})
+	return beam
 
 
 func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
@@ -617,6 +646,12 @@ func _update_beams(hits: Array[Dictionary]) -> void:
 			if tick - last < beam.cooldown_ticks:
 				continue
 			beam.last_hit_tick[target.index] = tick
+			if not beam.on_hit.is_empty():
+				var owner := balls[beam.owner]
+				if beam.on_hit.get("vulnerable", 0.0) > 0.0:
+					add_status(owner, target, "beam:%d" % beam.owner, "vulnerable", beam.on_hit.vulnerable, beam.on_hit.vulnerable_secs)
+				if beam.on_hit.get("burn", 0.0) > 0.0:
+					add_burn(owner, target, beam.on_hit.burn, beam.on_hit.burn_secs)
 			hits.append({"source": beam.owner, "target": target.index, "amount": beam.damage, "kind": "beam", "pos": closest})
 
 
@@ -652,6 +687,8 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		var guard := {"source": source, "kind": h.kind, "mult": 1.0}
 		abilities.fire(self, "guard", target, guard)
 		amount *= guard.mult
+		if not target.statuses.is_empty():
+			amount *= 1.0 + vulnerable(target)
 		if target.shield > 0.0:
 			var absorbed := minf(target.shield, amount)
 			target.shield -= absorbed
@@ -802,7 +839,8 @@ func nearest_foe(b: Ball) -> Ball:
 
 
 ## A floor zone owned by `owner`. `opts`: kind, radius, life, arm, slow, dps,
-## blast, blast_radius, chain, follow (a ball index). Returns it.
+## blast, blast_radius, chain, follow (a ball index), vulnerable,
+## vulnerable_linger. Returns it.
 func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 	var z := Zone.new()
 	z.owner = owner.index
@@ -819,6 +857,8 @@ func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 	z.follow = opts.get("follow", -1)
 	if z.follow >= 0:
 		z.pos = balls[z.follow].pos
+	z.vulnerable = opts.get("vulnerable", 0.0)
+	z.vulnerable_linger = opts.get("vulnerable_linger", 0.0)
 	zones.append(z)
 	return z
 
@@ -885,6 +925,8 @@ func _update_zones() -> void:
 				_explode(z)
 				break
 			o.slow = maxf(o.slow, z.slow)
+			if z.vulnerable > 0.0:
+				add_status(owner, o, "zone:%d" % z.owner, "vulnerable", z.vulnerable, DT + z.vulnerable_linger)
 			if z.dps > 0.0 and tick >= int(z.next_hit.get(o.index, 0)):
 				z.next_hit[o.index] = tick + half
 				deal(owner, o, z.dps * 0.5, z.kind, z.pos)
@@ -1038,3 +1080,62 @@ func _shot_walls(s: Shot) -> bool:
 				s.vel -= 2.0 * s.vel.dot(n) * n
 				hit = true
 	return hit
+
+
+# --- Statuses: stun (freeze), vulnerable, timed slow ---------------------------
+
+func stunned(b: Ball) -> bool:
+	return tick < b.stun_until
+
+
+## Freezes `target` in place for `secs` (at most STUN_MAX). Does nothing while
+## it is already stunned or in its STUN_IMMUNITY window. Returns whether it
+## took. Emits "stun".
+func stun(source: Ball, target: Ball, secs: float) -> bool:
+	if not target.alive() or tick < target.stun_immune_until:
+		return false
+	target.stun_until = tick + maxi(1, int(round(minf(secs, STUN_MAX) * TICK_RATE)))
+	target.stun_immune_until = target.stun_until + int(round(STUN_IMMUNITY * TICK_RATE))
+	target.state.stun_source = source.index
+	events.append({"type": "stun", "ball": target.index, "source": source.index, "pos": target.pos, "secs": minf(secs, STUN_MAX)})
+	return true
+
+
+## Sets the timed status `key` on `target` (kind "vulnerable": takes `amount`
+## more damage; "slow": loses `amount` of its movement) for `secs`, replacing
+## whatever that key held. Effects that stack read status() first.
+func add_status(source: Ball, target: Ball, key: String, kind: String, amount: float, secs: float) -> void:
+	target.statuses[key] = {"kind": kind, "amount": amount, "until": tick + maxi(1, int(round(secs * TICK_RATE))), "source": source.index}
+
+
+## The live status under `key`, or an empty dictionary.
+func status(b: Ball, key: String) -> Dictionary:
+	var st: Dictionary = b.statuses.get(key, {})
+	return st if not st.is_empty() and tick < st.until else {}
+
+
+func clear_status(b: Ball, key: String) -> void:
+	b.statuses.erase(key)
+
+
+## Extra damage share `b` takes: its vulnerable statuses added up, capped.
+func vulnerable(b: Ball) -> float:
+	return minf(status_amount(b, "vulnerable"), VULNERABLE_CAP)
+
+
+## Sum of `b`'s live statuses of `kind` ("slow" takes the strongest).
+func status_amount(b: Ball, kind: String) -> float:
+	var total := 0.0
+	for key in b.statuses:
+		var st: Dictionary = b.statuses[key]
+		if st.kind == kind and tick < st.until:
+			total = maxf(total, st.amount) if kind == "slow" else total + st.amount
+	return total
+
+
+## Drops expired statuses and applies timed slows (zones may slow it more).
+func _update_statuses(b: Ball) -> void:
+	for key in b.statuses.keys():
+		if tick >= b.statuses[key].until:
+			b.statuses.erase(key)
+	b.slow = maxf(b.slow, status_amount(b, "slow"))

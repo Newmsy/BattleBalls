@@ -79,6 +79,22 @@ const EFFECTS := {
 	"unwind": ["wind_crit"],
 	"fizz": ["fizz_at", "fizz_speed", "fizz_secs", "fizz_damage", "fizz_puddle", "fizz_dash"],
 	"fizz_hit": ["fizz_splash", "fizz_splash_radius"],
+	# Batch D statuses: stun (freeze), vulnerable and timed slows (MatchSim.stun, add_status).
+	"gum": ["gum_slow", "gum_secs", "gum_burn", "gum_stacks", "gum_cap"],
+	"sour": ["sour_amount", "sour_secs", "sour_max", "sour_puddle", "sour_puddle_slow"],
+	"arc": ["zap_damage", "zap_stun", "zap_linger_dps", "zap_storm_every"],
+	"arc_tick": [],
+	"frostbite": ["bite_slow", "bite_max", "bite_secs", "bite_freeze", "shard_damage", "shard_radius", "bite_sour", "bite_sour_secs"],
+	"shatter": ["shatter_mult"],
+	"paint": ["paint_every", "paint_width", "paint_life", "paint_vuln", "paint_linger"],
+	"paint_flash": ["paint_flash_damage"],
+	"lamp": ["lamp_life", "lamp_dps", "lamp_vuln", "lamp_vuln_secs", "lamp_sweep", "lamp_back"],
+	"lamp_sweep": [],
+	"wrap": ["wrap_hold", "wrap_vuln", "wrap_vuln_secs", "wrap_confetti", "wrap_pull_every", "wrap_pull"],
+	"wrap_tick": [],
+	"shove": ["slam_damage", "slam_window", "slam_freeze", "slam_patch", "slam_patch_slow"],
+	"spark": ["spark_max"],
+	"storm": ["storm_dps", "storm_stun", "storm_burn", "thunder_radius", "thunder_damage"],
 	"grow_spike": ["spike_max"],
 	"spikes": ["spike_damage", "spike_max"],
 	"accelerate": ["speed_gain", "max_speed_mult"],
@@ -703,6 +719,258 @@ func fx_fizz_hit(sim, b, ctx: Dictionary) -> void:
 		sim.pulse(b, ctx.target.pos, b.def.fizz_splash_radius, b.def.fizz_splash, false, "pulse")
 
 
+# --- Batch D: stuns, vulnerable, timed slows -----------------------------------
+
+## Hits gum the target up: slowed gum_slow for gum_secs. gum_stacks > 1 lets
+## repeat hits stack it (gum_slow each, at most gum_cap); gum_burn > 0 also
+## burns it (that much a second for 2s).
+func fx_gum(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if t == null:
+		return
+	var key := "gum:%d" % b.index
+	var amount: float = b.def.gum_slow
+	var held: Dictionary = sim.status(t, key)
+	if b.def.gum_stacks > 1 and not held.is_empty():
+		amount = minf(held.amount + b.def.gum_slow, minf(b.def.gum_cap, b.def.gum_slow * b.def.gum_stacks))
+	sim.add_status(b, t, key, "slow", amount, b.def.gum_secs)
+	if b.def.gum_burn > 0.0:
+		sim.add_burn(b, t, b.def.gum_burn, 2.0)
+
+
+## Hits make the target sour: it takes sour_amount more damage for sour_secs.
+## Repeat hits stack up to sour_max when that's higher. sour_puddle > 0 also
+## leaves a sour puddle that big under it (2s, slows sour_puddle_slow).
+func fx_sour(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if t == null:
+		return
+	var key := "sour:%d" % b.index
+	var amount: float = b.def.sour_amount
+	var held: Dictionary = sim.status(t, key)
+	if b.def.sour_max > amount and not held.is_empty():
+		amount = minf(held.amount + b.def.sour_amount, b.def.sour_max)
+	sim.add_status(b, t, key, "vulnerable", amount, b.def.sour_secs)
+	sim.events.append({"type": "sour", "ball": t.index, "pos": t.pos})
+	if b.def.sour_puddle > 0.0:
+		sim.add_zone(b, t.pos, {"kind": "sour", "radius": b.def.sour_puddle, "life": 2.0, "slow": b.def.sour_puddle_slow})
+
+
+## Zaps the nearest foe with an arc: zap_damage and a zap_stun stun.
+## zap_linger_dps > 0 leaves the arc as a beam for 1s; every zap_storm_every-th
+## zap (when > 0) is a storm: two more arcs follow over the next second
+## (needs arc_tick on "always").
+func fx_arc(sim, b, _ctx: Dictionary) -> void:
+	b.state.zaps = int(b.state.get("zaps", 0)) + 1
+	if b.def.zap_storm_every > 0 and b.state.zaps % int(b.def.zap_storm_every) == 0:
+		b.state.storm = [sim.tick + sim.TICK_RATE / 3, sim.tick + 2 * sim.TICK_RATE / 3]
+	_arc(sim, b)
+
+
+func _arc(sim, b) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	sim.deal(b, f, b.def.zap_damage, "zap", f.pos)
+	sim.stun(b, f, b.def.zap_stun)
+	if b.def.zap_linger_dps > 0.0:
+		sim.add_beam(b, b.pos, f.pos, {"life": 1.0, "damage": b.def.zap_linger_dps * 0.25, "cooldown": 0.25})
+	else:
+		sim.add_beam(b, b.pos, f.pos, {"life": 0.2, "damage": 0.0})
+
+
+## Fires a storm's follow-up arcs on time.
+func fx_arc_tick(sim, b, _ctx: Dictionary) -> void:
+	var storm: Array = b.state.get("storm", [])
+	if not storm.is_empty() and sim.tick >= storm[0]:
+		storm.pop_front()
+		_arc(sim, b)
+
+
+## Hits frost the target: bite_slow slow per stack for bite_secs. At bite_max
+## stacks it freezes (stunned bite_freeze) and bursts into ice shards
+## (shard_damage to foes within shard_radius of it), and the frost resets.
+## bite_sour > 0 also makes the frozen foe take that much more damage for
+## bite_sour_secs.
+func fx_frostbite(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if t == null:
+		return
+	var key := "bite:%d" % b.index
+	var held: Dictionary = sim.status(t, key)
+	var stacks: int = 1 + (int(held.stacks) if not held.is_empty() else 0)
+	if stacks < int(b.def.bite_max):
+		sim.add_status(b, t, key, "slow", b.def.bite_slow * stacks, b.def.bite_secs)
+		t.statuses[key].stacks = stacks
+		return
+	sim.clear_status(t, key)
+	sim.stun(b, t, b.def.bite_freeze)
+	sim.pulse(b, t.pos, b.def.shard_radius, b.def.shard_damage, false, "shards")
+	if b.def.bite_sour > 0.0:
+		sim.add_status(b, t, "bite_sour:%d" % b.index, "vulnerable", b.def.bite_sour, b.def.bite_sour_secs)
+
+
+## Its first contact hit on a foe it froze, while still frozen, deals
+## shatter_mult x (0 = off), once per freeze.
+func fx_shatter(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.target
+	if b.def.shatter_mult <= 0.0 or not sim.stunned(t) or int(t.state.get("stun_source", -1)) != b.index:
+		return
+	if int(b.state.get("shattered", -1)) == t.stun_until:
+		return
+	b.state.shattered = t.stun_until
+	ctx.mult *= b.def.shatter_mult
+	sim.events.append({"type": "shatter", "ball": t.index, "pos": t.pos})
+
+
+## Leaves a paint trail: blobs every paint_every seconds, paint_width wide,
+## lasting paint_life. Foes on paint take paint_vuln more damage, and keep it
+## for paint_linger seconds after leaving.
+func fx_paint(sim, b, _ctx: Dictionary) -> void:
+	var every := maxi(1, int(round(b.def.paint_every * sim.TICK_RATE)))
+	if sim.tick % every == 0:
+		sim.add_zone(b, b.pos, {"kind": "paint", "radius": b.def.paint_width, "life": b.def.paint_life,
+			"vulnerable": b.def.paint_vuln, "vulnerable_linger": b.def.paint_linger})
+
+
+## All its paint dries with a flash: paint_flash_damage to each foe on paint.
+func fx_paint_flash(sim, b, _ctx: Dictionary) -> void:
+	for o in sim.foes(b):
+		for z in sim.zones:
+			if z.owner == b.index and z.kind == "paint" and o.pos.distance_to(z.pos) <= z.radius + o.radius:
+				sim.deal(b, o, b.def.paint_flash_damage, "paint", o.pos)
+				sim.events.append({"type": "pulse", "ball": b.index, "pos": o.pos, "radius": o.radius * 1.4, "kind": "paint"})
+				break
+
+
+## A lighthouse beam straight ahead to the wall: lamp_dps a second for
+## lamp_life, and a foe it touches takes lamp_vuln more damage for
+## lamp_vuln_secs. lamp_sweep > 0 swings it that many degrees over its life
+## (needs lamp_sweep on "always"); lamp_back 1 also shines one backwards.
+func fx_lamp(sim, b, _ctx: Dictionary) -> void:
+	if b.vel.length() < 0.001:
+		return
+	var dirs: Array[Vector2] = [b.vel.normalized()]
+	if b.def.lamp_back > 0:
+		dirs.append(-dirs[0])
+	var sweeps: Array = b.state.get("lamps", [])
+	for d in dirs:
+		var from: Vector2 = b.pos + d * b.radius
+		var beam = sim.add_beam(b, from, _to_wall(sim, from, d), {"life": b.def.lamp_life, "damage": b.def.lamp_dps * 0.25, "cooldown": 0.25,
+			"on_hit": {"vulnerable": b.def.lamp_vuln, "vulnerable_secs": b.def.lamp_vuln_secs}})
+		if b.def.lamp_sweep > 0.0:
+			sweeps.append({"beam": beam, "dir": d})
+	b.state.lamps = sweeps
+
+
+## Swings live lamp beams through lamp_sweep degrees over their life.
+func fx_lamp_sweep(sim, b, _ctx: Dictionary) -> void:
+	var sweeps: Array = b.state.get("lamps", [])
+	for s in sweeps.duplicate():
+		var beam = s.beam
+		if not sim.beams.has(beam):
+			sweeps.erase(s)
+			continue
+		var d: Vector2 = s.dir.rotated(deg_to_rad(b.def.lamp_sweep) * beam.age / beam.life)
+		beam.b = _to_wall(sim, beam.a, d)
+
+
+## Where a ray from `from` along unit `dir` leaves the arena's square.
+static func _to_wall(sim, from: Vector2, dir: Vector2) -> Vector2:
+	var r: Rect2 = sim.arena_rect()
+	var t := INF
+	if dir.x > 0.0001:
+		t = minf(t, (r.end.x - from.x) / dir.x)
+	elif dir.x < -0.0001:
+		t = minf(t, (r.position.x - from.x) / dir.x)
+	if dir.y > 0.0001:
+		t = minf(t, (r.end.y - from.y) / dir.y)
+	elif dir.y < -0.0001:
+		t = minf(t, (r.position.y - from.y) / dir.y)
+	return from + dir * maxf(t, 0.0)
+
+
+## Gift-wraps the nearest foe: stunned wrap_hold, then it takes wrap_vuln more
+## damage for wrap_vuln_secs after the ribbon pops. On the pop (needs
+## wrap_tick on "always"): wrap_confetti > 0 hits foes within 120 of it for
+## that much; every wrap_pull_every-th wrap (when > 0) steers it toward
+## Bonbon at wrap_pull for 0.5s.
+func fx_wrap(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	b.state.wraps = int(b.state.get("wraps", 0)) + 1
+	var hold := int(round(minf(b.def.wrap_hold, sim.STUN_MAX) * sim.TICK_RATE))
+	sim.stun(b, f, b.def.wrap_hold)
+	sim.add_status(b, f, "wrap:%d" % b.index, "vulnerable", b.def.wrap_vuln, hold * sim.DT + b.def.wrap_vuln_secs)
+	b.state.wrap = {"target": f.index, "pop": sim.tick + hold,
+		"pull": b.def.wrap_pull_every > 0 and b.state.wraps % int(b.def.wrap_pull_every) == 0}
+	sim.events.append({"type": "wrap", "ball": f.index, "from": b.pos, "pos": f.pos})
+
+
+func fx_wrap_tick(sim, b, _ctx: Dictionary) -> void:
+	var w: Dictionary = b.state.get("wrap", {})
+	if w.is_empty():
+		return
+	var f = sim.balls[w.target]
+	if sim.tick == w.pop:
+		sim.events.append({"type": "wrap_pop", "ball": f.index, "pos": f.pos})
+		if b.def.wrap_confetti > 0.0:
+			sim.pulse(b, f.pos, 120.0, b.def.wrap_confetti, false, "confetti")
+	if w.pull and sim.tick >= w.pop and sim.tick < w.pop + sim.TICK_RATE / 2 and f.alive():
+		var delta: Vector2 = b.pos - f.pos
+		if delta.length() > 0.001:
+			sim.steer(f, delta.normalized() * b.def.wrap_pull)
+	elif sim.tick >= w.pop + sim.TICK_RATE / 2:
+		b.state.erase("wrap")
+
+
+## Its hits shove the target straight away; if it slams the arena's edge (not
+## a pillar or bumper) within slam_window seconds it takes slam_damage and
+## freezes for slam_freeze.
+## slam_patch > 0 leaves an icy patch that big on the wall (3s, slows
+## slam_patch_slow). A slam freeze can shatter (fx_shatter).
+func fx_shove(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if t == null:
+		return
+	var d: Vector2 = t.pos - b.pos
+	if d.length() > 0.001:
+		t.vel = d.normalized() * t.current_speed()
+	var slam := {"source": b.index, "damage": b.def.slam_damage, "until": sim.tick + int(round(b.def.slam_window * sim.TICK_RATE)), "stun": b.def.slam_freeze, "walls_only": true}
+	if b.def.slam_patch > 0.0:
+		slam.zone = {"kind": "ice", "radius": b.def.slam_patch, "life": 3.0, "slow": b.def.slam_patch_slow}
+	t.state.slam = slam
+
+
+## Each wall bounce charges a spark (at most spark_max), remembering where.
+func fx_spark(_sim, b, ctx: Dictionary) -> void:
+	if not ctx.has("point"):
+		return
+	var sparks: Array = b.state.get("sparks", [])
+	sparks.append(ctx.point)
+	if sparks.size() > int(b.def.spark_max):
+		sparks.pop_front()
+	b.state.sparks = sparks
+
+
+## A hit spends the sparks as chain lightning: a beam from the target to each
+## charged bounce point (storm_dps a second for 1s, burning storm_burn a
+## second for 2s when > 0) and a storm_stun stun. At full sparks with
+## thunder_damage > 0, a thunderclap hits foes within thunder_radius of it.
+func fx_storm(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	var sparks: Array = b.state.get("sparks", [])
+	if t == null or sparks.is_empty():
+		return
+	var on_hit := {"burn": b.def.storm_burn, "burn_secs": 2.0} if b.def.storm_burn > 0.0 else {}
+	for p in sparks:
+		sim.add_beam(b, t.pos, p, {"life": 1.0, "damage": b.def.storm_dps * 0.25, "cooldown": 0.25, "on_hit": on_hit})
+	sim.stun(b, t, b.def.storm_stun)
+	if sparks.size() >= int(b.def.spark_max) and b.def.thunder_damage > 0.0:
+		sim.pulse(b, t.pos, b.def.thunder_radius, b.def.thunder_damage, false, "thunder")
+	sim.events.append({"type": "storm", "ball": b.index, "pos": t.pos, "sparks": sparks.size()})
+	b.state.sparks = []
 ## Grows one spike per contact hit landed, up to spike_max. State:
 ## b.state.spikes. Emits "spike" events.
 func fx_grow_spike(sim, b, _ctx: Dictionary) -> void:

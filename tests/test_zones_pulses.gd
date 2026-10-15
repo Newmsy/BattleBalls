@@ -254,7 +254,7 @@ func test_drizzle_rain_warns_then_falls_and_t5_thunders() -> void:
 func test_gear_cooldown_reads_a_named_every_param() -> void:
 	var def := Gear.apply_def(BallDefs.get_def("sooty"), {"cooldown": 0.25})
 	var every: Dictionary = def.effects.filter(func(e): return e.on == "every")[0]
-	check_near(float(every.secs), 4.0 / 1.25, 0.001, "\"secs\" naming a param is scaled, not zeroed")
+	check_near(float(def[every.secs]), 4.0 / 1.25, 0.001, "\"secs\" naming a param is scaled, not zeroed")
 
 
 func test_new_state_is_cleaned_up_with_the_cloud() -> void:

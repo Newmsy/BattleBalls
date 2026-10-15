@@ -199,6 +199,14 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("snap", 0.0, 0.8)
 			"pop":
 				play("flip", 0.0, 1.8)
+			"stun":
+				play("zap", 0.0, 0.6)
+			"wrap":
+				play("stretch", 0.0, 1.3)
+			"wrap_pop", "shatter":
+				play("snap", 0.0, 1.4 if e.type == "wrap_pop" else 0.8)
+			"storm":
+				play("sizzle", 0.0, 0.8)
 			"end":
 				if e.reason != "time_limit":
 					play("ko")
