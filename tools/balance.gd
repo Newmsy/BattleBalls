@@ -276,7 +276,8 @@ func _win_rate(a: String, a_power: float, b: String, a_gear = null) -> float:
 
 
 ## Stand-in for one tier until tiers exist in the sim: HP and every damage
-## stat each scale by sqrt(power), so HP x damage scales by `power`.
+## stat (contact, *_damage and per-second *_dps) each scale by sqrt(power),
+## so HP x damage scales by `power`.
 static func _boost(ball, power: float) -> void:
 	var k := sqrt(power)
 	ball.hp *= k
@@ -284,7 +285,7 @@ static func _boost(ball, power: float) -> void:
 	ball.contact_damage *= k
 	var def: Dictionary = ball.def.duplicate()
 	for key in def:
-		if String(key).ends_with("_damage"):
+		if String(key).ends_with("_damage") or String(key).ends_with("_dps"):
 			def[key] *= k
 	ball.def = def
 
