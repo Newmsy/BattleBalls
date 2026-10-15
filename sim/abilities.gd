@@ -537,12 +537,13 @@ func fx_twig(sim, b, _ctx: Dictionary) -> void:
 	sim.set_mod(b, "twigs", {"radius": 1.0 + b.def.twig_grow * n, "add": b.def.twig_damage * n})
 
 
-## Being hurt knocks the twigs loose, keeping twig_keep of them. At full size
-## with twig_burst > 0 they burst as a dust pulse (twig_burst damage within
+## A contact hit knocks the twigs loose, keeping twig_keep of them (beam and
+## zone chip doesn't, or Spectra kept it bare: 78%). At full size with
+## twig_burst > 0 they burst as a dust pulse (twig_burst damage within
 ## twig_burst_radius).
 func fx_twig_drop(sim, b, ctx: Dictionary) -> void:
 	var n := int(b.state.get("twigs", 0))
-	if n == 0 or ctx.get("source") == b:
+	if n == 0 or ctx.get("kind") != "contact":
 		return
 	if b.def.twig_burst > 0.0 and n >= int(b.def.twig_max):
 		sim.pulse(b, b.pos, b.def.twig_burst_radius, b.def.twig_burst, true, "pulse")

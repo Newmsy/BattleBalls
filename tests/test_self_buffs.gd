@@ -102,11 +102,14 @@ func test_tumble_grows_on_bounces_and_drops_when_hurt() -> void:
 	check_near(b.contact_damage, b.def.contact_damage + 6.0, 0.001, "+1 damage each")
 	sim.deal(sim.balls[1], b, 1.0, "mine")
 	sim._apply_hits(sim._hits)
+	check_near(b.radius, b.def.radius * 1.3, 0.001, "chip from abilities doesn't")
+	sim.deal(sim.balls[1], b, 1.0, "contact")
+	sim._apply_hits(sim._hits)
 	check_near(b.radius, b.def.radius, 0.001, "a hit knocks them all off")
 	var t3 := _sim("tumble", "plain", [3, 1])
 	for i in 8:
 		t3._on_wall_bounce(t3.balls[0], t3.balls[0].pos)
-	t3.deal(t3.balls[1], t3.balls[0], 1.0, "mine")
+	t3.deal(t3.balls[1], t3.balls[0], 1.0, "contact")
 	t3._apply_hits(t3._hits)
 	check_eq(t3.balls[0].state.twigs, 4, "T3 keeps half")
 
@@ -161,6 +164,10 @@ func test_flicker_fades_after_a_hit() -> void:
 	var b := sim.balls[0]
 	sim.abilities.fire(sim, "hit", b, {"target": sim.balls[1], "amount": 5.0, "heals": []})
 	var g := {"source": sim.balls[1], "kind": "contact", "mult": 1.0}
+	sim.abilities.fire(sim, "guard", b, g)
+	check_near(g.mult, 1.0, 0.001, "the foe's hit from the same bump lands in full")
+	sim.tick += 1
+	g.mult = 1.0
 	sim.abilities.fire(sim, "guard", b, g)
 	check_near(g.mult, b.def.phase_guard, 0.001, "faded: takes less")
 
