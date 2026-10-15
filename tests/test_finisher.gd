@@ -1,6 +1,7 @@
 extends "res://tests/test_case.gd"
 
 const MatchSim := preload("res://sim/match_sim.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const ClipExport := preload("res://game/clip/clip_export.gd")
@@ -69,16 +70,71 @@ func test_no_finisher_without_a_knockout() -> void:
 
 
 func test_finisher_focus_stays_inside_the_arena() -> void:
-	var cfg := _ko_config()
-	var cam = FinisherCam.plan(cfg)
-	var sim := MatchSim.new(cfg)
-	sim.run_to_end()
-	sim.balls[cam.loser].pos = Vector2(5, 5)
-	sim.balls[cam.winner].pos = Vector2(40, 30)
+	var cam = FinisherCam.plan(_ko_config())
 	var z: float = FinisherCam.ZOOM
-	var f: Vector2 = cam.focus(sim, z)
+	var f: Vector2 = cam.focus(Vector2(5, 5), Vector2(40, 30), z)
 	var half := MatchSim.ARENA_SIZE / (2.0 * z)
 	check(f.x >= half - 0.001 and f.y >= half - 0.001, "focus clamped away from the corner: %s" % f)
+
+
+## The losing critter stays in shot through the whole slow motion, even when
+## it's knocked across the arena or hit from far away. Plays each finisher
+## the way the game does (real frames at the slow-mo rate, camera following).
+func test_finisher_keeps_the_loser_in_frame() -> void:
+	var pairs := [["vampire", "laser"], ["laser", "vampire"]]
+	var live: Array = BallDefs.PLAYABLE
+	for i in range(0, mini(live.size() - 1, 12), 2):
+		pairs.append([live[i], live[i + 1]])
+	var checked := 0
+	for pair in pairs:
+		for s in range(1, 9):
+			var cfg := {"seed": s, "p1": pair[0], "p2": pair[1]}
+			var cam = FinisherCam.plan(cfg)
+			if cam.ko_tick < 0:
+				continue
+			var sim := MatchSim.new(cfg)
+			var frame := 1.0 / 60.0
+			var acc := 0.0
+			var prev: Array = []
+			var focus := Vector2.ZERO
+			var started := false
+			while not sim.finished:
+				var rate: float = cam.time_scale(sim.tick, 2.0)
+				acc += frame
+				while acc >= MatchSim.DT / rate and not sim.finished:
+					acc -= MatchSim.DT / rate
+					prev = sim.balls.map(func(b): return b.pos)
+					sim.step()
+				if not cam.active(sim.tick) or sim.finished:
+					continue
+				var alpha := clampf(acc / (MatchSim.DT / rate), 0.0, 1.0)
+				var lp: Vector2 = (prev[cam.loser] as Vector2).lerp(sim.balls[cam.loser].pos, alpha)
+				var wp: Vector2 = (prev[cam.winner] as Vector2).lerp(sim.balls[cam.winner].pos, alpha)
+				var z: float = cam.zoom(sim.tick - 1.0 + alpha)
+				var target: Vector2 = cam.focus(lp, wp, z)
+				focus = target if not started else FinisherCam.follow(focus, target, frame)
+				started = true
+				var off := (lp - focus).abs()
+				var half := MatchSim.ARENA_SIZE / (2.0 * z)
+				var room: float = half - sim.balls[cam.loser].radius * 0.5
+				check(off.x <= room and off.y <= room, "%s vs %s seed %d: loser out of shot at tick %d (off %s, half %.2f)" % [pair[0], pair[1], s, sim.tick, off, half])
+				checked += 1
+	check(checked > 200, "checked enough finisher frames (%d)" % checked)
+
+
+## Zoom moves a little every frame between sim steps rather than jumping a
+## step at a time (what made the slow motion look jittery).
+func test_finisher_zoom_is_smooth_between_steps() -> void:
+	var cam = FinisherCam.plan(_ko_config())
+	var lead := roundi(FinisherCam.LEAD * MatchSim.TICK_RATE)
+	var start: int = cam.ko_tick - lead
+	var last: float = cam.zoom(float(start))
+	for i in range(1, lead * 10 + 1):
+		var z: float = cam.zoom(start + i / 10.0)
+		check(z >= last - 0.0001, "zoom never pulls back on the way in")
+		check(z - last < 0.01, "no jump between frames (%.4f)" % (z - last))
+		last = z
+	check(cam.zoom(cam.ko_tick - 0.5) > cam.zoom(cam.ko_tick - 1.0), "zoom moves between two steps")
 
 
 ## A clip replays from the same seed and angles as the share link, so a
