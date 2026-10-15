@@ -10,14 +10,17 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const Power := preload("res://sim/power.gd")
+const ArenaBoosts := preload("res://sim/arena_boosts.gd")
 const ART_SHRINK := .7
 
 
 ## Power Rating of a lineup slot ({critter, tier, level, gear}): the number
-## on the critter's detail screen (Profile.power_of) for the same setup.
+## on the critter's detail screen (Profile.power_of) for the same setup, plus
+## any Arena Boost the slot carries.
 static func rating(slot: Dictionary) -> int:
 	var s := Lineup.clean(slot)
-	return roundi(1000.0 * Lineup.power(s) * (1.0 + Power.GEAR_STEP * s.gear.size()))
+	var boost: float = 1.0 + ArenaBoosts.power(s.get("boost", {}))
+	return roundi(1000.0 * Lineup.power(s) * (1.0 + Power.GEAR_STEP * s.gear.size()) * boost)
 
 
 ## Icon with tier stars and level above, power underneath. `level` 0 leaves the level out

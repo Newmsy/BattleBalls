@@ -8,11 +8,14 @@
 ## Reading a slot clamps everything to the game's rules (tier 1-5, level up to
 ## the tier's cap, one piece per gear slot, gear lines capped in sim/gear.gd),
 ## so a tampered lineup can't field a T9 or stack ten Legendary cores.
+## Optional `boost`: {line: value} from Arena Boosts (sim/arena_boosts.gd),
+## clamped to a fully boosted family and fought as one more gear piece.
 extends RefCounted
 
 const CritterDb := preload("res://sim/critter_db.gd")
 const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
+const ArenaBoosts := preload("res://sim/arena_boosts.gd")
 
 const MAX_TIER := 5
 const GEAR_SLOTS := ["Shell", "Core"]
@@ -46,8 +49,19 @@ static func clean(slot: Dictionary) -> Dictionary:
 				if Gear.LINES.has(line):
 					stats[line] = clampf(float(piece.stats[line]), 0.0, float(Gear.LINES[line].legendary))
 			pieces.append({"slot": gs, "rarity": str(piece.get("rarity", "common")), "stats": stats})
-	return {"critter": str(slot.get("critter", "")), "tier": tier,
+	var out := {"critter": str(slot.get("critter", "")), "tier": tier,
 		"level": clampi(int(slot.get("level", 1)), 1, level_cap(tier)), "gear": pieces}
+	var boost := ArenaBoosts.clean(slot.get("boost"))
+	if not boost.is_empty():
+		out.boost = boost
+	return out
+
+
+## The pieces a slot fights with: its gear plus its Arena Boost, if any.
+static func kit(s: Dictionary) -> Array:
+	if not s.has("boost"):
+		return s.gear
+	return s.gear + [{"slot": "Boost", "stats": s.boost}]
 
 
 ## The slot's progression multiplier (sim/power.gd): rarity, tier and level.
@@ -69,7 +83,7 @@ static func side(slots: Array) -> Dictionary:
 		out.sides.append(s.critter)
 		out.tiers.append(s.tier)
 		out.powers.append(power(s))
-		out.gear.append(s.gear)
+		out.gear.append(kit(s))
 	return out
 
 
@@ -82,5 +96,5 @@ static func apply(cfg: Dictionary, i: int, slot: Dictionary) -> Dictionary:
 	cfg["p%d" % (i + 1)] = s.critter
 	cfg.tiers[i] = s.tier
 	cfg.powers[i] = power(s)
-	cfg.gear[i] = s.gear
+	cfg.gear[i] = kit(s)
 	return cfg
