@@ -8,19 +8,24 @@ const CRITTER := {
 	"type": "Splitter",
 	"rarity": "epic",
 	"role": "Skirmisher",
-	"status": "planned",
+	"status": "live",
 	"color": "ff6fae",
 	"vibe": "Two personalities sharing one jelly body, never quite agreeing.",
-	"description": "Splitter.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
+	"description": "Splitter. At half HP it tears into two smaller, faster minis that share what HP it has left.",
+	"stats": {"hp": 145.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.5},
 	"ability": [{"on": "hp_below", "hp": 0.5, "do": "split"}],
-	"params": {},
+	"params": {
+		"split_gens": 1, ## Splits per ball in all; above 1, minis split again below half their HP.
+		"split_radius": 0.7, ## Mini size, x its own.
+		"split_speed": 1.15, ## Mini speed, x its own.
+		"split_damage": 0.0, ## Contact damage a mini adds.
+	},
 	"tiers": [
-		{"text": "Splits once at 50% HP"},
-		{"text": "Children hit harder"},
-		{"text": "Splits at 50% and 25%"},
-		{"text": "Children hit harder still"},
-		{"text": "Children also split"},
+		{"text": "Splits into two minis at 50% HP"},
+		{"text": "Minis hit harder (+2)", "split_damage": 2.0},
+		{"text": "Minis split once more at half their HP", "split_gens": 2},
+		{"text": "Minis hit harder still (+3)", "split_damage": 3.0},
+		{"text": "Minis are faster", "split_speed": 1.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mis": true, "mouth": "smile"}, "front": ["seam"]},
 	"sound": {},
