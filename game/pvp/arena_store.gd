@@ -27,7 +27,7 @@ static var reopen := false
 var path := SAVE_PATH
 var trophies := 0
 var peak := 0 ## Best trophies this season (sets the league floor).
-var trio: Array = ["vampire", "laser", "vampire"]
+var trio: Array = ["vampire", "laser", "spiker"]
 var shots: Array = [0, 0, 0] ## Launch offsets off the centre line, tenths of a degree.
 var refresh_day := 0
 var refreshes := 0
@@ -90,23 +90,53 @@ func refresh(day: int = today()) -> bool:
 	return true
 
 
+## Puts `critter` in `slot`. A trio never holds the same critter twice: if
+## it is already in another slot, the two slots swap.
 func set_slot(slot: int, critter: String) -> void:
 	assert(critter in BallDefs.PLAYABLE, "Not playable: %s" % critter)
+	var was: int = trio.find(critter)
+	if was != -1 and was != slot:
+		trio[was] = trio[slot]
 	trio[slot] = critter
 	save()
 
 
-## Ranked trios use only critters the player owns: never a loaner or one
-## they haven't got. Swaps any other slot for the first owned critter.
-## Returns true if the trio changed.
+## The strongest trio from `owned` (strongest first): its first three.
+## Repeats only when the player owns fewer than three critters.
+static func best_trio(owned: Array) -> Array:
+	var out: Array = []
+	for i in 3:
+		out.append(owned[i] if i < owned.size() else owned[i % owned.size()])
+	return out
+
+
+## Fills the trio with the strongest trio from `owned` (strongest first).
+func fill_best(owned: Array) -> void:
+	if owned.is_empty():
+		return
+	trio = best_trio(owned)
+	save()
+
+
+## Ranked trios use only critters the player owns, never a loaner or one
+## they haven't got, and never the same critter twice (older saves could).
+## Any other slot takes the strongest owned critter not already in the trio
+## (`owned` is strongest first). Returns true if the trio changed.
 func fit_to(owned: Array) -> bool:
 	if owned.is_empty():
 		return false
 	var changed := false
+	var seen: Array = []
 	for i in trio.size():
-		if not trio[i] in owned:
-			trio[i] = owned[0]
+		if trio[i] in owned and not trio[i] in seen:
+			seen.append(trio[i])
+			continue
+		var spare: Array = owned.filter(func(id): return not id in seen and not id in trio.slice(i + 1))
+		var pick: String = spare[0] if not spare.is_empty() else owned[i % owned.size()]
+		if pick != trio[i]:
+			trio[i] = pick
 			changed = true
+		seen.append(pick)
 	if changed:
 		save()
 	return changed

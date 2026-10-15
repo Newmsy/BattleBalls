@@ -11,6 +11,7 @@ const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const Loaner := preload("res://game/loaner.gd")
+const CritterPicker := preload("res://game/ui/critter_picker.gd")
 
 const CARD_COLORS := {"easier": Kit.GOOD, "even": Kit.ACCENT, "harder": Kit.WARN}
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
@@ -30,7 +31,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var back: Control = shell.back_button("back")
 	var how := [
 		"Your trio fights theirs in order. A winner stays in with the HP it has left. Each ball's last shot is saved for your ghost.",
-		"Tap a trio slot to swap in another critter you own.",
+		"Tap a trio slot to pick a critter you own. Each critter fits in a trio once; picking one already in it swaps the two. Best trio fills in your strongest three.",
 		"Easier cards risk fewer trophies, harder ones win more. One free refresh a day.",
 		"Arena Ghosts are practice opponents run by the game. Other players' trios join once online play opens.",
 	]
@@ -84,8 +85,9 @@ static func _league_panel(store) -> Control:
 
 ## Critters that can go in a ranked trio: owned ones only, so no loaner
 ## (Try-a-Critter) and nothing the player hasn't got.
+## Strongest first.
 static func owned_critters(profile) -> Array:
-	return BallDefs.PLAYABLE.filter(func(id): return Loaner.can_use(profile, id, "ghost_arena"))
+	return CritterPicker.by_power(profile, BallDefs.PLAYABLE.filter(func(id): return Loaner.can_use(profile, id, "ghost_arena")))
 
 
 static func _trio_panel(shell, store, owned: Array) -> Control:
@@ -101,13 +103,26 @@ static func _trio_panel(shell, store, owned: Array) -> Control:
 		var slot := Kit.card_button(content, func():
 			if owned.is_empty():
 				return
-			store.set_slot(i, owned[(owned.find(critter) + 1) % owned.size()])
-			shell.refresh_with({"store": store}), Kit.LINE, Kit.PANEL2, 28, 10)
+			var tags := {}
+			for j in 3:
+				tags[store.trio[j]] = "#%d" % (j + 1)
+			var on_pick := func(id: String) -> void:
+				store.set_slot(i, id)
+				shell.refresh_with({"store": store})
+			CritterPicker.open(shell, owned, {
+				"title": "Slot %d" % (i + 1),
+				"hint": "Already in your trio? Picking it swaps the two slots.",
+				"current": critter, "tags": tags, "on_pick": on_pick,
+			}), Kit.LINE, Kit.PANEL2, 28, 10)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("arena_slot_%d" % i, slot)
 		row.add_child(slot)
+	var best := Kit.card_button(Kit.chip("Best trio", Kit.ACCENT), func():
+		store.fill_best(owned)
+		shell.refresh_with({"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
+	shell.mark("arena_best_trio", best)
 	return Kit.vbox(10, [
-		Kit.hbox(0, [Kit.caption("Your trio · fights in this order"), Kit.spacer(), Kit.label("Tap to swap", 20, Kit.MUTED)]),
+		Kit.hbox(0, [Kit.caption("Your trio · fights in this order"), Kit.spacer(), best], BoxContainer.ALIGNMENT_CENTER),
 		row,
 	])
 
