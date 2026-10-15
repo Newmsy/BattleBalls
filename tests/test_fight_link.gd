@@ -33,8 +33,8 @@ func test_mirrored_shot_aims_the_same_way_from_the_other_corner() -> void:
 
 
 func test_bad_codes_are_rejected() -> void:
-	for code in ["", "1", "2.vampire.laser.1.0.0", "1.vampire.ghost.1.0.0", "1.vampire.laser.x.0.0",
+	for code in ["", "1", "2.vampire.laser.1.0.0", "1.vampire.nobody.1.0.0", "1.vampire.laser.x.0.0",
 			"1.vampire.laser.1.0", "1.vampire.laser.-5.0.0", "1.vampire.laser.1.99999.0"]:
 		check_eq(FightLink.parse_replay(code), {}, "replay " + code)
-	for code in ["", "1.vampire.1", "1.ghost.1.0", "1.vampire.1.0.0", "0.vampire.1.0"]:
+	for code in ["", "1.vampire.1", "1.nobody.1.0", "1.vampire.1.0.0", "0.vampire.1.0"]:
 		check_eq(FightLink.parse_challenge(code), {}, "challenge " + code)
