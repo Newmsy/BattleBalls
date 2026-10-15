@@ -9,6 +9,8 @@ const Modifiers := preload("res://sim/modifiers.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
+const Catalog := preload("res://game/glow/catalog.gd")
+const CosmeticArt := preload("res://game/glow/cosmetic_art.gd")
 const A11y := preload("res://game/a11y.gd")
 const RarityMark := preload("res://game/ui/rarity_mark.gd")
 
@@ -80,6 +82,9 @@ var cam_focus := Vector2.ONE * MatchSim.ARENA_SIZE / 2.0
 var ko_ball := -1
 ## 0..1: how far into the finisher (letterbox bars and the K.O. banner).
 var finisher_amount := 0.0
+## Cosmetics per side ({slot: id}, see game/glow/catalog.gd); index 0 is the
+## player. Render-only: the sim never sees these.
+var loadouts: Array = [{}, {}]
 
 var _time := 0.0
 var _shake := 0.0
@@ -100,6 +105,9 @@ var _fx_rng := RandomNumberGenerator.new()
 var _ko_age := 0.0
 var _banner := 0.0 ## Seconds left on the OVERTIME banner.
 var _was_overtime := false
+var _trails: Array = [[], []] ## Recent world positions per ball, oldest first.
+var _kos: Array[Dictionary] = []
+const TRAIL_LEN := 18
 
 
 func to_world(screen_pos: Vector2) -> Vector2:
@@ -127,6 +135,8 @@ func clear_effects() -> void:
 	_bursts.clear()
 	_rings.clear()
 	_flashes.clear()
+	_kos.clear()
+	_trails = [[], []]
 	_wisps.clear()
 	_shake = 0.0
 	_hit = [0.0, 0.0]
@@ -168,7 +178,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_squash[e.a] = 0.2
 				_squash[e.b] = 0.2
 				_shake = maxf(_shake, 5.0 * A11y.motion())
-				_bursts.append({"pos": e.pos, "age": 0.0})
+				_bursts.append({"pos": e.pos, "age": 0.0, "spark": _cosmetic(0, "spark"), "seed": _fx_rng.randf() * 10.0})
 				_spawn_particles(e.pos, 10)
 			"flip":
 				var m := sim.balls[e.ball]
@@ -212,6 +222,9 @@ func consume_events(events: Array[Dictionary]) -> void:
 					if not b.alive():
 						_spawn_particles(b.pos, 36)
 						_shake = 10.0 * A11y.motion()
+						var ko := _cosmetic(1 - b.index, "ko")
+						if not ko.is_empty():
+							_kos.append({"pos": b.pos, "r": b.radius, "item": ko, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
 
 
 func advance_effects(delta: float) -> void:
@@ -234,6 +247,11 @@ func advance_effects(delta: float) -> void:
 		for b in sim.balls:
 			_pole_swap[b.index] = move_toward(_pole_swap[b.index], 0.0 if b.state.get("pulling", true) else 1.0, delta / 0.25)
 		for b in sim.balls:
+			var trail: Array = _trails[b.index]
+			if b.alive():
+				trail.append(b.pos)
+			while trail.size() > (TRAIL_LEN if b.alive() else 0):
+				trail.pop_front()
 			if b.vel.length() > 0.001:
 				_look[b.index] = _look[b.index].lerp(b.vel.normalized(), clampf(delta * 9.0, 0.0, 1.0)).normalized()
 	for p in _popups:
@@ -246,7 +264,10 @@ func advance_effects(delta: float) -> void:
 	_particles = _particles.filter(func(p): return p.age < p.life)
 	for k in _bursts:
 		k.age += delta
-	_bursts = _bursts.filter(func(k): return k.age < BURST_LIFE)
+	_bursts = _bursts.filter(func(k): return k.age < (CosmeticArt.SPARK_LIFE if k.spark else BURST_LIFE))
+	for k in _kos:
+		k.age += delta
+	_kos = _kos.filter(func(k): return k.age < CosmeticArt.KO_LIFE)
 	for w in _wisps:
 		w.age += delta
 	_wisps = _wisps.filter(func(w): return w.age < w.life)
@@ -310,6 +331,9 @@ func _draw() -> void:
 		for i in 2:
 			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
 			_draw_critter(i, def, MatchSim.START_CORNERS[i] * s, def.radius * s, def.hp, def.hp, shake)
+		for i in 2:
+			var def := BallDefs.get_def(preview_types[i])
+			_draw_overlay(i, def, MatchSim.START_CORNERS[i] * s, def.radius * s, def.hp, def.hp, shake)
 		return
 
 	for z in sim.zones:
@@ -353,7 +377,15 @@ func _draw() -> void:
 		var t: float = k.age / 0.25
 		draw_line(k.from * s, k.to * s, Color(Color.from_hsv(fmod(_time, 1.0), 0.5, 1.0), 0.9 * (1.0 - t)), 3.0, true)
 
+	for b in sim.balls:
+		var trail := _cosmetic(b.index, "trail")
+		if not trail.is_empty():
+			CosmeticArt.draw_trail(self, trail, _trails[b.index].map(func(p): return p * s), b.radius * s, _time)
+
 	for k in _bursts:
+		if k.spark:
+			CosmeticArt.draw_spark(self, k.spark, k.pos * s, k.age / CosmeticArt.SPARK_LIFE, 1.0, k.seed)
+			continue
 		var t: float = k.age / BURST_LIFE
 		var grow := 70.0 if not A11y.reduced_motion else 25.0
 		_star(k.pos * s, 10.0 + t * grow, 5.0 + t * grow * 0.43, 8, Color(BURST, 1.0 - t))
@@ -385,6 +417,15 @@ func _draw() -> void:
 		var a: float = 1.0 - p.age / p.life
 		draw_circle(p.pos * s, 4.0, Color(1, 1, 1, a * 0.3))
 		draw_circle(p.pos * s, 2.0, Color(1, 1, 1, a))
+
+	for k in _kos:
+		CosmeticArt.draw_ko(self, k.item, k.pos * s, k.r * s, k.age / CosmeticArt.KO_LIFE, k.seed)
+
+	# Readability layer: team rings, tags and HP badges sit on top of every
+	# cosmetic (design/monetisation.md §1 rule 3).
+	for b in sim.balls:
+		if b.alive() or b.index == ko_ball:
+			_draw_overlay(b.index, b.def, b.pos * s, b.radius * s, b.hp, b.max_hp, shake)
 
 	for p in _popups:
 		var t: float = p.age / POPUP_LIFE
@@ -494,12 +535,6 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 ## and eye direction come from the per-ball effect state.
 func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2, ko := false) -> void:
 	var look: Vector2 = _look[i]
-	var team_col: Color = TEAM_COLORS[i]
-	# Team ring and tag sit outside the squash so they stay steady.
-	draw_set_transform(shake)
-	_team_ring(i, pos, r, team_col)
-	_text_centered(pos + Vector2(0, r + 30.0), team_tags[i], A11y.font(20), team_col, 5)
-
 	var ang := look.angle()
 	var sq: float = _squash[i] * 1.6
 	if ko:
@@ -513,12 +548,31 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
 	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": tiers[i], "look": look, "blink": blink,
 		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko})
+	var hat := _cosmetic(i, "hat")
+	if not hat.is_empty():
+		CosmeticArt.draw_hat(self, hat, Vector2.ZERO, r, _time)
 	if ko:
 		draw_set_transform(shake)
 		_dizzy_stars(pos, r)
 
 	draw_set_transform(shake)
-	_hp_badge(def, pos, r, hp, max_hp)
+
+
+## Team ring, tag and HP badge: drawn after everything else (cosmetics
+## included), outside the squash so they stay steady and readable.
+func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2) -> void:
+	var team_col: Color = TEAM_COLORS[i]
+	draw_set_transform(shake)
+	_team_ring(i, pos, r, team_col)
+	_text_centered(pos + Vector2(0, r + 30.0), team_tags[i], A11y.font(20), team_col, 5)
+	_hp_badge(def, pos, r, hp, max_hp, 0.4 if _cosmetic(i, "hat") else 0.0)
+
+
+## The cosmetic `slot` worn by side `i`, as a catalog entry, or {}.
+func _cosmetic(i: int, slot: String) -> Dictionary:
+	if i < 0 or i >= loadouts.size():
+		return {}
+	return Catalog.item(str(loadouts[i].get(slot, "")))
 
 
 ## Solid ring for the player (index 0); dashed ring with four outward spikes
@@ -642,10 +696,10 @@ func _dizzy_stars(pos: Vector2, r: float) -> void:
 		_star(p, r * 0.16, r * 0.07, 5, Color(BURST, 0.6 + 0.4 * sin(a)))
 
 
-func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float) -> void:
+func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, lift := 0.0) -> void:
 	var rarity: String = def.get("rarity", "common")
 	var rim: Color = RARITY_COLORS.get(rarity, RARITY_COLORS.common)
-	var top: float = def.get("badge_top", 1.15) * r
+	var top: float = (def.get("badge_top", 1.15) + lift) * r
 	var fs := A11y.font(roundi(r * 0.42))
 	var text := str(maxi(0, ceili(hp)))
 	var tw := FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x

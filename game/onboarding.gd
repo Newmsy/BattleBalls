@@ -264,7 +264,7 @@ func _boss_teaser() -> void:
 
 func _finish() -> void:
 	_log("done", true)
-	main.tutorial_end(profile)
+	main.tutorial_end(profile, true)
 	queue_free()
 
 

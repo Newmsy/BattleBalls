@@ -157,4 +157,18 @@ func test_every_screen_builds() -> void:
 	check_eq(shell.profile.wishlist.size(), 1, "picker opens without changing picks")
 	shell.open_tab("fuse", {"id": "speedster", "tier": 1})
 	check_eq(shell.current_params.id, "speedster", "fuse opens on the picked critter")
+	shell.go("campaign", {"zone": 0, "notice": "Won"})
+	check_eq(shell.current, "campaign", "campaign map")
+	shell.free()
+
+
+func test_a_new_game_builds_every_screen() -> void:
+	var shell = Shell.new()
+	shell.profile = preload("res://meta/profile.gd").new_game(1_800_000_000)
+	shell.build()
+	for t in ["play", "critters", "fuse", "bag", "summon"]:
+		shell.show_tab(t)
+		check_eq(shell.current, t, "tab " + t)
+	shell.go("campaign", {"zone": 0})
+	check_eq(shell.current, "campaign", "campaign map")
 	shell.free()
