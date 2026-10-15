@@ -45,6 +45,23 @@ A first visit with no URL params plays the onboarding
 `?tutorial=1` replays it, `?tutorial=0` skips it.
 `?sounds=1` opens the sound board: every sound with a play button.
 
+## Icon and loading screen
+
+All brand art is drawn in code in `tools/brand/designs.mjs` (Neon Critters
+style) and rendered by `node tools/brand/render.mjs` (needs `smoke/`'s
+Playwright and ImageMagick) into `game/brand/`:
+
+- `icon.png` is the project icon: Godot turns it into the web favicon and the
+  iPhone home-screen icon (`index.apple-touch-icon.png`).
+- `splash.png` is the boot splash and the logo on the web loading screen,
+  `game/web/shell.html` (the custom HTML shell with the progress bar and tips).
+- `store/` holds the iOS and Android icon sizes (wired into the iOS and
+  Android export presets), the Play Store 512 icon and feature graphic. It is
+  excluded from the game pack.
+
+designs.mjs also keeps the two runner-up icon options (`OPTIONS`); switch
+`icon` to one of them and re-render to swap.
+
 ## Sound
 
 All sounds are generated from recipes in `tools/sfx/make_sfx.py`
