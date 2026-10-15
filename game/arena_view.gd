@@ -70,6 +70,7 @@ const RARITY_COLORS := Roster.RARITY_COLORS
 ## dashed with four spikes, so red-green colourblind players can tell them apart.
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const TEAM_TAGS := ["YOU", "FOE"]
+const TEAM_RING_ALPHA := 0.5
 
 const POPUP_LIFE := 0.9
 const HIT_LIFE := 0.35
@@ -800,7 +801,7 @@ func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var team_col: Color = TEAM_COLORS[side]
 	draw_set_transform(shake)
 	_team_ring(side, pos, r, team_col)
-	_text_centered(pos + Vector2(0, r + 30.0), team_tags[side], A11y.font(20), team_col, 5)
+	_text_centered(pos + Vector2(0, r + 26.0), team_tags[side], A11y.font(18), Color(team_col, 0.7), 4)
 	_hp_badge(def, pos, r, hp, max_hp, 0.4 if _cosmetic(side, "hat") else 0.0)
 
 
@@ -811,22 +812,23 @@ func _cosmetic(i: int, slot: String) -> Dictionary:
 	return Catalog.item(str(loadouts[i].get(slot, "")))
 
 
-## Solid ring for the player (index 0); dashed ring with four outward spikes
-## for the foe. Shape, not just hue, tells the sides apart.
+## Solid ring for the player (index 0); dashed ring with four outward ticks
+## for the foe. Shape, not just hue, tells the sides apart. Kept thin and
+## faint so the critter art underneath stays the star.
 func _team_ring(i: int, pos: Vector2, r: float, col: Color) -> void:
-	draw_arc(pos, r + 9.0, 0, TAU, 64, Color(col, 0.18), 9.0, true)
+	var a := TEAM_RING_ALPHA
 	if i == 0:
-		draw_arc(pos, r + 7.0, 0, TAU, 64, Color(col, 0.9), 3.5, true)
+		draw_arc(pos, r + 5.0, 0, TAU, 64, Color(col, a), 2.0, true)
 		return
 	var dashes := 16
 	var gap := TAU / dashes
 	for k in dashes:
-		draw_arc(pos, r + 7.0, k * gap, k * gap + gap * 0.55, 6, Color(col, 0.9), 3.5, true)
+		draw_arc(pos, r + 5.0, k * gap, k * gap + gap * 0.5, 6, Color(col, a), 2.0, true)
 	for k in 4:
 		var d := Vector2.from_angle(PI / 4.0 + k * PI / 2.0)
 		var side := d.orthogonal()
-		var base := pos + d * (r + 6.0)
-		draw_colored_polygon(PackedVector2Array([base + side * 6.0, base + d * 14.0, base - side * 6.0]), Color(col, 0.9))
+		var base := pos + d * (r + 4.0)
+		draw_colored_polygon(PackedVector2Array([base + side * 3.5, base + d * 9.0, base - side * 3.5]), Color(col, a))
 
 
 ## A field (Flux's magnet): faint rings flowing in (Pull) or out (Push) so
