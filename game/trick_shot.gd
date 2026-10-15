@@ -9,6 +9,8 @@
 extends Node2D
 
 const TouchInput := preload("res://game/ui/touch_input.gd")
+const SaveGame := preload("res://game/online/save_game.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const TrickShotView := preload("res://game/trick_shot_view.gd")
@@ -330,6 +332,10 @@ func _record_finish() -> void:
 		stats.streak = stats.streak + 1 if stats.last_solved_day == today - 1 else 1
 		stats.last_solved_day = today
 		stats.best_streak = maxi(stats.best_streak, stats.streak)
+		# Today's solve counts for Glow Pass XP and the Trick Shot bounty.
+		var save := SaveGame.new()
+		save.load_local()
+		GlowState.new(save).record_trick()
 
 
 func _current_streak() -> int:

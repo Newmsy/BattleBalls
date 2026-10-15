@@ -1,0 +1,293 @@
+## The cosmetics shop (design/monetisation.md §3): Featured bundles that change
+## weekly, six Daily items that rotate at 00:00 UTC, the Coin-priced
+## Collection, and your wardrobe. Everything is cosmetic and shown before you
+## buy it at a fixed price; every item has a try-on preview.
+extends RefCounted
+
+const Kit := preload("res://game/ui/ui_kit.gd")
+const Glyph := preload("res://game/ui/glyph.gd")
+const Catalog := preload("res://game/glow/catalog.gd")
+const CosmeticIcon := preload("res://game/glow/cosmetic_icon.gd")
+const TryOn := preload("res://game/glow/try_on.gd")
+const LiveOps := preload("res://game/liveops.gd")
+
+const GEM := Color("5ce1ff")
+const DAILY_SLOTS := 6
+const FEATURED := 2
+
+
+static func build(shell, _params: Dictionary) -> Control:
+	var glow = shell.glow
+	var t := LiveOps.now()
+	var root := Kit.vbox(24)
+	var back := Kit.card_button(Glyph.make("back", 40, Kit.FG), shell.back, Kit.LINE, Kit.PANEL, 22, 8)
+	shell.mark("shop_back", back)
+	var gems_btn := Kit.card_button(Kit.hbox(8, [Glyph.make("gem", 34), Kit.label(Kit.commas(glow.gems()), 28), Kit.chip("+", GEM, 22)]),
+		func(): gem_sheet(shell), Color(GEM, .6), Kit.PANEL, 999, 10)
+	shell.mark("get_gems", gems_btn)
+	root.add_child(Kit.hbox(14, [back, Kit.label("Shop", 44), Kit.spacer(), gems_btn], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(Kit.label("Looks only. Nothing here changes a fight.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+
+	# Featured bundles, this week.
+	var week_ends := LiveOps.week_start(t) + LiveOps.WEEK
+	var featured := Kit.vbox(14, [Kit.hbox(0, [Kit.caption("Featured this week", Color("ffd36b")), Kit.spacer(), Kit.label("New in " + LiveOps.countdown(t, week_ends), 20, Kit.MUTED)])])
+	for b in featured_bundles(t):
+		featured.add_child(_bundle_card(shell, b))
+	root.add_child(featured)
+
+	# Daily items.
+	var day_ends := LiveOps.day_start(t) + LiveOps.DAY
+	root.add_child(Kit.vbox(14, [Kit.hbox(0, [Kit.caption("Daily"), Kit.spacer(), Kit.label("New in " + LiveOps.countdown(t, day_ends), 20, Kit.MUTED)]),
+		_grid(shell, daily_items(t))]))
+
+	# Collection: Coin-priced basics, always here.
+	var basics := Catalog.ITEMS.filter(func(it): return it.where == "basic")
+	root.add_child(Kit.vbox(14, [Kit.caption("Collection · for Coins"), _grid(shell, basics)]))
+
+	# Wardrobe.
+	var ward := Kit.vbox(12, [Kit.caption("Wearing")])
+	for slot in Catalog.SLOTS:
+		var id: String = glow.equipped(slot)
+		var name: String = Catalog.item(id).name if id != "" else "Nothing"
+		var count := Catalog.items_in(slot).filter(func(it): return glow.owns(it.id)).size()
+		var text := Kit.vbox(2, [Kit.label(Catalog.SLOT_NAMES[slot], 22, Kit.MUTED), Kit.label(name, 28)])
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var row := Kit.hbox(14, [CosmeticIcon.make(id, _critter(shell), 76) if id != "" else _empty_icon(), text, Kit.chip("%d owned" % count, Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
+		var card := Kit.card_button(row, func(): _wardrobe_sheet(shell, slot), Kit.LINE, Kit.PANEL, 28, 12)
+		shell.mark("wear_" + slot, card)
+		ward.add_child(card)
+	root.add_child(ward)
+	if shell.glow.store and shell.glow.store.is_test():
+		root.add_child(Kit.label("Test store: purchases are free while Battle Balls is in playtesting.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+	return root
+
+
+## This week's bundles: everyone sees the same ones.
+static func featured_bundles(t: int) -> Array:
+	var week := floori(float(LiveOps.week_start(t) - LiveOps.EPOCH) / LiveOps.WEEK)
+	var out := []
+	for i in FEATURED:
+		out.append(Catalog.BUNDLES[posmod(week * FEATURED + i, Catalog.BUNDLES.size())])
+	return out
+
+
+## Today's six gem items, the same for everyone, at least one per slot.
+static func daily_items(t: int) -> Array:
+	var day := floori(float(LiveOps.day_start(t) - LiveOps.EPOCH) / LiveOps.DAY)
+	var pool := Catalog.ITEMS.filter(func(it): return it.where == "shop")
+	var out := []
+	for slot in Catalog.SLOTS:
+		var in_slot := pool.filter(func(it): return it.slot == slot)
+		out.append(in_slot[posmod(day, in_slot.size())])
+	var k := 0
+	while out.size() < DAILY_SLOTS and k < pool.size():
+		var it: Dictionary = pool[posmod(day * 5 + k * 3, pool.size())]
+		if it not in out:
+			out.append(it)
+		k += 1
+	return out
+
+
+static func _critter(shell) -> String:
+	return shell.profile.lineup
+
+
+static func _grid(shell, items: Array) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
+	for it in items:
+		grid.add_child(_tile(shell, it))
+	return grid
+
+
+static func _tile(shell, it: Dictionary) -> Control:
+	var owned: bool = shell.glow.owns(it.id)
+	var v := Kit.vbox(4, [_center(CosmeticIcon.make(it.id, _critter(shell), 120)), Kit.label(it.name, 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
+		_center(_price(it, owned, shell.glow.equipped(it.slot) == it.id))])
+	var card := Kit.card_button(v, func(): item_sheet(shell, it.id), Kit.GOOD if owned else Kit.LINE, Kit.PANEL, 28, 10)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.mark("item_" + it.id, card)
+	return card
+
+
+static func _price(it: Dictionary, owned: bool, worn := false) -> Control:
+	if worn:
+		return Kit.chip("Wearing", Kit.GOOD)
+	if owned:
+		return Kit.chip("Owned", Kit.GOOD)
+	if it.has("coins"):
+		return Kit.hbox(6, [Glyph.make("coin", 24), Kit.label(Kit.commas(it.coins), 22)])
+	return Kit.hbox(6, [Glyph.make("gem", 24), Kit.label(Kit.commas(it.gems), 22)])
+
+
+static func _bundle_card(shell, b: Dictionary) -> Control:
+	var glow = shell.glow
+	var icons := Kit.hbox(6)
+	for id in b.items:
+		icons.add_child(CosmeticIcon.make(id, _critter(shell), 96))
+	var full := Catalog.bundle_full_price(b)
+	var price: int = glow.bundle_price(b)
+	var saving := roundi(100.0 * (1.0 - float(b.gems) / full))
+	var line := "%d items · %d gems separately · save %d%%" % [b.items.size(), full, saving]
+	var btn: Button
+	if price == 0:
+		btn = Kit.button("Owned", func(): pass, "ghost", 26, 80)
+		btn.disabled = true
+	else:
+		btn = Kit.button("Buy for %s gems" % Kit.commas(price), func():
+			var err: String = glow.buy_bundle(b.id)
+			shell.toast(err if err != "" else "%s unlocked! Change what you wear below." % b.name)
+			shell.refresh(), "primary", 26, 80)
+	shell.mark("buy_" + b.id, btn)
+	var v := Kit.vbox(10, [Kit.label(b.name, 34), icons, Kit.label(line, 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
+	if price > 0 and price < int(b.gems):
+		v.add_child(Kit.label("You own some of these, so the price dropped.", 20, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
+	return Kit.panel(v, Kit.box(Color("221a3a"), Color("6b5520"), 36, 2, 24))
+
+
+## One item: try-on preview, what it is, and buy / equip.
+static func item_sheet(shell, id: String) -> void:
+	var glow = shell.glow
+	var it := Catalog.item(id)
+	var look: Dictionary = glow.loadout().duplicate()
+	look[it.slot] = id
+	var p = shell.profile
+	var tier: int = p.best(p.lineup).get("tier", 1)
+	var v := Kit.vbox(16, [
+		Kit.hbox(12, [Kit.label(it.name, 36), Kit.spacer(), Kit.chip(Catalog.SLOT_NAMES[it.slot], Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER),
+		TryOn.make(p.lineup, tier, look, 320.0),
+		Kit.label(_where_text(it), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+	])
+	var btn: Button
+	if glow.owns(id):
+		var worn: bool = glow.equipped(it.slot) == id
+		btn = Kit.button("Take off" if worn else "Wear it", func():
+			if worn:
+				glow.unequip(it.slot)
+			else:
+				glow.equip(id)
+			shell.close_overlay()
+			shell.toast("%s %s." % [it.name, "taken off" if worn else "on"])
+			shell.refresh(), "ghost" if worn else "go", 28, 90)
+	elif it.where in ["shop", "basic"]:
+		var cost := "%s %s" % [Kit.commas(it.coins if it.has("coins") else it.gems), "coins" if it.has("coins") else "gems"]
+		btn = Kit.button("Buy for " + cost, func():
+			var err: String = glow.buy_item(id)
+			if err == "":
+				glow.equip(id)
+				shell.close_overlay()
+				shell.toast("%s unlocked and on!" % it.name)
+				shell.refresh()
+			elif err == "Not enough Glow Gems.":
+				shell.close_overlay()
+				gem_sheet(shell)
+			else:
+				shell.toast(err), "primary", 28, 90)
+	else:
+		btn = Kit.button("Not sold", func(): pass, "ghost", 28, 90)
+		btn.disabled = true
+	shell.mark("item_action", btn)
+	v.add_child(btn)
+	shell.sheet(v)
+
+
+static func _where_text(it: Dictionary) -> String:
+	match it.where:
+		"pass_free":
+			return "Earned on the Glow Pass free track. Never sold."
+		"pass_premium":
+			return "On this season's Glow Pass. Never sold in the shop."
+		"founder":
+			return "Part of the Founder Pack."
+		"basic":
+			return "A Collection basic: always here, for Coins."
+	return "Shown on your critter in every fight and replay. Looks only: same size, speed and hits."
+
+
+static func _wardrobe_sheet(shell, slot: String) -> void:
+	var glow = shell.glow
+	var v := Kit.vbox(14, [Kit.label(Catalog.SLOT_NAMES[slot] + "s", 36)])
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	var any := false
+	for it in Catalog.items_in(slot):
+		if not glow.owns(it.id):
+			continue
+		any = true
+		var on: bool = glow.equipped(slot) == it.id
+		var card := Kit.card_button(Kit.vbox(4, [_center(CosmeticIcon.make(it.id, _critter(shell), 110)), Kit.label(it.name, 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)]),
+			func():
+				if on:
+					glow.unequip(slot)
+				else:
+					glow.equip(it.id)
+				shell.close_overlay()
+				shell.refresh(), Kit.GOOD if on else Kit.LINE, Kit.PANEL2, 24, 8)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		shell.mark("wear_" + it.id, card)
+		grid.add_child(card)
+	if any:
+		v.add_child(grid)
+		v.add_child(Kit.label("Tap one to wear it; tap what you're wearing to take it off.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	else:
+		v.add_child(Kit.label("None yet. Find them in the shop or on the Glow Pass.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	shell.sheet(v)
+
+
+## Glow Gem packs and the Founder Pack, through the store.
+static func gem_sheet(shell) -> void:
+	var glow = shell.glow
+	var store = glow.store
+	var v := Kit.vbox(14, [Kit.hbox(10, [Glyph.make("gem", 44), Kit.label("Glow Gems", 36), Kit.spacer(), Kit.label("You have %s" % Kit.commas(glow.gems()), 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
+		Kit.label("Gems buy looks and the Glow Pass, never power. You also earn them on the Glow Pass.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	var base := 80.0 / 0.99
+	for p in Catalog.PRODUCTS:
+		if p.kind != "gems":
+			continue
+		var bonus := roundi(100.0 * (p.gems / (base * float(p.usd)) - 1.0))
+		var inner := Kit.vbox(4, [_center(Glyph.make("gem", 50)), Kit.label(Kit.commas(p.gems), 28, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+			Kit.label("+%d%%" % bonus if bonus > 1 else " ", 18, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER), Kit.label(store.price(p.id), 22, GEM, HORIZONTAL_ALIGNMENT_CENTER)])
+		var card := Kit.card_button(inner, func(): _buy(shell, p.id), Color(GEM, .4), Kit.PANEL2, 24, 10)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		shell.mark("buy_" + p.id, card)
+		grid.add_child(card)
+	v.add_child(grid)
+	var founder := Catalog.product("founder")
+	if "founder" not in glow.g().unlocks:
+		var fb := Kit.button("Founder Pack · %s" % store.price("founder"), func(): _buy(shell, "founder"), "primary", 26, 84)
+		shell.mark("buy_founder", fb)
+		v.add_child(Kit.label("Founder Pack, one time only: %d gems and the Founder Crown hat." % founder.gems, 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true))
+		v.add_child(fb)
+	var restore := Kit.button("Restore purchases", func(): store.restore(); shell.close_overlay(); shell.toast("Purchases restored."), "ghost", 24, 72)
+	v.add_child(restore)
+	if store.is_test():
+		v.add_child(Kit.label("Test store: no real money is charged in playtests.", 20, Kit.WARN, HORIZONTAL_ALIGNMENT_CENTER, true))
+	shell.sheet(v)
+
+
+## Asks the store; GlowState reports the result (shell shows it), so a real
+## store's slower, out-of-app purchase flow works the same way.
+static func _buy(_shell, product_id: String) -> void:
+	_shell.glow.store.purchase(product_id)
+
+
+static func _empty_icon() -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(76, 76)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
+
+
+static func _center(c: Control) -> Control:
+	var cc := CenterContainer.new()
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cc.add_child(c)
+	return cc

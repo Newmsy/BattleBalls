@@ -32,6 +32,8 @@ const ClipExport := preload("res://game/clip/clip_export.gd")
 const ClipCard := preload("res://game/clip/clip_card.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
+const Store := preload("res://game/glow/store.gd")
 
 ## CLIP plays the finished fight again in the vertical clip layout.
 enum State { MENU, AIM, FIGHT, RESULT, CLIP }
@@ -211,6 +213,8 @@ func _ready() -> void:
 				shell.go("friends")
 			elif SpireScreen.should_open(url_params):
 				shell.go("spire")
+			elif url_params.get("screen", "") in ["shop", "pass"]:
+				shell.go(url_params.screen) # ?screen=shop or ?screen=pass
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")
@@ -269,6 +273,15 @@ func _set_aim_preview() -> void:
 	sim = MatchSim.new(_config())
 	arena.sim = sim
 	arena.aim_dir = Vector2.from_angle(deg_to_rad(aim / 10.0))
+	_apply_cosmetics()
+
+
+## Your equipped cosmetics on your ball. Render-only: they never reach the
+## sim config, so every fight still replays from angles + seed. Shared
+## replays show plain balls (P1/P2 aren't you).
+func _apply_cosmetics() -> void:
+	var mine: Dictionary = shell.glow.loadout() if shell and mode != Mode.REPLAY else {}
+	arena.loadouts = [mine, {}]
 
 
 # --- Flow -------------------------------------------------------------------
@@ -284,6 +297,7 @@ func _show_menu() -> void:
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
 	arena.reset_camera()
+	_apply_cosmetics()
 	sfx.on_menu()
 	_refresh_menu()
 	_show_only(menu_box)
@@ -382,6 +396,7 @@ func _start_fight() -> void:
 	_count_fight = false
 	sim = MatchSim.new(_config())
 	_prepare_fight(sim.config)
+	_apply_cosmetics()
 	state = State.FIGHT
 	info_label.text = "%s vs %s" % [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
 	if modifier != Modifiers.NONE:
@@ -524,6 +539,9 @@ func _record_fight() -> void:
 		return
 	save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": speed_index}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
+	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt)
+	if xp > 0:
+		info_label.text += " +%d pass XP." % xp
 	_sync_online()
 
 
@@ -693,6 +711,7 @@ func _build_shell() -> void:
 	shell_layer.visible = false
 	add_child(shell_layer)
 	shell = Shell.new()
+	shell.glow = GlowState.new(save, shell.profile, Store.new())
 	shell.friends = friends
 	shell.set_account(account)
 	shell.link_base = _link_base()

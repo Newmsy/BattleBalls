@@ -10,6 +10,7 @@ const BounceRun := preload("res://sim/bounce_run.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
+const LiveOps := preload("res://game/liveops.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -58,6 +59,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(mode_card(shell, "arena", "PvP · %s trophies · %s" % [Kit.commas(arena_store.trophies), Ladder.league_label(arena_store.trophies)],
 		"Ghost Arena", "Your trio against other trios. Climb from Bronze to Neon.", "Enter the Arena", Color("ff4fd8"),
 		func(): shell.go("arena")))
+	# Glow Pass and the cosmetics shop.
+	root.add_child(_pass_card(shell))
+	root.add_child(mode_card(shell, "shop", "Shop · looks only", "Cosmetics",
+		"Hats, trails, hit sparks and KO pops. Try them on first; they never change a fight.", "Open the shop", Color("5ce1ff"),
+		func(): shell.go("shop")))
 
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
@@ -93,6 +99,19 @@ static func mode_card(shell, mark: String, caption: String, title: String, text:
 	shell.mark(mark, btn)
 	var v := Kit.vbox(10, [Kit.caption(caption, accent), Kit.label(title, 40), Kit.label(text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
 	return Kit.panel(v, Kit.box(accent.darkened(.82), accent.darkened(.5), 40, 2, 30))
+
+
+static func _pass_card(shell) -> Control:
+	var glow = shell.glow
+	var season: Dictionary = glow.season()
+	if season.is_empty():
+		return mode_card(shell, "glowpass", "Glow Pass", "Between seasons", "The next pass opens with the next season.", "Open the pass", Color("ffd36b"), func(): shell.go("pass"))
+	var n: int = glow.claimable_count()
+	var line := "Level %d of 50. Earn pass XP from fights and daily bounties." % glow.pass_level()
+	if n > 0:
+		line = "Level %d · %d reward%s ready to claim!" % [glow.pass_level(), n, "" if n == 1 else "s"]
+	return mode_card(shell, "glowpass", "Glow Pass · %s · ends in %s" % [season.name, LiveOps.countdown(LiveOps.now(), season.ends)], "Glow Pass",
+		line, "Claim rewards" if n > 0 else "Open the pass", Color("ffd36b"), func(): shell.go("pass"))
 
 
 ## Friends: a count and whatever is waiting (requests, energy gifts).

@@ -1,5 +1,5 @@
 ## Small drawn icons the font doesn't have: tier stars, power bolt, energy,
-## coins, orbs, locks, the back arrow and the tab icons.
+## coins, orbs, Glow Gems, the pass star, locks, the back arrow and the tab icons.
 extends Control
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
@@ -52,6 +52,16 @@ func _draw() -> void:
 			draw_circle(c, s * .5, Color("c86bff"))
 			draw_circle(c + Vector2(-.12, -.12) * s, s * .3, Color("e7b8ff"))
 			draw_circle(c + Vector2(-.18, -.18) * s, s * .12, Color.WHITE)
+		"gem":
+			var pts := PackedVector2Array([Vector2(.5, .06), Vector2(.92, .4), Vector2(.5, .96), Vector2(.08, .4)])
+			for i in pts.size():
+				pts[i] = pts[i] * s
+			draw_colored_polygon(pts, Color("5ce1ff"))
+			draw_colored_polygon(PackedVector2Array([pts[0], pts[1], Vector2(.5, .4) * s]), Color("b8f4ff"))
+			draw_colored_polygon(PackedVector2Array([pts[3], pts[0], Vector2(.5, .4) * s]), Color("e6fbff"))
+		"pass":
+			draw_circle(c, s * .46, color)
+			draw_colored_polygon(CritterArt.star_pts(c, s * .3, s * .13, 5), Color("0b0a1f"))
 		"lock":
 			draw_arc(c + Vector2(0, -s * .08), s * .2, PI, TAU, 12, color, s * .09, true)
 			draw_rect(Rect2(Vector2(s * .22, s * .38), Vector2(s * .56, s * .44)), color)
