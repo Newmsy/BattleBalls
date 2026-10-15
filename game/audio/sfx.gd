@@ -36,6 +36,8 @@ const RULES := {
 	"stretch": [1, 0.07, -14.0],
 	"click": [2, 0.04, -8.0],
 }
+## Applied to every sound and the music so busy moments don't clip.
+const MASTER_DB := -7.0
 const MUSIC := {"menu": ["music_menu", -12.0], "fight": ["music_fight", -10.0]}
 ## Contact damage at or above this share of the target's max HP is a "big hit".
 const BIG_HIT_SHARE := 0.18
@@ -68,17 +70,13 @@ var _board: Control
 
 func _init() -> void:
 	_rng.randomize()
-	_ensure_bus("Music")
-	_ensure_bus("SFX")
 	for name in RULES:
 		_variants[name] = _load_variants(name)
 	for i in VOICES:
 		var p := AudioStreamPlayer.new()
-		p.bus = "SFX"
 		add_child(p)
 		_players.append(p)
 	_music = AudioStreamPlayer.new()
-	_music.bus = "Music"
 	add_child(_music)
 	_load_settings()
 
@@ -209,7 +207,7 @@ func play_music(track: String) -> void:
 		return
 	stream.loop = true
 	_music.stream = stream
-	_music.volume_db = info[1]
+	_music.volume_db = info[1] + MASTER_DB
 	if is_inside_tree():
 		_music.play()
 
@@ -225,7 +223,7 @@ func _start(stream: AudioStream, volume_db: float, pitch: float) -> void:
 		return
 	var player := _free_player()
 	player.stream = stream
-	player.volume_db = volume_db
+	player.volume_db = volume_db + MASTER_DB
 	player.pitch_scale = pitch
 	player.play()
 
@@ -255,18 +253,13 @@ func _load_variants(name: String) -> Array:
 	return out
 
 
-func _ensure_bus(bus_name: String) -> void:
-	if AudioServer.get_bus_index(bus_name) != -1:
-		return
-	AudioServer.add_bus()
-	var idx := AudioServer.bus_count - 1
-	AudioServer.set_bus_name(idx, bus_name)
-	AudioServer.set_bus_send(idx, "Master")
-
-
 func _apply_mode() -> void:
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), mode != "all")
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("SFX"), mode == "off")
+	# Everything plays on the Master bus: Godot 4.3's web build loses the route
+	# to the speakers when buses are added at runtime, so the game goes silent.
+	# Muting is done by not starting sounds instead.
+	if mode == "off":
+		for p in _players:
+			p.stop()
 	if mode == "all" and _music_track != "" and not _music.playing:
 		var track := _music_track
 		_music_track = ""
