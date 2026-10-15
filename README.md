@@ -15,7 +15,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `boon_balance.gd` (Bounce Run boons), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -116,6 +116,25 @@ Open it from the menu's Trick Shot button or with
 Changing ball radius or speed, or adding playable balls, reshapes the
 puzzles. That is fine; `tests/test_trick_shot.gd` only fails if days stop
 being solvable or fair.
+
+## Bounce Run
+
+A daily roguelite (`sim/bounce_run.gd`, `sim/boons.gd`, `game/bounce_run.gd`;
+design in the project's `design/bounce-run.md`). Draft 3 of 5 critter cards
+(each with its own starter boon), climb 8 floors, and pick 1 of 3 boons for
+the whole trio after every win. A loss knocks that critter out; lose all three
+and the run ends. Each floor's foe carries as many boons as you can hold there,
+so every fight stays at equal power. The run comes from the UTC day (#1 is
+2026-10-14) and is saved after every step to `user://bounce_run.cfg`.
+
+The first run of the day is ranked and posts to the daily leaderboard
+(`game/online/bounce_board.gd`, `supabase/migrations/*_bounce_run.sql`);
+offline it plays the same and posts later. Open it from the Play tab or with
+`?mode=bouncerun` (`&day=3` plays another day's run, unranked).
+
+Boons are balanced by `tools/boon_balance.gd`: each one held at equal power
+must win 52-62%, and CI fails one over 65%. `--runs=300` plays whole random
+runs to check every floor stays near 50%.
 
 ## Ghost Arena (PvP)
 

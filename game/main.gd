@@ -54,6 +54,7 @@ const INFO_HEIGHT := 116.0 ## Two lines of the info text, three with Larger text
 const CONTROLS_HEIGHT := 500.0 ## Tallest control panel (the menu).
 const SPEEDS := [1.0, 2.0, 4.0, 0.5]
 const OPPONENT_RANDOM := "random"
+const MODE_SCENES := {"trickshot": "res://game/trick_shot.tscn", "bouncerun": "res://game/bounce_run.tscn"}
 const PICK_COLUMNS := 3
 const PICK_TILE_HEIGHT := 108.0
 const PICK_ROWS_SHOWN := 2 ## More rows than this scroll.
@@ -171,8 +172,8 @@ func _ready() -> void:
 		get_tree().change_scene_to_file.call_deferred("res://game/stats/stats.tscn")
 		return
 	Analytics.start(get_tree(), backend, VERSION, url_params)
-	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
-	var redirect: String = {"trickshot": "res://game/trick_shot.tscn"}.get(url_params.get("mode", ""), "")
+	# ?mode=trickshot / ?mode=bouncerun open that daily mode, once: its Back button comes here.
+	var redirect: String = MODE_SCENES.get(url_params.get("mode", ""), "")
 	if redirect != "" and not _mode_redirected:
 		_mode_redirected = true
 		set_process(false)

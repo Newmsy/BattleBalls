@@ -6,6 +6,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const BounceRun := preload("res://sim/bounce_run.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
@@ -42,6 +43,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(mode_card(shell, "trickshot", "Daily · new puzzle every day", "Trick Shot",
 		"Call your walls, line up one launch and bank it in. Keep your streak going.", "Play today's shot", Color("ffd36b"),
 		func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")))
+	# Bounce Run: the daily roguelite, open from day one (equal power, no ladder).
+	var run_day := BounceRun.day_number(Time.get_unix_time_from_system())
+	root.add_child(mode_card(shell, "bouncerun", "Daily event · same run for everyone", "Bounce Run #%d" % run_day,
+		"Draft 3 critters, climb 8 floors, grab a boon after every win. Equal power, one daily leaderboard.", "Play today's run", Color("ffc23d"),
+		func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")))
 
 	# The Spire: the weekly 50-floor tower (design/spire.md).
 	root.add_child(mode_card(shell, "spire", "Weekly · resets Monday", "The Spire",
