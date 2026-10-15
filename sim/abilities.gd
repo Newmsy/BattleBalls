@@ -42,6 +42,7 @@ const EFFECTS := {
 	"flare": ["flare_radius", "flare_slam"],
 	"copy": ["copy_secs", "copy_cooldown", "copy_shield", "copy_scale"],
 	"revive": ["revive_hp", "revive_radius", "revive_damage", "revive_burn", "revive_shield", "revive_bolts"],
+	"split": ["split_gens", "split_radius", "split_speed", "split_damage"],
 	"fire_trail": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"beam_at": ["prism_damage", "prism_life", "prism_fan", "prism_full_every", "prism_gap"],
 	"collapse": ["collapse_every", "collapse_secs", "collapse_range", "collapse_accel", "collapse_damage", "collapse_radius", "collapse_ring", "collapse_burn"],
@@ -467,7 +468,7 @@ func fx_copy(sim, b, ctx: Dictionary) -> void:
 	var effects: Array = base.effects.duplicate()
 	for e in src.def.effects:
 		# A borrowed wind (Gust) would only blow foes out of reach of its reflect.
-		if not e.do in ["copy", "revive", "reflect", "gale", "rewind"]:
+		if not e.do in ["copy", "revive", "reflect", "gale", "rewind", "split"]:
 			effects.append(e)
 	copied.effects = effects
 	b.state.base_def = base
@@ -501,6 +502,25 @@ static func _end_copy(sim, b) -> void:
 ## within revive_radius for revive_damage and burning them (revive_burn per
 ## second for 3s). revive_shield > 0 adds a shield; revive_bolts > 0 also fires
 ## that many short beams outward (5 damage each).
+## Splits into two minis, each with half its HP left (that is also their max
+## HP), split_radius x size, split_speed x speed and split_damage more contact
+## damage. Each ball splits at most split_gens times in all; a mini with a
+## split left splits again below half of its own HP.
+func fx_split(sim, b, _ctx: Dictionary) -> void:
+	var gen: int = b.state.get("split_gen", 0)
+	var hp: float = b.hp * 0.5
+	if gen >= int(b.def.split_gens) or hp < 1.0:
+		return
+	b.state.split_gen = gen + 1
+	var twin = sim.spawn_twin(b, hp, b.def.split_radius, b.def.split_speed, b.def.split_damage, deg_to_rad(35.0))
+	if gen + 1 < int(b.def.split_gens):
+		for m in [b, twin]:
+			for key in m.fired.keys():
+				if String(key).begins_with("hp_below:"):
+					m.fired.erase(key)
+	sim.events.append({"type": "split", "ball": b.index, "twin": twin.index, "pos": b.pos})
+
+
 func fx_revive(sim, b, _ctx: Dictionary) -> void:
 	b.hp = b.max_hp * b.def.revive_hp
 	b.state.revived = true

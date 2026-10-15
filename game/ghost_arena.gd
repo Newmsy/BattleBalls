@@ -250,6 +250,8 @@ func _show_result() -> void:
 	var headline := _label("YOU WIN!" if won else ("DRAW" if relay.winner == -1 else "YOU LOSE"), 56)
 	headline.modulate = ResultText.WIN if won else (ResultText.DRAW if relay.winner == -1 else ResultText.LOSE)
 	var change := "%+d trophies." % result_delta if result_delta != 0 else "No trophies lost at your league's floor."
+	if result_delta > 0:
+		change = "%+d trophies and Arena Points." % result_delta
 	info_label.text = "%s You're on %d, %s." % [change, store.trophies, Ladder.league_label(store.trophies)]
 	print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s" % [won, result_delta, store.trophies, relay.state_hash()])
 	_set_panel([headline, _button("Back to Arena", _back_to_arena, 36)])
