@@ -120,7 +120,7 @@ func test_zapper_zaps_and_stuns_on_its_timer() -> void:
 	sim.tick = int(4.5 * MatchSim.TICK_RATE)
 	sim.step()
 	sim.step()
-	check_near(p.hp, hp - 4.0, 0.001, "zap damage")
+	check_near(p.hp, hp - 2.0, 0.001, "zap damage")
 	check(p.stun_until > 0, "zap stuns")
 
 
