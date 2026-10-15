@@ -2,7 +2,7 @@
 ## Odds on screen, x10 guarantees a Rare or better, shared Legendary pity, one
 ## free summon a day, weekly featured critter, and the Wishlist (3 picks that
 ## come up twice as often within their rarity). Capsules glow in their rarity's
-## colour before they open.
+## colour, then open on their own one by one with a burst that grows with rarity.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -173,12 +173,13 @@ static func _pull(shell, n: int) -> void:
 
 
 static func _reveal(shell, ids: Array, fresh: Array) -> Control:
-	var root := PanelContainer.new()
+	var root := _Reveal.new()
 	root.add_theme_stylebox_override("panel", Kit.box(Color("120a2e"), Color(0, 0, 0, 0), 0, 0, 40))
 	var v := Kit.vbox(24)
 	v.add_child(Kit.caption("Summon x%d" % ids.size(), Color("e8c8ff")))
 	v.get_child(0).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(Kit.label("Tap a capsule to open it", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))
+	var title := Kit.label("Opening...", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	v.add_child(title)
 	var grid := GridContainer.new()
 	grid.columns = 1 if ids.size() == 1 else 5
 	grid.add_theme_constant_override("h_separation", 10)
@@ -188,7 +189,7 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	var side := 360.0 if ids.size() == 1 else 120.0
 	for i in ids.size():
 		var cap := _Capsule.new()
-		cap.setup(ids[i], fresh[i], side)
+		cap.setup(ids[i], fresh[i], side, shell.sfx)
 		cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		caps.append(cap)
 		grid.add_child(cap)
@@ -196,80 +197,280 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	mid.add_child(grid)
 	v.add_child(mid)
-	var open_all := Kit.button("Open all", func():
-		for i in caps.size():
-			caps[i].get_tree().create_timer(i * .14).timeout.connect(caps[i].open), "ghost", 28, 96)
+	var skip := Kit.button("Skip", root.skip, "ghost", 28, 96)
 	var done := Kit.button("Done", func(): shell.close_overlay(); shell.refresh(), "go", 28, 96)
-	shell.mark("open_all", open_all)
+	shell.mark("open_all", skip)
 	shell.mark("reveal_done", done)
-	v.add_child(Kit.hbox(14, [open_all, done]))
+	v.add_child(Kit.hbox(14, [skip, done]))
 	root.add_child(v)
+	var flash := _Flash.new()
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(flash)
+	root.setup(caps, title, skip, flash)
 	return root
 
 
-## A capsule that glows in its critter's rarity colour, then pops open.
-class _Capsule extends Button:
+## Opens the capsules one by one, OPEN_GAP apart, so a x10 takes about 4
+## seconds. A Legendary shakes and charges first (an extra beat), then bursts
+## with a screen flash. Tap anywhere (or Skip) to open the rest at once.
+class _Reveal extends PanelContainer:
+	const OPEN_GAP := 0.4
+	const CHARGE := 0.6
+	const Roster := preload("res://game/ui/roster.gd")
+	const A11y := preload("res://game/a11y.gd")
+
+	var caps: Array = []
+	var title: Label
+	var skip_button: Button
+	var flash
+	var _next := 0
+	var _wait := OPEN_GAP
+	var _charging := false
+	var _best := 0
+
+	func setup(caps_: Array, title_: Label, skip_: Button, flash_) -> void:
+		caps = caps_
+		title = title_
+		skip_button = skip_
+		flash = flash_
+		mouse_filter = Control.MOUSE_FILTER_STOP
+
+	func _gui_input(e: InputEvent) -> void:
+		if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed and _next < caps.size():
+			skip()
+			accept_event()
+
+	func _process(delta: float) -> void:
+		if _next >= caps.size():
+			return
+		_wait -= delta
+		if _wait > 0.0:
+			return
+		var cap = caps[_next]
+		if cap.rarity_index() == 4 and not _charging:
+			_charging = true
+			cap.charge()
+			_wait = CHARGE
+			return
+		_charging = false
+		_open(cap, true)
+		_next += 1
+		_wait = OPEN_GAP
+		if _next >= caps.size():
+			_finish()
+
+	func _open(cap, animate: bool) -> void:
+		cap.open(animate)
+		_best = maxi(_best, cap.rarity_index())
+		if animate and cap.rarity_index() == 4:
+			flash.fire(Roster.RARITY_COLORS["legendary"])
+
+	## Opens everything left, quietly and without the burst.
+	func skip() -> void:
+		while _next < caps.size():
+			_open(caps[_next], false)
+			_next += 1
+		_finish()
+
+	func _finish() -> void:
+		skip_button.disabled = true
+		var r: String = Roster.RARITIES[_best]
+		title.text = "LEGENDARY!" if _best == 4 else ("Epic pull!" if _best == 3 else "Summoned!")
+		title.add_theme_color_override("font_color", Roster.RARITY_COLORS[r] if _best >= 3 else Color.WHITE)
+
+
+## A full-screen flash for a Legendary burst. Off with Reduced motion.
+class _Flash extends Control:
+	const A11y := preload("res://game/a11y.gd")
+	var _t := 1.0
+	var _col := Color.WHITE
+
+	func fire(col: Color) -> void:
+		if A11y.reduced_motion:
+			return
+		_col = col
+		_t = 0.0
+
+	func _process(delta: float) -> void:
+		if _t < 1.0:
+			_t = minf(1.0, _t + delta / .5)
+			queue_redraw()
+
+	func _draw() -> void:
+		if _t < 1.0:
+			draw_rect(Rect2(-Vector2(80, 80), size + Vector2(160, 160)), Color(_col.lerp(Color.WHITE, .5), .55 * (1.0 - _t) * (1.0 - _t)))
+
+
+## A capsule that glows in its critter's rarity colour, then bursts open:
+## the shell halves fly apart, a ring and sparks shoot out and a halo stays
+## behind the critter. Rarer critters get a bigger burst, more sparks, a
+## higher pop, and (Epic and up) rotating light rays.
+class _Capsule extends Control:
 	const Kit := preload("res://game/ui/ui_kit.gd")
 	const CritterIcon := preload("res://game/ui/critter_icon.gd")
 	const Roster := preload("res://game/ui/roster.gd")
+	const A11y := preload("res://game/a11y.gd")
+	## Burst size by rarity index (Common .. Legendary).
+	const BURST := [1.0, 1.15, 1.35, 1.7, 2.3]
+	const SPARKS := [8, 10, 14, 20, 32]
+	const BURST_TIME := .7
 
 	var id := ""
 	var is_new := false
 	var opened := false
 	var side := 120.0
+	var sfx = null
 	var _t := 0.0
+	var _open_t := 10.0
+	var _charge_t := -1.0
+	var _col := Color.WHITE
+	var _ri := 0
+	var _spark_dirs: Array = []
 	var _content: VBoxContainer
 
-	func setup(id_: String, is_new_: bool, side_: float) -> void:
+	func setup(id_: String, is_new_: bool, side_: float, sfx_) -> void:
 		id = id_
 		is_new = is_new_
 		side = side_
+		sfx = sfx_
 		custom_minimum_size = Vector2(side, side + side * .35)
-		var empty := StyleBoxEmpty.new()
-		for s in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-			add_theme_stylebox_override(s, empty)
-		pressed.connect(open)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var c := Roster.get_critter(id)
+		_col = Roster.RARITY_COLORS[c.rarity]
+		_ri = maxi(0, Roster.RARITIES.find(c.rarity))
+		# Render-only randomness: spark directions and speeds.
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash(id) ^ int(Time.get_ticks_usec())
+		for k in SPARKS[_ri]:
+			_spark_dirs.append(Vector3(TAU * k / SPARKS[_ri] + rng.randf_range(-.25, .25), rng.randf_range(.7, 1.3), rng.randf_range(.6, 1.0)))
 
-	func open() -> void:
+	func rarity_index() -> int:
+		return _ri
+
+	## The Legendary wind-up: the capsule shakes and its glow swells.
+	func charge() -> void:
+		_charge_t = 0.0
+		if sfx:
+			sfx.play("summon_charge")
+
+	func open(animate := true) -> void:
 		if opened:
 			return
 		opened = true
+		_charge_t = -1.0
 		var c := Roster.get_critter(id)
 		_content = Kit.vbox(0, [CritterIcon.make(id, 1, side), Kit.label(c.name, 34 if side > 200 else 17, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
 		_content.get_child(1).clip_text = true
 		_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_content)
-		pivot_offset = custom_minimum_size / 2.0
-		scale = Vector2(.3, .3)
-		create_tween().tween_property(self, "scale", Vector2.ONE, .4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if not animate:
+			return
+		_open_t = 0.0
+		if sfx:
+			if _ri == 4:
+				sfx.play("summon_legend")
+			sfx.play("summon_pop", 0.0, 1.0 + _ri * .09)
+		_content.pivot_offset = custom_minimum_size / 2.0
+		if A11y.reduced_motion:
+			_content.modulate.a = 0.0
+			create_tween().tween_property(_content, "modulate:a", 1.0, .25)
+		else:
+			_content.scale = Vector2(.2, .2)
+			var over := 1.0 + .06 * _ri
+			var tw := create_tween()
+			tw.tween_property(_content, "scale", Vector2(over, over), .22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_property(_content, "scale", Vector2.ONE, .18).set_trans(Tween.TRANS_SINE)
 
 	func _process(delta: float) -> void:
 		_t += delta
+		_open_t += delta
+		if _charge_t >= 0.0:
+			_charge_t += delta
 		queue_redraw()
 
 	func _draw() -> void:
-		var col: Color = Roster.RARITY_COLORS[Roster.get_critter(id).rarity]
 		var c := Vector2(size.x / 2.0, side * .56)
 		var r := side * .36
+		var still := A11y.reduced_motion
 		if not opened:
 			var pulse := .5 + .5 * sin(_t * 5.0)
+			var grow := 0.0
+			if _charge_t >= 0.0:
+				grow = clampf(_charge_t / .6, 0.0, 1.0)
+				if not still:
+					var amp := r * .08 * grow
+					c += Vector2(sin(_t * 61.0), cos(_t * 47.0)) * amp
 			for k in 4:
-				draw_circle(c, r * (1.1 + k * .1 + pulse * .05), Color(col, .12))
-			draw_circle(c, r, col)
-			# Top half white shell, seam band.
-			var top := PackedVector2Array()
-			for i in 17:
-				var a := PI + i * PI / 16
-				top.append(c + Vector2(cos(a), sin(a)) * r)
-			draw_colored_polygon(top, Color.WHITE)
+				draw_circle(c, r * (1.1 + k * .1 + pulse * .05 + grow * .4), Color(_col, .12 + grow * .1))
+			draw_circle(c, r, _col)
+			_draw_top_shell(c, r, 0.0, Color.WHITE)
 			draw_line(c - Vector2(r, 0), c + Vector2(r, 0), Color("1b1842"), r * .12)
 			draw_circle(c, r * .16, Color("1b1842"))
-			draw_circle(c, r * .09, Color.WHITE)
-		elif is_new:
-			var tag := Vector2(size.x / 2.0, side * .1)
-			draw_rect(Rect2(tag - Vector2(side * .2, side * .07), Vector2(side * .4, side * .14)), Kit.BAD)
-			draw_string(Kit.FONT, tag + Vector2(-side * .17, side * .045), "NEW", HORIZONTAL_ALIGNMENT_CENTER, side * .34, int(side * .12), Color.WHITE)
+			draw_circle(c, r * .09, Color.WHITE.lerp(_col, grow))
+			return
+		var s: float = BURST[_ri]
+		# The halo that stays behind the critter.
+		var hp := .5 + .5 * sin(_t * 3.0)
+		if _ri >= 3:
+			var spin := 0.0 if still else _t * (.6 if _ri == 3 else 1.0)
+			var rays := 8 if _ri == 3 else 12
+			for k in rays:
+				var a := spin + TAU * k / rays
+				var tip := c + Vector2(cos(a), sin(a)) * r * (1.25 + .25 * s)
+				var w := .13
+				draw_colored_polygon(PackedVector2Array([c + Vector2(cos(a - w), sin(a - w)) * r * .5, tip,
+					c + Vector2(cos(a + w), sin(a + w)) * r * .5]), Color(_col, .18 + .08 * hp))
+		for k in 5:
+			draw_circle(c, r * (1.25 - k * .15) * (1.0 + .1 * _ri), Color(_col, (.05 + .025 * _ri) * (1.0 + hp * .4)))
+		if _open_t >= BURST_TIME:
+			_draw_new_tag()
+			return
+		var e := _open_t / BURST_TIME
+		var out := 1.0 - pow(1.0 - e, 3.0)
+		if not still:
+			# Shell halves fly apart and fade.
+			var fade := clampf(1.0 - e * 1.8, 0.0, 1.0)
+			if fade > 0.0:
+				_draw_top_shell(c - Vector2(0, r * 1.2 * out), r, -.6 * out, Color(1, 1, 1, fade))
+				_draw_bottom_shell(c + Vector2(0, r * 1.0 * out), r, .5 * out, Color(_col, fade))
+			# Expanding ring.
+			draw_arc(c, r * (.6 + 1.6 * s * out), 0.0, TAU, 48, Color(_col.lerp(Color.WHITE, .4), 1.0 - e), maxf(1.0, r * .14 * (1.0 - e)), true)
+			if _ri >= 2:
+				draw_arc(c, r * (.4 + 1.1 * s * out), 0.0, TAU, 48, Color(Color.WHITE, (1.0 - e) * .7), maxf(1.0, r * .06 * (1.0 - e)), true)
+			# Sparks.
+			for d in _spark_dirs:
+				var dist: float = r * (.5 + 1.9 * s * d.y * out)
+				var p := c + Vector2(cos(d.x), sin(d.x)) * dist
+				var tail := c + Vector2(cos(d.x), sin(d.x)) * dist * .82
+				draw_line(tail, p, Color(_col.lerp(Color.WHITE, .5), (1.0 - e) * d.z), maxf(1.5, r * .07), true)
+			# The flash at the core.
+			if e < .35:
+				draw_circle(c, r * (.9 + .6 * s * e), Color(1, 1, 1, .9 * (1.0 - e / .35)))
+		else:
+			draw_circle(c, r * 1.2, Color(_col, .35 * (1.0 - e)))
+		_draw_new_tag()
+
+	func _draw_new_tag() -> void:
+		if not is_new:
+			return
+		var tag := Vector2(size.x / 2.0, side * .1)
+		draw_rect(Rect2(tag - Vector2(side * .2, side * .07), Vector2(side * .4, side * .14)), Kit.BAD)
+		draw_string(Kit.FONT, tag + Vector2(-side * .17, side * .045), "NEW", HORIZONTAL_ALIGNMENT_CENTER, side * .34, int(side * .12), Color.WHITE)
+
+	func _draw_top_shell(c: Vector2, r: float, rot: float, col: Color) -> void:
+		var pts := PackedVector2Array()
+		for i in 17:
+			var a := PI + i * PI / 16 + rot
+			pts.append(c + Vector2(cos(a), sin(a)) * r)
+		draw_colored_polygon(pts, col)
+
+	func _draw_bottom_shell(c: Vector2, r: float, rot: float, col: Color) -> void:
+		var pts := PackedVector2Array()
+		for i in 17:
+			var a := i * PI / 16 + rot
+			pts.append(c + Vector2(cos(a), sin(a)) * r)
+		draw_colored_polygon(pts, col)
 
 
 ## The swirling portal at the top of the screen.

@@ -150,8 +150,10 @@ func test_megabot_every_third_hit_fires_a_salvo_and_shields() -> void:
 		sim.abilities.fire(sim, "hit", m, {"target": sim.balls[1], "amount": 1.0})
 	check_eq(sim.shots.size(), 0, "no salvo yet")
 	sim.abilities.fire(sim, "hit", m, {"target": sim.balls[1], "amount": 1.0})
-	check_eq(sim.shots.size(), int(def.shot_count), "rockets on the 3rd hit")
-	check_near(m.shield, def.salvo_shield, 0.001, "shield up")
+	check_near(m.shield, def.salvo_shield, 0.001, "shield up on the 3rd hit")
+	check_eq(sim.shots.size(), 0, "it locks on before firing")
+	_steps(sim, int(round(def.salvo_delay * MatchSim.TICK_RATE)) + 1)
+	check_eq(sim.shots.size(), int(def.shot_count), "then the rockets fly")
 	sim.shots.clear()
 	_steps(sim, int(round(def.salvo_shield_secs * MatchSim.TICK_RATE)) + 1)
 	check_near(m.shield, 0.0, 0.001, "shield drops after its time")
@@ -166,7 +168,7 @@ func test_megabot_mega_mode_counts_hits_double() -> void:
 	check(m.state.has("mega_until"), "Mega Mode below 30% HP")
 	sim.abilities.fire(sim, "hit", m, {"target": sim.balls[1], "amount": 1.0})
 	sim.abilities.fire(sim, "hit", m, {"target": sim.balls[1], "amount": 1.0})
-	check(sim.shots.size() > 0, "two hits fill the salvo")
+	check(m.state.has("salvo_at"), "two hits fill the salvo")
 
 
 func test_pollen_puffs_a_ring_of_seeds_with_a_cooldown() -> void:

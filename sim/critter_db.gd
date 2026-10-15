@@ -66,6 +66,7 @@ static func sim_def(id: String, tier := 1) -> Dictionary:
 		"ouch": c.sound.get("ouch", ""),
 		"voice_pitch": c.sound.get("pitch", 1.0),
 		"chaos": c.get("chaos", {}),
+		"tier": clampi(tier, 1, TIERS), ## So the renderer can draw a stronger ability bigger.
 	}
 	def.merge(c.stats, true)
 	def.merge(c.params, true)

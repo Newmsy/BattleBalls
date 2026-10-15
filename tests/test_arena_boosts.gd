@@ -9,7 +9,8 @@ const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Shell := preload("res://game/ui/shell.gd")
-const TEST_SAVE := "user://test_arena_boosts.cfg"
+## Per process: tests/run.sh runs one process per core, and they share user://.
+var TEST_SAVE := "user://test_arena_boosts_%d.cfg" % OS.get_process_id()
 
 
 func _fresh_store():

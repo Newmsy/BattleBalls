@@ -209,6 +209,23 @@ func test_main_actions_are_pinned_and_detail_sits_behind_an_i() -> void:
 	shell.free()
 
 
+func test_summon_reveal_opens_on_its_own_and_tap_skips() -> void:
+	var shell = Shell.new()
+	shell.build()
+	var ids := ["speedster", "blackhole", "laser", "vampire", "speedster", "blackhole", "laser", "vampire", "speedster", "blackhole"]
+	var fresh := []
+	fresh.resize(ids.size())
+	fresh.fill(false)
+	var reveal = SummonScreen._reveal(shell, ids, fresh)
+	check(reveal.OPEN_GAP * ids.size() <= 4.2, "a x10 opens in about 4 seconds")
+	check(reveal.caps.all(func(c): return not c.opened), "nothing is open before the sequence starts")
+	reveal.skip()
+	check(reveal.caps.all(func(c): return c.opened), "skip opens every capsule")
+	check(shell._marks.open_all.disabled, "Skip greys out once all are open")
+	reveal.free()
+	shell.free()
+
+
 func test_home_groups_every_mode_as_a_tile() -> void:
 	var shell = Shell.new()
 	shell.build()

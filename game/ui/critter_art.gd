@@ -959,10 +959,21 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 		"scoops":
 			var scoops := [[Color("ffb3c7"), -.35, -.9], [Color("fff1d6"), .35, -.95], [Color("8a5a3a"), 0.0, -1.3]]
 			var count := mini(3, 1 + ceili(n / 2.0))
-			for i in count:
-				_ucirc(ci, Vector2(scoops[i][1], scoops[i][2]), .38, scoops[i][0])
-			# The cherry sits on the top scoop (the spec floats it at T3+ height).
-			_ucirc(ci, Vector2(.05, -1.75 if count >= 3 else -1.38), .12, Color("e0213b"))
+			var live: int = s.get("live_stacks", -1)
+			if live >= 0:
+				# In a fight: one scoop per stack, piling higher (up to 5).
+				var flavours := [Color("ffb3c7"), Color("fff1d6"), Color("8a5a3a"), Color("9be7c4"), Color("c9a7ff")]
+				var top := -.9
+				for i in mini(live, 5):
+					top = -.9 - i * .32
+					_ucirc(ci, Vector2(sin(i * 2.1) * .12, top), .4 - i * .03, flavours[i])
+					_ucirc(ci, Vector2(sin(i * 2.1) * .12 - .14, top - .12), .07, Color(1, 1, 1, .5))
+				_ucirc(ci, Vector2(.05, top - .38), .12, Color("e0213b"))
+			else:
+				for i in count:
+					_ucirc(ci, Vector2(scoops[i][1], scoops[i][2]), .38, scoops[i][0])
+				# The cherry sits on the top scoop (the spec floats it at T3+ height).
+				_ucirc(ci, Vector2(.05, -1.75 if count >= 3 else -1.38), .12, Color("e0213b"))
 		"segments":
 			for i in [3, 2, 1]:
 				_ucirc(ci, Vector2(-.75 - i * .45, .3 + sin(t * 3.0 + i) * .1), .45 - i * .08, shade(c, -.1 * i))
@@ -1065,9 +1076,14 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 		"totemstack":
 			# A little more compact than the spec (step .55, height .5) so the T3+
 			# stack stays inside a collection cell.
-			for i in mini(3, n):
+			var faces := mini(3, n)
+			if s.get("live_stacks", -1) >= 0: # In a fight: one carved face per stack.
+				faces = mini(4, int(s.live_stacks))
+			for i in faces:
 				var y := -1.12 - i * .46
-				_urect(ci, -.42, y - .22, .84, .44, shade(c, -.15 * (i + 1)), .1)
+				_urect(ci, -.42, y - .22, .84, .44, Color("ffd23f") if i == 3 else shade(c, -.15 * (i + 1)), .1)
+				if s.get("live_stacks", -1) >= 0 and i < 3: # Each face's buff: harder hits, tougher body, faster roll.
+					_urect(ci, -.42, y + .14, .84, .08, [Color("ff5a5a"), Color("5ab0ff"), Color("ffe066")][i], .04)
 				_ucirc(ci, Vector2(-.17, y - .03), .07, INK)
 				_ucirc(ci, Vector2(.17, y - .03), .07, INK)
 				_uline(ci, Vector2(-.15, y + .13), Vector2(.15, y + .13), INK, .04)

@@ -18,6 +18,7 @@ const CRITTER := {
 		"salvo_hits": 3, ## Contact hits per salvo.
 		"salvo_shield": 15.0,
 		"salvo_shield_secs": 3.0,
+		"salvo_delay": 0.6, ## It brakes and locks on this long before the rockets fly.
 		"shot_damage": 5.0, ## Per rocket.
 		"shot_speed": 450.0,
 		"shot_count": 4,
