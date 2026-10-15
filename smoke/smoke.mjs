@@ -370,6 +370,34 @@ try {
     await page.screenshot({ path: path.join(shots, "21-arena-after.png") });
     await page.close();
   }
+
+  // 11. Ball Royale: open it from its Play tab card, then play a seeded royale to the placings.
+  {
+    const { page, logs } = await openGame("?seed=7&offline=1");
+    await waitForLog(logs, "UI_SCREEN play", 60000);
+    await page.waitForTimeout(800);
+    await page.mouse.move(...toPage(page, 360, 800));
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(150);
+    }
+    await page.waitForTimeout(600);
+    await tapUi(page, logs, "royale");
+    console.log("ball royale:", await waitForLog(logs, "ROYALE_READY", 10000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "22-royale-aim.png") });
+    await page.close();
+
+    const run = await openGame("?mode=royale&seed=7&p1=laser&aim=-450&auto=1&offline=1");
+    await waitForLog(run.logs, "ROYALE_START", 60000);
+    await run.page.waitForTimeout(6000);
+    await run.page.screenshot({ path: path.join(shots, "23-royale-fight.png") });
+    const end = await waitForLog(run.logs, "ROYALE_END", 120000);
+    console.log("ball royale result:", end);
+    await run.page.waitForTimeout(800);
+    await run.page.screenshot({ path: path.join(shots, "24-royale-result.png") });
+    await run.page.close();
+  }
 } catch (e) {
   errors.push(String(e.stack ?? e));
 } finally {

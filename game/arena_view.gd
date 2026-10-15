@@ -67,9 +67,14 @@ func clear_effects() -> void:
 	_bursts.clear()
 	_wisps.clear()
 	_shake = 0.0
-	_hit = [0.0, 0.0]
-	_squash = [0.0, 0.0]
-	_eye_flash = [0.0, 0.0]
+	var n := sim.balls.size() if sim else 2
+	_hit = []
+	_squash = []
+	_eye_flash = []
+	for k in [_hit, _squash, _eye_flash]:
+		k.resize(n)
+		k.fill(0.0)
+	_look.resize(maxi(n, _look.size()))
 	_banner = 0.0
 	_was_overtime = false
 	if sim:
@@ -89,8 +94,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"heal":
 				var b := sim.balls[e.target]
 				_add_popup(b.pos + Vector2(48, -b.radius - 40), "+%d" % ceili(e.amount), POP_HEAL)
-				var victim := sim.balls[1 - e.target]
-				for i in 8:
+				var victim := _nearest_foe(b)
+				for i in (8 if victim else 0):
 					_wisps.append({"from": victim.pos + _rand_dir() * victim.radius * 0.5, "to": e.target, "age": -i * 0.03, "life": 0.45})
 			"collide":
 				_squash[e.a] = 0.2
@@ -102,6 +107,10 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_squash[e.ball] = maxf(_squash[e.ball], 0.15)
 				if sim.balls[e.ball].def.ability == "laser" and not A11y.reduced_motion:
 					_eye_flash[e.ball] = 0.3
+			"ko":
+				# Ball Royale: a ball goes out mid-fight.
+				_spawn_particles(sim.balls[e.ball].pos, 36)
+				_shake = maxf(_shake, 8.0 * A11y.motion())
 			"end":
 				for b in sim.balls:
 					if not b.alive():
@@ -119,7 +128,7 @@ func advance_effects(delta: float) -> void:
 		if ot and not _was_overtime and A11y.sound_cues:
 			_banner = BANNER_LIFE
 		_was_overtime = ot
-	for i in 2:
+	for i in _hit.size():
 		_hit[i] = maxf(0.0, _hit[i] - delta)
 		_squash[i] = maxf(0.0, _squash[i] - delta)
 		_eye_flash[i] = maxf(0.0, _eye_flash[i] - delta)
@@ -142,6 +151,15 @@ func advance_effects(delta: float) -> void:
 		w.age += delta
 	_wisps = _wisps.filter(func(w): return w.age < w.life)
 	queue_redraw()
+
+
+## The other ball closest to `b` (in a 1v1, simply the foe).
+func _nearest_foe(b: MatchSim.Ball) -> MatchSim.Ball:
+	var best: MatchSim.Ball = null
+	for o in sim.balls:
+		if o != b and (best == null or o.pos.distance_to(b.pos) < best.pos.distance_to(b.pos)):
+			best = o
+	return best
 
 
 func _add_popup(pos: Vector2, text: String, color: Color) -> void:
@@ -258,11 +276,12 @@ func _draw_grid(r: Rect2) -> void:
 ## and eye direction come from the per-ball effect state.
 func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2) -> void:
 	var look: Vector2 = _look[i]
-	var team_col: Color = TEAM_COLORS[i]
+	var team_col: Color = TEAM_COLORS[mini(i, 1)]
 	# Team ring and tag sit outside the squash so they stay steady.
 	draw_set_transform(shake)
 	_team_ring(i, pos, r, team_col)
-	_text_centered(pos + Vector2(0, r + 30.0), team_tags[i], A11y.font(20), team_col, 5)
+	if i < team_tags.size():
+		_text_centered(pos + Vector2(0, r + 30.0), team_tags[i], A11y.font(20), team_col, 5)
 
 	var ang := look.angle()
 	var sq: float = _squash[i] * 1.6

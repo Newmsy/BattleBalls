@@ -49,6 +49,7 @@ In the PR that adds or changes it:
 | Check | When | Command |
 |---|---|---|
 | Equal-power matrix, `FAIL` blocks merge | Every PR (CI `Sim tests` job) | `balance.gd -- --fights=100 --strict` |
+| Ball Royale FFA: each critter's win share per entry at equal power stays 5-20% (fair is 12.5%) | Every PR (`tests/test_royale.gd`, 240 royales) | `GODOT=godot tests/run.sh` |
 | Full audit: equal power and power step at higher sample size | Weekly scheduled balance audit on `main`, plus any PR touching ball stats | `balance.gd -- --fights=500 --power-step` |
 
 `balance.gd` reports `FAIL` only when a miss is clear of sampling noise (95%

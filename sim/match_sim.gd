@@ -80,6 +80,10 @@ var finished := false
 var winner := -1 ## Ball index, or -1 for a draw (only meaningful when finished).
 var end_reason := ""
 var launch_angles: Array[int] = []
+## Overtime rules, from the constants above; other modes (Ball Royale) tune them.
+var overtime_start := OVERTIME_START
+var shrink_speed := SHRINK_SPEED
+var time_limit := TIME_LIMIT
 ## Events produced by the most recent step(), for the renderer and tests.
 var events: Array[Dictionary] = []
 
@@ -118,11 +122,11 @@ func time() -> float:
 
 
 func in_overtime() -> bool:
-	return time() >= OVERTIME_START
+	return time() >= overtime_start
 
 
 func damage_multiplier() -> float:
-	return 1.0 + maxf(0.0, time() - OVERTIME_START) * OVERTIME_DAMAGE_RAMP
+	return 1.0 + maxf(0.0, time() - overtime_start) * OVERTIME_DAMAGE_RAMP
 
 
 func arena_rect() -> Rect2:
@@ -138,7 +142,7 @@ func step() -> void:
 		hp_before.append(b.hp)
 
 	if in_overtime():
-		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
+		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - shrink_speed * (time() - overtime_start))
 
 	var hits: Array[Dictionary] = []
 	for b in balls:
@@ -155,7 +159,7 @@ func step() -> void:
 
 ## Runs until the match ends. Returns a summary dictionary.
 func run_to_end() -> Dictionary:
-	var max_ticks := int(TIME_LIMIT * TICK_RATE) + 1
+	var max_ticks := int(time_limit * TICK_RATE) + 1
 	while not finished and tick <= max_ticks:
 		step()
 	return summary()
@@ -332,7 +336,7 @@ func _check_end(hp_before: Array[float]) -> void:
 			_finish(-1, "double_knockout")
 		else:
 			_finish(0 if hp_before[0] > hp_before[1] else 1, "double_knockout")
-	elif time() >= TIME_LIMIT:
+	elif time() >= time_limit:
 		var f0 := balls[0].hp / balls[0].max_hp
 		var f1 := balls[1].hp / balls[1].max_hp
 		_finish(-1 if f0 == f1 else (0 if f0 > f1 else 1), "time_limit")

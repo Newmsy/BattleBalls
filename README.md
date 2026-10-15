@@ -69,6 +69,18 @@ Changing ball radius or speed, or adding playable balls, reshapes the
 puzzles. That is fine; `tests/test_trick_shot.gd` only fails if days stop
 being solvable or fair.
 
+## Ball Royale
+
+An 8-ball free-for-all event (`sim/royale.gd`, `game/royale.gd`; design in
+design/ball-royale.md in the project files). You bring your Play tab fighter,
+seven bots come from the seed, and the last ball standing wins. `Royale`
+extends `MatchSim` with eight seats, an early shrink (from 20 s), KO credit and
+placings, plus crowd rules (smaller balls, damage x0.6, heals x0.35) so every
+critter wins about 1 in 8 at equal power; `tests/test_royale.gd` checks that.
+A royale replays from `{seed, critters, angles}`. Open it from its Play tab
+card or `?mode=royale` (`&seed=7&p1=laser&aim=-450&auto=1&speed=4`). Stats
+are saved to `user://royale.cfg`.
+
 ## Ghost Arena (PvP)
 
 Async PvP from design/pvp.md in the project files. `sim/relay.gd` runs a

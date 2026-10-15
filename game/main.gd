@@ -102,11 +102,13 @@ func _ready() -> void:
 	save.app_version = VERSION
 	save.load_local()
 	_apply_picks()
-	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
-	if _read_url_params().get("mode", "") == "trickshot" and not _mode_redirected:
+	# ?mode=trickshot opens Daily Trick Shot (?mode=royale Ball Royale), once:
+	# its Back button comes here.
+	var mode_scene: String = {"trickshot": "res://game/trick_shot.tscn", "royale": "res://game/royale.tscn"}.get(_read_url_params().get("mode", ""), "")
+	if mode_scene != "" and not _mode_redirected:
 		_mode_redirected = true
 		set_process(false)
-		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
+		get_tree().change_scene_to_file.call_deferred(mode_scene)
 		return
 	arena = ArenaView.new()
 	add_child(arena)

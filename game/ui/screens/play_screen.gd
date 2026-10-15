@@ -9,6 +9,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -48,6 +49,15 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(mode_card(shell, "arena", "PvP · %s trophies · %s" % [Kit.commas(arena_store.trophies), Ladder.league_label(arena_store.trophies)],
 		"Ghost Arena", "Your trio against other trios. Climb from Bronze to Neon.", "Enter the Arena", Color("ff4fd8"),
 		func(): shell.go("arena")))
+
+	# Ball Royale: an 8-ball free-for-all event at equal power (design/ball-royale.md).
+	# Loaded, not preloaded: the scene script preloads main.gd, which preloads this.
+	var RoyaleScene = load("res://game/royale.gd")
+	root.add_child(mode_card(shell, "royale", "Event · %s" % RoyaleScene.stats_line(), "Ball Royale",
+		"You and seven bots in one arena, every ball for itself. Last ball standing wins.", "Enter the Royale", Color("ffb13d"),
+		func():
+			RoyaleScene.critter = p.lineup if p.lineup in BallDefs.PLAYABLE else BallDefs.PLAYABLE[0]
+			shell.get_tree().change_scene_to_file("res://game/royale.tscn")))
 
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
