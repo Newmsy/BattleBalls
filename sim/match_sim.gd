@@ -7,6 +7,8 @@
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
+## `fields: false` (optional) switches off Flux's magnet field, so Daily Trick
+## Shot balls fly straight.
 ## `hp` (optional) sets each ball's starting HP (null = full), for relays
 ## where a winner stays in with what it has left.
 ## `modifier` is an optional Chaos Weekend rule twist from sim/modifiers.gd,
@@ -54,6 +56,9 @@ class Ball:
 	var last_bounce := Vector2.ZERO
 	var damage_dealt := 0.0
 	var healed := 0.0
+	## Magnet: which way the field points, and whether this Pull's snap is unused.
+	var pulling := true
+	var snap_ready := true
 
 	func alive() -> bool:
 		return hp > 0.0
@@ -152,6 +157,7 @@ func step() -> void:
 	if in_overtime():
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - overtime_start))
 
+	_update_fields()
 	var hits: Array[Dictionary] = []
 	for b in balls:
 		if b.alive():
@@ -240,6 +246,44 @@ func _on_wall_bounce(b: Ball, point: Vector2) -> void:
 	b.last_bounce = point
 
 
+## Magnet fields: flip on the period, then steer every other ball toward
+## (Pull) or away from (Push) the magnet. Steering only turns a ball; it keeps
+## its own speed, like every other bounce in the sim.
+func _update_fields() -> void:
+	if not config.get("fields", true):
+		return
+	for m in balls:
+		if m.def.ability != "magnet" or not m.alive():
+			continue
+		var period_ticks := maxi(1, int(round(m.def.field_period * TICK_RATE)))
+		var pulling := (tick / period_ticks) % 2 == 0
+		if pulling != m.pulling:
+			m.pulling = pulling
+			if pulling:
+				m.snap_ready = true
+			events.append({"type": "flip", "ball": m.index, "pulling": pulling, "pos": m.pos})
+		for other in balls:
+			if other == m or not other.alive():
+				continue
+			var delta := m.pos - other.pos
+			var dist := delta.length()
+			if dist < 0.001 or dist >= m.def.field_range:
+				continue
+			var strength: float = m.def.field_accel * (1.0 - dist / m.def.field_range)
+			if not m.pulling:
+				strength *= -m.def.push_scale
+			var pull := delta / dist * strength
+			_steer(other, pull)
+			# Magnets attract both ways: the magnet turns toward (or away from) the foe too.
+			_steer(m, -pull)
+
+
+func _steer(b: Ball, accel: Vector2) -> void:
+	var v := b.vel + accel * DT
+	if v.length() > 0.001:
+		b.vel = v.normalized() * b.speed
+
+
 func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 	for i in balls.size():
 		for j in range(i + 1, balls.size()):
@@ -277,8 +321,17 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 				continue
 			_contact_cooldown_until[key] = tick + int(round(CONTACT_COOLDOWN * TICK_RATE))
 			# The ball that rams harder hits harder, so even mirror matches trade unevenly.
-			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share), "kind": "contact", "pos": b.pos})
-			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share), "kind": "contact", "pos": a.pos})
+			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _snap(a), "kind": "contact", "pos": b.pos})
+			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _snap(b), "kind": "contact", "pos": a.pos})
+
+
+## Magnet's first contact hit of each Pull phase snaps for extra damage.
+func _snap(b: Ball) -> float:
+	if b.def.ability != "magnet" or not b.pulling or not b.snap_ready:
+		return 1.0
+	b.snap_ready = false
+	events.append({"type": "snap", "ball": b.index, "pos": b.pos})
+	return b.def.snap_mult
 
 
 ## 0 share (was hit while moving away) -> 1 - IMPACT_SPREAD; 1 share -> 1 + IMPACT_SPREAD.

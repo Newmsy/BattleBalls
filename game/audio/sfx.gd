@@ -18,6 +18,9 @@ const RULES := {
 	"wall": [2, 0.07, -15.0],
 	"ouch_vampire": [1, 0.18, -7.0],
 	"ouch_laser": [1, 0.18, -9.0],
+	"ouch_magnet": [1, 0.18, -9.0],
+	"flip": [1, 0.3, -14.0],
+	"snap": [1, 0.2, -4.0],
 	"ko": [1, 0.5, 0.0],
 	"heal": [1, 0.3, -10.0],
 	"slurp": [1, 0.25, -8.0],
@@ -153,6 +156,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("wall", 0.0, 0.9 + _rng.randf() * 0.25)
 			"beam":
 				play("zap")
+			"flip":
+				play("flip", 0.0, 1.0 if e.pulling else 0.85)
+			"snap":
+				play("snap")
 			"end":
 				if e.reason != "time_limit":
 					play("ko")

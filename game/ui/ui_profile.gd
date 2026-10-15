@@ -33,7 +33,7 @@ const WISHLIST_MAX := 3
 static func sample():
 	var p = load("res://game/ui/ui_profile.gd").new()
 	for s in [["vampire", 2, 1, 14], ["vampire", 1, 3, 6], ["juggernaut", 1, 2, 7], ["spiker", 2, 1, 12],
-			["spiker", 1, 1, 3], ["speedster", 1, 3, 9], ["laser", 1, 2, 8], ["bomber", 1, 1, 3],
+			["spiker", 1, 1, 3], ["speedster", 1, 3, 9], ["bomber", 1, 1, 3],
 			["thorns", 1, 1, 2], ["splitter", 1, 1, 5]]:
 		p.stacks.append({"id": s[0], "tier": s[1], "count": s[2], "level": s[3]})
 		p.seen[s[0]] = true

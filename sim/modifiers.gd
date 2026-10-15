@@ -6,7 +6,8 @@
 ##   radius, hp, damage, speed  multipliers on the ball's base stats; `damage`
 ##                              scales contact damage and every *_damage stat
 ##   ability                    multiplier on ability strength: Vampire's heal
-##                              ratio, Laser's beam cap (how many beams at once)
+##                              ratio, Laser's beam cap (how many beams at once),
+##                              (by sqrt) beam damage and Flux's snap bonus
 ##   beam_life                  multiplier on how long Laser beams last
 ##   overtime_start             seconds before the arena starts closing in
 ##   mirror                     both sides use the same seed-picked ball
@@ -23,9 +24,9 @@ const DEFS := {
 	},
 	"glass_cannon": {
 		"display_name": "Glass Cannon",
-		"description": "Three quarters HP, 1.5x damage. Fights end fast.",
+		"description": "Three quarters HP, 1.35x damage. Fights end fast.",
 		"hp": 0.75,
-		"damage": 1.5,
+		"damage": 1.35,
 	},
 	"hyper_speed": {
 		"display_name": "Hyper Speed",
@@ -36,7 +37,7 @@ const DEFS := {
 	},
 	"double_trouble": {
 		"display_name": "Double Trouble",
-		"description": "Abilities hit 1.5x harder: bigger heals, more beams at once.",
+		"description": "Abilities hit harder: bigger heals, more and hotter beams, bigger snaps.",
 		"ability": 1.5,
 	},
 	"mirror_match": {
@@ -92,6 +93,14 @@ static func apply_to_def(def: Dictionary, id: String) -> Dictionary:
 		out.beam_life *= mod.get("beam_life", 1.0)
 	if out.has("beam_max"):
 		out.beam_max = roundi(out.beam_max * ability)
+	# Since Optic's rebalance (beams 4.5 damage) and Flux's arrival, a bigger
+	# beam cap alone left Optic at 34% to Nibbles under Double Trouble. Beam
+	# damage and Flux's snap bonus (above a plain hit) grow by the square root,
+	# which keeps every pairing within 43-57%.
+	if out.has("beam_damage"):
+		out.beam_damage *= sqrt(ability)
+	if out.has("snap_mult"):
+		out.snap_mult = 1.0 + (out.snap_mult - 1.0) * sqrt(ability)
 	return out
 
 

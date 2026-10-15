@@ -22,8 +22,8 @@ func test_modifiers_apply_to_both_balls() -> void:
 	for b in glass.balls:
 		var base := BallDefs.get_def(b.type_id)
 		check_near(b.max_hp, base.hp * 0.75, 0.001, "Glass Cannon HP for " + b.type_id)
-		check_near(b.contact_damage, base.contact_damage * 1.5, 0.001, "Glass Cannon contact damage for " + b.type_id)
-	check_near(glass.balls[1].def.beam_damage, BallDefs.get_def("laser").beam_damage * 1.5, 0.001, "Glass Cannon beam damage")
+		check_near(b.contact_damage, base.contact_damage * Modifiers.get_def("glass_cannon").damage, 0.001, "Glass Cannon contact damage for " + b.type_id)
+	check_near(glass.balls[1].def.beam_damage, BallDefs.get_def("laser").beam_damage * Modifiers.get_def("glass_cannon").damage, 0.001, "Glass Cannon beam damage")
 	var fast := _sim("hyper_speed")
 	for b in fast.balls:
 		check_near(b.vel.length(), BallDefs.get_def(b.type_id).speed * 1.4, 0.01, "Hyper Speed for " + b.type_id)

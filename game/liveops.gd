@@ -1,5 +1,5 @@
 ## Live-ops calendar: the season, the weekly Critter Spotlight, Chaos
-## Weekends and the Fight of the Day, read from one schedule file
+## Weekends, the Fight of the Day and the Try-a-Critter loaner, read from one schedule file
 ## (liveops/liveops.json, see liveops/README.md) so a season can be planned
 ## ahead without an app update.
 ##
@@ -33,11 +33,11 @@ const WEEKEND_START := 4 * DAY ## Friday, from Monday 00:00.
 const CHAOS_ROTATION := ["big_head", "glass_cannon", "mirror_match", "hyper_speed", "closing_walls", "double_trouble"]
 const CHAOS_TEXT := {
 	"big_head": ["Big Head", "Every ball is 1.35x bigger. More bumps, fewer misses."],
-	"glass_cannon": ["Glass Cannon", "Three quarters HP, 1.5x damage. Fights end fast."],
+	"glass_cannon": ["Glass Cannon", "Three quarters HP, 1.35x damage. Fights end fast."],
 	"mirror_match": ["Mirror Match", "Both sides get the same random ball. Only your aim decides."],
 	"hyper_speed": ["Hyper Speed", "Every ball moves 1.4x faster. Beams fade faster too."],
 	"closing_walls": ["Closing Walls", "Overtime starts at 10 seconds: the arena shrinks early."],
-	"double_trouble": ["Double Trouble", "Abilities hit 1.5x harder: bigger heals, more beams at once."],
+	"double_trouble": ["Double Trouble", "Abilities hit harder: bigger heals, more and hotter beams, bigger snaps."],
 }
 
 ## Fight of the Day generator: keep the first seed whose fight is close.
@@ -115,7 +115,7 @@ static func validate(d: Dictionary) -> Array:
 	for key in ["version", "revision"]:
 		if not _num(d.get(key)):
 			errors.append("%s must be a number" % key)
-	for key in ["seasons", "spotlight", "chaos", "fights"]:
+	for key in ["seasons", "spotlight", "chaos", "fights", "loaners"]:
 		if not d.get(key, []) is Array:
 			errors.append("%s must be a list" % key)
 			return errors
@@ -134,6 +134,13 @@ static func validate(d: Dictionary) -> Array:
 			errors.append("chaos weekend must be a Friday: %s" % [c])
 		elif not CHAOS_TEXT.has(c.get("modifier")):
 			errors.append("chaos modifier unknown: %s" % [c.get("modifier")])
+	# A loaner only has to be a known critter: a newer schedule may name one
+	# this build cannot play yet, and loaner() falls back for that day.
+	for l in d.get("loaners", []):
+		if not l is Dictionary or date_unix(l.get("date")) < 0:
+			errors.append("loaner needs a date: %s" % [l])
+		elif Roster.CRITTERS.all(func(c): return c.id != l.get("critter")):
+			errors.append("loaner critter unknown: %s" % [l.get("critter")])
 	for f in d.get("fights", []):
 		if not f is Dictionary or date_unix(f.get("date")) < 0:
 			errors.append("fight needs a date: %s" % [f])
@@ -218,6 +225,28 @@ static func chaos(t: int) -> Dictionary:
 			id = c.modifier
 	var text: Array = CHAOS_TEXT[id]
 	return {"modifier": id, "name": text[0], "description": text[1], "starts": starts, "ends": starts + 3 * DAY, "live": t >= starts}
+
+
+## Today's Try-a-Critter loaner: { critter, blurb, date, ends }. A scheduled
+## critter this build cannot fight with is skipped for the rotation, which
+## walks the playable critters rarest first, one a day.
+static func loaner(t: int) -> Dictionary:
+	var day := day_start(t)
+	var date := Time.get_date_string_from_unix_time(day)
+	for l in data().get("loaners", []):
+		if l.date == date and l.critter in BallDefs.PLAYABLE:
+			return {"critter": l.critter, "blurb": l.get("blurb", ""), "date": date, "ends": day + DAY}
+	var pool := loaner_pool()
+	var id: String = pool[posmod(floori(float(day - EPOCH) / DAY), pool.size())]
+	return {"critter": id, "blurb": "", "date": date, "ends": day + DAY}
+
+
+## Critters that can be lent: on the roster and playable in the sim, rarest first.
+static func loaner_pool() -> Array:
+	var pool: Array = Roster.CRITTERS.filter(func(c): return c.id in BallDefs.PLAYABLE)
+	var rank := func(c): return Roster.RARITIES.find(c.rarity) * 1000 - Roster.CRITTERS.find(c)
+	pool.sort_custom(func(a, b): return rank.call(a) > rank.call(b))
+	return pool.map(func(c): return c.id)
 
 
 ## Today's Fight of the Day: { date, p1, p2, seed, angles, title, winner,
