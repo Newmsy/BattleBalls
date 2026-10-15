@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": 2,
+  "revision": 3,
   "seasons": [
     {"name": "Preseason", "start": "2026-10-12", "weeks": 7}
   ],
@@ -23,6 +23,11 @@
     {"weekend": "2026-11-27", "modifier": "closing_walls"}
   ],
   "fights": [],
+  "derbies": [
+    {"start": "2026-10-30", "end": "2026-11-01", "title": "Spooky Derby", "theme": "spooky",
+      "racers": ["ghost", "blackhole", "vampire", "bomber", "thorns", "phoenix"],
+      "blurb": "Halloween weekend: six spooky critters, one haunted course. Pick who makes it out first."}
+  ],
   "loaners": [
     {"date": "2026-10-15", "critter": "laser", "blurb": "Optic is this week's Spotlight. Borrow it for a day and see if the beams are worth chasing."},
     {"date": "2026-10-16", "critter": "vampire", "blurb": "Count Nibbles drinks up every hit. Chaos Weekend starts today: try it with the walls closing in."}

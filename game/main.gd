@@ -97,6 +97,7 @@ var shell: Shell
 var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
 
 static var _mode_redirected := false
+const MODE_SCENES := {"trickshot": "res://game/trick_shot.tscn", "derby": "res://game/derby.tscn"}
 
 
 func _ready() -> void:
@@ -108,11 +109,13 @@ func _ready() -> void:
 	save.app_version = VERSION
 	save.load_local()
 	_apply_picks()
-	# ?mode=trickshot opens Daily Trick Shot, once: its Back button comes here.
-	if _read_url_params().get("mode", "") == "trickshot" and not _mode_redirected:
+	# ?mode=trickshot opens Daily Trick Shot (?mode=derby, Bounce Derby), once:
+	# its Back button comes here.
+	var url_mode: String = _read_url_params().get("mode", "")
+	if url_mode in MODE_SCENES and not _mode_redirected:
 		_mode_redirected = true
 		set_process(false)
-		get_tree().change_scene_to_file.call_deferred("res://game/trick_shot.tscn")
+		get_tree().change_scene_to_file.call_deferred(MODE_SCENES[url_mode])
 		return
 	arena = ArenaView.new()
 	add_child(arena)

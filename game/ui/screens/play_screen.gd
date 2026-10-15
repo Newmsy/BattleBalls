@@ -9,6 +9,8 @@ const Roster := preload("res://game/ui/roster.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
+const LiveOps := preload("res://game/liveops.gd")
+const DerbyScene := preload("res://game/derby.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -49,6 +51,8 @@ static func build(shell, _params: Dictionary) -> Control:
 		"Ghost Arena", "Your trio against other trios. Climb from Bronze to Neon.", "Enter the Arena", Color("ff4fd8"),
 		func(): shell.go("arena")))
 
+	root.add_child(derby_card(shell))
+
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
@@ -83,6 +87,19 @@ static func mode_card(shell, mark: String, caption: String, title: String, text:
 	shell.mark(mark, btn)
 	var v := Kit.vbox(10, [Kit.caption(caption, accent), Kit.label(title, 40), Kit.label(text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
 	return Kit.panel(v, Kit.box(accent.darkened(.82), accent.darkened(.5), 40, 2, 30))
+
+
+## Bounce Derby: today's race, or a liveops derby event with its own title.
+static func derby_card(shell) -> Control:
+	var t := LiveOps.now()
+	var d := LiveOps.derby(t)
+	var st := DerbyScene.load_stats()
+	var caption := "Event · ends in %s" % LiveOps.countdown(t, d.ends) if d.event else "Daily · a new race every day"
+	if st.stars > 0:
+		caption += " · %d stars" % st.stars
+	var text: String = d.blurb if d.event and d.blurb != "" else "Six critters, one bouncy course. Pick the winner and cheer them home."
+	return mode_card(shell, "derby", caption, d.title, text, "Watch today's race" if st.picked_today else "Pick a winner",
+		Color("9cff57") if d.event else Color("5ce1ff"), func(): shell.get_tree().change_scene_to_file("res://game/derby.tscn"))
 
 
 ## Friends: a count and whatever is waiting (requests, energy gifts).

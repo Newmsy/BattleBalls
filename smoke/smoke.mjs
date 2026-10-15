@@ -1,6 +1,7 @@
 // Smoke test for the web build: boots it in a phone-sized headless Chromium,
 // plays one auto fight and one fight through the real menu, fails on any
-// page error, and saves screenshots. Also opens Daily Trick Shot and solves one.
+// page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
+// and runs a Bounce Derby race.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -370,6 +371,37 @@ try {
     await page.mouse.click(...toPage(page, 360, 1118));
     await waitForLogAfter(logs, back, "UI_SCREEN arena", 15000);
     await page.screenshot({ path: path.join(shots, "21-arena-after.png") });
+    await page.close();
+  }
+
+  // 11. Bounce Derby opens from its Play tab card (below the Arena card).
+  {
+    const { page, logs } = await openGame("?seed=7&offline=1");
+    await waitForLog(logs, "UI_SCREEN play", 60000);
+    await page.waitForTimeout(800);
+    await page.mouse.move(...toPage(page, 360, 800));
+    for (let i = 0; i < 8; i++) {
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(150);
+    }
+    await page.waitForTimeout(600);
+    await tapUi(page, logs, "derby");
+    console.log("derby:", await waitForLog(logs, "DERBY_READY", 15000));
+    await page.waitForTimeout(1000);
+    await page.screenshot({ path: path.join(shots, "22-derby-pick.png") });
+    await page.close();
+  }
+
+  // 12. A called Halloween derby race runs to a result.
+  {
+    const { page, logs } = await openGame("?mode=derby&today=2026-10-31&pick=0&auto=1&speed=2");
+    await waitForLog(logs, "DERBY_START", 60000);
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "23-derby-race.png") });
+    const result = await waitForLog(logs, "DERBY_RESULT", 90000);
+    console.log("derby result:", result);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "24-derby-result.png") });
     await page.close();
   }
 } catch (e) {
