@@ -13,6 +13,7 @@ const Catalog := preload("res://game/glow/catalog.gd")
 const CosmeticArt := preload("res://game/glow/cosmetic_art.gd")
 const A11y := preload("res://game/a11y.gd")
 const RarityMark := preload("res://game/ui/rarity_mark.gd")
+const Abilities := preload("res://sim/abilities.gd")
 
 const INK := Color("1a1530")
 const ARENA_FILL := Color("120f33")
@@ -27,9 +28,9 @@ const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
 const MINE := Color("ff4d4d")
 ## Floor zone fills by kind (sim Zone.kind).
-const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff")}
+const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "inkpool": Color("5a2a8a"), "whirlpool": Color("3fd0c9")}
 ## Pulse and blast ring colours by kind.
-const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d")}
+const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"), "glow": Color("e8ff7a"), "candy": Color("ff9de2"), "inkslam": Color("b36bff"), "wave": Color("5ff0e6"), "quasar": Color("e0b3ff")}
 const RING_LIFE := 0.45
 ## Crits pop bigger in gold; backstabs get their own call-out.
 const POP_CRIT := Color("ffb627")
@@ -200,6 +201,14 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"revive":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "REBORN!", POP_SNAP)
+			"orb_lost":
+				_spawn_particles(e.pos, 6)
+			"yoyo", "fling", "hug", "dive":
+				var g := sim.balls[e.ball]
+				var words := {"yoyo": "SWING!", "fling": "WALK THE DOG!", "hug": "HUG!", "dive": "DIVE!"}
+				_add_popup(g.pos + Vector2(-40, -g.radius - 34), words[e.type], POP_SNAP)
+			"launch":
+				_spawn_particles(e.pos, 4)
 			"shielded":
 				var g := sim.balls[e.target]
 				_add_popup(g.pos + Vector2(28, -g.radius - 10), "0", POP_BEAM)
@@ -342,6 +351,8 @@ func _draw() -> void:
 		var a: Vector2 = beam.a * s
 		var b: Vector2 = beam.b * s
 		var col := BEAM
+		if sim.balls[beam.owner].def.has("beam_color"):
+			col = Color(sim.balls[beam.owner].def.beam_color)
 		if sim.balls[beam.owner].def.get("beam_rainbow", 0):
 			col = Color.from_hsv(fmod(bi * 0.14 + _time * 0.5, 1.0), 0.7, 1.0)
 		bi += 1
@@ -359,10 +370,10 @@ func _draw() -> void:
 			_draw_inflow(b.pos * s, b.radius * s, b.def.pull_range * s, Color("8f7bff"), 0.18)
 		if b.state.get("collapsing", false):
 			_draw_inflow(b.pos * s, b.radius * s, b.def.collapse_range * s, Color("c58bff"), 0.45)
-		for m in b.state.get("moons", []):
-			draw_circle(m * s, (b.def.moon_size + 4.0) * s, Color("d9d4ff", 0.25))
-			draw_circle(m * s, b.def.moon_size * s, Color("d9d4ff"))
-			draw_circle((m + Vector2(-3, -3)) * s, b.def.moon_size * 0.4 * s, Color.WHITE)
+		if sim.tick < int(b.state.get("dive_until", -1)):
+			_draw_dive(b, s)
+		for item in Abilities.orb_items(sim, b):
+			_draw_orb(b, item, s)
 
 	for k in _rings:
 		var t: float = k.age / RING_LIFE
@@ -620,6 +631,66 @@ func _draw_zone(z, s: float) -> void:
 			var col: Color = ZONE_COLORS.get(z.kind, Color.WHITE)
 			draw_circle(p, z.radius * s, Color(col, 0.28 * fade))
 			draw_circle(p, z.radius * 0.55 * s, Color(col, 0.22 * fade))
+
+
+## One orbiter or attachment (sim/abilities.gd, batch E), by its look.
+func _draw_orb(b, item: Dictionary, s: float) -> void:
+	var p: Vector2 = item.pos * s
+	var r: float = item.size * s
+	var col: Color = b.def.color
+	if item.has("from"):
+		var thick := 10.0 if item.look == "tentacle" else 4.0
+		draw_line(item.from * s, p, Color(col.lightened(0.25), 0.85), thick * s, true)
+		if item.look == "wreck":
+			draw_line(item.from * s, p, Color("ffe066", 0.5), 1.5, true)
+	match item.look:
+		"bug":
+			draw_circle(p, r * 2.2, Color("eaff6a", 0.18 + 0.1 * sin(_time * 8.0)))
+			draw_circle(p, r, Color("eaff6a"))
+			draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.4, Color.WHITE)
+		"candy":
+			var hues := [Color("ff5fa2"), Color("ffd23f"), Color("6ee7ff"), Color("a6ff6e")]
+			draw_circle(p, r * 1.3, Color(hues[int(item.get("hue", 0)) % 4], 0.25))
+			draw_circle(p, r, hues[int(item.get("hue", 0)) % 4])
+			draw_arc(p, r * 0.6, _time * 4.0, _time * 4.0 + PI, 12, Color.WHITE, 2.0, true)
+		"wreck":
+			var big: bool = item.get("big", false)
+			draw_circle(p, r * 1.25, Color("ffe066", 0.35 if big else 0.12))
+			draw_circle(p, r, Color("3a3f45"))
+			draw_arc(p, r, 0.0, TAU, 24, Color("ffe066"), 2.5, true)
+			draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.25, Color(1, 1, 1, 0.6))
+		"bee":
+			draw_circle(p, r, Color("ffc93c"))
+			draw_line(p + Vector2(-r * 0.3, -r), p + Vector2(-r * 0.3, r), Color("2a1d05"), 2.5)
+			draw_line(p + Vector2(r * 0.3, -r), p + Vector2(r * 0.3, r), Color("2a1d05"), 2.5)
+			draw_circle(p + Vector2(0, -r * 0.9), r * 0.5, Color(1, 1, 1, 0.55))
+		"tentacle":
+			draw_circle(p, r, col.lightened(0.25))
+			draw_circle(p, r * 0.45, Color("ffd6f5", 0.8))
+		"segment":
+			draw_circle(p, r * 1.3, Color("5ff0e6", 0.18))
+			draw_circle(p, r, col.lightened(0.15))
+			draw_arc(p, r * 0.7, 0.0, TAU, 20, Color("5ff0e6", 0.85), 2.5, true)
+		"yoyo":
+			draw_circle(p, r, Color(col, 0.55))
+			draw_arc(p, r, 0.0, TAU, 24, Color("7ff3ff", 0.8), 2.0, true)
+		_:
+			draw_circle(p, r + 4.0 * s, Color("d9d4ff", 0.25))
+			draw_circle(p, r, Color("d9d4ff"))
+			draw_circle(p + Vector2(-3, -3) * s, r * 0.4, Color.WHITE)
+
+
+## Leviathan's dive: a swirl where it went down and a shrinking ring where it
+## will burst up.
+func _draw_dive(b, s: float) -> void:
+	for k in 3:
+		var a := _time * 6.0 + k * TAU / 3.0
+		draw_arc(b.pos * s, b.radius * s * (0.6 + 0.2 * k), a, a + PI * 0.9, 16, Color("5ff0e6", 0.6), 3.0, true)
+	var t: Vector2 = b.state.get("dive_target", b.pos)
+	var left: float = (int(b.state.dive_until) - sim.tick) / float(MatchSim.TICK_RATE)
+	var reach: float = b.def.get("wave_radius", 200.0)
+	draw_arc(t * s, reach * s, 0.0, TAU, 48, Color("5ff0e6", 0.25), 2.0, true)
+	draw_arc(t * s, reach * s * clampf(left / 1.2, 0.1, 1.0), 0.0, TAU, 48, Color("5ff0e6", 0.7), 3.0, true)
 
 
 ## Flow lines drifting inward: a pull field (Orbit) or a collapse (Void).

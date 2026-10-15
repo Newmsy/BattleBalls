@@ -180,6 +180,14 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("snap", 0.0, 1.25)
 			"revive":
 				play("heal", 0.0, 0.8)
+			"launch":
+				play("zap", -4.0, 1.6)
+			"yoyo", "fling":
+				play("stretch", 0.0, 1.3 if e.type == "yoyo" else 1.6)
+			"hug", "dive":
+				play("flip", 0.0, 0.7 if e.type == "dive" else 0.9)
+			"orb_lost":
+				play("click", 0.0, 1.4)
 			"end":
 				if e.reason != "time_limit":
 					play("ko")

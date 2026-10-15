@@ -55,6 +55,24 @@ const EFFECTS := {
 	"brake": [],
 	"mark_slam": ["slam_window"],
 	"slam": ["slam_damage"],
+	"orb_flare": ["orb_flare_radius", "orb_flare_damage"],
+	"candies": ["candy_max", "candy_orbit", "candy_size", "candy_damage", "candy_spin", "candy_cooldown", "candy_start"],
+	"candy": ["candy_max", "candy_blast_radius", "candy_blast_damage"],
+	"candy_loss": ["candy_loss_hit"],
+	"wrecker": ["wreck_orbit", "wreck_size", "wreck_damage", "wreck_spin", "wreck_cooldown", "wreck_slam_damage", "wreck_chain_dps", "wreck_windup_every", "wreck_windup_reach"],
+	"swarm": ["bee_count", "bee_orbit", "bee_size", "bee_damage", "bee_spin", "bee_cooldown", "bee_speed", "bee_turn", "bee_life", "bee_launch_damage", "bee_poison_dps"],
+	"bee_launch": ["bee_respawn"],
+	"swarm_all": ["bee_respawn"],
+	"tentacles": ["tentacle_count", "tentacle_orbit", "tentacle_size", "tentacle_damage", "tentacle_spin", "tentacle_cooldown", "hug_range", "hug_accel"],
+	"ink_slam": ["ink_radius", "ink_life", "ink_slow", "ink_dps", "ink_shove", "hug_every", "hug_secs"],
+	"quasar": ["quasar_length", "quasar_spin", "quasar_dps", "quasar_flare_dps", "quasar_cross"],
+	"quasar_flare": ["quasar_flare_secs", "quasar_reverse"],
+	"yoyo": ["yoyo_string", "yoyo_dps", "yoyo_fling", "yoyo_strings"],
+	"yoyo_bounce": ["yoyo_every", "yoyo_secs"],
+	"tail": ["tail_count", "tail_size", "tail_damage", "tail_cooldown", "tail_slow"],
+	"dive": ["dive_secs"],
+	"dive_tick": ["dive_lock", "wave_radius", "wave_damage", "pool_radius", "pool_life", "pool_dps", "pool_slow"],
+	"dive_guard": ["dive_guard"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -277,26 +295,18 @@ func fx_pull(sim, b, _ctx: Dictionary) -> void:
 
 ## moon_count moons circle it moon_orbit beyond its edge; each hits a foe it
 ## touches for moon_damage, at most once per moon_cooldown, and moon_burn > 0
-## sets it burning (that much a second for 2s). Positions are in
-## b.state.moons for the renderer.
+## sets it burning (that much a second for 2s). moon_look (optional) names how
+## the renderer draws them (see _publish_orbs).
 func fx_moons(sim, b, _ctx: Dictionary) -> void:
 	var n := int(b.def.moon_count)
-	var moons: Array[Vector2] = []
-	var hit_at: Dictionary = b.state.get("moon_hits", {})
-	b.state.moon_hits = hit_at
-	var dist: float = b.radius + b.def.moon_orbit
+	var ring := _ring(sim, b, n, b.radius + b.def.moon_orbit, b.def.moon_spin)
+	var items := []
 	for k in n:
-		var ang: float = sim.tick * sim.DT * b.def.moon_spin + k * TAU / n
-		var p: Vector2 = b.pos + Vector2.from_angle(ang) * dist
-		moons.append(p)
-		for o in sim.foes(b):
-			var key := "%d:%d" % [k, o.index]
-			if p.distance_to(o.pos) <= o.radius + b.def.moon_size and sim.tick >= int(hit_at.get(key, 0)):
-				hit_at[key] = sim.tick + int(round(b.def.moon_cooldown * sim.TICK_RATE))
-				sim.deal(b, o, b.def.moon_damage, "moon", p)
-				if b.def.moon_burn > 0.0:
-					sim.add_burn(b, o, b.def.moon_burn, 2.0)
-	b.state.moons = moons
+		for o in _orb_hit(sim, b, ring[k], b.def.moon_size, b.def.moon_damage, b.def.moon_cooldown, "moon%d" % k, "moon"):
+			if b.def.moon_burn > 0.0:
+				sim.add_burn(b, o, b.def.moon_burn, 2.0)
+		items.append({"pos": ring[k], "size": b.def.moon_size, "look": b.def.get("moon_look", "moon")})
+	_publish_orbs(sim, b, "moons", items)
 
 
 ## Flings foes within flare_radius straight away; one that hits a wall within
@@ -488,3 +498,439 @@ func fx_slam(sim, b, ctx: Dictionary) -> void:
 	if sim.tick <= b.state.get("slam_until", -1):
 		b.state.slam_until = -1
 		sim.add_hit(b, ctx.other, b.def.slam_damage, "slam", ctx.point)
+
+
+# --- Orbiters and attachments (batch E) -------------------------------------
+# Things that circle, swing from or trail a ball and hit foes they touch:
+# Orbit's moons, Glowbug's bugs, Jawbreaker's candies, Wrecker's ball, Swarm's
+# bees, Kraken's tentacles, Leviathan's tail. Each effect publishes what it
+# draws in b.state.orbs (see _publish_orbs), and beams that follow their owner
+# (Wrecker's chain, Quasar's jets, Yo-Yo's string) go through _hold_beam.
+
+## n points evenly spaced on a circle of radius `dist` round b, turning at
+## `spin` radians a second (plus `offset`).
+static func _ring(sim, b, n: int, dist: float, spin: float, offset := 0.0) -> Array[Vector2]:
+	var out: Array[Vector2] = []
+	for k in n:
+		var ang: float = sim.tick * sim.DT * spin + offset + k * TAU / maxi(1, n)
+		out.append(b.pos + Vector2.from_angle(ang) * dist)
+	return out
+
+
+## An orbiter of radius `size` at `p` hits each foe it touches for `damage`,
+## at most once per `cooldown` seconds per foe (`key` names the orbiter).
+## Returns the foes it hit this tick.
+func _orb_hit(sim, b, p: Vector2, size: float, damage: float, cooldown: float, key: String, kind: String) -> Array:
+	var hit_at: Dictionary = b.state.get("orb_hits", {})
+	b.state.orb_hits = hit_at
+	var out := []
+	for o in sim.foes(b):
+		var k := "%s:%d" % [key, o.index]
+		if p.distance_to(o.pos) <= o.radius + size and sim.tick >= int(hit_at.get(k, 0)):
+			hit_at[k] = sim.tick + int(round(cooldown * sim.TICK_RATE))
+			sim.deal(b, o, damage, kind, p)
+			out.append(o)
+	return out
+
+
+## What the renderer draws for one orbiter set: b.state.orbs[name] holds the
+## tick and a list of {pos, size, look, from (optional: a tether point)}. A set
+## not refreshed this tick (a copy ended, a dive) stops being drawn.
+static func _publish_orbs(sim, b, name: String, items: Array) -> void:
+	var orbs: Dictionary = b.state.get("orbs", {})
+	b.state.orbs = orbs
+	orbs[name] = {"tick": sim.tick, "items": items}
+
+
+## Every orbiter b drew this tick or last.
+static func orb_items(sim, b) -> Array:
+	var out := []
+	var orbs: Dictionary = b.state.get("orbs", {})
+	for name in orbs:
+		if orbs[name].tick >= sim.tick - 1:
+			out.append_array(orbs[name].items)
+	return out
+
+
+## A beam that follows its owner: made once, then moved and kept at full
+## strength every tick it's held. One not held for 0.2s fades out on its own.
+## It hits a foe on it for dps a second (dps / 4 every 0.25s).
+func _hold_beam(sim, b, name: String, from: Vector2, to: Vector2, dps: float) -> void:
+	var held: Dictionary = b.state.get("held_beams", {})
+	b.state.held_beams = held
+	var beam = held.get(name)
+	if beam == null or not sim.beams.has(beam):
+		sim.add_beam(b, from, to, {"life": 0.2, "damage": dps * 0.25, "cooldown": 0.25})
+		beam = sim.beams.back()
+		held[name] = beam
+	beam.a = from
+	beam.b = to
+	beam.age = 0.0
+	beam.damage = dps * 0.25
+
+
+func _drop_beam(sim, b, name: String) -> void:
+	var held: Dictionary = b.state.get("held_beams", {})
+	if held.has(name):
+		sim.beams.erase(held[name])
+		held.erase(name)
+
+
+## Every orbiter it has flares: a pulse of orb_flare_damage within
+## orb_flare_radius of each one (Glowbug).
+func fx_orb_flare(sim, b, _ctx: Dictionary) -> void:
+	for item in orb_items(sim, b):
+		sim.pulse(b, item.pos, b.def.orb_flare_radius, b.def.orb_flare_damage, false, "glow")
+
+
+## Jawbreaker's candies: b.state.candies of them (candy_start at first) circle
+## it candy_orbit beyond its edge, each bonking foes for candy_damage.
+func fx_candies(sim, b, _ctx: Dictionary) -> void:
+	if not b.state.has("candies"):
+		b.state.candies = int(b.def.candy_start)
+	var n: int = b.state.candies
+	var ring := _ring(sim, b, n, b.radius + b.def.candy_orbit, b.def.candy_spin)
+	var items := []
+	for k in n:
+		_orb_hit(sim, b, ring[k], b.def.candy_size, b.def.candy_damage, b.def.candy_cooldown, "candy%d" % k, "candy")
+		items.append({"pos": ring[k], "size": b.def.candy_size, "look": "candy", "hue": k})
+	_publish_orbs(sim, b, "candies", items)
+
+
+## A contact hit adds a candy, up to candy_max. With candy_blast_damage > 0, a
+## hit with every candy out cracks them all instead: a sugar blast of that much
+## within candy_blast_radius, and the count starts over.
+func fx_candy(sim, b, _ctx: Dictionary) -> void:
+	var n := int(b.state.get("candies", b.def.get("candy_start", 0)))
+	if b.def.candy_blast_damage > 0.0 and n >= int(b.def.candy_max):
+		b.state.candies = 0
+		sim.pulse(b, b.pos, b.def.candy_blast_radius, b.def.candy_blast_damage, false, "candy")
+		return
+	b.state.candies = mini(n + 1, int(b.def.candy_max))
+
+
+## A single hit of candy_loss_hit or more knocks a candy off.
+func fx_candy_loss(sim, b, ctx: Dictionary) -> void:
+	var n := int(b.state.get("candies", 0))
+	if n > 0 and ctx.amount >= b.def.candy_loss_hit:
+		b.state.candies = n - 1
+		sim.events.append({"type": "orb_lost", "ball": b.index, "pos": b.pos})
+
+
+## Wrecker's ball swings wreck_orbit beyond its edge at wreck_spin radians a
+## second, hitting for wreck_damage and knocking the foe straight away; a foe
+## that then hits a wall within 0.5s takes wreck_slam_damage. wreck_chain_dps
+## > 0 makes the chain a beam. wreck_windup_every > 0: every that many seconds
+## the next full lap swings at wreck_windup_reach from its centre and hits double.
+func fx_wrecker(sim, b, _ctx: Dictionary) -> void:
+	var reach: float = b.radius + b.def.wreck_orbit
+	var damage: float = b.def.wreck_damage
+	var size: float = b.def.wreck_size
+	var big := false
+	if b.def.wreck_windup_every > 0.0:
+		var every := int(round(b.def.wreck_windup_every * sim.TICK_RATE))
+		var lap := int(round(TAU / b.def.wreck_spin * sim.TICK_RATE))
+		big = sim.tick >= every and sim.tick % every < lap
+	if big:
+		reach = b.def.wreck_windup_reach
+		damage *= 2.0
+		size *= 1.3
+	b.state.windup = big
+	var dir := Vector2.from_angle(sim.tick * sim.DT * b.def.wreck_spin)
+	var p: Vector2 = b.pos + dir * reach
+	for o in _orb_hit(sim, b, p, size, damage, b.def.wreck_cooldown, "wreck", "wreck"):
+		var away: Vector2 = o.pos - p
+		if away.length() > 0.001:
+			o.vel = away.normalized() * o.speed
+		o.state.slam = {"source": b.index, "damage": b.def.wreck_slam_damage, "until": sim.tick + sim.TICK_RATE / 2}
+	var from: Vector2 = b.pos + dir * b.radius
+	if b.def.wreck_chain_dps > 0.0:
+		_hold_beam(sim, b, "chain", from, p - dir * size, b.def.wreck_chain_dps)
+	_publish_orbs(sim, b, "wreck", [{"pos": p, "size": size, "look": "wreck", "from": from, "big": big}])
+
+
+## Swarm's bees: bee_count circle it, each stinging for bee_damage. A launched
+## bee leaves its slot (it hatches again after bee_respawn) and homes on the
+## nearest foe at bee_speed, turning up to bee_turn radians a second, for
+## bee_launch_damage (plus a bee_poison_dps burn for 2s when > 0). It fizzles
+## after bee_life seconds. State: b.state.bee_ready (tick each slot is back),
+## b.state.bees_out (flying bees).
+func fx_swarm(sim, b, _ctx: Dictionary) -> void:
+	var n := int(b.def.bee_count)
+	var ready := _bee_slots(b)
+	var ring := _ring(sim, b, n, b.radius + b.def.bee_orbit, b.def.bee_spin)
+	var items := []
+	for k in n:
+		if sim.tick < ready[k]:
+			continue
+		_orb_hit(sim, b, ring[k], b.def.bee_size, b.def.bee_damage, b.def.bee_cooldown, "bee%d" % k, "bee")
+		items.append({"pos": ring[k], "size": b.def.bee_size, "look": "bee"})
+	var out: Array = b.state.get("bees_out", [])
+	var rect: Rect2 = sim.arena_rect()
+	for bee in out.duplicate():
+		var f = sim.nearest_foe(b)
+		if f != null:
+			var want: float = bee.vel.angle_to(f.pos - bee.pos)
+			var turn: float = b.def.bee_turn * sim.DT
+			bee.vel = bee.vel.rotated(clampf(want, -turn, turn))
+		bee.pos += bee.vel * sim.DT
+		bee.age += sim.DT
+		var gone: bool = bee.age >= b.def.bee_life or not rect.grow(40.0).has_point(bee.pos)
+		for o in sim.foes(b):
+			if not gone and bee.pos.distance_to(o.pos) <= o.radius + b.def.bee_size:
+				sim.deal(b, o, b.def.bee_launch_damage, "bee", bee.pos)
+				if b.def.bee_poison_dps > 0.0:
+					sim.add_burn(b, o, b.def.bee_poison_dps, 2.0)
+				gone = true
+		if gone:
+			out.erase(bee)
+		else:
+			items.append({"pos": bee.pos, "size": b.def.bee_size, "look": "bee", "flying": true})
+	b.state.bees_out = out
+	_publish_orbs(sim, b, "bees", items)
+
+
+static func _bee_slots(b) -> Array:
+	var ready: Array = b.state.get("bee_ready", [])
+	while ready.size() < int(b.def.bee_count):
+		ready.append(0)
+	b.state.bee_ready = ready
+	return ready
+
+
+## Sends `count` circling bees at the nearest foe (see fx_swarm).
+func _launch_bees(sim, b, count: int) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	var n := int(b.def.bee_count)
+	var ready := _bee_slots(b)
+	var ring := _ring(sim, b, n, b.radius + b.def.bee_orbit, b.def.bee_spin)
+	var out: Array = b.state.get("bees_out", [])
+	for k in n:
+		if count <= 0:
+			break
+		if sim.tick < ready[k]:
+			continue
+		ready[k] = sim.tick + int(round(b.def.bee_respawn * sim.TICK_RATE))
+		var dir: Vector2 = (f.pos - ring[k]).normalized() if f.pos.distance_to(ring[k]) > 0.001 else Vector2.RIGHT
+		out.append({"pos": ring[k], "vel": dir * b.def.bee_speed, "age": 0.0})
+		count -= 1
+	b.state.bees_out = out
+	sim.events.append({"type": "launch", "ball": b.index, "pos": b.pos})
+
+
+## One bee flies off at the foe.
+func fx_bee_launch(sim, b, _ctx: Dictionary) -> void:
+	_launch_bees(sim, b, 1)
+
+
+## The whole swarm flies off at once (they hatch again after bee_respawn).
+func fx_swarm_all(sim, b, _ctx: Dictionary) -> void:
+	_launch_bees(sim, b, int(b.def.bee_count))
+
+
+## Kraken's tentacles: tentacle_count tips sweep tentacle_orbit beyond its
+## edge, each hitting for tentacle_damage. During a hug (see fx_ink_slam) they
+## pull foes within hug_range toward it at hug_accel.
+func fx_tentacles(sim, b, _ctx: Dictionary) -> void:
+	var n := int(b.def.tentacle_count)
+	var reach: float = b.radius + b.def.tentacle_orbit
+	var ring := _ring(sim, b, n, reach, b.def.tentacle_spin, PI / 4.0)
+	var items := []
+	for k in n:
+		_orb_hit(sim, b, ring[k], b.def.tentacle_size, b.def.tentacle_damage, b.def.tentacle_cooldown, "tentacle%d" % k, "tentacle")
+		var dir: Vector2 = (ring[k] - b.pos) / reach
+		items.append({"pos": ring[k], "size": b.def.tentacle_size, "look": "tentacle", "from": b.pos + dir * b.radius * 0.7})
+	_publish_orbs(sim, b, "tentacles", items)
+	if sim.tick < int(b.state.get("hug_until", -1)):
+		for o in sim.foes(b):
+			var delta: Vector2 = b.pos - o.pos
+			var dist := delta.length()
+			if dist > 0.001 and dist < b.def.hug_range:
+				sim.steer(o, delta / dist * b.def.hug_accel)
+
+
+## The tentacles slam down: an ink puddle at each tip (ink_radius, ink_life
+## seconds, slowing by ink_slow and dealing ink_dps). ink_shove > 0 also
+## knocks foes within 60 of a tip away. hug_every > 0: every that many slams,
+## the tentacles hug for hug_secs (see fx_tentacles).
+func fx_ink_slam(sim, b, _ctx: Dictionary) -> void:
+	var orbs: Dictionary = b.state.get("orbs", {})
+	if not orbs.has("tentacles"):
+		return
+	for item in orbs.tentacles.items:
+		sim.add_zone(b, item.pos, {"kind": "inkpool", "radius": b.def.ink_radius, "life": b.def.ink_life,
+			"slow": b.def.ink_slow, "dps": b.def.ink_dps})
+		sim.pulse(b, item.pos, 60.0 if b.def.ink_shove > 0 else b.def.ink_radius, 0.0, b.def.ink_shove > 0, "inkslam")
+	b.state.slams = int(b.state.get("slams", 0)) + 1
+	if b.def.hug_every > 0 and b.state.slams % int(b.def.hug_every) == 0:
+		b.state.hug_until = sim.tick + int(round(b.def.hug_secs * sim.TICK_RATE))
+		sim.events.append({"type": "hug", "ball": b.index, "pos": b.pos})
+
+
+## Quasar's jets: two opposite beams from its edge, quasar_length long, turning
+## at quasar_spin radians a second and burning quasar_dps. While a flare is on
+## (fx_quasar_flare) they reach the walls and burn quasar_flare_dps, and with
+## quasar_cross > 0 two more beams make a cross.
+func fx_quasar(sim, b, _ctx: Dictionary) -> void:
+	var turn: float = b.state.get("quasar_dir", 1.0)
+	b.state.quasar_angle = float(b.state.get("quasar_angle", 0.0)) + turn * b.def.quasar_spin * sim.DT
+	var flaring: bool = sim.tick < int(b.state.get("flare_until", -1))
+	var n := 4 if flaring and b.def.quasar_cross > 0 else 2
+	var dps: float = b.def.quasar_flare_dps if flaring else b.def.quasar_dps
+	for k in 4:
+		var name := "jet%d" % k
+		if k >= n:
+			_drop_beam(sim, b, name)
+			continue
+		var dir := Vector2.from_angle(b.state.quasar_angle + k * TAU / n)
+		var from: Vector2 = b.pos + dir * b.radius
+		var length: float = _to_wall(sim, from, dir) if flaring else b.def.quasar_length
+		_hold_beam(sim, b, name, from, from + dir * length, dps)
+
+
+## Distance from p along dir to the arena's outer wall.
+static func _to_wall(sim, p: Vector2, dir: Vector2) -> float:
+	var r: Rect2 = sim.arena_rect()
+	var t := INF
+	if dir.x > 0.001:
+		t = minf(t, (r.end.x - p.x) / dir.x)
+	elif dir.x < -0.001:
+		t = minf(t, (r.position.x - p.x) / dir.x)
+	if dir.y > 0.001:
+		t = minf(t, (r.end.y - p.y) / dir.y)
+	elif dir.y < -0.001:
+		t = minf(t, (r.position.y - p.y) / dir.y)
+	return maxf(0.0, t)
+
+
+## The jets flare for quasar_flare_secs; quasar_reverse > 0 flips their spin.
+func fx_quasar_flare(sim, b, _ctx: Dictionary) -> void:
+	b.state.flare_until = sim.tick + int(round(b.def.quasar_flare_secs * sim.TICK_RATE))
+	if b.def.quasar_reverse > 0:
+		b.state.quasar_dir = -float(b.state.get("quasar_dir", 1.0))
+	sim.events.append({"type": "pulse", "ball": b.index, "pos": b.pos, "radius": b.radius * 1.6, "kind": "quasar"})
+
+
+## Every yoyo_every-th wall bounce it pins its string at the bounce point and
+## swings round it for yoyo_secs (fx_yoyo). Bounces mid-swing don't count.
+func fx_yoyo_bounce(sim, b, ctx: Dictionary) -> void:
+	if not ctx.has("point") or sim.tick < int(b.state.get("swing_until", -1)):
+		return
+	b.state.yoyo_bounces = int(b.state.get("yoyo_bounces", 0)) + 1
+	if b.state.yoyo_bounces % int(b.def.yoyo_every) != 0:
+		return
+	var anchor: Vector2 = ctx.point
+	var out: Vector2 = b.pos - anchor
+	var normal: Vector2 = out.normalized() if out.length() > 0.001 else -b.vel.normalized()
+	b.state.anchor = anchor
+	b.state.anchor_normal = normal
+	b.state.swing_turn = 1.0 if Vector2(-normal.y, normal.x).dot(b.vel) >= 0.0 else -1.0
+	b.state.swing_until = sim.tick + int(round(b.def.yoyo_secs * sim.TICK_RATE))
+	sim.events.append({"type": "yoyo", "ball": b.index, "pos": anchor})
+
+
+## While swinging it circles the anchor at its usual speed, easing out to
+## yoyo_string, and the taut string burns foes it sweeps for yoyo_dps.
+## yoyo_strings 2 adds a mirrored second string. When the swing ends,
+## yoyo_fling > 0 flings it at the nearest foe at that x speed for half a second.
+func fx_yoyo(sim, b, _ctx: Dictionary) -> void:
+	var until := int(b.state.get("swing_until", -1))
+	if sim.tick >= until:
+		_drop_beam(sim, b, "string0")
+		_drop_beam(sim, b, "string1")
+		if sim.tick == until and b.def.yoyo_fling > 0.0:
+			var f = sim.nearest_foe(b)
+			if f != null and f.pos.distance_to(b.pos) > 0.001:
+				b.vel = (f.pos - b.pos).normalized() * b.speed * b.def.yoyo_fling
+				b.boost_ticks = sim.TICK_RATE / 2
+				sim.events.append({"type": "fling", "ball": b.index, "pos": b.pos})
+		return
+	var anchor: Vector2 = b.state.anchor
+	var rel: Vector2 = b.pos - anchor
+	var d := rel.length()
+	var u: Vector2 = rel / d if d > 0.001 else b.state.anchor_normal
+	var step: float = b.current_speed() * sim.DT
+	var r := move_toward(d, b.def.yoyo_string, step * 0.6)
+	var next: Vector2 = anchor + u.rotated(b.state.swing_turn * step / maxf(r, step)) * r
+	b.vel = (next - b.pos).normalized() * b.current_speed()
+	_hold_beam(sim, b, "string0", anchor, b.pos - u * b.radius, b.def.yoyo_dps)
+	if int(b.def.yoyo_strings) >= 2:
+		var mirror: Vector2 = anchor + rel.reflect(b.state.anchor_normal)
+		var mu: Vector2 = (mirror - anchor).normalized()
+		_hold_beam(sim, b, "string1", anchor, mirror - mu * b.radius, b.def.yoyo_dps)
+		_publish_orbs(sim, b, "yoyo", [{"pos": mirror, "size": b.radius * 0.5, "look": "yoyo"}])
+
+
+## Leviathan's tail: tail_count glowing segments follow its path, each
+## stinging foes it touches for tail_damage (and slowing them by tail_slow).
+## Hidden, and harmless, while it dives.
+func fx_tail(sim, b, _ctx: Dictionary) -> void:
+	var path: Array = b.state.get("path", [])
+	path.push_front(b.pos)
+	var n := int(b.def.tail_count)
+	var size: float = b.def.tail_size
+	var step: float = maxf(1.0, b.speed * sim.DT)
+	var need := int(ceil((b.radius + size * (2 * n + 1)) / step)) + 1
+	while path.size() > need:
+		path.pop_back()
+	b.state.path = path
+	var items := []
+	if sim.tick < int(b.state.get("dive_until", -1)):
+		_publish_orbs(sim, b, "tail", items)
+		return
+	for k in n:
+		var at := int(round((b.radius + size * (2 * k + 1)) / step))
+		if at >= path.size():
+			break
+		var p: Vector2 = path[at]
+		_orb_hit(sim, b, p, size, b.def.tail_damage, b.def.tail_cooldown, "tail%d" % k, "tail")
+		if b.def.tail_slow > 0.0:
+			for o in sim.foes(b):
+				if p.distance_to(o.pos) <= o.radius + size:
+					o.slow = maxf(o.slow, b.def.tail_slow)
+		items.append({"pos": p, "size": size * (1.0 - 0.12 * k), "look": "segment"})
+	_publish_orbs(sim, b, "tail", items)
+
+
+## It dives for dive_secs (taking dive_guard x damage, see fx_dive_guard).
+func fx_dive(sim, b, _ctx: Dictionary) -> void:
+	b.state.dive_until = sim.tick + int(round(b.def.dive_secs * sim.TICK_RATE))
+	b.state.phase_until = b.state.dive_until
+	var f = sim.nearest_foe(b)
+	b.state.dive_target = f.pos if f != null else b.pos
+	sim.events.append({"type": "dive", "ball": b.index, "pos": b.pos})
+
+
+## While diving, the splash point follows the nearest foe until dive_lock
+## seconds before it erupts. Then it bursts up there: a wave of wave_damage
+## within wave_radius that knocks foes away, and with pool_dps > 0 a whirlpool
+## (pool_radius, pool_life seconds, pool_slow).
+func fx_dive_tick(sim, b, _ctx: Dictionary) -> void:
+	var until := int(b.state.get("dive_until", -1))
+	if sim.tick > until:
+		return
+	var f = sim.nearest_foe(b)
+	if f != null and sim.tick < until - int(round(b.def.dive_lock * sim.TICK_RATE)):
+		b.state.dive_target = f.pos
+	if sim.tick < until:
+		return
+	var t: Vector2 = b.state.dive_target
+	b.state.path = []
+	sim.pulse(b, t, b.def.wave_radius, b.def.wave_damage, true, "wave")
+	if b.def.pool_dps > 0.0:
+		sim.add_zone(b, t, {"kind": "whirlpool", "radius": b.def.pool_radius, "life": b.def.pool_life,
+			"slow": b.def.pool_slow, "dps": b.def.pool_dps})
+	# It surfaces beside the splash, on the side toward the middle, clear of the foe it just threw.
+	var side: Vector2 = sim.centre - t
+	side = side.normalized() if side.length() > 0.001 else Vector2.UP
+	var r: Rect2 = sim.arena_rect().grow(-b.radius)
+	var at: Vector2 = t + side * (b.radius * 2.0 + 8.0)
+	b.pos = Vector2(clampf(at.x, r.position.x, r.end.x), clampf(at.y, r.position.y, r.end.y))
+
+
+## While diving it takes dive_guard x damage.
+func fx_dive_guard(sim, b, ctx: Dictionary) -> void:
+	if sim.tick < int(b.state.get("dive_until", -1)):
+		ctx.mult *= b.def.dive_guard

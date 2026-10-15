@@ -29,4 +29,13 @@ const CASES := [
 	{"seed": 18, "p1": "prism", "p2": "laser", "angles": [null, null]},
 	{"seed": 19, "p1": "blackhole", "p2": "magnet", "angles": [null, null]},
 	{"seed": 20, "p1": "mirror", "p2": "phoenix", "angles": [300, -700]},
+	# Batch E: orbiters and attachments, at T5 so every tier's behaviour is in.
+	{"seed": 501, "p1": "glowbug", "p2": "vampire", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 502, "p1": "jawbreaker", "p2": "laser", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 503, "p1": "wrecker", "p2": "magnet", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 504, "p1": "swarm", "p2": "bomber", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 505, "p1": "kraken", "p2": "frost", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 506, "p1": "quasar", "p2": "thorns", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 507, "p1": "yoyo", "p2": "ghost", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 508, "p1": "leviathan", "p2": "mirror", "angles": [null, null], "tiers": [5, 5]},
 ]
