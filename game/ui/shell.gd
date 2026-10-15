@@ -26,6 +26,7 @@ const SCREENS := {
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
+	"world": preload("res://game/ui/screens/world_screen.gd"),
 	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
 	"spire": preload("res://game/ui/screens/spire_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
