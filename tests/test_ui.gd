@@ -199,3 +199,14 @@ func test_home_groups_every_mode_as_a_tile() -> void:
 		check(shell._marks.has(m), "home has " + m)
 	shell.free()
 
+
+
+func test_lineup_tags_show_the_same_power_as_the_critter_screen() -> void:
+	var FighterTag = load("res://game/ui/fighter_tag.gd")
+	var p = UiProfile.sample()
+	for id in ["vampire", "speedster"]:
+		check_eq(FighterTag.rating(p.slot_of(id)), p.power_of(id), "%s tag power" % id)
+	check_eq(FighterTag.rating({"critter": "vampire", "tier": 1, "level": 1, "gear": []}), Roster.power("vampire", 1, 1), "bare slot")
+	var tag: Control = FighterTag.of_slot(p.slot_of("vampire"), 80)
+	check(tag.get_child(0).get_child(0).get_child(0).count == 2, "two tier stars above the critter")
+	tag.free()

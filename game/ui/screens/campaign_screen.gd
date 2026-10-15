@@ -6,7 +6,8 @@ extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
-const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const FighterTag := preload("res://game/ui/fighter_tag.gd")
+const Spire := preload("res://sim/spire.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const Zones := preload("res://meta/zones.gd")
@@ -38,10 +39,10 @@ static func build(shell, params: Dictionary) -> Control:
 	var fighter: String = Campaign.fighter_for(p)
 	var b: Dictionary = p.best(fighter)
 	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30),
-		Kit.hbox(10, [Glyph.make("stars", 24, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 22, Kit.MUTED), Kit.power(p.power_of(fighter), 24)])])
+		Kit.power(p.power_of(fighter), 24)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var change := Kit.chip("Change", Kit.ACCENT)
-	var fighter_row := Kit.hbox(16, [CritterIcon.make(fighter, b.tier, 120), info, change])
+	var fighter_row := Kit.hbox(16, [FighterTag.icon(fighter, b.tier, 120, false, b.level), info, change])
 	fighter_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	root.add_child(Kit.card_button(fighter_row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 16))
 
@@ -65,7 +66,7 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	if boss:
 		title.add_child(Kit.chip("BOSS", Kit.BAD))
 	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var info := Kit.vbox(6, [title, Kit.hbox(12, [Kit.label("Recommended", 20, Kit.MUTED), Kit.power(rec, 22, power_color)]),
+	var info := Kit.vbox(6, [title, Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "They're stronger"), 20, power_color),
 		Glyph.make("stars", 26, Kit.FG, stars, 3)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -82,7 +83,7 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 			shell.mark("sweep_%d_%d" % [z + 1, i + 1], sweep)
 			actions.add_child(sweep)
 
-	var icon := CritterIcon.make(st.enemy, 1, 132 if boss else 110, false, not unlocked)
+	var icon := FighterTag.make(st.enemy, enemy_tier(st), rec, 124 if boss else 100, power_color, not unlocked)
 	var row := Kit.hbox(16, [icon, info, actions])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var border := Kit.BAD.darkened(.3) if boss else (Kit.GOOD.darkened(.5) if stars > 0 else Kit.LINE)
@@ -90,6 +91,20 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	if not unlocked:
 		card.modulate = Color(1, 1, 1, .55)
 	return card
+
+
+## The tier shown for a stage's enemy. It fights at T1 abilities with a power
+## boost, so this is the tier that power matches, as on Spire floors.
+static func enemy_tier(st: Dictionary) -> int:
+	return Spire.display_tier(st.power, Roster.rarity_base(Roster.get_critter(st.enemy).rarity) / 100.0)
+
+
+## "T2 Optic · 1,250 power vs T3 Chomp · 1,400 power" for a stage fight.
+static func matchup_text(p, z: int, i: int, fighter: String) -> String:
+	var st := Zones.stage(z, i)
+	var b: Dictionary = p.best(fighter)
+	return "%s vs %s" % [FighterTag.text(Roster.get_critter(fighter).name, b.get("tier", 1), p.power_of(fighter), b.get("level", 0)),
+		FighterTag.text(st.get("name", Roster.get_critter(st.enemy).name), enemy_tier(st), Campaign.enemy_rating(z, i))]
 
 
 static func _fight(shell, z: int, i: int, fighter: String) -> void:
