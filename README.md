@@ -176,6 +176,9 @@ key) into the web build from repo secrets; without them the build is offline.
   row-level security plus `SECURITY DEFINER` functions in `supabase/migrations`.
 - Schema changes are new migration files (never edit an applied one), with
   tests in `tests/db/`. They reach the live project when merged to `main`.
+  Name a new file with a timestamp later than every migration on `main` (and
+  never one already taken): `supabase db push` refuses to apply a file dated
+  before the newest one already live, which stops every later migration too.
 - `?offline=1` runs the web build without touching the backend.
 
 ### Accounts and cloud save
