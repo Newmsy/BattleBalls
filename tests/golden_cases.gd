@@ -25,4 +25,15 @@ const CASES := [
 	{"seed": 18, "p1": "prism", "p2": "laser", "angles": [null, null]},
 	{"seed": 19, "p1": "blackhole", "p2": "magnet", "angles": [null, null]},
 	{"seed": 20, "p1": "mirror", "p2": "phoenix", "angles": [300, -700]},
+	# Batch A: self-buffs and stat shifts (grow and shrink).
+	{"seed": 21, "p1": "crumb", "p2": "vampire", "angles": [null, null]},
+	{"seed": 22, "p1": "shelly", "p2": "laser", "angles": [null, null]},
+	{"seed": 23, "p1": "fin", "p2": "thorns", "angles": [null, null]},
+	{"seed": 24, "p1": "tumble", "p2": "frost", "angles": [null, null]},
+	{"seed": 25, "p1": "mossy", "p2": "bomber", "angles": [null, null]},
+	{"seed": 26, "p1": "flicker", "p2": "ghost", "angles": [null, null]},
+	{"seed": 27, "p1": "cogs", "p2": "magnet", "angles": [null, null]},
+	{"seed": 28, "p1": "fizz", "p2": "prism", "angles": [null, null], "arena": "pillars"},
+	{"seed": 29, "p1": "minnow", "p2": "gravity", "angles": [null, null]},
+	{"seed": 30, "p1": "puff", "p2": "crumb", "angles": [null, null], "tiers": [5, 5]},
 ]

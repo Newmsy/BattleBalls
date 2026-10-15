@@ -1,4 +1,5 @@
-## Mossy, the Moss ball (Uncommon Bruiser). Planned: see design/roster.md.
+## Mossy, the Moss ball (Uncommon Bruiser). One file is the whole critter:
+## see "Adding a critter" in README.md for what each key does.
 extends RefCounted
 
 const CRITTER := {
@@ -7,19 +8,23 @@ const CRITTER := {
 	"type": "Moss ball",
 	"rarity": "uncommon",
 	"role": "Bruiser",
-	"status": "planned",
+	"status": "live",
 	"color": "2d6a4f",
 	"vibe": "A sleepy forest moss ball that heals up whenever it's left in peace.",
-	"description": "Moss ball. When it hasn't been hurt for 3 seconds, it slowly regrows health.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
-	"ability": [],
-	"params": {},
+	"description": "Moss ball. When it hasn't been bumped for 3 seconds, it slowly regrows health.",
+	"stats": {"hp": 110.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.5},
+	"ability": [{"on": "hurt", "do": "regrow"}, {"on": "always", "do": "regrow"}],
+	"params": {
+		"regrow_after": 3.0,
+		"regrow_hps": 0.8,
+		"regrow_spores": 0.0,
+	},
 	"tiers": [
-		{"text": "Unhurt for 3s: regrow 2 HP/s"},
-		{"text": "Regrow 2.5 HP/s"},
-		{"text": "Starts regrowing after 2.5s"},
-		{"text": "Regrow 3 HP/s"},
-		{"text": "While regrowing it sheds stinging spores"},
+		{"text": "Unbumped for 3s: regrow 0.8 HP/s"},
+		{"text": "Regrow 1 HP/s", "regrow_hps": 1.0},
+		{"text": "Starts regrowing after 2.5s", "regrow_after": 2.5},
+		{"text": "Regrow 1.2 HP/s", "regrow_hps": 1.2},
+		{"text": "While regrowing it sheds stinging spores (3/s)", "regrow_spores": 3.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["fuzz", "mushroom"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.9},

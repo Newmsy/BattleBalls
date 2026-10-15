@@ -24,7 +24,7 @@ const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
 const MINE := Color("ff4d4d")
 ## Floor zone fills by kind (sim Zone.kind).
-const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff")}
+const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "spore": Color("8fd16a"), "fizz": Color("ff8cc6")}
 ## Pulse and blast ring colours by kind.
 const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d")}
 const RING_LIFE := 0.45
@@ -191,6 +191,22 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"shielded":
 				var g := sim.balls[e.target]
 				_add_popup(g.pos + Vector2(28, -g.radius - 10), "0", POP_BEAM)
+			"grow":
+				# Grow and shrink: a squash pop and a ring at the new size.
+				var g := sim.balls[e.ball]
+				_squash[e.ball] = maxf(_squash[e.ball], 0.25)
+				_rings.append({"pos": g.pos, "radius": g.radius, "color": Color(g.def.color, 0.9).lightened(0.4), "age": 0.0})
+			"chomp":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 34), "CHOMP!", POP_SNAP)
+				_shake = maxf(_shake, 7.0 * A11y.motion())
+			"unwind":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-56, -g.radius - 34), "UNWIND!", POP_SNAP)
+			"pop":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "POP!", POP_SNAP)
+				_spawn_particles(g.pos, 10)
 			"snap":
 				var m := sim.balls[e.ball]
 				_add_popup(m.pos + Vector2(-34, -m.radius - 34), "SNAP!", POP_SNAP)
@@ -588,6 +604,21 @@ func _draw_status(b, s: float) -> void:
 			draw_circle(p + Vector2(cos(a), sin(a) * 0.6 - 0.4) * r * 0.9, 4.0, Color("ff8a1f", 0.8))
 	if b.slow > 0.0:
 		draw_arc(p, r * 1.02, 0.0, TAU, 48, Color("bfe9ff", 0.6), 3.0, true)
+	if b.def.get("grow_armor", 0.0) > 0.0 and b.mods.has("grow"): # Shelly tucked in.
+		for k in 6:
+			var a0 := k * TAU / 6.0
+			draw_arc(p, r * 1.1, a0 + 0.08, a0 + TAU / 6.0 - 0.08, 12, Color("b7f5d6", 0.85), 5.0, true)
+	if b.state.get("regrowing", false) and b.hp < b.max_hp: # Mossy's sparkles.
+		for k in 3:
+			var f := fmod(_time * 0.8 + k / 3.0, 1.0)
+			draw_circle(p + Vector2((k - 1) * r * 0.45, -r * (0.6 + 0.8 * f)), 4.0, Color(POP_HEAL, 0.8 * (1.0 - f)))
+	var meter := 0.0 # Cogs' wind-up or Fizz's pressure: a filling arc.
+	if b.mods.has("wind"):
+		meter = minf(1.0, b.def.wind_step * int(b.state.get("wind", 0)) / b.def.wind_cap)
+	elif b.def.has("fizz_at"):
+		meter = int(b.state.get("pressure", 0)) / b.def.fizz_at
+	if meter > 0.0:
+		draw_arc(p, r * 1.16, -PI / 2.0, -PI / 2.0 + TAU * meter, 48, Color(b.def.color, 0.9).lightened(0.35), 4.0, true)
 
 
 ## Stars circling the head of a knocked-out critter.
