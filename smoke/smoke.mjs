@@ -139,17 +139,26 @@ try {
     await page.waitForTimeout(2000);
     await page.screenshot({ path: path.join(shots, "3i-reveal.png") });
     await tapUi(page, logs, "reveal_done", "summon");
+    // Accessibility settings: open the sheet, try Larger text, then put it back.
+    await tapUi(page, logs, "settings", "sheet");
+    await page.screenshot({ path: path.join(shots, "3j-settings.png") });
+    await tapUi(page, logs, "a11y_large_text", "sheet");
+    await page.screenshot({ path: path.join(shots, "3j-settings-large-text.png") });
+    await tapUi(page, logs, "a11y_large_text", "sheet");
+    await page.mouse.click(...toPage(page, 360, 120));
+    await page.waitForTimeout(400);
     // The level badge opens Account (save progress / sign in).
     await tapUi(page, logs, "account", "account");
     await page.waitForTimeout(1500);
-    await page.screenshot({ path: path.join(shots, "3j-account.png") });
+    await page.screenshot({ path: path.join(shots, "3j2-account.png") });
     await tapUi(page, logs, "back", "summon");
     await tapUi(page, logs, "tab_play", "play");
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "3-menu.png") });
-    // Layout: arena 680px at y=190, controls start at 190+680+120=990.
-    // Menu rows: label, ball row, label, opponent row, seed row, FIGHT! (last).
-    await page.mouse.click(...toPage(page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
+    await waitForLog(logs, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "pick_laser");
+    await page.waitForTimeout(300);
+    await tapUi(page, logs, "menu_fight");
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "4-aim.png") });
     // Drag from the player's corner toward the top middle.
@@ -193,10 +202,11 @@ try {
     await page.screenshot({ path: path.join(shots, "6a-wide-home.png") });
     await tapUi(page, logs, "quickfight");
     await page.screenshot({ path: path.join(shots, "6-wide-menu.png") });
-    // Visible area is 1394x1280: arena 614px at x=30, panel at x=684, FIGHT! at the panel's bottom.
-    await page.mouse.click(...toPage(page, 684 + 340, 190 + 100 + 478 - 42));
+    await waitForLog(logs, "UI_AT menu_fight ", 5000);
+    await tapUi(page, logs, "menu_fight");
     await page.waitForTimeout(800);
-    await page.mouse.click(...toPage(page, 684 + 170, 190 + 100 + 42)); // Launch
+    await waitForLog(logs, "UI_AT aim_launch ", 5000);
+    await tapUi(page, logs, "aim_launch");
     console.log("wide menu:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "7-wide-fight.png") });
@@ -250,9 +260,9 @@ try {
     await waitForLog(challenge.logs, "BOOT_OK", 60000);
     await challenge.page.waitForTimeout(1500);
     await challenge.page.screenshot({ path: path.join(shots, "11-challenge-menu.png") });
-    await challenge.page.mouse.click(...toPage(challenge.page, 360, 990 + 5 * 14 + 2 * 36 + 3 * 84 + 42 + 20));
-    await challenge.page.waitForTimeout(800);
-    await challenge.page.mouse.click(...toPage(challenge.page, 20 + 170, 990 + 42)); // Launch
+    await tapUi(challenge.page, challenge.logs, "menu_fight");
+    await waitForLog(challenge.logs, "UI_AT aim_launch ", 5000);
+    await tapUi(challenge.page, challenge.logs, "aim_launch");
     console.log("challenge fight:", await waitForLog(challenge.logs, "FIGHT_START", 5000));
     await challenge.page.close();
   }
@@ -329,6 +339,43 @@ try {
     await shot.page.waitForTimeout(800);
     await shot.page.screenshot({ path: path.join(shots, "17-critter-shot.png") });
     await shot.page.close();
+  }
+
+  // 10. Ghost Arena: Play -> Arena screen -> pick a card -> play the relay to a result -> back to the Arena.
+  {
+    const { page, logs } = await openGame("?seed=7&offline=1");
+    await waitForLog(logs, "UI_SCREEN play", 60000);
+    await page.waitForTimeout(800);
+    // The Arena card sits below the fold on a phone: scroll the Play tab first.
+    await page.mouse.move(...toPage(page, 360, 800));
+    for (let i = 0; i < 6; i++) {
+      await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(150);
+    }
+    await page.waitForTimeout(600);
+    await tapUi(page, logs, "arena", "arena");
+    await page.screenshot({ path: path.join(shots, "18-arena.png") });
+    await tapUi(page, logs, "arena_card_0");
+    console.log("ghost arena:", await waitForLog(logs, "ARENA_READY", 10000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "19-arena-intro.png") });
+    // FIGHT!, Launch and Skip all sit under this point (first panel row, right half).
+    const start = logs.length;
+    let result = null;
+    for (let i = 0; i < 60 && !result; i++) {
+      await page.mouse.click(...toPage(page, 530, 1032));
+      await page.waitForTimeout(700);
+      result = logs.slice(start).find((l) => l.startsWith("ARENA_RESULT"));
+    }
+    if (!result) throw new Error(`Ghost Arena fight never finished. Last logs:\n${logs.slice(-15).join("\n")}`);
+    console.log("ghost arena result:", result);
+    await page.screenshot({ path: path.join(shots, "20-arena-result.png") });
+    const back = logs.length;
+    // Back to Arena sits under the result headline.
+    await page.mouse.click(...toPage(page, 360, 1118));
+    await waitForLogAfter(logs, back, "UI_SCREEN arena", 15000);
+    await page.screenshot({ path: path.join(shots, "21-arena-after.png") });
+    await page.close();
   }
 } catch (e) {
   errors.push(String(e.stack ?? e));
