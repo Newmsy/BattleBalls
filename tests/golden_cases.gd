@@ -25,4 +25,16 @@ const CASES := [
 	{"seed": 18, "p1": "prism", "p2": "laser", "angles": [null, null]},
 	{"seed": 19, "p1": "blackhole", "p2": "magnet", "angles": [null, null]},
 	{"seed": 20, "p1": "mirror", "p2": "phoenix", "angles": [300, -700]},
+	# Batch H: arena pieces and set pieces (one per critter; some at T5 so the
+	# top-tier behaviour is pinned too).
+	{"seed": 81, "p1": "sprout", "p2": "vampire", "angles": [null, null]},
+	{"seed": 82, "p1": "ivy", "p2": "laser", "angles": [null, null]},
+	{"seed": 83, "p1": "glacia", "p2": "magnet", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 84, "p1": "old_oak", "p2": "bomber", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 85, "p1": "clockwork", "p2": "thorns", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 86, "p1": "foxfire", "p2": "frost", "angles": [null, null]},
+	{"seed": 87, "p1": "jackpot", "p2": "ghost", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 88, "p1": "disco", "p2": "gravity", "angles": [null, null]},
+	{"seed": 89, "p1": "ripple", "p2": "prism", "angles": [null, null], "arena": "pillars"},
+	{"seed": 90, "p1": "zigzag", "p2": "blackhole", "angles": [null, null]},
 ]

@@ -1,4 +1,5 @@
-## Zigzag, the Lightning (Rare Skirmisher). Planned: see design/roster.md.
+## Zigzag, the Lightning (Rare Skirmisher). One file is the whole critter:
+## see "Adding a critter" in README.md for what each key does.
 extends RefCounted
 
 const CRITTER := {
@@ -7,19 +8,25 @@ const CRITTER := {
 	"type": "Lightning",
 	"rarity": "rare",
 	"role": "Skirmisher",
-	"status": "planned",
+	"status": "live",
 	"color": "faff70",
 	"vibe": "A hyper bolt of lightning that leaves its path still crackling.",
 	"description": "Lightning. After every hit, its path to the next wall becomes a crackling beam.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
-	"ability": [],
-	"params": {},
+	"stats": {"hp": 115.0, "radius": 66.0, "speed": 400.0, "contact_damage": 20.0},
+	"ability": [{"on": "hit", "do": "zz_arm"}, {"on": "wall", "do": "zz_beam"}, {"on": "always", "do": "slows"}],
+	"params": {
+		"zz_life": 1.5,
+		"zz_dps": 8.0,
+		"zz_slow": 0.0,
+		"zz_segments": 1, ## 2: the beam zigzags one more bounce.
+		"beam_max": 6,
+	},
 	"tiers": [
 		{"text": "After a hit, its path crackles for 1.5s"},
-		{"text": "Beam deals 10/s"},
-		{"text": "The beam slows 20%"},
-		{"text": "The beam lasts 2s"},
-		{"text": "The beam zigzags one more bounce"},
+		{"text": "Beam deals 10/s", "zz_dps": 10.0},
+		{"text": "The beam slows 20%", "zz_slow": 0.2},
+		{"text": "The beam lasts 2s", "zz_life": 2.0},
+		{"text": "The beam zigzags one more bounce", "zz_segments": 2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["spikyhair"], "front": ["zigmark"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 1.35},

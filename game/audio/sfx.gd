@@ -177,6 +177,20 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("snap", 0.0, 1.25)
 			"revive":
 				play("heal", 0.0, 0.8)
+			# Batch H set pieces reuse existing sounds at their own pitch.
+			"piece":
+				if e.kind != "illusion":
+					play("wall", -3.0, 0.7)
+			"rays":
+				play("zap", -2.0, 1.4 if e.kind == "disco" else 1.15)
+			"lash", "root":
+				play("snap", 0.0, 0.8)
+			"rewind":
+				play("flip", 0.0, 0.7)
+			"illusions", "swap":
+				play("flip", 0.0, 1.3)
+			"spin":
+				play("crit", 0.0, 1.3 if e.prizes.size() > 1 else 1.1)
 			"end":
 				if e.reason != "time_limit":
 					play("ko")
