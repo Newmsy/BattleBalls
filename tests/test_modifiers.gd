@@ -45,7 +45,7 @@ func test_mirror_match_uses_one_seed_picked_ball() -> void:
 		var sim := _sim("mirror_match", seed_value)
 		check_eq(sim.balls[0].type_id, sim.balls[1].type_id, "both sides match on seed %d" % seed_value)
 		seen[sim.balls[0].type_id] = true
-	check_eq(seen.size(), BallDefs.PLAYABLE.size(), "every playable ball comes up")
+	check_eq(seen.size(), Modifiers.MIRROR_POOL.size(), "every mirror ball comes up")
 
 
 func test_closing_walls_starts_overtime_early() -> void:

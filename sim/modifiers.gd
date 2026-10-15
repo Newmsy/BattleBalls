@@ -104,8 +104,15 @@ static func apply_to_def(def: Dictionary, id: String) -> Dictionary:
 	return out
 
 
+## Balls a Mirror Match picks from. Fixed rather than every live critter, so a
+## mirror replay code still plays the same ball after new critters go live.
+## Adding to it changes mirror fights: bump MatchSim.RULES_VERSION and
+## re-record the golden replays.
+const MIRROR_POOL := ["vampire", "laser", "magnet"]
+
+
 ## The ball both sides use in a Mirror Match, picked from the seed.
-static func mirror_ball(seed_value: int, playable: Array) -> String:
+static func mirror_ball(seed_value: int, playable: Array = MIRROR_POOL) -> String:
 	return playable[posmod(seed_value, playable.size())]
 
 

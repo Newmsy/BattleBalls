@@ -18,12 +18,13 @@ and a design doc disagree, the design doc wins and this file gets fixed.
 4. **Tiers change the ability, not just the numbers.** Higher tiers feel
    different (longer beams, chained mines), and the T5 step is spectacular.
 5. **One rarity step is worth about half a tier** (Newms, 2026-10-14), so
-   about +12% power. A Legendary sits about 1.5 tiers above a Common of the
-   same tier: a T1 Legendary roughly matches a T2-T3 Common, and a T3 Common
-   beats a T1 Legendary more often than not. A ball one rarity up against a
-   same-tier ball one rarity down should win about **60%**, between equal
-   power (50%) and a full tier (70%+). "Equal power" in rule 2 means same tier
-   and same rarity.
+   about +12% power. There are five rarities (Common, Uncommon, Rare, Epic,
+   Legendary), so a Legendary sits about **two tiers** above a Common of the
+   same tier (Newms confirmed the full gap, 2026-10-14): a T1 Legendary
+   roughly matches a T3 Common, a T1 Rare a T2 Common, and a T4 Common beats a
+   T1 Legendary. A ball one rarity up against a same-tier ball one rarity down
+   should win about **60%**, between equal power (50%) and a full tier (70%+).
+   "Equal power" in rule 2 means same tier and same rarity.
 6. **Fights stay watchable.** Median fight 20-60s, overtime ends stalls, and
    no build wins by running out the clock.
 7. **The sim decides, not intuition.** Numbers come from the headless balance
@@ -35,13 +36,16 @@ Before the stats:
 - One-sentence ability built from a trigger + effect (combat-foundation.md §2).
 - Its role, the role it should edge, and what should beat it. Name the
   counter-play: how does a ball with no answer still win?
-- Its rarity, and its T1 to T5 ladder, where T5 adds new behaviour.
+- Its rarity, and its T1 to T5 ladder, where T5 adds new behaviour. Complexity
+  grows with rarity: Common a simple twist, Uncommon one clear trigger + effect,
+  Rare a spatial effect, Epic a dynamic or two-part effect, Legendary a set piece.
+  The full roster plan is `design/roster.md` in the project folder.
 
 In the PR that adds or changes it:
 - Run `godot --headless --script res://tools/balance.gd -- --fights=200 --power-step`
   and paste the output (both tables) into the PR.
 - No `FAIL` lines. Every `WARN` is either fixed or explained in the PR.
-- Add it to `BallDefs.PLAYABLE` so CI and the audit include it.
+- Set `"status": "live"` in its file (`sim/critters/<id>.gd`) so the game, CI and the audit include it.
 - Golden replays and unit tests for the ability, as for any sim change.
 
 ## Chaos Weekend modifiers
