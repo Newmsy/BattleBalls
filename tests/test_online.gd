@@ -54,7 +54,6 @@ class FakeCloud:
 	var rev := 0
 	var data = null
 	var pushes := 0
-	var calls: Array = [] ## Names of the RPCs and REST reads made.
 
 	func ensure_session() -> bool:
 		return online
@@ -63,17 +62,13 @@ class FakeCloud:
 		return me
 
 	func rest(_method: String, _path: String, _body = null) -> Dictionary:
-		calls.append("rest")
 		if not online:
 			return {"ok": false, "code": 0, "data": null}
 		return {"ok": true, "code": 200, "data": [] if rev == 0 else [{"rev": rev, "data": data.duplicate(true)}]}
 
-	func call_rpc(name: String, args: Dictionary) -> Dictionary:
-		calls.append(name)
+	func call_rpc(_name: String, args: Dictionary) -> Dictionary:
 		if not online:
 			return {"ok": false, "code": 0, "data": null}
-		if name == "test_load_save":
-			return {"ok": true, "code": 200, "data": {"rev": rev, "data": data}}
 		pushes += 1
 		if int(args.p_base_rev) != rev:
 			return {"ok": true, "code": 200, "data": {"saved": false, "rev": rev, "data": data}}
@@ -209,27 +204,28 @@ func test_side_files_ride_along_and_come_back() -> void:
 	check(not FileAccess.file_exists(SIDE_FILE), "signing out clears side files")
 
 
-func test_test_slot_is_shared_by_devices() -> void:
+func test_devices_share_the_test_account() -> void:
 	var cloud := FakeCloud.new()
+	cloud.me = "test-account"
 	var phone := _played(3)
-	phone.test_slot = 1
-	cloud.me = "guest-phone"
+	phone.owner = "guest-phone"
+	phone.base_rev = 1
+	phone.dirty = false
+	phone.test_mode = true
 	phone.sync(cloud)
-	check_eq(phone.owner, "test:1", "owned by the test slot, not the guest")
-	check(cloud.calls.has("test_sync_save") and not cloud.calls.has("sync_save"), "pushed to the slot")
-	check(not cloud.calls.has("rest"), "never reads the guest's own save")
+	check_eq(phone.owner, "test-account", "the phone moves onto the test account")
+	check_eq(int(cloud.data.stats.fights), 3, "and fills its empty save")
 
-	# A laptop that played less as its own guest joins and takes the slot.
+	# A laptop that played less as its own guest joins and takes the account's save.
 	var laptop := SaveGame.new("user://test_save_laptop.json")
 	laptop.record_fight(0, 0)
 	laptop.owner = "guest-laptop"
 	laptop.base_rev = 2
 	laptop.dirty = false
-	laptop.test_slot = 1
-	cloud.me = "guest-laptop"
+	laptop.test_mode = true
 	laptop.sync(cloud)
-	check_eq(int(laptop.data.stats.fights), 3, "the slot's progress comes down")
-	check_eq([laptop.owner, laptop.base_rev], ["test:1", cloud.rev], "now on the slot")
+	check_eq(int(laptop.data.stats.fights), 3, "the account's progress comes down")
+	check_eq([laptop.owner, laptop.base_rev], ["test-account", cloud.rev], "now on the account")
 
 	laptop.record_fight(0, 0)
 	laptop.sync(cloud)
@@ -237,18 +233,19 @@ func test_test_slot_is_shared_by_devices() -> void:
 	check_eq(int(phone.data.stats.fights), 4, "the phone sees the laptop's fight")
 
 
-func test_joining_the_test_slot_keeps_the_further_device() -> void:
+func test_joining_the_test_account_keeps_the_further_device() -> void:
 	var cloud := FakeCloud.new()
+	cloud.me = "test-account"
 	cloud.rev = 3
 	cloud.data = {"stats": {"fights": 2}}
 	var s := _played(10)
-	s.owner = "guest"
+	s.owner = "test:1" # Synced with the old shared test slot (PR #59).
 	s.base_rev = 5
 	s.dirty = false
-	s.test_slot = 1
+	s.test_mode = true
 	s.sync(cloud)
-	check_eq(int(cloud.data.stats.fights), 10, "the further device fills the slot")
-	check_eq(cloud.rev, 4, "on top of the slot's revision")
+	check_eq(int(cloud.data.stats.fights), 10, "the further device fills the account")
+	check_eq(cloud.rev, 4, "on top of the account's revision")
 
 
 func test_old_saves_gain_new_keys() -> void:
