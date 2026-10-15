@@ -12,6 +12,9 @@ const MODES := ["all", "sfx", "off"]
 const MODE_LABELS := {"all": "Sound: On", "sfx": "Music: Off", "off": "Sound: Off"}
 ## Per sound: [max playing at once, min seconds between starts, volume dB].
 ## Lower caps on frequent sounds keep the chaos readable.
+## Pitch of the hit_big thud per pulse kind (sim pulse events), so each
+## critter's pulse has its own voice.
+const PULSE_PITCH := {"drum": 0.7, "wind": 1.6, "ink": 1.3, "stink": 0.9}
 const RULES := {
 	"hit": [3, 0.05, -2.0],
 	"hit_big": [1, 0.25, 0.0],
@@ -168,7 +171,11 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"snap":
 				play("snap")
 			"boom", "pulse":
-				play("hit_big", 0.0, 0.8 if e.type == "boom" else 1.1)
+				var kind: String = e.get("kind", "")
+				if kind in ["zap", "bigzap"]:
+					play("zap", 0.0, 1.3 if kind == "zap" else 0.9)
+				else:
+					play("hit_big", 0.0, 0.8 if e.type == "boom" else PULSE_PITCH.get(kind, 1.1))
 			"reflect":
 				play("hit", -4.0, 1.5)
 			"phase":

@@ -24,9 +24,12 @@ const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
 const MINE := Color("ff4d4d")
 ## Floor zone fills by kind (sim Zone.kind).
-const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff")}
+const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"),
+	"lava": Color("ff4500"), "stardust": Color("ff8ae2"), "ember": Color("ff9a3d"), "honey": Color("ffb627"), "ink": Color("8a5cc8"),
+	"stink": Color("9be36b"), "rain": Color("8fa2ff")}
 ## Pulse and blast ring colours by kind.
-const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d")}
+const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"),
+	"zap": Color("c9a6ff"), "bigzap": Color("f0e2ff"), "drum": Color("ff5a6a"), "wind": Color("c7f9cc"), "ink": Color("8a5cc8"), "stink": Color("9be36b")}
 const RING_LIFE := 0.45
 ## Crits pop bigger in gold; backstabs get their own call-out.
 const POP_CRIT := Color("ffb627")
@@ -171,7 +174,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_particles.append({"pos": m.pos + Vector2(0, -m.radius * 1.3), "vel": _rand_dir() * _fx_rng.randf_range(80.0, 260.0), "age": 0.0, "life": 0.4})
 			"pulse", "boom":
 				_rings.append({"pos": e.pos, "radius": e.radius, "color": RING_COLORS.get(e.get("kind", "boom"), BURST), "age": 0.0})
-				if e.type == "boom" or e.get("kind", "") in ["nova", "fire"]:
+				if e.type == "boom" or e.get("kind", "") in ["nova", "fire", "bigzap", "drum"]:
 					_shake = maxf(_shake, 8.0 * A11y.motion())
 					_spawn_particles(e.pos, 14)
 			"reflect":
@@ -331,6 +334,9 @@ func _draw() -> void:
 			_draw_field(b, s)
 		if b.def.has("pull_range"):
 			_draw_inflow(b.pos * s, b.radius * s, b.def.pull_range * s, Color("8f7bff"), 0.18)
+		if b.def.has("wind_range"):
+			var huffing: bool = sim.tick < int(b.state.get("huff_until", -1))
+			_draw_outflow(b.pos * s, b.radius * s, b.def.wind_range * s, ZONE_COLORS.stink.lightened(0.5), 0.5 if huffing else 0.2, 3.0 if huffing else 0.8)
 		if b.state.get("collapsing", false):
 			_draw_inflow(b.pos * s, b.radius * s, b.def.collapse_range * s, Color("c58bff"), 0.45)
 		for m in b.state.get("moons", []):
@@ -560,10 +566,46 @@ func _draw_zone(z, s: float) -> void:
 			draw_circle(p, 6.0 * s, MINE if on else Color(MINE, 0.35))
 		"ring":
 			draw_arc(p, z.radius * s, 0.0, TAU, 64, Color(ZONE_COLORS.ring, 0.6 * fade), 10.0 * s, true)
+		"stink":
+			# Rides on Whiff: lumpy green puffs drifting round it.
+			for k in 6:
+				var a := _time * 0.6 + k * TAU / 6.0
+				draw_circle(p + Vector2(cos(a), sin(a)) * z.radius * 0.55 * s, z.radius * 0.45 * s, Color(ZONE_COLORS.stink, 0.07))
+			draw_arc(p, z.radius * s, 0.0, TAU, 48, Color(ZONE_COLORS.stink, 0.25), 2.0, true)
+		"rain":
+			var col: Color = ZONE_COLORS.rain
+			if not z.armed():
+				# The warning: a dark circle with a dashed rim.
+				draw_circle(p, z.radius * s, Color(0.0, 0.0, 0.08, 0.35))
+				for k in 12:
+					var a := k * TAU / 12.0 + _time
+					draw_arc(p, z.radius * s, a, a + TAU / 24.0, 4, Color(col, 0.8), 2.0, true)
+			else:
+				draw_circle(p, z.radius * s, Color(col, 0.22 * fade))
+				for k in 8:
+					var x: float = fmod(k * 37.0 + z.pos.x, z.radius * 1.4) - z.radius * 0.7
+					var y: float = fmod(_time * 500.0 + k * 53.0, z.radius * 1.6) - z.radius * 0.8
+					draw_line(p + Vector2(x, y) * s, p + Vector2(x - 3.0, y + 14.0) * s, Color(col, 0.7 * fade), 2.0, true)
+		"stardust":
+			var col: Color = ZONE_COLORS.stardust
+			draw_circle(p, z.radius * 0.6 * s, Color(col, 0.25 * fade))
+			_star(p, z.radius * 0.35 * s * fade, z.radius * 0.14 * s * fade, 4, Color(col.lightened(0.4), 0.8 * fade))
 		_:
+			if z.follow >= 0:
+				return # A clinging slow: the ball's own slow ring shows it.
 			var col: Color = ZONE_COLORS.get(z.kind, Color.WHITE)
 			draw_circle(p, z.radius * s, Color(col, 0.28 * fade))
 			draw_circle(p, z.radius * 0.55 * s, Color(col, 0.22 * fade))
+
+
+## Wind streaks flowing outward (Gust); `speed` quickens them during a huff.
+func _draw_outflow(c: Vector2, inner: float, reach: float, col: Color, alpha: float, speed: float) -> void:
+	for k in 3:
+		var f := fmod(_time * speed + k / 3.0, 1.0)
+		var r := lerpf(inner * 1.1, reach, f)
+		for j in 4:
+			var a := j * TAU / 4.0 + k * 0.5 + _time * 0.3
+			draw_arc(c, r, a, a + 0.7, 12, Color(col, alpha * (1.0 - f)), 3.0, true)
 
 
 ## Flow lines drifting inward: a pull field (Orbit) or a collapse (Void).

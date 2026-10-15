@@ -47,6 +47,24 @@ const EFFECTS := {
 	"collapse_guard": ["collapse_guard"],
 	"copy_tick": [],
 	"scorch": ["scorch_dps", "scorch_secs"],
+	"zap": ["zap_radius", "zap_damage", "zap_slow", "zap_slow_secs", "zap_big_every", "zap_big_radius", "zap_big_damage"],
+	"boom": ["boom_radius", "boom_damage", "boom_slam", "boom_double_every"],
+	"boom_echo": ["boom_radius", "boom_damage", "boom_slam"],
+	"lava": ["lava_radius", "lava_life", "lava_dps", "lava_max"],
+	"linger": ["linger_dps", "linger_slow", "linger_secs"],
+	"home_guard": ["home_guard"],
+	"stardust": ["trail_every", "trail_width", "trail_life", "trail_dps"],
+	"star": ["star_damage"],
+	"wind": ["wind_range", "wind_accel", "wind_huff"],
+	"huff": ["wind_range", "huff_secs", "huff_damage", "huff_slow"],
+	"patch": ["patch_radius", "patch_life", "patch_dps"],
+	"patch_flare": ["patch_flare_radius", "patch_flare_damage"],
+	"honey": ["honey_radius", "honey_life", "honey_slow", "honey_max", "honey_merge_radius"],
+	"ink": ["ink_radius", "ink_life", "ink_slow", "ink_dps", "ink_cooldown", "ink_dash"],
+	"stink": ["stink_radius", "stink_dps", "stink_slow", "stink_bloom_radius"],
+	"bloom": ["stink_bloom_secs"],
+	"rain": ["rain_radius", "rain_warn", "rain_life", "rain_dps", "rain_slow", "rain_storm_every"],
+	"thunder": ["rain_storm_radius", "rain_storm_damage"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -297,14 +315,15 @@ func fx_flare(sim, b, _ctx: Dictionary) -> void:
 			o.state.slam = {"source": b.index, "damage": b.def.flare_slam, "until": sim.tick + sim.TICK_RATE}
 
 
-## When hurt by a foe (at most every copy_cooldown), borrows that foe's ability
+## When hurt by a foe (at most every copy_cooldown; not by auras), borrows that foe's ability
 ## for copy_secs: their effects and params join its own. copy_shield > 0 also
 ## gives a shield. The original definition is restored when the copy ends.
 func fx_copy(sim, b, ctx: Dictionary) -> void:
 	if b.state.has("copy_until") and sim.tick >= b.state.copy_until:
 		_end_copy(b)
 	var src = ctx.get("source")
-	if src == null or src.team == b.team or ctx.kind == "reflect":
+	# A never-ending aura (Whiff's stink) would keep it copying all fight.
+	if src == null or src.team == b.team or ctx.kind in ["reflect", "stink"]:
 		return
 	if sim.tick < int(b.state.get("copy_ready", 0)):
 		return
@@ -319,7 +338,8 @@ func fx_copy(sim, b, ctx: Dictionary) -> void:
 				copied[key] = src.def[key] * base.copy_scale
 	var effects: Array = base.effects.duplicate()
 	for e in src.def.effects:
-		if not e.do in ["copy", "revive", "reflect"]:
+		# A borrowed wind (Gust) would only blow foes out of reach of its reflect.
+		if not e.do in ["copy", "revive", "reflect", "wind"]:
 			effects.append(e)
 	copied.effects = effects
 	b.state.base_def = base
@@ -422,3 +442,229 @@ func fx_collapse(sim, b, _ctx: Dictionary) -> void:
 func fx_collapse_guard(_sim, b, ctx: Dictionary) -> void:
 	if b.state.get("collapsing", false):
 		ctx.mult *= b.def.collapse_guard
+
+
+# --- Batch B: zones, pulses and wind --------------------------------------------
+
+## The owner's floor zones of `kind` (not clinging ones), oldest first.
+static func _own_zones(sim, b, kind := "") -> Array:
+	return sim.zones.filter(func(z): return z.owner == b.index and z.follow < 0 and z.blast <= 0.0 and (kind == "" or z.kind == kind))
+
+
+## Drops the oldest of the owner's `kind` zones until a new one fits under `most`.
+static func _cap_zones(sim, b, kind: String, most: int) -> void:
+	var own := _own_zones(sim, b, kind)
+	while most > 0 and own.size() >= most:
+		sim.zones.erase(own.pop_front())
+
+
+## Slows `target` by `slow` for `secs` wherever it goes: a tiny zone riding on
+## it. Refreshing keeps one per owner, target and kind.
+static func _cling(sim, b, target, slow: float, secs: float, kind := "chill") -> void:
+	for z in sim.zones:
+		if z.owner == b.index and z.follow == target.index and z.kind == kind:
+			z.life = maxf(z.life, z.age + secs)
+			z.slow = maxf(z.slow, slow)
+			return
+	sim.add_zone(b, target.pos, {"kind": kind, "radius": 1.0, "life": secs, "slow": slow, "follow": target.index})
+
+
+static func _foes_within(sim, b, pos: Vector2, radius: float) -> Array:
+	return sim.foes(b).filter(func(o): return o.pos.distance_to(pos) <= radius + o.radius)
+
+
+## Static: every wall bounce zaps foes within zap_radius for zap_damage (no
+## knockback). zap_slow > 0 chills them that much for zap_slow_secs. Every
+## zap_big_every-th bounce (when > 0) is a big zap instead.
+func fx_zap(sim, b, _ctx: Dictionary) -> void:
+	b.state.zaps = int(b.state.get("zaps", 0)) + 1
+	var big: bool = b.def.zap_big_every > 0 and b.state.zaps % int(b.def.zap_big_every) == 0
+	var radius: float = b.def.zap_big_radius if big else b.def.zap_radius
+	var hit := _foes_within(sim, b, b.pos, radius)
+	sim.pulse(b, b.pos, radius, b.def.zap_big_damage if big else b.def.zap_damage, false, "bigzap" if big else "zap")
+	if b.def.zap_slow > 0.0:
+		for o in hit:
+			_cling(sim, b, o, b.def.zap_slow, b.def.zap_slow_secs)
+
+
+## Drum: every contact hit booms a shockwave (boom_radius, boom_damage) that
+## knocks foes straight away. boom_slam > 0: a foe knocked into a wall within
+## 0.5s takes that much more. Every boom_double_every-th hit (when > 0) booms
+## again 0.3s later (boom_echo, an "always" entry).
+func fx_boom(sim, b, _ctx: Dictionary) -> void:
+	_boom(sim, b)
+	b.state.booms = int(b.state.get("booms", 0)) + 1
+	if b.def.boom_double_every > 0 and b.state.booms % int(b.def.boom_double_every) == 0:
+		b.state.boom_echo = sim.tick + int(round(0.3 * sim.TICK_RATE))
+
+
+func fx_boom_echo(sim, b, _ctx: Dictionary) -> void:
+	if sim.tick == int(b.state.get("boom_echo", -1)):
+		_boom(sim, b)
+
+
+func _boom(sim, b) -> void:
+	var hit := _foes_within(sim, b, b.pos, b.def.boom_radius)
+	sim.pulse(b, b.pos, b.def.boom_radius, b.def.boom_damage, true, "drum")
+	if b.def.boom_slam > 0.0:
+		for o in hit:
+			o.state.slam = {"source": b.index, "damage": b.def.boom_slam, "until": sim.tick + sim.TICK_RATE / 2}
+
+
+## Magmo: every contact hit splashes a lava puddle at the impact point
+## (lava_radius, lava_dps for lava_life). Keeps at most lava_max.
+func fx_lava(sim, b, ctx: Dictionary) -> void:
+	if not ctx.has("target"):
+		return
+	var to: Vector2 = ctx.target.pos - b.pos
+	var point: Vector2 = b.pos + (to.normalized() * b.radius if to.length() > 0.001 else Vector2.ZERO)
+	_cap_zones(sim, b, "lava", int(b.def.lava_max))
+	sim.add_zone(b, point, {"kind": "lava", "radius": b.def.lava_radius, "life": b.def.lava_life, "dps": b.def.lava_dps})
+
+
+## Its floor zones cling to foes standing in them: linger_dps > 0 keeps them
+## burning (linger_dps for linger_secs after they leave), linger_slow > 0 keeps
+## them slowed for linger_secs.
+func fx_linger(sim, b, _ctx: Dictionary) -> void:
+	var own := _own_zones(sim, b)
+	if own.is_empty():
+		return
+	for o in sim.foes(b):
+		for z in own:
+			if z.armed() and o.pos.distance_to(z.pos) <= z.radius + o.radius:
+				if b.def.linger_dps > 0.0:
+					sim.add_burn(b, o, b.def.linger_dps, b.def.linger_secs)
+				if b.def.linger_slow > 0.0:
+					_cling(sim, b, o, b.def.linger_slow, b.def.linger_secs, "sticky")
+				break
+
+
+## Standing in one of its own floor zones it takes home_guard x damage.
+func fx_home_guard(sim, b, ctx: Dictionary) -> void:
+	for z in _own_zones(sim, b):
+		if b.pos.distance_to(z.pos) <= z.radius + b.radius * 0.5:
+			ctx.mult *= b.def.home_guard
+			return
+
+
+## Comet: a stinging stardust trail (trail_dps while foes are in it).
+func fx_stardust(sim, b, _ctx: Dictionary) -> void:
+	_drop_trail(sim, b, "stardust")
+
+
+## Comet T5: its tail flicks a shooting star (a short beam) at the nearest foe.
+func fx_star(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	var tail: Vector2 = b.pos - b.vel.normalized() * b.radius
+	var to: Vector2 = f.pos - tail
+	if to.length() < 0.001:
+		return
+	sim.add_beam(b, tail, tail + to.normalized() * maxf(to.length() * 1.15, 200.0), {"life": 0.4, "damage": b.def.star_damage, "cooldown": 1.0})
+
+
+## Gust: wind always pushes foes away (wind_accel next to it, fading to 0 at
+## wind_range), at wind_huff while a huff lasts. State: b.state.huff_until.
+func fx_wind(sim, b, _ctx: Dictionary) -> void:
+	var huffing: bool = sim.tick < int(b.state.get("huff_until", -1))
+	sim.push_away(b, b.pos, b.def.wind_range, b.def.wind_huff if huffing else b.def.wind_accel)
+
+
+## A strong gust for huff_secs (see fx_wind). huff_damage > 0 also pelts foes
+## in the wind with ice for that much and chills them huff_slow for 1.5s.
+func fx_huff(sim, b, _ctx: Dictionary) -> void:
+	b.state.huff_until = sim.tick + int(round(b.def.huff_secs * sim.TICK_RATE))
+	var hit := _foes_within(sim, b, b.pos, b.def.wind_range)
+	sim.pulse(b, b.pos, b.def.wind_range, b.def.huff_damage, false, "wind")
+	if b.def.huff_slow > 0.0:
+		for o in hit:
+			_cling(sim, b, o, b.def.huff_slow, 1.5)
+
+
+## Sooty: drops a hot ember patch where it is (patch_radius, patch_dps for patch_life).
+func fx_patch(sim, b, _ctx: Dictionary) -> void:
+	sim.add_zone(b, b.pos, {"kind": "ember", "radius": b.def.patch_radius, "life": b.def.patch_life, "dps": b.def.patch_dps})
+
+
+## When hurt, each of its ember patches that hasn't yet flares once
+## (patch_flare_damage within patch_flare_radius of the patch).
+func fx_patch_flare(sim, b, _ctx: Dictionary) -> void:
+	var flared: Array = b.state.get("flared", []).filter(func(z): return sim.zones.has(z))
+	for z in _own_zones(sim, b, "ember"):
+		if not flared.has(z):
+			flared.append(z)
+			sim.pulse(b, z.pos, b.def.patch_flare_radius, b.def.patch_flare_damage, false, "fire")
+	b.state.flared = flared
+
+
+## Honey: every wall bounce drips a puddle at the bounce point that slows foes
+## honey_slow (honey_radius, honey_life), at most honey_max. With
+## honey_merge_radius > 0 a drip touching a puddle merges with it into one pool
+## of that radius, halfway between.
+func fx_honey(sim, b, ctx: Dictionary) -> void:
+	if not ctx.has("point"):
+		return
+	var pos: Vector2 = ctx.point
+	var radius: float = b.def.honey_radius
+	if b.def.honey_merge_radius > 0.0:
+		for z in _own_zones(sim, b, "honey"):
+			if z.pos.distance_to(pos) < z.radius + radius:
+				sim.zones.erase(z)
+				pos = (z.pos + pos) / 2.0
+				radius = b.def.honey_merge_radius
+				break
+	_cap_zones(sim, b, "honey", int(b.def.honey_max))
+	sim.add_zone(b, pos, {"kind": "honey", "radius": radius, "life": b.def.honey_life, "slow": b.def.honey_slow})
+
+
+## Ink: when hurt (at most every ink_cooldown) it squirts an ink cloud where
+## it is (ink_radius, ink_slow for ink_life, ink_dps). ink_dash > 0 also gives
+## it a bumper-style speed burst for that many seconds.
+func fx_ink(sim, b, ctx: Dictionary) -> void:
+	if ctx.get("source") == null or ctx.source.team == b.team or sim.tick < int(b.state.get("ink_ready", 0)):
+		return
+	b.state.ink_ready = sim.tick + int(round(b.def.ink_cooldown * sim.TICK_RATE))
+	sim.add_zone(b, b.pos, {"kind": "ink", "radius": b.def.ink_radius, "life": b.def.ink_life, "slow": b.def.ink_slow, "dps": b.def.ink_dps})
+	sim.events.append({"type": "pulse", "ball": b.index, "pos": b.pos, "radius": b.def.ink_radius, "kind": "ink"})
+	if b.def.ink_dash > 0.0:
+		b.boost_ticks = int(round(b.def.ink_dash * sim.TICK_RATE))
+		b.vel = b.vel.normalized() * b.current_speed()
+
+
+## Whiff: a stink cloud riding on it (stink_radius, stink_dps, stink_slow);
+## stink_bloom_radius while a bloom lasts (fx_bloom).
+func fx_stink(sim, b, _ctx: Dictionary) -> void:
+	var z = b.state.get("stink")
+	if z == null or not sim.zones.has(z):
+		z = sim.add_zone(b, b.pos, {"kind": "stink", "radius": b.def.stink_radius, "life": 0.2, "dps": b.def.stink_dps, "slow": b.def.stink_slow, "follow": b.index})
+		b.state.stink = z
+	z.life = z.age + 0.2 # Kept alive while the effect runs, so a copied cloud (Echo) fades when the copy ends.
+	z.radius = b.def.stink_bloom_radius if sim.tick < int(b.state.get("bloom_until", -1)) else b.def.stink_radius
+
+
+## The stink cloud blooms for stink_bloom_secs.
+func fx_bloom(sim, b, _ctx: Dictionary) -> void:
+	b.state.bloom_until = sim.tick + int(round(b.def.stink_bloom_secs * sim.TICK_RATE))
+	sim.events.append({"type": "pulse", "ball": b.index, "pos": b.pos, "radius": b.def.stink_bloom_radius, "kind": "stink"})
+
+
+## Drizzle: rain on the nearest foe's spot. After rain_warn seconds of warning
+## it hurts (rain_dps) and slows (rain_slow) for rain_life. Every
+## rain_storm_every-th shower (when > 0) a lightning strike lands at its centre
+## as the rain starts (fx_thunder, an "always" entry).
+func fx_rain(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	b.state.showers = int(b.state.get("showers", 0)) + 1
+	sim.add_zone(b, f.pos, {"kind": "rain", "radius": b.def.rain_radius, "arm": b.def.rain_warn,
+		"life": b.def.rain_warn + b.def.rain_life, "dps": b.def.rain_dps, "slow": b.def.rain_slow})
+	if b.def.rain_storm_every > 0 and b.state.showers % int(b.def.rain_storm_every) == 0:
+		b.state.thunder_at = sim.tick + int(round(b.def.rain_warn * sim.TICK_RATE))
+		b.state.thunder_pos = f.pos
+
+
+func fx_thunder(sim, b, _ctx: Dictionary) -> void:
+	if sim.tick == int(b.state.get("thunder_at", -1)):
+		sim.pulse(b, b.state.thunder_pos, b.def.rain_storm_radius, b.def.rain_storm_damage, false, "bigzap")
