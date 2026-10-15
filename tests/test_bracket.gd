@@ -57,7 +57,7 @@ func test_byes_go_to_the_top_seeds() -> void:
 func test_series_are_real_fights() -> void:
 	var b := Bracket.new({"seed": 2026, "entrants": BallDefs.PLAYABLE})
 	var final: Dictionary = b.get_match(b.rounds - 1, 0)
-	var need := Bracket.FINAL_WINS_NEEDED if b.rounds == 1 else Bracket.WINS_NEEDED
+	var need := Bracket.FINAL_WINS_NEEDED
 	check(final.wins.max() == need or final.games.size() > 2 * need, "series played to %d wins: %s" % [need, final.wins])
 	check_eq(b.champion(), final.winner, "champion is the final's winner")
 	check(b.champion() in BallDefs.PLAYABLE, "a real critter wins")

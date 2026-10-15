@@ -2,16 +2,22 @@
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
-## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2] }
+## Config: { seed: int, p1: String, p2: String, angles: [a1, a2], starts: [v1, v2], tiers: [t1, t2] }
 ## Angles are launch directions in tenths of a degree (screen space, y down),
 ## or null to let the seed pick one. `starts` (optional) overrides the start
 ## corners with arena positions; random aims still centre on the corners.
 ## `hp` (optional) sets each ball's starting HP (null = full), for relays
 ## where a winner stays in with what it has left.
+## `fields: false` (optional) switches off every-tick abilities (fields like
+## Flux's), so Daily Trick Shot balls fly straight.
+## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
+## Critters and their abilities come from sim/critters/ via sim/ball_defs.gd;
+## this file only fires their triggers (sim/abilities.gd).
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Abilities := preload("res://sim/abilities.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
@@ -50,6 +56,8 @@ class Ball:
 	var last_bounce := Vector2.ZERO
 	var damage_dealt := 0.0
 	var healed := 0.0
+	var fired := {} ## One-shot triggers already used (Abilities.tick_triggers).
+	var state := {} ## Per-ball ability state, e.g. a field's "pulling" (read by the renderer).
 
 	func alive() -> bool:
 		return hp > 0.0
@@ -79,9 +87,12 @@ var centre := Vector2(ARENA_SIZE / 2.0, ARENA_SIZE / 2.0)
 var finished := false
 var winner := -1 ## Ball index, or -1 for a draw (only meaningful when finished).
 var end_reason := ""
+var ko_hp: Array[float] = [] ## On a double knockout, each ball's HP going into the final tick.
 var launch_angles: Array[int] = []
 ## Events produced by the most recent step(), for the renderer and tests.
 var events: Array[Dictionary] = []
+
+var abilities: Abilities
 
 var _contact_cooldown_until := {} ## "i:j" -> tick
 
@@ -89,12 +100,14 @@ var _contact_cooldown_until := {} ## "i:j" -> tick
 func _init(cfg: Dictionary) -> void:
 	config = cfg
 	rng = Rng.new(int(cfg.get("seed", 1)))
+	abilities = Abilities.new()
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	var angles: Array = cfg.get("angles", [null, null])
 	var starts: Array = cfg.get("starts", START_CORNERS)
 	var start_hp: Array = cfg.get("hp", [null, null])
+	var tiers: Array = cfg.get("tiers", [1, 1])
 	for i in 2:
-		var def := BallDefs.get_def(types[i])
+		var def := BallDefs.get_def(types[i], int(tiers[i]))
 		var b := Ball.new()
 		b.index = i
 		b.type_id = types[i]
@@ -140,6 +153,10 @@ func step() -> void:
 	if in_overtime():
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - OVERTIME_START))
 
+	if config.get("fields", true):
+		for b in balls:
+			if b.alive():
+				abilities.fire(self, "always", b)
 	var hits: Array[Dictionary] = []
 	for b in balls:
 		if b.alive():
@@ -148,6 +165,9 @@ func step() -> void:
 	_resolve_ball_collisions(hits)
 	_update_beams(hits)
 	_apply_hits(hits)
+	for b in balls:
+		if b.alive():
+			abilities.tick_triggers(self, b)
 
 	tick += 1
 	_check_end(hp_before)
@@ -211,21 +231,26 @@ func _resolve_walls(b: Ball) -> void:
 
 func _on_wall_bounce(b: Ball, point: Vector2) -> void:
 	events.append({"type": "bounce", "ball": b.index, "pos": point})
-	if b.def.ability == "laser" and b.has_bounce and b.last_bounce.distance_to(point) >= MIN_BEAM_LENGTH:
-		var beam := Beam.new()
-		beam.owner = b.index
-		beam.a = b.last_bounce
-		beam.b = point
-		beam.life = b.def.beam_life
-		beam.damage = b.def.beam_damage
-		beam.cooldown_ticks = int(round(b.def.beam_hit_cooldown * TICK_RATE))
-		beams.append(beam)
-		var own_beams := beams.filter(func(x: Beam) -> bool: return x.owner == b.index)
-		if own_beams.size() > b.def.beam_max:
-			beams.erase(own_beams[0])
-		events.append({"type": "beam", "owner": b.index, "a": beam.a, "b": beam.b})
+	abilities.fire(self, "wall", b, {"point": point})
 	b.has_bounce = true
 	b.last_bounce = point
+
+
+## A beam from `a` to `b` owned by ball `owner`, using its beam_* params. Keeps
+## at most beam_max of the owner's beams, dropping the oldest.
+func add_beam(owner: Ball, a: Vector2, b: Vector2) -> void:
+	var beam := Beam.new()
+	beam.owner = owner.index
+	beam.a = a
+	beam.b = b
+	beam.life = owner.def.beam_life
+	beam.damage = owner.def.beam_damage
+	beam.cooldown_ticks = int(round(owner.def.beam_hit_cooldown * TICK_RATE))
+	beams.append(beam)
+	var own_beams := beams.filter(func(x: Beam) -> bool: return x.owner == owner.index)
+	if own_beams.size() > owner.def.beam_max:
+		beams.erase(own_beams[0])
+	events.append({"type": "beam", "owner": owner.index, "a": beam.a, "b": beam.b})
 
 
 func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
@@ -260,13 +285,29 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			b.vel = b.vel.normalized() * b.speed if b.vel.length() > 0.001 else n * b.speed
 			var contact := a.pos + n * a.radius
 			events.append({"type": "collide", "a": i, "b": j, "pos": contact})
+			abilities.fire(self, "bump", a, {"other": b})
+			abilities.fire(self, "bump", b, {"other": a})
 			var key := "%d:%d" % [i, j]
 			if tick < int(_contact_cooldown_until.get(key, 0)):
 				continue
 			_contact_cooldown_until[key] = tick + int(round(CONTACT_COOLDOWN * TICK_RATE))
 			# The ball that rams harder hits harder, so even mirror matches trade unevenly.
-			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share), "kind": "contact", "pos": b.pos})
-			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share), "kind": "contact", "pos": a.pos})
+			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _strike(a, b), "kind": "contact", "pos": b.pos})
+			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _strike(b, a), "kind": "contact", "pos": a.pos})
+
+
+## Contact damage multiplier from the striker's "strike" effects (e.g. snap).
+func _strike(striker: Ball, target: Ball) -> float:
+	var ctx := {"target": target, "mult": 1.0}
+	abilities.fire(self, "strike", striker, ctx)
+	return ctx.mult
+
+
+## Turns a ball by `accel` (units/s^2) for one tick, keeping its speed.
+func steer(b: Ball, accel: Vector2) -> void:
+	var v := b.vel + accel * DT
+	if v.length() > 0.001:
+		b.vel = v.normalized() * b.speed
 
 
 ## 0 share (was hit while moving away) -> 1 - IMPACT_SPREAD; 1 share -> 1 + IMPACT_SPREAD.
@@ -305,8 +346,9 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		target.hp -= amount
 		source.damage_dealt += amount
 		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos})
-		if source.def.ability == "vampire" and h.kind == "contact":
-			heals.append({"ball": h.source, "amount": amount * source.def.heal_ratio})
+		if h.kind == "contact":
+			abilities.fire(self, "hit", source, {"target": target, "amount": amount, "heals": heals})
+		abilities.fire(self, "hurt", target, {"source": source, "amount": amount, "kind": h.kind})
 	# Heals land after damage, so a lethal hit can't be out-healed in the same tick.
 	for heal in heals:
 		var b := balls[heal.ball]
@@ -328,6 +370,7 @@ func _check_end(hp_before: Array[float]) -> void:
 		_finish(alive[0], "knockout")
 	elif alive.is_empty():
 		# Both died on the same tick: whoever had more HP going into it wins.
+		ko_hp = hp_before.duplicate()
 		if hp_before[0] == hp_before[1]:
 			_finish(-1, "double_knockout")
 		else:
