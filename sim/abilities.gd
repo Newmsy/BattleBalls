@@ -12,6 +12,7 @@ const TRIGGERS := {
 	"hit": "lands a contact hit (ctx: target, amount, heals)",
 	"hurt": "takes damage from anything (ctx: source, amount, kind)",
 	"wall": "bounces off a wall (ctx: point)",
+	"foe_wall": "the other ball bounces off a wall (ctx: other, point)",
 	"bump": "touches the other ball, even during the contact cooldown (ctx: other)",
 	"every": "every `secs` seconds of fight time, first at `secs`",
 	"hp_below": "once, when its HP first drops below `hp` (a 0-1 share of max HP)",
@@ -37,16 +38,23 @@ const EFFECTS := {
 	"phase_dash": [],
 	"phase_trail": ["trail_every", "trail_width", "trail_life", "trail_slow", "trail_dps"],
 	"pull": ["pull_range", "pull_accel", "pull_close"],
-	"moons": ["moon_count", "moon_orbit", "moon_size", "moon_damage", "moon_spin", "moon_cooldown"],
+	"moons": ["moon_count", "moon_orbit", "moon_size", "moon_damage", "moon_spin", "moon_cooldown", "moon_burn"],
 	"flare": ["flare_radius", "flare_slam"],
 	"copy": ["copy_secs", "copy_cooldown", "copy_shield", "copy_scale"],
 	"revive": ["revive_hp", "revive_radius", "revive_damage", "revive_burn", "revive_shield", "revive_bolts"],
 	"fire_trail": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"beam_at": ["prism_damage", "prism_life", "prism_fan", "prism_full_every", "prism_gap"],
-	"collapse": ["collapse_every", "collapse_secs", "collapse_range", "collapse_accel", "collapse_damage", "collapse_radius", "collapse_ring"],
+	"collapse": ["collapse_every", "collapse_secs", "collapse_range", "collapse_accel", "collapse_damage", "collapse_radius", "collapse_ring", "collapse_burn"],
 	"collapse_guard": ["collapse_guard"],
 	"copy_tick": [],
 	"scorch": ["scorch_dps", "scorch_secs"],
+	"grow_spike": ["spike_max"],
+	"spikes": ["spike_damage", "spike_max"],
+	"accelerate": ["speed_gain", "max_speed_mult"],
+	"momentum": [],
+	"brake": [],
+	"mark_slam": ["slam_window"],
+	"slam": ["slam_damage"],
 	"shoot": ["shot_damage", "shot_speed", "shot_count", "shot_aim"],
 	"shut": ["shut_secs", "shut_armor"],
 	"shut_guard": ["shut_armor"],
@@ -198,7 +206,7 @@ func fx_breath(sim, b, _ctx: Dictionary) -> void:
 ## Sends reflect_ratio of damage taken back at the attacker (reflect_low below
 ## half HP when > 0), at most reflect_cap per hit when > 0. reflect_from
 ## "ability" ignores contact hits, "contact" only answers contact hits, "copying"
-## only works while copying. reflect_burn > 0 also burns them for 2s.
+## only answers contact hits while copying. reflect_burn > 0 also burns them for 2s.
 ## Reflected damage and burns never reflect.
 func fx_reflect(sim, b, ctx: Dictionary) -> void:
 	if ctx.kind in ["reflect", "burn", "slam"] or ctx.source == b or ctx.source.team == b.team:
@@ -211,7 +219,7 @@ func fx_reflect(sim, b, ctx: Dictionary) -> void:
 			if ctx.kind != "contact":
 				return
 		"copying":
-			if not b.state.has("copy_until"):
+			if ctx.kind != "contact" or not b.state.has("copy_until"):
 				return
 	var ratio: float = b.def.reflect_ratio
 	if b.def.reflect_low > 0.0 and b.hp < b.max_hp * 0.5:
@@ -277,7 +285,8 @@ func fx_pull(sim, b, _ctx: Dictionary) -> void:
 
 
 ## moon_count moons circle it moon_orbit beyond its edge; each hits a foe it
-## touches for moon_damage, at most once per moon_cooldown. Positions are in
+## touches for moon_damage, at most once per moon_cooldown, and moon_burn > 0
+## sets it burning (that much a second for 2s). Positions are in
 ## b.state.moons for the renderer.
 func fx_moons(sim, b, _ctx: Dictionary) -> void:
 	var n := int(b.def.moon_count)
@@ -294,6 +303,8 @@ func fx_moons(sim, b, _ctx: Dictionary) -> void:
 			if p.distance_to(o.pos) <= o.radius + b.def.moon_size and sim.tick >= int(hit_at.get(key, 0)):
 				hit_at[key] = sim.tick + int(round(b.def.moon_cooldown * sim.TICK_RATE))
 				sim.deal(b, o, b.def.moon_damage, "moon", p)
+				if b.def.moon_burn > 0.0:
+					sim.add_burn(b, o, b.def.moon_burn, 2.0)
 	b.state.moons = moons
 
 
@@ -324,8 +335,10 @@ func fx_copy(sim, b, ctx: Dictionary) -> void:
 	for key in src.def:
 		if not copied.has(key):
 			copied[key] = src.def[key]
-			if key.ends_with("_damage") or key.ends_with("_dps"): # A copy hits softer.
+			if key.ends_with("_damage") or key.ends_with("_dps") or key.ends_with("_accel"): # A copy hits (and pulls) softer.
 				copied[key] = src.def[key] * base.copy_scale
+			elif key.ends_with("_mult"): # ...and multiplies softer.
+				copied[key] = 1.0 + (src.def[key] - 1.0) * base.copy_scale
 	var effects: Array = base.effects.duplicate()
 	for e in src.def.effects:
 		if not e.do in ["copy", "revive", "reflect"]:
@@ -410,7 +423,8 @@ func fx_beam_at(sim, b, ctx: Dictionary) -> void:
 ## Every collapse_every seconds it collapses for collapse_secs, dragging foes
 ## within collapse_range in hard, then explodes: collapse_damage within
 ## collapse_radius, knocking them away. collapse_ring > 0 leaves a burning ring
-## (that much damage a second, 3s). State: b.state.collapsing.
+## (that much damage a second, 3s); collapse_burn > 0 sets foes it blasts
+## burning for 3s. State: b.state.collapsing.
 func fx_collapse(sim, b, _ctx: Dictionary) -> void:
 	var every := int(round(b.def.collapse_every * sim.TICK_RATE))
 	var dur := int(round(b.def.collapse_secs * sim.TICK_RATE))
@@ -425,6 +439,10 @@ func fx_collapse(sim, b, _ctx: Dictionary) -> void:
 				sim.steer(o, delta / dist * b.def.collapse_accel)
 	elif sim.tick >= every and t == dur:
 		sim.pulse(b, b.pos, b.def.collapse_radius, b.def.collapse_damage, true, "nova")
+		if b.def.collapse_burn > 0.0:
+			for o in sim.foes(b):
+				if o.pos.distance_to(b.pos) <= b.def.collapse_radius + o.radius:
+					sim.add_burn(b, o, b.def.collapse_burn, 3.0)
 		if b.def.collapse_ring > 0.0:
 			sim.add_zone(b, b.pos, {"kind": "ring", "radius": b.def.collapse_radius, "life": 3.0, "dps": b.def.collapse_ring})
 
@@ -433,6 +451,52 @@ func fx_collapse(sim, b, _ctx: Dictionary) -> void:
 func fx_collapse_guard(_sim, b, ctx: Dictionary) -> void:
 	if b.state.get("collapsing", false):
 		ctx.mult *= b.def.collapse_guard
+
+
+## Grows one spike per contact hit landed, up to spike_max. State:
+## b.state.spikes. Emits "spike" events.
+func fx_grow_spike(sim, b, _ctx: Dictionary) -> void:
+	var spikes: int = b.state.get("spikes", 0)
+	if spikes < b.def.spike_max:
+		b.state.spikes = spikes + 1
+		sim.events.append({"type": "spike", "ball": b.index, "spikes": spikes + 1})
+
+
+## Each grown spike adds spike_damage to the owner's contact hits.
+func fx_spikes(_sim, b, ctx: Dictionary) -> void:
+	var spikes: int = mini(b.state.get("spikes", 0), b.def.spike_max)
+	if spikes > 0:
+		ctx.mult *= (b.contact_damage + b.def.spike_damage * spikes) / b.contact_damage
+
+
+## Speeds up by speed_gain on every wall bounce, up to max_speed_mult of base.
+func fx_accelerate(_sim, b, _ctx: Dictionary) -> void:
+	b.speed = minf(b.def.speed * b.def.max_speed_mult, b.speed * (1.0 + b.def.speed_gain))
+	b.vel = b.vel.normalized() * b.speed
+
+
+## Contact hits scale with speed above base (see fx_accelerate).
+func fx_momentum(_sim, b, ctx: Dictionary) -> void:
+	ctx.mult *= b.speed / b.def.speed
+
+
+## A contact hit taken knocks the ball back to its base speed.
+func fx_brake(_sim, b, ctx: Dictionary) -> void:
+	if ctx.get("kind") == "contact" and b.speed > b.def.speed:
+		b.speed = b.def.speed
+		b.vel = b.vel.normalized() * b.speed
+
+
+## A contact hit landed arms a slam for slam_window seconds (see fx_slam).
+func fx_mark_slam(sim, b, _ctx: Dictionary) -> void:
+	b.state.slam_until = sim.tick + int(round(b.def.slam_window * sim.TICK_RATE))
+
+
+## If the foe hits a wall while a slam is armed, it takes slam_damage.
+func fx_slam(sim, b, ctx: Dictionary) -> void:
+	if sim.tick <= b.state.get("slam_until", -1):
+		b.state.slam_until = -1
+		sim.add_hit(b, ctx.other, b.def.slam_damage, "slam", ctx.point)
 
 
 # --- Projectiles (MatchSim.add_shot / add_lob) ----------------------------------

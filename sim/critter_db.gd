@@ -5,6 +5,8 @@
 extends RefCounted
 
 const Abilities := preload("res://sim/abilities.gd")
+const Modifiers := preload("res://sim/modifiers.gd")
+const Arenas := preload("res://sim/arenas.gd")
 
 const DIR := "res://sim/critters/"
 const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
@@ -63,6 +65,7 @@ static func sim_def(id: String, tier := 1) -> Dictionary:
 		"badge_top": c.art.get("badge_top", 1.15),
 		"ouch": c.sound.get("ouch", ""),
 		"voice_pitch": c.sound.get("pitch", 1.0),
+		"chaos": c.get("chaos", {}),
 	}
 	def.merge(c.stats, true)
 	def.merge(c.params, true)
@@ -106,6 +109,13 @@ static func validate(id: String, c: Dictionary) -> Array[String]:
 		for key in c.tiers[t]:
 			if key != "text" and key != "ability" and not c.params.has(key):
 				errors.append("%s: tier %d changes \"%s\", which isn't in params" % [id, t + 1, key])
+	for mod in c.get("chaos", {}):
+		if not (Modifiers.DEFS.has(mod) or Arenas.DEFS.has(mod)):
+			errors.append("%s: chaos names unknown modifier or arena \"%s\"" % [id, mod])
+			continue
+		for key in c.chaos[mod]:
+			if not (c.stats.has(key) or c.params.has(key)):
+				errors.append("%s: chaos.%s changes \"%s\", which isn't in stats or params" % [id, mod, key])
 	if c.status == "live":
 		var all: Array = c.ability.duplicate()
 		for t in c.tiers:

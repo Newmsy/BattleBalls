@@ -9,13 +9,15 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | Path | What lives there |
 |---|---|
 | `sim/` | The deterministic fight simulation. Pure GDScript, no nodes or engine physics. Same config, same fight. |
+| `meta/` | Progression outside a fight: the player profile (collection, fusion, energy, account level, campaign stars), campaign zones, drops. Pure logic, clock passed in. Saved in the SaveGame as `data.profile`. |
 | `sim/critters/` | One file per critter: everything about it (see Adding a critter). |
-| `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim; never changes its rules. |
+| `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim and meta; never changes their rules. |
 | `liveops/` | The live-ops schedule (`liveops.json`): seasons, Spotlight weeks, Chaos Weekends, Fight of the Day. See its README. |
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
+| `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -59,6 +61,8 @@ it in the browser (MP4 on iPhone Safari); browsers without MediaRecorder get
 the same layout to screen-record. The export preset's `head_include` turns on
 `preserveDrawingBuffer` and taps the game's audio so the page can record both.
 `?sounds=1` opens the sound board: every sound with a play button.
+`?pve=1-3&auto=1` plays campaign stage 1-3 on a fresh, unsaved profile.
+`?demo=1` loads the filled-in sample profile (unsaved), for previews and the smoke test.
 
 ## Icon and loading screen
 
@@ -76,6 +80,17 @@ Playwright and ImageMagick) into `game/brand/`:
 
 designs.mjs also keeps the two runner-up icon options (`OPTIONS`); switch
 `icon` to one of them and re-render to swap.
+
+## Touch: scrolling and swipe back
+
+`game/ui/touch_input.gd` handles touch for every screen before the GUI sees it
+(added once by `TouchInput.ensure`). A drag past a small dead zone scrolls
+the innermost `ScrollContainer` under the finger that can move that way, even
+when it starts on a button or card, and the button is let go untapped; a
+swipe in from the left edge runs the screen's Back. Screens say what Back
+means with `TouchInput.set_back(self, func(): return <action or Callable()>)`;
+the shell's is `Shell.back_action()` (close a sheet, or pop the screen stack).
+New scroll areas need nothing extra: plain `ScrollContainer`s just work.
 
 ## Sound
 
@@ -105,6 +120,25 @@ Open it from the menu's Trick Shot button or with
 Changing ball radius or speed, or adding playable balls, reshapes the
 puzzles. That is fine; `tests/test_trick_shot.gd` only fails if days stop
 being solvable or fair.
+
+## Bounce Run
+
+A daily roguelite (`sim/bounce_run.gd`, `sim/boons.gd`, `game/bounce_run.gd`;
+design in the project's `design/bounce-run.md`). Draft 3 of 5 critter cards
+(each with its own starter boon), climb 8 floors, and pick 1 of 3 boons for
+the whole trio after every win. A loss knocks that critter out; lose all three
+and the run ends. Each floor's foe carries as many boons as you can hold there,
+so every fight stays at equal power. The run comes from the UTC day (#1 is
+2026-10-14) and is saved after every step to `user://bounce_run.cfg`.
+
+The first run of the day is ranked and posts to the daily leaderboard
+(`game/online/bounce_board.gd`, `supabase/migrations/*_bounce_run.sql`);
+offline it plays the same and posts later. Open it from the Play tab or with
+`?mode=bouncerun` (`&day=3` plays another day's run, unranked).
+
+Boons are balanced by `tools/boon_balance.gd`: each one held at equal power
+must win 52-62%, and CI fails one over 65%. `--runs=300` plays whole random
+runs to check every floor stays near 50%.
 
 ## Ghost Arena (PvP)
 
@@ -287,3 +321,24 @@ The balance gate is its own set of `Balance` jobs: `tools/ci/balance_plan.sh`
 picks which pairings a PR needs and how many parallel shards to spread them
 over, so it stays inside the time limit as the roster grows (BALANCE.md, "What
 checks it"). The `Balance audit` workflow fights every pairing weekly on `main`.
+
+## Cosmetics, the shop and the Glow Pass
+
+Design: `design/monetisation.md`. Money never buys power: real money buys only
+Glow Gems, the season's premium pass track and the Founder Pack; gems buy only
+cosmetics and the pass. Every power reward sits on the pass's free track.
+
+- `game/glow/catalog.gd` is all the data: cosmetics (hat, trail, hit spark, KO
+  effect), bundles, store products. A new cosmetic is one entry there plus, if
+  it needs a new look, one `style` branch in `cosmetic_art.gd`.
+- Cosmetics are drawn by `arena_view.gd`, never passed to the sim, so fights
+  still replay from angles + seed. The YOU/FOE rings, tags and HP badges are
+  drawn last, over every cosmetic.
+- `game/glow/store.gd` is the store interface and, for now, a fake store
+  (purchases are free and labelled "Test store"). Real StoreKit / Play
+  Billing goes in a subclass; nothing else changes.
+- Pass levels come from play (fights, daily bounties, the weekly chest, Trick
+  Shot); a new season in `liveops/liveops.json` starts a fresh pass.
+- `tests/test_glow.gd` guards the rules: no power for money, fixed prices,
+  cosmetics don't change a fight, rings draw last, colours stay clear of the
+  team rings. `?screen=shop` and `?screen=pass` open the screens directly.

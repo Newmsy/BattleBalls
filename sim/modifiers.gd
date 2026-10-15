@@ -4,10 +4,13 @@
 ##
 ## Fields (all optional, missing means "unchanged"):
 ##   radius, hp, damage, speed  multipliers on the ball's base stats; `damage`
-##                              scales contact damage and every *_damage stat
+##                              scales contact damage and every *_damage,
+##                              *_dps and *_burn stat
 ##   ability                    multiplier on ability strength: Vampire's heal
 ##                              ratio, Laser's beam cap (how many beams at once),
-##                              (by sqrt) beam damage and Flux's snap bonus
+##                              (by sqrt) beam damage and Flux's snap bonus, and
+##                              (by 4th root) every other ability's damage, dps,
+##                              burn, slow and reflect share
 ##   beam_life                  multiplier on how long Laser beams last
 ##   overtime_start             seconds before the arena starts closing in
 ##   mirror                     both sides use the same seed-picked ball
@@ -84,11 +87,12 @@ static func apply_to_def(def: Dictionary, id: String) -> Dictionary:
 	out.speed *= mod.get("speed", 1.0)
 	var damage: float = mod.get("damage", 1.0)
 	for key in out:
-		if String(key).ends_with("_damage"):
+		var k := String(key)
+		if k.ends_with("_damage") or k.ends_with("_dps") or k.ends_with("_burn"): # Burns too.
 			out[key] *= damage
 	var ability: float = mod.get("ability", 1.0)
 	if out.has("heal_ratio"):
-		out.heal_ratio *= ability
+		out.heal_ratio *= sqrt(ability)
 	if out.has("beam_life"):
 		out.beam_life *= mod.get("beam_life", 1.0)
 	if out.has("beam_max"):
@@ -101,6 +105,42 @@ static func apply_to_def(def: Dictionary, id: String) -> Dictionary:
 		out.beam_damage *= sqrt(ability)
 	if out.has("snap_mult"):
 		out.snap_mult = 1.0 + (out.snap_mult - 1.0) * sqrt(ability)
+	# Prickles's spikes and Zip's build-up are their abilities: they grow in full.
+	# (Boulder's slam is a small share of its damage, so it gains nothing here.)
+	if out.has("spike_damage"):
+		out.spike_damage *= ability
+	if out.has("speed_gain"):
+		out.speed_gain *= ability
+	# Every other ability's damage, burn, slow and reflect share grow too, so
+	# critters past the original three aren't left behind.
+	# A gentler root than the beam's: these critters' whole kit is ability
+	# damage, and the square root left Spectra over Chill 75% here.
+	if ability != 1.0:
+		var boost := pow(ability, 0.25)
+		for key in out:
+			var k := String(key)
+			if k in ["contact_damage", "beam_damage", "heal_ratio", "spike_damage", "slam_damage"]:
+				continue
+			if k.ends_with("_damage") or k.ends_with("_dps") or k.ends_with("_burn") or k == "reflect_ratio":
+				out[key] *= boost
+			elif k.ends_with("_slow"):
+				out[key] = minf(out[key] * boost, 0.8)
+	# A critter file's optional "chaos" block fine-tunes how one twist treats
+	# that critter: {modifier_id: {stat_or_param: multiplier}}.
+	for key in def.get("chaos", {}).get(id, {}):
+		out[key] *= float(def.chaos[id][key])
+	return out
+
+
+## A copy of a ball def with its critter file's "chaos" entry for this arena
+## applied ({arena_id: {stat_or_param: multiplier}}), like the modifier ones.
+static func apply_arena_tweaks(def: Dictionary, arena_id: String) -> Dictionary:
+	var tweaks: Dictionary = def.get("chaos", {}).get(arena_id, {})
+	if tweaks.is_empty():
+		return def
+	var out := def.duplicate()
+	for key in tweaks:
+		out[key] *= float(tweaks[key])
 	return out
 
 

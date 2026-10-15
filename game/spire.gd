@@ -4,6 +4,7 @@
 ## climb file (meta/spire_climb.gd), then it's back to the Spire screen.
 extends Node2D
 
+const TouchInput := preload("res://game/ui/touch_input.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const Relay := preload("res://sim/relay.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -45,6 +46,8 @@ var panel: VBoxContainer
 
 
 func _ready() -> void:
+	TouchInput.ensure(self)
+	TouchInput.set_back(self, func(): return _back if state in [State.INTRO, State.RESULT] else Callable())
 	climb = SpireClimb.load_file(LiveOps.now())
 	if climb.pending.is_empty() or int(climb.pending.floor) != climb.next_floor():
 		climb.pending = {}

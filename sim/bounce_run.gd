@@ -1,0 +1,180 @@
+## Bounce Run: a daily roguelite run built from the UTC day number alone, so
+## every device gets the same draft, foes and boon offers without a server.
+##
+## Draft 3 of 5 cards (a critter plus its own starter boon), then climb
+## FLOORS fights. Before each fight you see the foe and send one of your
+## living critters. A win earns a boon for the whole trio (pick 1 of 3); a
+## loss knocks that critter out of the run, and you retry the floor with
+## another. The run ends when the top floor falls or your trio is out.
+##
+## Power stays equal: a floor's foe carries exactly as many boons as you can
+## have there (its starter plus one per floor cleared), drawn from the same
+## pool. Your edge is picking boons that suit your trio, and your aim.
+##
+## A run is plain data (see new_run) so it can be saved, resumed, posted to
+## the leaderboard and re-checked later by replaying its log.
+extends RefCounted
+
+const Rng := preload("res://sim/rng.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
+const Boons := preload("res://sim/boons.gd")
+const MatchSim := preload("res://sim/match_sim.gd")
+
+## Bump when a change alters how a run plays out (boons, generation, fight
+## rules), so the server only compares runs played on the same rules.
+const RULES_VERSION := 1
+const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
+const DAY := 86400
+const FLOORS := 8
+const DRAFT := 5
+const PICKS := 3
+const OFFER := 3
+## Foe names per floor, for flavour. The top floor is the day's champion.
+const FOE_TITLES := ["Rookie", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Elite", "Champion"]
+
+
+## 1 on 2026-10-14 (UTC), counting up one per day.
+static func day_number(unix_time: float) -> int:
+	return maxi(1, floori((unix_time - EPOCH_UNIX) / DAY) + 1)
+
+
+## The day's run setup: draft cards and the foe on every floor.
+static func generate(day: int) -> Dictionary:
+	var rng := Rng.new(day * 2654435 + 977)
+	var cards: Array = []
+	var critters := _shuffled(BallDefs.PLAYABLE, rng)
+	var used_boons: Array = []
+	for i in DRAFT:
+		# Every playable critter shows up before any repeats.
+		var critter: String = critters[i % critters.size()]
+		var boon := _pick_boon(rng, critter, used_boons)
+		used_boons.append(boon)
+		cards.append({"critter": critter, "boon": boon})
+	var floors: Array = []
+	for f in FLOORS:
+		var critter: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
+		var boons: Array = []
+		for k in f + 1:
+			boons.append(_pick_boon(rng, critter, boons))
+		floors.append({"critter": critter, "boons": boons, "seed": rng.range_int(1, 999999), "title": FOE_TITLES[f]})
+	return {"day": day, "cards": cards, "floors": floors}
+
+
+## A fresh run for `setup` with the drafted card indices.
+static func new_run(setup: Dictionary, picks: Array) -> Dictionary:
+	assert(picks.size() == PICKS)
+	return {"day": setup.day, "picks": picks.duplicate(), "boons": [], "floor": 0, "out": [false, false, false],
+		"ticks": 0, "log": [], "offer": [], "over": false}
+
+
+## The pick slot's card.
+static func card(setup: Dictionary, run: Dictionary, slot: int) -> Dictionary:
+	return setup.cards[run.picks[slot]]
+
+
+## Boons a pick slot fights with: its starter plus the run's boons.
+static func fighter_boons(setup: Dictionary, run: Dictionary, slot: int) -> Array:
+	return [card(setup, run, slot).boon] + run.boons
+
+
+## MatchSim config for sending `slot` at the current floor with `aim`.
+static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> Dictionary:
+	var foe: Dictionary = setup.floors[run.floor]
+	return {"seed": foe.seed, "p1": card(setup, run, slot).critter, "p2": foe.critter,
+		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons]}
+
+
+## Records a fight. A win climbs a floor and, unless the run is won, deals a
+## boon offer to pick from; anything else knocks the fighter out.
+static func record(setup: Dictionary, run: Dictionary, slot: int, aim: int, winner: int, ticks: int) -> void:
+	assert(not run.over and run.offer.is_empty() and not run.out[slot])
+	run.log.append({"floor": run.floor, "slot": slot, "aim": aim, "won": winner == 0, "ticks": ticks})
+	run.ticks += ticks
+	if winner == 0:
+		run.floor += 1
+		if run.floor >= FLOORS:
+			run.over = true
+		else:
+			run.offer = offer(setup, run)
+	else:
+		run.out[slot] = true
+		if not run.out.has(false):
+			run.over = true
+
+
+## Takes boon `id` from the current offer.
+static func take_boon(run: Dictionary, id: String) -> void:
+	assert(id in run.offer)
+	run.boons.append(id)
+	run.offer = []
+
+
+## OFFER boons for the floor just cleared, seeded by day and floor. Skips
+## boons the trio already runs and ability boons none of the trio can use.
+static func offer(setup: Dictionary, run: Dictionary) -> Array:
+	var abilities: Array = []
+	for slot in PICKS:
+		abilities.append(BallDefs.get_def(card(setup, run, slot).critter).ability)
+	var pool: Array = []
+	for id in Boons.ALL:
+		if id in run.boons:
+			continue
+		if abilities.any(func(a): return Boons.applies_to(id, a)):
+			pool.append(id)
+	var rng := Rng.new(setup.day * 7919 + run.floor * 104729 + 31)
+	return _shuffled(pool, rng).slice(0, OFFER)
+
+
+static func living(run: Dictionary) -> Array:
+	var out: Array = []
+	for slot in PICKS:
+		if not run.out[slot]:
+			out.append(slot)
+	return out
+
+
+## Floors cleared, critters left, and total fight time: the leaderboard order.
+static func score(run: Dictionary) -> Dictionary:
+	return {"floors": run.floor, "lives": living(run).size(), "ticks": run.ticks}
+
+
+## True when score `a` ranks above `b`.
+static func better(a: Dictionary, b: Dictionary) -> bool:
+	if a.floors != b.floors:
+		return a.floors > b.floors
+	if a.lives != b.lives:
+		return a.lives > b.lives
+	return a.ticks < b.ticks
+
+
+## Replays a run's log from its picks and returns the rebuilt run, so a
+## posted score can be checked against the sim. Boon picks come from `run`.
+static func replay(setup: Dictionary, run: Dictionary) -> Dictionary:
+	var check := new_run(setup, run.picks)
+	var boon_i := 0
+	for entry in run.log:
+		var sim := MatchSim.new(fight_config(setup, check, entry.slot, entry.aim))
+		var result := sim.run_to_end()
+		record(setup, check, entry.slot, entry.aim, result.winner, result.ticks)
+		if not check.offer.is_empty() and boon_i < run.boons.size():
+			take_boon(check, run.boons[boon_i])
+			boon_i += 1
+	return check
+
+
+static func _pick_boon(rng, critter: String, avoid: Array) -> String:
+	var ability: String = BallDefs.get_def(critter).ability
+	var pool := Boons.ALL.filter(func(id): return Boons.applies_to(id, ability) and not id in avoid)
+	if pool.is_empty():
+		pool = Boons.ALL.filter(func(id): return Boons.applies_to(id, ability))
+	return pool[rng.range_int(0, pool.size() - 1)]
+
+
+static func _shuffled(items: Array, rng) -> Array:
+	var out := items.duplicate()
+	for i in range(out.size() - 1, 0, -1):
+		var j: int = rng.range_int(0, i)
+		var t = out[i]
+		out[i] = out[j]
+		out[j] = t
+	return out

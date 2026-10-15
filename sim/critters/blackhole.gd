@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "0d0b17",
 	"vibe": "Ancient, silent and a little terrifying.",
-	"description": "Black Hole. Every 8s it collapses, dragging everything in, then explodes in a ring of light.",
+	"description": "Black Hole. Every 8s it collapses, dragging everything in, then explodes in a ring of light that scorches (a burning foe can't heal).",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "always", "do": "collapse"}, {"on": "guard", "do": "collapse_guard"}],
 	"params": {
@@ -21,6 +21,7 @@ const CRITTER := {
 		"collapse_accel": 700.0,
 		"collapse_damage": 18.0,
 		"collapse_radius": 180.0,
+		"collapse_burn": 1.0, ## The blast burns this much a second for 3s (a burning foe can't heal).
 		"collapse_ring": 0.0, ## Burning ring damage a second, 3s, when above 0.
 		"collapse_guard": 1.0, ## Damage taken while collapsing.
 	},

@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "5b4bd6",
 	"vibe": "Serene little planet; everything comes to it eventually.",
-	"description": "Gravity. Gently pulls foes toward itself, and its little moons bonk anything that comes close.",
+	"description": "Gravity. Gently pulls foes toward itself, and its little molten moons bonk and singe anything that comes close (a burning foe can't heal).",
 	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "always", "do": "pull"}, {"on": "always", "do": "moons"}],
 	"params": {
@@ -22,6 +22,7 @@ const CRITTER := {
 		"moon_orbit": 40.0, ## Distance beyond its edge.
 		"moon_size": 14.0,
 		"moon_damage": 5.0,
+		"moon_burn": 1.0, ## Moon hits burn this much a second for 2s (a burning foe can't heal).
 		"moon_spin": 3.0, ## Radians a second.
 		"moon_cooldown": 0.5,
 		"flare_radius": 200.0, ## T5 ring flare.

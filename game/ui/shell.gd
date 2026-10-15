@@ -11,6 +11,9 @@ const Friends := preload("res://game/online/friends.gd")
 const FightLink := preload("res://game/fight_link.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const SettingsSheet := preload("res://game/ui/screens/settings_sheet.gd")
+const SaveGame := preload("res://game/online/save_game.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
+const Store := preload("res://game/glow/store.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -23,8 +26,11 @@ const SCREENS := {
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
+	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
 	"spire": preload("res://game/ui/screens/spire_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
+	"shop": preload("res://game/ui/screens/shop_screen.gd"),
+	"pass": preload("res://game/ui/screens/pass_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TOP_PAD := 28.0
@@ -50,11 +56,16 @@ var friends = Friends.new()
 var account = null
 ## Where invite links point: main.gd sets the page's own address on the web.
 var link_base := FightLink.HOME
+## Emitted when a campaign stage starts; energy is already spent.
+signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
 
 var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.
 var backend = null
 var play_with := "" ## Ball to pick in the arena menu on the next request_play().
+## Glow Gems, cosmetics and the Glow Pass (game/glow/glow_state.gd). main.gd
+## sets one backed by the real save; tests get a throwaway one.
+var glow
 var current := ""
 var current_params := {}
 var _stack: Array = []
@@ -72,6 +83,7 @@ var _built := false
 var _overlay: Control
 var _gear: Control ## Settings button in the top bar.
 var _share := {} ## kind -> {button, url, text} on the current screen.
+var _overlay_tag := "" ## What the open overlay is ("sheet", "reveal", ...).
 
 
 func _ready() -> void:
@@ -83,6 +95,9 @@ func build() -> void:
 	if _built:
 		return
 	_built = true
+	if glow == null:
+		glow = GlowState.new(SaveGame.new("user://shell_preview_save.json"), profile, Store.new())
+	glow.purchase_finished.connect(_on_purchase)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = Kit.theme()
 	var bg := ColorRect.new()
@@ -116,14 +131,15 @@ func build() -> void:
 		go("arena")
 
 
-## Swap in another player's profile (e.g. the new player from onboarding).
+## Swap in another profile (the new player from onboarding, or a newer cloud save).
 func set_profile(p) -> void:
 	if profile.changed.is_connected(_refresh_top):
 		profile.changed.disconnect(_refresh_top)
 	profile = p
 	if _built:
 		profile.changed.connect(_refresh_top)
-		refresh()
+		if current != "":
+			refresh()
 
 
 func show_tab(t: String) -> void:
@@ -141,6 +157,14 @@ func open_tab(t: String, params: Dictionary) -> void:
 func go(name: String, params := {}) -> void:
 	_stack.append([name, params])
 	_show(name, params)
+
+
+## What Back (or a swipe in from the left edge) does now: close a sheet, or
+## return to the screen underneath. Empty at a tab's own screen.
+func back_action() -> Callable:
+	if overlay_open():
+		return close_overlay if _overlay_tag == "sheet" else Callable()
+	return back if _stack.size() > 1 else Callable()
 
 
 func back() -> void:
@@ -180,6 +204,7 @@ func toast(text: String) -> void:
 ## Cover the whole shell (tabs included) with `c`, e.g. the summon reveal.
 func overlay(c: Control, tag := "overlay") -> void:
 	close_overlay()
+	_overlay_tag = tag
 	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.add_child(c)
@@ -216,15 +241,31 @@ func sheet(content: Control) -> void:
 	panel.add_theme_stylebox_override("panel", st)
 	panel.add_child(content)
 	root.add_child(panel)
-	overlay(root, "sheet")
-	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE, Control.PRESET_MODE_MINSIZE)
+	overlay(root, "-") # Reported once it has slid in, so taps land where it stops.
+	_overlay_tag = "sheet" # Back and the edge swipe close it.
+	# A zero-height rect on the bottom edge, growing upwards: the panel is
+	# always exactly as tall as its content, even after wrapped text reflows.
+	panel.anchor_left = 0.0
+	panel.anchor_right = 1.0
+	panel.anchor_top = 1.0
+	panel.anchor_bottom = 1.0
+	panel.offset_left = 0.0
+	panel.offset_right = 0.0
 	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	panel.position.y = size.y
-	var h := panel.get_combined_minimum_size().y
-	var slide := create_tween()
-	slide.tween_property(panel, "position:y", size.y - h, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	# Report tap positions again once the sheet has slid into place.
-	slide.finished.connect(_report.bind("sheet"))
+	var slide := func(v: float) -> void:
+		panel.offset_top = v
+		panel.offset_bottom = v
+	slide.call(size.y)
+	var tw := create_tween()
+	tw.tween_method(slide, size.y, 0.0, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.finished.connect(func(): _report("sheet"))
+
+
+func _on_purchase(_id: String, _ok: bool, message: String) -> void:
+	if current in ["shop", "pass"]:
+		close_overlay()
+		refresh()
+	toast(message)
 
 
 func set_friends(f) -> void:

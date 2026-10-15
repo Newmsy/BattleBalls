@@ -6,9 +6,11 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const BounceRun := preload("res://sim/bounce_run.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
+const LiveOps := preload("res://game/liveops.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -16,12 +18,29 @@ static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(26)
 	root.add_child(WeekScreen.banner(shell))
 
-	# Campaign card (the PvE thread is building zone 1).
+	# Campaign card: Glow Garden progress and the way into the stage list.
+	var Zones := preload("res://meta/zones.gd")
+	var Campaign := preload("res://meta/campaign.gd")
+	var stages: Array = Zones.zone(0).stages
+	var cleared := 0
+	var star_total := 0
+	for i in stages.size():
+		cleared += 1 if Campaign.is_cleared(p, 0, i) else 0
+		star_total += Campaign.stars_of(p, 0, i)
+	var next_text := "All %d stages cleared. Go for 3 stars to unlock sweeps." % stages.size()
+	if cleared < stages.size():
+		var st: Dictionary = stages[cleared]
+		next_text = "Next: %s %s, Recommended Power %s." % [Zones.stage_key(0, cleared), st.get("name", Roster.get_critter(st.enemy).name),
+			Kit.commas(Campaign.enemy_rating(0, cleared))]
+	var open := Kit.button("Open the map", func(): shell.go("campaign", {"zone": 0}), "go", 30, 90)
+	shell.mark("campaign", open)
 	var zone := Kit.vbox(10, [
 		Kit.caption("Zone 1 · The Neon Circuit", Color("9be89a")),
 		Kit.label("Glow Garden", 48),
-		Kit.label("10 stages and the Mega Boulder boss. The campaign map is on its way.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
-		Kit.hbox(8, [Glyph.make("lock", 30, Kit.MUTED), Kit.label("Coming soon", 24, Kit.MUTED)]),
+		Kit.hbox(12, [Glyph.make("stars", 26, Kit.FG, 1),
+			Kit.label("%d/%d stages · %d/%d stars" % [cleared, stages.size(), star_total, stages.size() * 3], 22, Kit.MUTED)]),
+		Kit.label(next_text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		open,
 	])
 	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 40, 2, 30)
 	root.add_child(Kit.panel(zone, zst))
@@ -42,6 +61,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(mode_card(shell, "trickshot", "Daily · new puzzle every day", "Trick Shot",
 		"Call your walls, line up one launch and bank it in. Keep your streak going.", "Play today's shot", Color("ffd36b"),
 		func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")))
+	# Bounce Run: the daily roguelite, open from day one (equal power, no ladder).
+	var run_day := BounceRun.day_number(Time.get_unix_time_from_system())
+	root.add_child(mode_card(shell, "bouncerun", "Daily event · same run for everyone", "Bounce Run #%d" % run_day,
+		"Draft 3 critters, climb 8 floors, grab a boon after every win. Equal power, one daily leaderboard.", "Play today's run", Color("ffc23d"),
+		func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")))
 
 	# The Spire: the weekly 50-floor tower (design/spire.md).
 	root.add_child(mode_card(shell, "spire", "Weekly · resets Monday", "The Spire",
@@ -52,6 +76,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(mode_card(shell, "arena", "PvP · %s trophies · %s" % [Kit.commas(arena_store.trophies), Ladder.league_label(arena_store.trophies)],
 		"Ghost Arena", "Your trio against other trios. Climb from Bronze to Neon.", "Enter the Arena", Color("ff4fd8"),
 		func(): shell.go("arena")))
+	# Glow Pass and the cosmetics shop.
+	root.add_child(_pass_card(shell))
+	root.add_child(mode_card(shell, "shop", "Shop · looks only", "Cosmetics",
+		"Hats, trails, hit sparks and KO pops. Try them on first; they never change a fight.", "Open the shop", Color("5ce1ff"),
+		func(): shell.go("shop")))
 
 	# Your fighter.
 	var b: Dictionary = p.best(p.lineup)
@@ -87,6 +116,19 @@ static func mode_card(shell, mark: String, caption: String, title: String, text:
 	shell.mark(mark, btn)
 	var v := Kit.vbox(10, [Kit.caption(caption, accent), Kit.label(title, 40), Kit.label(text, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
 	return Kit.panel(v, Kit.box(accent.darkened(.82), accent.darkened(.5), 40, 2, 30))
+
+
+static func _pass_card(shell) -> Control:
+	var glow = shell.glow
+	var season: Dictionary = glow.season()
+	if season.is_empty():
+		return mode_card(shell, "glowpass", "Glow Pass", "Between seasons", "The next pass opens with the next season.", "Open the pass", Color("ffd36b"), func(): shell.go("pass"))
+	var n: int = glow.claimable_count()
+	var line := "Level %d of 50. Earn pass XP from fights and daily bounties." % glow.pass_level()
+	if n > 0:
+		line = "Level %d · %d reward%s ready to claim!" % [glow.pass_level(), n, "" if n == 1 else "s"]
+	return mode_card(shell, "glowpass", "Glow Pass · %s · ends in %s" % [season.name, LiveOps.countdown(LiveOps.now(), season.ends)], "Glow Pass",
+		line, "Claim rewards" if n > 0 else "Open the pass", Color("ffd36b"), func(): shell.go("pass"))
 
 
 ## Friends: a count and whatever is waiting (requests, energy gifts).
