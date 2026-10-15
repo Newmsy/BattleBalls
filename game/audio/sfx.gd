@@ -50,6 +50,7 @@ const RULES := {
 	"fizzpop": [1, 0.3, -4.0],
 	"drum": [2, 0.08, -4.0],
 	"rain": [1, 0.85, -12.0],
+	"hum": [1, 0.5, -4.0],
 }
 ## Seconds between rain patters while one of Drizzle's showers is falling.
 const RAIN_EVERY := 0.9
@@ -208,6 +209,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("crackle", 0.0, 1.15 if kind == "zap" else 0.8)
 				elif kind == "drum":
 					play("drum", 0.0, 0.9)
+				elif kind == "quasar":
+					play("hum")
 				else:
 					play("hit_big", 0.0, 0.8 if e.type == "boom" else PULSE_PITCH.get(kind, 1.1))
 			"reflect":
@@ -250,8 +253,9 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("stretch", 0.0, 1.3)
 			"wrap_pop", "shatter":
 				play("snap", 0.0, 1.4 if e.type == "wrap_pop" else 0.8)
-			"storm":
-				play("sizzle", 0.0, 0.8)
+			"storm": # Thunderbird's storm: a big electric crack.
+				play("crackle", 0.0, 0.7)
+				play("sizzle", -4.0, 0.8)
 			"stack": # Stacks and forms: a rising tick per stack.
 				if e.up:
 					play("flip", -6.0, 1.1 + 0.08 * e.stacks)
