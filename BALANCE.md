@@ -60,7 +60,7 @@ is checked under every modifier as well as base rules.
 
 | Check | When | Command |
 |---|---|---|
-| Equal-power matrix and arena tilt on every playable arena, and on the square under every Chaos Weekend modifier. A square `FAIL` blocks merge; arena and modifier ("edge") misses show as `WARN (audit FAIL)` and don't | Every ready (non-draft) PR that touches `sim/` or `tools/balance.gd` (CI `Balance` shards) | `balance.gd -- --fights=100 --variant-fights=50 --arena=all --modifiers --strict` |
+| Equal-power matrix and arena tilt on every playable arena, and on the square under every Chaos Weekend modifier. A square matchup at 80%+ blocks merge; square misses under 80% and arena and modifier ("edge") misses show as `WARN (audit FAIL)` and don't | Every ready (non-draft) PR that touches `sim/` or `tools/balance.gd` (CI `Balance` shards) | `balance.gd -- --fights=100 --variant-fights=50 --arena=all --modifiers --strict` |
 | Full audit: every pairing everywhere, power step and gear lines, strict on every cell | Weekly on `main` (`Balance audit` workflow, Mondays 06:17 UTC), read by the weekly balance review | see `.github/workflows/balance-audit.yml` |
 | Power step for a new or changed critter | The PR that adds or changes it (paste the output) | `balance.gd -- --fights=200 --power-step --only=<id>` |
 | Gear lines: one Legendary piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
@@ -77,13 +77,16 @@ per pairing (100 fights) to fit; the weekly audit covers every pairing.
 prints one row per critter (mean vs field, worst and best matchup) instead of a
 matrix.
 
-**PR gate vs audit.** The core rules (no equal-power matchup over 65% on the
-square, power beats counters) fail a PR. A miss that only shows on one arena
-or under one Chaos Weekend twist (an "edge cell") is reported on the PR as
-`WARN (audit FAIL)`, with a count at the end of the shard's job summary, and
-doesn't block merge, so one edge cell can't hold up a critter batch. The
-weekly audit is strict on every cell, so edge misses still get fixed there:
-fix any `WARN (audit FAIL)` your PR shows in a follow-up before Monday.
+**PR gate vs audit.** On a PR, the power step (power beats counters) always
+fails, and so does a square equal-power matchup at 80% or more. A square
+matchup between 65% and 80%, or a miss that only shows on one arena or under
+one Chaos Weekend twist (an "edge cell"), is reported on the PR as
+`WARN (audit FAIL)` with a count at the end of the shard's job summary, and
+doesn't block merge (`PR_SQUARE_FAIL` in `tools/balance.gd`). Newms asked for
+looser PR checks on 2026-10-15 ("we can be a bit unbalanced"): shipping
+critters beats tuning every matchup, so don't spend rounds on square cells
+under 80%. The weekly audit stays strict on every cell (65% everywhere), so
+these misses still show up there: fix them in a follow-up when they matter.
 `balance.gd` turns this on by itself when `GITHUB_EVENT_NAME` is
 `pull_request` (or with `--edge-warn`); `--edge-strict` forces every cell to
 fail, as a local run without either flag does.
