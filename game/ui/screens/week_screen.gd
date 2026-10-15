@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const LiveOps := preload("res://game/liveops.gd")
@@ -23,25 +24,28 @@ const DAYS := ["M", "T", "W", "T", "F", "S", "S"]
 
 static func build(shell, _params: Dictionary) -> Control:
 	var t := LiveOps.now()
-	var root := Kit.vbox(22)
-	var back := Kit.button("Back", shell.back, "ghost", 24, 64)
-	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	back.custom_minimum_size.x = 150
-	shell.mark("week_back", back)
+	var root := Kit.vbox(16)
+	var back: Control = shell.back_button("week_back")
 	var season := LiveOps.season(t)
-	var season_text := "%s · week %d of %d" % [season.name, season.week, season.weeks] if not season.is_empty() else ""
-	root.add_child(Kit.hbox(16, [back, Kit.spacer(), Kit.label(season_text, 22, Kit.MUTED)]))
-	root.add_child(Kit.label("This Week", 48))
+	var title := Kit.vbox(0, [Kit.label("This Week", 40)])
+	if not season.is_empty():
+		title.add_child(Kit.label("%s · week %d of %d" % [season.name, season.week, season.weeks], 20, Kit.MUTED))
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.add_child(Kit.hbox(16, [back, title, shell.info_button("This Week", _info_text(shell, t), "week_info")]))
 	root.add_child(_strip(t))
-	root.add_child(_trick_shot(shell))
-	root.add_child(_fight(shell, t))
-	var bracket := BracketScreen.board_card(shell, t)
-	if bracket != null:
-		root.add_child(bracket)
 	var counters := []
-	root.add_child(_try_critter(shell, t, counters))
-	root.add_child(_spotlight(shell, t, counters))
-	root.add_child(_chaos(t, counters))
+	var tiles: Array = [_trick_shot(shell), _fight(shell, t)]
+	var bracket := BracketScreen.board_card(shell, t, tile)
+	if bracket != null:
+		tiles.append(bracket)
+	tiles.append_array([_try_critter(shell, t, counters), _spotlight(shell, t, counters), _chaos(shell, t, counters)])
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	for tile in tiles:
+		grid.add_child(tile)
+	root.add_child(grid)
 	# Keep the countdowns ticking while the board is open.
 	var timer := Timer.new()
 	timer.wait_time = 1.0
@@ -53,6 +57,23 @@ static func build(shell, _params: Dictionary) -> Control:
 				c[0].text = c[1] % LiveOps.countdown(now, c[2]))
 	root.add_child(timer)
 	return root
+
+
+## The long-form rules behind the board's "i" button.
+static func _info_text(shell, t: int) -> Array:
+	var l := Loaner.today(shell.profile, t)
+	var loan := Roster.get_critter(l.critter)
+	var spot := Roster.get_critter(LiveOps.spotlight(t).critter)
+	var loan_note := "%s is on loan to you today in %s. Practice only: it won't count for Ghost Arena or the campaign. Its Critter Shot is a bonus bank shot with it." % [loan.name, Loaner.modes_text()]
+	if l.owned:
+		loan_note = "You already own %s. Today it's on loan to everyone who doesn't. The Critter Shot is open to all." % loan.name
+	return [
+		"Trick Shot: one called bank shot, %d tries, the same puzzle for everyone. A new one lands at midnight." % TRICK_TRIES,
+		"Fight of the Day: call who wins, then watch. Correct calls in a row build your streak.",
+		"Try-a-Critter: " + loan_note,
+		"Critter Spotlight: %s gets half of all %s rolls in the Summon Portal this week." % [spot.name, Roster.RARITY_NAMES[spot.rarity]],
+		"Chaos Weekend: one rule twist for every fight from Friday to Sunday, the same for both balls.",
+	]
 
 
 ## Mon..Sun with today lit and the Chaos Weekend days tinted.
@@ -67,16 +88,51 @@ static func _strip(t: int) -> Control:
 		var bg := Color("2a1236") if weekend else Kit.PANEL
 		var border: Color = Kit.ACCENT if day == today else (Color("5a2550") if weekend else Kit.LINE)
 		var date := Time.get_date_dict_from_unix_time(day)
-		var cell := Kit.panel(Kit.vbox(0, [Kit.label(DAYS[i], 20, col, HORIZONTAL_ALIGNMENT_CENTER),
-			Kit.label(str(date.day), 28, Kit.FG if day >= today else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)]),
-			Kit.box(bg, border, 18, 3 if day == today else 2, 8))
+		var cell := Kit.panel(Kit.hbox(6, [Kit.label(DAYS[i], 20, col), Kit.label(str(date.day), 22, Kit.FG if day >= today else Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
+			Kit.box(bg, border, 16, 3 if day == today else 2, 6))
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(cell)
-	return Kit.vbox(8, [row, Kit.label("Trick Shot and Fight of the Day every day. Chaos rules Friday to Sunday.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)])
+	return row
 
 
-static func _card(children: Array, border := Kit.LINE, bg := Kit.PANEL) -> Control:
-	return Kit.panel(Kit.vbox(12, children), Kit.box(bg, border, 36, 2, 26))
+## One half-width tile of the board: a caption row, a body and the tile's
+## action at the bottom, lined up with its neighbour's.
+static func tile(caption: String, accent: Color, border: Color, bg: Color, body: Array, action: Control = null, badge: Control = null) -> Control:
+	var head := Kit.hbox(6, [line(caption.to_upper(), 18, accent)])
+	if badge != null:
+		head.add_child(badge)
+	var v := Kit.vbox(8, [head])
+	for c in body:
+		v.add_child(c)
+	var gap := Control.new()
+	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(gap)
+	if action != null:
+		v.add_child(action)
+	var p := Kit.panel(v, Kit.box(bg, border, 30, 2, 18))
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return p
+
+
+## A one-line label that trims with an ellipsis instead of widening its tile.
+static func line(text: String, size := 22, color := Kit.FG) -> Label:
+	var l := Kit.label(text, size, color)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	l.clip_text = true
+	return l
+
+
+## Up to two lines of text in a tile.
+static func lines(text: String, size := 21, color := Kit.FG) -> Label:
+	var l := Kit.label(text, size, color, HORIZONTAL_ALIGNMENT_LEFT, true)
+	l.max_lines_visible = 2
+	l.custom_minimum_size.x = 200
+	return l
+
+
+static func _action(text: String, on_press: Callable, kind := "primary") -> Button:
+	return Kit.button(text, on_press, kind, 22, 64)
 
 
 # --- Daily Trick Shot --------------------------------------------------------------
@@ -84,25 +140,22 @@ static func _card(children: Array, border := Kit.LINE, bg := Kit.PANEL) -> Contr
 static func _trick_shot(shell) -> Control:
 	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	var s := trick_status(day)
-	var status := "One called bank shot, %d tries. Same puzzle for everyone today." % TRICK_TRIES
+	var status := "%d tries. Same shot for everyone." % TRICK_TRIES
 	var label := "Play"
 	if s.solved:
 		status = "Solved in %d %s. Streak %d." % [s.tries, "try" if s.tries == 1 else "tries", s.streak]
-		label = "See result"
+		label = "Result"
 	elif s.tries >= TRICK_TRIES:
-		status = "Out of tries today. A new shot lands at midnight."
-		label = "See result"
+		status = "Out of tries. New shot at midnight."
+		label = "Result"
 	elif s.tries > 0:
 		status = "%d %s left." % [TRICK_TRIES - s.tries, "try" if TRICK_TRIES - s.tries == 1 else "tries"]
 		label = "Keep trying"
-	var play := Kit.button(label, func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), "primary", 26, 80)
+	var play := _action(label, func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"))
 	shell.mark("week_trickshot", play)
 	var done: bool = s.solved or s.tries >= TRICK_TRIES
-	return _card([
-		Kit.hbox(8, [Kit.caption("Daily Trick Shot · #%d" % day, Color("9be89a")), Kit.spacer(), Kit.chip("Done" if done else "New", Kit.GOOD if done else Kit.WARN)]),
-		Kit.label(status, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
-		play,
-	])
+	return tile("Trick Shot", Color("9be89a"), Kit.LINE, Kit.PANEL,
+		[line("Daily #%d" % day, 28), lines(status)], play, Kit.chip("Done" if done else "New", Kit.GOOD if done else Kit.WARN, 16))
 
 
 ## { tries, solved, streak } for Trick Shot `day`, from its save file, or for
@@ -122,33 +175,30 @@ static func _fight(shell, t: int) -> Control:
 	var f := LiveOps.fight_of_the_day(t)
 	var names := [BallDefs.get_def(f.p1).display_name, BallDefs.get_def(f.p2).display_name]
 	var pick := pick_for(f.date)
-	var vs := Kit.hbox(10, [_side(f.p1, "P1", names[0]), Kit.label("VS", 30, Kit.MUTED), _side(f.p2, "P2", names[1])], BoxContainer.ALIGNMENT_CENTER)
-	var children: Array = [
-		Kit.hbox(8, [Kit.caption("Fight of the Day", Color("ffc23d")), Kit.spacer(), Kit.label(f.title, 22, Kit.MUTED)]),
-		vs,
-	]
+	var sides := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
+	for i in 2:
+		var id: String = f.p1 if i == 0 else f.p2
+		var v := Kit.vbox(0, [CritterIcon.make(id, 1, 76), line(names[i], 18, Kit.MUTED)])
+		(v.get_child(1) as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var side: Control = v
+		if pick < 0:
+			side = Kit.card_button(v, func(): call_fight(shell, f, i), Color("5a4a1e"), Kit.PANEL2, 22, 6)
+			shell.mark("fotd_pick%d" % i, side)
+		side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		side.custom_minimum_size.x = 0
+		sides.add_child(side)
+		if i == 0:
+			sides.add_child(Kit.label("VS", 20, Kit.MUTED))
+	var body: Array = [sides]
+	var action: Control = null
 	if pick < 0:
-		children.append(Kit.label("Who wins? Call it, then watch.", 24, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true))
-		var buttons := Kit.hbox(14)
-		for i in 2:
-			var b := Kit.button("P%d %s" % [i + 1, names[i]], func(): call_fight(shell, f, i), "ghost", 24, 80)
-			shell.mark("fotd_pick%d" % i, b)
-			buttons.add_child(b)
-		children.append(buttons)
+		body.append(lines("Tap who wins, then watch.", 20, Kit.FG))
 	else:
 		var right: bool = pick == f.winner
-		children.append(Kit.label("You called %s. %s Streak %d." % [names[pick], "Correct!" if right else "Not this time.", fight_streak(t)],
-			24, Kit.GOOD if right else Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true))
-		var again := Kit.button("Watch again", func(): shell.watch(f.merged({"pick": pick})), "ghost", 24, 80)
-		shell.mark("fotd_watch", again)
-		children.append(again)
-	return _card(children, Color("5a4a1e"))
-
-
-static func _side(id: String, tag: String, name: String) -> Control:
-	var v := Kit.vbox(2, [CritterIcon.make(id, 1, 130), Kit.label("%s · %s" % [tag, name], 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return v
+		body.append(lines("%s Streak %d." % ["Called it!" if right else "Not this time.", fight_streak(t)], 20, Kit.GOOD if right else Kit.FG))
+		action = _action("Watch again", func(): shell.watch(f.merged({"pick": pick})), "ghost")
+		shell.mark("fotd_watch", action)
+	return tile("Fight of the Day", Color("ffc23d"), Color("5a4a1e"), Kit.PANEL, body, action)
 
 
 ## Locks in the pick for today and starts the fight in the arena.
@@ -188,33 +238,24 @@ static func fight_streak(t: int) -> int:
 static func _try_critter(shell, t: int, counters: Array) -> Control:
 	var l := Loaner.today(shell.profile, t)
 	var c := Roster.get_critter(l.critter)
-	var ends := Kit.label("", 20, Kit.MUTED)
+	var ends := line("", 18, Kit.MUTED)
 	counters.append([ends, "Ends in %s", l.ends])
 	ends.text = "Ends in %s" % LiveOps.countdown(t, l.ends)
-	var info := Kit.vbox(4, [Kit.label(c.name, 34), Kit.chip(Roster.RARITY_NAMES[c.rarity], Roster.RARITY_COLORS[c.rarity]),
-		Kit.label(l.blurb if l.blurb != "" else c.vibe, 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	(info.get_child(1) as Control).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var note := "On loan to you today in %s. Practice only: it won't count for Ghost Arena or the campaign." % Loaner.modes_text()
-	if l.owned:
-		note = "You already own %s. Today it's on loan to everyone who doesn't. The Critter Shot is open to all." % c.name
 	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	var s := trick_status(day, l.critter)
-	var shot_label := "Critter Shot"
+	var shot_label := "Shot"
 	if s.solved:
-		shot_label = "Shot solved"
+		shot_label = "Solved"
 	elif s.tries >= TRICK_TRIES:
-		shot_label = "Shot done"
-	var shot := Kit.button(shot_label, func(): open_critter_shot(shell, l.critter), "primary", 24, 80)
+		shot_label = "Done"
+	var shot := _action(shot_label, func(): open_critter_shot(shell, l.critter))
 	shell.mark("try_shot", shot)
-	var fight := Kit.button("Quick fight", func(): shell.request_play(l.critter), "ghost", 24, 80)
+	var fight := _action("Fight", func(): shell.request_play(l.critter), "ghost")
 	shell.mark("try_fight", fight)
-	return _card([
-		Kit.hbox(8, [Kit.caption("Try-a-Critter", TRY), Kit.spacer(), ends]),
-		Kit.hbox(16, [CritterIcon.make(c.id, Loaner.TIER, 140), info]),
-		Kit.label(note, 21, TRY if l.on_loan else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
-		Kit.hbox(14, [shot, fight]),
-	], Color("1f5a6b"), Color("0e1f33"))
+	var who := Kit.vbox(0, [line(c.name, 26), line("Owned" if l.owned else "On loan today", 18, Kit.MUTED if l.owned else TRY), ends])
+	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return tile("Try-a-Critter", TRY, Color("1f5a6b"), Color("0e1f33"),
+		[Kit.hbox(10, [CritterIcon.make(c.id, Loaner.TIER, 76), who])], Kit.hbox(8, [shot, fight]))
 
 
 ## Opens today's Critter Shot: a bonus bank shot with the loaner.
@@ -229,36 +270,28 @@ static func _spotlight(shell, t: int, counters: Array) -> Control:
 	var s := LiveOps.spotlight(t)
 	var c := Roster.get_critter(s.critter)
 	var col: Color = Roster.RARITY_COLORS[c.rarity]
-	var ends := Kit.label("", 20, Kit.MUTED)
+	var ends := line("", 18, Kit.MUTED)
 	counters.append([ends, "Ends in %s", s.ends])
 	ends.text = "Ends in %s" % LiveOps.countdown(t, s.ends)
-	var info := Kit.vbox(4, [Kit.label(c.name, 34), Kit.chip(Roster.RARITY_NAMES[c.rarity], col),
-		Kit.label(s.blurb if s.blurb != "" else c.vibe, 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	(info.get_child(1) as Control).size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	var summon := Kit.button("Summon Portal", func(): shell.show_tab("summon"), "ghost", 24, 80)
+	var who := Kit.vbox(0, [line(c.name, 26), line("Half of %s rolls" % Roster.RARITY_NAMES[c.rarity], 18, col), ends])
+	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var summon := _action("Summon", func(): shell.show_tab("summon"), "ghost")
 	shell.mark("week_summon", summon)
-	return _card([
-		Kit.hbox(8, [Kit.caption("Critter Spotlight", Color("e8c8ff")), Kit.spacer(), ends]),
-		Kit.hbox(16, [CritterIcon.make(c.id, 1, 140), info]),
-		Kit.label("Featured in the Summon Portal: %s gets half of all %s rolls this week." % [c.name, Roster.RARITY_NAMES[c.rarity]], 21, Color("e8c8ff"), HORIZONTAL_ALIGNMENT_LEFT, true),
-		summon,
-	], Color("6b3fb0"), Color("1c1040"))
+	return tile("Spotlight", Color("e8c8ff"), Color("6b3fb0"), Color("1c1040"),
+		[Kit.hbox(10, [CritterIcon.make(c.id, 1, 76), who])], summon)
 
 
-static func _chaos(t: int, counters: Array) -> Control:
+## The weekend's rule twist; the tile opens its full description.
+static func _chaos(shell, t: int, counters: Array) -> Control:
 	var c := LiveOps.chaos(t)
 	var until: int = c.ends if c.live else c.starts
-	var fmt := "Live now · ends in %s" if c.live else "Starts Friday · in %s"
-	var when := Kit.label(fmt % LiveOps.countdown(t, until), 26, CHAOS)
+	var fmt := "Ends in %s" if c.live else "Starts in %s"
+	var when := line(fmt % LiveOps.countdown(t, until), 20, CHAOS)
 	counters.append([when, fmt, until])
-	return _card([
-		Kit.hbox(8, [Kit.caption("Chaos Weekend", CHAOS), Kit.spacer(), Kit.chip("Live" if c.live else "Next", CHAOS)]),
-		Kit.label(c.name, 40),
-		Kit.label(c.description, 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
-		when,
-		Kit.label("One rule twist for every fight, the same for both balls.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
-	], Color("5a2550"), Color("1e0f2c"))
+	var more := _action("What it does", func(): shell.info(c.name, [c.description, "One rule twist for every fight from Friday to Sunday, the same for both balls."]), "ghost")
+	shell.mark("week_chaos", more)
+	return tile("Chaos Weekend", CHAOS, Color("5a2550"), Color("1e0f2c"),
+		[lines(c.name, 26), when], more, Kit.chip("Live" if c.live else "Next", CHAOS, 16))
 
 
 ## The banner on the Play tab that opens this board.

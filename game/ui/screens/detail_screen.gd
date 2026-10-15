@@ -10,8 +10,7 @@ const Roster := preload("res://game/ui/roster.gd")
 
 
 static func header(shell, title: String, extra: Control = null) -> Control:
-	var back := Kit.card_button(Glyph.make("back", 34, Kit.FG), shell.back, Kit.LINE, Kit.PANEL, 999, 14)
-	shell.mark("back", back)
+	var back: Control = shell.back_button("back")
 	var row := Kit.hbox(18, [back, Kit.label(title, 40)])
 	row.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if extra:

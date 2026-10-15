@@ -67,6 +67,7 @@ async function openGame(query, viewport = { width: 390, height: 844 }) {
     logs.push(m.text());
     // A screen that should fit a phone (design/ui.md, "No scrolling") needs scrolling.
     if (m.text().startsWith("UI_OVERFLOW ")) errors.push(`${m.text()} (fit it, or put detail behind an "i")`);
+    if (m.text().startsWith("UI_OVERFLOW_X ")) errors.push(`${m.text()} (a card runs off the right edge: trim long labels or shrink icons)`);
     // The online backend is best-effort (the game plays offline), so a failed
     // request to it is reported but doesn't fail the smoke test.
     if (m.type() === "error" && /supabase\.co/.test(m.location()?.url ?? "")) console.log(`backend request failed: ${m.text()}`);
@@ -468,9 +469,6 @@ try {
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
     await tapUi(page, logs, "thisweek", "week");
-    const { width, height } = page.viewportSize();
-    await page.mouse.move(width / 2, height / 2);
-    await page.mouse.wheel(0, 1100);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "16-try-a-critter.png") });
     await page.close();
