@@ -26,6 +26,10 @@ const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Profile := preload("res://meta/profile.gd")
 const Campaign := preload("res://meta/campaign.gd")
+const GearVault := preload("res://meta/gear_vault.gd")
+const VaultScreen := preload("res://game/ui/screens/vault_screen.gd")
+const FighterTag := preload("res://game/ui/fighter_tag.gd")
+const Roster := preload("res://game/ui/roster.gd")
 const Zones := preload("res://meta/zones.gd")
 const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
@@ -156,7 +160,8 @@ var _board_pick := -1 ## The side the player called for the Fight of the Day bei
 var campaign_row: HBoxContainer
 ## The player's collection, energy and campaign progress, kept in save.data.profile.
 var profile
-## The campaign stage being fought: {config, zone, stage, fighter, result?}.
+## The campaign stage being fought: {config, zone, stage, fighter, result?},
+## or a Gear Vault run: {config, vault (difficulty), fighter, result?}.
 var pve := {}
 var pve_param := ""
 ## ?demo=1 (smoke tests, previews): a filled-in sample profile that is never saved.
@@ -437,7 +442,7 @@ func _start_fight() -> void:
 	state = State.FIGHT
 	info_label.text = "%s vs %s" % [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
 	if mode == Mode.CAMPAIGN:
-		info_label.text = CampaignScreen.matchup_text(profile, pve.zone, pve.stage, pve.fighter)
+		info_label.text = _pve_matchup_text()
 	if modifier != Modifiers.NONE:
 		info_label.text += " · " + Modifiers.display_name(modifier)
 	speed_button.text = "Speed %sx" % _speed_text()
@@ -602,9 +607,31 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
 	_begin_aim()
-	var st := Zones.stage(zone_index, stage_index)
-	info_label.text = "%s: %s. Drag to aim, then let go." % [Zones.stage_key(zone_index, stage_index),
-		CampaignScreen.matchup_text(profile, zone_index, stage_index, fighter)]
+	info_label.text = "%s: %s. Drag to aim, then let go." % [Zones.stage_key(zone_index, stage_index), _pve_matchup_text()]
+
+
+## A Gear Vault run from the Vault screen: aim, then fight it in the arena.
+func _start_vault(config: Dictionary, difficulty: int, fighter: String) -> void:
+	pve = {"config": config, "vault": difficulty, "fighter": fighter}
+	mode = Mode.CAMPAIGN
+	player_type = config.p1
+	opponent_type = config.p2
+	seed_value = config.seed
+	foe_aim = null
+	shell_layer.visible = false
+	sfx.toggle_hidden = false
+	_begin_aim()
+	info_label.text = "Gear Vault %s: %s. Drag to aim, then let go." % [GearVault.DIFFICULTIES[difficulty].name, _pve_matchup_text()]
+
+
+## "T2 Optic · 1,250 power vs T1 Chomp · 1,400 power" for the stage or Vault run being fought.
+func _pve_matchup_text() -> String:
+	if not pve.has("vault"):
+		return CampaignScreen.matchup_text(profile, pve.zone, pve.stage, pve.fighter)
+	var b: Dictionary = profile.best(pve.fighter)
+	var now := int(Time.get_unix_time_from_system())
+	return "%s vs %s" % [FighterTag.text(Roster.get_critter(pve.fighter).name, b.get("tier", 1), profile.power_of(pve.fighter), b.get("level", 0)),
+		FighterTag.text(Roster.get_critter(pve.config.p2).name, 1, GearVault.enemy_rating(pve.vault, now))]
 
 
 ## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).
@@ -627,6 +654,12 @@ func _start_url_stage() -> void:
 func _finish_stage() -> void:
 	var fight := sim.summary()
 	fight.max_hp = sim.balls[0].max_hp
+	if pve.has("vault"):
+		var v := GearVault.finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
+		pve.result = VaultScreen.result_text(v)
+		report_label.text = pve.result
+		print("VAULT_END difficulty=%d won=%s gear=%d" % [pve.vault, v.won, v.gear.size()])
+		return
 	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight)
 	pve.result = CampaignScreen.result_text(r)
 	report_label.text = pve.result
@@ -639,21 +672,25 @@ func _aim_back() -> void:
 	if mode != Mode.CAMPAIGN:
 		_show_menu()
 		return
-	profile.refund_energy(Zones.cost(Zones.stage(pve.zone, pve.stage)))
+	if pve.has("vault"):
+		GearVault.cancel(profile, int(Time.get_unix_time_from_system()))
+	else:
+		profile.refund_energy(Zones.cost(Zones.stage(pve.zone, pve.stage)))
 	_back_to_campaign()
 
 
 func _back_to_campaign() -> void:
 	var params := {"zone": pve.get("zone", 0)}
+	var vault := pve.has("vault")
 	if pve.has("result"):
-		params.notice = "%s: %s" % [Zones.stage_key(pve.zone, pve.stage), pve.result]
+		params.notice = pve.result if vault else "%s: %s" % [Zones.stage_key(pve.zone, pve.stage), pve.result]
 	mode = Mode.NORMAL
 	_board_pick = -1
 	pve = {}
 	_show_menu()
 	_show_home()
 	shell.show_tab("play")
-	shell.go("campaign", params)
+	shell.go("vault" if vault else "campaign", params)
 
 
 # --- Save and online ----------------------------------------------------------
@@ -900,6 +937,7 @@ func _build_shell() -> void:
 	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
 	shell.stage_requested.connect(_start_stage)
+	shell.vault_requested.connect(_start_vault)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
@@ -1115,6 +1153,7 @@ func _label_result_buttons() -> void:
 	for r in [again_button.get_parent(), share_button.get_parent()]:
 		r.visible = mode != Mode.CAMPAIGN
 	campaign_row.visible = mode == Mode.CAMPAIGN
+	(campaign_row.get_child(0) as Button).text = "Back to the Vault" if pve.has("vault") else "Back to the map"
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"

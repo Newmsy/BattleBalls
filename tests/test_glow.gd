@@ -16,7 +16,8 @@ const Shell := preload("res://game/ui/shell.gd")
 const ShopScreen := preload("res://game/ui/screens/shop_screen.gd")
 const PassScreen := preload("res://game/ui/screens/pass_screen.gd")
 
-const TEST_SAVE := "user://test_glow_save.json"
+## Per process: tests/run.sh runs shards side by side.
+var TEST_SAVE := "user://test_glow_save_%d.json" % OS.get_process_id()
 
 
 func _schedule() -> Dictionary:
