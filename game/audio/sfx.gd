@@ -186,6 +186,19 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("snap", 0.0, 0.8)
 			"pop":
 				play("flip", 0.0, 1.8)
+			"stack": # Stacks and forms: a rising tick per stack.
+				if e.up:
+					play("flip", -6.0, 1.1 + 0.08 * e.stacks)
+			"burp", "roar":
+				play("hit_big", 0.0, 0.7)
+			"breath", "shout":
+				play("snap", 0.0, 0.75)
+			"mode":
+				play("flip", -2.0, 1.3)
+			"bubble", "bubble_pop":
+				play("flip", -4.0 if e.type == "bubble" else 0.0, 2.0)
+			"freeze":
+				play("snap", 0.0, 1.4)
 			"end":
 				if e.reason != "time_limit":
 					play("ko")

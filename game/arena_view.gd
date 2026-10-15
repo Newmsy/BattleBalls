@@ -27,10 +27,13 @@ const POP_BEAM := Color("7cc4ff")
 const POP_SNAP := Color("ffe066")
 const MINE := Color("ff4d4d")
 ## Floor zone fills by kind (sim Zone.kind).
-const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "spore": Color("8fd16a"), "fizz": Color("ff8cc6")}
+const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": Color("e3d6ff"), "fire": Color("ff7a1f"), "ring": Color("b366ff"), "spore": Color("8fd16a"), "fizz": Color("ff8cc6"), "snow": Color("dff6ff"), "splat": Color("ffc2d1")}
 ## Pulse and blast ring colours by kind.
 const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d")}
 const RING_LIFE := 0.45
+## Mode call-outs by critter (Kaleido's clicks, Eclipse's flips), by b.state.mode.
+const MODE_NAMES := {"kaleido": ["SPIKES!", "SHIELD!", "SPEED!", "PRISM!"], "eclipse": ["SUN!", "MOON!"]}
+const MODE_COLORS := {"kaleido": [Color("ff4d6d"), Color("7fe6ff"), Color("ffe066"), Color("ffffff")], "eclipse": [Color("ffb347"), Color("b8c4ff")]}
 ## Crits pop bigger in gold; backstabs get their own call-out.
 const POP_CRIT := Color("ffb627")
 const POP_BACKSTAB := Color("d68cff")
@@ -219,6 +222,28 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "POP!", POP_SNAP)
 				_spawn_particles(g.pos, 10)
+			"stack":
+				# Stacks and forms: a little squash per stack gained.
+				if e.up:
+					_squash[e.ball] = maxf(_squash[e.ball], 0.15)
+			"burp", "breath", "shout", "roar":
+				var g := sim.balls[e.ball]
+				var call: String = {"burp": "BURP!", "breath": "FWOOSH!", "shout": "HOO!", "roar": "ROAR!"}[e.type]
+				_add_popup(g.pos + Vector2(-48, -g.radius - 34), call, POP_SNAP)
+				_shake = maxf(_shake, (8.0 if e.type == "roar" else 5.0) * A11y.motion())
+			"mode":
+				var g := sim.balls[e.ball]
+				var names: Array = MODE_NAMES.get(g.type_id, [])
+				if e.mode < names.size():
+					_add_popup(g.pos + Vector2(-44, -g.radius - 34), names[e.mode], MODE_COLORS[g.type_id][e.mode])
+			"bubble_pop":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "POP!", Color("9ff3f6"))
+				_rings.append({"pos": g.pos, "radius": g.radius * 1.3, "color": Color("9ff3f6"), "age": 0.0})
+				_spawn_particles(g.pos, 12)
+			"freeze":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 34), "FROZEN!", Color("bfe9ff"))
 			"snap":
 				var m := sim.balls[e.ball]
 				_add_popup(m.pos + Vector2(-34, -m.radius - 34), "SNAP!", POP_SNAP)
@@ -358,7 +383,9 @@ func _draw() -> void:
 		var a: Vector2 = beam.a * s
 		var b: Vector2 = beam.b * s
 		var col := BEAM
-		if sim.balls[beam.owner].def.get("beam_rainbow", 0):
+		if sim.balls[beam.owner].def.has("fire_count"): # Drako's fireballs.
+			col = ZONE_COLORS.fire
+		elif sim.balls[beam.owner].def.get("beam_rainbow", 0):
 			col = Color.from_hsv(fmod(bi * 0.14 + _time * 0.5, 1.0), 0.7, 1.0)
 		bi += 1
 		draw_line(a, b, Color(col, 0.18 * k), 14.0, true)
@@ -675,6 +702,43 @@ func _draw_status(b, s: float) -> void:
 		meter = int(b.state.get("pressure", 0)) / b.def.fizz_at
 	if meter > 0.0:
 		draw_arc(p, r * 1.16, -PI / 2.0, -PI / 2.0 + TAU * meter, 48, Color(b.def.color, 0.9).lightened(0.35), 4.0, true)
+	_draw_forms(b, p, r, s)
+
+
+## Stacks and forms: stack pips over the head (bites, faces, scoops, stokes,
+## swell), Bubbles' bubble, Supernova's pre-blast flicker, Eclipse's corona
+## and Kaleido's mode, and a chilled or frozen foe.
+func _draw_forms(b, p: Vector2, r: float, s: float) -> void:
+	var n := int(b.state.get("stacks", 0))
+	var full: int = int(b.def.get("stack_max", 0))
+	if full > 0 and full <= 6:
+		for k in full:
+			var at := p + Vector2((k - (full - 1) / 2.0) * 13.0, r + 52.0) # Under the team tag.
+			draw_circle(at, 4.5, Color(b.def.color, 0.9).lightened(0.4) if k < n else Color(1, 1, 1, 0.18))
+		if b.def.has("fire_count") and n >= full: # Drako's throat glows.
+			draw_circle(p + _look[b.index] * r * 0.55, r * 0.28, Color(ZONE_COLORS.fire, 0.45 + 0.3 * sin(_time * 18.0)))
+	if b.state.get("bubble", 0.0) > 0.0 and sim.tick < int(b.state.get("bubble_until", -1)):
+		draw_circle(p, r * 1.22, Color("9ff3f6", 0.12))
+		draw_arc(p, r * 1.22, 0.0, TAU, 48, Color.from_hsv(fmod(_time * 0.4, 1.0), 0.35, 1.0, 0.8), 3.0, true)
+		draw_circle(p + Vector2(-r * 0.5, -r * 0.7), r * 0.12, Color(1, 1, 1, 0.6))
+	if b.state.get("nova_warn", false):
+		var k := 0.5 + 0.5 * sin(_time * 30.0)
+		draw_circle(p, r * 1.3, Color("fff3c4", 0.25 + 0.35 * k))
+		draw_arc(p, b.def.nova_radius * s, 0.0, TAU, 72, Color("ffd6a5", 0.3 * k), 3.0, true)
+	if MODE_COLORS.has(b.type_id) and (b.state.has("mode") or b.type_id == "eclipse"):
+		var m := int(b.state.get("mode", 0))
+		var col: Color = MODE_COLORS[b.type_id][m]
+		var both: bool = sim.tick < int(b.state.get("total_until", -1))
+		if b.type_id == "eclipse" and (m == 0 or both):
+			var reach: float = (b.radius + b.def.sun_radius) * s
+			draw_circle(p, reach, Color(col, 0.08))
+			for k in 12:
+				var a := _time * 0.6 + k * TAU / 12.0
+				draw_line(p + Vector2.from_angle(a) * r * 1.08, p + Vector2.from_angle(a) * reach, Color(col, 0.35), 3.0, true)
+		draw_arc(p, r * 1.07, 0.0, TAU, 48, Color(col, 0.7), 3.0, true)
+	var chill: Dictionary = b.state.get("chill", {})
+	if not chill.is_empty() and sim.tick < int(chill.until):
+		draw_circle(p, r, Color("dff6ff", 0.55 if chill.slow >= 1.0 else 0.2))
 
 
 ## Stars circling the head of a knocked-out critter.

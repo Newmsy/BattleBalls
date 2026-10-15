@@ -583,5 +583,195 @@
     "reason": "double_knockout",
     "ticks": 1483,
     "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "munch",
+      "p2": "vampire",
+      "seed": 41,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "ad2118a1770ec8acc13e39b64a0538faae35fb478e29321e8cdbc8e9b11bb88a",
+    "reason": "knockout",
+    "ticks": 2565,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "totem",
+      "p2": "laser",
+      "seed": 42,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "ccb48750830dd676c19c138a19f4fb6bc392189d20452ace949051e5b2a5c3be",
+    "reason": "knockout",
+    "ticks": 1841,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "sundae",
+      "p2": "thorns",
+      "seed": 43,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "d32e0409f78b6a4ace66040de82bc8c0107939c5e2d532a252a4517a7def730e",
+    "reason": "knockout",
+    "ticks": 1901,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "kaleido",
+      "p2": "magnet",
+      "seed": 44,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "d8f4c9531784a98a0f1fa95ae5b2f39bd60916ae2fac17a1204f15fd5eff4c67",
+    "reason": "knockout",
+    "ticks": 2582,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "drako",
+      "p2": "flicker",
+      "seed": 45,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "7c98925c45f1437126dec7601fe483e7dbba53da6d5ac8342222303e3a5ee135",
+    "reason": "knockout",
+    "ticks": 2888,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "eclipse",
+      "p2": "vampire",
+      "seed": 46,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "aaec1c14785f2f9bc7d9bfb3fba307a89137f4f1b552ef99a4520ef4d74c32ea",
+    "reason": "knockout",
+    "ticks": 3698,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "supernova",
+      "p2": "mirror",
+      "seed": 47,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "35b7b3edc50c06eaffa01f72c4be085869f63e207357ea19cb8c20b2c416df6b",
+    "reason": "knockout",
+    "ticks": 2789,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "yeti",
+      "p2": "bomber",
+      "seed": 48,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "b86f5fc0dea782e61bcb20d5b7855160329e1c826c479a53f0df1357ffeff758",
+    "reason": "knockout",
+    "ticks": 3214,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "bubbles",
+      "p2": "prism",
+      "seed": 49,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "16762dc8e2f4d2732f8ced588d20af0706d118103e9e64737eb2debb4d911af2",
+    "reason": "knockout",
+    "ticks": 3083,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "p1": "blizz",
+      "p2": "gravity",
+      "seed": 50,
+      "tiers": [
+        5,
+        1
+      ]
+    },
+    "hash": "8c8a744b58981f5b1ab1e82b6da0c253c47a71659a738d8c0ff7d76a056309ed",
+    "reason": "knockout",
+    "ticks": 3004,
+    "winner": 0
   }
 ]

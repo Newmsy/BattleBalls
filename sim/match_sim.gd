@@ -152,6 +152,7 @@ class Zone:
 	var blast := 0.0
 	var blast_radius := 0.0
 	var chain := false ## A blast sets off the owner's other armed mines in reach.
+	var after := {} ## add_zone opts for a zone the blast leaves behind (Blizz's frost).
 	var next_hit := {} ## target index -> tick it may next take dps damage
 
 	func armed() -> bool:
@@ -610,9 +611,12 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			amount *= source.crit_mult
 		if backstab:
 			amount *= BACKSTAB_MULT
-		var guard := {"source": source, "kind": h.kind, "mult": 1.0}
+		var guard := {"source": source, "kind": h.kind, "mult": 1.0, "amount": amount}
 		abilities.fire(self, "guard", target, guard)
 		amount *= guard.mult
+		if amount <= 0.0: # Soaked whole (a bubble).
+			events.append({"type": "shielded", "target": h.target, "pos": h.pos})
+			continue
 		if target.shield > 0.0:
 			var absorbed := minf(target.shield, amount)
 			target.shield -= absorbed
@@ -763,7 +767,7 @@ func nearest_foe(b: Ball) -> Ball:
 
 
 ## A floor zone owned by `owner`. `opts`: kind, radius, life, arm, slow, dps,
-## blast, blast_radius, chain. Returns it.
+## blast, blast_radius, chain, after. Returns it.
 func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 	var z := Zone.new()
 	z.owner = owner.index
@@ -777,6 +781,7 @@ func add_zone(owner: Ball, pos: Vector2, opts: Dictionary) -> Zone:
 	z.blast = opts.get("blast", 0.0)
 	z.blast_radius = opts.get("blast_radius", z.radius)
 	z.chain = opts.get("chain", false)
+	z.after = opts.get("after", {})
 	zones.append(z)
 	return z
 
@@ -841,6 +846,8 @@ func _explode(z: Zone) -> void:
 	for o in foes(owner):
 		if o.pos.distance_to(z.pos) <= z.blast_radius + o.radius:
 			deal(owner, o, z.blast, "mine", z.pos)
+	if not z.after.is_empty():
+		add_zone(owner, z.pos, z.after)
 	if z.chain:
 		for other in zones.duplicate():
 			if other.owner == z.owner and other.blast > 0.0 and other.armed() and zones.has(other) and other.pos.distance_to(z.pos) <= z.blast_radius * 2.0:

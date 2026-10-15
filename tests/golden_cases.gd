@@ -40,4 +40,15 @@ const CASES := [
 	{"seed": 28, "p1": "fizz", "p2": "prism", "angles": [null, null], "arena": "pillars"},
 	{"seed": 29, "p1": "minnow", "p2": "gravity", "angles": [null, null]},
 	{"seed": 30, "p1": "puff", "p2": "crumb", "angles": [null, null], "tiers": [5, 5]},
+	# Batch G: stacks and forms.
+	{"seed": 41, "p1": "munch", "p2": "vampire", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 42, "p1": "totem", "p2": "laser", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 43, "p1": "sundae", "p2": "thorns", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 44, "p1": "kaleido", "p2": "magnet", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 45, "p1": "drako", "p2": "flicker", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 46, "p1": "eclipse", "p2": "vampire", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 47, "p1": "supernova", "p2": "mirror", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 48, "p1": "yeti", "p2": "bomber", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 49, "p1": "bubbles", "p2": "prism", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 50, "p1": "blizz", "p2": "gravity", "angles": [null, null], "tiers": [5, 1]},
 ]
