@@ -181,6 +181,12 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("hit_big", 0.0, 0.8 if e.type == "boom" else PULSE_PITCH.get(kind, 1.1))
 			"reflect":
 				play("hit", -4.0, 1.5)
+			"shot":
+				play("launch", -6.0, 1.8 if e.kind != "shell" and e.kind != "blob" else 0.9)
+			"shut":
+				play("snap", 0.0, 0.8)
+			"salvo", "mega":
+				play("snap", 0.0, 0.7)
 			"phase":
 				play("flip", 0.0, 1.4)
 			"ambush", "copy":

@@ -61,4 +61,11 @@ const CASES := [
 	{"seed": 48, "p1": "ink", "p2": "magnet", "angles": [null, null], "tiers": [5, 5]},
 	{"seed": 49, "p1": "whiff", "p2": "vampire", "angles": [null, null], "tiers": [5, 5]},
 	{"seed": 50, "p1": "drizzle", "p2": "laser", "angles": [null, null], "tiers": [5, 5]},
+	{"seed": 21, "p1": "pip", "p2": "vampire", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 22, "p1": "zing", "p2": "laser", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 23, "p1": "clam", "p2": "magnet", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 24, "p1": "mortar", "p2": "frost", "angles": [null, null], "tiers": [5, 1], "arena": "pillars"},
+	{"seed": 25, "p1": "pollen", "p2": "thorns", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 26, "p1": "megabot", "p2": "vampire", "angles": [null, null], "tiers": [5, 1]},
+	{"seed": 27, "p1": "brewster", "p2": "ghost", "angles": [null, null], "tiers": [5, 1]},
 ]

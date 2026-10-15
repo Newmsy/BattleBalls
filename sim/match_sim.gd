@@ -159,6 +159,35 @@ class Zone:
 		return age >= arm
 
 
+## A projectile owned by a ball. A straight shot flies at a constant speed
+## (turning toward the nearest foe at `homing` radians a second when above 0)
+## and hits the first foe it touches; a lobbed shot (lob) flies over
+## everything from `from` to `land` in `flight` seconds and acts on landing.
+class Shot:
+	var owner: int
+	var kind: String ## For the renderer: "pea", "stinger", "pearl", "seed", "rocket", "shell", "blob"...
+	var pos: Vector2
+	var vel: Vector2
+	var radius := 10.0
+	var damage := 0.0
+	var life := 3.0
+	var age := 0.0
+	var homing := 0.0
+	var bounces := 0 ## Wall bounces left before it vanishes.
+	var split := 0 ## Splits into this many when it hits a wall with no bounces left.
+	var burn := 0.0 ## Burn per second on the struck foe, for 2s.
+	var knock := false ## Turns the struck foe to fly the shot's way.
+	var slow := 0.0 ## Slows the struck foe by this share for 1s.
+	var burst_radius := 0.0 ## A pulse when its life runs out, when above 0.
+	var burst_damage := 0.0
+	var lob := false
+	var from := Vector2.ZERO
+	var land := Vector2.ZERO
+	var flight := 1.0
+	var land_radius := 0.0 ## Landing pulse, when above 0.
+	var zone := {} ## add_zone opts for a puddle left where it lands.
+
+
 var config: Dictionary
 var modifier := Modifiers.NONE
 var overtime_start := OVERTIME_START
@@ -171,6 +200,7 @@ var damage_rolls := true
 var balls: Array[Ball] = []
 var beams: Array[Beam] = []
 var zones: Array[Zone] = []
+var shots: Array[Shot] = []
 var tick := 0
 var half_size := ARENA_SIZE / 2.0
 var centre := Vector2(ARENA_SIZE / 2.0, ARENA_SIZE / 2.0)
@@ -316,6 +346,11 @@ func step() -> void:
 
 	for b in balls:
 		b.slow = 0.0
+		if b.state.has("shot_slow"): # A slowing shot's hold (Shot.slow).
+			if tick < b.state.shot_slow.until:
+				b.slow = b.state.shot_slow.amount
+			else:
+				b.state.erase("shot_slow")
 	if config.get("fields", true):
 		for b in balls:
 			if b.alive():
@@ -335,6 +370,7 @@ func step() -> void:
 			_resolve_walls(b)
 	_resolve_ball_collisions(_hits)
 	_update_beams(_hits)
+	_update_shots()
 	_apply_hits(_hits)
 	# "fall" (e.g. a revive) only while a foe still stands: when both drop on
 	# the same tick the fight is already over, and the double-knockout rule
@@ -384,6 +420,8 @@ func state_hash() -> String:
 			data.append_array([b.index, b.shield, b.dots.size()])
 		if not b.base.is_empty(): # Only once a mod was used, so older goldens keep their hash.
 			data.append_array([b.index, b.radius, b.speed, b.contact_damage])
+	for s in shots:
+		data.append_array([s.pos.x, s.pos.y, s.vel.x, s.vel.y, s.age])
 	var ctx := HashingContext.new()
 	ctx.start(HashingContext.HASH_SHA256)
 	ctx.update(data.to_byte_array())
@@ -875,3 +913,128 @@ func _update_dots() -> void:
 			elif tick >= d.next:
 				d.next = tick + TICK_RATE / 2
 				deal(balls[d.source], b, d.dps * 0.5, "burn")
+
+
+## A straight (or homing) shot owned by `owner`, flying from `pos` with
+## velocity `vel`. `opts` sets any Shot field by name (kind, radius, damage,
+## life, homing, bounces, split, burn, knock, slow, burst_radius, burst_damage).
+## Emits "shot". Returns it.
+func add_shot(owner: Ball, pos: Vector2, vel: Vector2, opts := {}) -> Shot:
+	var s := Shot.new()
+	s.owner = owner.index
+	s.pos = pos
+	s.vel = vel
+	for key in opts:
+		s.set(key, opts[key])
+	shots.append(s)
+	events.append({"type": "shot", "ball": owner.index, "pos": pos, "kind": s.kind})
+	return s
+
+
+## A lobbed shot from `owner` landing at `to` (kept inside the arena) after
+## `flight` seconds. On landing it pulses land_radius for `damage` (knocking
+## when `knock`) and leaves `zone` (add_zone opts) when given. Emits "shot".
+func add_lob(owner: Ball, to: Vector2, flight: float, opts := {}) -> Shot:
+	var r := arena_rect().grow(-20.0)
+	var s := add_shot(owner, owner.pos, Vector2.ZERO, opts)
+	s.lob = true
+	s.from = owner.pos
+	s.land = to.clamp(r.position, r.end)
+	s.flight = flight
+	s.life = flight
+	return s
+
+
+func _update_shots() -> void:
+	if shots.is_empty():
+		return
+	for s in shots.duplicate():
+		s.age += DT
+		var owner := balls[s.owner]
+		if s.lob:
+			s.pos = s.from.lerp(s.land, minf(1.0, s.age / s.flight))
+			if s.age >= s.flight:
+				shots.erase(s)
+				if s.land_radius > 0.0:
+					pulse(owner, s.land, s.land_radius, s.damage, s.knock, s.kind)
+				if not s.zone.is_empty():
+					add_zone(owner, s.land, s.zone)
+			continue
+		if s.age >= s.life:
+			shots.erase(s)
+			if s.burst_radius > 0.0:
+				pulse(owner, s.pos, s.burst_radius, s.burst_damage, false, "pulse")
+			continue
+		if s.homing > 0.0:
+			var target: Ball = null
+			for o in foes(owner):
+				if target == null or s.pos.distance_squared_to(o.pos) < s.pos.distance_squared_to(target.pos):
+					target = o
+			if target != null:
+				var turn := clampf(s.vel.angle_to(target.pos - s.pos), -s.homing * DT, s.homing * DT)
+				s.vel = s.vel.rotated(turn)
+		s.pos += s.vel * DT
+		var struck := false
+		for o in foes(owner):
+			if s.pos.distance_to(o.pos) > o.radius + s.radius:
+				continue
+			struck = true
+			deal(owner, o, s.damage, "shot", s.pos)
+			if s.burn > 0.0:
+				add_burn(owner, o, s.burn, 2.0)
+			if s.knock and s.vel.length() > 0.001:
+				o.vel = s.vel.normalized() * o.speed
+			if s.slow > 0.0:
+				o.state.shot_slow = {"amount": s.slow, "until": tick + TICK_RATE}
+			break
+		if struck:
+			shots.erase(s)
+		elif _shot_walls(s):
+			if s.bounces > 0:
+				s.bounces -= 1
+			else:
+				shots.erase(s)
+				events.append({"type": "shot_pop", "ball": s.owner, "pos": s.pos, "kind": s.kind})
+				for k in s.split:
+					var dir: Vector2 = s.vel.rotated(deg_to_rad(30.0 * (k - (s.split - 1) / 2.0)))
+					add_shot(owner, s.pos, dir, {"kind": s.kind, "radius": s.radius * 0.7, "damage": s.damage * 0.5,
+						"life": 1.5, "burn": s.burn, "slow": s.slow})
+
+
+## Where ball `b` will be in `secs` if nothing but walls and obstacles turn
+## it (no other balls, no steering). Changes nothing.
+func predict(b: Ball, secs: float) -> Vector2:
+	var s := Shot.new()
+	s.pos = b.pos
+	s.vel = b.vel
+	s.radius = b.radius
+	for i in int(round(secs * TICK_RATE)):
+		s.pos += s.vel * DT
+		_shot_walls(s)
+	return s.pos
+
+
+## Bounces a shot off the walls, cut corners and obstacles; true if it hit one.
+func _shot_walls(s: Shot) -> bool:
+	var hit := false
+	var r := arena_rect()
+	if (s.pos.x - s.radius < r.position.x and s.vel.x < 0.0) or (s.pos.x + s.radius > r.end.x and s.vel.x > 0.0):
+		s.vel.x = -s.vel.x
+		hit = true
+	if (s.pos.y - s.radius < r.position.y and s.vel.y < 0.0) or (s.pos.y + s.radius > r.end.y and s.vel.y > 0.0):
+		s.vel.y = -s.vel.y
+		hit = true
+	s.pos = s.pos.clamp(r.position + Vector2.ONE * s.radius, r.end - Vector2.ONE * s.radius)
+	for wall in corner_walls():
+		var n: Vector2 = wall[0]
+		if n.dot(s.pos - centre) + wall[1] < s.radius and s.vel.dot(n) < 0.0:
+			s.vel -= 2.0 * s.vel.dot(n) * n
+			hit = true
+	for o in obstacles():
+		var delta: Vector2 = s.pos - o.pos
+		if delta.length() < s.radius + o.radius and delta.length() > 0.0001:
+			var n := delta.normalized()
+			if s.vel.dot(n) < 0.0:
+				s.vel -= 2.0 * s.vel.dot(n) * n
+				hit = true
+	return hit
