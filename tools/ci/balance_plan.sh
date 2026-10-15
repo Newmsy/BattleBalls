@@ -14,8 +14,8 @@
 set -euo pipefail
 base="$1"
 SMALL=12
-PAIRS_PER_SHARD=40 # 1100 fights a pairing (100 seeds on the square, 50 on each of 9 arenas/modifiers): ~15 min a shard.
-MAX_SHARDS=16
+PAIRS_PER_SHARD=40 # 650 fights a pairing (100 seeds on the square, 25 on each of 9 arenas/modifiers): ~9 min a shard.
+MAX_SHARDS=14 # With the 4 smoke shards, Sim and Database tests: GitHub's 20 jobs at once.
 
 changed=$(git diff --name-only "$base"...HEAD)
 live=$(grep -l '"status": "live"' sim/critters/*.gd | xargs -n1 basename | sed 's/\.gd$//' | sort)

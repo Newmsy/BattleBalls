@@ -359,12 +359,19 @@ When every CI job passes on a PR that is **not a draft**, the `Auto-merge` job
 squash-merges it and rebuilds `main`. Keep a PR in draft until its code review
 is done; marking it ready re-runs CI and merges it once green.
 
-Actions minutes are limited (private repo), so CI spends them where they gate a
-merge. Draft pushes run only the unit and database tests; the balance matrix,
-web build and smoke test run once a PR is ready; `main` runs the unit and
-database tests, then builds, deploys and migrates without repeating the smoke
-test. Run the full checks locally before pushing (see CLAUDE.md), and push a
-draft in a few larger steps rather than many small ones.
+Draft pushes run only the unit and database tests; the balance matrix, Bounce
+Run boon check, web build and smoke test run once a PR is ready; `main` runs
+the unit and database tests, then builds, deploys and migrates without
+repeating the smoke test. Run the full checks locally before pushing (see
+CLAUDE.md), and push a draft in a few larger steps rather than many small ones.
+
+A ready PR's slow checks run side by side, and only where the diff can reach
+them (`tools/ci/changes.sh`): the smoke test is split over 4 machines
+(`SMOKE_SHARD=k/n node smoke.mjs`, each runs its share of the cases), the boon
+check runs one boon per core and only when `sim/` changed, and a PR that only
+changes docs, notes or the headless balance tools skips the smoke test. GitHub
+runs at most 20 jobs at once per account, which is why balance stops at 14
+shards.
 
 The balance gate is its own set of `Balance` jobs: `tools/ci/balance_plan.sh`
 picks which pairings a PR needs and how many parallel shards to spread them

@@ -105,6 +105,9 @@ var cam_focus := Vector2.ONE * MatchSim.ARENA_SIZE / 2.0
 var ko_ball := -1
 ## 0..1: how far into the finisher (letterbox bars and the K.O. banner).
 var finisher_amount := 0.0
+## 0..1: how far the frame is between the previous sim step and the current one.
+var render_alpha := 1.0
+var _prev_pos: Array = []
 ## Cosmetics per side ({slot: id}, see game/glow/catalog.gd); index 0 is the
 ## player. Render-only: the sim never sees these.
 var loadouts: Array = [{}, {}]
@@ -153,7 +156,29 @@ func reset_camera() -> void:
 	set_camera(1.0, Vector2.ONE * MatchSim.ARENA_SIZE / 2.0)
 
 
+## Where to draw a ball: between its last two sim positions, so motion stays
+## smooth when frames fall between sim steps (most visible in slow motion).
+## Render-only; the sim never sees it.
+func ball_pos(b) -> Vector2:
+	if render_alpha >= 1.0 or b.index >= _prev_pos.size():
+		return b.pos
+	var from: Vector2 = _prev_pos[b.index]
+	# A teleport (blink, respawn) snaps rather than sliding across the arena.
+	if from.distance_squared_to(b.pos) > b.radius * b.radius:
+		return b.pos
+	return from.lerp(b.pos, render_alpha)
+
+
+## Call just before each sim step so ball_pos can blend from here.
+func snapshot_positions() -> void:
+	_prev_pos.resize(sim.balls.size())
+	for b in sim.balls:
+		_prev_pos[b.index] = b.pos
+
+
 func clear_effects() -> void:
+	_prev_pos.clear()
+	render_alpha = 1.0
 	_popups.clear()
 	_particles.clear()
 	_bursts.clear()
@@ -527,12 +552,12 @@ func _draw() -> void:
 		if b.def.has("field_range"):
 			_draw_field(b, s)
 		if b.def.has("pull_range"):
-			_draw_inflow(b.pos * s, b.radius * s, b.def.pull_range * s, Color("8f7bff"), 0.18)
+			_draw_inflow(ball_pos(b) * s, b.radius * s, b.def.pull_range * s, Color("8f7bff"), 0.18)
 		if b.def.has("wind_range"):
 			var huffing: bool = sim.tick < int(b.state.get("huff_until", -1))
-			_draw_outflow(b.pos * s, b.radius * s, b.def.wind_range * s, ZONE_COLORS.stink.lightened(0.5), 0.5 if huffing else 0.2, 3.0 if huffing else 0.8)
+			_draw_outflow(ball_pos(b) * s, b.radius * s, b.def.wind_range * s, ZONE_COLORS.stink.lightened(0.5), 0.5 if huffing else 0.2, 3.0 if huffing else 0.8)
 		if b.state.get("collapsing", false):
-			_draw_inflow(b.pos * s, b.radius * s, b.def.collapse_range * s, Color("c58bff"), 0.45)
+			_draw_inflow(ball_pos(b) * s, b.radius * s, b.def.collapse_range * s, Color("c58bff"), 0.45)
 		if sim.tick < int(b.state.get("dive_until", -1)):
 			_draw_dive(b, s)
 		for item in Abilities.orb_items(sim, b):
@@ -580,16 +605,16 @@ func _draw() -> void:
 		if w.age < 0.0:
 			continue
 		var t: float = w.age / w.life
-		var target: Vector2 = sim.balls[w.to].pos
+		var target: Vector2 = ball_pos(sim.balls[w.to])
 		var p: Vector2 = w.from.lerp(target, t * t)
 		draw_circle(p * s, 6.0 * (1.0 - t) + 2.0, Color(1.0, 0.2, 0.35, 0.8 * (1.0 - t)))
 
 	for b in sim.balls:
 		if b.alive():
-			_draw_critter(b.index, b.def, b.pos * s, b.radius * s, b.hp, b.max_hp, shake)
+			_draw_critter(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
 			_draw_status(b, s)
 		elif b.index == ko_ball:
-			_draw_critter(b.index, b.def, b.pos * s, b.radius * s, 0.0, b.max_hp, shake, true)
+			_draw_critter(b.index, b.def, ball_pos(b) * s, b.radius * s, 0.0, b.max_hp, shake, true)
 
 	for p in _particles:
 		var a: float = 1.0 - p.age / p.life
@@ -603,7 +628,7 @@ func _draw() -> void:
 	# cosmetic (design/monetisation.md §1 rule 3).
 	for b in sim.balls:
 		if b.alive() or b.index == ko_ball:
-			_draw_overlay(b.index, b.def, b.pos * s, b.radius * s, b.hp, b.max_hp, shake)
+			_draw_overlay(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
 
 	for p in _popups:
 		var t: float = p.age / POPUP_LIFE
@@ -1039,7 +1064,7 @@ func _draw_inflow(c: Vector2, inner: float, reach: float, col: Color, alpha: flo
 
 ## Per-ball status on top of the critter: phased (faded), shield, burning.
 func _draw_status(b, s: float) -> void:
-	var p: Vector2 = b.pos * s
+	var p: Vector2 = ball_pos(b) * s
 	var r: float = b.radius * s
 	if sim.tick < int(b.state.get("phase_until", -1)):
 		draw_circle(p, r * 1.05, Color(ARENA_FILL, 0.6))

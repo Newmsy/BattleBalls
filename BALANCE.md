@@ -60,7 +60,7 @@ is checked under every modifier as well as base rules.
 
 | Check | When | Command |
 |---|---|---|
-| Equal-power matrix and arena tilt on every playable arena, and on the square under every Chaos Weekend modifier. A square matchup at 80%+ blocks merge; square misses under 80% and arena and modifier ("edge") misses show as `WARN (audit FAIL)` and don't | Every ready (non-draft) PR that touches `sim/` or `tools/balance.gd` (CI `Balance` shards) | `balance.gd -- --fights=100 --variant-fights=50 --arena=all --modifiers --strict` |
+| Equal-power matrix and arena tilt on every playable arena, and on the square under every Chaos Weekend modifier. A square matchup at 80%+ blocks merge; square misses under 80% and arena and modifier ("edge") misses show as `WARN (audit FAIL)` and don't | Every ready (non-draft) PR that touches `sim/` or `tools/balance.gd` (CI `Balance` shards) | `balance.gd -- --fights=100 --variant-fights=25 --arena=all --modifiers --strict` |
 | Full audit: every pairing everywhere, power step and gear lines, strict on every cell | Weekly on `main` (`Balance audit` workflow, Mondays 06:17 UTC), read by the weekly balance review | see `.github/workflows/balance-audit.yml` |
 | Power step for a new or changed critter | The PR that adds or changes it (paste the output) | `balance.gd -- --fights=200 --power-step --only=<id>` |
 | Gear lines: one Legendary piece of each stat line vs the same ball bare, so no line dominates | Any PR touching `sim/gear.gd`, damage rolls or crits | `balance.gd -- --fights=300 --gear` |
@@ -70,9 +70,10 @@ pairing. Above that, `tools/ci/balance_plan.sh` limits it to pairings involving
 the critters whose `sim/critters/<id>.gd` the PR changed, each against the whole
 field (`--only`). An engine change (anything else under `sim/`, or this tool)
 adds `@sample`, a fixed spread of 8 live critters against the field. The
-pairings are split over up to 16 parallel shards (`--shard=k/n`), and each
-shard fails on its own `FAIL`. Non-square arenas and modifiers use 50 seeds
-per pairing (100 fights) to fit; the weekly audit covers every pairing.
+pairings are split over up to 14 parallel shards (`--shard=k/n`), and each
+shard fails on its own `FAIL`. Non-square arenas and modifiers only `WARN` on
+a PR, so they use 25 seeds per pairing (50 fights) to keep the gate quick; the
+weekly audit fights every pairing at full strength.
 `--out` / `--from` save and merge shard results; past 16 critters the report
 prints one row per critter (mean vs field, worst and best matchup) instead of a
 matrix.
@@ -122,7 +123,8 @@ Audit reports are kept in the project's shared folder under
 Boons are run-only perks (`sim/boons.gd`), so permanent balance is untouched,
 but they still follow rule 2: one ball holding a boon against the same matchup
 without it should win **52-62%** (a boon worth picking, never a verdict);
-**over 65%** is a `FAIL` in CI (`tools/boon_balance.gd -- --fights=40 --strict`).
+**over 65%** is a `FAIL` in CI (`tools/boon_balance.gd -- --fights=40 --strict`,
+run one boon per core by `tools/ci/boons.sh` on PRs that touch `sim/`).
 The sim amplifies stat edges: +14% HP alone won 63%, so boon numbers stay
 small. A new boon or a change to one pastes `boon_balance.gd -- --fights=200`
 output into its PR.
