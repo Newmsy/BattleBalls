@@ -14,6 +14,7 @@ const CosmeticArt := preload("res://game/glow/cosmetic_art.gd")
 const A11y := preload("res://game/a11y.gd")
 const RarityMark := preload("res://game/ui/rarity_mark.gd")
 const Abilities := preload("res://sim/abilities.gd")
+const BattleFx := preload("res://game/battle_fx.gd")
 
 const INK := Color("1a1530")
 const ARENA_FILL := Color("120f33")
@@ -73,6 +74,7 @@ const RARITY_COLORS := Roster.RARITY_COLORS
 ## dashed with four spikes, so red-green colourblind players can tell them apart.
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const TEAM_TAGS := ["YOU", "FOE"]
+const TEAM_RING_ALPHA := 0.5
 
 const POPUP_LIFE := 0.9
 const HIT_LIFE := 0.35
@@ -138,6 +140,9 @@ var _banner := 0.0 ## Seconds left on the OVERTIME banner.
 var _was_overtime := false
 var _trails: Array = [[], []] ## Recent world positions per ball, oldest first.
 var _kos: Array[Dictionary] = []
+var _chomps: Array[Dictionary] = [] ## Count Nibbles' bites: {pos, dir, size, age}.
+var _grow_flash := [0.0, 0.0] ## Prickles' spike flash.
+var _dot_seen: Array = [[], []] ## Damage-over-time looks each side already showed a popup for.
 const TRAIL_LEN := 18
 
 
@@ -190,6 +195,8 @@ func clear_effects() -> void:
 	_flashes.clear()
 	_rays.clear()
 	_kos.clear()
+	_chomps.clear()
+	_dot_seen = [[], []]
 	_trails = [[], []]
 	_wisps.clear()
 	_shake = 0.0
@@ -228,6 +235,7 @@ func _side(i: int) -> int:
 ## Turns the events of the latest sim step into visual effects.
 func consume_events(events: Array[Dictionary]) -> void:
 	_fit_slots()
+	var hitters: Array = [] ## Balls that dealt damage this step, so a heal right after is life steal.
 	for e in events:
 		match e.type:
 			"damage":
@@ -243,14 +251,32 @@ func consume_events(events: Array[Dictionary]) -> void:
 				if e.get("backstab", false):
 					_add_popup(t.pos + Vector2(-30, -t.radius - 52), "BACKSTAB!", POP_BACKSTAB, 1.15)
 					_shake = maxf(_shake, 8.0 * A11y.motion())
+				var src: int = e.get("source", -1)
+				if src >= 0 and src < sim.balls.size() and src != e.target:
+					hitters.append(src)
+					var a := sim.balls[src]
+					if e.kind == "contact" and a.type_id == "vampire":
+						var dir: Vector2 = (t.pos - a.pos).normalized()
+						_chomps.append({"pos": e.pos, "dir": dir, "size": a.radius * 0.55, "age": 0.0})
+					elif a.type_id == "juggernaut" and e.kind in ["contact", "slam"]:
+						_shake = maxf(_shake, (10.0 if e.kind == "slam" else 7.0) * A11y.motion())
+						_rings.append({"pos": e.pos, "radius": a.radius * (1.4 if e.kind == "slam" else 0.9), "color": RING_COLORS.dirt, "age": 0.0})
+				if t.type_id == "crumb": # Bits of cookie fly off.
+					for i in 5:
+						_particles.append({"pos": e.pos, "vel": _rand_dir() * _fx_rng.randf_range(90.0, 300.0) + Vector2(0, 120), "age": 0.0, "life": 0.7, "col": Color("c68642"), "size": 5.0})
 			"heal":
 				var b := sim.balls[e.target]
 				_add_popup(b.pos + Vector2(48, -b.radius - 40), "+%d" % ceili(e.amount), POP_HEAL)
 				var victim = sim.nearest_foe(b)
-				if victim == null:
-					continue
-				for i in 8:
-					_wisps.append({"from": victim.pos + _rand_dir() * victim.radius * 0.5, "to": e.target, "age": -i * 0.03, "life": 0.45})
+				if victim != null and e.target in hitters:
+					# Life steal (it just landed a hit): red wisps drawn out of the foe.
+					for i in 8:
+						_wisps.append({"from": victim.pos + _rand_dir() * victim.radius * 0.5, "to": e.target, "age": -i * 0.03, "life": 0.45})
+				else:
+					# Healing itself: a green glow swelling out of the ball.
+					_rings.append({"pos": b.pos, "radius": b.radius * 1.35, "color": POP_HEAL, "age": 0.0})
+					for i in 6:
+						_particles.append({"pos": b.pos + _rand_dir() * b.radius * 0.6, "vel": Vector2(_fx_rng.randf_range(-30.0, 30.0), -_fx_rng.randf_range(120.0, 220.0)), "age": 0.0, "life": 0.7, "col": POP_HEAL, "size": 5.0})
 			"collide":
 				_squash[e.a] = 0.2
 				_squash[e.b] = 0.2
@@ -363,6 +389,10 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "POP!", Color("9ff3f6"))
 				_rings.append({"pos": g.pos, "radius": g.radius * 1.3, "color": Color("9ff3f6"), "age": 0.0})
 				_spawn_particles(g.pos, 12)
+			"spike":
+				if e.ball < 2:
+					_grow_flash[e.ball] = 0.18
+				_spawn_particles(sim.balls[e.ball].pos, 4)
 			"teleport":
 				var g := sim.balls[e.ball]
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
@@ -438,6 +468,15 @@ func consume_events(events: Array[Dictionary]) -> void:
 						var ko := _cosmetic(1 - _side(b.index), "ko")
 						if not ko.is_empty():
 							_kos.append({"pos": b.pos, "r": b.radius, "item": ko, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+	# Name a damage-over-time the moment it lands: BURN!, POISON!, BLEED!
+	for b in sim.balls:
+		if b.index > 1:
+			continue
+		var kinds := BattleFx.dot_kinds(sim, b)
+		for k in kinds:
+			if not k in _dot_seen[b.index]:
+				_add_popup(b.pos + Vector2(-44, -b.radius - 64), BattleFx.DOT_WORDS[k], BattleFx.DOT_COLORS[k], 1.1)
+		_dot_seen[b.index] = kinds
 
 
 func advance_effects(delta: float) -> void:
@@ -482,6 +521,11 @@ func advance_effects(delta: float) -> void:
 	_bursts = _bursts.filter(func(k): return k.age < (CosmeticArt.SPARK_LIFE if k.get("spark") else BURST_LIFE))
 	for k in _kos:
 		k.age += delta
+	for k in _chomps:
+		k.age += delta
+	_chomps = _chomps.filter(func(k): return k.age < BattleFx.CHOMP_LIFE)
+	for i in 2:
+		_grow_flash[i] = maxf(0.0, _grow_flash[i] - delta)
 	_kos = _kos.filter(func(k): return k.age < CosmeticArt.KO_LIFE)
 	for w in _wisps:
 		w.age += delta
@@ -652,6 +696,11 @@ func _draw() -> void:
 		draw_circle(p * s, 6.0 * (1.0 - t) + 2.0, Color(1.0, 0.2, 0.35, 0.8 * (1.0 - t)))
 
 	for b in sim.balls:
+		if b.alive() and b.charge_ticks == 0:
+			var base_speed: float = b.base.get("speed", b.def.get("speed", b.speed))
+			if base_speed > 0.0:
+				BattleFx.draw_speed_blur(self, Color(b.def.color), ball_pos(b) * s, b.radius * s, b.vel, b.vel.length() / base_speed, _time)
+	for b in sim.balls:
 		if b.alive():
 			_draw_critter(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
 			_draw_status(b, s)
@@ -660,8 +709,12 @@ func _draw() -> void:
 
 	for p in _particles:
 		var a: float = 1.0 - p.age / p.life
-		draw_circle(p.pos * s, 4.0, Color(1, 1, 1, a * 0.3))
-		draw_circle(p.pos * s, 2.0, Color(1, 1, 1, a))
+		var pc: Color = p.get("col", Color.WHITE)
+		var ps: float = p.get("size", 2.0)
+		draw_circle(p.pos * s, ps * 2.0, Color(pc, a * 0.3))
+		draw_circle(p.pos * s, ps, Color(pc, a))
+	for k in _chomps:
+		BattleFx.draw_chomp(self, k.pos * s, k.dir, k.size * s, k.age)
 
 	for k in _kos:
 		CosmeticArt.draw_ko(self, k.item, k.pos * s, k.r * s, k.age / CosmeticArt.KO_LIFE, k.seed)
@@ -858,7 +911,8 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
 	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": tiers[_side(i)], "look": look, "blink": blink,
-		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko})
+		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko,
+		"stacks": int(sim.balls[i].state.get("spikes", 0)) if sim and i < sim.balls.size() else 0, "flash": _grow_flash[i] if i < 2 else 0.0})
 	var hat := _cosmetic(_side(i), "hat")
 	if not hat.is_empty():
 		CosmeticArt.draw_hat(self, hat, Vector2.ZERO, r, _time)
@@ -876,7 +930,7 @@ func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var team_col: Color = TEAM_COLORS[side]
 	draw_set_transform(shake)
 	_team_ring(side, pos, r, team_col)
-	_text_centered(pos + Vector2(0, r + 30.0), team_tags[side], A11y.font(20), team_col, 5)
+	_text_centered(pos + Vector2(0, r + 26.0), team_tags[side], A11y.font(18), Color(team_col, 0.7), 4)
 	_hp_badge(def, pos, r, hp, max_hp, 0.4 if _cosmetic(side, "hat") else 0.0)
 
 
@@ -887,22 +941,23 @@ func _cosmetic(i: int, slot: String) -> Dictionary:
 	return Catalog.item(str(loadouts[i].get(slot, "")))
 
 
-## Solid ring for the player (index 0); dashed ring with four outward spikes
-## for the foe. Shape, not just hue, tells the sides apart.
+## Solid ring for the player (index 0); dashed ring with four outward ticks
+## for the foe. Shape, not just hue, tells the sides apart. Kept thin and
+## faint so the critter art underneath stays the star.
 func _team_ring(i: int, pos: Vector2, r: float, col: Color) -> void:
-	draw_arc(pos, r + 9.0, 0, TAU, 64, Color(col, 0.18), 9.0, true)
+	var a := TEAM_RING_ALPHA
 	if i == 0:
-		draw_arc(pos, r + 7.0, 0, TAU, 64, Color(col, 0.9), 3.5, true)
+		draw_arc(pos, r + 5.0, 0, TAU, 64, Color(col, a), 2.0, true)
 		return
 	var dashes := 16
 	var gap := TAU / dashes
 	for k in dashes:
-		draw_arc(pos, r + 7.0, k * gap, k * gap + gap * 0.55, 6, Color(col, 0.9), 3.5, true)
+		draw_arc(pos, r + 5.0, k * gap, k * gap + gap * 0.5, 6, Color(col, a), 2.0, true)
 	for k in 4:
 		var d := Vector2.from_angle(PI / 4.0 + k * PI / 2.0)
 		var side := d.orthogonal()
-		var base := pos + d * (r + 6.0)
-		draw_colored_polygon(PackedVector2Array([base + side * 6.0, base + d * 14.0, base - side * 6.0]), Color(col, 0.9))
+		var base := pos + d * (r + 4.0)
+		draw_colored_polygon(PackedVector2Array([base + side * 3.5, base + d * 9.0, base - side * 3.5]), Color(col, a))
 
 
 ## A field (Flux's magnet): faint rings flowing in (Pull) or out (Push) so
@@ -924,6 +979,12 @@ func _draw_zone(z, s: float) -> void:
 	var fade: float = clampf(1.0 - z.age / z.life, 0.0, 1.0)
 	var p: Vector2 = z.pos * s
 	match z.kind:
+		"mine" when z.owner >= 0 and z.owner < sim.balls.size() and sim.balls[z.owner].type_id == "bomber":
+			BattleFx.draw_bomb(self, p, s, z.armed(), z.blast_radius, z.age, z.pos.x * 0.01, _time)
+		"ice":
+			BattleFx.draw_ice(self, p, z.radius * s, fade, fmod(z.pos.x * 0.13 + z.pos.y * 0.07, 6.28), _time)
+		"ember":
+			BattleFx.draw_embers(self, p, z.radius * s, fade, fmod(z.pos.x * 0.11 + z.pos.y * 0.05, 6.28), _time)
 		"mine":
 			var armed: bool = z.armed()
 			if armed:
@@ -1179,13 +1240,11 @@ func _draw_status(b, s: float) -> void:
 		draw_arc(p, r * 1.12, 0.0, TAU, 48, Color("7fe6ff", 0.85), 4.0, true)
 		draw_arc(p, r * 1.18, 0.0, TAU, 48, Color("7fe6ff", 0.25), 6.0, true)
 	if not b.dots.is_empty():
-		for k in 4:
-			var a := _time * 3.0 + k * TAU / 4.0
-			draw_circle(p + Vector2(cos(a), sin(a) * 0.6 - 0.4) * r * 0.9, 4.0, Color("ff8a1f", 0.8))
+		BattleFx.draw_dots(self, BattleFx.dot_kinds(sim, b), p, r, _time)
 	if sim.tick < int(b.state.get("shut_until", -1)):
 		draw_arc(p, r * 1.08, 0.0, TAU, 48, Color("f7c6d9", 0.9), 6.0, true)
-	if b.slow > 0.0:
-		draw_arc(p, r * 1.02, 0.0, TAU, 48, Color("bfe9ff", 0.6), 3.0, true)
+	if b.slow > 0.0 and not sim.stunned(b):
+		BattleFx.draw_slow(self, BattleFx.slow_goo(sim, b), b.slow, p, r, _time)
 	if b.def.get("grow_armor", 0.0) > 0.0 and b.mods.has("grow"): # Shelly tucked in.
 		for k in 6:
 			var a0 := k * TAU / 6.0
@@ -1228,7 +1287,7 @@ func _draw_status(b, s: float) -> void:
 	if b.def.has("gear_step"):
 		_pips(p + Vector2(0, r + 38.0), int(b.state.get("gear", 0)), int(b.def.gear_max), Color("a7c957"))
 	if b.def.has("bulb_max"):
-		_pips(p + Vector2(0, r + 38.0), int(b.state.get("lit", 0)), int(b.def.bulb_max), Color("ffe066"))
+		BattleFx.draw_pinball(self, p, r, int(b.state.get("lit", 0)), int(b.def.bulb_max), _time)
 
 	_draw_forms(b, p, r, s)
 
@@ -1246,9 +1305,8 @@ func _draw_forms(b, p: Vector2, r: float, s: float) -> void:
 		if b.def.has("fire_count") and n >= full: # Drako's throat glows.
 			draw_circle(p + _look[b.index] * r * 0.55, r * 0.28, Color(ZONE_COLORS.fire, 0.45 + 0.3 * sin(_time * 18.0)))
 	if b.state.get("bubble", 0.0) > 0.0 and sim.tick < int(b.state.get("bubble_until", -1)):
-		draw_circle(p, r * 1.22, Color("9ff3f6", 0.12))
-		draw_arc(p, r * 1.22, 0.0, TAU, 48, Color.from_hsv(fmod(_time * 0.4, 1.0), 0.35, 1.0, 0.8), 3.0, true)
-		draw_circle(p + Vector2(-r * 0.5, -r * 0.7), r * 0.12, Color(1, 1, 1, 0.6))
+		var left: float = (int(b.state.bubble_until) - sim.tick) / maxf(1.0, b.def.bubble_secs * sim.TICK_RATE)
+		BattleFx.draw_bubble(self, p, r, _time, left)
 	if b.state.get("nova_warn", false):
 		var k := 0.5 + 0.5 * sin(_time * 30.0)
 		draw_circle(p, r * 1.3, Color("fff3c4", 0.25 + 0.35 * k))
