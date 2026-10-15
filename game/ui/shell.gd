@@ -96,6 +96,8 @@ var _overlay_tag := "" ## What the open overlay is ("sheet", "reveal", ...).
 ## The game's sound (game/audio/sfx.gd); main.gd sets it. The settings sheet
 ## has its switch, since the corner toggle is hidden on home screens.
 var sfx = null
+var _scroll_settle := 0.0 ## Seconds left before a scroll counts as settled.
+var _settling := false
 
 
 func _ready() -> void:
@@ -392,8 +394,10 @@ func _show(name: String, params: Dictionary) -> void:
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	_holder.add_child(_scroll)
-	# Re-log control positions after a scroll so the smoke test can tap below the fold.
-	_scroll.get_v_scroll_bar().value_changed.connect(func(_v): if _overlay.get_child_count() == 0: _report.call_deferred(name))
+	# Re-log control positions once a scroll settles so the smoke test can tap
+	# below the fold. Not on every scroll step: logging every mark each frame
+	# made long lists stutter.
+	_scroll.get_v_scroll_bar().value_changed.connect(func(_v): _report_after_scroll(name))
 	var margin := MarginContainer.new()
 	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# Phones fill the width; wide screens keep a phone-width column in the middle.
@@ -410,6 +414,19 @@ func _show(name: String, params: Dictionary) -> void:
 		_tab_buttons[t].modulate = Color.WHITE if t == _tab else Color(Kit.MUTED, 1.0)
 	_refresh_top()
 	_report.call_deferred(name)
+
+
+func _report_after_scroll(name: String) -> void:
+	_scroll_settle = 0.25
+	if _settling:
+		return
+	_settling = true
+	while _scroll_settle > 0.0:
+		await get_tree().process_frame
+		_scroll_settle -= get_process_delta_time()
+	_settling = false
+	if name == current and _overlay.get_child_count() == 0:
+		_report(name)
 
 
 func _report(name: String) -> void:

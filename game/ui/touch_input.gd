@@ -58,6 +58,12 @@ static func clear_back(owner: Object) -> void:
 	_back_sources.erase(owner)
 
 
+## True while a finger drags a list or a fling is still moving it. Busy
+## animations (the live critter icons) hold still meanwhile so scrolling stays smooth.
+static func scrolling() -> bool:
+	return is_instance_valid(_instance) and (_instance._drag == Drag.SCROLL or is_instance_valid(_instance._fling))
+
+
 ## What a left-edge swipe would do right now (an empty Callable for nothing).
 static func back_action() -> Callable:
 	for owner in _back_sources.keys():
