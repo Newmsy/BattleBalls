@@ -407,14 +407,14 @@ func step() -> void:
 		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - SHRINK_SPEED * (time() - overtime_start))
 
 	for b in balls:
-					b.vel = b.vel.normalized() * b.current_speed()
-			if b.charge_ticks > 0:
-				b.charge_ticks -= 1
-				if b.charge_ticks == 0:
-					b.vel = b.vel.normalized() * b.current_speed()
-			if tick >= b.stun_until:
-				# A charge carries its own momentum: slows don't drag it.
-				b.pos += b.vel * DT * (1.0 - (b.slow if b.charge_ticks == 0 else 0.0))
+		b.slow = b.slow_amount if tick < b.slow_until else 0.0
+		if b.state.has("shot_slow"): # A slowing shot's hold (Shot.slow).
+			if tick < b.state.shot_slow.until:
+				b.slow = maxf(b.slow, b.state.shot_slow.amount)
+			else:
+				b.state.erase("shot_slow")
+		if not b.statuses.is_empty():
+			_update_statuses(b)
 	if config.get("fields", true):
 		for b in balls:
 			if b.alive():
@@ -430,18 +430,14 @@ func step() -> void:
 			if b.boost_ticks > 0:
 				b.boost_ticks -= 1
 				if b.boost_ticks == 0:
-					b.vel = b.vel.normalized() * b.speed
-			if tick >= b.stun_until:
-				b.pos += b.vel * DT * (1.0 - b.slow)
-
-
 					b.vel = b.vel.normalized() * b.current_speed()
 			if b.charge_ticks > 0:
 				b.charge_ticks -= 1
 				if b.charge_ticks == 0:
 					b.vel = b.vel.normalized() * b.current_speed()
-			# A charge carries its own momentum: slows don't drag it.
-			b.pos += b.vel * DT * (1.0 - (b.slow if b.charge_ticks == 0 else 0.0))
+			if tick >= b.stun_until:
+				# A charge carries its own momentum: slows don't drag it.
+				b.pos += b.vel * DT * (1.0 - (b.slow if b.charge_ticks == 0 else 0.0))
 			_resolve_walls(b)
 	if not tethers.is_empty():
 		_update_tethers()
@@ -1214,6 +1210,8 @@ func _update_statuses(b: Ball) -> void:
 		if tick >= b.statuses[key].until:
 			b.statuses.erase(key)
 	b.slow = maxf(b.slow, status_amount(b, "slow"))
+
+
 # --- Movement: teleport, charge, tether (critter batch F) ---------------------
 
 ## False when the fight is a Trick Shot (`fields: false`): balls fly straight.
