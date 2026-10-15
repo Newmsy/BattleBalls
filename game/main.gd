@@ -432,6 +432,8 @@ func _start_fight() -> void:
 	_apply_cosmetics()
 	state = State.FIGHT
 	info_label.text = "%s vs %s" % [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
+	if mode == Mode.CAMPAIGN:
+		info_label.text = CampaignScreen.matchup_text(profile, pve.zone, pve.stage, pve.fighter)
 	if modifier != Modifiers.NONE:
 		info_label.text += " · " + Modifiers.display_name(modifier)
 	speed_button.text = "Speed %sx" % _speed_text()
@@ -588,8 +590,8 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	sfx.toggle_hidden = false
 	_begin_aim()
 	var st := Zones.stage(zone_index, stage_index)
-	info_label.text = "%s %s. Drag on the arena to aim, then let go to launch." % [
-		Zones.stage_key(zone_index, stage_index), st.get("name", BallDefs.get_def(st.enemy).display_name)]
+	info_label.text = "%s: %s. Drag to aim, then let go." % [Zones.stage_key(zone_index, stage_index),
+		CampaignScreen.matchup_text(profile, zone_index, stage_index, fighter)]
 
 
 ## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).

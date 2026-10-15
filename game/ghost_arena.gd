@@ -17,6 +17,7 @@ const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ResultText := preload("res://game/result_text.gd")
+const FighterTag := preload("res://game/ui/fighter_tag.gd")
 
 enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
 
@@ -34,6 +35,7 @@ var aimed: Array[bool] = [false, false, false]
 var aim := 0 ## Current aim for your ball, tenths of a degree, screen space.
 var speed_index := 0
 var result_delta := 0
+var slots := [[], []] ## Both trios as lineup slots, for the tier and power on show.
 
 var _accumulator := 0.0
 var _pause := 0.0
@@ -60,8 +62,9 @@ func _ready() -> void:
 	for i in bot.lineup.slots.size():
 		ghost_aims.append(ArenaGhosts.slot_angle(bot.lineup, i, 1))
 	# Both trios fight at their known tier, level and gear (sim/lineup.gd).
-	var mine := Lineup.side(store.pending.get("slots", store.slots()))
-	var theirs := Lineup.side(bot.lineup.slots)
+	slots = [store.pending.get("slots", store.slots()), bot.lineup.slots]
+	var mine := Lineup.side(slots[0])
+	var theirs := Lineup.side(slots[1])
 	relay = Relay.new({
 		"seed": int(store.pending.seed),
 		"sides": [mine.sides, theirs.sides],
@@ -141,7 +144,22 @@ func _show_intro() -> void:
 	lineup_label.text = "They bring: " + ", ".join(foes)
 	sim = MatchSim.new(relay.leg_config())
 	arena.sim = sim
-	_set_panel([_button("FIGHT!", _next_leg, 40), _button("Back (counts as a loss)", _forfeit, 24)])
+	_set_panel([_button("FIGHT!", _next_leg, 40), _lineups(), _button("Back (counts as a loss)", _forfeit, 24)])
+
+
+## Your trio in fight order, VS, theirs sorted (their order stays hidden),
+## each with its tier and power.
+func _lineups() -> Control:
+	var row := _row([])
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for s in slots[0]:
+		row.add_child(FighterTag.of_slot(s, 64))
+	row.add_child(_label("VS", 28))
+	var theirs: Array = slots[1].duplicate()
+	theirs.sort_custom(func(a, b): return str(a.critter) < str(b.critter))
+	for s in theirs:
+		row.add_child(FighterTag.of_slot(s, 64))
+	return row
 
 
 func _next_leg() -> void:
@@ -186,13 +204,19 @@ func _start_leg() -> void:
 	arena.clear_effects()
 	_accumulator = 0.0
 	state = State.FIGHT
-	info_label.text = "%s vs %s" % [BallDefs.get_def(sim.balls[0].type_id).display_name, BallDefs.get_def(sim.balls[1].type_id).display_name]
+	info_label.text = "%s vs %s" % [_fighter_text(0), _fighter_text(1)]
 	var speed := _button("Speed %dx" % int(SPEEDS[speed_index]), Callable())
 	speed.pressed.connect(func():
 		speed_index = (speed_index + 1) % SPEEDS.size()
 		speed.text = "Speed %dx" % int(SPEEDS[speed_index]))
 	_set_panel([_row([speed, _button("Skip", _skip_leg)])])
 	sfx.on_fight_start(sim)
+
+
+## "T2 Optic · 1,250 power" for the ball `side` has out this leg.
+func _fighter_text(side: int) -> String:
+	var s := Lineup.clean(slots[side][relay.slot[side]])
+	return FighterTag.text(BallDefs.get_def(s.critter).display_name, s.tier, FighterTag.rating(s))
 
 
 func _skip_leg() -> void:

@@ -6,7 +6,7 @@ extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
-const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Spire := preload("res://sim/spire.gd")
@@ -92,8 +92,8 @@ static func _floor_card(spec: Dictionary) -> Control:
 	for e in spec.enemies:
 		var tier := Spire.display_tier(e.power, Roster.rarity_base(Roster.get_critter(e.id).rarity) / 100.0)
 		var side := 150.0 if spec.boss else 104.0
-		foes.add_child(Kit.vbox(4, [CritterIcon.make(e.id, tier, side), Kit.label(BallDefs.get_def(e.id).display_name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-			Kit.power(roundi(e.power * 1000.0), 22)]))
+		foes.add_child(Kit.vbox(4, [FighterTag.make(e.id, tier, roundi(e.power * 1000.0), side),
+			Kit.label(BallDefs.get_def(e.id).display_name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]))
 	var r := Spire.reward(n)
 	var bits := ["%d coins" % r.coins]
 	if r.xp_chips > 0:
@@ -131,7 +131,7 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 		var tired: bool = f.stamina <= 0
 		var col := Kit.MUTED if tired else Kit.FG
 		var tag := Kit.label("#%d" % (order + 1) if order >= 0 else ("Tired" if tired else ""), 20, TOWER if order >= 0 else Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
-		var icon := CritterIcon.make(f.id, p.best(f.id).tier, 96)
+		var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96)
 		if tired:
 			icon.modulate = Color(1, 1, 1, 0.35)
 		var cell := Kit.vbox(4, [

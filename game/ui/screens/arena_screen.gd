@@ -5,7 +5,7 @@ extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
-const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
@@ -86,12 +86,12 @@ static func owned_critters(profile) -> Array:
 
 static func _trio_panel(shell, store, owned: Array) -> Control:
 	var row := Kit.hbox(12, [], BoxContainer.ALIGNMENT_CENTER)
+	var slots: Array = store.slots(shell.profile)
 	for i in 3:
 		var critter: String = store.trio[i]
-		var content := Kit.vbox(4, [
-			Kit.label(str(i + 1), 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
-			CritterIcon.make(critter, shell.profile.best(critter).get("tier", 1), 80),
-			Kit.label(BallDefs.get_def(critter).display_name, 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+		var content := Kit.vbox(2, [
+			Kit.label("%d · %s" % [i + 1, BallDefs.get_def(critter).display_name], 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+			FighterTag.of_slot(slots[i], 80),
 		])
 		var slot := Kit.card_button(content, func():
 			if owned.is_empty():
@@ -111,13 +111,13 @@ static func _opponent_card(shell, store, offer: Dictionary) -> Button:
 	var bot: Dictionary = offer.bot
 	var card: Dictionary = Ladder.CARDS[offer.card]
 	var col: Color = CARD_COLORS[offer.card]
-	# Show which critters they bring, not the order they come out in.
-	var critters: Array = ArenaGhosts.critters(bot.lineup)
-	critters.sort()
-	var icons := Kit.hbox(0)
-	var tier: int = bot.lineup.slots[0].get("tier", 1)
-	for c in critters:
-		icons.add_child(CritterIcon.make(c, tier, 68))
+	# Show which critters they bring, with tier and power, not the order they
+	# come out in.
+	var slots: Array = bot.lineup.slots.duplicate()
+	slots.sort_custom(func(a, b): return str(a.critter) < str(b.critter))
+	var icons := Kit.hbox(4)
+	for s in slots:
+		icons.add_child(FighterTag.of_slot(s, 68))
 	var info := Kit.vbox(4, [
 		Kit.hbox(8, [Kit.chip(card.name, col), Kit.chip("Arena Ghost", Kit.MUTED)]),
 		Kit.label(str(bot.name), 28),
