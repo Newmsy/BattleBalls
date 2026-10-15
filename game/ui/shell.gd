@@ -9,6 +9,7 @@ const UiProfile := preload("res://game/ui/ui_profile.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Friends := preload("res://game/online/friends.gd")
 const FightLink := preload("res://game/fight_link.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 const SettingsSheet := preload("res://game/ui/screens/settings_sheet.gd")
 
 const SCREENS := {
@@ -107,6 +108,16 @@ func build() -> void:
 	if ArenaStore.reopen:
 		ArenaStore.reopen = false
 		go("arena")
+
+
+## Swap in another player's profile (e.g. the new player from onboarding).
+func set_profile(p) -> void:
+	if profile.changed.is_connected(_refresh_top):
+		profile.changed.disconnect(_refresh_top)
+	profile = p
+	if _built:
+		profile.changed.connect(_refresh_top)
+		refresh()
 
 
 func show_tab(t: String) -> void:
@@ -267,6 +278,8 @@ func watch(fight: Dictionary) -> void:
 
 func _show(name: String, params: Dictionary) -> void:
 	close_overlay()
+	if name != current:
+		Analytics.track("screen", {"name": name})
 	current = name
 	current_params = params
 	_marks.clear()

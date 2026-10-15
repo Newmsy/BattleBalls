@@ -140,6 +140,54 @@
         null,
         null
       ],
+      "arena": "rink",
+      "p1": "vampire",
+      "p2": "laser",
+      "seed": 42
+    },
+    "hash": "681f4a098600b6a0fefeeecc61247d1fe10387f3d11fc3c502813d6a2cb7962f",
+    "reason": "knockout",
+    "ticks": 2242,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "pillars",
+      "p1": "vampire",
+      "p2": "laser",
+      "seed": 42
+    },
+    "hash": "4455f01afcb5f01149dc2479bca4912616245b6cc066e0f3e5c0204fb7eea436",
+    "reason": "knockout",
+    "ticks": 1766,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "bumpers",
+      "p1": "vampire",
+      "p2": "laser",
+      "seed": 42
+    },
+    "hash": "f474ccb261d7a59a7aab6ad52d59402652add138cf3c24d44535adb44722891a",
+    "reason": "knockout",
+    "ticks": 1336,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
       "gear": [
         {
           "crit_chance": 0.15,

@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Roster := preload("res://game/ui/roster.gd")
+const Analytics := preload("res://game/online/analytics.gd")
 
 signal changed
 
@@ -50,6 +51,24 @@ static func sample():
 		{"name": "Energy Pack", "count": 3, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
 		{"name": "XP Chip", "count": 12, "text": "+200 XP to one critter.", "color": Color("45f5a6")},
 		{"name": "Summon Orb", "count": 14, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
+	])
+	return p
+
+
+## A brand-new player straight out of onboarding: one T1 copy of the starter
+## (the tutorial fights drop two more), a free summon and a few orbs.
+static func starter(id: String):
+	var p = load("res://game/ui/ui_profile.gd").new()
+	p.account_level = 1
+	p.energy = p.energy_max
+	p.coins = 200
+	p.orbs = 10
+	p.lineup = id
+	p.legendary_pity = load("res://game/ui/summon.gd").PITY_RESET
+	p.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
+	p.seen[id] = true
+	p.items.assign([
+		{"name": "Summon Orb", "count": p.orbs, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
 	])
 	return p
 
@@ -174,6 +193,7 @@ func use_energy_pack() -> bool:
 		return false
 	pack.count -= 1
 	energy += 30
+	Analytics.track("energy", {"delta": 30, "source": "pack"})
 	changed.emit()
 	return true
 
