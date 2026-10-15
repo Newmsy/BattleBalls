@@ -22,6 +22,10 @@ const MAX_CANDIDATES := 40
 const EDGE_MARGIN := 140.0
 const MIN_START_GAP := 300.0
 const WALLS := ["left", "top", "right", "bottom"]
+## Balls the day's puzzle picks from. A fixed list, so adding a critter never
+## changes a published day's puzzle. (A Critter Shot can force any playable
+## shooter; trick shots switch Flux's field off so every shot flies straight.)
+const BALLS := ["vampire", "laser"]
 
 const SOLVED := "solved"
 const WRONG_WALLS := "wrong_walls" ## Hit the foe before banking off every called wall.
@@ -39,10 +43,10 @@ static func day_number(date: Dictionary) -> int:
 ## Critter Shot) and makes a different puzzle from the day's main one.
 static func candidate(day: int, k: int, shooter := "") -> Dictionary:
 	var rng := Rng.new(day * 7919 + k * 104729 + (17 if shooter == "" else 31337 + shooter.hash() % 9973))
-	var p1: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
+	var p1: String = BALLS[rng.range_int(0, BALLS.size() - 1)]
 	if shooter != "":
 		p1 = shooter
-	var p2: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
+	var p2: String = BALLS[rng.range_int(0, BALLS.size() - 1)]
 	var starts: Array[Vector2] = []
 	while starts.size() < 2:
 		var p := Vector2(_coord(rng), _coord(rng))
@@ -63,7 +67,7 @@ static func _coord(rng) -> float:
 
 ## The real sim for a shot: the foe waits until it is hit.
 static func make_sim(puzzle: Dictionary, aim_deg: int) -> MatchSim:
-	var sim := MatchSim.new({"seed": 1, "p1": puzzle.p1, "p2": puzzle.p2, "starts": puzzle.starts, "angles": [aim_deg * 10, 0]})
+	var sim := MatchSim.new({"seed": 1, "p1": puzzle.p1, "p2": puzzle.p2, "starts": puzzle.starts, "angles": [aim_deg * 10, 0], "fields": false})
 	sim.balls[1].vel = Vector2.ZERO
 	return sim
 

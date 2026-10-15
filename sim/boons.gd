@@ -50,15 +50,15 @@ const DEFS := {
 	},
 	"opening_bite": {
 		"name": "Opening Bite",
-		"text": "Your first hit of every fight deals +8 damage.",
+		"text": "Your first hit of every fight deals +7 damage.",
 		"icon": "fang",
-		"first_strike": 8.0,
+		"first_strike": 7.0,
 	},
 	"bank_shot": {
 		"name": "Bank Shot",
-		"text": "After a wall bounce, your next hit deals +10%.",
+		"text": "After a wall bounce, your next hit deals +8%.",
 		"icon": "bank",
-		"bank_bonus": 0.1,
+		"bank_bonus": 0.08,
 	},
 	"bumper_guard": {
 		"name": "Bumper Guard",
