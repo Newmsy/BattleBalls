@@ -246,7 +246,7 @@ func test_my_critters_lists_each_owned_copy_strongest_first() -> void:
 
 
 func test_the_critterpedia_shows_every_critter_and_each_page_builds() -> void:
-	var Families = load("res://game/ui/families.gd")
+	var Families = load("res://sim/families.gd")
 	var shell = Shell.new()
 	shell.build()
 	shell.show_tab("critters")
@@ -263,6 +263,7 @@ func test_the_critterpedia_shows_every_critter_and_each_page_builds() -> void:
 		shell.back()
 	shell.back()
 	check_eq(shell.current, "critters", "back to My critters")
+	shell.free()
 
 
 func test_a_sweep_shows_a_results_popup() -> void:
