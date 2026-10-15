@@ -188,7 +188,8 @@ func test_mortar_leads_the_foe() -> void:
 	sim.balls[1].vel = Vector2(100, 0)
 	sim.abilities.fx_lob(sim, sim.balls[0], {})
 	check_eq(sim.shots.size(), 1, "one shell")
-	check(sim.shots[0].land.is_equal_approx(Vector2(600, 500)), "lands where the foe will be")
+	var lead: float = BallDefs.get_def("mortar").lob_lead
+	check(sim.shots[0].land.is_equal_approx(Vector2(500 + 100 * lead, 500)), "lands where the foe will be")
 
 
 func test_brewster_puddles_land_near_the_foe_and_alternate() -> void:
