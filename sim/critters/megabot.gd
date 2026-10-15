@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "3d5a80",
 	"vibe": "A giant-robot fan who built itself from spare parts and pure confidence.",
 	"description": "Mech. Every third hit it fires a salvo of homing rockets and raises a shield.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
+	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "hit", "do": "salvo"}, {"on": "always", "do": "salvo_tick"}],
 	"params": {
 		"salvo_hits": 3, ## Contact hits per salvo.
