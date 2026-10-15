@@ -8,6 +8,7 @@
 ## Open it by setting `critter_shot` before changing scene, or ?shooter=laser.
 extends Node2D
 
+const TouchInput := preload("res://game/ui/touch_input.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const TrickShotView := preload("res://game/trick_shot_view.gd")
@@ -54,6 +55,8 @@ var panel: VBoxContainer
 
 
 func _ready() -> void:
+	TouchInput.ensure(self)
+	TouchInput.set_back(self, func(): return _go_menu if state in [State.RESULT, State.DONE] else Callable())
 	today = maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	day = today
 	var params := _url_params()

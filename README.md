@@ -77,6 +77,17 @@ Playwright and ImageMagick) into `game/brand/`:
 designs.mjs also keeps the two runner-up icon options (`OPTIONS`); switch
 `icon` to one of them and re-render to swap.
 
+## Touch: scrolling and swipe back
+
+`game/ui/touch_input.gd` handles touch for every screen before the GUI sees it
+(added once by `TouchInput.ensure`). A drag past a small dead zone scrolls
+the innermost `ScrollContainer` under the finger that can move that way, even
+when it starts on a button or card, and the button is let go untapped; a
+swipe in from the left edge runs the screen's Back. Screens say what Back
+means with `TouchInput.set_back(self, func(): return <action or Callable()>)`;
+the shell's is `Shell.back_action()` (close a sheet, or pop the screen stack).
+New scroll areas need nothing extra: plain `ScrollContainer`s just work.
+
 ## Sound
 
 All sounds are generated from recipes in `tools/sfx/make_sfx.py`

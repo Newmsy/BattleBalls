@@ -72,6 +72,7 @@ var _built := false
 var _overlay: Control
 var _gear: Control ## Settings button in the top bar.
 var _share := {} ## kind -> {button, url, text} on the current screen.
+var _overlay_tag := "" ## What the open overlay is ("sheet", "reveal", ...).
 
 
 func _ready() -> void:
@@ -143,6 +144,14 @@ func go(name: String, params := {}) -> void:
 	_show(name, params)
 
 
+## What Back (or a swipe in from the left edge) does now: close a sheet, or
+## return to the screen underneath. Empty at a tab's own screen.
+func back_action() -> Callable:
+	if overlay_open():
+		return close_overlay if _overlay_tag == "sheet" else Callable()
+	return back if _stack.size() > 1 else Callable()
+
+
 func back() -> void:
 	_stack.pop_back()
 	if _stack.is_empty():
@@ -180,6 +189,7 @@ func toast(text: String) -> void:
 ## Cover the whole shell (tabs included) with `c`, e.g. the summon reveal.
 func overlay(c: Control, tag := "overlay") -> void:
 	close_overlay()
+	_overlay_tag = tag
 	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.add_child(c)
