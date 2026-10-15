@@ -126,9 +126,9 @@ being solvable or fair.
 ## Bounce Run
 
 A daily roguelite (`sim/bounce_run.gd`, `sim/boons.gd`, `game/bounce_run.gd`;
-design in the project's `design/bounce-run.md`). Draft 3 of 5 critter cards
-(each with its own starter boon), climb 10 floors, and pick 1 of 3 boons for
-the whole trio after every win. A loss knocks that critter out; lose all three
+design in the project's `design/bounce-run.md`). Draft 3 of 6 critters (each
+card shows its ability), pick 3 of 6 starting boons for the whole trio, then
+climb 10 floors and pick 1 of 3 more boons after every win. A loss knocks that critter out; lose all three
 and the run ends. Each floor's foe carries as many boons as you can hold there,
 and its power follows `FOE_POWER`: well under yours on the first floors, over
 it at the top, so most runs end around floor 7 and a full clear is rare. The run comes from the UTC day (#1 is

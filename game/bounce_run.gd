@@ -1,4 +1,5 @@
-## Bounce Run: draft a trio, climb 10 floors, pick a boon after every win.
+## Bounce Run: draft a trio and 3 starting boons, climb 10 floors, pick a
+## boon after every win.
 ## The run comes from sim/bounce_run.gd and the UTC day; one ranked run a day
 ## posts to the shared leaderboard, then practice runs are unranked.
 ## URL params: ?mode=bouncerun&day=3 (play another day's run, unranked),
@@ -15,7 +16,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const BounceBoard := preload("res://game/online/bounce_board.gd")
 
-enum State { DRAFT, FLOOR, AIM, FIGHT, RESULT, BOON, OVER }
+enum State { DRAFT, START_BOONS, FLOOR, AIM, FIGHT, RESULT, BOON, OVER }
 
 const SAVE_PATH := "user://bounce_run.cfg"
 const SHARE_URL := "https://battleballs.vercel.app/?mode=bouncerun"
@@ -33,6 +34,7 @@ var ranked := true ## False for practice runs and other days.
 var setup: Dictionary
 var run: Dictionary ## Empty until the draft is done.
 var picks: Array = [] ## Draft selection in progress.
+var start_picks: Array = [] ## Starting boons picked, in progress.
 var slot := 0 ## Pick slot fighting this floor.
 var aim := MatchSim.AIM_AT_CENTRE[0]
 var sim: MatchSim
@@ -83,7 +85,7 @@ func _ready() -> void:
 	_build_ui()
 	if get_viewport():
 		get_viewport().size_changed.connect(_layout)
-	print("BOUNCERUN_READY day=%d ranked=%s cards=%s" % [day, ranked, ",".join(setup.cards.map(func(c): return c.critter + "+" + c.boon))])
+	print("BOUNCERUN_READY day=%d ranked=%s cards=%s boons=%s" % [day, ranked, ",".join(setup.cards.map(func(c): return c.critter)), ",".join(setup.start_offer)])
 	_retry_pending_post()
 	if run.has("launched"):
 		_settle_launched_fight()
@@ -167,26 +169,23 @@ func _show_draft() -> void:
 	state = State.DRAFT
 	sfx.on_menu()
 	_board_mode()
-	sub_label.text = "Draft 3 critters. Each brings its own boon."
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 14)
+	sub_label.text = "Step 1 of 2: draft 3 critters."
+	var grid := _grid()
 	for i in setup.cards.size():
 		var c: Dictionary = setup.cards[i]
 		var picked: bool = i in picks
-		var card := _critter_card(c.critter, c.boon, func(): _toggle_pick(i), GOLD if picked else Kit.LINE, picked, false, true)
+		var card := _critter_card(c.critter, func(): _toggle_pick(i), GOLD if picked else Kit.LINE, picked)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(card)
 		_mark("br_card_%d" % i, card)
-	var start := Kit.button("Start run (%d/3)" % picks.size(), _start_run, "go" if picks.size() == BounceRun.PICKS else "ghost", 32)
-	start.disabled = picks.size() != BounceRun.PICKS
-	_mark("br_start", start)
-	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var how := Kit.label("Climb %d floors: foes start easy and get tougher. Win to pick a boon for your whole trio. Lose and that critter is out; lose all three and the run ends." % BounceRun.FLOORS,
+	var next := Kit.button("Next: boons (%d/3)" % picks.size(), _show_start_boons, "go" if picks.size() == BounceRun.PICKS else "ghost", 32)
+	next.disabled = picks.size() != BounceRun.PICKS
+	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mark("br_next", next)
+	var how := Kit.label("Climb %d floors: foes start easy and get tougher. Lose and that critter is out; lose all three and the run ends." % BounceRun.FLOORS,
 		22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-	# Start and Menu share a row so Start stays on screen above five taller cards.
-	_set_page([how, grid, Kit.hbox(14, [start, _menu_button()])], "br_draft")
+	# Next and Menu share a row so Next stays on screen below the cards.
+	_set_page([how, grid, Kit.hbox(14, [next, _menu_button()])], "br_draft")
 
 
 func _toggle_pick(i: int) -> void:
@@ -198,10 +197,44 @@ func _toggle_pick(i: int) -> void:
 	_show_draft()
 
 
+func _show_start_boons() -> void:
+	state = State.START_BOONS
+	sfx.on_menu()
+	_board_mode()
+	sub_label.text = "Step 2 of 2: pick 3 boons. They power your whole trio."
+	var grid := _grid()
+	for i in setup.start_offer.size():
+		var id: String = setup.start_offer[i]
+		var b := Boons.get_def(id)
+		var picked: bool = id in start_picks
+		var body := Kit.vbox(4, [Kit.label(b.name, 26, GOLD), Kit.label(b.text, 20, Kit.FG if picked else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+		var card := Kit.card_button(body, func(): _toggle_start_boon(i), GOLD if picked else Kit.LINE, Color("241f55") if picked else Kit.PANEL, 28, 16)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(card)
+		_mark("br_sboon_%d" % i, card)
+	var start := Kit.button("Start run (%d/3)" % start_picks.size(), _start_run, "go" if start_picks.size() == BounceRun.START_BOONS else "ghost", 32)
+	start.disabled = start_picks.size() != BounceRun.START_BOONS
+	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mark("br_start", start)
+	var trio := Kit.label("Your trio: %s. Win a floor to pick another boon." % ", ".join(picks.map(func(i): return _name(setup.cards[i].critter))),
+		22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+	_set_page([trio, grid, Kit.hbox(14, [start, Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
+
+
+func _toggle_start_boon(i: int) -> void:
+	var id: String = setup.start_offer[i]
+	if id in start_picks:
+		start_picks.erase(id)
+	elif start_picks.size() < BounceRun.START_BOONS:
+		start_picks.append(id)
+	sfx.play("wall")
+	_show_start_boons()
+
+
 func _start_run() -> void:
-	run = BounceRun.new_run(setup, picks)
+	run = BounceRun.new_run(setup, picks, start_picks)
 	_save_run()
-	print("BOUNCERUN_START day=%d picks=%s" % [day, picks])
+	print("BOUNCERUN_START day=%d picks=%s boons=%s" % [day, picks, ",".join(start_picks)])
 	_show_floor()
 
 
@@ -214,20 +247,23 @@ func _show_floor() -> void:
 	var foe_box := Kit.vbox(8, [
 		Kit.hbox(10, [Kit.caption("Floor %d · %s" % [run.floor + 1, foe.title], PINK), Kit.spacer(),
 			Kit.caption("Foe · %d%% power" % roundi(100.0 * BounceRun.FOE_POWER[run.floor]))]),
-		Kit.hbox(16, [CritterIcon.make(foe.critter, 1, 130), _boon_list(foe.boons, BallDefs.get_def(foe.critter).display_name)]),
+		Kit.hbox(16, [CritterIcon.make(foe.critter, 1, 110), Kit.vbox(4, [
+			Kit.label(_name(foe.critter), 30),
+			_ability_label(foe.critter),
+			_boon_names(foe.boons),
+		])]),
 	])
 	var items: Array = [_ladder(), Kit.panel(foe_box, Kit.box(Color("2a1030"), PINK, 32, 2, 20)), Kit.caption("Your trio")]
 	for s in BounceRun.PICKS:
 		var c := BounceRun.card(setup, run, s)
 		var out: bool = run.out[s]
-		var card := _critter_card(c.critter, c.boon, func(): _choose_fighter(s), Kit.LINE if out else Kit.ACCENT, false, out)
+		var card := _critter_card(c.critter, func(): _choose_fighter(s), Kit.LINE if out else Kit.ACCENT, false, out)
 		card.disabled = out
 		items.append(card)
 		if not out:
 			_mark("br_send_%d" % s, card)
-	if not run.boons.is_empty():
-		items.append(Kit.caption("Run boons (whole trio)"))
-		items.append(_boon_list(run.boons, ""))
+	items.append(Kit.caption("Your boons (whole trio)"))
+	items.append(_boon_list(run.boons))
 	items.append(_menu_button())
 	_set_page(items, "br_floor")
 
@@ -396,6 +432,7 @@ func _practice() -> void:
 	ranked = false
 	run = {}
 	picks = []
+	start_picks = []
 	_board_rows = null
 	_board_note = ""
 	_show_draft()
@@ -485,6 +522,11 @@ func _load() -> void:
 		stats[key] = _save.get_value("stats", key, stats[key])
 	var ranked_run: Dictionary = _save.get_value("runs", str(day), {})
 	var practice: Dictionary = _save.get_value("practice", str(day), {})
+	# A run saved under older rules can't continue under these.
+	if ranked_run.get("rules", 1) != BounceRun.RULES_VERSION:
+		ranked_run = {}
+	if practice.get("rules", 1) != BounceRun.RULES_VERSION:
+		practice = {}
 	# The ranked run until it's over and a practice run has begun. Other days
 	# without a ranked run are practice only.
 	ranked = (not ranked_run.is_empty() and (not ranked_run.over or practice.is_empty())) or (day == today and ranked_run.is_empty())
@@ -637,35 +679,45 @@ func _update_hud() -> void:
 	hud_label.text = "You %s   |   %s   |   %s Foe" % [parts[0], clock, parts[1]]
 
 
-## A critter with its starter boon, as a tappable card. `ability` adds what
-## the critter itself does (the draft, where you're choosing critters).
-func _critter_card(critter: String, boon: String, on_press: Callable, border: Color, picked := false, out := false, ability := false) -> Button:
-	var b := Boons.get_def(boon)
+## A critter and what its ability does, as a tappable card.
+func _critter_card(critter: String, on_press: Callable, border: Color, picked := false, out := false) -> Button:
 	var text := Kit.vbox(2, [Kit.label(_name(critter), 28, Kit.MUTED if out else (GOLD if picked else Kit.FG))])
-	if ability:
-		var what := Kit.label(_ability_text(critter), 18, ABILITY, HORIZONTAL_ALIGNMENT_LEFT, true)
-		what.max_lines_visible = 3
-		what.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		text.add_child(what)
-	text.add_child(Kit.label("OUT" if out else b.name, 22, PINK if out else GOLD))
-	text.add_child(Kit.label(b.text, 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	text.add_child(Kit.label("OUT", 22, PINK) if out else _ability_label(critter))
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var icon := CritterIcon.make(critter, 1, 80 if ability else 96)
+	var icon := CritterIcon.make(critter, 1, 80)
 	if out:
 		icon.modulate = Color(1, 1, 1, 0.35)
 	var row := Kit.hbox(12, [icon, text])
 	return Kit.card_button(row, on_press, border, Color("241f55") if picked else Kit.PANEL, 28, 14)
 
 
-func _boon_list(ids: Array, heading: String) -> Control:
+func _ability_label(critter: String) -> Label:
+	var what := Kit.label(_ability_text(critter), 19, ABILITY, HORIZONTAL_ALIGNMENT_LEFT, true)
+	what.max_lines_visible = 5
+	what.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	return what
+
+
+func _boon_list(ids: Array) -> Control:
 	var col := Kit.vbox(4)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if heading != "":
-		col.add_child(Kit.label(heading, 30))
 	for id in ids:
 		var b := Boons.get_def(id)
 		col.add_child(Kit.label("%s: %s" % [b.name, b.text], 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	return col
+
+
+## A foe's boons by name only: a top-floor foe carries a dozen.
+func _boon_names(ids: Array) -> Label:
+	return Kit.label("Boons: " + ", ".join(ids.map(func(id): return Boons.get_def(id).name)), 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT, true)
+
+
+func _grid() -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
+	return grid
 
 
 ## One pip per floor: cleared floors green, the current one outlined.

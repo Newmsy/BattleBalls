@@ -130,7 +130,12 @@ static func _random_runs(count: int, from := 0) -> String:
 			var c := rng.range_int(0, BounceRun.DRAFT - 1)
 			if not c in picks:
 				picks.append(c)
-		var run := BounceRun.new_run(setup, picks)
+		var start: Array = []
+		while start.size() < BounceRun.START_BOONS:
+			var b: String = setup.start_offer[rng.range_int(0, setup.start_offer.size() - 1)]
+			if not b in start:
+				start.append(b)
+		var run := BounceRun.new_run(setup, picks, start)
 		while not run.over:
 			var living := BounceRun.living(run)
 			var slot: int = living[rng.range_int(0, living.size() - 1)]
