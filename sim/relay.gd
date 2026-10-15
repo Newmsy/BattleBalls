@@ -13,7 +13,8 @@
 ## `tiers` (optional) are per-ball MatchSim `powers` / `sizes` / `tiers`
 ## (progression, boss scale, tier ability upgrades); left out, legs use the
 ## MatchSim defaults. sim/lineup.gd side() builds them from lineup slots. `gear[side][slot]`
-## (optional) is that ball's gear (sim/gear.gd), null for none.
+## (optional) is that ball's gear (sim/gear.gd), null for none; `talents[side][slot]`
+## (optional) its faction talent picks (sim/talents.gd).
 ##
 ## The game can drive it leg by leg (leg_config() -> run a MatchSim, maybe
 ## rendering it -> record_leg(sim)) or call run_to_end() headless; both give
@@ -69,7 +70,7 @@ func leg_config() -> Dictionary:
 		"hp": carry_hp.duplicate(),
 		"gear": [gear[0][slot[0]], gear[1][slot[1]]],
 	}
-	for key in ["powers", "sizes", "tiers"]:
+	for key in ["powers", "sizes", "tiers", "talents"]:
 		if config.has(key):
 			leg[key] = [config[key][0][slot[0]], config[key][1][slot[1]]]
 	return leg

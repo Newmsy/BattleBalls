@@ -72,6 +72,7 @@ func _ready() -> void:
 		"tiers": [mine.tiers, theirs.tiers],
 		"powers": [mine.powers, theirs.powers],
 		"gear": [mine.gear, theirs.gear],
+		"talents": [mine.talents, theirs.talents],
 	})
 	arena = ArenaView.new()
 	arena.team_tags = ["YOU", "GHOST"]

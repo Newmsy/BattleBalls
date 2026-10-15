@@ -24,6 +24,8 @@
 ## `arena` (optional) is an id from sim/arenas.gd (default "square").
 ## `gear` (optional) is each ball's gear: a list of pieces or stat totals
 ## (sim/gear.gd), or null for none.
+## `talents` (optional) is each ball's faction talent picks {node: rank}
+## (sim/talents.gd), or null for none; they're cleaned against its tier here.
 ##
 ## Every hit rolls its damage (+-DAMAGE_VARIANCE) and a crit from its own
 ## stream seeded by the fight seed, so a fight still replays from the seed and
@@ -39,6 +41,7 @@ const Arenas := preload("res://sim/arenas.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
+const Talents := preload("res://sim/talents.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
@@ -136,6 +139,8 @@ class Ball:
 	## damage (multipliers), add (flat contact damage), until (tick, -1 = rest
 	## of fight)}. Set them with MatchSim.set_mod, never by hand.
 	var mods := {}
+	var tal := {} ## Faction talent effects (sim/talents.gd), empty for none.
+	var tal_state := {} ## Talent timers and counters (a foe's Haunt lands here too).
 	var base := {} ## radius, speed and contact_damage before any mod.
 
 	func alive() -> bool:
@@ -301,6 +306,7 @@ func _init(cfg: Dictionary) -> void:
 	var powers: Array = cfg.get("powers", [1.0, 1.0])
 	var sizes: Array = cfg.get("sizes", [1.0, 1.0])
 	var gear: Array = cfg.get("gear", [null, null])
+	var talents: Array = cfg.get("talents", [null, null])
 	for i in 2:
 		var kit := Gear.totals(gear[i])
 		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i])), float(powers[i])), kit), modifier)
@@ -321,6 +327,10 @@ func _init(cfg: Dictionary) -> void:
 		b.defense = kit.get("defense", 0.0)
 		b.crit_chance = BASE_CRIT_CHANCE + kit.get("crit_chance", 0.0)
 		b.crit_mult = BASE_CRIT_MULT + kit.get("crit_damage", 0.0)
+		if talents[i] is Dictionary and not talents[i].is_empty():
+			var faction := Talents.faction_of(types[i])
+			b.tal = Talents.effects(faction, Talents.clean(faction, talents[i], int(tiers[i])))
+			Talents.setup(self, b)
 		b.pos = starts[i]
 		# Always draw from the rng so a given aim doesn't shift later rolls.
 		var random_aim: int = AIM_AT_CENTRE[i] + rng.range_int(-RANDOM_AIM_SPREAD, RANDOM_AIM_SPREAD)
@@ -421,6 +431,9 @@ func step() -> void:
 				abilities.fire(self, "always", b)
 	_update_zones()
 	_update_pieces()
+	for b in balls:
+		if not b.tal.is_empty():
+			Talents.tick(self, b)
 	_update_dots()
 	for b in balls:
 		if not b.mods.is_empty():
@@ -573,6 +586,8 @@ func _on_wall_bounce(b: Ball, point: Vector2, obstacle := false) -> void:
 		if slam.has("zone"):
 			add_zone(balls[slam.source], point, slam.zone)
 	b.banked = true
+	if not b.tal.is_empty():
+		Talents.on_bounce(self, b)
 	var bounce_heal: float = b.def.get("bounce_heal", 0.0)
 	if bounce_heal > 0.0:
 		var gained := minf(bounce_heal, b.max_hp - b.hp)
@@ -732,6 +747,9 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		var amount: float = h.amount
 		var target := balls[h.target]
 		var source := balls[h.source]
+		var talented := not source.tal.is_empty() or not target.tal.is_empty() or source.tal_state.has("haunted")
+		if talented:
+			amount *= Talents.hit_mult(self, source, target, h)
 		if h.kind == "contact":
 			amount = _boon_contact_damage(source, target, amount)
 		amount *= mult
@@ -745,7 +763,11 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			spread = 1.0
 			crit = false
 		amount *= spread * (1.0 + source.attack) * (1.0 - target.defense)
-		if crit:
+		if talented:
+			var c := Talents.crit_mult(self, source, target, crit)
+			crit = c.crit
+			amount *= c.mult
+		elif crit:
 			amount *= source.crit_mult
 		if backstab:
 			amount *= BACKSTAB_MULT
@@ -768,6 +790,8 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		target.hp -= amount
 		source.damage_dealt += amount
 		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos, "crit": crit, "backstab": backstab})
+		if talented:
+			Talents.after_hit(self, source, target, amount, h.kind, heals)
 		if h.kind == "contact":
 			abilities.fire(self, "hit", source, {"target": target, "amount": amount, "heals": heals})
 		abilities.fire(self, "hurt", target, {"source": source, "amount": amount, "kind": h.kind})
@@ -777,7 +801,7 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		var b := balls[heal.ball]
 		if not b.alive():
 			continue
-		var gained := minf(heal.amount, b.max_hp - b.hp)
+		var gained := minf(heal.amount * (Talents.heal_mult(b) if not b.tal.is_empty() else 1.0), b.max_hp - b.hp)
 		if gained > 0.0:
 			b.hp += gained
 			b.healed += gained

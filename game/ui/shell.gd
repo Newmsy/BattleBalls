@@ -29,6 +29,8 @@ const SCREENS := {
 	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
 	"spire": preload("res://game/ui/screens/spire_screen.gd"),
 	"vault": preload("res://game/ui/screens/vault_screen.gd"),
+	"factions": preload("res://game/ui/screens/factions_screen.gd"),
+	"faction": preload("res://game/ui/screens/faction_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
 	"shop": preload("res://game/ui/screens/shop_screen.gd"),
 	"pass": preload("res://game/ui/screens/pass_screen.gd"),

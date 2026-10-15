@@ -14,7 +14,10 @@ static var filter := "all"
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(22)
-	root.add_child(Kit.hbox(0, [Kit.label("Critters", 44), Kit.spacer(), Kit.label("%d / %d found" % [p.found_count(), Roster.CRITTERS.size()], 24, Kit.MUTED)]))
+	var factions := Kit.card_button(Kit.label("Factions", 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), func(): shell.go("factions"), Kit.ACCENT, Kit.PANEL2, 999, 10)
+	factions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	shell.mark("factions", factions)
+	root.add_child(Kit.hbox(14, [Kit.label("Critters", 44), Kit.spacer(), Kit.label("%d / %d found" % [p.found_count(), Roster.CRITTERS.size()], 24, Kit.MUTED), factions], BoxContainer.ALIGNMENT_CENTER))
 
 	var chips := Kit.hbox(6)
 	for f in ["all"] + Roster.RARITIES:

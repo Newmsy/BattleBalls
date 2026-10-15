@@ -3,6 +3,7 @@
 ## Usage: godot --headless --script res://tests/run_tests.gd [-- --shard=k/n]
 ##   --shard=k/n  run only every n-th test, starting at the k-th (tests/run.sh
 ##                runs one shard per CPU core and checks them all)
+##   --file=name  run only tests/test_<name>.gd (a quick local loop)
 extends SceneTree
 
 ## The slowest tests (each fights the whole roster), spread one per shard
@@ -17,14 +18,17 @@ var _current := ""
 func _init() -> void:
 	var passed := 0
 	var shard := [1, 1]
+	var only := ""
 	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--file="):
+			only = "test_%s.gd" % arg.split("=")[1]
 		if arg.begins_with("--shard="):
 			var parts := arg.split("=")[1].split("/")
 			shard = [int(parts[0]), int(parts[1])]
 	var index := -1
 	var files := DirAccess.get_files_at("res://tests")
 	for file in files:
-		if not (file.begins_with("test_") and file.ends_with(".gd")):
+		if not (file.begins_with("test_") and file.ends_with(".gd")) or (only != "" and file != only):
 			continue
 		var script = load("res://tests/" + file)
 		if script == null:

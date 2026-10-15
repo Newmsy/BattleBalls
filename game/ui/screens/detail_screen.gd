@@ -3,6 +3,7 @@
 ## ladder and the flavour text sit behind the "i"; Use in lineup and Fuse are pinned.
 extends RefCounted
 
+const Talents := preload("res://sim/talents.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
@@ -45,6 +46,13 @@ static func build(shell, params: Dictionary) -> Control:
 		stats.add_child(Kit.vbox(0, [Kit.label(st[0], 19, Kit.MUTED), Kit.label(st[1], 28)]))
 	var side := Kit.vbox(8, [Glyph.make("stars", 30, Kit.FG, b.tier, Roster.MAX_TIER), Kit.label("%s · %s" % [c.type, c.role], 22, Kit.MUTED),
 		Kit.power(p.power_of(c.id), 36), stats])
+	var faction := Talents.faction_of(c.id)
+	if faction != "":
+		# Its faction's talent tree, one tap away.
+		var fchip := Kit.card_button(Kit.chip(Talents.NAMES[faction] + " talents", Talents.COLORS[faction]), func(): shell.go("faction", {"id": faction}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
+		fchip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		shell.mark("detail_faction", fchip)
+		side.add_child(fchip)
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	root.add_child(Kit.hbox(16, [CritterIcon.make(c.id, b.tier, 220, true), side], BoxContainer.ALIGNMENT_CENTER))
