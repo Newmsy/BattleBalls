@@ -1,6 +1,6 @@
 ## Game flow: pick balls -> aim -> watch the fight -> result.
 ## URL params on the web build skip straight to a fight, e.g.
-## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2
+## ?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink
 ## Share links (see fight_link.gd) open a replay (?r=) or a challenge (?c=).
 ## A first visit with no params plays the onboarding (game/onboarding.gd);
 ## ?tutorial=1 forces it, ?tutorial=0 skips it.
@@ -8,6 +8,7 @@ extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Arenas := preload("res://sim/arenas.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 const Backend := preload("res://game/online/backend.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
@@ -61,6 +62,10 @@ var player_type := "vampire"
 var opponent_choice := OPPONENT_RANDOM
 var opponent_type := "laser"
 var seed_value := 1
+## Arena forced by a share link, a board fight or ?arena= (url_arena);
+## empty means the seed picks it, like the opponent.
+var arena_override := ""
+var url_arena := ""
 var aim := -450 ## Player launch angle, tenths of a degree.
 var foe_aim = null ## Opponent launch angle, or null to let the seed pick it.
 var link_error := ""
@@ -250,7 +255,7 @@ func _set_aim_preview() -> void:
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
-	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim]}
+	return {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena()}
 
 
 func _show_menu() -> void:
@@ -269,7 +274,7 @@ func _refresh_menu() -> void:
 	for id in player_buttons:
 		player_buttons[id].button_pressed = id == player_type
 	new_seed_button.disabled = mode == Mode.CHALLENGE
-	seed_label.text = "Seed %d" % seed_value
+	seed_label.text = "Seed %d, %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
 	for id in player_buttons:
@@ -283,6 +288,7 @@ func _refresh_menu() -> void:
 		info_label.text = "CHALLENGE! Your friend's %s has its shot lined up. Pick a ball and beat it." % \
 			BallDefs.get_def(opponent_type).display_name
 	arena.preview_types = [player_type, _pick_opponent()]
+	arena.preview_arena = _pick_arena()
 	arena.queue_redraw()
 	_report_menu.call_deferred()
 
@@ -447,7 +453,8 @@ func _show_result() -> void:
 
 
 func _report_code() -> String:
-	return "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
+	var code := "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
+	return code if _pick_arena() == "square" else code + "." + _pick_arena()
 
 
 # --- Save and online ----------------------------------------------------------
@@ -777,6 +784,13 @@ func _update_hud() -> void:
 	hud_label.text = "%s %d   |   %s   |   %d %s" % [tags[0], maxi(0, ceili(a.hp)), clock, maxi(0, ceili(b.hp)), tags[1]]
 
 
+## The seed picks the arena too, independently of the opponent it picks.
+func _pick_arena() -> String:
+	if arena_override != "":
+		return arena_override
+	return Arenas.PLAYABLE[posmod(("arena:%d" % seed_value).hash(), Arenas.PLAYABLE.size())]
+
+
 func _cycle_speed() -> void:
 	speed_index = (speed_index + 1) % SPEEDS.size()
 	speed_button.text = "Speed %sx" % _speed_text()
@@ -900,6 +914,7 @@ func _play_normal() -> void:
 	opponent_choice = OPPONENT_RANDOM
 	mode = Mode.NORMAL
 	foe_aim = null
+	arena_override = url_arena
 	rival = {}
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("history.replaceState(null, '', location.pathname)")
@@ -917,6 +932,7 @@ func _watch_board_fight(f: Dictionary) -> void:
 	seed_value = f.seed
 	aim = f.angles[0]
 	foe_aim = f.angles[1]
+	arena_override = f.get("arena", "square")
 	_board_pick = f.pick
 	_start_fight()
 
@@ -1274,8 +1290,8 @@ func _link_base() -> String:
 ## one can add them as a friend.
 func _share_url(kind: String) -> String:
 	var angles := sim.launch_angles
-	var code := FightLink.challenge_code(player_type, seed_value, angles[0]) if kind == "c" \
-		else FightLink.replay_code(player_type, opponent_type, seed_value, angles[0], angles[1])
+	var code := FightLink.challenge_code(player_type, seed_value, angles[0], _pick_arena()) if kind == "c" \
+		else FightLink.replay_code(player_type, opponent_type, seed_value, angles[0], angles[1], _pick_arena())
 	var url := FightLink.url(_link_base(), kind, code)
 	var mine := str(friends.me.get("code", ""))
 	return url + "&f=" + mine if mine != "" else url
@@ -1381,6 +1397,9 @@ func _read_url_params() -> Dictionary:
 		opponent_type = params.p2
 		url_picks = true
 	backend.disabled = params.get("offline", "") == "1"
+	if params.get("arena", "") in Arenas.PLAYABLE:
+		url_arena = params.arena
+		arena_override = url_arena
 	if params.has("seed") and params.seed.is_valid_int():
 		seed_value = int(params.seed)
 	if params.has("aim") and params.aim.is_valid_int():
@@ -1409,6 +1428,7 @@ func _read_url_params() -> Dictionary:
 			seed_value = r.seed
 			aim = r.angles[0]
 			foe_aim = r.angles[1]
+			arena_override = r.arena
 			auto_start = true
 	elif params.has("c"):
 		var c := FightLink.parse_challenge(params.c)
@@ -1420,6 +1440,7 @@ func _read_url_params() -> Dictionary:
 			opponent_type = c.ball
 			seed_value = c.seed
 			foe_aim = FightLink.mirror_angle(c.aim)
+			arena_override = c.arena
 			auto_start = false
 	if mode != Mode.NORMAL:
 		url_picks = true

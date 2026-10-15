@@ -36,6 +36,9 @@ const POPUP_LIFE := 0.9
 const HIT_LIFE := 0.35
 const BURST_LIFE := 0.35
 const BLINK_PERIOD := 4.3
+const PILLAR := Color("6d79b8")
+const BUMPER := Color("ff6fae")
+const BUMPER_FLASH_LIFE := 0.2
 const BANNER_LIFE := 1.6
 ## HP share under which the badge turns red (matches the heartbeat sound).
 const LOW_HP_SHARE := 0.35
@@ -50,6 +53,8 @@ var aim_dir := Vector2.ZERO
 var ghost_dir := Vector2.ZERO
 ## Ball types to show before a sim exists (menu preview).
 var preview_types: Array = ["vampire", "laser"]
+## Arena to show before a sim exists (menu preview).
+var preview_arena := "square"
 ## Tier of each ball (stars on the badge, how big its feature grows).
 var tiers: Array = [1, 1]
 ## Where the arena sits at zoom 1; the finisher cam moves and scales from here.
@@ -71,6 +76,7 @@ var _look: Array[Vector2] = [Vector2(1, -1).normalized(), Vector2(-1, 1).normali
 var _hit := [0.0, 0.0]
 var _squash := [0.0, 0.0]
 var _eye_flash := [0.0, 0.0]
+var _bumper_flash := 0.0
 ## Field pole spin: eases 0 (Pull) <-> 1 (Push) after each flip.
 var _pole_swap := [0.0, 0.0]
 var _fx_rng := RandomNumberGenerator.new()
@@ -107,6 +113,7 @@ func clear_effects() -> void:
 	_hit = [0.0, 0.0]
 	_squash = [0.0, 0.0]
 	_eye_flash = [0.0, 0.0]
+	_bumper_flash = 0.0
 	_pole_swap = [0.0, 0.0]
 	_banner = 0.0
 	_was_overtime = false
@@ -148,6 +155,9 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_squash[e.ball] = maxf(_squash[e.ball], 0.15)
 				if not A11y.reduced_motion:
 					_eye_flash[e.ball] = 0.3
+			"bumper":
+				_bumper_flash = BUMPER_FLASH_LIFE
+				_spawn_particles(e.pos, 6)
 			"end":
 				for b in sim.balls:
 					if not b.alive():
@@ -170,6 +180,7 @@ func advance_effects(delta: float) -> void:
 		_hit[i] = maxf(0.0, _hit[i] - delta)
 		_squash[i] = maxf(0.0, _squash[i] - delta)
 		_eye_flash[i] = maxf(0.0, _eye_flash[i] - delta)
+	_bumper_flash = maxf(0.0, _bumper_flash - delta)
 	if sim:
 		for b in sim.balls:
 			_pole_swap[b.index] = move_toward(_pole_swap[b.index], 0.0 if b.state.get("pulling", true) else 1.0, delta / 0.25)
@@ -213,20 +224,32 @@ func _draw() -> void:
 	var shake := Vector2(_fx_rng.randf_range(-1, 1), _fx_rng.randf_range(-1, 1)) * _shake if _shake > 0.0 else Vector2.ZERO
 	draw_set_transform(shake)
 	var full := Rect2(Vector2.ZERO, Vector2.ONE * MatchSim.ARENA_SIZE * s)
-	var arena := full
-	var overtime := false
-	if sim:
-		var r := sim.arena_rect()
-		arena = Rect2(r.position * s, r.size * s)
-		overtime = sim.in_overtime()
+	# The menu has no fight yet; a fresh sim gives the arena's starting shape.
+	var shape: MatchSim = sim if sim else MatchSim.new({"arena": preview_arena})
+	var r := shape.arena_rect()
+	var arena := Rect2(r.position * s, r.size * s)
+	var overtime := shape.in_overtime()
 	if overtime:
 		_rounded_rect(full, 14.0, Color(0.35, 0.05, 0.12, 0.35))
-	_rounded_rect(arena, 14.0, ARENA_FILL)
-	_draw_grid(arena)
 	var border := OVERTIME_BORDER if overtime else BORDER
-	for i in 4:
-		_rounded_rect_outline(arena.grow(i * 2.0), 14.0 + i * 2.0, Color(border, 0.22 - i * 0.05), 4.0)
-	_rounded_rect_outline(arena, 14.0, border, 2.5)
+	var outline := shape.arena_outline()
+	if outline.size() == 4:
+		_rounded_rect(arena, 14.0, ARENA_FILL)
+		_draw_grid(arena)
+		for i in 4:
+			_rounded_rect_outline(arena.grow(i * 2.0), 14.0 + i * 2.0, Color(border, 0.22 - i * 0.05), 4.0)
+		_rounded_rect_outline(arena, 14.0, border, 2.5)
+	else:
+		for i in outline.size():
+			outline[i] *= s
+		draw_colored_polygon(outline, ARENA_FILL)
+		_draw_grid(arena, outline)
+		var closed := outline.duplicate()
+		closed.append(outline[0])
+		for i in 4:
+			draw_polyline(closed, Color(border, 0.22 - i * 0.05), 4.0 + i * 4.0, true)
+		draw_polyline(closed, border, 2.5, true)
+	_draw_obstacles(shape.obstacles())
 
 	if sim == null:
 		for i in 2:
@@ -336,16 +359,48 @@ func _ghost_arrow(b, s: float) -> void:
 	draw_colored_polygon(PackedVector2Array([to * s, (to - ghost_dir * 46.0 + side * 30.0) * s, (to - ghost_dir * 46.0 - side * 30.0) * s]), col)
 
 
-func _draw_grid(r: Rect2) -> void:
+## Grid lines across `r`, clipped to the convex `clip` outline when given.
+func _draw_grid(r: Rect2, clip := PackedVector2Array()) -> void:
 	var step := 80.0 * view_scale
 	var x := r.position.x + step
 	while x < r.end.x - 1.0:
-		draw_line(Vector2(x, r.position.y), Vector2(x, r.end.y), GRID, 1.0)
+		_grid_line(Vector2(x, r.position.y), Vector2(x, r.end.y), clip)
 		x += step
 	var y := r.position.y + step
 	while y < r.end.y - 1.0:
-		draw_line(Vector2(r.position.x, y), Vector2(r.end.x, y), GRID, 1.0)
+		_grid_line(Vector2(r.position.x, y), Vector2(r.end.x, y), clip)
 		y += step
+
+
+func _grid_line(a: Vector2, b: Vector2, clip: PackedVector2Array) -> void:
+	if clip.is_empty():
+		draw_line(a, b, GRID, 1.0)
+		return
+	var hits := Geometry2D.clip_polyline_with_polygon(PackedVector2Array([a, b]), clip)
+	for part in hits:
+		if part.size() >= 2:
+			draw_line(part[0], part[part.size() - 1], GRID, 1.0)
+
+
+func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
+	var s := view_scale
+	for o in obstacles:
+		var p: Vector2 = o.pos * s
+		var rad: float = o.radius * s
+		if o.kind == "bumper":
+			var k := _bumper_flash / BUMPER_FLASH_LIFE
+			var col := BUMPER.lerp(Color.WHITE, k * 0.7)
+			draw_circle(p, rad, Color(BUMPER, 0.16 + 0.3 * k))
+			for i in 3:
+				draw_arc(p, rad + i * 3.0, 0, TAU, 56, Color(col, 0.3 - i * 0.08), 4.0 + i * 3.0, true)
+			draw_arc(p, rad, 0, TAU, 56, col, 2.5, true)
+			draw_circle(p, rad * 0.42, col)
+		else:
+			draw_circle(p + Vector2(3, 5), rad, Color(0, 0, 0, 0.35))
+			draw_circle(p, rad, PILLAR.darkened(0.6))
+			draw_circle(p + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(PILLAR, 0.25))
+			draw_arc(p, rad + 3.0, 0, TAU, 56, Color(BORDER, 0.2), 6.0, true)
+			draw_arc(p, rad, 0, TAU, 56, PILLAR.lightened(0.2), 2.5, true)
 
 
 ## One critter at `pos` (screen space) with radius `r`. Squash, wince, blink

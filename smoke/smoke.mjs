@@ -548,6 +548,16 @@ try {
     await page.screenshot({ path: path.join(shots, "18-spire-after.png") });
     await page.close();
   }
+
+  // 12. Every non-square arena boots, draws and finishes a fight.
+  for (const [i, arena] of ["rink", "pillars", "bumpers"].entries()) {
+    const { page, logs } = await openGame(`?p1=vampire&p2=laser&seed=42&auto=1&speed=4&arena=${arena}`);
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, `${23 + i}-arena-${arena}.png`) });
+    console.log(`arena ${arena}:`, await waitForLog(logs, "MATCH_END", 90000));
+    await page.close();
+  }
 } catch (e) {
   errors.push(String(e.stack ?? e));
 } finally {
