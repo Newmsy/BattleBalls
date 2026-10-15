@@ -1,3 +1,11 @@
+-- The live project already has this migration's objects: it ran there under
+-- its old file name before the rename that unblocked `supabase db push`
+-- (PR #64). So it only runs where they're missing (a fresh database).
+do $mig$ begin
+if to_regclass('public.friendships') is not null then
+  return;
+end if;
+execute $body$
 -- Friends v1: friend codes, requests, energy gifts, preset pings and rival
 -- records (re-fighting a friend's saved Ghost Arena lineup, unranked).
 --
@@ -371,3 +379,6 @@ end;
 $$;
 revoke all on function public.record_rival_fight(uuid, smallint) from public, anon;
 grant execute on function public.record_rival_fight(uuid, smallint) to authenticated;
+
+$body$;
+end $mig$;
