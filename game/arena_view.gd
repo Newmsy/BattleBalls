@@ -227,9 +227,12 @@ func clear_effects() -> void:
 	_pole_swap = [0.0, 0.0]
 	_banner = 0.0
 	_was_overtime = false
+	_look = [Vector2(1, -1).normalized(), Vector2(-1, 1).normalized()]
 	if sim:
 		for b in sim.balls:
-			_look[b.index] = b.vel.normalized()
+			if b.index < _look.size():
+				_look[b.index] = b.vel.normalized()
+		_fit_slots() # balls past the first two (a Splitter's minis) get their slots back
 
 
 ## Per-ball effect slots for balls that joined mid-fight (a Splitter's minis).

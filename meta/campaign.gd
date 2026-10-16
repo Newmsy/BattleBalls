@@ -81,7 +81,7 @@ static func team_for(profile, size: int) -> Array:
 
 ## Spends energy and returns the relay config (sim/relay.gd) for a stage in a
 ## pairs or trios zone, your `picks` (critter ids) in order against the stage's
-## enemies on the zone's arena. Your aims are null for the caller to fill in.
+## enemies on the stage's arena (the zone's unless the stage names one). Your aims are null for the caller to fill in.
 ## Returns {error: "..."} like start().
 static func start_team(profile, zone_index: int, stage_index: int, picks: Array, now: int) -> Dictionary:
 	if not is_unlocked(profile, zone_index, stage_index):
@@ -98,7 +98,7 @@ static func start_team(profile, zone_index: int, stage_index: int, picks: Array,
 		sizes[-1] = Zones.BOSS_SIZE
 	return {
 		"seed": _seed(profile.runs, zone_index, stage_index),
-		"arena": Zones.zone(zone_index).get("arena", "square"),
+		"arena": st.get("arena", Zones.zone(zone_index).get("arena", "square")),
 		"sides": [picks.duplicate(), foes.duplicate()],
 		"aims": [picks.map(func(_p): return null), foes.map(func(_e): return null)],
 		"powers": [slots.map(func(s): return Lineup.power(s)), foes.map(func(_e): return float(st.power))],
