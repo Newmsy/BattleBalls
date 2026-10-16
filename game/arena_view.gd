@@ -326,6 +326,12 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_particles.append({"pos": m.pos + Vector2(0, -m.radius * 1.3), "vel": _rand_dir() * _fx_rng.randf_range(80.0, 260.0), "age": 0.0, "life": 0.4})
 			"pulse", "boom":
 				var pk: String = e.get("kind", "")
+				if pk == "tide": # Ripple's T5 wave rolling out from the wall.
+					_fx.append({"kind": "splash", "pos": e.pos, "radius": e.radius, "age": 0.0, "life": BattleFx.SPLASH_LIFE, "seed": _fx_rng.randf() * TAU})
+					_burst(e.pos, 16, [Color("bff8ff"), Color.WHITE, BattleFx.WATER], Vector2(200.0, 460.0), Vector2.ZERO, TAU, Vector2(3.0, 6.0), 80.0)
+				elif pk == "honey": # Honey's T5 sting on a stuck foe.
+					_add_popup(e.pos + Vector2(-30, -70), "STING!", BattleFx.HONEY)
+					_burst(e.pos, 12, [BattleFx.HONEY, Color("ffe08a")], Vector2(80.0, 240.0), Vector2.ZERO, TAU, Vector2(4.0, 7.0))
 				if pk == "ping": # Sonar: ripples of sound.
 					_fx.append({"kind": "sonar", "pos": e.pos, "radius": e.radius, "age": 0.0, "life": BattleFx.SONAR_LIFE})
 				elif pk == "paint": # Painter's paint dries with a splat.
@@ -517,6 +523,9 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_spawn_particles(e.to, 10)
 				_bursts.append({"pos": e.to, "age": 0.0, "spark": {}, "seed": 0.0})
 				_squash[g.index] = 0.25
+			"heard": # Sonar T5 has heard the foe: a sound mark on it.
+				_add_popup(e.pos + Vector2(-34, -80), "HEARD!", BattleFx.SONAR)
+				_fx.append({"kind": "sonar", "pos": e.pos, "radius": 90.0, "age": 0.0, "life": BattleFx.SONAR_LIFE})
 			"yank":
 				_fx.append({"kind": "hook", "ball": e.ball, "target": e.target, "age": 0.0, "life": BattleFx.HOOK_LIFE})
 				if e.big:
