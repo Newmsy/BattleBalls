@@ -66,12 +66,41 @@ const ZONES := [
 			{"enemy": "laser", "enemies": ["zapper", "laser"], "power": 2.6, "boss": true, "name": "Overclocked Optic"},
 		],
 	},
+	## Zone 3, Frostbite Caves: trios. An icy rink with icicle-spike stages
+	## mixed in; Frost foes (Chill's chilling hits, Drizzle's rain, Yeti and
+	## Mammoth bulk, Blizz storms) backed by Sea critters, ending in a giant
+	## Glacier Chill.
+	{
+		"id": "frostbite_caves",
+		"name": "Frostbite Caves",
+		"lineup": 3,
+		"arena": "rink",
+		"color": "a8e6ff",
+		"twist": "Icy rink and icicle spikes",
+		"boss": "Glacier Chill",
+		"icon": "frost",
+		"featured": ["frost", "drizzle", "bubbles", "puff", "shelly", "fin"],
+		"rare_bonus": ["yeti", "gust"],
+		"boss_reward": "blizz",
+		"stages": [
+			{"enemy": "frost", "enemies": ["frost", "drizzle", "bubbles"], "power": 2.75},
+			{"enemy": "drizzle", "enemies": ["drizzle", "puff", "frost"], "power": 2.85},
+			{"enemy": "yeti", "enemies": ["yeti", "frost", "shelly"], "power": 2.95, "arena": "spikes"},
+			{"enemy": "gust", "enemies": ["gust", "drizzle", "fin"], "power": 3.05},
+			{"enemy": "yeti", "enemies": ["yeti", "gust", "ripple"], "power": 3.15, "arena": "spikes"},
+			{"enemy": "blizz", "enemies": ["blizz", "frost", "clam"], "power": 3.25},
+			{"enemy": "pounce", "enemies": ["pounce", "gust", "yeti"], "power": 3.35, "arena": "spikes"},
+			{"enemy": "mammoth", "enemies": ["mammoth", "drizzle", "ink"], "power": 3.45},
+			{"enemy": "blizz", "enemies": ["blizz", "pounce", "yeti"], "power": 3.55, "arena": "spikes"},
+			{"enemy": "mammoth", "enemies": ["mammoth", "gust", "narwhal"], "power": 3.7},
+			{"enemy": "frost", "enemies": ["yeti", "blizz", "frost"], "power": 3.85, "boss": true, "name": "Glacier Chill", "arena": "spikes"},
+		],
+	},
 ]
 
 ## Zones on the world map that aren't built yet (pve.md section 3, glitch.md
 ## bosses). When one is built it moves into ZONES with its stages.
 const COMING := [
-	{"id": "frostbite_caves", "name": "Frostbite Caves", "lineup": 3, "color": "a8e6ff", "twist": "Ice patches", "boss": "Glacier Chill"},
 	{"id": "bramble_hollow", "name": "Bramble Hollow", "lineup": 3, "color": "9bd84a", "twist": "Thorn walls", "boss": "Thornking Bramble"},
 	{"id": "haunted_arcade", "name": "Haunted Arcade", "lineup": 3, "color": "c77dff", "twist": "Portals", "boss": "Wisp Swarm"},
 	{"id": "starfall_rim", "name": "Starfall Rim", "lineup": 3, "color": "ffd23d", "twist": "Shrinking arena", "boss": "Void Titan"},
