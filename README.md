@@ -422,6 +422,11 @@ GODOT=godot tools/ci/live_e2e.sh                                     # both, as 
 docker build -f server/Dockerfile -t battleballs-live .              # the image Azure will run
 ```
 
+CI's `live_server` job builds and smoke-starts the image on every PR; on `main` it
+pushes it to GitHub Packages (`ghcr.io/newmsy/battleballs-live`) and, once the
+`AZURE_*` secrets exist, rolls it out to the Azure Container App `battleballs-live`
+(one-time setup: design/azure-live-server-setup.md in the project files).
+
 Players only meet on the same `sim_version` (`sim/sim_version.gd`, a hash of
 `sim/`; exports carry it in `sim_version.txt`). The web build's `?probe=1` and
 `tools/probe.gd` print a hash over a varied fight set; the smoke test fails if
