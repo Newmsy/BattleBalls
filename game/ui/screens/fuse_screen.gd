@@ -16,10 +16,10 @@ static func build(shell, params: Dictionary) -> Control:
 	var p = shell.profile
 	var ready: Array = p.ready_to_fuse()
 	var sel: Dictionary = {}
-	for s in ready:
-		if s.id == params.get("id", "") and s.tier == params.get("tier", 0):
-			sel = s
-	if sel.is_empty() and not ready.is_empty():
+	var at := find(ready, params.get("id", ""), params.get("tier", 0))
+	if at >= 0:
+		sel = ready[at]
+	elif not ready.is_empty():
 		sel = ready[0]
 
 	var root := Kit.vbox(18)
@@ -38,20 +38,28 @@ static func build(shell, params: Dictionary) -> Control:
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 		var row := Kit.hbox(12)
+		var sel_card: Control = null
 		for s in ready:
 			var on: bool = s == sel
 			var v := Kit.vbox(2, [CritterIcon.make(s.id, s.tier, 96), Kit.label(Roster.get_critter(s.id).name, 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 				_center(Glyph.make("stars", 20, Kit.FG, s.tier)), Kit.label("x%d copies" % s.count, 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
-			var card := Kit.card_button(v, func(): shell.refresh_with({"id": s.id, "tier": s.tier}), Kit.GOOD if on else Kit.LINE, Kit.PANEL, 28, 8)
+			var card := Kit.card_button(v, func(): shell.refresh_with({"id": s.id, "tier": s.tier, "x": scroll.scroll_horizontal}), Kit.GOOD if on else Kit.LINE, Kit.PANEL, 28, 8)
+			if on:
+				sel_card = card
 			card.custom_minimum_size.x = 160
 			shell.mark("ready_%s_%d" % [s.id, s.tier], card)
 			row.add_child(card)
 		scroll.add_child(row)
 		scroll.custom_minimum_size.y = row.get_combined_minimum_size().y
 		list.add_child(scroll)
+		# Keep your place in a long list: same scroll as before, selected card in view.
+		scroll.ready.connect(func(): _restore_x(scroll, int(params.get("x", 0)), sel_card))
 	root.add_child(list)
 
 	var lab := _lab(sel)
+	lab.set_meta("ready", ready)
+	if list.get_child_count() > 1 and list.get_child(1) is ScrollContainer:
+		lab.set_meta("scroll", list.get_child(1))
 	root.add_child(lab)
 
 	if not sel.is_empty():
@@ -151,7 +159,47 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		btn.disabled = false
 		for conn in btn.pressed.get_connections():
 			btn.pressed.disconnect(conn.callable)
-		btn.pressed.connect(func(): shell.refresh_with({})))
+		var old: Array = lab.get_meta("ready", [])
+		btn.pressed.connect(func():
+			var sc: ScrollContainer = lab.get_meta("scroll", null)
+			var next := pick_after_fuse(old, shell.profile.ready_to_fuse(), sel)
+			next["x"] = sc.scroll_horizontal if is_instance_valid(sc) else 0
+			shell.refresh_with(next)))
+
+
+## Index of the id/tier stack in a ready list, or -1.
+static func find(ready: Array, id: String, tier: int) -> int:
+	for i in ready.size():
+		if ready[i].id == id and ready[i].tier == tier:
+			return i
+	return -1
+
+
+## Which stack to select after fusing `sel`: the same one while it still has
+## 3+ copies, else the one that came after it in the list, else the one now at
+## its old place (the end of the list if it was last).
+static func pick_after_fuse(old: Array, now: Array, sel: Dictionary) -> Dictionary:
+	if now.is_empty():
+		return {}
+	if find(now, sel.id, sel.tier) >= 0:
+		return {"id": sel.id, "tier": sel.tier}
+	var i := find(old, sel.id, sel.tier)
+	for j in range(i + 1, old.size()):
+		var k := find(now, old[j].id, old[j].tier)
+		if k >= 0:
+			return {"id": now[k].id, "tier": now[k].tier}
+	var s: Dictionary = now[clampi(i, 0, now.size() - 1)]
+	return {"id": s.id, "tier": s.tier}
+
+
+static func _restore_x(scroll: ScrollContainer, at: int, card: Control) -> void:
+	await scroll.get_tree().process_frame
+	await scroll.get_tree().process_frame
+	if not is_instance_valid(scroll):
+		return
+	scroll.scroll_horizontal = at
+	if is_instance_valid(card):
+		scroll.ensure_control_visible(card)
 
 
 static func _kv(k: String, v: String, good := false) -> Control:
