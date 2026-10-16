@@ -10,6 +10,7 @@ const Arenas := preload("res://sim/arenas.gd")
 const Rng := preload("res://sim/rng.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const DMath := preload("res://sim/dmath.gd")
 
 const FLOORS := 50
 ## Monday 2026-01-05 00:00 UTC, week 0 (same epoch as game/liveops.gd).
@@ -52,7 +53,7 @@ static func is_boss(floor_no: int) -> bool:
 
 
 static func power_at(floor_no: int) -> float:
-	return POWER_START * pow(POWER_STEP, floor_no - 1)
+	return POWER_START * DMath.ipow(POWER_STEP, floor_no - 1)
 
 
 ## The floor's fight seed and enemy lineup.
@@ -125,7 +126,7 @@ static func reward(floor_no: int) -> Dictionary:
 static func display_tier(power: float, rarity_mult: float) -> int:
 	for t in range(5, 1, -1):
 		var mid_level := 1.0 + 0.025 * (t * 5 - 1)
-		if rarity_mult * pow(1.25, t - 1) * mid_level <= power:
+		if rarity_mult * DMath.ipow(1.25, t - 1) * mid_level <= power:
 			return t
 	return 1
 

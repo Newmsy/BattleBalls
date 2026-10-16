@@ -116,7 +116,7 @@ static func apply_to_def(def: Dictionary, id: String) -> Dictionary:
 	# A gentler root than the beam's: these critters' whole kit is ability
 	# damage, and the square root left Spectra over Chill 75% here.
 	if ability != 1.0:
-		var boost := pow(ability, 0.25)
+		var boost := sqrt(sqrt(ability)) # ability ^ 0.25 without pow(), see sim/dmath.gd
 		for key in out:
 			var k := String(key)
 			if k in ["contact_damage", "beam_damage", "heal_ratio", "spike_damage", "slam_damage"]:

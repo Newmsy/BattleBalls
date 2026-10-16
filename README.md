@@ -408,6 +408,10 @@ density (`export_presets.cfg` head include). Keep it that way:
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
   frame-rate-dependent logic in `sim/`. Use `sim/rng.gd`.
+- Fights must also match across platforms (desktop, web, phones): no built-in
+  `sin`/`cos`/`atan2`/`pow` or `Vector2.from_angle`/`rotated`/`angle`/`angle_to`
+  in `sim/`, since each platform's maths library rounds them differently. Use
+  `sim/dmath.gd`; `tests/test_determinism.gd` fails otherwise.
 - If a change alters the outcome of a golden replay, re-record it with
   `tools/record_golden.gd` and say so in the PR as an intended balance change.
 - Balance follows [BALANCE.md](BALANCE.md): power beats counters, no equal-power
