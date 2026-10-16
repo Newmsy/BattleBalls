@@ -25,7 +25,7 @@ const CRITTER := {
 		{"text": "Yanks harder (260)", "yank_impulse": 260.0},
 		{"text": "Yanked foes take +8", "yank_bonus": 8.0},
 		{"text": "Yanks harder (300)", "yank_impulse": 300.0},
-		{"text": "Every 4th bounce is a big reel-in that slows", "yank_big_every": 4},
+		{"text": "Every 2nd bounce is a big reel-in that slows", "yank_big_every": 2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "smirk"}, "back": ["hook"], "front": ["bandana"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 0.95},

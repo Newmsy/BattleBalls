@@ -26,7 +26,7 @@ const CRITTER := {
 		{"text": "+12% per bump (wound in 3)", "wind_step": 0.12},
 		{"text": "Fully wound: +2 contact damage", "wind_add": 2.0},
 		{"text": "Winds up to +48%", "wind_cap": 0.48},
-		{"text": "The unwind hits x2.4", "wind_crit": 2.4},
+		{"text": "Winds +16% per bump and the unwind hits x2.6", "wind_crit": 2.6, "wind_step": 0.16},
 	],
 	"chaos": {"glass_cannon": {"wind_step": 0.7}}, ## Glass Cannon bumps hurt more, so each wind-up is worth more
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "flat"}, "back": ["gears", "key"]},
