@@ -389,6 +389,21 @@ godot --headless --script res://tools/talent_check.gd -- --fights=40 --per=4   #
 `Talents.STRENGTH` scales every node; the check wants each faction's full tree
 to win 55-80% against the same critter bare (it landed 60-74%).
 
+## Performance (phones, battery)
+
+The web build draws a frame only when something on screen changed
+(`OS.low_processor_usage_mode`, web only), and caps the canvas at 2x pixel
+density (`export_presets.cfg` head include). Keep it that way:
+- Anything that redraws every frame (`_process` + `queue_redraw`) must stop
+  when hidden or off screen; one hidden redraw makes the whole screen redraw.
+  Idle menu animations redraw at 20 fps (`game/ui/critter_icon.gd`).
+- Godot 4.3 builds a fresh vertex buffer for every polygon, polyline and
+  circle on every redraw. In fight and critter drawing use `game/dot.gd`:
+  `Dot.circle` (textured quad), `Dot.poly` (batched triangles), `Dot.arc` and
+  `Dot.pline` (short strokes as batched lines). Static art goes on a canvas
+  item that isn't redrawn each frame (the arena floor layer in `arena_view.gd`).
+- `?perf=1` logs a `PERF` line every 2s: frames drawn, fps, draw calls.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or

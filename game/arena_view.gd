@@ -3,6 +3,7 @@
 ## of each step. Effects use their own RNG and never feed back into the sim.
 extends Node2D
 
+const Dot := preload("res://game/dot.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
@@ -769,35 +770,14 @@ func _draw() -> void:
 	var shape: MatchSim = sim if sim else MatchSim.new({"arena": preview_arena})
 	var r := shape.arena_rect()
 	var arena := Rect2(r.position * s, r.size * s)
-	var overtime := shape.in_overtime()
-	if overtime:
-		_rounded_rect(full, 14.0, Color(0.35, 0.05, 0.12, 0.35))
 	var theme := ArenaTheme.get_theme(shape.arena_id)
 	_pillar = Color(theme.pillar)
-	var border := OVERTIME_BORDER if overtime else Color(theme.border)
-	var fill := Color(theme.fill)
-	_grid = Color(Color(theme.grid), 0.08)
 	var outline := shape.arena_outline()
-	if outline.size() == 4:
-		_rounded_rect(arena, 14.0, fill)
-		_draw_glows(theme, shape, PackedVector2Array())
-		_draw_grid(arena)
-		_draw_ambient(theme.ambient, arena, PackedVector2Array())
-		for i in 4:
-			_rounded_rect_outline(arena.grow(i * 2.0), 14.0 + i * 2.0, Color(border, 0.22 - i * 0.05), 4.0)
-		_rounded_rect_outline(arena, 14.0, border, 2.5)
-	else:
-		for i in outline.size():
-			outline[i] *= s
-		draw_colored_polygon(outline, fill)
-		_draw_glows(theme, shape, outline)
-		_draw_grid(arena, outline)
-		_draw_ambient(theme.ambient, arena, outline)
-		var closed := outline.duplicate()
-		closed.append(outline[0])
-		for i in 4:
-			draw_polyline(closed, Color(border, 0.22 - i * 0.05), 4.0 + i * 4.0, true)
-		draw_polyline(closed, border, 2.5, true)
+	for i in outline.size():
+		outline[i] *= s
+	_paint_floor_if_changed(shape, outline)
+	_floor.position = shake
+	_draw_ambient(theme.ambient, arena, PackedVector2Array() if outline.size() == 4 else outline)
 	_draw_floors(shape.floors())
 	_draw_wells(shape.wells())
 	_draw_spike_walls(shape)
@@ -883,7 +863,7 @@ func _draw() -> void:
 
 	for k in _rings:
 		var t: float = k.age / RING_LIFE
-		draw_arc(k.pos * s, k.radius * s * (0.3 + 0.7 * sqrt(t)), 0.0, TAU, 64, Color(k.color, 0.8 * (1.0 - t)), 6.0 * (1.0 - t) + 1.0, true)
+		Dot.arc(self, k.pos * s, k.radius * s * (0.3 + 0.7 * sqrt(t)), 0.0, TAU, 64, Color(k.color, 0.8 * (1.0 - t)), 6.0 * (1.0 - t) + 1.0, true)
 	for k in _rays:
 		var t: float = k.age / k.life
 		var col: Color = RAY_COLORS.get(k.kind, BEAM)
@@ -918,7 +898,7 @@ func _draw() -> void:
 	if aim_dir != Vector2.ZERO:
 		var b := sim.balls[0]
 		for i in 12:
-			draw_circle(b.pos * s + aim_dir * (b.radius + 40.0 + i * 38.0) * s, 5.0, Color(TEAM_COLORS[0], 1.0 - i / 12.0))
+			Dot.circle(self, b.pos * s + aim_dir * (b.radius + 40.0 + i * 38.0) * s, 5.0, Color(TEAM_COLORS[0], 1.0 - i / 12.0))
 
 	if ghost_dir != Vector2.ZERO:
 		_ghost_arrow(sim.balls[0], s)
@@ -929,7 +909,7 @@ func _draw() -> void:
 		var t: float = w.age / w.life
 		var target: Vector2 = ball_pos(sim.balls[w.to])
 		var p: Vector2 = w.from.lerp(target, t * t)
-		draw_circle(p * s, 6.0 * (1.0 - t) + 2.0, Color(1.0, 0.2, 0.35, 0.8 * (1.0 - t)))
+		Dot.circle(self, p * s, 6.0 * (1.0 - t) + 2.0, Color(1.0, 0.2, 0.35, 0.8 * (1.0 - t)))
 
 	for b in sim.balls:
 		if not b.alive():
@@ -969,8 +949,8 @@ func _draw() -> void:
 		var a: float = 1.0 - p.age / p.life
 		var pc: Color = p.get("col", Color.WHITE)
 		var ps: float = p.get("size", 2.0)
-		draw_circle(p.pos * s, ps * 2.0, Color(pc, a * 0.3))
-		draw_circle(p.pos * s, ps, Color(pc, a))
+		Dot.circle(self, p.pos * s, ps * 2.0, Color(pc, a * 0.3))
+		Dot.circle(self, p.pos * s, ps, Color(pc, a))
 	for k in _chomps:
 		BattleFx.draw_chomp(self, k.pos * s, k.dir, k.size * s, k.age)
 	for k in _novas:
@@ -1008,6 +988,72 @@ func _draw() -> void:
 	if _banner > 0.0:
 		_draw_banner(full)
 
+
+# --- Floor layer -------------------------------------------------------------
+
+## The arena floor (fill, glow pools, grid and border) only changes when the
+## arena's shape or the overtime colour does, so it lives on its own canvas
+## item that keeps its drawing between frames instead of being rebuilt every
+## frame. Ambient motion and everything on top still draw each frame.
+class _FloorLayer extends Node2D:
+	func _draw() -> void:
+		get_parent()._paint_floor(self)
+
+
+var _floor: Node2D
+var _floor_key := []
+var _floor_shape: MatchSim
+var _floor_outline := PackedVector2Array()
+var _cv: CanvasItem = self ## Where the shared draw helpers draw: this node or the floor layer.
+
+
+func _paint_floor_if_changed(shape: MatchSim, outline: PackedVector2Array) -> void:
+	if _floor == null:
+		_floor = _FloorLayer.new()
+		_floor.show_behind_parent = true
+		add_child(_floor)
+	var key := [shape.arena_id, outline, shape.in_overtime(), view_scale, shape.arena_scale()]
+	_floor_shape = shape
+	_floor_outline = outline
+	if key != _floor_key:
+		_floor_key = key
+		_floor.queue_redraw()
+
+
+func _paint_floor(cv: CanvasItem) -> void:
+	if _floor_shape == null:
+		return
+	_cv = cv
+	var s := view_scale
+	var shape := _floor_shape
+	var full := Rect2(Vector2.ZERO, Vector2.ONE * MatchSim.ARENA_SIZE * s)
+	var r := shape.arena_rect()
+	var arena := Rect2(r.position * s, r.size * s)
+	var overtime := shape.in_overtime()
+	if overtime:
+		_rounded_rect(full, 14.0, Color(0.35, 0.05, 0.12, 0.35))
+	var theme := ArenaTheme.get_theme(shape.arena_id)
+	var border := OVERTIME_BORDER if overtime else Color(theme.border)
+	var fill := Color(theme.fill)
+	_grid = Color(Color(theme.grid), 0.08)
+	var outline := _floor_outline
+	if outline.size() == 4:
+		_rounded_rect(arena, 14.0, fill)
+		_draw_glows(theme, shape, PackedVector2Array())
+		_draw_grid(arena)
+		for i in 4:
+			_rounded_rect_outline(arena.grow(i * 2.0), 14.0 + i * 2.0, Color(border, 0.22 - i * 0.05), 4.0)
+		_rounded_rect_outline(arena, 14.0, border, 2.5)
+	else:
+		Dot.poly(cv, outline, fill)
+		_draw_glows(theme, shape, outline)
+		_draw_grid(arena, outline)
+		var closed := outline.duplicate()
+		closed.append(outline[0])
+		for i in 4:
+			Dot.pline(cv, closed, Color(border, 0.22 - i * 0.05), 4.0 + i * 4.0, true)
+		Dot.pline(cv, closed, border, 2.5, true)
+	_cv = self
 
 ## OVERTIME call-out across the arena, so the cue reads with the sound off.
 func _draw_banner(full: Rect2) -> void:
@@ -1053,7 +1099,7 @@ func _ghost_arrow(b, s: float) -> void:
 		draw_line((from + ghost_dir * dash) * s, (from + ghost_dir * minf(dash + 22.0, 270.0)) * s, col, 6.0, true)
 		dash += 38.0
 	var side := ghost_dir.orthogonal()
-	draw_colored_polygon(PackedVector2Array([to * s, (to - ghost_dir * 46.0 + side * 30.0) * s, (to - ghost_dir * 46.0 - side * 30.0) * s]), col)
+	Dot.poly(self, PackedVector2Array([to * s, (to - ghost_dir * 46.0 + side * 30.0) * s, (to - ghost_dir * 46.0 - side * 30.0) * s]), col)
 
 
 ## Grid lines across `r`, clipped to the convex `clip` outline when given.
@@ -1071,12 +1117,12 @@ func _draw_grid(r: Rect2, clip := PackedVector2Array()) -> void:
 
 func _grid_line(a: Vector2, b: Vector2, clip: PackedVector2Array) -> void:
 	if clip.is_empty():
-		draw_line(a, b, _grid, 1.0)
+		_cv.draw_line(a, b, _grid, 1.0)
 		return
 	var hits := Geometry2D.clip_polyline_with_polygon(PackedVector2Array([a, b]), clip)
 	for part in hits:
 		if part.size() >= 2:
-			draw_line(part[0], part[part.size() - 1], _grid, 1.0)
+			_cv.draw_line(part[0], part[part.size() - 1], _grid, 1.0)
 
 
 func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
@@ -1091,17 +1137,17 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 		elif o.kind == "bumper":
 			var k := _bumper_flash / BUMPER_FLASH_LIFE
 			var col := BUMPER.lerp(Color.WHITE, k * 0.7)
-			draw_circle(p, rad, Color(BUMPER, 0.16 + 0.3 * k))
+			Dot.circle(self, p, rad, Color(BUMPER, 0.16 + 0.3 * k))
 			for i in 3:
-				draw_arc(p, rad + i * 3.0, 0, TAU, 56, Color(col, 0.3 - i * 0.08), 4.0 + i * 3.0, true)
-			draw_arc(p, rad, 0, TAU, 56, col, 2.5, true)
-			draw_circle(p, rad * 0.42, col)
+				Dot.arc(self, p, rad + i * 3.0, 0, TAU, 56, Color(col, 0.3 - i * 0.08), 4.0 + i * 3.0, true)
+			Dot.arc(self, p, rad, 0, TAU, 56, col, 2.5, true)
+			Dot.circle(self, p, rad * 0.42, col)
 		else:
-			draw_circle(p + Vector2(3, 5), rad, Color(0, 0, 0, 0.35))
-			draw_circle(p, rad, _pillar.darkened(0.6))
-			draw_circle(p + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(_pillar, 0.25))
-			draw_arc(p, rad + 3.0, 0, TAU, 56, Color(_pillar.lightened(0.3), 0.25), 6.0, true)
-			draw_arc(p, rad, 0, TAU, 56, _pillar.lightened(0.2), 2.5, true)
+			Dot.circle(self, p + Vector2(3, 5), rad, Color(0, 0, 0, 0.35))
+			Dot.circle(self, p, rad, _pillar.darkened(0.6))
+			Dot.circle(self, p + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(_pillar, 0.25))
+			Dot.arc(self, p, rad + 3.0, 0, TAU, 56, Color(_pillar.lightened(0.3), 0.25), 6.0, true)
+			Dot.arc(self, p, rad, 0, TAU, 56, _pillar.lightened(0.2), 2.5, true)
 
 
 ## Soft pools of light on the floor in the arena's theme colours.
@@ -1118,9 +1164,9 @@ func _draw_glows(theme: Dictionary, shape, clip: PackedVector2Array) -> void:
 			if not clip.is_empty():
 				var parts := Geometry2D.intersect_polygons(pts, clip)
 				for part in parts:
-					draw_colored_polygon(part, Color(col, 0.025))
+					Dot.poly(_cv, part, Color(col, 0.025))
 			else:
-				draw_colored_polygon(pts, Color(col, 0.025))
+				Dot.poly(_cv, pts, Color(col, 0.025))
 
 
 func _circle_points(c: Vector2, r: float, n: int) -> PackedVector2Array:
@@ -1175,8 +1221,8 @@ func _draw_ambient(kind: String, r: Rect2, clip: PackedVector2Array) -> void:
 			continue
 		var a := 0.35 + 0.25 * sin(t * 2.3 + i)
 		if kind in ["stars", "fireflies", "wisps", "sparks", "embers"]:
-			draw_circle(at, size * 2.6, Color(col, a * 0.18))
-		draw_circle(at, size, Color(col, a))
+			Dot.circle(self, at, size * 2.6, Color(col, a * 0.18))
+		Dot.circle(self, at, size, Color(col, a))
 
 
 ## Floor pads: ice, honey, lava, conveyor belts and portals.
@@ -1188,29 +1234,29 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 			"ice":
 				var c: Vector2 = f.pos * s
 				var r: float = f.radius * s
-				draw_circle(c, r, Color(ICE, 0.12))
-				draw_arc(c, r, 0, TAU, 72, Color(ICE, 0.55), 2.5, true)
-				draw_arc(c, r - 6.0, 0, TAU, 72, Color(ICE, 0.15), 6.0, true)
+				Dot.circle(self, c, r, Color(ICE, 0.12))
+				Dot.arc(self, c, r, 0, TAU, 72, Color(ICE, 0.55), 2.5, true)
+				Dot.arc(self, c, r - 6.0, 0, TAU, 72, Color(ICE, 0.15), 6.0, true)
 				for j in 6: # Cracks in the ice.
 					var a := j * TAU / 6.0 + 0.4
 					var mid := c + Vector2.from_angle(a) * r * 0.45 + Vector2.from_angle(a + 1.2) * r * 0.08
-					draw_polyline(PackedVector2Array([c + Vector2.from_angle(a) * r * 0.12, mid, c + Vector2.from_angle(a + 0.15) * r * 0.85]), Color(ICE, 0.25), 1.5, true)
+					Dot.pline(self, PackedVector2Array([c + Vector2.from_angle(a) * r * 0.12, mid, c + Vector2.from_angle(a + 0.15) * r * 0.85]), Color(ICE, 0.25), 1.5, true)
 				var sheen := fmod(_time * 0.25, 1.0) # A glint sweeping across.
-				draw_arc(c, r * 0.7, -2.2 + sheen * 2.0, -1.7 + sheen * 2.0, 16, Color(1, 1, 1, 0.3), 3.0, true)
+				Dot.arc(self, c, r * 0.7, -2.2 + sheen * 2.0, -1.7 + sheen * 2.0, 16, Color(1, 1, 1, 0.3), 3.0, true)
 			"goo":
 				var c: Vector2 = f.pos * s
 				var r: float = f.radius * s
-				draw_circle(c, r, Color(GOO, 0.22))
+				Dot.circle(self, c, r, Color(GOO, 0.22))
 				for j in 7: # Honeycomb cells.
 					var off := Vector2.ZERO if j == 0 else Vector2.from_angle(j * TAU / 6.0) * r * 0.5
 					var hex := PackedVector2Array()
 					for q in 7:
 						hex.append(c + off + Vector2.from_angle(q * TAU / 6.0 + TAU / 12.0) * r * 0.27)
-					draw_polyline(hex, Color(GOO, 0.4), 1.5, true)
-				draw_arc(c, r, 0, TAU, 60, Color(GOO, 0.75), 3.0, true)
+					Dot.pline(self, hex, Color(GOO, 0.4), 1.5, true)
+				Dot.arc(self, c, r, 0, TAU, 60, Color(GOO, 0.75), 3.0, true)
 				for j in 5: # Drips wobbling on the rim.
 					var a := j * TAU / 5.0 + _time * 0.2
-					draw_circle(c + Vector2.from_angle(a) * r, r * (0.08 + 0.02 * sin(_time * 2.0 + j)), Color(GOO, 0.7))
+					Dot.circle(self, c + Vector2.from_angle(a) * r, r * (0.08 + 0.02 * sin(_time * 2.0 + j)), Color(GOO, 0.7))
 			"lava":
 				_draw_lava(f, s)
 			"conveyor":
@@ -1226,7 +1272,7 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 				while x < rr.end.x:
 					if x > rr.position.x + 4.0 and x + h * 0.6 < rr.end.x - 4.0:
 						var tip := x + h * 0.6 * dir.x
-						draw_polyline(PackedVector2Array([Vector2(x, mid - h), Vector2(tip, mid), Vector2(x, mid + h)]), Color(CONVEYOR, 0.75), 4.0, true)
+						Dot.pline(self, PackedVector2Array([Vector2(x, mid - h), Vector2(tip, mid), Vector2(x, mid + h)]), Color(CONVEYOR, 0.75), 4.0, true)
 					x += step
 				for edge in [rr.position.y + 3.0, rr.end.y - 3.0]: # Hazard stripes.
 					var sx := rr.position.x
@@ -1240,12 +1286,12 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 				if portal_no % 2 == 1:
 					col = col.lerp(Color.WHITE, 0.25)
 				portal_no += 1
-				draw_circle(c, r, Color(col.darkened(0.7), 0.85))
+				Dot.circle(self, c, r, Color(col.darkened(0.7), 0.85))
 				for j in 3:
 					var a := _time * (2.0 + j) + j * 2.0
-					draw_arc(c, r * (0.45 + j * 0.2), a, a + 4.0, 32, Color(col, 0.6 - j * 0.12), 3.0, true)
-				draw_arc(c, r, 0, TAU, 56, col, 3.0, true)
-				draw_arc(c, r + 5.0, 0, TAU, 56, Color(col, 0.25), 8.0, true)
+					Dot.arc(self, c, r * (0.45 + j * 0.2), a, a + 4.0, 32, Color(col, 0.6 - j * 0.12), 3.0, true)
+				Dot.arc(self, c, r, 0, TAU, 56, col, 3.0, true)
+				Dot.arc(self, c, r + 5.0, 0, TAU, 56, Color(col, 0.25), 8.0, true)
 
 
 func _draw_lava(f: Dictionary, s: float) -> void:
@@ -1257,21 +1303,21 @@ func _draw_lava(f: Dictionary, s: float) -> void:
 		for j in n:
 			var y := rr.position.y + rr.size.y * fmod(j / float(n) + _time * 0.05, 1.0)
 			var bub := 0.5 + 0.5 * sin(_time * 3.0 + j * 1.9)
-			draw_circle(Vector2(rr.position.x + rr.size.x * (0.3 + 0.4 * fmod(j * 0.618, 1.0)), y), rr.size.x * 0.18 * bub, Color("ffd166", 0.7))
+			Dot.circle(self, Vector2(rr.position.x + rr.size.x * (0.3 + 0.4 * fmod(j * 0.618, 1.0)), y), rr.size.x * 0.18 * bub, Color("ffd166", 0.7))
 		draw_rect(rr, Color("ffb347"), false, 2.0)
 		return
 	var c: Vector2 = f.pos * s
 	var r: float = f.radius * s
-	draw_circle(c, r, Color("5a1405"))
-	draw_circle(c, r * 0.92, Color(LAVA, 0.6))
-	draw_circle(c, r * 0.6, Color("ff8a3d", 0.5 + 0.1 * sin(_time * 2.0)))
+	Dot.circle(self, c, r, Color("5a1405"))
+	Dot.circle(self, c, r * 0.92, Color(LAVA, 0.6))
+	Dot.circle(self, c, r * 0.6, Color("ff8a3d", 0.5 + 0.1 * sin(_time * 2.0)))
 	for j in 7: # Bubbles that swell and pop.
 		var ph := fmod(_time * 0.6 + j * 0.37, 1.0)
 		var at := c + Vector2.from_angle(j * 2.4) * r * (0.25 + 0.55 * fmod(j * 0.618, 1.0))
-		draw_circle(at, r * 0.09 * ph, Color("ffd166", 0.8 * (1.0 - ph)))
-		draw_arc(at, r * 0.09 * ph, 0, TAU, 16, Color("fff0b3", 0.6 * (1.0 - ph)), 1.5, true)
-	draw_arc(c, r, 0, TAU, 72, Color("ffb347"), 2.5, true)
-	draw_arc(c, r + 4.0, 0, TAU, 72, Color(LAVA, 0.3), 8.0, true)
+		Dot.circle(self, at, r * 0.09 * ph, Color("ffd166", 0.8 * (1.0 - ph)))
+		Dot.arc(self, at, r * 0.09 * ph, 0, TAU, 16, Color("fff0b3", 0.6 * (1.0 - ph)), 1.5, true)
+	Dot.arc(self, c, r, 0, TAU, 72, Color("ffb347"), 2.5, true)
+	Dot.arc(self, c, r + 4.0, 0, TAU, 72, Color(LAVA, 0.3), 8.0, true)
 
 
 ## Gravity wells: a dark core, a spiral swirling in and rings flowing inward.
@@ -1280,8 +1326,8 @@ func _draw_wells(wells: Array[Dictionary]) -> void:
 	for w in wells:
 		var c: Vector2 = w.pos * s
 		var reach: float = w.reach * s
-		draw_circle(c, reach, Color(WELL, 0.05))
-		draw_arc(c, reach, 0.0, TAU, 72, Color(WELL, 0.22), 2.0, true)
+		Dot.circle(self, c, reach, Color(WELL, 0.05))
+		Dot.arc(self, c, reach, 0.0, TAU, 72, Color(WELL, 0.22), 2.0, true)
 		_draw_inflow(c, w.core * s * 1.4, reach, WELL, 0.35)
 		for arm in 3: # A three-armed spiral, turning slowly.
 			var pts := PackedVector2Array()
@@ -1289,10 +1335,10 @@ func _draw_wells(wells: Array[Dictionary]) -> void:
 				var f := j / 23.0
 				var a := arm * TAU / 3.0 + f * 2.6 - _time * 1.4
 				pts.append(c + Vector2.from_angle(a) * lerpf(reach * 0.9, w.core * s, f))
-			draw_polyline(pts, Color(WELL, 0.3), 3.0, true)
-		draw_circle(c, w.core * s * 1.6, Color(WELL_CORE, 0.9))
-		draw_arc(c, w.core * s * 1.6, 0.0, TAU, 40, WELL, 2.5, true)
-		draw_circle(c, w.core * s * 0.7, Color(WELL, 0.25 + 0.15 * sin(_time * 3.0)))
+			Dot.pline(self, pts, Color(WELL, 0.3), 3.0, true)
+		Dot.circle(self, c, w.core * s * 1.6, Color(WELL_CORE, 0.9))
+		Dot.arc(self, c, w.core * s * 1.6, 0.0, TAU, 40, WELL, 2.5, true)
+		Dot.circle(self, c, w.core * s * 0.7, Color(WELL, 0.25 + 0.15 * sin(_time * 3.0)))
 
 
 ## The spiked stretch of the left and right walls: a row of glowing teeth.
@@ -1312,15 +1358,15 @@ func _draw_spike_walls(shape) -> void:
 		for t in teeth:
 			var y0 := top + t * tooth
 			var tri := PackedVector2Array([Vector2(x, y0) * s, Vector2(x - side * tooth * 0.75, y0 + tooth * 0.5) * s, Vector2(x, y0 + tooth) * s])
-			draw_colored_polygon(tri, Color(SPIKE.darkened(0.45), 0.95))
-			draw_polyline(PackedVector2Array([tri[0], tri[1], tri[2]]), col, 2.0, true)
+			Dot.poly(self, tri, Color(SPIKE.darkened(0.45), 0.95))
+			Dot.pline(self, PackedVector2Array([tri[0], tri[1], tri[2]]), col, 2.0, true)
 
 
 ## A Spike Yard post: a dark core ringed with glowing spikes.
 func _draw_spike_post(p: Vector2, rad: float) -> void:
 	var k := _spike_flash / BUMPER_FLASH_LIFE
 	var col := SPIKE.lerp(Color.WHITE, k * 0.6)
-	draw_circle(p + Vector2(3, 5), rad, Color(0, 0, 0, 0.35))
+	Dot.circle(self, p + Vector2(3, 5), rad, Color(0, 0, 0, 0.35))
 	var n := 10
 	var spin := _time * 0.25
 	for i in n:
@@ -1328,12 +1374,12 @@ func _draw_spike_post(p: Vector2, rad: float) -> void:
 		var tip := p + Vector2.from_angle(a) * rad * 1.28
 		var l := p + Vector2.from_angle(a - 0.24) * rad * 0.82
 		var rr := p + Vector2.from_angle(a + 0.24) * rad * 0.82
-		draw_colored_polygon(PackedVector2Array([l, tip, rr]), Color(SPIKE.darkened(0.4), 0.95))
-		draw_polyline(PackedVector2Array([l, tip, rr]), col, 2.0, true)
-	draw_circle(p, rad * 0.85, Color("2a0f22"))
-	draw_arc(p, rad * 0.85 + 3.0, 0, TAU, 48, Color(SPIKE, 0.2 + 0.3 * k), 6.0, true)
-	draw_arc(p, rad * 0.85, 0, TAU, 48, col, 2.5, true)
-	draw_circle(p, rad * 0.3, Color(col, 0.6))
+		Dot.poly(self, PackedVector2Array([l, tip, rr]), Color(SPIKE.darkened(0.4), 0.95))
+		Dot.pline(self, PackedVector2Array([l, tip, rr]), col, 2.0, true)
+	Dot.circle(self, p, rad * 0.85, Color("2a0f22"))
+	Dot.arc(self, p, rad * 0.85 + 3.0, 0, TAU, 48, Color(SPIKE, 0.2 + 0.3 * k), 6.0, true)
+	Dot.arc(self, p, rad * 0.85, 0, TAU, 48, col, 2.5, true)
+	Dot.circle(self, p, rad * 0.3, Color(col, 0.6))
 
 
 ## One critter at `pos` (screen space) with radius `r`. Squash, wince, blink
@@ -1348,7 +1394,7 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var squash := Transform2D(Vector2(1.0 - sq * 0.6, 0), Vector2(0, 1.0 + sq * 0.5), Vector2.ZERO)
 	draw_set_transform_matrix(Transform2D(0, pos + shake) * Transform2D(ang, Vector2.ZERO) * squash * Transform2D(-ang, Vector2.ZERO))
 
-	draw_circle(Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
+	Dot.circle(self, Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
 	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
 	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": _tier_of(i), "look": look, "blink": blink,
@@ -1403,17 +1449,17 @@ func _cosmetic(i: int, slot: String) -> Dictionary:
 func _team_ring(i: int, pos: Vector2, r: float, col: Color) -> void:
 	var a := TEAM_RING_ALPHA
 	if i == 0:
-		draw_arc(pos, r + 5.0, 0, TAU, 64, Color(col, a), 2.0, true)
+		Dot.arc(self, pos, r + 5.0, 0, TAU, 64, Color(col, a), 2.0, true)
 		return
 	var dashes := 16
 	var gap := TAU / dashes
 	for k in dashes:
-		draw_arc(pos, r + 5.0, k * gap, k * gap + gap * 0.5, 6, Color(col, a), 2.0, true)
+		Dot.arc(self, pos, r + 5.0, k * gap, k * gap + gap * 0.5, 6, Color(col, a), 2.0, true)
 	for k in 4:
 		var d := Vector2.from_angle(PI / 4.0 + k * PI / 2.0)
 		var side := d.orthogonal()
 		var base := pos + d * (r + 4.0)
-		draw_colored_polygon(PackedVector2Array([base + side * 3.5, base + d * 9.0, base - side * 3.5]), Color(col, a))
+		Dot.poly(self, PackedVector2Array([base + side * 3.5, base + d * 9.0, base - side * 3.5]), Color(col, a))
 
 
 ## A field (Flux's magnet): faint rings flowing in (Pull) or out (Push) so
@@ -1427,7 +1473,7 @@ func _draw_field(m, s: float) -> void:
 		if pulling:
 			f = 1.0 - f
 		var rad: float = lerpf(m.radius * 1.3, reach, f)
-		draw_arc(m.pos * s, rad * s, 0.0, TAU, 64, Color(col, 0.28 * (1.0 - f)), 3.0, true)
+		Dot.arc(self, m.pos * s, rad * s, 0.0, TAU, 64, Color(col, 0.28 * (1.0 - f)), 3.0, true)
 
 
 ## Floor zones: mines blink until they blow; trails and patches fade out.
@@ -1455,13 +1501,13 @@ func _draw_zone(z, s: float) -> void:
 		"mine":
 			var armed: bool = z.armed()
 			if armed:
-				draw_arc(p, z.blast_radius * s, 0.0, TAU, 40, Color(MINE, 0.12), 2.0, true)
-			draw_circle(p, 16.0 * s, Color("2b3a67"))
-			draw_arc(p, 16.0 * s, 0.0, TAU, 20, Color("10162b"), 2.0, true)
+				Dot.arc(self, p, z.blast_radius * s, 0.0, TAU, 40, Color(MINE, 0.12), 2.0, true)
+			Dot.circle(self, p, 16.0 * s, Color("2b3a67"))
+			Dot.arc(self, p, 16.0 * s, 0.0, TAU, 20, Color("10162b"), 2.0, true)
 			var on := armed and fmod(_time * 3.0 + z.pos.x * 0.01, 1.0) < 0.5
-			draw_circle(p, 6.0 * s, MINE if on else Color(MINE, 0.35))
+			Dot.circle(self, p, 6.0 * s, MINE if on else Color(MINE, 0.35))
 		"ring":
-			draw_arc(p, z.radius * s, 0.0, TAU, 64, Color(ZONE_COLORS.ring, 0.6 * fade), 10.0 * s, true)
+			Dot.arc(self, p, z.radius * s, 0.0, TAU, 64, Color(ZONE_COLORS.ring, 0.6 * fade), 10.0 * s, true)
 		"stink":
 			# Rides on Whiff: lumpy green puffs with stink lines rising.
 			BattleFx.draw_stink(self, p, z.radius * s, _time)
@@ -1469,10 +1515,10 @@ func _draw_zone(z, s: float) -> void:
 			var col: Color = ZONE_COLORS.rain
 			if not z.armed():
 				# The warning: a dark circle with a dashed rim.
-				draw_circle(p, z.radius * s, Color(0.0, 0.0, 0.08, 0.35))
+				Dot.circle(self, p, z.radius * s, Color(0.0, 0.0, 0.08, 0.35))
 				for k in 12:
 					var a := k * TAU / 12.0 + _time
-					draw_arc(p, z.radius * s, a, a + TAU / 24.0, 4, Color(col, 0.8), 2.0, true)
+					Dot.arc(self, p, z.radius * s, a, a + TAU / 24.0, 4, Color(col, 0.8), 2.0, true)
 			else:
 				BattleFx.draw_rain(self, p, z.radius * s, fade, fmod(z.pos.x * 0.05, 6.28), _time, col)
 		"stardust":
@@ -1480,25 +1526,25 @@ func _draw_zone(z, s: float) -> void:
 		"paint":
 			# Wet rainbow paint: the hue walks along the trail.
 			var col := Color.from_hsv(fmod((z.pos.x + z.pos.y) * 0.0015, 1.0), 0.65, 1.0)
-			draw_circle(p, z.radius * s, Color(col, 0.3 * fade))
-			draw_circle(p, z.radius * 0.5 * s, Color(col, 0.25 * fade))
+			Dot.circle(self, p, z.radius * s, Color(col, 0.3 * fade))
+			Dot.circle(self, p, z.radius * 0.5 * s, Color(col, 0.25 * fade))
 		"pixel":
 			# Pixel's bomb: a chunky square that flickers between frames.
 			var on: bool = z.armed() and fmod(_time * 4.0 + z.pos.y * 0.01, 1.0) < 0.5
 			var half: float = 14.0 * s
 			if z.armed():
-				draw_arc(p, z.blast_radius * s, 0.0, TAU, 40, Color("7cff4f", 0.12), 2.0, true)
+				Dot.arc(self, p, z.blast_radius * s, 0.0, TAU, 40, Color("7cff4f", 0.12), 2.0, true)
 			draw_rect(Rect2(p - Vector2(half, half), Vector2(half, half) * 2.0), Color("1f4d12"))
 			draw_rect(Rect2(p - Vector2(half, half) * 0.5, Vector2(half, half)), Color("7cff4f") if on else Color("7cff4f", 0.35))
 		"clod":
 			var land: float = clampf(z.age / maxf(z.arm, 0.01), 0.0, 1.0)
-			draw_circle(p, z.radius * s * (0.4 + 0.6 * land), Color(ZONE_COLORS.clod, 0.25 + 0.5 * land))
+			Dot.circle(self, p, z.radius * s * (0.4 + 0.6 * land), Color(ZONE_COLORS.clod, 0.25 + 0.5 * land))
 		_:
 			if z.follow >= 0:
 				return # A clinging slow: the ball's own slow ring shows it.
 			var col: Color = ZONE_COLORS.get(z.kind, Color.WHITE)
-			draw_circle(p, z.radius * s, Color(col, 0.28 * fade))
-			draw_circle(p, z.radius * 0.55 * s, Color(col, 0.22 * fade))
+			Dot.circle(self, p, z.radius * s, Color(col, 0.28 * fade))
+			Dot.circle(self, p, z.radius * 0.55 * s, Color(col, 0.22 * fade))
 
 
 ## Wind streaks flowing outward (Gust); `speed` quickens them during a huff.
@@ -1508,7 +1554,7 @@ func _draw_outflow(c: Vector2, inner: float, reach: float, col: Color, alpha: fl
 		var r := lerpf(inner * 1.1, reach, f)
 		for j in 4:
 			var a := j * TAU / 4.0 + k * 0.5 + _time * 0.3
-			draw_arc(c, r, a, a + 0.7, 12, Color(col, alpha * (1.0 - f)), 3.0, true)
+			Dot.arc(self, c, r, a, a + 0.7, 12, Color(col, alpha * (1.0 - f)), 3.0, true)
 
 
 ## Projectiles in the owner's colour with a bright core. A lobbed shot arcs
@@ -1522,9 +1568,9 @@ func _draw_shot(shot, s: float) -> void:
 		var land: Vector2 = shot.land * s
 		var reach: float = maxf(shot.land_radius, shot.zone.get("radius", 40.0)) * s
 		var blink := 0.35 + 0.35 * absf(sin(_time * 10.0))
-		draw_arc(land, reach, 0.0, TAU, 48, Color(RING_COLORS.get(shot.kind, BURST), blink), 3.0, true)
-		draw_arc(land, reach * 0.25 * (1.0 - t) + 6.0, 0.0, TAU, 24, Color(RING_COLORS.get(shot.kind, BURST), blink), 2.0, true)
-		draw_circle(p, 9.0 * s, Color(0, 0, 0, 0.35))
+		Dot.arc(self, land, reach, 0.0, TAU, 48, Color(RING_COLORS.get(shot.kind, BURST), blink), 3.0, true)
+		Dot.arc(self, land, reach * 0.25 * (1.0 - t) + 6.0, 0.0, TAU, 24, Color(RING_COLORS.get(shot.kind, BURST), blink), 2.0, true)
+		Dot.circle(self, p, 9.0 * s, Color(0, 0, 0, 0.35))
 		var lift := Vector2(0, -sin(PI * t) * 150.0 * s)
 		if shot.kind == "shell" and sim.balls[shot.owner].type_id == "mortar":
 			BattleFx.draw_cannonball(self, p + lift, 15.0 * s, _time)
@@ -1533,9 +1579,9 @@ func _draw_shot(shot, s: float) -> void:
 			var liquid: Color = BattleFx.POTIONS.get(shot.zone.get("kind", "goo"), BattleFx.POTIONS.goo)
 			BattleFx.draw_potion(self, p + lift, (20.0 if shot.zone.get("kind", "") == "brew" else 13.0) * s, liquid, t * TAU * 1.5 + shot.land.x)
 			return
-		draw_circle(p + lift, 22.0 * s, Color(col, 0.35))
-		draw_circle(p + lift, 15.0 * s, col)
-		draw_circle(p + lift + Vector2(-3, -3) * s, 4.0 * s, Color.WHITE)
+		Dot.circle(self, p + lift, 22.0 * s, Color(col, 0.35))
+		Dot.circle(self, p + lift, 15.0 * s, col)
+		Dot.circle(self, p + lift + Vector2(-3, -3) * s, 4.0 * s, Color.WHITE)
 		return
 	if shot.kind == "spike":
 		BattleFx.draw_spike_shot(self, p, maxf(r, 6.0), shot.vel)
@@ -1551,9 +1597,9 @@ func _draw_shot(shot, s: float) -> void:
 		draw_line(p, p + back * r * 3.0, Color(Color("ffb347") if shot.kind == "rocket" else col, 0.6), r * 0.9, true)
 	else:
 		draw_line(p, p + back * r * 2.0, Color(col, 0.25), r * 1.2, true)
-	draw_circle(p, r * 1.6, Color(col, 0.25))
-	draw_circle(p, r, col)
-	draw_circle(p + Vector2(-0.3, -0.3) * r, r * 0.4, Color.WHITE)
+	Dot.circle(self, p, r * 1.6, Color(col, 0.25))
+	Dot.circle(self, p, r, col)
+	Dot.circle(self, p + Vector2(-0.3, -0.3) * r, r * 0.4, Color.WHITE)
 
 
 ## One orbiter or attachment (sim/abilities.gd, batch E), by its look.
@@ -1574,20 +1620,20 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 		return
 	match item.look:
 		"bug":
-			draw_circle(p, r * 2.2, Color("eaff6a", 0.18 + 0.1 * sin(_time * 8.0)))
-			draw_circle(p, r, Color("eaff6a"))
-			draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.4, Color.WHITE)
+			Dot.circle(self, p, r * 2.2, Color("eaff6a", 0.18 + 0.1 * sin(_time * 8.0)))
+			Dot.circle(self, p, r, Color("eaff6a"))
+			Dot.circle(self, p + Vector2(-r * 0.3, -r * 0.3), r * 0.4, Color.WHITE)
 		"candy":
 			var hues := [Color("ff5fa2"), Color("ffd23f"), Color("6ee7ff"), Color("a6ff6e")]
-			draw_circle(p, r * 1.3, Color(hues[int(item.get("hue", 0)) % 4], 0.25))
-			draw_circle(p, r, hues[int(item.get("hue", 0)) % 4])
-			draw_arc(p, r * 0.6, _time * 4.0, _time * 4.0 + PI, 12, Color.WHITE, 2.0, true)
+			Dot.circle(self, p, r * 1.3, Color(hues[int(item.get("hue", 0)) % 4], 0.25))
+			Dot.circle(self, p, r, hues[int(item.get("hue", 0)) % 4])
+			Dot.arc(self, p, r * 0.6, _time * 4.0, _time * 4.0 + PI, 12, Color.WHITE, 2.0, true)
 		"wreck":
 			var big: bool = item.get("big", false)
-			draw_circle(p, r * 1.25, Color("ffe066", 0.35 if big else 0.12))
-			draw_circle(p, r, Color("3a3f45"))
-			draw_arc(p, r, 0.0, TAU, 24, Color("ffe066"), 2.5, true)
-			draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.25, Color(1, 1, 1, 0.6))
+			Dot.circle(self, p, r * 1.25, Color("ffe066", 0.35 if big else 0.12))
+			Dot.circle(self, p, r, Color("3a3f45"))
+			Dot.arc(self, p, r, 0.0, TAU, 24, Color("ffe066"), 2.5, true)
+			Dot.circle(self, p + Vector2(-r * 0.3, -r * 0.3), r * 0.25, Color(1, 1, 1, 0.6))
 		"bee":
 			var flying: bool = item.get("flying", false)
 			var dir: Vector2 = (item.pos - b.pos).orthogonal() # Circling the hive.
@@ -1596,19 +1642,19 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 				dir = (f.pos - item.pos) if f != null else dir
 			BattleFx.draw_bee(self, p, r, dir, _time + item.pos.x * 0.01, flying)
 		"tentacle":
-			draw_circle(p, r, col.lightened(0.25))
-			draw_circle(p, r * 0.45, Color("ffd6f5", 0.8))
+			Dot.circle(self, p, r, col.lightened(0.25))
+			Dot.circle(self, p, r * 0.45, Color("ffd6f5", 0.8))
 		"segment":
-			draw_circle(p, r * 1.3, Color("5ff0e6", 0.18))
-			draw_circle(p, r, col.lightened(0.15))
-			draw_arc(p, r * 0.7, 0.0, TAU, 20, Color("5ff0e6", 0.85), 2.5, true)
+			Dot.circle(self, p, r * 1.3, Color("5ff0e6", 0.18))
+			Dot.circle(self, p, r, col.lightened(0.15))
+			Dot.arc(self, p, r * 0.7, 0.0, TAU, 20, Color("5ff0e6", 0.85), 2.5, true)
 		"yoyo":
-			draw_circle(p, r, Color(col, 0.55))
-			draw_arc(p, r, 0.0, TAU, 24, Color("7ff3ff", 0.8), 2.0, true)
+			Dot.circle(self, p, r, Color(col, 0.55))
+			Dot.arc(self, p, r, 0.0, TAU, 24, Color("7ff3ff", 0.8), 2.0, true)
 		_:
-			draw_circle(p, r + 4.0 * s, Color("d9d4ff", 0.25))
-			draw_circle(p, r, Color("d9d4ff"))
-			draw_circle(p + Vector2(-3, -3) * s, r * 0.4, Color.WHITE)
+			Dot.circle(self, p, r + 4.0 * s, Color("d9d4ff", 0.25))
+			Dot.circle(self, p, r, Color("d9d4ff"))
+			Dot.circle(self, p + Vector2(-3, -3) * s, r * 0.4, Color.WHITE)
 
 
 ## Clods of dirt thrown up (Mole digging in or bursting out).
@@ -1656,12 +1702,12 @@ func _draw_fx(k: Dictionary, s: float) -> void:
 func _draw_dive(b, s: float) -> void:
 	for k in 3:
 		var a := _time * 6.0 + k * TAU / 3.0
-		draw_arc(b.pos * s, b.radius * s * (0.6 + 0.2 * k), a, a + PI * 0.9, 16, Color("5ff0e6", 0.6), 3.0, true)
+		Dot.arc(self, b.pos * s, b.radius * s * (0.6 + 0.2 * k), a, a + PI * 0.9, 16, Color("5ff0e6", 0.6), 3.0, true)
 	var t: Vector2 = b.state.get("dive_target", b.pos)
 	var left: float = (int(b.state.dive_until) - sim.tick) / float(MatchSim.TICK_RATE)
 	var reach: float = b.def.get("wave_radius", 200.0)
-	draw_arc(t * s, reach * s, 0.0, TAU, 48, Color("5ff0e6", 0.25), 2.0, true)
-	draw_arc(t * s, reach * s * clampf(left / 1.2, 0.1, 1.0), 0.0, TAU, 48, Color("5ff0e6", 0.7), 3.0, true)
+	Dot.arc(self, t * s, reach * s, 0.0, TAU, 48, Color("5ff0e6", 0.25), 2.0, true)
+	Dot.arc(self, t * s, reach * s * clampf(left / 1.2, 0.1, 1.0), 0.0, TAU, 48, Color("5ff0e6", 0.7), 3.0, true)
 
 
 ## A piece a critter placed: pillars grow up out of the floor (dashed while a
@@ -1679,10 +1725,10 @@ func _draw_piece(p, s: float, shake: Vector2) -> void:
 		draw_set_transform(pos + shake)
 		CritterArt.draw_critter(self, owner.def.id, Vector2.ZERO, p.radius * s, {"t": _time, "tier": tiers[p.owner], "look": look})
 		draw_set_transform(shake)
-		draw_circle(pos, p.radius * s * 1.04, Color(ARENA_FILL, 0.45))
+		Dot.circle(self, pos, p.radius * s * 1.04, Color(ARENA_FILL, 0.45))
 		for f in 5:
 			var a := _time * 5.0 + f * TAU / 5.0
-			draw_circle(pos + Vector2(cos(a), sin(a)) * p.radius * s * 0.95, 5.0, Color("6fb7ff", 0.7 * sink))
+			Dot.circle(self, pos + Vector2(cos(a), sin(a)) * p.radius * s * 0.95, 5.0, Color("6fb7ff", 0.7 * sink))
 		return
 	var cols: Array = PIECE_COLORS.get(p.kind, [PILLAR.darkened(0.6), PILLAR.lightened(0.2)])
 	if p.kind == "seed":
@@ -1696,16 +1742,16 @@ func _draw_piece(p, s: float, shake: Vector2) -> void:
 			"ice": BattleFx.draw_crystal_pillar(self, pos, p.radius * s, k, seed, _time)
 		if not p.blocking: # Still see-through: a dashed rim.
 			for d in 10:
-				draw_arc(pos, rad, d * TAU / 10.0, (d + 0.5) * TAU / 10.0, 4, Color(cols[1], 0.8), 2.0, true)
+				Dot.arc(self, pos, rad, d * TAU / 10.0, (d + 0.5) * TAU / 10.0, 4, Color(cols[1], 0.8), 2.0, true)
 		return
-	draw_circle(pos + Vector2(3, 5) * k, rad, Color(0, 0, 0, 0.3 * k))
-	draw_circle(pos, rad, Color(cols[0], 0.5 + 0.5 * k))
-	draw_circle(pos + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(cols[1], 0.25))
+	Dot.circle(self, pos + Vector2(3, 5) * k, rad, Color(0, 0, 0, 0.3 * k))
+	Dot.circle(self, pos, rad, Color(cols[0], 0.5 + 0.5 * k))
+	Dot.circle(self, pos + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(cols[1], 0.25))
 	if p.blocking:
-		draw_arc(pos, rad, 0, TAU, 40, cols[1], 2.5, true)
+		Dot.arc(self, pos, rad, 0, TAU, 40, cols[1], 2.5, true)
 	else:
 		for d in 10:
-			draw_arc(pos, rad, d * TAU / 10.0, (d + 0.5) * TAU / 10.0, 4, Color(cols[1], 0.8), 2.0, true)
+			Dot.arc(self, pos, rad, d * TAU / 10.0, (d + 0.5) * TAU / 10.0, 4, Color(cols[1], 0.8), 2.0, true)
 	match p.kind:
 		"seed", "vine":
 			for l in 2:
@@ -1740,7 +1786,7 @@ func _draw_prize_tells(b, s: float) -> void:
 			_dashed(Vector2(r.position.x, c.y) * s, Vector2(r.end.x, c.y) * s, Color(BEAM, blink))
 			_dashed(Vector2(c.x, r.position.y) * s, Vector2(c.x, r.end.y) * s, Color(BEAM, blink))
 		elif p.prize == "coins":
-			draw_arc(b.pos * s, (b.radius + b.def.prize_coin_reach) * s, 0.0, TAU, 64, Color(RAY_COLORS.coin, blink * 0.6), 2.0, true)
+			Dot.arc(self, b.pos * s, (b.radius + b.def.prize_coin_reach) * s, 0.0, TAU, 64, Color(RAY_COLORS.coin, blink * 0.6), 2.0, true)
 
 
 func _dashed(a: Vector2, b: Vector2, col: Color) -> void:
@@ -1756,7 +1802,7 @@ func _dashed(a: Vector2, b: Vector2, col: Color) -> void:
 func _draw_inflow(c: Vector2, inner: float, reach: float, col: Color, alpha: float) -> void:
 	for k in 3:
 		var f := 1.0 - fmod(_time * 0.9 + k / 3.0, 1.0)
-		draw_arc(c, lerpf(inner * 1.3, reach, f), 0.0, TAU, 64, Color(col, alpha * (1.0 - f)), 3.0, true)
+		Dot.arc(self, c, lerpf(inner * 1.3, reach, f), 0.0, TAU, 64, Color(col, alpha * (1.0 - f)), 3.0, true)
 
 
 ## Per-ball status on top of the critter: phased (faded), shield, burning.
@@ -1764,14 +1810,14 @@ func _draw_status(b, s: float) -> void:
 	var p: Vector2 = ball_pos(b) * s
 	var r: float = b.radius * s
 	if sim.tick < int(b.state.get("phase_until", -1)) and b.type_id != "leviathan":
-		draw_circle(p, r * 1.05, Color(ARENA_FILL, 0.6))
+		Dot.circle(self, p, r * 1.05, Color(ARENA_FILL, 0.6))
 	if b.shield > 0.0 and b.type_id == "vampire":
 		BattleFx.draw_blood_shield(self, p, r, _time)
 	elif b.shield > 0.0 and b.type_id == "megabot":
 		BattleFx.draw_hex_shield(self, p, r, _time, clampf(b.shield / maxf(1.0, b.def.get("salvo_shield", 10.0)), 0.0, 1.0))
 	elif b.shield > 0.0:
-		draw_arc(p, r * 1.12, 0.0, TAU, 48, Color("7fe6ff", 0.85), 4.0, true)
-		draw_arc(p, r * 1.18, 0.0, TAU, 48, Color("7fe6ff", 0.25), 6.0, true)
+		Dot.arc(self, p, r * 1.12, 0.0, TAU, 48, Color("7fe6ff", 0.85), 4.0, true)
+		Dot.arc(self, p, r * 1.18, 0.0, TAU, 48, Color("7fe6ff", 0.25), 6.0, true)
 	if not b.dots.is_empty():
 		BattleFx.draw_dots(self, BattleFx.dot_kinds(sim, b), p, r, _time)
 	match b.type_id:
@@ -1820,20 +1866,20 @@ func _draw_status(b, s: float) -> void:
 	if b.state.get("regrowing", false) and b.hp < b.max_hp: # Mossy's sparkles.
 		for k in 3:
 			var f := fmod(_time * 0.8 + k / 3.0, 1.0)
-			draw_circle(p + Vector2((k - 1) * r * 0.45, -r * (0.6 + 0.8 * f)), 4.0, Color(POP_HEAL, 0.8 * (1.0 - f)))
+			Dot.circle(self, p + Vector2((k - 1) * r * 0.45, -r * (0.6 + 0.8 * f)), 4.0, Color(POP_HEAL, 0.8 * (1.0 - f)))
 	var meter := 0.0 # Cogs' wind-up or Fizz's pressure: a filling arc.
 	if b.mods.has("wind"):
 		meter = minf(1.0, b.def.wind_step * int(b.state.get("wind", 0)) / b.def.wind_cap)
 	elif b.def.has("fizz_at"):
 		meter = int(b.state.get("pressure", 0)) / b.def.fizz_at
 	if meter > 0.0:
-		draw_arc(p, r * 1.16, -PI / 2.0, -PI / 2.0 + TAU * meter, 48, Color(b.def.color, 0.9).lightened(0.35), 4.0, true)
+		Dot.arc(self, p, r * 1.16, -PI / 2.0, -PI / 2.0 + TAU * meter, 48, Color(b.def.color, 0.9).lightened(0.35), 4.0, true)
 	if not b.statuses.is_empty() and sim.vulnerable(b) > 0.0 and _soured_by(b, "pucker"):
 		BattleFx.draw_sour(self, p, r, _time)
 	elif not b.statuses.is_empty() and sim.vulnerable(b) > 0.0:
 		for k in 5:
 			var a := k * TAU / 5.0 + 0.6
-			draw_circle(p + Vector2(cos(a), sin(a)) * r * 0.62, r * 0.09, Color(VULNERABLE, 0.55 + 0.3 * sin(_time * 6.0 + k)))
+			Dot.circle(self, p + Vector2(cos(a), sin(a)) * r * 0.62, r * 0.09, Color(VULNERABLE, 0.55 + 0.3 * sin(_time * 6.0 + k)))
 	for key in b.statuses: # Frostfang's frost creeping over the foe.
 		if str(key).begins_with("bite:") and b.statuses[key].has("stacks"):
 			var src = sim.balls[int(b.statuses[key].source)]
@@ -1862,15 +1908,15 @@ func _draw_status(b, s: float) -> void:
 	if sim.tick < int(b.state.get("marked_until", -1)):
 		# Pounce's target ring: a crosshair that tightens.
 		var k := 1.25 + 0.1 * sin(_time * 10.0)
-		draw_arc(p, r * k, 0.0, TAU, 48, Color(MARK, 0.85), 3.0, true)
+		Dot.arc(self, p, r * k, 0.0, TAU, 48, Color(MARK, 0.85), 3.0, true)
 		for q in 4:
 			var d := Vector2.from_angle(q * TAU / 4.0)
 			draw_line(p + d * r * (k - 0.2), p + d * r * (k + 0.15), Color(MARK, 0.85), 3.0, true)
 	if sim.tick < int(b.state.get("heard_until", -1)): # Sonar T5 can hear it: sound arcs pulse on it.
 		for q in 2:
 			var f := fmod(_time * 1.5 + q * 0.5, 1.0)
-			draw_arc(p, r * (1.1 + 0.5 * f), -PI * 0.35, PI * 0.35, 12, Color(BattleFx.SONAR, 0.8 * (1.0 - f)), 3.0, true)
-			draw_arc(p, r * (1.1 + 0.5 * f), PI * 0.65, PI * 1.35, 12, Color(BattleFx.SONAR, 0.8 * (1.0 - f)), 3.0, true)
+			Dot.arc(self, p, r * (1.1 + 0.5 * f), -PI * 0.35, PI * 0.35, 12, Color(BattleFx.SONAR, 0.8 * (1.0 - f)), 3.0, true)
+			Dot.arc(self, p, r * (1.1 + 0.5 * f), PI * 0.65, PI * 1.35, 12, Color(BattleFx.SONAR, 0.8 * (1.0 - f)), 3.0, true)
 	if sim.tick < int(b.state.get("dizzy_until", -1)):
 		_dizzy_stars(p, r, _time)
 	if b.charge_ticks > 0 and b.vel.length() > 0.001:
@@ -1905,35 +1951,35 @@ func _draw_forms(b, p: Vector2, r: float, s: float) -> void:
 	if full > 0 and full <= 6:
 		for k in full:
 			var at := p + Vector2((k - (full - 1) / 2.0) * 13.0, r + 52.0) # Under the team tag.
-			draw_circle(at, 4.5, Color(b.def.color, 0.9).lightened(0.4) if k < n else Color(1, 1, 1, 0.18))
+			Dot.circle(self, at, 4.5, Color(b.def.color, 0.9).lightened(0.4) if k < n else Color(1, 1, 1, 0.18))
 		if b.def.has("fire_count") and n >= full: # Drako's throat glows.
-			draw_circle(p + _look[b.index] * r * 0.55, r * 0.28, Color(ZONE_COLORS.fire, 0.45 + 0.3 * sin(_time * 18.0)))
+			Dot.circle(self, p + _look[b.index] * r * 0.55, r * 0.28, Color(ZONE_COLORS.fire, 0.45 + 0.3 * sin(_time * 18.0)))
 	if b.state.get("bubble", 0.0) > 0.0 and sim.tick < int(b.state.get("bubble_until", -1)):
 		var left: float = (int(b.state.bubble_until) - sim.tick) / maxf(1.0, b.def.bubble_secs * sim.TICK_RATE)
 		BattleFx.draw_bubble(self, p, r, _time, left)
 	if b.state.get("nova_warn", false):
 		var k := 0.5 + 0.5 * sin(_time * 30.0)
-		draw_circle(p, r * 1.3, Color("fff3c4", 0.25 + 0.35 * k))
-		draw_arc(p, b.def.nova_radius * s, 0.0, TAU, 72, Color("ffd6a5", 0.3 * k), 3.0, true)
+		Dot.circle(self, p, r * 1.3, Color("fff3c4", 0.25 + 0.35 * k))
+		Dot.arc(self, p, b.def.nova_radius * s, 0.0, TAU, 72, Color("ffd6a5", 0.3 * k), 3.0, true)
 	if MODE_COLORS.has(b.type_id) and (b.state.has("mode") or b.type_id == "eclipse"):
 		var m := int(b.state.get("mode", 0))
 		var col: Color = MODE_COLORS[b.type_id][m]
 		var both: bool = sim.tick < int(b.state.get("total_until", -1))
 		if b.type_id == "eclipse" and (m == 0 or both):
 			var reach: float = (b.radius + b.def.sun_radius) * s
-			draw_circle(p, reach, Color(col, 0.08))
+			Dot.circle(self, p, reach, Color(col, 0.08))
 			for k in 12:
 				var a := _time * 0.6 + k * TAU / 12.0
 				draw_line(p + Vector2.from_angle(a) * r * 1.08, p + Vector2.from_angle(a) * reach, Color(col, 0.35), 3.0, true)
-		draw_arc(p, r * 1.07, 0.0, TAU, 48, Color(col, 0.7), 3.0, true)
+		Dot.arc(self, p, r * 1.07, 0.0, TAU, 48, Color(col, 0.7), 3.0, true)
 
 
 ## A row of meter lights under a ball: Gearbox's gears, Pinball's bulbs.
 func _pips(c: Vector2, lit: int, total: int, col: Color) -> void:
 	for q in total:
 		var at := c + Vector2((q - (total - 1) / 2.0) * 13.0, 0)
-		draw_circle(at, 5.0, Color(col, 0.95) if q < lit else Color(INK, 0.8))
-		draw_arc(at, 5.0, 0.0, TAU, 12, Color(col, 0.6), 1.5, true)
+		Dot.circle(self, at, 5.0, Color(col, 0.95) if q < lit else Color(INK, 0.8))
+		Dot.arc(self, at, 5.0, 0.0, TAU, 12, Color(col, 0.6), 1.5, true)
 
 
 ## Puppeteer's string: a sagging glowing line from the owner to the foe.
@@ -1943,8 +1989,8 @@ func _draw_string(a: Vector2, b: Vector2) -> void:
 	for q in 13:
 		var t := q / 12.0
 		pts.append(a.lerp(b, t) + Vector2(0, sag * sin(t * PI)))
-	draw_polyline(pts, Color(STRING, 0.3), 7.0, true)
-	draw_polyline(pts, STRING, 2.5, true)
+	Dot.pline(self, pts, Color(STRING, 0.3), 7.0, true)
+	Dot.pline(self, pts, STRING, 2.5, true)
 
 
 ## Stars circling the head of a knocked-out critter.
@@ -1994,7 +2040,7 @@ func _ellipse(c: Vector2, rx: float, ry: float, col: Color) -> void:
 	for k in 24:
 		var a := TAU * k / 24.0
 		pts.append(c + Vector2(cos(a) * rx, sin(a) * ry))
-	draw_colored_polygon(pts, col)
+	Dot.poly(self, pts, col)
 
 
 func _star(c: Vector2, r_out: float, r_in: float, points: int, col: Color) -> void:
@@ -2003,7 +2049,7 @@ func _star(c: Vector2, r_out: float, r_in: float, points: int, col: Color) -> vo
 		var rr := r_in if k % 2 == 1 else r_out
 		var a := k * PI / points - PI / 2.0
 		pts.append(c + Vector2(cos(a), sin(a)) * rr)
-	draw_colored_polygon(pts, col)
+	Dot.poly(self, pts, col)
 
 
 func _rounded_rect_points(r: Rect2, radius: float) -> PackedVector2Array:
@@ -2025,13 +2071,13 @@ func _rounded_rect_points(r: Rect2, radius: float) -> PackedVector2Array:
 
 
 func _rounded_rect(r: Rect2, radius: float, col: Color) -> void:
-	draw_colored_polygon(_rounded_rect_points(r, radius), col)
+	Dot.poly(_cv, _rounded_rect_points(r, radius), col)
 
 
 func _rounded_rect_outline(r: Rect2, radius: float, col: Color, width: float) -> void:
 	var pts := _rounded_rect_points(r, radius)
 	pts.append(pts[0])
-	draw_polyline(pts, col, width, true)
+	Dot.pline(_cv, pts, col, width, true)
 
 
 func _text_centered(pos: Vector2, text: String, size: int, color: Color, outline: int) -> void:

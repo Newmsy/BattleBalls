@@ -579,6 +579,13 @@ func step() -> void:
 		_update_floors()
 	_update_zones()
 	_update_pieces()
+	var seek: float = config.get("seek", 0.0)
+	if seek > 0.0: # Gentle pull: every ball curves a little toward its nearest foe.
+		for b in balls:
+			if b.alive() and not stunned(b):
+				var f = nearest_foe(b)
+				if f != null and f.pos.distance_to(b.pos) > 0.001:
+					steer(b, (f.pos - b.pos).normalized() * seek)
 	for b in balls:
 		if not b.tal.is_empty():
 			Talents.tick(self, b)

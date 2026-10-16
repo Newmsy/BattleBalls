@@ -77,6 +77,9 @@ const PICK_ROWS_SHOWN := 2 ## More rows than this scroll.
 
 var state := State.MENU
 var mode := Mode.NORMAL
+## Gentle pull (sim config "seek"): balls curve toward their foe, so they bump
+## about 1.7x as often. Quick fight only for now.
+const QUICK_SEEK := 400.0
 var sim: MatchSim
 var player_type := "vampire"
 var opponent_choice := OPPONENT_RANDOM
@@ -196,6 +199,10 @@ static var _mode_redirected := false
 
 
 func _ready() -> void:
+	# Only draw a frame when something on screen changed: menus sit idle
+	# instead of redrawing at 60 fps (battery). The desktop loop would also
+	# sleep between frames, which the headless tests don't want.
+	OS.low_processor_usage_mode = OS.has_feature("web")
 	_rng.randomize()
 	seed_value = _rng.randi_range(1, 99999)
 	modifier = _weekend_modifier()
@@ -215,6 +222,8 @@ func _ready() -> void:
 		save.commit()
 	_apply_picks()
 	url_params = _read_url_params()
+	if url_params.has("perf"): # ?perf=1 logs frame cost to the console every 2s.
+		_perf_log()
 	# ?stats opens the owner's stats screen (game/stats/), which isn't play.
 	if url_params.has("stats"):
 		get_tree().change_scene_to_file.call_deferred("res://game/stats/stats.tscn")
@@ -287,18 +296,31 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	var covered := _sync_cover()
 	if state == State.FIGHT:
 		if _advance_fight(delta, FightSpeed.current()):
 			_show_result()
 	elif state == State.CLIP:
 		_advance_clip(delta)
-	else:
+	elif not covered:
 		arena.advance_effects(delta)
 	if _clip_wait:
 		_poll_clip()
 	if _share_pending:
 		_poll_share_status()
-	_update_hud()
+	if not covered:
+		_update_hud()
+
+
+## The home shell is opaque and full screen: while it's up, the Quick fight
+## menu (90 animated critter icons) and the arena under it are hidden, so
+## they neither update nor make the screen redraw. True while covered.
+func _sync_cover() -> bool:
+	var covered := shell_layer != null and shell_layer.visible
+	if ui.visible == covered:
+		ui.visible = not covered
+		arena_clip.visible = not covered
+	return covered
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -354,6 +376,8 @@ func _config() -> Dictionary:
 	if _is_duo():
 		cfg.p3 = _mate()
 		cfg.p4 = _foe_mate(opponent_type)
+	if mode in [Mode.NORMAL, Mode.REPLAY, Mode.CHALLENGE]:
+		cfg.seek = QUICK_SEEK # Trial: Quick fights (and their share links) only, until Newms has played it.
 	var t := _fight_tiers()
 	if t[0] > 0:
 		# Same path as the progression modes: tier ability upgrades and power.
@@ -494,6 +518,7 @@ func _refresh_menu() -> void:
 ## Logs where the menu buttons are so the smoke test can tap them ("UI_AT name x y").
 func _report_menu() -> void:
 	await get_tree().process_frame
+	_sync_cover()
 	var marks := {"menu_fight": fight_button, "aim_launch": launch_button, "tier_you": tier_buttons[0], "tier_foe": tier_buttons[1], "menu_duo": duo_button}
 	for id in player_buttons:
 		marks["pick_" + id] = player_buttons[id]
@@ -1256,6 +1281,7 @@ func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 
 
 func _show_only(box: Control) -> void:
+	_sync_cover()
 	for b in [menu_box, aim_box, fight_box, result_box]:
 		b.visible = b == box
 	aim_back_button.visible = mode != Mode.TUTORIAL
@@ -1936,6 +1962,18 @@ func _build_stamp() -> String:
 func _stamp_text() -> String:
 	var text := _build_stamp() + (" · " + account_text if account_text != "" else "")
 	return text + (" · test user %d" % backend.test_user if backend.test_user > 0 else "")
+
+
+## Dev: a PERF line every 2s (frames drawn, fps, worst frame, draw calls).
+## Menus should draw few frames; fights should keep draw calls low.
+func _perf_log() -> void:
+	var drawn := Engine.get_frames_drawn()
+	while is_inside_tree():
+		await get_tree().create_timer(2.0).timeout
+		print("PERF drawn %d/2s fps %.0f process %.1fms draws %d objects %d" % [Engine.get_frames_drawn() - drawn,
+			Performance.get_monitor(Performance.TIME_FPS), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)])
+		drawn = Engine.get_frames_drawn()
 
 
 func _read_url_params() -> Dictionary:
