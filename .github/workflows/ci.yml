@@ -264,6 +264,72 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run ci.yml --repo "${{ github.repository }}" --ref main
 
+  # The live-fight server (server/, design/live-quick-fight.md): builds its
+  # image (PRs too, so a broken Dockerfile shows before merge); on main pushes
+  # it to GitHub Packages and rolls it out to Azure Container Apps. The rollout
+  # skips (green) until the AZURE_* secrets exist.
+  live_server:
+    name: Live server image and deploy
+    needs: [test]
+    concurrency:
+      group: live-server-deploy
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and push the image
+        id: image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}-live:${GITHUB_SHA::7}"
+          docker build -f server/Dockerfile -t "$image" .
+          # The image must start and listen, not just build.
+          docker run -d --name live -p 8080:8080 -e LIVE_DEV=1 "$image"
+          for i in $(seq 1 60); do docker logs live 2>&1 | grep -q LIVE_SERVER && break; sleep 1; done
+          docker logs live 2>&1 | grep LIVE_SERVER || { docker logs live; exit 1; }
+          docker rm -f live
+          if [ "${{ github.event_name }}" != "pull_request" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "$GH_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            docker push "$image"
+            echo "push=true" >> "$GITHUB_OUTPUT"
+          fi
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+      - name: Check the Azure secrets
+        id: secrets
+        if: steps.image.outputs.push == 'true'
+        run: |
+          if [ -n "$AZURE_CLIENT_ID" ] && [ -n "$AZURE_TENANT_ID" ] && [ -n "$AZURE_SUBSCRIPTION_ID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Azure secrets not set yet: the live server image is built but not deployed."
+          fi
+      - uses: azure/login@v2
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Roll out to Azure Container Apps
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          az containerapp update --resource-group battleballs --name battleballs-live \
+            --image "${{ steps.image.outputs.image }}" \
+            --set-env-vars "SUPABASE_URL=$SUPABASE_URL" "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" \
+            --query properties.latestRevisionName -o tsv
+
   # Pushes new supabase/migrations to the live project once they are on main.
   # Skips (green) until the Supabase secrets exist.
   migrate:
