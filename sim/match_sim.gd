@@ -130,6 +130,7 @@ class Ball:
 	var dots: Array[Dictionary] = [] ## Damage over time: {source, dps, until, next}.
 	var landed_hit := false
 	var banked := false ## Bounced off a wall since its last contact hit.
+	var boon_hits := 0 ## Contact hits landed, for the Overcharge boon.
 	var boost_ticks := 0 ## Ticks of bumper speed boost left.
 	var charge_mult := 1.0 ## Speed multiplier while charging (see charge()).
 	var charge_ticks := 0 ## Ticks of charge left.
@@ -576,6 +577,11 @@ func step() -> void:
 		if not b.alive() and not b.fired.has("fall") and not foes(b).is_empty():
 			b.fired["fall"] = true
 			abilities.fire(self, "fall", b)
+		# Phoenix Feather (a Legendary Bounce Run boon): back up once per fight.
+		if not b.alive() and b.def.get("boon_revive", 0.0) > 0.0 and not b.fired.has("boon_revive") and not foes(b).is_empty():
+			b.fired["boon_revive"] = true
+			b.hp = b.max_hp * b.def.boon_revive
+			events.append({"type": "revive", "ball": b.index, "pos": b.pos, "boon": true})
 	for i in balls.size(): # A split adds balls here; they start next tick.
 		if balls[i].alive():
 			abilities.tick_triggers(self, balls[i])
@@ -965,6 +971,7 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			Talents.after_hit(self, source, target, amount, h.kind, heals)
 		if h.kind == "contact":
 			abilities.fire(self, "hit", source, {"target": target, "amount": amount, "heals": heals})
+			_boon_after_contact(source, target, amount, h.pos, hits, heals)
 		abilities.fire(self, "hurt", target, {"source": source, "amount": amount, "kind": h.kind})
 	hits.clear()
 	# Heals land after damage, so a lethal hit can't be out-healed in the same tick.
@@ -988,7 +995,25 @@ func _boon_contact_damage(source: Ball, target: Ball, amount: float) -> float:
 	if source.banked:
 		source.banked = false
 		amount *= 1.0 + source.def.get("bank_bonus", 0.0)
+	var every := int(source.def.get("overcharge", 0.0))
+	if every > 0:
+		source.boon_hits += 1
+		if source.boon_hits % every == 0:
+			amount *= 2.0
+			events.append({"type": "overcharge", "ball": source.index, "pos": source.pos})
 	return amount * (1.0 - target.def.get("contact_armor", 0.0))
+
+
+## Legendary boons that react to a landed bump: Thorn Crown hits the bumper
+## back (as "thorns", which never bounces again) and Vampire Kiss heals.
+func _boon_after_contact(source: Ball, target: Ball, amount: float, pos: Vector2, hits: Array[Dictionary], heals: Array[Dictionary]) -> void:
+	var thorns: float = target.def.get("thorns", 0.0)
+	if thorns > 0.0 and source.team != target.team:
+		hits.append({"source": target.index, "target": source.index, "amount": amount * thorns, "kind": "thorns", "pos": pos})
+		events.append({"type": "reflect", "ball": target.index, "from": target.pos, "to": source.pos})
+	var steal: float = source.def.get("lifesteal", 0.0)
+	if steal > 0.0:
+		heals.append({"ball": source.index, "amount": amount * steal})
 
 
 ## A team's HP: its starting ball's, plus what its split-off balls have left.
