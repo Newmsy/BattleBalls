@@ -124,7 +124,7 @@ func _show_intro() -> void:
 	sfx.on_menu()
 	var foes: Array = spec.enemies.map(func(e): return BallDefs.get_def(e.id).display_name)
 	lineup_label.text = "They bring: " + ", ".join(foes)
-	info_label.text = "Floor %d%s on %s. Every critter that comes out spends 1 Stamina, win or lose." % [spec.floor, " (boss)" if spec.boss else "", Arenas.get_def(spec.get("arena", "square")).display_name]
+	info_label.text = "Floor %d%s on %s." % [spec.floor, " (boss)" if spec.boss else "", Arenas.get_def(spec.get("arena", "square")).display_name]
 	sim = MatchSim.new(relay.leg_config())
 	arena.sim = sim
 	var fight := _button("FIGHT!", _next_leg, 40)

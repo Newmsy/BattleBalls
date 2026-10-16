@@ -23,7 +23,13 @@ static func build(shell, _params: Dictionary) -> Control:
 	var t := LiveOps.now()
 	var root := Kit.vbox(24)
 	var back: Control = shell.back_button("pass_back")
-	root.add_child(Kit.hbox(14, [back, Kit.label("Glow Pass", 44)], BoxContainer.ALIGNMENT_CENTER))
+	var how: Control = shell.info_button("How the Glow Pass works", [
+		"Pass XP comes from play: fights give 10-30 XP, solving the Daily Trick Shot gives %d, and bounties give more." % GlowPass.TRICK_XP,
+		"Finish %d bounties in a week to open the weekly chest (+%s XP)." % [GlowPass.CHEST_AFTER, Kit.commas(GlowPass.CHEST_XP)],
+		"The free track has every power reward. Premium adds looks and Glow Gems only, never power. Buying later unlocks everything you've already reached.",
+		"Past level 50: a bonus box every %s XP (Coins and a few gems), up to %d." % [Kit.commas(GlowPass.BONUS_XP), GlowPass.BONUS_MAX],
+	], "pass_info")
+	root.add_child(Kit.hbox(14, [back, Kit.label("Glow Pass", 44), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
 	var season: Dictionary = glow.season(t)
 	if season.is_empty():
 		root.add_child(Kit.panel(Kit.label("The next season's pass opens soon. Everything you earned stays yours.", 26, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
@@ -68,8 +74,7 @@ static func build(shell, _params: Dictionary) -> Control:
 			elif r.get("kind") == "gems":
 				n_gems += int(r.n)
 		root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Premium track", PREMIUM),
-			Kit.label("%d looks and %d Glow Gems this season. Looks only, never power: the free track has every power reward." % [n_cos, n_gems], 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
-			Kit.label("Buying later unlocks everything you've already reached.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+			Kit.label("%d looks and %d Glow Gems this season. Looks only." % [n_cos, n_gems], 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
 			Kit.hbox(12, [buy, with_gems])]), Kit.box(Color("1f1440"), Color(PREMIUM, .6), 36, 2, 24)))
 
 	# Today's bounties and the weekly chest.
@@ -94,7 +99,6 @@ static func build(shell, _params: Dictionary) -> Control:
 	elif w.chest:
 		chest_row.add_child(Kit.chip("Opened", Kit.GOOD))
 	bv.add_child(chest_row)
-	bv.add_child(Kit.label("Fights give 10-30 XP; solving the Daily Trick Shot gives %d." % GlowPass.TRICK_XP, 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	root.add_child(Kit.panel(bv, Kit.box(Kit.PANEL, Kit.LINE, 36, 2, 24)))
 
 	# Claim all.
@@ -113,7 +117,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	for l in range(1, GlowPass.LEVELS + 1):
 		list.add_child(_level_row(shell, l, level, t))
 	if level >= GlowPass.LEVELS:
-		list.add_child(Kit.label("Past level 50: a bonus box every %s XP (Coins and a few gems), up to %d. %d opened." % [Kit.commas(GlowPass.BONUS_XP), GlowPass.BONUS_MAX, ps.boxes], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+		list.add_child(Kit.label("Bonus boxes opened: %d of %d." % [ps.boxes, GlowPass.BONUS_MAX], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	root.add_child(list)
 	return root
 

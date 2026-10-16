@@ -55,8 +55,6 @@ static func build(shell, params: Dictionary) -> Control:
 		if row == 5:
 			line.add_child(Kit.spacer())
 		root.add_child(line)
-	root.add_child(Kit.label("Rows open with points spent below: %s. Stars decide which rows a critter uses." % ", ".join(Talents.ROW_GATE.slice(1).map(func(g): return str(g))),
-		18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 	return root
 
 

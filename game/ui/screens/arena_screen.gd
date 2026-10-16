@@ -39,7 +39,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	var back: Control = shell.back_button("back")
 	var how := [
-		"Your trio fights theirs in order. A winner stays in with the HP it has left. Each ball's last shot is saved for your ghost.",
+		"Your trio fights theirs in order; their order stays hidden until each ball comes out. A winner stays in with the HP it has left. Each ball's last shot is saved for your ghost.",
 		"Tap a trio slot to pick a critter you own. Each critter fits in a trio once; picking one already in it swaps the two. Best trio fills in your strongest three.",
 		"Opponents are themed teams sized to your trio's power, a little stronger the more trophies you have. Easier cards risk fewer trophies, harder ones win more. One free refresh a day.",
 		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Arena Coins for the Bazaar.",

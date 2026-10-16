@@ -497,7 +497,7 @@ func _refresh_menu() -> void:
 	for id in player_loan_tags:
 		player_loan_tags[id].visible = _is_loan(id)
 	if _is_loan(player_type):
-		info_label.text = "%s is on loan today. Practice only: loaner fights don't count for Ghost Arena or your record." % def.display_name
+		info_label.text = "%s is on loan today. Practice only." % def.display_name
 	if mode == Mode.RIVAL:
 		info_label.text = "RIVAL! %s's %s is waiting. Pick a ball and beat it (just for fun)." % \
 			[rival.name, BallDefs.get_def(opponent_type).display_name]
@@ -718,6 +718,9 @@ func _show_result() -> void:
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 	_show_only(result_box)
 	sfx.on_result(sim.winner)
+	if mode == Mode.CAMPAIGN:
+		_return_with_result()
+		return
 	if auto_clip:
 		auto_clip = false
 		_on_clip_button()
@@ -827,6 +830,18 @@ func _finish_stage() -> void:
 	pve.r = r
 	report_label.text = pve.result
 	print("STAGE_END stage=%s won=%s stars=%d drops=%d" % [Zones.stage_key(pve.zone, pve.stage), r.won, r.stars, r.drops.size()])
+
+
+## A campaign stage or Vault run has one results popup (stars, drops, XP) on
+## the screen it came from, so the arena only flashes the headline and then
+## goes straight back to it with the popup up.
+func _return_with_result() -> void:
+	report_label.text = ""
+	campaign_row.visible = false
+	var fight_sim := sim
+	await get_tree().create_timer(1.1).timeout
+	if state == State.RESULT and mode == Mode.CAMPAIGN and sim == fight_sim:
+		_back_to_campaign()
 
 
 ## Backing out of aiming. A campaign stage has already spent its energy, so
