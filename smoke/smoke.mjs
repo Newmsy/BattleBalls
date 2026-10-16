@@ -588,6 +588,13 @@ try {
   if (mine(102)) {
     const { page, logs } = await openGame("?tutorial=1");
     await waitForLog(logs, "BOOT_OK", 60000);
+    // The story prologue: tap through every line.
+    await waitForLog(logs, "UI_SCREEN onboard_story", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "22-onboard-prologue.png") });
+    for (let n = 0; n < 10 && !logs.some((l) => l.startsWith("STORY_DONE")); n++) {
+      await tapUi(page, logs, "story_next");
+    }
     await waitForLog(logs, "UI_SCREEN onboard_cold_open", 10000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "22a-onboard-cold-open.png") });
@@ -621,6 +628,13 @@ try {
     const before = logs.length;
     await tapUi(page, logs, "fuse");
     console.log("onboarding fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
+    // Chapter 1's story, skipped, then the boss it leaves behind.
+    await waitForLogAfter(logs, before, "UI_SCREEN onboard_story", 10000);
+    await tapUi(page, logs, "story_next");
+    await waitForLogAfter(logs, before, "STORY_LINE 1 glitch", 5000);
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(shots, "22h-onboard-chapter1.png") });
+    await tapUi(page, logs, "story_skip");
     await waitForLogAfter(logs, before, "UI_SCREEN onboard_boss", 10000);
     await page.screenshot({ path: path.join(shots, "22h-onboard-boss.png") });
     await tapUi(page, logs, "lets_go");

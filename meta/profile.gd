@@ -76,6 +76,8 @@ var factions := {}
 ## before it existed load as done.
 var intro := INTRO_DONE
 const INTRO_DONE := 8
+## Story chapters already played (meta/story.gd): zone ids and "prologue".
+var story: Array[String] = []
 
 
 static func new_game(now: int, starter := STARTER):
@@ -616,7 +618,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "lineup",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "factions", "intro"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "factions", "intro", "story"]
 
 
 func to_dict() -> Dictionary:
@@ -641,6 +643,9 @@ static func from_dict(d: Dictionary, now: int):
 	p.intro = clampi(int(d.get("intro", INTRO_DONE)), 0, INTRO_DONE)
 	p.free_summon = bool(d.get("free_summon", true))
 	p.seen = d.get("seen", {})
+	p.story.clear()
+	for k in d.get("story", []):
+		p.story.append(str(k))
 	p.wishlist.clear()
 	for id in d.get("wishlist", []):
 		if p.wishlist.size() < WISHLIST_MAX:
