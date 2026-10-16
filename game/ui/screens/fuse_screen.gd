@@ -174,6 +174,8 @@ class _Ring extends Control:
 	var _a := 0.0
 
 	func _process(delta: float) -> void:
+		if not is_visible_in_tree():
+			return
 		_a += delta * .35
 		queue_redraw()
 

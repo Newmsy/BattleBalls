@@ -24,6 +24,8 @@ var sim ## The fight being shown, for HP and the winner.
 
 
 func _process(delta: float) -> void:
+	if not visible:
+		return # Even a hidden card's redraw makes the whole screen redraw.
 	t += delta
 	queue_redraw()
 
