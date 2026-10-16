@@ -1186,7 +1186,7 @@ func _update_hud() -> void:
 func _pick_arena() -> String:
 	if arena_override != "":
 		return arena_override
-	return Arenas.PLAYABLE[posmod(("arena:%d" % seed_value).hash(), Arenas.PLAYABLE.size())]
+	return Arenas.pick(seed_value)
 
 
 func _skip_to_end() -> void:

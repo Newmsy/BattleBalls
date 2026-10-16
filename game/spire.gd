@@ -4,6 +4,7 @@
 ## climb file (meta/spire_climb.gd), then it's back to the Spire screen.
 extends Node2D
 
+const Arenas := preload("res://sim/arenas.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const FightHud := preload("res://game/fight_hud.gd")
@@ -123,7 +124,7 @@ func _show_intro() -> void:
 	sfx.on_menu()
 	var foes: Array = spec.enemies.map(func(e): return BallDefs.get_def(e.id).display_name)
 	lineup_label.text = "They bring: " + ", ".join(foes)
-	info_label.text = "Floor %d%s. Every critter that comes out spends 1 Stamina, win or lose." % [spec.floor, " (boss)" if spec.boss else ""]
+	info_label.text = "Floor %d%s on %s. Every critter that comes out spends 1 Stamina, win or lose." % [spec.floor, " (boss)" if spec.boss else "", Arenas.get_def(spec.get("arena", "square")).display_name]
 	sim = MatchSim.new(relay.leg_config())
 	arena.sim = sim
 	var fight := _button("FIGHT!", _next_leg, 40)

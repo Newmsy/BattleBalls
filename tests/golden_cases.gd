@@ -128,4 +128,13 @@ const CASES := [
 	{"seed": 92, "p1": "magnet", "p2": "vampire", "angles": [null, null], "arena": "wells"},
 	{"seed": 93, "p1": "vampire", "p2": "laser", "angles": [null, null], "arena": "spikes"},
 	{"seed": 94, "p1": "speedster", "p2": "spiker", "angles": [null, null], "arena": "spikes"},
+	# Map batch: floors (ice, lava, portals, belts, honey), moons, early shrink.
+	{"seed": 95, "p1": "vampire", "p2": "laser", "angles": [null, null], "arena": "frost"},
+	{"seed": 96, "p1": "juggernaut", "p2": "bubbles", "angles": [null, null], "arena": "magma"},
+	{"seed": 97, "p1": "ghost", "p2": "speedster", "angles": [null, null], "arena": "arcade"},
+	{"seed": 98, "p1": "magnet", "p2": "gust", "angles": [null, null], "arena": "factory"},
+	{"seed": 99, "p1": "vampire", "p2": "spiker", "angles": [null, null], "arena": "orbit"},
+	{"seed": 100, "p1": "honey", "p2": "laser", "angles": [null, null], "arena": "hive"},
+	{"seed": 101, "p1": "mammoth", "p2": "pollen", "angles": [null, null], "arena": "starfall"},
+	{"seed": 102, "p1": "bomber", "p2": "phoenix", "angles": [null, null], "arena": "glitch"},
 ]

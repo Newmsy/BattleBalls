@@ -5,6 +5,7 @@
 ## ArenaStore; the result goes back to it.
 extends Node2D
 
+const Arenas := preload("res://sim/arenas.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const FightHud := preload("res://game/fight_hud.gd")
@@ -68,6 +69,7 @@ func _ready() -> void:
 	var theirs := Lineup.side(slots[1])
 	relay = Relay.new({
 		"seed": int(store.pending.seed),
+		"arena": store.pending.get("arena", "square"),
 		"sides": [mine.sides, theirs.sides],
 		"aims": [mine.sides.map(func(_c): return null), ghost_aims],
 		"tiers": [mine.tiers, theirs.tiers],
@@ -139,8 +141,8 @@ func _show_intro() -> void:
 	state = State.INTRO
 	sfx.on_menu()
 	var card: Dictionary = Ladder.CARDS[store.pending.card]
-	info_label.text = "%s, an Arena Ghost at %d trophies. Their order stays hidden until each ball comes out. Win +%d, lose %d." % [
-		bot.name, bot.trophies, card.win, card.loss]
+	info_label.text = "%s, an Arena Ghost at %d trophies, on %s. Their order stays hidden until each ball comes out. Win +%d, lose %d." % [
+		bot.name, bot.trophies, Arenas.get_def(relay.config.get("arena", "square")).display_name, card.win, card.loss]
 	var foes := ArenaGhosts.critters(bot.lineup).map(func(c): return BallDefs.get_def(c).display_name)
 	foes.sort()
 	lineup_label.text = "They bring: " + ", ".join(foes)

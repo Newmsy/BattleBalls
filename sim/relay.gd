@@ -6,7 +6,7 @@
 ##
 ## Config: { seed: int, sides: [[type, ...], [type, ...]], aims: [[aim, ...], [aim, ...]],
 ##           powers: [[w, ...], [w, ...]], sizes: [[s, ...], [s, ...]],
-##           tiers: [[t, ...], [t, ...]] }
+##           tiers: [[t, ...], [t, ...]], arena: String }
 ## `aims[side][slot]` is that ball's launch angle in tenths of a degree from
 ## its own corner (screen space), or null to let the leg seed pick. A ball
 ## that stays in launches with the same aim again. `powers`, `sizes` and
@@ -70,6 +70,8 @@ func leg_config() -> Dictionary:
 		"hp": carry_hp.duplicate(),
 		"gear": [gear[0][slot[0]], gear[1][slot[1]]],
 	}
+	if config.has("arena"): # Every leg is on the same map.
+		leg.arena = config.arena
 	for key in ["powers", "sizes", "tiers", "talents"]:
 		if config.has(key):
 			leg[key] = [config[key][0][slot[0]], config[key][1][slot[1]]]

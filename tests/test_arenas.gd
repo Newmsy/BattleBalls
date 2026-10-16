@@ -38,6 +38,14 @@ func test_every_arena_is_point_symmetric() -> void:
 			var mirrored: Vector2 = c * 2.0 - w.pos
 			var found := wells.any(func(v): return v.pos.distance_to(mirrored) < 0.01 and v.reach == w.reach and v.accel == w.accel)
 			check(found, "%s well at %s has no mirror at %s" % [id, w.pos, mirrored])
+		var floors: Array = Arenas.get_def(id).get("floors", [])
+		for f in floors:
+			var here: Vector2 = f.rect.get_center() if f.has("rect") else f.pos
+			var mirrored: Vector2 = c * 2.0 - here
+			var found := floors.any(func(g):
+				var there: Vector2 = g.rect.get_center() if g.has("rect") else g.pos
+				return g.kind == f.kind and there.distance_to(mirrored) < 0.01 and (not f.has("dir") or g.dir.is_equal_approx(-f.dir)))
+			check(found, "%s %s floor at %s has no mirror" % [id, f.kind, here])
 
 
 func test_starts_are_clear_of_every_obstacle_and_corner() -> void:
@@ -136,15 +144,16 @@ func test_mirror_fights_are_even_on_every_arena() -> void:
 
 
 func test_every_critter_finishes_on_every_arena() -> void:
-	# Each critter against itself and its next two neighbours in the list, so
-	# the cost grows with the roster rather than its square.
+	# Each critter against itself and its next two neighbours in the list, one
+	# seed per arena, so the cost grows with roster + maps, not their product.
 	var ids: Array = BallDefs.PLAYABLE
-	for id in Arenas.PLAYABLE:
+	for k in Arenas.PLAYABLE.size():
+		var id: String = Arenas.PLAYABLE[k]
 		for i in ids.size():
 			for step in 3:
 				var a: String = ids[i]
 				var b: String = ids[(i + step) % ids.size()]
-				for seed_value in 3:
+				for seed_value in [k]:
 					var s := _sim(id, a, b, seed_value).run_to_end()
 					check(s.time <= MatchSim.TIME_LIMIT + 0.001, "%s %s vs %s seed %d ran past the limit" % [id, a, b, seed_value])
 					check(s.reason != "", "%s %s vs %s seed %d has no result" % [id, a, b, seed_value])
@@ -231,7 +240,7 @@ func test_a_spike_post_nicks_with_a_cooldown_and_a_cap() -> void:
 		b.spike_ready = 0
 		sim._spike(b, b.pos)
 	sim._apply_hits(sim._hits)
-	check_near(b.max_hp - b.hp, MatchSim.SPIKE_CAP * b.max_hp, 0.01, "capped at SPIKE_CAP of max HP")
+	check_near(b.max_hp - b.hp, MatchSim.HAZARD_CAP * b.max_hp, 0.01, "capped at HAZARD_CAP of max HP")
 
 
 func test_spiked_walls_only_in_the_middle() -> void:
@@ -256,3 +265,118 @@ func test_spiked_walls_only_in_the_middle() -> void:
 		safe.step()
 		spiked = spiked or safe.events.any(func(e): return e.type == "spike")
 	check(not spiked, "the ends of the wall are safe")
+
+
+func test_starts_are_off_every_floor_pad() -> void:
+	for id in Arenas.DEFS:
+		var sim := _sim(id)
+		for start in MatchSim.START_CORNERS:
+			for f in sim.floors():
+				check(not MatchSim.on_floor(f, start, 45.0), "%s start %s on a %s pad" % [id, start, f.kind])
+
+
+func test_every_playable_arena_has_a_theme_and_pick_is_seeded() -> void:
+	var Theme = load("res://game/arena_theme.gd")
+	for id in Arenas.PLAYABLE:
+		check(Theme.THEMES.has(id), "%s has a theme" % id)
+	var seen := {}
+	for seed_value in 400:
+		var id := Arenas.pick(seed_value)
+		check(id in Arenas.PLAYABLE, "pick gives a playable arena")
+		check_eq(Arenas.pick(seed_value), id, "same seed, same map")
+		seen[id] = true
+	check(seen.size() >= Arenas.PLAYABLE.size() - 2, "picks spread over the pool (%d maps seen)" % seen.size())
+
+
+## A ball parked on one side, flying `dir` from `pos` on `arena`.
+func _runner(arena: String, critter: String, pos: Vector2, dir: Vector2) -> MatchSim:
+	var sim := MatchSim.new({"seed": 1, "p1": critter, "p2": "plain", "angles": [null, null], "arena": arena})
+	_park(sim)
+	sim.balls[1].pos = Vector2(880, 120) if pos.y > 500 else Vector2(880, 880)
+	var b := sim.balls[0]
+	b.pos = pos
+	b.vel = dir * b.speed
+	return sim
+
+
+func test_ice_speeds_up_then_lets_go() -> void:
+	var sim := _runner("frost", "plain", Vector2(500, 330), Vector2.DOWN)
+	var b := sim.balls[0]
+	sim.step()
+	check_near(b.vel.length(), b.speed * MatchSim.ICE_SPEED, 0.01, "faster on the ice")
+	for i in 60:
+		sim.step()
+	check(not MatchSim.on_floor(sim.floors()[0], b.pos, b.radius * 0.5) or b.vel.length() > b.speed, "consistent")
+	sim.balls[0].pos = Vector2(150, 150)
+	sim.step()
+	check_near(b.vel.length(), b.speed, 0.01, "normal speed off the ice")
+
+
+func test_goo_slows_and_lava_burns_within_the_hazard_cap() -> void:
+	var goo := _runner("hive", "plain", Vector2(300, 300), Vector2.RIGHT)
+	var before := goo.balls[0].pos
+	goo.step()
+	check_near(goo.balls[0].pos.distance_to(before), goo.balls[0].speed * MatchSim.DT * 0.65, 0.01, "honey slows 35%")
+	var lava := _runner("magma", "plain", Vector2(160, 160), Vector2.RIGHT)
+	var b := lava.balls[0]
+	for i in 600:
+		b.pos = Vector2(160, 160)
+		lava.step()
+	check_near(b.max_hp - b.hp, MatchSim.HAZARD_CAP * b.max_hp, 0.01, "lava stops at the hazard cap")
+
+
+func test_conveyors_carry_light_critters_furthest() -> void:
+	var drift := {}
+	for critter in ["bubbles", "plain", "juggernaut"]:
+		var sim := _runner("factory", critter, Vector2(300, 320), Vector2.DOWN)
+		for i in 8:
+			sim.step()
+		drift[critter] = sim.balls[0].vel.x
+	check(drift.plain > 0.0, "the top belt pushes right")
+	check(drift.bubbles > drift.plain and drift.plain > drift.juggernaut, "lighter drifts more: %s" % drift)
+
+
+func test_portals_send_a_ball_across_with_its_velocity() -> void:
+	var sim := _runner("arcade", "plain", Vector2(240, 500), Vector2.LEFT)
+	var b := sim.balls[0]
+	var went := false
+	for i in 30:
+		sim.step()
+		if sim.events.any(func(e): return e.type == "portal"):
+			went = true
+			break
+	check(went, "the ball took the portal")
+	check(b.pos.x > 700.0, "came out on the right")
+	check(b.vel.x < 0.0, "still heading left")
+	for i in 5:
+		sim.step()
+	check(not sim.events.any(func(e): return e.type == "portal"), "no instant bounce back")
+
+
+func test_orbiting_moons_move_and_starfall_shrinks_early() -> void:
+	var sim := _sim("orbit")
+	var start: Vector2 = sim.obstacles()[0].pos
+	for i in 60:
+		sim.step()
+	check(sim.obstacles()[0].pos.distance_to(start) > 50.0, "moons move")
+	check_near(sim.obstacles()[0].pos.distance_to(sim.centre), start.distance_to(sim.centre), 0.5, "on a circle round the centre")
+	var star := _sim("starfall", "plain", "plain", 3)
+	var plain := _sim("square", "plain", "plain", 3)
+	for i in 20 * MatchSim.TICK_RATE:
+		star.step()
+		plain.step()
+		if star.finished or plain.finished:
+			break
+	check(star.half_size < MatchSim.ARENA_SIZE / 2.0, "Starfall Rim closes in by 20s")
+	check_eq(plain.half_size, MatchSim.ARENA_SIZE / 2.0, "the square doesn't")
+	check(not star.in_overtime(), "but overtime damage waits")
+
+
+func test_ghost_arena_and_spire_fights_carry_their_map() -> void:
+	var Relay = load("res://sim/relay.gd")
+	var r = Relay.new({"seed": 5, "sides": [["plain"], ["plain"]], "arena": "magma"})
+	check_eq(r.leg_config().arena, "magma", "relay legs fight on the relay's map")
+	var Spire = load("res://sim/spire.gd")
+	var spec: Dictionary = Spire.floor_def(0, 3)
+	check(spec.arena in Arenas.PLAYABLE, "spire floors roll a map")
+	check_eq(Spire.relay_config(spec, [{"id": "plain", "power": 1.0}]).arena, spec.arena, "and fight on it")

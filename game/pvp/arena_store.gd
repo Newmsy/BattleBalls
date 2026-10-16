@@ -10,6 +10,7 @@
 ## arena play; nothing sells them.
 extends RefCounted
 
+const Arenas := preload("res://sim/arenas.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -208,7 +209,7 @@ func lineup(profile = null) -> Dictionary:
 
 func start_attack(card: String, bot_id: String, seed_value: int, attack_slots: Array = []) -> void:
 	settle_abandoned()
-	pending = {"card": card, "bot_id": bot_id, "seed": seed_value,
+	pending = {"card": card, "bot_id": bot_id, "seed": seed_value, "arena": Arenas.pick(seed_value),
 		"slots": attack_slots if not attack_slots.is_empty() else slots()}
 	save()
 

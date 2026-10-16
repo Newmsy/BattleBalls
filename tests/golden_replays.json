@@ -1991,5 +1991,133 @@
     "reason": "knockout",
     "ticks": 551,
     "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "frost",
+      "p1": "vampire",
+      "p2": "laser",
+      "seed": 95
+    },
+    "hash": "382c93fec90a5a641065c054cc7245fa2faebe4994abd8f2f7da2e50ccbedacd",
+    "reason": "knockout",
+    "ticks": 1585,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "magma",
+      "p1": "juggernaut",
+      "p2": "bubbles",
+      "seed": 96
+    },
+    "hash": "bf162b56216914ec714c728ba4b25adb373f0e7e6ec73be09b7e2630b7ba022e",
+    "reason": "knockout",
+    "ticks": 1505,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "arcade",
+      "p1": "ghost",
+      "p2": "speedster",
+      "seed": 97
+    },
+    "hash": "abec78f6dab6a9e92b3447b974a52d29061af909d0443ca8aef471369c523f17",
+    "reason": "knockout",
+    "ticks": 1997,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "factory",
+      "p1": "magnet",
+      "p2": "gust",
+      "seed": 98
+    },
+    "hash": "46b8c841851d437cb772d47c2f82d080376b0a093d00971bbf916157b5a0233a",
+    "reason": "knockout",
+    "ticks": 1096,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "orbit",
+      "p1": "vampire",
+      "p2": "spiker",
+      "seed": 99
+    },
+    "hash": "4b83734ee355d19ec530752c63a40fd7bdca72ae015a4bdd35b5bf0cd78906f7",
+    "reason": "knockout",
+    "ticks": 3217,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "hive",
+      "p1": "honey",
+      "p2": "laser",
+      "seed": 100
+    },
+    "hash": "6efadad166f0427fb6a011619ecb58c64b94a60cc8021befb1e8d9e3061feaad",
+    "reason": "knockout",
+    "ticks": 1323,
+    "winner": 1
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "starfall",
+      "p1": "mammoth",
+      "p2": "pollen",
+      "seed": 101
+    },
+    "hash": "c5d7ea475a2b2b117ad7813fd145f11967feabd06b7ccdf6a93b0a3cd34b1cd6",
+    "reason": "knockout",
+    "ticks": 1491,
+    "winner": 0
+  },
+  {
+    "config": {
+      "angles": [
+        null,
+        null
+      ],
+      "arena": "glitch",
+      "p1": "bomber",
+      "p2": "phoenix",
+      "seed": 102
+    },
+    "hash": "1bea7430698be4430a862e4403cceb0ba3c858169c9e2fa3622c1907df5150d5",
+    "reason": "double_knockout",
+    "ticks": 1317,
+    "winner": 0
   }
 ]
