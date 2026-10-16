@@ -253,7 +253,7 @@ func test_zone_three_is_trios_after_the_zone_two_boss() -> void:
 	p.add_copies(["laser", "frost"])
 	var picks := Campaign.team_for(p, 3)
 	check_eq(picks.size(), 3, "a team of three")
-	check_eq(Campaign.start_team(p, 2, 0, picks, T0).get("arena"), "rink", "the zone's rink by default")
+	check_eq(Campaign.start_team(p, 2, 0, picks, T0).get("arena"), "frost", "the zone's frozen lake by default")
 	p.energy = 999
 	p.stars["3-1"] = 1
 	p.stars["3-2"] = 1

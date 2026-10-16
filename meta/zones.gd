@@ -66,7 +66,7 @@ const ZONES := [
 			{"enemy": "laser", "enemies": ["zapper", "laser"], "power": 2.6, "boss": true, "name": "Overclocked Optic"},
 		],
 	},
-	## Zone 3, Frostbite Caves: trios. An icy rink with icicle-spike stages
+	## Zone 3, Frostbite Caves: trios. A frozen lake (balls skate faster) with icicle-spike stages
 	## mixed in; Frost foes (Chill's chilling hits, Drizzle's rain, Yeti and
 	## Mammoth bulk, Blizz storms) backed by Sea critters, ending in a giant
 	## Glacier Chill.
@@ -74,9 +74,9 @@ const ZONES := [
 		"id": "frostbite_caves",
 		"name": "Frostbite Caves",
 		"lineup": 3,
-		"arena": "rink",
+		"arena": "frost",
 		"color": "a8e6ff",
-		"twist": "Icy rink and icicle spikes",
+		"twist": "Frozen lake and icicle spikes",
 		"boss": "Glacier Chill",
 		"icon": "frost",
 		"featured": ["frost", "drizzle", "bubbles", "puff", "shelly", "fin"],
@@ -93,10 +93,10 @@ const ZONES := [
 			{"enemy": "mammoth", "enemies": ["mammoth", "drizzle", "ink"], "power": 3.45},
 			{"enemy": "blizz", "enemies": ["blizz", "pounce", "yeti"], "power": 3.55, "arena": "spikes"},
 			{"enemy": "mammoth", "enemies": ["mammoth", "gust", "narwhal"], "power": 3.7},
-			{"enemy": "frost", "enemies": ["yeti", "blizz", "frost"], "power": 3.85, "boss": true, "name": "Glacier Chill", "arena": "spikes"},
+			{"enemy": "frost", "enemies": ["yeti", "blizz", "frost"], "power": 3.85, "boss": true, "name": "Glacier Chill"},
 		],
 	},
-	## Zone 4, Bramble Hollow: trios among thorn walls (Spike Yard), old
+	## Zone 4, Bramble Hollow: trios among thorn hedges (Thorn Garden), old
 	## trees (Pillars) and sinkholes (Gravity Wells). Nature foes: Bramble's
 	## thorns, Pollen and Glowbug clouds, Mole digging, Swarm splitting, and
 	## the giant Thornking Bramble at the end.
@@ -104,7 +104,7 @@ const ZONES := [
 		"id": "bramble_hollow",
 		"name": "Bramble Hollow",
 		"lineup": 3,
-		"arena": "spikes",
+		"arena": "thorn",
 		"color": "9bd84a",
 		"twist": "Thorn walls, old trees and sinkholes",
 		"boss": "Thornking Bramble",
@@ -126,12 +126,41 @@ const ZONES := [
 			{"enemy": "thorns", "enemies": ["mole", "swarm", "thorns"], "power": 5.3, "boss": true, "name": "Thornking Bramble"},
 		],
 	},
+	## Zone 5, Haunted Arcade: trios through portals (roll into one, pop out
+	## of the other) with Pinball Palace stages. Spooky and Toybox foes:
+	## Vampire bites, Sonar pings, Ghost phasing, Puppeteer throws, Pixel and
+	## Kaleido tricks, and the Wisp Swarm boss led by a giant Foxfire.
+	{
+		"id": "haunted_arcade",
+		"name": "Haunted Arcade",
+		"lineup": 3,
+		"arena": "arcade",
+		"color": "c77dff",
+		"twist": "Portals and pinball bumpers",
+		"boss": "Wisp Swarm",
+		"icon": "ghost",
+		"featured": ["vampire", "flicker", "pinball", "drum", "puff", "crumb"],
+		"rare_bonus": ["sonar", "painter", "mortar", "disco"],
+		"boss_reward": "ghost",
+		"stages": [
+			{"enemy": "vampire", "enemies": ["vampire", "flicker", "pinball"], "power": 5.45},
+			{"enemy": "drum", "enemies": ["drum", "flicker", "vampire"], "power": 5.6, "arena": "pinball"},
+			{"enemy": "sonar", "enemies": ["sonar", "pinball", "flicker"], "power": 5.75},
+			{"enemy": "painter", "enemies": ["painter", "sonar", "drum"], "power": 5.9, "arena": "pinball"},
+			{"enemy": "mortar", "enemies": ["mortar", "disco", "flicker"], "power": 6.05},
+			{"enemy": "totem", "enemies": ["totem", "brewster", "sonar"], "power": 6.2, "arena": "pinball"},
+			{"enemy": "ghost", "enemies": ["ghost", "yoyo", "painter"], "power": 6.35},
+			{"enemy": "puppeteer", "enemies": ["puppeteer", "pixel", "disco"], "power": 6.5, "arena": "pinball"},
+			{"enemy": "kaleido", "enemies": ["kaleido", "ghost", "totem"], "power": 6.65},
+			{"enemy": "jackpot", "enemies": ["jackpot", "puppeteer", "brewster"], "power": 6.8, "arena": "pinball"},
+			{"enemy": "foxfire", "enemies": ["ghost", "puppeteer", "foxfire"], "power": 7.0, "boss": true, "name": "Wisp Swarm"},
+		],
+	},
 ]
 
 ## Zones on the world map that aren't built yet (pve.md section 3, glitch.md
 ## bosses). When one is built it moves into ZONES with its stages.
 const COMING := [
-	{"id": "haunted_arcade", "name": "Haunted Arcade", "lineup": 3, "color": "c77dff", "twist": "Portals", "boss": "Wisp Swarm"},
 	{"id": "starfall_rim", "name": "Starfall Rim", "lineup": 3, "color": "ffd23d", "twist": "Shrinking arena", "boss": "Void Titan"},
 	{"id": "magma_core", "name": "Magma Core", "lineup": 3, "color": "ff6a3d", "twist": "Lava zones", "boss": "Ember Reborn"},
 ]
