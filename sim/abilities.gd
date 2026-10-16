@@ -45,7 +45,8 @@ const EFFECTS := {
 	"moons": ["moon_count", "moon_orbit", "moon_size", "moon_damage", "moon_spin", "moon_cooldown", "moon_burn"],
 	"flare": ["flare_radius", "flare_slam"],
 	"copy": ["copy_secs", "copy_cooldown", "copy_shield", "copy_scale"],
-	"revive": ["revive_hp", "revive_radius", "revive_damage", "revive_burn", "revive_shield", "revive_bolts"],
+	"sunfire": ["sunfire_radius", "sunfire_damage", "sunfire_burn"],
+	"revive": ["revive_hp", "revive_radius", "revive_damage", "revive_burn", "revive_shield", "revive_bolts", "revive_lives"],
 	"split": ["split_gens", "split_radius", "split_speed", "split_damage"],
 	"fire_trail": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"beam_at": ["prism_damage", "prism_life", "prism_fan", "prism_full_every", "prism_gap"],
@@ -66,6 +67,7 @@ const EFFECTS := {
 	"patch": ["patch_radius", "patch_life", "patch_dps"],
 	"patch_flare": ["patch_flare_radius", "patch_flare_damage"],
 	"honey": ["honey_radius", "honey_life", "honey_slow", "honey_max", "honey_merge_radius", "honey_dps"],
+	"honey_lob": ["honey_radius", "honey_life", "honey_slow"],
 	"honey_trap": ["honey_stick", "honey_pull", "honey_sting_damage"],
 	"honey_crush": ["honey_crush"],
 	"ink": ["ink_radius", "ink_life", "ink_slow", "ink_dps", "ink_cooldown", "ink_dash"],
@@ -569,6 +571,9 @@ func fx_split(sim, b, _ctx: Dictionary) -> void:
 func fx_revive(sim, b, _ctx: Dictionary) -> void:
 	b.hp = b.max_hp * b.def.revive_hp
 	b.state.revived = true
+	b.state.revives = int(b.state.get("revives", 0)) + 1
+	if b.state.revives < int(b.def.revive_lives): # T5: it can rise from the ashes again.
+		b.fired.erase("fall")
 	sim.events.append({"type": "revive", "ball": b.index, "pos": b.pos})
 	sim.pulse(b, b.pos, b.def.revive_radius, b.def.revive_damage, false, "fire")
 	if b.def.revive_burn > 0.0:
@@ -580,6 +585,15 @@ func fx_revive(sim, b, _ctx: Dictionary) -> void:
 	for k in int(b.def.revive_bolts):
 		var dir := Vector2.from_angle(k * TAU / b.def.revive_bolts)
 		sim.add_beam(b, b.pos + dir * b.radius, b.pos + dir * (b.radius + 260.0), {"life": 0.6, "damage": 5.0, "cooldown": 1.0})
+
+
+## Phoenix T5: every sunfire_every seconds, a flash of fire within
+## sunfire_radius (sunfire_damage) that sets foes burning (sunfire_burn/s, 3s).
+func fx_sunfire(sim, b, _ctx: Dictionary) -> void:
+	sim.pulse(b, b.pos, b.def.sunfire_radius, b.def.sunfire_damage, false, "sunfire")
+	for o in sim.foes(b):
+		if o.pos.distance_to(b.pos) <= b.def.sunfire_radius + o.radius:
+			sim.add_burn(b, o, b.def.sunfire_burn, 3.0)
 
 
 ## Hits set the target burning (scorch_dps per second for scorch_secs).
@@ -1370,6 +1384,16 @@ func fx_honey(sim, b, ctx: Dictionary) -> void:
 				break
 	_cap_zones(sim, b, "honey", int(b.def.honey_max))
 	sim.add_zone(b, pos, {"kind": "honey", "radius": radius, "life": b.def.honey_life, "slow": b.def.honey_slow, "dps": b.def.honey_dps})
+
+
+## Honey lob (T5): flings a puddle right under the foe, so the trap springs.
+func fx_honey_lob(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	_cap_zones(sim, b, "honey", int(b.def.honey_max))
+	sim.add_zone(b, f.pos, {"kind": "honey", "radius": b.def.honey_radius, "life": b.def.honey_life, "slow": b.def.honey_slow, "dps": b.def.honey_dps})
+	sim.events.append({"type": "honey_lob", "ball": f.index, "source": b.index, "from": b.pos, "pos": f.pos})
 
 
 ## Honey trap: a foe that rolls into one of its puddles gets stuck fast
