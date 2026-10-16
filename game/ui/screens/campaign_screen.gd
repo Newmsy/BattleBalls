@@ -51,11 +51,11 @@ static func build(shell, params: Dictionary) -> Control:
 		Kit.power(team_power / maxi(1, team.size()), 24)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var change := Kit.chip("Change", Kit.ACCENT)
-	var icons := Kit.hbox(4)
+	var icons := Kit.hbox(4 if team.size() < 3 else 10)
 	for id in team:
 		var tb: Dictionary = p.best(id)
 		# Teams drop the level so the stars fit over each smaller icon.
-		icons.add_child(FighterTag.icon(id, tb.get("tier", 1), 100 if team.size() == 1 else 70, false, tb.get("level", 1) if team.size() == 1 else 0))
+		icons.add_child(FighterTag.icon(id, tb.get("tier", 1), [100, 100, 70, 56][team.size()], false, tb.get("level", 1) if team.size() == 1 else 0))
 	var fighter_row := Kit.hbox(14, [icons, info, change])
 	fighter_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var on_pick := func(id: String) -> void:
@@ -118,13 +118,17 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 
 	var icon: Control = FighterTag.make(st.enemy, enemy_tier(st), rec, 108 if boss else 92, power_color, not unlocked)
 	if foes.size() > 1:
-		# One power figure under the pair (each foe is rated the same).
-		var pair := Kit.hbox(2)
+		# One row of stars and one power figure for the pair or trio (the
+		# foes share a tier and rating).
+		var stars_row := Kit.hbox(0, [Kit.glyph("stars", 20, Kit.FG, enemy_tier(st))], BoxContainer.ALIGNMENT_CENTER)
+		var pair := Kit.hbox(2, [], BoxContainer.ALIGNMENT_CENTER)
 		for id in foes:
-			pair.add_child(FighterTag.icon(id, enemy_tier(st), 64, not unlocked))
+			var art := CritterIcon.make(id, enemy_tier(st), (64 if foes.size() == 2 else 52) * FighterTag.ART_SHRINK, false, not unlocked)
+			art.radius_frac /= FighterTag.ART_SHRINK # trimmed box, same ball size as FighterTag
+			pair.add_child(art)
 		var pw := Kit.power(rec, 20, power_color)
 		pw.alignment = BoxContainer.ALIGNMENT_CENTER
-		icon = Kit.vbox(0, [pair, pw])
+		icon = Kit.vbox(2, [stars_row, pair, pw])
 	var row := Kit.hbox(12, [icon, info, actions])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var border := Kit.BAD.darkened(.3) if boss else (Kit.GOOD.darkened(.5) if stars > 0 else Kit.LINE)
