@@ -28,7 +28,7 @@ const CRITTER := {
 		{"text": "Slow 30%", "gum_slow": 0.3},
 		{"text": "The goo also stings (burn 1/s for 2s)", "gum_burn": 1.0},
 		{"text": "Slow lasts 2s", "gum_secs": 2.0},
-		{"text": "Slows stack twice, up to 45%", "gum_stacks": 2},
+		{"text": "Slows stack twice, up to 45%, and a gum string every 2.5s", "gum_stacks": 2, "gum_string_cooldown": 2.5},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["sugar"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.2},

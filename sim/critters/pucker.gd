@@ -28,7 +28,7 @@ const CRITTER := {
 		{"text": "Sour +18%", "sour_amount": 0.18},
 		{"text": "Pucker splash deals 8", "pucker_damage": 8.0},
 		{"text": "Sour lasts 4.5s", "sour_secs": 4.5},
-		{"text": "The splash leaves a sour puddle that slows 25% for 2s", "sour_puddle": 60.0},
+		{"text": "The splash deals 12 and leaves a sour puddle that slows 25% for 2s", "sour_puddle": 60.0, "pucker_damage": 12.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "pout"}, "back": ["stemleaf"], "front": ["bloom"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.25},

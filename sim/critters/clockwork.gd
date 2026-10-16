@@ -29,7 +29,7 @@ const CRITTER := {
 		{"text": "Ticks deal 4", "tick_damage": 4.0},
 		{"text": "Rewinding also turns back its spot", "rewind_place": 1},
 		{"text": "Rewinds 4s", "rewind_secs": 4.0},
-		{"text": "At the rewind, time stops for the foe", "rewind_stop": 0.6},
+		{"text": "Ticks deal 6, and at the rewind time stops for the foe", "rewind_stop": 0.6, "tick_damage": 6.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smirk"}, "back": ["gearcrown"], "front": ["clockface", "monocle"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 0.95},
