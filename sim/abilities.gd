@@ -65,8 +65,8 @@ const EFFECTS := {
 	"huff": ["wind_range", "huff_secs", "huff_damage", "huff_slow"],
 	"patch": ["patch_radius", "patch_life", "patch_dps"],
 	"patch_flare": ["patch_flare_radius", "patch_flare_damage"],
-	"honey": ["honey_radius", "honey_life", "honey_slow", "honey_max", "honey_merge_radius"],
-	"honey_trap": ["honey_stick"],
+	"honey": ["honey_radius", "honey_life", "honey_slow", "honey_max", "honey_merge_radius", "honey_dps"],
+	"honey_trap": ["honey_stick", "honey_pull", "honey_sting_damage"],
 	"honey_crush": ["honey_crush"],
 	"ink": ["ink_radius", "ink_life", "ink_slow", "ink_dps", "ink_cooldown", "ink_dash"],
 	"stink": ["stink_radius", "stink_dps", "stink_slow", "stink_bloom_radius"],
@@ -121,7 +121,7 @@ const EFFECTS := {
 	"spin": ["spin_prizes", "spin_jackpot_every", "spin_delay", "prize_mult", "prize_mine_damage", "prize_mine_radius", "prize_shield"],
 	"spin_tick": ["prize_mult", "prize_beam_damage", "prize_coin_count", "prize_coin_damage", "prize_coin_reach", "prize_coin_hits"],
 	"disco": ["disco_rays", "disco_length", "disco_damage", "disco_slow", "disco_slow_secs", "disco_bounce"],
-	"ripple": ["ripple_reach", "ripple_life", "ripple_damage", "ripple_slow", "ripple_corner"],
+	"ripple": ["ripple_reach", "ripple_life", "ripple_damage", "ripple_slow", "ripple_corner", "ripple_wave_radius", "ripple_wave_damage"],
 	"zz_arm": ["zz_segments"],
 	"zz_beam": ["zz_life", "zz_damage", "zz_slow"],
 	"grow_spike": ["spike_max"],
@@ -189,7 +189,7 @@ const EFFECTS := {
 	"mark": ["mark_cooldown", "mark_min", "mark_secs", "pounce_delay"],
 	"pounce": ["pounce_speed_mult", "pounce_secs"],
 	"marked": ["marked_mult", "pounce_slow", "pounce_remark"],
-	"ping": ["ping_gap", "ping_turn", "ping_dash_mult", "ping_dash_secs", "ping_radius", "ping_damage", "ping_slow", "ping_slow_secs"],
+	"ping": ["ping_gap", "ping_turn", "ping_dash_mult", "ping_dash_secs", "ping_radius", "ping_damage", "ping_slow", "ping_slow_secs", "ping_mark"],
 	"ping_crit": ["ping_hit_mult"],
 	"dig": ["phase_secs"],
 	"surface": ["dig_radius", "dig_damage", "dig_rush", "dig_clods", "clod_damage"],
@@ -1369,20 +1369,27 @@ func fx_honey(sim, b, ctx: Dictionary) -> void:
 				radius = b.def.honey_merge_radius
 				break
 	_cap_zones(sim, b, "honey", int(b.def.honey_max))
-	sim.add_zone(b, pos, {"kind": "honey", "radius": radius, "life": b.def.honey_life, "slow": b.def.honey_slow})
+	sim.add_zone(b, pos, {"kind": "honey", "radius": radius, "life": b.def.honey_life, "slow": b.def.honey_slow, "dps": b.def.honey_dps})
 
 
 ## Honey trap: a foe that rolls into one of its puddles gets stuck fast
 ## (stunned honey_stick seconds) and the puddle is used up. The stun's own
 ## immunity window lets it wade through puddles for a while after.
+## honey_pull > 0 (T5): puddles drag foes within twice their size inwards.
 func fx_honey_trap(sim, b, _ctx: Dictionary) -> void:
 	for z in _own_zones(sim, b, "honey"):
 		for o in sim.foes(b):
+			if b.def.honey_pull > 0.0 and o.alive() and not sim.stunned(o):
+				var d: Vector2 = z.pos - o.pos
+				if d.length() < z.radius * 2.0 + o.radius and d.length() > 0.001:
+					sim.pull(o, d.normalized() * b.def.honey_pull)
 			if not o.alive() or sim.stunned(o) or o.pos.distance_to(z.pos) > z.radius + o.radius:
 				continue
 			if sim.stun(b, o, b.def.honey_stick):
 				sim.zones.erase(z)
 				sim.events.append({"type": "honey_stuck", "ball": o.index, "source": b.index, "pos": o.pos})
+				if b.def.honey_sting_damage > 0.0:
+					sim.pulse(b, o.pos, z.radius, b.def.honey_sting_damage, false, "honey")
 				_lunge(sim, b, o)
 				break
 
@@ -2545,15 +2552,23 @@ func fx_ping(sim, b, _ctx: Dictionary) -> void:
 	sim.charge(b, b.vel.rotated(turn) if b.vel.length() > 0.001 else to, b.def.ping_dash_mult, b.def.ping_dash_secs)
 	b.state.ping_until = sim.tick + int(round(b.def.ping_dash_secs * sim.TICK_RATE))
 	sim.pulse(b, b.pos, b.def.ping_radius, b.def.ping_damage, false, "ping")
+	if b.def.ping_mark > 0.0: # T5: the ping finds the foe wherever it is; its next hit on it crits.
+		f.state.heard_until = sim.tick + int(round(b.def.ping_mark * sim.TICK_RATE))
+		f.state.heard_by = b.index
+		sim.events.append({"type": "heard", "ball": f.index, "source": b.index, "pos": f.pos})
 	for o in sim.foes(b):
 		if o.pos.distance_to(b.pos) <= b.def.ping_radius + o.radius:
 			sim.slow_for(o, b.def.ping_slow, b.def.ping_slow_secs)
 
 
-## A contact hit while still swerving from a ping deals ping_hit_mult x.
+## A contact hit while still swerving from a ping, or on a foe its ping
+## marked (ping_mark, T5), deals ping_hit_mult x.
 func fx_ping_crit(sim, b, ctx: Dictionary) -> void:
-	if sim.charging(b) and sim.tick < int(b.state.get("ping_until", -1)):
+	var t = ctx.target
+	var heard: bool = int(t.state.get("heard_by", -1)) == b.index and sim.tick < int(t.state.get("heard_until", -1))
+	if heard or (sim.charging(b) and sim.tick < int(b.state.get("ping_until", -1))):
 		b.state.ping_until = -1
+		t.state.heard_until = -1
 		ctx.mult *= b.def.ping_hit_mult
 		sim.events.append({"type": "ping_crit", "ball": b.index, "pos": ctx.target.pos})
 
@@ -3141,6 +3156,8 @@ func fx_ripple(sim, b, ctx: Dictionary) -> void:
 		if b.def.ripple_corner > 0 and t < reach - 1.0:
 			# Up the next wall: away from the wall it came along.
 			_ripple_seg(sim, b, end, end + normal * (reach - t))
+	if b.def.ripple_wave_radius > 0.0: # T5: the bounce also breaks as a wave.
+		sim.pulse(b, p, b.def.ripple_wave_radius, b.def.ripple_wave_damage, false, "tide")
 
 
 func _ripple_seg(sim, b, a: Vector2, c: Vector2) -> void:
