@@ -36,7 +36,7 @@ func test_base_defs_are_not_mutated() -> void:
 	_sim("big_head")
 	_sim("glass_cannon")
 	check_eq(BallDefs.get_def("vampire").radius, 68.0, "Vampire radius")
-	check_eq(BallDefs.get_def("laser").hp, 100.0, "Laser HP")
+	check_eq(BallDefs.get_def("laser").hp, 105.0, "Laser HP")
 
 
 func test_mirror_match_uses_one_seed_picked_ball() -> void:

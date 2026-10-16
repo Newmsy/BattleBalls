@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "ff4da6",
 	"vibe": "A shaken-up soda that's always one bounce away from popping.",
 	"description": "Soda. Every bounce off the arena walls shakes it up, and at 6 it bursts: a soda geyser blasts nearby foes away and it rockets off with a harder next hit.",
-	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
+	"stats": {"hp": 119.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.0},
 	"ability": [{"on": "wall", "do": "fizz"}, {"on": "strike", "do": "fizz_hit"}],
 	"params": {
 		"fizz_at": 6.0,

@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "6d6875",
 	"vibe": "A lone winter wolf, quiet until the howl.",
 	"description": "Wolf. Every hit adds frost to the foe, and the second freezes it solid while ice shards burst out; Frostfang then hunts the frozen foe down and shatters it for double damage.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 21.0},
+	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.0},
 	"ability": [{"on": "hit", "do": "frostbite"}, {"on": "strike", "do": "shatter"}, {"on": "always", "do": "frost_hunt"}],
 	"params": {
 		"bite_slow": 0.1, ## Slow per frost stack.

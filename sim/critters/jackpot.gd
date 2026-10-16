@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "e0115f",
 	"vibe": "A flashy arcade slot machine who's sure the next spin is the big one.",
 	"description": "Slot machine. Every 6 seconds it spins its reels and fires a seeded prize: a ring of mines where the foe is heading, a cross of beams through it or a spray of coins at it.",
-	"stats": {"hp": 100.0, "radius": 64.0, "speed": 440.0, "contact_damage": 15.0},
+	"stats": {"hp": 106.0, "radius": 64.0, "speed": 440.0, "contact_damage": 15.5},
 	"ability": [{"on": "every", "secs": "spin_every", "do": "spin"}, {"on": "always", "do": "spin_tick"}],
 	"params": {
 		"spin_every": 6.0,

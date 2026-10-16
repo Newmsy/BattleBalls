@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "06d6a0",
 	"vibe": "A steady old lighthouse keeper who keeps an eye on everything.",
 	"description": "Lighthouse. Every 4 seconds it shines a beam straight ahead to the far wall, and foes caught in the light take 20% more damage for 2 seconds.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.5},
+	"stats": {"hp": 116.0, "radius": 64.0, "speed": 400.0, "contact_damage": 20.0},
 	"ability": [{"on": "every", "secs": "lamp_every", "do": "lamp"}],
 	"params": {
 		"lamp_every": 4.0, ## Seconds between beams.

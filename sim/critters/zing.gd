@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "f5c400",
 	"vibe": "A buzzy little wasp that never misses a chance to sting.",
 	"description": "Wasp. Every wall bounce it fires a homing stinger at the foe.",
-	"stats": {"hp": 112.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.5},
+	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.5},
 	"ability": [{"on": "wall", "do": "shoot"}],
 	"params": {
 		"fire_cooldown": 0.6, ## At most one stinger this often (corners and pillars bounce fast).

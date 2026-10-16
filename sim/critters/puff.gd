@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "ffd84a",
 	"vibe": "A nervous pufferfish that balloons up when startled, then calms down.",
 	"description": "Pufferfish. When hurt, it puffs up for 2 seconds: bigger, slower and spikier.",
-	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
+	"stats": {"hp": 119.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
 	"ability": [{"on": "hurt", "do": "grow"}],
 	"params": {
 		"grow_radius": 0.3,

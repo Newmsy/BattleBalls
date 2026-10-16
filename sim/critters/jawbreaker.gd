@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "2ec4b6",
 	"vibe": "A rock-hard candy collector who keeps its winnings spinning close.",
 	"description": "Jawbreaker. Every hit adds a candy that circles it and bonks foes, up to 3.",
-	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
+	"stats": {"hp": 131.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
 	"ability": [{"on": "always", "do": "candies"}, {"on": "hit", "do": "candy"}, {"on": "hurt", "do": "candy_loss"}],
 	"params": {
 		"candy_max": 3,

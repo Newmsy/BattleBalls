@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "4895ef",
 	"vibe": "A proud storm bird who arrives with a thunderclap.",
 	"description": "Thunderbird. Every wall bounce charges a spark, and its next hit unleashes them as chain lightning that leaps from the foe to its last bounce points and stuns.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
+	"stats": {"hp": 121.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.5},
 	"ability": [{"on": "wall", "do": "spark"}, {"on": "hit", "do": "storm"}],
 	"params": {
 		"spark_max": 4, ## Sparks it can hold.

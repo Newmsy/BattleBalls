@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "c47a2c",
 	"vibe": "A buzzing coil bot that loves to share its electricity.",
 	"description": "Coil bot. Every 5 seconds it zaps the foe with an arc that stuns it for a moment.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
+	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "every", "secs": "zap_every", "do": "arc"}, {"on": "always", "do": "arc_tick"}],
 	"params": {
 		"zap_every": 4.5, ## Seconds between zaps (off Wisp's 5s phase beat).

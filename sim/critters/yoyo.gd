@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "00b4d8",
 	"vibe": "A show-off toy that never passes up a trick.",
 	"description": "Yo-Yo. Every third wall bounce it pins its string to the wall and swings around that anchor for a second, its taut string hurting foes it sweeps.",
-	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
+	"stats": {"hp": 127.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.5},
 	"ability": [{"on": "wall", "do": "yoyo_bounce"}, {"on": "always", "do": "yoyo"}],
 	"params": {
 		"yoyo_every": 3, ## Swings on every this-many-th wall bounce.

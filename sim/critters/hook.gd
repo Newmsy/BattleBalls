@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "9a031e",
 	"vibe": "A swashbuckling grapple that loves to reel in a catch.",
 	"description": "Grapple. Every wall bounce it yanks the foe a little toward itself.",
-	"stats": {"hp": 135.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
+	"stats": {"hp": 132.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.5},
 	"ability": [{"on": "wall", "do": "yank"}, {"on": "hit", "do": "yank_bonus"}],
 	"params": {
 		"yank_impulse": 220.0, ## Velocity added toward Hook (a ball moves at 400).
