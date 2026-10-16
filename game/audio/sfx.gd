@@ -187,8 +187,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("thwomp", 0.0, 1.0 if e.kind == "contact" else 0.85)
 				elif e.amount >= target.max_hp * BIG_HIT_SHARE:
 					play("hit_big")
-				if src == "vampire" and e.kind == "contact": # Count Nibbles.
-					play("chomp")
+				if src in ["vampire", "munch"] and e.kind == "contact": # Count Nibbles and Munch bite.
+					play("chomp", 0.0, 1.0 if src == "vampire" else 0.85)
+				elif src == "zapper" and e.kind == "zap": # Its coil arc.
+					play("crackle", 0.0, 1.0)
 				elif src == "glowbug" and e.kind != "contact": # Its light-bug's sting.
 					play("crackle", -4.0, 1.5)
 				# Each critter file names its ouch voice and pitch, so new critters
@@ -215,6 +217,12 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("crackle", 0.0, 1.15 if kind == "zap" else 0.8)
 				elif kind == "drum":
 					play("drum", 0.0, 0.9)
+				elif kind == "dirt": # Mole bursting up.
+					play("thwomp", 0.0, 1.2)
+				elif kind == "flame": # Flicker relighting.
+					play("sizzle", 0.0, 0.8)
+				elif kind == "sour":
+					play("slurp", 0.0, 1.4)
 				elif kind == "tick": # Clockwork's tick ring.
 					play("ticktock")
 				elif kind == "wave": # Leviathan bursting up.
@@ -265,6 +273,11 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("zap", 0.0, 0.6)
 			"wrap":
 				play("stretch", 0.0, 1.3)
+			"spike_burst":
+				play("pew", 0.0, 0.8)
+				play("pew", -4.0, 1.1)
+			"relight":
+				play("hit_big", -4.0, 0.7)
 			"wrap_pop":
 				play("snap", 0.0, 1.4)
 			"shatter": # Frostfang breaking the ice.

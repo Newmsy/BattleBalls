@@ -1908,6 +1908,7 @@ func _read_url_params() -> Dictionary:
 	var t := str(params.get("t", ""))
 	if t.length() == 2 and t.is_valid_int():
 		link_tiers = [clampi(int(t[0]), 1, Lineup.MAX_TIER), clampi(int(t[1]), 1, Lineup.MAX_TIER)]
+		pick_tiers = link_tiers.duplicate() # Without &r= too: ?p1=..&t=51 starts a quick fight at those tiers.
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():
