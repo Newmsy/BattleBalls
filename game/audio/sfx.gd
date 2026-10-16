@@ -249,6 +249,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("ticktock")
 				elif kind == "wave": # Leviathan bursting up.
 					play("splash")
+				elif kind == "tide": # Ripple's T5 wave.
+					play("splash", -2.0, 1.2)
+				elif kind == "honey": # Honey's T5 sting.
+					play("buzz", 0.0, 1.3)
 				elif kind == "ping": # Sonar's ping.
 					play("sonar")
 				elif kind == "paint": # Painter's paint drying.
@@ -295,6 +299,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("snap", 0.0, 1.25)
 			"revive":
 				play("heal", 0.0, 0.8)
+			"heard": # Sonar T5 locking on.
+				play("sonar", 0.0, 1.3)
 			"split": # Splitter tearing in two: a gooey stretch and a pop.
 				play("stretch", 0.0, 0.7)
 				play("slurp", -3.0, 1.3)
