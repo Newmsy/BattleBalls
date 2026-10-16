@@ -473,6 +473,34 @@ def hum():
     return mix(body, shimmer)
 
 
+def ticktock():
+    """Clockwork's tick ring: a crisp tick-tock and a spring twang."""
+    tick = bandnoise(0.03, 2500, 7000) * env(0.03, 0.0005, 8)
+    tock = bandnoise(0.04, 900, 3000) * env(0.04, 0.0005, 7) * 0.9
+    dur = 0.35
+    twang = osc(sweep(900, 700, dur, 0.5), "tri") * env(dur, 0.002, 4) * 0.25
+    return mix(tick, delay(tock, 0.16), delay(twang, 0.02))
+
+
+def splash():
+    """Leviathan bursting up: a deep water whoomp and a wash of spray."""
+    dur = 0.7
+    boom = osc(sweep(120, 55, dur, 0.4), "sine") * env(dur, 0.005, 4)
+    wash = lowpass(bandnoise(dur, 300, 6000), sweep(6000, 1200, dur, 0.6)) * env(dur, 0.01, 2.5) * 0.9
+    drops = bandnoise(dur, 2000, 8000) * (rng.uniform(0, 1, int(dur * SR)) > 0.96) * env(dur, 0.05, 2) * 0.8
+    return mix(boom, wash, delay(drops, 0.08))
+
+
+def shatter():
+    """Ice shattering: a glassy crack with tinkling shards."""
+    crack = bandnoise(0.06, 2000, 10000) * env(0.06, 0.0005, 6)
+    dur = 0.6
+    bells = sum(osc(np.full(int(dur * SR), f), "sine") * env(dur, 0.001, 5 + i) * 0.18
+                for i, f in enumerate([2637, 3520, 4186, 5274]))
+    grit = bandnoise(dur, 4000, 11000) * (rng.uniform(0, 1, int(dur * SR)) > 0.95) * env(dur, 0.01, 3) * 0.6
+    return mix(crack * 1.2, delay(bells, 0.01), delay(grit, 0.02))
+
+
 SOUNDS = {
     "hit_0": lambda: hit(0), "hit_1": lambda: hit(1), "hit_2": lambda: hit(2),
     "hit_big": lambda: hit(0, big=True),
@@ -487,6 +515,7 @@ SOUNDS = {
     "summon_pop": summon_pop, "summon_charge": summon_charge, "summon_legend": summon_legend,
     "chomp": chomp, "thwomp": thwomp, "pew": pew,
     "crackle": crackle, "rustle": rustle, "fizzpop": fizzpop, "drum": drum, "rain": rain, "hum": hum,
+    "ticktock": ticktock, "splash": splash, "shatter": shatter,
 }
 
 

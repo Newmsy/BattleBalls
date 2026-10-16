@@ -540,3 +540,311 @@ static func draw_swing(ci: CanvasItem, anchor: Vector2, p: Vector2, r: float, ve
 	for k in 3:
 		var back := 0.25 + k * 0.18
 		ci.draw_arc(anchor, rad + (k - 1) * r * 0.35, ang - dir * back - 0.15, ang - dir * back + 0.15, 10, Color(1, 1, 1, 0.5 - k * 0.12), 3.0, true)
+
+
+# --- Batch 4: Kraken, Oak, Clockwork, Ivy, Eclipse, Bonbon, Glacia, Leviathan, Frostfang, Puppeteer ---
+
+const LEAF_DARK := Color("1f6b2e")
+const LEAF := Color("3fbf4a")
+const LEAF_LIGHT := Color("9be36b")
+const BARK := Color("6b4423")
+const INK := Color("2a0f45")
+const WATER := Color("5ff0e6")
+const SPLASH_LIFE := 0.8
+const FLIP_LIFE := 0.7
+const CLOCK_LIFE := 0.6
+const CLOCK := Color("ffd166")
+
+
+## Kraken's arm: a thick tapering tentacle that curls as it sweeps, suckers on
+## the inside and a curled tip.
+static func draw_tentacle(ci: CanvasItem, from: Vector2, to: Vector2, size: float, col: Color, t: float, seed: float) -> void:
+	var span := from.distance_to(to)
+	if span < 1.0:
+		return
+	var along := (to - from) / span
+	var side := along.orthogonal()
+	var pts := PackedVector2Array()
+	var n := 12
+	for q in n + 1:
+		var k := float(q) / n
+		var wave := sin(k * 5.0 - t * 5.0 + seed) * span * 0.09 * sin(k * PI)
+		pts.append(from + along * span * k + side * wave)
+	for q in n:
+		var k := float(q) / n
+		var w := lerpf(size * 1.25, size * 0.45, k)
+		ci.draw_line(pts[q], pts[q + 1], col.darkened(0.35), w + 3.0, true)
+	for q in n:
+		var k := float(q) / n
+		var w := lerpf(size * 1.25, size * 0.45, k)
+		ci.draw_line(pts[q], pts[q + 1], col.lightened(0.1), w, true)
+		ci.draw_circle(pts[q + 1], w * 0.5, col.lightened(0.1))
+	for q in range(2, n, 2): # Suckers along the inner side.
+		var k := float(q) / n
+		var w := lerpf(size * 1.25, size * 0.45, k)
+		var d := (pts[q + 1] - pts[q]).normalized().orthogonal()
+		ci.draw_circle(pts[q] + d * w * 0.22, w * 0.2, Color("ffd6f5", 0.9))
+	var tip_dir := (pts[n] - pts[n - 1]).normalized()
+	var curl := tip_dir.orthogonal()
+	ci.draw_arc(pts[n] + curl * size * 0.35, size * 0.35, tip_dir.angle() - PI / 2.0, tip_dir.angle() + PI, 10, col.lightened(0.1), size * 0.3, true)
+
+
+## An ink splat: a lumpy dark puddle with drips and a glossy highlight.
+static func draw_ink(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	var pts := PackedVector2Array()
+	for k in 14:
+		var a := k * TAU / 14.0
+		var lump := 0.82 + 0.18 * sin(a * 3.0 + seed) + 0.05 * sin(t * 2.0 + k)
+		pts.append(p + Vector2(cos(a), sin(a)) * rad * lump)
+	ci.draw_colored_polygon(pts, Color(INK, 0.75 * fade))
+	for k in 5:
+		var a := seed + k * 1.3
+		ci.draw_circle(p + Vector2(cos(a), sin(a)) * rad * 1.08, rad * 0.11, Color(INK, 0.75 * fade))
+	ci.draw_circle(p + Vector2(-0.3, -0.35) * rad, rad * 0.22, Color(Color("b36bff"), 0.35 * fade))
+	ci.draw_circle(p + Vector2(-0.38, -0.42) * rad, rad * 0.08, Color(1, 1, 1, 0.5 * fade))
+
+
+## Old Oak's root pillar from above: a broad leafy crown over a gnarled trunk,
+## with roots splaying out at its foot. k grows it in and out.
+static func draw_tree(ci: CanvasItem, p: Vector2, rad: float, k: float, seed: float, t: float) -> void:
+	for l in 5: # Roots.
+		var a := seed + l * TAU / 5.0
+		var d := Vector2(cos(a), sin(a))
+		ci.draw_line(p + d * rad * 0.3, p + d * rad * 1.15 * k + d.orthogonal() * rad * 0.15, BARK.darkened(0.2), 5.0, true)
+	ci.draw_circle(p + Vector2(4, 7) * k, rad * 1.05 * k, Color(0, 0, 0, 0.3 * k))
+	ci.draw_circle(p, rad * 0.35, BARK)
+	var sway := Vector2(sin(t * 1.7 + seed), cos(t * 1.3 + seed)) * rad * 0.04
+	var crown := rad * 1.35 * (0.4 + 0.6 * k) # The canopy overhangs the trunk.
+	for l in 7: # Dark outer clumps, then lighter ones on top.
+		var a := seed + l * TAU / 7.0
+		ci.draw_circle(p + sway + Vector2(cos(a), sin(a)) * crown * 0.55, crown * 0.48, LEAF_DARK)
+	for l in 5:
+		var a := seed + 0.5 + l * TAU / 5.0
+		ci.draw_circle(p + sway * 1.5 + Vector2(cos(a), sin(a)) * crown * 0.35 + Vector2(-0.08, -0.1) * crown, crown * 0.38, LEAF)
+	ci.draw_circle(p + sway * 2.0 + Vector2(-0.22, -0.26) * crown, crown * 0.3, LEAF_LIGHT)
+	for l in 4: # A few acorns.
+		var a := seed * 2.0 + l * 1.7
+		ci.draw_circle(p + sway + Vector2(cos(a), sin(a)) * crown * 0.62, crown * 0.07, Color("c08a3e"))
+
+
+## Ivy's vine pillar: a twisting stem wound with leaves and a pink flower.
+static func draw_vine_pillar(ci: CanvasItem, p: Vector2, rad: float, k: float, seed: float, t: float) -> void:
+	ci.draw_circle(p + Vector2(3, 6) * k, rad * k, Color(0, 0, 0, 0.3 * k))
+	ci.draw_circle(p, rad * 0.55, Color("0b4f37"))
+	for l in 3: # The twist.
+		var a := t * 0.8 + seed + l * TAU / 3.0
+		ci.draw_arc(p, rad * (0.25 + 0.12 * l), a, a + PI * 1.2, 12, Color("2ee59d"), 3.0, true)
+	var n := 9
+	for l in n:
+		var a := seed + l * TAU / n + 0.15 * sin(t * 2.0 + l)
+		var at := p + Vector2(cos(a), sin(a)) * rad * (0.55 + 0.35 * k)
+		_leaf(ci, at, a, rad * 0.32 * k, LEAF if l % 2 else LEAF_LIGHT)
+	_flower(ci, p + Vector2(-0.1, -0.15) * rad, rad * 0.22 * k, t)
+
+
+static func _leaf(ci: CanvasItem, at: Vector2, ang: float, ln: float, col: Color) -> void:
+	if ln < 1.0:
+		return
+	var d := Vector2.from_angle(ang)
+	var o := d.orthogonal()
+	var pts := PackedVector2Array([at - d * ln * 0.5, at + o * ln * 0.3, at + d * ln * 0.5, at - o * ln * 0.3])
+	ci.draw_colored_polygon(pts, col)
+	ci.draw_line(at - d * ln * 0.45, at + d * ln * 0.45, col.darkened(0.35), 1.2, true)
+
+
+static func _flower(ci: CanvasItem, at: Vector2, r: float, t: float) -> void:
+	for l in 5:
+		var a := t * 0.5 + l * TAU / 5.0
+		ci.draw_circle(at + Vector2(cos(a), sin(a)) * r * 0.6, r * 0.5, Color("ff9ecf"))
+	ci.draw_circle(at, r * 0.4, Color("ffe066"))
+
+
+## Ivy's lash: a wavy vine from the pillar to the foe, sprouting leaves.
+static func draw_lash_vine(ci: CanvasItem, from: Vector2, to: Vector2, t: float) -> void:
+	var span := from.distance_to(to)
+	if span < 1.0:
+		return
+	var along := (to - from) / span
+	var side := along.orthogonal()
+	var pts := PackedVector2Array()
+	for q in 17:
+		var k := q / 16.0
+		pts.append(from + along * span * k + side * sin(k * 9.0 + t * 6.0) * 6.0 * sin(k * PI))
+	ci.draw_polyline(pts, Color("0b4f37"), 8.0, true)
+	ci.draw_polyline(pts, Color("2ee59d"), 3.5, true)
+	for q in range(1, 16, 2):
+		var a := (pts[q + 1] - pts[q]).angle() + (0.9 if q % 4 == 1 else -0.9)
+		_leaf(ci, pts[q] + Vector2.from_angle(a) * 6.0, a, 14.0, LEAF_LIGHT if q % 4 == 1 else LEAF)
+
+
+## Bonbon's gift wrap: two ribbons crossed over the foe and a bow on top,
+## with a candy-stripe sheen. left (1 to 0) is how long the wrap still holds.
+static func draw_wrap(ci: CanvasItem, p: Vector2, r: float, t: float, left: float) -> void:
+	ci.draw_circle(p, r * 1.04, Color(Color("ffd6ec"), 0.35))
+	for k in 6: # Stripes on the paper.
+		var a := k * TAU / 6.0 + t * 0.5
+		ci.draw_arc(p, r * 0.98, a, a + 0.35, 6, Color(Color("ff5fa2"), 0.55), 5.0, true)
+	var ribbon := Color("ff3d8b")
+	ci.draw_line(p + Vector2(-r, 0), p + Vector2(r, 0), ribbon.darkened(0.3), r * 0.32, true)
+	ci.draw_line(p + Vector2(0, -r), p + Vector2(0, r), ribbon.darkened(0.3), r * 0.32, true)
+	ci.draw_line(p + Vector2(-r, 0), p + Vector2(r, 0), ribbon, r * 0.22, true)
+	ci.draw_line(p + Vector2(0, -r), p + Vector2(0, r), ribbon, r * 0.22, true)
+	var top := p + Vector2(0, -r * 0.95)
+	var wob := 0.15 * sin(t * 10.0) * (1.0 - left)
+	for side in [-1.0, 1.0]: # Bow loops.
+		var c := top + Vector2(side * r * 0.32, -r * 0.12)
+		var loop := PackedVector2Array([top, c + Vector2(side * r * 0.2, -r * (0.22 + wob)), c + Vector2(side * r * 0.25, r * 0.15), top])
+		ci.draw_colored_polygon(PackedVector2Array([loop[0], loop[1], loop[2]]), ribbon)
+		ci.draw_polyline(loop, ribbon.darkened(0.3), 2.0, true)
+	ci.draw_circle(top, r * 0.11, ribbon.lightened(0.3))
+
+
+## Clockwork's tick ring: a clock face rippling out with 12 ticks and a hand
+## sweeping round once.
+static func draw_clock_ring(ci: CanvasItem, c: Vector2, reach: float, age: float) -> void:
+	var k := clampf(age / CLOCK_LIFE, 0.0, 1.0)
+	var rad := reach * (0.35 + 0.65 * sqrt(k))
+	var a := 1.0 - k
+	ci.draw_arc(c, rad, 0.0, TAU, 64, Color(CLOCK, 0.8 * a), 4.0, true)
+	for q in 12:
+		var d := Vector2.from_angle(q * TAU / 12.0)
+		var inner := 0.84 if q % 3 == 0 else 0.9
+		ci.draw_line(c + d * rad * inner, c + d * rad, Color(CLOCK, 0.9 * a), 4.0 if q % 3 == 0 else 2.0, true)
+	var hand := Vector2.from_angle(-PI / 2.0 + TAU * k)
+	ci.draw_line(c, c + hand * rad * 0.9, Color(CLOCK, 0.7 * a), 3.0, true)
+	ci.draw_circle(c, 5.0, Color(CLOCK, a))
+
+
+## Clockwork's rewind: ghost copies along the way back and a backwards arrow.
+static func draw_rewind(ci: CanvasItem, from: Vector2, to: Vector2, r: float, age: float, life: float) -> void:
+	var a := 1.0 - clampf(age / life, 0.0, 1.0)
+	for q in 5:
+		var k := q / 4.0
+		ci.draw_circle(from.lerp(to, k), r * 0.95, Color(CLOCK, 0.12 * a * (0.4 + k)))
+		ci.draw_arc(from.lerp(to, k), r * 0.95, 0.0, TAU, 32, Color(CLOCK, 0.45 * a * (0.4 + k)), 2.0, true)
+	var spin := -age * 12.0
+	ci.draw_arc(to, r * 1.35, spin, spin + PI * 1.4, 24, Color(CLOCK, 0.9 * a), 4.0, true)
+	var tip := to + Vector2.from_angle(spin) * r * 1.35
+	var back := Vector2.from_angle(spin + PI / 2.0)
+	ci.draw_colored_polygon(PackedVector2Array([tip - back * 10.0, tip + Vector2.from_angle(spin) * 9.0, tip - Vector2.from_angle(spin) * 9.0]), Color(CLOCK, 0.9 * a))
+
+
+## Eclipse flipping: a dark disc slides across a blazing ring (to Moon) or
+## off it (to Sun), with corona flares.
+static func draw_eclipse_flip(ci: CanvasItem, c: Vector2, r: float, reach: float, age: float, to_moon: bool) -> void:
+	var k := clampf(age / FLIP_LIFE, 0.0, 1.0)
+	var a := 1.0 - k
+	var sun := Color("ffb347")
+	var moon := Color("b8c4ff")
+	var col := moon if to_moon else sun
+	ci.draw_arc(c, reach * (0.4 + 0.6 * sqrt(k)), 0.0, TAU, 64, Color(col, 0.85 * a), 8.0 * a + 2.0, true)
+	for q in 16:
+		var d := Vector2.from_angle(q * TAU / 16.0 + k)
+		ci.draw_line(c + d * r * 1.1, c + d * r * (1.4 + 0.9 * k), Color(sun.lightened(0.3), 0.8 * a), 3.0, true)
+	ci.draw_circle(c, r * 1.15, Color(sun, 0.55 * a))
+	var slide := (k if to_moon else 1.0 - k) * 2.0 - 1.0 # -1 to 1 across the face.
+	ci.draw_circle(c + Vector2(slide * r * 0.9, -slide * r * 0.3), r * 1.05, Color(Color("1a1240"), 0.85 * a))
+	ci.draw_arc(c + Vector2(slide * r * 0.9, -slide * r * 0.3), r * 1.05, 0.0, TAU, 40, Color(moon, 0.8 * a), 2.5, true)
+
+
+## Moonlight on Eclipse while it heals: a pale crescent and drifting motes.
+static func draw_moonlight(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	var moon := Color("b8c4ff")
+	ci.draw_arc(p, r * 1.22, -PI * 0.85, -PI * 0.15, 24, Color(moon, 0.55), 5.0, true)
+	for k in 4:
+		var f := fmod(t * 0.5 + k / 4.0, 1.0)
+		var at := p + Vector2((k - 1.5) * r * 0.5, r * 0.4 - r * 1.4 * f)
+		_sparkle(ci, at, 5.0 * (1.0 - f) + 2.0, Color(moon, 0.9 * (1.0 - f)))
+
+
+## A shard of ice flying along a line: a pointed crystal with a frosty tail.
+static func draw_shard(ci: CanvasItem, a: Vector2, b: Vector2, k: float, size: float) -> void:
+	var d := (b - a)
+	if d.length() < 1.0:
+		return
+	var dir := d.normalized()
+	var at := a.lerp(b, clampf(k, 0.0, 1.0))
+	var tail := at - dir * minf(d.length() * k, size * 4.0)
+	ci.draw_line(tail, at, Color(ICE, 0.35), size * 0.9, true)
+	var o := dir.orthogonal()
+	var pts := PackedVector2Array([at + dir * size * 1.3, at + o * size * 0.45, at - dir * size * 0.7, at - o * size * 0.45])
+	ci.draw_colored_polygon(pts, Color("d9f6ff"))
+	ci.draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color("6fb7ff"), 1.5, true)
+
+
+## Glacia's ice pillar: a cluster of tall crystals seen from above.
+static func draw_crystal_pillar(ci: CanvasItem, p: Vector2, rad: float, k: float, seed: float, t: float) -> void:
+	ci.draw_circle(p + Vector2(3, 6) * k, rad * k, Color(0, 0, 0, 0.3 * k))
+	ci.draw_circle(p, rad * (0.5 + 0.5 * k), Color(Color("4b4a8f"), 0.6))
+	for l in 6:
+		var a := seed + l * TAU / 6.0
+		var d := Vector2.from_angle(a)
+		var ln := rad * (0.7 + 0.35 * sin(seed * 3.0 + l)) * k
+		var o := d.orthogonal()
+		var base := p + d * rad * 0.1
+		var pts := PackedVector2Array([base + o * rad * 0.18, base + d * ln, base - o * rad * 0.18])
+		ci.draw_colored_polygon(pts, Color("bfe9ff") if l % 2 else Color("d9d0ff"))
+		ci.draw_line(base, base + d * ln, Color(1, 1, 1, 0.6), 1.5, true)
+	_sparkle(ci, p + Vector2(-0.2, -0.3) * rad, rad * 0.25 * (0.6 + 0.4 * sin(t * 4.0 + seed)), Color.WHITE)
+
+
+## Frost creeping over a bitten foe: one crystal per stack, gathering on its rim.
+static func draw_frost_stacks(ci: CanvasItem, p: Vector2, r: float, stacks: int, total: int, t: float) -> void:
+	var share := clampf(float(stacks) / maxf(1.0, total), 0.0, 1.0)
+	ci.draw_arc(p, r * 1.02, -PI / 2.0, -PI / 2.0 + TAU * share, 40, Color(ICE, 0.85), 5.0, true)
+	for q in stacks * 3:
+		var a := -PI / 2.0 + TAU * share * (q + 0.5) / (stacks * 3.0)
+		var at := p + Vector2.from_angle(a) * r * 1.02
+		_sparkle(ci, at, r * 0.14 * (0.8 + 0.2 * sin(t * 6.0 + q)), Color("e8fbff"))
+
+
+## Frostfang hunting a frozen foe: icy breath streaming off it.
+static func draw_frost_breath(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	if vel.length() < 0.001:
+		return
+	var back := -vel.normalized()
+	for k in 7:
+		var f := fmod(t * 2.5 + k / 7.0, 1.0)
+		var at := p + back * r * (0.8 + 1.6 * f) + back.orthogonal() * sin(k * 2.3 + t * 3.0) * r * 0.35 * f
+		ci.draw_circle(at, r * (0.12 + 0.18 * f), Color(ICE, 0.5 * (1.0 - f)))
+
+
+## Leviathan under the water: a fin cutting the surface with a V-shaped wake.
+static func draw_fin(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	var dir := vel.normalized() if vel.length() > 0.001 else Vector2.RIGHT
+	var o := dir.orthogonal()
+	ci.draw_circle(p, r * 0.9, Color(Color("0b2a4a"), 0.45))
+	for k in 3:
+		var f := fmod(t * 1.5 + k / 3.0, 1.0)
+		var back := p - dir * r * (0.4 + 1.6 * f)
+		ci.draw_line(back + o * r * (0.3 + 0.8 * f), p - dir * r * 0.2 + o * r * 0.15, Color(WATER, 0.5 * (1.0 - f)), 2.5, true)
+		ci.draw_line(back - o * r * (0.3 + 0.8 * f), p - dir * r * 0.2 - o * r * 0.15, Color(WATER, 0.5 * (1.0 - f)), 2.5, true)
+	var fin := PackedVector2Array([p + dir * r * 0.5, p - dir * r * 0.4 + o * r * 0.18, p - dir * r * 0.55, p - dir * r * 0.4 - o * r * 0.18])
+	ci.draw_colored_polygon(fin, Color("2fb3b0"))
+	ci.draw_line(p - dir * r * 0.5, p + dir * r * 0.5, Color(WATER, 0.9), 2.0, true)
+
+
+## Leviathan bursting up: a white-water ring and a column of spray.
+static func draw_splash(ci: CanvasItem, c: Vector2, reach: float, age: float, seed: float) -> void:
+	var k := clampf(age / SPLASH_LIFE, 0.0, 1.0)
+	var a := 1.0 - k
+	ci.draw_circle(c, reach * 0.35 * (1.0 - k * 0.5), Color(Color("e8feff"), 0.5 * a))
+	ci.draw_arc(c, reach * (0.3 + 0.7 * sqrt(k)), 0.0, TAU, 64, Color(WATER, 0.9 * a), 10.0 * a + 2.0, true)
+	ci.draw_arc(c, reach * (0.2 + 0.5 * sqrt(k)), 0.0, TAU, 48, Color(Color.WHITE, 0.6 * a), 4.0, true)
+	for q in 14:
+		var ang := seed + q * TAU / 14.0
+		var up := sin(k * PI) * reach * 0.3
+		var at := c + Vector2.from_angle(ang) * reach * (0.2 + 0.6 * k) + Vector2(0, -up)
+		ci.draw_circle(at, 6.0 * a + 2.0, Color(Color("bff8ff"), 0.85 * a))
+
+
+## A foe Puppeteer hurled: a motion streak and a dangling cut string.
+static func draw_thrown(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	if vel.length() < 0.001:
+		return
+	var back := -vel.normalized()
+	for k in 4:
+		var o := back.orthogonal() * (k - 1.5) * r * 0.45
+		ci.draw_line(p + back * r + o, p + back * r * (2.6 - 0.3 * absf(k - 1.5)) + o, Color(1, 1, 1, 0.45), 3.0, true)
+	var string_end := p + back * r * 1.6 + Vector2(sin(t * 12.0) * 6.0, 10.0)
+	ci.draw_line(p - Vector2(0, r), string_end, Color("fff3c4"), 2.0, true)
