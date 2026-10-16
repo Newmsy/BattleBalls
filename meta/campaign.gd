@@ -8,6 +8,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const Rng := preload("res://sim/rng.gd")
 const Power := preload("res://sim/power.gd")
 const Lineup := preload("res://sim/lineup.gd")
+const Relay := preload("res://sim/relay.gd")
 const Economy := preload("res://meta/economy.gd")
 ## Gear a campaign win can drop (design/gear.md section 4): Shells and Cores,
 ## since Charms only fit 3-star critters.
@@ -60,6 +61,70 @@ static func fighter_for(profile) -> String:
 		if profile.owns(id) and (best_id == "" or profile.power_of(id) > profile.power_of(best_id)):
 			best_id = id
 	return best_id
+
+
+## The team for a pairs or trios zone: the lineup critter first (if it can
+## fight), then the strongest other critters that can, up to `size`.
+static func team_for(profile, size: int) -> Array:
+	var ids: Array = []
+	var first := fighter_for(profile)
+	if first != "":
+		ids.append(first)
+	var rest: Array = BallDefs.PLAYABLE.filter(func(id): return profile.owns(id) and id != first)
+	rest.sort_custom(func(a, b): return profile.power_of(a) > profile.power_of(b))
+	for id in rest:
+		if ids.size() >= size:
+			break
+		ids.append(id)
+	return ids
+
+
+## Spends energy and returns the relay config (sim/relay.gd) for a stage in a
+## pairs or trios zone, your `picks` (critter ids) in order against the stage's
+## enemies on the zone's arena. Your aims are null for the caller to fill in.
+## Returns {error: "..."} like start().
+static func start_team(profile, zone_index: int, stage_index: int, picks: Array, now: int) -> Dictionary:
+	if not is_unlocked(profile, zone_index, stage_index):
+		return {"error": "locked"}
+	if picks.is_empty() or not picks.all(func(id): return can_fight(profile, id)):
+		return {"error": "no_ball"}
+	var st := Zones.stage(zone_index, stage_index)
+	if not profile.spend_energy(Zones.cost(st), now):
+		return {"error": "energy"}
+	var foes := Zones.enemies(st)
+	var slots: Array = picks.map(func(id): return profile.slot_of(id))
+	var sizes: Array = foes.map(func(_e): return 1.0)
+	if Zones.is_boss(st):
+		sizes[-1] = Zones.BOSS_SIZE
+	return {
+		"seed": _seed(profile.runs, zone_index, stage_index),
+		"arena": Zones.zone(zone_index).get("arena", "square"),
+		"sides": [picks.duplicate(), foes.duplicate()],
+		"aims": [picks.map(func(_p): return null), foes.map(func(_e): return null)],
+		"powers": [slots.map(func(s): return Lineup.power(s)), foes.map(func(_e): return float(st.power))],
+		"tiers": [slots.map(func(s): return Lineup.clean(s).tier), foes.map(func(_e): return 1)],
+		"gear": [slots.map(func(s): return Lineup.kit(Lineup.clean(s))), foes.map(func(_e): return null)],
+		"sizes": [picks.map(func(_p): return 1.0), sizes],
+	}
+
+
+## The finish() input for a finished relay: a win's second star needs no ball
+## lost, its third the last ball standing on 30%+ HP. `last` is the final
+## leg's MatchSim.
+static func relay_fight(relay, last) -> Dictionary:
+	var won: bool = relay.winner == 0
+	var hp: float = last.balls[0].hp if won else 0.0
+	return {"winner": 0 if won else 1, "hp": [hp, 0.0], "max_hp": last.balls[0].max_hp,
+		"time": 0.0 if won and relay.slot[0] == 0 else MatchSim.OVERTIME_START + 1.0}
+
+
+## finish() for a team: the first pick takes the result, every pick gets the XP.
+static func finish_team(profile, zone_index: int, stage_index: int, picks: Array, fight: Dictionary) -> Dictionary:
+	var r := finish(profile, zone_index, stage_index, picks[0], fight)
+	for k in range(1, picks.size()):
+		if profile.add_xp(picks[k], r.xp) > 0:
+			r.levels += 1
+	return r
 
 
 ## Spends energy and returns the fight config for a stage, with the player's
@@ -127,6 +192,18 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 static func sweep(profile, zone_index: int, stage_index: int, fighter: String, now: int) -> Dictionary:
 	if not can_sweep(profile, zone_index, stage_index):
 		return {"error": "not_three_stars"}
+	if Zones.zone(zone_index).lineup > 1:
+		var picks := team_for(profile, Zones.zone(zone_index).lineup)
+		var rc := start_team(profile, zone_index, stage_index, picks, now)
+		if rc.has("error"):
+			return rc
+		var relay := Relay.new(rc)
+		var last = null
+		while not relay.finished:
+			last = MatchSim.new(relay.leg_config())
+			last.run_to_end()
+			relay.record_leg(last)
+		return finish_team(profile, zone_index, stage_index, picks, relay_fight(relay, last))
 	var cfg := start(profile, zone_index, stage_index, fighter, now)
 	if cfg.has("error"):
 		return cfg

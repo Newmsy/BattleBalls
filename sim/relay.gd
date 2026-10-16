@@ -73,6 +73,8 @@ func leg_config() -> Dictionary:
 	for key in ["powers", "sizes", "tiers", "talents"]:
 		if config.has(key):
 			leg[key] = [config[key][0][slot[0]], config[key][1][slot[1]]]
+	if config.has("arena"):
+		leg.arena = config.arena
 	return leg
 
 

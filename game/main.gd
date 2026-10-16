@@ -251,6 +251,8 @@ func _ready() -> void:
 			_show_home()
 			if link_friend != "":
 				shell.go("friends")
+			elif not load("res://game/campaign_relay.gd").done.is_empty():
+				_settle_relay_stage()
 			elif SpireScreen.should_open(url_params):
 				shell.go("spire")
 			elif url_params.get("screen", "") in Shell.TAB_IDS:
@@ -258,6 +260,8 @@ func _ready() -> void:
 			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen not in ["detail", "dex_entry"] or url_params.has("id")):
 				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
 				var screen_params := {"id": url_params.id} if url_params.has("id") else {}
+				if url_params.has("zone"):
+					screen_params.zone = clampi(int(url_params.zone) - 1, 0, Zones.ZONES.size() - 1) # ?screen=campaign&zone=2
 				if demo_profile and url_params.screen in ["arena", "boosts"]:
 					screen_params.store = preload("res://game/pvp/arena_store.gd").sample()
 				shell.go(url_params.screen, screen_params)
@@ -743,6 +747,23 @@ func _aim_back() -> void:
 	else:
 		profile.refund_energy(Zones.cost(Zones.stage(pve.zone, pve.stage)))
 	_back_to_campaign()
+
+
+## Back from a pairs or trios stage (game/campaign_relay.gd): settle it and
+## open the stage list on it, with the results popup.
+func _settle_relay_stage() -> void:
+	var relay_scene = load("res://game/campaign_relay.gd")
+	var d: Dictionary = relay_scene.done
+	relay_scene.done = {}
+	var params := {"zone": d.zone, "focus": d.stage}
+	if d.get("refund", false):
+		profile.refund_energy(Zones.cost(Zones.stage(d.zone, d.stage)))
+	else:
+		var r := Campaign.finish_team(profile, d.zone, d.stage, d.picks, d.fight)
+		params.result = {"stage": d.stage, "r": r, "kind": "fight"}
+	shell.show_tab("play")
+	shell.go("world")
+	shell.go("campaign", params)
 
 
 func _back_to_campaign() -> void:

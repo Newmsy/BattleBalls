@@ -40,13 +40,23 @@ static func build(shell, params: Dictionary) -> Control:
 		root.add_child(Kit.panel(Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
 
 	# Fighter: the lineup critter, or the strongest one that can fight.
+	# Pairs and trios zones bring a team: the fighter first, then the strongest others.
 	var fighter: String = Campaign.fighter_for(p)
-	var b: Dictionary = p.best(fighter)
-	var info := Kit.vbox(4, [Kit.caption("Your fighter"), _fit(Kit.label(Roster.get_critter(fighter).name, 30)),
-		Kit.power(p.power_of(fighter), 24)])
+	var team: Array = Campaign.team_for(p, zone.lineup) if zone.lineup > 1 else [fighter]
+	var names: Array = team.map(func(id): return Roster.get_critter(id).name)
+	var team_power := 0
+	for id in team:
+		team_power += p.power_of(id)
+	var info := Kit.vbox(4, [Kit.caption("Your fighter" if team.size() == 1 else "Your team"), _fit(Kit.label(" + ".join(names), 30 if team.size() == 1 else 24)),
+		Kit.power(team_power / maxi(1, team.size()), 24)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var change := Kit.chip("Change", Kit.ACCENT)
-	var fighter_row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 100, false, b.level), info, change])
+	var icons := Kit.hbox(4)
+	for id in team:
+		var tb: Dictionary = p.best(id)
+		# Teams drop the level so the stars fit over each smaller icon.
+		icons.add_child(FighterTag.icon(id, tb.get("tier", 1), 100 if team.size() == 1 else 70, false, tb.get("level", 1) if team.size() == 1 else 0))
+	var fighter_row := Kit.hbox(14, [icons, info, change])
 	fighter_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var on_pick := func(id: String) -> void:
 		p.set_lineup(id)
@@ -74,9 +84,16 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	var boss := Zones.is_boss(st)
 	var unlocked := Campaign.is_unlocked(p, z, i)
 	var stars := Campaign.stars_of(p, z, i)
-	var name: String = st.get("name", Roster.get_critter(st.enemy).name)
+	var foes := Zones.enemies(st)
+	var name: String = st.get("name", " + ".join(foes.map(func(id): return Roster.get_critter(id).name)))
 	var rec := Campaign.enemy_rating(z, i)
 	var mine: int = p.power_of(fighter)
+	if foes.size() > 1:
+		var team := Campaign.team_for(p, Zones.zone(z).lineup)
+		mine = 0
+		for id in team:
+			mine += p.power_of(id)
+		mine /= maxi(1, team.size())
 
 	var title := Kit.hbox(8, [Kit.label(Zones.stage_key(z, i), 22, Kit.MUTED), _fit(Kit.label(name, 28))])
 	if boss:
@@ -99,7 +116,15 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 			shell.mark("sweep_%d_%d" % [z + 1, i + 1], sweep)
 			actions.add_child(sweep)
 
-	var icon := FighterTag.make(st.enemy, enemy_tier(st), rec, 108 if boss else 92, power_color, not unlocked)
+	var icon: Control = FighterTag.make(st.enemy, enemy_tier(st), rec, 108 if boss else 92, power_color, not unlocked)
+	if foes.size() > 1:
+		# One power figure under the pair (each foe is rated the same).
+		var pair := Kit.hbox(2)
+		for id in foes:
+			pair.add_child(FighterTag.icon(id, enemy_tier(st), 64, not unlocked))
+		var pw := Kit.power(rec, 20, power_color)
+		pw.alignment = BoxContainer.ALIGNMENT_CENTER
+		icon = Kit.vbox(0, [pair, pw])
 	var row := Kit.hbox(12, [icon, info, actions])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var border := Kit.BAD.darkened(.3) if boss else (Kit.GOOD.darkened(.5) if stars > 0 else Kit.LINE)
@@ -133,6 +158,9 @@ static func matchup_text(p, z: int, i: int, fighter: String) -> String:
 
 
 static func _fight(shell, z: int, i: int, fighter: String) -> void:
+	if Zones.zone(z).lineup > 1:
+		_fight_team(shell, z, i)
+		return
 	var cfg: Dictionary = Campaign.start(shell.profile, z, i, fighter, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
 		shell.toast(_error_text(cfg.error))
@@ -237,3 +265,18 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 		buttons.add_child(again)
 	v.add_child(buttons)
 	shell.sheet(v)
+
+
+## A pairs or trios stage: spend the energy, then fight it as a relay on its
+## own screen (game/campaign_relay.gd). main.gd settles it on the way back.
+static func _fight_team(shell, z: int, i: int) -> void:
+	var picks := Campaign.team_for(shell.profile, Zones.zone(z).lineup)
+	var cfg: Dictionary = Campaign.start_team(shell.profile, z, i, picks, int(Time.get_unix_time_from_system()))
+	if cfg.has("error"):
+		shell.toast(_error_text(cfg.error))
+		shell.refresh()
+		return
+	var scene = load("res://game/campaign_relay.gd")
+	scene.pending = {"zone": z, "stage": i, "picks": picks, "config": cfg}
+	scene.done = {}
+	shell.get_tree().change_scene_to_file("res://game/campaign_relay.tscn")

@@ -30,7 +30,7 @@ static func build(shell, params: Dictionary) -> Control:
 	for z in range(1, built):
 		if Campaign.is_unlocked(p, z, 0):
 			open = z + 1
-	var boss_zone := 0
+	var boss_zone := open - 1
 	var glitched := not Campaign.is_cleared(p, boss_zone, Zones.zone(boss_zone).stages.size() - 1)
 	# Fill the room between the title row and the pinned button.
 	var height := clampf(shell.size.y - 520.0 - (A11y.font(40) - 40) * 2.0, 560.0, 900.0)

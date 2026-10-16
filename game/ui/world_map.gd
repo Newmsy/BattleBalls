@@ -44,7 +44,7 @@ static func make(zones_: Array, open_count_: int, glitched_: bool, height: float
 		b.pressed.connect(on_zone.bind(i))
 		var inner: Control
 		if open:
-			inner = CritterIcon.make("juggernaut" if i == 0 else "vampire", 1, r * 1.5)
+			inner = CritterIcon.make(z.get("icon", "juggernaut"), 1, r * 1.5)
 		else:
 			inner = Glyph.make("lock", r * .8, Color(z.color).lerp(Kit.MUTED, .5))
 		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -92,7 +92,10 @@ func _layout() -> void:
 		t.position.x = clampf(t.position.x, 0, maxf(0, size.x - t.size.x))
 	# You stand next to the furthest zone you can play.
 	var at := center(open_count - 1)
-	_you.position = Vector2(at.x - OPEN_R - _you.size.x + 18, at.y - OPEN_R - 4)
+	# Opposite the zone's label so it never covers the text.
+	var left: bool = SPOTS[open_count - 1].x < .5
+	_you.position = Vector2(at.x - OPEN_R - _you.size.x + 18 if left else at.x + OPEN_R - 18, at.y - OPEN_R - 4)
+	_you.position.x = clampf(_you.position.x, 0, maxf(0, size.x - _you.size.x))
 	queue_redraw()
 
 
@@ -137,9 +140,9 @@ func _draw() -> void:
 		else:
 			draw_circle(c, LOCKED_R, Kit.PANEL)
 			draw_arc(c, LOCKED_R, 0, TAU, 48, Color(col, .45), 3.0, true)
-	# The Glitch peeks over Glow Garden until its boss is purified (glitch.md).
+	# The Glitch peeks over the furthest open zone until its boss is purified (glitch.md).
 	if glitched:
-		var g := center(0) + Vector2(OPEN_R * .55, OPEN_R * .62)
+		var g := center(open_count - 1) + Vector2(OPEN_R * .55, OPEN_R * .62)
 		var pink := Color("ff3fd8")
 		for px in [Vector2(0, 0), Vector2(10, 0), Vector2(-10, 10), Vector2(0, 10), Vector2(10, 10), Vector2(20, 10), Vector2(0, 20), Vector2(10, 20)]:
 			draw_rect(Rect2(g + px - Vector2(5, 5), Vector2(9, 9)), pink)
