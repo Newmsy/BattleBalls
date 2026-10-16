@@ -63,6 +63,10 @@ const RULES := {
 	"buzz": [2, 0.12, -9.0],
 	"puff": [1, 0.3, -5.0],
 	"roar": [1, 0.5, -2.0],
+	"cannon": [1, 0.2, -3.0],
+	"splat": [2, 0.1, -6.0],
+	"sonar": [1, 0.3, -8.0],
+	"twinkle": [1, 0.3, -8.0],
 }
 ## Seconds between rain patters while one of Drizzle's showers is falling.
 const RAIN_EVERY := 0.9
@@ -216,7 +220,15 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					_drum_beat += 1
 					play("drum", -6.0, 1.5 if _drum_beat % 2 else 1.2)
 			"beam":
-				play("zap")
+				var who: String = sim.balls[e.owner].type_id if e.get("owner", -1) >= 0 and e.owner < sim.balls.size() else ""
+				if who == "comet": # A shooting star.
+					play("twinkle")
+				elif who == "zigzag": # Its path turning to lightning.
+					play("crackle", -3.0, 1.2)
+				elif who == "drako":
+					pass # The breath already roared.
+				else:
+					play("zap")
 			"flip":
 				play("flip", 0.0, 1.0 if e.pulling else 0.85)
 			"snap":
@@ -237,6 +249,12 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("ticktock")
 				elif kind == "wave": # Leviathan bursting up.
 					play("splash")
+				elif kind == "ping": # Sonar's ping.
+					play("sonar")
+				elif kind == "paint": # Painter's paint drying.
+					play("splat", 0.0, 0.9 + _rng.randf() * 0.2)
+				elif kind == "wind": # Gust's huff.
+					play("whoosh", 0.0, 1.4)
 				elif kind == "stink": # Whiff's cloud blooming.
 					play("puff", 0.0, 0.9)
 				elif kind == "candy": # Jawbreaker's sugar blast.
@@ -261,6 +279,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("glug", 0.0, 0.95 + _rng.randf() * 0.15)
 				elif e.kind == "pearl":
 					play("pew", 0.0, 0.7)
+				elif e.kind == "shell" and e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "mortar":
+					play("cannon", 0.0, 0.95 + _rng.randf() * 0.1)
+				elif e.kind == "stinger":
+					play("buzz", -2.0, 1.5)
 				else:
 					play("launch", -6.0, 1.8 if e.kind != "shell" and e.kind != "blob" else 0.9)
 			"shut": # Clam clamping shut.
@@ -273,6 +295,9 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("snap", 0.0, 1.25)
 			"revive":
 				play("heal", 0.0, 0.8)
+			"split": # Splitter tearing in two: a gooey stretch and a pop.
+				play("stretch", 0.0, 0.7)
+				play("slurp", -3.0, 1.3)
 			"grow": # Grow and shrink (Puff, Crumb, Tumble): higher when shrinking.
 				if e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "tumble" and e.bigger:
 					play("rustle", 0.0, 0.9 + 0.05 * int(sim.balls[e.ball].state.get("twigs", 0)))
@@ -358,6 +383,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"piece":
 				if e.kind == "vine": # Ivy's vine sprouting: grassy.
 					play("rustle", -2.0, 1.3)
+				elif e.kind == "seed": # Sprout's sapling popping up.
+					play("rustle", -3.0, 1.6)
 				elif e.kind != "illusion":
 					play("wall", -3.0, 0.7)
 			"rays":
