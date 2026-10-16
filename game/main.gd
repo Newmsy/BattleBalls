@@ -49,6 +49,10 @@ const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const FightSpeed := preload("res://game/fight_speed.gd")
+const Dev := preload("res://game/dev.gd")
+const LiveClient := preload("res://game/online/live_client.gd")
+const LiveMatch := preload("res://sim/live_match.gd")
+const SimVersion := preload("res://sim/sim_version.gd")
 
 ## CLIP plays the finished fight again in the vertical clip layout.
 enum State { MENU, AIM, FIGHT, RESULT, CLIP }
@@ -56,8 +60,9 @@ enum State { MENU, AIM, FIGHT, RESULT, CLIP }
 ## a friend's ball and shot. RIVAL: an unranked rematch against a friend's
 ## saved team (their Ghost Arena lineup, aimed the way they usually aim).
 ## TUTORIAL: onboarding drives the arena. CAMPAIGN: a campaign stage (energy
-## already spent).
-enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL, TUTORIAL, CAMPAIGN }
+## already spent). LIVE: a Quick fight against a real player, refereed by the
+## live server (Settings > Testing for now; design/live-quick-fight.md).
+enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL, TUTORIAL, CAMPAIGN, LIVE }
 
 ## Onboarding fights report here instead of showing the result panel.
 signal tutorial_fight_ended(winner: int)
@@ -191,6 +196,14 @@ var aim_back_button: Button
 var tutorial_tags: Array = [] ## HUD names during onboarding fights.
 var tutorial_side := 0 ## The ball the player is rooting for, for the result jingle.
 var url_params := {}
+## Live fights: the server connection while finding a foe or in a match, the
+## server's "matched" message (plus "go" once both have aimed), and the sim
+## side you're on there (the fight is the server's, so you can be side 1).
+var live_client: LiveClient
+var live := {}
+var you_side := 0
+var _live_aim_left := 0.0
+var live_box: HBoxContainer
 ## Where the info line and controls sit (under or beside the arena).
 var controls_rect := Rect2()
 
@@ -264,6 +277,8 @@ func _ready() -> void:
 		_start_url_stage()
 	elif _wants_tutorial():
 		_start_tutorial()
+	elif auto_start and Dev.live_url_override != "":
+		_find_live() # ?live=ws://...&auto=1: straight into a live match (smoke test).
 	elif auto_start:
 		_start_fight()
 	else:
@@ -301,6 +316,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var covered := _sync_cover()
+	if mode == Mode.LIVE and state == State.AIM and not live.has("aimed"):
+		_tick_live_aim(delta)
 	if state == State.FIGHT:
 		if _advance_fight(delta, FightSpeed.current()):
 			_show_result()
@@ -331,7 +348,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if state == State.CLIP and event is InputEventMouseButton and event.pressed:
 		_cancel_clip()
 		return
-	if state != State.AIM:
+	if state != State.AIM or live.has("aimed"):
 		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
@@ -346,7 +363,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _aim_towards(screen_pos: Vector2) -> void:
-	var dir := arena.to_world(screen_pos) - sim.balls[0].pos
+	var dir := arena.to_world(screen_pos) - sim.balls[you_side].pos
 	if dir.length() < 10.0:
 		return
 	aim = roundi(rad_to_deg(dir.angle()) * 10.0)
@@ -372,6 +389,11 @@ func _apply_cosmetics() -> void:
 # --- Flow -------------------------------------------------------------------
 
 func _config() -> Dictionary:
+	if mode == Mode.LIVE:
+		var angles: Array = live.get("angles", [null, null]).duplicate()
+		if not live.has("angles"):
+			angles[you_side] = aim
+		return LiveMatch.config(int(live.seed), live.sides, angles)
 	if mode == Mode.CAMPAIGN:
 		var cfg: Dictionary = pve.config.duplicate()
 		cfg.angles = [aim, null]
@@ -469,6 +491,7 @@ func _refresh_tier_buttons() -> void:
 
 func _show_menu() -> void:
 	state = State.MENU
+	_set_side(0)
 	sim = null
 	arena.sim = null
 	arena.aim_dir = Vector2.ZERO
@@ -487,6 +510,7 @@ func _refresh_menu() -> void:
 	seed_label.text = ("Your critter · seed %d · %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]).to_upper()
 	duo_button.visible = mode == Mode.NORMAL
 	duo_button.text = "2v2" if _is_duo() else "1v1"
+	fight_button.text = "LIVE FIGHT" if _live_on() else "FIGHT!"
 	if _is_duo():
 		seed_label.text = ("Your pair: %s + %s · %s" % [BallDefs.get_def(player_type).display_name,
 			BallDefs.get_def(_mate()).display_name, Arenas.get_def(_pick_arena()).display_name]).to_upper()
@@ -532,16 +556,18 @@ func _report_menu() -> void:
 
 
 func _begin_aim() -> void:
-	if mode != Mode.CAMPAIGN:
+	if mode != Mode.LIVE:
+		_set_side(0)
+	if mode != Mode.CAMPAIGN and mode != Mode.LIVE:
 		opponent_type = _pick_opponent()
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
-	aim = MatchSim.aim_at_centre(0, 4 if _is_duo() else 2)
+	aim = MatchSim.aim_at_centre(you_side, 4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 else 2)
 	arena.clear_effects()
 	arena.reset_camera()
 	_set_aim_preview()
-	info_label.text = "Drag on the arena to aim your %s, then let go to launch." % sim.balls[0].def.display_name
+	info_label.text = "Drag on the arena to aim your %s, then let go to launch." % sim.balls[you_side].def.display_name
 	_show_only(aim_box)
 	_report_menu.call_deferred()
 
@@ -574,6 +600,9 @@ func _cycle_rules() -> void:
 
 
 func _launch() -> void:
+	if mode == Mode.LIVE:
+		_live_launch()
+		return
 	arena.ghost_dir = Vector2.ZERO
 	sfx.play("launch")
 	_start_fight()
@@ -583,6 +612,7 @@ func _launch() -> void:
 ## Starts (or replays) the fight described by the current config.
 func _start_fight() -> void:
 	_count_fight = false
+	_set_side(you_side if mode == Mode.LIVE else 0)
 	sim = MatchSim.new(_config())
 	_prepare_fight(sim.config)
 	_apply_cosmetics()
@@ -680,10 +710,12 @@ func _show_result() -> void:
 		sfx.on_result(0 if sim.winner == tutorial_side else 1)
 		tutorial_fight_ended.emit(sim.winner)
 		return
-	var you := sim.balls[0]
+	var you := sim.balls[you_side]
 	var replay := mode == Mode.REPLAY
 	var names := [sim.balls[0].def.display_name, sim.balls[1].def.display_name] if replay else ["You", "The foe"]
-	var result := ResultText.describe(sim, names, replay)
+	if you_side == 1:
+		names.reverse()
+	var result := ResultText.describe(sim, names, replay, you_side)
 	result_label.text = result.headline
 	result_label.modulate = result.color
 	_label_result_buttons()
@@ -693,7 +725,7 @@ func _show_result() -> void:
 		dealt = 0.0
 		healed = 0.0
 		for b in sim.balls:
-			if b.team == 0:
+			if b.team == you_side:
 				dealt += b.damage_dealt
 				healed += b.healed
 	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if replay else ("Your pair" if sim.starters == 4 else "You"),
@@ -707,6 +739,8 @@ func _show_result() -> void:
 		_record_rival()
 	if mode == Mode.CAMPAIGN:
 		_finish_stage()
+	if mode == Mode.LIVE:
+		_finish_live()
 	# A replay counts once, not again for every Replay tap.
 	if _count_fight or (mode == Mode.REPLAY and _report_code() != _last_logged_fight):
 		_last_logged_fight = _report_code()
@@ -719,7 +753,7 @@ func _show_result() -> void:
 		_record_fight()
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 	_show_only(result_box)
-	sfx.on_result(sim.winner)
+	sfx.on_result(sim.winner if sim.winner < 0 else int(sim.winner != you_side))
 	if mode == Mode.CAMPAIGN:
 		_return_with_result()
 		return
@@ -735,6 +769,147 @@ func _report_code() -> String:
 	code += "." + modifier if modifier != Modifiers.NONE else ""
 	var t := _fight_tiers()
 	return code + (".t%d%d" % t if t[0] > 0 else "")
+
+
+# --- Live fights ------------------------------------------------------------
+# FIGHT! with live fights on (Settings > Testing, or ?live=ws://...): the
+# server pairs you with a real player near your power, both aim, the server
+# runs the fight and sends both angles; this phone replays it and reports its
+# end hash. No trophies or rewards: just for fun. design/live-quick-fight.md.
+
+func _live_on() -> bool:
+	return Dev.live_fights() and mode == Mode.NORMAL
+
+
+## The sim side you're on, for the rings, health bars, sounds and result.
+func _set_side(side: int) -> void:
+	you_side = side
+	arena.you_side = side
+	fight_hud.you_side = side
+	sfx.you_side = side
+
+
+## What you bring: your best copy (tier, level, gear, talents), or the Quick
+## fight tier you picked for testing.
+func _live_slot(id: String) -> Dictionary:
+	if pick_tiers[0] > 0 or profile == null or not profile.owns(id):
+		return Lineup.make(id, maxi(1, pick_tiers[0]))
+	return profile.slot_of(id)
+
+
+func _find_live() -> void:
+	_close_live()
+	live = {}
+	mode = Mode.NORMAL
+	state = State.MENU
+	info_label.text = "Connecting to the live server..."
+	_show_only(live_box)
+	var token := "guest-%d" % _rng.randi()
+	if backend.enabled() and await backend.ensure_session():
+		token = str(backend.session.get("access_token", token))
+	if not live_box.visible or live_client != null: # Cancelled while signing in.
+		return
+	live_client = LiveClient.new()
+	add_child(live_client)
+	live_client.message.connect(_on_live)
+	live_client.closed.connect(_on_live_closed)
+	live_client.start(Dev.live_url(), {"t": "hello", "token": token, "sim_version": SimVersion.get_version()})
+	print("LIVE_CONNECT ", Dev.live_url())
+
+
+func _on_live(msg: Dictionary) -> void:
+	match str(msg.get("t", "")):
+		"welcome":
+			var slots := [_live_slot(player_type)]
+			if duo:
+				slots.append(_live_slot(_mate()))
+			live_client.send({"t": "queue", "mode": "2v2" if duo else "1v1", "slots": slots})
+		"queued":
+			info_label.text = "Looking for a live foe near your power..."
+			print("LIVE_QUEUED rating=%d" % int(msg.get("rating", 0)))
+		"matched":
+			live = msg
+			mode = Mode.LIVE
+			_set_side(int(msg.get("side", 0)))
+			_live_aim_left = float(msg.get("aim_seconds", 12.0)) - 1.0 # Lock in before the server's deadline.
+			print("LIVE_MATCHED match=%d side=%d" % [int(msg.get("match", 0)), you_side])
+			_begin_aim()
+			_tick_live_aim(0.0)
+		"go":
+			if mode != Mode.LIVE or int(msg.get("match", -1)) != int(live.get("match", -2)):
+				return
+			live.angles = msg.angles
+			live.go = msg
+			sfx.play("launch")
+			_start_fight()
+		"ghost":
+			_close_live()
+			_begin_aim()
+			info_label.text = "No live foe right now, so here's a practice fight. Drag to aim!"
+		"error":
+			var code := str(msg.get("code", ""))
+			_cancel_live()
+			info_label.text = "Live fights need the latest version: reload the game." if code == "update" \
+				else "The live server turned us away (%s)." % code
+			print("LIVE_ERROR ", code)
+
+
+func _on_live_closed(reason: String) -> void:
+	live_client = null
+	print("LIVE_CLOSED ", reason)
+	if state == State.FIGHT or state == State.RESULT:
+		return # The fight's already in: nothing is lost.
+	_cancel_live()
+	info_label.text = "Lost the live server (%s). Try again in a bit." % reason
+
+
+## The aim clock: launches whatever you've aimed when it runs out.
+func _tick_live_aim(delta: float) -> void:
+	_live_aim_left -= delta
+	var text := "LIVE vs %s! Aim and launch: %ds" % [sim.balls[1 - you_side].def.display_name, ceili(maxf(0.0, _live_aim_left))]
+	if info_label.text != text:
+		info_label.text = text
+	if _live_aim_left <= 0.0 or auto_start:
+		_launch()
+
+
+func _live_launch() -> void:
+	if live.has("aimed") or live_client == null:
+		return
+	live.aimed = true
+	_dragging = false
+	live_client.send({"t": "aim", "match": int(live.match), "angle": aim})
+	info_label.text = "Locked in! Waiting for your foe's shot..."
+	_show_only(null)
+
+
+## Tells the server this phone's end hash (it only compares) and shows
+## whether the two agreed.
+func _finish_live() -> void:
+	var go: Dictionary = live.get("go", {})
+	var mine := sim.state_hash()
+	var same := mine == str(go.get("hash", ""))
+	if live_client != null:
+		live_client.send({"t": "hash", "match": int(live.match), "hash": mine})
+		_close_live()
+	print("LIVE_END %s winner=%d server_winner=%d side=%d hash=%s" % ["ok" if same else "MISMATCH",
+		sim.winner, int(go.get("winner", -1)), you_side, mine])
+	report_label.text = "Live match: the server's fight matched yours." if same \
+		else "Live match: your fight differed from the server's. Its result counts."
+
+
+func _cancel_live() -> void:
+	_close_live()
+	live = {}
+	if mode == Mode.LIVE:
+		mode = Mode.NORMAL
+	_show_menu()
+
+
+func _close_live() -> void:
+	if live_client != null:
+		live_client.stop()
+		live_client = null
 
 
 # --- Campaign -------------------------------------------------------------------
@@ -865,6 +1040,9 @@ func _return_with_result() -> void:
 ## Backing out of aiming. A campaign stage has already spent its energy, so
 ## leaving before launch refunds it.
 func _aim_back() -> void:
+	if mode == Mode.LIVE:
+		_cancel_live()
+		return
 	if mode != Mode.CAMPAIGN:
 		_show_menu()
 		return
@@ -1120,13 +1298,14 @@ func _build_ui() -> void:
 	tier_buttons = [_tier_button(0), _tier_button(1)]
 	duo_button = _button("1v1", _toggle_duo, 22, "ghost", 68)
 	menu_box.add_child(_row(tier_buttons + [duo_button, rules_button]))
-	fight_button = _button("FIGHT!", _begin_aim, 40, "go", 96)
+	fight_button = _button("FIGHT!", func(): _find_live() if _live_on() else _begin_aim(), 40, "go", 96)
 	fight_button.size_flags_stretch_ratio = 2.0
 	menu_box.add_child(_row([_button("Home", _show_home, 22, "ghost", 96), new_seed_button, fight_button]))
 
 	launch_button = _button("Launch", _launch, 34, "go", 96)
 	aim_back_button = _button("Back", _aim_back, 26, "ghost", 96)
 	aim_box = _row([launch_button, aim_back_button])
+	live_box = _row([_button("Cancel", _cancel_live, 26, "ghost", 96)])
 
 	speed_picker = FightSpeed.picker()
 	fight_box = _row([speed_picker, _button("Skip", _skip_to_end)])
@@ -1156,7 +1335,7 @@ func _build_ui() -> void:
 	result_box.add_child(campaign_row)
 
 
-	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box]:
+	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box, live_box]:
 		ui.add_child(c)
 
 
@@ -1228,6 +1407,8 @@ func _swipe_back() -> Callable:
 		return shell.back_action()
 	if mode == Mode.TUTORIAL:
 		return Callable()
+	if live_client != null and state != State.FIGHT:
+		return _cancel_live
 	if mode == Mode.CAMPAIGN:
 		return _back_to_campaign if state == State.RESULT else Callable()
 	match state:
@@ -1273,7 +1454,7 @@ func _layout() -> void:
 	_place(info_label, panel_pos, Vector2(panel_width, INFO_HEIGHT - 6.0))
 	controls_rect = Rect2(panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
 	var controls_top := panel_pos.y + INFO_HEIGHT
-	for box in [menu_box, aim_box, fight_box, result_box]:
+	for box in [menu_box, aim_box, fight_box, result_box, live_box]:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	# The build stamp stops short of the sound toggle in the other corner.
 	_place(stamp_label, Vector2(16, size.y - 40), Vector2(maxf(100.0, size.x - Sfx.TOGGLE_SIZE.x - 48.0), 30))
@@ -1316,7 +1497,7 @@ func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 
 func _show_only(box: Control) -> void:
 	_sync_cover()
-	for b in [menu_box, aim_box, fight_box, result_box]:
+	for b in [menu_box, aim_box, fight_box, result_box, live_box]:
 		b.visible = b == box
 	aim_back_button.visible = mode != Mode.TUTORIAL
 	_sync_share_targets()
@@ -1332,6 +1513,8 @@ func _update_hud() -> void:
 	if sim.in_overtime():
 		clock = "OVERTIME x%.1f" % sim.damage_multiplier()
 	var tags: Array = ["P1", "P2"] if mode == Mode.REPLAY else ["YOU", "FOE"]
+	if mode == Mode.LIVE:
+		tags = ["YOU", "LIVE FOE"]
 	if mode == Mode.TUTORIAL and not tutorial_tags.is_empty():
 		tags = tutorial_tags
 	fight_hud.tags = tags.map(func(t): return str(t).to_upper())
@@ -1361,6 +1544,9 @@ func _skip_to_end() -> void:
 
 func _again() -> void:
 	match mode:
+		Mode.LIVE:
+			mode = Mode.NORMAL
+			_find_live()
 		Mode.NORMAL:
 			seed_value = _rng.randi_range(1, 99999)
 			_begin_aim()
@@ -1387,7 +1573,7 @@ func _on_challenge_button() -> void:
 
 
 func _label_result_buttons() -> void:
-	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch", Mode.CAMPAIGN: ""}[mode]
+	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch", Mode.CAMPAIGN: "", Mode.LIVE: "Fight again"}[mode]
 	challenge_button.text = {Mode.REPLAY: "Play my own", Mode.RIVAL: "Friends"}.get(mode, "Challenge friend")
 	if not _board.is_empty():
 		challenge_button.text = "Bracket" if _board.return_to == "bracket" else "This Week"
@@ -1396,7 +1582,7 @@ func _label_result_buttons() -> void:
 	# of the report row (there's only room for one).
 	friend_row.visible = _can_add_link_friend()
 	report_row.visible = mode != Mode.CAMPAIGN and not friend_row.visible
-	copy_button.visible = mode != Mode.REPLAY
+	copy_button.visible = mode != Mode.REPLAY and mode != Mode.LIVE
 	change_button.visible = mode != Mode.REPLAY
 	# Save clip rides in whichever of the two rows is showing.
 	var row := friend_row if friend_row.visible else report_row
@@ -1406,8 +1592,9 @@ func _label_result_buttons() -> void:
 	for r in [again_button.get_parent(), share_button.get_parent()]:
 		r.visible = mode != Mode.CAMPAIGN
 	# Fight links and clips are 1v1 only for now.
-	share_button.get_parent().visible = share_button.get_parent().visible and not _is_duo()
-	clip_button.visible = not _is_duo()
+	# Live fights aren't shareable yet: a link replays from the seed, not the server's sides.
+	share_button.get_parent().visible = share_button.get_parent().visible and not _is_duo() and mode != Mode.LIVE
+	clip_button.visible = not _is_duo() and mode != Mode.LIVE
 	copy_button.visible = copy_button.visible and not _is_duo()
 	campaign_row.visible = mode == Mode.CAMPAIGN
 	(campaign_row.get_child(0) as Button).text = "Back to the Vault" if pve.has("vault") else "Back to the map"
@@ -2047,6 +2234,9 @@ func _read_url_params() -> Dictionary:
 		if params.get("p3", "") in BallDefs.PLAYABLE:
 			mate_type = params.p3
 	backend.disabled = params.get("offline", "") == "1"
+	# ?live=ws://127.0.0.1:8080 points this visit's live fights at that server (and turns them on).
+	if params.get("live", "").begins_with("ws"):
+		Dev.live_url_override = params.live
 	# ?text=large turns on Larger text for this visit only (screenshots, testing).
 	if params.get("text", "") == "large":
 		A11y.ensure_loaded()

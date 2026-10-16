@@ -30,6 +30,9 @@ var _chip_hold := [0.0, 0.0, 0.0, 0.0]
 var _count := 2 ## Bars: 2, or 4 in a 2v2 (index 2 is YOU's mate, 3 the foe's).
 var _time := 0.0
 var _live := false
+## The sim side the viewer plays (a live match can put you on side 1): its
+## balls fill the YOU bars on the left.
+var you_side := 0
 
 
 ## Shows the fight `sim` (balls 0 and 1, plus 2 and 3 in a 2v2). Pass null
@@ -43,7 +46,7 @@ func show_fight(sim, center := "") -> void:
 		return
 	_count = 4 if sim.get("starters") == 4 and sim.balls.size() >= 4 else 2
 	for i in _count:
-		var b = sim.balls[i]
+		var b = sim.balls[i ^ you_side]
 		var frac := clampf(b.hp / maxf(1.0, b.max_hp), 0.0, 1.0)
 		# A new ball (relay, next leg) resets the chip instead of draining from the last one.
 		if not _live or _names[i] != str(b.def.get("display_name", b.def.get("name", ""))) or frac > _chip[i]:
