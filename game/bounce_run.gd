@@ -14,6 +14,8 @@ const ArenaView := preload("res://game/arena_view.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const Roster := preload("res://game/ui/roster.gd")
+const BoonIcon := preload("res://game/ui/boon_icon.gd")
 const BounceBoard := preload("res://game/online/bounce_board.gd")
 
 enum State { DRAFT, START_BOONS, FLOOR, AIM, FIGHT, RESULT, BOON, OVER }
@@ -205,7 +207,8 @@ func _show_start_boons() -> void:
 		var id: String = setup.start_offer[i]
 		var b := Boons.get_def(id)
 		var picked: bool = id in start_picks
-		var body := Kit.vbox(4, [Kit.label(b.name, 26, GOLD), Kit.label(b.text, 20, Kit.FG if picked else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+		var body := Kit.vbox(4, [Kit.hbox(8, [BoonIcon.make(b.icon, b.rarity, 40), Kit.label(b.name, 26, GOLD)]),
+			Kit.label(b.text, 20, Kit.FG if picked else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 		var card := Kit.card_button(body, func(): _toggle_start_boon(i), GOLD if picked else Kit.LINE, Color("241f55") if picked else Kit.PANEL, 28, 16)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(card)
@@ -248,20 +251,22 @@ func _show_floor() -> void:
 		Kit.hbox(16, [CritterIcon.make(foe.critter, 1, 110), _expand(Kit.vbox(4, [
 			Kit.label(_name(foe.critter), 30),
 			_ability_label(foe.critter),
-			_boon_names(foe.boons),
+			_boon_strip(foe.boons, 44, false),
 		]))]),
 	])
-	var items: Array = [_ladder(), Kit.panel(foe_box, Kit.box(Color("2a1030"), PINK, 32, 2, 20)), Kit.caption("Your trio")]
+	var tier := BounceRun.tier_at(run.floor)
+	var trio_cap := "Your trio · T%d" % tier + (" · up a tier every %d floors" % BounceRun.FLOORS_PER_TIER if tier < 5 else " · max tier")
+	var items: Array = [_ladder(), Kit.panel(foe_box, Kit.box(Color("2a1030"), PINK, 32, 2, 20)), Kit.caption(trio_cap)]
 	for s in BounceRun.PICKS:
 		var c := BounceRun.card(setup, run, s)
 		var out: bool = run.out[s]
-		var card := _critter_card(c.critter, func(): _choose_fighter(s), Kit.LINE if out else Kit.ACCENT, false, out)
+		var card := _critter_card(c.critter, func(): _choose_fighter(s), Kit.LINE if out else Kit.ACCENT, false, out, BounceRun.tier_at(run.floor))
 		card.disabled = out
 		items.append(card)
 		if not out:
 			_mark("br_send_%d" % s, card)
-	items.append(Kit.caption("Your boons (whole trio)"))
-	items.append(_boon_list(run.boons))
+	items.append(Kit.caption("Your boons (whole trio) · tap one to see it"))
+	items.append(_boon_strip(run.boons, 64))
 	items.append(_menu_button())
 	_set_page(items, "br_floor")
 
@@ -361,20 +366,29 @@ func _after_result() -> void:
 func _show_boon() -> void:
 	state = State.BOON
 	_board_mode()
-	sub_label.text = "Floor %d cleared. Pick a boon: it powers your whole trio." % run.floor
+	var up := BounceRun.tier_at(run.floor) > BounceRun.tier_at(run.floor - 1)
+	sub_label.text = ("Floor %d cleared. Your trio is now T%d! Pick a boon." % [run.floor, BounceRun.tier_at(run.floor)]) if up \
+		else "Floor %d cleared. Pick a boon: it powers your whole trio." % run.floor
 	var items: Array = [_ladder()]
 	for i in run.offer.size():
 		var id: String = run.offer[i]
 		var b := Boons.get_def(id)
+		var col: Color = Roster.RARITY_COLORS[b.rarity]
 		var who := ""
 		if b.has("for"):
 			who = "For %s only" % ", ".join(_trio_with(b.for))
-		var body := Kit.vbox(4, [Kit.label(b.name, 32, GOLD), Kit.label(b.text, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
+		var head := Kit.hbox(10, [Kit.label(b.name, 32, col), Kit.spacer(), Kit.chip(Roster.RARITY_NAMES[b.rarity], col)])
+		var text := Kit.vbox(4, [head, Kit.label(b.text, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
 		if who != "":
-			body.add_child(Kit.label(who, 20, Kit.MUTED))
-		var card := Kit.card_button(body, func(): _take_boon(id), GOLD, Kit.PANEL, 28, 20)
+			text.add_child(Kit.label(who, 20, Kit.MUTED))
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var body := Kit.hbox(14, [BoonIcon.make(b.icon, b.rarity, 84), text])
+		var card := Kit.card_button(body, func(): _take_boon(id), col, Roster.rarity_bg(b.rarity, Kit.PANEL, 0.3 if b.rarity == "legendary" else 0.18), 28, 20)
 		items.append(card)
 		_mark("br_boon_%d" % i, card)
+	if not run.boons.is_empty():
+		items.append(Kit.caption("Your boons · tap one to see it"))
+		items.append(_boon_strip(run.boons, 52))
 	items.append(Kit.label("Next: floor %d, %s %s." % [run.floor + 1, setup.floors[run.floor].title, _name(setup.floors[run.floor].critter)], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	_set_page(items, "br_boon")
 
@@ -673,11 +687,11 @@ func _update_hud() -> void:
 
 
 ## A critter and what its ability does, as a tappable card.
-func _critter_card(critter: String, on_press: Callable, border: Color, picked := false, out := false) -> Button:
+func _critter_card(critter: String, on_press: Callable, border: Color, picked := false, out := false, tier := 1) -> Button:
 	var text := Kit.vbox(2, [Kit.label(_name(critter), 28, Kit.MUTED if out else (GOLD if picked else Kit.FG))])
 	text.add_child(Kit.label("OUT", 22, PINK) if out else _ability_label(critter))
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var icon := CritterIcon.make(critter, 1, 80)
+	var icon := CritterIcon.make(critter, tier, 80)
 	if out:
 		icon.modulate = Color(1, 1, 1, 0.35)
 	var row := Kit.hbox(12, [icon, text])
@@ -690,18 +704,65 @@ func _ability_label(critter: String) -> Label:
 	return what
 
 
-func _boon_list(ids: Array) -> Control:
-	var col := Kit.vbox(4)
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for id in ids:
+## Boons as a wrapping row of badges, each with its name under it (names
+## off for a foe's long list). Tap one for its card (_show_boon_info).
+func _boon_strip(ids: Array, side: float, names := true) -> Control:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 10)
+	flow.add_theme_constant_override("v_separation", 8)
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for k in ids.size():
+		var id: String = ids[k]
 		var b := Boons.get_def(id)
-		col.add_child(Kit.label("%s: %s" % [b.name, b.text], 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
-	return col
+		var tile := Kit.vbox(2, [BoonIcon.make(b.icon, b.rarity, side)])
+		if names:
+			var n := Kit.label(b.name.replace(" ", "\n"), 16, Roster.RARITY_COLORS[b.rarity], HORIZONTAL_ALIGNMENT_CENTER)
+			n.custom_minimum_size.x = side + 24.0
+			tile.add_child(n)
+		var btn := Kit.card_button(tile, _show_boon_info.bind(id), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 2)
+		btn.focus_mode = Control.FOCUS_NONE
+		flow.add_child(btn)
+		_mark("br_held_%d" % k if names else "br_foe_boon_%d" % k, btn)
+	return flow
 
 
-## A foe's boons by name only: a top-floor foe carries a dozen.
-func _boon_names(ids: Array) -> Control:
-	return _expand(Kit.label("Boons: " + ", ".join(ids.map(func(id): return Boons.get_def(id).name)), 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT, true))
+## A boon's card over the page: badge, name, rarity (shape and word, not just
+## colour) and what it does. Tap anywhere to close.
+func _show_boon_info(id: String) -> void:
+	var b := Boons.get_def(id)
+	var col: Color = Roster.RARITY_COLORS[b.rarity]
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var dim := Button.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var dim_style := Kit.box(Color(.02, .015, .06, .7), Color(0, 0, 0, 0), 0, 0, 0)
+	for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		dim.add_theme_stylebox_override(st, dim_style)
+	dim.pressed.connect(root.queue_free)
+	root.add_child(dim)
+	var rarity: String = Roster.RARITY_NAMES[b.rarity] + " boon"
+	var lines: Array = [
+		BoonIcon.make(b.icon, b.rarity, 140),
+		Kit.label(b.name, 40, col, HORIZONTAL_ALIGNMENT_CENTER),
+		Kit.chip(rarity, col, 20),
+		Kit.label(b.text, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
+	]
+	if b.has("for"):
+		lines.append(Kit.label("Only for critters with the %s ability." % b.for.capitalize(), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+	var close := Kit.button("Close", root.queue_free, "ghost", 26, 70)
+	lines.append(close)
+	_mark("br_boon_close", close)
+	var card := Kit.panel(Kit.vbox(14, lines), Kit.box(Roster.rarity_bg(b.rarity, Kit.PANEL, 0.18), col, 32, 3, 28))
+	var w := minf(600.0, get_viewport().get_visible_rect().size.x - 40.0)
+	card.custom_minimum_size.x = w
+	var centre := CenterContainer.new()
+	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	centre.add_child(card)
+	root.add_child(centre)
+	ui.add_child(root)
+	print("BOUNCERUN_BOON_INFO %s" % id)
+	_report.call_deferred("br_boon_info")
 
 
 func _expand(c: Control) -> Control:

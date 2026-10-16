@@ -145,6 +145,7 @@ runs with random picks and aims and reports where they end (`--runs-from=K`
 splits the runs over processes); retune `FOE_POWER` if the median moves off
 floor 7.
 
+Your trio goes up a tier every 2 floors (`BounceRun.tier_at`, T5 on the top two). Boons roll a seeded rarity (`sim/boons.gd`): `id` is Common, `id:rare` and `id:epic` scale its numbers, and Legendary boons are their own ids with effects of their own.
 ## Ghost Arena (PvP)
 
 Async PvP from design/pvp.md in the project files. `sim/relay.gd` runs a
