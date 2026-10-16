@@ -2,6 +2,8 @@ extends "res://tests/test_case.gd"
 
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
+const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
+const Families := preload("res://sim/families.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 
@@ -107,8 +109,8 @@ func _fresh_store():
 
 func test_store_applies_trophies_and_saves() -> void:
 	var s = _fresh_store()
-	var cards: Array[Dictionary] = s.offers(20261014)
-	s.start_attack("harder", cards[2].bot.id, 42)
+	var cards: Array[Dictionary] = s.offers(null, 20261014)
+	s.start_attack("harder", cards[2].bot, 42)
 	check_eq(s.finish_attack(true, [120, null, -40]), 35, "harder win")
 	check_eq(s.trophies, 35, "trophies")
 	check_eq(s.shots, [120, 0, -40], "used shots saved, unused kept")
@@ -132,11 +134,11 @@ func test_unfinished_attack_counts_as_a_loss() -> void:
 
 func test_one_free_refresh_a_day() -> void:
 	var s = _fresh_store()
-	var before: Array[Dictionary] = s.offers(7)
+	var before: Array[Dictionary] = s.offers(null, 7)
 	check(s.refresh(7), "first refresh")
 	check(not s.refresh(7), "second refused")
 	check_eq(s.refreshes_left(8), 1, "new day")
-	check_eq(s.offers(8), ArenaGhosts.offers(s.trophies, 8, "local", 0), "new day starts fresh")
+	check_eq(s.offers(null, 8), ArenaTeams.offers(s.trophies, s.power(), 8, 0), "new day starts fresh")
 	check(before.size() == 3, "three cards")
 
 
@@ -184,6 +186,92 @@ func test_trio_slot_opens_the_picker() -> void:
 	check_eq(s.trio[1], trio[0], "and swapped with the slot it was in")
 	shell._marks["arena_best_trio"].pressed.emit()
 	check_eq(s.trio, ArenaStore.best_trio(ArenaScreen.owned_critters(shell.profile)), "Best trio fills the strongest three")
+	shell.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_themed_teams_match_your_power_and_grow_with_trophies() -> void:
+	for mine in [3000, 6000, 12000]:
+		var cards := ArenaTeams.offers(0, mine, 20261015)
+		check_eq(cards.size(), 3, "three cards")
+		var fams := {}
+		for c in cards:
+			var team: Dictionary = c.bot
+			fams[team.family] = true
+			var ids := ArenaGhosts.critters(team.lineup)
+			check(ids[0] != ids[1] and ids[1] != ids[2] and ids[0] != ids[2], "three different critters")
+			for id in ids:
+				check_eq(Families.of(id), team.family, "%s fits the %s theme" % [id, team.family])
+			var want := ArenaTeams.target(mine, 0, c.card)
+			check(absf(ArenaTeams.rating(team) - want) <= want * 0.12, "%s team near %d (got %d)" % [c.card, want, ArenaTeams.rating(team)])
+		check_eq(fams.size(), 3, "three different themes")
+		check(ArenaTeams.rating(cards[0].bot) < ArenaTeams.rating(cards[2].bot), "easier is weaker than harder")
+	check(ArenaTeams.target(5000, 2000, "even") > ArenaTeams.target(5000, 0, "even"), "teams grow with trophies")
+	check_eq(ArenaTeams.offers(300, 5000, 9), ArenaTeams.offers(300, 5000, 9), "same day, same teams")
+
+
+func test_attacks_earn_coins_and_the_bazaar_spends_them() -> void:
+	var s = _fresh_store()
+	var cards: Array[Dictionary] = s.offers(null, 20261014)
+	s.start_attack("harder", cards[2].bot, 42)
+	s.finish_attack(true)
+	check_eq(s.coins, ArenaStore.COINS_WIN.harder, "win coins")
+	s.start_attack("even", cards[1].bot, 43)
+	s.finish_attack(false)
+	check_eq(s.coins, ArenaStore.COINS_WIN.harder + ArenaStore.COINS_LOSS, "loss coins")
+	var p = UiProfile.new()
+	var stock: Array = s.bazaar(5)
+	check_eq(stock.size(), 5, "five items")
+	check(not s.buy(p, 3, 5), "too few coins for an orb")
+	s.coins = 1000
+	var orbs: int = p.orbs
+	check(s.buy(p, 3, 5), "orb bought")
+	check_eq(p.orbs, orbs + 1, "orb added")
+	check(not s.buy(p, 3, 5), "sold once a day")
+	var gear_before: int = p.gear.size()
+	check(s.buy(p, 0, 5), "gear bought")
+	check_eq(p.gear.size(), gear_before + 1, "gear added")
+	check_eq(p.gear[-1].type, stock[0].type, "the piece on sale")
+	check_eq(s.coins, 1000 - stock[3].price - stock[0].price, "paid")
+	check(s.buy(p, 3, 6), "new stock next day")
+	check_eq(ArenaStore.open(TEST_SAVE).coins, s.coins, "coins saved")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_daily_raids_fight_your_defence_once_and_replay() -> void:
+	var s = _fresh_store()
+	s.trophies = 600
+	s.peak = 600
+	s.defence = ["vampire", "laser", "spiker"]
+	var raids: Array = s.run_raids(null, 11)
+	check_eq(raids.size(), ArenaStore.RAIDS_PER_DAY, "three raids")
+	check(s.run_raids(null, 11).is_empty(), "once a day")
+	var t: int = s.trophies
+	var other = _fresh_store()
+	other.trophies = 600
+	other.peak = 600
+	other.defence = ["vampire", "laser", "spiker"]
+	check_eq(other.run_raids(null, 11), raids, "raids replay from the day's seed")
+	check_eq(other.trophies, t, "same trophies")
+	var held := raids.filter(func(r): return r.held).size()
+	check_eq(s.coins, held * ArenaStore.COINS_DEFENCE, "coins per raid held")
+	s.set_slot(0, "laser", "defence")
+	check_eq(s.defence, ["laser", "vampire", "spiker"], "defence swaps like the trio")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_arena_hub_opens_its_rooms() -> void:
+	var s = _fresh_store()
+	var shell = Shell.new()
+	shell.build()
+	for id in ["laser", "vampire", "spiker", "speedster"]:
+		shell.profile.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
+	shell.go("arena", {"store": s})
+	for room in [["arena_boosts", "boosts"], ["arena_bazaar", "bazaar"], ["arena_defence", "defence"]]:
+		shell.go("arena", {"store": s})
+		shell._marks[room[0]].pressed.emit()
+		check_eq(shell.current, room[1], room[1])
+	check(shell._marks.has("defence_slot_0"), "defence trio picker")
 	shell.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
