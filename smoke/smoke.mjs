@@ -2,8 +2,8 @@
 // plays one auto fight and one fight through the real menu, fails on any
 // page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
 // plays the whole onboarding, follows a Bracket of Legends from picks to the
-// final and climbs the first floor of The Spire, and fights
-// the first floor of Bounce Run.
+// final and climbs the first floor of The Spire, fights
+// the first floor of Bounce Run and plays a Quick fight 2v2.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -780,6 +780,23 @@ try {
     const won = logs.some((l) => l.startsWith("BOUNCERUN_RESULT") && l.includes("won=true"));
     await tapUi(page, logs, "br_continue", won ? "br_boon" : "br_floor");
     await page.screenshot({ path: path.join(shots, won ? "45-bouncerun-boon.png" : "45-bouncerun-retry.png") });
+    await page.close();
+  }
+
+  // 16. Quick fight 2v2: the menu shows both pairs, and a four-ball fight
+  // (two health bars a side) runs to a result.
+  if (mine(20)) {
+    const menu = await openGame("?duo=1&p1=vampire&p3=honey&seed=42&offline=1");
+    await waitForLog(menu.logs, "UI_AT menu_duo ", 60000);
+    await menu.page.waitForTimeout(800);
+    await menu.page.screenshot({ path: path.join(shots, "46-duo-menu.png") });
+    await menu.page.close();
+    const { page, logs } = await openGame("?duo=1&p1=vampire&p3=honey&seed=42&auto=1&speed=4&offline=1");
+    await waitForLog(logs, "FIGHT_START", 60000);
+    await page.waitForTimeout(2500);
+    await page.screenshot({ path: path.join(shots, "47-duo-fight.png") });
+    console.log("2v2 fight:", await waitForLog(logs, "MATCH_END", 90000));
+    await page.screenshot({ path: path.join(shots, "48-duo-result.png") });
     await page.close();
   }
 } catch (e) {
