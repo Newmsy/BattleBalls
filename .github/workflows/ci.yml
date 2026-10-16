@@ -64,6 +64,8 @@ jobs:
         run: timeout 180 ~/godot/godot --headless --import || true
       - name: Unit, determinism and golden replay tests
         run: GODOT=~/godot/godot tests/run.sh
+      - name: Live fight server, two pretend players end to end
+        run: GODOT=~/godot/godot tools/ci/live_e2e.sh 2>&1 | grep -v '^Godot Engine'; exit ${PIPESTATUS[0]}
 
   # Says whether the diff can affect the web build, so a docs-only PR skips the
   # smoke test. Balance checks don't run in CI (Newms, 2026-10-15): run them on

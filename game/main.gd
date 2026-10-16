@@ -227,6 +227,11 @@ func _ready() -> void:
 	if url_params.has("stats"):
 		get_tree().change_scene_to_file.call_deferred("res://game/stats/stats.tscn")
 		return
+	# ?probe=1 runs the determinism probe (sim/probe.gd) and shows its hash,
+	# which must match headless Godot's (tools/probe.gd) on every platform.
+	if url_params.has("probe"):
+		_run_probe.call_deferred()
+		return
 	Analytics.start(get_tree(), backend, VERSION, url_params)
 	# ?mode=trickshot / ?mode=bouncerun open that daily mode, once: its Back button comes here.
 	var redirect: String = MODE_SCENES.get(url_params.get("mode", ""), "")
@@ -2003,6 +2008,22 @@ func _perf_log() -> void:
 			Performance.get_monitor(Performance.TIME_FPS), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
 			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)])
 		drawn = Engine.get_frames_drawn()
+
+
+func _run_probe() -> void:
+	var layer := CanvasLayer.new()
+	var label := Label.new()
+	label.position = Vector2(40, 200)
+	label.text = "Checking fights..."
+	layer.add_child(label)
+	add_child(layer)
+	await get_tree().process_frame
+	var t0 := Time.get_ticks_msec()
+	var r := preload("res://sim/probe.gd").run()
+	var version := preload("res://sim/sim_version.gd").get_version()
+	print("PROBE %s %d %dms" % [r.hash, r.fights, Time.get_ticks_msec() - t0])
+	print("SIM_VERSION ", version)
+	label.text = "Fight check: %s\n%d fights, sim %s" % [String(r.hash).substr(0, 16), r.fights, version]
 
 
 func _read_url_params() -> Dictionary:

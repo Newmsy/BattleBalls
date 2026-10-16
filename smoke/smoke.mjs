@@ -9,6 +9,8 @@ import { chromium } from "playwright";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
+import { execFile } from "node:child_process";
 
 const root = path.resolve(process.argv[2] ?? "../build/web");
 const shots = path.resolve("screenshots");
@@ -167,6 +169,21 @@ try {
     if (!(peak > 0.02)) errors.push(`auto fight was silent (audio peak ${peak})`);
     await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(shots, "2-result.png") });
+    await page.close();
+  }
+
+  // 1a. Determinism probe: the web build must play a varied set of fights
+  // exactly like headless Godot (sim/probe.gd), or two players' phones could
+  // see different fights. Needs Godot (GODOT, or ~/godot/godot as in CI).
+  if (mine(40)) {
+    const godot = process.env.GODOT ?? path.join(os.homedir(), "godot", "godot");
+    const native = new Promise((resolve, reject) => execFile(godot, ["--headless", "--script", "res://tools/probe.gd"],
+      { cwd: path.resolve(".."), maxBuffer: 1 << 20 }, (err, out) => (err ? reject(err) : resolve(out))));
+    const { page, logs } = await openGame("?probe=1&offline=1");
+    const web = (await waitForLog(logs, "PROBE ", 180000)).split(" ");
+    const want = (await native).split("\n").find((l) => l.startsWith("PROBE ")).split(" ");
+    console.log(`probe: web ${web[1].slice(0, 16)} (${web[3]}), headless ${want[1].slice(0, 16)} (${want[3]})`);
+    if (web[1] !== want[1]) errors.push(`web build plays fights differently from headless Godot (probe ${web[1]} vs ${want[1]}): something in sim/ depends on the platform`);
     await page.close();
   }
 
