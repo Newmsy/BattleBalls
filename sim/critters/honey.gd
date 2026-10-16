@@ -34,7 +34,7 @@ const CRITTER := {
 		{"text": "Puddles last 5s and crush hits deal +75%", "honey_life": 5.0, "honey_crush": 1.75},
 		{"text": "Foes stay sticky for 1s after", "ability": [{"on": "always", "do": "linger"}]},
 		{"text": "Up to 6 bigger puddles", "honey_max": 6, "honey_radius": 70.0},
-		{"text": "Honey Pot: puddles drag nearby foes in and sting (6/s, 8 when they stick); touching puddles merge and crush hits deal x2.2", "honey_merge_radius": 90.0, "honey_crush": 2.2, "honey_pull": 900.0, "honey_sting_damage": 8.0, "honey_dps": 6.0},
+		{"text": "Honey Pot: puddles drag nearby foes in and sting (6/s, 14 when they stick); touching puddles merge and crush hits deal x2.2", "honey_merge_radius": 90.0, "honey_crush": 2.2, "honey_pull": 900.0, "honey_sting_damage": 14.0, "honey_dps": 6.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["jarlid", "drips"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.85},
