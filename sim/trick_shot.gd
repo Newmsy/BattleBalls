@@ -67,7 +67,7 @@ static func _coord(rng) -> float:
 
 ## The real sim for a shot: the foe waits until it is hit.
 static func make_sim(puzzle: Dictionary, aim_deg: int) -> MatchSim:
-	var sim := MatchSim.new({"seed": 1, "p1": puzzle.p1, "p2": puzzle.p2, "starts": puzzle.starts, "angles": [aim_deg * 10, 0], "fields": false})
+	var sim := MatchSim.new({"seed": 1, "p1": puzzle.p1, "p2": puzzle.p2, "starts": puzzle.starts, "angles": [aim_deg * 10, 0], "fields": false, "seek": 0.0}) # An aim puzzle: no pull.
 	sim.balls[1].vel = Vector2.ZERO
 	return sim
 

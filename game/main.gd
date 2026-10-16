@@ -78,9 +78,6 @@ const PICK_ROWS_SHOWN := 2 ## More rows than this scroll.
 
 var state := State.MENU
 var mode := Mode.NORMAL
-## Gentle pull (sim config "seek"): balls curve toward their foe, so they bump
-## about 1.7x as often. Quick fight only for now.
-const QUICK_SEEK := 400.0
 var sim: MatchSim
 var player_type := "vampire"
 var opponent_choice := OPPONENT_RANDOM
@@ -377,8 +374,6 @@ func _config() -> Dictionary:
 	if _is_duo():
 		cfg.p3 = _mate()
 		cfg.p4 = _foe_mate(opponent_type)
-	if mode in [Mode.NORMAL, Mode.REPLAY, Mode.CHALLENGE]:
-		cfg.seek = QUICK_SEEK # Trial: Quick fights (and their share links) only, until Newms has played it.
 	var t := _fight_tiers()
 	if t[0] > 0:
 		# Same path as the progression modes: tier ability upgrades and power.

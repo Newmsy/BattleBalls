@@ -16,7 +16,7 @@ const SAVE_PATH := "user://onboarding.cfg"
 const STARTERS := ["vampire", "laser"]
 ## Cold open: a close fight with seven lead changes that Count Nibbles wins at
 ## the death. Fixed so everyone sees the same opener.
-const COLD_OPEN := {"seed": 283, "p1": "vampire", "p2": "laser"}
+const COLD_OPEN := {"seed": 1202, "p1": "vampire", "p2": "laser"}
 ## Tutorial fights: the foe's fixed launch, and the ghost arrow's suggested aim
 ## (tenths of a degree). tests/test_onboarding.gd checks every aim wins.
 const TUTORIAL_SEED := 3
