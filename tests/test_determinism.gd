@@ -77,3 +77,14 @@ func test_sim_uses_no_platform_maths() -> void:
 			var code := lines[n].split("#")[0].replace("DMath.", "DMath_")
 			if bad.search(code):
 				runner.fail("%s:%d uses platform maths, use DMath: %s" % [path, n + 1, lines[n].strip_edges()])
+
+
+func test_probe_and_sim_version_are_stable() -> void:
+	const Probe := preload("res://sim/probe.gd")
+	const SimVersion := preload("res://sim/sim_version.gd")
+	var a := Probe.run(6)
+	check_eq(a.fights, 6, "probe ran its fights")
+	check_eq(Probe.run(6).hash, a.hash, "probe hash repeats")
+	var v := SimVersion.from_source()
+	check_eq(v.length(), 12, "sim_version is 12 hex digits")
+	check_eq(SimVersion.from_source(), v, "sim_version repeats")
