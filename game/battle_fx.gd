@@ -244,7 +244,9 @@ static func draw_bubble(ci: CanvasItem, p: Vector2, r: float, t: float, left: fl
 		var a := q * TAU / 40.0
 		var wob := 1.0 + 0.035 * sin(a * 3.0 + t * 4.0) * A11y.motion()
 		pts.append(p + Vector2.from_angle(a) * rad * wob)
-	ci.draw_colored_polygon(pts, Color("9ff3f6", 0.14))
+	# The last point closes the outline; the fill takes the 40 distinct ones
+	# (a repeated point can fail triangulation).
+	ci.draw_colored_polygon(pts.slice(0, 40), Color("9ff3f6", 0.14))
 	for q in 40:
 		ci.draw_line(pts[q], pts[q + 1], Color.from_hsv(fmod(q / 40.0 + t * 0.3, 1.0), 0.45, 1.0, 0.85 * clampf(left * 2.0, 0.35, 1.0)), 3.0, true)
 	ci.draw_arc(p, rad * 0.8, PI * 1.1, PI * 1.45, 12, Color(1, 1, 1, 0.7), 4.0, true)
@@ -760,7 +762,7 @@ static func draw_moonlight(ci: CanvasItem, p: Vector2, r: float, t: float) -> vo
 ## A shard of ice flying along a line: a pointed crystal with a frosty tail.
 static func draw_shard(ci: CanvasItem, a: Vector2, b: Vector2, k: float, size: float) -> void:
 	var d := (b - a)
-	if d.length() < 1.0:
+	if d.length() < 1.0 or size < 0.5:
 		return
 	var dir := d.normalized()
 	var at := a.lerp(b, clampf(k, 0.0, 1.0))
