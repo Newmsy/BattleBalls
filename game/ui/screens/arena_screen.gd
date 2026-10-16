@@ -12,6 +12,7 @@ const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const Loaner := preload("res://game/loaner.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
+const Intro := preload("res://game/ui/intro.gd")
 const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
 const Families := preload("res://sim/families.gd")
 
@@ -39,7 +40,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	var back: Control = shell.back_button("back")
 	var how := [
-		"Your trio fights theirs in order. A winner stays in with the HP it has left. Each ball's last shot is saved for your ghost.",
+		"Your trio fights theirs in order; their order stays hidden until each ball comes out. A winner stays in with the HP it has left. Each ball's last shot is saved for your ghost.",
 		"Tap a trio slot to pick a critter you own. Each critter fits in a trio once; picking one already in it swaps the two. Best trio fills in your strongest three.",
 		"Opponents are themed teams sized to your trio's power, a little stronger the more trophies you have. Easier cards risk fewer trophies, harder ones win more. One free refresh a day.",
 		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Arena Coins for the Bazaar.",
@@ -51,12 +52,19 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(Kit.hbox(14, [back, Kit.label("Ghost Arena", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
 	root.add_child(_league_panel(store))
 	var held_today: int = store.raids.filter(func(r): return r.held).size() if store.raid_day == ArenaStore.today() else 0
-	var rooms := Kit.hbox(10, [
-		_room(shell, "arena_boosts", "trophy", "Trophy Room", "%s pts" % Kit.commas(store.points), Kit.WARN, func(): shell.go("boosts", {"store": store})),
-		_room(shell, "arena_bazaar", "coin", "Bazaar", "%s coins" % Kit.commas(store.coins), Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})),
-		_room(shell, "arena_defence", "shield", "Defence", "Held %d/%d" % [held_today, store.raids.size()] if not store.raids.is_empty() else "Set trio", Kit.GOOD, func(): shell.go("defence", {"store": store})),
-	])
-	root.add_child(rooms)
+	# A new player's first Arena win opens the Trophy Room; the rest come after.
+	var p = shell.profile
+	if Intro.step(p) == Intro.ARENA and Intro.arena_fought:
+		Intro.reach(p, Intro.TROPHY)
+		Intro.moment.call_deferred(shell, Intro.TROPHY)
+	var rooms := Kit.hbox(10)
+	if Intro.shows(p, "trophy"):
+		rooms.add_child(_room(shell, "arena_boosts", "trophy", "Trophy Room", "%s pts" % Kit.commas(store.points), Kit.WARN, func(): shell.go("boosts", {"store": store})))
+	if Intro.done(p):
+		rooms.add_child(_room(shell, "arena_bazaar", "coin", "Bazaar", "%s coins" % Kit.commas(store.coins), Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})))
+		rooms.add_child(_room(shell, "arena_defence", "shield", "Defence", "Held %d/%d" % [held_today, store.raids.size()] if not store.raids.is_empty() else "Set trio", Kit.GOOD, func(): shell.go("defence", {"store": store})))
+	if rooms.get_child_count() > 0:
+		root.add_child(rooms)
 	root.add_child(trio_panel(shell, store, owned, "trio"))
 
 	var refresh_left: int = store.refreshes_left()

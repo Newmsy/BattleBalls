@@ -5,6 +5,7 @@
 ## colour, then open on their own one by one with a burst that grows with rarity.
 extends RefCounted
 
+const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
@@ -43,6 +44,13 @@ static func build(shell, _params: Dictionary) -> Control:
 	feat.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var st := Kit.box(Color("221046"), Color("6b3fb0"), 36, 2, 20)
 	root.add_child(Kit.panel(Kit.vbox(4, [portal, feat]), st))
+	if not Intro.done(p):
+		# A new player's first summon: just the portal and the button.
+		var first := Kit.button("Free x1" if p.free_summon else "x1  (1 orb)", func(): _pull(shell, 1), "go", 30, 96)
+		first.disabled = not p.free_summon and p.orbs < 1
+		shell.mark("pull1", first)
+		shell.pin(first)
+		return root
 	root.add_child(_wishlist_panel(shell))
 
 	var pity: int = p.legendary_pity
@@ -87,8 +95,7 @@ static func _wishlist_panel(shell) -> Control:
 		var slot := Kit.card_button(v, func(): _open_picker(shell), Color(WISH, .6) if i < p.wishlist.size() else Kit.LINE, Kit.PANEL2, 24, 8)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slots.add_child(slot)
-	return Kit.panel(Kit.vbox(12, [head, slots,
-		Kit.label("Picks come up twice as often within their rarity.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]), Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20))
+	return Kit.panel(Kit.vbox(12, [head, slots]), Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20))
 
 
 ## Bottom sheet listing every critter by rarity; tap to add or remove a pick.
@@ -121,6 +128,12 @@ static func _open_picker(shell) -> void:
 			var t := Kit.card_button(Kit.vbox(0, [_centered(CritterIcon.make(id, 1, 84, false, not p.owns(id))), name]), func():
 				if not p.toggle_wishlist(id):
 					shell.toast("Your wishlist is full. Tap a pick to remove it.")
+				elif p.on_wishlist(id) and p.wishlist.size() >= p.WISHLIST_MAX:
+					# That was the last pick: nothing left to choose, so close the sheet.
+					shell.close_overlay()
+					shell.refresh()
+					shell.toast("Wishlist set.")
+					return
 				refresh.call(), Kit.LINE, Kit.PANEL2, 20, 6)
 			t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			tiles[id] = t
@@ -138,7 +151,7 @@ static func _open_picker(shell) -> void:
 	shell.mark("wishlist_done", done)
 	shell.sheet(Kit.vbox(16, [Kit.hbox(0, [Kit.label("Wishlist", 36), Kit.spacer(), count]),
 		# Fixed line breaks: a wrapping label has no width yet when the sheet measures itself.
-		Kit.label("Pick up to 3 critters you're chasing. Each comes up\ntwice as often as others of its rarity. Change any time.", 21, Kit.MUTED),
+		Kit.label("Pick up to 3 critters you're chasing.", 21, Kit.MUTED),
 		scroll, done]))
 
 
@@ -150,6 +163,9 @@ static func _centered(c: Control) -> Control:
 	var cc := CenterContainer.new()
 	cc.add_child(c)
 	return cc
+
+
+static var _reveal_unlocks := false
 
 
 static func _pull(shell, n: int) -> void:
@@ -169,6 +185,8 @@ static func _pull(shell, n: int) -> void:
 	p.add_copies(ids)
 	print("UI_SUMMON ", ",".join(ids))
 	Analytics.track("summon", {"count": n, "new": fresh.count(true)})
+	# A new player's first summon opens Critters: shown once the reveal is done.
+	_reveal_unlocks = Intro.step(p) == Intro.SUMMON and Intro.reach(p, Intro.FIGHTER)
 	shell.overlay(_reveal(shell, ids, fresh), "reveal")
 
 
@@ -198,7 +216,12 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	mid.add_child(grid)
 	v.add_child(mid)
 	var skip := Kit.button("Skip", root.skip, "ghost", 28, 96)
-	var done := Kit.button("Done", func(): shell.close_overlay(); shell.refresh(), "go", 28, 96)
+	var done := Kit.button("Done", func():
+		shell.close_overlay()
+		shell.refresh()
+		if _reveal_unlocks:
+			_reveal_unlocks = false
+			Intro.moment(shell, Intro.FIGHTER), "go", 28, 96)
 	shell.mark("open_all", skip)
 	shell.mark("reveal_done", done)
 	v.add_child(Kit.hbox(14, [skip, done]))

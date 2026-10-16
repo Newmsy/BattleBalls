@@ -34,7 +34,7 @@ static func build(shell, params: Dictionary) -> Control:
 	if ev.is_empty():
 		var nxt := Legends.next_event(t)
 		var when := "The next one is announced %s." % _date(Legends.opens(nxt)) if not nxt.is_empty() else "The next one is announced with the next season."
-		root.add_child(Kit.label("Once a season every critter enters one bracket at equal power. " + when, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+		root.add_child(Kit.label(when, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		return root
 	var b := Legends.bracket(ev)
 	var phase := Legends.phase(ev, t)

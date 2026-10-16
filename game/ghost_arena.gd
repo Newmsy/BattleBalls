@@ -5,6 +5,7 @@
 ## ArenaStore; the result goes back to it.
 extends Node2D
 
+const Intro := preload("res://game/ui/intro.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -141,7 +142,7 @@ func _show_intro() -> void:
 	state = State.INTRO
 	sfx.on_menu()
 	var card: Dictionary = Ladder.CARDS[store.pending.card]
-	info_label.text = "%s, a themed team near your power, on %s. Their order stays hidden until each ball comes out. Win +%d, lose %d." % [
+	info_label.text = "%s, on %s. Win +%d, lose %d." % [
 		bot.name, Arenas.get_def(relay.config.get("arena", "square")).display_name, card.win, card.loss]
 	var foes := ArenaGhosts.critters(bot.lineup).map(func(c): return BallDefs.get_def(c).display_name)
 	foes.sort()
@@ -247,6 +248,7 @@ func _show_result() -> void:
 		var a = relay.aims[0][i]
 		used.append(null if a == null or not aimed[i] else int(a) - MatchSim.AIM_AT_CENTRE[0])
 	result_delta = store.finish_attack(won, used)
+	Intro.arena_fought = true
 	sfx.on_result(relay.winner)
 	var headline := _label("YOU WIN!" if won else ("DRAW" if relay.winner == -1 else "YOU LOSE"), 56)
 	headline.modulate = ResultText.WIN if won else (ResultText.DRAW if relay.winner == -1 else ResultText.LOSE)

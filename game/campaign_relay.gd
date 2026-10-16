@@ -46,7 +46,7 @@ func _show_intro() -> void:
 	var foes: Array = relay.sides[1].map(func(e): return BallDefs.get_def(e).display_name)
 	var mine: Array = relay.sides[0].map(func(e): return BallDefs.get_def(e).display_name)
 	lineup_label.text = "%s  vs  %s" % [" + ".join(mine), " + ".join(foes)]
-	info_label.text = "%s%d vs %d on %s. The winner of each round stays in with the HP it has left." % [
+	info_label.text = "%s%d vs %d on %s." % [
 		(st.name + "! ") if st.has("name") else "", relay.sides[0].size(), relay.sides[1].size(), Zones.zone(pending.zone).twist.to_lower()]
 	sim = MatchSim.new(relay.leg_config())
 	arena.sim = sim
@@ -75,11 +75,13 @@ func _show_result() -> void:
 	var won: bool = relay.winner == 0
 	var headline := _label("STAGE CLEARED!" if won else "NOT THIS TIME", 52)
 	headline.modulate = Color("45f5a6") if won else Color("ff5a7a")
-	info_label.text = "Your rewards are on the stage list." if won else "Try again, or fuse a critter up."
+	info_label.text = ""
 	print("STAGE_END stage=%s won=%s legs=%d hash=%s" % [Zones.stage_key(pending.zone, pending.stage), won, relay.legs.size(), relay.state_hash()])
-	var back := _button("Back to the map", _back, 36)
-	back.name = "SpireBack"
-	_set_panel([headline, back])
+	_set_panel([headline])
+	# The results popup (stars, drops, XP) waits on the stage list: go straight there.
+	await get_tree().create_timer(1.1).timeout
+	if is_inside_tree() and state == State.RESULT:
+		_back()
 
 
 func _give_up() -> void:

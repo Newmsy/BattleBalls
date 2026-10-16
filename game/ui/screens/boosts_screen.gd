@@ -9,6 +9,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaBoosts := preload("res://sim/arena_boosts.gd")
 const Families := preload("res://sim/families.gd")
+const Intro := preload("res://game/ui/intro.gd")
 
 const NAME_WIDTH := 140
 
@@ -18,6 +19,9 @@ static func build(shell, params: Dictionary) -> Control:
 	if store == null:
 		store = ArenaStore.open()
 	var root := Kit.vbox(8)
+	# The last of a new player's guided steps: the rest of the game opens.
+	if Intro.step(shell.profile) == Intro.TROPHY and Intro.reach(shell.profile, Intro.DONE):
+		Intro.moment.call_deferred(shell, Intro.DONE)
 	var how := [
 		"Every trophy you win in the Ghost Arena also earns an Arena Point. Losing trophies never costs points.",
 		"Spend points on a family's Health, Attack, Defense and Speed. Every critter of that family gets the boost in the Ghost Arena, attacking and defending.",

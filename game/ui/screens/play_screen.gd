@@ -18,6 +18,9 @@ const TrickShot := preload("res://sim/trick_shot.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
+const CritterPicker := preload("res://game/ui/critter_picker.gd")
+const Intro := preload("res://game/ui/intro.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
 
 const DAILY := Color("ffd36b")
 const VERSUS := Color("ff4fd8")
@@ -26,6 +29,14 @@ const STYLE := Color("5ce1ff")
 
 static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(20)
+	if not Intro.done(shell.profile):
+		# A new player's first fights: the campaign, then the Arena once 1-3 opens it.
+		root.add_child(_campaign_card(shell))
+		if Intro.shows(shell.profile, "arena"):
+			var store = ArenaStore.open()
+			root.add_child(group("Versus", VERSUS, [mode_tile(shell, "arena", "Ghost Arena", "%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)],
+				VERSUS, func(): shell.go("arena"), "ghost")]))
+		return root
 	root.add_child(WeekScreen.banner(shell))
 	root.add_child(_campaign_card(shell))
 	root.add_child(_quick_fight_card(shell))
@@ -90,7 +101,8 @@ static func _campaign_card(shell) -> Control:
 	return Kit.panel(zone, zst)
 
 
-## Quick fight with your fighter on it: tap the fighter to change it.
+## Quick fight with your fighter on it: tap the fighter to pick another, and
+## the card updates in place, ready to fight.
 static func _quick_fight_card(shell) -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(p.lineup)
@@ -100,11 +112,21 @@ static func _quick_fight_card(shell) -> Control:
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(16, [CritterIcon.make(p.lineup, b.tier, 104), info, Kit.chip("Change", Kit.ACCENT)])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var fighter := Kit.card_button(row, func(): shell.go("detail", {"id": p.lineup}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 24, 0)
+	var fighter := Kit.card_button(row, func(): _pick_fighter(shell), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 24, 0)
 	shell.mark("fighter", fighter)
 	var fight := Kit.button("Quick fight", shell.request_play, "primary", 30, 84)
 	shell.mark("quickfight", fight)
 	return Kit.panel(Kit.vbox(14, [fighter, fight]), Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 24))
+
+
+static func _pick_fighter(shell) -> void:
+	var p = shell.profile
+	CritterPicker.open(shell, CritterPicker.by_power(p, BallDefs.PLAYABLE), {
+		"title": "Your fighter", "current": p.lineup,
+		"on_pick": func(id: String) -> void:
+			p.set_lineup(id)
+			shell.refresh(),
+	})
 
 
 ## A labelled group of mode tiles, two to a row, tinted in the group's colour.

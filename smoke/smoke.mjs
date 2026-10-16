@@ -687,11 +687,9 @@ try {
     console.log("campaign fight:", await waitForLog(logs, "FIGHT_START", 5000));
     const end = await waitForLog(logs, "STAGE_END", 120000);
     console.log("campaign stage:", end);
-    await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "29-stage-result.png") });
-    // Result screen: result label, report, then the "Back to the map" row.
-    await page.mouse.click(...toPage(page, 360, 990 + 56 + 14 + 60 + 14 + 42));
-    await waitForLog(logs, "UI_SCREEN campaign", 5000);
+    // The fight goes straight back to the stage list with the results popup up.
+    await waitForLogAfter(logs, logs.indexOf(end), "UI_SCREEN campaign", 10000);
+    await waitForLogAfter(logs, logs.indexOf(end), "UI_SCREEN sheet", 10000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "30-campaign-after.png") });
     await page.close();
