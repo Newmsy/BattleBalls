@@ -852,3 +852,102 @@ static func draw_thrown(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: f
 		ci.draw_line(p + back * r + o, p + back * r * (2.6 - 0.3 * absf(k - 1.5)) + o, Color(1, 1, 1, 0.45), 3.0, true)
 	var string_end := p + back * r * 1.6 + Vector2(sin(t * 12.0) * 6.0, 10.0)
 	ci.draw_line(p - Vector2(0, r), string_end, Color("fff3c4"), 2.0, true)
+
+
+# --- Batch 5: Flicker, Pucker, Spiker, Speedster, Gumdrop, Vampire, Zapper, Mole, Magmo, Wrecker, Munch ---
+
+const LAVA := Color("ff5a1f")
+const DIRT := Color("8a5a2b")
+const BLOOD := Color("c8102e")
+
+
+## Speedster's afterimage: a fading see-through copy of it with speed lines.
+static func draw_afterimage(ci: CanvasItem, p: Vector2, rad: float, fade: float, col: Color) -> void:
+	ci.draw_circle(p, rad, Color(col, 0.22 * fade))
+	ci.draw_arc(p, rad, 0.0, TAU, 28, Color(col.lightened(0.4), 0.5 * fade), 2.0, true)
+	for k in 3:
+		var y := (k - 1) * rad * 0.45
+		ci.draw_line(p + Vector2(-rad * 0.7, y), p + Vector2(rad * 0.7, y), Color(1, 1, 1, 0.18 * fade), 2.0, true)
+
+
+## Gumdrop's gum string: a thick sagging pink strand with drips.
+static func draw_gum_string(ci: CanvasItem, a: Vector2, b: Vector2, t: float) -> void:
+	var pts := PackedVector2Array()
+	var sag := minf(a.distance_to(b) * 0.18, 40.0)
+	for q in 15:
+		var k := q / 14.0
+		var thin := 1.0 - 0.5 * sin(k * PI)
+		pts.append(a.lerp(b, k) + Vector2(0, sag * sin(k * PI) + sin(t * 4.0 + k * 6.0) * 2.0 * thin))
+	ci.draw_polyline(pts, Color(GOO.darkened(0.25), 0.9), 11.0, true)
+	ci.draw_polyline(pts, GOO, 7.0, true)
+	ci.draw_polyline(pts, Color(1, 1, 1, 0.45), 2.0, true)
+	for q in [4, 7, 10]:
+		var drip := fmod(t * 0.9 + q * 0.37, 1.0)
+		ci.draw_circle(pts[q] + Vector2(0, 6.0 + drip * 14.0), 3.5 * (1.0 - drip * 0.5), Color(GOO, 0.9 * (1.0 - drip)))
+
+
+## Count Nibbles' blood shield: a dark red bubble with a drip running down.
+static func draw_blood_shield(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	ci.draw_circle(p, r * 1.16, Color(BLOOD, 0.18))
+	ci.draw_arc(p, r * 1.16, 0.0, TAU, 48, Color(BLOOD.lightened(0.2), 0.9), 4.0, true)
+	ci.draw_arc(p, r * 1.24, -PI * 0.8, -PI * 0.2, 20, Color(1, 1, 1, 0.35), 2.0, true)
+	for k in 3:
+		var f := fmod(t * 0.6 + k / 3.0, 1.0)
+		var a := PI * 0.25 + k * PI * 0.25
+		var at := p + Vector2.from_angle(a) * r * 1.16 + Vector2(0, f * r * 0.3)
+		_drop(ci, at, r * 0.08 * (1.0 - 0.5 * f), Color(BLOOD, 0.9 * (1.0 - f)))
+
+
+## Mole underground: a mound of loose dirt that shuffles as it moves.
+static func draw_burrow(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	ci.draw_circle(p, r * 0.95, Color(DIRT.darkened(0.4), 0.85))
+	for k in 9:
+		var a := k * TAU / 9.0 + sin(t * 6.0 + k) * 0.15
+		ci.draw_circle(p + Vector2.from_angle(a) * r * (0.55 + 0.1 * sin(t * 9.0 + k * 2.0)), r * 0.3, DIRT if k % 2 else DIRT.lightened(0.15))
+	ci.draw_circle(p, r * 0.4, DIRT.lightened(0.25))
+	if vel.length() > 0.001: # A furrow behind it.
+		var back := -vel.normalized()
+		for k in 4:
+			ci.draw_circle(p + back * r * (1.0 + 0.5 * k), r * (0.28 - 0.05 * k), Color(DIRT, 0.6 - 0.12 * k))
+
+
+## Magmo's lava puddle: a crusted pool with glowing cracks and popping bubbles.
+static func draw_lava(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	ci.draw_circle(p, rad * 1.05, Color(LAVA.darkened(0.6), 0.6 * fade))
+	ci.draw_circle(p, rad, Color(LAVA, 0.55 * fade))
+	ci.draw_circle(p, rad * 0.6, Color(Color("ffb347"), 0.45 * fade))
+	for k in 5: # Dark crust plates drifting on top.
+		var a := seed + k * 1.3 + t * 0.15
+		ci.draw_circle(p + Vector2.from_angle(a) * rad * 0.55, rad * 0.2, Color(Color("4a1a0a"), 0.6 * fade))
+	for k in 3:
+		var f := fmod(t * 0.9 + k / 3.0 + seed, 1.0)
+		var at := p + Vector2.from_angle(seed * 2.0 + k * 2.1) * rad * 0.4
+		ci.draw_arc(at, rad * 0.12 * (0.4 + f), 0.0, TAU, 12, Color(Color("ffe066"), 0.8 * (1.0 - f) * fade), 2.0, true)
+
+
+## Wrecker's chain: oval links from its body out to the ball.
+static func draw_chain(ci: CanvasItem, a: Vector2, b: Vector2, link: float) -> void:
+	var span := a.distance_to(b)
+	if span < 1.0:
+		return
+	var dir := (b - a) / span
+	var n := maxi(2, int(span / (link * 1.5)))
+	for q in n:
+		var c := a + dir * span * (q + 0.5) / n
+		var flat := q % 2 == 1
+		var w := link * (0.75 if not flat else 0.35)
+		var pts := PackedVector2Array()
+		for k in 13:
+			var ang := k * TAU / 12.0
+			pts.append(c + dir * cos(ang) * link * 0.8 + dir.orthogonal() * sin(ang) * w * 0.5)
+		ci.draw_polyline(pts, Color("2a2f36"), 4.5, true)
+		ci.draw_polyline(pts, Color("9aa3ad"), 2.0, true)
+
+
+## A spike shot: a sharp silver thorn pointing where it flies.
+static func draw_spike_shot(ci: CanvasItem, p: Vector2, r: float, vel: Vector2) -> void:
+	var dir := vel.normalized() if vel.length() > 0.001 else Vector2.RIGHT
+	var o := dir.orthogonal()
+	ci.draw_line(p, p - dir * r * 3.0, Color(1, 1, 1, 0.25), r, true)
+	ci.draw_colored_polygon(PackedVector2Array([p + dir * r * 1.8, p + o * r * 0.6 - dir * r * 0.6, p - o * r * 0.6 - dir * r * 0.6]), Color("e8e8f0"))
+	ci.draw_line(p - dir * r * 0.6, p + dir * r * 1.8, Color("8a8aa0"), 1.5, true)
