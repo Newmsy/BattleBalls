@@ -15,6 +15,7 @@ const CRITTER := {
 	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "wall", "do": "ping"}],
 	"params": {
+		"ping_mark": 0.0, ## T5: seconds a pinged foe stays heard (its next hit on it crits).
 		"ping_gap": 1.0, ## Seconds between pings (pillar maps bounce a lot).
 		"ping_turn": 45.0, ## Most it turns toward the foe, in degrees.
 		"ping_dash_mult": 1.4, ## Swerve speed toward the foe, x its own.
@@ -30,7 +31,7 @@ const CRITTER := {
 		{"text": "Swerves harder", "ping_dash_mult": 1.5},
 		{"text": "The ping deals 4", "ping_damage": 4.0},
 		{"text": "Bigger ping", "ping_radius": 220.0},
-		{"text": "The ping deals 10, and a hit right after it deals x2.5", "ping_hit_mult": 2.5, "ping_damage": 10.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
+		{"text": "Echolocation: every ping finds the foe wherever it is; its next hit within 3s deals x2.5", "ping_hit_mult": 2.5, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "fangs"}, "back": ["batwings", "ears"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},
