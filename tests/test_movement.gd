@@ -280,3 +280,17 @@ func test_movement_critters_replay_identically() -> void:
 		for tier in [1, 5]:
 			var cfg := {"seed": 77, "p1": id, "p2": "vampire", "tiers": [tier, 1]}
 			check_eq(MatchSim.new(cfg).run_to_end().hash, MatchSim.new(cfg).run_to_end().hash, "%s T%d replays" % [id, tier])
+
+
+func test_gentle_pull_curves_balls_toward_each_other_only_when_asked() -> void:
+	for seek in [0.0, 400.0]:
+		var sim := MatchSim.new({"seed": 1, "p1": "plain", "p2": "plain", "angles": [null, null], "damage_rolls": false, "seek": seek})
+		sim.balls[0].pos = Vector2(250, 500)
+		sim.balls[1].pos = Vector2(750, 300)
+		sim.balls[0].vel = Vector2(0, 1) * sim.balls[0].current_speed()
+		sim.balls[1].vel = Vector2(0, -1) * sim.balls[1].current_speed()
+		var speed := sim.balls[0].vel.length()
+		sim.step()
+		var turned: bool = sim.balls[0].vel.x > 1.0
+		check_eq(turned, seek > 0.0, "seek %d: ball 0 bends toward the foe" % seek)
+		check_near(sim.balls[0].vel.length(), speed, 0.5, "and keeps its speed")
