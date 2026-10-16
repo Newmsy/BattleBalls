@@ -1368,3 +1368,49 @@ static func draw_gusts(ci: CanvasItem, p: Vector2, r: float, reach: float, t: fl
 		ci.draw_arc(p, rr, a, a + (0.9 if huffing else 0.6), 12, Color(Color("e8fff0"), (0.7 if huffing else 0.4) * (1.0 - f)), 3.0, true)
 		var tip := p + Vector2.from_angle(a + 0.9) * rr
 		ci.draw_arc(tip + Vector2.from_angle(a + 0.9 - PI / 2.0) * r * 0.2, r * 0.2, a, a + PI * 1.4, 8, Color(Color("e8fff0"), 0.5 * (1.0 - f)), 2.0, true)
+
+
+# --- Tier looks: higher tiers glow, T5 blazes -----------------------------------
+
+const ASCEND := Color("ffd23f")
+
+
+## A tier aura behind the critter: T3 a soft ring, T4 a double ring with
+## orbiting sparks, T5 a blazing gold crown of rays and stars. `col` is the
+## critter's own colour, mixed in so each critter keeps its identity.
+static func draw_tier_aura(ci: CanvasItem, p: Vector2, r: float, tier: int, col: Color, t: float) -> void:
+	if tier < 3 or r < 2.0:
+		return
+	var glow := col.lerp(ASCEND, 0.6 if tier >= 5 else 0.3)
+	var pulse := 0.5 + 0.5 * sin(t * 3.0)
+	ci.draw_circle(p, r * (1.25 + 0.05 * pulse), Color(glow, 0.1 + 0.05 * (tier - 3)))
+	ci.draw_arc(p, r * 1.22, 0.0, TAU, 48, Color(glow, 0.35 + 0.15 * pulse), 2.0, true)
+	if tier < 4:
+		return
+	ci.draw_arc(p, r * 1.36, t * 0.8, t * 0.8 + PI * 1.4, 32, Color(glow, 0.35), 2.0, true)
+	var n := 3 if tier == 4 else 6
+	for q in n: # Orbiting sparks.
+		var a := t * (1.4 if tier == 4 else 2.0) + q * TAU / n
+		var at := p + Vector2.from_angle(a) * r * 1.36
+		ci.draw_circle(at, r * 0.09, Color(glow, 0.5))
+		ci.draw_circle(at, r * 0.05, Color.WHITE)
+	if tier < 5:
+		return
+	for q in 12: # A crown of flickering gold rays.
+		var a := q * TAU / 12.0 + t * 0.4
+		var flick := 0.6 + 0.4 * sin(t * 9.0 + q * 1.7)
+		var d := Vector2.from_angle(a)
+		ci.draw_line(p + d * r * 1.15, p + d * r * (1.45 + 0.3 * flick), Color(ASCEND, 0.7 * flick), r * 0.12, true)
+	ci.draw_circle(p, r * 1.6, Color(ASCEND, 0.06 + 0.04 * pulse))
+	ci.draw_arc(p, r * 1.55 + 2.0 * pulse, 0.0, TAU, 56, Color(ASCEND, 0.35 + 0.25 * pulse), 3.5, true)
+
+
+## T5 critters shed gold sparkles as they move.
+static func draw_ascend_trail(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	if vel.length() < 0.001:
+		return
+	var back := -vel.normalized()
+	for q in 4:
+		var f := fmod(t * 2.0 + q * 0.25, 1.0)
+		var at := p + back * r * (1.1 + 1.4 * f) + back.orthogonal() * sin(q * 2.3 + t * 4.0) * r * 0.4
+		_twinkle(ci, at, r * 0.2 * (1.0 - f), Color(ASCEND, 0.9 * (1.0 - f)))

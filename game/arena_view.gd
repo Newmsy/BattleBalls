@@ -250,6 +250,17 @@ func _fit_slots() -> void:
 
 
 ## The side (0 = you, 1 = foe) ball `i` fights for: its team.
+## The tier ball i fights at: from the fight's config (tier ability upgrades),
+## else the `tiers` the screen set. Twins share their side's tier.
+func _tier_of(i: int) -> int:
+	var side := _side(i)
+	if sim:
+		var ts: Array = sim.config.get("tiers", [])
+		if side < ts.size():
+			return int(ts[side])
+	return int(tiers[side]) if side < tiers.size() else 1
+
+
 func _side(i: int) -> int:
 	return sim.balls[i].team if sim and i < sim.balls.size() else i
 
@@ -903,6 +914,11 @@ func _draw() -> void:
 		elif b.alive() and b.state.get("digging", false) and sim.tick < int(b.state.get("phase_until", -1)):
 			BattleFx.draw_burrow(self, ball_pos(b) * s, b.radius * s, b.vel, _time)
 		elif b.alive():
+			var tier := _tier_of(b.index)
+			if tier >= 3: # Higher tiers glow; T5 blazes gold.
+				BattleFx.draw_tier_aura(self, ball_pos(b) * s, b.radius * s, tier, Color(b.def.color), _time + b.index)
+				if tier >= 5:
+					BattleFx.draw_ascend_trail(self, ball_pos(b) * s, b.radius * s, b.vel, _time + b.index)
 			_draw_critter(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
 			_draw_status(b, s)
 		elif b.index == ko_ball:
@@ -1294,7 +1310,7 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	draw_circle(Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
 	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
-	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": tiers[_side(i)], "look": look, "blink": blink,
+	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": _tier_of(i), "look": look, "blink": blink,
 		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko,
 		"stacks": int(sim.balls[i].state.get("spikes", 0)) if sim and i < sim.balls.size() else 0, "flash": _grow_flash[i] if i < 2 else 0.0,
 		"phased": sim != null and i < sim.balls.size() and sim.tick < int(sim.balls[i].state.get("phase_until", -1)),
