@@ -1414,3 +1414,46 @@ static func draw_ascend_trail(ci: CanvasItem, p: Vector2, r: float, vel: Vector2
 		var f := fmod(t * 2.0 + q * 0.25, 1.0)
 		var at := p + back * r * (1.1 + 1.4 * f) + back.orthogonal() * sin(q * 2.3 + t * 4.0) * r * 0.4
 		_twinkle(ci, at, r * 0.2 * (1.0 - f), Color(ASCEND, 0.9 * (1.0 - f)))
+
+
+# --- T5 ability events: Honey's lob, Phoenix's sunfire ---
+
+const SUN := Color("ffe14d")
+const SUNFIRE_LIFE := 0.7
+const HONEY_LOB_LIFE := 0.5
+
+## Phoenix T5 sunfire: a white-gold flash with rays bursting out to the reach.
+static func draw_sunfire(ci: CanvasItem, c: Vector2, reach: float, age: float, seed: float) -> void:
+	if reach < 2.0:
+		return
+	var k := clampf(age / SUNFIRE_LIFE, 0.0, 1.0)
+	var a := 1.0 - k
+	ci.draw_circle(c, reach * (0.25 + 0.75 * sqrt(k)), Color(SUN, 0.22 * a))
+	ci.draw_circle(c, reach * 0.3 * (1.0 - k), Color(Color.WHITE, 0.8 * a))
+	for q in 16:
+		var ang := seed + q * TAU / 16.0 + k * 0.4
+		var r0 := reach * (0.15 + 0.5 * k)
+		var r1 := reach * (0.4 + 0.6 * sqrt(k)) * (1.0 if q % 2 == 0 else 0.8)
+		ci.draw_line(c + Vector2.from_angle(ang) * r0, c + Vector2.from_angle(ang) * r1, Color(SUN if q % 2 == 0 else Color("ff8a1f"), 0.9 * a), 6.0 * a + 1.5, true)
+	ci.draw_arc(c, reach * (0.3 + 0.7 * sqrt(k)), 0.0, TAU, 64, Color(Color("ff8a1f"), 0.9 * a), 8.0 * a + 2.0, true)
+
+
+## Honey T5 lob: a glob of honey arcing from Honey to the foe, splatting as it lands.
+static func draw_honey_lob(ci: CanvasItem, from: Vector2, to: Vector2, r: float, age: float) -> void:
+	var k := clampf(age / HONEY_LOB_LIFE, 0.0, 1.0)
+	var fly := clampf(k / 0.7, 0.0, 1.0)
+	var lift := from.distance_to(to) * 0.35 + 40.0
+	if fly < 1.0:
+		for q in 4: # The glob and its dripping trail.
+			var f := maxf(fly - q * 0.06, 0.0)
+			var at := from.lerp(to, f) - Vector2(0, 4.0 * lift * f * (1.0 - f))
+			ci.draw_circle(at, r * (1.0 - q * 0.2), Color(HONEY, 1.0 - q * 0.22))
+		var head := from.lerp(to, fly) - Vector2(0, 4.0 * lift * fly * (1.0 - fly))
+		ci.draw_circle(head + Vector2(-r * 0.3, -r * 0.3), r * 0.3, Color(Color("fff3c4"), 0.9))
+	else: # Splat.
+		var s := (k - 0.7) / 0.3
+		var a := 1.0 - s
+		ci.draw_arc(to, r * (1.5 + 4.0 * s), 0.0, TAU, 32, Color(HONEY, 0.9 * a), 5.0 * a + 1.0, true)
+		for q in 8:
+			var at := to + Vector2.from_angle(q * TAU / 8.0) * r * (1.2 + 3.0 * s)
+			ci.draw_circle(at, r * 0.35 * a + 1.0, Color(Color("ffe08a"), a))

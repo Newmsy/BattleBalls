@@ -41,7 +41,7 @@ const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire"
 	"shards": Color("cdf3ff"), "paint": Color("ffd23f"), "confetti": Color("f15bb5"), "thunder": Color("8ecbff"),
 	"bugflare": Color("e8ff7a"), "candy": Color("ff9de2"), "inkslam": Color("b36bff"), "wave": Color("5ff0e6"), "quasar": Color("e0b3ff"),
 	"glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968"),
-	"petal": Color("ff9ecf"), "tick": Color("ffd166"), "root": Color("a5743a")}
+	"petal": Color("ff9ecf"), "tick": Color("ffd166"), "root": Color("a5743a"), "sunfire": Color("ffe14d")}
 ## Statuses: frozen (stunned) balls sit in an ice block; vulnerable ones glow sour green.
 const FROZEN := Color("bfefff")
 const VULNERABLE := Color("9ef01a")
@@ -155,6 +155,7 @@ var _chomps: Array[Dictionary] = [] ## Count Nibbles' bites: {pos, dir, size, ag
 var _novas: Array[Dictionary] = [] ## Void/Supernova blasts: {pos, radius, color, age}.
 var _fx: Array[Dictionary] = [] ## One-off effects: {kind, pos, age, life, ...} (see _draw_fx).
 var _rebirths: Array[Dictionary] = [] ## Ember rising again: {ball, age}.
+var _revives: Dictionary = {} ## Phoenix revives seen per ball, for "REBORN AGAIN!".
 var _bolts: Array[Dictionary] = [] ## Lightning: {from, to, age, seed}; ring ones have a radius instead of to.
 var _grow_flash := [0.0, 0.0] ## Prickles' spike flash.
 var _dot_seen: Array = [[], []] ## Damage-over-time looks each side already showed a popup for.
@@ -215,6 +216,7 @@ func clear_effects() -> void:
 	_novas.clear()
 	_fx.clear()
 	_rebirths.clear()
+	_revives.clear()
 	_dot_seen = [[], []]
 	_trails = [[], []]
 	_wisps.clear()
@@ -329,6 +331,10 @@ func consume_events(events: Array[Dictionary]) -> void:
 				if pk == "tide": # Ripple's T5 wave rolling out from the wall.
 					_fx.append({"kind": "splash", "pos": e.pos, "radius": e.radius, "age": 0.0, "life": BattleFx.SPLASH_LIFE, "seed": _fx_rng.randf() * TAU})
 					_burst(e.pos, 16, [Color("bff8ff"), Color.WHITE, BattleFx.WATER], Vector2(200.0, 460.0), Vector2.ZERO, TAU, Vector2(3.0, 6.0), 80.0)
+				elif pk == "sunfire": # Phoenix T5: a flash of sunfire.
+					_fx.append({"kind": "sunfire", "pos": e.pos, "radius": e.radius, "age": 0.0, "life": BattleFx.SUNFIRE_LIFE, "seed": _fx_rng.randf() * TAU})
+					_burst(e.pos, 22, [BattleFx.SUN, Color("ff8a1f"), Color.WHITE], Vector2(240.0, 520.0), Vector2.ZERO, TAU, Vector2(3.0, 6.0), 60.0)
+					_shake = maxf(_shake, 5.0 * A11y.motion())
 				elif pk == "honey": # Honey's T5 sting on a stuck foe.
 					_add_popup(e.pos + Vector2(-30, -70), "STING!", BattleFx.HONEY)
 					_burst(e.pos, 12, [BattleFx.HONEY, Color("ffe08a")], Vector2(80.0, 240.0), Vector2.ZERO, TAU, Vector2(4.0, 7.0))
@@ -404,7 +410,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_squash[g.index] = 0.3
 			"revive":
 				var g := sim.balls[e.ball]
-				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "REBORN!", POP_SNAP)
+				_revives[e.ball] = int(_revives.get(e.ball, 0)) + 1
+				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "REBORN!" if _revives[e.ball] == 1 else "REBORN AGAIN!", POP_SNAP)
 				_rebirths.append({"ball": e.ball, "age": 0.0})
 				_shake = maxf(_shake, 9.0 * A11y.motion())
 			"shut":
@@ -523,6 +530,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_spawn_particles(e.to, 10)
 				_bursts.append({"pos": e.to, "age": 0.0, "spark": {}, "seed": 0.0})
 				_squash[g.index] = 0.25
+			"honey_lob": # Honey T5 flings a glob of honey under the foe.
+				_fx.append({"kind": "honey_lob", "from": e.from, "pos": e.pos, "age": 0.0, "life": BattleFx.HONEY_LOB_LIFE})
 			"heard": # Sonar T5 has heard the foe: a sound mark on it.
 				_add_popup(e.pos + Vector2(-34, -80), "HEARD!", BattleFx.SONAR)
 				_fx.append({"kind": "sonar", "pos": e.pos, "radius": 90.0, "age": 0.0, "life": BattleFx.SONAR_LIFE})
@@ -1603,6 +1612,10 @@ func _draw_fx(k: Dictionary, s: float) -> void:
 			if k.twin < sim.balls.size():
 				var g := sim.balls[k.ball]
 				BattleFx.draw_mitosis(self, ball_pos(g) * s, ball_pos(sim.balls[k.twin]) * s, g.radius * s, k.age, g.def.color)
+		"sunfire":
+			BattleFx.draw_sunfire(self, k.pos * s, k.radius * s, k.age, k.seed)
+		"honey_lob":
+			BattleFx.draw_honey_lob(self, k.from * s, k.pos * s, 12.0 * s, k.age)
 		"clock":
 			BattleFx.draw_clock_ring(self, k.pos * s, k.radius * s, k.age)
 		"splash":
