@@ -130,6 +130,8 @@ static func apply(cfg: Dictionary, i: int, slot: Dictionary) -> Dictionary:
 	for key in ["tiers", "powers", "gear", "talents"]:
 		if not cfg.has(key):
 			cfg[key] = [1, 1] if key == "tiers" else ([1.0, 1.0] if key == "powers" else [null, null])
+		while cfg[key].size() <= i: # A 2v2's mates (i = 2, 3).
+			cfg[key].append(1 if key == "tiers" else (1.0 if key == "powers" else null))
 	cfg["p%d" % (i + 1)] = s.critter
 	cfg.tiers[i] = s.tier
 	cfg.powers[i] = power(s)

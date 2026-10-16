@@ -3,6 +3,7 @@ extends Control
 ## themselves stay uncluttered. YOU on the left (solid frame), FOE on the
 ## right (dashed frame): shape as well as colour tells the sides apart.
 ## A pale "chip" trails each bar so a big hit reads at a glance.
+## In a 2v2 each side gets two thinner bars, one per critter, under its tag.
 ## Render-only: reads the sim, never changes it.
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
@@ -20,17 +21,19 @@ const CENTER_W := 0.22 ## Share of the width kept for the clock between the bars
 
 var tags: Array = ["YOU", "FOE"]
 var center_text := ""
-var _hp := [0.0, 0.0]
-var _max := [1.0, 1.0]
-var _shield := [0.0, 0.0]
-var _names := ["", ""]
-var _chip := [1.0, 1.0]
-var _chip_hold := [0.0, 0.0]
+var _hp := [0.0, 0.0, 0.0, 0.0]
+var _max := [1.0, 1.0, 1.0, 1.0]
+var _shield := [0.0, 0.0, 0.0, 0.0]
+var _names := ["", "", "", ""]
+var _chip := [1.0, 1.0, 1.0, 1.0]
+var _chip_hold := [0.0, 0.0, 0.0, 0.0]
+var _count := 2 ## Bars: 2, or 4 in a 2v2 (index 2 is YOU's mate, 3 the foe's).
 var _time := 0.0
 var _live := false
 
 
-## Shows the fight `sim` (balls 0 and 1). Pass null to hide the bars.
+## Shows the fight `sim` (balls 0 and 1, plus 2 and 3 in a 2v2). Pass null
+## to hide the bars.
 func show_fight(sim, center := "") -> void:
 	center_text = center
 	if sim == null or sim.balls.size() < 2:
@@ -38,7 +41,8 @@ func show_fight(sim, center := "") -> void:
 			_live = false
 			queue_redraw()
 		return
-	for i in 2:
+	_count = 4 if sim.get("starters") == 4 and sim.balls.size() >= 4 else 2
+	for i in _count:
 		var b = sim.balls[i]
 		var frac := clampf(b.hp / maxf(1.0, b.max_hp), 0.0, 1.0)
 		# A new ball (relay, next leg) resets the chip instead of draining from the last one.
@@ -58,7 +62,7 @@ func _process(delta: float) -> void:
 	if not _live:
 		return
 	_time += delta
-	for i in 2:
+	for i in _count:
 		var frac: float = _hp[i] / _max[i]
 		if _chip_hold[i] > 0.0:
 			_chip_hold[i] -= delta
@@ -71,6 +75,9 @@ func _draw() -> void:
 	if not _live:
 		if center_text != "":
 			_text(Vector2(size.x / 2.0, size.y * 0.62), center_text, A11y.font(26), Color("f0eeff"))
+		return
+	if _count == 4:
+		_draw_teams()
 		return
 	var fs := A11y.font(20)
 	var gap := size.x * CENTER_W
@@ -91,27 +98,52 @@ func _draw() -> void:
 		_text(Vector2(size.x / 2.0, bar_y + bar_h / 2.0), text, cfs, col)
 
 
-## One side's bar: the fill drains toward the arena centre (YOU from the right
-## end, FOE from the left), like a fighting game.
-func _bar(i: int, r: Rect2, fs: int) -> void:
+## 2v2: each side's tag, then its two critters' bars stacked under it, each
+## bar carrying the critter's name and HP inside.
+func _draw_teams() -> void:
+	var gap := size.x * CENTER_W
+	var bar_w := (size.x - gap) / 2.0
+	var tag_h := A11y.font(18) + 4.0
+	var bar_h := maxf(16.0, (size.y - tag_h - 8.0) / 2.0)
+	var fs := mini(A11y.font(18), int(bar_h * 0.62))
+	for side in 2:
+		var x := 0.0 if side == 0 else size.x - bar_w
+		var align := HORIZONTAL_ALIGNMENT_LEFT if side == 0 else HORIZONTAL_ALIGNMENT_RIGHT
+		draw_string_outline(FONT, Vector2(x, tag_h - 4.0), tags[side], align, bar_w, A11y.font(18), 4, Color(0, 0, 0, 0.6))
+		draw_string(FONT, Vector2(x, tag_h - 4.0), tags[side], align, bar_w, A11y.font(18), TEAM_COLORS[side])
+		for k in 2:
+			var i := side + 2 * k
+			_bar(i, Rect2(x, tag_h + 4.0 + k * (bar_h + 4.0), bar_w, bar_h), fs, _names[i] + "  ")
+	if center_text != "":
+		var col := LOW if center_text.begins_with("OVERTIME") else Color("f0eeff")
+		var text := center_text.replace("OVERTIME ", "OT ")
+		var cfs := A11y.font(22) if text.length() <= 5 else A11y.font(16)
+		_text(Vector2(size.x / 2.0, size.y * 0.6), text, cfs, col)
+
+
+## One bar: the fill drains toward the arena centre (YOU from the right end,
+## FOE from the left), like a fighting game. `i` is a ball; its side is i % 2.
+## `prefix` (2v2) puts the critter's name before the HP inside the bar.
+func _bar(ball: int, r: Rect2, fs: int, prefix := "") -> void:
+	var i := ball % 2
 	var col: Color = TEAM_COLORS[i]
-	var frac: float = _hp[i] / _max[i]
+	var frac: float = _hp[ball] / _max[ball]
 	var low := frac > 0.0 and frac < LOW_SHARE
 	var rad := r.size.y / 2.0
 	_round(r, rad, TRACK)
 	var inner := r.grow(-3.0)
-	_fill(i, inner, _chip[i], CHIP)
+	_fill(i, inner, _chip[ball], CHIP)
 	_fill(i, inner, frac, LOW if low else col)
-	if _shield[i] > 0.0:
-		_fill(i, inner, minf(1.0, _shield[i] / _max[i]), Color(SHIELD, 0.75))
+	if _shield[ball] > 0.0:
+		_fill(i, inner, minf(1.0, _shield[ball] / _max[ball]), Color(SHIELD, 0.75))
 	var beat := 1.0 if A11y.reduced_motion or not low else 0.6 + 0.4 * absf(sin(_time * PI / 0.85))
 	if i == 0:
 		_round_outline(r, rad, Color(col, beat), 2.0)
 	else:
 		_dashed_outline(r, Color(col, beat), 2.0)
-	var text := str(ceili(_hp[i]))
-	if _shield[i] > 0.0:
-		text += " +%d" % ceili(_shield[i])
+	var text := prefix + str(ceili(_hp[ball]))
+	if _shield[ball] > 0.0:
+		text += " +%d" % ceili(_shield[ball])
 	var align := HORIZONTAL_ALIGNMENT_LEFT if i == 0 else HORIZONTAL_ALIGNMENT_RIGHT
 	var base := Vector2(r.position.x + rad + 6.0, r.position.y + r.size.y / 2.0 + fs * 0.36)
 	draw_string_outline(FONT, base, text, align, r.size.x - rad * 2.0 - 12.0, fs, 5, Color(0, 0, 0, 0.75))

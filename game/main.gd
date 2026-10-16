@@ -101,6 +101,11 @@ var pick_tiers := [0, 0]
 ## Tiers a shared fight link (&t=) was played at, for REPLAY; [0, 0] is none.
 var link_tiers := [0, 0]
 var tier_buttons: Array = []
+## Quick fight 2v2: all four balls fight at once. Your pair is
+## [player_type, mate_type]; you aim player_type, the seed aims the rest.
+var duo := false
+var mate_type := ""
+var duo_button: Button
 
 var backend: Backend
 var save := SaveGame.new()
@@ -251,7 +256,7 @@ func _ready() -> void:
 	else:
 		_show_menu()
 		# Shared fight links open straight on their menu; everyone else starts at home.
-		if mode == Mode.NORMAL and link_error == "":
+		if mode == Mode.NORMAL and link_error == "" and not duo:
 			_show_home()
 			if link_friend != "":
 				shell.go("friends")
@@ -346,12 +351,49 @@ func _config() -> Dictionary:
 		cfg.angles = [aim, null]
 		return cfg
 	var cfg := {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena(), "modifier": modifier}
+	if _is_duo():
+		cfg.p3 = _mate()
+		cfg.p4 = _foe_mate(opponent_type)
 	var t := _fight_tiers()
 	if t[0] > 0:
 		# Same path as the progression modes: tier ability upgrades and power.
 		Lineup.apply(cfg, 0, Lineup.make(player_type, t[0]))
 		Lineup.apply(cfg, 1, Lineup.make(opponent_type, t[1]))
+		if _is_duo():
+			Lineup.apply(cfg, 2, Lineup.make(cfg.p3, t[0]))
+			Lineup.apply(cfg, 3, Lineup.make(cfg.p4, t[1]))
 	return cfg
+
+
+## A 2v2 is a Quick fight option only.
+func _is_duo() -> bool:
+	return duo and mode == Mode.NORMAL
+
+
+## Your second critter: never the same as the first.
+func _mate() -> String:
+	if mate_type in BallDefs.PLAYABLE and mate_type != player_type:
+		return mate_type
+	for id in BallDefs.PLAYABLE:
+		if id != player_type:
+			return id
+	return player_type
+
+
+## The foe's second critter, from the seed like the first, never a copy of it.
+func _foe_mate(first: String) -> String:
+	var ids: Array = BallDefs.PLAYABLE
+	var k := posmod(seed_value * 7 + 3, ids.size())
+	if ids[k] == first:
+		k = (k + 1) % ids.size()
+	return ids[k]
+
+
+func _toggle_duo() -> void:
+	duo = not duo
+	if duo:
+		mate_type = _mate()
+	_refresh_menu()
 
 
 ## [yours, the foe's] tiers this fight plays at, or [0, 0] for equal stats.
@@ -414,13 +456,20 @@ func _show_menu() -> void:
 
 func _refresh_menu() -> void:
 	for id in player_buttons:
-		player_buttons[id].button_pressed = id == player_type
+		player_buttons[id].button_pressed = id == player_type or (_is_duo() and id == _mate())
 	new_seed_button.disabled = mode == Mode.CHALLENGE
 	seed_label.text = ("Your critter · seed %d · %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]).to_upper()
+	duo_button.visible = mode == Mode.NORMAL
+	duo_button.text = "2v2" if _is_duo() else "1v1"
+	if _is_duo():
+		seed_label.text = ("Your pair: %s + %s · %s" % [BallDefs.get_def(player_type).display_name,
+			BallDefs.get_def(_mate()).display_name, Arenas.get_def(_pick_arena()).display_name]).to_upper()
 	rules_button.text = Modifiers.display_name(modifier)
 	_refresh_tier_buttons()
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
+	if _is_duo():
+		info_label.text = "2v2: all four fight at once. Tap two critters for your pair; you aim %s." % def.display_name
 	for id in player_loan_tags:
 		player_loan_tags[id].visible = _is_loan(id)
 	if _is_loan(player_type):
@@ -434,6 +483,8 @@ func _refresh_menu() -> void:
 	if modifier != Modifiers.NONE:
 		info_label.text = "%s: %s" % [Modifiers.display_name(modifier), Modifiers.get_def(modifier).description]
 	arena.preview_types = _fight_types(player_type, _pick_opponent())
+	if _is_duo():
+		arena.preview_types = arena.preview_types + [_mate(), _foe_mate(_pick_opponent())]
 	arena.preview_modifier = modifier
 	arena.preview_arena = _pick_arena()
 	arena.queue_redraw()
@@ -443,7 +494,7 @@ func _refresh_menu() -> void:
 ## Logs where the menu buttons are so the smoke test can tap them ("UI_AT name x y").
 func _report_menu() -> void:
 	await get_tree().process_frame
-	var marks := {"menu_fight": fight_button, "aim_launch": launch_button, "tier_you": tier_buttons[0], "tier_foe": tier_buttons[1]}
+	var marks := {"menu_fight": fight_button, "aim_launch": launch_button, "tier_you": tier_buttons[0], "tier_foe": tier_buttons[1], "menu_duo": duo_button}
 	for id in player_buttons:
 		marks["pick_" + id] = player_buttons[id]
 	for k in marks:
@@ -459,7 +510,7 @@ func _begin_aim() -> void:
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
-	aim = MatchSim.AIM_AT_CENTRE[0]
+	aim = MatchSim.aim_at_centre(0, 4 if _is_duo() else 2)
 	arena.clear_effects()
 	arena.reset_camera()
 	_set_aim_preview()
@@ -510,6 +561,9 @@ func _start_fight() -> void:
 	_apply_cosmetics()
 	state = State.FIGHT
 	info_label.text = "%s vs %s" % [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
+	if sim.starters == 4:
+		info_label.text = "%s + %s vs %s + %s" % [sim.balls[0].def.display_name, sim.balls[2].def.display_name,
+			sim.balls[1].def.display_name, sim.balls[3].def.display_name]
 	if mode == Mode.CAMPAIGN:
 		info_label.text = _pve_matchup_text()
 	if modifier != Modifiers.NONE:
@@ -606,8 +660,17 @@ func _show_result() -> void:
 	result_label.text = result.headline
 	result_label.modulate = result.color
 	_label_result_buttons()
-	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if replay else "You",
-		roundi(you.damage_dealt), (" and healed %d" % roundi(you.healed)) if you.healed > 0.0 else ""]
+	var dealt := you.damage_dealt
+	var healed := you.healed
+	if sim.starters == 4: # A 2v2 counts the whole pair (and any split-offs).
+		dealt = 0.0
+		healed = 0.0
+		for b in sim.balls:
+			if b.team == 0:
+				dealt += b.damage_dealt
+				healed += b.healed
+	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if replay else ("Your pair" if sim.starters == 4 else "You"),
+		roundi(dealt), (" and healed %d" % roundi(healed)) if healed > 0.0 else ""]
 	if result.detail != "":
 		info_label.text = "%.1fs. %s" % [sim.time(), result.detail]
 	report_label.text = "Report code: " + _report_code()
@@ -621,7 +684,8 @@ func _show_result() -> void:
 	if _count_fight or (mode == Mode.REPLAY and _report_code() != _last_logged_fight):
 		_last_logged_fight = _report_code()
 		Analytics.track("fight_end", {"mode": "fight_of_day" if _board_pick >= 0 else Mode.keys()[mode].to_lower(),
-			"picked": mode != Mode.REPLAY, "team": [player_type], "foe": [opponent_type],
+			"picked": mode != Mode.REPLAY, "team": [player_type, sim.balls[2].type_id] if sim.starters == 4 else [player_type],
+			"foe": [opponent_type, sim.balls[3].type_id] if sim.starters == 4 else [opponent_type],
 			"result": Analytics.result_of(sim.winner), "secs": snappedf(sim.time(), 0.1)})
 	if _count_fight:
 		_count_fight = false
@@ -995,7 +1059,8 @@ func _build_ui() -> void:
 	rules_button = _button("", _cycle_rules, 22, "ghost", 68)
 	# Tiers to test with: tap to cycle equal stats, then one to five stars.
 	tier_buttons = [_tier_button(0), _tier_button(1)]
-	menu_box.add_child(_row(tier_buttons + [rules_button]))
+	duo_button = _button("1v1", _toggle_duo, 22, "ghost", 68)
+	menu_box.add_child(_row(tier_buttons + [duo_button, rules_button]))
 	fight_button = _button("FIGHT!", _begin_aim, 40, "go", 96)
 	fight_button.size_flags_stretch_ratio = 2.0
 	menu_box.add_child(_row([_button("Home", _show_home, 22, "ghost", 96), new_seed_button, fight_button]))
@@ -1077,6 +1142,13 @@ func _use_lineup() -> void:
 
 ## Picking on Quick fight also makes that critter your fighter, when you own it.
 func _pick_player(id: String) -> void:
+	if _is_duo():
+		# Your pair is the last two critters tapped; tapping one already in it keeps the pair.
+		if id != player_type and id != _mate():
+			mate_type = player_type
+			player_type = id
+		_refresh_menu()
+		return
 	player_type = id
 	if mode == Mode.NORMAL and shell != null:
 		shell.profile.set_lineup(id)
@@ -1194,6 +1266,7 @@ func _update_hud() -> void:
 	hud_label.text = ""
 	if sim == null:
 		fight_hud.show_fight(null)
+		title_label.visible = true
 		return
 	var clock := "%.0fs" % sim.time()
 	if sim.in_overtime():
@@ -1203,6 +1276,11 @@ func _update_hud() -> void:
 		tags = tutorial_tags
 	fight_hud.tags = tags.map(func(t): return str(t).to_upper())
 	fight_hud.show_fight(sim, clock)
+	# A 2v2's four bars take the title's room above the arena.
+	var tall := sim.starters == 4
+	title_label.visible = not tall
+	fight_hud.position.y = 8.0 if tall else 60.0
+	fight_hud.size.y = TOP - 10.0 if tall else 62.0
 
 
 ## The seed picks the arena too, independently of the opponent it picks.
@@ -1267,6 +1345,10 @@ func _label_result_buttons() -> void:
 		row.move_child(clip_button, 0)
 	for r in [again_button.get_parent(), share_button.get_parent()]:
 		r.visible = mode != Mode.CAMPAIGN
+	# Fight links and clips are 1v1 only for now.
+	share_button.get_parent().visible = share_button.get_parent().visible and not _is_duo()
+	clip_button.visible = not _is_duo()
+	copy_button.visible = copy_button.visible and not _is_duo()
 	campaign_row.visible = mode == Mode.CAMPAIGN
 	(campaign_row.get_child(0) as Button).text = "Back to the Vault" if pve.has("vault") else "Back to the map"
 	if friend_row.visible and not friend_button.disabled:
@@ -1415,9 +1497,9 @@ func _rarity_style(b: Button, id: String) -> void:
 
 
 ## Every fightable critter as a tile (icon + name), three across. Past two
-## rows the grid scrolls, so new critters just appear.
+## rows the grid scrolls, so new critters just appear. No button group:
+## _refresh_menu presses the picked tile (two of them in a 2v2).
 func _pick_grid(ids: Array, on_pick: Callable) -> ScrollContainer:
-	var group := ButtonGroup.new()
 	var grid := GridContainer.new()
 	grid.columns = PICK_COLUMNS
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1428,7 +1510,6 @@ func _pick_grid(ids: Array, on_pick: Callable) -> ScrollContainer:
 		b.pressed.connect(on_pick.bind(id))
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.toggle_mode = true
-		b.button_group = group
 		b.custom_minimum_size = Vector2(0, PICK_TILE_HEIGHT)
 		b.size_flags_vertical = Control.SIZE_FILL
 		_rarity_style(b, id)
@@ -1872,6 +1953,11 @@ func _read_url_params() -> Dictionary:
 		opponent_choice = params.p2
 		opponent_type = params.p2
 		url_picks = true
+	if params.get("duo", "") == "1": # ?duo=1 opens Quick fight in 2v2 (&p3= picks your second critter).
+		duo = true
+		url_picks = true
+		if params.get("p3", "") in BallDefs.PLAYABLE:
+			mate_type = params.p3
 	backend.disabled = params.get("offline", "") == "1"
 	# ?text=large turns on Larger text for this visit only (screenshots, testing).
 	if params.get("text", "") == "large":

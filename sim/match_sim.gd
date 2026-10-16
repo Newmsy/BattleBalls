@@ -1,4 +1,4 @@
-## Deterministic 1v1 match simulation. No nodes, no engine physics, no
+## Deterministic 1v1 (or 2v2) match simulation. No nodes, no engine physics, no
 ## rendering: the same config always produces the same fight, so it can run
 ## headless for tests and balance sims, and be replayed from a Report code.
 ##
@@ -17,6 +17,10 @@
 ## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
 ## `powers` (optional) are progression multipliers (sim/power.gd); 1.0 is a T1
 ## level 1 Common. `sizes` (optional) scale the radius (campaign bosses).
+## `p3`, `p4` (optional) make it a 2v2: all four balls fight at once, p3 on
+## p1's team and p4 on p2's. Then the per-ball arrays above may hold four
+## entries (index 2 = p3, 3 = p4; missing ones default) and the balls start
+## from TEAM_STARTS. Teammates never damage each other.
 ## Critters and their abilities come from sim/critters/ via sim/ball_defs.gd;
 ## this file only fires their triggers (sim/abilities.gd).
 ## `modifier` is an optional Chaos Weekend rule twist from sim/modifiers.gd,
@@ -107,6 +111,8 @@ const VULNERABLE_CAP := 0.5
 
 const START_CORNERS := [Vector2(170, 830), Vector2(830, 170)]
 const AIM_AT_CENTRE := [-450, 1350] ## Tenths of a degree from each corner.
+## 2v2 starts by ball index: each pair near its corner, point-symmetric.
+const TEAM_STARTS := [Vector2(170, 700), Vector2(830, 300), Vector2(300, 830), Vector2(700, 170)]
 
 
 class Ball:
@@ -292,6 +298,7 @@ var winner := -1 ## Ball index, or -1 for a draw (only meaningful when finished)
 var end_reason := ""
 var ko_hp: Array[float] = [] ## On a double knockout, each ball's HP going into the final tick.
 var launch_angles: Array[int] = []
+var starters := 2 ## Balls the fight started with (4 in a 2v2); later ones are split-offs.
 ## Events produced by the most recent step(), for the renderer and tests.
 var events: Array[Dictionary] = []
 
@@ -315,26 +322,29 @@ func _init(cfg: Dictionary) -> void:
 	rolls = Rng.new(int(cfg.get("seed", 1)) ^ ROLL_SALT)
 	damage_rolls = cfg.get("damage_rolls", true)
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
+	if cfg.has("p3"):
+		types.append_array([cfg.p3, cfg.get("p4", "plain")])
+	starters = types.size()
 	if mod.get("mirror", false):
 		var mirrored := Modifiers.mirror_ball(int(cfg.get("seed", 1)))
-		types = [mirrored, mirrored]
-	var angles: Array = cfg.get("angles", [null, null])
-	var starts: Array = cfg.get("starts", START_CORNERS)
-	var start_hp: Array = cfg.get("hp", [null, null])
-	var tiers: Array = cfg.get("tiers", [1, 1])
-	var powers: Array = cfg.get("powers", [1.0, 1.0])
-	var sizes: Array = cfg.get("sizes", [1.0, 1.0])
-	var gear: Array = cfg.get("gear", [null, null])
-	var talents: Array = cfg.get("talents", [null, null])
-	for i in 2:
+		types.fill(mirrored)
+	var angles: Array = _per_ball(cfg.get("angles", []), null)
+	var starts: Array = cfg.get("starts", START_CORNERS if starters == 2 else TEAM_STARTS)
+	var start_hp: Array = _per_ball(cfg.get("hp", []), null)
+	var tiers: Array = _per_ball(cfg.get("tiers", []), 1)
+	var powers: Array = _per_ball(cfg.get("powers", []), 1.0)
+	var sizes: Array = _per_ball(cfg.get("sizes", []), 1.0)
+	var gear: Array = _per_ball(cfg.get("gear", []), null)
+	var talents: Array = _per_ball(cfg.get("talents", []), null)
+	for i in starters:
 		var kit := Gear.totals(gear[i])
 		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i])), float(powers[i])), kit), modifier)
 		def = Modifiers.apply_arena_tweaks(def, arena_id)
-		if cfg.has("boons"):
+		if cfg.has("boons") and i < cfg.boons.size():
 			def = Boons.apply_to_def(def, cfg.boons[i])
 		var b := Ball.new()
 		b.index = i
-		b.team = i
+		b.team = i % 2
 		b.type_id = types[i]
 		b.def = def
 		b.radius = def.radius * float(sizes[i])
@@ -353,11 +363,32 @@ func _init(cfg: Dictionary) -> void:
 			Talents.setup(self, b)
 		b.pos = starts[i]
 		# Always draw from the rng so a given aim doesn't shift later rolls.
-		var random_aim: int = AIM_AT_CENTRE[i] + rng.range_int(-RANDOM_AIM_SPREAD, RANDOM_AIM_SPREAD)
+		var random_aim: int = aim_at_centre(i, starters) + rng.range_int(-RANDOM_AIM_SPREAD, RANDOM_AIM_SPREAD)
 		var aim: int = random_aim if angles[i] == null else int(angles[i])
 		launch_angles.append(aim)
 		b.vel = Vector2.from_angle(deg_to_rad(aim / 10.0)) * b.speed
 		balls.append(b)
+
+
+## `arr` padded to one entry per starting ball with `fill`.
+func _per_ball(arr: Array, fill) -> Array:
+	var out := arr.duplicate()
+	while out.size() < starters:
+		out.append(fill)
+	return out
+
+
+## Start positions for a fight of `count` balls (2 or 4).
+static func start_positions(count: int) -> Array:
+	return START_CORNERS if count <= 2 else TEAM_STARTS
+
+
+## Launch angle (tenths of a degree) from ball `i`'s start straight at the centre.
+static func aim_at_centre(i: int, count := 2) -> int:
+	if count <= 2:
+		return AIM_AT_CENTRE[i]
+	var p: Vector2 = TEAM_STARTS[i]
+	return roundi(rad_to_deg((Vector2(ARENA_SIZE, ARENA_SIZE) / 2.0 - p).angle()) * 10.0)
 
 
 func time() -> float:
@@ -917,6 +948,8 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		var amount: float = h.amount
 		var target := balls[h.target]
 		var source := balls[h.source]
+		if source != target and source.team == target.team and not h.get("env", false):
+			continue # Teammates never hurt each other.
 		# The arena's own damage (spikes) never triggers talents.
 		var talented: bool = not h.get("env", false) and (not source.tal.is_empty() or not target.tal.is_empty() or source.tal_state.has("haunted"))
 		if talented:
@@ -1016,7 +1049,7 @@ func _boon_after_contact(source: Ball, target: Ball, amount: float, pos: Vector2
 		heals.append({"ball": source.index, "amount": amount * steal})
 
 
-## A team's HP: its starting ball's, plus what its split-off balls have left.
+## A team's HP: its starting ball's, plus what its mate and split-off balls have left.
 func team_hp(team: int) -> float:
 	var hp := balls[team].hp
 	for i in range(2, balls.size()):

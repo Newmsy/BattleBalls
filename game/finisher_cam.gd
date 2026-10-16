@@ -28,13 +28,32 @@ var ticks := 0 ## Length of the whole fight.
 static func plan(config: Dictionary):
 	var cam = new()
 	var look := MatchSim.new(config)
-	look.run_to_end()
+	var standing: Array = []
+	var max_ticks := int(MatchSim.TIME_LIMIT * MatchSim.TICK_RATE) + 1
+	while not look.finished and look.tick <= max_ticks:
+		standing = look.balls.map(func(b): return b.alive())
+		look.step()
 	cam.ticks = look.tick
 	if look.winner >= 0 and look.end_reason in ["knockout", "double_knockout"]:
 		cam.ko_tick = look.tick
 		cam.winner = look.winner
 		cam.loser = 1 - look.winner
+		if look.starters > 2:
+			# 2v2: the camera goes to the ball that fell last, leaning toward a winner still up.
+			cam.loser = _pick(look, standing, 1 - look.winner, false)
+			cam.winner = _pick(look, standing, look.winner, true)
 	return cam
+
+
+## A starting ball of `team`: the lead unless only its mate fits. `alive`
+## picks one still standing at the end; otherwise one that was standing
+## going into the final tick (so it fell on the finishing blow).
+static func _pick(look, standing: Array, team: int, alive: bool) -> int:
+	for i in [team, team + 2]:
+		var ok: bool = look.balls[i].alive() if alive else (i < standing.size() and standing[i])
+		if ok:
+			return i
+	return team
 
 
 ## Sim seconds from the start of slow motion to the blow, at `tick`; < 0 before it.

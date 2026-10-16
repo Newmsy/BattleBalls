@@ -237,12 +237,14 @@ func clear_effects() -> void:
 		_fit_slots() # balls past the first two (a Splitter's minis) get their slots back
 
 
-## Per-ball effect slots for balls that joined mid-fight (a Splitter's minis).
+## Per-ball effect slots for balls past the first two (a 2v2's mates, a
+## Splitter's minis).
 func _fit_slots() -> void:
 	if sim == null:
 		return
 	while _hit.size() < sim.balls.size():
 		var b = sim.balls[_hit.size()]
+		_dot_seen.append([])
 		_hit.append(0.0)
 		_squash.append(0.3)
 		_eye_flash.append(0.0)
@@ -258,13 +260,27 @@ func _tier_of(i: int) -> int:
 	var side := _side(i)
 	if sim:
 		var ts: Array = sim.config.get("tiers", [])
+		if i < sim.starters and i < ts.size(): # A 2v2's mates have their own tier.
+			return int(ts[i])
 		if side < ts.size():
 			return int(ts[side])
 	return int(tiers[side]) if side < tiers.size() else 1
 
 
 func _side(i: int) -> int:
-	return sim.balls[i].team if sim and i < sim.balls.size() else i
+	return sim.balls[i].team if sim and i < sim.balls.size() else i % 2
+
+
+## Effect slots for `n` preview balls (the menu's 2v2 shows four).
+func _pad_slots(n: int) -> void:
+	while _hit.size() < n:
+		_dot_seen.append([])
+		_hit.append(0.0)
+		_squash.append(0.0)
+		_eye_flash.append(0.0)
+		_pole_swap.append(0.0)
+		_trails.append([])
+		_look.append(Vector2(1, -1).normalized() if _hit.size() % 2 == 1 else Vector2(-1, 1).normalized())
 
 
 ## Turns the events of the latest sim step into visual effects.
@@ -637,7 +653,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 							_kos.append({"pos": b.pos, "r": b.radius, "item": ko, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
 	# Name a damage-over-time the moment it lands: BURN!, POISON!, BLEED!
 	for b in sim.balls:
-		if b.index > 1:
+		if b.index >= sim.starters or b.index >= _dot_seen.size():
 			continue
 		var kinds := BattleFx.dot_kinds(sim, b)
 		for k in kinds:
@@ -788,12 +804,15 @@ func _draw() -> void:
 	_draw_obstacles(shape.obstacles())
 
 	if sim == null:
-		for i in 2:
+		var n := preview_types.size()
+		var starts: Array = MatchSim.start_positions(n)
+		_pad_slots(n)
+		for i in n:
 			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
-			_draw_critter(i, def, MatchSim.START_CORNERS[i] * s, def.radius * s, def.hp, def.hp, shake)
-		for i in 2:
+			_draw_critter(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
+		for i in n:
 			var def := BallDefs.get_def(preview_types[i])
-			_draw_overlay(i, def, MatchSim.START_CORNERS[i] * s, def.radius * s, def.hp, def.hp, shake)
+			_draw_overlay(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
 		return
 
 	for z in sim.zones:
