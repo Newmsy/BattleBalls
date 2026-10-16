@@ -1830,6 +1830,11 @@ func _draw_status(b, s: float) -> void:
 		for q in 4:
 			var d := Vector2.from_angle(q * TAU / 4.0)
 			draw_line(p + d * r * (k - 0.2), p + d * r * (k + 0.15), Color(MARK, 0.85), 3.0, true)
+	if sim.tick < int(b.state.get("heard_until", -1)): # Sonar T5 can hear it: sound arcs pulse on it.
+		for q in 2:
+			var f := fmod(_time * 1.5 + q * 0.5, 1.0)
+			draw_arc(p, r * (1.1 + 0.5 * f), -PI * 0.35, PI * 0.35, 12, Color(BattleFx.SONAR, 0.8 * (1.0 - f)), 3.0, true)
+			draw_arc(p, r * (1.1 + 0.5 * f), PI * 0.65, PI * 1.35, 12, Color(BattleFx.SONAR, 0.8 * (1.0 - f)), 3.0, true)
 	if sim.tick < int(b.state.get("dizzy_until", -1)):
 		_dizzy_stars(p, r, _time)
 	if b.charge_ticks > 0 and b.vel.length() > 0.001:
