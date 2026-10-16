@@ -27,7 +27,7 @@ const CRITTER := {
 		{"text": "Ripples deal 12/s", "ripple_damage": 12.0},
 		{"text": "The ripple slows 20%", "ripple_slow": 0.2},
 		{"text": "Ripples run further", "ripple_reach": 300.0},
-		{"text": "Ripples turn corners", "ripple_corner": 1},
+		{"text": "Ripples turn corners, deal 20/s and slow 35%", "ripple_corner": 1, "ripple_damage": 20.0, "ripple_slow": 0.35},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["droptop"], "front": ["shine"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},

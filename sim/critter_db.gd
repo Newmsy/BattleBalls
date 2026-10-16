@@ -17,6 +17,10 @@ const STATUSES := ["live", "planned", "baseline"]
 const REQUIRED := ["no", "name", "type", "rarity", "role", "status", "color", "vibe", "description", "stats", "ability", "params", "tiers", "art", "sound"]
 const STATS := ["hp", "radius", "speed", "contact_damage"]
 const TIERS := 5
+const ABILITY_TIER_STEP := 0.25 ## Ability damage, burn, heal and shield per tier above T1 (T5 = x2).
+const RADIUS_TIER_STEP := 0.06 ## Ability reach per tier above T1 (T5 = +24%).
+## Damage multipliers of special hits; their bonus over x1 grows like damage.
+const HIT_MULTS := ["ambush_mult", "chomp_mult", "gear_slam_mult", "honey_crush", "lance_hit_mult", "marked_mult", "ping_hit_mult", "shatter_mult", "snap_mult", "wind_crit"]
 
 static var _critters := {}
 static var _ids: Array = []
@@ -78,6 +82,21 @@ static func sim_def(id: String, tier := 1) -> Dictionary:
 			elif key != "text":
 				def[key] = c.tiers[t][key]
 	def.effects = effects
+	# Every tier above T1 also makes the ability hit harder, on top of its own
+	# upgrades, so a T5 ability clearly outclasses a T1 one (Newms: ~95% at
+	# equal stats). Contact damage and HP stay with Power.scale_def.
+	var potency := 1.0 + ABILITY_TIER_STEP * (clampi(tier, 1, TIERS) - 1)
+	if potency != 1.0:
+		for key in def.keys():
+			var k := String(key)
+			if k == "contact_damage" or not (def[key] is float or def[key] is int):
+				continue
+			if k.ends_with("_damage") or k.ends_with("_dps") or k.ends_with("_burn") or k.ends_with("_shield") or k.ends_with("_hps"):
+				def[key] = def[key] * potency
+			elif k in HIT_MULTS and def[key] > 1.0: # Only the bonus part grows.
+				def[key] = 1.0 + (def[key] - 1.0) * potency
+			elif k.ends_with("_radius") and def[key] > 1.0: # Bigger, so a T5 also looks stronger.
+				def[key] = def[key] * (1.0 + RADIUS_TIER_STEP * (clampi(tier, 1, TIERS) - 1))
 	return def
 
 

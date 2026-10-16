@@ -31,7 +31,7 @@ const CRITTER := {
 		{"text": "Shards deal 5", "shard_damage": 5.0},
 		{"text": "The freeze leaves the foe brittle: +15% damage taken for 2s", "bite_sour": 0.15},
 		{"text": "Shards deal 6 in a wider burst", "shard_damage": 6.0, "shard_radius": 180.0},
-		{"text": "Shatter hits deal x2.2", "shatter_mult": 2.2},
+		{"text": "Every hit freezes, and shatter hits deal x2.2", "bite_max": 1, "shatter_mult": 2.2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "6fd3ff", "mouth": "fangs"}, "back": ["ears"], "front": ["ruff"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.8},
