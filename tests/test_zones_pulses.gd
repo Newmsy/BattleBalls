@@ -53,7 +53,7 @@ func test_static_zaps_near_foes_on_a_wall_bounce() -> void:
 	check_eq(far.balls[1].hp, far.balls[1].max_hp, "a foe across the arena is not")
 
 
-func test_static_t3_zap_chills_and_t5_big_zap_every_fourth_bounce() -> void:
+func test_static_t3_zap_chills_and_t5_big_zap_every_third_bounce() -> void:
 	var sim := _sim("static", "plain", 5)
 	_park(sim)
 	sim.balls[1].pos = Vector2(260, 500)
@@ -61,10 +61,10 @@ func test_static_t3_zap_chills_and_t5_big_zap_every_fourth_bounce() -> void:
 	sim.step()
 	sim.step()
 	check_near(sim.balls[1].slow, sim.balls[0].def.zap_slow, 0.001, "the zap slows")
-	sim.balls[0].state.zaps = 3
+	sim.balls[0].state.zaps = 2
 	_bounce_left(sim)
 	sim.step()
-	check(sim.events.any(func(e): return e.type == "pulse" and e.kind == "bigzap" and e.radius == 220.0), "the 4th bounce is a big zap")
+	check(sim.events.any(func(e): return e.type == "pulse" and e.kind == "bigzap" and is_equal_approx(e.radius, sim.balls[0].def.zap_big_radius)), "the 3rd bounce is a big zap")
 
 
 func test_drum_hit_booms_foes_away() -> void:
@@ -199,7 +199,7 @@ func test_honey_puddles_slow_are_capped_and_t5_merge() -> void:
 	t5.abilities.fx_honey(t5, t5.balls[0], {"point": Vector2(0, 560)})
 	var pools := _zones(t5, "honey")
 	check_eq(pools.size(), 1, "touching puddles merge")
-	check_eq(pools[0].radius, 90.0, "into a big pool")
+	check_near(pools[0].radius, 90.0 * 1.24, 0.001, "into a big pool (T5 reach +24%)")
 
 
 func test_ink_squirts_on_hurt_with_a_cooldown() -> void:

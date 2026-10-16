@@ -26,7 +26,7 @@ const CRITTER := {
 		{"text": "Beam deals 10/s", "zz_damage": 10.0},
 		{"text": "The beam slows 20%", "zz_slow": 0.2},
 		{"text": "The beam lasts 2s", "zz_life": 2.0},
-		{"text": "The beam zigzags one more bounce", "zz_segments": 2},
+		{"text": "The beam zigzags one more bounce, deals 18/s and slows 30%", "zz_segments": 2, "zz_damage": 18.0, "zz_slow": 0.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["spikyhair"], "front": ["zigmark"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 1.35},

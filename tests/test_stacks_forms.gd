@@ -114,8 +114,8 @@ func test_kaleido_clicks_through_its_modes() -> void:
 	t5.balls[0].state.mode = 2
 	t5.abilities.fx_kaleido(t5, t5.balls[0], {})
 	check_eq(t5.balls[0].state.mode, 3, "T5 prism mode")
-	check_near(t5.balls[0].contact_damage, t5.balls[0].def.contact_damage + 2.0, 0.001, "half spikes")
-	check_near(t5.balls[0].shield, 7.0, 0.001, "half shield")
+	check_near(t5.balls[0].contact_damage, t5.balls[0].def.contact_damage + t5.balls[0].def.mode_damage * 0.5, 0.001, "half spikes")
+	check_near(t5.balls[0].shield, t5.balls[0].def.mode_shield * 0.5, 0.001, "half shield")
 
 
 func test_drako_breathes_on_the_hit_after_its_throat_fills() -> void:

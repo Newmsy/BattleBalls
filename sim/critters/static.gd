@@ -28,7 +28,7 @@ const CRITTER := {
 		{"text": "Zap deals 6", "zap_damage": 6.0},
 		{"text": "The zap slows 30% for 1s", "zap_slow": 0.3},
 		{"text": "Zap radius 150 -> 190", "zap_radius": 190.0},
-		{"text": "Every 4th bounce is a big zap (radius 220, 12 damage)", "zap_big_every": 4},
+		{"text": "Every 3rd bounce is a big zap (radius 220, 16 damage)", "zap_big_every": 3, "zap_big_damage": 16.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["zighair"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 1.35},

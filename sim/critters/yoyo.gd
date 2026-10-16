@@ -28,7 +28,7 @@ const CRITTER := {
 		{"text": "String deals 20/s", "yoyo_dps": 20.0},
 		{"text": "Walk the Dog: harder fling", "yoyo_fling": 1.9},
 		{"text": "Swings every 2nd bounce", "yoyo_every": 2},
-		{"text": "Around the World: two strings", "yoyo_strings": 2, "yoyo_secs": 1.4},
+		{"text": "Around the World: two strings at 26/s", "yoyo_strings": 2, "yoyo_secs": 1.4, "yoyo_dps": 26.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mis": true, "mouth": "smirk"}, "front": ["yoyo"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 1.2},

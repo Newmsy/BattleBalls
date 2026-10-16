@@ -30,7 +30,7 @@ const CRITTER := {
 		{"text": "Swerves harder", "ping_dash_mult": 1.5},
 		{"text": "The ping deals 4", "ping_damage": 4.0},
 		{"text": "Bigger ping", "ping_radius": 220.0},
-		{"text": "A hit right after a ping deals x2", "ability": [{"on": "strike", "do": "ping_crit"}]},
+		{"text": "The ping deals 10, and a hit right after it deals x2.5", "ping_hit_mult": 2.5, "ping_damage": 10.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "fangs"}, "back": ["batwings", "ears"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},
