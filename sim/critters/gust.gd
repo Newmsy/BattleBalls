@@ -11,22 +11,25 @@ const CRITTER := {
 	"status": "live",
 	"color": "c7f9cc",
 	"vibe": "A puffed-cheek little breeze who just wants some personal space.",
-	"description": "Breeze. Its wind always pushes foes gently away from it.",
+	"description": "Breeze. Its wind pushes foes away, a big huff every few seconds blasts them across the arena, and a foe blown into a wall gets slammed.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
-	"ability": [{"on": "always", "do": "gale"}],
+	"ability": [{"on": "always", "do": "gale"}, {"on": "every", "secs": "huff_every", "do": "huff"}],
 	"params": {
 		"wind_range": 220.0, ## Wind reach from Gust's centre; it fades to nothing at the edge.
 		"wind_accel": 100.0, ## Push next to Gust (units/s^2); it bends paths, never slows.
-		"wind_huff": 400.0, ## T3: push during a huff.
-		"huff_secs": 0.3,
+		"wind_huff": 1600.0, ## Push during a huff.
+		"huff_every": 5.0,
+		"gust_slam": 7.0, ## A foe blown into a wall takes this...
+		"gust_slam_gap": 1.5, ## ...at most this often.
+		"huff_secs": 0.4,
 		"huff_damage": 0.0, ## T5: ice crystals in the huff.
 		"huff_slow": 0.0, ## T5: chill for 1.5s.
 	},
 	"tiers": [
-		{"text": "Its wind gently pushes foes away"},
+		{"text": "Wind pushes foes away; every 5s a huge huff; foes blown into a wall take 7"},
 		{"text": "Stronger wind (100 -> 120)", "wind_accel": 120.0},
-		{"text": "Every 5s a strong huff (400 for 0.3s)", "ability": [{"on": "every", "secs": 5.0, "do": "huff"}]},
-		{"text": "The wind reaches further (220 -> 260)", "wind_range": 260.0},
+		{"text": "Wall slams deal 9", "gust_slam": 9.0},
+		{"text": "The wind reaches further (220 -> 260) and huffs every 4s", "wind_range": 260.0, "huff_every": 4.0},
 		{"text": "The huff carries ice crystals: 6 damage and a 15% chill", "huff_damage": 6.0, "huff_slow": 0.15},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["windcurls"]},

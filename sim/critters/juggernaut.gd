@@ -17,13 +17,17 @@ const CRITTER := {
 	"params": {
 		"slam_damage": 9.0, ## Damage when a foe it just hit meets a wall.
 		"slam_window": 0.3, ## Seconds after a hit that a wall bounce counts.
+		"boom_radius": 150.0, ## T5 shockwave.
+		"boom_damage": 5.0,
+		"boom_slam": 0.0,
+		"boom_double_every": 0,
 	},
 	"tiers": [
 		{"text": "Foes it hits take 9 slam damage off a wall within 0.3s"},
 		{"text": "Slams for 10", "slam_damage": 10.0},
 		{"text": "0.4s slam window", "slam_window": 0.4},
 		{"text": "Slams for 12", "slam_damage": 12.0},
-		{"text": "Shockwave on every hit"},
+		{"text": "Every hit sends a shockwave (5 damage, knocks foes into walls)", "ability": [{"on": "hit", "do": "boom"}]},
 	],
 	## Chaos Weekends: fast, cramped twists favour its big hits; Double Trouble
 	## feeds Vampire's heal off them. Tuned with tools/balance.gd --modifiers.

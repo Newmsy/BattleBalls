@@ -141,7 +141,7 @@ func test_cogs_winds_up_and_unwinds() -> void:
 		sim.deal(sim.balls[1], b, 1.0, "contact")
 		sim._apply_hits(sim._hits)
 	check_near(b.speed, b.def.speed * 1.48, 0.001, "T5 winds to +48%")
-	check_near(sim._strike(b, sim.balls[1]), 2.0, 0.001, "the full wind unwinds into a crit")
+	check_near(sim._strike(b, sim.balls[1]), b.def.wind_crit, 0.001, "the full wind unwinds into a crit")
 	check_near(b.speed, b.def.speed, 0.001, "and resets")
 	sim.add_burn(sim.balls[1], b, 4.0, 3.0)
 	_steps(sim, 40)

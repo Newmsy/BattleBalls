@@ -13,17 +13,17 @@ const CRITTER := {
 	"vibe": "A swashbuckling grapple that loves to reel in a catch.",
 	"description": "Grapple. Every wall bounce it yanks the foe a little toward itself.",
 	"stats": {"hp": 135.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
-	"ability": [{"on": "wall", "do": "yank"}],
+	"ability": [{"on": "wall", "do": "yank"}, {"on": "hit", "do": "yank_bonus"}],
 	"params": {
 		"yank_impulse": 220.0, ## Velocity added toward Hook (a ball moves at 400).
 		"yank_big_every": 0, ## T5: every this-many bounces is a big reel-in.
 		"yank_big_slow": 0.3,
-		"yank_bonus": 0.0, ## T3: extra damage when a yanked foe hits it within 1s.
+		"yank_bonus": 5.0, ## Extra damage when a yanked foe hits it within 1s.
 	},
 	"tiers": [
-		{"text": "Every wall bounce yanks the foe (220)"},
+		{"text": "Every wall bounce yanks the foe in (220); a yanked foe that meets Hook within 1s takes +5"},
 		{"text": "Yanks harder (260)", "yank_impulse": 260.0},
-		{"text": "A yanked foe that hits Hook within 1s takes +4", "yank_bonus": 4.0, "ability": [{"on": "hit", "do": "yank_bonus"}]},
+		{"text": "Yanked foes take +8", "yank_bonus": 8.0},
 		{"text": "Yanks harder (300)", "yank_impulse": 300.0},
 		{"text": "Every 4th bounce is a big reel-in that slows", "yank_big_every": 4},
 	],

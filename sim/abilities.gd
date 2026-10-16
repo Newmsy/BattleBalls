@@ -25,6 +25,10 @@ const TRIGGERS := {
 ## Effect -> the params it reads from the critter's "params".
 const EFFECTS := {
 	"heal": ["heal_ratio"],
+	"overheal": ["overheal_cap"],
+	"relight": ["relight_damage", "relight_radius"],
+	"afterimage": ["trail_every", "trail_width", "trail_life", "trail_dps"],
+	"spike_burst": ["shot_damage", "shot_speed", "shot_count", "spike_burst_at"],
 	"beam": ["beam_life", "beam_damage", "beam_hit_cooldown", "beam_max"],
 	"field": ["field_period", "field_range", "field_accel", "push_scale"],
 	"snap": ["snap_mult"],
@@ -261,11 +265,38 @@ func fx_heal(_sim, b, ctx: Dictionary) -> void:
 		ctx.heals.append({"ball": b.index, "amount": ctx.amount * b.def.heal_ratio})
 
 
+## Vampire T5: healing past full HP becomes a shield, up to overheal_cap.
+func fx_overheal(sim, b, ctx: Dictionary) -> void:
+	if not ctx.has("heals") or not b.dots.is_empty():
+		return
+	var spare: float = b.hp + ctx.amount * b.def.heal_ratio - b.max_hp
+	if spare > 0.0 and b.shield < b.def.overheal_cap:
+		b.shield = minf(b.def.overheal_cap, b.shield + spare)
+		sim.events.append({"type": "shield", "target": b.index, "amount": spare, "pos": b.pos})
+
+
+## Speedster T5: above 1.3x its base speed it leaves a damaging afterimage.
+func fx_afterimage(sim, b, _ctx: Dictionary) -> void:
+	if b.speed > b.def.speed * 1.3:
+		_drop_trail(sim, b, "afterimage")
+
+
+## Spiker T5: a hit landed with spike_burst_at or more spikes fires a ring of shot_count spikes.
+func fx_spike_burst(sim, b, _ctx: Dictionary) -> void:
+	if int(b.state.get("spikes", 0)) >= int(b.def.spike_burst_at):
+		_volley(sim, b, int(b.def.shot_count), "ring")
+		sim.events.append({"type": "spike_burst", "ball": b.index, "pos": b.pos})
+
+
 ## A damaging segment from the previous wall bounce point to this one.
 func fx_beam(sim, b, ctx: Dictionary) -> void:
 	if not ctx.has("point") or not b.has_bounce or b.last_bounce.distance_to(ctx.point) < sim.MIN_BEAM_LENGTH:
 		return
 	sim.add_beam(b, b.last_bounce, ctx.point)
+	# Laser T5: also links the bounce before last to this one (a triangle).
+	if b.def.get("beam_link", 0) > 0 and b.state.has("bounce_before") and b.state.bounce_before.distance_to(ctx.point) >= sim.MIN_BEAM_LENGTH:
+		sim.add_beam(b, b.state.bounce_before, ctx.point)
+	b.state.bounce_before = b.last_bounce
 
 
 ## A pull/push field that flips every field_period seconds (Pull first). It
@@ -281,6 +312,8 @@ func fx_field(sim, b, _ctx: Dictionary) -> void:
 		if pulling:
 			b.state.snap_ready = true
 		sim.events.append({"type": "flip", "ball": b.index, "pulling": pulling, "pos": b.pos})
+		if b.def.get("flip_pulse", 0.0) > 0.0: # Magnet T5: every flip fires a pulse ring.
+			sim.pulse(b, b.pos, b.def.flip_pulse_radius, b.def.flip_pulse, true, "pulse")
 	for other in sim.balls:
 		if other == b or not other.alive():
 			continue
@@ -373,6 +406,14 @@ func fx_phase(sim, b, _ctx: Dictionary) -> void:
 	b.state.phase_from = sim.tick
 	b.state.ambush_ready = true
 	sim.events.append({"type": "phase", "ball": b.index, "pos": b.pos})
+
+
+## Flicker: the candle goes out after a hit (fx_phase) and relights with a
+## burst of flame (relight_damage within relight_radius) when the fade ends.
+func fx_relight(sim, b, _ctx: Dictionary) -> void:
+	if sim.tick == int(b.state.get("phase_until", -1)) and b.def.relight_damage > 0.0:
+		sim.pulse(b, b.pos, b.def.relight_radius, b.def.relight_damage, false, "flame")
+		sim.events.append({"type": "relight", "ball": b.index, "pos": b.pos})
 
 
 static func phased(sim, b) -> bool:
@@ -835,6 +876,10 @@ func fx_gum(sim, b, ctx: Dictionary) -> void:
 	if b.def.gum_stacks > 1 and not held.is_empty():
 		amount = minf(held.amount + b.def.gum_slow, minf(b.def.gum_cap, b.def.gum_slow * b.def.gum_stacks))
 	sim.add_status(b, t, key, "slow", amount, b.def.gum_secs)
+	# A gum string: the foe stays stuck to Gumdrop and gets dragged along.
+	if b.def.get("gum_string", 0.0) > 0.0 and sim.tick >= int(b.state.get("gum_ready", 0)):
+		b.state.gum_ready = sim.tick + int(round(b.def.gum_string_cooldown * sim.TICK_RATE))
+		sim.tether(b, t, 40.0, b.def.gum_string)
 	if b.def.gum_burn > 0.0:
 		sim.add_burn(b, t, b.def.gum_burn, 2.0)
 
@@ -853,6 +898,12 @@ func fx_sour(sim, b, ctx: Dictionary) -> void:
 		amount = minf(held.amount + b.def.sour_amount, b.def.sour_max)
 	sim.add_status(b, t, key, "vulnerable", amount, b.def.sour_secs)
 	sim.events.append({"type": "sour", "ball": t.index, "pos": t.pos})
+	# Full sour: the foe puckers up (stunned) and sour juice splashes out.
+	if b.def.get("pucker_stun", 0.0) > 0.0 and b.def.sour_max > 0.0 and amount >= b.def.sour_max - 0.001 and not held.is_empty():
+		if sim.stun(b, t, b.def.pucker_stun):
+			sim.clear_status(t, key)
+			sim.pulse(b, t.pos, 120.0, b.def.pucker_damage, false, "sour")
+			sim.events.append({"type": "pucker", "ball": t.index, "source": b.index, "pos": t.pos})
 	if b.def.sour_puddle > 0.0:
 		sim.add_zone(b, t.pos, {"kind": "sour", "radius": b.def.sour_puddle, "life": 2.0, "slow": b.def.sour_puddle_slow})
 
@@ -1265,6 +1316,13 @@ func fx_star(sim, b, _ctx: Dictionary) -> void:
 func fx_gale(sim, b, _ctx: Dictionary) -> void:
 	var huffing: bool = sim.tick < int(b.state.get("huff_until", -1))
 	sim.push_away(b, b.pos, b.def.wind_range, b.def.wind_huff if huffing else b.def.wind_accel)
+	# Foes it blows into a wall get slammed (at most every gust_slam_gap seconds).
+	if b.def.get("gust_slam", 0.0) > 0.0:
+		for o in _foes_within(sim, b, b.pos, b.def.wind_range):
+			var key := "gust_ready_%d" % b.index
+			if sim.tick >= int(o.state.get(key, 0)) and not o.state.has("slam"):
+				o.state.slam = {"source": b.index, "damage": b.def.gust_slam, "until": sim.tick + sim.TICK_RATE / 4}
+				o.state[key] = sim.tick + int(round(b.def.gust_slam_gap * sim.TICK_RATE))
 
 
 ## A strong gust for huff_secs (see fx_gale). huff_damage > 0 also pelts foes
@@ -2307,7 +2365,16 @@ func fx_blink(sim, b, ctx: Dictionary) -> void:
 	if b.state.blink_hits % int(b.def.blink_every) != 0 or not ctx.has("target"):
 		return
 	var old: Vector2 = b.pos
-	sim.teleport(b, sim.teleport_spot(b, ctx.target.pos, b.def.blink_away))
+	var t = ctx.target
+	if b.def.get("blink_behind", 0) > 0 and t.alive():
+		# Lands right behind the foe, facing it: a backstab waiting to happen.
+		var back: Vector2 = -t.vel.normalized() if t.vel.length() > 0.001 else (b.pos - t.pos).normalized()
+		var spot: Vector2 = sim.inside(t.pos + back * (t.radius + b.radius + b.def.blink_away), b.radius + 10.0)
+		sim.teleport(b, spot)
+		if t.pos.distance_to(b.pos) > 0.001:
+			b.vel = (t.pos - b.pos).normalized() * b.current_speed()
+	else:
+		sim.teleport(b, sim.teleport_spot(b, t.pos, b.def.blink_away))
 	b.state.landed = true
 	if b.def.blink_crackle > 0.0:
 		sim.pulse(b, old, b.def.blink_crackle_radius, b.def.blink_crackle, false, "zap")

@@ -60,7 +60,7 @@ func test_static_t3_zap_chills_and_t5_big_zap_every_fourth_bounce() -> void:
 	_bounce_left(sim)
 	sim.step()
 	sim.step()
-	check_near(sim.balls[1].slow, 0.2, 0.001, "the zap slows 20%")
+	check_near(sim.balls[1].slow, sim.balls[0].def.zap_slow, 0.001, "the zap slows")
 	sim.balls[0].state.zaps = 3
 	_bounce_left(sim)
 	sim.step()
@@ -140,15 +140,15 @@ func test_gust_wind_pushes_foes_away_and_keeps_speed() -> void:
 	check_eq(far.balls[1].vel.x, 0.0, "no wind out of range")
 
 
-func test_gust_t3_huff_blows_harder() -> void:
+func test_gust_huff_blows_harder() -> void:
 	var push := []
-	for tier in [1, 3]:
-		var sim := _sim("gust", "plain", tier)
+	for secs in [2, 5]:
+		var sim := _sim("gust", "plain")
 		_park(sim)
 		sim.balls[0].pos = Vector2(400, 500)
 		sim.balls[1].pos = Vector2(550, 500)
 		sim.balls[1].vel = Vector2(0, -400)
-		sim.tick = 5 * MatchSim.TICK_RATE
+		sim.tick = secs * MatchSim.TICK_RATE
 		sim.step() # The huff fires at 5s ...
 		sim.balls[1].vel = Vector2(0, -400)
 		sim.step() # ... and blows on the next tick.
