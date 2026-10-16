@@ -762,7 +762,7 @@ static func draw_moonlight(ci: CanvasItem, p: Vector2, r: float, t: float) -> vo
 ## A shard of ice flying along a line: a pointed crystal with a frosty tail.
 static func draw_shard(ci: CanvasItem, a: Vector2, b: Vector2, k: float, size: float) -> void:
 	var d := (b - a)
-	if d.length() < 1.0:
+	if d.length() < 1.0 or size < 0.5:
 		return
 	var dir := d.normalized()
 	var at := a.lerp(b, clampf(k, 0.0, 1.0))
@@ -784,6 +784,8 @@ static func draw_crystal_pillar(ci: CanvasItem, p: Vector2, rad: float, k: float
 		var ln := rad * (0.7 + 0.35 * sin(seed * 3.0 + l)) * k
 		var o := d.orthogonal()
 		var base := p + d * rad * 0.1
+		if ln < 1.0: # Still growing: a flat crystal fails triangulation.
+			continue
 		var pts := PackedVector2Array([base + o * rad * 0.18, base + d * ln, base - o * rad * 0.18])
 		ci.draw_colored_polygon(pts, Color("bfe9ff") if l % 2 else Color("d9d0ff"))
 		ci.draw_line(base, base + d * ln, Color(1, 1, 1, 0.6), 1.5, true)
