@@ -156,13 +156,71 @@ const ZONES := [
 			{"enemy": "foxfire", "enemies": ["ghost", "puppeteer", "foxfire"], "power": 7.0, "boss": true, "name": "Wisp Swarm"},
 		],
 	},
+	## Zone 6, Starfall Rim: trios on a rim that closes in from 15 seconds,
+	## with Orbit Station and Event Horizon stages. Cosmic foes (Comet
+	## dashes, Gravity pulls, Prism beams, Eclipse flips, Black Hole) with
+	## Tech and Sea heavyweights, ending in the Void Titan.
+	{
+		"id": "starfall_rim",
+		"name": "Starfall Rim",
+		"lineup": 3,
+		"arena": "starfall",
+		"color": "ffd23d",
+		"twist": "Shrinking rim, moons and a black hole",
+		"boss": "Void Titan",
+		"icon": "blackhole",
+		"featured": ["speedster", "sooty", "comet", "zigzag", "wrecker", "mirror"],
+		"rare_bonus": ["gravity", "megabot"],
+		"boss_reward": "prism",
+		"stages": [
+			{"enemy": "comet", "enemies": ["comet", "gravity", "zigzag"], "power": 7.2},
+			{"enemy": "comet", "enemies": ["comet", "wrecker", "gravity"], "power": 7.35, "arena": "orbit"},
+			{"enemy": "gravity", "enemies": ["gravity", "comet", "mirror"], "power": 7.5},
+			{"enemy": "prism", "enemies": ["prism", "comet", "megabot"], "power": 7.65, "arena": "horizon"},
+			{"enemy": "quasar", "enemies": ["quasar", "gravity", "clockwork"], "power": 7.8},
+			{"enemy": "stormwing", "enemies": ["stormwing", "prism", "comet"], "power": 7.95, "arena": "orbit"},
+			{"enemy": "eclipse", "enemies": ["eclipse", "quasar", "gravity"], "power": 8.1},
+			{"enemy": "blackhole", "enemies": ["blackhole", "stormwing", "prism"], "power": 8.25, "arena": "horizon"},
+			{"enemy": "eclipse", "enemies": ["eclipse", "kraken", "quasar"], "power": 8.4},
+			{"enemy": "stormwing", "enemies": ["stormwing", "leviathan", "eclipse"], "power": 8.6, "arena": "orbit"},
+			{"enemy": "blackhole", "enemies": ["quasar", "eclipse", "blackhole"], "power": 8.8, "boss": true, "name": "Void Titan"},
+		],
+	},
+	## Zone 7, Magma Core: trios between lava pools, with Inferno Ring stages.
+	## Fire foes (Sooty smoke, Magmo lava, Bomber blasts, Drako breath,
+	## Supernova bursts) and the finale in the Glitch Grid: Ember Reborn,
+	## a giant Phoenix that rises again.
+	{
+		"id": "magma_core",
+		"name": "Magma Core",
+		"lineup": 3,
+		"arena": "magma",
+		"color": "ff6a3d",
+		"twist": "Lava pools and burning walls",
+		"boss": "Ember Reborn",
+		"icon": "phoenix",
+		"featured": ["speedster", "sooty", "magmo", "bomber", "comet", "zigzag"],
+		"rare_bonus": ["drako", "gravity"],
+		"boss_reward": "phoenix",
+		"stages": [
+			{"enemy": "sooty", "enemies": ["sooty", "speedster", "magmo"], "power": 9.0},
+			{"enemy": "magmo", "enemies": ["magmo", "bomber", "sooty"], "power": 9.2, "arena": "inferno"},
+			{"enemy": "bomber", "enemies": ["bomber", "drako", "speedster"], "power": 9.4},
+			{"enemy": "drako", "enemies": ["drako", "magmo", "comet"], "power": 9.6, "arena": "inferno"},
+			{"enemy": "supernova", "enemies": ["supernova", "bomber", "sooty"], "power": 9.8},
+			{"enemy": "drako", "enemies": ["drako", "supernova", "gravity"], "power": 10.0, "arena": "inferno"},
+			{"enemy": "phoenix", "enemies": ["phoenix", "magmo", "drako"], "power": 10.2},
+			{"enemy": "supernova", "enemies": ["supernova", "phoenix", "bomber"], "power": 10.4, "arena": "inferno"},
+			{"enemy": "blackhole", "enemies": ["blackhole", "supernova", "drako"], "power": 10.6},
+			{"enemy": "phoenix", "enemies": ["phoenix", "quasar", "supernova"], "power": 10.8, "arena": "inferno"},
+			{"enemy": "phoenix", "enemies": ["drako", "supernova", "phoenix"], "power": 11.0, "arena": "glitch", "boss": true, "name": "Ember Reborn"},
+		],
+	},
 ]
 
 ## Zones on the world map that aren't built yet (pve.md section 3, glitch.md
 ## bosses). When one is built it moves into ZONES with its stages.
 const COMING := [
-	{"id": "starfall_rim", "name": "Starfall Rim", "lineup": 3, "color": "ffd23d", "twist": "Shrinking arena", "boss": "Void Titan"},
-	{"id": "magma_core", "name": "Magma Core", "lineup": 3, "color": "ff6a3d", "twist": "Lava zones", "boss": "Ember Reborn"},
 ]
 
 

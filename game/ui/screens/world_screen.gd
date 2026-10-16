@@ -20,8 +20,8 @@ static func build(shell, params: Dictionary) -> Control:
 	var info: Control = shell.info_button("The Neon Circuit", [
 		"The Circuit is a ring of glowing arenas. The Glitch has scrambled each zone's champion into a giant boss.",
 		"Beat a zone's boss to purify it and open the road to the next zone. Glow Garden is 1v1, Circuit Lab is pairs, and every zone after is 3 vs 3.",
-		"Each zone has its own arena twist: bumpers, ice, thorns, portals, a shrinking arena, lava.",
-		"New zones are on the way. Locked zones show what's coming.",
+		"Each zone has its own arenas: bumpers, ice, thorns, portals, a shrinking rim, lava.",
+		"Purify Magma Core, the last zone, to free the whole Circuit from The Glitch.",
 	], "world_info")
 	root.add_child(Kit.hbox(16, [back, head, info]))
 
