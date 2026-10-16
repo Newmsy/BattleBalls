@@ -13,6 +13,11 @@
 ## the top. Everyone climbs the same tower, so the board stays fair. Your
 ## edge is picking boons that suit your trio, who you send, and your aim.
 ##
+## Your trio grows as it climbs: it fights at tier_at(floor), one tier up
+## every 2 floors (T5 on the last two). Every boon rolls a rarity
+## (sim/boons.gd): Rare and Epic boons have bigger numbers, and a Legendary
+## is a boon with an effect of its own.
+##
 ## A run is plain data (see new_run) so it can be saved, resumed, posted to
 ## the leaderboard and re-checked later by replaying its log.
 extends RefCounted
@@ -24,7 +29,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 2
+const RULES_VERSION := 3
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 10
@@ -39,6 +44,12 @@ const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Vete
 ## are a warm-up; most runs end around floor 7, and a full clear is rare
 ## (tools/boon_balance.gd --runs checks the curve).
 const FOE_POWER := [0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.35, 1.45]
+const FLOORS_PER_TIER := 2
+
+
+## The tier your trio fights at on floor index `floor_i` (0 = the first floor).
+static func tier_at(floor_i: int) -> int:
+	return mini(1 + floor_i / FLOORS_PER_TIER, 5)
 
 
 ## 1 on 2026-10-14 (UTC), counting up one per day.
@@ -90,7 +101,8 @@ static func fighter_boons(_setup: Dictionary, run: Dictionary, _slot: int) -> Ar
 static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> Dictionary:
 	var foe: Dictionary = setup.floors[run.floor]
 	return {"seed": foe.seed, "p1": card(setup, run, slot).critter, "p2": foe.critter,
-		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons], "powers": [1.0, FOE_POWER[run.floor]]}
+		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons], "powers": [1.0, FOE_POWER[run.floor]],
+		"tiers": [tier_at(run.floor), 1]}
 
 
 ## Records a fight. A win climbs a floor and, unless the run is won, deals a
@@ -119,19 +131,25 @@ static func take_boon(run: Dictionary, id: String) -> void:
 
 
 ## OFFER boons for the floor just cleared, seeded by day and floor. Skips
-## boons the trio already runs and ability boons none of the trio can use.
+## boons the trio already runs (at any rarity) and ability boons none of the
+## trio can use. Each card rolls a rarity; a Legendary roll swaps the card for
+## a Legendary boon the trio doesn't have yet.
 static func offer(setup: Dictionary, run: Dictionary) -> Array:
 	var abilities: Array = []
 	for slot in PICKS:
 		abilities.append(BallDefs.get_def(card(setup, run, slot).critter).ability)
+	var held: Array = run.boons.map(func(id): return Boons.base_of(id))
 	var pool: Array = []
 	for id in Boons.ALL:
-		if id in run.boons:
+		if id in held:
 			continue
 		if abilities.any(func(a): return Boons.applies_to(id, a)):
 			pool.append(id)
 	var rng := Rng.new(setup.day * 7919 + run.floor * 104729 + 31)
-	return _shuffled(pool, rng).slice(0, OFFER)
+	var out: Array = []
+	for id in _shuffled(pool, rng).slice(0, OFFER):
+		out.append(_with_roll(rng, id, held + out.map(func(o): return Boons.base_of(o))))
+	return out
 
 
 static func living(run: Dictionary) -> Array:
@@ -173,10 +191,23 @@ static func replay(setup: Dictionary, run: Dictionary) -> Dictionary:
 
 static func _pick_boon(rng, critter: String, avoid: Array) -> String:
 	var ability: String = BallDefs.get_def(critter).ability
-	var pool := Boons.ALL.filter(func(id): return Boons.applies_to(id, ability) and not id in avoid)
+	var held: Array = avoid.map(func(id): return Boons.base_of(id))
+	var pool := Boons.ALL.filter(func(id): return Boons.applies_to(id, ability) and not id in held)
 	if pool.is_empty():
 		pool = Boons.ALL.filter(func(id): return Boons.applies_to(id, ability))
-	return pool[rng.range_int(0, pool.size() - 1)]
+	return _with_roll(rng, pool[rng.range_int(0, pool.size() - 1)], held)
+
+
+## `base` at a seeded rarity. A Legendary roll gives a Legendary boon not in
+## `held` (base ids), or an Epic when all of them are taken.
+static func _with_roll(rng, base: String, held: Array) -> String:
+	var rarity := Boons.roll_rarity(rng)
+	if rarity == "legendary":
+		var free: Array = Boons.LEGENDARY.filter(func(id): return not id in held)
+		if not free.is_empty():
+			return free[rng.range_int(0, free.size() - 1)]
+		rarity = "epic"
+	return Boons.with_rarity(base, rarity)
 
 
 static func _shuffled(items: Array, rng) -> Array:

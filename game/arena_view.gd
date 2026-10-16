@@ -384,6 +384,10 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_spawn_particles(e.pos, 14)
 			"reflect":
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
+			"overcharge": # A Legendary Bounce Run boon: every 3rd bump hits double.
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-60, -g.radius - 40), "OVERCHARGE!", POP_SNAP)
+				_shake = maxf(_shake, 5.0 * A11y.motion())
 			"phase":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "BOO!", POP_SNAP)

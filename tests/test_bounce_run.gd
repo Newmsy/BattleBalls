@@ -59,12 +59,12 @@ func test_offers_are_new_usable_boons() -> void:
 		# Full offers while enough usable boons are left.
 		var left := 0
 		for id in Boons.ALL:
-			if not id in run.boons and range(BounceRun.PICKS).any(func(s): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, s).critter).ability)):
+			if not id in run.boons.map(func(o): return Boons.base_of(o)) and range(BounceRun.PICKS).any(func(s): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, s).critter).ability)):
 				left += 1
 		check_eq(offer.size(), mini(BounceRun.OFFER, left), "floor %d offer size" % (f + 1))
 		check(offer.size() >= 2, "floor %d offers a real choice" % (f + 1))
 		for id in offer:
-			check(not id in run.boons, "offer repeats an owned boon")
+			check(not Boons.base_of(id) in run.boons.map(func(o): return Boons.base_of(o)), "offer repeats an owned boon")
 		run.boons.append(offer[0])
 	check_eq(BounceRun.offer(setup, run), BounceRun.offer(setup, run), "offers are seeded")
 
@@ -184,6 +184,81 @@ func test_opening_bite_lands_on_the_first_hit_only() -> void:
 	# Head-on, both balls ram equally hard: base contact damage is 10.
 	check_near(hits[0], 10.0 + Boons.get_def("opening_bite").first_strike, 0.01, "first hit")
 	check(hits[1] <= 15.0, "later hits are normal")
+
+
+func test_trio_goes_up_a_tier_every_two_floors() -> void:
+	check_eq(range(BounceRun.FLOORS).map(func(f): return BounceRun.tier_at(f)), [1, 1, 2, 2, 3, 3, 4, 4, 5, 5], "tiers by floor")
+	var setup := BounceRun.generate(2)
+	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
+	run.floor = 6
+	check_eq(BounceRun.fight_config(setup, run, 0, 0).tiers, [4, 1], "floor 7 fights at T4")
+
+
+func test_rarer_boons_have_bigger_numbers() -> void:
+	var common := Boons.get_def("thick_shell")
+	var rare := Boons.get_def("thick_shell:rare")
+	var epic := Boons.get_def("thick_shell:epic")
+	check_eq([common.rarity, rare.rarity, epic.rarity], ["common", "rare", "epic"], "rarities")
+	check(common.hp < rare.hp and rare.hp < epic.hp, "Epic > Rare > Common")
+	check(rare.text != common.text and "%" in rare.text, "rarer text shows its numbers: %s" % rare.text)
+	check_eq(Boons.get_def("phoenix_feather").rarity, "legendary", "legendaries are their own boons")
+	for id in Boons.ALL:
+		for r in ["rare", "epic"]:
+			check(Boons.get_def(Boons.with_rarity(id, r)).text.length() > 5, "%s %s has text" % [id, r])
+
+
+func test_offers_roll_seeded_rarities() -> void:
+	var seen := {}
+	for day in range(1, 40):
+		var setup := BounceRun.generate(day)
+		var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
+		for f in range(1, BounceRun.FLOORS):
+			run.floor = f
+			var offer := BounceRun.offer(setup, run)
+			check_eq(offer, BounceRun.offer(setup, run), "seeded")
+			for id in offer:
+				seen[Boons.rarity_of(id)] = true
+			run.boons.append(offer[0])
+	check_eq(seen.keys().size(), 4, "every rarity turns up: %s" % [seen.keys()])
+
+
+func _first_hits(cfg: Dictionary, n: int) -> Array:
+	var sim := MatchSim.new(cfg)
+	var out: Array = []
+	while out.size() < n and not sim.finished:
+		sim.step()
+		for e in sim.events:
+			if e.type == "damage":
+				out.append(e)
+	return out
+
+
+func test_overcharge_doubles_every_third_bump() -> void:
+	var cfg := {"seed": 1, "p1": "plain", "p2": "plain", "boons": [["overcharge"], []],
+		"starts": [Vector2(400, 500), Vector2(600, 500)], "angles": [0, 1800], "damage_rolls": false}
+	var mine: Array = _first_hits(cfg, 12).filter(func(e): return e.source == 0).map(func(e): return e.amount)
+	check(mine.size() >= 3, "three hits")
+	check_near(mine[2], mine[1] * 2.0, 0.5, "third hit doubles: %s" % [mine])
+
+
+func test_thorn_crown_hits_back() -> void:
+	var cfg := {"seed": 1, "p1": "plain", "p2": "plain", "boons": [[], ["thorn_crown"]],
+		"starts": [Vector2(400, 500), Vector2(600, 500)], "angles": [0, 1800], "damage_rolls": false}
+	var hits := _first_hits(cfg, 3)
+	check(hits.any(func(e): return e.kind == "thorns" and e.source == 1), "thorns land: %s" % [hits])
+
+
+func test_vampire_kiss_heals_and_phoenix_rises() -> void:
+	var sim := MatchSim.new({"seed": 3, "p1": "plain", "p2": "plain", "boons": [["vampire_kiss", "phoenix_feather"], []], "powers": [0.6, 1.4]})
+	var healed := false
+	var rose := false
+	while not sim.finished:
+		sim.step()
+		for e in sim.events:
+			healed = healed or (e.type == "heal" and e.target == 0)
+			rose = rose or (e.type == "revive" and e.ball == 0)
+	check(healed, "Vampire Kiss heals on bumps")
+	check(rose, "Phoenix Feather brings the ball back once")
 
 
 # --- The scene ---------------------------------------------------------------
