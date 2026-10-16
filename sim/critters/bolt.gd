@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "3a3aff",
 	"vibe": "An overeager little robot that zaps itself somewhere new after every punch.",
 	"description": "Robot. After every second hit it teleports right behind the foe, lined up for a backstab.",
-	"stats": {"hp": 122.0, "radius": 64.0, "speed": 400.0, "contact_damage": 20.0},
+	"stats": {"hp": 113.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.5},
 	"ability": [{"on": "hit", "do": "blink"}, {"on": "strike", "do": "blink_bonus"}],
 	"params": {
 		"blink_every": 2, ## Teleports after every this-many contact hits.

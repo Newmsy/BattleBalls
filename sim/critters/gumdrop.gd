@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "9b5de5",
 	"vibe": "A clingy candy who just wants to stick around.",
 	"description": "Gumdrop. Every hit gums up the foe, slowing it, and every few seconds a gum string sticks the foe to Gumdrop and drags it along.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 21.0},
+	"stats": {"hp": 110.0, "radius": 64.0, "speed": 400.0, "contact_damage": 20.0},
 	"ability": [{"on": "hit", "do": "gum"}],
 	"params": {
 		"gum_slow": 0.25, ## Share of movement the foe loses.

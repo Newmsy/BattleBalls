@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "9ad8ff",
 	"vibe": "Dazzling and a bit vain about it.",
 	"description": "Prism. Every wall bounce casts a rainbow beam at the foe, and ability damage it takes splits back as a beam.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
+	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "wall", "do": "beam_at"}, {"on": "hurt", "do": "reflect"}],
 	"params": {
 		"prism_damage": 1.0, ## Per hit, 4 hits a second.

@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "0b8a5f",
 	"vibe": "A graceful vine spirit who decides where everyone stands.",
 	"description": "Vine spirit. Every 6 seconds it raises a vine pillar beside the foe and lashes the foe to it for a second, then the vine snaps in a burst.",
-	"stats": {"hp": 112.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.5},
+	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.0},
 	"ability": [{"on": "every", "secs": "vine_every", "do": "vine"}, {"on": "always", "do": "vine_tick"}],
 	"params": {
 		"vine_every": 6.0,

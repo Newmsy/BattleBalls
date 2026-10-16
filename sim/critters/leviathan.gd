@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "0f7173",
 	"vibe": "A grand old sea serpent who rules the deep and knows it.",
 	"description": "Sea serpent. Its glowing tail segments sting foes that touch them, and every 9 seconds it dives and bursts up under the foe in a huge wave.",
-	"stats": {"hp": 105.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.0},
+	"stats": {"hp": 105.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "always", "do": "tail"}, {"on": "always", "do": "dive_tick"}, {"on": "every", "secs": "dive_every", "do": "dive"}, {"on": "guard", "do": "dive_guard"}],
 	"params": {
 		"tail_count": 3,
@@ -25,7 +25,7 @@ const CRITTER := {
 		"dive_lock": 0.5, ## The splash point stops following the foe this long before it erupts.
 		"dive_guard": 0.4, ## Damage taken while diving.
 		"wave_radius": 220.0,
-		"wave_damage": 12.0,
+		"wave_damage": 8.0,
 		"pool_radius": 150.0, ## T5 whirlpool.
 		"pool_life": 3.0,
 		"pool_dps": 0.0,
@@ -33,7 +33,7 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Tail stings; every 9s a huge wave"},
-		{"text": "The wave deals 15", "wave_damage": 15.0},
+		{"text": "The wave deals 10", "wave_damage": 10.0},
 		{"text": "4 segments that also slow", "tail_count": 4, "tail_slow": 0.2},
 		{"text": "A wave every 8s", "dive_every": 8.0},
 		{"text": "The eruption leaves a whirlpool", "pool_dps": 4.0},

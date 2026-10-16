@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "0d0b17",
 	"vibe": "Ancient, silent and a little terrifying.",
 	"description": "Black Hole. Every 8s it collapses, dragging everything in, then explodes in a ring of light that scorches (a burning foe can't heal).",
-	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
+	"stats": {"hp": 117.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.0},
 	"ability": [{"on": "always", "do": "collapse"}, {"on": "guard", "do": "collapse_guard"}],
 	"params": {
 		"collapse_every": 8.0,
