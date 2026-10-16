@@ -39,3 +39,28 @@ func test_picker_dims_locked_speeds() -> void:
 	check(p.get_child(2).disabled, "4x locked at level 5")
 	p.free()
 	_state(1, 0)
+
+
+## The pick follows the player between devices through the save: select()
+## reports it, restore() takes another device's without reporting it back.
+func test_pick_travels_with_the_save() -> void:
+	var before := FileAccess.get_file_as_string(FightSpeed.SETTINGS_PATH) if FileAccess.file_exists(FightSpeed.SETTINGS_PATH) else ""
+	var reported: Array = []
+	FightSpeed.on_pick = func(i: int): reported.append(i)
+	_state(10, 0)
+	FightSpeed.select(2)
+	check_eq(reported, [2], "picking a speed reports it for the save")
+	FightSpeed.restore(1)
+	check_eq(FightSpeed.pick(), 1, "another device's pick is taken")
+	check_eq(reported, [2], "and not reported back")
+	FightSpeed.restore(7)
+	check_eq(FightSpeed.pick(), 1, "an unknown pick is ignored")
+	_state(1, 2)
+	check_eq(FightSpeed.pick(), 2, "the pick is kept while its speed is locked")
+	FightSpeed.on_pick = Callable()
+	_state(1, 0)
+	if before == "":
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(FightSpeed.SETTINGS_PATH))
+	else:
+		var f := FileAccess.open(FightSpeed.SETTINGS_PATH, FileAccess.WRITE)
+		f.store_string(before)

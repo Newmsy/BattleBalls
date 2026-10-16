@@ -268,6 +268,12 @@ func _finish() -> void:
 	queue_free()
 
 
+## The cloud save already finished the onboarding on another device.
+func leave() -> void:
+	main.tutorial_end(profile)
+	queue_free()
+
+
 func _on_skip() -> void:
 	_log("skipped", true)
 	main.tutorial_end(profile)

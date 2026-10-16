@@ -204,6 +204,10 @@ func _ready() -> void:
 	backend.test_user = TestUser.slot()
 	save.load_local()
 	save.capture_files()
+	_sync_settings(true)
+	FightSpeed.on_pick = func(i: int):
+		save.data["settings"] = {"fight_speed": i}
+		save.commit()
 	_apply_picks()
 	url_params = _read_url_params()
 	# ?stats opens the owner's stats screen (game/stats/), which isn't play.
@@ -796,6 +800,18 @@ func _apply_picks() -> void:
 		player_type = picks.player
 
 
+## Settings that follow the player across devices (just fight speed; sound
+## and accessibility stay per device). A save from before they were synced
+## takes this device's choice.
+func _sync_settings(boot: bool) -> void:
+	var s = save.data.get("settings")
+	if s is Dictionary and s.has("fight_speed"):
+		FightSpeed.restore(int(s.fight_speed))
+	elif boot and FightSpeed.pick() != 0:
+		save.data["settings"] = {"fight_speed": FightSpeed.pick()}
+		save.commit()
+
+
 ## Today's Try-a-Critter loaner, for a player who doesn't own it.
 func _is_loan(id: String) -> bool:
 	return shell != null and Loaner.is_loan(shell.profile, id)
@@ -869,12 +885,19 @@ func _watch_save() -> void:
 
 ## The save was replaced (a newer cloud copy, another account): show it.
 func _on_save_changed() -> void:
+	_sync_settings(false)
 	# Onboarding owns the arena until it ends; tutorial_end applies the picks.
 	# Still take the new profile, so tutorial_end sees its progress and keeps
 	# it instead of the onboarding's fresh one.
 	if mode == Mode.TUTORIAL:
 		if not profile_unsaved:
 			_load_profile()
+		# A new device whose cloud copy already finished the onboarding
+		# (another device, the shared test account) goes straight to the game.
+		if Onboarding.is_done() and not url_params.has("tutorial"):
+			for c in get_children():
+				if c.get_script() == Onboarding:
+					c.leave()
 		return
 	if not url_picks:
 		_apply_picks()
