@@ -780,6 +780,8 @@ static func draw_crystal_pillar(ci: CanvasItem, p: Vector2, rad: float, k: float
 		var a := seed + l * TAU / 6.0
 		var d := Vector2.from_angle(a)
 		var ln := rad * (0.7 + 0.35 * sin(seed * 3.0 + l)) * k
+		if ln < 1.0:
+			continue # still growing in: a flat triangle can't be drawn
 		var o := d.orthogonal()
 		var base := p + d * rad * 0.1
 		var pts := PackedVector2Array([base + o * rad * 0.18, base + d * ln, base - o * rad * 0.18])
