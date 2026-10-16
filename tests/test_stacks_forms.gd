@@ -7,7 +7,7 @@ const Abilities := preload("res://sim/abilities.gd")
 
 
 func _sim(p1: String, p2 := "plain", tiers := [1, 1]) -> MatchSim:
-	return MatchSim.new({"seed": 5, "p1": p1, "p2": p2, "tiers": tiers, "damage_rolls": false})
+	return MatchSim.new({"rarity_potency": false, "seed": 5, "p1": p1, "p2": p2, "tiers": tiers, "damage_rolls": false})
 
 
 func _steps(sim: MatchSim, n: int) -> void:
@@ -28,8 +28,8 @@ func _hurt(sim: MatchSim, b, amount: float, kind := "contact") -> void:
 
 func test_stack_fights_replay_and_leave_old_hashes_alone() -> void:
 	for id in ["munch", "totem", "sundae", "kaleido", "drako", "eclipse", "supernova", "yeti", "bubbles", "blizz"]:
-		var a := MatchSim.new({"seed": 9, "p1": id, "p2": "vampire", "tiers": [5, 1]}).run_to_end()
-		var b := MatchSim.new({"seed": 9, "p1": id, "p2": "vampire", "tiers": [5, 1]}).run_to_end()
+		var a := MatchSim.new({"rarity_potency": false, "seed": 9, "p1": id, "p2": "vampire", "tiers": [5, 1]}).run_to_end()
+		var b := MatchSim.new({"rarity_potency": false, "seed": 9, "p1": id, "p2": "vampire", "tiers": [5, 1]}).run_to_end()
 		check_eq(a.hash, b.hash, "%s replays exactly" % id)
 
 

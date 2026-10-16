@@ -68,6 +68,7 @@ then fix every miss in one tuning PR.
 | Full audit: every pairing on every arena and Chaos Weekend modifier, power step and gear lines, 20 machines, one merged report | Actions > `Balance audit` > Run workflow (`.github/workflows/balance-audit.yml`) |
 | One critter against the field | `balance.gd -- --fights=200 --power-step --arena=all --modifiers --only=<id>` |
 | Gear lines: one 5-star piece of each stat line vs the same ball bare | `balance.gd -- --fights=300 --gear` |
+| Rarity = half a tier: T1 Legendary vs T3 Common, T2 Rare and neighbours, real tiers (target ~50%) | `rarity_check.gd -- --pairs=150` |
 | Bounce Run boons | `GODOT=<godot> tools/ci/boons.sh --fights=40` |
 
 `balance.gd` options for big rosters: `--only=<ids|@sample>` limits the run to

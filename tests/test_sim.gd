@@ -8,7 +8,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 ## Damage rolls are off so mechanics tests can check exact numbers;
 ## test_damage.gd covers the rolls.
 func _sim(p1 := "plain", p2 := "plain", seed_value := 1) -> MatchSim:
-	return MatchSim.new({"seed": seed_value, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false})
+	return MatchSim.new({"rarity_potency": false, "seed": seed_value, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false})
 
 
 ## Parks both balls far apart and motionless so a test can stage one event.
@@ -223,8 +223,8 @@ func test_double_knockout_goes_to_higher_hp_before_the_hit() -> void:
 
 
 func test_explicit_aim_is_used_and_keeps_rng_stream() -> void:
-	var aimed := MatchSim.new({"seed": 9, "p1": "plain", "p2": "plain", "angles": [-300, null]})
-	var free := MatchSim.new({"seed": 9, "p1": "plain", "p2": "plain", "angles": [null, null]})
+	var aimed := MatchSim.new({"rarity_potency": false, "seed": 9, "p1": "plain", "p2": "plain", "angles": [-300, null]})
+	var free := MatchSim.new({"rarity_potency": false, "seed": 9, "p1": "plain", "p2": "plain", "angles": [null, null]})
 	check_eq(aimed.launch_angles[0], -300, "player aim used")
 	check_eq(aimed.launch_angles[1], free.launch_angles[1], "opponent aim unaffected by player aim")
 
@@ -239,7 +239,7 @@ func test_every_critter_always_finishes() -> void:
 			var a: String = ids[i]
 			var b: String = ids[(i + step) % ids.size()]
 			for seed_value in 4:
-				var s := MatchSim.new({"seed": seed_value, "p1": a, "p2": b, "angles": [null, null]}).run_to_end()
+				var s := MatchSim.new({"rarity_potency": false, "seed": seed_value, "p1": a, "p2": b, "angles": [null, null]}).run_to_end()
 				check(s.time <= MatchSim.TIME_LIMIT + 0.001, "%s vs %s seed %d ran past the limit" % [a, b, seed_value])
 				check(s.reason != "", "%s vs %s seed %d has no result" % [a, b, seed_value])
 
@@ -263,7 +263,7 @@ func test_mirror_matches_rarely_draw() -> void:
 	for id in BallDefs.PLAYABLE:
 		var draws := 0
 		for seed_value in 40:
-			if MatchSim.new({"seed": seed_value, "p1": id, "p2": id, "angles": [null, null]}).run_to_end().winner == -1:
+			if MatchSim.new({"rarity_potency": false, "seed": seed_value, "p1": id, "p2": id, "angles": [null, null]}).run_to_end().winner == -1:
 				draws += 1
 		check(draws <= 2, "%s mirror drew %d of 40 fights" % [id, draws])
 

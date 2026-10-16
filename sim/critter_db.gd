@@ -56,7 +56,10 @@ static func get_critter(id: String) -> Dictionary:
 
 ## The flat definition the fight sim reads: stats, then ability params with the
 ## tier upgrades up to `tier` applied, plus the bits the renderer needs.
-static func sim_def(id: String, tier := 1) -> Dictionary:
+## `bonus_tiers` adds ability potency and reach as if the critter were that
+## many tiers higher, without its tier upgrades: rarity's half tier per step
+## (Power.rarity_tiers), which MatchSim adds to every fight.
+static func sim_def(id: String, tier := 1, bonus_tiers := 0.0) -> Dictionary:
 	var c := get_critter(id)
 	var def := {
 		"id": id,
@@ -85,7 +88,8 @@ static func sim_def(id: String, tier := 1) -> Dictionary:
 	# Every tier above T1 also makes the ability hit harder, on top of its own
 	# upgrades, so a T5 ability clearly outclasses a T1 one (Newms: ~95% at
 	# equal stats). Contact damage and HP stay with Power.scale_def.
-	var potency := 1.0 + ABILITY_TIER_STEP * (clampi(tier, 1, TIERS) - 1)
+	var steps := float(clampi(tier, 1, TIERS) - 1) + bonus_tiers
+	var potency := 1.0 + ABILITY_TIER_STEP * steps
 	if potency != 1.0:
 		for key in def.keys():
 			var k := String(key)
@@ -96,7 +100,7 @@ static func sim_def(id: String, tier := 1) -> Dictionary:
 			elif k in HIT_MULTS and def[key] > 1.0: # Only the bonus part grows.
 				def[key] = 1.0 + (def[key] - 1.0) * potency
 			elif k.ends_with("_radius") and def[key] > 1.0: # Bigger, so a T5 also looks stronger.
-				def[key] = def[key] * (1.0 + RADIUS_TIER_STEP * (clampi(tier, 1, TIERS) - 1))
+				def[key] = def[key] * (1.0 + RADIUS_TIER_STEP * steps)
 	return def
 
 

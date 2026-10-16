@@ -16,7 +16,9 @@
 ## speed), so Daily Trick Shot balls fly straight.
 ## `tiers` (optional, default 1) apply each critter's T1-T5 ability upgrades.
 ## `powers` (optional) are progression multipliers (sim/power.gd); 1.0 is a T1
-## level 1 Common. `sizes` (optional) scale the radius (campaign bosses).
+## level 1 Common. Each rarity step above Common also builds the ability half
+## a tier stronger (Power.rarity_tiers); `rarity_potency: false` switches that
+## off for kit-vs-kit audits. `sizes` (optional) scale the radius (campaign bosses).
 ## `p3`, `p4` (optional) make it a 2v2: all four balls fight at once, p3 on
 ## p1's team and p4 on p2's. Then the per-ball arrays above may hold four
 ## entries (index 2 = p3, 3 = p4; missing ones default) and the balls start
@@ -336,9 +338,12 @@ func _init(cfg: Dictionary) -> void:
 	var sizes: Array = _per_ball(cfg.get("sizes", []), 1.0)
 	var gear: Array = _per_ball(cfg.get("gear", []), null)
 	var talents: Array = _per_ball(cfg.get("talents", []), null)
+	# Off only for kit-vs-kit audits (tools/balance.gd): real fights give rarity its ability half tiers.
+	var rarity_potency: bool = cfg.get("rarity_potency", true)
 	for i in starters:
 		var kit := Gear.totals(gear[i])
-		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i])), float(powers[i])), kit), modifier)
+		var bonus := Power.rarity_tiers(str(BallDefs.DEFS[types[i]].get("rarity", ""))) if rarity_potency else 0.0
+		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i]), bonus), float(powers[i])), kit), modifier)
 		def = Modifiers.apply_arena_tweaks(def, arena_id)
 		if cfg.has("boons") and i < cfg.boons.size():
 			def = Boons.apply_to_def(def, cfg.boons[i])
