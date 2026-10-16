@@ -227,9 +227,12 @@ func clear_effects() -> void:
 	_pole_swap = [0.0, 0.0]
 	_banner = 0.0
 	_was_overtime = false
+	# Back to two slots like the others; _fit_slots adds any extra balls.
+	_look.resize(2)
 	if sim:
 		for b in sim.balls:
-			_look[b.index] = b.vel.normalized()
+			if b.index < _look.size():
+				_look[b.index] = b.vel.normalized()
 
 
 ## Per-ball effect slots for balls that joined mid-fight (a Splitter's minis).
