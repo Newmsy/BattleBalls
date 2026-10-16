@@ -67,6 +67,9 @@ const IMPACT_SPREAD := 0.4
 ## A ball moving slower than its normal speed hits softer, down to this share
 ## when stopped (frozen, stunned). Faster than normal adds nothing (Newms).
 const SLOW_HIT_FLOOR := 0.4
+## Gentle pull in every mode: each ball curves toward its nearest foe so they
+## bump more often. Config "seek" overrides it (0 turns it off).
+const SEEK := 200.0
 const BEAM_HALF_WIDTH := 5.0
 const MIN_BEAM_LENGTH := 30.0
 const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre line.
@@ -582,7 +585,7 @@ func step() -> void:
 		_update_floors()
 	_update_zones()
 	_update_pieces()
-	var seek: float = config.get("seek", 0.0)
+	var seek: float = config.get("seek", SEEK)
 	if seek > 0.0: # Gentle pull: every ball curves a little toward its nearest foe.
 		for b in balls:
 			if b.alive() and not stunned(b):

@@ -8,7 +8,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 
 
 func _sim(p1: String, p2 := "plain", tier := 1) -> MatchSim:
-	return MatchSim.new({"rarity_potency": false, "seed": 1, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false, "tiers": [tier, 1]})
+	return MatchSim.new({"seek": 0.0, "rarity_potency": false, "seed": 1, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false, "tiers": [tier, 1]})
 
 
 ## Parks both balls far apart and motionless so a test can stage one event.

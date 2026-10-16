@@ -8,7 +8,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 ## Damage rolls are off so mechanics tests can check exact numbers;
 ## test_damage.gd covers the rolls.
 func _sim(p1 := "plain", p2 := "plain", seed_value := 1) -> MatchSim:
-	return MatchSim.new({"rarity_potency": false, "seed": seed_value, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false})
+	return MatchSim.new({"seek": 0.0, "rarity_potency": false, "seed": seed_value, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false})
 
 
 ## Parks both balls far apart and motionless so a test can stage one event.

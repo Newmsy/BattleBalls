@@ -7,7 +7,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 
 func _sim(p1 := "plain", p2 := "plain", tiers := [1, 1], seed := 1) -> MatchSim:
-	return MatchSim.new({"rarity_potency": false, "seed": seed, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false, "tiers": tiers})
+	return MatchSim.new({"seek": 0.0, "rarity_potency": false, "seed": seed, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false, "tiers": tiers})
 
 
 ## Parks both balls far apart and motionless so a test can stage one event.
@@ -282,9 +282,12 @@ func test_movement_critters_replay_identically() -> void:
 			check_eq(MatchSim.new(cfg).run_to_end().hash, MatchSim.new(cfg).run_to_end().hash, "%s T%d replays" % [id, tier])
 
 
-func test_gentle_pull_curves_balls_toward_each_other_only_when_asked() -> void:
-	for seek in [0.0, 400.0]:
-		var sim := MatchSim.new({"seed": 1, "p1": "plain", "p2": "plain", "angles": [null, null], "damage_rolls": false, "seek": seek})
+func test_gentle_pull_curves_balls_toward_each_other_by_default() -> void:
+	for seek in [0.0, MatchSim.SEEK]:
+		var cfg := {"seed": 1, "p1": "plain", "p2": "plain", "angles": [null, null], "damage_rolls": false}
+		if seek == 0.0:
+			cfg.seek = 0.0 # Switched off explicitly; every real mode uses the default.
+		var sim := MatchSim.new(cfg)
 		sim.balls[0].pos = Vector2(250, 500)
 		sim.balls[1].pos = Vector2(750, 300)
 		sim.balls[0].vel = Vector2(0, 1) * sim.balls[0].current_speed()

@@ -10,7 +10,7 @@ const BATCH := ["sprout", "ivy", "glacia", "old_oak", "clockwork", "foxfire", "j
 
 
 func _sim(p1: String, p2 := "plain", tiers := [1, 1]) -> MatchSim:
-	return MatchSim.new({"seed": 5, "p1": p1, "p2": p2, "angles": [0, 1800], "tiers": tiers, "damage_rolls": false})
+	return MatchSim.new({"seek": 0.0, "seed": 5, "p1": p1, "p2": p2, "angles": [0, 1800], "tiers": tiers, "damage_rolls": false})
 
 
 ## Parks both balls (zero speed keeps them put) so a test controls the geometry.

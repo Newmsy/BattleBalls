@@ -8,7 +8,7 @@ const CritterDb := preload("res://sim/critter_db.gd")
 
 
 func _sim(arena: String, p1 := "plain", p2 := "plain", seed_value := 1) -> MatchSim:
-	return MatchSim.new({"seed": seed_value, "p1": p1, "p2": p2, "angles": [null, null], "arena": arena})
+	return MatchSim.new({"seek": 0.0, "seed": seed_value, "p1": p1, "p2": p2, "angles": [null, null], "arena": arena})
 
 
 func _park(sim: MatchSim) -> void:
@@ -290,7 +290,7 @@ func test_every_playable_arena_has_a_theme_and_pick_is_seeded() -> void:
 
 ## A ball parked on one side, flying `dir` from `pos` on `arena`.
 func _runner(arena: String, critter: String, pos: Vector2, dir: Vector2) -> MatchSim:
-	var sim := MatchSim.new({"seed": 1, "p1": critter, "p2": "plain", "angles": [null, null], "arena": arena})
+	var sim := MatchSim.new({"seek": 0.0, "seed": 1, "p1": critter, "p2": "plain", "angles": [null, null], "arena": arena})
 	_park(sim)
 	sim.balls[1].pos = Vector2(880, 120) if pos.y > 500 else Vector2(880, 880)
 	var b := sim.balls[0]
