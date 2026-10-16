@@ -64,6 +64,9 @@ const TIME_LIMIT := 120.0
 const CONTACT_COOLDOWN := 0.25
 ## Contact damage ranges from (1 - spread)x to (1 + spread)x by who rammed whom.
 const IMPACT_SPREAD := 0.4
+## A ball moving slower than its normal speed hits softer, down to this share
+## when stopped (frozen, stunned). Faster than normal adds nothing (Newms).
+const SLOW_HIT_FLOOR := 0.4
 const BEAM_HALF_WIDTH := 5.0
 const MIN_BEAM_LENGTH := 30.0
 const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre line.
@@ -876,8 +879,8 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 				continue
 			_contact_cooldown_until[key] = tick + int(round(CONTACT_COOLDOWN * TICK_RATE))
 			# The ball that rams harder hits harder, so even mirror matches trade unevenly.
-			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _strike(a, b), "kind": "contact", "pos": b.pos, "backstab": stab == 0})
-			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _strike(b, a), "kind": "contact", "pos": a.pos, "backstab": stab == 1})
+			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _pace_scale(a) * _strike(a, b), "kind": "contact", "pos": b.pos, "backstab": stab == 0})
+			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _pace_scale(b) * _strike(b, a), "kind": "contact", "pos": a.pos, "backstab": stab == 1})
 
 
 ## Which ball (0 = a, 1 = b) rams the other from behind, from velocities before
@@ -916,6 +919,16 @@ func steer(b: Ball, accel: Vector2) -> void:
 ## own movement.
 func pull(b: Ball, accel: Vector2) -> void:
 	steer(b, accel * Weight.pull_scale(b.weight))
+
+
+## Contact damage share from how fast `b` is moving against its normal speed:
+## 1 at or above it, the same share below it (30% slowed -> 70%), never under
+## SLOW_HIT_FLOOR (stunned or frozen).
+func _pace_scale(b: Ball) -> float:
+	if tick < b.stun_until:
+		return SLOW_HIT_FLOOR
+	var pace: float = b.current_speed() * (1.0 - (b.slow if b.charge_ticks == 0 else 0.0)) / maxf(b.def.speed, 1.0)
+	return clampf(pace, SLOW_HIT_FLOOR, 1.0)
 
 
 ## 0 share (was hit while moving away) -> 1 - IMPACT_SPREAD; 1 share -> 1 + IMPACT_SPREAD.

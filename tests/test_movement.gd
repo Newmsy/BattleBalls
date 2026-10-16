@@ -294,3 +294,16 @@ func test_gentle_pull_curves_balls_toward_each_other_only_when_asked() -> void:
 		var turned: bool = sim.balls[0].vel.x > 1.0
 		check_eq(turned, seek > 0.0, "seek %d: ball 0 bends toward the foe" % seek)
 		check_near(sim.balls[0].vel.length(), speed, 0.5, "and keeps its speed")
+
+
+func test_a_slowed_ball_hits_softer_and_a_fast_one_no_harder() -> void:
+	var sim := _sim()
+	var b := sim.balls[0]
+	check_near(sim._pace_scale(b), 1.0, 0.001, "normal speed: full damage")
+	b.slow = 0.3
+	check_near(sim._pace_scale(b), 0.7, 0.001, "30% slowed: 70%")
+	b.slow = 0.0
+	b.speed = b.def.speed * 1.5
+	check_near(sim._pace_scale(b), 1.0, 0.001, "faster than normal: no bonus")
+	b.stun_until = sim.tick + 10
+	check_near(sim._pace_scale(b), sim.SLOW_HIT_FLOOR, 0.001, "frozen: the floor")
