@@ -43,11 +43,11 @@ func test_a_full_family_is_a_small_boost() -> void:
 
 func test_trophies_won_earn_points_and_losses_cost_none() -> void:
 	var s = _fresh_store()
-	var cards: Array[Dictionary] = s.offers(20261014)
-	s.start_attack("harder", cards[2].bot.id, 42)
+	var cards: Array[Dictionary] = s.offers(null, 20261014)
+	s.start_attack("harder", cards[2].bot, 42)
 	s.finish_attack(true)
 	check_eq(s.points, 35, "a point per trophy won")
-	s.start_attack("even", cards[1].bot.id, 43)
+	s.start_attack("even", cards[1].bot, 43)
 	s.finish_attack(false)
 	check_eq(s.points, 35, "a loss keeps points")
 	check_eq(ArenaStore.open(TEST_SAVE).points, 35, "points saved")

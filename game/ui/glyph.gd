@@ -198,3 +198,18 @@ func _draw() -> void:
 			draw_colored_polygon(CritterArt.star_pts(Vector2(.42, .56) * s, s * .38, s * .1, 4), color)
 			draw_colored_polygon(CritterArt.star_pts(Vector2(.8, .2) * s, s * .18, s * .05, 4), Color.WHITE)
 			draw_circle(Vector2(.84, .78) * s, s * .06, color)
+		"trophy":
+			var cup := PackedVector2Array([Vector2(.24, .12) * s, Vector2(.76, .12) * s, Vector2(.7, .44) * s, Vector2(.56, .58) * s, Vector2(.44, .58) * s, Vector2(.3, .44) * s])
+			draw_colored_polygon(cup, color)
+			draw_arc(Vector2(.24, .28) * s, s * .12, PI * .5, PI * 1.5, 10, color, s * .07, true)
+			draw_arc(Vector2(.76, .28) * s, s * .12, -PI * .5, PI * .5, 10, color, s * .07, true)
+			draw_rect(Rect2(Vector2(.45, .56) * s, Vector2(.1, .18) * s), color)
+			draw_rect(Rect2(Vector2(.28, .74) * s, Vector2(.44, .12) * s), color)
+			draw_colored_polygon(CritterArt.star_pts(Vector2(.5, .3) * s, s * .1, s * .04, 5), Color("0b0a1f"))
+		"shield":
+			var sh := PackedVector2Array([Vector2(.5, .06) * s, Vector2(.86, .2) * s, Vector2(.8, .6) * s, Vector2(.5, .94) * s, Vector2(.2, .6) * s, Vector2(.14, .2) * s])
+			draw_colored_polygon(sh, Color("1b1842"))
+			sh.append(sh[0])
+			draw_polyline(sh, color, s * .08, true)
+			draw_line(Vector2(.5, .2) * s, Vector2(.5, .8) * s, Color(color, .7), s * .07)
+			draw_line(Vector2(.26, .4) * s, Vector2(.74, .4) * s, Color(color, .7), s * .07)

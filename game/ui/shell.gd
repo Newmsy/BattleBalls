@@ -26,6 +26,8 @@ const SCREENS := {
 	"summon": preload("res://game/ui/screens/summon_screen.gd"),
 	"arena": preload("res://game/ui/screens/arena_screen.gd"),
 	"boosts": preload("res://game/ui/screens/boosts_screen.gd"),
+	"bazaar": preload("res://game/ui/screens/bazaar_screen.gd"),
+	"defence": preload("res://game/ui/screens/defence_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
