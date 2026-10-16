@@ -20,10 +20,15 @@ static func make(id: String, critter: String, side: float) -> Control:
 	return c
 
 
+var _idle := 0.0
+
 func _process(delta: float) -> void:
 	if is_visible_in_tree():
 		_t += delta
-		queue_redraw()
+		_idle += delta
+		if _idle >= 1.0 / 20.0: # 20 redraws a second is plenty for an idle shop icon.
+			_idle = 0.0
+			queue_redraw()
 
 
 func _draw() -> void:

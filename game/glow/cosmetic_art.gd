@@ -7,6 +7,7 @@
 ## cover them. Shapes come from the critter art kit (game/ui/critter_art.gd).
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
@@ -36,7 +37,7 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 		var pv := PackedVector2Array()
 		for p in pts:
 			pv.append(P.call(p.x, p.y))
-		ci.draw_colored_polygon(pv, col)
+		Dot.poly(ci, pv, col)
 	match it.style:
 		"cone":
 			poly.call([Vector2(-.42, -.82), Vector2(.42, -.82), Vector2(.04, -1.72)], a)
@@ -44,20 +45,20 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 				var y := -.95 - k * .24
 				var w := .36 - k * .11
 				ci.draw_line(P.call(-w, y), P.call(w * .9, y - .08), b, maxf(2.0, r * .07), true)
-			ci.draw_circle(P.call(.04, -1.74), r * .13, b)
+			Dot.circle(ci, P.call(.04, -1.74), r * .13, b)
 		"crown":
 			var pts := [Vector2(-.48, -.78), Vector2(.48, -.78), Vector2(.52, -1.28), Vector2(.26, -1.04), Vector2(0, -1.36), Vector2(-.26, -1.04), Vector2(-.52, -1.28)]
 			poly.call(pts, a)
 			ci.draw_line(P.call(-.48, -.84), P.call(.48, -.84), a.darkened(.3), maxf(2.0, r * .08), true)
 			for x in [-.52, 0.0, .52]:
-				ci.draw_circle(P.call(x, -1.3 if x != 0.0 else -1.38), r * .08, b)
-			ci.draw_circle(P.call(0, -.98), r * .07, b)
+				Dot.circle(ci, P.call(x, -1.3 if x != 0.0 else -1.38), r * .08, b)
+			Dot.circle(ci, P.call(0, -.98), r * .07, b)
 		"phones":
 			var band := PackedVector2Array()
 			for i in 17:
 				var ang := PI + PI * i / 16.0
 				band.append(P.call(cos(ang) * 1.0, sin(ang) * 1.08 - .02))
-			ci.draw_polyline(band, b, maxf(3.0, r * .13), true)
+			Dot.pline(ci, band, b, maxf(3.0, r * .13), true)
 			for k in [-1.0, 1.0]:
 				CritterArt._ell(ci, P.call(k * .98, -.05), r * .2, r * .3, a, tilt)
 				CritterArt._ell(ci, P.call(k * 1.02, -.05), r * .1, r * .18, a.lightened(.4), tilt)
@@ -75,13 +76,13 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 			poly.call([Vector2(-.78, -.66), Vector2(.78, -.66), Vector2(.78, -.86), Vector2(-.78, -.86)], a.darkened(.25))
 			for x in [-.5, -.25, 0.0, .25, .5]:
 				ci.draw_line(P.call(x, -.68), P.call(x, -.84), b, maxf(1.5, r * .04), true)
-			ci.draw_circle(P.call(0, -1.42), r * .16, b)
+			Dot.circle(ci, P.call(0, -1.42), r * .16, b)
 		"halo":
 			var bob := sin(t * 2.4) * .05
 			var e := CritterArt.ellipse_pts(P.call(0, -1.28 + bob), r * .56, r * .16, tilt)
 			e.append(e[0])
-			ci.draw_polyline(e, Color(b, .45), maxf(5.0, r * .2), true)
-			ci.draw_polyline(e, a, maxf(2.5, r * .09), true)
+			Dot.pline(ci, e, Color(b, .45), maxf(5.0, r * .2), true)
+			Dot.pline(ci, e, a, maxf(2.5, r * .09), true)
 		"visor":
 			poly.call([Vector2(-.82, -.44), Vector2(.82, -.44), Vector2(.7, -.68), Vector2(-.7, -.68)], Color(a, .8))
 			ci.draw_line(P.call(-.84, -.44), P.call(.84, -.44), b, maxf(2.0, r * .08), true)
@@ -94,15 +95,15 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 				dome.append(Vector2(cos(ang) * .7, -.72 + sin(ang) * .5))
 			poly.call(dome, a)
 			poly.call([Vector2(.2, -.76), Vector2(1.05, -.72), Vector2(1.0, -.64), Vector2(.2, -.66)], a.darkened(.3))
-			ci.draw_circle(P.call(0, -1.2), r * .07, b)
-			ci.draw_circle(P.call(-.2, -.96), r * .12, b)
+			Dot.circle(ci, P.call(0, -1.2), r * .07, b)
+			Dot.circle(ci, P.call(-.2, -.96), r * .12, b)
 		"horns":
 			for k in [-1.0, 1.0]:
 				var pts := [Vector2(k * .3, -.86), Vector2(k * .62, -.7), Vector2(k * .74, -1.2), Vector2(k * .58, -1.48)]
 				poly.call(pts, a)
 				ci.draw_line(P.call(k * .5, -.86), P.call(k * .64, -1.3), Color(b, .6), maxf(1.5, r * .05), true)
 		_:
-			ci.draw_circle(P.call(0, -1.0), r * .2, a)
+			Dot.circle(ci, P.call(0, -1.0), r * .2, a)
 
 
 # --- Trails ----------------------------------------------------------------------
@@ -123,7 +124,7 @@ static func draw_trail(ci: CanvasItem, it: Dictionary, pts: Array, r: float, t :
 				if i % 2 == 0:
 					var tw := .6 + .4 * sin(t * 12.0 + i)
 					var s := r * (.08 + .16 * f) * tw
-					ci.draw_colored_polygon(CritterArt.star_pts(p, s, s * .35, 4, t * 2.0 + i), Color(a if i % 4 == 0 else b, f))
+					Dot.poly(ci, CritterArt.star_pts(p, s, s * .35, 4, t * 2.0 + i), Color(a if i % 4 == 0 else b, f))
 			"rainbow":
 				var col: Color
 				if a == Color.WHITE:
@@ -139,8 +140,8 @@ static func draw_trail(ci: CanvasItem, it: Dictionary, pts: Array, r: float, t :
 			"bubbles":
 				if i % 3 == 0:
 					var rr := r * (.1 + .22 * (1.0 - f) + .04 * sin(t * 5.0 + i))
-					ci.draw_arc(p, rr, 0, TAU, 16, Color(a, f * .8), maxf(1.5, r * .04), true)
-					ci.draw_circle(p + Vector2(-rr * .35, -rr * .35), rr * .2, Color(b, f * .8))
+					Dot.arc(ci, p, rr, 0, TAU, 16, Color(a, f * .8), maxf(1.5, r * .04), true)
+					Dot.circle(ci, p + Vector2(-rr * .35, -rr * .35), rr * .2, Color(b, f * .8))
 			"comet":
 				ci.draw_line(p, q, Color(a, f * .35), r * 1.2 * f, true)
 				ci.draw_line(p, q, Color(b, f * .8), r * .3 * f, true)
@@ -167,29 +168,29 @@ static func draw_spark(ci: CanvasItem, it: Dictionary, p: Vector2, k: float, s :
 				ci.draw_rect(Rect2(p + off, Vector2(w, 6.0 * s)), Color(a if i % 2 == 0 else b, fade))
 		"pow":
 			var pts := CritterArt.star_pts(p, (34.0 + 24.0 * k) * s, (20.0 + 12.0 * k) * s, 10, .2)
-			ci.draw_colored_polygon(pts, Color(a, fade))
+			Dot.poly(ci, pts, Color(a, fade))
 			pts.append(pts[0])
-			ci.draw_polyline(pts, Color(b, fade), 3.0 * s, true)
+			Dot.pline(ci, pts, Color(b, fade), 3.0 * s, true)
 			var fs := int(22 * s)
 			var w := FONT.get_string_size("POW", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 			ci.draw_string(FONT, p + Vector2(-w / 2.0, fs * .36), "POW", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(INK, fade))
 		"stars":
 			for i in 5:
 				var dir := Vector2.from_angle(i * TAU / 5.0 + seed_)
-				ci.draw_colored_polygon(CritterArt.star_pts(p + dir * (10.0 + 50.0 * k) * s, 9.0 * s, 4.0 * s, 5), Color(a if i % 2 == 0 else b, fade))
+				Dot.poly(ci, CritterArt.star_pts(p + dir * (10.0 + 50.0 * k) * s, 9.0 * s, 4.0 * s, 5), Color(a if i % 2 == 0 else b, fade))
 		"rings":
 			for i in 3:
 				var kk := clampf(k * 1.4 - i * .2, 0.0, 1.0)
 				if kk > 0.0:
-					ci.draw_arc(p, (8.0 + 60.0 * kk) * s, 0, TAU, 32, Color(a if i % 2 == 0 else b, 1.0 - kk), 4.0 * s, true)
+					Dot.arc(ci, p, (8.0 + 60.0 * kk) * s, 0, TAU, 32, Color(a if i % 2 == 0 else b, 1.0 - kk), 4.0 * s, true)
 		_:
-			ci.draw_colored_polygon(CritterArt.star_pts(p, (10.0 + 70.0 * k) * s, (5.0 + 30.0 * k) * s, 8), Color(a, fade))
+			Dot.poly(ci, CritterArt.star_pts(p, (10.0 + 70.0 * k) * s, (5.0 + 30.0 * k) * s, 8), Color(a, fade))
 
 
 static func _heart(ci: CanvasItem, p: Vector2, s: float, col: Color) -> void:
-	ci.draw_circle(p + Vector2(-s * .5, -s * .2), s * .55, col)
-	ci.draw_circle(p + Vector2(s * .5, -s * .2), s * .55, col)
-	ci.draw_colored_polygon(PackedVector2Array([p + Vector2(-s * 1.02, 0), p + Vector2(s * 1.02, 0), p + Vector2(0, s * 1.1)]), col)
+	Dot.circle(ci, p + Vector2(-s * .5, -s * .2), s * .55, col)
+	Dot.circle(ci, p + Vector2(s * .5, -s * .2), s * .55, col)
+	Dot.poly(ci, PackedVector2Array([p + Vector2(-s * 1.02, 0), p + Vector2(s * 1.02, 0), p + Vector2(0, s * 1.1)]), col)
 
 
 # --- KO effects --------------------------------------------------------------------
@@ -208,15 +209,15 @@ static func draw_ko(ci: CanvasItem, it: Dictionary, p: Vector2, r: float, k: flo
 				var sz := r * (.08 + .06 * _rand(i + 7, seed_))
 				var rot := Transform2D(k * 9.0 + i, q)
 				var pts := PackedVector2Array([rot * Vector2(-sz, -sz * .5), rot * Vector2(sz, -sz * .5), rot * Vector2(sz, sz * .5), rot * Vector2(-sz, sz * .5)])
-				ci.draw_colored_polygon(pts, Color(a if i % 2 == 0 else b, fade))
+				Dot.poly(ci, pts, Color(a if i % 2 == 0 else b, fade))
 		"disco":
 			var c := p + Vector2(0, -r * (1.0 - minf(1.0, k * 3.0)) * 1.5)
 			var rr := r * .6
 			for i in 8:
 				var ang := i * TAU / 8.0 + k * 3.0
 				var col := Color(a if i % 2 == 0 else b, fade * .35)
-				ci.draw_colored_polygon(PackedVector2Array([c, c + Vector2.from_angle(ang - .08) * r * 3.0, c + Vector2.from_angle(ang + .08) * r * 3.0]), col)
-			ci.draw_circle(c, rr, Color(b.darkened(.3), fade))
+				Dot.poly(ci, PackedVector2Array([c, c + Vector2.from_angle(ang - .08) * r * 3.0, c + Vector2.from_angle(ang + .08) * r * 3.0]), col)
+			Dot.circle(ci, c, rr, Color(b.darkened(.3), fade))
 			for gx in range(-2, 3):
 				for gy in range(-2, 3):
 					var q := c + Vector2(gx, gy) * rr * .36
@@ -240,4 +241,4 @@ static func draw_ko(ci: CanvasItem, it: Dictionary, p: Vector2, r: float, k: flo
 					var col := Color(a if burst % 2 == 0 else b, 1.0 - kk)
 					ci.draw_line(c + dir * r * 1.2 * kk * .6, c + dir * r * 1.2 * kk, col, maxf(2.0, r * .06), true)
 		_:
-			ci.draw_arc(p, r * (1.0 + 2.0 * k), 0, TAU, 32, Color(a, fade), 4.0, true)
+			Dot.arc(ci, p, r * (1.0 + 2.0 * k), 0, TAU, 32, Color(a, fade), 4.0, true)
