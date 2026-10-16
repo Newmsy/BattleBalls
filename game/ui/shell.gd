@@ -14,6 +14,7 @@ const SettingsSheet := preload("res://game/ui/screens/settings_sheet.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
+const Intro := preload("res://game/ui/intro.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -110,6 +111,7 @@ var _overlay_tag := "" ## What the open overlay is ("sheet", "reveal", ...).
 var sfx = null
 var _scroll_settle := 0.0 ## Seconds left before a scroll counts as settled.
 var _settling := false
+var _coach: Label ## A new player's next step (game/ui/intro.gd), above the footer.
 
 
 func _ready() -> void:
@@ -138,6 +140,14 @@ func build() -> void:
 	_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_holder.clip_contents = true
 	col.add_child(_holder)
+	_coach = Kit.label("", 24, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	var cst := Kit.box(Color("1c3a2e"), Kit.GOOD, 999, 2, 12)
+	cst.content_margin_left = 24
+	cst.content_margin_right = 24
+	_coach.add_theme_stylebox_override("normal", cst)
+	_coach.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_coach.visible = false
+	col.add_child(_coach)
 	_footer = MarginContainer.new()
 	_footer.add_theme_constant_override("margin_top", 10)
 	_footer.add_theme_constant_override("margin_bottom", 14)
@@ -567,7 +577,13 @@ func _refresh_top() -> void:
 	_top_labels.coin.text = Kit.commas(profile.coins)
 	_top_labels.orb.text = str(profile.orbs)
 	_dots.fuse.visible = not profile.ready_to_fuse().is_empty()
-	_dots.play.visible = friends.attention() > 0
+	_dots.play.visible = friends.attention() > 0 and Intro.done(profile)
+	# A new player sees only the tabs their first fights have opened.
+	for t in _tab_buttons:
+		_tab_buttons[t].visible = Intro.shows(profile, t)
+	var hint := Intro.coach(profile, current)
+	_coach.text = hint
+	_coach.visible = hint != ""
 
 
 # --- Tab bar -------------------------------------------------------------------

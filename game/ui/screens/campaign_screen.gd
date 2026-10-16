@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Intro := preload("res://game/ui/intro.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Spire := preload("res://sim/spire.gd")
@@ -255,6 +256,16 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 		lines.add_child(Kit.label("Account level up! Energy refilled.", 24, Kit.GOOD))
 	v.add_child(lines)
 	var buttons := Kit.hbox(14)
+	if r.has("intro"):
+		# A new player's win that opens something: Continue shows what.
+		var reveal := Kit.button("Continue", func():
+			shell.close_overlay()
+			Intro.moment(shell, r.intro), "go", 26, 84)
+		reveal.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		shell.mark("result_continue", reveal)
+		v.add_child(reveal)
+		shell.sheet(v)
+		return
 	var ok := Kit.button("Continue", shell.close_overlay, "ghost" if r.won and i + 1 < Zones.zone(z).stages.size() else "go", 26, 84)
 	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("result_continue", ok)

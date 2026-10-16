@@ -5,6 +5,7 @@
 ## colour, then open on their own one by one with a burst that grows with rarity.
 extends RefCounted
 
+const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
@@ -43,6 +44,13 @@ static func build(shell, _params: Dictionary) -> Control:
 	feat.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var st := Kit.box(Color("221046"), Color("6b3fb0"), 36, 2, 20)
 	root.add_child(Kit.panel(Kit.vbox(4, [portal, feat]), st))
+	if not Intro.done(p):
+		# A new player's first summon: just the portal and the button.
+		var first := Kit.button("Free x1" if p.free_summon else "x1  (1 orb)", func(): _pull(shell, 1), "go", 30, 96)
+		first.disabled = not p.free_summon and p.orbs < 1
+		shell.mark("pull1", first)
+		shell.pin(first)
+		return root
 	root.add_child(_wishlist_panel(shell))
 
 	var pity: int = p.legendary_pity
@@ -157,6 +165,9 @@ static func _centered(c: Control) -> Control:
 	return cc
 
 
+static var _reveal_unlocks := false
+
+
 static func _pull(shell, n: int) -> void:
 	var p = shell.profile
 	if Dev.free_summons():
@@ -174,6 +185,8 @@ static func _pull(shell, n: int) -> void:
 	p.add_copies(ids)
 	print("UI_SUMMON ", ",".join(ids))
 	Analytics.track("summon", {"count": n, "new": fresh.count(true)})
+	# A new player's first summon opens Critters: shown once the reveal is done.
+	_reveal_unlocks = Intro.step(p) == Intro.SUMMON and Intro.reach(p, Intro.FIGHTER)
 	shell.overlay(_reveal(shell, ids, fresh), "reveal")
 
 
@@ -203,7 +216,12 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	mid.add_child(grid)
 	v.add_child(mid)
 	var skip := Kit.button("Skip", root.skip, "ghost", 28, 96)
-	var done := Kit.button("Done", func(): shell.close_overlay(); shell.refresh(), "go", 28, 96)
+	var done := Kit.button("Done", func():
+		shell.close_overlay()
+		shell.refresh()
+		if _reveal_unlocks:
+			_reveal_unlocks = false
+			Intro.moment(shell, Intro.FIGHTER), "go", 28, 96)
 	shell.mark("open_all", skip)
 	shell.mark("reveal_done", done)
 	v.add_child(Kit.hbox(14, [skip, done]))
