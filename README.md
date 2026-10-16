@@ -208,8 +208,11 @@ The whole game is in the save: features that keep their own file
 `this_week.cfg`, `legends.cfg`, `onboarding.cfg`; `SaveGame.MIRRORED`) ride
 along as text in `data.files` and are written back when a cloud copy is
 adopted. A new feature that saves anything either stores it in `save.data`
-or adds its file to `MIRRORED`. Device settings (`settings.cfg`: sound,
-accessibility), the sign-in session and caches stay on the device. The game
+or adds its file to `MIRRORED`. The fight speed pick rides in
+`data.settings`; other device settings (`settings.cfg`: sound,
+accessibility, the Testing switches), the sign-in session and caches stay
+on the device. A new device whose cloud copy already finished the
+onboarding skips it as soon as the first sync lands. The game
 checks for changes every 3 s and syncs right away, plus on launch, on
 focus in/out and every 60 s while unsynced.
 

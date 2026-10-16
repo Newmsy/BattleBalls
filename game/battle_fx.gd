@@ -762,7 +762,7 @@ static func draw_moonlight(ci: CanvasItem, p: Vector2, r: float, t: float) -> vo
 ## A shard of ice flying along a line: a pointed crystal with a frosty tail.
 static func draw_shard(ci: CanvasItem, a: Vector2, b: Vector2, k: float, size: float) -> void:
 	var d := (b - a)
-	if d.length() < 1.0:
+	if d.length() < 1.0 or size < 0.5:
 		return
 	var dir := d.normalized()
 	var at := a.lerp(b, clampf(k, 0.0, 1.0))

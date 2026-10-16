@@ -56,7 +56,7 @@ func _ready() -> void:
 	TouchInput.ensure(self)
 	TouchInput.set_back(self, func(): return _back_to_arena if state == State.RESULT else Callable())
 	store = ArenaStore.open()
-	bot = ArenaGhosts.by_id(str(store.pending.get("bot_id", "")))
+	bot = store.pending_bot()
 	if bot.is_empty():
 		_back_to_arena.call_deferred()
 		return
@@ -141,8 +141,8 @@ func _show_intro() -> void:
 	state = State.INTRO
 	sfx.on_menu()
 	var card: Dictionary = Ladder.CARDS[store.pending.card]
-	info_label.text = "%s, an Arena Ghost at %d trophies, on %s. Their order stays hidden until each ball comes out. Win +%d, lose %d." % [
-		bot.name, bot.trophies, Arenas.get_def(relay.config.get("arena", "square")).display_name, card.win, card.loss]
+	info_label.text = "%s, a themed team near your power, on %s. Their order stays hidden until each ball comes out. Win +%d, lose %d." % [
+		bot.name, Arenas.get_def(relay.config.get("arena", "square")).display_name, card.win, card.loss]
 	var foes := ArenaGhosts.critters(bot.lineup).map(func(c): return BallDefs.get_def(c).display_name)
 	foes.sort()
 	lineup_label.text = "They bring: " + ", ".join(foes)
@@ -253,6 +253,9 @@ func _show_result() -> void:
 	var change := "%+d trophies." % result_delta if result_delta != 0 else "No trophies lost at your league's floor."
 	if result_delta > 0:
 		change = "%+d trophies and Arena Points." % result_delta
+	var got: int = store.history[0].get("coins", 0) if not store.history.is_empty() else 0
+	if got > 0:
+		change += " +%d Arena Coins." % got
 	info_label.text = "%s You're on %d, %s." % [change, store.trophies, Ladder.league_label(store.trophies)]
 	print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s" % [won, result_delta, store.trophies, relay.state_hash()])
 	_set_panel([headline, _button("Back to Arena", _back_to_arena, 36)])

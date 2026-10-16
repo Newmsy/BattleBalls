@@ -4,9 +4,10 @@
 ## stay identical replayed from seed at any speed.
 ##
 ## Speeds unlock by account level (UNLOCK_LEVELS). The player's last pick is
-## a device setting in user://settings.cfg (section "fight"), like sound and
-## accessibility. main.gd keeps `account_level` up to date; the other fight
-## scenes read it from here.
+## kept in user://settings.cfg (section "fight") and, through on_pick and
+## restore(), in the cloud save so every device plays at the same speed.
+## main.gd keeps `account_level` up to date; the other fight scenes read it
+## from here.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -20,6 +21,8 @@ static var account_level := 1
 static var unlock_all := false
 ## ?speed= in the URL (smoke tests, clips): played as given, locks ignored.
 static var url_speed := 0.0
+## Called with the new pick after select() (main.gd puts it in the save).
+static var on_pick := Callable()
 
 static var _pick := 0
 static var _loaded := false
@@ -50,6 +53,24 @@ static func select(i: int) -> void:
 	if i < 0 or i >= SPEEDS.size() or not unlocked(i):
 		return
 	url_speed = 0.0
+	_pick = i
+	_save()
+	if on_pick.is_valid():
+		on_pick.call(i)
+
+
+## The remembered pick, whether or not it's unlocked yet.
+static func pick() -> int:
+	_ensure_loaded()
+	return _pick
+
+
+## Takes the pick another device made (from the cloud save) without calling
+## on_pick back.
+static func restore(i: int) -> void:
+	_ensure_loaded()
+	if i < 0 or i >= SPEEDS.size() or i == _pick:
+		return
 	_pick = i
 	_save()
 

@@ -13,8 +13,9 @@
 ##
 ## Older features keep their own files next to save.json (MIRRORED). Their
 ## text rides along in data.files, so the cloud holds the whole game, and
-## adopting a cloud copy writes them back. Device settings (sound,
-## accessibility), the sign-in session and caches stay on the device.
+## adopting a cloud copy writes them back. The fight speed pick is in
+## data.settings (main.gd); other device settings (sound, accessibility),
+## the sign-in session and caches stay on the device.
 ##
 ## In test mode (game/online/test_user.gd) every device signs in to one test
 ## account, so they all share its cloud save; the sync rules are the same.

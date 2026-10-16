@@ -17,10 +17,19 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const ArenaBoosts := preload("res://sim/arena_boosts.gd")
 const Families := preload("res://sim/families.gd")
+const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
+const Rng := preload("res://sim/rng.gd")
+const Gear := preload("res://sim/gear.gd")
 
 const SAVE_PATH := "user://ghost_arena.cfg"
 const HISTORY_SIZE := 10
 const FREE_REFRESHES := 1
+## Arena Coins won per attack (by card) and per lost attack, and per raid
+## your defence holds. Spent only in the Bazaar.
+const COINS_WIN := {"easier": 10, "even": 15, "harder": 25}
+const COINS_LOSS := 3
+const COINS_DEFENCE := 8
+const RAIDS_PER_DAY := 3
 
 ## Set by the arena fight scene so the home screen reopens on the Arena.
 static var reopen := false
@@ -43,6 +52,15 @@ var pending: Dictionary = {}
 var points := 0 ## Arena Points to spend.
 var points_earned := 0 ## Every point ever earned.
 var boosts: Dictionary = {} ## {family: {line: level}}
+## The trio other players (and, offline, the daily raids) fight. Same rules
+## as `trio`: three different owned critters.
+var defence: Array = ["vampire", "laser", "spiker"]
+var coins := 0 ## Arena Coins to spend in the Bazaar.
+var coins_earned := 0
+var bazaar_day := 0
+var bought: Array = [] ## Bazaar item indexes bought on bazaar_day.
+var raid_day := 0
+var raids: Array = [] ## Today's raids on your defence: {name, family, held, delta, coins}
 
 
 static func open(save_path := SAVE_PATH):
@@ -63,6 +81,13 @@ static func sample():
 	s.points = 385
 	s.points_earned = 1240
 	s.trio = ["vampire", "spiker", "speedster"]
+	s.defence = ["spiker", "vampire", "speedster"]
+	s.coins = 140
+	s.raid_day = today()
+	s.raids = [{"name": "Frost Squad", "family": "frost", "held": true, "delta": 5, "coins": 8},
+		{"name": "Circuit Gang", "family": "tech", "held": false, "delta": -10, "coins": 0},
+		{"name": "Petal Patrol", "family": "nature", "held": true, "delta": 5, "coins": 8}]
+	s.coins_earned = 610
 	s.boosts = {"spooky": {"health": 3, "attack": 4, "defense": 2, "speed": 1}, "nature": {"attack": 2, "health": 1}, "fire": {"speed": 1}}
 	return s
 
@@ -72,8 +97,18 @@ static func today() -> int:
 	return d.year * 10000 + d.month * 100 + d.day
 
 
-func offers(day: int = today()) -> Array[Dictionary]:
-	return ArenaGhosts.offers(trophies, day, "local", refreshes if refresh_day == day else 0)
+## Today's three opponent cards: themed teams sized to your trio's power
+## (game/pvp/arena_teams.gd), growing with your trophies.
+func offers(profile = null, day: int = today()) -> Array[Dictionary]:
+	return ArenaTeams.offers(trophies, power(profile), day, refreshes if refresh_day == day else 0)
+
+
+## Your attack trio's summed Power Rating, as the Arena fights it.
+func power(profile = null, which := "trio") -> int:
+	var total := 0
+	for s in slots(profile, which):
+		total += Lineup.rating(s)
+	return total
 
 
 func refreshes_left(day: int = today()) -> int:
@@ -93,12 +128,14 @@ func refresh(day: int = today()) -> bool:
 
 ## Puts `critter` in `slot`. A trio never holds the same critter twice: if
 ## it is already in another slot, the two slots swap.
-func set_slot(slot: int, critter: String) -> void:
+## `which` is "trio" (attack) or "defence".
+func set_slot(slot: int, critter: String, which := "trio") -> void:
 	assert(critter in BallDefs.PLAYABLE, "Not playable: %s" % critter)
-	var was: int = trio.find(critter)
+	var team: Array = get(which)
+	var was: int = team.find(critter)
 	if was != -1 and was != slot:
-		trio[was] = trio[slot]
-	trio[slot] = critter
+		team[was] = team[slot]
+	team[slot] = critter
 	save()
 
 
@@ -112,10 +149,10 @@ static func best_trio(owned: Array) -> Array:
 
 
 ## Fills the trio with the strongest trio from `owned` (strongest first).
-func fill_best(owned: Array) -> void:
+func fill_best(owned: Array, which := "trio") -> void:
 	if owned.is_empty():
 		return
-	trio = best_trio(owned)
+	set(which, best_trio(owned))
 	save()
 
 
@@ -126,29 +163,35 @@ func fill_best(owned: Array) -> void:
 func fit_to(owned: Array) -> bool:
 	if owned.is_empty():
 		return false
+	var a := _fit(trio, owned)
+	var b := _fit(defence, owned)
+	if a or b:
+		save()
+	return a or b
+
+
+func _fit(team: Array, owned: Array) -> bool:
 	var changed := false
 	var seen: Array = []
-	for i in trio.size():
-		if trio[i] in owned and not trio[i] in seen:
-			seen.append(trio[i])
+	for i in team.size():
+		if team[i] in owned and not team[i] in seen:
+			seen.append(team[i])
 			continue
-		var spare: Array = owned.filter(func(id): return not id in seen and not id in trio.slice(i + 1))
+		var spare: Array = owned.filter(func(id): return not id in seen and not id in team.slice(i + 1))
 		var pick: String = spare[0] if not spare.is_empty() else owned[i % owned.size()]
-		if pick != trio[i]:
-			trio[i] = pick
+		if pick != team[i]:
+			team[i] = pick
 			changed = true
 		seen.append(pick)
-	if changed:
-		save()
 	return changed
 
 
 ## The trio as lineup slots (sim/lineup.gd): each critter at the tier, level
 ## and gear the player owns it with (Profile.slot_of). Without a profile, or
 ## for a critter not owned, a bare T1.
-func slots(profile = null) -> Array:
+func slots(profile = null, which := "trio") -> Array:
 	var out: Array = []
-	for id in trio:
+	for id in get(which):
 		var s: Dictionary = profile.slot_of(id) if profile != null else {}
 		s = s.duplicate() if not s.is_empty() else Lineup.make(id)
 		var b := boost_of(id)
@@ -200,16 +243,18 @@ func reset_boosts() -> int:
 
 
 ## The trio as a lineup in the backend's v1 shape, plus per-slot shots.
-func lineup(profile = null) -> Dictionary:
-	var out: Array = slots(profile)
+func lineup(profile = null, which := "trio") -> Dictionary:
+	var out: Array = slots(profile, which)
 	for i in out.size():
 		out[i].aim = shots[i]
 	return {"v": 1, "slots": out, "aim": shots.duplicate()}
 
 
-func start_attack(card: String, bot_id: String, seed_value: int, attack_slots: Array = []) -> void:
+## `bot`: the opponent, as a full team (ArenaTeams) or a pool bot's id.
+func start_attack(card: String, bot, seed_value: int, attack_slots: Array = []) -> void:
 	settle_abandoned()
-	pending = {"card": card, "bot_id": bot_id, "seed": seed_value, "arena": Arenas.pick(seed_value),
+	var foe: Dictionary = bot if bot is Dictionary else ArenaGhosts.by_id(str(bot))
+	pending = {"card": card, "bot_id": str(foe.get("id", "")), "bot": foe, "seed": seed_value, "arena": Arenas.pick(seed_value),
 		"slots": attack_slots if not attack_slots.is_empty() else slots()}
 	save()
 
@@ -248,15 +293,125 @@ func _apply(won: bool) -> int:
 		wins += 1
 	else:
 		losses += 1
-	var bot := ArenaGhosts.by_id(pending.bot_id)
-	history.push_front({"name": bot.get("name", "?"), "card": pending.card, "won": won, "delta": delta})
+	var got: int = COINS_WIN.get(pending.card, 0) if won else COINS_LOSS
+	coins += got
+	coins_earned += got
+	var bot: Dictionary = pending_bot()
+	history.push_front({"name": bot.get("name", "?"), "card": pending.card, "won": won, "delta": delta, "coins": got})
 	history = history.slice(0, HISTORY_SIZE)
 	return delta
 
 
+## The opponent of the attack in progress.
+func pending_bot() -> Dictionary:
+	if pending.get("bot", null) is Dictionary and not pending.bot.is_empty():
+		return pending.bot
+	return ArenaGhosts.by_id(str(pending.get("bot_id", "")))
+
+
+## Today's raids on your defence: RAIDS_PER_DAY seeded themed teams at even
+## strength fight your defence trio, on the first Arena visit of the day.
+## Held raids win trophies and coins; lost ones cost a few trophies (capped,
+## Ladder.defence_delta). Returns the raids just fought (empty if already
+## fought today).
+func run_raids(profile = null, day: int = today()) -> Array:
+	if raid_day == day:
+		return []
+	raid_day = day
+	raids = []
+	var mine := slots(profile, "defence")
+	var rng = Rng.new(hash("raids|%d" % day))
+	var lost := 0
+	for n in RAIDS_PER_DAY:
+		var fams: Array = Families.ids()
+		var team := ArenaTeams.make(fams[rng.range_int(0, fams.size() - 1)], ArenaTeams.target(power(profile, "defence"), trophies, "even"), rng.range_int(1, 0x7FFFFFFF))
+		var r := fight(team.lineup.slots, mine, rng.range_int(1, 0x7FFFFFFF), team.lineup.aim, shots)
+		var held: bool = r.winner == 1
+		var delta := Ladder.defence_delta(trophies, peak, "even", not held, lost)
+		trophies = maxi(0, trophies + delta)
+		peak = maxi(peak, trophies)
+		if delta < 0:
+			lost -= delta
+		var got := COINS_DEFENCE if held else 0
+		coins += got
+		coins_earned += got
+		raids.append({"name": team.name, "family": team.family, "held": held, "delta": delta, "coins": got})
+	save()
+	return raids
+
+
+## Runs a relay (sim/relay.gd) of two lineups to the end: {winner, legs, hash}.
+## Aims are offsets off the centre line, per slot.
+static func fight(a: Array, b: Array, seed_value: int, a_aims: Array, b_aims: Array) -> Dictionary:
+	var sa := Lineup.side(a)
+	var sb := Lineup.side(b)
+	var relay = load("res://sim/relay.gd").new({
+		"seed": seed_value,
+		"arena": Arenas.pick(seed_value),
+		"sides": [sa.sides, sb.sides],
+		"aims": [_angles(a_aims, a.size(), 0), _angles(b_aims, b.size(), 1)],
+		"tiers": [sa.tiers, sb.tiers],
+		"powers": [sa.powers, sb.powers],
+		"gear": [sa.gear, sb.gear],
+		"talents": [sa.talents, sb.talents],
+	})
+	return relay.run_to_end()
+
+
+static func _angles(offsets: Array, n: int, side: int) -> Array:
+	var out: Array = []
+	for i in n:
+		out.append(ArenaGhosts.MatchSim.AIM_AT_CENTRE[side] + (int(offsets[i]) if i < offsets.size() else 0))
+	return out
+
+
+## Today's Bazaar stock: gear at your league's tier plus Summon Orbs and an
+## energy refill, all for Arena Coins. Each item sells once a day.
+func bazaar(day: int = today()) -> Array:
+	var rng = Rng.new(hash("bazaar|%d" % day))
+	var tier := clampi(1 + Ladder.league_index(maxi(trophies, peak)), 1, 5)
+	var types: Array = Gear.TYPES.duplicate()
+	var out: Array = []
+	for n in 3:
+		var t: String = types.pop_at(rng.range_int(0, types.size() - 1))
+		var gt := clampi(tier - 1 + n / 2, 1, 5)
+		out.append({"kind": "gear", "type": t, "tier": gt, "name": Gear.PIECES[t].name, "price": 40 + 40 * gt})
+	out.append({"kind": "orbs", "n": 1, "name": "Summon Orb", "price": 120})
+	out.append({"kind": "energy", "n": 30, "name": "Energy +30", "price": 50})
+	return out
+
+
+func is_bought(index: int, day: int = today()) -> bool:
+	return bazaar_day == day and index in bought
+
+
+## Buys Bazaar item `index` for `profile`. False if sold out or short of coins.
+func buy(profile, index: int, day: int = today()) -> bool:
+	var stock := bazaar(day)
+	if index < 0 or index >= stock.size() or is_bought(index, day) or coins < int(stock[index].price):
+		return false
+	if bazaar_day != day:
+		bazaar_day = day
+		bought = []
+	var item: Dictionary = stock[index]
+	match item.kind:
+		"gear":
+			profile.add_gear(item.type, item.tier)
+		"orbs":
+			profile.orbs += int(item.n)
+			profile.changed.emit()
+		"energy":
+			profile.energy += int(item.n)
+			profile.changed.emit()
+	coins -= int(item.price)
+	bought.append(index)
+	save()
+	return true
+
+
 func save() -> void:
 	var f := ConfigFile.new()
-	for key in ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "points", "points_earned", "boosts"]:
+	for key in ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "points", "points_earned", "boosts", "defence", "coins", "coins_earned", "bazaar_day", "bought", "raid_day", "raids"]:
 		f.set_value("arena", key, get(key))
 	f.save(path)
 
@@ -265,9 +420,9 @@ func _load() -> void:
 	var f := ConfigFile.new()
 	if f.load(path) != OK:
 		return
-	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses"]:
+	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "coins", "coins_earned", "bazaar_day", "raid_day"]:
 		set(key, int(f.get_value("arena", key, get(key))))
-	for key in ["history", "pending"]:
+	for key in ["history", "pending", "bought", "raids"]:
 		set(key, f.get_value("arena", key, get(key)))
 	# Saves from before Arena Points start with a point per trophy they hold.
 	points_earned = int(f.get_value("arena", "points_earned", trophies))
@@ -286,5 +441,10 @@ func _load() -> void:
 	var saved_shots: Array = f.get_value("arena", "shots", shots)
 	if saved_trio.size() == 3 and saved_trio.all(func(c): return c in BallDefs.PLAYABLE):
 		trio = saved_trio
+	var saved_defence: Array = f.get_value("arena", "defence", trio)
+	if saved_defence.size() == 3 and saved_defence.all(func(c): return c in BallDefs.PLAYABLE):
+		defence = saved_defence
+	else:
+		defence = trio.duplicate()
 	if saved_shots.size() == 3:
 		shots = saved_shots

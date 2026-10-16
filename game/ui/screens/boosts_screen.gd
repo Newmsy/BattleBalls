@@ -26,8 +26,8 @@ static func build(shell, params: Dictionary) -> Control:
 		"Points only come from Arena play; they're never sold. Even Arena and practice modes ignore boosts.",
 		"Reset gives back every point you spent, free, so you can follow your trio.",
 	]
-	var info: Control = shell.info_button("Arena Boosts", how, "boosts_info")
-	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Arena Boosts", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
+	var info: Control = shell.info_button("Trophy Room", how, "boosts_info")
+	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Trophy Room", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
 
 	var reset := Kit.card_button(Kit.chip("Reset", Kit.MUTED), func():
 		var back: int = store.reset_boosts()
