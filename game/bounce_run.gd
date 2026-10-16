@@ -17,6 +17,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const BoonIcon := preload("res://game/ui/boon_icon.gd")
 const BounceBoard := preload("res://game/online/bounce_board.gd")
+const Glyph := preload("res://game/ui/glyph.gd")
 
 enum State { DRAFT, START_BOONS, FLOOR, AIM, FIGHT, RESULT, BOON, OVER }
 
@@ -62,6 +63,7 @@ var panel: VBoxContainer
 var scroll: ScrollContainer
 var page: VBoxContainer
 var share_button: Button
+var rules_button: Button ## The "i" in the corner: how a run works.
 
 
 func _ready() -> void:
@@ -182,10 +184,8 @@ func _show_draft() -> void:
 	next.disabled = picks.size() != BounceRun.PICKS
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_next", next)
-	var how := Kit.label("Climb %d floors: foes start easy and get tougher. Lose and that critter is out; lose all three and the run ends." % BounceRun.FLOORS,
-		22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	# Next and Menu share a row so Next stays on screen below the cards.
-	_set_page([how, grid, Kit.hbox(14, [next, _menu_button()])], "br_draft")
+	_set_page([grid, Kit.hbox(14, [next, _menu_button()])], "br_draft")
 
 
 func _toggle_pick(i: int) -> void:
@@ -201,7 +201,7 @@ func _show_start_boons() -> void:
 	state = State.START_BOONS
 	sfx.on_menu()
 	_board_mode()
-	sub_label.text = "Step 2 of 2: pick 3 boons. They power your whole trio."
+	sub_label.text = "Step 2 of 2: pick 3 boons."
 	var grid := _grid()
 	for i in setup.start_offer.size():
 		var id: String = setup.start_offer[i]
@@ -217,7 +217,7 @@ func _show_start_boons() -> void:
 	start.disabled = start_picks.size() != BounceRun.START_BOONS
 	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_start", start)
-	var trio := Kit.label("Your trio: %s. Win a floor to pick another boon." % ", ".join(picks.map(func(i): return _name(setup.cards[i].critter))),
+	var trio := Kit.label("Your trio: %s" % ", ".join(picks.map(func(i): return _name(setup.cards[i].critter))),
 		22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	_set_page([trio, grid, Kit.hbox(14, [start, Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
 
@@ -255,7 +255,7 @@ func _show_floor() -> void:
 		]))]),
 	])
 	var tier := BounceRun.tier_at(run.floor)
-	var trio_cap := "Your trio · T%d" % tier + (" · up a tier every %d floors" % BounceRun.FLOORS_PER_TIER if tier < 5 else " · max tier")
+	var trio_cap := "Your trio · T%d" % tier
 	var items: Array = [_ladder(), Kit.panel(foe_box, Kit.box(Color("2a1030"), PINK, 32, 2, 20)), Kit.caption(trio_cap)]
 	for s in BounceRun.PICKS:
 		var c := BounceRun.card(setup, run, s)
@@ -265,7 +265,7 @@ func _show_floor() -> void:
 		items.append(card)
 		if not out:
 			_mark("br_send_%d" % s, card)
-	items.append(Kit.caption("Your boons (whole trio) · tap one to see it"))
+	items.append(Kit.caption("Your boons"))
 	items.append(_boon_strip(run.boons, 64))
 	items.append(_menu_button())
 	_set_page(items, "br_floor")
@@ -368,7 +368,7 @@ func _show_boon() -> void:
 	_board_mode()
 	var up := BounceRun.tier_at(run.floor) > BounceRun.tier_at(run.floor - 1)
 	sub_label.text = ("Floor %d cleared. Your trio is now T%d! Pick a boon." % [run.floor, BounceRun.tier_at(run.floor)]) if up \
-		else "Floor %d cleared. Pick a boon: it powers your whole trio." % run.floor
+		else "Floor %d cleared. Pick a boon." % run.floor
 	var items: Array = [_ladder()]
 	for i in run.offer.size():
 		var id: String = run.offer[i]
@@ -387,7 +387,7 @@ func _show_boon() -> void:
 		items.append(card)
 		_mark("br_boon_%d" % i, card)
 	if not run.boons.is_empty():
-		items.append(Kit.caption("Your boons · tap one to see it"))
+		items.append(Kit.caption("Your boons"))
 		items.append(_boon_strip(run.boons, 52))
 	items.append(Kit.label("Next: floor %d, %s %s." % [run.floor + 1, setup.floors[run.floor].title, _name(setup.floors[run.floor].critter)], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	_set_page(items, "br_boon")
@@ -569,7 +569,10 @@ func _build_ui() -> void:
 	page = Kit.vbox(18)
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(page)
-	for c in [title_label, sub_label, hud_label, info_label, panel, scroll]:
+	rules_button = Kit.card_button(Glyph.make("info", 34, Kit.FG), _show_rules, Kit.LINE, Kit.PANEL, 999, 12)
+	rules_button.focus_mode = Control.FOCUS_NONE
+	_mark("br_rules", rules_button)
+	for c in [title_label, sub_label, hud_label, info_label, panel, scroll, rules_button]:
 		ui.add_child(c)
 	for c in [title_label, sub_label, hud_label, info_label]:
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -617,6 +620,8 @@ func _layout() -> void:
 	arena.view_scale = side / MatchSim.ARENA_SIZE
 	arena.position = Vector2(left, top)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
+	rules_button.position = Vector2(size.x - 92.0, 26.0)
+	rules_button.size = Vector2.ZERO
 	_place(sub_label, Vector2(20, 96), Vector2(size.x - 40, 40))
 	_place(hud_label, Vector2(left, 110), Vector2(side, 50))
 	_place(info_label, panel_pos, Vector2(panel_width, 70))
@@ -731,15 +736,6 @@ func _boon_strip(ids: Array, side: float, names := true) -> Control:
 func _show_boon_info(id: String) -> void:
 	var b := Boons.get_def(id)
 	var col: Color = Roster.RARITY_COLORS[b.rarity]
-	var root := Control.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var dim := Button.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var dim_style := Kit.box(Color(.02, .015, .06, .7), Color(0, 0, 0, 0), 0, 0, 0)
-	for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-		dim.add_theme_stylebox_override(st, dim_style)
-	dim.pressed.connect(root.queue_free)
-	root.add_child(dim)
 	var rarity: String = Roster.RARITY_NAMES[b.rarity] + " boon"
 	var lines: Array = [
 		BoonIcon.make(b.icon, b.rarity, 140),
@@ -749,11 +745,44 @@ func _show_boon_info(id: String) -> void:
 	]
 	if b.has("for"):
 		lines.append(Kit.label("Only for critters with the %s ability." % b.for.capitalize(), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+	_overlay_card(lines, Kit.box(Roster.rarity_bg(b.rarity, Kit.PANEL, 0.18), col, 32, 3, 28), "br_boon_close")
+	print("BOUNCERUN_BOON_INFO %s" % id)
+	_report.call_deferred("br_boon_info")
+
+
+## How a run works, behind the "i": the screens only show what you are deciding.
+func _show_rules() -> void:
+	var lines: Array = [Kit.label("How Bounce Run works", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]
+	for t in [
+		"Draft 3 critters and 3 starting boons, then climb %d floors. Foes start easy and get tougher." % BounceRun.FLOORS,
+		"Pick who to send each floor. Lose and that critter is out; lose all three and the run ends.",
+		"Your trio starts at T1 and goes up a tier every %d floors, up to T5 on the last floors. Foes stay T1." % BounceRun.FLOORS_PER_TIER,
+		"Win a floor to pick another boon. Boons power your whole trio. Rarer boons are stronger; tap a held boon to see it.",
+		"One ranked run a day goes on the leaderboard (floors, then lives left, then time). After that, practice runs are unranked.",
+	]:
+		lines.append(Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	_overlay_card(lines, Kit.box(Kit.PANEL, Kit.ACCENT, 32, 3, 28), "br_rules_close")
+	_report.call_deferred("br_rules")
+
+
+## A card over the page on a dimmed backdrop; tapping outside or Close shuts it.
+func _overlay_card(lines: Array, style: StyleBox, close_mark: String) -> void:
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var dim := Button.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var dim_style := Kit.box(Color(.02, .015, .06, .7), Color(0, 0, 0, 0), 0, 0, 0)
+	for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		dim.add_theme_stylebox_override(st, dim_style)
+	dim.pressed.connect(root.queue_free)
+	root.add_child(dim)
 	var close := Kit.button("Close", root.queue_free, "ghost", 26, 70)
-	lines.append(close)
-	_mark("br_boon_close", close)
-	var card := Kit.panel(Kit.vbox(14, lines), Kit.box(Roster.rarity_bg(b.rarity, Kit.PANEL, 0.18), col, 32, 3, 28))
+	_mark(close_mark, close)
 	var w := minf(600.0, get_viewport().get_visible_rect().size.x - 40.0)
+	for l in lines:
+		if l is Label and l.autowrap_mode != TextServer.AUTOWRAP_OFF:
+			l.custom_minimum_size.x = w - 56.0
+	var card := Kit.panel(Kit.vbox(14, lines + [close]), style)
 	card.custom_minimum_size.x = w
 	var centre := CenterContainer.new()
 	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -761,8 +790,6 @@ func _show_boon_info(id: String) -> void:
 	centre.add_child(card)
 	root.add_child(centre)
 	ui.add_child(root)
-	print("BOUNCERUN_BOON_INFO %s" % id)
-	_report.call_deferred("br_boon_info")
 
 
 func _expand(c: Control) -> Control:

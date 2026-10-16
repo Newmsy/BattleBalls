@@ -141,7 +141,7 @@ func _show_intro() -> void:
 	state = State.INTRO
 	sfx.on_menu()
 	var card: Dictionary = Ladder.CARDS[store.pending.card]
-	info_label.text = "%s, a themed team near your power, on %s. Their order stays hidden until each ball comes out. Win +%d, lose %d." % [
+	info_label.text = "%s, on %s. Win +%d, lose %d." % [
 		bot.name, Arenas.get_def(relay.config.get("arena", "square")).display_name, card.win, card.loss]
 	var foes := ArenaGhosts.critters(bot.lineup).map(func(c): return BallDefs.get_def(c).display_name)
 	foes.sort()

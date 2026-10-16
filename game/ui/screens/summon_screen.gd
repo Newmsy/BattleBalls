@@ -87,8 +87,7 @@ static func _wishlist_panel(shell) -> Control:
 		var slot := Kit.card_button(v, func(): _open_picker(shell), Color(WISH, .6) if i < p.wishlist.size() else Kit.LINE, Kit.PANEL2, 24, 8)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		slots.add_child(slot)
-	return Kit.panel(Kit.vbox(12, [head, slots,
-		Kit.label("Picks come up twice as often within their rarity.", 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]), Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20))
+	return Kit.panel(Kit.vbox(12, [head, slots]), Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20))
 
 
 ## Bottom sheet listing every critter by rarity; tap to add or remove a pick.
@@ -121,6 +120,12 @@ static func _open_picker(shell) -> void:
 			var t := Kit.card_button(Kit.vbox(0, [_centered(CritterIcon.make(id, 1, 84, false, not p.owns(id))), name]), func():
 				if not p.toggle_wishlist(id):
 					shell.toast("Your wishlist is full. Tap a pick to remove it.")
+				elif p.on_wishlist(id) and p.wishlist.size() >= p.WISHLIST_MAX:
+					# That was the last pick: nothing left to choose, so close the sheet.
+					shell.close_overlay()
+					shell.refresh()
+					shell.toast("Wishlist set.")
+					return
 				refresh.call(), Kit.LINE, Kit.PANEL2, 20, 6)
 			t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			tiles[id] = t
@@ -138,7 +143,7 @@ static func _open_picker(shell) -> void:
 	shell.mark("wishlist_done", done)
 	shell.sheet(Kit.vbox(16, [Kit.hbox(0, [Kit.label("Wishlist", 36), Kit.spacer(), count]),
 		# Fixed line breaks: a wrapping label has no width yet when the sheet measures itself.
-		Kit.label("Pick up to 3 critters you're chasing. Each comes up\ntwice as often as others of its rarity. Change any time.", 21, Kit.MUTED),
+		Kit.label("Pick up to 3 critters you're chasing.", 21, Kit.MUTED),
 		scroll, done]))
 
 

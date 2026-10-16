@@ -125,7 +125,11 @@ static func build(shell, params: Dictionary) -> Control:
 	for s in p.copies(c.id):
 		if ready.is_empty() and s.count >= 3 and s.tier < Roster.MAX_TIER:
 			ready = s
-	var lineup := Kit.button("In lineup" if p.lineup == c.id else "Use in lineup", func(): p.set_lineup(c.id); shell.toast("%s is now your fighter." % c.name); shell.refresh(), "ghost", 26, 90)
+	# Picking a fighter means you want to fight with it: back to Play, where Quick fight is.
+	var lineup := Kit.button("Your fighter" if p.lineup == c.id else "Fight with this", func():
+		p.set_lineup(c.id)
+		shell.show_tab("play")
+		shell.toast("%s is now your fighter." % c.name), "ghost", 26, 90)
 	var fuse := Kit.button("Fuse T%d" % ready.get("tier", b.tier), func(): shell.open_tab("fuse", {"id": c.id, "tier": ready.tier}), "go", 26, 90)
 	fuse.disabled = ready.is_empty()
 	shell.mark("fuse_this", fuse)

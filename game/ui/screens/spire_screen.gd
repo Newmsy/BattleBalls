@@ -45,6 +45,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	var how: Control = shell.info_button("How the Spire works", [
 		"One %d-floor tower for everyone, rebuilt every Monday. Pick your lineup for each floor; they fight in the order you pick them, and a winner stays in with the HP it has left." % Spire.FLOORS,
+		"Boss floors: the boss is huge and takes on your whole lineup alone.",
 		"Every critter that comes out to fight spends 1 of its %d Stamina, win or lose. Tired critters rest until Monday, so spread the climb across your whole collection." % SpireClimb.STAMINA,
 		"Coming up: " + _upcoming_text(climb),
 	], "spire_info")
@@ -98,8 +99,6 @@ static func _floor_card(spec: Dictionary) -> Control:
 	var v := Kit.vbox(12, [
 		Kit.caption("Next floor · plain arena · %d vs %d" % [spec.lineup, spec.enemies.size()], TOWER),
 		Kit.label(title, 36),
-		Kit.label("They fight in this order. The boss is huge and takes on your whole lineup alone." if spec.boss else "They fight in this order. Winners stay in with the HP they have left.",
-			22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 		foes,
 		Kit.label("First clear: " + ", ".join(bits), 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
