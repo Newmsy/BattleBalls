@@ -274,7 +274,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 				if src >= 0 and src < sim.balls.size() and src != e.target:
 					hitters.append(src)
 					var a := sim.balls[src]
-					if e.kind == "contact" and a.type_id == "vampire":
+					if e.kind == "contact" and a.type_id in ["vampire", "munch"]:
 						var dir: Vector2 = (t.pos - a.pos).normalized()
 						_chomps.append({"pos": e.pos, "dir": dir, "size": a.radius * 0.55, "age": 0.0})
 					elif a.type_id == "juggernaut" and e.kind in ["contact", "slam"]:
@@ -308,6 +308,9 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_particles.append({"pos": m.pos + Vector2(0, -m.radius * 1.3), "vel": _rand_dir() * _fx_rng.randf_range(80.0, 260.0), "age": 0.0, "life": 0.4})
 			"pulse", "boom":
 				var pk: String = e.get("kind", "")
+				if pk == "dirt": # Mole bursting up.
+					_dirt_spray(e.pos, 20)
+					_shake = maxf(_shake, 7.0 * A11y.motion())
 				if pk in ["zap", "bigzap"]:
 					# Lightning forks out to every foe in reach, inside a crackling ring.
 					_bolts.append({"from": e.pos, "radius": e.radius, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
@@ -491,6 +494,24 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "BOW!", POP_SNAP)
 			"dig":
 				_rings.append({"pos": e.pos, "radius": sim.balls[e.ball].radius * 1.2, "color": RING_COLORS.dirt, "age": 0.0})
+				_dirt_spray(e.pos, 14)
+			"relight": # Flicker's candle bursts back into flame.
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 40), "RELIT!", BattleFx.BURN)
+				for q in 24:
+					var dir := Vector2.from_angle(_fx_rng.randf() * TAU)
+					_particles.append({"pos": e.pos + dir * g.radius * 0.5, "vel": dir * _fx_rng.randf_range(140.0, 380.0) + Vector2(0, -160.0), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.8), "col": BattleFx.BURN_CORE if q % 3 == 0 else BattleFx.BURN, "size": _fx_rng.randf_range(3.0, 7.0)})
+				_shake = maxf(_shake, 6.0 * A11y.motion())
+			"pucker": # Pucker's full sour splashes the foe.
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 50), "PUCKER!", BattleFx.SOUR, 1.15)
+				for q in 22:
+					var dir := Vector2.from_angle(_fx_rng.randf() * TAU)
+					_particles.append({"pos": e.pos, "vel": dir * _fx_rng.randf_range(160.0, 420.0), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.7), "col": BattleFx.SOUR if q % 2 else Color("9ef01a"), "size": _fx_rng.randf_range(4.0, 7.0)})
+			"spike_burst": # Spiker fires its ring of spikes.
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-46, -g.radius - 40), "SPIKES!", SPIKE)
+				_rings.append({"pos": e.pos, "radius": g.radius * 1.8, "color": SPIKE, "age": 0.0})
 			"snap":
 				var m := sim.balls[e.ball]
 				_add_popup(m.pos + Vector2(-34, -m.radius - 34), "SNAP!", POP_SNAP)
@@ -708,7 +729,10 @@ func _draw() -> void:
 	for shot in sim.shots:
 		_draw_shot(shot, s)
 	for t in sim.tethers:
-		_draw_string(sim.balls[t.owner].pos * s, sim.balls[t.target].pos * s)
+		if sim.balls[t.owner].type_id == "gumdrop":
+			BattleFx.draw_gum_string(self, sim.balls[t.owner].pos * s, sim.balls[t.target].pos * s, _time)
+		else:
+			_draw_string(sim.balls[t.owner].pos * s, sim.balls[t.target].pos * s)
 
 	var bi := 0
 	for beam in sim.beams:
@@ -723,6 +747,9 @@ func _draw() -> void:
 		elif sim.balls[beam.owner].def.get("beam_rainbow", 0):
 			col = Color.from_hsv(fmod(bi * 0.14 + _time * 0.5, 1.0), 0.7, 1.0)
 		bi += 1
+		if sim.balls[beam.owner].type_id == "zapper": # A crackling arc.
+			BattleFx.draw_bolt(self, a, b, 0.05, floorf(_time * 20.0) + bi, Color("c9a6ff"))
+			continue
 		if sim.balls[beam.owner].type_id == "beacon": # A lighthouse cone, not a laser.
 			BattleFx.draw_cone(self, a, b, k, 10.0 * s * 3.0, 90.0 * s * 3.0)
 		draw_line(a, b, Color(col, 0.18 * k), 14.0, true)
@@ -818,6 +845,8 @@ func _draw() -> void:
 	for b in sim.balls:
 		if b.alive() and b.type_id == "leviathan" and sim.tick < int(b.state.get("dive_until", -1)):
 			BattleFx.draw_fin(self, ball_pos(b) * s, b.radius * s, b.vel, _time)
+		elif b.alive() and b.state.get("digging", false) and sim.tick < int(b.state.get("phase_until", -1)):
+			BattleFx.draw_burrow(self, ball_pos(b) * s, b.radius * s, b.vel, _time)
 		elif b.alive():
 			_draw_critter(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
 			_draw_status(b, s)
@@ -1298,6 +1327,11 @@ func _draw_zone(z, s: float) -> void:
 			BattleFx.draw_bomb(self, p, s, z.armed(), z.blast_radius, z.age, z.pos.x * 0.01, _time)
 		"mine" when z.owner >= 0 and z.owner < sim.balls.size() and sim.balls[z.owner].type_id == "blizz":
 			BattleFx.draw_ice_mine(self, p, s, z.armed(), z.blast_radius, z.age, z.pos.y * 0.01, _time)
+		"afterimage":
+			var col: Color = sim.balls[z.owner].def.color if z.owner >= 0 and z.owner < sim.balls.size() else Color.WHITE
+			BattleFx.draw_afterimage(self, p, z.radius * s, fade, col)
+		"lava":
+			BattleFx.draw_lava(self, p, z.radius * s, fade, fmod(z.pos.x * 0.07 + z.pos.y * 0.11, 6.28), _time)
 		"inkpool":
 			BattleFx.draw_ink(self, p, z.radius * s, fade, fmod(z.pos.x * 0.09 + z.pos.y * 0.05, 6.28), _time)
 		"ice":
@@ -1389,6 +1423,9 @@ func _draw_shot(shot, s: float) -> void:
 		draw_circle(p + lift, 15.0 * s, col)
 		draw_circle(p + lift + Vector2(-3, -3) * s, 4.0 * s, Color.WHITE)
 		return
+	if shot.kind == "spike":
+		BattleFx.draw_spike_shot(self, p, maxf(r, 6.0), shot.vel)
+		return
 	var back: Vector2 = -shot.vel.normalized() if shot.vel.length() > 0.001 else Vector2.ZERO
 	if shot.kind in ["rocket", "stinger"]:
 		draw_line(p, p + back * r * 3.0, Color(Color("ffb347") if shot.kind == "rocket" else col, 0.6), r * 0.9, true)
@@ -1408,10 +1445,10 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 		BattleFx.draw_tentacle(self, item.from * s, p, r, col, _time, (item.pos - b.pos).angle())
 		return
 	if item.has("from"):
-		var thick := 10.0 if item.look == "tentacle" else 4.0
-		draw_line(item.from * s, p, Color(col.lightened(0.25), 0.85), thick * s, true)
 		if item.look == "wreck":
-			draw_line(item.from * s, p, Color("ffe066", 0.5), 1.5, true)
+			BattleFx.draw_chain(self, item.from * s, p, 9.0 * s * 1.6)
+		else:
+			draw_line(item.from * s, p, Color(col.lightened(0.25), 0.85), 4.0 * s, true)
 	match item.look:
 		"bug":
 			draw_circle(p, r * 2.2, Color("eaff6a", 0.18 + 0.1 * sin(_time * 8.0)))
@@ -1447,6 +1484,13 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 			draw_circle(p, r + 4.0 * s, Color("d9d4ff", 0.25))
 			draw_circle(p, r, Color("d9d4ff"))
 			draw_circle(p + Vector2(-3, -3) * s, r * 0.4, Color.WHITE)
+
+
+## Clods of dirt thrown up (Mole digging in or bursting out).
+func _dirt_spray(at: Vector2, n: int) -> void:
+	for q in n:
+		var dir := Vector2.from_angle(_fx_rng.randf() * TAU)
+		_particles.append({"pos": at, "vel": dir * _fx_rng.randf_range(120.0, 380.0) + Vector2(0, -120.0), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.8), "col": BattleFx.DIRT if q % 2 else BattleFx.DIRT.lightened(0.25), "size": _fx_rng.randf_range(4.0, 7.0)})
 
 
 ## One-off effects from _fx.
@@ -1575,7 +1619,9 @@ func _draw_status(b, s: float) -> void:
 	var r: float = b.radius * s
 	if sim.tick < int(b.state.get("phase_until", -1)) and b.type_id != "leviathan":
 		draw_circle(p, r * 1.05, Color(ARENA_FILL, 0.6))
-	if b.shield > 0.0 and b.type_id == "megabot":
+	if b.shield > 0.0 and b.type_id == "vampire":
+		BattleFx.draw_blood_shield(self, p, r, _time)
+	elif b.shield > 0.0 and b.type_id == "megabot":
 		BattleFx.draw_hex_shield(self, p, r, _time, clampf(b.shield / maxf(1.0, b.def.get("salvo_shield", 10.0)), 0.0, 1.0))
 	elif b.shield > 0.0:
 		draw_arc(p, r * 1.12, 0.0, TAU, 48, Color("7fe6ff", 0.85), 4.0, true)
