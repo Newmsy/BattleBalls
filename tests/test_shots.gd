@@ -8,7 +8,7 @@ const Gear := preload("res://sim/gear.gd")
 
 
 func _sim(p1 := "plain", p2 := "plain", tiers := [1, 1]) -> MatchSim:
-	return MatchSim.new({"seed": 3, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false, "tiers": tiers})
+	return MatchSim.new({"rarity_potency": false, "seed": 3, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false, "tiers": tiers})
 
 
 ## Parks both balls far apart and motionless so a test can stage one event.
@@ -217,6 +217,6 @@ func test_cooldown_gear_speeds_up_named_timers() -> void:
 
 func test_shots_replay_identically() -> void:
 	for id in ["pip", "zing", "clam", "mortar", "pollen", "megabot", "brewster"]:
-		var a := MatchSim.new({"seed": 77, "p1": id, "p2": "vampire", "tiers": [5, 5]}).run_to_end()
-		var b := MatchSim.new({"seed": 77, "p1": id, "p2": "vampire", "tiers": [5, 5]}).run_to_end()
+		var a := MatchSim.new({"rarity_potency": false, "seed": 77, "p1": id, "p2": "vampire", "tiers": [5, 5]}).run_to_end()
+		var b := MatchSim.new({"rarity_potency": false, "seed": 77, "p1": id, "p2": "vampire", "tiers": [5, 5]}).run_to_end()
 		check_eq(a.hash, b.hash, "%s replays" % id)

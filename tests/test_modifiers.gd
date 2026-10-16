@@ -6,11 +6,11 @@ const Modifiers := preload("res://sim/modifiers.gd")
 
 
 func _sim(modifier: String, seed_value := 5) -> MatchSim:
-	return MatchSim.new({"seed": seed_value, "p1": "vampire", "p2": "laser", "angles": [null, null], "modifier": modifier})
+	return MatchSim.new({"rarity_potency": false, "seed": seed_value, "p1": "vampire", "p2": "laser", "angles": [null, null], "modifier": modifier})
 
 
 func test_no_modifier_matches_a_config_without_one() -> void:
-	var plain := MatchSim.new({"seed": 5, "p1": "vampire", "p2": "laser", "angles": [null, null]}).run_to_end()
+	var plain := MatchSim.new({"rarity_potency": false, "seed": 5, "p1": "vampire", "p2": "laser", "angles": [null, null]}).run_to_end()
 	check_eq(_sim(Modifiers.NONE).run_to_end().hash, plain.hash, "empty modifier changes nothing")
 
 

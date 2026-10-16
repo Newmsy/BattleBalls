@@ -17,6 +17,15 @@ static func multiplier(rarity: String, tier: int, level: int) -> float:
 	return pow(RARITY_STEP, maxi(0, RARITIES.find(rarity))) * pow(TIER_STEP, tier - 1) * (1.0 + LEVEL_STEP * (level - 1))
 
 
+## Rarity's half tier per step also counts for the ability: MatchSim builds a
+## ball's ability at its tier plus this many tiers of potency (no tier
+## upgrades), so a T1 Legendary's ability hits like a T3 one, as its stats do.
+## Without it a tier (stats and ability) outweighed two rarity steps (stats
+## only): T3 Commons beat T1 Legendaries 67% (tools/rarity_check.gd).
+static func rarity_tiers(rarity: String) -> float:
+	return 0.5 * maxi(0, RARITIES.find(rarity))
+
+
 ## Power Rating on the same scale as Roster.power: 1000 for a base ball.
 static func rating(power: float) -> int:
 	return roundi(1000.0 * power)

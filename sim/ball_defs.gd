@@ -22,9 +22,9 @@ const TUTORIAL_FOES := {
 }
 
 
-static func get_def(id: String, tier := 1) -> Dictionary:
+static func get_def(id: String, tier := 1, bonus_tiers := 0.0) -> Dictionary:
 	assert(DEFS.has(id), "Unknown ball id: %s" % id)
-	return DEFS[id] if tier == 1 else CritterDb.sim_def(id, tier)
+	return DEFS[id] if tier == 1 and bonus_tiers == 0.0 else CritterDb.sim_def(id, tier, bonus_tiers)
 
 
 static func _defs() -> Dictionary:

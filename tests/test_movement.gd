@@ -7,7 +7,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 
 func _sim(p1 := "plain", p2 := "plain", tiers := [1, 1], seed := 1) -> MatchSim:
-	return MatchSim.new({"seed": seed, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false, "tiers": tiers})
+	return MatchSim.new({"rarity_potency": false, "seed": seed, "p1": p1, "p2": p2, "angles": [null, null], "damage_rolls": false, "tiers": tiers})
 
 
 ## Parks both balls far apart and motionless so a test can stage one event.
@@ -44,7 +44,7 @@ func test_teleport_spot_is_open_far_from_the_foe_and_seeded() -> void:
 		check(sim.arena_rect().grow(-a.radius).has_point(spot), "seed %d: inside the walls" % seed)
 		var again := _sim("plain", "plain", [1, 1], seed)
 		check_eq(again.teleport_spot(again.balls[0], again.balls[1].pos, 300.0), spot, "seed %d: same seed, same spot" % seed)
-	var pillars := MatchSim.new({"seed": 3, "p1": "plain", "p2": "plain", "arena": "pillars"})
+	var pillars := MatchSim.new({"rarity_potency": false, "seed": 3, "p1": "plain", "p2": "plain", "arena": "pillars"})
 	for i in 30:
 		var p := pillars.teleport_spot(pillars.balls[0], pillars.balls[1].pos, 250.0)
 		for o in pillars.obstacles():

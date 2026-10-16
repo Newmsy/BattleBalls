@@ -6,7 +6,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 
 func _sim(p1: String, p2 := "plain", tiers := [1, 1]) -> MatchSim:
-	return MatchSim.new({"seed": 5, "p1": p1, "p2": p2, "tiers": tiers, "damage_rolls": false})
+	return MatchSim.new({"rarity_potency": false, "seed": 5, "p1": p1, "p2": p2, "tiers": tiers, "damage_rolls": false})
 
 
 func _steps(sim: MatchSim, n: int) -> void:

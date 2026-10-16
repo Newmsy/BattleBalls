@@ -52,6 +52,16 @@ func test_power_scales_hp_and_damage_but_not_speed() -> void:
 	check_eq(sim.balls[0].speed, sim.balls[1].speed, "speed unchanged")
 
 
+func test_rarity_builds_the_ability_half_a_tier_up() -> void:
+	# A T1 Legendary's ability hits like a T3 one (two rarity steps = one tier),
+	# so it can fight a T3 Common evenly, as its stats already do.
+	var sim := MatchSim.new({"seed": 1, "p1": "glacia", "p2": "crumb"})
+	check_near(sim.balls[0].def.shard_damage, BallDefs.get_def("glacia").shard_damage * 1.5, 0.001, "Legendary T1 potency = T3 (x1.5)")
+	check_eq(Power.rarity_tiers("common"), 0.0, "Commons get none")
+	var off := MatchSim.new({"seed": 1, "p1": "glacia", "p2": "crumb", "rarity_potency": false})
+	check_near(off.balls[0].def.shard_damage, BallDefs.get_def("glacia").shard_damage, 0.001, "audits can switch it off")
+
+
 func test_levels_are_capped_by_tier() -> void:
 	var p = Profile.new_game(T0)
 	p.add_xp("vampire", 100000)
