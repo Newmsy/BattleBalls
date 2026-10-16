@@ -81,6 +81,8 @@ const HEARTBEAT_EVERY := 0.85
 var mode := "all"
 ## Set while a fight is on screen, for the overtime cue and low-HP pulse.
 var fight_sim
+## The sim side the player is on (live matches put you on side 1 half the time).
+var you_side := 0
 
 var _variants := {} ## sound name -> Array[AudioStream]
 var _players: Array[AudioStreamPlayer] = []
@@ -136,7 +138,7 @@ func _process(delta: float) -> void:
 				play("rain")
 				_rain_in = RAIN_EVERY
 				break
-	var you = fight_sim.balls[0]
+	var you = fight_sim.balls[you_side]
 	if you.alive() and you.hp < you.max_hp * LOW_HP_SHARE:
 		_heartbeat_in -= delta
 		if _heartbeat_in <= 0.0:

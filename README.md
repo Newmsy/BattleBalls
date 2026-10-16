@@ -422,6 +422,13 @@ GODOT=godot tools/ci/live_e2e.sh                                     # both, as 
 docker build -f server/Dockerfile -t battleballs-live .              # the image Azure will run
 ```
 
+In the game, Quick fight's FIGHT! finds a live foe when Settings > Testing >
+Live Quick fights is on (needs `Dev.LIVE_SERVER` in `game/dev.gd`), or for one
+visit with `?live=ws://127.0.0.1:8080` (add `&auto=1` to queue and launch at
+once). `game/online/live_client.gd` is the phone's side of the protocol; you can
+be on sim side 1, so the arena, health bars and result follow `you_side`.
+Smoke case 1c plays a live match between two browsers on a local server.
+
 CI's `live_server` job builds and smoke-starts the image on every PR; on `main` it
 pushes it to GitHub Packages (`ghcr.io/newmsy/battleballs-live`) and, once the
 `AZURE_*` secrets exist, rolls it out to the Azure Container App `battleballs-live`

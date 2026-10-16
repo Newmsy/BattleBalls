@@ -187,6 +187,31 @@ try {
     await page.close();
   }
 
+  // 1c. Live Quick fight: two browsers meet on a local live server
+  // (server/live_server.gd, dev sign-in), aim, and each replays the server's
+  // fight. Both must agree with the server and see opposite results.
+  if (mine(40)) {
+    const godot = process.env.GODOT ?? path.join(os.homedir(), "godot", "godot");
+    const port = 18090;
+    const live = execFile(godot, ["--headless", "--script", "res://server/live_server.gd"],
+      { cwd: path.resolve(".."), env: { ...process.env, LIVE_DEV: "1", PORT: String(port) } });
+    try {
+      const q = `&live=ws://127.0.0.1:${port}&auto=1&speed=4&offline=1&tutorial=0`;
+      const a = await openGame("?p1=vampire" + q);
+      const b = await openGame("?p1=frost" + q);
+      const ends = await Promise.all([a, b].map(({ logs }) => waitForLog(logs, "LIVE_END ", 150000)));
+      console.log("live fight:", ends.join(" | "));
+      await a.page.screenshot({ path: path.join(shots, "1c-live.png") });
+      for (const e of ends) if (!e.startsWith("LIVE_END ok")) errors.push(`live fight differs from the server's: ${e}`);
+      const side = (e) => Number(/side=(\d)/.exec(e)[1]);
+      if (side(ends[0]) === side(ends[1])) errors.push(`both live players got the same side: ${ends.join(" | ")}`);
+      await a.page.close();
+      await b.page.close();
+    } finally {
+      live.kill();
+    }
+  }
+
   // 1b. Season 1 debut: Flux (Magnet) fights Optic; its field rings and poles render.
   if (mine(24)) {
     const { page, logs } = await openGame("?p1=magnet&p2=laser&seed=42&auto=1&speed=2");

@@ -99,6 +99,9 @@ const LOW_HP_SHARE := 0.35
 
 var sim: MatchSim
 var team_tags: Array = TEAM_TAGS ## Labels under each ball; a shared replay uses P1/P2.
+## The sim side the viewer plays: a live match puts you on side 1 half the
+## time, and the rings, tags and aim line follow you, not the sim's order.
+var you_side := 0
 var view_scale := 0.68
 ## Launch aim preview for the player's ball (world direction), or ZERO to hide.
 var aim_dir := Vector2.ZERO
@@ -258,7 +261,7 @@ func _fit_slots() -> void:
 ## The tier ball i fights at: from the fight's config (tier ability upgrades),
 ## else the `tiers` the screen set. Twins share their side's tier.
 func _tier_of(i: int) -> int:
-	var side := _side(i)
+	var side: int = sim.balls[i].team if sim and i < sim.balls.size() else i % 2
 	if sim:
 		var ts: Array = sim.config.get("tiers", [])
 		if i < sim.starters and i < ts.size(): # A 2v2's mates have their own tier.
@@ -268,8 +271,9 @@ func _tier_of(i: int) -> int:
 	return int(tiers[side]) if side < tiers.size() else 1
 
 
+## The side as the viewer sees it (0 = you, 1 = foe).
 func _side(i: int) -> int:
-	return sim.balls[i].team if sim and i < sim.balls.size() else i % 2
+	return (sim.balls[i].team if sim and i < sim.balls.size() else i % 2) ^ you_side
 
 
 ## Effect slots for `n` preview balls (the menu's 2v2 shows four).
@@ -896,12 +900,12 @@ func _draw() -> void:
 		_star(k.pos * s, 10.0 + t * grow, 5.0 + t * grow * 0.43, 8, Color(BURST, 1.0 - t))
 
 	if aim_dir != Vector2.ZERO:
-		var b := sim.balls[0]
+		var b := sim.balls[you_side]
 		for i in 12:
 			Dot.circle(self, b.pos * s + aim_dir * (b.radius + 40.0 + i * 38.0) * s, 5.0, Color(TEAM_COLORS[0], 1.0 - i / 12.0))
 
 	if ghost_dir != Vector2.ZERO:
-		_ghost_arrow(sim.balls[0], s)
+		_ghost_arrow(sim.balls[you_side], s)
 
 	for w in _wisps:
 		if w.age < 0.0:
