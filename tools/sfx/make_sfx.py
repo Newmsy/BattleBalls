@@ -555,6 +555,39 @@ def roar():
     return mix(growl, breath, snow)
 
 
+def cannon():
+    """Mortar firing: a toy-cannon 'thoomp' with a puff of smoke."""
+    dur = 0.45
+    thump = osc(sweep(140, 45, dur, 0.4), "sine") * env(dur, 0.002, 6)
+    blast = lowpass(bandnoise(0.2, 100, 4000), 1800) * env(0.2, 0.001, 8) * 0.9
+    smoke = lowpass(bandnoise(dur, 200, 2000), 900) * env(dur, 0.05, 3) * 0.35
+    return mix(thump, blast, smoke)
+
+
+def splat():
+    """Painter's paint: a wet, cartoon splat."""
+    dur = 0.25
+    wet = lowpass(bandnoise(dur, 300, 5000), sweep(5000, 800, dur, 0.5)) * env(dur, 0.002, 6)
+    blob = osc(sweep(420, 160, 0.12, 0.6), "sine") * env(0.12, 0.002, 6) * 0.6
+    return mix(wet, blob)
+
+
+def sonar():
+    """Sonar's ping: a clear sonar blip with an echo."""
+    dur = 0.25
+    blip = osc(sweep(1900, 1750, dur, 1.0), "sine") * env(dur, 0.002, 5) * 0.8
+    return mix(blip, delay(blip * 0.4, 0.14), delay(blip * 0.15, 0.28))
+
+
+def twinkle():
+    """Comet's shooting star: a quick sparkly run up."""
+    parts = []
+    for i, n in enumerate([84, 88, 91, 96]):
+        d = 0.12
+        parts.append(delay(osc(np.full(int(d * SR), midi(n)), "sine") * env(d, 0.002, 6) * 0.45, 0.04 * i))
+    return mix(*parts)
+
+
 SOUNDS = {
     "hit_0": lambda: hit(0), "hit_1": lambda: hit(1), "hit_2": lambda: hit(2),
     "hit_big": lambda: hit(0, big=True),
@@ -571,6 +604,7 @@ SOUNDS = {
     "crackle": crackle, "rustle": rustle, "fizzpop": fizzpop, "drum": drum, "rain": rain, "hum": hum,
     "ticktock": ticktock, "splash": splash, "shatter": shatter,
     "clunk": clunk, "glug": glug, "whoosh": whoosh, "buzz": buzz, "puff": puff, "roar": roar,
+    "cannon": cannon, "splat": splat, "sonar": sonar, "twinkle": twinkle,
 }
 
 

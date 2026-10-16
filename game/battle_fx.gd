@@ -1190,3 +1190,181 @@ static func _flake(ci: CanvasItem, at: Vector2, r: float, col: Color) -> void:
 	for q in 3:
 		var d := Vector2.from_angle(q * PI / 3.0) * r
 		ci.draw_line(at - d, at + d, col, 2.0, true)
+
+
+# --- Batch 7: Comet, Mortar, Painter, Sonar, Splitter, Sprout, Zigzag, Zing,
+# Gust ---------------------------------------------------------------------------
+
+const STARDUST := Color("ff8ae2")
+const SONAR := Color("b48cff")
+const ZIG := Color("ffe14d")
+const SAP := Color("8ac926")
+const PAINTS := [Color("ff5d8f"), Color("ffd23f"), Color("4cc9f0"), Color("80ed99"), Color("b388ff")]
+const SONAR_LIFE := 0.7
+const MITOSIS_LIFE := 0.6
+
+
+## Comet's blazing tail streaming behind it, with twinkles.
+static func draw_comet_tail(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	if vel.length() < 0.001:
+		return
+	var back := -vel.normalized()
+	var side := back.orthogonal()
+	for q in 6:
+		var f := (q + 1) / 6.0
+		ci.draw_circle(p + back * r * (0.6 + 1.6 * f) + side * sin(t * 12.0 + q) * r * 0.08, r * (0.75 - 0.6 * f), Color(STARDUST.lerp(Color("ffe9a8"), f), 0.4 * (1.0 - f)))
+	for q in 4:
+		var f := fmod(t * 1.7 + q * 0.25, 1.0)
+		var at := p + back * r * (0.8 + 2.0 * f) + side * r * 0.5 * sin(q * 2.1 + t)
+		_twinkle(ci, at, r * 0.18 * (1.0 - f), Color(1, 1, 1, 0.9 * (1.0 - f)))
+
+
+## A four-point twinkle.
+static func _twinkle(ci: CanvasItem, at: Vector2, r: float, col: Color) -> void:
+	if r < 0.5:
+		return
+	ci.draw_line(at - Vector2(r, 0), at + Vector2(r, 0), col, 2.0, true)
+	ci.draw_line(at - Vector2(0, r), at + Vector2(0, r), col, 2.0, true)
+	ci.draw_circle(at, r * 0.3, col)
+
+
+## Comet's stardust trail: a glittering patch with twinkling stars.
+static func draw_stardust(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	ci.draw_circle(p, rad * 0.65, Color(STARDUST, 0.2 * fade))
+	for q in 3:
+		var a := seed + q * 2.1
+		var tw := 0.5 + 0.5 * sin(t * 6.0 + seed * 3.0 + q * 2.0)
+		_twinkle(ci, p + Vector2.from_angle(a) * rad * 0.45, rad * 0.3 * tw * fade, Color(Color("fff0fb"), 0.9 * fade))
+
+
+## Comet's shooting star: a bright head racing along the beam with a sparkly wake.
+static func draw_shooting_star(ci: CanvasItem, a: Vector2, b: Vector2, k: float, t: float) -> void:
+	var head := a.lerp(b, clampf(1.2 - k, 0.0, 1.0))
+	ci.draw_line(a, head, Color(STARDUST, 0.35 * k), 8.0, true)
+	ci.draw_line(a, head, Color(1, 1, 1, 0.7 * k), 2.5, true)
+	for q in 5:
+		var f := q / 5.0
+		_twinkle(ci, a.lerp(head, f) + (b - a).orthogonal().normalized() * sin(t * 20.0 + q) * 6.0, 5.0 * f * k, Color(Color("ffe9a8"), k))
+	ci.draw_circle(head, 9.0, Color(STARDUST, 0.6 * k))
+	_twinkle(ci, head, 14.0 * k, Color.WHITE)
+
+
+## Mortar's barrel, pointing at `aim`.
+static func draw_barrel(ci: CanvasItem, p: Vector2, r: float, aim: Vector2, recoil: float) -> void:
+	var d := aim.normalized() if aim.length() > 0.001 else Vector2.UP
+	var base := p + d * r * (0.55 - 0.25 * recoil)
+	ci.draw_line(base, base + d * r * 0.7, Color("2b2f36"), r * 0.42, true)
+	ci.draw_line(base + d * r * 0.62, base + d * r * 0.72, Color("ffb347"), r * 0.5, true)
+
+
+## Mortar's shell in flight: a black cannonball with a fizzing fuse.
+static func draw_cannonball(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	ci.draw_circle(p, r, Color("23262b"))
+	ci.draw_circle(p + Vector2(-r * 0.35, -r * 0.35), r * 0.25, Color(1, 1, 1, 0.35))
+	var fuse := p + Vector2(r * 0.6, -r * 0.8)
+	ci.draw_line(p + Vector2(r * 0.4, -r * 0.6), fuse, Color("c9a26b"), 2.5, true)
+	var fl := 0.6 + 0.4 * sin(t * 40.0)
+	ci.draw_circle(fuse, r * 0.3 * fl, Color(BURN, 0.8))
+	ci.draw_circle(fuse, r * 0.15 * fl, BURN_CORE)
+
+
+## Painter: drips of paint running down its body.
+static func draw_paint_drips(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	for q in 5:
+		var a := PI * (0.15 + 0.7 * q / 4.0)
+		var top := p + Vector2(cos(a), -sin(a)) * r * 0.95
+		var f := fmod(t * 0.5 + q * 0.37, 1.0)
+		var col: Color = PAINTS[q]
+		ci.draw_circle(top, r * 0.16, col)
+		ci.draw_line(top, top + Vector2(0, r * 0.35 * f), col, r * 0.12, true)
+		ci.draw_circle(top + Vector2(0, r * 0.35 * f), r * 0.08, col)
+
+
+## Sonar's ping: three arcs of sound rippling out.
+static func draw_sonar(ci: CanvasItem, c: Vector2, reach: float, age: float) -> void:
+	for q in 3:
+		var f := clampf(age / SONAR_LIFE - q * 0.15, 0.0, 1.0)
+		if f <= 0.0 or f >= 1.0:
+			continue
+		ci.draw_arc(c, reach * f, 0.0, TAU, 56, Color(SONAR, 0.85 * (1.0 - f)), 4.0 * (1.0 - f) + 1.0, true)
+
+
+## Sonar's bat wings, flapping either side of the body.
+static func draw_bat_wings(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	var flap := 0.55 + 0.45 * sin(t * 10.0)
+	for s in [-1.0, 1.0]:
+		var root := p + Vector2(s * r * 0.8, -r * 0.1)
+		var tip := p + Vector2(s * r * (1.5 + 0.2 * flap), -r * (0.2 + 0.7 * flap))
+		var low := p + Vector2(s * r * 1.35, r * 0.3)
+		var mid := p + Vector2(s * r * 1.45, -r * 0.05)
+		if r > 3.0: # Two triangles, so the shape can't fold over itself.
+			ci.draw_colored_polygon(PackedVector2Array([root, tip, mid]), Color("3b2a5c"))
+			ci.draw_colored_polygon(PackedVector2Array([root, mid, low]), Color("3b2a5c"))
+			ci.draw_polyline(PackedVector2Array([root, tip, mid, low]), Color(SONAR, 0.8), 2.0, true)
+
+
+## Splitter's split: a gooey bridge snapping between the two halves.
+static func draw_mitosis(ci: CanvasItem, a: Vector2, b: Vector2, r: float, age: float, col: Color) -> void:
+	var f := clampf(age / MITOSIS_LIFE, 0.0, 1.0)
+	var thick := r * 0.8 * (1.0 - f)
+	if thick < 1.0:
+		return
+	ci.draw_line(a, b, Color(col, 0.7 * (1.0 - f)), thick, true)
+	ci.draw_circle(a.lerp(b, 0.5), thick * 0.4, Color(col.lightened(0.3), 0.8 * (1.0 - f)))
+
+
+## Sprout's seed pillar: a sapling with leaves and a bud, growing in.
+static func draw_sapling(ci: CanvasItem, p: Vector2, rad: float, k: float, t: float) -> void:
+	ci.draw_circle(p, rad * (0.4 + 0.6 * k), Color("4a2f1b", 0.8)) # Soil.
+	if k < 0.05:
+		return
+	var h := rad * 1.3 * k
+	var sway := sin(t * 2.0 + p.x * 0.01) * rad * 0.1
+	var top := p + Vector2(sway, -h)
+	ci.draw_line(p, top, Color("2f6b12"), rad * 0.18, true)
+	for s in [-1.0, 1.0]:
+		var at := p.lerp(top, 0.55)
+		ci.draw_circle(at + Vector2(s * rad * 0.35 * k, 0), rad * 0.28 * k, SAP)
+		ci.draw_line(at, at + Vector2(s * rad * 0.35 * k, 0), Color("2f6b12"), 2.0, true)
+	ci.draw_circle(top, rad * 0.22 * k, Color("ff9ecf"))
+	ci.draw_arc(p, rad, 0.0, TAU, 32, Color(SAP, 0.6 * k), 2.0, true)
+
+
+## Zigzag charged: little sparks jumping round its rim.
+static func draw_charged(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	for q in 3:
+		var a := floorf(t * 14.0) * 1.7 + q * TAU / 3.0
+		var at := p + Vector2.from_angle(a) * r * 1.05
+		var out := at + Vector2.from_angle(a + 0.6) * r * 0.3
+		ci.draw_line(at, out, ZIG, 3.0, true)
+		ci.draw_line(out, out + Vector2.from_angle(a - 0.5) * r * 0.25, ZIG, 3.0, true)
+
+
+## Zing's stinger: a sharp black-and-yellow dart.
+static func draw_stinger(ci: CanvasItem, p: Vector2, r: float, vel: Vector2) -> void:
+	var d := vel.normalized() if vel.length() > 0.001 else Vector2.RIGHT
+	ci.draw_line(p - d * r * 2.2, p - d * r * 0.5, Color(ZIG, 0.35), r * 0.8, true) # Blur.
+	ci.draw_line(p - d * r * 0.8, p + d * r * 0.4, Color("ffc93c"), r * 1.0, true)
+	ci.draw_line(p - d * r * 0.2, p + d * r * 0.05, Color("2a1d05"), r * 1.05, true)
+	ci.draw_line(p + d * r * 0.4, p + d * r * 1.6, Color("2a1d05"), maxf(1.5, r * 0.3), true)
+
+
+## Zing's wasp stripes and wings.
+static func draw_wasp(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	var flap := 0.5 + 0.5 * sin(t * 50.0)
+	for s in [-1.0, 1.0]:
+		ci.draw_circle(p + Vector2(s * r * (0.85 + 0.15 * flap), -r * 0.75), r * 0.42, Color(1, 1, 1, 0.45))
+	for q in [-0.45, 0.45]:
+		ci.draw_arc(p + Vector2(0, r * q), r * 0.95 * sqrt(1.0 - q * q), PI * 0.12, PI * 0.88, 10, Color("2a1d05", 0.75), 4.0, true)
+
+
+## Gust's wind: swirls curling round it, faster in a huff.
+static func draw_gusts(ci: CanvasItem, p: Vector2, r: float, reach: float, t: float, huffing: bool) -> void:
+	var n := 6 if huffing else 3
+	for q in n:
+		var f := fmod(t * (1.2 if huffing else 0.5) + q / float(n), 1.0)
+		var a := q * TAU / n + t * 0.8
+		var rr := r * 1.2 + (reach - r) * f
+		ci.draw_arc(p, rr, a, a + (0.9 if huffing else 0.6), 12, Color(Color("e8fff0"), (0.7 if huffing else 0.4) * (1.0 - f)), 3.0, true)
+		var tip := p + Vector2.from_angle(a + 0.9) * rr
+		ci.draw_arc(tip + Vector2.from_angle(a + 0.9 - PI / 2.0) * r * 0.2, r * 0.2, a, a + PI * 1.4, 8, Color(Color("e8fff0"), 0.5 * (1.0 - f)), 2.0, true)
