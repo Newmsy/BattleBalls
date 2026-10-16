@@ -501,6 +501,60 @@ def shatter():
     return mix(crack * 1.2, delay(bells, 0.01), delay(grit, 0.02))
 
 
+def clunk():
+    """Gearbox shifting / Clam clamping: a heavy metal clunk with a ratchet."""
+    body = osc(sweep(180, 90, 0.18, 0.5), "square") * env(0.18, 0.001, 9) * 0.5
+    knock = lowpass(bandnoise(0.08, 300, 3000), 2500) * env(0.08, 0.0005, 7)
+    ratchet = mix(*[delay(bandnoise(0.015, 2000, 6000) * env(0.015, 0.0005, 6) * 0.5, 0.03 * i) for i in range(3)])
+    return mix(knock * 1.2, body, ratchet)
+
+
+def glug():
+    """Brewster's cauldron: a bubbly glug-glug and a little pop."""
+    parts = []
+    for i, f in enumerate([220, 300, 260]):
+        d = 0.09
+        parts.append(delay(osc(sweep(f, f * 1.8, d, 0.6), "sine") * env(d, 0.004, 5) * 0.8, 0.07 * i))
+    pop = delay(osc(sweep(900, 1500, 0.04, 1.0), "sine") * env(0.04, 0.001, 6) * 0.6, 0.24)
+    return mix(*parts, pop)
+
+
+def whoosh():
+    """Drako's fire breath: a roaring rush of flame."""
+    dur = 0.6
+    roar = lowpass(bandnoise(dur, 150, 5000), sweep(800, 3500, dur, 0.4)) * env(dur, 0.03, 2.5)
+    rumble = osc(sweep(90, 60, dur, 0.5), "saw") * env(dur, 0.02, 3) * 0.25
+    crackle = bandnoise(dur, 2500, 9000) * (rng.uniform(0, 1, int(dur * SR)) > 0.97) * env(dur, 0.05, 2) * 0.6
+    return mix(roar * 1.3, lowpass(rumble, 600), crackle)
+
+
+def buzz():
+    """A bee: a short buzzy zzz with a wobble."""
+    dur = 0.3
+    t = t_axis(dur)
+    f = 210 + 25 * np.sin(2 * np.pi * 18 * t)
+    return lowpass(osc(f, "saw"), 2200) * env(dur, 0.01, 3) * 0.6
+
+
+def puff():
+    """Whiff's cloud blooming: a soft airy 'pfff' with a low wobble."""
+    dur = 0.5
+    air = lowpass(bandnoise(dur, 200, 4000), sweep(3000, 700, dur, 0.5)) * env(dur, 0.02, 3)
+    wob = osc(sweep(140, 90, dur, 0.5), "sine") * (1 + 0.5 * np.sin(2 * np.pi * 22 * t_axis(dur))) * env(dur, 0.01, 4) * 0.35
+    return mix(air, wob)
+
+
+def roar():
+    """Yeti's roar: a big growl with a snowy rumble."""
+    dur = 0.8
+    t = t_axis(dur)
+    f = sweep(160, 95, dur, 0.6) * (1 + 0.04 * np.sin(2 * np.pi * 30 * t))
+    growl = lowpass(osc(f, "saw"), 1200) * env(dur, 0.03, 2.2) * 0.8
+    breath = lowpass(bandnoise(dur, 200, 3000), 1500) * env(dur, 0.05, 2) * 0.5
+    snow = delay(bandnoise(0.5, 1500, 8000) * env(0.5, 0.05, 3) * 0.3, 0.25)
+    return mix(growl, breath, snow)
+
+
 SOUNDS = {
     "hit_0": lambda: hit(0), "hit_1": lambda: hit(1), "hit_2": lambda: hit(2),
     "hit_big": lambda: hit(0, big=True),
@@ -516,6 +570,7 @@ SOUNDS = {
     "chomp": chomp, "thwomp": thwomp, "pew": pew,
     "crackle": crackle, "rustle": rustle, "fizzpop": fizzpop, "drum": drum, "rain": rain, "hum": hum,
     "ticktock": ticktock, "splash": splash, "shatter": shatter,
+    "clunk": clunk, "glug": glug, "whoosh": whoosh, "buzz": buzz, "puff": puff, "roar": roar,
 }
 
 
