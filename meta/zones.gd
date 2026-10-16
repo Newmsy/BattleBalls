@@ -96,12 +96,41 @@ const ZONES := [
 			{"enemy": "frost", "enemies": ["yeti", "blizz", "frost"], "power": 3.85, "boss": true, "name": "Glacier Chill", "arena": "spikes"},
 		],
 	},
+	## Zone 4, Bramble Hollow: trios among thorn walls (Spike Yard), old
+	## trees (Pillars) and sinkholes (Gravity Wells). Nature foes: Bramble's
+	## thorns, Pollen and Glowbug clouds, Mole digging, Swarm splitting, and
+	## the giant Thornking Bramble at the end.
+	{
+		"id": "bramble_hollow",
+		"name": "Bramble Hollow",
+		"lineup": 3,
+		"arena": "spikes",
+		"color": "9bd84a",
+		"twist": "Thorn walls, old trees and sinkholes",
+		"boss": "Thornking Bramble",
+		"icon": "thorns",
+		"featured": ["pip", "tumble", "mossy", "glowbug", "pollen", "crumb"],
+		"rare_bonus": ["whiff", "zing", "mole", "sprout"],
+		"boss_reward": "swarm",
+		"stages": [
+			{"enemy": "tumble", "enemies": ["tumble", "mossy", "pip"], "power": 4.0},
+			{"enemy": "glowbug", "enemies": ["glowbug", "pollen", "spiker"], "power": 4.1, "arena": "pillars"},
+			{"enemy": "thorns", "enemies": ["mossy", "thorns", "tumble"], "power": 4.2},
+			{"enemy": "whiff", "enemies": ["whiff", "glowbug", "honey"], "power": 4.32, "arena": "wells"},
+			{"enemy": "zing", "enemies": ["zing", "pollen", "mossy"], "power": 4.45},
+			{"enemy": "mole", "enemies": ["mole", "sprout", "thorns"], "power": 4.58, "arena": "pillars"},
+			{"enemy": "swarm", "enemies": ["swarm", "whiff", "glowbug"], "power": 4.72},
+			{"enemy": "sprout", "enemies": ["sprout", "mole", "zing"], "power": 4.86, "arena": "wells"},
+			{"enemy": "ivy", "enemies": ["ivy", "swarm", "pollen"], "power": 5.0},
+			{"enemy": "old_oak", "enemies": ["old_oak", "swarm", "sprout"], "power": 5.15, "arena": "pillars"},
+			{"enemy": "thorns", "enemies": ["mole", "swarm", "thorns"], "power": 5.3, "boss": true, "name": "Thornking Bramble"},
+		],
+	},
 ]
 
 ## Zones on the world map that aren't built yet (pve.md section 3, glitch.md
 ## bosses). When one is built it moves into ZONES with its stages.
 const COMING := [
-	{"id": "bramble_hollow", "name": "Bramble Hollow", "lineup": 3, "color": "9bd84a", "twist": "Thorn walls", "boss": "Thornking Bramble"},
 	{"id": "haunted_arcade", "name": "Haunted Arcade", "lineup": 3, "color": "c77dff", "twist": "Portals", "boss": "Wisp Swarm"},
 	{"id": "starfall_rim", "name": "Starfall Rim", "lineup": 3, "color": "ffd23d", "twist": "Shrinking arena", "boss": "Void Titan"},
 	{"id": "magma_core", "name": "Magma Core", "lineup": 3, "color": "ff6a3d", "twist": "Lava zones", "boss": "Ember Reborn"},

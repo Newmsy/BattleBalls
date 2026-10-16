@@ -9,6 +9,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const Power := preload("res://sim/power.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Arenas := preload("res://sim/arenas.gd")
 const Relay := preload("res://sim/relay.gd")
 
 const T0 := 1_800_000_000
@@ -257,3 +258,15 @@ func test_zone_three_is_trios_after_the_zone_two_boss() -> void:
 	p.stars["3-1"] = 1
 	p.stars["3-2"] = 1
 	check_eq(Campaign.start_team(p, 2, 2, picks, T0).get("arena"), "spikes", "a stage can name its own arena")
+
+
+func test_every_built_zone_has_fightable_foes_and_a_boss_last() -> void:
+	for z in Zones.ZONES.size():
+		var zone: Dictionary = Zones.zone(z)
+		check(Zones.is_boss(zone.stages[-1]), "%s ends in its boss" % zone.name)
+		check(BallDefs.PLAYABLE.has(zone.boss_reward), "%s boss reward is a critter" % zone.name)
+		for st in zone.stages:
+			check_eq(Zones.enemies(st).size(), zone.lineup, "%s stages bring %d foes" % [zone.name, zone.lineup])
+			check(Arenas.PLAYABLE.has(st.get("arena", zone.get("arena", "square"))), "%s arena exists" % zone.name)
+			for id in Zones.enemies(st):
+				check(BallDefs.PLAYABLE.has(id), "%s foe %s can fight" % [zone.name, id])
