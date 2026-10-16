@@ -144,6 +144,7 @@ func _show_line() -> void:
 	v.add_child(Kit.label("Tap to continue" if _at + 1 < story.lines.size() else "Tap to start", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
 	_card.custom_minimum_size = v.get_combined_minimum_size()
 	_card.add_child(v)
+	_pass_taps(v)
 	if not A11y.reduced_motion and is_inside_tree():
 		v.modulate.a = 0.0
 		v.position.y = 24
@@ -159,9 +160,17 @@ static func glitched_portrait(id: String, side: float) -> Control:
 	box.custom_minimum_size = Vector2(side, side)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon := CritterIcon.make(id, 3, side)
-	icon.modulate = Color(1.0, .55, 1.0)
+	icon.modulate = Color(1.7, .5, 1.4) # Pushes any colour towards the Glitch's magenta.
 	box.add_child(icon)
 	var g := GlitchArt.make(side * .4)
 	g.position = Vector2(side * .62, 0)
 	box.add_child(g)
 	return box
+
+
+## Containers catch taps by default; the card lets every tap reach Next.
+static func _pass_taps(c: Control) -> void:
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for k in c.get_children():
+		if k is Control:
+			_pass_taps(k)
