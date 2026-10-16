@@ -33,7 +33,7 @@ const CRITTER := {
 		{"text": "Revives at 25%", "revive_hp": 0.25},
 		{"text": "After reviving it leaves a flame trail", "ability": [{"on": "always", "do": "fire_trail"}]},
 		{"text": "Revives at 30%", "revive_hp": 0.3},
-		{"text": "The rebirth is a firestorm: 8 fire bolts and a 20 shield", "revive_bolts": 8, "revive_shield": 20.0},
+		{"text": "Reborn at 50% HP in a firestorm: 8 fire bolts and a 20 shield", "revive_bolts": 8, "revive_shield": 20.0, "revive_hp": 0.5},
 	],
 	"chaos": {"double_trouble": {"hp": 1.05}, "glass_cannon": {"revive_hp": 0.75}}, ## Bigger beams pick off a fresh revive; in Glass Cannon a revive is worth more.
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": "ffb300", "brow": .3, "mouth": "smirk"}, "back": ["flame_crest"]},

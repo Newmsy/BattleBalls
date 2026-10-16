@@ -27,7 +27,7 @@ const CRITTER := {
 		{"text": "Ink lasts 3s", "ink_life": 3.0},
 		{"text": "Squirting gives Ink a speed burst for 1s", "ink_dash": 1.0},
 		{"text": "Squirts every 2.5s", "ink_cooldown": 2.5},
-		{"text": "The ink also stings foes inside (2/s)", "ink_dps": 2.0},
+		{"text": "Squirts every 1.5s and the ink stings foes inside (5/s)", "ink_dps": 5.0, "ink_cooldown": 1.5},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "beak"}, "back": ["tentacles"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.15},
