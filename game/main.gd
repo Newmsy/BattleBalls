@@ -357,8 +357,8 @@ func _config() -> Dictionary:
 	if _is_duo():
 		cfg.p3 = _mate()
 		cfg.p4 = _foe_mate(opponent_type)
-	if mode == Mode.NORMAL:
-		cfg.seek = QUICK_SEEK # Trial: Quick fight only, until Newms has played it.
+	if mode in [Mode.NORMAL, Mode.REPLAY, Mode.CHALLENGE]:
+		cfg.seek = QUICK_SEEK # Trial: Quick fights (and their share links) only, until Newms has played it.
 	var t := _fight_tiers()
 	if t[0] > 0:
 		# Same path as the progression modes: tier ability upgrades and power.
