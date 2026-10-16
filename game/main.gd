@@ -24,6 +24,7 @@ const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Onboarding := preload("res://game/onboarding.gd")
 const Intro := preload("res://game/ui/intro.gd")
+const Story := preload("res://meta/story.gd")
 const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Profile := preload("res://meta/profile.gd")
@@ -749,6 +750,12 @@ func _load_profile() -> void:
 		# fights, like it skips the tutorial (game/ui/intro.gd).
 		if not d is Dictionary and not url_params.is_empty():
 			profile.intro = Profile.INTRO_DONE
+			Story.skip_all(profile)
+	if demo_profile:
+		Story.skip_all(profile)
+	# ?story=1 plays every chapter's story again (screenshots, playtests).
+	if url_params.get("story", "") == "1":
+		profile.story.clear()
 	# ?intro=N jumps the guided first fights to step N (0 = just out of the tutorial).
 	if str(url_params.get("intro", "")).is_valid_int():
 		profile.intro = clampi(int(url_params.intro), 0, Profile.INTRO_DONE)
@@ -810,6 +817,7 @@ func _start_url_stage() -> void:
 	var now := int(Time.get_unix_time_from_system())
 	profile = Profile.new_game(now)
 	profile.intro = Profile.INTRO_DONE
+	Story.skip_all(profile)
 	profile_unsaved = true
 	shell.set_profile(profile)
 	for k in i:

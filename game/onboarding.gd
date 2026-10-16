@@ -11,6 +11,8 @@ const Roster := preload("res://game/ui/roster.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const Story := preload("res://meta/story.gd")
+const StoryCards := preload("res://game/ui/story_cards.gd")
 
 const SAVE_PATH := "user://onboarding.cfg"
 const STARTERS := ["vampire", "laser"]
@@ -84,7 +86,7 @@ func _ready() -> void:
 	main.tutorial_fight_ended.connect(_on_fight_ended)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
-	_cold_open()
+	_prologue()
 
 
 func _layout() -> void:
@@ -109,7 +111,15 @@ func _log(step: String, done := false) -> void:
 
 # --- Steps ---------------------------------------------------------------------
 
+## The story opens the game: the Neon Circuit, Nibbles and Optic, and the
+## first giggle from the Glitch. Its own Skip only skips the story.
+func _prologue() -> void:
+	_log("prologue")
+	_play_story(Story.PROLOGUE, _cold_open)
+
+
 func _cold_open() -> void:
+	_skip.visible = true
 	_log("cold_open")
 	main.tutorial_preview([COLD_OPEN.p1, COLD_OPEN.p2], _names(COLD_OPEN.p1, COLD_OPEN.p2))
 	var row := Kit.hbox(16)
@@ -175,6 +185,7 @@ func _starter_pick() -> void:
 func _on_starter(id: String) -> void:
 	starter = id
 	profile = UiProfile.starter(id)
+	profile.story.append("prologue")
 	_log("starter_" + id)
 	_fight = 0
 	_start_fight(Roster.get_critter(id).name + " joins you! ")
@@ -241,7 +252,16 @@ func _on_profile_changed() -> void:
 		return
 	profile.changed.disconnect(_on_profile_changed)
 	_coach_say("Tier 2! A stronger ability and more power.")
-	get_tree().create_timer(2.2).timeout.connect(_boss_teaser)
+	get_tree().create_timer(2.2).timeout.connect(_chapter_one)
+
+
+## Chapter 1's story, then the boss it leaves behind. The campaign won't
+## play it again.
+func _chapter_one() -> void:
+	_log("chapter_1")
+	_coach.visible = false
+	profile.story.append("glow_garden")
+	_play_story(Story.chapter(0), _boss_teaser)
 
 
 func _boss_teaser() -> void:
@@ -249,9 +269,7 @@ func _boss_teaser() -> void:
 	_coach.visible = false
 	var go := Kit.button("Let's go!", _finish, "go", 34, 100)
 	_mark("lets_go", go)
-	# Shadowed rather than a flat silhouette, so its face just shows.
-	var boss := CritterIcon.make("juggernaut", 3, 300)
-	boss.modulate = Color(.32, .28, .5)
+	var boss := StoryCards.glitched_portrait("juggernaut", 300)
 	_show(Kit.vbox(18, [
 		Kit.caption("Zone 1 · Glow Garden", Color("9be89a")),
 		_centered(boss),
@@ -336,6 +354,17 @@ func _clear() -> void:
 	_marks.clear()
 	for c in _content.get_children():
 		c.queue_free()
+
+
+## Story cards over everything; `then` runs when they end or are skipped.
+func _play_story(story: Dictionary, then: Callable) -> void:
+	_clear()
+	_skip.visible = false
+	var cards: Control = StoryCards.make(story, then)
+	_content.add_child(cards)
+	_mark("story_next", cards.next_button)
+	_mark("story_skip", cards.skip_button)
+	_report.call_deferred("onboard_story")
 
 
 func _coach_say(text: String) -> void:
