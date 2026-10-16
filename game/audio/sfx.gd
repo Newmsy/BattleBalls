@@ -57,6 +57,12 @@ const RULES := {
 	"ticktock": [1, 0.2, -4.0],
 	"splash": [1, 0.3, -2.0],
 	"shatter": [1, 0.2, -3.0],
+	"clunk": [1, 0.12, -5.0],
+	"glug": [1, 0.3, -5.0],
+	"whoosh": [1, 0.3, -3.0],
+	"buzz": [2, 0.12, -9.0],
+	"puff": [1, 0.3, -5.0],
+	"roar": [1, 0.5, -2.0],
 }
 ## Seconds between rain patters while one of Drizzle's showers is falling.
 const RAIN_EVERY := 0.9
@@ -191,6 +197,10 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("chomp", 0.0, 1.0 if src == "vampire" else 0.85)
 				elif src == "zapper" and e.kind == "zap": # Its coil arc.
 					play("crackle", 0.0, 1.0)
+				elif src == "swarm" and e.kind != "contact": # A bee sting.
+					play("buzz", 0.0, 1.0 + _rng.randf() * 0.2)
+				elif src == "mammoth" and e.kind == "contact": # A heavy shove.
+					play("thwomp", -3.0, 1.15)
 				elif src == "glowbug" and e.kind != "contact": # Its light-bug's sting.
 					play("crackle", -4.0, 1.5)
 				# Each critter file names its ouch voice and pitch, so new critters
@@ -227,6 +237,11 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("ticktock")
 				elif kind == "wave": # Leviathan bursting up.
 					play("splash")
+				elif kind == "stink": # Whiff's cloud blooming.
+					play("puff", 0.0, 0.9)
+				elif kind == "candy": # Jawbreaker's sugar blast.
+					play("crit", -3.0, 1.4)
+					play("hit_big", -4.0, 1.2)
 				elif kind == "quasar":
 					play("hum")
 				else:
@@ -242,10 +257,14 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"shot":
 				if e.kind == "pea":
 					play("pew")
+				elif e.kind == "blob" and e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "brewster":
+					play("glug", 0.0, 0.95 + _rng.randf() * 0.15)
+				elif e.kind == "pearl":
+					play("pew", 0.0, 0.7)
 				else:
 					play("launch", -6.0, 1.8 if e.kind != "shell" and e.kind != "blob" else 0.9)
-			"shut":
-				play("snap", 0.0, 0.8)
+			"shut": # Clam clamping shut.
+				play("clunk", 0.0, 1.3)
 			"salvo", "mega":
 				play("snap", 0.0, 0.7)
 			"phase":
@@ -289,9 +308,14 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"stack": # Stacks and forms: a rising tick per stack.
 				if e.up:
 					play("flip", -6.0, 1.1 + 0.08 * e.stacks)
-			"burp", "roar":
+			"burp":
 				play("hit_big", 0.0, 0.7)
-			"breath", "shout":
+			"roar":
+				play("roar")
+				play("hit_big", -4.0, 0.7)
+			"breath": # Drako's fire.
+				play("whoosh")
+			"shout":
 				play("snap", 0.0, 0.75)
 			"mode":
 				play("flip", -2.0, 1.3)
@@ -320,10 +344,12 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("click", 0.0, 1.6)
 			"pounce", "lance", "ping_crit", "gear_slam", "tilt":
 				play("snap", 0.0, 1.1)
+				if e.type == "gear_slam":
+					play("clunk", 0.0, 0.7)
 			"ding":
 				play("click", 0.0, 1.3 + 0.1 * e.lit)
-			"gear":
-				play("click", -4.0, 0.8 + 0.15 * e.gear)
+			"gear": # Gearbox shifting up, a little higher each gear.
+				play("clunk", -3.0, 0.8 + 0.15 * e.gear)
 			"dig":
 				play("flip", 0.0, 0.6)
 			"clod":

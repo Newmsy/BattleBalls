@@ -951,3 +951,242 @@ static func draw_spike_shot(ci: CanvasItem, p: Vector2, r: float, vel: Vector2) 
 	ci.draw_line(p, p - dir * r * 3.0, Color(1, 1, 1, 0.25), r, true)
 	ci.draw_colored_polygon(PackedVector2Array([p + dir * r * 1.8, p + o * r * 0.6 - dir * r * 0.6, p - o * r * 0.6 - dir * r * 0.6]), Color("e8e8f0"))
 	ci.draw_line(p - dir * r * 0.6, p + dir * r * 1.8, Color("8a8aa0"), 1.5, true)
+
+
+# --- Batch 6: Brewster, Clam, Drako, Gearbox, Hook, Jawbreaker, Mammoth,
+# Swarm, Whiff, Yeti -----------------------------------------------------------
+
+const SHELL := Color("f7c6d9")
+const PEARL := Color("fff6fb")
+const COG := Color("a7c957")
+const FUR_SNOW := Color("eef6ff")
+const FUR_BROWN := Color("8a5a3b")
+const IVORY := Color("fff3d6")
+const STINK := Color("9be36b")
+const SNOW := Color("f4fbff")
+## Potion colours by the puddle a blob makes.
+const POTIONS := {"fire": Color("ff7a1f"), "goo": Color("7cff6b"), "brew": Color("b6ff3b")}
+const AVALANCHE_LIFE := 0.8
+const HOOK_LIFE := 0.45
+
+
+## Clam's shell clamped over it. k is how shut it is (1 shut, 0 open): the
+## two scalloped halves part as it opens, showing the pearl inside.
+static func draw_clam_shell(ci: CanvasItem, p: Vector2, r: float, k: float, t: float) -> void:
+	if r < 2.0:
+		return
+	var gap := (1.0 - k) * r * 0.7
+	if k < 0.95: # The pearl peeking out.
+		ci.draw_circle(p, r * 0.32, PEARL)
+		ci.draw_circle(p + Vector2(-r * 0.1, -r * 0.1), r * 0.1, Color.WHITE)
+	for side in [-1.0, 1.0]:
+		var off := Vector2(0, side * gap)
+		var pts := PackedVector2Array()
+		for i in 17: # A half dome, flat edge along the middle (no repeated point).
+			var a: float = PI * i / 16.0
+			pts.append(p + off + Vector2(cos(a) * r * 1.12, side * sin(a) * r * 1.05))
+		ci.draw_colored_polygon(pts, Color(SHELL, 0.92))
+		for q in 5: # Ridges fanning from the hinge.
+			var a: float = PI * (q + 1) / 6.0
+			ci.draw_line(p + off, p + off + Vector2(cos(a) * r * 1.05, side * sin(a) * r * 0.98), Color(SHELL.darkened(0.3), 0.8), 2.0, true)
+		ci.draw_polyline(pts, Color(SHELL.darkened(0.35)), 2.5, true)
+	if k >= 0.95: # Shut tight: a glint runs round the rim.
+		var a := fmod(t * 3.0, PI)
+		ci.draw_circle(p + Vector2(cos(a) * r * 1.1, -sin(a) * r * 1.0), r * 0.08, Color(1, 1, 1, 0.8))
+
+
+## Clam's pearl shot: glossy with a rainbow sheen.
+static func draw_pearl(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	ci.draw_circle(p, r * 1.5, Color(PEARL, 0.25))
+	ci.draw_circle(p, r, PEARL)
+	ci.draw_arc(p, r * 0.75, t * 5.0, t * 5.0 + PI * 0.8, 12, Color.from_hsv(fmod(t * 0.7, 1.0), 0.35, 1.0, 0.9), r * 0.25, true)
+	ci.draw_circle(p + Vector2(-r * 0.35, -r * 0.35), r * 0.25, Color.WHITE)
+
+
+## Brewster's potion blob in flight: a round flask that tumbles.
+static func draw_potion(ci: CanvasItem, p: Vector2, r: float, liquid: Color, spin: float) -> void:
+	var up := Vector2.from_angle(spin - PI / 2.0)
+	ci.draw_line(p + up * r * 0.7, p + up * r * 1.45, Color("d6f5ff", 0.9), r * 0.5, true) # Neck.
+	ci.draw_line(p + up * r * 1.4, p + up * r * 1.7, Color("a0703c"), r * 0.55, true) # Cork.
+	ci.draw_circle(p, r * 1.05, Color("d6f5ff", 0.5)) # Glass.
+	ci.draw_circle(p + up * -r * 0.15, r * 0.82, liquid)
+	ci.draw_circle(p + up * r * 0.1 + up.orthogonal() * r * 0.3, r * 0.14, Color(1, 1, 1, 0.7))
+	ci.draw_arc(p, r * 1.05, spin + PI * 1.1, spin + PI * 1.5, 8, Color(1, 1, 1, 0.8), 2.0, true)
+
+
+## Brewster's cauldron: bubbles rising and popping off the top.
+static func draw_cauldron(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	ci.draw_arc(p + Vector2(0, -r * 0.35), r * 0.75, PI * 1.08, PI * 1.92, 16, Color("b6ff3b", 0.85), r * 0.14, true)
+	for k in 4:
+		var f := fmod(t * 0.9 + k * 0.27, 1.0)
+		var x := sin(k * 2.3 + t * 2.0) * r * 0.4
+		var at := p + Vector2(x, -r * (0.6 + 1.0 * f))
+		var br := r * (0.1 + 0.06 * sin(k * 1.7)) * (0.6 + 0.6 * f)
+		ci.draw_arc(at, br, 0.0, TAU, 12, Color("b6ff3b", 0.85 * (1.0 - f)), 2.0, true)
+
+
+## Drako stoking its fire: smoke and embers from the mouth (k: 0..1 full).
+static func draw_stoke(ci: CanvasItem, p: Vector2, r: float, k: float, vel: Vector2, t: float) -> void:
+	if k <= 0.0:
+		return
+	var fwd := vel.normalized() if vel.length() > 0.001 else Vector2.RIGHT
+	var mouth := p + fwd * r * 0.85
+	ci.draw_circle(mouth, r * (0.2 + 0.25 * k), Color(BURN, 0.25 + 0.4 * k))
+	ci.draw_circle(mouth, r * (0.1 + 0.12 * k), Color(BURN_CORE, 0.5 + 0.4 * k))
+	for q in int(2 + 4 * k): # Smoke puffs curling up and back.
+		var f := fmod(t * 1.3 + q * 0.21, 1.0)
+		var at := mouth - fwd * r * 0.6 * f + Vector2(sin(t * 3.0 + q) * r * 0.15, -r * 0.9 * f)
+		ci.draw_circle(at, r * (0.08 + 0.12 * f), Color(0.35, 0.33, 0.38, 0.45 * (1.0 - f) * k))
+	if k >= 1.0: # Full: flickering sparks.
+		for q in 3:
+			var a := t * 9.0 + q * TAU / 3.0
+			ci.draw_circle(mouth + Vector2.from_angle(a) * r * 0.3, r * 0.06, BURN_CORE)
+
+
+## Drako's breath as a stream of fireballs along a beam (k: beam strength).
+static func draw_fireballs(ci: CanvasItem, a: Vector2, b: Vector2, k: float, t: float, size: float) -> void:
+	var n := 6
+	for i in n:
+		var f := fmod(i / float(n) + t * 2.5, 1.0)
+		var at := a.lerp(b, f)
+		var rr := size * (0.5 + 0.7 * f) * k
+		ci.draw_circle(at, rr * 1.5, Color(BURN, 0.3 * k))
+		ci.draw_circle(at, rr, Color(BURN, 0.9 * k))
+		ci.draw_circle(at, rr * 0.5, Color(BURN_CORE, k))
+
+
+## Gearbox's cog: teeth round its rim, spinning faster in each gear and
+## glowing hot in top gear.
+static func draw_cog(ci: CanvasItem, p: Vector2, r: float, gear: int, top: int, t: float) -> void:
+	var hot := gear >= top
+	var col: Color = Color("ff5a3d") if hot else COG.lerp(Color("ffd23f"), gear / maxf(1.0, top))
+	var turn := t * (0.6 + 1.8 * gear)
+	for q in 10:
+		var d := Vector2.from_angle(turn + q * TAU / 10.0)
+		ci.draw_line(p + d * r * 0.98, p + d * r * 1.2, col.darkened(0.25), r * 0.22, true)
+	ci.draw_arc(p, r * 1.0, 0.0, TAU, 40, col, 3.0, true)
+	if hot:
+		ci.draw_arc(p, r * 1.3, 0.0, TAU, 40, Color(col, 0.3 + 0.2 * sin(t * 14.0)), 5.0, true)
+
+
+## Hook's grapple: a wavy rope with a hook at the end, reeling in.
+static func draw_hook(ci: CanvasItem, from: Vector2, to: Vector2, k: float, t: float) -> void:
+	var d := to - from
+	if d.length() < 2.0:
+		return
+	var n := d.normalized()
+	var side := n.orthogonal()
+	var pts := PackedVector2Array()
+	for i in 13:
+		var f := i / 12.0
+		pts.append(from + d * f + side * sin(f * TAU * 2.0 + t * 20.0) * 8.0 * (1.0 - k) * sin(PI * f))
+	ci.draw_polyline(pts, Color("c9a26b"), 4.0, true)
+	ci.draw_polyline(pts, Color("f1d6a8", 0.7), 1.5, true)
+	# The hook: a curl round the far end with a barb.
+	ci.draw_arc(to - n * 6.0 + side * 8.0, 9.0, n.angle() + PI * 0.5, n.angle() + PI * 1.6, 12, Color("d9e2ec"), 4.0, true)
+	ci.draw_line(to - n * 6.0, to + n * 10.0, Color("d9e2ec"), 4.0, true)
+	ci.draw_line(to + n * 10.0, to + n * 2.0 + side * 6.0, Color("d9e2ec"), 3.0, true)
+
+
+## A jawbreaker candy: layered rings of colour with a shine.
+static func draw_jawbreaker(ci: CanvasItem, p: Vector2, r: float, hue: int, t: float) -> void:
+	var cols := [Color("ff5fa2"), Color("ffd23f"), Color("6ee7ff"), Color("a6ff6e"), Color("c58bff")]
+	ci.draw_circle(p, r * 1.3, Color(cols[hue % 5], 0.25))
+	for q in 4:
+		ci.draw_circle(p, r * (1.0 - q * 0.22), cols[(hue + q) % 5])
+	ci.draw_arc(p, r * 0.8, t * 3.0, t * 3.0 + 1.2, 8, Color(1, 1, 1, 0.75), 2.0, true)
+	ci.draw_circle(p + Vector2(-r * 0.4, -r * 0.4), r * 0.18, Color.WHITE)
+
+
+## Mammoth's tusks and trunk, facing where it's going.
+static func draw_tusks(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	var fwd := vel.normalized() if vel.length() > 0.001 else Vector2.RIGHT
+	var side := fwd.orthogonal()
+	for s in [-1.0, 1.0]:
+		var pts := PackedVector2Array()
+		for i in 7:
+			var f := i / 6.0
+			pts.append(p + fwd * r * (0.55 + 0.75 * f) + side * s * r * (0.45 + 0.2 * f - 0.55 * f * f))
+		ci.draw_polyline(pts, IVORY.darkened(0.25), r * 0.2, true)
+		ci.draw_polyline(pts, IVORY, r * 0.13, true)
+	var trunk := PackedVector2Array() # A trunk that sways between the tusks.
+	for i in 6:
+		var f := i / 5.0
+		trunk.append(p + fwd * r * (0.7 + 0.5 * f) + side * sin(t * 4.0 + f * 2.0) * r * 0.2 * f)
+	ci.draw_polyline(trunk, FUR_BROWN.darkened(0.2), r * 0.18, true)
+
+
+## Shaggy fur round the rim (Yeti white, Mammoth brown), ruffling.
+static func draw_fur(ci: CanvasItem, p: Vector2, r: float, col: Color, t: float) -> void:
+	for q in 22:
+		var a := q * TAU / 22.0
+		var d := Vector2.from_angle(a)
+		var tip := d.rotated(0.35 + 0.12 * sin(t * 5.0 + q)) * r * (1.2 + 0.05 * sin(q * 3.1))
+		ci.draw_line(p + d * r * 0.97, p + tip, col, 3.5, true)
+
+
+## Swarm's hive: a honeycomb pattern over its body.
+static func draw_hive(ci: CanvasItem, p: Vector2, r: float) -> void:
+	var cell := r * 0.32
+	for q in 7:
+		var c := p if q == 6 else p + Vector2.from_angle(q * TAU / 6.0 + PI / 6.0) * cell * 1.75
+		var pts := PackedVector2Array()
+		for i in 7: # Closed outline (polyline, so the repeated point is fine).
+			pts.append(c + Vector2.from_angle(i * TAU / 6.0) * cell)
+		ci.draw_polyline(pts, Color("7a4a00", 0.55), 2.0, true)
+
+
+## A bee: striped body, flapping wings and a stinger, facing `dir`.
+static func draw_bee(ci: CanvasItem, p: Vector2, r: float, dir: Vector2, t: float, flying: bool) -> void:
+	var fwd := dir.normalized() if dir.length() > 0.001 else Vector2.RIGHT
+	var side := fwd.orthogonal()
+	if flying: # A buzzing trail.
+		for q in 3:
+			ci.draw_circle(p - fwd * r * (1.6 + q * 0.9) + side * sin(t * 30.0 + q) * r * 0.4, r * (0.25 - q * 0.06), Color("ffc93c", 0.4 - q * 0.1))
+	var flap := 0.5 + 0.5 * sin(t * 45.0)
+	for s in [-1.0, 1.0]:
+		ci.draw_circle(p + side * s * r * (0.7 + 0.3 * flap) - fwd * r * 0.1, r * 0.55, Color(1, 1, 1, 0.5))
+	ci.draw_circle(p, r, Color("ffc93c"))
+	for q in [-0.35, 0.25]:
+		ci.draw_line(p + fwd * r * q + side * r * 0.9, p + fwd * r * q - side * r * 0.9, Color("2a1d05"), r * 0.3, true)
+	ci.draw_line(p - fwd * r, p - fwd * r * 1.5, Color("2a1d05"), 2.0, true)
+	ci.draw_circle(p + fwd * r * 0.7, r * 0.18, Color("2a1d05"))
+
+
+## Whiff's stink cloud: lumpy green puffs and wavy stink lines rising.
+static func draw_stink(ci: CanvasItem, p: Vector2, rad: float, t: float) -> void:
+	for k in 7:
+		var a := t * 0.5 + k * TAU / 7.0
+		var at := p + Vector2(cos(a), sin(a)) * rad * (0.55 + 0.08 * sin(t * 2.0 + k))
+		ci.draw_circle(at, rad * (0.36 + 0.05 * sin(t * 3.0 + k * 1.3)), Color(STINK, 0.09))
+	ci.draw_arc(p, rad, 0.0, TAU, 48, Color(STINK, 0.22), 2.0, true)
+	for k in 4: # Wavy stink lines drifting up and fading.
+		var f := fmod(t * 0.45 + k * 0.25, 1.0)
+		var x := (k - 1.5) * rad * 0.35
+		var pts := PackedVector2Array()
+		for i in 7:
+			var g := i / 6.0
+			pts.append(p + Vector2(x + sin(g * TAU + t * 5.0 + k) * rad * 0.06, -rad * (0.2 + 0.7 * f) - g * rad * 0.35))
+		ci.draw_polyline(pts, Color(STINK.lightened(0.2), 0.7 * (1.0 - f)), 3.0, true)
+
+
+## Yeti's avalanche: a wave of snow rolling out with chunks and flakes.
+static func draw_avalanche(ci: CanvasItem, c: Vector2, reach: float, age: float, seed: float) -> void:
+	var f := clampf(age / AVALANCHE_LIFE, 0.0, 1.0)
+	var rad := reach * (0.25 + 0.75 * sqrt(f))
+	var fade := 1.0 - f
+	ci.draw_circle(c, rad, Color(SNOW, 0.12 * fade))
+	for q in 18: # Snow chunks riding the front.
+		var a := seed + q * TAU / 18.0
+		var at := c + Vector2.from_angle(a) * rad * (0.92 + 0.08 * sin(q * 2.7))
+		ci.draw_circle(at, reach * 0.06 * (0.6 + 0.4 * sin(q * 1.9)) * (0.5 + fade), Color(SNOW, 0.85 * fade))
+	for q in 10: # Flakes inside.
+		var a := seed * 2.0 + q * 0.83
+		_flake(ci, c + Vector2.from_angle(a) * rad * fmod(q * 0.37 + 0.2, 0.9), reach * 0.035, Color(Color("d8f1ff"), fade))
+	ci.draw_arc(c, rad, 0.0, TAU, 64, Color(Color("9fd8ff"), 0.8 * fade), 5.0, true)
+
+
+static func _flake(ci: CanvasItem, at: Vector2, r: float, col: Color) -> void:
+	for q in 3:
+		var d := Vector2.from_angle(q * PI / 3.0) * r
+		ci.draw_line(at - d, at + d, col, 2.0, true)

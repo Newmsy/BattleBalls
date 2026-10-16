@@ -280,6 +280,10 @@ func consume_events(events: Array[Dictionary]) -> void:
 					if e.kind == "contact" and a.type_id in ["vampire", "munch"]:
 						var dir: Vector2 = (t.pos - a.pos).normalized()
 						_chomps.append({"pos": e.pos, "dir": dir, "size": a.radius * 0.55, "age": 0.0})
+					elif a.type_id == "mammoth" and e.kind == "contact":
+						_shake = maxf(_shake, 6.0 * A11y.motion())
+						_rings.append({"pos": e.pos, "radius": a.radius * 0.9, "color": RING_COLORS.dirt, "age": 0.0})
+						_burst(e.pos, 10, [Color("c9a27e"), Color("e8d5b5")], Vector2(100.0, 260.0), (t.pos - a.pos).normalized(), PI * 0.8)
 					elif a.type_id == "juggernaut" and e.kind in ["contact", "slam"]:
 						_shake = maxf(_shake, (10.0 if e.kind == "slam" else 7.0) * A11y.motion())
 						_rings.append({"pos": e.pos, "radius": a.radius * (1.4 if e.kind == "slam" else 0.9), "color": RING_COLORS.dirt, "age": 0.0})
@@ -311,6 +315,12 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_particles.append({"pos": m.pos + Vector2(0, -m.radius * 1.3), "vel": _rand_dir() * _fx_rng.randf_range(80.0, 260.0), "age": 0.0, "life": 0.4})
 			"pulse", "boom":
 				var pk: String = e.get("kind", "")
+				if pk == "candy": # Jawbreaker's sugar blast: sprinkles everywhere.
+					_burst(e.pos, 30, [Color("ff5fa2"), Color("ffd23f"), Color("6ee7ff"), Color("a6ff6e"), Color.WHITE], Vector2(180.0, 480.0), Vector2.ZERO, TAU, Vector2(3.0, 5.0))
+					_add_popup(e.pos + Vector2(-50, -90), "SUGAR RUSH!", Color("ff9de2"), 1.1)
+				elif pk == "stink": # Whiff's cloud blooming.
+					_add_popup(e.pos + Vector2(-40, -90), "PEE-YOO!", BattleFx.STINK, 1.15)
+					_burst(e.pos, 18, [Color(BattleFx.STINK, 0.8), Color("c8f7a0", 0.7)], Vector2(80.0, 220.0), Vector2.ZERO, TAU, Vector2(8.0, 14.0))
 				if pk == "dirt": # Mole bursting up.
 					_dirt_spray(e.pos, 20)
 					_shake = maxf(_shake, 7.0 * A11y.motion())
@@ -448,6 +458,11 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_squash[e.ball] = maxf(_squash[e.ball], 0.15)
 			"burp", "breath", "shout", "roar":
 				var g := sim.balls[e.ball]
+				if e.type == "breath": # A gout of flame down the cone.
+					_burst(e.pos + e.dir * g.radius, 26, [BattleFx.BURN, BattleFx.BURN_CORE, Color("ff4d1f")], Vector2(300.0, 700.0), e.dir, 0.7, Vector2(4.0, 8.0))
+				elif e.type == "roar" and g.type_id == "yeti": # The avalanche rolls out.
+					_fx.append({"kind": "avalanche", "pos": e.pos, "radius": g.def.get("roar_radius", 200.0), "age": 0.0, "life": BattleFx.AVALANCHE_LIFE, "seed": _fx_rng.randf() * TAU})
+					_burst(e.pos, 28, [BattleFx.SNOW, Color("cfeaff")], Vector2(220.0, 560.0), Vector2.ZERO, TAU, Vector2(4.0, 9.0), 60.0)
 				var call: String = {"burp": "BURP!", "breath": "FWOOSH!", "shout": "HOO!", "roar": "ROAR!"}[e.type]
 				_add_popup(g.pos + Vector2(-48, -g.radius - 34), call, POP_SNAP)
 				_shake = maxf(_shake, (8.0 if e.type == "roar" else 5.0) * A11y.motion())
@@ -475,7 +490,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_bursts.append({"pos": e.to, "age": 0.0, "spark": {}, "seed": 0.0})
 				_squash[g.index] = 0.25
 			"yank":
-				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
+				_fx.append({"kind": "hook", "ball": e.ball, "target": e.target, "age": 0.0, "life": BattleFx.HOOK_LIFE})
 				if e.big:
 					var g := sim.balls[e.ball]
 					_add_popup(g.pos + Vector2(-40, -g.radius - 34), "REEL IN!", POP_SNAP)
@@ -486,6 +501,9 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_add_popup(t.pos + Vector2(-30, -t.radius - 34), "MARKED", MARK)
 			"pounce", "lance", "ping_crit", "gear_slam", "tilt":
 				var g := sim.balls[e.ball]
+				if e.type == "gear_slam":
+					_rings.append({"pos": e.pos, "radius": g.radius * 1.4, "color": Color("ff5a3d"), "age": 0.0})
+					_burst(e.pos, 16, [BattleFx.COG, Color("ffd23f"), Color("ff5a3d")], Vector2(200.0, 520.0), Vector2.ZERO, TAU, Vector2(4.0, 7.0))
 				var call: String = {"pounce": "POUNCE!", "lance": "CHARGE!", "ping_crit": "ECHO HIT!", "gear_slam": "TOP GEAR!", "tilt": "TILT!"}[e.type]
 				_add_popup(g.pos + Vector2(-50, -g.radius - 40), call, POP_SNAP, 1.15)
 				_shake = maxf(_shake, 8.0 * A11y.motion())
@@ -662,6 +680,13 @@ func _spawn_particles(pos: Vector2, count: int) -> void:
 		_particles.append({"pos": pos, "vel": _rand_dir() * _fx_rng.randf_range(120.0, 460.0), "age": 0.0, "life": _fx_rng.randf_range(0.5, 1.1)})
 
 
+## A coloured burst: n particles from `at`, spreading `cone` radians round `dir`.
+func _burst(at: Vector2, n: int, cols: Array, speed: Vector2, dir := Vector2.ZERO, cone := TAU, size := Vector2(3.0, 6.0), lift := 0.0) -> void:
+	for q in n:
+		var d := Vector2.from_angle(_fx_rng.randf() * TAU) if dir == Vector2.ZERO else dir.rotated(_fx_rng.randf_range(-cone / 2.0, cone / 2.0))
+		_particles.append({"pos": at, "vel": d * _fx_rng.randf_range(speed.x, speed.y) + Vector2(0, -lift), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.8), "col": cols[q % cols.size()], "size": _fx_rng.randf_range(size.x, size.y)})
+
+
 func _rand_dir() -> Vector2:
 	return Vector2.from_angle(_fx_rng.randf() * TAU)
 
@@ -750,6 +775,9 @@ func _draw() -> void:
 		elif sim.balls[beam.owner].def.get("beam_rainbow", 0):
 			col = Color.from_hsv(fmod(bi * 0.14 + _time * 0.5, 1.0), 0.7, 1.0)
 		bi += 1
+		if sim.balls[beam.owner].type_id == "drako": # A stream of fireballs.
+			BattleFx.draw_fireballs(self, a, b, k, _time, 12.0 * s * 1.6)
+			continue
 		if sim.balls[beam.owner].type_id == "zapper": # A crackling arc.
 			BattleFx.draw_bolt(self, a, b, 0.05, floorf(_time * 20.0) + bi, Color("c9a6ff"))
 			continue
@@ -1354,11 +1382,8 @@ func _draw_zone(z, s: float) -> void:
 		"ring":
 			draw_arc(p, z.radius * s, 0.0, TAU, 64, Color(ZONE_COLORS.ring, 0.6 * fade), 10.0 * s, true)
 		"stink":
-			# Rides on Whiff: lumpy green puffs drifting round it.
-			for k in 6:
-				var a := _time * 0.6 + k * TAU / 6.0
-				draw_circle(p + Vector2(cos(a), sin(a)) * z.radius * 0.55 * s, z.radius * 0.45 * s, Color(ZONE_COLORS.stink, 0.07))
-			draw_arc(p, z.radius * s, 0.0, TAU, 48, Color(ZONE_COLORS.stink, 0.25), 2.0, true)
+			# Rides on Whiff: lumpy green puffs with stink lines rising.
+			BattleFx.draw_stink(self, p, z.radius * s, _time)
 		"rain":
 			var col: Color = ZONE_COLORS.rain
 			if not z.armed():
@@ -1422,12 +1447,19 @@ func _draw_shot(shot, s: float) -> void:
 		draw_arc(land, reach * 0.25 * (1.0 - t) + 6.0, 0.0, TAU, 24, Color(RING_COLORS.get(shot.kind, BURST), blink), 2.0, true)
 		draw_circle(p, 9.0 * s, Color(0, 0, 0, 0.35))
 		var lift := Vector2(0, -sin(PI * t) * 150.0 * s)
+		if shot.kind == "blob" and sim.balls[shot.owner].type_id == "brewster":
+			var liquid: Color = BattleFx.POTIONS.get(shot.zone.get("kind", "goo"), BattleFx.POTIONS.goo)
+			BattleFx.draw_potion(self, p + lift, (20.0 if shot.zone.get("kind", "") == "brew" else 13.0) * s, liquid, t * TAU * 1.5 + shot.land.x)
+			return
 		draw_circle(p + lift, 22.0 * s, Color(col, 0.35))
 		draw_circle(p + lift, 15.0 * s, col)
 		draw_circle(p + lift + Vector2(-3, -3) * s, 4.0 * s, Color.WHITE)
 		return
 	if shot.kind == "spike":
 		BattleFx.draw_spike_shot(self, p, maxf(r, 6.0), shot.vel)
+		return
+	if shot.kind == "pearl":
+		BattleFx.draw_pearl(self, p, maxf(r, 5.0), _time)
 		return
 	var back: Vector2 = -shot.vel.normalized() if shot.vel.length() > 0.001 else Vector2.ZERO
 	if shot.kind in ["rocket", "stinger"]:
@@ -1452,6 +1484,9 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 			BattleFx.draw_chain(self, item.from * s, p, 9.0 * s * 1.6)
 		else:
 			draw_line(item.from * s, p, Color(col.lightened(0.25), 0.85), 4.0 * s, true)
+	if item.look == "candy" and b.type_id == "jawbreaker":
+		BattleFx.draw_jawbreaker(self, p, r, int(item.get("hue", 0)), _time)
+		return
 	match item.look:
 		"bug":
 			draw_circle(p, r * 2.2, Color("eaff6a", 0.18 + 0.1 * sin(_time * 8.0)))
@@ -1469,10 +1504,12 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 			draw_arc(p, r, 0.0, TAU, 24, Color("ffe066"), 2.5, true)
 			draw_circle(p + Vector2(-r * 0.3, -r * 0.3), r * 0.25, Color(1, 1, 1, 0.6))
 		"bee":
-			draw_circle(p, r, Color("ffc93c"))
-			draw_line(p + Vector2(-r * 0.3, -r), p + Vector2(-r * 0.3, r), Color("2a1d05"), 2.5)
-			draw_line(p + Vector2(r * 0.3, -r), p + Vector2(r * 0.3, r), Color("2a1d05"), 2.5)
-			draw_circle(p + Vector2(0, -r * 0.9), r * 0.5, Color(1, 1, 1, 0.55))
+			var flying: bool = item.get("flying", false)
+			var dir: Vector2 = (item.pos - b.pos).orthogonal() # Circling the hive.
+			if flying:
+				var f = sim.nearest_foe(b)
+				dir = (f.pos - item.pos) if f != null else dir
+			BattleFx.draw_bee(self, p, r, dir, _time + item.pos.x * 0.01, flying)
 		"tentacle":
 			draw_circle(p, r, col.lightened(0.25))
 			draw_circle(p, r * 0.45, Color("ffd6f5", 0.8))
@@ -1499,6 +1536,14 @@ func _dirt_spray(at: Vector2, n: int) -> void:
 ## One-off effects from _fx.
 func _draw_fx(k: Dictionary, s: float) -> void:
 	match k.kind:
+		"hook":
+			var a := sim.balls[k.ball]
+			var f := sim.balls[k.target]
+			var reel: float = k.age / k.life
+			var tip: Vector2 = ball_pos(f).lerp(ball_pos(a), reel * reel)
+			BattleFx.draw_hook(self, ball_pos(a) * s, tip * s, reel, _time)
+		"avalanche":
+			BattleFx.draw_avalanche(self, k.pos * s, k.radius * s, k.age, k.seed)
 		"clock":
 			BattleFx.draw_clock_ring(self, k.pos * s, k.radius * s, k.age)
 		"splash":
@@ -1631,8 +1676,29 @@ func _draw_status(b, s: float) -> void:
 		draw_arc(p, r * 1.18, 0.0, TAU, 48, Color("7fe6ff", 0.25), 6.0, true)
 	if not b.dots.is_empty():
 		BattleFx.draw_dots(self, BattleFx.dot_kinds(sim, b), p, r, _time)
-	if sim.tick < int(b.state.get("shut_until", -1)):
-		draw_arc(p, r * 1.08, 0.0, TAU, 48, Color("f7c6d9", 0.9), 6.0, true)
+	match b.type_id:
+		"clam": # The shell clamps shut, then springs open.
+			var open_ticks: int = sim.tick - int(b.state.get("shut_until", -1000))
+			if open_ticks < 0: # Snaps shut over the first few frames.
+				var shut_ticks: float = b.def.get("shut_secs", 1.0) * MatchSim.TICK_RATE + open_ticks
+				BattleFx.draw_clam_shell(self, p, r, minf(1.0, shut_ticks / (0.12 * MatchSim.TICK_RATE)), _time)
+			elif open_ticks < int(0.3 * MatchSim.TICK_RATE):
+				BattleFx.draw_clam_shell(self, p, r, 1.0 - open_ticks / (0.3 * MatchSim.TICK_RATE), _time)
+		"brewster":
+			BattleFx.draw_cauldron(self, p, r, _time)
+		"drako":
+			BattleFx.draw_stoke(self, p, r, int(b.state.get("stacks", 0)) / maxf(1.0, b.def.get("stack_max", 4)), b.vel, _time)
+		"gearbox":
+			BattleFx.draw_cog(self, p, r, int(b.state.get("gear", 0)), int(b.def.get("gear_max", 3)), _time)
+		"mammoth":
+			BattleFx.draw_fur(self, p, r, BattleFx.FUR_BROWN, _time)
+			BattleFx.draw_tusks(self, p, r, b.vel, _time)
+		"yeti":
+			BattleFx.draw_fur(self, p, r, BattleFx.FUR_SNOW, _time)
+			if b.hp < b.max_hp * 0.5: # Frosty breath once it's angry.
+				BattleFx.draw_frost_breath(self, p, r, b.vel, _time)
+		"swarm":
+			BattleFx.draw_hive(self, p, r)
 	if b.slow > 0.0 and not sim.stunned(b):
 		BattleFx.draw_slow(self, BattleFx.slow_goo(sim, b), b.slow, p, r, _time)
 	if b.def.get("grow_armor", 0.0) > 0.0 and b.mods.has("grow"): # Shelly tucked in.
