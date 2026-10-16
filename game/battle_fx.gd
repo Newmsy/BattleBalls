@@ -782,10 +782,10 @@ static func draw_crystal_pillar(ci: CanvasItem, p: Vector2, rad: float, k: float
 		var a := seed + l * TAU / 6.0
 		var d := Vector2.from_angle(a)
 		var ln := rad * (0.7 + 0.35 * sin(seed * 3.0 + l)) * k
+		if ln < 1.0:
+			continue # still growing in: a flat triangle can't be drawn
 		var o := d.orthogonal()
 		var base := p + d * rad * 0.1
-		if ln < 1.0: # Still growing: a flat crystal fails triangulation.
-			continue
 		var pts := PackedVector2Array([base + o * rad * 0.18, base + d * ln, base - o * rad * 0.18])
 		ci.draw_colored_polygon(pts, Color("bfe9ff") if l % 2 else Color("d9d0ff"))
 		ci.draw_line(base, base + d * ln, Color(1, 1, 1, 0.6), 1.5, true)

@@ -236,3 +236,24 @@ func test_zone_two_is_pairs_on_bumpers_after_the_zone_one_boss() -> void:
 		check(Campaign.is_cleared(p, 1, 0), "a win clears 2-1")
 	p.stars["2-1"] = 3
 	check(Campaign.sweep(p, 1, 0, picks[0], T0).has("won"), "pairs stages sweep too")
+
+
+func test_zone_three_is_trios_after_the_zone_two_boss() -> void:
+	var p = Profile.new_game(T0)
+	check_eq(Zones.zone(2).lineup, 3, "Frostbite Caves is trios")
+	for z in 2:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	check(Campaign.is_unlocked(p, 2, 0), "open after the zone 2 boss")
+	for st in Zones.zone(2).stages:
+		check_eq(Zones.enemies(st).size(), 3, "three foes")
+		for id in Zones.enemies(st):
+			check(BallDefs.PLAYABLE.has(id), "zone 3 foe %s can fight" % id)
+	p.add_copies(["laser", "frost"])
+	var picks := Campaign.team_for(p, 3)
+	check_eq(picks.size(), 3, "a team of three")
+	check_eq(Campaign.start_team(p, 2, 0, picks, T0).get("arena"), "rink", "the zone's rink by default")
+	p.energy = 999
+	p.stars["3-1"] = 1
+	p.stars["3-2"] = 1
+	check_eq(Campaign.start_team(p, 2, 2, picks, T0).get("arena"), "spikes", "a stage can name its own arena")
