@@ -15,6 +15,8 @@ const CRITTER := {
 	"stats": {"hp": 120.0, "radius": 66.0, "speed": 400.0, "contact_damage": 19.5},
 	"ability": [{"on": "wall", "do": "ripple"}, {"on": "always", "do": "slows"}],
 	"params": {
+		"ripple_wave_radius": 0.0, ## T5: each bounce also breaks as a wave this big...
+		"ripple_wave_damage": 8.0, ## ...dealing this.
 		"ripple_reach": 200.0, ## Each way along the wall.
 		"ripple_life": 1.0,
 		"ripple_damage": 10.0, ## A second.
@@ -27,7 +29,7 @@ const CRITTER := {
 		{"text": "Ripples deal 12/s", "ripple_damage": 12.0},
 		{"text": "The ripple slows 20%", "ripple_slow": 0.2},
 		{"text": "Ripples run further", "ripple_reach": 300.0},
-		{"text": "Ripples turn corners, deal 20/s and slow 35%", "ripple_corner": 1, "ripple_damage": 20.0, "ripple_slow": 0.35},
+		{"text": "Tidal: ripples turn corners and every bounce breaks as a wave (radius 220, 8)", "ripple_corner": 1, "ripple_wave_radius": 220.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["droptop"], "front": ["shine"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},
