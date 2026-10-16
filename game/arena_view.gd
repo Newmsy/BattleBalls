@@ -229,6 +229,8 @@ func clear_effects() -> void:
 	_was_overtime = false
 	if sim:
 		for b in sim.balls:
+			while _look.size() <= b.index:
+				_look.append(Vector2.RIGHT) # A Splitter's minis join after the first two.
 			_look[b.index] = b.vel.normalized()
 
 
