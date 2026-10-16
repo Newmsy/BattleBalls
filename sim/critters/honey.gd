@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "d97706",
 	"vibe": "A sweet, slow-talking honey pot that leaves everyone a little sticky.",
 	"description": "Honey pot. Every wall bounce drips a honey puddle; a foe that rolls in gets stuck fast, and Honey's next hit on a stuck foe crushes it for extra damage.",
-	"stats": {"hp": 120.0, "radius": 64.0, "speed": 400.0, "contact_damage": 20.0},
+	"stats": {"hp": 113.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
 	"ability": [{"on": "wall", "do": "honey"}, {"on": "always", "do": "honey_trap"}, {"on": "strike", "do": "honey_crush"}],
 	"params": {
 		"honey_sting_damage": 0.0, ## T5: a foe getting stuck takes this.

@@ -47,7 +47,7 @@ func test_power_steps_match_the_design_budget() -> void:
 
 func test_power_scales_hp_and_damage_but_not_speed() -> void:
 	var sim := MatchSim.new({"seed": 1, "p1": "laser", "p2": "laser", "powers": [1.44, 1.0]})
-	check_near(sim.balls[0].max_hp, 120.0, 0.001, "hp x sqrt(1.44)")
+	check_near(sim.balls[0].max_hp, 126.0, 0.001, "hp x sqrt(1.44)")
 	check_near(sim.balls[0].def.beam_damage, sim.balls[1].def.beam_damage * 1.2, 0.001, "beam damage scales")
 	check_eq(sim.balls[0].speed, sim.balls[1].speed, "speed unchanged")
 

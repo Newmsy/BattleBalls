@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "7b2cbf",
 	"vibe": "A sour grape whose face says it all.",
 	"description": "Sour grape. Every hit makes the foe sour (it takes more damage); at full sour the foe puckers up, frozen for a moment, and sour juice splashes out.",
-	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 21.0},
+	"stats": {"hp": 108.0, "radius": 64.0, "speed": 400.0, "contact_damage": 20.0},
 	"ability": [{"on": "hit", "do": "sour"}],
 	"params": {
 		"sour_amount": 0.15, ## Extra damage share the foe takes.

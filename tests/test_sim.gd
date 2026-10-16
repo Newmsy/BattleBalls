@@ -185,7 +185,7 @@ func test_beam_never_hurts_its_owner() -> void:
 	sim._on_wall_bounce(l, Vector2(1000, 500))
 	for i in 60:
 		sim.step()
-	check_near(l.hp, 100.0, 0.001, "laser hp")
+	check_near(l.hp, 105.0, 0.001, "laser hp")
 
 
 func test_overtime_shrinks_arena_and_ramps_damage() -> void:

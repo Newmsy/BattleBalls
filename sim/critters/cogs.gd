@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "b5838d",
 	"vibe": "A wind-up toy gear that gets wound tighter every time it's knocked.",
 	"description": "Gear. Every time it's bumped it winds up faster, the opposite of Zip.",
-	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.5},
+	"stats": {"hp": 119.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
 	"ability": [{"on": "hurt", "do": "wind"}, {"on": "strike", "do": "unwind"}],
 	"params": {
 		"wind_step": 0.09,

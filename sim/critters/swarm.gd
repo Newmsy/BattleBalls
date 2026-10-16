@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "bb8a2d",
 	"vibe": "A busy beehive that is never, ever alone.",
 	"description": "Beehive. Three bees circle it and sting foes they touch, and every 8 seconds one flies off at the foe while a new one hatches.",
-	"stats": {"hp": 119.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
+	"stats": {"hp": 121.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "always", "do": "swarm"}, {"on": "every", "secs": "bee_every", "do": "bee_launch"}],
 	"params": {
 		"bee_count": 3,

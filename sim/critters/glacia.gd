@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "b9a7ff",
 	"vibe": "A regal ice queen, cool, polite and utterly in charge.",
 	"description": "Ice queen. Every 7 seconds it raises a ring of ice pillars around the foe, then shatters them so the shards fly inward.",
-	"stats": {"hp": 126.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
+	"stats": {"hp": 103.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "every", "secs": 7.0, "do": "ice_ring"}, {"on": "always", "do": "ice_ring_tick"}, {"on": "always", "do": "slows"}],
 	"params": {
 		"ring_count": 5,
@@ -23,7 +23,7 @@ const CRITTER := {
 		"ring_big_count": 8,
 		"ring_volley_gap": 0.4, ## A big ring's second volley.
 		"shard_damage": 6.0,
-		"shard_hits": 3, ## Most shards of one volley that hit the same foe.
+		"shard_hits": 2, ## Most shards of one volley that hit the same foe.
 		"shard_slow": 0.0,
 	},
 	"tiers": [

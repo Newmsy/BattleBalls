@@ -12,7 +12,7 @@ const CRITTER := {
 	"color": "7cff4f",
 	"vibe": "A glitchy 8-bit sprite who blinks between frames.",
 	"description": "Sprite. Every 5 seconds it teleports, leaving a pixel bomb where it was.",
-	"stats": {"hp": 124.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.5},
+	"stats": {"hp": 131.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
 	"ability": [{"on": "every", "secs": "glitch_every", "do": "glitch"}],
 	"params": {
 		"glitch_every": 5.0,
