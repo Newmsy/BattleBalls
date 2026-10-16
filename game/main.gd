@@ -23,6 +23,7 @@ const A11y := preload("res://game/a11y.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Onboarding := preload("res://game/onboarding.gd")
+const Intro := preload("res://game/ui/intro.gd")
 const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Profile := preload("res://meta/profile.gd")
@@ -749,6 +750,13 @@ func _load_profile() -> void:
 			profile.stars[Zones.stage_key(0, k)] = demo_stars
 	else:
 		profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
+		# A new save opened from a link or a test URL skips the guided first
+		# fights, like it skips the tutorial (game/ui/intro.gd).
+		if not d is Dictionary and not url_params.is_empty():
+			profile.intro = Profile.INTRO_DONE
+	# ?intro=N jumps the guided first fights to step N (0 = just out of the tutorial).
+	if str(url_params.get("intro", "")).is_valid_int():
+		profile.intro = clampi(int(url_params.intro), 0, Profile.INTRO_DONE)
 	profile.changed.connect(_save_profile)
 	FightSpeed.account_level = profile.account_level
 
@@ -806,6 +814,7 @@ func _start_url_stage() -> void:
 	var i := clampi(int(parts[1]) - 1, 0, Zones.zone(z).stages.size() - 1)
 	var now := int(Time.get_unix_time_from_system())
 	profile = Profile.new_game(now)
+	profile.intro = Profile.INTRO_DONE
 	profile_unsaved = true
 	shell.set_profile(profile)
 	for k in i:
@@ -826,6 +835,7 @@ func _finish_stage() -> void:
 		print("VAULT_END difficulty=%d won=%s gear=%d" % [pve.vault, v.won, v.gear.size()])
 		return
 	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight)
+	Intro.after_stage(profile, pve.zone, pve.stage, r)
 	pve.result = CampaignScreen.result_text(r)
 	pve.r = r
 	report_label.text = pve.result
@@ -868,6 +878,7 @@ func _settle_relay_stage() -> void:
 		profile.refund_energy(Zones.cost(Zones.stage(d.zone, d.stage)))
 	else:
 		var r := Campaign.finish_team(profile, d.zone, d.stage, d.picks, d.fight)
+		Intro.after_stage(profile, d.zone, d.stage, r)
 		params.result = {"stage": d.stage, "r": r, "kind": "fight"}
 	shell.show_tab("play")
 	shell.go("world")

@@ -71,6 +71,11 @@ var vault := {}
 ## (worked out from the stacks, so it counts critters fused before trees existed).
 ## Respecs are free.
 var factions := {}
+## How far the new player's guided first fights have got (game/ui/intro.gd):
+## 0 just out of the tutorial, INTRO_DONE once everything is open. Saves from
+## before it existed load as done.
+var intro := INTRO_DONE
+const INTRO_DONE := 8
 
 
 static func new_game(now: int, starter := STARTER):
@@ -82,6 +87,7 @@ static func new_game(now: int, starter := STARTER):
 ## Fills a blank profile as a brand-new player with one T1 `starter`.
 func setup_new_game(now: int, starter := STARTER) -> void:
 	energy_time = now
+	intro = 0
 	coins = 200
 	lineup = starter
 	stacks.assign([{"id": starter, "tier": 1, "count": 1, "level": 1, "xp": 0}])
@@ -610,7 +616,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "lineup",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "factions"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "factions", "intro"]
 
 
 func to_dict() -> Dictionary:
@@ -632,6 +638,7 @@ static func from_dict(d: Dictionary, now: int):
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))
+	p.intro = clampi(int(d.get("intro", INTRO_DONE)), 0, INTRO_DONE)
 	p.free_summon = bool(d.get("free_summon", true))
 	p.seen = d.get("seen", {})
 	p.wishlist.clear()

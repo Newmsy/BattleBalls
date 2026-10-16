@@ -19,6 +19,7 @@ const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
+const Intro := preload("res://game/ui/intro.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 
 const DAILY := Color("ffd36b")
@@ -28,6 +29,14 @@ const STYLE := Color("5ce1ff")
 
 static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(20)
+	if not Intro.done(shell.profile):
+		# A new player's first fights: the campaign, then the Arena once 1-3 opens it.
+		root.add_child(_campaign_card(shell))
+		if Intro.shows(shell.profile, "arena"):
+			var store = ArenaStore.open()
+			root.add_child(group("Versus", VERSUS, [mode_tile(shell, "arena", "Ghost Arena", "%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)],
+				VERSUS, func(): shell.go("arena"), "ghost")]))
+		return root
 	root.add_child(WeekScreen.banner(shell))
 	root.add_child(_campaign_card(shell))
 	root.add_child(_quick_fight_card(shell))

@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Talents := preload("res://sim/talents.gd")
+const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
@@ -129,7 +130,10 @@ static func build(shell, params: Dictionary) -> Control:
 	var lineup := Kit.button("Your fighter" if p.lineup == c.id else "Fight with this", func():
 		p.set_lineup(c.id)
 		shell.show_tab("play")
+		if Intro.step(p) == Intro.FIGHTER and Intro.reach(p, Intro.FIGHT_2):
+			Intro.to_campaign(shell)
 		shell.toast("%s is now your fighter." % c.name), "ghost", 26, 90)
+	shell.mark("detail_fighter", lineup)
 	var fuse := Kit.button("Fuse T%d" % ready.get("tier", b.tier), func(): shell.open_tab("fuse", {"id": c.id, "tier": ready.tier}), "go", 26, 90)
 	fuse.disabled = ready.is_empty()
 	shell.mark("fuse_this", fuse)
@@ -161,7 +165,12 @@ static func _slot_sheet(shell, id: String, slot: String) -> void:
 		var info := Kit.vbox(2, [Kit.label(g.name, 24), Kit.label(g.text + ("  ·  " + who if who != "" else ""), 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var row := Kit.hbox(12, [Glyph.make(Gear.PIECES[g.type].glyph, 56, col), info, Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER)
-		var card := Kit.card_button(row, func(): p.equip(g.uid, id); shell.close_overlay(); shell.refresh(),
+		var card := Kit.card_button(row, func():
+			p.equip(g.uid, id)
+			shell.close_overlay()
+			shell.refresh()
+			if Intro.step(p) == Intro.EQUIP and Intro.reach(p, Intro.FIGHT_3):
+				Intro.to_campaign(shell),
 			Kit.GOOD if g.on == id else Kit.LINE, Kit.PANEL2, 24, 10)
 		shell.mark("pick_%d" % g.uid, card)
 		list.add_child(card)

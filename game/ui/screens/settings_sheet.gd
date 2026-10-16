@@ -2,6 +2,7 @@
 ## options from game/a11y.gd. Each switch says ON or OFF in words, not just colour.
 extends RefCounted
 
+const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const A11y := preload("res://game/a11y.gd")
 const Dev := preload("res://game/dev.gd")
@@ -113,7 +114,28 @@ static func _testing(shell) -> Control:
 	shell.mark("dev_all_speeds", speeds)
 	var speed_words := Kit.label("All fight speeds", 30)
 	speed_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds])])
+	# The new player's guided first fights (game/ui/intro.gd) on this save.
+	var restart := Kit.button("Replay intro", func(): _set_intro(shell, 0), "ghost", 24, 72)
+	shell.mark("dev_intro_restart", restart)
+	var finish := Kit.button("Unlock all", func(): _set_intro(shell, Intro.DONE), "ghost", 24, 72)
+	shell.mark("dev_intro_done", finish)
+	for b in [restart, finish]:
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var intro_words := Kit.label("New player unlocks · step %d/%d" % [Intro.step(shell.profile), Intro.DONE], 22, Kit.MUTED)
+	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds]),
+		intro_words, Kit.hbox(16, [restart, finish])])
+
+
+## Replay intro: back to just out of the tutorial (stages 1-1 to 1-3 replay
+## to open each part again). Unlock all: everything open.
+static func _set_intro(shell, step: int) -> void:
+	var p = shell.profile
+	p.intro = step
+	Intro.arena_fought = false
+	p.changed.emit()
+	shell.close_overlay()
+	shell.show_tab("play")
+	shell.toast("New player flow restarted: win stage 1-1." if step == 0 else "Everything unlocked.")
 
 
 static func _refill_energy(shell) -> void:

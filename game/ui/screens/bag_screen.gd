@@ -3,6 +3,7 @@
 ## three of a kind into the next tier (design/gear.md).
 extends RefCounted
 
+const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
@@ -132,6 +133,8 @@ static func _equip(shell, g: Dictionary, c: Dictionary) -> void:
 	shell.close_overlay()
 	shell.toast("%s equipped to %s." % [g.name, c.name])
 	shell.refresh()
+	if Intro.step(shell.profile) == Intro.EQUIP and Intro.reach(shell.profile, Intro.FIGHT_3):
+		Intro.to_campaign(shell)
 
 
 static func _merge(shell, g: Dictionary) -> void:
