@@ -9,6 +9,8 @@ import { chromium } from "playwright";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
+import { execFile } from "node:child_process";
 
 const root = path.resolve(process.argv[2] ?? "../build/web");
 const shots = path.resolve("screenshots");
@@ -168,6 +170,46 @@ try {
     await page.waitForTimeout(500);
     await page.screenshot({ path: path.join(shots, "2-result.png") });
     await page.close();
+  }
+
+  // 1a. Determinism probe: the web build must play a varied set of fights
+  // exactly like headless Godot (sim/probe.gd), or two players' phones could
+  // see different fights. Needs Godot (GODOT, or ~/godot/godot as in CI).
+  if (mine(40)) {
+    const godot = process.env.GODOT ?? path.join(os.homedir(), "godot", "godot");
+    const native = new Promise((resolve, reject) => execFile(godot, ["--headless", "--script", "res://tools/probe.gd"],
+      { cwd: path.resolve(".."), maxBuffer: 1 << 20 }, (err, out) => (err ? reject(err) : resolve(out))));
+    const { page, logs } = await openGame("?probe=1&offline=1");
+    const web = (await waitForLog(logs, "PROBE ", 180000)).split(" ");
+    const want = (await native).split("\n").find((l) => l.startsWith("PROBE ")).split(" ");
+    console.log(`probe: web ${web[1].slice(0, 16)} (${web[3]}), headless ${want[1].slice(0, 16)} (${want[3]})`);
+    if (web[1] !== want[1]) errors.push(`web build plays fights differently from headless Godot (probe ${web[1]} vs ${want[1]}): something in sim/ depends on the platform`);
+    await page.close();
+  }
+
+  // 1c. Live Quick fight: two browsers meet on a local live server
+  // (server/live_server.gd, dev sign-in), aim, and each replays the server's
+  // fight. Both must agree with the server and see opposite results.
+  if (mine(40)) {
+    const godot = process.env.GODOT ?? path.join(os.homedir(), "godot", "godot");
+    const port = 18090;
+    const live = execFile(godot, ["--headless", "--script", "res://server/live_server.gd"],
+      { cwd: path.resolve(".."), env: { ...process.env, LIVE_DEV: "1", PORT: String(port) } });
+    try {
+      const q = `&live=ws://127.0.0.1:${port}&auto=1&speed=4&offline=1&tutorial=0`;
+      const a = await openGame("?p1=vampire" + q);
+      const b = await openGame("?p1=frost" + q);
+      const ends = await Promise.all([a, b].map(({ logs }) => waitForLog(logs, "LIVE_END ", 150000)));
+      console.log("live fight:", ends.join(" | "));
+      await a.page.screenshot({ path: path.join(shots, "1c-live.png") });
+      for (const e of ends) if (!e.startsWith("LIVE_END ok")) errors.push(`live fight differs from the server's: ${e}`);
+      const side = (e) => Number(/side=(\d)/.exec(e)[1]);
+      if (side(ends[0]) === side(ends[1])) errors.push(`both live players got the same side: ${ends.join(" | ")}`);
+      await a.page.close();
+      await b.page.close();
+    } finally {
+      live.kill();
+    }
   }
 
   // 1b. Season 1 debut: Flux (Magnet) fights Optic; its field rings and poles render.
@@ -588,6 +630,13 @@ try {
   if (mine(102)) {
     const { page, logs } = await openGame("?tutorial=1");
     await waitForLog(logs, "BOOT_OK", 60000);
+    // The story prologue: tap through every line.
+    await waitForLog(logs, "UI_SCREEN onboard_story", 10000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "22-onboard-prologue.png") });
+    for (let n = 0; n < 10 && !logs.some((l) => l.startsWith("STORY_DONE")); n++) {
+      await tapUi(page, logs, "story_next");
+    }
     await waitForLog(logs, "UI_SCREEN onboard_cold_open", 10000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "22a-onboard-cold-open.png") });
@@ -621,6 +670,13 @@ try {
     const before = logs.length;
     await tapUi(page, logs, "fuse");
     console.log("onboarding fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
+    // Chapter 1's story, skipped, then the boss it leaves behind.
+    await waitForLogAfter(logs, before, "UI_SCREEN onboard_story", 10000);
+    await tapUi(page, logs, "story_next");
+    await waitForLogAfter(logs, before, "STORY_LINE 1 glitch", 5000);
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(shots, "22h-onboard-chapter1.png") });
+    await tapUi(page, logs, "story_skip");
     await waitForLogAfter(logs, before, "UI_SCREEN onboard_boss", 10000);
     await page.screenshot({ path: path.join(shots, "22h-onboard-boss.png") });
     await tapUi(page, logs, "lets_go");

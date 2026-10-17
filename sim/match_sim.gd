@@ -49,6 +49,7 @@ const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
 const Talents := preload("res://sim/talents.gd")
 const Weight := preload("res://sim/weight.gd")
+const DMath := preload("res://sim/dmath.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
@@ -69,7 +70,7 @@ const IMPACT_SPREAD := 0.4
 const SLOW_HIT_FLOOR := 0.4
 ## Gentle pull in every mode: each ball curves toward its nearest foe so they
 ## bump more often. Config "seek" overrides it (0 turns it off).
-const SEEK := 200.0
+const SEEK := 70.0 ## Newms: 400 trial, halved to 200, then down 65%.
 const BEAM_HALF_WIDTH := 5.0
 const MIN_BEAM_LENGTH := 30.0
 const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre line.
@@ -377,7 +378,7 @@ func _init(cfg: Dictionary) -> void:
 		var random_aim: int = aim_at_centre(i, starters) + rng.range_int(-RANDOM_AIM_SPREAD, RANDOM_AIM_SPREAD)
 		var aim: int = random_aim if angles[i] == null else int(angles[i])
 		launch_angles.append(aim)
-		b.vel = Vector2.from_angle(deg_to_rad(aim / 10.0)) * b.speed
+		b.vel = DMath.from_angle(deg_to_rad(aim / 10.0)) * b.speed
 		balls.append(b)
 
 
@@ -399,7 +400,7 @@ static func aim_at_centre(i: int, count := 2) -> int:
 	if count <= 2:
 		return AIM_AT_CENTRE[i]
 	var p: Vector2 = TEAM_STARTS[i]
-	return roundi(rad_to_deg((Vector2(ARENA_SIZE, ARENA_SIZE) / 2.0 - p).angle()) * 10.0)
+	return roundi(rad_to_deg(DMath.angle(Vector2(ARENA_SIZE, ARENA_SIZE) / 2.0 - p)) * 10.0)
 
 
 func time() -> float:
@@ -432,7 +433,7 @@ func obstacles() -> Array[Dictionary]:
 	for o in arena.obstacles:
 		var at: Vector2 = o.pos
 		if o.has("orbit"): # Circles the centre at orbit rad/s, starting at pos.
-			at = centre + (o.pos - centre).rotated(o.orbit * time())
+			at = centre + DMath.rotated(o.pos - centre, o.orbit * time())
 		out.append({"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind})
 	for p in pieces:
 		if p.blocking:
@@ -893,7 +894,7 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 static func _backstabber(va: Vector2, vb: Vector2, n: Vector2) -> int:
 	if va.length() < 0.001 or vb.length() < 0.001:
 		return -1
-	if va.normalized().dot(vb.normalized()) < cos(deg_to_rad(BACKSTAB_ANGLE)):
+	if va.normalized().dot(vb.normalized()) < DMath.cos(deg_to_rad(BACKSTAB_ANGLE)):
 		return -1
 	if vb.dot(n) > 0.0:
 		return 0
@@ -1245,10 +1246,10 @@ func spawn_twin(parent: Ball, hp: float, radius_mult: float, speed_mult: float, 
 	b.base = parent.base.duplicate()
 	b.state = {"split_gen": parent.state.get("split_gen", 0)}
 	var dir := parent.vel.normalized() if parent.vel.length() > 0.001 else Vector2.RIGHT
-	parent.vel = dir.rotated(-turn) * parent.speed
-	b.vel = dir.rotated(turn) * b.speed
-	b.pos = inside(parent.pos + dir.rotated(turn).orthogonal() * parent.radius, b.radius + 4.0)
-	parent.pos = inside(parent.pos - dir.rotated(turn).orthogonal() * parent.radius, parent.radius + 4.0)
+	parent.vel = DMath.rotated(dir, -turn) * parent.speed
+	b.vel = DMath.rotated(dir, turn) * b.speed
+	b.pos = inside(parent.pos + DMath.rotated(dir, turn).orthogonal() * parent.radius, b.radius + 4.0)
+	parent.pos = inside(parent.pos - DMath.rotated(dir, turn).orthogonal() * parent.radius, parent.radius + 4.0)
 	balls.append(b)
 	return b
 
@@ -1431,8 +1432,8 @@ func _update_shots() -> void:
 				if target == null or s.pos.distance_squared_to(o.pos) < s.pos.distance_squared_to(target.pos):
 					target = o
 			if target != null:
-				var turn := clampf(s.vel.angle_to(target.pos - s.pos), -s.homing * DT, s.homing * DT)
-				s.vel = s.vel.rotated(turn)
+				var turn := clampf(DMath.angle_to(s.vel, target.pos - s.pos), -s.homing * DT, s.homing * DT)
+				s.vel = DMath.rotated(s.vel, turn)
 		s.pos += s.vel * DT
 		var struck := false
 		for o in foes(owner):
@@ -1456,7 +1457,7 @@ func _update_shots() -> void:
 				shots.erase(s)
 				events.append({"type": "shot_pop", "ball": s.owner, "pos": s.pos, "kind": s.kind})
 				for k in s.split:
-					var dir: Vector2 = s.vel.rotated(deg_to_rad(30.0 * (k - (s.split - 1) / 2.0)))
+					var dir: Vector2 = DMath.rotated(s.vel, deg_to_rad(30.0 * (k - (s.split - 1) / 2.0)))
 					add_shot(owner, s.pos, dir, {"kind": s.kind, "radius": s.radius * 0.7, "damage": s.damage * 0.5,
 						"life": 1.5, "burn": s.burn, "slow": s.slow})
 

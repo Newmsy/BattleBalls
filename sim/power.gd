@@ -4,6 +4,7 @@
 ## per tier, +2.5% per level, plus each gear piece's worth from sim/gear.gd),
 ## so a number on screen is the strength that fights.
 extends RefCounted
+const DMath := preload("res://sim/dmath.gd")
 
 const TIER_STEP := 1.25
 const LEVEL_STEP := 0.025 ## Per level above 1, so level 11 is +25%.
@@ -14,7 +15,7 @@ const RARITY_STEP := 1.118034 ## sqrt(TIER_STEP)
 
 
 static func multiplier(rarity: String, tier: int, level: int) -> float:
-	return pow(RARITY_STEP, maxi(0, RARITIES.find(rarity))) * pow(TIER_STEP, tier - 1) * (1.0 + LEVEL_STEP * (level - 1))
+	return DMath.ipow(RARITY_STEP, maxi(0, RARITIES.find(rarity))) * DMath.ipow(TIER_STEP, tier - 1) * (1.0 + LEVEL_STEP * (level - 1))
 
 
 ## Rarity's half tier per step also counts for the ability: MatchSim builds a

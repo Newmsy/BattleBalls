@@ -21,6 +21,17 @@ func test_fusing_three_copies_makes_one_of_the_next_tier() -> void:
 	check(not p.can_fuse("speedster", 1), "no T1 Zips left to fuse")
 
 
+func test_fuse_continue_keeps_your_place_in_the_list() -> void:
+	var FuseScreen = load("res://game/ui/screens/fuse_screen.gd")
+	var a := {"id": "a", "tier": 1}
+	var b := {"id": "b", "tier": 1}
+	var c := {"id": "c", "tier": 1}
+	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, b, c], b), b, "6 copies: the same stack stays selected")
+	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, {"id": "b", "tier": 2}, c], b), c, "stack used up: the next one in the list")
+	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, b], c), b, "last one used up: the new last one")
+	check_eq(FuseScreen.pick_after_fuse([a], [], a), {}, "nothing left")
+
+
 func test_fusion_keeps_the_highest_level() -> void:
 	var p = UiProfile.sample()
 	# Count Nibbles: T1 x3 at Lv 6, and an existing T2 at Lv 14.

@@ -36,3 +36,55 @@ func test_golden_replays_are_unchanged() -> void:
 		check_eq(s.winner, int(g.winner), label + " winner")
 		check_eq(s.ticks, int(g.ticks), label + " length")
 		check_eq(s.hash, g.hash, label + " final state")
+
+
+func test_dmath_matches_builtins_closely() -> void:
+	const DMath := preload("res://sim/dmath.gd")
+	var worst := 0.0
+	for i in 2001:
+		var a := -20.0 + i * 0.02
+		worst = maxf(worst, absf(DMath.sin(a) - sin(a)))
+		worst = maxf(worst, absf(DMath.cos(a) - cos(a)))
+		var y := sin(a * 1.7) * 3.0
+		var x := cos(a) * 2.0
+		worst = maxf(worst, absf(DMath.atan2(y, x) - atan2(y, x)))
+	for x in [-1.0, -0.5, 0.0, 0.3, 0.99, 1.0]:
+		worst = maxf(worst, absf(DMath.asin(x) - asin(x)))
+	check(worst < 1e-12, "dmath within 1e-12 of the built-ins, worst %s" % worst)
+	check_eq(DMath.atan2(0.0, 0.0), 0.0, "atan2(0, 0)")
+	check_eq(DMath.ipow(1.25, 3), 1.25 * 1.25 * 1.25, "ipow")
+
+
+## Built-in sin/cos/atan2/pow and the Vector2 angle methods use each platform's
+## maths library, which differs by a bit between desktop, web and phones; that
+## was enough for some fights to play out differently on the web. sim/ must use
+## sim/dmath.gd instead.
+func test_sim_uses_no_platform_maths() -> void:
+	var bad := RegEx.create_from_string("(?<![\\w.])(sin|cos|tan|asin|acos|atan|atan2|pow|exp|log|sinh|cosh|tanh)\\(|\\.(from_angle|rotated|angle|angle_to|angle_to_point|slerp)\\(")
+	var files: Array[String] = []
+	var dirs := ["res://sim"]
+	while not dirs.is_empty():
+		var d: String = dirs.pop_back()
+		for sub in DirAccess.get_directories_at(d):
+			dirs.append(d + "/" + sub)
+		for f in DirAccess.get_files_at(d):
+			if f.ends_with(".gd") and f != "dmath.gd":
+				files.append(d + "/" + f)
+	check(files.size() > 50, "found the sim files")
+	for path in files:
+		var lines := FileAccess.get_file_as_string(path).split("\n")
+		for n in lines.size():
+			var code := lines[n].split("#")[0].replace("DMath.", "DMath_")
+			if bad.search(code):
+				runner.fail("%s:%d uses platform maths, use DMath: %s" % [path, n + 1, lines[n].strip_edges()])
+
+
+func test_probe_and_sim_version_are_stable() -> void:
+	const Probe := preload("res://sim/probe.gd")
+	const SimVersion := preload("res://sim/sim_version.gd")
+	var a := Probe.run(6)
+	check_eq(a.fights, 6, "probe ran its fights")
+	check_eq(Probe.run(6).hash, a.hash, "probe hash repeats")
+	var v := SimVersion.from_source()
+	check_eq(v.length(), 12, "sim_version is 12 hex digits")
+	check_eq(SimVersion.from_source(), v, "sim_version repeats")

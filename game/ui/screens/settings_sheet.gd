@@ -114,6 +114,14 @@ static func _testing(shell) -> Control:
 	shell.mark("dev_all_speeds", speeds)
 	var speed_words := Kit.label("All fight speeds", 30)
 	speed_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Quick fight's FIGHT! finds a real player on the live server (server/).
+	var live_on := Dev.live_fights()
+	var live := Kit.button("On" if live_on else "Off", func(): Dev.set_live_fights(not live_on); open(shell), "go" if live_on else "ghost", 26, 72)
+	live.custom_minimum_size.x = 132
+	live.disabled = Dev.live_url() == ""
+	shell.mark("dev_live_fights", live)
+	var live_words := Kit.label("Live Quick fights" if Dev.live_url() != "" else "Live fights (no server yet)", 30)
+	live_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	# The new player's guided first fights (game/ui/intro.gd) on this save.
 	var restart := Kit.button("Replay intro", func(): _set_intro(shell, 0), "ghost", 24, 72)
 	shell.mark("dev_intro_restart", restart)
@@ -123,6 +131,7 @@ static func _testing(shell) -> Control:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var intro_words := Kit.label("New player unlocks · step %d/%d" % [Intro.step(shell.profile), Intro.DONE], 22, Kit.MUTED)
 	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds]),
+		Kit.hbox(16, [live_words, live]),
 		intro_words, Kit.hbox(16, [restart, finish])])
 
 

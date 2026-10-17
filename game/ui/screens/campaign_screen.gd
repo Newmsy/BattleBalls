@@ -17,6 +17,8 @@ const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const Gear := preload("res://sim/gear.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Story := preload("res://meta/story.gd")
+const StoryCards := preload("res://game/ui/story_cards.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -31,7 +33,14 @@ static func build(shell, params: Dictionary) -> Control:
 	var head := Kit.vbox(2, [Kit.caption("Zone %d · The Neon Circuit · %s" % [z + 1, "1v1" if zone.lineup == 1 else "%d vs %d" % [zone.lineup, zone.lineup]], Color("9be89a")),
 		Kit.label(zone.name, 44)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [back, head]))
+	var title_row := Kit.hbox(16, [back, head])
+	var has_story := not Story.chapter(z).is_empty()
+	if has_story:
+		var replay := Kit.card_button(Kit.label("Story", 22), play_story.bind(shell, z), Kit.LINE, Kit.PANEL, 999, 14)
+		replay.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		shell.mark("story", replay)
+		title_row.add_child(replay)
+	root.add_child(title_row)
 
 	var wait: int = p.seconds_to_next_energy(now)
 	var energy_line := "Energy %d/%d" % [p.energy, p.energy_max] + ("  ·  +1 in %d:%02d" % [wait / 60, wait % 60] if wait > 0 else "")
@@ -75,9 +84,24 @@ static func build(shell, params: Dictionary) -> Control:
 	# Land on the stage just played, not the top of the list.
 	if params.has("focus"):
 		shell.scroll_to(list.get_child(clampi(params.focus, 0, zone.stages.size() - 1)))
+	# A chapter's story plays the first time you open it.
+	if has_story and not params.has("result") and not Story.seen(p, zone.id):
+		play_story(shell, z)
 	if params.has("result"):
 		_result_popup(shell, z, params.result.stage, params.result.r, params.result.get("kind", "fight"), fighter)
 	return root
+
+
+## Plays zone `z`'s chapter story over the screen; finishing or skipping it
+## counts it as seen.
+static func play_story(shell, z: int) -> void:
+	var id: String = Zones.zone(z).id
+	var cards: Control = StoryCards.make(Story.chapter(z), func():
+		Story.mark_seen(shell.profile, id)
+		shell.close_overlay())
+	shell.overlay(cards, "story")
+	shell.mark("story_next", cards.next_button)
+	shell.mark("story_skip", cards.skip_button)
 
 
 static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:

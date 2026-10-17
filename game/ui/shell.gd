@@ -492,7 +492,7 @@ func _report_after_scroll(name: String) -> void:
 func _report(name: String) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
-	if name != current and name not in ["overlay", "sheet", "reveal"]:
+	if name != current and name not in ["overlay", "sheet", "reveal", "story"]:
 		return
 	print("UI_SCREEN ", name)
 	if name == current:
