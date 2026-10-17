@@ -933,6 +933,12 @@ func _load_profile() -> void:
 			Story.skip_all(profile)
 	if demo_profile:
 		Story.skip_all(profile)
+		# ?demo=1&copies=N adds N more owned copies (a big collection, for perf checks).
+		var extra := int(url_params.get("copies", "0"))
+		for i in extra:
+			var id: String = Roster.CRITTERS[i % Roster.CRITTERS.size()].id
+			profile.stacks.append({"id": id, "tier": 1 + i % 3, "count": 1, "level": 1 + i % 20})
+			profile.seen[id] = true
 	# ?story=1 plays every chapter's story again (screenshots, playtests).
 	if url_params.get("story", "") == "1":
 		profile.story.clear()

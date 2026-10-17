@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const LazyTile := preload("res://game/ui/lazy_tile.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
@@ -32,7 +33,8 @@ static func build(shell, _params: Dictionary) -> Control:
 	grid.add_theme_constant_override("v_separation", 10)
 	for c in Roster.CRITTERS:
 		if filter == "all" or c.rarity == filter:
-			grid.add_child(_entry(shell, p.owns(c.id), c))
+			var owned: bool = p.owns(c.id)
+			grid.add_child(LazyTile.wrap(func(): return _entry(shell, owned, c), grid.get_child_count(), 20))
 	root.add_child(grid)
 	return root
 
