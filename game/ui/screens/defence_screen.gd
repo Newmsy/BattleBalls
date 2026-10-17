@@ -1,6 +1,6 @@
 ## Arena Defence: the trio other players fight once online play opens. Until
 ## then a few seeded themed teams raid it each day (ArenaStore.run_raids);
-## holding wins trophies and Arena Coins. Reached from the Arena hub.
+## holding wins trophies and Tokens. Reached from the Arena hub.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -20,7 +20,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var how := [
 		"Your Defence trio is the team other players will fight once online play opens.",
 		"Until then, %d themed teams near your Defence's power raid it each day, the first time you open the Arena." % ArenaStore.RAIDS_PER_DAY,
-		"Each raid you hold wins +5 trophies and %d Arena Coins. A lost raid costs a few trophies, capped each day, never below your league floor." % ArenaStore.COINS_DEFENCE,
+		"Each raid you hold wins +5 trophies and %d Tokens. A lost raid costs a few trophies, capped each day, never below your league floor." % ArenaStore.COINS_DEFENCE,
 		"Defence uses your attack trio's last saved shots.",
 	]
 	var info: Control = shell.info_button("Defence", how, "defence_info")

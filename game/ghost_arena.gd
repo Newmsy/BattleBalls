@@ -257,7 +257,7 @@ func _show_result() -> void:
 		change = "%+d trophies and Arena Points." % result_delta
 	var got: int = store.history[0].get("coins", 0) if not store.history.is_empty() else 0
 	if got > 0:
-		change += " +%d Arena Coins." % got
+		change += " +%d Tokens." % got
 	info_label.text = "%s You're on %d, %s." % [change, store.trophies, Ladder.league_label(store.trophies)]
 	print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s" % [won, result_delta, store.trophies, relay.state_hash()])
 	_set_panel([headline, _button("Back to Arena", _back_to_arena, 36)])
