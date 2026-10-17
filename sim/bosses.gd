@@ -66,7 +66,7 @@ const DEFS := {
 		"feather_count": 3,
 		"feather_spread": 18.0, ## Degrees between feathers in a volley.
 		"feather_speed": 560.0,
-		"feather_damage": 6.0,
+		"feather_damage": 9.0,
 	},
 	"pinata_titan": {
 		"display_name": "Piñata Titan",
@@ -98,7 +98,7 @@ const DEFS := {
 		"fan_count": 3, ## Every other volley: a fan aimed at you.
 		"fan_spread": 16.0,
 		"orb_speed": 400.0,
-		"orb_damage": 6.0,
+		"orb_damage": 10.0,
 	},
 }
 
@@ -135,7 +135,8 @@ static func minion_def(id: String) -> Dictionary:
 	return def
 
 
-## The boss's power multiplier on HP and damage (sqrt of its fight power).
+## The boss's power multiplier on HP and damage (sqrt of its fight power),
+## for its minions. Its own *_damage and *_dps keys are scaled already.
 static func _scale(b) -> float:
 	return b.max_hp / float(DEFS[b.def.id].hp)
 
@@ -303,7 +304,7 @@ static func _brood(sim, b) -> void:
 		var n := int(d.feather_count)
 		for i in n:
 			var v: Vector2 = DMath.rotated(dir, deg_to_rad(d.feather_spread * (i - (n - 1) / 2.0))) * d.feather_speed
-			sim.add_shot(b, st.anchor + dir * b.radius, v, {"kind": "feather", "radius": 10.0, "damage": d.feather_damage * k, "life": 2.0})
+			sim.add_shot(b, st.anchor + dir * b.radius, v, {"kind": "feather", "radius": 10.0, "damage": d.feather_damage, "life": 2.0})
 
 
 static func _hatch(sim, m, k: float, target) -> void:
@@ -356,7 +357,6 @@ static func _totem_windup(sim, b) -> void:
 static func _totem_fire(sim, b, act: Dictionary) -> void:
 	sim.zones.erase(act.tell)
 	var d: Dictionary = b.def
-	var k := _scale(b)
 	var dirs: Array[Vector2] = []
 	if act.ring:
 		var n := int(d.ring_count)
@@ -372,7 +372,7 @@ static func _totem_fire(sim, b, act: Dictionary) -> void:
 		for i in n:
 			dirs.append(DMath.rotated(dir, deg_to_rad(d.fan_spread * (i - (n - 1) / 2.0))))
 	for dir in dirs:
-		sim.add_shot(b, b.state.anchor + dir * (b.radius + 12.0), dir * d.orb_speed, {"kind": "spirit", "radius": 14.0, "damage": d.orb_damage * k, "life": 2.6})
+		sim.add_shot(b, b.state.anchor + dir * (b.radius + 12.0), dir * d.orb_speed, {"kind": "spirit", "radius": 14.0, "damage": d.orb_damage, "life": 2.6})
 
 
 ## A stun on the boss cancels its wind-up.
