@@ -53,6 +53,8 @@ const THEMES := {
 		"glows": [[Vector2(500, 380), 320.0, "ffb627"], [Vector2(330, 720), 160.0, "5ce1ff"], [Vector2(670, 720), 160.0, "ff6fae"]]},
 	"shrine": {"fill": "0b0a1f", "grid": "8f86c9", "border": "c9a6ff", "pillar": "6a6488", "ambient": "wisps",
 		"glows": [[Vector2(500, 500), 340.0, "8f6bff"], [Vector2(500, 150), 110.0, "ffd166"], [Vector2(150, 500), 110.0, "ffd166"], [Vector2(850, 500), 110.0, "ffd166"], [Vector2(500, 850), 110.0, "ffd166"]]},
+	"rift": {"fill": "06101e", "grid": "4fd8ff", "border": "7af0ff", "pillar": "8ab4ff", "ambient": "sparks",
+		"glows": [[Vector2(500, 500), 360.0, "2fa8ff"], [Vector2(120, 120), 160.0, "b366ff"], [Vector2(880, 880), 160.0, "b366ff"]]},
 }
 
 

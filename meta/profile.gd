@@ -71,6 +71,8 @@ var vault := {}
 var nest := {}
 ## Runs used today at the later farming bosses: {key: {day, runs}} (meta/boss_runs.gd).
 var boss_days := {}
+## Lures from the Prism Wyrm: spent on a copy of a wishlisted critter (use_lure).
+var lures := 0
 ## Faction talent trees (sim/talents.gd): faction -> {xp, picks: {node: rank}}.
 ## Points come only from play: Faction XP from progression fights, plus one
 ## point for each of T2-T5 that any of the faction's critters has reached
@@ -412,6 +414,21 @@ func add_copies(ids: Array) -> void:
 	changed.emit()
 
 
+## Lures a copy of `id` costs: rarer critters take more (Economy.LURE_COST).
+static func lure_cost(id: String) -> int:
+	return int(Economy.LURE_COST.get(Roster.get_critter(id).rarity, 99))
+
+
+## Spends Lures on one copy of a wishlisted critter. False (nothing spent)
+## when it isn't on the wishlist or there aren't enough Lures.
+func use_lure(id: String) -> bool:
+	if not on_wishlist(id) or lures < lure_cost(id):
+		return false
+	lures -= lure_cost(id)
+	add_copies([id])
+	return true
+
+
 func on_wishlist(id: String) -> bool:
 	return id in wishlist
 
@@ -659,7 +676,7 @@ func account_xp_to_next() -> int:
 
 # --- Save ---------------------------------------------------------------------
 
-const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lineup",
+const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup",
 	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "boss_days", "factions", "intro", "story"]
 
 
@@ -679,7 +696,7 @@ static func from_dict(d: Dictionary, now: int):
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
 	# Saves from before hammers keep new_game's starter hammers.
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "legendary_pity", "runs"]:
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))
@@ -769,6 +786,8 @@ func grant(r: Dictionary) -> void:
 			coins += n
 		"hammers":
 			hammers += n
+		"lures":
+			lures += n
 		"energy":
 			energy += n
 		"xp_chip":

@@ -266,6 +266,14 @@ const BOSS_ARENAS := {
 		"min_half": 440.0,
 		"floors": [],
 	},
+	"rift": {
+		"display_name": "Crystal Rift",
+		"description": "A cavern of cut crystal corners, wide open for the wyrm to snake through.",
+		"corner_cut": 120.0,
+		"obstacles": [],
+		"min_half": 470.0,
+		"floors": [],
+	},
 }
 
 

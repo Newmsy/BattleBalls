@@ -166,3 +166,6 @@ static func rarity_multiplier(rarity: String) -> float:
 ## Power multiplier of a critter, 1.0 for a T1 level 1 Common (sim/power.gd).
 static func power(rarity: String, tier: int, level: int) -> float:
 	return rarity_multiplier(rarity) * pow(TIER_STEP, tier - 1) * (1.0 + LEVEL_STEP * (level - 1))
+
+## Lures (from the Prism Wyrm) a guaranteed copy of a wishlisted critter costs, by rarity.
+const LURE_COST := {"common": 1, "uncommon": 2, "rare": 4, "epic": 8, "legendary": 16}

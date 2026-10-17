@@ -100,6 +100,26 @@ const DEFS := {
 		"orb_speed": 400.0,
 		"orb_damage": 10.0,
 	},
+	"prism_wyrm": {
+		"display_name": "Prism Wyrm",
+		"description": "A crystal serpent snaking figure-eights through the Crystal Rift. Only its glowing scale can be hurt, and the glow runs along its body. Its tail lashes out where you are.",
+		"color": "7af0ff",
+		"arena": "rift",
+		"hp": 125.0, "radius": 70.0, "speed": 0.0, "contact_damage": 6.0,
+		"time": 75.0,
+		"script": "wyrm",
+		"draw_in": 0.0,
+		"path": Vector2(300, 230), ## Figure-eight half-size round the centre.
+		"path_speed": 0.42, ## Radians of path per boss-clock second.
+		"segments": 4, ## Body scales behind the head.
+		"segment_radius": 46.0,
+		"segment_gap": 0.42, ## Boss-clock seconds of path between scales.
+		"glow_every": 2.4, ## The glow steps one scale toward the tail this often.
+		"lash_every": 3.6,
+		"lash_windup": 0.9, ## The tail's ring before it lashes: stun it to cancel.
+		"lash_radius": 120.0,
+		"lash_damage": 11.0,
+	},
 }
 
 ## Minions: a boss's eggs and chicks. Plain-based like bosses; HP and damage
@@ -107,6 +127,7 @@ const DEFS := {
 const MINIONS := {
 	"brood_egg": {"display_name": "Egg", "radius": 30.0, "speed": 0.0, "contact_damage": 0.0},
 	"brood_chick": {"display_name": "Chick", "radius": 30.0, "speed": 430.0, "contact_damage": 5.0},
+	"wyrm_scale": {"display_name": "Scale", "radius": 46.0, "speed": 0.0, "contact_damage": 4.0},
 }
 
 
@@ -152,6 +173,12 @@ static func setup(b, opts := {}) -> void:
 		b.pos = _glide(b.def, 0.0)
 	elif b.def.script == "pinata":
 		b.pos = _swing(b.def, 0.0)
+	elif b.def.script == "wyrm":
+		b.pos = _wyrm_at(b.def, 0.0)
+		b.state.glow = 0 ## 0 the head, then each scale toward the tail.
+		b.state.scales = []
+		b.state.next_glow = b.def.glow_every
+		b.state.next = b.def.lash_every * 0.6
 	b.state.anchor = b.pos
 	b.state.clock = 0.0
 	b.state.cracked = 0 ## Eggs broken before they hatched (Brood Queen's reward).
@@ -174,7 +201,8 @@ static func tick(sim, b) -> void:
 	st.clock += sim.DT * (1.0 - clampf(b.slow, 0.0, 0.9))
 	if st.has("act"):
 		_resolve(sim, b)
-		return
+		if b.def.script != "wyrm": # The wyrm keeps snaking while its tail winds up.
+			return
 	match b.def.script:
 		"anvil":
 			if st.clock >= st.next:
@@ -186,6 +214,8 @@ static func tick(sim, b) -> void:
 		"totem":
 			if st.clock >= st.next:
 				_totem_windup(sim, b)
+		"wyrm":
+			_wyrm(sim, b)
 
 
 ## Magnet core: what critters leave on the floor (mines, trails, puddles)
@@ -257,6 +287,13 @@ static func _resolve(sim, b) -> void:
 		"volley":
 			if st.clock >= act.at:
 				_totem_fire(sim, b, act)
+				st.erase("act")
+		"lash":
+			var tail = sim.balls[st.scales[-1]]
+			act.tell.pos = tail.pos
+			if st.clock >= act.at:
+				sim.zones.erase(act.tell)
+				sim.pulse(b, tail.pos, b.def.lash_radius, b.def.lash_damage, true, "lash")
 				st.erase("act")
 
 
@@ -375,6 +412,52 @@ static func _totem_fire(sim, b, act: Dictionary) -> void:
 		sim.add_shot(b, b.state.anchor + dir * (b.radius + 12.0), dir * d.orb_speed, {"kind": "spirit", "radius": 14.0, "damage": d.orb_damage, "life": 2.6})
 
 
+# --- Prism Wyrm ---------------------------------------------------------------
+
+## The head's spot on its figure-eight at `clock`.
+static func _wyrm_at(d: Dictionary, clock: float) -> Vector2:
+	var a: float = clock * d.path_speed
+	return Vector2(500, 500) + Vector2(d.path.x * DMath.sin(a), d.path.y * DMath.sin(2.0 * a))
+
+
+## Scales never die: what a hit takes off the glowing one comes off the
+## wyrm (the head), and the rest are armour (they and the head take nothing
+## while not glowing: defense 1).
+static func _wyrm(sim, b) -> void:
+	var st: Dictionary = b.state
+	var d: Dictionary = b.def
+	st.anchor = _wyrm_at(d, st.clock)
+	if st.scales.is_empty():
+		for i in int(d.segments):
+			var m = sim.spawn_minion(b, minion_def("wyrm_scale"), _wyrm_at(d, st.clock - (i + 1) * d.segment_gap), 1.0e6)
+			m.anchored = true
+			m.contact_damage *= _scale(b)
+			m.state.order = i + 1
+			st.scales.append(m.index)
+	for idx in st.scales:
+		var m = sim.balls[idx]
+		m.state.anchor = _wyrm_at(d, st.clock - int(m.state.order) * d.segment_gap)
+		var lost: float = m.max_hp - m.hp
+		if lost > 0.0:
+			m.hp = m.max_hp
+			if int(m.state.order) == int(st.glow):
+				b.hp -= lost
+	if st.clock >= st.next_glow:
+		st.next_glow = st.clock + d.glow_every
+		st.glow = (int(st.glow) + 1) % (int(d.segments) + 1)
+		var at: Vector2 = st.anchor if st.glow == 0 else sim.balls[st.scales[int(st.glow) - 1]].state.anchor
+		sim.events.append({"type": "wyrm_glow", "ball": b.index, "pos": at, "glow": st.glow})
+	b.defense = 0.0 if st.glow == 0 else 1.0
+	for idx in st.scales:
+		sim.balls[idx].defense = 0.0 if int(sim.balls[idx].state.order) == int(st.glow) else 1.0
+	if st.clock >= st.next and not st.has("act"):
+		st.next = st.clock + d.lash_every
+		var tail = sim.balls[st.scales[-1]]
+		var tell = sim.add_zone(b, tail.pos, {"kind": "lash", "radius": d.lash_radius, "life": d.lash_windup * 10.0})
+		st.act = {"kind": "lash", "at": st.clock + d.lash_windup, "tell": tell}
+		sim.events.append({"type": "boss_windup", "ball": b.index, "kind": "lash", "pos": tail.pos})
+
+
 ## A stun on the boss cancels its wind-up.
 static func _fizzle(sim, b) -> void:
 	var st: Dictionary = b.state
@@ -385,7 +468,7 @@ static func _fizzle(sim, b) -> void:
 			if sim.shots.has(act.shot):
 				at = act.shot.land
 				sim.shots.erase(act.shot)
-		"quake", "volley":
+		"quake", "volley", "lash":
 			sim.zones.erase(act.tell)
 	st.erase("act")
 	sim.events.append({"type": "boss_fizzle", "ball": b.index, "kind": act.kind, "pos": at})

@@ -200,7 +200,8 @@ func test_boss_hall_and_boss_screens_build() -> void:
 	var Shell = load("res://game/ui/shell.gd")
 	var shell = Shell.new()
 	shell.build()
-	for screen in ["bosses", "pinata", "vault", "nest", "totem"]:
+	shell.profile.wishlist.assign(["vampire"])
+	for screen in ["bosses", "pinata", "vault", "nest", "totem", "wyrm"]:
 		shell.go(screen, {"notice": "Won"} if screen != "bosses" else {})
 		check_eq(shell.current, screen, screen + " builds")
 	shell.free()
@@ -247,3 +248,52 @@ func test_totem_pays_sigils_to_todays_family() -> void:
 	var r: Dictionary = TotemShrine.finish(p, 1, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 20.0, "max_hp": 50.0}, now)
 	check_eq(r.sigils, TotemShrine.DIFFICULTIES[1].sigils, "Hard pays its sigils")
 	check(int(p.factions[fam].xp) - xp >= r.sigils, "into today's family's tree")
+
+
+func test_wyrm_only_its_glowing_scale_takes_damage() -> void:
+	var sim := MatchSim.new(_cfg("plain", 13, "prism_wyrm"))
+	sim.balls[0].contact_damage = 0.0
+	sim.step()
+	var wyrm = sim.balls[1]
+	check_eq(wyrm.state.scales.size(), int(Bosses.DEFS.prism_wyrm.segments), "its body is out")
+	var scale = sim.balls[wyrm.state.scales[1]]
+	var start: Vector2 = scale.pos
+	for i in 30:
+		sim.step()
+	check(scale.pos.distance_to(start) > 5.0, "the body snakes along")
+	wyrm.state.glow = 0
+	var hp: float = wyrm.hp
+	sim.deal(sim.balls[0], scale, 20.0, "test") # Armour: not glowing.
+	sim.step()
+	check(absf(wyrm.hp - hp) < 0.001, "a dull scale shrugs it off")
+	wyrm.state.glow = int(scale.state.order)
+	wyrm.state.next_glow = wyrm.state.clock + 99.0
+	sim.step()
+	sim.deal(sim.balls[0], scale, 20.0, "test")
+	sim.step()
+	sim.step()
+	check(wyrm.hp < hp - 5.0, "the glowing scale's hit comes off the wyrm")
+	check(scale.alive(), "scales never fall off")
+
+
+func test_lures_buy_wishlisted_copies() -> void:
+	var WyrmRift = load("res://meta/wyrm_rift.gd")
+	var Zones = load("res://meta/zones.gd")
+	var now := 1_800_000_000
+	var p = Profile.new_game(now)
+	check_eq(WyrmRift.start(p, 0, "vampire", now).get("error"), "locked", "locked before zone 4")
+	for z in 4:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	check_eq(WyrmRift.start(p, 2, "vampire", now).get("p2"), "prism_wyrm", "the wyrm's the boss")
+	var r: Dictionary = WyrmRift.finish(p, 2, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 40.0, "max_hp": 50.0}, now)
+	check_eq(p.lures, WyrmRift.DIFFICULTIES[2].lures, "Elite pays its Lures")
+	check(not p.use_lure("blackhole"), "only wishlisted critters")
+	p.toggle_wishlist("blackhole")
+	p.lures = Profile.lure_cost("blackhole") - 1
+	check(not p.use_lure("blackhole"), "not enough Lures, nothing spent")
+	p.lures += 1
+	check(p.use_lure("blackhole"), "enough Lures buys one")
+	check(p.owns("blackhole"), "the copy lands")
+	check_eq(p.lures, 0, "the Lures are spent")
+	check_eq(Profile.from_dict(JSON.parse_string(JSON.stringify(p.to_dict())), now).lures, 0, "Lures save")

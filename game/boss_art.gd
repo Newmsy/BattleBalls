@@ -16,6 +16,7 @@ const HEN_HI := Color("ffb3d4")
 const COMB := Color("ff3d5a")
 const BEAK := Color("ffc23d")
 const SHELL := Color("fff1d6")
+const PRISM := Color("7af0ff")
 
 
 ## Boss `id` centred on `c` with footprint radius `r`. opts: t (seconds),
@@ -35,6 +36,10 @@ static func draw(ci: CanvasItem, id: String, c: Vector2, r: float, opts := {}) -
 			_pinata(ci, c, r, opts)
 		"totem_of_nine":
 			_totem(ci, c, r, opts)
+		"prism_wyrm":
+			_wyrm_head(ci, c, r, opts)
+		"wyrm_scale":
+			_wyrm_scale(ci, c, r, opts)
 		_:
 			Dot.circle(ci, c, r, IRON)
 
@@ -205,6 +210,48 @@ static func _totem(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
 	Dot.circle(ci, c, r * 0.26, cap)
 	if lit != "":
 		Dot.circle(ci, c, r * 0.12, TALENTS.COLORS.get(lit, Color.WHITE))
+
+
+## The Prism Wyrm's head: a cut-crystal wedge facing opts.face. opts.lit:
+## the glow is on it (it can be hurt).
+static func _wyrm_head(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
+	var t: float = o.get("t", 0.0)
+	var face: Vector2 = o.get("face", Vector2.RIGHT)
+	var side := face.orthogonal()
+	var lit: bool = o.get("lit", true)
+	var base := Color("2a6f9e").lerp(Color.WHITE, clampf(o.get("hit", 0.0) * 2.0, 0.0, 0.6))
+	if lit:
+		Dot.circle(ci, c, r * 1.25, Color(PRISM, 0.18 + 0.1 * sin(t * 6.0)))
+	Dot.circle(ci, c + Vector2(r * 0.06, r * 0.1), r * 0.95, Color(0, 0, 0, 0.3))
+	var pts := PackedVector2Array([c + face * r * 1.15, c + face * r * 0.2 + side * r * 0.85, c - face * r * 0.8 + side * r * 0.55,
+		c - face * r * 0.8 - side * r * 0.55, c + face * r * 0.2 - side * r * 0.85])
+	Dot.poly(ci, pts, base)
+	Dot.poly(ci, PackedVector2Array([c + face * r * 1.15, c + face * r * 0.2 + side * r * 0.85, c]), base.lightened(0.25))
+	Dot.poly(ci, PackedVector2Array([c - face * r * 0.8 - side * r * 0.55, c + face * r * 0.2 - side * r * 0.85, c]), base.darkened(0.2))
+	# Horns and eyes.
+	for k in [-1.0, 1.0]:
+		var root: Vector2 = c - face * r * 0.4 + side * k * r * 0.5
+		Dot.poly(ci, PackedVector2Array([root + side * k * r * 0.12, root - face * r * 0.7 + side * k * r * 0.35, root - side * k * r * 0.12]), Color("b366ff"))
+		Dot.circle(ci, c + face * r * 0.35 + side * k * r * 0.32, r * 0.1, PRISM if not o.get("stunned", false) else Color(1, 1, 1, 0.5))
+
+
+## One body scale: a hexagonal crystal, bright and pulsing while lit (the
+## only part that takes damage), dull armour otherwise.
+static func _wyrm_scale(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
+	var t: float = o.get("t", 0.0)
+	var lit: bool = o.get("lit", false)
+	var pts := PackedVector2Array()
+	for k in 6:
+		pts.append(c + Vector2.from_angle(k * TAU / 6.0 + PI / 6.0) * r * 0.95)
+	Dot.circle(ci, c + Vector2(r * 0.06, r * 0.1), r * 0.9, Color(0, 0, 0, 0.3))
+	if lit:
+		Dot.circle(ci, c, r * 1.3, Color(PRISM, 0.22 + 0.12 * sin(t * 8.0)))
+	var col := (PRISM if lit else Color("2f4f6e")).lerp(Color.WHITE, clampf(o.get("hit", 0.0) * 2.0, 0.0, 0.5))
+	Dot.poly(ci, pts, col)
+	var inner := PackedVector2Array()
+	for k in 6:
+		inner.append(c + Vector2.from_angle(k * TAU / 6.0 + PI / 6.0) * r * 0.55)
+	Dot.poly(ci, inner, col.lightened(0.3) if lit else col.lightened(0.12))
 
 
 ## A boss in a menu (the Anvil King's screen and Play tile). Redraws slowly.

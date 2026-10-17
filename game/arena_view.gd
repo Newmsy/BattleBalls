@@ -39,7 +39,7 @@ const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": 
 ## Pulse and blast ring colours by kind.
 const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"),
 	"zap": Color("c9a6ff"), "bigzap": Color("f0e2ff"), "drum": Color("ff5a6a"), "wind": Color("c7f9cc"), "ink": Color("8a5cc8"), "stink": Color("9be36b"),
-	"shell": Color("ffb347"), "blob": Color("7cff6b"), "hammer": Color("ff8a3d"), "quake": Color("ffd166"),
+	"shell": Color("ffb347"), "blob": Color("7cff6b"), "hammer": Color("ff8a3d"), "quake": Color("ffd166"), "lash": Color("7af0ff"),
 	"shards": Color("cdf3ff"), "paint": Color("ffd23f"), "confetti": Color("f15bb5"), "thunder": Color("8ecbff"),
 	"bugflare": Color("e8ff7a"), "candy": Color("ff9de2"), "inkslam": Color("b36bff"), "wave": Color("5ff0e6"), "quasar": Color("e0b3ff"),
 	"glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968"),
@@ -416,6 +416,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_spawn_particles(e.pos, 10)
 			"egg_hatch":
 				_add_popup(e.pos + Vector2(-30, -50), "PEEP!", Color("ffe066"))
+			"wyrm_glow": # The Prism Wyrm's weak spot moved.
+				_rings.append({"pos": e.pos, "radius": 60.0, "color": Color("7af0ff"), "age": 0.0})
 			"boss_fizzle": # A stun cancelled the boss's wind-up.
 				_add_popup(e.pos + Vector2(-50, -60), "FIZZLE!", POP_SNAP, 1.15)
 				_spawn_particles(e.pos, 8)
@@ -1447,6 +1449,11 @@ func _draw_boss(i: int, def: Dictionary, r: float) -> void:
 		opts.pivot = def.pivot - b.pos
 	if def.id == "totem_of_nine":
 		opts.family = b.state.get("family", "")
+	if def.id == "prism_wyrm":
+		opts.lit = int(b.state.get("glow", 0)) == 0
+		opts.face = (Bosses._wyrm_at(def, b.state.clock + 0.1) - b.pos).normalized()
+	elif def.id == "wyrm_scale" and sim.boss != null:
+		opts.lit = int(b.state.get("order", -1)) == int(sim.boss.state.get("glow", 0))
 	if b.state.has("hatch_at"):
 		opts.hatch = clampf(1.0 - (b.state.hatch_at - sim.tick) / (sim.boss.def.get("egg_hatch", 5.0) * sim.TICK_RATE), 0.0, 1.0) if def.id == "brood_egg" else 1.0
 	var act: Dictionary = b.state.get("act", {})
@@ -1465,6 +1472,8 @@ func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var side := _side(i)
 	var team_col: Color = TEAM_COLORS[side]
 	draw_set_transform(shake)
+	if def.get("id", "") == "wyrm_scale": # Armour: its hits come off the wyrm's own HP.
+		return
 	if def.get("minion", false): # Eggs and chicks: just their HP, no ring or tag.
 		_hp_badge(def, pos, r, hp, max_hp)
 		return
@@ -1591,6 +1600,10 @@ func _draw_zone(z, s: float) -> void:
 			for k in 24:
 				var a := k * TAU / 24.0 - _time * 0.8
 				Dot.arc(self, p, z.radius * s, a, a + TAU / 48.0, 4, Color(RING_COLORS.quake, 0.5 + 0.4 * pulse), 4.0, true)
+		"lash": # The Prism Wyrm's tail about to lash: get clear.
+			var flick := 0.5 + 0.5 * absf(sin(_time * 14.0))
+			Dot.circle(self, p, z.radius * s, Color("7af0ff", 0.06 + 0.06 * flick))
+			Dot.arc(self, p, z.radius * s, 0.0, TAU, 40, Color("7af0ff", 0.5 + 0.4 * flick), 4.0, true)
 		"spirit": # The Totem of Nine's heads glowing before a volley.
 			var glow := 0.5 + 0.5 * absf(sin(_time * 12.0))
 			Dot.arc(self, p, z.radius * s, 0.0, TAU, 40, Color("c9a6ff", 0.4 + 0.5 * glow), 5.0, true)
