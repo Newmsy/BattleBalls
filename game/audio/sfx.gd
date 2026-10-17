@@ -127,6 +127,13 @@ func _ready() -> void:
 		show_board.call_deferred()
 
 
+## Native apps: no sound while the app is in the background (the web build
+## suspends its audio from game/web/shell.html when the page is hidden).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_RESUMED:
+		AudioServer.set_bus_mute(0, what == NOTIFICATION_APPLICATION_PAUSED)
+
+
 func _process(delta: float) -> void:
 	_clock += delta
 	if fight_sim == null or fight_sim.finished:
