@@ -47,6 +47,10 @@ const THEMES := {
 	# Boss maps (sim/arenas.gd BOSS_ARENAS).
 	"forge": {"fill": "16100c", "grid": "ff8a3d", "border": "ffb347", "pillar": "5d6478", "ambient": "embers",
 		"glows": [[Vector2(500, 500), 300.0, "ff6a1f"], [Vector2(80, 80), 200.0, "ff4500"], [Vector2(920, 920), 200.0, "ff4500"]]},
+	"nest": {"fill": "1a1210", "grid": "c08a4a", "border": "e0a95f", "pillar": "ffd166", "ambient": "petals",
+		"glows": [[Vector2(500, 500), 320.0, "ff6fae"]]},
+	"plaza": {"fill": "1a0f24", "grid": "ffb627", "border": "ff6fae", "pillar": "6d79b8", "ambient": "sparks",
+		"glows": [[Vector2(500, 380), 320.0, "ffb627"], [Vector2(330, 720), 160.0, "5ce1ff"], [Vector2(670, 720), 160.0, "ff6fae"]]},
 }
 
 

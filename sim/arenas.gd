@@ -241,6 +241,18 @@ const BOSS_ARENAS := {
 			{"kind": "goo", "pos": Vector2(840, 500), "radius": 80.0, "slow": 0.3},
 		],
 	},
+	"plaza": {
+		"display_name": "Fiesta Plaza",
+		"description": "A party square under the piñata, with balloon bumpers that kick you back up into it.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(330, 720), "radius": 46.0, "kind": "bumper"},
+			{"pos": Vector2(670, 720), "radius": 46.0, "kind": "bumper"},
+			{"pos": Vector2(500, 900), "radius": 38.0, "kind": "bumper"},
+		],
+		"min_half": 480.0,
+		"floors": [],
+	},
 }
 
 

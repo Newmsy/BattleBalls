@@ -792,6 +792,26 @@ try {
     await page.close();
   }
 
+  // 14d. The boss hall, then the Piñata Titan: a 30 second smash on Fiesta Plaza.
+  if (mine(25)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=2&screen=bosses&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN bosses", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "35-boss-hall.png") });
+    await tapUi(page, logs, "boss_pinata");
+    await waitForLog(logs, "UI_SCREEN pinata", 10000);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(shots, "36-pinata.png") });
+    await tapUi(page, logs, "pinata_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("pinata fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "37-pinata-fight.png") });
+    console.log("pinata end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
   // 15. Bracket of Legends: pick a champion while picks are open, then on
   // final day open the final and watch its first game.
   if (mine(20)) {

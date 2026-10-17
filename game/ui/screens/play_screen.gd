@@ -17,8 +17,7 @@ const LiveOps := preload("res://game/liveops.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
-const GearVault := preload("res://meta/gear_vault.gd")
-const BroodNest := preload("res://meta/brood_nest.gd")
+const BossesScreen := preload("res://game/ui/screens/bosses_screen.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -55,8 +54,8 @@ static func build(shell, _params: Dictionary) -> Control:
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"), "bounce"),
 		mode_tile(shell, "spire", "The Spire", "Floor %d/%d · weekly" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
 			func(): shell.go("spire"), "tower"),
-		_vault_tile(shell) if GearVault.is_unlocked(shell.profile) else _locked_tile(shell),
-	] + ([_nest_tile(shell)] if BroodNest.is_unlocked(shell.profile) else [])))
+		BossesScreen.tile(shell) if BossesScreen.any_open(shell.profile) else _locked_tile(shell),
+	]))
 
 	# Versus: other players' teams.
 	var arena_store = ArenaStore.open()
@@ -191,28 +190,12 @@ static func mode_card(shell, mark: String, caption: String, title: String, _text
 	return mode_tile(shell, mark, title, caption, accent, on_press)
 
 
-## Critter Hunts, Training Gym and Gear Vault open after zone 1: one tile.
+## The farming bosses open from Zone 1 stage 5 (the Piñata Titan first).
 static func _locked_tile(shell) -> Control:
-	var t := mode_tile(shell, "locked_dailies", "Hunts · Gym · Vault", "After zone 1", Kit.MUTED,
-		shell.info.bind("After zone 1", ["Beat Mega Boulder, the zone 1 boss, to open three daily modes:",
-			"Critter Hunts: copies of one critter to fuse.", "Training Gym: XP for levels.", "Anvil King: a boss fight for gear and Hammers."]), "lock")
+	var t := mode_tile(shell, "locked_dailies", "Bosses", "After stage 1-5", Kit.MUTED,
+		shell.info.bind("Bosses", ["Clear stage 1-5 to open the boss fights, one by one as you go:",
+			"Piñata Titan: smash it for coins.", "Anvil King: gear and Hammers.", "Brood Queen: Summon Eggs."]), "lock")
 	return t
-
-
-## The Anvil King boss (was the Gear Vault), once zone 1 is beaten: today's slot and runs left.
-static func _vault_tile(shell) -> Control:
-	var now := int(Time.get_unix_time_from_system())
-	var slot: String = GearVault.today(now).slot
-	var left := GearVault.runs_left(shell.profile, now)
-	var line := "%s · %d runs left" % ["Any gear" if slot == "" else slot + "s", left] if left > 0 else "Done for today"
-	return mode_tile(shell, "vault", "Anvil King", line, Color("ff8a3d") if left > 0 else Kit.MUTED, func(): shell.go("vault"), "hammer")
-
-
-## The Brood Queen boss, once zone 2 is beaten: runs left.
-static func _nest_tile(shell) -> Control:
-	var left := BroodNest.runs_left(shell.profile, int(Time.get_unix_time_from_system()))
-	var line := "Summon Eggs · %d runs left" % left if left > 0 else "Done for today"
-	return mode_tile(shell, "nest", "Brood Queen", line, Color("ff6fae") if left > 0 else Kit.MUTED, func(): shell.go("nest"), "orb")
 
 
 static func _pass_tile(shell) -> Control:

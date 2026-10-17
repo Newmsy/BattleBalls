@@ -322,6 +322,11 @@ func consume_events(events: Array[Dictionary]) -> void:
 					elif a.type_id == "juggernaut" and e.kind in ["contact", "slam"]:
 						_shake = maxf(_shake, (10.0 if e.kind == "slam" else 7.0) * A11y.motion())
 						_rings.append({"pos": e.pos, "radius": a.radius * (1.4 if e.kind == "slam" else 0.9), "color": RING_COLORS.dirt, "age": 0.0})
+				if t.type_id == "pinata_titan": # Coins pop out; a crit is a candy shower.
+					_burst(e.pos, 14 if e.get("crit", false) else 4, [Color("ffd166"), Color("ffb627")] if not e.get("crit", false) else [Color("ff6fae"), Color("5ce1ff"), Color("7cff9b"), Color("ffd166")],
+						Vector2(160.0, 420.0), Vector2.ZERO, TAU, Vector2(4.0, 7.0), 180.0)
+					if e.get("crit", false):
+						_add_popup(t.pos + Vector2(-60, -t.radius - 60), "CANDY!", Color("ff6fae"), 1.15)
 				if t.type_id == "crumb": # Bits of cookie fly off.
 					for i in 5:
 						_particles.append({"pos": e.pos, "vel": _rand_dir() * _fx_rng.randf_range(90.0, 300.0) + Vector2(0, 120), "age": 0.0, "life": 0.7, "col": Color("c68642"), "size": 5.0})
@@ -1438,6 +1443,8 @@ func _draw_boss(i: int, def: Dictionary, r: float) -> void:
 		opts.face = b.vel.normalized()
 	elif def.id == "brood_queen": # She glides by moving her anchor: face along the loop.
 		opts.face = Vector2.from_angle(def.glide_start + b.state.clock * def.glide_speed + PI / 2.0)
+	if def.id == "pinata_titan": # Its rope, up to where it hangs from.
+		opts.pivot = def.pivot - b.pos
 	if b.state.has("hatch_at"):
 		opts.hatch = clampf(1.0 - (b.state.hatch_at - sim.tick) / (sim.boss.def.get("egg_hatch", 5.0) * sim.TICK_RATE), 0.0, 1.0) if def.id == "brood_egg" else 1.0
 	var act: Dictionary = b.state.get("act", {})
