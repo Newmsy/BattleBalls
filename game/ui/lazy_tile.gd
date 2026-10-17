@@ -45,3 +45,12 @@ func _process(_delta: float) -> void:
 	set_process(false)
 	custom_minimum_size.y = 0.0
 	add_child(_make.call())
+
+
+## Builds every cell still waiting under `node` (tests check every tile).
+static func build_all(node: Node) -> void:
+	for c in node.find_children("*", "MarginContainer", true, false):
+		if c.get_script() == load("res://game/ui/lazy_tile.gd") and c.get_child_count() == 0:
+			c.set_process(false)
+			c.custom_minimum_size.y = 0.0
+			c.add_child(c._make.call())
