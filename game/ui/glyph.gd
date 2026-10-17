@@ -213,3 +213,19 @@ func _draw() -> void:
 			draw_polyline(sh, color, s * .08, true)
 			draw_line(Vector2(.5, .2) * s, Vector2(.5, .8) * s, Color(color, .7), s * .07)
 			draw_line(Vector2(.26, .4) * s, Vector2(.74, .4) * s, Color(color, .7), s * .07)
+		"token":
+			# The Arena's Token: a magenta hexagon with crossed swords, so it never
+			# reads as the gold coin.
+			var hexa := PackedVector2Array()
+			for i in 6:
+				var a := i * TAU / 6
+				hexa.append(c + Vector2(cos(a), sin(a)) * s * .48)
+			draw_colored_polygon(hexa, Color("ff4fd8"))
+			var inner := PackedVector2Array()
+			for i in 6:
+				var a := i * TAU / 6
+				inner.append(c + Vector2(cos(a), sin(a)) * s * .36)
+			draw_colored_polygon(inner, Color("8a1f78"))
+			for d in [1.0, -1.0]:
+				draw_line(c + Vector2(-.17 * d, -.17) * s, c + Vector2(.15 * d, .15) * s, Color("ffd1f5"), s * .08, true)
+				draw_line(c + Vector2(.06 * d, .16) * s, c + Vector2(.16 * d, .06) * s, Color("ffd1f5"), s * .07, true)
