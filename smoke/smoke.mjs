@@ -759,6 +759,23 @@ try {
     await page.close();
   }
 
+  // 14b. The Anvil King (design/bosses.md): the boss screen, then an Easy
+  // fight on The Forge through to its rewards.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&screen=vault&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN vault", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "31-anvil-king.png") });
+    await tapUi(page, logs, "vault_1");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("boss fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "32-anvil-king-fight.png") });
+    console.log("boss end:", await waitForLog(logs, "VAULT_END", 120000));
+    await page.close();
+  }
+
   // 15. Bracket of Legends: pick a champion while picks are open, then on
   // final day open the final and watch its first game.
   if (mine(20)) {

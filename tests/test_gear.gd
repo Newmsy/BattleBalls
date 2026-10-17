@@ -15,9 +15,9 @@ const Roster := preload("res://game/ui/roster.gd")
 const T0 := 1_800_000_000
 
 
-func _player(coins := 10000):
+func _player(hammers := 10000):
 	var p = Profile.new_game(T0)
-	p.coins = coins
+	p.hammers = hammers
 	return p
 
 
@@ -48,22 +48,22 @@ func test_three_of_a_kind_merge_into_the_next_tier() -> void:
 	check(not p.can_merge_gear("iron_shell", 2), "one 2-star doesn't")
 	var made: Dictionary = p.merge_gear("iron_shell", 1)
 	check_eq([made.type, made.tier], ["iron_shell", 2], "a 2-star Iron Shell")
-	check_eq(p.coins, 10000 - Economy.GEAR_MERGE_COST[1], "costs coins")
+	check_eq(p.hammers, 10000 - Economy.GEAR_MERGE_COST[1], "costs hammers")
 	check_eq(p.gear_of("iron_shell", 1).size(), 0, "the three are used up")
 	check_eq(p.gear_of("iron_shell", 2).size(), 2, "two 2-stars now")
 	check(not p.can_merge_gear("bubble_shell", 1), "types don't mix")
 
 
-func test_merging_needs_coins_and_stops_at_five_stars() -> void:
+func test_merging_needs_hammers_and_stops_at_five_stars() -> void:
 	var p = _player(0)
 	for i in 3:
 		p.add_gear("spike_core", 1)
-	check(p.has_gear_set("spike_core", 1) and not p.can_merge_gear("spike_core", 1), "a set, but no coins")
+	check(p.has_gear_set("spike_core", 1) and not p.can_merge_gear("spike_core", 1), "a set, but no hammers")
 	check(p.merge_gear("spike_core", 1).is_empty(), "nothing happens")
 	check_eq(p.gear.size(), 3, "nothing lost")
 	for i in 3:
 		p.add_gear("spike_core", 5)
-	p.coins = 99999
+	p.hammers = 99999
 	check(not p.has_gear_set("spike_core", 5), "5 stars is the top")
 
 
@@ -89,20 +89,20 @@ func test_merge_all_climbs_tiers_in_one_go() -> void:
 		p.add_gear("bubble_shell", 1)
 	var plan: Dictionary = p.merge_all_plan()
 	check_eq(plan.merges.size(), 4, "three 1-star merges then one 2-star")
-	check_eq(plan.coins, 3 * Economy.GEAR_MERGE_COST[1] + Economy.GEAR_MERGE_COST[2], "cost up front")
+	check_eq(plan.hammers, 3 * Economy.GEAR_MERGE_COST[1] + Economy.GEAR_MERGE_COST[2], "cost up front")
 	var made: Array = p.merge_all_gear()
 	check_eq(p.gear.size(), 1, "one piece left")
 	check_eq(p.gear[0].tier, 3, "a 3-star")
 	check_eq(made.size(), 1, "reports what's left, not the steps")
 
 
-func test_merge_all_only_spends_coins_it_has() -> void:
+func test_merge_all_only_spends_hammers_it_has() -> void:
 	var p = _player(Economy.GEAR_MERGE_COST[1])
 	for i in 6:
 		p.add_gear("jet_charm", 1)
 	check_eq(p.merge_all_plan().merges.size(), 1, "one merge affordable")
 	p.merge_all_gear()
-	check_eq(p.coins, 0, "spent")
+	check_eq(p.hammers, 0, "spent")
 	check_eq(p.gear.size(), 4, "one merge done")
 
 
@@ -149,9 +149,11 @@ func test_vault_opens_after_zone_one_and_drops_its_tier() -> void:
 	for d in GearVault.DIFFICULTIES.size():
 		var cfg: Dictionary = GearVault.start(p, d, "vampire", T0)
 		check(not cfg.has("error"), "starts")
-		check_eq(cfg.gear[1].size(), 1, "the enemy wears gear")
+		check_eq(cfg.p2, "anvil_king", "the Anvil King guards it")
+		var hammers: int = p.hammers
 		var r: Dictionary = GearVault.finish(p, d, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 20.0, "max_hp": 50.0}, T0)
 		check_eq(r.gear.size(), 1, "one piece per win")
+		check_eq(p.hammers - hammers, GearVault.DIFFICULTIES[d].hammers, "and hammers")
 		check_eq(r.gear[0].tier, GearVault.DIFFICULTIES[d].tier, "tier by difficulty")
 		check(r.gear[0].type in GearVault.types_today(T0), "today's slot")
 

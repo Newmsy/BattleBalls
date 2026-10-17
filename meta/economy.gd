@@ -76,10 +76,13 @@ const ZONE_DROPS := [
 const ZONE1_AS_BUILT := {"featured": ["spiker", "speedster", "vampire", "juggernaut"], "bonus": ["laser"], "boss": "laser",
 	"enemies": ["spiker", "speedster", "vampire", "juggernaut", "spiker", "speedster", "juggernaut", "vampire", "spiker", "speedster", "juggernaut"]}
 
-## Gear (design/gear.md). Coins to merge three pieces into a piece of each
-## tier (index 0 is 1 star, which is never merged into). Coins are earned
-## only, so this is a progression sink, never a price.
-const GEAR_MERGE_COST := [0, 50, 150, 400, 1000]
+## Gear (design/gear.md, design/bosses.md). Hammers to merge three pieces of
+## a tier into one of the next (index 0 is 1 star, which is never merged into).
+## Hammers come from the Anvil King (meta/gear_vault.gd), earned only, never sold.
+const GEAR_MERGE_COST := [0, 2, 4, 8, 16]
+## Every save starts with these (and older saves get them once), so the first
+## merges from campaign gear don't wait for the Anvil King.
+const STARTER_HAMMERS := 10
 ## A campaign win drops a piece this often (Newms 2026-10-15: 20%), better on
 ## later stages and zones (gear_tier); a boss's first clear always drops one
 ## at GEAR_BOSS_TIER, plus one more star per zone.

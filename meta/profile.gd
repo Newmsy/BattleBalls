@@ -39,6 +39,8 @@ var energy_max := ENERGY_MAX
 ## Unix time the energy count was last brought up to date.
 var energy_time := 0
 var coins := 0
+## Gear merge currency (Economy.GEAR_MERGE_COST), from the Anvil King.
+var hammers := Economy.STARTER_HAMMERS
 var orbs := STARTER_ORBS
 var lineup := STARTER
 var seen: Dictionary = {}
@@ -48,7 +50,7 @@ var stacks: Array[Dictionary] = []
 ## Gear pieces: {uid, type, tier, on (critter id or "")} plus, filled in by
 ## gear_piece(), name, slot ("Shell"/"Core"/"Charm"), stats (the sim/gear.gd
 ## lines it fights with) and text. Three of a type and tier merge into one of
-## the next tier (merge_gear).
+## the next tier for hammers (merge_gear).
 var gear: Array[Dictionary] = []
 ## Consumables: {name, count, text, color}.
 var items: Array[Dictionary] = []
@@ -288,20 +290,20 @@ func gear_of(type: String, tier: int) -> Array[Dictionary]:
 	return out
 
 
-## Coins to merge three `tier` pieces into one of the next tier.
+## Hammers to merge three `tier` pieces into one of the next tier.
 static func merge_cost(tier: int) -> int:
 	return Economy.GEAR_MERGE_COST[clampi(tier, 1, Gear.MAX_TIER - 1)]
 
 
-## True when three pieces of type+tier exist below the top tier. Coins are
-## checked by merge_gear, so the Bag can show "150 coins" on a set you can't
+## True when three pieces of type+tier exist below the top tier. Hammers are
+## checked by merge_gear, so the Bag can show "4 hammers" on a set you can't
 ## afford yet.
 func has_gear_set(type: String, tier: int) -> bool:
 	return tier < Gear.MAX_TIER and gear_of(type, tier).size() >= 3
 
 
 func can_merge_gear(type: String, tier: int) -> bool:
-	return has_gear_set(type, tier) and coins >= merge_cost(tier)
+	return has_gear_set(type, tier) and hammers >= merge_cost(tier)
 
 
 ## Every [type, tier] with a full set, lowest tier first.
@@ -314,13 +316,13 @@ func gear_sets() -> Array:
 	return out
 
 
-## 3 pieces of type+tier become 1 of the next tier, for coins. The new piece
+## 3 pieces of type+tier become 1 of the next tier, for hammers. The new piece
 ## goes on whichever critter wore one of the three (the strongest, if more
 ## than one did). Returns the new piece, or {} when it can't merge.
 func merge_gear(type: String, tier: int) -> Dictionary:
 	if not can_merge_gear(type, tier):
 		return {}
-	coins -= merge_cost(tier)
+	hammers -= merge_cost(tier)
 	var used := gear_of(type, tier).slice(0, 3)
 	var wearer := ""
 	for g in used:
@@ -334,15 +336,15 @@ func merge_gear(type: String, tier: int) -> Dictionary:
 	return piece
 
 
-## What merge_all_gear would do: {merges, coins} with merges as [type, tier]
+## What merge_all_gear would do: {merges, hammers} with merges as [type, tier]
 ## in order. Lower tiers merge first, so their results can complete sets above.
 func merge_all_plan() -> Dictionary:
 	var counts := {}
 	for g in gear:
 		var k := "%s/%d" % [g.type, g.tier]
 		counts[k] = counts.get(k, 0) + 1
-	var plan := {"merges": [], "coins": 0}
-	var budget := coins
+	var plan := {"merges": [], "hammers": 0}
+	var budget := hammers
 	for tier in range(1, Gear.MAX_TIER):
 		for type in Gear.TYPES:
 			var k := "%s/%d" % [type, tier]
@@ -352,7 +354,7 @@ func merge_all_plan() -> Dictionary:
 				var up := "%s/%d" % [type, tier + 1]
 				counts[up] = counts.get(up, 0) + 1
 				plan.merges.append([type, tier])
-				plan.coins += merge_cost(tier)
+				plan.hammers += merge_cost(tier)
 	return plan
 
 
@@ -653,7 +655,7 @@ func account_xp_to_next() -> int:
 
 # --- Save ---------------------------------------------------------------------
 
-const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "lineup",
+const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lineup",
 	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "factions", "intro", "story"]
 
 
@@ -672,7 +674,8 @@ static func from_dict(d: Dictionary, now: int):
 	var p = new_game(now)
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "legendary_pity", "runs"]:
+	# Saves from before hammers keep new_game's starter hammers.
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "legendary_pity", "runs"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))
@@ -740,7 +743,7 @@ func spend_coins(n: int) -> bool:
 
 
 ## An earned reward (Glow Pass free track, bounties): {kind, n} with kind
-## orbs, coins, energy, xp_chip, copies (with id) or gear (type and tier).
+## orbs, coins, hammers, energy, xp_chip, copies (with id) or gear (type and tier).
 func grant(r: Dictionary) -> void:
 	var n := int(r.get("n", 1))
 	match r.kind:
@@ -749,6 +752,8 @@ func grant(r: Dictionary) -> void:
 			_item("Summon Orb").count = orbs
 		"coins":
 			coins += n
+		"hammers":
+			hammers += n
 		"energy":
 			energy += n
 		"xp_chip":

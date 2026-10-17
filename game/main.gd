@@ -8,6 +8,7 @@
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
+const Bosses := preload("res://sim/bosses.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
@@ -976,7 +977,7 @@ func _start_vault(config: Dictionary, difficulty: int, fighter: String) -> void:
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
 	_begin_aim()
-	info_label.text = "Gear Vault %s: %s. Drag to aim, then let go." % [GearVault.DIFFICULTIES[difficulty].name, _pve_matchup_text()]
+	info_label.text = "Anvil King %s: %s. Drag to aim, then let go." % [GearVault.DIFFICULTIES[difficulty].name, _pve_matchup_text()]
 
 
 ## "T2 Optic · 1,250 power vs T1 Chomp · 1,400 power" for the stage or Vault run being fought.
@@ -988,7 +989,7 @@ func _pve_matchup_text() -> String:
 	var b: Dictionary = profile.best(pve.fighter)
 	var now := int(Time.get_unix_time_from_system())
 	return "%s vs %s" % [FighterTag.text(Roster.get_critter(pve.fighter).name, b.get("tier", 1), profile.power_of(pve.fighter), b.get("level", 0)),
-		FighterTag.text(Roster.get_critter(pve.config.p2).name, 1, GearVault.enemy_rating(pve.vault, now))]
+		FighterTag.text(Bosses.DEFS[pve.config.p2].display_name, 1, GearVault.enemy_rating(pve.vault, now))]
 
 
 ## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).
@@ -1610,7 +1611,7 @@ func _label_result_buttons() -> void:
 	clip_button.visible = not _is_duo() and mode != Mode.LIVE
 	copy_button.visible = copy_button.visible and not _is_duo()
 	campaign_row.visible = mode == Mode.CAMPAIGN
-	(campaign_row.get_child(0) as Button).text = "Back to the Vault" if pve.has("vault") else "Back to the map"
+	(campaign_row.get_child(0) as Button).text = "Back to the Anvil King" if pve.has("vault") else "Back to the map"
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"

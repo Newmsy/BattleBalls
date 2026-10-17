@@ -16,9 +16,9 @@ const Profile := preload("res://meta/profile.gd")
 
 static var section := "gear"
 
-const GEAR_INFO := ["Three of the same piece at the same stars merge into one piece with a star more, up to 5 stars. Merging costs coins and keeps the new piece on whoever wore one of the three.",
+const GEAR_INFO := ["Three of the same piece at the same stars merge into one piece with a star more, up to 5 stars. Merging costs Hammers (from the Anvil King) and keeps the new piece on whoever wore one of the three.",
 	"Shells keep you alive, Cores hit harder, Charms (from 3-star critters) speed you or your ability up.",
-	"Get gear from the Gear Vault, campaign wins, Spire boss floors and the Glow Pass free track."]
+	"Get gear from the Anvil King, campaign wins, Spire boss floors and the Glow Pass free track."]
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -28,6 +28,7 @@ static func build(shell, _params: Dictionary) -> Control:
 		count += i.count
 	var root := Kit.vbox(22)
 	root.add_child(Kit.hbox(12, [Kit.label("Bag", 44), Kit.spacer(), Kit.label("%d gear · %d items" % [p.gear.size(), count], 24, Kit.MUTED),
+		Glyph.make("hammer", 30), Kit.label(Kit.commas(p.hammers), 24),
 		shell.info_button("Gear", GEAR_INFO, "bag_info")], BoxContainer.ALIGNMENT_CENTER))
 
 	var seg := Kit.hbox(8)
@@ -48,7 +49,7 @@ static func build(shell, _params: Dictionary) -> Control:
 			if grid.get_child_count() > 0:
 				root.add_child(Kit.vbox(12, [Kit.caption(slot + "s"), grid]))
 		if p.gear.is_empty():
-			root.add_child(Kit.label("No gear yet. Win campaign stages, Spire boss floors or Gear Vault runs to find some.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+			root.add_child(Kit.label("No gear yet. Win campaign stages, Spire boss floors or Anvil King fights to find some.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		_pin_merge_all(shell, p)
 	else:
 		var grid := _grid()
@@ -102,10 +103,10 @@ static func _pin_merge_all(shell, p) -> void:
 	var n: int = plan.merges.size()
 	var b: Button
 	if n == 0:
-		b = Kit.button("Merge all · need %s coins" % Kit.commas(p.merge_cost(p.gear_sets()[0][1])), func(): pass, "go", 28, 90)
+		b = Kit.button("Merge all · need %d hammers" % p.merge_cost(p.gear_sets()[0][1]), func(): pass, "go", 28, 90)
 		b.disabled = true
 	else:
-		b = Kit.button("Merge all (%d) · %s coins" % [n, Kit.commas(plan.coins)], _merge_all.bind(shell), "go", 28, 90)
+		b = Kit.button("Merge all (%d) · %d hammers" % [n, plan.hammers], _merge_all.bind(shell), "go", 28, 90)
 	shell.mark("merge_all", b)
 	shell.pin(b)
 
@@ -157,7 +158,7 @@ static func _equip_pick(shell, g: Dictionary) -> void:
 static func _merge(shell, g: Dictionary) -> void:
 	var made: Dictionary = shell.profile.merge_gear(g.type, g.tier)
 	shell.close_overlay()
-	shell.toast("Made a %s." % piece_name(made) if not made.is_empty() else "Merging needs %s coins." % Kit.commas(shell.profile.merge_cost(g.tier)))
+	shell.toast("Made a %s." % piece_name(made) if not made.is_empty() else "Merging needs %d hammers. Beat the Anvil King for more." % shell.profile.merge_cost(g.tier))
 	shell.refresh()
 
 
@@ -184,7 +185,7 @@ static func _gear_sheet(shell, g: Dictionary) -> void:
 	if g.tier < Gear.MAX_TIER:
 		var have: int = p.gear_of(g.type, g.tier).size()
 		var cost: int = p.merge_cost(g.tier)
-		var merge := Kit.button("Merge 3 · %s coins" % Kit.commas(cost) if have >= 3 else "%d of 3 to merge" % have, _merge.bind(shell, g), "go", 26, 84)
+		var merge := Kit.button("Merge 3 · %d hammers" % cost if have >= 3 else "%d of 3 to merge" % have, _merge.bind(shell, g), "go", 26, 84)
 		merge.disabled = have < 3
 		merge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("gear_merge", merge)

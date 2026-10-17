@@ -44,6 +44,9 @@ const THEMES := {
 		"glows": [[Vector2(30, 500), 300.0, "ff4500"], [Vector2(970, 500), 300.0, "ff4500"]]},
 	"thorn": {"fill": "0b1a10", "grid": "3fbf6a", "border": "6be38f", "pillar": "6d79b8", "ambient": "petals",
 		"glows": [[Vector2(500, 500), 360.0, "3fbf6a"]]},
+	# Boss maps (sim/arenas.gd BOSS_ARENAS).
+	"forge": {"fill": "16100c", "grid": "ff8a3d", "border": "ffb347", "pillar": "5d6478", "ambient": "embers",
+		"glows": [[Vector2(500, 500), 300.0, "ff6a1f"], [Vector2(80, 80), 200.0, "ff4500"], [Vector2(920, 920), 200.0, "ff4500"]]},
 }
 
 

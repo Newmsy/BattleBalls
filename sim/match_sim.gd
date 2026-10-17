@@ -30,6 +30,8 @@
 ## `arena` (optional) is an id from sim/arenas.gd (default "square").
 ## `gear` (optional) is each ball's gear: a list of pieces or stat totals
 ## (sim/gear.gd), or null for none.
+## A boss id from sim/bosses.gd as p2 makes it a boss fight: the boss is
+## anchored, attacks from its own script and wins when its clock runs out.
 ## `talents` (optional) is each ball's faction talent picks {node: rank}
 ## (sim/talents.gd), or null for none; they're cleaned against its tier here.
 ##
@@ -50,6 +52,7 @@ const Gear := preload("res://sim/gear.gd")
 const Talents := preload("res://sim/talents.gd")
 const Weight := preload("res://sim/weight.gd")
 const DMath := preload("res://sim/dmath.gd")
+const Bosses := preload("res://sim/bosses.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
@@ -308,6 +311,7 @@ var end_reason := ""
 var ko_hp: Array[float] = [] ## On a double knockout, each ball's HP going into the final tick.
 var launch_angles: Array[int] = []
 var starters := 2 ## Balls the fight started with (4 in a 2v2); later ones are split-offs.
+var boss: Ball = null ## The boss in a boss fight (sim/bosses.gd), else null.
 ## Events produced by the most recent step(), for the renderer and tests.
 var events: Array[Dictionary] = []
 
@@ -349,8 +353,10 @@ func _init(cfg: Dictionary) -> void:
 	var rarity_potency: bool = cfg.get("rarity_potency", true)
 	for i in starters:
 		var kit := Gear.totals(gear[i])
-		var bonus := Power.rarity_tiers(str(BallDefs.DEFS[types[i]].get("rarity", ""))) if rarity_potency else 0.0
-		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i]), bonus), float(powers[i])), kit), modifier)
+		var is_boss := Bosses.has(types[i])
+		var bonus := Power.rarity_tiers(str(BallDefs.DEFS[types[i]].get("rarity", ""))) if rarity_potency and not is_boss else 0.0
+		var raw := Bosses.sim_def(types[i]) if is_boss else BallDefs.get_def(types[i], int(tiers[i]), bonus)
+		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(raw, float(powers[i])), kit), modifier)
 		def = Modifiers.apply_arena_tweaks(def, arena_id)
 		if cfg.has("boons") and i < cfg.boons.size():
 			def = Boons.apply_to_def(def, cfg.boons[i])
@@ -379,6 +385,9 @@ func _init(cfg: Dictionary) -> void:
 		var aim: int = random_aim if angles[i] == null else int(angles[i])
 		launch_angles.append(aim)
 		b.vel = DMath.from_angle(deg_to_rad(aim / 10.0)) * b.speed
+		if is_boss:
+			Bosses.setup(b)
+			boss = b
 		balls.append(b)
 
 
@@ -565,7 +574,7 @@ func step() -> void:
 	if time() >= shrink_from:
 		var early: float = arena.get("shrink_speed", SHRINK_SPEED) * (time() - shrink_from)
 		var late := SHRINK_SPEED * maxf(0.0, time() - overtime_start)
-		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - maxf(early, late))
+		half_size = maxf(arena.get("min_half", MIN_HALF), ARENA_SIZE / 2.0 - maxf(early, late))
 
 	for b in balls:
 		b.slow = b.slow_amount if tick < b.slow_until else 0.0
@@ -580,6 +589,8 @@ func step() -> void:
 		for b in balls:
 			if b.alive():
 				abilities.fire(self, "always", b)
+	if boss != null and boss.alive():
+		Bosses.tick(self, boss)
 	if arena.has("wells"):
 		_update_wells()
 	if arena.has("floors"):
@@ -614,6 +625,8 @@ func step() -> void:
 				# A charge carries its own momentum: slows don't drag it.
 				b.pos += b.vel * DT * (1.0 - (b.slow if b.charge_ticks == 0 else 0.0))
 			_resolve_walls(b)
+	if boss != null:
+		Bosses.pin(boss)
 	if not tethers.is_empty():
 		_update_tethers()
 	_resolve_ball_collisions(_hits)
@@ -636,6 +649,8 @@ func step() -> void:
 		if balls[i].alive():
 			abilities.tick_triggers(self, balls[i])
 
+	if boss != null:
+		Bosses.pin(boss)
 	tick += 1
 	_check_end(hp_before)
 
@@ -858,21 +873,36 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			var mb := b.radius * b.radius
 			# Push apart in proportion to the other ball's mass.
 			var overlap := min_dist - dist
-			a.pos -= n * overlap * (mb / (ma + mb))
-			b.pos += n * overlap * (ma / (ma + mb))
+			# An anchored boss never moves: the other ball takes the whole push
+			# and bounces straight off it, as off a wall.
+			var anchored := -1 if boss == null else (0 if a == boss else (1 if b == boss else -1))
+			if anchored < 0:
+				a.pos -= n * overlap * (mb / (ma + mb))
+				b.pos += n * overlap * (ma / (ma + mb))
+			elif anchored == 0:
+				b.pos += n * overlap
+			else:
+				a.pos -= n * overlap
 			var approach := (a.vel - b.vel).dot(n)
 			if approach <= 0.0:
 				continue
 			var stab := _backstabber(a.vel, b.vel, n)
 			# Share of the closing speed each ball supplied, from before the bounce.
 			var a_share := clampf(a.vel.dot(n) / approach, 0.0, 1.0)
-			var impulse := 2.0 * approach / (1.0 / ma + 1.0 / mb)
-			a.vel -= n * (impulse / ma)
-			b.vel += n * (impulse / mb)
+			if anchored < 0:
+				var impulse := 2.0 * approach / (1.0 / ma + 1.0 / mb)
+				a.vel -= n * (impulse / ma)
+				b.vel += n * (impulse / mb)
+			elif anchored == 0:
+				b.vel += n * 2.0 * approach
+			else:
+				a.vel -= n * 2.0 * approach
 			# Balls keep a constant speed: only direction changes.
 			a.vel = a.vel.normalized() * a.current_speed() if a.vel.length() > 0.001 else -n * a.current_speed()
 			b.vel = b.vel.normalized() * b.current_speed() if b.vel.length() > 0.001 else n * b.current_speed()
 			var contact := a.pos + n * a.radius
+			if anchored >= 0: # Bouncing off a boss counts as a wall bounce (Laser beams, Bomb mines...).
+				_on_wall_bounce(b if anchored == 0 else a, contact, true)
 			events.append({"type": "collide", "a": i, "b": j, "pos": contact})
 			abilities.fire(self, "bump", a, {"other": b})
 			abilities.fire(self, "bump", b, {"other": a})
@@ -1115,6 +1145,8 @@ func _check_end(hp_before: Array[float]) -> void:
 			_finish(-1, "double_knockout")
 		else:
 			_finish(0 if before[0] > before[1] else 1, "double_knockout")
+	elif boss != null and time() >= boss.def.time:
+		_finish(boss.team, "time_limit") # The boss outlasted you.
 	elif time() >= TIME_LIMIT:
 		var f0 := team_hp(0) / _team_max_hp(0)
 		var f1 := team_hp(1) / _team_max_hp(1)
