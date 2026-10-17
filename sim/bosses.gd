@@ -24,11 +24,11 @@ const DEFS := {
 		"description": "A forge golem rooted in the middle of The Forge. It slams its hammer where you're heading and leaves embers burning; every fourth swing it quakes the whole floor near it. Its magnet core drags mines and trails into it.",
 		"color": "ff8a3d",
 		"arena": "forge",
-		"hp": 170.0, "radius": 128.0, "speed": 0.0, "contact_damage": 6.0,
+		"hp": 260.0, "radius": 128.0, "speed": 0.0, "contact_damage": 6.0,
 		"time": 75.0, ## Seconds to bring it down, or it wins.
 		"script": "anvil",
 		"draw_in": 110.0, ## Units/s your floor zones slide toward it (Magnet core).
-		"slam_every": 2.4, ## Boss-clock seconds between swings (slows stretch it).
+		"slam_every": 2.0, ## Boss-clock seconds between swings (slows stretch it).
 		"slam_windup": 1.1, ## The hammer's flight: the telegraph you dodge.
 		"slam_lead": 0.3, ## 0 aims where you are, 1 where you'll be when it lands.
 		"slam_radius": 105.0,
@@ -60,8 +60,10 @@ static func sim_def(id: String) -> Dictionary:
 	return def
 
 
-## The boss's anchor point: where it starts (MatchSim pins it there).
+## Puts the boss on its anchor point, the arena's centre unless its def
+## names a `home` (MatchSim pins it there).
 static func setup(b) -> void:
+	b.pos = b.def.get("home", Vector2(500, 500))
 	b.state.anchor = b.pos
 	b.state.clock = 0.0
 	b.state.next = b.def.get("slam_every", 2.0) * 0.6
