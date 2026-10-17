@@ -14,6 +14,7 @@
 ## live in sim/arenas.gd BOSS_ARENAS and needn't be point-symmetric).
 extends RefCounted
 
+const DMath := preload("res://sim/dmath.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## id -> the boss: stats like a critter's plus its script's params. Keys
@@ -214,7 +215,7 @@ static func _resolve(sim, b) -> void:
 # --- Brood Queen ---------------------------------------------------------------
 
 static func _glide(d: Dictionary, clock: float) -> Vector2:
-	return Vector2(500, 500) + Vector2.from_angle(d.glide_start + clock * d.glide_speed) * d.glide_radius
+	return Vector2(500, 500) + DMath.from_angle(d.glide_start + clock * d.glide_speed) * d.glide_radius
 
 
 static func _brood(sim, b) -> void:
@@ -254,7 +255,7 @@ static func _brood(sim, b) -> void:
 		var dir: Vector2 = (target.pos - st.anchor).normalized()
 		var n := int(d.feather_count)
 		for i in n:
-			var v: Vector2 = dir.rotated(deg_to_rad(d.feather_spread * (i - (n - 1) / 2.0))) * d.feather_speed
+			var v: Vector2 = DMath.rotated(dir, deg_to_rad(d.feather_spread * (i - (n - 1) / 2.0))) * d.feather_speed
 			sim.add_shot(b, st.anchor + dir * b.radius, v, {"kind": "feather", "radius": 10.0, "damage": d.feather_damage * k, "life": 2.0})
 
 
