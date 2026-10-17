@@ -387,9 +387,11 @@ func _init(cfg: Dictionary) -> void:
 		launch_angles.append(aim)
 		b.vel = DMath.from_angle(deg_to_rad(aim / 10.0)) * b.speed
 		if is_boss:
-			Bosses.setup(b)
+			Bosses.setup(b, cfg.get("boss", {}))
 			boss = b
 		balls.append(b)
+	if boss != null:
+		Bosses.bless(self, boss)
 
 
 ## `arr` padded to one entry per starting ball with `fill`.

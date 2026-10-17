@@ -37,7 +37,8 @@ const BroodNest := preload("res://meta/brood_nest.gd")
 const NestScreen := preload("res://game/ui/screens/nest_screen.gd")
 ## Farming bosses by their screen: the rules (start/finish/cancel) and the screen (result_text).
 const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, NestScreen],
-	"pinata": [preload("res://meta/pinata_party.gd"), preload("res://game/ui/screens/pinata_screen.gd")]}
+	"pinata": [preload("res://meta/pinata_party.gd"), preload("res://game/ui/screens/pinata_screen.gd")],
+	"totem": [preload("res://meta/totem_shrine.gd"), preload("res://game/ui/screens/totem_screen.gd")]}
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Zones := preload("res://meta/zones.gd")

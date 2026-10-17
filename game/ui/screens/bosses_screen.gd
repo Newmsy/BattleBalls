@@ -15,6 +15,7 @@ const HALL := [
 	{"screen": "pinata", "rules": preload("res://meta/pinata_party.gd"), "farms": "Coins", "glyph": "coin", "color": "ffb627", "lock": "Clear stage 1-5"},
 	{"screen": "vault", "rules": preload("res://meta/gear_vault.gd"), "farms": "Gear and Hammers", "glyph": "hammer", "color": "ff8a3d", "lock": "Beat the Zone 1 boss"},
 	{"screen": "nest", "rules": preload("res://meta/brood_nest.gd"), "farms": "Summon Eggs", "glyph": "egg", "color": "ff6fae", "lock": "Beat the Zone 2 boss"},
+	{"screen": "totem", "rules": preload("res://meta/totem_shrine.gd"), "farms": "Family Sigils (talent XP)", "glyph": "sparkle", "color": "c9a6ff", "lock": "Beat the Zone 3 boss"},
 ]
 
 

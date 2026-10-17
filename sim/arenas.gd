@@ -253,6 +253,19 @@ const BOSS_ARENAS := {
 		"min_half": 480.0,
 		"floors": [],
 	},
+	"shrine": {
+		"display_name": "Spirit Shrine",
+		"description": "A moonlit shrine with four stone lanterns round the totem.",
+		"corner_cut": 90.0,
+		"obstacles": [
+			{"pos": Vector2(500, 150), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(150, 500), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(850, 500), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(500, 850), "radius": 40.0, "kind": "pillar"},
+		],
+		"min_half": 440.0,
+		"floors": [],
+	},
 }
 
 
