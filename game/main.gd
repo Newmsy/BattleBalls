@@ -32,6 +32,10 @@ const Profile := preload("res://meta/profile.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
 const VaultScreen := preload("res://game/ui/screens/vault_screen.gd")
+const BroodNest := preload("res://meta/brood_nest.gd")
+const NestScreen := preload("res://game/ui/screens/nest_screen.gd")
+## Farming bosses by their screen: the rules (start/finish/cancel) and the screen (result_text).
+const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, NestScreen]}
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Zones := preload("res://meta/zones.gd")
@@ -972,9 +976,10 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	info_label.text = "%s: %s. Drag to aim, then let go." % [Zones.stage_key(zone_index, stage_index), _pve_matchup_text()]
 
 
-## A Gear Vault run from the Vault screen: aim, then fight it in the arena.
-func _start_vault(config: Dictionary, difficulty: int, fighter: String) -> void:
-	pve = {"config": config, "vault": difficulty, "fighter": fighter}
+## A farming boss run from its screen ("vault" for the Anvil King, "nest" for
+## the Brood Queen): aim, then fight it in the arena.
+func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: String) -> void:
+	pve = {"config": config, "vault": difficulty, "fighter": fighter, "boss": screen}
 	mode = Mode.CAMPAIGN
 	player_type = config.p1
 	opponent_type = config.p2
@@ -983,7 +988,12 @@ func _start_vault(config: Dictionary, difficulty: int, fighter: String) -> void:
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
 	_begin_aim()
-	info_label.text = "Anvil King %s: %s. Drag to aim, then let go." % [GearVault.DIFFICULTIES[difficulty].name, _pve_matchup_text()]
+	info_label.text = "%s %s: %s. Drag to aim, then let go." % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name, _pve_matchup_text()]
+
+
+## The rules script of the boss being fought (meta/gear_vault.gd, meta/brood_nest.gd).
+func _boss_rules():
+	return BOSS_MODES[pve.get("boss", "vault")][0]
 
 
 ## "T2 Optic · 1,250 power vs T1 Chomp · 1,400 power" for the stage or Vault run being fought.
@@ -995,7 +1005,7 @@ func _pve_matchup_text() -> String:
 	var b: Dictionary = profile.best(pve.fighter)
 	var now := int(Time.get_unix_time_from_system())
 	return "%s vs %s" % [FighterTag.text(Roster.get_critter(pve.fighter).name, b.get("tier", 1), profile.power_of(pve.fighter), b.get("level", 0)),
-		FighterTag.text(Bosses.DEFS[pve.config.p2].display_name, 1, GearVault.enemy_rating(pve.vault, now))]
+		FighterTag.text(Bosses.DEFS[pve.config.p2].display_name, 1, _boss_rules().enemy_rating(pve.vault, now))]
 
 
 ## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).
@@ -1029,11 +1039,12 @@ func _finish_stage() -> void:
 	var fight := sim.summary()
 	fight.max_hp = sim.balls[0].max_hp
 	if pve.has("vault"):
-		var v := GearVault.finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
-		pve.result = VaultScreen.result_text(v)
+		fight.cracked = int(sim.boss.state.get("cracked", 0)) if sim.boss != null else 0
+		var v: Dictionary = _boss_rules().finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
+		pve.result = BOSS_MODES[pve.boss][1].result_text(v)
 		pve.xp = v
 		report_label.text = pve.result
-		print("VAULT_END difficulty=%d won=%s gear=%d" % [pve.vault, v.won, v.gear.size()])
+		print("BOSS_END boss=%s difficulty=%d won=%s" % [pve.boss, pve.vault, v.won])
 		return
 	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight) if sim.starters == 2 \
 		else Campaign.finish_team(profile, pve.zone, pve.stage, [pve.config.p1, pve.config.p3], Campaign.pair_fight(sim))
@@ -1066,7 +1077,7 @@ func _aim_back() -> void:
 		_show_menu()
 		return
 	if pve.has("vault"):
-		GearVault.cancel(profile, int(Time.get_unix_time_from_system()))
+		_boss_rules().cancel(profile, int(Time.get_unix_time_from_system()))
 	else:
 		profile.refund_energy(Zones.cost(Zones.stage(pve.zone, pve.stage)))
 	_back_to_campaign()
@@ -1093,6 +1104,7 @@ func _settle_relay_stage() -> void:
 func _back_to_campaign() -> void:
 	var params := {"zone": pve.get("zone", 0)}
 	var vault := pve.has("vault")
+	var screen: String = pve.get("boss", "vault")
 	if vault and pve.has("result"):
 		params.notice = pve.result
 		params.xp = pve.get("xp", {})
@@ -1107,7 +1119,7 @@ func _back_to_campaign() -> void:
 	_show_home()
 	shell.show_tab("play")
 	if vault:
-		shell.go("vault", params)
+		shell.go(screen, params)
 	else:
 		shell.go("world") # Back from the stage list lands on the world map.
 		shell.go("campaign", params)
@@ -1384,7 +1396,7 @@ func _build_shell() -> void:
 	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
 	shell.stage_requested.connect(_start_stage)
-	shell.vault_requested.connect(_start_vault)
+	shell.boss_requested.connect(_start_boss)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
@@ -1617,7 +1629,7 @@ func _label_result_buttons() -> void:
 	clip_button.visible = not _is_duo() and mode != Mode.LIVE
 	copy_button.visible = copy_button.visible and not _is_duo()
 	campaign_row.visible = mode == Mode.CAMPAIGN
-	(campaign_row.get_child(0) as Button).text = "Back to the Anvil King" if pve.has("vault") else "Back to the map"
+	(campaign_row.get_child(0) as Button).text = ("Back to the " + Bosses.DEFS[pve.config.p2].display_name) if pve.has("vault") else "Back to the map"
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"

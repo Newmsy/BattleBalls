@@ -89,7 +89,7 @@ static func _fight(shell, d: int, fighter: String) -> void:
 			"runs": "The Anvil King is done for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Beat the Zone 1 boss to face the Anvil King."))
 		shell.refresh()
 		return
-	shell.vault_requested.emit(cfg, d, fighter)
+	shell.boss_requested.emit(cfg, d, fighter, "vault")
 
 
 ## One line summing up an Anvil King result, for the result screen.

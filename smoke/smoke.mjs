@@ -772,7 +772,7 @@ try {
     console.log("boss fight:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(4000);
     await page.screenshot({ path: path.join(shots, "32-anvil-king-fight.png") });
-    console.log("boss end:", await waitForLog(logs, "VAULT_END", 120000));
+    console.log("boss end:", await waitForLog(logs, "BOSS_END", 120000));
     await page.close();
   }
 

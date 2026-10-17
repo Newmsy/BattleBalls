@@ -18,6 +18,7 @@ const TrickShot := preload("res://sim/trick_shot.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
+const BroodNest := preload("res://meta/brood_nest.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -55,7 +56,7 @@ static func build(shell, _params: Dictionary) -> Control:
 		mode_tile(shell, "spire", "The Spire", "Floor %d/%d · weekly" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
 			func(): shell.go("spire"), "tower"),
 		_vault_tile(shell) if GearVault.is_unlocked(shell.profile) else _locked_tile(shell),
-	]))
+	] + ([_nest_tile(shell)] if BroodNest.is_unlocked(shell.profile) else [])))
 
 	# Versus: other players' teams.
 	var arena_store = ArenaStore.open()
@@ -205,6 +206,13 @@ static func _vault_tile(shell) -> Control:
 	var left := GearVault.runs_left(shell.profile, now)
 	var line := "%s · %d runs left" % ["Any gear" if slot == "" else slot + "s", left] if left > 0 else "Done for today"
 	return mode_tile(shell, "vault", "Anvil King", line, Color("ff8a3d") if left > 0 else Kit.MUTED, func(): shell.go("vault"), "hammer")
+
+
+## The Brood Queen boss, once zone 2 is beaten: runs left.
+static func _nest_tile(shell) -> Control:
+	var left := BroodNest.runs_left(shell.profile, int(Time.get_unix_time_from_system()))
+	var line := "Summon Orbs · %d runs left" % left if left > 0 else "Done for today"
+	return mode_tile(shell, "nest", "Brood Queen", line, Color("ff6fae") if left > 0 else Kit.MUTED, func(): shell.go("nest"), "orb")
 
 
 static func _pass_tile(shell) -> Control:
