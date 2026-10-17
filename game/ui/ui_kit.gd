@@ -180,6 +180,7 @@ static func bar(frac: float, color: Color, height := 18) -> Control:
 	p.show_percentage = false
 	p.min_value = 0.0
 	p.max_value = 1.0
+	p.step = 0.0 # ProgressBar snaps to 0.01 by default: a 1% jump is several pixels on a phone.
 	p.value = clampf(frac, 0.0, 1.0)
 	p.custom_minimum_size = Vector2(0, height)
 	p.add_theme_stylebox_override("background", box(Color("221e4f"), Color(0, 0, 0, 0), 999, 0, 0))
