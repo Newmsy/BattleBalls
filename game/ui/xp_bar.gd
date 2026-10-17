@@ -1,7 +1,7 @@
 ## A critter's XP gain as a row: icon, name and level, and a bar that fills
 ## from the old XP to the new, popping LEVEL UP! each time it wraps. Takes
 ## Profile.gain_xp()'s {id, tier, xp, from_level, from_xp, to_level, to_xp,
-## cap}. Render-only: a few tweens that end when the bar stops, nothing per frame.
+## cap}. Render-only: one tween that stops with the bar, so no per-frame cost after.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -11,8 +11,6 @@ const Profile := preload("res://meta/profile.gd")
 const A11y := preload("res://game/a11y.gd")
 
 const GOLD := Color("ffd166")
-## The whole fill takes about this long, however many levels it crosses.
-const FILL_SECONDS := 1.2
 
 
 static func _frac(level: int, xp: int, cap: int) -> float:
@@ -49,24 +47,34 @@ static func make(g: Dictionary, sfx = null, delay := 0.35) -> Control:
 static func _play(row: Control, g: Dictionary, art: Control, lv: Label, bar: ProgressBar, pop: Label, sfx, delay: float) -> void:
 	var cap: int = g.get("cap", 10)
 	var ups: int = g.to_level - g.from_level
-	var end := _frac(g.to_level, g.to_xp, cap)
+	# The whole gain as one number: whole levels plus the fraction into the
+	# next. One eased tween runs it, so the bar glides at one speed through
+	# every wrap instead of stopping and starting at each level.
+	if g.from_level >= cap:
+		return # Already maxed: the bar just stays full.
+	var capped: bool = g.to_level >= cap
+	var start := _frac(g.from_level, g.from_xp, cap)
+	var total: float = ups + (0.0 if capped else _frac(g.to_level, g.to_xp, cap))
+	var seconds := clampf(1.0 + 0.4 * ups, 1.0, 3.0)
 	var calm := A11y.reduced_motion
-	var step := clampf(FILL_SECONDS / (ups + 1), 0.15, 0.6)
+	var reached := [0]
+	var show := func(p: float) -> void:
+		var whole := int(p + 0.0001) # The eased end lands a hair under a whole level.
+		while reached[0] < mini(whole, ups):
+			reached[0] += 1
+			var level: int = g.from_level + reached[0]
+			_level_up(row, art, lv, bar, pop, level, cap, sfx, calm)
+		# At the cap it ends full instead of wrapping to an empty bar.
+		bar.value = 1.0 if capped and p >= total - 0.0001 else p - whole
 	var tw := row.create_tween()
 	tw.tween_interval(delay)
-	for k in ups:
-		var level: int = g.from_level + k + 1
-		tw.tween_property(bar, "value", 1.0, step).set_trans(Tween.TRANS_SINE)
-		tw.tween_callback(_level_up.bind(row, art, lv, bar, pop, level, cap, sfx, calm, k == ups - 1 and level >= cap))
-	if ups == 0 or g.to_level < cap:
-		tw.tween_property(bar, "value", end, step).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_method(show, start, total, seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(show.bind(total))
 
 
-static func _level_up(row: Control, art: Control, lv: Label, bar: ProgressBar, pop: Label, level: int, cap: int, sfx, calm: bool, keep_full: bool) -> void:
+static func _level_up(row: Control, art: Control, lv: Label, bar: ProgressBar, pop: Label, level: int, cap: int, sfx, calm: bool) -> void:
 	lv.text = _level_text(level, cap)
 	lv.add_theme_color_override("font_color", GOLD)
-	if not keep_full:
-		bar.value = 0.0
 	if sfx != null:
 		sfx.play("twinkle", 0.0, 1.0 + 0.06 * (level % 6))
 	var n: int = int(pop.get_meta("n", 0)) + 1
