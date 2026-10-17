@@ -292,6 +292,8 @@ func test_the_critterpedia_shows_every_critter_and_each_page_builds() -> void:
 	check(shell._marks.has("critterpedia"), "My critters has a Critterpedia button")
 	shell.go("dex")
 	check_eq(shell.current, "dex", "Critterpedia opens")
+	# Cards past the first screenful build as they scroll near; build them all.
+	load("res://game/ui/lazy_tile.gd").build_all(shell)
 	for c in Roster.CRITTERS:
 		check(shell._marks.has("dex_" + c.id), "Critterpedia lists " + c.id)
 		check(Families.of(c.id) != "", "%s has a theme family" % c.id)
