@@ -211,7 +211,7 @@ static func _vault_tile(shell) -> Control:
 ## The Brood Queen boss, once zone 2 is beaten: runs left.
 static func _nest_tile(shell) -> Control:
 	var left := BroodNest.runs_left(shell.profile, int(Time.get_unix_time_from_system()))
-	var line := "Summon Orbs · %d runs left" % left if left > 0 else "Done for today"
+	var line := "Summon Eggs · %d runs left" % left if left > 0 else "Done for today"
 	return mode_tile(shell, "nest", "Brood Queen", line, Color("ff6fae") if left > 0 else Kit.MUTED, func(): shell.go("nest"), "orb")
 
 

@@ -143,3 +143,16 @@ func test_brood_queen_pays_orbs_and_an_egg_bonus() -> void:
 	check_eq(r.orbs, BroodNest.DIFFICULTIES[2].orbs + BroodNest.BONUS_MAX, "Elite plus the capped egg bonus")
 	check_eq(p.orbs - orbs, r.orbs, "orbs land")
 	check_eq(BroodNest.runs_left(p, 1_800_000_000), BroodNest.RUNS_PER_DAY - 1, "a run used")
+
+
+func test_summon_orbs_became_eggs_in_old_saves() -> void:
+	var p = Profile.new_game(1_800_000_000)
+	var d: Dictionary = p.to_dict()
+	for i in d.items:
+		if i.name == "Summon Egg":
+			i.name = "Summon Orb"
+			i.text = "Spend at the Summon Portal. Earned by playing, never sold."
+	var q = Profile.from_dict(JSON.parse_string(JSON.stringify(d)), 1_800_000_000)
+	check(q.items.any(func(i): return i.name == "Summon Egg"), "the item is a Summon Egg now")
+	check(not q.items.any(func(i): return i.name == "Summon Orb"), "no orbs left")
+	check(q.spend_orbs(1), "and spending still works")

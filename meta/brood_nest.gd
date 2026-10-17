@@ -1,5 +1,5 @@
 ## The Brood Queen (design/bosses.md): a daily boss fight on The Nest that
-## pays Summon Orbs. A win pays the difficulty's orbs, plus a bonus for the
+## pays Summon Eggs. A win pays the difficulty's eggs, plus a bonus for the
 ## eggs you cracked before they hatched. Opens when the Zone 2 boss is
 ## beaten. 3 runs a day, 8 energy a run.
 ##

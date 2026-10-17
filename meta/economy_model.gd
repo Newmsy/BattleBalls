@@ -5,7 +5,7 @@
 ## Sources of copies are the ones the game has: campaign wins (meta/campaign.gd
 ## rules: a featured copy per win, a small next-rarity-up chance, the beaten
 ## enemy and the boss reward on first clears) and the Summon Portal, fed by
-## the Summon Orb income in meta/economy.gd. Energy follows meta/profile.gd:
+## the Summon Egg income in meta/economy.gd. Energy follows meta/profile.gd:
 ## a 60 bar, losses cost 1, and every account level refills the bar.
 ##
 ## What a player does each session: x10 summons while they have 10 orbs, then

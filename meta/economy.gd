@@ -1,9 +1,9 @@
-## Economy tuning: summon odds, drop tables and Summon Orb income, plus the
+## Economy tuning: summon odds, drop tables and Summon Egg income, plus the
 ## pacing targets they have to hit (design/pve.md section 6). One place for the
 ## numbers so the campaign, the Summon Portal and the economy model agree.
 ##
 ## Rules this file must keep (design/monetisation.md): money never buys power,
-## Summon Orbs are earned only, spare copies never turn into XP.
+## Summon Eggs are earned only, spare copies never turn into XP.
 ##
 ## meta/economy_model.gd plays simulated casual, regular and heavy players
 ## through these numbers; tools/economy_sim.gd prints the report and
@@ -35,7 +35,7 @@ const MAX_TIER := 5
 const SUMMON_ODDS := {"common": 50.0, "uncommon": 28.0, "rare": 15.0, "epic": 5.5, "legendary": 1.5}
 const PITY_RESET := 50
 
-## Summon Orb income. All earned by playing (never sold): a x10 costs 10.
+## Summon Egg income. All earned by playing (never sold): a x10 costs 10.
 ## Steady and small, so the first Legendary lands in week 2 and summons stay
 ## a treat next to campaign drops.
 const STARTER_ORBS := 10
@@ -46,7 +46,7 @@ const ORBS_PER_ACCOUNT_LEVEL := 0 ## Account levels already refill energy.
 
 ## Campaign drops (Newms 2026-10-15: "heavier on orbs, 25% for a specific
 ## critter"): a win drops a copy of one of the zone's featured critters with
-## this chance, otherwise ORBS_CAMPAIGN_WIN Summon Orbs. That copy is the
+## this chance, otherwise ORBS_CAMPAIGN_WIN Summon Eggs. That copy is the
 ## zone's next-rarity-up critter instead with the bonus chance. First clears
 ## always add the beaten enemy; a boss's first clear adds its guaranteed reward.
 const CAMPAIGN_DROP_CHANCE := 0.25

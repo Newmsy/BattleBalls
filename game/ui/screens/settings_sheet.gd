@@ -98,7 +98,7 @@ static func _toggle(shell, key: String) -> void:
 static func _testing(shell) -> Control:
 	var energy := Kit.button("Refill energy", func(): _refill_energy(shell), "primary", 26, 72)
 	shell.mark("dev_refill_energy", energy)
-	var orbs := Kit.button("+10 orbs", func(): _add_orbs(shell), "ghost", 26, 72)
+	var orbs := Kit.button("+10 eggs", func(): _add_orbs(shell), "ghost", 26, 72)
 	shell.mark("dev_add_orbs", orbs)
 	for b in [energy, orbs]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -159,5 +159,5 @@ static func _refill_energy(shell) -> void:
 static func _add_orbs(shell) -> void:
 	shell.profile.orbs += 10
 	shell.profile.changed.emit()
-	shell.toast("+10 orbs")
+	shell.toast("+10 eggs")
 	shell.refresh()

@@ -236,7 +236,7 @@ static func result_text(r: Dictionary) -> String:
 	if not r.drops.is_empty():
 		parts.append("got " + ", ".join(r.drops.map(func(id): return Roster.get_critter(id).name)))
 	if r.get("orbs", 0) > 0:
-		parts.append("+%d Summon Orb%s" % [r.orbs, "" if r.orbs == 1 else "s"])
+		parts.append("+%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"])
 	for g in r.get("gear", []):
 		parts.append("found a %d-star %s" % [g.tier, g.name])
 	parts.append("+%d XP" % r.xp)
@@ -271,7 +271,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 				drops.add_child(Kit.panel(cell, Kit.box(Kit.PANEL2, Kit.LINE, 24, 2, 10)))
 			if r.get("orbs", 0) > 0:
 				var orb_cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make("orb", 84)], BoxContainer.ALIGNMENT_CENTER),
-					_fit(Kit.label("%d Summon Orb%s" % [r.orbs, "" if r.orbs == 1 else "s"], 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
+					_fit(Kit.label("%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"], 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
 				orb_cell.custom_minimum_size.x = 150
 				drops.add_child(Kit.panel(orb_cell, Kit.box(Kit.PANEL2, Color("c77dff"), 24, 2, 10)))
 			for g in r.get("gear", []):

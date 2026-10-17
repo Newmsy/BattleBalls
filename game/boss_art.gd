@@ -92,8 +92,8 @@ static func _brood_queen(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) ->
 	# Wings out to the sides, flapping.
 	var side := face.orthogonal()
 	for k in [-1.0, 1.0]:
-		var root := c + side * k * r * 0.6
-		var tip := c + side * k * r * (1.25 + flap) - face * r * 0.35
+		var root: Vector2 = c + side * k * r * 0.6
+		var tip: Vector2 = c + side * k * r * (1.25 + flap) - face * r * 0.35
 		Dot.poly(ci, PackedVector2Array([root + face * r * 0.3, tip, root - face * r * 0.45]), body.darkened(0.2))
 	Dot.circle(ci, c, r * 0.82, body)
 	Dot.circle(ci, c - face * r * 0.15 + side * r * -0.2, r * 0.4, Color(HEN_HI, 0.5))

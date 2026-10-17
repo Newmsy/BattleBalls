@@ -929,6 +929,10 @@ func _load_profile() -> void:
 		profile_unsaved = true
 		for k in Zones.zone(0).stages.size() if demo_stars > 0 else 0:
 			profile.stars[Zones.stage_key(0, k)] = demo_stars
+		# &zones=2: the first N zones fully starred (opens later bosses).
+		for z in clampi(int(url_params.get("zones", "0")), 0, Zones.ZONES.size()):
+			for k in Zones.zone(z).stages.size():
+				profile.stars[Zones.stage_key(z, k)] = maxi(1, demo_stars)
 	else:
 		profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
 		# A new save opened from a link or a test URL skips the guided first

@@ -280,7 +280,7 @@ static func sweep(profile, zone_index: int, stage_index: int, fighter: String, n
 
 
 ## A copy from the zone's featured critters on Economy.CAMPAIGN_DROP_CHANCE of
-## wins (with a small chance of the next rarity up), Summon Orbs on the rest
+## wins (with a small chance of the next rarity up), Summon Eggs on the rest
 ## (into `result.orbs`), plus a copy of the beaten enemy on first clear, plus
 ## the zone's guaranteed reward on the boss's first clear.
 static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear: bool, result := {}) -> Array:

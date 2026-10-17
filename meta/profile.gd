@@ -100,7 +100,7 @@ func setup_new_game(now: int, starter := STARTER) -> void:
 	seen = {starter: true}
 	items.assign([
 		{"name": "Energy Pack", "count": 1, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
-		{"name": "Summon Orb", "count": STARTER_ORBS, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
+		{"name": "Summon Egg", "count": STARTER_ORBS, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
 	])
 
 
@@ -431,7 +431,7 @@ func spend_orbs(n: int) -> bool:
 	if orbs < n:
 		return false
 	orbs -= n
-	var item := _item("Summon Orb")
+	var item := _item("Summon Egg")
 	if not item.is_empty():
 		item.count = orbs
 	changed.emit()
@@ -721,6 +721,9 @@ static func from_dict(d: Dictionary, now: int):
 		p.items.clear()
 		for i in d.items:
 			p.items.append({"name": str(i.name), "count": int(i.count), "text": str(i.text), "color": Color(str(i.color))})
+			if p.items[-1].name == "Summon Orb": # Orbs became eggs (design/bosses.md).
+				p.items[-1].name = "Summon Egg"
+				p.items[-1].text = str(p.items[-1].text).replace("Orb", "Egg")
 	if not p.owns(p.lineup):
 		p.lineup = p.stacks[0].id
 	# A converted Charm on a critter under 3 stars goes back to the Bag.
@@ -754,7 +757,7 @@ func grant(r: Dictionary) -> void:
 	match r.kind:
 		"orbs":
 			orbs += n
-			_item("Summon Orb").count = orbs
+			_item("Summon Egg").count = orbs
 		"coins":
 			coins += n
 		"hammers":

@@ -207,7 +207,7 @@ static func _item_sheet(shell, it: Dictionary) -> void:
 		"Energy Pack":
 			act = Kit.button("Use 1", func(): shell.close_overlay(); if p.use_energy_pack(): shell.toast("+30 energy"); shell.refresh(), "primary", 28, 90)
 			act.disabled = it.count <= 0
-		"Summon Orb":
+		"Summon Egg":
 			act = Kit.button("Go to Summon", func(): shell.show_tab("summon"), "primary", 28, 90)
 		_:
 			act = Kit.button("Use on a critter", func(): shell.close_overlay(); _chip_pick(shell), "primary", 28, 90)
@@ -255,7 +255,7 @@ static func _use_chip(shell, id: String) -> void:
 
 
 static func _item_icon(it: Dictionary) -> Control:
-	var kind: String = {"Energy Pack": "energy", "Summon Orb": "orb"}.get(it.name, "bolt")
+	var kind: String = {"Energy Pack": "energy", "Summon Egg": "orb"}.get(it.name, "bolt")
 	var g := Glyph.make(kind, 80, it.color)
 	var box := Kit.panel(g, Kit.box(Color(it.color, .15), Color(it.color, .5), 24, 2, 12))
 	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
