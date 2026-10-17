@@ -12,6 +12,7 @@ const Campaign := preload("res://meta/campaign.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
 const Gear := preload("res://sim/gear.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
+const XpBar := preload("res://game/ui/xp_bar.gd")
 
 const VAULT := Color("5ce1ff")
 
@@ -37,7 +38,11 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("Energy %d/%d  ·  %d of %d runs left today" % [p.energy, p.energy_max, left, GearVault.RUNS_PER_DAY], 22, Kit.MUTED)]))
 
 	if params.has("notice"):
-		root.add_child(Kit.panel(Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
+		var note := Kit.vbox(12, [Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
+		var bars := XpBar.rows(params.get("xp", {}), shell.sfx)
+		if bars != null:
+			note.add_child(bars)
+		root.add_child(Kit.panel(note, Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
 
 	var fighter: String = Campaign.fighter_for(p)
 	var b: Dictionary = p.best(fighter)

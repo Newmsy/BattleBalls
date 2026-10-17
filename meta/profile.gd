@@ -441,6 +441,42 @@ static func xp_to_next(level: int) -> int:
 	return 10 * level
 
 
+## XP one XP Chip gives (the Bag text says the same).
+const XP_CHIP_XP := 200
+
+
+## Adds XP like add_xp() and returns the before and after for the animated
+## XP bar (game/ui/xp_bar.gd): {id, tier, xp, from_level, from_xp, to_level,
+## to_xp, cap, levels}. Empty when the critter isn't owned.
+func gain_xp(id: String, amount: int) -> Dictionary:
+	var b := best(id)
+	if b.is_empty():
+		return {}
+	var out := {"id": id, "tier": int(b.tier), "xp": amount, "from_level": int(b.level), "from_xp": int(b.get("xp", 0)),
+		"cap": Roster.level_cap(b.tier)}
+	out.levels = add_xp(id, amount)
+	out.to_level = int(b.level)
+	out.to_xp = int(b.xp)
+	return out
+
+
+func xp_chips() -> int:
+	return int(_item("XP Chip").get("count", 0))
+
+
+## Spends one XP Chip on a critter. Returns gain_xp()'s result, or {} when
+## there is no chip, the critter isn't owned or it is already at its cap.
+func use_xp_chip(id: String) -> Dictionary:
+	var chip := _item("XP Chip")
+	var b := best(id)
+	if chip.is_empty() or int(chip.get("count", 0)) <= 0 or b.is_empty() or int(b.level) >= Roster.level_cap(b.tier):
+		return {}
+	chip.count = int(chip.count) - 1
+	var r := gain_xp(id, XP_CHIP_XP)
+	changed.emit()
+	return r
+
+
 ## Adds XP to a critter's best stack, levelling it up to its tier's cap.
 ## Returns levels gained.
 func add_xp(id: String, amount: int) -> int:
@@ -716,7 +752,10 @@ func grant(r: Dictionary) -> void:
 		"energy":
 			energy += n
 		"xp_chip":
-			_item("XP Chip").count = int(_item("XP Chip").get("count", 0)) + n
+			# A save that never had a chip has no XP Chip row yet: add it, or the chips are lost.
+			if _item("XP Chip").is_empty():
+				items.append({"name": "XP Chip", "count": 0, "text": "+%d XP to one critter." % XP_CHIP_XP, "color": Color("45f5a6")})
+			_item("XP Chip").count = int(_item("XP Chip").count) + n
 		"copies":
 			if str(r.id) in Roster.ids():
 				for i in n:
