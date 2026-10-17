@@ -507,7 +507,7 @@ func fx_copy(sim, b, ctx: Dictionary) -> void:
 	var base: Dictionary = b.def
 	var copied := base.duplicate()
 	for key in src.def:
-		if not copied.has(key):
+		if not copied.has(key) and not key in ["boss", "minion"]: # A boss's or egg's nature isn't copied.
 			copied[key] = src.def[key]
 			if key.ends_with("_damage") or key.ends_with("_dps") or key.ends_with("_accel"): # A copy hits (and pulls) softer.
 				copied[key] = src.def[key] * base.copy_scale
