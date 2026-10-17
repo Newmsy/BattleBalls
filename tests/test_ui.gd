@@ -237,6 +237,17 @@ func test_summon_reveal_opens_on_its_own_and_tap_skips() -> void:
 	shell.free()
 
 
+func test_every_family_egg_has_a_drawable_pattern() -> void:
+	var Families = load("res://sim/families.gd")
+	var rng := RandomNumberGenerator.new()
+	for fam in Families.MEMBERS.keys() + [""]:
+		var parts: Array = SummonScreen.EggArt.pattern(fam, rng)
+		check(parts.size() >= 3, "%s egg has a pattern" % fam)
+		for part in parts:
+			if part[2] == 0.0:
+				check(not Geometry2D.triangulate_polygon(part[1]).is_empty(), "%s %s fills" % [fam, part[0]])
+
+
 func test_home_groups_every_mode_as_a_tile() -> void:
 	var shell = Shell.new()
 	shell.build()
