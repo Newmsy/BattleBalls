@@ -257,6 +257,8 @@ class _Reveal extends PanelContainer:
 		skip_button = skip_
 		flash = flash_
 		mouse_filter = Control.MOUSE_FILTER_STOP
+		if not caps.is_empty():
+			caps[0].crack(OPEN_GAP)
 
 	func _gui_input(e: InputEvent) -> void:
 		if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed and _next < caps.size():
@@ -281,6 +283,8 @@ class _Reveal extends PanelContainer:
 		_wait = OPEN_GAP
 		if _next >= caps.size():
 			_finish()
+		else:
+			caps[_next].crack(OPEN_GAP)
 
 	func _open(cap, animate: bool) -> void:
 		cap.open(animate)
@@ -330,6 +334,8 @@ class _Flash extends Control:
 ## higher pop, and (Epic and up) rotating light rays.
 class _Capsule extends Control:
 	const Kit := preload("res://game/ui/ui_kit.gd")
+	const Families := preload("res://sim/families.gd")
+	const CritterArt := preload("res://game/ui/critter_art.gd")
 	const CritterIcon := preload("res://game/ui/critter_icon.gd")
 	const Roster := preload("res://game/ui/roster.gd")
 	const A11y := preload("res://game/a11y.gd")
@@ -350,6 +356,14 @@ class _Capsule extends Control:
 	var _ri := 0
 	var _spark_dirs: Array = []
 	var _content: VBoxContainer
+	var _crack_t := -1.0
+	var _crack_len := .4
+	var _phase := 0.0
+	var _egg := PackedVector2Array() ## Unit egg outline, centred on (0, 0).
+	var _crack := PackedVector2Array() ## Zigzag across the middle, left to right.
+	var _pattern: Array = [] ## [kind, points, width or 0 for filled] in unit egg space.
+	var _shards: Array = [] ## Vector4(angle, speed, spin, size) per shell shard.
+	var _ink := Color(1, 1, 1) ## The family's colour, for its pattern.
 
 	func setup(id_: String, is_new_: bool, side_: float, sfx_) -> void:
 		id = id_
@@ -366,9 +380,30 @@ class _Capsule extends Control:
 		rng.seed = hash(id) ^ int(Time.get_ticks_usec())
 		for k in SPARKS[_ri]:
 			_spark_dirs.append(Vector3(TAU * k / SPARKS[_ri] + rng.randf_range(-.25, .25), rng.randf_range(.7, 1.3), rng.randf_range(.6, 1.0)))
+		_phase = rng.randf_range(0.0, TAU)
+		for i in 32:
+			var a := TAU * i / 32
+			var up := maxf(0.0, -sin(a))
+			_egg.append(Vector2(.8 * cos(a) * (1.0 - .16 * up), sin(a) * (1.12 if sin(a) < 0.0 else .92)))
+		for i in 9:
+			_crack.append(Vector2(-.8 + 1.6 * i / 8.0, -.08 + (.11 if i % 2 else -.07)))
+		for k in 6 + _ri * 2:
+			_shards.append(Vector4(-PI / 2 + rng.randf_range(-1.6, 1.6), rng.randf_range(.8, 1.6), rng.randf_range(-6.0, 6.0), rng.randf_range(.16, .3)))
+		var fam := Families.of(id)
+		_pattern = EggArt.pattern(fam, rng)
+		for f in Families.FAMILIES:
+			if f.id == fam:
+				_ink = Color(f.color)
 
 	func rarity_index() -> int:
 		return _ri
+
+	## Cracks start spreading across the shell; it hatches after `len` seconds.
+	func crack(len: float) -> void:
+		if opened:
+			return
+		_crack_t = 0.0
+		_crack_len = len
 
 	## The Legendary wind-up: the capsule shakes and its glow swells.
 	func charge() -> void:
@@ -410,6 +445,8 @@ class _Capsule extends Control:
 		_open_t += delta
 		if _charge_t >= 0.0:
 			_charge_t += delta
+		if _crack_t >= 0.0:
+			_crack_t += delta
 		queue_redraw()
 
 	func _draw() -> void:
@@ -417,20 +454,25 @@ class _Capsule extends Control:
 		var r := side * .36
 		var still := A11y.reduced_motion
 		if not opened:
-			var pulse := .5 + .5 * sin(_t * 5.0)
+			var pulse := .5 + .5 * sin(_t * 4.0 + _phase)
 			var grow := 0.0
 			if _charge_t >= 0.0:
 				grow = clampf(_charge_t / .6, 0.0, 1.0)
-				if not still:
-					var amp := r * .08 * grow
-					c += Vector2(sin(_t * 61.0), cos(_t * 47.0)) * amp
 			for k in 4:
-				draw_circle(c, r * (1.1 + k * .1 + pulse * .05 + grow * .4), Color(_col, .12 + grow * .1))
-			draw_circle(c, r, _col)
-			_draw_top_shell(c, r, 0.0, Color.WHITE)
-			draw_line(c - Vector2(r, 0), c + Vector2(r, 0), Color("1b1842"), r * .12)
-			draw_circle(c, r * .16, Color("1b1842"))
-			draw_circle(c, r * .09, Color.WHITE.lerp(_col, grow))
+				draw_circle(c, r * (1.15 + k * .12 + pulse * .05 + grow * .4), Color(_col, .07 + .02 * _ri + grow * .1))
+			var cracked := clampf(_crack_t / maxf(.05, _crack_len * .85), 0.0, 1.0) if _crack_t >= 0.0 else 0.0
+			if _charge_t >= 0.0:
+				cracked = maxf(cracked, grow)
+			var tilt := 0.0
+			var shake := Vector2.ZERO
+			if not still:
+				tilt = sin(_t * 2.6 + _phase) * .05 + sin(_t * 31.0) * .12 * cracked
+				shake = Vector2(sin(_t * 61.0), cos(_t * 47.0)) * r * .07 * grow
+			# Wobble about the egg's base.
+			var base := c + Vector2(0, r * .92) + shake
+			draw_set_transform_matrix(Transform2D(tilt, base) * Transform2D(0.0, Vector2(r, r), 0.0, Vector2(0, -.92 * r)))
+			_draw_egg(cracked, pulse + grow)
+			draw_set_transform_matrix(Transform2D.IDENTITY)
 			return
 		var s: float = BURST[_ri]
 		# The halo that stays behind the critter.
@@ -453,10 +495,21 @@ class _Capsule extends Control:
 		var out := 1.0 - pow(1.0 - e, 3.0)
 		if not still:
 			# Shell halves fly apart and fade.
-			var fade := clampf(1.0 - e * 1.8, 0.0, 1.0)
+			var fade := clampf(1.0 - e * 1.6, 0.0, 1.0)
 			if fade > 0.0:
-				_draw_top_shell(c - Vector2(0, r * 1.2 * out), r, -.6 * out, Color(1, 1, 1, fade))
-				_draw_bottom_shell(c + Vector2(0, r * 1.0 * out), r, .5 * out, Color(_col, fade))
+				var shell := _shell_color()
+				# The cap pops up and tumbles; shards fly out and fall.
+				draw_set_transform(c + Vector2(r * .3 * out, -r * 1.3 * out), -.9 * out, Vector2(r, r))
+				draw_colored_polygon(_cap(), Color(shell, fade))
+				draw_polyline(_cap(), Color(_col.lerp(Color.WHITE, .3), fade), .07, true)
+				for d in _shards:
+					var dist: float = d.y * 1.8 * out
+					var at := c + (Vector2(cos(d.x), sin(d.x)) * dist + Vector2(0, 1.4 * e * e)) * r
+					draw_set_transform(at, d.z * e, Vector2(r, r))
+					var tri := PackedVector2Array([Vector2(-d.w, -d.w * .6), Vector2(d.w, -d.w * .2), Vector2(-d.w * .1, d.w * .8)])
+					draw_colored_polygon(tri, Color(shell, fade))
+					draw_polyline(PackedVector2Array([tri[0], tri[1], tri[2], tri[0]]), Color(_col, fade), .05, true)
+				draw_set_transform_matrix(Transform2D.IDENTITY)
 			# Expanding ring.
 			draw_arc(c, r * (.6 + 1.6 * s * out), 0.0, TAU, 48, Color(_col.lerp(Color.WHITE, .4), 1.0 - e), maxf(1.0, r * .14 * (1.0 - e)), true)
 			if _ri >= 2:
@@ -481,19 +534,189 @@ class _Capsule extends Control:
 		draw_rect(Rect2(tag - Vector2(side * .2, side * .07), Vector2(side * .4, side * .14)), Kit.BAD)
 		draw_string(Kit.FONT, tag + Vector2(-side * .17, side * .045), "NEW", HORIZONTAL_ALIGNMENT_CENTER, side * .34, int(side * .12), Color.WHITE)
 
-	func _draw_top_shell(c: Vector2, r: float, rot: float, col: Color) -> void:
-		var pts := PackedVector2Array()
-		for i in 17:
-			var a := PI + i * PI / 16 + rot
-			pts.append(c + Vector2(cos(a), sin(a)) * r)
-		draw_colored_polygon(pts, col)
+	## The shell's body colour: a deep shade of the rarity colour.
+	func _shell_color() -> Color:
+		return _col.darkened(.62 - .04 * _ri)
 
-	func _draw_bottom_shell(c: Vector2, r: float, rot: float, col: Color) -> void:
+	## The egg in unit space (the caller sets the transform): shell, family
+	## pattern, neon rim, shine, and cracks spreading as it gets ready.
+	func _draw_egg(cracked: float, glow: float) -> void:
+		var shell := _shell_color()
+		draw_colored_polygon(_egg, shell)
+		# A lighter belly band so the egg reads as round.
+		var belly := PackedVector2Array()
+		for q in _egg:
+			belly.append(Vector2(q.x * .86, q.y * .86 + .1))
+		draw_colored_polygon(belly, shell.lerp(_col, .22))
+		var ink := _ink.lightened(.15 + .05 * _ri)
+		ink.a = .85 + .05 * glow
+		for part in _pattern:
+			if part[2] > 0.0:
+				draw_polyline(part[1], ink, part[2], true)
+			else:
+				draw_colored_polygon(part[1], ink)
+		var rim := _egg.duplicate()
+		rim.append(_egg[0])
+		if _ri >= 3:
+			draw_polyline(rim, Color(_col, .35), .2, true)
+		draw_polyline(rim, _col.lerp(Color.WHITE, .15), .07 + .015 * _ri, true)
+		# Shine.
+		draw_circle(Vector2(-.33, -.55), .13, Color(1, 1, 1, .35))
+		draw_circle(Vector2(-.42, -.3), .05, Color(1, 1, 1, .3))
+		if _ri == 4:
+			for k in 3:
+				var tw := .5 + .5 * sin(_t * 5.0 + k * 2.1)
+				draw_colored_polygon(CritterArt.star_pts(Vector2(-.5 + k * .5, -.95 + k * .28 + (k % 2) * .2), .09 * tw + .03, .03, 4), Color(1, 1, .85, .9))
+		if cracked > 0.0:
+			var n := int(ceil(cracked * (_crack.size() - 1)))
+			var line := PackedVector2Array()
+			for i in n + 1:
+				line.append(_crack[i])
+			if line.size() >= 2:
+				draw_polyline(line, Color(1, 1, 1, .95), .06, true)
+				draw_polyline(line, Color(_col.lerp(Color.WHITE, .5), .4), .16, true)
+
+	## The top of the shell above the crack line, for the hatch.
+	func _cap() -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		for i in range(_crack.size() - 1, -1, -1):
+			pts.append(_crack[i])
+		for q in _egg:
+			if q.y < -.1 and q.x < 0.0:
+				pts.append(q)
+		for q in _egg:
+			if q.y < -.1 and q.x >= 0.0:
+				pts.append(q)
+		return pts
+
+
+## Each family's shell pattern, so the egg hints at what's inside before it
+## hatches: leaves for Nature, waves for Sea, circuits for Tech, sprinkles for
+## Sweet, a snowflake for Frost, polka dots for Toybox, a bat band for Spooky,
+## flames for Fire, stars and a ring for Cosmic. Built once per egg in unit
+## egg space (x -0.8..0.8, y -1.1..0.9); the egg tints it by rarity.
+class EggArt:
+	const CritterArt := preload("res://game/ui/critter_art.gd")
+
+	static func pattern(family: String, rng: RandomNumberGenerator) -> Array:
+		var out := []
+		match family:
+			"nature":
+				out.append(["vine", _wave(-.55, .55, .25, .12, 2.2), .05])
+				for p in [Vector2(-.35, .05), Vector2(.12, .38), Vector2(.4, -.2), Vector2(-.1, -.55)]:
+					out.append(["leaf", _leaf(p, .2, rng.randf_range(-1.0, 1.0)), 0.0])
+			"sea":
+				out.append(["wave", _wave(-.72, .72, -.05, .1, 3.0), .07])
+				out.append(["wave", _wave(-.68, .68, .35, .08, 3.0), .06])
+				for p in [Vector2(-.3, -.5), Vector2(.15, -.7), Vector2(.35, -.42)]:
+					out.append(["bubble", _ring(p, .08 + rng.randf() * .05), .04])
+			"tech":
+				out.append(["trace", PackedVector2Array([Vector2(-.7, .1), Vector2(-.3, .1), Vector2(-.15, -.15), Vector2(.2, -.15), Vector2(.2, -.55)]), .05])
+				out.append(["trace", PackedVector2Array([Vector2(-.5, .55), Vector2(-.1, .55), Vector2(.05, .3), Vector2(.6, .3)]), .05])
+				out.append(["trace", PackedVector2Array([Vector2(-.35, -.45), Vector2(-.35, -.75)]), .05])
+				for p in [Vector2(.2, -.55), Vector2(.6, .3), Vector2(-.35, -.75), Vector2(-.5, .55), Vector2(-.7, .1)]:
+					out.append(["pad", _ring(p, .065), 0.0])
+			"sweet":
+				# Icing drip over the top, sprinkles below.
+				var drip := PackedVector2Array()
+				for i in 13:
+					var x := -.62 + 1.24 * i / 12.0
+					drip.append(Vector2(x, -.42 + (.12 if i % 3 == 1 else 0.0) + .05 * sin(x * 7.0)))
+				drip.append(Vector2(.4, -.85))
+				drip.append(Vector2(0, -1.0))
+				drip.append(Vector2(-.4, -.85))
+				out.append(["icing", drip, 0.0])
+				for k in 9:
+					var p := Vector2(rng.randf_range(-.5, .5), rng.randf_range(-.15, .65))
+					var a := rng.randf_range(0.0, PI)
+					out.append(["sprinkle", PackedVector2Array([p - Vector2(cos(a), sin(a)) * .07, p + Vector2(cos(a), sin(a)) * .07]), .05])
+			"frost":
+				var c := Vector2(0, -.05)
+				for k in 6:
+					var a := k * PI / 3
+					var d := Vector2(cos(a), sin(a))
+					out.append(["arm", PackedVector2Array([c, c + d * .42]), .06])
+					var m := c + d * .26
+					out.append(["twig", PackedVector2Array([m + d.rotated(.9) * .1, m, m + d.rotated(-.9) * .1]), .045])
+				for p in [Vector2(-.45, -.65), Vector2(.45, .5), Vector2(-.5, .45)]:
+					out.append(["flake", CritterArt.star_pts(p, .07, .025, 6), 0.0])
+			"toybox":
+				for p in [Vector2(-.4, -.4), Vector2(.3, -.6), Vector2(.05, -.05), Vector2(-.45, .35), Vector2(.45, .2), Vector2(.1, .58)]:
+					out.append(["dot", _ring(p, .1 + rng.randf() * .04), 0.0])
+				var zig := PackedVector2Array()
+				for i in 9:
+					zig.append(Vector2(-.76 + 1.52 * i / 8.0, .3 + (-.07 if i % 2 else .07)))
+				out.append(["zig", zig, .06])
+			"spooky":
+				var bat := PackedVector2Array([Vector2(-.6, .05), Vector2(-.4, -.08), Vector2(-.3, .08), Vector2(-.12, -.05), Vector2(0, -.18),
+					Vector2(.12, -.05), Vector2(.3, .08), Vector2(.4, -.08), Vector2(.6, .05), Vector2(.3, .2), Vector2(0, .1), Vector2(-.3, .2)])
+				out.append(["bat", bat, 0.0])
+				out.append(["moon", _crescent(Vector2(.3, -.6), .17), 0.0])
+				for p in [Vector2(-.22, .5), Vector2(.18, .5)]:
+					out.append(["eye", _ring(p, .07), 0.0])
+			"fire":
+				var flame := PackedVector2Array([Vector2(-.66, .45)])
+				for k in 5:
+					var x := -.55 + k * .27
+					flame.append(Vector2(x - .07, .1))
+					flame.append(Vector2(x + .02, -.35 - .25 * float(k % 2 == 0) * (1.0 if k == 2 else .6)))
+					flame.append(Vector2(x + .1, .05))
+				flame.append(Vector2(.66, .45))
+				flame.append(Vector2(.45, .8))
+				flame.append(Vector2(-.45, .8))
+				out.append(["flame", flame, 0.0])
+				for p in [Vector2(-.3, -.7), Vector2(.25, -.85), Vector2(.05, -.6)]:
+					out.append(["ember", _ring(p, .045 + rng.randf() * .03), 0.0])
+			"cosmic":
+				out.append(["orbit", _ellipse(Vector2(0, .05), Vector2(.95, .22), -.35), .05])
+				for p in [Vector2(-.3, -.55), Vector2(.35, -.3), Vector2(-.15, .45), Vector2(.4, .45)]:
+					var big := rng.randf_range(.07, .12)
+					out.append(["star", CritterArt.star_pts(p, big, big * .4, 5), 0.0])
+				out.append(["planet", _ring(Vector2(.05, .05), .13), 0.0])
+			_:
+				for k in 7:
+					out.append(["speck", _ring(Vector2(rng.randf_range(-.5, .5), rng.randf_range(-.7, .6)), rng.randf_range(.04, .08)), 0.0])
+		return out
+
+	static func _wave(x0: float, x1: float, y: float, amp: float, waves: float) -> PackedVector2Array:
 		var pts := PackedVector2Array()
 		for i in 17:
-			var a := i * PI / 16 + rot
+			var x := x0 + (x1 - x0) * i / 16.0
+			pts.append(Vector2(x, y + amp * sin(i / 16.0 * TAU * waves * .5)))
+		return pts
+
+	static func _ring(c: Vector2, r: float) -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		for i in 13:
+			pts.append(c + Vector2(cos(TAU * i / 12), sin(TAU * i / 12)) * r)
+		return pts
+
+	static func _ellipse(c: Vector2, rad: Vector2, rot: float) -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		for i in 25:
+			var a := TAU * i / 24
+			pts.append(c + Vector2(cos(a) * rad.x, sin(a) * rad.y).rotated(rot))
+		return pts
+
+	static func _leaf(c: Vector2, len: float, rot: float) -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		for i in 9:
+			var t := i / 8.0
+			pts.append(c + Vector2(len * (t - .5) * 2.0, -sin(t * PI) * len * .45).rotated(rot))
+		for i in range(7, 0, -1):
+			var t := i / 8.0
+			pts.append(c + Vector2(len * (t - .5) * 2.0, sin(t * PI) * len * .45).rotated(rot))
+		return pts
+
+	static func _crescent(c: Vector2, r: float) -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		for i in 13:
+			var a := PI * .3 + PI * 1.4 * i / 12
 			pts.append(c + Vector2(cos(a), sin(a)) * r)
-		draw_colored_polygon(pts, col)
+		for i in range(12, -1, -1):
+			var a := PI * .4 + PI * 1.2 * i / 12
+			pts.append(c + Vector2(r * .35, 0) + Vector2(cos(a), sin(a)) * r * .8)
+		return pts
 
 
 ## The swirling portal at the top of the screen.

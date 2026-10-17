@@ -21,6 +21,22 @@ const STAR_CLEAN_FRACTION := 0.3
 const WIN_XP_BASE := 10
 const WIN_XP_PER_STAGE := 4
 const LOSS_XP := 3
+## Stage XP is multiplied by the zone number (zone 1 x1 ... zone 7 x7): a level
+## costs 10 x level (Profile.xp_to_next) and later zones are fought at much
+## higher levels, so a win keeps moving the bar about as much as in zone 1.
+static func zone_xp_mult(zone_index: int) -> int:
+	return zone_index + 1
+
+
+## Critter XP for winning stage `stage_index` of zone `zone_index`.
+static func win_xp(zone_index: int, stage_index: int) -> int:
+	return (WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index) * zone_xp_mult(zone_index)
+
+
+## Critter XP for losing a stage in zone `zone_index`.
+static func loss_xp(zone_index: int) -> int:
+	return LOSS_XP * zone_xp_mult(zone_index)
+
 
 
 static func is_unlocked(profile, zone_index: int, stage_index: int) -> bool:
@@ -202,7 +218,7 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 		result.refund = Zones.cost(st) - Zones.LOSS_COST
 		profile.refund_energy(result.refund)
 		result.account_levels = profile.add_account_xp(Zones.LOSS_COST)
-		result.xp = LOSS_XP
+		result.xp = loss_xp(zone_index)
 		give_xp(profile, result, fighter)
 		return result
 	var hp_fraction: float = fight.hp[0] / fight.max_hp
@@ -214,7 +230,7 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 	result.stars = stars
 	result.first_clear = profile.stars.get(key, 0) == 0
 	profile.stars[key] = maxi(profile.stars.get(key, 0), stars)
-	result.xp = WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index
+	result.xp = win_xp(zone_index, stage_index)
 	give_xp(profile, result, fighter)
 	result.drops = _roll_drops(profile, zone_index, stage_index, result.first_clear, result)
 	result.gear = _roll_gear(profile, zone_index, stage_index, stars, result.first_clear)
