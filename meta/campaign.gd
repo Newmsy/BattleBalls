@@ -108,6 +108,40 @@ static func start_team(profile, zone_index: int, stage_index: int, picks: Array,
 	}
 
 
+## True when a stage is a real 2v2 (all four balls at once) rather than a
+## relay: a pairs zone with two picks against two foes. Trios stay relays.
+static func is_pair(zone_index: int, stage_index: int, picks: Array) -> bool:
+	return Zones.zone(zone_index).lineup == 2 and picks.size() == 2 and Zones.enemies(Zones.stage(zone_index, stage_index)).size() == 2
+
+
+## The MatchSim config for a 2v2 pairs stage, from start_team()'s relay config
+## `rc`: your picks are p1 and p3, the foes p2 and p4 (the boss last, at
+## BOSS_SIZE). Your critters fight as you own them, talents included. Your
+## aim (index 0) is null for the caller to fill in; your mate aims itself.
+static func pair_config(profile, rc: Dictionary) -> Dictionary:
+	var foes: Array = rc.sides[1]
+	var cfg := {
+		"seed": rc.seed,
+		"arena": rc.arena,
+		"p2": foes[0],
+		"p4": foes[1],
+		"angles": [null, null, null, null],
+		"tiers": [1, rc.tiers[1][0], 1, rc.tiers[1][1]],
+		"powers": [1.0, rc.powers[1][0], 1.0, rc.powers[1][1]],
+		"gear": [null, null, null, null],
+		"sizes": [1.0, rc.sizes[1][0], 1.0, rc.sizes[1][1]],
+	}
+	Lineup.apply(cfg, 0, profile.slot_of(rc.sides[0][0]))
+	return Lineup.apply(cfg, 2, profile.slot_of(rc.sides[0][1]))
+
+
+## The finish() input for a finished 2v2: HP and max HP are your team's.
+static func pair_fight(sim) -> Dictionary:
+	var fight: Dictionary = sim.summary()
+	fight.max_hp = sim.balls[0].max_hp + sim.balls[2].max_hp
+	return fight
+
+
 ## The finish() input for a finished relay: a win's second star needs no ball
 ## lost, its third the last ball standing on 30%+ HP. `last` is the final
 ## leg's MatchSim.
@@ -209,6 +243,10 @@ static func sweep(profile, zone_index: int, stage_index: int, fighter: String, n
 		var rc := start_team(profile, zone_index, stage_index, picks, now)
 		if rc.has("error"):
 			return rc
+		if is_pair(zone_index, stage_index, picks):
+			var duo := MatchSim.new(pair_config(profile, rc))
+			duo.run_to_end()
+			return finish_team(profile, zone_index, stage_index, picks, pair_fight(duo))
 		var relay := Relay.new(rc)
 		var last = null
 		while not relay.finished:

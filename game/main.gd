@@ -563,7 +563,7 @@ func _begin_aim() -> void:
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
-	aim = MatchSim.aim_at_centre(you_side, 4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 else 2)
+	aim = MatchSim.aim_at_centre(you_side, 4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 or pve.get("config", {}).has("p3") else 2)
 	arena.clear_effects()
 	arena.reset_camera()
 	_set_aim_preview()
@@ -623,8 +623,8 @@ func _start_fight() -> void:
 			sim.balls[1].def.display_name, sim.balls[3].def.display_name]
 	if mode == Mode.CAMPAIGN:
 		info_label.text = _pve_matchup_text()
-	if modifier != Modifiers.NONE:
-		info_label.text += " · " + Modifiers.display_name(modifier)
+	if sim.config.get("modifier", Modifiers.NONE) != Modifiers.NONE: # Campaign stages fight without the week's twist.
+		info_label.text += " · " + Modifiers.display_name(sim.config.modifier)
 	speed_picker.refresh()
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
@@ -981,6 +981,8 @@ func _start_vault(config: Dictionary, difficulty: int, fighter: String) -> void:
 
 ## "T2 Optic · 1,250 power vs T1 Chomp · 1,400 power" for the stage or Vault run being fought.
 func _pve_matchup_text() -> String:
+	if pve.config.has("p3"):
+		return CampaignScreen.pair_text(profile, pve.zone, pve.stage, [pve.config.p1, pve.config.p3])
 	if not pve.has("vault"):
 		return CampaignScreen.matchup_text(profile, pve.zone, pve.stage, pve.fighter)
 	var b: Dictionary = profile.best(pve.fighter)
@@ -1000,10 +1002,18 @@ func _start_url_stage() -> void:
 	Story.skip_all(profile)
 	profile_unsaved = true
 	shell.set_profile(profile)
+	for zk in z:
+		for k in Zones.zone(zk).stages.size():
+			profile.stars[Zones.stage_key(zk, k)] = 1
 	for k in i:
 		profile.stars[Zones.stage_key(z, k)] = 1
-	var cfg := Campaign.start(profile, z, i, Profile.STARTER, now)
-	_start_stage(cfg, z, i, Profile.STARTER)
+	if Zones.zone(z).lineup == 2:
+		# A pairs stage (?pve=2-1) is a 2v2: lend the starter a mate.
+		profile.add_copies(["laser" if Profile.STARTER != "laser" else "vampire"])
+		var picks := Campaign.team_for(profile, 2)
+		_start_stage(Campaign.pair_config(profile, Campaign.start_team(profile, z, i, picks, now)), z, i, picks[0])
+	else:
+		_start_stage(Campaign.start(profile, z, i, Profile.STARTER, now), z, i, Profile.STARTER)
 	if auto_start:
 		_start_fight()
 
@@ -1018,7 +1028,8 @@ func _finish_stage() -> void:
 		report_label.text = pve.result
 		print("VAULT_END difficulty=%d won=%s gear=%d" % [pve.vault, v.won, v.gear.size()])
 		return
-	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight)
+	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight) if sim.starters == 2 \
+		else Campaign.finish_team(profile, pve.zone, pve.stage, [pve.config.p1, pve.config.p3], Campaign.pair_fight(sim))
 	Intro.after_stage(profile, pve.zone, pve.stage, r)
 	pve.result = CampaignScreen.result_text(r)
 	pve.r = r
