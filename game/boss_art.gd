@@ -40,6 +40,8 @@ static func draw(ci: CanvasItem, id: String, c: Vector2, r: float, opts := {}) -
 			_wyrm_head(ci, c, r, opts)
 		"wyrm_scale":
 			_wyrm_scale(ci, c, r, opts)
+		"the_glitch":
+			_glitch(ci, c, r, opts)
 		_:
 			Dot.circle(ci, c, r, IRON)
 
@@ -252,6 +254,31 @@ static func _wyrm_scale(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> 
 	for k in 6:
 		inner.append(c + Vector2.from_angle(k * TAU / 6.0 + PI / 6.0) * r * 0.55)
 	Dot.poly(ci, inner, col.lightened(0.3) if lit else col.lightened(0.12))
+
+
+## The Glitch: a corrupted cube that never sits still, its slices torn
+## sideways in green and magenta. opts.phase tints it: Static green, Warp
+## magenta, Pull white.
+static func _glitch(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
+	var t: float = o.get("t", 0.0)
+	var phase: String = o.get("phase", "static")
+	var main: Color = {"static": Color("7cff4f"), "warp": Color("ff4fd8"), "pull": Color("e9e4ff")}.get(phase, Color("7cff4f"))
+	main = main.lerp(Color.WHITE, clampf(o.get("hit", 0.0) * 2.0, 0.0, 0.5))
+	Dot.circle(ci, c + Vector2(r * 0.06, r * 0.1), r * 0.9, Color(0, 0, 0, 0.35))
+	if phase == "pull":
+		for k in 3:
+			Dot.arc(ci, c, r * (1.6 - fmod(t * 1.2 + k * 0.33, 1.0) * 0.8), 0.0, TAU, 32, Color(main, 0.25), 3.0, true)
+	var h := r * 0.72
+	for k in 6: # Six slices, each jittered sideways on its own beat.
+		var y := -h + k * h * 2.0 / 6.0
+		var jit := r * 0.12 * sin(t * (17.0 + k * 5.0) + k * 1.7) * (1.0 if fmod(t * 3.0 + k * 0.4, 1.0) < 0.3 else 0.15)
+		var col := main if k % 2 == 0 else Color("ff4fd8") if phase != "warp" else Color("7cff4f")
+		Dot.poly(ci, PackedVector2Array([c + Vector2(-h + jit, y), c + Vector2(h + jit, y), c + Vector2(h + jit, y + h / 3.0 + 1.0), c + Vector2(-h + jit, y + h / 3.0 + 1.0)]), Color(col, 0.92))
+	# One big eye, a pixel square that blinks.
+	var blink: bool = fmod(t * 0.7, 1.0) < 0.06 or o.get("stunned", false)
+	Dot.poly(ci, PackedVector2Array([c + Vector2(-0.22, -0.16) * r, c + Vector2(0.22, -0.16) * r, c + Vector2(0.22, (0.0 if blink else 0.2)) * r, c + Vector2(-0.22, (0.0 if blink else 0.2)) * r]), Color("040a06"))
+	if not blink:
+		Dot.poly(ci, PackedVector2Array([c + Vector2(-0.06, -0.06) * r, c + Vector2(0.06, -0.06) * r, c + Vector2(0.06, 0.08) * r, c + Vector2(-0.06, 0.08) * r]), main)
 
 
 ## A boss in a menu (the Anvil King's screen and Play tile). Redraws slowly.

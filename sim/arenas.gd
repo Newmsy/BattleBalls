@@ -274,6 +274,17 @@ const BOSS_ARENAS := {
 		"min_half": 470.0,
 		"floors": [],
 	},
+	"core": {
+		"display_name": "Corrupted Core",
+		"description": "The heart of the bug: portals on both sides throw you across the core.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"min_half": 470.0,
+		"floors": [
+			{"kind": "portal", "pos": Vector2(110, 500), "radius": 60.0, "to": 1},
+			{"kind": "portal", "pos": Vector2(890, 500), "radius": 60.0, "to": 0},
+		],
+	},
 }
 
 

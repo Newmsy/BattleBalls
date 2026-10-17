@@ -120,6 +120,31 @@ const DEFS := {
 		"lash_radius": 120.0,
 		"lash_damage": 11.0,
 	},
+	"the_glitch": {
+		"display_name": "The Glitch",
+		"description": "The bug behind it all, in the Corrupted Core. Every 10 seconds it rewrites the rules: Static fires glitch bolts, Warp blinks it round the core leaving corrupted floor, and Pull drags you in while it pulses.",
+		"color": "7cff4f",
+		"arena": "core",
+		"hp": 210.0, "radius": 90.0, "speed": 0.0, "contact_damage": 6.0,
+		"time": 75.0,
+		"script": "glitch",
+		"draw_in": 0.0,
+		"phase_every": 10.0, ## Boss-clock seconds per phase: Static, Warp, Pull, again.
+		"bolt_every": 1.8, ## Static: an aimed pair of bolts this often.
+		"bolt_speed": 520.0,
+		"bolt_damage": 7.0,
+		"warp_every": 3.0, ## Warp: it blinks to another spot this often...
+		"warp_windup": 0.7, ## ...after a flicker where it's going (stun to cancel).
+		"warp_spots": [Vector2(300, 300), Vector2(700, 300), Vector2(700, 700), Vector2(300, 700), Vector2(500, 500)],
+		"rot_radius": 80.0, ## Corrupted floor left where it was.
+		"rot_life": 4.0,
+		"rot_dps": 6.0,
+		"pull": 400.0, ## Pull: units/s^2 toward it.
+		"pulse_every": 3.0,
+		"pulse_windup": 0.9,
+		"pulse_radius": 230.0,
+		"pulse_damage": 9.0,
+	},
 }
 
 ## Minions: a boss's eggs and chicks. Plain-based like bosses; HP and damage
@@ -173,6 +198,9 @@ static func setup(b, opts := {}) -> void:
 		b.pos = _glide(b.def, 0.0)
 	elif b.def.script == "pinata":
 		b.pos = _swing(b.def, 0.0)
+	elif b.def.script == "glitch":
+		b.state.phase = -1
+		b.state.next = 1.0
 	elif b.def.script == "wyrm":
 		b.pos = _wyrm_at(b.def, 0.0)
 		b.state.glow = 0 ## 0 the head, then each scale toward the tail.
@@ -201,7 +229,7 @@ static func tick(sim, b) -> void:
 	st.clock += sim.DT * (1.0 - clampf(b.slow, 0.0, 0.9))
 	if st.has("act"):
 		_resolve(sim, b)
-		if b.def.script != "wyrm": # The wyrm keeps snaking while its tail winds up.
+		if b.def.script not in ["wyrm", "glitch"]: # These keep going while they wind up.
 			return
 	match b.def.script:
 		"anvil":
@@ -216,6 +244,8 @@ static func tick(sim, b) -> void:
 				_totem_windup(sim, b)
 		"wyrm":
 			_wyrm(sim, b)
+		"glitch":
+			_glitch(sim, b)
 
 
 ## Magnet core: what critters leave on the floor (mines, trails, puddles)
@@ -287,6 +317,19 @@ static func _resolve(sim, b) -> void:
 		"volley":
 			if st.clock >= act.at:
 				_totem_fire(sim, b, act)
+				st.erase("act")
+		"warp":
+			if st.clock >= act.at:
+				sim.zones.erase(act.tell)
+				sim.add_zone(b, st.anchor, {"kind": "rot", "radius": b.def.rot_radius, "life": b.def.rot_life, "dps": b.def.rot_dps})
+				st.anchor = act.to
+				b.pos = act.to
+				sim.events.append({"type": "glitch_warp", "ball": b.index, "pos": act.to})
+				st.erase("act")
+		"gpulse":
+			if st.clock >= act.at:
+				sim.zones.erase(act.tell)
+				sim.pulse(b, st.anchor, b.def.pulse_radius, b.def.pulse_damage, true, "glitch")
 				st.erase("act")
 		"lash":
 			var tail = sim.balls[st.scales[-1]]
@@ -458,6 +501,53 @@ static func _wyrm(sim, b) -> void:
 		sim.events.append({"type": "boss_windup", "ball": b.index, "kind": "lash", "pos": tail.pos})
 
 
+# --- The Glitch ---------------------------------------------------------------
+
+const GLITCH_PHASES := ["static", "warp", "pull"]
+
+
+## Rewrites the rules every phase_every seconds; each phase has its own attack.
+static func _glitch(sim, b) -> void:
+	var st: Dictionary = b.state
+	var d: Dictionary = b.def
+	var phase := int(st.clock / d.phase_every) % GLITCH_PHASES.size()
+	if phase != int(st.phase):
+		st.phase = phase
+		st.next = st.clock + 1.0 # A beat to read the new rules.
+		sim.events.append({"type": "glitch_phase", "ball": b.index, "pos": st.anchor, "phase": GLITCH_PHASES[phase]})
+	var target = sim.nearest_foe(b)
+	if target == null:
+		return
+	if GLITCH_PHASES[phase] == "pull" and not sim.stunned(target):
+		var to: Vector2 = st.anchor - target.pos
+		if to.length() > b.radius + target.radius:
+			sim.steer(target, to.normalized() * d.pull)
+	if st.has("act") or st.clock < st.next:
+		return
+	match GLITCH_PHASES[phase]:
+		"static":
+			st.next = st.clock + d.bolt_every
+			var aim: Vector2 = sim.predict(target, 0.4) - st.anchor
+			var dir := aim.normalized() if aim.length() > 0.001 else Vector2.DOWN
+			for k in [-1.0, 1.0]:
+				var v: Vector2 = DMath.rotated(dir, deg_to_rad(9.0 * k)) * d.bolt_speed
+				sim.add_shot(b, st.anchor + dir * (b.radius + 10.0), v, {"kind": "glitch", "radius": 13.0, "damage": d.bolt_damage, "life": 2.2})
+		"warp":
+			st.next = st.clock + d.warp_every
+			var spots: Array = d.warp_spots
+			var to: Vector2 = spots[sim.rng.range_int(0, spots.size() - 1)]
+			if to.distance_to(st.anchor) < 1.0:
+				to = spots[(spots.find(to) + 1) % spots.size()]
+			var tell = sim.add_zone(b, to, {"kind": "warp", "radius": b.radius, "life": d.warp_windup * 10.0})
+			st.act = {"kind": "warp", "at": st.clock + d.warp_windup, "tell": tell, "to": to}
+			sim.events.append({"type": "boss_windup", "ball": b.index, "kind": "warp", "pos": to})
+		"pull":
+			st.next = st.clock + d.pulse_every
+			var tell = sim.add_zone(b, st.anchor, {"kind": "quake", "radius": d.pulse_radius, "life": d.pulse_windup * 10.0})
+			st.act = {"kind": "gpulse", "at": st.clock + d.pulse_windup, "tell": tell}
+			sim.events.append({"type": "boss_windup", "ball": b.index, "kind": "gpulse", "pos": st.anchor})
+
+
 ## A stun on the boss cancels its wind-up.
 static func _fizzle(sim, b) -> void:
 	var st: Dictionary = b.state
@@ -468,7 +558,7 @@ static func _fizzle(sim, b) -> void:
 			if sim.shots.has(act.shot):
 				at = act.shot.land
 				sim.shots.erase(act.shot)
-		"quake", "volley", "lash":
+		"quake", "volley", "lash", "warp", "gpulse":
 			sim.zones.erase(act.tell)
 	st.erase("act")
 	sim.events.append({"type": "boss_fizzle", "ball": b.index, "kind": act.kind, "pos": at})

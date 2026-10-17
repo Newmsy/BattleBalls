@@ -844,6 +844,22 @@ try {
     await page.close();
   }
 
+  // 14g. The Glitch: its screen, then the weekly fight in the Corrupted Core.
+  if (mine(40)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=5&screen=glitch&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN glitch", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "42-glitch.png") });
+    await tapUi(page, logs, "glitch_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("glitch fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(shots, "43-glitch-fight.png") });
+    console.log("glitch end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
   // 15. Bracket of Legends: pick a champion while picks are open, then on
   // final day open the final and watch its first game.
   if (mine(20)) {

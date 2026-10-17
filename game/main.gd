@@ -39,7 +39,8 @@ const NestScreen := preload("res://game/ui/screens/nest_screen.gd")
 const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, NestScreen],
 	"pinata": [preload("res://meta/pinata_party.gd"), preload("res://game/ui/screens/pinata_screen.gd")],
 	"totem": [preload("res://meta/totem_shrine.gd"), preload("res://game/ui/screens/totem_screen.gd")],
-	"wyrm": [preload("res://meta/wyrm_rift.gd"), preload("res://game/ui/screens/wyrm_screen.gd")]}
+	"wyrm": [preload("res://meta/wyrm_rift.gd"), preload("res://game/ui/screens/wyrm_screen.gd")],
+	"glitch": [preload("res://meta/glitch_core.gd"), preload("res://game/ui/screens/glitch_screen.gd")]}
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Zones := preload("res://meta/zones.gd")

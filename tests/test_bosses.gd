@@ -201,7 +201,7 @@ func test_boss_hall_and_boss_screens_build() -> void:
 	var shell = Shell.new()
 	shell.build()
 	shell.profile.wishlist.assign(["vampire"])
-	for screen in ["bosses", "pinata", "vault", "nest", "totem", "wyrm"]:
+	for screen in ["bosses", "pinata", "vault", "nest", "totem", "wyrm", "glitch"]:
 		shell.go(screen, {"notice": "Won"} if screen != "bosses" else {})
 		check_eq(shell.current, screen, screen + " builds")
 	shell.free()
@@ -297,3 +297,39 @@ func test_lures_buy_wishlisted_copies() -> void:
 	check(p.owns("blackhole"), "the copy lands")
 	check_eq(p.lures, 0, "the Lures are spent")
 	check_eq(Profile.from_dict(JSON.parse_string(JSON.stringify(p.to_dict())), now).lures, 0, "Lures save")
+
+
+func test_glitch_rewrites_its_rules_and_warps() -> void:
+	var sim := MatchSim.new(_cfg("plain", 17, "the_glitch"))
+	sim.balls[0].max_hp = 9999.0
+	sim.balls[0].hp = 9999.0
+	sim.balls[0].contact_damage = 0.0
+	var phases := []
+	var warped := false
+	while not sim.finished:
+		sim.step()
+		for e in sim.events:
+			if e.type == "glitch_phase":
+				phases.append(e.phase)
+			warped = warped or e.type == "glitch_warp"
+	check(phases.slice(0, 3) == ["static", "warp", "pull"], "it cycles its rules: %s" % [phases])
+	check(warped, "it blinks round the core")
+	check_eq(sim.winner, 1, "and outlasts a critter that can't hurt it")
+
+
+func test_glitch_is_weekly_and_pays_a_bundle_once() -> void:
+	var GlitchCore = load("res://meta/glitch_core.gd")
+	var Zones = load("res://meta/zones.gd")
+	var now := 1_800_000_000
+	var p = Profile.new_game(now)
+	check_eq(GlitchCore.start(p, 0, "vampire", now).get("error"), "locked", "locked before zone 5")
+	for z in 5:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	GlitchCore.start(p, 0, "vampire", now)
+	check_eq(GlitchCore.runs_left(p, now + 86400), GlitchCore.RUNS_PER_DAY - 1, "tries last the week, not the day")
+	var eggs: int = p.orbs
+	var r: Dictionary = GlitchCore.finish(p, 0, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 40.0, "max_hp": 50.0}, now)
+	check(r.won and p.orbs > eggs and p.lures > 0, "the bundle lands")
+	check_eq(GlitchCore.runs_left(p, now), 0, "a win ends its week")
+	check_eq(GlitchCore.runs_left(p, now + 86400 * 7), GlitchCore.RUNS_PER_DAY, "back next week")
