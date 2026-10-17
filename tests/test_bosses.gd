@@ -39,6 +39,7 @@ func test_boss_wins_when_its_clock_runs_out() -> void:
 	var sim := MatchSim.new(_cfg("plain"))
 	sim.balls[0].max_hp = 9999.0
 	sim.balls[0].hp = 9999.0
+	sim.balls[0].contact_damage = 0.0 # It can't hurt the boss either.
 	var s := sim.run_to_end()
 	check_eq(s.winner, 1, "the boss outlasted you")
 	check_eq(s.reason, "time_limit")
