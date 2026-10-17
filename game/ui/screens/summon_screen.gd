@@ -1,4 +1,4 @@
-## Summon Portal: random Tier 1 critters for Summon Orbs (earned, never sold).
+## Summon Portal: random Tier 1 critters for Summon Eggs (earned, never sold).
 ## Odds on screen, x10 guarantees a Rare or better, shared Legendary pity, one
 ## free summon a day, weekly featured critter, and the Wishlist (3 picks that
 ## come up twice as often within their rarity). Capsules glow in their rarity's
@@ -30,7 +30,7 @@ static func build(shell, _params: Dictionary) -> Control:
 		"A x10 always has a Rare or better.",
 		"Wishlist: your picks come up twice as often as others of their rarity, in summons and campaign drops. Rarity odds and pity stay the same.",
 		"Legendary pity: a Legendary is guaranteed within %d Rare+ rolls. It's shared with campaign and hunt drops, so switching never resets it." % Summon.PITY_RESET,
-		"Summon Orbs come from boss first clears, daily login, account levels and achievements. They are never sold."], "summon_info")
+		"Summon Eggs come from boss first clears, daily login, account levels and achievements. They are never sold."], "summon_info")
 	var orb := Glyph.make("orb", 30)
 	orb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	root.add_child(Kit.hbox(10, [Kit.label("Summon Portal", 40), Kit.spacer(), orb, Kit.label(str(p.orbs), 26), how], BoxContainer.ALIGNMENT_CENTER))
@@ -46,7 +46,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(Kit.panel(Kit.vbox(4, [portal, feat]), st))
 	if not Intro.done(p):
 		# A new player's first summon: just the portal and the button.
-		var first := Kit.button("Free x1" if p.free_summon else "x1  (1 orb)", func(): _pull(shell, 1), "go", 30, 96)
+		var first := Kit.button("Free x1" if p.free_summon else "x1  (1 egg)", func(): _pull(shell, 1), "go", 30, 96)
 		first.disabled = not p.free_summon and p.orbs < 1
 		shell.mark("pull1", first)
 		shell.pin(first)
@@ -58,8 +58,8 @@ static func build(shell, _params: Dictionary) -> Control:
 		Kit.bar(float(Summon.PITY_RESET - pity) / Summon.PITY_RESET, Glyph.GOLD)]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
 	var free := Dev.free_summons()
-	var one := Kit.button("Free x1" if p.free_summon or free else "x1  (1 orb)", func(): _pull(shell, 1), "ghost", 28, 96)
-	var ten := Kit.button("Free x10" if free else "x10  (10 orbs)", func(): _pull(shell, 10), "primary", 28, 96)
+	var one := Kit.button("Free x1" if p.free_summon or free else "x1  (1 egg)", func(): _pull(shell, 1), "ghost", 28, 96)
+	var ten := Kit.button("Free x10" if free else "x10  (10 eggs)", func(): _pull(shell, 10), "primary", 28, 96)
 	one.disabled = not (p.free_summon or free) and p.orbs < 1
 	ten.disabled = not free and p.orbs < 10
 	shell.mark("pull1", one)
@@ -175,7 +175,7 @@ static func _pull(shell, n: int) -> void:
 	elif n == 1 and p.free_summon:
 		p.free_summon = false
 	elif not p.spend_orbs(n):
-		shell.toast("Not enough Summon Orbs.")
+		shell.toast("Not enough Summon Eggs.")
 		return
 	if _rng == null:
 		_rng = RandomNumberGenerator.new()

@@ -196,7 +196,7 @@ static func reward_text(r: Dictionary) -> String:
 		"gems":
 			return "%d Glow Gems" % n
 		"orbs":
-			return "%d Summon Orb%s" % [n, "" if n == 1 else "s"]
+			return "%d Summon Egg%s" % [n, "" if n == 1 else "s"]
 		"coins":
 			return "%s Coins" % Kit.commas(n)
 		"energy":

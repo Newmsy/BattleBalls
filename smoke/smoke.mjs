@@ -772,7 +772,23 @@ try {
     console.log("boss fight:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(4000);
     await page.screenshot({ path: path.join(shots, "32-anvil-king-fight.png") });
-    console.log("boss end:", await waitForLog(logs, "VAULT_END", 120000));
+    console.log("boss end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14c. The Brood Queen: her screen, then an Easy fight on The Nest.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=2&screen=nest&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN nest", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "33-brood-queen.png") });
+    await tapUi(page, logs, "nest_1");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("queen fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(6000);
+    await page.screenshot({ path: path.join(shots, "34-brood-queen-fight.png") });
+    console.log("queen end:", await waitForLog(logs, "BOSS_END", 120000));
     await page.close();
   }
 

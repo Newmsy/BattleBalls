@@ -93,7 +93,7 @@ static func _floor_card(spec: Dictionary) -> Control:
 	if r.xp_chips > 0:
 		bits.append("XP Chip")
 	if r.orbs > 0:
-		bits.append("Summon Orb")
+		bits.append("Summon Egg")
 	if not r.gear.is_empty():
 		bits.append(gear_name(r.gear))
 	var v := Kit.vbox(12, [
@@ -194,7 +194,7 @@ static func _upcoming_text(climb) -> String:
 		var r := Spire.reward(n)
 		var extra := []
 		if r.orbs > 0:
-			extra.append("Summon Orb")
+			extra.append("Summon Egg")
 		if not r.gear.is_empty():
 			extra.append(gear_name(r.gear))
 		var name := "floor %d" % n + (" (boss)" if Spire.is_boss(n) else "")
@@ -230,7 +230,7 @@ static func _collect(shell, climb) -> void:
 	climb.save_file()
 	var bits := ["%d coins" % t.coins]
 	if t.orbs > 0:
-		bits.append("%d Summon Orb%s" % [t.orbs, "" if t.orbs == 1 else "s"])
+		bits.append("%d Summon Egg%s" % [t.orbs, "" if t.orbs == 1 else "s"])
 	if t.xp_chips > 0:
 		bits.append("%d XP Chip%s" % [t.xp_chips, "" if t.xp_chips == 1 else "s"])
 	for g in t.gear:
@@ -242,7 +242,7 @@ static func _collect(shell, climb) -> void:
 static func grant(p, t: Dictionary) -> void:
 	p.coins += int(t.coins)
 	p.orbs += int(t.orbs)
-	_add_item(p, "Summon Orb", 0, "", Color("c86bff")).count = p.orbs
+	_add_item(p, "Summon Egg", 0, "", Color("c86bff")).count = p.orbs
 	if t.xp_chips > 0:
 		_add_item(p, "XP Chip", t.xp_chips, "+200 XP to one critter.", Color("45f5a6"))
 	for g in t.gear:

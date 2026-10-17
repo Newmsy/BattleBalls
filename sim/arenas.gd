@@ -230,6 +230,17 @@ const BOSS_ARENAS := {
 			{"kind": "conveyor", "rect": Rect2(890, 260, 90, 480), "dir": Vector2.DOWN, "accel": 420.0},
 		],
 	},
+	"nest": {
+		"display_name": "The Nest",
+		"description": "A twig nest with a golden egg in the middle and soft moss patches that slow you down.",
+		"corner_cut": 140.0,
+		"obstacles": [{"pos": Vector2(500, 500), "radius": 70.0, "kind": "pillar"}],
+		"min_half": 480.0,
+		"floors": [
+			{"kind": "goo", "pos": Vector2(500, 160), "radius": 80.0, "slow": 0.3},
+			{"kind": "goo", "pos": Vector2(840, 500), "radius": 80.0, "slow": 0.3},
+		],
+	},
 }
 
 

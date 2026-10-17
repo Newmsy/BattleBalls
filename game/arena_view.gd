@@ -406,6 +406,11 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_spawn_particles(e.pos, 14)
 			"reflect":
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
+			"egg_crack": # A Brood Queen egg broken before it hatched: more orbs.
+				_add_popup(e.pos + Vector2(-44, -50), "CRACK! x%d" % e.cracked, Color("fff1d6"), 1.1)
+				_spawn_particles(e.pos, 10)
+			"egg_hatch":
+				_add_popup(e.pos + Vector2(-30, -50), "PEEP!", Color("ffe066"))
 			"boss_fizzle": # A stun cancelled the boss's wind-up.
 				_add_popup(e.pos + Vector2(-50, -60), "FIZZLE!", POP_SNAP, 1.15)
 				_spawn_particles(e.pos, 8)
@@ -1402,7 +1407,7 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var squash := Transform2D(Vector2(1.0 - sq * 0.6, 0), Vector2(0, 1.0 + sq * 0.5), Vector2.ZERO)
 	draw_set_transform_matrix(Transform2D(0, pos + shake) * Transform2D(ang, Vector2.ZERO) * squash * Transform2D(-ang, Vector2.ZERO))
 
-	if def.get("boss", false):
+	if def.get("boss", false) or def.get("minion", false):
 		_draw_boss(i, def, r)
 		draw_set_transform(shake)
 		return
@@ -1428,7 +1433,13 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 ## A farming boss (sim/bosses.gd), posed by what its script is doing.
 func _draw_boss(i: int, def: Dictionary, r: float) -> void:
 	var b := sim.balls[i]
-	var opts := {"t": _time, "hit": _hit[i], "hp_frac": b.hp / b.max_hp, "stunned": sim.stunned(b)}
+	var opts := {"t": _time + i, "hit": _hit[i], "hp_frac": b.hp / b.max_hp, "stunned": sim.stunned(b)}
+	if b.vel.length() > 1.0:
+		opts.face = b.vel.normalized()
+	elif def.id == "brood_queen": # She glides by moving her anchor: face along the loop.
+		opts.face = Vector2.from_angle(def.glide_start + b.state.clock * def.glide_speed + PI / 2.0)
+	if b.state.has("hatch_at"):
+		opts.hatch = clampf(1.0 - (b.state.hatch_at - sim.tick) / (sim.boss.def.get("egg_hatch", 5.0) * sim.TICK_RATE), 0.0, 1.0) if def.id == "brood_egg" else 1.0
 	var act: Dictionary = b.state.get("act", {})
 	if act.get("kind", "") == "slam" and act.shot != null:
 		opts.swing = clampf(act.shot.age / act.shot.flight, 0.0, 1.0)
@@ -1443,6 +1454,9 @@ func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var side := _side(i)
 	var team_col: Color = TEAM_COLORS[side]
 	draw_set_transform(shake)
+	if def.get("minion", false): # Eggs and chicks: just their HP, no ring or tag.
+		_hp_badge(def, pos, r, hp, max_hp)
+		return
 	_team_ring(side, pos, r, team_col)
 	_text_centered(pos + Vector2(0, r + 26.0), team_tags[side], A11y.font(18), Color(team_col, 0.7), 4)
 	_hp_badge(def, pos, r, hp, max_hp, 0.4 if _cosmetic(side, "hat") else 0.0)
@@ -1618,6 +1632,12 @@ func _draw_shot(shot, s: float) -> void:
 		return
 	if shot.kind == "spike":
 		BattleFx.draw_spike_shot(self, p, maxf(r, 6.0), shot.vel)
+		return
+	if shot.kind == "feather": # The Brood Queen's feathers.
+		var d: Vector2 = shot.vel.normalized()
+		var sd := d.orthogonal()
+		Dot.poly(self, PackedVector2Array([p + d * r * 1.8, p + sd * r * 0.6, p - d * r * 1.8, p - sd * r * 0.6]), BossArt.HEN_HI)
+		draw_line(p - d * r * 2.2, p + d * r * 1.8, BossArt.HEN, 2.0, true)
 		return
 	if shot.kind == "stinger" and sim.balls[shot.owner].type_id == "zing":
 		BattleFx.draw_stinger(self, p, maxf(r, 5.0), shot.vel)

@@ -365,7 +365,7 @@ static func _angles(offsets: Array, n: int, side: int) -> Array:
 	return out
 
 
-## Today's Bazaar stock: gear at your league's tier plus Summon Orbs and an
+## Today's Bazaar stock: gear at your league's tier plus Summon Eggs and an
 ## energy refill, all for Tokens. Each item sells once a day.
 func bazaar(day: int = today()) -> Array:
 	var rng = Rng.new(hash("bazaar|%d" % day))
@@ -376,7 +376,7 @@ func bazaar(day: int = today()) -> Array:
 		var t: String = types.pop_at(rng.range_int(0, types.size() - 1))
 		var gt := clampi(tier - 1 + n / 2, 1, 5)
 		out.append({"kind": "gear", "type": t, "tier": gt, "name": Gear.PIECES[t].name, "price": 40 + 40 * gt})
-	out.append({"kind": "orbs", "n": 1, "name": "Summon Orb", "price": 120})
+	out.append({"kind": "orbs", "n": 1, "name": "Summon Egg", "price": 120})
 	out.append({"kind": "energy", "n": 30, "name": "Energy +30", "price": 50})
 	return out
 

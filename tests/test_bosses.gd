@@ -81,3 +81,78 @@ func test_old_saves_get_starter_hammers() -> void:
 	check_eq(Profile.from_dict(d, 1_800_000_000).hammers, Economy.STARTER_HAMMERS, "a save from before hammers gets them once")
 	p.hammers = 3
 	check_eq(Profile.from_dict(JSON.parse_string(JSON.stringify(p.to_dict())), 1_800_000_000).hammers, 3, "hammers save")
+
+
+func test_brood_queen_lays_eggs_that_hatch_or_crack() -> void:
+	var sim := MatchSim.new(_cfg("plain", 5, "brood_queen"))
+	sim.balls[0].contact_damage = 0.0
+	var egg = null
+	while egg == null and sim.tick < 600:
+		sim.step()
+		for m in sim.balls:
+			if m.def.get("minion", false):
+				egg = m
+	check(egg != null, "she lays an egg")
+	if egg == null:
+		return
+	check(egg.anchored, "eggs sit still")
+	var start: Vector2 = egg.pos
+	var hatched := false
+	while not sim.finished and sim.tick < 1200 and not hatched:
+		sim.step()
+		hatched = egg.type_id == "brood_chick"
+		if not hatched:
+			check(egg.pos == start, "an egg never moves")
+	check(hatched and not egg.anchored and egg.speed > 0.0, "it hatches into a chick that runs about")
+	# Cracking: break the next egg before it hatches.
+	var next = null
+	while next == null and sim.tick < 2400 and not sim.finished:
+		sim.step()
+		for m in sim.balls:
+			if m.type_id == "brood_egg" and m.alive():
+				next = m
+	if next != null:
+		sim.deal(sim.balls[0], next, 999.0, "test")
+		sim.step()
+		sim.step()
+		check_eq(sim.balls[1].state.cracked, 1, "a cracked egg counts")
+
+
+func test_minions_never_keep_a_boss_fight_going() -> void:
+	var sim := MatchSim.new(_cfg("plain", 5, "brood_queen"))
+	for i in 400:
+		sim.step()
+	check(sim.balls.size() > 2, "eggs are out")
+	sim.deal(sim.balls[0], sim.balls[1], 9999.0, "test")
+	sim.step()
+	check(sim.finished and sim.winner == 0, "the queen down wins it, eggs and all")
+
+
+func test_brood_queen_pays_orbs_and_an_egg_bonus() -> void:
+	var BroodNest = load("res://meta/brood_nest.gd")
+	var Zones = load("res://meta/zones.gd")
+	var p = Profile.new_game(1_800_000_000)
+	check_eq(BroodNest.start(p, 0, "vampire", 1_800_000_000).get("error"), "locked", "locked before zone 2")
+	for z in 2:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	var cfg: Dictionary = BroodNest.start(p, 2, "vampire", 1_800_000_000)
+	check_eq(cfg.get("p2"), "brood_queen", "she's the boss")
+	var orbs: int = p.orbs
+	var r: Dictionary = BroodNest.finish(p, 2, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 20.0, "max_hp": 50.0, "cracked": 7}, 1_800_000_000)
+	check_eq(r.orbs, BroodNest.DIFFICULTIES[2].orbs + BroodNest.BONUS_MAX, "Elite plus the capped egg bonus")
+	check_eq(p.orbs - orbs, r.orbs, "orbs land")
+	check_eq(BroodNest.runs_left(p, 1_800_000_000), BroodNest.RUNS_PER_DAY - 1, "a run used")
+
+
+func test_summon_orbs_became_eggs_in_old_saves() -> void:
+	var p = Profile.new_game(1_800_000_000)
+	var d: Dictionary = p.to_dict()
+	for i in d.items:
+		if i.name == "Summon Egg":
+			i.name = "Summon Orb"
+			i.text = "Spend at the Summon Portal. Earned by playing, never sold."
+	var q = Profile.from_dict(JSON.parse_string(JSON.stringify(d)), 1_800_000_000)
+	check(q.items.any(func(i): return i.name == "Summon Egg"), "the item is a Summon Egg now")
+	check(not q.items.any(func(i): return i.name == "Summon Orb"), "no orbs left")
+	check(q.spend_orbs(1), "and spending still works")

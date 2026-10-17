@@ -1,5 +1,5 @@
 ## Arena Bazaar: spend Tokens, won only in the Ghost Arena, on a daily
-## stock of gear at your league's tier, a Summon Orb and an energy top-up.
+## stock of gear at your league's tier, a Summon Egg and an energy top-up.
 ## Tokens are never sold for money. Reached from the Arena hub.
 extends RefCounted
 
