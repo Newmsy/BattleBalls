@@ -194,17 +194,17 @@ static func mode_card(shell, mark: String, caption: String, title: String, _text
 static func _locked_tile(shell) -> Control:
 	var t := mode_tile(shell, "locked_dailies", "Hunts · Gym · Vault", "After zone 1", Kit.MUTED,
 		shell.info.bind("After zone 1", ["Beat Mega Boulder, the zone 1 boss, to open three daily modes:",
-			"Critter Hunts: copies of one critter to fuse.", "Training Gym: XP for levels.", "Gear Vault: Shells and Cores."]), "lock")
+			"Critter Hunts: copies of one critter to fuse.", "Training Gym: XP for levels.", "Anvil King: a boss fight for gear and Hammers."]), "lock")
 	return t
 
 
-## Gear Vault, once zone 1 is beaten: today's slot and runs left.
+## The Anvil King boss (was the Gear Vault), once zone 1 is beaten: today's slot and runs left.
 static func _vault_tile(shell) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	var slot: String = GearVault.today(now).slot
 	var left := GearVault.runs_left(shell.profile, now)
 	var line := "%s · %d runs left" % ["Any gear" if slot == "" else slot + "s", left] if left > 0 else "Done for today"
-	return mode_tile(shell, "vault", "Gear Vault", line, Color("5ce1ff") if left > 0 else Kit.MUTED, func(): shell.go("vault"), "vault")
+	return mode_tile(shell, "vault", "Anvil King", line, Color("ff8a3d") if left > 0 else Kit.MUTED, func(): shell.go("vault"), "hammer")
 
 
 static func _pass_tile(shell) -> Control:

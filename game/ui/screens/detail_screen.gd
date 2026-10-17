@@ -175,7 +175,7 @@ static func _slot_sheet(shell, id: String, slot: String) -> void:
 		shell.mark("pick_%d" % g.uid, card)
 		list.add_child(card)
 	if list.get_child_count() == 0:
-		list.add_child(Kit.label("No %ss yet. The Gear Vault, campaign wins and Spire boss floors drop gear." % slot, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+		list.add_child(Kit.label("No %ss yet. The Anvil King, campaign wins and Spire boss floors drop gear." % slot, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	v.add_child(list)
 	if not worn.is_empty():
 		v.add_child(Kit.button("Unequip", func(): p.unequip(worn.uid); shell.close_overlay(); shell.refresh(), "ghost", 26, 80))

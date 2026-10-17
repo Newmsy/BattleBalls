@@ -1,5 +1,5 @@
 ## Small drawn icons the font doesn't have: tier stars, power bolt, energy,
-## coins, orbs, Glow Gems, the pass star, gear (shell, core, charm), locks, the back arrow, the info "i"
+## coins, hammers, orbs, Glow Gems, the pass star, gear (shell, core, charm), locks, the back arrow, the info "i"
 ## the tab icons and the home mode icons (target, bounce, tower, vault, ghost,
 ## friends, map, swords, sparkle).
 extends Control
@@ -52,6 +52,15 @@ func _draw() -> void:
 		"coin":
 			draw_circle(c, s * .5, Color("ffd45c"))
 			draw_arc(c, s * .3, 0, TAU, 24, Color("b8860b"), s * .09, true)
+		"hammer":
+			# A forge hammer, tilted: wooden handle, steel head with a hot face.
+			var t := Transform2D(-PI / 5.0, c)
+			draw_set_transform_matrix(t)
+			draw_rect(Rect2(Vector2(-.06, -.12) * s, Vector2(.12, .6) * s), Color("b07a45"))
+			draw_rect(Rect2(Vector2(-.34, -.42) * s, Vector2(.68, .3) * s), Color("aab4c8"))
+			draw_rect(Rect2(Vector2(-.34, -.42) * s, Vector2(.68, .08) * s), Color("e6ecf5"))
+			draw_rect(Rect2(Vector2(.24, -.42) * s, Vector2(.1, .3) * s), Color("ff8a3d"))
+			draw_set_transform_matrix(Transform2D.IDENTITY)
 		"orb":
 			draw_circle(c, s * .5, Color("c86bff"))
 			draw_circle(c + Vector2(-.12, -.12) * s, s * .3, Color("e7b8ff"))

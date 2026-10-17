@@ -212,6 +212,27 @@ const PLAYABLE := ["square", "rink", "pillars", "bumpers", "wells", "spikes", "f
 	"starfall", "factory", "orbit", "hive", "horizon", "pinball", "reef", "glitch", "inferno", "thorn"]
 
 
+## Boss maps (sim/bosses.gd, design/bosses.md): one per boss, never in the
+## picker. A boss fight isn't a mirror match, so these needn't be
+## point-symmetric. min_half: overtime stops squeezing here, so a critter
+## always fits between the walls and a boss in the middle.
+const BOSS_ARENAS := {
+	"forge": {
+		"display_name": "The Forge",
+		"description": "Molten pools in two corners and belts running up and down the sides.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"min_half": 420.0,
+		"floors": [
+			{"kind": "lava", "pos": Vector2(80, 80), "radius": 70.0},
+			{"kind": "lava", "pos": Vector2(920, 920), "radius": 70.0},
+			{"kind": "conveyor", "rect": Rect2(20, 260, 90, 480), "dir": Vector2.UP, "accel": 420.0},
+			{"kind": "conveyor", "rect": Rect2(890, 260, 90, 480), "dir": Vector2.DOWN, "accel": 420.0},
+		],
+	},
+}
+
+
 ## The map a fight with this seed is played on: every mode that rolls a map
 ## stores the result in its fight config, so later pool changes never move it.
 static func pick(seed_value: int) -> String:
@@ -219,5 +240,7 @@ static func pick(seed_value: int) -> String:
 
 
 static func get_def(id: String) -> Dictionary:
+	if BOSS_ARENAS.has(id):
+		return BOSS_ARENAS[id]
 	assert(DEFS.has(id), "Unknown arena id: %s" % id)
 	return DEFS[id]
