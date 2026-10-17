@@ -69,6 +69,8 @@ var runs := 0
 var vault := {}
 ## Brood Queen runs used today: {day, runs} (meta/brood_nest.gd).
 var nest := {}
+## Runs used today at the later farming bosses: {key: {day, runs}} (meta/boss_runs.gd).
+var boss_days := {}
 ## Faction talent trees (sim/talents.gd): faction -> {xp, picks: {node: rank}}.
 ## Points come only from play: Faction XP from progression fights, plus one
 ## point for each of T2-T5 that any of the faction's critters has reached
@@ -658,7 +660,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lineup",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "factions", "intro", "story"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "boss_days", "factions", "intro", "story"]
 
 
 func to_dict() -> Dictionary:
@@ -697,6 +699,11 @@ static func from_dict(d: Dictionary, now: int):
 	var nst = d.get("nest", {})
 	if nst is Dictionary and nst.has("day"):
 		p.nest = {"day": int(nst.day), "runs": int(nst.get("runs", 0))}
+	var bd = d.get("boss_days", {})
+	if bd is Dictionary:
+		for k in bd:
+			if bd[k] is Dictionary and bd[k].has("day"):
+				p.boss_days[str(k)] = {"day": int(bd[k].day), "runs": int(bd[k].get("runs", 0))}
 	p.stars.clear()
 	for k in d.get("stars", {}):
 		p.stars[str(k)] = int(d.stars[k])

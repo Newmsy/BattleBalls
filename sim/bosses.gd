@@ -67,6 +67,20 @@ const DEFS := {
 		"feather_speed": 560.0,
 		"feather_damage": 6.0,
 	},
+	"pinata_titan": {
+		"display_name": "Piñata Titan",
+		"description": "A giant party piñata swinging on its rope over Fiesta Plaza. It never hits back: 30 seconds to smash out as many coins as you can. Break it for the jackpot.",
+		"color": "ffb627",
+		"arena": "plaza",
+		"hp": 360.0, "radius": 92.0, "speed": 0.0, "contact_damage": 0.0,
+		"time": 30.0, ## A smash-fest: no one loses, the coins are the damage done.
+		"script": "pinata",
+		"draw_in": 0.0,
+		"pivot": Vector2(500, 30), ## Where its rope hangs from.
+		"rope": 430.0,
+		"swing": 0.8, ## Radians either side of straight down.
+		"swing_speed": 1.5, ## Radians of phase per boss-clock second (slows stretch it).
+	},
 }
 
 ## Minions: a boss's eggs and chicks. Plain-based like bosses; HP and damage
@@ -113,6 +127,8 @@ static func setup(b) -> void:
 	b.pos = b.def.get("home", Vector2(500, 500))
 	if b.def.script == "brood":
 		b.pos = _glide(b.def, 0.0)
+	elif b.def.script == "pinata":
+		b.pos = _swing(b.def, 0.0)
 	b.state.anchor = b.pos
 	b.state.clock = 0.0
 	b.state.cracked = 0 ## Eggs broken before they hatched (Brood Queen's reward).
@@ -142,6 +158,8 @@ static func tick(sim, b) -> void:
 				_anvil_swing(sim, b)
 		"brood":
 			_brood(sim, b)
+		"pinata":
+			st.anchor = _swing(b.def, st.clock)
 
 
 ## Magnet core: what critters leave on the floor (mines, trails, puddles)
@@ -271,6 +289,15 @@ static func _hatch(sim, m, k: float, target) -> void:
 	var dir: Vector2 = (target.pos - m.pos).normalized() if target != null and target.pos.distance_to(m.pos) > 0.001 else Vector2.UP
 	m.vel = dir * m.speed
 	sim.events.append({"type": "egg_hatch", "ball": m.index, "pos": m.pos})
+
+
+# --- Piñata Titan --------------------------------------------------------------
+
+## Where the piñata hangs at `clock`: a pendulum under its pivot. A stun
+## stops the swing and a slow drags it out, so it's easier to hit.
+static func _swing(d: Dictionary, clock: float) -> Vector2:
+	var a: float = d.swing * DMath.sin(clock * d.swing_speed)
+	return d.pivot + Vector2(DMath.sin(a), DMath.cos(a)) * d.rope
 
 
 ## A stun on the boss cancels its wind-up.

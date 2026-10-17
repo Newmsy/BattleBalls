@@ -30,6 +30,8 @@ static func draw(ci: CanvasItem, id: String, c: Vector2, r: float, opts := {}) -
 			_egg(ci, c, r, opts)
 		"brood_chick":
 			_chick(ci, c, r, opts)
+		"pinata_titan":
+			_pinata(ci, c, r, opts)
 		_:
 			Dot.circle(ci, c, r, IRON)
 
@@ -137,6 +139,36 @@ static func _chick(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
 	Dot.poly(ci, PackedVector2Array([c + face * r * 0.75 + side * r * 0.2, c + face * r * 1.25, c + face * r * 0.75 - side * r * 0.2]), Color("ff8a3d"))
 	Dot.circle(ci, c + face * r * 0.35 + side * r * 0.35, r * 0.13, Color("1a1033"))
 	Dot.circle(ci, c + face * r * 0.35 - side * r * 0.35, r * 0.13, Color("1a1033"))
+
+
+## A star piñata on a rope: striped body, five tasselled cones. opts.pivot:
+## where the rope goes up to (relative to c); hp_frac opens a crack.
+static func _pinata(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
+	var t: float = o.get("t", 0.0)
+	var hit: float = o.get("hit", 0.0)
+	var pivot: Vector2 = o.get("pivot", Vector2(0, -r * 1.6))
+	Dot.pline(ci, PackedVector2Array([c + pivot, c]), Color("e8d5b5"), maxf(2.0, r * 0.04), true)
+	var spin := sin(t * 1.3) * 0.15 + hit * 0.4 * sin(t * 40.0)
+	var cones := [Color("ff6fae"), Color("5ce1ff"), Color("ffd166"), Color("7cff9b"), Color("b366ff")]
+	for k in 5:
+		var a := -PI / 2.0 + spin + k * TAU / 5.0
+		var d := Vector2.from_angle(a)
+		var sd := d.orthogonal()
+		var tip := c + d * r * 1.05
+		Dot.poly(ci, PackedVector2Array([c + d * r * 0.45 + sd * r * 0.26, tip, c + d * r * 0.45 - sd * r * 0.26]), cones[k])
+		Dot.circle(ci, tip + d * r * 0.06, r * 0.09, Color.WHITE.lerp(cones[k], 0.4))
+	var body := Color("ffb627").lerp(Color.WHITE, clampf(hit * 2.0, 0.0, 0.6))
+	Dot.circle(ci, c, r * 0.58, body)
+	for k in 3: # Paper stripes.
+		Dot.pline(ci, PackedVector2Array([c + Vector2(-r * 0.5, (k - 1) * r * 0.24), c + Vector2(r * 0.5, (k - 1) * r * 0.24)]), cones[(k * 2) % 5], maxf(2.0, r * 0.08), true)
+	var hurt := 1.0 - clampf(o.get("hp_frac", 1.0), 0.0, 1.0)
+	if hurt > 0.3: # Coins peek out of a split.
+		Dot.pline(ci, PackedVector2Array([c + Vector2(-0.3, -0.1) * r, c + Vector2(-0.05, 0.05) * r, c + Vector2(0.15, -0.08) * r, c + Vector2(0.35, 0.06) * r]), Color("3a1d0a"), maxf(2.0, r * 0.06), true)
+		Dot.circle(ci, c + Vector2(0.0, 0.02) * r, r * 0.07 * (1.0 + hurt), Color("ffd166"))
+	var eye := Color("1a1033") if not o.get("stunned", false) else Color(1, 1, 1, 0.7)
+	Dot.circle(ci, c + Vector2(-0.18, -0.3) * r, r * 0.07, eye)
+	Dot.circle(ci, c + Vector2(0.18, -0.3) * r, r * 0.07, eye)
+	Dot.pline(ci, PackedVector2Array([c + Vector2(-0.14, -0.12) * r, c + Vector2(0, -0.04) * r, c + Vector2(0.14, -0.12) * r]), Color("1a1033"), maxf(1.5, r * 0.04), true)
 
 
 ## A boss in a menu (the Anvil King's screen and Play tile). Redraws slowly.

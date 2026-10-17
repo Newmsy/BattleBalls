@@ -156,3 +156,51 @@ func test_summon_orbs_became_eggs_in_old_saves() -> void:
 	check(q.items.any(func(i): return i.name == "Summon Egg"), "the item is a Summon Egg now")
 	check(not q.items.any(func(i): return i.name == "Summon Orb"), "no orbs left")
 	check(q.spend_orbs(1), "and spending still works")
+
+
+func test_pinata_swings_never_hits_back_and_ends_on_its_clock() -> void:
+	var sim := MatchSim.new(_cfg("vampire", 7, "pinata_titan"))
+	var start: Vector2 = sim.balls[1].pos
+	var moved := false
+	var hp: float = sim.balls[0].hp
+	while not sim.finished:
+		sim.step()
+		moved = moved or sim.balls[1].pos.distance_to(start) > 50.0
+	check(moved, "it swings on its rope")
+	check(sim.balls[0].hp >= hp, "it never hurts you")
+	check(sim.balls[1].hp < sim.balls[1].max_hp, "you smashed some of it")
+	check(sim.time() <= Bosses.DEFS.pinata_titan.time + 0.05, "30 seconds, then it's over")
+
+
+func test_pinata_pays_coins_for_damage_and_a_jackpot() -> void:
+	var PinataParty = load("res://meta/pinata_party.gd")
+	var Zones = load("res://meta/zones.gd")
+	var now := 1_800_000_000
+	var p = Profile.new_game(now)
+	check_eq(PinataParty.start(p, 0, "vampire", now).get("error"), "locked", "locked before stage 1-5")
+	for i in PinataParty.UNLOCK_STAGE + 1:
+		p.stars[Zones.stage_key(0, i)] = 1
+	var cfg: Dictionary = PinataParty.start(p, 0, "vampire", now)
+	check_eq(cfg.get("p2"), "pinata_titan", "the piñata's the boss")
+	check(absf(cfg.powers[1] - p.power_of("vampire") / 1000.0) < 0.01 or cfg.powers[1] == 1.0, "it matches your power")
+	var coins: int = p.coins
+	var r: Dictionary = PinataParty.finish(p, 0, "vampire", {"winner": 1, "hp": [50.0, 100.0], "time": 30.0, "max_hp": 50.0, "boss_dealt": 50.0, "boss_max": 100.0}, now)
+	check(r.won and not r.broken, "every smash pays")
+	check_eq(r.coins, PinataParty.coins_for(0.5, false), "half smashed, half the damage coins")
+	check_eq(p.coins - coins, r.coins, "coins land")
+	var j: Dictionary = PinataParty.finish(p, 0, "vampire", {"winner": 0, "hp": [50.0, 0.0], "time": 20.0, "max_hp": 50.0, "boss_dealt": 100.0, "boss_max": 100.0}, now)
+	check_eq(j.coins, PinataParty.coins_for(1.0, true), "broken: the jackpot")
+	check_eq(PinataParty.runs_left(p, now), PinataParty.RUNS_PER_DAY - 1, "a run used")
+	var q = Profile.from_dict(JSON.parse_string(JSON.stringify(p.to_dict())), now)
+	check_eq(PinataParty.runs_left(q, now), PinataParty.RUNS_PER_DAY - 1, "runs used save")
+	check_eq(PinataParty.runs_left(q, now + 86400), PinataParty.RUNS_PER_DAY, "and reset the next day")
+
+
+func test_boss_hall_and_boss_screens_build() -> void:
+	var Shell = load("res://game/ui/shell.gd")
+	var shell = Shell.new()
+	shell.build()
+	for screen in ["bosses", "pinata", "vault", "nest"]:
+		shell.go(screen, {"notice": "Won"} if screen != "bosses" else {})
+		check_eq(shell.current, screen, screen + " builds")
+	shell.free()

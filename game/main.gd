@@ -9,6 +9,7 @@ extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
 const Bosses := preload("res://sim/bosses.gd")
+const Power := preload("res://sim/power.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
@@ -35,7 +36,8 @@ const VaultScreen := preload("res://game/ui/screens/vault_screen.gd")
 const BroodNest := preload("res://meta/brood_nest.gd")
 const NestScreen := preload("res://game/ui/screens/nest_screen.gd")
 ## Farming bosses by their screen: the rules (start/finish/cancel) and the screen (result_text).
-const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, NestScreen]}
+const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, NestScreen],
+	"pinata": [preload("res://meta/pinata_party.gd"), preload("res://game/ui/screens/pinata_screen.gd")]}
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Zones := preload("res://meta/zones.gd")
@@ -1007,9 +1009,8 @@ func _pve_matchup_text() -> String:
 	if not pve.has("vault"):
 		return CampaignScreen.matchup_text(profile, pve.zone, pve.stage, pve.fighter)
 	var b: Dictionary = profile.best(pve.fighter)
-	var now := int(Time.get_unix_time_from_system())
 	return "%s vs %s" % [FighterTag.text(Roster.get_critter(pve.fighter).name, b.get("tier", 1), profile.power_of(pve.fighter), b.get("level", 0)),
-		FighterTag.text(Bosses.DEFS[pve.config.p2].display_name, 1, _boss_rules().enemy_rating(pve.vault, now))]
+		FighterTag.text(Bosses.DEFS[pve.config.p2].display_name, 1, Power.rating(pve.config.powers[1]))]
 
 
 ## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).
@@ -1044,6 +1045,8 @@ func _finish_stage() -> void:
 	fight.max_hp = sim.balls[0].max_hp
 	if pve.has("vault"):
 		fight.cracked = int(sim.boss.state.get("cracked", 0)) if sim.boss != null else 0
+		fight.boss_dealt = sim.boss.max_hp - maxf(0.0, sim.boss.hp) if sim.boss != null else 0.0
+		fight.boss_max = sim.boss.max_hp if sim.boss != null else 1.0
 		var v: Dictionary = _boss_rules().finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
 		pve.result = BOSS_MODES[pve.boss][1].result_text(v)
 		pve.xp = v
