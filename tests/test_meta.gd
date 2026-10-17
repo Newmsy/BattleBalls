@@ -249,14 +249,15 @@ func test_zone_two_is_pairs_on_bumpers_after_the_zone_one_boss() -> void:
 	var cfg: Dictionary = Campaign.start_team(p, 1, 0, picks, T0)
 	check_eq(cfg.get("arena"), "bumpers", "fought on the Bumpers arena")
 	check_eq(cfg.sides[1].size(), 2, "two foes")
-	var relay := Relay.new(cfg)
-	var last = null
-	while not relay.finished:
-		last = MatchSim.new(relay.leg_config())
-		last.run_to_end()
-		relay.record_leg(last)
-	var r: Dictionary = Campaign.finish_team(p, 1, 0, picks, Campaign.relay_fight(relay, last))
-	check(r.has("won"), "the relay settles like a stage")
+	check(Campaign.is_pair(1, 0, picks), "pairs stages are a real 2v2, not a relay")
+	var duo: Dictionary = Campaign.pair_config(p, cfg)
+	check_eq([duo.p1, duo.p3], picks, "your pair is p1 and p3")
+	check_eq([duo.p2, duo.p4], Zones.enemies(Zones.stage(1, 0)), "the foes are p2 and p4")
+	var sim := MatchSim.new(duo)
+	check_eq(sim.starters, 4, "all four fight at once")
+	sim.run_to_end()
+	var r: Dictionary = Campaign.finish_team(p, 1, 0, picks, Campaign.pair_fight(sim))
+	check(r.has("won"), "the 2v2 settles like a stage")
 	if r.won:
 		check(Campaign.is_cleared(p, 1, 0), "a win clears 2-1")
 	p.stars["2-1"] = 3
@@ -278,6 +279,7 @@ func test_zone_three_is_trios_after_the_zone_two_boss() -> void:
 	var picks := Campaign.team_for(p, 3)
 	check_eq(picks.size(), 3, "a team of three")
 	check_eq(Campaign.start_team(p, 2, 0, picks, T0).get("arena"), "frost", "the zone's frozen lake by default")
+	check(not Campaign.is_pair(2, 0, picks), "trios stay relays")
 	p.energy = 999
 	p.stars["3-1"] = 1
 	p.stars["3-2"] = 1
