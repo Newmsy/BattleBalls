@@ -296,3 +296,17 @@ func test_every_built_zone_has_fightable_foes_and_a_boss_last() -> void:
 			check(Arenas.PLAYABLE.has(st.get("arena", zone.get("arena", "square"))), "%s arena exists" % zone.name)
 			for id in Zones.enemies(st):
 				check(BallDefs.PLAYABLE.has(id), "%s foe %s can fight" % [zone.name, id])
+
+
+func test_later_zones_give_more_xp_per_stage() -> void:
+	check_eq(Campaign.win_xp(0, 0), Campaign.WIN_XP_BASE, "1-1 gives the base XP")
+	check_eq(Campaign.win_xp(6, 0), Campaign.WIN_XP_BASE * 7, "7-1 gives seven times that")
+	check(Campaign.win_xp(1, 10) > Campaign.win_xp(0, 10), "a zone 2 stage beats the same zone 1 stage")
+	check_eq(Campaign.loss_xp(3), Campaign.LOSS_XP * 4, "losses scale too")
+	var p = Profile.new_game(T0)
+	for z in 2:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	p.add_copies(["laser"])
+	var r: Dictionary = Campaign.finish(p, 2, 0, "laser", _win())
+	check_eq(r.xp, Campaign.win_xp(2, 0), "a win pays its zone's XP")
