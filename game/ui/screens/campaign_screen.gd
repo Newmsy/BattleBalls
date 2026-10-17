@@ -19,6 +19,7 @@ const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Story := preload("res://meta/story.gd")
 const StoryCards := preload("res://game/ui/story_cards.gd")
+const XpBar := preload("res://game/ui/xp_bar.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -272,10 +273,14 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	else:
 		v.add_child(Kit.label("Try a stronger critter, or fuse one up.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var spent := Zones.cost(st) - int(r.refund)
+	var bars := XpBar.rows(r, shell.sfx)
+	if bars != null:
+		v.add_child(bars)
 	var lines := Kit.vbox(8, [
 		Kit.hbox(10, [Glyph.make("energy", 28), Kit.label("%d energy spent%s" % [spent, (" · %d back" % r.refund) if r.refund > 0 else ""], 24, Kit.MUTED)]),
-		Kit.label("+%d XP for %s%s" % [r.xp, Roster.get_critter(fighter).name, " · level up!" if r.levels > 0 else ""], 24, Kit.MUTED),
 	])
+	if bars == null:
+		lines.add_child(Kit.label("+%d XP for %s%s" % [r.xp, Roster.get_critter(fighter).name, " · level up!" if r.levels > 0 else ""], 24, Kit.MUTED))
 	if r.account_levels > 0:
 		lines.add_child(Kit.label("Account level up! Energy refilled.", 24, Kit.GOOD))
 	v.add_child(lines)

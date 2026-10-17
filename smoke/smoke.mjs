@@ -271,7 +271,8 @@ try {
     await tapUi(page, logs, "tab_bag", "bag");
     await tapUi(page, logs, "gear_5", "sheet");
     await page.screenshot({ path: path.join(shots, "3f-bag-sheet.png") });
-    await tapUi(page, logs, "equip_juggernaut", "bag");
+    await tapUi(page, logs, "gear_equip", "sheet");
+    await tapUi(page, logs, "pick_juggernaut", "bag");
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
     // Three 1-star Bubble Shells now: Merge all makes a 2-star (design/gear.md).
     await tapUi(page, logs, "merge_all", "bag");

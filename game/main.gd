@@ -1014,6 +1014,7 @@ func _finish_stage() -> void:
 	if pve.has("vault"):
 		var v := GearVault.finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
 		pve.result = VaultScreen.result_text(v)
+		pve.xp = v
 		report_label.text = pve.result
 		print("VAULT_END difficulty=%d won=%s gear=%d" % [pve.vault, v.won, v.gear.size()])
 		return
@@ -1076,6 +1077,7 @@ func _back_to_campaign() -> void:
 	var vault := pve.has("vault")
 	if vault and pve.has("result"):
 		params.notice = pve.result
+		params.xp = pve.get("xp", {})
 	if pve.has("r"):
 		params.result = {"stage": pve.stage, "r": pve.r, "kind": "fight"}
 	if pve.has("stage") and not vault:

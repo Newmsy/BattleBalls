@@ -114,19 +114,19 @@ static func cancel(profile, now: int) -> void:
 ## {won, gear: [new piece], xp, levels, refund, account_levels}.
 static func finish(profile, difficulty: int, fighter: String, fight: Dictionary, now: int) -> Dictionary:
 	var won: bool = fight.winner == 0
-	var result := {"won": won, "gear": [], "xp": LOSS_XP, "levels": 0, "refund": 0, "account_levels": 0}
+	var result := {"won": won, "gear": [], "xp": LOSS_XP, "levels": 0, "refund": 0, "account_levels": 0, "critters": []}
 	if not won:
 		result.refund = ENERGY_COST - Zones.LOSS_COST
 		profile.refund_energy(result.refund)
 		result.account_levels = profile.add_account_xp(Zones.LOSS_COST)
-		result.levels = profile.add_xp(fighter, LOSS_XP)
+		Campaign.give_xp(profile, result, fighter)
 		return result
 	var rng := Rng.new(_seed(profile.runs, day_number(now), difficulty) ^ 0x68e31da4)
 	var types := types_today(now)
 	var tier: int = DIFFICULTIES[clampi(difficulty, 0, DIFFICULTIES.size() - 1)].tier
 	result.gear = [profile.add_gear(types[rng.range_int(0, types.size() - 1)], tier)]
 	result.xp = WIN_XP
-	result.levels = profile.add_xp(fighter, WIN_XP)
+	Campaign.give_xp(profile, result, fighter)
 	result.account_levels = profile.add_account_xp(ENERGY_COST)
 	profile.runs += 1
 	profile.changed.emit()

@@ -69,6 +69,20 @@ func test_levels_are_capped_by_tier() -> void:
 	check_eq(p.best("vampire").xp, 0, "no xp banked at the cap")
 
 
+func test_xp_gain_and_chips_report_the_bar() -> void:
+	var p = Profile.new_game(T0)
+	var g: Dictionary = p.gain_xp("vampire", 35)
+	check_eq([g.from_level, g.from_xp, g.to_level, g.to_xp, g.levels], [1, 0, 3, 5, 2], "35 XP: 10 + 20 to level 3, 5 over")
+	check_eq(p.use_xp_chip("vampire"), {}, "no chips yet")
+	p.grant({"kind": "xp_chip", "n": 1})
+	var c: Dictionary = p.use_xp_chip("vampire")
+	check_eq(c.xp, Profile.XP_CHIP_XP, "a chip gives its XP")
+	check_eq(p.xp_chips(), 0, "and is spent")
+	check_eq(c.from_level, 3, "bar starts where it was")
+	var won := Campaign.finish(p, 0, 0, "vampire", {"winner": 1, "hp": [0.0, 1.0], "max_hp": 1.0, "time": 10.0})
+	check_eq(won.critters.size(), 1, "a result carries the fighter's XP bar")
+
+
 func test_energy_regenerates_and_stops_at_max() -> void:
 	var p = Profile.new_game(T0)
 	check(p.spend_energy(20, T0), "spend")

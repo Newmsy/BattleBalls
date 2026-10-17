@@ -122,8 +122,11 @@ static func relay_fight(relay, last) -> Dictionary:
 static func finish_team(profile, zone_index: int, stage_index: int, picks: Array, fight: Dictionary) -> Dictionary:
 	var r := finish(profile, zone_index, stage_index, picks[0], fight)
 	for k in range(1, picks.size()):
-		if profile.add_xp(picks[k], r.xp) > 0:
-			r.levels += 1
+		var g: Dictionary = profile.gain_xp(picks[k], r.xp)
+		if not g.is_empty():
+			r.critters.append(g)
+			if g.levels > 0:
+				r.levels += 1
 	return r
 
 
@@ -160,13 +163,13 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 	var st := Zones.stage(zone_index, stage_index)
 	var key := Zones.stage_key(zone_index, stage_index)
 	var won: bool = fight.winner == 0
-	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "orbs": 0, "gear": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0}
+	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "orbs": 0, "gear": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0, "critters": []}
 	if not won:
 		result.refund = Zones.cost(st) - Zones.LOSS_COST
 		profile.refund_energy(result.refund)
 		result.account_levels = profile.add_account_xp(Zones.LOSS_COST)
 		result.xp = LOSS_XP
-		result.levels = profile.add_xp(fighter, LOSS_XP)
+		give_xp(profile, result, fighter)
 		return result
 	var hp_fraction: float = fight.hp[0] / fight.max_hp
 	var stars := 1
@@ -178,13 +181,22 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 	result.first_clear = profile.stars.get(key, 0) == 0
 	profile.stars[key] = maxi(profile.stars.get(key, 0), stars)
 	result.xp = WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index
-	result.levels = profile.add_xp(fighter, result.xp)
+	give_xp(profile, result, fighter)
 	result.drops = _roll_drops(profile, zone_index, stage_index, result.first_clear, result)
 	result.gear = _roll_gear(profile, zone_index, stage_index, stars, result.first_clear)
 	result.account_levels = profile.add_account_xp(Zones.cost(st))
 	profile.runs += 1
 	profile.changed.emit()
 	return result
+
+
+## Gives `fighter` the result's XP and keeps the before and after in
+## `result.critters` for the results popup's XP bars.
+static func give_xp(profile, result: Dictionary, fighter: String) -> void:
+	var g: Dictionary = profile.gain_xp(fighter, result.xp)
+	result.levels = int(g.get("levels", 0))
+	if not g.is_empty():
+		result.critters.append(g)
 
 
 ## Replays a 3-starred stage off-screen (pve.md: same cost, same drops, no
