@@ -200,7 +200,50 @@ func test_boss_hall_and_boss_screens_build() -> void:
 	var Shell = load("res://game/ui/shell.gd")
 	var shell = Shell.new()
 	shell.build()
-	for screen in ["bosses", "pinata", "vault", "nest"]:
+	for screen in ["bosses", "pinata", "vault", "nest", "totem"]:
 		shell.go(screen, {"notice": "Won"} if screen != "bosses" else {})
 		check_eq(shell.current, screen, screen + " builds")
 	shell.free()
+
+
+func test_totem_lights_todays_family_and_rings_out_orbs() -> void:
+	var Talents = load("res://sim/talents.gd")
+	var cfg := _cfg("phoenix", 9, "totem_of_nine")
+	cfg.boss = {"family": Talents.faction_of("phoenix")}
+	var lit := MatchSim.new(cfg)
+	check(lit.balls[0].attack >= Bosses.DEFS.totem_of_nine.family_bonus - 0.001, "today's family hits harder")
+	cfg.boss = {"family": "sea" if Talents.faction_of("phoenix") != "sea" else "tech"}
+	check(MatchSim.new(cfg).balls[0].attack < 0.001, "other families don't")
+	var sim := MatchSim.new(_cfg("plain", 9, "totem_of_nine"))
+	sim.balls[0].contact_damage = 0.0
+	while not sim.balls[1].state.has("act") and sim.tick < 600:
+		sim.step()
+	check_eq(sim.balls[1].state.get("act", {}).get("kind", ""), "volley", "the heads glow first")
+	var before := sim.shots.size()
+	while sim.balls[1].state.has("act"):
+		sim.step()
+	check_eq(sim.shots.size() - before, int(Bosses.DEFS.totem_of_nine.ring_count) - 1, "a ring of orbs with one gap")
+	while not sim.balls[1].state.has("act"):
+		sim.step()
+	sim.stun(sim.balls[0], sim.balls[1], 0.3)
+	sim.step()
+	check(not sim.balls[1].state.has("act"), "a stun cancels the volley")
+
+
+func test_totem_pays_sigils_to_todays_family() -> void:
+	var TotemShrine = load("res://meta/totem_shrine.gd")
+	var Zones = load("res://meta/zones.gd")
+	var now := 1_800_000_000
+	var p = Profile.new_game(now)
+	check_eq(TotemShrine.start(p, 0, "vampire", now).get("error"), "locked", "locked before zone 3")
+	for z in 3:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	var cfg: Dictionary = TotemShrine.start(p, 1, "vampire", now)
+	check_eq(cfg.boss.family, TotemShrine.family_today(now), "the fight knows today's family")
+	check(TotemShrine.family_today(now) != TotemShrine.family_today(now + 86400), "it turns daily")
+	var fam: String = TotemShrine.family_today(now)
+	var xp := int(p.factions.get(fam, {}).get("xp", 0))
+	var r: Dictionary = TotemShrine.finish(p, 1, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 20.0, "max_hp": 50.0}, now)
+	check_eq(r.sigils, TotemShrine.DIFFICULTIES[1].sigils, "Hard pays its sigils")
+	check(int(p.factions[fam].xp) - xp >= r.sigils, "into today's family's tree")
