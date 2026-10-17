@@ -187,6 +187,17 @@ static func matchup_text(p, z: int, i: int, fighter: String) -> String:
 		FighterTag.text(st.get("name", Roster.get_critter(st.enemy).name), enemy_tier(st), Campaign.enemy_rating(z, i))]
 
 
+## "Optic + Bolt · 2,500 power vs Pinball + Cogs · 1,550" for a 2v2 pairs stage.
+static func pair_text(p, z: int, i: int, picks: Array) -> String:
+	var st := Zones.stage(z, i)
+	var power := 0
+	for id in picks:
+		power += p.power_of(id)
+	var foes: Array = Zones.enemies(st).map(func(e): return Roster.get_critter(e).name)
+	return "%s · %s power vs %s · %s" % [" + ".join(picks.map(func(id): return Roster.get_critter(id).name)), Kit.commas(power),
+		st.get("name", " + ".join(foes)), Kit.commas(Campaign.enemy_rating(z, i) * foes.size())]
+
+
 static func _fight(shell, z: int, i: int, fighter: String) -> void:
 	if Zones.zone(z).lineup > 1:
 		_fight_team(shell, z, i)
@@ -311,14 +322,19 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	shell.sheet(v)
 
 
-## A pairs or trios stage: spend the energy, then fight it as a relay on its
-## own screen (game/campaign_relay.gd). main.gd settles it on the way back.
+## A pairs or trios stage: spend the energy, then fight it. Pairs are a 2v2 in
+## the arena like a solo stage; trios are a relay on their own screen
+## (game/campaign_relay.gd). main.gd settles either on the way back.
 static func _fight_team(shell, z: int, i: int) -> void:
 	var picks := Campaign.team_for(shell.profile, Zones.zone(z).lineup)
 	var cfg: Dictionary = Campaign.start_team(shell.profile, z, i, picks, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
 		shell.toast(_error_text(cfg.error))
 		shell.refresh()
+		return
+	if Campaign.is_pair(z, i, picks):
+		# Pairs are a real 2v2 in the arena, all four at once (trios stay relays).
+		shell.stage_requested.emit(Campaign.pair_config(shell.profile, cfg), z, i, picks[0])
 		return
 	var scene = load("res://game/campaign_relay.gd")
 	scene.pending = {"zone": z, "stage": i, "picks": picks, "config": cfg}
