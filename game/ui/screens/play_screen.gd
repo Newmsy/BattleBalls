@@ -74,27 +74,33 @@ static func build(shell, _params: Dictionary) -> Control:
 ## The campaign: the main way forward, so it gets the first big card.
 static func _campaign_card(shell) -> Control:
 	var p = shell.profile
-	# Campaign card: Glow Garden progress and the way into the stage list.
+	# Campaign card: progress in the furthest zone you've opened, and its next stage.
 	var Zones := preload("res://meta/zones.gd")
 	var Campaign := preload("res://meta/campaign.gd")
-	var stages: Array = Zones.zone(0).stages
+	var z := 0
+	for zi in range(1, Zones.ZONES.size()):
+		if Campaign.is_unlocked(p, zi, 0): z = zi
+	var zd: Dictionary = Zones.zone(z)
+	var stages: Array = zd.stages
 	var cleared := 0
 	var star_total := 0
+	var next := -1
 	for i in stages.size():
-		cleared += 1 if Campaign.is_cleared(p, 0, i) else 0
-		star_total += Campaign.stars_of(p, 0, i)
-	var next_text := "All %d stages cleared. 3-star them to sweep." % stages.size()
-	if cleared < stages.size():
-		var st: Dictionary = stages[cleared]
-		next_text = "Next: %s %s · Recommended %s" % [Zones.stage_key(0, cleared), st.get("name", Roster.get_critter(st.enemy).name),
-			Kit.commas(Campaign.enemy_rating(0, cleared))]
+		if Campaign.is_cleared(p, z, i): cleared += 1
+		elif next < 0: next = i
+		star_total += Campaign.stars_of(p, z, i)
+	var next_text := "All %d stages cleared." % stages.size()
+	if next >= 0:
+		var st: Dictionary = stages[next]
+		next_text = "%d/%d cleared · Next: %s %s · Recommended %s" % [cleared, stages.size(), Zones.stage_key(z, next),
+			st.get("name", Roster.get_critter(st.enemy).name), Kit.commas(Campaign.enemy_rating(z, next))]
 	var open := Kit.button("Open the map", func(): shell.go("world"), "go", 30, 84)
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
-		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone 1 · The Neon Circuit", Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
-		Kit.hbox(10, [Kit.label("Glow Garden", 40), Kit.spacer(), Glyph.make("stars", 26, Kit.FG, 1),
+		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone %d · The Neon Circuit" % (z + 1), Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
+		Kit.hbox(10, [Kit.label(zd.name, 40), Kit.spacer(), Glyph.make("stars", 26, Kit.FG, 1),
 			Kit.label("%d/%d" % [star_total, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
-		Kit.label(next_text if cleared == stages.size() else "%d/%d stages cleared. %s" % [cleared, stages.size(), next_text], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label(next_text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 		open,
 	])
 	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 36, 2, 24)
