@@ -105,10 +105,15 @@ static func play_story(shell, z: int) -> void:
 	shell.mark("story_skip", cards.skip_button)
 
 
+## One stage row. Locked stages are just their number, the foe's silhouette
+## and a lock; the stage you're on gets the big card (foe faces, your power
+## against theirs, FIGHT); cleared ones are a slim row with their result,
+## replay and Sweep.
 static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	var st := Zones.stage(z, i)
 	var boss := Zones.is_boss(st)
-	var unlocked := Campaign.is_unlocked(p, z, i)
+	if not Campaign.is_unlocked(p, z, i):
+		return _locked_row(z, i, st, boss)
 	var stars := Campaign.stars_of(p, z, i)
 	var foes := Zones.enemies(st)
 	var name: String = st.get("name", " + ".join(foes.map(func(id): return Roster.get_critter(id).name)))
@@ -120,47 +125,79 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 		for id in team:
 			mine += p.power_of(id)
 		mine /= maxi(1, team.size())
-
+	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
 	var title := Kit.hbox(8, [Kit.label(Zones.stage_key(z, i), 22, Kit.MUTED), _fit(Kit.label(name, 28))])
 	if boss:
 		title.add_child(Kit.chip("BOSS", Kit.BAD))
-	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var info := Kit.vbox(6, [title, Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "They're stronger"), 20, power_color),
-		Glyph.make("stars", 26, Kit.FG, stars, 3)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var border := Kit.BAD.darkened(.3) if boss else Kit.GOOD.darkened(.5)
 
-	var actions := Kit.vbox(8)
-	if not unlocked:
-		actions.add_child(Kit.hbox(6, [Glyph.make("lock", 26, Kit.MUTED), Kit.label("Locked", 22, Kit.MUTED)]))
-	else:
-		var fight := Kit.button("Fight  %d" % Zones.cost(st), _fight.bind(shell, z, i, fighter), "go", 24, 72)
-		fight.custom_minimum_size.x = 150
-		shell.mark("stage_%d_%d" % [z + 1, i + 1], fight)
-		actions.add_child(fight)
-		if Campaign.can_sweep(p, z, i):
-			var sweep := Kit.button("Sweep", _sweep.bind(shell, z, i, fighter), "ghost", 22, 60)
-			shell.mark("sweep_%d_%d" % [z + 1, i + 1], sweep)
-			actions.add_child(sweep)
-
-	var icon: Control = FighterTag.make(st.enemy, enemy_tier(st), rec, 108 if boss else 92, power_color, not unlocked)
-	if foes.size() > 1:
-		# One row of stars and one power figure for the pair or trio (the
-		# foes share a tier and rating).
-		var stars_row := Kit.hbox(0, [Kit.glyph("stars", 20, Kit.FG, enemy_tier(st))], BoxContainer.ALIGNMENT_CENTER)
-		var pair := Kit.hbox(2, [], BoxContainer.ALIGNMENT_CENTER)
+	if not Campaign.is_cleared(p, z, i):
+		# The stage you're on: foe faces, the power comparison and one big FIGHT.
+		var faces := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
+		var side: float = (260.0 if boss else 220.0) / sqrt(float(foes.size()))
 		for id in foes:
-			var art := CritterIcon.make(id, enemy_tier(st), (64 if foes.size() == 2 else 52) * FighterTag.ART_SHRINK, false, not unlocked)
-			art.radius_frac /= FighterTag.ART_SHRINK # trimmed box, same ball size as FighterTag
-			pair.add_child(art)
-		var pw := Kit.power(rec, 20, power_color)
-		pw.alignment = BoxContainer.ALIGNMENT_CENTER
-		icon = Kit.vbox(2, [stars_row, pair, pw])
-	var row := Kit.hbox(12, [icon, info, actions])
+			faces.add_child(_face(id, enemy_tier(st), side))
+		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
+			BoxContainer.ALIGNMENT_CENTER)
+		var fight := _cost_button("Fight", Zones.cost(st), _fight.bind(shell, z, i, fighter), 30, 84)
+		shell.mark("stage_%d_%d" % [z + 1, i + 1], fight)
+		var big := Kit.panel(Kit.vbox(12, [title, faces, vs, fight]), Kit.box(Color("17284a"), border.lightened(.2), 32, 3, 20))
+		return big
+
+	var info := Kit.vbox(4, [title, Glyph.make("stars", 24, Kit.FG, stars, 3)])
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var actions := Kit.hbox(8)
+	if Campaign.can_sweep(p, z, i):
+		var sweep := Kit.button("Sweep", _sweep.bind(shell, z, i, fighter), "ghost", 22, 60)
+		shell.mark("sweep_%d_%d" % [z + 1, i + 1], sweep)
+		actions.add_child(sweep)
+	var again := _cost_button("", Zones.cost(st), _fight.bind(shell, z, i, fighter), 22, 60)
+	again.custom_minimum_size.x = 84
+	shell.mark("stage_%d_%d" % [z + 1, i + 1], again)
+	actions.add_child(again)
+	var art := Kit.hbox(0, [], BoxContainer.ALIGNMENT_CENTER)
+	for id in foes:
+		art.add_child(_face(id, enemy_tier(st), 84.0 / sqrt(float(foes.size()))))
+	var row := Kit.hbox(12, [art, info, actions])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var border := Kit.BAD.darkened(.3) if boss else (Kit.GOOD.darkened(.5) if stars > 0 else Kit.LINE)
-	var card := Kit.panel(row, Kit.box(Kit.PANEL, border, 30, 2, 14))
-	if not unlocked:
-		card.modulate = Color(1, 1, 1, .55)
+	return Kit.panel(row, Kit.box(Kit.PANEL, border, 28, 2, 12))
+
+
+## A green button reading "FIGHT ⚡6" with the drawn energy bolt (the font has none).
+static func _cost_button(text: String, cost: int, on_press: Callable, size: int, height: int) -> Button:
+	var b := Kit.button("", on_press, "go", size, height)
+	var ink: Color = Kit.BUTTON_STYLES["go"][2]
+	var parts: Array = [Glyph.make("energy", size * 1.1, ink), Kit.label(str(cost), size, ink)]
+	if text != "":
+		parts.push_front(Kit.label(text.to_upper() + " ", size, ink))
+	var row := Kit.hbox(2, parts, BoxContainer.ALIGNMENT_CENTER)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in row.get_children():
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(row)
+	return b
+
+
+## A foe's face `side` wide, the ball filling its box (CritterIcon pads for effects).
+static func _face(id: String, tier: int, side: float, silhouette := false) -> Control:
+	var art := CritterIcon.make(id, tier, side * FighterTag.ART_SHRINK, false, silhouette)
+	art.radius_frac /= FighterTag.ART_SHRINK
+	return art
+
+
+## A stage you can't fight yet: its number, the foe's silhouette and a lock.
+static func _locked_row(z: int, i: int, st: Dictionary, boss: bool) -> Control:
+	var art := Kit.hbox(0, [], BoxContainer.ALIGNMENT_CENTER)
+	var foes := Zones.enemies(st)
+	for id in foes:
+		art.add_child(_face(id, 1, (92.0 if boss else 76.0) / sqrt(float(foes.size())), true))
+	var key := Kit.label(Zones.stage_key(z, i), 24, Kit.MUTED)
+	key.custom_minimum_size.x = 64
+	var row := Kit.hbox(14, [key, art, Kit.spacer(), Glyph.make("lock", 26, Kit.MUTED)])
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var card := Kit.panel(row, Kit.box(Kit.PANEL, Kit.BAD.darkened(.4) if boss else Kit.LINE, 28, 2, 10))
+	card.modulate = Color(1, 1, 1, .7)
 	return card
 
 
