@@ -20,6 +20,8 @@ const CHIP_RATE := 1.4 ## Share of the bar the chip drains per second.
 const CENTER_W := 0.22 ## Share of the width kept for the clock between the bars.
 
 var tags: Array = ["YOU", "FOE"]
+## A small line under each 1v1 bar, like "T5 · Lv25 · 5,481 power" (empty: none).
+var stats: Array = ["", ""]
 var center_text := ""
 var _hp := [0.0, 0.0, 0.0, 0.0]
 var _max := [1.0, 1.0, 1.0, 1.0]
@@ -85,8 +87,10 @@ func _draw() -> void:
 	var fs := A11y.font(20)
 	var gap := size.x * CENTER_W
 	var bar_w := (size.x - gap) / 2.0
-	var bar_h := maxf(20.0, size.y * 0.4)
-	var bar_y := size.y - bar_h - 4.0
+	var sfs := A11y.font(15)
+	var stats_h := sfs + 6.0 if stats[0] != "" or stats[1] != "" else 0.0
+	var bar_h := maxf(20.0, minf(size.y * 0.4, 25.0))
+	var bar_y := size.y - bar_h - 4.0 - stats_h
 	for i in 2:
 		var x := 0.0 if i == 0 else size.x - bar_w
 		_bar(i, Rect2(x, bar_y, bar_w, bar_h), fs)
@@ -94,6 +98,8 @@ func _draw() -> void:
 		var align := HORIZONTAL_ALIGNMENT_LEFT if i == 0 else HORIZONTAL_ALIGNMENT_RIGHT
 		draw_string_outline(FONT, Vector2(x, bar_y - 8.0), label, align, bar_w, fs, 4, Color(0, 0, 0, 0.6))
 		draw_string(FONT, Vector2(x, bar_y - 8.0), label, align, bar_w, fs, TEAM_COLORS[i])
+		if stats_h > 0.0 and stats[i] != "":
+			draw_string(FONT, Vector2(x, bar_y + bar_h + sfs + 2.0), stats[i], align, bar_w, sfs, Color(TEAM_COLORS[i].lerp(Color("f0eeff"), 0.55), 0.85))
 	if center_text != "":
 		var col := LOW if center_text.begins_with("OVERTIME") else Color("f0eeff")
 		var text := center_text.replace("OVERTIME ", "OT ") # The arena banner says OVERTIME in full.
