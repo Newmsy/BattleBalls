@@ -6,6 +6,7 @@ extends RefCounted
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
+const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
@@ -18,6 +19,8 @@ const Families := preload("res://sim/families.gd")
 
 const CARD_COLORS := {"easier": Kit.GOOD, "even": Kit.ACCENT, "harder": Kit.WARN}
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
+## Below this screen height (an iPhone SE) opponents are one-line rows.
+const COMPACT_HEIGHT := 1500.0
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -77,8 +80,10 @@ static func build(shell, params: Dictionary) -> Control:
 	shell.mark("arena_refresh", refresh_btn)
 	root.add_child(Kit.hbox(0, [Kit.caption("Pick an opponent"), Kit.spacer(), refresh_btn]))
 	var cards: Array[Dictionary] = store.offers(shell.profile)
+	# Short phones get one-line rows so all three cards fit.
+	var compact: bool = shell.size.y < COMPACT_HEIGHT
 	for i in cards.size():
-		var btn := _opponent_card(shell, store, cards[i])
+		var btn := _opponent_row(shell, store, cards[i]) if compact else _opponent_card(shell, store, cards[i])
 		shell.mark("arena_card_%d" % i, btn)
 		root.add_child(btn)
 
@@ -96,7 +101,7 @@ static func _league_panel(store) -> Control:
 		frac = float(t - lg.min) / float(nxt.min - lg.min)
 		next_text = "%d to %s" % [nxt.min - t, nxt.name]
 	var v := Kit.vbox(8, [
-		Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), Glyph.make("stars", 30), Kit.label(Kit.commas(t), 34)], BoxContainer.ALIGNMENT_CENTER),
+		Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), Glyph.make("trophy", 34, Glyph.GOLD), Kit.label(Kit.commas(t), 34)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.bar(frac, lg.color),
 		Kit.hbox(0, [Kit.label(next_text, 22, Kit.MUTED), Kit.spacer(), Kit.label("%d W · %d L" % [store.wins, store.losses], 22, Kit.MUTED)]),
 	])
@@ -178,14 +183,40 @@ static func _opponent_card(shell, store, offer: Dictionary) -> Button:
 	var info := Kit.vbox(4, [
 		Kit.hbox(8, [Kit.chip(card.name, col), Kit.chip(Families.info(fam).name if fam != "" else "Arena Ghost", fam_col)]),
 		_fit(Kit.label(str(bot.name), 28)),
-		Kit.hbox(6, [Kit.power(ArenaTeams.rating(bot), 22), Kit.label("·  +%d / %d" % [card.win, card.loss], 22, Kit.MUTED)]),
+		Kit.hbox(6, [Kit.power(ArenaTeams.rating(bot), 22), Kit.label("·", 22, Kit.MUTED), _delta(card, 22)]),
 	])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(10, [info, icons])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	return Kit.card_button(row, func():
-		store.start_attack(offer.card, bot, randi_range(1, 0x7FFFFFFF), store.slots(shell.profile))
-		shell.get_tree().change_scene_to_file(FIGHT_SCENE), col, Kit.PANEL, 28, 12)
+	return Kit.card_button(row, _attack.bind(shell, store, offer), col, Kit.PANEL, 28, 12)
+
+
+## The same opponent on one line: card chip, team name in its family colour,
+## their three faces and the trophies at stake.
+static func _opponent_row(shell, store, offer: Dictionary) -> Button:
+	var bot: Dictionary = offer.bot
+	var card: Dictionary = Ladder.CARDS[offer.card]
+	var col: Color = CARD_COLORS[offer.card]
+	var fam: String = bot.get("family", "")
+	var name := _fit(Kit.label(str(bot.name), 22, Color(Families.info(fam).color) if fam != "" else Kit.FG))
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var faces := Kit.hbox(0)
+	var slots: Array = bot.lineup.slots.duplicate()
+	slots.sort_custom(func(a, b): return str(a.critter) < str(b.critter))
+	for s in slots:
+		faces.add_child(CritterIcon.make(s.critter, int(s.get("tier", 1)), 44))
+	var row := Kit.hbox(8, [Kit.chip(card.name, col, 16), name, faces, _delta(card, 18)], BoxContainer.ALIGNMENT_CENTER)
+	return Kit.card_button(row, _attack.bind(shell, store, offer), col, Kit.PANEL, 22, 8)
+
+
+## "+18 / -20" with the trophy cup.
+static func _delta(card: Dictionary, size: int) -> Control:
+	return Kit.hbox(3, [Kit.glyph("trophy", size, Glyph.GOLD), Kit.label("+%d / %d" % [card.win, card.loss], size, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+
+
+static func _attack(shell, store, offer: Dictionary) -> void:
+	store.start_attack(offer.card, offer.bot, randi_range(1, 0x7FFFFFFF), store.slots(shell.profile))
+	shell.get_tree().change_scene_to_file(FIGHT_SCENE)
 
 
 ## A label that ends in "..." rather than widening the screen.
