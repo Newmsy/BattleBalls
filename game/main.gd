@@ -194,6 +194,7 @@ var profile
 ## The campaign stage being fought: {config, zone, stage, fighter, result?},
 ## or a Gear Vault run: {config, vault (difficulty), fighter, result?}.
 var pve := {}
+var _stats_for: MatchSim ## The fight fight_hud.stats were worked out for.
 var pve_param := ""
 ## ?demo=1 (smoke tests, previews): a filled-in sample profile that is never saved.
 var demo_profile := false
@@ -627,14 +628,14 @@ func _start_fight() -> void:
 	_prepare_fight(sim.config)
 	_apply_cosmetics()
 	state = State.FIGHT
-	info_label.text = "%s vs %s" % [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
+	info_label.text = "" # 1v1: the names, tiers and power are on the health bars.
 	if sim.starters == 4:
 		info_label.text = "%s + %s vs %s + %s" % [sim.balls[0].def.display_name, sim.balls[2].def.display_name,
 			sim.balls[1].def.display_name, sim.balls[3].def.display_name]
-	if mode == Mode.CAMPAIGN:
-		info_label.text = _pve_matchup_text()
+	if mode == Mode.CAMPAIGN: # Tier, level and power sit under the health bars.
+		info_label.text = "" if sim.starters == 2 else _pair_power_text()
 	if sim.config.get("modifier", Modifiers.NONE) != Modifiers.NONE: # Campaign stages fight without the week's twist.
-		info_label.text += " · " + Modifiers.display_name(sim.config.modifier)
+		info_label.text += (" · " if info_label.text != "" else "") + Modifiers.display_name(sim.config.modifier)
 	speed_picker.refresh()
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
@@ -998,6 +999,15 @@ func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: S
 	sfx.toggle_hidden = false
 	_begin_aim()
 	info_label.text = "%s %s: %s. Drag to aim, then let go." % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name, _pve_matchup_text()]
+
+
+## "Power 2,250 vs 3,100" for a 2v2 pairs stage, short enough for one line.
+func _pair_power_text() -> String:
+	var mine := 0
+	for id in [pve.config.p1, pve.config.p3]:
+		mine += profile.power_of(id)
+	var st := Zones.stage(pve.zone, pve.stage)
+	return "Power %s vs %s" % [Kit.commas(mine), Kit.commas(Campaign.enemy_rating(pve.zone, pve.stage) * Zones.enemies(st).size())]
 
 
 ## The rules script of the boss being fought (meta/gear_vault.gd, meta/brood_nest.gd).
@@ -1560,12 +1570,34 @@ func _update_hud() -> void:
 	if mode == Mode.TUTORIAL and not tutorial_tags.is_empty():
 		tags = tutorial_tags
 	fight_hud.tags = tags.map(func(t): return str(t).to_upper())
+	if _stats_for != sim:
+		_stats_for = sim
+		fight_hud.stats = ["", ""] if sim.starters == 4 else [_side_stats(0), _side_stats(1)]
 	fight_hud.show_fight(sim, clock)
-	# A 2v2's four bars take the title's room above the arena.
+	# The bars (four in a 2v2, or two with their tier and power lines) take
+	# the title's room above the arena.
 	var tall := sim.starters == 4
-	title_label.visible = not tall
-	fight_hud.position.y = 8.0 if tall else 60.0
-	fight_hud.size.y = TOP - 10.0 if tall else 62.0
+	title_label.visible = false
+	fight_hud.position.y = 8.0 if tall else 24.0
+	fight_hud.size.y = TOP - 10.0 if tall else TOP - 30.0
+
+
+## Under a side's health bar: "T5 · Lv25 · 5,481 power", or just "T3" where
+## level and power aren't known (only campaign and boss fights carry them).
+func _side_stats(side: int) -> String:
+	var ts: Array = sim.config.get("tiers", [])
+	var parts := ["T%d" % (int(ts[side]) if side < ts.size() else 1)]
+	if mode != Mode.CAMPAIGN or pve.is_empty():
+		return parts[0]
+	if side == 0 and sim.balls[0].type_id == pve.fighter:
+		var b: Dictionary = profile.best(pve.fighter)
+		if int(b.get("level", 0)) > 0:
+			parts.append("Lv%d" % int(b.level))
+		parts.append("%s power" % Kit.commas(profile.power_of(pve.fighter)))
+	elif side == 1:
+		var rating := Power.rating(pve.config.powers[1]) if pve.has("vault") else Campaign.enemy_rating(pve.zone, pve.stage)
+		parts.append("%s power" % Kit.commas(rating))
+	return " · ".join(parts)
 
 
 ## The seed picks the arena too, independently of the opponent it picks.
