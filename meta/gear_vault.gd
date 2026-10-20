@@ -18,18 +18,33 @@ const Power := preload("res://sim/power.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const Gear := preload("res://sim/gear.gd")
 const Bosses := preload("res://sim/bosses.gd")
+const BossLevels := preload("res://meta/boss_levels.gd")
 
 const ENERGY_COST := 8
 const RUNS_PER_DAY := 5
 const DAY_SECONDS := 86400
+const KEY := "vault" ## Its entry in profile.boss_levels.
 const BOSS := "anvil_king"
-## Difficulty: the drop's tier, the Hammers a win gives and the boss's power
-## (1.0 is a T1 level 1 Common; the Zone 1 boss is 1.75). Check win rates
-## with tools/boss_difficulty.gd.
+## The 15 levels (meta/boss_levels.gd): the drop's tier, the Hammers a win
+## gives and the boss's power (1.0 is a T1 level 1 Common; the Zone 1 boss
+## is 1.75). Power is BossLevels.curve(1.3, 11.0): level 9 is about a coin
+## flip for a T5 at 5,500 power. Check with tools/boss_difficulty.gd --tier=5.
 const DIFFICULTIES := [
-	{"name": "Easy", "tier": 1, "hammers": 3, "power": 1.3},
-	{"name": "Hard", "tier": 2, "hammers": 5, "power": 1.9},
-	{"name": "Elite", "tier": 3, "hammers": 8, "power": 2.7},
+	{"name": "Level 1", "tier": 1, "hammers": 3, "power": 1.3},
+	{"name": "Level 2", "tier": 1, "hammers": 4, "power": 1.7},
+	{"name": "Level 3", "tier": 1, "hammers": 5, "power": 2.2},
+	{"name": "Level 4", "tier": 2, "hammers": 6, "power": 2.9},
+	{"name": "Level 5", "tier": 2, "hammers": 7, "power": 3.8},
+	{"name": "Level 6", "tier": 2, "hammers": 8, "power": 4.9},
+	{"name": "Level 7", "tier": 3, "hammers": 9, "power": 6.4},
+	{"name": "Level 8", "tier": 3, "hammers": 10, "power": 8.4},
+	{"name": "Level 9", "tier": 3, "hammers": 11, "power": 11.0},
+	{"name": "Level 10", "tier": 4, "hammers": 12, "power": 12.3},
+	{"name": "Level 11", "tier": 4, "hammers": 13, "power": 13.8},
+	{"name": "Level 12", "tier": 4, "hammers": 14, "power": 15.5},
+	{"name": "Level 13", "tier": 5, "hammers": 15, "power": 17.3},
+	{"name": "Level 14", "tier": 5, "hammers": 16, "power": 19.4},
+	{"name": "Level 15", "tier": 5, "hammers": 17, "power": 21.7},
 ]
 ## By UTC weekday (0 Sunday): the slot that drops, "" for any.
 const DAYS := [
@@ -78,6 +93,8 @@ static func start(profile, difficulty: int, fighter: String, now: int) -> Dictio
 		return {"error": "locked"}
 	if not Campaign.can_fight(profile, fighter):
 		return {"error": "no_ball"}
+	if not BossLevels.is_open(profile, KEY, difficulty):
+		return {"error": "level"}
 	if runs_left(profile, now) <= 0:
 		return {"error": "runs"}
 	if not profile.spend_energy(ENERGY_COST, now):
@@ -118,7 +135,8 @@ static func finish(profile, difficulty: int, fighter: String, fight: Dictionary,
 	result.gear = [profile.add_gear(types[rng.range_int(0, types.size() - 1)], d.tier)]
 	result.hammers = d.hammers
 	profile.hammers += d.hammers
-	result.xp = WIN_XP
+	BossLevels.beat(profile, KEY, difficulty)
+	result.xp = WIN_XP + clampi(difficulty, 0, BossLevels.COUNT - 1) ## A little more XP each level up.
 	Campaign.give_xp(profile, result, fighter)
 	result.account_levels = profile.add_account_xp(ENERGY_COST)
 	profile.runs += 1

@@ -13,6 +13,7 @@ const Campaign := preload("res://meta/campaign.gd")
 const Power := preload("res://sim/power.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const Bosses := preload("res://sim/bosses.gd")
+const BossLevels := preload("res://meta/boss_levels.gd")
 const BossRuns := preload("res://meta/boss_runs.gd")
 
 const BOSS := "prism_wyrm"
@@ -20,12 +21,26 @@ const KEY := "wyrm"
 const ENERGY_COST := 10
 const RUNS_PER_DAY := 2
 const ZONE := 3 ## Beating this zone's boss (0-based) opens it.
-## Difficulty: the Lures a win pays and the wyrm's power. Check win rates
-## with tools/boss_difficulty.gd --boss=prism_wyrm.
+## The 15 levels (meta/boss_levels.gd): the Lures a win pays and the wyrm's
+## power, BossLevels.curve(4.0, 22.0). Power moves the wyrm less than other
+## bosses (only its shining scale takes damage), so its numbers run higher
+## for the same odds. Check with tools/boss_difficulty.gd --boss=prism_wyrm --tier=5.
 const DIFFICULTIES := [
-	{"name": "Easy", "lures": 1, "power": 4.0},
-	{"name": "Hard", "lures": 2, "power": 5.8},
-	{"name": "Elite", "lures": 3, "power": 8.1},
+	{"name": "Level 1", "lures": 1, "power": 4.0},
+	{"name": "Level 2", "lures": 1, "power": 5.0},
+	{"name": "Level 3", "lures": 1, "power": 6.1},
+	{"name": "Level 4", "lures": 2, "power": 7.6},
+	{"name": "Level 5", "lures": 2, "power": 9.4},
+	{"name": "Level 6", "lures": 2, "power": 11.6},
+	{"name": "Level 7", "lures": 3, "power": 14.4},
+	{"name": "Level 8", "lures": 3, "power": 17.8},
+	{"name": "Level 9", "lures": 3, "power": 22.0},
+	{"name": "Level 10", "lures": 4, "power": 24.6},
+	{"name": "Level 11", "lures": 4, "power": 27.6},
+	{"name": "Level 12", "lures": 4, "power": 30.9},
+	{"name": "Level 13", "lures": 5, "power": 34.6},
+	{"name": "Level 14", "lures": 5, "power": 38.8},
+	{"name": "Level 15", "lures": 5, "power": 43.4},
 ]
 const WIN_XP := 20
 const LOSS_XP := 3
@@ -52,6 +67,8 @@ static func start(profile, difficulty: int, fighter: String, now: int) -> Dictio
 		return {"error": "locked"}
 	if not Campaign.can_fight(profile, fighter):
 		return {"error": "no_ball"}
+	if not BossLevels.is_open(profile, KEY, difficulty):
+		return {"error": "level"}
 	if runs_left(profile, now) <= 0:
 		return {"error": "runs"}
 	if not profile.spend_energy(ENERGY_COST, now):
@@ -87,7 +104,8 @@ static func finish(profile, difficulty: int, fighter: String, fight: Dictionary,
 		return result
 	result.lures = DIFFICULTIES[clampi(difficulty, 0, DIFFICULTIES.size() - 1)].lures
 	profile.grant({"kind": "lures", "n": result.lures})
-	result.xp = WIN_XP
+	BossLevels.beat(profile, KEY, difficulty)
+	result.xp = WIN_XP + clampi(difficulty, 0, BossLevels.COUNT - 1) ## A little more XP each level up.
 	Campaign.give_xp(profile, result, fighter)
 	result.account_levels = profile.add_account_xp(ENERGY_COST)
 	profile.runs += 1

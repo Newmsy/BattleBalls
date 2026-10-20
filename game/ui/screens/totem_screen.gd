@@ -14,6 +14,7 @@ const Talents := preload("res://sim/talents.gd")
 const Bosses := preload("res://sim/bosses.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
 const BossArt := preload("res://game/boss_art.gd")
+const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 
 const SHRINE := Color("c9a6ff")
 
@@ -31,7 +32,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"A spirit totem of nine family heads in the Spirit Shrine. Its heads glow, then ring out spirit orbs with one gap to slip through. Every other volley is a fan aimed at you.",
 		"Today's family head is lit: %s critters hit it %d%% harder. The family changes every day." % [fam_name, roundi(Bosses.DEFS[TotemShrine.BOSS].family_bonus * 100.0)],
 		"Stun it while the heads glow to cancel the volley. Its pull drags your mines and trails toward it.",
-		"Win for Family Sigils: Faction XP for today's family's talent tree. Easy %d, Hard %d, Elite %d." % [TotemShrine.DIFFICULTIES[0].sigils, TotemShrine.DIFFICULTIES[1].sigils, TotemShrine.DIFFICULTIES[2].sigils],
+		"Win for Family Sigils: Faction XP for today's family's talent tree, %d at level 1 up to %d at level 15. Each level is stronger; beat one to open the next." % [TotemShrine.DIFFICULTIES[0].sigils, TotemShrine.DIFFICULTIES[-1].sigils],
 		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [TotemShrine.RUNS_PER_DAY, TotemShrine.ENERGY_COST]], "totem_info")],
 		BoxContainer.ALIGNMENT_CENTER))
 
@@ -56,8 +57,9 @@ static func build(shell, params: Dictionary) -> Control:
 	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
 
-	for d in TotemShrine.DIFFICULTIES.size():
-		root.add_child(_card(shell, p, d, fighter, left, family))
+	var level := BossLevelGrid.picked(p, TotemShrine.KEY, params)
+	root.add_child(BossLevelGrid.grid(shell, p, TotemShrine.KEY, level, SHRINE, "totem"))
+	root.add_child(_card(shell, p, level, fighter, left, family))
 	return root
 
 
@@ -72,7 +74,7 @@ static func _card(shell, p, d: int, fighter: String, left: int, family: String) 
 	var fight := Kit.button("Fight  %d" % TotemShrine.ENERGY_COST, _fight.bind(shell, d, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
-	shell.mark("totem_%d" % (d + 1), fight)
+	shell.mark("totem_go", fight)
 	var p_tag := Kit.power(rec, 20, power_color)
 	p_tag.alignment = BoxContainer.ALIGNMENT_CENTER
 	var icon := Kit.vbox(0, [BossArt.icon(TotemShrine.BOSS, 76), p_tag])
@@ -84,7 +86,7 @@ static func _fight(shell, d: int, fighter: String) -> void:
 	var cfg: Dictionary = TotemShrine.start(shell.profile, d, fighter, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
 		shell.toast({"energy": "Not enough energy. It refills 1 every 5 minutes, or use an Energy Pack from your Bag.",
-			"runs": "The totem is resting for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Beat the Zone 3 boss to face the Totem of Nine."))
+			"runs": "The totem is resting for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first.", "level": "Beat the level before it first."}.get(cfg.error, "Beat the Zone 3 boss to face the Totem of Nine."))
 		shell.refresh()
 		return
 	shell.boss_requested.emit(cfg, d, fighter, "totem")
@@ -93,7 +95,7 @@ static func _fight(shell, d: int, fighter: String) -> void:
 ## One line summing up a Totem result, for the result popup.
 static func result_text(r: Dictionary) -> String:
 	if not r.won:
-		return "Lost. %d energy back, +%d XP. Slip through the ring's gap, or try Easy." % [r.refund, r.xp]
+		return "Lost. %d energy back, +%d XP. Slip through the ring's gap, or try a lower level." % [r.refund, r.xp]
 	var parts: Array[String] = ["+%d %s Sigils (talent XP)" % [r.sigils, Talents.NAMES[r.family]], "+%d XP" % r.xp]
 	if r.levels > 0:
 		parts.append("level up!")

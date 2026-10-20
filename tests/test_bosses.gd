@@ -136,6 +136,7 @@ func test_brood_queen_pays_orbs_and_an_egg_bonus() -> void:
 	for z in 2:
 		for i in Zones.zone(z).stages.size():
 			p.stars[Zones.stage_key(z, i)] = 3
+	p.boss_levels["nest"] = 3 ## Levels 1-3 beaten.
 	var cfg: Dictionary = BroodNest.start(p, 2, "vampire", 1_800_000_000)
 	check_eq(cfg.get("p2"), "brood_queen", "she's the boss")
 	var orbs: int = p.orbs
@@ -240,6 +241,7 @@ func test_totem_pays_sigils_to_todays_family() -> void:
 	for z in 3:
 		for i in Zones.zone(z).stages.size():
 			p.stars[Zones.stage_key(z, i)] = 3
+	p.boss_levels["totem"] = 3 ## Levels 1-3 beaten.
 	var cfg: Dictionary = TotemShrine.start(p, 1, "vampire", now)
 	check_eq(cfg.boss.family, TotemShrine.family_today(now), "the fight knows today's family")
 	check(TotemShrine.family_today(now) != TotemShrine.family_today(now + 86400), "it turns daily")
@@ -285,6 +287,7 @@ func test_lures_buy_wishlisted_copies() -> void:
 	for z in 4:
 		for i in Zones.zone(z).stages.size():
 			p.stars[Zones.stage_key(z, i)] = 3
+	p.boss_levels["wyrm"] = 3 ## Levels 1-3 beaten.
 	check_eq(WyrmRift.start(p, 2, "vampire", now).get("p2"), "prism_wyrm", "the wyrm's the boss")
 	var r: Dictionary = WyrmRift.finish(p, 2, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 40.0, "max_hp": 50.0}, now)
 	check_eq(p.lures, WyrmRift.DIFFICULTIES[2].lures, "Elite pays its Lures")
@@ -333,3 +336,34 @@ func test_glitch_is_weekly_and_pays_a_bundle_once() -> void:
 	check(r.won and p.orbs > eggs and p.lures > 0, "the bundle lands")
 	check_eq(GlitchCore.runs_left(p, now), 0, "a win ends its week")
 	check_eq(GlitchCore.runs_left(p, now + 86400 * 7), GlitchCore.RUNS_PER_DAY, "back next week")
+
+
+func test_boss_levels_open_one_at_a_time_and_get_stronger() -> void:
+	var Zones = load("res://meta/zones.gd")
+	var BossLevels = load("res://meta/boss_levels.gd")
+	var WyrmRift = load("res://meta/wyrm_rift.gd")
+	var now := 1_800_000_000
+	var p = Profile.new_game(now)
+	for z in 4:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	p.energy = 999
+	check_eq(WyrmRift.start(p, 1, "vampire", now).get("error"), "level", "level 2 is locked at first")
+	WyrmRift.start(p, 0, "vampire", now)
+	WyrmRift.finish(p, 0, "vampire", {"winner": 1, "hp": [0.0, 10.0], "time": 40.0, "max_hp": 50.0}, now)
+	check_eq(BossLevels.beaten(p, "wyrm"), 0, "a loss opens nothing")
+	WyrmRift.start(p, 0, "vampire", now)
+	WyrmRift.finish(p, 0, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 40.0, "max_hp": 50.0}, now)
+	check(BossLevels.is_open(p, "wyrm", 1), "a win opens level 2")
+	check(not BossLevels.is_open(p, "wyrm", 2), "but not level 3")
+	check_eq(Profile.from_dict(p.to_dict(), now).boss_levels.get("wyrm"), 1, "levels survive the save")
+	for rules in [load("res://meta/gear_vault.gd"), load("res://meta/brood_nest.gd"), load("res://meta/totem_shrine.gd"), WyrmRift]:
+		check_eq(rules.DIFFICULTIES.size(), BossLevels.COUNT, "%s has 15 levels" % rules.KEY)
+		for d in range(1, BossLevels.COUNT):
+			check(rules.DIFFICULTIES[d].power > rules.DIFFICULTIES[d - 1].power, "%s level %d is stronger" % [rules.KEY, d + 1])
+	var curves := {"vault": [1.3, 11.0], "nest": [1.6, 9.0], "totem": [2.9, 11.0], "wyrm": [4.0, 22.0]}
+	for rules in [load("res://meta/gear_vault.gd"), load("res://meta/brood_nest.gd"), load("res://meta/totem_shrine.gd"), WyrmRift]:
+		var want: Array = BossLevels.curve(curves[rules.KEY][0], curves[rules.KEY][1])
+		for d in BossLevels.COUNT:
+			check(absf(rules.DIFFICULTIES[d].power - want[d]) < 0.051, "%s level %d follows its curve" % [rules.KEY, d + 1])
+	check_eq(load("res://meta/gear_vault.gd").DIFFICULTIES[14].tier, 5, "Anvil King level 15 drops 5-star gear")

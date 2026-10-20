@@ -1130,6 +1130,8 @@ func _back_to_campaign() -> void:
 	if vault and pve.has("result"):
 		params.notice = pve.result
 		params.xp = pve.get("xp", {})
+		# Back on the level just fought, or the next one after a win (boss_level_grid.gd).
+		params.level = int(pve.vault) + (1 if params.xp.get("won", false) else 0)
 	if pve.has("r"):
 		params.result = {"stage": pve.stage, "r": pve.r, "kind": "fight"}
 	if pve.has("stage") and not vault:

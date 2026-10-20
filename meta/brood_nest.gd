@@ -12,18 +12,33 @@ const Campaign := preload("res://meta/campaign.gd")
 const Power := preload("res://sim/power.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const Bosses := preload("res://sim/bosses.gd")
+const BossLevels := preload("res://meta/boss_levels.gd")
 
+const KEY := "nest" ## Its entry in profile.boss_levels.
 const BOSS := "brood_queen"
 const ENERGY_COST := 8
 const RUNS_PER_DAY := 3
 const DAY_SECONDS := 86400
 const ZONE := 1 ## Beating this zone's boss (0-based) opens it.
-## Difficulty: the orbs a win pays and the boss's power. Check win rates with
-## tools/boss_difficulty.gd --boss=brood_queen.
+## The 15 levels (meta/boss_levels.gd): the eggs a win pays and the boss's
+## power, BossLevels.curve(1.6, 9.0). Check with tools/boss_difficulty.gd
+## --boss=brood_queen --tier=5.
 const DIFFICULTIES := [
-	{"name": "Easy", "orbs": 1, "power": 1.6},
-	{"name": "Hard", "orbs": 2, "power": 2.3},
-	{"name": "Elite", "orbs": 3, "power": 3.2},
+	{"name": "Level 1", "orbs": 1, "power": 1.6},
+	{"name": "Level 2", "orbs": 1, "power": 2.0},
+	{"name": "Level 3", "orbs": 1, "power": 2.5},
+	{"name": "Level 4", "orbs": 2, "power": 3.1},
+	{"name": "Level 5", "orbs": 2, "power": 3.8},
+	{"name": "Level 6", "orbs": 2, "power": 4.7},
+	{"name": "Level 7", "orbs": 3, "power": 5.8},
+	{"name": "Level 8", "orbs": 3, "power": 7.3},
+	{"name": "Level 9", "orbs": 3, "power": 9.0},
+	{"name": "Level 10", "orbs": 4, "power": 10.1},
+	{"name": "Level 11", "orbs": 4, "power": 11.3},
+	{"name": "Level 12", "orbs": 4, "power": 12.6},
+	{"name": "Level 13", "orbs": 5, "power": 14.2},
+	{"name": "Level 14", "orbs": 5, "power": 15.9},
+	{"name": "Level 15", "orbs": 5, "power": 17.8},
 ]
 const EGGS_PER_BONUS := 3 ## Every this many eggs cracked adds an orb...
 const BONUS_MAX := 2 ## ...up to this many.
@@ -61,6 +76,8 @@ static func start(profile, difficulty: int, fighter: String, now: int) -> Dictio
 		return {"error": "locked"}
 	if not Campaign.can_fight(profile, fighter):
 		return {"error": "no_ball"}
+	if not BossLevels.is_open(profile, KEY, difficulty):
+		return {"error": "level"}
 	if runs_left(profile, now) <= 0:
 		return {"error": "runs"}
 	if not profile.spend_energy(ENERGY_COST, now):
@@ -100,7 +117,8 @@ static func finish(profile, difficulty: int, fighter: String, fight: Dictionary,
 	result.bonus = egg_bonus(cracked)
 	result.orbs = d.orbs + result.bonus
 	profile.grant({"kind": "orbs", "n": result.orbs})
-	result.xp = WIN_XP
+	BossLevels.beat(profile, KEY, difficulty)
+	result.xp = WIN_XP + clampi(difficulty, 0, BossLevels.COUNT - 1) ## A little more XP each level up.
 	Campaign.give_xp(profile, result, fighter)
 	result.account_levels = profile.add_account_xp(ENERGY_COST)
 	profile.runs += 1

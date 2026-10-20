@@ -71,6 +71,8 @@ var vault := {}
 var nest := {}
 ## Runs used today at the later farming bosses: {key: {day, runs}} (meta/boss_runs.gd).
 var boss_days := {}
+## Highest level beaten at each levelled boss: {key: 0-15} (meta/boss_levels.gd).
+var boss_levels := {}
 ## Lures from the Prism Wyrm: spent on a copy of a wishlisted critter (use_lure).
 var lures := 0
 ## Faction talent trees (sim/talents.gd): faction -> {xp, picks: {node: rank}}.
@@ -677,7 +679,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "boss_days", "factions", "intro", "story"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "boss_days", "boss_levels", "factions", "intro", "story"]
 
 
 func to_dict() -> Dictionary:
@@ -721,6 +723,10 @@ static func from_dict(d: Dictionary, now: int):
 		for k in bd:
 			if bd[k] is Dictionary and bd[k].has("day"):
 				p.boss_days[str(k)] = {"day": int(bd[k].day), "runs": int(bd[k].get("runs", 0))}
+	var bl = d.get("boss_levels", {})
+	if bl is Dictionary:
+		for k in bl:
+			p.boss_levels[str(k)] = clampi(int(bl[k]), 0, 15)
 	p.stars.clear()
 	for k in d.get("stars", {}):
 		p.stars[str(k)] = int(d.stars[k])
