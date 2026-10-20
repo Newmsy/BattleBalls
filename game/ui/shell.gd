@@ -39,6 +39,8 @@ const SCREENS := {
 	"nest": preload("res://game/ui/screens/nest_screen.gd"),
 	"pinata": preload("res://game/ui/screens/pinata_screen.gd"),
 	"totem": preload("res://game/ui/screens/totem_screen.gd"),
+	"wyrm": preload("res://game/ui/screens/wyrm_screen.gd"),
+	"glitch": preload("res://game/ui/screens/glitch_screen.gd"),
 	"bosses": preload("res://game/ui/screens/bosses_screen.gd"),
 	"factions": preload("res://game/ui/screens/factions_screen.gd"),
 	"faction": preload("res://game/ui/screens/faction_screen.gd"),
@@ -81,7 +83,7 @@ var link_base := FightLink.HOME
 ## Emitted when a campaign stage starts; energy is already spent.
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
 ## Emitted when a farming boss run starts from its screen ("vault" Anvil King,
-## "nest" Brood Queen, "pinata" Piñata Titan, "totem" Totem of Nine); energy and the run are already spent.
+## "nest" Brood Queen, "pinata" Piñata Titan, "totem" Totem of Nine, "wyrm" Prism Wyrm, "glitch" The Glitch); energy and the run are already spent.
 signal boss_requested(config: Dictionary, difficulty: int, fighter: String, screen: String)
 
 var profile = UiProfile.sample()

@@ -16,6 +16,8 @@ const HALL := [
 	{"screen": "vault", "rules": preload("res://meta/gear_vault.gd"), "farms": "Gear and Hammers", "glyph": "hammer", "color": "ff8a3d", "lock": "Beat the Zone 1 boss"},
 	{"screen": "nest", "rules": preload("res://meta/brood_nest.gd"), "farms": "Summon Eggs", "glyph": "egg", "color": "ff6fae", "lock": "Beat the Zone 2 boss"},
 	{"screen": "totem", "rules": preload("res://meta/totem_shrine.gd"), "farms": "Family Sigils (talent XP)", "glyph": "sparkle", "color": "c9a6ff", "lock": "Beat the Zone 3 boss"},
+	{"screen": "wyrm", "rules": preload("res://meta/wyrm_rift.gd"), "farms": "Lures (wishlist copies)", "glyph": "target", "color": "7af0ff", "lock": "Beat the Zone 4 boss"},
+	{"screen": "glitch", "rules": preload("res://meta/glitch_core.gd"), "farms": "Weekly: Eggs, Lures, Hammers", "glyph": "sparkle", "color": "7cff4f", "lock": "Beat the Zone 5 boss", "weekly": true},
 ]
 
 
@@ -23,10 +25,11 @@ static func any_open(profile) -> bool:
 	return HALL.any(func(h): return h.rules.is_unlocked(profile))
 
 
+## Daily runs left over every open boss (the weekly one isn't counted).
 static func runs_left_total(profile, now: int) -> int:
 	var n := 0
 	for h in HALL:
-		if h.rules.is_unlocked(profile):
+		if h.rules.is_unlocked(profile) and not h.get("weekly", false):
 			n += h.rules.runs_left(profile, now)
 	return n
 
@@ -48,7 +51,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Bosses", [
 		"Each boss is a set piece with its own map and tricks, not another bouncing ball, and each one farms something different.",
 		"Stuns cancel a boss's wind-up and slows drag out its timers, so pick a critter whose trick fits the boss.",
-		"Runs reset every day."], "bosses_info")], BoxContainer.ALIGNMENT_CENTER))
+		"Runs reset every day; The Glitch's tries reset every week."], "bosses_info")], BoxContainer.ALIGNMENT_CENTER))
 	for h in HALL:
 		root.add_child(_card(shell, p, h, now))
 	return root
@@ -58,7 +61,10 @@ static func _card(shell, p, h: Dictionary, now: int) -> Control:
 	var open: bool = h.rules.is_unlocked(p)
 	var accent := Color(h.color)
 	var left: int = h.rules.runs_left(p, now) if open else 0
-	var status: String = (("%d of %d runs left" % [left, h.rules.RUNS_PER_DAY]) if left > 0 else "Done for today") if open else h.lock
+	var weekly: bool = h.get("weekly", false)
+	var status: String = h.lock
+	if open:
+		status = ("%d of %d %s" % [left, h.rules.RUNS_PER_DAY, "tries this week" if weekly else "runs left"]) if left > 0 else ("Beaten this week" if weekly else "Done for today")
 	var info := Kit.vbox(4, [Kit.label(Bosses.DEFS[h.rules.BOSS].display_name, 30, Kit.FG if open else Kit.MUTED),
 		Kit.hbox(8, [Glyph.make(h.glyph, 22), Kit.label(h.farms, 20, accent if open else Kit.MUTED)], BoxContainer.ALIGNMENT_BEGIN),
 		Kit.label(status, 20, Kit.GOOD if left > 0 else Kit.MUTED)])
