@@ -23,11 +23,8 @@ const GEAR_INFO := ["Three of the same piece at the same stars merge into one pi
 
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
-	var count := 0
-	for i in p.items:
-		count += i.count
 	var root := Kit.vbox(22)
-	root.add_child(Kit.hbox(12, [Kit.vbox(2, [Kit.caption("%d gear · %d items" % [p.gear.size(), count]), Kit.label("Bag", 40)]), Kit.spacer(),
+	root.add_child(Kit.hbox(12, [Kit.label("Bag", 40), Kit.spacer(),
 		Glyph.make("hammer", 30), Kit.label(Kit.commas(p.hammers), 24),
 		shell.info_button("Gear", GEAR_INFO, "bag_info")], BoxContainer.ALIGNMENT_CENTER))
 
@@ -44,10 +41,12 @@ static func build(shell, _params: Dictionary) -> Control:
 	if section == "gear":
 		for slot in Gear.SLOTS:
 			var grid := _grid()
+			var pieces := 0
 			for g in stacks(p, slot):
 				grid.add_child(_gear_tile(shell, g))
+				pieces += g.count
 			if grid.get_child_count() > 0:
-				root.add_child(Kit.vbox(12, [Kit.caption(slot + "s"), grid]))
+				root.add_child(Kit.vbox(12, [Kit.caption("%ss (%d)" % [slot, pieces]), grid]))
 		if p.gear.is_empty():
 			root.add_child(Kit.label("No gear yet. Win campaign stages, Spire boss floors or Anvil King fights to find some.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		_pin_merge_all(shell, p)
