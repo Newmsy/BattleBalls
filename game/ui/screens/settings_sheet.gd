@@ -33,6 +33,8 @@ static func build(shell) -> Control:
 	# The sheet measures itself before layout, so wrapped text needs a real width.
 	note.custom_minimum_size.x = 600
 	v.add_child(note)
+	if shell.build_stamp != "":
+		v.add_child(Kit.label("Battle Balls " + shell.build_stamp, 20, Color(Kit.MUTED, .7)))
 	return v
 
 
