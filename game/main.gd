@@ -15,6 +15,7 @@ const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 const FightHud := preload("res://game/fight_hud.gd")
+const FighterStrip := preload("res://game/fighter_strip.gd")
 const Backend := preload("res://game/online/backend.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
 const TestUser := preload("res://game/online/test_user.gd")
@@ -195,6 +196,8 @@ var profile
 ## or a Gear Vault run: {config, vault (difficulty), fighter, result?}.
 var pve := {}
 var _stats_for: MatchSim ## The fight fight_hud.stats were worked out for.
+var fighter_strip: Control ## The two fighters' cards under a 1v1 (game/fighter_strip.gd).
+var _hud_box := Rect2(0, 8, 680, TOP - 10.0) ## Room for the fight HUD (_layout).
 var pve_param := ""
 ## ?demo=1 (smoke tests, previews): a filled-in sample profile that is never saved.
 var demo_profile := false
@@ -634,8 +637,7 @@ func _start_fight() -> void:
 			sim.balls[1].def.display_name, sim.balls[3].def.display_name]
 	if mode == Mode.CAMPAIGN: # Tier, level and power sit under the health bars.
 		info_label.text = "" if sim.starters == 2 else _pair_power_text()
-	if sim.config.get("modifier", Modifiers.NONE) != Modifiers.NONE: # Campaign stages fight without the week's twist.
-		info_label.text += (" · " if info_label.text != "" else "") + Modifiers.display_name(sim.config.modifier)
+	# The week's twist, if any, shows under the clock in the HUD.
 	speed_picker.refresh()
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
@@ -1327,6 +1329,9 @@ func _build_ui() -> void:
 	fight_hud = FightHud.new()
 	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(fight_hud)
+	fighter_strip = FighterStrip.new()
+	fighter_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(fighter_strip)
 	info_label = _label("", 26)
 	info_label.add_theme_color_override("font_color", MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1483,7 +1488,9 @@ func _layout() -> void:
 	var left: float
 	var panel_pos: Vector2
 	if landscape:
-		side = minf(size.y - top - bottom_margin, size.x - panel_width - 100.0)
+		# The arena takes the full height on the left; the title, fight HUD,
+		# info and controls stack in the panel on the right.
+		side = minf(size.y - 40.0, size.x - panel_width - 100.0)
 		left = maxf(20.0, (size.x - side - panel_width - 40.0) / 2.0)
 		panel_pos = Vector2(left + side + 40.0, top)
 	else:
@@ -1491,7 +1498,7 @@ func _layout() -> void:
 		left = (size.x - side) / 2.0
 		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
 		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 12.0)
-	var arena_pos := Vector2(left, top)
+	var arena_pos := Vector2(left, 20.0 if landscape else top)
 	if state == State.CLIP:
 		clip_card.position = ((size - ClipCard.SIZE) / 2.0).floor()
 		arena_pos = clip_card.position + ClipCard.ARENA_POS
@@ -1500,14 +1507,18 @@ func _layout() -> void:
 	arena_clip.position = arena_pos
 	arena_clip.size = Vector2(side, side)
 	arena.set_camera(arena.cam_zoom, arena.cam_focus)
-	_place(title_label, Vector2(0, 14), Vector2(size.x, 56))
-	_place(hud_label, Vector2(left, 72), Vector2(side, 48))
-	_place(fight_hud, Vector2(left, 60), Vector2(side, 62))
+	_hud_box = Rect2(panel_pos.x, 8.0, panel_width, TOP - 10.0) if landscape else Rect2(left, 8.0, side, TOP - 10.0)
+	_place(title_label, Vector2(panel_pos.x, 14) if landscape else Vector2(0, 14), Vector2(panel_width if landscape else size.x, 56))
+	_place(hud_label, Vector2(_hud_box.position.x, 72), Vector2(_hud_box.size.x, 48))
+	_place(fight_hud, _hud_box.position + Vector2(0, 16), _hud_box.size - Vector2(0, 20))
 	_place(info_label, panel_pos, Vector2(panel_width, INFO_HEIGHT - 6.0))
 	controls_rect = Rect2(panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
 	var controls_top := panel_pos.y + INFO_HEIGHT
 	for box in [menu_box, aim_box, fight_box, result_box, live_box]:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
+	# The fighters' cards fill the room under a fight's one-row controls.
+	var strip_top := controls_top + 84.0 + 20.0
+	_place(fighter_strip, Vector2(panel_pos.x, strip_top), Vector2(panel_width, clampf(size.y - strip_top - 30.0, 0.0, 200.0)))
 	# The build stamp stops short of the sound toggle in the other corner.
 	_place(stamp_label, Vector2(16, size.y - 40), Vector2(maxf(100.0, size.x - Sfx.TOGGLE_SIZE.x - 48.0), 30))
 	arena.queue_redraw()
@@ -1557,6 +1568,11 @@ func _show_only(box: Control) -> void:
 
 func _update_hud() -> void:
 	hud_label.text = ""
+	var fighting := sim != null and state == State.FIGHT
+	# Fights keep the screen for the fight: no build stamp or sound pill.
+	stamp_label.visible = not fighting
+	sfx.in_fight = fighting
+	fighter_strip.show_fight(sim if fighting else null, you_side)
 	if sim == null:
 		fight_hud.show_fight(null)
 		title_label.visible = true
@@ -1572,14 +1588,16 @@ func _update_hud() -> void:
 	fight_hud.tags = tags.map(func(t): return str(t).to_upper())
 	if _stats_for != sim:
 		_stats_for = sim
-		fight_hud.stats = ["", ""] if sim.starters == 4 else [_side_stats(0), _side_stats(1)]
+		fight_hud.stats = ["", ""] if sim.starters == 4 else [_side_stats(you_side), _side_stats(1 - you_side)]
+	var twist: String = Modifiers.display_name(sim.config.modifier) if sim.config.get("modifier", Modifiers.NONE) != Modifiers.NONE else ""
+	fight_hud.caption = "x%.1f damage" % sim.damage_multiplier() if sim.in_overtime() else twist
 	fight_hud.show_fight(sim, clock)
 	# The bars (four in a 2v2, or two with their tier and power lines) take
 	# the title's room above the arena.
 	var tall := sim.starters == 4
 	title_label.visible = false
-	fight_hud.position.y = 8.0 if tall else 24.0
-	fight_hud.size.y = TOP - 10.0 if tall else TOP - 30.0
+	fight_hud.position = _hud_box.position + (Vector2.ZERO if tall else Vector2(0, 16))
+	fight_hud.size = _hud_box.size - (Vector2.ZERO if tall else Vector2(0, 20))
 
 
 ## Under a side's health bar: "T5 · Lv25 · 5,481 power", or just "T3" where

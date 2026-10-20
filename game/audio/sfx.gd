@@ -103,7 +103,15 @@ var toggle_hidden := false:
 	set(v):
 		toggle_hidden = v
 		if _toggle:
-			_toggle.visible = not v
+			_toggle.visible = not (toggle_hidden or in_fight)
+## Hidden during fights too, so the fight screen stays the fight's.
+var in_fight := false:
+	set(v):
+		if v == in_fight:
+			return
+		in_fight = v
+		if _toggle:
+			_toggle.visible = not (toggle_hidden or in_fight)
 var _board: Control
 
 

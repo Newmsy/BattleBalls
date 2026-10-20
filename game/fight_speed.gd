@@ -143,6 +143,15 @@ class Picker extends HBoxContainer:
 			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			b.disabled = not FightSpeedRef.unlocked(i)
 			b.tooltip_text = "Unlocks at account level %d" % FightSpeedRef.UNLOCK_LEVELS[i] if b.disabled else ""
+			if b.disabled: # A padlock and the level that opens it, not "4X LV10".
+				b.text = ""
+				b.modulate = Color(1, 1, 1, 0.6)
+				var row := Kit.hbox(6, [Kit.glyph("lock", _font * 0.8, Kit.MUTED), Kit.chip("Lv%d" % FightSpeedRef.UNLOCK_LEVELS[i], Kit.MUTED, maxi(18, _font - 6))], BoxContainer.ALIGNMENT_CENTER)
+				row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+				row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				for c in row.get_children():
+					c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				b.add_child(row)
 			add_child(b)
 
 	func _pick(i: int) -> void:
