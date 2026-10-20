@@ -672,6 +672,12 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_add_popup(g.pos + Vector2(-40, -g.radius - 40), text, POP_CRIT if e.prizes.size() > 1 else POP_SNAP, 1.2 if e.prizes.size() > 1 else 1.0)
 			"end":
 				for b in sim.balls:
+					if not b.alive() and b.def.get("boss", false):
+						_fx.append({"kind": "boss_death", "id": b.def.id, "pos": b.pos, "r": b.radius, "age": 0.0, "life": BossArt.DEATH_LIFE})
+						_burst(b.pos, 40, BossArt.DEATH_COLORS.get(b.def.id, [Color.WHITE]), Vector2(200.0, 620.0), Vector2.ZERO, TAU, Vector2(4.0, 9.0))
+						_add_popup(b.pos + Vector2(-90, -b.radius - 50), "BOSS DOWN!", POP_CRIT, 1.5)
+						_shake = 18.0 * A11y.motion()
+						continue
 					if not b.alive():
 						_spawn_particles(b.pos, 36)
 						_shake = 10.0 * A11y.motion()
@@ -955,6 +961,8 @@ func _draw() -> void:
 				BattleFx.draw_bubble_trail(self, ball_pos(b) * s, b.radius * s, b.vel, b.vel.length() / base_speed, _time)
 			elif base_speed > 0.0:
 				BattleFx.draw_speed_blur(self, Color(b.def.color), ball_pos(b) * s, b.radius * s, b.vel, b.vel.length() / base_speed, _time)
+	if sim.boss != null and sim.boss.def.id == "prism_wyrm" and sim.boss.alive():
+		_draw_wyrm_spine(sim.boss, s)
 	for b in sim.balls:
 		if b.alive() and b.type_id == "leviathan" and sim.tick < int(b.state.get("dive_until", -1)):
 			BattleFx.draw_fin(self, ball_pos(b) * s, b.radius * s, b.vel, _time)
@@ -1421,7 +1429,8 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	draw_set_transform_matrix(Transform2D(0, pos + shake) * Transform2D(ang, Vector2.ZERO) * squash * Transform2D(-ang, Vector2.ZERO))
 
 	if def.get("boss", false) or def.get("minion", false):
-		_draw_boss(i, def, r)
+		if not ko: # A beaten boss is drawn by its KO burst ("boss_death").
+			_draw_boss(i, def, r)
 		draw_set_transform(shake)
 		return
 	Dot.circle(self, Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
@@ -1441,6 +1450,19 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 		_dizzy_stars(pos, r)
 
 	draw_set_transform(shake)
+
+
+## The Prism Wyrm's body: a crystal band from its head down through its
+## scales to the tail, so the separate pieces read as one serpent.
+func _draw_wyrm_spine(wyrm, s: float) -> void:
+	var pts := PackedVector2Array([ball_pos(wyrm) * s])
+	for idx in wyrm.state.get("scales", []):
+		if idx < sim.balls.size():
+			pts.append(ball_pos(sim.balls[idx]) * s)
+	if pts.size() < 2:
+		return
+	Dot.pline(self, pts, Color("1d3550", 0.85), wyrm.def.segment_radius * s * 1.3, true)
+	Dot.pline(self, pts, Color(BossArt.PRISM, 0.35 + 0.15 * sin(_time * 3.0)), maxf(2.0, 6.0 * s), true)
 
 
 ## A farming boss (sim/bosses.gd), posed by what its script is doing.
@@ -1471,6 +1493,13 @@ func _draw_boss(i: int, def: Dictionary, r: float) -> void:
 		opts.volley = clampf(1.0 - (act.at - b.state.clock) / maxf(def.get("volley_windup", 1.0), 0.01), 0.0, 1.0)
 	elif act.get("kind", "") == "quake":
 		opts.quake = clampf(1.0 - (act.at - b.state.clock) / maxf(def.get("quake_windup", 1.0), 0.01), 0.0, 1.0)
+	elif act.has("at"): # Any other wind-up: the lash, a warp, a pulse.
+		var windup: float = def.get({"lash": "lash_windup", "warp": "warp_windup", "gpulse": "pulse_windup"}.get(act.kind, ""), 1.0)
+		opts.charge = clampf(1.0 - (act.at - b.state.clock) / maxf(windup, 0.01), 0.0, 1.0)
+	if def.id == "brood_queen" and b.state.has("next_feather"): # The last half second before a feather volley.
+		opts.charge = clampf(1.0 - (b.state.next_feather - b.state.clock) / 0.5, 0.0, 1.0)
+	if def.get("boss", false) and sim.balls[0].alive():
+		opts.look = (sim.balls[0].pos - b.pos).normalized()
 	BossArt.draw(self, def.id, Vector2.ZERO, r, opts)
 
 
@@ -1776,6 +1805,8 @@ func _dirt_spray(at: Vector2, n: int) -> void:
 ## One-off effects from _fx.
 func _draw_fx(k: Dictionary, s: float) -> void:
 	match k.kind:
+		"boss_death":
+			BossArt.draw_death(self, k.id, k.pos * s, k.r * s, k.age)
 		"hook":
 			var a := sim.balls[k.ball]
 			var f := sim.balls[k.target]
