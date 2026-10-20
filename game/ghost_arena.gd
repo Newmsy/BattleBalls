@@ -21,6 +21,7 @@ const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ResultText := preload("res://game/result_text.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
+const Kit := preload("res://game/ui/ui_kit.gd")
 
 enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
 
@@ -149,7 +150,7 @@ func _show_intro() -> void:
 	lineup_label.text = "They bring: " + ", ".join(foes)
 	sim = MatchSim.new(relay.leg_config())
 	arena.sim = sim
-	_set_panel([_button("FIGHT!", _next_leg, 40), _lineups(), _button("Back (counts as a loss)", _forfeit, 24)])
+	_set_panel([_button("FIGHT!", _next_leg, 40), _lineups(), _forfeit_link()])
 
 
 ## Your trio in fight order, VS, theirs sorted (their order stays hidden),
@@ -261,6 +262,27 @@ func _show_result() -> void:
 	info_label.text = "%s You're on %d, %s." % [change, store.trophies, Ladder.league_label(store.trophies)]
 	print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s" % [won, result_delta, store.trophies, relay.state_hash()])
 	_set_panel([headline, _button("Back to Arena", _back_to_arena, 36)])
+
+
+## A small red "Forfeit" under the lineups; it asks before it costs anything.
+func _forfeit_link() -> Control:
+	var b := Button.new()
+	b.text = "Forfeit"
+	b.flat = true
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.custom_minimum_size = Vector2(200, 64)
+	b.add_theme_font_size_override("font_size", 26)
+	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		b.add_theme_color_override(st, Kit.BAD)
+	b.pressed.connect(_confirm_forfeit)
+	return b
+
+
+func _confirm_forfeit() -> void:
+	var loss: int = Ladder.CARDS[store.pending.card].loss
+	var yes := _button("Forfeit (%d trophies)" % loss, _forfeit, 28)
+	yes.add_theme_color_override("font_color", Kit.BAD)
+	_set_panel([_label("Forfeit this attack? It counts as a loss.", 28), _row([yes, _button("Keep going", _show_intro, 28)])])
 
 
 func _forfeit() -> void:

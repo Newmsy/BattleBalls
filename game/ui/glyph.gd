@@ -1,7 +1,8 @@
 ## Small drawn icons the font doesn't have: tier stars, power bolt, energy,
 ## coins, hammers, Summon Eggs, Glow Gems, the pass star, gear (shell, core, charm), locks, the back arrow, the info "i"
 ## the tab icons and the home mode icons (target, bounce, tower, vault, ghost,
-## friends, map, swords, sparkle).
+## friends, map, swords, sparkle), the Arena's trophy, shield and token, and
+## the stat heads (heart, speed).
 extends Control
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
@@ -246,3 +247,12 @@ func _draw() -> void:
 			for d in [1.0, -1.0]:
 				draw_line(c + Vector2(-.17 * d, -.17) * s, c + Vector2(.15 * d, .15) * s, Color("ffd1f5"), s * .08, true)
 				draw_line(c + Vector2(.06 * d, .16) * s, c + Vector2(.16 * d, .06) * s, Color("ffd1f5"), s * .07, true)
+		"heart":
+			draw_circle(Vector2(.32, .36) * s, s * .2, color)
+			draw_circle(Vector2(.68, .36) * s, s * .2, color)
+			draw_colored_polygon(PackedVector2Array([Vector2(.13, .44) * s, Vector2(.87, .44) * s, Vector2(.5, .88) * s]), color)
+		"speed":
+			# Two chevrons with a trail: moves fast.
+			for x in [.3, .58]:
+				draw_polyline(PackedVector2Array([Vector2(x, .2) * s, Vector2(x + .24, .5) * s, Vector2(x, .8) * s]), color, s * .12, true)
+			draw_line(Vector2(.04, .5) * s, Vector2(.2, .5) * s, Color(color, .6), s * .1, true)
