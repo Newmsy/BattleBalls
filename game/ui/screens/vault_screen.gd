@@ -15,6 +15,7 @@ const Gear := preload("res://sim/gear.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
 const BossArt := preload("res://game/boss_art.gd")
+const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 
 const VAULT := Color("ff8a3d")
 
@@ -29,7 +30,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Anvil King", [
 		"A forge golem rooted in the middle of The Forge. It slams its hammer where you're heading (dodge the ring), leaves embers burning, and every fourth swing quakes the floor around it: get to the edge.",
 		"Stun it to cancel a swing. Slows make it swing less often. Its magnet core drags your mines and trails into it.",
-		"Win to take one gear piece and Hammers. Hammers merge gear. Easy drops 1 star, Hard 2 stars, Elite 3 stars.",
+		"Win to take one gear piece and Hammers. Hammers merge gear. 15 levels, each stronger: levels 1-3 drop 1-star gear, 4-6 two stars, up to 5 stars at 13-15, with more Hammers every level. Beat a level to open the next.",
 		"The slot changes daily: Shells Monday and Thursday, Cores Tuesday and Friday, Charms Wednesday and Saturday, anything on Sunday.",
 		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [GearVault.RUNS_PER_DAY, GearVault.ENERGY_COST]], "vault_info")],
 		BoxContainer.ALIGNMENT_CENTER))
@@ -56,8 +57,9 @@ static func build(shell, params: Dictionary) -> Control:
 	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
 
-	for d in GearVault.DIFFICULTIES.size():
-		root.add_child(_card(shell, p, d, fighter, now, left))
+	var level := BossLevelGrid.picked(p, GearVault.KEY, params)
+	root.add_child(BossLevelGrid.grid(shell, p, GearVault.KEY, level, VAULT, "vault"))
+	root.add_child(_card(shell, p, level, fighter, now, left))
 	return root
 
 
@@ -74,7 +76,7 @@ static func _card(shell, p, d: int, fighter: String, now: int, left: int) -> Con
 	var fight := Kit.button("Fight  %d" % GearVault.ENERGY_COST, _fight.bind(shell, d, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
-	shell.mark("vault_%d" % (d + 1), fight)
+	shell.mark("vault_go", fight)
 	var p_tag := Kit.power(rec, 20, power_color)
 	p_tag.alignment = BoxContainer.ALIGNMENT_CENTER
 	var icon := Kit.vbox(0, [BossArt.icon(GearVault.BOSS, 76), p_tag])
@@ -86,7 +88,7 @@ static func _fight(shell, d: int, fighter: String) -> void:
 	var cfg: Dictionary = GearVault.start(shell.profile, d, fighter, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
 		shell.toast({"energy": "Not enough energy. It refills 1 every 5 minutes, or use an Energy Pack from your Bag.",
-			"runs": "The Anvil King is done for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Beat the Zone 1 boss to face the Anvil King."))
+			"runs": "The Anvil King is done for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first.", "level": "Beat the level before it first."}.get(cfg.error, "Beat the Zone 1 boss to face the Anvil King."))
 		shell.refresh()
 		return
 	shell.boss_requested.emit(cfg, d, fighter, "vault")
@@ -95,7 +97,7 @@ static func _fight(shell, d: int, fighter: String) -> void:
 ## One line summing up an Anvil King result, for the result screen.
 static func result_text(r: Dictionary) -> String:
 	if not r.won:
-		return "Lost. %d energy back, +%d XP. Try Easy, or bring a stronger critter." % [r.refund, r.xp]
+		return "Lost. %d energy back, +%d XP. Try a lower level, or bring a stronger critter." % [r.refund, r.xp]
 	var parts: Array[String] = []
 	for g in r.gear:
 		parts.append("found a %s" % BagScreen.piece_name(g))

@@ -12,6 +12,7 @@ const Campaign := preload("res://meta/campaign.gd")
 const WyrmRift := preload("res://meta/wyrm_rift.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
 const BossArt := preload("res://game/boss_art.gd")
+const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 const Economy := preload("res://meta/economy.gd")
 
 const RIFT := Color("7af0ff")
@@ -28,7 +29,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Prism Wyrm", [
 		"A crystal serpent snaking figure-eights through the Crystal Rift. Only its glowing scale can be hurt; the rest of it is armour. The glow runs from its head down to its tail.",
 		"Its tail lashes where it's heading: get clear of the ring. Stun it to cancel a lash. Precise and homing critters do best.",
-		"Win for Lures: Easy %d, Hard %d, Elite %d. A Lure buys a copy of a critter on your wishlist, for sure. Lures per copy: %s." % [WyrmRift.DIFFICULTIES[0].lures, WyrmRift.DIFFICULTIES[1].lures, WyrmRift.DIFFICULTIES[2].lures, ", ".join(costs)],
+		"Win for Lures: %d at level 1 up to %d at level 15; each level is stronger and beating one opens the next. A Lure buys a copy of a critter on your wishlist, for sure. Lures per copy: %s." % [WyrmRift.DIFFICULTIES[0].lures, WyrmRift.DIFFICULTIES[-1].lures, ", ".join(costs)],
 		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [WyrmRift.RUNS_PER_DAY, WyrmRift.ENERGY_COST]], "wyrm_info")],
 		BoxContainer.ALIGNMENT_CENTER))
 
@@ -52,8 +53,9 @@ static func build(shell, params: Dictionary) -> Control:
 	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 80, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 12))
 
-	for d in WyrmRift.DIFFICULTIES.size():
-		root.add_child(_card(shell, p, d, fighter, left))
+	var level := BossLevelGrid.picked(p, WyrmRift.KEY, params)
+	root.add_child(BossLevelGrid.grid(shell, p, WyrmRift.KEY, level, RIFT, "wyrm"))
+	root.add_child(_card(shell, p, level, fighter, left))
 	return root
 
 
@@ -98,7 +100,7 @@ static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	var fight := Kit.button("Fight  %d" % WyrmRift.ENERGY_COST, _fight.bind(shell, d, fighter), "go", 24, 64)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
-	shell.mark("wyrm_%d" % (d + 1), fight)
+	shell.mark("wyrm_go", fight)
 	var p_tag := Kit.power(rec, 20, power_color)
 	p_tag.alignment = BoxContainer.ALIGNMENT_CENTER
 	var icon := Kit.vbox(0, [BossArt.icon(WyrmRift.BOSS, 68), p_tag])
@@ -110,7 +112,7 @@ static func _fight(shell, d: int, fighter: String) -> void:
 	var cfg: Dictionary = WyrmRift.start(shell.profile, d, fighter, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
 		shell.toast({"energy": "Not enough energy. It refills 1 every 5 minutes, or use an Energy Pack from your Bag.",
-			"runs": "The wyrm has slithered off for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Beat the Zone 4 boss to face the Prism Wyrm."))
+			"runs": "The wyrm has slithered off for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first.", "level": "Beat the level before it first."}.get(cfg.error, "Beat the Zone 4 boss to face the Prism Wyrm."))
 		shell.refresh()
 		return
 	shell.boss_requested.emit(cfg, d, fighter, "wyrm")
@@ -119,7 +121,7 @@ static func _fight(shell, d: int, fighter: String) -> void:
 ## One line summing up a Wyrm result, for the result popup.
 static func result_text(r: Dictionary) -> String:
 	if not r.won:
-		return "Lost. %d energy back, +%d XP. Hit the glowing scale, or try Easy." % [r.refund, r.xp]
+		return "Lost. %d energy back, +%d XP. Hit the glowing scale, or try a lower level." % [r.refund, r.xp]
 	var parts: Array[String] = ["+%d Lure%s" % [r.lures, "" if r.lures == 1 else "s"], "+%d XP" % r.xp]
 	if r.levels > 0:
 		parts.append("level up!")

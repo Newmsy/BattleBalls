@@ -12,6 +12,7 @@ const Campaign := preload("res://meta/campaign.gd")
 const BroodNest := preload("res://meta/brood_nest.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
 const BossArt := preload("res://game/boss_art.gd")
+const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 
 const NEST := Color("ff6fae")
 
@@ -26,7 +27,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Brood Queen", [
 		"A great neon hen gliding round The Nest. She lays eggs that hatch into darting chicks, and flings feathers at you.",
 		"Crack eggs before they hatch: every %d eggs cracked adds an egg to a win, up to +%d. Stuns freeze her in place." % [BroodNest.EGGS_PER_BONUS, BroodNest.BONUS_MAX],
-		"Win for Summon Eggs: Easy %d, Hard %d, Elite %d." % [BroodNest.DIFFICULTIES[0].orbs, BroodNest.DIFFICULTIES[1].orbs, BroodNest.DIFFICULTIES[2].orbs],
+		"Win for Summon Eggs: %d at level 1 up to %d at level 15. Each level is stronger; beat one to open the next." % [BroodNest.DIFFICULTIES[0].orbs, BroodNest.DIFFICULTIES[-1].orbs],
 		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [BroodNest.RUNS_PER_DAY, BroodNest.ENERGY_COST]], "nest_info")],
 		BoxContainer.ALIGNMENT_CENTER))
 
@@ -48,8 +49,9 @@ static func build(shell, params: Dictionary) -> Control:
 	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
 
-	for d in BroodNest.DIFFICULTIES.size():
-		root.add_child(_card(shell, p, d, fighter, left))
+	var level := BossLevelGrid.picked(p, BroodNest.KEY, params)
+	root.add_child(BossLevelGrid.grid(shell, p, BroodNest.KEY, level, NEST, "nest"))
+	root.add_child(_card(shell, p, level, fighter, left))
 	return root
 
 
@@ -64,7 +66,7 @@ static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	var fight := Kit.button("Fight  %d" % BroodNest.ENERGY_COST, _fight.bind(shell, d, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
-	shell.mark("nest_%d" % (d + 1), fight)
+	shell.mark("nest_go", fight)
 	var p_tag := Kit.power(rec, 20, power_color)
 	p_tag.alignment = BoxContainer.ALIGNMENT_CENTER
 	var icon := Kit.vbox(0, [BossArt.icon(BroodNest.BOSS, 76), p_tag])
@@ -76,7 +78,7 @@ static func _fight(shell, d: int, fighter: String) -> void:
 	var cfg: Dictionary = BroodNest.start(shell.profile, d, fighter, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
 		shell.toast({"energy": "Not enough energy. It refills 1 every 5 minutes, or use an Energy Pack from your Bag.",
-			"runs": "The Brood Queen is done for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Beat the Zone 2 boss to face the Brood Queen."))
+			"runs": "The Brood Queen is done for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first.", "level": "Beat the level before it first."}.get(cfg.error, "Beat the Zone 2 boss to face the Brood Queen."))
 		shell.refresh()
 		return
 	shell.boss_requested.emit(cfg, d, fighter, "nest")
@@ -85,7 +87,7 @@ static func _fight(shell, d: int, fighter: String) -> void:
 ## One line summing up a Brood Queen result, for the result screen.
 static func result_text(r: Dictionary) -> String:
 	if not r.won:
-		return "Lost. %d energy back, +%d XP. Crack her eggs early, or try Easy." % [r.refund, r.xp]
+		return "Lost. %d energy back, +%d XP. Crack her eggs early, or try a lower level." % [r.refund, r.xp]
 	var parts: Array[String] = ["+%d Summon Eggs" % r.orbs]
 	if r.bonus > 0:
 		parts.append("%d eggs cracked (+%d)" % [r.cracked, r.bonus])

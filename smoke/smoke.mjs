@@ -766,7 +766,7 @@ try {
     await waitForLog(logs, "UI_SCREEN vault", 60000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "31-anvil-king.png") });
-    await tapUi(page, logs, "vault_1");
+    await tapUi(page, logs, "vault_go");
     await page.waitForTimeout(500);
     await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
     console.log("boss fight:", await waitForLog(logs, "FIGHT_START", 5000));
@@ -782,7 +782,7 @@ try {
     await waitForLog(logs, "UI_SCREEN nest", 60000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "33-brood-queen.png") });
-    await tapUi(page, logs, "nest_1");
+    await tapUi(page, logs, "nest_go");
     await page.waitForTimeout(500);
     await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
     console.log("queen fight:", await waitForLog(logs, "FIGHT_START", 5000));
@@ -818,7 +818,7 @@ try {
     await waitForLog(logs, "UI_SCREEN totem", 60000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "38-totem.png") });
-    await tapUi(page, logs, "totem_1");
+    await tapUi(page, logs, "totem_go");
     await page.waitForTimeout(500);
     await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
     console.log("totem fight:", await waitForLog(logs, "FIGHT_START", 5000));
@@ -834,7 +834,7 @@ try {
     await waitForLog(logs, "UI_SCREEN wyrm", 60000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "40-wyrm.png") });
-    await tapUi(page, logs, "wyrm_1");
+    await tapUi(page, logs, "wyrm_go");
     await page.waitForTimeout(500);
     await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
     console.log("wyrm fight:", await waitForLog(logs, "FIGHT_START", 5000));

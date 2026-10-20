@@ -146,7 +146,10 @@ func test_vault_opens_after_zone_one_and_drops_its_tier() -> void:
 	var p = _player()
 	check_eq(GearVault.start(p, 0, "vampire", T0).get("error"), "locked", "locked before the boss")
 	_clear_zone_one(p)
+	check_eq(GearVault.start(p, 1, "vampire", T0).get("error"), "level", "level 2 opens after level 1")
 	for d in GearVault.DIFFICULTIES.size():
+		p.vault = {}
+		p.energy = 99
 		var cfg: Dictionary = GearVault.start(p, d, "vampire", T0)
 		check(not cfg.has("error"), "starts")
 		check_eq(cfg.p2, "anvil_king", "the Anvil King guards it")
@@ -183,6 +186,7 @@ func test_vault_rotation_covers_every_slot_each_week() -> void:
 func test_vault_fights_replay() -> void:
 	var p = _player()
 	_clear_zone_one(p)
+	p.boss_levels["vault"] = 1
 	var cfg: Dictionary = GearVault.start(p, 1, "vampire", T0)
 	cfg.angles = [0.3, null]
 	var a := MatchSim.new(cfg).run_to_end()
