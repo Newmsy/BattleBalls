@@ -17,11 +17,13 @@ const LOW := Color("ff5a7a")
 const LOW_SHARE := 0.35
 const CHIP_DELAY := 0.35 ## Seconds the chip holds before it drains.
 const CHIP_RATE := 1.4 ## Share of the bar the chip drains per second.
-const CENTER_W := 0.22 ## Share of the width kept for the clock between the bars.
+const CENTER_W := 0.26 ## Share of the width kept for the clock between the bars.
 
 var tags: Array = ["YOU", "FOE"]
 ## A small line under each 1v1 bar, like "T5 · Lv25 · 5,481 power" (empty: none).
 var stats: Array = ["", ""]
+## Under the clock: the fight's twist (Chaos Weekend rule), or the overtime damage.
+var caption := ""
 var center_text := ""
 var _hp := [0.0, 0.0, 0.0, 0.0]
 var _max := [1.0, 1.0, 1.0, 1.0]
@@ -87,9 +89,9 @@ func _draw() -> void:
 	var fs := A11y.font(20)
 	var gap := size.x * CENTER_W
 	var bar_w := (size.x - gap) / 2.0
-	var sfs := A11y.font(15)
-	var stats_h := sfs + 6.0 if stats[0] != "" or stats[1] != "" else 0.0
-	var bar_h := maxf(20.0, minf(size.y * 0.4, 25.0))
+	var sfs := A11y.font(20)
+	var stats_h := sfs + 6.0 if stats[0] != "" or stats[1] != "" or caption != "" else 0.0
+	var bar_h := maxf(22.0, minf(size.y * 0.4, 28.0))
 	var bar_y := size.y - bar_h - 4.0 - stats_h
 	for i in 2:
 		var x := 0.0 if i == 0 else size.x - bar_w
@@ -100,34 +102,57 @@ func _draw() -> void:
 		draw_string(FONT, Vector2(x, bar_y - 8.0), label, align, bar_w, fs, TEAM_COLORS[i])
 		if stats_h > 0.0 and stats[i] != "":
 			draw_string(FONT, Vector2(x, bar_y + bar_h + sfs + 2.0), stats[i], align, bar_w, sfs, Color(TEAM_COLORS[i].lerp(Color("f0eeff"), 0.55), 0.85))
-	if center_text != "":
-		var col := LOW if center_text.begins_with("OVERTIME") else Color("f0eeff")
-		var text := center_text.replace("OVERTIME ", "OT ") # The arena banner says OVERTIME in full.
-		var cfs := A11y.font(22) if text.length() <= 5 else A11y.font(16)
-		_text(Vector2(size.x / 2.0, bar_y + bar_h / 2.0), text, cfs, col)
+	_draw_clock(Vector2(size.x / 2.0, bar_y + bar_h / 2.0), gap - 8.0)
+	if caption != "":
+		_text(Vector2(size.x / 2.0, bar_y + bar_h + sfs * 0.5 + 6.0), caption, A11y.font(20), Color("c9c3ff"))
 
 
-## 2v2: each side's tag, then its two critters' bars stacked under it, each
-## bar carrying the critter's name and HP inside.
+## The clock as a pill between the bars; in overtime it turns into a red
+## OVERTIME badge that pulses (steady with reduced motion).
+func _draw_clock(c: Vector2, max_w: float) -> void:
+	if center_text == "":
+		return
+	var over := center_text.begins_with("OVERTIME")
+	var text := "OVERTIME" if over else center_text
+	var fs := A11y.font(20) if over else A11y.font(24)
+	var w := minf(max_w, FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 28.0)
+	var h := fs + 14.0
+	var r := Rect2(c.x - w / 2.0, c.y - h / 2.0, w, h)
+	if over:
+		var beat := 1.0 if A11y.reduced_motion else 0.7 + 0.3 * absf(sin(_time * PI / 0.6))
+		_round(r.grow(3.0 * beat), h / 2.0 + 3.0, Color(LOW, 0.3 * beat))
+		_round(r, h / 2.0, Color(LOW.darkened(0.35), 0.95))
+		_round_outline(r, h / 2.0, Color(LOW.lightened(0.3), beat), 2.0)
+	else:
+		_round(r, h / 2.0, TRACK)
+		_round_outline(r, h / 2.0, Color(1, 1, 1, 0.25), 2.0)
+	_text(c, text, fs, Color.WHITE)
+
+
+## 2v2: each critter's name above its own bar (the first carries the side's
+## tag), the HP number at the bar's inner end.
 func _draw_teams() -> void:
 	var gap := size.x * CENTER_W
 	var bar_w := (size.x - gap) / 2.0
-	var tag_h := A11y.font(18) + 4.0
-	var bar_h := maxf(16.0, (size.y - tag_h - 8.0) / 2.0)
-	var fs := mini(A11y.font(18), int(bar_h * 0.62))
+	var fs := A11y.font(20)
+	var name_h := fs + 2.0
+	var bar_h := clampf((size.y - 2.0 * name_h - 12.0) / 2.0, 16.0, 26.0)
+	var bfs := mini(fs, int(bar_h * 0.8))
 	for side in 2:
 		var x := 0.0 if side == 0 else size.x - bar_w
 		var align := HORIZONTAL_ALIGNMENT_LEFT if side == 0 else HORIZONTAL_ALIGNMENT_RIGHT
-		draw_string_outline(FONT, Vector2(x, tag_h - 4.0), tags[side], align, bar_w, A11y.font(18), 4, Color(0, 0, 0, 0.6))
-		draw_string(FONT, Vector2(x, tag_h - 4.0), tags[side], align, bar_w, A11y.font(18), TEAM_COLORS[side])
 		for k in 2:
 			var i := side + 2 * k
-			_bar(i, Rect2(x, tag_h + 4.0 + k * (bar_h + 4.0), bar_w, bar_h), fs, _names[i] + "  ")
-	if center_text != "":
-		var col := LOW if center_text.begins_with("OVERTIME") else Color("f0eeff")
-		var text := center_text.replace("OVERTIME ", "OT ")
-		var cfs := A11y.font(22) if text.length() <= 5 else A11y.font(16)
-		_text(Vector2(size.x / 2.0, size.y * 0.6), text, cfs, col)
+			var y := k * (name_h + bar_h + 6.0)
+			var label: String = _names[i]
+			if k == 0:
+				label = "%s · %s" % [tags[side], label] if side == 0 else "%s · %s" % [label, tags[side]]
+			draw_string_outline(FONT, Vector2(x, y + fs), label, align, bar_w, fs, 4, Color(0, 0, 0, 0.6))
+			draw_string(FONT, Vector2(x, y + fs), label, align, bar_w, fs, TEAM_COLORS[side])
+			_bar(i, Rect2(x, y + name_h + 2.0, bar_w, bar_h), bfs)
+	_draw_clock(Vector2(size.x / 2.0, name_h + 2.0 + bar_h * 0.5), gap - 8.0)
+	if caption != "":
+		_text(Vector2(size.x / 2.0, size.y - A11y.font(20) * 0.6), caption, A11y.font(20), Color("c9c3ff"))
 
 
 ## One bar: the fill drains toward the arena centre (YOU from the right end,

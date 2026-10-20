@@ -100,6 +100,7 @@ const BANNER_LIFE := 1.6
 const LOW_HP_SHARE := 0.35
 
 var sim: MatchSim
+var _tag_at := {} ## Ball index -> where its tag is drawn this frame (_place_tags).
 var team_tags: Array = TEAM_TAGS ## Labels under each ball; a shared replay uses P1/P2.
 ## The sim side the viewer plays: a live match puts you on side 1 half the
 ## time, and the rings, tags and aim line follow you, not the sim's order.
@@ -822,6 +823,7 @@ func _draw() -> void:
 		for i in n:
 			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
 			_draw_critter(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
+		_tag_at.clear()
 		for i in n:
 			var def := BallDefs.get_def(preview_types[i])
 			_draw_overlay(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
@@ -1006,6 +1008,7 @@ func _draw() -> void:
 
 	# Readability layer: team rings, tags and HP badges sit on top of every
 	# cosmetic (design/monetisation.md §1 rule 3).
+	_place_tags(s, ko_ball)
 	for b in sim.balls:
 		if b.alive() or b.index == ko_ball:
 			_draw_overlay(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
@@ -1515,8 +1518,41 @@ func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 		_hp_badge(def, pos, r, hp, max_hp)
 		return
 	_team_ring(side, pos, r, team_col)
-	_text_centered(pos + Vector2(0, r + 26.0), team_tags[side], A11y.font(18), Color(team_col, 0.7), 4)
+	_text_centered(_tag_at.get(i, pos + Vector2(0, r + 26.0)), team_tags[side], A11y.font(20), Color(team_col, 0.75), 4)
 	_hp_badge(def, pos, r, hp, max_hp, 0.4 if _cosmetic(side, "hat") else 0.0)
+
+
+## Where each ball's YOU/FOE tag goes this frame: under the ball, or above
+## its HP badge near the bottom wall, kept inside the arena and nudged apart
+## (up/down) where two tags would overlap.
+func _place_tags(s: float, ko_ball: int) -> void:
+	_tag_at.clear()
+	var fs := A11y.font(20)
+	var edge := MatchSim.ARENA_SIZE * s
+	var list := []
+	for b in sim.balls:
+		if not (b.alive() or b.index == ko_ball) or b.def.get("minion", false) or b.def.get("id", "") == "wyrm_scale":
+			continue
+		var pos := ball_pos(b) * s
+		var r: float = b.radius * s
+		var w := FONT.get_string_size(team_tags[_side(b.index)], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var at := pos + Vector2(0, r + 26.0)
+		if at.y + fs * 0.6 > edge: # Too near the bottom wall: above the HP badge instead.
+			at.y = pos.y - (b.def.get("badge_top", 1.15) * r + r * 0.62 + 26.0)
+		at.x = clampf(at.x, w / 2.0 + 4.0, edge - w / 2.0 - 4.0)
+		at.y = clampf(at.y, fs * 0.7, edge - fs * 0.6)
+		list.append({"i": b.index, "at": at, "w": w})
+	for a in list.size():
+		for b in range(a + 1, list.size()):
+			var p: Vector2 = list[a].at
+			var q: Vector2 = list[b].at
+			var need := fs * 1.1 - absf(p.y - q.y)
+			if need > 0.0 and absf(p.x - q.x) < (list[a].w + list[b].w) / 2.0 + 6.0:
+				var up := -1.0 if p.y <= q.y else 1.0
+				list[a].at.y += up * need / 2.0
+				list[b].at.y -= up * need / 2.0
+	for t in list:
+		_tag_at[t.i] = t.at
 
 
 ## Cogs' wind-up or Fizz's pressure as 0-1, for the critter art.
@@ -2148,10 +2184,8 @@ func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float
 	var fs := A11y.font(roundi(minf(r, 80.0) * 0.42 if def.get("boss", false) else r * 0.42))
 	var text := str(maxi(0, ceili(hp)))
 	var tw := FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var tier := 1
-	var star_w := fs * 0.62
 	var mark_w := fs * 0.8 ## Rarity shape before the HP number.
-	var w := fs * 0.45 + mark_w + tw + fs * 0.35 + tier * star_w + fs * 0.45
+	var w := fs * 0.45 + mark_w + tw + fs * 0.5
 	var h := fs * 1.45
 	var rect := Rect2(pos.x - w / 2.0, pos.y - top - h - 4.0, w, h)
 	if rarity != "common":
@@ -2167,8 +2201,6 @@ func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float
 	RarityMark.draw(self, rarity, Vector2(x + mark_w * 0.45, rect.position.y + h / 2.0), fs * 0.62, rim)
 	x += mark_w
 	draw_string(FONT, Vector2(x, rect.position.y + h / 2.0 + fs * 0.36), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, POP_DAMAGE.lightened(0.25) if low else Color.WHITE)
-	for k in tier:
-		_star(Vector2(x + tw + fs * 0.35 + star_w * 0.5 + k * star_w, rect.position.y + h / 2.0), fs * 0.3, fs * 0.13, 5, rim)
 
 
 # --- Shape helpers ------------------------------------------------------------
