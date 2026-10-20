@@ -1520,7 +1520,7 @@ func _layout() -> void:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	# The fighters' cards fill the room under a fight's one-row controls.
 	var strip_top := controls_top + 84.0 + 20.0
-	_place(fighter_strip, Vector2(panel_pos.x, strip_top), Vector2(panel_width, clampf(size.y - strip_top - 30.0, 0.0, 200.0)))
+	_place(fighter_strip, Vector2(panel_pos.x, strip_top), Vector2(panel_width, clampf(size.y - strip_top - 30.0, 0.0, 240.0)))
 	# The build stamp stops short of the sound toggle in the other corner.
 	_place(stamp_label, Vector2(16, size.y - 40), Vector2(maxf(100.0, size.x - Sfx.TOGGLE_SIZE.x - 48.0), 30))
 	arena.queue_redraw()
