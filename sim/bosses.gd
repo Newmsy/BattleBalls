@@ -102,7 +102,7 @@ const DEFS := {
 	},
 	"prism_wyrm": {
 		"display_name": "Prism Wyrm",
-		"description": "A crystal serpent snaking figure-eights through the Crystal Rift. Only its glowing scale can be hurt, and the glow runs along its body. Its tail lashes out where you are.",
+		"description": "A crystal serpent snaking figure-eights through the Crystal Rift. Only its shining scale can be hurt, and the shine runs along its body. Its tail lashes out where you are.",
 		"color": "7af0ff",
 		"arena": "rift",
 		"hp": 125.0, "radius": 70.0, "speed": 0.0, "contact_damage": 6.0,
@@ -114,7 +114,7 @@ const DEFS := {
 		"segments": 4, ## Body scales behind the head.
 		"segment_radius": 46.0,
 		"segment_gap": 0.42, ## Boss-clock seconds of path between scales.
-		"glow_every": 2.4, ## The glow steps one scale toward the tail this often.
+		"shine_every": 2.4, ## The shine steps one scale toward the tail this often.
 		"lash_every": 3.6,
 		"lash_windup": 0.9, ## The tail's ring before it lashes: stun it to cancel.
 		"lash_radius": 120.0,
@@ -203,9 +203,9 @@ static func setup(b, opts := {}) -> void:
 		b.state.next = 1.0
 	elif b.def.script == "wyrm":
 		b.pos = _wyrm_at(b.def, 0.0)
-		b.state.glow = 0 ## 0 the head, then each scale toward the tail.
+		b.state.shine = 0 ## 0 the head, then each scale toward the tail.
 		b.state.scales = []
-		b.state.next_glow = b.def.glow_every
+		b.state.next_shine = b.def.shine_every
 		b.state.next = b.def.lash_every * 0.6
 	b.state.anchor = b.pos
 	b.state.clock = 0.0
@@ -463,9 +463,9 @@ static func _wyrm_at(d: Dictionary, clock: float) -> Vector2:
 	return Vector2(500, 500) + Vector2(d.path.x * DMath.sin(a), d.path.y * DMath.sin(2.0 * a))
 
 
-## Scales never die: what a hit takes off the glowing one comes off the
+## Scales never die: what a hit takes off the shining one comes off the
 ## wyrm (the head), and the rest are armour (they and the head take nothing
-## while not glowing: defense 1).
+## while not shining: defense 1).
 static func _wyrm(sim, b) -> void:
 	var st: Dictionary = b.state
 	var d: Dictionary = b.def
@@ -483,16 +483,16 @@ static func _wyrm(sim, b) -> void:
 		var lost: float = m.max_hp - m.hp
 		if lost > 0.0:
 			m.hp = m.max_hp
-			if int(m.state.order) == int(st.glow):
+			if int(m.state.order) == int(st.shine):
 				b.hp -= lost
-	if st.clock >= st.next_glow:
-		st.next_glow = st.clock + d.glow_every
-		st.glow = (int(st.glow) + 1) % (int(d.segments) + 1)
-		var at: Vector2 = st.anchor if st.glow == 0 else sim.balls[st.scales[int(st.glow) - 1]].state.anchor
-		sim.events.append({"type": "wyrm_glow", "ball": b.index, "pos": at, "glow": st.glow})
-	b.defense = 0.0 if st.glow == 0 else 1.0
+	if st.clock >= st.next_shine:
+		st.next_shine = st.clock + d.shine_every
+		st.shine = (int(st.shine) + 1) % (int(d.segments) + 1)
+		var at: Vector2 = st.anchor if st.shine == 0 else sim.balls[st.scales[int(st.shine) - 1]].state.anchor
+		sim.events.append({"type": "wyrm_shine", "ball": b.index, "pos": at, "shine": st.shine})
+	b.defense = 0.0 if st.shine == 0 else 1.0
 	for idx in st.scales:
-		sim.balls[idx].defense = 0.0 if int(sim.balls[idx].state.order) == int(st.glow) else 1.0
+		sim.balls[idx].defense = 0.0 if int(sim.balls[idx].state.order) == int(st.shine) else 1.0
 	if st.clock >= st.next and not st.has("act"):
 		st.next = st.clock + d.lash_every
 		var tail = sim.balls[st.scales[-1]]

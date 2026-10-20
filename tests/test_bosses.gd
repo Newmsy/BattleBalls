@@ -261,13 +261,13 @@ func test_wyrm_only_its_glowing_scale_takes_damage() -> void:
 	for i in 30:
 		sim.step()
 	check(scale.pos.distance_to(start) > 5.0, "the body snakes along")
-	wyrm.state.glow = 0
+	wyrm.state.shine = 0
 	var hp: float = wyrm.hp
 	sim.deal(sim.balls[0], scale, 20.0, "test") # Armour: not glowing.
 	sim.step()
 	check(absf(wyrm.hp - hp) < 0.001, "a dull scale shrugs it off")
-	wyrm.state.glow = int(scale.state.order)
-	wyrm.state.next_glow = wyrm.state.clock + 99.0
+	wyrm.state.shine = int(scale.state.order)
+	wyrm.state.next_shine = wyrm.state.clock + 99.0
 	sim.step()
 	sim.deal(sim.balls[0], scale, 20.0, "test")
 	sim.step()

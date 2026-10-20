@@ -6,6 +6,7 @@ extends Node2D
 const Dot := preload("res://game/dot.gd")
 const BossArt := preload("res://game/boss_art.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
+const Bosses := preload("res://sim/bosses.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
@@ -39,7 +40,7 @@ const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": 
 ## Pulse and blast ring colours by kind.
 const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"),
 	"zap": Color("c9a6ff"), "bigzap": Color("f0e2ff"), "drum": Color("ff5a6a"), "wind": Color("c7f9cc"), "ink": Color("8a5cc8"), "stink": Color("9be36b"),
-	"shell": Color("ffb347"), "blob": Color("7cff6b"), "hammer": Color("ff8a3d"), "quake": Color("ffd166"), "lash": Color("7af0ff"), "glitch": Color("7cff4f"),
+	"shell": Color("ffb347"), "blob": Color("7cff6b"), "hammer": Color("ff8a3d"), "quake": Color("ffd166"), "lash": Color("7af0ff"),
 	"shards": Color("cdf3ff"), "paint": Color("ffd23f"), "confetti": Color("f15bb5"), "thunder": Color("8ecbff"),
 	"bugflare": Color("e8ff7a"), "candy": Color("ff9de2"), "inkslam": Color("b36bff"), "wave": Color("5ff0e6"), "quasar": Color("e0b3ff"),
 	"glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968"),
@@ -421,7 +422,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_shake = maxf(_shake, 6.0 * A11y.motion())
 			"glitch_warp":
 				_burst(e.pos, 16, [Color("7cff4f"), Color("ff4fd8")], Vector2(140.0, 380.0))
-			"wyrm_glow": # The Prism Wyrm's weak spot moved.
+			"wyrm_shine": # The Prism Wyrm's weak spot moved.
 				_rings.append({"pos": e.pos, "radius": 60.0, "color": Color("7af0ff"), "age": 0.0})
 			"boss_fizzle": # A stun cancelled the boss's wind-up.
 				_add_popup(e.pos + Vector2(-50, -60), "FIZZLE!", POP_SNAP, 1.15)
@@ -1455,12 +1456,12 @@ func _draw_boss(i: int, def: Dictionary, r: float) -> void:
 	if def.id == "totem_of_nine":
 		opts.family = b.state.get("family", "")
 	if def.id == "prism_wyrm":
-		opts.lit = int(b.state.get("glow", 0)) == 0
+		opts.lit = int(b.state.get("shine", 0)) == 0
 		opts.face = (Bosses._wyrm_at(def, b.state.clock + 0.1) - b.pos).normalized()
 	elif def.id == "the_glitch":
 		opts.phase = Bosses.GLITCH_PHASES[maxi(0, int(b.state.get("phase", 0)))]
 	elif def.id == "wyrm_scale" and sim.boss != null:
-		opts.lit = int(b.state.get("order", -1)) == int(sim.boss.state.get("glow", 0))
+		opts.lit = int(b.state.get("order", -1)) == int(sim.boss.state.get("shine", 0))
 	if b.state.has("hatch_at"):
 		opts.hatch = clampf(1.0 - (b.state.hatch_at - sim.tick) / (sim.boss.def.get("egg_hatch", 5.0) * sim.TICK_RATE), 0.0, 1.0) if def.id == "brood_egg" else 1.0
 	var act: Dictionary = b.state.get("act", {})
@@ -1608,13 +1609,13 @@ func _draw_zone(z, s: float) -> void:
 				var a := k * TAU / 24.0 - _time * 0.8
 				Dot.arc(self, p, z.radius * s, a, a + TAU / 48.0, 4, Color(RING_COLORS.quake, 0.5 + 0.4 * pulse), 4.0, true)
 		"rot": # Corrupted floor where The Glitch was: jittery pixel squares.
-			var fade := clampf(z.life - z.age, 0.0, 1.0)
-			Dot.circle(self, p, z.radius * s, Color("7cff4f", 0.12 * fade))
+			var rot_fade := clampf(z.life - z.age, 0.0, 1.0)
+			Dot.circle(self, p, z.radius * s, Color("7cff4f", 0.12 * rot_fade))
 			for k in 6:
 				var a := k * TAU / 6.0 + floorf(_time * 6.0) * 0.7
-				var q := p + Vector2.from_angle(a) * z.radius * 0.55 * s
+				var q: Vector2 = p + Vector2.from_angle(a) * z.radius * 0.55 * s
 				var half := 9.0 * s
-				draw_rect(Rect2(q - Vector2(half, half), Vector2(half, half) * 2.0), Color("ff4fd8" if k % 2 else "7cff4f", 0.5 * fade))
+				draw_rect(Rect2(q - Vector2(half, half), Vector2(half, half) * 2.0), Color("ff4fd8" if k % 2 else "7cff4f", 0.5 * rot_fade))
 		"warp": # The Glitch about to blink here.
 			if fmod(_time * 10.0, 1.0) < 0.6:
 				Dot.arc(self, p, z.radius * s, 0.0, TAU, 24, Color("ff4fd8", 0.8), 4.0, true)
