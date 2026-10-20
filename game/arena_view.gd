@@ -1445,11 +1445,15 @@ func _draw_boss(i: int, def: Dictionary, r: float) -> void:
 		opts.face = Vector2.from_angle(def.glide_start + b.state.clock * def.glide_speed + PI / 2.0)
 	if def.id == "pinata_titan": # Its rope, up to where it hangs from.
 		opts.pivot = def.pivot - b.pos
+	if def.id == "totem_of_nine":
+		opts.family = b.state.get("family", "")
 	if b.state.has("hatch_at"):
 		opts.hatch = clampf(1.0 - (b.state.hatch_at - sim.tick) / (sim.boss.def.get("egg_hatch", 5.0) * sim.TICK_RATE), 0.0, 1.0) if def.id == "brood_egg" else 1.0
 	var act: Dictionary = b.state.get("act", {})
 	if act.get("kind", "") == "slam" and act.shot != null:
 		opts.swing = clampf(act.shot.age / act.shot.flight, 0.0, 1.0)
+	elif act.get("kind", "") == "volley":
+		opts.volley = clampf(1.0 - (act.at - b.state.clock) / maxf(def.get("volley_windup", 1.0), 0.01), 0.0, 1.0)
 	elif act.get("kind", "") == "quake":
 		opts.quake = clampf(1.0 - (act.at - b.state.clock) / maxf(def.get("quake_windup", 1.0), 0.01), 0.0, 1.0)
 	BossArt.draw(self, def.id, Vector2.ZERO, r, opts)
@@ -1587,6 +1591,9 @@ func _draw_zone(z, s: float) -> void:
 			for k in 24:
 				var a := k * TAU / 24.0 - _time * 0.8
 				Dot.arc(self, p, z.radius * s, a, a + TAU / 48.0, 4, Color(RING_COLORS.quake, 0.5 + 0.4 * pulse), 4.0, true)
+		"spirit": # The Totem of Nine's heads glowing before a volley.
+			var glow := 0.5 + 0.5 * absf(sin(_time * 12.0))
+			Dot.arc(self, p, z.radius * s, 0.0, TAU, 40, Color("c9a6ff", 0.4 + 0.5 * glow), 5.0, true)
 		"clod":
 			var land: float = clampf(z.age / maxf(z.arm, 0.01), 0.0, 1.0)
 			Dot.circle(self, p, z.radius * s * (0.4 + 0.6 * land), Color(ZONE_COLORS.clod, 0.25 + 0.5 * land))

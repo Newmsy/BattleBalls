@@ -16,6 +16,7 @@ extends RefCounted
 
 const DMath := preload("res://sim/dmath.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
+const Talents := preload("res://sim/talents.gd")
 
 ## id -> the boss: stats like a critter's plus its script's params. Keys
 ## ending in _damage or _dps scale with the fight's power (sim/power.gd).
@@ -65,7 +66,7 @@ const DEFS := {
 		"feather_count": 3,
 		"feather_spread": 18.0, ## Degrees between feathers in a volley.
 		"feather_speed": 560.0,
-		"feather_damage": 6.0,
+		"feather_damage": 9.0,
 	},
 	"pinata_titan": {
 		"display_name": "Piñata Titan",
@@ -80,6 +81,24 @@ const DEFS := {
 		"rope": 430.0,
 		"swing": 0.8, ## Radians either side of straight down.
 		"swing_speed": 1.5, ## Radians of phase per boss-clock second (slows stretch it).
+	},
+	"totem_of_nine": {
+		"display_name": "Totem of Nine",
+		"description": "A spirit totem of nine family heads in the Spirit Shrine. Today's family head is lit: critters of that family hit it half as hard again. It rings out spirit orbs, then aims a fan of them at you.",
+		"color": "c9a6ff",
+		"arena": "shrine",
+		"hp": 215.0, "radius": 104.0, "speed": 0.0, "contact_damage": 6.0,
+		"time": 75.0,
+		"script": "totem",
+		"draw_in": 60.0,
+		"family_bonus": 0.5, ## Attack for critters of today's family.
+		"volley_every": 2.9, ## Boss-clock seconds between volleys.
+		"volley_windup": 0.8, ## The heads light up before they fire: stun it then and it fizzles.
+		"ring_count": 9, ## A ring volley: one orb per head, a gap to slip through.
+		"fan_count": 3, ## Every other volley: a fan aimed at you.
+		"fan_spread": 16.0,
+		"orb_speed": 400.0,
+		"orb_damage": 10.0,
 	},
 }
 
@@ -116,15 +135,19 @@ static func minion_def(id: String) -> Dictionary:
 	return def
 
 
-## The boss's power multiplier on HP and damage (sqrt of its fight power).
+## The boss's power multiplier on HP and damage (sqrt of its fight power),
+## for its minions. Its own *_damage and *_dps keys are scaled already.
 static func _scale(b) -> float:
 	return b.max_hp / float(DEFS[b.def.id].hp)
 
 
 ## Puts the boss on its anchor point, the arena's centre unless its def
 ## names a `home` (MatchSim pins it there).
-static func setup(b) -> void:
+## `opts` is the fight config's "boss" entry (the Totem's `family`).
+static func setup(b, opts := {}) -> void:
 	b.pos = b.def.get("home", Vector2(500, 500))
+	b.state.family = str(opts.get("family", ""))
+	b.state.volleys = 0
 	if b.def.script == "brood":
 		b.pos = _glide(b.def, 0.0)
 	elif b.def.script == "pinata":
@@ -160,6 +183,9 @@ static func tick(sim, b) -> void:
 			_brood(sim, b)
 		"pinata":
 			st.anchor = _swing(b.def, st.clock)
+		"totem":
+			if st.clock >= st.next:
+				_totem_windup(sim, b)
 
 
 ## Magnet core: what critters leave on the floor (mines, trails, puddles)
@@ -228,6 +254,10 @@ static func _resolve(sim, b) -> void:
 				sim.zones.erase(act.tell)
 				sim.pulse(b, st.anchor, b.def.quake_radius, b.def.quake_damage, true, "quake")
 				st.erase("act")
+		"volley":
+			if st.clock >= act.at:
+				_totem_fire(sim, b, act)
+				st.erase("act")
 
 
 # --- Brood Queen ---------------------------------------------------------------
@@ -274,7 +304,7 @@ static func _brood(sim, b) -> void:
 		var n := int(d.feather_count)
 		for i in n:
 			var v: Vector2 = DMath.rotated(dir, deg_to_rad(d.feather_spread * (i - (n - 1) / 2.0))) * d.feather_speed
-			sim.add_shot(b, st.anchor + dir * b.radius, v, {"kind": "feather", "radius": 10.0, "damage": d.feather_damage * k, "life": 2.0})
+			sim.add_shot(b, st.anchor + dir * b.radius, v, {"kind": "feather", "radius": 10.0, "damage": d.feather_damage, "life": 2.0})
 
 
 static func _hatch(sim, m, k: float, target) -> void:
@@ -300,6 +330,51 @@ static func _swing(d: Dictionary, clock: float) -> Vector2:
 	return d.pivot + Vector2(DMath.sin(a), DMath.cos(a)) * d.rope
 
 
+# --- Totem of Nine ------------------------------------------------------------
+
+## Today's family gets its bonus (the lit head): call once the fight's balls exist.
+static func bless(sim, b) -> void:
+	if b.state.family == "":
+		return
+	for o in sim.balls:
+		if o.team != b.team and Talents.faction_of(o.type_id) == b.state.family:
+			o.attack += b.def.family_bonus
+
+
+static func _totem_windup(sim, b) -> void:
+	var st: Dictionary = b.state
+	var d: Dictionary = b.def
+	st.next = st.clock + d.volley_every
+	st.volleys += 1
+	var ring: bool = st.volleys % 2 == 1
+	var tell = sim.add_zone(b, st.anchor, {"kind": "spirit", "radius": b.radius + 30.0, "life": d.volley_windup * 10.0})
+	# A ring's gap turns a seeded step each time; a fan aims where you'll be.
+	var turn := float(sim.rng.range_int(0, 359))
+	st.act = {"kind": "volley", "at": st.clock + d.volley_windup, "tell": tell, "ring": ring, "turn": turn}
+	sim.events.append({"type": "boss_windup", "ball": b.index, "kind": "volley", "pos": st.anchor})
+
+
+static func _totem_fire(sim, b, act: Dictionary) -> void:
+	sim.zones.erase(act.tell)
+	var d: Dictionary = b.def
+	var dirs: Array[Vector2] = []
+	if act.ring:
+		var n := int(d.ring_count)
+		for i in n - 1: # One head stays quiet: the gap.
+			dirs.append(DMath.from_angle(deg_to_rad(act.turn + i * 360.0 / n)))
+	else:
+		var target = sim.nearest_foe(b)
+		if target == null:
+			return
+		var aim: Vector2 = sim.predict(target, 0.5) - b.state.anchor
+		var dir := aim.normalized() if aim.length() > 0.001 else Vector2.DOWN
+		var n := int(d.fan_count)
+		for i in n:
+			dirs.append(DMath.rotated(dir, deg_to_rad(d.fan_spread * (i - (n - 1) / 2.0))))
+	for dir in dirs:
+		sim.add_shot(b, b.state.anchor + dir * (b.radius + 12.0), dir * d.orb_speed, {"kind": "spirit", "radius": 14.0, "damage": d.orb_damage, "life": 2.6})
+
+
 ## A stun on the boss cancels its wind-up.
 static func _fizzle(sim, b) -> void:
 	var st: Dictionary = b.state
@@ -310,7 +385,7 @@ static func _fizzle(sim, b) -> void:
 			if sim.shots.has(act.shot):
 				at = act.shot.land
 				sim.shots.erase(act.shot)
-		"quake":
+		"quake", "volley":
 			sim.zones.erase(act.tell)
 	st.erase("act")
 	sim.events.append({"type": "boss_fizzle", "ball": b.index, "kind": act.kind, "pos": at})

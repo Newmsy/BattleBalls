@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Dot := preload("res://game/dot.gd")
+const TALENTS := preload("res://sim/talents.gd")
 
 const IRON := Color("3a3f4f")
 const IRON_HI := Color("5d6478")
@@ -32,6 +33,8 @@ static func draw(ci: CanvasItem, id: String, c: Vector2, r: float, opts := {}) -
 			_chick(ci, c, r, opts)
 		"pinata_titan":
 			_pinata(ci, c, r, opts)
+		"totem_of_nine":
+			_totem(ci, c, r, opts)
 		_:
 			Dot.circle(ci, c, r, IRON)
 
@@ -169,6 +172,39 @@ static func _pinata(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void
 	Dot.circle(ci, c + Vector2(-0.18, -0.3) * r, r * 0.07, eye)
 	Dot.circle(ci, c + Vector2(0.18, -0.3) * r, r * 0.07, eye)
 	Dot.pline(ci, PackedVector2Array([c + Vector2(-0.14, -0.12) * r, c + Vector2(0, -0.04) * r, c + Vector2(0.14, -0.12) * r]), Color("1a1033"), maxf(1.5, r * 0.04), true)
+
+
+## The totem from above: a carved stone drum with nine family faces round
+## its rim. opts.family lights that family's face; opts.volley (0-1) makes
+## every face glow as a volley winds up.
+static func _totem(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
+	var t: float = o.get("t", 0.0)
+	var lit: String = o.get("family", "")
+	var charge: float = o.get("volley", 0.0)
+	var stone := Color("4a4560").lerp(Color.WHITE, clampf(o.get("hit", 0.0) * 2.0, 0.0, 0.5))
+	Dot.circle(ci, c + Vector2(r * 0.06, r * 0.1), r * 0.95, Color(0, 0, 0, 0.35))
+	Dot.circle(ci, c, r * 0.92, stone.darkened(0.25))
+	Dot.circle(ci, c, r * 0.72, stone)
+	var fams: Array = TALENTS.FACTIONS
+	for k in fams.size():
+		var a := -PI / 2.0 + k * TAU / fams.size() + t * 0.15
+		var p := c + Vector2.from_angle(a) * r * 0.74
+		var col: Color = TALENTS.COLORS[fams[k]]
+		var on: bool = fams[k] == lit
+		var glow := clampf(charge + (0.6 + 0.3 * sin(t * 4.0) if on else 0.0), 0.0, 1.0)
+		if glow > 0.05:
+			Dot.circle(ci, p, r * 0.26, Color(col, 0.35 * glow))
+		Dot.circle(ci, p, r * 0.17, col.darkened(0.55 - 0.55 * glow))
+		var eye := Color(1, 1, 1, 0.4 + 0.6 * glow)
+		var side := Vector2.from_angle(a).orthogonal()
+		Dot.circle(ci, p + side * r * 0.06, r * 0.03, eye)
+		Dot.circle(ci, p - side * r * 0.06, r * 0.03, eye)
+	# The top of the pole: a moon-white cap that dims while stunned.
+	var cap := Color("e9e4ff") if not o.get("stunned", false) else Color("8a86a0")
+	Dot.circle(ci, c, r * 0.36, cap.darkened(0.2))
+	Dot.circle(ci, c, r * 0.26, cap)
+	if lit != "":
+		Dot.circle(ci, c, r * 0.12, TALENTS.COLORS.get(lit, Color.WHITE))
 
 
 ## A boss in a menu (the Anvil King's screen and Play tile). Redraws slowly.

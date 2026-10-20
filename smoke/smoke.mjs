@@ -812,6 +812,22 @@ try {
     await page.close();
   }
 
+  // 14e. The Totem of Nine: its screen, then an Easy fight in the Spirit Shrine.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=3&screen=totem&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN totem", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "38-totem.png") });
+    await tapUi(page, logs, "totem_1");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("totem fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(shots, "39-totem-fight.png") });
+    console.log("totem end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
   // 15. Bracket of Legends: pick a champion while picks are open, then on
   // final day open the final and watch its first game.
   if (mine(20)) {
