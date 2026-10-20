@@ -2,7 +2,7 @@
 ## player power and a boss power, over a spread of seeds, and the win rate,
 ## average time, the boss HP knocked off (what the Piñata Titan pays for) and
 ## the best/worst critters print out.
-## godot --headless --script res://tools/boss_difficulty.gd -- [--boss=anvil_king] [--you=1.9] [--foe=1.3] [--fights=20]
+## godot --headless --script res://tools/boss_difficulty.gd -- [--boss=anvil_king] [--you=1.9] [--foe=1.3] [--fights=20] [--tier=5]
 extends SceneTree
 
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -15,6 +15,7 @@ func _init() -> void:
 	var you := 1.0
 	var foe := 1.0
 	var fights := 10
+	var tier := 1
 	for arg in OS.get_cmdline_user_args():
 		var kv := arg.trim_prefix("--").split("=")
 		match kv[0]:
@@ -22,6 +23,7 @@ func _init() -> void:
 			"you": you = float(kv[1])
 			"foe": foe = float(kv[1])
 			"fights": fights = int(kv[1])
+			"tier": tier = int(kv[1])
 	var rows := []
 	var wins := 0
 	var total := 0
@@ -31,7 +33,7 @@ func _init() -> void:
 		var w := 0
 		for k in fights:
 			var cfg := {"seed": 1000 + k * 7919, "p1": id, "p2": boss, "arena": Bosses.DEFS[boss].arena,
-				"angles": [null, null], "powers": [you, foe]}
+				"angles": [null, null], "powers": [you, foe], "tiers": [tier, 1]}
 			var sim := MatchSim.new(cfg)
 			var s := sim.run_to_end()
 			dealt += 1.0 - maxf(0.0, sim.balls[1].hp) / sim.balls[1].max_hp

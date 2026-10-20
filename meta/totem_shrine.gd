@@ -13,6 +13,7 @@ const Campaign := preload("res://meta/campaign.gd")
 const Power := preload("res://sim/power.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const Bosses := preload("res://sim/bosses.gd")
+const BossLevels := preload("res://meta/boss_levels.gd")
 const Talents := preload("res://sim/talents.gd")
 const BossRuns := preload("res://meta/boss_runs.gd")
 
@@ -21,12 +22,25 @@ const KEY := "totem"
 const ENERGY_COST := 8
 const RUNS_PER_DAY := 3
 const ZONE := 2 ## Beating this zone's boss (0-based) opens it.
-## Difficulty: the sigils (Faction XP) a win pays and the totem's power.
-## Check win rates with tools/boss_difficulty.gd --boss=totem_of_nine.
+## The 15 levels (meta/boss_levels.gd): the sigils (Faction XP) a win pays
+## and the totem's power, BossLevels.curve(2.9, 11.0). Check with
+## tools/boss_difficulty.gd --boss=totem_of_nine --tier=5.
 const DIFFICULTIES := [
-	{"name": "Easy", "sigils": 60, "power": 2.9},
-	{"name": "Hard", "sigils": 100, "power": 4.2},
-	{"name": "Elite", "sigils": 160, "power": 5.9},
+	{"name": "Level 1", "sigils": 60, "power": 2.9},
+	{"name": "Level 2", "sigils": 75, "power": 3.4},
+	{"name": "Level 3", "sigils": 90, "power": 4.0},
+	{"name": "Level 4", "sigils": 105, "power": 4.8},
+	{"name": "Level 5", "sigils": 120, "power": 5.6},
+	{"name": "Level 6", "sigils": 135, "power": 6.7},
+	{"name": "Level 7", "sigils": 150, "power": 7.9},
+	{"name": "Level 8", "sigils": 165, "power": 9.3},
+	{"name": "Level 9", "sigils": 180, "power": 11.0},
+	{"name": "Level 10", "sigils": 195, "power": 12.3},
+	{"name": "Level 11", "sigils": 210, "power": 13.8},
+	{"name": "Level 12", "sigils": 225, "power": 15.5},
+	{"name": "Level 13", "sigils": 240, "power": 17.3},
+	{"name": "Level 14", "sigils": 255, "power": 19.4},
+	{"name": "Level 15", "sigils": 270, "power": 21.7},
 ]
 const WIN_XP := 20
 const LOSS_XP := 3
@@ -58,6 +72,8 @@ static func start(profile, difficulty: int, fighter: String, now: int) -> Dictio
 		return {"error": "locked"}
 	if not Campaign.can_fight(profile, fighter):
 		return {"error": "no_ball"}
+	if not BossLevels.is_open(profile, KEY, difficulty):
+		return {"error": "level"}
 	if runs_left(profile, now) <= 0:
 		return {"error": "runs"}
 	if not profile.spend_energy(ENERGY_COST, now):
@@ -95,7 +111,8 @@ static func finish(profile, difficulty: int, fighter: String, fight: Dictionary,
 		return result
 	result.sigils = DIFFICULTIES[clampi(difficulty, 0, DIFFICULTIES.size() - 1)].sigils
 	profile.add_faction_xp(family, result.sigils)
-	result.xp = WIN_XP
+	BossLevels.beat(profile, KEY, difficulty)
+	result.xp = WIN_XP + clampi(difficulty, 0, BossLevels.COUNT - 1) ## A little more XP each level up.
 	Campaign.give_xp(profile, result, fighter)
 	result.account_levels = profile.add_account_xp(ENERGY_COST)
 	profile.runs += 1
