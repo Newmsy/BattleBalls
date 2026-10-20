@@ -1,5 +1,6 @@
 extends Control
-## The two fighters under the arena in a 1v1: face, name, tier and role, what
+## The fighters under the arena (two cards in a 1v1, a compact pair per side
+## in a 2v2): face, name, tier and role, what
 ## their ability does, and a ring around the face that fills toward a timed
 ## ability's next go. It uses the room below the speed row that used to sit
 ## empty, and teaches abilities without opening the Critterpedia.
@@ -17,17 +18,19 @@ const PANEL := Color(27 / 255.0, 24 / 255.0, 66 / 255.0, 0.92)
 const TEXT := Color("f0eeff")
 const MUTED := Color("a29fc9")
 
-## Ball shown on each side (left = the viewer's), or -1.
-var _ball := [-1, -1]
-var _card := [{}, {}]
+## Ball on each card: 0 = the viewer's side, 1 = the foe's, then (2v2) the
+## viewer's mate and the foe's mate.
+var _ball := [-1, -1, -1, -1]
+var _card := [{}, {}, {}, {}]
+var _n := 2
 var _sim = null
 var _you_side := 0
 var _timed := false
 
 
-## Shows the 1v1 fight `sim` from `you_side`'s view; null (or a 2v2) hides it.
+## Shows the fight `sim` from `you_side`'s view; null hides it.
 func show_fight(sim, you_side := 0) -> void:
-	if sim == null or sim.balls.size() < 2 or sim.get("starters") == 4:
+	if sim == null or sim.balls.size() < 2:
 		if _sim != null:
 			_sim = null
 			queue_redraw()
@@ -35,23 +38,18 @@ func show_fight(sim, you_side := 0) -> void:
 	var changed: bool = _sim != sim or _you_side != you_side
 	_sim = sim
 	_you_side = you_side
-	for k in 2:
-		var idx: int = _front(sim, k ^ you_side)
+	_n = 4 if sim.get("starters") == 4 and sim.balls.size() >= 4 else 2
+	for k in _n:
+		var idx: int = k ^ you_side
 		if idx != _ball[k] or changed:
 			_ball[k] = idx
 			_card[k] = _describe(sim, idx)
 			changed = true
-	_timed = _card[0].get("every", 0) > 0 or _card[1].get("every", 0) > 0
+	_timed = false
+	for k in _n:
+		_timed = _timed or _card[k].get("every", 0) > 0
 	if changed or _timed:
 		queue_redraw()
-
-
-## The side's ball that is fighting now (relays bring a new one in).
-func _front(sim, side: int) -> int:
-	for b in sim.balls:
-		if b.index % 2 == side and b.index < 2:
-			return b.index
-	return side
 
 
 func _describe(sim, i: int) -> Dictionary:
@@ -88,6 +86,11 @@ func _draw() -> void:
 		return
 	var gap := 12.0
 	var w := (size.x - gap) / 2.0
+	if _n == 4: # Viewer's pair on the left, the foes on the right.
+		var h := (size.y - gap) / 2.0
+		for k in 4:
+			_draw_card(k, Rect2((k % 2) * (w + gap), (k / 2) * (h + gap), w, h))
+		return
 	for k in 2:
 		_draw_card(k, Rect2(k * (w + gap), 0.0, w, size.y))
 
@@ -96,14 +99,14 @@ func _draw_card(k: int, r: Rect2) -> void:
 	var card: Dictionary = _card[k]
 	if card.is_empty():
 		return
-	var col: Color = TEAM_COLORS[k]
+	var col: Color = TEAM_COLORS[k % 2]
 	var box := StyleBoxFlat.new()
 	box.bg_color = PANEL
 	box.border_color = Color(col, 0.6)
 	box.set_border_width_all(2)
 	box.set_corner_radius_all(18)
 	draw_style_box(box, r)
-	var fr := minf(34.0, r.size.y * 0.22)
+	var fr := minf(34.0, r.size.y * (0.3 if _n == 4 else 0.22))
 	var face := r.position + Vector2(14.0 + fr, 14.0 + fr)
 	if card.boss:
 		BossArt.draw(self, card.id, face, fr * 0.9, {})
@@ -122,6 +125,11 @@ func _draw_card(k: int, r: Rect2) -> void:
 	var tw := r.end.x - tx - 10.0
 	draw_string(FONT, Vector2(tx, r.position.y + 14.0 + fs), card.name, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, col)
 	var sfs := A11y.font(20)
+	if _n == 4: # Compact: the ability text runs beside the face, under the name.
+		var room := int((r.end.y - (r.position.y + 18.0 + fs) - 8.0) / (sfs + 4.0))
+		if room > 0 and card.text != "":
+			draw_multiline_string(FONT, Vector2(tx, r.position.y + 18.0 + fs + sfs), card.text, HORIZONTAL_ALIGNMENT_LEFT, tw, sfs, room, TEXT)
+		return
 	draw_string(FONT, Vector2(tx, r.position.y + 18.0 + fs + sfs), card.line, HORIZONTAL_ALIGNMENT_LEFT, tw, sfs, MUTED)
 	var top := r.position.y + 28.0 + 2.0 * fr
 	var lines := int((r.end.y - top - 8.0) / (sfs + 4.0))
