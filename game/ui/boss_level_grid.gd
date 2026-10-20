@@ -32,6 +32,7 @@ static func grid(shell, profile, key: String, picked_level: int, accent: Color, 
 		else:
 			face = Glyph.make("lock", 22, Kit.MUTED)
 		var cell := Kit.hbox(4, [face], BoxContainer.ALIGNMENT_CENTER)
+		cell.custom_minimum_size.y = 44.0 ## Locked and open cells the same height.
 		if d < beaten:
 			cell.add_child(Glyph.make("stars", 14, Kit.GOOD, 1))
 		var bg := accent.darkened(0.45) if on else (Kit.PANEL2 if open else Kit.PANEL)
@@ -39,7 +40,6 @@ static func grid(shell, profile, key: String, picked_level: int, accent: Color, 
 		var tap := (func(): shell.refresh_with({"level": d})) if open else (func(): shell.toast("Beat level %d to open level %d." % [d, d + 1]))
 		var b := Kit.card_button(cell, tap, border, bg, 20, 8)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size.y = maxf(b.custom_minimum_size.y, 60.0)
 		shell.mark("%s_lv%d" % [prefix, d + 1], b)
 		g.add_child(b)
 	return g
