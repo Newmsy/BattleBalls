@@ -80,6 +80,7 @@ var friends = Friends.new()
 var account = null
 ## Where invite links point: main.gd sets the page's own address on the web.
 var link_base := FightLink.HOME
+var build_stamp := "" ## "v0.2.0 abc1234 · account": shown at the foot of Settings, never in a fight.
 ## Emitted when a campaign stage starts; energy is already spent.
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
 ## Emitted when a farming boss run starts from its screen ("vault" Anvil King,

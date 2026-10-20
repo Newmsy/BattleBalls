@@ -230,6 +230,30 @@ func _draw() -> void:
 			draw_polyline(sh, color, s * .08, true)
 			draw_line(Vector2(.5, .2) * s, Vector2(.5, .8) * s, Color(color, .7), s * .07)
 			draw_line(Vector2(.26, .4) * s, Vector2(.74, .4) * s, Color(color, .7), s * .07)
+		"replay":
+			draw_arc(c, s * .34, -PI * .35, PI * 1.45, 24, color, s * .1, true)
+			var tip := c + Vector2(cos(-PI * .35), sin(-PI * .35)) * s * .34
+			draw_colored_polygon(PackedVector2Array([tip + Vector2(-.2, -.08) * s, tip + Vector2(.1, -.16) * s, tip + Vector2(.04, .16) * s]), color)
+		"share":
+			draw_polyline(PackedVector2Array([Vector2(.34, .42) * s, Vector2(.18, .42) * s, Vector2(.18, .9) * s, Vector2(.82, .9) * s, Vector2(.82, .42) * s, Vector2(.66, .42) * s]), color, s * .08, true)
+			draw_line(Vector2(.5, .64) * s, Vector2(.5, .12) * s, color, s * .09, true)
+			draw_polyline(PackedVector2Array([Vector2(.32, .28) * s, Vector2(.5, .1) * s, Vector2(.68, .28) * s]), color, s * .09, true)
+		"film":
+			draw_rect(Rect2(Vector2(.08, .26) * s, Vector2(.6, .5) * s), color)
+			draw_colored_polygon(PackedVector2Array([Vector2(.7, .5) * s, Vector2(.94, .3) * s, Vector2(.94, .7) * s]), color)
+			draw_circle(Vector2(.38, .51) * s, s * .1, Color("0b0a1f"))
+		"crown":
+			# A cleared stage's mark: never a star, which means tier.
+			var crown := PackedVector2Array([Vector2(.1, .3) * s, Vector2(.32, .52) * s, Vector2(.5, .16) * s, Vector2(.68, .52) * s,
+				Vector2(.9, .3) * s, Vector2(.8, .82) * s, Vector2(.2, .82) * s])
+			draw_colored_polygon(crown, GOLD if count > 0 else OFF)
+			for p in [Vector2(.1, .26), Vector2(.5, .12), Vector2(.9, .26)]:
+				draw_circle(p * s, s * .07, GOLD if count > 0 else OFF)
+		"power":
+			# Power: a burst, so it never reads as the energy bolt.
+			draw_colored_polygon(CritterArt.star_pts(c, s * .5, s * .3, 8), color)
+			draw_circle(c, s * .17, Color("0b0a1f"))
+			draw_circle(c, s * .09, color)
 		"token":
 			# The Arena's Token: a magenta hexagon with crossed swords, so it never
 			# reads as the gold coin.
