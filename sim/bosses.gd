@@ -93,7 +93,7 @@ const DEFS := {
 		"draw_in": 60.0,
 		"family_bonus": 0.5, ## Attack for critters of today's family.
 		"volley_every": 2.9, ## Boss-clock seconds between volleys.
-		"volley_windup": 0.8, ## The heads glow before they fire: stun it then and it fizzles.
+		"volley_windup": 0.8, ## The heads light up before they fire: stun it then and it fizzles.
 		"ring_count": 9, ## A ring volley: one orb per head, a gap to slip through.
 		"fan_count": 3, ## Every other volley: a fan aimed at you.
 		"fan_spread": 16.0,
