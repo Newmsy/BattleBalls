@@ -131,7 +131,7 @@ static func lines(text: String, size := 21, color := Kit.FG) -> Label:
 	return l
 
 
-static func _action(text: String, on_press: Callable, kind := "primary") -> Button:
+static func _action(text: String, on_press: Callable, kind := "go") -> Button:
 	return Kit.button(text, on_press, kind, 22, 64)
 
 

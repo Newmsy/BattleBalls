@@ -11,7 +11,7 @@ const Talents := preload("res://sim/talents.gd")
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Talent trees"), Kit.label("Factions", 44)])
+	var head := Kit.vbox(2, [Kit.caption("Talent trees"), Kit.label("Factions", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Factions", info_text(), "factions_info")],
 		BoxContainer.ALIGNMENT_CENTER))

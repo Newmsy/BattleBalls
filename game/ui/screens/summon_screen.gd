@@ -46,7 +46,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(Kit.panel(Kit.vbox(4, [portal, feat]), st))
 	if not Intro.done(p):
 		# A new player's first summon: just the portal and the button.
-		var first := Kit.button("Free x1" if p.free_summon else "x1  (1 egg)", func(): _pull(shell, 1), "go", 30, 96)
+		var first := Kit.button("Free x1", func(): _pull(shell, 1), "go", 30, 96) if p.free_summon else Kit.cost_button("x1", 1, "egg", func(): _pull(shell, 1), "go", 30, 96)
 		first.disabled = not p.free_summon and p.orbs < 1
 		shell.mark("pull1", first)
 		shell.pin(first)
@@ -58,8 +58,11 @@ static func build(shell, _params: Dictionary) -> Control:
 		Kit.bar(float(Summon.PITY_RESET - pity) / Summon.PITY_RESET, Glyph.GOLD)]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
 	var free := Dev.free_summons()
-	var one := Kit.button("Free x1" if p.free_summon or free else "x1  (1 egg)", func(): _pull(shell, 1), "ghost", 28, 96)
-	var ten := Kit.button("Free x10" if free else "x10  (10 eggs)", func(): _pull(shell, 10), "primary", 28, 96)
+	# A free pull is the green button; paid pulls show their cost in eggs.
+	var one := Kit.button("Free x1", func(): _pull(shell, 1), "go", 28, 96) if p.free_summon or free \
+		else Kit.cost_button("x1", 1, "egg", func(): _pull(shell, 1), "ghost", 28, 96)
+	var ten := Kit.button("Free x10", func(): _pull(shell, 10), "primary", 28, 96) if free \
+		else Kit.cost_button("x10", 10, "egg", func(): _pull(shell, 10), "primary", 28, 96)
 	one.disabled = not (p.free_summon or free) and p.orbs < 1
 	ten.disabled = not free and p.orbs < 10
 	shell.mark("pull1", one)

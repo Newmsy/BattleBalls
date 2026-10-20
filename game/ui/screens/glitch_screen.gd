@@ -21,7 +21,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Weekly boss · story", CORE), Kit.label("The Glitch", 44)])
+	var head := Kit.vbox(2, [Kit.caption("Weekly boss · story", CORE), Kit.label("The Glitch", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("The Glitch", [
 		"The bug behind everything, in the Corrupted Core. Every 10 seconds it rewrites the rules:",
@@ -32,7 +32,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	var left := GlitchCore.runs_left(p, now)
 	var tries := ("%d of %d tries this week" % [left, GlitchCore.RUNS_PER_DAY]) if left > 0 else "Beaten (or out of tries) this week"
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("Energy %d/%d  ·  %s" % [p.energy, p.energy_max, tries], 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("%d/%d  ·  %s" % [p.energy, p.energy_max, tries], 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER))
 
 	if params.has("notice"):
 		var note := Kit.vbox(12, [Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
@@ -55,7 +55,7 @@ static func build(shell, params: Dictionary) -> Control:
 	for r in GlitchCore.BUNDLE:
 		loot.add_child(Kit.hbox(8, [Glyph.make(NAMES[r.kind][0], 22), Kit.label("%d %s" % [r.n, NAMES[r.kind][1]], 20)], BoxContainer.ALIGNMENT_BEGIN))
 	loot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight := Kit.button("Fight  %d" % GlitchCore.ENERGY_COST, _fight.bind(shell, fighter), "go", 24, 72)
+	var fight := Kit.cost_button("Fight", GlitchCore.ENERGY_COST, "energy", _fight.bind(shell, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
 	shell.mark("glitch_go", fight)

@@ -22,7 +22,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Daily boss · summon eggs", NEST), Kit.label("Brood Queen", 44)])
+	var head := Kit.vbox(2, [Kit.caption("Daily boss · summon eggs", NEST), Kit.label("Brood Queen", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Brood Queen", [
 		"A great neon hen gliding round The Nest. She lays eggs that hatch into darting chicks, and flings feathers at you.",
@@ -32,7 +32,7 @@ static func build(shell, params: Dictionary) -> Control:
 		BoxContainer.ALIGNMENT_CENTER))
 
 	var left := BroodNest.runs_left(p, now)
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("Energy %d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, BroodNest.RUNS_PER_DAY], 22, Kit.MUTED),
+	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("%d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, BroodNest.RUNS_PER_DAY], 22, Kit.MUTED),
 		Kit.spacer(), Glyph.make("orb", 30), Kit.label(Kit.commas(p.orbs), 24)], BoxContainer.ALIGNMENT_CENTER))
 
 	if params.has("notice"):
@@ -63,7 +63,7 @@ static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	var info := Kit.vbox(4, [Kit.label(diff.name, 28), Kit.hbox(8, [Glyph.make("orb", 22), Kit.label("%d + bonus" % diff.orbs, 20)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "She's stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight := Kit.button("Fight  %d" % BroodNest.ENERGY_COST, _fight.bind(shell, d, fighter), "go", 24, 72)
+	var fight := Kit.cost_button("Fight", BroodNest.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
 	shell.mark("nest_go", fight)

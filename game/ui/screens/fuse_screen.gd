@@ -28,7 +28,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"The new copy keeps the highest level of the three, and its level cap goes up.",
 		"Gear on the used copies goes back to your Bag.",
 		"Critter Hunts will be the best place to farm copies."], "fuse_info")
-	root.add_child(Kit.hbox(12, [Kit.label("Fusion Lab", 40), Kit.label("3 of a kind → next tier", 22, Kit.MUTED), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(Kit.hbox(12, [Kit.vbox(2, [Kit.caption("3 of a kind → next tier"), Kit.label("Fusion Lab", 40)]), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
 
 	var list := Kit.vbox(12, [Kit.caption("Ready to fuse")])
 	if ready.is_empty():
