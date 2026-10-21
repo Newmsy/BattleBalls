@@ -82,6 +82,22 @@ func test_a_loss_costs_the_fighter_and_three_end_the_run() -> void:
 	check_eq(BounceRun.score(run), {"floors": 0, "lives": 0, "ticks": 1800}, "score")
 
 
+## The foe keeps the damage it took when it beats one of your critters, so
+## the next one you send finishes it off; a cleared floor's next foe is fresh.
+func test_the_foe_keeps_its_damage_between_sends() -> void:
+	var setup := BounceRun.generate(3)
+	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
+	check_eq(BounceRun.fight_config(setup, run, 0, -450).hp, [null, null], "the first send meets a fresh foe")
+	BounceRun.record(setup, run, 0, -450, 1, 600, 37.5)
+	check_eq(BounceRun.fight_config(setup, run, 1, -450).hp, [null, 37.5], "the next send meets the hurt foe")
+	var sim := MatchSim.new(BounceRun.fight_config(setup, run, 1, -450))
+	check_eq(sim.balls[1].hp, 37.5, "the sim starts the foe on that HP")
+	BounceRun.record(setup, run, 1, -450, -1, 600, -4.0)
+	check_eq(run.foe_hp, 0.01, "a double KO leaves the foe barely standing")
+	BounceRun.record(setup, run, 2, -450, 0, 300, 0.0)
+	check_eq(BounceRun.fight_config(setup, run, 2, -450).hp, [null, null], "the next floor's foe is fresh")
+
+
 func test_winning_every_floor_clears_the_run() -> void:
 	var setup := BounceRun.generate(2)
 	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
@@ -136,7 +152,7 @@ func test_runs_replay_from_their_log() -> void:
 		var aim: int = aims[i % aims.size()]
 		i += 1
 		var result := MatchSim.new(BounceRun.fight_config(setup, run, slot, aim)).run_to_end()
-		BounceRun.record(setup, run, slot, aim, result.winner, result.ticks)
+		BounceRun.record(setup, run, slot, aim, result.winner, result.ticks, result.hp[1])
 		if not run.offer.is_empty():
 			BounceRun.take_boon(run, run.offer[i % run.offer.size()])
 	var check_run := BounceRun.replay(setup, run)
