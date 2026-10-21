@@ -34,9 +34,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(Kit.hbox(10, [Kit.label("Summon Portal", 40), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
 
 	var featured := Roster.get_critter(Summon.featured())
-	var portal := _Portal.new()
-	portal.custom_minimum_size = Vector2(0, 200)
-	portal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var portal := _Portal.make(200)
 	var feat := Kit.hbox(14, [CritterIcon.make(featured.id, 1, 84), Kit.vbox(2, [Kit.caption("Spotlight", Color("e8c8ff")),
 		Kit.label(featured.name, 30), Kit.label("Half of %s pulls" % Roster.RARITY_NAMES[featured.rarity], 21, Color("e8c8ff"), HORIZONTAL_ALIGNMENT_LEFT, true)])])
 	feat.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -194,6 +192,9 @@ static func _pull(shell, n: int) -> void:
 static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	var root := _Reveal.new()
 	root.add_theme_stylebox_override("panel", Kit.box(Color("120a2e"), Color(0, 0, 0, 0), 0, 0, 40))
+	var back := _Backdrop.new()
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(back)
 	var v := Kit.vbox(24)
 	v.add_child(Kit.caption("Summon x%d" % ids.size(), Color("e8c8ff")))
 	v.get_child(0).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -263,12 +264,16 @@ static func _fuse_note(p, id: String) -> String:
 	return "FUSE READY" if t1 >= 3 else "%d/3 TO FUSE" % t1
 
 
-## Opens the capsules one by one, OPEN_GAP apart, so a x10 takes about 4
-## seconds. A Legendary shakes and charges first (an extra beat), then bursts
-## with a screen flash. Tap anywhere (or Skip) to open the rest at once.
+## The eggs drop in from above one after another (DROP_GAP apart) and land
+## in place, then open one by one, OPEN_GAP apart, so a x10 takes about 4
+## seconds after its 1 second drop. A Legendary shakes and charges first (an
+## extra beat), then bursts with a screen flash. Tap anywhere (or Skip) to
+## open the rest at once.
 class _Reveal extends PanelContainer:
 	const OPEN_GAP := 0.4
 	const CHARGE := 0.6
+	const DROP_GAP := 0.08
+	const SETTLE := 0.15 ## A beat after the last egg lands before the first cracks.
 	const Roster := preload("res://game/ui/roster.gd")
 	const A11y := preload("res://game/a11y.gd")
 
@@ -280,6 +285,7 @@ class _Reveal extends PanelContainer:
 	var _wait := OPEN_GAP
 	var _charging := false
 	var _best := 0
+	var _intro := 0.0 ## Seconds of drop-in left before the first egg cracks.
 
 	func setup(caps_: Array, title_: Label, skip_: Button, flash_) -> void:
 		caps = caps_
@@ -287,8 +293,18 @@ class _Reveal extends PanelContainer:
 		skip_button = skip_
 		flash = flash_
 		mouse_filter = Control.MOUSE_FILTER_STOP
-		if not caps.is_empty():
-			caps[0].crack(OPEN_GAP)
+		# A little jitter so a x10 falls like hail, not a metronome.
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		for i in caps.size():
+			var at := i * DROP_GAP + (rng.randf_range(-.025, .025) if i > 0 else 0.0)
+			caps[i].drop(at)
+			_intro = maxf(_intro, at + caps[i].fall_time())
+		_intro += SETTLE
+
+	## Seconds before the first egg opens: the drop-in plus one OPEN_GAP.
+	func intro_time() -> float:
+		return _intro + OPEN_GAP
 
 	func _gui_input(e: InputEvent) -> void:
 		if (e is InputEventMouseButton or e is InputEventScreenTouch) and e.pressed and _next < caps.size():
@@ -297,6 +313,11 @@ class _Reveal extends PanelContainer:
 
 	func _process(delta: float) -> void:
 		if _next >= caps.size():
+			return
+		if _intro > 0.0:
+			_intro -= delta
+			if _intro <= 0.0:
+				caps[0].crack(OPEN_GAP)
 			return
 		_wait -= delta
 		if _wait > 0.0:
@@ -382,6 +403,9 @@ class _Capsule extends Control:
 	const BURST := [1.0, 1.15, 1.35, 1.7, 2.3]
 	const SPARKS := [8, 10, 14, 20, 32]
 	const BURST_TIME := .7
+	const FALL := .42 ## Seconds from above the screen to landing (FALL_ONE for a x1).
+	const FALL_ONE := .55
+	const LAND := .4 ## The squash and dust puff after landing.
 
 	var id := ""
 	var is_new := false
@@ -405,6 +429,9 @@ class _Capsule extends Control:
 	var _shards: Array = [] ## Vector4(angle, speed, spin, size) per shell shard.
 	var _ink := Color(1, 1, 1) ## The family's colour, for its pattern.
 	var _specks: Array = [] ## Vector3(x, y, radius): the shell's natural speckles.
+	var _drop_t := 10.0 ## Seconds since it started falling (negative: still waiting).
+	var _landed := true
+	var _tick := -1
 
 	func setup(id_: String, is_new_: bool, side_: float, sfx_) -> void:
 		id = id_
@@ -441,6 +468,25 @@ class _Capsule extends Control:
 	func rarity_index() -> int:
 		return _ri
 
+	func fall_time() -> float:
+		return FALL_ONE if side > 200 else FALL
+
+	## Drops the egg in from above the screen after `delay` seconds. Reduced
+	## motion fades it in where it sits instead.
+	func drop(delay: float) -> void:
+		_landed = false
+		_drop_t = -delay
+		if A11y.reduced_motion:
+			modulate.a = 0.0
+			var tw := create_tween()
+			tw.tween_interval(delay)
+			tw.tween_property(self, "modulate:a", 1.0, .2)
+
+	func _land() -> void:
+		_landed = true
+		if sfx and not A11y.reduced_motion:
+			sfx.play("summon_land", 0.0, 1.0 + randf_range(-.08, .08) - (.15 if side > 200 else 0.0))
+
 	## Cracks start spreading across the shell; it hatches after `len` seconds.
 	func crack(len: float) -> void:
 		if opened:
@@ -464,6 +510,9 @@ class _Capsule extends Control:
 			return
 		opened = true
 		_charge_t = -1.0
+		_landed = true
+		_drop_t = maxf(_drop_t, 10.0)
+		modulate.a = 1.0
 		var c := Roster.get_critter(id)
 		# The rarity word in its colour; a copy of one you had shows its fuse progress
 		# instead (both on a single big reveal).
@@ -503,10 +552,21 @@ class _Capsule extends Control:
 	func _process(delta: float) -> void:
 		_t += delta
 		_open_t += delta
+		_drop_t += delta
+		if not _landed and _drop_t >= fall_time():
+			_land()
 		if _charge_t >= 0.0:
 			_charge_t += delta
 		if _crack_t >= 0.0:
 			_crack_t += delta
+		if _drop_t < 0.0:
+			return # Still waiting to fall: nothing drawn yet.
+		# Once hatched and settled only the halo moves: idle on the shared clock.
+		if opened and _open_t >= BURST_TIME:
+			var tick := CritterIcon.clock()
+			if tick == _tick:
+				return
+			_tick = tick
 		queue_redraw()
 
 	func _draw() -> void:
@@ -514,14 +574,38 @@ class _Capsule extends Control:
 		var r := side * .36
 		var still := A11y.reduced_motion
 		if not opened:
+			if _drop_t < 0.0:
+				return
 			var pulse := .5 + .5 * sin(_t * 4.0 + _phase)
 			var grow := 0.0
 			if _charge_t >= 0.0:
 				grow = clampf(_charge_t / .6, 0.0, 1.0)
+			# Falling in: from above the screen, speeding up like a dropped thing;
+			# the shadow gathers under it as it comes down. Then a squash and a
+			# little rebound, with a puff of dust either side.
+			var fall := 0.0
+			var squash := Vector2.ONE
+			var land_e := 1.0
+			if not still:
+				var ft := fall_time()
+				if _drop_t < ft:
+					var e := _drop_t / ft
+					fall = -(1.0 - e * e) * (global_position.y + side * 1.6)
+					land_e = e * e
+				else:
+					var k := clampf((_drop_t - ft) / LAND, 0.0, 1.0)
+					var bounce := sin(k * PI * 2.0) * (1.0 - k) * (1.0 - k)
+					squash = Vector2(1.0 + .2 * bounce, 1.0 - .22 * bounce)
+					if k < 1.0:
+						var puff := 1.0 - pow(1.0 - k, 2.0)
+						for sgn in [-1.0, 1.0]:
+							for j in 3:
+								var at := c + Vector2(sgn * r * (.45 + .6 * puff + j * .14), r * (.9 - .12 * j * puff))
+								Dot.circle(self, at, r * (.09 + .07 * puff) * (1.0 - j * .2), Color(Color("c9b8e8"), .35 * (1.0 - k)))
 			# A soft shadow on the ground; only Epic and Legendary eggs (and the
 			# Legendary wind-up) give off a faint glow.
-			draw_set_transform(c + Vector2(0, r * .95), 0.0, Vector2(1.0, .28))
-			Dot.circle(self, Vector2.ZERO, r * .7, Color(0, 0, 0, .35))
+			draw_set_transform(c + Vector2(0, r * .95), 0.0, Vector2(.4 + .6 * land_e, .28 * (.4 + .6 * land_e)))
+			Dot.circle(self, Vector2.ZERO, r * .7, Color(0, 0, 0, .35 * land_e))
 			draw_set_transform_matrix(Transform2D.IDENTITY)
 			var halo := (.03 * (_ri - 2) if _ri >= 3 else 0.0) * (.8 + .2 * pulse) + grow * .1
 			if halo > 0.0:
@@ -536,8 +620,8 @@ class _Capsule extends Control:
 				tilt = sin(_t * 2.6 + _phase) * .05 + sin(_t * 31.0) * .12 * cracked
 				shake = Vector2(sin(_t * 61.0), cos(_t * 47.0)) * r * .07 * grow
 			# Wobble about the egg's base.
-			var base := c + Vector2(0, r * .92) + shake
-			draw_set_transform_matrix(Transform2D(tilt, base) * Transform2D(0.0, Vector2(r, r), 0.0, Vector2(0, -.92 * r)))
+			var base := c + Vector2(0, r * .92 + fall) + shake
+			draw_set_transform_matrix(Transform2D(tilt, base) * Transform2D(0.0, Vector2(r, r) * squash, 0.0, Vector2(0, -.92 * r * squash.y)))
 			_draw_egg(cracked, pulse + grow)
 			draw_set_transform_matrix(Transform2D.IDENTITY)
 			return
@@ -785,27 +869,140 @@ class EggArt:
 		return pts
 
 
-## The swirling portal at the top of the screen.
+## The Summon Portal at the top of the screen: a carved stone ring set with
+## a gem for each of the nine families, on a stepped plinth, around a slow
+## violet vortex. The ring and plinth are drawn once (a still layer on top);
+## only the vortex behind them moves, on the shared idle clock.
 class _Portal extends Control:
-	var _t := 0.0
+	const Families := preload("res://sim/families.gd")
+	const Dot := preload("res://game/dot.gd")
+	const STONE := Color("3a3150")
+	const STONE_LIT := Color("5d5378")
+	const STONE_DARK := Color("221c33")
+	const GOLD := Color("d9b56a")
 
-	func _process(delta: float) -> void:
-		_t += delta
-		queue_redraw()
+	static func make(height: float) -> Control:
+		var holder := Control.new()
+		holder.custom_minimum_size = Vector2(0, height)
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var swirl := _Vortex.new()
+		var frame := _Portal.new()
+		for layer in [swirl, frame]:
+			layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			holder.add_child(layer)
+		return holder
+
+	## The ring's centre and outer radius for a layer of this size.
+	static func ring(sz: Vector2) -> Array:
+		var r := minf(sz.y * .44, sz.x * .3)
+		return [Vector2(sz.x / 2.0, sz.y * .47), r]
 
 	func _draw() -> void:
-		var c := size / 2.0
-		for i in range(6, 0, -1):
-			var rx := 30.0 + i * 24.0
-			var a0 := _t * (.3 + i * .12) * (1.0 if i % 2 else -1.0)
+		var g := ring(size)
+		var c: Vector2 = g[0]
+		var r: float = g[1]
+		var band := r * .2
+		# Stepped plinth the ring stands on.
+		var foot := c.y + r * .98
+		for k in 2:
+			var w := r * (1.15 + k * .35)
+			var h := r * .11
+			var y := foot + k * h
+			Dot.poly(self, PackedVector2Array([Vector2(c.x - w + h, y), Vector2(c.x + w - h, y), Vector2(c.x + w, y + h), Vector2(c.x - w, y + h)]), STONE_DARK if k else STONE)
+			draw_line(Vector2(c.x - w + h, y), Vector2(c.x + w - h, y), STONE_LIT, 2.0, true)
+		# The stone ring: a dark band, a lit inner lip, a thin gold inlay and
+		# seams between the blocks.
+		draw_arc(c, r - band / 2.0, 0.0, TAU, 64, STONE, band, true)
+		draw_arc(c, r - band * .08, PI * .85, PI * 1.9, 32, STONE_LIT, band * .16, true)
+		draw_arc(c, r - band, 0.0, TAU, 64, STONE_DARK, band * .22, true)
+		draw_arc(c, r - band * .55, 0.0, TAU, 64, Color(GOLD, .55), 1.5, true)
+		var fams: Array = Families.FAMILIES
+		for i in fams.size():
+			var a := -PI / 2.0 + TAU * (i + .5) / fams.size()
+			var d := Vector2.from_angle(a)
+			draw_line(c + d * (r - band * .95), c + d * (r - band * .05), STONE_DARK, 2.0, true)
+		# A gem for each family, set into the ring between the seams.
+		for i in fams.size():
+			var a := -PI / 2.0 + TAU * i / fams.size()
+			var p := c + Vector2.from_angle(a) * (r - band * .5)
+			var col := Color(fams[i].color).darkened(.1)
+			var s := band * .34
+			Dot.circle(self, p, s * 1.25, STONE_DARK)
+			var gem := PackedVector2Array([p + Vector2(0, -s), p + Vector2(s * .8, 0), p + Vector2(0, s), p + Vector2(-s * .8, 0)])
+			Dot.poly(self, gem, col)
+			Dot.poly(self, PackedVector2Array([gem[0], gem[1], p, gem[3]]), col.lightened(.25))
+			Dot.circle(self, p + Vector2(-s * .25, -s * .4), s * .18, Color(1, 1, 1, .7))
+		# The keystone at the top.
+		var top := c + Vector2(0, -r)
+		var kw := band * .7
+		Dot.poly(self, PackedVector2Array([top + Vector2(-kw, -band * .25), top + Vector2(kw, -band * .25), top + Vector2(kw * .7, band * 1.1), top + Vector2(-kw * .7, band * 1.1)]), STONE_LIT)
+		Dot.poly(self, PackedVector2Array([top + Vector2(0, band * .05), top + Vector2(kw * .35, band * .42), top + Vector2(0, band * .8), top + Vector2(-kw * .35, band * .42)]), GOLD)
+
+
+## The vortex inside the portal ring: a deep well with three spiral arms and
+## motes drifting in. Slow, so it redraws on the shared idle clock and only
+## while it shows.
+class _Vortex extends Control:
+	const Dot := preload("res://game/dot.gd")
+	const CritterIcon := preload("res://game/ui/critter_icon.gd")
+	const A11y := preload("res://game/a11y.gd")
+	const ARMS := 3
+	const MOTES := 12
+	var _tick := -1
+
+	func _process(_delta: float) -> void:
+		if not is_visible_in_tree():
+			return
+		var tick := CritterIcon.clock()
+		if tick != _tick:
+			_tick = tick
+			queue_redraw()
+
+	func _draw() -> void:
+		var g := _Portal.ring(size)
+		var c: Vector2 = g[0]
+		var hole: float = g[1] * .82
+		var t := 0.0 if A11y.reduced_motion else Time.get_ticks_msec() / 1000.0
+		# A soft glow spilling out around the ring, then the well darkening
+		# toward its edge with a pale core.
+		for k in 4:
+			Dot.circle(self, c, hole * (1.9 - k * .2), Color(.45, .3, .85, .045))
+		Dot.circle(self, c, hole, Color("1a0f38"))
+		for k in 6:
+			var f := 1.0 - k / 6.0
+			Dot.circle(self, c, hole * f, Color(.36 + .1 * k, .24 + .08 * k, .7 + .04 * k, .16))
+		Dot.circle(self, c, hole * .16, Color(.95, .9, 1.0, .85))
+		# Spiral arms turning inward.
+		for arm in ARMS:
+			var a0 := -t * .5 + TAU * arm / ARMS
 			var pts := PackedVector2Array()
-			for k in 25:
-				var a := a0 + k * (PI * 1.4) / 24
-				pts.append(c + Vector2(cos(a) * rx, sin(a) * rx * .62))
-			draw_polyline(pts, Color.from_hsv((270.0 + i * 12.0) / 360.0, .7, 1.0, .3 + i * .08), 5.0, true)
-		for k in 8:
-			draw_circle(c, 70.0 - k * 8.0, Color(.9, .78, 1.0, .1 + k * .06))
-		for i in 14:
-			var a := float(i) * 2.4 + _t * .5
-			var rr := fmod(_t * 50.0 + i * 37.0, 160.0)
-			draw_circle(c + Vector2(cos(a) * rr, sin(a) * rr * .62), 3.0, Color(1, .9, 1, 1.0 - rr / 160.0))
+			for i in 15:
+				var u := i / 14.0
+				pts.append(c + Vector2.from_angle(a0 + u * 3.4) * hole * (.95 - .8 * u))
+			draw_polyline(pts, Color(.82, .7, 1.0, .35), hole * .07, true)
+			draw_polyline(pts, Color(1, .95, 1, .3), hole * .025, true)
+		# Motes spiralling in and fading at the core.
+		for i in MOTES:
+			var u := fmod(t * .18 + float(i) / MOTES, 1.0)
+			var a := i * 2.4 - u * 3.0 - t * .5
+			Dot.circle(self, c + Vector2.from_angle(a) * hole * (1.0 - u * .85), hole * .035 * (1.0 - u * .5), Color(1, .92, 1, sin(u * PI) * .8))
+
+
+## Behind the reveal: a soft violet glow where the eggs land and a few faint
+## stars. Drawn once.
+class _Backdrop extends Control:
+	const Dot := preload("res://game/dot.gd")
+
+	func _draw() -> void:
+		var c := Vector2(size.x / 2.0, size.y * .48)
+		var r := maxf(size.x, size.y) * .5
+		for k in 6:
+			Dot.circle(self, c, r * (1.0 - k * .14), Color(.42, .26, .8, .035))
+		for k in 3:
+			draw_arc(c, r * (.35 + k * .17), 0.0, TAU, 72, Color(.7, .6, 1.0, .05), 2.0, true)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7
+		for k in 28:
+			var p := Vector2(rng.randf() * size.x, rng.randf() * size.y)
+			Dot.circle(self, p, rng.randf_range(1.0, 2.6), Color(.9, .85, 1.0, rng.randf_range(.15, .45)))

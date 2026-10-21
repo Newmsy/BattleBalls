@@ -368,6 +368,13 @@ def summon_pop():
     return seq([(0, pop), (0.05, sparkle)])
 
 
+def summon_land():
+    """An egg dropping onto the floor of the portal: a soft, hollow shell 'tok'."""
+    tok = mix(bandnoise(0.02, 800, 5000) * env(0.02, 0.0004, 7) * 0.5,
+              osc(sweep(720, 420, 0.07, 0.5), "tri") * env(0.07, 0.0008, 7) * 0.8)
+    return tok * 0.8
+
+
 def summon_charge():
     """A Legendary capsule shaking before it bursts: a rising shimmering swell."""
     dur = 0.6
@@ -599,7 +606,7 @@ SOUNDS = {
     "ko": ko, "heal": heal, "slurp": slurp, "zap": zap, "sizzle": sizzle,
     "overtime": overtime, "heartbeat": heartbeat,
     "win": win, "lose": lose, "draw": draw, "go": go, "launch": launch, "stretch": stretch, "click": click,
-    "summon_pop": summon_pop, "summon_charge": summon_charge, "summon_legend": summon_legend,
+    "summon_pop": summon_pop, "summon_land": summon_land, "summon_charge": summon_charge, "summon_legend": summon_legend,
     "chomp": chomp, "thwomp": thwomp, "pew": pew,
     "crackle": crackle, "rustle": rustle, "fizzpop": fizzpop, "drum": drum, "rain": rain, "hum": hum,
     "ticktock": ticktock, "splash": splash, "shatter": shatter,
