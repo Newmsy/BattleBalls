@@ -663,7 +663,8 @@ func _begin_aim() -> void:
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
-	aim = MatchSim.aim_at_centre(you_side, 4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 or pve.get("config", {}).has("p3") else 2)
+	var balls := 6 if pve.get("config", {}).has("p5") else (4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 or pve.get("config", {}).has("p3") else 2)
+	aim = MatchSim.aim_at_centre(you_side, balls)
 	arena.clear_effects()
 	arena.reset_camera()
 	_set_aim_preview()
@@ -818,7 +819,7 @@ func _show_result() -> void:
 	_label_result_buttons()
 	var dealt := you.damage_dealt
 	var healed := you.healed
-	if sim.starters == 4: # A 2v2 counts the whole pair (and any split-offs).
+	if sim.starters > 2: # A 2v2 or 3v3 counts the whole team (and any split-offs).
 		dealt = 0.0
 		healed = 0.0
 		for b in sim.balls:
@@ -871,7 +872,7 @@ func _result_caption() -> String:
 		Mode.CAMPAIGN: "Campaign", Mode.LIVE: "Live fight", Mode.TUTORIAL: ""}[mode]
 	if mode == Mode.RIVAL and not rival.is_empty():
 		name = "Rival · " + str(rival.name)
-	return name + (" · 2v2" if sim != null and sim.starters == 4 else "")
+	return name + ((" · %dv%d" % [sim.starters / 2, sim.starters / 2]) if sim != null and sim.starters > 2 else "")
 
 
 ## The winning critter's face beside the headline (a draw shows none).
@@ -1117,10 +1118,19 @@ func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: S
 	info_label.text = FightSpeed.with_aim_hint("%s · %s" % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name])
 
 
-## "Power 2,250 vs 3,100" for a 2v2 pairs stage, short enough for one line.
+## Your critters in a 2v2 or 3v3 campaign stage: p1, p3 (and p5).
+func _team_picks() -> Array:
+	var picks := []
+	for key in ["p1", "p3", "p5"]:
+		if pve.config.has(key):
+			picks.append(pve.config[key])
+	return picks
+
+
+## "Power 2,250 vs 3,100" for a 2v2 or 3v3 stage, short enough for one line.
 func _pair_power_text() -> String:
 	var mine := 0
-	for id in [pve.config.p1, pve.config.p3]:
+	for id in _team_picks():
 		mine += profile.power_of(id)
 	var st := Zones.stage(pve.zone, pve.stage)
 	return "Power %s vs %s" % [Kit.commas(mine), Kit.commas(Campaign.enemy_rating(pve.zone, pve.stage) * Zones.enemies(st).size())]
@@ -1147,11 +1157,11 @@ func _start_url_stage() -> void:
 			profile.stars[Zones.stage_key(zk, k)] = 1
 	for k in i:
 		profile.stars[Zones.stage_key(z, k)] = 1
-	if Zones.zone(z).lineup == 2:
-		# A pairs stage (?pve=2-1) is a 2v2: lend the starter a mate.
-		profile.add_copies(["laser" if Profile.STARTER != "laser" else "vampire"])
-		var picks := Campaign.team_for(profile, 2)
-		_start_stage(Campaign.pair_config(profile, Campaign.start_team(profile, z, i, picks, now)), z, i, picks[0])
+	if Zones.format(z, i) in ["duo", "brawl"]:
+		# A 2v2 (?pve=2-1) or 3v3 brawl (?pve=3-2): lend the starter mates.
+		profile.add_copies(["laser", "vampire", "spiker"].filter(func(id): return id != Profile.STARTER))
+		var picks := Campaign.team_for(profile, Zones.team_size(z, i))
+		_start_stage(Campaign.team_config(profile, Campaign.start_team(profile, z, i, picks, now)), z, i, picks[0])
 	else:
 		_start_stage(Campaign.start(profile, z, i, Profile.STARTER, now), z, i, Profile.STARTER)
 	if auto_start:
@@ -1172,7 +1182,7 @@ func _finish_stage() -> void:
 		print("BOSS_END boss=%s difficulty=%d won=%s" % [pve.boss, pve.vault, v.won])
 		return
 	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight) if sim.starters == 2 \
-		else Campaign.finish_team(profile, pve.zone, pve.stage, [pve.config.p1, pve.config.p3], Campaign.pair_fight(sim))
+		else Campaign.finish_team(profile, pve.zone, pve.stage, _team_picks(), Campaign.pair_fight(sim))
 	Intro.after_stage(profile, pve.zone, pve.stage, r)
 	pve.result = CampaignScreen.result_text(r)
 	pve.r = r
@@ -1774,13 +1784,13 @@ func _update_hud() -> void:
 	fight_hud.tags = tags.map(func(t): return str(t).to_upper())
 	if _stats_for != sim:
 		_stats_for = sim
-		fight_hud.stats = ["", ""] if sim.starters == 4 else [_side_stats(you_side), _side_stats(1 - you_side)]
+		fight_hud.stats = ["", ""] if sim.starters > 2 else [_side_stats(you_side), _side_stats(1 - you_side)]
 	var twist: String = Modifiers.display_name(sim.config.modifier) if sim.config.get("modifier", Modifiers.NONE) != Modifiers.NONE else ""
 	fight_hud.caption = "x%.1f damage" % sim.damage_multiplier() if sim.in_overtime() else twist
 	fight_hud.show_fight(sim, clock)
 	# The bars (four in a 2v2, or two with their tier and power lines) take
 	# the title's room above the arena.
-	var tall := sim.starters == 4
+	var tall := sim.starters > 2
 	menu_header.visible = false
 	fight_hud.position = _hud_box.position + (Vector2.ZERO if tall else Vector2(0, 16))
 	fight_hud.size = _hud_box.size - (Vector2.ZERO if tall else Vector2(0, 20))

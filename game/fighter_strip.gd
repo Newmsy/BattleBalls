@@ -21,9 +21,9 @@ const TEXT := Color("f0eeff")
 const MUTED := Color("a29fc9")
 
 ## Ball on each card: 0 = the viewer's side, 1 = the foe's, then (2v2) the
-## viewer's mate and the foe's mate.
-var _ball := [-1, -1, -1, -1]
-var _card := [{}, {}, {}, {}]
+## viewer's mate and the foe's mate (and in a 3v3 the third of each).
+var _ball := [-1, -1, -1, -1, -1, -1]
+var _card := [{}, {}, {}, {}, {}, {}]
 var _n := 2
 var _sim = null
 var _you_side := 0
@@ -40,7 +40,8 @@ func show_fight(sim, you_side := 0) -> void:
 	var changed: bool = _sim != sim or _you_side != you_side
 	_sim = sim
 	_you_side = you_side
-	_n = 4 if sim.get("starters") == 4 and sim.balls.size() >= 4 else 2
+	var starters: int = sim.get("starters") if sim.get("starters") != null else 2
+	_n = starters if starters in [4, 6] and sim.balls.size() >= starters else 2
 	for k in _n:
 		var idx: int = k ^ you_side
 		if idx != _ball[k] or changed:
@@ -109,8 +110,9 @@ func _draw() -> void:
 func _rect(k: int) -> Rect2:
 	var gap := 12.0
 	var w := (size.x - gap) / 2.0
-	if _n == 4: # Viewer's pair on the left, the foes on the right.
-		var h := (size.y - gap) / 2.0
+	if _n > 2: # Viewer's team on the left, the foes on the right.
+		var rows := _n / 2
+		var h := (size.y - gap * (rows - 1)) / rows
 		return Rect2((k % 2) * (w + gap), (k / 2) * (h + gap), w, h)
 	return Rect2(k * (w + gap), 0.0, w, size.y)
 
@@ -153,7 +155,7 @@ func _draw_card(k: int, r: Rect2) -> void:
 	box.set_border_width_all(2)
 	box.set_corner_radius_all(18)
 	draw_style_box(box, r)
-	var fr := minf(34.0, r.size.y * (0.3 if _n == 4 else 0.22))
+	var fr := minf(34.0, r.size.y * (0.3 if _n > 2 else 0.22))
 	var face := r.position + Vector2(14.0 + fr, 14.0 + fr)
 	if card.boss:
 		BossArt.draw(self, card.id, face, fr * 0.9, {})
@@ -172,7 +174,7 @@ func _draw_card(k: int, r: Rect2) -> void:
 	var tw := r.end.x - tx - 10.0
 	draw_string(FONT, Vector2(tx, r.position.y + 14.0 + fs), card.name, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, col)
 	var sfs := A11y.font(20)
-	if _n == 4: # Compact: the ability text runs beside the face, under the name.
+	if _n > 2: # Compact: the ability text runs beside the face, under the name.
 		var room := int((r.end.y - (r.position.y + 18.0 + fs) - 8.0) / (sfs + 4.0))
 		if room > 0 and card.text != "":
 			draw_multiline_string(FONT, Vector2(tx, r.position.y + 18.0 + fs + sfs), card.text, HORIZONTAL_ALIGNMENT_LEFT, tw, sfs, room, TEXT)
