@@ -5,6 +5,7 @@ extends Control
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const CosmeticArt := preload("res://game/glow/cosmetic_art.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
+const CritterIcon := preload("res://game/ui/critter_icon.gd")
 
 var item_id := ""
 var critter_id := "vampire"
@@ -20,14 +21,14 @@ static func make(id: String, critter: String, side: float) -> Control:
 	return c
 
 
-var _idle := 0.0
+var _tick := -1
 
 func _process(delta: float) -> void:
 	if is_visible_in_tree():
 		_t += delta
-		_idle += delta
-		if _idle >= 1.0 / 20.0: # 20 redraws a second is plenty for an idle shop icon.
-			_idle = 0.0
+		var tick: int = CritterIcon.clock() # Every shop icon redraws on the same frames.
+		if tick != _tick:
+			_tick = tick
 			queue_redraw()
 
 

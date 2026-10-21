@@ -574,18 +574,46 @@ static func draw_death(ci: CanvasItem, id: String, c: Vector2, r: float, age: fl
 
 
 ## A boss in a menu (the boss hall, each boss's screen). Redraws slowly.
+## A boss in a menu. The web build only draws a frame when something changed,
+## and a boss is a lot of antialiased lines, so every icon redraws on the same
+## shared clock with the critter icons (one frame for all of them, not one per
+## icon), small icons tick slower, and an icon that's hidden, off screen or
+## mid-scroll keeps its drawing.
 class BossIcon extends Control:
+	const TouchInput := preload("res://game/ui/touch_input.gd")
+	const CritterIcon := preload("res://game/ui/critter_icon.gd")
+	static var _art: Script ## This file, loaded once (it can't preload itself).
+	## Below this side an icon redraws on every SMALL_EVERY-th tick of the clock.
+	const SMALL_SIDE := 120.0
+	const SMALL_EVERY := 3
 	var boss_id := "anvil_king"
-	var _t := 0.0
+	var _tick := -1
+	var _clip: Control
 
-	func _process(delta: float) -> void:
-		_t += delta
-		if fmod(_t, 0.1) < delta:
-			queue_redraw()
+	func _ready() -> void:
+		if _art == null:
+			_art = load("res://game/boss_art.gd")
+		var node := get_parent()
+		while node != null and _clip == null:
+			if node is ScrollContainer:
+				_clip = node
+			node = node.get_parent()
+
+	func _process(_delta: float) -> void:
+		if not is_visible_in_tree() or TouchInput.scrolling():
+			return
+		var tick: int = CritterIcon.clock(SMALL_EVERY if minf(size.x, size.y) < SMALL_SIDE else 1)
+		if tick == _tick:
+			return
+		var r := get_global_rect()
+		if not r.intersects(get_viewport_rect()) or (is_instance_valid(_clip) and not r.intersects(_clip.get_global_rect())):
+			return
+		_tick = tick
+		queue_redraw()
 
 	func _draw() -> void:
 		var s := minf(size.x, size.y)
-		load("res://game/boss_art.gd").draw(self, boss_id, size / 2.0, s * 0.36, {"t": _t})
+		_art.draw(self, boss_id, size / 2.0, s * 0.36, {"t": Time.get_ticks_msec() / 1000.0})
 
 
 static func icon(id: String, side: float) -> Control:
