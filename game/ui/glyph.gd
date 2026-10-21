@@ -209,6 +209,80 @@ func _draw() -> void:
 			draw_set_transform_matrix(Transform2D.IDENTITY)
 			for i in 2:
 				draw_line(Vector2(.06, .66 + i * .14) * s, Vector2(.22 + i * .04, .66 + i * .14) * s, Color(color, .55), s * .045)
+		"thorn_shell":
+			# Thorns: a round shell ringed with sharp thorns that hit back.
+			for i in 8:
+				var a := i * TAU / 8 + PI / 8
+				var d := Vector2(cos(a), sin(a))
+				var side := d.orthogonal() * s * .07
+				draw_colored_polygon(PackedVector2Array([c + d * s * .3 + side, c + d * s * .48, c + d * s * .3 - side]), color)
+			draw_circle(c, s * .32, Color("1b1842"))
+			draw_arc(c, s * .32, 0, TAU, 28, color, s * .07, true)
+			draw_arc(c, s * .2, PI * .15, PI * 1.35, 12, Color(color, .7), s * .05, true)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(.13, -.09) * s, c + Vector2(.25, -.02) * s, c + Vector2(.13, .06) * s]), Color(color, .7))
+		"spring_shell":
+			# Mend: a coiled spring in a shell, with a green heal cross.
+			draw_circle(c, s * .4, Color("1b1842"))
+			draw_arc(c, s * .4, 0, TAU, 32, color, s * .07, true)
+			var coil := PackedVector2Array()
+			for i in 7:
+				coil.append(Vector2(.34 if i % 2 == 0 else .62, .24 + i * .085) * s)
+			draw_polyline(coil, color, s * .065, true)
+			draw_line(Vector2(.3, .24) * s, Vector2(.66, .24) * s, color, s * .06)
+			draw_line(Vector2(.3, .75) * s, Vector2(.66, .75) * s, color, s * .06)
+			draw_line(Vector2(.78, .1) * s, Vector2(.78, .32) * s, Color("45f5a6"), s * .07)
+			draw_line(Vector2(.67, .21) * s, Vector2(.89, .21) * s, Color("45f5a6"), s * .07)
+		"leech_core":
+			# Lifesteal: a core holding a drop it drank, two fangs above.
+			var hexa := PackedVector2Array()
+			for i in 6:
+				var a := -PI / 2 + i * TAU / 6
+				hexa.append(c + Vector2(cos(a), sin(a)) * s * .42)
+			draw_colored_polygon(hexa, Color("1b1842"))
+			hexa.append(hexa[0])
+			draw_polyline(hexa, color, s * .07, true)
+			var drop := c + Vector2(0, .1) * s
+			draw_circle(drop, s * .14, color)
+			draw_colored_polygon(PackedVector2Array([drop + Vector2(-.12, -.07) * s, drop + Vector2(0, -.3) * s, drop + Vector2(.12, -.07) * s]), color)
+			draw_circle(drop + Vector2(-.05, .02) * s, s * .04, Color(1, 1, 1, .85))
+			for x in [-.1, .1]:
+				draw_colored_polygon(PackedVector2Array([Vector2(.5 + x - .05, .1) * s, Vector2(.5 + x + .05, .1) * s, Vector2(.5 + x, .24) * s]), Color.WHITE)
+		"ricochet_core":
+			# Bank shots: a core bouncing off a wall, the second leg glowing.
+			draw_line(Vector2(.12, .1) * s, Vector2(.12, .9) * s, Color(color, .55), s * .08)
+			draw_line(Vector2(.66, .2) * s, Vector2(.2, .5) * s, Color(color, .55), s * .06, true)
+			draw_line(Vector2(.2, .5) * s, Vector2(.74, .8) * s, color, s * .09, true)
+			draw_colored_polygon(PackedVector2Array([Vector2(.88, .88) * s, Vector2(.62, .86) * s, Vector2(.76, .66) * s]), color)
+			draw_circle(Vector2(.7, .2) * s, s * .15, Color("1b1842"))
+			draw_arc(Vector2(.7, .2) * s, s * .15, 0, TAU, 18, color, s * .06, true)
+			draw_circle(Vector2(.7, .2) * s, s * .06, color)
+			for d in [Vector2(-1, -1), Vector2(-1, 1), Vector2(-1.3, 0)]:
+				draw_line(Vector2(.2, .5) * s + d * s * .03, Vector2(.2, .5) * s + d * s * .11, Color(1, 1, 1, .85), s * .035)
+		"ward_charm":
+			# Start shield: a charm inside a glowing bubble of shield.
+			draw_circle(c, s * .46, Color(color, .14))
+			draw_arc(c, s * .46, 0, TAU, 32, Color(color, .45), s * .05, true)
+			draw_arc(c, s * .38, 0, TAU, 32, color, s * .06, true)
+			var gem := PackedVector2Array([c + Vector2(0, -.2) * s, c + Vector2(.17, .02) * s, c + Vector2(0, .24) * s, c + Vector2(-.17, .02) * s])
+			draw_colored_polygon(gem, Color("1b1842"))
+			gem.append(gem[0])
+			draw_polyline(gem, color, s * .06, true)
+			draw_circle(c + Vector2(0, .02) * s, s * .07, color)
+			draw_arc(c, s * .3, PI * 1.15, PI * 1.45, 8, Color(1, 1, 1, .85), s * .05, true)
+		"phoenix_charm":
+			# Revive: a fiery phoenix feather.
+			var t := Transform2D(PI / 5.0, c)
+			draw_set_transform_matrix(t)
+			draw_colored_polygon(CritterArt.ellipse_pts(Vector2(0, -.06) * s, s * .17, s * .36, 0.0, 0.0, TAU, 22), color)
+			draw_colored_polygon(CritterArt.ellipse_pts(Vector2(0, -.14) * s, s * .08, s * .2, 0.0, 0.0, TAU, 16), Color("ffe08a"))
+			draw_line(Vector2(0, .44) * s, Vector2(0, -.3) * s, Color.WHITE, s * .045)
+			for i in 3:
+				var y := (.12 - i * .13) * s
+				draw_line(Vector2(0, y), Vector2(-.13 * s, y - .07 * s), Color("1b1842"), s * .03)
+				draw_line(Vector2(0, y), Vector2(.13 * s, y - .07 * s), Color("1b1842"), s * .03)
+			draw_set_transform_matrix(Transform2D.IDENTITY)
+			draw_circle(Vector2(.22, .8) * s, s * .05, Color("ff8a3d"))
+			draw_circle(Vector2(.32, .9) * s, s * .035, Color("ffe08a"))
 		"gear":
 			for i in 8:
 				var a := i * TAU / 8

@@ -12,7 +12,7 @@ const Relay := preload("res://sim/relay.gd")
 const Economy := preload("res://meta/economy.gd")
 ## Gear a campaign win can drop (design/gear.md section 4): Shells and Cores,
 ## since Charms only fit 3-star critters.
-const GEAR_POOL := ["iron_shell", "bubble_shell", "spike_core", "echo_core"]
+const GEAR_POOL := ["iron_shell", "bubble_shell", "thorn_shell", "spring_shell", "spike_core", "echo_core", "leech_core", "ricochet_core"]
 
 const RARE_BONUS_CHANCE := 0.05
 ## Second star: win before overtime. Third star: win with this share of HP

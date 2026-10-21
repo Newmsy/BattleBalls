@@ -432,6 +432,10 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-60, -g.radius - 40), "OVERCHARGE!", POP_SNAP)
 				_shake = maxf(_shake, 5.0 * A11y.motion())
+			"ricochet": # A Ricochet Core: the bump after a wall bounce hits harder.
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-56, -g.radius - 40), "RICOCHET!", POP_SNAP)
+				_rings.append({"pos": e.pos, "radius": g.radius * 1.4, "color": Color("ffc23d"), "age": 0.0})
 			"phase":
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-30, -g.radius - 34), "BOO!", POP_SNAP)

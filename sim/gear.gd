@@ -2,7 +2,7 @@
 ## A ball's gear is known setup, like its critter and tier, so a fight still
 ## replays from the seed and the launch angles alone.
 ##
-## Pieces come in six types over three slots (PIECES) and five tiers. Three
+## Pieces come in twelve types over three slots (PIECES) and five tiers. Three
 ## of the same type and tier merge into the next tier (meta/profile.gd), like
 ## critters (design/gear.md). In a fight a piece is {slot, tier, stats:
 ## {line: value}}. MatchSim takes each
@@ -25,8 +25,17 @@ const LINES := {
 	"crit_chance": {"name": "Crit", "t5": 0.105, "max": 0.45, "text": "+%d%% crit chance"},
 	"crit_damage": {"name": "Crit damage", "t5": 0.43, "max": 2.0, "text": "+%d%% crit damage"},
 	"cooldown": {"name": "Cooldown speed", "t5": 0.18, "max": 0.50, "text": "+%d%% ability speed"},
+	# Lines that do something you can see in a fight (sim/match_sim.gd reads
+	# them off the def, like the Bounce Run boons of the same names).
+	"thorns": {"name": "Thorns", "t5": 0.06, "max": 0.60, "text": "bumpers take %d%% of their bump back"},
+	"mend": {"name": "Mend", "t5": 0.002, "max": 0.03, "text": "heal %s%% max HP every wall bounce", "dp": 1},
+	"lifesteal": {"name": "Lifesteal", "t5": 0.07, "max": 0.40, "text": "heal %d%% of your bump damage"},
+	"ricochet": {"name": "Ricochet", "t5": 0.07, "max": 0.50, "text": "+%d%% bump damage after a wall bounce"},
+	"ward": {"name": "Ward", "t5": 0.06, "max": 0.30, "text": "start with a %d%% max HP shield"},
+	"revive": {"name": "Revive", "t5": 0.12, "max": 0.30, "text": "get back up once at %d%% HP"},
 }
-const ORDER := ["attack", "health", "defense", "speed", "crit_chance", "crit_damage", "cooldown"]
+const ORDER := ["attack", "health", "defense", "speed", "crit_chance", "crit_damage", "cooldown",
+	"thorns", "mend", "lifesteal", "ricochet", "ward", "revive"]
 const MAX_TIER := 5
 ## Share of the 5-star value each tier gives (index 0 is 1 star).
 const TIER_SHARE := [0.35, 0.5, 0.65, 0.8, 1.0]
@@ -35,8 +44,10 @@ const PIECE_POWER := 0.05
 const SLOTS := ["Shell", "Core", "Charm"]
 ## The Charm slot opens when the critter reaches this tier.
 const CHARM_TIER := 3
-## The six gear types: slot, and each line's share of its t5 value. Shares on
-## a piece add up to 1, so every piece is worth the same power at a tier.
+## The twelve gear types: slot, and each line's share of its t5 value. Shares
+## on a piece add up to 1, so every piece is worth the same power at a tier.
+## The first two per slot are plain stats; the other two change how a fight
+## looks (thorns, heals, a shield, a comeback).
 const PIECES := {
 	"iron_shell": {"name": "Iron Shell", "slot": "Shell", "lines": {"defense": 1.0}, "glyph": "shell"},
 	"bubble_shell": {"name": "Bubble Shell", "slot": "Shell", "lines": {"health": 1.0}, "glyph": "shell"},
@@ -44,10 +55,22 @@ const PIECES := {
 	"echo_core": {"name": "Echo Core", "slot": "Core", "lines": {"crit_chance": 0.5, "crit_damage": 0.5}, "glyph": "core"},
 	"overclock_charm": {"name": "Overclock Charm", "slot": "Charm", "lines": {"cooldown": 1.0}, "glyph": "charm"},
 	"jet_charm": {"name": "Jet Charm", "slot": "Charm", "lines": {"speed": 1.0}, "glyph": "charm"},
+	"thorn_shell": {"name": "Thorn Shell", "slot": "Shell", "lines": {"thorns": 1.0}, "glyph": "shell"},
+	"spring_shell": {"name": "Spring Shell", "slot": "Shell", "lines": {"mend": 1.0}, "glyph": "shell"},
+	"leech_core": {"name": "Leech Core", "slot": "Core", "lines": {"lifesteal": 1.0}, "glyph": "core"},
+	"ricochet_core": {"name": "Ricochet Core", "slot": "Core", "lines": {"ricochet": 1.0}, "glyph": "core"},
+	"ward_charm": {"name": "Ward Charm", "slot": "Charm", "lines": {"ward": 1.0}, "glyph": "charm"},
+	"phoenix_charm": {"name": "Phoenix Charm", "slot": "Charm", "lines": {"revive": 1.0}, "glyph": "charm"},
 }
 ## Gear rarity before tiers (saves, old ghost lineups), as tiers.
 const RARITY_TIERS := {"common": 1, "uncommon": 2, "rare": 3, "epic": 4, "legendary": 5}
-const TYPES := ["iron_shell", "bubble_shell", "spike_core", "echo_core", "overclock_charm", "jet_charm"]
+const TYPES := ["iron_shell", "bubble_shell", "thorn_shell", "spring_shell", "spike_core", "echo_core",
+	"leech_core", "ricochet_core", "overclock_charm", "jet_charm", "ward_charm", "phoenix_charm"]
+## Fight-effect lines and the def key each one adds to.
+const EFFECT_KEYS := {"thorns": "thorns", "mend": "bounce_heal", "lifesteal": "lifesteal",
+	"ricochet": "bank_bonus", "ward": "start_shield", "revive": "boon_revive"}
+## Effect lines given as a share of max HP (the def key wants HP).
+const PER_MAX_HP := ["mend", "ward"]
 ## Def keys that are ability timers; cooldown speed divides them, and the
 ## `secs` of "every" triggers.
 const TIMER_SUFFIXES := ["_cooldown"]
@@ -117,14 +140,20 @@ static func gear_power(pieces: Array) -> float:
 	return p
 
 
-## The def with gear's stat-sheet lines applied: health, speed and ability
-## timers. Attack, defense and crit are per-hit and live on the Ball.
+## The def with gear's stat-sheet lines applied: health, speed, ability
+## timers and the fight-effect lines (thorns, lifesteal, bank_bonus,
+## bounce_heal, start_shield, boon_revive: the keys the Bounce Run boons use
+## too). Attack, defense and crit are per-hit and live on the Ball.
 static func apply_def(def: Dictionary, t: Dictionary) -> Dictionary:
 	if t.is_empty():
 		return def
 	var out := def.duplicate()
 	out.hp = def.hp * (1.0 + t.get("health", 0.0))
 	out.speed = def.speed * (1.0 + t.get("speed", 0.0))
+	for line in EFFECT_KEYS:
+		if t.get(line, 0.0) > 0.0:
+			var add: float = t[line] * (out.hp if line in PER_MAX_HP else 1.0)
+			out[EFFECT_KEYS[line]] = float(out.get(EFFECT_KEYS[line], 0.0)) + add
 	var rate: float = 1.0 + t.get("cooldown", 0.0)
 	if rate != 1.0:
 		for key in def:
@@ -150,7 +179,11 @@ static func describe(stats: Dictionary) -> String:
 	var parts: Array[String] = []
 	for line in ORDER:
 		if stats.has(line):
-			parts.append(LINES[line].text % roundi(100.0 * float(stats[line])))
+			var pct := 100.0 * float(stats[line])
+			if LINES[line].has("dp"):
+				parts.append(LINES[line].text % ("%.1f" % pct).trim_suffix(".0"))
+			else:
+				parts.append(LINES[line].text % roundi(pct))
 	return ", ".join(parts)
 
 

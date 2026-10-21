@@ -274,8 +274,8 @@ static func applies_to(id: String, ability: String) -> bool:
 ## multiplicatively, everything else adds.
 static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 	var out := def.duplicate()
-	for key in RUNTIME:
-		out[key] = 0.0
+	for key in RUNTIME: # Gear (sim/gear.gd) may have set some already.
+		out[key] = float(def.get(key, 0.0))
 	for id in ids:
 		var boon := get_def(id)
 		if not applies_to(id, str(def.get("ability", ""))):
