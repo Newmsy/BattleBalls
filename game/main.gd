@@ -537,7 +537,7 @@ func _show_menu() -> void:
 
 func _refresh_menu() -> void:
 	for id in player_buttons:
-		player_buttons[id].button_pressed = id == player_type or (_is_duo() and id == _mate())
+		player_buttons[id].button_pressed = id == player_type or (_is_duo() and id == mate_type)
 	new_seed_button.disabled = mode == Mode.CHALLENGE
 	title_label.text = {Mode.CHALLENGE: "Challenge", Mode.RIVAL: "Rival"}.get(mode, "Quick fight")
 	seed_label.text = ("Your critter · %s" % Arenas.get_def(_pick_arena()).display_name).to_upper()
@@ -547,15 +547,19 @@ func _refresh_menu() -> void:
 	duo_button.button_pressed = _is_duo()
 	more_button.text = ("Tiers & rules" if mode == Mode.NORMAL else "Rules: " + Modifiers.display_name(modifier)).to_upper()
 	fight_button.text = "LIVE FIGHT" if _live_on() else "FIGHT!"
+	fight_button.disabled = _is_duo() and mate_type == ""
 	if _is_duo():
-		seed_label.text = ("Your pair: %s + %s · %s" % [BallDefs.get_def(player_type).display_name,
-			BallDefs.get_def(_mate()).display_name, Arenas.get_def(_pick_arena()).display_name]).to_upper()
+		var mate_name: String = BallDefs.get_def(mate_type).display_name if mate_type != "" else "pick one more"
+		seed_label.text = ("Your pair: 1 %s + 2 %s · %s" % [BallDefs.get_def(player_type).display_name,
+			mate_name, Arenas.get_def(_pick_arena()).display_name]).to_upper()
+		if mate_type == "":
+			fight_button.text = "PICK 1 MORE"
 	rules_button.text = Modifiers.display_name(modifier).to_upper()
 	_refresh_tier_buttons()
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
 	if _is_duo():
-		info_label.text = "2v2: all four fight at once. Tap two critters for your pair; you aim %s." % def.display_name
+		info_label.text = "2v2: all four fight at once. Tap to add or take out of your pair; you aim %s." % def.display_name
 	for id in player_loan_tags:
 		player_loan_tags[id].visible = _is_loan(id)
 	if _is_loan(player_type):
@@ -1551,10 +1555,20 @@ func _use_lineup() -> void:
 ## Picking on Quick fight also makes that critter your fighter, when you own it.
 func _pick_player(id: String) -> void:
 	if _is_duo():
-		# Your pair is the last two critters tapped; tapping one already in it keeps the pair.
-		if id != player_type and id != _mate():
-			mate_type = player_type
-			player_type = id
+		# Like every team picker: a tap takes a critter out of your pair or
+		# puts it in, and a full pair takes no more until you take one out.
+		if id == mate_type:
+			mate_type = ""
+		elif id == player_type:
+			if mate_type == "":
+				return # keep at least the critter you aim
+			player_type = mate_type
+			mate_type = ""
+		elif mate_type == "":
+			mate_type = id
+		else:
+			info_label.text = "Your pair is full. Tap one of your pair to take it out first."
+			return
 		_refresh_menu()
 		return
 	player_type = id
