@@ -237,7 +237,8 @@ try {
     {
       const before = logs.length;
       await swipe(page, 360, 700, 0, -400);
-      await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000);
+      // A short collection fits on one screen and doesn't scroll (so doesn't re-report); either way no card opens.
+      await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000).catch(() => {});
       if (logs.slice(before).some((l) => l.startsWith("UI_SCREEN detail"))) errors.push("a scroll drag opened a critter card");
       await page.screenshot({ path: path.join(shots, "3b2-critters-scrolled.png") });
       await swipe(page, 360, 500, 0, 600);
