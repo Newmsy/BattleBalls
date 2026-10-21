@@ -310,3 +310,15 @@ func test_later_zones_give_more_xp_per_stage() -> void:
 	p.add_copies(["laser"])
 	var r: Dictionary = Campaign.finish(p, 2, 0, "laser", _win())
 	check_eq(r.xp, Campaign.win_xp(2, 0), "a win pays its zone's XP")
+
+
+func test_a_picked_campaign_team_fights_in_its_order() -> void:
+	var p = Profile.new_game(T0)
+	p.add_copies(["laser", "frost", "vampire"])
+	p.campaign_team = ["frost", "laser"]
+	check_eq(Campaign.team_for(p, 2), ["frost", "laser"], "your pair, in your order")
+	var trio := Campaign.team_for(p, 3)
+	check_eq(trio.slice(0, 2), ["frost", "laser"], "a trio keeps your picks first")
+	check_eq(trio.size(), 3, "and fills the gap with your strongest")
+	var back = Profile.from_dict(p.to_dict(), T0)
+	check_eq(back.campaign_team, ["frost", "laser"], "the team is saved")

@@ -181,9 +181,14 @@ func test_trio_slot_opens_the_picker() -> void:
 	check(trio[0] != trio[1] and trio[1] != trio[2] and trio[0] != trio[2], "trio is three different critters")
 	shell._marks["arena_slot_0"].pressed.emit()
 	check(shell._marks.has("pick_" + trio[1]), "picker lists owned critters")
-	shell._marks["pick_" + trio[1]].pressed.emit()
-	check_eq(s.trio[0], trio[1], "picked into slot 1")
-	check_eq(s.trio[1], trio[0], "and swapped with the slot it was in")
+	var spare: String = ["laser", "vampire", "spiker", "speedster"].filter(func(id): return not id in trio)[0]
+	check(not shell._marks.pick_confirm.disabled, "the current trio is full, so it can be confirmed")
+	shell._marks["pick_" + spare].pressed.emit() # the team is full: no change
+	shell._marks["pick_" + trio[0]].pressed.emit() # take slot 1 out
+	check(shell._marks.pick_confirm.disabled, "a missing slot can't be confirmed")
+	shell._marks["pick_" + spare].pressed.emit() # now it fits, last in
+	shell._marks.pick_confirm.pressed.emit()
+	check_eq(s.trio, [trio[1], trio[2], spare], "the picks fight in tap order")
 	shell._marks["arena_best_trio"].pressed.emit()
 	check_eq(s.trio, ArenaStore.best_trio(ArenaScreen.owned_critters(shell.profile)), "Best trio fills the strongest three")
 	shell.free()

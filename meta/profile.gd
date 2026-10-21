@@ -43,6 +43,9 @@ var coins := 0
 var hammers := Economy.STARTER_HAMMERS
 var orbs := STARTER_ORBS
 var lineup := STARTER
+## The team picked for pairs and trios campaign stages, in fight order
+## (meta/campaign.gd team_for fills any gaps with your strongest).
+var campaign_team: Array = []
 var seen: Dictionary = {}
 ## One entry per (type, tier): {id, tier, count, level, xp}. The copies in a
 ## stack share its level; fusing 3 makes one copy of the next tier's stack.
@@ -678,7 +681,7 @@ func account_xp_to_next() -> int:
 
 # --- Save ---------------------------------------------------------------------
 
-const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup",
+const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
 	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "boss_days", "boss_levels", "factions", "intro", "story"]
 
 
@@ -702,6 +705,9 @@ static func from_dict(d: Dictionary, now: int):
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))
+	var ct = d.get("campaign_team", [])
+	if ct is Array:
+		p.campaign_team = ct.map(func(id): return str(id))
 	p.intro = clampi(int(d.get("intro", INTRO_DONE)), 0, INTRO_DONE)
 	p.free_summon = bool(d.get("free_summon", true))
 	p.seen = d.get("seen", {})

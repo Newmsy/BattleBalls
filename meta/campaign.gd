@@ -79,14 +79,19 @@ static func fighter_for(profile) -> String:
 	return best_id
 
 
-## The team for a pairs or trios zone: the lineup critter first (if it can
-## fight), then the strongest other critters that can, up to `size`.
+## The team for a pairs or trios zone: the team you picked (Profile
+## campaign_team) in order, or else the lineup critter first; then the
+## strongest other critters that can fight, up to `size`.
 static func team_for(profile, size: int) -> Array:
 	var ids: Array = []
+	# The team you picked comes first, in your order.
+	for id in profile.campaign_team:
+		if ids.size() < size and can_fight(profile, id) and not id in ids:
+			ids.append(id)
 	var first := fighter_for(profile)
-	if first != "":
+	if first != "" and ids.is_empty():
 		ids.append(first)
-	var rest: Array = BallDefs.PLAYABLE.filter(func(id): return profile.owns(id) and id != first)
+	var rest: Array = BallDefs.PLAYABLE.filter(func(id): return profile.owns(id) and not id in ids)
 	rest.sort_custom(func(a, b): return profile.power_of(a) > profile.power_of(b))
 	for id in rest:
 		if ids.size() >= size:

@@ -235,7 +235,10 @@ func back() -> void:
 ## the scroll position.
 func refresh() -> void:
 	var at := _scroll.scroll_vertical
-	_show(current, current_params)
+	# A results popup (stars, XP bars) shows once: a re-render never replays it.
+	var params := current_params.duplicate()
+	params.erase("result")
+	_show(current, params)
 	_restore_scroll(at)
 
 
