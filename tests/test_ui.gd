@@ -278,19 +278,21 @@ func test_lineup_tags_show_the_same_power_as_the_critter_screen() -> void:
 	tag.free()
 
 
-func test_my_critters_lists_each_owned_copy_strongest_first() -> void:
+func test_my_critters_stacks_copies_strongest_first() -> void:
 	var CrittersScreen = load("res://game/ui/screens/critters_screen.gd")
 	var p = UiProfile.sample()
 	var cards: Array = CrittersScreen.cards(p)
-	var copies := 0
+	var stacks := 0
 	for c in Roster.CRITTERS:
-		copies += p.total_copies(c.id)
-	check_eq(cards.size(), copies, "one card per copy, none stacked")
+		stacks += p.copies(c.id).size()
+	check_eq(cards.size(), stacks, "one card per critter and tier")
 	for i in cards.size() - 1:
 		check(cards[i].power >= cards[i + 1].power, "sorted by power at %d" % i)
 	for k in cards:
 		check(p.owns(k.id), "only owned critters: " + k.id)
-	check_eq(cards.filter(func(k): return k.id == "speedster" and k.tier == 1).size(), p.copies("speedster")[0].count, "three T1 Zips are three cards")
+	var zips: Array = cards.filter(func(k): return k.id == "speedster" and k.tier == 1)
+	check_eq(zips.size(), 1, "T1 Zips share one card")
+	check_eq(zips[0].stack.count, p.copies("speedster")[0].count, "the card counts every T1 Zip")
 
 
 func test_the_critterpedia_shows_every_critter_and_each_page_builds() -> void:

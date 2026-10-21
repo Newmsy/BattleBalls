@@ -211,6 +211,8 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	for i in ids.size():
 		var cap := _Capsule.new()
 		cap.setup(ids[i], fresh[i], side, shell.sfx)
+		if not fresh[i]:
+			cap.note = _fuse_note(shell.profile, ids[i])
 		cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		caps.append(cap)
 		grid.add_child(cap)
@@ -234,6 +236,15 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	root.add_child(flash)
 	root.setup(caps, title, skip, flash)
 	return root
+
+
+## A copy's progress to its next fuse, e.g. "+1 · 2/3", or "+1 · FUSE" at 3+.
+static func _fuse_note(p, id: String) -> String:
+	var t1 := 0
+	for s in p.copies(id):
+		if s.tier == 1:
+			t1 = s.count
+	return "+1 · FUSE" if t1 >= 3 else "+1 · %d/3" % t1
 
 
 ## Opens the capsules one by one, OPEN_GAP apart, so a x10 takes about 4
@@ -307,6 +318,12 @@ class _Reveal extends PanelContainer:
 		var r: String = Roster.RARITIES[_best]
 		title.text = "LEGENDARY!" if _best == 4 else ("Epic pull!" if _best == 3 else "Summoned!")
 		title.add_theme_color_override("font_color", Roster.RARITY_COLORS[r] if _best >= 3 else Color.WHITE)
+		if caps.size() > 1:
+			var fresh := caps.filter(func(cap): return cap.is_new).size()
+			var head: Label = title.get_parent().get_child(0)
+			var dupes: int = caps.size() - fresh
+			var copies := "%d COP%s" % [dupes, "Y" if dupes == 1 else "IES"]
+			head.text = ("%d NEW · %s" % [fresh, copies]) if fresh > 0 else copies
 
 
 ## A full-screen flash for a Legendary burst. Off with Reduced motion.
@@ -349,6 +366,7 @@ class _Capsule extends Control:
 
 	var id := ""
 	var is_new := false
+	var note := "" ## Under a copy's name: its fuse progress.
 	var opened := false
 	var side := 120.0
 	var sfx = null
@@ -373,7 +391,7 @@ class _Capsule extends Control:
 		is_new = is_new_
 		side = side_
 		sfx = sfx_
-		custom_minimum_size = Vector2(side, side + side * .35)
+		custom_minimum_size = Vector2(side, side + side * .5)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var c := Roster.get_critter(id)
 		_col = Roster.RARITY_COLORS[c.rarity]
@@ -420,8 +438,15 @@ class _Capsule extends Control:
 		opened = true
 		_charge_t = -1.0
 		var c := Roster.get_critter(id)
-		_content = Kit.vbox(0, [CritterIcon.make(id, 1, side), Kit.label(c.name, 34 if side > 200 else 17, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
+		# The rarity word in its colour; a copy of one you had shows its fuse progress
+		# instead (both on a single big reveal).
+		var word: String = Roster.RARITY_NAMES[c.rarity]
+		var big := side > 200
+		var text := word if note == "" else (word + " · " + note if big else note)
+		var tag := Kit.label(text, 26 if big else 15, _col, HORIZONTAL_ALIGNMENT_CENTER)
+		_content = Kit.vbox(0, [CritterIcon.make(id, 1, side), Kit.label(c.name, 34 if side > 200 else 17, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), tag])
 		_content.get_child(1).clip_text = true
+		tag.clip_text = true
 		_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_content)
