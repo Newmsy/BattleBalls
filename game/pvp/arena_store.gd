@@ -97,10 +97,11 @@ static func today() -> int:
 	return d.year * 10000 + d.month * 100 + d.day
 
 
-## Today's three opponent cards: themed teams sized to your trio's power
-## (game/pvp/arena_teams.gd), growing with your trophies.
-func offers(profile = null, day: int = today()) -> Array[Dictionary]:
-	return ArenaTeams.offers(trophies, power(profile), day, refreshes if refresh_day == day else 0)
+## Today's opponents: seeded themed teams with trophies near yours, as
+## strong as their trophies say (game/pvp/arena_teams.gd). `profile` is
+## unused; kept so callers needn't change.
+func offers(_profile = null, day: int = today()) -> Array[Dictionary]:
+	return ArenaTeams.offers(trophies, day, refreshes if refresh_day == day else 0)
 
 
 ## Your attack trio's summed Power Rating, as the Arena fights it.
@@ -251,12 +252,24 @@ func lineup(profile = null, which := "trio") -> Dictionary:
 
 
 ## `bot`: the opponent, as a full team (ArenaTeams) or a pool bot's id.
+## A seeded team carries its own trophies, so what the attack is worth
+## (Ladder.stake) is fixed here, when it starts.
 func start_attack(card: String, bot, seed_value: int, attack_slots: Array = []) -> void:
 	settle_abandoned()
 	var foe: Dictionary = bot if bot is Dictionary else ArenaGhosts.by_id(str(bot))
 	pending = {"card": card, "bot_id": str(foe.get("id", "")), "bot": foe, "seed": seed_value, "arena": Arenas.pick(seed_value),
 		"slots": attack_slots if not attack_slots.is_empty() else slots()}
+	if not Ladder.CARDS.has(card):
+		pending.stake = Ladder.stake(trophies, int(foe.get("trophies", trophies)))
 	save()
+
+
+## {win, loss, coins} for the attack in progress.
+func pending_stake() -> Dictionary:
+	if pending.has("stake"):
+		return pending.stake
+	var c: Dictionary = Ladder.CARDS.get(pending.get("card", "even"), Ladder.CARDS.even)
+	return {"win": c.win, "loss": c.loss, "coins": COINS_WIN.get(pending.get("card", "even"), 0)}
 
 
 ## Records the result of the pending attack. Returns the trophy change.
@@ -283,7 +296,7 @@ func settle_abandoned() -> int:
 
 
 func _apply(won: bool) -> int:
-	var delta := Ladder.attack_delta(trophies, peak, pending.card, won)
+	var delta := Ladder.stake_delta(trophies, peak, pending_stake(), won)
 	trophies += delta
 	peak = maxi(peak, trophies)
 	if delta > 0:
@@ -293,7 +306,7 @@ func _apply(won: bool) -> int:
 		wins += 1
 	else:
 		losses += 1
-	var got: int = COINS_WIN.get(pending.card, 0) if won else COINS_LOSS
+	var got: int = int(pending_stake().coins) if won else COINS_LOSS
 	coins += got
 	coins_earned += got
 	var bot: Dictionary = pending_bot()
