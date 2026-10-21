@@ -864,17 +864,61 @@ func _grid() -> GridContainer:
 
 ## One pip per floor: cleared floors green, the current one outlined.
 func _ladder() -> Control:
-	var row := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
+	var states: Array = []
 	for f in BounceRun.FLOORS:
 		var done: bool = not run.is_empty() and f < run.floor
 		var current: bool = not run.is_empty() and f == run.floor and not run.over
 		var lost: bool = not run.is_empty() and run.over and f == run.floor
-		var col := Kit.GOOD if done else (PINK if lost else (Kit.ACCENT if current else Kit.LINE))
-		var pip := Kit.panel(Kit.label(str(f + 1), 22, Kit.BG if done else Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-			Kit.box(col if done else Kit.PANEL, col, 14, 3, 6))
-		pip.custom_minimum_size = Vector2(56, 52)
-		row.add_child(pip)
-	return row
+		states.append("done" if done else ("lost" if lost else ("now" if current else "")))
+	var path := _Path.new()
+	path.states = states
+	path.custom_minimum_size = Vector2(0, 80)
+	path.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return path
+
+
+## The run's floors as stepping stones on a winding track: cleared ones lit
+## green, the one you're on glowing, a loss in pink, and a crown over the
+## last floor. Drawn once per page.
+class _Path extends Control:
+	const Dot := preload("res://game/dot.gd")
+	const Kit := preload("res://game/ui/ui_kit.gd")
+	const CritterArt := preload("res://game/ui/critter_art.gd")
+	const GOLD := Color("ffc23d")
+	const PINK := Color("ff5a7a")
+	var states: Array = []
+
+	func _spot(i: int) -> Vector2:
+		var n := states.size()
+		var r := 23.0
+		var x := r + 9.0 + (size.x - 2.0 * r - 18.0) * i / maxf(1.0, n - 1.0)
+		return Vector2(x, size.y * (.66 if i % 2 == 0 else .46))
+
+	func _draw() -> void:
+		var n := states.size()
+		for i in n - 1:
+			var lit: bool = states[i] == "done"
+			draw_line(_spot(i), _spot(i + 1), Kit.GOOD.darkened(.25) if lit else Kit.LINE, 6.0, true)
+		for i in n:
+			var p := _spot(i)
+			var st: String = states[i]
+			var col: Color = {"done": Kit.GOOD, "lost": PINK, "now": Kit.ACCENT}.get(st, Kit.LINE)
+			if st == "now":
+				Dot.circle(self, p, 30.0, Color(col, .18))
+			draw_set_transform(p + Vector2(0, 5), 0.0, Vector2(1.0, .45))
+			Dot.circle(self, Vector2.ZERO, 24.0, Color(0, 0, 0, .35))
+			draw_set_transform_matrix(Transform2D.IDENTITY)
+			Dot.circle(self, p, 21.0, col.darkened(.3) if st != "" else Kit.PANEL)
+			Dot.circle(self, p + Vector2(0, -2), 18.0, col if st == "done" else Kit.PANEL2)
+			draw_arc(p, 20.0, 0.0, TAU, 32, col, 2.5, true)
+			var text := str(i + 1)
+			var fs := 22
+			var w := Kit.FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			draw_string(Kit.FONT, p + Vector2(-w / 2.0, 6), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Kit.BG if st == "done" else Kit.FG)
+		# The last floor's crown.
+		var top := _spot(n - 1) + Vector2(0, -27)
+		Dot.poly(self, PackedVector2Array([top + Vector2(-11, 4), top + Vector2(-11, -6), top + Vector2(-5, -1), top + Vector2(0, -9),
+			top + Vector2(5, -1), top + Vector2(11, -6), top + Vector2(11, 4)]), GOLD)
 
 
 func _menu_button() -> Button:
