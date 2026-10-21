@@ -17,11 +17,14 @@ var pokeable := false
 ## Fraction of the smaller side used as the body radius.
 var radius_frac := .26
 
-## Seconds between idle redraws.
-const IDLE_STEP := 1.0 / 20.0
+## Idle redraws a second, on one clock shared by every animated menu icon
+## (critters, bosses, shop cosmetics): the web build draws a frame whenever
+## anything changed, so icons that each kept their own beat would add up to a
+## full screen redraw for every one of them.
+const IDLE_RATE := 15
 
 var _t := 0.0
-var _idle := 0.0
+var _tick := -1
 var _phase := 0.0
 var _hit := 0.0
 var _flash := 0.0
@@ -72,12 +75,18 @@ func _process(delta: float) -> void:
 	if not poked and (TouchInput.scrolling() or not on_screen()):
 		return
 	_t += delta
-	# Idling is slow motion: redrawing it 20 times a second looks the same
+	# Idling is slow motion: redrawing it 15 times a second looks the same
 	# and lets the menu skip most frames (low processor mode only draws on change).
-	_idle += delta
-	if poked or _idle >= IDLE_STEP:
-		_idle = 0.0
+	var tick := clock()
+	if poked or tick != _tick:
+		_tick = tick
 		queue_redraw()
+
+
+## The shared idle clock: changes IDLE_RATE / every times a second, on the same
+## frames for every icon that reads it.
+static func clock(every := 1) -> int:
+	return Time.get_ticks_msec() * IDLE_RATE / 1000 / every
 
 
 ## True when some of the icon shows: inside its scroll area and the window.
