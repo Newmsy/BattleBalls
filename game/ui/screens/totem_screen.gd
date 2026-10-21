@@ -48,6 +48,7 @@ static func build(shell, params: Dictionary) -> Control:
 			note.add_child(bars)
 		root.add_child(Kit.panel(note, Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
 
+	root.add_child(BossLevelGrid.hero(shell, TotemShrine.BOSS, SHRINE))
 	var fighter: String = Campaign.fighter_for(p)
 	var b: Dictionary = p.best(fighter)
 	var match := Talents.faction_of(fighter) == family

@@ -46,6 +46,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	root.add_child(_lures_row(shell, p))
 
+	root.add_child(BossLevelGrid.hero(shell, WyrmRift.BOSS, RIFT))
 	var fighter: String = Campaign.fighter_for(p)
 	var b: Dictionary = p.best(fighter)
 	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30), Kit.power(p.power_of(fighter), 24)])

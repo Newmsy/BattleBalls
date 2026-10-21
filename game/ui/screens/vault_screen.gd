@@ -50,6 +50,7 @@ static func build(shell, params: Dictionary) -> Control:
 			note.add_child(bars)
 		root.add_child(Kit.panel(note, Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
 
+	root.add_child(BossLevelGrid.hero(shell, GearVault.BOSS, VAULT))
 	var fighter: String = Campaign.fighter_for(p)
 	var b: Dictionary = p.best(fighter)
 	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30), Kit.power(p.power_of(fighter), 24)])
