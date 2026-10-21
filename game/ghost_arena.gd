@@ -22,7 +22,6 @@ const Ladder := preload("res://game/pvp/ladder.gd")
 const ResultText := preload("res://game/result_text.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
-const A11y := preload("res://game/a11y.gd")
 const Families := preload("res://sim/families.gd")
 
 enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
@@ -30,6 +29,8 @@ enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
 const ARENA_PIXELS := 680.0
 const PANEL_HEIGHT := 400.0
 const FightSpeed := preload("res://game/fight_speed.gd")
+## Room kept under the intro and result panels for an iPhone's home bar.
+const SAFE_BOTTOM := 90.0
 const LEG_PAUSE := 1.4 ## Seconds to show a leg's winner before the next leg.
 
 var state := State.INTRO
@@ -47,7 +48,7 @@ var _pause := 0.0
 var _dragging := false
 var _result_marks := {}
 var _last_slots: Array = []
-var _panel_room := 480.0 ## Height from the panel top to the bottom margin (portrait).
+var _intro_art := 56.0 ## Face size on the intro cards, grown to fill the room.
 
 var arena: ArenaView
 var sfx: Sfx
@@ -153,6 +154,30 @@ func _show_intro() -> void:
 	lineup_label.text = ""
 	sim = MatchSim.new(relay.leg_config())
 	arena.sim = sim
+	_intro_art = 56.0
+	var fight := _intro_panel()
+	_layout()
+	# Grow the faces into whatever room is left once the text has its size,
+	# so FIGHT always stays on screen.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if state != State.INTRO or not is_instance_valid(panel):
+		return
+	var spare: float = panel.size.y - panel.get_combined_minimum_size().y
+	if spare > 8.0:
+		_intro_art = clampf(56.0 + spare / (2.0 * FighterTag.ART_SHRINK) - 4.0, 56.0, 160.0)
+		fight = _intro_panel()
+		await get_tree().process_frame
+		await get_tree().process_frame
+	# Where FIGHT landed, for the smoke test (it sits at the bottom now).
+	if is_instance_valid(fight) and fight.is_visible_in_tree():
+		var at := fight.get_global_rect().get_center()
+		print("UI_AT arena_fight %d %d" % [roundi(at.x), roundi(at.y)])
+
+
+## Fills the panel for the intro: both trios, the map and stakes, FIGHT.
+## Returns the FIGHT button.
+func _intro_panel() -> Button:
 	var stake: Dictionary = store.pending_stake()
 	var fam: String = bot.get("family", "")
 	var theirs: Array = slots[1].duplicate()
@@ -168,28 +193,19 @@ func _show_intro() -> void:
 		_forfeit_link(),
 	], BoxContainer.ALIGNMENT_CENTER)
 	_set_panel([
-		_team_row("You · fight in this order", Kit.GOOD, slots[0]),
+		_team_row("You", Kit.GOOD, slots[0]),
 		_team_row(str(bot.name), Color(Families.info(fam).color) if fam != "" else Kit.BAD, theirs),
 		spacer,
 		stakes,
 		fight,
 	])
-	_layout()
-	# Where FIGHT landed, for the smoke test (it sits at the bottom now).
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if is_instance_valid(fight) and fight.is_visible_in_tree():
-		var at := fight.get_global_rect().get_center()
-		print("UI_AT arena_fight %d %d" % [roundi(at.x), roundi(at.y)])
+	return fight
 
 
 ## A caption over three cards: tier stars and level, face, power.
 ## Their order stays hidden, so the foe row is sorted by name.
 func _team_row(caption: String, col: Color, team: Array) -> Control:
-	# Faces as big as the room under the arena allows: the rest of the panel
-	# (captions, stakes, FIGHT, card headers) is about 330 px at normal text.
-	var fixed := 330.0 * A11y.font(100) / 100.0
-	var art := clampf((_panel_room - fixed) / 1.4, 56.0, 160.0)
+	var art := _intro_art
 	var cards := Kit.hbox(8)
 	for slot in team:
 		var tag := FighterTag.of_slot(slot, art)
@@ -465,10 +481,10 @@ func _layout() -> void:
 	_place(lineup_label, Vector2(0, 144), Vector2(size.x, 36))
 	_place(fight_hud, Vector2(left, 100), Vector2(side, 84))
 	_place(info_label, panel_pos, Vector2(panel_width, 90))
-	_panel_room = size.y - panel_pos.y - bottom_margin
 	if state in [State.INTRO, State.RESULT] and size.x < size.y:
-		# The pre-fight panel fills the rest of the screen, FIGHT at the bottom.
-		_place(panel, panel_pos, Vector2(panel_width, size.y - panel_pos.y - bottom_margin))
+		# The pre-fight panel fills the rest of the screen, FIGHT at the bottom,
+		# clear of the phone's home bar.
+		_place(panel, panel_pos, Vector2(panel_width, size.y - panel_pos.y - SAFE_BOTTOM))
 	else:
 		_place(panel, panel_pos + Vector2(0, 100), Vector2(panel_width, PANEL_HEIGHT - 100.0))
 	arena.queue_redraw()
