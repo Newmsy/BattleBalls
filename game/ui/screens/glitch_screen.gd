@@ -11,9 +11,12 @@ const Campaign := preload("res://meta/campaign.gd")
 const GlitchCore := preload("res://meta/glitch_core.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
 const BossArt := preload("res://game/boss_art.gd")
+const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 
 const CORE := Color("7cff4f")
-const NAMES := {"orbs": ["egg", "Summon Eggs"], "lures": ["target", "Lures"], "hammers": ["hammer", "Hammers"]}
+## Glyph and word per reward; currencies show only their icon and number.
+## The third entry is for plain-text lines, where there's no icon.
+const NAMES := {"orbs": ["egg", "", "Summon Eggs"], "lures": ["target", "Lures", "Lures"], "hammers": ["hammer", "", "Hammers"]}
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -41,6 +44,7 @@ static func build(shell, params: Dictionary) -> Control:
 			note.add_child(bars)
 		root.add_child(Kit.panel(note, Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
 
+	root.add_child(BossLevelGrid.hero(shell, GlitchCore.BOSS, CORE))
 	var fighter: String = Campaign.fighter_for(p)
 	var b: Dictionary = p.best(fighter)
 	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30), Kit.power(p.power_of(fighter), 24)])
@@ -53,7 +57,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
 	var loot := Kit.vbox(4, [Kit.label("Win this week", 26)])
 	for r in GlitchCore.BUNDLE:
-		loot.add_child(Kit.hbox(8, [Glyph.make(NAMES[r.kind][0], 22), Kit.label("%d %s" % [r.n, NAMES[r.kind][1]], 20)], BoxContainer.ALIGNMENT_BEGIN))
+		loot.add_child(Kit.hbox(8, [Glyph.make(NAMES[r.kind][0], 22), Kit.label(("%d %s" % [r.n, NAMES[r.kind][1]]).strip_edges(), 20)], BoxContainer.ALIGNMENT_BEGIN))
 	loot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight := Kit.cost_button("Fight", GlitchCore.ENERGY_COST, "energy", _fight.bind(shell, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 150
@@ -82,7 +86,7 @@ static func result_text(r: Dictionary) -> String:
 		return "Lost. %d energy back, +%d XP. Watch which rules it's on, or bring a stunner." % [r.refund, r.xp]
 	var parts: Array[String] = ["Glitch beaten!"]
 	for b in r.bundle:
-		parts.append("+%d %s" % [b.n, NAMES[b.kind][1]])
+		parts.append("+%d %s" % [b.n, NAMES[b.kind][2]])
 	parts.append("+%d XP" % r.xp)
 	if r.levels > 0:
 		parts.append("level up!")

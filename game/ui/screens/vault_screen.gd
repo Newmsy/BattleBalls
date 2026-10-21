@@ -25,7 +25,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Daily boss · gear and hammers", VAULT), Kit.label("Anvil King", 40)])
+	var head := Kit.vbox(2, [Kit.hbox(6, [Kit.caption("Daily boss · gear ·", VAULT), Kit.glyph("hammer", 22, VAULT)]), Kit.label("Anvil King", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Anvil King", [
 		"A forge golem rooted in the middle of The Forge. It slams its hammer where you're heading (dodge the ring), leaves embers burning, and every fourth swing quakes the floor around it: get to the edge.",
@@ -50,6 +50,7 @@ static func build(shell, params: Dictionary) -> Control:
 			note.add_child(bars)
 		root.add_child(Kit.panel(note, Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
 
+	root.add_child(BossLevelGrid.hero(shell, GearVault.BOSS, VAULT))
 	var fighter: String = Campaign.fighter_for(p)
 	var b: Dictionary = p.best(fighter)
 	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30), Kit.power(p.power_of(fighter), 24)])

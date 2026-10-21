@@ -129,7 +129,7 @@ static func _bundle_card(shell, b: Dictionary) -> Control:
 	var full := Catalog.bundle_full_price(b)
 	var price: int = glow.bundle_price(b)
 	var saving := roundi(100.0 * (1.0 - float(b.gems) / full))
-	var line := "%d items · %s separately · save %d%%" % [b.items.size(), Kit.commas(full), saving]
+	var line := Kit.hbox(6, [Kit.label("%d items · %s" % [b.items.size(), Kit.commas(full)], 21, Kit.MUTED), Kit.glyph("gem", 22, Kit.MUTED), Kit.label("separately", 21, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	var btn: Button
 	if price == 0:
 		btn = Kit.button("Owned", func(): pass, "ghost", 26, 80)
@@ -140,7 +140,10 @@ static func _bundle_card(shell, b: Dictionary) -> Control:
 			shell.toast(err if err != "" else "%s unlocked! Change what you wear below." % b.name)
 			shell.refresh(), "primary", 26, 80)
 	shell.mark("buy_" + b.id, btn)
-	var v := Kit.vbox(10, [Kit.label(b.name, 34), icons, Kit.label(line, 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true), btn])
+	# The saving is a gold ribbon by the name rather than a line of small print.
+	var ribbon := Kit.chip("SAVE %d%%" % saving, Glyph.GOLD)
+	var head := Kit.hbox(10, [Kit.label(b.name, 34), Kit.spacer(), ribbon], BoxContainer.ALIGNMENT_CENTER)
+	var v := Kit.vbox(10, [head, icons, line, btn])
 	if price > 0 and price < int(b.gems):
 		v.add_child(Kit.label("You own some of these, so the price dropped.", 20, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
 	return Kit.panel(v, Kit.box(Color("221a3a"), Color("6b5520"), 36, 2, 24))
@@ -171,8 +174,7 @@ static func item_sheet(shell, id: String) -> void:
 			shell.toast("%s %s." % [it.name, "taken off" if worn else "on"])
 			shell.refresh(), "ghost" if worn else "go", 28, 90)
 	elif it.where in ["shop", "basic"]:
-		var cost := "%s %s" % [Kit.commas(it.coins if it.has("coins") else it.gems), "coins" if it.has("coins") else "gems"]
-		btn = Kit.button("Buy for " + cost, func():
+		btn = Kit.cost_button("Buy", it.coins if it.has("coins") else it.gems, "coin" if it.has("coins") else "gem", func():
 			var err: String = glow.buy_item(id)
 			if err == "":
 				glow.equip(id)

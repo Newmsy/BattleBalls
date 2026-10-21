@@ -19,6 +19,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(DetailScreen.header(shell, "Friends", _count_chip(fr)))
 
 	if not fr.enabled():
+		root.add_child(_sleepy(shell))
 		root.add_child(_note("Friends need a connection",
 			"Go online to add friends, send them energy and rematch their teams. Challenge links still work offline."))
 		return root
@@ -30,7 +31,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	if fr.status == "error" and fr.me.is_empty():
 		var retry := Kit.button("Try again", func(): fr.status = "idle"; shell.refresh(), "ghost", 26, 80)
 		shell.mark("friends_retry", retry)
-		root.add_child(Kit.vbox(14, [_note("Couldn't reach your friends", "Check your connection and try again."), retry]))
+		root.add_child(Kit.vbox(14, [_sleepy(shell), _note("Couldn't reach your friends", "Check your connection and try again."), retry]))
 		return root
 
 	if not fr.invite.is_empty():
@@ -73,6 +74,16 @@ static func build(shell, _params: Dictionary) -> Control:
 static func _count_chip(fr) -> Control:
 	var n: int = fr.friends().size()
 	return Kit.chip("%d friend%s" % [n, "" if n == 1 else "s"], Kit.ACCENT) if fr.status == "ready" else null
+
+
+## Your fighter, dozing: the empty-state picture. Drawn once (no per-frame cost).
+static func _sleepy(shell) -> Control:
+	var icon := CritterIcon.make(shell.profile.lineup, 1, 180)
+	icon.still = true
+	var zzz := Kit.label("z Z z", 34, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	var c := CenterContainer.new()
+	c.add_child(Kit.vbox(0, [zzz, icon]))
+	return c
 
 
 static func _note(title: String, text: String) -> Control:

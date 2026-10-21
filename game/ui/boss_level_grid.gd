@@ -10,6 +10,20 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const BossLevels := preload("res://meta/boss_levels.gd")
 
 
+## Below this screen height (an iPhone SE) the boss screen has no room for a hero.
+const HERO_MIN_HEIGHT := 1400.0
+
+
+## The boss itself, big, at the top of its screen: the reason to visit. Left
+## out on short phones so the Fight button stays on screen.
+static func hero(shell, boss_id: String, accent: Color) -> Control:
+	if shell.size.y < HERO_MIN_HEIGHT:
+		return Control.new()
+	var c := CenterContainer.new()
+	c.add_child(load("res://game/boss_art.gd").icon(boss_id, 230))
+	return Kit.panel(c, Kit.box(Color(accent, .08), Color(accent, .25), 40, 2, 6))
+
+
 ## The level a boss screen shows: params.level if it's open, else the highest open one.
 static func picked(profile, key: String, params: Dictionary) -> int:
 	var d := int(params.get("level", -1))
