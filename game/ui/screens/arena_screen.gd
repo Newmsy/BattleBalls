@@ -126,7 +126,7 @@ static func _room(shell, mark: String, glyph: String, title: String, line: Strin
 	return b
 
 
-## Your attack trio ("trio") or Defence trio ("defence"): tap a slot to pick.
+## Your attack trio ("trio") or Defence trio ("defence"): tap a slot to pick the team.
 static func trio_panel(shell, store, owned: Array, which := "trio") -> Control:
 	var row := Kit.hbox(12, [], BoxContainer.ALIGNMENT_CENTER)
 	var slots: Array = store.slots(shell.profile, which)
@@ -142,16 +142,14 @@ static func trio_panel(shell, store, owned: Array, which := "trio") -> Control:
 		var slot := Kit.card_button(content, func():
 			if owned.is_empty():
 				return
-			var tags := {}
-			for j in 3:
-				tags[team[j]] = "#%d" % (j + 1)
-			var on_pick := func(id: String) -> void:
-				store.set_slot(i, id, which)
+			var on_team := func(picks: Array) -> void:
+				for k in picks.size():
+					store.set_slot(k, picks[k], which)
 				shell.refresh_with({"store": store})
-			CritterPicker.open(shell, owned, {
-				"title": "Slot %d" % (i + 1),
-				"hint": "Already in your trio? Picking it swaps the two slots.",
-				"current": critter, "tags": tags, "on_pick": on_pick,
+			CritterPicker.open_team(shell, owned, {
+				"title": "Your trio" if which == "trio" else "Defence trio",
+				"hint": "Tap to add or take out. Slot 1 fights first.",
+				"size": mini(3, owned.size()), "current": team, "on_confirm": on_team,
 			}), Kit.LINE, Kit.PANEL2, 28, 10)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("%s_slot_%d" % [prefix, i], slot)

@@ -98,7 +98,7 @@ static func _campaign_card(shell) -> Control:
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
 		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone %d · The Neon Circuit" % (z + 1), Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
-		Kit.hbox(10, [Kit.label(zd.name, 40), Kit.spacer(), Glyph.make("stars", 26, Kit.FG, 1),
+		Kit.hbox(10, [Kit.label(zd.name, 40), Kit.spacer(), Glyph.make("crown", 26, Kit.FG, 1),
 			Kit.label("%d/%d" % [star_total, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label(next_text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 		open,

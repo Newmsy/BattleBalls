@@ -320,3 +320,22 @@ func test_a_sweep_shows_a_results_popup() -> void:
 	shell._marks.result_continue.pressed.emit()
 	check(not shell.overlay_open(), "Continue closes it")
 	shell.free()
+
+
+func test_out_of_energy_closes_the_results_and_never_replays_them() -> void:
+	var shell = Shell.new()
+	shell.profile = preload("res://meta/profile.gd").new_game(1_800_000_000)
+	shell.profile.stars["1-1"] = 3
+	shell.profile.energy = 6
+	shell.profile.energy_time = int(Time.get_unix_time_from_system())
+	preload("res://meta/story.gd").skip_all(shell.profile) # no chapter story over the list
+	shell.build()
+	shell.go("campaign", {"zone": 0})
+	shell._marks.sweep_1_1.pressed.emit()
+	check(shell.overlay_open(), "the sweep result is a popup")
+	check_eq(shell._marks.result_next.text, "", "Next is the Out of energy button (drawn, not text)")
+	shell._marks.result_next.pressed.emit()
+	check(not shell.overlay_open(), "Out of energy just closes the popup")
+	shell.refresh()
+	check(not shell.overlay_open(), "a re-render doesn't replay the results")
+	shell.free()

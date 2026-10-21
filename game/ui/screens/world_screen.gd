@@ -48,7 +48,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var go := Kit.button("Play %s" % Zones.zone(z).name, func(): shell.go("campaign", {"zone": z}), "go", 30, 84)
 	shell.mark("enter_zone", go)
 	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var star_box := Kit.hbox(6, [Glyph.make("stars", 26, Kit.FG, 1), Kit.label("%d/%d" % [stars, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var star_box := Kit.hbox(6, [Glyph.make("crown", 26, Kit.FG, 1), Kit.label("%d/%d" % [stars, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	shell.pin(Kit.hbox(16, [go, star_box], BoxContainer.ALIGNMENT_CENTER))
 	return root
 

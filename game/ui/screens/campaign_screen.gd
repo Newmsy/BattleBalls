@@ -72,8 +72,16 @@ static func build(shell, params: Dictionary) -> Control:
 	var on_pick := func(id: String) -> void:
 		p.set_lineup(id)
 		shell.refresh()
+	var on_team := func(picks: Array) -> void:
+		p.campaign_team = picks
+		p.changed.emit()
+		shell.refresh()
 	var pick := func() -> void:
-		CritterPicker.open(shell, CritterPicker.by_power(p, BallDefs.PLAYABLE), {"title": "Your fighter", "current": fighter, "on_pick": on_pick})
+		var ids := CritterPicker.by_power(p, BallDefs.PLAYABLE)
+		if team.size() > 1:
+			CritterPicker.open_team(shell, ids, {"title": "Your team", "size": mini(zone.lineup, ids.size()), "current": team, "on_confirm": on_team})
+		else:
+			CritterPicker.open(shell, ids, {"title": "Your fighter", "current": fighter, "on_pick": on_pick})
 	var change_btn := Kit.card_button(fighter_row, pick, Color("3a3480"), Kit.PANEL2, 32, 16)
 	shell.mark("campaign_fighter", change_btn)
 	root.add_child(change_btn)
@@ -144,7 +152,7 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 		var big := Kit.panel(Kit.vbox(12, [title, faces, vs, fight]), Kit.box(Color("17284a"), border.lightened(.2), 32, 3, 20))
 		return big
 
-	var info := Kit.vbox(4, [title, Glyph.make("stars", 24, Kit.FG, stars, 3)])
+	var info := Kit.vbox(4, [title, crowns(stars, 26)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var actions := Kit.hbox(8)
 	if Campaign.can_sweep(p, z, i):
@@ -163,11 +171,14 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	return Kit.panel(row, Kit.box(Kit.PANEL, border, 28, 2, 12))
 
 
-## A green button reading "FIGHT ⚡6" with the drawn energy bolt (the font has none).
+## A green button reading "FIGHT ⚡6" with the drawn energy bolt (the font has
+## none); a `cost` of -1 leaves the number off ("OUT OF ⚡").
 static func _cost_button(text: String, cost: int, on_press: Callable, size: int, height: int) -> Button:
 	var b := Kit.button("", on_press, "go", size, height)
 	var ink: Color = Kit.BUTTON_STYLES["go"][2]
-	var parts: Array = [Glyph.make("energy", size * 1.1, ink), Kit.label(str(cost), size, ink)]
+	var parts: Array = [Glyph.make("energy", size * 1.1, ink)]
+	if cost >= 0:
+		parts.append(Kit.label(str(cost), size, ink))
 	if text != "":
 		parts.push_front(Kit.label(text.to_upper() + " ", size, ink))
 	var row := Kit.hbox(2, parts, BoxContainer.ALIGNMENT_CENTER)
@@ -199,6 +210,15 @@ static func _locked_row(z: int, i: int, st: Dictionary, boss: bool) -> Control:
 	var card := Kit.panel(row, Kit.box(Kit.PANEL, Kit.BAD.darkened(.4) if boss else Kit.LINE, 28, 2, 10))
 	card.modulate = Color(1, 1, 1, .7)
 	return card
+
+
+## A stage's three crown slots, `won` of them gold (crowns, not stars: a
+## star means tier).
+static func crowns(won: int, side: float) -> Control:
+	var row := Kit.hbox(int(side * .12))
+	for k in 3:
+		row.add_child(Glyph.make("crown", side, Kit.FG, 1 if k < won else 0))
+	return row
 
 
 ## A label that trims with an ellipsis instead of pushing its card wider than the screen.
@@ -294,7 +314,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	v.add_child(Kit.vbox(2, [Kit.caption("%s %s · %s" % ["Sweep" if kind == "sweep" else "Stage", Zones.stage_key(z, i), name]),
 		Kit.label(title, 52, Kit.GOOD if r.won else Kit.BAD)]))
 	if r.won:
-		var star_row := Kit.hbox(12, [Glyph.make("stars", 48, Kit.FG, r.stars, 3)], BoxContainer.ALIGNMENT_CENTER)
+		var star_row := Kit.hbox(12, [crowns(r.stars, 52)], BoxContainer.ALIGNMENT_CENTER)
 		v.add_child(star_row)
 		if not r.drops.is_empty() or not r.get("gear", []).is_empty() or r.get("orbs", 0) > 0:
 			var drops := GridContainer.new()
@@ -349,9 +369,17 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	buttons.add_child(ok)
 	var next := i + 1 if r.won else i
 	if next < Zones.zone(z).stages.size() and Campaign.is_unlocked(shell.profile, z, next):
-		var again := Kit.button(("Next  %s" % Zones.stage_key(z, next)) if r.won else "Try again", func():
-			shell.close_overlay()
-			_fight(shell, z, next, Campaign.fighter_for(shell.profile)), "go", 26, 84)
+		var p = shell.profile
+		p.update_energy(int(Time.get_unix_time_from_system()))
+		var again: Button
+		if p.energy < Zones.cost(Zones.stage(z, next)):
+			# Not enough for the next stage: say so up front, and just close.
+			again = _cost_button("Out of", -1, shell.close_overlay, 26, 84)
+			again.modulate = Color(1, 1, 1, .75)
+		else:
+			again = Kit.button(("Next  %s" % Zones.stage_key(z, next)) if r.won else "Try again", func():
+				shell.close_overlay()
+				_fight(shell, z, next, Campaign.fighter_for(shell.profile)), "go", 26, 84)
 		again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("result_next", again)
 		buttons.add_child(again)
