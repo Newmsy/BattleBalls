@@ -456,7 +456,7 @@ class _Capsule extends Control:
 		var text := word if note == "" else (word + " · " + note if big else note)
 		var tag := Kit.label(text, 26 if big else 17, _col, HORIZONTAL_ALIGNMENT_CENTER)
 		var face := CritterIcon.make(id, 1, side)
-		face.info = false # A tap skips the reveal; the card opens once it's done (Reveal.finish_taps).
+		face.info = false # A tap skips the reveal; the card opens once it's done (enable_info).
 		if not big:
 			face.radius_frac = .34 # Fill the small eggs' space: the face is what you came for.
 		_content = Kit.vbox(0, [face, Kit.label(c.name, 34 if big else 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), tag])
