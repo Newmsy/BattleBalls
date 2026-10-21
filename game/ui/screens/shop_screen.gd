@@ -135,9 +135,12 @@ static func _price(it: Dictionary, owned: bool, worn := false) -> Control:
 
 static func _bundle_card(shell, b: Dictionary) -> Control:
 	var glow = shell.glow
-	var icons := Kit.hbox(6)
+	var icons := Kit.hbox(24, [], BoxContainer.ALIGNMENT_CENTER)
 	for id in b.items:
 		icons.add_child(CosmeticIcon.make(id, _critter(shell), 96))
+	var shelf := _Shelf.new()
+	shelf.add_child(icons)
+	icons.sort_children.connect(shelf.queue_redraw)
 	var full := Catalog.bundle_full_price(b)
 	var price: int = glow.bundle_price(b)
 	var saving := roundi(100.0 * (1.0 - float(b.gems) / full))
@@ -154,7 +157,7 @@ static func _bundle_card(shell, b: Dictionary) -> Control:
 	# The saving is a gold ribbon by the name rather than a line of small print.
 	var ribbon := Kit.chip("SAVE %d%%" % saving, Glyph.GOLD)
 	var head := Kit.hbox(10, [Kit.label(b.name, 34), Kit.spacer(), ribbon], BoxContainer.ALIGNMENT_CENTER)
-	var v := Kit.vbox(10, [head, icons, btn])
+	var v := Kit.vbox(10, [head, shelf, btn])
 	if price > 0 and price < int(b.gems):
 		v.add_child(Kit.label("Owned items taken off.", 20, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
 	return Kit.panel(v, Kit.box(Color("221a3a"), Color("6b5520"), 36, 2, 24))
@@ -300,3 +303,31 @@ static func _center(c: Control) -> Control:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(c)
 	return cc
+
+
+## The display under a Featured bundle's items: a soft spotlight above each
+## and a small velvet stand under it, on one gold-edged shelf. Drawn whenever
+## the row lays out, never per frame.
+class _Shelf extends MarginContainer:
+	const Dot := preload("res://game/dot.gd")
+	const GOLD := Color("ffd36b")
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_theme_constant_override("margin_bottom", 14)
+
+	func _draw() -> void:
+		var row: Control = get_child(0) if get_child_count() > 0 else null
+		if row == null:
+			return
+		var y := size.y - 8.0
+		draw_rect(Rect2(size.x * .06, y, size.x * .88, 6), Color("3a2a52"))
+		draw_line(Vector2(size.x * .06, y), Vector2(size.x * .94, y), Color(GOLD, .55), 2.0)
+		for icon in row.get_children():
+			var r: Rect2 = (icon as Control).get_rect()
+			var c := row.position + r.get_center()
+			Dot.circle(self, c, r.size.x * .55, Color(1, .95, .8, .035))
+			draw_set_transform(Vector2(c.x, y), 0.0, Vector2(1.0, .28))
+			Dot.circle(self, Vector2.ZERO, r.size.x * .42, Color("2a1c40"))
+			Dot.circle(self, Vector2(0, -4), r.size.x * .36, Color("4b2f6e"))
+			draw_set_transform_matrix(Transform2D.IDENTITY)

@@ -41,9 +41,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	var prog := GlowPass.progress(int(ps.xp))
 
 	# Header: season, level and XP.
-	var lvl := Kit.panel(Kit.label(str(level), 40, Kit.BG, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(GLOW, Color("fff2b0"), 999, 3, 0))
-	lvl.custom_minimum_size = Vector2(92, 92)
-	(lvl.get_child(0) as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	var lvl := _Medal.new()
+	lvl.level = level
+	lvl.custom_minimum_size = Vector2(104, 112)
+	lvl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lvl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bar_text := ("Bonus box: %d / %d XP" if level >= GlowPass.LEVELS else "%d / %d XP to level %d") % ([prog.x, prog.y] if level >= GlowPass.LEVELS else [prog.x, prog.y, level + 1])
 	var info := Kit.vbox(6, [Kit.label("%s · week %d of %d" % [season.name, season.week, season.weeks], 24, GLOW),
 		Kit.bar(float(prog.x) / prog.y, GLOW, 22), Kit.label(bar_text, 22, Kit.MUTED),
@@ -273,3 +275,36 @@ static func _pulse_once(c: Control) -> void:
 		var tw := c.create_tween()
 		tw.tween_property(c, "scale", Vector2(1.18, 1.18), .25).set_trans(Tween.TRANS_SINE)
 		tw.tween_property(c, "scale", Vector2.ONE, .3).set_trans(Tween.TRANS_SINE))
+
+
+## The pass level as a medal: ribbon tails behind a scalloped gold rosette,
+## an inner disc and the level number. Drawn once.
+class _Medal extends Control:
+	const Dot := preload("res://game/dot.gd")
+	const Kit := preload("res://game/ui/ui_kit.gd")
+	const A11y := preload("res://game/a11y.gd")
+	const GLOW := Color("ffd36b")
+	var level := 0
+
+	func _draw() -> void:
+		var c := Vector2(size.x / 2.0, 46.0)
+		var r := 42.0
+		# Ribbon tails.
+		for sgn in [-1.0, 1.0]:
+			var x: float = c.x + sgn * 14.0
+			Dot.poly(self, PackedVector2Array([Vector2(x - 11, c.y + 20), Vector2(x + 11, c.y + 20), Vector2(x + 11 + sgn * 6, size.y), Vector2(x + sgn * 3, size.y - 10), Vector2(x - 11 + sgn * 6, size.y)]),
+				Color("b366ff") if sgn < 0 else Color("8f4fe0"))
+		# Scalloped rosette.
+		var ros := PackedVector2Array()
+		for i in 48:
+			var a := TAU * i / 48
+			ros.append(c + Vector2.from_angle(a) * (r if i % 2 == 0 else r * .88))
+		Dot.poly(self, ros, GLOW.darkened(.25))
+		Dot.circle(self, c, r * .8, GLOW)
+		Dot.circle(self, c, r * .66, Color("fff2b0"))
+		Dot.circle(self, c + Vector2(0, 2), r * .6, GLOW.darkened(.08))
+		draw_arc(c, r * .66, PI * 1.1, PI * 1.6, 12, Color(1, 1, 1, .7), 3.0, true)
+		var text := str(level)
+		var fs := A11y.font(36)
+		var sz := Kit.FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
+		draw_string(Kit.FONT, c + Vector2(-sz.x / 2.0, sz.y * .32), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Kit.BG)
