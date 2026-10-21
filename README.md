@@ -328,9 +328,11 @@ the arena shows gold CRIT pops and a BACKSTAB! call-out, with their own sounds.
 
 Gear is known fight setup like tiers: `MatchSim` takes `gear: [g1, g2]` and
 relays take `gear[side][slot]`, each a list of pieces or summed stat lines.
-`sim/gear.gd` holds the seven lines (attack, health, defense, speed, crit
-chance, crit damage, cooldown speed), their 5-star values and caps, and the
-six gear types over three slots (Shell, Core, and Charm from 3-star critters).
+`sim/gear.gd` holds the stat lines (attack, health, defense, speed, crit
+chance, crit damage, cooldown speed), the effect lines (thorns, mend,
+lifesteal, ricochet, ward, revive: they set the same def keys as the Bounce
+Run boons, plus `start_shield`), their 5-star values and caps, and the twelve
+gear types over three slots (Shell, Core, and Charm from 3-star critters).
 `balance.gd --gear` checks the lines stay worth about the same.
 
 Gear merges like critters (design/gear.md): three of one type and tier make
