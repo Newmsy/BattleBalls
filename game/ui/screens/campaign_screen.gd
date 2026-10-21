@@ -147,7 +147,7 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 			faces.add_child(_face(id, enemy_tier(st), side))
 		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
 			BoxContainer.ALIGNMENT_CENTER)
-		var fight := _cost_button("Fight", Zones.cost(st), _fight.bind(shell, z, i, fighter), 30, 84)
+		var fight := Kit.cost_button("Fight", Zones.cost(st), "energy", _fight.bind(shell, z, i, fighter), "go", 30, 84)
 		shell.mark("stage_%d_%d" % [z + 1, i + 1], fight)
 		var big := Kit.panel(Kit.vbox(12, [title, faces, vs, fight]), Kit.box(Color("17284a"), border.lightened(.2), 32, 3, 20))
 		return big
@@ -156,10 +156,10 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var actions := Kit.hbox(8)
 	if Campaign.can_sweep(p, z, i):
-		var sweep := Kit.button("Sweep", _sweep.bind(shell, z, i, fighter), "ghost", 22, 60)
+		var sweep := Kit.cost_button("Sweep", Zones.cost(st), "energy", _sweep.bind(shell, z, i, fighter), "ghost", 22, 60)
 		shell.mark("sweep_%d_%d" % [z + 1, i + 1], sweep)
 		actions.add_child(sweep)
-	var again := _cost_button("", Zones.cost(st), _fight.bind(shell, z, i, fighter), 22, 60)
+	var again := Kit.cost_button("", Zones.cost(st), "energy", _fight.bind(shell, z, i, fighter), "go", 22, 60)
 	again.custom_minimum_size.x = 84
 	shell.mark("stage_%d_%d" % [z + 1, i + 1], again)
 	actions.add_child(again)
