@@ -371,6 +371,7 @@ func _init(cfg: Dictionary) -> void:
 		b.max_hp = def.hp
 		b.hp = def.hp if start_hp[i] == null else clampf(float(start_hp[i]), 0.01, def.hp)
 		b.contact_damage = def.contact_damage
+		b.shield = def.get("start_shield", 0.0) # A Ward Charm (sim/gear.gd).
 		b.attack = kit.get("attack", 0.0)
 		b.defense = kit.get("defense", 0.0)
 		b.crit_chance = BASE_CRIT_CHANCE + kit.get("crit_chance", 0.0)
@@ -643,7 +644,7 @@ func step() -> void:
 		if not b.alive() and not b.fired.has("fall") and not foes(b).is_empty():
 			b.fired["fall"] = true
 			abilities.fire(self, "fall", b)
-		# Phoenix Feather (a Legendary Bounce Run boon): back up once per fight.
+		# Phoenix Feather (a Legendary Bounce Run boon) or a Phoenix Charm: back up once per fight.
 		if not b.alive() and b.def.get("boon_revive", 0.0) > 0.0 and not b.fired.has("boon_revive") and not foes(b).is_empty():
 			b.fired["boon_revive"] = true
 			b.hp = b.max_hp * b.def.boon_revive
@@ -1091,7 +1092,10 @@ func _boon_contact_damage(source: Ball, target: Ball, amount: float) -> float:
 		amount += source.def.get("first_strike", 0.0)
 	if source.banked:
 		source.banked = false
-		amount *= 1.0 + source.def.get("bank_bonus", 0.0)
+		var bank: float = source.def.get("bank_bonus", 0.0)
+		if bank > 0.0:
+			amount *= 1.0 + bank
+			events.append({"type": "ricochet", "ball": source.index, "pos": source.pos})
 	var every := int(source.def.get("overcharge", 0.0))
 	if every > 0:
 		source.boon_hits += 1
@@ -1101,8 +1105,9 @@ func _boon_contact_damage(source: Ball, target: Ball, amount: float) -> float:
 	return amount * (1.0 - target.def.get("contact_armor", 0.0))
 
 
-## Legendary boons that react to a landed bump: Thorn Crown hits the bumper
-## back (as "thorns", which never bounces again) and Vampire Kiss heals.
+## Legendary boons and gear that react to a landed bump: Thorn Crown or a
+## Thorn Shell hits the bumper back (as "thorns", which never bounces again)
+## and Vampire Kiss or a Leech Core heals.
 func _boon_after_contact(source: Ball, target: Ball, amount: float, pos: Vector2, hits: Array[Dictionary], heals: Array[Dictionary]) -> void:
 	var thorns: float = target.def.get("thorns", 0.0)
 	if thorns > 0.0 and source.team != target.team:

@@ -39,7 +39,7 @@ const PREMIUM_COSMETICS := {1: "hat_halo", 10: "spark_neon", 20: "trail_synth", 
 const FREE_COSMETICS := {5: "hat_cap", 15: "trail_comet", 30: "ko_stars"}
 const DEBUT_LEVELS := [10, 25, 40]
 ## Free-track gear (design/gear.md section 4): level -> [type, tier].
-const FREE_GEAR := {9: ["bubble_shell", 1], 21: ["spike_core", 2], 33: ["iron_shell", 3], 46: ["jet_charm", 3]}
+const FREE_GEAR := {9: ["bubble_shell", 1], 14: ["thorn_shell", 1], 21: ["spike_core", 2], 27: ["leech_core", 2], 33: ["iron_shell", 3], 38: ["ward_charm", 3], 46: ["jet_charm", 3]}
 
 
 ## The free-track reward at `level` (1-50). `debut` is the season's debut

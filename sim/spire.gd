@@ -104,7 +104,7 @@ static func relay_config(spec: Dictionary, picks: Array, aims: Array = []) -> Di
 
 ## Boss floors' gear piece (design/gear.md section 4): [type, tier], one per
 ## boss floor in BOSS_FLOORS order.
-const BOSS_GEAR := [["bubble_shell", 2], ["spike_core", 2], ["iron_shell", 3], ["echo_core", 3], ["jet_charm", 4]]
+const BOSS_GEAR := [["thorn_shell", 2], ["spike_core", 2], ["spring_shell", 3], ["leech_core", 3], ["phoenix_charm", 4]]
 
 
 ## First-clear reward for a floor, paid once per week.

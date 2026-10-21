@@ -27,9 +27,11 @@ func test_every_piece_is_worth_the_same_power_at_a_tier() -> void:
 		for tier in range(1, 6):
 			check_near(Gear.stats_power(Gear.stats_for(type, tier)), Gear.tier_power(tier), 0.001, "%s %d-star" % [type, tier])
 	check_near(Gear.tier_power(5), 0.05, 0.0001, "a 5-star piece is +5%")
-	check_eq(Gear.TYPES.size(), 6, "six pieces")
+	check_eq(Gear.TYPES.size(), 12, "twelve pieces")
 	for slot in Gear.SLOTS:
-		check_eq(Gear.TYPES.filter(func(t): return Gear.PIECES[t].slot == slot).size(), 2, "two pieces per %s" % slot)
+		check_eq(Gear.TYPES.filter(func(t): return Gear.PIECES[t].slot == slot).size(), 4, "four pieces per %s" % slot)
+	for type in Gear.PIECES:
+		check(type in Gear.TYPES, "%s is listed in TYPES" % type)
 
 
 func test_full_best_in_slot_stays_inside_the_budget() -> void:
@@ -179,7 +181,7 @@ func test_vault_rotation_covers_every_slot_each_week() -> void:
 		for t in GearVault.types_today(T0 + d * GearVault.DAY_SECONDS):
 			seen[t] = true
 	check_eq(seen.size(), Gear.TYPES.size(), "every piece can drop in a week")
-	check_eq(GearVault.types_today(0).size(), 2, "Thursday 1970 is a Shell day")
+	check_eq(GearVault.types_today(0).size(), 4, "Thursday 1970 is a Shell day")
 	check_eq(Gear.PIECES[GearVault.types_today(0)[0]].slot, "Shell", "Shell day")
 
 
@@ -219,3 +221,43 @@ func test_glow_pass_gear_is_free_track_only() -> void:
 	var p = _player()
 	p.grant({"kind": "gear", "type": "iron_shell", "tier": 3})
 	check_eq([p.gear[0].type, p.gear[0].tier], ["iron_shell", 3], "granted")
+
+
+func _fight(gear0, p1 := "plain", p2 := "plain", seed := 7) -> MatchSim:
+	return MatchSim.new({"seed": seed, "p1": p1, "p2": p2, "angles": [null, null], "gear": [gear0, null]})
+
+
+func _events(sim: MatchSim, type: String, ticks := 1800) -> Array:
+	var out := []
+	for i in ticks:
+		if sim.finished:
+			break
+		sim.step()
+		out.append_array(sim.events.filter(func(e): return e.type == type))
+	return out
+
+
+func test_effect_pieces_show_in_the_fight() -> void:
+	var ward := _fight([{"stats": Gear.stats_for("ward_charm", 5)}])
+	check_near(ward.balls[0].shield, ward.balls[0].max_hp * Gear.value("ward", 5), 0.01, "Ward Charm starts with a shield")
+	check_eq(ward.balls[1].shield, 0.0, "the bare foe has none")
+	check(not _events(_fight([{"stats": Gear.stats_for("thorn_shell", 5)}]), "reflect").is_empty(), "Thorn Shell hits bumpers back")
+	check(not _events(_fight([{"stats": Gear.stats_for("ricochet_core", 5)}]), "ricochet").is_empty(), "Ricochet Core boosts a bank shot")
+	var leech := _fight([{"stats": Gear.stats_for("leech_core", 5)}])
+	_events(leech, "heal")
+	check(leech.balls[0].healed > 0.0, "Leech Core heals off its bumps")
+	var spring := _fight([{"stats": Gear.stats_for("spring_shell", 5)}])
+	_events(spring, "heal")
+	check(spring.balls[0].healed > 0.0, "Spring Shell heals on wall bounces")
+	var phoenix := _fight([{"stats": Gear.stats_for("phoenix_charm", 5)}], "plain", "juggernaut")
+	var revives := _events(phoenix, "revive", 20000)
+	check(revives.size() <= 1, "Phoenix Charm revives at most once")
+	check_eq(MatchSim.new({"seed": 7, "p1": "plain", "p2": "plain", "angles": [null, null]}).balls[0].shield, 0.0, "no gear, no shield")
+
+
+func test_effect_pieces_stack_with_bounce_run_boons() -> void:
+	const Boons := preload("res://sim/boons.gd")
+	var def := Gear.apply_def({"hp": 100.0, "speed": 300.0}, Gear.totals([{"stats": Gear.stats_for("thorn_shell", 5)}]))
+	check_near(def.thorns, Gear.value("thorns", 5), 0.0001, "Thorn Shell sets thorns")
+	var both := Boons.apply_to_def(def, ["thorn_crown"])
+	check_near(both.thorns, Gear.value("thorns", 5) + Boons.get_def("thorn_crown").thorns, 0.0001, "a boon adds to it")

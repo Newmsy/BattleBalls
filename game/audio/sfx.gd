@@ -290,6 +290,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("hit_big", 0.0, 0.8 if e.type == "boom" else PULSE_PITCH.get(kind, 1.1))
 			"reflect":
 				play("hit", -4.0, 1.5)
+			"ricochet": # A Ricochet Core's boosted bump.
+				play("snap", -3.0, 1.3)
 			"spike": # Spike Yard: a sharp, high snap.
 				play("snap", -2.0, 1.7)
 			"lava":

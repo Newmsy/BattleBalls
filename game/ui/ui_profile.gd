@@ -26,6 +26,12 @@ static func sample():
 		{"uid": 6, "type": "bubble_shell", "tier": 1, "on": ""},
 		{"uid": 7, "type": "jet_charm", "tier": 2, "on": ""},
 		{"uid": 8, "type": "overclock_charm", "tier": 1, "on": ""},
+		{"uid": 9, "type": "thorn_shell", "tier": 2, "on": ""},
+		{"uid": 10, "type": "spring_shell", "tier": 1, "on": ""},
+		{"uid": 11, "type": "leech_core", "tier": 3, "on": ""},
+		{"uid": 12, "type": "ricochet_core", "tier": 1, "on": ""},
+		{"uid": 13, "type": "ward_charm", "tier": 2, "on": ""},
+		{"uid": 14, "type": "phoenix_charm", "tier": 3, "on": ""},
 	].map(func(g): return gear_piece(g)))
 	p.factions = {"spooky": {"xp": 900, "picks": {"siphon": 3, "launch_kick": 2, "haunt": 1}}, "nature": {"xp": 300, "picks": {}}}
 	p.items.assign([
