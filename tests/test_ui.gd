@@ -239,9 +239,31 @@ func test_summon_reveal_opens_on_its_own_and_tap_skips() -> void:
 	var reveal = SummonScreen._reveal(shell, ids, fresh)
 	check(reveal.OPEN_GAP * ids.size() <= 4.2, "a x10 opens in about 4 seconds")
 	check(reveal.caps.all(func(c): return not c.opened), "nothing is open before the sequence starts")
+	check(reveal.intro_time() <= 2.0, "a x10 drops in and opens its first egg within 2 seconds")
 	reveal.skip()
 	check(reveal.caps.all(func(c): return c.opened), "skip opens every capsule")
 	check(shell._marks.open_all.disabled, "Skip greys out once all are open")
+	reveal.free()
+	shell.free()
+
+
+func test_summon_eggs_land_before_the_first_one_opens() -> void:
+	var shell = Shell.new()
+	shell.build()
+	var ids := ["speedster", "blackhole", "laser"]
+	var reveal = SummonScreen._reveal(shell, ids, [true, true, true])
+	var step := func(secs: float):
+		var n := int(secs / .02)
+		for i in n:
+			reveal._process(.02)
+			for c in reveal.caps:
+				c._process(.02)
+	step.call(reveal.intro_time() - .1)
+	check(reveal.caps.all(func(c): return c._landed and not c.opened), "every egg has landed and none is open yet")
+	step.call(.2)
+	check(reveal.caps[0].opened and not reveal.caps[1].opened, "then they open one by one")
+	reveal.skip()
+	check(reveal.caps.all(func(c): return c.opened), "skip mid-way opens the rest")
 	reveal.free()
 	shell.free()
 

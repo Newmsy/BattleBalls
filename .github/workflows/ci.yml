@@ -139,7 +139,11 @@ jobs:
           node-version: 20
       - name: Install Playwright
         working-directory: smoke
-        run: npm ci && npx playwright install --with-deps chromium
+        # The runner image's packages.microsoft.com apt source sometimes answers
+        # 403, which fails the browser's apt install; Playwright needs none of it.
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/microsoft-prod.sources
+          npm ci && npx playwright install --with-deps chromium
       - name: Play this shard's smoke cases in a phone-sized browser
         working-directory: smoke
         env:

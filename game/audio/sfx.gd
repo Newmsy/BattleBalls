@@ -43,6 +43,7 @@ const RULES := {
 	"stretch": [1, 0.07, -14.0],
 	"click": [2, 0.04, -8.0],
 	"summon_pop": [3, 0.05, -7.0],
+	"summon_land": [3, 0.04, -9.0],
 	"summon_charge": [1, 0.3, -8.0],
 	"summon_legend": [1, 0.5, -3.0],
 	"chomp": [1, 0.15, -3.0],
