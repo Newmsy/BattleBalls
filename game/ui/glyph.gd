@@ -46,14 +46,28 @@ func _draw() -> void:
 				pts[i] = pts[i] * s
 			draw_colored_polygon(pts, color)
 		"energy":
-			draw_circle(c, s * .5, Color("5ce1ff"))
+			# A charged cell: a blue disc with a darker rim and a sheen, and a
+			# white-hot bolt with a dark edge.
+			draw_circle(c, s * .5, Color("2a9fd0"))
+			draw_circle(c + Vector2(0, -s * .03), s * .43, Color("5ce1ff"))
+			draw_circle(c + Vector2(-s * .14, -s * .2), s * .1, Color(1, 1, 1, .35))
 			var pts := PackedVector2Array([Vector2(.58, .14), Vector2(.28, .56), Vector2(.48, .56), Vector2(.42, .86), Vector2(.72, .44), Vector2(.52, .44)])
 			for i in pts.size():
 				pts[i] = pts[i] * s
-			draw_colored_polygon(pts, Color("0b0a1f"))
+			var edge := PackedVector2Array()
+			for q in pts:
+				edge.append(c + (q - c) * 1.18)
+			draw_colored_polygon(edge, Color("0b3a55"))
+			draw_colored_polygon(pts, Color("f4fdff"))
 		"coin":
-			draw_circle(c, s * .5, Color("ffd45c"))
-			draw_arc(c, s * .3, 0, TAU, 24, Color("b8860b"), s * .09, true)
+			# A minted coin: a darker milled rim, a raised face with an inner
+			# ring and a pressed star, and a glint top left.
+			draw_circle(c, s * .5, Color("c8901c"))
+			draw_circle(c + Vector2(0, -s * .02), s * .44, Color("ffd45c"))
+			draw_arc(c, s * .32, 0, TAU, 24, Color("d9a22e"), s * .05, true)
+			draw_colored_polygon(CritterArt.star_pts(c + Vector2(0, s * .01), s * .2, s * .09, 5), Color("d9a22e"))
+			draw_colored_polygon(CritterArt.star_pts(c, s * .2, s * .09, 5), Color("fff0b0"))
+			draw_circle(c + Vector2(-s * .2, -s * .2), s * .06, Color(1, 1, 1, .6))
 		"hammer":
 			# A forge hammer, tilted: wooden handle, steel head with a hot face.
 			var t := Transform2D(-PI / 5.0, c)
@@ -85,9 +99,15 @@ func _draw() -> void:
 			var pts := PackedVector2Array([Vector2(.5, .06), Vector2(.92, .4), Vector2(.5, .96), Vector2(.08, .4)])
 			for i in pts.size():
 				pts[i] = pts[i] * s
-			draw_colored_polygon(pts, Color("5ce1ff"))
-			draw_colored_polygon(PackedVector2Array([pts[0], pts[1], Vector2(.5, .4) * s]), Color("b8f4ff"))
-			draw_colored_polygon(PackedVector2Array([pts[3], pts[0], Vector2(.5, .4) * s]), Color("e6fbff"))
+			# A cut gem: a table on top, crown facets light to dark round it and a
+			# pavilion that darkens to the point.
+			var mid := Vector2(.5, .4) * s
+			draw_colored_polygon(pts, Color("2fb6e8"))
+			draw_colored_polygon(PackedVector2Array([pts[3], mid, pts[2]]), Color("1f8fc0"))
+			draw_colored_polygon(PackedVector2Array([mid, pts[1], pts[2]]), Color("44c8f2"))
+			draw_colored_polygon(PackedVector2Array([pts[0], pts[1], mid]), Color("b8f4ff"))
+			draw_colored_polygon(PackedVector2Array([pts[3], pts[0], mid]), Color("e6fbff"))
+			draw_circle(Vector2(.36, .3) * s, s * .05, Color(1, 1, 1, .9))
 		"pass":
 			draw_circle(c, s * .46, color)
 			draw_colored_polygon(CritterArt.star_pts(c, s * .3, s * .13, 5), Color("0b0a1f"))
