@@ -92,6 +92,7 @@ var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.
 var backend = null
 var play_with := "" ## Ball to pick in the arena menu on the next request_play().
+var play_duo := false ## The next request_play() opens the 2v2 pick-a-pair menu.
 ## Glow Gems, cosmetics and the Glow Pass (game/glow/glow_state.gd). main.gd
 ## sets one backed by the real save; tests get a throwaway one.
 var glow
@@ -444,8 +445,9 @@ func mark(name: String, c: Control) -> void:
 
 ## Screens call this to get back to the arena menu, optionally with `ball`
 ## picked as yours (the Try-a-Critter card does).
-func request_play(ball := "") -> void:
+func request_play(ball := "", duo := false) -> void:
 	play_with = ball
+	play_duo = duo
 	play_requested.emit()
 
 
@@ -594,7 +596,19 @@ const PILL_HELP := {
 func _pill(kind: String) -> Control:
 	var l := Kit.label("", 26)
 	_top_labels[kind] = l
-	var p := Kit.panel(Kit.hbox(8, [Glyph.make(kind, 34), l]), Kit.box(Kit.PANEL, Kit.LINE, 999, 2, 0))
+	var row := Kit.hbox(8, [Glyph.make(kind, 34), l])
+	if kind == "energy":
+		# Time to the next point while it refills, ticked once a second.
+		var next := Kit.label("", 20, Kit.MUTED)
+		next.visible = false
+		_top_labels["energy_next"] = next
+		row.add_child(next)
+		var tick := Timer.new()
+		tick.wait_time = 1.0
+		tick.autostart = true
+		tick.timeout.connect(_tick_energy)
+		row.add_child(tick)
+	var p := Kit.panel(row, Kit.box(Kit.PANEL, Kit.LINE, 999, 2, 0))
 	# Tap a currency to learn where it comes from.
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	p.gui_input.connect(func(e):
@@ -609,9 +623,27 @@ func _pill(kind: String) -> Control:
 	return p
 
 
+## The energy pill's "4:59" to the next point; hidden when full. A new
+## point lands in the pill without waiting for a screen change.
+func _tick_energy() -> void:
+	var next: Label = _top_labels.get("energy_next")
+	if next == null:
+		return
+	var now := int(Time.get_unix_time_from_system())
+	var before: int = profile.energy
+	profile.update_energy(now)
+	if profile.energy != before:
+		_top_labels.energy.text = "%d/%d" % [profile.energy, profile.energy_max]
+	var wait: int = profile.seconds_to_next_energy(now)
+	next.visible = wait > 0
+	if wait > 0:
+		next.text = "%d:%02d" % [wait / 60, wait % 60]
+
+
 func _refresh_top() -> void:
 	_top_labels.level.text = str(profile.account_level)
 	_top_labels.energy.text = "%d/%d" % [profile.energy, profile.energy_max]
+	_tick_energy()
 	_top_labels.coin.text = Kit.commas(profile.coins)
 	_top_labels.orb.text = str(profile.orbs)
 	_level_ring.set("frac", float(profile.account_xp) / maxf(1.0, profile.account_xp_to_next()))

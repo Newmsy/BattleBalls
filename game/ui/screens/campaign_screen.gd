@@ -33,7 +33,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var root := Kit.vbox(22)
 
 	var back: Control = shell.back_button("back")
-	var head := Kit.vbox(2, [Kit.caption("Zone %d · %dv%d" % [z + 1, zone.lineup, zone.lineup], Color("9be89a")),
+	var head := Kit.vbox(2, [Kit.caption(("Zone %d · Team of 3" % (z + 1)) if zone.lineup == 3 else ("Zone %d · %dv%d" % [z + 1, zone.lineup, zone.lineup]), Color("9be89a")),
 		Kit.label(zone.name, 44)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var title_row := Kit.hbox(16, [back, head])
@@ -140,6 +140,8 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	var title := Kit.hbox(8, [Kit.label(Zones.stage_key(z, i), 22, Kit.MUTED), _fit(Kit.label(name, 28))])
 	if boss:
 		title.add_child(Kit.chip("BOSS", Kit.BAD))
+	if Zones.zone(z).lineup == 3: # Trios zones mix relays, 2v2s and 3v3 brawls.
+		title.add_child(Kit.chip(Zones.format_label(z, i), Kit.ACCENT))
 	var border := Kit.BAD.darkened(.3) if boss else Kit.GOOD.darkened(.5)
 
 	if not Campaign.is_cleared(p, z, i):
@@ -410,18 +412,18 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	shell.sheet(v)
 
 
-## A pairs or trios stage: spend the energy, then fight it. Pairs are a 2v2 in
-## the arena like a solo stage; trios are a relay on their own screen
+## A pairs or trios stage: spend the energy, then fight it. A 2v2 or a 3v3
+## brawl fights in the arena like a solo stage; a relay is on its own screen
 ## (game/campaign_relay.gd). main.gd settles either on the way back.
 static func _fight_team(shell, z: int, i: int) -> void:
-	var picks := Campaign.team_for(shell.profile, Zones.zone(z).lineup)
+	var picks := Campaign.team_for(shell.profile, Zones.team_size(z, i))
 	var cfg: Dictionary = Campaign.start_team(shell.profile, z, i, picks, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
 		_show_error(shell, cfg.error)
 		return
-	if Campaign.is_pair(z, i, picks):
-		# Pairs are a real 2v2 in the arena, all four at once (trios stay relays).
-		shell.stage_requested.emit(Campaign.pair_config(shell.profile, cfg), z, i, picks[0])
+	if Campaign.is_pair(z, i, picks) or Campaign.is_brawl(z, i, picks):
+		# All at once in the arena: a 2v2, or six balls on the zoomed-out arena.
+		shell.stage_requested.emit(Campaign.team_config(shell.profile, cfg), z, i, picks[0])
 		return
 	var scene = load("res://game/campaign_relay.gd")
 	scene.pending = {"zone": z, "stage": i, "picks": picks, "config": cfg}

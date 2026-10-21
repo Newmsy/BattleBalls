@@ -5,7 +5,9 @@
 ## whole trio, then climb FLOORS fights. Before each fight you see the foe and
 ## send one of your living critters. A win earns another boon (pick 1 of 3); a
 ## loss knocks that critter out of the run, and you retry the floor with
-## another. The run ends when the top floor falls or your trio is out.
+## another. The foe keeps the damage it took (run.foe_hp), so the next critter
+## you send finishes off a weakened foe; it heals up only for the next floor.
+## The run ends when the top floor falls or your trio is out.
 ##
 ## A floor's foe carries exactly as many boons as you can have there (three
 ## to start plus one per floor cleared), drawn from the same pool, and its
@@ -29,7 +31,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 3
+const RULES_VERSION := 4
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 10
@@ -83,7 +85,7 @@ static func new_run(setup: Dictionary, picks: Array, start: Array) -> Dictionary
 	assert(picks.size() == PICKS and start.size() == START_BOONS)
 	assert(start.all(func(id): return id in setup.start_offer))
 	return {"day": setup.day, "rules": RULES_VERSION, "picks": picks.duplicate(), "start": start.duplicate(),
-		"boons": start.duplicate(), "floor": 0, "out": [false, false, false], "ticks": 0, "log": [], "offer": [], "over": false}
+		"boons": start.duplicate(), "floor": 0, "out": [false, false, false], "foe_hp": null, "ticks": 0, "log": [], "offer": [], "over": false}
 
 
 ## The pick slot's card.
@@ -102,16 +104,18 @@ static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> 
 	var foe: Dictionary = setup.floors[run.floor]
 	return {"seed": foe.seed, "p1": card(setup, run, slot).critter, "p2": foe.critter,
 		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons], "powers": [1.0, FOE_POWER[run.floor]],
-		"tiers": [tier_at(run.floor), 1]}
+		"tiers": [tier_at(run.floor), 1], "hp": [null, run.get("foe_hp")]}
 
 
 ## Records a fight. A win climbs a floor and, unless the run is won, deals a
-## boon offer to pick from; anything else knocks the fighter out.
-static func record(setup: Dictionary, run: Dictionary, slot: int, aim: int, winner: int, ticks: int) -> void:
+## boon offer to pick from; anything else knocks the fighter out and leaves
+## the foe on `foe_hp` (its HP at the end of the fight) for your next send.
+static func record(setup: Dictionary, run: Dictionary, slot: int, aim: int, winner: int, ticks: int, foe_hp := 0.0) -> void:
 	assert(not run.over and run.offer.is_empty() and not run.out[slot])
 	run.log.append({"floor": run.floor, "slot": slot, "aim": aim, "won": winner == 0, "ticks": ticks})
 	run.ticks += ticks
 	if winner == 0:
+		run.foe_hp = null
 		run.floor += 1
 		if run.floor >= FLOORS:
 			run.over = true
@@ -119,6 +123,8 @@ static func record(setup: Dictionary, run: Dictionary, slot: int, aim: int, winn
 			run.offer = offer(setup, run)
 	else:
 		run.out[slot] = true
+		# A double KO still leaves the foe standing, just barely.
+		run.foe_hp = maxf(foe_hp, 0.01)
 		if not run.out.has(false):
 			run.over = true
 
@@ -182,7 +188,7 @@ static func replay(setup: Dictionary, run: Dictionary) -> Dictionary:
 	for entry in run.log:
 		var sim := MatchSim.new(fight_config(setup, check, entry.slot, entry.aim))
 		var result := sim.run_to_end()
-		record(setup, check, entry.slot, entry.aim, result.winner, result.ticks)
+		record(setup, check, entry.slot, entry.aim, result.winner, result.ticks, result.hp[1])
 		if not check.offer.is_empty() and boon_i < run.boons.size():
 			take_boon(check, run.boons[boon_i])
 			boon_i += 1

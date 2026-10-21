@@ -25,13 +25,13 @@ var stats: Array = ["", ""]
 ## Under the clock: the fight's twist (Chaos Weekend rule), or the overtime damage.
 var caption := ""
 var center_text := ""
-var _hp := [0.0, 0.0, 0.0, 0.0]
-var _max := [1.0, 1.0, 1.0, 1.0]
-var _shield := [0.0, 0.0, 0.0, 0.0]
-var _names := ["", "", "", ""]
-var _chip := [1.0, 1.0, 1.0, 1.0]
-var _chip_hold := [0.0, 0.0, 0.0, 0.0]
-var _count := 2 ## Bars: 2, or 4 in a 2v2 (index 2 is YOU's mate, 3 the foe's).
+var _hp := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+var _max := [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+var _shield := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+var _names := ["", "", "", "", "", ""]
+var _chip := [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+var _chip_hold := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+var _count := 2 ## Bars: 2, or 4 in a 2v2 (index 2 is YOU's mate, 3 the foe's), or 6 in a 3v3.
 var _time := 0.0
 var _live := false
 ## The sim side the viewer plays (a live match can put you on side 1): its
@@ -48,7 +48,8 @@ func show_fight(sim, center := "") -> void:
 			_live = false
 			queue_redraw()
 		return
-	_count = 4 if sim.get("starters") == 4 and sim.balls.size() >= 4 else 2
+	var n: int = sim.get("starters") if sim.get("starters") != null else 2
+	_count = n if n in [4, 6] and sim.balls.size() >= n else 2
 	for i in _count:
 		var b = sim.balls[i ^ you_side]
 		var frac := clampf(b.hp / maxf(1.0, b.max_hp), 0.0, 1.0)
@@ -82,6 +83,9 @@ func _draw() -> void:
 	if not _live:
 		if center_text != "":
 			_text(Vector2(size.x / 2.0, size.y * 0.62), center_text, A11y.font(26), Color("f0eeff"))
+		return
+	if _count == 6:
+		_draw_trios()
 		return
 	if _count == 4:
 		_draw_teams()
@@ -151,6 +155,23 @@ func _draw_teams() -> void:
 			draw_string(FONT, Vector2(x, y + fs), label, align, bar_w, fs, TEAM_COLORS[side])
 			_bar(i, Rect2(x, y + name_h + 2.0, bar_w, bar_h), bfs)
 	_draw_clock(Vector2(size.x / 2.0, name_h + 2.0 + bar_h * 0.5), gap - 8.0)
+	if caption != "":
+		_text(Vector2(size.x / 2.0, size.y - A11y.font(20) * 0.6), caption, A11y.font(20), Color("c9c3ff"))
+
+
+## 3v3: three bars a side with each critter's name inside its bar, the
+## clock between the top two.
+func _draw_trios() -> void:
+	var gap := size.x * CENTER_W
+	var bar_w := (size.x - gap) / 2.0
+	var bar_h := clampf((size.y - 12.0) / 3.0, 18.0, 30.0)
+	var bfs := mini(A11y.font(20), int(bar_h * 0.72))
+	for side in 2:
+		var x := 0.0 if side == 0 else size.x - bar_w
+		for k in 3:
+			var i := side + 2 * k
+			_bar(i, Rect2(x, k * (bar_h + 6.0), bar_w, bar_h), bfs, _names[i] + "  ")
+	_draw_clock(Vector2(size.x / 2.0, bar_h * 0.5), gap - 8.0)
 	if caption != "":
 		_text(Vector2(size.x / 2.0, size.y - A11y.font(20) * 0.6), caption, A11y.font(20), Color("c9c3ff"))
 

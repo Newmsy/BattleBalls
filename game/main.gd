@@ -44,6 +44,7 @@ const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, Nest
 	"glitch": [preload("res://meta/glitch_core.gd"), preload("res://game/ui/screens/glitch_screen.gd")]}
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 const Zones := preload("res://meta/zones.gd")
 const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
@@ -61,6 +62,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const Lineup := preload("res://sim/lineup.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 const FightSpeed := preload("res://game/fight_speed.gd")
 const Dev := preload("res://game/dev.gd")
 const LiveClient := preload("res://game/online/live_client.gd")
@@ -126,6 +128,9 @@ var tier_buttons: Array = []
 ## [player_type, mate_type]; you aim player_type, the seed aims the rest.
 var duo := false
 var mate_type := ""
+## One-tap Quick fight: your fighter's tier, which the random foe (same
+## rarity, so equal strength) fights at too. 0 is the old equal-stats menu.
+var quick_tier := 0
 var duo_button: Button
 
 var backend: Backend
@@ -488,8 +493,10 @@ func _set_duo(on: bool) -> void:
 func _fight_tiers() -> Array:
 	if mode == Mode.REPLAY:
 		return link_tiers
-	if mode != Mode.NORMAL or pick_tiers[0] == 0:
+	if mode != Mode.NORMAL:
 		return [0, 0]
+	if pick_tiers[0] == 0:
+		return [quick_tier, quick_tier] if quick_tier > 0 and not _is_duo() else [0, 0]
 	return [pick_tiers[0], pick_tiers[1] if pick_tiers[1] > 0 else pick_tiers[0]]
 
 
@@ -663,7 +670,8 @@ func _begin_aim() -> void:
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
-	aim = MatchSim.aim_at_centre(you_side, 4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 or pve.get("config", {}).has("p3") else 2)
+	var balls := 6 if pve.get("config", {}).has("p5") else (4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 or pve.get("config", {}).has("p3") else 2)
+	aim = MatchSim.aim_at_centre(you_side, balls)
 	arena.clear_effects()
 	arena.reset_camera()
 	_set_aim_preview()
@@ -675,8 +683,16 @@ func _begin_aim() -> void:
 func _pick_opponent() -> String:
 	if opponent_choice != OPPONENT_RANDOM:
 		return opponent_choice
-	# Derived from the seed so a seed always means the same matchup.
-	return BallDefs.PLAYABLE[seed_value % BallDefs.PLAYABLE.size()]
+	# Derived from the seed so a seed always means the same matchup. A
+	# one-tap Quick fight draws from your critter's rarity: same rarity and
+	# tier is the same power (sim/power.gd), so it's an even fight.
+	var ids: Array = BallDefs.PLAYABLE
+	if quick_tier > 0 and mode == Mode.NORMAL and not _is_duo():
+		var rarity: String = CritterDb.get_critter(player_type).rarity
+		var same: Array = ids.filter(func(id): return id != player_type and CritterDb.get_critter(id).rarity == rarity)
+		if not same.is_empty():
+			ids = same
+	return ids[seed_value % ids.size()]
 
 
 ## The balls that will actually fight: Mirror Match overrides both picks.
@@ -818,7 +834,7 @@ func _show_result() -> void:
 	_label_result_buttons()
 	var dealt := you.damage_dealt
 	var healed := you.healed
-	if sim.starters == 4: # A 2v2 counts the whole pair (and any split-offs).
+	if sim.starters > 2: # A 2v2 or 3v3 counts the whole team (and any split-offs).
 		dealt = 0.0
 		healed = 0.0
 		for b in sim.balls:
@@ -871,7 +887,7 @@ func _result_caption() -> String:
 		Mode.CAMPAIGN: "Campaign", Mode.LIVE: "Live fight", Mode.TUTORIAL: ""}[mode]
 	if mode == Mode.RIVAL and not rival.is_empty():
 		name = "Rival · " + str(rival.name)
-	return name + (" · 2v2" if sim != null and sim.starters == 4 else "")
+	return name + ((" · %dv%d" % [sim.starters / 2, sim.starters / 2]) if sim != null and sim.starters > 2 else "")
 
 
 ## The winning critter's face beside the headline (a draw shows none).
@@ -1117,10 +1133,19 @@ func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: S
 	info_label.text = FightSpeed.with_aim_hint("%s · %s" % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name])
 
 
-## "Power 2,250 vs 3,100" for a 2v2 pairs stage, short enough for one line.
+## Your critters in a 2v2 or 3v3 campaign stage: p1, p3 (and p5).
+func _team_picks() -> Array:
+	var picks := []
+	for key in ["p1", "p3", "p5"]:
+		if pve.config.has(key):
+			picks.append(pve.config[key])
+	return picks
+
+
+## "Power 2,250 vs 3,100" for a 2v2 or 3v3 stage, short enough for one line.
 func _pair_power_text() -> String:
 	var mine := 0
-	for id in [pve.config.p1, pve.config.p3]:
+	for id in _team_picks():
 		mine += profile.power_of(id)
 	var st := Zones.stage(pve.zone, pve.stage)
 	return "Power %s vs %s" % [Kit.commas(mine), Kit.commas(Campaign.enemy_rating(pve.zone, pve.stage) * Zones.enemies(st).size())]
@@ -1147,11 +1172,11 @@ func _start_url_stage() -> void:
 			profile.stars[Zones.stage_key(zk, k)] = 1
 	for k in i:
 		profile.stars[Zones.stage_key(z, k)] = 1
-	if Zones.zone(z).lineup == 2:
-		# A pairs stage (?pve=2-1) is a 2v2: lend the starter a mate.
-		profile.add_copies(["laser" if Profile.STARTER != "laser" else "vampire"])
-		var picks := Campaign.team_for(profile, 2)
-		_start_stage(Campaign.pair_config(profile, Campaign.start_team(profile, z, i, picks, now)), z, i, picks[0])
+	if Zones.format(z, i) in ["duo", "brawl"]:
+		# A 2v2 (?pve=2-1) or 3v3 brawl (?pve=3-2): lend the starter mates.
+		profile.add_copies(["laser", "vampire", "spiker"].filter(func(id): return id != Profile.STARTER))
+		var picks := Campaign.team_for(profile, Zones.team_size(z, i))
+		_start_stage(Campaign.team_config(profile, Campaign.start_team(profile, z, i, picks, now)), z, i, picks[0])
 	else:
 		_start_stage(Campaign.start(profile, z, i, Profile.STARTER, now), z, i, Profile.STARTER)
 	if auto_start:
@@ -1172,7 +1197,7 @@ func _finish_stage() -> void:
 		print("BOSS_END boss=%s difficulty=%d won=%s" % [pve.boss, pve.vault, v.won])
 		return
 	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight) if sim.starters == 2 \
-		else Campaign.finish_team(profile, pve.zone, pve.stage, [pve.config.p1, pve.config.p3], Campaign.pair_fight(sim))
+		else Campaign.finish_team(profile, pve.zone, pve.stage, _team_picks(), Campaign.pair_fight(sim))
 	Intro.after_stage(profile, pve.zone, pve.stage, r)
 	pve.result = CampaignScreen.result_text(r)
 	pve.r = r
@@ -1197,6 +1222,9 @@ func _return_with_result() -> void:
 func _aim_back() -> void:
 	if mode == Mode.LIVE:
 		_cancel_live()
+		return
+	if mode == Mode.NORMAL and not _is_duo():
+		_show_home() # A one-tap Quick fight has no menu to go back to.
 		return
 	if mode != Mode.CAMPAIGN:
 		_show_menu()
@@ -1583,7 +1611,15 @@ func _build_shell() -> void:
 		if shell.play_with in BallDefs.PLAYABLE:
 			player_type = shell.play_with
 		shell.play_with = ""
-		_play_normal())
+		# 2v2 keeps the pick-a-pair menu; Quick fight goes straight to the aim.
+		duo = shell.play_duo
+		shell.play_duo = false
+		if duo:
+			quick_tier = 0
+			mate_type = _mate()
+			_play_normal()
+		else:
+			_quick_fight())
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
@@ -1774,13 +1810,13 @@ func _update_hud() -> void:
 	fight_hud.tags = tags.map(func(t): return str(t).to_upper())
 	if _stats_for != sim:
 		_stats_for = sim
-		fight_hud.stats = ["", ""] if sim.starters == 4 else [_side_stats(you_side), _side_stats(1 - you_side)]
+		fight_hud.stats = ["", ""] if sim.starters > 2 else [_side_stats(you_side), _side_stats(1 - you_side)]
 	var twist: String = Modifiers.display_name(sim.config.modifier) if sim.config.get("modifier", Modifiers.NONE) != Modifiers.NONE else ""
 	fight_hud.caption = "x%.1f damage" % sim.damage_multiplier() if sim.in_overtime() else twist
 	fight_hud.show_fight(sim, clock)
 	# The bars (four in a 2v2, or two with their tier and power lines) take
 	# the title's room above the arena.
-	var tall := sim.starters == 4
+	var tall := sim.starters > 2
 	menu_header.visible = false
 	fight_hud.position = _hud_box.position + (Vector2.ZERO if tall else Vector2(0, 16))
 	fight_hud.size = _hud_box.size - (Vector2.ZERO if tall else Vector2(0, 20))
@@ -1848,6 +1884,12 @@ func _on_change_button() -> void:
 		_show_home()
 		if shell.current != "friends":
 			shell.go("friends")
+	elif mode == Mode.NORMAL and not _is_duo():
+		# One-tap Quick fight: pick another fighter on Play, then tap Quick fight.
+		_show_home()
+		if shell.current != "play":
+			shell.show_tab("play")
+		PlayScreen.pick_fighter(shell)
 	else:
 		_play_normal()
 
@@ -1962,7 +2004,7 @@ func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> v
 
 
 ## Back to picking your ball against a random foe, dropping any link the page was opened with.
-func _play_normal() -> void:
+func _play_normal(menu := true) -> void:
 	_board_pick = -1
 	_board = {}
 	opponent_choice = OPPONENT_RANDOM
@@ -1973,7 +2015,23 @@ func _play_normal() -> void:
 	rival = {}
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("history.replaceState(null, '', location.pathname)")
-	_show_menu()
+	if menu:
+		quick_tier = 0
+		_show_menu()
+
+
+## Quick fight in one tap: your fighter at its best tier against a random foe
+## of the same rarity and tier on a random arena, straight to the aim.
+func _quick_fight() -> void:
+	quick_tier = 1
+	if profile != null and profile.owns(player_type):
+		quick_tier = clampi(int(profile.best(player_type).get("tier", 1)), 1, Lineup.MAX_TIER)
+	seed_value = _rng.randi_range(1, 99999)
+	_play_normal(false)
+	if _live_on():
+		_find_live()
+	else:
+		_begin_aim()
 
 
 ## Watch the Fight of the Day from the This Week board, as a replay.
