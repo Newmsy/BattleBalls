@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const A11y := preload("res://game/a11y.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
@@ -136,9 +137,28 @@ static func _level_row(shell, l: int, level: int, t: int) -> Control:
 	var num := Kit.panel(Kit.label(str(l), 26, Kit.BG if reached else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
 		Kit.box(GLOW if reached else Kit.PANEL2, Color(0, 0, 0, 0), 999, 0, 0))
 	num.custom_minimum_size = Vector2(70, 70)
-	num.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	(num.get_child(0) as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	return Kit.hbox(12, [num, _cell(shell, l, "free", t), _cell(shell, l, "premium", t)], BoxContainer.ALIGNMENT_CENTER)
+	# The track's spine: a bar through the level badges, lit up to your level.
+	var spine := Control.new()
+	spine.custom_minimum_size = Vector2(70, 70)
+	spine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bar := ColorRect.new()
+	bar.color = GLOW if l <= level else Kit.PANEL2
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.anchor_left = .5
+	bar.anchor_right = .5
+	bar.anchor_bottom = 1.0
+	bar.offset_left = -4
+	bar.offset_right = 4
+	bar.offset_top = -10.0 if l > 1 else 35.0 # Up through the gap to the row above.
+	bar.offset_bottom = 0.0 if l < GlowPass.LEVELS else -35.0
+	spine.add_child(bar)
+	var mid := CenterContainer.new()
+	mid.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mid.add_child(num)
+	spine.add_child(mid)
+	return Kit.hbox(12, [spine, _cell(shell, l, "free", t), _cell(shell, l, "premium", t)])
 
 
 static func _cell(shell, l: int, track: String, t: int) -> Control:
@@ -161,6 +181,7 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 	var badge: Control = null
 	if state == "Claim":
 		badge = Kit.chip("Claim", Kit.GOOD, 16)
+		_pulse_once(badge)
 	elif state == "Claimed":
 		badge = Kit.chip("Got it", Kit.MUTED, 16)
 	elif state == "locked":
@@ -170,7 +191,9 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 		text.add_child(badge)
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(8, [icon, text], BoxContainer.ALIGNMENT_CENTER)
-	var border := Kit.GOOD if state == "Claim" else (Color(accent, .35) if l <= glow.pass_level(t) else Kit.LINE)
+	# Premium cards wear a gold frame; anything you can claim is green.
+	var frame: Color = Color(Glyph.GOLD, .55) if track == "premium" else Kit.LINE
+	var border := Kit.GOOD if state == "Claim" else (Color(accent, .35) if l <= glow.pass_level(t) and track == "free" else frame)
 	var card := Kit.card_button(row, func():
 		if state == "Claim":
 			glow.claim(l, track, t)
@@ -238,3 +261,14 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(g)
 	return cc
+
+
+## A claim chip swells once when it appears, then sits still (no per-frame cost).
+static func _pulse_once(c: Control) -> void:
+	if A11y.reduced_motion:
+		return
+	c.ready.connect(func():
+		c.pivot_offset = c.size / 2.0
+		var tw := c.create_tween()
+		tw.tween_property(c, "scale", Vector2(1.18, 1.18), .25).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(c, "scale", Vector2.ONE, .3).set_trans(Tween.TRANS_SINE))
