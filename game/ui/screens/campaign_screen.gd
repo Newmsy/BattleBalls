@@ -386,10 +386,19 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 		v.add_child(reveal)
 		shell.sheet(v)
 		return
-	var ok := Kit.button("Continue", shell.close_overlay, "ghost" if r.won and i + 1 < Zones.zone(z).stages.size() else "go", 26, 84)
+	# The first win over a chapter's boss leads on into the next chapter and its story.
+	var next_zone: bool = r.won and r.first_clear and Zones.is_boss(st) and z + 1 < Zones.ZONES.size()
+	var ok := Kit.button("Continue", shell.close_overlay, "ghost" if r.won and (i + 1 < Zones.zone(z).stages.size() or next_zone) else "go", 26, 84)
 	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("result_continue", ok)
 	buttons.add_child(ok)
+	if next_zone:
+		var chapter := Kit.button("Next chapter", func():
+			shell.close_overlay()
+			shell.go("campaign", {"zone": z + 1}), "go", 26, 84)
+		chapter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		shell.mark("result_next_chapter", chapter)
+		buttons.add_child(chapter)
 	var next := i + 1 if r.won else i
 	if next < Zones.zone(z).stages.size() and Campaign.is_unlocked(shell.profile, z, next):
 		var p = shell.profile
