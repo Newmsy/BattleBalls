@@ -7,6 +7,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const A11y := preload("res://game/a11y.gd")
 
 const LAB_HEIGHT := 330.0
 const SLOT := 116.0
@@ -139,6 +140,7 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		tw.tween_property(s, "position", centre - s.size / 2.0, .6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		tw.tween_property(s, "rotation", TAU, .6).set_ease(Tween.EASE_IN)
 		tw.tween_property(s, "scale", Vector2(.5, .5), .6).set_ease(Tween.EASE_IN)
+	var pv: Dictionary = shell.profile.fuse_preview(sel.id, sel.tier)
 	tw.chain().tween_callback(func():
 		var result: Dictionary = shell.profile.fuse(sel.id, sel.tier)
 		for s in lab.get_meta("slots"):
@@ -146,8 +148,16 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		var flash: ColorRect = lab.get_meta("flash")
 		flash.color.a = .95
 		lab.create_tween().tween_property(flash, "color:a", 0.0, .55)
-		var out := Kit.vbox(4, [CritterIcon.make(sel.id, result.tier, 200, true), Kit.label("%s T%d" % [Roster.get_critter(sel.id).name, result.tier], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-			_center(Glyph.make("stars", 30, Kit.FG, result.tier))])
+		# The payoff: the new power counts up from the old one, in green.
+		var pow := Kit.power(pv.power_before, 28, Kit.GOOD)
+		pow.alignment = BoxContainer.ALIGNMENT_CENTER
+		var num: Label = pow.get_child(1)
+		var out := Kit.vbox(4, [CritterIcon.make(sel.id, result.tier, 170, true), Kit.label("%s T%d" % [Roster.get_critter(sel.id).name, result.tier], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+			_center(Glyph.make("stars", 30, Kit.FG, result.tier)), pow])
+		if A11y.reduced_motion:
+			num.text = Kit.commas(pv.power_after)
+		else:
+			lab.create_tween().tween_method(func(v: float): num.text = Kit.commas(roundi(v)), float(pv.power_before), float(pv.power_after), .8).set_delay(.3).set_ease(Tween.EASE_OUT)
 		lab.add_child(out)
 		lab.move_child(out, lab.get_child_count() - 2)
 		out.reset_size()

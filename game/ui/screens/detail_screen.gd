@@ -64,7 +64,11 @@ static func build(shell, params: Dictionary) -> Control:
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	root.add_child(Kit.hbox(16, [CritterIcon.make(c.id, b.tier, 220, true), side], BoxContainer.ALIGNMENT_CENTER))
 
-	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(0, [Kit.caption("Level"), Kit.spacer(), Kit.label("%d / %d" % [b.level, cap], 24)]),
+	var how_level: Control = shell.info_button("How to level", [
+		"Your critter earns XP when it fights in campaign stages.",
+		"XP Chips in your Bag give 200 XP each.",
+		"Each tier caps its level (%d for T%d). Fuse to a higher tier to raise the cap." % [cap, b.tier]], "level_info")
+	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(8, [Kit.caption("Level"), how_level, Kit.spacer(), Kit.label("%d / %d" % [b.level, cap], 24)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.bar(float(b.level) / cap, Kit.GOOD)]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
 	# Ability: this tier and the next; the whole ladder is behind the "i".
