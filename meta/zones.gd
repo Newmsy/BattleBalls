@@ -15,6 +15,14 @@ const BRAWL_SIZE := 0.72 ## Radius multiplier in a 3v3 brawl: the arena holds ab
 ## own `format` wins.
 const TRIO_FORMATS := ["relay", "brawl", "duo"]
 
+## Foe tier by chapter (Newms 2026-10-21): T1 in chapters 1-2, T2 in 3-4, T3
+## in 5-6, T4 in 7, T5 in 8. A higher tier's stronger ability is paid back by
+## FOE_POWER, measured in fights (T1 vs Tn foe at a stage's power) so every
+## stage plays about as hard as it did with T1 foes; `power` stays the stage's
+## Recommended Power.
+const FOE_TIERS := [1, 1, 2, 2, 3, 3, 4, 5]
+const FOE_POWER := [1.0, 0.92, 0.76, 0.7, 0.65] ## By tier - 1.
+
 ## Zone 1, Glow Garden: plain arena, 1v1, featured Commons. Enemy power rises
 ## ~9% a stage from an easy 0.75; the boss is tuned (with its size) so a T2 level 10 ball wins about half the time.
 const ZONES := [
@@ -241,14 +249,21 @@ static func zone(zone_index: int) -> Dictionary:
 	return ZONES[zone_index]
 
 
-## A stage as it is fought: a duo stage in a trios zone keeps its first two foes.
+## A stage as it is fought: a duo stage in a trios zone keeps its first two
+## foes; `tier` and `foe_power` are what its foes fight at.
 static func stage(zone_index: int, stage_index: int) -> Dictionary:
-	var st: Dictionary = ZONES[zone_index].stages[stage_index]
+	var st: Dictionary = ZONES[zone_index].stages[stage_index].duplicate()
 	if ZONES[zone_index].lineup == 3 and format(zone_index, stage_index) == "duo" and st.get("enemies", []).size() > 2:
-		st = st.duplicate()
 		st.enemies = st.enemies.slice(0, 2)
 		st.enemy = st.enemies[0]
+	st.tier = foe_tier(zone_index)
+	st.foe_power = st.power * FOE_POWER[st.tier - 1]
 	return st
+
+
+## The tier the zone's foes fight at (FOE_TIERS).
+static func foe_tier(zone_index: int) -> int:
+	return FOE_TIERS[mini(zone_index, FOE_TIERS.size() - 1)]
 
 
 ## How a stage is fought: "solo" (zone 1), "duo" (2v2 at once), "relay" or "brawl" (3v3 at once).

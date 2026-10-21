@@ -359,3 +359,18 @@ func test_a_picked_campaign_team_fights_in_its_order() -> void:
 	check_eq(trio.size(), 3, "and fills the gap with your strongest")
 	var back = Profile.from_dict(p.to_dict(), T0)
 	check_eq(back.campaign_team, ["frost", "laser"], "the team is saved")
+
+
+func test_foes_fight_at_their_chapters_tier_for_less_power() -> void:
+	check_eq([0, 1, 2, 3, 4, 5, 6].map(func(z): return Zones.stage(z, 0).tier), [1, 1, 2, 2, 3, 3, 4], "T1 in chapters 1-2, T2 in 3-4, T3 in 5-6, T4 in 7")
+	var st := Zones.stage(2, 0)
+	check(st.foe_power < st.power, "a higher-tier foe fights at less power")
+	check_eq(Campaign.enemy_rating(2, 0), Power.rating(st.power), "the Recommended Power stays the stage's")
+	var p = Profile.new_game(T0)
+	for z in 2:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	p.energy = 999
+	p.add_copies(["laser", "frost"])
+	var rc: Dictionary = Campaign.start_team(p, 2, 0, Campaign.team_for(p, 3), T0)
+	check_eq(rc.tiers[1], [2, 2, 2], "zone 3 foes are T2 in the fight")
