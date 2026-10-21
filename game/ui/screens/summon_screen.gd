@@ -331,6 +331,8 @@ class _Reveal extends PanelContainer:
 
 	func _finish() -> void:
 		skip_button.disabled = true
+		for cap in caps:
+			cap.enable_info() # All out: now a tap on one opens its card.
 		var r: String = Roster.RARITIES[_best]
 		title.text = "LEGENDARY!" if _best == 4 else ("Epic pull!" if _best == 3 else "Summoned!")
 		title.add_theme_color_override("font_color", Roster.RARITY_COLORS[r] if _best >= 3 else Color.WHITE)
@@ -446,6 +448,11 @@ class _Capsule extends Control:
 		_crack_t = 0.0
 		_crack_len = len
 
+	## Lets a tap on the revealed critter open its mini Critterpedia card.
+	func enable_info() -> void:
+		if _content != null:
+			_content.get_child(0).info = true
+
 	## The Legendary wind-up: the capsule shakes and its glow swells.
 	func charge() -> void:
 		_charge_t = 0.0
@@ -465,6 +472,7 @@ class _Capsule extends Control:
 		var text := word if note == "" else (word + " · " + note if big else note)
 		var tag := Kit.label(text, 26 if big else 17, _col, HORIZONTAL_ALIGNMENT_CENTER)
 		var face := CritterIcon.make(id, 1, side)
+		face.info = false # A tap skips the reveal; the card opens once it's done (enable_info).
 		if not big:
 			face.radius_frac = .34 # Fill the small eggs' space: the face is what you came for.
 		_content = Kit.vbox(0, [face, Kit.label(c.name, 34 if big else 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), tag])

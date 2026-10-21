@@ -113,6 +113,7 @@ func _show_line() -> void:
 			name = c.name
 			color = c.color
 			portrait = CritterIcon.make(who, 1, 220)
+			portrait.info = false # A tap moves the story on.
 	var width := minf(640.0, get_viewport_rect().size.x - 48.0) if is_inside_tree() else 640.0
 	var v := Kit.vbox(18)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -160,6 +161,7 @@ static func glitched_portrait(id: String, side: float) -> Control:
 	box.custom_minimum_size = Vector2(side, side)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon := CritterIcon.make(id, 3, side)
+	icon.info = false
 	icon.modulate = Color(1.7, .5, 1.4) # Pushes any colour towards the Glitch's magenta.
 	box.add_child(icon)
 	var g := GlitchArt.make(side * .4)

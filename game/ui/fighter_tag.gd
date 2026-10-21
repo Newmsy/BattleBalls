@@ -25,7 +25,7 @@ static func make(critter: String, tier: int, power: int, side: float, power_colo
 	var font := 20 if side < 100.0 else 22
 	var p := Kit.power(power, font, power_color)
 	p.alignment = BoxContainer.ALIGNMENT_CENTER
-	return Kit.vbox(0, [icon(critter, tier, side, silhouette, level), p])
+	return Kit.vbox(0, [icon(critter, tier, side, silhouette, level, power), p])
 
 
 ## A lineup slot as make() shows it.
@@ -37,8 +37,10 @@ static func of_slot(slot: Dictionary, side: float, power_color := Kit.FG) -> Con
 ## The critter with its stars and level above it, for rows that show power elsewhere.
 ## The art box is trimmed to the ball (less empty margin), so the header
 ## and critter together take about the height the bare icon used to.
-static func icon(critter: String, tier: int, side: float, silhouette := false, level := 0) -> Control:
+static func icon(critter: String, tier: int, side: float, silhouette := false, level := 0, power := 0) -> Control:
 	var art := CritterIcon.make(critter, tier, side * ART_SHRINK, false, silhouette)
+	art.info_level = level # Its mini Critterpedia card shows these too.
+	art.info_power = power
 	art.radius_frac /= ART_SHRINK
 	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	# Tier as gold stars (the same stars as the critter screen), level beside them.
