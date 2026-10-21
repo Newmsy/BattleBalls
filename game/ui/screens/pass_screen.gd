@@ -74,7 +74,7 @@ static func build(shell, _params: Dictionary) -> Control:
 			elif r.get("kind") == "gems":
 				n_gems += int(r.n)
 		root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Premium track", PREMIUM),
-			Kit.label("%d looks and %d Glow Gems this season. Looks only." % [n_cos, n_gems], 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
+			Kit.hbox(8, [Kit.label("%d looks and %s" % [n_cos, Kit.commas(n_gems)], 24), Kit.glyph("gem", 26, Kit.FG), Kit.label("this season", 24)], BoxContainer.ALIGNMENT_CENTER),
 			Kit.hbox(12, [buy, with_gems])]), Kit.box(Color("1f1440"), Color(PREMIUM, .6), 36, 2, 24)))
 
 	# Today's bounties and the weekly chest.
