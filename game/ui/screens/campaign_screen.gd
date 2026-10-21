@@ -246,10 +246,9 @@ static func _fit(l: Label) -> Label:
 	return l
 
 
-## The tier shown for a stage's enemy. It fights at T1 abilities with a power
-## boost, so this is the tier that power matches, as on Spire floors.
+## The tier a stage's foes fight at (Zones.FOE_TIERS, by chapter).
 static func enemy_tier(st: Dictionary) -> int:
-	return Spire.display_tier(st.power, Roster.rarity_base(Roster.get_critter(st.enemy).rarity) / 100.0)
+	return st.get("tier", 1)
 
 
 ## "T2 Optic · 1,250 power vs T3 Chomp · 1,400 power" for a stage fight.

@@ -40,7 +40,7 @@ func _init() -> void:
 				for i in fights:
 					for t in players:
 						var sim := MatchSim.new({"seed": 5000 + i, "p1": t, "p2": st.enemy, "angles": [null, null],
-							"powers": [p, st.power], "sizes": [1.0, Zones.BOSS_SIZE if Zones.is_boss(st) else 1.0]})
+							"powers": [p, st.foe_power], "tiers": [1, st.tier], "sizes": [1.0, Zones.BOSS_SIZE if Zones.is_boss(st) else 1.0]})
 						var r := sim.run_to_end()
 						if r.winner == 0:
 							wins += 1
