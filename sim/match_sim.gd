@@ -295,6 +295,7 @@ var modifier := Modifiers.NONE
 var overtime_start := OVERTIME_START
 var arena_id: String
 var arena: Dictionary
+var _sides: Array = [] ## _side_walls(arena), cached.
 var rng
 ## Damage and crit rolls only, so abilities that use `rng` never shift them.
 var rolls
@@ -331,6 +332,7 @@ func _init(cfg: Dictionary) -> void:
 	config = cfg
 	arena_id = cfg.get("arena", "square")
 	arena = Arenas.get_def(arena_id)
+	_sides = _side_walls(arena)
 	rng = Rng.new(int(cfg.get("seed", 1)))
 	modifier = cfg.get("modifier", Modifiers.NONE)
 	var mod := Modifiers.get_def(modifier)
@@ -348,7 +350,7 @@ func _init(cfg: Dictionary) -> void:
 		var mirrored := Modifiers.mirror_ball(int(cfg.get("seed", 1)))
 		types.fill(mirrored)
 	var angles: Array = _per_ball(cfg.get("angles", []), null)
-	var starts: Array = cfg.get("starts", start_positions(starters))
+	var starts: Array = cfg.get("starts", start_positions(starters, arena))
 	var start_hp: Array = _per_ball(cfg.get("hp", []), null)
 	var tiers: Array = _per_ball(cfg.get("tiers", []), 1)
 	var powers: Array = _per_ball(cfg.get("powers", []), 1.0)
@@ -408,9 +410,16 @@ func _per_ball(arr: Array, fill) -> Array:
 	return out
 
 
-## Start positions for a fight of `count` balls (2, 4 or 6).
-static func start_positions(count: int) -> Array:
-	return START_CORNERS if count <= 2 else (TEAM_STARTS if count <= 4 else TRIO_STARTS)
+## Start positions for a fight of `count` balls (2, 4 or 6). An arena's
+## start_scale pulls them toward the centre along the same lines (so aiming
+## at the centre is unchanged).
+static func start_positions(count: int, arena_def := {}) -> Array:
+	var starts: Array = START_CORNERS if count <= 2 else (TEAM_STARTS if count <= 4 else TRIO_STARTS)
+	var k: float = arena_def.get("start_scale", 1.0)
+	if k == 1.0:
+		return starts
+	var c := Vector2(ARENA_SIZE, ARENA_SIZE) / 2.0
+	return starts.map(func(p): return c + (p - c) * k)
 
 
 ## Launch angle (tenths of a degree) from ball `i`'s start straight at the centre.
@@ -539,21 +548,40 @@ func spike_wall_half() -> float:
 	return arena.spike_walls.half * k
 
 
-## Cut-corner walls as [inward unit normal, distance from the centre].
+## Cut-corner and side walls as [inward unit normal, distance from the centre].
 ## A point p is inside when normal.dot(p - centre) + distance >= 0.
 func corner_walls() -> Array:
 	var out := []
-	if arena.corner_cut <= 0.0:
+	if arena.corner_cut > 0.0:
+		var distance: float = arena_scale() * (ARENA_SIZE - arena.corner_cut) / sqrt(2.0)
+		for n in CORNER_NORMALS:
+			out.append([n.normalized(), distance])
+	if not _sides.is_empty():
+		var k := arena_scale()
+		for side in _sides:
+			out.append([side[0], k * side[1]])
+	return out
+
+
+## The arena's `sides` (see sim/arenas.gd) as [inward unit normal, distance at
+## full size], worked out once with the sim's own trig.
+static func _side_walls(def: Dictionary) -> Array:
+	var out := []
+	if not def.has("sides"):
 		return out
-	var distance: float = arena_scale() * (ARENA_SIZE - arena.corner_cut) / sqrt(2.0)
-	for n in CORNER_NORMALS:
-		out.append([n.normalized(), distance])
+	var sides: Dictionary = def.sides
+	var n: int = sides.n
+	for i in n:
+		var outward := DMath.from_angle(deg_to_rad(float(sides.get("rot", 0.0)) + 360.0 * i / n))
+		out.append([-outward, float(sides.inradius)])
 	return out
 
 
 ## Outline of the playable area at the current scale, for rendering.
 func arena_outline() -> PackedVector2Array:
 	var r := arena_rect()
+	if not _sides.is_empty():
+		return _clipped_outline(r)
 	var cut: float = arena.corner_cut * arena_scale()
 	if cut <= 0.0:
 		return PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
@@ -562,6 +590,26 @@ func arena_outline() -> PackedVector2Array:
 	return PackedVector2Array([
 		Vector2(a.x + cut, a.y), Vector2(b.x - cut, a.y), Vector2(b.x, a.y + cut), Vector2(b.x, b.y - cut),
 		Vector2(b.x - cut, b.y), Vector2(a.x + cut, b.y), Vector2(a.x, b.y - cut), Vector2(a.x, a.y + cut)])
+
+
+## The arena rect cut by every wall (rendering only).
+func _clipped_outline(r: Rect2) -> PackedVector2Array:
+	var poly := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+	for wall in corner_walls():
+		var n: Vector2 = wall[0]
+		var d: float = wall[1]
+		var out := PackedVector2Array()
+		for i in poly.size():
+			var a := poly[i]
+			var b := poly[(i + 1) % poly.size()]
+			var da := n.dot(a - centre) + d
+			var db := n.dot(b - centre) + d
+			if da >= 0.0:
+				out.append(a)
+			if (da >= 0.0) != (db >= 0.0):
+				out.append(a + (b - a) * (da / (da - db)))
+		poly = out
+	return poly
 
 
 func step() -> void:
