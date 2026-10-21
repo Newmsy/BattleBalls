@@ -21,9 +21,9 @@ const CRITTER := {
 		"bulb_tilt": 0.0, ## T5: a full board deals this x on top.
 	},
 	"tiers": [
-		{"text": "+1 damage per wall, up to 5"},
+		{"text": "Each wall bounce adds +1 to its next hit, up to 5"},
 		{"text": "+1.5 per wall", "bulb_damage": 1.5},
-		{"text": "Cashing in 3+ walls knocks the foe back", "bulb_knock": 3},
+		{"text": "A hit after 3+ walls knocks the foe back", "bulb_knock": 3},
 		{"text": "+2 per wall", "bulb_damage": 2.0},
 		{"text": "A hit after 5 walls is a TILT! x2", "bulb_tilt": 2.0},
 	],

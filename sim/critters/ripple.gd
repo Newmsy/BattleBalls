@@ -25,11 +25,11 @@ const CRITTER := {
 		"beam_max": 8,
 	},
 	"tiers": [
-		{"text": "Wall bounces send a ripple along the wall"},
+		{"text": "Wall bounces send ripples both ways along the wall (10/s)"},
 		{"text": "Ripples deal 12/s", "ripple_damage": 12.0},
 		{"text": "The ripple slows 20%", "ripple_slow": 0.2},
 		{"text": "Ripples run further", "ripple_reach": 300.0},
-		{"text": "Tidal: ripples turn corners and every bounce breaks as a wave (radius 220, 8)", "ripple_corner": 1, "ripple_wave_radius": 220.0},
+		{"text": "Tidal: ripples turn corners; each bounce also makes a wave (8)", "ripple_corner": 1, "ripple_wave_radius": 220.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["droptop"], "front": ["shine"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},

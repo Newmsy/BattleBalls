@@ -26,9 +26,9 @@ const CRITTER := {
 		"pounce_remark": 0, ## T5: a marked hit marks the foe again, once.
 	},
 	"tiers": [
-		{"text": "Marks its attacker; marked hits deal x2"},
+		{"text": "Hurt: marks the attacker and pounces; next hit on it deals x2"},
 		{"text": "Pounces faster", "pounce_speed_mult": 2.0},
-		{"text": "The pounce slows the foe 20%", "pounce_slow": 0.2},
+		{"text": "A marked hit also slows the foe 20% for 1.5s", "pounce_slow": 0.2},
 		{"text": "Marks every 3s", "mark_cooldown": 3.0},
 		{"text": "A marked hit marks the foe again for one more pounce", "pounce_remark": 1},
 	],

@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "ffb020",
 	"vibe": "A cocky sprinter who never stops moving.",
-	"description": "Speedster. Speeds up on every wall bounce and hits harder the faster it goes. Getting hit resets it.",
+	"description": "Speedster. Speeds up on every wall bounce and hits harder the faster it goes. Getting bumped resets it.",
 	"stats": {"hp": 105.0, "radius": 48.0, "speed": 400.0, "contact_damage": 12.5},
 	"ability": [{"on": "wall", "do": "accelerate"}, {"on": "strike", "do": "momentum"}, {"on": "hurt", "do": "brake"}],
 	"params": {

@@ -24,10 +24,10 @@ const CRITTER := {
 		"root_shove_damage": 8.0,
 	},
 	"tiers": [
-		{"text": "Half HP: takes root, regrows 3 HP/s"},
+		{"text": "At half HP takes root: holds 2s, regrows 3 HP/s for 6s"},
 		{"text": "Regrows 4 HP/s", "root_regen": 4.0},
-		{"text": "Roots erupt with a shove", "root_shove": 150.0},
-		{"text": "Root pillars last 8s", "root_life": 8.0},
+		{"text": "Taking root blasts nearby foes away (8 damage)", "root_shove": 150.0},
+		{"text": "Roots last 8s, so it regrows for longer", "root_life": 8.0},
 		{"text": "Takes root again at 20% HP", "ability": [{"on": "hp_below", "hp": 0.2, "do": "root"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["canopy"], "front": ["beard"]},

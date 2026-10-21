@@ -27,11 +27,11 @@ const CRITTER := {
 		"ping_hit_mult": 2.0, ## T5: a hit while still swerving.
 	},
 	"tiers": [
-		{"text": "Pings on every bounce, slowing 20%"},
-		{"text": "Swerves harder", "ping_dash_mult": 1.5},
+		{"text": "Bounces ping: swerves at the foe, ring slows 20% for 1s"},
+		{"text": "Swerves faster", "ping_dash_mult": 1.5},
 		{"text": "The ping deals 4", "ping_damage": 4.0},
 		{"text": "Bigger ping", "ping_radius": 220.0},
-		{"text": "Echolocation: every ping finds the foe wherever it is; its next hit within 3s deals x2.5", "ping_hit_mult": 2.5, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
+		{"text": "Echolocation: after a ping, next hit within 3s deals x2.5", "ping_hit_mult": 2.5, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "fangs"}, "back": ["batwings", "ears"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},

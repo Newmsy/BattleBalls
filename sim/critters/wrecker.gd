@@ -26,11 +26,11 @@ const CRITTER := {
 		"wreck_windup_reach": 260.0, ## From its centre, during the wind-up lap.
 	},
 	"tiers": [
-		{"text": "A wrecking ball swings for 9"},
+		{"text": "A wrecking ball swings for 9; wall slams add 6"},
 		{"text": "The ball hits for 11", "wreck_damage": 11.0},
-		{"text": "The chain is a beam too", "wreck_chain_dps": 4.0},
+		{"text": "The chain hurts too (4/s)", "wreck_chain_dps": 4.0},
 		{"text": "The ball spins faster", "wreck_spin": 2.6},
-		{"text": "Every 8s a big wind-up lap", "wreck_windup_every": 8.0},
+		{"text": "Every 8s a wide wind-up lap for double damage", "wreck_windup_every": 8.0},
 	],
 	"art": {"eyes": {"visor": true, "mouth": "flat"}, "back": ["chainball"], "front": ["hazard", "hardhat"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 0.75},

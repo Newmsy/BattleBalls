@@ -28,7 +28,7 @@ const CRITTER := {
 		{"text": "Pillars last 5s", "seed_life": 5.0},
 		{"text": "Bouncing off a pillar deals 4", "seed_damage": 4.0},
 		{"text": "Pillars grow bigger", "seed_radius": 40.0},
-		{"text": "Wilting pillars scatter 3 seeds", "seed_shots": 3, "ability": [{"on": "always", "do": "seed_wilt"}]},
+		{"text": "Wilting pillars shoot 3 seeds at the foe (4 each)", "seed_shots": 3, "ability": [{"on": "always", "do": "seed_wilt"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["leaves"], "front": ["frost_freckles"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.35},

@@ -27,11 +27,11 @@ const CRITTER := {
 		"vine_thorn_damage": 0.0, ## Thorn patch damage a second after the snap.
 	},
 	"tiers": [
-		{"text": "Every 6s lashes the foe to a vine 1s"},
+		{"text": "Every 6s ties the foe to a vine for 1s, then it snaps for 6"},
 		{"text": "The burst deals 8", "vine_damage": 8.0},
-		{"text": "The snap leaves a thorn patch", "vine_thorn_damage": 4.0},
+		{"text": "The snap leaves a thorn patch at the pillar (4/s for 3s)", "vine_thorn_damage": 4.0},
 		{"text": "Lashes every 5s", "vine_every": 5.0},
-		{"text": "Two pillars at once", "vine_pairs": 2},
+		{"text": "Two vine pillars at once, on opposite sides", "vine_pairs": 2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["flowercrown"], "front": ["vinewrap"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.1},

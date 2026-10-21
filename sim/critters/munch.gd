@@ -28,9 +28,9 @@ const CRITTER := {
 	"tiers": [
 		{"text": "Bites heal 3 and add +5% size and +1 damage, max 5"},
 		{"text": "Bites heal 4", "stack_heal": 4.0},
-		{"text": "At 5 bites: 15% armour", "stack_full_armor": 0.15},
+		{"text": "At max bites it takes 15% less damage", "stack_full_armor": 0.15},
 		{"text": "Up to 6 bites", "stack_max": 6.0},
-		{"text": "At full size it burps a shockwave (10 damage, knockback) and drops to 2 bites", "burp_radius": 150.0, "ability": [{"on": "hit", "do": "stack_burp"}]},
+		{"text": "Filling up burps a shockwave (10, knocks back) and drops to 2 bites", "burp_radius": 150.0, "ability": [{"on": "hit", "do": "stack_burp"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "bigmouth"}, "front": ["napkin"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.95},

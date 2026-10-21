@@ -23,7 +23,7 @@ const CRITTER := {
 		"thunder_damage": 0.0,
 	},
 	"tiers": [
-		{"text": "Wall bounces charge up to 4 sparks; its next hit spends them as chain lightning (5 a second) and stuns 0.3s"},
+		{"text": "Bounces store up to 4 sparks; next hit fires them as lightning, stun 0.3s"},
 		{"text": "Lightning 6.5 a second", "storm_dps": 6.5},
 		{"text": "The lightning also burns (2 a second for 2s)", "storm_burn": 2.0},
 		{"text": "Holds 5 sparks", "spark_max": 5},

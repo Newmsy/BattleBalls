@@ -27,7 +27,7 @@ const CRITTER := {
 		{"text": "Slams for 10", "slam_damage": 10.0},
 		{"text": "0.4s slam window", "slam_window": 0.4},
 		{"text": "Slams for 12", "slam_damage": 12.0},
-		{"text": "Every hit sends a shockwave (5 damage, knocks foes into walls)", "ability": [{"on": "hit", "do": "boom"}]},
+		{"text": "Every hit sends a shockwave (5 damage) that knocks foes away", "ability": [{"on": "hit", "do": "boom"}]},
 	],
 	## Chaos Weekends: fast, cramped twists favour its big hits; Double Trouble
 	## feeds Vampire's heal off them. Tuned with tools/balance.gd --modifiers.

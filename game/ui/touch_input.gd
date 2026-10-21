@@ -77,6 +77,14 @@ static func back_action() -> Callable:
 	return Callable()
 
 
+## Lets go of whatever the finger is pressing without tapping it (a long
+## press that opened something instead).
+static func cancel_press() -> void:
+	if is_instance_valid(_instance):
+		_instance._drag = Drag.IGNORE
+		_instance._cancel_press()
+
+
 func _ready() -> void:
 	process_priority = -100
 	var layer := CanvasLayer.new()

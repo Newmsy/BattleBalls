@@ -382,7 +382,9 @@ class _Capsule extends Control:
 		opened = true
 		_charge_t = -1.0
 		var c := Roster.get_critter(id)
-		_content = Kit.vbox(0, [CritterIcon.make(id, 1, side), Kit.label(c.name, 34 if side > 200 else 17, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
+		var art := CritterIcon.make(id, 1, side)
+		art.info = false # A tap here skips the reveal.
+		_content = Kit.vbox(0, [art, Kit.label(c.name, 34 if side > 200 else 17, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
 		_content.get_child(1).clip_text = true
 		_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_content.mouse_filter = Control.MOUSE_FILTER_IGNORE

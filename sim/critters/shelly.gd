@@ -28,11 +28,11 @@ const CRITTER := {
 		"grow_armor": 0.4,
 	},
 	"tiers": [
-		{"text": "Below 30% HP: 40% armour, -20% speed"},
+		{"text": "Below 30% HP: shoves foes off, then 40% armour, -20% speed"},
 		{"text": "45% armour", "grow_armor": 0.45},
 		{"text": "Tucking in also heals 8", "grow_heal": 8.0},
 		{"text": "50% armour", "grow_armor": 0.5},
-		{"text": "Tucking in slams its shell out first (10 damage, knockback)", "grow_pulse_damage": 10.0},
+		{"text": "The shove also deals 10", "grow_pulse_damage": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["shellhex"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.85},

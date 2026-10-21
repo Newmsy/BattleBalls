@@ -31,7 +31,7 @@ const CRITTER := {
 		"beam_max": 6,
 	},
 	"tiers": [
-		{"text": "Every 6s spins for one of 3 prizes"},
+		{"text": "Every 6s spins: mines, a beam cross or a coin spray"},
 		{"text": "Prizes hit 20% harder", "prize_mult": 1.2},
 		{"text": "A fourth prize: a 20 shield", "spin_prizes": 4},
 		{"text": "Spins every 5s", "spin_every": 5.0},

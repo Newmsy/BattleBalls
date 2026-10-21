@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "ffd6a5",
 	"vibe": "A tiny star with a very big ending planned.",
-	"description": "Star. It swells and brightens for 20 seconds, then explodes in a huge blast and starts over small.",
+	"description": "Star. It swells and brightens for 12 seconds, then explodes in a huge blast and starts over small.",
 	"stats": {"hp": 120.0, "radius": 60.0, "speed": 400.0, "contact_damage": 12.0},
 	"ability": [{"on": "every", "secs": 2.0, "do": "stack"}, {"on": "always", "do": "nova"}],
 	"params": {
@@ -26,9 +26,9 @@ const CRITTER := {
 		"nova_ring": 0.0,
 	},
 	"tiers": [
-		{"text": "Swells for 12s (+3% size, +0.5 damage every 2s), then explodes for 18 in a huge blast and a burn"},
+		{"text": "Swells for 12s, then explodes: 18 in a huge blast, plus a burn"},
 		{"text": "The blast deals 26", "nova_damage": 26.0},
-		{"text": "The blast leaves a glowing ring (5/s)", "nova_ring": 5.0},
+		{"text": "The blast leaves a burning ring (5/s for 3s)", "nova_ring": 5.0},
 		{"text": "Explodes every 10s, even bigger (radius 480)", "nova_every": 10.0, "nova_radius": 480.0},
 		{"text": "Below 30% HP it goes nova early, once", "ability": [{"on": "hp_below", "hp": 0.3, "do": "nova_early"}]},
 	],

@@ -26,7 +26,7 @@ const CRITTER := {
 		"reflect_from": "copying",
 	},
 	"tiers": [
-		{"text": "Copies for 2.5s, every 6s at most"},
+		{"text": "When hurt, copies the foe's ability for 2.5s (every 6s at most)"},
 		{"text": "Copies for 3.5s", "copy_secs": 3.5},
 		{"text": "Copying also gives a 10 shield", "copy_shield": 10.0},
 		{"text": "Every 5s at most", "copy_cooldown": 5.0},

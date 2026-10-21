@@ -22,7 +22,7 @@ const CRITTER := {
 		"beam_max": 6,
 	},
 	"tiers": [
-		{"text": "After a hit, its path crackles for 1.5s"},
+		{"text": "After a hit, its path to the next wall crackles (8/s, 1.5s)"},
 		{"text": "Beam deals 10/s", "zz_damage": 10.0},
 		{"text": "The beam slows 20%", "zz_slow": 0.2},
 		{"text": "The beam lasts 2s", "zz_life": 2.0},

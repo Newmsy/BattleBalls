@@ -21,11 +21,11 @@ const CRITTER := {
 		"yank_bonus": 5.0, ## Extra damage when a yanked foe hits it within 1s.
 	},
 	"tiers": [
-		{"text": "Every wall bounce yanks the foe in (220); a yanked foe that meets Hook within 1s takes +5"},
-		{"text": "Yanks harder (260)", "yank_impulse": 260.0},
+		{"text": "Each wall bounce yanks the foe closer; hitting it within 1s deals +5"},
+		{"text": "Yanks the foe further in", "yank_impulse": 260.0},
 		{"text": "Yanked foes take +8", "yank_bonus": 8.0},
-		{"text": "Yanks harder (300)", "yank_impulse": 300.0},
-		{"text": "Every 2nd bounce is a big reel-in that slows", "yank_big_every": 2},
+		{"text": "Yanks the foe even further in", "yank_impulse": 300.0},
+		{"text": "Every 2nd bounce yanks twice as far and slows the foe 30% for 1s", "yank_big_every": 2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "smirk"}, "back": ["hook"], "front": ["bandana"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 0.95},

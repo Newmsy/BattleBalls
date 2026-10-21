@@ -25,11 +25,11 @@ const CRITTER := {
 		"beam_color": "c77dff",
 	},
 	"tiers": [
-		{"text": "Two spinning beams flare every 6s"},
+		{"text": "Two spinning beams (8/s) flare to the walls every 6s"},
 		{"text": "Beams deal 10/s", "quasar_dps": 10.0},
 		{"text": "Beams reverse after each flare", "quasar_reverse": 1},
 		{"text": "Longer beams", "quasar_length": 300.0},
-		{"text": "The flare adds a spinning cross", "quasar_cross": 1},
+		{"text": "Flares become a cross of 4 beams", "quasar_cross": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "none"}, "back": ["jets"], "front": ["core"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 0.8},

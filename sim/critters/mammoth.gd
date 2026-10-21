@@ -23,11 +23,11 @@ const CRITTER := {
 		"shatter_mult": 0.0, ## T5: hitting a frozen foe.
 	},
 	"tiers": [
-		{"text": "Hits shove foes away; one that slams a wall within 0.6s takes 6 and freezes 0.5s"},
-		{"text": "Slam 8", "slam_damage": 8.0},
-		{"text": "The slam leaves an icy patch on the wall that slows 30% for 3s", "slam_patch": 70.0},
+		{"text": "Hits shove foes; a wall within 0.6s deals 6 and freezes 0.5s"},
+		{"text": "Slams deal 8", "slam_damage": 8.0},
+		{"text": "Slams leave an icy patch that slows 30% for 3s", "slam_patch": 70.0},
 		{"text": "Slam window 0.8s", "slam_window": 0.8},
-		{"text": "A frozen foe shatters on its next hit for double damage", "shatter_mult": 2.0},
+		{"text": "Its next hit on a foe it froze shatters for double damage", "shatter_mult": 2.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "none"}, "back": ["fur"], "front": ["tusks", "trunk"], "scale": 1.12},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.7},

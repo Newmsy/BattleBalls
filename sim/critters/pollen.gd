@@ -28,11 +28,11 @@ const CRITTER := {
 		"shot_burst_radius": 40.0,
 	},
 	"tiers": [
-		{"text": "Bumped: puffs 4 stinging seeds for 4"},
+		{"text": "When bumped, puffs 4 drifting seeds that sting for 4"},
 		{"text": "Seeds deal 5", "shot_damage": 5.0},
 		{"text": "6 seeds", "shot_count": 6},
 		{"text": "Puffs every 1s", "fire_cooldown": 1.0},
-		{"text": "Spent seeds burst", "shot_burst_damage": 3.0},
+		{"text": "Seeds that drift out burst (3 damage)", "shot_burst_damage": 3.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "o"}, "back": ["tufts"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.35},

@@ -27,11 +27,11 @@ const CRITTER := {
 		"bolt_damage": 3.0,
 	},
 	"tiers": [
-		{"text": "Small; at half HP panics: +35% speed"},
+		{"text": "Small; at half HP panics: pushes foes off and gets +35% speed"},
 		{"text": "Panic speed +40%", "grow_speed": 0.4},
 		{"text": "Panicking also heals 8", "grow_heal": 8.0},
 		{"text": "Panic speed +45%", "grow_speed": 0.45},
-		{"text": "The panic splashes the foe away (8 damage)", "grow_pulse_damage": 8.0},
+		{"text": "The panic push also deals 8", "grow_pulse_damage": 8.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["fantail"], "scale": 0.85},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.4},

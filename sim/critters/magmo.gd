@@ -29,7 +29,7 @@ const CRITTER := {
 		{"text": "Lava burns for 6/s", "lava_dps": 6.0},
 		{"text": "Leaving the lava keeps the foe burning (2/s for 2s)", "ability": [{"on": "always", "do": "linger"}]},
 		{"text": "Lava lasts 3.5s", "lava_life": 3.5},
-		{"text": "Standing in its lava: 20% armour", "ability": [{"on": "guard", "do": "home_guard"}]},
+		{"text": "Takes 20% less damage while in its own lava", "ability": [{"on": "guard", "do": "home_guard"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "grin"}, "front": ["crust", "drips"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.8},

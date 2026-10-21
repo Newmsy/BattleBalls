@@ -25,7 +25,7 @@ const CRITTER := {
 		"lance_retry": 0, ## T5: a charge that misses curves round once.
 	},
 	"tiers": [
-		{"text": "Charges every 4.5s; the charge hit deals x2"},
+		{"text": "Charges every 4.5s, leaving a beam (8/s); the charge hit x2"},
 		{"text": "Beam deals 10 a second", "lance_beam_dps": 10.0},
 		{"text": "The charge knocks the foe back hard", "lance_knock": 1.8},
 		{"text": "Charges every 3.5s", "lance_every": 3.5},

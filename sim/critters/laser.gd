@@ -16,11 +16,11 @@ const CRITTER := {
 	"ability": [{"on": "wall", "do": "beam"}],
 	"params": {"beam_life": 3.0, "beam_damage": 4.5, "beam_hit_cooldown": 0.5, "beam_max": 6, "beam_link": 0},
 	"tiers": [
-		{"text": "Beams last 3s"},
+		{"text": "Each bounce beams back to the last one: 4.5 a zap, lasts 3s"},
 		{"text": "Beams last 3.5s", "beam_life": 3.5},
 		{"text": "Beams last 4s", "beam_life": 4.0},
 		{"text": "Beams last 4.5s", "beam_life": 4.5},
-		{"text": "Beams also link the 2 previous bounces", "beam_link": 1},
+		{"text": "Each bounce also beams back to the bounce before last", "beam_link": 1},
 	],
 	## Chaos Weekends: short fights cut off its beam build-up, so beams hit
 	## harder under Big Head and Hyper Speed. Tuned with tools/balance.gd --modifiers.

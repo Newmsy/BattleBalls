@@ -30,9 +30,9 @@ const CRITTER := {
 		"bee_poison_dps": 0.0, ## T3: launched bees poison for 2s.
 	},
 	"tiers": [
-		{"text": "3 bees sting; one launches every 8s"},
+		{"text": "3 bees sting (3); one flies at the foe every 8s"},
 		{"text": "Bees deal 4", "bee_damage": 4.0},
-		{"text": "Launched bees poison", "bee_poison_dps": 2.0},
+		{"text": "Launched bees poison (2/s for 2s)", "bee_poison_dps": 2.0},
 		{"text": "4 bees", "bee_count": 4},
 		{"text": "Below 50% HP the whole swarm launches", "ability": [{"on": "hp_below", "hp": 0.5, "do": "swarm_all"}]},
 	],

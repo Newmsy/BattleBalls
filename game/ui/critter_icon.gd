@@ -7,6 +7,7 @@ extends Control
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
+const CritterPopup := preload("res://game/ui/critter_popup.gd")
 
 var critter_id := "vampire"
 var tier := 1
@@ -14,6 +15,16 @@ var silhouette := false
 var pokeable := false
 ## Fraction of the smaller side used as the body radius.
 var radius_frac := .26
+## Tapping the critter opens its mini Critterpedia card (game/ui/critter_popup.gd).
+## Inside a button the tap stays the button's, so a long press opens it there.
+## Off for silhouettes (not found yet) and pokeable icons (they get poked).
+var info := true
+var info_level := 0 ## Shown on the card when known.
+var info_power := 0
+
+## Seconds a press inside a button must be held to open the card instead.
+const HOLD := .45
+const TAP_SLOP := 18.0
 
 ## Seconds between idle redraws.
 const IDLE_STEP := 1.0 / 20.0
@@ -26,6 +37,9 @@ var _flash := 0.0
 var _squash := 0.0
 var _stacks := 0
 var _clip: Control ## The nearest scrolling ancestor, if any: off it means off screen.
+var _press_at := -1 ## Ticks (ms) of the press that may open the card, -1 for none.
+var _press_pos := Vector2.ZERO
+var _in_button := false
 
 
 static func make(id: String, tier_: int, side: float, pokeable_ := false, silhouette_ := false) -> Control:
@@ -35,7 +49,8 @@ static func make(id: String, tier_: int, side: float, pokeable_ := false, silhou
 	icon.pokeable = pokeable_
 	icon.silhouette = silhouette_
 	icon.custom_minimum_size = Vector2(side, side)
-	icon.mouse_filter = Control.MOUSE_FILTER_STOP if pokeable_ else Control.MOUSE_FILTER_IGNORE
+	# PASS: the icon sees taps for its card, and buttons around it still get them.
+	icon.mouse_filter = Control.MOUSE_FILTER_STOP if pokeable_ else (Control.MOUSE_FILTER_IGNORE if silhouette_ else Control.MOUSE_FILTER_PASS)
 	return icon
 
 
@@ -58,9 +73,41 @@ func poke() -> void:
 func _gui_input(event: InputEvent) -> void:
 	if pokeable and event is InputEventMouseButton and event.pressed:
 		poke()
+	if not info or pokeable or silhouette:
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_press_at = Time.get_ticks_msec()
+			_press_pos = event.global_position
+			_in_button = _button_around() != null
+		elif _press_at >= 0:
+			_press_at = -1
+			if not _in_button and event.global_position.distance_to(_press_pos) < TAP_SLOP and not TouchInput.scrolling():
+				_open_card()
+	elif event is InputEventMouseMotion and _press_at >= 0 and event.global_position.distance_to(_press_pos) >= TAP_SLOP:
+		_press_at = -1
+
+
+func _button_around() -> BaseButton:
+	var n := get_parent()
+	while n != null and n is Control:
+		if n is BaseButton:
+			return n
+		n = n.get_parent()
+	return null
+
+
+func _open_card() -> void:
+	poke()
+	CritterPopup.open(self, critter_id, tier, info_level, info_power)
 
 
 func _process(delta: float) -> void:
+	if _press_at >= 0 and _in_button and Time.get_ticks_msec() - _press_at >= HOLD * 1000.0:
+		_press_at = -1
+		if not TouchInput.scrolling():
+			TouchInput.cancel_press() # The button under the finger lets go untapped.
+			_open_card()
 	if silhouette or not is_visible_in_tree():
 		return
 	var poked := _hit > 0.0 or _flash > 0.0 or _squash > 0.0

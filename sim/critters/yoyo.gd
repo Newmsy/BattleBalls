@@ -24,9 +24,9 @@ const CRITTER := {
 		"beam_color": "7ff3ff",
 	},
 	"tiers": [
-		{"text": "Every 3rd bounce swings on its string, then flings itself at the foe"},
+		{"text": "Every 3rd bounce it swings on its string (16/s), then flings at the foe"},
 		{"text": "String deals 20/s", "yoyo_dps": 20.0},
-		{"text": "Walk the Dog: harder fling", "yoyo_fling": 1.9},
+		{"text": "Walk the Dog: faster fling", "yoyo_fling": 1.9},
 		{"text": "Swings every 2nd bounce", "yoyo_every": 2},
 		{"text": "Around the World: swings on every bounce, two strings at 26/s", "yoyo_every": 1, "yoyo_strings": 2, "yoyo_secs": 1.4, "yoyo_dps": 26.0},
 	],

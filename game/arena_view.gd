@@ -13,6 +13,7 @@ const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const Catalog := preload("res://game/glow/catalog.gd")
 const CosmeticArt := preload("res://game/glow/cosmetic_art.gd")
 const A11y := preload("res://game/a11y.gd")
+const CritterPopup := preload("res://game/ui/critter_popup.gd")
 const RarityMark := preload("res://game/ui/rarity_mark.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const BattleFx := preload("res://game/battle_fx.gd")
@@ -161,6 +162,41 @@ var _bolts: Array[Dictionary] = [] ## Lightning: {from, to, age, seed}; ring one
 var _grow_flash := [0.0, 0.0] ## Prickles' spike flash.
 var _dot_seen: Array = [[], []] ## Damage-over-time looks each side already showed a popup for.
 const TRAIL_LEN := 18
+
+
+## Tapping a ball in a running fight opens its mini Critterpedia card; the
+## fight keeps going underneath. Off while aiming (tick 0), where a tap aims.
+var tap_info := true
+var _tap_at := -1
+var _tap_pos := Vector2.ZERO
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not tap_info or sim == null or sim.tick == 0 or not is_visible_in_tree():
+		return
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if event.pressed:
+		_tap_at = Time.get_ticks_msec()
+		_tap_pos = event.position
+		return
+	var tapped: bool = _tap_at >= 0 and Time.get_ticks_msec() - _tap_at < 500 and event.position.distance_to(_tap_pos) < 24.0
+	_tap_at = -1
+	if not tapped:
+		return
+	var at: Vector2 = to_world(event.position)
+	var best = null
+	var best_d := INF
+	for b in sim.balls:
+		if b.hp <= 0.0:
+			continue
+		var d: float = at.distance_to(b.pos)
+		if d < maxf(b.radius * 1.3, 70.0) and d < best_d:
+			best = b
+			best_d = d
+	if best != null:
+		CritterPopup.open(self, best.type_id, int(best.def.get("tier", 1)))
+		get_viewport().set_input_as_handled()
 
 
 func to_world(screen_pos: Vector2) -> Vector2:

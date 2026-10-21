@@ -22,7 +22,7 @@ const CRITTER := {
 		"roar_drifts": 0.0,
 	},
 	"tiers": [
-		{"text": "Big and furry; at half HP an avalanche roar: 15 damage, knockback, 40% slow for 2s"},
+		{"text": "At half HP it roars: 15 damage, knockback, 40% slow for 2s"},
 		{"text": "Avalanche deals 18", "roar_damage": 18.0},
 		{"text": "Roars again at 25% HP", "ability": [{"on": "hp_below", "hp": 0.25, "do": "roar"}]},
 		{"text": "The slow lasts 3s", "roar_secs": 3.0},

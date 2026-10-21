@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "b388ff",
 	"vibe": "A jittery ball of static that can't stop zapping things.",
-	"description": "Spark. Every wall bounce zaps everything near it.",
+	"description": "Spark. Every wall bounce zaps foes near it and slows them.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
 	"ability": [{"on": "wall", "do": "zap"}],
 	"params": {

@@ -27,10 +27,10 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Wind pushes foes away; every 5s a huge huff; foes blown into a wall take 7"},
-		{"text": "Stronger wind (100 -> 120)", "wind_accel": 120.0},
+		{"text": "Stronger wind", "wind_accel": 120.0},
 		{"text": "Wall slams deal 9", "gust_slam": 9.0},
-		{"text": "The wind reaches further (220 -> 260) and huffs every 4s", "wind_range": 260.0, "huff_every": 4.0},
-		{"text": "The huff carries ice crystals: 6 damage and a 15% chill", "huff_damage": 6.0, "huff_slow": 0.15},
+		{"text": "The wind reaches further and it huffs every 4s", "wind_range": 260.0, "huff_every": 4.0},
+		{"text": "The huff carries ice: 6 damage and a 15% chill for 1.5s", "huff_damage": 6.0, "huff_slow": 0.15},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["windcurls"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.2},

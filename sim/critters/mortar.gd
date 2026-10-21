@@ -24,11 +24,11 @@ const CRITTER := {
 		"lob_barrage_every": 0, ## Every Nth shot is a 3-shell barrage, when above 0.
 	},
 	"tiers": [
-		{"text": "Lobs a shell every 4s for 1.5"},
+		{"text": "Every 4s lobs a shell where the foe is going (1.5 damage)"},
 		{"text": "Shells deal 2.5", "lob_damage": 2.5},
-		{"text": "The crater burns for 2s", "lob_crater_dps": 4.0},
+		{"text": "Shells leave a crater that burns 4/s for 2s", "lob_crater_dps": 4.0},
 		{"text": "A shell every 3.5s", "fire_cooldown": 3.5},
-		{"text": "Every third shot is a barrage", "lob_barrage_every": 3},
+		{"text": "Every third lob is 3 shells around the spot", "lob_barrage_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "flat"}, "back": ["barrel"], "front": ["cap"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 0.85},

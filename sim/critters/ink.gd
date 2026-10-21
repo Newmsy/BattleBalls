@@ -23,8 +23,8 @@ const CRITTER := {
 		"ink_dash": 0.0, ## T3: seconds of speed burst after a squirt.
 	},
 	"tiers": [
-		{"text": "Hurt: squirts ink that slows 35%"},
-		{"text": "Ink lasts 3s", "ink_life": 3.0},
+		{"text": "When hurt, squirts ink that slows foes 35% (every 3s at most)"},
+		{"text": "Ink clouds last 3s", "ink_life": 3.0},
 		{"text": "Squirting gives Ink a speed burst for 1s", "ink_dash": 1.0},
 		{"text": "Squirts every 2.5s", "ink_cooldown": 2.5},
 		{"text": "Squirts every 1.5s and the ink stings foes inside (5/s)", "ink_dps": 5.0, "ink_cooldown": 1.5},

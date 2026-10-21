@@ -34,11 +34,11 @@ const CRITTER := {
 		"trail_dps": 4.0,
 	},
 	"tiers": [
-		{"text": "Revives once at 20% HP"},
-		{"text": "Revives at 25%", "revive_hp": 0.25},
+		{"text": "Hits burn; revives once at 20% HP in a fire blast"},
+		{"text": "Revives at 25% HP", "revive_hp": 0.25},
 		{"text": "After reviving it leaves a flame trail", "ability": [{"on": "always", "do": "fire_trail"}]},
-		{"text": "Revives at 30%", "revive_hp": 0.3},
-		{"text": "Eternal Flame: a sunfire flash every 4s, setting foes nearby ablaze, and rises twice at 50% HP in a firestorm", "revive_bolts": 8, "revive_shield": 20.0, "revive_lives": 2, "revive_hp": 0.5, "ability": [{"on": "every", "secs": "sunfire_every", "do": "sunfire"}]},
+		{"text": "Revives at 30% HP", "revive_hp": 0.3},
+		{"text": "A fire flash every 4s burns foes nearby; revives twice at 50% HP", "revive_bolts": 8, "revive_shield": 20.0, "revive_lives": 2, "revive_hp": 0.5, "ability": [{"on": "every", "secs": "sunfire_every", "do": "sunfire"}]},
 	],
 	"chaos": {"double_trouble": {"hp": 1.05}, "glass_cannon": {"revive_hp": 0.75}}, ## Bigger beams pick off a fresh revive; in Glass Cannon a revive is worth more.
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": "ffb300", "brow": .3, "mouth": "smirk"}, "back": ["flame_crest"]},

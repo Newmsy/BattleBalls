@@ -31,11 +31,11 @@ const CRITTER := {
 		"linger_secs": 1.0, ## ...for this long.
 	},
 	"tiers": [
-		{"text": "Bounces drip honey (max 4): a foe that rolls in is stuck 0.6s, and Honey's hit on it deals +50%"},
+		{"text": "Bounces drip honey (max 4); a foe in it is stuck 0.6s and takes +50%"},
 		{"text": "Puddles last 5s and crush hits deal +75%", "honey_life": 5.0, "honey_crush": 1.75},
-		{"text": "Foes stay sticky for 1s after", "ability": [{"on": "always", "do": "linger"}]},
+		{"text": "Honey keeps foes 35% slowed for 1s after they leave", "ability": [{"on": "always", "do": "linger"}]},
 		{"text": "Up to 6 bigger puddles", "honey_max": 6, "honey_radius": 70.0},
-		{"text": "Honey Pot: every 4s it lobs honey right under the foe; puddles drag foes in and sting (6/s, 14 when they stick), and crush hits deal x2.2", "honey_merge_radius": 90.0, "honey_crush": 2.2, "honey_pull": 900.0, "honey_sting_damage": 14.0, "honey_dps": 6.0, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}]},
+		{"text": "Every 4s lobs honey under the foe; puddles pull in and sting; crush x2.2", "honey_merge_radius": 90.0, "honey_crush": 2.2, "honey_pull": 900.0, "honey_sting_damage": 14.0, "honey_dps": 6.0, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["jarlid", "drips"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.85},

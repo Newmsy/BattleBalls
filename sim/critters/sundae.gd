@@ -27,9 +27,9 @@ const CRITTER := {
 		"bolt_damage": 3.0,
 	},
 	"tiers": [
-		{"text": "Hits stack scoops (+2 damage each), max 4; big hits knock one off into a slowing splat"},
+		{"text": "Hits add scoops (+2 damage each, max 4); big hits splat one (slows)"},
 		{"text": "+3 damage per scoop", "stack_add": 3.0},
-		{"text": "Splats give brain freeze (3/s)", "splat_dps": 3.0},
+		{"text": "Splats give brain freeze: 3 damage/s", "splat_dps": 3.0},
 		{"text": "Up to 5 scoops", "stack_max": 5.0},
 		{"text": "At 5 scoops hits shower 6 sprinkles (3 damage each)", "spray_count": 6.0, "ability": [{"on": "hit", "do": "stack_spray"}]},
 	],

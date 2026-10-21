@@ -28,7 +28,7 @@ const CRITTER := {
 		"grow_end_bolts": 0.0,
 	},
 	"tiers": [
-		{"text": "Hurt: puffs up 30% for 2s (+2 damage), its spines blast the attacker away for 4"},
+		{"text": "Hurt: puffs up for 2s (+2 hit damage), spines blast foes away for 4"},
 		{"text": "Puffed up: +3 damage", "grow_add": 3.0},
 		{"text": "Spine blast deals 6", "grow_pulse_damage": 6.0},
 		{"text": "Puff lasts 2.5s", "grow_secs": 2.5},
