@@ -18,6 +18,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const BoonIcon := preload("res://game/ui/boon_icon.gd")
 const BounceBoard := preload("res://game/online/bounce_board.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
+const A11y := preload("res://game/a11y.gd")
 
 enum State { DRAFT, START_BOONS, FLOOR, AIM, FIGHT, RESULT, BOON, OVER }
 
@@ -176,7 +177,7 @@ func _show_draft() -> void:
 	for i in setup.cards.size():
 		var c: Dictionary = setup.cards[i]
 		var picked: bool = i in picks
-		var card := _critter_card(c.critter, func(): _toggle_pick(i), GOLD if picked else Kit.LINE, picked)
+		var card := _critter_card(c.critter, func(): _toggle_pick(i), GOLD if picked else Kit.LINE, picked, false, 1, true)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(card)
 		_mark("br_card_%d" % i, card)
@@ -185,7 +186,38 @@ func _show_draft() -> void:
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_next", next)
 	# Next and Menu share a row so Next stays on screen below the cards.
-	_set_page([grid, Kit.hbox(14, [next, _menu_button()])], "br_draft")
+	_replace_children(page, [grid, Kit.hbox(14, [next, _menu_button()])])
+	scroll.scroll_vertical = 0
+	_fit_draft.call_deferred(grid)
+
+
+## Shrinks the stacked draft cards until the page fits without scrolling:
+## smaller critter icons first, then smaller ability text (small phones with
+## Larger text). Reports the screen once it has settled.
+func _fit_draft(grid: Control) -> void:
+	var icons := grid.find_children("*", "", true, false).filter(func(c): return c.has_meta("draft_icon"))
+	var texts := grid.find_children("*", "Label", true, false).filter(func(c): return c.has_meta("draft_text"))
+	var font := 19
+	for _i in 12:
+		await get_tree().process_frame
+		if not is_instance_valid(grid) or not grid.is_inside_tree():
+			return
+		# Leaves room for the corner Sound toggle under the buttons.
+		var over := page.get_combined_minimum_size().y - (scroll.size.y - 36.0)
+		if over <= 0.0:
+			break
+		var side: float = icons[0].custom_minimum_size.x if icons else 0.0
+		if side > 48.0:
+			side = maxf(48.0, side - ceilf(over / 3.0))
+			for icon in icons:
+				icon.custom_minimum_size = Vector2(side, side)
+		elif font > 15:
+			font -= 1
+			for t in texts:
+				t.add_theme_font_size_override("font_size", A11y.font(font))
+		else:
+			break
+	_report("br_draft")
 
 
 func _toggle_pick(i: int) -> void:
@@ -706,20 +738,29 @@ func _update_hud() -> void:
 	hud_label.text = "You %s   |   %s   |   %s Foe" % [parts[0], clock, parts[1]]
 
 
-## A critter and what its ability does, as a tappable card.
-func _critter_card(critter: String, on_press: Callable, border: Color, picked := false, out := false, tier := 1) -> Button:
-	var text := Kit.vbox(2, [Kit.label(_name(critter), 28, Kit.MUTED if out else (GOLD if picked else Kit.FG))])
-	text.add_child(Kit.label("OUT", 22, PINK) if out else _ability_label(critter))
+## A critter and what its ability does, as a tappable card. `stacked` puts
+## the icon on top with the text centred under it (the 2-column draft grid);
+## otherwise the icon sits left of the text (full-width rows).
+func _critter_card(critter: String, on_press: Callable, border: Color, picked := false, out := false, tier := 1, stacked := false) -> Button:
+	var align := HORIZONTAL_ALIGNMENT_CENTER if stacked else HORIZONTAL_ALIGNMENT_LEFT
+	var text := Kit.vbox(2, [Kit.label(_name(critter), 28, Kit.MUTED if out else (GOLD if picked else Kit.FG), align)])
+	text.add_child(Kit.label("OUT", 22, PINK, align) if out else _ability_label(critter, align))
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var icon := CritterIcon.make(critter, tier, 80)
+	var icon := CritterIcon.make(critter, tier, 104 if stacked else 80)
 	if out:
 		icon.modulate = Color(1, 1, 1, 0.35)
+	if stacked:
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		icon.set_meta("draft_icon", true)
+		text.get_child(1).set_meta("draft_text", true)
+		var col := Kit.vbox(6, [icon, text])
+		return Kit.card_button(col, on_press, border, Color("241f55") if picked else Kit.PANEL, 28, 14)
 	var row := Kit.hbox(12, [icon, text])
 	return Kit.card_button(row, on_press, border, Color("241f55") if picked else Kit.PANEL, 28, 14)
 
 
-func _ability_label(critter: String) -> Label:
-	var what := Kit.label(_ability_text(critter), 19, ABILITY, HORIZONTAL_ALIGNMENT_LEFT, true)
+func _ability_label(critter: String, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
+	var what := Kit.label(_ability_text(critter), 19, ABILITY, align, true)
 	what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return what
 
