@@ -109,7 +109,12 @@ static func _floor_card(spec: Dictionary) -> Control:
 		foes,
 		reward,
 	])
-	return Kit.panel(v, Kit.box(Color("221a0c"), TOWER.darkened(.45), 36, 2, 22))
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var tower := _Tower.new()
+	tower.level = n
+	tower.custom_minimum_size = Vector2(96, 0)
+	tower.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return Kit.panel(Kit.hbox(8, [v, tower]), Kit.box(Color("221a0c"), TOWER.darkened(.45), 36, 2, 22))
 
 
 static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
@@ -186,9 +191,10 @@ static func suggest(list: Array, spec: Dictionary) -> Array:
 static func _pips(left: int) -> Control:
 	var row := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
 	for i in SpireClimb.STAMINA:
-		var dot := ColorRect.new()
+		var dot := Panel.new()
 		dot.custom_minimum_size = Vector2(18, 18)
-		dot.color = Kit.GOOD if i < left else Color("3b3770")
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		dot.add_theme_stylebox_override("panel", Kit.box(Kit.GOOD if i < left else Color("2a2758"), Kit.GOOD.darkened(.35) if i < left else Kit.LINE, 999, 2, 0))
 		row.add_child(dot)
 	return row
 
@@ -270,3 +276,43 @@ static func _add_item(p, name: String, n: int, text: String, color: Color) -> Di
 	var item := {"name": name, "count": n, "text": text, "color": color}
 	p.items.append(item)
 	return item
+
+
+## The tower beside the floor card: stacked stone tiers narrowing to a flag at
+## the summit, with a lit window on the tier you're climbing (it creeps up as
+## the floors go by). Drawn once.
+class _Tower extends Control:
+	const Dot := preload("res://game/dot.gd")
+	const Spire := preload("res://sim/spire.gd")
+	const STONE := Color("4a3a1e")
+	const STONE_LIT := Color("6e5528")
+	const GOLD := Color("ffc23d")
+	const TIERS := 6
+	var level := 1
+
+	func _draw() -> void:
+		var w := size.x
+		var base := size.y - 6.0
+		var tier_h := minf(30.0, (size.y - 46.0) / TIERS)
+		var at := clampi(int(float(level - 1) / Spire.FLOORS * TIERS), 0, TIERS - 1)
+		var top := base
+		for k in TIERS:
+			var half := w * (.46 - k * .045)
+			var y0 := base - (k + 1) * tier_h
+			var y1 := base - k * tier_h
+			Dot.poly(self, PackedVector2Array([Vector2(w / 2.0 - half, y0), Vector2(w / 2.0 + half, y0), Vector2(w / 2.0 + half, y1), Vector2(w / 2.0 - half, y1)]), STONE if k % 2 else STONE.lightened(.05))
+			draw_line(Vector2(w / 2.0 - half, y0 + 1), Vector2(w / 2.0 + half, y0 + 1), STONE_LIT, 2.0)
+			# Battlements on the ledge.
+			for b in 3:
+				var bx := w / 2.0 - half + (b + .5) * (half * 2.0 / 3.0)
+				draw_rect(Rect2(bx - 4, y0 - 5, 8, 5), STONE_LIT)
+			var win := Rect2(w / 2.0 - 5, y0 + tier_h * .3, 10, tier_h * .5)
+			draw_rect(win, GOLD if k == at else Color("1a1308"))
+			if k == at:
+				Dot.circle(self, win.get_center(), tier_h * .7, Color(GOLD, .18))
+			top = y0
+		# The summit spire and its flag.
+		var peak := Vector2(w / 2.0, top - 26.0)
+		Dot.poly(self, PackedVector2Array([peak, Vector2(w / 2.0 + 10, top - 5), Vector2(w / 2.0 - 10, top - 5)]), STONE_LIT)
+		draw_line(peak, peak + Vector2(0, -14), GOLD.darkened(.2), 2.0)
+		Dot.poly(self, PackedVector2Array([peak + Vector2(0, -14), peak + Vector2(14, -10), peak + Vector2(0, -6)]), GOLD)
