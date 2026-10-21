@@ -51,7 +51,9 @@ static func build(shell, _params: Dictionary) -> Control:
 
 	var all := cards(p)
 	var shown := all.filter(func(k): return filter == "all" or Roster.get_critter(k.id).rarity == filter)
-	root.add_child(Kit.label("%d/%d found" % [p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED))
+	var meter := _Collection.new()
+	meter.fill = _found_by_rarity(p)
+	root.add_child(Kit.hbox(12, [Kit.label("%d/%d found" % [p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED), meter], BoxContainer.ALIGNMENT_CENTER))
 	if shown.is_empty():
 		var what: String = "" if filter == "all" else Roster.RARITY_NAMES[filter] + " "
 		root.add_child(Kit.label("No %scritters yet." % what, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
@@ -70,6 +72,15 @@ static func build(shell, _params: Dictionary) -> Control:
 		grid.add_child(LazyTile.wrap(func(): return _tile(shell, k, mark_as), i, 15))
 	root.add_child(grid)
 	return root
+
+
+## [found, total] per rarity, common first.
+static func _found_by_rarity(p) -> Array:
+	var out := []
+	for r in Roster.RARITIES:
+		var of: Array = Roster.CRITTERS.filter(func(c): return c.rarity == r)
+		out.append([of.filter(func(c): return p.owns(c.id)).size(), of.size()])
+	return out
 
 
 static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
@@ -103,3 +114,47 @@ static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark(mark_as, t)
 	return t
+
+
+## The collection meter beside "N/90 found": a track cut into one segment per
+## rarity (sized by how many critters it has), each lit in its rarity colour
+## as far as you have found them. Drawn once.
+class _Collection extends Control:
+	const Dot := preload("res://game/dot.gd")
+	const Roster := preload("res://game/ui/roster.gd")
+	const H := 14.0
+	const GAP := 4.0
+	var fill: Array = []
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(0, H + 4)
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		var total := 0
+		for f in fill:
+			total += f[1]
+		if total == 0:
+			return
+		var y := (size.y - H) / 2.0
+		var room := size.x - GAP * (fill.size() - 1)
+		var x := 0.0
+		for i in fill.size():
+			var w: float = room * fill[i][1] / total
+			var col: Color = Roster.RARITY_COLORS[Roster.RARITIES[i]]
+			_bar(Rect2(x, y, w, H), Color(col.darkened(.65), .9))
+			if fill[i][0] > 0:
+				_bar(Rect2(x, y, maxf(H, w * fill[i][0] / fill[i][1]), H), col.darkened(.1))
+				draw_line(Vector2(x + H / 2.0, y + 3), Vector2(x + maxf(H, w * fill[i][0] / fill[i][1]) - H / 2.0, y + 3), Color(1, 1, 1, .3), 2.0, true)
+			x += w + GAP
+
+	## A pill: a rect with round ends.
+	func _bar(r: Rect2, col: Color) -> void:
+		var rad := r.size.y / 2.0
+		if r.size.x > r.size.y:
+			draw_rect(Rect2(r.position.x + rad, r.position.y, r.size.x - r.size.y, r.size.y), col)
+		Dot.circle(self, r.position + Vector2(rad, rad), rad, col)
+		Dot.circle(self, Vector2(r.end.x - rad, r.position.y + rad), rad, col)

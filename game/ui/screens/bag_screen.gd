@@ -46,7 +46,8 @@ static func build(shell, _params: Dictionary) -> Control:
 				grid.add_child(_gear_tile(shell, g))
 				pieces += g.count
 			if grid.get_child_count() > 0:
-				root.add_child(Kit.vbox(12, [Kit.caption("%ss (%d)" % [slot, pieces]), grid]))
+				var head := Kit.hbox(10, [Glyph.make(slot.to_lower(), 26, Kit.MUTED), Kit.caption("%ss (%d)" % [slot, pieces]), _Rule.new()], BoxContainer.ALIGNMENT_CENTER)
+				root.add_child(Kit.vbox(12, [head, grid]))
 		if p.gear.is_empty():
 			root.add_child(Kit.label("No gear yet.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		_pin_merge_all(shell, p)
@@ -284,3 +285,26 @@ static func _center(c: Control) -> Control:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(c)
 	return cc
+
+
+## The line after a gear section's name: fades out toward the right edge,
+## with a small diamond where it starts. Drawn once.
+class _Rule extends Control:
+	const Dot := preload("res://game/dot.gd")
+	const Kit := preload("res://game/ui/ui_kit.gd")
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(0, 12)
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+
+	func _draw() -> void:
+		var y := size.y / 2.0
+		var n := 8
+		for k in n:
+			var x0 := 10.0 + (size.x - 10.0) * k / n
+			var x1 := 10.0 + (size.x - 10.0) * (k + 1) / n
+			draw_line(Vector2(x0, y), Vector2(x1, y), Color(Kit.LINE.lightened(.25), .9 * (1.0 - float(k) / n)), 2.0)
+		Dot.poly(self, PackedVector2Array([Vector2(0, y), Vector2(5, y - 5), Vector2(10, y), Vector2(5, y + 5)]), Kit.LINE.lightened(.35))
