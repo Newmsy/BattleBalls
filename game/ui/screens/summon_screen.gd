@@ -137,7 +137,7 @@ static func _open_picker(shell) -> void:
 					shell.refresh()
 					shell.toast("Wishlist set.")
 					return
-				refresh.call(), Kit.LINE, Kit.PANEL2, 20, 6)
+				refresh.call(), Roster.rarity_border(c.rarity, Kit.LINE), Roster.rarity_bg(c.rarity, Kit.PANEL2), 20, 6)
 			t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			tiles[id] = t
 			shell.mark("wish_" + id, t)

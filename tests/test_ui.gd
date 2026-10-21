@@ -32,6 +32,15 @@ func test_fuse_continue_keeps_your_place_in_the_list() -> void:
 	check_eq(FuseScreen.pick_after_fuse([a], [], a), {}, "nothing left")
 
 
+func test_fuse_list_is_rarest_then_highest_tier_first() -> void:
+	var FuseScreen = load("res://game/ui/screens/fuse_screen.gd")
+	var Roster = load("res://game/ui/roster.gd")
+	var common: String = Roster.CRITTERS.filter(func(c): return c.rarity == "common")[0].id
+	var legend: String = Roster.CRITTERS.filter(func(c): return c.rarity == "legendary")[0].id
+	var got: Array = FuseScreen.sorted([{"id": common, "tier": 1}, {"id": legend, "tier": 1}, {"id": common, "tier": 2}])
+	check_eq(got.map(func(s): return [s.id, s.tier]), [[legend, 1], [common, 2], [common, 1]], "legendary first, then T2 before T1")
+
+
 func test_fusion_keeps_the_highest_level() -> void:
 	var p = UiProfile.sample()
 	# Count Nibbles: T1 x3 at Lv 6, and an existing T2 at Lv 14.
