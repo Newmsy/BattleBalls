@@ -490,6 +490,25 @@ static func _ustroke(ci: CanvasItem, pts: PackedVector2Array, col: Color, w: flo
 		_circ(ci, sp[sp.size() - 1], width / 2.0, col)
 
 
+## A filled stroke along pts whose width runs from w0 to w1 (tusks, tails).
+static func _utaper(ci: CanvasItem, pts: PackedVector2Array, w0: float, w1: float, col: Color) -> void:
+	var n := pts.size()
+	if n < 2:
+		return
+	var left := PackedVector2Array()
+	var right := PackedVector2Array()
+	for i in n:
+		var d := pts[mini(i + 1, n - 1)] - pts[maxi(i - 1, 0)]
+		if d.length() < .0001:
+			continue
+		var nrm := d.normalized().orthogonal() * lerpf(w0, w1, float(i) / (n - 1)) / 2.0
+		left.append(pts[i] + nrm)
+		right.append(pts[i] - nrm)
+	right.reverse()
+	left.append_array(right)
+	_ufill(ci, left, col)
+
+
 static func _uline(ci: CanvasItem, a: Vector2, b: Vector2, col: Color, w: float) -> void:
 	_ustroke(ci, PackedVector2Array([a, b]), col, w)
 
@@ -975,9 +994,19 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 					_ucirc(ci, Vector2(scoops[i][1], scoops[i][2]), .38, scoops[i][0])
 				# The cherry sits on the top scoop (the spec floats it at T3+ height).
 				_ucirc(ci, Vector2(.05, -1.75 if count >= 3 else -1.38), .12, Color("e0213b"))
-		"segments":
-			for i in [3, 2, 1]:
-				_ucirc(ci, Vector2(-.75 - i * .45, .3 + sin(t * 3.0 + i) * .1), .45 - i * .08, shade(c, -.1 * i))
+		"segments": # A serpent tail out of the back, with glowing stinger rings and a fluke.
+			if s.get("live_tail", false):
+				return # In a fight the tail follows its path (arena_view draws it from the sim).
+			var sway := sin(t * 3.0) * .12
+			var tail := _quad(Vector2(-.5, .35), Vector2(-1.35, .95 + sway), Vector2(-1.5, .05 - sway), 12)
+			var tip := tail[tail.size() - 1]
+			var back := (tip - tail[tail.size() - 2]).normalized()
+			for k in [-1, 1]:
+				_ufill(ci, PackedVector2Array([tip - back * .05, tip + back.rotated(k * .9) * .38, tip + back.rotated(k * .35) * .22]), Color("5ee6d0"))
+			_utaper(ci, tail, .7, .22, shade(c, -.45))
+			_utaper(ci, tail, .6, .14, c)
+			for i in [4, 7, 10]:
+				_uring(ci, tail[i], .16 - i * .008, Color("5ff0e6", .85), .045)
 		"shades":
 			for k in [-1, 1]:
 				_ustar(ci, Vector2(k * .3, -.1), .2, .1, 5, Color("1a1530"))
@@ -1088,8 +1117,11 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				_ucirc(ci, Vector2(-.17, y - .03), .07, INK)
 				_ucirc(ci, Vector2(.17, y - .03), .07, INK)
 				_uline(ci, Vector2(-.15, y + .13), Vector2(.15, y + .13), INK, .04)
-		"trunk":
-			_ustroke(ci, _quad(Vector2(0, .2), Vector2(.1, .9), Vector2(-.25, 1.15)), shade(c, -.1), .24)
+		"trunk": # Tapers down between the tusks and curls at the tip.
+			var trunk := _quad(Vector2(0, .12), Vector2(.1, .85), Vector2(-.16, 1.1), 10)
+			_utaper(ci, trunk, .34, .16, shade(c, -.35))
+			_utaper(ci, trunk, .27, .1, shade(c, -.08))
+			_uring(ci, Vector2(-.22, 1.04), .07, shade(c, -.08), .07)
 		"tuft":
 			for k in [-1, 1]:
 				_uell(ci, Vector2(k * .15, -1.08), .2, .08, Color("2f9e44"), k * -.9)
@@ -1097,9 +1129,11 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			for i in 16:
 				var a := i / 16.0 * TAU
 				_ufill(ci, PackedVector2Array([_P(a - .15, .9), _P(a, 1.22), _P(a + .15, .9)]), shade(c, .15))
-		"tusks":
+		"tusks": # Thick at the cheek, sweeping out and down, then curling in to a point.
 			for k in [-1, 1]:
-				_ustroke(ci, _quad(Vector2(k * .25, .35), Vector2(k * .65, .95), Vector2(k * .15, 1.05)), Color("f5eedb"), .12)
+				var tusk := _quad(Vector2(k * .3, .28), Vector2(k * 1.05, .78), Vector2(k * .42, 1.02), 10)
+				_utaper(ci, tusk, .23, .07, Color("a8916a"))
+				_utaper(ci, tusk, .16, .02, Color("f5eedb"))
 		"twigs":
 			_clip_on()
 			for i in 9:

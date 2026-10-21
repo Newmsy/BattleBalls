@@ -892,7 +892,10 @@ func _draw() -> void:
 			_draw_inflow(ball_pos(b) * s, b.radius * s, b.def.collapse_range * s, Color("c58bff"), 0.45)
 		if sim.tick < int(b.state.get("dive_until", -1)):
 			_draw_dive(b, s)
-		for item in Abilities.orb_items(sim, b):
+		var items := Abilities.orb_items(sim, b)
+		if b.type_id == "leviathan":
+			BattleFx.draw_sea_tail(self, ball_pos(b) * s, b.radius * s, items.filter(func(it): return it.look == "segment").map(func(it): return it.pos * s), Color(b.def.color))
+		for item in items:
 			_draw_orb(b, item, s)
 
 	for k in _rings:
@@ -1441,6 +1444,7 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
 	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": _tier_of(i), "look": look, "blink": blink,
 		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko,
+		"live_tail": sim != null and i < sim.balls.size() and sim.balls[i].state.has("path"),
 		"stacks": int(sim.balls[i].state.get("spikes", 0)) if sim and i < sim.balls.size() else 0, "flash": _grow_flash[i] if i < 2 else 0.0,
 		"phased": sim != null and i < sim.balls.size() and sim.tick < int(sim.balls[i].state.get("phase_until", -1)),
 		"wind": _art_meter(i, "wind"), "pressure": _art_meter(i, "pressure"),
@@ -2012,7 +2016,6 @@ func _draw_status(b, s: float) -> void:
 			BattleFx.draw_cog(self, p, r, int(b.state.get("gear", 0)), int(b.def.get("gear_max", 3)), _time)
 		"mammoth":
 			BattleFx.draw_fur(self, p, r, BattleFx.FUR_BROWN, _time)
-			BattleFx.draw_tusks(self, p, r, b.vel, _time)
 		"yeti":
 			BattleFx.draw_fur(self, p, r, BattleFx.FUR_SNOW, _time)
 			if b.hp < b.max_hp * 0.5: # Frosty breath once it's angry.
