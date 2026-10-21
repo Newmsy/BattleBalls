@@ -850,7 +850,8 @@ func _draw() -> void:
 		outline[i] *= s
 	_paint_floor_if_changed(shape, outline)
 	_floor.position = shake
-	_draw_ambient(theme.ambient, arena, PackedVector2Array() if outline.size() == 4 else outline)
+	var plain := outline.size() == 4 and not shape.arena.has("sides")
+	_draw_ambient(theme.ambient, arena, PackedVector2Array() if plain else outline)
 	_draw_floors(shape.floors())
 	_draw_wells(shape.wells())
 	_draw_spike_walls(shape)
@@ -1117,7 +1118,7 @@ func _paint_floor(cv: CanvasItem) -> void:
 	var fill := Color(theme.fill)
 	_grid = Color(Color(theme.grid), 0.08)
 	var outline := _floor_outline
-	if outline.size() == 4:
+	if outline.size() == 4 and not shape.arena.has("sides"):
 		_rounded_rect(arena, 14.0, fill)
 		_draw_glows(theme, shape, PackedVector2Array())
 		if theme.get("pattern", "grid") == "grid":
@@ -1572,19 +1573,28 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 				draw_rect(rr, Color(CONVEYOR, 0.7), false, 2.0)
 				var step := 46.0 * s
 				var dir: Vector2 = f.dir
+				# Work along the belt (u) and across it (v): x/y for a
+				# sideways belt, swapped for an up/down one.
+				var vert := absf(dir.y) > absf(dir.x)
+				var sgn := dir.y if vert else dir.x
+				var u0 := rr.position.y if vert else rr.position.x
+				var u1 := rr.end.y if vert else rr.end.x
+				var v0 := rr.position.x if vert else rr.position.y
+				var v1 := rr.end.x if vert else rr.end.y
+				var at := func(u: float, v: float) -> Vector2: return Vector2(v, u) if vert else Vector2(u, v)
 				var shift := fmod(_time * 120.0 * s, step)
-				var x := rr.position.x - step + (shift if dir.x > 0.0 else step - shift)
-				var mid := rr.position.y + rr.size.y / 2.0
-				var h := rr.size.y * 0.3
-				while x < rr.end.x:
-					if x > rr.position.x + 4.0 and x + h * 0.6 < rr.end.x - 4.0:
-						var tip := x + h * 0.6 * dir.x
-						Dot.pline(self, PackedVector2Array([Vector2(x, mid - h), Vector2(tip, mid), Vector2(x, mid + h)]), Color(CONVEYOR, 0.75), 4.0, true)
+				var x := u0 - step + (shift if sgn > 0.0 else step - shift)
+				var mid := (v0 + v1) / 2.0
+				var h := (v1 - v0) * 0.3
+				while x < u1:
+					if x > u0 + 4.0 and x + h * 0.6 < u1 - 4.0:
+						var tip := x + h * 0.6 * sgn
+						Dot.pline(self, PackedVector2Array([at.call(x, mid - h), at.call(tip, mid), at.call(x, mid + h)]), Color(CONVEYOR, 0.75), 4.0, true)
 					x += step
-				for edge in [rr.position.y + 3.0, rr.end.y - 3.0]: # Hazard stripes.
-					var sx := rr.position.x
-					while sx < rr.end.x - 10.0:
-						draw_line(Vector2(sx, edge), Vector2(minf(sx + 10.0, rr.end.x), edge), Color(CONVEYOR, 0.5) if int(sx / 10.0) % 2 == 0 else Color(INK, 0.6), 4.0)
+				for edge in [v0 + 3.0, v1 - 3.0]: # Hazard stripes.
+					var sx := u0
+					while sx < u1 - 10.0:
+						draw_line(at.call(sx, edge), at.call(minf(sx + 10.0, u1), edge), Color(CONVEYOR, 0.5) if int(sx / 10.0) % 2 == 0 else Color(INK, 0.6), 4.0)
 						sx += 10.0
 			"portal":
 				var c: Vector2 = f.pos * s

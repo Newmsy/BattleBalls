@@ -339,12 +339,134 @@ const DEFS := {
 			{"kind": "ice", "pos": Vector2(680, 680), "radius": 110.0},
 		],
 	},
+	"sunset": {
+		"display_name": "Sunset Grid",
+		"description": "A ten-sided synthwave stage. Two belts run opposite ways.",
+		"corner_cut": 0.0,
+		"sides": {"n": 10, "inradius": 470.0, "rot": 18.0},
+		"start_scale": 0.8,
+		"obstacles": [],
+		"floors": [
+			{"kind": "conveyor", "rect": Rect2(300, 300, 400, 90), "dir": Vector2.RIGHT, "accel": 480.0},
+			{"kind": "conveyor", "rect": Rect2(300, 610, 400, 90), "dir": Vector2.LEFT, "accel": 480.0},
+		],
+	},
+	"alley": {
+		"display_name": "Neon Alley",
+		"description": "Signposts down the middle and bumpers on the corners of the block.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(500, 240), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(500, 760), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(500, 500), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(330, 330), "radius": 30.0, "kind": "bumper"},
+			{"pos": Vector2(670, 670), "radius": 30.0, "kind": "bumper"},
+		],
+	},
+	"dunes": {
+		"display_name": "Sand Dunes",
+		"description": "A wide desert pass with quicksand in the middle and cacti.",
+		"corner_cut": 0.0,
+		"sides": {"n": 2, "inradius": 330.0, "rot": 45.0},
+		"obstacles": [
+			{"pos": Vector2(380, 380), "radius": 30.0, "kind": "spike"},
+			{"pos": Vector2(620, 620), "radius": 30.0, "kind": "spike"},
+		],
+		"floors": [{"kind": "goo", "pos": Vector2(500, 500), "radius": 100.0, "slow": 0.35}],
+	},
+	"oasis": {
+		"display_name": "Desert Oasis",
+		"description": "A round oasis. Wading through the pool slows you; palms to bounce off.",
+		"corner_cut": 0.0,
+		"sides": {"n": 16, "inradius": 470.0, "rot": 11.25},
+		"start_scale": 0.8,
+		"obstacles": [
+			{"pos": Vector2(500, 290), "radius": 32.0, "kind": "pillar"},
+			{"pos": Vector2(500, 710), "radius": 32.0, "kind": "pillar"},
+		],
+		"floors": [{"kind": "goo", "pos": Vector2(500, 500), "radius": 125.0, "slow": 0.25}],
+	},
+	"graveyard": {
+		"display_name": "Moonlit Graveyard",
+		"description": "Iron railings bite and tombstones block the way.",
+		"corner_cut": 140.0,
+		"obstacles": [
+			{"pos": Vector2(380, 380), "radius": 32.0, "kind": "spike"},
+			{"pos": Vector2(620, 620), "radius": 32.0, "kind": "spike"},
+			{"pos": Vector2(640, 360), "radius": 36.0, "kind": "pillar"},
+			{"pos": Vector2(360, 640), "radius": 36.0, "kind": "pillar"},
+		],
+	},
+	"manor": {
+		"display_name": "Haunted Manor",
+		"description": "Four haunted mirrors: roll into one, come out of the one across the hall.",
+		"corner_cut": 0.0,
+		"obstacles": [{"pos": Vector2(500, 500), "radius": 48.0, "kind": "pillar"}],
+		"floors": [
+			{"kind": "portal", "pos": Vector2(500, 170), "radius": 60.0, "to": 1},
+			{"kind": "portal", "pos": Vector2(500, 830), "radius": 60.0, "to": 0},
+			{"kind": "portal", "pos": Vector2(170, 500), "radius": 60.0, "to": 3},
+			{"kind": "portal", "pos": Vector2(830, 500), "radius": 60.0, "to": 2},
+		],
+	},
+	"toybox": {
+		"display_name": "Toy Chest",
+		"description": "Bouncy blocks all over the toy chest floor and a big ball in the middle.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(500, 500), "radius": 56.0, "kind": "pillar"},
+			{"pos": Vector2(320, 320), "radius": 36.0, "kind": "bumper"},
+			{"pos": Vector2(680, 680), "radius": 36.0, "kind": "bumper"},
+			{"pos": Vector2(700, 300), "radius": 36.0, "kind": "bumper"},
+			{"pos": Vector2(300, 700), "radius": 36.0, "kind": "bumper"},
+		],
+	},
+	"speedway": {
+		"display_name": "Slot Car Speedway",
+		"description": "Belts run round the track. Ride the loop or fight across it.",
+		"corner_cut": 180.0,
+		"obstacles": [{"pos": Vector2(500, 500), "radius": 60.0, "kind": "pillar"}],
+		"floors": [
+			{"kind": "conveyor", "rect": Rect2(270, 120, 460, 90), "dir": Vector2.LEFT, "accel": 450.0},
+			{"kind": "conveyor", "rect": Rect2(270, 790, 460, 90), "dir": Vector2.RIGHT, "accel": 450.0},
+			{"kind": "conveyor", "rect": Rect2(120, 270, 90, 460), "dir": Vector2.DOWN, "accel": 450.0},
+			{"kind": "conveyor", "rect": Rect2(790, 270, 90, 460), "dir": Vector2.UP, "accel": 450.0},
+		],
+	},
+	"arcane": {
+		"display_name": "Arcane Circle",
+		"description": "A summoning circle: two rune portals and two crystal pylons.",
+		"corner_cut": 0.0,
+		"sides": {"n": 20, "inradius": 470.0, "rot": 0.0},
+		"start_scale": 0.8,
+		"obstacles": [
+			{"pos": Vector2(330, 500), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(670, 500), "radius": 34.0, "kind": "pillar"},
+		],
+		"floors": [
+			{"kind": "portal", "pos": Vector2(500, 260), "radius": 60.0, "to": 1},
+			{"kind": "portal", "pos": Vector2(500, 740), "radius": 60.0, "to": 0},
+		],
+	},
+	"prism": {
+		"display_name": "Prism Mines",
+		"description": "A tight mine shaft. Crystal spikes and a slick crystal floor.",
+		"corner_cut": 0.0,
+		"sides": {"n": 4, "inradius": 400.0, "rot": 0.0},
+		"start_scale": 0.8,
+		"obstacles": [
+			{"pos": Vector2(500, 330), "radius": 30.0, "kind": "spike"},
+			{"pos": Vector2(500, 670), "radius": 30.0, "kind": "spike"},
+		],
+		"floors": [{"kind": "ice", "pos": Vector2(500, 500), "radius": 120.0}],
+	},
 }
 
 ## Arenas offered in the in-game picker and checked by the balance sim.
 const PLAYABLE := ["square", "rink", "pillars", "bumpers", "wells", "spikes", "frost", "magma", "arcade",
 	"starfall", "factory", "orbit", "hive", "horizon", "pinball", "reef", "glitch", "inferno", "thorn",
-	"candy", "syrup", "temple", "ruins", "nebula", "asteroid", "trench", "kelp", "storm", "cloud"]
+	"candy", "syrup", "temple", "ruins", "nebula", "asteroid", "trench", "kelp", "storm", "cloud",
+	"sunset", "alley", "dunes", "oasis", "graveyard", "manor", "toybox", "speedway", "arcane", "prism"]
 
 
 ## Boss maps (sim/bosses.gd, design/bosses.md): one per boss, never in the
