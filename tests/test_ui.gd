@@ -386,6 +386,30 @@ func test_energy_pill_counts_down_to_the_next_point() -> void:
 	shell.free()
 
 
+func test_first_boss_win_leads_on_to_the_next_chapter_and_its_story() -> void:
+	var Story := preload("res://meta/story.gd")
+	var Campaign := preload("res://meta/campaign.gd")
+	var shell = Shell.new()
+	shell.profile = preload("res://meta/profile.gd").new_game(1_800_000_000)
+	for k in 10:
+		shell.profile.stars["1-%d" % (k + 1)] = 3
+	shell.profile.intro = preload("res://meta/profile.gd").INTRO_DONE
+	Story.mark_seen(shell.profile, preload("res://meta/zones.gd").zone(0).id)
+	var fighter: String = Campaign.fighter_for(shell.profile)
+	var r: Dictionary = Campaign.finish(shell.profile, 0, 10, fighter, {"winner": 0, "hp": [100.0, 0.0], "max_hp": 100.0, "time": 10.0})
+	check(r.won and r.first_clear, "a first boss win")
+	shell.build()
+	shell.go("campaign", {"zone": 0, "result": {"stage": 10, "r": r}})
+	check(shell._marks.has("result_next_chapter"), "the results offer the next chapter")
+	shell._marks.result_next_chapter.pressed.emit()
+	check(shell.overlay_open() and shell._marks.has("story_next"), "the next chapter opens on its story")
+	r.first_clear = false
+	shell.close_overlay()
+	shell.go("campaign", {"zone": 0, "result": {"stage": 10, "r": r}})
+	check(not shell._marks.has("result_next_chapter") or not shell._marks.result_next_chapter.is_visible_in_tree(), "a later boss win doesn't")
+	shell.free()
+
+
 func test_out_of_energy_closes_the_results_and_never_replays_them() -> void:
 	var shell = Shell.new()
 	shell.profile = preload("res://meta/profile.gd").new_game(1_800_000_000)
