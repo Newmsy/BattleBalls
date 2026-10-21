@@ -31,12 +31,24 @@ func test_speeds_unlock_by_account_level() -> void:
 	_state(1, 0)
 
 
-func test_picker_dims_locked_speeds() -> void:
+func test_speed_pill_cycles_unlocked_speeds() -> void:
+	_state(5, 0)
+	check_eq(FightSpeed.next_index(), 1, "1x cycles to 2x at level 5")
 	_state(5, 1)
+	check_eq(FightSpeed.next_index(), 0, "2x wraps to 1x while 4x is locked")
+	_state(10, 2)
+	check_eq(FightSpeed.next_index(), 0, "4x wraps to 1x")
+	_state(1, 0)
+	check_eq(FightSpeed.next_index(), 0, "nothing to cycle to at level 1")
+	_state(5, 0)
 	var p := FightSpeed.picker()
-	check_eq(p.get_child_count(), 3, "one button per speed")
-	check(not p.get_child(0).disabled and not p.get_child(1).disabled, "1x and 2x open at level 5")
-	check(p.get_child(2).disabled, "4x locked at level 5")
+	check_eq(p.get_node("SpeedPill").text, "Speed: 1x", "pill shows the speed")
+	FightSpeed._pick = 1 # Tapping saves the pick; set it directly to keep settings.cfg untouched.
+	p.refresh()
+	check_eq(p.get_node("SpeedPill").text, "Speed: 2x", "pill follows the pick")
+	_state(1, 0)
+	p.refresh()
+	check(p.get_node("SpeedPill").modulate.a < 1.0, "pill dimmed with nothing unlocked")
 	p.free()
 	_state(1, 0)
 

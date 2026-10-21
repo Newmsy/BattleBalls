@@ -105,10 +105,23 @@ static func label(i: int) -> String:
 	return "%dx" % int(SPEEDS[i]) if unlocked(i) else "%dx Lv%d" % [int(SPEEDS[i]), UNLOCK_LEVELS[i]]
 
 
-## A row of speed buttons for a fight's panel: the pick lit, locked ones
-## dimmed with the level that opens them.
-static func picker(font_size := 26, height := 84) -> Picker:
-	return Picker.new(font_size, height)
+## The speed after the one playing now, among the unlocked ones (wrapping
+## to 1x); the same speed when nothing else is unlocked.
+static func next_index() -> int:
+	var i := index()
+	for k in range(1, SPEEDS.size() + 1):
+		var n := (i + k) % SPEEDS.size()
+		if unlocked(n):
+			return n
+	return i
+
+
+## The fight's speed pill: tap to cycle 1x, 2x, 4x. It sits in the bottom-left
+## corner like the Sound pill sits in the bottom-right, whichever row it is
+## added to (top_level keeps it out of the row's layout); it shows and hides
+## with that row.
+static func picker(_font_size := 26, _height := 84) -> Picker:
+	return Picker.new()
 
 
 static func _ensure_loaded() -> void:
@@ -129,47 +142,63 @@ static func _save() -> void:
 	cfg.save(SETTINGS_PATH)
 
 
-class Picker extends HBoxContainer:
+class Picker extends Control:
 	signal picked(speed: float)
 
-	var _font := 26
-	var _height := 84
+	const SIZE := Vector2(164, 56) ## The Sound pill's size (sfx.gd TOGGLE_SIZE).
+	const MARGIN := Vector2(16, 18)
 
-	func _init(font_size: int, height: int) -> void:
-		_font = font_size
-		_height = height
-		add_theme_constant_override("separation", 8)
-		size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		size_flags_stretch_ratio = 2.0
+	var _button: Button
+	var _lock: Control
+
+	func _init() -> void:
+		top_level = true
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_button = Kit.button("", _cycle, "ghost", 20, int(SIZE.y))
+		_button.name = "SpeedPill"
+		_button.clip_text = true
+		_button.add_theme_font_override("font", Kit.FONT)
+		_button.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		add_child(_button)
 		refresh()
+
+	func _ready() -> void:
+		get_viewport().size_changed.connect(_place)
+		_place()
+
+	func _place() -> void:
+		var vp := get_viewport().get_visible_rect().size
+		size = SIZE
+		global_position = Vector2(MARGIN.x, vp.y - SIZE.y - MARGIN.y)
 
 	## Redraws for the current pick and unlocks.
 	func refresh() -> void:
-		for c in get_children():
-			remove_child(c)
-			c.queue_free()
-		var live := FightSpeedRef.current()
-		for i in FightSpeedRef.SPEEDS.size():
-			var on: bool = is_equal_approx(live, FightSpeedRef.SPEEDS[i])
-			var b := Kit.button(FightSpeedRef.label(i), _pick.bind(i), "primary" if on else "ghost", _font, _height)
-			b.name = "Speed%dx" % int(FightSpeedRef.SPEEDS[i])
-			b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-			b.clip_text = true
-			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-			b.disabled = not FightSpeedRef.unlocked(i)
-			if b.disabled: # A padlock and the level that opens it, not "4X LV10".
-				b.text = ""
-				b.modulate = Color(1, 1, 1, 0.6)
-				var row := Kit.hbox(6, [Kit.glyph("lock", _font * 0.8, Kit.MUTED), Kit.chip("Lv%d" % FightSpeedRef.UNLOCK_LEVELS[i], Kit.MUTED, maxi(18, _font - 6))], BoxContainer.ALIGNMENT_CENTER)
-				row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-				row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				for c in row.get_children():
-					c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				b.add_child(row)
-			add_child(b)
+		var i := FightSpeedRef.index()
+		_button.text = "Speed: %dx" % int(FightSpeedRef.current())
+		if _lock:
+			_lock.queue_free()
+			_lock = null
+		# Nothing to cycle to yet: a padlock and the level that opens 2x.
+		var locked := FightSpeedRef.next_index() == i and FightSpeedRef.url_speed <= 0.0
+		_button.modulate = Color(1, 1, 1, 0.6 if locked else 1.0)
+		if locked:
+			_button.text = "1x"
+			_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			_lock = Kit.hbox(4, [Kit.glyph("lock", 16, Kit.MUTED), Kit.chip("Lv%d" % FightSpeedRef.UNLOCK_LEVELS[1], Kit.MUTED, 16)], BoxContainer.ALIGNMENT_END)
+			_lock.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			_lock.offset_right = -14
+			_lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			for c in _lock.get_children():
+				c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_button.add_child(_lock)
+		else:
+			_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-	func _pick(i: int) -> void:
-		FightSpeedRef.select(i)
+	func _cycle() -> void:
+		var n := FightSpeedRef.next_index()
+		if n == FightSpeedRef.index() and FightSpeedRef.url_speed <= 0.0:
+			return
+		FightSpeedRef.select(n)
 		refresh()
 		picked.emit(FightSpeedRef.current())
 
