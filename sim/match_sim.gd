@@ -71,9 +71,9 @@ const IMPACT_SPREAD := 0.4
 ## A ball moving slower than its normal speed hits softer, down to this share
 ## when stopped (frozen, stunned). Faster than normal adds nothing (Newms).
 const SLOW_HIT_FLOOR := 0.4
-## Gentle pull in every mode: each ball curves toward its nearest foe so they
-## bump more often. Config "seek" overrides it (0 turns it off).
-const SEEK := 70.0 ## Newms: 400 trial, halved to 200, then down 65%.
+## Gentle pull toward the nearest foe: OFF in every fight (Newms 2026-10-21: no
+## attraction between balls outside special effects). Config "seek" turns it on.
+const SEEK := 0.0
 const BEAM_HALF_WIDTH := 5.0
 const MIN_BEAM_LENGTH := 30.0
 const RANDOM_AIM_SPREAD := 400 ## Tenths of a degree either side of the centre line.

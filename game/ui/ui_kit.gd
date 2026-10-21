@@ -130,6 +130,22 @@ static func button(text: String, on_press: Callable, kind := "primary", font_siz
 	return b
 
 
+## A button with a cost: "MERGE ALL (4) · 40" then the currency's glyph, never
+## the currency's name. `glyph_kind` is a Glyph kind (hammer, coin, egg, gem, energy...).
+static func cost_button(text: String, cost: int, glyph_kind: String, on_press: Callable, kind := "primary", font_size := 28, height := 96) -> Button:
+	var b := button("", on_press, kind, font_size, height)
+	var col: Color = BUTTON_STYLES[kind][2]
+	var words := label((text + "  ·  " if text != "" else "").to_upper() + commas(cost), font_size, col)
+	var row := hbox(8, [words, glyph(glyph_kind, font_size * 1.2, col)], BoxContainer.ALIGNMENT_CENTER)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(row)
+	b.set_meta("row", row)
+	# A disabled cost button fades its words and glyph with it.
+	b.draw.connect(func(): row.modulate.a = .5 if b.disabled else 1.0)
+	return b
+
+
 ## A tappable card: a flat Button with a panel look and arbitrary content.
 static func card_button(content: Control, on_press: Callable, border := LINE, bg := PANEL, radius := 32, pad := 12) -> Button:
 	var b := Button.new()
@@ -162,9 +178,9 @@ static func chip(text: String, color: Color, font_size := 18) -> PanelContainer:
 	return p
 
 
-## "⚡1,789" with a drawn bolt.
+## "1,789" power with its burst (never the energy bolt).
 static func power(value: int, size := 26, color := FG) -> HBoxContainer:
-	return hbox(4, [glyph("bolt", size, WARN), label(commas(value), size, color)])
+	return hbox(4, [glyph("power", size, WARN), label(commas(value), size, color)])
 
 
 ## A glyph kept at its own height in a row: glyphs draw to their height, so a

@@ -49,7 +49,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var climb = SpireClimb.load_file(LiveOps.now())
 	root.add_child(group("Daily and weekly", DAILY, [
 		mode_tile(shell, "trickshot", "Trick Shot", trick_line, DAILY,
-			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), "target"),
+			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), "target", not trick.solved and trick.tries == 0),
 		mode_tile(shell, "bouncerun", "Bounce Run", "Run #%d · daily" % run_day, Color("ffc23d"),
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"), "bounce"),
 		mode_tile(shell, "spire", "The Spire", "Floor %d/%d · weekly" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
@@ -94,11 +94,11 @@ static func _campaign_card(shell) -> Control:
 		var st: Dictionary = stages[next]
 		next_text = "%d/%d cleared · Next: %s %s · Recommended %s" % [cleared, stages.size(), Zones.stage_key(z, next),
 			st.get("name", Roster.get_critter(st.enemy).name), Kit.commas(Campaign.enemy_rating(z, next))]
-	var open := Kit.button("Open the map", func(): shell.go("world"), "go", 30, 84)
+	var open := Kit.button("Open the map", func(): shell.go("world"), "go", 32, 96)
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
 		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone %d · The Neon Circuit" % (z + 1), Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
-		Kit.hbox(10, [Kit.label(zd.name, 40), Kit.spacer(), Glyph.make("crown", 26, Kit.FG, 1),
+		Kit.hbox(10, [Kit.label(zd.name, 40), Kit.spacer(), Glyph.make("crown", 28, Kit.FG, 1),
 			Kit.label("%d/%d" % [star_total, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label(next_text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 		open,
@@ -113,16 +113,23 @@ static func _quick_fight_card(shell) -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
-	var info := Kit.vbox(2, [Kit.hbox(8, [Glyph.make("swords", 22, Kit.MUTED), Kit.caption("Quick fight · your fighter")]), Kit.label(c.name, 30),
-		Kit.hbox(10, [Glyph.make("stars", 24, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 22, Kit.MUTED), Kit.power(p.power_of(p.lineup), 24)])])
+	var name := Kit.label(c.name, 28)
+	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name.clip_text = true
+	var info := Kit.vbox(2, [Kit.hbox(8, [Glyph.make("swords", 22, Kit.MUTED), Kit.caption("Your fighter")]), name,
+		Kit.hbox(10, [Glyph.make("stars", 22, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 20, Kit.MUTED), Kit.power(p.power_of(p.lineup), 20)])])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(16, [CritterIcon.make(p.lineup, b.tier, 104), info, Kit.chip("Change", Kit.ACCENT)])
+	var row := Kit.hbox(14, [CritterIcon.make(p.lineup, b.tier, 88), info])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Tap the fighter to pick another; Quick fight sits beside it, second to the campaign.
 	var fighter := Kit.card_button(row, func(): _pick_fighter(shell), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 24, 0)
+	fighter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("fighter", fighter)
-	var fight := Kit.button("Quick fight", shell.request_play, "primary", 30, 84)
+	var fight := Kit.button("Quick fight", shell.request_play, "ghost", 24, 84)
+	fight.size_flags_horizontal = Control.SIZE_SHRINK_END
+	fight.custom_minimum_size.x = 210
 	shell.mark("quickfight", fight)
-	return Kit.panel(Kit.vbox(14, [fighter, fight]), Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 24))
+	return Kit.panel(Kit.hbox(12, [fighter, fight], BoxContainer.ALIGNMENT_CENTER), Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 18))
 
 
 static func _pick_fighter(shell) -> void:
@@ -149,7 +156,7 @@ static func group(title: String, accent: Color, tiles: Array) -> Control:
 ## A small mode tile: an icon badge (a Glyph kind, optional), the title and one
 ## short status line. The whole tile is the button; `mark` names it for the
 ## smoke test.
-static func mode_tile(shell, mark: String, title: String, status: String, accent: Color, on_press: Callable, icon := "") -> Control:
+static func mode_tile(shell, mark: String, title: String, status: String, accent: Color, on_press: Callable, icon := "", dot := false) -> Control:
 	var name := Kit.label(title, 28)
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name.clip_text = true
@@ -165,8 +172,24 @@ static func mode_tile(shell, mark: String, title: String, status: String, accent
 	var tile := Kit.card_button(content, on_press, accent.darkened(.45), accent.darkened(.84), 28, 18)
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tile.custom_minimum_size.x = 0
+	if dot:
+		tile.add_child(red_dot())
 	shell.mark(mark, tile)
 	return tile
+
+
+## The red "something to do here" dot, for a tile's top-right corner.
+static func red_dot() -> Control:
+	var d := Panel.new()
+	d.add_theme_stylebox_override("panel", Kit.box(Kit.BAD, Kit.BG, 999, 3, 0))
+	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	d.anchor_left = 1.0
+	d.anchor_right = 1.0
+	d.offset_left = -30.0
+	d.offset_right = -8.0
+	d.offset_top = 8.0
+	d.offset_bottom = 30.0
+	return d
 
 
 ## A mode icon in a round, softly glowing badge of the mode's colour.
@@ -195,6 +218,7 @@ static func _locked_tile(shell) -> Control:
 	var t := mode_tile(shell, "locked_dailies", "Bosses", "After stage 1-5", Kit.MUTED,
 		shell.info.bind("Bosses", ["Clear stage 1-5 to open the boss fights, one by one as you go:",
 			"Piñata Titan: smash it for coins.", "Anvil King: gear and Hammers.", "Brood Queen: Summon Eggs."]), "lock")
+	t.modulate = Color(1, 1, 1, .55) # Locked reads as locked: dim, with the lock and what opens it.
 	return t
 
 
@@ -207,7 +231,7 @@ static func _pass_tile(shell) -> Control:
 	var line := "Level %d of 50" % glow.pass_level()
 	if n > 0:
 		line = "%d reward%s to claim!" % [n, "" if n == 1 else "s"]
-	return mode_tile(shell, "glowpass", "Glow Pass", line, DAILY if n > 0 else STYLE, func(): shell.go("pass"), "pass")
+	return mode_tile(shell, "glowpass", "Glow Pass", line, DAILY if n > 0 else STYLE, func(): shell.go("pass"), "pass", n > 0)
 
 
 ## Friends: a count and whatever is waiting (requests, energy gifts).
@@ -222,4 +246,4 @@ static func _friends_tile(shell) -> Control:
 			line = "%d gift%s waiting" % [fr.gifts_claimable, "" if fr.gifts_claimable == 1 else "s"]
 	elif not fr.enabled():
 		line = "Go online to add"
-	return mode_tile(shell, "friends", "Friends", line, Kit.GOOD if fr.attention() > 0 else VERSUS, func(): shell.go("friends"), "friends")
+	return mode_tile(shell, "friends", "Friends", line, Kit.GOOD if fr.attention() > 0 else VERSUS, func(): shell.go("friends"), "friends", fr.attention() > 0)

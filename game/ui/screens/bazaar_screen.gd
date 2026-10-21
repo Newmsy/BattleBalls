@@ -17,14 +17,14 @@ static func build(shell, params: Dictionary) -> Control:
 		store = ArenaStore.open()
 	var root := Kit.vbox(12)
 	var how := [
-		"Tokens come only from the Ghost Arena: %d / %d / %d for an easier / even / harder win, %d for a loss, %d for each raid your Defence holds." % [
-			ArenaStore.COINS_WIN.easier, ArenaStore.COINS_WIN.even, ArenaStore.COINS_WIN.harder, ArenaStore.COINS_LOSS, ArenaStore.COINS_DEFENCE],
+		"Tokens come only from the Ghost Arena: about 15 for a win (more against a team above you), %d for a loss, %d for each raid your Defence holds." % [
+			ArenaStore.COINS_LOSS, ArenaStore.COINS_DEFENCE],
 		"The stock changes every day and each item sells once. Gear gets better as your league climbs.",
 		"Tokens are never sold for money.",
 	]
 	var info: Control = shell.info_button("Bazaar", how, "bazaar_info")
 	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Bazaar", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
-	var bank := Kit.hbox(10, [Glyph.make("token", 34), Kit.label(Kit.commas(store.coins), 34), Kit.label("Tokens", 22, Kit.MUTED), Kit.spacer(), Kit.label("New stock tomorrow", 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var bank := Kit.hbox(10, [Glyph.make("token", 34), Kit.label(Kit.commas(store.coins), 34), Kit.spacer(), Kit.label("New stock tomorrow", 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.panel(bank, Kit.box(Color("17143e"), COIN, 28, 2, 16)))
 	var stock: Array = store.bazaar()
 	for i in stock.size():

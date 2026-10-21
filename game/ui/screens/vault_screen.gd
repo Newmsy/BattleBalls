@@ -25,7 +25,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Daily boss · gear and hammers", VAULT), Kit.label("Anvil King", 44)])
+	var head := Kit.vbox(2, [Kit.caption("Daily boss · gear and hammers", VAULT), Kit.label("Anvil King", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Anvil King", [
 		"A forge golem rooted in the middle of The Forge. It slams its hammer where you're heading (dodge the ring), leaves embers burning, and every fourth swing quakes the floor around it: get to the edge.",
@@ -40,7 +40,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var today := "Today: " + ("any gear" if slot == "" else "%ss (%s)" % [slot, " or ".join(names)])
 	root.add_child(Kit.label(today, 26, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var left := GearVault.runs_left(p, now)
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("Energy %d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, GearVault.RUNS_PER_DAY], 22, Kit.MUTED),
+	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("%d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, GearVault.RUNS_PER_DAY], 22, Kit.MUTED),
 		Kit.spacer(), Glyph.make("hammer", 30), Kit.label(Kit.commas(p.hammers), 24)], BoxContainer.ALIGNMENT_CENTER))
 
 	if params.has("notice"):
@@ -73,7 +73,7 @@ static func _card(shell, p, d: int, fighter: String, now: int, left: int) -> Con
 		Glyph.make("hammer", 22), Kit.label("%d" % diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "They're stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight := Kit.button("Fight  %d" % GearVault.ENERGY_COST, _fight.bind(shell, d, fighter), "go", 24, 72)
+	var fight := Kit.cost_button("Fight", GearVault.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
 	shell.mark("vault_go", fight)

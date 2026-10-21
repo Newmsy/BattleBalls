@@ -17,10 +17,7 @@ const Intro := preload("res://game/ui/intro.gd")
 const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
 const Families := preload("res://sim/families.gd")
 
-const CARD_COLORS := {"easier": Kit.GOOD, "even": Kit.ACCENT, "harder": Kit.WARN}
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
-## Below this screen height (an iPhone SE) opponents are one-line rows.
-const COMPACT_HEIGHT := 1500.0
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -45,7 +42,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var how := [
 		"Your trio fights theirs in order; their order stays hidden until each ball comes out. A winner stays in with the HP it has left. Each ball's last shot is saved for your ghost.",
 		"Tap a trio slot to pick a critter you own. Each critter fits in a trio once; picking one already in it swaps the two. Best trio fills in your strongest three.",
-		"Opponents are themed teams sized to your trio's power, a little stronger the more trophies you have. Easier cards risk fewer trophies, harder ones win more. One free refresh a day.",
+		"Opponents are themed teams with trophies near yours, and the more trophies a team has, the stronger it is. Beating a team above you wins more and losing to it costs less. One free refresh a day.",
 		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Tokens for the Bazaar.",
 		"Set your Defence trio: each day a few teams raid it. Holding wins trophies and Tokens.",
 	]
@@ -62,30 +59,32 @@ static func build(shell, params: Dictionary) -> Control:
 		Intro.moment.call_deferred(shell, Intro.TROPHY)
 	var rooms := Kit.hbox(10)
 	if Intro.shows(p, "trophy"):
-		rooms.add_child(_room(shell, "arena_boosts", "trophy", "Trophy Room", "%s pts" % Kit.commas(store.points), Kit.WARN, func(): shell.go("boosts", {"store": store})))
+		rooms.add_child(_room(shell, "arena_boosts", "trophy", "Trophy Room", Kit.commas(store.points), Kit.WARN, func(): shell.go("boosts", {"store": store})))
 	if Intro.done(p):
-		rooms.add_child(_room(shell, "arena_bazaar", "token", "Bazaar", "%s tokens" % Kit.commas(store.coins), Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})))
+		rooms.add_child(_room(shell, "arena_bazaar", "token", "Bazaar", Kit.commas(store.coins), Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})))
 		rooms.add_child(_room(shell, "arena_defence", "shield", "Defence", "Held %d/%d" % [held_today, store.raids.size()] if not store.raids.is_empty() else "Set trio", Kit.GOOD, func(): shell.go("defence", {"store": store})))
 	if rooms.get_child_count() > 0:
 		root.add_child(rooms)
 	root.add_child(trio_panel(shell, store, owned, "trio"))
 
 	var refresh_left: int = store.refreshes_left()
-	var refresh := Kit.chip("Refresh" if refresh_left > 0 else "New cards tomorrow", Kit.ACCENT if refresh_left > 0 else Kit.MUTED)
+	var refresh := Kit.chip("Refresh" if refresh_left > 0 else "New teams tomorrow", Kit.ACCENT if refresh_left > 0 else Kit.MUTED)
 	var refresh_btn := Kit.card_button(refresh, func():
 		if store.refresh():
 			shell.refresh_with({"store": store})
 		else:
-			shell.toast("One free refresh a day. New cards tomorrow."), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
+			shell.toast("One free refresh a day. New teams tomorrow."), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
 	shell.mark("arena_refresh", refresh_btn)
 	root.add_child(Kit.hbox(0, [Kit.caption("Pick an opponent"), Kit.spacer(), refresh_btn]))
 	var cards: Array[Dictionary] = store.offers(shell.profile)
-	# Short phones get one-line rows so all three cards fit.
-	var compact: bool = shell.size.y < COMPACT_HEIGHT
+	var rows: Array = []
 	for i in cards.size():
-		var btn := _opponent_row(shell, store, cards[i]) if compact else _opponent_card(shell, store, cards[i])
+		var btn := _opponent_row(shell, store, cards[i])
 		shell.mark("arena_card_%d" % i, btn)
 		root.add_child(btn)
+		rows.append(btn)
+	# As many opponents as the phone has room for (at least three).
+	_fit_rows(shell, root, rows)
 
 	return root
 
@@ -165,51 +164,51 @@ static func trio_panel(shell, store, owned: Array, which := "trio") -> Control:
 	])
 
 
-static func _opponent_card(shell, store, offer: Dictionary) -> Button:
-	var bot: Dictionary = offer.bot
-	var card: Dictionary = Ladder.CARDS[offer.card]
-	var col: Color = CARD_COLORS[offer.card]
-	var fam: String = bot.get("family", "")
-	var fam_col: Color = Color(Families.info(fam).color) if fam != "" else Kit.MUTED
-	# Show which critters they bring, with tier and power, not the order they
-	# come out in.
-	var slots: Array = bot.lineup.slots.duplicate()
-	slots.sort_custom(func(a, b): return str(a.critter) < str(b.critter))
-	var icons := Kit.hbox(4)
-	for s in slots:
-		icons.add_child(FighterTag.of_slot(s, 68))
-	var info := Kit.vbox(4, [
-		Kit.hbox(8, [Kit.chip(card.name, col), Kit.chip(Families.info(fam).name if fam != "" else "Arena Ghost", fam_col)]),
-		_fit(Kit.label(str(bot.name), 28)),
-		Kit.hbox(6, [Kit.power(ArenaTeams.rating(bot), 22), Kit.label("·", 22, Kit.MUTED), _delta(card, 22)]),
-	])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(10, [info, icons])
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	return Kit.card_button(row, _attack.bind(shell, store, offer), col, Kit.PANEL, 28, 12)
-
-
-## The same opponent on one line: card chip, team name in its family colour,
-## their three faces and the trophies at stake.
+## One opponent: team name in its family colour, their trophies and power,
+## their three faces, and the trophies a win or a loss is worth.
 static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 	var bot: Dictionary = offer.bot
-	var card: Dictionary = Ladder.CARDS[offer.card]
-	var col: Color = CARD_COLORS[offer.card]
 	var fam: String = bot.get("family", "")
-	var name := _fit(Kit.label(str(bot.name), 22, Color(Families.info(fam).color) if fam != "" else Kit.FG))
-	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var fam_col: Color = Color(Families.info(fam).color) if fam != "" else Kit.FG
+	var stake := Ladder.stake(store.trophies, int(bot.get("trophies", store.trophies)))
+	var name := _fit(Kit.label(str(bot.name), 24, fam_col))
+	var info := Kit.vbox(2, [
+		name,
+		Kit.hbox(6, [Kit.glyph("trophy", 20, Glyph.GOLD), Kit.label(Kit.commas(int(bot.get("trophies", 0))), 20, Kit.MUTED), Kit.power(ArenaTeams.rating(bot), 20, Kit.MUTED)]),
+	])
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var faces := Kit.hbox(0)
 	var slots: Array = bot.lineup.slots.duplicate()
 	slots.sort_custom(func(a, b): return str(a.critter) < str(b.critter))
 	for s in slots:
-		faces.add_child(CritterIcon.make(s.critter, int(s.get("tier", 1)), 44))
-	var row := Kit.hbox(8, [Kit.chip(card.name, col, 16), name, faces, _delta(card, 18)], BoxContainer.ALIGNMENT_CENTER)
-	return Kit.card_button(row, _attack.bind(shell, store, offer), col, Kit.PANEL, 22, 8)
+		faces.add_child(CritterIcon.make(s.critter, int(s.get("tier", 1)), 50))
+	var stakes := Kit.vbox(0, [
+		Kit.label("%+d" % int(stake.win), 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_RIGHT),
+		Kit.label("%d" % int(stake.loss), 20, Kit.BAD, HORIZONTAL_ALIGNMENT_RIGHT),
+	])
+	stakes.custom_minimum_size.x = 44
+	var row := Kit.hbox(8, [info, faces, Kit.glyph("trophy", 22, Glyph.GOLD), stakes], BoxContainer.ALIGNMENT_CENTER)
+	return Kit.card_button(row, _attack.bind(shell, store, offer), Color(fam_col, .6), Kit.PANEL, 22, 10)
 
 
-## "+18 / -20" with the trophy cup.
-static func _delta(card: Dictionary, size: int) -> Control:
-	return Kit.hbox(3, [Kit.glyph("trophy", size, Glyph.GOLD), Kit.label("+%d / %d" % [card.win, card.loss], size, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+## Hides opponent rows from the bottom while the screen is taller than the
+## room it has, keeping at least three.
+static func _fit_rows(shell, root: Control, rows: Array) -> void:
+	# Text sizes settle a frame after the screen is built.
+	if not shell.is_inside_tree():
+		return
+	await shell.get_tree().process_frame
+	if not is_instance_valid(shell) or not is_instance_valid(root) or not is_instance_valid(shell._scroll):
+		return
+	var room: float = shell._scroll.size.y - 32.0 # The page's top and bottom margins.
+	# Minimum sizes only update next frame, so take each hidden row off by hand.
+	var need: float = root.get_combined_minimum_size().y
+	var step: float = rows[0].get_combined_minimum_size().y + root.get_theme_constant("separation")
+	var shown := rows.size()
+	while shown > 3 and need > room:
+		shown -= 1
+		rows[shown].visible = false
+		need -= step
 
 
 static func _attack(shell, store, offer: Dictionary) -> void:

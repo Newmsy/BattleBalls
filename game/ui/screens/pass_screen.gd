@@ -29,7 +29,7 @@ static func build(shell, _params: Dictionary) -> Control:
 		"The free track has every power reward. Premium adds looks and Glow Gems only, never power. Buying later unlocks everything you've already reached.",
 		"Past level 50: a bonus box every %s XP (Coins and a few gems), up to %d." % [Kit.commas(GlowPass.BONUS_XP), GlowPass.BONUS_MAX],
 	], "pass_info")
-	root.add_child(Kit.hbox(14, [back, Kit.label("Glow Pass", 44), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(Kit.hbox(14, [back, Kit.label("Glow Pass", 40), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
 	var season: Dictionary = glow.season(t)
 	if season.is_empty():
 		root.add_child(Kit.panel(Kit.label("The next season's pass opens soon. Everything you earned stays yours.", 26, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
@@ -57,7 +57,7 @@ static func build(shell, _params: Dictionary) -> Control:
 		var store = glow.store
 		var buy := Kit.button("Unlock · " + store.price("glow_pass"), func(): store.purchase("glow_pass"), "primary", 28, 88)
 		shell.mark("pass_buy", buy)
-		var with_gems := Kit.button("%d gems" % Catalog.PASS_GEMS, func():
+		var with_gems := Kit.cost_button("", Catalog.PASS_GEMS, "gem", func():
 			var err: String = glow.buy_pass_with_gems(t)
 			if err == "Not enough Glow Gems.":
 				ShopScreen.gem_sheet(shell)

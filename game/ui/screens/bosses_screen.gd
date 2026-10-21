@@ -46,7 +46,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var now := int(Time.get_unix_time_from_system())
 	var root := Kit.vbox(18)
-	var head := Kit.vbox(2, [Kit.caption("Daily bosses", Color("ff8a3d")), Kit.label("Bosses", 44)])
+	var head := Kit.vbox(2, [Kit.caption("Daily bosses", Color("ff8a3d")), Kit.label("Bosses", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Bosses", [
 		"Each boss is a set piece with its own map and tricks, not another bouncing ball, and each one farms something different.",
