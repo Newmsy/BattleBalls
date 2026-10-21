@@ -224,22 +224,37 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	mid.add_child(rows)
 	v.add_child(mid)
-	var skip := Kit.button("Skip", root.skip, "ghost", 28, 96)
+	# Summon the same number again (tap anywhere opens the rest at once).
+	# Lit once every egg is open, if you can pay for it.
+	var n := ids.size()
+	var free := Dev.free_summons()
+	var again := Kit.button("Again x%d" % n, func(): _again(shell, n), "primary", 26, 96) if free \
+		else Kit.cost_button("Again x%d" % n, n, "egg", func(): _again(shell, n), "primary", 26, 96)
+	again.size_flags_stretch_ratio = 1.5
+	again.disabled = true
+	again.set_meta("affordable", free or shell.profile.orbs >= n)
+	# A new player's first summon ends on Done, which opens the next step.
+	again.visible = Intro.done(shell.profile) and not _reveal_unlocks
 	var done := Kit.button("Done", func():
 		shell.close_overlay()
 		shell.refresh()
 		if _reveal_unlocks:
 			_reveal_unlocks = false
 			Intro.moment(shell, Intro.FIGHTER), "go", 28, 96)
-	shell.mark("open_all", skip)
+	shell.mark("summon_again", again)
 	shell.mark("reveal_done", done)
-	v.add_child(Kit.hbox(14, [skip, done]))
+	v.add_child(Kit.hbox(14, [again, done]))
 	root.add_child(v)
 	var flash := _Flash.new()
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(flash)
-	root.setup(caps, title, skip, flash)
+	root.setup(caps, title, again, flash)
 	return root
+
+
+static func _again(shell, n: int) -> void:
+	shell.refresh() # The screen under the reveal shows the eggs left.
+	_pull(shell, n)
 
 
 ## Eggs per row, at most 4 a row, the rows as even as they can be and
@@ -267,8 +282,8 @@ static func _fuse_note(p, id: String) -> String:
 ## The eggs drop in from above one after another (DROP_GAP apart) and land
 ## in place, then open one by one, OPEN_GAP apart, so a x10 takes about 4
 ## seconds after its 1 second drop. A Legendary shakes and charges first (an
-## extra beat), then bursts with a screen flash. Tap anywhere (or Skip) to
-## open the rest at once.
+## extra beat), then bursts with a screen flash. Tap anywhere to open the
+## rest at once.
 class _Reveal extends PanelContainer:
 	const OPEN_GAP := 0.4
 	const CHARGE := 0.6
@@ -279,7 +294,7 @@ class _Reveal extends PanelContainer:
 
 	var caps: Array = []
 	var title: Label
-	var skip_button: Button
+	var again_button: Button ## Summon the same number again, lit when all are open.
 	var flash
 	var _next := 0
 	var _wait := OPEN_GAP
@@ -287,10 +302,10 @@ class _Reveal extends PanelContainer:
 	var _best := 0
 	var _intro := 0.0 ## Seconds of drop-in left before the first egg cracks.
 
-	func setup(caps_: Array, title_: Label, skip_: Button, flash_) -> void:
+	func setup(caps_: Array, title_: Label, again_: Button, flash_) -> void:
 		caps = caps_
 		title = title_
-		skip_button = skip_
+		again_button = again_
 		flash = flash_
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		# A little jitter so a x10 falls like hail, not a metronome.
@@ -351,7 +366,7 @@ class _Reveal extends PanelContainer:
 		_finish()
 
 	func _finish() -> void:
-		skip_button.disabled = true
+		again_button.disabled = not again_button.get_meta("affordable", false)
 		for cap in caps:
 			cap.enable_info() # All out: now a tap on one opens its card.
 		var r: String = Roster.RARITIES[_best]

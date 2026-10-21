@@ -8,6 +8,7 @@ const Shell := preload("res://game/ui/shell.gd")
 const Summon := preload("res://game/ui/summon.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const SummonScreen := preload("res://game/ui/screens/summon_screen.gd")
+const Dev := preload("res://game/dev.gd")
 
 
 func test_fusing_three_copies_makes_one_of_the_next_tier() -> void:
@@ -240,9 +241,19 @@ func test_summon_reveal_opens_on_its_own_and_tap_skips() -> void:
 	check(reveal.OPEN_GAP * ids.size() <= 4.2, "a x10 opens in about 4 seconds")
 	check(reveal.caps.all(func(c): return not c.opened), "nothing is open before the sequence starts")
 	check(reveal.intro_time() <= 2.0, "a x10 drops in and opens its first egg within 2 seconds")
+	check(shell._marks.summon_again.disabled, "Again x10 waits until every egg is open")
 	reveal.skip()
 	check(reveal.caps.all(func(c): return c.opened), "skip opens every capsule")
-	check(shell._marks.open_all.disabled, "Skip greys out once all are open")
+	shell.profile.orbs = 10
+	var rich = SummonScreen._reveal(shell, ids, fresh)
+	rich.skip()
+	check(not shell._marks.summon_again.disabled, "Again x10 lights up once all are open, with 10 eggs")
+	shell.profile.orbs = 9
+	var poor = SummonScreen._reveal(shell, ids, fresh)
+	poor.skip()
+	check(shell._marks.summon_again.disabled or Dev.free_summons(), "Again x10 stays grey with 9 eggs")
+	rich.free()
+	poor.free()
 	reveal.free()
 	shell.free()
 
@@ -352,6 +363,26 @@ func test_a_sweep_shows_a_results_popup() -> void:
 	check_eq(shell.current_params.get("focus", -1), 0, "the list stays on the swept stage")
 	shell._marks.result_continue.pressed.emit()
 	check(not shell.overlay_open(), "Continue closes it")
+	shell.free()
+
+
+func test_energy_pill_counts_down_to_the_next_point() -> void:
+	var shell = Shell.new()
+	shell.profile = UiProfile.sample()
+	shell.build()
+	var now := int(Time.get_unix_time_from_system())
+	shell.profile.energy = 10
+	shell.profile.energy_time = now - 61
+	shell._tick_energy()
+	var next: Label = shell._top_labels.energy_next
+	check(next.visible, "the countdown shows while energy refills")
+	check(next.text in ["3:59", "3:58"], "it reads minutes:seconds to the next point (%s)" % next.text)
+	shell.profile.energy_time = now - shell.profile.ENERGY_REGEN_SECONDS - 5
+	shell._tick_energy()
+	check_eq(shell._top_labels.energy.text, "11/%d" % shell.profile.energy_max, "a new point lands in the pill on the tick")
+	shell.profile.energy = shell.profile.energy_max
+	shell._tick_energy()
+	check(not next.visible, "no countdown when full")
 	shell.free()
 
 

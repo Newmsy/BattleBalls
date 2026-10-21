@@ -44,6 +44,7 @@ const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, Nest
 	"glitch": [preload("res://meta/glitch_core.gd"), preload("res://game/ui/screens/glitch_screen.gd")]}
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 const Zones := preload("res://meta/zones.gd")
 const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
@@ -61,6 +62,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const Lineup := preload("res://sim/lineup.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 const FightSpeed := preload("res://game/fight_speed.gd")
 const Dev := preload("res://game/dev.gd")
 const LiveClient := preload("res://game/online/live_client.gd")
@@ -126,6 +128,9 @@ var tier_buttons: Array = []
 ## [player_type, mate_type]; you aim player_type, the seed aims the rest.
 var duo := false
 var mate_type := ""
+## One-tap Quick fight: your fighter's tier, which the random foe (same
+## rarity, so equal strength) fights at too. 0 is the old equal-stats menu.
+var quick_tier := 0
 var duo_button: Button
 
 var backend: Backend
@@ -488,8 +493,10 @@ func _set_duo(on: bool) -> void:
 func _fight_tiers() -> Array:
 	if mode == Mode.REPLAY:
 		return link_tiers
-	if mode != Mode.NORMAL or pick_tiers[0] == 0:
+	if mode != Mode.NORMAL:
 		return [0, 0]
+	if pick_tiers[0] == 0:
+		return [quick_tier, quick_tier] if quick_tier > 0 and not _is_duo() else [0, 0]
 	return [pick_tiers[0], pick_tiers[1] if pick_tiers[1] > 0 else pick_tiers[0]]
 
 
@@ -676,8 +683,16 @@ func _begin_aim() -> void:
 func _pick_opponent() -> String:
 	if opponent_choice != OPPONENT_RANDOM:
 		return opponent_choice
-	# Derived from the seed so a seed always means the same matchup.
-	return BallDefs.PLAYABLE[seed_value % BallDefs.PLAYABLE.size()]
+	# Derived from the seed so a seed always means the same matchup. A
+	# one-tap Quick fight draws from your critter's rarity: same rarity and
+	# tier is the same power (sim/power.gd), so it's an even fight.
+	var ids: Array = BallDefs.PLAYABLE
+	if quick_tier > 0 and mode == Mode.NORMAL and not _is_duo():
+		var rarity: String = CritterDb.get_critter(player_type).rarity
+		var same: Array = ids.filter(func(id): return id != player_type and CritterDb.get_critter(id).rarity == rarity)
+		if not same.is_empty():
+			ids = same
+	return ids[seed_value % ids.size()]
 
 
 ## The balls that will actually fight: Mirror Match overrides both picks.
@@ -1208,6 +1223,9 @@ func _aim_back() -> void:
 	if mode == Mode.LIVE:
 		_cancel_live()
 		return
+	if mode == Mode.NORMAL and not _is_duo():
+		_show_home() # A one-tap Quick fight has no menu to go back to.
+		return
 	if mode != Mode.CAMPAIGN:
 		_show_menu()
 		return
@@ -1593,7 +1611,15 @@ func _build_shell() -> void:
 		if shell.play_with in BallDefs.PLAYABLE:
 			player_type = shell.play_with
 		shell.play_with = ""
-		_play_normal())
+		# 2v2 keeps the pick-a-pair menu; Quick fight goes straight to the aim.
+		duo = shell.play_duo
+		shell.play_duo = false
+		if duo:
+			quick_tier = 0
+			mate_type = _mate()
+			_play_normal()
+		else:
+			_quick_fight())
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
@@ -1858,6 +1884,12 @@ func _on_change_button() -> void:
 		_show_home()
 		if shell.current != "friends":
 			shell.go("friends")
+	elif mode == Mode.NORMAL and not _is_duo():
+		# One-tap Quick fight: pick another fighter on Play, then tap Quick fight.
+		_show_home()
+		if shell.current != "play":
+			shell.show_tab("play")
+		PlayScreen.pick_fighter(shell)
 	else:
 		_play_normal()
 
@@ -1972,7 +2004,7 @@ func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> v
 
 
 ## Back to picking your ball against a random foe, dropping any link the page was opened with.
-func _play_normal() -> void:
+func _play_normal(menu := true) -> void:
 	_board_pick = -1
 	_board = {}
 	opponent_choice = OPPONENT_RANDOM
@@ -1983,7 +2015,23 @@ func _play_normal() -> void:
 	rival = {}
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("history.replaceState(null, '', location.pathname)")
-	_show_menu()
+	if menu:
+		quick_tier = 0
+		_show_menu()
+
+
+## Quick fight in one tap: your fighter at its best tier against a random foe
+## of the same rarity and tier on a random arena, straight to the aim.
+func _quick_fight() -> void:
+	quick_tier = 1
+	if profile != null and profile.owns(player_type):
+		quick_tier = clampi(int(profile.best(player_type).get("tier", 1)), 1, Lineup.MAX_TIER)
+	seed_value = _rng.randi_range(1, 99999)
+	_play_normal(false)
+	if _live_on():
+		_find_live()
+	else:
+		_begin_aim()
 
 
 ## Watch the Fight of the Day from the This Week board, as a replay.

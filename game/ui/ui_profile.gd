@@ -8,6 +8,7 @@ static func sample():
 	var p = load("res://game/ui/ui_profile.gd").new()
 	p.account_level = 7
 	p.energy = 42
+	p.energy_time = int(Time.get_unix_time_from_system()) - 60 # Refilling: the pill shows its countdown.
 	p.coins = 2480
 	p.orbs = 14
 	p.legendary_pity = 37
