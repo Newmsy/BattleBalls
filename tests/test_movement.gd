@@ -282,11 +282,11 @@ func test_movement_critters_replay_identically() -> void:
 			check_eq(MatchSim.new(cfg).run_to_end().hash, MatchSim.new(cfg).run_to_end().hash, "%s T%d replays" % [id, tier])
 
 
-func test_gentle_pull_curves_balls_toward_each_other_by_default() -> void:
-	for seek in [0.0, MatchSim.SEEK]:
+func test_no_pull_between_balls_unless_asked() -> void:
+	for seek in [0.0, 200.0]:
 		var cfg := {"seed": 1, "p1": "plain", "p2": "plain", "angles": [null, null], "damage_rolls": false}
-		if seek == 0.0:
-			cfg.seek = 0.0 # Switched off explicitly; every real mode uses the default.
+		if seek > 0.0:
+			cfg.seek = seek # Only when a config asks; every real mode uses the default (off).
 		var sim := MatchSim.new(cfg)
 		sim.balls[0].pos = Vector2(250, 500)
 		sim.balls[1].pos = Vector2(750, 300)
