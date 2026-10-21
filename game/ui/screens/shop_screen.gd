@@ -171,8 +171,7 @@ static func item_sheet(shell, id: String) -> void:
 			shell.toast("%s %s." % [it.name, "taken off" if worn else "on"])
 			shell.refresh(), "ghost" if worn else "go", 28, 90)
 	elif it.where in ["shop", "basic"]:
-		var cost := "%s %s" % [Kit.commas(it.coins if it.has("coins") else it.gems), "coins" if it.has("coins") else "gems"]
-		btn = Kit.button("Buy for " + cost, func():
+		btn = Kit.cost_button("Buy", it.coins if it.has("coins") else it.gems, "coin" if it.has("coins") else "gem", func():
 			var err: String = glow.buy_item(id)
 			if err == "":
 				glow.equip(id)

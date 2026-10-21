@@ -21,7 +21,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Daily boss · coins", PARTY), Kit.label("Piñata Titan", 40)])
+	var head := Kit.vbox(2, [Kit.hbox(6, [Kit.caption("Daily boss ·", PARTY), Kit.glyph("coin", 22, PARTY)]), Kit.label("Piñata Titan", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Piñata Titan", [
 		"A giant party piñata swinging on its rope over Fiesta Plaza. It never hits back: you get 30 seconds to smash it.",
@@ -49,7 +49,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
 
-	var pay := Kit.vbox(4, [Kit.label("Smash it!", 30), Kit.hbox(8, [Glyph.make("coin", 22), Kit.label("%d to %d coins" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 20)], BoxContainer.ALIGNMENT_BEGIN),
+	var pay := Kit.vbox(4, [Kit.label("Smash it!", 30), Kit.hbox(8, [Glyph.make("coin", 22), Kit.label("%d to %d" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 20)], BoxContainer.ALIGNMENT_BEGIN),
 		Kit.label("30 seconds, it never hits back", 20, Kit.MUTED)])
 	pay.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight := Kit.cost_button("Smash", PinataParty.ENERGY_COST, "energy", _fight.bind(shell, fighter), "go", 24, 72)

@@ -88,19 +88,26 @@ static func _floor_card(spec: Dictionary) -> Control:
 		var side := 150.0 if spec.boss else 104.0
 		foes.add_child(Kit.vbox(4, [FighterTag.make(e.id, tier, roundi(e.power * 1000.0), side),
 			Kit.label(BallDefs.get_def(e.id).display_name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]))
+	# Currencies as icon + number, never their names.
 	var r := Spire.reward(n)
-	var bits := ["%d coins" % r.coins]
+	var reward := Kit.hbox(8, [Kit.label("First clear", 22, Kit.GOOD), Kit.glyph("coin", 26, Glyph.GOLD), Kit.label(Kit.commas(r.coins), 22, Kit.GOOD)], BoxContainer.ALIGNMENT_CENTER)
+	if r.orbs > 0:
+		reward.add_child(Kit.glyph("egg", 26, Kit.FG))
+		reward.add_child(Kit.label(str(r.orbs), 22, Kit.GOOD))
+	var bits := []
 	if r.xp_chips > 0:
 		bits.append("XP Chip")
-	if r.orbs > 0:
-		bits.append("Summon Egg")
 	if not r.gear.is_empty():
 		bits.append(gear_name(r.gear))
+	if not bits.is_empty():
+		var more := Kit.label("· " + ", ".join(bits), 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true)
+		more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		reward.add_child(more)
 	var v := Kit.vbox(12, [
 		Kit.caption("Next floor · plain arena · %d vs %d" % [spec.lineup, spec.enemies.size()], TOWER),
 		Kit.label(title, 36),
 		foes,
-		Kit.label("First clear: " + ", ".join(bits), 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true),
+		reward,
 	])
 	return Kit.panel(v, Kit.box(Color("221a0c"), TOWER.darkened(.45), 36, 2, 22))
 

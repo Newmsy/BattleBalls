@@ -21,16 +21,17 @@ static func build(shell, params: Dictionary) -> Control:
 	var root := Kit.vbox(16)
 	var back: Control = shell.back_button("bracket_back")
 	var titles := Legends.oracle_titles(t)
-	var badge := "Oracle x%d" % titles.size() if not titles.is_empty() else "Cosmetic rewards only"
-	var name: String = ev.name if not ev.is_empty() else "Bracket of Legends"
-	var title := Kit.vbox(0, [Kit.label(name, 32, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.label(badge, 18, GOLD if not titles.is_empty() else Kit.MUTED)])
+	var badge := "Oracle x%d" % titles.size() if not titles.is_empty() else "Cosmetic only"
+	# The season goes in the eyebrow so the title stays on one line on small phones.
+	var season: String = ev.name.replace("Bracket of Legends", "").strip_edges() if not ev.is_empty() else ""
+	var eyebrow := badge if season == "" else season + " · " + badge
+	var title := Kit.vbox(2, [Kit.caption(eyebrow, GOLD if not titles.is_empty() else Kit.MUTED), Kit.label("Bracket of Legends", 40)])
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	(title.get_child(0) as Label).custom_minimum_size.x = 300
 	var about := ["Once a season every critter enters one bracket at equal power.",
 		"Pick your champion before the first round. Call it right and you earn the Oracle title for that bracket. Rewards are cosmetic only."]
 	if not ev.is_empty():
 		about[0] = _blurb(ev, Legends.bracket(ev))
-	root.add_child(Kit.hbox(14, [back, title, shell.info_button("Bracket of Legends", about, "bracket_info")]))
+	root.add_child(Kit.hbox(14, [back, title, shell.info_button("Bracket of Legends", about, "bracket_info")], BoxContainer.ALIGNMENT_CENTER))
 	if ev.is_empty():
 		var nxt := Legends.next_event(t)
 		var when := "The next one is announced %s." % _date(Legends.opens(nxt)) if not nxt.is_empty() else "The next one is announced with the next season."

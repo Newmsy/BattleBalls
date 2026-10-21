@@ -22,7 +22,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Daily boss · summon eggs", NEST), Kit.label("Brood Queen", 40)])
+	var head := Kit.vbox(2, [Kit.hbox(6, [Kit.caption("Daily boss ·", NEST), Kit.glyph("egg", 22, NEST)]), Kit.label("Brood Queen", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Brood Queen", [
 		"A great neon hen gliding round The Nest. She lays eggs that hatch into darting chicks, and flings feathers at you.",

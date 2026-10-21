@@ -157,7 +157,7 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 	elif track == "premium" and not glow.pass_state(t).premium:
 		state = "locked"
 	var icon := reward_icon(shell, r, 64)
-	var text := Kit.vbox(2, [Kit.label(reward_text(r), 22, Kit.FG if state != "Claimed" else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	var text := Kit.vbox(2, [Kit.label(reward_text(r, true), 22, Kit.FG if state != "Claimed" else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 	var badge: Control = null
 	if state == "Claim":
 		badge = Kit.chip("Claim", Kit.GOOD, 16)
@@ -188,8 +188,11 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 	return card
 
 
-static func reward_text(r: Dictionary) -> String:
+## `beside_icon`: the currency's icon is right there, so show just the number.
+static func reward_text(r: Dictionary, beside_icon := false) -> String:
 	var n := int(r.get("n", 1))
+	if beside_icon and r.kind in ["gems", "orbs", "coins", "energy"]:
+		return Kit.commas(n)
 	match r.kind:
 		"cosmetic":
 			return Catalog.item(r.id).get("name", r.id)
