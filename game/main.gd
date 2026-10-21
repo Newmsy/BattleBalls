@@ -51,6 +51,7 @@ const Analytics := preload("res://game/online/analytics.gd")
 const Account := preload("res://game/online/account.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const ResultText := preload("res://game/result_text.gd")
+const ResultBanner := preload("res://game/ui/result_banner.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const ClipExport := preload("res://game/clip/clip_export.gd")
 const ClipCard := preload("res://game/clip/clip_card.gd")
@@ -187,6 +188,7 @@ var speed_picker: FightSpeed.Picker
 var aim_box: HBoxContainer
 var result_box: VBoxContainer
 var result_label: Label
+var result_banner ## game/ui/result_banner.gd behind the headline row.
 var report_label: Label
 var new_seed_button: Button
 var options_row: HBoxContainer ## 1v1 / 2v2 and the "More" button.
@@ -812,6 +814,7 @@ func _show_result() -> void:
 	var result := ResultText.describe(sim, names, replay, you_side)
 	result_label.text = result.headline
 	result_label.modulate = result.color
+	result_banner.set_mood(result.color, sim.winner >= 0 and (replay or sim.winner == you_side))
 	_label_result_buttons()
 	var dealt := you.damage_dealt
 	var healed := you.healed
@@ -1529,7 +1532,8 @@ func _build_ui() -> void:
 	result_label = _label("", 56)
 	pass_chip = Kit.hbox(4, [Kit.label("", 26, Kit.WARN), Kit.glyph("pass", 26, Kit.WARN)])
 	pass_chip.visible = false
-	card.add_child(Kit.hbox(16, [winner_slot, result_label, pass_chip], BoxContainer.ALIGNMENT_CENTER))
+	result_banner = ResultBanner.wrap(Kit.hbox(16, [winner_slot, result_label, pass_chip], BoxContainer.ALIGNMENT_CENTER))
+	card.add_child(result_banner)
 	report_label = _label("", 20)
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	report_label.add_theme_color_override("font_color", MUTED)
