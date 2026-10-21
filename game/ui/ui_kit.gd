@@ -109,6 +109,13 @@ static func button(text: String, on_press: Callable, kind := "primary", font_siz
 	b.set_meta("base_font", font_size)
 	var cols: Array = BUTTON_STYLES[kind]
 	var normal := box(cols[0], LINE if kind == "ghost" else Color(0, 0, 0, 0), 26, 2, 12)
+	# A lit top edge over the dark lip below, so buttons read as raised keys.
+	normal.border_color = LINE.lightened(.15) if kind == "ghost" else cols[0].lightened(.35)
+	normal.set_border_width_all(0)
+	normal.border_width_top = 3
+	if kind == "ghost":
+		normal.set_border_width_all(2)
+		normal.border_width_top = 3
 	normal.shadow_color = cols[1]
 	normal.shadow_offset = Vector2(0, 8)
 	normal.shadow_size = 1
@@ -118,6 +125,7 @@ static func button(text: String, on_press: Callable, kind := "primary", font_siz
 	var disabled := normal.duplicate()
 	disabled.bg_color = Color(cols[0], .35)
 	disabled.shadow_color = Color(cols[1], .35)
+	disabled.border_color = Color(normal.border_color, .35)
 	for s in ["normal", "hover", "focus"]:
 		b.add_theme_stylebox_override(s, normal)
 	b.add_theme_stylebox_override("pressed", pressed)
