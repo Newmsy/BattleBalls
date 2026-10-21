@@ -94,10 +94,10 @@ static func _lab(sel: Dictionary) -> Control:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lab.add_child(bg)
-	var ring := _Ring.new()
-	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lab.add_child(ring)
+	for layer in [_Forge.new(), _Ring.new()]:
+		layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lab.add_child(layer)
 	var slots: Array = []
 	for k in 3:
 		var slot: Control
@@ -243,19 +243,93 @@ static func _center(c: Control) -> Control:
 	return cc
 
 
-## The slowly spinning dashed ring behind the slots.
-class _Ring extends Control:
-	var _a := 0.0
+## The fusion platform under the slots: a round steel deck seen at an angle,
+## an engraved inner ring, a socket pad under each slot and grooves running
+## from the sockets into the core. Drawn once.
+class _Forge extends Control:
+	const Dot := preload("res://game/dot.gd")
+	const DECK := Color("1f1b4a")
+	const RIM := Color("3a3480")
+	const GROOVE := Color("0f0d2a")
+	const LAB_H := 330.0 ## The lab's LAB_HEIGHT and SLOT.
+	const SLOT_SIDE := 116.0
 
-	func _process(delta: float) -> void:
-		if not is_visible_in_tree():
-			return
-		_a += delta * .35
-		queue_redraw()
+	## Where slot k's critter stands and where the three meet, in the lab's space.
+	static func socket(sz: Vector2, k: int) -> Vector2:
+		var a := -PI / 2 + k * TAU / 3
+		return Vector2(sz.x / 2.0, LAB_H / 2.0) + Vector2(cos(a) * 150.0, sin(a) * 100.0 + SLOT_SIDE * .32)
+
+	static func core(sz: Vector2) -> Vector2:
+		return Vector2(sz.x / 2.0, LAB_H / 2.0 + 18.0)
 
 	func _draw() -> void:
-		var c := size / 2.0
-		for i in 24:
-			var a := _a + i * TAU / 24
-			draw_arc(c, 125.0, a, a + .14, 4, Color(.56, .48, 1.0, .5), 4.0, true)
-		draw_circle(c, 100.0, Color(.56, .48, 1.0, .08))
+		var mid: Vector2 = core(size)
+		_ellipse(mid + Vector2(0, 10), Vector2(222, 132), Color(0, 0, 0, .3))
+		_ellipse(mid, Vector2(218, 128), RIM)
+		_ellipse(mid, Vector2(210, 121), DECK)
+		_ring(mid, Vector2(168, 96), Color(RIM, .8), 2.0)
+		_ring(mid, Vector2(120, 68), Color(RIM, .5), 2.0)
+		for k in 3:
+			var p: Vector2 = _Forge.socket(size, k)
+			draw_line(p, mid, GROOVE, 12.0, true)
+			draw_line(p, mid, Color(RIM, .7), 2.0, true)
+		for k in 3:
+			var p: Vector2 = socket(size, k)
+			_ellipse(p, Vector2(56, 19), GROOVE)
+			_ring(p, Vector2(56, 19), RIM, 3.0)
+			_ring(p, Vector2(42, 13), Color(.56, .48, 1.0, .35), 2.0)
+		_ellipse(mid, Vector2(34, 16), GROOVE)
+		_ring(mid, Vector2(34, 16), RIM, 3.0)
+
+	func _ellipse(c: Vector2, r: Vector2, col: Color) -> void:
+		draw_set_transform(c, 0.0, Vector2(1.0, r.y / r.x))
+		Dot.circle(self, Vector2.ZERO, r.x, col)
+		draw_set_transform_matrix(Transform2D.IDENTITY)
+
+	func _ring(c: Vector2, r: Vector2, col: Color, w: float) -> void:
+		var pts := PackedVector2Array()
+		for i in 49:
+			var a := TAU * i / 48
+			pts.append(c + Vector2(cos(a) * r.x, sin(a) * r.y))
+		draw_polyline(pts, col, w, true)
+
+
+## The moving part of the lab: dashes turning slowly round the deck's rim,
+## light running down the grooves into the core and the core's glow. Slow,
+## so it redraws on the shared idle clock and only while it shows.
+class _Ring extends Control:
+	const CritterIcon := preload("res://game/ui/critter_icon.gd")
+	const Dot := preload("res://game/dot.gd")
+	const A11y := preload("res://game/a11y.gd")
+	const LIGHT := Color(.62, .54, 1.0)
+	var _tick := -1
+
+	func _process(_delta: float) -> void:
+		if not is_visible_in_tree():
+			return
+		var tick := CritterIcon.clock()
+		if tick != _tick:
+			_tick = tick
+			queue_redraw()
+
+	func _draw() -> void:
+		var t := 0.0 if A11y.reduced_motion else Time.get_ticks_msec() / 1000.0
+		var core: Vector2 = _Forge.core(size)
+		var segs := PackedVector2Array()
+		for i in 28:
+			var a := t * .25 + i * TAU / 28
+			segs.append(core + Vector2(cos(a) * 214.0, sin(a) * 124.5))
+			segs.append(core + Vector2(cos(a + .1) * 214.0, sin(a + .1) * 124.5))
+		draw_multiline(segs, Color(LIGHT, .55), 3.0, true)
+		for k in 3:
+			var p: Vector2 = _Forge.socket(size, k)
+			var u := fmod(t * .45 + k / 3.0, 1.0)
+			var at := p.lerp(core, u)
+			Dot.circle(self, at, 9.0, Color(LIGHT, .18 * sin(u * PI)))
+			Dot.circle(self, at, 4.0, Color(1, 1, 1, .7 * sin(u * PI)))
+		var pulse := .5 + .5 * sin(t * 2.2)
+		draw_set_transform(core, 0.0, Vector2(1.0, .5))
+		Dot.circle(self, Vector2.ZERO, 44.0 + 6.0 * pulse, Color(LIGHT, .12))
+		Dot.circle(self, Vector2.ZERO, 26.0, Color(LIGHT, .35 + .2 * pulse))
+		Dot.circle(self, Vector2.ZERO, 11.0, Color(1, 1, 1, .8))
+		draw_set_transform_matrix(Transform2D.IDENTITY)

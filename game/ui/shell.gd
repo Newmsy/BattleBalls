@@ -144,8 +144,8 @@ func build() -> void:
 	glow.purchase_finished.connect(_on_purchase)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = Kit.theme()
-	var bg := ColorRect.new()
-	bg.color = Kit.BG
+	var bg := _Backdrop.new()
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 	var col := Kit.vbox(0)
@@ -729,3 +729,32 @@ class _Ring extends Control:
 		draw_arc(c, r, 0, TAU, 40, Color("2b2760"), 5.0, true)
 		if frac > 0.0:
 			draw_arc(c, r, -PI / 2, -PI / 2 + TAU * clampf(frac, 0.0, 1.0), 40, Color("45f5a6"), 5.0, true)
+
+
+## Behind every screen: a deep indigo wash, lighter toward the top, a soft
+## glow under the top bar and a faint dot grid fading out down the screen.
+## Drawn once (it only redraws when the window resizes).
+class _Backdrop extends Control:
+	const Kit := preload("res://game/ui/ui_kit.gd")
+	const Dot := preload("res://game/dot.gd")
+	const TOP := Color("17143a")
+	const GAP := 48.0
+
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y
+		draw_rect(Rect2(Vector2.ZERO, size), Kit.BG)
+		# The wash: one quad, lighter at the top, into the base colour by mid-screen.
+		draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h * .55), Vector2(0, h * .55)]),
+			PackedColorArray([TOP, TOP, Kit.BG, Kit.BG]))
+		for k in 4:
+			Dot.circle(self, Vector2(w * .5, -h * .05), w * (.75 - k * .14), Color(.45, .35, 1.0, .03))
+		# The dot grid, offset every other row, brightest near the top.
+		var rows := int(h * .6 / GAP)
+		for j in rows:
+			var fade := 1.0 - float(j) / rows
+			var off := GAP * .5 if j % 2 else 0.0
+			var x := GAP * .5 + off
+			while x < w:
+				Dot.circle(self, Vector2(x, GAP * (j + .5)), 1.6, Color(.7, .65, 1.0, .1 * fade))
+				x += GAP
