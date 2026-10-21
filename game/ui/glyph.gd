@@ -64,17 +64,23 @@ func _draw() -> void:
 			draw_rect(Rect2(Vector2(.24, -.42) * s, Vector2(.1, .3) * s), Color("ff8a3d"))
 			draw_set_transform_matrix(Transform2D.IDENTITY)
 		"orb", "egg":
-			# A Summon Egg (the currency): the summon eggs' shape, purple
-			# shell, glowing rim and a star (game/ui/screens/summon_screen.gd).
+			# A Summon Egg (the currency): the summon screen's matte egg, a
+			# bone shell with a violet tint and rim, speckles and a sheen.
+			var shell := Color("ddd2bd").lerp(Color("c86bff"), .22).darkened(.1)
 			var egg := PackedVector2Array()
+			var lit := PackedVector2Array()
 			for i in 20:
 				var a := i * TAU / 20.0
-				egg.append(c + Vector2(cos(a) * .38, sin(a) * (.5 if sin(a) < 0.0 else .44) + .03) * s)
-			draw_colored_polygon(egg, Color("c86bff"))
+				var q := Vector2(cos(a) * .38, sin(a) * (.5 if sin(a) < 0.0 else .44) + .03)
+				egg.append(c + q * s)
+				lit.append(c + (q * .88 + Vector2(-.03, -.04)) * s)
+			draw_colored_polygon(egg, shell.darkened(.3))
+			draw_colored_polygon(lit, shell)
+			for p in [Vector2(-.12, -.2), Vector2(.14, -.04), Vector2(-.04, .22), Vector2(.18, .26)]:
+				draw_circle(c + p * s, s * .035, shell.darkened(.45))
 			egg.append(egg[0])
-			draw_polyline(egg, Color("e7b8ff"), s * .06, true)
-			draw_colored_polygon(CritterArt.star_pts(c + Vector2(0, .06) * s, s * .17, s * .07, 5), Color("ffe9ff"))
-			draw_circle(c + Vector2(-.15, -.22) * s, s * .07, Color.WHITE)
+			draw_polyline(egg, Color("a46be0"), s * .06, true)
+			draw_circle(c + Vector2(-.15, -.22) * s, s * .07, Color(1, 1, 1, .3))
 		"gem":
 			var pts := PackedVector2Array([Vector2(.5, .06), Vector2(.92, .4), Vector2(.5, .96), Vector2(.08, .4)])
 			for i in pts.size():
