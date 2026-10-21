@@ -54,21 +54,45 @@ static func build(shell, params: Dictionary) -> Control:
 				line.add_child(_node(shell, p, f, n, picks, open, col))
 		if row == 5:
 			line.add_child(Kit.spacer())
+		if row > 1:
+			root.add_child(_links(row, Talents.row_open(f, picks, row), col))
 		root.add_child(line)
 	return root
 
 
+## The short lines from one row down to the next: lit once that row is open.
+## Row 5 is the lone capstone, so only the middle column links to it.
+static func _links(row: int, open: bool, col: Color) -> Control:
+	var h := Kit.hbox(10)
+	for i in 3:
+		var c := CenterContainer.new()
+		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if row < 5 or i == 1:
+			var bar := ColorRect.new()
+			bar.color = col if open else Color(Kit.LINE, .6)
+			bar.custom_minimum_size = Vector2(4, 12)
+			c.add_child(bar)
+		h.add_child(c)
+	h.add_theme_constant_override("separation", 10)
+	return h
+
+
 static func _node(shell, p, f: String, n: Dictionary, picks: Dictionary, open: bool, col: Color) -> Control:
 	var rank := int(picks.get(n.id, 0))
-	var full := rank >= int(n.max)
-	var name := Kit.label(n.name, 21, Kit.FG if open else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
-	var dots := Kit.label("%d/%d" % [rank, n.max] if n.row < 5 else ("%d pts" % n.cost if rank == 0 else "ON"), 20,
-		col if rank > 0 else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	var v := Kit.vbox(4, [name, dots])
-	var bg := Color(col, .18) if rank > 0 else Kit.PANEL
-	var border := col if full else (Color(col, .6) if rank > 0 else (Kit.LINE if open else Color(Kit.LINE, .5)))
-	var b := Kit.card_button(v, _sheet.bind(shell, p, f, n), border, bg, 24, 10)
-	b.custom_minimum_size.y = maxf(b.custom_minimum_size.y, 118)
+	var name := Kit.label(n.name, 20, Kit.FG if open else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var node := _Node.new()
+	node.kind = "crown" if n.row == 5 else ["shield", "sparkle", "bolt"][int(n.get("col", 1))]
+	node.rank = rank
+	node.most = 1 if n.row == 5 else int(n.max)
+	node.col = col
+	node.custom_minimum_size = Vector2(72, 72)
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mid := CenterContainer.new()
+	mid.add_child(node)
+	var v := Kit.vbox(2, [mid, name])
+	if n.row == 5 and rank == 0:
+		v.add_child(Kit.label("%d pts" % n.cost, 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	var b := Kit.card_button(v, _sheet.bind(shell, p, f, n), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 24, 2)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if not open:
 		b.modulate = Color(1, 1, 1, .55)
@@ -117,3 +141,32 @@ static func _suggest(p, f: String) -> void:
 		for n in Talents.tree(f):
 			if int(p.talent_picks(f).get(n.id, 0)) < int(target.get(n.id, 0)) and p.add_talent(f, n.id):
 				progress = true
+
+
+## A talent node: a disc with its column's glyph and a ring of pips, one per
+## rank, lit as points go in. Drawn once (it never animates).
+class _Node extends Control:
+	const Kit := preload("res://game/ui/ui_kit.gd")
+	const Glyph := preload("res://game/ui/glyph.gd")
+	var kind := "shield"
+	var rank := 0
+	var most := 3
+	var col := Color.WHITE
+	var _icon: Control
+
+	func _ready() -> void:
+		var side := custom_minimum_size.x
+		_icon = Glyph.make(kind, side * .42, col if rank > 0 else Kit.MUTED)
+		_icon.size = _icon.custom_minimum_size
+		_icon.position = (Vector2(side, side) - _icon.size) / 2.0
+		add_child(_icon)
+
+	func _draw() -> void:
+		var c := size / 2.0
+		var r := minf(size.x, size.y) / 2.0 - 6.0
+		draw_circle(c, r - 6.0, Color(col, .18) if rank > 0 else Kit.PANEL)
+		var gap := .18
+		var seg := TAU / most
+		for i in most:
+			var a0 := -PI / 2 + i * seg + gap / 2.0
+			draw_arc(c, r, a0, a0 + seg - gap, 24, col if i < rank else Color(Kit.LINE, .9), 6.0, true)

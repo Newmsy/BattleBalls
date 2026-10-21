@@ -11,6 +11,8 @@ const FightHud := preload("res://game/fight_hud.gd")
 const Relay := preload("res://sim/relay.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Spire := preload("res://sim/spire.gd")
+const Kit := preload("res://game/ui/ui_kit.gd")
+const Glyph := preload("res://game/ui/glyph.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 const ArenaView := preload("res://game/arena_view.gd")
@@ -212,11 +214,25 @@ func _show_result() -> void:
 	var headline := _label("FLOOR %d CLEARED!" % r.floor if r.won else "NOT THIS TIME", 52)
 	headline.modulate = Color("45f5a6") if r.won else Color("ff5a7a")
 	var names: Array = r.spent.map(func(id): return BallDefs.get_def(id).display_name)
-	info_label.text = "%s Stamina spent: %s." % ["Rewards are waiting on the Spire screen." if r.won else "Try again with fresh critters.", ", ".join(names)]
+	info_label.text = "%sStamina spent: %s." % ["" if r.won else "Try again with fresh critters. ", ", ".join(names)]
 	print("SPIRE_RESULT floor=%d won=%s hash=%s" % [r.floor, r.won, relay.state_hash()])
 	var back := _button("Back to the Spire", _back, 36)
 	back.name = "SpireBack"
-	_set_panel([headline, back])
+	_set_panel([headline, _reward_row(r.floor), back] if r.won else [headline, back])
+
+
+## The floor's reward as icons and numbers; it's added to your stock back on the Spire screen.
+func _reward_row(floor_no: int) -> Control:
+	var rw := Spire.reward(floor_no)
+	var row := Kit.hbox(10, [Kit.glyph("coin", 34, Glyph.GOLD), Kit.label(Kit.commas(rw.coins), 30)], BoxContainer.ALIGNMENT_CENTER)
+	if rw.orbs > 0:
+		row.add_child(Kit.glyph("egg", 34, Kit.FG))
+		row.add_child(Kit.label(str(rw.orbs), 30))
+	if rw.xp_chips > 0:
+		row.add_child(Kit.label("+ XP Chip", 26, Kit.GOOD))
+	if not rw.gear.is_empty():
+		row.add_child(Kit.label("+ " + SpireScreen.gear_name(rw.gear), 26, Kit.GOOD))
+	return row
 
 
 func _give_up() -> void:
