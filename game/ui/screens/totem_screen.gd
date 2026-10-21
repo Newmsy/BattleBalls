@@ -26,7 +26,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var family := TotemShrine.family_today(now)
 	var fam_name: String = Talents.NAMES[family]
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Daily boss · family sigils", SHRINE), Kit.label("Totem of Nine", 44)])
+	var head := Kit.vbox(2, [Kit.caption("Daily boss · family sigils", SHRINE), Kit.label("Totem of Nine", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Totem of Nine", [
 		"A spirit totem of nine family heads in the Spirit Shrine. Its heads glow, then ring out spirit orbs with one gap to slip through. Every other volley is a fan aimed at you.",
@@ -38,7 +38,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	root.add_child(Kit.label("Today: %s family" % fam_name, 26, Talents.COLORS[family], HORIZONTAL_ALIGNMENT_LEFT, true))
 	var left := TotemShrine.runs_left(p, now)
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("Energy %d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, TotemShrine.RUNS_PER_DAY], 22, Kit.MUTED)],
+	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("%d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, TotemShrine.RUNS_PER_DAY], 22, Kit.MUTED)],
 		BoxContainer.ALIGNMENT_CENTER))
 
 	if params.has("notice"):
@@ -71,7 +71,7 @@ static func _card(shell, p, d: int, fighter: String, left: int, family: String) 
 	var info := Kit.vbox(4, [Kit.label(diff.name, 28), Kit.hbox(8, [Glyph.make("sparkle", 22, Talents.COLORS[family]), Kit.label("%d sigils" % diff.sigils, 20)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "It's stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight := Kit.button("Fight  %d" % TotemShrine.ENERGY_COST, _fight.bind(shell, d, fighter), "go", 24, 72)
+	var fight := Kit.cost_button("Fight", TotemShrine.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
 	shell.mark("totem_go", fight)

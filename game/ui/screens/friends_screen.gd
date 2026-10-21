@@ -169,7 +169,7 @@ static func _friend_card(shell, fr, f: Dictionary) -> Control:
 	var on_gift := func():
 		if await fr.send_gift(f.id):
 			shell.toast("Sent %s %d energy." % [f.name, fr.gift_energy])
-	var gift := Kit.button("Sent" if f.get("gift_sent", false) else "Gift +%d" % fr.gift_energy, on_gift, "primary", 22, 72)
+	var gift := Kit.button("Sent", on_gift, "primary", 22, 72) if f.get("gift_sent", false) else Kit.cost_button("Gift", fr.gift_energy, "energy", on_gift, "primary", 22, 72)
 	gift.disabled = f.get("gift_sent", false)
 	shell.mark("gift_" + str(f.name), gift)
 	var say := Kit.button("Say…", func(): _say_sheet(shell, fr, f), "ghost", 22, 72)

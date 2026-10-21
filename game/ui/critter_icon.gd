@@ -11,6 +11,8 @@ const TouchInput := preload("res://game/ui/touch_input.gd")
 var critter_id := "vampire"
 var tier := 1
 var silhouette := false
+## Drawn once and never again: a small badge that costs nothing per frame (e.g. on gear cards).
+var still := false
 var pokeable := false
 ## Fraction of the smaller side used as the body radius.
 var radius_frac := .26
@@ -61,7 +63,7 @@ func _gui_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
-	if silhouette or not is_visible_in_tree():
+	if silhouette or still or not is_visible_in_tree():
 		return
 	var poked := _hit > 0.0 or _flash > 0.0 or _squash > 0.0
 	_hit = maxf(0.0, _hit - delta)

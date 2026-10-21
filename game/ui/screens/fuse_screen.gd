@@ -14,7 +14,7 @@ const SLOT := 116.0
 
 static func build(shell, params: Dictionary) -> Control:
 	var p = shell.profile
-	var ready: Array = p.ready_to_fuse()
+	var ready := sorted(p.ready_to_fuse())
 	var sel: Dictionary = {}
 	var at := find(ready, params.get("id", ""), params.get("tier", 0))
 	if at >= 0:
@@ -28,7 +28,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"The new copy keeps the highest level of the three, and its level cap goes up.",
 		"Gear on the used copies goes back to your Bag.",
 		"Critter Hunts will be the best place to farm copies."], "fuse_info")
-	root.add_child(Kit.hbox(12, [Kit.label("Fusion Lab", 40), Kit.label("3 of a kind → next tier", 22, Kit.MUTED), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(Kit.hbox(12, [Kit.vbox(2, [Kit.caption("3 of a kind → next tier"), Kit.label("Fusion Lab", 40)]), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
 
 	var list := Kit.vbox(12, [Kit.caption("Ready to fuse")])
 	if ready.is_empty():
@@ -43,7 +43,9 @@ static func build(shell, params: Dictionary) -> Control:
 			var on: bool = s == sel
 			var v := Kit.vbox(2, [CritterIcon.make(s.id, s.tier, 96), Kit.label(Roster.get_critter(s.id).name, 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 				_center(Glyph.make("stars", 20, Kit.FG, s.tier)), Kit.label("x%d copies" % s.count, 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
-			var card := Kit.card_button(v, func(): shell.refresh_with({"id": s.id, "tier": s.tier, "x": scroll.scroll_horizontal}), Kit.GOOD if on else Kit.LINE, Kit.PANEL, 28, 8)
+			var rarity: String = Roster.get_critter(s.id).rarity
+			var card := Kit.card_button(v, func(): shell.refresh_with({"id": s.id, "tier": s.tier, "x": scroll.scroll_horizontal}),
+				Kit.GOOD if on else Roster.rarity_border(rarity, Kit.LINE), Roster.rarity_bg(rarity, Kit.PANEL), 28, 8)
 			if on:
 				sel_card = card
 			card.custom_minimum_size.x = 160
@@ -162,9 +164,23 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		var old: Array = lab.get_meta("ready", [])
 		btn.pressed.connect(func():
 			var sc: ScrollContainer = lab.get_meta("scroll", null)
-			var next := pick_after_fuse(old, shell.profile.ready_to_fuse(), sel)
+			var next := pick_after_fuse(old, sorted(shell.profile.ready_to_fuse()), sel)
 			next["x"] = sc.scroll_horizontal if is_instance_valid(sc) else 0
 			shell.refresh_with(next)))
+
+
+## Rarest first, then the highest tier (a fuse to T3 before the same critter's fuse to T2), then by name.
+static func sorted(ready: Array) -> Array:
+	var out := ready.duplicate()
+	out.sort_custom(func(a, b):
+		var ra := Roster.RARITIES.find(Roster.get_critter(a.id).rarity)
+		var rb := Roster.RARITIES.find(Roster.get_critter(b.id).rarity)
+		if ra != rb:
+			return ra > rb
+		if a.tier != b.tier:
+			return a.tier > b.tier
+		return Roster.get_critter(a.id).name < Roster.get_critter(b.id).name)
+	return out
 
 
 ## Index of the id/tier stack in a ready list, or -1.

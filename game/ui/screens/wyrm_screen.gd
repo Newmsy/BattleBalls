@@ -23,7 +23,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(18)
-	var head := Kit.vbox(2, [Kit.caption("Daily boss · lures", RIFT), Kit.label("Prism Wyrm", 44)])
+	var head := Kit.vbox(2, [Kit.caption("Daily boss · lures", RIFT), Kit.label("Prism Wyrm", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var costs: Array = Economy.LURE_COST.keys().map(func(r): return "%s %d" % [r.capitalize(), Economy.LURE_COST[r]])
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Prism Wyrm", [
@@ -34,7 +34,7 @@ static func build(shell, params: Dictionary) -> Control:
 		BoxContainer.ALIGNMENT_CENTER))
 
 	var left := WyrmRift.runs_left(p, now)
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("Energy %d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, WyrmRift.RUNS_PER_DAY], 22, Kit.MUTED),
+	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("%d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, WyrmRift.RUNS_PER_DAY], 22, Kit.MUTED),
 		Kit.spacer(), Glyph.make("target", 30, RIFT), Kit.label("%d Lures" % p.lures, 24)], BoxContainer.ALIGNMENT_CENTER))
 
 	if params.has("notice"):
@@ -97,7 +97,7 @@ static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	var info := Kit.vbox(2, [Kit.label(diff.name, 26), Kit.hbox(8, [Glyph.make("target", 20, RIFT), Kit.label("%d Lure%s" % [diff.lures, "" if diff.lures == 1 else "s"], 20)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "It's stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight := Kit.button("Fight  %d" % WyrmRift.ENERGY_COST, _fight.bind(shell, d, fighter), "go", 24, 64)
+	var fight := Kit.cost_button("Fight", WyrmRift.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 64)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
 	shell.mark("wyrm_go", fight)

@@ -426,7 +426,7 @@ func _label(text: String, font_size: int) -> Label:
 
 func _button(text: String, on_press: Callable, font_size := 30) -> Button:
 	var b := Button.new()
-	b.text = text
+	b.text = text.to_upper()
 	b.custom_minimum_size = Vector2(0, 84)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.add_theme_font_size_override("font_size", A11y.font(font_size))

@@ -21,7 +21,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Daily boss · coins", PARTY), Kit.label("Piñata Titan", 44)])
+	var head := Kit.vbox(2, [Kit.caption("Daily boss · coins", PARTY), Kit.label("Piñata Titan", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Piñata Titan", [
 		"A giant party piñata swinging on its rope over Fiesta Plaza. It never hits back: you get 30 seconds to smash it.",
@@ -32,7 +32,7 @@ static func build(shell, params: Dictionary) -> Control:
 		BoxContainer.ALIGNMENT_CENTER))
 
 	var left := PinataParty.runs_left(p, now)
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("Energy %d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, PinataParty.RUNS_PER_DAY], 22, Kit.MUTED),
+	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("%d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, PinataParty.RUNS_PER_DAY], 22, Kit.MUTED),
 		Kit.spacer(), Glyph.make("coin", 30), Kit.label(Kit.commas(p.coins), 24)], BoxContainer.ALIGNMENT_CENTER))
 
 	if params.has("notice"):
@@ -52,7 +52,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var pay := Kit.vbox(4, [Kit.label("Smash it!", 30), Kit.hbox(8, [Glyph.make("coin", 22), Kit.label("%d to %d coins" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 20)], BoxContainer.ALIGNMENT_BEGIN),
 		Kit.label("30 seconds, it never hits back", 20, Kit.MUTED)])
 	pay.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight := Kit.button("Smash  %d" % PinataParty.ENERGY_COST, _fight.bind(shell, fighter), "go", 24, 72)
+	var fight := Kit.cost_button("Smash", PinataParty.ENERGY_COST, "energy", _fight.bind(shell, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 160
 	fight.disabled = left <= 0
 	shell.mark("pinata_go", fight)

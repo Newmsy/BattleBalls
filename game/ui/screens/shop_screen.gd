@@ -24,7 +24,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var gems_btn := Kit.card_button(Kit.hbox(8, [Glyph.make("gem", 34), Kit.label(Kit.commas(glow.gems()), 28), Kit.chip("+", GEM, 22)]),
 		func(): gem_sheet(shell), Color(GEM, .6), Kit.PANEL, 999, 10)
 	shell.mark("get_gems", gems_btn)
-	root.add_child(Kit.hbox(14, [back, Kit.label("Shop", 44), Kit.spacer(), gems_btn], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(Kit.hbox(14, [back, Kit.label("Shop", 40), Kit.spacer(), gems_btn], BoxContainer.ALIGNMENT_CENTER))
 	root.add_child(Kit.label("Looks only. Nothing here changes a fight.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 
 	# Featured bundles, this week.
@@ -129,13 +129,13 @@ static func _bundle_card(shell, b: Dictionary) -> Control:
 	var full := Catalog.bundle_full_price(b)
 	var price: int = glow.bundle_price(b)
 	var saving := roundi(100.0 * (1.0 - float(b.gems) / full))
-	var line := "%d items · %d gems separately · save %d%%" % [b.items.size(), full, saving]
+	var line := "%d items · %s separately · save %d%%" % [b.items.size(), Kit.commas(full), saving]
 	var btn: Button
 	if price == 0:
 		btn = Kit.button("Owned", func(): pass, "ghost", 26, 80)
 		btn.disabled = true
 	else:
-		btn = Kit.button("Buy for %s gems" % Kit.commas(price), func():
+		btn = Kit.cost_button("Buy", price, "gem", func():
 			var err: String = glow.buy_bundle(b.id)
 			shell.toast(err if err != "" else "%s unlocked! Change what you wear below." % b.name)
 			shell.refresh(), "primary", 26, 80)

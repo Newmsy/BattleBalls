@@ -545,12 +545,12 @@ func _refresh_menu() -> void:
 	duo_button.visible = mode == Mode.NORMAL
 	solo_button.button_pressed = not _is_duo()
 	duo_button.button_pressed = _is_duo()
-	more_button.text = "Tiers & rules" if mode == Mode.NORMAL else "Rules: " + Modifiers.display_name(modifier)
+	more_button.text = ("Tiers & rules" if mode == Mode.NORMAL else "Rules: " + Modifiers.display_name(modifier)).to_upper()
 	fight_button.text = "LIVE FIGHT" if _live_on() else "FIGHT!"
 	if _is_duo():
 		seed_label.text = ("Your pair: %s + %s · %s" % [BallDefs.get_def(player_type).display_name,
 			BallDefs.get_def(_mate()).display_name, Arenas.get_def(_pick_arena()).display_name]).to_upper()
-	rules_button.text = Modifiers.display_name(modifier)
+	rules_button.text = Modifiers.display_name(modifier).to_upper()
 	_refresh_tier_buttons()
 	var def := BallDefs.get_def(player_type)
 	info_label.text = "%s: %s" % [def.display_name, def.description]
@@ -1807,10 +1807,10 @@ func _label_result_buttons() -> void:
 	copy_button.disabled = not report
 	tools_row.visible = not campaign
 	campaign_row.visible = campaign
-	(campaign_row.get_child(0) as Button).text = ("Back to the " + Bosses.DEFS[pve.config.p2].display_name) if pve.has("vault") else "Back to the map"
+	(campaign_row.get_child(0) as Button).text = (("Back to the " + Bosses.DEFS[pve.config.p2].display_name) if pve.has("vault") else "Back to the map").to_upper()
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
-		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"
+		friend_button.text = ("Add %s as a friend" % who if who != "" else "Add them as a friend").to_upper()
 	_sync_share_targets()
 
 
@@ -1850,9 +1850,9 @@ func _can_add_link_friend() -> bool:
 
 func _add_link_friend() -> void:
 	friend_button.disabled = true
-	friend_button.text = "Adding…"
+	friend_button.text = "ADDING…"
 	var res: Dictionary = await friends.add_by_code(link_friend)
-	friend_button.text = {"requested": "Request sent!", "friends": "Friends now!", "already": "Already added"}.get(res.get("status", ""), "Couldn't add them")
+	friend_button.text = {"requested": "Request sent!", "friends": "Friends now!", "already": "Already added"}.get(res.get("status", ""), "Couldn't add them").to_upper()
 
 
 ## Rematch a friend's saved team: their lead critter, aimed the way they
@@ -1951,7 +1951,6 @@ func _label(text: String, font_size: int) -> Label:
 ## and trimming its text rather than pushing the row off screen.
 func _button(text: String, on_press: Callable, font_size := 26, kind := "ghost", height := 84) -> Button:
 	var b := Kit.button(text, on_press, kind, font_size, height)
-	b.text = text
 	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	b.clip_text = true
 	b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

@@ -152,7 +152,7 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 		grid.add_child(card)
 	v.add_child(grid)
 	# The climb button stays put under the list, however many critters it holds.
-	var climb_btn := Kit.button("Climb floor %d" % spec.floor, func(): _climb(shell, climb, picks), "primary" if not picks.is_empty() else "ghost", 32, 96)
+	var climb_btn := Kit.button("Climb floor %d" % spec.floor, func(): _climb(shell, climb, picks), "go" if not picks.is_empty() else "ghost", 32, 96)
 	shell.mark("spire_climb", climb_btn)
 	var actions := Kit.hbox(12, [climb_btn])
 	if picks.is_empty() and spec.lineup > 1:
