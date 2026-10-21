@@ -829,6 +829,28 @@ static func draw_fin(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: floa
 	ci.draw_line(p - dir * r * 0.5, p + dir * r * 0.5, Color(WATER, 0.9), 2.0, true)
 
 
+## Leviathan's tail in a fight: one tapering body from its back through the
+## stinging segments the sim placed along its path, ending in a fluke.
+static func draw_sea_tail(ci: CanvasItem, root: Vector2, r: float, segs: Array, col: Color) -> void:
+	if segs.is_empty():
+		return
+	var pts: Array = [root]
+	pts.append_array(segs)
+	for pass_ in 2: # A dark outline, then the body over it.
+		var body := col.darkened(0.45) if pass_ == 0 else col
+		for i in pts.size() - 1:
+			var w := r * lerpf(0.9, 0.35, float(i + 1) / pts.size()) + (6.0 if pass_ == 0 else 0.0)
+			Dot.pline(ci, PackedVector2Array([pts[i], pts[i + 1]]), body, w, true)
+			Dot.circle(ci, pts[i + 1], w / 2.0, body)
+	var tip: Vector2 = pts[-1]
+	var back: Vector2 = tip - pts[-2]
+	if back.length() < 0.5:
+		return
+	back = back.normalized()
+	for k in [-1.0, 1.0]:
+		Dot.poly(ci, PackedVector2Array([tip, tip + back.rotated(k * 0.9) * r * 0.75, tip + back.rotated(k * 0.3) * r * 0.4]), Color("5ee6d0"))
+
+
 ## Leviathan bursting up: a white-water ring and a column of spray.
 static func draw_splash(ci: CanvasItem, c: Vector2, reach: float, age: float, seed: float) -> void:
 	var k := clampf(age / SPLASH_LIFE, 0.0, 1.0)
@@ -962,7 +984,6 @@ const PEARL := Color("fff6fb")
 const COG := Color("a7c957")
 const FUR_SNOW := Color("eef6ff")
 const FUR_BROWN := Color("8a5a3b")
-const IVORY := Color("fff3d6")
 const STINK := Color("9be36b")
 const SNOW := Color("f4fbff")
 ## Potion colours by the puddle a blob makes.
@@ -1097,24 +1118,6 @@ static func draw_jawbreaker(ci: CanvasItem, p: Vector2, r: float, hue: int, t: f
 		Dot.circle(ci, p, r * (1.0 - q * 0.22), cols[(hue + q) % 5])
 	Dot.arc(ci, p, r * 0.8, t * 3.0, t * 3.0 + 1.2, 8, Color(1, 1, 1, 0.75), 2.0, true)
 	Dot.circle(ci, p + Vector2(-r * 0.4, -r * 0.4), r * 0.18, Color.WHITE)
-
-
-## Mammoth's tusks and trunk, facing where it's going.
-static func draw_tusks(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
-	var fwd := vel.normalized() if vel.length() > 0.001 else Vector2.RIGHT
-	var side := fwd.orthogonal()
-	for s in [-1.0, 1.0]:
-		var pts := PackedVector2Array()
-		for i in 7:
-			var f := i / 6.0
-			pts.append(p + fwd * r * (0.55 + 0.75 * f) + side * s * r * (0.45 + 0.2 * f - 0.55 * f * f))
-		Dot.pline(ci, pts, IVORY.darkened(0.25), r * 0.2, true)
-		Dot.pline(ci, pts, IVORY, r * 0.13, true)
-	var trunk := PackedVector2Array() # A trunk that sways between the tusks.
-	for i in 6:
-		var f := i / 5.0
-		trunk.append(p + fwd * r * (0.7 + 0.5 * f) + side * sin(t * 4.0 + f * 2.0) * r * 0.2 * f)
-	Dot.pline(ci, trunk, FUR_BROWN.darkened(0.2), r * 0.18, true)
 
 
 ## Shaggy fur round the rim (Yeti white, Mammoth brown), ruffling.
