@@ -57,6 +57,8 @@ const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## 720x1280 phone without scrolling: put detail behind an "i" (info()) and
 ## the main action in pin(). See design/ui.md, "No scrolling".
 ## Play scrolls only below its two big cards: its mode groups grow too.
+## Growing lists read top-down, so they never get centred (see _show).
+const TOP_ALIGNED := ["play", "critters", "dex", "bag", "shop", "pass", "campaign", "bracket", "world"]
 const SCROLLS := ["play", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
@@ -491,6 +493,11 @@ func _show(name: String, params: Dictionary) -> void:
 	_scroll.add_child(margin)
 	var screen: Control = SCREENS[name].build(self, params)
 	margin.add_child(screen)
+	# Short screens sit in the middle of the room under their title row
+	# instead of leaving a gap at the bottom; growing lists stay top-aligned.
+	if name not in TOP_ALIGNED and screen is VBoxContainer:
+		margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		Kit.centre_column(screen, 1)
 	for t in _tab_buttons:
 		_tab_labels[t].add_theme_color_override("font_color", Kit.FG if t == _tab else Kit.MUTED)
 		if t != "play":

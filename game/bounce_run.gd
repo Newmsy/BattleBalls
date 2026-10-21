@@ -684,6 +684,7 @@ func _build_ui() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	page = Kit.vbox(18)
 	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	Kit.centre_column(page) # Short pages sit mid-screen, not at the top.
 	scroll.add_child(page)
 	rules_button = Kit.card_button(Glyph.make("info", 34, Kit.FG), _show_rules, Kit.LINE, Kit.PANEL, 999, 12)
 	rules_button.focus_mode = Control.FOCUS_NONE
