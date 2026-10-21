@@ -43,7 +43,7 @@ const FREE_GEAR := {9: ["bubble_shell", 1], 21: ["spike_core", 2], 33: ["iron_sh
 
 
 ## The free-track reward at `level` (1-50). `debut` is the season's debut
-## critter id, or "" (then those levels give Summon Orbs instead).
+## critter id, or "" (then those levels give Summon Eggs instead).
 static func free_reward(level: int, debut := "") -> Dictionary:
 	if FREE_COSMETICS.has(level):
 		return {"kind": "cosmetic", "id": FREE_COSMETICS[level]}

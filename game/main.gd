@@ -8,11 +8,14 @@
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
+const Bosses := preload("res://sim/bosses.gd")
+const Power := preload("res://sim/power.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 const FightHud := preload("res://game/fight_hud.gd")
+const FighterStrip := preload("res://game/fighter_strip.gd")
 const Backend := preload("res://game/online/backend.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
 const TestUser := preload("res://game/online/test_user.gd")
@@ -31,6 +34,14 @@ const Profile := preload("res://meta/profile.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
 const VaultScreen := preload("res://game/ui/screens/vault_screen.gd")
+const BroodNest := preload("res://meta/brood_nest.gd")
+const NestScreen := preload("res://game/ui/screens/nest_screen.gd")
+## Farming bosses by their screen: the rules (start/finish/cancel) and the screen (result_text).
+const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, NestScreen],
+	"pinata": [preload("res://meta/pinata_party.gd"), preload("res://game/ui/screens/pinata_screen.gd")],
+	"totem": [preload("res://meta/totem_shrine.gd"), preload("res://game/ui/screens/totem_screen.gd")],
+	"wyrm": [preload("res://meta/wyrm_rift.gd"), preload("res://game/ui/screens/wyrm_screen.gd")],
+	"glitch": [preload("res://meta/glitch_core.gd"), preload("res://game/ui/screens/glitch_screen.gd")]}
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Zones := preload("res://meta/zones.gd")
@@ -45,6 +56,7 @@ const ClipExport := preload("res://game/clip/clip_export.gd")
 const ClipCard := preload("res://game/clip/clip_card.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Glyph := preload("res://game/ui/glyph.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const Lineup := preload("res://sim/lineup.gd")
@@ -140,8 +152,14 @@ var arena_clip: Control ## Holds the arena; clips it while the finisher cam zoom
 var ui_layer: CanvasLayer
 var clip_card: ClipCard
 var clip_button: Button
-var copy_button: Button
-var change_button: Button
+var copy_button: Button ## The card's "i": copies the report code.
+var change_button: Button ## The result's second main button: Change critter, This Week, Friends...
+var replay_button: Button
+var tools_row: HBoxContainer ## Replay, Share, Challenge, Clip, Report: small tiles under the main buttons.
+var main_row: HBoxContainer
+var result_card: PanelContainer
+var result_caption: Label
+var winner_slot: Control ## Holds the winner's face beside the headline.
 var _clip_speed := 1.0
 var _clip_recording := false
 var _clip_wait := false ## Waiting for the page to finish encoding.
@@ -150,6 +168,8 @@ var _clip_hint := false ## Told the player to screen-record instead.
 var sfx: Sfx
 var ui: Control
 var title_label: Label
+var menu_header: HBoxContainer ## Back + the menu's title, above the arena.
+var menu_back: Control
 var hud_label: Label
 var info_label: Label
 var stamp_label: Label
@@ -168,10 +188,13 @@ var result_box: VBoxContainer
 var result_label: Label
 var report_label: Label
 var new_seed_button: Button
+var options_row: HBoxContainer ## 1v1 / 2v2 and the "Tiers & rules" button.
+var tiers_row: HBoxContainer ## Tiers and Chaos rules, swapped in for options_row.
+var solo_button: Button
+var more_button: Button
 var again_button: Button
 var share_button: Button
 var challenge_button: Button
-var report_row: HBoxContainer
 var friend_row: HBoxContainer
 var friend_button: Button
 var _share_pending := false
@@ -184,6 +207,9 @@ var profile
 ## The campaign stage being fought: {config, zone, stage, fighter, result?},
 ## or a Gear Vault run: {config, vault (difficulty), fighter, result?}.
 var pve := {}
+var _stats_for: MatchSim ## The fight fight_hud.stats were worked out for.
+var fighter_strip: Control ## The two fighters' cards under a 1v1 (game/fighter_strip.gd).
+var _hud_box := Rect2(0, 8, 680, TOP - 10.0) ## Room for the fight HUD (_layout).
 var pve_param := ""
 ## ?demo=1 (smoke tests, previews): a filled-in sample profile that is never saved.
 var demo_profile := false
@@ -444,6 +470,12 @@ func _toggle_duo() -> void:
 	_refresh_menu()
 
 
+func _set_duo(on: bool) -> void:
+	if on != _is_duo():
+		_toggle_duo()
+	_refresh_menu() # Re-presses the right half of the 1v1 / 2v2 switch.
+
+
 ## [yours, the foe's] tiers this fight plays at, or [0, 0] for equal stats.
 ## Only Quick fight (and a replay of a tiered Quick fight) has tiers.
 func _fight_tiers() -> Array:
@@ -507,9 +539,13 @@ func _refresh_menu() -> void:
 	for id in player_buttons:
 		player_buttons[id].button_pressed = id == player_type or (_is_duo() and id == _mate())
 	new_seed_button.disabled = mode == Mode.CHALLENGE
-	seed_label.text = ("Your critter · seed %d · %s" % [seed_value, Arenas.get_def(_pick_arena()).display_name]).to_upper()
+	title_label.text = {Mode.CHALLENGE: "Challenge", Mode.RIVAL: "Rival"}.get(mode, "Quick fight")
+	seed_label.text = ("Your critter · %s" % Arenas.get_def(_pick_arena()).display_name).to_upper()
+	solo_button.visible = mode == Mode.NORMAL
 	duo_button.visible = mode == Mode.NORMAL
-	duo_button.text = "2v2" if _is_duo() else "1v1"
+	solo_button.button_pressed = not _is_duo()
+	duo_button.button_pressed = _is_duo()
+	more_button.text = "Tiers & rules" if mode == Mode.NORMAL else "Rules: " + Modifiers.display_name(modifier)
 	fight_button.text = "LIVE FIGHT" if _live_on() else "FIGHT!"
 	if _is_duo():
 		seed_label.text = ("Your pair: %s + %s · %s" % [BallDefs.get_def(player_type).display_name,
@@ -541,11 +577,18 @@ func _refresh_menu() -> void:
 	_report_menu.call_deferred()
 
 
+## "Tiers & rules" swaps the 1v1/2v2 row for the tier and Chaos rules buttons, and Done swaps it back.
+func _show_options(on: bool) -> void:
+	options_row.visible = not on
+	tiers_row.visible = on
+	_refresh_menu()
+
+
 ## Logs where the menu buttons are so the smoke test can tap them ("UI_AT name x y").
 func _report_menu() -> void:
 	await get_tree().process_frame
 	_sync_cover()
-	var marks := {"menu_fight": fight_button, "aim_launch": launch_button, "tier_you": tier_buttons[0], "tier_foe": tier_buttons[1], "menu_duo": duo_button}
+	var marks := {"menu_fight": fight_button, "aim_launch": launch_button, "tier_you": tier_buttons[0], "tier_foe": tier_buttons[1], "menu_duo": duo_button, "menu_back": menu_back, "menu_options": more_button}
 	for id in player_buttons:
 		marks["pick_" + id] = player_buttons[id]
 	for k in marks:
@@ -563,7 +606,7 @@ func _begin_aim() -> void:
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
-	aim = MatchSim.aim_at_centre(you_side, 4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 else 2)
+	aim = MatchSim.aim_at_centre(you_side, 4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 or pve.get("config", {}).has("p3") else 2)
 	arena.clear_effects()
 	arena.reset_camera()
 	_set_aim_preview()
@@ -617,14 +660,13 @@ func _start_fight() -> void:
 	_prepare_fight(sim.config)
 	_apply_cosmetics()
 	state = State.FIGHT
-	info_label.text = "%s vs %s" % [sim.balls[0].def.display_name, sim.balls[1].def.display_name]
+	info_label.text = "" # 1v1: the names, tiers and power are on the health bars.
 	if sim.starters == 4:
 		info_label.text = "%s + %s vs %s + %s" % [sim.balls[0].def.display_name, sim.balls[2].def.display_name,
 			sim.balls[1].def.display_name, sim.balls[3].def.display_name]
-	if mode == Mode.CAMPAIGN:
-		info_label.text = _pve_matchup_text()
-	if modifier != Modifiers.NONE:
-		info_label.text += " · " + Modifiers.display_name(modifier)
+	if mode == Mode.CAMPAIGN: # Tier, level and power sit under the health bars.
+		info_label.text = "" if sim.starters == 2 else _pair_power_text()
+	# The week's twist, if any, shows under the clock in the HUD.
 	speed_picker.refresh()
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
@@ -732,7 +774,9 @@ func _show_result() -> void:
 		roundi(dealt), (" and healed %d" % roundi(healed)) if healed > 0.0 else ""]
 	if result.detail != "":
 		info_label.text = "%.1fs. %s" % [sim.time(), result.detail]
-	report_label.text = "Report code: " + _report_code()
+	report_label.text = ""
+	result_caption.text = _result_caption().to_upper()
+	_show_winner()
 	if _board_pick >= 0:
 		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
 	if mode == Mode.RIVAL and _count_fight:
@@ -760,6 +804,32 @@ func _show_result() -> void:
 	if auto_clip:
 		auto_clip = false
 		_on_clip_button()
+
+
+## What the result card is about, above the headline: "Quick fight · 2v2", "Fight of the Day"...
+func _result_caption() -> String:
+	if not _board.is_empty():
+		return str(_board.title)
+	var name: String = {Mode.NORMAL: "Quick fight", Mode.REPLAY: "Replay", Mode.CHALLENGE: "Challenge", Mode.RIVAL: "Rival",
+		Mode.CAMPAIGN: "Campaign", Mode.LIVE: "Live fight", Mode.TUTORIAL: ""}[mode]
+	if mode == Mode.RIVAL and not rival.is_empty():
+		name = "Rival · " + str(rival.name)
+	return name + (" · 2v2" if sim != null and sim.starters == 4 else "")
+
+
+## The winning critter's face beside the headline (a draw shows none).
+func _show_winner() -> void:
+	for c in winner_slot.get_children():
+		c.queue_free()
+	winner_slot.visible = sim.winner >= 0
+	if sim.winner < 0:
+		return
+	var ball = sim.balls[sim.winner]
+	var ts: Array = sim.config.get("tiers", [])
+	var icon := CritterIcon.make(ball.type_id, int(ts[sim.winner]) if sim.winner < ts.size() and int(ts[sim.winner]) > 0 else 1, 84.0)
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon.radius_frac = .42
+	winner_slot.add_child(icon)
 
 
 func _report_code() -> String:
@@ -894,8 +964,7 @@ func _finish_live() -> void:
 		_close_live()
 	print("LIVE_END %s winner=%d server_winner=%d side=%d hash=%s" % ["ok" if same else "MISMATCH",
 		sim.winner, int(go.get("winner", -1)), you_side, mine])
-	report_label.text = "Live match: the server's fight matched yours." if same \
-		else "Live match: your fight differed from the server's. Its result counts."
+	report_label.text = "" if same else "Your fight differed from the server's. Its result counts."
 
 
 func _cancel_live() -> void:
@@ -924,6 +993,10 @@ func _load_profile() -> void:
 		profile_unsaved = true
 		for k in Zones.zone(0).stages.size() if demo_stars > 0 else 0:
 			profile.stars[Zones.stage_key(0, k)] = demo_stars
+		# &zones=2: the first N zones fully starred (opens later bosses).
+		for z in clampi(int(url_params.get("zones", "0")), 0, Zones.ZONES.size()):
+			for k in Zones.zone(z).stages.size():
+				profile.stars[Zones.stage_key(z, k)] = maxi(1, demo_stars)
 	else:
 		profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
 		# A new save opened from a link or a test URL skips the guided first
@@ -933,6 +1006,12 @@ func _load_profile() -> void:
 			Story.skip_all(profile)
 	if demo_profile:
 		Story.skip_all(profile)
+		# ?demo=1&copies=N adds N more owned copies (a big collection, for perf checks).
+		var extra := int(url_params.get("copies", "0"))
+		for i in extra:
+			var id: String = Roster.CRITTERS[i % Roster.CRITTERS.size()].id
+			profile.stacks.append({"id": id, "tier": 1 + i % 3, "count": 1, "level": 1 + i % 20})
+			profile.seen[id] = true
 	# ?story=1 plays every chapter's story again (screenshots, playtests).
 	if url_params.get("story", "") == "1":
 		profile.story.clear()
@@ -965,9 +1044,10 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	info_label.text = "%s: %s. Drag to aim, then let go." % [Zones.stage_key(zone_index, stage_index), _pve_matchup_text()]
 
 
-## A Gear Vault run from the Vault screen: aim, then fight it in the arena.
-func _start_vault(config: Dictionary, difficulty: int, fighter: String) -> void:
-	pve = {"config": config, "vault": difficulty, "fighter": fighter}
+## A farming boss run from its screen ("vault" for the Anvil King, "nest" for
+## the Brood Queen): aim, then fight it in the arena.
+func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: String) -> void:
+	pve = {"config": config, "vault": difficulty, "fighter": fighter, "boss": screen}
 	mode = Mode.CAMPAIGN
 	player_type = config.p1
 	opponent_type = config.p2
@@ -976,17 +1056,32 @@ func _start_vault(config: Dictionary, difficulty: int, fighter: String) -> void:
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
 	_begin_aim()
-	info_label.text = "Gear Vault %s: %s. Drag to aim, then let go." % [GearVault.DIFFICULTIES[difficulty].name, _pve_matchup_text()]
+	info_label.text = "%s %s: %s. Drag to aim, then let go." % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name, _pve_matchup_text()]
+
+
+## "Power 2,250 vs 3,100" for a 2v2 pairs stage, short enough for one line.
+func _pair_power_text() -> String:
+	var mine := 0
+	for id in [pve.config.p1, pve.config.p3]:
+		mine += profile.power_of(id)
+	var st := Zones.stage(pve.zone, pve.stage)
+	return "Power %s vs %s" % [Kit.commas(mine), Kit.commas(Campaign.enemy_rating(pve.zone, pve.stage) * Zones.enemies(st).size())]
+
+
+## The rules script of the boss being fought (meta/gear_vault.gd, meta/brood_nest.gd).
+func _boss_rules():
+	return BOSS_MODES[pve.get("boss", "vault")][0]
 
 
 ## "T2 Optic · 1,250 power vs T1 Chomp · 1,400 power" for the stage or Vault run being fought.
 func _pve_matchup_text() -> String:
+	if pve.config.has("p3"):
+		return CampaignScreen.pair_text(profile, pve.zone, pve.stage, [pve.config.p1, pve.config.p3])
 	if not pve.has("vault"):
 		return CampaignScreen.matchup_text(profile, pve.zone, pve.stage, pve.fighter)
 	var b: Dictionary = profile.best(pve.fighter)
-	var now := int(Time.get_unix_time_from_system())
 	return "%s vs %s" % [FighterTag.text(Roster.get_critter(pve.fighter).name, b.get("tier", 1), profile.power_of(pve.fighter), b.get("level", 0)),
-		FighterTag.text(Roster.get_critter(pve.config.p2).name, 1, GearVault.enemy_rating(pve.vault, now))]
+		FighterTag.text(Bosses.DEFS[pve.config.p2].display_name, 1, Power.rating(pve.config.powers[1]))]
 
 
 ## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).
@@ -1000,10 +1095,18 @@ func _start_url_stage() -> void:
 	Story.skip_all(profile)
 	profile_unsaved = true
 	shell.set_profile(profile)
+	for zk in z:
+		for k in Zones.zone(zk).stages.size():
+			profile.stars[Zones.stage_key(zk, k)] = 1
 	for k in i:
 		profile.stars[Zones.stage_key(z, k)] = 1
-	var cfg := Campaign.start(profile, z, i, Profile.STARTER, now)
-	_start_stage(cfg, z, i, Profile.STARTER)
+	if Zones.zone(z).lineup == 2:
+		# A pairs stage (?pve=2-1) is a 2v2: lend the starter a mate.
+		profile.add_copies(["laser" if Profile.STARTER != "laser" else "vampire"])
+		var picks := Campaign.team_for(profile, 2)
+		_start_stage(Campaign.pair_config(profile, Campaign.start_team(profile, z, i, picks, now)), z, i, picks[0])
+	else:
+		_start_stage(Campaign.start(profile, z, i, Profile.STARTER, now), z, i, Profile.STARTER)
 	if auto_start:
 		_start_fight()
 
@@ -1012,12 +1115,17 @@ func _finish_stage() -> void:
 	var fight := sim.summary()
 	fight.max_hp = sim.balls[0].max_hp
 	if pve.has("vault"):
-		var v := GearVault.finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
-		pve.result = VaultScreen.result_text(v)
+		fight.cracked = int(sim.boss.state.get("cracked", 0)) if sim.boss != null else 0
+		fight.boss_dealt = sim.boss.max_hp - maxf(0.0, sim.boss.hp) if sim.boss != null else 0.0
+		fight.boss_max = sim.boss.max_hp if sim.boss != null else 1.0
+		var v: Dictionary = _boss_rules().finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
+		pve.result = BOSS_MODES[pve.boss][1].result_text(v)
+		pve.xp = v
 		report_label.text = pve.result
-		print("VAULT_END difficulty=%d won=%s gear=%d" % [pve.vault, v.won, v.gear.size()])
+		print("BOSS_END boss=%s difficulty=%d won=%s" % [pve.boss, pve.vault, v.won])
 		return
-	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight)
+	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight) if sim.starters == 2 \
+		else Campaign.finish_team(profile, pve.zone, pve.stage, [pve.config.p1, pve.config.p3], Campaign.pair_fight(sim))
 	Intro.after_stage(profile, pve.zone, pve.stage, r)
 	pve.result = CampaignScreen.result_text(r)
 	pve.r = r
@@ -1047,7 +1155,7 @@ func _aim_back() -> void:
 		_show_menu()
 		return
 	if pve.has("vault"):
-		GearVault.cancel(profile, int(Time.get_unix_time_from_system()))
+		_boss_rules().cancel(profile, int(Time.get_unix_time_from_system()))
 	else:
 		profile.refund_energy(Zones.cost(Zones.stage(pve.zone, pve.stage)))
 	_back_to_campaign()
@@ -1074,8 +1182,12 @@ func _settle_relay_stage() -> void:
 func _back_to_campaign() -> void:
 	var params := {"zone": pve.get("zone", 0)}
 	var vault := pve.has("vault")
+	var screen: String = pve.get("boss", "vault")
 	if vault and pve.has("result"):
 		params.notice = pve.result
+		params.xp = pve.get("xp", {})
+		# Back on the level just fought, or the next one after a win (boss_level_grid.gd).
+		params.level = int(pve.vault) + (1 if params.xp.get("won", false) else 0)
 	if pve.has("r"):
 		params.result = {"stage": pve.stage, "r": pve.r, "kind": "fight"}
 	if pve.has("stage") and not vault:
@@ -1087,7 +1199,7 @@ func _back_to_campaign() -> void:
 	_show_home()
 	shell.show_tab("play")
 	if vault:
-		shell.go("vault", params)
+		shell.go(screen, params)
 	else:
 		shell.go("world") # Back from the stage list lands on the world map.
 		shell.go("campaign", params)
@@ -1254,6 +1366,8 @@ func _refresh_account() -> void:
 		print("ONLINE_OK user=", backend.user_id().left(8))
 		account_text = "%s · %d trophies" % [res.data[0].display_name, int(res.data[0].trophies)]
 		stamp_label.text = _stamp_text()
+		if shell != null:
+			shell.build_stamp = _stamp_text()
 
 
 # --- UI ---------------------------------------------------------------------
@@ -1268,74 +1382,129 @@ func _build_ui() -> void:
 	ui.theme = _neon_theme()
 	layer.add_child(ui)
 
-	title_label = _label("BATTLE BALLS", 40)
-	title_label.add_theme_color_override("font_outline_color", Color(ACCENT, 0.45))
-	title_label.add_theme_constant_override("outline_size", 12)
+	# The menu's header: the shell's round Back and the mode's name.
+	title_label = Kit.label("Quick fight", 40)
+	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var back := Kit.card_button(Glyph.make("back", 30, Kit.FG), func(): _show_home(), Kit.LINE, Kit.PANEL, 999, 16)
+	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	menu_back = back
+	menu_header = Kit.hbox(16, [back, title_label], BoxContainer.ALIGNMENT_BEGIN)
 	hud_label = _label("", 30)
 	fight_hud = FightHud.new()
 	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(fight_hud)
+	fighter_strip = FighterStrip.new()
+	fighter_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(fighter_strip)
 	info_label = _label("", 26)
 	info_label.add_theme_color_override("font_color", MUTED)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# The build stamp lives in Settings; a player never sees it in a fight.
 	stamp_label = _label(_stamp_text(), 18)
 	stamp_label.modulate = Color(1, 1, 1, 0.45)
 	stamp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	stamp_label.visible = false
 
-	# Quick fight: pick a critter, then the seed/arena line and its buttons,
-	# then one big FIGHT!. Every row fits the panel width at any text size.
+	# Quick fight: pick a critter, 1v1 or 2v2, then one big FIGHT!. Tiers and
+	# Chaos rules sit behind "Tiers & rules" so the screen reads like a game,
+	# not a test bench. Every row fits the panel width at any text size.
 	menu_box = VBoxContainer.new()
 	menu_box.add_theme_constant_override("separation", 14)
-	# The caption carries the seed and arena, so the arena above gets the room.
 	seed_label = Kit.caption("")
 	seed_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	menu_box.add_child(seed_label)
 	menu_box.add_child(_pick_grid(BallDefs.PLAYABLE, _pick_player))
-	new_seed_button = _button("New seed", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 22, "ghost", 96)
-	# Debug toggle for Chaos Weekend modifiers until the event screen exists.
+	new_seed_button = _button("New arena", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 24, "ghost", 96)
+	# Chaos Weekend modifiers, until the event screen exists.
 	rules_button = _button("", _cycle_rules, 22, "ghost", 68)
 	# Tiers to test with: tap to cycle equal stats, then one to five stars.
 	tier_buttons = [_tier_button(0), _tier_button(1)]
-	duo_button = _button("1v1", _toggle_duo, 22, "ghost", 68)
-	menu_box.add_child(_row(tier_buttons + [duo_button, rules_button]))
+	solo_button = _button("1v1", _set_duo.bind(false), 24, "ghost", 68)
+	duo_button = _button("2v2", _set_duo.bind(true), 24, "ghost", 68)
+	for b in [solo_button, duo_button]:
+		b.toggle_mode = true
+		# The picked half of the switch fills in, like a picked critter tile.
+		var on := Kit.box(ACCENT, Color(0, 0, 0, 0), 26, 0, 12)
+		on.shadow_color = Color("4b3bb0")
+		on.shadow_offset = Vector2(0, 4)
+		on.shadow_size = 1
+		b.add_theme_stylebox_override("pressed", on)
+		b.add_theme_stylebox_override("hover_pressed", on)
+		b.add_theme_color_override("font_pressed_color", Kit.BG)
+		b.add_theme_color_override("font_hover_pressed_color", Kit.BG)
+	more_button = _button("Tiers & rules", func(): _show_options(true), 22, "ghost", 68)
+	more_button.size_flags_stretch_ratio = 2.0
+	options_row = _row([solo_button, duo_button, more_button])
+	menu_box.add_child(options_row)
+	var done := _button("Done", func(): _show_options(false), 22, "ghost", 68)
+	tiers_row = _row(tier_buttons + [rules_button, done])
+	tiers_row.visible = false
+	menu_box.add_child(tiers_row)
 	fight_button = _button("FIGHT!", func(): _find_live() if _live_on() else _begin_aim(), 40, "go", 96)
 	fight_button.size_flags_stretch_ratio = 2.0
-	menu_box.add_child(_row([_button("Home", _show_home, 22, "ghost", 96), new_seed_button, fight_button]))
+	menu_box.add_child(_row([new_seed_button, fight_button]))
 
-	launch_button = _button("Launch", _launch, 34, "go", 96)
-	aim_back_button = _button("Back", _aim_back, 26, "ghost", 96)
+	launch_button = _button("LAUNCH", _launch, 34, "go", 96)
+	aim_back_button = _button("BACK", _aim_back, 26, "ghost", 96)
 	aim_box = _row([launch_button, aim_back_button])
-	live_box = _row([_button("Cancel", _cancel_live, 26, "ghost", 96)])
+	live_box = _row([_button("CANCEL", _cancel_live, 26, "ghost", 96)])
 
 	speed_picker = FightSpeed.picker()
-	fight_box = _row([speed_picker, _button("Skip", _skip_to_end)])
+	fight_box = _row([speed_picker, _button("SKIP", _skip_to_end)])
 
+	# The result: one card under the arena, like the campaign's victory sheet.
+	# What happened, then the one thing to do next (big), a way out beside it,
+	# and the rest (replay, share, clip, report code) as small tiles.
 	result_box = VBoxContainer.new()
-	result_box.add_theme_constant_override("separation", 14)
+	result_box.add_theme_constant_override("separation", 0)
+	var card := Kit.vbox(12)
+	var card_style := Kit.box(Color("16133a"), Kit.ACCENT, 40, 0, 24)
+	card_style.border_width_top = 3
+	result_card = Kit.panel(card, card_style)
+	result_card.mouse_filter = Control.MOUSE_FILTER_PASS
+	result_box.add_child(result_card)
+	result_caption = Kit.caption("")
+	result_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# The report code (for bug reports) waits behind the "i", not on the card.
+	copy_button = Kit.card_button(Glyph.make("info", 30, Kit.MUTED), func():
+		DisplayServer.clipboard_set(_report_code())
+		report_label.text = "Report code copied: " + _report_code(), Kit.LINE, Kit.PANEL2, 999, 10)
+	var balance := Control.new()
+	balance.custom_minimum_size = Vector2(52, 0)
+	balance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(Kit.hbox(8, [balance, result_caption, copy_button]))
+	winner_slot = Control.new()
+	winner_slot.custom_minimum_size = Vector2(84, 84)
+	winner_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	result_label = _label("", 56)
-	result_box.add_child(result_label)
+	card.add_child(Kit.hbox(16, [winner_slot, result_label], BoxContainer.ALIGNMENT_CENTER))
 	report_label = _label("", 20)
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	result_box.add_child(report_label)
-	again_button = _button("Rematch", _again, 30, "primary")
-	result_box.add_child(_row([_button("Replay", func(): _start_fight()), again_button]))
-	share_button = _button("Share fight", _share.bind("r"))
-	challenge_button = _button("Challenge", _on_challenge_button)
-	result_box.add_child(_row([share_button, challenge_button]))
-	clip_button = _button("Save clip", _on_clip_button, 22, "ghost", 72)
-	copy_button = _button("Copy report", func(): DisplayServer.clipboard_set(_report_code()); report_label.text = "Copied: " + _report_code(), 22, "ghost", 72)
-	change_button = _button("Change critter", _play_normal, 22, "ghost", 72)
-	report_row = _row([clip_button, copy_button, change_button])
-	result_box.add_child(report_row)
+	report_label.add_theme_color_override("font_color", MUTED)
+	card.add_child(report_label)
 	friend_button = _button("Add as a friend", _add_link_friend, 22, "ghost", 72)
 	friend_row = _row([friend_button])
 	friend_row.visible = false
-	result_box.add_child(friend_row)
+	card.add_child(friend_row)
+	again_button = _button("REMATCH", _again, 32, "go", 96)
+	again_button.size_flags_stretch_ratio = 1.3
+	change_button = _button("CHANGE CRITTER", _on_change_button, 20, "ghost", 96)
+	main_row = _row([change_button, again_button])
+	card.add_child(main_row)
+	replay_button = _tool_button("Replay", "replay", func(): _start_fight())
+	share_button = _tool_button("Share", "share", _share.bind("r"))
+	challenge_button = _tool_button("Challenge", "swords", _share.bind("c"))
+	clip_button = _tool_button("Clip", "film", _on_clip_button)
+	tools_row = _row([replay_button, share_button, challenge_button, clip_button])
+	tools_row.add_theme_constant_override("separation", 10)
+	card.add_child(tools_row)
 	campaign_row = _row([_button("Back to the map", _back_to_campaign)])
-	result_box.add_child(campaign_row)
+	card.add_child(campaign_row)
 
 
-	for c in [title_label, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box, live_box]:
+	for c in [menu_header, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box, live_box]:
 		ui.add_child(c)
 
 
@@ -1350,6 +1519,7 @@ func _build_shell() -> void:
 	shell.profile = profile
 	shell.set_account(account)
 	shell.link_base = _link_base()
+	shell.build_stamp = _stamp_text()
 	shell.sfx = sfx
 	shell.play_requested.connect(func():
 		shell_layer.visible = false
@@ -1364,7 +1534,7 @@ func _build_shell() -> void:
 	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
 	shell.stage_requested.connect(_start_stage)
-	shell.vault_requested.connect(_start_vault)
+	shell.boss_requested.connect(_start_boss)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
@@ -1431,7 +1601,9 @@ func _layout() -> void:
 	var left: float
 	var panel_pos: Vector2
 	if landscape:
-		side = minf(size.y - top - bottom_margin, size.x - panel_width - 100.0)
+		# The arena takes the full height on the left; the title, fight HUD,
+		# info and controls stack in the panel on the right.
+		side = minf(size.y - 40.0, size.x - panel_width - 100.0)
 		left = maxf(20.0, (size.x - side - panel_width - 40.0) / 2.0)
 		panel_pos = Vector2(left + side + 40.0, top)
 	else:
@@ -1439,7 +1611,7 @@ func _layout() -> void:
 		left = (size.x - side) / 2.0
 		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
 		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 12.0)
-	var arena_pos := Vector2(left, top)
+	var arena_pos := Vector2(left, 20.0 if landscape else top)
 	if state == State.CLIP:
 		clip_card.position = ((size - ClipCard.SIZE) / 2.0).floor()
 		arena_pos = clip_card.position + ClipCard.ARENA_POS
@@ -1448,14 +1620,20 @@ func _layout() -> void:
 	arena_clip.position = arena_pos
 	arena_clip.size = Vector2(side, side)
 	arena.set_camera(arena.cam_zoom, arena.cam_focus)
-	_place(title_label, Vector2(0, 14), Vector2(size.x, 56))
-	_place(hud_label, Vector2(left, 72), Vector2(side, 48))
-	_place(fight_hud, Vector2(left, 60), Vector2(side, 62))
+	_hud_box = Rect2(panel_pos.x, 8.0, panel_width, TOP - 10.0) if landscape else Rect2(left, 8.0, side, TOP - 10.0)
+	_place(menu_header, Vector2(panel_pos.x, 22) if landscape else Vector2((size.x - panel_width) / 2.0, 22), Vector2(panel_width, 84))
+	_place(hud_label, Vector2(_hud_box.position.x, 72), Vector2(_hud_box.size.x, 48))
+	_place(fight_hud, _hud_box.position + Vector2(0, 16), _hud_box.size - Vector2(0, 20))
 	_place(info_label, panel_pos, Vector2(panel_width, INFO_HEIGHT - 6.0))
 	controls_rect = Rect2(panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
 	var controls_top := panel_pos.y + INFO_HEIGHT
-	for box in [menu_box, aim_box, fight_box, result_box, live_box]:
+	for box in [menu_box, aim_box, fight_box, live_box]:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
+	# The result card takes the info line's room too: its detail is inside it.
+	_place(result_box, panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
+	# The fighters' cards fill the room under a fight's one-row controls.
+	var strip_top := controls_top + 84.0 + 20.0
+	_place(fighter_strip, Vector2(panel_pos.x, strip_top), Vector2(panel_width, clampf(size.y - strip_top - 30.0, 0.0, 240.0)))
 	# The build stamp stops short of the sound toggle in the other corner.
 	_place(stamp_label, Vector2(16, size.y - 40), Vector2(maxf(100.0, size.x - Sfx.TOGGLE_SIZE.x - 48.0), 30))
 	arena.queue_redraw()
@@ -1499,15 +1677,27 @@ func _show_only(box: Control) -> void:
 	_sync_cover()
 	for b in [menu_box, aim_box, fight_box, result_box, live_box]:
 		b.visible = b == box
+	# The result's detail line sits in its card, under the headline.
+	var card := result_card.get_child(0)
+	if box == result_box and info_label.get_parent() != card:
+		info_label.reparent(card, false)
+		card.move_child(info_label, 2)
+	elif box != result_box and info_label.get_parent() == card:
+		info_label.reparent(ui, false)
+		_layout()
 	aim_back_button.visible = mode != Mode.TUTORIAL
 	_sync_share_targets()
 
 
 func _update_hud() -> void:
 	hud_label.text = ""
+	var fighting := sim != null and state == State.FIGHT
+	# Fights keep the screen for the fight: no sound pill (the build stamp is in Settings).
+	sfx.in_fight = fighting
+	fighter_strip.show_fight(sim if fighting else null, you_side)
 	if sim == null:
 		fight_hud.show_fight(null)
-		title_label.visible = true
+		menu_header.visible = state == State.MENU
 		return
 	var clock := "%.0fs" % sim.time()
 	if sim.in_overtime():
@@ -1518,12 +1708,36 @@ func _update_hud() -> void:
 	if mode == Mode.TUTORIAL and not tutorial_tags.is_empty():
 		tags = tutorial_tags
 	fight_hud.tags = tags.map(func(t): return str(t).to_upper())
+	if _stats_for != sim:
+		_stats_for = sim
+		fight_hud.stats = ["", ""] if sim.starters == 4 else [_side_stats(you_side), _side_stats(1 - you_side)]
+	var twist: String = Modifiers.display_name(sim.config.modifier) if sim.config.get("modifier", Modifiers.NONE) != Modifiers.NONE else ""
+	fight_hud.caption = "x%.1f damage" % sim.damage_multiplier() if sim.in_overtime() else twist
 	fight_hud.show_fight(sim, clock)
-	# A 2v2's four bars take the title's room above the arena.
+	# The bars (four in a 2v2, or two with their tier and power lines) take
+	# the title's room above the arena.
 	var tall := sim.starters == 4
-	title_label.visible = not tall
-	fight_hud.position.y = 8.0 if tall else 60.0
-	fight_hud.size.y = TOP - 10.0 if tall else 62.0
+	menu_header.visible = false
+	fight_hud.position = _hud_box.position + (Vector2.ZERO if tall else Vector2(0, 16))
+	fight_hud.size = _hud_box.size - (Vector2.ZERO if tall else Vector2(0, 20))
+
+
+## Under a side's health bar: "T5 · Lv25 · 5,481 power", or just "T3" where
+## level and power aren't known (only campaign and boss fights carry them).
+func _side_stats(side: int) -> String:
+	var ts: Array = sim.config.get("tiers", [])
+	var parts := ["T%d" % (int(ts[side]) if side < ts.size() else 1)]
+	if mode != Mode.CAMPAIGN or pve.is_empty():
+		return parts[0]
+	if side == 0 and sim.balls[0].type_id == pve.fighter:
+		var b: Dictionary = profile.best(pve.fighter)
+		if int(b.get("level", 0)) > 0:
+			parts.append("Lv%d" % int(b.level))
+		parts.append("%s power" % Kit.commas(profile.power_of(pve.fighter)))
+	elif side == 1:
+		var rating := Power.rating(pve.config.powers[1]) if pve.has("vault") else Campaign.enemy_rating(pve.zone, pve.stage)
+		parts.append("%s power" % Kit.commas(rating))
+	return " · ".join(parts)
 
 
 ## The seed picks the arena too, independently of the opponent it picks.
@@ -1559,49 +1773,73 @@ func _again() -> void:
 			_take_challenge(player_type, seed_value, sim.launch_angles[0])
 
 
-func _on_challenge_button() -> void:
+## The result's second main button: back to where this fight came from.
+func _on_change_button() -> void:
 	if not _board.is_empty():
 		_back_to_board()
-	elif mode == Mode.REPLAY:
-		_play_normal()
 	elif mode == Mode.RIVAL:
 		_show_home()
 		if shell.current != "friends":
 			shell.go("friends")
 	else:
-		_share("c")
+		_play_normal()
 
 
 func _label_result_buttons() -> void:
-	again_button.text = {Mode.NORMAL: "Rematch", Mode.CHALLENGE: "Try again", Mode.REPLAY: "Beat this shot", Mode.RIVAL: "Rematch", Mode.CAMPAIGN: "", Mode.LIVE: "Fight again"}[mode]
-	challenge_button.text = {Mode.REPLAY: "Play my own", Mode.RIVAL: "Friends"}.get(mode, "Challenge friend")
+	again_button.text = {Mode.NORMAL: "REMATCH", Mode.CHALLENGE: "TRY AGAIN", Mode.REPLAY: "BEAT THIS SHOT", Mode.RIVAL: "REMATCH", Mode.CAMPAIGN: "", Mode.LIVE: "FIGHT AGAIN", Mode.TUTORIAL: ""}[mode]
+	change_button.text = {Mode.REPLAY: "PLAY MY OWN", Mode.RIVAL: "FRIENDS"}.get(mode, "CHANGE CRITTER")
 	if not _board.is_empty():
-		challenge_button.text = "Bracket" if _board.return_to == "bracket" else "This Week"
-	share_button.text = "Send result" if mode == Mode.CHALLENGE else "Share fight"
-	# A link from someone who isn't a friend yet offers to add them, in place
-	# of the report row (there's only room for one).
+		change_button.text = "BRACKET" if _board.return_to == "bracket" else "THIS WEEK"
+	(share_button.get_meta("caption") as Label).text = "SEND" if mode == Mode.CHALLENGE else "SHARE"
+	var campaign := mode == Mode.CAMPAIGN
+	# A link from someone who isn't a friend yet offers to add them.
 	friend_row.visible = _can_add_link_friend()
-	report_row.visible = mode != Mode.CAMPAIGN and not friend_row.visible
-	copy_button.visible = mode != Mode.REPLAY and mode != Mode.LIVE
-	change_button.visible = mode != Mode.REPLAY
-	# Save clip rides in whichever of the two rows is showing.
-	var row := friend_row if friend_row.visible else report_row
-	if clip_button.get_parent() != row:
-		clip_button.reparent(row)
-		row.move_child(clip_button, 0)
-	for r in [again_button.get_parent(), share_button.get_parent()]:
-		r.visible = mode != Mode.CAMPAIGN
-	# Fight links and clips are 1v1 only for now.
-	# Live fights aren't shareable yet: a link replays from the seed, not the server's sides.
-	share_button.get_parent().visible = share_button.get_parent().visible and not _is_duo() and mode != Mode.LIVE
-	clip_button.visible = not _is_duo() and mode != Mode.LIVE
-	copy_button.visible = copy_button.visible and not _is_duo()
-	campaign_row.visible = mode == Mode.CAMPAIGN
-	(campaign_row.get_child(0) as Button).text = "Back to the Vault" if pve.has("vault") else "Back to the map"
+	main_row.visible = not campaign
+	# Fight links and clips are 1v1 only for now. Live fights aren't
+	# shareable yet: a link replays from the seed, not the server's sides.
+	var links := not _is_duo() and mode != Mode.LIVE
+	share_button.visible = links
+	challenge_button.visible = links and mode not in [Mode.REPLAY, Mode.RIVAL] and _board.is_empty()
+	clip_button.visible = links
+	# Hidden by fading, so the caption stays centred over the card.
+	var report := links and mode != Mode.REPLAY
+	copy_button.modulate.a = 1.0 if report else 0.0
+	copy_button.disabled = not report
+	tools_row.visible = not campaign
+	campaign_row.visible = campaign
+	(campaign_row.get_child(0) as Button).text = ("Back to the " + Bosses.DEFS[pve.config.p2].display_name) if pve.has("vault") else "Back to the map"
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = "Add %s as a friend" % who if who != "" else "Add them as a friend"
 	_sync_share_targets()
+
+
+func _caption(b: Button, text: String) -> void:
+	(b.get_meta("caption") as Label).text = text.to_upper()
+
+
+## A small result tile: a glyph over a one-word caption. `text` on the
+## button stays empty; set the caption (meta "caption") to relabel it.
+func _tool_button(text: String, glyph: String, on_press: Callable) -> Button:
+	var b := Kit.button("", on_press, "ghost", 20, 92)
+	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var g := Glyph.make(glyph, 30, Kit.FG)
+	g.anchor_left = .5
+	g.anchor_right = .5
+	g.offset_left = -15.0
+	g.offset_right = 15.0
+	g.offset_top = 14.0
+	g.offset_bottom = 44.0
+	b.add_child(g)
+	var l := Kit.label(text.to_upper(), 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	l.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	l.offset_top = -42.0
+	l.offset_bottom = -12.0
+	l.clip_text = true
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	b.add_child(l)
+	b.set_meta("caption", l)
+	return b
 
 
 func _can_add_link_friend() -> bool:
@@ -1813,8 +2051,8 @@ func _on_clip_button() -> void:
 		return
 	if OS.has_feature("web") and not ClipExport.can_record() and not _clip_hint:
 		_clip_hint = true
-		clip_button.text = "Play clip"
-		report_label.text = "This browser can't save video. Start your phone's screen recorder, then tap Play clip."
+		_caption(clip_button, "Play")
+		report_label.text = "This browser can't save video. Start your phone's screen recorder, then tap Play."
 		return
 	_start_clip()
 
@@ -1881,7 +2119,7 @@ func _end_clip(cancelled: bool) -> void:
 		if not cancelled:
 			_clip_wait = true
 			clip_button.disabled = true
-			clip_button.text = "Making…"
+			_caption(clip_button, "Making…")
 			report_label.text = "Making your clip…"
 	elif not cancelled:
 		report_label.text = "That's the clip! Share fight sends the link."
@@ -1901,12 +2139,12 @@ func _poll_clip() -> void:
 	clip_button.disabled = false
 	if status == "ready":
 		_clip_ready = true
-		clip_button.text = "Save video"
-		report_label.text = "Clip ready! Tap Save video, then post it."
+		_caption(clip_button, "Save")
+		report_label.text = "Clip ready! Tap Save, then post it."
 		_sync_share_targets()
 	else:
-		clip_button.text = "Save clip"
-		report_label.text = "Couldn't make the video this time. Tap Save clip to try again."
+		_caption(clip_button, "Clip")
+		report_label.text = "Couldn't make the video this time. Tap Clip to try again."
 	print("CLIP_", status.to_upper() if status != "" else "FAILED")
 
 
@@ -1916,7 +2154,7 @@ func _reset_clip() -> void:
 	_clip_hint = false
 	_clip_wait = false
 	clip_button.disabled = false
-	clip_button.text = "Save clip"
+	_caption(clip_button, "Clip")
 
 
 # --- Onboarding ----------------------------------------------------------------

@@ -69,6 +69,20 @@ func test_levels_are_capped_by_tier() -> void:
 	check_eq(p.best("vampire").xp, 0, "no xp banked at the cap")
 
 
+func test_xp_gain_and_chips_report_the_bar() -> void:
+	var p = Profile.new_game(T0)
+	var g: Dictionary = p.gain_xp("vampire", 35)
+	check_eq([g.from_level, g.from_xp, g.to_level, g.to_xp, g.levels], [1, 0, 3, 5, 2], "35 XP: 10 + 20 to level 3, 5 over")
+	check_eq(p.use_xp_chip("vampire"), {}, "no chips yet")
+	p.grant({"kind": "xp_chip", "n": 1})
+	var c: Dictionary = p.use_xp_chip("vampire")
+	check_eq(c.xp, Profile.XP_CHIP_XP, "a chip gives its XP")
+	check_eq(p.xp_chips(), 0, "and is spent")
+	check_eq(c.from_level, 3, "bar starts where it was")
+	var won := Campaign.finish(p, 0, 0, "vampire", {"winner": 1, "hp": [0.0, 1.0], "max_hp": 1.0, "time": 10.0})
+	check_eq(won.critters.size(), 1, "a result carries the fighter's XP bar")
+
+
 func test_energy_regenerates_and_stops_at_max() -> void:
 	var p = Profile.new_game(T0)
 	check(p.spend_energy(20, T0), "spend")
@@ -235,14 +249,15 @@ func test_zone_two_is_pairs_on_bumpers_after_the_zone_one_boss() -> void:
 	var cfg: Dictionary = Campaign.start_team(p, 1, 0, picks, T0)
 	check_eq(cfg.get("arena"), "bumpers", "fought on the Bumpers arena")
 	check_eq(cfg.sides[1].size(), 2, "two foes")
-	var relay := Relay.new(cfg)
-	var last = null
-	while not relay.finished:
-		last = MatchSim.new(relay.leg_config())
-		last.run_to_end()
-		relay.record_leg(last)
-	var r: Dictionary = Campaign.finish_team(p, 1, 0, picks, Campaign.relay_fight(relay, last))
-	check(r.has("won"), "the relay settles like a stage")
+	check(Campaign.is_pair(1, 0, picks), "pairs stages are a real 2v2, not a relay")
+	var duo: Dictionary = Campaign.pair_config(p, cfg)
+	check_eq([duo.p1, duo.p3], picks, "your pair is p1 and p3")
+	check_eq([duo.p2, duo.p4], Zones.enemies(Zones.stage(1, 0)), "the foes are p2 and p4")
+	var sim := MatchSim.new(duo)
+	check_eq(sim.starters, 4, "all four fight at once")
+	sim.run_to_end()
+	var r: Dictionary = Campaign.finish_team(p, 1, 0, picks, Campaign.pair_fight(sim))
+	check(r.has("won"), "the 2v2 settles like a stage")
 	if r.won:
 		check(Campaign.is_cleared(p, 1, 0), "a win clears 2-1")
 	p.stars["2-1"] = 3
@@ -264,6 +279,7 @@ func test_zone_three_is_trios_after_the_zone_two_boss() -> void:
 	var picks := Campaign.team_for(p, 3)
 	check_eq(picks.size(), 3, "a team of three")
 	check_eq(Campaign.start_team(p, 2, 0, picks, T0).get("arena"), "frost", "the zone's frozen lake by default")
+	check(not Campaign.is_pair(2, 0, picks), "trios stay relays")
 	p.energy = 999
 	p.stars["3-1"] = 1
 	p.stars["3-2"] = 1
@@ -280,3 +296,17 @@ func test_every_built_zone_has_fightable_foes_and_a_boss_last() -> void:
 			check(Arenas.PLAYABLE.has(st.get("arena", zone.get("arena", "square"))), "%s arena exists" % zone.name)
 			for id in Zones.enemies(st):
 				check(BallDefs.PLAYABLE.has(id), "%s foe %s can fight" % [zone.name, id])
+
+
+func test_later_zones_give_more_xp_per_stage() -> void:
+	check_eq(Campaign.win_xp(0, 0), Campaign.WIN_XP_BASE, "1-1 gives the base XP")
+	check_eq(Campaign.win_xp(6, 0), Campaign.WIN_XP_BASE * 7, "7-1 gives seven times that")
+	check(Campaign.win_xp(1, 10) > Campaign.win_xp(0, 10), "a zone 2 stage beats the same zone 1 stage")
+	check_eq(Campaign.loss_xp(3), Campaign.LOSS_XP * 4, "losses scale too")
+	var p = Profile.new_game(T0)
+	for z in 2:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	p.add_copies(["laser"])
+	var r: Dictionary = Campaign.finish(p, 2, 0, "laser", _win())
+	check_eq(r.xp, Campaign.win_xp(2, 0), "a win pays its zone's XP")

@@ -5,7 +5,7 @@
 ## Sources of copies are the ones the game has: campaign wins (meta/campaign.gd
 ## rules: a featured copy per win, a small next-rarity-up chance, the beaten
 ## enemy and the boss reward on first clears) and the Summon Portal, fed by
-## the Summon Orb income in meta/economy.gd. Energy follows meta/profile.gd:
+## the Summon Egg income in meta/economy.gd. Energy follows meta/profile.gd:
 ## a 60 bar, losses cost 1, and every account level refills the bar.
 ##
 ## What a player does each session: x10 summons while they have 10 orbs, then
@@ -179,13 +179,13 @@ func _run_stage(z: int, s: int) -> bool:
 		stats.energy += LOSS_COST
 		_account_xp(LOSS_COST)
 		for id in team:
-			_xp(id, LOSS_XP)
+			_xp(id, LOSS_XP * (z + 1)) # meta/campaign.gd loss_xp
 		return true
 	energy -= cost
 	stats.energy += cost
 	stats.wins += 1
 	for id in team:
-		_xp(id, WIN_XP_BASE + WIN_XP_PER_STAGE * s)
+		_xp(id, (WIN_XP_BASE + WIN_XP_PER_STAGE * s) * (z + 1)) # meta/campaign.gd win_xp
 	var drops: Array = []
 	var zd: Dictionary = cfg.zone_drops[z]
 	if rng.next_float() < cfg.campaign_drop:

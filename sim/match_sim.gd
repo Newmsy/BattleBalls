@@ -30,6 +30,8 @@
 ## `arena` (optional) is an id from sim/arenas.gd (default "square").
 ## `gear` (optional) is each ball's gear: a list of pieces or stat totals
 ## (sim/gear.gd), or null for none.
+## A boss id from sim/bosses.gd as p2 makes it a boss fight: the boss is
+## anchored, attacks from its own script and wins when its clock runs out.
 ## `talents` (optional) is each ball's faction talent picks {node: rank}
 ## (sim/talents.gd), or null for none; they're cleaned against its tier here.
 ##
@@ -50,6 +52,7 @@ const Gear := preload("res://sim/gear.gd")
 const Talents := preload("res://sim/talents.gd")
 const Weight := preload("res://sim/weight.gd")
 const DMath := preload("res://sim/dmath.gd")
+const Bosses := preload("res://sim/bosses.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
@@ -175,6 +178,7 @@ class Ball:
 	var lava_ready := 0 ## Tick lava may next burn it.
 	var portal_ready := 0 ## Tick it may next take a portal.
 	var floor_speed := 1.0 ## Ice under it (see ICE_SPEED).
+	var anchored := false ## A boss or a boss's egg: pinned to state.anchor (sim/bosses.gd).
 
 	func alive() -> bool:
 		return hp > 0.0
@@ -308,6 +312,7 @@ var end_reason := ""
 var ko_hp: Array[float] = [] ## On a double knockout, each ball's HP going into the final tick.
 var launch_angles: Array[int] = []
 var starters := 2 ## Balls the fight started with (4 in a 2v2); later ones are split-offs.
+var boss: Ball = null ## The boss in a boss fight (sim/bosses.gd), else null.
 ## Events produced by the most recent step(), for the renderer and tests.
 var events: Array[Dictionary] = []
 
@@ -349,8 +354,10 @@ func _init(cfg: Dictionary) -> void:
 	var rarity_potency: bool = cfg.get("rarity_potency", true)
 	for i in starters:
 		var kit := Gear.totals(gear[i])
-		var bonus := Power.rarity_tiers(str(BallDefs.DEFS[types[i]].get("rarity", ""))) if rarity_potency else 0.0
-		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(BallDefs.get_def(types[i], int(tiers[i]), bonus), float(powers[i])), kit), modifier)
+		var is_boss := Bosses.has(types[i])
+		var bonus := Power.rarity_tiers(str(BallDefs.DEFS[types[i]].get("rarity", ""))) if rarity_potency and not is_boss else 0.0
+		var raw := Bosses.sim_def(types[i]) if is_boss else BallDefs.get_def(types[i], int(tiers[i]), bonus)
+		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(raw, float(powers[i])), kit), modifier)
 		def = Modifiers.apply_arena_tweaks(def, arena_id)
 		if cfg.has("boons") and i < cfg.boons.size():
 			def = Boons.apply_to_def(def, cfg.boons[i])
@@ -379,7 +386,12 @@ func _init(cfg: Dictionary) -> void:
 		var aim: int = random_aim if angles[i] == null else int(angles[i])
 		launch_angles.append(aim)
 		b.vel = DMath.from_angle(deg_to_rad(aim / 10.0)) * b.speed
+		if is_boss:
+			Bosses.setup(b, cfg.get("boss", {}))
+			boss = b
 		balls.append(b)
+	if boss != null:
+		Bosses.bless(self, boss)
 
 
 ## `arr` padded to one entry per starting ball with `fill`.
@@ -565,7 +577,7 @@ func step() -> void:
 	if time() >= shrink_from:
 		var early: float = arena.get("shrink_speed", SHRINK_SPEED) * (time() - shrink_from)
 		var late := SHRINK_SPEED * maxf(0.0, time() - overtime_start)
-		half_size = maxf(MIN_HALF, ARENA_SIZE / 2.0 - maxf(early, late))
+		half_size = maxf(arena.get("min_half", MIN_HALF), ARENA_SIZE / 2.0 - maxf(early, late))
 
 	for b in balls:
 		b.slow = b.slow_amount if tick < b.slow_until else 0.0
@@ -580,6 +592,8 @@ func step() -> void:
 		for b in balls:
 			if b.alive():
 				abilities.fire(self, "always", b)
+	if boss != null and boss.alive():
+		Bosses.tick(self, boss)
 	if arena.has("wells"):
 		_update_wells()
 	if arena.has("floors"):
@@ -614,6 +628,8 @@ func step() -> void:
 				# A charge carries its own momentum: slows don't drag it.
 				b.pos += b.vel * DT * (1.0 - (b.slow if b.charge_ticks == 0 else 0.0))
 			_resolve_walls(b)
+	if boss != null:
+		Bosses.pin_all(self)
 	if not tethers.is_empty():
 		_update_tethers()
 	_resolve_ball_collisions(_hits)
@@ -636,6 +652,8 @@ func step() -> void:
 		if balls[i].alive():
 			abilities.tick_triggers(self, balls[i])
 
+	if boss != null:
+		Bosses.pin_all(self)
 	tick += 1
 	_check_end(hp_before)
 
@@ -858,21 +876,38 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			var mb := b.radius * b.radius
 			# Push apart in proportion to the other ball's mass.
 			var overlap := min_dist - dist
-			a.pos -= n * overlap * (mb / (ma + mb))
-			b.pos += n * overlap * (ma / (ma + mb))
+			# An anchored boss never moves: the other ball takes the whole push
+			# and bounces straight off it, as off a wall.
+			var anchored := -1 if boss == null else (0 if a.anchored else (1 if b.anchored else -1))
+			if a.anchored and b.anchored:
+				continue
+			if anchored < 0:
+				a.pos -= n * overlap * (mb / (ma + mb))
+				b.pos += n * overlap * (ma / (ma + mb))
+			elif anchored == 0:
+				b.pos += n * overlap
+			else:
+				a.pos -= n * overlap
 			var approach := (a.vel - b.vel).dot(n)
 			if approach <= 0.0:
 				continue
 			var stab := _backstabber(a.vel, b.vel, n)
 			# Share of the closing speed each ball supplied, from before the bounce.
 			var a_share := clampf(a.vel.dot(n) / approach, 0.0, 1.0)
-			var impulse := 2.0 * approach / (1.0 / ma + 1.0 / mb)
-			a.vel -= n * (impulse / ma)
-			b.vel += n * (impulse / mb)
+			if anchored < 0:
+				var impulse := 2.0 * approach / (1.0 / ma + 1.0 / mb)
+				a.vel -= n * (impulse / ma)
+				b.vel += n * (impulse / mb)
+			elif anchored == 0:
+				b.vel += n * 2.0 * approach
+			else:
+				a.vel -= n * 2.0 * approach
 			# Balls keep a constant speed: only direction changes.
 			a.vel = a.vel.normalized() * a.current_speed() if a.vel.length() > 0.001 else -n * a.current_speed()
 			b.vel = b.vel.normalized() * b.current_speed() if b.vel.length() > 0.001 else n * b.current_speed()
 			var contact := a.pos + n * a.radius
+			if anchored >= 0: # Bouncing off a boss counts as a wall bounce (Laser beams, Bomb mines...).
+				_on_wall_bounce(b if anchored == 0 else a, contact, true)
 			events.append({"type": "collide", "a": i, "b": j, "pos": contact})
 			abilities.fire(self, "bump", a, {"other": b})
 			abilities.fire(self, "bump", b, {"other": a})
@@ -1078,11 +1113,12 @@ func _boon_after_contact(source: Ball, target: Ball, amount: float, pos: Vector2
 		heals.append({"ball": source.index, "amount": amount * steal})
 
 
-## A team's HP: its starting ball's, plus what its mate and split-off balls have left.
+## A team's HP: its starting ball's, plus what its mate and split-off balls
+## have left (a boss's eggs and chicks don't count).
 func team_hp(team: int) -> float:
 	var hp := balls[team].hp
 	for i in range(2, balls.size()):
-		if balls[i].team == team:
+		if balls[i].team == team and not balls[i].def.get("minion", false):
 			hp += maxf(0.0, balls[i].hp)
 	return hp
 
@@ -1090,7 +1126,7 @@ func team_hp(team: int) -> float:
 func _team_max_hp(team: int) -> float:
 	var hp := balls[team].max_hp
 	for i in range(2, balls.size()):
-		if balls[i].team == team:
+		if balls[i].team == team and not balls[i].def.get("minion", false):
 			hp += balls[i].max_hp
 	return hp
 
@@ -1100,7 +1136,7 @@ func _team_max_hp(team: int) -> float:
 func _check_end(hp_before: Array[float]) -> void:
 	var standing := [false, false]
 	for b in balls:
-		if b.alive():
+		if b.alive() and not (boss != null and b.def.get("minion", false)):
 			standing[b.team] = true
 	if standing[0] != standing[1]:
 		_finish(0 if standing[0] else 1, "knockout")
@@ -1115,6 +1151,8 @@ func _check_end(hp_before: Array[float]) -> void:
 			_finish(-1, "double_knockout")
 		else:
 			_finish(0 if before[0] > before[1] else 1, "double_knockout")
+	elif boss != null and time() >= boss.def.time:
+		_finish(boss.team, "time_limit") # The boss outlasted you.
 	elif time() >= TIME_LIMIT:
 		var f0 := team_hp(0) / _team_max_hp(0)
 		var f1 := team_hp(1) / _team_max_hp(1)
@@ -1251,6 +1289,26 @@ func spawn_twin(parent: Ball, hp: float, radius_mult: float, speed_mult: float, 
 	b.pos = inside(parent.pos + DMath.rotated(dir, turn).orthogonal() * parent.radius, b.radius + 4.0)
 	parent.pos = inside(parent.pos - DMath.rotated(dir, turn).orthogonal() * parent.radius, parent.radius + 4.0)
 	balls.append(b)
+	return b
+
+
+## A boss's minion (an egg, a chick: sim/bosses.gd) on its team at `pos`,
+## with `def` and `hp`. Minions don't count toward their team's HP or keep a
+## fight going once their boss falls. Returns it (index 2 and up).
+func spawn_minion(owner: Ball, def: Dictionary, pos: Vector2, hp: float) -> Ball:
+	var b := Ball.new()
+	b.index = balls.size()
+	b.team = owner.team
+	b.type_id = def.id
+	b.def = def
+	b.radius = def.radius
+	b.speed = def.speed
+	b.max_hp = hp
+	b.hp = hp
+	b.contact_damage = def.contact_damage
+	b.pos = inside(pos, b.radius + 4.0)
+	balls.append(b)
+	events.append({"type": "spawn", "ball": b.index, "pos": b.pos})
 	return b
 
 

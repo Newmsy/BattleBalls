@@ -17,7 +17,7 @@ const LiveOps := preload("res://game/liveops.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
-const GearVault := preload("res://meta/gear_vault.gd")
+const BossesScreen := preload("res://game/ui/screens/bosses_screen.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -54,7 +54,7 @@ static func build(shell, _params: Dictionary) -> Control:
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"), "bounce"),
 		mode_tile(shell, "spire", "The Spire", "Floor %d/%d · weekly" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
 			func(): shell.go("spire"), "tower"),
-		_vault_tile(shell) if GearVault.is_unlocked(shell.profile) else _locked_tile(shell),
+		BossesScreen.tile(shell) if BossesScreen.any_open(shell.profile) else _locked_tile(shell),
 	]))
 
 	# Versus: other players' teams.
@@ -74,27 +74,33 @@ static func build(shell, _params: Dictionary) -> Control:
 ## The campaign: the main way forward, so it gets the first big card.
 static func _campaign_card(shell) -> Control:
 	var p = shell.profile
-	# Campaign card: Glow Garden progress and the way into the stage list.
+	# Campaign card: progress in the furthest zone you've opened, and its next stage.
 	var Zones := preload("res://meta/zones.gd")
 	var Campaign := preload("res://meta/campaign.gd")
-	var stages: Array = Zones.zone(0).stages
+	var z := 0
+	for zi in range(1, Zones.ZONES.size()):
+		if Campaign.is_unlocked(p, zi, 0): z = zi
+	var zd: Dictionary = Zones.zone(z)
+	var stages: Array = zd.stages
 	var cleared := 0
 	var star_total := 0
+	var next := -1
 	for i in stages.size():
-		cleared += 1 if Campaign.is_cleared(p, 0, i) else 0
-		star_total += Campaign.stars_of(p, 0, i)
-	var next_text := "All %d stages cleared. 3-star them to sweep." % stages.size()
-	if cleared < stages.size():
-		var st: Dictionary = stages[cleared]
-		next_text = "Next: %s %s · Recommended %s" % [Zones.stage_key(0, cleared), st.get("name", Roster.get_critter(st.enemy).name),
-			Kit.commas(Campaign.enemy_rating(0, cleared))]
+		if Campaign.is_cleared(p, z, i): cleared += 1
+		elif next < 0: next = i
+		star_total += Campaign.stars_of(p, z, i)
+	var next_text := "All %d stages cleared." % stages.size()
+	if next >= 0:
+		var st: Dictionary = stages[next]
+		next_text = "%d/%d cleared · Next: %s %s · Recommended %s" % [cleared, stages.size(), Zones.stage_key(z, next),
+			st.get("name", Roster.get_critter(st.enemy).name), Kit.commas(Campaign.enemy_rating(z, next))]
 	var open := Kit.button("Open the map", func(): shell.go("world"), "go", 30, 84)
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
-		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone 1 · The Neon Circuit", Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
-		Kit.hbox(10, [Kit.label("Glow Garden", 40), Kit.spacer(), Glyph.make("stars", 26, Kit.FG, 1),
+		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone %d · The Neon Circuit" % (z + 1), Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
+		Kit.hbox(10, [Kit.label(zd.name, 40), Kit.spacer(), Glyph.make("stars", 26, Kit.FG, 1),
 			Kit.label("%d/%d" % [star_total, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
-		Kit.label(next_text if cleared == stages.size() else "%d/%d stages cleared. %s" % [cleared, stages.size(), next_text], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label(next_text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 		open,
 	])
 	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 36, 2, 24)
@@ -184,21 +190,12 @@ static func mode_card(shell, mark: String, caption: String, title: String, _text
 	return mode_tile(shell, mark, title, caption, accent, on_press)
 
 
-## Critter Hunts, Training Gym and Gear Vault open after zone 1: one tile.
+## The farming bosses open from Zone 1 stage 5 (the Piñata Titan first).
 static func _locked_tile(shell) -> Control:
-	var t := mode_tile(shell, "locked_dailies", "Hunts · Gym · Vault", "After zone 1", Kit.MUTED,
-		shell.info.bind("After zone 1", ["Beat Mega Boulder, the zone 1 boss, to open three daily modes:",
-			"Critter Hunts: copies of one critter to fuse.", "Training Gym: XP for levels.", "Gear Vault: Shells and Cores."]), "lock")
+	var t := mode_tile(shell, "locked_dailies", "Bosses", "After stage 1-5", Kit.MUTED,
+		shell.info.bind("Bosses", ["Clear stage 1-5 to open the boss fights, one by one as you go:",
+			"Piñata Titan: smash it for coins.", "Anvil King: gear and Hammers.", "Brood Queen: Summon Eggs."]), "lock")
 	return t
-
-
-## Gear Vault, once zone 1 is beaten: today's slot and runs left.
-static func _vault_tile(shell) -> Control:
-	var now := int(Time.get_unix_time_from_system())
-	var slot: String = GearVault.today(now).slot
-	var left := GearVault.runs_left(shell.profile, now)
-	var line := "%s · %d runs left" % ["Any gear" if slot == "" else slot + "s", left] if left > 0 else "Done for today"
-	return mode_tile(shell, "vault", "Gear Vault", line, Color("5ce1ff") if left > 0 else Kit.MUTED, func(): shell.go("vault"), "vault")
 
 
 static func _pass_tile(shell) -> Control:

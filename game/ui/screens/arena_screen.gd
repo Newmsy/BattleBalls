@@ -6,6 +6,7 @@ extends RefCounted
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
+const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
@@ -18,6 +19,8 @@ const Families := preload("res://sim/families.gd")
 
 const CARD_COLORS := {"easier": Kit.GOOD, "even": Kit.ACCENT, "harder": Kit.WARN}
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
+## Below this screen height (an iPhone SE) opponents are one-line rows.
+const COMPACT_HEIGHT := 1500.0
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -43,8 +46,8 @@ static func build(shell, params: Dictionary) -> Control:
 		"Your trio fights theirs in order; their order stays hidden until each ball comes out. A winner stays in with the HP it has left. Each ball's last shot is saved for your ghost.",
 		"Tap a trio slot to pick a critter you own. Each critter fits in a trio once; picking one already in it swaps the two. Best trio fills in your strongest three.",
 		"Opponents are themed teams sized to your trio's power, a little stronger the more trophies you have. Easier cards risk fewer trophies, harder ones win more. One free refresh a day.",
-		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Arena Coins for the Bazaar.",
-		"Set your Defence trio: each day a few teams raid it. Holding wins trophies and coins.",
+		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Tokens for the Bazaar.",
+		"Set your Defence trio: each day a few teams raid it. Holding wins trophies and Tokens.",
 	]
 	for h in store.history.slice(0, 5):
 		how.append("%s vs %s (%+d)" % ["Won" if h.won else "Lost", str(h.name), int(h.delta)])
@@ -61,7 +64,7 @@ static func build(shell, params: Dictionary) -> Control:
 	if Intro.shows(p, "trophy"):
 		rooms.add_child(_room(shell, "arena_boosts", "trophy", "Trophy Room", "%s pts" % Kit.commas(store.points), Kit.WARN, func(): shell.go("boosts", {"store": store})))
 	if Intro.done(p):
-		rooms.add_child(_room(shell, "arena_bazaar", "coin", "Bazaar", "%s coins" % Kit.commas(store.coins), Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})))
+		rooms.add_child(_room(shell, "arena_bazaar", "token", "Bazaar", "%s tokens" % Kit.commas(store.coins), Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})))
 		rooms.add_child(_room(shell, "arena_defence", "shield", "Defence", "Held %d/%d" % [held_today, store.raids.size()] if not store.raids.is_empty() else "Set trio", Kit.GOOD, func(): shell.go("defence", {"store": store})))
 	if rooms.get_child_count() > 0:
 		root.add_child(rooms)
@@ -77,8 +80,10 @@ static func build(shell, params: Dictionary) -> Control:
 	shell.mark("arena_refresh", refresh_btn)
 	root.add_child(Kit.hbox(0, [Kit.caption("Pick an opponent"), Kit.spacer(), refresh_btn]))
 	var cards: Array[Dictionary] = store.offers(shell.profile)
+	# Short phones get one-line rows so all three cards fit.
+	var compact: bool = shell.size.y < COMPACT_HEIGHT
 	for i in cards.size():
-		var btn := _opponent_card(shell, store, cards[i])
+		var btn := _opponent_row(shell, store, cards[i]) if compact else _opponent_card(shell, store, cards[i])
 		shell.mark("arena_card_%d" % i, btn)
 		root.add_child(btn)
 
@@ -96,7 +101,7 @@ static func _league_panel(store) -> Control:
 		frac = float(t - lg.min) / float(nxt.min - lg.min)
 		next_text = "%d to %s" % [nxt.min - t, nxt.name]
 	var v := Kit.vbox(8, [
-		Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), Glyph.make("stars", 30), Kit.label(Kit.commas(t), 34)], BoxContainer.ALIGNMENT_CENTER),
+		Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), Glyph.make("trophy", 34, Glyph.GOLD), Kit.label(Kit.commas(t), 34)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.bar(frac, lg.color),
 		Kit.hbox(0, [Kit.label(next_text, 22, Kit.MUTED), Kit.spacer(), Kit.label("%d W · %d L" % [store.wins, store.losses], 22, Kit.MUTED)]),
 	])
@@ -178,14 +183,40 @@ static func _opponent_card(shell, store, offer: Dictionary) -> Button:
 	var info := Kit.vbox(4, [
 		Kit.hbox(8, [Kit.chip(card.name, col), Kit.chip(Families.info(fam).name if fam != "" else "Arena Ghost", fam_col)]),
 		_fit(Kit.label(str(bot.name), 28)),
-		Kit.hbox(6, [Kit.power(ArenaTeams.rating(bot), 22), Kit.label("·  +%d / %d" % [card.win, card.loss], 22, Kit.MUTED)]),
+		Kit.hbox(6, [Kit.power(ArenaTeams.rating(bot), 22), Kit.label("·", 22, Kit.MUTED), _delta(card, 22)]),
 	])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(10, [info, icons])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	return Kit.card_button(row, func():
-		store.start_attack(offer.card, bot, randi_range(1, 0x7FFFFFFF), store.slots(shell.profile))
-		shell.get_tree().change_scene_to_file(FIGHT_SCENE), col, Kit.PANEL, 28, 12)
+	return Kit.card_button(row, _attack.bind(shell, store, offer), col, Kit.PANEL, 28, 12)
+
+
+## The same opponent on one line: card chip, team name in its family colour,
+## their three faces and the trophies at stake.
+static func _opponent_row(shell, store, offer: Dictionary) -> Button:
+	var bot: Dictionary = offer.bot
+	var card: Dictionary = Ladder.CARDS[offer.card]
+	var col: Color = CARD_COLORS[offer.card]
+	var fam: String = bot.get("family", "")
+	var name := _fit(Kit.label(str(bot.name), 22, Color(Families.info(fam).color) if fam != "" else Kit.FG))
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var faces := Kit.hbox(0)
+	var slots: Array = bot.lineup.slots.duplicate()
+	slots.sort_custom(func(a, b): return str(a.critter) < str(b.critter))
+	for s in slots:
+		faces.add_child(CritterIcon.make(s.critter, int(s.get("tier", 1)), 44))
+	var row := Kit.hbox(8, [Kit.chip(card.name, col, 16), name, faces, _delta(card, 18)], BoxContainer.ALIGNMENT_CENTER)
+	return Kit.card_button(row, _attack.bind(shell, store, offer), col, Kit.PANEL, 22, 8)
+
+
+## "+18 / -20" with the trophy cup.
+static func _delta(card: Dictionary, size: int) -> Control:
+	return Kit.hbox(3, [Kit.glyph("trophy", size, Glyph.GOLD), Kit.label("+%d / %d" % [card.win, card.loss], size, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+
+
+static func _attack(shell, store, offer: Dictionary) -> void:
+	store.start_attack(offer.card, offer.bot, randi_range(1, 0x7FFFFFFF), store.slots(shell.profile))
+	shell.get_tree().change_scene_to_file(FIGHT_SCENE)
 
 
 ## A label that ends in "..." rather than widening the screen.

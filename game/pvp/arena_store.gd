@@ -24,7 +24,7 @@ const Gear := preload("res://sim/gear.gd")
 const SAVE_PATH := "user://ghost_arena.cfg"
 const HISTORY_SIZE := 10
 const FREE_REFRESHES := 1
-## Arena Coins won per attack (by card) and per lost attack, and per raid
+## Tokens (Arena Coins in code and saves) won per attack (by card) and per lost attack, and per raid
 ## your defence holds. Spent only in the Bazaar.
 const COINS_WIN := {"easier": 10, "even": 15, "harder": 25}
 const COINS_LOSS := 3
@@ -55,7 +55,7 @@ var boosts: Dictionary = {} ## {family: {line: level}}
 ## The trio other players (and, offline, the daily raids) fight. Same rules
 ## as `trio`: three different owned critters.
 var defence: Array = ["vampire", "laser", "spiker"]
-var coins := 0 ## Arena Coins to spend in the Bazaar.
+var coins := 0 ## Tokens to spend in the Bazaar (shown as Tokens).
 var coins_earned := 0
 var bazaar_day := 0
 var bought: Array = [] ## Bazaar item indexes bought on bazaar_day.
@@ -365,8 +365,8 @@ static func _angles(offsets: Array, n: int, side: int) -> Array:
 	return out
 
 
-## Today's Bazaar stock: gear at your league's tier plus Summon Orbs and an
-## energy refill, all for Arena Coins. Each item sells once a day.
+## Today's Bazaar stock: gear at your league's tier plus Summon Eggs and an
+## energy refill, all for Tokens. Each item sells once a day.
 func bazaar(day: int = today()) -> Array:
 	var rng = Rng.new(hash("bazaar|%d" % day))
 	var tier := clampi(1 + Ladder.league_index(maxi(trophies, peak)), 1, 5)
@@ -376,7 +376,7 @@ func bazaar(day: int = today()) -> Array:
 		var t: String = types.pop_at(rng.range_int(0, types.size() - 1))
 		var gt := clampi(tier - 1 + n / 2, 1, 5)
 		out.append({"kind": "gear", "type": t, "tier": gt, "name": Gear.PIECES[t].name, "price": 40 + 40 * gt})
-	out.append({"kind": "orbs", "n": 1, "name": "Summon Orb", "price": 120})
+	out.append({"kind": "orbs", "n": 1, "name": "Summon Egg", "price": 120})
 	out.append({"kind": "energy", "n": 30, "name": "Energy +30", "price": 50})
 	return out
 

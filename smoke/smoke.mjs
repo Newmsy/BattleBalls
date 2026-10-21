@@ -271,7 +271,8 @@ try {
     await tapUi(page, logs, "tab_bag", "bag");
     await tapUi(page, logs, "gear_5", "sheet");
     await page.screenshot({ path: path.join(shots, "3f-bag-sheet.png") });
-    await tapUi(page, logs, "equip_juggernaut", "bag");
+    await tapUi(page, logs, "gear_equip", "sheet");
+    await tapUi(page, logs, "pick_juggernaut", "bag");
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
     // Three 1-star Bubble Shells now: Merge all makes a 2-star (design/gear.md).
     await tapUi(page, logs, "merge_all", "bag");
@@ -755,6 +756,107 @@ try {
   if (mine(19)) {
     const { page, logs } = await openGame("?pve=1-4&auto=1&speed=4&offline=1");
     console.log("url stage:", await waitForLog(logs, "STAGE_END", 120000));
+    await page.close();
+  }
+
+  // 14b. The Anvil King (design/bosses.md): the boss screen, then an Easy
+  // fight on The Forge through to its rewards.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&screen=vault&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN vault", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "31-anvil-king.png") });
+    await tapUi(page, logs, "vault_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("boss fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "32-anvil-king-fight.png") });
+    console.log("boss end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14c. The Brood Queen: her screen, then an Easy fight on The Nest.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=2&screen=nest&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN nest", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "33-brood-queen.png") });
+    await tapUi(page, logs, "nest_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("queen fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(6000);
+    await page.screenshot({ path: path.join(shots, "34-brood-queen-fight.png") });
+    console.log("queen end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14d. The boss hall, then the Piñata Titan: a 30 second smash on Fiesta Plaza.
+  if (mine(25)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=2&screen=bosses&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN bosses", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "35-boss-hall.png") });
+    await tapUi(page, logs, "boss_pinata");
+    await waitForLog(logs, "UI_SCREEN pinata", 10000);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(shots, "36-pinata.png") });
+    await tapUi(page, logs, "pinata_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("pinata fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "37-pinata-fight.png") });
+    console.log("pinata end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14e. The Totem of Nine: its screen, then an Easy fight in the Spirit Shrine.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=3&screen=totem&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN totem", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "38-totem.png") });
+    await tapUi(page, logs, "totem_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("totem fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(shots, "39-totem-fight.png") });
+    console.log("totem end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14f. The Prism Wyrm: its screen, then an Easy fight in the Crystal Rift.
+  if (mine(40)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=4&screen=wyrm&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN wyrm", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "40-wyrm.png") });
+    await tapUi(page, logs, "wyrm_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("wyrm fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(shots, "41-wyrm-fight.png") });
+    console.log("wyrm end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14g. The Glitch: its screen, then the weekly fight in the Corrupted Core.
+  if (mine(40)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=5&screen=glitch&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN glitch", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "42-glitch.png") });
+    await tapUi(page, logs, "glitch_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("glitch fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(shots, "43-glitch-fight.png") });
+    console.log("glitch end:", await waitForLog(logs, "BOSS_END", 120000));
     await page.close();
   }
 

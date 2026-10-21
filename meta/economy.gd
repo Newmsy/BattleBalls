@@ -1,9 +1,9 @@
-## Economy tuning: summon odds, drop tables and Summon Orb income, plus the
+## Economy tuning: summon odds, drop tables and Summon Egg income, plus the
 ## pacing targets they have to hit (design/pve.md section 6). One place for the
 ## numbers so the campaign, the Summon Portal and the economy model agree.
 ##
 ## Rules this file must keep (design/monetisation.md): money never buys power,
-## Summon Orbs are earned only, spare copies never turn into XP.
+## Summon Eggs are earned only, spare copies never turn into XP.
 ##
 ## meta/economy_model.gd plays simulated casual, regular and heavy players
 ## through these numbers; tools/economy_sim.gd prints the report and
@@ -35,7 +35,7 @@ const MAX_TIER := 5
 const SUMMON_ODDS := {"common": 50.0, "uncommon": 28.0, "rare": 15.0, "epic": 5.5, "legendary": 1.5}
 const PITY_RESET := 50
 
-## Summon Orb income. All earned by playing (never sold): a x10 costs 10.
+## Summon Egg income. All earned by playing (never sold): a x10 costs 10.
 ## Steady and small, so the first Legendary lands in week 2 and summons stay
 ## a treat next to campaign drops.
 const STARTER_ORBS := 10
@@ -46,7 +46,7 @@ const ORBS_PER_ACCOUNT_LEVEL := 0 ## Account levels already refill energy.
 
 ## Campaign drops (Newms 2026-10-15: "heavier on orbs, 25% for a specific
 ## critter"): a win drops a copy of one of the zone's featured critters with
-## this chance, otherwise ORBS_CAMPAIGN_WIN Summon Orbs. That copy is the
+## this chance, otherwise ORBS_CAMPAIGN_WIN Summon Eggs. That copy is the
 ## zone's next-rarity-up critter instead with the bonus chance. First clears
 ## always add the beaten enemy; a boss's first clear adds its guaranteed reward.
 const CAMPAIGN_DROP_CHANCE := 0.25
@@ -76,10 +76,13 @@ const ZONE_DROPS := [
 const ZONE1_AS_BUILT := {"featured": ["spiker", "speedster", "vampire", "juggernaut"], "bonus": ["laser"], "boss": "laser",
 	"enemies": ["spiker", "speedster", "vampire", "juggernaut", "spiker", "speedster", "juggernaut", "vampire", "spiker", "speedster", "juggernaut"]}
 
-## Gear (design/gear.md). Coins to merge three pieces into a piece of each
-## tier (index 0 is 1 star, which is never merged into). Coins are earned
-## only, so this is a progression sink, never a price.
-const GEAR_MERGE_COST := [0, 50, 150, 400, 1000]
+## Gear (design/gear.md, design/bosses.md). Hammers to merge three pieces of
+## a tier into one of the next (index 0 is 1 star, which is never merged into).
+## Hammers come from the Anvil King (meta/gear_vault.gd), earned only, never sold.
+const GEAR_MERGE_COST := [0, 2, 4, 8, 16]
+## Every save starts with these (and older saves get them once), so the first
+## merges from campaign gear don't wait for the Anvil King.
+const STARTER_HAMMERS := 10
 ## A campaign win drops a piece this often (Newms 2026-10-15: 20%), better on
 ## later stages and zones (gear_tier); a boss's first clear always drops one
 ## at GEAR_BOSS_TIER, plus one more star per zone.
@@ -163,3 +166,6 @@ static func rarity_multiplier(rarity: String) -> float:
 ## Power multiplier of a critter, 1.0 for a T1 level 1 Common (sim/power.gd).
 static func power(rarity: String, tier: int, level: int) -> float:
 	return rarity_multiplier(rarity) * pow(TIER_STEP, tier - 1) * (1.0 + LEVEL_STEP * (level - 1))
+
+## Lures (from the Prism Wyrm) a guaranteed copy of a wishlisted critter costs, by rarity.
+const LURE_COST := {"common": 1, "uncommon": 2, "rare": 4, "epic": 8, "legendary": 16}

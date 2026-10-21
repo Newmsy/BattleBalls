@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const LazyTile := preload("res://game/ui/lazy_tile.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
@@ -61,10 +62,12 @@ static func build(shell, _params: Dictionary) -> Control:
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 14)
 	var seen := {}
-	for k in shown:
+	for i in shown.size():
+		var k: Dictionary = shown[i]
 		var n: int = seen.get(k.id, 0)
 		seen[k.id] = n + 1
-		grid.add_child(_tile(shell, k, "tile_" + k.id + ("" if n == 0 else "_%d" % n)))
+		var mark_as: String = "tile_" + k.id + ("" if n == 0 else "_%d" % n)
+		grid.add_child(LazyTile.wrap(func(): return _tile(shell, k, mark_as), i, 15))
 	root.add_child(grid)
 	return root
 

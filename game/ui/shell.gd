@@ -36,6 +36,12 @@ const SCREENS := {
 	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
 	"spire": preload("res://game/ui/screens/spire_screen.gd"),
 	"vault": preload("res://game/ui/screens/vault_screen.gd"),
+	"nest": preload("res://game/ui/screens/nest_screen.gd"),
+	"pinata": preload("res://game/ui/screens/pinata_screen.gd"),
+	"totem": preload("res://game/ui/screens/totem_screen.gd"),
+	"wyrm": preload("res://game/ui/screens/wyrm_screen.gd"),
+	"glitch": preload("res://game/ui/screens/glitch_screen.gd"),
+	"bosses": preload("res://game/ui/screens/bosses_screen.gd"),
 	"factions": preload("res://game/ui/screens/factions_screen.gd"),
 	"faction": preload("res://game/ui/screens/faction_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
@@ -74,10 +80,12 @@ var friends = Friends.new()
 var account = null
 ## Where invite links point: main.gd sets the page's own address on the web.
 var link_base := FightLink.HOME
+var build_stamp := "" ## "v0.2.0 abc1234 · account": shown at the foot of Settings, never in a fight.
 ## Emitted when a campaign stage starts; energy is already spent.
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
-## Emitted when a Gear Vault run starts; energy and the run are already spent.
-signal vault_requested(config: Dictionary, difficulty: int, fighter: String)
+## Emitted when a farming boss run starts from its screen ("vault" Anvil King,
+## "nest" Brood Queen, "pinata" Piñata Titan, "totem" Totem of Nine, "wyrm" Prism Wyrm, "glitch" The Glitch); energy and the run are already spent.
+signal boss_requested(config: Dictionary, difficulty: int, fighter: String, screen: String)
 
 var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.

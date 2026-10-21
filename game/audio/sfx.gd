@@ -103,7 +103,15 @@ var toggle_hidden := false:
 	set(v):
 		toggle_hidden = v
 		if _toggle:
-			_toggle.visible = not v
+			_toggle.visible = not (toggle_hidden or in_fight)
+## Hidden during fights too, so the fight screen stays the fight's.
+var in_fight := false:
+	set(v):
+		if v == in_fight:
+			return
+		in_fight = v
+		if _toggle:
+			_toggle.visible = not (toggle_hidden or in_fight)
 var _board: Control
 
 
@@ -125,6 +133,13 @@ func _ready() -> void:
 	get_tree().node_added.connect(_on_node_added)
 	if OS.has_feature("web") and "sounds=1" in str(JavaScriptBridge.eval("window.location.search", true)):
 		show_board.call_deferred()
+
+
+## Native apps: no sound while the app is in the background (the web build
+## suspends its audio from game/web/shell.html when the page is hidden).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_RESUMED:
+		AudioServer.set_bus_mute(0, what == NOTIFICATION_APPLICATION_PAUSED)
 
 
 func _process(delta: float) -> void:

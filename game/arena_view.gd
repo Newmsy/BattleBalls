@@ -4,7 +4,9 @@
 extends Node2D
 
 const Dot := preload("res://game/dot.gd")
+const BossArt := preload("res://game/boss_art.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
+const Bosses := preload("res://sim/bosses.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
@@ -38,7 +40,7 @@ const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": 
 ## Pulse and blast ring colours by kind.
 const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"),
 	"zap": Color("c9a6ff"), "bigzap": Color("f0e2ff"), "drum": Color("ff5a6a"), "wind": Color("c7f9cc"), "ink": Color("8a5cc8"), "stink": Color("9be36b"),
-	"shell": Color("ffb347"), "blob": Color("7cff6b"),
+	"shell": Color("ffb347"), "blob": Color("7cff6b"), "hammer": Color("ff8a3d"), "quake": Color("ffd166"), "lash": Color("7af0ff"),
 	"shards": Color("cdf3ff"), "paint": Color("ffd23f"), "confetti": Color("f15bb5"), "thunder": Color("8ecbff"),
 	"bugflare": Color("e8ff7a"), "candy": Color("ff9de2"), "inkslam": Color("b36bff"), "wave": Color("5ff0e6"), "quasar": Color("e0b3ff"),
 	"glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968"),
@@ -98,6 +100,7 @@ const BANNER_LIFE := 1.6
 const LOW_HP_SHARE := 0.35
 
 var sim: MatchSim
+var _tag_at := {} ## Ball index -> where its tag is drawn this frame (_place_tags).
 var team_tags: Array = TEAM_TAGS ## Labels under each ball; a shared replay uses P1/P2.
 ## The sim side the viewer plays: a live match puts you on side 1 half the
 ## time, and the rings, tags and aim line follow you, not the sim's order.
@@ -321,6 +324,11 @@ func consume_events(events: Array[Dictionary]) -> void:
 					elif a.type_id == "juggernaut" and e.kind in ["contact", "slam"]:
 						_shake = maxf(_shake, (10.0 if e.kind == "slam" else 7.0) * A11y.motion())
 						_rings.append({"pos": e.pos, "radius": a.radius * (1.4 if e.kind == "slam" else 0.9), "color": RING_COLORS.dirt, "age": 0.0})
+				if t.type_id == "pinata_titan": # Coins pop out; a crit is a candy shower.
+					_burst(e.pos, 14 if e.get("crit", false) else 4, [Color("ffd166"), Color("ffb627")] if not e.get("crit", false) else [Color("ff6fae"), Color("5ce1ff"), Color("7cff9b"), Color("ffd166")],
+						Vector2(160.0, 420.0), Vector2.ZERO, TAU, Vector2(4.0, 7.0), 180.0)
+					if e.get("crit", false):
+						_add_popup(t.pos + Vector2(-60, -t.radius - 60), "CANDY!", Color("ff6fae"), 1.15)
 				if t.type_id == "crumb": # Bits of cookie fly off.
 					for i in 5:
 						_particles.append({"pos": e.pos, "vel": _rand_dir() * _fx_rng.randf_range(90.0, 300.0) + Vector2(0, 120), "age": 0.0, "life": 0.7, "col": Color("c68642"), "size": 5.0})
@@ -400,11 +408,26 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_novas.append({"pos": e.pos, "radius": e.radius, "color": Color("c58bff") if owner_type == "blackhole" else Color("ffd6a5"), "age": 0.0})
 				else:
 					_rings.append({"pos": e.pos, "radius": e.radius, "color": RING_COLORS.get(e.get("kind", "boom"), BURST), "age": 0.0})
-				if e.type == "boom" or e.get("kind", "") in ["nova", "fire", "bigzap", "drum"]:
+				if e.type == "boom" or e.get("kind", "") in ["nova", "fire", "bigzap", "drum", "hammer", "quake"]:
 					_shake = maxf(_shake, 8.0 * A11y.motion())
 					_spawn_particles(e.pos, 14)
 			"reflect":
 				_flashes.append({"from": e.from, "to": e.to, "age": 0.0})
+			"egg_crack": # A Brood Queen egg broken before it hatched: more orbs.
+				_add_popup(e.pos + Vector2(-44, -50), "CRACK! x%d" % e.cracked, Color("fff1d6"), 1.1)
+				_spawn_particles(e.pos, 10)
+			"egg_hatch":
+				_add_popup(e.pos + Vector2(-30, -50), "PEEP!", Color("ffe066"))
+			"glitch_phase": # The Glitch rewrote the rules.
+				_add_popup(e.pos + Vector2(-70, -130), {"static": "STATIC!", "warp": "WARP!", "pull": "PULL!"}.get(e.phase, "GLITCH!"), Color("7cff4f"), 1.3)
+				_shake = maxf(_shake, 6.0 * A11y.motion())
+			"glitch_warp":
+				_burst(e.pos, 16, [Color("7cff4f"), Color("ff4fd8")], Vector2(140.0, 380.0))
+			"wyrm_shine": # The Prism Wyrm's weak spot moved.
+				_rings.append({"pos": e.pos, "radius": 60.0, "color": Color("7af0ff"), "age": 0.0})
+			"boss_fizzle": # A stun cancelled the boss's wind-up.
+				_add_popup(e.pos + Vector2(-50, -60), "FIZZLE!", POP_SNAP, 1.15)
+				_spawn_particles(e.pos, 8)
 			"overcharge": # A Legendary Bounce Run boon: every 3rd bump hits double.
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-60, -g.radius - 40), "OVERCHARGE!", POP_SNAP)
@@ -650,6 +673,12 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_add_popup(g.pos + Vector2(-40, -g.radius - 40), text, POP_CRIT if e.prizes.size() > 1 else POP_SNAP, 1.2 if e.prizes.size() > 1 else 1.0)
 			"end":
 				for b in sim.balls:
+					if not b.alive() and b.def.get("boss", false):
+						_fx.append({"kind": "boss_death", "id": b.def.id, "pos": b.pos, "r": b.radius, "age": 0.0, "life": BossArt.DEATH_LIFE})
+						_burst(b.pos, 40, BossArt.DEATH_COLORS.get(b.def.id, [Color.WHITE]), Vector2(200.0, 620.0), Vector2.ZERO, TAU, Vector2(4.0, 9.0))
+						_add_popup(b.pos + Vector2(-90, -b.radius - 50), "BOSS DOWN!", POP_CRIT, 1.5)
+						_shake = 18.0 * A11y.motion()
+						continue
 					if not b.alive():
 						_spawn_particles(b.pos, 36)
 						_shake = 10.0 * A11y.motion()
@@ -794,6 +823,7 @@ func _draw() -> void:
 		for i in n:
 			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
 			_draw_critter(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
+		_tag_at.clear()
 		for i in n:
 			var def := BallDefs.get_def(preview_types[i])
 			_draw_overlay(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
@@ -933,6 +963,8 @@ func _draw() -> void:
 				BattleFx.draw_bubble_trail(self, ball_pos(b) * s, b.radius * s, b.vel, b.vel.length() / base_speed, _time)
 			elif base_speed > 0.0:
 				BattleFx.draw_speed_blur(self, Color(b.def.color), ball_pos(b) * s, b.radius * s, b.vel, b.vel.length() / base_speed, _time)
+	if sim.boss != null and sim.boss.def.id == "prism_wyrm" and sim.boss.alive():
+		_draw_wyrm_spine(sim.boss, s)
 	for b in sim.balls:
 		if b.alive() and b.type_id == "leviathan" and sim.tick < int(b.state.get("dive_until", -1)):
 			BattleFx.draw_fin(self, ball_pos(b) * s, b.radius * s, b.vel, _time)
@@ -976,6 +1008,7 @@ func _draw() -> void:
 
 	# Readability layer: team rings, tags and HP badges sit on top of every
 	# cosmetic (design/monetisation.md §1 rule 3).
+	_place_tags(s, ko_ball)
 	for b in sim.balls:
 		if b.alive() or b.index == ko_ball:
 			_draw_overlay(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
@@ -1398,6 +1431,11 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	var squash := Transform2D(Vector2(1.0 - sq * 0.6, 0), Vector2(0, 1.0 + sq * 0.5), Vector2.ZERO)
 	draw_set_transform_matrix(Transform2D(0, pos + shake) * Transform2D(ang, Vector2.ZERO) * squash * Transform2D(-ang, Vector2.ZERO))
 
+	if def.get("boss", false) or def.get("minion", false):
+		if not ko: # A beaten boss is drawn by its KO burst ("boss_death").
+			_draw_boss(i, def, r)
+		draw_set_transform(shake)
+		return
 	Dot.circle(self, Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
 	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
@@ -1417,15 +1455,104 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	draw_set_transform(shake)
 
 
+## The Prism Wyrm's body: a crystal band from its head down through its
+## scales to the tail, so the separate pieces read as one serpent.
+func _draw_wyrm_spine(wyrm, s: float) -> void:
+	var pts := PackedVector2Array([ball_pos(wyrm) * s])
+	for idx in wyrm.state.get("scales", []):
+		if idx < sim.balls.size():
+			pts.append(ball_pos(sim.balls[idx]) * s)
+	if pts.size() < 2:
+		return
+	Dot.pline(self, pts, Color("1d3550", 0.85), wyrm.def.segment_radius * s * 1.3, true)
+	Dot.pline(self, pts, Color(BossArt.PRISM, 0.35 + 0.15 * sin(_time * 3.0)), maxf(2.0, 6.0 * s), true)
+
+
+## A farming boss (sim/bosses.gd), posed by what its script is doing.
+func _draw_boss(i: int, def: Dictionary, r: float) -> void:
+	var b := sim.balls[i]
+	var opts := {"t": _time + i, "hit": _hit[i], "hp_frac": b.hp / b.max_hp, "stunned": sim.stunned(b)}
+	if b.vel.length() > 1.0:
+		opts.face = b.vel.normalized()
+	elif def.id == "brood_queen": # She glides by moving her anchor: face along the loop.
+		opts.face = Vector2.from_angle(def.glide_start + b.state.clock * def.glide_speed + PI / 2.0)
+	if def.id == "pinata_titan": # Its rope, up to where it hangs from.
+		opts.pivot = def.pivot - b.pos
+	if def.id == "totem_of_nine":
+		opts.family = b.state.get("family", "")
+	if def.id == "prism_wyrm":
+		opts.lit = int(b.state.get("shine", 0)) == 0
+		opts.face = (Bosses._wyrm_at(def, b.state.clock + 0.1) - b.pos).normalized()
+	elif def.id == "the_glitch":
+		opts.phase = Bosses.GLITCH_PHASES[maxi(0, int(b.state.get("phase", 0)))]
+	elif def.id == "wyrm_scale" and sim.boss != null:
+		opts.lit = int(b.state.get("order", -1)) == int(sim.boss.state.get("shine", 0))
+	if b.state.has("hatch_at"):
+		opts.hatch = clampf(1.0 - (b.state.hatch_at - sim.tick) / (sim.boss.def.get("egg_hatch", 5.0) * sim.TICK_RATE), 0.0, 1.0) if def.id == "brood_egg" else 1.0
+	var act: Dictionary = b.state.get("act", {})
+	if act.get("kind", "") == "slam" and act.shot != null:
+		opts.swing = clampf(act.shot.age / act.shot.flight, 0.0, 1.0)
+	elif act.get("kind", "") == "volley":
+		opts.volley = clampf(1.0 - (act.at - b.state.clock) / maxf(def.get("volley_windup", 1.0), 0.01), 0.0, 1.0)
+	elif act.get("kind", "") == "quake":
+		opts.quake = clampf(1.0 - (act.at - b.state.clock) / maxf(def.get("quake_windup", 1.0), 0.01), 0.0, 1.0)
+	elif act.has("at"): # Any other wind-up: the lash, a warp, a pulse.
+		var windup: float = def.get({"lash": "lash_windup", "warp": "warp_windup", "gpulse": "pulse_windup"}.get(act.kind, ""), 1.0)
+		opts.charge = clampf(1.0 - (act.at - b.state.clock) / maxf(windup, 0.01), 0.0, 1.0)
+	if def.id == "brood_queen" and b.state.has("next_feather"): # The last half second before a feather volley.
+		opts.charge = clampf(1.0 - (b.state.next_feather - b.state.clock) / 0.5, 0.0, 1.0)
+	if def.get("boss", false) and sim.balls[0].alive():
+		opts.look = (sim.balls[0].pos - b.pos).normalized()
+	BossArt.draw(self, def.id, Vector2.ZERO, r, opts)
+
+
 ## Team ring, tag and HP badge: drawn after everything else (cosmetics
 ## included), outside the squash so they stay steady and readable.
 func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2) -> void:
 	var side := _side(i)
 	var team_col: Color = TEAM_COLORS[side]
 	draw_set_transform(shake)
+	if def.get("id", "") == "wyrm_scale": # Armour: its hits come off the wyrm's own HP.
+		return
+	if def.get("minion", false): # Eggs and chicks: just their HP, no ring or tag.
+		_hp_badge(def, pos, r, hp, max_hp)
+		return
 	_team_ring(side, pos, r, team_col)
-	_text_centered(pos + Vector2(0, r + 26.0), team_tags[side], A11y.font(18), Color(team_col, 0.7), 4)
+	_text_centered(_tag_at.get(i, pos + Vector2(0, r + 26.0)), team_tags[side], A11y.font(20), Color(team_col, 0.75), 4)
 	_hp_badge(def, pos, r, hp, max_hp, 0.4 if _cosmetic(side, "hat") else 0.0)
+
+
+## Where each ball's YOU/FOE tag goes this frame: under the ball, or above
+## its HP badge near the bottom wall, kept inside the arena and nudged apart
+## (up/down) where two tags would overlap.
+func _place_tags(s: float, ko_ball: int) -> void:
+	_tag_at.clear()
+	var fs := A11y.font(20)
+	var edge := MatchSim.ARENA_SIZE * s
+	var list := []
+	for b in sim.balls:
+		if not (b.alive() or b.index == ko_ball) or b.def.get("minion", false) or b.def.get("id", "") == "wyrm_scale":
+			continue
+		var pos := ball_pos(b) * s
+		var r: float = b.radius * s
+		var w := FONT.get_string_size(team_tags[_side(b.index)], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var at := pos + Vector2(0, r + 26.0)
+		if at.y + fs * 0.6 > edge: # Too near the bottom wall: above the HP badge instead.
+			at.y = pos.y - (b.def.get("badge_top", 1.15) * r + r * 0.62 + 26.0)
+		at.x = clampf(at.x, w / 2.0 + 4.0, edge - w / 2.0 - 4.0)
+		at.y = clampf(at.y, fs * 0.7, edge - fs * 0.6)
+		list.append({"i": b.index, "at": at, "w": w})
+	for a in list.size():
+		for b in range(a + 1, list.size()):
+			var p: Vector2 = list[a].at
+			var q: Vector2 = list[b].at
+			var need := fs * 1.1 - absf(p.y - q.y)
+			if need > 0.0 and absf(p.x - q.x) < (list[a].w + list[b].w) / 2.0 + 6.0:
+				var up := -1.0 if p.y <= q.y else 1.0
+				list[a].at.y += up * need / 2.0
+				list[b].at.y -= up * need / 2.0
+	for t in list:
+		_tag_at[t.i] = t.at
 
 
 ## Cogs' wind-up or Fizz's pressure as 0-1, for the critter art.
@@ -1540,6 +1667,30 @@ func _draw_zone(z, s: float) -> void:
 				Dot.arc(self, p, z.blast_radius * s, 0.0, TAU, 40, Color("7cff4f", 0.12), 2.0, true)
 			draw_rect(Rect2(p - Vector2(half, half), Vector2(half, half) * 2.0), Color("1f4d12"))
 			draw_rect(Rect2(p - Vector2(half, half) * 0.5, Vector2(half, half)), Color("7cff4f") if on else Color("7cff4f", 0.35))
+		"quake": # The Anvil King winding up a quake: a throbbing ring to get outside.
+			var pulse := 0.5 + 0.5 * absf(sin(_time * 9.0))
+			Dot.circle(self, p, z.radius * s, Color(RING_COLORS.quake, 0.05 + 0.05 * pulse))
+			for k in 24:
+				var a := k * TAU / 24.0 - _time * 0.8
+				Dot.arc(self, p, z.radius * s, a, a + TAU / 48.0, 4, Color(RING_COLORS.quake, 0.5 + 0.4 * pulse), 4.0, true)
+		"rot": # Corrupted floor where The Glitch was: jittery pixel squares.
+			var rot_fade := clampf(z.life - z.age, 0.0, 1.0)
+			Dot.circle(self, p, z.radius * s, Color("7cff4f", 0.12 * rot_fade))
+			for k in 6:
+				var a := k * TAU / 6.0 + floorf(_time * 6.0) * 0.7
+				var q: Vector2 = p + Vector2.from_angle(a) * z.radius * 0.55 * s
+				var half := 9.0 * s
+				draw_rect(Rect2(q - Vector2(half, half), Vector2(half, half) * 2.0), Color("ff4fd8" if k % 2 else "7cff4f", 0.5 * rot_fade))
+		"warp": # The Glitch about to blink here.
+			if fmod(_time * 10.0, 1.0) < 0.6:
+				Dot.arc(self, p, z.radius * s, 0.0, TAU, 24, Color("ff4fd8", 0.8), 4.0, true)
+		"lash": # The Prism Wyrm's tail about to lash: get clear.
+			var flick := 0.5 + 0.5 * absf(sin(_time * 14.0))
+			Dot.circle(self, p, z.radius * s, Color("7af0ff", 0.06 + 0.06 * flick))
+			Dot.arc(self, p, z.radius * s, 0.0, TAU, 40, Color("7af0ff", 0.5 + 0.4 * flick), 4.0, true)
+		"spirit": # The Totem of Nine's heads glowing before a volley.
+			var glow := 0.5 + 0.5 * absf(sin(_time * 12.0))
+			Dot.arc(self, p, z.radius * s, 0.0, TAU, 40, Color("c9a6ff", 0.4 + 0.5 * glow), 5.0, true)
 		"clod":
 			var land: float = clampf(z.age / maxf(z.arm, 0.01), 0.0, 1.0)
 			Dot.circle(self, p, z.radius * s * (0.4 + 0.6 * land), Color(ZONE_COLORS.clod, 0.25 + 0.5 * land))
@@ -1579,6 +1730,9 @@ func _draw_shot(shot, s: float) -> void:
 		if shot.kind == "shell" and sim.balls[shot.owner].type_id == "mortar":
 			BattleFx.draw_cannonball(self, p + lift, 15.0 * s, _time)
 			return
+		if shot.kind == "hammer": # The Anvil King's hammer, tumbling end over end.
+			_draw_hammer(p + lift, 26.0 * s, t * TAU * 1.5)
+			return
 		if shot.kind == "blob" and sim.balls[shot.owner].type_id == "brewster":
 			var liquid: Color = BattleFx.POTIONS.get(shot.zone.get("kind", "goo"), BattleFx.POTIONS.goo)
 			BattleFx.draw_potion(self, p + lift, (20.0 if shot.zone.get("kind", "") == "brew" else 13.0) * s, liquid, t * TAU * 1.5 + shot.land.x)
@@ -1589,6 +1743,12 @@ func _draw_shot(shot, s: float) -> void:
 		return
 	if shot.kind == "spike":
 		BattleFx.draw_spike_shot(self, p, maxf(r, 6.0), shot.vel)
+		return
+	if shot.kind == "feather": # The Brood Queen's feathers.
+		var d: Vector2 = shot.vel.normalized()
+		var sd := d.orthogonal()
+		Dot.poly(self, PackedVector2Array([p + d * r * 1.8, p + sd * r * 0.6, p - d * r * 1.8, p - sd * r * 0.6]), BossArt.HEN_HI)
+		draw_line(p - d * r * 2.2, p + d * r * 1.8, BossArt.HEN, 2.0, true)
 		return
 	if shot.kind == "stinger" and sim.balls[shot.owner].type_id == "zing":
 		BattleFx.draw_stinger(self, p, maxf(r, 5.0), shot.vel)
@@ -1604,6 +1764,16 @@ func _draw_shot(shot, s: float) -> void:
 	Dot.circle(self, p, r * 1.6, Color(col, 0.25))
 	Dot.circle(self, p, r, col)
 	Dot.circle(self, p + Vector2(-0.3, -0.3) * r, r * 0.4, Color.WHITE)
+
+
+func _draw_hammer(at: Vector2, r: float, spin: float) -> void:
+	var dir := Vector2.from_angle(spin)
+	var side := dir.orthogonal()
+	Dot.pline(self, PackedVector2Array([at - dir * r, at + dir * r * 0.6]), Color("b07a45"), maxf(3.0, r * 0.25), true)
+	var head := at + dir * r * 0.6
+	Dot.poly(self, PackedVector2Array([head + side * r * 0.55 - dir * r * 0.25, head + side * r * 0.55 + dir * r * 0.25,
+		head - side * r * 0.55 + dir * r * 0.25, head - side * r * 0.55 - dir * r * 0.25]), BossArt.STEEL)
+	Dot.circle(self, head - side * r * 0.55, r * 0.18, BossArt.HOT)
 
 
 ## One orbiter or attachment (sim/abilities.gd, batch E), by its look.
@@ -1671,6 +1841,8 @@ func _dirt_spray(at: Vector2, n: int) -> void:
 ## One-off effects from _fx.
 func _draw_fx(k: Dictionary, s: float) -> void:
 	match k.kind:
+		"boss_death":
+			BossArt.draw_death(self, k.id, k.pos * s, k.r * s, k.age)
 		"hook":
 			var a := sim.balls[k.ball]
 			var f := sim.balls[k.target]
@@ -2009,13 +2181,11 @@ func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float
 	var rarity: String = def.get("rarity", "common")
 	var rim: Color = RARITY_COLORS.get(rarity, RARITY_COLORS.common)
 	var top: float = (def.get("badge_top", 1.15) + lift) * r
-	var fs := A11y.font(roundi(r * 0.42))
+	var fs := A11y.font(roundi(minf(r, 80.0) * 0.42 if def.get("boss", false) else r * 0.42))
 	var text := str(maxi(0, ceili(hp)))
 	var tw := FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var tier := 1
-	var star_w := fs * 0.62
 	var mark_w := fs * 0.8 ## Rarity shape before the HP number.
-	var w := fs * 0.45 + mark_w + tw + fs * 0.35 + tier * star_w + fs * 0.45
+	var w := fs * 0.45 + mark_w + tw + fs * 0.5
 	var h := fs * 1.45
 	var rect := Rect2(pos.x - w / 2.0, pos.y - top - h - 4.0, w, h)
 	if rarity != "common":
@@ -2031,8 +2201,6 @@ func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float
 	RarityMark.draw(self, rarity, Vector2(x + mark_w * 0.45, rect.position.y + h / 2.0), fs * 0.62, rim)
 	x += mark_w
 	draw_string(FONT, Vector2(x, rect.position.y + h / 2.0 + fs * 0.36), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, POP_DAMAGE.lightened(0.25) if low else Color.WHITE)
-	for k in tier:
-		_star(Vector2(x + tw + fs * 0.35 + star_w * 0.5 + k * star_w, rect.position.y + h / 2.0), fs * 0.3, fs * 0.13, 5, rim)
 
 
 # --- Shape helpers ------------------------------------------------------------

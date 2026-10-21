@@ -120,8 +120,11 @@ func test_boosts_screen_builds_and_buys() -> void:
 	check(shell._marks.has("arena_boosts"), "arena links to boosts")
 	shell.go("boosts", {"store": s})
 	check_eq(shell.current, "boosts", "boosts screen")
-	shell._marks["boost_sea_health"].pressed.emit()
-	check_eq(s.level_of("sea", "health"), 1, "tap buys a level")
+	# A trio family always has its row; families you own nothing of are one
+	# dim line with nothing to tap.
+	var fam: String = Families.of(s.trio[0])
+	shell._marks["boost_%s_health" % fam].pressed.emit()
+	check_eq(s.level_of(fam, "health"), 1, "tap buys a level")
 	check_eq(s.points, 100 - ArenaBoosts.cost(1), "and spends")
 	shell.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))

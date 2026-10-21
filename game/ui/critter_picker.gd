@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const LazyTile := preload("res://game/ui/lazy_tile.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 
@@ -34,26 +35,7 @@ static func open(shell, ids: Array, opts := {}) -> void:
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	for id in ids:
-		var b: Dictionary = p.best(id)
-		var c: Dictionary = Roster.get_critter(id)
-		var rare: Color = Roster.RARITY_COLORS.get(c.rarity, Kit.LINE)
-		var name := Kit.label(str(c.name), 16, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
-		name.clip_text = true
-		name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		var pow := Kit.power(p.power_of(id), 16)
-		pow.alignment = BoxContainer.ALIGNMENT_CENTER
-		var cell := Kit.vbox(0, [FighterTag.icon(id, b.get("tier", 1), 76, false, b.get("level", 0)), name, pow])
-		var tag: String = tags.get(id, "")
-		cell.add_child(Kit.label(tag, 16, Kit.ACCENT if tag != "" else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
-		var picked: bool = id == current
-		var tile := Kit.card_button(cell, func():
-			shell.close_overlay()
-			if on_pick.is_valid():
-				on_pick.call(id), Kit.ACCENT if picked else Color(rare, .7),
-			Color(Kit.ACCENT, .22) if picked else Color(rare, .10), 20, 6)
-		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		shell.mark("pick_" + id, tile)
-		grid.add_child(tile)
+		grid.add_child(LazyTile.wrap(func(): return _cell(shell, id, tags, current, on_pick), grid.get_child_count(), 16))
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var rows := ceili(ids.size() / float(COLUMNS))
 	var scroll := ScrollContainer.new()
@@ -68,3 +50,27 @@ static func open(shell, ids: Array, opts := {}) -> void:
 	shell.mark("pick_cancel", close)
 	v.add_child(close)
 	shell.sheet(v)
+
+
+static func _cell(shell, id: String, tags: Dictionary, current: String, on_pick: Callable) -> Control:
+	var p = shell.profile
+	var b: Dictionary = p.best(id)
+	var c: Dictionary = Roster.get_critter(id)
+	var rare: Color = Roster.RARITY_COLORS.get(c.rarity, Kit.LINE)
+	var name := Kit.label(str(c.name), 16, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	name.clip_text = true
+	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var pow := Kit.power(p.power_of(id), 16)
+	pow.alignment = BoxContainer.ALIGNMENT_CENTER
+	var cell := Kit.vbox(0, [FighterTag.icon(id, b.get("tier", 1), 76, false, b.get("level", 0)), name, pow])
+	var tag: String = tags.get(id, "")
+	cell.add_child(Kit.label(tag, 16, Kit.ACCENT if tag != "" else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	var picked: bool = id == current
+	var tile := Kit.card_button(cell, func():
+		shell.close_overlay()
+		if on_pick.is_valid():
+			on_pick.call(id), Kit.ACCENT if picked else Color(rare, .7),
+		Color(Kit.ACCENT, .22) if picked else Color(rare, .10), 20, 6)
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.mark("pick_" + id, tile)
+	return tile

@@ -26,7 +26,7 @@ const OPENS_AT := {"play": FIGHT_1, "fuse": FIGHT_1, "campaign": FIGHT_1, "summo
 
 ## What each reveal says: [title, line, glyph, screen to open].
 const MOMENTS := {
-	SUMMON: ["Summon", "You won a Summon Orb! Spend it at the Summon Portal for a new critter.", "summon", "summon"],
+	SUMMON: ["Summon", "You won a Summon Egg! Spend it at the Summon Portal for a new critter.", "summon", "summon"],
 	FIGHTER: ["Critters", "Your collection lives here. Pick who fights for you.", "critters", "critters"],
 	EQUIP: ["Bag", "You found gear! Equip it to make a critter stronger.", "bag", "bag"],
 	ARENA: ["Ghost Arena", "Take your trio up against other players' teams.", "ghost", "arena"],

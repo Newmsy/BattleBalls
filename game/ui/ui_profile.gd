@@ -31,7 +31,7 @@ static func sample():
 	p.items.assign([
 		{"name": "Energy Pack", "count": 3, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
 		{"name": "XP Chip", "count": 12, "text": "+200 XP to one critter.", "color": Color("45f5a6")},
-		{"name": "Summon Orb", "count": 14, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
+		{"name": "Summon Egg", "count": 14, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
 	])
 	return p
 

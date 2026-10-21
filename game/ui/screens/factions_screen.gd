@@ -27,8 +27,8 @@ static func build(shell, _params: Dictionary) -> Control:
 
 static func info_text() -> Array:
 	return [
-		"Every critter belongs to a faction. Each faction has one talent tree, shared by all its critters in campaign, Gear Vault, Spire and Arena fights.",
-		"Points come only from playing, never from the shop or pass: campaign and Gear Vault fights give Faction XP to the critter's faction, and the faction's first critter at each of 2 to 5 stars gives a point. Up to %d per tree." % Talents.MAX_POINTS,
+		"Every critter belongs to a faction. Each faction has one talent tree, shared by all its critters in campaign, Anvil King, Spire and Arena fights.",
+		"Points come only from playing, never from the shop or pass: campaign and Anvil King fights give Faction XP to the critter's faction, and the faction's first critter at each of 2 to 5 stars gives a point. Up to %d per tree." % Talents.MAX_POINTS,
 		"A critter uses the rows its stars unlock: 1 star row 1, up to 4 stars row 4, and 5 stars the capstone. Resetting a tree is free, any time.",
 		"Each row opens once you've spent enough points in the rows above it: %s." % ", ".join(Talents.ROW_GATE.slice(1).map(func(g): return str(g))),
 	]

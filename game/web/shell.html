@@ -174,6 +174,38 @@ body {
 			<div id="status-tip"></div>
 		</div>
 
+		<script>
+// Silence the game while it's in the background (app minimised, tab hidden or
+// phone locked) and pick the sound back up on return: every audio context the
+// engine makes is remembered and suspended while the page is hidden.
+(function () {
+	try {
+		const contexts = [];
+		for (const name of ['AudioContext', 'webkitAudioContext']) {
+			const Base = window[name];
+			if (!Base) continue;
+			window[name] = class extends Base {
+				constructor(...args) { super(...args); contexts.push(this); }
+			};
+		}
+		const sync = function (e) {
+			const away = document.hidden || (e && e.type === 'pagehide');
+			for (const ctx of contexts) {
+				try {
+					if (away) {
+						if (ctx.state === 'running') ctx.suspend();
+					} else if (ctx.state === 'suspended') {
+						ctx.resume();
+					}
+				} catch (e) {}
+			}
+		};
+		document.addEventListener('visibilitychange', sync);
+		window.addEventListener('pagehide', sync);
+		window.addEventListener('pageshow', sync);
+	} catch (e) {}
+})();
+		</script>
 		<script src="$GODOT_URL"></script>
 		<script>
 const GODOT_CONFIG = $GODOT_CONFIG;

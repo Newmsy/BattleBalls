@@ -21,6 +21,22 @@ const STAR_CLEAN_FRACTION := 0.3
 const WIN_XP_BASE := 10
 const WIN_XP_PER_STAGE := 4
 const LOSS_XP := 3
+## Stage XP is multiplied by the zone number (zone 1 x1 ... zone 7 x7): a level
+## costs 10 x level (Profile.xp_to_next) and later zones are fought at much
+## higher levels, so a win keeps moving the bar about as much as in zone 1.
+static func zone_xp_mult(zone_index: int) -> int:
+	return zone_index + 1
+
+
+## Critter XP for winning stage `stage_index` of zone `zone_index`.
+static func win_xp(zone_index: int, stage_index: int) -> int:
+	return (WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index) * zone_xp_mult(zone_index)
+
+
+## Critter XP for losing a stage in zone `zone_index`.
+static func loss_xp(zone_index: int) -> int:
+	return LOSS_XP * zone_xp_mult(zone_index)
+
 
 
 static func is_unlocked(profile, zone_index: int, stage_index: int) -> bool:
@@ -108,6 +124,40 @@ static func start_team(profile, zone_index: int, stage_index: int, picks: Array,
 	}
 
 
+## True when a stage is a real 2v2 (all four balls at once) rather than a
+## relay: a pairs zone with two picks against two foes. Trios stay relays.
+static func is_pair(zone_index: int, stage_index: int, picks: Array) -> bool:
+	return Zones.zone(zone_index).lineup == 2 and picks.size() == 2 and Zones.enemies(Zones.stage(zone_index, stage_index)).size() == 2
+
+
+## The MatchSim config for a 2v2 pairs stage, from start_team()'s relay config
+## `rc`: your picks are p1 and p3, the foes p2 and p4 (the boss last, at
+## BOSS_SIZE). Your critters fight as you own them, talents included. Your
+## aim (index 0) is null for the caller to fill in; your mate aims itself.
+static func pair_config(profile, rc: Dictionary) -> Dictionary:
+	var foes: Array = rc.sides[1]
+	var cfg := {
+		"seed": rc.seed,
+		"arena": rc.arena,
+		"p2": foes[0],
+		"p4": foes[1],
+		"angles": [null, null, null, null],
+		"tiers": [1, rc.tiers[1][0], 1, rc.tiers[1][1]],
+		"powers": [1.0, rc.powers[1][0], 1.0, rc.powers[1][1]],
+		"gear": [null, null, null, null],
+		"sizes": [1.0, rc.sizes[1][0], 1.0, rc.sizes[1][1]],
+	}
+	Lineup.apply(cfg, 0, profile.slot_of(rc.sides[0][0]))
+	return Lineup.apply(cfg, 2, profile.slot_of(rc.sides[0][1]))
+
+
+## The finish() input for a finished 2v2: HP and max HP are your team's.
+static func pair_fight(sim) -> Dictionary:
+	var fight: Dictionary = sim.summary()
+	fight.max_hp = sim.balls[0].max_hp + sim.balls[2].max_hp
+	return fight
+
+
 ## The finish() input for a finished relay: a win's second star needs no ball
 ## lost, its third the last ball standing on 30%+ HP. `last` is the final
 ## leg's MatchSim.
@@ -122,8 +172,11 @@ static func relay_fight(relay, last) -> Dictionary:
 static func finish_team(profile, zone_index: int, stage_index: int, picks: Array, fight: Dictionary) -> Dictionary:
 	var r := finish(profile, zone_index, stage_index, picks[0], fight)
 	for k in range(1, picks.size()):
-		if profile.add_xp(picks[k], r.xp) > 0:
-			r.levels += 1
+		var g: Dictionary = profile.gain_xp(picks[k], r.xp)
+		if not g.is_empty():
+			r.critters.append(g)
+			if g.levels > 0:
+				r.levels += 1
 	return r
 
 
@@ -160,13 +213,13 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 	var st := Zones.stage(zone_index, stage_index)
 	var key := Zones.stage_key(zone_index, stage_index)
 	var won: bool = fight.winner == 0
-	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "orbs": 0, "gear": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0}
+	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "orbs": 0, "gear": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0, "critters": []}
 	if not won:
 		result.refund = Zones.cost(st) - Zones.LOSS_COST
 		profile.refund_energy(result.refund)
 		result.account_levels = profile.add_account_xp(Zones.LOSS_COST)
-		result.xp = LOSS_XP
-		result.levels = profile.add_xp(fighter, LOSS_XP)
+		result.xp = loss_xp(zone_index)
+		give_xp(profile, result, fighter)
 		return result
 	var hp_fraction: float = fight.hp[0] / fight.max_hp
 	var stars := 1
@@ -177,14 +230,23 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 	result.stars = stars
 	result.first_clear = profile.stars.get(key, 0) == 0
 	profile.stars[key] = maxi(profile.stars.get(key, 0), stars)
-	result.xp = WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index
-	result.levels = profile.add_xp(fighter, result.xp)
+	result.xp = win_xp(zone_index, stage_index)
+	give_xp(profile, result, fighter)
 	result.drops = _roll_drops(profile, zone_index, stage_index, result.first_clear, result)
 	result.gear = _roll_gear(profile, zone_index, stage_index, stars, result.first_clear)
 	result.account_levels = profile.add_account_xp(Zones.cost(st))
 	profile.runs += 1
 	profile.changed.emit()
 	return result
+
+
+## Gives `fighter` the result's XP and keeps the before and after in
+## `result.critters` for the results popup's XP bars.
+static func give_xp(profile, result: Dictionary, fighter: String) -> void:
+	var g: Dictionary = profile.gain_xp(fighter, result.xp)
+	result.levels = int(g.get("levels", 0))
+	if not g.is_empty():
+		result.critters.append(g)
 
 
 ## Replays a 3-starred stage off-screen (pve.md: same cost, same drops, no
@@ -197,6 +259,10 @@ static func sweep(profile, zone_index: int, stage_index: int, fighter: String, n
 		var rc := start_team(profile, zone_index, stage_index, picks, now)
 		if rc.has("error"):
 			return rc
+		if is_pair(zone_index, stage_index, picks):
+			var duo := MatchSim.new(pair_config(profile, rc))
+			duo.run_to_end()
+			return finish_team(profile, zone_index, stage_index, picks, pair_fight(duo))
 		var relay := Relay.new(rc)
 		var last = null
 		while not relay.finished:
@@ -214,7 +280,7 @@ static func sweep(profile, zone_index: int, stage_index: int, fighter: String, n
 
 
 ## A copy from the zone's featured critters on Economy.CAMPAIGN_DROP_CHANCE of
-## wins (with a small chance of the next rarity up), Summon Orbs on the rest
+## wins (with a small chance of the next rarity up), Summon Eggs on the rest
 ## (into `result.orbs`), plus a copy of the beaten enemy on first clear, plus
 ## the zone's guaranteed reward on the boss's first clear.
 static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear: bool, result := {}) -> Array:
