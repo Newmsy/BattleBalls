@@ -190,6 +190,7 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 		badge.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		text.add_child(badge)
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.alignment = BoxContainer.ALIGNMENT_CENTER
 	var row := Kit.hbox(8, [icon, text], BoxContainer.ALIGNMENT_CENTER)
 	# Premium cards wear a gold frame; anything you can claim is green.
 	var frame: Color = Color(Glyph.GOLD, .55) if track == "premium" else Kit.LINE
