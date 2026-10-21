@@ -144,7 +144,7 @@ static func _gear_tile(shell, st: Dictionary) -> Control:
 
 static func _equip(shell, g: Dictionary, c: Dictionary) -> void:
 	if not shell.profile.equip(g.uid, c.id):
-		shell.toast("Charms unlock when %s reaches 3 stars." % c.name)
+		shell.toast("Charm slot unlocks when %s reaches %d stars." % [c.name, Gear.CHARM_TIER])
 		return
 	shell.close_overlay()
 	shell.toast("%s equipped to %s." % [g.name, c.name])
@@ -154,16 +154,19 @@ static func _equip(shell, g: Dictionary, c: Dictionary) -> void:
 
 
 ## Picks who wears a gear piece with the shared critter grid. Critters whose
-## slot is still locked (Charms need 3 stars) say so under their tile.
+## slot is still locked (Charms need 3 stars) come last, dimmed with a lock.
 static func _equip_pick(shell, g: Dictionary) -> void:
 	var p = shell.profile
 	var ids: Array = CritterPicker.by_power(p, Roster.CRITTERS.map(func(c): return c.id))
-	var tags := {}
+	var locked := {}
 	for id in ids:
 		if not p.slot_open(id, g.slot):
-			tags[id] = "3 stars"
-	CritterPicker.open(shell, ids, {"title": "Equip %s to" % g.name, "current": g.on, "tags": tags,
-		"on_pick": func(id): _equip(shell, g, Roster.get_critter(id))})
+			locked[id] = true
+	var open_ids := ids.filter(func(id): return not locked.has(id))
+	var opts := {"title": "Equip %s to" % g.name, "current": g.on, "locked": locked,
+		"locked_toast": "Charm slot unlocks when %%s reaches %d stars." % Gear.CHARM_TIER,
+		"on_pick": func(id): _equip(shell, g, Roster.get_critter(id))}
+	CritterPicker.open(shell, open_ids + ids.filter(func(id): return locked.has(id)), opts)
 
 
 static func _merge(shell, g: Dictionary) -> void:
