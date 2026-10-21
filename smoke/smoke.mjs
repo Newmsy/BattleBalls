@@ -288,9 +288,21 @@ try {
     await tapUi(page, logs, "wishlist_done", "summon");
     await page.screenshot({ path: path.join(shots, "3h3-wishlist.png") });
     await tapUi(page, logs, "pull10", "reveal");
-    await tapUi(page, logs, "open_all");
+    // A tap anywhere opens every egg at once; then Again x10 summons the same again.
+    await page.mouse.click(...toPage(page, 360, 260));
     await page.waitForTimeout(2000);
     await page.screenshot({ path: path.join(shots, "3i-reveal.png") });
+    await tapUi(page, logs, "reveal_done", "summon");
+    // The sample's 14 eggs leave 4: a x1, then Again x1 from the reveal.
+    await tapUi(page, logs, "pull1", "reveal");
+    await page.mouse.click(...toPage(page, 360, 260));
+    await page.waitForTimeout(800);
+    const againAt = logs.length;
+    await tapUi(page, logs, "summon_again");
+    console.log("summon again:", await waitForLogAfter(logs, againAt, "UI_SUMMON", 5000));
+    await page.mouse.click(...toPage(page, 360, 260));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "3i2-reveal-again.png") });
     await tapUi(page, logs, "reveal_done", "summon");
     // Accessibility settings: open the sheet, try Larger text, then put it back.
     await tapUi(page, logs, "settings", "sheet");
@@ -306,13 +318,12 @@ try {
     await page.screenshot({ path: path.join(shots, "3j2-account.png") });
     await tapUi(page, logs, "back", "summon");
     await tapUi(page, logs, "tab_play", "play");
+    // Quick fight is one tap: your fighter, a random foe and arena, straight to the aim.
+    const quickAt = logs.length;
     await tapUi(page, logs, "quickfight");
-    await page.screenshot({ path: path.join(shots, "3-menu.png") });
-    await waitForLog(logs, "UI_AT menu_fight ", 5000);
-    await tapUi(page, logs, "pick_laser");
-    await page.waitForTimeout(300);
-    await tapUi(page, logs, "menu_fight");
+    await waitForLogAfter(logs, quickAt, "UI_AT aim_launch ", 5000);
     await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "3-menu.png") }); // The PR comment links this shot.
     await page.screenshot({ path: path.join(shots, "4-aim.png") });
     // Drag from the player's corner toward the top middle.
     const [sx, sy] = toPage(page, 20 + 170 * 0.68, 190 + 830 * 0.68);
@@ -363,8 +374,7 @@ try {
     await tapUi(page, logs, "shop_back", "play");
     const menuAt = logs.length;
     await tapUi(page, logs, "quickfight");
-    await waitForLogAfter(logs, menuAt, "UI_AT menu_fight ", 5000);
-    await tapUi(page, logs, "menu_fight");
+    await waitForLogAfter(logs, menuAt, "UI_AT aim_launch ", 5000);
     await page.waitForTimeout(800);
     const [sx, sy] = toPage(page, 20 + 170 * 0.68, 190 + 830 * 0.68);
     const [ex, ey] = toPage(page, 360, 300);
@@ -397,11 +407,9 @@ try {
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "6a-wide-home.png") });
     await tapUi(page, logs, "quickfight");
-    await page.screenshot({ path: path.join(shots, "6-wide-menu.png") });
-    await waitForLog(logs, "UI_AT menu_fight ", 5000);
-    await tapUi(page, logs, "menu_fight");
-    await page.waitForTimeout(800);
     await waitForLog(logs, "UI_AT aim_launch ", 5000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "6-wide-aim.png") });
     await tapUi(page, logs, "aim_launch");
     console.log("wide menu:", await waitForLog(logs, "FIGHT_START", 5000));
     await page.waitForTimeout(1500);

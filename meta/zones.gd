@@ -6,6 +6,14 @@ const STAGE_COST := 6
 const BOSS_COST := 10
 const LOSS_COST := 1 ## A loss refunds all but this much energy.
 const BOSS_SIZE := 1.35 ## Radius multiplier for bosses.
+const BRAWL_SIZE := 0.72 ## Radius multiplier in a 3v3 brawl: the arena holds about twice the room per ball, zoomed out.
+
+## Stage formats in the trios zones (zone 3 on), mixed so no two stages in a
+## row play the same: a relay (one at a time, sim/relay.gd), a brawl (all six
+## at once on the zoomed-out arena) and a duo (your first two picks against
+## the stage's first two foes, at once). Boss stages are brawls. A stage's
+## own `format` wins.
+const TRIO_FORMATS := ["relay", "brawl", "duo"]
 
 ## Zone 1, Glow Garden: plain arena, 1v1, featured Commons. Enemy power rises
 ## ~9% a stage from an easy 0.75; the boss is tuned (with its size) so a T2 level 10 ball wins about half the time.
@@ -233,8 +241,39 @@ static func zone(zone_index: int) -> Dictionary:
 	return ZONES[zone_index]
 
 
+## A stage as it is fought: a duo stage in a trios zone keeps its first two foes.
 static func stage(zone_index: int, stage_index: int) -> Dictionary:
-	return ZONES[zone_index].stages[stage_index]
+	var st: Dictionary = ZONES[zone_index].stages[stage_index]
+	if ZONES[zone_index].lineup == 3 and format(zone_index, stage_index) == "duo" and st.get("enemies", []).size() > 2:
+		st = st.duplicate()
+		st.enemies = st.enemies.slice(0, 2)
+		st.enemy = st.enemies[0]
+	return st
+
+
+## How a stage is fought: "solo" (zone 1), "duo" (2v2 at once), "relay" or "brawl" (3v3 at once).
+static func format(zone_index: int, stage_index: int) -> String:
+	var zn: Dictionary = ZONES[zone_index]
+	var st: Dictionary = zn.stages[stage_index]
+	if st.has("format"):
+		return st.format
+	if zn.lineup == 1:
+		return "solo"
+	if zn.lineup == 2:
+		return "duo"
+	if st.get("boss", false):
+		return "brawl"
+	return TRIO_FORMATS[stage_index % TRIO_FORMATS.size()]
+
+
+## Critters you bring to a stage: 2 for a duo, else the zone's lineup.
+static func team_size(zone_index: int, stage_index: int) -> int:
+	return 2 if format(zone_index, stage_index) == "duo" else ZONES[zone_index].lineup
+
+
+## The stage's format as a short chip: "3V3", "2V2", "RELAY" (empty for solo).
+static func format_label(zone_index: int, stage_index: int) -> String:
+	return {"duo": "2V2", "relay": "RELAY", "brawl": "3V3"}.get(format(zone_index, stage_index), "")
 
 
 static func stage_key(zone_index: int, stage_index: int) -> String:

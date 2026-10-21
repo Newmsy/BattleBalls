@@ -62,6 +62,8 @@ static func build(shell, _params: Dictionary) -> Control:
 		mode_tile(shell, "arena", "Ghost Arena", "%s · %s" % [Ladder.league_label(arena_store.trophies), Kit.commas(arena_store.trophies)], VERSUS,
 			func(): shell.go("arena"), "ghost"),
 		_friends_tile(shell),
+		# Quick fight is one tap; picking a pair for a four-ball brawl lives here.
+		mode_tile(shell, "duo", "2v2", "Pick a pair", VERSUS, func(): shell.request_play("", true), "critters"),
 	]))
 
 	# Style: looks only, never power.
@@ -108,7 +110,8 @@ static func _campaign_card(shell) -> Control:
 
 
 ## Quick fight with your fighter on it: tap the fighter to pick another, and
-## the card updates in place, ready to fight.
+## the card updates in place. Quick fight itself is one tap: your fighter
+## against a random foe of its rarity and tier, on a random arena.
 static func _quick_fight_card(shell) -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(p.lineup)
@@ -122,7 +125,7 @@ static func _quick_fight_card(shell) -> Control:
 	var row := Kit.hbox(14, [CritterIcon.make(p.lineup, b.tier, 88), info])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	# Tap the fighter to pick another; Quick fight sits beside it, second to the campaign.
-	var fighter := Kit.card_button(row, func(): _pick_fighter(shell), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 24, 0)
+	var fighter := Kit.card_button(row, func(): pick_fighter(shell), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 24, 0)
 	fighter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("fighter", fighter)
 	var fight := Kit.button("Quick fight", shell.request_play, "ghost", 24, 84)
@@ -132,7 +135,8 @@ static func _quick_fight_card(shell) -> Control:
 	return Kit.panel(Kit.hbox(12, [fighter, fight], BoxContainer.ALIGNMENT_CENTER), Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 18))
 
 
-static func _pick_fighter(shell) -> void:
+## The fighter picker (also opened by a Quick fight result's Change critter).
+static func pick_fighter(shell) -> void:
 	var p = shell.profile
 	CritterPicker.open(shell, CritterPicker.by_power(p, BallDefs.PLAYABLE), {
 		"title": "Your fighter", "current": p.lineup,
