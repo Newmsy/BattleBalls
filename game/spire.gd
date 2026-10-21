@@ -240,7 +240,7 @@ func _reward_row(floor_no: int) -> Control:
 		row.add_child(Kit.glyph("bolt", 34, Kit.GOOD))
 		row.add_child(Kit.label(str(rw.xp_chips), 30))
 	if not rw.gear.is_empty(): # The piece's glyph and stars; its name is on the Spire screen.
-		row.add_child(Kit.glyph(str(Gear.PIECES[rw.gear.type].glyph), 34, Kit.GOOD))
+		row.add_child(Kit.glyph(str(rw.gear.type), 34, Kit.GOOD))
 		row.add_child(Kit.glyph("stars", 22, Kit.GOOD, int(rw.gear.tier)))
 	return row
 

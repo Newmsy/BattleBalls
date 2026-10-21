@@ -32,7 +32,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 
 static func _item(shell, store, item: Dictionary, i: int) -> Control:
-	var glyph := "orb" if item.kind == "orbs" else ("energy" if item.kind == "energy" else str(Gear.PIECES[item.type].glyph))
+	var glyph := "orb" if item.kind == "orbs" else ("energy" if item.kind == "energy" else str(item.type))
 	var sub := ""
 	match item.kind:
 		"gear":
