@@ -332,7 +332,11 @@ func _finish_fight() -> void:
 	var title := "FLOOR %d CLEARED!" % cleared_floor if won else "%s IS OUT!" % _name(BounceRun.card(setup, run, slot).critter).to_upper()
 	if won and run.over:
 		title = "RUN CLEARED!"
-	var head := Kit.label(title, 46, Kit.GOOD if won else PINK, HORIZONTAL_ALIGNMENT_CENTER)
+	var head := Kit.label(title, 40, Kit.GOOD if won else PINK, HORIZONTAL_ALIGNMENT_CENTER)
+	# The result as a card: your critter's face by the headline, then the run's floor pips.
+	var face := CritterIcon.make(BounceRun.card(setup, run, slot).critter, 1, 64)
+	face.still = true
+	var top := Kit.hbox(10, [face, head], BoxContainer.ALIGNMENT_CENTER)
 	if won:
 		info_label.text = "%.1fs. Pick a boon for your trio." % sim.time() if not run.over else "All %d floors in %s." % [BounceRun.FLOORS, _clock(run.ticks)]
 	else:
@@ -340,7 +344,19 @@ func _finish_fight() -> void:
 		info_label.text = "Your trio is out." if run.over else "%d critter%s left. Retry floor %d with another." % [left, "" if left == 1 else "s", cleared_floor]
 	var next := Kit.button("Continue", _after_result, "go", 34)
 	_mark("br_continue", next)
-	_set_panel([head, next], "br_result")
+	_set_panel([top, _floor_pips(BounceRun.score(run).floors), next], "br_result")
+
+
+## One pip per floor: cleared ones lit gold, the rest dim.
+func _floor_pips(cleared: int) -> Control:
+	var row := Kit.hbox(8, [], BoxContainer.ALIGNMENT_CENTER)
+	for i in BounceRun.FLOORS:
+		var pip := Panel.new()
+		pip.custom_minimum_size = Vector2(22, 22)
+		pip.add_theme_stylebox_override("panel", Kit.box(GOLD if i < cleared else Kit.PANEL2, Color(GOLD, .5) if i < cleared else Kit.LINE, 999, 2, 0))
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(pip)
+	return row
 
 
 ## A fight launched before the app closed: the sim is deterministic, so play

@@ -6,6 +6,7 @@ extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
+const Roster := preload("res://game/ui/roster.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
 const CosmeticIcon := preload("res://game/glow/cosmetic_icon.gd")
 const TryOn := preload("res://game/glow/try_on.gd")
@@ -105,10 +106,22 @@ static func _tile(shell, it: Dictionary) -> Control:
 	var owned: bool = shell.glow.owns(it.id)
 	var v := Kit.vbox(4, [_center(CosmeticIcon.make(it.id, _critter(shell), 120)), Kit.label(it.name, 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
 		_center(_price(it, owned, shell.glow.equipped(it.slot) == it.id))])
-	var card := Kit.card_button(v, func(): item_sheet(shell, it.id), Kit.GOOD if owned else Kit.LINE, Kit.PANEL, 28, 10)
+	var rarity := look_rarity(it)
+	var card := Kit.card_button(v, func(): item_sheet(shell, it.id), Roster.rarity_border(rarity, Kit.LINE), Roster.rarity_bg(rarity, Kit.PANEL, .16), 28, 10)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("item_" + it.id, card)
 	return card
+
+
+## A look's frame, from its gem price (looks have no rarity of their own):
+## coin basics and cheap looks are plain, then rare, epic and legendary.
+static func look_rarity(it: Dictionary) -> String:
+	var gems := int(it.get("gems", 0))
+	if gems <= 300:
+		return "common"
+	if gems <= 450:
+		return "rare"
+	return "epic" if gems <= 700 else "legendary"
 
 
 static func _price(it: Dictionary, owned: bool, worn := false) -> Control:
