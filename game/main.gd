@@ -1442,7 +1442,7 @@ func _build_ui() -> void:
 	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(fight_hud)
 	fighter_strip = FighterStrip.new()
-	fighter_strip.mouse_filter = Control.MOUSE_FILTER_PASS # A tap on a card opens its critter's info.
+	fighter_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.add_child(fighter_strip)
 	info_label = _label("", 26)
 	info_label.add_theme_color_override("font_color", MUTED)

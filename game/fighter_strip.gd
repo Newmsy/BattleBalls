@@ -115,15 +115,30 @@ func _rect(k: int) -> Rect2:
 	return Rect2(k * (w + gap), 0.0, w, size.y)
 
 
-## Tapping a card opens that critter's mini Critterpedia card (the fight runs on).
-func _gui_input(event: InputEvent) -> void:
-	if _sim == null or not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed):
+## Tapping a card opens that critter's mini Critterpedia card (the fight runs
+## on). Read in _input: the fight screen's own boxes sit over the strip.
+var _press := Vector2(-1, -1)
+
+
+func _input(event: InputEvent) -> void:
+	if _sim == null or not is_visible_in_tree() or CritterPopup.current() != null:
+		_press = Vector2(-1, -1)
+		return
+	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	var at: Vector2 = get_global_transform_with_canvas().affine_inverse() * event.position
+	if event.pressed:
+		_press = at
+		return
+	var from := _press
+	_press = Vector2(-1, -1)
+	if from.distance_to(at) > 24.0:
 		return
 	for k in _n:
 		var card: Dictionary = _card[k]
-		if not card.is_empty() and not card.boss and _rect(k).has_point(event.position):
+		if not card.is_empty() and not card.boss and _rect(k).has_point(at):
 			CritterPopup.open(self, card.id, card.tier)
-			accept_event()
+			get_viewport().set_input_as_handled()
 			return
 
 

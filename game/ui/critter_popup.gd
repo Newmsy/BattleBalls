@@ -67,6 +67,7 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 	var rcol: Color = Roster.RARITY_COLORS[c.rarity]
 
 	var root := Control.new()
+	root.theme = Kit.theme() # Its own layer, so it doesn't inherit the screens' font.
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(root)
 	var dim := Button.new()
@@ -102,7 +103,8 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 	var text_w := width - 56.0 - 12.0 - 64.0
 	var now := Kit.label(AbilityText.now(id, tier), 23, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
 	now.custom_minimum_size.x = width - 64.0 # Wrapped text measures before layout.
-	var ladder := Kit.vbox(6, [Kit.caption("Ability at T%d" % tier, Glyph.GOLD), now, Kit.caption("Each tier")])
+	# At T1 the T1 row already says it all.
+	var ladder := Kit.vbox(6, [Kit.caption("Ability at T%d" % tier, Glyph.GOLD), now, Kit.caption("Each tier")] if tier > 1 else [Kit.caption("Ability by tier")])
 	for i in Roster.MAX_TIER:
 		var here := i == tier - 1
 		var has := i < tier
