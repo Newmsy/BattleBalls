@@ -20,6 +20,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Story := preload("res://meta/story.gd")
 const StoryCards := preload("res://game/ui/story_cards.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
+const EnergySheet := preload("res://game/ui/energy_sheet.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -31,7 +32,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var root := Kit.vbox(22)
 
 	var back: Control = shell.back_button("back")
-	var head := Kit.vbox(2, [Kit.caption("Zone %d · The Neon Circuit · %s" % [z + 1, "1v1" if zone.lineup == 1 else "%d vs %d" % [zone.lineup, zone.lineup]], Color("9be89a")),
+	var head := Kit.vbox(2, [Kit.caption("Zone %d · %dv%d" % [z + 1, zone.lineup, zone.lineup], Color("9be89a")),
 		Kit.label(zone.name, 44)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var title_row := Kit.hbox(16, [back, head])
@@ -43,9 +44,10 @@ static func build(shell, params: Dictionary) -> Control:
 		title_row.add_child(replay)
 	root.add_child(title_row)
 
+	# The top bar shows the energy count; this only says when the next one lands.
 	var wait: int = p.seconds_to_next_energy(now)
-	var energy_line := "Energy %d/%d" % [p.energy, p.energy_max] + ("  ·  +1 in %d:%02d" % [wait / 60, wait % 60] if wait > 0 else "")
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label(energy_line, 24, Kit.MUTED)]))
+	if wait > 0:
+		root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("+1 in %d:%02d" % [wait / 60, wait % 60], 24, Kit.MUTED)]))
 
 	if params.has("notice"):
 		root.add_child(Kit.panel(Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
@@ -148,6 +150,7 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
 			BoxContainer.ALIGNMENT_CENTER)
 		var fight := Kit.cost_button("Fight", Zones.cost(st), "energy", _fight.bind(shell, z, i, fighter), "go", 30, 84)
+		_fade_if_short(fight, p, Zones.cost(st))
 		shell.mark("stage_%d_%d" % [z + 1, i + 1], fight)
 		var big := Kit.panel(Kit.vbox(12, [title, faces, vs, fight]), Kit.box(Color("17284a"), border.lightened(.2), 32, 3, 20))
 		return big
@@ -157,10 +160,12 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	var actions := Kit.hbox(8)
 	if Campaign.can_sweep(p, z, i):
 		var sweep := Kit.button("Sweep", _sweep.bind(shell, z, i, fighter), "ghost", 22, 60)
+		_fade_if_short(sweep, p, Zones.cost(st))
 		shell.mark("sweep_%d_%d" % [z + 1, i + 1], sweep)
 		actions.add_child(sweep)
 	var again := Kit.cost_button("", Zones.cost(st), "energy", _fight.bind(shell, z, i, fighter), "go", 22, 60)
 	again.custom_minimum_size.x = 100
+	_fade_if_short(again, p, Zones.cost(st))
 	again.size_flags_horizontal = Control.SIZE_SHRINK_END
 	shell.mark("stage_%d_%d" % [z + 1, i + 1], again)
 	actions.add_child(again)
@@ -170,6 +175,13 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	var row := Kit.hbox(12, [art, info, actions])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	return Kit.panel(row, Kit.box(Kit.PANEL, border, 28, 2, 12))
+
+
+## A Fight or Sweep that costs more energy than you have stays tappable (it
+## opens the out-of-energy sheet) but looks short.
+static func _fade_if_short(b: Control, p, cost: int) -> void:
+	if p.energy < cost:
+		b.modulate = Color(1, 1, 1, .5)
 
 
 ## A green button reading "FIGHT ⚡6" with the drawn energy bolt (the font has
@@ -262,8 +274,7 @@ static func _fight(shell, z: int, i: int, fighter: String) -> void:
 		return
 	var cfg: Dictionary = Campaign.start(shell.profile, z, i, fighter, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
-		shell.toast(_error_text(cfg.error))
-		shell.refresh()
+		_show_error(shell, cfg.error)
 		return
 	shell.stage_requested.emit(cfg, z, i, fighter)
 
@@ -271,26 +282,31 @@ static func _fight(shell, z: int, i: int, fighter: String) -> void:
 static func _sweep(shell, z: int, i: int, fighter: String) -> void:
 	var r: Dictionary = Campaign.sweep(shell.profile, z, i, fighter, int(Time.get_unix_time_from_system()))
 	if r.has("error"):
-		shell.toast(_error_text(r.error))
-		shell.refresh()
+		_show_error(shell, r.error)
 		return
 	shell.refresh_with({"zone": z, "focus": i, "result": {"stage": i, "r": r, "kind": "sweep"}})
 
 
+## Out of energy opens the energy sheet; anything else is a one-line toast.
+static func _show_error(shell, error: String) -> void:
+	shell.refresh()
+	if error == "energy":
+		EnergySheet.open(shell)
+	else:
+		shell.toast(_error_text(error))
+
+
 static func _error_text(error: String) -> String:
-	match error:
-		"energy":
-			return "Not enough energy. It refills 1 every 5 minutes, or use an Energy Pack from your Bag."
-		"no_ball":
-			return "Pick a critter that can fight first."
+	if error == "no_ball":
+		return "Pick a critter that can fight first."
 	return "That stage is locked."
 
 
 ## One line summing up a stage result, for the result screen and sweeps.
 static func result_text(r: Dictionary) -> String:
 	if not r.won:
-		return "Lost. %d energy back, +%d XP. Try a stronger critter, or fuse one up." % [r.refund, r.xp]
-	var parts: Array[String] = ["%d of 3 stars" % r.stars]
+		return "Lost · +%d XP" % r.xp
+	var parts: Array[String] = ["%d/3 crowns" % r.stars]
 	if not r.drops.is_empty():
 		parts.append("got " + ", ".join(r.drops.map(func(id): return Roster.get_critter(id).name)))
 	if r.get("orbs", 0) > 0:
@@ -300,8 +316,7 @@ static func result_text(r: Dictionary) -> String:
 	parts.append("+%d XP" % r.xp)
 	if r.levels > 0:
 		parts.append("level up!")
-	if r.account_levels > 0:
-		parts.append("account level up, energy refilled!")
+	# An account level up shows on the results popup (energy refilled there).
 	return ", ".join(parts)
 
 
@@ -346,7 +361,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	if bars != null:
 		v.add_child(bars)
 	var lines := Kit.vbox(8, [
-		Kit.hbox(10, [Glyph.make("energy", 28), Kit.label("%d energy spent%s" % [spent, (" · %d back" % r.refund) if r.refund > 0 else ""], 24, Kit.MUTED)]),
+		Kit.hbox(10, [Glyph.make("energy", 28), Kit.label("-%d%s" % [spent, ("  ·  +%d back" % r.refund) if r.refund > 0 else ""], 24, Kit.MUTED)]),
 	])
 	if bars == null:
 		lines.add_child(Kit.label("+%d XP for %s%s" % [r.xp, Roster.get_critter(fighter).name, " · level up!" if r.levels > 0 else ""], 24, Kit.MUTED))
@@ -374,8 +389,10 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 		p.update_energy(int(Time.get_unix_time_from_system()))
 		var again: Button
 		if p.energy < Zones.cost(Zones.stage(z, next)):
-			# Not enough for the next stage: say so up front, and just close.
-			again = _cost_button("Out of", -1, shell.close_overlay, 26, 84)
+			# Not enough for the next stage: say so up front; tap opens the energy sheet.
+			again = _cost_button("Out of", -1, func():
+				shell.close_overlay()
+				EnergySheet.open(shell), 26, 84)
 			again.modulate = Color(1, 1, 1, .75)
 		else:
 			again = Kit.button(("Next  %s" % Zones.stage_key(z, next)) if r.won else "Try again", func():
@@ -395,8 +412,7 @@ static func _fight_team(shell, z: int, i: int) -> void:
 	var picks := Campaign.team_for(shell.profile, Zones.zone(z).lineup)
 	var cfg: Dictionary = Campaign.start_team(shell.profile, z, i, picks, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
-		shell.toast(_error_text(cfg.error))
-		shell.refresh()
+		_show_error(shell, cfg.error)
 		return
 	if Campaign.is_pair(z, i, picks):
 		# Pairs are a real 2v2 in the arena, all four at once (trios stay relays).

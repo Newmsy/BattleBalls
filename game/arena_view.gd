@@ -478,7 +478,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_spawn_particles(e.pos, 6)
 			"yoyo", "fling", "hug", "dive":
 				var g := sim.balls[e.ball]
-				var words := {"yoyo": "SWING!", "fling": "WALK THE DOG!", "hug": "HUG!", "dive": "DIVE!"}
+				var words := {"yoyo": "SWING!", "fling": "WALKIES!", "hug": "HUG!", "dive": "DIVE!"}
 				var word: String = "THROWN!" if e.type == "fling" and e.has("source") else words[e.type]
 				_add_popup(g.pos + Vector2(-40, -g.radius - 34), word, POP_SNAP)
 				if e.type == "dive": # Leviathan plunges under.

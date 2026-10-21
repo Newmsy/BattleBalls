@@ -1,7 +1,7 @@
 ## Play tab (home). Three bands, top to bottom, so it reads at a glance:
 ## the This Week banner, the two big ways to fight (the campaign and Quick
 ## fight with your fighter), then every other mode as a small tile in a
-## labelled group (Daily and weekly, Versus, Style). New modes add one tile
+## labelled group (Daily, Versus, Style). New modes add one tile
 ## to a group with mode_tile(); the groups grow, the big cards never move.
 extends RefCounted
 
@@ -41,18 +41,17 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(_campaign_card(shell))
 	root.add_child(_quick_fight_card(shell))
 
-	# Daily and weekly: same puzzle, run or tower for everyone.
+	# Daily: same puzzle, run or tower for everyone.
 	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	var trick: Dictionary = WeekScreen.trick_status(day)
 	var trick_line := "Solved · streak %d" % trick.streak if trick.solved else ("Out of tries" if trick.tries >= WeekScreen.TRICK_TRIES else "New shot today")
-	var run_day := BounceRun.day_number(Time.get_unix_time_from_system())
 	var climb = SpireClimb.load_file(LiveOps.now())
-	root.add_child(group("Daily and weekly", DAILY, [
+	root.add_child(group("Daily", DAILY, [
 		mode_tile(shell, "trickshot", "Trick Shot", trick_line, DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), "target", not trick.solved and trick.tries == 0),
-		mode_tile(shell, "bouncerun", "Bounce Run", "Run #%d · daily" % run_day, Color("ffc23d"),
+		mode_tile(shell, "bouncerun", "Bounce Run", "New run today", Color("ffc23d"),
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"), "bounce"),
-		mode_tile(shell, "spire", "The Spire", "Floor %d/%d · weekly" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
+		mode_tile(shell, "spire", "The Spire", "Floor %d/%d" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
 			func(): shell.go("spire"), "tower"),
 		BossesScreen.tile(shell) if BossesScreen.any_open(shell.profile) else _locked_tile(shell),
 	]))
@@ -82,25 +81,26 @@ static func _campaign_card(shell) -> Control:
 		if Campaign.is_unlocked(p, zi, 0): z = zi
 	var zd: Dictionary = Zones.zone(z)
 	var stages: Array = zd.stages
-	var cleared := 0
 	var star_total := 0
 	var next := -1
 	for i in stages.size():
-		if Campaign.is_cleared(p, z, i): cleared += 1
-		elif next < 0: next = i
+		if not Campaign.is_cleared(p, z, i) and next < 0: next = i
 		star_total += Campaign.stars_of(p, z, i)
-	var next_text := "All %d stages cleared." % stages.size()
+	var next_row: Control = Kit.label("All %d stages cleared." % stages.size(), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	if next >= 0:
 		var st: Dictionary = stages[next]
-		next_text = "%d/%d cleared · Next: %s %s · Recommended %s" % [cleared, stages.size(), Zones.stage_key(z, next),
-			st.get("name", Roster.get_critter(st.enemy).name), Kit.commas(Campaign.enemy_rating(z, next))]
-	var open := Kit.button("Open the map", func(): shell.go("world"), "go", 32, 96)
+		var next_l := Kit.label("Next: %s %s" % [Zones.stage_key(z, next), st.get("name", Roster.get_critter(st.enemy).name)], 22, Kit.MUTED)
+		next_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		next_l.clip_text = true
+		next_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		next_row = Kit.hbox(12, [next_l, Kit.power(Campaign.enemy_rating(z, next), 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var open := Kit.button("Continue", func(): shell.go("world"), "go", 32, 96)
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
-		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone %d · The Neon Circuit" % (z + 1), Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
+		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone %d" % (z + 1), Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
 		Kit.hbox(10, [Kit.label(zd.name, 40), Kit.spacer(), Glyph.make("crown", 28, Kit.FG, 1),
 			Kit.label("%d/%d" % [star_total, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
-		Kit.label(next_text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		next_row,
 		open,
 	])
 	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 36, 2, 24)
@@ -216,7 +216,7 @@ static func mode_card(shell, mark: String, caption: String, title: String, _text
 ## The farming bosses open from Zone 1 stage 5 (the Piñata Titan first).
 static func _locked_tile(shell) -> Control:
 	var t := mode_tile(shell, "locked_dailies", "Bosses", "After stage 1-5", Kit.MUTED,
-		shell.info.bind("Bosses", ["Clear stage 1-5 to open the boss fights, one by one as you go:",
+		shell.info.bind("Bosses", ["Opens at stage 1-5.",
 			"Piñata Titan: smash it for coins.", "Anvil King: gear and Hammers.", "Brood Queen: Summon Eggs."]), "lock")
 	t.modulate = Color(1, 1, 1, .55) # Locked reads as locked: dim, with the lock and what opens it.
 	return t
@@ -228,9 +228,9 @@ static func _pass_tile(shell) -> Control:
 	if season.is_empty():
 		return mode_tile(shell, "glowpass", "Glow Pass", "Between seasons", DAILY, func(): shell.go("pass"), "pass")
 	var n: int = glow.claimable_count()
-	var line := "Level %d of 50" % glow.pass_level()
+	var line := "Lv %d/50" % glow.pass_level()
 	if n > 0:
-		line = "%d reward%s to claim!" % [n, "" if n == 1 else "s"]
+		line = "%d to claim!" % n
 	return mode_tile(shell, "glowpass", "Glow Pass", line, DAILY if n > 0 else STYLE, func(): shell.go("pass"), "pass", n > 0)
 
 

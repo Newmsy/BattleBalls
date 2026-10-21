@@ -9,6 +9,7 @@ extends RefCounted
 
 const Spire := preload("res://sim/spire.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
 
 const PATH := "user://spire.json"
 const STAMINA := 3
@@ -119,7 +120,7 @@ func check_picks(picks: Array) -> String:
 			return "Each critter can only go in once."
 		seen[p.id] = true
 		if tired(p.id):
-			return "%s is tired until Monday." % p.id
+			return "%s is tired until Monday." % BallDefs.get_def(p.id).display_name
 	return ""
 
 

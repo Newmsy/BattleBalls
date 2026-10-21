@@ -106,7 +106,7 @@ func send_code(address: String, mode: String) -> bool:
 		res = await backend.auth_call("POST", "otp" + back, {"email": address, "create_user": false})
 	if res.ok:
 		pending = {"email": address, "mode": mode}
-		return _done(true, "We sent a code to %s. It can take a minute; check spam too." % address)
+		return _done(true, "Code sent to %s. Check spam too." % address)
 	return _done(false, _explain(res, mode))
 
 
@@ -116,7 +116,7 @@ func verify_code(code: String) -> bool:
 	if pending.is_empty():
 		return _done(false, "Ask for a code first.")
 	if code.length() < 6 or not code.is_valid_int():
-		return _done(false, "The code is the 6 digits in the email.")
+		return _done(false, "Enter the 6-digit code.")
 	busy = true
 	changed.emit()
 	var type := "email_change" if pending.mode == "save" else "email"
@@ -130,7 +130,7 @@ func verify_code(code: String) -> bool:
 	var was_signin: bool = pending.mode == "signin"
 	pending = {}
 	await refresh()
-	return _done(true, "Signed in. Your progress is on this account now." if was_signin else "Saved! Sign in with %s on any device to carry on." % email)
+	return _done(true, "Signed in!" if was_signin else "Saved! Sign in with %s on any device to carry on." % email)
 
 
 func cancel_code() -> void:
@@ -194,7 +194,7 @@ static func _explain(res: Dictionary, step: String) -> String:
 	if code == "otp_expired" or "expired" in text or "invalid" in text.to_lower():
 		return "That code didn't work or has expired. Ask for a new one."
 	if step == "signin" and (code == "otp_disabled" or "Signups not allowed" in text):
-		return "No account uses that email yet. Save this guest to it instead."
+		return "No account for that email. Save your progress to it instead."
 	if code == "manual_linking_disabled" or code == "provider_disabled":
 		return "That sign-in isn't switched on yet."
 	return "Something went wrong (%s). Try again." % (code if code != "" else str(res.code))

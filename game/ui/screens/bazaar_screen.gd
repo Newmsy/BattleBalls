@@ -17,10 +17,9 @@ static func build(shell, params: Dictionary) -> Control:
 		store = ArenaStore.open()
 	var root := Kit.vbox(12)
 	var how := [
-		"Tokens come only from the Ghost Arena: about 15 for a win (more against a team above you), %d for a loss, %d for each raid your Defence holds." % [
+		"Tokens come only from the Ghost Arena, never for money: about 15 for a win (more against a team above you), %d for a loss, %d for each raid your Defence holds." % [
 			ArenaStore.COINS_LOSS, ArenaStore.COINS_DEFENCE],
 		"The stock changes every day and each item sells once. Gear gets better as your league climbs.",
-		"Tokens are never sold for money.",
 	]
 	var info: Control = shell.info_button("Bazaar", how, "bazaar_info")
 	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Bazaar", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
@@ -38,14 +37,12 @@ static func _item(shell, store, item: Dictionary, i: int) -> Control:
 	match item.kind:
 		"gear":
 			sub = "%d-star %s gear" % [item.tier, Gear.PIECES[item.type].slot]
-		"orbs":
-			sub = "One summon"
-		"energy":
-			sub = "For the campaign"
 	var sold: bool = store.is_bought(i)
 	var afford: bool = store.coins >= int(item.price)
 	var price := Kit.hbox(6, [Glyph.make("token", 24), Kit.label(Kit.commas(item.price), 26, Kit.FG if afford else Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
-	var info := Kit.vbox(2, [Kit.label(str(item.name), 28), Kit.label(sub, 20, Kit.MUTED)])
+	var info := Kit.vbox(2, [Kit.label(str(item.name), 28)])
+	if sub != "":
+		info.add_child(Kit.label(sub, 20, Kit.MUTED))
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(14, [Glyph.make(glyph, 56), info, Kit.label("Sold", 24, Kit.MUTED) if sold else price], BoxContainer.ALIGNMENT_CENTER)
 	var btn := Kit.card_button(row, func():
@@ -55,7 +52,7 @@ static func _item(shell, store, item: Dictionary, i: int) -> Control:
 		elif sold:
 			shell.toast("Sold out until tomorrow.")
 		else:
-			shell.toast("Not enough Tokens yet. Win attacks to earn more."), Kit.LINE if sold else Color(COIN, .7), Kit.PANEL, 24, 12)
+			shell.toast("Need %d more Tokens" % (int(item.price) - store.coins)), Kit.LINE if sold else Color(COIN, .7), Kit.PANEL, 24, 12)
 	if sold:
 		btn.modulate = Color(1, 1, 1, .5)
 	shell.mark("bazaar_item_%d" % i, btn)

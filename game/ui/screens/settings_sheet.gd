@@ -11,7 +11,7 @@ const Analytics := preload("res://game/online/analytics.gd")
 
 const OPTIONS := [
 	["reduced_motion", "Reduced motion", "No screen shake, softer hit flashes, no finisher zoom."],
-	["large_text", "Larger text", "Bigger text on every screen."],
+	["large_text", "Larger text", ""],
 	["sound_cues", "Sound cues on screen", "Shows OVERTIME and low-HP alerts that are otherwise only heard."],
 ]
 
@@ -29,10 +29,8 @@ static func build(shell) -> Control:
 	v.add_child(_stats_row(shell))
 	if Dev.TOOLS_ENABLED:
 		v.add_child(_testing(shell))
-	var note := Kit.label("Colourblind-friendly marks are always on: your critter has a solid ring, the foe a dashed spiky one, and every rarity has its own shape.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-	# The sheet measures itself before layout, so wrapped text needs a real width.
-	note.custom_minimum_size.x = 600
-	v.add_child(note)
+	# Solid ring for yours, dashed spiky ring for the foe, a shape per rarity.
+	v.add_child(Kit.label("Colourblind marks: always on.", 22, Kit.MUTED))
 	if shell.build_stamp != "":
 		v.add_child(Kit.label("Battle Balls " + shell.build_stamp, 20, Color(Kit.MUTED, .7)))
 	return v
@@ -49,9 +47,7 @@ static func _sound_row(shell) -> Control:
 	sw.custom_minimum_size.x = 170
 	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
 	shell.mark("sound_mode", sw)
-	var desc := Kit.label("Music and sound effects, effects only, or silent.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-	desc.custom_minimum_size.x = 400
-	var text := Kit.vbox(4, [Kit.label("Sound", 30), desc])
+	var text := Kit.vbox(4, [Kit.label("Sound", 30)])
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return Kit.hbox(16, [text, sw])
 
@@ -62,9 +58,11 @@ static func _row(shell, key: String, title: String, text: String) -> Control:
 	sw.custom_minimum_size.x = 132
 	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
 	shell.mark("a11y_" + key, sw)
-	var desc := Kit.label(text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-	desc.custom_minimum_size.x = 440
-	var words := Kit.vbox(4, [Kit.label(title, 30), desc])
+	var words := Kit.vbox(4, [Kit.label(title, 30)])
+	if text != "":
+		var desc := Kit.label(text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		desc.custom_minimum_size.x = 440
+		words.add_child(desc)
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return Kit.hbox(16, [words, sw])
 
@@ -81,7 +79,7 @@ static func _stats_row(shell) -> Control:
 	sw.custom_minimum_size.x = 132
 	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
 	shell.mark("stats_toggle", sw)
-	var desc := Kit.label("Anonymous stats on how fights and the tutorial go, so we can balance critters. No names, no ads.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var desc := Kit.label("Anonymous. Helps balance critters.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	desc.custom_minimum_size.x = 440
 	var words := Kit.vbox(4, [Kit.label("Play stats", 30), desc])
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL

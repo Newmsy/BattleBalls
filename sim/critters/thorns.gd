@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "4f7a3a",
 	"vibe": "Grumpy hedge that just wants to be left alone.",
-	"description": "Bramble. When bumped, sends some of the damage back at the attacker and its sting burns (a burning foe can't heal).",
+	"description": "Bramble. When bumped, it sends 18% of the damage back at the attacker (up to 5 a hit), and its sting burns 0.5/s (a burning foe can't heal).",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "hurt", "do": "reflect"}],
 	"params": {
@@ -22,11 +22,11 @@ const CRITTER := {
 		"reflect_from": "contact", ## all, contact, ability (not contact) or copying.
 	},
 	"tiers": [
-		{"text": "Sends back 18% of damage taken, and the sting burns"},
-		{"text": "22%", "reflect_ratio": 0.22},
-		{"text": "The sting burns hotter", "reflect_burn": 1.0},
-		{"text": "26%", "reflect_ratio": 0.26},
-		{"text": "Below half HP the vine bursts: 50%", "reflect_low": 0.5},
+		{"text": "Bumped: sends back 18% of dmg, sting burns 0.5/s", "now": "Bumped: sends back {reflect_ratio%}% of dmg, sting burns {reflect_burn}/s"},
+		{"text": "Sends back 18 → 22%", "reflect_ratio": 0.22},
+		{"text": "Burn 0.5 → 1/s", "reflect_burn": 1.0},
+		{"text": "Sends back 22 → 26%", "reflect_ratio": 0.26},
+		{"text": "+ Below 50% HP: sends back 50%", "now": "Bumped: sends back {reflect_ratio%}% ({reflect_low%}% below 50% HP), burns", "reflect_low": 0.5},
 	],
 	"chaos": {"closing_walls": {"reflect_cap": 0.7}}, ## Short fights: big hitters can't outlast the sting.
 	"art": {"eyes": {"sep": .3, "w": .17, "h": .19, "p": .09, "brow": .32, "mouth": "frown"}, "back": ["thorn_ring"], "front": ["vines"]},

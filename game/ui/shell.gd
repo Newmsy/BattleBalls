@@ -581,9 +581,9 @@ func _top_bar() -> Control:
 
 
 const PILL_HELP := {
-	"energy": "Energy: campaign stages and boss fights spend it. It refills over time, and fully on every account level up.",
-	"coin": "Coins: win them in the campaign and from the Piñata Titan. Spend them on cosmetics and fusing.",
-	"orb": "Summon Eggs: from boss first clears, daily login, account levels and the Brood Queen. Hatch them on Summon.",
+	"energy": "Energy: for stages and bosses. Refills over time, and on level up.",
+	"coin": "Coins: from the campaign and Piñata Titan. Buy looks.",
+	"orb": "Summon Eggs: hatch them on Summon.",
 }
 
 

@@ -43,7 +43,7 @@ static func build(shell, params: Dictionary) -> Control:
 	_collect(shell, climb)
 	var root := Kit.vbox(22)
 
-	var how: Control = shell.info_button("How the Spire works", [
+	var how: Control = shell.info_button("The Spire", [
 		"One %d-floor tower for everyone, rebuilt every Monday. Pick your lineup for each floor; they fight in the order you pick them, and a winner stays in with the HP it has left." % Spire.FLOORS,
 		"Boss floors: the boss is huge and takes on your whole lineup alone.",
 		"Every critter that comes out to fight spends 1 of its %d Stamina, win or lose. Tired critters rest until Monday, so spread the climb across your whole collection." % SpireClimb.STAMINA,
@@ -51,14 +51,14 @@ static func build(shell, params: Dictionary) -> Control:
 	], "spire_info")
 	var back: Control = shell.back_button("spire_back")
 	root.add_child(Kit.hbox(18, [back, Kit.label("The Spire", 40), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
-	var sub := "Floor %d of %d cleared. Resets in %s." % [climb.cleared, Spire.FLOORS, LiveOps.countdown(now, Spire.week_end(climb.week))]
+	var sub := "%d/%d · resets in %s" % [climb.cleared, Spire.FLOORS, LiveOps.countdown(now, Spire.week_end(climb.week))]
 	if climb.last_week_best > 0:
-		sub += " Last week: floor %d." % climb.last_week_best
+		sub += " · Best last week: %d" % climb.last_week_best
 	root.add_child(Kit.label(sub, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	root.add_child(Kit.bar(float(climb.cleared) / Spire.FLOORS, TOWER, 16))
 	if climb.finished():
 		root.add_child(Kit.panel(Kit.vbox(10, [Kit.label("Summit reached!", 40, TOWER),
-			Kit.label("You cleared all %d floors. The tower rebuilds on Monday." % Spire.FLOORS, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]),
+			Kit.label("Rebuilds Monday.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]),
 			Kit.box(Color("2a2210"), TOWER.darkened(.4), 40, 2, 30)))
 		return root
 	var spec: Dictionary = climb.floor_spec()
@@ -104,7 +104,7 @@ static func _floor_card(spec: Dictionary) -> Control:
 		more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		reward.add_child(more)
 	var v := Kit.vbox(12, [
-		Kit.caption("Next floor · plain arena · %d vs %d" % [spec.lineup, spec.enemies.size()], TOWER),
+		Kit.caption("%dv%d" % [spec.lineup, spec.enemies.size()], TOWER),
 		Kit.label(title, 36),
 		foes,
 		reward,
@@ -116,7 +116,7 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 	var p = shell.profile
 	var list := fighters(p, climb)
 	var v := Kit.vbox(12)
-	v.add_child(Kit.hbox(0, [Kit.caption("Your lineup · pick %d in order" % spec.lineup), Kit.spacer(),
+	v.add_child(Kit.hbox(0, [Kit.caption("Pick %d" % spec.lineup), Kit.spacer(),
 		Kit.label("%d/%d" % [picks.size(), spec.lineup], 22, Kit.MUTED)]))
 	if list.is_empty():
 		v.add_child(Kit.label("None of your critters can fight in the arena yet.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
@@ -159,7 +159,7 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 		grid.add_child(card)
 	v.add_child(grid)
 	# The climb button stays put under the list, however many critters it holds.
-	var climb_btn := Kit.button("Climb floor %d" % spec.floor, func(): _climb(shell, climb, picks), "go" if not picks.is_empty() else "ghost", 32, 96)
+	var climb_btn := Kit.button("Climb", func(): _climb(shell, climb, picks), "go" if not picks.is_empty() else "ghost", 32, 96)
 	shell.mark("spire_climb", climb_btn)
 	var actions := Kit.hbox(12, [climb_btn])
 	if picks.is_empty() and spec.lineup > 1:
@@ -235,14 +235,14 @@ static func _collect(shell, climb) -> void:
 	var t: Dictionary = climb.take_rewards()
 	grant(shell.profile, t)
 	climb.save_file()
-	var bits := ["%d coins" % t.coins]
+	var bits := ["+%d coins" % t.coins]
 	if t.orbs > 0:
-		bits.append("%d Summon Egg%s" % [t.orbs, "" if t.orbs == 1 else "s"])
+		bits.append("+%d egg%s" % [t.orbs, "" if t.orbs == 1 else "s"])
 	if t.xp_chips > 0:
-		bits.append("%d XP Chip%s" % [t.xp_chips, "" if t.xp_chips == 1 else "s"])
+		bits.append("+%d XP Chip%s" % [t.xp_chips, "" if t.xp_chips == 1 else "s"])
 	for g in t.gear:
 		bits.append(gear_name(g))
-	shell.toast("Spire rewards: " + ", ".join(bits))
+	shell.toast(", ".join(bits))
 
 
 ## Puts a reward bundle (SpireClimb.take_rewards) into the profile.

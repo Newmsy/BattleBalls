@@ -18,10 +18,9 @@ static func build(shell, params: Dictionary) -> Control:
 	store.fit_to(owned)
 	var root := Kit.vbox(12)
 	var how := [
-		"Your Defence trio is the team other players will fight once online play opens.",
+		"Your Defence trio is the team other players will fight once online play opens. It uses your attack trio's last saved shots.",
 		"Until then, %d themed teams near your Defence's power raid it each day, the first time you open the Arena." % ArenaStore.RAIDS_PER_DAY,
 		"Each raid you hold wins +5 trophies and %d Tokens. A lost raid costs a few trophies, capped each day, never below your league floor." % ArenaStore.COINS_DEFENCE,
-		"Defence uses your attack trio's last saved shots.",
 	]
 	var info: Control = shell.info_button("Defence", how, "defence_info")
 	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Defence", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
@@ -30,7 +29,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(ArenaScreen.trio_panel(shell, store, owned, "defence"))
 	root.add_child(Kit.caption("Today's raids"))
 	if store.raids.is_empty():
-		root.add_child(Kit.label("No raids yet. They come in on your first Arena visit each day.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+		root.add_child(Kit.label("No raids yet today.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	for r in store.raids:
 		var fam: Dictionary = Families.info(str(r.family))
 		var col: Color = Color(fam.get("color", "ffffff"))

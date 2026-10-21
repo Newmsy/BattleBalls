@@ -24,10 +24,10 @@ static func build(shell, _params: Dictionary) -> Control:
 	var t := LiveOps.now()
 	var root := Kit.vbox(24)
 	var back: Control = shell.back_button("pass_back")
-	var how: Control = shell.info_button("How the Glow Pass works", [
+	var how: Control = shell.info_button("Glow Pass", [
 		"Pass XP comes from play: fights give 10-30 XP, solving the Daily Trick Shot gives %d, and bounties give more." % GlowPass.TRICK_XP,
 		"Finish %d bounties in a week to open the weekly chest (+%s XP)." % [GlowPass.CHEST_AFTER, Kit.commas(GlowPass.CHEST_XP)],
-		"The free track has every power reward. Premium adds looks and Glow Gems only, never power. Buying later unlocks everything you've already reached.",
+		"Free track: all power. Premium: looks and gems only. Unlocking later backfills.",
 		"Past level 50: a bonus box every %s XP (Coins and a few gems), up to %d." % [Kit.commas(GlowPass.BONUS_XP), GlowPass.BONUS_MAX],
 	], "pass_info")
 	root.add_child(Kit.hbox(14, [back, Kit.label("Glow Pass", 40), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
@@ -63,7 +63,7 @@ static func build(shell, _params: Dictionary) -> Control:
 			if err == "Not enough Glow Gems.":
 				ShopScreen.gem_sheet(shell)
 			else:
-				shell.toast(err if err != "" else "Glow Pass unlocked! Your premium rewards are ready to claim.")
+				shell.toast(err if err != "" else "Glow Pass unlocked!")
 				shell.refresh(), "ghost", 26, 88)
 		shell.mark("pass_gems", with_gems)
 		var n_cos := 0
@@ -75,11 +75,11 @@ static func build(shell, _params: Dictionary) -> Control:
 			elif r.get("kind") == "gems":
 				n_gems += int(r.n)
 		root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Premium track", PREMIUM),
-			Kit.hbox(8, [Kit.label("%d looks and %s" % [n_cos, Kit.commas(n_gems)], 24), Kit.glyph("gem", 26, Kit.FG), Kit.label("this season", 24)], BoxContainer.ALIGNMENT_CENTER),
+			Kit.hbox(8, [Kit.label("%d looks + %s" % [n_cos, Kit.commas(n_gems)], 24), Kit.glyph("gem", 26, Kit.FG)], BoxContainer.ALIGNMENT_CENTER),
 			Kit.hbox(12, [buy, with_gems])]), Kit.box(Color("1f1440"), Color(PREMIUM, .6), 36, 2, 24)))
 
 	# Today's bounties and the weekly chest.
-	var bv := Kit.vbox(12, [Kit.hbox(0, [Kit.caption("Today's bounties"), Kit.spacer(),
+	var bv := Kit.vbox(12, [Kit.hbox(0, [Kit.caption("Bounties"), Kit.spacer(),
 		Kit.label("New in " + LiveOps.countdown(t, LiveOps.day_start(t) + LiveOps.DAY), 20, Kit.MUTED)])])
 	for b in glow.bounties(t):
 		var txt := Kit.vbox(4, [Kit.label(b.text, 24, Kit.MUTED if b.done else Kit.FG), Kit.bar(float(b.progress) / b.goal, Kit.GOOD if b.done else Kit.ACCENT, 14)])
@@ -87,7 +87,7 @@ static func build(shell, _params: Dictionary) -> Control:
 		var right: Control = Kit.chip("Done", Kit.GOOD) if b.done else Kit.label("%s/%s · +%d XP" % [Kit.commas(b.progress), Kit.commas(b.goal), b.xp], 20, Kit.MUTED)
 		bv.add_child(Kit.hbox(14, [txt, right], BoxContainer.ALIGNMENT_CENTER))
 	var w: Dictionary = glow.week_state(t)
-	var chest_text := Kit.label("Weekly chest: %d / %d bounties · +%s XP" % [mini(int(w.count), GlowPass.CHEST_AFTER), GlowPass.CHEST_AFTER, Kit.commas(GlowPass.CHEST_XP)], 22,
+	var chest_text := Kit.label("Chest %d/%d · +%s XP" % [mini(int(w.count), GlowPass.CHEST_AFTER), GlowPass.CHEST_AFTER, Kit.commas(GlowPass.CHEST_XP)], 22,
 		Kit.GOOD if glow.chest_ready(t) else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	chest_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var chest_row := Kit.hbox(12, [chest_text], BoxContainer.ALIGNMENT_CENTER)
@@ -183,7 +183,7 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 		badge = Kit.chip("Claim", Kit.GOOD, 16)
 		_pulse_once(badge)
 	elif state == "Claimed":
-		badge = Kit.chip("Got it", Kit.MUTED, 16)
+		badge = Kit.chip("Claimed", Kit.MUTED, 16)
 	elif state == "locked":
 		badge = Glyph.make("lock", 22, Kit.MUTED)
 	if badge:
@@ -203,7 +203,7 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 		elif r.kind == "cosmetic":
 			ShopScreen.item_sheet(shell, r.id)
 		elif state == "locked":
-			shell.toast("Unlock the Glow Pass to claim premium rewards.")
+			shell.toast("Premium: unlock the pass.")
 		elif state == "":
 			shell.toast("Reach level %d to claim this." % l), border, Kit.PANEL, 24, 8)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL

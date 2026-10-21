@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "3c096c",
 	"vibe": "A nocturnal bat that always knows exactly where you are.",
-	"description": "Bat. Every wall bounce it pings, swerving toward the foe and sending out a ring that slows.",
+	"description": "Bat. Every wall bounce it pings, swerving toward the foe and sending out a ring that slows 20% for 1s.",
 	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "wall", "do": "ping"}],
 	"params": {
@@ -27,11 +27,11 @@ const CRITTER := {
 		"ping_hit_mult": 2.0, ## T5: a hit while still swerving.
 	},
 	"tiers": [
-		{"text": "Pings on every bounce, slowing 20%"},
-		{"text": "Swerves harder", "ping_dash_mult": 1.5},
-		{"text": "The ping deals 4", "ping_damage": 4.0},
-		{"text": "Bigger ping", "ping_radius": 220.0},
-		{"text": "Echolocation: every ping finds the foe wherever it is; its next hit within 3s deals x2.5", "ping_hit_mult": 2.5, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
+		{"text": "Bounces ping: swerve at foe, slow 20%", "now": "Bounces ping: swerve at foe, slow {ping_slow%}%"},
+		{"text": "Swerve speed x1.4 → 1.5", "ping_dash_mult": 1.5},
+		{"text": "+ The ping deals 4", "now": "Bounces ping: swerve at foe, {ping_damage} dmg, slow {ping_slow%}%", "ping_damage": 4.0},
+		{"text": "Ping size +22%", "ping_radius": 220.0},
+		{"text": "+ Pings find the foe · next hit in 3s x2.5", "now": "Bounces ping: swerve, {ping_damage} dmg, slow {ping_slow%}% · hit in {ping_mark}s x{ping_hit_mult}", "special": "Echolocation", "ping_hit_mult": 2.5, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "fangs"}, "back": ["batwings", "ears"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},

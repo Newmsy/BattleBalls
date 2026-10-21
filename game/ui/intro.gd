@@ -26,7 +26,7 @@ const OPENS_AT := {"play": FIGHT_1, "fuse": FIGHT_1, "campaign": FIGHT_1, "summo
 
 ## What each reveal says: [title, line, glyph, screen to open].
 const MOMENTS := {
-	SUMMON: ["Summon", "You won a Summon Egg! Spend it at the Summon Portal for a new critter.", "summon", "summon"],
+	SUMMON: ["Summon", "You won a Summon Egg! Hatch a new critter.", "summon", "summon"],
 	FIGHTER: ["Critters", "Your collection lives here. Pick who fights for you.", "critters", "critters"],
 	EQUIP: ["Bag", "You found gear! Equip it to make a critter stronger.", "bag", "bag"],
 	ARENA: ["Ghost Arena", "Take your trio up against other players' teams.", "ghost", "arena"],
@@ -52,12 +52,12 @@ static func shows(p, feature: String) -> bool:
 static func coach(p, screen: String) -> String:
 	match step(p):
 		FIGHT_1:
-			return "Win stage 1-1." if screen in ["world", "campaign"] else ("Open the map and win stage 1-1." if screen == "play" else "")
+			return "Win stage 1-1." if screen in ["world", "campaign"] else ("Tap Continue and win stage 1-1." if screen == "play" else "")
 		SUMMON:
 			return "Tap Free x1 to summon a critter." if screen == "summon" else "Open the Summon tab."
 		FIGHTER:
 			if screen == "detail":
-				return "Tap Fight with this to make it your fighter."
+				return "Tap Pick to make it your fighter."
 			return "Tap a critter to see it." if screen == "critters" else "Open the Critters tab and pick your fighter."
 		FIGHT_2:
 			return "Win stage 1-2." if screen in ["world", "campaign", "play"] else ""

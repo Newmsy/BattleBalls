@@ -26,7 +26,7 @@ static func build(shell, params: Dictionary) -> Control:
 		store = ArenaStore.open()
 	var abandoned: int = store.settle_abandoned()
 	if abandoned != 0:
-		shell.toast.call_deferred("Your last attack wasn't finished, so it counted as a loss (%d)." % abandoned)
+		shell.toast.call_deferred("Unfinished attack: counted as a loss (%d)" % abandoned)
 	var owned := owned_critters(shell.profile)
 	store.fit_to(owned)
 	var raids: Array = store.run_raids(shell.profile)
@@ -35,20 +35,18 @@ static func build(shell, params: Dictionary) -> Control:
 		var dt := 0
 		for r in raids:
 			dt += int(r.delta)
-		shell.toast.call_deferred("Your defence held %d of %d raids overnight (%+d trophies)." % [held, raids.size(), dt])
+		shell.toast.call_deferred("Defence held %d/%d raids (%+d)" % [held, raids.size(), dt])
 	var root := Kit.vbox(10)
 
 	var back: Control = shell.back_button("back")
 	var how := [
-		"Your trio fights theirs in order; their order stays hidden until each ball comes out. A winner stays in with the HP it has left. Each ball's last shot is saved for your ghost.",
-		"Tap a trio slot to pick a critter you own. Each critter fits in a trio once; picking one already in it swaps the two. Best trio fills in your strongest three.",
+		"Trios fight in order; a winner stays in with its HP left. Their order is hidden. Your last shots become your ghost.",
+		"Best trio fills in your strongest three.",
 		"Opponents are themed teams with trophies near yours, and the more trophies a team has, the stronger it is. Beating a team above you wins more and losing to it costs less. One free refresh a day.",
 		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Tokens for the Bazaar.",
 		"Set your Defence trio: each day a few teams raid it. Holding wins trophies and Tokens.",
 	]
-	for h in store.history.slice(0, 5):
-		how.append("%s vs %s (%+d)" % ["Won" if h.won else "Lost", str(h.name), int(h.delta)])
-	var info: Control = shell.info_button("How the Arena works", how, "arena_info")
+	var info: Control = shell.info_button("Ghost Arena", how, "arena_info")
 	root.add_child(Kit.hbox(14, [back, Kit.label("Ghost Arena", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
 	root.add_child(_league_panel(store))
 	var held_today: int = store.raids.filter(func(r): return r.held).size() if store.raid_day == ArenaStore.today() else 0
@@ -68,14 +66,14 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(trio_panel(shell, store, owned, "trio"))
 
 	var refresh_left: int = store.refreshes_left()
-	var refresh := Kit.chip("Refresh" if refresh_left > 0 else "New teams tomorrow", Kit.ACCENT if refresh_left > 0 else Kit.MUTED)
+	var refresh := Kit.chip("Refresh", Kit.ACCENT if refresh_left > 0 else Kit.MUTED)
 	var refresh_btn := Kit.card_button(refresh, func():
 		if store.refresh():
 			shell.refresh_with({"store": store})
 		else:
-			shell.toast("One free refresh a day. New teams tomorrow."), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
+			shell.toast("Refresh used. New teams tomorrow."), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
 	shell.mark("arena_refresh", refresh_btn)
-	root.add_child(Kit.hbox(0, [Kit.caption("Pick an opponent"), Kit.spacer(), refresh_btn]))
+	root.add_child(Kit.hbox(0, [Kit.caption("Opponents"), Kit.spacer(), refresh_btn]))
 	var cards: Array[Dictionary] = store.offers(shell.profile)
 	var rows: Array = []
 	for i in cards.size():
@@ -147,7 +145,7 @@ static func trio_panel(shell, store, owned: Array, which := "trio") -> Control:
 				shell.refresh_with({"store": store})
 			CritterPicker.open_team(shell, owned, {
 				"title": "Your trio" if which == "trio" else "Defence trio",
-				"hint": "Tap to add or take out. Slot 1 fights first.",
+				"hint": "Slot 1 fights first.",
 				"size": mini(3, owned.size()), "current": team, "on_confirm": on_team,
 			}), Kit.LINE, Kit.PANEL2, 28, 10)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -157,7 +155,7 @@ static func trio_panel(shell, store, owned: Array, which := "trio") -> Control:
 		store.fill_best(owned, which)
 		shell.refresh_with({"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
 	shell.mark("%s_best_trio" % prefix, best)
-	var caption := "Your trio · fights in this order" if which == "trio" else "Defence · fights in this order"
+	var caption := "Your trio" if which == "trio" else "Defence trio"
 	return Kit.vbox(10, [
 		Kit.hbox(0, [Kit.caption(caption), Kit.spacer(), best], BoxContainer.ALIGNMENT_CENTER),
 		row,

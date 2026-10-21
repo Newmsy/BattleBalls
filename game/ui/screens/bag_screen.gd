@@ -16,7 +16,7 @@ const Profile := preload("res://meta/profile.gd")
 
 static var section := "gear"
 
-const GEAR_INFO := ["Three of the same piece at the same stars merge into one piece with a star more, up to 5 stars. Merging costs Hammers (from the Anvil King) and keeps the new piece on whoever wore one of the three.",
+const GEAR_INFO := ["3 of a kind → 1 with a star more (max 5). Costs Hammers.",
 	"Shells keep you alive, Cores hit harder, Charms (from 3-star critters) speed you or your ability up.",
 	"Get gear from the Anvil King, campaign wins, Spire boss floors and the Glow Pass free track."]
 
@@ -48,7 +48,7 @@ static func build(shell, _params: Dictionary) -> Control:
 			if grid.get_child_count() > 0:
 				root.add_child(Kit.vbox(12, [Kit.caption("%ss (%d)" % [slot, pieces]), grid]))
 		if p.gear.is_empty():
-			root.add_child(Kit.label("No gear yet. Win campaign stages, Spire boss floors or Anvil King fights to find some.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+			root.add_child(Kit.label("No gear yet.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		_pin_merge_all(shell, p)
 	else:
 		var grid := _grid()
@@ -59,7 +59,6 @@ static func build(shell, _params: Dictionary) -> Control:
 			shell.mark("item_" + it.name.replace(" ", "_"), card)
 			grid.add_child(card)
 		root.add_child(grid)
-		root.add_child(Kit.label("Spare critter copies stay in your collection, not the Bag.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	return root
 
 
@@ -102,7 +101,7 @@ static func _pin_merge_all(shell, p) -> void:
 	var n: int = plan.merges.size()
 	var b: Button
 	if n == 0:
-		b = Kit.cost_button("Merge all · need", p.merge_cost(p.gear_sets()[0][1]), "hammer", func(): pass, "go", 28, 90)
+		b = Kit.cost_button("Merge all", p.merge_cost(p.gear_sets()[0][1]), "hammer", func(): pass, "go", 28, 90)
 		b.disabled = true
 	else:
 		b = Kit.cost_button("Merge all (%d)" % n, plan.hammers, "hammer", _merge_all.bind(shell), "go", 28, 90)
@@ -119,7 +118,7 @@ static func _gear_tile(shell, st: Dictionary) -> Control:
 	var p = shell.profile
 	var g: Dictionary = st.piece
 	var col := tier_color(g.tier)
-	var status: String = ("x%d" % st.count if st.count > 1 else "Free") if g.on == "" else "On " + Roster.get_critter(g.on).name
+	var status: String = ("x%d" % st.count if st.count > 1 else "Spare") if g.on == "" else "On " + Roster.get_critter(g.on).name
 	var status_label := Kit.label(status, 19, Kit.GOOD if g.on != "" else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
 	var status_row: Control = status_label
 	if g.on != "":
@@ -169,7 +168,7 @@ static func _equip_pick(shell, g: Dictionary) -> void:
 static func _merge(shell, g: Dictionary) -> void:
 	var made: Dictionary = shell.profile.merge_gear(g.type, g.tier)
 	shell.close_overlay()
-	shell.toast("Made a %s." % piece_name(made) if not made.is_empty() else "Merging needs %d hammers. Beat the Anvil King for more." % shell.profile.merge_cost(g.tier))
+	shell.toast("Made a %s." % piece_name(made) if not made.is_empty() else "Need more Hammers.")
 	shell.refresh()
 
 
@@ -197,7 +196,7 @@ static func _gear_sheet(shell, g: Dictionary) -> void:
 		var have: int = p.gear_of(g.type, g.tier).size()
 		var cost: int = p.merge_cost(g.tier)
 		var merge := Kit.cost_button("Merge 3", cost, "hammer", _merge.bind(shell, g), "go", 26, 84) if have >= 3 else Kit.button("%d of 3 to merge" % have, _merge.bind(shell, g), "go", 26, 84)
-		merge.disabled = have < 3
+		merge.disabled = have < 3 or p.hammers < cost
 		merge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("gear_merge", merge)
 		buttons.add_child(merge)
@@ -219,9 +218,9 @@ static func _item_sheet(shell, it: Dictionary) -> void:
 			act = Kit.button("Use 1", func(): shell.close_overlay(); if p.use_energy_pack(): shell.toast("+30 energy"); shell.refresh(), "primary", 28, 90)
 			act.disabled = it.count <= 0
 		"Summon Egg":
-			act = Kit.button("Go to Summon", func(): shell.show_tab("summon"), "primary", 28, 90)
+			act = Kit.button("Summon", func(): shell.show_tab("summon"), "primary", 28, 90)
 		_:
-			act = Kit.button("Use on a critter", func(): shell.close_overlay(); _chip_pick(shell), "primary", 28, 90)
+			act = Kit.button("Use", func(): shell.close_overlay(); _chip_pick(shell), "primary", 28, 90)
 			act.disabled = it.count <= 0
 	shell.mark("item_use", act)
 	v.add_child(act)
@@ -235,10 +234,9 @@ static func _chip_pick(shell) -> void:
 		var b: Dictionary = p.best(id)
 		return int(b.level) < Roster.level_cap(b.tier))
 	if ids.is_empty():
-		shell.toast("Every critter is at its level cap. Fuse one up to raise it.")
+		shell.toast("All critters are max level.")
 		return
 	CritterPicker.open(shell, ids, {"title": "Give +%d XP to" % Profile.XP_CHIP_XP,
-		"hint": "One XP Chip. Levels cap at 10 per tier star.",
 		"on_pick": func(id): _use_chip(shell, id)})
 
 

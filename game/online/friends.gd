@@ -258,13 +258,13 @@ static func rematch_blocker(f: Dictionary) -> String:
 	return ""
 
 
-## "You 3 - 1" style head-to-head line for the friends list.
+## "3W 1L" head-to-head line for the friends list ("" before the first rematch).
 static func record_text(rec) -> String:
 	if not rec is Dictionary or int(rec.get("wins", 0)) + int(rec.get("losses", 0)) + int(rec.get("draws", 0)) == 0:
-		return "No rematches yet"
-	var t := "Rematches: %d won, %d lost" % [int(rec.wins), int(rec.losses)]
+		return ""
+	var t := "%dW %dL" % [int(rec.wins), int(rec.losses)]
 	if int(rec.get("draws", 0)) > 0:
-		t += ", %d drawn" % int(rec.draws)
+		t += " %dD" % int(rec.draws)
 	return t
 
 

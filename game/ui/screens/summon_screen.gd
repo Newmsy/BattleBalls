@@ -28,19 +28,17 @@ static func build(shell, _params: Dictionary) -> Control:
 	var how: Control = shell.info_button("Odds and pity", [
 		"Every summon is a Tier 1 critter. Odds (the same as campaign drops): " + ", ".join(odds_lines) + ".",
 		"A x10 always has a Rare or better.",
-		"Wishlist: your picks come up twice as often as others of their rarity, in summons and campaign drops. Rarity odds and pity stay the same.",
-		"Legendary pity: a Legendary is guaranteed within %d Rare+ rolls. It's shared with campaign and hunt drops, so switching never resets it." % Summon.PITY_RESET,
-		"Summon Eggs come from boss first clears, daily login, account levels and achievements. They are never sold."], "summon_info")
-	var orb := Glyph.make("orb", 30)
-	orb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	root.add_child(Kit.hbox(10, [Kit.label("Summon Portal", 40), Kit.spacer(), orb, Kit.label(str(p.orbs), 26), how], BoxContainer.ALIGNMENT_CENTER))
+		"Wishlist picks come up 2x as often within their rarity.",
+		"Legendary within %d Rare+ rolls. Campaign drops count too." % Summon.PITY_RESET,
+		"Eggs: boss first clears, daily login, account levels, Brood Queen. Never sold."], "summon_info")
+	root.add_child(Kit.hbox(10, [Kit.label("Summon Portal", 40), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
 
 	var featured := Roster.get_critter(Summon.featured())
 	var portal := _Portal.new()
 	portal.custom_minimum_size = Vector2(0, 200)
 	portal.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var feat := Kit.hbox(14, [CritterIcon.make(featured.id, 1, 84), Kit.vbox(2, [Kit.caption("This week · Spotlight", Color("e8c8ff")),
-		Kit.label("%s week" % featured.name, 30), Kit.label("%s gets half of all %s rolls." % [featured.name, Roster.RARITY_NAMES[featured.rarity]], 21, Color("e8c8ff"), HORIZONTAL_ALIGNMENT_LEFT, true)])])
+	var feat := Kit.hbox(14, [CritterIcon.make(featured.id, 1, 84), Kit.vbox(2, [Kit.caption("Spotlight", Color("e8c8ff")),
+		Kit.label(featured.name, 30), Kit.label("Half of %s pulls" % Roster.RARITY_NAMES[featured.rarity], 21, Color("e8c8ff"), HORIZONTAL_ALIGNMENT_LEFT, true)])])
 	feat.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var st := Kit.box(Color("221046"), Color("6b3fb0"), 36, 2, 20)
 	root.add_child(Kit.panel(Kit.vbox(4, [portal, feat]), st))
@@ -54,7 +52,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(_wishlist_panel(shell))
 
 	var pity: int = p.legendary_pity
-	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(0, [Kit.caption("Legendary pity"), Kit.spacer(), Kit.label("%d Rare+ rolls left" % pity, 22)]),
+	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(0, [Kit.caption("Legendary"), Kit.spacer(), Kit.label("in %d" % pity, 22)]),
 		Kit.bar(float(Summon.PITY_RESET - pity) / Summon.PITY_RESET, Glyph.GOLD)]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
 	var free := Dev.free_summons()
@@ -154,7 +152,7 @@ static func _open_picker(shell) -> void:
 	shell.mark("wishlist_done", done)
 	shell.sheet(Kit.vbox(16, [Kit.hbox(0, [Kit.label("Wishlist", 36), Kit.spacer(), count]),
 		# Fixed line breaks: a wrapping label has no width yet when the sheet measures itself.
-		Kit.label("Pick up to 3 critters you're chasing.", 21, Kit.MUTED),
+		Kit.label("They show up 2x as often.", 21, Kit.MUTED),
 		scroll, done]))
 
 
@@ -178,7 +176,7 @@ static func _pull(shell, n: int) -> void:
 	elif n == 1 and p.free_summon:
 		p.free_summon = false
 	elif not p.spend_orbs(n):
-		shell.toast("Not enough Summon Eggs.")
+		shell.toast("Not enough eggs.")
 		return
 	if _rng == null:
 		_rng = RandomNumberGenerator.new()

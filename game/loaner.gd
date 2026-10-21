@@ -14,8 +14,8 @@ const Roster := preload("res://game/ui/roster.gd")
 ## Modes a loaner may play. Anything else (ghost_arena, campaign, ...) needs a
 ## critter you own.
 const MODES := ["quick", "challenge", "trickshot", "bounce_run"]
-## Shown on the board. Bounce Run adds its name here when it lands.
-const MODE_NAMES := ["Quick fight", "friend challenges", "the Critter Shot"]
+## Shown on the board, one per entry in MODES.
+const MODE_NAMES := ["Quick fight", "Challenges", "Critter Shot", "Bounce Run"]
 ## Loaners fight at T1 level 1, like every fresh drop.
 const TIER := 1
 const LEVEL := 1
@@ -44,6 +44,6 @@ static func can_use(profile, id: String, mode: String, t := -1) -> bool:
 	return mode in MODES and today(profile, t).critter == id
 
 
-## "Quick fight, friend challenges and the Critter Shot".
+## "Quick fight, Challenges, Critter Shot and Bounce Run".
 static func modes_text() -> String:
 	return ", ".join(MODE_NAMES.slice(0, -1)) + " and " + MODE_NAMES[-1]

@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const EnergySheet := preload("res://game/ui/energy_sheet.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
@@ -16,7 +17,7 @@ const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 const CORE := Color("7cff4f")
 ## Glyph and word per reward; currencies show only their icon and number.
 ## The third entry is for plain-text lines, where there's no icon.
-const NAMES := {"orbs": ["egg", "", "Summon Eggs"], "lures": ["target", "Lures", "Lures"], "hammers": ["hammer", "", "Hammers"]}
+const NAMES := {"orbs": ["egg", "", "Summon Eggs"], "lures": ["target", "", "Lures"], "hammers": ["hammer", "", "Hammers"]}
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -24,7 +25,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Weekly boss · story", CORE), Kit.label("The Glitch", 40)])
+	var head := Kit.vbox(2, [Kit.caption("Weekly boss", CORE), Kit.label("The Glitch", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("The Glitch", [
 		"The bug behind everything, in the Corrupted Core. Every 10 seconds it rewrites the rules:",
@@ -34,8 +35,8 @@ static func build(shell, params: Dictionary) -> Control:
 		BoxContainer.ALIGNMENT_CENTER))
 
 	var left := GlitchCore.runs_left(p, now)
-	var tries := ("%d of %d tries this week" % [left, GlitchCore.RUNS_PER_DAY]) if left > 0 else "Beaten (or out of tries) this week"
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("%d/%d  ·  %s" % [p.energy, p.energy_max, tries], 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER))
+	var tries := ("%d/%d tries" % [left, GlitchCore.RUNS_PER_DAY]) if left > 0 else "Done this week"
+	root.add_child(Kit.label(tries, 22, Kit.MUTED))
 
 	if params.has("notice"):
 		var note := Kit.vbox(12, [Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
@@ -62,6 +63,8 @@ static func build(shell, params: Dictionary) -> Control:
 	var fight := Kit.cost_button("Fight", GlitchCore.ENERGY_COST, "energy", _fight.bind(shell, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 150
 	fight.disabled = left <= 0
+	if not fight.disabled and p.energy < GlitchCore.ENERGY_COST:
+		fight.modulate = Color(1, 1, 1, .5) # Short on energy: tapping opens the energy sheet.
 	shell.mark("glitch_go", fight)
 	var p_tag := Kit.power(rec, 20, power_color)
 	p_tag.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -73,9 +76,11 @@ static func build(shell, params: Dictionary) -> Control:
 static func _fight(shell, fighter: String) -> void:
 	var cfg: Dictionary = GlitchCore.start(shell.profile, 0, fighter, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
-		shell.toast({"energy": "Not enough energy. It refills 1 every 5 minutes, or use an Energy Pack from your Bag.",
-			"runs": "The Glitch is done for this week. It's back on Thursday!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Beat the Zone 5 boss to face The Glitch."))
 		shell.refresh()
+		if cfg.error == "energy":
+			EnergySheet.open(shell)
+			return
+		shell.toast({"runs": "The Glitch is done for this week. It's back on Thursday!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Beat the Zone 5 boss to face The Glitch."))
 		return
 	shell.boss_requested.emit(cfg, 0, fighter, "glitch")
 
@@ -83,7 +88,7 @@ static func _fight(shell, fighter: String) -> void:
 ## One line summing up a Glitch result, for the result popup.
 static func result_text(r: Dictionary) -> String:
 	if not r.won:
-		return "Lost. %d energy back, +%d XP. Watch which rules it's on, or bring a stunner." % [r.refund, r.xp]
+		return "Lost · +%d XP. Bring a stunner!" % r.xp
 	var parts: Array[String] = ["Glitch beaten!"]
 	for b in r.bundle:
 		parts.append("+%d %s" % [b.n, NAMES[b.kind][2]])

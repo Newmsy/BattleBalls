@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "ff6fae",
 	"vibe": "Two personalities sharing one jelly body, never quite agreeing.",
-	"description": "Splitter. At half HP it tears into two smaller, faster minis that share what HP it has left.",
+	"description": "Splitter. At 50% HP it tears into two smaller, faster minis that share what HP it has left.",
 	"stats": {"hp": 145.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.5},
 	"ability": [{"on": "hp_below", "hp": 0.5, "do": "split"}],
 	"params": {
@@ -21,11 +21,11 @@ const CRITTER := {
 		"split_damage": 0.0, ## Contact damage a mini adds.
 	},
 	"tiers": [
-		{"text": "Splits into two minis at 50% HP"},
-		{"text": "Minis hit harder (+2)", "split_damage": 2.0},
-		{"text": "Minis split once more at half their HP", "split_gens": 2},
-		{"text": "Minis hit harder still (+3)", "split_damage": 3.0},
-		{"text": "Minis are faster", "split_speed": 1.3},
+		{"text": "At 50% HP splits into two minis"},
+		{"text": "+ Minis +2 dmg", "now": "At 50% HP splits into two minis (+{split_damage} dmg)", "split_damage": 2.0},
+		{"text": "+ Minis split again at 50% of their HP", "now": "At 50% HP splits into minis that split again (+{split_damage} dmg)", "split_gens": 2},
+		{"text": "Mini dmg +2 → +3", "split_damage": 3.0},
+		{"text": "Mini speed x1.15 → 1.3", "split_speed": 1.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mis": true, "mouth": "smile"}, "front": ["seam"]},
 	"sound": {},

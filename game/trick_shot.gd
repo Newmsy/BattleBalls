@@ -155,9 +155,9 @@ func _show_aim() -> void:
 	arena.solutions = []
 	arena.clear_effects()
 	_set_aim(aim)
-	info_label.text = "Try %d of %d. Drag on the arena to aim, nudge to fine-tune, then shoot." % [tries.size() + 1, TrickShot.TRIES]
+	info_label.text = "Try %d/%d" % [tries.size() + 1, TrickShot.TRIES]
 	if shooter != "":
-		info_label.text = "%s takes this shot. " % BallDefs.get_def(shooter).display_name + info_label.text
+		info_label.text = "Shooter: %s · %s" % [BallDefs.get_def(shooter).display_name, info_label.text]
 	var nudge := func(by: int): _set_aim(aim + by)
 	var aim_label := _label("%d°" % aim, 40)
 	aim_label.name = "Aim"
@@ -176,7 +176,7 @@ func _shoot() -> void:
 	shot = {"result": "", "walls": []}
 	_linger = LINGER_TICKS
 	_accumulator = 0.0
-	info_label.text = "Bank off %s, then hit the foe." % _walls_text(puzzle.walls)
+	info_label.text = "" # The call at the top already says which walls.
 	_set_panel([_button("Skip", _skip_shot)])
 	print("TRICKSHOT_SHOT day=%d aim=%d" % [day, aim])
 
@@ -247,10 +247,10 @@ func _show_done() -> void:
 		sq.color = TrickShotView.RESULT_COLORS[t.result]
 		sq.custom_minimum_size = Vector2(56, 56)
 		grid.add_child(sq)
-	info_label.text = "Any aim from %d° to %d° works. Streak %d (best %d). New shot tomorrow." % [
+	info_label.text = "Window %d°–%d° · Streak %d (best %d)" % [
 		puzzle.solutions.front(), puzzle.solutions.back(), _current_streak(), stats.best_streak]
 	if shooter != "":
-		info_label.text = "Any aim from %d° to %d° works. A new critter tries out tomorrow." % [puzzle.solutions.front(), puzzle.solutions.back()]
+		info_label.text = "Window %d°–%d°" % [puzzle.solutions.front(), puzzle.solutions.back()]
 		_set_panel([headline, grid, _button("Menu", _go_menu)])
 		return
 	var share_button := _button("Share", Callable())

@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const EnergySheet := preload("res://game/ui/energy_sheet.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
@@ -33,8 +34,7 @@ static func build(shell, params: Dictionary) -> Control:
 		BoxContainer.ALIGNMENT_CENTER))
 
 	var left := PinataParty.runs_left(p, now)
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("%d/%d  ·  %d of %d runs left" % [p.energy, p.energy_max, left, PinataParty.RUNS_PER_DAY], 22, Kit.MUTED),
-		Kit.spacer(), Glyph.make("coin", 30), Kit.label(Kit.commas(p.coins), 24)], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(Kit.label("%d/%d runs left" % [left, PinataParty.RUNS_PER_DAY], 22, Kit.MUTED))
 
 	if params.has("notice"):
 		var note := Kit.vbox(12, [Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
@@ -51,12 +51,13 @@ static func build(shell, params: Dictionary) -> Control:
 	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
 
-	var pay := Kit.vbox(4, [Kit.label("Smash it!", 30), Kit.hbox(8, [Glyph.make("coin", 22), Kit.label("%d to %d" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 20)], BoxContainer.ALIGNMENT_BEGIN),
-		Kit.label("30 seconds, it never hits back", 20, Kit.MUTED)])
+	var pay := Kit.vbox(4, [Kit.hbox(8, [Glyph.make("coin", 30), Kit.label("%d to %d" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 26)], BoxContainer.ALIGNMENT_BEGIN)])
 	pay.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight := Kit.cost_button("Smash", PinataParty.ENERGY_COST, "energy", _fight.bind(shell, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 160
 	fight.disabled = left <= 0
+	if not fight.disabled and p.energy < PinataParty.ENERGY_COST:
+		fight.modulate = Color(1, 1, 1, .5) # Short on energy: tapping opens the energy sheet.
 	shell.mark("pinata_go", fight)
 	var card := Kit.hbox(12, [BossArt.icon(PinataParty.BOSS, 96), pay, fight], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.panel(card, Kit.box(Kit.PANEL, Color(PARTY, .5), 30, 2, 12)))
@@ -66,16 +67,18 @@ static func build(shell, params: Dictionary) -> Control:
 static func _fight(shell, fighter: String) -> void:
 	var cfg: Dictionary = PinataParty.start(shell.profile, 0, fighter, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
-		shell.toast({"energy": "Not enough energy. It refills 1 every 5 minutes, or use an Energy Pack from your Bag.",
-			"runs": "The piñata's packed up for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Clear stage 1-5 to open the Piñata Titan."))
 		shell.refresh()
+		if cfg.error == "energy":
+			EnergySheet.open(shell)
+			return
+		shell.toast({"runs": "The piñata's packed up for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Clear stage 1-5 to open the Piñata Titan."))
 		return
 	shell.boss_requested.emit(cfg, 0, fighter, "pinata")
 
 
 ## One line summing up a smash, for the result popup.
 static func result_text(r: Dictionary) -> String:
-	var parts: Array[String] = ["JACKPOT! +%d coins" % r.coins if r.broken else "+%d coins (%d%% smashed)" % [r.coins, roundi(r.frac * 100.0)], "+%d XP" % r.xp]
+	var parts: Array[String] = ["JACKPOT! +%d coins" % r.coins if r.broken else "+%d coins · %d%%" % [r.coins, roundi(r.frac * 100.0)], "+%d XP" % r.xp]
 	if r.levels > 0:
 		parts.append("level up!")
 	if r.account_levels > 0:

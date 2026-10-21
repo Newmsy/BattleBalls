@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "2b3a67",
 	"vibe": "Chaotic gremlin who laughs at its own explosions.",
-	"description": "Bomb. Every wall bounce drops a mine that blows up when a foe touches it.",
+	"description": "Bomb. Every wall bounce drops a mine (up to 3) that blows up for 14 when a foe touches it.",
 	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "wall", "do": "mine"}],
 	"params": {
@@ -23,11 +23,11 @@ const CRITTER := {
 		"mine_chain": 0, ## 1: a blast sets off its other mines in reach.
 	},
 	"tiers": [
-		{"text": "A mine on every bounce, up to 3"},
-		{"text": "Up to 4 mines", "mine_max": 4},
-		{"text": "Bigger blasts", "mine_radius": 90.0},
-		{"text": "Up to 6 mines", "mine_max": 6},
-		{"text": "Mines chain-detonate", "mine_chain": 1},
+		{"text": "Bounces drop mines (14 dmg), max 3", "now": "Bounces drop mines ({mine_damage} dmg), max {mine_max}"},
+		{"text": "Max mines 3 → 4", "mine_max": 4},
+		{"text": "Blast size +29%", "mine_radius": 90.0},
+		{"text": "Max mines 4 → 6", "mine_max": 6},
+		{"text": "+ Mines chain-detonate", "now": "Bounces drop chaining mines ({mine_damage} dmg), max {mine_max}", "mine_chain": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .23, "h": .26, "p": .07, "mis": true, "mouth": "teeth"}, "body": "bomb", "front": ["fuse"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 0.85},

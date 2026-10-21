@@ -65,6 +65,7 @@ const Dev := preload("res://game/dev.gd")
 const LiveClient := preload("res://game/online/live_client.gd")
 const LiveMatch := preload("res://sim/live_match.gd")
 const SimVersion := preload("res://sim/sim_version.gd")
+const AbilityText := preload("res://game/ui/ability_text.gd")
 
 ## CLIP plays the finished fight again in the vertical clip layout.
 enum State { MENU, AIM, FIGHT, RESULT, CLIP }
@@ -188,10 +189,14 @@ var result_box: VBoxContainer
 var result_label: Label
 var report_label: Label
 var new_seed_button: Button
-var options_row: HBoxContainer ## 1v1 / 2v2 and the "Tiers & rules" button.
+var options_row: HBoxContainer ## 1v1 / 2v2 and the "More" button.
 var tiers_row: HBoxContainer ## Tiers and Chaos rules, swapped in for options_row.
 var solo_button: Button
 var more_button: Button
+## The Quick fight menu's "i": the long ability and rules text in a card.
+var menu_info_button: Button
+## "+5" and the pass glyph beside the result headline, when the fight earned pass XP.
+var pass_chip: HBoxContainer
 var again_button: Button
 var share_button: Button
 var challenge_button: Button
@@ -518,7 +523,7 @@ func _refresh_tier_buttons() -> void:
 		if n > 0 and not (i == 1 and off):
 			row.add_child(Kit.glyph("stars", 22, Kit.FG, n))
 		else:
-			row.add_child(Kit.label("equal stats" if off else "same tier", 20, Kit.MUTED))
+			row.add_child(Kit.label("Even" if off else "Same", 20, Kit.MUTED))
 
 
 func _show_menu() -> void:
@@ -540,38 +545,23 @@ func _refresh_menu() -> void:
 		player_buttons[id].button_pressed = id == player_type or (_is_duo() and id == mate_type)
 	new_seed_button.disabled = mode == Mode.CHALLENGE
 	title_label.text = {Mode.CHALLENGE: "Challenge", Mode.RIVAL: "Rival"}.get(mode, "Quick fight")
-	seed_label.text = ("Your critter · %s" % Arenas.get_def(_pick_arena()).display_name).to_upper()
+	seed_label.text = Arenas.get_def(_pick_arena()).display_name.to_upper() # The lit tile is your critter.
 	solo_button.visible = mode == Mode.NORMAL
 	duo_button.visible = mode == Mode.NORMAL
 	solo_button.button_pressed = not _is_duo()
 	duo_button.button_pressed = _is_duo()
-	more_button.text = ("Tiers & rules" if mode == Mode.NORMAL else "Rules: " + Modifiers.display_name(modifier)).to_upper()
+	more_button.text = ("More" if mode == Mode.NORMAL else "Rules: " + Modifiers.display_name(modifier)).to_upper()
 	fight_button.text = "LIVE FIGHT" if _live_on() else "FIGHT!"
 	fight_button.disabled = _is_duo() and mate_type == ""
-	if _is_duo():
-		var mate_name: String = BallDefs.get_def(mate_type).display_name if mate_type != "" else "pick one more"
-		seed_label.text = ("Your pair: 1 %s + 2 %s · %s" % [BallDefs.get_def(player_type).display_name,
-			mate_name, Arenas.get_def(_pick_arena()).display_name]).to_upper()
+	if _is_duo(): # Both tiles of the pair are lit.
+		seed_label.text = ("Pick 2 · %s" % Arenas.get_def(_pick_arena()).display_name).to_upper()
 		if mate_type == "":
 			fight_button.text = "PICK 1 MORE"
 	rules_button.text = Modifiers.display_name(modifier).to_upper()
 	_refresh_tier_buttons()
-	var def := BallDefs.get_def(player_type)
-	info_label.text = "%s: %s" % [def.display_name, def.description]
-	if _is_duo():
-		info_label.text = "2v2: all four fight at once. Tap to add or take out of your pair; you aim %s." % def.display_name
 	for id in player_loan_tags:
 		player_loan_tags[id].visible = _is_loan(id)
-	if _is_loan(player_type):
-		info_label.text = "%s is on loan today. Practice only." % def.display_name
-	if mode == Mode.RIVAL:
-		info_label.text = "RIVAL! %s's %s is waiting. Pick a ball and beat it (just for fun)." % \
-			[rival.name, BallDefs.get_def(opponent_type).display_name]
-	elif mode == Mode.CHALLENGE:
-		info_label.text = "CHALLENGE! Your friend's %s has its shot lined up. Pick a ball and beat it." % \
-			BallDefs.get_def(opponent_type).display_name
-	if modifier != Modifiers.NONE:
-		info_label.text = "%s: %s" % [Modifiers.display_name(modifier), Modifiers.get_def(modifier).description]
+	info_label.text = _menu_info_short()
 	arena.preview_types = _fight_types(player_type, _pick_opponent())
 	if _is_duo():
 		arena.preview_types = arena.preview_types + [_mate(), _foe_mate(_pick_opponent())]
@@ -581,7 +571,68 @@ func _refresh_menu() -> void:
 	_report_menu.call_deferred()
 
 
-## "Tiers & rules" swaps the 1v1/2v2 row for the tier and Chaos rules buttons, and Done swaps it back.
+## The Quick fight menu's one line under the picks: the picked critter's
+## ability, or what this fight is (pair, loan, rival, challenge, twist).
+func _menu_info_short() -> String:
+	var def := BallDefs.get_def(player_type)
+	var text := AbilityText.now(player_type, maxi(1, _fight_tiers()[0]))
+	if text == "":
+		text = def.display_name
+	if _is_duo():
+		text = "Pick 2. You aim %s." % def.display_name
+	if _is_loan(player_type):
+		text = "On loan: practice only."
+	if mode == Mode.RIVAL:
+		text = "Beat %s's %s!" % [rival.name, BallDefs.get_def(opponent_type).display_name]
+	elif mode == Mode.CHALLENGE:
+		text = "Beat your friend's %s shot!" % BallDefs.get_def(opponent_type).display_name
+	if modifier != Modifiers.NONE:
+		text = "%s twist on" % Modifiers.display_name(modifier)
+	return text
+
+
+## Behind the menu's "i": the picked critter's long ability text, plus the
+## rival rules and the twist's description when they apply.
+func _menu_info_full() -> Array:
+	var full := AbilityText.full(player_type)
+	var lines := [full if full != "" else str(BallDefs.get_def(player_type).description)]
+	if _is_duo():
+		lines.append("2v2: all four fight at once. Tap a critter to add it to your pair or take it out.")
+	if mode == Mode.RIVAL:
+		lines.append("Unranked: only your record against them changes.")
+	if modifier != Modifiers.NONE:
+		lines.append("%s: %s" % [Modifiers.display_name(modifier), Modifiers.get_def(modifier).description])
+	return lines
+
+
+## The menu's "i": a card over the screen (the home shell, and its info
+## sheet, are hidden here). Tapping outside or Got it closes it.
+func _show_menu_info() -> void:
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var dim := Button.new()
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var dim_style := Kit.box(Color(.02, .015, .06, .7), Color(0, 0, 0, 0), 0, 0, 0)
+	for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		dim.add_theme_stylebox_override(st, dim_style)
+	dim.pressed.connect(root.queue_free)
+	root.add_child(dim)
+	var width := minf(600.0, get_viewport().get_visible_rect().size.x - 100.0)
+	var v := Kit.vbox(18, [Kit.label(BallDefs.get_def(player_type).display_name, 36)])
+	for t in _menu_info_full():
+		var l := Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		l.custom_minimum_size.x = width
+		v.add_child(l)
+	v.add_child(Kit.button("Got it", root.queue_free, "ghost", 26, 80))
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(Kit.panel(v, Kit.box(Color("16133a"), Kit.ACCENT, 32, 3, 28)))
+	root.add_child(center)
+	ui.add_child(root)
+
+
+## "More" swaps the 1v1/2v2 row for the tier and Chaos rules buttons, and Done swaps it back.
 func _show_options(on: bool) -> void:
 	options_row.visible = not on
 	tiers_row.visible = on
@@ -614,7 +665,7 @@ func _begin_aim() -> void:
 	arena.clear_effects()
 	arena.reset_camera()
 	_set_aim_preview()
-	info_label.text = "Drag on the arena to aim your %s, then let go to launch." % sim.balls[you_side].def.display_name
+	info_label.text = FightSpeed.aim_hint() # Only for a new player's first few fights.
 	_show_only(aim_box)
 	_report_menu.call_deferred()
 
@@ -664,10 +715,7 @@ func _start_fight() -> void:
 	_prepare_fight(sim.config)
 	_apply_cosmetics()
 	state = State.FIGHT
-	info_label.text = "" # 1v1: the names, tiers and power are on the health bars.
-	if sim.starters == 4:
-		info_label.text = "%s + %s vs %s + %s" % [sim.balls[0].def.display_name, sim.balls[2].def.display_name,
-			sim.balls[1].def.display_name, sim.balls[3].def.display_name]
+	info_label.text = "" # The names, tiers and power are on the health bars (all four in a 2v2).
 	if mode == Mode.CAMPAIGN: # Tier, level and power sit under the health bars.
 		info_label.text = "" if sim.starters == 2 else _pair_power_text()
 	# The week's twist, if any, shows under the clock in the HUD.
@@ -675,7 +723,7 @@ func _start_fight() -> void:
 	_show_only(fight_box)
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
-		info_label.text = (_board.title + ": " if not _board.is_empty() else "Shared fight: ") + info_label.text
+		info_label.text = str(_board.title) if not _board.is_empty() else "Replay"
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -774,15 +822,17 @@ func _show_result() -> void:
 			if b.team == you_side:
 				dealt += b.damage_dealt
 				healed += b.healed
-	info_label.text = "%.1fs. %s dealt %d damage%s." % [sim.time(), "P1" if replay else ("Your pair" if sim.starters == 4 else "You"),
-		roundi(dealt), (" and healed %d" % roundi(healed)) if healed > 0.0 else ""]
+	info_label.text = "%.1fs · %d dmg%s" % [sim.time(), roundi(dealt), (" · +%d heal" % roundi(healed)) if healed > 0.0 else ""]
+	if replay:
+		info_label.text = "P1 · " + info_label.text
 	if result.detail != "":
-		info_label.text = "%.1fs. %s" % [sim.time(), result.detail]
+		info_label.text = "%.1fs · %s" % [sim.time(), result.detail]
 	report_label.text = ""
+	pass_chip.visible = false
 	result_caption.text = _result_caption().to_upper()
 	_show_winner()
 	if _board_pick >= 0:
-		info_label.text = ("You called it! " if sim.winner == _board_pick else "Not your call this time. ") + info_label.text
+		info_label.text = ("Called it! " if sim.winner == _board_pick else "Wrong call. ") + info_label.text
 	if mode == Mode.RIVAL and _count_fight:
 		_record_rival()
 	if mode == Mode.CAMPAIGN:
@@ -1045,7 +1095,8 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
 	_begin_aim()
-	info_label.text = "%s: %s. Drag to aim, then let go." % [Zones.stage_key(zone_index, stage_index), _pve_matchup_text()]
+	# Tier, level and power are under the health bars.
+	info_label.text = FightSpeed.with_aim_hint("Stage " + Zones.stage_key(zone_index, stage_index))
 
 
 ## A farming boss run from its screen ("vault" for the Anvil King, "nest" for
@@ -1060,7 +1111,7 @@ func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: S
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
 	_begin_aim()
-	info_label.text = "%s %s: %s. Drag to aim, then let go." % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name, _pve_matchup_text()]
+	info_label.text = FightSpeed.with_aim_hint("%s · %s" % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name])
 
 
 ## "Power 2,250 vs 3,100" for a 2v2 pairs stage, short enough for one line.
@@ -1075,17 +1126,6 @@ func _pair_power_text() -> String:
 ## The rules script of the boss being fought (meta/gear_vault.gd, meta/brood_nest.gd).
 func _boss_rules():
 	return BOSS_MODES[pve.get("boss", "vault")][0]
-
-
-## "T2 Optic · 1,250 power vs T1 Chomp · 1,400 power" for the stage or Vault run being fought.
-func _pve_matchup_text() -> String:
-	if pve.config.has("p3"):
-		return CampaignScreen.pair_text(profile, pve.zone, pve.stage, [pve.config.p1, pve.config.p3])
-	if not pve.has("vault"):
-		return CampaignScreen.matchup_text(profile, pve.zone, pve.stage, pve.fighter)
-	var b: Dictionary = profile.best(pve.fighter)
-	return "%s vs %s" % [FighterTag.text(Roster.get_critter(pve.fighter).name, b.get("tier", 1), profile.power_of(pve.fighter), b.get("level", 0)),
-		FighterTag.text(Bosses.DEFS[pve.config.p2].display_name, 1, Power.rating(pve.config.powers[1]))]
 
 
 ## ?pve=1-3: a fresh, unsaved profile fights that stage (for smoke tests).
@@ -1243,7 +1283,8 @@ func _record_fight() -> void:
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
 	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt)
 	if xp > 0:
-		info_label.text += " +%d pass XP." % xp
+		(pass_chip.get_child(0) as Label).text = "+%d" % xp
+		pass_chip.visible = true
 	_sync_online()
 
 
@@ -1278,7 +1319,7 @@ func _go_online() -> void:
 	await _refresh_account()
 	await account.refresh()
 	if from_page == "ok":
-		shell.toast("Signed in. Your progress is on your account." if not account.is_guest() else "Signed in.")
+		shell.toast("Signed in. Progress saved." if not account.is_guest() else "Signed in.")
 	await friends.refresh()
 	if state == State.RESULT:
 		_label_result_buttons()
@@ -1393,7 +1434,9 @@ func _build_ui() -> void:
 	var back := Kit.card_button(Glyph.make("back", 30, Kit.FG), func(): _show_home(), Kit.LINE, Kit.PANEL, 999, 16)
 	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	menu_back = back
-	menu_header = Kit.hbox(16, [back, title_label], BoxContainer.ALIGNMENT_BEGIN)
+	menu_info_button = Kit.card_button(Glyph.make("info", 30, Kit.FG), _show_menu_info, Kit.LINE, Kit.PANEL, 999, 16)
+	menu_info_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	menu_header = Kit.hbox(16, [back, title_label, menu_info_button], BoxContainer.ALIGNMENT_BEGIN)
 	hud_label = _label("", 30)
 	fight_hud = FightHud.new()
 	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1411,7 +1454,7 @@ func _build_ui() -> void:
 	stamp_label.visible = false
 
 	# Quick fight: pick a critter, 1v1 or 2v2, then one big FIGHT!. Tiers and
-	# Chaos rules sit behind "Tiers & rules" so the screen reads like a game,
+	# Chaos rules sit behind "More" so the screen reads like a game,
 	# not a test bench. Every row fits the panel width at any text size.
 	menu_box = VBoxContainer.new()
 	menu_box.add_theme_constant_override("separation", 14)
@@ -1419,7 +1462,8 @@ func _build_ui() -> void:
 	seed_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	menu_box.add_child(seed_label)
 	menu_box.add_child(_pick_grid(BallDefs.PLAYABLE, _pick_player))
-	new_seed_button = _button("New arena", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 24, "ghost", 96)
+	# A new seed: a new arena and a new random foe.
+	new_seed_button = _button("Shuffle", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 24, "ghost", 96)
 	# Chaos Weekend modifiers, until the event screen exists.
 	rules_button = _button("", _cycle_rules, 22, "ghost", 68)
 	# Tiers to test with: tap to cycle equal stats, then one to five stars.
@@ -1437,7 +1481,7 @@ func _build_ui() -> void:
 		b.add_theme_stylebox_override("hover_pressed", on)
 		b.add_theme_color_override("font_pressed_color", Kit.BG)
 		b.add_theme_color_override("font_hover_pressed_color", Kit.BG)
-	more_button = _button("Tiers & rules", func(): _show_options(true), 22, "ghost", 68)
+	more_button = _button("More", func(): _show_options(true), 22, "ghost", 68)
 	more_button.size_flags_stretch_ratio = 2.0
 	options_row = _row([solo_button, duo_button, more_button])
 	menu_box.add_child(options_row)
@@ -1474,7 +1518,7 @@ func _build_ui() -> void:
 	# The report code (for bug reports) waits behind the "i", not on the card.
 	copy_button = Kit.card_button(Glyph.make("info", 30, Kit.MUTED), func():
 		DisplayServer.clipboard_set(_report_code())
-		report_label.text = "Report code copied: " + _report_code(), Kit.LINE, Kit.PANEL2, 999, 10)
+		report_label.text = "Report code copied", Kit.LINE, Kit.PANEL2, 999, 10)
 	var balance := Control.new()
 	balance.custom_minimum_size = Vector2(52, 0)
 	balance.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1483,12 +1527,14 @@ func _build_ui() -> void:
 	winner_slot.custom_minimum_size = Vector2(84, 84)
 	winner_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	result_label = _label("", 56)
-	card.add_child(Kit.hbox(16, [winner_slot, result_label], BoxContainer.ALIGNMENT_CENTER))
+	pass_chip = Kit.hbox(4, [Kit.label("", 26, Kit.WARN), Kit.glyph("pass", 26, Kit.WARN)])
+	pass_chip.visible = false
+	card.add_child(Kit.hbox(16, [winner_slot, result_label, pass_chip], BoxContainer.ALIGNMENT_CENTER))
 	report_label = _label("", 20)
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	report_label.add_theme_color_override("font_color", MUTED)
 	card.add_child(report_label)
-	friend_button = _button("Add as a friend", _add_link_friend, 22, "ghost", 72)
+	friend_button = _button("Add friend", _add_link_friend, 22, "ghost", 72)
 	friend_row = _row([friend_button])
 	friend_row.visible = false
 	card.add_child(friend_row)
@@ -1504,7 +1550,7 @@ func _build_ui() -> void:
 	tools_row = _row([replay_button, share_button, challenge_button, clip_button])
 	tools_row.add_theme_constant_override("separation", 10)
 	card.add_child(tools_row)
-	campaign_row = _row([_button("Back to the map", _back_to_campaign)])
+	campaign_row = _row([_button("Map", _back_to_campaign)])
 	card.add_child(campaign_row)
 
 
@@ -1567,7 +1613,7 @@ func _pick_player(id: String) -> void:
 		elif mate_type == "":
 			mate_type = id
 		else:
-			info_label.text = "Your pair is full. Tap one of your pair to take it out first."
+			info_label.text = "Pair full. Tap one to swap."
 			return
 		_refresh_menu()
 		return
@@ -1740,8 +1786,11 @@ func _update_hud() -> void:
 ## level and power aren't known (only campaign and boss fights carry them).
 func _side_stats(side: int) -> String:
 	var ts: Array = sim.config.get("tiers", [])
+	var campaign := mode == Mode.CAMPAIGN and not pve.is_empty()
+	if ts.is_empty() and not campaign:
+		return "" # An equal-stats Quick fight: no tiers to show.
 	var parts := ["T%d" % (int(ts[side]) if side < ts.size() else 1)]
-	if mode != Mode.CAMPAIGN or pve.is_empty():
+	if not campaign:
 		return parts[0]
 	if side == 0 and sim.balls[0].type_id == pve.fighter:
 		var b: Dictionary = profile.best(pve.fighter)
@@ -1821,10 +1870,10 @@ func _label_result_buttons() -> void:
 	copy_button.disabled = not report
 	tools_row.visible = not campaign
 	campaign_row.visible = campaign
-	(campaign_row.get_child(0) as Button).text = (("Back to the " + Bosses.DEFS[pve.config.p2].display_name) if pve.has("vault") else "Back to the map").to_upper()
+	(campaign_row.get_child(0) as Button).text = ("Back" if pve.has("vault") else "Map").to_upper()
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
-		friend_button.text = ("Add %s as a friend" % who if who != "" else "Add them as a friend").to_upper()
+		friend_button.text = ("Add %s" % who if who != "" else "Add friend").to_upper()
 	_sync_share_targets()
 
 
@@ -1866,7 +1915,9 @@ func _add_link_friend() -> void:
 	friend_button.disabled = true
 	friend_button.text = "ADDING…"
 	var res: Dictionary = await friends.add_by_code(link_friend)
-	friend_button.text = {"requested": "Request sent!", "friends": "Friends now!", "already": "Already added"}.get(res.get("status", ""), "Couldn't add them").to_upper()
+	friend_button.text = {"requested": "Request sent!", "friends": "Friends now!", "already": "Already added"}.get(res.get("status", ""), "Try again").to_upper()
+	if res.get("status", "") not in ["requested", "friends", "already"]:
+		friend_button.disabled = false # "Try again" means it: tap to retry.
 
 
 ## Rematch a friend's saved team: their lead critter, aimed the way they
@@ -2065,7 +2116,7 @@ func _on_clip_button() -> void:
 	if OS.has_feature("web") and not ClipExport.can_record() and not _clip_hint:
 		_clip_hint = true
 		_caption(clip_button, "Play")
-		report_label.text = "This browser can't save video. Start your phone's screen recorder, then tap Play."
+		report_label.text = "Can't record here. Start your screen recorder, then tap Play."
 		return
 	_start_clip()
 
@@ -2132,10 +2183,9 @@ func _end_clip(cancelled: bool) -> void:
 		if not cancelled:
 			_clip_wait = true
 			clip_button.disabled = true
-			_caption(clip_button, "Making…")
-			report_label.text = "Making your clip…"
+			_caption(clip_button, "Making…") # The tile says it; no line under the card.
 	elif not cancelled:
-		report_label.text = "That's the clip! Share fight sends the link."
+		report_label.text = "Tap Share to send it."
 	print("CLIP_END cancelled=%s" % cancelled)
 
 
@@ -2153,11 +2203,11 @@ func _poll_clip() -> void:
 	if status == "ready":
 		_clip_ready = true
 		_caption(clip_button, "Save")
-		report_label.text = "Clip ready! Tap Save, then post it."
+		report_label.text = "Clip ready!"
 		_sync_share_targets()
 	else:
 		_caption(clip_button, "Clip")
-		report_label.text = "Couldn't make the video this time. Tap Clip to try again."
+		report_label.text = "Clip failed. Try again."
 	print("CLIP_", status.to_upper() if status != "" else "FAILED")
 
 
@@ -2394,7 +2444,7 @@ func _share(kind: String) -> void:
 		_share_pending = true
 		return
 	DisplayServer.clipboard_set(_share_url(kind))
-	report_label.text = "Link copied: " + _share_url(kind)
+	report_label.text = "Link copied!"
 
 
 ## A share button on the home screens (e.g. the friend invite link).
@@ -2405,14 +2455,13 @@ func _on_shell_share(kind: String) -> void:
 	for t in shell.share_targets():
 		if t.kind == kind:
 			DisplayServer.clipboard_set(t.url)
-			shell.toast("Link copied: " + t.url)
+			shell.toast("Link copied!")
 
 
 func _poll_share_status() -> void:
 	var status := str(JavaScriptBridge.eval("window.bbShare ? window.bbShare.status : ''", true))
-	var messages := {"shared": "Shared!", "copied": "Link copied. Paste it to a friend!", "shown": "", "cancelled": "",
-		"saved": "Clip saved! Post it and ask: who wins?", "downloaded": "Clip downloaded. Post it and ask: who wins?",
-		"failed": "Couldn't save the clip. Try Save clip again."}
+	var messages := {"shared": "Shared!", "copied": "Link copied!", "shown": "", "cancelled": "",
+		"saved": "Clip saved!", "downloaded": "Clip downloaded!", "failed": "Couldn't save. Tap Save again."}
 	if status in messages:
 		_share_pending = false
 		JavaScriptBridge.eval("window.bbShare.status = ''", true)
@@ -2527,7 +2576,7 @@ func _read_url_params() -> Dictionary:
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():
-			link_error = "That fight link didn't work. Pick your balls and play!"
+			link_error = "Broken link. Pick and play!"
 		else:
 			mode = Mode.REPLAY
 			player_type = r.p1
@@ -2541,7 +2590,7 @@ func _read_url_params() -> Dictionary:
 	elif params.has("c"):
 		var c := FightLink.parse_challenge(params.c)
 		if c.is_empty():
-			link_error = "That challenge link didn't work. Pick your balls and play!"
+			link_error = "Broken challenge link."
 		else:
 			mode = Mode.CHALLENGE
 			opponent_choice = c.ball
