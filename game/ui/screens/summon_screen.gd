@@ -199,26 +199,29 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	v.get_child(0).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var title := Kit.label("Opening...", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	v.add_child(title)
-	var grid := GridContainer.new()
-	# A x10 fills the screen: 4 across in 3 rows of big eggs (4 x 150 fits the 640 inside the margins).
-	grid.columns = 1 if ids.size() == 1 else (4 if ids.size() > 4 else ids.size())
-	grid.add_theme_constant_override("h_separation", 10)
-	# Tall phones spread the rows out instead of leaving bands of empty space.
-	grid.add_theme_constant_override("v_separation", 56 if shell.size.y >= 1400 else 18)
-	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Rows of eggs, each centred: a x10 is a 3 / 4 / 3 honeycomb (4 x 150 fits
+	# the 640 inside the margins).
+	var rows := Kit.vbox(56 if shell.size.y >= 1400 else 18) # Tall phones spread the rows out.
 	var caps: Array = []
 	var side := 360.0 if ids.size() == 1 else 150.0
+	var row: HBoxContainer = null
+	var left := 0
+	var plan := _row_plan(ids.size())
 	for i in ids.size():
+		if left == 0:
+			row = Kit.hbox(10, [], BoxContainer.ALIGNMENT_CENTER)
+			rows.add_child(row)
+			left = plan.pop_front()
 		var cap := _Capsule.new()
 		cap.setup(ids[i], fresh[i], side, shell.sfx)
 		if not fresh[i]:
 			cap.note = _fuse_note(shell.profile, ids[i])
-		cap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		caps.append(cap)
-		grid.add_child(cap)
+		row.add_child(cap)
+		left -= 1
 	var mid := CenterContainer.new()
 	mid.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	mid.add_child(grid)
+	mid.add_child(rows)
 	v.add_child(mid)
 	var skip := Kit.button("Skip", root.skip, "ghost", 28, 96)
 	var done := Kit.button("Done", func():
@@ -236,6 +239,19 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	root.add_child(flash)
 	root.setup(caps, title, skip, flash)
 	return root
+
+
+## Eggs per row, at most 4 a row, the rows as even as they can be and
+## the longer ones in the middle: 10 -> [3, 4, 3].
+static func _row_plan(n: int) -> Array:
+	var count := ceili(n / 4.0)
+	var out: Array = []
+	for r in count:
+		out.append(floori(float(n) / count))
+	var mid := floori(count / 2.0)
+	for k in n % count:
+		out[(mid + floori((k + 1) / 2.0) * (1 if k % 2 == 0 else -1)) % count] += 1
+	return out
 
 
 ## A copy's progress to its next fuse: "2/3 TO FUSE", or "FUSE READY" at 3+.
