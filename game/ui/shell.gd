@@ -5,6 +5,7 @@ extends Control
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
+const TabIcon := preload("res://game/ui/tab_icon.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Friends := preload("res://game/online/friends.gd")
@@ -121,7 +122,8 @@ var _scroll_settle := 0.0 ## Seconds left before a scroll counts as settled.
 var _settling := false
 var _coach: Label ## A new player's next step (game/ui/intro.gd), above the footer.
 var _level_ring: Control ## Account XP around the level badge.
-var _play_disc: PanelContainer ## The PLAY tab's raised disc: filled on Play's home, a ring elsewhere.
+var _tab_icons := {} ## Tab id -> TabIcon; PLAY's disc is lit only on Play's home.
+var _tab_labels := {}
 
 ## Red dots are for something to do, and go once you've looked: the Fuse dot
 ## only for sets that turned fusable since your last visit to Fuse (per device).
@@ -488,7 +490,9 @@ func _show(name: String, params: Dictionary) -> void:
 	var screen: Control = SCREENS[name].build(self, params)
 	margin.add_child(screen)
 	for t in _tab_buttons:
-		_tab_buttons[t].modulate = Color.WHITE if t == _tab else Color(Kit.MUTED, 1.0)
+		_tab_labels[t].add_theme_color_override("font_color", Kit.FG if t == _tab else Kit.MUTED)
+		if t != "play":
+			_tab_icons[t].set_active(t == _tab)
 	_refresh_top()
 	_report.call_deferred(name)
 
@@ -620,13 +624,7 @@ func _refresh_top() -> void:
 	var pass_claims: int = glow.claimable_count() if glow != null and not glow.season().is_empty() else 0
 	_dots.play.visible = (friends.attention() > 0 or pass_claims > 0) and Intro.done(profile)
 	# Play's disc is the big call to action only on Play's own home screen.
-	var on_home := current == "play"
-	var st: StyleBoxFlat = _play_disc.get_theme_stylebox("panel")
-	st.bg_color = Kit.ACCENT if on_home else Kit.PANEL2
-	st.border_color = Kit.BG if on_home else Kit.ACCENT
-	st.shadow_size = 18 if on_home else 0
-	(_play_disc.get_child(0) as Control).set("color", Kit.BG if on_home else Kit.ACCENT)
-	_play_disc.get_child(0).queue_redraw()
+	_tab_icons.play.set_active(current == "play")
 	# A new player sees only the tabs their first fights have opened.
 	for t in _tab_buttons:
 		_tab_buttons[t].visible = Intro.shows(profile, t)
@@ -662,16 +660,13 @@ func _tab_bar() -> Control:
 		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var icon_box := CenterContainer.new()
 		icon_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if id == "play":
-			var disc := Kit.panel(Glyph.make("play", 50, Kit.BG), Kit.box(Kit.ACCENT, Kit.BG, 999, 6, 22))
-			disc.get_theme_stylebox("panel").shadow_color = Color(Kit.ACCENT, .5)
-			disc.get_theme_stylebox("panel").shadow_size = 18
-			_play_disc = disc
-			icon_box.add_child(disc)
-		else:
-			icon_box.add_child(Glyph.make(id, 50, Kit.FG))
+		var icon := TabIcon.make(id, 106 if id == "play" else 64)
+		_tab_icons[id] = icon
+		icon_box.add_child(icon)
 		content.add_child(icon_box)
-		content.add_child(Kit.label(tab[1].to_upper(), 19, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))
+		var label := Kit.label(tab[1].to_upper(), 19, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+		_tab_labels[id] = label
+		content.add_child(label)
 		var pad := Control.new()
 		pad.custom_minimum_size = Vector2(0, 14)
 		pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
