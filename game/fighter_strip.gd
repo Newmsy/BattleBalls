@@ -13,6 +13,7 @@ const CritterArt := preload("res://game/ui/critter_art.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const BossArt := preload("res://game/boss_art.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
+const CritterPopup := preload("res://game/ui/critter_popup.gd")
 
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const PANEL := Color(27 / 255.0, 24 / 255.0, 66 / 255.0, 0.92)
@@ -101,15 +102,29 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	if _sim == null or size.y < 90.0:
 		return
+	for k in _n:
+		_draw_card(k, _rect(k))
+
+
+func _rect(k: int) -> Rect2:
 	var gap := 12.0
 	var w := (size.x - gap) / 2.0
 	if _n == 4: # Viewer's pair on the left, the foes on the right.
 		var h := (size.y - gap) / 2.0
-		for k in 4:
-			_draw_card(k, Rect2((k % 2) * (w + gap), (k / 2) * (h + gap), w, h))
+		return Rect2((k % 2) * (w + gap), (k / 2) * (h + gap), w, h)
+	return Rect2(k * (w + gap), 0.0, w, size.y)
+
+
+## Tapping a card opens that critter's mini Critterpedia card (the fight runs on).
+func _gui_input(event: InputEvent) -> void:
+	if _sim == null or not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed):
 		return
-	for k in 2:
-		_draw_card(k, Rect2(k * (w + gap), 0.0, w, size.y))
+	for k in _n:
+		var card: Dictionary = _card[k]
+		if not card.is_empty() and not card.boss and _rect(k).has_point(event.position):
+			CritterPopup.open(self, card.id, card.tier)
+			accept_event()
+			return
 
 
 func _draw_card(k: int, r: Rect2) -> void:

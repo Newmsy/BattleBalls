@@ -1,13 +1,11 @@
 ## The mini Critterpedia card: it opens from a tapped critter, builds for
-## every critter and tier with short ability lines, and a tap inside a button
+## every critter and tier, and a tap inside a button
 ## stays the button's (a long press opens the card there).
 extends "res://tests/test_case.gd"
 
 const Roster := preload("res://game/ui/roster.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const CritterPopup := preload("res://game/ui/critter_popup.gd")
-
-const MAX_LINE := 80
 
 
 func _tap(icon: Control) -> void:
@@ -18,17 +16,15 @@ func _tap(icon: Control) -> void:
 		icon._gui_input(e)
 
 
-func test_every_card_builds_and_its_lines_stay_short() -> void:
-	# Two wrapped lines per tier at most, so the card fits a phone with Larger
-	# text (checked in the browser; Godot can't measure wrapped text off screen).
+func test_every_card_builds() -> void:
+	# Ability lines are kept short by CritterDb.validate, so the card fits a
+	# phone (checked in the browser; Godot can't measure wrapped text off screen).
 	for c in Roster.CRITTERS:
 		for tier in [1, 5]:
 			var popup = CritterPopup.new()
 			popup.build(c.id, tier, 12, 1500, null, 680.0)
 			check(popup.card != null, "%s T%d card builds" % [c.id, tier])
 			popup.free()
-		for i in Roster.MAX_TIER:
-			check(c.ladder[i].length() <= MAX_LINE, "%s T%d text is short enough (%d): %s" % [c.id, i + 1, c.ladder[i].length(), c.ladder[i]])
 
 
 func test_tapping_a_critter_opens_its_card_but_not_inside_a_button() -> void:

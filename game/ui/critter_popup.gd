@@ -11,6 +11,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const Families := preload("res://sim/families.gd")
+const AbilityText := preload("res://game/ui/ability_text.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 
 const LAYER := 90 ## Over every screen and fight, under the edge-swipe hint.
@@ -96,9 +97,12 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 	art.info = false
 	var head := Kit.hbox(14, [art, side], BoxContainer.ALIGNMENT_CENTER)
 
-	# The ability, tier by tier: tiers it has in full colour, this one lit gold.
-	var ladder := Kit.vbox(6, [Kit.caption("Ability by tier")])
+	# The ability as it is at this tier, with its numbers, then what each tier
+	# adds (the tiers it has in full colour, this one lit gold).
 	var text_w := width - 56.0 - 12.0 - 64.0
+	var now := Kit.label(AbilityText.now(id, tier), 23, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
+	now.custom_minimum_size.x = width - 64.0 # Wrapped text measures before layout.
+	var ladder := Kit.vbox(6, [Kit.caption("Ability at T%d" % tier, Glyph.GOLD), now, Kit.caption("Each tier")])
 	for i in Roster.MAX_TIER:
 		var here := i == tier - 1
 		var has := i < tier
@@ -106,13 +110,10 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 			Kit.box(Glyph.GOLD if here else (Kit.ACCENT if has else Kit.LINE), Color(0, 0, 0, 0), 10, 0, 2))
 		tag.custom_minimum_size = Vector2(52, 0)
 		tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		var l := Kit.label(c.ladder[i], 21, Kit.FG if has else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-		l.custom_minimum_size.x = text_w # Wrapped text measures before layout.
+		var l := Kit.label(AbilityText.change(id, i + 1), 20, Kit.FG if has else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		l.custom_minimum_size.x = text_w
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		ladder.add_child(Kit.hbox(12, [tag, l]))
-	var note := Kit.label("Each tier also adds 25% to ability damage, healing and shields.", 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-	note.custom_minimum_size.x = width - 64.0
-	ladder.add_child(note)
 
 	var buttons := Kit.hbox(14)
 	var full: Button = null
