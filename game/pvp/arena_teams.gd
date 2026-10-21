@@ -1,9 +1,10 @@
 ## Themed Arena teams: until online play opens, every Ghost Arena opponent is
 ## a seeded team from one family (a Frost Squad, a Toybox Gang...), built to
-## a target strength. The target starts at the player's own trio power, so a
-## new player meets teams their size, and climbs with trophies. Each card
-## (easier / even / harder) scales it. Everything comes from fixed seeds, so
-## a team (and the fight against it) replays from its config alone.
+## a target strength. Attack opponents sit near your trophies and are as
+## strong as their trophies (strength_for), so higher trophies mean stronger
+## teams; daily raids on your defence are sized to your defence (target).
+## Everything comes from fixed seeds, so a team (and the fight against it)
+## replays from its config alone.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
@@ -21,6 +22,14 @@ const LADDER_STEP := 0.08
 const LADDER_MAX := 0.5
 ## Weakest team a card can show (a fresh T1 Common trio is about 1000).
 const MIN_TARGET := 900
+## Seeded opponents (offers): how many, how far around your trophies, and how
+## their strength grows with trophies (strength_for).
+const OFFER_COUNT := 6
+const SPREAD_BELOW := 120.0
+const SPREAD_ABOVE := 180.0
+const TROPHIES_PER_TIER := 500
+const FRESH_TRIO := 3000 ## Three T1 critters at level 1.
+const MAX_STRENGTH := 18000 ## About a maxed T5 trio in gear.
 
 const TEAM_NAMES := {
 	"nature": ["Bramble Bunch", "Moss Mob", "Petal Patrol"],
@@ -42,28 +51,42 @@ static func target(mine: int, trophies: int, card: String) -> int:
 	return maxi(MIN_TARGET * 3, roundi(mine * ladder * CARD_SCALE[card]))
 
 
-## Today's three cards: {card, bot}. A bot is a full lineup, so the fight
-## needs nothing else to replay. Stable for (day, refresh, trophies, power).
-static func offers(trophies: int, mine: int, day: int, refresh := 0) -> Array[Dictionary]:
+## Today's opponents, weakest first: OFFER_COUNT seeded themed teams, each
+## with its own trophies a little below or above yours and as strong as a
+## player on those trophies (strength_for). {card: "seeded", bot}; a bot is
+## a full lineup, so the fight needs nothing else to replay. Stable for
+## (day, refresh, trophies to the nearest 50).
+static func offers(trophies: int, day: int, refresh := 0, count := OFFER_COUNT) -> Array[Dictionary]:
 	var rng = Rng.new(hash("teams|%d|%d|%d" % [day, refresh, trophies / 50]))
 	var fams: Array = Families.ids()
 	var cards: Array[Dictionary] = []
-	for card in Ladder.CARD_ORDER:
-		var goal := target(mine, trophies, card)
-		# Only themes that can build a team this small (low targets rule out
-		# families with few Commons); else the theme that gets closest.
+	for i in count:
+		# Spread evenly from SPREAD_BELOW under you to SPREAD_ABOVE over you,
+		# with a little jitter so the numbers don't look stepped.
+		var t := float(i) / maxf(1.0, count - 1.0)
+		var offset := lerpf(-SPREAD_BELOW, SPREAD_ABOVE, t) + rng.range_int(-20, 20)
+		var theirs := maxi(0, trophies + roundi(offset))
+		var goal := strength_for(theirs)
 		var can: Array = fams.filter(func(f): return weakest(f) <= goal * 1.05)
 		if can.is_empty():
-			var low: Array = fams.duplicate()
-			low.sort_custom(func(a, b): return weakest(a) < weakest(b))
-			can = [low[0]]
+			can = fams.duplicate()
+			can.sort_custom(func(a, b): return weakest(a) < weakest(b))
+			can = [can[0]]
 		var fam: String = can[rng.range_int(0, can.size() - 1)]
 		fams.erase(fam)
+		if fams.is_empty():
+			fams = Families.ids()
 		var team := make(fam, goal, rng.range_int(1, 0x7FFFFFFF))
-		team.id = "team-%d-%d-%s" % [day, refresh, card]
-		team.trophies = maxi(0, trophies + Ladder.CARDS[card].offset)
-		cards.append({"card": card, "bot": team})
+		team.id = "team-%d-%d-%d" % [day, refresh, i]
+		team.trophies = theirs
+		cards.append({"card": "seeded", "bot": team})
 	return cards
+
+
+## Summed trio Power Rating of a seeded team on `trophies`: a fresh T1 trio at
+## 0, one tier stronger (x1.25) every TROPHIES_PER_TIER, up to a maxed trio.
+static func strength_for(trophies: int) -> int:
+	return mini(MAX_STRENGTH, roundi(FRESH_TRIO * pow(1.25, maxi(0, trophies) / float(TROPHIES_PER_TIER))))
 
 
 ## One themed team of three different critters from `family`, levelled so

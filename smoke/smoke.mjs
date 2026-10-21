@@ -607,7 +607,9 @@ try {
     console.log("ghost arena:", await waitForLog(logs, "ARENA_READY", 10000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "19-arena-intro.png") });
-    // FIGHT!, Launch and Skip all sit under this point (first panel row, right half).
+    // FIGHT! is pinned at the bottom of the intro; Launch and Skip then sit
+    // under this point (first panel row, right half).
+    await tapUi(page, logs, "arena_fight");
     const start = logs.length;
     let result = null;
     for (let i = 0; i < 60 && !result; i++) {
@@ -618,9 +620,9 @@ try {
     if (!result) throw new Error(`Ghost Arena fight never finished. Last logs:\n${logs.slice(-15).join("\n")}`);
     console.log("ghost arena result:", result);
     await page.screenshot({ path: path.join(shots, "20-arena-result.png") });
+    await page.waitForTimeout(600);
     const back = logs.length;
-    // Back to Arena sits under the result headline.
-    await page.mouse.click(...toPage(page, 360, 1118));
+    await tapUi(page, logs, "arena_back");
     await waitForLogAfter(logs, back, "UI_SCREEN arena", 15000);
     await page.screenshot({ path: path.join(shots, "21-arena-after.png") });
     await page.close();

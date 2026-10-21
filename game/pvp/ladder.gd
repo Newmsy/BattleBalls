@@ -22,6 +22,9 @@ const CARDS := {
 }
 const CARD_ORDER := ["easier", "even", "harder"]
 
+## Trophy gaps past this are worth the same as this (stake()).
+const STAKE_GAP := 150
+
 const DEFENCE_WIN := 5
 const DEFENCE_LOSS_CAP := 10 ## Most a single lost defence can cost.
 const DEFENCE_DAILY_CAP := 40 ## Most lost defences can cost in a day.
@@ -79,6 +82,25 @@ static func defence_delta(trophies: int, peak_trophies: int, card: String, attac
 	loss = mini(loss, maxi(0, DEFENCE_DAILY_CAP - lost_today))
 	var floor_trophies := floor_for_peak(maxi(peak_trophies, trophies))
 	return -mini(loss, maxi(0, trophies - floor_trophies))
+
+
+## What an attack on an opponent with `theirs` trophies is worth to a player
+## on `mine`: beating someone above you wins more and losing to them costs
+## less, and the other way round. {win, loss, coins} (coins are Tokens).
+static func stake(mine: int, theirs: int) -> Dictionary:
+	var gap := clampi(theirs - mine, -STAKE_GAP, STAKE_GAP)
+	return {
+		"win": clampi(roundi(25 + gap / 10.0), 10, 40),
+		"loss": -clampi(roundi(18 - gap / 12.0), 5, 30),
+		"coins": clampi(roundi(15 + gap / 15.0), 8, 25),
+	}
+
+
+## attack_delta for a stake() instead of a card.
+static func stake_delta(trophies: int, peak_trophies: int, stake_: Dictionary, won: bool) -> int:
+	var delta: int = int(stake_.win) if won else int(stake_.loss)
+	var floor_trophies := floor_for_peak(maxi(peak_trophies, trophies))
+	return maxi(delta, mini(0, floor_trophies - trophies))
 
 
 static func season_reset(trophies: int) -> int:

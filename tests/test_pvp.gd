@@ -138,8 +138,8 @@ func test_one_free_refresh_a_day() -> void:
 	check(s.refresh(7), "first refresh")
 	check(not s.refresh(7), "second refused")
 	check_eq(s.refreshes_left(8), 1, "new day")
-	check_eq(s.offers(null, 8), ArenaTeams.offers(s.trophies, s.power(), 8, 0), "new day starts fresh")
-	check(before.size() == 3, "three cards")
+	check_eq(s.offers(null, 8), ArenaTeams.offers(s.trophies, 8, 0), "new day starts fresh")
+	check_eq(before.size(), ArenaTeams.OFFER_COUNT, "a full list")
 
 
 func test_ranked_trio_uses_owned_critters_only() -> void:
@@ -190,24 +190,45 @@ func test_trio_slot_opens_the_picker() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
 
-func test_themed_teams_match_your_power_and_grow_with_trophies() -> void:
-	for mine in [3000, 6000, 12000]:
-		var cards := ArenaTeams.offers(0, mine, 20261015)
-		check_eq(cards.size(), 3, "three cards")
+func test_seeded_teams_sit_near_your_trophies_and_grow_with_them() -> void:
+	for trophies in [0, 112, 1500, 4000]:
+		var cards := ArenaTeams.offers(trophies, 20261015)
+		check_eq(cards.size(), ArenaTeams.OFFER_COUNT, "a full list")
 		var fams := {}
 		for c in cards:
 			var team: Dictionary = c.bot
 			fams[team.family] = true
+			check(absi(int(team.trophies) - trophies) <= ArenaTeams.SPREAD_ABOVE + 20, "%d trophies near %d" % [team.trophies, trophies])
 			var ids := ArenaGhosts.critters(team.lineup)
 			check(ids[0] != ids[1] and ids[1] != ids[2] and ids[0] != ids[2], "three different critters")
 			for id in ids:
 				check_eq(Families.of(id), team.family, "%s fits the %s theme" % [id, team.family])
-			var want := ArenaTeams.target(mine, 0, c.card)
-			check(absf(ArenaTeams.rating(team) - want) <= want * 0.12, "%s team near %d (got %d)" % [c.card, want, ArenaTeams.rating(team)])
-		check_eq(fams.size(), 3, "three different themes")
-		check(ArenaTeams.rating(cards[0].bot) < ArenaTeams.rating(cards[2].bot), "easier is weaker than harder")
-	check(ArenaTeams.target(5000, 2000, "even") > ArenaTeams.target(5000, 0, "even"), "teams grow with trophies")
-	check_eq(ArenaTeams.offers(300, 5000, 9), ArenaTeams.offers(300, 5000, 9), "same day, same teams")
+			var want := ArenaTeams.strength_for(int(team.trophies))
+			check(absf(ArenaTeams.rating(team) - want) <= want * 0.15, "team near %d (got %d)" % [want, ArenaTeams.rating(team)])
+		check_eq(fams.size(), cards.size(), "different themes")
+		check(int(cards[0].bot.trophies) < int(cards[-1].bot.trophies), "weakest first")
+	check(ArenaTeams.strength_for(2000) > ArenaTeams.strength_for(500), "teams grow with trophies")
+	check_eq(ArenaTeams.offers(300, 9), ArenaTeams.offers(300, 9), "same day, same teams")
+
+
+func test_stakes_follow_the_trophy_gap() -> void:
+	var even := Ladder.stake(1000, 1000)
+	var above := Ladder.stake(1000, 1150)
+	var below := Ladder.stake(1000, 880)
+	check(above.win > even.win and even.win > below.win, "a team above wins more")
+	check(above.loss > even.loss and even.loss > below.loss, "and costs less to lose to")
+	check(above.coins > below.coins, "and pays more Tokens")
+	var s = _fresh_store()
+	s.trophies = 1000
+	s.peak = 1000
+	var team: Dictionary = ArenaTeams.offers(1000, 3)[-1].bot
+	s.start_attack("seeded", team, 5)
+	var stake: Dictionary = s.pending_stake()
+	check_eq(stake, Ladder.stake(1000, int(team.trophies)), "stake fixed at the start")
+	s.finish_attack(true)
+	check_eq(s.trophies, 1000 + int(stake.win), "win pays the stake")
+	check_eq(s.coins, int(stake.coins), "and its Tokens")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
 
 func test_attacks_earn_coins_and_the_bazaar_spends_them() -> void:
