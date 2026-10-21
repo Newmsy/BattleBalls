@@ -858,7 +858,7 @@ func _draw() -> void:
 
 	if sim == null:
 		var n := preview_types.size()
-		var starts: Array = MatchSim.start_positions(n)
+		var starts: Array = MatchSim.start_positions(n, shape.arena)
 		_pad_slots(n)
 		for i in n:
 			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
@@ -1120,14 +1120,22 @@ func _paint_floor(cv: CanvasItem) -> void:
 	if outline.size() == 4:
 		_rounded_rect(arena, 14.0, fill)
 		_draw_glows(theme, shape, PackedVector2Array())
-		_draw_grid(arena)
+		if theme.get("pattern", "grid") == "grid":
+			_draw_grid(arena)
+		else:
+			_draw_pattern(theme, shape, arena, _rect_points(arena))
+		_draw_emblem(theme, shape)
 		for i in 4:
 			_rounded_rect_outline(arena.grow(i * 2.0), 14.0 + i * 2.0, Color(border, 0.22 - i * 0.05), 4.0)
 		_rounded_rect_outline(arena, 14.0, border, 2.5)
 	else:
 		Dot.poly(cv, outline, fill)
 		_draw_glows(theme, shape, outline)
-		_draw_grid(arena, outline)
+		if theme.get("pattern", "grid") == "grid":
+			_draw_grid(arena, outline)
+		else:
+			_draw_pattern(theme, shape, arena, outline)
+		_draw_emblem(theme, shape)
 		var closed := outline.duplicate()
 		closed.append(outline[0])
 		for i in 4:
@@ -1195,11 +1203,218 @@ func _draw_grid(r: Rect2, clip := PackedVector2Array()) -> void:
 		y += step
 
 
+func _rect_points(r: Rect2) -> PackedVector2Array:
+	return PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+
+
+## A theme's floor pattern (arena_theme.gd "pattern"), clipped to `clip`.
+## Painted once on the floor layer; lines go out in one multiline call.
+func _draw_pattern(theme: Dictionary, shape, r: Rect2, clip: PackedVector2Array) -> void:
+	var kind: String = theme.pattern
+	var col := Color(Color(theme.grid), theme.get("pattern_alpha", 0.1))
+	var k: float = shape.arena_scale()
+	var s := view_scale
+	var c: Vector2 = shape.centre * s
+	var step := 80.0 * s * k
+	var lines := PackedVector2Array()
+	match kind:
+		"hex": # Honeycomb.
+			var h := step * 0.5
+			var w := h * sqrt(3.0)
+			var row := 0
+			var y := r.position.y - h
+			while y < r.end.y + h:
+				var x := r.position.x - w + (w * 0.5 if row % 2 else 0.0)
+				while x < r.end.x + w:
+					var at := Vector2(x, y)
+					for i in 3:
+						var a := deg_to_rad(30.0 + 60.0 * i)
+						var b := deg_to_rad(90.0 + 60.0 * i)
+						lines.append_array([at + Vector2.from_angle(a) * h, at + Vector2.from_angle(b) * h])
+					x += w
+				y += h * 1.5
+				row += 1
+		"rings": # Circles around the centre, with spokes.
+			var rad := step
+			while rad < r.size.x:
+				var pts := _circle_points(c, rad, 48)
+				for i in pts.size():
+					lines.append_array([pts[i], pts[(i + 1) % pts.size()]])
+				rad += step
+			for i in 12:
+				lines.append_array([c + Vector2.from_angle(i * TAU / 12.0) * step, c + Vector2.from_angle(i * TAU / 12.0) * r.size.x])
+		"diag", "stripes": # Diagonal lattice, or candy stripes one way.
+			var d := r.size.x + r.size.y
+			var t := -d
+			while t < d:
+				var a := Vector2(r.position.x + t, r.position.y)
+				var b := Vector2(r.position.x + t + r.size.y, r.end.y)
+				if kind == "diag":
+					lines.append_array([a, b, Vector2(r.end.x - t, r.position.y), Vector2(r.end.x - t - r.size.y, r.end.y)])
+				else: # A filled band, cut to the floor.
+					var w := Vector2(step * 0.45, 0)
+					for part in Geometry2D.intersect_polygons(PackedVector2Array([a, a + w, b + w, b]), clip):
+						Dot.poly(_cv, part, col)
+				t += step * (1.0 if kind == "diag" else 1.1)
+		"tiles", "bricks": # Stone slabs; bricks offset every other row.
+			var size := step * (1.5 if kind == "tiles" else 1.0)
+			var y := r.position.y
+			var row := 0
+			while y < r.end.y:
+				lines.append_array([Vector2(r.position.x, y), Vector2(r.end.x, y)])
+				var x := r.position.x + (size * 0.5 if kind == "bricks" and row % 2 else 0.0)
+				var tall := size * (1.0 if kind == "tiles" else 0.5)
+				while x < r.end.x:
+					lines.append_array([Vector2(x, y), Vector2(x, y + tall)])
+					x += size
+				y += tall
+				row += 1
+		"waves": # Rippling bands.
+			var y := r.position.y + step * 0.5
+			while y < r.end.y:
+				var x := r.position.x
+				while x < r.end.x:
+					var nx := x + step * 0.25
+					lines.append_array([Vector2(x, y + sin(x / step * TAU) * step * 0.12), Vector2(nx, y + sin(nx / step * TAU) * step * 0.12)])
+					x = nx
+				y += step * 0.6
+		"dots":
+			var y := r.position.y + step * 0.5
+			var row := 0
+			while y < r.end.y:
+				var x := r.position.x + step * (0.5 if row % 2 else 0.0) + step * 0.25
+				while x < r.end.x:
+					if Geometry2D.is_point_in_polygon(Vector2(x, y), clip):
+						Dot.circle(_cv, Vector2(x, y), 2.2 * s / 0.68, Color(col, col.a * 2.0))
+					x += step
+				y += step * 0.5
+				row += 1
+	var clipped := PackedVector2Array()
+	for i in range(0, lines.size(), 2):
+		for part in Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([lines[i], lines[i + 1]]), clip):
+			if part.size() >= 2:
+				clipped.append_array([part[0], part[part.size() - 1]])
+	if not clipped.is_empty():
+		_cv.draw_multiline(clipped, col, 1.5)
+
+
+## A theme's centrepiece painted on the floor (arena_theme.gd "emblem"):
+## a faint sun, swirl, spiral, compass, bolt, shell, cloud, sunset, moon,
+## star or runes under the fight.
+func _draw_emblem(theme: Dictionary, shape) -> void:
+	var kind: String = theme.get("emblem", "")
+	if kind == "":
+		return
+	var k: float = shape.arena_scale()
+	var s := view_scale
+	var c: Vector2 = shape.centre * s
+	var rad := 150.0 * s * k
+	var col := Color(Color(theme.get("emblem_color", theme.border)), 0.22)
+	var lines := PackedVector2Array()
+	match kind:
+		"sun": # A ring with long and short rays.
+			_ring(lines, c, rad * 0.55, 40)
+			for i in 16:
+				var d := Vector2.from_angle(i * TAU / 16.0)
+				lines.append_array([c + d * rad * 0.7, c + d * rad * (1.25 if i % 2 == 0 else 0.95)])
+		"swirl": # A lollipop spiral.
+			var prev := c
+			for i in range(1, 97):
+				var t := i / 96.0
+				var at := c + Vector2.from_angle(t * TAU * 3.0) * rad * t
+				lines.append_array([prev, at])
+				prev = at
+			_ring(lines, c, rad * 1.05, 48)
+		"spiral": # A galaxy: two arms.
+			for arm in 2:
+				var prev := c
+				for i in range(1, 73):
+					var t := i / 72.0
+					var at := c + Vector2.from_angle(t * TAU * 1.4 + arm * PI) * rad * 1.3 * t
+					lines.append_array([prev, at])
+					prev = at
+		"compass": # Temple glyph: nested rings and a star.
+			_ring(lines, c, rad, 48)
+			_ring(lines, c, rad * 0.7, 40)
+			for i in 8:
+				var d := Vector2.from_angle(i * TAU / 8.0)
+				var e := Vector2.from_angle((i + 0.5) * TAU / 8.0)
+				lines.append_array([c + d * rad * (1.0 if i % 2 == 0 else 0.7), c + e * rad * 0.35])
+				lines.append_array([c + e * rad * 0.35, c + Vector2.from_angle((i + 1) * TAU / 8.0) * rad * (1.0 if i % 2 == 1 else 0.7)])
+		"bolt": # A lightning bolt in a ring.
+			_ring(lines, c, rad, 48)
+			var pts := [Vector2(0.15, -0.9), Vector2(-0.3, 0.05), Vector2(0.05, 0.05), Vector2(-0.2, 0.9), Vector2(0.35, -0.15), Vector2(0.0, -0.15), Vector2(0.15, -0.9)]
+			for i in pts.size() - 1:
+				lines.append_array([c + pts[i] * rad, c + pts[i + 1] * rad])
+		"shell": # A scallop shell fan.
+			for i in 7:
+				var a := deg_to_rad(-160.0 + i * 140.0 / 6.0)
+				lines.append_array([c + Vector2(0, rad * 0.5), c + Vector2(0, rad * 0.5) + Vector2.from_angle(a) * rad * 1.1])
+			var prev := c + Vector2(0, rad * 0.5) + Vector2.from_angle(deg_to_rad(-160.0)) * rad * 1.1
+			for i in range(1, 25):
+				var at := c + Vector2(0, rad * 0.5) + Vector2.from_angle(deg_to_rad(-160.0 + i * 140.0 / 24.0)) * rad * 1.1
+				lines.append_array([prev, at])
+				prev = at
+		"sunset": # A synthwave sun: a ring cut by bars.
+			_ring(lines, c, rad, 48)
+			for i in 6:
+				var y := rad * (0.1 + i * 0.16)
+				var x := sqrt(maxf(0.0, rad * rad - y * y))
+				lines.append_array([c + Vector2(-x, y), c + Vector2(x, y)])
+		"moon": # A crescent and two stars.
+			var prev := Vector2.ZERO
+			for i in 33:
+				var a := deg_to_rad(60.0 + i * 240.0 / 32.0)
+				var at := c + Vector2.from_angle(a) * rad
+				if i > 0:
+					lines.append_array([prev, at])
+				prev = at
+			for i in 33:
+				var a := deg_to_rad(80.0 + i * 200.0 / 32.0)
+				var at := c + Vector2(rad * 0.35, 0) + Vector2.from_angle(a) * rad * 0.8
+				if i > 0:
+					lines.append_array([prev, at])
+				prev = at
+			for p in [Vector2(0.9, -0.7), Vector2(1.2, 0.2)]:
+				var at: Vector2 = c + p * rad
+				lines.append_array([at - Vector2(10, 0) * s, at + Vector2(10, 0) * s, at - Vector2(0, 10) * s, at + Vector2(0, 10) * s])
+		"star": # A five-point star.
+			for i in 5:
+				var a := c + Vector2.from_angle(-PI / 2.0 + i * TAU / 5.0) * rad
+				var b := c + Vector2.from_angle(-PI / 2.0 + (i + 2) * TAU / 5.0) * rad
+				lines.append_array([a, b])
+		"runes": # Two rings with glyph strokes between them.
+			_ring(lines, c, rad * 1.1, 56)
+			_ring(lines, c, rad * 0.8, 48)
+			_ring(lines, c, rad * 0.3, 24)
+			for i in 12:
+				var d := Vector2.from_angle(i * TAU / 12.0)
+				var o := d.orthogonal()
+				var m := c + d * rad * 0.95
+				lines.append_array([m - o * rad * 0.06 - d * rad * 0.08, m + o * rad * 0.06 + d * rad * 0.08])
+				if i % 2 == 0:
+					lines.append_array([m + o * rad * 0.06 - d * rad * 0.08, m - d * rad * 0.02])
+			for i in 6:
+				var a := c + Vector2.from_angle(i * TAU / 6.0) * rad * 0.8
+				var b := c + Vector2.from_angle((i + 2) * TAU / 6.0) * rad * 0.8
+				lines.append_array([a, b])
+		"cloud": # Three puffs.
+			for p in [[Vector2(-0.45, 0.1), 0.38], [Vector2(0.0, -0.15), 0.5], [Vector2(0.45, 0.1), 0.38]]:
+				_ring(lines, c + p[0] * rad, p[1] * rad, 32)
+	_cv.draw_multiline(lines, col, 3.0)
+
+
+func _ring(lines: PackedVector2Array, c: Vector2, r: float, n: int) -> void:
+	var pts := _circle_points(c, r, n)
+	for i in n:
+		lines.append_array([pts[i], pts[(i + 1) % n]])
+
+
 func _grid_line(a: Vector2, b: Vector2, clip: PackedVector2Array) -> void:
 	if clip.is_empty():
 		_cv.draw_line(a, b, _grid, 1.0)
 		return
-	var hits := Geometry2D.clip_polyline_with_polygon(PackedVector2Array([a, b]), clip)
+	var hits := Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([a, b]), clip)
 	for part in hits:
 		if part.size() >= 2:
 			_cv.draw_line(part[0], part[part.size() - 1], _grid, 1.0)
@@ -1271,10 +1486,22 @@ func _draw_ambient(kind: String, r: Rect2, clip: PackedVector2Array) -> void:
 		var col := Color.WHITE
 		var size := 2.0
 		match kind:
-			"snow", "petals", "pollen":
+			"snow", "petals", "pollen", "leaves":
 				p = Vector2(u + 0.03 * sin(t * 1.3 + i), fmod(v + t * 0.05, 1.0))
-				col = {"snow": Color("e8f6ff"), "petals": Color("ff9ecf"), "pollen": Color("ffe08a")}[kind]
+				col = {"snow": Color("e8f6ff"), "petals": Color("ff9ecf"), "pollen": Color("ffe08a"), "leaves": Color("7fe07a")}[kind]
 				size = 2.5 if kind == "snow" else 3.0
+			"confetti":
+				p = Vector2(u + 0.04 * sin(t * 2.1 + i), fmod(v + t * 0.06, 1.0))
+				col = [Color("ff6fae"), Color("7cf5d0"), Color("ffe066"), Color("9b8cff")][i % 4]
+				size = 3.0
+			"rain":
+				p = Vector2(fmod(u + t * 0.02, 1.0), fmod(v + t * 0.35, 1.0))
+				col = Color("a8d8ff")
+				size = 1.8
+			"dust":
+				p = Vector2(u + 0.05 * sin(t * 0.5 + i * 1.7), v + 0.03 * cos(t * 0.4 + i))
+				col = Color("ffd98a")
+				size = 1.8
 			"embers", "bubbles":
 				p = Vector2(u + 0.02 * sin(t * 2.0 + i), 1.0 - fmod(v + t * 0.07, 1.0))
 				col = Color("ff8a3d") if kind == "embers" else Color("bff6ff")
@@ -1300,7 +1527,7 @@ func _draw_ambient(kind: String, r: Rect2, clip: PackedVector2Array) -> void:
 		if not clip.is_empty() and not Geometry2D.is_point_in_polygon(at, clip):
 			continue
 		var a := 0.35 + 0.25 * sin(t * 2.3 + i)
-		if kind in ["stars", "fireflies", "wisps", "sparks", "embers"]:
+		if kind in ["stars", "fireflies", "wisps", "sparks", "embers", "dust"]:
 			Dot.circle(self, at, size * 2.6, Color(col, a * 0.18))
 		Dot.circle(self, at, size, Color(col, a))
 

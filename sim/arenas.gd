@@ -20,6 +20,12 @@
 ##   "lava" burns (capped with spikes), "conveyor" pushes it along `dir` at
 ##   `accel` (by weight), "portal" sends it to floor `to` keeping its velocity.
 ## orbit (on an obstacle): circles the centre at this many rad/s from pos.
+## start_scale: starts sit this much closer to the centre (same aim lines),
+##   so round and hexagonal maps keep the corners' room.
+## sides: {n, inradius, rot}: n straight walls (n even, so point-symmetric),
+##   each `inradius` from the centre, the first facing `rot` degrees. They cut
+##   the square into a hexagon (6), a rounded ring (12+) or, with n 2, a lane
+##   along one diagonal.
 ## shrink_start / shrink_speed: the walls start closing in early, slower.
 extends RefCounted
 
@@ -205,11 +211,140 @@ const DEFS := {
 		],
 		"spike_walls": {"half": 200.0},
 	},
+	# --- Map pack 2 (2026-10-21): new shapes and looks. ----------------------
+	"candy": {
+		"display_name": "Candy Carousel",
+		"description": "A round sweet shop. Gumdrop bumpers kick balls off faster.",
+		"corner_cut": 0.0,
+		"sides": {"n": 16, "inradius": 470.0, "rot": 0.0},
+		"start_scale": 0.8,
+		"obstacles": [
+			{"pos": Vector2(500, 500), "radius": 58.0, "kind": "bumper"},
+			{"pos": Vector2(500, 290), "radius": 32.0, "kind": "bumper"},
+			{"pos": Vector2(500, 710), "radius": 32.0, "kind": "bumper"},
+			{"pos": Vector2(290, 500), "radius": 32.0, "kind": "bumper"},
+			{"pos": Vector2(710, 500), "radius": 32.0, "kind": "bumper"},
+		],
+	},
+	"syrup": {
+		"display_name": "Syrup Swamp",
+		"description": "Sticky syrup slows you down. Lollipops to bounce off.",
+		"corner_cut": 100.0,
+		"obstacles": [
+			{"pos": Vector2(640, 360), "radius": 44.0, "kind": "pillar"},
+			{"pos": Vector2(360, 640), "radius": 44.0, "kind": "pillar"},
+		],
+		"floors": [
+			{"kind": "goo", "pos": Vector2(320, 320), "radius": 105.0, "slow": 0.3},
+			{"kind": "goo", "pos": Vector2(680, 680), "radius": 105.0, "slow": 0.3},
+		],
+	},
+	"temple": {
+		"display_name": "Sun Temple",
+		"description": "A six-sided temple floor with a spiked altar in the middle.",
+		"corner_cut": 0.0,
+		"sides": {"n": 6, "inradius": 460.0, "rot": 0.0},
+		"start_scale": 0.8,
+		"obstacles": [
+			{"pos": Vector2(500, 500), "radius": 46.0, "kind": "spike"},
+			{"pos": Vector2(330, 330), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(670, 670), "radius": 40.0, "kind": "pillar"},
+		],
+	},
+	"ruins": {
+		"display_name": "Jungle Ruins",
+		"description": "A ring of broken columns around an open middle.",
+		"corner_cut": 0.0,
+		"sides": {"n": 8, "inradius": 470.0, "rot": 22.5},
+		"start_scale": 0.8,
+		"obstacles": [
+			{"pos": Vector2(680, 500), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(320, 500), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(590, 655.88), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(410, 344.12), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(410, 655.88), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(590, 344.12), "radius": 34.0, "kind": "pillar"},
+		],
+	},
+	"nebula": {
+		"display_name": "Nebula Drift",
+		"description": "A round pocket of space. Two gravity wells swirl the paths.",
+		"corner_cut": 0.0,
+		"sides": {"n": 12, "inradius": 470.0, "rot": 15.0},
+		"start_scale": 0.8,
+		"obstacles": [],
+		"wells": [
+			{"pos": Vector2(330, 330), "reach": 210.0, "accel": 950.0, "core": 26.0},
+			{"pos": Vector2(670, 670), "reach": 210.0, "accel": 950.0, "core": 26.0},
+		],
+	},
+	"asteroid": {
+		"display_name": "Asteroid Belt",
+		"description": "Four rocks orbit the middle. Mind the gaps.",
+		"corner_cut": 150.0,
+		"obstacles": [
+			{"pos": Vector2(500, 280), "radius": 36.0, "kind": "pillar", "orbit": 0.5},
+			{"pos": Vector2(500, 720), "radius": 36.0, "kind": "pillar", "orbit": 0.5},
+			{"pos": Vector2(280, 500), "radius": 36.0, "kind": "pillar", "orbit": 0.5},
+			{"pos": Vector2(720, 500), "radius": 36.0, "kind": "pillar", "orbit": 0.5},
+		],
+	},
+	"trench": {
+		"display_name": "Abyssal Trench",
+		"description": "A narrow trench from corner to corner, with coral in the way.",
+		"corner_cut": 0.0,
+		"sides": {"n": 2, "inradius": 260.0, "rot": 45.0},
+		"obstacles": [
+			{"pos": Vector2(360, 640), "radius": 38.0, "kind": "pillar"},
+			{"pos": Vector2(640, 360), "radius": 38.0, "kind": "pillar"},
+		],
+	},
+	"kelp": {
+		"display_name": "Kelp Forest",
+		"description": "Swaying kelp stalks everywhere to ricochet off.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(300, 300), "radius": 26.0, "kind": "pillar"},
+			{"pos": Vector2(700, 700), "radius": 26.0, "kind": "pillar"},
+			{"pos": Vector2(320, 680), "radius": 26.0, "kind": "pillar"},
+			{"pos": Vector2(680, 320), "radius": 26.0, "kind": "pillar"},
+			{"pos": Vector2(500, 170), "radius": 26.0, "kind": "pillar"},
+			{"pos": Vector2(500, 830), "radius": 26.0, "kind": "pillar"},
+			{"pos": Vector2(170, 500), "radius": 26.0, "kind": "pillar"},
+			{"pos": Vector2(830, 500), "radius": 26.0, "kind": "pillar"},
+		],
+	},
+	"storm": {
+		"display_name": "Thunder Peak",
+		"description": "A hexagonal peak. Lightning rods kick, spiked crags bite.",
+		"corner_cut": 0.0,
+		"sides": {"n": 6, "inradius": 460.0, "rot": 30.0},
+		"start_scale": 0.8,
+		"obstacles": [
+			{"pos": Vector2(500, 320), "radius": 40.0, "kind": "bumper"},
+			{"pos": Vector2(500, 680), "radius": 40.0, "kind": "bumper"},
+			{"pos": Vector2(300, 500), "radius": 30.0, "kind": "spike"},
+			{"pos": Vector2(700, 500), "radius": 30.0, "kind": "spike"},
+		],
+	},
+	"cloud": {
+		"display_name": "Cloud Kingdom",
+		"description": "A round sky island. Slick clouds speed you up.",
+		"corner_cut": 0.0,
+		"sides": {"n": 12, "inradius": 470.0, "rot": 0.0},
+		"start_scale": 0.8,
+		"obstacles": [{"pos": Vector2(500, 500), "radius": 50.0, "kind": "pillar"}],
+		"floors": [
+			{"kind": "ice", "pos": Vector2(320, 320), "radius": 110.0},
+			{"kind": "ice", "pos": Vector2(680, 680), "radius": 110.0},
+		],
+	},
 }
 
 ## Arenas offered in the in-game picker and checked by the balance sim.
 const PLAYABLE := ["square", "rink", "pillars", "bumpers", "wells", "spikes", "frost", "magma", "arcade",
-	"starfall", "factory", "orbit", "hive", "horizon", "pinball", "reef", "glitch", "inferno", "thorn"]
+	"starfall", "factory", "orbit", "hive", "horizon", "pinball", "reef", "glitch", "inferno", "thorn",
+	"candy", "syrup", "temple", "ruins", "nebula", "asteroid", "trench", "kelp", "storm", "cloud"]
 
 
 ## Boss maps (sim/bosses.gd, design/bosses.md): one per boss, never in the

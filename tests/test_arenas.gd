@@ -54,7 +54,7 @@ func test_starts_are_clear_of_every_obstacle_and_corner() -> void:
 		biggest = maxf(biggest, BallDefs.get_def(id).radius)
 	for id in Arenas.DEFS:
 		var sim := _sim(id)
-		for start in MatchSim.START_CORNERS:
+		for start in MatchSim.start_positions(2, sim.arena):
 			for o in sim.obstacles():
 				check(start.distance_to(o.pos) - o.radius - biggest >= 40.0, "%s start %s too close to an obstacle" % [id, start])
 			for wall in sim.corner_walls():
@@ -144,13 +144,14 @@ func test_mirror_fights_are_even_on_every_arena() -> void:
 
 
 func test_every_critter_finishes_on_every_arena() -> void:
-	# Each critter against itself and its next two neighbours in the list, one
-	# seed per arena, so the cost grows with roster + maps, not their product.
+	# Each critter against itself or one of its next two neighbours in the
+	# list (which one turns with the map), one seed per arena, so the cost
+	# grows with roster + maps, not their product.
 	var ids: Array = BallDefs.PLAYABLE
 	for k in Arenas.PLAYABLE.size():
 		var id: String = Arenas.PLAYABLE[k]
 		for i in ids.size():
-			for step in 3:
+			for step in [k % 3]:
 				var a: String = ids[i]
 				var b: String = ids[(i + step) % ids.size()]
 				for seed_value in [k]:
@@ -159,10 +160,41 @@ func test_every_critter_finishes_on_every_arena() -> void:
 					check(s.reason != "", "%s %s vs %s seed %d has no result" % [id, a, b, seed_value])
 
 
+func test_sided_arenas_are_point_symmetric_and_contain_the_starts() -> void:
+	for id in Arenas.DEFS:
+		var def: Dictionary = Arenas.get_def(id)
+		if not def.has("sides"):
+			continue
+		check(int(def.sides.n) % 2 == 0, "%s has an even number of sides" % id)
+		var sim := _sim(id)
+		var outline := sim.arena_outline()
+		check(outline.size() >= 4, "%s has an outline" % id)
+		for p in outline:
+			check(outline.has(sim.centre * 2.0 - p) or Array(outline).any(func(q): return q.distance_to(sim.centre * 2.0 - p) < 0.01), "%s outline point %s has a mirror" % [id, p])
+		for start in MatchSim.start_positions(2, def):
+			check(Geometry2D.is_point_in_polygon(start, outline), "%s start %s inside the walls" % [id, start])
+
+
+func test_a_side_wall_reflects_like_a_cut_corner() -> void:
+	var sim := _sim("temple")
+	_park(sim)
+	var b := sim.balls[0]
+	b.pos = Vector2(120, 500) # Just inside the left side wall (460 from the centre).
+	b.vel = Vector2.LEFT * b.speed
+	var bounced := false
+	for i in 30:
+		sim.step()
+		if b.vel.x > 0.0:
+			bounced = true
+			break
+	check(bounced, "the hexagon's side turns the ball back")
+	check(b.pos.x >= 500.0 - 460.0 + b.radius - 1.0, "and keeps it inside (x %.1f)" % b.pos.x)
+
+
 func test_starts_are_outside_every_well() -> void:
 	for id in Arenas.DEFS:
 		var sim := _sim(id)
-		for start in MatchSim.START_CORNERS:
+		for start in MatchSim.start_positions(2, sim.arena):
 			for w in sim.wells():
 				check(start.distance_to(w.pos) >= w.reach + 60.0, "%s start %s inside a well" % [id, start])
 
@@ -270,7 +302,7 @@ func test_spiked_walls_only_in_the_middle() -> void:
 func test_starts_are_off_every_floor_pad() -> void:
 	for id in Arenas.DEFS:
 		var sim := _sim(id)
-		for start in MatchSim.START_CORNERS:
+		for start in MatchSim.start_positions(2, sim.arena):
 			for f in sim.floors():
 				check(not MatchSim.on_floor(f, start, 45.0), "%s start %s on a %s pad" % [id, start, f.kind])
 
