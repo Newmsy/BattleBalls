@@ -87,6 +87,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	var gear: Array = p.gear_on(c.id)
 	var slots := Kit.hbox(12)
+	var tall: bool = shell.size.y >= 1400.0
 	for slot in Gear.SLOTS:
 		var g: Dictionary = {}
 		for x in gear:
@@ -94,17 +95,21 @@ static func build(shell, params: Dictionary) -> Control:
 				g = x
 		var open: bool = p.slot_open(c.id, slot)
 		var col: Color = BagScreen.tier_color(g.tier) if not g.is_empty() else Kit.MUTED
-		var head := Kit.hbox(6, [Glyph.make(g.type if not g.is_empty() else slot.to_lower(), 26, col if open else Glyph.OFF),
-			Kit.label(slot, 20, col)], BoxContainer.ALIGNMENT_CENTER)
+		# A big icon of the piece it wears, its name and stars; an empty slot
+		# shows the slot's icon dimmed, a locked one a lock.
+		var icon_kind: String = g.type if not g.is_empty() else (slot.to_lower() if open else "lock")
+		var icon := Glyph.make(icon_kind, 96 if tall else 34, col if not g.is_empty() else Kit.MUTED)
+		var name := Kit.label(g.name if not g.is_empty() else slot, 18, col if not g.is_empty() else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		name.clip_text = true
+		name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		var line: Control
-		if not open:
-			line = Kit.hbox(6, [Glyph.make("lock", 20, Kit.MUTED), Kit.label("3 stars", 19, Kit.MUTED)])
-		elif g.is_empty():
-			line = Kit.label("+", 26, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-		else:
+		if not g.is_empty():
 			line = Glyph.make("stars", 18, col, g.tier)
-		var v := Kit.vbox(4, [head, line])
-		var tap: Callable = _slot_sheet.bind(shell, c.id, slot) if open else shell.toast.bind("Charms unlock when %s reaches 3 stars." % c.name)
+		else:
+			line = Kit.label("+ Add" if open else "Locked", 16, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+		# Short phones drop the name to keep the screen from scrolling.
+		var v := Kit.vbox(4, [BagScreen._center(icon), name, BagScreen._center(line)] if tall else [BagScreen._center(icon), BagScreen._center(line)])
+		var tap: Callable = _slot_sheet.bind(shell, c.id, slot) if open else shell.toast.bind("Charm slot unlocks when %s reaches %d stars." % [c.name, Gear.CHARM_TIER])
 		var card := Kit.card_button(v, tap, Color(col, .5) if not g.is_empty() else Kit.LINE, Kit.PANEL2, 24, 12)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("slot_" + slot.to_lower(), card)

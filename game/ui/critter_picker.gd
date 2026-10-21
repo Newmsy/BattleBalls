@@ -26,10 +26,13 @@ static func by_power(profile, ids: Array) -> Array:
 
 ## Opens the picker. `ids`: the critters to offer (already filtered and
 ## sorted). opts: title, hint, current (id shown as picked), tags ({id: short
-## text under the tile, e.g. "#2"}), on_pick (Callable(id)).
+## text under the tile, e.g. "#2"}), locked ({id: true}: those tiles are dimmed
+## with a lock and a tap only toasts `locked_toast` % name), on_pick (Callable(id)).
 static func open(shell, ids: Array, opts := {}) -> void:
 	var p = shell.profile
 	var tags: Dictionary = opts.get("tags", {})
+	var locked: Dictionary = opts.get("locked", {})
+	var locked_toast: String = opts.get("locked_toast", "%s can't take this yet.")
 	var current: String = opts.get("current", "")
 	var on_pick: Callable = opts.get("on_pick", Callable())
 	var grid := GridContainer.new()
@@ -37,7 +40,7 @@ static func open(shell, ids: Array, opts := {}) -> void:
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	for id in ids:
-		grid.add_child(LazyTile.wrap(func(): return _cell(shell, id, tags, current, on_pick), grid.get_child_count(), 16))
+		grid.add_child(LazyTile.wrap(func(): return _cell(shell, id, tags, current, on_pick, locked.has(id), locked_toast), grid.get_child_count(), 16))
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var rows := ceili(ids.size() / float(COLUMNS))
 	var scroll := ScrollContainer.new()
@@ -54,7 +57,7 @@ static func open(shell, ids: Array, opts := {}) -> void:
 	shell.sheet(v)
 
 
-static func _cell(shell, id: String, tags: Dictionary, current: String, on_pick: Callable) -> Control:
+static func _cell(shell, id: String, tags: Dictionary, current: String, on_pick: Callable, lock := false, lock_toast := "") -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(id)
 	var c: Dictionary = Roster.get_critter(id)
@@ -66,13 +69,21 @@ static func _cell(shell, id: String, tags: Dictionary, current: String, on_pick:
 	pow.alignment = BoxContainer.ALIGNMENT_CENTER
 	var cell := Kit.vbox(0, [FighterTag.icon(id, b.get("tier", 1), 76, false, b.get("level", 0)), name, pow])
 	var tag: String = tags.get(id, "")
-	cell.add_child(Kit.label(tag, 16, Kit.ACCENT if tag != "" else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	if lock:
+		cell.add_child(Kit.hbox(0, [Kit.glyph("lock", 24, Kit.FG)], BoxContainer.ALIGNMENT_CENTER))
+	else:
+		cell.add_child(Kit.label(tag, 16, Kit.ACCENT if tag != "" else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
 	var picked: bool = id == current
 	var tile := Kit.card_button(cell, func():
+		if lock:
+			shell.toast(lock_toast % str(c.name))
+			return
 		shell.close_overlay()
 		if on_pick.is_valid():
-			on_pick.call(id), Kit.ACCENT if picked else Color(rare, .7),
-		Color(Kit.ACCENT, .22) if picked else Color(rare, .10), 20, 6)
+			on_pick.call(id), Kit.ACCENT if picked else Color(rare, .3 if lock else .7),
+		Color(Kit.ACCENT, .22) if picked else Color(rare, .04 if lock else .10), 20, 6)
+	if lock:
+		cell.modulate = Color(1, 1, 1, .5)
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("pick_" + id, tile)
 	return tile
