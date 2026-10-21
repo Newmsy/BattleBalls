@@ -200,12 +200,14 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	var title := Kit.label("Opening...", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	v.add_child(title)
 	var grid := GridContainer.new()
-	grid.columns = 1 if ids.size() == 1 else 5
+	# A x10 fills the screen: 4 across in 3 rows of big eggs (4 x 150 fits the 640 inside the margins).
+	grid.columns = 1 if ids.size() == 1 else (4 if ids.size() > 4 else ids.size())
 	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 18)
+	# Tall phones spread the rows out instead of leaving bands of empty space.
+	grid.add_theme_constant_override("v_separation", 56 if shell.size.y >= 1400 else 18)
 	grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var caps: Array = []
-	var side := 360.0 if ids.size() == 1 else 120.0
+	var side := 360.0 if ids.size() == 1 else 150.0
 	for i in ids.size():
 		var cap := _Capsule.new()
 		cap.setup(ids[i], fresh[i], side, shell.sfx)
@@ -236,13 +238,13 @@ static func _reveal(shell, ids: Array, fresh: Array) -> Control:
 	return root
 
 
-## A copy's progress to its next fuse, e.g. "+1 · 2/3", or "+1 · FUSE" at 3+.
+## A copy's progress to its next fuse: "2/3 TO FUSE", or "FUSE READY" at 3+.
 static func _fuse_note(p, id: String) -> String:
 	var t1 := 0
 	for s in p.copies(id):
 		if s.tier == 1:
 			t1 = s.count
-	return "+1 · FUSE" if t1 >= 3 else "+1 · %d/3" % t1
+	return "FUSE READY" if t1 >= 3 else "%d/3 TO FUSE" % t1
 
 
 ## Opens the capsules one by one, OPEN_GAP apart, so a x10 takes about 4
@@ -441,10 +443,14 @@ class _Capsule extends Control:
 		var word: String = Roster.RARITY_NAMES[c.rarity]
 		var big := side > 200
 		var text := word if note == "" else (word + " · " + note if big else note)
-		var tag := Kit.label(text, 26 if big else 15, _col, HORIZONTAL_ALIGNMENT_CENTER)
-		_content = Kit.vbox(0, [CritterIcon.make(id, 1, side), Kit.label(c.name, 34 if side > 200 else 17, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), tag])
-		_content.get_child(1).clip_text = true
-		tag.clip_text = true
+		var tag := Kit.label(text, 26 if big else 17, _col, HORIZONTAL_ALIGNMENT_CENTER)
+		var face := CritterIcon.make(id, 1, side)
+		if not big:
+			face.radius_frac = .34 # Fill the small eggs' space: the face is what you came for.
+		_content = Kit.vbox(0, [face, Kit.label(c.name, 34 if big else 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), tag])
+		for l in [_content.get_child(1), tag]:
+			l.clip_text = true
+			l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_content)
