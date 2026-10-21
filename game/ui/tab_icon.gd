@@ -1,5 +1,5 @@
-## The bottom tab bar's icons, in the Neon Critters look: a critter face,
-## a loot sack, the Play ball, two balls fusing and a Summon Egg. Lit (full
+## The bottom tab bar's icons, in the Neon Critters look: Count Nibbles and
+## Optic, a loot sack, the Play ball, two balls fusing and a Summon Egg. Lit (full
 ## colour, a soft glow, sparkles) on the open tab, dim and flat on the rest.
 ## Static: drawn once and again only when `set_active` flips. Render-only.
 extends Control
@@ -20,13 +20,21 @@ static func make(kind_: String, side: float) -> Control:
 	g.custom_minimum_size = Vector2(side, side)
 	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	g._tint()
 	return g
 
 
 func set_active(on: bool) -> void:
 	if on != active:
 		active = on
+		_tint()
 		queue_redraw()
+
+
+## The critter art has its own colours, so an idle Critters tab is dimmed whole.
+func _tint() -> void:
+	if kind == "critters":
+		self_modulate = Color.WHITE if active else Color(.62, .6, .78)
 
 
 ## A colour as this tab shows it: itself when lit, faded when idle.
@@ -51,18 +59,10 @@ func _draw() -> void:
 	var u := func(x: float, y: float) -> Vector2: return c + Vector2(x, y) * s
 	match kind:
 		"critters":
-			var body := Color("39c6ff")
-			_glow(u.call(0, .04), s * .54, body)
-			for side in [-1.0, 1.0]:
-				draw_line(u.call(side * .12, -.2), u.call(side * .22, -.4), _c(Color("1a8fd6")), s * .06, true)
-				Dot.circle(self, u.call(side * .22, -.41), s * .07, _c(Color("ffd45c")))
-			Dot.circle(self, u.call(0, .06), s * .38, _c(Color("1a7fc4")))
-			Dot.circle(self, u.call(-.03, .03), s * .33, _c(body))
-			Dot.circle(self, u.call(-.17, -.1), s * .07, _c(Color(1, 1, 1, .55)))
-			for side in [-1.0, 1.0]:
-				Dot.circle(self, u.call(side * .13, .01), s * .1, _c(Color.WHITE))
-				Dot.circle(self, u.call(side * .13 + .03, .0), s * .052, INK)
-			draw_arc(u.call(0, .12), s * .1, .15 * PI, .85 * PI, 10, INK, s * .05, true)
+			# Count Nibbles and Optic, drawn like their real art, side by side.
+			_glow(u.call(0, .04), s * .54, Color("39c6ff"))
+			CritterArt.draw_critter(self, "vampire", u.call(-.2, .1), s * .31, {"look": Vector2(.6, .2)})
+			CritterArt.draw_critter(self, "laser", u.call(.22, .12), s * .29, {"look": Vector2(-.6, .1)})
 		"bag":
 			var sack := Color("ffb347")
 			_glow(u.call(0, .08), s * .54, sack)
@@ -117,24 +117,23 @@ func _draw() -> void:
 			Dot.circle(self, u.call(0, .04), s * .06, _c(Color.WHITE))
 			_sparkle(u.call(.02, -.36), s * .09)
 		"summon":
-			var shell := Color("c86bff")
-			_glow(u.call(0, .04), s * .54, shell)
+			# A matte creature egg (the summon screen's eggs): bone shell lit
+			# from the top left, speckles, a hairline crack, a thin violet rim.
+			var shell := Color("ddd2bd").lerp(Color("c86bff"), .22).darkened(.1)
+			_glow(u.call(0, .04), s * .5, Color("c86bff"))
 			var egg := PackedVector2Array()
-			var inner := PackedVector2Array()
-			for i in 24:
-				var a := i * TAU / 24.0
-				var q := Vector2(cos(a) * .34, sin(a) * (.44 if sin(a) < 0.0 else .38) + .06)
+			var lit := PackedVector2Array()
+			for i in 28:
+				var a := i * TAU / 28.0
+				var q := Vector2(cos(a) * .32 * (1.0 - .14 * maxf(0.0, -sin(a))), sin(a) * (.44 if sin(a) < 0.0 else .36) + .06)
 				egg.append(c + q * s)
-				inner.append(c + (q * .86 + Vector2(-.03, -.02)) * s)
-			Dot.poly(self, egg, _c(Color("8a3fd6")))
-			Dot.poly(self, inner, _c(shell))
-			# A zigzag crack across the middle, light leaking out of it.
-			var crack := PackedVector2Array()
-			for i in 7:
-				crack.append(u.call(-.3 + i * .1, (.0 if i % 2 == 0 else .08)))
-			draw_polyline(crack, _c(Color("ffe9ff")), s * .055, true)
-			Dot.poly(self, CritterArt.star_pts(u.call(0, -.18), s * .11, s * .045, 5), _c(Color("ffe9ff")))
-			Dot.circle(self, u.call(-.15, -.24), s * .055, _c(Color(1, 1, 1, .7)))
-			_sparkle(u.call(.38, -.3), s * .11)
-			_sparkle(u.call(-.38, -.08), s * .07, Color("ffe9ff"))
-			_sparkle(u.call(.34, .32), s * .06, Color("ffe066"))
+				lit.append(c + (q * .9 + Vector2(-.02, -.03)) * s)
+			Dot.poly(self, egg, _c(shell.darkened(.3)))
+			Dot.poly(self, lit, _c(shell))
+			for p in [Vector2(-.12, -.18), Vector2(.12, -.06), Vector2(-.04, .2), Vector2(.16, .24), Vector2(-.18, .1), Vector2(.05, -.28)]:
+				Dot.circle(self, u.call(p.x, p.y), s * .025, _c(Color(shell.darkened(.45), .55)))
+			draw_polyline(PackedVector2Array([u.call(-.04, -.36), u.call(.03, -.25), u.call(-.03, -.17), u.call(.05, -.08)]), _c(shell.darkened(.5)), s * .025, true)
+			egg.append(egg[0])
+			draw_polyline(egg, _c(Color("a46be0")), s * .035, true)
+			Dot.circle(self, u.call(-.13, -.2), s * .06, _c(Color(1, 1, 1, .2)))
+			_sparkle(u.call(.36, -.3), s * .09)

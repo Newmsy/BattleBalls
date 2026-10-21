@@ -356,6 +356,7 @@ class _Capsule extends Control:
 	const Kit := preload("res://game/ui/ui_kit.gd")
 	const Families := preload("res://sim/families.gd")
 	const CritterArt := preload("res://game/ui/critter_art.gd")
+	const Dot := preload("res://game/dot.gd")
 	const CritterIcon := preload("res://game/ui/critter_icon.gd")
 	const Roster := preload("res://game/ui/roster.gd")
 	const A11y := preload("res://game/a11y.gd")
@@ -385,6 +386,7 @@ class _Capsule extends Control:
 	var _pattern: Array = [] ## [kind, points, width or 0 for filled] in unit egg space.
 	var _shards: Array = [] ## Vector4(angle, speed, spin, size) per shell shard.
 	var _ink := Color(1, 1, 1) ## The family's colour, for its pattern.
+	var _specks: Array = [] ## Vector3(x, y, radius): the shell's natural speckles.
 
 	func setup(id_: String, is_new_: bool, side_: float, sfx_) -> void:
 		id = id_
@@ -412,6 +414,8 @@ class _Capsule extends Control:
 			_shards.append(Vector4(-PI / 2 + rng.randf_range(-1.6, 1.6), rng.randf_range(.8, 1.6), rng.randf_range(-6.0, 6.0), rng.randf_range(.16, .3)))
 		var fam := Families.of(id)
 		_pattern = EggArt.pattern(fam, rng)
+		for k in 9:
+			_specks.append(Vector3(rng.randf_range(-.5, .5), rng.randf_range(-.75, .6), rng.randf_range(.025, .055)))
 		for f in Families.FAMILIES:
 			if f.id == fam:
 				_ink = Color(f.color)
@@ -490,8 +494,15 @@ class _Capsule extends Control:
 			var grow := 0.0
 			if _charge_t >= 0.0:
 				grow = clampf(_charge_t / .6, 0.0, 1.0)
-			for k in 4:
-				draw_circle(c, r * (1.15 + k * .12 + pulse * .05 + grow * .4), Color(_col, .07 + .02 * _ri + grow * .1))
+			# A soft shadow on the ground; only Epic and Legendary eggs (and the
+			# Legendary wind-up) give off a faint glow.
+			draw_set_transform(c + Vector2(0, r * .95), 0.0, Vector2(1.0, .28))
+			Dot.circle(self, Vector2.ZERO, r * .7, Color(0, 0, 0, .35))
+			draw_set_transform_matrix(Transform2D.IDENTITY)
+			var halo := (.03 * (_ri - 2) if _ri >= 3 else 0.0) * (.8 + .2 * pulse) + grow * .1
+			if halo > 0.0:
+				for k in 3:
+					Dot.circle(self, c, r * (1.1 + k * .14 + grow * .4), Color(_col, halo))
 			var cracked := clampf(_crack_t / maxf(.05, _crack_len * .85), 0.0, 1.0) if _crack_t >= 0.0 else 0.0
 			if _charge_t >= 0.0:
 				cracked = maxf(cracked, grow)
@@ -533,7 +544,7 @@ class _Capsule extends Control:
 				# The cap pops up and tumbles; shards fly out and fall.
 				draw_set_transform(c + Vector2(r * .3 * out, -r * 1.3 * out), -.9 * out, Vector2(r, r))
 				draw_colored_polygon(_cap(), Color(shell, fade))
-				draw_polyline(_cap(), Color(_col.lerp(Color.WHITE, .3), fade), .07, true)
+				draw_polyline(_cap(), Color(_col.darkened(.15), fade), .05, true)
 				for d in _shards:
 					var dist: float = d.y * 1.8 * out
 					var at := c + (Vector2(cos(d.x), sin(d.x)) * dist + Vector2(0, 1.4 * e * e)) * r
@@ -566,39 +577,38 @@ class _Capsule extends Control:
 		draw_rect(Rect2(tag - Vector2(side * .2, side * .07), Vector2(side * .4, side * .14)), Kit.BAD)
 		draw_string(Kit.FONT, tag + Vector2(-side * .17, side * .045), "NEW", HORIZONTAL_ALIGNMENT_CENTER, side * .34, int(side * .12), Color.WHITE)
 
-	## The shell's body colour: a deep shade of the rarity colour.
+	## The shell's body colour: a matte bone shell with a hint of the family.
 	func _shell_color() -> Color:
-		return _col.darkened(.62 - .04 * _ri)
+		return Color("ddd2bd").lerp(_ink, .3).darkened(.12)
 
-	## The egg in unit space (the caller sets the transform): shell, family
-	## pattern, neon rim, shine, and cracks spreading as it gets ready.
-	func _draw_egg(cracked: float, glow: float) -> void:
+	## The egg in unit space (the caller sets the transform): a matte shell
+	## lit from the top left, natural speckles, the family motif pressed faintly
+	## into it, a thin rim in the rarity colour, and cracks spreading as it
+	## gets ready.
+	func _draw_egg(cracked: float, _glow: float) -> void:
 		var shell := _shell_color()
-		draw_colored_polygon(_egg, shell)
-		# A lighter belly band so the egg reads as round.
-		var belly := PackedVector2Array()
+		draw_colored_polygon(_egg, shell.darkened(.28))
+		var lit := PackedVector2Array()
 		for q in _egg:
-			belly.append(Vector2(q.x * .86, q.y * .86 + .1))
-		draw_colored_polygon(belly, shell.lerp(_col, .22))
-		var ink := _ink.lightened(.15 + .05 * _ri)
-		ink.a = .85 + .05 * glow
+			lit.append(Vector2(q.x * .9 - .05, q.y * .9 - .06))
+		draw_colored_polygon(lit, shell)
+		var ink := Color(shell.darkened(.32), .55)
 		for part in _pattern:
 			if part[2] > 0.0:
 				draw_polyline(part[1], ink, part[2], true)
 			else:
 				draw_colored_polygon(part[1], ink)
+		for sp in _specks:
+			Dot.circle(self, Vector2(sp.x, sp.y), sp.z, Color(shell.darkened(.45), .45))
 		var rim := _egg.duplicate()
 		rim.append(_egg[0])
-		if _ri >= 3:
-			draw_polyline(rim, Color(_col, .35), .2, true)
-		draw_polyline(rim, _col.lerp(Color.WHITE, .15), .07 + .015 * _ri, true)
-		# Shine.
-		draw_circle(Vector2(-.33, -.55), .13, Color(1, 1, 1, .35))
-		draw_circle(Vector2(-.42, -.3), .05, Color(1, 1, 1, .3))
+		draw_polyline(rim, _col.darkened(.15), .045 + .01 * _ri, true)
+		# A soft matte sheen, not a gloss.
+		Dot.circle(self, Vector2(-.3, -.52), .14, Color(1, 1, 1, .16))
 		if _ri == 4:
 			for k in 3:
 				var tw := .5 + .5 * sin(_t * 5.0 + k * 2.1)
-				draw_colored_polygon(CritterArt.star_pts(Vector2(-.5 + k * .5, -.95 + k * .28 + (k % 2) * .2), .09 * tw + .03, .03, 4), Color(1, 1, .85, .9))
+				draw_colored_polygon(CritterArt.star_pts(Vector2(-.5 + k * .5, -.95 + k * .28 + (k % 2) * .2), .07 * tw + .02, .025, 4), Color(1, .92, .7, .75))
 		if cracked > 0.0:
 			var n := int(ceil(cracked * (_crack.size() - 1)))
 			var line := PackedVector2Array()
