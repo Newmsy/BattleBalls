@@ -114,9 +114,16 @@ static func owned_critters(profile) -> Array:
 
 ## A hub tile: icon, name and one status line.
 static func _room(shell, mark: String, glyph: String, title: String, line: String, col: Color, on_press: Callable) -> Button:
-	var v := Kit.vbox(2, [Glyph.make(glyph, 34, col), Kit.label(title, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), Kit.label(line, 18, col, HORIZONTAL_ALIGNMENT_CENTER)])
+	var door := _Doorway.new()
+	door.col = col
+	door.custom_minimum_size = Vector2(96, 50)
+	door.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	door.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var icon := Glyph.make(glyph, 30, col.lightened(.2))
+	icon.position = Vector2(33, 21) # Centred in the opening.
+	door.add_child(icon)
+	var v := Kit.vbox(2, [door, Kit.label(title, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), Kit.label(line, 18, col, HORIZONTAL_ALIGNMENT_CENTER)])
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.get_child(0).size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var b := Kit.card_button(v, on_press, Color(col, .8), Color(col, .10), 24, 8)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark(mark, b)
@@ -219,3 +226,40 @@ static func _fit(l: Label) -> Label:
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	l.custom_minimum_size.x = 40
 	return l
+
+
+## The header art on an Arena room tile: an arched doorway in the room's
+## colour, lit from inside, with a step at its foot; the room's glyph glows
+## in the opening. Drawn once.
+class _Doorway extends Control:
+	const Dot := preload("res://game/dot.gd")
+	var col := Color.WHITE
+
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y
+		var cx := w / 2.0
+		var half := 22.0
+		var spring := 14.0 # Where the arch starts above the floor line.
+		var floor_y := h - 6.0
+		var arch := PackedVector2Array([Vector2(cx - half, floor_y)])
+		for q in 13:
+			var a := PI + PI * q / 12.0
+			arch.append(Vector2(cx, floor_y - spring) + Vector2(cos(a), sin(a)) * half)
+		arch.append(Vector2(cx + half, floor_y))
+		# Frame, a dark opening with light spilling out of it, and the step.
+		var frame := PackedVector2Array()
+		for q in arch:
+			frame.append(Vector2(cx, floor_y) + (q - Vector2(cx, floor_y)) * Vector2(1.25, 1.18))
+		Dot.poly(self, frame, col.darkened(.45))
+		Dot.poly(self, arch, Color("0e0c26"))
+		Dot.circle(self, Vector2(cx, floor_y - spring * .6), half * .9, Color(col, .22))
+		draw_polyline(frame, Color(col, .7), 2.0, true)
+		draw_rect(Rect2(cx - half * 1.5, floor_y, half * 3.0, 5.0), col.darkened(.35))
+		# A keystone and two side lamps.
+		var top := floor_y - spring - half * 1.18
+		Dot.poly(self, PackedVector2Array([Vector2(cx - 5, top - 2), Vector2(cx + 5, top - 2), Vector2(cx + 3, top + 8), Vector2(cx - 3, top + 8)]), col)
+		for sgn in [-1.0, 1.0]:
+			var lamp := Vector2(cx + sgn * half * 1.55, floor_y - spring)
+			Dot.circle(self, lamp, 7.0, Color(col, .2))
+			Dot.circle(self, lamp, 3.0, col.lightened(.4))

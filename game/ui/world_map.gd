@@ -8,6 +8,8 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Zones := preload("res://meta/zones.gd")
+const Dot := preload("res://game/dot.gd")
+const CritterArt := preload("res://game/ui/critter_art.gd")
 
 ## Node centres as fractions of the map, zone 1 first (bottom).
 const SPOTS := [Vector2(.25, .88), Vector2(.72, .75), Vector2(.3, .62), Vector2(.74, .49), Vector2(.28, .36), Vector2(.72, .23), Vector2(.34, .09)]
@@ -127,6 +129,11 @@ func _draw() -> void:
 			for k in range(0, pts.size() - 1, 2):
 				draw_line(pts[k], pts[k + 1], Color(Kit.LINE, 1.0).lightened(.15), 6.0, true)
 
+	# Each zone's landmark on a little island, beside its node on the side
+	# away from its label; locked zones show theirs as a dim silhouette.
+	for i in nodes.size():
+		_landmark(i, i < open_count)
+
 	# Nodes: a glowing disc in the zone's colour; locked ones are dim rings.
 	for i in nodes.size():
 		var c := center(i)
@@ -148,6 +155,83 @@ func _draw() -> void:
 			draw_rect(Rect2(g + px - Vector2(5, 5), Vector2(9, 9)), pink)
 		draw_rect(Rect2(g + Vector2(-2, 7), Vector2(4, 4)), Kit.BG)
 		draw_rect(Rect2(g + Vector2(8, 7), Vector2(4, 4)), Kit.BG)
+
+
+## The island under zone i's node and the landmark that says which zone it
+## is: glowing mushrooms, chip towers, ice shards, thorny briars, an arcade
+## cabinet, a falling star over a crater, a volcano.
+func _landmark(i: int, open: bool) -> void:
+	var c := center(i)
+	var col := Color(zones[i].color)
+	var r := OPEN_R if open else LOCKED_R
+	var body := col.darkened(.55) if open else Color(col.darkened(.7), .55)
+	var lit := col if open else Color(col.darkened(.4), .5)
+	# The island: a flat disc of ground under the node.
+	draw_set_transform(c + Vector2(0, r * .82), 0.0, Vector2(1.0, .3))
+	Dot.circle(self, Vector2.ZERO, r * 1.55, Color(0, 0, 0, .25))
+	Dot.circle(self, Vector2(0, -r * .2), r * 1.45, body.darkened(.3))
+	draw_arc(Vector2(0, -r * .2), r * 1.45, PI * .1, PI * .9, 24, Color(lit, .3), 5.0, true)
+	draw_set_transform_matrix(Transform2D.IDENTITY)
+	# Props stand on the island's far side from the label.
+	var s := -1.0 if SPOTS[i].x < .5 else 1.0
+	var g := c + Vector2(s * r * 1.15, r * .78) # Ground point for the props.
+	var k := 1.25 * r / OPEN_R
+	match str(zones[i].get("id", "")):
+		"glow_garden":
+			for m in [[Vector2(0, 0), 1.0], [Vector2(s * 26, 6), .7]]:
+				var at: Vector2 = g + m[0] * k
+				var h: float = 34.0 * m[1] * k
+				draw_rect(Rect2(at + Vector2(-4 * m[1] * k, -h), Vector2(8 * m[1] * k, h)), body.lightened(.25))
+				var cap := PackedVector2Array()
+				for q in 13:
+					var a := PI + PI * q / 12.0
+					cap.append(at + Vector2(0, -h) + Vector2(cos(a) * 20.0, sin(a) * 14.0) * m[1] * k)
+				Dot.poly(self, cap, lit)
+				Dot.circle(self, at + Vector2(-6.0 * m[1] * k, -h - 6.0 * m[1] * k), 3.0 * k, Color(1, 1, 1, .7 if open else .2))
+		"circuit_lab":
+			for t in [[Vector2(0, 0), 52.0, 22.0], [Vector2(s * 28, 4), 34.0, 18.0]]:
+				var at: Vector2 = g + t[0] * k
+				var rect := Rect2(at + Vector2(-t[2] / 2.0, -t[1]) * k, Vector2(t[2], t[1]) * k)
+				draw_rect(rect, body.lightened(.15))
+				for w in int(t[1] / 12.0):
+					draw_rect(Rect2(rect.position + Vector2(5, 6 + w * 12) * k, Vector2(t[2] - 10, 4) * k), Color(lit, .8))
+			draw_line(g + Vector2(0, -52) * k, g + Vector2(0, -66) * k, lit, 2.0)
+			Dot.circle(self, g + Vector2(0, -68) * k, 3.5 * k, lit)
+		"frostbite_caves":
+			for sh in [[0.0, 54.0, 12.0], [s * 16.0, 36.0, 9.0], [-s * 14.0, 28.0, 8.0]]:
+				var at: Vector2 = g + Vector2(sh[0], 0) * k
+				Dot.poly(self, PackedVector2Array([at + Vector2(-sh[2], 0) * k, at + Vector2(0, -sh[1]) * k, at + Vector2(sh[2], 0) * k]), body.lightened(.3))
+				Dot.poly(self, PackedVector2Array([at + Vector2(0, -sh[1]) * k, at + Vector2(sh[2], 0) * k, at + Vector2(sh[2] * .2, 0) * k]), Color(lit, .8))
+		"bramble_hollow":
+			for b in 3:
+				var pts := PackedVector2Array()
+				for q in 9:
+					var u := q / 8.0
+					pts.append(g + Vector2(s * (u * 40.0 - 8.0 + b * 6.0), -sin(u * PI) * (30.0 + b * 10.0)) * k)
+				draw_polyline(pts, body.lightened(.2), 4.0 * k, true)
+				for q in [2, 4, 6]:
+					var p: Vector2 = pts[q]
+					Dot.poly(self, PackedVector2Array([p + Vector2(-3, 0) * k, p + Vector2(0, -9) * k, p + Vector2(3, 0) * k]), lit)
+		"haunted_arcade":
+			var rect := Rect2(g + Vector2(-16, -56) * k, Vector2(32, 56) * k)
+			draw_rect(rect, body.lightened(.15))
+			draw_rect(Rect2(rect.position + Vector2(5, 8) * k, Vector2(22, 16) * k), Color(lit, .85))
+			draw_rect(Rect2(rect.position + Vector2(6, 32) * k, Vector2(20, 5) * k), body.darkened(.2))
+			Dot.circle(self, rect.position + Vector2(12, 34) * k, 3.0 * k, Color("ff5a7a") if open else body)
+			var gh := g + Vector2(s * 34, -34) * k
+			Dot.circle(self, gh, 11.0 * k, Color(1, 1, 1, .55 if open else .15))
+			draw_rect(Rect2(gh + Vector2(-11, 0) * k, Vector2(22, 10) * k), Color(1, 1, 1, .55 if open else .15))
+		"starfall_rim":
+			draw_arc(g + Vector2(0, 2) * k, 24.0 * k, PI, TAU, 20, body.lightened(.3), 5.0 * k, true)
+			var star := g + Vector2(s * 20, -54) * k
+			draw_line(star, star + Vector2(-s * 34, -20) * k, Color(lit, .4), 4.0 * k, true)
+			Dot.poly(self, CritterArt.star_pts(star, 11.0 * k, 4.5 * k, 5), lit)
+		"magma_core":
+			var v := PackedVector2Array([g + Vector2(-34, 0) * k, g + Vector2(-9, -46) * k, g + Vector2(9, -46) * k, g + Vector2(34, 0) * k])
+			Dot.poly(self, v, body.lightened(.15))
+			Dot.poly(self, PackedVector2Array([g + Vector2(-9, -46) * k, g + Vector2(9, -46) * k, g + Vector2(4, -30) * k, g + Vector2(-5, -24) * k]), lit)
+			for e in 3:
+				Dot.circle(self, g + Vector2(-6 + e * 7, -56 - e * 7) * k, (4.0 - e) * k, Color(lit, .7))
 
 
 ## A gentle S-bend from a to b, as points.
