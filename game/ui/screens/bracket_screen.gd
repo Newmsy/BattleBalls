@@ -21,16 +21,17 @@ static func build(shell, params: Dictionary) -> Control:
 	var root := Kit.vbox(16)
 	var back: Control = shell.back_button("bracket_back")
 	var titles := Legends.oracle_titles(t)
-	var badge := "Oracle x%d" % titles.size() if not titles.is_empty() else "Cosmetic rewards only"
-	var name: String = ev.name if not ev.is_empty() else "Bracket of Legends"
-	var title := Kit.vbox(0, [Kit.label(name, 32, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.label(badge, 18, GOLD if not titles.is_empty() else Kit.MUTED)])
+	var badge := "Oracle x%d" % titles.size() if not titles.is_empty() else ""
+	# The season goes in the eyebrow so the title stays on one line on small phones.
+	var season: String = ev.name.replace("Bracket of Legends", "").strip_edges() if not ev.is_empty() else ""
+	var eyebrow := " · ".join([season, badge].filter(func(s): return s != ""))
+	var title := Kit.vbox(2, [Kit.caption(eyebrow, GOLD if not titles.is_empty() else Kit.MUTED), Kit.label("Bracket of Legends", 40)])
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	(title.get_child(0) as Label).custom_minimum_size.x = 300
 	var about := ["Once a season every critter enters one bracket at equal power.",
 		"Pick your champion before the first round. Call it right and you earn the Oracle title for that bracket. Rewards are cosmetic only."]
 	if not ev.is_empty():
 		about[0] = _blurb(ev, Legends.bracket(ev))
-	root.add_child(Kit.hbox(14, [back, title, shell.info_button("Bracket of Legends", about, "bracket_info")]))
+	root.add_child(Kit.hbox(14, [back, title, shell.info_button("Bracket of Legends", about, "bracket_info")], BoxContainer.ALIGNMENT_CENTER))
 	if ev.is_empty():
 		var nxt := Legends.next_event(t)
 		var when := "The next one is announced %s." % _date(Legends.opens(nxt)) if not nxt.is_empty() else "The next one is announced with the next season."
@@ -60,7 +61,7 @@ static func _fighting(shell, ev: Dictionary, b, through: int) -> Control:
 	var label := Kit.label("", 22, Kit.ACCENT, HORIZONTAL_ALIGNMENT_LEFT, true)
 	var show := func():
 		var p: Array = b.progress(through)
-		label.text = "Fighting out the bracket: %d of %d matches..." % [p[0], p[1]]
+		label.text = "Simulating… %d/%d" % [p[0], p[1]]
 	show.call()
 	print("BRACKET_FIGHTING ", ev.id)
 	var timer := Timer.new()
@@ -84,7 +85,7 @@ static func _blurb(ev: Dictionary, b) -> String:
 	var text := "%d critters, all at equal power, in a %d-slot bracket" % [n, b.size]
 	if byes > 0:
 		text += " (the top %d %s a bye)" % [byes, "seed gets" if byes == 1 else "seeds get"]
-	text += ". Each match is first to 2 wins, the final first to 3. One round comes out every day at 00:00 UTC; the final lands on Sunday."
+	text += ". Best of %d, final best of %d. A round a day at 00:00 UTC." % [Bracket.WINS_NEEDED * 2 - 1, Bracket.FINAL_WINS_NEEDED * 2 - 1]
 	return text
 
 
@@ -93,18 +94,18 @@ static func _status(ev: Dictionary, t: int, phase: String) -> Control:
 	var col := Kit.ACCENT
 	match phase:
 		"picks":
-			text = "Picks lock in %s, when the first round comes out." % LiveOps.countdown(t, Legends.locks(ev))
+			text = "Picks lock in %s" % LiveOps.countdown(t, Legends.locks(ev))
 			col = Kit.GOOD
 		"live":
 			var out := Legends.rounds_out(ev, t)
 			var b := Legends.bracket(ev)
-			text = "%s: out now. %s comes out in %s." % [b.round_name(out - 1), b.round_name(out), LiveOps.countdown(t, Legends.reveal_at(ev, out))]
+			text = "%s out now · %s in %s" % [b.round_name(out - 1), b.round_name(out), LiveOps.countdown(t, Legends.reveal_at(ev, out))]
 			col = GOLD
 		"done":
 			if Legends.champion_known(ev, t) and Legends.bracket(ev).has_match(Legends.round_count(ev) - 1, 0):
 				text = "Champion: %s." % _name(Legends.bracket(ev).champion())
 			else:
-				text = "The final is out. Open it to see who won."
+				text = "The final is out!"
 			col = GOLD
 	return Kit.label(text, 23, col, HORIZONTAL_ALIGNMENT_LEFT, true)
 
@@ -131,7 +132,7 @@ static func _pick_grid(shell, ev: Dictionary, t: int) -> Control:
 		card.custom_minimum_size.x = 0
 		shell.mark("champ_" + id, card)
 		grid.add_child(card)
-	var head := "Your champion: %s. Tap another to change." % _name(pick) if pick != "" else "Who goes all the way? Tap your champion."
+	var head := "Your pick: %s" % _name(pick) if pick != "" else "Pick your champion"
 	_load_shares(shell, ev)
 	return Kit.vbox(10, [Kit.label(head, 22, GOLD, HORIZONTAL_ALIGNMENT_LEFT, true), grid])
 
@@ -164,10 +165,10 @@ static func _load_shares(shell, ev: Dictionary) -> void:
 static func _your_pick(ev: Dictionary, b, t: int) -> Control:
 	var pick := Legends.pick_of(ev)
 	if pick == "":
-		return Kit.label("No champion picked for this one. Picks for the next bracket open the week before it.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		return Kit.label("No pick this time.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	# Follow the pick through the rounds that are out and seen: today's round
 	# stays a surprise until the player opens it.
-	var text := "Still in. Every round they win is one closer."
+	var text := "Still in!"
 	var col := Kit.FG
 	for r in Legends.rounds_out(ev, t):
 		if not b.ready_through(r):
@@ -220,7 +221,7 @@ static func _round(shell, ev: Dictionary, b, r: int, t: int) -> Control:
 		var when := Legends.reveal_at(ev, r)
 		v.add_child(Kit.label("Comes out %s at 00:00 UTC." % _date(when), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	elif r == out - 1:
-		v.add_child(Kit.label("Today's round: tap a match to see how it went.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+		v.add_child(Kit.label("Tap a match to watch", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	for i in b.matches_in(r):
 		if r >= out:
 			# Not out yet: nothing is simulated. Round 1 shows the draw; later
@@ -295,12 +296,12 @@ static func _series_sheet(shell, ev: Dictionary, b, r: int, i: int) -> void:
 	if not Legends.shows_result(ev, r, i, LiveOps.now()):
 		# Not seen yet: watch it unspoiled, or just reveal the result.
 		var watch := Kit.button("Watch game 1", func(): Legends.mark_seen(ev, r, i); _watch(shell, ev, b, r, m.games[0]), "primary", 26, 84)
-		var reveal := Kit.button("Just show the result", func(): Legends.mark_seen(ev, r, i); _series_sheet(shell, ev, b, r, i), "ghost", 24, 76)
+		var reveal := Kit.button("Show result", func(): Legends.mark_seen(ev, r, i); _series_sheet(shell, ev, b, r, i), "ghost", 24, 76)
 		shell.mark("game_0", watch)
 		shell.mark("reveal", reveal)
 		shell.sheet(Kit.vbox(16, [Kit.caption(b.round_name(r), GOLD),
 			Kit.label("%s vs %s" % [_name(m.a), _name(m.b)], 32, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
-			Kit.label("First to %d wins goes through." % (Bracket.FINAL_WINS_NEEDED if r == b.rounds - 1 else Bracket.WINS_NEEDED), 22, Kit.MUTED),
+			Kit.label("First to %d" % (Bracket.FINAL_WINS_NEEDED if r == b.rounds - 1 else Bracket.WINS_NEEDED), 22, Kit.MUTED),
 			watch, reveal]))
 		return
 	shell.refresh() # Show the result behind the sheet.

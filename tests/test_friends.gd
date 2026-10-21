@@ -65,8 +65,8 @@ func test_rematch_needs_a_team_this_client_can_fight() -> void:
 
 
 func test_record_and_ping_text() -> void:
-	check_eq(Friends.record_text({"wins": 0, "losses": 0, "draws": 0}), "No rematches yet", "empty")
-	check_eq(Friends.record_text({"wins": 3, "losses": 1, "draws": 2}), "Rematches: 3 won, 1 lost, 2 drawn", "record")
+	check_eq(Friends.record_text({"wins": 0, "losses": 0, "draws": 0}), "", "empty")
+	check_eq(Friends.record_text({"wins": 3, "losses": 1, "draws": 2}), "3W 1L 2D", "record")
 	var at := Time.get_unix_time_from_datetime_string("2026-10-14T22:00:00")
 	check_eq(Friends.ping_text({"preset": 1, "at": "2026-10-14T22:00:00.5+00:00"}, at + 300), "\"Nice shot!\" · 5m ago", "ping")
 	check_eq(Friends.ping_text({"preset": 99, "at": ""}, at), "", "unknown preset shows nothing")

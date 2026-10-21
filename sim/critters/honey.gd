@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "d97706",
 	"vibe": "A sweet, slow-talking honey pot that leaves everyone a little sticky.",
-	"description": "Honey pot. Every wall bounce drips a honey puddle; a foe that rolls in gets stuck fast, and Honey's next hit on a stuck foe crushes it for extra damage.",
+	"description": "Honey pot. Every wall bounce drips a honey puddle (up to 4); a foe that rolls in is stuck 0.6s, and Honey's next hit on a stuck foe crushes it for x1.5.",
 	"stats": {"hp": 113.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
 	"ability": [{"on": "wall", "do": "honey"}, {"on": "always", "do": "honey_trap"}, {"on": "strike", "do": "honey_crush"}],
 	"params": {
@@ -31,11 +31,11 @@ const CRITTER := {
 		"linger_secs": 1.0, ## ...for this long.
 	},
 	"tiers": [
-		{"text": "Bounces drip honey (max 4); a foe in it is stuck 0.6s and takes +50%"},
-		{"text": "Puddles last 5s and crush hits deal +75%", "honey_life": 5.0, "honey_crush": 1.75},
-		{"text": "Honey keeps foes 35% slowed for 1s after they leave", "ability": [{"on": "always", "do": "linger"}]},
-		{"text": "Up to 6 bigger puddles", "honey_max": 6, "honey_radius": 70.0},
-		{"text": "Every 4s lobs honey under the foe; puddles pull in and sting; crush x2.2", "honey_merge_radius": 90.0, "honey_crush": 2.2, "honey_pull": 900.0, "honey_sting_damage": 14.0, "honey_dps": 6.0, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}]},
+		{"text": "Bounces drip honey: sticks foe 0.6s, next hit x1.5", "now": "Bounces drip honey: sticks foe {honey_stick}s, next hit x{honey_crush}"},
+		{"text": "Puddles 4 → 5s, crush x1.5 → 1.75", "honey_life": 5.0, "honey_crush": 1.75},
+		{"text": "+ Foes stay slowed 35% for 1s after", "now": "Bounces drip honey: sticks {honey_stick}s, then slow; next hit x{honey_crush}", "ability": [{"on": "always", "do": "linger"}]},
+		{"text": "Max puddles 4 → 6, size +27%", "honey_max": 6, "honey_radius": 70.0},
+		{"text": "+ Lobs honey every 4s; pull, sting 6/s, crush x2.2", "now": "Drips + lobs honey (every {honey_lob}s): sticks {honey_stick}s, hit x{honey_crush}", "special": "Honey Pot", "honey_merge_radius": 90.0, "honey_crush": 2.2, "honey_pull": 900.0, "honey_sting_damage": 14.0, "honey_dps": 6.0, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["jarlid", "drips"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.85},

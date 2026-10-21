@@ -22,8 +22,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(DetailScreen.header(shell, "Account", chip))
 
 	if acc == null or not acc.enabled():
-		root.add_child(_note("Accounts need a connection",
-			"You're playing offline. Your progress is kept on this device; go online to save it to an account."))
+		root.add_child(_note("Offline", "Progress is on this device. Go online to back it up."))
 		return root
 	if acc.status == "loading":
 		acc.refresh()
@@ -51,7 +50,7 @@ static func build(shell, params: Dictionary) -> Control:
 static func _save_card(shell, acc) -> Control:
 	var col := Kit.vbox(16, [
 		Kit.label("Your progress is only on this device", 30),
-		Kit.label("Save it to an account and a new phone, or a cleared browser, never costs you your critters. Nothing you've earned changes.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label("Back it up so a new phone never loses your critters.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
 	col.add_child(_field(shell, "email", "Your email"))
 	var send := Kit.button("Email me a code", func(): _send(shell, acc, "save"), "primary", 28, 88)
@@ -71,7 +70,7 @@ static func _save_card(shell, acc) -> Control:
 static func _signin_card(shell, acc) -> Control:
 	var col := Kit.vbox(16, [
 		Kit.label("Sign in to your account", 30),
-		Kit.label("Your account's save comes to this device. What you played here as a guest is kept as a backup.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label("Your guest save is kept as a backup.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
 	col.add_child(_field(shell, "email", "Your email"))
 	var send := Kit.button("Email me a code", func(): _send(shell, acc, "signin"), "primary", 28, 88)
@@ -80,14 +79,14 @@ static func _signin_card(shell, acc) -> Control:
 	for p in acc.PROVIDERS:
 		if acc.provider_ready(p):
 			col.add_child(Kit.button("Sign in with %s" % p.capitalize(), func(): acc.use_provider(p, "signin"), "ghost", 26, 84))
-	var back := Kit.button("Back", func(): acc.message = ""; shell.refresh_with({}), "ghost", 24, 76)
+	var back := Kit.button("Save instead", func(): acc.message = ""; shell.refresh_with({}), "ghost", 24, 76)
 	return Kit.vbox(28, [Kit.panel(col), back])
 
 
 static func _code_card(shell, acc) -> Control:
 	var col := Kit.vbox(16, [
 		Kit.label("Enter the code", 30),
-		Kit.label("Check %s for a 6-digit code. Tapping the link in the email on this device works too." % acc.pending.email, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label("Code sent to %s." % acc.pending.email, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
 	col.add_child(_field(shell, "code", "6-digit code"))
 	var ok := Kit.button("Confirm", func(): _verify(shell, acc), "go", 28, 88)
@@ -105,7 +104,7 @@ static func _linked_card(shell, acc) -> Control:
 	var col := Kit.vbox(14, [
 		Kit.label("Your progress is saved", 30),
 		Kit.label(acc.email if acc.email != "" else "Signed in with " + ", ".join(how.map(func(p): return p.capitalize())), 24),
-		Kit.label("It syncs whenever you're online. Sign in with the same account on any device to carry on.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		Kit.label("Syncs when online. Sign in anywhere to carry on.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
 	var out := Kit.button("Sign out", func(): _confirm_sign_out(shell, acc), "ghost", 24, 76)
 	return Kit.vbox(28, [Kit.panel(col), out])

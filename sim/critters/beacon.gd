@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "06d6a0",
 	"vibe": "A steady old lighthouse keeper who keeps an eye on everything.",
-	"description": "Lighthouse. Every 4 seconds it shines a beam straight ahead to the far wall, and foes caught in the light take 20% more damage for 2 seconds.",
+	"description": "Lighthouse. Every 4s it shines a beam straight ahead to the far wall (6/s), and foes caught in the light take +20% dmg for 2s.",
 	"stats": {"hp": 116.0, "radius": 64.0, "speed": 400.0, "contact_damage": 20.0},
 	"ability": [{"on": "every", "secs": "lamp_every", "do": "lamp"}],
 	"params": {
@@ -24,11 +24,11 @@ const CRITTER := {
 		"lamp_back": 0, ## T5: also shine backwards.
 	},
 	"tiers": [
-		{"text": "Every 4s a beam shines ahead to the wall (6 damage a second); lit foes take 20% more damage for 2s"},
-		{"text": "Beam 8 damage a second", "lamp_dps": 8.0},
-		{"text": "The beam sweeps 45 degrees as it shines", "lamp_sweep": 45.0, "ability": [{"on": "always", "do": "lamp_sweep"}]},
-		{"text": "Shines every 3.5s", "lamp_every": 3.5},
-		{"text": "Two beams, one forward and one back", "lamp_back": 1},
+		{"text": "Beam every 4s: 6/s, lit foes +20% dmg taken", "now": "Beam every {lamp_every}s: {lamp_dps}/s, lit foes +{lamp_vuln%}% dmg taken"},
+		{"text": "Beam 6 → 8/s", "lamp_dps": 8.0},
+		{"text": "+ Beam sweeps 45°", "now": "Sweeping beam every {lamp_every}s: {lamp_dps}/s, lit +{lamp_vuln%}% dmg taken", "lamp_sweep": 45.0, "ability": [{"on": "always", "do": "lamp_sweep"}]},
+		{"text": "Beam every 4 → 3.5s", "lamp_every": 3.5},
+		{"text": "+ A 2nd beam shines backwards", "now": "2 sweeping beams every {lamp_every}s: {lamp_dps}/s, +{lamp_vuln%}% dmg taken", "lamp_back": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smile"}, "back": ["lamp"], "front": ["stripes"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 0.9},

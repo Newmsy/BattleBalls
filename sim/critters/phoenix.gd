@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "ff6a2a",
 	"vibe": "Proud and fiery; refuses to stay down.",
-	"description": "Phoenix. Its hits scorch (a burning foe can't heal), and the first time it falls it bursts back to life at 20% HP in a blast of flame.",
+	"description": "Phoenix. Its hits scorch (0.5/s; a burning foe can't heal), and the first time it falls it bursts back to life at 20% HP in a blast of flame.",
 	"stats": {"hp": 112.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "fall", "do": "revive"}, {"on": "hit", "do": "scorch"}],
 	"params": {
@@ -34,11 +34,11 @@ const CRITTER := {
 		"trail_dps": 4.0,
 	},
 	"tiers": [
-		{"text": "Hits burn; revives once at 20% HP in a fire blast"},
-		{"text": "Revives at 25% HP", "revive_hp": 0.25},
-		{"text": "After reviving it leaves a flame trail", "ability": [{"on": "always", "do": "fire_trail"}]},
-		{"text": "Revives at 30% HP", "revive_hp": 0.3},
-		{"text": "A fire flash every 4s burns foes nearby; revives twice at 50% HP", "revive_bolts": 8, "revive_shield": 20.0, "revive_lives": 2, "revive_hp": 0.5, "ability": [{"on": "every", "secs": "sunfire_every", "do": "sunfire"}]},
+		{"text": "Burning hits; revives once at 20% HP", "now": "Burning hits; revives once at {revive_hp%}% HP"},
+		{"text": "Revive HP 20% → 25%", "revive_hp": 0.25},
+		{"text": "+ After reviving it leaves a flame trail", "ability": [{"on": "always", "do": "fire_trail"}]},
+		{"text": "Revive HP 25% → 30%", "revive_hp": 0.3},
+		{"text": "+ Sunfire every 4s · revives twice at 50%", "now": "Burning hits, sunfire every {sunfire_every}s; revives {revive_lives}x at {revive_hp%}%", "special": "Eternal Flame", "revive_bolts": 8, "revive_shield": 20.0, "revive_lives": 2, "revive_hp": 0.5, "ability": [{"on": "every", "secs": "sunfire_every", "do": "sunfire"}]},
 	],
 	"chaos": {"double_trouble": {"hp": 1.05}, "glass_cannon": {"revive_hp": 0.75}}, ## Bigger beams pick off a fresh revive; in Glass Cannon a revive is worth more.
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": "ffb300", "brow": .3, "mouth": "smirk"}, "back": ["flame_crest"]},

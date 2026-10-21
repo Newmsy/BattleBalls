@@ -1,6 +1,6 @@
 ## One Critterpedia page: the critter's art, number, rarity, family, role,
 ## base stats and what every tier adds, on one phone screen. The vibe, the
-## full ability text and how fusing works sit behind the "i". Pinned: Wishlist, and My card once found.
+## full ability text and how fusing works sit behind the "i". Pinned: Wishlist, and View mine once found.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -10,9 +10,10 @@ const Roster := preload("res://game/ui/roster.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const Families := preload("res://sim/families.gd")
 const DetailScreen := preload("res://game/ui/screens/detail_screen.gd")
+const AbilityText := preload("res://game/ui/ability_text.gd")
 
 ## Base stats with the roster's top value, so the bars compare critters.
-const STATS := [["HP", "hp", 140.0], ["HIT", "contact_damage", 23.0], ["SPEED", "speed", 440.0], ["SIZE", "radius", 82.0]]
+const STATS := [["HP", "hp", 140.0], ["DMG", "contact_damage", 23.0], ["SPEED", "speed", 440.0], ["SIZE", "radius", 82.0]]
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -22,8 +23,8 @@ static func build(shell, params: Dictionary) -> Control:
 	var owned: bool = p.owns(c.id)
 	var rcol: Color = Roster.RARITY_COLORS[c.rarity]
 	var root := Kit.vbox(18)
-	var more := [c.vibe, d.description, "Found: %s." % ("yes, %d %s" % [p.total_copies(c.id), "copy" if p.total_copies(c.id) == 1 else "copies"] if owned else "not yet. Summon it, or win it in the campaign."),
-		"Every critter starts at T1. Fuse 3 of the same tier into 1 of the next; each tier adds the upgrade listed here."]
+	var more := [c.vibe, AbilityText.full(c.id), "You own %d." % p.total_copies(c.id) if owned else "Summon it or win it in the campaign.",
+		"Starts at T1. Fuse 3 → next tier."]
 	var info: Control = shell.info_button(c.name, more, "dex_info")
 	root.add_child(DetailScreen.header(shell, c.name, Kit.hbox(12, [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol), info], BoxContainer.ALIGNMENT_CENTER)))
 
@@ -50,7 +51,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(Kit.panel(Kit.vbox(10, [Kit.caption("Base stats"), stats]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
 	# Ability: what each tier adds, T1 to T5.
-	var head := Kit.hbox(10, [Kit.caption("Ability by tier")])
+	var head := Kit.hbox(10, [Kit.caption("Ability")])
 	if not c.live:
 		head.add_child(Kit.chip("Coming soon", Kit.WARN, 16))
 	var ladder := Kit.vbox(8, [head])
@@ -58,7 +59,7 @@ static func build(shell, params: Dictionary) -> Control:
 		var tag := Kit.panel(Kit.label("T%d" % (i + 1), 20, Kit.BG, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(Kit.ACCENT if i < 4 else Glyph.GOLD, Color(0, 0, 0, 0), 12, 0, 3))
 		tag.custom_minimum_size = Vector2(56, 0)
 		tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		var l := Kit.label(c.ladder[i], 21, Kit.FG if i == 0 else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var l := Kit.label(AbilityText.change(c.id, i + 1), 21, Kit.FG if i == 0 else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		ladder.add_child(Kit.hbox(12, [tag, l]))
 	root.add_child(Kit.panel(ladder, Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
@@ -70,11 +71,11 @@ static func build(shell, params: Dictionary) -> Control:
 			if p.toggle_wishlist(c.id):
 				shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"])
 			else:
-				shell.toast("Your wishlist is full (3). Remove one at the Summon Portal.")
+				shell.toast("Wishlist full (3/3).")
 			shell.refresh(), "ghost", 26, 90)
 		shell.mark("dex_wish", wish)
 		row.add_child(wish)
-	var mine := Kit.button("My card" if owned else "Not found yet", func(): shell.go("detail", {"id": c.id}), "go", 26, 90)
+	var mine := Kit.button("View mine", func(): shell.go("detail", {"id": c.id}), "go", 26, 90)
 	mine.disabled = not owned
 	shell.mark("dex_mine", mine)
 	row.add_child(mine)

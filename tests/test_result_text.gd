@@ -23,7 +23,7 @@ func _clash(hp_a: float, hp_b: float) -> MatchSim:
 
 ## Newms's fight: both on 0 HP at 34.9s used to read "YOU WIN!" with no reason.
 func test_reported_double_knockout_says_double_ko() -> void:
-	var sim := MatchSim.new({"seed": 80005, "p1": "vampire", "p2": "laser", "angles": [-450, null], "seek": 0.0})
+	var sim := MatchSim.new({"seed": 80006, "p1": "vampire", "p2": "laser", "angles": [-450, null], "seek": 0.0})
 	sim.run_to_end()
 	check_eq(sim.end_reason, "double_knockout")
 	var r := ResultText.describe(sim, NAMES)
@@ -41,7 +41,7 @@ func test_double_knockout_records_hp_going_in() -> void:
 	check_near(sim.ko_hp[1], 2.0, 0.0001, "foe hp going in")
 	var r := ResultText.describe(sim, NAMES)
 	check_eq(r.tone, "win")
-	check(r.detail.contains("You had 3 HP going in, the foe had 2, so you take it"), r.detail)
+	check(r.detail.contains("3 vs 2 HP going in"), r.detail)
 
 
 func test_even_double_knockout_is_a_draw() -> void:

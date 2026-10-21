@@ -7,6 +7,8 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const A11y := preload("res://game/a11y.gd")
+const AbilityText := preload("res://game/ui/ability_text.gd")
 
 const LAB_HEIGHT := 330.0
 const SLOT := 116.0
@@ -14,60 +16,69 @@ const SLOT := 116.0
 
 static func build(shell, params: Dictionary) -> Control:
 	var p = shell.profile
-	var ready: Array = p.ready_to_fuse()
+	var ready := sorted(p.ready_to_fuse())
 	var sel: Dictionary = {}
-	for s in ready:
-		if s.id == params.get("id", "") and s.tier == params.get("tier", 0):
-			sel = s
-	if sel.is_empty() and not ready.is_empty():
+	var at := find(ready, params.get("id", ""), params.get("tier", 0))
+	if at >= 0:
+		sel = ready[at]
+	elif not ready.is_empty():
 		sel = ready[0]
 
 	var root := Kit.vbox(18)
 	var how: Control = shell.info_button("How fusing works", [
-		"Fuse 3 copies of the same critter at the same tier to get one copy a tier higher, up to Tier 5.",
+		"3 of a kind → 1 of the next tier, up to T5.",
 		"The new copy keeps the highest level of the three, and its level cap goes up.",
-		"Gear on the used copies goes back to your Bag.",
-		"Critter Hunts will be the best place to farm copies."], "fuse_info")
-	root.add_child(Kit.hbox(12, [Kit.label("Fusion Lab", 40), Kit.label("3 of a kind → next tier", 22, Kit.MUTED), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
+		"Gear goes back to your Bag."], "fuse_info")
+	root.add_child(Kit.hbox(12, [Kit.vbox(2, [Kit.caption("3 of a kind → next tier"), Kit.label("Fusion Lab", 40)]), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
 
 	var list := Kit.vbox(12, [Kit.caption("Ready to fuse")])
 	if ready.is_empty():
-		list.add_child(Kit.panel(Kit.label("Nothing ready yet. Collect 3 copies of the same critter at the same tier.", 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)))
+		list.add_child(Kit.panel(Kit.label("Nothing to fuse. Get 3 of a kind.", 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)))
 	else:
 		var scroll := ScrollContainer.new()
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 		var row := Kit.hbox(12)
+		var sel_card: Control = null
 		for s in ready:
 			var on: bool = s == sel
 			var v := Kit.vbox(2, [CritterIcon.make(s.id, s.tier, 96), Kit.label(Roster.get_critter(s.id).name, 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-				_center(Glyph.make("stars", 20, Kit.FG, s.tier)), Kit.label("x%d copies" % s.count, 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
-			var card := Kit.card_button(v, func(): shell.refresh_with({"id": s.id, "tier": s.tier}), Kit.GOOD if on else Kit.LINE, Kit.PANEL, 28, 8)
+				_center(Glyph.make("stars", 20, Kit.FG, s.tier)), Kit.label("x%d" % s.count, 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
+			var rarity: String = Roster.get_critter(s.id).rarity
+			var card := Kit.card_button(v, func(): shell.refresh_with({"id": s.id, "tier": s.tier, "x": scroll.scroll_horizontal}),
+				Kit.GOOD if on else Roster.rarity_border(rarity, Kit.LINE), Roster.rarity_bg(rarity, Kit.PANEL), 28, 8)
+			if on:
+				sel_card = card
 			card.custom_minimum_size.x = 160
 			shell.mark("ready_%s_%d" % [s.id, s.tier], card)
 			row.add_child(card)
 		scroll.add_child(row)
 		scroll.custom_minimum_size.y = row.get_combined_minimum_size().y
 		list.add_child(scroll)
+		# Keep your place in a long list: same scroll as before, selected card in view.
+		scroll.ready.connect(func(): _restore_x(scroll, int(params.get("x", 0)), sel_card))
 	root.add_child(list)
 
 	var lab := _lab(sel)
+	lab.set_meta("ready", ready)
+	if list.get_child_count() > 1 and list.get_child(1) is ScrollContainer:
+		lab.set_meta("scroll", list.get_child(1))
 	root.add_child(lab)
 
 	if not sel.is_empty():
 		var c := Roster.get_critter(sel.id)
 		var pv: Dictionary = p.fuse_preview(sel.id, sel.tier)
 		# The two things that change most up front; the rest behind the "i".
-		var more: Control = shell.info_button("%s T%d after fusing" % [c.name, pv.tier], [
-			"Ability: %s (was: %s)" % [c.ladder[pv.tier - 1], c.ladder[sel.tier - 1]],
-			"Power: %s → %s" % [Kit.commas(pv.power_before), Kit.commas(pv.power_after)],
-			"Level cap: %d → %d. It keeps the highest level of the three: Lv %d." % [pv.cap_before, pv.cap_after, pv.level],
-			"Gear on the used copies goes back to your Bag."], "fuse_result_info")
+		var lines := ["Max level %d → %d" % [pv.cap_before, pv.cap_after]]
+		if pv.level > 1:
+			lines.append("Keeps Lv %d" % pv.level)
+		lines.append("T%d adds: %s" % [pv.tier, AbilityText.change(sel.id, pv.tier)])
+		var more: Control = shell.info_button("%s T%d" % [c.name, pv.tier], lines, "fuse_result_info")
 		var rows := Kit.vbox(8, [Kit.hbox(8, [Kit.caption("Result: %s T%d" % [c.name, pv.tier]), Kit.spacer(), more], BoxContainer.ALIGNMENT_CENTER)])
 		rows.add_child(_kv("Power", "%s → %s" % [Kit.commas(pv.power_before), Kit.commas(pv.power_after)], true))
-		rows.add_child(_kv("Ability", c.ladder[pv.tier - 1], true))
+		rows.add_child(_kv("New", AbilityText.change(sel.id, pv.tier), true))
 		root.add_child(Kit.panel(rows, Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20)))
-		var btn := Kit.button("Fuse  (-3 T%d)" % sel.tier, func(): pass, "go", 34, 96)
+		var btn := Kit.button("Fuse", func(): pass, "go", 34, 96)
 		btn.pressed.connect(func(): _do_fuse(shell, lab, btn, sel))
 		shell.mark("fuse", btn)
 		shell.pin(btn)
@@ -129,6 +140,7 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		tw.tween_property(s, "position", centre - s.size / 2.0, .6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		tw.tween_property(s, "rotation", TAU, .6).set_ease(Tween.EASE_IN)
 		tw.tween_property(s, "scale", Vector2(.5, .5), .6).set_ease(Tween.EASE_IN)
+	var pv: Dictionary = shell.profile.fuse_preview(sel.id, sel.tier)
 	tw.chain().tween_callback(func():
 		var result: Dictionary = shell.profile.fuse(sel.id, sel.tier)
 		for s in lab.get_meta("slots"):
@@ -136,8 +148,16 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		var flash: ColorRect = lab.get_meta("flash")
 		flash.color.a = .95
 		lab.create_tween().tween_property(flash, "color:a", 0.0, .55)
-		var out := Kit.vbox(4, [CritterIcon.make(sel.id, result.tier, 200, true), Kit.label("%s T%d" % [Roster.get_critter(sel.id).name, result.tier], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-			_center(Glyph.make("stars", 30, Kit.FG, result.tier))])
+		# The payoff: the new power counts up from the old one, in green.
+		var pow := Kit.power(pv.power_before, 28, Kit.GOOD)
+		pow.alignment = BoxContainer.ALIGNMENT_CENTER
+		var num: Label = pow.get_child(1)
+		var out := Kit.vbox(4, [CritterIcon.make(sel.id, result.tier, 170, true), Kit.label("%s T%d" % [Roster.get_critter(sel.id).name, result.tier], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+			_center(Glyph.make("stars", 30, Kit.FG, result.tier)), pow])
+		if A11y.reduced_motion:
+			num.text = Kit.commas(pv.power_after)
+		else:
+			lab.create_tween().tween_method(func(v: float): num.text = Kit.commas(roundi(v)), float(pv.power_before), float(pv.power_after), .8).set_delay(.3).set_ease(Tween.EASE_OUT)
 		lab.add_child(out)
 		lab.move_child(out, lab.get_child_count() - 2)
 		out.reset_size()
@@ -151,7 +171,61 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		btn.disabled = false
 		for conn in btn.pressed.get_connections():
 			btn.pressed.disconnect(conn.callable)
-		btn.pressed.connect(func(): shell.refresh_with({})))
+		var old: Array = lab.get_meta("ready", [])
+		btn.pressed.connect(func():
+			var sc: ScrollContainer = lab.get_meta("scroll", null)
+			var next := pick_after_fuse(old, sorted(shell.profile.ready_to_fuse()), sel)
+			next["x"] = sc.scroll_horizontal if is_instance_valid(sc) else 0
+			shell.refresh_with(next)))
+
+
+## Rarest first, then the highest tier (a fuse to T3 before the same critter's fuse to T2), then by name.
+static func sorted(ready: Array) -> Array:
+	var out := ready.duplicate()
+	out.sort_custom(func(a, b):
+		var ra := Roster.RARITIES.find(Roster.get_critter(a.id).rarity)
+		var rb := Roster.RARITIES.find(Roster.get_critter(b.id).rarity)
+		if ra != rb:
+			return ra > rb
+		if a.tier != b.tier:
+			return a.tier > b.tier
+		return Roster.get_critter(a.id).name < Roster.get_critter(b.id).name)
+	return out
+
+
+## Index of the id/tier stack in a ready list, or -1.
+static func find(ready: Array, id: String, tier: int) -> int:
+	for i in ready.size():
+		if ready[i].id == id and ready[i].tier == tier:
+			return i
+	return -1
+
+
+## Which stack to select after fusing `sel`: the same one while it still has
+## 3+ copies, else the one that came after it in the list, else the one now at
+## its old place (the end of the list if it was last).
+static func pick_after_fuse(old: Array, now: Array, sel: Dictionary) -> Dictionary:
+	if now.is_empty():
+		return {}
+	if find(now, sel.id, sel.tier) >= 0:
+		return {"id": sel.id, "tier": sel.tier}
+	var i := find(old, sel.id, sel.tier)
+	for j in range(i + 1, old.size()):
+		var k := find(now, old[j].id, old[j].tier)
+		if k >= 0:
+			return {"id": now[k].id, "tier": now[k].tier}
+	var s: Dictionary = now[clampi(i, 0, now.size() - 1)]
+	return {"id": s.id, "tier": s.tier}
+
+
+static func _restore_x(scroll: ScrollContainer, at: int, card: Control) -> void:
+	await scroll.get_tree().process_frame
+	await scroll.get_tree().process_frame
+	if not is_instance_valid(scroll):
+		return
+	scroll.scroll_horizontal = at
+	if is_instance_valid(card):
+		scroll.ensure_control_visible(card)
 
 
 static func _kv(k: String, v: String, good := false) -> Control:

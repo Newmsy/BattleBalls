@@ -23,6 +23,7 @@ const ENERGY_REGEN_SECONDS := 300 ## One energy every 5 minutes.
 const ENERGY_PACK := 30
 const STARTER := "vampire"
 const STARTER_ORBS := 10
+const EGG_TEXT := "Hatch it on Summon."
 const PITY_START := 50 ## Matches Summon.PITY_RESET.
 ## The gear type (sim/gear.gd PIECES) an old named piece becomes, for pieces
 ## saved before gear had types (design/gear.md section 7). Anything else gets
@@ -39,8 +40,13 @@ var energy_max := ENERGY_MAX
 ## Unix time the energy count was last brought up to date.
 var energy_time := 0
 var coins := 0
+## Gear merge currency (Economy.GEAR_MERGE_COST), from the Anvil King.
+var hammers := Economy.STARTER_HAMMERS
 var orbs := STARTER_ORBS
 var lineup := STARTER
+## The team picked for pairs and trios campaign stages, in fight order
+## (meta/campaign.gd team_for fills any gaps with your strongest).
+var campaign_team: Array = []
 var seen: Dictionary = {}
 ## One entry per (type, tier): {id, tier, count, level, xp}. The copies in a
 ## stack share its level; fusing 3 makes one copy of the next tier's stack.
@@ -48,7 +54,7 @@ var stacks: Array[Dictionary] = []
 ## Gear pieces: {uid, type, tier, on (critter id or "")} plus, filled in by
 ## gear_piece(), name, slot ("Shell"/"Core"/"Charm"), stats (the sim/gear.gd
 ## lines it fights with) and text. Three of a type and tier merge into one of
-## the next tier (merge_gear).
+## the next tier for hammers (merge_gear).
 var gear: Array[Dictionary] = []
 ## Consumables: {name, count, text, color}.
 var items: Array[Dictionary] = []
@@ -65,6 +71,14 @@ var stars: Dictionary = {}
 var runs := 0
 ## Gear Vault runs used today: {day (unix day), runs} (meta/gear_vault.gd).
 var vault := {}
+## Brood Queen runs used today: {day, runs} (meta/brood_nest.gd).
+var nest := {}
+## Runs used today at the later farming bosses: {key: {day, runs}} (meta/boss_runs.gd).
+var boss_days := {}
+## Highest level beaten at each levelled boss: {key: 0-15} (meta/boss_levels.gd).
+var boss_levels := {}
+## Lures from the Prism Wyrm: spent on a copy of a wishlisted critter (use_lure).
+var lures := 0
 ## Faction talent trees (sim/talents.gd): faction -> {xp, picks: {node: rank}}.
 ## Points come only from play: Faction XP from progression fights, plus one
 ## point for each of T2-T5 that any of the faction's critters has reached
@@ -96,7 +110,7 @@ func setup_new_game(now: int, starter := STARTER) -> void:
 	seen = {starter: true}
 	items.assign([
 		{"name": "Energy Pack", "count": 1, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
-		{"name": "Summon Orb", "count": STARTER_ORBS, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
+		{"name": "Summon Egg", "count": STARTER_ORBS, "text": EGG_TEXT, "color": Color("c86bff")},
 	])
 
 
@@ -288,20 +302,20 @@ func gear_of(type: String, tier: int) -> Array[Dictionary]:
 	return out
 
 
-## Coins to merge three `tier` pieces into one of the next tier.
+## Hammers to merge three `tier` pieces into one of the next tier.
 static func merge_cost(tier: int) -> int:
 	return Economy.GEAR_MERGE_COST[clampi(tier, 1, Gear.MAX_TIER - 1)]
 
 
-## True when three pieces of type+tier exist below the top tier. Coins are
-## checked by merge_gear, so the Bag can show "150 coins" on a set you can't
+## True when three pieces of type+tier exist below the top tier. Hammers are
+## checked by merge_gear, so the Bag can show "4 hammers" on a set you can't
 ## afford yet.
 func has_gear_set(type: String, tier: int) -> bool:
 	return tier < Gear.MAX_TIER and gear_of(type, tier).size() >= 3
 
 
 func can_merge_gear(type: String, tier: int) -> bool:
-	return has_gear_set(type, tier) and coins >= merge_cost(tier)
+	return has_gear_set(type, tier) and hammers >= merge_cost(tier)
 
 
 ## Every [type, tier] with a full set, lowest tier first.
@@ -314,13 +328,13 @@ func gear_sets() -> Array:
 	return out
 
 
-## 3 pieces of type+tier become 1 of the next tier, for coins. The new piece
+## 3 pieces of type+tier become 1 of the next tier, for hammers. The new piece
 ## goes on whichever critter wore one of the three (the strongest, if more
 ## than one did). Returns the new piece, or {} when it can't merge.
 func merge_gear(type: String, tier: int) -> Dictionary:
 	if not can_merge_gear(type, tier):
 		return {}
-	coins -= merge_cost(tier)
+	hammers -= merge_cost(tier)
 	var used := gear_of(type, tier).slice(0, 3)
 	var wearer := ""
 	for g in used:
@@ -334,15 +348,15 @@ func merge_gear(type: String, tier: int) -> Dictionary:
 	return piece
 
 
-## What merge_all_gear would do: {merges, coins} with merges as [type, tier]
+## What merge_all_gear would do: {merges, hammers} with merges as [type, tier]
 ## in order. Lower tiers merge first, so their results can complete sets above.
 func merge_all_plan() -> Dictionary:
 	var counts := {}
 	for g in gear:
 		var k := "%s/%d" % [g.type, g.tier]
 		counts[k] = counts.get(k, 0) + 1
-	var plan := {"merges": [], "coins": 0}
-	var budget := coins
+	var plan := {"merges": [], "hammers": 0}
+	var budget := hammers
 	for tier in range(1, Gear.MAX_TIER):
 		for type in Gear.TYPES:
 			var k := "%s/%d" % [type, tier]
@@ -352,7 +366,7 @@ func merge_all_plan() -> Dictionary:
 				var up := "%s/%d" % [type, tier + 1]
 				counts[up] = counts.get(up, 0) + 1
 				plan.merges.append([type, tier])
-				plan.coins += merge_cost(tier)
+				plan.hammers += merge_cost(tier)
 	return plan
 
 
@@ -406,6 +420,21 @@ func add_copies(ids: Array) -> void:
 	changed.emit()
 
 
+## Lures a copy of `id` costs: rarer critters take more (Economy.LURE_COST).
+static func lure_cost(id: String) -> int:
+	return int(Economy.LURE_COST.get(Roster.get_critter(id).rarity, 99))
+
+
+## Spends Lures on one copy of a wishlisted critter. False (nothing spent)
+## when it isn't on the wishlist or there aren't enough Lures.
+func use_lure(id: String) -> bool:
+	if not on_wishlist(id) or lures < lure_cost(id):
+		return false
+	lures -= lure_cost(id)
+	add_copies([id])
+	return true
+
+
 func on_wishlist(id: String) -> bool:
 	return id in wishlist
 
@@ -427,7 +456,7 @@ func spend_orbs(n: int) -> bool:
 	if orbs < n:
 		return false
 	orbs -= n
-	var item := _item("Summon Orb")
+	var item := _item("Summon Egg")
 	if not item.is_empty():
 		item.count = orbs
 	changed.emit()
@@ -439,6 +468,42 @@ func spend_orbs(n: int) -> bool:
 ## XP needed to go from `level` to `level + 1`.
 static func xp_to_next(level: int) -> int:
 	return 10 * level
+
+
+## XP one XP Chip gives (the Bag text says the same).
+const XP_CHIP_XP := 200
+
+
+## Adds XP like add_xp() and returns the before and after for the animated
+## XP bar (game/ui/xp_bar.gd): {id, tier, xp, from_level, from_xp, to_level,
+## to_xp, cap, levels}. Empty when the critter isn't owned.
+func gain_xp(id: String, amount: int) -> Dictionary:
+	var b := best(id)
+	if b.is_empty():
+		return {}
+	var out := {"id": id, "tier": int(b.tier), "xp": amount, "from_level": int(b.level), "from_xp": int(b.get("xp", 0)),
+		"cap": Roster.level_cap(b.tier)}
+	out.levels = add_xp(id, amount)
+	out.to_level = int(b.level)
+	out.to_xp = int(b.xp)
+	return out
+
+
+func xp_chips() -> int:
+	return int(_item("XP Chip").get("count", 0))
+
+
+## Spends one XP Chip on a critter. Returns gain_xp()'s result, or {} when
+## there is no chip, the critter isn't owned or it is already at its cap.
+func use_xp_chip(id: String) -> Dictionary:
+	var chip := _item("XP Chip")
+	var b := best(id)
+	if chip.is_empty() or int(chip.get("count", 0)) <= 0 or b.is_empty() or int(b.level) >= Roster.level_cap(b.tier):
+		return {}
+	chip.count = int(chip.count) - 1
+	var r := gain_xp(id, XP_CHIP_XP)
+	changed.emit()
+	return r
 
 
 ## Adds XP to a critter's best stack, levelling it up to its tier's cap.
@@ -617,8 +682,8 @@ func account_xp_to_next() -> int:
 
 # --- Save ---------------------------------------------------------------------
 
-const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "lineup",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "factions", "intro", "story"]
+const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "boss_days", "boss_levels", "factions", "intro", "story"]
 
 
 func to_dict() -> Dictionary:
@@ -636,10 +701,14 @@ static func from_dict(d: Dictionary, now: int):
 	var p = new_game(now)
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "orbs", "legendary_pity", "runs"]:
+	# Saves from before hammers keep new_game's starter hammers.
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))
+	var ct = d.get("campaign_team", [])
+	if ct is Array:
+		p.campaign_team = ct.map(func(id): return str(id))
 	p.intro = clampi(int(d.get("intro", INTRO_DONE)), 0, INTRO_DONE)
 	p.free_summon = bool(d.get("free_summon", true))
 	p.seen = d.get("seen", {})
@@ -653,6 +722,18 @@ static func from_dict(d: Dictionary, now: int):
 	var v = d.get("vault", {})
 	if v is Dictionary and v.has("day"):
 		p.vault = {"day": int(v.day), "runs": int(v.get("runs", 0))}
+	var nst = d.get("nest", {})
+	if nst is Dictionary and nst.has("day"):
+		p.nest = {"day": int(nst.day), "runs": int(nst.get("runs", 0))}
+	var bd = d.get("boss_days", {})
+	if bd is Dictionary:
+		for k in bd:
+			if bd[k] is Dictionary and bd[k].has("day"):
+				p.boss_days[str(k)] = {"day": int(bd[k].day), "runs": int(bd[k].get("runs", 0))}
+	var bl = d.get("boss_levels", {})
+	if bl is Dictionary:
+		for k in bl:
+			p.boss_levels[str(k)] = clampi(int(bl[k]), 0, 15)
 	p.stars.clear()
 	for k in d.get("stars", {}):
 		p.stars[str(k)] = int(d.stars[k])
@@ -677,6 +758,10 @@ static func from_dict(d: Dictionary, now: int):
 		p.items.clear()
 		for i in d.items:
 			p.items.append({"name": str(i.name), "count": int(i.count), "text": str(i.text), "color": Color(str(i.color))})
+			if p.items[-1].name == "Summon Orb": # Orbs became eggs (design/bosses.md).
+				p.items[-1].name = "Summon Egg"
+			if p.items[-1].name == "Summon Egg":
+				p.items[-1].text = EGG_TEXT # Older saves kept a longer line.
 	if not p.owns(p.lineup):
 		p.lineup = p.stacks[0].id
 	# A converted Charm on a critter under 3 stars goes back to the Bag.
@@ -704,19 +789,26 @@ func spend_coins(n: int) -> bool:
 
 
 ## An earned reward (Glow Pass free track, bounties): {kind, n} with kind
-## orbs, coins, energy, xp_chip, copies (with id) or gear (type and tier).
+## orbs, coins, hammers, energy, xp_chip, copies (with id) or gear (type and tier).
 func grant(r: Dictionary) -> void:
 	var n := int(r.get("n", 1))
 	match r.kind:
 		"orbs":
 			orbs += n
-			_item("Summon Orb").count = orbs
+			_item("Summon Egg").count = orbs
 		"coins":
 			coins += n
+		"hammers":
+			hammers += n
+		"lures":
+			lures += n
 		"energy":
 			energy += n
 		"xp_chip":
-			_item("XP Chip").count = int(_item("XP Chip").get("count", 0)) + n
+			# A save that never had a chip has no XP Chip row yet: add it, or the chips are lost.
+			if _item("XP Chip").is_empty():
+				items.append({"name": "XP Chip", "count": 0, "text": "+%d XP to one critter." % XP_CHIP_XP, "color": Color("45f5a6")})
+			_item("XP Chip").count = int(_item("XP Chip").count) + n
 		"copies":
 			if str(r.id) in Roster.ids():
 				for i in n:
@@ -726,6 +818,11 @@ func grant(r: Dictionary) -> void:
 				for i in n:
 					add_gear(str(r.type), int(r.get("tier", 1)))
 	changed.emit()
+
+
+## How many of a Bag item (e.g. "Energy Pack") the player holds.
+func item_count(name: String) -> int:
+	return int(_item(name).get("count", 0))
 
 
 func _item(name: String) -> Dictionary:

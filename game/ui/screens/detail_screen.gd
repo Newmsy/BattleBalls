@@ -1,6 +1,6 @@
 ## One critter on one phone screen (its best copy, or the tier in params.tier): power, stats, level against the tier
 ## cap, this tier's ability and the next, gear and copies. The whole T1-T5
-## ladder and the flavour text sit behind the "i"; Use in lineup and Fuse are pinned.
+## ladder and the flavour text sit behind the "i"; Pick (your fighter) and Fuse are pinned.
 extends RefCounted
 
 const Talents := preload("res://sim/talents.gd")
@@ -11,6 +11,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Gear := preload("res://sim/gear.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
+const AbilityText := preload("res://game/ui/ability_text.gd")
 
 
 static func header(shell, title: String, extra: Control = null) -> Control:
@@ -36,10 +37,9 @@ static func build(shell, params: Dictionary) -> Control:
 	var rcol: Color = Roster.RARITY_COLORS[c.rarity]
 	var root := Kit.vbox(18)
 	var cap := Roster.level_cap(b.tier)
-	var note := "Max level. Fuse to raise the cap to %d." % Roster.level_cap(b.tier + 1) if b.level >= cap else "Tier %d caps at level %d. Fuse to raise it." % [b.tier, cap]
-	var more := [c.vibe, note]
-	for i in Roster.MAX_TIER:
-		more.append("T%d: %s%s" % [i + 1, c.ladder[i], "  (now)" if i == b.tier - 1 else ""])
+	var more := [c.vibe, AbilityText.full(c.id)]
+	for t in range(2, Roster.MAX_TIER + 1):
+		more.append("T%d: %s%s" % [t, AbilityText.change(c.id, t), "  (now)" if t == b.tier else ""])
 	more.append("3 of the same tier fuse into 1 of the next tier. Wishlisted critters come up twice as often in summons and drops.")
 	var info: Control = shell.info_button(c.name, more, "detail_info")
 	root.add_child(header(shell, c.name, Kit.hbox(12, [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol), info], BoxContainer.ALIGNMENT_CENTER)))
@@ -64,16 +64,20 @@ static func build(shell, params: Dictionary) -> Control:
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	root.add_child(Kit.hbox(16, [CritterIcon.make(c.id, b.tier, 220, true), side], BoxContainer.ALIGNMENT_CENTER))
 
-	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(0, [Kit.caption("Level"), Kit.spacer(), Kit.label("%d / %d" % [b.level, cap], 24)]),
+	var how_level: Control = shell.info_button("How to level", [
+		"Your critter earns XP when it fights in campaign stages.",
+		"XP Chips in your Bag give 200 XP each.",
+		"Fuse to raise the max level."], "level_info")
+	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(8, [Kit.caption("Level"), how_level, Kit.spacer(), Kit.label("%d / %d" % [b.level, cap], 24)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.bar(float(b.level) / cap, Kit.GOOD)]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
-	# Ability: this tier and the next; the whole ladder is behind the "i".
+	# Ability: what it does at this tier, then what the next tier adds; the whole ladder is behind the "i".
 	var ladder := Kit.vbox(8, [Kit.caption("Ability")])
 	for i in range(b.tier - 1, mini(b.tier + 1, Roster.MAX_TIER)):
 		var have: bool = i < b.tier
 		var tag := Kit.panel(Kit.label("T%d" % (i + 1), 22, Kit.BG if have else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(Kit.ACCENT if have else Color("221e4f"), Color(0, 0, 0, 0), 14, 0, 4))
 		tag.custom_minimum_size = Vector2(62, 0)
-		var l := Kit.label(c.ladder[i] if have else "Next: " + c.ladder[i], 23, Kit.FG if have else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var l := Kit.label(AbilityText.now(c.id, b.tier) if have else "Next: " + AbilityText.change(c.id, i + 1), 23, Kit.FG if have else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var row := Kit.hbox(14, [tag, l])
 		if i == 4:
@@ -90,13 +94,13 @@ static func build(shell, params: Dictionary) -> Control:
 				g = x
 		var open: bool = p.slot_open(c.id, slot)
 		var col: Color = BagScreen.tier_color(g.tier) if not g.is_empty() else Kit.MUTED
-		var head := Kit.hbox(6, [Glyph.make(Gear.PIECES[g.type].glyph if not g.is_empty() else slot.to_lower(), 26, col if open else Glyph.OFF),
+		var head := Kit.hbox(6, [Glyph.make(g.type if not g.is_empty() else slot.to_lower(), 26, col if open else Glyph.OFF),
 			Kit.label(slot, 20, col)], BoxContainer.ALIGNMENT_CENTER)
 		var line: Control
 		if not open:
 			line = Kit.hbox(6, [Glyph.make("lock", 20, Kit.MUTED), Kit.label("3 stars", 19, Kit.MUTED)])
 		elif g.is_empty():
-			line = Kit.label("Tap to equip", 19, Kit.MUTED)
+			line = Kit.label("+", 26, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 		else:
 			line = Glyph.make("stars", 18, col, g.tier)
 		var v := Kit.vbox(4, [head, line])
@@ -116,7 +120,7 @@ static func build(shell, params: Dictionary) -> Control:
 		if p.toggle_wishlist(c.id):
 			shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"])
 		else:
-			shell.toast("Your wishlist is full (3). Remove one at the Summon Portal.")
+			shell.toast("Wishlist full (3/3).")
 		shell.refresh(), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 4)
 	shell.mark("wish_this", wish)
 	chips.add_child(wish)
@@ -127,7 +131,7 @@ static func build(shell, params: Dictionary) -> Control:
 		if ready.is_empty() and s.count >= 3 and s.tier < Roster.MAX_TIER:
 			ready = s
 	# Picking a fighter means you want to fight with it: back to Play, where Quick fight is.
-	var lineup := Kit.button("Your fighter" if p.lineup == c.id else "Fight with this", func():
+	var lineup := Kit.button("Your fighter" if p.lineup == c.id else "Pick", func():
 		p.set_lineup(c.id)
 		shell.show_tab("play")
 		if Intro.step(p) == Intro.FIGHTER and Intro.reach(p, Intro.FIGHT_2):
@@ -164,7 +168,7 @@ static func _slot_sheet(shell, id: String, slot: String) -> void:
 		var who: String = "" if g.on == "" else "On " + Roster.get_critter(g.on).name
 		var info := Kit.vbox(2, [Kit.label(g.name, 24), Kit.label(g.text + ("  ·  " + who if who != "" else ""), 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var row := Kit.hbox(12, [Glyph.make(Gear.PIECES[g.type].glyph, 56, col), info, Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER)
+		var row := Kit.hbox(12, [Glyph.make(g.type, 56, col), info, Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER)
 		var card := Kit.card_button(row, func():
 			p.equip(g.uid, id)
 			shell.close_overlay()
@@ -175,7 +179,7 @@ static func _slot_sheet(shell, id: String, slot: String) -> void:
 		shell.mark("pick_%d" % g.uid, card)
 		list.add_child(card)
 	if list.get_child_count() == 0:
-		list.add_child(Kit.label("No %ss yet. The Gear Vault, campaign wins and Spire boss floors drop gear." % slot, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+		list.add_child(Kit.label("No %ss yet. Beat the Anvil King." % slot, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	v.add_child(list)
 	if not worn.is_empty():
 		v.add_child(Kit.button("Unequip", func(): p.unequip(worn.uid); shell.close_overlay(); shell.refresh(), "ghost", 26, 80))

@@ -8,3 +8,5 @@ backend_config.json
 smoke/screens/
 # Written at export time by tools/bracket_results.gd.
 liveops/bracket_results.json
+# Written at export time by tools/sim_version.gd (sim/sim_version.gd).
+sim_version.txt

@@ -17,7 +17,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `boss_difficulty.gd` (farming boss win rates by player and boss power), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -306,6 +306,10 @@ other code.
   `{"on": "wall", "do": "beam"}`, with numbers in `params`. If the effect you
   need doesn't exist, add one `fx_<name>` method and its `EFFECTS` entry there.
 - **Tiers** list the ladder text and any `params` that change at each tier.
+  Keep text short (see `_template.gd`): T1 <= 60 chars, T2-T5 say only what
+  changes ("Beam 6 → 8/s"), and "now" is the one-line ability at that tier
+  that cards, the fight HUD and Fuse show via `game/ui/ability_text.gd`.
+  `CritterDb.validate` enforces the caps and checks the numbers match params.
 - **Look** comes from the kit in `game/ui/critter_art.gd`: a body style, a face
   and named features. A new feature is one branch in `_feature()`.
 - **Status**: `planned` critters appear in the collection only; set `live` once
@@ -404,10 +408,49 @@ density (`export_presets.cfg` head include). Keep it that way:
   item that isn't redrawn each frame (the arena floor layer in `arena_view.gd`).
 - `?perf=1` logs a `PERF` line every 2s: frames drawn, fps, draw calls.
 
+## Live fights (server)
+
+Live Quick fights pair two players of similar power; the plan is
+design/live-quick-fight.md in the project files. Nothing is switched on for
+players yet. `server/live_server.gd` is the always-on referee: headless Godot
+running `sim/`, speaking JSON over WebSockets. It pairs the queue, holds both
+launch angles until both are in, and runs the fight itself; the phones replay
+it from the same inputs (`sim/live_match.gd` builds the config for all three)
+and report their end hash, so a desync or an edited client shows up.
+`server/live_lobby.gd` has the rules without the networking (`tests/test_live_lobby.gd`).
+
+```sh
+LIVE_DEV=1 godot --headless --script res://server/live_server.gd     # local, any token signs in
+godot --headless --script res://tools/live_bot.gd -- --name=a        # a pretend player (run two)
+GODOT=godot tools/ci/live_e2e.sh                                     # both, as CI does
+docker build -f server/Dockerfile -t battleballs-live .              # the image Azure will run
+```
+
+In the game, Quick fight's FIGHT! finds a live foe when Settings > Testing >
+Live Quick fights is on (needs `Dev.LIVE_SERVER` in `game/dev.gd`), or for one
+visit with `?live=ws://127.0.0.1:8080` (add `&auto=1` to queue and launch at
+once). `game/online/live_client.gd` is the phone's side of the protocol; you can
+be on sim side 1, so the arena, health bars and result follow `you_side`.
+Smoke case 1c plays a live match between two browsers on a local server.
+
+CI's `live_server` job builds and smoke-starts the image on every PR; on `main` it
+pushes it to GitHub Packages (`ghcr.io/newmsy/battleballs-live`) and, once the
+`AZURE_*` secrets exist, rolls it out to the Azure Container App `battleballs-live`
+(one-time setup: design/azure-live-server-setup.md in the project files).
+
+Players only meet on the same `sim_version` (`sim/sim_version.gd`, a hash of
+`sim/`; exports carry it in `sim_version.txt`). The web build's `?probe=1` and
+`tools/probe.gd` print a hash over a varied fight set; the smoke test fails if
+they differ, which means something in `sim/` behaves differently per platform.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
   frame-rate-dependent logic in `sim/`. Use `sim/rng.gd`.
+- Fights must also match across platforms (desktop, web, phones): no built-in
+  `sin`/`cos`/`atan2`/`pow` or `Vector2.from_angle`/`rotated`/`angle`/`angle_to`
+  in `sim/`, since each platform's maths library rounds them differently. Use
+  `sim/dmath.gd`; `tests/test_determinism.gd` fails otherwise.
 - If a change alters the outcome of a golden replay, re-record it with
   `tools/record_golden.gd` and say so in the PR as an intended balance change.
 - Balance follows [BALANCE.md](BALANCE.md): power beats counters, no equal-power

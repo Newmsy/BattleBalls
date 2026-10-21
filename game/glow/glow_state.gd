@@ -200,7 +200,7 @@ static func _thanks(product_id: String) -> String:
 		"gems":
 			return "+%d Glow Gems. Thank you!" % int(p.gems)
 		"pass":
-			return "Glow Pass unlocked! Your premium rewards are ready to claim."
+			return "Glow Pass unlocked!"
 	return "%s unlocked. Thank you!" % p.get("name", product_id)
 
 

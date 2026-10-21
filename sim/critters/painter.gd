@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "ffe8a3",
 	"vibe": "A messy artist who thinks the arena is its canvas.",
-	"description": "Painter. Painter leaves a paint trail, and foes on the paint take 10% more damage.",
+	"description": "Painter. It leaves a paint trail that lasts 3s, and foes on the paint take +10% dmg.",
 	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 21.0},
 	"ability": [{"on": "always", "do": "paint"}],
 	"params": {
@@ -23,11 +23,11 @@ const CRITTER := {
 		"paint_flash_damage": 6.0, ## T5 flash.
 	},
 	"tiers": [
-		{"text": "Leaves a paint trail for 3s; foes on paint take 10% more damage"},
-		{"text": "Paint +12%", "paint_vuln": 0.12},
-		{"text": "A foe stays painted for 1s after leaving the paint", "paint_linger": 1.0},
-		{"text": "Paint lasts 4s", "paint_life": 4.0},
-		{"text": "Every 6s the paint dries with a flash: 6 damage to any foe on it", "ability": [{"on": "every", "secs": 6.0, "do": "paint_flash"}]},
+		{"text": "Paint trail 3s: foes on it +10% dmg taken", "now": "Paint trail {paint_life}s: foes on it +{paint_vuln%}% dmg taken"},
+		{"text": "Dmg taken +10% → +12%", "paint_vuln": 0.12},
+		{"text": "+ A foe stays painted 1s after", "paint_linger": 1.0},
+		{"text": "Paint lasts 3 → 4s", "paint_life": 4.0},
+		{"text": "+ Every 6s the paint flashes: 6 to foes on it", "now": "Paint trail {paint_life}s: +{paint_vuln%}% dmg taken, flash every 6s", "ability": [{"on": "every", "secs": 6.0, "do": "paint_flash"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "front": ["splats", "beret"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.2},

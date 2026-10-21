@@ -9,6 +9,8 @@ import { chromium } from "playwright";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
+import { execFile } from "node:child_process";
 
 const root = path.resolve(process.argv[2] ?? "../build/web");
 const shots = path.resolve("screenshots");
@@ -170,6 +172,46 @@ try {
     await page.close();
   }
 
+  // 1a. Determinism probe: the web build must play a varied set of fights
+  // exactly like headless Godot (sim/probe.gd), or two players' phones could
+  // see different fights. Needs Godot (GODOT, or ~/godot/godot as in CI).
+  if (mine(40)) {
+    const godot = process.env.GODOT ?? path.join(os.homedir(), "godot", "godot");
+    const native = new Promise((resolve, reject) => execFile(godot, ["--headless", "--script", "res://tools/probe.gd"],
+      { cwd: path.resolve(".."), maxBuffer: 1 << 20 }, (err, out) => (err ? reject(err) : resolve(out))));
+    const { page, logs } = await openGame("?probe=1&offline=1");
+    const web = (await waitForLog(logs, "PROBE ", 180000)).split(" ");
+    const want = (await native).split("\n").find((l) => l.startsWith("PROBE ")).split(" ");
+    console.log(`probe: web ${web[1].slice(0, 16)} (${web[3]}), headless ${want[1].slice(0, 16)} (${want[3]})`);
+    if (web[1] !== want[1]) errors.push(`web build plays fights differently from headless Godot (probe ${web[1]} vs ${want[1]}): something in sim/ depends on the platform`);
+    await page.close();
+  }
+
+  // 1c. Live Quick fight: two browsers meet on a local live server
+  // (server/live_server.gd, dev sign-in), aim, and each replays the server's
+  // fight. Both must agree with the server and see opposite results.
+  if (mine(40)) {
+    const godot = process.env.GODOT ?? path.join(os.homedir(), "godot", "godot");
+    const port = 18090;
+    const live = execFile(godot, ["--headless", "--script", "res://server/live_server.gd"],
+      { cwd: path.resolve(".."), env: { ...process.env, LIVE_DEV: "1", PORT: String(port) } });
+    try {
+      const q = `&live=ws://127.0.0.1:${port}&auto=1&speed=4&offline=1&tutorial=0`;
+      const a = await openGame("?p1=vampire" + q);
+      const b = await openGame("?p1=frost" + q);
+      const ends = await Promise.all([a, b].map(({ logs }) => waitForLog(logs, "LIVE_END ", 150000)));
+      console.log("live fight:", ends.join(" | "));
+      await a.page.screenshot({ path: path.join(shots, "1c-live.png") });
+      for (const e of ends) if (!e.startsWith("LIVE_END ok")) errors.push(`live fight differs from the server's: ${e}`);
+      const side = (e) => Number(/side=(\d)/.exec(e)[1]);
+      if (side(ends[0]) === side(ends[1])) errors.push(`both live players got the same side: ${ends.join(" | ")}`);
+      await a.page.close();
+      await b.page.close();
+    } finally {
+      live.kill();
+    }
+  }
+
   // 1b. Season 1 debut: Flux (Magnet) fights Optic; its field rings and poles render.
   if (mine(24)) {
     const { page, logs } = await openGame("?p1=magnet&p2=laser&seed=42&auto=1&speed=2");
@@ -195,7 +237,8 @@ try {
     {
       const before = logs.length;
       await swipe(page, 360, 700, 0, -400);
-      await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000);
+      // A short collection fits on one screen and doesn't scroll (so doesn't re-report); either way no card opens.
+      await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000).catch(() => {});
       if (logs.slice(before).some((l) => l.startsWith("UI_SCREEN detail"))) errors.push("a scroll drag opened a critter card");
       await page.screenshot({ path: path.join(shots, "3b2-critters-scrolled.png") });
       await swipe(page, 360, 500, 0, 600);
@@ -229,7 +272,8 @@ try {
     await tapUi(page, logs, "tab_bag", "bag");
     await tapUi(page, logs, "gear_5", "sheet");
     await page.screenshot({ path: path.join(shots, "3f-bag-sheet.png") });
-    await tapUi(page, logs, "equip_juggernaut", "bag");
+    await tapUi(page, logs, "gear_equip", "sheet");
+    await tapUi(page, logs, "pick_juggernaut", "bag");
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
     // Three 1-star Bubble Shells now: Merge all makes a 2-star (design/gear.md).
     await tapUi(page, logs, "merge_all", "bag");
@@ -564,7 +608,9 @@ try {
     console.log("ghost arena:", await waitForLog(logs, "ARENA_READY", 10000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "19-arena-intro.png") });
-    // FIGHT!, Launch and Skip all sit under this point (first panel row, right half).
+    // FIGHT! is pinned at the bottom of the intro; Launch and Skip then sit
+    // under this point (first panel row, right half).
+    await tapUi(page, logs, "arena_fight");
     const start = logs.length;
     let result = null;
     for (let i = 0; i < 60 && !result; i++) {
@@ -575,9 +621,9 @@ try {
     if (!result) throw new Error(`Ghost Arena fight never finished. Last logs:\n${logs.slice(-15).join("\n")}`);
     console.log("ghost arena result:", result);
     await page.screenshot({ path: path.join(shots, "20-arena-result.png") });
+    await page.waitForTimeout(600);
     const back = logs.length;
-    // Back to Arena sits under the result headline.
-    await page.mouse.click(...toPage(page, 360, 1118));
+    await tapUi(page, logs, "arena_back");
     await waitForLogAfter(logs, back, "UI_SCREEN arena", 15000);
     await page.screenshot({ path: path.join(shots, "21-arena-after.png") });
     await page.close();
@@ -713,6 +759,107 @@ try {
   if (mine(19)) {
     const { page, logs } = await openGame("?pve=1-4&auto=1&speed=4&offline=1");
     console.log("url stage:", await waitForLog(logs, "STAGE_END", 120000));
+    await page.close();
+  }
+
+  // 14b. The Anvil King (design/bosses.md): the boss screen, then an Easy
+  // fight on The Forge through to its rewards.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&screen=vault&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN vault", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "31-anvil-king.png") });
+    await tapUi(page, logs, "vault_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("boss fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "32-anvil-king-fight.png") });
+    console.log("boss end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14c. The Brood Queen: her screen, then an Easy fight on The Nest.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=2&screen=nest&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN nest", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "33-brood-queen.png") });
+    await tapUi(page, logs, "nest_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("queen fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(6000);
+    await page.screenshot({ path: path.join(shots, "34-brood-queen-fight.png") });
+    console.log("queen end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14d. The boss hall, then the Piñata Titan: a 30 second smash on Fiesta Plaza.
+  if (mine(25)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=2&screen=bosses&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN bosses", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "35-boss-hall.png") });
+    await tapUi(page, logs, "boss_pinata");
+    await waitForLog(logs, "UI_SCREEN pinata", 10000);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: path.join(shots, "36-pinata.png") });
+    await tapUi(page, logs, "pinata_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("pinata fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "37-pinata-fight.png") });
+    console.log("pinata end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14e. The Totem of Nine: its screen, then an Easy fight in the Spirit Shrine.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=3&screen=totem&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN totem", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "38-totem.png") });
+    await tapUi(page, logs, "totem_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("totem fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(shots, "39-totem-fight.png") });
+    console.log("totem end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14f. The Prism Wyrm: its screen, then an Easy fight in the Crystal Rift.
+  if (mine(40)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=4&screen=wyrm&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN wyrm", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "40-wyrm.png") });
+    await tapUi(page, logs, "wyrm_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("wyrm fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(shots, "41-wyrm-fight.png") });
+    console.log("wyrm end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14g. The Glitch: its screen, then the weekly fight in the Corrupted Core.
+  if (mine(40)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&zones=5&screen=glitch&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN glitch", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "42-glitch.png") });
+    await tapUi(page, logs, "glitch_go");
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("glitch fight:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(5000);
+    await page.screenshot({ path: path.join(shots, "43-glitch-fight.png") });
+    console.log("glitch end:", await waitForLog(logs, "BOSS_END", 120000));
     await page.close();
   }
 

@@ -9,6 +9,8 @@ const Abilities := preload("res://sim/abilities.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
+const AbilityText := preload("res://game/ui/ability_text.gd")
+const Bosses := preload("res://sim/bosses.gd")
 
 
 ## Records every effect call instead of running it.
@@ -76,6 +78,47 @@ func test_validation_catches_mistakes() -> void:
 	var text := "\n".join(CritterDb.validate("vampire", c))
 	for word in ["mythic", "explode", "sometimes", "oops"]:
 		check(word in text, "flags " + word)
+
+
+func test_validation_catches_text_mistakes() -> void:
+	var c := CritterDb.get_critter("beacon").duplicate(true)
+	c.tiers[1].text = "Beam 6 -> 8 damage a second, sweeping a little further every time it shines"
+	c.tiers[0].now = "Beam every {lamp_every}s: {lamp_dps}/s, {lamp_glow} glow"
+	var text := "\n".join(CritterDb.validate("beacon", c))
+	for word in ["->", "over 50", "lamp_glow", "not the T1 text"]:
+		check(word in text, "flags " + word)
+
+
+## The ability line at each tier shows that tier's numbers, never T1's
+## (a "now" that drops a number T1 showed would go stale), and fits a card.
+func test_ability_text_keeps_up_with_the_tiers() -> void:
+	check_eq(AbilityText.now("beacon", 1), "Beam every 4s: 6/s, lit foes +20% dmg taken", "T1 line")
+	check_eq(AbilityText.now("beacon", 2), "Beam every 4s: 8/s, lit foes +20% dmg taken", "T2 numbers")
+	check_eq(AbilityText.change("beacon", 2), "Beam 6 → 8/s", "T2 change")
+	check_eq(AbilityText.change("beacon", 1), AbilityText.now("beacon", 1), "T1 change is the ability")
+	check_eq(AbilityText.special("honey"), "Honey Pot", "T5 name")
+	check(not AbilityText.full("frostfang").begins_with("Wolf."), "full() drops the type")
+	var re := RegEx.create_from_string("\\{([a-z_0-9]+)%?\\}")
+	for id in Roster.ids():
+		var c := CritterDb.get_critter(id)
+		var shown := {}
+		for m in re.search_all(str(c.tiers[0].get("now", ""))):
+			shown[m.get_string(1)] = true
+		var line := str(c.tiers[0].get("now", ""))
+		for t in range(1, CritterDb.TIERS):
+			line = str(c.tiers[t].get("now", line))
+			var now := AbilityText.now(id, t + 1)
+			check(now != "" and now.length() <= CritterDb.TEXT_MAX and not "{" in now, "%s T%d: %s" % [id, t + 1, now])
+			for key in c.tiers[t]:
+				if shown.has(key) and not ("{%s}" % key in line or "{%s%%}" % key in line) and key != "copy_secs":
+					check(false, "%s T%d changes %s, which its ability line stops showing" % [id, t + 1, key])
+		check(not CritterDb.sim_def(id, 5).has("now") and not CritterDb.sim_def(id, 5).has("special"), id + ": text stays out of the sim")
+
+
+func test_bosses_have_a_card_line() -> void:
+	for id in Bosses.DEFS:
+		var short := str(Bosses.DEFS[id].get("short", ""))
+		check(short != "" and short.length() <= 40, "%s: short line \"%s\"" % [id, short])
 
 
 func test_every_trigger_fires() -> void:

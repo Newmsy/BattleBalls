@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "3a3aff",
 	"vibe": "An overeager little robot that zaps itself somewhere new after every punch.",
-	"description": "Robot. After every second hit it teleports right behind the foe, lined up for a backstab.",
+	"description": "Robot. After every 2nd hit it teleports right behind the foe, lined up for a backstab: its next hit deals +3.",
 	"stats": {"hp": 113.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.5},
 	"ability": [{"on": "hit", "do": "blink"}, {"on": "strike", "do": "blink_bonus"}],
 	"params": {
@@ -24,11 +24,11 @@ const CRITTER := {
 		"blink_zap": 0.0, ## T5: beam damage a second from its old spot to its new one.
 	},
 	"tiers": [
-		{"text": "Every 2nd hit it teleports behind the foe; its next hit deals +3"},
-		{"text": "Next hit after landing deals +5", "blink_bonus": 5.0},
-		{"text": "The spot it leaves crackles for 5", "blink_crackle": 5.0},
-		{"text": "Teleports after every hit", "blink_every": 1},
-		{"text": "Arrives with a zap beam", "blink_zap": 10.0},
+		{"text": "Every 2nd hit teleports behind foe; next hit +3", "now": "Every 2nd hit teleports behind foe; next hit +{blink_bonus}"},
+		{"text": "Backstab +3 → +5", "blink_bonus": 5.0},
+		{"text": "+ The spot it leaves crackles for 5", "now": "Every 2nd hit teleports behind foe, crackles; next hit +{blink_bonus}", "blink_crackle": 5.0},
+		{"text": "Teleports every 2nd hit → every hit", "now": "Every hit teleports behind foe, crackles; next hit +{blink_bonus}", "blink_every": 1},
+		{"text": "+ Zap beam along the jump (10/s)", "now": "Each hit: zap-teleports behind foe; next hit +{blink_bonus}", "blink_zap": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "flat"}, "back": ["boltant"], "front": ["panel"]},
 	"sound": {"ouch": "ouch_laser", "pitch": 1.25},

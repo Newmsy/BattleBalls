@@ -1,7 +1,7 @@
 ## Play tab (home). Three bands, top to bottom, so it reads at a glance:
 ## the This Week banner, the two big ways to fight (the campaign and Quick
 ## fight with your fighter), then every other mode as a small tile in a
-## labelled group (Daily and weekly, Versus, Style). New modes add one tile
+## labelled group (Daily, Versus, Style). New modes add one tile
 ## to a group with mode_tile(); the groups grow, the big cards never move.
 extends RefCounted
 
@@ -17,7 +17,7 @@ const LiveOps := preload("res://game/liveops.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
-const GearVault := preload("res://meta/gear_vault.gd")
+const BossesScreen := preload("res://game/ui/screens/bosses_screen.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -41,20 +41,19 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(_campaign_card(shell))
 	root.add_child(_quick_fight_card(shell))
 
-	# Daily and weekly: same puzzle, run or tower for everyone.
+	# Daily: same puzzle, run or tower for everyone.
 	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	var trick: Dictionary = WeekScreen.trick_status(day)
 	var trick_line := "Solved · streak %d" % trick.streak if trick.solved else ("Out of tries" if trick.tries >= WeekScreen.TRICK_TRIES else "New shot today")
-	var run_day := BounceRun.day_number(Time.get_unix_time_from_system())
 	var climb = SpireClimb.load_file(LiveOps.now())
-	root.add_child(group("Daily and weekly", DAILY, [
+	root.add_child(group("Daily", DAILY, [
 		mode_tile(shell, "trickshot", "Trick Shot", trick_line, DAILY,
-			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), "target"),
-		mode_tile(shell, "bouncerun", "Bounce Run", "Run #%d · daily" % run_day, Color("ffc23d"),
+			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), "target", not trick.solved and trick.tries == 0),
+		mode_tile(shell, "bouncerun", "Bounce Run", "New run today", Color("ffc23d"),
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"), "bounce"),
-		mode_tile(shell, "spire", "The Spire", "Floor %d/%d · weekly" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
+		mode_tile(shell, "spire", "The Spire", "Floor %d/%d" % [climb.cleared, Spire.FLOORS], Color("ffc23d"),
 			func(): shell.go("spire"), "tower"),
-		_vault_tile(shell) if GearVault.is_unlocked(shell.profile) else _locked_tile(shell),
+		BossesScreen.tile(shell) if BossesScreen.any_open(shell.profile) else _locked_tile(shell),
 	]))
 
 	# Versus: other players' teams.
@@ -74,27 +73,34 @@ static func build(shell, _params: Dictionary) -> Control:
 ## The campaign: the main way forward, so it gets the first big card.
 static func _campaign_card(shell) -> Control:
 	var p = shell.profile
-	# Campaign card: Glow Garden progress and the way into the stage list.
+	# Campaign card: progress in the furthest zone you've opened, and its next stage.
 	var Zones := preload("res://meta/zones.gd")
 	var Campaign := preload("res://meta/campaign.gd")
-	var stages: Array = Zones.zone(0).stages
-	var cleared := 0
+	var z := 0
+	for zi in range(1, Zones.ZONES.size()):
+		if Campaign.is_unlocked(p, zi, 0): z = zi
+	var zd: Dictionary = Zones.zone(z)
+	var stages: Array = zd.stages
 	var star_total := 0
+	var next := -1
 	for i in stages.size():
-		cleared += 1 if Campaign.is_cleared(p, 0, i) else 0
-		star_total += Campaign.stars_of(p, 0, i)
-	var next_text := "All %d stages cleared. 3-star them to sweep." % stages.size()
-	if cleared < stages.size():
-		var st: Dictionary = stages[cleared]
-		next_text = "Next: %s %s · Recommended %s" % [Zones.stage_key(0, cleared), st.get("name", Roster.get_critter(st.enemy).name),
-			Kit.commas(Campaign.enemy_rating(0, cleared))]
-	var open := Kit.button("Open the map", func(): shell.go("world"), "go", 30, 84)
+		if not Campaign.is_cleared(p, z, i) and next < 0: next = i
+		star_total += Campaign.stars_of(p, z, i)
+	var next_row: Control = Kit.label("All %d stages cleared." % stages.size(), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+	if next >= 0:
+		var st: Dictionary = stages[next]
+		var next_l := Kit.label("Next: %s %s" % [Zones.stage_key(z, next), st.get("name", Roster.get_critter(st.enemy).name)], 22, Kit.MUTED)
+		next_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		next_l.clip_text = true
+		next_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		next_row = Kit.hbox(12, [next_l, Kit.power(Campaign.enemy_rating(z, next), 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var open := Kit.button("Continue", func(): shell.go("world"), "go", 32, 96)
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
-		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone 1 · The Neon Circuit", Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
-		Kit.hbox(10, [Kit.label("Glow Garden", 40), Kit.spacer(), Glyph.make("stars", 26, Kit.FG, 1),
+		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone %d" % (z + 1), Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
+		Kit.hbox(10, [Kit.label(zd.name, 40), Kit.spacer(), Glyph.make("crown", 28, Kit.FG, 1),
 			Kit.label("%d/%d" % [star_total, stages.size() * 3], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
-		Kit.label(next_text if cleared == stages.size() else "%d/%d stages cleared. %s" % [cleared, stages.size(), next_text], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		next_row,
 		open,
 	])
 	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 36, 2, 24)
@@ -107,16 +113,23 @@ static func _quick_fight_card(shell) -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
-	var info := Kit.vbox(2, [Kit.hbox(8, [Glyph.make("swords", 22, Kit.MUTED), Kit.caption("Quick fight · your fighter")]), Kit.label(c.name, 30),
-		Kit.hbox(10, [Glyph.make("stars", 24, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 22, Kit.MUTED), Kit.power(p.power_of(p.lineup), 24)])])
+	var name := Kit.label(c.name, 28)
+	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name.clip_text = true
+	var info := Kit.vbox(2, [Kit.hbox(8, [Glyph.make("swords", 22, Kit.MUTED), Kit.caption("Your fighter")]), name,
+		Kit.hbox(10, [Glyph.make("stars", 22, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 20, Kit.MUTED), Kit.power(p.power_of(p.lineup), 20)])])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(16, [CritterIcon.make(p.lineup, b.tier, 104), info, Kit.chip("Change", Kit.ACCENT)])
+	var row := Kit.hbox(14, [CritterIcon.make(p.lineup, b.tier, 88), info])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Tap the fighter to pick another; Quick fight sits beside it, second to the campaign.
 	var fighter := Kit.card_button(row, func(): _pick_fighter(shell), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 24, 0)
+	fighter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("fighter", fighter)
-	var fight := Kit.button("Quick fight", shell.request_play, "primary", 30, 84)
+	var fight := Kit.button("Quick fight", shell.request_play, "ghost", 24, 84)
+	fight.size_flags_horizontal = Control.SIZE_SHRINK_END
+	fight.custom_minimum_size.x = 210
 	shell.mark("quickfight", fight)
-	return Kit.panel(Kit.vbox(14, [fighter, fight]), Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 24))
+	return Kit.panel(Kit.hbox(12, [fighter, fight], BoxContainer.ALIGNMENT_CENTER), Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 18))
 
 
 static func _pick_fighter(shell) -> void:
@@ -143,7 +156,7 @@ static func group(title: String, accent: Color, tiles: Array) -> Control:
 ## A small mode tile: an icon badge (a Glyph kind, optional), the title and one
 ## short status line. The whole tile is the button; `mark` names it for the
 ## smoke test.
-static func mode_tile(shell, mark: String, title: String, status: String, accent: Color, on_press: Callable, icon := "") -> Control:
+static func mode_tile(shell, mark: String, title: String, status: String, accent: Color, on_press: Callable, icon := "", dot := false) -> Control:
 	var name := Kit.label(title, 28)
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name.clip_text = true
@@ -159,8 +172,24 @@ static func mode_tile(shell, mark: String, title: String, status: String, accent
 	var tile := Kit.card_button(content, on_press, accent.darkened(.45), accent.darkened(.84), 28, 18)
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tile.custom_minimum_size.x = 0
+	if dot:
+		tile.add_child(red_dot())
 	shell.mark(mark, tile)
 	return tile
+
+
+## The red "something to do here" dot, for a tile's top-right corner.
+static func red_dot() -> Control:
+	var d := Panel.new()
+	d.add_theme_stylebox_override("panel", Kit.box(Kit.BAD, Kit.BG, 999, 3, 0))
+	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	d.anchor_left = 1.0
+	d.anchor_right = 1.0
+	d.offset_left = -30.0
+	d.offset_right = -8.0
+	d.offset_top = 8.0
+	d.offset_bottom = 30.0
+	return d
 
 
 ## A mode icon in a round, softly glowing badge of the mode's colour.
@@ -184,21 +213,13 @@ static func mode_card(shell, mark: String, caption: String, title: String, _text
 	return mode_tile(shell, mark, title, caption, accent, on_press)
 
 
-## Critter Hunts, Training Gym and Gear Vault open after zone 1: one tile.
+## The farming bosses open from Zone 1 stage 5 (the Piñata Titan first).
 static func _locked_tile(shell) -> Control:
-	var t := mode_tile(shell, "locked_dailies", "Hunts · Gym · Vault", "After zone 1", Kit.MUTED,
-		shell.info.bind("After zone 1", ["Beat Mega Boulder, the zone 1 boss, to open three daily modes:",
-			"Critter Hunts: copies of one critter to fuse.", "Training Gym: XP for levels.", "Gear Vault: Shells and Cores."]), "lock")
+	var t := mode_tile(shell, "locked_dailies", "Bosses", "After stage 1-5", Kit.MUTED,
+		shell.info.bind("Bosses", ["Opens at stage 1-5.",
+			"Piñata Titan: smash it for coins.", "Anvil King: gear and Hammers.", "Brood Queen: Summon Eggs."]), "lock")
+	t.modulate = Color(1, 1, 1, .55) # Locked reads as locked: dim, with the lock and what opens it.
 	return t
-
-
-## Gear Vault, once zone 1 is beaten: today's slot and runs left.
-static func _vault_tile(shell) -> Control:
-	var now := int(Time.get_unix_time_from_system())
-	var slot: String = GearVault.today(now).slot
-	var left := GearVault.runs_left(shell.profile, now)
-	var line := "%s · %d runs left" % ["Any gear" if slot == "" else slot + "s", left] if left > 0 else "Done for today"
-	return mode_tile(shell, "vault", "Gear Vault", line, Color("5ce1ff") if left > 0 else Kit.MUTED, func(): shell.go("vault"), "vault")
 
 
 static func _pass_tile(shell) -> Control:
@@ -207,10 +228,10 @@ static func _pass_tile(shell) -> Control:
 	if season.is_empty():
 		return mode_tile(shell, "glowpass", "Glow Pass", "Between seasons", DAILY, func(): shell.go("pass"), "pass")
 	var n: int = glow.claimable_count()
-	var line := "Level %d of 50" % glow.pass_level()
+	var line := "Lv %d/50" % glow.pass_level()
 	if n > 0:
-		line = "%d reward%s to claim!" % [n, "" if n == 1 else "s"]
-	return mode_tile(shell, "glowpass", "Glow Pass", line, DAILY if n > 0 else STYLE, func(): shell.go("pass"), "pass")
+		line = "%d to claim!" % n
+	return mode_tile(shell, "glowpass", "Glow Pass", line, DAILY if n > 0 else STYLE, func(): shell.go("pass"), "pass", n > 0)
 
 
 ## Friends: a count and whatever is waiting (requests, energy gifts).
@@ -225,4 +246,4 @@ static func _friends_tile(shell) -> Control:
 			line = "%d gift%s waiting" % [fr.gifts_claimable, "" if fr.gifts_claimable == 1 else "s"]
 	elif not fr.enabled():
 		line = "Go online to add"
-	return mode_tile(shell, "friends", "Friends", line, Kit.GOOD if fr.attention() > 0 else VERSUS, func(): shell.go("friends"), "friends")
+	return mode_tile(shell, "friends", "Friends", line, Kit.GOOD if fr.attention() > 0 else VERSUS, func(): shell.go("friends"), "friends", fr.attention() > 0)

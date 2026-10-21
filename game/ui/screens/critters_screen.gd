@@ -1,10 +1,11 @@
-## Critters tab ("My critters"): only the critters you own, one card per copy
-## (three T1 Zips are three cards), strongest first. Each card shows tier
-## stars, level and power; a FUSE ribbon marks copies with 3 at one tier.
+## Critters tab ("My critters"): only the critters you own, one card per
+## critter and tier (three T1 Zips are one card with a x3 badge), strongest
+## first. Each card shows tier stars, level and power; a FUSE ribbon marks 3+ at one tier.
 ## The Critterpedia button opens every critter, found or not (dex_screen.gd).
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const LazyTile := preload("res://game/ui/lazy_tile.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
@@ -12,16 +13,16 @@ const Roster := preload("res://game/ui/roster.gd")
 static var filter := "all"
 
 
-## Every owned copy as {id, tier, level, power, stack}, strongest first. Gear
-## sits on a critter's best copy, so only that copy counts it.
+## Every owned critter and tier as {id, tier, level, power, stack}, strongest
+## first; stack.count is how many copies. Gear sits on a critter's best copy,
+## so only that stack counts it.
 static func cards(p) -> Array:
 	var out: Array = []
 	for c in Roster.CRITTERS:
 		var best: Dictionary = p.best(c.id)
 		for s in p.copies(c.id):
 			var pw: int = p.power_of(c.id) if s == best else Roster.power(c.id, s.tier, s.level)
-			for i in s.count:
-				out.append({"id": c.id, "tier": s.tier, "level": s.level, "power": pw, "stack": s})
+			out.append({"id": c.id, "tier": s.tier, "level": s.level, "power": pw, "stack": s})
 	out.sort_custom(func(a, b): return a.power > b.power if a.power != b.power else a.id < b.id)
 	return out
 
@@ -50,10 +51,10 @@ static func build(shell, _params: Dictionary) -> Control:
 
 	var all := cards(p)
 	var shown := all.filter(func(k): return filter == "all" or Roster.get_critter(k.id).rarity == filter)
-	root.add_child(Kit.label("%d critters · %d / %d species found" % [all.size(), p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED))
+	root.add_child(Kit.label("%d/%d found" % [p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED))
 	if shown.is_empty():
 		var what: String = "" if filter == "all" else Roster.RARITY_NAMES[filter] + " "
-		root.add_child(Kit.label("No %scritters yet. Summon or win them, and see them all in the Critterpedia." % what, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+		root.add_child(Kit.label("No %scritters yet." % what, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 		return root
 
 	var grid := GridContainer.new()
@@ -61,10 +62,12 @@ static func build(shell, _params: Dictionary) -> Control:
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 14)
 	var seen := {}
-	for k in shown:
+	for i in shown.size():
+		var k: Dictionary = shown[i]
 		var n: int = seen.get(k.id, 0)
 		seen[k.id] = n + 1
-		grid.add_child(_tile(shell, k, "tile_" + k.id + ("" if n == 0 else "_%d" % n)))
+		var mark_as: String = "tile_" + k.id + ("" if n == 0 else "_%d" % n)
+		grid.add_child(LazyTile.wrap(func(): return _tile(shell, k, mark_as), i, 15))
 	root.add_child(grid)
 	return root
 
@@ -88,6 +91,13 @@ static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 		rib.get_theme_stylebox("panel").content_margin_left = 10
 		rib.get_theme_stylebox("panel").content_margin_right = 10
 		icon_layer.add_child(rib)
+	if k.stack.count > 1:
+		var badge := Kit.panel(Kit.label("x%d" % k.stack.count, 20, Kit.FG), Kit.box(Kit.PANEL2, Kit.LINE, 999, 2, 4))
+		badge.get_theme_stylebox("panel").content_margin_left = 10
+		badge.get_theme_stylebox("panel").content_margin_right = 10
+		badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+		badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		icon_layer.add_child(badge)
 	var v := Kit.vbox(4, [icon_layer, name, stars, info])
 	var t := Kit.card_button(v, func(): shell.go("detail", {"id": k.id, "tier": k.tier}), Roster.rarity_border(c.rarity, Kit.LINE), Roster.rarity_bg(c.rarity, Kit.PANEL), 28, 8)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -1,6 +1,6 @@
-## Arena Bazaar: spend Arena Coins, won only in the Ghost Arena, on a daily
-## stock of gear at your league's tier, a Summon Orb and an energy top-up.
-## Coins are never sold for money. Reached from the Arena hub.
+## Arena Bazaar: spend Tokens, won only in the Ghost Arena, on a daily
+## stock of gear at your league's tier, a Summon Egg and an energy top-up.
+## Tokens are never sold for money. Reached from the Arena hub.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -17,14 +17,13 @@ static func build(shell, params: Dictionary) -> Control:
 		store = ArenaStore.open()
 	var root := Kit.vbox(12)
 	var how := [
-		"Arena Coins come only from the Ghost Arena: %d / %d / %d for an easier / even / harder win, %d for a loss, %d for each raid your Defence holds." % [
-			ArenaStore.COINS_WIN.easier, ArenaStore.COINS_WIN.even, ArenaStore.COINS_WIN.harder, ArenaStore.COINS_LOSS, ArenaStore.COINS_DEFENCE],
+		"Tokens come only from the Ghost Arena, never for money: about 15 for a win (more against a team above you), %d for a loss, %d for each raid your Defence holds." % [
+			ArenaStore.COINS_LOSS, ArenaStore.COINS_DEFENCE],
 		"The stock changes every day and each item sells once. Gear gets better as your league climbs.",
-		"Coins are never sold for money.",
 	]
 	var info: Control = shell.info_button("Bazaar", how, "bazaar_info")
 	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Bazaar", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
-	var bank := Kit.hbox(10, [Glyph.make("coin", 34, COIN), Kit.label(Kit.commas(store.coins), 34), Kit.label("Arena Coins", 22, Kit.MUTED), Kit.spacer(), Kit.label("New stock tomorrow", 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var bank := Kit.hbox(10, [Glyph.make("token", 34), Kit.label(Kit.commas(store.coins), 34), Kit.spacer(), Kit.label("New stock tomorrow", 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.panel(bank, Kit.box(Color("17143e"), COIN, 28, 2, 16)))
 	var stock: Array = store.bazaar()
 	for i in stock.size():
@@ -33,19 +32,17 @@ static func build(shell, params: Dictionary) -> Control:
 
 
 static func _item(shell, store, item: Dictionary, i: int) -> Control:
-	var glyph := "orb" if item.kind == "orbs" else ("energy" if item.kind == "energy" else str(Gear.PIECES[item.type].glyph))
+	var glyph := "orb" if item.kind == "orbs" else ("energy" if item.kind == "energy" else str(item.type))
 	var sub := ""
 	match item.kind:
 		"gear":
 			sub = "%d-star %s gear" % [item.tier, Gear.PIECES[item.type].slot]
-		"orbs":
-			sub = "One summon"
-		"energy":
-			sub = "For the campaign"
 	var sold: bool = store.is_bought(i)
 	var afford: bool = store.coins >= int(item.price)
-	var price := Kit.hbox(6, [Glyph.make("coin", 24, COIN), Kit.label(Kit.commas(item.price), 26, Kit.FG if afford else Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
-	var info := Kit.vbox(2, [Kit.label(str(item.name), 28), Kit.label(sub, 20, Kit.MUTED)])
+	var price := Kit.hbox(6, [Glyph.make("token", 24), Kit.label(Kit.commas(item.price), 26, Kit.FG if afford else Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var info := Kit.vbox(2, [Kit.label(str(item.name), 28)])
+	if sub != "":
+		info.add_child(Kit.label(sub, 20, Kit.MUTED))
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(14, [Glyph.make(glyph, 56), info, Kit.label("Sold", 24, Kit.MUTED) if sold else price], BoxContainer.ALIGNMENT_CENTER)
 	var btn := Kit.card_button(row, func():
@@ -55,7 +52,7 @@ static func _item(shell, store, item: Dictionary, i: int) -> Control:
 		elif sold:
 			shell.toast("Sold out until tomorrow.")
 		else:
-			shell.toast("Not enough Arena Coins yet. Win attacks to earn more."), Kit.LINE if sold else Color(COIN, .7), Kit.PANEL, 24, 12)
+			shell.toast("Need %d more Tokens" % (int(item.price) - store.coins)), Kit.LINE if sold else Color(COIN, .7), Kit.PANEL, 24, 12)
 	if sold:
 		btn.modulate = Color(1, 1, 1, .5)
 	shell.mark("bazaar_item_%d" % i, btn)

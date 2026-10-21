@@ -25,7 +25,7 @@ extends RefCounted
 
 const DEFS := {
 	"square": {
-		"display_name": "Glow Garden",
+		"display_name": "The Box",
 		"description": "The plain square.",
 		"corner_cut": 0.0,
 		"obstacles": [],
@@ -48,7 +48,7 @@ const DEFS := {
 		],
 	},
 	"bumpers": {
-		"display_name": "Circuit Lab",
+		"display_name": "Bumper Lab",
 		"description": "Bumpers kick balls off faster for a moment.",
 		"corner_cut": 0.0,
 		"obstacles": [
@@ -79,7 +79,7 @@ const DEFS := {
 		"spike_walls": {"half": 150.0},
 	},
 	"frost": {
-		"display_name": "Frostbite Lake",
+		"display_name": "Ice Pond",
 		"description": "A frozen lake in the middle: balls skate 30% faster on the ice.",
 		"corner_cut": 0.0,
 		"obstacles": [],
@@ -96,7 +96,7 @@ const DEFS := {
 		],
 	},
 	"arcade": {
-		"display_name": "Haunted Arcade",
+		"display_name": "Portal Hall",
 		"description": "Two portals: roll into one, pop out of the other.",
 		"corner_cut": 0.0,
 		"obstacles": [],
@@ -163,7 +163,7 @@ const DEFS := {
 	},
 	"reef": {
 		"display_name": "Coral Reef",
-		"description": "Four coral heads to bank off, and a whirlpool current in the middle.",
+		"description": "Coral to bank off, whirlpool in the middle.",
 		"corner_cut": 0.0,
 		"obstacles": [
 			{"pos": Vector2(500, 250), "radius": 40.0, "kind": "pillar"},
@@ -212,6 +212,82 @@ const PLAYABLE := ["square", "rink", "pillars", "bumpers", "wells", "spikes", "f
 	"starfall", "factory", "orbit", "hive", "horizon", "pinball", "reef", "glitch", "inferno", "thorn"]
 
 
+## Boss maps (sim/bosses.gd, design/bosses.md): one per boss, never in the
+## picker. A boss fight isn't a mirror match, so these needn't be
+## point-symmetric. min_half: overtime stops squeezing here, so a critter
+## always fits between the walls and a boss in the middle.
+const BOSS_ARENAS := {
+	"forge": {
+		"display_name": "The Forge",
+		"description": "Lava corners, side belts.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"min_half": 420.0,
+		"floors": [
+			{"kind": "lava", "pos": Vector2(80, 80), "radius": 70.0},
+			{"kind": "lava", "pos": Vector2(920, 920), "radius": 70.0},
+			{"kind": "conveyor", "rect": Rect2(20, 260, 90, 480), "dir": Vector2.UP, "accel": 420.0},
+			{"kind": "conveyor", "rect": Rect2(890, 260, 90, 480), "dir": Vector2.DOWN, "accel": 420.0},
+		],
+	},
+	"nest": {
+		"display_name": "The Nest",
+		"description": "Moss slows you; egg in the middle.",
+		"corner_cut": 140.0,
+		"obstacles": [{"pos": Vector2(500, 500), "radius": 70.0, "kind": "pillar"}],
+		"min_half": 480.0,
+		"floors": [
+			{"kind": "goo", "pos": Vector2(500, 160), "radius": 80.0, "slow": 0.3},
+			{"kind": "goo", "pos": Vector2(840, 500), "radius": 80.0, "slow": 0.3},
+		],
+	},
+	"plaza": {
+		"display_name": "Fiesta Plaza",
+		"description": "Balloon bumpers kick you back up.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(330, 720), "radius": 46.0, "kind": "bumper"},
+			{"pos": Vector2(670, 720), "radius": 46.0, "kind": "bumper"},
+			{"pos": Vector2(500, 900), "radius": 38.0, "kind": "bumper"},
+		],
+		"min_half": 480.0,
+		"floors": [],
+	},
+	"shrine": {
+		"display_name": "Spirit Shrine",
+		"description": "A moonlit shrine with four stone lanterns round the totem.",
+		"corner_cut": 90.0,
+		"obstacles": [
+			{"pos": Vector2(500, 150), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(150, 500), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(850, 500), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(500, 850), "radius": 40.0, "kind": "pillar"},
+		],
+		"min_half": 440.0,
+		"floors": [],
+	},
+	"rift": {
+		"display_name": "Crystal Rift",
+		"description": "Cut corners, wide open.",
+		"corner_cut": 120.0,
+		"obstacles": [],
+		"min_half": 470.0,
+		"floors": [],
+	},
+	"core": {
+		"display_name": "Corrupted Core",
+		"description": "Side portals throw you across.",
+		"corner_cut": 0.0,
+		"obstacles": [],
+		"min_half": 470.0,
+		"floors": [
+			{"kind": "portal", "pos": Vector2(110, 500), "radius": 60.0, "to": 1},
+			{"kind": "portal", "pos": Vector2(890, 500), "radius": 60.0, "to": 0},
+		],
+	},
+}
+
+
 ## The map a fight with this seed is played on: every mode that rolls a map
 ## stores the result in its fight config, so later pool changes never move it.
 static func pick(seed_value: int) -> String:
@@ -219,5 +295,7 @@ static func pick(seed_value: int) -> String:
 
 
 static func get_def(id: String) -> Dictionary:
+	if BOSS_ARENAS.has(id):
+		return BOSS_ARENAS[id]
 	assert(DEFS.has(id), "Unknown arena id: %s" % id)
 	return DEFS[id]

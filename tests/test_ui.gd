@@ -21,6 +21,26 @@ func test_fusing_three_copies_makes_one_of_the_next_tier() -> void:
 	check(not p.can_fuse("speedster", 1), "no T1 Zips left to fuse")
 
 
+func test_fuse_continue_keeps_your_place_in_the_list() -> void:
+	var FuseScreen = load("res://game/ui/screens/fuse_screen.gd")
+	var a := {"id": "a", "tier": 1}
+	var b := {"id": "b", "tier": 1}
+	var c := {"id": "c", "tier": 1}
+	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, b, c], b), b, "6 copies: the same stack stays selected")
+	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, {"id": "b", "tier": 2}, c], b), c, "stack used up: the next one in the list")
+	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, b], c), b, "last one used up: the new last one")
+	check_eq(FuseScreen.pick_after_fuse([a], [], a), {}, "nothing left")
+
+
+func test_fuse_list_is_rarest_then_highest_tier_first() -> void:
+	var FuseScreen = load("res://game/ui/screens/fuse_screen.gd")
+	var Roster = load("res://game/ui/roster.gd")
+	var common: String = Roster.CRITTERS.filter(func(c): return c.rarity == "common")[0].id
+	var legend: String = Roster.CRITTERS.filter(func(c): return c.rarity == "legendary")[0].id
+	var got: Array = FuseScreen.sorted([{"id": common, "tier": 1}, {"id": legend, "tier": 1}, {"id": common, "tier": 2}])
+	check_eq(got.map(func(s): return [s.id, s.tier]), [[legend, 1], [common, 2], [common, 1]], "legendary first, then T2 before T1")
+
+
 func test_fusion_keeps_the_highest_level() -> void:
 	var p = UiProfile.sample()
 	# Count Nibbles: T1 x3 at Lv 6, and an existing T2 at Lv 14.
@@ -226,6 +246,17 @@ func test_summon_reveal_opens_on_its_own_and_tap_skips() -> void:
 	shell.free()
 
 
+func test_every_family_egg_has_a_drawable_pattern() -> void:
+	var Families = load("res://sim/families.gd")
+	var rng := RandomNumberGenerator.new()
+	for fam in Families.MEMBERS.keys() + [""]:
+		var parts: Array = SummonScreen.EggArt.pattern(fam, rng)
+		check(parts.size() >= 3, "%s egg has a pattern" % fam)
+		for part in parts:
+			if part[2] == 0.0:
+				check(not Geometry2D.triangulate_polygon(part[1]).is_empty(), "%s %s fills" % [fam, part[0]])
+
+
 func test_home_groups_every_mode_as_a_tile() -> void:
 	var shell = Shell.new()
 	shell.build()
@@ -247,19 +278,21 @@ func test_lineup_tags_show_the_same_power_as_the_critter_screen() -> void:
 	tag.free()
 
 
-func test_my_critters_lists_each_owned_copy_strongest_first() -> void:
+func test_my_critters_stacks_copies_strongest_first() -> void:
 	var CrittersScreen = load("res://game/ui/screens/critters_screen.gd")
 	var p = UiProfile.sample()
 	var cards: Array = CrittersScreen.cards(p)
-	var copies := 0
+	var stacks := 0
 	for c in Roster.CRITTERS:
-		copies += p.total_copies(c.id)
-	check_eq(cards.size(), copies, "one card per copy, none stacked")
+		stacks += p.copies(c.id).size()
+	check_eq(cards.size(), stacks, "one card per critter and tier")
 	for i in cards.size() - 1:
 		check(cards[i].power >= cards[i + 1].power, "sorted by power at %d" % i)
 	for k in cards:
 		check(p.owns(k.id), "only owned critters: " + k.id)
-	check_eq(cards.filter(func(k): return k.id == "speedster" and k.tier == 1).size(), p.copies("speedster")[0].count, "three T1 Zips are three cards")
+	var zips: Array = cards.filter(func(k): return k.id == "speedster" and k.tier == 1)
+	check_eq(zips.size(), 1, "T1 Zips share one card")
+	check_eq(zips[0].stack.count, p.copies("speedster")[0].count, "the card counts every T1 Zip")
 
 
 func test_the_critterpedia_shows_every_critter_and_each_page_builds() -> void:
@@ -270,6 +303,8 @@ func test_the_critterpedia_shows_every_critter_and_each_page_builds() -> void:
 	check(shell._marks.has("critterpedia"), "My critters has a Critterpedia button")
 	shell.go("dex")
 	check_eq(shell.current, "dex", "Critterpedia opens")
+	# Cards past the first screenful build as they scroll near; build them all.
+	load("res://game/ui/lazy_tile.gd").build_all(shell)
 	for c in Roster.CRITTERS:
 		check(shell._marks.has("dex_" + c.id), "Critterpedia lists " + c.id)
 		check(Families.of(c.id) != "", "%s has a theme family" % c.id)
@@ -295,4 +330,25 @@ func test_a_sweep_shows_a_results_popup() -> void:
 	check_eq(shell.current_params.get("focus", -1), 0, "the list stays on the swept stage")
 	shell._marks.result_continue.pressed.emit()
 	check(not shell.overlay_open(), "Continue closes it")
+	shell.free()
+
+
+func test_out_of_energy_closes_the_results_and_never_replays_them() -> void:
+	var shell = Shell.new()
+	shell.profile = preload("res://meta/profile.gd").new_game(1_800_000_000)
+	shell.profile.stars["1-1"] = 3
+	shell.profile.energy = 6
+	shell.profile.energy_time = int(Time.get_unix_time_from_system())
+	preload("res://meta/story.gd").skip_all(shell.profile) # no chapter story over the list
+	shell.build()
+	shell.go("campaign", {"zone": 0})
+	shell._marks.sweep_1_1.pressed.emit()
+	check(shell.overlay_open(), "the sweep result is a popup")
+	check_eq(shell._marks.result_next.text, "", "Next is the Out of energy button (drawn, not text)")
+	shell._marks.result_next.pressed.emit()
+	check(shell.overlay_open() and shell._marks.has("energy_close"), "Out of energy swaps the popup for the energy sheet")
+	shell._marks.energy_close.pressed.emit()
+	check(not shell.overlay_open(), "the energy sheet closes")
+	shell.refresh()
+	check(not shell.overlay_open(), "a re-render doesn't replay the results")
 	shell.free()

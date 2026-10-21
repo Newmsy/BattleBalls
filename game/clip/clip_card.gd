@@ -63,7 +63,7 @@ func _draw() -> void:
 			var size := 84 if line.length() <= 13 else 64
 			_text(Vector2(360, 140), line, roundi(lerpf(size * 1.3, size, pop)), Color(YELLOW if w < 0 else cols[w], pop), 14)
 			_text(Vector2(360, 236), "Did you call it?", 44, Color.WHITE, 8)
-			_text(Vector2(360, 1040), "Can your ball beat it?", 40, Color.WHITE, 8)
+			_text(Vector2(360, 1040), "Can your critter beat it?", 40, Color.WHITE, 8)
 	_text(Vector2(360, 1140), "BATTLE BALLS", 52, Color.WHITE, 12)
 	_text(Vector2(360, 1204), HOME_TEXT, 30, MUTED, 6)
 	if phase == "title" and t >= GO_TIME:

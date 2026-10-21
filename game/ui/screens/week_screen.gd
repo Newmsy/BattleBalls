@@ -19,7 +19,6 @@ const TRICK_SAVE := "user://trick_shot.cfg"
 const TRICK_TRIES := 3
 const CHAOS := Color("ff6fae")
 const TRY := Color("5ce1ff")
-const DAYS := ["M", "T", "W", "T", "F", "S", "S"]
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -27,12 +26,12 @@ static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(16)
 	var back: Control = shell.back_button("week_back")
 	var season := LiveOps.season(t)
-	var title := Kit.vbox(0, [Kit.label("This Week", 40)])
+	var title := Kit.vbox(2, [Kit.label("This Week", 40)])
 	if not season.is_empty():
-		title.add_child(Kit.label("%s · week %d of %d" % [season.name, season.week, season.weeks], 20, Kit.MUTED))
+		title.add_child(Kit.caption("%s · week %d of %d" % [season.name, season.week, season.weeks]))
+		title.move_child(title.get_child(1), 0)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [back, title, shell.info_button("This Week", _info_text(shell, t), "week_info")]))
-	root.add_child(_strip(t))
+	root.add_child(Kit.hbox(16, [back, title, shell.info_button("This Week", _info_text(shell, t), "week_info")], BoxContainer.ALIGNMENT_CENTER))
 	var counters := []
 	var tiles: Array = [_trick_shot(shell), _fight(shell, t)]
 	var bracket := BracketScreen.board_card(shell, t, tile)
@@ -76,28 +75,11 @@ static func _info_text(shell, t: int) -> Array:
 	]
 
 
-## Mon..Sun with today lit and the Chaos Weekend days tinted.
-static func _strip(t: int) -> Control:
-	var row := Kit.hbox(8)
-	var today := LiveOps.day_start(t)
-	var monday := LiveOps.week_start(t)
-	for i in 7:
-		var day := monday + i * LiveOps.DAY
-		var weekend := i >= 4
-		var col: Color = CHAOS if weekend else Kit.MUTED
-		var bg := Color("2a1236") if weekend else Kit.PANEL
-		var border: Color = Kit.ACCENT if day == today else (Color("5a2550") if weekend else Kit.LINE)
-		var date := Time.get_date_dict_from_unix_time(day)
-		var cell := Kit.panel(Kit.hbox(6, [Kit.label(DAYS[i], 20, col), Kit.label(str(date.day), 22, Kit.FG if day >= today else Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
-			Kit.box(bg, border, 16, 3 if day == today else 2, 6))
-		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(cell)
-	return row
-
-
 ## One half-width tile of the board: a caption row, a body and the tile's
-## action at the bottom, lined up with its neighbour's.
-static func tile(caption: String, accent: Color, border: Color, bg: Color, body: Array, action: Control = null, badge: Control = null) -> Control:
+## action at the bottom, lined up with its neighbour's. Every tile shares one
+## card style; the event's colour is only in its caption (`border` and `bg`
+## are kept for callers but no longer change the card).
+static func tile(caption: String, accent: Color, _border: Color, _bg: Color, body: Array, action: Control = null, badge: Control = null) -> Control:
 	var head := Kit.hbox(6, [line(caption.to_upper(), 18, accent)])
 	if badge != null:
 		head.add_child(badge)
@@ -109,7 +91,7 @@ static func tile(caption: String, accent: Color, border: Color, bg: Color, body:
 	v.add_child(gap)
 	if action != null:
 		v.add_child(action)
-	var p := Kit.panel(v, Kit.box(bg, border, 30, 2, 18))
+	var p := Kit.panel(v, Kit.box(Kit.PANEL, Kit.LINE, 30, 2, 18))
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return p
 
@@ -131,7 +113,7 @@ static func lines(text: String, size := 21, color := Kit.FG) -> Label:
 	return l
 
 
-static func _action(text: String, on_press: Callable, kind := "primary") -> Button:
+static func _action(text: String, on_press: Callable, kind := "go") -> Button:
 	return Kit.button(text, on_press, kind, 22, 64)
 
 
@@ -140,7 +122,7 @@ static func _action(text: String, on_press: Callable, kind := "primary") -> Butt
 static func _trick_shot(shell) -> Control:
 	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	var s := trick_status(day)
-	var status := "%d tries. Same shot for everyone." % TRICK_TRIES
+	var status := "%d tries" % TRICK_TRIES
 	var label := "Play"
 	if s.solved:
 		status = "Solved in %d %s. Streak %d." % [s.tries, "try" if s.tries == 1 else "tries", s.streak]
@@ -288,7 +270,7 @@ static func _chaos(shell, t: int, counters: Array) -> Control:
 	var fmt := "Ends in %s" if c.live else "Starts in %s"
 	var when := line(fmt % LiveOps.countdown(t, until), 20, CHAOS)
 	counters.append([when, fmt, until])
-	var more := _action("What it does", func(): shell.info(c.name, [c.description, "One rule twist for every fight from Friday to Sunday, the same for both balls."]), "ghost")
+	var more := _action("What it does", func(): shell.info(c.name, [c.description]), "ghost")
 	shell.mark("week_chaos", more)
 	return tile("Chaos Weekend", CHAOS, Color("5a2550"), Color("1e0f2c"),
 		[lines(c.name, 26), when], more, Kit.chip("Live" if c.live else "Next", CHAOS, 16))
@@ -297,16 +279,11 @@ static func _chaos(shell, t: int, counters: Array) -> Control:
 ## The banner on the Play tab that opens this board.
 static func banner(shell) -> Control:
 	var t := LiveOps.now()
-	var season := LiveOps.season(t)
 	var c := LiveOps.chaos(t)
-	var s := Roster.get_critter(LiveOps.spotlight(t).critter)
-	var loan := Roster.get_critter(LiveOps.loaner(t).critter)
-	var top := "This week" + (" · %s week %d" % [season.name, season.week] if not season.is_empty() else "")
 	var chaos := ("Chaos Weekend: %s, live for %s" if c.live else "Chaos Weekend: %s in %s") % [c.name, LiveOps.countdown(t, c.ends if c.live else c.starts)]
 	var v := Kit.vbox(6, [
-		Kit.hbox(8, [Kit.caption(top, Color("e8c8ff")), Kit.spacer(), Kit.label("Open ›", 22, Kit.ACCENT)]),
+		Kit.hbox(8, [Kit.caption("This week", Color("e8c8ff")), Kit.spacer(), Kit.label("›", 26, Kit.ACCENT)]),
 		Kit.label(chaos, 24, CHAOS, HORIZONTAL_ALIGNMENT_LEFT, true),
-		Kit.label("Fight of the Day · Try %s · %s" % [loan.name, "Bracket of Legends" if not Legends.current(t).is_empty() else "%s Spotlight" % s.name], 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
 	var b := Kit.card_button(v, func(): shell.go("week"), Color("6b3fb0"), Color("1c1040"), 32, 18)
 	shell.mark("thisweek", b)

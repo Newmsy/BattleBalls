@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "c7f9cc",
 	"vibe": "A puffed-cheek little breeze who just wants some personal space.",
-	"description": "Breeze. Its wind pushes foes away, a big huff every few seconds blasts them across the arena, and a foe blown into a wall gets slammed.",
+	"description": "Breeze. Its wind pushes foes away, a big huff every 5s blasts them across the arena, and a foe blown into a wall takes 7.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
 	"ability": [{"on": "always", "do": "gale"}, {"on": "every", "secs": "huff_every", "do": "huff"}],
 	"params": {
@@ -26,11 +26,11 @@ const CRITTER := {
 		"huff_slow": 0.0, ## T5: chill for 1.5s.
 	},
 	"tiers": [
-		{"text": "Wind pushes foes away; every 5s a huge huff; foes blown into a wall take 7"},
-		{"text": "Stronger wind", "wind_accel": 120.0},
-		{"text": "Wall slams deal 9", "gust_slam": 9.0},
-		{"text": "The wind reaches further and it huffs every 4s", "wind_range": 260.0, "huff_every": 4.0},
-		{"text": "The huff carries ice: 6 damage and a 15% chill for 1.5s", "huff_damage": 6.0, "huff_slow": 0.15},
+		{"text": "Wind pushes foes; huff every 5s; wall slams 7", "now": "Wind pushes foes; huff every {huff_every}s; wall slams {gust_slam}"},
+		{"text": "Wind push +20%", "wind_accel": 120.0},
+		{"text": "Wall slam 7 → 9", "gust_slam": 9.0},
+		{"text": "Wind reach +18%, huff every 5 → 4s", "wind_range": 260.0, "huff_every": 4.0},
+		{"text": "+ Icy huff: 6 dmg, slow 15%", "now": "Wind pushes foes; icy huff every {huff_every}s ({huff_damage}); wall slams {gust_slam}", "huff_damage": 6.0, "huff_slow": 0.15},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["windcurls"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.2},

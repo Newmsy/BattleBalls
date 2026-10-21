@@ -19,6 +19,8 @@ const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Story := preload("res://meta/story.gd")
 const StoryCards := preload("res://game/ui/story_cards.gd")
+const XpBar := preload("res://game/ui/xp_bar.gd")
+const EnergySheet := preload("res://game/ui/energy_sheet.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -30,7 +32,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var root := Kit.vbox(22)
 
 	var back: Control = shell.back_button("back")
-	var head := Kit.vbox(2, [Kit.caption("Zone %d · The Neon Circuit · %s" % [z + 1, "1v1" if zone.lineup == 1 else "%d vs %d" % [zone.lineup, zone.lineup]], Color("9be89a")),
+	var head := Kit.vbox(2, [Kit.caption("Zone %d · %dv%d" % [z + 1, zone.lineup, zone.lineup], Color("9be89a")),
 		Kit.label(zone.name, 44)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var title_row := Kit.hbox(16, [back, head])
@@ -42,9 +44,10 @@ static func build(shell, params: Dictionary) -> Control:
 		title_row.add_child(replay)
 	root.add_child(title_row)
 
+	# The top bar shows the energy count; this only says when the next one lands.
 	var wait: int = p.seconds_to_next_energy(now)
-	var energy_line := "Energy %d/%d" % [p.energy, p.energy_max] + ("  ·  +1 in %d:%02d" % [wait / 60, wait % 60] if wait > 0 else "")
-	root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label(energy_line, 24, Kit.MUTED)]))
+	if wait > 0:
+		root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("+1 in %d:%02d" % [wait / 60, wait % 60], 24, Kit.MUTED)]))
 
 	if params.has("notice"):
 		root.add_child(Kit.panel(Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
@@ -71,8 +74,16 @@ static func build(shell, params: Dictionary) -> Control:
 	var on_pick := func(id: String) -> void:
 		p.set_lineup(id)
 		shell.refresh()
+	var on_team := func(picks: Array) -> void:
+		p.campaign_team = picks
+		p.changed.emit()
+		shell.refresh()
 	var pick := func() -> void:
-		CritterPicker.open(shell, CritterPicker.by_power(p, BallDefs.PLAYABLE), {"title": "Your fighter", "current": fighter, "on_pick": on_pick})
+		var ids := CritterPicker.by_power(p, BallDefs.PLAYABLE)
+		if team.size() > 1:
+			CritterPicker.open_team(shell, ids, {"title": "Your team", "size": mini(zone.lineup, ids.size()), "current": team, "on_confirm": on_team})
+		else:
+			CritterPicker.open(shell, ids, {"title": "Your fighter", "current": fighter, "on_pick": on_pick})
 	var change_btn := Kit.card_button(fighter_row, pick, Color("3a3480"), Kit.PANEL2, 32, 16)
 	shell.mark("campaign_fighter", change_btn)
 	root.add_child(change_btn)
@@ -104,10 +115,15 @@ static func play_story(shell, z: int) -> void:
 	shell.mark("story_skip", cards.skip_button)
 
 
+## One stage row. Locked stages are just their number, the foe's silhouette
+## and a lock; the stage you're on gets the big card (foe faces, your power
+## against theirs, FIGHT); cleared ones are a slim row with their result,
+## replay and Sweep.
 static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	var st := Zones.stage(z, i)
 	var boss := Zones.is_boss(st)
-	var unlocked := Campaign.is_unlocked(p, z, i)
+	if not Campaign.is_unlocked(p, z, i):
+		return _locked_row(z, i, st, boss)
 	var stars := Campaign.stars_of(p, z, i)
 	var foes := Zones.enemies(st)
 	var name: String = st.get("name", " + ".join(foes.map(func(id): return Roster.get_critter(id).name)))
@@ -119,48 +135,103 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 		for id in team:
 			mine += p.power_of(id)
 		mine /= maxi(1, team.size())
-
+	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
 	var title := Kit.hbox(8, [Kit.label(Zones.stage_key(z, i), 22, Kit.MUTED), _fit(Kit.label(name, 28))])
 	if boss:
 		title.add_child(Kit.chip("BOSS", Kit.BAD))
-	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var info := Kit.vbox(6, [title, Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "They're stronger"), 20, power_color),
-		Glyph.make("stars", 26, Kit.FG, stars, 3)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var border := Kit.BAD.darkened(.3) if boss else Kit.GOOD.darkened(.5)
 
-	var actions := Kit.vbox(8)
-	if not unlocked:
-		actions.add_child(Kit.hbox(6, [Glyph.make("lock", 26, Kit.MUTED), Kit.label("Locked", 22, Kit.MUTED)]))
-	else:
-		var fight := Kit.button("Fight  %d" % Zones.cost(st), _fight.bind(shell, z, i, fighter), "go", 24, 72)
-		fight.custom_minimum_size.x = 150
-		shell.mark("stage_%d_%d" % [z + 1, i + 1], fight)
-		actions.add_child(fight)
-		if Campaign.can_sweep(p, z, i):
-			var sweep := Kit.button("Sweep", _sweep.bind(shell, z, i, fighter), "ghost", 22, 60)
-			shell.mark("sweep_%d_%d" % [z + 1, i + 1], sweep)
-			actions.add_child(sweep)
-
-	var icon: Control = FighterTag.make(st.enemy, enemy_tier(st), rec, 108 if boss else 92, power_color, not unlocked)
-	if foes.size() > 1:
-		# One row of stars and one power figure for the pair or trio (the
-		# foes share a tier and rating).
-		var stars_row := Kit.hbox(0, [Kit.glyph("stars", 20, Kit.FG, enemy_tier(st))], BoxContainer.ALIGNMENT_CENTER)
-		var pair := Kit.hbox(2, [], BoxContainer.ALIGNMENT_CENTER)
+	if not Campaign.is_cleared(p, z, i):
+		# The stage you're on: foe faces, the power comparison and one big FIGHT.
+		var faces := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
+		var side: float = (260.0 if boss else 220.0) / sqrt(float(foes.size()))
 		for id in foes:
-			var art := CritterIcon.make(id, enemy_tier(st), (64 if foes.size() == 2 else 52) * FighterTag.ART_SHRINK, false, not unlocked)
-			art.radius_frac /= FighterTag.ART_SHRINK # trimmed box, same ball size as FighterTag
-			pair.add_child(art)
-		var pw := Kit.power(rec, 20, power_color)
-		pw.alignment = BoxContainer.ALIGNMENT_CENTER
-		icon = Kit.vbox(2, [stars_row, pair, pw])
-	var row := Kit.hbox(12, [icon, info, actions])
+			faces.add_child(_face(id, enemy_tier(st), side))
+		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
+			BoxContainer.ALIGNMENT_CENTER)
+		var fight := Kit.cost_button("Fight", Zones.cost(st), "energy", _fight.bind(shell, z, i, fighter), "go", 30, 84)
+		_fade_if_short(fight, p, Zones.cost(st))
+		shell.mark("stage_%d_%d" % [z + 1, i + 1], fight)
+		var big := Kit.panel(Kit.vbox(12, [title, faces, vs, fight]), Kit.box(Color("17284a"), border.lightened(.2), 32, 3, 20))
+		return big
+
+	var info := Kit.vbox(4, [title, crowns(stars, 26)])
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var actions := Kit.hbox(8)
+	if Campaign.can_sweep(p, z, i):
+		var sweep := Kit.button("Sweep", _sweep.bind(shell, z, i, fighter), "ghost", 22, 60)
+		_fade_if_short(sweep, p, Zones.cost(st))
+		shell.mark("sweep_%d_%d" % [z + 1, i + 1], sweep)
+		actions.add_child(sweep)
+	var again := Kit.cost_button("", Zones.cost(st), "energy", _fight.bind(shell, z, i, fighter), "go", 22, 60)
+	again.custom_minimum_size.x = 100
+	_fade_if_short(again, p, Zones.cost(st))
+	again.size_flags_horizontal = Control.SIZE_SHRINK_END
+	shell.mark("stage_%d_%d" % [z + 1, i + 1], again)
+	actions.add_child(again)
+	var art := Kit.hbox(0, [], BoxContainer.ALIGNMENT_CENTER)
+	for id in foes:
+		art.add_child(_face(id, enemy_tier(st), 84.0 / sqrt(float(foes.size()))))
+	var row := Kit.hbox(12, [art, info, actions])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var border := Kit.BAD.darkened(.3) if boss else (Kit.GOOD.darkened(.5) if stars > 0 else Kit.LINE)
-	var card := Kit.panel(row, Kit.box(Kit.PANEL, border, 30, 2, 14))
-	if not unlocked:
-		card.modulate = Color(1, 1, 1, .55)
+	return Kit.panel(row, Kit.box(Kit.PANEL, border, 28, 2, 12))
+
+
+## A Fight or Sweep that costs more energy than you have stays tappable (it
+## opens the out-of-energy sheet) but looks short.
+static func _fade_if_short(b: Control, p, cost: int) -> void:
+	if p.energy < cost:
+		b.modulate = Color(1, 1, 1, .5)
+
+
+## A green button reading "FIGHT ⚡6" with the drawn energy bolt (the font has
+## none); a `cost` of -1 leaves the number off ("OUT OF ⚡").
+static func _cost_button(text: String, cost: int, on_press: Callable, size: int, height: int) -> Button:
+	var b := Kit.button("", on_press, "go", size, height)
+	var ink: Color = Kit.BUTTON_STYLES["go"][2]
+	var parts: Array = [Glyph.make("energy", size * 1.1, ink)]
+	if cost >= 0:
+		parts.append(Kit.label(str(cost), size, ink))
+	if text != "":
+		parts.push_front(Kit.label(text.to_upper() + " ", size, ink))
+	var row := Kit.hbox(2, parts, BoxContainer.ALIGNMENT_CENTER)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in row.get_children():
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(row)
+	return b
+
+
+## A foe's face `side` wide, the ball filling its box (CritterIcon pads for effects).
+static func _face(id: String, tier: int, side: float, silhouette := false) -> Control:
+	var art := CritterIcon.make(id, tier, side * FighterTag.ART_SHRINK, false, silhouette)
+	art.radius_frac /= FighterTag.ART_SHRINK
+	return art
+
+
+## A stage you can't fight yet: its number, the foe's silhouette and a lock.
+static func _locked_row(z: int, i: int, st: Dictionary, boss: bool) -> Control:
+	var art := Kit.hbox(0, [], BoxContainer.ALIGNMENT_CENTER)
+	var foes := Zones.enemies(st)
+	for id in foes:
+		art.add_child(_face(id, 1, (92.0 if boss else 76.0) / sqrt(float(foes.size())), true))
+	var key := Kit.label(Zones.stage_key(z, i), 24, Kit.MUTED)
+	key.custom_minimum_size.x = 64
+	var row := Kit.hbox(14, [key, art, Kit.spacer(), Glyph.make("lock", 26, Kit.MUTED)])
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var card := Kit.panel(row, Kit.box(Kit.PANEL, Kit.BAD.darkened(.4) if boss else Kit.LINE, 28, 2, 10))
+	card.modulate = Color(1, 1, 1, .7)
 	return card
+
+
+## A stage's three crown slots, `won` of them gold (crowns, not stars: a
+## star means tier).
+static func crowns(won: int, side: float) -> Control:
+	var row := Kit.hbox(int(side * .12))
+	for k in 3:
+		row.add_child(Glyph.make("crown", side, Kit.FG, 1 if k < won else 0))
+	return row
 
 
 ## A label that trims with an ellipsis instead of pushing its card wider than the screen.
@@ -186,14 +257,24 @@ static func matchup_text(p, z: int, i: int, fighter: String) -> String:
 		FighterTag.text(st.get("name", Roster.get_critter(st.enemy).name), enemy_tier(st), Campaign.enemy_rating(z, i))]
 
 
+## "Optic + Bolt · 2,500 power vs Pinball + Cogs · 1,550" for a 2v2 pairs stage.
+static func pair_text(p, z: int, i: int, picks: Array) -> String:
+	var st := Zones.stage(z, i)
+	var power := 0
+	for id in picks:
+		power += p.power_of(id)
+	var foes: Array = Zones.enemies(st).map(func(e): return Roster.get_critter(e).name)
+	return "%s · %s power vs %s · %s" % [" + ".join(picks.map(func(id): return Roster.get_critter(id).name)), Kit.commas(power),
+		st.get("name", " + ".join(foes)), Kit.commas(Campaign.enemy_rating(z, i) * foes.size())]
+
+
 static func _fight(shell, z: int, i: int, fighter: String) -> void:
 	if Zones.zone(z).lineup > 1:
 		_fight_team(shell, z, i)
 		return
 	var cfg: Dictionary = Campaign.start(shell.profile, z, i, fighter, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
-		shell.toast(_error_text(cfg.error))
-		shell.refresh()
+		_show_error(shell, cfg.error)
 		return
 	shell.stage_requested.emit(cfg, z, i, fighter)
 
@@ -201,37 +282,41 @@ static func _fight(shell, z: int, i: int, fighter: String) -> void:
 static func _sweep(shell, z: int, i: int, fighter: String) -> void:
 	var r: Dictionary = Campaign.sweep(shell.profile, z, i, fighter, int(Time.get_unix_time_from_system()))
 	if r.has("error"):
-		shell.toast(_error_text(r.error))
-		shell.refresh()
+		_show_error(shell, r.error)
 		return
 	shell.refresh_with({"zone": z, "focus": i, "result": {"stage": i, "r": r, "kind": "sweep"}})
 
 
+## Out of energy opens the energy sheet; anything else is a one-line toast.
+static func _show_error(shell, error: String) -> void:
+	shell.refresh()
+	if error == "energy":
+		EnergySheet.open(shell)
+	else:
+		shell.toast(_error_text(error))
+
+
 static func _error_text(error: String) -> String:
-	match error:
-		"energy":
-			return "Not enough energy. It refills 1 every 5 minutes, or use an Energy Pack from your Bag."
-		"no_ball":
-			return "Pick a critter that can fight first."
+	if error == "no_ball":
+		return "Pick a critter that can fight first."
 	return "That stage is locked."
 
 
 ## One line summing up a stage result, for the result screen and sweeps.
 static func result_text(r: Dictionary) -> String:
 	if not r.won:
-		return "Lost. %d energy back, +%d XP. Try a stronger critter, or fuse one up." % [r.refund, r.xp]
-	var parts: Array[String] = ["%d of 3 stars" % r.stars]
+		return "Lost · +%d XP" % r.xp
+	var parts: Array[String] = ["%d/3 crowns" % r.stars]
 	if not r.drops.is_empty():
 		parts.append("got " + ", ".join(r.drops.map(func(id): return Roster.get_critter(id).name)))
 	if r.get("orbs", 0) > 0:
-		parts.append("+%d Summon Orb%s" % [r.orbs, "" if r.orbs == 1 else "s"])
+		parts.append("+%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"])
 	for g in r.get("gear", []):
 		parts.append("found a %d-star %s" % [g.tier, g.name])
 	parts.append("+%d XP" % r.xp)
 	if r.levels > 0:
 		parts.append("level up!")
-	if r.account_levels > 0:
-		parts.append("account level up, energy refilled!")
+	# An account level up shows on the results popup (energy refilled there).
 	return ", ".join(parts)
 
 
@@ -245,7 +330,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	v.add_child(Kit.vbox(2, [Kit.caption("%s %s · %s" % ["Sweep" if kind == "sweep" else "Stage", Zones.stage_key(z, i), name]),
 		Kit.label(title, 52, Kit.GOOD if r.won else Kit.BAD)]))
 	if r.won:
-		var star_row := Kit.hbox(12, [Glyph.make("stars", 48, Kit.FG, r.stars, 3)], BoxContainer.ALIGNMENT_CENTER)
+		var star_row := Kit.hbox(12, [crowns(r.stars, 52)], BoxContainer.ALIGNMENT_CENTER)
 		v.add_child(star_row)
 		if not r.drops.is_empty() or not r.get("gear", []).is_empty() or r.get("orbs", 0) > 0:
 			var drops := GridContainer.new()
@@ -259,12 +344,12 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 				drops.add_child(Kit.panel(cell, Kit.box(Kit.PANEL2, Kit.LINE, 24, 2, 10)))
 			if r.get("orbs", 0) > 0:
 				var orb_cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make("orb", 84)], BoxContainer.ALIGNMENT_CENTER),
-					_fit(Kit.label("%d Summon Orb%s" % [r.orbs, "" if r.orbs == 1 else "s"], 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
+					_fit(Kit.label("%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"], 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
 				orb_cell.custom_minimum_size.x = 150
 				drops.add_child(Kit.panel(orb_cell, Kit.box(Kit.PANEL2, Color("c77dff"), 24, 2, 10)))
 			for g in r.get("gear", []):
 				var col := BagScreen.tier_color(g.tier)
-				var cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make(Gear.PIECES[g.type].glyph, 72, col)], BoxContainer.ALIGNMENT_CENTER),
+				var cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make(g.type, 72, col)], BoxContainer.ALIGNMENT_CENTER),
 					Kit.hbox(0, [Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER), _fit(Kit.label(g.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
 				cell.custom_minimum_size.x = 150
 				drops.add_child(Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10)))
@@ -272,10 +357,14 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	else:
 		v.add_child(Kit.label("Try a stronger critter, or fuse one up.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var spent := Zones.cost(st) - int(r.refund)
+	var bars := XpBar.rows(r, shell.sfx)
+	if bars != null:
+		v.add_child(bars)
 	var lines := Kit.vbox(8, [
-		Kit.hbox(10, [Glyph.make("energy", 28), Kit.label("%d energy spent%s" % [spent, (" · %d back" % r.refund) if r.refund > 0 else ""], 24, Kit.MUTED)]),
-		Kit.label("+%d XP for %s%s" % [r.xp, Roster.get_critter(fighter).name, " · level up!" if r.levels > 0 else ""], 24, Kit.MUTED),
+		Kit.hbox(10, [Glyph.make("energy", 28), Kit.label("-%d%s" % [spent, ("  ·  +%d back" % r.refund) if r.refund > 0 else ""], 24, Kit.MUTED)]),
 	])
+	if bars == null:
+		lines.add_child(Kit.label("+%d XP for %s%s" % [r.xp, Roster.get_critter(fighter).name, " · level up!" if r.levels > 0 else ""], 24, Kit.MUTED))
 	if r.account_levels > 0:
 		lines.add_child(Kit.label("Account level up! Energy refilled.", 24, Kit.GOOD))
 	v.add_child(lines)
@@ -296,9 +385,19 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	buttons.add_child(ok)
 	var next := i + 1 if r.won else i
 	if next < Zones.zone(z).stages.size() and Campaign.is_unlocked(shell.profile, z, next):
-		var again := Kit.button(("Next  %s" % Zones.stage_key(z, next)) if r.won else "Try again", func():
-			shell.close_overlay()
-			_fight(shell, z, next, Campaign.fighter_for(shell.profile)), "go", 26, 84)
+		var p = shell.profile
+		p.update_energy(int(Time.get_unix_time_from_system()))
+		var again: Button
+		if p.energy < Zones.cost(Zones.stage(z, next)):
+			# Not enough for the next stage: say so up front; tap opens the energy sheet.
+			again = _cost_button("Out of", -1, func():
+				shell.close_overlay()
+				EnergySheet.open(shell), 26, 84)
+			again.modulate = Color(1, 1, 1, .75)
+		else:
+			again = Kit.button(("Next  %s" % Zones.stage_key(z, next)) if r.won else "Try again", func():
+				shell.close_overlay()
+				_fight(shell, z, next, Campaign.fighter_for(shell.profile)), "go", 26, 84)
 		again.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("result_next", again)
 		buttons.add_child(again)
@@ -306,14 +405,18 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	shell.sheet(v)
 
 
-## A pairs or trios stage: spend the energy, then fight it as a relay on its
-## own screen (game/campaign_relay.gd). main.gd settles it on the way back.
+## A pairs or trios stage: spend the energy, then fight it. Pairs are a 2v2 in
+## the arena like a solo stage; trios are a relay on their own screen
+## (game/campaign_relay.gd). main.gd settles either on the way back.
 static func _fight_team(shell, z: int, i: int) -> void:
 	var picks := Campaign.team_for(shell.profile, Zones.zone(z).lineup)
 	var cfg: Dictionary = Campaign.start_team(shell.profile, z, i, picks, int(Time.get_unix_time_from_system()))
 	if cfg.has("error"):
-		shell.toast(_error_text(cfg.error))
-		shell.refresh()
+		_show_error(shell, cfg.error)
+		return
+	if Campaign.is_pair(z, i, picks):
+		# Pairs are a real 2v2 in the arena, all four at once (trios stay relays).
+		shell.stage_requested.emit(Campaign.pair_config(shell.profile, cfg), z, i, picks[0])
 		return
 	var scene = load("res://game/campaign_relay.gd")
 	scene.pending = {"zone": z, "stage": i, "picks": picks, "config": cfg}

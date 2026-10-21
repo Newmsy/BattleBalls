@@ -42,6 +42,8 @@ fi
 timeout 180 ~/godot/godot --headless --import || true
 # Every scheduled Bracket of Legends, fought out now so phones don't have to.
 timeout 300 ~/godot/godot --headless --script res://tools/bracket_results.gd
+# The fight-rules fingerprint live matches pair by (sim/sim_version.gd).
+timeout 120 ~/godot/godot --headless --script res://tools/sim_version.gd
 mkdir -p build/web
 timeout 300 ~/godot/godot --headless --export-release "Web" build/web/index.html
 test -s build/web/index.wasm

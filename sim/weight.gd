@@ -48,4 +48,4 @@ static func of(id: String, size := 1.0) -> float:
 
 ## How much a pull on a ball of this weight is scaled.
 static func pull_scale(weight: float) -> float:
-	return pow(weight, -PULL_EXPONENT)
+	return 1.0 / (sqrt(weight) * sqrt(sqrt(weight))) # weight ^ -0.75 without pow(), see sim/dmath.gd

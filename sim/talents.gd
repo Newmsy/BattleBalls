@@ -51,35 +51,35 @@ const SHARED := [
 	{"id": "launch_kick", "row": 1, "col": 0, "name": "Launch Kick", "per": 0.03, "text": "+%s damage in the first 4s"},
 	{"id": "spark", "row": 1, "col": 2, "name": "Spark", "per": 0.03, "text": "+%s ability damage"},
 	{"id": "rebound", "row": 2, "col": 0, "name": "Rebound", "per": 0.04, "text": "+%s on your first contact hit after a wall bounce"},
-	{"id": "charged", "row": 2, "col": 2, "name": "Charged", "per": 0.04, "text": "+%s ability damage while above half HP"},
+	{"id": "charged", "row": 2, "col": 2, "name": "Charged", "per": 0.04, "text": "+%s ability damage above 50%% HP"},
 	{"id": "last_stand", "row": 3, "col": 0, "name": "Last Stand", "per": 0.04, "text": "-%s damage taken below 35%% HP"},
 	{"id": "ward", "row": 3, "col": 2, "name": "Ward", "per": 0.03, "text": "-%s ability damage taken"},
-	{"id": "comeback", "row": 4, "col": 0, "name": "Comeback", "per": 0.04, "text": "+%s damage while you have less HP (as a share) than your foe"},
-	{"id": "overcharge", "row": 4, "col": 2, "name": "Overcharge", "per": 0.04, "text": "+%s ability damage to a foe below half HP"},
+	{"id": "comeback", "row": 4, "col": 0, "name": "Comeback", "per": 0.04, "text": "+%s dmg while behind on HP"},
+	{"id": "overcharge", "row": 4, "col": 2, "name": "Overcharge", "per": 0.04, "text": "+%s ability damage to foes below 50%% HP"},
 ]
 
 ## Each faction's column 1 (rows 1-4) and capstone (row 5, one rank).
 const FACTION_NODES := {
 	"fire": [
-		{"id": "kindling", "name": "Kindling", "per": 1.0, "unit": "dps", "text": "Contact hits burn for %s for 1.5s"},
+		{"id": "kindling", "name": "Kindling", "per": 1.0, "unit": "dps", "text": "Contact hits burn %s for 1.5s"},
 		{"id": "hot_start", "name": "Hot Start", "per": 0.03, "text": "+%s damage in the first 8s"},
 		{"id": "flashpoint", "name": "Flashpoint", "per": 0.04, "text": "+%s damage to burning foes"},
 		{"id": "heatproof", "name": "Heatproof", "per": 0.12, "text": "-%s burn damage taken"},
-		{"id": "wildfire", "name": "Wildfire", "per": 1.0, "unit": "x", "text": "Kindling burns twice as hard"},
+		{"id": "wildfire", "name": "Wildfire", "per": 1.0, "unit": "x", "text": "Kindling burns x2"},
 	],
 	"frost": [
 		{"id": "frostbite", "name": "Frostbite", "per": 0.07, "text": "Contact hits slow the foe %s for 1s"},
 		{"id": "thick_fur", "name": "Thick Fur", "per": 0.025, "text": "-%s contact damage taken"},
 		{"id": "shatter", "name": "Shatter", "per": 0.06, "text": "+%s damage to slowed foes"},
 		{"id": "thaw", "name": "Thaw", "per": 0.15, "text": "Slows on you are %s weaker"},
-		{"id": "deep_freeze", "name": "Deep Freeze", "per": 1.0, "unit": "x", "text": "Shatter's bonus doubles"},
+		{"id": "deep_freeze", "name": "Deep Freeze", "per": 1.0, "unit": "x", "text": "Shatter bonus x2"},
 	],
 	"nature": [
 		{"id": "photosynth", "name": "Photosynth", "per": 0.0012, "text": "Regrow %s of max HP each second (not while burning)"},
 		{"id": "bark", "name": "Bark", "per": 0.03, "text": "-%s ability damage taken"},
 		{"id": "bloom", "name": "Bloom", "per": 0.08, "text": "Your heals are %s bigger"},
-		{"id": "deep_roots", "name": "Deep Roots", "per": 0.03, "text": "-%s damage taken below half HP"},
-		{"id": "overgrowth", "name": "Overgrowth", "per": 1.0, "unit": "x", "text": "Photosynth doubles below half HP"},
+		{"id": "deep_roots", "name": "Deep Roots", "per": 0.03, "text": "-%s damage taken below 50%% HP"},
+		{"id": "overgrowth", "name": "Overgrowth", "per": 1.0, "unit": "x", "text": "Photosynth x2 below 50%% HP"},
 	],
 	"sea": [
 		{"id": "undertow", "name": "Undertow", "per": 0.06, "text": "+%s speed for 1s after you land a contact hit"},
@@ -100,28 +100,28 @@ const FACTION_NODES := {
 		{"id": "haunt", "name": "Haunt", "per": 0.025, "text": "Foes you hit deal -%s damage for 1.5s"},
 		{"id": "fright", "name": "Fright", "per": 0.05, "text": "+%s damage on backstabs"},
 		{"id": "ectoplasm", "name": "Ectoplasm", "per": 0.02, "text": "Heal %s of the ability damage you deal"},
-		{"id": "undying", "name": "Undying", "per": 0.10, "text": "The first time you drop below 15%% HP, heal %s of max HP"},
+		{"id": "undying", "name": "Undying", "per": 0.10, "text": "Once, below 15%% HP: heal %s of max HP"},
 	],
 	"cosmic": [
 		{"id": "starlight", "name": "Starlight", "per": 0.025, "text": "+%s crit chance"},
 		{"id": "nova", "name": "Nova", "per": 0.08, "text": "+%s crit damage"},
 		{"id": "comet_tail", "name": "Comet Tail", "per": 0.06, "text": "Your crits slow the foe %s for 1s"},
 		{"id": "stardust", "name": "Stardust", "per": 0.08, "text": "-%s damage from crits"},
-		{"id": "supernova_cap", "name": "Supernova", "per": 1.0, "unit": "x", "text": "Your first crit each fight deals double"},
+		{"id": "supernova_cap", "name": "Supernova", "per": 1.0, "unit": "x", "text": "Your first crit each fight deals x2"},
 	],
 	"sweet": [
 		{"id": "sugar_shell", "name": "Sugar Shell", "per": 0.02, "text": "Start with a shield of %s max HP"},
 		{"id": "sticky", "name": "Sticky", "per": 0.04, "text": "Contact hits slow the foe %s for 0.5s"},
 		{"id": "sugar_rush", "name": "Sugar Rush", "per": 0.03, "text": "+%s damage while shielded"},
 		{"id": "refill", "name": "Refill", "per": 0.015, "text": "Gain a shield of %s max HP every 10s"},
-		{"id": "candy_coat", "name": "Candy Coat", "per": 1.0, "unit": "x", "text": "Sugar Shell doubles"},
+		{"id": "candy_coat", "name": "Candy Coat", "per": 1.0, "unit": "x", "text": "Sugar Shell x2"},
 	],
 	"toybox": [
 		{"id": "bouncy", "name": "Bouncy", "per": 0.03, "text": "+%s speed for 1s after each wall bounce"},
 		{"id": "combo", "name": "Combo", "per": 0.015, "text": "+%s on a contact hit within 2s of your last one"},
 		{"id": "trick_shot", "name": "Trick Shot", "per": 0.025, "text": "+%s damage within 0.5s of a wall bounce"},
 		{"id": "spring", "name": "Spring", "per": 0.03, "text": "-%s damage taken within 1s of a wall bounce"},
-		{"id": "jackpot_cap", "name": "Jackpot", "per": 1.0, "unit": "x", "text": "Bouncy and Trick Shot are half as strong again"},
+		{"id": "jackpot_cap", "name": "Jackpot", "per": 1.0, "unit": "x", "text": "Bouncy and Trick Shot x1.5"},
 	],
 }
 
@@ -259,7 +259,7 @@ static func describe(n: Dictionary, rank: int) -> String:
 	var v: float = value_per_rank(n) * maxi(1, rank)
 	if n.has("unit"):
 		if n.unit == "dps":
-			return n.text % ("%.1f dps" % v)
+			return n.text % ("%s/s" % String.num(v, 2))
 		return n.text
 	var pct := 100.0 * v
 	var s := ("%d%%" % roundi(pct)) if absf(pct - roundf(pct)) < 0.05 else ("%.1f%%" % pct)

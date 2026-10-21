@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "0d0b17",
 	"vibe": "Ancient, silent and a little terrifying.",
-	"description": "Black Hole. Every 8s it collapses, dragging everything in, then explodes in a ring of light that scorches (a burning foe can't heal).",
+	"description": "Black Hole. Every 8s it collapses, dragging everything in, then explodes in a ring of light for 18 that burns (a burning foe can't heal).",
 	"stats": {"hp": 117.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.0},
 	"ability": [{"on": "always", "do": "collapse"}, {"on": "guard", "do": "collapse_guard"}],
 	"params": {
@@ -26,11 +26,11 @@ const CRITTER := {
 		"collapse_guard": 1.0, ## Damage taken while collapsing.
 	},
 	"tiers": [
-		{"text": "Collapses every 8s, blast 18"},
-		{"text": "Blast 22", "collapse_damage": 22.0},
-		{"text": "Takes 30% less damage while collapsing", "collapse_guard": 0.7},
-		{"text": "Every 7s", "collapse_every": 7.0},
-		{"text": "The blast leaves a burning ring", "collapse_ring": 5.0},
+		{"text": "Collapses every 8s, pulls foes in, blast 18", "now": "Collapses every {collapse_every}s, pulls foes in, blast {collapse_damage}"},
+		{"text": "Blast 18 → 22", "collapse_damage": 22.0},
+		{"text": "+ -30% dmg taken while collapsing", "now": "Collapses every {collapse_every}s (-30% dmg taken), blast {collapse_damage}", "collapse_guard": 0.7},
+		{"text": "Collapse every 8 → 7s", "collapse_every": 7.0},
+		{"text": "+ Blast leaves a burning ring (5/s)", "now": "Collapses every {collapse_every}s (-30% taken), blast {collapse_damage} + fire ring", "collapse_ring": 5.0},
 	],
 	"art": {"eyes": {"sep": .3, "dot": true, "mouth": "none", "ink": "ffffff", "mouth_ink": "e8e0ff"}, "body": "starfield", "back": ["swirl_arms"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 0.6},

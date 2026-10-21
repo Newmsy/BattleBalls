@@ -24,7 +24,7 @@ const Gear := preload("res://sim/gear.gd")
 const SAVE_PATH := "user://ghost_arena.cfg"
 const HISTORY_SIZE := 10
 const FREE_REFRESHES := 1
-## Arena Coins won per attack (by card) and per lost attack, and per raid
+## Tokens (Arena Coins in code and saves) won per attack (by card) and per lost attack, and per raid
 ## your defence holds. Spent only in the Bazaar.
 const COINS_WIN := {"easier": 10, "even": 15, "harder": 25}
 const COINS_LOSS := 3
@@ -55,7 +55,7 @@ var boosts: Dictionary = {} ## {family: {line: level}}
 ## The trio other players (and, offline, the daily raids) fight. Same rules
 ## as `trio`: three different owned critters.
 var defence: Array = ["vampire", "laser", "spiker"]
-var coins := 0 ## Arena Coins to spend in the Bazaar.
+var coins := 0 ## Tokens to spend in the Bazaar (shown as Tokens).
 var coins_earned := 0
 var bazaar_day := 0
 var bought: Array = [] ## Bazaar item indexes bought on bazaar_day.
@@ -97,10 +97,11 @@ static func today() -> int:
 	return d.year * 10000 + d.month * 100 + d.day
 
 
-## Today's three opponent cards: themed teams sized to your trio's power
-## (game/pvp/arena_teams.gd), growing with your trophies.
-func offers(profile = null, day: int = today()) -> Array[Dictionary]:
-	return ArenaTeams.offers(trophies, power(profile), day, refreshes if refresh_day == day else 0)
+## Today's opponents: seeded themed teams with trophies near yours, as
+## strong as their trophies say (game/pvp/arena_teams.gd). `profile` is
+## unused; kept so callers needn't change.
+func offers(_profile = null, day: int = today()) -> Array[Dictionary]:
+	return ArenaTeams.offers(trophies, day, refreshes if refresh_day == day else 0)
 
 
 ## Your attack trio's summed Power Rating, as the Arena fights it.
@@ -251,12 +252,24 @@ func lineup(profile = null, which := "trio") -> Dictionary:
 
 
 ## `bot`: the opponent, as a full team (ArenaTeams) or a pool bot's id.
+## A seeded team carries its own trophies, so what the attack is worth
+## (Ladder.stake) is fixed here, when it starts.
 func start_attack(card: String, bot, seed_value: int, attack_slots: Array = []) -> void:
 	settle_abandoned()
 	var foe: Dictionary = bot if bot is Dictionary else ArenaGhosts.by_id(str(bot))
 	pending = {"card": card, "bot_id": str(foe.get("id", "")), "bot": foe, "seed": seed_value, "arena": Arenas.pick(seed_value),
 		"slots": attack_slots if not attack_slots.is_empty() else slots()}
+	if not Ladder.CARDS.has(card):
+		pending.stake = Ladder.stake(trophies, int(foe.get("trophies", trophies)))
 	save()
+
+
+## {win, loss, coins} for the attack in progress.
+func pending_stake() -> Dictionary:
+	if pending.has("stake"):
+		return pending.stake
+	var c: Dictionary = Ladder.CARDS.get(pending.get("card", "even"), Ladder.CARDS.even)
+	return {"win": c.win, "loss": c.loss, "coins": COINS_WIN.get(pending.get("card", "even"), 0)}
 
 
 ## Records the result of the pending attack. Returns the trophy change.
@@ -283,7 +296,7 @@ func settle_abandoned() -> int:
 
 
 func _apply(won: bool) -> int:
-	var delta := Ladder.attack_delta(trophies, peak, pending.card, won)
+	var delta := Ladder.stake_delta(trophies, peak, pending_stake(), won)
 	trophies += delta
 	peak = maxi(peak, trophies)
 	if delta > 0:
@@ -293,7 +306,7 @@ func _apply(won: bool) -> int:
 		wins += 1
 	else:
 		losses += 1
-	var got: int = COINS_WIN.get(pending.card, 0) if won else COINS_LOSS
+	var got: int = int(pending_stake().coins) if won else COINS_LOSS
 	coins += got
 	coins_earned += got
 	var bot: Dictionary = pending_bot()
@@ -365,8 +378,8 @@ static func _angles(offsets: Array, n: int, side: int) -> Array:
 	return out
 
 
-## Today's Bazaar stock: gear at your league's tier plus Summon Orbs and an
-## energy refill, all for Arena Coins. Each item sells once a day.
+## Today's Bazaar stock: gear at your league's tier plus Summon Eggs and an
+## energy refill, all for Tokens. Each item sells once a day.
 func bazaar(day: int = today()) -> Array:
 	var rng = Rng.new(hash("bazaar|%d" % day))
 	var tier := clampi(1 + Ladder.league_index(maxi(trophies, peak)), 1, 5)
@@ -376,7 +389,7 @@ func bazaar(day: int = today()) -> Array:
 		var t: String = types.pop_at(rng.range_int(0, types.size() - 1))
 		var gt := clampi(tier - 1 + n / 2, 1, 5)
 		out.append({"kind": "gear", "type": t, "tier": gt, "name": Gear.PIECES[t].name, "price": 40 + 40 * gt})
-	out.append({"kind": "orbs", "n": 1, "name": "Summon Orb", "price": 120})
+	out.append({"kind": "orbs", "n": 1, "name": "Summon Egg", "price": 120})
 	out.append({"kind": "energy", "n": 30, "name": "Energy +30", "price": 50})
 	return out
 

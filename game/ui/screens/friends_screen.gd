@@ -19,8 +19,8 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(DetailScreen.header(shell, "Friends", _count_chip(fr)))
 
 	if not fr.enabled():
-		root.add_child(_note("Friends need a connection",
-			"Go online to add friends, send them energy and rematch their teams. Challenge links still work offline."))
+		root.add_child(_sleepy(shell))
+		root.add_child(_note("Offline", "Go online to add friends."))
 		return root
 	if fr.status == "idle":
 		fr.refresh()
@@ -30,7 +30,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	if fr.status == "error" and fr.me.is_empty():
 		var retry := Kit.button("Try again", func(): fr.status = "idle"; shell.refresh(), "ghost", 26, 80)
 		shell.mark("friends_retry", retry)
-		root.add_child(Kit.vbox(14, [_note("Couldn't reach your friends", "Check your connection and try again."), retry]))
+		root.add_child(Kit.vbox(14, [_sleepy(shell), _note("Couldn't reach your friends", "Check your connection and try again."), retry]))
 		return root
 
 	if not fr.invite.is_empty():
@@ -48,17 +48,16 @@ static func build(shell, _params: Dictionary) -> Control:
 
 	var mine: Array = fr.friends()
 	var list := Kit.vbox(14, [Kit.hbox(0, [Kit.caption("Your friends"), Kit.spacer(),
-		Kit.label("Rematches are just for fun", 20, Kit.MUTED)])])
+		Kit.label("Unranked", 20, Kit.MUTED)])])
 	if mine.is_empty():
-		list.add_child(_note("No friends yet",
-			"Send someone your invite link, or win a fight and tap Challenge friend. Anyone who opens your link can add you."))
+		list.add_child(_note("No friends yet", "Share your invite link."))
 	for f in mine:
 		list.add_child(_friend_card(shell, fr, f))
 	root.add_child(list)
 
 	var outgoing: Array = fr.outgoing()
 	if not outgoing.is_empty():
-		var col := Kit.vbox(10, [Kit.caption("Waiting for them to accept")])
+		var col := Kit.vbox(10, [Kit.caption("Sent")])
 		for f in outgoing:
 			var cancel := Kit.button("Cancel", func(): fr.remove(f.id), "ghost", 20, 60)
 			cancel.size_flags_horizontal = Control.SIZE_SHRINK_END
@@ -73,6 +72,16 @@ static func build(shell, _params: Dictionary) -> Control:
 static func _count_chip(fr) -> Control:
 	var n: int = fr.friends().size()
 	return Kit.chip("%d friend%s" % [n, "" if n == 1 else "s"], Kit.ACCENT) if fr.status == "ready" else null
+
+
+## Your fighter, dozing: the empty-state picture. Drawn once (no per-frame cost).
+static func _sleepy(shell) -> Control:
+	var icon := CritterIcon.make(shell.profile.lineup, 1, 180)
+	icon.still = true
+	var zzz := Kit.label("z Z z", 34, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	var c := CenterContainer.new()
+	c.add_child(Kit.vbox(0, [zzz, icon]))
+	return c
 
 
 static func _note(title: String, text: String) -> Control:
@@ -122,13 +131,13 @@ static func _gifts_card(shell, fr) -> Control:
 			shell.profile.changed.emit()
 			shell.toast("+%d energy from your friends!" % energy)
 		else:
-			shell.toast("You've claimed today's 10 gifts. The rest keep for a few days.")
+			shell.toast("Daily limit reached. The rest will wait.")
 	var claim := Kit.button("Claim", on_claim, "go", 26, 80)
 	claim.size_flags_horizontal = Control.SIZE_SHRINK_END
 	claim.custom_minimum_size.x = 170
 	shell.mark("claim_gifts", claim)
 	var text := Kit.vbox(2, [Kit.label("%d energy gift%s" % [n, "" if n == 1 else "s"], 28),
-		Kit.label("+%d each, up to 10 a day" % fr.gift_energy, 20, Kit.MUTED)])
+		Kit.label("+%d each" % fr.gift_energy, 20, Kit.MUTED)])
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var bolt := Glyph.make("energy", 56)
 	bolt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -152,12 +161,13 @@ static func _request_row(shell, fr, f: Dictionary) -> Control:
 static func _friend_card(shell, fr, f: Dictionary) -> Control:
 	var lead := Friends.lead_critter(f)
 	var icon := CritterIcon.make(lead if lead != "" else "vampire", int(f.lineup.slots[0].get("tier", 1)) if lead != "" else 1, 110, false, lead == "")
-	var info := Kit.vbox(2, [Kit.label(f.name, 30), Kit.label(Friends.record_text(f.get("record")), 20, Kit.MUTED)])
+	var info := Kit.vbox(2, [Kit.label(f.name, 30)])
+	var record := Friends.record_text(f.get("record"))
+	if record != "":
+		info.add_child(Kit.label(record, 20, Kit.MUTED))
 	var ping := Friends.ping_text(f.get("ping"), int(Time.get_unix_time_from_system()))
 	if ping != "":
 		info.add_child(Kit.label(ping, 20, Kit.GOOD))
-	if lead != "":
-		info.add_child(Kit.label("Team: " + Roster.get_critter(lead).name, 20, Kit.MUTED))
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var top := Kit.hbox(16, [icon, info], BoxContainer.ALIGNMENT_CENTER)
 
@@ -169,7 +179,7 @@ static func _friend_card(shell, fr, f: Dictionary) -> Control:
 	var on_gift := func():
 		if await fr.send_gift(f.id):
 			shell.toast("Sent %s %d energy." % [f.name, fr.gift_energy])
-	var gift := Kit.button("Sent" if f.get("gift_sent", false) else "Gift +%d" % fr.gift_energy, on_gift, "primary", 22, 72)
+	var gift := Kit.button("Sent", on_gift, "primary", 22, 72) if f.get("gift_sent", false) else Kit.cost_button("Gift", fr.gift_energy, "energy", on_gift, "primary", 22, 72)
 	gift.disabled = f.get("gift_sent", false)
 	shell.mark("gift_" + str(f.name), gift)
 	var say := Kit.button("Say…", func(): _say_sheet(shell, fr, f), "ghost", 22, 72)

@@ -9,10 +9,10 @@
       "p2": "laser",
       "seed": 42
     },
-    "hash": "411fdf8ba65073ff42609f64d6dcab04962110ee1fd6fd5989aa24638da51721",
+    "hash": "751c19a7cc2702ffaf0235b3cad49e1ee0f86b87486cd4e5c452b36eb17c0364",
     "reason": "knockout",
-    "ticks": 780,
-    "winner": 0
+    "ticks": 1695,
+    "winner": 1
   },
   {
     "config": {
@@ -24,9 +24,9 @@
       "p2": "vampire",
       "seed": 42
     },
-    "hash": "f1b2ddbc7371ea53384053b8f1a365bd9a1bf048ef8d7957bdff1cad01b9e9b9",
+    "hash": "cdd1c8164811d67c4c25b6fad62119eabed8f51797e1d9bf3a612ff64c9cf221",
     "reason": "knockout",
-    "ticks": 1565,
+    "ticks": 2400,
     "winner": 1
   },
   {
@@ -39,9 +39,9 @@
       "p2": "vampire",
       "seed": 7
     },
-    "hash": "6499d6e87d723bfb53c91bbf8cf534a998e9e64b1278539f0907767e0dbac745",
-    "reason": "knockout",
-    "ticks": 2209,
+    "hash": "67aabe89b8e7d4531bfe391d5db4b4bbed157a60086d74273172a1f5b827fd91",
+    "reason": "double_knockout",
+    "ticks": 3958,
     "winner": 0
   },
   {
@@ -54,10 +54,10 @@
       "p2": "laser",
       "seed": 7
     },
-    "hash": "8879dfc7626f88a29d4408463a3b54b694c5494b68e9e69123e7cad3886ec2da",
+    "hash": "3c34a50424c0c7c932740bed1e206d6bdc52f4d331666fec51c0ab60b766ee15",
     "reason": "knockout",
-    "ticks": 1483,
-    "winner": 1
+    "ticks": 1397,
+    "winner": 0
   },
   {
     "config": {
@@ -69,9 +69,9 @@
       "p2": "laser",
       "seed": 123
     },
-    "hash": "4a5830e3b41df142234a7d43de6d59974318f495bd3344152ab98a94a00490bd",
+    "hash": "acd9ab85ea28a0445613cc9f35d0766fefc42b6a36c1692977a9c686f336d46c",
     "reason": "knockout",
-    "ticks": 1199,
+    "ticks": 1577,
     "winner": 1
   },
   {
@@ -84,9 +84,9 @@
       "p2": "plain",
       "seed": 2026
     },
-    "hash": "489ef9e3eaec4833df3bf660b571184d1cc5007f3531ac082187ca03a45c5329",
+    "hash": "6fd89305d495ee65916acf88be377185513127af9ac5254f4dffa027d276ccae",
     "reason": "knockout",
-    "ticks": 1909,
+    "ticks": 1333,
     "winner": 0
   },
   {
@@ -99,10 +99,10 @@
       "p2": "vampire",
       "seed": 42
     },
-    "hash": "1ff3677d4a9eb97e330e85dfce29db68a8208e6795526d8fe93ff7b865e8888d",
+    "hash": "60b9b6122e4205c48a53641b4cf0c2204754db6cf50ecd5adb714cd581df3443",
     "reason": "knockout",
-    "ticks": 889,
-    "winner": 0
+    "ticks": 667,
+    "winner": 1
   },
   {
     "config": {
@@ -114,10 +114,10 @@
       "p2": "magnet",
       "seed": 9
     },
-    "hash": "28ab82975a15fb2e46f0c890b9ba4fb9e3682fb8713bc3583578991cd0336b86",
+    "hash": "c0dfd8789121bbc2bbdc3deedf314ab26161233f8b16273862ac65c43484365f",
     "reason": "knockout",
-    "ticks": 1161,
-    "winner": 1
+    "ticks": 2200,
+    "winner": 0
   },
   {
     "config": {
@@ -129,9 +129,9 @@
       "p2": "magnet",
       "seed": 7
     },
-    "hash": "ea87a0235a3380084bf7424da79e02b5a0209c72bb2611050f61bf4768aabcf9",
+    "hash": "b0d7396ea572a24a3f01aa7edfb0770a7e3be355d7fb4413b4e50a2a7500e852",
     "reason": "double_knockout",
-    "ticks": 847,
+    "ticks": 1905,
     "winner": 1
   },
   {
@@ -145,9 +145,9 @@
       "p2": "laser",
       "seed": 42
     },
-    "hash": "fc753f77203ecc29b89c4cb5aaa0183356f554bbc72683977a0afbe0f7cfbade",
+    "hash": "e8faa7fe6b24e196f245eef262166583e9c2787c1319acf83c11f10fc3392ac3",
     "reason": "knockout",
-    "ticks": 1362,
+    "ticks": 2256,
     "winner": 1
   },
   {
@@ -161,10 +161,10 @@
       "p2": "laser",
       "seed": 42
     },
-    "hash": "b33ad2191170a0f3c1b492c6ad7a158f1e034215f8a985870cd1b8507d2b3b42",
+    "hash": "039daf810fdd5a79d6d1f8be10a2402482b9044c560f2880f386456c44843b2a",
     "reason": "knockout",
-    "ticks": 1233,
-    "winner": 0
+    "ticks": 1786,
+    "winner": 1
   },
   {
     "config": {
@@ -177,9 +177,9 @@
       "p2": "laser",
       "seed": 42
     },
-    "hash": "e65f62cc1fe2671929b5d9f081805afdfa4f43a41860b7c4ac4f1b7dfe0a52d6",
+    "hash": "912a201d1a7036933b405a5f0518326d8ab629ceccd25513f7a1f0d083d2d77e",
     "reason": "knockout",
-    "ticks": 1780,
+    "ticks": 1258,
     "winner": 1
   },
   {
@@ -192,9 +192,9 @@
       "p2": "speedster",
       "seed": 11
     },
-    "hash": "c8902803c1589b89c18118a2d911fe11bab6414bbda798c4d237beb3ca8248de",
+    "hash": "08d1a0267e8eaf655a54f269637946dae0f985451e15e84ab39752731a992936",
     "reason": "knockout",
-    "ticks": 1617,
+    "ticks": 1815,
     "winner": 0
   },
   {
@@ -207,9 +207,9 @@
       "p2": "vampire",
       "seed": 12
     },
-    "hash": "e65c34722e17fec5a2e2421c5166b423f9252aa28393754ad0ebd327bde7c739",
+    "hash": "3c9e319fa870350a0d65fd3f1b5011c7b8b617736b430635fc52dae501f7a8a1",
     "reason": "knockout",
-    "ticks": 1998,
+    "ticks": 2278,
     "winner": 1
   },
   {
@@ -226,9 +226,9 @@
       ],
       "seed": 13
     },
-    "hash": "30d0cb657e2a8032d33dd5a5d58ae765b7628533f881219d69b5bf21cea6366a",
+    "hash": "1e8fa7a13898151cdaa9b8303465762804ca80c7538683cb366c5b0ae7c4713c",
     "reason": "knockout",
-    "ticks": 1412,
+    "ticks": 1710,
     "winner": 1
   },
   {
@@ -249,9 +249,9 @@
         1.35
       ]
     },
-    "hash": "3a195aae2191a7fdc53bb2c04b63701e9435da6499dfb29682fd01ac78ee8cdd",
+    "hash": "c351547c931a65a72ae010cadb2b1de68c9b61f9f4829db33d1f7b18767a7e68",
     "reason": "knockout",
-    "ticks": 962,
+    "ticks": 3061,
     "winner": 1
   },
   {
@@ -274,9 +274,9 @@
       "p2": "magnet",
       "seed": 31
     },
-    "hash": "c6670d2a162071d918dd3de6a75742ce27ac273c9cb958ecdfec056a3db2bd33",
+    "hash": "e2a0fec62b4f8a49adaf3740832fa726680887cc21308c3d96513e2b46fcb756",
     "reason": "knockout",
-    "ticks": 793,
+    "ticks": 424,
     "winner": 1
   },
   {
@@ -289,9 +289,9 @@
       "p2": "vampire",
       "seed": 11
     },
-    "hash": "84f0c90222b08b77b6737d8a4fbc0de8d23f47ab881e86da71b95722a67d5718",
+    "hash": "528e6063cce05451fa8e5fb1e10c90ba31d01ce45352c5a615e69b0d1d4d2572",
     "reason": "knockout",
-    "ticks": 1038,
+    "ticks": 2779,
     "winner": 0
   },
   {
@@ -304,9 +304,9 @@
       "p2": "laser",
       "seed": 12
     },
-    "hash": "aab670b471aa43f407a2b86a038d1dc222fd2a4602d93de89d4aae16a312e3c6",
+    "hash": "5a667726e30aa78463857b086b975765f3eddfcab1895aaab56b2d753be0afe6",
     "reason": "knockout",
-    "ticks": 1902,
+    "ticks": 2742,
     "winner": 1
   },
   {
@@ -319,10 +319,10 @@
       "p2": "magnet",
       "seed": 13
     },
-    "hash": "dd770955e469ad1c73a6f9377968e54514f210a7d139e3377b9763ac5d2b7d1f",
+    "hash": "dfbc9b5b724eb1a463d2bab0af0be40895addfd4ce8943dede82e5db7a8a7ecd",
     "reason": "knockout",
-    "ticks": 1022,
-    "winner": 0
+    "ticks": 1179,
+    "winner": 1
   },
   {
     "config": {
@@ -334,9 +334,9 @@
       "p2": "vampire",
       "seed": 14
     },
-    "hash": "e1b653b3dd8d1d576784b3d33229c5de699a6c79023d4c0712b03980c7aa0dfc",
+    "hash": "7b6eabd951873ff92ef80fbbecc4a8f381c7842aa92067be142e17a90447287c",
     "reason": "knockout",
-    "ticks": 1653,
+    "ticks": 3206,
     "winner": 0
   },
   {
@@ -349,10 +349,10 @@
       "p2": "laser",
       "seed": 15
     },
-    "hash": "c03747e5dd4f3520d5c6e5e33d9fb46b26e6995d53d430dfea84c4689a30a91b",
+    "hash": "ab73e63c794a8a311554ed2e8ccf27a399ac1c37c064fad7f33eb7fc141824f4",
     "reason": "knockout",
-    "ticks": 1848,
-    "winner": 1
+    "ticks": 1588,
+    "winner": 0
   },
   {
     "config": {
@@ -364,10 +364,10 @@
       "p2": "magnet",
       "seed": 16
     },
-    "hash": "372974b07d900cbd2e8357a0ac4e64d819116f11bc28f635f0aa68f942cf4d15",
-    "reason": "double_knockout",
-    "ticks": 2303,
-    "winner": 0
+    "hash": "90eae415dbb5cc5a381026a72b1ed4390315865888779e34737cf5fd91350b1c",
+    "reason": "knockout",
+    "ticks": 3054,
+    "winner": 1
   },
   {
     "config": {
@@ -379,10 +379,10 @@
       "p2": "vampire",
       "seed": 17
     },
-    "hash": "ada11de30dbbe275fd8fbdcb01b1a6294741d9963d29837661b6237a4307cda4",
-    "reason": "double_knockout",
-    "ticks": 1182,
-    "winner": 1
+    "hash": "76d846039783df4d83b7bea65458ec0b5b8a517512ac68e14290d0c4e2a5f13f",
+    "reason": "knockout",
+    "ticks": 1928,
+    "winner": 0
   },
   {
     "config": {
@@ -394,9 +394,9 @@
       "p2": "laser",
       "seed": 18
     },
-    "hash": "54014cb10b6c8478c5f4004458e0bc2ad23063dd5c81af94e8b6b500878c6cb5",
-    "reason": "knockout",
-    "ticks": 1393,
+    "hash": "6a8eb028ee934bfcaeb0eeb765893d3825fdf060a778023aa6ffafeddc129892",
+    "reason": "double_knockout",
+    "ticks": 1600,
     "winner": 0
   },
   {
@@ -409,10 +409,10 @@
       "p2": "magnet",
       "seed": 19
     },
-    "hash": "f89aac4167ecd879a0eb3c691d540e2d3d49d4e3f5efa75722e34594bc54fcc7",
+    "hash": "f18ae3c85d56ec25c061ad4967d16d9d241bc1eef23edfdd132d0c4d7d493f52",
     "reason": "knockout",
-    "ticks": 1051,
-    "winner": 0
+    "ticks": 625,
+    "winner": 1
   },
   {
     "config": {
@@ -424,10 +424,10 @@
       "p2": "phoenix",
       "seed": 20
     },
-    "hash": "e8590782c863dc79266f2063d6de573115437c7e107d21519c4d268b8fa54224",
+    "hash": "7328261b6aed5bcd7ead28e4c54944996b27b0445a1229705ece760636968d6a",
     "reason": "knockout",
-    "ticks": 2656,
-    "winner": 1
+    "ticks": 1482,
+    "winner": 0
   },
   {
     "config": {
@@ -439,9 +439,9 @@
       "p2": "vampire",
       "seed": 21
     },
-    "hash": "088c7b9c27657353aa24d2bdf9da093a2bd55422af1c85b6ccd650c2bf5fb999",
-    "reason": "knockout",
-    "ticks": 1425,
+    "hash": "9f6242df74b347c93af8da4704364cb983921dc859310966bb854f5545bf7f6f",
+    "reason": "double_knockout",
+    "ticks": 3874,
     "winner": 1
   },
   {
@@ -454,10 +454,10 @@
       "p2": "laser",
       "seed": 22
     },
-    "hash": "588626838c65c8bb73da87dc48ed167bfb912a193f3786e664fca8f0fa4fe693",
-    "reason": "knockout",
-    "ticks": 1354,
-    "winner": 0
+    "hash": "9aa55d415ff5df489ed9afbdb44972b8578220120c041c130f3ac040d0857977",
+    "reason": "double_knockout",
+    "ticks": 1677,
+    "winner": 1
   },
   {
     "config": {
@@ -469,9 +469,9 @@
       "p2": "thorns",
       "seed": 23
     },
-    "hash": "9d00f141f0e896b5d9fdca97c39eef95172f09a39be5b1df8f4c04a9af951f19",
-    "reason": "double_knockout",
-    "ticks": 1509,
+    "hash": "d26976f8bbeeffbe93ae578c871a80743b34f3fdbf045a5b4c22e3b48ded352a",
+    "reason": "knockout",
+    "ticks": 2410,
     "winner": 0
   },
   {
@@ -484,10 +484,10 @@
       "p2": "frost",
       "seed": 24
     },
-    "hash": "6c45cfcae291cf5df8275d15a2ce3051f1a2db19e48629a2ec90c4e48a5d3718",
-    "reason": "double_knockout",
-    "ticks": 2622,
-    "winner": 1
+    "hash": "7ff955b43b2ae52870570131ceb0e77d802041a7a22b495c54514990fdf5ed9b",
+    "reason": "knockout",
+    "ticks": 2359,
+    "winner": 0
   },
   {
     "config": {
@@ -499,10 +499,10 @@
       "p2": "bomber",
       "seed": 25
     },
-    "hash": "c8dff42d29cf8027e1c77eb9df400482ee8c9e5d2a78717d3c8112ef8dff93eb",
+    "hash": "b9373accd226add260c6fd5214fd85ed3f072bd2ab4e25cd7029c57c157e7e28",
     "reason": "knockout",
-    "ticks": 1699,
-    "winner": 0
+    "ticks": 1317,
+    "winner": 1
   },
   {
     "config": {
@@ -514,9 +514,9 @@
       "p2": "ghost",
       "seed": 26
     },
-    "hash": "c616bab37e711064081a476ffdb78100a0d9b08d2f613f003d237f6d4f14725e",
-    "reason": "double_knockout",
-    "ticks": 2558,
+    "hash": "6d16f82e1228816b6d83936c0f9820cb05c7082d8942d9fd9ccc2c684c39ac65",
+    "reason": "knockout",
+    "ticks": 3692,
     "winner": 1
   },
   {
@@ -529,9 +529,9 @@
       "p2": "magnet",
       "seed": 27
     },
-    "hash": "364aef4af9e850bcddb48a3b20af3ae317d8c0a0c59a236fbab9a07e23f9aef4",
+    "hash": "cc1ff36ceab2b84769a30ece80d5830c91046dd9c96c4561391a3dad3273adb5",
     "reason": "knockout",
-    "ticks": 815,
+    "ticks": 2904,
     "winner": 1
   },
   {
@@ -545,9 +545,9 @@
       "p2": "prism",
       "seed": 28
     },
-    "hash": "19373b215388b1ddd81af5cb599d730c0426d1fc997229d40ba53da6640ed030",
-    "reason": "double_knockout",
-    "ticks": 1303,
+    "hash": "b7d693a506cd7613243dd50eed719e8950a9c2d485a05a0aa061a3133a3e940b",
+    "reason": "knockout",
+    "ticks": 1816,
     "winner": 0
   },
   {
@@ -560,9 +560,9 @@
       "p2": "gravity",
       "seed": 29
     },
-    "hash": "4081f61b4895b639ceda5373c2009e9237b3132b93b667e0f044296eb1653334",
+    "hash": "84b1e3b280270ef8c6db86acacddbb3560b495ccff596e58143f4af601d52102",
     "reason": "knockout",
-    "ticks": 2876,
+    "ticks": 1309,
     "winner": 0
   },
   {
@@ -579,10 +579,10 @@
         5
       ]
     },
-    "hash": "4f73b2f1bc63c9b486bb00a546a98450ba730a41722c95f33e17eb7c4219cd0a",
+    "hash": "0ff60df5255e20d2d4968b78a49a5d5b89f753a6001b75231301ba0631a966d3",
     "reason": "knockout",
-    "ticks": 875,
-    "winner": 1
+    "ticks": 1590,
+    "winner": 0
   },
   {
     "config": {
@@ -594,9 +594,9 @@
       "p2": "laser",
       "seed": 31
     },
-    "hash": "a321e3ab488f33b5d301fbcaaccad77dae06c4a7a71fbccf14c409773a5a5316",
+    "hash": "d251fab45e88f49ef4486e0b1fc6f1fd2e754dd7a68884becbcf49d515fb6de6",
     "reason": "knockout",
-    "ticks": 2029,
+    "ticks": 2472,
     "winner": 1
   },
   {
@@ -609,10 +609,10 @@
       "p2": "vampire",
       "seed": 32
     },
-    "hash": "6fc70f6025cf1e58be9312c124cd17a54baa1d20ddff21b1042694704e270da1",
+    "hash": "db051abe043b2481bfba78c353b2fc2a7d88ca9018c5ce9465cb30f8dc8d74e2",
     "reason": "double_knockout",
-    "ticks": 2180,
-    "winner": 1
+    "ticks": 2702,
+    "winner": 0
   },
   {
     "config": {
@@ -624,10 +624,10 @@
       "p2": "magnet",
       "seed": 33
     },
-    "hash": "73bed35f8b0cc65dab979381c5a16744555b52546f3fdadbd88d9920db279191",
+    "hash": "b796b701f8ae8688ac946ad773f1b7af881f4de0dd1bf9c0ce93a740feb14e6f",
     "reason": "knockout",
-    "ticks": 2511,
-    "winner": 0
+    "ticks": 2175,
+    "winner": 1
   },
   {
     "config": {
@@ -639,10 +639,10 @@
       "p2": "bomber",
       "seed": 34
     },
-    "hash": "bff81ab34799ee77f199994a26ec1b72c7807669c23211bc2a801d6672cf123b",
+    "hash": "2dbf99898dcb511fe4fb80c59b438d7bf5b02ec530852b41425822c01e1117e7",
     "reason": "knockout",
-    "ticks": 1648,
-    "winner": 1
+    "ticks": 1763,
+    "winner": 0
   },
   {
     "config": {
@@ -654,10 +654,10 @@
       "p2": "frost",
       "seed": 35
     },
-    "hash": "8b10934d403e9ae84b398bc879af0903b344cd2ba4e1259faaed63339f925bb1",
-    "reason": "double_knockout",
-    "ticks": 2389,
-    "winner": 0
+    "hash": "7621bafb7f08ac7dd2bdbca58cf3a8a7ad932aaa85330443ffac796405e7f188",
+    "reason": "knockout",
+    "ticks": 3338,
+    "winner": 1
   },
   {
     "config": {
@@ -669,9 +669,9 @@
       "p2": "thorns",
       "seed": 36
     },
-    "hash": "d77391245aa2bcb13c3d50348c2f772850ca2e2d03b680b81047c54823d8a414",
+    "hash": "dc136436999c4796b705796505e9bf60e5f13fd7944a6d653bd1364d29790373",
     "reason": "knockout",
-    "ticks": 1134,
+    "ticks": 952,
     "winner": 0
   },
   {
@@ -684,10 +684,10 @@
       "p2": "ghost",
       "seed": 37
     },
-    "hash": "59c143ede26989eedba8f4a9d5d89d8b504458fcf861951b260f85133ad21197",
-    "reason": "double_knockout",
-    "ticks": 2255,
-    "winner": 0
+    "hash": "88ad36010841f54cc75eb25f358ea5ac83df4891b56aee8e683d9a806ac9e671",
+    "reason": "knockout",
+    "ticks": 1514,
+    "winner": 1
   },
   {
     "config": {
@@ -699,9 +699,9 @@
       "p2": "mirror",
       "seed": 38
     },
-    "hash": "df3ce3334b5de381d8b6c14881559852ecb8fcf242b28162506df7bc2214f7c9",
+    "hash": "5492e750b5dda6eb4b04a7059543a63d263d71d4c680db7979aeea1b204e7708",
     "reason": "knockout",
-    "ticks": 1319,
+    "ticks": 2284,
     "winner": 0
   },
   {
@@ -714,9 +714,9 @@
       "p2": "phoenix",
       "seed": 39
     },
-    "hash": "e757b1504a32e6b48d0a38e246b8456abd6dd95a0ee4f2b4dcd6ba7d88b68544",
-    "reason": "knockout",
-    "ticks": 2109,
+    "hash": "0fdfb5d3324352d7245379705f81b1e63a8eb5cb7336e3ac14350a4a3c26b846",
+    "reason": "double_knockout",
+    "ticks": 3929,
     "winner": 1
   },
   {
@@ -729,9 +729,9 @@
       "p2": "gravity",
       "seed": 40
     },
-    "hash": "dd9a60bedb22875dea414b05e3ac545210aa39f1c8545d203717485f2075211c",
-    "reason": "double_knockout",
-    "ticks": 2533,
+    "hash": "d3f7cac8c8d1c41a1c1a5243d7e6f6f109c7b0c1b702ced4cd26867d769dcb35",
+    "reason": "knockout",
+    "ticks": 1802,
     "winner": 1
   },
   {
@@ -748,9 +748,9 @@
         5
       ]
     },
-    "hash": "afc8c3148251d8e688dd0224c668ec161153072bdc35303f9440c35a17622077",
+    "hash": "a05799087a49bd579005b69ac78a911cb0cc05c80d27c0bef0312fc63ecf39a3",
     "reason": "knockout",
-    "ticks": 1810,
+    "ticks": 1427,
     "winner": 1
   },
   {
@@ -767,9 +767,9 @@
         5
       ]
     },
-    "hash": "566b972b1a393606ca8f641cf0af5865089e879ba1d8801255eebdd9f5efe069",
+    "hash": "88e5212ecb679e33e8e21056090aa002e88a823ae873aadd8d55216fc1bfdde7",
     "reason": "knockout",
-    "ticks": 1436,
+    "ticks": 2101,
     "winner": 1
   },
   {
@@ -786,10 +786,10 @@
         5
       ]
     },
-    "hash": "4a27575f49f216f639ad6d1cbba87da2c89ead9ecfae801af93bd846adbe4d6f",
-    "reason": "knockout",
-    "ticks": 978,
-    "winner": 1
+    "hash": "83ad4356664c52383f96695589a4b39e46132058f4732751de38e1e0b23844a2",
+    "reason": "double_knockout",
+    "ticks": 3554,
+    "winner": 0
   },
   {
     "config": {
@@ -805,9 +805,9 @@
         5
       ]
     },
-    "hash": "af19051d781f38f73b0888ccbe72695fcd9e98d87c9cd236046b9982712a6b01",
+    "hash": "bab5abf78601f2077ed732878f04124ebe6ced10a898f45fab040736285a08c7",
     "reason": "knockout",
-    "ticks": 650,
+    "ticks": 447,
     "winner": 0
   },
   {
@@ -824,9 +824,9 @@
         5
       ]
     },
-    "hash": "a3a7f25a73f7cd6b9f695628eae7699753c39909569c513e8ae24590f2a259b7",
+    "hash": "55d8cfdbdb6c4c834ee3d7c11944266bd9a743ae623f6db71c8bae464678bd06",
     "reason": "knockout",
-    "ticks": 1805,
+    "ticks": 2652,
     "winner": 0
   },
   {
@@ -843,10 +843,10 @@
         5
       ]
     },
-    "hash": "853330b06f5bb72cd9d472de9129b7beeb5707dd920e2e47929272a34c172d13",
-    "reason": "double_knockout",
-    "ticks": 2084,
-    "winner": 1
+    "hash": "6e8053e90fc1a50e73945b8f55a658e517b457ebe83189f1b6d5bed8d287dc2f",
+    "reason": "knockout",
+    "ticks": 2631,
+    "winner": 0
   },
   {
     "config": {
@@ -862,9 +862,9 @@
         5
       ]
     },
-    "hash": "7c872c01d8de2e49b864617ab11ba8cc705344f738fe3b653f9d24fc83c8d88b",
+    "hash": "7093d14de3fef78c3287473a61d22b6c37a04aa70f3a16c6b1a7bfdc4d0a2499",
     "reason": "knockout",
-    "ticks": 492,
+    "ticks": 523,
     "winner": 0
   },
   {
@@ -881,10 +881,10 @@
         5
       ]
     },
-    "hash": "2b8ef50a288724d9ef1bec9a2ecede8b4b3172e712129338f7394d3ad4ea7182",
+    "hash": "69b8fdc90e6e5d462c5a863a3eabb9965e6d24086bc5b44d0dd74b25622d8da4",
     "reason": "knockout",
-    "ticks": 1155,
-    "winner": 0
+    "ticks": 2161,
+    "winner": 1
   },
   {
     "config": {
@@ -900,9 +900,9 @@
         5
       ]
     },
-    "hash": "522adefcfb4f26f948c6d21d2e32a67a5520889729d576d69a11256bc2b5f364",
+    "hash": "a343fbc60e8d42818176377cdd852472cba6d24af79f82058d2720d7135a6886",
     "reason": "knockout",
-    "ticks": 1529,
+    "ticks": 1755,
     "winner": 0
   },
   {
@@ -919,9 +919,9 @@
         5
       ]
     },
-    "hash": "2fff1b24a79ec6a29300bc91cdd72e9094926c75f8dadbead97ee2e6278e1893",
+    "hash": "9af71de6bc253a2d3a638915f3fe0f953593ac9bf67cf491e5c9d6a3ae361711",
     "reason": "knockout",
-    "ticks": 564,
+    "ticks": 715,
     "winner": 1
   },
   {
@@ -938,9 +938,9 @@
         1
       ]
     },
-    "hash": "3430e6d8fc442b75c3827e502ed8ecc0675aaa6c5b694f75bb3fc45ae0767072",
+    "hash": "d067ecca590feee863e78d76d6f1e0d6e3c29a589780635cea58faed2a01d7f8",
     "reason": "knockout",
-    "ticks": 809,
+    "ticks": 2086,
     "winner": 0
   },
   {
@@ -957,9 +957,9 @@
         1
       ]
     },
-    "hash": "107a6c436b2e8cda920e7ca685a077216d0800172496e1b603c2f1ca35f00b77",
+    "hash": "d2e600b935ad8079e95c92399fc261b72b3376e8cd61473a0daf6d1ad1f9339d",
     "reason": "knockout",
-    "ticks": 705,
+    "ticks": 613,
     "winner": 0
   },
   {
@@ -976,9 +976,9 @@
         1
       ]
     },
-    "hash": "16978bd6397a4a37560a1a59d674f268a9de2491650b1c2d1b04d10b96246b6c",
+    "hash": "22d9df5c769766f0cc157b927ff77449c7dd045a2b5a4bceaf4ad565eb3dc2aa",
     "reason": "knockout",
-    "ticks": 1634,
+    "ticks": 1362,
     "winner": 0
   },
   {
@@ -996,10 +996,10 @@
         1
       ]
     },
-    "hash": "b4e8c2511880fbde8ed17028a341f4134e715e8b24f752ad1a82bae86caa7fc9",
-    "reason": "double_knockout",
-    "ticks": 1072,
-    "winner": 0
+    "hash": "fbe249072756bc0e31b28adc3cdf990a99e927ccdeab838e0ab41534c6af0598",
+    "reason": "knockout",
+    "ticks": 923,
+    "winner": 1
   },
   {
     "config": {
@@ -1015,9 +1015,9 @@
         1
       ]
     },
-    "hash": "b68cede3c311fafca73f61e39970d518733459e06aba10c0aa6109fb34ced8eb",
+    "hash": "3f912d28daa9a1753be4644f1a51a608a9aa3e2111c76ed322c0ca8176be3202",
     "reason": "knockout",
-    "ticks": 1273,
+    "ticks": 3017,
     "winner": 0
   },
   {
@@ -1034,9 +1034,9 @@
         1
       ]
     },
-    "hash": "60c2254b8835a3b19ac1582e2804f75bf2abbb06598e17d8fef7afa3d3eadac8",
+    "hash": "2ec124da25381e1a0a921b45d475061826b6172574822dc960b794e2e77d17c0",
     "reason": "knockout",
-    "ticks": 1259,
+    "ticks": 994,
     "winner": 0
   },
   {
@@ -1053,10 +1053,10 @@
         1
       ]
     },
-    "hash": "30a124a169bc276e08f0b53fdf4ce91be284b41040b579b72d22803a29fae10d",
+    "hash": "eb5690468c60c2667cb6a4e0cefef4d9858d75acc56e68db5e7ec58a5c47562d",
     "reason": "knockout",
-    "ticks": 1915,
-    "winner": 1
+    "ticks": 1153,
+    "winner": 0
   },
   {
     "config": {
@@ -1068,9 +1068,9 @@
       "p2": "vampire",
       "seed": 21
     },
-    "hash": "28c0342d699224ef2c5e05f7cd1a56227f7252afca9d1b5b62a0307fabb77e7b",
-    "reason": "knockout",
-    "ticks": 943,
+    "hash": "2cd3f69236b7e5e50cbbf69e4402e47399b54f64c9eed0de072d02b862844d7c",
+    "reason": "double_knockout",
+    "ticks": 2722,
     "winner": 1
   },
   {
@@ -1083,9 +1083,9 @@
       "p2": "laser",
       "seed": 22
     },
-    "hash": "db27ba8eda68a79886d20160ddd7c484daca2ff7274ef464b83b5ffdbb133b35",
+    "hash": "0901ae5d104366b3a69bb9d93bceee3d8d2e6aea7bd8d54d8aefbd94a25f7279",
     "reason": "knockout",
-    "ticks": 1245,
+    "ticks": 1465,
     "winner": 1
   },
   {
@@ -1098,10 +1098,10 @@
       "p2": "magnet",
       "seed": 23
     },
-    "hash": "38367745509902d5c7b26bf5c6930b5043aff138c6130e26a181a8f0e6c87192",
+    "hash": "4d70c4d162e8ef22c54dc1f5bd0f41cd642f7c02a38cb1faf1a5f4d27fc4b7d2",
     "reason": "knockout",
-    "ticks": 807,
-    "winner": 1
+    "ticks": 2270,
+    "winner": 0
   },
   {
     "config": {
@@ -1117,9 +1117,9 @@
         1
       ]
     },
-    "hash": "ae37a90575b32cec55e48c90d7ed0a9ee982f0dd49661ff38ca0abc6d44c732f",
+    "hash": "084aad18f4c6111253b7e600b1858fdc0c535a38cdc46f628a830c701b36d5d9",
     "reason": "knockout",
-    "ticks": 408,
+    "ticks": 776,
     "winner": 0
   },
   {
@@ -1136,10 +1136,10 @@
         1
       ]
     },
-    "hash": "0148a23d28e1c2b861bfebe26e37853a3ccc709d64c461eda9266fcb93d2c237",
-    "reason": "double_knockout",
-    "ticks": 1715,
-    "winner": 1
+    "hash": "8e3fe108ab71de7935f5386a009aed067f34d77619394ec642fe1a52d23347d7",
+    "reason": "knockout",
+    "ticks": 1802,
+    "winner": 0
   },
   {
     "config": {
@@ -1155,9 +1155,9 @@
         1
       ]
     },
-    "hash": "2cfba79307df54da355ac89d634d78b092af46ea322ff4168df195df0a99941b",
+    "hash": "7ec51313fc0693bfa2f1882c0d7ffa04a8895d1a43977e807d0abd11c53a952b",
     "reason": "knockout",
-    "ticks": 1097,
+    "ticks": 709,
     "winner": 0
   },
   {
@@ -1174,9 +1174,9 @@
         1
       ]
     },
-    "hash": "bf8ba01448231717934b6936e6afb856c58930f5464de446adb544c6be2e17c1",
+    "hash": "7989c0b8ce7cc3ed155f9cf02e1d76564274a32300ca4ecf40e302c9145e8654",
     "reason": "knockout",
-    "ticks": 1354,
+    "ticks": 1888,
     "winner": 0
   },
   {
@@ -1190,10 +1190,10 @@
       "p2": "laser",
       "seed": 28
     },
-    "hash": "c3ff2a2b91b4c1117657aea251b913255e2bf55a0c2d126435c48df3ed3cd230",
+    "hash": "ca5968b296ba0e7916f02cb566004ab5a3f92e9f2b509b00dcf2e520dd1ddcec",
     "reason": "knockout",
-    "ticks": 871,
-    "winner": 0
+    "ticks": 1749,
+    "winner": 1
   },
   {
     "config": {
@@ -1209,10 +1209,10 @@
         5
       ]
     },
-    "hash": "1e540bf9b5a0b1721629a9111821aea106253a11e9376ce3d63b87426260dfc4",
-    "reason": "double_knockout",
-    "ticks": 711,
-    "winner": 0
+    "hash": "17d7d7b696cba2aa0658a9ddd3146cee083ab9996b97fec2b11f65c74ec1caa8",
+    "reason": "knockout",
+    "ticks": 1301,
+    "winner": 1
   },
   {
     "config": {
@@ -1228,10 +1228,10 @@
         1
       ]
     },
-    "hash": "a5d5c6448978e97fa56c9e8667bbadb3c5040496887e450485311cb2d77b92bd",
+    "hash": "9c766362d4168b766222da9b319d5ebd5c75e1c6d092f04b565ac751e690dd20",
     "reason": "knockout",
-    "ticks": 2147,
-    "winner": 0
+    "ticks": 1790,
+    "winner": 1
   },
   {
     "config": {
@@ -1247,9 +1247,9 @@
         1
       ]
     },
-    "hash": "2c553de794e93bdb80009ab4619b61f5bd43d4054e5631a06b04cb18a76af71a",
+    "hash": "b2575cb1bea959cda344c20445df2f8de48519dcff4362e555ce5b929fc3a6ba",
     "reason": "knockout",
-    "ticks": 1502,
+    "ticks": 1881,
     "winner": 0
   },
   {
@@ -1266,9 +1266,9 @@
         1
       ]
     },
-    "hash": "d17584f768976e577fd3832bcc1dd3c38b3d2198ee7ef747a860fb03048daa2d",
+    "hash": "87fb787155163b799edc7011dba1adfb20ffbf692cd9dbf56211b0e81f5ab6f6",
     "reason": "knockout",
-    "ticks": 1579,
+    "ticks": 2083,
     "winner": 0
   },
   {
@@ -1285,9 +1285,9 @@
         1
       ]
     },
-    "hash": "0979870281e9e0a3b5006d160bf5134cd5637b65ed4b88b3fe6494fa8a2193d6",
+    "hash": "a3ddf8d4439905d6cfd186d07b90148b83bad515f79d6384ce0870853053044f",
     "reason": "knockout",
-    "ticks": 1817,
+    "ticks": 2449,
     "winner": 0
   },
   {
@@ -1304,9 +1304,9 @@
         1
       ]
     },
-    "hash": "04aa6f422075972355e7aeb832bf4878f77c4ce53c8b86186ebfc8fc40e82654",
+    "hash": "0865d2f77ec3f72459b3c0f07f9bfadceafb142ec6488a18ea72f6fd94f9e40d",
     "reason": "knockout",
-    "ticks": 1306,
+    "ticks": 1862,
     "winner": 0
   },
   {
@@ -1323,9 +1323,9 @@
         1
       ]
     },
-    "hash": "ba7f78d2156b23e60ad9a7bcaaca157d3482f7493cec2b9e7179817f016277b0",
+    "hash": "3a36f1e06f9924398dc5b12c55b0757c53a4aa4b661f8e1d297ac2d15d02d530",
     "reason": "knockout",
-    "ticks": 1291,
+    "ticks": 3031,
     "winner": 0
   },
   {
@@ -1342,9 +1342,9 @@
         1
       ]
     },
-    "hash": "2cc400264dc6053828d74e41419fee1c45c53a8942a14b87e12a2411cca6b1be",
+    "hash": "21760c0691bf176cfe6750adcc831595f3ff9667cb68df3c76d600d1d78b57c1",
     "reason": "knockout",
-    "ticks": 721,
+    "ticks": 1165,
     "winner": 0
   },
   {
@@ -1361,9 +1361,9 @@
         1
       ]
     },
-    "hash": "7b1cb9cf56ccd018c975a2f63e8fcaeba584592ac7bea1ac8a7a39c340fcd318",
+    "hash": "11e1a9e946b8bf2cf4c15f101bf75fb7884137833ce98d99b053d088a06231a6",
     "reason": "knockout",
-    "ticks": 1710,
+    "ticks": 3214,
     "winner": 0
   },
   {
@@ -1380,10 +1380,10 @@
         1
       ]
     },
-    "hash": "03a240487e60d02d1b91f3cc875088099167c6fa34360040d1c7ba793190e4e2",
-    "reason": "double_knockout",
-    "ticks": 2870,
-    "winner": 0
+    "hash": "253c22ca55ed7ddb2c169da3a6c2ecc6e3a8a4798c661ade51097bf3af4f5327",
+    "reason": "knockout",
+    "ticks": 3013,
+    "winner": 1
   },
   {
     "config": {
@@ -1399,9 +1399,9 @@
         1
       ]
     },
-    "hash": "3d57bff24f268ae60155036adebe4d7660f10f614b41484a41b07ca0e7170216",
+    "hash": "3991d1c98be045786f2b7d3e9f04c69ea41bc7e86ce964153c158e0cabd8e6e6",
     "reason": "knockout",
-    "ticks": 1459,
+    "ticks": 1702,
     "winner": 0
   },
   {
@@ -1418,10 +1418,10 @@
         5
       ]
     },
-    "hash": "62c2d16487a6e19c12c899fec6d7dd12caf0656f7aaf72c0d9a3b21d05914393",
+    "hash": "0dd1810d638f19b31a2870042103e86310cd938e66ed78bbce3361b6ab053c44",
     "reason": "knockout",
-    "ticks": 2687,
-    "winner": 1
+    "ticks": 1579,
+    "winner": 0
   },
   {
     "config": {
@@ -1437,9 +1437,9 @@
         5
       ]
     },
-    "hash": "4e9faee21fca5a49b871546da5c0894987eb6fe95d0a6fb2b11984ba1673f574",
+    "hash": "781d46bdaed8641d72c45f999251772f568c59c04c40aa825758be143dfd547c",
     "reason": "knockout",
-    "ticks": 551,
+    "ticks": 639,
     "winner": 1
   },
   {
@@ -1456,10 +1456,10 @@
         5
       ]
     },
-    "hash": "74988e7a871124373d1c954fbf551cd204e6dc318b5b21f1ce5947d363085078",
+    "hash": "8e7a0fbda7a484cf7a5a2905be35e001588da907c000bf4295d0d1cdaabb8d18",
     "reason": "knockout",
-    "ticks": 437,
-    "winner": 1
+    "ticks": 716,
+    "winner": 0
   },
   {
     "config": {
@@ -1475,9 +1475,9 @@
         5
       ]
     },
-    "hash": "2a50270062ab82f63d2390eb8f3b61073da9dc63c60d123ac53e49138274746d",
+    "hash": "c61f6cbe80c5d18c395be52cd2f948100371de498be7a44e5b570c65d4ae8e5c",
     "reason": "knockout",
-    "ticks": 882,
+    "ticks": 1075,
     "winner": 0
   },
   {
@@ -1494,10 +1494,10 @@
         5
       ]
     },
-    "hash": "caccf4d010afd78ee72fb3ffa2240e86d74f8333805eaf7e84913c25876bf187",
+    "hash": "0782476a379cea15c9e76387322973a9dbb4cb87fb2cea474ffd0f8ed8adedc0",
     "reason": "knockout",
-    "ticks": 592,
-    "winner": 1
+    "ticks": 1972,
+    "winner": 0
   },
   {
     "config": {
@@ -1513,10 +1513,10 @@
         5
       ]
     },
-    "hash": "12836348c6aef5caaf6bc56046de89f8b16b17099dc1370a52db9d23d1ef8f4a",
-    "reason": "double_knockout",
-    "ticks": 1304,
-    "winner": 1
+    "hash": "d42480c156dabf167f16fe75222467ad7229a00ada5906c738c0d4da74ca8e90",
+    "reason": "knockout",
+    "ticks": 1494,
+    "winner": 0
   },
   {
     "config": {
@@ -1532,10 +1532,10 @@
         5
       ]
     },
-    "hash": "19a7653dc2f1f6ac9da01c7f474b238504d960b7fb9b61c13517225f55ffd1d1",
+    "hash": "c5b93ab6996b67b58baffc43ace74f519d854b6d3709e85ddb6d8254527840ae",
     "reason": "knockout",
-    "ticks": 869,
-    "winner": 0
+    "ticks": 813,
+    "winner": 1
   },
   {
     "config": {
@@ -1551,10 +1551,10 @@
         5
       ]
     },
-    "hash": "2728bfedb537712d9c290984c4c954396008a9cedd7e59f87a756c63a6ee75d6",
-    "reason": "knockout",
-    "ticks": 1141,
-    "winner": 1
+    "hash": "da6a1d7f925b234a9a13f4b5289d0c5862e657feacab338a4eaac6901ec4ae87",
+    "reason": "double_knockout",
+    "ticks": 2229,
+    "winner": 0
   },
   {
     "config": {
@@ -1566,10 +1566,10 @@
       "p2": "vampire",
       "seed": 61
     },
-    "hash": "95f37d5fa0337e3bb95d98fefaf6cea2d4c7394977e37051c43af73863db72d4",
-    "reason": "knockout",
-    "ticks": 1446,
-    "winner": 0
+    "hash": "deac4f3483b98fd6cf251114ee2b4b3521194eda6ab52e1ced78a1a080bc0c41",
+    "reason": "double_knockout",
+    "ticks": 2242,
+    "winner": 1
   },
   {
     "config": {
@@ -1585,9 +1585,9 @@
         5
       ]
     },
-    "hash": "c9f5df3fd11b73d620632365f4e682eebc27040ad9f29d59595df5cad329eda2",
+    "hash": "8ed8fd7678c4a04007e89c8a2898eeab09e47f1d6efd8b3f71209cf13c4a8796",
     "reason": "knockout",
-    "ticks": 827,
+    "ticks": 1068,
     "winner": 0
   },
   {
@@ -1600,10 +1600,10 @@
       "p2": "bomber",
       "seed": 63
     },
-    "hash": "d447b4b35dfe53059b861dbb74dcc88650cda0a1d1adaf0ab7195254f9f16b32",
+    "hash": "733b23d3caf8b1023aaa3ba3ee34dc9e67fe9a0dc1b549327e0a571cfd27c2f3",
     "reason": "knockout",
-    "ticks": 1756,
-    "winner": 1
+    "ticks": 3112,
+    "winner": 0
   },
   {
     "config": {
@@ -1619,9 +1619,9 @@
         5
       ]
     },
-    "hash": "817d94722eecf5f344212d4fb83ee04a4f27bbf4a46791502e1a5a773e8adad8",
-    "reason": "knockout",
-    "ticks": 2232,
+    "hash": "8581f15a284314e86d2b0a5b538c68e7862081762006b23938be9be18e0928e0",
+    "reason": "double_knockout",
+    "ticks": 3455,
     "winner": 0
   },
   {
@@ -1634,10 +1634,10 @@
       "p2": "thorns",
       "seed": 65
     },
-    "hash": "ccc7ecd94cf06a80eadf43b7974e7f3a4f63a01ec0a7e29d20dd4c51a6621cce",
+    "hash": "df14a204f07c5a795c3b5aced33cce293302b9b0a81997ceffd9eb3260a84966",
     "reason": "knockout",
-    "ticks": 1641,
-    "winner": 1
+    "ticks": 2388,
+    "winner": 0
   },
   {
     "config": {
@@ -1653,9 +1653,9 @@
         5
       ]
     },
-    "hash": "787d4d83a83e9e02c5bc002d14a76138f5497a7d72339991fff2210746ff2b40",
+    "hash": "4e19ac1a96c7f06529f433e7eb6db6fb57d6f6f8c7f88b361a0c009e4ea77452",
     "reason": "knockout",
-    "ticks": 377,
+    "ticks": 346,
     "winner": 0
   },
   {
@@ -1672,10 +1672,10 @@
         5
       ]
     },
-    "hash": "b88f58a7c1522dc9b2df3ecd062cf99b04d9d9b1ec044f752f4701dd99f9259d",
+    "hash": "311cb6c3162bef648a86f3370569c6c1d8ef5343eba22cae1b780dbf5d6fac8d",
     "reason": "knockout",
-    "ticks": 977,
-    "winner": 1
+    "ticks": 1228,
+    "winner": 0
   },
   {
     "config": {
@@ -1687,9 +1687,9 @@
       "p2": "mirror",
       "seed": 68
     },
-    "hash": "fc9c9b30e27d65d059b6f129c2e0123b5a1786ee2612f8dd7a2aea37b2dbc90f",
+    "hash": "8f3f91b08f7b3e6658a22dea8cde377b7a1880161788141dc05f4bb762281f95",
     "reason": "knockout",
-    "ticks": 1957,
+    "ticks": 1049,
     "winner": 1
   },
   {
@@ -1706,9 +1706,9 @@
         5
       ]
     },
-    "hash": "c0677723702999178e198a75db5d51da414e3c3c25ef8a07515025d1a03bf5a7",
+    "hash": "8234518ae9141861488122fab4adcd2bbdcf7c0f8fe2066b7a0ed9e7907a999a",
     "reason": "knockout",
-    "ticks": 862,
+    "ticks": 907,
     "winner": 1
   },
   {
@@ -1722,9 +1722,9 @@
       "p2": "blackhole",
       "seed": 70
     },
-    "hash": "e0c0405d0a2632ac1520e675711478d78c76a99cebd5ec5a89189f9f29588764",
-    "reason": "double_knockout",
-    "ticks": 955,
+    "hash": "31afa753f7928c17fe2882083ccd64cd12b95ee0c3845453c3355c329138740d",
+    "reason": "knockout",
+    "ticks": 2041,
     "winner": 1
   },
   {
@@ -1737,10 +1737,10 @@
       "p2": "vampire",
       "seed": 81
     },
-    "hash": "35c0543ec1a3890f01b393dfc5bd3391761b04eca8d5614975d52c0938bdd222",
+    "hash": "c28dafb09c6ba5e60ae71049af0b2e422b441eb89088fa39e736a570c557c585",
     "reason": "knockout",
-    "ticks": 2153,
-    "winner": 1
+    "ticks": 872,
+    "winner": 0
   },
   {
     "config": {
@@ -1752,9 +1752,9 @@
       "p2": "laser",
       "seed": 82
     },
-    "hash": "53c6ec0f2c004fda7405a3855814a550ca90311347c1a292a044c98df0deaf0f",
+    "hash": "3bcc34a2127c5d9c3b1986d3a261d54198d9a01592f78107400f085ebc913dbc",
     "reason": "knockout",
-    "ticks": 1514,
+    "ticks": 1977,
     "winner": 1
   },
   {
@@ -1771,9 +1771,9 @@
         5
       ]
     },
-    "hash": "1d9f9e5faeea5c0ddad88976b4948a8d13260d01e3d54b9cbe82b42dca45500b",
+    "hash": "ec5c251904d93c63aeb08334af9353597faece6b38ffc2968541fb2a83b78e8b",
     "reason": "knockout",
-    "ticks": 631,
+    "ticks": 695,
     "winner": 1
   },
   {
@@ -1790,9 +1790,9 @@
         5
       ]
     },
-    "hash": "1097e22803cc91f8fca99eb128287c10916887f12fe57945d58f315212fc058e",
+    "hash": "a0476800e30df31bcb03c8b3a351a67725e7d57670de36c68c6995ba2860f0a8",
     "reason": "knockout",
-    "ticks": 899,
+    "ticks": 2141,
     "winner": 1
   },
   {
@@ -1809,10 +1809,10 @@
         5
       ]
     },
-    "hash": "04503a1843b2b98861d2c35c616762f777c8864dd1d6e9cf8c63761ca6db77ea",
-    "reason": "double_knockout",
-    "ticks": 2316,
-    "winner": 0
+    "hash": "760673c667c7698e3906df2a1ccb242ba19976b61797ba6cd1abfd462e5074a0",
+    "reason": "knockout",
+    "ticks": 3291,
+    "winner": 1
   },
   {
     "config": {
@@ -1824,10 +1824,10 @@
       "p2": "frost",
       "seed": 86
     },
-    "hash": "32261a178ec94856dea011d3b83eea98628fb2bd50aea7dafd6d15f5c928b5ea",
+    "hash": "8ca4928ac8e27660414d90ebe39d6fe47d45721c6f8f350593ff356b2a9b1ae5",
     "reason": "knockout",
-    "ticks": 1568,
-    "winner": 1
+    "ticks": 2032,
+    "winner": 0
   },
   {
     "config": {
@@ -1843,9 +1843,9 @@
         5
       ]
     },
-    "hash": "b389dd765a55202919c376a9bd26d12d8f325919067ba1f54cebe9e138c7bfe2",
+    "hash": "c621d804396a17570d7c43a360549348ed9e706c9dc6119db1fd8850ca16d201",
     "reason": "knockout",
-    "ticks": 1600,
+    "ticks": 1261,
     "winner": 0
   },
   {
@@ -1858,10 +1858,10 @@
       "p2": "gravity",
       "seed": 88
     },
-    "hash": "22b62d150a65fdbe1bd90b9f55a5c62122a37843aa4bbff499e57bc0e63e9c38",
+    "hash": "8a222526d5e690c3c3a37a90a07b74c99b89aa2f3c1f98bf02837bfc41438b3c",
     "reason": "knockout",
-    "ticks": 1795,
-    "winner": 1
+    "ticks": 940,
+    "winner": 0
   },
   {
     "config": {
@@ -1874,10 +1874,10 @@
       "p2": "prism",
       "seed": 89
     },
-    "hash": "8a55f484fddac4b14ac2c911b3a89a5b2a3dcb598b51cd1283b3bb2fd933d9f2",
+    "hash": "8f24b2a6ef31cd4a2b689ea934a28562ca96ad5482f5fd5982129f9c18429ba3",
     "reason": "knockout",
-    "ticks": 900,
-    "winner": 1
+    "ticks": 359,
+    "winner": 0
   },
   {
     "config": {
@@ -1889,10 +1889,10 @@
       "p2": "blackhole",
       "seed": 90
     },
-    "hash": "91d4193184982eae98b79181125264eda6c82ba269adccb8d8966a82283be953",
-    "reason": "double_knockout",
-    "ticks": 1553,
-    "winner": 1
+    "hash": "41e8f21acde342866c6c26c68d5c9b56291109d4970137308a2b30dcda16d3b5",
+    "reason": "knockout",
+    "ticks": 1572,
+    "winner": 0
   },
   {
     "config": {
@@ -1908,9 +1908,9 @@
         5
       ]
     },
-    "hash": "6e58935196c6d54024e3d43ef81300a55c7a5a9a6584d3869d92f3bced8c4510",
+    "hash": "292b79c941d2312825594df779481c53841cdb9dd811d85b014eeb22082c9100",
     "reason": "knockout",
-    "ticks": 1731,
+    "ticks": 2414,
     "winner": 0
   },
   {
@@ -1923,9 +1923,9 @@
       "p2": "splitter",
       "seed": 92
     },
-    "hash": "122a3744181d4b9ac426ac61252670c096b07480e08ab27c5bd1149923a906ba",
+    "hash": "121a5151c69a14d82758ac748a1b8c145805c777de63b335d9f2e36312e43fb9",
     "reason": "knockout",
-    "ticks": 1420,
+    "ticks": 1886,
     "winner": 0
   },
   {
@@ -1939,9 +1939,9 @@
       "p2": "juggernaut",
       "seed": 91
     },
-    "hash": "994f5e034c625cc034ecee813ef71df41c55dd5880a9020f17ab6cf52e0fb3af",
+    "hash": "23617264ab6253faf6aee16a8a3ce199e6d9880de27f771ee7df9ab5275b3768",
     "reason": "knockout",
-    "ticks": 1244,
+    "ticks": 2637,
     "winner": 0
   },
   {
@@ -1955,10 +1955,10 @@
       "p2": "vampire",
       "seed": 92
     },
-    "hash": "458299b3006d731a49e9677b6d4cba1e50cc5d9fda45803f5d46b4ebe8ff5771",
-    "reason": "knockout",
-    "ticks": 1511,
-    "winner": 0
+    "hash": "07eff3ccbd1c78a0d5fcbfb8cbb857a0eada696984090fa02f15d9a3d496b7d7",
+    "reason": "double_knockout",
+    "ticks": 1464,
+    "winner": 1
   },
   {
     "config": {
@@ -1971,9 +1971,9 @@
       "p2": "laser",
       "seed": 93
     },
-    "hash": "762a58158b0b77fd216f7172a6259ecf45e9466ec6069691ba33fb680478a994",
+    "hash": "07ed4199cb654f9487389bedeeb1528daefecb50d8a4d706f4f38e8fabca18f4",
     "reason": "knockout",
-    "ticks": 1310,
+    "ticks": 1339,
     "winner": 0
   },
   {
@@ -1987,9 +1987,9 @@
       "p2": "spiker",
       "seed": 94
     },
-    "hash": "beb301cdc6ca0dee61a7aeaf11f22d7987a74f9cc659652b8cbdcb9b357e6f76",
-    "reason": "double_knockout",
-    "ticks": 1077,
+    "hash": "20206f4fddeb2a580afb553d17cb546f63ae9e7149f6493613aa6585cec26a00",
+    "reason": "knockout",
+    "ticks": 551,
     "winner": 1
   },
   {
@@ -2003,9 +2003,9 @@
       "p2": "laser",
       "seed": 95
     },
-    "hash": "edb02bea5a53034949f47d02faf21aec358e77b222edd485b41ac84817765377",
+    "hash": "a018ca2521458db3b08a3d80f4df4095863cf4e192ed2abca2ddd9e8870d57f5",
     "reason": "knockout",
-    "ticks": 1683,
+    "ticks": 1340,
     "winner": 1
   },
   {
@@ -2019,10 +2019,10 @@
       "p2": "bubbles",
       "seed": 96
     },
-    "hash": "56f1c9479a7b6ce0edba4fcd50baa079360057442074de2d142d376a1df98070",
+    "hash": "fc647d1b91855d0ba6f989d30f7d54f0cfa1bf765a66cb4a624dabffa69e9ca0",
     "reason": "knockout",
-    "ticks": 2670,
-    "winner": 1
+    "ticks": 1505,
+    "winner": 0
   },
   {
     "config": {
@@ -2035,9 +2035,9 @@
       "p2": "speedster",
       "seed": 97
     },
-    "hash": "1873740c54003297eda09701a0f9e709d8a94fd039db4e1622ea097b44548ea9",
-    "reason": "knockout",
-    "ticks": 1561,
+    "hash": "bc18078fcc7311458011ec355130a44dd37226c3186814a978196d5a4ac40e37",
+    "reason": "double_knockout",
+    "ticks": 1997,
     "winner": 1
   },
   {
@@ -2051,9 +2051,9 @@
       "p2": "gust",
       "seed": 98
     },
-    "hash": "87e08df0d869f84c1d09ba9647e54d303402e417f5d8f678d95dac09b5b66067",
-    "reason": "double_knockout",
-    "ticks": 1896,
+    "hash": "4c74cdc749cbfd5694bc5b7d9b09a28ee6a39bbdb58d42298cdaadb4bd3758d9",
+    "reason": "knockout",
+    "ticks": 1141,
     "winner": 1
   },
   {
@@ -2067,10 +2067,10 @@
       "p2": "spiker",
       "seed": 99
     },
-    "hash": "b3cd3a3176116863427cc85708195f09b2576bf79fe5549f4548c8a5849f07f1",
-    "reason": "knockout",
-    "ticks": 1191,
-    "winner": 1
+    "hash": "97a33054f299b654847ab3a3e1a895f6ac5bbf7375d95eb7dd94441f9ffc2606",
+    "reason": "double_knockout",
+    "ticks": 2418,
+    "winner": 0
   },
   {
     "config": {
@@ -2083,10 +2083,10 @@
       "p2": "laser",
       "seed": 100
     },
-    "hash": "630ccd36c722f5137c156636a099e01a4559648fe24b800f3057de05a01bfd91",
+    "hash": "66eb5d930c93a7560e5e35a11c8dbc1208cae509cee01878be64f039688a3a0a",
     "reason": "knockout",
-    "ticks": 374,
-    "winner": 0
+    "ticks": 1323,
+    "winner": 1
   },
   {
     "config": {
@@ -2099,10 +2099,10 @@
       "p2": "pollen",
       "seed": 101
     },
-    "hash": "bfbcbb03e4a638652e73bcd22f5d0c7c0c3100559db80a44881edd962c426ba0",
+    "hash": "75508b8626e656ee993ccef37d6d22587c2645365f5c5809c4124038802f52aa",
     "reason": "knockout",
-    "ticks": 1467,
-    "winner": 1
+    "ticks": 1436,
+    "winner": 0
   },
   {
     "config": {
@@ -2115,9 +2115,9 @@
       "p2": "phoenix",
       "seed": 102
     },
-    "hash": "ef53550882d592dc5bda5dc7546733002741f6ddf2fcb694a6cc6b02f800db96",
-    "reason": "knockout",
-    "ticks": 1488,
+    "hash": "b24ffcedc0dcacbc4b51e2d14b3c9a2577ada584eaaa950632cd2d33d1598fed",
+    "reason": "double_knockout",
+    "ticks": 1317,
     "winner": 0
   }
 ]

@@ -6,6 +6,7 @@
 ## needs no code; a new effect is one fx_<name> method plus its EFFECTS entry.
 ## Effects must stay deterministic: no randf(), no time, only sim.rng.
 extends RefCounted
+const DMath := preload("res://sim/dmath.gd")
 
 ## Trigger -> what fires it and the extra keys its entry may carry.
 const TRIGGERS := {
@@ -506,7 +507,7 @@ func fx_copy(sim, b, ctx: Dictionary) -> void:
 	var base: Dictionary = b.def
 	var copied := base.duplicate()
 	for key in src.def:
-		if not copied.has(key):
+		if not copied.has(key) and not key in ["boss", "minion"]: # A boss's or egg's nature isn't copied.
 			copied[key] = src.def[key]
 			if key.ends_with("_damage") or key.ends_with("_dps") or key.ends_with("_accel"): # A copy hits (and pulls) softer.
 				copied[key] = src.def[key] * base.copy_scale
@@ -583,7 +584,7 @@ func fx_revive(sim, b, _ctx: Dictionary) -> void:
 	if b.def.revive_shield > 0.0:
 		b.shield = maxf(b.shield, b.def.revive_shield)
 	for k in int(b.def.revive_bolts):
-		var dir := Vector2.from_angle(k * TAU / b.def.revive_bolts)
+		var dir := DMath.from_angle(k * TAU / b.def.revive_bolts)
 		sim.add_beam(b, b.pos + dir * b.radius, b.pos + dir * (b.radius + 260.0), {"life": 0.6, "damage": 5.0, "cooldown": 1.0})
 
 
@@ -625,7 +626,7 @@ func fx_beam_at(sim, b, ctx: Dictionary) -> void:
 	var to: Vector2 = f.pos - ctx.point
 	var length := maxf(to.length() * 1.15, 200.0)
 	for k in n:
-		var dir := to.normalized().rotated(deg_to_rad(15.0 * (k - (n - 1) / 2.0)))
+		var dir := DMath.rotated(to.normalized(), deg_to_rad(15.0 * (k - (n - 1) / 2.0)))
 		sim.add_beam(b, ctx.point, ctx.point + dir * length, {"life": b.def.prism_life, "damage": b.def.prism_damage, "cooldown": 0.25})
 
 
@@ -678,9 +679,9 @@ static func _heal_now(sim, b, amount: float) -> void:
 ## n short bolts fanned evenly around `b`, starting from its heading, each
 ## hitting a foe once for `damage` (crumbs, spines).
 static func _spray(sim, b, n: int, damage: float) -> void:
-	var start: float = b.vel.angle() if b.vel.length() > 0.001 else 0.0
+	var start: float = DMath.angle(b.vel) if b.vel.length() > 0.001 else 0.0
 	for k in n:
-		var dir := Vector2.from_angle(start + k * TAU / n)
+		var dir := DMath.from_angle(start + k * TAU / n)
 		sim.add_beam(b, b.pos + dir * b.radius, b.pos + dir * (b.radius + 200.0), {"life": 0.4, "damage": damage, "cooldown": 1.0})
 
 
@@ -1058,7 +1059,7 @@ func fx_lamp_sweep(sim, b, _ctx: Dictionary) -> void:
 		if not sim.beams.has(beam):
 			sweeps.erase(s)
 			continue
-		var d: Vector2 = s.dir.rotated(deg_to_rad(b.def.lamp_sweep) * beam.age / beam.life)
+		var d: Vector2 = DMath.rotated(s.dir, deg_to_rad(b.def.lamp_sweep) * beam.age / beam.life)
 		beam.b = _to_wall(sim, beam.a, d)
 
 
@@ -1524,7 +1525,7 @@ func _volley(sim, b, n: int, aim: String) -> void:
 		"burst_radius": b.def.get("shot_burst_radius", 0.0) if b.def.get("shot_burst_damage", 0.0) > 0.0 else 0.0,
 	}
 	for k in n:
-		var d: Vector2 = dir.rotated(k * TAU / n) if aim == "ring" else dir.rotated(spread * (k - (n - 1) / 2.0))
+		var d: Vector2 = DMath.rotated(dir, k * TAU / n) if aim == "ring" else DMath.rotated(dir, spread * (k - (n - 1) / 2.0))
 		sim.add_shot(b, b.pos + d * (b.radius + radius + 2.0), d * b.def.shot_speed, opts)
 
 
@@ -1605,7 +1606,7 @@ func fx_lob(sim, b, _ctx: Dictionary) -> void:
 		var turn: float = sim.rng.next_float() * TAU
 		spots = [spot]
 		for k in 2:
-			spots.append(spot + Vector2.from_angle(turn + k * PI) * b.def.lob_radius * 1.2)
+			spots.append(spot + DMath.from_angle(turn + k * PI) * b.def.lob_radius * 1.2)
 	for p in spots:
 		var opts: Dictionary = {"kind": "shell", "damage": b.def.lob_damage, "land_radius": b.def.lob_radius}
 		if b.def.lob_crater_dps > 0.0:
@@ -1627,7 +1628,7 @@ func fx_brew(sim, b, _ctx: Dictionary) -> void:
 			"life": b.def.brew_life, "dps": b.def.brew_dps, "slow": b.def.brew_slow}})
 		return
 	for k in int(b.def.brew_count):
-		var at: Vector2 = f.pos + Vector2.from_angle(sim.rng.next_float() * TAU) * b.def.brew_spread * sqrt(sim.rng.next_float())
+		var at: Vector2 = f.pos + DMath.from_angle(sim.rng.next_float() * TAU) * b.def.brew_spread * sqrt(sim.rng.next_float())
 		var burn: bool = (int(b.state.get("blobs", 0)) + k) % 2 == 0
 		var zone: Dictionary = {"kind": "fire", "radius": b.def.brew_radius, "life": b.def.brew_life, "dps": b.def.brew_dps} if burn \
 			else {"kind": "goo", "radius": b.def.brew_radius, "life": b.def.brew_life, "slow": b.def.brew_slow}
@@ -1712,7 +1713,7 @@ func fx_stack_breath(sim, b, _ctx: Dictionary) -> void:
 	# The fireballs land this tick (deal), so they hit before a fade the same
 	# bump sets off; the beams only draw them.
 	for k in n:
-		var d := dir.rotated(cone * ((k / float(n - 1)) - 0.5) if n > 1 else 0.0)
+		var d := DMath.rotated(dir, cone * ((k / float(n - 1)) - 0.5) if n > 1 else 0.0)
 		var from: Vector2 = b.pos + d * b.radius
 		var to: Vector2 = b.pos + d * reach
 		sim.add_beam(b, from, to, {"life": 0.3, "damage": 0.0, "cooldown": 1.0})
@@ -1721,8 +1722,8 @@ func fx_stack_breath(sim, b, _ctx: Dictionary) -> void:
 				sim.deal(b, o, b.def.fire_damage, "fire", o.pos)
 	for o in sim.foes(b):
 		var off: Vector2 = o.pos - b.pos
-		var half_width := asin(clampf(o.radius / maxf(off.length(), o.radius), 0.0, 1.0))
-		if off.length() <= reach + o.radius and absf(dir.angle_to(off)) <= cone / 2.0 + half_width:
+		var half_width := DMath.asin(clampf(o.radius / maxf(off.length(), o.radius), 0.0, 1.0))
+		if off.length() <= reach + o.radius and absf(DMath.angle_to(dir, off)) <= cone / 2.0 + half_width:
 			sim.add_burn(b, o, b.def.fire_burn, 2.0)
 	if b.def.fire_streak > 0.0:
 		var steps := int(b.def.fire_range / 70.0)
@@ -1880,7 +1881,7 @@ func fx_roar(sim, b, _ctx: Dictionary) -> void:
 		if o.pos.distance_to(b.pos) <= b.def.roar_radius + o.radius:
 			chill(sim, b, o, b.def.roar_slow, b.def.roar_secs)
 	for k in int(b.def.roar_drifts):
-		var p: Vector2 = b.pos + Vector2.from_angle(k * TAU / b.def.roar_drifts) * (b.radius + 90.0)
+		var p: Vector2 = b.pos + DMath.from_angle(k * TAU / b.def.roar_drifts) * (b.radius + 90.0)
 		sim.add_zone(b, p, {"kind": "frost", "radius": 70.0, "life": 4.0, "slow": 0.3})
 
 
@@ -1953,7 +1954,7 @@ static func _ring(sim, b, n: int, dist: float, spin: float, offset := 0.0) -> Ar
 	var out: Array[Vector2] = []
 	for k in n:
 		var ang: float = sim.tick * sim.DT * spin + offset + k * TAU / maxi(1, n)
-		out.append(b.pos + Vector2.from_angle(ang) * dist)
+		out.append(b.pos + DMath.from_angle(ang) * dist)
 	return out
 
 
@@ -2076,7 +2077,7 @@ func fx_wrecker(sim, b, _ctx: Dictionary) -> void:
 		damage *= 2.0
 		size *= 1.3
 	b.state.windup = big
-	var dir := Vector2.from_angle(sim.tick * sim.DT * b.def.wreck_spin)
+	var dir := DMath.from_angle(sim.tick * sim.DT * b.def.wreck_spin)
 	var p: Vector2 = b.pos + dir * reach
 	for o in _orb_hit(sim, b, p, size, damage, b.def.wreck_cooldown, "wreck", "wreck"):
 		var away: Vector2 = o.pos - p
@@ -2110,9 +2111,9 @@ func fx_swarm(sim, b, _ctx: Dictionary) -> void:
 	for bee in out.duplicate():
 		var f = sim.nearest_foe(b)
 		if f != null:
-			var want: float = bee.vel.angle_to(f.pos - bee.pos)
+			var want: float = DMath.angle_to(bee.vel, f.pos - bee.pos)
 			var turn: float = b.def.bee_turn * sim.DT
-			bee.vel = bee.vel.rotated(clampf(want, -turn, turn))
+			bee.vel = DMath.rotated(bee.vel, clampf(want, -turn, turn))
 		bee.pos += bee.vel * sim.DT
 		bee.age += sim.DT
 		var gone: bool = bee.age >= b.def.bee_life or not rect.grow(40.0).has_point(bee.pos)
@@ -2224,7 +2225,7 @@ func fx_quasar(sim, b, _ctx: Dictionary) -> void:
 		if k >= n:
 			_drop_beam(sim, b, name)
 			continue
-		var dir := Vector2.from_angle(b.state.quasar_angle + k * TAU / n)
+		var dir := DMath.from_angle(b.state.quasar_angle + k * TAU / n)
 		var from: Vector2 = b.pos + dir * b.radius
 		var length: float = _wall_reach(sim, from, dir) if flaring else b.def.quasar_length
 		_hold_beam(sim, b, name, from, from + dir * length, dps)
@@ -2293,7 +2294,7 @@ func fx_yoyo(sim, b, _ctx: Dictionary) -> void:
 	var u: Vector2 = rel / d if d > 0.001 else b.state.anchor_normal
 	var step: float = b.current_speed() * sim.DT
 	var r := move_toward(d, b.def.yoyo_string, step * 0.6)
-	var next: Vector2 = anchor + u.rotated(b.state.swing_turn * step / maxf(r, step)) * r
+	var next: Vector2 = anchor + DMath.rotated(u, b.state.swing_turn * step / maxf(r, step)) * r
 	b.vel = (next - b.pos).normalized() * b.current_speed()
 	_hold_beam(sim, b, "string0", anchor, b.pos - u * b.radius, b.def.yoyo_dps)
 	if int(b.def.yoyo_strings) >= 2:
@@ -2572,8 +2573,8 @@ func fx_ping(sim, b, _ctx: Dictionary) -> void:
 	# It hears where the foe is going and turns up to ping_turn degrees to cut
 	# it off: a swerve, not a straight chase down the foe's trail.
 	var to: Vector2 = f.pos + f.vel * 0.5 - b.pos
-	var turn: float = clampf(b.vel.angle_to(to), -deg_to_rad(b.def.ping_turn), deg_to_rad(b.def.ping_turn))
-	sim.charge(b, b.vel.rotated(turn) if b.vel.length() > 0.001 else to, b.def.ping_dash_mult, b.def.ping_dash_secs)
+	var turn: float = clampf(DMath.angle_to(b.vel, to), -deg_to_rad(b.def.ping_turn), deg_to_rad(b.def.ping_turn))
+	sim.charge(b, DMath.rotated(b.vel, turn) if b.vel.length() > 0.001 else to, b.def.ping_dash_mult, b.def.ping_dash_secs)
 	b.state.ping_until = sim.tick + int(round(b.def.ping_dash_secs * sim.TICK_RATE))
 	sim.pulse(b, b.pos, b.def.ping_radius, b.def.ping_damage, false, "ping")
 	if b.def.ping_mark > 0.0: # T5: the ping finds the foe wherever it is; its next hit on it crits.
@@ -2839,7 +2840,7 @@ func fx_seed_wilt(sim, b, _ctx: Dictionary) -> void:
 		var segs := []
 		var to: Vector2 = f.pos - p.pos
 		for k in int(b.def.seed_shots):
-			var dir := to.normalized().rotated(deg_to_rad(10.0 * (k - (b.def.seed_shots - 1) / 2.0)))
+			var dir := DMath.rotated(to.normalized(), deg_to_rad(10.0 * (k - (b.def.seed_shots - 1) / 2.0)))
 			segs.append([p.pos, p.pos + dir * maxf(to.length() * 1.2, 150.0)])
 		_shoot(sim, b, segs, b.def.seed_shot_damage, "seed")
 
@@ -2856,7 +2857,7 @@ func fx_vine(sim, b, _ctx: Dictionary) -> void:
 	# A spot an arena obstacle crowds out tries the next quarter turn.
 	for turn in 4:
 		for k in int(b.def.vine_pairs):
-			var p = sim.add_piece(b, f.pos + Vector2.from_angle(ang + turn * PI / 2.0 + k * PI) * b.def.vine_offset,
+			var p = sim.add_piece(b, f.pos + DMath.from_angle(ang + turn * PI / 2.0 + k * PI) * b.def.vine_offset,
 				{"kind": "vine", "radius": b.def.vine_radius, "life": b.def.vine_life, "grow": 0.2})
 			if p != null:
 				anchors.append({"piece": p, "length": maxf(p.pos.distance_to(f.pos), f.radius + p.radius) + b.def.vine_slack})
@@ -2915,7 +2916,7 @@ func fx_ice_ring(sim, b, _ctx: Dictionary) -> void:
 	var turn: float = sim.rng.next_float() * TAU
 	var spots := []
 	for k in n:
-		var p = sim.add_piece(b, f.pos + Vector2.from_angle(turn + k * TAU / n) * b.def.ring_radius * f.radius / 64.0,
+		var p = sim.add_piece(b, f.pos + DMath.from_angle(turn + k * TAU / n) * b.def.ring_radius * f.radius / 64.0,
 			{"kind": "ice", "radius": b.def.ring_pillar, "life": b.def.ring_life, "grow": 0.25})
 		if p != null:
 			spots.append(p.pos)
@@ -2953,7 +2954,7 @@ func fx_ice_ring_tick(sim, b, _ctx: Dictionary) -> void:
 func fx_root(sim, b, _ctx: Dictionary) -> void:
 	var n := int(b.def.root_count)
 	for k in n:
-		var dir := Vector2.from_angle(PI / 4.0 + k * TAU / n)
+		var dir := DMath.from_angle(PI / 4.0 + k * TAU / n)
 		sim.add_piece(b, b.pos + dir * (b.radius + b.def.root_radius + 55.0),
 			{"kind": "root", "radius": b.def.root_radius, "life": b.def.root_life, "grow": 0.3})
 	b.state.rooted_until = sim.tick + int(round(b.def.root_life * sim.TICK_RATE))
@@ -3023,7 +3024,7 @@ func fx_illusions(sim, b, _ctx: Dictionary) -> void:
 	var n := int(b.def.illusion_count)
 	var turn: float = sim.rng.next_float() * TAU
 	for k in n:
-		var dir := Vector2.from_angle(turn + k * TAU / n)
+		var dir := DMath.from_angle(turn + k * TAU / n)
 		sim.add_piece(b, b.pos + dir * b.radius * 0.5, {"kind": "illusion", "radius": b.radius * b.def.illusion_size,
 			"life": b.def.illusion_life, "block": false, "vel": dir * b.speed})
 	sim.events.append({"type": "illusions", "ball": b.index, "pos": b.pos})
@@ -3081,7 +3082,7 @@ func fx_spin(sim, b, _ctx: Dictionary) -> void:
 				var turn: float = sim.rng.next_float() * TAU
 				var ahead: Vector2 = spot + f.vel * b.def.spin_delay
 				for k in 3:
-					sim.add_zone(b, sim.inside(ahead + Vector2.from_angle(turn + k * TAU / 3.0) * 90.0, 30.0), {"kind": "mine", "radius": 16.0,
+					sim.add_zone(b, sim.inside(ahead + DMath.from_angle(turn + k * TAU / 3.0) * 90.0, 30.0), {"kind": "mine", "radius": 16.0,
 						"life": 4.0, "arm": b.def.spin_delay, "blast": b.def.prize_mine_damage * b.def.prize_mult, "blast_radius": b.def.prize_mine_radius})
 			"shield":
 				b.shield = maxf(b.shield, b.def.prize_shield)
@@ -3110,9 +3111,9 @@ func fx_spin_tick(sim, b, _ctx: Dictionary) -> void:
 					continue
 				var segs := []
 				var n := int(b.def.prize_coin_count)
-				var aim: float = (f.pos - b.pos).angle()
+				var aim: float = DMath.angle(f.pos - b.pos)
 				for k in n:
-					var dir := Vector2.from_angle(aim + (k - (n - 1) / 2.0) * deg_to_rad(COIN_FAN) / maxf(n - 1, 1))
+					var dir := DMath.from_angle(aim + (k - (n - 1) / 2.0) * deg_to_rad(COIN_FAN) / maxf(n - 1, 1))
 					segs.append([b.pos + dir * b.radius, b.pos + dir * (b.radius + b.def.prize_coin_reach)])
 				_shoot(sim, b, segs, b.def.prize_coin_damage * b.def.prize_mult, "coin", 0.0, 1.0, int(b.def.prize_coin_hits))
 
@@ -3127,7 +3128,7 @@ func fx_disco(sim, b, _ctx: Dictionary) -> void:
 	var r: Rect2 = sim.arena_rect()
 	var segs := []
 	for k in n:
-		var dir := Vector2.from_angle(turn + k * TAU / n)
+		var dir := DMath.from_angle(turn + k * TAU / n)
 		var from: Vector2 = b.pos + dir * b.radius
 		var reach: float = b.def.disco_length
 		var to: Vector2 = from + dir * reach

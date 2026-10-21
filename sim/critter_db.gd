@@ -17,6 +17,12 @@ const STATUSES := ["live", "planned", "baseline"]
 const REQUIRED := ["no", "name", "type", "rarity", "role", "status", "color", "vibe", "description", "stats", "ability", "params", "tiers", "art", "sound"]
 const STATS := ["hp", "radius", "speed", "contact_damage"]
 const TIERS := 5
+## Tier keys that are words for players, not params (game/ui/ability_text.gd):
+## "text" (T1: the ability, T2-T5: what the tier adds), "now" (the whole ability
+## from that tier up, with "{param}"/"{param%}" filled in) and "special" (T5 name).
+const TEXT_KEYS := ["text", "now", "special"]
+const TEXT_MAX := 60 ## T1 text and every tier's "now" line, once filled in.
+const CHANGE_MAX := 50 ## T2-T5 text.
 const ABILITY_TIER_STEP := 0.25 ## Ability damage, burn, heal and shield per tier above T1 (T5 = x2).
 const RADIUS_TIER_STEP := 0.06 ## Ability reach per tier above T1 (T5 = +24%).
 ## Damage multipliers of special hits; their bonus over x1 grows like damage.
@@ -82,7 +88,7 @@ static func sim_def(id: String, tier := 1, bonus_tiers := 0.0) -> Dictionary:
 		for key in c.tiers[t]:
 			if key == "ability":
 				effects.append_array(c.tiers[t].ability) # A tier can add new behaviour.
-			elif key != "text":
+			elif not key in TEXT_KEYS:
 				def[key] = c.tiers[t][key]
 	def.effects = effects
 	# Every tier above T1 also makes the ability hit harder, on top of its own
@@ -131,8 +137,10 @@ static func validate(id: String, c: Dictionary) -> Array[String]:
 		if str(c.tiers[t].get("text", "")) == "":
 			errors.append("%s: tier %d has no text" % [id, t + 1])
 		for key in c.tiers[t]:
-			if key != "text" and key != "ability" and not c.params.has(key):
+			if not key in TEXT_KEYS and key != "ability" and not c.params.has(key):
 				errors.append("%s: tier %d changes \"%s\", which isn't in params" % [id, t + 1, key])
+	if c.status != "baseline" and c.tiers.size() == TIERS:
+		errors.append_array(_validate_text(id, c))
 	for mod in c.get("chaos", {}):
 		if not (Modifiers.DEFS.has(mod) or Arenas.DEFS.has(mod)):
 			errors.append("%s: chaos names unknown modifier or arena \"%s\"" % [id, mod])
@@ -146,6 +154,64 @@ static func validate(id: String, c: Dictionary) -> Array[String]:
 			all.append_array(t.get("ability", []))
 		errors.append_array(Abilities.validate(id, all, c.params))
 	return errors
+
+
+## Ability text rules (README "Adding a critter"): T1 and every "now" line fit
+## TEXT_MAX once filled in, and "{key}" names a param; T2-T5 fit CHANGE_MAX;
+## arrows are "→"; a T1 "now" fills in to exactly the T1 text, so the T1
+## numbers match the params.
+static func _validate_text(id: String, c: Dictionary) -> Array[String]:
+	var errors: Array[String] = []
+	var params: Dictionary = c.params.duplicate()
+	var line := str(c.tiers[0].get("now", c.tiers[0].text))
+	for t in TIERS:
+		var tier: Dictionary = c.tiers[t]
+		for key in tier:
+			if params.has(key):
+				params[key] = tier[key]
+		var text := str(tier.get("text", ""))
+		if "->" in text:
+			errors.append("%s: tier %d text uses \"->\"; use \"→\"" % [id, t + 1])
+		if t > 0 and text.length() > CHANGE_MAX:
+			errors.append("%s: tier %d text is over %d characters" % [id, t + 1, CHANGE_MAX])
+		if tier.has("now"):
+			line = str(tier.now)
+			var re := RegEx.create_from_string("\\{([a-z_0-9]+)%?\\}")
+			for m in re.search_all(line):
+				if not c.params.has(m.get_string(1)):
+					errors.append("%s: tier %d \"now\" names \"%s\", which isn't in params" % [id, t + 1, m.get_string(1)])
+		var now := fill(line, params)
+		if now.length() > TEXT_MAX:
+			errors.append("%s: tier %d ability line is over %d characters: %s" % [id, t + 1, TEXT_MAX, now])
+		if t == 0 and tier.has("now") and now != text:
+			errors.append("%s: T1 \"now\" fills in to \"%s\", not the T1 text" % [id, now])
+	return errors
+
+
+## `line` with every "{key}" replaced by that param and "{key%}" by it as a
+## percent (0.2 → 20); numbers lose trailing zeros. Unknown keys stay as written.
+static func fill(line: String, params: Dictionary) -> String:
+	var out := ""
+	var i := 0
+	while i < line.length():
+		var open := line.find("{", i)
+		var close := line.find("}", open) if open >= 0 else -1
+		if close < 0:
+			break
+		var key := line.substr(open + 1, close - open - 1)
+		var pct := key.ends_with("%")
+		key = key.trim_suffix("%")
+		out += line.substr(i, open - i)
+		out += num(float(params[key]) * (100.0 if pct else 1.0)) if params.has(key) else line.substr(open, close - open + 1)
+		i = close + 1
+	return out + line.substr(i)
+
+
+## 6.0 → "6", 6.5 → "6.5", 0.25 → "0.25".
+static func num(v: float) -> String:
+	if absf(v - roundf(v)) < 0.000001:
+		return str(int(roundf(v)))
+	return String.num(v, 2)
 
 
 static func _load() -> void:

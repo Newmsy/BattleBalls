@@ -11,6 +11,7 @@ extends RefCounted
 const MatchSim := preload("res://sim/match_sim.gd")
 const Rng := preload("res://sim/rng.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const DMath := preload("res://sim/dmath.gd")
 
 const EPOCH := {"year": 2026, "month": 10, "day": 14} ## Trick Shot #1.
 const TRIES := 3
@@ -123,7 +124,7 @@ static func fast_judge(puzzle: Dictionary, aim_deg: int) -> String:
 	var p: Vector2 = puzzle.starts[0]
 	var target: Vector2 = puzzle.starts[1]
 	var speed: float = BallDefs.get_def(puzzle.p1).speed
-	var v := Vector2.from_angle(deg_to_rad(aim_deg * 10 / 10.0)) * speed
+	var v := DMath.from_angle(deg_to_rad(aim_deg * 10 / 10.0)) * speed
 	var hi := MatchSim.ARENA_SIZE
 	var called: Array = puzzle.walls
 	var walls := 0

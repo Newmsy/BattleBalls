@@ -54,7 +54,7 @@ static func make(zones_: Array, open_count_: int, glitched_: bool, height: float
 		m.add_child(b)
 		m.nodes.append(b)
 		var fmt := "1v1" if z.lineup == 1 else "%dv%d" % [z.lineup, z.lineup]
-		var sub := ("Zone %d · %d stages · %s" % [i + 1, z.stages.size(), fmt]) if open else "Zone %d · Soon · %s" % [i + 1, fmt]
+		var sub := "Zone %d · %s" % [i + 1, fmt]
 		var text := Kit.vbox(0, [Kit.caption(sub, Color(z.color) if open else Kit.MUTED),
 			Kit.label(z.name, 30 if open else 24, Kit.FG if open else Kit.MUTED)])
 		text.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -15,6 +15,10 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const SETTINGS_PATH := "user://settings.cfg"
 const SPEEDS := [1.0, 2.0, 4.0]
 const UNLOCK_LEVELS := [1, 5, 10]
+## The aim tip shows on every aim screen until the account reaches this level
+## (a new player's first few fights), then the screens show nothing there.
+const AIM_HINT_BELOW_LEVEL := 3
+const AIM_HINT := "Drag to aim, let go to launch"
 
 static var account_level := 1
 ## Testing switch (Settings > Testing): every speed open whatever the level.
@@ -86,6 +90,17 @@ static func set_unlock_all(on: bool) -> void:
 	_save()
 
 
+## "Drag to aim, let go to launch" for a new player's first few fights, else "".
+static func aim_hint() -> String:
+	return AIM_HINT if account_level < AIM_HINT_BELOW_LEVEL else ""
+
+
+## `text` and the aim tip on one line ("Stage 1-3 · Drag to aim, let go to launch").
+static func with_aim_hint(text: String) -> String:
+	var hint := aim_hint()
+	return text if hint == "" else (hint if text == "" else text + " · " + hint)
+
+
 static func label(i: int) -> String:
 	return "%dx" % int(SPEEDS[i]) if unlocked(i) else "%dx Lv%d" % [int(SPEEDS[i]), UNLOCK_LEVELS[i]]
 
@@ -142,7 +157,15 @@ class Picker extends HBoxContainer:
 			b.clip_text = true
 			b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 			b.disabled = not FightSpeedRef.unlocked(i)
-			b.tooltip_text = "Unlocks at account level %d" % FightSpeedRef.UNLOCK_LEVELS[i] if b.disabled else ""
+			if b.disabled: # A padlock and the level that opens it, not "4X LV10".
+				b.text = ""
+				b.modulate = Color(1, 1, 1, 0.6)
+				var row := Kit.hbox(6, [Kit.glyph("lock", _font * 0.8, Kit.MUTED), Kit.chip("Lv%d" % FightSpeedRef.UNLOCK_LEVELS[i], Kit.MUTED, maxi(18, _font - 6))], BoxContainer.ALIGNMENT_CENTER)
+				row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+				row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				for c in row.get_children():
+					c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				b.add_child(row)
 			add_child(b)
 
 	func _pick(i: int) -> void:

@@ -5,6 +5,7 @@ extends Control
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
+const TabIcon := preload("res://game/ui/tab_icon.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Friends := preload("res://game/online/friends.gd")
@@ -36,6 +37,12 @@ const SCREENS := {
 	"campaign": preload("res://game/ui/screens/campaign_screen.gd"),
 	"spire": preload("res://game/ui/screens/spire_screen.gd"),
 	"vault": preload("res://game/ui/screens/vault_screen.gd"),
+	"nest": preload("res://game/ui/screens/nest_screen.gd"),
+	"pinata": preload("res://game/ui/screens/pinata_screen.gd"),
+	"totem": preload("res://game/ui/screens/totem_screen.gd"),
+	"wyrm": preload("res://game/ui/screens/wyrm_screen.gd"),
+	"glitch": preload("res://game/ui/screens/glitch_screen.gd"),
+	"bosses": preload("res://game/ui/screens/bosses_screen.gd"),
 	"factions": preload("res://game/ui/screens/factions_screen.gd"),
 	"faction": preload("res://game/ui/screens/faction_screen.gd"),
 	"account": preload("res://game/ui/screens/account_screen.gd"),
@@ -74,10 +81,12 @@ var friends = Friends.new()
 var account = null
 ## Where invite links point: main.gd sets the page's own address on the web.
 var link_base := FightLink.HOME
+var build_stamp := "" ## "v0.2.0 abc1234 · account": shown at the foot of Settings, never in a fight.
 ## Emitted when a campaign stage starts; energy is already spent.
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
-## Emitted when a Gear Vault run starts; energy and the run are already spent.
-signal vault_requested(config: Dictionary, difficulty: int, fighter: String)
+## Emitted when a farming boss run starts from its screen ("vault" Anvil King,
+## "nest" Brood Queen, "pinata" Piñata Titan, "totem" Totem of Nine, "wyrm" Prism Wyrm, "glitch" The Glitch); energy and the run are already spent.
+signal boss_requested(config: Dictionary, difficulty: int, fighter: String, screen: String)
 
 var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.
@@ -112,6 +121,13 @@ var sfx = null
 var _scroll_settle := 0.0 ## Seconds left before a scroll counts as settled.
 var _settling := false
 var _coach: Label ## A new player's next step (game/ui/intro.gd), above the footer.
+var _level_ring: Control ## Account XP around the level badge.
+var _tab_icons := {} ## Tab id -> TabIcon; PLAY's disc is lit only on Play's home.
+var _tab_labels := {}
+
+## Red dots are for something to do, and go once you've looked: the Fuse dot
+## only for sets that turned fusable since your last visit to Fuse (per device).
+const BADGES_PATH := "user://ui_badges.cfg"
 
 
 func _ready() -> void:
@@ -221,7 +237,10 @@ func back() -> void:
 ## the scroll position.
 func refresh() -> void:
 	var at := _scroll.scroll_vertical
-	_show(current, current_params)
+	# A results popup (stars, XP bars) shows once: a re-render never replays it.
+	var params := current_params.duplicate()
+	params.erase("result")
+	_show(current, params)
 	_restore_scroll(at)
 
 
@@ -471,7 +490,9 @@ func _show(name: String, params: Dictionary) -> void:
 	var screen: Control = SCREENS[name].build(self, params)
 	margin.add_child(screen)
 	for t in _tab_buttons:
-		_tab_buttons[t].modulate = Color.WHITE if t == _tab else Color(Kit.MUTED, 1.0)
+		_tab_labels[t].add_theme_color_override("font_color", Kit.FG if t == _tab else Kit.MUTED)
+		if t != "play":
+			_tab_icons[t].set_active(t == _tab)
 	_refresh_top()
 	_report.call_deferred(name)
 
@@ -544,6 +565,11 @@ func _top_bar() -> Control:
 	lvl.custom_minimum_size = Vector2(64, 64)
 	_top_labels["level"] = lvl.get_child(0)
 	(lvl.get_child(0) as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	# Account XP to the next level, as a ring just outside the badge.
+	_level_ring = _Ring.new()
+	_level_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_level_ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lvl.add_child(_level_ring)
 	# The level badge opens the account screen (save progress, sign in).
 	lvl.mouse_filter = Control.MOUSE_FILTER_STOP
 	lvl.gui_input.connect(func(e):
@@ -558,10 +584,22 @@ func _top_bar() -> Control:
 	return m
 
 
+const PILL_HELP := {
+	"energy": "Energy: for stages and bosses. Refills over time, and on level up.",
+	"coin": "Coins: from the campaign and Piñata Titan. Buy looks.",
+	"orb": "Summon Eggs: hatch them on Summon.",
+}
+
+
 func _pill(kind: String) -> Control:
 	var l := Kit.label("", 26)
 	_top_labels[kind] = l
 	var p := Kit.panel(Kit.hbox(8, [Glyph.make(kind, 34), l]), Kit.box(Kit.PANEL, Kit.LINE, 999, 2, 0))
+	# Tap a currency to learn where it comes from.
+	p.mouse_filter = Control.MOUSE_FILTER_STOP
+	p.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			toast(PILL_HELP[kind]))
 	var st: StyleBoxFlat = p.get_theme_stylebox("panel")
 	st.content_margin_left = 6
 	st.content_margin_right = 16
@@ -576,8 +614,17 @@ func _refresh_top() -> void:
 	_top_labels.energy.text = "%d/%d" % [profile.energy, profile.energy_max]
 	_top_labels.coin.text = Kit.commas(profile.coins)
 	_top_labels.orb.text = str(profile.orbs)
-	_dots.fuse.visible = not profile.ready_to_fuse().is_empty()
-	_dots.play.visible = friends.attention() > 0 and Intro.done(profile)
+	_level_ring.set("frac", float(profile.account_xp) / maxf(1.0, profile.account_xp_to_next()))
+	_level_ring.queue_redraw()
+	var fusable := _fuse_signature()
+	if current == "fuse":
+		_set_badge("fuse_seen", fusable)
+	_dots.fuse.visible = fusable != "" and _new_since(fusable, _badge_value("fuse_seen"))
+	_dots.summon.visible = profile.free_summon and Intro.done(profile)
+	var pass_claims: int = glow.claimable_count() if glow != null and not glow.season().is_empty() else 0
+	_dots.play.visible = (friends.attention() > 0 or pass_claims > 0) and Intro.done(profile)
+	# Play's disc is the big call to action only on Play's own home screen.
+	_tab_icons.play.set_active(current == "play")
 	# A new player sees only the tabs their first fights have opened.
 	for t in _tab_buttons:
 		_tab_buttons[t].visible = Intro.shows(profile, t)
@@ -613,15 +660,13 @@ func _tab_bar() -> Control:
 		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var icon_box := CenterContainer.new()
 		icon_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if id == "play":
-			var disc := Kit.panel(Glyph.make("play", 50, Kit.BG), Kit.box(Kit.ACCENT, Kit.BG, 999, 6, 22))
-			disc.get_theme_stylebox("panel").shadow_color = Color(Kit.ACCENT, .5)
-			disc.get_theme_stylebox("panel").shadow_size = 18
-			icon_box.add_child(disc)
-		else:
-			icon_box.add_child(Glyph.make(id, 50, Kit.FG))
+		var icon := TabIcon.make(id, 106 if id == "play" else 64)
+		_tab_icons[id] = icon
+		icon_box.add_child(icon)
 		content.add_child(icon_box)
-		content.add_child(Kit.label(tab[1].to_upper(), 19, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))
+		var label := Kit.label(tab[1].to_upper(), 19, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+		_tab_labels[id] = label
+		content.add_child(label)
 		var pad := Control.new()
 		pad.custom_minimum_size = Vector2(0, 14)
 		pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -639,3 +684,48 @@ func _tab_bar() -> Control:
 		_tab_buttons[id] = b
 		row.add_child(b)
 	return bar
+
+
+# --- Red dots ------------------------------------------------------------------
+
+## The fusable sets right now, e.g. "laser:1,vampire:2" ("" when none).
+func _fuse_signature() -> String:
+	var keys: Array = profile.ready_to_fuse().map(func(st): return "%s:%d" % [st.id, st.tier])
+	keys.sort()
+	return ",".join(keys)
+
+
+## True if `now` has an entry `seen` didn't.
+static func _new_since(now: String, seen: String) -> bool:
+	var old := seen.split(",")
+	for k in now.split(","):
+		if k not in old:
+			return true
+	return false
+
+
+static func _badge_value(key: String) -> String:
+	var cfg := ConfigFile.new()
+	cfg.load(BADGES_PATH)
+	return str(cfg.get_value("seen", key, ""))
+
+
+static func _set_badge(key: String, value: String) -> void:
+	if _badge_value(key) == value:
+		return
+	var cfg := ConfigFile.new()
+	cfg.load(BADGES_PATH)
+	cfg.set_value("seen", key, value)
+	cfg.save(BADGES_PATH)
+
+
+## A thin progress ring drawn around its parent (the level badge).
+class _Ring extends Control:
+	var frac := 0.0
+
+	func _draw() -> void:
+		var r := minf(size.x, size.y) / 2.0 + 5.0
+		var c := size / 2.0
+		draw_arc(c, r, 0, TAU, 40, Color("2b2760"), 5.0, true)
+		if frac > 0.0:
+			draw_arc(c, r, -PI / 2, -PI / 2 + TAU * clampf(frac, 0.0, 1.0), 40, Color("45f5a6"), 5.0, true)
