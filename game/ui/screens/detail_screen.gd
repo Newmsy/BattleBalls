@@ -94,7 +94,7 @@ static func build(shell, params: Dictionary) -> Control:
 				g = x
 		var open: bool = p.slot_open(c.id, slot)
 		var col: Color = BagScreen.tier_color(g.tier) if not g.is_empty() else Kit.MUTED
-		var head := Kit.hbox(6, [Glyph.make(Gear.PIECES[g.type].glyph if not g.is_empty() else slot.to_lower(), 26, col if open else Glyph.OFF),
+		var head := Kit.hbox(6, [Glyph.make(g.type if not g.is_empty() else slot.to_lower(), 26, col if open else Glyph.OFF),
 			Kit.label(slot, 20, col)], BoxContainer.ALIGNMENT_CENTER)
 		var line: Control
 		if not open:
@@ -168,7 +168,7 @@ static func _slot_sheet(shell, id: String, slot: String) -> void:
 		var who: String = "" if g.on == "" else "On " + Roster.get_critter(g.on).name
 		var info := Kit.vbox(2, [Kit.label(g.name, 24), Kit.label(g.text + ("  ·  " + who if who != "" else ""), 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var row := Kit.hbox(12, [Glyph.make(Gear.PIECES[g.type].glyph, 56, col), info, Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER)
+		var row := Kit.hbox(12, [Glyph.make(g.type, 56, col), info, Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER)
 		var card := Kit.card_button(row, func():
 			p.equip(g.uid, id)
 			shell.close_overlay()

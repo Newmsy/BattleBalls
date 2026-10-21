@@ -140,7 +140,7 @@ static func result_row(r: Dictionary) -> Control:
 		return row
 	for g in r.gear:
 		var col := BagScreen.tier_color(g.tier)
-		row.add_child(Kit.glyph(Gear.PIECES[g.type].glyph, 34, col))
+		row.add_child(Kit.glyph(g.type, 34, col))
 		row.add_child(Kit.glyph("stars", 20, col, g.tier))
 	if r.get("hammers", 0) > 0:
 		row.add_child(Kit.label("+%d" % r.hammers, 24))

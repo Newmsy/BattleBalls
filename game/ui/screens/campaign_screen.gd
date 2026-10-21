@@ -349,7 +349,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 				drops.add_child(Kit.panel(orb_cell, Kit.box(Kit.PANEL2, Color("c77dff"), 24, 2, 10)))
 			for g in r.get("gear", []):
 				var col := BagScreen.tier_color(g.tier)
-				var cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make(Gear.PIECES[g.type].glyph, 72, col)], BoxContainer.ALIGNMENT_CENTER),
+				var cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make(g.type, 72, col)], BoxContainer.ALIGNMENT_CENTER),
 					Kit.hbox(0, [Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER), _fit(Kit.label(g.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
 				cell.custom_minimum_size.x = 150
 				drops.add_child(Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10)))

@@ -131,7 +131,7 @@ static func _gear_tile(shell, st: Dictionary) -> Control:
 		status_label.custom_minimum_size.x = 0
 		status_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		status_row = Kit.hbox(6, [face, status_label], BoxContainer.ALIGNMENT_CENTER)
-	var v := Kit.vbox(4, [_center(Glyph.make(Gear.PIECES[g.type].glyph, 84, col)), Kit.label(g.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
+	var v := Kit.vbox(4, [_center(Glyph.make(g.type, 84, col)), Kit.label(g.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
 		_center(Glyph.make("stars", 20, col, g.tier)), status_row])
 	if p.has_gear_set(g.type, g.tier):
 		v.add_child(_center(Kit.chip("MERGE", Kit.GOOD, 16)))
@@ -183,7 +183,7 @@ static func _gear_sheet(shell, g: Dictionary) -> void:
 	var col := tier_color(g.tier)
 	var info := Kit.vbox(6, [Kit.label(g.name, 36), Kit.hbox(10, [Glyph.make("stars", 26, col, g.tier), Kit.chip(g.slot, col)], BoxContainer.ALIGNMENT_CENTER)])
 	var wearer: String = "Not equipped" if g.on == "" else "Worn by " + Roster.get_critter(g.on).name
-	var v := Kit.vbox(18, [Kit.hbox(18, [Glyph.make(Gear.PIECES[g.type].glyph, 110, col), info]), Kit.label(g.text, 28, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
+	var v := Kit.vbox(18, [Kit.hbox(18, [Glyph.make(g.type, 110, col), info]), Kit.label(g.text, 28, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
 		Kit.label(wearer, 22, Kit.MUTED)])
 	var buttons := Kit.hbox(12)
 	var equip := Kit.button("Equip to" if g.on == "" else "Move to", _equip_pick.bind(shell, g), "primary", 26, 84)

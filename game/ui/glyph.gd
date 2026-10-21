@@ -1,5 +1,6 @@
 ## Small drawn icons the font doesn't have: tier stars, power bolt, energy,
-## coins, hammers, Summon Eggs, Glow Gems, the pass star, gear (shell, core, charm), locks, the back arrow, the info "i"
+## coins, hammers, Summon Eggs, Glow Gems, the pass star, gear (slot icons shell, core,
+## charm, plus one icon per gear type), locks, the back arrow, the info "i"
 ## the tab icons and the home mode icons (target, bounce, tower, vault, ghost,
 ## friends, map, swords, sparkle), the Arena's trophy, shield and token, and
 ## the stat heads (heart, speed).
@@ -128,6 +129,80 @@ func _draw() -> void:
 			diamond.append(diamond[0])
 			draw_polyline(diamond, color, s * .08, true)
 			draw_circle(Vector2(.5, .61) * s, s * .12, color)
+		# One icon per gear type (the gear type id, sim/gear.gd PIECES); colour = tier.
+		"iron_shell":
+			# Defense: a riveted iron shield with a cross band.
+			var sh := PackedVector2Array([Vector2(.5, .06), Vector2(.86, .18), Vector2(.84, .52), Vector2(.5, .96), Vector2(.16, .52), Vector2(.14, .18)])
+			for i in sh.size():
+				sh[i] = sh[i] * s
+			draw_colored_polygon(sh, Color("1b1842"))
+			draw_colored_polygon(PackedVector2Array([sh[0], sh[1], sh[2], Vector2(.5, .52) * s]), Color(color, .35))
+			sh.append(sh[0])
+			draw_polyline(sh, color, s * .08, true)
+			draw_line(Vector2(.5, .1) * s, Vector2(.5, .9) * s, color, s * .07)
+			draw_line(Vector2(.16, .42) * s, Vector2(.84, .42) * s, color, s * .07)
+			for p in [Vector2(.3, .26), Vector2(.7, .26), Vector2(.32, .62), Vector2(.68, .62)]:
+				draw_circle(p * s, s * .045, Color(1, 1, 1, .85))
+		"bubble_shell":
+			# Health: a soap bubble with a heart inside and two little bubbles.
+			draw_circle(c + Vector2(-.04, .04) * s, s * .36, Color(color, .18))
+			draw_arc(c + Vector2(-.04, .04) * s, s * .36, 0, TAU, 32, color, s * .07, true)
+			draw_arc(c + Vector2(-.04, .04) * s, s * .26, PI * 1.1, PI * 1.45, 8, Color(1, 1, 1, .85), s * .06, true)
+			var h := c + Vector2(-.04, .08) * s
+			draw_circle(h + Vector2(-.08, -.06) * s, s * .09, color)
+			draw_circle(h + Vector2(.08, -.06) * s, s * .09, color)
+			draw_colored_polygon(PackedVector2Array([h + Vector2(-.165, -.03) * s, h + Vector2(.165, -.03) * s, h + Vector2(0, .17) * s]), color)
+			draw_arc(Vector2(.84, .2) * s, s * .09, 0, TAU, 14, color, s * .05, true)
+			draw_arc(Vector2(.9, .44) * s, s * .05, 0, TAU, 10, color, s * .04, true)
+		"spike_core":
+			# Attack: a core studded with sharp spikes.
+			draw_colored_polygon(CritterArt.star_pts(c, s * .5, s * .27, 8, -PI / 2), color)
+			draw_circle(c, s * .25, Color("1b1842"))
+			draw_arc(c, s * .25, 0, TAU, 24, color, s * .06, true)
+			draw_colored_polygon(CritterArt.star_pts(c, s * .15, s * .06, 4, -PI / 4), Color(1, 1, 1, .9))
+		"echo_core":
+			# Crit: a core sending out echo ripples, sharpest on one side.
+			draw_arc(c, s * .46, -PI * .3, PI * .3, 12, Color(color, .45), s * .06, true)
+			draw_arc(c, s * .46, PI * .7, PI * 1.3, 12, Color(color, .45), s * .06, true)
+			draw_arc(c, s * .34, -PI * .32, PI * .32, 10, Color(color, .75), s * .07, true)
+			draw_arc(c, s * .34, PI * .68, PI * 1.32, 10, Color(color, .75), s * .07, true)
+			var hexa := PackedVector2Array()
+			for i in 6:
+				var a := -PI / 2 + i * TAU / 6
+				hexa.append(c + Vector2(cos(a), sin(a)) * s * .22)
+			draw_colored_polygon(hexa, Color("1b1842"))
+			hexa.append(hexa[0])
+			draw_polyline(hexa, color, s * .06, true)
+			draw_circle(c, s * .09, color)
+			draw_circle(c + Vector2(-.03, -.03) * s, s * .035, Color(1, 1, 1, .85))
+		"overclock_charm":
+			# Ability speed: a stopwatch with its hand racing round.
+			var w := c + Vector2(0, .06) * s
+			draw_rect(Rect2(Vector2(.42, .02) * s, Vector2(.16, .1) * s), color)
+			draw_line(Vector2(.78, .16) * s, Vector2(.86, .08) * s, color, s * .07)
+			draw_circle(w, s * .38, Color("1b1842"))
+			draw_colored_polygon(CritterArt.ellipse_pts(w, s * .38, s * .38, 0.0, -PI / 2, PI * .3, 14) + PackedVector2Array([w]), Color(color, .35))
+			draw_arc(w, s * .38, 0, TAU, 32, color, s * .07, true)
+			for i in 4:
+				var a := i * TAU / 4
+				draw_line(w + Vector2(cos(a), sin(a)) * s * .26, w + Vector2(cos(a), sin(a)) * s * .32, color, s * .05)
+			draw_line(w, w + Vector2(cos(PI * .3), sin(PI * .3)) * s * .28, Color.WHITE, s * .07, true)
+			draw_circle(w, s * .06, color)
+		"jet_charm":
+			# Move speed: a little rocket flying up-right on a flame.
+			var t := Transform2D(PI / 4.0, c + Vector2(-.02, .02) * s)
+			draw_set_transform_matrix(t)
+			draw_colored_polygon(PackedVector2Array([Vector2(-.12, .3) * s, Vector2(0, .5) * s, Vector2(.12, .3) * s]), Color("ff8a3d"))
+			draw_colored_polygon(PackedVector2Array([Vector2(-.06, .3) * s, Vector2(0, .42) * s, Vector2(.06, .3) * s]), Color("ffe08a"))
+			draw_colored_polygon(PackedVector2Array([Vector2(-.13, .1) * s, Vector2(-.26, .32) * s, Vector2(-.13, .26) * s]), color)
+			draw_colored_polygon(PackedVector2Array([Vector2(.13, .1) * s, Vector2(.26, .32) * s, Vector2(.13, .26) * s]), color)
+			var body := CritterArt.ellipse_pts(Vector2(0, -.04) * s, s * .14, s * .36, 0.0, 0.0, TAU, 20)
+			draw_colored_polygon(body, color)
+			draw_circle(Vector2(0, -.1) * s, s * .07, Color("1b1842"))
+			draw_circle(Vector2(-.02, -.12) * s, s * .025, Color.WHITE)
+			draw_set_transform_matrix(Transform2D.IDENTITY)
+			for i in 2:
+				draw_line(Vector2(.06, .66 + i * .14) * s, Vector2(.22 + i * .04, .66 + i * .14) * s, Color(color, .55), s * .045)
 		"gear":
 			for i in 8:
 				var a := i * TAU / 8

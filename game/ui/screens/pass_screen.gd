@@ -254,7 +254,7 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 			var CritterIcon = load("res://game/ui/critter_icon.gd")
 			g = CritterIcon.make(r.id, 1, side)
 		"gear":
-			g = Glyph.make(Gear.PIECES[r.type].glyph, side * .7, BagScreen.tier_color(int(r.tier)))
+			g = Glyph.make(r.type, side * .7, BagScreen.tier_color(int(r.tier)))
 		_:
 			g = Glyph.make("bolt", side * .7, Kit.GOOD)
 	var cc := CenterContainer.new()
