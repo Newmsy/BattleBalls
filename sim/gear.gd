@@ -27,12 +27,12 @@ const LINES := {
 	"cooldown": {"name": "Cooldown speed", "t5": 0.18, "max": 0.50, "text": "+%d%% ability speed"},
 	# Lines that do something you can see in a fight (sim/match_sim.gd reads
 	# them off the def, like the Bounce Run boons of the same names).
-	"thorns": {"name": "Thorns", "t5": 0.30, "max": 0.60, "text": "bumpers take %d%% of their bump back"},
-	"mend": {"name": "Mend", "t5": 0.005, "max": 0.03, "text": "heal %s%% max HP every wall bounce", "dp": 1},
-	"lifesteal": {"name": "Lifesteal", "t5": 0.15, "max": 0.40, "text": "heal %d%% of your bump damage"},
-	"ricochet": {"name": "Ricochet", "t5": 0.15, "max": 0.50, "text": "+%d%% bump damage after a wall bounce"},
+	"thorns": {"name": "Thorns", "t5": 0.06, "max": 0.60, "text": "bumpers take %d%% of their bump back"},
+	"mend": {"name": "Mend", "t5": 0.002, "max": 0.03, "text": "heal %s%% max HP every wall bounce", "dp": 1},
+	"lifesteal": {"name": "Lifesteal", "t5": 0.07, "max": 0.40, "text": "heal %d%% of your bump damage"},
+	"ricochet": {"name": "Ricochet", "t5": 0.07, "max": 0.50, "text": "+%d%% bump damage after a wall bounce"},
 	"ward": {"name": "Ward", "t5": 0.06, "max": 0.30, "text": "start with a %d%% max HP shield"},
-	"revive": {"name": "Revive", "t5": 0.08, "max": 0.30, "text": "get back up once at %d%% HP"},
+	"revive": {"name": "Revive", "t5": 0.12, "max": 0.30, "text": "get back up once at %d%% HP"},
 }
 const ORDER := ["attack", "health", "defense", "speed", "crit_chance", "crit_damage", "cooldown",
 	"thorns", "mend", "lifesteal", "ricochet", "ward", "revive"]
