@@ -22,7 +22,8 @@
 ## `p3`, `p4` (optional) make it a 2v2: all four balls fight at once, p3 on
 ## p1's team and p4 on p2's. Then the per-ball arrays above may hold four
 ## entries (index 2 = p3, 3 = p4; missing ones default) and the balls start
-## from TEAM_STARTS. Teammates never damage each other.
+## from TEAM_STARTS. `p5`, `p6` as well make it a 3v3 (TRIO_STARTS; p5 with
+## p1, p6 with p2). Teammates never damage each other.
 ## Critters and their abilities come from sim/critters/ via sim/ball_defs.gd;
 ## this file only fires their triggers (sim/abilities.gd).
 ## `modifier` is an optional Chaos Weekend rule twist from sim/modifiers.gd,
@@ -125,6 +126,8 @@ const START_CORNERS := [Vector2(170, 830), Vector2(830, 170)]
 const AIM_AT_CENTRE := [-450, 1350] ## Tenths of a degree from each corner.
 ## 2v2 starts by ball index: each pair near its corner, point-symmetric.
 const TEAM_STARTS := [Vector2(170, 700), Vector2(830, 300), Vector2(300, 830), Vector2(700, 170)]
+## 3v3 starts by ball index (a campaign brawl): each trio round its corner, point-symmetric.
+const TRIO_STARTS := [Vector2(140, 600), Vector2(860, 400), Vector2(400, 860), Vector2(600, 140), Vector2(250, 750), Vector2(750, 250)]
 
 
 class Ball:
@@ -311,7 +314,7 @@ var winner := -1 ## Ball index, or -1 for a draw (only meaningful when finished)
 var end_reason := ""
 var ko_hp: Array[float] = [] ## On a double knockout, each ball's HP going into the final tick.
 var launch_angles: Array[int] = []
-var starters := 2 ## Balls the fight started with (4 in a 2v2); later ones are split-offs.
+var starters := 2 ## Balls the fight started with (4 in a 2v2, 6 in a 3v3); later ones are split-offs.
 var boss: Ball = null ## The boss in a boss fight (sim/bosses.gd), else null.
 ## Events produced by the most recent step(), for the renderer and tests.
 var events: Array[Dictionary] = []
@@ -338,12 +341,14 @@ func _init(cfg: Dictionary) -> void:
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	if cfg.has("p3"):
 		types.append_array([cfg.p3, cfg.get("p4", "plain")])
+	if cfg.has("p5"):
+		types.append_array([cfg.p5, cfg.get("p6", "plain")])
 	starters = types.size()
 	if mod.get("mirror", false):
 		var mirrored := Modifiers.mirror_ball(int(cfg.get("seed", 1)))
 		types.fill(mirrored)
 	var angles: Array = _per_ball(cfg.get("angles", []), null)
-	var starts: Array = cfg.get("starts", START_CORNERS if starters == 2 else TEAM_STARTS)
+	var starts: Array = cfg.get("starts", start_positions(starters))
 	var start_hp: Array = _per_ball(cfg.get("hp", []), null)
 	var tiers: Array = _per_ball(cfg.get("tiers", []), 1)
 	var powers: Array = _per_ball(cfg.get("powers", []), 1.0)
@@ -403,16 +408,16 @@ func _per_ball(arr: Array, fill) -> Array:
 	return out
 
 
-## Start positions for a fight of `count` balls (2 or 4).
+## Start positions for a fight of `count` balls (2, 4 or 6).
 static func start_positions(count: int) -> Array:
-	return START_CORNERS if count <= 2 else TEAM_STARTS
+	return START_CORNERS if count <= 2 else (TEAM_STARTS if count <= 4 else TRIO_STARTS)
 
 
 ## Launch angle (tenths of a degree) from ball `i`'s start straight at the centre.
 static func aim_at_centre(i: int, count := 2) -> int:
 	if count <= 2:
 		return AIM_AT_CENTRE[i]
-	var p: Vector2 = TEAM_STARTS[i]
+	var p: Vector2 = start_positions(count)[i]
 	return roundi(rad_to_deg(DMath.angle(Vector2(ARENA_SIZE, ARENA_SIZE) / 2.0 - p)) * 10.0)
 
 

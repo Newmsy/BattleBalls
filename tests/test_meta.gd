@@ -286,6 +286,43 @@ func test_zone_three_is_trios_after_the_zone_two_boss() -> void:
 	check_eq(Campaign.start_team(p, 2, 2, picks, T0).get("arena"), "spikes", "a stage can name its own arena")
 
 
+func test_trios_zones_mix_relays_duos_and_brawls() -> void:
+	for z in range(2, Zones.ZONES.size()):
+		var n: int = Zones.zone(z).stages.size()
+		check_eq(Zones.format(z, n - 1), "brawl", "%s boss is a 3v3 brawl" % Zones.zone(z).name)
+		for i in n - 1:
+			check(Zones.format(z, i) != Zones.format(z, i + 1), "no two stages in a row play the same")
+	check_eq(Zones.format(2, 0), "relay", "3-1 is a relay")
+	check_eq(Zones.format(2, 1), "brawl", "3-2 is a brawl")
+	check_eq(Zones.format(2, 2), "duo", "3-3 is a 2v2")
+	check_eq(Zones.enemies(Zones.stage(2, 2)).size(), 2, "a duo stage keeps two foes")
+	check_eq(Zones.team_size(2, 2), 2, "and you bring two")
+	var p = Profile.new_game(T0)
+	for z in 2:
+		for i in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, i)] = 3
+	p.stars["3-1"] = 3
+	p.stars["3-2"] = 1
+	p.energy = 999
+	p.add_copies(["laser", "frost"])
+	var picks := Campaign.team_for(p, 3)
+	check(Campaign.is_brawl(2, 1, picks), "three picks on a brawl stage fight at once")
+	var cfg: Dictionary = Campaign.team_config(p, Campaign.start_team(p, 2, 1, picks, T0))
+	check_eq([cfg.p1, cfg.p3, cfg.p5], picks, "your picks are p1, p3 and p5")
+	check_eq(cfg.p6, Zones.enemies(Zones.stage(2, 1))[2], "the third foe is p6")
+	check_eq(cfg.sizes[0], Zones.BRAWL_SIZE, "every ball shrinks for the bigger arena")
+	var sim := MatchSim.new(cfg)
+	check_eq(sim.starters, 6, "six balls at once")
+	check(sim.balls[4].team == 0 and sim.balls[5].team == 1, "p5 with you, p6 with them")
+	var again := MatchSim.new(cfg)
+	check_eq(sim.run_to_end().hash, again.run_to_end().hash, "a brawl replays from its config")
+	var duo := Campaign.team_for(p, Zones.team_size(2, 2))
+	check(Campaign.is_pair(2, 2, duo), "a duo stage in a trios zone is a 2v2")
+	check(Campaign.sweep(p, 2, 0, picks[0], T0).has("won"), "a relay stage still sweeps")
+	p.stars["3-2"] = 3
+	check(Campaign.sweep(p, 2, 1, picks[0], T0).has("won"), "a brawl sweeps too")
+
+
 func test_every_built_zone_has_fightable_foes_and_a_boss_last() -> void:
 	for z in Zones.ZONES.size():
 		var zone: Dictionary = Zones.zone(z)

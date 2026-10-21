@@ -130,36 +130,50 @@ static func start_team(profile, zone_index: int, stage_index: int, picks: Array,
 
 
 ## True when a stage is a real 2v2 (all four balls at once) rather than a
-## relay: a pairs zone with two picks against two foes. Trios stay relays.
+## relay: a duo stage with two picks against two foes.
 static func is_pair(zone_index: int, stage_index: int, picks: Array) -> bool:
-	return Zones.zone(zone_index).lineup == 2 and picks.size() == 2 and Zones.enemies(Zones.stage(zone_index, stage_index)).size() == 2
+	return Zones.format(zone_index, stage_index) == "duo" and picks.size() == 2 and Zones.enemies(Zones.stage(zone_index, stage_index)).size() == 2
 
 
-## The MatchSim config for a 2v2 pairs stage, from start_team()'s relay config
-## `rc`: your picks are p1 and p3, the foes p2 and p4 (the boss last, at
-## BOSS_SIZE). Your critters fight as you own them, talents included. Your
-## aim (index 0) is null for the caller to fill in; your mate aims itself.
-static func pair_config(profile, rc: Dictionary) -> Dictionary:
+## True when a stage is a 3v3 brawl: all six balls at once on the zoomed-out arena.
+static func is_brawl(zone_index: int, stage_index: int, picks: Array) -> bool:
+	return Zones.format(zone_index, stage_index) == "brawl" and picks.size() == 3 and Zones.enemies(Zones.stage(zone_index, stage_index)).size() == 3
+
+
+## The MatchSim config for a 2v2 or 3v3 stage, from start_team()'s relay
+## config `rc`: your picks are p1, p3 (and p5), the foes p2, p4 (and p6), the
+## boss last at BOSS_SIZE. A 3v3 shrinks every ball by BRAWL_SIZE, which reads
+## as an arena twice the size. Your critters fight as you own them, talents
+## included. Your aim (index 0) is null for the caller to fill in; your mates
+## aim themselves.
+static func team_config(profile, rc: Dictionary) -> Dictionary:
 	var foes: Array = rc.sides[1]
-	var cfg := {
-		"seed": rc.seed,
-		"arena": rc.arena,
-		"p2": foes[0],
-		"p4": foes[1],
-		"angles": [null, null, null, null],
-		"tiers": [1, rc.tiers[1][0], 1, rc.tiers[1][1]],
-		"powers": [1.0, rc.powers[1][0], 1.0, rc.powers[1][1]],
-		"gear": [null, null, null, null],
-		"sizes": [1.0, rc.sizes[1][0], 1.0, rc.sizes[1][1]],
-	}
-	Lineup.apply(cfg, 0, profile.slot_of(rc.sides[0][0]))
-	return Lineup.apply(cfg, 2, profile.slot_of(rc.sides[0][1]))
+	var n: int = mini(rc.sides[0].size(), foes.size())
+	var k := Zones.BRAWL_SIZE if n >= 3 else 1.0
+	var cfg := {"seed": rc.seed, "arena": rc.arena, "angles": [], "tiers": [], "powers": [], "gear": [], "sizes": []}
+	for j in n:
+		cfg["p%d" % (2 * j + 2)] = foes[j]
+		cfg.angles.append_array([null, null])
+		cfg.tiers.append_array([1, rc.tiers[1][j]])
+		cfg.powers.append_array([1.0, rc.powers[1][j]])
+		cfg.gear.append_array([null, null])
+		cfg.sizes.append_array([k, rc.sizes[1][j] * k])
+	for j in n:
+		Lineup.apply(cfg, 2 * j, profile.slot_of(rc.sides[0][j]))
+	return cfg
 
 
-## The finish() input for a finished 2v2: HP and max HP are your team's.
+## The 2v2 config for a pairs stage (team_config()).
+static func pair_config(profile, rc: Dictionary) -> Dictionary:
+	return team_config(profile, rc)
+
+
+## The finish() input for a finished 2v2 or 3v3: HP and max HP are your team's.
 static func pair_fight(sim) -> Dictionary:
 	var fight: Dictionary = sim.summary()
-	fight.max_hp = sim.balls[0].max_hp + sim.balls[2].max_hp
+	fight.max_hp = 0.0
+	for i in range(0, sim.starters, 2):
+		fight.max_hp += sim.balls[i].max_hp
 	return fight
 
 
@@ -260,11 +274,11 @@ static func sweep(profile, zone_index: int, stage_index: int, fighter: String, n
 	if not can_sweep(profile, zone_index, stage_index):
 		return {"error": "not_three_stars"}
 	if Zones.zone(zone_index).lineup > 1:
-		var picks := team_for(profile, Zones.zone(zone_index).lineup)
+		var picks := team_for(profile, Zones.team_size(zone_index, stage_index))
 		var rc := start_team(profile, zone_index, stage_index, picks, now)
 		if rc.has("error"):
 			return rc
-		if is_pair(zone_index, stage_index, picks):
+		if is_pair(zone_index, stage_index, picks) or is_brawl(zone_index, stage_index, picks):
 			var duo := MatchSim.new(pair_config(profile, rc))
 			duo.run_to_end()
 			return finish_team(profile, zone_index, stage_index, picks, pair_fight(duo))
