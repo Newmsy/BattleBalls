@@ -37,7 +37,7 @@ const CHAOS_TEXT := {
 	"mirror_match": ["Mirror Match", "Both sides get the same random ball. Only your aim decides."],
 	"hyper_speed": ["Hyper Speed", "Every ball moves 1.4x faster. Beams fade faster too."],
 	"closing_walls": ["Closing Walls", "Overtime starts at 10 seconds: the arena shrinks early."],
-	"double_trouble": ["Double Trouble", "Abilities hit harder: bigger heals, more and hotter beams, bigger snaps."],
+	"double_trouble": ["Double Trouble", "Every ability hits harder."],
 }
 
 ## Fight of the Day generator: keep the first seed whose fight is close.

@@ -19,6 +19,8 @@ const ArenaView := preload("res://game/arena_view.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
 const Main := preload("res://game/main.gd")
 const LiveOps := preload("res://game/liveops.gd")
+const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const Gear := preload("res://sim/gear.gd")
 
 enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
 
@@ -44,7 +46,7 @@ var sfx: Sfx
 var title_label: Label
 var hud_label: Label
 var fight_hud: FightHud ## Both health bars, above the arena.
-var lineup_label: Label
+var lineup_row: HBoxContainer ## "Foes:" and their faces, before the fight.
 var info_label: Label
 var panel: VBoxContainer
 
@@ -124,9 +126,15 @@ func _aim_towards(screen_pos: Vector2) -> void:
 func _show_intro() -> void:
 	state = State.INTRO
 	sfx.on_menu()
-	var foes: Array = spec.enemies.map(func(e): return BallDefs.get_def(e.id).display_name)
-	lineup_label.text = "They bring: " + ", ".join(foes)
-	info_label.text = "Floor %d%s on %s." % [spec.floor, " (boss)" if spec.boss else "", Arenas.get_def(spec.get("arena", "square")).display_name]
+	for c in lineup_row.get_children():
+		c.queue_free()
+	lineup_row.add_child(Kit.label("Foes:", 24, Kit.MUTED))
+	for e in spec.enemies:
+		var face := CritterIcon.make(str(e.id), 1, 36)
+		face.custom_minimum_size = Vector2(36, 36)
+		lineup_row.add_child(face)
+	var arena_name: String = Arenas.get_def(spec.get("arena", "square")).display_name
+	info_label.text = "Boss · " + arena_name if spec.boss else arena_name
 	sim = MatchSim.new(relay.leg_config())
 	arena.sim = sim
 	var fight := _button("FIGHT!", _next_leg, 40)
@@ -150,10 +158,10 @@ func _begin_aim(slot: int) -> void:
 	aim = MatchSim.AIM_AT_CENTRE[0]
 	arena.clear_effects()
 	_preview()
-	info_label.text = "Ball %d of %d: drag on the arena to aim your %s, then let go to launch." % [slot + 1, relay.sides[0].size(), BallDefs.get_def(relay.sides[0][slot]).display_name]
+	info_label.text = FightSpeed.with_aim_hint("%s (%d/%d)" % [BallDefs.get_def(relay.sides[0][slot]).display_name, slot + 1, relay.sides[0].size()])
 	var launch := _button("Launch", _launch, 36)
 	launch.name = "SpireLaunch"
-	_set_panel([launch, _button("Give up (counts as a loss)", _give_up, 24)])
+	_set_panel([launch, _button("Give up", _give_up, 24)])
 
 
 func _preview() -> void:
@@ -180,7 +188,7 @@ func _start_leg() -> void:
 	arena.clear_effects()
 	_accumulator = 0.0
 	state = State.FIGHT
-	info_label.text = "%s vs %s" % [BallDefs.get_def(sim.balls[0].type_id).display_name, BallDefs.get_def(sim.balls[1].type_id).display_name]
+	info_label.text = "" # The names are on the health bars.
 	var speed := FightSpeed.picker()
 	var skip := _button("Skip", _skip_leg)
 	skip.name = "SpireSkip"
@@ -198,7 +206,7 @@ func _end_leg() -> void:
 	relay.record_leg(sim)
 	var w := sim.winner
 	if w == -1:
-		info_label.text = "Both balls are out!"
+		info_label.text = "Both out!"
 	else:
 		info_label.text = "%s %s stays in with %d HP." % ["Your" if w == 0 else "Their", BallDefs.get_def(sim.balls[w].type_id).display_name, ceili(sim.balls[w].hp)]
 	state = State.LEG_END
@@ -214,9 +222,9 @@ func _show_result() -> void:
 	var headline := _label("FLOOR %d CLEARED!" % r.floor if r.won else "NOT THIS TIME", 52)
 	headline.modulate = Color("45f5a6") if r.won else Color("ff5a7a")
 	var names: Array = r.spent.map(func(id): return BallDefs.get_def(id).display_name)
-	info_label.text = "%sStamina spent: %s." % ["" if r.won else "Try again with fresh critters. ", ", ".join(names)]
+	info_label.text = "Stamina used: %s" % ", ".join(names) if not names.is_empty() else ""
 	print("SPIRE_RESULT floor=%d won=%s hash=%s" % [r.floor, r.won, relay.state_hash()])
-	var back := _button("Back to the Spire", _back, 36)
+	var back := _button("Back", _back, 36)
 	back.name = "SpireBack"
 	_set_panel([headline, _reward_row(r.floor), back] if r.won else [headline, back])
 
@@ -228,10 +236,12 @@ func _reward_row(floor_no: int) -> Control:
 	if rw.orbs > 0:
 		row.add_child(Kit.glyph("egg", 34, Kit.FG))
 		row.add_child(Kit.label(str(rw.orbs), 30))
-	if rw.xp_chips > 0:
-		row.add_child(Kit.label("+ XP Chip", 26, Kit.GOOD))
-	if not rw.gear.is_empty():
-		row.add_child(Kit.label("+ " + SpireScreen.gear_name(rw.gear), 26, Kit.GOOD))
+	if rw.xp_chips > 0: # The XP Chip's Bag glyph.
+		row.add_child(Kit.glyph("bolt", 34, Kit.GOOD))
+		row.add_child(Kit.label(str(rw.xp_chips), 30))
+	if not rw.gear.is_empty(): # The piece's glyph and stars; its name is on the Spire screen.
+		row.add_child(Kit.glyph(str(Gear.PIECES[rw.gear.type].glyph), 34, Kit.GOOD))
+		row.add_child(Kit.glyph("stars", 22, Kit.GOOD, int(rw.gear.tier)))
 	return row
 
 
@@ -257,13 +267,13 @@ func _update_hud() -> void:
 	# Balls each side still has, the one fighting included.
 	var left := [relay.sides[0].size() - relay.slot[0], relay.sides[1].size() - relay.slot[1]]
 	var fighting: bool = sim != null and state in [State.FIGHT, State.LEG_END]
-	lineup_label.visible = not fighting
+	lineup_row.visible = not fighting
 	if fighting:
 		hud_label.text = ""
 		fight_hud.show_fight(sim, "%d v %d" % left)
 	else:
 		fight_hud.show_fight(null)
-		hud_label.text = "%d left  vs  %d left" % left
+		hud_label.text = "%d v %d" % left
 
 
 func _build_ui() -> void:
@@ -282,13 +292,13 @@ func _build_ui() -> void:
 	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fight_hud.tags = ["YOU", "FOE"]
 	ui.add_child(fight_hud)
-	lineup_label = _label("", 24)
-	lineup_label.modulate = Color("a29fc9")
+	lineup_row = Kit.hbox(8, [], BoxContainer.ALIGNMENT_CENTER)
+	lineup_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info_label = _label("", 26)
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	panel = VBoxContainer.new()
 	panel.add_theme_constant_override("separation", 16)
-	for c in [title_label, hud_label, lineup_label, info_label, panel]:
+	for c in [title_label, hud_label, lineup_row, info_label, panel]:
 		ui.add_child(c)
 
 
@@ -315,7 +325,7 @@ func _layout() -> void:
 	arena.position = Vector2(left, top)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	_place(hud_label, Vector2(0, 100), Vector2(size.x, 44))
-	_place(lineup_label, Vector2(0, 144), Vector2(size.x, 36))
+	_place(lineup_row, Vector2(0, 144), Vector2(size.x, 36))
 	_place(fight_hud, Vector2(left, 100), Vector2(side, 84))
 	_place(info_label, panel_pos, Vector2(panel_width, 90))
 	_place(panel, panel_pos + Vector2(0, 100), Vector2(panel_width, PANEL_HEIGHT - 100.0))

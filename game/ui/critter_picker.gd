@@ -112,7 +112,7 @@ static func open_team(shell, ids: Array, opts := {}) -> void:
 		elif picks.size() < size:
 			picks.append(id)
 		else:
-			shell.toast("Your team is full. Tap one of your picks to take it out first.")
+			shell.toast("Team full. Tap a pick to swap it out.")
 			return
 		refresh.call()
 	var grid := GridContainer.new()
@@ -132,7 +132,7 @@ static func open_team(shell, ids: Array, opts := {}) -> void:
 	scroll.custom_minimum_size.y = minf(rows * 196.0, maxf(360.0, shell.size.y * .5))
 	scroll.add_child(grid)
 	var v := Kit.vbox(12, [Kit.label(opts.get("title", "Your team"), 34),
-		Kit.label(opts.get("hint", "Tap to add or take out. Slot 1 fights first."), 20, Kit.MUTED), slots, scroll])
+		Kit.label(opts.get("hint", "Slot 1 fights first."), 20, Kit.MUTED), slots, scroll])
 	var close := Kit.button("Cancel", shell.close_overlay, "ghost", 24, 72)
 	shell.mark("pick_cancel", close)
 	close.size_flags_stretch_ratio = .6
@@ -187,4 +187,4 @@ static func _restyle(tile: Button, _id: String, at: int) -> void:
 	var st := Kit.box(Color(Kit.ACCENT, .30) if at != -1 else Color(rare, .10), Kit.ACCENT if at != -1 else Color(rare, .7), 20, 5 if at != -1 else 3, 6)
 	for s in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
 		tile.add_theme_stylebox_override(s, st)
-	(tile.get_meta("tag") as Label).text = "#%d in team" % (at + 1) if at != -1 else ""
+	(tile.get_meta("tag") as Label).text = "#%d" % (at + 1) if at != -1 else ""

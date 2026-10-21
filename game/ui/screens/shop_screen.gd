@@ -25,12 +25,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	var gems_btn := Kit.card_button(Kit.hbox(8, [Glyph.make("gem", 34), Kit.label(Kit.commas(glow.gems()), 28), Kit.chip("+", GEM, 22)]),
 		func(): gem_sheet(shell), Color(GEM, .6), Kit.PANEL, 999, 10)
 	shell.mark("get_gems", gems_btn)
-	root.add_child(Kit.hbox(14, [back, Kit.label("Shop", 40), Kit.spacer(), gems_btn], BoxContainer.ALIGNMENT_CENTER))
-	root.add_child(Kit.label("Looks only. Nothing here changes a fight.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	root.add_child(Kit.hbox(14, [back, Kit.label("Shop", 40), Kit.chip("Looks only", Kit.MUTED, 16), Kit.spacer(), gems_btn], BoxContainer.ALIGNMENT_CENTER))
 
 	# Featured bundles, this week.
 	var week_ends := LiveOps.week_start(t) + LiveOps.WEEK
-	var featured := Kit.vbox(14, [Kit.hbox(0, [Kit.caption("Featured this week", Color("ffd36b")), Kit.spacer(), Kit.label("New in " + LiveOps.countdown(t, week_ends), 20, Kit.MUTED)])])
+	var featured := Kit.vbox(14, [Kit.hbox(0, [Kit.caption("Featured", Color("ffd36b")), Kit.spacer(), Kit.label("New in " + LiveOps.countdown(t, week_ends), 20, Kit.MUTED)])])
 	for b in featured_bundles(t):
 		featured.add_child(_bundle_card(shell, b))
 	root.add_child(featured)
@@ -42,7 +41,7 @@ static func build(shell, _params: Dictionary) -> Control:
 
 	# Collection: Coin-priced basics, always here.
 	var basics := Catalog.ITEMS.filter(func(it): return it.where == "basic")
-	root.add_child(Kit.vbox(14, [Kit.caption("Collection · for Coins"), _grid(shell, basics)]))
+	root.add_child(Kit.vbox(14, [Kit.caption("Collection"), _grid(shell, basics)]))
 
 	# Wardrobe.
 	var ward := Kit.vbox(12, [Kit.caption("Wearing")])
@@ -58,7 +57,7 @@ static func build(shell, _params: Dictionary) -> Control:
 		ward.add_child(card)
 	root.add_child(ward)
 	if shell.glow.store and shell.glow.store.is_test():
-		root.add_child(Kit.label("Test store: purchases are free while Battle Balls is in playtesting.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+		root.add_child(Kit.label("Test store: free in playtest.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 	return root
 
 
@@ -142,7 +141,6 @@ static func _bundle_card(shell, b: Dictionary) -> Control:
 	var full := Catalog.bundle_full_price(b)
 	var price: int = glow.bundle_price(b)
 	var saving := roundi(100.0 * (1.0 - float(b.gems) / full))
-	var line := Kit.hbox(6, [Kit.label("%d items · %s" % [b.items.size(), Kit.commas(full)], 21, Kit.MUTED), Kit.glyph("gem", 22, Kit.MUTED), Kit.label("separately", 21, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	var btn: Button
 	if price == 0:
 		btn = Kit.button("Owned", func(): pass, "ghost", 26, 80)
@@ -150,15 +148,15 @@ static func _bundle_card(shell, b: Dictionary) -> Control:
 	else:
 		btn = Kit.cost_button("Buy", price, "gem", func():
 			var err: String = glow.buy_bundle(b.id)
-			shell.toast(err if err != "" else "%s unlocked! Change what you wear below." % b.name)
+			shell.toast(err if err != "" else "%s unlocked!" % b.name)
 			shell.refresh(), "primary", 26, 80)
 	shell.mark("buy_" + b.id, btn)
 	# The saving is a gold ribbon by the name rather than a line of small print.
 	var ribbon := Kit.chip("SAVE %d%%" % saving, Glyph.GOLD)
 	var head := Kit.hbox(10, [Kit.label(b.name, 34), Kit.spacer(), ribbon], BoxContainer.ALIGNMENT_CENTER)
-	var v := Kit.vbox(10, [head, icons, line, btn])
+	var v := Kit.vbox(10, [head, icons, btn])
 	if price > 0 and price < int(b.gems):
-		v.add_child(Kit.label("You own some of these, so the price dropped.", 20, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
+		v.add_child(Kit.label("Owned items taken off.", 20, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
 	return Kit.panel(v, Kit.box(Color("221a3a"), Color("6b5520"), 36, 2, 24))
 
 
@@ -215,9 +213,7 @@ static func _where_text(it: Dictionary) -> String:
 			return "On this season's Glow Pass. Never sold in the shop."
 		"founder":
 			return "Part of the Founder Pack."
-		"basic":
-			return "A Collection basic: always here, for Coins."
-	return "Shown on your critter in every fight and replay. Looks only: same size, speed and hits."
+	return "Looks only. No stat change."
 
 
 static func _wardrobe_sheet(shell, slot: String) -> void:
@@ -246,7 +242,6 @@ static func _wardrobe_sheet(shell, slot: String) -> void:
 		grid.add_child(card)
 	if any:
 		v.add_child(grid)
-		v.add_child(Kit.label("Tap one to wear it; tap what you're wearing to take it off.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	else:
 		v.add_child(Kit.label("None yet. Find them in the shop or on the Glow Pass.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	shell.sheet(v)
@@ -257,7 +252,7 @@ static func gem_sheet(shell) -> void:
 	var glow = shell.glow
 	var store = glow.store
 	var v := Kit.vbox(14, [Kit.hbox(10, [Glyph.make("gem", 44), Kit.label("Glow Gems", 36), Kit.spacer(), Kit.label("You have %s" % Kit.commas(glow.gems()), 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
-		Kit.label("Gems buy looks and the Glow Pass, never power. You also earn them on the Glow Pass.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+		Kit.label("Looks and the Glow Pass. Never power.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
@@ -278,12 +273,12 @@ static func gem_sheet(shell) -> void:
 	if "founder" not in glow.g().unlocks:
 		var fb := Kit.button("Founder Pack · %s" % store.price("founder"), func(): _buy(shell, "founder"), "primary", 26, 84)
 		shell.mark("buy_founder", fb)
-		v.add_child(Kit.label("Founder Pack, one time only: %d gems and the Founder Crown hat." % founder.gems, 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true))
+		v.add_child(Kit.hbox(6, [Kit.label("One time: %s" % Kit.commas(founder.gems), 22), Kit.glyph("gem", 26, Kit.FG), Kit.label("+ Founder Crown", 22)]))
 		v.add_child(fb)
 	var restore := Kit.button("Restore purchases", func(): store.restore(); shell.close_overlay(); shell.toast("Purchases restored."), "ghost", 24, 72)
 	v.add_child(restore)
 	if store.is_test():
-		v.add_child(Kit.label("Test store: no real money is charged in playtests.", 20, Kit.WARN, HORIZONTAL_ALIGNMENT_CENTER, true))
+		v.add_child(Kit.label("Test store: free in playtest.", 20, Kit.WARN, HORIZONTAL_ALIGNMENT_CENTER, true))
 	shell.sheet(v)
 
 

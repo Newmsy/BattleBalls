@@ -306,6 +306,10 @@ other code.
   `{"on": "wall", "do": "beam"}`, with numbers in `params`. If the effect you
   need doesn't exist, add one `fx_<name>` method and its `EFFECTS` entry there.
 - **Tiers** list the ladder text and any `params` that change at each tier.
+  Keep text short (see `_template.gd`): T1 <= 60 chars, T2-T5 say only what
+  changes ("Beam 6 → 8/s"), and "now" is the one-line ability at that tier
+  that cards, the fight HUD and Fuse show via `game/ui/ability_text.gd`.
+  `CritterDb.validate` enforces the caps and checks the numbers match params.
 - **Look** comes from the kit in `game/ui/critter_art.gd`: a body style, a face
   and named features. A new feature is one branch in `_feature()`.
 - **Status**: `planned` critters appear in the collection only; set `live` once

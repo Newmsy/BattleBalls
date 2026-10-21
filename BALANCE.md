@@ -40,6 +40,9 @@ Before the stats:
   grows with rarity: Common a simple twist, Uncommon one clear trigger + effect,
   Rare a spatial effect, Epic a dynamic or two-part effect, Legendary a set piece.
   The full roster plan is `design/roster.md` in the project folder.
+- Short player text: T1 <= 60 chars, tier lines as "Label old → new" or
+  "+ New thing", a "now" line per tier that changes the ability (format in
+  `sim/critters/_template.gd`).
 
 In the PR that adds or changes it:
 - Optional: a quick `godot --headless --script res://tools/balance.gd -- --fights=50 --power-step --only=<id>`

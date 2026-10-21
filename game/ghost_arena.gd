@@ -237,7 +237,7 @@ func _begin_aim(slot: int) -> void:
 	aim = MatchSim.AIM_AT_CENTRE[0] + (int(shot) if shot != null else 0)
 	arena.clear_effects()
 	_preview()
-	info_label.text = "Ball %d of 3: drag on the arena to aim your %s, then let go to launch." % [slot + 1, BallDefs.get_def(relay.sides[0][slot]).display_name]
+	info_label.text = "Ball %d/3 · drag to aim %s" % [slot + 1, BallDefs.get_def(relay.sides[0][slot]).display_name]
 	_set_panel([_button("Launch", _launch, 36)])
 
 
@@ -286,7 +286,7 @@ func _end_leg() -> void:
 	if w == -1:
 		info_label.text = "Both balls are out!"
 	else:
-		info_label.text = "%s %s stays in with %d HP." % ["Your" if w == 0 else "Their", BallDefs.get_def(sim.balls[w].type_id).display_name, ceili(sim.balls[w].hp)]
+		info_label.text = "%s %s stays in · %d HP" % ["Your" if w == 0 else "Their", BallDefs.get_def(sim.balls[w].type_id).display_name, ceili(sim.balls[w].hp)]
 	state = State.LEG_END
 	_pause = LEG_PAUSE
 	_set_panel([])
@@ -344,7 +344,7 @@ func _result_card(won: bool, got: int) -> Control:
 		rewards.add_child(Kit.hbox(6, [Kit.glyph("token", 34, Color.WHITE), Kit.label("+%d" % got, 30)], BoxContainer.ALIGNMENT_CENTER))
 	if result_delta > 0:
 		# Every trophy won is also a Trophy Room point.
-		rewards.add_child(Kit.hbox(6, [Kit.glyph("trophy", 30, Kit.WARN), Kit.label("Room +%d" % result_delta, 26, Kit.WARN)], BoxContainer.ALIGNMENT_CENTER))
+		rewards.add_child(Kit.hbox(6, [Kit.glyph("points", 30, Kit.WARN), Kit.label("+%d" % result_delta, 26, Kit.WARN)], BoxContainer.ALIGNMENT_CENTER))
 	var next := Kit.button("Next fight", _next_fight, "go", 30, 88)
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	next.size_flags_stretch_ratio = 2.0

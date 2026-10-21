@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "c9a227",
 	"vibe": "A fussy brass timekeeper who refuses to be late, or to lose.",
-	"description": "Clockwork. Every 5 seconds it ticks out a ring that slows foes, and once below 30% HP it rewinds, winning back some of the health it lost in the last 3 seconds.",
+	"description": "Clockwork. Every 5s it ticks out a ring (3, slow 30% for 1s); once below 30% HP it rewinds, winning back 30% of the HP it lost in the last 3s.",
 	"stats": {"hp": 117.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
 	"ability": [{"on": "every", "secs": 5.0, "do": "tick_ring"}, {"on": "always", "do": "rewind_track"}, {"on": "always", "do": "slows"}, {"on": "hp_below", "hp": 0.3, "do": "rewind"}],
 	"params": {
@@ -25,11 +25,11 @@ const CRITTER := {
 		"rewind_stop": 0.0, ## Seconds foes freeze at the rewind (stun cap 0.6).
 	},
 	"tiers": [
-		{"text": "Ticks a slowing ring; at 30% HP rewinds 3s"},
-		{"text": "Ticks deal 4", "tick_damage": 4.0},
-		{"text": "Rewinding also turns back its spot", "rewind_place": 1},
-		{"text": "Rewinds 4s", "rewind_secs": 4.0},
-		{"text": "Ticks deal 6, and at the rewind time stops for the foe", "rewind_stop": 0.6, "tick_damage": 6.0},
+		{"text": "Ticks a ring every 5s: 3, slow 30%; at 30% HP rewinds 3s", "now": "Ticks a ring every 5s: {tick_damage}, slow {tick_slow%}%; at 30% HP rewinds {rewind_secs}s"},
+		{"text": "Tick 3 → 4", "tick_damage": 4.0},
+		{"text": "+ Rewinding also turns back its spot", "rewind_place": 1},
+		{"text": "Rewind 3 → 4s", "rewind_secs": 4.0},
+		{"text": "Tick 4 → 6 + rewind stops time 0.6s", "now": "Ring every 5s: {tick_damage}, slow {tick_slow%}%; at 30% HP rewind {rewind_secs}s, time stop", "rewind_stop": 0.6, "tick_damage": 6.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smirk"}, "back": ["gearcrown"], "front": ["clockface", "monocle"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 0.95},

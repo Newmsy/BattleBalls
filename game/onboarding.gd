@@ -150,12 +150,12 @@ func _cold_open_result(winner: int) -> void:
 	var sub := "Nobody saw that coming."
 	if won_id != "":
 		title = "%s WINS!" % BallDefs.get_def(won_id).display_name.to_upper()
-		sub = "You called it!" if won_id == _cold_pick else "Not this time! Every fight plays out differently."
+		sub = "You called it!" if won_id == _cold_pick else "Not this time!"
 	var next := Kit.button("Next", _starter_pick, "go", 32, 96)
 	_mark("next", next)
 	_show(Kit.vbox(16, [
 		Kit.label(title, 44, Kit.GOOD if won_id == _cold_pick else Kit.WARN, HORIZONTAL_ALIGNMENT_CENTER),
-		Kit.label(sub + " Balls bounce, abilities fire, and your launch decides a lot.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
+		Kit.label(sub, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
 		next,
 	]), "controls", "onboard_cold_result")
 
@@ -167,7 +167,6 @@ func _starter_pick() -> void:
 		var c := Roster.get_critter(id)
 		var info := Kit.vbox(6, [
 			Kit.hbox(10, [Kit.label(c.name, 34), Kit.chip(Roster.RARITY_NAMES[c.rarity], Roster.RARITY_COLORS[c.rarity])]),
-			Kit.label("%s · %s" % [c.type, c.role], 22, Kit.MUTED),
 			Kit.label(c.vibe, 23, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
 			Kit.label(HOOKS[id], 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true),
 		])
@@ -177,7 +176,7 @@ func _starter_pick() -> void:
 		cards.add_child(card)
 	_show(Kit.vbox(22, [
 		Kit.label("PICK YOUR PARTNER", 44, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-		Kit.label("Your first critter. It's yours to keep.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
+		Kit.label("Yours to keep.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
 		cards,
 	]), "full", "onboard_starter")
 
@@ -195,10 +194,9 @@ func _start_fight(prefix := "") -> void:
 	var f: Dictionary = FIGHTS[_fight]
 	_log(f.step)
 	_clear()
-	var name: String = Roster.get_critter(starter).name
-	var text := "Drag to aim %s, let go to launch. Try the ghost arrow." % name
+	var text := "Drag to aim, let go to launch."
 	if _fight == 1:
-		text = "Aim at a wall: every bounce counts. %s" % HOOKS[starter]
+		text = "Bank off a wall!"
 	main.tutorial_aim(starter, f.foe, TUTORIAL_SEED, f.foe_aim, f.ghost, prefix + text)
 
 
@@ -224,9 +222,9 @@ func _fight_result(winner: int) -> void:
 	_mark("next", next)
 	_show(Kit.vbox(18, [
 		Kit.label("VICTORY!", 52, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER),
-		Kit.label("%s dropped %s %s copy." % [BallDefs.get_def(FIGHTS[_fight].foe).display_name, "an" if c.name[0] in "AEIOU" else "a", c.name], 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
+		Kit.label("+1 %s!" % c.name, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
 		slots,
-		Kit.label("FUSION READY!  3 of a kind fuse into the next tier." if ready else "Copies %d/3. Three of a kind fuse into a stronger critter." % have,
+		Kit.label("FUSION READY!" if ready else "3 of a kind fuse!",
 			26, Kit.WARN if ready else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
 		next,
 	]), "full", "onboard_reward")
@@ -243,7 +241,7 @@ func _fusion() -> void:
 	_skip.visible = false
 	var shell = main.tutorial_home(profile)
 	shell.open_tab("fuse", {"id": starter, "tier": 1})
-	_coach_say("3 of a kind fuse into a stronger critter. Tap FUSE!")
+	_coach_say("Tap FUSE!")
 	profile.changed.connect(_on_profile_changed)
 
 
@@ -274,7 +272,7 @@ func _boss_teaser() -> void:
 		Kit.caption("Zone 1 · Glow Garden", Color("9be89a")),
 		_centered(boss),
 		Kit.label("MEGA BOULDER", 48, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-		Kit.label("is waiting at the end of zone 1. Ten stages stand in the way.", 25, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
+		Kit.label("waits at stage 10.", 25, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
 		Kit.label("Your T2 %s is ready." % Roster.get_critter(starter).name, 26, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER, true),
 		go,
 	]), "full", "onboard_boss")

@@ -27,11 +27,18 @@ static func build(shell, _params: Dictionary) -> Control:
 
 static func info_text() -> Array:
 	return [
-		"Every critter belongs to a faction. Each faction has one talent tree, shared by all its critters in campaign, Anvil King, Spire and Arena fights.",
-		"Points come only from playing, never from the shop or pass: campaign and Anvil King fights give Faction XP to the critter's faction, and the faction's first critter at each of 2 to 5 stars gives a point. Up to %d per tree." % Talents.MAX_POINTS,
+		"Each faction has one talent tree, shared by all its critters.",
+		"Earn points by playing: campaign and Anvil King wins give Faction XP, and a faction's first critter at each of 2-5 stars gives a point. Max %d per tree." % Talents.MAX_POINTS,
 		"A critter uses the rows its stars unlock: 1 star row 1, up to 4 stars row 4, and 5 stars the capstone. Resetting a tree is free, any time.",
-		"Each row opens once you've spent enough points in the rows above it: %s." % ", ".join(Talents.ROW_GATE.slice(1).map(func(g): return str(g))),
+		"Rows open after %s points spent." % _and_list(Talents.ROW_GATE.slice(1).map(func(g): return str(g))),
 	]
+
+
+## "5, 12, 20 and 26".
+static func _and_list(words: Array) -> String:
+	if words.size() < 2:
+		return "".join(words)
+	return ", ".join(words.slice(0, -1)) + " and " + str(words[-1])
 
 
 static func _tile(shell, p, f: String) -> Control:

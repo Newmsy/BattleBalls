@@ -51,13 +51,10 @@ static func build(shell, _params: Dictionary) -> Control:
 
 	var all := cards(p)
 	var shown := all.filter(func(k): return filter == "all" or Roster.get_critter(k.id).rarity == filter)
-	var owned := 0
-	for k in all:
-		owned += k.stack.count
-	root.add_child(Kit.label("%d critters · %d / %d species found" % [owned, p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED))
+	root.add_child(Kit.label("%d/%d found" % [p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED))
 	if shown.is_empty():
 		var what: String = "" if filter == "all" else Roster.RARITY_NAMES[filter] + " "
-		root.add_child(Kit.label("No %scritters yet. Summon or win them, and see them all in the Critterpedia." % what, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+		root.add_child(Kit.label("No %scritters yet." % what, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 		return root
 
 	var grid := GridContainer.new()

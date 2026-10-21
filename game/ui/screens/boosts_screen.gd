@@ -27,12 +27,12 @@ static func build(shell, params: Dictionary) -> Control:
 	if Intro.step(shell.profile) == Intro.TROPHY and Intro.reach(shell.profile, Intro.DONE):
 		Intro.moment.call_deferred(shell, Intro.DONE)
 	var how := [
-		"Every trophy you win in the Ghost Arena also earns an Arena Point. Losing trophies never costs points.",
+		"Every trophy you win in the Ghost Arena also earns an Arena Point (the amber arrow). Losing never costs points.",
 		"Spend points on a family's Health, Attack, Defense and Speed. Every critter of that family gets the boost in the Ghost Arena, attacking and defending.",
-		"Each line has 5 levels. Level 1 costs %d points and each level costs %d more. A fully boosted family is about +%d%% power, so a higher tier still wins." % [
-			ArenaBoosts.cost(1), ArenaBoosts.COST_STEP, roundi(100.0 * ArenaBoosts.LINE_POWER * ArenaBoosts.ORDER.size())],
-		"Points only come from Arena play; they're never sold. Even Arena and practice modes ignore boosts.",
-		"Reset gives back every point you spent, free, so you can follow your trio.",
+		"%d levels per stat. Max boost is about +%d%% power." % [
+			ArenaBoosts.MAX_LEVEL, roundi(100.0 * ArenaBoosts.LINE_POWER * ArenaBoosts.ORDER.size())],
+		"Points only come from the Arena. Boosts only work in the Ghost Arena.",
+		"Reset is free: every point comes back.",
 	]
 	var info: Control = shell.info_button("Trophy Room", how, "boosts_info")
 	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Trophy Room", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
@@ -42,7 +42,7 @@ static func build(shell, params: Dictionary) -> Control:
 		shell.toast("Refunded %s points." % Kit.commas(back) if back > 0 else "Nothing to reset yet.")
 		shell.refresh_with({"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
 	shell.mark("boosts_reset", reset)
-	var pts := Kit.hbox(10, [Glyph.make("trophy", 34, Glyph.GOLD), Kit.label(Kit.commas(store.points), 34), Kit.label("Arena Points", 22, Kit.MUTED), Kit.spacer(), reset], BoxContainer.ALIGNMENT_CENTER)
+	var pts := Kit.hbox(10, [Glyph.make("points", 34, Glyph.GOLD), Kit.label(Kit.commas(store.points), 34), Kit.spacer(), reset], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.panel(pts, Kit.box(Color("17143e"), Kit.ACCENT, 28, 2, 16)))
 
 	# Your trio's families first, then families you own a critter of; the
@@ -105,7 +105,8 @@ static func _locked_row(fam: String) -> Control:
 	var f: Dictionary = Families.info(fam)
 	var row := Kit.hbox(8, [
 		Kit.label(f.name, 20, Color(f.color, .7)),
-		Kit.label("· own a %s critter to boost" % f.name, 18, Kit.MUTED),
+		Kit.glyph("lock", 18, Kit.MUTED),
+		Kit.label("Own one to unlock", 18, Kit.MUTED),
 	], BoxContainer.ALIGNMENT_CENTER)
 	return Kit.panel(row, Kit.box(Color(0, 0, 0, 0), Kit.LINE, 18, 1, 6))
 
@@ -127,7 +128,7 @@ static func _stat_button(shell, store, fam: String, line: String, col: Color) ->
 		cost = Kit.label("MAX", 18, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER)
 	else:
 		var tint: Color = Kit.FG if afford else Kit.MUTED
-		cost = Kit.hbox(3, [Kit.glyph("trophy", 18, Glyph.GOLD if afford else Kit.MUTED), Kit.label(Kit.commas(c), 18, tint)], BoxContainer.ALIGNMENT_CENTER)
+		cost = Kit.hbox(3, [Kit.glyph("points", 18, Glyph.GOLD if afford else Kit.MUTED), Kit.label(Kit.commas(c), 18, tint)], BoxContainer.ALIGNMENT_CENTER)
 	var content := Kit.vbox(4, [pips, cost])
 	var fname: String = Families.info(fam).name
 	var lname: String = ArenaBoosts.LINES[line].name
@@ -138,5 +139,5 @@ static func _stat_button(shell, store, fam: String, line: String, col: Color) ->
 			shell.toast("%s %s %d/%d: %s." % [fname, lname, lv + 1, ArenaBoosts.MAX_LEVEL, ArenaBoosts.text(line, lv + 1)])
 			shell.refresh_with({"store": store})
 		else:
-			shell.toast("Needs %d Arena Points. Win Arena fights to earn more." % c),
+			shell.toast("Need %d more points" % (c - store.points)),
 		col if afford else Kit.LINE, Kit.PANEL2, 18, 6)

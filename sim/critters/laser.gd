@@ -11,16 +11,16 @@ const CRITTER := {
 	"status": "live",
 	"color": "27c8ff",
 	"vibe": "A calm, calculating little robot with one big eye.",
-	"description": "Laser. Every wall bounce fires a beam back to its last bounce point.",
+	"description": "Laser. Every wall bounce fires a beam back to its last bounce point; beams last 3s.",
 	"stats": {"hp": 105.0, "radius": 58.0, "speed": 420.0, "contact_damage": 10.5},
 	"ability": [{"on": "wall", "do": "beam"}],
 	"params": {"beam_life": 3.0, "beam_damage": 4.5, "beam_hit_cooldown": 0.5, "beam_max": 6, "beam_link": 0},
 	"tiers": [
-		{"text": "Beams last 3s"},
-		{"text": "Beams last 3.5s", "beam_life": 3.5},
-		{"text": "Beams last 4s", "beam_life": 4.0},
-		{"text": "Beams last 4.5s", "beam_life": 4.5},
-		{"text": "Beams also link the 2 previous bounces", "beam_link": 1},
+		{"text": "Bounces fire beams to the last bounce, last 3s", "now": "Bounces fire beams to the last bounce, last {beam_life}s"},
+		{"text": "Beams last 3 → 3.5s", "beam_life": 3.5},
+		{"text": "Beams last 3.5 → 4s", "beam_life": 4.0},
+		{"text": "Beams last 4 → 4.5s", "beam_life": 4.5},
+		{"text": "+ Beams also link the 2 bounces before", "now": "Bounce beams link the last 2 bounces, last {beam_life}s", "beam_link": 1},
 	],
 	## Chaos Weekends: short fights cut off its beam build-up, so beams hit
 	## harder under Big Head and Hyper Speed. Tuned with tools/balance.gd --modifiers.

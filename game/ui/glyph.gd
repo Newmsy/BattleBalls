@@ -216,6 +216,10 @@ func _draw() -> void:
 			draw_colored_polygon(CritterArt.star_pts(Vector2(.42, .56) * s, s * .38, s * .1, 4), color)
 			draw_colored_polygon(CritterArt.star_pts(Vector2(.8, .2) * s, s * .18, s * .05, 4), Color.WHITE)
 			draw_circle(Vector2(.84, .78) * s, s * .06, color)
+		"points":
+			# Arena Points (Trophy Room boosts): an up arrow in an amber badge.
+			draw_circle(c, s * .5, Color("ffb347"))
+			draw_colored_polygon(PackedVector2Array([Vector2(.5, .16) * s, Vector2(.8, .5) * s, Vector2(.6, .5) * s, Vector2(.6, .84) * s, Vector2(.4, .84) * s, Vector2(.4, .5) * s, Vector2(.2, .5) * s]), Color("0b0a1f"))
 		"trophy":
 			var cup := PackedVector2Array([Vector2(.24, .12) * s, Vector2(.76, .12) * s, Vector2(.7, .44) * s, Vector2(.56, .58) * s, Vector2(.44, .58) * s, Vector2(.3, .44) * s])
 			draw_colored_polygon(cup, color)

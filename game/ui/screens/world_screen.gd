@@ -15,11 +15,11 @@ static func build(shell, params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(18)
 	var back: Control = shell.back_button("back")
-	var head := Kit.vbox(2, [Kit.caption("Campaign · %d zones" % Zones.map_zones().size(), Color("9be89a")), Kit.label("The Neon Circuit", 40)])
+	var head := Kit.vbox(2, [Kit.caption("Campaign", Color("9be89a")), Kit.label("The Neon Circuit", 40)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var info: Control = shell.info_button("The Neon Circuit", [
 		"The Circuit is a ring of glowing arenas. The Glitch has scrambled each zone's champion into a giant boss.",
-		"Beat a zone's boss to purify it and open the road to the next zone. Glow Garden is 1v1, Circuit Lab is pairs, and every zone after is 3 vs 3. In team stages your critters fight in order, and a winner stays in with the HP it has left.",
+		"Beat a zone's boss to open the next. Zone 1 is 1v1, Zone 2 is 2v2, then 3v3. Winners stay in with their HP left.",
 		"Each zone has its own arenas: bumpers, ice, thorns, portals, a shrinking rim, lava.",
 		"Purify Magma Core, the last zone, to free the whole Circuit from The Glitch.",
 	], "world_info")
@@ -61,4 +61,4 @@ static func _tap(i: int, shell, built: int, open: int) -> void:
 	if i < built:
 		shell.toast("Beat the boss of %s to open %s." % [Zones.map_zones()[i - 1].name, z.name])
 	else:
-		shell.toast("%s is coming soon: %d vs %d, %s, boss %s." % [z.name, z.lineup, z.lineup, z.twist.to_lower(), z.boss])
+		shell.toast("%s: coming soon!" % z.name)

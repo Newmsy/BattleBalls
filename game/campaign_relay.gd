@@ -45,9 +45,11 @@ func _show_intro() -> void:
 	var st := Zones.stage(pending.zone, pending.stage)
 	var foes: Array = relay.sides[1].map(func(e): return BallDefs.get_def(e).display_name)
 	var mine: Array = relay.sides[0].map(func(e): return BallDefs.get_def(e).display_name)
-	lineup_label.text = "%s  vs  %s" % [" + ".join(mine), " + ".join(foes)]
-	info_label.text = "%s%d vs %d on %s." % [
-		(st.name + "! ") if st.has("name") else "", relay.sides[0].size(), relay.sides[1].size(), Zones.zone(pending.zone).twist.to_lower()]
+	for c in lineup_row.get_children():
+		c.queue_free()
+	lineup_row.add_child(Kit.label("%s  vs  %s" % [" + ".join(mine), " + ".join(foes)], 24, Kit.MUTED))
+	# The lineup above already says who's on each side.
+	info_label.text = str(st.name) if st.has("name") else str(Zones.zone(pending.zone).twist)
 	sim = MatchSim.new(relay.leg_config())
 	arena.sim = sim
 	var fight := _button("FIGHT!", _next_leg, 40)

@@ -103,14 +103,14 @@ static func _node(shell, p, f: String, n: Dictionary, picks: Dictionary, open: b
 static func _sheet(shell, p, f: String, n: Dictionary) -> void:
 	var rank := int(p.talent_picks(f).get(n.id, 0))
 	var v := Kit.vbox(16, [Kit.label(n.name, 36, Talents.COLORS[f])])
-	var lines: Array[String] = []
+	# The talent once, with every rank's value in it ("+1%/2%/3% ability damage").
+	var lines: Array[String] = [rank_text(n)]
 	if n.max > 1:
-		for r in range(1, int(n.max) + 1):
-			lines.append("%s %d: %s" % ["Now" if r == rank else "Rank", r, Talents.describe(n, r)])
+		lines.append("Rank %d/%d" % [rank, n.max])
+	if n.row == 5:
+		lines.append("Capstone · %d pts · 5-star only" % n.cost)
 	else:
-		lines.append(Talents.describe(n, 1))
-	lines.append("Row %d%s. Used by %s." % [n.row, " (capstone, %d points)" % n.cost if n.row == 5 else "",
-		"5-star critters" if n.row == 5 else ("every critter" if n.row == 1 else "critters with %d+ stars" % n.row)])
+		lines.append("For every critter" if n.row == 1 else "For %d-star+ critters" % n.row)
 	for t in lines:
 		var l := Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 		l.custom_minimum_size.x = minf(640.0, shell.size.x - 80.0)
@@ -130,6 +130,35 @@ static func _sheet(shell, p, f: String, n: Dictionary) -> void:
 	shell.mark("talent_plus", plus)
 	v.add_child(Kit.hbox(14, [minus, plus]))
 	shell.sheet(v)
+
+
+## One line for a node with each rank's value split by "/": the part that
+## changes between Talents.describe(n, 1..max), never cutting a number.
+static func rank_text(n: Dictionary) -> String:
+	var all: Array[String] = []
+	for r in range(1, maxi(1, int(n.max)) + 1):
+		all.append(Talents.describe(n, r))
+	if all.size() == 1 or all.all(func(t): return t == all[0]):
+		return all[0]
+	var first: String = all[0]
+	var pre := 0
+	while pre < first.length() and all.all(func(t): return t.length() > pre and t[pre] == first[pre]):
+		pre += 1
+	var suf := 0
+	while suf < first.length() - pre and all.all(func(t): return t.length() - suf - 1 >= pre and t[t.length() - suf - 1] == first[first.length() - suf - 1]):
+		suf += 1
+	while pre > 0 and _numeric(first[pre - 1]):
+		pre -= 1
+	while suf > 0 and _numeric(first[first.length() - suf]):
+		suf -= 1
+	var mids: Array[String] = []
+	for t in all:
+		mids.append(t.substr(pre, t.length() - pre - suf))
+	return first.substr(0, pre) + "/".join(mids) + first.substr(first.length() - suf)
+
+
+static func _numeric(ch: String) -> bool:
+	return ch == "." or (ch >= "0" and ch <= "9")
 
 
 ## Spends free points along the suggested build (sim/talents.gd), in tree order.

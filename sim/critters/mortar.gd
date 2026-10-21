@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "5c6b3a",
 	"vibe": "A toy-box cannon that's very proud of its maths.",
-	"description": "Toy cannon. Every 4 seconds it lobs a shell at where the foe is about to be.",
+	"description": "Toy cannon. Every 4s it lobs a shell (1.5) at where the foe is about to be.",
 	"stats": {"hp": 128.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "every", "secs": "fire_cooldown", "do": "lob"}],
 	"params": {
@@ -24,11 +24,11 @@ const CRITTER := {
 		"lob_barrage_every": 0, ## Every Nth shot is a 3-shell barrage, when above 0.
 	},
 	"tiers": [
-		{"text": "Lobs a shell every 4s for 1.5"},
-		{"text": "Shells deal 2.5", "lob_damage": 2.5},
-		{"text": "The crater burns for 2s", "lob_crater_dps": 4.0},
-		{"text": "A shell every 3.5s", "fire_cooldown": 3.5},
-		{"text": "Every third shot is a barrage", "lob_barrage_every": 3},
+		{"text": "Lobs a shell every 4s for 1.5", "now": "Lobs a shell every {fire_cooldown}s for {lob_damage}"},
+		{"text": "Shell 1.5 → 2.5", "lob_damage": 2.5},
+		{"text": "+ The crater burns 4/s for 2s", "now": "Lobs a shell every {fire_cooldown}s for {lob_damage} + burning crater", "lob_crater_dps": 4.0},
+		{"text": "Shell every 4 → 3.5s", "fire_cooldown": 3.5},
+		{"text": "+ Every 3rd shot is a 3-shell barrage", "now": "Shell every {fire_cooldown}s for {lob_damage} + crater · every 3rd x3", "lob_barrage_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "flat"}, "back": ["barrel"], "front": ["cap"]},
 	"sound": {"ouch": "ouch_magnet", "pitch": 0.85},

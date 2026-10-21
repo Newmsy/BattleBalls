@@ -23,6 +23,7 @@ const ENERGY_REGEN_SECONDS := 300 ## One energy every 5 minutes.
 const ENERGY_PACK := 30
 const STARTER := "vampire"
 const STARTER_ORBS := 10
+const EGG_TEXT := "Hatch it on Summon."
 const PITY_START := 50 ## Matches Summon.PITY_RESET.
 ## The gear type (sim/gear.gd PIECES) an old named piece becomes, for pieces
 ## saved before gear had types (design/gear.md section 7). Anything else gets
@@ -109,7 +110,7 @@ func setup_new_game(now: int, starter := STARTER) -> void:
 	seen = {starter: true}
 	items.assign([
 		{"name": "Energy Pack", "count": 1, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},
-		{"name": "Summon Egg", "count": STARTER_ORBS, "text": "Spend at the Summon Portal. Earned by playing, never sold.", "color": Color("c86bff")},
+		{"name": "Summon Egg", "count": STARTER_ORBS, "text": EGG_TEXT, "color": Color("c86bff")},
 	])
 
 
@@ -759,7 +760,8 @@ static func from_dict(d: Dictionary, now: int):
 			p.items.append({"name": str(i.name), "count": int(i.count), "text": str(i.text), "color": Color(str(i.color))})
 			if p.items[-1].name == "Summon Orb": # Orbs became eggs (design/bosses.md).
 				p.items[-1].name = "Summon Egg"
-				p.items[-1].text = str(p.items[-1].text).replace("Orb", "Egg")
+			if p.items[-1].name == "Summon Egg":
+				p.items[-1].text = EGG_TEXT # Older saves kept a longer line.
 	if not p.owns(p.lineup):
 		p.lineup = p.stacks[0].id
 	# A converted Charm on a critter under 3 stars goes back to the Bag.
@@ -816,6 +818,11 @@ func grant(r: Dictionary) -> void:
 				for i in n:
 					add_gear(str(r.type), int(r.get("tier", 1)))
 	changed.emit()
+
+
+## How many of a Bag item (e.g. "Energy Pack") the player holds.
+func item_count(name: String) -> int:
+	return int(_item(name).get("count", 0))
 
 
 func _item(name: String) -> Dictionary:

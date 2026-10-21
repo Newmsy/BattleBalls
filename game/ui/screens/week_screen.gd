@@ -122,7 +122,7 @@ static func _action(text: String, on_press: Callable, kind := "go") -> Button:
 static func _trick_shot(shell) -> Control:
 	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	var s := trick_status(day)
-	var status := "%d tries. Same shot for everyone." % TRICK_TRIES
+	var status := "%d tries" % TRICK_TRIES
 	var label := "Play"
 	if s.solved:
 		status = "Solved in %d %s. Streak %d." % [s.tries, "try" if s.tries == 1 else "tries", s.streak]
@@ -270,7 +270,7 @@ static func _chaos(shell, t: int, counters: Array) -> Control:
 	var fmt := "Ends in %s" if c.live else "Starts in %s"
 	var when := line(fmt % LiveOps.countdown(t, until), 20, CHAOS)
 	counters.append([when, fmt, until])
-	var more := _action("What it does", func(): shell.info(c.name, [c.description, "One rule twist for every fight from Friday to Sunday, the same for both balls."]), "ghost")
+	var more := _action("What it does", func(): shell.info(c.name, [c.description]), "ghost")
 	shell.mark("week_chaos", more)
 	return tile("Chaos Weekend", CHAOS, Color("5a2550"), Color("1e0f2c"),
 		[lines(c.name, 26), when], more, Kit.chip("Live" if c.live else "Next", CHAOS, 16))
@@ -279,16 +279,11 @@ static func _chaos(shell, t: int, counters: Array) -> Control:
 ## The banner on the Play tab that opens this board.
 static func banner(shell) -> Control:
 	var t := LiveOps.now()
-	var season := LiveOps.season(t)
 	var c := LiveOps.chaos(t)
-	var s := Roster.get_critter(LiveOps.spotlight(t).critter)
-	var loan := Roster.get_critter(LiveOps.loaner(t).critter)
-	var top := "This week" + (" · %s week %d" % [season.name, season.week] if not season.is_empty() else "")
 	var chaos := ("Chaos Weekend: %s, live for %s" if c.live else "Chaos Weekend: %s in %s") % [c.name, LiveOps.countdown(t, c.ends if c.live else c.starts)]
 	var v := Kit.vbox(6, [
-		Kit.hbox(8, [Kit.caption(top, Color("e8c8ff")), Kit.spacer(), Kit.label("Open ›", 22, Kit.ACCENT)]),
+		Kit.hbox(8, [Kit.caption("This week", Color("e8c8ff")), Kit.spacer(), Kit.label("›", 26, Kit.ACCENT)]),
 		Kit.label(chaos, 24, CHAOS, HORIZONTAL_ALIGNMENT_LEFT, true),
-		Kit.label("Fight of the Day · Try %s · %s" % [loan.name, "Bracket of Legends" if not Legends.current(t).is_empty() else "%s Spotlight" % s.name], 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
 	var b := Kit.card_button(v, func(): shell.go("week"), Color("6b3fb0"), Color("1c1040"), 32, 18)
 	shell.mark("thisweek", b)

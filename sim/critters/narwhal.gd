@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "b8e0d2",
 	"vibe": "A dreamy arctic unicorn of the sea who charges like a knight.",
-	"description": "Narwhal. Every 4.5 seconds it charges at the foe, its horn leaving a glittering beam along the path, and the charge hit deals double.",
+	"description": "Narwhal. Every 4.5s it charges at the foe, its horn leaving a glittering beam along the path (8/s), and the charge hit deals x2.",
 	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.0},
 	"ability": [{"on": "every", "secs": "lance_every", "do": "lance"}, {"on": "always", "do": "lance_tick"}, {"on": "strike", "do": "lance_hit"}],
 	"params": {
@@ -25,11 +25,11 @@ const CRITTER := {
 		"lance_retry": 0, ## T5: a charge that misses curves round once.
 	},
 	"tiers": [
-		{"text": "Charges every 4.5s; the charge hit deals x2"},
-		{"text": "Beam deals 10 a second", "lance_beam_dps": 10.0},
-		{"text": "The charge knocks the foe back hard", "lance_knock": 1.8},
-		{"text": "Charges every 3.5s", "lance_every": 3.5},
-		{"text": "A charge that misses curves round again", "lance_retry": 1},
+		{"text": "Charges every 4.5s: beam 8/s, hit x2", "now": "Charges every {lance_every}s: beam {lance_beam_dps}/s, hit x{lance_hit_mult}"},
+		{"text": "Beam 8 → 10/s", "lance_beam_dps": 10.0},
+		{"text": "+ The charge hit knocks the foe back hard", "now": "Charges every {lance_every}s: beam {lance_beam_dps}/s, hit x{lance_hit_mult} + knockback", "lance_knock": 1.8},
+		{"text": "Charge every 4.5 → 3.5s", "lance_every": 3.5},
+		{"text": "+ A charge that misses curves round again", "now": "Charges every {lance_every}s (retries): beam {lance_beam_dps}/s, hit x{lance_hit_mult}", "lance_retry": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["horn", "fluke"], "front": ["speckles"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.05},

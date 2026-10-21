@@ -48,25 +48,25 @@ const DEFS := {
 	},
 	"wall_snack": {
 		"name": "Wall Snack",
-		"text": "Heal 0.4 HP every time you bounce off a wall.",
+		"text": "Heal 0.4 HP per wall bounce.",
 		"icon": "heart",
 		"bounce_heal": 0.4,
 	},
 	"overtime_bubble": {
 		"name": "Overtime Bubble",
-		"text": "A 20 HP bubble shield pops on when overtime starts.",
+		"text": "20 HP shield in overtime.",
 		"icon": "bubble",
 		"overtime_shield": 20.0,
 	},
 	"opening_bite": {
 		"name": "Opening Bite",
-		"text": "Your first hit of every fight deals +7 damage.",
+		"text": "First hit: +7 damage.",
 		"icon": "fang",
 		"first_strike": 7.0,
 	},
 	"bank_shot": {
 		"name": "Bank Shot",
-		"text": "After a wall bounce, your next hit deals +8%.",
+		"text": "+8% damage after a wall bounce.",
 		"icon": "bank",
 		"bank_bonus": 0.08,
 	},
@@ -78,14 +78,14 @@ const DEFS := {
 	},
 	"rubber_band": {
 		"name": "Rubber Band",
-		"text": "Move 4% faster and heal 0.2 HP on every wall bounce.",
+		"text": "+4% speed, heal 0.2 per bounce.",
 		"icon": "bolt",
 		"speed": 1.04,
 		"bounce_heal": 0.2,
 	},
 	"lucky_charm": {
 		"name": "Lucky Charm",
-		"text": "Your first hit of every fight deals +3, and an 8 HP bubble pops on in overtime.",
+		"text": "First hit +3. 8 HP shield in overtime.",
 		"icon": "bubble",
 		"first_strike": 3.0,
 		"overtime_shield": 8.0,
@@ -99,14 +99,14 @@ const DEFS := {
 	},
 	"rally_cap": {
 		"name": "Rally Cap",
-		"text": "Take 3% less damage from bumps, and a 12 HP bubble pops on in overtime.",
+		"text": "-3% bump damage. 12 HP shield in overtime.",
 		"icon": "guard",
 		"contact_armor": 0.03,
 		"overtime_shield": 12.0,
 	},
 	"snack_stash": {
 		"name": "Snack Stash",
-		"text": "+2% max HP and heal 0.2 HP on every wall bounce.",
+		"text": "+2% max HP, heal 0.2 per bounce.",
 		"icon": "heart",
 		"hp": 1.02,
 		"bounce_heal": 0.2,
@@ -120,14 +120,14 @@ const DEFS := {
 	},
 	"sharper_fangs": {
 		"name": "Sharper Fangs",
-		"text": "Vampires heal 6% more of the damage they deal.",
+		"text": "+6% lifesteal.",
 		"icon": "fang",
 		"for": "vampire",
 		"heal_ratio": 0.06,
 	},
 	"prism": {
 		"name": "Prism",
-		"text": "Lasers keep 1 more beam up, and beams last 0.5s longer.",
+		"text": "+1 beam, beams +0.5s.",
 		"icon": "beam",
 		"for": "laser",
 		"beam_max": 1,
@@ -135,21 +135,21 @@ const DEFS := {
 	},
 	"phoenix_feather": {
 		"name": "Phoenix Feather",
-		"text": "Once per fight, when you are knocked out, rise again with 35% HP.",
+		"text": "Revive once at 35% HP.",
 		"icon": "feather",
 		"rarity": "legendary",
 		"boon_revive": 0.35,
 	},
 	"thorn_crown": {
 		"name": "Thorn Crown",
-		"text": "Every bump that hits you stabs back for 35% of the damage.",
+		"text": "Reflect 35% of bump damage.",
 		"icon": "thorns",
 		"rarity": "legendary",
 		"thorns": 0.35,
 	},
 	"vampire_kiss": {
 		"name": "Vampire Kiss",
-		"text": "Heal 20% of all the bump damage you deal.",
+		"text": "Heal 20% of bump damage dealt.",
 		"icon": "drop",
 		"rarity": "legendary",
 		"lifesteal": 0.2,
@@ -242,21 +242,21 @@ static func describe(def: Dictionary) -> String:
 	if def.has("damage"):
 		bits.append("+%s%% damage" % _num((def.damage - 1.0) * 100.0))
 	if def.has("speed"):
-		bits.append("move %s%% faster" % _num((def.speed - 1.0) * 100.0))
+		bits.append("+%s%% speed" % _num((def.speed - 1.0) * 100.0))
 	if def.has("bounce_heal"):
-		bits.append("heal %s HP on every wall bounce" % _num(def.bounce_heal))
+		bits.append("heal %s HP per wall bounce" % _num(def.bounce_heal))
 	if def.has("first_strike"):
-		bits.append("your first hit of every fight deals +%s" % _num(def.first_strike))
+		bits.append("first hit +%s" % _num(def.first_strike))
 	if def.has("bank_bonus"):
-		bits.append("after a wall bounce, your next hit deals +%s%%" % _num(def.bank_bonus * 100.0))
+		bits.append("+%s%% damage after a wall bounce" % _num(def.bank_bonus * 100.0))
 	if def.has("contact_armor"):
-		bits.append("take %s%% less damage from bumps" % _num(def.contact_armor * 100.0))
+		bits.append("-%s%% bump damage" % _num(def.contact_armor * 100.0))
 	if def.has("overtime_shield"):
-		bits.append("a %s HP bubble pops on in overtime" % _num(def.overtime_shield))
+		bits.append("%s HP shield in overtime" % _num(def.overtime_shield))
 	if def.has("heal_ratio"):
-		bits.append("Vampires heal %s%% more of the damage they deal" % _num(def.heal_ratio * 100.0))
+		bits.append("+%s%% lifesteal" % _num(def.heal_ratio * 100.0))
 	if def.has("beam_max"):
-		bits.append("Lasers keep %d more beam up, and beams last %ss longer" % [def.beam_max, _num(def.beam_life)])
+		bits.append("+%d beam, beams +%ss" % [def.beam_max, _num(def.beam_life)])
 	var text := ", ".join(bits) + "."
 	return text[0].to_upper() + text.substr(1)
 

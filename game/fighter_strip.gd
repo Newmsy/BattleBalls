@@ -12,6 +12,7 @@ const A11y := preload("res://game/a11y.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const BossArt := preload("res://game/boss_art.gd")
+const AbilityText := preload("res://game/ui/ability_text.gd")
 
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const PANEL := Color(27 / 255.0, 24 / 255.0, 66 / 255.0, 0.92)
@@ -61,19 +62,35 @@ func _describe(sim, i: int) -> Dictionary:
 	var card := {"id": id, "name": str(def.get("display_name", id)), "tier": tier, "boss": def.get("boss", false), "color": Color(def.get("color", "ffffff"))}
 	if CritterDb.has(id):
 		var c := CritterDb.get_critter(id)
-		var tiers: Array = c.get("tiers", [])
 		card.line = "T%d · %s" % [tier, c.get("role", "")]
-		# The T5 upgrade is the critter's signature; below that, its base ability.
-		card.text = str(tiers[4].text) if tier >= 5 and tiers.size() >= 5 else (str(tiers[0].text) if not tiers.is_empty() else str(c.get("description", "")))
+		# The ability as it is at this tier (T2-T4 numbers, not T1's); at T5 the
+		# signature follows on its own line, since alone it doesn't say what the
+		# critter does.
+		card.text = AbilityText.now(id, tier)
+		if card.text == "":
+			card.text = str(c.get("description", ""))
+		var t5 := AbilityText.change(id, 5) if tier >= 5 else ""
+		if t5 != "" and t5 != card.text and not card.text.contains(t5):
+			card.text += "\nT5: " + t5
 	else:
 		card.line = "Boss"
-		card.text = str(def.get("description", ""))
+		card.text = _boss_line(def)
 	for e in def.get("effects", []):
 		if e.get("on") == "every":
 			var secs: float = def.get(e.secs, 0.0) if e.secs is String else float(e.secs)
 			card.every = maxi(1, int(round(secs * sim.TICK_RATE)))
 			break
 	return card
+
+
+## A boss card's one line: its short line if it has one, else the first
+## sentence of its description.
+static func _boss_line(def: Dictionary) -> String:
+	if def.has("short"):
+		return str(def.short)
+	var d := str(def.get("description", ""))
+	var cut := d.find(". ")
+	return d.substr(0, cut + 1) if cut >= 0 else d
 
 
 func _process(_delta: float) -> void:

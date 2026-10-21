@@ -171,7 +171,7 @@ func _show_draft() -> void:
 	state = State.DRAFT
 	sfx.on_menu()
 	_board_mode()
-	sub_label.text = "Step 1 of 2: draft 3 critters."
+	sub_label.text = "Draft 3 critters"
 	var grid := _grid()
 	for i in setup.cards.size():
 		var c: Dictionary = setup.cards[i]
@@ -180,7 +180,7 @@ func _show_draft() -> void:
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(card)
 		_mark("br_card_%d" % i, card)
-	var next := Kit.button("Next: boons (%d/3)" % picks.size(), _show_start_boons, "go" if picks.size() == BounceRun.PICKS else "ghost", 32)
+	var next := Kit.button("Next (%d/3)" % picks.size(), _show_start_boons, "go" if picks.size() == BounceRun.PICKS else "ghost", 32)
 	next.disabled = picks.size() != BounceRun.PICKS
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_next", next)
@@ -201,7 +201,7 @@ func _show_start_boons() -> void:
 	state = State.START_BOONS
 	sfx.on_menu()
 	_board_mode()
-	sub_label.text = "Step 2 of 2: pick 3 boons."
+	sub_label.text = "Pick 3 boons"
 	var grid := _grid()
 	for i in setup.start_offer.size():
 		var id: String = setup.start_offer[i]
@@ -244,10 +244,10 @@ func _show_floor() -> void:
 	sfx.on_menu()
 	_board_mode()
 	var foe: Dictionary = setup.floors[run.floor]
-	sub_label.text = "Floor %d of %d. Pick who to send." % [run.floor + 1, BounceRun.FLOORS]
+	sub_label.text = "Pick who to send" # The ladder and the foe card say which floor.
 	var foe_box := Kit.vbox(8, [
 		Kit.hbox(10, [Kit.caption("Floor %d · %s" % [run.floor + 1, foe.title], PINK), Kit.spacer(),
-			Kit.caption("Foe · %d%% power" % roundi(100.0 * BounceRun.FOE_POWER[run.floor]))]),
+			Kit.caption("Power %d%%" % roundi(100.0 * BounceRun.FOE_POWER[run.floor]))]),
 		Kit.hbox(16, [CritterIcon.make(foe.critter, 1, 110), _expand(Kit.vbox(4, [
 			Kit.label(_name(foe.critter), 30),
 			_ability_label(foe.critter),
@@ -278,8 +278,7 @@ func _choose_fighter(s: int) -> void:
 	aim = MatchSim.AIM_AT_CENTRE[0]
 	arena.clear_effects()
 	_preview()
-	var foe: Dictionary = setup.floors[run.floor]
-	info_label.text = "Floor %d: your %s vs %s %s.\nDrag on the arena to aim, then let go to launch." % [run.floor + 1, _name(BounceRun.card(setup, run, slot).critter), foe.title, _name(foe.critter)]
+	info_label.text = FightSpeed.aim_hint() # The matchup is on the arena and the HUD.
 	var launch := Kit.button("Launch", _launch, "go", 34)
 	_mark("br_launch", launch)
 	_set_panel([Kit.hbox(14, [launch, Kit.button("Back", _show_floor, "ghost", 30)])], "br_aim")
@@ -338,10 +337,10 @@ func _finish_fight() -> void:
 	face.still = true
 	var top := Kit.hbox(10, [face, head], BoxContainer.ALIGNMENT_CENTER)
 	if won:
-		info_label.text = "%.1fs. Pick a boon for your trio." % sim.time() if not run.over else "All %d floors in %s." % [BounceRun.FLOORS, _clock(run.ticks)]
+		info_label.text = "Pick a boon next!" if not run.over else "All %d floors in %s." % [BounceRun.FLOORS, _clock(run.ticks)]
 	else:
 		var left := BounceRun.living(run).size()
-		info_label.text = "Your trio is out." if run.over else "%d critter%s left. Retry floor %d with another." % [left, "" if left == 1 else "s", cleared_floor]
+		info_label.text = "Your trio is out." if run.over else "%d left. Send another!" % left
 	var next := Kit.button("Continue", _after_result, "go", 34)
 	_mark("br_continue", next)
 	_set_panel([top, _floor_pips(BounceRun.score(run).floors), next], "br_result")
@@ -383,8 +382,7 @@ func _show_boon() -> void:
 	state = State.BOON
 	_board_mode()
 	var up := BounceRun.tier_at(run.floor) > BounceRun.tier_at(run.floor - 1)
-	sub_label.text = ("Floor %d cleared. Your trio is now T%d! Pick a boon." % [run.floor, BounceRun.tier_at(run.floor)]) if up \
-		else "Floor %d cleared. Pick a boon." % run.floor
+	sub_label.text = ("Trio is now T%d! Pick a boon." % BounceRun.tier_at(run.floor)) if up else "Pick a boon"
 	var items: Array = [_ladder()]
 	for i in run.offer.size():
 		var id: String = run.offer[i]
@@ -405,7 +403,7 @@ func _show_boon() -> void:
 	if not run.boons.is_empty():
 		items.append(Kit.caption("Your boons"))
 		items.append(_boon_strip(run.boons, 52))
-	items.append(Kit.label("Next: floor %d, %s %s." % [run.floor + 1, setup.floors[run.floor].title, _name(setup.floors[run.floor].critter)], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	items.append(Kit.label("Next: %s %s" % [setup.floors[run.floor].title, _name(setup.floors[run.floor].critter)], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	_set_page(items, "br_boon")
 
 
@@ -435,14 +433,14 @@ func _show_over() -> void:
 	_board_mode()
 	var s := BounceRun.score(run)
 	var cleared: bool = s.floors >= BounceRun.FLOORS
-	sub_label.text = ("Ranked run" if ranked else "Practice run") + " · new run at 00:00 UTC"
+	sub_label.text = ("Ranked" if ranked else "Practice") + " · resets 00:00 UTC"
 	var head := Kit.label("RUN CLEARED!" if cleared else "Run over", 52, GOLD if cleared else Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
-	var line := Kit.label("Cleared %d/%d floors · %d left · %s" % [s.floors, BounceRun.FLOORS, s.lives, _clock(s.ticks)], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	var line := Kit.label("%d/%d floors · %d lives · %s" % [s.floors, BounceRun.FLOORS, s.lives, _clock(s.ticks)], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	share_button = Kit.button("Share", func(): share_button.text = _share(), "go", 30)
 	var practice := Kit.button("Practice run", _practice, "ghost", 28)
 	_mark("br_practice", practice)
 	var items: Array = [head, line, _ladder(), Kit.hbox(14, [share_button, practice])]
-	items.append(Kit.label("Best %d floors · %d clears in %d runs" % [stats.best_floors, stats.clears, stats.played], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	items.append(Kit.label("Best %d · %d/%d cleared" % [stats.best_floors, stats.clears, stats.played], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
 	items.append(_leaderboard())
 	items.append(_menu_button())
 	_set_page(items, "br_over")
@@ -494,13 +492,13 @@ func _fetch_board() -> void:
 		_board_note = ""
 	else:
 		_board_rows = null
-		_board_note = "Leaderboard offline. Your score posts when you're back online." if ranked else "Leaderboard offline."
+		_board_note = "Offline. Score posts later." if ranked else "Offline."
 	if state == State.OVER:
 		_show_over()
 
 
 func _leaderboard() -> Control:
-	var rows := Kit.vbox(6, [Kit.caption("Bounce Run #%d leaderboard" % day)])
+	var rows := Kit.vbox(6, [Kit.caption("Leaderboard")])
 	if _board_rows == null:
 		rows.add_child(Kit.label(_board_note, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	elif _board_rows.is_empty():
@@ -510,7 +508,8 @@ func _leaderboard() -> Control:
 			var col: Color = GOLD if r.get("is_me", false) else Kit.FG
 			rows.add_child(Kit.hbox(10, [
 				Kit.label("#%d" % int(r.rank), 22, col), Kit.label(str(r.display_name), 22, col), Kit.spacer(),
-				Kit.label("F%d · %d left · %s" % [int(r.floors), int(r.lives), _clock(int(r.ticks))], 22, col)]))
+				Kit.label("F%d · %d" % [int(r.floors), int(r.lives)], 22, col), Kit.glyph("heart", 20, PINK),
+				Kit.label("· %s" % _clock(int(r.ticks)), 22, col)]))
 	return Kit.panel(rows, Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 20))
 
 
@@ -774,7 +773,8 @@ func _show_rules() -> void:
 		"Pick who to send each floor. Lose and that critter is out; lose all three and the run ends.",
 		"Your trio starts at T1 and goes up a tier every %d floors, up to T5 on the last floors. Foes stay T1." % BounceRun.FLOORS_PER_TIER,
 		"Win a floor to pick another boon. Boons power your whole trio. Rarer boons are stronger; tap a held boon to see it.",
-		"One ranked run a day goes on the leaderboard (floors, then lives left, then time). After that, practice runs are unranked.",
+		"A foe's Power is next to your trio's: 100% is even.",
+		"One ranked run a day. Ranked by floors, lives, then time.",
 	]:
 		lines.append(Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	_overlay_card(lines, Kit.box(Kit.PANEL, Kit.ACCENT, 32, 3, 28), "br_rules_close")

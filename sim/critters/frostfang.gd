@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "6d6875",
 	"vibe": "A lone winter wolf, quiet until the howl.",
-	"description": "Wolf. Every hit adds frost to the foe, and the second freezes it solid while ice shards burst out; Frostfang then hunts the frozen foe down and shatters it for double damage.",
+	"description": "Wolf. Every hit adds frost to the foe, and the 2nd freezes it solid for 0.6s as ice shards burst out (4); Frostfang then hunts the frozen foe down and shatters it for x1.6.",
 	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.0},
 	"ability": [{"on": "hit", "do": "frostbite"}, {"on": "strike", "do": "shatter"}, {"on": "always", "do": "frost_hunt"}],
 	"params": {
@@ -27,11 +27,11 @@ const CRITTER := {
 		"hunt_accel": 1400.0, ## Turns toward a foe it froze.
 	},
 	"tiers": [
-		{"text": "Every 2nd hit freezes the foe 0.6s (shards 4); it hunts the frozen foe and shatters it for x1.6"},
-		{"text": "Shards deal 5", "shard_damage": 5.0},
-		{"text": "The freeze leaves the foe brittle: +15% damage taken for 2s", "bite_sour": 0.15},
-		{"text": "Shards deal 6 in a wider burst", "shard_damage": 6.0, "shard_radius": 180.0},
-		{"text": "Every hit freezes, and shatter hits deal x2.2", "bite_max": 1, "shatter_mult": 2.2},
+		{"text": "Every 2nd hit freezes 0.6s, shards 4 · shatter x1.6", "now": "Every 2nd hit freezes {bite_freeze}s, shards {shard_damage} · shatter x{shatter_mult}"},
+		{"text": "Shards 4 → 5", "shard_damage": 5.0},
+		{"text": "+ Frozen foe: +15% dmg taken for 2s", "now": "Every 2nd hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_sour": 0.15},
+		{"text": "Shards 5 → 6, size +29%", "shard_damage": 6.0, "shard_radius": 180.0},
+		{"text": "Every hit freezes · shatter x1.6 → 2.2", "now": "Every hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_max": 1, "shatter_mult": 2.2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "6fd3ff", "mouth": "fangs"}, "back": ["ears"], "front": ["ruff"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 0.8},

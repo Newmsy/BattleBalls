@@ -23,7 +23,8 @@ const Talents := preload("res://sim/talents.gd")
 const DEFS := {
 	"anvil_king": {
 		"display_name": "Anvil King",
-		"description": "A forge golem rooted in the middle of The Forge. It slams its hammer where you're heading and leaves embers burning; every fourth swing it quakes the whole floor near it. Its magnet core drags mines and trails into it.",
+		"short": "Hammer slams where you head · 4th quakes", ## One line for fight cards; the lore is description.
+		"description": "A forge golem rooted in the middle of The Forge. It slams its hammer where you're heading and leaves embers burning; every 4th swing it quakes the whole floor near it. Its magnet core drags mines and trails into it.",
 		"color": "ff8a3d",
 		"arena": "forge",
 		"hp": 260.0, "radius": 128.0, "speed": 0.0, "contact_damage": 6.0,
@@ -45,6 +46,7 @@ const DEFS := {
 	},
 	"brood_queen": {
 		"display_name": "Brood Queen",
+		"short": "Lays eggs that hatch chicks · feathers",
 		"description": "A great neon hen gliding round The Nest. She lays eggs that hatch into darting chicks and flings feathers at you. Crack eggs before they hatch: every egg cracked adds to your reward.",
 		"color": "ff6fae",
 		"arena": "nest",
@@ -70,7 +72,8 @@ const DEFS := {
 	},
 	"pinata_titan": {
 		"display_name": "Piñata Titan",
-		"description": "A giant party piñata swinging on its rope over Fiesta Plaza. It never hits back: 30 seconds to smash out as many coins as you can. Break it for the jackpot.",
+		"short": "Never hits back · 30s to smash coins",
+		"description": "A giant party piñata swinging on its rope over Fiesta Plaza. It never hits back: 30s to smash out as many coins as you can. Break it for the jackpot.",
 		"color": "ffb627",
 		"arena": "plaza",
 		"hp": 360.0, "radius": 92.0, "speed": 0.0, "contact_damage": 0.0,
@@ -84,7 +87,8 @@ const DEFS := {
 	},
 	"totem_of_nine": {
 		"display_name": "Totem of Nine",
-		"description": "A spirit totem of nine family heads in the Spirit Shrine. Today's family head is lit: critters of that family hit it half as hard again. It rings out spirit orbs, then aims a fan of them at you.",
+		"short": "Orb rings and fans · lit family x1.5",
+		"description": "A spirit totem of nine family heads in the Spirit Shrine. Today's family head is lit: critters of that family hit it x1.5. It rings out spirit orbs, then aims a fan of them at you.",
 		"color": "c9a6ff",
 		"arena": "shrine",
 		"hp": 215.0, "radius": 104.0, "speed": 0.0, "contact_damage": 6.0,
@@ -102,6 +106,7 @@ const DEFS := {
 	},
 	"prism_wyrm": {
 		"display_name": "Prism Wyrm",
+		"short": "Only the shining scale takes damage",
 		"description": "A crystal serpent snaking figure-eights through the Crystal Rift. Only its shining scale can be hurt, and the shine runs along its body. Its tail lashes out where you are.",
 		"color": "7af0ff",
 		"arena": "rift",
@@ -122,7 +127,8 @@ const DEFS := {
 	},
 	"the_glitch": {
 		"display_name": "The Glitch",
-		"description": "The bug behind it all, in the Corrupted Core. Every 10 seconds it rewrites the rules: Static fires glitch bolts, Warp blinks it round the core leaving corrupted floor, and Pull drags you in while it pulses.",
+		"short": "Every 10s: Static, Warp or Pull",
+		"description": "The bug behind it all, in the Corrupted Core. Every 10s it rewrites the rules: Static fires glitch bolts, Warp blinks it round the core leaving corrupted floor, and Pull drags you in while it pulses.",
 		"color": "7cff4f",
 		"arena": "core",
 		"hp": 210.0, "radius": 90.0, "speed": 0.0, "contact_damage": 6.0,

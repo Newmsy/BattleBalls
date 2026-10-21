@@ -25,7 +25,7 @@ extends RefCounted
 
 const DEFS := {
 	"square": {
-		"display_name": "Glow Garden",
+		"display_name": "The Box",
 		"description": "The plain square.",
 		"corner_cut": 0.0,
 		"obstacles": [],
@@ -48,7 +48,7 @@ const DEFS := {
 		],
 	},
 	"bumpers": {
-		"display_name": "Circuit Lab",
+		"display_name": "Bumper Lab",
 		"description": "Bumpers kick balls off faster for a moment.",
 		"corner_cut": 0.0,
 		"obstacles": [
@@ -79,7 +79,7 @@ const DEFS := {
 		"spike_walls": {"half": 150.0},
 	},
 	"frost": {
-		"display_name": "Frostbite Lake",
+		"display_name": "Ice Pond",
 		"description": "A frozen lake in the middle: balls skate 30% faster on the ice.",
 		"corner_cut": 0.0,
 		"obstacles": [],
@@ -96,7 +96,7 @@ const DEFS := {
 		],
 	},
 	"arcade": {
-		"display_name": "Haunted Arcade",
+		"display_name": "Portal Hall",
 		"description": "Two portals: roll into one, pop out of the other.",
 		"corner_cut": 0.0,
 		"obstacles": [],
@@ -163,7 +163,7 @@ const DEFS := {
 	},
 	"reef": {
 		"display_name": "Coral Reef",
-		"description": "Four coral heads to bank off, and a whirlpool current in the middle.",
+		"description": "Coral to bank off, whirlpool in the middle.",
 		"corner_cut": 0.0,
 		"obstacles": [
 			{"pos": Vector2(500, 250), "radius": 40.0, "kind": "pillar"},
@@ -219,7 +219,7 @@ const PLAYABLE := ["square", "rink", "pillars", "bumpers", "wells", "spikes", "f
 const BOSS_ARENAS := {
 	"forge": {
 		"display_name": "The Forge",
-		"description": "Molten pools in two corners and belts running up and down the sides.",
+		"description": "Lava corners, side belts.",
 		"corner_cut": 0.0,
 		"obstacles": [],
 		"min_half": 420.0,
@@ -232,7 +232,7 @@ const BOSS_ARENAS := {
 	},
 	"nest": {
 		"display_name": "The Nest",
-		"description": "A twig nest with a golden egg in the middle and soft moss patches that slow you down.",
+		"description": "Moss slows you; egg in the middle.",
 		"corner_cut": 140.0,
 		"obstacles": [{"pos": Vector2(500, 500), "radius": 70.0, "kind": "pillar"}],
 		"min_half": 480.0,
@@ -243,7 +243,7 @@ const BOSS_ARENAS := {
 	},
 	"plaza": {
 		"display_name": "Fiesta Plaza",
-		"description": "A party square under the piñata, with balloon bumpers that kick you back up into it.",
+		"description": "Balloon bumpers kick you back up.",
 		"corner_cut": 0.0,
 		"obstacles": [
 			{"pos": Vector2(330, 720), "radius": 46.0, "kind": "bumper"},
@@ -268,7 +268,7 @@ const BOSS_ARENAS := {
 	},
 	"rift": {
 		"display_name": "Crystal Rift",
-		"description": "A cavern of cut crystal corners, wide open for the wyrm to snake through.",
+		"description": "Cut corners, wide open.",
 		"corner_cut": 120.0,
 		"obstacles": [],
 		"min_half": 470.0,
@@ -276,7 +276,7 @@ const BOSS_ARENAS := {
 	},
 	"core": {
 		"display_name": "Corrupted Core",
-		"description": "The heart of the bug: portals on both sides throw you across the core.",
+		"description": "Side portals throw you across.",
 		"corner_cut": 0.0,
 		"obstacles": [],
 		"min_half": 470.0,
