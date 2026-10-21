@@ -156,11 +156,12 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var actions := Kit.hbox(8)
 	if Campaign.can_sweep(p, z, i):
-		var sweep := Kit.cost_button("Sweep", Zones.cost(st), "energy", _sweep.bind(shell, z, i, fighter), "ghost", 22, 60)
+		var sweep := Kit.button("Sweep", _sweep.bind(shell, z, i, fighter), "ghost", 22, 60)
 		shell.mark("sweep_%d_%d" % [z + 1, i + 1], sweep)
 		actions.add_child(sweep)
 	var again := Kit.cost_button("", Zones.cost(st), "energy", _fight.bind(shell, z, i, fighter), "go", 22, 60)
-	again.custom_minimum_size.x = 84
+	again.custom_minimum_size.x = 100
+	again.size_flags_horizontal = Control.SIZE_SHRINK_END
 	shell.mark("stage_%d_%d" % [z + 1, i + 1], again)
 	actions.add_child(again)
 	var art := Kit.hbox(0, [], BoxContainer.ALIGNMENT_CENTER)
