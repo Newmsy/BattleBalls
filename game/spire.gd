@@ -8,6 +8,7 @@ const Arenas := preload("res://sim/arenas.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const FightHud := preload("res://game/fight_hud.gd")
+const FighterStrip := preload("res://game/fighter_strip.gd")
 const Relay := preload("res://sim/relay.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Spire := preload("res://sim/spire.gd")
@@ -46,6 +47,7 @@ var sfx: Sfx
 var title_label: Label
 var hud_label: Label
 var fight_hud: FightHud ## Both health bars, above the arena.
+var fighter_strip: Control ## The two fighters' cards under the leg's controls, as in Quick fight.
 var lineup_row: HBoxContainer ## "Foes:" and their faces, before the fight.
 var info_label: Label
 var panel: VBoxContainer
@@ -271,8 +273,10 @@ func _update_hud() -> void:
 	if fighting:
 		hud_label.text = ""
 		fight_hud.show_fight(sim, "%d v %d" % left)
+		fighter_strip.show_fight(sim)
 	else:
 		fight_hud.show_fight(null)
+		fighter_strip.show_fight(null)
 		hud_label.text = "%d v %d" % left
 
 
@@ -292,6 +296,9 @@ func _build_ui() -> void:
 	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fight_hud.tags = ["YOU", "FOE"]
 	ui.add_child(fight_hud)
+	fighter_strip = FighterStrip.new()
+	fighter_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(fighter_strip)
 	lineup_row = Kit.hbox(8, [], BoxContainer.ALIGNMENT_CENTER)
 	lineup_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info_label = _label("", 26)
@@ -329,6 +336,9 @@ func _layout() -> void:
 	_place(fight_hud, Vector2(left, 100), Vector2(side, 84))
 	_place(info_label, panel_pos, Vector2(panel_width, 90))
 	_place(panel, panel_pos + Vector2(0, 100), Vector2(panel_width, PANEL_HEIGHT - 100.0))
+	# The cards fill the room under a leg's one-row controls (speed and Skip).
+	var strip_top := panel_pos.y + 100.0 + 84.0 + 20.0
+	_place(fighter_strip, Vector2(panel_pos.x, strip_top), Vector2(panel_width, clampf(size.y - strip_top - bottom_margin, 0.0, 240.0)))
 	arena.queue_redraw()
 
 

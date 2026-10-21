@@ -1520,8 +1520,12 @@ func _draw_boss(i: int, def: Dictionary, r: float) -> void:
 		opts.face = b.vel.normalized()
 	elif def.id == "brood_queen": # She glides by moving her anchor: face along the loop.
 		opts.face = Vector2.from_angle(def.glide_start + b.state.clock * def.glide_speed + PI / 2.0)
-	if def.id == "pinata_titan": # Its rope, up to where it hangs from.
-		opts.pivot = def.pivot - b.pos
+	if def.id == "pinata_titan": # Its rope, up to where it hangs from: to screen
+		# scale, and undoing the look/squash frame _draw_critter drew it in.
+		var ang: float = _look[i].angle()
+		var sq: float = _squash[i] * 1.6
+		var frame := Transform2D(ang, Vector2.ZERO) * Transform2D(Vector2(1.0 - sq * 0.6, 0), Vector2(0, 1.0 + sq * 0.5), Vector2.ZERO) * Transform2D(-ang, Vector2.ZERO)
+		opts.pivot = frame.affine_inverse().basis_xform((def.pivot - ball_pos(b)) * (r / b.radius))
 	if def.id == "totem_of_nine":
 		opts.family = b.state.get("family", "")
 	if def.id == "prism_wyrm":
