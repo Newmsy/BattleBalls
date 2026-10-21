@@ -176,8 +176,7 @@ func _show_draft() -> void:
 	var grid := _grid()
 	for i in setup.cards.size():
 		var c: Dictionary = setup.cards[i]
-		var picked: bool = i in picks
-		var card := _critter_card(c.critter, func(): _toggle_pick(i), GOLD if picked else Kit.LINE, picked, false, 1, true)
+		var card := _critter_card(c.critter, func(): _toggle_pick(i), picks.find(i), false, 1, true)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(card)
 		_mark("br_card_%d" % i, card)
@@ -192,13 +191,15 @@ func _show_draft() -> void:
 
 
 ## Shrinks the stacked draft cards until the page fits without scrolling:
-## smaller critter icons first, then smaller ability text (small phones with
-## Larger text). Reports the screen once it has settled.
+## smaller critter icons first, then smaller ability text, then the rarity
+## chips go (the tint and rim still show rarity). Small phones with Larger
+## text only. Reports the screen once it has settled.
 func _fit_draft(grid: Control) -> void:
 	var icons := grid.find_children("*", "", true, false).filter(func(c): return c.has_meta("draft_icon"))
 	var texts := grid.find_children("*", "Label", true, false).filter(func(c): return c.has_meta("draft_text"))
+	var chips := grid.find_children("*", "", true, false).filter(func(c): return c.has_meta("draft_chip"))
 	var font := 19
-	for _i in 12:
+	for _i in 14:
 		await get_tree().process_frame
 		if not is_instance_valid(grid) or not grid.is_inside_tree():
 			return
@@ -215,6 +216,9 @@ func _fit_draft(grid: Control) -> void:
 			font -= 1
 			for t in texts:
 				t.add_theme_font_size_override("font_size", A11y.font(font))
+		elif chips and chips[0].visible:
+			for c in chips:
+				c.visible = false
 		else:
 			break
 	_report("br_draft")
@@ -286,13 +290,17 @@ func _show_floor() -> void:
 			_boon_strip(foe.boons, 44, false),
 		]))]),
 	])
+	var hurt := _foe_hp_frac()
+	if hurt < 1.0:
+		# The foe keeps the damage your last critter did (sim/bounce_run.gd).
+		foe_box.add_child(Kit.hbox(10, [_expand(Kit.bar(hurt, PINK, 16)), Kit.caption("%d%% HP left" % ceili(100.0 * hurt), PINK)]))
 	var tier := BounceRun.tier_at(run.floor)
 	var trio_cap := "Your trio · T%d" % tier
 	var items: Array = [_ladder(), Kit.panel(foe_box, Kit.box(Color("2a1030"), PINK, 32, 2, 20)), Kit.caption(trio_cap)]
 	for s in BounceRun.PICKS:
 		var c := BounceRun.card(setup, run, s)
 		var out: bool = run.out[s]
-		var card := _critter_card(c.critter, func(): _choose_fighter(s), Kit.LINE if out else Kit.ACCENT, false, out, BounceRun.tier_at(run.floor))
+		var card := _critter_card(c.critter, func(): _choose_fighter(s), -1, out, BounceRun.tier_at(run.floor))
 		card.disabled = out
 		items.append(card)
 		if not out:
@@ -356,7 +364,7 @@ func _finish_fight() -> void:
 	var won := sim.winner == 0
 	var cleared_floor: int = run.floor + 1
 	run.erase("launched")
-	BounceRun.record(setup, run, slot, aim, sim.winner, sim.tick)
+	BounceRun.record(setup, run, slot, aim, sim.winner, sim.tick, sim.team_hp(1))
 	_save_run()
 	sfx.on_result(sim.winner)
 	print("BOUNCERUN_RESULT floor=%d won=%s ticks=%d over=%s" % [cleared_floor, won, sim.tick, run.over])
@@ -372,7 +380,7 @@ func _finish_fight() -> void:
 		info_label.text = "Pick a boon next!" if not run.over else "All %d floors in %s." % [BounceRun.FLOORS, _clock(run.ticks)]
 	else:
 		var left := BounceRun.living(run).size()
-		info_label.text = "Your trio is out." if run.over else "%d left. Send another!" % left
+		info_label.text = "Your trio is out." if run.over else "%d left. The foe has %d%% HP left!" % [left, ceili(100.0 * _foe_hp_frac())]
 	var next := Kit.button("Continue", _after_result, "go", 34)
 	_mark("br_continue", next)
 	_set_panel([top, _floor_pips(BounceRun.score(run).floors), next], "br_result")
@@ -396,7 +404,7 @@ func _settle_launched_fight() -> void:
 	var l: Dictionary = run.launched
 	run.erase("launched")
 	var result := MatchSim.new(BounceRun.fight_config(setup, run, int(l.slot), int(l.aim))).run_to_end()
-	BounceRun.record(setup, run, int(l.slot), int(l.aim), result.winner, result.ticks)
+	BounceRun.record(setup, run, int(l.slot), int(l.aim), result.winner, result.ticks, result.hp[1])
 	_save_run()
 	print("BOUNCERUN_SETTLED slot=%d won=%s" % [int(l.slot), result.winner == 0])
 
@@ -437,6 +445,65 @@ func _show_boon() -> void:
 		items.append(_boon_strip(run.boons, 52))
 	items.append(Kit.label("Next: %s %s" % [setup.floors[run.floor].title, _name(setup.floors[run.floor].critter)], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	_set_page(items, "br_boon")
+	if up:
+		_show_tier_up(BounceRun.tier_at(run.floor))
+
+
+## The trio's tier-up moment over the boon page: a gold burst, the trio
+## popping in at the new tier one by one and the new star landing. Reduced
+## motion shows the same card without the movement.
+func _show_tier_up(tier: int) -> void:
+	var gold_bg := Roster.rarity_bg("legendary", Kit.PANEL, 0.06)
+	var faces := Kit.hbox(18, [], BoxContainer.ALIGNMENT_CENTER)
+	for slot in BounceRun.PICKS:
+		var icon := CritterIcon.make(BounceRun.card(setup, run, slot).critter, tier, 120)
+		if run.out[slot]:
+			icon.modulate = Color(1, 1, 1, 0.35)
+		faces.add_child(_pop_wrap(icon))
+	var old_stars := Kit.glyph("stars", 44, Kit.MUTED, tier - 1)
+	var new_star := Kit.glyph("stars", 44, GOLD, 1)
+	var stars := Kit.hbox(6, [old_stars, _pop_wrap(new_star)], BoxContainer.ALIGNMENT_CENTER)
+	var head := Kit.label("TIER UP!", 52, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	var lines: Array = [head, stars, faces,
+		Kit.label("Your trio fights at T%d from now on." % tier, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)]
+	var burst := Panel.new()
+	burst.add_theme_stylebox_override("panel", Kit.box(Color(GOLD, 0.55), Color(0, 0, 0, 0), 999, 0, 0))
+	burst.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var card := _overlay_card(lines, Kit.box(gold_bg, GOLD, 32, 4, 28), "br_tier_close")
+	var layer: Control = card.get_parent().get_parent() # The overlay's root: dim, burst, then the card.
+	layer.add_child(burst)
+	layer.move_child(burst, 1)
+	sfx.play("summon_legend")
+	print("BOUNCERUN_TIER_UP T%d" % tier)
+	_report.call_deferred("br_tier_up")
+	await get_tree().process_frame
+	if not is_instance_valid(card):
+		return
+	var centre := card.get_global_rect().get_center() - layer.get_global_rect().position
+	burst.size = Vector2(180, 180)
+	burst.position = centre - burst.size / 2.0
+	burst.pivot_offset = burst.size / 2.0
+	if A11y.motion() == 0.0:
+		burst.visible = false
+		return
+	card.pivot_offset = card.size / 2.0
+	card.scale = Vector2(0.7, 0.7)
+	new_star.scale = Vector2.ZERO
+	var pops: Array = faces.get_children().map(func(w): return w.get_child(0))
+	for f in pops:
+		f.scale = Vector2.ZERO
+	var tw := create_tween()
+	tw.tween_property(card, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(burst, "scale", Vector2(6, 6), 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(burst, "modulate:a", 0.0, 0.7)
+	for f in pops:
+		tw.tween_property(f, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_callback(sfx.play.bind("summon_pop"))
+	tw.tween_property(new_star, "scale", Vector2(1.6, 1.6), 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(sfx.play.bind("twinkle"))
+	tw.tween_property(new_star, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(head, "modulate", Color(1.4, 1.3, 1.0), 0.25)
+	tw.tween_property(head, "modulate", Color.WHITE, 0.35)
 
 
 func _take_boon(id: String) -> void:
@@ -738,25 +805,63 @@ func _update_hud() -> void:
 	hud_label.text = "You %s   |   %s   |   %s Foe" % [parts[0], clock, parts[1]]
 
 
-## A critter and what its ability does, as a tappable card. `stacked` puts
-## the icon on top with the text centred under it (the 2-column draft grid);
-## otherwise the icon sits left of the text (full-width rows).
-func _critter_card(critter: String, on_press: Callable, border: Color, picked := false, out := false, tier := 1, stacked := false) -> Button:
+## A critter and what its ability does, as a tappable card, tinted and
+## rimmed by its rarity with the rarity named on a chip. `stacked` puts the
+## icon on top with the text centred under it (the 2-column draft grid);
+## otherwise the icon sits left of the text (full-width rows). `pick_no` >= 0
+## marks a drafted card: a thick white rim and its pick number by the name.
+func _critter_card(critter: String, on_press: Callable, pick_no := -1, out := false, tier := 1, stacked := false) -> Button:
+	var rarity: String = Roster.get_critter(critter).rarity
+	var col: Color = Roster.RARITY_COLORS[rarity]
+	var picked := pick_no >= 0
 	var align := HORIZONTAL_ALIGNMENT_CENTER if stacked else HORIZONTAL_ALIGNMENT_LEFT
-	var text := Kit.vbox(2, [Kit.label(_name(critter), 28, Kit.MUTED if out else (GOLD if picked else Kit.FG), align)])
+	var title := ("#%d  " % (pick_no + 1) if picked else "") + _name(critter)
+	var chip := Kit.chip(Roster.RARITY_NAMES[rarity], Kit.MUTED if out else col, 16)
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if stacked else Control.SIZE_SHRINK_BEGIN
+	var text := Kit.vbox(2, [Kit.label(title, 28, Kit.MUTED if out else Kit.FG, align), chip])
 	text.add_child(Kit.label("OUT", 22, PINK, align) if out else _ability_label(critter, align))
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var icon := CritterIcon.make(critter, tier, 104 if stacked else 80)
 	if out:
 		icon.modulate = Color(1, 1, 1, 0.35)
+	var body: Control
 	if stacked:
 		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		icon.set_meta("draft_icon", true)
-		text.get_child(1).set_meta("draft_text", true)
-		var col := Kit.vbox(6, [icon, text])
-		return Kit.card_button(col, on_press, border, Color("241f55") if picked else Kit.PANEL, 28, 14)
-	var row := Kit.hbox(12, [icon, text])
-	return Kit.card_button(row, on_press, border, Color("241f55") if picked else Kit.PANEL, 28, 14)
+		chip.set_meta("draft_chip", true)
+		text.get_child(2).set_meta("draft_text", true)
+		body = Kit.vbox(6, [icon, text])
+	else:
+		body = Kit.hbox(12, [icon, text])
+	var bg := Kit.PANEL if out else Roster.rarity_bg(rarity, Color("241f55") if picked else Kit.PANEL, 0.2)
+	var rim := Kit.LINE if out else (Kit.FG if picked else Roster.rarity_border(rarity, Kit.ACCENT if not stacked else Kit.LINE))
+	var card := Kit.card_button(body, on_press, rim, bg, 28, 14)
+	if picked:
+		var st := Kit.box(bg, rim, 28, 6, 14)
+		for k in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+			card.add_theme_stylebox_override(k, st)
+	return card
+
+
+## `c` inside a plain Control of its size, so it can be scaled from its
+## centre (a container resets its children's scale whenever it re-sorts).
+func _pop_wrap(c: Control) -> Control:
+	var wrap := Control.new()
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.custom_minimum_size = c.get_combined_minimum_size()
+	wrap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	c.size = wrap.custom_minimum_size
+	c.pivot_offset = c.size / 2.0
+	wrap.add_child(c)
+	return wrap
+
+
+## The share of its HP the current floor's foe has left (1.0 when fresh).
+func _foe_hp_frac() -> float:
+	if run.get("foe_hp") == null or run.over:
+		return 1.0
+	var probe := MatchSim.new(BounceRun.fight_config(setup, run, BounceRun.living(run)[0], 0))
+	return clampf(probe.balls[1].hp / probe.balls[1].max_hp, 0.0, 1.0)
 
 
 func _ability_label(critter: String, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
@@ -811,7 +916,7 @@ func _show_rules() -> void:
 	var lines: Array = [Kit.label("How Bounce Run works", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]
 	for t in [
 		"Draft 3 critters and 3 starting boons, then climb %d floors. Foes start easy and get tougher." % BounceRun.FLOORS,
-		"Pick who to send each floor. Lose and that critter is out; lose all three and the run ends.",
+		"Pick who to send each floor. Lose and that critter is out, but the foe keeps the damage it took for your next send. Lose all three and the run ends.",
 		"Your trio starts at T1 and goes up a tier every %d floors, up to T5 on the last floors. Foes stay T1." % BounceRun.FLOORS_PER_TIER,
 		"Win a floor to pick another boon. Boons power your whole trio. Rarer boons are stronger; tap a held boon to see it.",
 		"A foe's Power is next to your trio's: 100% is even.",
@@ -823,7 +928,7 @@ func _show_rules() -> void:
 
 
 ## A card over the page on a dimmed backdrop; tapping outside or Close shuts it.
-func _overlay_card(lines: Array, style: StyleBox, close_mark: String) -> void:
+func _overlay_card(lines: Array, style: StyleBox, close_mark: String) -> PanelContainer:
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var dim := Button.new()
@@ -847,6 +952,7 @@ func _overlay_card(lines: Array, style: StyleBox, close_mark: String) -> void:
 	centre.add_child(card)
 	root.add_child(centre)
 	ui.add_child(root)
+	return card
 
 
 func _expand(c: Control) -> Control:
