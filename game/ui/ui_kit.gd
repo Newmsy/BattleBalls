@@ -84,6 +84,24 @@ static func hbox(sep := 16, children: Array = [], align := BoxContainer.ALIGNMEN
 	return b
 
 
+## Centres a column's content in the height it is given (put it straight in a
+## ScrollContainer or a full-height parent), keeping the first `keep_top`
+## children (a title row) at the top. Content taller than the room lays out
+## exactly as before, so it still scrolls.
+static func centre_column(col: VBoxContainer, keep_top := 0) -> void:
+	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if keep_top == 0:
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		return
+	if col.get_child_count() <= keep_top:
+		return
+	var body := vbox(col.get_theme_constant("separation"))
+	for c in col.get_children().slice(keep_top):
+		c.reparent(body, false)
+	col.add_child(body)
+	centre_column(body)
+
+
 static func spacer() -> Control:
 	var c := Control.new()
 	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
