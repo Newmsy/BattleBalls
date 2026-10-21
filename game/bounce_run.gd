@@ -453,6 +453,9 @@ func _show_boon() -> void:
 ## popping in at the new tier one by one and the new star landing. Reduced
 ## motion shows the same card without the movement.
 func _show_tier_up(tier: int) -> void:
+	print("BOUNCERUN_TIER_UP T%d" % tier)
+	if not is_inside_tree():
+		return # Tests drive the run without a screen.
 	var gold_bg := Roster.rarity_bg("legendary", Kit.PANEL, 0.06)
 	var faces := Kit.hbox(18, [], BoxContainer.ALIGNMENT_CENTER)
 	for slot in BounceRun.PICKS:
@@ -474,7 +477,6 @@ func _show_tier_up(tier: int) -> void:
 	layer.add_child(burst)
 	layer.move_child(burst, 1)
 	sfx.play("summon_legend")
-	print("BOUNCERUN_TIER_UP T%d" % tier)
 	_report.call_deferred("br_tier_up")
 	await get_tree().process_frame
 	if not is_instance_valid(card):
