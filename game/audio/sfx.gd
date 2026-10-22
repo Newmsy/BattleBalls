@@ -183,7 +183,7 @@ func _input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	_clock += delta
-	if _music_track == "victory" and _menu_pending:
+	if _music_track == "victory" and (_menu_pending or _victory_hold != null):
 		var hold: Control = _victory_hold.get_ref() if _victory_hold else null
 		var held := hold != null and _shown(hold)
 		if not held and (_victory_hold != null or _clock - _victory_at > VICTORY_GRACE):

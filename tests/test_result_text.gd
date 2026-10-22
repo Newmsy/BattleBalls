@@ -70,5 +70,5 @@ func test_knockout_keeps_plain_headline() -> void:
 	var sim := _clash(100.0, 1.0)
 	check_eq(sim.end_reason, "knockout")
 	var r := ResultText.describe(sim, NAMES)
-	check_eq(r.headline, "YOU WIN!")
+	check_eq(r.headline, "Victory!")
 	check_eq(r.detail, "")

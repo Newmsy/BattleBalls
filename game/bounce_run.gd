@@ -6,6 +6,8 @@
 ## &offline=1 (never touch the leaderboard).
 extends Node2D
 
+const ResultPopup := preload("res://game/ui/result_popup.gd")
+const FightAim := preload("res://game/fight_aim.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Boons := preload("res://sim/boons.gd")
@@ -51,7 +53,8 @@ var save_path := SAVE_PATH ## Tests point this elsewhere.
 
 var _save := ConfigFile.new()
 var _accumulator := 0.0
-var _dragging := false
+var aimer := FightAim.new() ## Tap the arena to aim, let go to launch.
+var _result_popup: Control
 var _marks := {}
 var _board_rows = null ## Leaderboard rows once fetched; null while loading.
 var _board_note := ""
@@ -129,27 +132,9 @@ func _process(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if state != State.AIM:
 		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			_dragging = _aim_towards(event.position)
-		elif _dragging:
-			_dragging = false
-			_aim_towards(event.position)
-			_launch()
-	elif event is InputEventMouseMotion and _dragging:
-		_aim_towards(event.position)
-
-
-func _aim_towards(screen_pos: Vector2) -> bool:
-	var world := arena.to_world(screen_pos)
-	if not Rect2(0, 0, MatchSim.ARENA_SIZE, MatchSim.ARENA_SIZE).grow(60.0).has_point(world):
-		return false
-	var dir := world - sim.balls[0].pos
-	if dir.length() >= 10.0:
-		aim = roundi(rad_to_deg(dir.angle()) * 10.0)
-		sfx.on_aim_drag(dir.length() / 600.0)
-		_preview()
-	return true
+	aimer.feed(event, arena, sim.balls[0].pos, func(a: int):
+		aim = a
+		_preview(), _launch, sfx)
 
 
 ## Boon heals on every wall bounce would bury the fight in popups and wisps.
@@ -375,23 +360,24 @@ func _finish_fight() -> void:
 	_save_run()
 	sfx.on_result(sim.winner)
 	print("BOUNCERUN_RESULT floor=%d won=%s ticks=%d over=%s" % [cleared_floor, won, sim.tick, run.over])
-	var title := "FLOOR %d CLEARED!" % cleared_floor if won else "%s IS OUT!" % _name(BounceRun.card(setup, run, slot).critter).to_upper()
-	if won and run.over:
-		title = "RUN CLEARED!"
-	var head := Kit.label(title, 40, Kit.GOOD if won else PINK, HORIZONTAL_ALIGNMENT_CENTER)
-	# The result as a card: your critter's face by the headline, then the run's floor pips.
-	var face := CritterIcon.make(BounceRun.card(setup, run, slot).critter, 1, 64)
-	face.still = true
-	var top := Kit.hbox(10, [face, head], BoxContainer.ALIGNMENT_CENTER)
+	var info := ""
 	if won:
-		info_label.text = "Pick a boon next!" if not run.over else "All %d floors in %s." % [BounceRun.FLOORS, _clock(run.ticks)]
+		info = "Pick a boon next!" if not run.over else "All %d floors in %s." % [BounceRun.FLOORS, _clock(run.ticks)]
 	else:
 		var left := BounceRun.living(run).size()
-		info_label.text = "Your trio is out." if run.over else "%d left. The foe has %d%% HP left!" % [left, ceili(100.0 * _foe_hp_frac())]
-	var next := Kit.button("Continue", _after_result, "go", 34)
+		info = "Your trio is out." if run.over else "%d left. The foe has %d%% HP left!" % [left, ceili(100.0 * _foe_hp_frac())]
+	info_label.text = ""
+	_replace_children(panel, [])
+	# The result popup every fight ends on (ResultPopup).
+	var next := Kit.button("Continue", _after_result, "go", 26, 84)
 	_mark("br_continue", next)
-	_set_panel([top, _floor_pips(BounceRun.score(run).floors), next], "br_result")
-	_layout() # The result card takes the cards' room.
+	var caption := "Bounce Run · " + ("Run cleared" if won and run.over else "Floor %d" % cleared_floor)
+	var line := Kit.label(info, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
+	line.custom_minimum_size.x = 560.0 # Wrapped text needs a width before the sheet measures itself.
+	var body := [line, _floor_pips(BounceRun.score(run).floors)]
+	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
+	_result_popup = ResultPopup.show_over(ui, ResultPopup.content(caption, ResultPopup.outcome_of(sim.winner), body, [next]), _report.bind("br_result"))
+	sfx.hold_victory(_result_popup)
 
 
 ## One pip per floor: cleared ones lit gold, the rest dim.
@@ -418,6 +404,9 @@ func _settle_launched_fight() -> void:
 
 
 func _after_result() -> void:
+	if is_instance_valid(_result_popup):
+		_result_popup.queue_free()
+	sfx.toggle_hidden = false
 	if run.over:
 		_finish_run()
 	elif not run.offer.is_empty():
