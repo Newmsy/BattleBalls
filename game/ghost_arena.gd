@@ -242,7 +242,9 @@ func _begin_aim(slot: int) -> void:
 	arena.clear_effects()
 	_preview()
 	info_label.text = "Ball %d/3 · drag to aim %s" % [slot + 1, BallDefs.get_def(relay.sides[0][slot]).display_name]
-	_set_panel([_button("Launch", _launch, 36)])
+	var launch := _button("Launch", _launch, 36)
+	_set_panel([launch])
+	_mark_at.call_deferred("arena_launch", launch)
 
 
 func _preview() -> void:
