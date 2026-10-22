@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ Deflating sprays 6 spines (3 each)", "now": "Hurt: puffs {grow_secs}s (+{grow_add} dmg), blast {grow_pulse_damage}, then {grow_end_bolts} spines", "ability": [{"on": "always", "do": "grow_end"}], "grow_end_bolts": 6.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": -.14, "mouth": "pout"}, "back": ["sidefins"], "front": ["spots"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.15},
+	"sound": {"ouch": "ouch_sea", "pitch": 1.15},
 }

@@ -36,5 +36,5 @@ const CRITTER := {
 		{"text": "+ Spit slam 10 → 16, burps 10 + knockback", "now": "Bites heal {stack_heal}; full: -{stack_full_armor%}% taken, swallow, burp {burp_damage}", "burp_radius": 150.0, "swallow_slam": 16.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "bigmouth"}, "front": ["napkin"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.95},
+	"sound": {"ouch": "ouch_sweet", "pitch": 0.95},
 }

@@ -36,5 +36,5 @@ const CRITTER := {
 		{"text": "+ Every 6s a ring flare flings foes into walls", "now": "Pulls foes in; {moon_count} moons bonk {moon_damage} · flare every 6s", "ability": [{"on": "every", "secs": 6.0, "do": "flare"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .17, "closed": true, "mouth": "smile"}, "back": ["orbit_ring"], "front": ["orbit_ring"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 0.7},
+	"sound": {"ouch": "ouch_cosmic", "pitch": 0.7},
 }

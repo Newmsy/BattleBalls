@@ -31,5 +31,5 @@ const CRITTER := {
 		{"text": "+ A full charge calls a thunderclap (12)", "now": "Stores up to {spark_max} sparks; next hit chains {storm_dps}/s + burn, clap", "thunder_damage": 12.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "ffb300", "mouth": "smirk"}, "back": ["wings", "boltcrest"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.0},
+	"sound": {"ouch": "ouch_cosmic", "pitch": 1.0},
 }

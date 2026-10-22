@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ Every 3rd shower: thunder strike 10", "now": "Rain every {rain_every}s: {rain_dps}/s, slow {rain_slow%}% · every 3rd thunder", "rain_storm_every": 3, "ability": [{"on": "always", "do": "thunder"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["drops"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.1},
+	"sound": {"ouch": "ouch_frost", "pitch": 1.1},
 }

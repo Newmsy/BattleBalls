@@ -31,5 +31,5 @@ const CRITTER := {
 	],
 	"chaos": {"hyper_speed": {"twig_damage": 0.75}}, ## Hyper Speed piles on twigs too fast
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "smirk"}, "front": ["twigs"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.05},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.05},
 }

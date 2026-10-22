@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ Slowing trail while phased (slow 30%)", "now": "Phases {phase_secs}s every {phase_every}s, slow trail, dash; hit x{ambush_mult}", "ability": [{"on": "always", "do": "phase_trail"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .15, "h": .24, "hollow": true, "mouth": "o"}, "body": "ghost", "back": ["wisp_tail"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.45},
+	"sound": {"ouch": "ouch_spooky", "pitch": 1.45},
 }

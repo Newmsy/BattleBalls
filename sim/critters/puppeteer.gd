@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ 2 strings, throws harder, bows: 10 shield", "now": "Every {string_cooldown}s 2 strings, hurls: slam {string_slam} + stun, bow", "string_ties": 2, "string_fling": 1.1, "ability": [{"on": "always", "do": "string_snap"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["controlbar", "tophat"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.0},
+	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},
 }

@@ -34,5 +34,5 @@ const CRITTER := {
 		{"text": "+ Leaves a line of 3 bombs", "now": "Teleports every {glitch_every}s: {bomb_line} bombs ({bomb_damage}), pulse {glitch_pulse}", "bomb_line": 3, "bomb_max": 6},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "smile"}, "body": "pixel"},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.4},
+	"sound": {"ouch": "ouch_toybox", "pitch": 1.4},
 }

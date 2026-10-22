@@ -28,5 +28,5 @@ const CRITTER := {
 		{"text": "+ Every 3rd hit booms twice", "now": "Hits boom {boom_damage} + knockback, wall +{boom_slam}; every 3rd twice", "boom_double_every": 3, "ability": [{"on": "always", "do": "boom_echo"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["sticks"], "front": ["drumhead", "rope"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.0},
+	"sound": {"ouch": "ouch_toybox", "pitch": 1.0},
 }

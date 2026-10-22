@@ -28,5 +28,5 @@ const CRITTER := {
 		{"text": "+ A hit after 5 walls is a TILT! x2", "now": "+{bulb_damage} dmg per wall, max {bulb_max}; at {bulb_max}: TILT! x{bulb_tilt}", "bulb_tilt": 2.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "body": "chrome", "tint": true, "back": ["rears"], "front": ["bulbs"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.25},
+	"sound": {"ouch": "ouch_toybox", "pitch": 1.25},
 }

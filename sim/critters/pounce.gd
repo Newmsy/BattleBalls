@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ A marked hit marks the foe again, once", "now": "Hurt: marks (every {mark_cooldown}s), 2 pounces, slow {pounce_slow%}%; x{marked_mult}", "pounce_remark": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smirk"}, "back": ["ears"], "front": ["spots", "whiskers"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.15},
+	"sound": {"ouch": "ouch_frost", "pitch": 1.15},
 }

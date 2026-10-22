@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ Shooting star every 3s (5)", "now": "Burning stardust trail {trail_dps}/s, {trail_life}s · star every 3s", "ability": [{"on": "every", "secs": 3.0, "do": "star"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "back": ["comettail"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.15},
+	"sound": {"ouch": "ouch_cosmic", "pitch": 1.15},
 }

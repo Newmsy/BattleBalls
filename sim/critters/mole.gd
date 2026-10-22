@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ The burst throws 3 dirt clods (4)", "now": "Digs every {dig_every}s (-70% taken), bursts {dig_damage} + {dig_clods} clods, rushes", "dig_clods": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "smile"}, "front": ["helmet", "starnose"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.1},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.1},
 }

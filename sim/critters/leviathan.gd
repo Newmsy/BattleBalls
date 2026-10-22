@@ -40,5 +40,5 @@ const CRITTER := {
 		{"text": "+ The eruption leaves a whirlpool (4/s)", "now": "Slowing tail {tail_damage}; every {dive_every}s wave {wave_damage} + whirlpool", "pool_dps": 4.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "none"}, "back": ["segments", "frill"], "front": ["gills"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.7},
+	"sound": {"ouch": "ouch_sea", "pitch": 0.7},
 }

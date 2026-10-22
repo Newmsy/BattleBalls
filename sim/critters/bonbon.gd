@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ Every 3rd wrap pulls the foe to Bonbon", "wrap_pull_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "back": ["wrapper", "bow"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},
+	"sound": {"ouch": "ouch_sweet", "pitch": 1.3},
 }

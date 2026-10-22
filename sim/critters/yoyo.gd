@@ -36,5 +36,5 @@ const CRITTER := {
 		{"text": "Every bounce, 2 strings, 26/s; walk every 2nd", "now": "Every bounce swings on 2 strings ({yoyo_dps}/s); walks the dog", "walk_every": 2, "special": "Around the World", "yoyo_every": 1, "yoyo_strings": 2, "yoyo_secs": 1.4, "yoyo_dps": 26.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mis": true, "mouth": "smirk"}, "front": ["yoyo"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.2},
+	"sound": {"ouch": "ouch_toybox", "pitch": 1.2},
 }

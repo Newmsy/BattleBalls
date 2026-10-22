@@ -30,5 +30,5 @@ const CRITTER := {
 		{"text": "+ Leaves 3 snowdrifts (slow 30%)", "now": "At 50%/25% HP roars: {roar_damage}, knockback, slow, {roar_drifts} drifts", "roar_drifts": 3.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "teeth"}, "back": ["horns"], "front": ["fringe"], "scale": 1.1},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.7},
+	"sound": {"ouch": "ouch_frost", "pitch": 0.7},
 }

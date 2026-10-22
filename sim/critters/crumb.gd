@@ -34,5 +34,5 @@ const CRITTER := {
 		{"text": "+ 3rd bite at 15% HP · crumbs 4 → 8", "now": "At 66/33/15% HP sheds a bite: +{grow_speed%}% speed, heal {grow_heal}, {grow_bolts} crumbs", "ability": [{"on": "hp_below", "hp": 0.15, "do": "grow"}], "grow_bolts": 8.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "front": ["chips", "bite"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},
+	"sound": {"ouch": "ouch_sweet", "pitch": 1.3},
 }

@@ -30,5 +30,5 @@ const CRITTER := {
 	],
 	"chaos": {"glass_cannon": {"wind_step": 0.7}}, ## Glass Cannon bumps hurt more, so each wind-up is worth more
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "flat"}, "back": ["gears", "key"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.0},
+	"sound": {"ouch": "ouch_tech", "pitch": 1.0},
 }

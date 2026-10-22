@@ -30,5 +30,5 @@ const CRITTER := {
 		{"text": "Zigzags 2 more bounces, 10 → 18/s, slow 30%", "now": "After a hit, its path zigzags {zz_damage}/s for {zz_life}s, slow {zz_slow%}%", "zz_segments": 3, "zz_damage": 18.0, "zz_slow": 0.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["spikyhair"], "front": ["zigmark"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.35},
+	"sound": {"ouch": "ouch_tech", "pitch": 1.35},
 }

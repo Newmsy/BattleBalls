@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ Icy huff: 6 dmg, slow 15%", "now": "Icy huff every {huff_every}s ({huff_damage}), {whirl_secs}s whirlwinds", "huff_damage": 6.0, "huff_slow": 0.15, "whirl_secs": 3.5},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["windcurls"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.2},
+	"sound": {"ouch": "ouch_frost", "pitch": 1.2},
 }

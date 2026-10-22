@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ Leaves a burning trail while faded", "now": "Burning hits; fades {phase_secs}s (-70% taken, fire trail), relights {relight_damage}", "ability": [{"on": "always", "do": "phase_fire"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smirk"}, "back": ["candle"], "front": ["drips"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.2},
+	"sound": {"ouch": "ouch_spooky", "pitch": 1.2},
 }

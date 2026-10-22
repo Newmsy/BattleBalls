@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ Pings find the foe · next hit in 3s x2.5", "now": "Bounces ping: swerve, {ping_damage} dmg, slow {ping_slow%}% · hit in {ping_mark}s x{ping_hit_mult}", "special": "Echolocation", "ping_hit_mult": 2.5, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "fangs"}, "back": ["batwings", "ears"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},
+	"sound": {"ouch": "ouch_spooky", "pitch": 1.3},
 }

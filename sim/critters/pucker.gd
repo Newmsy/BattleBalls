@@ -32,5 +32,5 @@ const CRITTER := {
 		{"text": "Splash 8 → 12 + puddle (slow 25%)", "now": "Hits sour foe +{sour_amount%}% (max {sour_max%}%) · full: stun, splash {pucker_damage}, puddle", "sour_puddle": 60.0, "pucker_damage": 12.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "pout"}, "back": ["stemleaf"], "front": ["bloom"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.25},
+	"sound": {"ouch": "ouch_sweet", "pitch": 1.25},
 }

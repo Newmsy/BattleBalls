@@ -36,5 +36,5 @@ const CRITTER := {
 		{"text": "+ The breath leaves a burning streak (5/s)", "now": "Stokes +{stack_add} dmg, -{stack_armor%}% taken; at {stack_max}: {fire_count} fireballs + streak", "fire_streak": 5.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "smirk"}, "back": ["wings", "horns"], "front": ["belly"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.9},
+	"sound": {"ouch": "ouch_fire", "pitch": 0.9},
 }

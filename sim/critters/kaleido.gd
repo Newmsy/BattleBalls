@@ -31,5 +31,5 @@ const CRITTER := {
 		{"text": "+ A 4th mode: all three at half", "now": "Every {mode_secs}s pulse + spikes, shield, speed or all at half", "mode_count": 4.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "swirl": true, "mouth": "smile"}, "front": ["shards"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.25},
+	"sound": {"ouch": "ouch_toybox", "pitch": 1.25},
 }

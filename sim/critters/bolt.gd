@@ -32,5 +32,5 @@ const CRITTER := {
 		{"text": "+ Zap beam along the jump (10/s)", "now": "Each hit: zap-teleports behind foe; next hit +{blink_bonus}", "blink_zap": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "flat"}, "back": ["boltant"], "front": ["panel"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.25},
+	"sound": {"ouch": "ouch_tech", "pitch": 1.25},
 }

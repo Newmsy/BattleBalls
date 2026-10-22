@@ -40,5 +40,5 @@ const CRITTER := {
 		{"text": "+ Below 30% HP: hits count x2 for 6s", "now": "Every 3rd hit: {shot_count} rockets ({shot_damage}) + shield · Mega at 30%", "special": "Mega Mode", "ability": [{"on": "hp_below", "hp": 0.3, "do": "mega"}]},
 	],
 	"art": {"eyes": {"visor": true, "mouth": "none"}, "back": ["pods"], "front": ["vvisor", "chestlight"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 0.75},
+	"sound": {"ouch": "ouch_tech", "pitch": 0.75},
 }

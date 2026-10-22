@@ -35,6 +35,6 @@ const CRITTER := {
 		{"text": "+ Every 2nd ring: 8 pillars, fires twice", "now": "Every 5.5s {ring_count} pillars (2nd: {ring_big_count}, twice); shards {shard_damage}, slow", "ring_big_every": 2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smirk"}, "back": ["tallcrystals", "cape_collar"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.05},
+	"sound": {"ouch": "ouch_frost", "pitch": 1.05},
 	"chaos": {"rink": {"hp": 1.02}, "pillars": {"hp": 1.02}},
 }

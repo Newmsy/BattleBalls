@@ -39,6 +39,6 @@ const CRITTER := {
 		{"text": "+ Every 4th spin pays out every prize", "now": "Every {spin_every}s spins: mines, beams, coins or shield; 4th: all", "spin_jackpot_every": 4},
 	],
 	"art": {"eyes": {"none": true, "mouth": "grin"}, "back": ["lever"], "front": ["reels"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.1},
+	"sound": {"ouch": "ouch_toybox", "pitch": 1.1},
 	"chaos": {"rink": {"hp": 1.07}}, ## Quick and light: the cut corners of the rink catch it more.
 }

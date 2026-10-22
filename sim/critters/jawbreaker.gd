@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "Starts with 1 → 3 · full set blasts 16", "now": "Starts with {candy_start} candies ({candy_damage}), max {candy_max}; full: blast {candy_blast_damage}", "candy_blast_damage": 16.0, "candy_start": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smirk"}, "back": ["moons"], "front": ["candyrings"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.0},
+	"sound": {"ouch": "ouch_sweet", "pitch": 1.0},
 }

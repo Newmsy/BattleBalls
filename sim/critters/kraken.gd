@@ -40,5 +40,5 @@ const CRITTER := {
 		{"text": "+ Every 3rd slam is a giant hug", "now": "{tentacle_count} tentacles sweep {tentacle_damage}; slam every 6s, 3rd hugs", "hug_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "beak"}, "back": ["tentacles"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.75},
+	"sound": {"ouch": "ouch_sea", "pitch": 0.75},
 }

@@ -31,5 +31,5 @@ const CRITTER := {
 	],
 	"chaos": {"closing_walls": {"reflect_cap": 0.7}}, ## Short fights: big hitters can't outlast the sting.
 	"art": {"eyes": {"sep": .3, "w": .17, "h": .19, "p": .09, "brow": .32, "mouth": "frown"}, "back": ["thorn_ring"], "front": ["vines"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.8},
+	"sound": {"ouch": "ouch_nature", "pitch": 0.8},
 }
