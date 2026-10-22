@@ -54,12 +54,28 @@ static func target(mine: int, trophies: int, card: String) -> int:
 	return maxi(MIN_TARGET * 3, roundi(mine * ladder * CARD_SCALE[card]))
 
 
+## offers() and weakest() are pure, and building teams is the slowest part of
+## opening the Arena, so both are kept for the session.
+static var _offers_cache := {}
+static var _weakest_cache := {}
+
+
 ## Today's opponents, weakest first: OFFER_COUNT seeded themed teams, each
 ## with its own trophies a little below or above yours and as strong as a
 ## player on those trophies (strength_for). {card: "seeded", bot}; a bot is
 ## a full lineup, so the fight needs nothing else to replay. Stable for
 ## (day, refresh, trophies to the nearest 50).
 static func offers(trophies: int, day: int, refresh := 0, count := OFFER_COUNT) -> Array[Dictionary]:
+	var key := "%d|%d|%d|%d" % [day, refresh, trophies, count]
+	if not _offers_cache.has(key):
+		_offers_cache[key] = _make_offers(trophies, day, refresh, count)
+	var out: Array[Dictionary] = []
+	for c in _offers_cache[key]:
+		out.append(c.duplicate(true))
+	return out
+
+
+static func _make_offers(trophies: int, day: int, refresh: int, count: int) -> Array[Dictionary]:
 	var rng = Rng.new(hash("teams|%d|%d|%d" % [day, refresh, trophies / 50]))
 	var fams: Array = Families.ids()
 	var cards: Array[Dictionary] = []
@@ -127,9 +143,12 @@ static func make(family: String, goal: int, seed_value: int) -> Dictionary:
 
 ## The weakest team a family can field: its three weakest critters at 1 star.
 static func weakest(family: String) -> int:
+	if _weakest_cache.has(family):
+		return _weakest_cache[family]
 	var r: Array = Families.MEMBERS[family].filter(func(id): return id in BallDefs.PLAYABLE).map(func(id): return Lineup.rating(Lineup.make(id)))
 	r.sort()
-	return r[0] + r[1] + r[2]
+	_weakest_cache[family] = r[0] + r[1] + r[2]
+	return _weakest_cache[family]
 
 
 ## The team's summed Power Rating.
@@ -149,10 +168,14 @@ static func _build(critter: String, per: float) -> Dictionary:
 		var gear := _gear(tier)
 		for level in range(1, Lineup.level_cap(tier) + 1):
 			var s := Lineup.make(critter, tier, level, gear)
-			var gap := absf(Lineup.rating(s) - per)
+			var r := Lineup.rating(s)
+			var gap := absf(r - per)
 			if gap < best_gap:
 				best_gap = gap
 				best = s
+			# Rating only grows with level, so the rest of this tier is further off.
+			if r >= per:
+				break
 	return best
 
 
