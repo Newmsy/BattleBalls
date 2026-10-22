@@ -62,7 +62,9 @@ static func build(shell, params: Dictionary) -> Control:
 		side.add_child(fchip)
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
-	root.add_child(Kit.hbox(16, [CritterIcon.make(c.id, b.tier, 220, true), side], BoxContainer.ALIGNMENT_CENTER))
+	var hero := CritterIcon.make(c.id, b.tier, 220, true)
+	hero.family_badge = true
+	root.add_child(Kit.hbox(16, [hero, side], BoxContainer.ALIGNMENT_CENTER))
 
 	var how_level: Control = shell.info_button("How to level", [
 		"Your critter earns XP when it fights in campaign stages.",

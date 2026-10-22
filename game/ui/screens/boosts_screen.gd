@@ -9,6 +9,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaBoosts := preload("res://sim/arena_boosts.gd")
 const Families := preload("res://sim/families.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const ArenaScreen := preload("res://game/ui/screens/arena_screen.gd")
 
@@ -87,7 +88,7 @@ static func _family_row(shell, store, fam: String, in_trio: bool) -> Control:
 	var col := Color(f.color)
 	var lv := ArenaBoosts.family_level(store.boosts.get(fam, {}))
 	var name := Kit.vbox(0, [
-		Kit.label(f.name, 24, col),
+		Kit.hbox(6, [FamilyIcon.make(fam, 28), Kit.label(f.name, 24, col)]),
 		Kit.label("%d/%d" % [lv, ArenaBoosts.MAX_LEVEL * ArenaBoosts.ORDER.size()] + (" · trio" if in_trio else ""), 18, Kit.MUTED),
 	])
 	name.custom_minimum_size.x = NAME_WIDTH
@@ -104,6 +105,7 @@ static func _family_row(shell, store, fam: String, in_trio: bool) -> Control:
 static func _locked_row(fam: String) -> Control:
 	var f: Dictionary = Families.info(fam)
 	var row := Kit.hbox(8, [
+		FamilyIcon.make(fam, 24),
 		Kit.label(f.name, 20, Color(f.color, .7)),
 		Kit.glyph("lock", 18, Kit.MUTED),
 		Kit.label("Own one to unlock", 18, Kit.MUTED),
