@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Bramble",
 	"type": "Thorns",
 	"rarity": "uncommon",
+	"rarity_power": 1.106, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "4f7a3a",

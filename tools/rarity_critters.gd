@@ -3,7 +3,7 @@
 ## Power with real tiers and rarity potency. A critter far above 50% fights
 ## like a rarer one (a candidate to move up a rarity), far below like a
 ## commoner one (move down).
-## Usage: godot --headless --script res://tools/rarity_critters.gd -- [--seeds=2] [--shard=1/4]
+## Usage: godot --headless --script res://tools/rarity_critters.gd -- [--seeds=2] [--shard=1/4] [--only=old_oak,sundae]
 extends SceneTree
 
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -15,18 +15,21 @@ func _init() -> void:
 	var seeds := 2
 	var shard := 1
 	var shards := 1
+	var only: Array = []
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seeds="):
 			seeds = int(arg.get_slice("=", 1))
 		elif arg.begins_with("--shard="):
 			shard = int(arg.get_slice("=", 1).get_slice("/", 0))
 			shards = int(arg.get_slice("=", 1).get_slice("/", 1))
+		elif arg.begins_with("--only="):
+			only = Array(arg.get_slice("=", 1).split(","))
 	var by_rarity := {}
 	var ids := CritterDb.live_ids()
 	for id in ids:
 		by_rarity.get_or_add(CritterDb.get_critter(id).rarity, []).append(id)
 	for n in ids.size():
-		if n % shards != shard - 1:
+		if n % shards != shard - 1 or (not only.is_empty() and not ids[n] in only):
 			continue
 		var id: String = ids[n]
 		var r := Power.RARITIES.find(CritterDb.get_critter(id).rarity)

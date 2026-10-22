@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Pixel",
 	"type": "Sprite",
 	"rarity": "epic",
+	"rarity_power": 0.874, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "7cff4f",

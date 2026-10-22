@@ -79,6 +79,10 @@ static func sim_def(id: String, tier := 1, bonus_tiers := 0.0) -> Dictionary:
 		"ouch": c.sound.get("ouch", ""),
 		"voice_pitch": c.sound.get("pitch", 1.0),
 		"chaos": c.get("chaos", {}),
+		## Fight power per rarity step on top of Power (MatchSim, real fights
+		## only): evens out kits that gain more or less than most from rarity's
+		## ability potency (tools/rarity_critters.gd).
+		"rarity_power": float(c.get("rarity_power", 1.0)),
 		"tier": clampi(tier, 1, TIERS), ## So the renderer can draw a stronger ability bigger.
 	}
 	def.merge(c.stats, true)

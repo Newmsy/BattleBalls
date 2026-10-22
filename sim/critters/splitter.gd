@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Dupe",
 	"type": "Splitter",
 	"rarity": "epic",
+	"rarity_power": 1.036, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "ff6fae",

@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Ivy",
 	"type": "Vine spirit",
 	"rarity": "legendary",
+	"rarity_power": 0.962, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "0b8a5f",

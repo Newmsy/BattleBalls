@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Glacia",
 	"type": "Ice queen",
 	"rarity": "legendary",
+	"rarity_power": 0.908, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "b9a7ff",

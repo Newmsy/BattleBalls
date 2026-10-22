@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Gust",
 	"type": "Breeze",
 	"rarity": "rare",
+	"rarity_power": 1.104, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "c7f9cc",

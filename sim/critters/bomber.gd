@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Fuse",
 	"type": "Bomber",
 	"rarity": "rare",
+	"rarity_power": 0.922, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Zoner",
 	"status": "live",
 	"color": "2b3a67",

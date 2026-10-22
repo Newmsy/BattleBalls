@@ -47,7 +47,7 @@ func test_power_steps_match_the_design_budget() -> void:
 
 
 func test_power_scales_hp_and_damage_but_not_speed() -> void:
-	var sim := MatchSim.new({"seed": 1, "p1": "laser", "p2": "laser", "powers": [1.44, 1.0]})
+	var sim := MatchSim.new({"seed": 1, "p1": "laser", "p2": "laser", "powers": [1.44, 1.0], "rarity_potency": false})
 	check_near(sim.balls[0].max_hp, 126.0, 0.001, "hp x sqrt(1.44)")
 	check_near(sim.balls[0].def.beam_damage, sim.balls[1].def.beam_damage * 1.2, 0.001, "beam damage scales")
 	check_eq(sim.balls[0].speed, sim.balls[1].speed, "speed unchanged")
@@ -58,7 +58,8 @@ func test_rarity_builds_the_ability_tiers_up() -> void:
 	# (no tier upgrades), so a T1 Legendary can fight a T5 Common evenly.
 	var sim := MatchSim.new({"seed": 1, "p1": "glacia", "p2": "crumb"})
 	var steps := 4.0 * Power.RARITY_ABILITY_TIERS
-	check_near(sim.balls[0].def.shard_damage, BallDefs.get_def("glacia").shard_damage * (1.0 + 0.25 * steps), 0.001, "Legendary T1 potency")
+	var trim := sqrt(pow(float(BallDefs.get_def("glacia").rarity_power), 4)) # Its per-critter rarity power, as damage.
+	check_near(sim.balls[0].def.shard_damage, BallDefs.get_def("glacia").shard_damage * (1.0 + 0.25 * steps) * trim, 0.001, "Legendary T1 potency")
 	check_eq(Power.rarity_tiers("common"), 0.0, "Commons get none")
 	var off := MatchSim.new({"seed": 1, "p1": "glacia", "p2": "crumb", "rarity_potency": false})
 	check_near(off.balls[0].def.shard_damage, BallDefs.get_def("glacia").shard_damage, 0.001, "audits can switch it off")

@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Bolt",
 	"type": "Robot",
 	"rarity": "uncommon",
+	"rarity_power": 1.181, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "3a3aff",

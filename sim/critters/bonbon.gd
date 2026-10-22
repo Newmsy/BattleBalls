@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Bonbon",
 	"type": "Wrapped candy",
 	"rarity": "legendary",
+	"rarity_power": 1.074, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "f15bb5",

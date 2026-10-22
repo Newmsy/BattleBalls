@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Fin",
 	"type": "Shark",
 	"rarity": "uncommon",
+	"rarity_power": 0.881, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "4f8fb8",

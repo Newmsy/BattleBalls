@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Leviathan",
 	"type": "Sea serpent",
 	"rarity": "legendary",
+	"rarity_power": 0.971, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "0f7173",
