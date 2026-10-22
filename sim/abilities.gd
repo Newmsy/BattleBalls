@@ -22,6 +22,7 @@ const TRIGGERS := {
 	"strike": "its contact hit is about to land (ctx: target, mult); effects scale ctx.mult",
 	"guard": "any damage is about to land on it (ctx: source, kind, mult); effects scale ctx.mult",
 	"fall": "once, the first time its HP hits 0; an effect may bring it back (revive)",
+	"blast": "one of its floor mines or bombs blasts a foe (ctx: target, pos)",
 }
 ## Effect -> the params it reads from the critter's "params".
 const EFFECTS := {
@@ -214,6 +215,32 @@ const EFFECTS := {
 	"gear_trail": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"light": ["bulb_max"],
 	"cash_in": ["bulb_damage", "bulb_knock", "bulb_tilt"],
+	# Cool factor (2026-10-22): one signature move per lagging critter.
+	"spike_volley": ["volley_every", "volley_count", "volley_damage"],
+	"sonic": ["sonic_radius", "sonic_damage", "max_speed_mult"],
+	"rubble": ["rock_radius", "rock_life", "rock_max", "slam_damage"],
+	"crumb_pick": ["crumb_pieces", "crumb_heal"],
+	"school": ["school_count", "school_secs", "school_damage", "school_size"],
+	"school_guard": [],
+	"shell_kick": ["shell_hit"],
+	"fizz_shake": ["fizz_bump"],
+	"static_charge": ["charge_max"],
+	"static_arc": ["charge_damage", "charge_stun"],
+	"thorn_burst": ["thorn_every", "thorn_count", "thorn_damage", "thorn_patch_dps", "reflect_burn"],
+	"harpoon": ["harpoon_every", "harpoon_range", "yank_bonus"],
+	"candy_shot": ["candy_shot_every", "candy_shot_damage", "candy_size"],
+	"balloon": ["balloon_every", "balloon_damage", "balloon_radius", "paint_linger"],
+	"clamp": ["clamp_damage"],
+	"zz_bolt": ["zz_bolt_delay", "zz_life", "zz_damage", "zz_slow"],
+	"zz_bolt_arm": ["zz_bolt_delay"],
+	"erupt": ["erupt_every", "erupt_damage", "lava_radius", "lava_life", "lava_dps"],
+	"breath_timer": ["breath_every", "fire_count", "fire_cone", "fire_range", "fire_damage", "fire_burn", "fire_streak"],
+	"lag_track": ["lag_secs"],
+	"lag": ["lag_secs"],
+	"howl": ["howl_every", "wolf_count", "wolf_damage"],
+	"time_stop": ["stop_every", "stop_secs"],
+	"swat": ["swat_every", "swat_radius", "swat_damage"],
+	"banana_split": ["split_count", "split_damage", "splat_radius"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -424,8 +451,14 @@ func fx_phase(sim, b, _ctx: Dictionary) -> void:
 ## burst of flame (relight_damage within relight_radius) when the fade ends.
 func fx_relight(sim, b, _ctx: Dictionary) -> void:
 	if sim.tick == int(b.state.get("phase_until", -1)) and b.def.relight_damage > 0.0:
-		sim.pulse(b, b.pos, b.def.relight_radius, b.def.relight_damage, false, "flame")
-		sim.events.append({"type": "relight", "ball": b.index, "pos": b.pos})
+		b.state.relights = int(b.state.get("relights", 0)) + 1
+		# T5 wick bomb: every relight_nova_every-th relight is a fire nova.
+		var nova: bool = b.def.get("relight_nova_every", 0) > 0 and b.state.relights % int(b.def.relight_nova_every) == 0
+		if nova:
+			sim.pulse(b, b.pos, b.def.relight_nova_radius, b.def.relight_nova_damage, true, "flame")
+		else:
+			sim.pulse(b, b.pos, b.def.relight_radius, b.def.relight_damage, false, "flame")
+		sim.events.append({"type": "relight", "ball": b.index, "pos": b.pos, "nova": nova})
 
 
 static func phased(sim, b) -> bool:
@@ -733,6 +766,11 @@ func fx_grow(sim, b, _ctx: Dictionary) -> void:
 		sim.pulse(b, b.pos, b.def.grow_pulse_radius, b.def.grow_pulse_damage, true, "pulse")
 	if b.def.grow_bolts > 0:
 		_spray(sim, b, int(b.def.grow_bolts), b.def.bolt_damage)
+	if b.def.get("crumb_pieces", 0) > 0: # Crumb's bite drops pieces it can eat.
+		_drop_crumbs(sim, b)
+	if b.def.get("school_count", 0) > 0: # Minnow's panic calls its school.
+		b.state.school = int(b.def.school_count)
+		b.state.school_until = sim.tick + int(round(b.def.school_secs * sim.TICK_RATE))
 
 
 ## While any grow step is on, it takes (1 - grow_armor) x damage (Shelly's shell).
@@ -875,6 +913,8 @@ func fx_unwind(sim, b, ctx: Dictionary) -> void:
 	b.state.wind = 0
 	sim.clear_mod(b, "wind")
 	sim.events.append({"type": "unwind", "ball": b.index, "pos": b.pos})
+	if b.def.get("teeth_count", 0) > 0: # The spring lets go: gear teeth fly.
+		_burst(sim, b, int(b.def.teeth_count), b.def.teeth_damage, "gear", {"bounces": 1, "life": 1.6})
 
 
 ## Each bounce off the arena's edge adds pressure; at fizz_at it pops: +fizz_speed speed for
@@ -884,7 +924,11 @@ func fx_unwind(sim, b, ctx: Dictionary) -> void:
 func fx_fizz(sim, b, ctx: Dictionary) -> void:
 	if not _outer_wall(sim, ctx.point):
 		return
-	var n := int(b.state.get("pressure", 0)) + 1
+	_fizz_add(sim, b, 1)
+
+
+func _fizz_add(sim, b, shakes: int) -> void:
+	var n := int(b.state.get("pressure", 0)) + shakes
 	if n < int(b.def.fizz_at):
 		b.state.pressure = n
 		return
@@ -1083,13 +1127,19 @@ func fx_lamp(sim, b, _ctx: Dictionary) -> void:
 		dirs[0] = DMath.rotated((f.pos - b.pos).normalized(), -deg_to_rad(b.def.lamp_sweep) / 2.0)
 	if b.def.lamp_back > 0:
 		dirs.append(-dirs[0])
+	# T5: every lamp_spin_every-th shine the lighthouse turns a full circle.
+	b.state.shines = int(b.state.get("shines", 0)) + 1
+	var sweep: float = b.def.lamp_sweep
+	if b.def.get("lamp_spin_every", 0) > 0 and b.state.shines % int(b.def.lamp_spin_every) == 0:
+		sweep = 360.0 / dirs.size()
+		sim.events.append({"type": "lamp_spin", "ball": b.index, "pos": b.pos})
 	var sweeps: Array = b.state.get("lamps", [])
 	for d in dirs:
 		var from: Vector2 = b.pos + d * b.radius
 		var beam = sim.add_beam(b, from, _to_wall(sim, from, d), {"life": b.def.lamp_life, "damage": b.def.lamp_dps * 0.25, "cooldown": 0.25,
 			"on_hit": {"vulnerable": b.def.lamp_vuln, "vulnerable_secs": b.def.lamp_vuln_secs}})
-		if b.def.lamp_sweep > 0.0:
-			sweeps.append({"beam": beam, "dir": d})
+		if sweep > 0.0:
+			sweeps.append({"beam": beam, "dir": d, "sweep": sweep})
 	b.state.lamps = sweeps
 
 
@@ -1101,7 +1151,7 @@ func fx_lamp_sweep(sim, b, _ctx: Dictionary) -> void:
 		if not sim.beams.has(beam):
 			sweeps.erase(s)
 			continue
-		var d: Vector2 = DMath.rotated(s.dir, deg_to_rad(b.def.lamp_sweep) * beam.age / beam.life)
+		var d: Vector2 = DMath.rotated(s.dir, deg_to_rad(s.get("sweep", b.def.lamp_sweep)) * beam.age / beam.life)
 		beam.b = _to_wall(sim, beam.a, d)
 
 
@@ -1259,7 +1309,12 @@ func fx_momentum(_sim, b, ctx: Dictionary) -> void:
 ## A contact hit taken knocks the ball back to its base speed.
 func fx_brake(_sim, b, ctx: Dictionary) -> void:
 	if ctx.get("kind") == "contact" and b.speed > b.def.speed:
-		b.speed = b.def.speed
+		if b.state.get("sonic_guard", false): # A sonic boom's guard: only half the extra speed goes.
+			b.state.sonic_guard = false
+			b.speed = (b.speed + b.def.speed) / 2.0
+		else:
+			b.speed = b.def.speed
+		b.state.sonic = false
 		b.vel = b.vel.normalized() * b.speed
 
 
@@ -1405,6 +1460,7 @@ const WHIRL_PUSH := 0.12 ## Its push, as a share of wind_huff.
 func fx_gale(sim, b, _ctx: Dictionary) -> void:
 	var huffing: bool = sim.tick < int(b.state.get("huff_until", -1))
 	sim.push_away(b, b.pos, b.def.wind_range, b.def.wind_huff if huffing else b.def.wind_accel)
+	_twisters(sim, b)
 	var blown := _foes_within(sim, b, b.pos, b.def.wind_range)
 	# Whirlwinds its huffs left behind keep blowing foes away from where they spin.
 	for z in sim.zones:
@@ -1827,6 +1883,10 @@ func fx_stack_breath(sim, b, _ctx: Dictionary) -> void:
 		set_stacks(sim, b, stacks(b) + 1)
 		return
 	set_stacks(sim, b, 0)
+	_breathe(sim, b)
+
+
+func _breathe(sim, b) -> void:
 	var f = sim.nearest_foe(b)
 	if f == null:
 		return
@@ -1956,6 +2016,8 @@ func fx_kaleido(sim, b, _ctx: Dictionary) -> void:
 		b.shield = maxf(b.shield, b.state.mode_shield)
 	if b.def.mode_pulse_radius > 0.0:
 		sim.pulse(b, b.pos, b.def.mode_pulse_radius, b.def.mode_pulse_damage, false, "pulse")
+	if b.def.get("mode_shards", 0) > 0: # Each click shatters mirror shards outward.
+		_burst(sim, b, int(b.def.mode_shards), b.def.mode_shard_damage, "shard", {"life": 0.8})
 
 
 ## Eclipse flips between Sun (mode 0, the start) and Moon (1), flashing a ring
@@ -2043,6 +2105,9 @@ func fx_roar(sim, b, _ctx: Dictionary) -> void:
 	for k in int(b.def.roar_drifts):
 		var p: Vector2 = b.pos + DMath.from_angle(k * TAU / b.def.roar_drifts) * (b.radius + 90.0)
 		sim.add_zone(b, p, {"kind": "frost", "radius": 70.0, "life": 4.0, "slow": 0.3})
+	if b.def.get("snowball_secs", 0.0) > 0.0: # T5: it rolls up in a snowball.
+		sim.set_mod(b, "snowball", {"radius": 1.25, "damage": 1.5}, b.def.snowball_secs)
+		sim.events.append({"type": "snowball", "ball": b.index, "pos": b.pos})
 
 
 ## Drops a snowflake mine where it is (see fx_mine): it arms after mine_arm,
@@ -2189,6 +2254,9 @@ func fx_orb_flare(sim, b, _ctx: Dictionary) -> void:
 func fx_candies(sim, b, _ctx: Dictionary) -> void:
 	if not b.state.has("candies"):
 		b.state.candies = int(b.def.candy_start)
+	if sim.tick >= int(b.state.get("candy_regrow", 1 << 30)): # A fired candy grows back (fx_candy_shot).
+		b.state.erase("candy_regrow")
+		b.state.candies = mini(int(b.state.candies) + 1, int(b.def.candy_max))
 	var n: int = b.state.candies
 	var ring := _ring(sim, b, n, b.radius + b.def.candy_orbit, b.def.candy_spin)
 	var items := []
@@ -2364,6 +2432,11 @@ func fx_ink_slam(sim, b, _ctx: Dictionary) -> void:
 		sim.add_zone(b, item.pos, {"kind": "inkpool", "radius": b.def.ink_radius, "life": b.def.ink_life,
 			"slow": b.def.ink_slow, "dps": b.def.ink_dps})
 		sim.pulse(b, item.pos, 60.0 if b.def.ink_shove > 0 else b.def.ink_radius, 0.0, b.def.ink_shove > 0, "inkslam")
+	# The slam grabs: one tentacle drags the nearest foe in range into the sweep.
+	var f = sim.nearest_foe(b)
+	if b.def.get("grab_secs", 0.0) > 0.0 and f != null and f.pos.distance_to(b.pos) <= b.def.grab_range:
+		sim.tether(b, f, b.radius + b.def.tentacle_orbit, b.def.grab_secs)
+		sim.events.append({"type": "grab", "ball": b.index, "target": f.index, "pos": f.pos})
 	b.state.slams = int(b.state.get("slams", 0)) + 1
 	if b.def.hug_every > 0 and b.state.slams % int(b.def.hug_every) == 0:
 		b.state.hug_until = sim.tick + int(round(b.def.hug_secs * sim.TICK_RATE))
@@ -2512,7 +2585,7 @@ func fx_tail(sim, b, _ctx: Dictionary) -> void:
 		if at >= path.size():
 			break
 		var p: Vector2 = path[at]
-		_orb_hit(sim, b, p, size, b.def.tail_damage, b.def.tail_cooldown, "tail%d" % k, "tail")
+		_coil(sim, b, _orb_hit(sim, b, p, size, b.def.tail_damage, b.def.tail_cooldown, "tail%d" % k, "tail"))
 		if b.def.tail_slow > 0.0:
 			for o in sim.foes(b):
 				if p.distance_to(o.pos) <= o.radius + size:
@@ -2902,6 +2975,7 @@ func fx_lance_hit(sim, b, ctx: Dictionary) -> void:
 	sim.events.append({"type": "lance", "ball": b.index, "pos": ctx.target.pos})
 	if b.def.lance_knock > 0.0:
 		_knock(sim, ctx.target, b.pos, b.def.lance_knock, 0.4)
+	_skewer(sim, b, ctx.target)
 
 
 static func _set_gear(sim, b, gear: int) -> void:
@@ -3122,6 +3196,7 @@ func fx_vine_tick(sim, b, _ctx: Dictionary) -> void:
 		for a in lash.anchors:
 			if b.def.vine_thorn_damage > 0.0:
 				sim.add_zone(b, a.piece.pos, {"kind": "thorn", "radius": 80.0, "life": 3.0, "dps": b.def.vine_thorn_damage})
+			_overgrow(sim, b, a.piece)
 		return
 	for a in lash.anchors:
 		var anchor: Vector2 = a.piece.pos
@@ -3401,6 +3476,7 @@ func fx_disco(sim, b, _ctx: Dictionary) -> void:
 		else:
 			segs.append([from, to])
 	_shoot(sim, b, segs, b.def.disco_damage, "disco", b.def.disco_slow, b.def.disco_slow_secs)
+	_dance_floor(sim, b)
 
 
 ## Distance along `dir` from `from` (inside `r`) to the rect's edge.
@@ -3466,3 +3542,405 @@ func fx_zz_beam(sim, b, ctx: Dictionary) -> void:
 	zz.from = ctx.point
 	if zz.left <= 0:
 		b.state.erase("zz")
+
+
+# --- Cool factor (Newms 2026-10-22, ideas/critter-cool-factor.md) ---------------
+# One visible signature move per lagging critter.
+
+## n shots fanned evenly round `b` from its heading, each `damage` (a ring of
+## spikes, gear teeth, thorns or candy shards). `opts` may set speed, radius,
+## life, burn, bounces, knock and slow.
+static func _burst(sim, b, n: int, damage: float, kind: String, opts := {}) -> void:
+	var start: float = DMath.angle(b.vel) if b.vel.length() > 0.001 else 0.0
+	var speed: float = opts.get("speed", 520.0)
+	var radius: float = opts.get("radius", 9.0)
+	var shot := {"kind": kind, "radius": radius, "damage": damage, "life": opts.get("life", 1.2)}
+	for key in ["burn", "bounces", "knock", "slow"]:
+		if opts.has(key):
+			shot[key] = opts[key]
+	for k in n:
+		var d := DMath.from_angle(start + k * TAU / maxi(1, n))
+		sim.add_shot(b, b.pos + d * (b.radius + radius + 2.0), d * speed, shot)
+
+
+## The way out from `p` to the nearest edge of the arena's square.
+static func _nearest_wall_dir(sim, p: Vector2) -> Vector2:
+	var r: Rect2 = sim.arena_rect()
+	var best := Vector2.LEFT
+	var gap := p.x - r.position.x
+	for side in [[r.end.x - p.x, Vector2.RIGHT], [p.y - r.position.y, Vector2.UP], [r.end.y - p.y, Vector2.DOWN]]:
+		if side[0] < gap:
+			gap = side[0]
+			best = side[1]
+	return best
+
+
+## Prickles: every volley_every-th spike it grows fires volley_count spikes
+## outward (volley_damage each), once per spike count. Emits "spike_volley".
+func fx_spike_volley(sim, b, _ctx: Dictionary) -> void:
+	var n := int(b.state.get("spikes", 0))
+	if b.def.volley_every <= 0 or n == 0 or n % int(b.def.volley_every) != 0 or int(b.state.get("volleyed", -1)) == n:
+		return
+	b.state.volleyed = n
+	_burst(sim, b, int(b.def.volley_count), b.def.volley_damage, "spike")
+	sim.events.append({"type": "spike_volley", "ball": b.index, "pos": b.pos})
+
+
+## Zip: reaching top speed sets off a sonic boom (sonic_damage within
+## sonic_radius, knocking foes away) and banks a guard: the next contact hit
+## it takes only halves its extra speed instead of resetting it (fx_brake).
+func fx_sonic(sim, b, _ctx: Dictionary) -> void:
+	if b.state.get("sonic", false) or b.speed < b.def.speed * b.def.max_speed_mult - 0.5:
+		return
+	b.state.sonic = true
+	b.state.sonic_guard = true
+	sim.events.append({"type": "sonic", "ball": b.index, "pos": b.pos})
+	sim.pulse(b, b.pos, b.def.sonic_radius, b.def.sonic_damage, true, "sonic")
+
+
+## Boulder: a contact hit knocks a rock chunk off that lands just past the
+## foe as a small pillar for rock_life seconds (rock_max at most). A foe that
+## bounces off it takes the wall slam (slam_damage) and breaks it.
+func fx_rubble(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if t == null or not t.alive():
+		return
+	var away: Vector2 = t.pos - b.pos
+	if away.length() < 0.001:
+		return
+	var own: Array = sim.pieces_of(b, "rock")
+	while own.size() >= int(b.def.rock_max):
+		own[0].life = own[0].age
+		own.pop_front()
+	sim.add_piece(b, t.pos + away.normalized() * (t.radius + b.def.rock_radius + 70.0),
+		{"kind": "rock", "radius": b.def.rock_radius, "life": b.def.rock_life, "grow": 0.15, "damage": b.def.slam_damage, "hits": 1})
+
+
+## Crumb: each bite (fx_grow) drops crumb_pieces cookie pieces on the floor.
+static func _drop_crumbs(sim, b) -> void:
+	for k in int(b.def.crumb_pieces):
+		var dir := DMath.from_angle(sim.rng.next_float() * TAU)
+		sim.add_piece(b, b.pos + dir * (b.radius + 80.0 + 60.0 * k), {"kind": "crumb", "radius": 16.0, "life": 12.0, "grow": 0.6, "block": false})
+
+
+## Rolling over one of its own cookie pieces eats it: heals crumb_heal.
+func fx_crumb_pick(sim, b, _ctx: Dictionary) -> void:
+	for p in sim.pieces_of(b, "crumb"):
+		if p.age >= p.grow and p.life > p.age and p.pos.distance_to(b.pos) <= b.radius + p.radius:
+			p.life = p.age
+			sim.events.append({"type": "crumb_eat", "ball": b.index, "pos": p.pos})
+			_heal_now(sim, b, b.def.crumb_heal)
+
+
+## Minnow: the panic (fx_grow) calls school_count little fish that swim round
+## it for school_secs, nipping foes (school_damage); each soaks half of one
+## contact hit (fx_school_guard).
+func fx_school(sim, b, _ctx: Dictionary) -> void:
+	var n := int(b.state.get("school", 0))
+	if n <= 0:
+		return
+	if sim.tick >= int(b.state.get("school_until", 0)):
+		b.state.school = 0
+		return
+	var ring := _ring(sim, b, n, b.radius + 26.0, 4.0)
+	var items := []
+	for k in n:
+		_orb_hit(sim, b, ring[k], b.def.school_size, b.def.school_damage, 0.6, "fish%d" % k, "fish")
+		items.append({"pos": ring[k], "size": b.def.school_size, "look": "fish"})
+	_publish_orbs(sim, b, "school", items)
+
+
+func fx_school_guard(sim, b, ctx: Dictionary) -> void:
+	var n := int(b.state.get("school", 0))
+	if n <= 0 or ctx.get("kind") != "contact" or ctx.source == b or ctx.source.team == b.team:
+		return
+	ctx.mult *= 0.5
+	b.state.school = n - 1
+	sim.events.append({"type": "orb_lost", "ball": b.index, "pos": b.pos})
+
+
+## Shelly: tucked in its shell (a grow step), it spins like a kicked shell:
+## its hits deal shell_hit x and fling the foe away.
+func fx_shell_kick(sim, b, ctx: Dictionary) -> void:
+	if not sim.has_mod(b, "grow"):
+		return
+	ctx.mult *= b.def.shell_hit
+	_knock(sim, ctx.target, b.pos, 1.5, 0.4)
+	sim.events.append({"type": "shell_kick", "ball": b.index, "pos": ctx.target.pos})
+
+
+## Fizz: a bump shakes the can too (fizz_bump shakes).
+func fx_fizz_shake(sim, b, ctx: Dictionary) -> void:
+	if ctx.get("kind") != "contact" or ctx.source == b or ctx.source.team == b.team:
+		return
+	_fizz_add(sim, b, int(b.def.fizz_bump))
+
+
+## Static: each wall bounce stores a charge (charge_max at most); its next
+## contact hit arcs them all into the foe (charge_damage each) and stuns it
+## charge_stun. Emits "arc".
+func fx_static_charge(_sim, b, _ctx: Dictionary) -> void:
+	b.state.charges = mini(int(b.state.get("charges", 0)) + 1, int(b.def.charge_max))
+
+
+func fx_static_arc(sim, b, ctx: Dictionary) -> void:
+	var n := int(b.state.get("charges", 0))
+	var t = ctx.get("target")
+	if n <= 0 or t == null or not t.alive():
+		return
+	b.state.charges = 0
+	sim.deal(b, t, b.def.charge_damage * n, "zap", t.pos)
+	sim.stun(b, t, b.def.charge_stun)
+	sim.events.append({"type": "arc", "ball": b.index, "from": b.pos, "to": t.pos, "charges": n})
+
+
+## Bramble: every thorn_every-th contact hit it takes, it shoots thorn_count
+## thorns outward (thorn_damage, burning like its sting) and leaves a thorn
+## patch (thorn_patch_dps) for 3s.
+func fx_thorn_burst(sim, b, ctx: Dictionary) -> void:
+	if ctx.get("kind") != "contact" or ctx.source == b or ctx.source.team == b.team:
+		return
+	b.state.thorned = int(b.state.get("thorned", 0)) + 1
+	if b.state.thorned % int(b.def.thorn_every) != 0:
+		return
+	_burst(sim, b, int(b.def.thorn_count), b.def.thorn_damage, "thorn", {"burn": b.def.reflect_burn})
+	sim.add_zone(b, b.pos, {"kind": "thorn", "radius": 90.0, "life": 3.0, "dps": b.def.thorn_patch_dps})
+	sim.events.append({"type": "thorn_burst", "ball": b.index, "pos": b.pos})
+
+
+## Hook: every harpoon_every seconds it fires a grapple at a foe within
+## harpoon_range and reels them together (both turn to meet); the reeled foe
+## takes yank_bonus when they collide in the next 1.2s.
+func fx_harpoon(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	var d: Vector2 = f.pos - b.pos
+	if d.length() > b.def.harpoon_range or d.length() < 0.001:
+		return
+	sim.events.append({"type": "harpoon", "ball": b.index, "target": f.index, "from": b.pos, "to": f.pos})
+	f.state["yanked_by_%d" % b.index] = sim.tick + int(round(1.2 * sim.TICK_RATE))
+	if not sim.ability_moves():
+		return
+	b.vel = d.normalized() * b.current_speed()
+	f.vel = -d.normalized() * f.current_speed()
+
+
+## Jawbreaker: every candy_shot_every seconds it fires one of its orbiting
+## candies at the foe (candy_shot_damage, knocking it away); the candy grows
+## back 2s later.
+func fx_candy_shot(sim, b, _ctx: Dictionary) -> void:
+	var n := int(b.state.get("candies", 0))
+	var f = sim.nearest_foe(b)
+	if n <= 0 or f == null or f.pos.distance_to(b.pos) < 0.001:
+		return
+	b.state.candies = n - 1
+	b.state.candy_regrow = sim.tick + 2 * sim.TICK_RATE
+	var dir: Vector2 = (f.pos - b.pos).normalized()
+	sim.add_shot(b, b.pos + dir * (b.radius + b.def.candy_size + 2.0), dir * 650.0,
+		{"kind": "candy", "radius": b.def.candy_size, "damage": b.def.candy_shot_damage, "life": 1.6, "knock": true})
+
+
+## Painter: every balloon_every seconds it lobs a paint balloon where the foe
+## is heading: balloon_damage on landing and a splash (balloon_radius) that
+## leaves foes in it +15% dmg taken and slowed 20% for 3s.
+func fx_balloon(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	sim.add_lob(b, sim.predict(f, 0.6), 0.6, {"kind": "balloon", "land_radius": b.def.balloon_radius, "damage": b.def.balloon_damage,
+		"zone": {"kind": "paint", "radius": b.def.balloon_radius, "life": 3.0, "slow": 0.2, "vulnerable": 0.15, "vulnerable_linger": b.def.paint_linger}})
+
+
+## Gust: its whirlwinds hunt the nearest foe (twister_speed); one that reaches
+## a foe spins it (twister_damage) and flings it at the nearest wall, where
+## the wall slam waits (gust_slam). The twister is spent.
+func _twisters(sim, b) -> void:
+	if b.def.get("twister_speed", 0.0) <= 0.0:
+		return
+	for z in sim.zones:
+		if z.owner != b.index or z.kind != "whirl" or z.age >= z.life:
+			continue
+		var f = sim.nearest_foe(b)
+		if f == null:
+			return
+		var d: Vector2 = f.pos - z.pos
+		if d.length() > f.radius + z.radius * 0.6: # Caught before its own wind would blow the foe off.
+			z.pos += d.normalized() * minf(d.length(), b.def.twister_speed * sim.DT)
+			continue
+		z.life = z.age
+		sim.deal(b, f, b.def.twister_damage, "wind", f.pos)
+		sim.events.append({"type": "twister", "ball": b.index, "target": f.index, "pos": f.pos})
+		if sim.ability_moves():
+			sim.charge(f, _nearest_wall_dir(sim, f.pos), 1.7, 0.6)
+		f.state.slam = {"source": b.index, "damage": b.def.gust_slam, "until": sim.tick + sim.TICK_RATE}
+
+
+## Clam: a foe that bumps it while it's shut gets bitten (clamp_damage).
+func fx_clamp(sim, b, ctx: Dictionary) -> void:
+	if ctx.get("kind") != "contact" or ctx.source == b or ctx.source.team == b.team or sim.tick >= int(b.state.get("shut_until", -1)):
+		return
+	sim.deal(b, ctx.source, b.def.clamp_damage, "clamp", ctx.source.pos)
+	sim.events.append({"type": "clamp", "ball": b.index, "pos": b.pos})
+
+
+## Zigzag: zz_bolt_delay after a contact hit, a 3-step lightning bolt
+## zigzags from it to the foe (zz_damage a second for zz_life, zz_slow).
+func fx_zz_bolt(sim, b, _ctx: Dictionary) -> void:
+	if sim.tick != int(b.state.get("zz_bolt_at", -1)):
+		return
+	var f = sim.nearest_foe(b)
+	if f == null or f.pos.distance_to(b.pos) < sim.MIN_BEAM_LENGTH:
+		return
+	var d: Vector2 = f.pos - b.pos
+	var side: Vector2 = d.normalized().orthogonal() * minf(70.0, d.length() * 0.2)
+	var pts: Array[Vector2] = [b.pos, b.pos + d / 3.0 + side, b.pos + d * 2.0 / 3.0 - side, f.pos]
+	for k in 3: # A quick flash, shorter than its path's crackle.
+		sim.add_beam(b, pts[k], pts[k + 1], {"life": b.def.zz_life * 0.5, "damage": b.def.zz_damage * 0.5, "cooldown": 0.5})
+		_add_slow_seg(sim, b, pts[k], pts[k + 1], b.def.zz_life * 0.5, b.def.zz_slow)
+	sim.events.append({"type": "zz_bolt", "ball": b.index, "from": b.pos, "to": f.pos})
+
+
+func fx_zz_bolt_arm(sim, b, _ctx: Dictionary) -> void:
+	b.state.zz_bolt_at = sim.tick + int(round(b.def.zz_bolt_delay * sim.TICK_RATE))
+
+
+## Disco: with each flash a 3x3 dance floor lights up round it (floor tiles of
+## 100) for 2s: foes on a lit tile are slowed 25% and take disco_floor_dps.
+static func _dance_floor(sim, b) -> void:
+	if b.def.get("disco_floor_dps", 0.0) <= 0.0:
+		return
+	var tile := 100.0
+	var mid := Vector2((floorf(b.pos.x / tile) + 0.5) * tile, (floorf(b.pos.y / tile) + 0.5) * tile)
+	var r: Rect2 = sim.arena_rect()
+	for i in [-1, 0, 1]:
+		for j in [-1, 0, 1]:
+			var p: Vector2 = mid + Vector2(i, j) * tile
+			if r.has_point(p):
+				sim.add_zone(b, p, {"kind": "tile", "radius": tile * 0.5, "life": 2.0, "slow": 0.25, "dps": b.def.disco_floor_dps})
+
+
+## Magmo T5: every erupt_every-th contact hit erupts 3 lava blobs at the foe
+## (erupt_damage on landing, each leaving a lava puddle).
+func fx_erupt(sim, b, ctx: Dictionary) -> void:
+	if b.def.erupt_every <= 0:
+		return
+	b.state.erupts = int(b.state.get("erupts", 0)) + 1
+	var t = ctx.get("target")
+	if b.state.erupts % int(b.def.erupt_every) != 0 or t == null:
+		return
+	sim.events.append({"type": "erupt", "ball": b.index, "pos": b.pos})
+	for k in 3:
+		var at: Vector2 = t.pos + DMath.from_angle(k * TAU / 3.0 + sim.tick) * 70.0
+		sim.add_lob(b, at, 0.5, {"kind": "blob", "land_radius": 60.0, "damage": b.def.erupt_damage,
+			"zone": {"kind": "lava", "radius": b.def.lava_radius, "life": b.def.lava_life, "dps": b.def.lava_dps}})
+
+
+## Drako: every breath_every seconds it breathes anyway (its stokes stay).
+func fx_breath_timer(sim, b, _ctx: Dictionary) -> void:
+	_breathe(sim, b)
+
+
+## Pixel: remembers where each foe was over the last lag_secs...
+func fx_lag_track(sim, b, _ctx: Dictionary) -> void:
+	var hist: Dictionary = b.state.get("lag_hist", {})
+	b.state.lag_hist = hist
+	var keep := int(round(b.def.lag_secs * sim.TICK_RATE)) + 1
+	for o in sim.foes(b):
+		var h: Array = hist.get(o.index, [])
+		h.append(o.pos)
+		if h.size() > keep:
+			h.pop_front()
+		hist[o.index] = h
+
+
+## ...and a foe its pixel bomb blasts glitches back there (a lag spike).
+func fx_lag(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	var h: Array = b.state.get("lag_hist", {}).get(t.index if t != null else -1, [])
+	if t == null or not t.alive() or h.is_empty() or not sim.ability_moves():
+		return
+	sim.events.append({"type": "lag", "ball": t.index, "source": b.index, "from": t.pos, "to": h[0]})
+	t.pos = h[0]
+	sim.keep_inside(t)
+	sim.stun(b, t, 0.3) # It buffers a moment.
+
+
+## Leviathan: a foe its tail touches gets coiled (stunned coil_secs, coil_damage),
+## at most every coil_cooldown seconds.
+static func _coil(sim, b, foes: Array) -> void:
+	if foes.is_empty() or b.def.get("coil_damage", 0.0) <= 0.0 or sim.tick < int(b.state.get("coil_ready", 0)):
+		return
+	var f = foes[0]
+	if not sim.stun(b, f, b.def.coil_secs):
+		return
+	b.state.coil_ready = sim.tick + int(round(b.def.coil_cooldown * sim.TICK_RATE))
+	sim.deal(b, f, b.def.coil_damage, "coil", f.pos)
+	sim.events.append({"type": "coil", "ball": b.index, "target": f.index, "pos": f.pos})
+
+
+## Frostfang: every howl_every seconds it howls up wolf_count ice-wolf
+## spirits that hunt the foe (wolf_damage, slow 20%).
+func fx_howl(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null or f.pos.distance_to(b.pos) < 0.001:
+		return
+	sim.events.append({"type": "howl", "ball": b.index, "pos": b.pos})
+	var dir: Vector2 = (f.pos - b.pos).normalized()
+	var n := int(b.def.wolf_count)
+	for k in n:
+		var d := DMath.rotated(dir, deg_to_rad(60.0) * (k - (n - 1) / 2.0) / maxf(1.0, n - 1.0))
+		sim.add_shot(b, b.pos + d * (b.radius + 20.0), d * 620.0,
+			{"kind": "wolf", "radius": 18.0, "damage": b.def.wolf_damage, "life": 2.2, "homing": 3.5, "slow": 0.2})
+
+
+## Clockwork: every stop_every seconds it stops time on its foes for stop_secs.
+func fx_time_stop(sim, b, _ctx: Dictionary) -> void:
+	sim.events.append({"type": "timestop", "ball": b.index, "pos": b.pos, "secs": b.def.stop_secs})
+	for o in sim.foes(b):
+		sim.stun(b, o, b.def.stop_secs)
+
+
+## Narwhal: a foe its charge hits is skewered: the first wall it meets in
+## 0.6s pins it (skewer_stun) for skewer_damage.
+static func _skewer(sim, b, t) -> void:
+	if b.def.get("skewer_damage", 0.0) <= 0.0:
+		return
+	t.state.slam = {"source": b.index, "damage": b.def.skewer_damage, "stun": b.def.skewer_stun, "until": sim.tick + int(round(0.6 * sim.TICK_RATE))}
+
+
+## Ivy: a snapped vine stays as a vine wall until a foe bounces off it
+## (overgrow_damage); overgrow_max at most stand.
+static func _overgrow(sim, b, piece) -> void:
+	if int(b.def.get("overgrow_max", 0)) <= 0 or not sim.pieces.has(piece):
+		return
+	var kept: Array = b.state.get("overgrown", []).filter(func(p): return sim.pieces.has(p))
+	while kept.size() >= int(b.def.overgrow_max):
+		var old = kept.pop_front()
+		old.life = old.age
+	piece.life = ROOT_STAY_LIFE
+	piece.hits = 1
+	piece.damage = b.def.overgrow_damage
+	kept.append(piece)
+	b.state.overgrown = kept
+
+
+## Old Oak: every swat_every seconds its branches swat foes within swat_radius
+## (swat_damage, knocked away).
+func fx_swat(sim, b, _ctx: Dictionary) -> void:
+	sim.events.append({"type": "swat", "ball": b.index, "pos": b.pos, "radius": b.def.swat_radius})
+	sim.pulse(b, b.pos, b.def.swat_radius, b.def.swat_damage, true, "branch")
+
+
+## Sundae T5: a full stack topples (banana split): split_count scoops are
+## lobbed round the foe (split_damage each, a puddle where they land) and it
+## drops that many scoops.
+func fx_banana_split(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if b.def.split_count <= 0 or stacks(b) < int(b.def.stack_max) or t == null:
+		return
+	sim.events.append({"type": "banana_split", "ball": b.index, "pos": b.pos})
+	for k in int(b.def.split_count):
+		var at: Vector2 = t.pos + DMath.from_angle(k * TAU / b.def.split_count) * 80.0
+		sim.add_lob(b, at, 0.45, {"kind": "scoop", "land_radius": 70.0, "damage": b.def.split_damage, "zone": _splat(b)})
+	set_stacks(sim, b, stacks(b) - int(b.def.split_count))

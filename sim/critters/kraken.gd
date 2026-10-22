@@ -31,13 +31,15 @@ const CRITTER := {
 		"hug_secs": 1.0,
 		"hug_range": 400.0,
 		"hug_accel": 900.0,
+		"grab_secs": 1.0, ## Each slam grabs the nearest foe and drags it into the sweep this long...
+		"grab_range": 450.0, ## ...when it is this close.
 	},
 	"tiers": [
-		{"text": "4 tentacles sweep for 1.5; slam every 6s", "now": "{tentacle_count} tentacles sweep for {tentacle_damage}; slam every 6s"},
+		{"text": "4 tentacles sweep for 1.5; slam every 6s grabs the foe", "now": "{tentacle_count} tentacles sweep for {tentacle_damage}; slam every 6s grabs the foe"},
 		{"text": "Tentacles 1.5 → 2.5", "tentacle_damage": 2.5},
-		{"text": "+ Slams knock foes back", "now": "{tentacle_count} tentacles sweep for {tentacle_damage}; knockback slam every 6s", "ink_shove": 1},
+		{"text": "+ Slams knock foes back", "now": "{tentacle_count} tentacles sweep {tentacle_damage}; every 6s a grab + knockback slam", "ink_shove": 1},
 		{"text": "Tentacle reach +39%", "tentacle_orbit": 106.0},
-		{"text": "+ Every 3rd slam is a giant hug", "now": "{tentacle_count} tentacles sweep {tentacle_damage}; slam every 6s, 3rd hugs", "hug_every": 3},
+		{"text": "+ Every 3rd slam is a giant hug", "now": "{tentacle_count} tentacles sweep {tentacle_damage}; grab slam every 6s, 3rd hugs", "hug_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "beak"}, "back": ["tentacles"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.75},

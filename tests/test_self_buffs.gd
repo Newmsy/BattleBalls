@@ -63,11 +63,15 @@ func test_shelly_tucks_in_below_30_percent() -> void:
 	var hp: float = b.def.hp
 	b.hp = hp * 0.29
 	sim.step()
-	check_near(b.speed, b.def.speed * 0.8, 0.001, "slower in its shell")
+	check_near(b.speed, b.def.speed * 1.25, 0.001, "spins faster in its shell")
 	var before := b.hp
 	sim.deal(sim.balls[1], b, 10.0, "mine")
 	sim._apply_hits(sim._hits)
 	check_near(before - b.hp, 6.0, 0.001, "40% armour")
+	var ctx := {"target": sim.balls[1], "mult": 1.0}
+	sim.abilities.fire(sim, "strike", b, ctx)
+	check_near(ctx.mult, b.def.shell_hit, 0.001, "its spinning hits land harder")
+	check(sim.charging(sim.balls[1]), "and fling the foe")
 
 
 func test_puff_puffs_up_when_hurt_then_deflates() -> void:
@@ -142,6 +146,7 @@ func test_cogs_winds_up_and_unwinds() -> void:
 		sim._apply_hits(sim._hits)
 	check_near(b.speed, b.def.speed * 1.48, 0.001, "T5 winds to +48%")
 	check_near(sim._strike(b, sim.balls[1]), b.def.wind_crit, 0.001, "the full wind unwinds into a crit")
+	check_eq(sim.shots.filter(func(s): return s.kind == "gear").size(), int(b.def.teeth_count), "and flings gear teeth")
 	check_near(b.speed, b.def.speed, 0.001, "and resets")
 	sim.add_burn(sim.balls[1], b, 4.0, 3.0)
 	_steps(sim, 40)

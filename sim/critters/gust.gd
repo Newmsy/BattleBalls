@@ -25,14 +25,16 @@ const CRITTER := {
 		"huff_secs": 0.4,
 		"huff_damage": 0.0, ## T5: ice crystals in the huff.
 		"huff_slow": 0.0, ## T5: chill for 1.5s.
-		"whirl_secs": 1.5, ## A huff leaves a whirlwind that keeps blowing this long.
+		"whirl_secs": 1.5, ## A huff leaves a whirlwind that keeps blowing this long...
+		"twister_speed": 180.0, ## ...hunting the foe; one that reaches it spins it and flings it at a wall.
+		"twister_damage": 3.0,
 	},
 	"tiers": [
-		{"text": "Huff every 5s leaves a 1.5s whirlwind; slams 7", "now": "Huff every {huff_every}s leaves a {whirl_secs}s whirlwind; slams {gust_slam}"},
+		{"text": "Huff every 5s: a twister hunts the foe, flings it; slams 7", "now": "Huff every {huff_every}s: a twister hunts the foe, flings it; slams {gust_slam}"},
 		{"text": "Wind +20%, whirlwinds 1.5 → 2s", "wind_accel": 120.0, "whirl_secs": 2.0},
 		{"text": "Wall slam 7 → 9, whirlwinds 2 → 2.5s", "gust_slam": 9.0, "whirl_secs": 2.5},
 		{"text": "Reach +18%, huff every 4s, whirl 3s", "wind_range": 260.0, "huff_every": 4.0, "whirl_secs": 3.0},
-		{"text": "+ Icy huff: 6 dmg, slow 15%", "now": "Icy huff every {huff_every}s ({huff_damage}), {whirl_secs}s whirlwinds", "huff_damage": 6.0, "huff_slow": 0.15, "whirl_secs": 3.5},
+		{"text": "+ Icy huff: 6 dmg, slow 15%", "now": "Icy huff every {huff_every}s ({huff_damage}), {whirl_secs}s twisters", "huff_damage": 6.0, "huff_slow": 0.15, "whirl_secs": 3.5},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["windcurls"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.2},

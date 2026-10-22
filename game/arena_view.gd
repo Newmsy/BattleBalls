@@ -19,6 +19,7 @@ const CritterPopup := preload("res://game/ui/critter_popup.gd")
 const RarityMark := preload("res://game/ui/rarity_mark.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const BattleFx := preload("res://game/battle_fx.gd")
+const CritterFx := preload("res://game/critter_fx.gd")
 const ArenaTheme := preload("res://game/arena_theme.gd")
 const Families := preload("res://sim/families.gd")
 const FamilyEdges := preload("res://game/family_edges.gd")
@@ -671,7 +672,9 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_dirt_spray(e.pos, 14)
 			"relight": # Flicker's candle bursts back into flame.
 				var g := sim.balls[e.ball]
-				_add_popup(g.pos + Vector2(-40, -g.radius - 40), "RELIT!", BattleFx.BURN)
+				_add_popup(g.pos + Vector2(-40, -g.radius - 40), "SUPERNOVA!" if e.get("nova", false) else "RELIT!", BattleFx.BURN, 1.2 if e.get("nova", false) else 1.0)
+				if e.get("nova", false):
+					_novas.append({"pos": e.pos, "radius": g.def.get("relight_nova_radius", 260.0), "color": BattleFx.BURN_CORE, "age": 0.0})
 				for q in 24:
 					var dir := Vector2.from_angle(_fx_rng.randf() * TAU)
 					_particles.append({"pos": e.pos + dir * g.radius * 0.5, "vel": dir * _fx_rng.randf_range(140.0, 380.0) + Vector2(0, -160.0), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.8), "col": BattleFx.BURN_CORE if q % 3 == 0 else BattleFx.BURN, "size": _fx_rng.randf_range(3.0, 7.0)})
@@ -732,6 +735,96 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var g := sim.balls[e.ball]
 				var text: String = "JACKPOT!" if e.prizes.size() > 1 else PRIZE_TEXT.get(e.prizes[0], "")
 				_add_popup(g.pos + Vector2(-40, -g.radius - 40), text, POP_CRIT if e.prizes.size() > 1 else POP_SNAP, 1.2 if e.prizes.size() > 1 else 1.0)
+			# Cool-factor moves (ideas/critter-cool-factor.md).
+			"spike_volley":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "VOLLEY!", SPIKE)
+				_rings.append({"pos": e.pos, "radius": g.radius * 1.8, "color": SPIKE, "age": 0.0})
+				_squash[e.ball] = maxf(_squash[e.ball], 0.25)
+			"sonic":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-60, -g.radius - 40), "SONIC BOOM!", CritterFx.SONIC, 1.15)
+				_fx.append({"kind": "sonic", "ball": e.ball, "pos": e.pos, "age": 0.0, "life": 0.5})
+				_shake = maxf(_shake, 7.0 * A11y.motion())
+			"crumb_eat":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 60), "NOM!", CritterFx.COOKIE_HI)
+				_burst(e.pos, 8, [CritterFx.COOKIE, CritterFx.COOKIE_HI, CritterFx.CHIP], Vector2(60.0, 180.0))
+			"shell_kick":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "SHELL KICK!", POP_SNAP)
+				_rings.append({"pos": e.pos, "radius": g.radius * 1.3, "color": Color("7bd389"), "age": 0.0})
+				_shake = maxf(_shake, 6.0 * A11y.motion())
+			"arc": # Static dumps its stored charges down a lightning arc.
+				_bolts.append({"from": e.from, "to": e.to, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+				_bolts.append({"from": e.to, "radius": 70.0 + 20.0 * e.charges, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+				_add_popup(e.to + Vector2(-40, -90), "ARC x%d!" % e.charges, RING_COLORS.get("zap", BURST))
+				_shake = maxf(_shake, 5.0 * A11y.motion())
+			"thorn_burst":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "THORNS!", CritterFx.THORN)
+				_burst(e.pos, 12, [CritterFx.THORN, CritterFx.THORN_DARK], Vector2(120.0, 320.0))
+			"harpoon":
+				var g := sim.balls[e.ball]
+				_fx.append({"kind": "hook", "ball": e.ball, "target": e.target, "age": 0.0, "life": BattleFx.HOOK_LIFE})
+				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "HARPOON!", POP_SNAP, 1.1)
+			"twister":
+				_add_popup(e.pos + Vector2(-50, -90), "TWISTER!", Color("e8fff0"), 1.1)
+				_burst(e.pos, 16, [Color("c7f9cc"), Color("e8fff0")], Vector2(200.0, 480.0))
+				_shake = maxf(_shake, 6.0 * A11y.motion())
+			"clamp":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 40), "CHOMP!", POP_SNAP)
+				var dir: Vector2 = _look[e.ball] if e.ball < _look.size() else Vector2.RIGHT
+				_chomps.append({"pos": g.pos + dir * g.radius, "dir": dir, "size": g.radius * 0.7, "age": 0.0})
+			"zz_bolt":
+				_bolts.append({"from": e.from, "to": e.to, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+				_add_popup(e.to + Vector2(-30, -80), "ZZAP!", RING_COLORS.get("zap", BURST))
+			"erupt":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 50), "ERUPTION!", BattleFx.BURN, 1.15)
+				_fx.append({"kind": "erupt", "ball": e.ball, "pos": e.pos, "age": 0.0, "life": 0.7})
+				_shake = maxf(_shake, 8.0 * A11y.motion())
+			"snowball":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 50), "SNOWBALL!", BattleFx.SNOW)
+				_fx.append({"kind": "snowball", "ball": e.ball, "pos": e.pos, "age": 0.0, "life": 1.0})
+			"lag":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-30, -g.radius - 40), "LAG!", Color("7cff4f"), 1.15)
+				_fx.append({"kind": "lag", "ball": e.ball, "from": e.from, "pos": e.to, "age": 0.0, "life": 0.5})
+				_squash[e.ball] = maxf(_squash[e.ball], 0.3)
+			"coil":
+				var g := sim.balls[e.target]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 50), "COILED!", Color("2ec4b6"))
+				_fx.append({"kind": "coil", "ball": e.ball, "target": e.target, "pos": e.pos, "age": 0.0, "life": 0.6})
+			"grab":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 40), "GRAB!", Color("c77dff"))
+				_fx.append({"kind": "grab", "ball": e.ball, "target": e.target, "pos": e.pos, "age": 0.0, "life": 0.6})
+			"howl":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 50), "AWOOO!", CritterFx.WOLF, 1.15)
+				_fx.append({"kind": "howl", "ball": e.ball, "pos": e.pos, "age": 0.0, "life": 0.9})
+			"timestop":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-60, -g.radius - 50), "TIME STOP!", CritterFx.TIME, 1.2)
+				_fx.append({"kind": "timestop", "ball": e.ball, "pos": e.pos, "age": 0.0, "life": maxf(0.6, e.secs + 0.3)})
+				_shake = maxf(_shake, 5.0 * A11y.motion())
+			"swat":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 40), "SWAT!", CritterFx.LEAF, 1.1)
+				_fx.append({"kind": "swat", "ball": e.ball, "pos": e.pos, "radius": e.radius, "age": 0.0, "life": 0.4})
+				_burst(e.pos, 10, [CritterFx.LEAF, Color("c7f9cc")], Vector2(160.0, 380.0))
+				_shake = maxf(_shake, 7.0 * A11y.motion())
+			"banana_split":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-70, -g.radius - 50), "BANANA SPLIT!", Color("ffe066"), 1.2)
+				_fx.append({"kind": "banana", "ball": e.ball, "pos": e.pos, "age": 0.0, "life": 0.7})
+			"lamp_spin":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-50, -g.radius - 40), "FULL BEAM!", Color("fff3b0"))
+				_fx.append({"kind": "lamp_spin", "ball": e.ball, "pos": e.pos, "age": 0.0, "life": 0.6})
 			"end":
 				for b in sim.balls:
 					if not b.alive() and b.def.get("boss", false):
@@ -2067,6 +2160,12 @@ func _draw_zone(z, s: float) -> void:
 			Dot.circle(self, bow + Vector2(-7, 0) * s, 6.0 * s, col)
 			Dot.circle(self, bow + Vector2(7, 0) * s, 6.0 * s, col)
 			Dot.circle(self, bow, 3.5 * s, Color("ffd23f"))
+		"tile":
+			CritterFx.draw_tile(self, p, z.radius * s, fade, int(_time * 4.0), int(z.pos.x * 0.01 + z.pos.y * 0.007))
+		"thorn":
+			CritterFx.draw_thorn_patch(self, p, z.radius * s, fade, fmod(z.pos.x * 0.01, TAU))
+		"whirl" when z.owner >= 0 and z.owner < sim.balls.size() and sim.balls[z.owner].def.get("twister_speed", 0.0) > 0.0:
+			CritterFx.draw_twister(self, p, z.radius * s, fade, _time)
 		"whirl":
 			# Gust's leftover whirlwind: the same outflowing streaks, fading out.
 			_draw_outflow(p, 10.0 * s, z.radius * s, ZONE_COLORS.stink.lightened(0.5), 0.45 * fade, 2.0)
@@ -2112,6 +2211,15 @@ func _draw_shot(shot, s: float) -> void:
 		if shot.kind == "hammer": # The Anvil King's hammer, tumbling end over end.
 			_draw_hammer(p + lift, 26.0 * s, t * TAU * 1.5)
 			return
+		if shot.kind == "balloon":
+			CritterFx.draw_balloon(self, p + lift, 16.0 * s, _time, shot.land.x * 0.003)
+			return
+		if shot.kind == "scoop":
+			CritterFx.draw_scoop(self, p + lift, 16.0 * s, int(shot.land.y) % 3)
+			return
+		if shot.kind == "blob" and sim.balls[shot.owner].type_id == "magmo":
+			CritterFx.draw_lava_blob(self, p + lift, 12.0 * s, _time)
+			return
 		if shot.kind == "blob" and sim.balls[shot.owner].type_id == "brewster":
 			var liquid: Color = BattleFx.POTIONS.get(shot.zone.get("kind", "goo"), BattleFx.POTIONS.goo)
 			BattleFx.draw_potion(self, p + lift, (20.0 if shot.zone.get("kind", "") == "brew" else 13.0) * s, liquid, t * TAU * 1.5 + shot.land.x)
@@ -2123,6 +2231,22 @@ func _draw_shot(shot, s: float) -> void:
 	if shot.kind == "spike":
 		BattleFx.draw_spike_shot(self, p, maxf(r, 6.0), shot.vel)
 		return
+	match shot.kind:
+		"gear":
+			CritterFx.draw_gear(self, p, maxf(r, 6.0), _time * 12.0 + shot.pos.x * 0.01)
+			return
+		"thorn":
+			CritterFx.draw_thorn(self, p, maxf(r, 6.0), shot.vel)
+			return
+		"candy":
+			CritterFx.draw_candy(self, p, maxf(r, 6.0), _time * 10.0, int(absf(shot.vel.x)) % 4)
+			return
+		"wolf":
+			CritterFx.draw_wolf(self, p, maxf(r, 8.0), shot.vel, _time)
+			return
+		"shard":
+			CritterFx.draw_shard(self, p, maxf(r, 6.0), shot.vel, int(sim.balls[shot.owner].state.get("mode", 0)))
+			return
 	if shot.kind == "feather": # The Brood Queen's feathers.
 		var d: Vector2 = shot.vel.normalized()
 		var sd := d.orthogonal()
@@ -2172,6 +2296,8 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 		BattleFx.draw_jawbreaker(self, p, r, int(item.get("hue", 0)), _time)
 		return
 	match item.look:
+		"fish":
+			CritterFx.draw_fish(self, p, r, (item.pos - b.pos).orthogonal(), _time + item.pos.x * 0.01)
 		"bug":
 			Dot.circle(self, p, r * 2.2, Color("eaff6a", 0.18 + 0.1 * sin(_time * 8.0)))
 			Dot.circle(self, p, r, Color("eaff6a"))
@@ -2252,6 +2378,17 @@ func _draw_fx(k: Dictionary, s: float) -> void:
 		"eclipse":
 			var g := sim.balls[k.ball]
 			BattleFx.draw_eclipse_flip(self, ball_pos(g) * s, g.radius * s, g.def.get("flip_radius", 160.0) * s, k.age, k.moon)
+		"sonic", "erupt", "snowball", "howl", "timestop", "banana", "lamp_spin", "swat":
+			var g := sim.balls[k.ball]
+			var r: float = k.get("radius", g.radius) * s
+			CritterFx.draw_fx(self, k, ball_pos(g) * s, k.pos * s, r, _time)
+		"lag":
+			var g := sim.balls[k.ball]
+			CritterFx.draw_fx(self, k, k.from * s, ball_pos(g) * s, g.radius * s, _time)
+		"coil", "grab":
+			if k.target < sim.balls.size():
+				var t := sim.balls[k.target]
+				CritterFx.draw_fx(self, k, ball_pos(sim.balls[k.ball]) * s, ball_pos(t) * s, t.radius * s, _time)
 
 
 ## Leviathan's dive: a swirl where it went down and a shrinking ring where it
@@ -2286,6 +2423,12 @@ func _draw_piece(p, s: float, shake: Vector2) -> void:
 		for f in 5:
 			var a := _time * 5.0 + f * TAU / 5.0
 			Dot.circle(self, pos + Vector2(cos(a), sin(a)) * p.radius * s * 0.95, 5.0, Color("6fb7ff", 0.7 * sink))
+		return
+	if p.kind == "rock":
+		CritterFx.draw_rock(self, pos, rad, k, fmod(p.pos.x * 0.013 + p.pos.y * 0.007, TAU))
+		return
+	if p.kind == "crumb":
+		CritterFx.draw_crumb(self, pos, rad, k, fmod(p.pos.x * 0.017 + p.pos.y * 0.011, TAU), _time)
 		return
 	var cols: Array = PIECE_COLORS.get(p.kind, [PILLAR.darkened(0.6), PILLAR.lightened(0.2)])
 	if p.kind == "seed":

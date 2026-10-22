@@ -13,7 +13,7 @@ const CRITTER := {
 	"vibe": "A jittery ball of static that can't stop zapping things.",
 	"description": "Spark. Every wall bounce zaps everything near it for 5 and slows it 20% for 1s.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
-	"ability": [{"on": "wall", "do": "zap"}],
+	"ability": [{"on": "wall", "do": "zap"}, {"on": "wall", "do": "static_charge"}, {"on": "hit", "do": "static_arc"}],
 	"params": {
 		"zap_radius": 150.0, ## Reach of a zap beyond Static's centre.
 		"zap_damage": 5.0,
@@ -22,9 +22,12 @@ const CRITTER := {
 		"zap_big_every": 0, ## T5: every Nth bounce is a big zap (0 = never).
 		"zap_big_radius": 220.0,
 		"zap_big_damage": 12.0,
+		"charge_max": 2, ## Bounces store charges...
+		"charge_damage": 3.0, ## ...its next hit arcs this much per charge...
+		"charge_stun": 0.15, ## ...and stuns.
 	},
 	"tiers": [
-		{"text": "Wall bounces zap nearby foes: 5, slow 20%", "now": "Wall bounces zap nearby foes: {zap_damage}, slow {zap_slow%}%"},
+		{"text": "Bounces zap: 5, slow 20%; stored charges +3 each on a hit", "now": "Bounces zap: {zap_damage}, slow {zap_slow%}%; stored charges +{charge_damage} each on a hit"},
 		{"text": "Zap 5 → 6", "zap_damage": 6.0},
 		{"text": "Slow 20 → 30%", "zap_slow": 0.3},
 		{"text": "Zap size +27%", "zap_radius": 190.0},

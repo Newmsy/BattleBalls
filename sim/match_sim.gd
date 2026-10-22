@@ -1490,6 +1490,7 @@ func _explode(z: Zone) -> void:
 	for o in foes(owner):
 		if o.pos.distance_to(z.pos) <= z.blast_radius + o.radius:
 			deal(owner, o, z.blast, "mine", z.pos)
+			abilities.fire(self, "blast", owner, {"target": o, "pos": z.pos})
 	if not z.after.is_empty():
 		add_zone(owner, z.pos, z.after)
 	if z.chain:
