@@ -7,14 +7,14 @@ const CRITTER := {
 	"name": "Sundae",
 	"type": "Sundae",
 	"rarity": "legendary",
-	"rarity_power": 1.107, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"rarity_power": 1.167, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "fde2e4",
 	"vibe": "A towering ice cream sundae who wants everyone to have a scoop.",
-	"description": "Sundae. Every hit stacks another scoop on top (+2 dmg, up to 4), and every hit of 20+ it takes knocks a scoop off into a sticky puddle that slows 40%.",
+	"description": "Sundae. Every hit stacks another scoop on top (+2 dmg, up to 4), and every hit of 20+ it takes knocks a scoop off into a sticky puddle that slows 40%. From T2 puddles stay until a foe rolls in; from T4 hits with full scoops throw the extra scoop at the foe.",
 	"stats": {"hp": 136.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
-	"ability": [{"on": "hit", "do": "stack"}, {"on": "hurt", "do": "stack_drop"}],
+	"ability": [{"on": "hit", "do": "stack_throw"}, {"on": "hit", "do": "stack"}, {"on": "hurt", "do": "stack_drop"}, {"on": "always", "do": "splat_tick"}],
 	"params": {
 		"stack_max": 4.0,
 		"stack_radius": 0.05,
@@ -24,15 +24,17 @@ const CRITTER := {
 		"splat_radius": 90.0,
 		"splat_slow": 0.4,
 		"splat_dps": 0.0,
+		"splat_stay": 0, ## T2: puddles stay until a foe rolls in, then last 3s.
+		"scoop_throw": 0, ## T4: a hit with full scoops throws the extra one at the foe.
 		"spray_count": 0.0,
 		"bolt_damage": 3.0,
 	},
 	"tiers": [
 		{"text": "Hits stack scoops (+2 dmg), max 4; big hits drop one", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; big hits drop one"},
-		{"text": "Per scoop +2 → +3", "stack_add": 3.0},
+		{"text": "Per scoop +2 → +3; puddles stay till stepped in", "stack_add": 3.0, "splat_stay": 1},
 		{"text": "+ Splats give brain freeze (3/s)", "splat_dps": 3.0},
-		{"text": "Max scoops 4 → 5", "stack_max": 5.0},
-		{"text": "+ At 5 scoops hits shower 6 sprinkles", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; full: sprinkles", "spray_count": 6.0, "ability": [{"on": "hit", "do": "stack_spray"}]},
+		{"text": "Max scoops 4 → 5; + extra scoops are thrown", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; extras thrown", "stack_max": 5.0, "scoop_throw": 1},
+		{"text": "+ At 5 scoops hits shower 6 sprinkles", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; throws, sprinkles", "spray_count": 6.0, "ability": [{"on": "hit", "do": "stack_spray"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .17, "closed": true, "mouth": "smile"}, "back": ["scoops"], "front": ["cup"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.15},
