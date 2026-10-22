@@ -23,8 +23,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"Until then, %d themed teams near your Defence's power raid it each day, the first time you open the Arena." % ArenaStore.RAIDS_PER_DAY,
 		"Each raid you hold wins +5 trophies and %d Tokens. A lost raid costs a few trophies, capped each day, never below your league floor." % ArenaStore.COINS_DEFENCE,
 	]
-	var info: Control = shell.info_button("Defence", how, "defence_info")
-	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Defence", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row("Defence", {"info_mark": "defence_info", "info": how}))
 	var pow := Kit.hbox(10, [Kit.label("Defence power", 24, Kit.MUTED), Kit.spacer(), Kit.power(store.power(shell.profile, "defence"), 30)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.panel(pow, Kit.box(Color("17143e"), Kit.GOOD, 28, 2, 16)))
 	root.add_child(ArenaScreen.trio_panel(shell, store, owned, "defence"))

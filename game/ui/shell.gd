@@ -385,6 +385,35 @@ func info_button(title: String, paragraphs: Array, mark_as := "info") -> Control
 	return b
 
 
+## The title row every screen starts with: Back (on pushed screens), the
+## title with an optional eyebrow caption over it, any extra controls, then
+## the "i" button. opts: back (default true), back_mark ("back"), eyebrow
+## (caption text), eyebrow_color (MUTED), eyebrow_glyphs (glyph kinds after
+## the eyebrow, in its colour), extra ([Control], between title and "i"),
+## info ([paragraphs]: adds the "i"), info_title (the title), info_mark ("info").
+func title_row(title: String, opts := {}) -> HBoxContainer:
+	var head: Control = Kit.label(title, 40)
+	var eyebrow: String = opts.get("eyebrow", "")
+	var glyphs: Array = opts.get("eyebrow_glyphs", [])
+	if eyebrow != "" or not glyphs.is_empty():
+		var col: Color = opts.get("eyebrow_color", Kit.MUTED)
+		var cap := Kit.hbox(6, [Kit.caption(eyebrow, col)], BoxContainer.ALIGNMENT_BEGIN)
+		for g in glyphs:
+			cap.add_child(Kit.glyph(g, 22, col))
+		head = Kit.vbox(2, [cap, head])
+	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := Kit.hbox(16, [head], BoxContainer.ALIGNMENT_CENTER)
+	if opts.get("back", true):
+		var b := back_button(opts.get("back_mark", "back"))
+		row.add_child(b)
+		row.move_child(b, 0)
+	for c in opts.get("extra", []):
+		row.add_child(c)
+	if opts.has("info"):
+		row.add_child(info_button(opts.get("info_title", title), opts.info, opts.get("info_mark", "info")))
+	return row
+
+
 ## A bottom sheet over a dimmed screen; tapping the dim area closes it.
 func sheet(content: Control) -> void:
 	# The same sheet every fight's result pops up in (ResultPopup).

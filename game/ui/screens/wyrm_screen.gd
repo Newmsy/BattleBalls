@@ -7,7 +7,6 @@ extends RefCounted
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
-const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
@@ -24,19 +23,16 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(18)
-	var head := Kit.vbox(2, [Kit.hbox(6, [Kit.caption("Daily boss ·", RIFT), Kit.glyph("target", 22, RIFT)]), Kit.label("Prism Wyrm", 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var costs: Array = Economy.LURE_COST.keys().map(func(r): return "%s %d" % [r.capitalize(), Economy.LURE_COST[r]])
-	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Prism Wyrm", [
+	root.add_child(shell.title_row("Prism Wyrm", {"eyebrow": "Daily boss ·", "eyebrow_color": RIFT, "eyebrow_glyphs": ["target"], "info_mark": "wyrm_info", "info": [
 		"A crystal serpent snaking figure-eights through the Crystal Rift. Only its glowing scale can be hurt; the rest of it is armour. The glow runs from its head down to its tail.",
 		"Its tail lashes where it's heading: get clear of the ring. Stun it to cancel a lash. Precise and homing critters do best.",
 		"Lures buy wishlist copies (%s). %d at Lv 1 up to %d at Lv 15; each level is stronger and beating one opens the next." % [", ".join(costs), WyrmRift.DIFFICULTIES[0].lures, WyrmRift.DIFFICULTIES[-1].lures],
-		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [WyrmRift.RUNS_PER_DAY, WyrmRift.ENERGY_COST]], "wyrm_info")],
-		BoxContainer.ALIGNMENT_CENTER))
+		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [WyrmRift.RUNS_PER_DAY, WyrmRift.ENERGY_COST]]}))
 
 	var left := WyrmRift.runs_left(p, now)
 	root.add_child(Kit.hbox(10, [Kit.label("%d/%d runs left" % [left, WyrmRift.RUNS_PER_DAY], 22, Kit.MUTED),
-		Kit.spacer(), Glyph.make("target", 30, RIFT), Kit.label(Kit.commas(p.lures), 24)], BoxContainer.ALIGNMENT_CENTER))
+		Kit.spacer(), Kit.amount("target", p.lures, 24, Kit.FG, RIFT)], BoxContainer.ALIGNMENT_CENTER))
 
 	ResultPopup.boss_result(shell, params)
 
@@ -66,7 +62,8 @@ static func _lures_row(shell, p) -> Control:
 	for id in p.wishlist:
 		var cost: int = p.lure_cost(id)
 		var can: bool = p.lures >= cost
-		var price := Kit.hbox(4, [Glyph.make("target", 18, RIFT if can else Kit.MUTED), Kit.label("%d" % cost, 18, RIFT if can else Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+		var price := Kit.amount("target", cost, 18, RIFT if can else Kit.MUTED, RIFT if can else Kit.MUTED)
+		price.alignment = BoxContainer.ALIGNMENT_CENTER
 		var cell := Kit.vbox(2, [FighterTag.icon(id, 1, 64), price])
 		cell.alignment = BoxContainer.ALIGNMENT_CENTER
 		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -92,7 +89,7 @@ static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	var rec := WyrmRift.enemy_rating(d)
 	var mine: int = p.power_of(fighter)
 	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var info := Kit.vbox(2, [Kit.label(diff.name, 26), Kit.hbox(8, [Glyph.make("target", 20, RIFT), Kit.label("%d" % diff.lures, 20)], BoxContainer.ALIGNMENT_CENTER),
+	var info := Kit.vbox(2, [Kit.label(diff.name, 26), Kit.amount("target", diff.lures, 20, Kit.FG, RIFT),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "It's stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight := Kit.cost_button("Fight", WyrmRift.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 64)

@@ -78,6 +78,7 @@ then fix every miss in one tuning PR.
 | One critter against the field | `balance.gd -- --fights=200 --power-step --arena=all --modifiers --only=<id>` |
 | Gear lines: one 5-star piece of each stat line vs the same ball bare | `balance.gd -- --fights=300 --gear` |
 | Rarity = a tier: T1 Legendary vs T2 Epic, T3 Rare, T5 Common and neighbours, real tiers (target ~50%) | `rarity_check.gd -- --pairs=150` |
+| Round robin: every critter vs every other at the same tier (rank within a rarity), or `--mode=down` vs one rarity down at +1 tier; `--only=<ids> --same` for a quick check | `round_robin.gd -- --tier=3 --seeds=6 --shard=k/4` |
 | Bounce Run boons | `GODOT=<godot> tools/ci/boons.sh --fights=40` |
 | Family edges: very good / good at equal power and against a tier-up foe | `type_check.gd -- --pairs=300` |
 

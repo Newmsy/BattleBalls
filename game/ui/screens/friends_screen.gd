@@ -8,7 +8,6 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
-const DetailScreen := preload("res://game/ui/screens/detail_screen.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 
@@ -16,7 +15,7 @@ const Analytics := preload("res://game/online/analytics.gd")
 static func build(shell, _params: Dictionary) -> Control:
 	var fr = shell.friends
 	var root := Kit.vbox(24)
-	root.add_child(DetailScreen.header(shell, "Friends", _count_chip(fr)))
+	root.add_child(shell.title_row("Friends", {"extra": [_count_chip(fr)]}))
 
 	if not fr.enabled():
 		root.add_child(_sleepy(shell))

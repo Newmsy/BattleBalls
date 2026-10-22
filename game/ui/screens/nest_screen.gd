@@ -7,7 +7,6 @@ extends RefCounted
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
-const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
@@ -23,14 +22,11 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.hbox(6, [Kit.caption("Daily boss ·", NEST), Kit.glyph("egg", 22, NEST)]), Kit.label("Brood Queen", 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Brood Queen", [
+	root.add_child(shell.title_row("Brood Queen", {"eyebrow": "Daily boss ·", "eyebrow_color": NEST, "eyebrow_glyphs": ["egg"], "info_mark": "nest_info", "info": [
 		"A great neon hen gliding round The Nest. She lays eggs that hatch into darting chicks, and flings feathers at you.",
 		"Crack eggs before they hatch: every %d eggs cracked adds an egg to a win, up to +%d. Stuns freeze her in place." % [BroodNest.EGGS_PER_BONUS, BroodNest.BONUS_MAX],
 		"Win for Summon Eggs: %d at level 1 up to %d at level 15. Each level is stronger; beat one to open the next." % [BroodNest.DIFFICULTIES[0].orbs, BroodNest.DIFFICULTIES[-1].orbs],
-		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [BroodNest.RUNS_PER_DAY, BroodNest.ENERGY_COST]], "nest_info")],
-		BoxContainer.ALIGNMENT_CENTER))
+		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [BroodNest.RUNS_PER_DAY, BroodNest.ENERGY_COST]]}))
 
 	var left := BroodNest.runs_left(p, now)
 	root.add_child(Kit.label("%d/%d runs left" % [left, BroodNest.RUNS_PER_DAY], 22, Kit.MUTED))
@@ -56,7 +52,7 @@ static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	var rec := BroodNest.enemy_rating(d)
 	var mine: int = p.power_of(fighter)
 	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var info := Kit.vbox(4, [Kit.label("Lv %d" % (d + 1), 28), Kit.hbox(8, [Glyph.make("orb", 22), Kit.label("%d+" % diff.orbs, 20)], BoxContainer.ALIGNMENT_CENTER),
+	var info := Kit.vbox(4, [Kit.label("Lv %d" % (d + 1), 28), Kit.amount("orb", "%d+" % diff.orbs, 20),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "She's stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight := Kit.cost_button("Fight", BroodNest.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 72)

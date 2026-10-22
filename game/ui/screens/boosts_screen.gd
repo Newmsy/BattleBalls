@@ -35,15 +35,14 @@ static func build(shell, params: Dictionary) -> Control:
 		"Points only come from the Arena. Boosts only work in the Ghost Arena.",
 		"Reset is free: every point comes back.",
 	]
-	var info: Control = shell.info_button("Trophy Room", how, "boosts_info")
-	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Trophy Room", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row("Trophy Room", {"info_mark": "boosts_info", "info": how}))
 
 	var reset := Kit.card_button(Kit.chip("Reset", Kit.MUTED), func():
 		var back: int = store.reset_boosts()
 		shell.toast("Refunded %s points." % Kit.commas(back) if back > 0 else "Nothing to reset yet.")
 		shell.refresh_with({"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
 	shell.mark("boosts_reset", reset)
-	var pts := Kit.hbox(10, [Glyph.make("points", 34, Glyph.GOLD), Kit.label(Kit.commas(store.points), 34), Kit.spacer(), reset], BoxContainer.ALIGNMENT_CENTER)
+	var pts := Kit.hbox(10, [Kit.amount("points", store.points, 30, Kit.FG, Glyph.GOLD), Kit.spacer(), reset], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.panel(pts, Kit.box(Color("17143e"), Kit.ACCENT, 28, 2, 16)))
 
 	# Your trio's families first, then families you own a critter of; the
@@ -130,7 +129,8 @@ static func _stat_button(shell, store, fam: String, line: String, col: Color) ->
 		cost = Kit.label("MAX", 18, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER)
 	else:
 		var tint: Color = Kit.FG if afford else Kit.MUTED
-		cost = Kit.hbox(3, [Kit.glyph("points", 18, Glyph.GOLD if afford else Kit.MUTED), Kit.label(Kit.commas(c), 18, tint)], BoxContainer.ALIGNMENT_CENTER)
+		cost = Kit.amount("points", c, 18, tint, Glyph.GOLD if afford else Kit.MUTED)
+		(cost as HBoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
 	var content := Kit.vbox(4, [pips, cost])
 	var fname: String = Families.info(fam).name
 	var lname: String = ArenaBoosts.LINES[line].name

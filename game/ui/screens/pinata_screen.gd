@@ -7,7 +7,6 @@ extends RefCounted
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
-const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
@@ -23,15 +22,12 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.hbox(6, [Kit.caption("Daily boss ·", PARTY), Kit.glyph("coin", 22, PARTY)]), Kit.label("Piñata Titan", 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Piñata Titan", [
+	root.add_child(shell.title_row("Piñata Titan", {"eyebrow": "Daily boss ·", "eyebrow_color": PARTY, "eyebrow_glyphs": ["coin"], "info_mark": "pinata_info", "info": [
 		"A giant party piñata swinging on its rope over Fiesta Plaza. It never hits back: you get 30 seconds to smash it.",
 		"Every hit pops coins out, and a crit is a candy shower. Break it before the clock for a %d coin jackpot." % PinataParty.JACKPOT,
 		"It's as strong as your fighter, so big hitters and fast, busy critters earn the most. Stuns stop its swing and slows drag it out.",
 		"Every run pays %d to %d coins. Coins buy cosmetics in the Glow shop." % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)],
-		"%d runs a day, %d energy each." % [PinataParty.RUNS_PER_DAY, PinataParty.ENERGY_COST]], "pinata_info")],
-		BoxContainer.ALIGNMENT_CENTER))
+		"%d runs a day, %d energy each." % [PinataParty.RUNS_PER_DAY, PinataParty.ENERGY_COST]]}))
 
 	var left := PinataParty.runs_left(p, now)
 	root.add_child(Kit.label("%d/%d runs left" % [left, PinataParty.RUNS_PER_DAY], 22, Kit.MUTED))
@@ -46,7 +42,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
 
-	var pay := Kit.vbox(4, [Kit.hbox(8, [Glyph.make("coin", 30), Kit.label("%d to %d" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 26)], BoxContainer.ALIGNMENT_BEGIN)])
+	var pay := Kit.vbox(4, [Kit.amount("coin", "%d to %d" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 26)])
 	pay.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight := Kit.cost_button("Smash", PinataParty.ENERGY_COST, "energy", _fight.bind(shell, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 160

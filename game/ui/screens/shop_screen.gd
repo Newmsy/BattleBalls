@@ -21,11 +21,10 @@ static func build(shell, _params: Dictionary) -> Control:
 	var glow = shell.glow
 	var t := LiveOps.now()
 	var root := Kit.vbox(24)
-	var back: Control = shell.back_button("shop_back")
-	var gems_btn := Kit.card_button(Kit.hbox(8, [Glyph.make("gem", 34), Kit.label(Kit.commas(glow.gems()), 28), Kit.chip("+", GEM, 22)]),
+	var gems_btn := Kit.card_button(Kit.hbox(8, [Kit.amount("gem", glow.gems(), 28), Kit.chip("+", GEM, 22)]),
 		func(): gem_sheet(shell), Color(GEM, .6), Kit.PANEL, 999, 10)
 	shell.mark("get_gems", gems_btn)
-	root.add_child(Kit.hbox(14, [back, Kit.label("Shop", 40), Kit.chip("Looks only", Kit.MUTED, 16), Kit.spacer(), gems_btn], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row("Shop", {"back_mark": "shop_back", "eyebrow": "Looks only", "extra": [gems_btn]}))
 
 	# Featured bundles, this week.
 	var week_ends := LiveOps.week_start(t) + LiveOps.WEEK
@@ -129,8 +128,8 @@ static func _price(it: Dictionary, owned: bool, worn := false) -> Control:
 	if owned:
 		return Kit.chip("Owned", Kit.GOOD)
 	if it.has("coins"):
-		return Kit.hbox(6, [Glyph.make("coin", 24), Kit.label(Kit.commas(it.coins), 22)])
-	return Kit.hbox(6, [Glyph.make("gem", 24), Kit.label(Kit.commas(it.gems), 22)])
+		return Kit.amount("coin", it.coins, 22)
+	return Kit.amount("gem", it.gems, 22)
 
 
 static func _bundle_card(shell, b: Dictionary) -> Control:

@@ -27,23 +27,19 @@ static func build(shell, params: Dictionary) -> Control:
 	p.update_energy(now)
 	var root := Kit.vbox(20)
 	var slot: String = GearVault.today(now).slot
-	var head := Kit.vbox(2, [Kit.hbox(6, [Kit.caption("Daily boss", VAULT), Kit.glyph("shell" if slot == "" else slot.to_lower(), 22, VAULT),
-		Kit.glyph("hammer", 22, VAULT)]), Kit.label("Anvil King", 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Anvil King", [
+	root.add_child(shell.title_row("Anvil King", {"eyebrow": "Daily boss", "eyebrow_color": VAULT, "eyebrow_glyphs": ["shell" if slot == "" else slot.to_lower(), "hammer"], "info_mark": "vault_info", "info": [
 		"A forge golem rooted in the middle of The Forge. It slams its hammer where you're heading (dodge the ring), leaves embers burning, and every fourth swing quakes the floor around it: get to the edge.",
 		"Stun it to cancel a swing. Slows make it swing less often. Its magnet core drags your mines and trails into it.",
 		"Win gear + Hammers. 15 levels; every 3 levels the gear gets a star.",
 		"The slot changes daily: Shells Monday and Thursday, Cores Tuesday and Friday, Charms Wednesday and Saturday, anything on Sunday.",
-		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [GearVault.RUNS_PER_DAY, GearVault.ENERGY_COST]], "vault_info")],
-		BoxContainer.ALIGNMENT_CENTER))
+		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [GearVault.RUNS_PER_DAY, GearVault.ENERGY_COST]]}))
 
 	var names: Array = GearVault.types_today(now).map(func(t): return Gear.PIECES[t].name)
 	var today := "Today: " + ("any gear" if slot == "" else "%ss (%s)" % [slot, " or ".join(names)])
 	root.add_child(Kit.label(today, 26, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var left := GearVault.runs_left(p, now)
 	root.add_child(Kit.hbox(10, [Kit.label("%d/%d runs" % [left, GearVault.RUNS_PER_DAY], 22, Kit.MUTED),
-		Kit.spacer(), Glyph.make("hammer", 30), Kit.label(Kit.commas(p.hammers), 24)], BoxContainer.ALIGNMENT_CENTER))
+		Kit.spacer(), Kit.amount("hammer", p.hammers)], BoxContainer.ALIGNMENT_CENTER))
 
 	if params.has("notice"):
 		var r: Dictionary = params.get("xp", {})
@@ -70,7 +66,7 @@ static func _card(shell, p, d: int, fighter: String, now: int, left: int) -> Con
 	var col := BagScreen.tier_color(diff.tier)
 	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
 	var info := Kit.vbox(4, [Kit.label(diff.name, 28), Kit.hbox(8, [Glyph.make("stars", 20, col, diff.tier), Kit.label("+", 20, Kit.MUTED),
-		Glyph.make("hammer", 22), Kit.label("%d" % diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER),
+		Kit.amount("hammer", diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "They're stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight: Button

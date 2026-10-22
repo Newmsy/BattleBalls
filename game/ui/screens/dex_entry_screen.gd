@@ -10,7 +10,6 @@ const Roster := preload("res://game/ui/roster.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const Families := preload("res://sim/families.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
-const DetailScreen := preload("res://game/ui/screens/detail_screen.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 
 ## Base stats with the roster's top value, so the bars compare critters.
@@ -26,8 +25,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var root := Kit.vbox(18)
 	var more := [c.vibe, AbilityText.full(c.id), "You own %d." % p.total_copies(c.id) if owned else "Summon it or win it in the campaign.",
 		"Starts at T1. Fuse 3 → next tier."]
-	var info: Control = shell.info_button(c.name, more, "dex_info")
-	root.add_child(DetailScreen.header(shell, c.name, Kit.hbox(12, [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol), info], BoxContainer.ALIGNMENT_CENTER)))
+	root.add_child(shell.title_row(c.name, {"extra": [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol)], "info_mark": "dex_info", "info": more}))
 
 	# Hero: the art, then number, type, family and role.
 	var tags := Kit.hbox(8)
