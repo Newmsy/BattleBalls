@@ -6,6 +6,7 @@
 ## &offline=1 (never touch the leaderboard).
 extends Node2D
 
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const FightAim := preload("res://game/fight_aim.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -294,6 +295,8 @@ func _show_floor() -> void:
 		var out: bool = run.out[s]
 		var card := _critter_card(c.critter, func(): _choose_fighter(s), -1, out, BounceRun.tier_at(run.floor))
 		card.disabled = out
+		if not out:
+			FamilyEdge.attach(card, [c.critter], [foe.critter], 12, 26)
 		items.append(card)
 		if not out:
 			_mark("br_send_%d" % s, card)
