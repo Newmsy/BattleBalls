@@ -53,7 +53,13 @@ func test_munch_bites_grow_it_and_heal() -> void:
 	var m := t5.balls[0]
 	for i in 6:
 		_hit(t5, m)
-	check_eq(Abilities.stacks(m), 2, "T5 burps at 6 bites and drops to 2")
+	check_eq(Abilities.stacks(m), 6, "T5: 6 bites")
+	_hit(t5, m)
+	check(t5.stunned(t5.balls[1]), "the hit after it fills swallows the foe")
+	check_eq(Abilities.stacks(m), 4, "a swallow drops 2 bites")
+	_steps(t5, int(m.def.swallow_secs * MatchSim.TICK_RATE) + 1)
+	check(t5.balls[1].state.has("slam"), "then spits it out to slam a wall")
+	check(not m.state.has("swallow"), "and the swallow is over")
 
 
 func test_totem_stacks_faces_on_bumps_and_loses_them_to_big_hits() -> void:

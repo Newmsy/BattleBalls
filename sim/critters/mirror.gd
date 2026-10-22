@@ -7,18 +7,18 @@ const CRITTER := {
 	"name": "Echo",
 	"type": "Mirror",
 	"rarity": "epic",
-	"rarity_power": 1.055, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"rarity_power": 0.955, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "cfd8e6",
 	"vibe": "A copycat show-off that mimics whoever just hit it.",
-	"description": "Mirror. When hurt, at most every 6s, it copies the foe's ability at 25% strength for 2.5s and bounces 20% of contact damage back while copying.",
+	"description": "Mirror. When hurt, at most every 6s, it copies the foe's ability for 2.5s with a 6 shield: full strength while the shield holds, 25% after. It bounces 20% of contact damage back while copying.",
 	"stats": {"hp": 136.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "hurt", "do": "copy"}, {"on": "always", "do": "copy_tick"}, {"on": "hurt", "do": "reflect"}],
 	"params": {
 		"copy_secs": 2.5,
 		"copy_cooldown": 6.0,
-		"copy_shield": 0.0,
+		"copy_shield": 6.0, ## While this shield holds the copy is at full strength.
 		"copy_scale": 0.25, ## Copied ability damage, pull and multipliers at 25% strength.
 		"reflect_ratio": 0.2,
 		"reflect_low": 0.0,
@@ -27,9 +27,9 @@ const CRITTER := {
 		"reflect_from": "copying",
 	},
 	"tiers": [
-		{"text": "Hurt: copies foe's ability 2.5s (every 6s max)", "now": "Hurt: copies foe's ability {copy_secs}s (every {copy_cooldown}s max)"},
+		{"text": "Hurt: copies foe's ability 2.5s, full while 6 shield", "now": "Hurt: copies foe's ability {copy_secs}s, full while {copy_shield} shield"},
 		{"text": "Copy 2.5 → 3.5s", "copy_secs": 3.5},
-		{"text": "+ Copying gives a 10 shield", "now": "Hurt: copies foe's ability {copy_secs}s + {copy_shield} shield, every {copy_cooldown}s", "copy_shield": 10.0},
+		{"text": "Copy shield 6 → 12", "copy_shield": 12.0},
 		{"text": "Copy every 6 → 5s max", "copy_cooldown": 5.0},
 		{"text": "+ A copy lasts until the next one", "now": "Hurt: keeps a copy of foe's ability + {copy_shield} shield, every {copy_cooldown}s", "copy_secs": 600.0},
 	],

@@ -7,14 +7,14 @@ const CRITTER := {
 	"name": "Puppeteer",
 	"type": "Puppeteer",
 	"rarity": "epic",
-	"rarity_power": 1.121, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"rarity_power": 1.18, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "6d2e46",
 	"vibe": "A theatrical little puppet-master who wants you in its show.",
-	"description": "Puppeteer. When it hits, at most every 6s, it ties a string to the foe, drags it along for 0.7s, then hurls it into the nearest wall for a 8 slam.",
+	"description": "Puppeteer. When it hits, at most every 6s, it ties a string to the foe, drags it along for 0.7s, then hurls it into the nearest wall for a 8 slam. From T2 the string stays tied after the throw, and every wall bounce Puppeteer makes tugs the foe toward it.",
 	"stats": {"hp": 119.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.5},
-	"ability": [{"on": "hit", "do": "string"}, {"on": "always", "do": "string_fling"}],
+	"ability": [{"on": "hit", "do": "string"}, {"on": "always", "do": "string_fling"}, {"on": "wall", "do": "string_tug"}, {"on": "always", "do": "string_tie"}],
 	"params": {
 		"string_cooldown": 6.0, ## Seconds between strings.
 		"string_length": 120.0, ## Most slack between the two balls.
@@ -24,13 +24,15 @@ const CRITTER := {
 		"string_slam_stun": 0.0, ## T3: the slam stuns this long.
 		"string_stun": 0.3, ## T5: dizzy seconds when the string snaps.
 		"string_shield": 10.0, ## T5: shield when it bows.
+		"string_tug": 0.0, ## T2: after the throw the string stays tied; its wall bounces tug the foe this hard.
+		"string_ties": 1, ## T5: 2 strings (a second foe in team fights), tugging twice as hard.
 	},
 	"tiers": [
 		{"text": "Every 6s a hit strings foe, hurls it: slam 8", "now": "Every {string_cooldown}s a hit strings foe, hurls it: slam {string_slam}"},
-		{"text": "String every 6 → 4s", "string_cooldown": 4.0},
-		{"text": "Slam 8 → 11 + stun 0.4s", "now": "Every {string_cooldown}s a hit strings foe, hurls: slam {string_slam} + stun", "string_slam": 11.0, "string_slam_stun": 0.4},
+		{"text": "String every 6 → 4s; stays tied, tugs on bounces", "now": "Every {string_cooldown}s a hit strings foe, hurls: slam {string_slam}, tugs", "string_cooldown": 4.0, "string_tug": 1500.0},
+		{"text": "Slam 8 → 11 + stun 0.4s", "now": "Every {string_cooldown}s strings foe, hurls: slam {string_slam} + stun, tugs", "string_slam": 11.0, "string_slam_stun": 0.4},
 		{"text": "String 0.7 → 1s", "string_secs": 1.0},
-		{"text": "+ Throws harder, then bows for a 10 shield", "now": "Every {string_cooldown}s a hit strings foe, hurls: slam {string_slam} + stun, bow", "string_fling": 1.1, "ability": [{"on": "always", "do": "string_snap"}]},
+		{"text": "+ 2 strings, throws harder, bows: 10 shield", "now": "Every {string_cooldown}s 2 strings, hurls: slam {string_slam} + stun, bow", "string_ties": 2, "string_fling": 1.1, "ability": [{"on": "always", "do": "string_snap"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["controlbar", "tophat"]},
 	"sound": {"ouch": "ouch_vampire", "pitch": 1.0},

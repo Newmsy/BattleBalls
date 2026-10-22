@@ -520,6 +520,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var g := sim.balls[e.ball]
 				var words := {"yoyo": "SWING!", "fling": "WALKIES!", "hug": "HUG!", "dive": "DIVE!"}
 				var word: String = "THROWN!" if e.type == "fling" and e.has("source") else words[e.type]
+				if e.get("walk", false): # Yoyo winding up to walk the dog.
+					word = "WALK THE DOG!"
 				_add_popup(g.pos + Vector2(-40, -g.radius - 34), word, POP_SNAP)
 				if e.type == "dive": # Leviathan plunges under.
 					_fx.append({"kind": "splash", "pos": g.pos, "radius": g.radius * 1.6, "age": 0.0, "life": BattleFx.SPLASH_LIFE, "seed": 0.0})
@@ -560,6 +562,14 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var g := sim.balls[e.ball]
 				_flashes.append({"from": e.from, "to": e.pos, "age": 0.0})
 				_add_popup(g.pos + Vector2(-44, -g.radius - 60), "WRAPPED!", RING_COLORS.confetti)
+			"swallow", "spit":
+				var g := sim.balls[e.ball]
+				_add_popup(g.pos + Vector2(-40, -g.radius - 34), "GULP!" if e.type == "swallow" else "PTOO!", POP_SNAP)
+				_squash[e.ball if e.type == "spit" else e.target] = 0.35
+				_spawn_particles(e.pos, 6)
+			"walkies": # Yoyo's walk-the-dog hit.
+				_rings.append({"pos": e.pos, "radius": 90.0, "color": Color(sim.balls[e.ball].def.get("beam_color", "7ff3ff")), "age": 0.0})
+				_shake = maxf(_shake, 6.0 * A11y.motion())
 			"wrap_pop": # The ribbon bursts into confetti.
 				var hues := [Color("ff5fa2"), Color("ffd23f"), Color("6ee7ff"), Color("a6ff6e"), Color.WHITE]
 				for q in 26:
@@ -882,6 +892,10 @@ func _draw() -> void:
 
 	for shot in sim.shots:
 		_draw_shot(shot, s)
+	for g in sim.balls: # Puppeteer's strings still tied after a throw.
+		if g.alive() and g.state.has("tie"):
+			for i in g.state.tie:
+				_draw_string(g.pos * s, sim.balls[i].pos * s)
 	for t in sim.tethers:
 		if sim.balls[t.owner].type_id == "gumdrop":
 			BattleFx.draw_gum_string(self, sim.balls[t.owner].pos * s, sim.balls[t.target].pos * s, _time)
@@ -1978,6 +1992,30 @@ func _draw_zone(z, s: float) -> void:
 		"spirit": # The Totem of Nine's heads glowing before a volley.
 			var glow := 0.5 + 0.5 * absf(sin(_time * 12.0))
 			Dot.arc(self, p, z.radius * s, 0.0, TAU, 40, Color("c9a6ff", 0.4 + 0.5 * glow), 5.0, true)
+		"clockface":
+			# Clockwork's clock face: a dial with ticking hands, fading out.
+			var r: float = z.radius * s
+			var col: Color = BattleFx.CLOCK
+			Dot.circle(self, p, r, Color(col, 0.12 * fade))
+			Dot.arc(self, p, r, 0.0, TAU, 48, Color(col, 0.5 * fade), 3.0, true)
+			for k in 12:
+				var d := Vector2.from_angle(k * TAU / 12.0)
+				draw_line(p + d * r * 0.85, p + d * r * 0.95, Color(col, 0.6 * fade), 2.0)
+			draw_line(p, p + Vector2.from_angle(z.age * TAU - PI / 2.0) * r * 0.7, Color(col, 0.7 * fade), 3.0)
+			draw_line(p, p + Vector2.from_angle(z.age * TAU / 12.0 - PI / 2.0) * r * 0.45, Color(col, 0.7 * fade), 4.0)
+		"snare":
+			# Bonbon's ribbon left on the floor: a loose pink loop with a bow.
+			var r: float = z.radius * s
+			var col := Color("ff5fa2")
+			var a0 := fmod(z.pos.x * 0.01, TAU)
+			Dot.arc(self, p, r * 0.8, a0, a0 + TAU * 0.9, 32, Color(col, 0.75 if z.armed() else 0.35), 4.0 * s, true)
+			var bow: Vector2 = p + Vector2.from_angle(a0) * r * 0.8
+			Dot.circle(self, bow + Vector2(-7, 0) * s, 6.0 * s, col)
+			Dot.circle(self, bow + Vector2(7, 0) * s, 6.0 * s, col)
+			Dot.circle(self, bow, 3.5 * s, Color("ffd23f"))
+		"whirl":
+			# Gust's leftover whirlwind: the same outflowing streaks, fading out.
+			_draw_outflow(p, 10.0 * s, z.radius * s, ZONE_COLORS.stink.lightened(0.5), 0.45 * fade, 2.0)
 		"clod":
 			var land: float = clampf(z.age / maxf(z.arm, 0.01), 0.0, 1.0)
 			Dot.circle(self, p, z.radius * s * (0.4 + 0.6 * land), Color(ZONE_COLORS.clod, 0.25 + 0.5 * land))

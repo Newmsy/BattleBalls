@@ -64,7 +64,7 @@ const EFFECTS := {
 	"stardust": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"star": ["star_damage"],
 	"gale": ["wind_range", "wind_accel", "wind_huff"],
-	"huff": ["wind_range", "huff_secs", "huff_damage", "huff_slow"],
+	"huff": ["wind_range", "huff_secs", "huff_damage", "huff_slow", "whirl_secs"],
 	"patch": ["patch_radius", "patch_life", "patch_dps"],
 	"patch_flare": ["patch_flare_radius", "patch_flare_damage"],
 	"honey": ["honey_radius", "honey_life", "honey_slow", "honey_max", "honey_merge_radius", "honey_dps"],
@@ -102,13 +102,13 @@ const EFFECTS := {
 	"lamp": ["lamp_life", "lamp_dps", "lamp_vuln", "lamp_vuln_secs", "lamp_sweep", "lamp_back"],
 	"lamp_sweep": [],
 	"wrap": ["wrap_hold", "wrap_vuln", "wrap_vuln_secs", "wrap_confetti", "wrap_pull_every", "wrap_pull"],
-	"wrap_tick": [],
+	"wrap_tick": ["snare_max"],
 	"shove": ["slam_damage", "slam_window", "slam_freeze", "slam_patch", "slam_patch_slow"],
 	"spark": ["spark_max"],
 	"storm": ["storm_dps", "storm_stun", "storm_burn", "thunder_radius", "thunder_damage"],
 	# Batch H: arena pieces (MatchSim.add_piece) and the set-piece legendaries.
 	"slows": [],
-	"seed": ["seed_radius", "seed_life", "seed_grow", "seed_max", "seed_damage"],
+	"seed": ["seed_radius", "seed_life", "seed_grow", "seed_max", "seed_damage", "seed_stay"],
 	"seed_wilt": ["seed_shots", "seed_shot_damage"],
 	"vine": ["vine_offset", "vine_radius", "vine_life", "vine_lash", "vine_slack", "vine_pairs"],
 	"vine_tick": ["vine_damage", "vine_burst_radius", "vine_thorn_damage"],
@@ -116,7 +116,8 @@ const EFFECTS := {
 	"ice_ring_tick": ["shard_damage", "shard_hits", "shard_slow", "ring_volley_gap"],
 	"root": ["root_count", "root_radius", "root_life", "root_stay", "root_pin", "root_shove", "root_shove_damage"],
 	"root_tick": ["root_regen"],
-	"tick_ring": ["tick_radius", "tick_damage", "tick_slow", "tick_slow_secs"],
+	"tick_ring": ["tick_radius", "tick_damage", "tick_slow", "tick_slow_secs", "face_secs"],
+	"face_haste": ["face_haste"],
 	"rewind_track": ["rewind_secs"],
 	"rewind": ["rewind_secs", "rewind_share", "rewind_place", "rewind_stop"],
 	"illusions": ["illusion_count", "illusion_life", "illusion_size"],
@@ -146,8 +147,12 @@ const EFFECTS := {
 	"stack": ["stack_max", "stack_radius", "stack_add", "stack_heal"],
 	"stack_guard": ["stack_max", "stack_armor", "stack_full_armor"],
 	"stack_burp": ["stack_max", "burp_radius", "burp_damage", "burp_keep"],
+	"stack_swallow": ["stack_max", "swallow_secs"],
+	"swallow_tick": ["swallow_slam", "burp_radius", "burp_damage"],
 	"stack_breath": ["stack_max", "stack_radius", "stack_add", "fire_count", "fire_cone", "fire_range", "fire_damage", "fire_burn", "fire_streak"],
 	"stack_drop": ["drop_at", "splat_radius", "splat_slow", "splat_dps"],
+	"splat_tick": [],
+	"stack_throw": ["stack_max", "scoop_throw", "splat_radius"],
 	"stack_spray": ["stack_max", "spray_count", "bolt_damage"],
 	"face": ["stack_max", "face_damage", "face_speed"],
 	"face_guard": ["face_armor"],
@@ -174,8 +179,9 @@ const EFFECTS := {
 	"ink_slam": ["ink_radius", "ink_life", "ink_slow", "ink_dps", "ink_shove", "hug_every", "hug_secs"],
 	"quasar": ["quasar_length", "quasar_spin", "quasar_dps", "quasar_flare_dps", "quasar_cross"],
 	"quasar_flare": ["quasar_flare_secs", "quasar_reverse"],
-	"yoyo": ["yoyo_string", "yoyo_dps", "yoyo_fling", "yoyo_strings"],
-	"yoyo_bounce": ["yoyo_every", "yoyo_secs"],
+	"yoyo": ["yoyo_string", "yoyo_dps", "yoyo_fling", "yoyo_strings", "walk_speed"],
+	"yoyo_bounce": ["yoyo_every", "yoyo_secs", "walk_every", "walk_secs"],
+	"walk_hit": ["walk_damage"],
 	"tail": ["tail_count", "tail_size", "tail_damage", "tail_cooldown", "tail_slow"],
 	"dive": ["dive_secs"],
 	"dive_tick": ["dive_lock", "wave_radius", "wave_damage", "pool_radius", "pool_life", "pool_dps", "pool_slow"],
@@ -189,6 +195,8 @@ const EFFECTS := {
 	"string": ["string_cooldown", "string_length", "string_secs"],
 	"string_fling": ["string_fling", "string_slam", "string_slam_stun"],
 	"string_snap": ["string_stun", "string_shield"],
+	"string_tug": [],
+	"string_tie": ["string_tug", "string_ties"],
 	"mark": ["mark_cooldown", "mark_min", "mark_secs", "pounce_delay"],
 	"pounce": ["pounce_speed_mult", "pounce_secs"],
 	"marked": ["marked_mult", "pounce_slow", "pounce_remark"],
@@ -492,7 +500,9 @@ func fx_flare(sim, b, _ctx: Dictionary) -> void:
 
 ## When hurt by a foe (at most every copy_cooldown; not by auras), borrows that foe's ability
 ## for copy_secs: their effects and params join its own. copy_shield > 0 also
-## gives a shield. The original definition is restored when the copy ends.
+## gives a shield, and while that shield holds the copy is at full strength,
+## then copy_scale (Newms 2026-10-22). The original definition is restored
+## when the copy ends.
 func fx_copy(sim, b, ctx: Dictionary) -> void:
 	if b.state.has("copy_until") and sim.tick >= b.state.copy_until:
 		_end_copy(sim, b)
@@ -505,34 +515,47 @@ func fx_copy(sim, b, ctx: Dictionary) -> void:
 	if b.state.has("copy_until"):
 		_end_copy(sim, b)
 	var base: Dictionary = b.def
-	var copied := base.duplicate()
-	for key in src.def:
-		if not copied.has(key) and not key in ["boss", "minion"]: # A boss's or egg's nature isn't copied.
-			copied[key] = src.def[key]
-			if key.ends_with("_damage") or key.ends_with("_dps") or key.ends_with("_accel"): # A copy hits (and pulls) softer.
-				copied[key] = src.def[key] * base.copy_scale
-			elif key.ends_with("_mult"): # ...and multiplies softer.
-				copied[key] = 1.0 + (src.def[key] - 1.0) * base.copy_scale
-	var effects: Array = base.effects.duplicate()
-	for e in src.def.effects:
-		# A borrowed wind (Gust) would only blow foes out of reach of its reflect.
-		if not e.do in ["copy", "revive", "reflect", "gale", "rewind", "split"]:
-			effects.append(e)
-	copied.effects = effects
+	var full: bool = base.copy_shield > 0.0
 	b.state.base_def = base
-	b.def = copied
+	b.def = _copied_def(base, src.def, 1.0 if full else base.copy_scale)
 	b.state.copy_until = sim.tick + int(round(base.copy_secs * sim.TICK_RATE))
 	b.state.copy_ready = sim.tick + int(round(base.copy_cooldown * sim.TICK_RATE))
 	b.state.copy_of = src.type_id
-	if base.copy_shield > 0.0:
+	b.state.copy_src = src.index
+	b.state.copy_full = full
+	if full:
 		b.shield = maxf(b.shield, base.copy_shield)
 	sim.events.append({"type": "copy", "ball": b.index, "from": src.index, "pos": b.pos})
 
 
-## Ends a copy when its time is up (an "always" entry next to copy).
+## Mirror's own definition with `src`'s ability joined on at `scale` strength.
+static func _copied_def(base: Dictionary, src: Dictionary, scale: float) -> Dictionary:
+	var copied := base.duplicate()
+	for key in src:
+		if not copied.has(key) and not key in ["boss", "minion"]: # A boss's or egg's nature isn't copied.
+			copied[key] = src[key]
+			if key.ends_with("_damage") or key.ends_with("_dps") or key.ends_with("_accel"): # A copy hits (and pulls) softer.
+				copied[key] = src[key] * scale
+			elif key.ends_with("_mult"): # ...and multiplies softer.
+				copied[key] = 1.0 + (src[key] - 1.0) * scale
+	var effects: Array = base.effects.duplicate()
+	for e in src.effects:
+		# A borrowed wind (Gust) would only blow foes out of reach of its reflect.
+		if not e.do in ["copy", "revive", "reflect", "gale", "rewind", "split"]:
+			effects.append(e)
+	copied.effects = effects
+	return copied
+
+
+## Ends a copy when its time is up (an "always" entry next to copy), and
+## weakens a full-strength copy to copy_scale once its shield breaks.
 func fx_copy_tick(sim, b, _ctx: Dictionary) -> void:
 	if b.state.has("copy_until") and sim.tick >= b.state.copy_until:
 		_end_copy(sim, b)
+	elif b.state.get("copy_full", false) and b.shield <= 0.0:
+		b.state.copy_full = false
+		var base: Dictionary = b.state.base_def
+		b.def = _copied_def(base, sim.balls[int(b.state.copy_src)].state.get("base_def", sim.balls[int(b.state.copy_src)].def), base.copy_scale)
 
 
 ## Stat mods a borrowed effect set (a copied grow) end with the copy.
@@ -544,6 +567,7 @@ static func _end_copy(sim, b) -> void:
 	b.state.erase("base_def")
 	b.state.erase("copy_until")
 	b.state.erase("copy_of")
+	b.state.erase("copy_full")
 
 
 ## The first time it falls, it comes back at revive_hp of max HP, blasting foes
@@ -1082,21 +1106,31 @@ static func _to_wall(sim, from: Vector2, dir: Vector2) -> Vector2:
 ## damage for wrap_vuln_secs after the ribbon pops. On the pop (needs
 ## wrap_tick on "always"): wrap_confetti > 0 hits foes within 120 of it for
 ## that much; every wrap_pull_every-th wrap (when > 0) steers it toward
-## Bonbon at wrap_pull for 0.5s.
+## Bonbon at wrap_pull for 0.5s; snare_max > 0 leaves the ribbon on the floor
+## as a snare (at most snare_max) that stays until a foe rolls in and gets
+## wrapped again.
 func fx_wrap(sim, b, _ctx: Dictionary) -> void:
 	var f = sim.nearest_foe(b)
 	if f == null:
 		return
 	b.state.wraps = int(b.state.get("wraps", 0)) + 1
+	_wrap_foe(sim, b, f, b.def.wrap_pull_every > 0 and b.state.wraps % int(b.def.wrap_pull_every) == 0)
+
+
+static func _wrap_foe(sim, b, f, pull: bool) -> void:
 	var hold := int(round(minf(b.def.wrap_hold, sim.STUN_MAX) * sim.TICK_RATE))
 	sim.stun(b, f, b.def.wrap_hold)
 	sim.add_status(b, f, "wrap:%d" % b.index, "vulnerable", b.def.wrap_vuln, hold * sim.DT + b.def.wrap_vuln_secs)
-	b.state.wrap = {"target": f.index, "pop": sim.tick + hold,
-		"pull": b.def.wrap_pull_every > 0 and b.state.wraps % int(b.def.wrap_pull_every) == 0}
+	b.state.wrap = {"target": f.index, "pop": sim.tick + hold, "pull": pull}
 	sim.events.append({"type": "wrap", "ball": f.index, "from": b.pos, "pos": f.pos})
 
 
+const SNARE_RADIUS := 70.0
+
+
 func fx_wrap_tick(sim, b, _ctx: Dictionary) -> void:
+	if b.def.get("snare_max", 0) > 0 and not b.state.has("wrap"):
+		_snare_check(sim, b)
 	var w: Dictionary = b.state.get("wrap", {})
 	if w.is_empty():
 		return
@@ -1105,12 +1139,29 @@ func fx_wrap_tick(sim, b, _ctx: Dictionary) -> void:
 		sim.events.append({"type": "wrap_pop", "ball": f.index, "pos": f.pos})
 		if b.def.wrap_confetti > 0.0:
 			sim.pulse(b, f.pos, 120.0, b.def.wrap_confetti, false, "confetti")
+		if b.def.get("snare_max", 0) > 0:
+			var snares: Array = sim.zones.filter(func(z): return z.owner == b.index and z.kind == "snare" and z.age < z.life)
+			if snares.size() >= int(b.def.snare_max):
+				snares[0].life = snares[0].age
+			sim.add_zone(b, f.pos, {"kind": "snare", "radius": SNARE_RADIUS, "life": ROOT_STAY_LIFE, "arm": 1.0})
 	if w.pull and sim.tick >= w.pop and sim.tick < w.pop + sim.TICK_RATE / 2 and f.alive():
 		var delta: Vector2 = b.pos - f.pos
 		if delta.length() > 0.001:
 			sim.pull(f, delta.normalized() * b.def.wrap_pull)
 	elif sim.tick >= w.pop + sim.TICK_RATE / 2:
 		b.state.erase("wrap")
+
+
+## A foe rolling onto an armed snare is wrapped again and the snare is spent.
+static func _snare_check(sim, b) -> void:
+	for z in sim.zones:
+		if z.owner != b.index or z.kind != "snare" or not z.armed() or z.age >= z.life:
+			continue
+		for o in sim.foes(b):
+			if o.pos.distance_to(z.pos) <= z.radius + o.radius * 0.5 and not sim.stunned(o):
+				z.life = z.age
+				_wrap_foe(sim, b, o, false)
+				return
 
 
 ## Its hits shove the target straight away; if it slams the arena's edge (not
@@ -1326,14 +1377,27 @@ func fx_star(sim, b, _ctx: Dictionary) -> void:
 	sim.add_beam(b, tail, tail + to.normalized() * maxf(to.length() * 1.15, 200.0), {"life": 0.4, "damage": b.def.star_damage, "cooldown": 1.0})
 
 
+const FACE_REACH := 0.75 ## A clock face's size, as a share of tick_radius.
+const WHIRL_REACH := 0.6 ## A whirlwind's reach, as a share of wind_range.
+const WHIRL_PUSH := 0.12 ## Its push, as a share of wind_huff.
+
+
 ## Gust: wind always pushes foes away (wind_accel next to it, fading to 0 at
 ## wind_range), at wind_huff while a huff lasts. State: b.state.huff_until.
 func fx_gale(sim, b, _ctx: Dictionary) -> void:
 	var huffing: bool = sim.tick < int(b.state.get("huff_until", -1))
 	sim.push_away(b, b.pos, b.def.wind_range, b.def.wind_huff if huffing else b.def.wind_accel)
+	var blown := _foes_within(sim, b, b.pos, b.def.wind_range)
+	# Whirlwinds its huffs left behind keep blowing foes away from where they spin.
+	for z in sim.zones:
+		if z.owner == b.index and z.kind == "whirl":
+			sim.push_away(b, z.pos, z.radius, b.def.wind_huff * WHIRL_PUSH)
+			for o in _foes_within(sim, b, z.pos, z.radius):
+				if not o in blown:
+					blown.append(o)
 	# Foes it blows into a wall get slammed (at most every gust_slam_gap seconds).
 	if b.def.get("gust_slam", 0.0) > 0.0:
-		for o in _foes_within(sim, b, b.pos, b.def.wind_range):
+		for o in blown:
 			var key := "gust_ready_%d" % b.index
 			if sim.tick >= int(o.state.get(key, 0)) and not o.state.has("slam"):
 				o.state.slam = {"source": b.index, "damage": b.def.gust_slam, "until": sim.tick + sim.TICK_RATE / 4}
@@ -1341,9 +1405,12 @@ func fx_gale(sim, b, _ctx: Dictionary) -> void:
 
 
 ## A strong gust for huff_secs (see fx_gale). huff_damage > 0 also pelts foes
-## in the wind with ice for that much and chills them huff_slow for 1.5s.
+## in the wind with ice for that much and chills them huff_slow for 1.5s. It
+## leaves a whirlwind where Gust was for whirl_secs (Newms 2026-10-22).
 func fx_huff(sim, b, _ctx: Dictionary) -> void:
 	b.state.huff_until = sim.tick + int(round(b.def.huff_secs * sim.TICK_RATE))
+	if b.def.whirl_secs > 0.0:
+		sim.add_zone(b, b.pos, {"kind": "whirl", "radius": b.def.wind_range * WHIRL_REACH, "life": b.def.whirl_secs})
 	var hit := _foes_within(sim, b, b.pos, b.def.wind_range)
 	sim.pulse(b, b.pos, b.def.wind_range, b.def.huff_damage, false, "wind")
 	if b.def.huff_slow > 0.0:
@@ -1688,6 +1755,47 @@ func fx_stack_burp(sim, b, _ctx: Dictionary) -> void:
 	set_stacks(sim, b, int(b.def.burp_keep))
 
 
+## Munch's gulp (swallow_secs > 0): the hit after its bites fill up swallows
+## the foe (stunned swallow_secs), then spits it straight out (fx_swallow_tick)
+## and the first wall it hits in 0.8s slams it for swallow_slam. Munch drops
+## 2 bites (so it gulps again every 3rd hit), burping (burp_radius > 0) as it spits.
+func fx_stack_swallow(sim, b, ctx: Dictionary) -> void:
+	if b.def.swallow_secs <= 0.0 or b.state.has("swallow"):
+		return
+	if stacks(b) < int(b.def.stack_max):
+		b.state.erase("full_hit")
+		return
+	if not b.state.get("full_hit", false):
+		b.state.full_hit = true
+		return
+	var t = ctx.get("target")
+	if t == null or not t.alive() or not sim.stun(b, t, b.def.swallow_secs):
+		return
+	b.state.erase("full_hit")
+	b.state.swallow = {"target": t.index, "at": sim.tick + int(round(minf(b.def.swallow_secs, sim.STUN_MAX) * sim.TICK_RATE))}
+	sim.events.append({"type": "swallow", "ball": b.index, "target": t.index, "pos": t.pos})
+	set_stacks(sim, b, int(b.def.stack_max) - 2)
+
+
+func fx_swallow_tick(sim, b, _ctx: Dictionary) -> void:
+	var w: Dictionary = b.state.get("swallow", {})
+	if w.is_empty() or sim.tick < int(w.at):
+		return
+	b.state.erase("swallow")
+	var t = sim.balls[int(w.target)]
+	if not t.alive():
+		return
+	var away: Vector2 = t.pos - b.pos
+	if away.length() < 0.001:
+		away = b.vel
+	sim.charge(t, away, 1.8, 0.8)
+	t.state.slam = {"source": b.index, "damage": b.def.swallow_slam, "until": sim.tick + int(round(0.8 * sim.TICK_RATE))}
+	sim.events.append({"type": "spit", "ball": t.index, "source": b.index, "pos": t.pos})
+	if b.def.burp_radius > 0.0:
+		sim.events.append({"type": "burp", "ball": b.index, "pos": b.pos})
+		sim.pulse(b, b.pos, b.def.burp_radius, b.def.burp_damage, true, "pulse")
+
+
 ## Each contact hit stokes a stack (+stack_add contact damage) up to
 ## stack_max; with its throat full, the next hit breathes instead: fire_count
 ## short fire bolts fanned over fire_cone degrees at the nearest foe
@@ -1732,13 +1840,44 @@ func fx_stack_breath(sim, b, _ctx: Dictionary) -> void:
 
 
 ## A foe's hit of drop_at or more knocks a stack off; splat_radius > 0 leaves
-## a sticky puddle where it landed (splat_slow, splat_dps, 3s).
+## a sticky puddle where it landed (splat_slow, splat_dps, 3s; see _splat).
 func fx_stack_drop(sim, b, ctx: Dictionary) -> void:
 	if ctx.source == b or ctx.source.team == b.team or ctx.amount < b.def.drop_at or stacks(b) == 0:
 		return
 	set_stacks(sim, b, stacks(b) - 1)
 	if b.def.splat_radius > 0.0:
-		sim.add_zone(b, b.pos, {"kind": "splat", "radius": b.def.splat_radius, "life": 3.0, "slow": b.def.splat_slow, "dps": b.def.splat_dps})
+		sim.add_zone(b, b.pos, _splat(b))
+
+
+## A puddle's add_zone opts. splat_stay > 0: it stays until a foe rolls in
+## (fx_splat_tick), then lasts SPLAT_LIFE more.
+static func _splat(b) -> Dictionary:
+	return {"kind": "splat", "radius": b.def.splat_radius, "life": ROOT_STAY_LIFE if b.def.get("splat_stay", 0) > 0 else SPLAT_LIFE,
+		"slow": b.def.splat_slow, "dps": b.def.splat_dps}
+
+
+const SPLAT_LIFE := 3.0
+
+
+func fx_splat_tick(sim, b, _ctx: Dictionary) -> void:
+	for z in sim.zones:
+		if z.owner != b.index or z.kind != "splat" or z.life < ROOT_STAY_LIFE:
+			continue
+		for o in sim.foes(b):
+			if o.pos.distance_to(z.pos) <= z.radius + o.radius:
+				z.life = z.age + SPLAT_LIFE
+				break
+
+
+## A hit with the scoops already full (scoop_throw > 0) throws the extra scoop
+## at the foe instead: it lands as a puddle (_splat) under it.
+func fx_stack_throw(sim, b, ctx: Dictionary) -> void:
+	if b.def.scoop_throw <= 0 or stacks(b) < int(b.def.stack_max) or b.def.splat_radius <= 0.0:
+		return
+	var t = ctx.get("target")
+	if t == null or not t.alive():
+		return
+	sim.add_lob(b, t.pos + t.vel * 0.4, 0.4, {"kind": "scoop", "zone": _splat(b)})
 
 
 ## At full stacks, each contact hit sprays spray_count bolts (bolt_damage each).
@@ -2269,7 +2408,13 @@ func fx_yoyo_bounce(sim, b, ctx: Dictionary) -> void:
 	b.state.anchor_normal = normal
 	b.state.swing_turn = 1.0 if Vector2(-normal.y, normal.x).dot(b.vel) >= 0.0 else -1.0
 	b.state.swing_until = sim.tick + int(round(b.def.yoyo_secs * sim.TICK_RATE))
-	sim.events.append({"type": "yoyo", "ball": b.index, "pos": anchor})
+	b.state.swings = int(b.state.get("swings", 0)) + 1
+	var walk: bool = int(b.def.walk_every) > 0 and b.state.swings % int(b.def.walk_every) == 0
+	if walk:
+		b.state.walk_from = sim.tick
+		b.state.swing_until += int(round(b.def.walk_secs * sim.TICK_RATE))
+	b.state.walking = walk
+	sim.events.append({"type": "yoyo", "ball": b.index, "pos": anchor, "walk": walk})
 
 
 ## While swinging it circles the anchor at its usual speed, easing out to
@@ -2282,12 +2427,21 @@ func fx_yoyo(sim, b, _ctx: Dictionary) -> void:
 		_drop_beam(sim, b, "string0")
 		_drop_beam(sim, b, "string1")
 		if sim.tick == until and b.def.yoyo_fling > 0.0:
+			var walked: bool = b.state.get("walking", false)
 			var f = sim.nearest_foe(b)
 			if f != null and f.pos.distance_to(b.pos) > 0.001:
-				b.vel = (f.pos - b.pos).normalized() * b.speed * b.def.yoyo_fling
-				b.boost_ticks = sim.TICK_RATE / 2
+				b.vel = (f.pos - b.pos).normalized() * b.speed * b.def.yoyo_fling * (1.0 + (b.def.walk_speed if walked else 0.0))
+				b.boost_ticks = sim.TICK_RATE if walked else sim.TICK_RATE / 2
 				sim.events.append({"type": "fling", "ball": b.index, "pos": b.pos})
+			if walked:
+				b.state.walking = false
+				b.state.walk_hit_until = sim.tick + int(1.5 * sim.TICK_RATE)
+				sim.set_mod(b, "walk", {"speed": 1.0 + b.def.walk_speed}, 1.5)
 		return
+	if b.state.get("walking", false):
+		# Walking the dog: it winds up faster and faster round the anchor.
+		var wound := float(sim.tick - int(b.state.walk_from)) / maxf(1.0, float(until - int(b.state.walk_from)))
+		sim.set_mod(b, "walk", {"speed": 1.0 + b.def.walk_speed * wound})
 	var anchor: Vector2 = b.state.anchor
 	var rel: Vector2 = b.pos - anchor
 	var d := rel.length()
@@ -2302,6 +2456,17 @@ func fx_yoyo(sim, b, _ctx: Dictionary) -> void:
 		var mu: Vector2 = (mirror - anchor).normalized()
 		_hold_beam(sim, b, "string1", anchor, mirror - mu * b.radius, b.def.yoyo_dps)
 		_publish_orbs(sim, b, "yoyo", [{"pos": mirror, "size": b.radius * 0.5, "look": "yoyo"}])
+
+
+## The first hit within 1.5s of a walk-the-dog fling lands walk_damage more.
+func fx_walk_hit(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if t == null or sim.tick >= int(b.state.get("walk_hit_until", -1)):
+		return
+	b.state.erase("walk_hit_until")
+	sim.clear_mod(b, "walk")
+	sim.deal(b, t, b.def.walk_damage, "yoyo", t.pos)
+	sim.events.append({"type": "walkies", "ball": b.index, "pos": t.pos})
 
 
 ## Leviathan's tail: tail_count bright segments follow its path, each
@@ -2481,6 +2646,7 @@ func fx_string(sim, b, ctx: Dictionary) -> void:
 	b.state.string_ready = sim.tick + int(round(b.def.string_cooldown * sim.TICK_RATE))
 	b.state.string_until = sim.tick + secs
 	b.state.string_target = ctx.target.index
+	b.state.erase("tie")
 	sim.tether(b, ctx.target, b.def.string_length, b.def.string_secs)
 
 
@@ -2500,6 +2666,43 @@ func fx_string_fling(sim, b, _ctx: Dictionary) -> void:
 	t.state.slam = {"source": b.index, "damage": b.def.string_slam, "stun": b.def.get("string_slam_stun", 0.0),
 		"until": sim.tick + int(round(b.def.string_fling * sim.TICK_RATE))}
 	sim.events.append({"type": "fling", "ball": t.index, "source": b.index, "pos": t.pos})
+	if b.def.get("string_tug", 0.0) > 0.0:
+		var tie: Array = [t.index]
+		if int(b.def.string_ties) >= 2:
+			var other = null
+			for o in sim.foes(b):
+				if o != t and (other == null or o.pos.distance_to(b.pos) < other.pos.distance_to(b.pos)):
+					other = o
+			if other != null:
+				tie.append(other.index)
+		b.state.tie = tie
+
+
+## After the throw the string stays tied (string_tug > 0): each wall bounce
+## of the Puppeteer tugs every tied foe toward it at string_tug for 0.3s
+## (fx_string_tie). string_ties 2 ties a second foe too, and tugs twice as hard.
+func fx_string_tug(sim, b, _ctx: Dictionary) -> void:
+	if b.state.has("tie"):
+		b.state.tug_until = sim.tick + int(round(0.3 * sim.TICK_RATE))
+		sim.events.append({"type": "tug", "ball": b.index, "pos": b.pos})
+
+
+func fx_string_tie(sim, b, _ctx: Dictionary) -> void:
+	if not b.state.has("tie"):
+		return
+	var tie: Array = b.state.tie.filter(func(i): return sim.balls[i].alive())
+	if tie.is_empty():
+		b.state.erase("tie")
+		return
+	b.state.tie = tie
+	if sim.tick >= int(b.state.get("tug_until", -1)) or not sim.ability_moves():
+		return
+	var pull: float = b.def.string_tug * (2.0 if int(b.def.string_ties) >= 2 else 1.0)
+	for i in tie:
+		var t = sim.balls[i]
+		var d: Vector2 = b.pos - t.pos
+		if d.length() > 0.001:
+			sim.pull(t, d.normalized() * pull)
 
 
 ## When a string runs out, the foe spins out dizzy (slowed 90% for string_stun
@@ -2817,16 +3020,22 @@ static func _off_obstacle(sim, point: Vector2) -> bool:
 
 ## Sprout: a wall bounce (the arena's edge, not a pillar) plants a seed that
 ## grows into a pillar: seed_radius, seed_life seconds, solid after seed_grow.
-## At most seed_max stand; the oldest goes first. seed_damage > 0 hurts foes
-## that bounce off one.
+## At most seed_max stand; the oldest wilting one goes first. Up to
+## seed_stay of them stand until a foe bounces off them instead of wilting
+## (Newms 2026-10-22). seed_damage > 0 hurts foes that bounce off one.
 func fx_seed(sim, b, ctx: Dictionary) -> void:
 	if not ctx.has("point") or _off_obstacle(sim, ctx.point):
 		return
 	var own: Array = sim.pieces_of(b, "seed")
+	var staying := own.filter(func(p): return p.hits > 0)
 	if own.size() >= int(b.def.seed_max):
-		sim.pieces.erase(own[0])
-	sim.add_piece(b, ctx.point, {"kind": "seed", "radius": b.def.seed_radius, "life": b.def.seed_life,
-		"grow": b.def.seed_grow, "damage": b.def.seed_damage})
+		var wilting := own.filter(func(p): return p.hits == 0)
+		sim.pieces.erase(wilting[0] if not wilting.is_empty() else own[0])
+		if wilting.is_empty():
+			staying.pop_front()
+	var stay := staying.size() < int(b.def.seed_stay)
+	sim.add_piece(b, ctx.point, {"kind": "seed", "radius": b.def.seed_radius, "life": ROOT_STAY_LIFE if stay else b.def.seed_life,
+		"grow": b.def.seed_grow, "damage": b.def.seed_damage, "hits": 1 if stay else 0})
 
 
 ## Sprout T5: a wilting seed pillar scatters seed_shots seeds at the nearest foe.
@@ -2989,12 +3198,24 @@ func fx_root_tick(sim, b, _ctx: Dictionary) -> void:
 
 
 ## Clockwork: ticks out a ring: tick_damage within tick_radius, slowing foes
-## by tick_slow for tick_slow_secs.
+## by tick_slow for tick_slow_secs. It leaves a clock face on the floor for
+## face_secs that slows foes in it by tick_slow and speeds Clockwork up by
+## face_haste while it is inside (Newms 2026-10-22).
 func fx_tick_ring(sim, b, _ctx: Dictionary) -> void:
 	sim.pulse(b, b.pos, b.def.tick_radius, b.def.tick_damage, false, "tick")
 	for o in sim.foes(b):
 		if o.pos.distance_to(b.pos) <= b.def.tick_radius + o.radius:
 			slow_for(sim, o, b.def.tick_slow, b.def.tick_slow_secs)
+	if b.def.face_secs > 0.0:
+		sim.add_zone(b, b.pos, {"kind": "clockface", "radius": b.def.tick_radius * FACE_REACH, "life": b.def.face_secs, "slow": b.def.tick_slow})
+
+
+## Clockwork's haste on its own clock faces.
+func fx_face_haste(sim, b, _ctx: Dictionary) -> void:
+	for z in sim.zones:
+		if z.owner == b.index and z.kind == "clockface" and b.pos.distance_to(z.pos) <= z.radius:
+			sim.set_mod(b, "face_haste", {"speed": 1.0 + b.def.face_haste}, 0.25)
+			return
 
 
 ## Remembers its HP and spot for the last rewind_secs seconds.
