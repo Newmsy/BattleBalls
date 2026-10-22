@@ -17,7 +17,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `boss_difficulty.gd` (farming boss win rates by player and boss power), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound into `game/audio/`. |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `boss_difficulty.gd` (farming boss win rates by player and boss power), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound and `tools/music/make_music.py` composes the music (intro, menu, fight, overtime, victory) into `game/audio/`. |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
