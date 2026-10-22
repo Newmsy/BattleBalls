@@ -1719,10 +1719,9 @@ func _layout() -> void:
 		clip_card.position = ((size - ClipCard.SIZE) / 2.0).floor()
 		arena_pos = clip_card.position + ClipCard.ARENA_POS
 		side = ClipCard.ARENA_SIDE
-	arena.view_scale = side / MatchSim.ARENA_SIZE
 	arena_clip.position = arena_pos
 	arena_clip.size = Vector2(side, side)
-	arena.set_camera(arena.cam_zoom, arena.cam_focus)
+	arena.fit(Vector2.ZERO, side)
 	_hud_box = r.hud
 	_place(menu_header, Vector2(panel_pos.x, 22) if landscape else Vector2((size.x - panel_width) / 2.0, 22), Vector2(panel_width, 84))
 	_place(hud_label, Vector2(_hud_box.position.x, 72), Vector2(_hud_box.size.x, 48))

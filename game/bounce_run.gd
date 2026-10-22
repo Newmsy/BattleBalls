@@ -753,8 +753,7 @@ func _layout() -> void:
 		left = (size.x - side) / 2.0
 		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
 		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 20.0)
-	arena.view_scale = side / MatchSim.ARENA_SIZE
-	arena.position = Vector2(left, top)
+	arena.fit(Vector2(left, top), side)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	rules_button.position = Vector2(size.x - 92.0, 26.0)
 	rules_button.size = Vector2.ZERO
@@ -767,8 +766,7 @@ func _layout() -> void:
 		c.visible = not fight_view
 	if fight_view: # The same shape as every fight screen (FightLayout).
 		var r := FightLayout.rects(size)
-		arena.view_scale = r.arena.size.x / MatchSim.ARENA_SIZE
-		arena.position = r.arena.position
+		arena.fit(r.arena.position, r.arena.size.x)
 		FightLayout.place_hud(fight_hud, r)
 		var p: Rect2 = r.panel
 		var info_h := 0.0 if state == State.FIGHT else 56.0
