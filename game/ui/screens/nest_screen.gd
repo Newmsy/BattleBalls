@@ -6,12 +6,9 @@ extends RefCounted
 
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
-const EnergySheet := preload("res://game/ui/energy_sheet.gd")
-const FighterTag := preload("res://game/ui/fighter_tag.gd")
-const Roster := preload("res://game/ui/roster.gd")
+const BossCard := preload("res://game/ui/boss_card.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const BroodNest := preload("res://meta/brood_nest.gd")
-const BossArt := preload("res://game/boss_art.gd")
 const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 
 const NEST := Color("ff6fae")
@@ -35,11 +32,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	root.add_child(BossLevelGrid.hero(shell, BroodNest.BOSS, NEST))
 	var fighter: String = Campaign.fighter_for(p)
-	var b: Dictionary = p.best(fighter)
-	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30), Kit.power(p.power_of(fighter), 24)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
-	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
+	root.add_child(BossCard.fighter(shell, fighter, "nest"))
 
 	var level := BossLevelGrid.picked(p, BroodNest.KEY, params)
 	root.add_child(BossLevelGrid.grid(shell, p, BroodNest.KEY, level, NEST, "nest"))
@@ -48,36 +41,14 @@ static func build(shell, params: Dictionary) -> Control:
 
 
 static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
-	var diff: Dictionary = BroodNest.DIFFICULTIES[d]
-	var rec := BroodNest.enemy_rating(d)
-	var mine: int = p.power_of(fighter)
-	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var info := Kit.vbox(4, [Kit.label("Lv %d" % (d + 1), 28), Kit.amount("orb", "%d+" % diff.orbs, 20),
-		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "She's stronger"), 20, power_color)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight := Kit.cost_button("Fight", BroodNest.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 72)
-	fight.custom_minimum_size.x = 150
-	fight.disabled = left <= 0
-	if not fight.disabled and p.energy < BroodNest.ENERGY_COST:
-		fight.modulate = Color(1, 1, 1, .5) # Short on energy: tapping opens the energy sheet.
-	shell.mark("nest_go", fight)
-	var p_tag := Kit.power(rec, 20, power_color)
-	p_tag.alignment = BoxContainer.ALIGNMENT_CENTER
-	var icon := Kit.vbox(0, [BossArt.icon(BroodNest.BOSS, 76), p_tag])
-	var row := Kit.hbox(12, [icon, info, fight], BoxContainer.ALIGNMENT_CENTER)
-	return Kit.panel(row, Kit.box(Kit.PANEL, Color(NEST, .5), 30, 2, 12))
+	return BossCard.fight(shell, {"boss": BroodNest.BOSS, "accent": NEST, "rec": BroodNest.enemy_rating(d), "mine": p.power_of(fighter), "foe": "She's",
+		"title": "Lv %d" % (d + 1), "pay": [Kit.amount("orb", "%d+" % BroodNest.DIFFICULTIES[d].orbs, 20)],
+		"cost": BroodNest.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, d, fighter), "mark": "nest_go"})
 
 
 static func _fight(shell, d: int, fighter: String) -> void:
 	var cfg: Dictionary = BroodNest.start(shell.profile, d, fighter, int(Time.get_unix_time_from_system()))
-	if cfg.has("error"):
-		shell.refresh()
-		if cfg.error == "energy":
-			EnergySheet.open(shell)
-			return
-		shell.toast({"runs": "The Brood Queen is done for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first.", "level": "Beat the level before it first."}.get(cfg.error, "Beat the Zone 2 boss to face the Brood Queen."))
-		return
-	shell.boss_requested.emit(cfg, d, fighter, "nest")
+	BossCard.start(shell, cfg, d, fighter, "nest", "The Brood Queen is done for today. Back tomorrow!", "Beat the Zone 2 boss to face the Brood Queen.")
 
 
 ## One line summing up a Brood Queen result, for the result screen.

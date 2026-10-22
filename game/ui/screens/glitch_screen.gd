@@ -5,13 +5,10 @@ extends RefCounted
 
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
-const EnergySheet := preload("res://game/ui/energy_sheet.gd")
+const BossCard := preload("res://game/ui/boss_card.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
-const FighterTag := preload("res://game/ui/fighter_tag.gd")
-const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const GlitchCore := preload("res://meta/glitch_core.gd")
-const BossArt := preload("res://game/boss_art.gd")
 const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 
 const CORE := Color("7cff4f")
@@ -39,42 +36,19 @@ static func build(shell, params: Dictionary) -> Control:
 
 	root.add_child(BossLevelGrid.hero(shell, GlitchCore.BOSS, CORE))
 	var fighter: String = Campaign.fighter_for(p)
-	var b: Dictionary = p.best(fighter)
-	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30), Kit.power(p.power_of(fighter), 24)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
-	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
+	root.add_child(BossCard.fighter(shell, fighter, "glitch"))
 
-	var rec := GlitchCore.enemy_rating(0)
-	var mine: int = p.power_of(fighter)
-	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var loot := Kit.vbox(4, [Kit.label("Win this week", 26)])
+	var loot := []
 	for r in GlitchCore.BUNDLE:
-		loot.add_child(Kit.hbox(8, [Glyph.make(NAMES[r.kind][0], 22), Kit.label(("%d %s" % [r.n, NAMES[r.kind][1]]).strip_edges(), 20)], BoxContainer.ALIGNMENT_BEGIN))
-	loot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight := Kit.cost_button("Fight", GlitchCore.ENERGY_COST, "energy", _fight.bind(shell, fighter), "go", 24, 72)
-	fight.custom_minimum_size.x = 150
-	fight.disabled = left <= 0
-	if not fight.disabled and p.energy < GlitchCore.ENERGY_COST:
-		fight.modulate = Color(1, 1, 1, .5) # Short on energy: tapping opens the energy sheet.
-	shell.mark("glitch_go", fight)
-	var p_tag := Kit.power(rec, 20, power_color)
-	p_tag.alignment = BoxContainer.ALIGNMENT_CENTER
-	var card := Kit.hbox(12, [Kit.vbox(0, [BossArt.icon(GlitchCore.BOSS, 88), p_tag]), loot, fight], BoxContainer.ALIGNMENT_CENTER)
-	root.add_child(Kit.panel(card, Kit.box(Kit.PANEL, Color(CORE, .5), 30, 2, 12)))
+		loot.append(Kit.hbox(8, [Glyph.make(NAMES[r.kind][0], 22), Kit.label(("%d %s" % [r.n, NAMES[r.kind][1]]).strip_edges(), 20)], BoxContainer.ALIGNMENT_BEGIN))
+	root.add_child(BossCard.fight(shell, {"boss": GlitchCore.BOSS, "accent": CORE, "rec": GlitchCore.enemy_rating(0), "mine": p.power_of(fighter),
+		"title": "Win this week", "pay": loot, "cost": GlitchCore.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, fighter), "mark": "glitch_go"}))
 	return root
 
 
 static func _fight(shell, fighter: String) -> void:
 	var cfg: Dictionary = GlitchCore.start(shell.profile, 0, fighter, int(Time.get_unix_time_from_system()))
-	if cfg.has("error"):
-		shell.refresh()
-		if cfg.error == "energy":
-			EnergySheet.open(shell)
-			return
-		shell.toast({"runs": "The Glitch is done for this week. It's back on Thursday!", "no_ball": "Pick a critter that can fight first."}.get(cfg.error, "Beat the Zone 5 boss to face The Glitch."))
-		return
-	shell.boss_requested.emit(cfg, 0, fighter, "glitch")
+	BossCard.start(shell, cfg, 0, fighter, "glitch", "The Glitch is done for this week. It's back on Thursday!", "Beat the Zone 5 boss to face The Glitch.")
 
 
 ## One line summing up a Glitch result, for the result popup.

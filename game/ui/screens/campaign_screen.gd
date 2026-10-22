@@ -95,8 +95,10 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(change_btn)
 
 	var list := Kit.vbox(14)
+	# Worked out once for every card: team_for ranks the whole collection.
+	var zone_team: Array = Campaign.team_for(p, zone.lineup)
 	for i in zone.stages.size():
-		list.add_child(_stage_card(shell, p, z, i, fighter))
+		list.add_child(_stage_card(shell, p, z, i, fighter, zone_team))
 	root.add_child(list)
 	# Land on the stage just played, not the top of the list.
 	if params.has("focus"):
@@ -125,7 +127,7 @@ static func play_story(shell, z: int) -> void:
 ## and a lock; the stage you're on gets the big card (foe faces, your power
 ## against theirs, FIGHT); cleared ones are a slim row with their result,
 ## replay and Sweep.
-static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
+static func _stage_card(shell, p, z: int, i: int, fighter: String, zone_team: Array) -> Control:
 	var st := Zones.stage(z, i)
 	var boss := Zones.is_boss(st)
 	if not Campaign.is_unlocked(p, z, i):
@@ -135,14 +137,6 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	# Named stages (bosses) keep their name; the rest show their foes' faces instead.
 	var name: String = st.get("name", "")
 	var rec := Campaign.enemy_rating(z, i)
-	var mine: int = p.power_of(fighter)
-	if foes.size() > 1:
-		var team := Campaign.team_for(p, Zones.zone(z).lineup)
-		mine = 0
-		for id in team:
-			mine += p.power_of(id)
-		mine /= maxi(1, team.size())
-	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
 	var title := Kit.hbox(8, [Kit.label(Zones.stage_key(z, i), 22, Kit.MUTED)])
 	if name != "":
 		title.add_child(_fit(Kit.label(name, 28)))
@@ -154,6 +148,13 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 
 	if not Campaign.is_cleared(p, z, i):
 		# The stage you're on: foe faces, the power comparison and one big FIGHT.
+		var mine: int = p.power_of(fighter)
+		if foes.size() > 1:
+			mine = 0
+			for id in zone_team:
+				mine += p.power_of(id)
+			mine /= maxi(1, zone_team.size())
+		var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
 		var faces := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
 		var side: float = (260.0 if boss else 220.0) / sqrt(float(foes.size()))
 		for id in foes:
@@ -161,7 +162,7 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
 			BoxContainer.ALIGNMENT_CENTER)
 		var parts := [vs]
-		var edge_row := _edge_row(p, z, foes, fighter)
+		var edge_row := _edge_row(foes, zone_team if foes.size() > 1 else [fighter])
 		if edge_row != null:
 			parts.append(edge_row)
 		var fight := Kit.cost_button("Fight", Zones.cost(st), "energy", _fight.bind(shell, z, i, fighter), "go", 30, 84)
@@ -194,11 +195,10 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 
 ## Family edges for the stage you're on: your side's edge on these foes, and
 ## which families hit them hardest. Null when no family edge applies (bosses, Plain).
-static func _edge_row(p, z: int, foes: Array, fighter: String) -> Control:
+static func _edge_row(foes: Array, mine: Array) -> Control:
 	var best := FamilyEdge.counters(foes)
 	if best.is_empty():
 		return null
-	var mine: Array = Campaign.team_for(p, Zones.zone(z).lineup) if foes.size() > 1 else [fighter]
 	var score := FamilyEdge.team(mine, foes)
 	var row := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
 	if score != 0:

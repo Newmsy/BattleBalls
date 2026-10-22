@@ -4,7 +4,9 @@
 ## which records the result in the climb file and comes back here.
 extends RefCounted
 
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
+const LazyTile := preload("res://game/ui/lazy_tile.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
@@ -127,38 +129,8 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
-	for f in list:
-		var order: int = picks.find(f.id)
-		var tired: bool = f.stamina <= 0
-		var col := Kit.MUTED if tired else Kit.FG
-		var tag := Kit.label("#%d" % (order + 1) if order >= 0 else ("Tired" if tired else ""), 20, TOWER if order >= 0 else Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
-		var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96, false, p.best(f.id).level)
-		if tired:
-			icon.modulate = Color(1, 1, 1, 0.35)
-		var cell := Kit.vbox(4, [
-			icon,
-			Kit.label(Roster.get_critter(f.id).name, 20, col, HORIZONTAL_ALIGNMENT_CENTER),
-			Kit.power(roundi(f.power * 1000.0), 18, col),
-			_pips(f.stamina),
-			tag,
-		])
-		var on_tap := func():
-			var next := picks.duplicate()
-			if order >= 0:
-				next.erase(f.id)
-			elif tired:
-				shell.toast("%s is tired until Monday." % Roster.get_critter(f.id).name, f.id)
-				return
-			elif next.size() >= spec.lineup:
-				shell.toast("This floor takes %d. Tap a pick to take it out." % spec.lineup)
-				return
-			else:
-				next.append(f.id)
-			shell.refresh_with({"picks": next})
-		var card := Kit.card_button(cell, on_tap, TOWER if order >= 0 else Kit.LINE, Kit.PANEL2 if order >= 0 else Kit.PANEL, 28, 10)
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		shell.mark("spire_pick_" + f.id, card)
-		grid.add_child(card)
+	for i in list.size():
+		grid.add_child(LazyTile.wrap(_pick_card.bind(shell, list[i], spec, picks), i, 12))
 	v.add_child(grid)
 	# The climb button stays put under the list, however many critters it holds.
 	var climb_btn := Kit.button("Climb", func(): _climb(shell, climb, picks), "go" if not picks.is_empty() else "ghost", 32, 96)
@@ -172,6 +144,43 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 		actions.add_child(auto)
 	shell.pin(actions)
 	return v
+
+
+## One critter in the picker. Built lazily: a big collection fills many rows.
+static func _pick_card(shell, f: Dictionary, spec: Dictionary, picks: Array) -> Control:
+	var p = shell.profile
+	var order: int = picks.find(f.id)
+	var tired: bool = f.stamina <= 0
+	var col := Kit.MUTED if tired else Kit.FG
+	var tag := Kit.label("#%d" % (order + 1) if order >= 0 else ("Tired" if tired else ""), 20, TOWER if order >= 0 else Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
+	var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96, false, p.best(f.id).level)
+	if tired:
+		icon.modulate = Color(1, 1, 1, 0.35)
+	var cell := Kit.vbox(4, [
+		icon,
+		Kit.label(Roster.get_critter(f.id).name, 20, col, HORIZONTAL_ALIGNMENT_CENTER),
+		Kit.power(roundi(f.power * 1000.0), 18, col),
+		_pips(f.stamina),
+		tag,
+	])
+	var on_tap := func():
+		var next := picks.duplicate()
+		if order >= 0:
+			next.erase(f.id)
+		elif tired:
+			shell.toast("%s is tired until Monday." % Roster.get_critter(f.id).name, f.id)
+			return
+		elif next.size() >= spec.lineup:
+			shell.toast("This floor takes %d. Tap a pick to take it out." % spec.lineup)
+			return
+		else:
+			next.append(f.id)
+		shell.refresh_with({"picks": next})
+	var card := Kit.card_button(cell, on_tap, TOWER if order >= 0 else Kit.LINE, Kit.PANEL2 if order >= 0 else Kit.PANEL, 28, 10)
+	FamilyEdge.attach(card, [f.id], spec.enemies.map(func(e): return str(e.id)))
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.mark("spire_pick_" + f.id, card)
+	return card
 
 
 ## Fresh critters closest to the floor's power, weakest first, so the best

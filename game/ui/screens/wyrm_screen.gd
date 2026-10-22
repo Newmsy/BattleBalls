@@ -6,12 +6,11 @@ extends RefCounted
 
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
-const EnergySheet := preload("res://game/ui/energy_sheet.gd")
+const BossCard := preload("res://game/ui/boss_card.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const WyrmRift := preload("res://meta/wyrm_rift.gd")
-const BossArt := preload("res://game/boss_art.gd")
 const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 const Economy := preload("res://meta/economy.gd")
 
@@ -40,11 +39,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	root.add_child(BossLevelGrid.hero(shell, WyrmRift.BOSS, RIFT))
 	var fighter: String = Campaign.fighter_for(p)
-	var b: Dictionary = p.best(fighter)
-	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30), Kit.power(p.power_of(fighter), 24)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 80, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
-	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 12))
+	root.add_child(BossCard.fighter(shell, fighter, "wyrm", [], 80))
 
 	var level := BossLevelGrid.picked(p, WyrmRift.KEY, params)
 	root.add_child(BossLevelGrid.grid(shell, p, WyrmRift.KEY, level, RIFT, "wyrm"))
@@ -86,35 +81,14 @@ static func _lure(shell, id: String) -> void:
 
 static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	var diff: Dictionary = WyrmRift.DIFFICULTIES[d]
-	var rec := WyrmRift.enemy_rating(d)
-	var mine: int = p.power_of(fighter)
-	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var info := Kit.vbox(2, [Kit.label(diff.name, 26), Kit.amount("target", diff.lures, 20, Kit.FG, RIFT),
-		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "It's stronger"), 20, power_color)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight := Kit.cost_button("Fight", WyrmRift.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 64)
-	fight.custom_minimum_size.x = 150
-	fight.disabled = left <= 0
-	if not fight.disabled and p.energy < WyrmRift.ENERGY_COST:
-		fight.modulate = Color(1, 1, 1, .5) # Short on energy: tapping opens the energy sheet.
-	shell.mark("wyrm_go", fight)
-	var p_tag := Kit.power(rec, 20, power_color)
-	p_tag.alignment = BoxContainer.ALIGNMENT_CENTER
-	var icon := Kit.vbox(0, [BossArt.icon(WyrmRift.BOSS, 68), p_tag])
-	var row := Kit.hbox(12, [icon, info, fight], BoxContainer.ALIGNMENT_CENTER)
-	return Kit.panel(row, Kit.box(Kit.PANEL, Color(RIFT, .5), 30, 2, 10))
+	return BossCard.fight(shell, {"boss": WyrmRift.BOSS, "accent": RIFT, "rec": WyrmRift.enemy_rating(d), "mine": p.power_of(fighter),
+		"title": diff.name, "pay": [Kit.amount("target", diff.lures, 20, Kit.FG, RIFT)],
+		"cost": WyrmRift.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, d, fighter), "mark": "wyrm_go", "height": 64})
 
 
 static func _fight(shell, d: int, fighter: String) -> void:
 	var cfg: Dictionary = WyrmRift.start(shell.profile, d, fighter, int(Time.get_unix_time_from_system()))
-	if cfg.has("error"):
-		shell.refresh()
-		if cfg.error == "energy":
-			EnergySheet.open(shell)
-			return
-		shell.toast({"runs": "The wyrm has slithered off for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first.", "level": "Beat the level before it first."}.get(cfg.error, "Beat the Zone 4 boss to face the Prism Wyrm."))
-		return
-	shell.boss_requested.emit(cfg, d, fighter, "wyrm")
+	BossCard.start(shell, cfg, d, fighter, "wyrm", "The wyrm has slithered off for today. Back tomorrow!", "Beat the Zone 4 boss to face the Prism Wyrm.")
 
 
 ## One line summing up a Wyrm result, for the result popup.

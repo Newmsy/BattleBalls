@@ -9,6 +9,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const A11y := preload("res://game/a11y.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
+const UpgradePopup := preload("res://game/ui/upgrade_popup.gd")
 
 const LAB_HEIGHT := 330.0
 const SLOT := 116.0
@@ -171,11 +172,16 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		for conn in btn.pressed.get_connections():
 			btn.pressed.disconnect(conn.callable)
 		var old: Array = lab.get_meta("ready", [])
-		btn.pressed.connect(func():
+		var go_on := func():
 			var sc: ScrollContainer = lab.get_meta("scroll", null)
 			var next := pick_after_fuse(old, sorted(shell.profile.ready_to_fuse()), sel)
 			next["x"] = sc.scroll_horizontal if is_instance_valid(sc) else 0
-			shell.refresh_with(next)))
+			shell.refresh_with(next)
+		btn.pressed.connect(go_on)
+		# Then what changed, once the new critter has popped out.
+		lab.get_tree().create_timer(.3 if A11y.reduced_motion else 1.1).timeout.connect(func():
+			if is_instance_valid(lab) and lab.is_inside_tree():
+				UpgradePopup.critter(shell, pv, go_on)))
 
 
 ## Rarest first, then the highest tier (a fuse to T3 before the same critter's fuse to T2), then by name.

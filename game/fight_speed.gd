@@ -6,8 +6,10 @@
 ## Speeds unlock by account level (UNLOCK_LEVELS). The player's last pick is
 ## kept in user://settings.cfg (section "fight") and, through on_pick and
 ## restore(), in the cloud save so every device plays at the same speed.
-## main.gd keeps `account_level` up to date; the other fight scenes read it
-## from here.
+## main.gd keeps the account level up to date (set_account_level). It goes in
+## settings.cfg too: the other fight scenes (Spire, Ghost Arena, campaign
+## relays, Bounce Run) are scenes of their own, and Godot drops this script's
+## static state when the scene changes, so they read it back from there.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -28,6 +30,11 @@ static var unlock_all := false
 static var url_speed := 0.0
 ## Called with the new pick after select() (main.gd puts it in the save).
 static var on_pick := Callable()
+## A pick made where main.gd wasn't running (the Spire, Ghost Arena, campaign
+## relays, Bounce Run: their own scenes) that the save doesn't have yet.
+## main.gd saves it when it starts again instead of putting the save's older
+## pick back.
+static var unsaved := false
 
 static var _pick := 0
 static var _loaded := false
@@ -59,9 +66,32 @@ static func select(i: int) -> void:
 		return
 	url_speed = 0.0
 	_pick = i
+	unsaved = true
 	_save()
 	if on_pick.is_valid():
 		on_pick.call(i)
+
+
+## main.gd: the player's account level now (it unlocks the speeds).
+static func set_account_level(level: int) -> void:
+	_ensure_loaded()
+	if level != account_level:
+		account_level = level
+		_save()
+
+
+## True while a pick made in another fight scene isn't in the save yet.
+static func has_unsaved() -> bool:
+	_ensure_loaded()
+	return unsaved
+
+
+## main.gd put the pick in the save.
+static func mark_saved() -> void:
+	_ensure_loaded()
+	if unsaved:
+		unsaved = false
+		_save()
 
 
 ## The remembered pick, whether or not it's unlocked yet.
@@ -93,6 +123,7 @@ static func set_unlock_all(on: bool) -> void:
 
 ## "Drag to aim, let go to launch" for a new player's first few fights, else "".
 static func aim_hint() -> String:
+	_ensure_loaded()
 	return AIM_HINT if account_level < AIM_HINT_BELOW_LEVEL else ""
 
 
@@ -133,6 +164,8 @@ static func _ensure_loaded() -> void:
 	if cfg.load(SETTINGS_PATH) == OK:
 		_pick = int(cfg.get_value("fight", "speed", 0))
 		unlock_all = bool(cfg.get_value("fight", "unlock_all", false))
+		account_level = int(cfg.get_value("fight", "account_level", account_level))
+		unsaved = bool(cfg.get_value("fight", "unsaved", false))
 
 
 static func _save() -> void:
@@ -140,6 +173,8 @@ static func _save() -> void:
 	cfg.load(SETTINGS_PATH)
 	cfg.set_value("fight", "speed", _pick)
 	cfg.set_value("fight", "unlock_all", unlock_all)
+	cfg.set_value("fight", "account_level", account_level)
+	cfg.set_value("fight", "unsaved", unsaved)
 	cfg.save(SETTINGS_PATH)
 
 

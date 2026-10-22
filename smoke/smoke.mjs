@@ -248,7 +248,20 @@ try {
     // Swiping in from the left edge goes back to the list, then reopen the card.
     {
       const before = logs.length;
-      await swipe(page, 4, 700, 420, 0);
+      // Held halfway: the card follows the finger over the list (TouchInput slide).
+      await page.mouse.move(...toPage(page, 4, 700));
+      await page.mouse.down();
+      for (let i = 1; i <= 10; i++) {
+        await page.mouse.move(...toPage(page, 4 + 26 * i, 700));
+        await page.waitForTimeout(16);
+      }
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: path.join(shots, "3c1-swipe-back.png") });
+      for (let i = 1; i <= 6; i++) {
+        await page.mouse.move(...toPage(page, 264 + 26 * i, 700));
+        await page.waitForTimeout(16);
+      }
+      await page.mouse.up();
       await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000);
       console.log("edge swipe: detail -> critters");
       await tapUi(page, logs, "tile_vampire", "detail");
@@ -267,8 +280,11 @@ try {
     const before = logs.length;
     await tapUi(page, logs, "fuse");
     console.log("fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
-    await page.waitForTimeout(800);
+    // What changed pops up once the new critter is out (UpgradePopup).
+    await waitForLogAfter(logs, before, "UI_SCREEN sheet", 5000);
+    await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(shots, "3e-fused.png") });
+    await tapUi(page, logs, "fuse_done", "fuse");
     await tapUi(page, logs, "tab_bag", "bag");
     await tapUi(page, logs, "gear_5", "sheet");
     await page.screenshot({ path: path.join(shots, "3f-bag-sheet.png") });
@@ -276,8 +292,12 @@ try {
     await tapUi(page, logs, "pick_juggernaut", "bag");
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
     // Three 1-star Bubble Shells now: Merge all makes a 2-star (design/gear.md).
+    const merging = logs.length;
     await tapUi(page, logs, "merge_all", "bag");
+    await waitForLogAfter(logs, merging, "UI_SCREEN sheet", 5000);
+    await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(shots, "3g-bag-merged.png") });
+    await tapUi(page, logs, "merge_done");
     await tapUi(page, logs, "tab_summon", "summon");
     await page.screenshot({ path: path.join(shots, "3h-summon.png") });
     await tapUi(page, logs, "wishlist_edit", "sheet");

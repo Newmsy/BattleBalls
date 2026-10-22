@@ -14,6 +14,7 @@ const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
 const Profile := preload("res://meta/profile.gd")
+const UpgradePopup := preload("res://game/ui/upgrade_popup.gd")
 
 static var section := "gear"
 
@@ -170,16 +171,25 @@ static func _equip_pick(shell, g: Dictionary) -> void:
 
 
 static func _merge(shell, g: Dictionary) -> void:
+	var cost: int = shell.profile.merge_cost(g.tier)
 	var made: Dictionary = shell.profile.merge_gear(g.type, g.tier)
 	shell.close_overlay()
-	shell.toast("Made a %s." % piece_name(made) if not made.is_empty() else "Need more Hammers.")
 	shell.refresh()
+	if made.is_empty():
+		shell.toast("Need more Hammers.")
+		return
+	print("UI_MERGED %s T%d" % [made.type, made.tier])
+	UpgradePopup.gear(shell, made, tier_color(made.tier), cost)
 
 
 static func _merge_all(shell) -> void:
+	var cost: int = shell.profile.merge_all_plan().hammers
 	var made: Array = shell.profile.merge_all_gear()
-	shell.toast("Merged: " + ", ".join(made.map(func(g): return piece_name(g))))
 	shell.refresh()
+	if made.size() == 1:
+		UpgradePopup.gear(shell, made[0], tier_color(made[0].tier), cost)
+	elif not made.is_empty():
+		UpgradePopup.gear_list(shell, made, tier_color, cost)
 
 
 static func _gear_sheet(shell, g: Dictionary) -> void:

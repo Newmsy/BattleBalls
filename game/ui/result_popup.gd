@@ -1,11 +1,12 @@
-## The one popup every fight ends on, in every mode: a sheet that slides up
-## from the bottom with what the fight was (caption), the outcome on a banner
+## The one popup every fight ends on, in every mode: a modal card that pops
+## up in the middle of the screen with what the fight was (caption), the outcome on a banner
 ## (Victory! / Defeated / Draw), what it earned, and the buttons for what's
 ## next. The campaign's stage result was the model; Quick fight, 2v2, Rival,
 ## Challenge, Live, bosses, the Spire, Ghost Arena and Bounce Run all use it.
 ## The shell's own sheets use the same frame (`frame`).
 extends RefCounted
 
+const A11y := preload("res://game/a11y.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const ResultBanner := preload("res://game/ui/result_banner.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
@@ -14,6 +15,9 @@ enum Outcome { LOSE, WIN, DRAW }
 
 const SHEET_BG := Color("16133a")
 const SLIDE_SECS := .22
+const MAX_WIDTH := 760.0 ## A phone-width column on a wide screen.
+const MARGIN := 24.0 ## Kept clear round the card, so it never touches an edge.
+const RISE := 48.0 ## How far the card rises as it fades in.
 
 
 ## The headline for an outcome, the same words in every mode.
@@ -62,22 +66,39 @@ static func content(caption_text: String, outcome: int, body: Array = [], button
 	return v
 
 
-## The bottom sheet's panel: dark, an accent line along the top, round top corners.
+## The modal's card: dark, round corners, an accent line round the edge.
 static func panel(child: Control) -> PanelContainer:
-	var st := Kit.box(SHEET_BG, Kit.ACCENT, 0, 0, 32)
-	st.border_width_top = 3
-	st.corner_radius_top_left = 44
-	st.corner_radius_top_right = 44
-	st.content_margin_bottom = 60
+	var st := Kit.box(SHEET_BG, Kit.ACCENT, 44, 3, 32)
 	var p := PanelContainer.new()
 	p.add_theme_stylebox_override("panel", st)
 	p.add_child(child)
 	return p
 
 
-## A full-screen dim with `content` in a sheet along the bottom edge, sliding
-## up. Tapping the dim calls `on_dim` (nothing when it's empty). Add the
-## returned root to a full-screen parent; `done` runs once it has stopped.
+## Side margin for a card on a screen `width` wide: MARGIN on a phone, a
+## centred MAX_WIDTH column on anything wider.
+static func side(width: float) -> float:
+	return maxf(MARGIN, (width - MAX_WIDTH) / 2.0)
+
+
+## Fades `c` in while it rises RISE px into place (just the fade with reduced
+## motion). `move` sets its offset from the resting place.
+static func pop_in(host: Node, c: CanvasItem, move: Callable, done := Callable()) -> Tween:
+	var rise := RISE * A11y.motion()
+	c.modulate.a = 0.0
+	move.call(rise)
+	var tw := host.create_tween().set_parallel()
+	tw.tween_property(c, "modulate:a", 1.0, SLIDE_SECS * .8)
+	tw.tween_method(move, rise, 0.0, SLIDE_SECS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	if done.is_valid():
+		tw.finished.connect(done)
+	return tw
+
+
+## A full-screen dim with `content` in a card in the middle of the screen,
+## popping in. Tapping the dim calls `on_dim` (nothing when it's empty). Add
+## the returned root to a full-screen parent; `done` runs once it has stopped.
+## `height` is the screen height: a card taller than it scrolls inside.
 static func frame(host: Node, content: Control, height: float, on_dim := Callable(), done := Callable()) -> Control:
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -92,36 +113,42 @@ static func frame(host: Node, content: Control, height: float, on_dim := Callabl
 	root.add_child(dim)
 	var p := panel(content)
 	root.add_child(p)
-	# A zero-height rect on the bottom edge, growing upwards: the panel is
+	# A zero-height rect across the middle, growing both ways: the card is
 	# always exactly as tall as its content, even after wrapped text reflows.
+	var x := side((host as Control).size.x if host is Control else MAX_WIDTH)
 	p.anchor_left = 0.0
 	p.anchor_right = 1.0
-	p.anchor_top = 1.0
-	p.anchor_bottom = 1.0
-	p.offset_left = 0.0
-	p.offset_right = 0.0
-	p.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	var slide := func(v: float) -> void:
+	p.anchor_top = 0.5
+	p.anchor_bottom = 0.5
+	p.offset_left = x
+	p.offset_right = -x
+	p.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_fit(p, content, height)
+	pop_in(host, p, func(v: float) -> void:
 		p.offset_top = v
-		p.offset_bottom = v
-	slide.call(height)
-	var tw := host.create_tween()
-	tw.tween_method(slide, height, 0.0, SLIDE_SECS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	if done.is_valid():
-		tw.finished.connect(done)
+		p.offset_bottom = v, done)
 	return root
 
 
+## Never off-screen: content taller than the screen (less margins) moves into
+## a scroll box once it has laid out.
+static func _fit(p: PanelContainer, content: Control, height: float) -> void:
+	var limit := height - MARGIN * 2.0 - 64.0 # The card's own padding.
+	if content.get_combined_minimum_size().y <= limit or content is ScrollContainer:
+		return
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size.y = limit
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	p.remove_child(content)
+	scroll.add_child(content)
+	p.add_child(scroll)
+
+
 ## For a fight scene outside the shell: the popup over the whole screen, on
-## `parent` (a full-screen Control). On a wide screen the sheet keeps a
-## phone-width column. Returns the popup root (free it to close).
+## `parent` (a full-screen Control). Returns the popup root (free it to close).
 static func show_over(parent: Control, content: Control, done := Callable()) -> Control:
-	var size := parent.get_viewport_rect().size
-	var side := maxf(0.0, (size.x - 760.0) / 2.0)
-	var root := frame(parent, content, size.y, Callable(), done)
-	var p: Control = root.get_child(1)
-	p.offset_left = side # The slide only moves the top and bottom edges.
-	p.offset_right = -side
+	var root := frame(parent, content, parent.get_viewport_rect().size.y, Callable(), done)
 	parent.add_child(root)
 	return root
 

@@ -18,9 +18,8 @@ func _initialize() -> void:
 	bg.size = Vector2(700, 700)
 	root.add_child(bg)
 	var view := ArenaView.new()
-	view.view_scale = 0.68
-	view.position = Vector2(10, 10)
 	root.add_child(view)
+	view.fit(Vector2(10, 10), 680.0)
 	var sim := MatchSim.new({"seed": int(a.seed), "p1": a.p1, "p2": a.p2, "angles": [null, null], "arena": a.arena})
 	view.sim = sim
 	var ticks := int(float(a.secs) * MatchSim.TICK_RATE)
