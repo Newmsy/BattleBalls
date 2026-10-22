@@ -63,8 +63,8 @@ func test_power_grows_about_a_quarter_per_tier() -> void:
 	var t2 := Roster.power("vampire", 2, 1)
 	check_near(float(t2) / t1, 1.25, .01, "one tier")
 	check(Roster.power("blackhole", 1, 1) > t1, "Legendary base is higher")
-	check_near(float(Roster.power("laser", 1, 1)) / t1, 1.25, .01, "two rarity steps (Common to Rare) are one tier")
-	check_near(float(Roster.power("blackhole", 1, 1)) / t1, 1.5625, .01, "a Legendary starts two tiers above a Common")
+	check_near(float(Roster.power("laser", 1, 1)) / t1, 1.5625, .01, "two rarity steps (Common to Rare) are two tiers")
+	check_near(float(Roster.power("blackhole", 1, 1)) / t1, 2.4414, .01, "a Legendary starts four tiers above a Common")
 
 
 func test_every_critter_has_art_and_a_full_ladder() -> void:

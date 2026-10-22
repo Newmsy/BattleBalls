@@ -9,9 +9,9 @@ const CritterDb := preload("res://sim/critter_db.gd")
 const RARITIES := CritterDb.RARITIES
 const RARITY_NAMES := {"common": "Common", "uncommon": "Uncommon", "rare": "Rare", "epic": "Epic", "legendary": "Legendary"}
 const RARITY_COLORS := {"common": Color("c9d3e0"), "uncommon": Color("4cd98a"), "rare": Color("3d9bff"), "epic": Color("b366ff"), "legendary": Color("ffc23d")}
-## One rarity step is worth half a tier (BALANCE.md rule 5): x sqrt(1.25) each,
-## so a Legendary starts two tiers above a Common.
-const RARITY_STEP := 1.118034
+## One rarity step is worth a whole tier (BALANCE.md rule 5): x1.25 each,
+## so a Legendary starts four tiers above a Common (sim/power.gd).
+const RARITY_STEP := 1.25
 const MAX_TIER := 5
 
 static var CRITTERS: Array = _critters()
@@ -58,7 +58,7 @@ static func level_cap(tier: int) -> int:
 	return tier * 10
 
 
-## Power Rating: rarity base (+half a tier per step), +25% per tier, +2.5% per
+## Power Rating: rarity base (+a tier per step), +25% per tier, +2.5% per
 ## level, times 1 + `gear` (the worn pieces' worth, sim/gear.gd gear_power).
 static func power(id: String, tier: int, level: int, gear := 0.0) -> int:
 	var p: float = rarity_base(get_critter(id).rarity) * pow(1.25, tier - 1) * (1.0 + 0.025 * (level - 1))

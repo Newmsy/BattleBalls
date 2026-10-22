@@ -198,7 +198,7 @@ try {
     try {
       const q = `&live=ws://127.0.0.1:${port}&auto=1&speed=4&offline=1&tutorial=0`;
       const a = await openGame("?p1=vampire" + q);
-      const b = await openGame("?p1=frost" + q);
+      const b = await openGame("?p1=spiker" + q); // Same rarity and tier: a rarity step (x1.25) is outside the band until the ghost fallback.
       const ends = await Promise.all([a, b].map(({ logs }) => waitForLog(logs, "LIVE_END ", 150000)));
       console.log("live fight:", ends.join(" | "));
       await a.page.screenshot({ path: path.join(shots, "1c-live.png") });

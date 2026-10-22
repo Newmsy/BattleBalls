@@ -27,24 +27,24 @@ const KEY := "vault" ## Its entry in profile.boss_levels.
 const BOSS := "anvil_king"
 ## The 15 levels (meta/boss_levels.gd): the drop's tier, the Hammers a win
 ## gives and the boss's power (1.0 is a T1 level 1 Common; the Zone 1 boss
-## is 1.75). Power is BossLevels.curve(1.3, 11.0): level 9 is about a coin
-## flip for a T5 at 5,500 power. Check with tools/boss_difficulty.gd --tier=5.
+## is 1.75). Power is BossLevels.curve(1.3, 15.4): level 9 is about a coin
+## flip for a T5 at 7,700 power. Check with tools/boss_difficulty.gd --tier=5.
 const DIFFICULTIES := [
 	{"name": "Level 1", "tier": 1, "hammers": 3, "power": 1.3},
-	{"name": "Level 2", "tier": 1, "hammers": 4, "power": 1.7},
-	{"name": "Level 3", "tier": 1, "hammers": 5, "power": 2.2},
-	{"name": "Level 4", "tier": 2, "hammers": 6, "power": 2.9},
-	{"name": "Level 5", "tier": 2, "hammers": 7, "power": 3.8},
-	{"name": "Level 6", "tier": 2, "hammers": 8, "power": 4.9},
-	{"name": "Level 7", "tier": 3, "hammers": 9, "power": 6.4},
-	{"name": "Level 8", "tier": 3, "hammers": 10, "power": 8.4},
-	{"name": "Level 9", "tier": 3, "hammers": 11, "power": 11.0},
-	{"name": "Level 10", "tier": 4, "hammers": 12, "power": 12.3},
-	{"name": "Level 11", "tier": 4, "hammers": 13, "power": 13.8},
-	{"name": "Level 12", "tier": 4, "hammers": 14, "power": 15.5},
-	{"name": "Level 13", "tier": 5, "hammers": 15, "power": 17.3},
-	{"name": "Level 14", "tier": 5, "hammers": 16, "power": 19.4},
-	{"name": "Level 15", "tier": 5, "hammers": 17, "power": 21.7},
+	{"name": "Level 2", "tier": 1, "hammers": 4, "power": 1.8},
+	{"name": "Level 3", "tier": 1, "hammers": 5, "power": 2.4},
+	{"name": "Level 4", "tier": 2, "hammers": 6, "power": 3.3},
+	{"name": "Level 5", "tier": 2, "hammers": 7, "power": 4.5},
+	{"name": "Level 6", "tier": 2, "hammers": 8, "power": 6.1},
+	{"name": "Level 7", "tier": 3, "hammers": 9, "power": 8.3},
+	{"name": "Level 8", "tier": 3, "hammers": 10, "power": 11.3},
+	{"name": "Level 9", "tier": 3, "hammers": 11, "power": 15.4},
+	{"name": "Level 10", "tier": 4, "hammers": 12, "power": 17.2},
+	{"name": "Level 11", "tier": 4, "hammers": 13, "power": 19.3},
+	{"name": "Level 12", "tier": 4, "hammers": 14, "power": 21.6},
+	{"name": "Level 13", "tier": 5, "hammers": 15, "power": 24.2},
+	{"name": "Level 14", "tier": 5, "hammers": 16, "power": 27.1},
+	{"name": "Level 15", "tier": 5, "hammers": 17, "power": 30.4},
 ]
 ## By UTC weekday (0 Sunday): the slot that drops, "" for any.
 const DAYS := [

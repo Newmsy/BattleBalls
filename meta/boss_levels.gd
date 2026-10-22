@@ -1,7 +1,8 @@
 ## Boss levels (Newms 2026-10-20): each daily farming boss with a power
 ## ladder (Anvil King, Brood Queen, Totem of Nine, Prism Wyrm) has 15 levels,
 ## each stronger than the last and paying more. Beating a level opens the
-## next. Level 9 is a hard fight for a maxed T5 critter (~5,500 power); 10-15
+## next. Level 9 is a hard fight for a maxed T5 critter (~7,700 power since one
+## rarity step became a whole tier, 2026-10-22: every curve's level 9 went x1.4); 10-15
 ## go up from there for stronger teams. A level is its 0-based index in the
 ## boss's DIFFICULTIES table, which the rules files write out in full.
 ##

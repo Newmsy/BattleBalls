@@ -42,7 +42,8 @@ func test_fight_power_matches_the_power_rating_players_see() -> void:
 func test_power_steps_match_the_design_budget() -> void:
 	check_near(Power.multiplier("common", 2, 1), 1.25, 0.0001, "one tier")
 	check_near(Power.multiplier("common", 1, 11), 1.25, 0.0001, "ten levels")
-	check_near(Power.multiplier("legendary", 1, 1), Power.multiplier("common", 3, 1), 0.001, "a T1 Legendary is two tiers above a T1 Common")
+	check_near(Power.multiplier("legendary", 1, 1), Power.multiplier("common", 5, 1), 0.001, "a T1 Legendary is four tiers above a T1 Common")
+	check_near(Power.multiplier("epic", 2, 1), Power.multiplier("rare", 3, 1), 0.001, "a rarity step is a tier")
 
 
 func test_power_scales_hp_and_damage_but_not_speed() -> void:
@@ -52,11 +53,12 @@ func test_power_scales_hp_and_damage_but_not_speed() -> void:
 	check_eq(sim.balls[0].speed, sim.balls[1].speed, "speed unchanged")
 
 
-func test_rarity_builds_the_ability_half_a_tier_up() -> void:
-	# A T1 Legendary's ability hits like a T3 one (two rarity steps = one tier),
-	# so it can fight a T3 Common evenly, as its stats already do.
+func test_rarity_builds_the_ability_tiers_up() -> void:
+	# Each rarity step adds Power.RARITY_ABILITY_TIERS tiers of ability potency
+	# (no tier upgrades), so a T1 Legendary can fight a T5 Common evenly.
 	var sim := MatchSim.new({"seed": 1, "p1": "glacia", "p2": "crumb"})
-	check_near(sim.balls[0].def.shard_damage, BallDefs.get_def("glacia").shard_damage * 1.5, 0.001, "Legendary T1 potency = T3 (x1.5)")
+	var steps := 4.0 * Power.RARITY_ABILITY_TIERS
+	check_near(sim.balls[0].def.shard_damage, BallDefs.get_def("glacia").shard_damage * (1.0 + 0.25 * steps), 0.001, "Legendary T1 potency")
 	check_eq(Power.rarity_tiers("common"), 0.0, "Commons get none")
 	var off := MatchSim.new({"seed": 1, "p1": "glacia", "p2": "crumb", "rarity_potency": false})
 	check_near(off.balls[0].def.shard_damage, BallDefs.get_def("glacia").shard_damage, 0.001, "audits can switch it off")

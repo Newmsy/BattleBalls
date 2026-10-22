@@ -23,24 +23,24 @@ const ENERGY_COST := 8
 const RUNS_PER_DAY := 3
 const ZONE := 2 ## Beating this zone's boss (0-based) opens it.
 ## The 15 levels (meta/boss_levels.gd): the sigils (Faction XP) a win pays
-## and the totem's power, BossLevels.curve(2.9, 11.0). Check with
+## and the totem's power, BossLevels.curve(2.9, 15.4). Check with
 ## tools/boss_difficulty.gd --boss=totem_of_nine --tier=5.
 const DIFFICULTIES := [
 	{"name": "Level 1", "sigils": 60, "power": 2.9},
-	{"name": "Level 2", "sigils": 75, "power": 3.4},
-	{"name": "Level 3", "sigils": 90, "power": 4.0},
-	{"name": "Level 4", "sigils": 105, "power": 4.8},
-	{"name": "Level 5", "sigils": 120, "power": 5.6},
-	{"name": "Level 6", "sigils": 135, "power": 6.7},
-	{"name": "Level 7", "sigils": 150, "power": 7.9},
-	{"name": "Level 8", "sigils": 165, "power": 9.3},
-	{"name": "Level 9", "sigils": 180, "power": 11.0},
-	{"name": "Level 10", "sigils": 195, "power": 12.3},
-	{"name": "Level 11", "sigils": 210, "power": 13.8},
-	{"name": "Level 12", "sigils": 225, "power": 15.5},
-	{"name": "Level 13", "sigils": 240, "power": 17.3},
-	{"name": "Level 14", "sigils": 255, "power": 19.4},
-	{"name": "Level 15", "sigils": 270, "power": 21.7},
+	{"name": "Level 2", "sigils": 75, "power": 3.6},
+	{"name": "Level 3", "sigils": 90, "power": 4.4},
+	{"name": "Level 4", "sigils": 105, "power": 5.4},
+	{"name": "Level 5", "sigils": 120, "power": 6.7},
+	{"name": "Level 6", "sigils": 135, "power": 8.2},
+	{"name": "Level 7", "sigils": 150, "power": 10.1},
+	{"name": "Level 8", "sigils": 165, "power": 12.5},
+	{"name": "Level 9", "sigils": 180, "power": 15.4},
+	{"name": "Level 10", "sigils": 195, "power": 17.2},
+	{"name": "Level 11", "sigils": 210, "power": 19.3},
+	{"name": "Level 12", "sigils": 225, "power": 21.6},
+	{"name": "Level 13", "sigils": 240, "power": 24.2},
+	{"name": "Level 14", "sigils": 255, "power": 27.1},
+	{"name": "Level 15", "sigils": 270, "power": 30.4},
 ]
 const WIN_XP := 20
 const LOSS_XP := 3

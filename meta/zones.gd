@@ -1,6 +1,7 @@
 ## Campaign zone data (pve.md section 3). A stage is one enemy at a fixed power;
 ## its Power Rating is the Recommended Power shown to the player.
 extends RefCounted
+const DMath := preload("res://sim/dmath.gd")
 
 const STAGE_COST := 6
 const BOSS_COST := 10
@@ -22,6 +23,17 @@ const TRIO_FORMATS := ["relay", "brawl", "duo"]
 ## Recommended Power.
 const FOE_TIERS := [1, 1, 2, 2, 3, 3, 4, 5]
 const FOE_POWER := [1.0, 0.92, 0.76, 0.7, 0.65] ## By tier - 1.
+## Each zone after the first fights this much harder than its stage table says
+## (Newms 2026-10-22: one rarity step = one tier). Rarer critters now rate a
+## whole tier per step, so players' best teams rate up to ~1.4x what they did
+## by Magma Core (1.4 = ZONE_POWER_STEP^6); Glow Garden stays as tuned so a
+## Common-only start still clears it.
+const ZONE_POWER_STEP := 1.0577
+
+## Featured pools climb in rarity zone by zone (Commons in Glow Garden up to
+## Rares and Epics in Magma Core), so campaign copies keep feeding the critters
+## players actually use as rarer ones take over; `rare_bonus` is the next
+## rarity up from the pool.
 
 ## Zone 1, Glow Garden: plain arena, 1v1, featured Commons. Enemy power rises
 ## ~9% a stage from an easy 0.75; the boss is tuned (with its size) so a T2 level 10 ball wins about half the time.
@@ -95,7 +107,7 @@ const ZONES := [
 		"twist": "Frozen lake and icicle spikes",
 		"boss": "Glacier Chill",
 		"icon": "frost",
-		"featured": ["frost", "drizzle", "bubbles", "puff", "shelly", "fin"],
+		"featured": ["frost", "drizzle", "puff", "shelly", "fin", "minnow"],
 		"rare_bonus": ["yeti", "gust"],
 		"boss_reward": "blizz",
 		"stages": [
@@ -125,8 +137,8 @@ const ZONES := [
 		"twist": "Thorn walls, old trees and sinkholes",
 		"boss": "Thornking Bramble",
 		"icon": "thorns",
-		"featured": ["pip", "tumble", "mossy", "glowbug", "pollen", "crumb"],
-		"rare_bonus": ["whiff", "zing", "mole", "sprout"],
+		"featured": ["tumble", "mossy", "glowbug", "pollen", "sprout", "mole"],
+		"rare_bonus": ["swarm"],
 		"boss_reward": "swarm",
 		"stages": [
 			{"enemy": "tumble", "enemies": ["tumble", "mossy", "pip"], "power": 4.0},
@@ -155,8 +167,8 @@ const ZONES := [
 		"twist": "Portals and pinball bumpers",
 		"boss": "Wisp Swarm",
 		"icon": "ghost",
-		"featured": ["vampire", "flicker", "pinball", "drum", "puff", "crumb"],
-		"rare_bonus": ["sonar", "painter", "mortar", "disco"],
+		"featured": ["flicker", "drum", "sonar", "painter", "mortar", "disco"],
+		"rare_bonus": ["brewster", "puppeteer", "yoyo", "kaleido"],
 		"boss_reward": "ghost",
 		"stages": [
 			{"enemy": "vampire", "enemies": ["vampire", "flicker", "pinball"], "power": 5.45},
@@ -185,8 +197,8 @@ const ZONES := [
 		"twist": "Shrinking rim, moons and a black hole",
 		"boss": "Void Titan",
 		"icon": "blackhole",
-		"featured": ["speedster", "sooty", "comet", "zigzag", "wrecker", "mirror"],
-		"rare_bonus": ["gravity", "megabot"],
+		"featured": ["comet", "zigzag", "zapper", "wrecker", "mirror", "gravity"],
+		"rare_bonus": ["megabot", "quasar"],
 		"boss_reward": "prism",
 		"stages": [
 			{"enemy": "comet", "enemies": ["comet", "gravity", "zigzag"], "power": 7.2},
@@ -215,8 +227,8 @@ const ZONES := [
 		"twist": "Lava pools and burning walls",
 		"boss": "Ember Reborn",
 		"icon": "phoenix",
-		"featured": ["speedster", "sooty", "magmo", "bomber", "comet", "zigzag"],
-		"rare_bonus": ["drako", "gravity"],
+		"featured": ["magmo", "bomber", "comet", "drako", "wrecker", "gravity"],
+		"rare_bonus": ["supernova", "eclipse"],
 		"boss_reward": "phoenix",
 		"stages": [
 			{"enemy": "sooty", "enemies": ["sooty", "speedster", "magmo"], "power": 9.0},
@@ -257,6 +269,7 @@ static func stage(zone_index: int, stage_index: int) -> Dictionary:
 		st.enemies = st.enemies.slice(0, 2)
 		st.enemy = st.enemies[0]
 	st.tier = foe_tier(zone_index)
+	st.power = st.power * DMath.ipow(ZONE_POWER_STEP, zone_index)
 	st.foe_power = st.power * FOE_POWER[st.tier - 1]
 	return st
 

@@ -1,8 +1,8 @@
-## Rarity vs tier check (BALANCE.md rule 5): one rarity step is worth half a
-## tier, so pairs of equal Power (sim/power.gd) should split about 50/50, with
+## Rarity vs tier check (BALANCE.md rule 5): one rarity step is worth a
+## whole tier, so pairs of equal Power (sim/power.gd) should split about 50/50, with
 ## each side at its real tier (ability upgrades and potency included), level 1.
 ## Usage: godot --headless --script res://tools/rarity_check.gd -- [--pairs=150] [--case=L1-C3]
-##   Cases are <rarity letter><tier>-<rarity letter><tier>, e.g. L1-R2, E1-U2.
+##   Cases are <rarity letter><tier>-<rarity letter><tier>, e.g. L1-E2, L1-C5.
 extends SceneTree
 
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -10,7 +10,7 @@ const CritterDb := preload("res://sim/critter_db.gd")
 const Power := preload("res://sim/power.gd")
 
 const LETTERS := {"C": "common", "U": "uncommon", "R": "rare", "E": "epic", "L": "legendary"}
-const CASES := ["L1-C3", "L1-R2", "R2-C3", "E1-U2", "R1-C2", "U1-C1", "L2-C4", "L3-C5", "R1-R1"]
+const CASES := ["U1-C2", "R1-U2", "E1-R2", "L1-E2", "R1-C3", "E1-U3", "L1-R3", "E1-C4", "L1-U4", "L1-C5", "L2-R4", "L3-E4", "R1-R1"]
 
 
 func _init() -> void:

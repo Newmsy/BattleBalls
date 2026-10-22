@@ -357,7 +357,7 @@ func _init(cfg: Dictionary) -> void:
 	var sizes: Array = _per_ball(cfg.get("sizes", []), 1.0)
 	var gear: Array = _per_ball(cfg.get("gear", []), null)
 	var talents: Array = _per_ball(cfg.get("talents", []), null)
-	# Off only for kit-vs-kit audits (tools/balance.gd): real fights give rarity its ability half tiers.
+	# Off only for kit-vs-kit audits (tools/balance.gd): real fights give rarity its ability tiers.
 	var rarity_potency: bool = cfg.get("rarity_potency", true)
 	for i in starters:
 		var kit := Gear.totals(gear[i])
