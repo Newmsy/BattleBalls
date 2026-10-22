@@ -27,6 +27,9 @@ const SHARE_URL := "https://battleballs.vercel.app/?mode=bouncerun"
 const ARENA_PIXELS := 680.0
 const PANEL_HEIGHT := 330.0
 const FightSpeed := preload("res://game/fight_speed.gd")
+const FightLayout := preload("res://game/fight_layout.gd")
+const FightHud := preload("res://game/fight_hud.gd")
+const FighterStrip := preload("res://game/fighter_strip.gd")
 const GOLD := Color("ffc23d")
 const PINK := Color("ff5a7a")
 const ABILITY := Color("8fd8ff") ## The critter's own ability, apart from boon gold.
@@ -59,6 +62,8 @@ var ui: Control
 var title_label: Label
 var sub_label: Label
 var hud_label: Label
+var fight_hud: FightHud ## Both health bars, above the arena, as on every fight screen.
+var fighter_strip: Control ## The two fighters' cards under the arena.
 var info_label: Label
 var panel: VBoxContainer
 var scroll: ScrollContainer
@@ -346,10 +351,11 @@ func _launch() -> void:
 	state = State.FIGHT
 	sfx.on_fight_start(sim)
 	info_label.text = ""
-	var speed := FightSpeed.picker(28)
-	var skip := Kit.button("Skip", _skip, "ghost", 28)
-	_mark("br_skip", skip)
-	_set_panel([Kit.hbox(14, [speed, skip])], "br_fight")
+	# Speed, Skip and Sound: the bottom row of pills every fight screen has.
+	var skip := FightLayout.skip_pill(_skip)
+	_mark("br_skip", skip.button)
+	_set_panel([Kit.hbox(14, [FightSpeed.picker(), skip])], "br_fight")
+	_layout() # The cards take the room the aim controls had.
 	print("BOUNCERUN_FIGHT floor=%d slot=%d aim=%d" % [run.floor + 1, slot, aim])
 
 
@@ -384,6 +390,7 @@ func _finish_fight() -> void:
 	var next := Kit.button("Continue", _after_result, "go", 34)
 	_mark("br_continue", next)
 	_set_panel([top, _floor_pips(BounceRun.score(run).floors), next], "br_result")
+	_layout() # The result card takes the cards' room.
 
 
 ## One pip per floor: cleared ones lit gold, the rest dim.
@@ -678,6 +685,13 @@ func _build_ui() -> void:
 	title_label.add_theme_constant_override("outline_size", 12)
 	sub_label = Kit.label("", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
 	hud_label = Kit.label("", 28, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	fight_hud = FightHud.new()
+	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fight_hud.tags = ["YOU", "FOE"]
+	ui.add_child(fight_hud)
+	fighter_strip = FighterStrip.new()
+	fighter_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(fighter_strip)
 	info_label = Kit.label("", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
 	panel = Kit.vbox(14)
 	scroll = ScrollContainer.new()
@@ -698,7 +712,7 @@ func _build_ui() -> void:
 func _board_mode() -> void:
 	arena.visible = false
 	arena.sim = null
-	for c in [hud_label, info_label, panel]:
+	for c in [hud_label, info_label, panel, fight_hud, fighter_strip]:
 		c.visible = false
 	scroll.visible = true
 	sub_label.visible = true
@@ -707,7 +721,7 @@ func _board_mode() -> void:
 
 func _arena_mode() -> void:
 	arena.visible = true
-	for c in [hud_label, info_label, panel]:
+	for c in [hud_label, info_label, panel, fight_hud, fighter_strip]:
 		c.visible = true
 	scroll.visible = false
 	sub_label.visible = false # The HUD takes its place above the arena.
@@ -743,6 +757,20 @@ func _layout() -> void:
 	_place(hud_label, Vector2(left, 110), Vector2(side, 50))
 	_place(info_label, panel_pos, Vector2(panel_width, 70))
 	_place(panel, panel_pos + Vector2(0, 80), Vector2(panel_width, PANEL_HEIGHT - 80.0))
+	var fight_view := arena.visible and state in [State.AIM, State.FIGHT, State.RESULT]
+	for c in [title_label, rules_button]:
+		c.visible = not fight_view
+	if fight_view: # The same shape as every fight screen (FightLayout).
+		var r := FightLayout.rects(size)
+		arena.view_scale = r.arena.size.x / MatchSim.ARENA_SIZE
+		arena.position = r.arena.position
+		FightLayout.place_hud(fight_hud, r)
+		var p: Rect2 = r.panel
+		var info_h := 0.0 if state == State.FIGHT else 56.0
+		_place(info_label, p.position, Vector2(p.size.x, 50))
+		_place(panel, p.position + Vector2(0, info_h), Vector2(p.size.x, maxf(0.0, p.size.y - info_h)))
+		var cards := FightLayout.cards_rect(r, info_h)
+		_place(fighter_strip, cards.position, cards.size)
 	var page_width := minf(680.0, size.x - 40.0)
 	_place(scroll, Vector2((size.x - page_width) / 2.0, 150), Vector2(page_width, size.y - 150 - bottom_margin))
 	page.custom_minimum_size.x = page_width
@@ -793,19 +821,15 @@ func _report(screen: String) -> void:
 
 
 func _update_hud() -> void:
-	if sim == null:
-		hud_label.text = ""
+	hud_label.text = ""
+	fighter_strip.show_fight(sim if sim != null and state == State.FIGHT else null)
+	if sim == null or not arena.visible:
+		fight_hud.show_fight(null)
 		return
-	var parts: Array = []
-	for b in sim.balls:
-		var hp := str(maxi(0, ceili(b.hp)))
-		if b.shield > 0.0:
-			hp += "+%d" % ceili(b.shield)
-		parts.append(hp)
 	var clock := "%.0fs" % sim.time()
 	if sim.in_overtime():
 		clock = "OVERTIME x%.1f" % sim.damage_multiplier()
-	hud_label.text = "You %s   |   %s   |   %s Foe" % [parts[0], clock, parts[1]]
+	fight_hud.show_fight(sim, clock)
 
 
 ## A critter and what its ability does, as a tappable card, tinted and

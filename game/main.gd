@@ -64,6 +64,7 @@ const Store := preload("res://game/glow/store.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const FightSpeed := preload("res://game/fight_speed.gd")
+const FightLayout := preload("res://game/fight_layout.gd")
 const Dev := preload("res://game/dev.gd")
 const LiveClient := preload("res://game/online/live_client.gd")
 const LiveMatch := preload("res://sim/live_match.gd")
@@ -739,6 +740,7 @@ func _start_fight() -> void:
 	# The week's twist, if any, shows under the clock in the HUD.
 	speed_picker.refresh()
 	_show_only(fight_box)
+	_layout() # The cards sit under the info line, which may have just changed.
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
 		info_label.text = str(_board.title) if not _board.is_empty() else "Replay"
@@ -1530,7 +1532,8 @@ func _build_ui() -> void:
 	live_box = _row([_button("CANCEL", _cancel_live, 26, "ghost", 96)])
 
 	speed_picker = FightSpeed.picker()
-	fight_box = _row([speed_picker, _button("SKIP", _skip_to_end)])
+	# Speed, Skip and Sound sit in one row of pills along the bottom (FightLayout).
+	fight_box = _row([speed_picker, FightLayout.skip_pill(_skip_to_end)])
 
 	# The result: one card under the arena, like the campaign's victory sheet.
 	# What happened, then the one thing to do next (big), a way out beside it,
@@ -1693,25 +1696,16 @@ func _swipe_back() -> Callable:
 ## arena. Either way the arena shrinks before the controls are pushed off screen.
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
-	var top := TOP
-	var bottom_margin := 90.0 ## Clears the build stamp and the sound toggle.
-	var panel_width := 680.0
-	var landscape := size.x >= size.y
-	var side: float
-	var left: float
-	var panel_pos: Vector2
-	if landscape:
-		# The arena takes the full height on the left; the title, fight HUD,
-		# info and controls stack in the panel on the right.
-		side = minf(size.y - 40.0, size.x - panel_width - 100.0)
-		left = maxf(20.0, (size.x - side - panel_width - 40.0) / 2.0)
-		panel_pos = Vector2(left + side + 40.0, top)
-	else:
-		side = clampf(size.y - top - INFO_HEIGHT - CONTROLS_HEIGHT - bottom_margin, 300.0, minf(ARENA_PIXELS, size.x - 40.0))
-		left = (size.x - side) / 2.0
-		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
-		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 12.0)
-	var arena_pos := Vector2(left, 20.0 if landscape else top)
+	var bottom_margin := FightLayout.BOTTOM_MARGIN ## Clears the build stamp and the bottom pills.
+	# The same shape as every fight screen (FightLayout): bars on top, the
+	# arena, then the info line, controls and fighters' cards under it (or
+	# beside it on a wide screen).
+	var r := FightLayout.rects(size)
+	var landscape: bool = r.landscape
+	var side: float = r.arena.size.x
+	var panel_width: float = r.panel.size.x
+	var panel_pos: Vector2 = r.panel.position
+	var arena_pos: Vector2 = r.arena.position
 	if state == State.CLIP:
 		clip_card.position = ((size - ClipCard.SIZE) / 2.0).floor()
 		arena_pos = clip_card.position + ClipCard.ARENA_POS
@@ -1720,7 +1714,7 @@ func _layout() -> void:
 	arena_clip.position = arena_pos
 	arena_clip.size = Vector2(side, side)
 	arena.set_camera(arena.cam_zoom, arena.cam_focus)
-	_hud_box = Rect2(panel_pos.x, 8.0, panel_width, TOP - 10.0) if landscape else Rect2(left, 8.0, side, TOP - 10.0)
+	_hud_box = r.hud
 	_place(menu_header, Vector2(panel_pos.x, 22) if landscape else Vector2((size.x - panel_width) / 2.0, 22), Vector2(panel_width, 84))
 	_place(hud_label, Vector2(_hud_box.position.x, 72), Vector2(_hud_box.size.x, 48))
 	_place(fight_hud, _hud_box.position + Vector2(0, 16), _hud_box.size - Vector2(0, 20))
@@ -1731,9 +1725,10 @@ func _layout() -> void:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	# The result card takes the info line's room too: its detail is inside it.
 	_place(result_box, panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
-	# The fighters' cards fill the room under a fight's one-row controls.
-	var strip_top := controls_top + 84.0 + 20.0
-	_place(fighter_strip, Vector2(panel_pos.x, strip_top), Vector2(panel_width, clampf(size.y - strip_top - 30.0, 0.0, 240.0)))
+	# The fighters' cards sit under the info line (its room only when it has
+	# something to say), clear of the bottom pills.
+	var cards := FightLayout.cards_rect(r, 50.0 if info_label.text != "" else 0.0)
+	_place(fighter_strip, cards.position, cards.size)
 	# The build stamp stops short of the sound toggle in the other corner.
 	_place(stamp_label, Vector2(16, size.y - 40), Vector2(maxf(100.0, size.x - Sfx.TOGGLE_SIZE.x - 48.0), 30))
 	arena.queue_redraw()
@@ -1792,8 +1787,6 @@ func _show_only(box: Control) -> void:
 func _update_hud() -> void:
 	hud_label.text = ""
 	var fighting := sim != null and state == State.FIGHT
-	# Fights keep the screen for the fight: no sound pill (the build stamp is in Settings).
-	sfx.in_fight = fighting
 	fighter_strip.show_fight(sim if fighting else null, you_side)
 	if sim == null:
 		fight_hud.show_fight(null)

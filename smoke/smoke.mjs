@@ -616,13 +616,20 @@ try {
     console.log("ghost arena:", await waitForLog(logs, "ARENA_READY", 10000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "19-arena-intro.png") });
-    // FIGHT! is pinned at the bottom of the intro; Launch and Skip then sit
-    // under this point (first panel row, right half).
-    await tapUi(page, logs, "arena_fight");
+    // FIGHT! is pinned at the bottom of the intro. Then each ball's Launch
+    // and its leg's Skip (the middle pill of the bottom row) are tapped where
+    // the scene logs them (arena_launch, arena_skip), newest first.
     const start = logs.length;
+    await tapUi(page, logs, "arena_fight");
     let result = null;
+    let done = start;
     for (let i = 0; i < 60 && !result; i++) {
-      await page.mouse.click(...toPage(page, 530, 1032));
+      const at = logs.length;
+      const mark = [...logs.slice(done)].reverse().find((l) => l.startsWith("UI_AT arena_launch ") || l.startsWith("UI_AT arena_skip "));
+      if (mark) {
+        done = at;
+        await page.mouse.click(...toPage(page, ...mark.split(" ").slice(2).map(Number)));
+      }
       await page.waitForTimeout(700);
       result = logs.slice(start).find((l) => l.startsWith("ARENA_RESULT"));
     }
