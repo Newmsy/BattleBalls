@@ -82,8 +82,28 @@ static func make_ctx(id: String, s: float, margin: float) -> Kit.Ctx:
 	return ctx
 
 
+## How much each bright floor is dimmed so balls, aim dots and effects stay
+## readable (Newms 2026-10-22: effects and the aim line got lost on light
+## floors). Tuned so every floor's middle sits near the same mid-dark level;
+## maps not listed are dark already.
+const DIM := {
+	"rink": 0.57, "bumpers": 0.56, "square": 0.55, "frost": 0.53, "candy": 0.52, "syrup": 0.52,
+	"prism": 0.51, "kelp": 0.5, "cloud": 0.49, "reef": 0.49, "hive": 0.48, "oasis": 0.48,
+	"dunes": 0.46, "toybox": 0.46, "ruins": 0.39, "thorn": 0.39, "temple": 0.39, "trench": 0.33,
+	"pillars": 0.29, "spikes": 0.29, "factory": 0.1,
+}
+const DIM_COLOR := Color("0d0b1e")
+
+
 ## Floor, walls and props for the whole canvas.
 static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
+	_paint_family(cv, ctx)
+	var dim: float = DIM.get(ctx.id, 0.0)
+	if dim > 0.0: # Over the floor only: the wall band sits outside the outline.
+		Kit.poly(cv, ctx.outline, Color(DIM_COLOR, dim))
+
+
+static func _paint_family(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	match family(ctx.id):
 		"candy":
 			Candy.paint(cv, ctx)
