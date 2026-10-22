@@ -767,13 +767,11 @@ func _layout() -> void:
 	if fight_view: # The same shape as every fight screen (FightLayout).
 		var r := FightLayout.rects(size)
 		arena.fit(r.arena.position, r.arena.size.x)
-		FightLayout.place_hud(fight_hud, r)
+		FightLayout.place_plates(fight_hud, fighter_strip, r, size)
 		var p: Rect2 = r.panel
 		var info_h := 0.0 if state == State.FIGHT else 56.0
 		_place(info_label, p.position, Vector2(p.size.x, 50))
 		_place(panel, p.position + Vector2(0, info_h), Vector2(p.size.x, maxf(0.0, p.size.y - info_h)))
-		var cards := FightLayout.cards_rect(r, info_h)
-		_place(fighter_strip, cards.position, cards.size)
 	var page_width := minf(680.0, size.x - 40.0)
 	_place(scroll, Vector2((size.x - page_width) / 2.0, 150), Vector2(page_width, size.y - 150 - bottom_margin))
 	page.custom_minimum_size.x = page_width
@@ -825,7 +823,12 @@ func _report(screen: String) -> void:
 
 func _update_hud() -> void:
 	hud_label.text = ""
-	fighter_strip.show_fight(sim if sim != null and state == State.FIGHT else null)
+	# Aiming, the controls have the room under the arena: only the foe's plates show.
+	var plates := sim != null and state in [State.AIM, State.FIGHT]
+	fighter_strip.show_fight(sim if plates else null)
+	fighter_strip.foe_only = state == State.AIM
+	fight_hud.plates = plates
+	fight_hud.foe_only = state == State.AIM
 	if sim == null or not arena.visible:
 		fight_hud.show_fight(null)
 		return

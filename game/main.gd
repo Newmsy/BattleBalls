@@ -223,7 +223,7 @@ var profile
 ## The campaign stage being fought: {config, zone, stage, fighter, result?},
 ## or a Gear Vault run: {config, vault (difficulty), fighter, result?}.
 var pve := {}
-var _stats_for: MatchSim ## The fight fight_hud.stats were worked out for.
+var _stats_for: MatchSim ## The fight fighter_strip.stats were worked out for.
 var fighter_strip: Control ## The two fighters' cards under a 1v1 (game/fighter_strip.gd).
 var _hud_box := Rect2(0, 8, 680, TOP - 10.0) ## Room for the fight HUD (_layout).
 var pve_param := ""
@@ -272,6 +272,7 @@ func _ready() -> void:
 	save.capture_files()
 	_sync_settings(true)
 	FightSpeed.on_pick = func(i: int):
+		FightSpeed.mark_saved()
 		save.data["settings"] = {"fight_speed": i}
 		save.commit()
 	_apply_picks()
@@ -314,7 +315,7 @@ func _ready() -> void:
 	print("BOOT_OK build=", _build_stamp(), " reduced_motion=", A11y.reduced_motion)
 	_build_shell()
 	TouchInput.ensure(self)
-	TouchInput.set_back(self, _swipe_back)
+	TouchInput.set_back(self, _swipe_back, func(): return shell.back_preview() if shell_layer != null and shell_layer.visible else {})
 	if pve_param != "":
 		_start_url_stage()
 	elif _wants_tutorial():
@@ -348,6 +349,9 @@ func _ready() -> void:
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")
 				shell.go("bracket")
+	if url_params.has("perftour"): # ?perftour=1 (or =play,campaign) times every screen's open.
+		var only: Array = [] if url_params.perftour in ["", "1"] else Array(url_params.perftour.split(","))
+		preload("res://game/perf_tour.gd").run.call_deferred(shell, only)
 	friends.changed.connect(func(): if state == State.RESULT: _label_result_buttons())
 	if link_friend != "":
 		friends.set_invite(link_friend)
@@ -737,9 +741,10 @@ func _start_fight() -> void:
 	_prepare_fight(sim.config)
 	_apply_cosmetics()
 	state = State.FIGHT
-	info_label.text = "" # The names, tiers and power are on the health bars (all four in a 2v2).
+	info_label.text = "" # The names, tiers and power are on the plates.
+	fight_hud.power = ["", ""]
 	if mode == Mode.CAMPAIGN: # Tier, level and power sit under the health bars.
-		info_label.text = "" if sim.starters == 2 else _pair_power_text()
+		fight_hud.power = ["", ""] if sim.starters == 2 else _pair_powers()
 	# The week's twist, if any, shows under the clock in the HUD.
 	speed_picker.refresh()
 	_show_only(fight_box)
@@ -1100,13 +1105,13 @@ func _load_profile() -> void:
 	if str(url_params.get("intro", "")).is_valid_int():
 		profile.intro = clampi(int(url_params.intro), 0, Profile.INTRO_DONE)
 	profile.changed.connect(_save_profile)
-	FightSpeed.account_level = profile.account_level
+	FightSpeed.set_account_level(profile.account_level)
 
 
 func _save_profile() -> void:
 	if profile_unsaved:
 		return
-	FightSpeed.account_level = profile.account_level
+	FightSpeed.set_account_level(profile.account_level)
 	save.data.profile = profile.to_dict()
 	save.commit()
 
@@ -1152,12 +1157,13 @@ func _team_picks() -> Array:
 
 
 ## "Power 2,250 vs 3,100" for a 2v2 or 3v3 stage, short enough for one line.
-func _pair_power_text() -> String:
+## A campaign team stage's power per side (yours first), shown by the arena.
+func _pair_powers() -> Array:
 	var mine := 0
 	for id in _team_picks():
 		mine += profile.power_of(id)
 	var st := Zones.stage(pve.zone, pve.stage)
-	return "Power %s vs %s" % [Kit.commas(mine), Kit.commas(Campaign.enemy_rating(pve.zone, pve.stage) * Zones.enemies(st).size())]
+	return [Kit.commas(mine), Kit.commas(Campaign.enemy_rating(pve.zone, pve.stage) * Zones.enemies(st).size())]
 
 
 ## The rules script of the boss being fought (meta/gear_vault.gd, meta/brood_nest.gd).
@@ -1302,7 +1308,13 @@ func _apply_picks() -> void:
 ## takes this device's choice.
 func _sync_settings(boot: bool) -> void:
 	var s = save.data.get("settings")
-	if s is Dictionary and s.has("fight_speed"):
+	if boot and FightSpeed.has_unsaved():
+		# Picked in another fight scene (Spire, Ghost Arena, relays, Bounce
+		# Run) since main last ran: that pick is newer than the save's.
+		FightSpeed.mark_saved()
+		save.data["settings"] = {"fight_speed": FightSpeed.pick()}
+		save.commit()
+	elif s is Dictionary and s.has("fight_speed"):
 		FightSpeed.restore(int(s.fight_speed))
 	elif boot and FightSpeed.pick() != 0:
 		save.data["settings"] = {"fight_speed": FightSpeed.pick()}
@@ -1419,6 +1431,10 @@ func _on_account_changed() -> void:
 
 
 func _notification(what: int) -> void:
+	# Off to another fight scene: a speed picked there can't reach this save
+	# (FightSpeed.unsaved keeps it until this scene starts again).
+	if what == NOTIFICATION_PREDELETE:
+		FightSpeed.on_pick = Callable()
 	# Coming back to the tab or app: pick up anything another device saved.
 	# Leaving it: send this device's changes before the phone suspends the tab.
 	if what in [NOTIFICATION_APPLICATION_FOCUS_IN, NOTIFICATION_APPLICATION_FOCUS_OUT] \
@@ -1706,10 +1722,10 @@ func _swipe_back() -> Callable:
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
 	var bottom_margin := FightLayout.BOTTOM_MARGIN ## Clears the build stamp and the bottom pills.
-	# The same shape as every fight screen (FightLayout): bars on top, the
-	# arena, then the info line, controls and fighters' cards under it (or
-	# beside it on a wide screen).
-	var r := FightLayout.rects(size)
+	# The same shape as every fight screen (FightLayout): the foe's plates,
+	# the arena, then yours (or the info line and controls while aiming). The
+	# Quick fight menu keeps its tall panel under the arena instead.
+	var r := FightLayout.rects(size, INFO_HEIGHT + CONTROLS_HEIGHT if state == State.MENU else 0.0)
 	var landscape: bool = r.landscape
 	var side: float = r.arena.size.x
 	var panel_width: float = r.panel.size.x
@@ -1725,7 +1741,6 @@ func _layout() -> void:
 	_hud_box = r.hud
 	_place(menu_header, Vector2(panel_pos.x, 22) if landscape else Vector2((size.x - panel_width) / 2.0, 22), Vector2(panel_width, 84))
 	_place(hud_label, Vector2(_hud_box.position.x, 72), Vector2(_hud_box.size.x, 48))
-	_place(fight_hud, _hud_box.position + Vector2(0, 16), _hud_box.size - Vector2(0, 20))
 	_place(info_label, panel_pos, Vector2(panel_width, INFO_HEIGHT - 6.0))
 	controls_rect = Rect2(panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
 	var controls_top := panel_pos.y + INFO_HEIGHT
@@ -1733,10 +1748,7 @@ func _layout() -> void:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	# The result card takes the info line's room too: its detail is inside it.
 	_place_result(size)
-	# The fighters' cards sit under the info line (its room only when it has
-	# something to say), clear of the bottom pills.
-	var cards := FightLayout.cards_rect(r, 50.0 if info_label.text != "" else 0.0)
-	_place(fighter_strip, cards.position, cards.size)
+	FightLayout.place_plates(fight_hud, fighter_strip, r, size)
 	# The build stamp stops short of the sound toggle in the other corner.
 	_place(stamp_label, Vector2(16, size.y - 40), Vector2(maxf(100.0, size.x - Sfx.TOGGLE_SIZE.x - 48.0), 30))
 	arena.queue_redraw()
@@ -1811,15 +1823,22 @@ func _show_only(box: Control) -> void:
 		card.move_child(info_label, 2)
 	elif box != result_box and info_label.get_parent() == card:
 		info_label.reparent(ui, false)
-		_layout()
+	_layout() # The Quick fight menu lays out differently from the rest.
 	aim_back_button.visible = mode != Mode.TUTORIAL
 	_sync_share_targets()
 
 
 func _update_hud() -> void:
 	hud_label.text = ""
-	var fighting := sim != null and state == State.FIGHT
-	fighter_strip.show_fight(sim if fighting else null, you_side)
+	info_label.visible = state != State.FIGHT or sim == null
+	# Aiming, the info line and controls have the room under the arena: only
+	# the foe's plates show.
+	var plates := sim != null and state in [State.AIM, State.FIGHT]
+	fighter_strip.show_fight(sim if plates else null, you_side)
+	fighter_strip.foe_only = state == State.AIM
+	fight_hud.plates = plates
+	fight_hud.foe_only = state == State.AIM
+	fight_hud.visible = state != State.CLIP
 	if sim == null:
 		fight_hud.show_fight(null)
 		menu_header.visible = state == State.MENU
@@ -1835,16 +1854,15 @@ func _update_hud() -> void:
 	fight_hud.tags = tags.map(func(t): return str(t).to_upper())
 	if _stats_for != sim:
 		_stats_for = sim
-		fight_hud.stats = ["", ""] if sim.starters > 2 else [_side_stats(you_side), _side_stats(1 - you_side)]
+		fighter_strip.stats = ["", ""] if sim.starters > 2 else [_side_stats(you_side), _side_stats(1 - you_side)]
 	var twist: String = Modifiers.display_name(sim.config.modifier) if sim.config.get("modifier", Modifiers.NONE) != Modifiers.NONE else ""
+	# The info line has no room in a fight (the plates fill the screen): what
+	# it says (a replay's title) shows under the clock, after the twist.
+	if twist == "" and state == State.FIGHT:
+		twist = info_label.text
 	fight_hud.caption = "x%.1f damage" % sim.damage_multiplier() if sim.in_overtime() else twist
 	fight_hud.show_fight(sim, clock)
-	# The bars (four in a 2v2, or two with their tier and power lines) take
-	# the title's room above the arena.
-	var tall := sim.starters > 2
 	menu_header.visible = false
-	fight_hud.position = _hud_box.position + (Vector2.ZERO if tall else Vector2(0, 16))
-	fight_hud.size = _hud_box.size - (Vector2.ZERO if tall else Vector2(0, 20))
 
 
 ## Under a side's health bar: "T5 · Lv25 · 5,481 power", or just "T3" where
@@ -2406,7 +2424,7 @@ func _adopt_profile(p) -> void:
 	profile.changed.disconnect(_save_profile)
 	profile = p
 	profile.changed.connect(_save_profile)
-	FightSpeed.account_level = profile.account_level
+	FightSpeed.set_account_level(profile.account_level)
 	shell.set_profile(profile)
 	_save_profile()
 
@@ -2596,9 +2614,12 @@ func _run_probe() -> void:
 
 
 func _read_url_params() -> Dictionary:
-	if not OS.has_feature("web"):
+	# Native dev runs take the same params after "--": godot -- demo=1 perftour=1
+	var query: String = "&".join(OS.get_cmdline_user_args())
+	if OS.has_feature("web"):
+		query = str(JavaScriptBridge.eval("window.location.search", true))
+	elif query == "":
 		return {}
-	var query: String = str(JavaScriptBridge.eval("window.location.search", true))
 	var params := {}
 	for pair in query.trim_prefix("?").split("&", false):
 		var kv := pair.split("=")

@@ -18,9 +18,13 @@ const COLUMNS := 4
 ## Owned critters from `ids`, strongest first (Profile.power_of).
 static func by_power(profile, ids: Array) -> Array:
 	var out: Array = ids.filter(func(id): return profile.owns(id))
+	# Each power once: power_of walks the whole collection, too slow per comparison.
+	var power := {}
+	for id in out:
+		power[id] = profile.power_of(id)
 	out.sort_custom(func(a, b):
-		var pa: int = profile.power_of(a)
-		var pb: int = profile.power_of(b)
+		var pa: int = power[a]
+		var pb: int = power[b]
 		return pa > pb if pa != pb else str(a) < str(b))
 	return out
 
