@@ -28,6 +28,7 @@ enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
 const ARENA_PIXELS := 680.0
 const PANEL_HEIGHT := 400.0
 const FightSpeed := preload("res://game/fight_speed.gd")
+const FightLayout := preload("res://game/fight_layout.gd")
 const LEG_PAUSE := 1.4 ## Seconds to show a leg's winner before the next leg.
 
 var state := State.INTRO
@@ -41,6 +42,7 @@ var aim := 0 ## Current aim for your ball, tenths of a degree, screen space.
 var _accumulator := 0.0
 var _pause := 0.0
 var _dragging := false
+var _laid_out_for := -1 ## The state _layout last placed things for.
 
 var arena: ArenaView
 var sfx: Sfx
@@ -191,10 +193,8 @@ func _start_leg() -> void:
 	_accumulator = 0.0
 	state = State.FIGHT
 	info_label.text = "" # The names are on the health bars.
-	var speed := FightSpeed.picker()
-	var skip := _button("Skip", _skip_leg)
-	skip.name = "SpireSkip"
-	_set_panel([_row([speed, skip])])
+	# Speed, Skip and Sound: the bottom row of pills every fight screen has.
+	_set_panel([_row([FightSpeed.picker(), FightLayout.skip_pill(_skip_leg, "SpireSkip")])])
 	sfx.on_fight_start(sim)
 
 
@@ -274,16 +274,23 @@ func _update_hud() -> void:
 		return
 	# Balls each side still has, the one fighting included.
 	var left := [relay.sides[0].size() - relay.slot[0], relay.sides[1].size() - relay.slot[1]]
-	var fighting: bool = sim != null and state in [State.FIGHT, State.LEG_END]
-	lineup_row.visible = not fighting
-	if fighting:
+	if state != _laid_out_for:
+		_layout()
+	# Aiming and fighting look like every fight screen: the bars on top,
+	# the cards under the arena while the balls are out.
+	var view := _fight_view() and sim != null
+	lineup_row.visible = not view
+	fighter_strip.show_fight(sim if view and state == State.FIGHT else null)
+	if view:
 		hud_label.text = ""
 		fight_hud.show_fight(sim, "%d v %d" % left)
-		fighter_strip.show_fight(sim)
 	else:
 		fight_hud.show_fight(null)
-		fighter_strip.show_fight(null)
 		hud_label.text = "%d v %d" % left
+
+
+func _fight_view() -> bool:
+	return state in [State.AIM, State.FIGHT, State.LEG_END]
 
 
 func _build_ui() -> void:
@@ -319,6 +326,11 @@ func _build_ui() -> void:
 ## screens put the panel beside the arena.
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
+	_laid_out_for = state
+	title_label.visible = not _fight_view()
+	if _fight_view():
+		_layout_fight(size)
+		return
 	var top := 190.0
 	var bottom_margin := 40.0
 	var panel_width := 680.0
@@ -342,9 +354,21 @@ func _layout() -> void:
 	_place(fight_hud, Vector2(left, 100), Vector2(side, 84))
 	_place(info_label, panel_pos, Vector2(panel_width, 90))
 	_place(panel, panel_pos + Vector2(0, 100), Vector2(panel_width, PANEL_HEIGHT - 100.0))
-	# The cards fill the room under a leg's one-row controls (speed and Skip).
-	var strip_top := panel_pos.y + 100.0 + 84.0 + 20.0
-	_place(fighter_strip, Vector2(panel_pos.x, strip_top), Vector2(panel_width, clampf(size.y - strip_top - bottom_margin, 0.0, 240.0)))
+	arena.queue_redraw()
+
+
+## Aiming and fighting: the same shape as every fight screen (FightLayout).
+func _layout_fight(size: Vector2) -> void:
+	var r := FightLayout.rects(size)
+	arena.view_scale = r.arena.size.x / MatchSim.ARENA_SIZE
+	arena.position = r.arena.position
+	FightLayout.place_hud(fight_hud, r)
+	var p: Rect2 = r.panel
+	var info_h := 0.0 if state == State.FIGHT else 56.0 # The aim hint, or who stays in.
+	_place(info_label, p.position, Vector2(p.size.x, 50))
+	_place(panel, p.position + Vector2(0, info_h), Vector2(p.size.x, maxf(0.0, p.size.y - info_h)))
+	var cards := FightLayout.cards_rect(r, info_h)
+	_place(fighter_strip, cards.position, cards.size)
 	arena.queue_redraw()
 
 
@@ -354,6 +378,8 @@ func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 
 
 func _set_panel(children: Array) -> void:
+	if state != _laid_out_for: # Aiming and fighting move the panel (FightLayout).
+		_layout()
 	for c in panel.get_children():
 		panel.remove_child(c)
 		c.queue_free()

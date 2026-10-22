@@ -270,13 +270,13 @@ static func _row_plan(n: int) -> Array:
 	return out
 
 
-## A copy's progress to its next fuse: "2/3 TO FUSE", or "FUSE READY" at 3+.
+## A copy's progress to its next fuse: T1 copies held out of 3, uncapped ("2/3", "10/3").
 static func _fuse_note(p, id: String) -> String:
 	var t1 := 0
 	for s in p.copies(id):
 		if s.tier == 1:
 			t1 = s.count
-	return "FUSE READY" if t1 >= 3 else "%d/3 TO FUSE" % t1
+	return "%d/3" % t1
 
 
 ## The eggs drop in from above one after another (DROP_GAP apart) and land

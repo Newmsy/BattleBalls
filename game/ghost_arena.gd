@@ -29,6 +29,8 @@ enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
 const ARENA_PIXELS := 680.0
 const PANEL_HEIGHT := 400.0
 const FightSpeed := preload("res://game/fight_speed.gd")
+const FightLayout := preload("res://game/fight_layout.gd")
+const FighterStrip := preload("res://game/fighter_strip.gd")
 ## Room kept under the intro and result panels for an iPhone's home bar.
 const SAFE_BOTTOM := 90.0
 const LEG_PAUSE := 1.4 ## Seconds to show a leg's winner before the next leg.
@@ -46,6 +48,7 @@ var slots := [[], []] ## Both trios as lineup slots, for the tier and power on s
 var _accumulator := 0.0
 var _pause := 0.0
 var _dragging := false
+var _laid_out_for := -1 ## The state _layout last placed things for.
 var _result_marks := {}
 var _last_slots: Array = []
 var _intro_art := 56.0 ## Face size on the intro cards, grown to fill the room.
@@ -55,6 +58,7 @@ var sfx: Sfx
 var title_label: Label
 var hud_label: Label
 var fight_hud: FightHud ## Both health bars, above the arena.
+var fighter_strip: Control ## The two fighters' cards under the arena, as in Quick fight.
 var lineup_label: Label
 var info_label: Label
 var panel: VBoxContainer
@@ -238,7 +242,9 @@ func _begin_aim(slot: int) -> void:
 	arena.clear_effects()
 	_preview()
 	info_label.text = "Ball %d/3 · drag to aim %s" % [slot + 1, BallDefs.get_def(relay.sides[0][slot]).display_name]
-	_set_panel([_button("Launch", _launch, 36)])
+	var launch := _button("Launch", _launch, 36)
+	_set_panel([launch])
+	_mark_at.call_deferred("arena_launch", launch)
 
 
 func _preview() -> void:
@@ -262,16 +268,32 @@ func _start_leg() -> void:
 	arena.clear_effects()
 	_accumulator = 0.0
 	state = State.FIGHT
-	info_label.text = "%s vs %s" % [_fighter_text(0), _fighter_text(1)]
-	var speed := FightSpeed.picker()
-	_set_panel([_row([speed, _button("Skip", _skip_leg)])])
+	info_label.text = "" # Tier, level and power sit under each health bar.
+	fight_hud.stats = [_stats_text(0), _stats_text(1)]
+	# Speed, Skip and Sound: the bottom row of pills every fight screen has.
+	var skip := FightLayout.skip_pill(_skip_leg)
+	_set_panel([_row([FightSpeed.picker(), skip])])
+	_mark_at.call_deferred("arena_skip", skip.button)
 	sfx.on_fight_start(sim)
 
 
-## "T2 Optic · 1,250 power" for the ball `side` has out this leg.
-func _fighter_text(side: int) -> String:
+## "T2 · Lv14 · 1,250 power" under the health bar of the ball `side` has out.
+func _stats_text(side: int) -> String:
 	var s := Lineup.clean(slots[side][relay.slot[side]])
-	return FighterTag.text(BallDefs.get_def(s.critter).display_name, s.tier, FighterTag.rating(s), s.level)
+	var parts := ["T%d" % int(s.tier)]
+	if int(s.get("level", 0)) > 0:
+		parts.append("Lv%d" % int(s.level))
+	parts.append("%s power" % Kit.commas(FighterTag.rating(s)))
+	return " · ".join(parts)
+
+
+## Logs where a control is once it's laid out, for the smoke test ("UI_AT name x y").
+func _mark_at(name: String, c: Control) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(c) and c.is_visible_in_tree():
+		var at := c.get_global_rect().get_center()
+		print("UI_AT %s %d %d" % [name, roundi(at.x), roundi(at.y)])
 
 
 func _skip_leg() -> void:
@@ -419,10 +441,17 @@ func _update_hud() -> void:
 		return
 	# Balls each side still has, the one fighting included.
 	var left := [relay.sides[0].size() - relay.slot[0], relay.sides[1].size() - relay.slot[1]]
-	var fighting: bool = sim != null and state in [State.FIGHT, State.LEG_END]
-	lineup_label.visible = not fighting
-	if fighting:
+	if state != _laid_out_for:
+		_layout()
+	# Aiming and fighting look like every fight screen: the bars on top,
+	# the cards under the arena while the balls are out.
+	var view := _fight_view() and sim != null
+	lineup_label.visible = not view
+	fighter_strip.show_fight(sim if view and state == State.FIGHT else null)
+	if view:
 		hud_label.text = ""
+		if state == State.AIM:
+			fight_hud.stats = [_stats_text(0), _stats_text(1)]
 		fight_hud.show_fight(sim, "%d v %d" % left)
 	else:
 		fight_hud.show_fight(null)
@@ -445,6 +474,9 @@ func _build_ui() -> void:
 	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fight_hud.tags = ["YOU", "GHOST"]
 	ui.add_child(fight_hud)
+	fighter_strip = FighterStrip.new()
+	fighter_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(fighter_strip)
 	lineup_label = _label("", 24)
 	lineup_label.modulate = Color("a29fc9")
 	info_label = _label("", 26)
@@ -457,8 +489,17 @@ func _build_ui() -> void:
 
 ## Same shape as the main screen: portrait stacks arena over the panel, wide
 ## screens put the panel beside the arena.
+func _fight_view() -> bool:
+	return state in [State.AIM, State.FIGHT, State.LEG_END]
+
+
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
+	_laid_out_for = state
+	title_label.visible = not _fight_view()
+	if _fight_view():
+		_layout_fight(size)
+		return
 	var top := 190.0
 	var bottom_margin := 40.0
 	var panel_width := 680.0
@@ -490,12 +531,29 @@ func _layout() -> void:
 	arena.queue_redraw()
 
 
+## Aiming and fighting: the same shape as every fight screen (FightLayout).
+func _layout_fight(size: Vector2) -> void:
+	var r := FightLayout.rects(size)
+	arena.view_scale = r.arena.size.x / MatchSim.ARENA_SIZE
+	arena.position = r.arena.position
+	FightLayout.place_hud(fight_hud, r)
+	var p: Rect2 = r.panel
+	var info_h := 0.0 if state == State.FIGHT else 56.0 # The aim hint, or who stays in.
+	_place(info_label, p.position, Vector2(p.size.x, 50))
+	_place(panel, p.position + Vector2(0, info_h), Vector2(p.size.x, maxf(0.0, p.size.y - info_h)))
+	var cards := FightLayout.cards_rect(r, info_h)
+	_place(fighter_strip, cards.position, cards.size)
+	arena.queue_redraw()
+
+
 func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 	c.position = pos
 	c.size = size
 
 
 func _set_panel(children: Array) -> void:
+	if state != _laid_out_for: # Aiming and fighting move the panel (FightLayout).
+		_layout()
 	for c in panel.get_children():
 		panel.remove_child(c)
 		c.queue_free()
