@@ -4,6 +4,7 @@
 ## which records the result in the climb file and comes back here.
 extends RefCounted
 
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
@@ -156,6 +157,7 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 				next.append(f.id)
 			shell.refresh_with({"picks": next})
 		var card := Kit.card_button(cell, on_tap, TOWER if order >= 0 else Kit.LINE, Kit.PANEL2 if order >= 0 else Kit.PANEL, 28, 10)
+		FamilyEdge.attach(card, [f.id], spec.enemies.map(func(e): return str(e.id)))
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("spire_pick_" + f.id, card)
 		grid.add_child(card)

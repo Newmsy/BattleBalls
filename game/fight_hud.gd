@@ -9,8 +9,6 @@ extends Control
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const A11y := preload("res://game/a11y.gd")
-const FamilyEdges := preload("res://game/family_edges.gd")
-const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const FightLayout := preload("res://game/fight_layout.gd")
 
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
@@ -49,10 +47,6 @@ var _chip_hold := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var _count := 2 ## Bars: 2, or 4 in a 2v2 (index 2 is YOU's mate, 3 the foe's), or 6 in a 3v3.
 var _time := 0.0
 var _live := false
-## The 1v1 family edge from the YOU side's view (-2..2) and the colour of the
-## family that has it: ▲▲ / ▲ by that side's bar.
-var _edge := 0
-var _edge_col := Color.WHITE
 ## The sim side the viewer plays (a live match can put you on side 1): its
 ## balls fill the YOU bars on the left.
 var you_side := 0
@@ -81,9 +75,6 @@ func show_fight(sim, center := "") -> void:
 		_max[i] = maxf(1.0, b.max_hp)
 		_shield[i] = maxf(0.0, b.shield)
 		_names[i] = str(b.def.get("display_name", b.def.get("name", "")))
-	var m := FamilyEdges.matchup(sim) if _count == 2 else {}
-	_edge = int(m.get("edge", 0)) * (-1 if you_side == 1 else 1)
-	_edge_col = FamilyIcon.color(m.adv) if not m.is_empty() else Color.WHITE
 	_live = true
 	queue_redraw()
 
@@ -117,9 +108,6 @@ func _draw() -> void:
 				continue
 			var r := FightLayout.plate_bar(p, _count)
 			_bar(i, r, mini(A11y.font(22), int(r.size.y * 0.72)), tags[i] if i < 2 and _count < 6 else "")
-		if _edge != 0 and not (foe_only and _edge > 0): # The side with the family edge: chevrons at its plate's top right corner.
-			var p := FightLayout.plate(layout, 0 if _edge > 0 else 1, 2)
-			FamilyEdges.draw_chevrons(self, Vector2(p.end.x - 34.0, p.position.y + 30.0), absi(_edge), 16.0, _edge_col)
 	_draw_clock(clock, minf(260.0, arena.size.x * 0.5))
 	if plates:
 		var pfs := A11y.font(18)

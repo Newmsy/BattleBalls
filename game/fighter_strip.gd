@@ -18,6 +18,7 @@ const BossArt := preload("res://game/boss_art.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const CritterPopup := preload("res://game/ui/critter_popup.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const Families := preload("res://sim/families.gd")
 const FightLayout := preload("res://game/fight_layout.gd")
 
@@ -80,6 +81,17 @@ func show_fight(sim, you_side := 0) -> void:
 		_timed = _timed or _card[k].get("every", 0) > 0
 	if changed or _timed:
 		queue_redraw()
+
+
+## Card `k`'s family edge on the cards across from it, 0 when edges are off.
+func _edge(k: int) -> int:
+	if _sim == null or not _sim.get("family_edges") or _card[k].is_empty() or _card[k].boss:
+		return 0
+	var foes := []
+	for j in _n:
+		if j % 2 != k % 2 and not _card[j].is_empty() and not _card[j].boss:
+			foes.append(_card[j].id)
+	return FamilyEdge.team([_card[k].id], foes)
 
 
 func _describe(sim, i: int) -> Dictionary:
@@ -181,6 +193,13 @@ func _draw_card(k: int, r: Rect2) -> void:
 	draw_style_box(box, r)
 	var bar := FightLayout.plate_bar(r, _n)
 	var bottom := bar.position.y - 10.0 # The text stops short of the health bar.
+	# Its family edge on the other side: green up / red down, top right.
+	var edge := _edge(k)
+	var badge_w := 0.0
+	if edge != 0:
+		var bh := 24.0 if _n == 2 else 22.0
+		badge_w = FamilyEdge.badge_width(edge, bh)
+		FamilyEdge.draw_badge(self, Rect2(r.end.x - badge_w - 12.0, r.position.y + 12.0, badge_w, bh), edge)
 	if _n == 6: # A trio: the face over the name and tier, centred; tap for the ability.
 		var fr := clampf((bottom - r.position.y - 76.0) / 2.0, 20.0, 44.0)
 		var face := Vector2(r.get_center().x, r.position.y + 12.0 + fr)
@@ -215,7 +234,7 @@ func _draw_card(k: int, r: Rect2) -> void:
 		for j in team.size():
 			var c := Vector2(r.end.x - 16.0 - br - j * (br * 2.0 + 8.0), head + fs + 6.0 + sfs * 0.5)
 			_draw_bench(team[team.size() - 1 - j], c, br)
-	draw_string(FONT, Vector2(tx, head + fs), card.name, HORIZONTAL_ALIGNMENT_LEFT, tw - (50.0 if k < 2 else 0.0), fs, col)
+	draw_string(FONT, Vector2(tx, head + fs), card.name, HORIZONTAL_ALIGNMENT_LEFT, tw - (badge_w + 8.0 if badge_w > 0.0 else 0.0), fs, col)
 	draw_string(FONT, Vector2(tx, head + fs + 6.0 + sfs), _line(k), HORIZONTAL_ALIGNMENT_LEFT, tw - bench_w, sfs, MUTED)
 	var top := face.y + fr + 12.0
 	if lines > 0:

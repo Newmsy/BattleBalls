@@ -76,7 +76,7 @@ static func face(id: String, side: float, tier_ := 1) -> Control:
 
 func _ready() -> void:
 	if family_badge and not silhouette and Families.of(critter_id) != "":
-		add_child(FamilyIcon.corner(Families.of(critter_id)))
+		add_child(FamilyIcon.corner(Families.of(critter_id), radius_frac))
 	_phase = float(hash(critter_id + str(get_instance_id())) % 1000) / 100.0
 	var node := get_parent()
 	while node != null and _clip == null:

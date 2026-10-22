@@ -184,13 +184,15 @@ class _Badge extends Control:
 		load("res://game/ui/family_icon.gd").draw(self, family, size / 2.0, side, ring)
 
 
-## A badge for a corner of a critter's art box (CritterIcon.family_badge):
-## sits in the bottom-left of the square the critter is drawn in, clear of the
-## ball. Its own canvas item, drawn once, so the critter's idle redraws don't
-## redraw it.
-static func corner(family: String) -> Control:
+## A badge for a critter's art box (CritterIcon.family_badge): sits just off
+## the ball's lower-left edge, sized to the ball but never tiny, so it reads
+## without covering the face. `radius_frac` is the icon's ball radius as a
+## share of its smaller side. Its own canvas item, drawn once, so the
+## critter's idle redraws don't redraw it.
+static func corner(family: String, radius_frac := .26) -> Control:
 	var b := _Corner.new()
 	b.family = family
+	b.radius_frac = radius_frac
 	b.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return b
@@ -198,9 +200,15 @@ static func corner(family: String) -> Control:
 
 class _Corner extends Control:
 	var family := ""
+	var radius_frac := .26
 
 	func _draw() -> void:
 		var side := minf(size.x, size.y)
-		var b := clampf(side * .2, 11.0, 36.0)
-		var c := Vector2((size.x - side) / 2.0 + b * .5, (size.y + side) / 2.0 - b * .5)
+		var r := side * radius_frac
+		var b := clampf(r * .8, 24.0, 44.0)
+		# The ball sits at (centre, 56% down), as CritterIcon draws it.
+		var c := Vector2(size.x / 2.0, size.y * .56) + Vector2(-.71, .71) * (r + b * .3)
+		# At most a little past the box, so it stays by its own critter.
+		c.x = maxf(c.x, b * .4)
+		c.y = minf(c.y, size.y - b * .4)
 		load("res://game/ui/family_icon.gd").draw(self, family, c, b)

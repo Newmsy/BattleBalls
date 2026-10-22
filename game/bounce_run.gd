@@ -6,6 +6,7 @@
 ## &offline=1 (never touch the leaderboard).
 extends Node2D
 
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const FightAim := preload("res://game/fight_aim.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -84,8 +85,9 @@ func _ready() -> void:
 	var params := _url_params()
 	if params.get("day", "").is_valid_int():
 		day = maxi(1, int(params.day))
-	setup = BounceRun.generate(day)
 	_load()
+	# A practice run carries its own seed; the ranked run is the day's tower.
+	setup = BounceRun.generate(day, int(run.get("seed", 0)))
 	arena = ArenaView.new()
 	add_child(arena)
 	sfx = Sfx.new()
@@ -273,9 +275,9 @@ func _show_floor() -> void:
 	var foe: Dictionary = setup.floors[run.floor]
 	sub_label.text = "Pick who to send" # The ladder and the foe card say which floor.
 	var foe_box := Kit.vbox(8, [
-		Kit.hbox(10, [Kit.caption("Floor %d · %s" % [run.floor + 1, foe.title], PINK), Kit.spacer(),
+		Kit.hbox(10, [Kit.caption("Floor %d · %s · T%d" % [run.floor + 1, foe.title, BounceRun.tier_at(run.floor)], PINK), Kit.spacer(),
 			Kit.caption("Power %d%%" % roundi(100.0 * BounceRun.FOE_POWER[run.floor]))]),
-		Kit.hbox(16, [CritterIcon.make(foe.critter, 1, 110), _expand(Kit.vbox(4, [
+		Kit.hbox(16, [CritterIcon.make(foe.critter, BounceRun.tier_at(run.floor), 110), _expand(Kit.vbox(4, [
 			Kit.label(_name(foe.critter), 30),
 			_ability_label(foe.critter),
 			_boon_strip(foe.boons, 44, false),
@@ -293,6 +295,8 @@ func _show_floor() -> void:
 		var out: bool = run.out[s]
 		var card := _critter_card(c.critter, func(): _choose_fighter(s), -1, out, BounceRun.tier_at(run.floor))
 		card.disabled = out
+		if not out:
+			FamilyEdge.attach(card, [c.critter], [foe.critter], 12, 26)
 		items.append(card)
 		if not out:
 			_mark("br_send_%d" % s, card)
@@ -475,7 +479,7 @@ func _show_tier_up(tier: int) -> void:
 	var stars := Kit.hbox(6, [old_stars, _pop_wrap(new_star)], BoxContainer.ALIGNMENT_CENTER)
 	var head := Kit.label("TIER UP!", 52, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 	var lines: Array = [head, stars, faces,
-		Kit.label("Your trio fights at T%d from now on." % tier, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)]
+		Kit.label("Your trio fights at T%d from now on. So do the foes!" % tier, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)]
 	var burst := Panel.new()
 	burst.add_theme_stylebox_override("panel", Kit.box(Color(GOLD, 0.55), Color(0, 0, 0, 0), 999, 0, 0))
 	burst.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -556,9 +560,10 @@ func _show_over() -> void:
 		_fetch_board()
 
 
-## Same day's run again, unranked, from a fresh draft.
+## An unranked run on a fresh random tower: new draft, boons and foes.
 func _practice() -> void:
 	ranked = false
+	setup = BounceRun.generate(day, randi_range(1, 999999))
 	run = {}
 	picks = []
 	start_picks = []
@@ -748,8 +753,7 @@ func _layout() -> void:
 		left = (size.x - side) / 2.0
 		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
 		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 20.0)
-	arena.view_scale = side / MatchSim.ARENA_SIZE
-	arena.position = Vector2(left, top)
+	arena.fit(Vector2(left, top), side)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	rules_button.position = Vector2(size.x - 92.0, 26.0)
 	rules_button.size = Vector2.ZERO
@@ -762,8 +766,7 @@ func _layout() -> void:
 		c.visible = not fight_view
 	if fight_view: # The same shape as every fight screen (FightLayout).
 		var r := FightLayout.rects(size)
-		arena.view_scale = r.arena.size.x / MatchSim.ARENA_SIZE
-		arena.position = r.arena.position
+		arena.fit(r.arena.position, r.arena.size.x)
 		FightLayout.place_plates(fight_hud, fighter_strip, r, size)
 		var p: Rect2 = r.panel
 		var info_h := 0.0 if state == State.FIGHT else 56.0
@@ -947,7 +950,7 @@ func _show_rules() -> void:
 	for t in [
 		"Draft 3 critters and 3 starting boons, then climb %d floors. Foes start easy and get tougher." % BounceRun.FLOORS,
 		"Pick who to send each floor. Lose and that critter is out, but the foe keeps the damage it took for your next send. Lose all three and the run ends.",
-		"Your trio starts at T1 and goes up a tier every %d floors, up to T5 on the last floors. Foes stay T1." % BounceRun.FLOORS_PER_TIER,
+		"Your trio and the foes start at T1 and go up a tier every %d floors, up to T5 on the last floors." % BounceRun.FLOORS_PER_TIER,
 		"Win a floor to pick another boon. Boons power your whole trio. Rarer boons are stronger; tap a held boon to see it.",
 		"A foe's Power is next to your trio's: 100% is even.",
 		"One ranked run a day. Ranked by floors, lives, then time.",

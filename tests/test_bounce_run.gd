@@ -21,6 +21,11 @@ func test_day_numbers_follow_utc_days() -> void:
 func test_runs_are_deterministic_per_day() -> void:
 	check_eq(BounceRun.generate(5), BounceRun.generate(5), "same day, same run")
 	check(BounceRun.generate(5) != BounceRun.generate(6), "different days should differ")
+	check_eq(BounceRun.generate(5, 0), BounceRun.generate(5), "seed 0 is the day's own tower")
+	check(BounceRun.generate(5, 4242).cards != BounceRun.generate(5).cards, "a practice seed draws a fresh tower")
+	check_eq(BounceRun.generate(5, 4242), BounceRun.generate(5, 4242), "a practice seed replays")
+	var setup := BounceRun.generate(5, 4242)
+	check_eq(BounceRun.new_run(setup, [0, 1, 2], setup.start_offer.slice(0, BounceRun.START_BOONS)).seed, 4242, "the run keeps its seed")
 
 
 ## Every foe carries exactly as many boons as you can hold on that floor, and
@@ -202,12 +207,12 @@ func test_opening_bite_lands_on_the_first_hit_only() -> void:
 	check(hits[1] <= 15.0, "later hits are normal")
 
 
-func test_trio_goes_up_a_tier_every_two_floors() -> void:
+func test_both_sides_go_up_a_tier_every_two_floors() -> void:
 	check_eq(range(BounceRun.FLOORS).map(func(f): return BounceRun.tier_at(f)), [1, 1, 2, 2, 3, 3, 4, 4, 5, 5], "tiers by floor")
 	var setup := BounceRun.generate(2)
 	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
 	run.floor = 6
-	check_eq(BounceRun.fight_config(setup, run, 0, 0).tiers, [4, 1], "floor 7 fights at T4")
+	check_eq(BounceRun.fight_config(setup, run, 0, 0).tiers, [4, 4], "floor 7: trio and foe both fight at T4")
 
 
 func test_rarer_boons_have_bigger_numbers() -> void:

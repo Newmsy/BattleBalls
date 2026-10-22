@@ -144,7 +144,7 @@ static func _random_runs(count: int, from := 0) -> String:
 			played[run.floor] += 1
 			if result.winner == 0:
 				wins[run.floor] += 1
-			BounceRun.record(setup, run, slot, aim, result.winner, result.ticks)
+			BounceRun.record(setup, run, slot, aim, result.winner, result.ticks, result.hp[1])
 			if not run.offer.is_empty():
 				BounceRun.take_boon(run, run.offer[rng.range_int(0, run.offer.size() - 1)])
 		floors_total += run.floor
