@@ -17,6 +17,7 @@ const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -273,9 +274,20 @@ func scroll_to(c: Control) -> void:
 
 func _restore_scroll(at: int) -> void:
 	var sc := _scroll
-	if not is_inside_tree():
+	if not is_inside_tree() or at <= 0:
 		return
+	# Set it as soon as the new content's scroll range is known, in the same
+	# frame the screen is rebuilt: waiting for a frame drew the rebuilt screen
+	# scrolled to the top for one frame (a flash on every pick in The Spire).
+	var bar := sc.get_v_scroll_bar()
+	var hold := func():
+		if is_instance_valid(sc) and sc == _scroll and sc.scroll_vertical != at:
+			sc.scroll_vertical = at
+	bar.changed.connect(hold)
 	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(bar) and bar.changed.is_connected(hold):
+		bar.changed.disconnect(hold)
 	await get_tree().process_frame
 	if is_instance_valid(sc) and sc == _scroll:
 		sc.scroll_vertical = at
@@ -404,41 +416,10 @@ func title_row(title: String, opts := {}) -> HBoxContainer:
 
 ## A bottom sheet over a dimmed screen; tapping the dim area closes it.
 func sheet(content: Control) -> void:
-	var root := Control.new()
-	var dim := Button.new()
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var dim_style := Kit.box(Color(.02, .015, .06, .65), Color(0, 0, 0, 0), 0, 0, 0)
-	for st in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-		dim.add_theme_stylebox_override(st, dim_style)
-	dim.pressed.connect(close_overlay)
-	root.add_child(dim)
-	var st := Kit.box(Color("16133a"), Kit.ACCENT, 0, 0, 32)
-	st.border_width_top = 3
-	st.corner_radius_top_left = 44
-	st.corner_radius_top_right = 44
-	st.content_margin_bottom = 60
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", st)
-	panel.add_child(content)
-	root.add_child(panel)
+	# The same sheet every fight's result pops up in (ResultPopup).
+	var root := ResultPopup.frame(self, content, size.y, close_overlay, func(): _report("sheet"))
 	overlay(root, "-") # Reported once it has slid in, so taps land where it stops.
 	_overlay_tag = "sheet" # Back and the edge swipe close it.
-	# A zero-height rect on the bottom edge, growing upwards: the panel is
-	# always exactly as tall as its content, even after wrapped text reflows.
-	panel.anchor_left = 0.0
-	panel.anchor_right = 1.0
-	panel.anchor_top = 1.0
-	panel.anchor_bottom = 1.0
-	panel.offset_left = 0.0
-	panel.offset_right = 0.0
-	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	var slide := func(v: float) -> void:
-		panel.offset_top = v
-		panel.offset_bottom = v
-	slide.call(size.y)
-	var tw := create_tween()
-	tw.tween_method(slide, size.y, 0.0, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.finished.connect(func(): _report("sheet"))
 
 
 func _on_purchase(_id: String, _ok: bool, message: String) -> void:

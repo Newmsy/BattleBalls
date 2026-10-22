@@ -209,6 +209,14 @@ static func power(value: int, size := 26, color := FG) -> HBoxContainer:
 	return hbox(4, [glyph("power", size, WARN), label(commas(value), size, color)])
 
 
+## A currency or count as its icon and number ("[hammer] 1,240"), never the
+## currency's name. `value`: an int (gets commas) or ready text ("12+",
+## "40 to 90"). `tint` colours the icon (white keeps a currency's own colours).
+static func amount(kind: String, value, size := 24, color := FG, tint := Color.WHITE) -> HBoxContainer:
+	var text: String = commas(value) if value is int else str(value)
+	return hbox(6, [glyph(kind, roundf(size * 1.2), tint), label(text, size, color)])
+
+
 ## A glyph kept at its own height in a row: glyphs draw to their height, so a
 ## row that stretched one to the text's height would draw it into the text.
 static func glyph(kind: String, side: float, color: Color, count := 1) -> Control:

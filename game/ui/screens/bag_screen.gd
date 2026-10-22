@@ -25,7 +25,7 @@ const GEAR_INFO := ["3 of a kind → 1 with a star more (max 5). Costs Hammers."
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(22)
-	root.add_child(shell.title_row("Bag", {"back": false, "extra": [Kit.glyph("hammer", 30, Color.WHITE), Kit.label(Kit.commas(p.hammers), 24)],
+	root.add_child(shell.title_row("Bag", {"back": false, "extra": [Kit.amount("hammer", p.hammers)],
 		"info_title": "Gear", "info_mark": "bag_info", "info": GEAR_INFO}))
 
 	var seg := Kit.hbox(8)

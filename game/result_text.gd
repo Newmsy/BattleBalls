@@ -48,7 +48,8 @@ static func describe(sim, names: Array, replay := false, you := 0) -> Dictionary
 static func _plain_headline(sim, names: Array, replay: bool, you := 0) -> String:
 	if replay:
 		return "%s WINS" % sim.balls[sim.winner].def.display_name.to_upper()
-	return "YOU WIN!" if sim.winner == you else "YOU LOSE"
+	# The same words as every mode's result popup (ResultPopup).
+	return "Victory!" if sim.winner == you else "Defeated"
 
 
 ## HP values as text, with a decimal when rounding would make them look equal.

@@ -4,14 +4,13 @@
 ## sim/bosses.gd; this only shows them. Fits one phone screen.
 extends RefCounted
 
+const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
-const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const BroodNest := preload("res://meta/brood_nest.gd")
-const XpBar := preload("res://game/ui/xp_bar.gd")
 const BossArt := preload("res://game/boss_art.gd")
 const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 
@@ -32,12 +31,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var left := BroodNest.runs_left(p, now)
 	root.add_child(Kit.label("%d/%d runs left" % [left, BroodNest.RUNS_PER_DAY], 22, Kit.MUTED))
 
-	if params.has("notice"):
-		var note := Kit.vbox(12, [Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
-		var bars := XpBar.rows(params.get("xp", {}), shell.sfx)
-		if bars != null:
-			note.add_child(bars)
-		root.add_child(Kit.panel(note, Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
+	ResultPopup.boss_result(shell, params)
 
 	root.add_child(BossLevelGrid.hero(shell, BroodNest.BOSS, NEST))
 	var fighter: String = Campaign.fighter_for(p)
@@ -58,7 +52,7 @@ static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	var rec := BroodNest.enemy_rating(d)
 	var mine: int = p.power_of(fighter)
 	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var info := Kit.vbox(4, [Kit.label("Lv %d" % (d + 1), 28), Kit.hbox(8, [Glyph.make("orb", 22), Kit.label("%d+" % diff.orbs, 20)], BoxContainer.ALIGNMENT_CENTER),
+	var info := Kit.vbox(4, [Kit.label("Lv %d" % (d + 1), 28), Kit.amount("orb", "%d+" % diff.orbs, 20),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "She's stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight := Kit.cost_button("Fight", BroodNest.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 72)

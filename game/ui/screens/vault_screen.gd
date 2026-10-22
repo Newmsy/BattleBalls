@@ -5,6 +5,7 @@
 ## only shows them. Fits one phone screen.
 extends RefCounted
 
+const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
@@ -13,7 +14,6 @@ const Campaign := preload("res://meta/campaign.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
 const Gear := preload("res://sim/gear.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
-const XpBar := preload("res://game/ui/xp_bar.gd")
 const BossArt := preload("res://game/boss_art.gd")
 const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
@@ -39,15 +39,11 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(Kit.label(today, 26, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var left := GearVault.runs_left(p, now)
 	root.add_child(Kit.hbox(10, [Kit.label("%d/%d runs" % [left, GearVault.RUNS_PER_DAY], 22, Kit.MUTED),
-		Kit.spacer(), Glyph.make("hammer", 30), Kit.label(Kit.commas(p.hammers), 24)], BoxContainer.ALIGNMENT_CENTER))
+		Kit.spacer(), Kit.amount("hammer", p.hammers)], BoxContainer.ALIGNMENT_CENTER))
 
 	if params.has("notice"):
 		var r: Dictionary = params.get("xp", {})
-		var note := Kit.vbox(12, [result_row(r) if r.has("won") else Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
-		var bars := XpBar.rows(params.get("xp", {}), shell.sfx)
-		if bars != null:
-			note.add_child(bars)
-		root.add_child(Kit.panel(note, Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
+		ResultPopup.boss_result(shell, params, result_row(r) if r.has("won") else null)
 
 	root.add_child(BossLevelGrid.hero(shell, GearVault.BOSS, VAULT))
 	var fighter: String = Campaign.fighter_for(p)
@@ -70,7 +66,7 @@ static func _card(shell, p, d: int, fighter: String, now: int, left: int) -> Con
 	var col := BagScreen.tier_color(diff.tier)
 	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
 	var info := Kit.vbox(4, [Kit.label(diff.name, 28), Kit.hbox(8, [Glyph.make("stars", 20, col, diff.tier), Kit.label("+", 20, Kit.MUTED),
-		Glyph.make("hammer", 22), Kit.label("%d" % diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER),
+		Kit.amount("hammer", diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "They're stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight: Button

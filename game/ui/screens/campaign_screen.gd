@@ -4,7 +4,7 @@
 ## Rules live in meta/campaign.gd; this only shows them.
 extends RefCounted
 
-const ResultBanner := preload("res://game/ui/result_banner.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
@@ -47,7 +47,7 @@ static func build(shell, params: Dictionary) -> Control:
 	# The top bar shows the energy count; this only says when the next one lands.
 	var wait: int = p.seconds_to_next_energy(now)
 	if wait > 0:
-		root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("+1 in %d:%02d" % [wait / 60, wait % 60], 24, Kit.MUTED)]))
+		root.add_child(Kit.amount("energy", "+1 in %d:%02d" % [wait / 60, wait % 60], 24, Kit.MUTED))
 
 	if params.has("notice"):
 		root.add_child(Kit.panel(Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
@@ -358,14 +358,8 @@ static func result_text(r: Dictionary) -> String:
 static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fighter: String) -> void:
 	var st := Zones.stage(z, i)
 	var name: String = st.get("name", Roster.get_critter(st.enemy).name)
-	var v := Kit.vbox(18)
-	var title := "Victory!" if r.won else "Defeated"
-	var head := Kit.label(title, 52, Kit.GOOD if r.won else Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
-	var banner = ResultBanner.wrap(head)
-	banner.set_mood(Kit.GOOD if r.won else Kit.BAD, r.won)
-	var cap := Kit.caption("%s %s · %s" % ["Sweep" if kind == "sweep" else "Stage", Zones.stage_key(z, i), name])
-	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(Kit.vbox(2, [cap, banner]))
+	var v := ResultPopup.content("%s %s · %s" % ["Sweep" if kind == "sweep" else "Stage", Zones.stage_key(z, i), name],
+		ResultPopup.Outcome.WIN if r.won else ResultPopup.Outcome.LOSE)
 	if r.won:
 		var star_row := Kit.hbox(12, [crowns(r.stars, 52)], BoxContainer.ALIGNMENT_CENTER)
 		v.add_child(star_row)
