@@ -272,6 +272,7 @@ func _ready() -> void:
 	save.capture_files()
 	_sync_settings(true)
 	FightSpeed.on_pick = func(i: int):
+		FightSpeed.mark_saved()
 		save.data["settings"] = {"fight_speed": i}
 		save.commit()
 	_apply_picks()
@@ -1101,13 +1102,13 @@ func _load_profile() -> void:
 	if str(url_params.get("intro", "")).is_valid_int():
 		profile.intro = clampi(int(url_params.intro), 0, Profile.INTRO_DONE)
 	profile.changed.connect(_save_profile)
-	FightSpeed.account_level = profile.account_level
+	FightSpeed.set_account_level(profile.account_level)
 
 
 func _save_profile() -> void:
 	if profile_unsaved:
 		return
-	FightSpeed.account_level = profile.account_level
+	FightSpeed.set_account_level(profile.account_level)
 	save.data.profile = profile.to_dict()
 	save.commit()
 
@@ -1304,7 +1305,13 @@ func _apply_picks() -> void:
 ## takes this device's choice.
 func _sync_settings(boot: bool) -> void:
 	var s = save.data.get("settings")
-	if s is Dictionary and s.has("fight_speed"):
+	if boot and FightSpeed.has_unsaved():
+		# Picked in another fight scene (Spire, Ghost Arena, relays, Bounce
+		# Run) since main last ran: that pick is newer than the save's.
+		FightSpeed.mark_saved()
+		save.data["settings"] = {"fight_speed": FightSpeed.pick()}
+		save.commit()
+	elif s is Dictionary and s.has("fight_speed"):
 		FightSpeed.restore(int(s.fight_speed))
 	elif boot and FightSpeed.pick() != 0:
 		save.data["settings"] = {"fight_speed": FightSpeed.pick()}
@@ -1421,6 +1428,10 @@ func _on_account_changed() -> void:
 
 
 func _notification(what: int) -> void:
+	# Off to another fight scene: a speed picked there can't reach this save
+	# (FightSpeed.unsaved keeps it until this scene starts again).
+	if what == NOTIFICATION_PREDELETE:
+		FightSpeed.on_pick = Callable()
 	# Coming back to the tab or app: pick up anything another device saved.
 	# Leaving it: send this device's changes before the phone suspends the tab.
 	if what in [NOTIFICATION_APPLICATION_FOCUS_IN, NOTIFICATION_APPLICATION_FOCUS_OUT] \
@@ -1825,7 +1836,7 @@ func _update_hud() -> void:
 	info_label.visible = state != State.FIGHT or sim == null
 	# Aiming, the info line and controls have the room under the arena: only
 	# the foe's plates show.
-	var plates := sim != null and state in [State.AIM, State.FIGHT, State.RESULT]
+	var plates := sim != null and state in [State.AIM, State.FIGHT]
 	fighter_strip.show_fight(sim if plates else null, you_side)
 	fighter_strip.foe_only = state == State.AIM
 	fight_hud.plates = plates
@@ -2416,7 +2427,7 @@ func _adopt_profile(p) -> void:
 	profile.changed.disconnect(_save_profile)
 	profile = p
 	profile.changed.connect(_save_profile)
-	FightSpeed.account_level = profile.account_level
+	FightSpeed.set_account_level(profile.account_level)
 	shell.set_profile(profile)
 	_save_profile()
 

@@ -146,7 +146,8 @@ var _press := Vector2(-1, -1)
 
 
 func _input(event: InputEvent) -> void:
-	if _sim == null or not is_visible_in_tree() or CritterPopup.current() != null:
+	# Aiming, a tap anywhere is the aim (FightAim), not a card.
+	if _sim == null or foe_only or not is_visible_in_tree() or CritterPopup.current() != null:
 		_press = Vector2(-1, -1)
 		return
 	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
