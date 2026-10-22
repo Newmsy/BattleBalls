@@ -36,5 +36,5 @@ const CRITTER := {
 		{"text": "+ The pearl splits in 3 off walls", "now": "Every {fire_cooldown}s: shuts (-{shut_armor%}% dmg taken), splitting pearl {shot_damage}", "shot_split": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "none"}, "front": ["clamshell", "pearl"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.9},
+	"sound": {"ouch": "ouch_sea", "pitch": 0.9},
 }

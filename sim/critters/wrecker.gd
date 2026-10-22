@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ Every 8s a big wind-up lap", "now": "Ball swings for {wreck_damage}, chain {wreck_chain_dps}/s; wide lap every {wreck_windup_every}s", "wreck_windup_every": 8.0},
 	],
 	"art": {"eyes": {"visor": true, "mouth": "flat"}, "back": ["chainball"], "front": ["hazard", "hardhat"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 0.75},
+	"sound": {"ouch": "ouch_tech", "pitch": 0.75},
 }

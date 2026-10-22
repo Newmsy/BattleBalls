@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ Hurt: every patch flares once (6)", "now": "Hot patch every {patch_every}s: {patch_dps}/s, burns after; flares when hurt", "ability": [{"on": "hurt", "do": "patch_flare"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "frown"}, "back": ["smoke"], "front": ["embers"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.8},
+	"sound": {"ouch": "ouch_fire", "pitch": 0.8},
 }

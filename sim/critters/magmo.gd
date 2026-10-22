@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ In its own lava: -20% dmg taken", "now": "Hits splash lava: {lava_dps}/s for {lava_life}s · -20% dmg taken in it", "ability": [{"on": "guard", "do": "home_guard"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "grin"}, "front": ["crust", "drips"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.8},
+	"sound": {"ouch": "ouch_fire", "pitch": 0.8},
 }

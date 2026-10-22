@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ Two pillars at once", "now": "Every {vine_every}s lashes foe to 2 vines {vine_lash}s, snap {vine_damage} + thorns", "vine_pairs": 2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["flowercrown"], "front": ["vinewrap"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.1},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.1},
 }

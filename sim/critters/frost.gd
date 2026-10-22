@@ -32,5 +32,5 @@ const CRITTER := {
 		{"text": "+ Frost breath every 5s: slow 50%", "now": "Icy trail: slow {trail_slow%}%, {trail_dps}/s, {trail_life}s · breath every 5s", "ability": [{"on": "every", "secs": 5.0, "do": "breath"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .19, "h": .2, "p": .09, "lid": .55, "mouth": "o"}, "back": ["ice_crown"], "front": ["frost_freckles"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.25},
+	"sound": {"ouch": "ouch_frost", "pitch": 1.25},
 }

@@ -34,5 +34,5 @@ const CRITTER := {
 		{"text": "+ Blast leaves a burning ring (5/s)", "now": "Collapses every {collapse_every}s (-30% taken), blast {collapse_damage} + fire ring", "collapse_ring": 5.0},
 	],
 	"art": {"eyes": {"sep": .3, "dot": true, "mouth": "none", "ink": "ffffff", "mouth_ink": "e8e0ff"}, "body": "starfield", "back": ["swirl_arms"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 0.6},
+	"sound": {"ouch": "ouch_cosmic", "pitch": 0.6},
 }

@@ -32,5 +32,5 @@ const CRITTER := {
 		{"text": "+ The pop bursts as a wave (8)", "now": "Bubble every {bubble_every}s soaks {bubble_size}; pop knockback, {bubble_bolts} bubbles + wave {bubble_splash}", "bubble_splash": 8.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "o"}, "body": "ghost", "tint": true, "front": ["sheen"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.35},
+	"sound": {"ouch": "ouch_sea", "pitch": 1.35},
 }

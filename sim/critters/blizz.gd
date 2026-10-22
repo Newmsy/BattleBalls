@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ 2 frost patches at once freeze foe 0.4s", "now": "Proximity mine every 4s: {mine_damage} dmg, patches slow + freeze", "freeze_secs": 0.4, "ability": [{"on": "always", "do": "snow_freeze"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["snowflake"], "front": ["cheeks"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.3},
+	"sound": {"ouch": "ouch_frost", "pitch": 1.3},
 }

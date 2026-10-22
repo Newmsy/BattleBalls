@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ 4th turbo gear with a fire trail (6/s)", "now": "Shifts every {gear_every}s (+{gear_step%}%, 4 gears); top slams x{gear_slam_mult}", "gear_max": 4, "ability": [{"on": "always", "do": "gear_trail"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["gearstick"], "front": ["number", "goggles"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.05},
+	"sound": {"ouch": "ouch_tech", "pitch": 1.05},
 }

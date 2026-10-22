@@ -37,5 +37,5 @@ const CRITTER := {
 		{"text": "+ Every 4th cast: full spectrum, 7 beams", "now": "Bounces cast {prism_fan} beams (4th: 7); reflects {reflect_ratio%}% ability dmg", "prism_full_every": 4},
 	],
 	"art": {"eyes": {"sep": .3, "w": .21, "h": .26, "p": .11, "sparkle": true, "mouth": "smile"}, "body": "prism"},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.35},
+	"sound": {"ouch": "ouch_cosmic", "pitch": 1.35},
 }

@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ Both at once 1.5s after flips · flash 12", "now": "Flips every {eclipse_secs}s: burn {sun_dps}/s, heal {moon_hps}/s, both {total_secs}s after", "special": "Total Eclipse", "total_secs": 1.5},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "smile"}, "body": "eclipse"},
-	"sound": {"ouch": "ouch_laser", "pitch": 0.9},
+	"sound": {"ouch": "ouch_cosmic", "pitch": 0.9},
 }

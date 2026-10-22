@@ -40,6 +40,7 @@ const CRITTER := {
 	## listed on _face), and features (FEATURES) drawn behind or in front.
 	## Optional: scale (draw size), badge_top (HP badge height over the ball).
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": [], "front": []},
-	## ouch: a sound from game/audio/sfx.gd RULES; pitch makes it this critter's voice.
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.1},
+	## ouch: a sound from game/audio/sfx.gd RULES, normally its family's voice
+	## (ouch_nature, ouch_sea...); pitch makes it this critter's own voice.
+	"sound": {"ouch": "ouch_nature", "pitch": 1.1},
 }

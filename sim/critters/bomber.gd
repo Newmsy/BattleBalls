@@ -31,5 +31,5 @@ const CRITTER := {
 		{"text": "+ Mines chain-detonate", "now": "Bounces drop chaining mines ({mine_damage} dmg), max {mine_max}", "mine_chain": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .23, "h": .26, "p": .07, "mis": true, "mouth": "teeth"}, "body": "bomb", "front": ["fuse"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 0.85},
+	"sound": {"ouch": "ouch_fire", "pitch": 0.85},
 }

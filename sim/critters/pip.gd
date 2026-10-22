@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ Every 3rd shot is 3 peas", "now": "Bouncing pea every {fire_cooldown}s for {shot_damage} · every 3rd x{shot_big_count}", "shot_big_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["tuft"], "front": ["snout"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.4},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.4},
 }

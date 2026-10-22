@@ -31,5 +31,5 @@ const CRITTER := {
 		{"text": "Slow stacks x2 (max 45%), string every 2.5s", "now": "Hits slow {gum_slow%}% (stacks to {gum_cap%}%) + burn; string every {gum_string_cooldown}s", "gum_stacks": 2, "gum_string_cooldown": 2.5},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["sugar"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.2},
+	"sound": {"ouch": "ouch_sweet", "pitch": 1.2},
 }

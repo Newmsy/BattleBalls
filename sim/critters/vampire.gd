@@ -23,5 +23,5 @@ const CRITTER := {
 		{"text": "+ Overheal becomes a shield (max 25)", "now": "Heals {heal_ratio%}% of dmg dealt; overheal shields up to {overheal_cap}", "ability": [{"on": "hit", "do": "overheal"}]},
 	],
 	"art": {"badge_top": 1.3, "eyes": {"sep": .3, "w": .19, "h": .22, "p": .1, "lid": .45, "brow": .12, "mouth": "fangs"}, "back": ["cape_collar"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.0},
+	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},
 }

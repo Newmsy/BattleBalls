@@ -38,5 +38,5 @@ const CRITTER := {
 		{"text": "+ Lobs honey every 4s; pull, sting 6/s, crush x2.2", "now": "Drips + lobs honey (every {honey_lob}s): sticks {honey_stick}s, hit x{honey_crush}", "special": "Honey Pot", "honey_merge_radius": 90.0, "honey_crush": 2.2, "honey_pull": 900.0, "honey_sting_damage": 14.0, "honey_dps": 6.0, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["jarlid", "drips"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.85},
+	"sound": {"ouch": "ouch_sweet", "pitch": 0.85},
 }

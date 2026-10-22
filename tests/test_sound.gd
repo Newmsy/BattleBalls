@@ -61,3 +61,41 @@ func test_sounds_stay_on_the_master_bus() -> void:
 		check_eq(p.bus, &"Master", "sound player bus")
 	check_eq(sfx._music.bus, &"Master", "music player bus")
 	sfx.free()
+
+
+## Every critter cue names a real sound, and every family member speaks with
+## its family's voice.
+func test_critter_cues_and_family_voices() -> void:
+	const CritterDb := preload("res://sim/critter_db.gd")
+	const Families := preload("res://sim/families.gd")
+	for id in Sfx.CRITTER_CUES:
+		check(CritterDb.get_critter(id).size() > 0, "cues for unknown critter %s" % id)
+		for key in Sfx.CRITTER_CUES[id]:
+			for cue in Sfx.CRITTER_CUES[id][key]:
+				check(Sfx.RULES.has(cue[0]), "%s %s: unknown sound %s" % [id, key, cue[0]])
+	for fam in Families.MEMBERS:
+		check(Sfx.RULES.has("knock_" + fam), "no knock for family %s" % fam)
+		for id in Families.MEMBERS[fam]:
+			var ouch: String = CritterDb.sim_def(id).ouch
+			check(ouch == "" or ouch == "ouch_" + fam, "%s speaks with %s, not its family's voice" % [id, ouch])
+
+
+## Fuse's mines plunk down as they land: zone cues fire once per new zone.
+func test_zone_cues_play_once_per_zone() -> void:
+	var sfx := _sfx()
+	sfx.mode = "all"
+	sfx.record = []
+	var sim := MatchSim.new({"seed": 3, "p1": "bomber", "p2": "juggernaut", "angles": [null, null]})
+	sfx.on_fight_start(sim)
+	var mines := {}
+	while not sim.finished and sim.time() < 20.0:
+		sim.step()
+		for z in sim.zones:
+			if z.kind == "mine":
+				mines[z.get_instance_id()] = true
+		sfx.consume_events(sim.events, sim)
+		sfx._process(MatchSim.DT)
+	var drops: int = sfx.record.filter(func(c): return c[0] == "mine_drop").size()
+	check(mines.size() > 0, "Fuse dropped no mines")
+	check(drops > 0 and drops <= mines.size(), "mine drops heard %d for %d mines" % [drops, mines.size()])
+	sfx.free()
