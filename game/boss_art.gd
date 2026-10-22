@@ -571,17 +571,18 @@ static func draw_death(ci: CanvasItem, id: String, c: Vector2, r: float, age: fl
 
 ## A boss in a menu (the boss hall, each boss's screen). Redraws slowly.
 ## A boss in a menu. The web build only draws a frame when something changed,
-## and a boss is a lot of antialiased lines, so every icon redraws on the same
-## shared clock with the critter icons (one frame for all of them, not one per
-## icon), small icons tick slower, and an icon that's hidden, off screen or
-## mid-scroll keeps its drawing.
+## and every redraw of a boss rebuilds its polygons, so small icons (cards, the
+## Bosses list) are drawn once and stay still; only a big hero portrait
+## animates, on the clock shared with the critter icons (one frame for all of
+## them), and keeps its drawing while hidden, off screen or mid-scroll.
 class BossIcon extends Control:
 	const TouchInput := preload("res://game/ui/touch_input.gd")
 	const CritterIcon := preload("res://game/ui/critter_icon.gd")
 	static var _art: Script ## This file, loaded once (it can't preload itself).
-	## Below this side an icon redraws on every SMALL_EVERY-th tick of the clock.
+	## Below this side an icon is drawn once and never animates.
 	const SMALL_SIDE := 120.0
-	const SMALL_EVERY := 3
+	## A hero redraws on every HERO_EVERY-th tick of the shared clock.
+	const HERO_EVERY := 2
 	var boss_id := "anvil_king"
 	var _tick := -1
 	var _clip: Control
@@ -589,6 +590,7 @@ class BossIcon extends Control:
 	func _ready() -> void:
 		if _art == null:
 			_art = load("res://game/boss_art.gd")
+		set_process(minf(custom_minimum_size.x, custom_minimum_size.y) >= SMALL_SIDE)
 		var node := get_parent()
 		while node != null and _clip == null:
 			if node is ScrollContainer:
@@ -598,7 +600,7 @@ class BossIcon extends Control:
 	func _process(_delta: float) -> void:
 		if not is_visible_in_tree() or TouchInput.scrolling():
 			return
-		var tick: int = CritterIcon.clock(SMALL_EVERY if minf(size.x, size.y) < SMALL_SIDE else 1)
+		var tick: int = CritterIcon.clock(HERO_EVERY)
 		if tick == _tick:
 			return
 		var r := get_global_rect()
