@@ -34,6 +34,6 @@ const CRITTER := {
 		{"text": "Panic speed +40% → +45%", "grow_speed": 0.45},
 		{"text": "+ The panic splashes the foe away for 8", "now": "Small; at 50% HP panics: +{grow_speed%}% speed, heal {grow_heal}, splash {grow_pulse_damage}", "grow_pulse_damage": 8.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["fantail"], "scale": 0.85},
+	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["fantail"], "front": ["scales"], "scale": 0.85},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.4},
 }
