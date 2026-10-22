@@ -64,11 +64,51 @@ static func counters(foes: Array) -> Array:
 static func badge(score: int, h := 22.0) -> Control:
 	var b := _Badge.new()
 	b.score = clampi(score, -2, 2)
-	b.custom_minimum_size = Vector2(0, 0) if score == 0 else Vector2(h * (1.0 + .62 * (absi(b.score) - 1)) + 8.0, h)
+	b.custom_minimum_size = Vector2(0, 0) if score == 0 else Vector2(badge_width(b.score, h), h)
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.size_flags_horizontal = Control.SIZE_SHRINK_END
 	b.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	return b
+
+
+## Pins the edge badge of `mine` (critter ids) on `foes` to the top-right of
+## `tile`, `top` px down; nothing when the foes aren't known or it's even.
+static func attach(tile: Control, mine: Array, foes: Array, top := 40.0, h := 22.0) -> Control:
+	var score := team(mine, foes)
+	if score != 0:
+		var b := badge(score, h)
+		b.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		b.offset_left = -b.custom_minimum_size.x - 6
+		b.offset_right = -6
+		b.offset_top = top
+		b.offset_bottom = top + b.custom_minimum_size.y
+		tile.add_child(b)
+	return tile
+
+
+## Draws the badge for `score` filling `rect` on any canvas item (for screens
+## that draw themselves, like the fighter cards under the arena).
+static func draw_badge(ci: CanvasItem, rect: Rect2, score: int) -> void:
+	if score == 0:
+		return
+	var col := Kit.GOOD if score > 0 else Kit.BAD
+	var h := rect.size.y
+	ci.draw_style_box(Kit.box(Color("0b0a1f", .85), Color(col, .9), 999, 2, 0), rect)
+	var n := absi(score)
+	var w := h * .62
+	var x0 := rect.position.x + (rect.size.x - w * n) / 2.0
+	var cy := rect.position.y + h / 2.0
+	for k in n:
+		var cx := x0 + w * (k + .5)
+		var t := h * .27
+		var pts := PackedVector2Array([Vector2(cx, cy - t), Vector2(cx + t * 1.05, cy + t * .8), Vector2(cx - t * 1.05, cy + t * .8)]) if score > 0 \
+			else PackedVector2Array([Vector2(cx, cy + t), Vector2(cx - t * 1.05, cy - t * .8), Vector2(cx + t * 1.05, cy - t * .8)])
+		Dot.poly(ci, pts, col)
+
+
+## Width of a badge `h` tall for `score`.
+static func badge_width(score: int, h: float) -> float:
+	return 0.0 if score == 0 else h * (1.0 + .62 * (absi(score) - 1)) + 8.0
 
 
 ## Short words for an edge score, for hint lines.
@@ -193,20 +233,7 @@ class _Badge extends Control:
 	var score := 0
 
 	func _draw() -> void:
-		if score == 0:
-			return
-		var col := Kit.GOOD if score > 0 else Kit.BAD
-		var h := size.y
-		draw_style_box(Kit.box(Color("0b0a1f", .85), Color(col, .9), 999, 2, 0), Rect2(Vector2.ZERO, size))
-		var n := absi(score)
-		var w := h * .62
-		var x0 := (size.x - w * n) / 2.0
-		for k in n:
-			var cx := x0 + w * (k + .5)
-			var t := h * .27
-			var pts := PackedVector2Array([Vector2(cx, h / 2.0 - t), Vector2(cx + t * 1.05, h / 2.0 + t * .8), Vector2(cx - t * 1.05, h / 2.0 + t * .8)]) if score > 0 \
-				else PackedVector2Array([Vector2(cx, h / 2.0 + t), Vector2(cx - t * 1.05, h / 2.0 - t * .8), Vector2(cx + t * 1.05, h / 2.0 - t * .8)])
-			Dot.poly(self, pts, col)
+		load("res://game/ui/family_edge.gd").draw_badge(self, Rect2(Vector2.ZERO, size), score)
 
 
 class _Grid extends Control:

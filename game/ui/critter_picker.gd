@@ -92,18 +92,9 @@ static func _cell(shell, id: String, tags: Dictionary, current: String, on_pick:
 	return tile
 
 
-## A tile with its family-edge badge against `foes` in the top-right corner
-## (nothing when the foes aren't known or it's even).
+## A tile with its family-edge badge against `foes`, beside the critter.
 static func _with_edge(tile: Button, id: String, foes: Array) -> Button:
-	var score := FamilyEdge.team([id], foes)
-	if score != 0:
-		var b := FamilyEdge.badge(score, 22)
-		b.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		b.offset_left = -b.custom_minimum_size.x - 6
-		b.offset_right = -6
-		b.offset_top = 40 # Beside the critter, under the stars and level.
-		b.offset_bottom = 40 + b.custom_minimum_size.y
-		tile.add_child(b)
+	FamilyEdge.attach(tile, [id], foes)
 	return tile
 
 

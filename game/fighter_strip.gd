@@ -15,6 +15,7 @@ const BossArt := preload("res://game/boss_art.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const CritterPopup := preload("res://game/ui/critter_popup.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const Families := preload("res://sim/families.gd")
 
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
@@ -55,6 +56,17 @@ func show_fight(sim, you_side := 0) -> void:
 		_timed = _timed or _card[k].get("every", 0) > 0
 	if changed or _timed:
 		queue_redraw()
+
+
+## Card `k`'s family edge on the cards across from it, 0 when edges are off.
+func _edge(k: int) -> int:
+	if _sim == null or not _sim.get("family_edges") or _card[k].is_empty() or _card[k].boss:
+		return 0
+	var foes := []
+	for j in _n:
+		if j % 2 != k % 2 and not _card[j].is_empty() and not _card[j].boss:
+			foes.append(_card[j].id)
+	return FamilyEdge.team([_card[k].id], foes)
 
 
 func _describe(sim, i: int) -> Dictionary:
@@ -176,6 +188,13 @@ func _draw_card(k: int, r: Rect2) -> void:
 	var fs := A11y.font(22)
 	var tx := face.x + fr + 14.0
 	var tw := r.end.x - tx - 10.0
+	# Its family edge on the other side: green up / red down, top right.
+	var edge := _edge(k)
+	if edge != 0:
+		var bh := 22.0
+		var bw := FamilyEdge.badge_width(edge, bh)
+		FamilyEdge.draw_badge(self, Rect2(r.end.x - bw - 10.0, r.position.y + 12.0, bw, bh), edge)
+		tw -= bw + 6.0
 	draw_string(FONT, Vector2(tx, r.position.y + 14.0 + fs), card.name, HORIZONTAL_ALIGNMENT_LEFT, tw, fs, col)
 	var sfs := A11y.font(20)
 	if _n > 2: # Compact: the ability text runs beside the face, under the name.
