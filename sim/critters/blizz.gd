@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Blizz",
 	"type": "Snowflake",
 	"rarity": "epic",
+	"rarity_power": 0.968, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Zoner",
 	"status": "live",
 	"color": "90e0ef",

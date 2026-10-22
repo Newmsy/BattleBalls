@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Stormwing",
 	"type": "Thunderbird",
 	"rarity": "legendary",
+	"rarity_power": 0.942, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "4895ef",

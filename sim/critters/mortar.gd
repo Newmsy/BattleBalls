@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Mortar",
 	"type": "Toy cannon",
 	"rarity": "rare",
+	"rarity_power": 0.935, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Zoner",
 	"status": "live",
 	"color": "5c6b3a",

@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Minnow",
 	"type": "Fish",
 	"rarity": "uncommon",
+	"rarity_power": 1.087, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "00e5ff",

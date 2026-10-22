@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Clockwork",
 	"type": "Clockwork",
 	"rarity": "legendary",
+	"rarity_power": 1.068, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "c9a227",

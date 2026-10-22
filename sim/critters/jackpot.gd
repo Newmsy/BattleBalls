@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Jackpot",
 	"type": "Slot machine",
 	"rarity": "legendary",
+	"rarity_power": 0.969, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Zoner",
 	"status": "live",
 	"color": "e0115f",

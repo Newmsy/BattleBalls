@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Zing",
 	"type": "Wasp",
 	"rarity": "rare",
+	"rarity_power": 0.898, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "f5c400",

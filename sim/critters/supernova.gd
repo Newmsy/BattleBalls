@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Supernova",
 	"type": "Star",
 	"rarity": "legendary",
+	"rarity_power": 0.892, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Zoner",
 	"status": "live",
 	"color": "ffd6a5",

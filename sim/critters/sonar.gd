@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Sonar",
 	"type": "Bat",
 	"rarity": "rare",
+	"rarity_power": 1.075, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "3c096c",

@@ -694,6 +694,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"piece":
 				if e.kind != "illusion":
 					_spawn_particles(e.pos, 4)
+			"piece_break":
+				_spawn_particles(e.pos, 8)
 			"lash":
 				var t := sim.balls[e.target]
 				_add_popup(t.pos + Vector2(-40, -t.radius - 34), "LASHED!", POP_SNAP)

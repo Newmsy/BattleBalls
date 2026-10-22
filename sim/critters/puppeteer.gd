@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Puppeteer",
 	"type": "Puppeteer",
 	"rarity": "epic",
+	"rarity_power": 1.121, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "6d2e46",

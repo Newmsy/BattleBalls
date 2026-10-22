@@ -114,7 +114,7 @@ const EFFECTS := {
 	"vine_tick": ["vine_damage", "vine_burst_radius", "vine_thorn_damage"],
 	"ice_ring": ["ring_count", "ring_radius", "ring_pillar", "ring_life", "ring_big_every", "ring_big_count"],
 	"ice_ring_tick": ["shard_damage", "shard_hits", "shard_slow", "ring_volley_gap"],
-	"root": ["root_count", "root_radius", "root_life", "root_pin", "root_shove", "root_shove_damage"],
+	"root": ["root_count", "root_radius", "root_life", "root_stay", "root_pin", "root_shove", "root_shove_damage"],
 	"root_tick": ["root_regen"],
 	"tick_ring": ["tick_radius", "tick_damage", "tick_slow", "tick_slow_secs"],
 	"rewind_track": ["rewind_secs"],
@@ -2946,8 +2946,12 @@ func fx_ice_ring_tick(sim, b, _ctx: Dictionary) -> void:
 		b.state.erase("ring")
 
 
-## Old Oak: takes root. root_count root pillars rise around it (root_life
-## seconds) and it regrows root_regen HP a second until they wilt. For the
+const ROOT_STAY_LIFE := 600.0 ## A root that stays until hit: longer than any fight.
+
+
+## Old Oak: takes root. root_count root pillars rise around it for root_life
+## seconds, except the first root_stay, which stand until a foe bounces off
+## them (Newms 2026-10-22); it regrows root_regen HP a second while any stand. For the
 ## first root_pin seconds it holds still; the gaps between roots then let it
 ## out. root_shove > 0 also blasts foes in that radius for root_shove_damage
 ## and knocks them away.
@@ -2956,8 +2960,9 @@ func fx_root(sim, b, _ctx: Dictionary) -> void:
 	for k in n:
 		var dir := DMath.from_angle(PI / 4.0 + k * TAU / n)
 		sim.add_piece(b, b.pos + dir * (b.radius + b.def.root_radius + 55.0),
-			{"kind": "root", "radius": b.def.root_radius, "life": b.def.root_life, "grow": 0.3})
-	b.state.rooted_until = sim.tick + int(round(b.def.root_life * sim.TICK_RATE))
+			{"kind": "root", "radius": b.def.root_radius, "grow": 0.3,
+				"life": ROOT_STAY_LIFE if k < int(b.def.root_stay) else b.def.root_life, "hits": 1 if k < int(b.def.root_stay) else 0})
+	b.state.rooted = true
 	b.state.pinned_until = sim.tick + int(round(b.def.root_pin * sim.TICK_RATE))
 	b.state.regrow_next = sim.tick + sim.TICK_RATE / 2
 	sim.events.append({"type": "root", "ball": b.index, "pos": b.pos})
@@ -2966,7 +2971,10 @@ func fx_root(sim, b, _ctx: Dictionary) -> void:
 
 
 func fx_root_tick(sim, b, _ctx: Dictionary) -> void:
-	if sim.tick >= int(b.state.get("rooted_until", -1)):
+	if not b.state.get("rooted", false):
+		return
+	if not sim.pieces.any(func(p): return p.owner == b.index and p.kind == "root"):
+		b.state.rooted = false
 		return
 	if sim.tick < int(b.state.pinned_until):
 		b.slow = 1.0

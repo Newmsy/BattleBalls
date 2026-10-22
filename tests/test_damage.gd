@@ -132,7 +132,7 @@ func test_gear_totals_sum_clamp_and_drop_unknown_lines() -> void:
 
 func test_gear_reaches_the_ball() -> void:
 	var kit := {"attack": 0.1, "defense": 0.2, "health": 0.1, "speed": 0.1, "crit_chance": 0.1, "crit_damage": 0.5, "cooldown": 0.25}
-	var sim := _sim({"p1": "laser", "gear": [kit, null], "damage_rolls": false})
+	var sim := _sim({"p1": "laser", "gear": [kit, null], "damage_rolls": false, "rarity_potency": false})
 	var g := sim.balls[0]
 	var ldef := BallDefs.get_def("laser")
 	check_near(g.max_hp, ldef.hp * 1.1, 0.001, "health")

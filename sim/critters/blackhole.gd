@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Void",
 	"type": "Black Hole",
 	"rarity": "legendary",
+	"rarity_power": 0.953, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "0d0b17",

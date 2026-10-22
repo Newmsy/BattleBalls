@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Totem",
 	"type": "Totem",
 	"rarity": "epic",
+	"rarity_power": 1.03, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "2a9d8f",

@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Frostfang",
 	"type": "Wolf",
 	"rarity": "legendary",
+	"rarity_power": 1.024, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "6d6875",

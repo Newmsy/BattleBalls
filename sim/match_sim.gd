@@ -283,6 +283,7 @@ class Piece:
 	var block := true ## Wants to block balls...
 	var blocking := false ## ...and does, once grown and clear of balls.
 	var damage := 0.0 ## Dealt to a foe of the owner that bounces off it.
+	var hits := 0 ## Above 0: breaks after this many bounces of the owner's foes.
 
 	## True on the piece's last tick, so its owner can act as it ends (the sim
 	## removes it right after "always" effects run).
@@ -364,7 +365,10 @@ func _init(cfg: Dictionary) -> void:
 		var is_boss := Bosses.has(types[i])
 		var bonus := Power.rarity_tiers(str(BallDefs.DEFS[types[i]].get("rarity", ""))) if rarity_potency and not is_boss else 0.0
 		var raw := Bosses.sim_def(types[i]) if is_boss else BallDefs.get_def(types[i], int(tiers[i]), bonus)
-		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(raw, float(powers[i])), kit), modifier)
+		var power := float(powers[i])
+		if rarity_potency and not is_boss:
+			power *= DMath.ipow(float(raw.get("rarity_power", 1.0)), maxi(0, Power.RARITIES.find(str(raw.get("rarity", "")))))
+		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(raw, power), kit), modifier)
 		def = Modifiers.apply_arena_tweaks(def, arena_id)
 		if cfg.has("boons") and i < cfg.boons.size():
 			def = Boons.apply_to_def(def, cfg.boons[i])
@@ -811,6 +815,11 @@ func _resolve_walls(b: Ball) -> void:
 				# rattle of a ball lashed or ringed by one.
 				if o.piece.damage > 0.0 and balls[o.piece.owner].team != b.team:
 					deal(balls[o.piece.owner], b, o.piece.damage, "pillar", o.pos + n * o.radius)
+				if o.piece.hits > 0 and balls[o.piece.owner].team != b.team:
+					o.piece.hits -= 1
+					if o.piece.hits == 0:
+						o.piece.life = o.piece.age # Gone on the next piece update.
+						events.append({"type": "piece_break", "kind": o.piece.kind, "ball": o.piece.owner, "pos": o.pos})
 				events.append({"type": "bounce", "ball": b.index, "pos": o.pos + n * o.radius, "piece": true})
 				continue
 			_on_wall_bounce(b, o.pos + n * o.radius, true)
@@ -1823,6 +1832,7 @@ func add_piece(owner: Ball, pos: Vector2, opts: Dictionary) -> Piece:
 	p.block = opts.get("block", true)
 	p.vel = opts.get("vel", Vector2.ZERO)
 	p.damage = opts.get("damage", 0.0)
+	p.hits = opts.get("hits", 0)
 	var r := arena_rect()
 	if p.block:
 		if arena_scale() < OBSTACLE_MIN_SCALE:

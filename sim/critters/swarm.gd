@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Swarm",
 	"type": "Beehive",
 	"rarity": "epic",
+	"rarity_power": 0.938, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Zoner",
 	"status": "live",
 	"color": "bb8a2d",

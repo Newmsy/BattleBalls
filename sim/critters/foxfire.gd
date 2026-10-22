@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Foxfire",
 	"type": "Fox spirit",
 	"rarity": "legendary",
+	"rarity_power": 0.944, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "ffb4a2",

@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Quasar",
 	"type": "Quasar",
 	"rarity": "legendary",
+	"rarity_power": 0.976, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Zoner",
 	"status": "live",
 	"color": "7400b8",
