@@ -109,6 +109,7 @@ static func open_team(shell, ids: Array, opts := {}) -> void:
 	shell.mark("pick_confirm", confirm)
 	var refresh := func() -> void:
 		for c in slots.get_children():
+			slots.remove_child(c) # Out now, or the row lays out old and new slots together for a frame.
 			c.queue_free()
 		for k in size:
 			slots.add_child(_slot(shell, picks[k] if k < picks.size() else "", k))

@@ -4,6 +4,7 @@
 ## this only shows them. Fits one phone screen.
 extends RefCounted
 
+const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
@@ -11,7 +12,6 @@ const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const PinataParty := preload("res://meta/pinata_party.gd")
-const XpBar := preload("res://game/ui/xp_bar.gd")
 const BossArt := preload("res://game/boss_art.gd")
 const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
 
@@ -36,12 +36,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var left := PinataParty.runs_left(p, now)
 	root.add_child(Kit.label("%d/%d runs left" % [left, PinataParty.RUNS_PER_DAY], 22, Kit.MUTED))
 
-	if params.has("notice"):
-		var note := Kit.vbox(12, [Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
-		var bars := XpBar.rows(params.get("xp", {}), shell.sfx)
-		if bars != null:
-			note.add_child(bars)
-		root.add_child(Kit.panel(note, Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
+	ResultPopup.boss_result(shell, params)
 
 	root.add_child(BossLevelGrid.hero(shell, PinataParty.BOSS, PARTY))
 	var fighter: String = Campaign.fighter_for(p)
