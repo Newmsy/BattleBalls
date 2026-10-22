@@ -58,8 +58,8 @@ func test_far_apart_players_wait_then_get_a_ghost() -> void:
 
 func test_the_band_widens_with_waiting() -> void:
 	var l := _lobby()
-	l.join("a", "1v1", [Lineup.make("vampire", 3)], 0.0) # Common...
-	l.join("b", "1v1", [Lineup.make("frost", 3)], 0.0) # ...vs Uncommon: x1.118 Power, outside ±10%.
+	l.join("a", "1v1", [Lineup.make("vampire", 3)], 0.0) # Level 1...
+	l.join("b", "1v1", [Lineup.make("spiker", 3, 6)], 0.0) # ...vs level 6: x1.125 Power, outside ±10%.
 	check(_to(l.tick(1.0), "a", "matched").is_empty(), "not at first")
 	check(not _to(l.tick(Lobby.BAND_STEP), "a", "matched").is_empty(), "paired once the band reaches 15%")
 

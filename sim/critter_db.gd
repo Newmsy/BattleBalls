@@ -63,7 +63,7 @@ static func get_critter(id: String) -> Dictionary:
 ## The flat definition the fight sim reads: stats, then ability params with the
 ## tier upgrades up to `tier` applied, plus the bits the renderer needs.
 ## `bonus_tiers` adds ability potency and reach as if the critter were that
-## many tiers higher, without its tier upgrades: rarity's half tier per step
+## many tiers higher, without its tier upgrades: rarity's tier per step
 ## (Power.rarity_tiers), which MatchSim adds to every fight.
 static func sim_def(id: String, tier := 1, bonus_tiers := 0.0) -> Dictionary:
 	var c := get_critter(id)

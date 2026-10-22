@@ -19,9 +19,10 @@ const WEEK := 7 * 86400
 
 ## Enemy power multiplier (sim/power.gd scale, 1.0 = T1 level 1 Common):
 ## about a T1 level 5 Common on floor 1, rising a fixed step per floor to
-## about a T5 level 40 Rare on floor 50. Tuned with tools/spire_curve.gd.
+## about a T5 level 40 Rare on floor 50 (x1.25 since one rarity step became a
+## whole tier, 2026-10-22: the step was 1.0323). Tuned with tools/spire_curve.gd.
 const POWER_START := 1.1
-const POWER_STEP := 1.0323
+const POWER_STEP := 1.037
 const BOSS_FLOORS := [10, 20, 30, 40, 50]
 const BOSS_SIZE := 1.35
 ## A boss fights your whole lineup alone, so it gets a power bonus by how

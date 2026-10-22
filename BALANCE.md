@@ -17,14 +17,14 @@ and a design doc disagree, the design doc wins and this file gets fixed.
    to Laser).
 4. **Tiers change the ability, not just the numbers.** Higher tiers feel
    different (longer beams, chained mines), and the T5 step is spectacular.
-5. **One rarity step is worth about half a tier** (Newms, 2026-10-14), so
-   about +12% power. There are five rarities (Common, Uncommon, Rare, Epic,
-   Legendary), so a Legendary sits about **two tiers** above a Common of the
-   same tier (Newms confirmed the full gap, 2026-10-14): a T1 Legendary
-   roughly matches a T3 Common, a T1 Rare a T2 Common, and a T4 Common beats a
-   T1 Legendary. A ball one rarity up against a same-tier ball one rarity down
-   should win about **60%**, between equal power (50%) and a full tier (70%+).
-   "Equal power" in rule 2 means same tier and same rarity.
+5. **One rarity step is worth a whole tier** (Newms, 2026-10-22; was half a
+   tier from 2026-10-14), so +25% power and a tier of ability potency on top.
+   T1 Legendary = T2 Epic = T3 Rare = T4 Uncommon = T5 Common, each about
+   50/50. Rarer critters carry the step mostly in their ability: stats take
+   the tier's x1.25, and the ability gets `Power.RARITY_ABILITY_TIERS` tiers of
+   potency per step to make up for having no tier upgrades. A ball one rarity
+   up against a same-tier ball one rarity down should win like a full tier
+   (70%+). "Equal power" in rule 2 means same tier and same rarity.
 6. **Fights stay watchable.** Median fight 20-60s, overtime ends stalls, and
    no build wins by running out the clock.
 7. **The sim decides, not intuition.** Numbers come from the headless balance
@@ -71,7 +71,7 @@ then fix every miss in one tuning PR.
 | Full audit: every pairing on every arena and Chaos Weekend modifier, power step and gear lines, 20 machines, one merged report | Actions > `Balance audit` > Run workflow (`.github/workflows/balance-audit.yml`) |
 | One critter against the field | `balance.gd -- --fights=200 --power-step --arena=all --modifiers --only=<id>` |
 | Gear lines: one 5-star piece of each stat line vs the same ball bare | `balance.gd -- --fights=300 --gear` |
-| Rarity = half a tier: T1 Legendary vs T3 Common, T2 Rare and neighbours, real tiers (target ~50%) | `rarity_check.gd -- --pairs=150` |
+| Rarity = a tier: T1 Legendary vs T2 Epic, T3 Rare, T5 Common and neighbours, real tiers (target ~50%) | `rarity_check.gd -- --pairs=150` |
 | Bounce Run boons | `GODOT=<godot> tools/ci/boons.sh --fights=40` |
 
 `balance.gd` options for big rosters: `--only=<ids|@sample>` limits the run to

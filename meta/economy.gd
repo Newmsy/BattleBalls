@@ -23,8 +23,8 @@ const LAUNCH := {
 	"legendary": ["phoenix", "megabot", "prism", "quasar", "frostfang", "blackhole"],
 }
 
-## One rarity step is half a tier of power: x sqrt(1.25) (BALANCE.md rule 5).
-const RARITY_STEP := 1.118034
+## One rarity step is a whole tier of power: x1.25 (BALANCE.md rule 5).
+const RARITY_STEP := 1.25
 const TIER_STEP := 1.25
 const LEVEL_STEP := 0.025
 const MAX_TIER := 5

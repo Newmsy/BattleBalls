@@ -361,7 +361,7 @@ func test_boss_levels_open_one_at_a_time_and_get_stronger() -> void:
 		check_eq(rules.DIFFICULTIES.size(), BossLevels.COUNT, "%s has 15 levels" % rules.KEY)
 		for d in range(1, BossLevels.COUNT):
 			check(rules.DIFFICULTIES[d].power > rules.DIFFICULTIES[d - 1].power, "%s level %d is stronger" % [rules.KEY, d + 1])
-	var curves := {"vault": [1.3, 11.0], "nest": [1.6, 9.0], "totem": [2.9, 11.0], "wyrm": [4.0, 22.0]}
+	var curves := {"vault": [1.3, 15.4], "nest": [1.6, 12.6], "totem": [2.9, 15.4], "wyrm": [4.0, 30.8]}
 	for rules in [load("res://meta/gear_vault.gd"), load("res://meta/brood_nest.gd"), load("res://meta/totem_shrine.gd"), WyrmRift]:
 		var want: Array = BossLevels.curve(curves[rules.KEY][0], curves[rules.KEY][1])
 		for d in BossLevels.COUNT:

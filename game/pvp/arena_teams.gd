@@ -28,8 +28,11 @@ const OFFER_COUNT := 6
 const SPREAD_BELOW := 120.0
 const SPREAD_ABOVE := 180.0
 const TROPHIES_PER_TIER := 500
-const FRESH_TRIO := 3000 ## Three T1 critters at level 1.
-const MAX_STRENGTH := 18000 ## About a maxed T5 trio in gear.
+## Three T1 Uncommons at level 1: since one rarity step became a whole tier
+## (2026-10-22) a fresh trio mixes rarities, and every family but Cosmic can
+## field a team this weak (three T1 Commons were 3000).
+const FRESH_TRIO := 3750
+const MAX_STRENGTH := 25200 ## About a maxed T5 trio in gear (x1.4 with the rarity step).
 
 const TEAM_NAMES := {
 	"nature": ["Bramble Bunch", "Moss Mob", "Petal Patrol"],
