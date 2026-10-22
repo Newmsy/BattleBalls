@@ -38,6 +38,6 @@ const CRITTER := {
 		{"text": "Panic speed +40% → +45%", "grow_speed": 0.45},
 		{"text": "+ Panic splashes foe away (8) · fish 2 → 3", "now": "At 50% HP panics: +{grow_speed%}% speed, heal, splash, {school_count} fish", "grow_pulse_damage": 8.0, "school_count": 3},
 	],
-	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["fantail"], "scale": 0.85},
+	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["fantail"], "front": ["scales"], "scale": 0.85},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.4},
 }
