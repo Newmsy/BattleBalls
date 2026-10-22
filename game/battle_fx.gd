@@ -2618,34 +2618,26 @@ static func draw_diamond_ring(ci: CanvasItem, p: Vector2, r: float, age: float, 
 const ASCEND := Color("ffd23f")
 
 
-## A tier aura behind the critter: T3 a soft ring, T4 a double ring with
-## orbiting sparks, T5 a blazing gold crown of rays and stars. `col` is the
-## critter's own colour, mixed in so each critter keeps its identity.
+## A tier aura behind the critter: a wide soft glow in the critter's own
+## colour, warming toward gold and growing brighter with tier, with no hard
+## rims or rays (Newms 2026-10-22: the old crown read harsh). T4 adds two
+## slow motes drifting round, T5 four. The critter's own T5 art does the rest.
 static func draw_tier_aura(ci: CanvasItem, p: Vector2, r: float, tier: int, col: Color, t: float) -> void:
 	if tier < 3 or r < 2.0:
 		return
-	var glow := col.lerp(ASCEND, 0.6 if tier >= 5 else 0.3)
-	var pulse := 0.5 + 0.5 * sin(t * 3.0)
-	Dot.circle(ci, p, r * (1.25 + 0.05 * pulse), Color(glow, 0.1 + 0.05 * (tier - 3)))
-	Dot.arc(ci, p, r * 1.22, 0.0, TAU, 48, Color(glow, 0.35 + 0.15 * pulse), 2.0, true)
+	var glow := col.lerp(ASCEND, 0.2 + 0.15 * (tier - 3))
+	var pulse := 0.5 + 0.5 * sin(t * 2.0)
+	var strength := 0.07 + 0.035 * (tier - 3)
+	for q in 4: # Stacked faint discs: a soft falloff instead of a rim.
+		Dot.circle(ci, p, r * (1.12 + 0.14 * q + 0.03 * pulse), Color(glow, strength * (1.0 - q * 0.2)))
 	if tier < 4:
 		return
-	Dot.arc(ci, p, r * 1.36, t * 0.8, t * 0.8 + PI * 1.4, 32, Color(glow, 0.35), 2.0, true)
-	var n := 3 if tier == 4 else 6
-	for q in n: # Orbiting sparks.
-		var a := t * (1.4 if tier == 4 else 2.0) + q * TAU / n
-		var at := p + Vector2.from_angle(a) * r * 1.36
-		Dot.circle(ci, at, r * 0.09, Color(glow, 0.5))
-		Dot.circle(ci, at, r * 0.05, Color.WHITE)
-	if tier < 5:
-		return
-	for q in 12: # A crown of flickering gold rays.
-		var a := q * TAU / 12.0 + t * 0.4
-		var flick := 0.6 + 0.4 * sin(t * 9.0 + q * 1.7)
-		var d := Vector2.from_angle(a)
-		ci.draw_line(p + d * r * 1.15, p + d * r * (1.45 + 0.3 * flick), Color(ASCEND, 0.7 * flick), r * 0.12, true)
-	Dot.circle(ci, p, r * 1.6, Color(ASCEND, 0.06 + 0.04 * pulse))
-	Dot.arc(ci, p, r * 1.55 + 2.0 * pulse, 0.0, TAU, 56, Color(ASCEND, 0.35 + 0.25 * pulse), 3.5, true)
+	var n := 2 if tier == 4 else 4
+	for q in n:
+		var a := t * 0.9 + q * TAU / n
+		var at := p + Vector2.from_angle(a) * r * (1.32 + 0.05 * sin(t * 2.0 + q))
+		Dot.circle(ci, at, r * 0.07, Color(glow, 0.4))
+		Dot.circle(ci, at, r * 0.035, Color(1, 1, 1, 0.6))
 
 
 ## T5 critters shed gold sparkles as they move.
@@ -2656,7 +2648,7 @@ static func draw_ascend_trail(ci: CanvasItem, p: Vector2, r: float, vel: Vector2
 	for q in 4:
 		var f := fmod(t * 2.0 + q * 0.25, 1.0)
 		var at := p + back * r * (1.1 + 1.4 * f) + back.orthogonal() * sin(q * 2.3 + t * 4.0) * r * 0.4
-		_twinkle(ci, at, r * 0.2 * (1.0 - f), Color(ASCEND, 0.9 * (1.0 - f)))
+		_twinkle(ci, at, r * 0.16 * (1.0 - f), Color(ASCEND, 0.6 * (1.0 - f)))
 
 
 # --- T5 ability events: Honey's lob, Phoenix's sunfire ---

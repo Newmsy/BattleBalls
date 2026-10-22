@@ -1183,7 +1183,7 @@ func _draw() -> void:
 			BattleFx.draw_burrow(self, ball_pos(b) * s, b.radius * s, b.vel, _time)
 		elif b.alive():
 			var tier := _tier_of(b.index)
-			if tier >= 3: # Higher tiers glow; T5 blazes gold.
+			if tier >= 3: # Higher tiers glow softly, warmer and brighter toward T5.
 				BattleFx.draw_tier_aura(self, ball_pos(b) * s, b.radius * s, tier, Color(b.def.color), _time + b.index)
 				if tier >= 5:
 					BattleFx.draw_ascend_trail(self, ball_pos(b) * s, b.radius * s, b.vel, _time + b.index)
