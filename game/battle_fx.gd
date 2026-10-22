@@ -8,6 +8,7 @@ extends RefCounted
 
 const Dot := preload("res://game/dot.gd")
 const A11y := preload("res://game/a11y.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 
 const BURN := Color("ff7a1f")
 const BURN_CORE := Color("ffe066")
@@ -1205,6 +1206,7 @@ const ZIG := Color("ffe14d")
 const SAP := Color("8ac926")
 const PAINTS := [Color("ff5d8f"), Color("ffd23f"), Color("4cc9f0"), Color("80ed99"), Color("b388ff")]
 const SONAR_LIFE := 0.7
+const EDGE_GLYPH_LIFE := 0.7
 const MITOSIS_LIFE := 0.6
 
 
@@ -1461,3 +1463,13 @@ static func draw_honey_lob(ci: CanvasItem, from: Vector2, to: Vector2, r: float,
 		for q in 8:
 			var at := to + Vector2.from_angle(q * TAU / 8.0) * r * (1.2 + 3.0 * s)
 			Dot.circle(ci, at, r * 0.35 * a + 1.0, Color(Color("ffe08a"), a))
+
+
+## A family-edge hit: the attacker's family glyph pops off the target, swells,
+## drifts up and shrinks away (`t` 0..1 over EDGE_GLYPH_LIFE).
+static func draw_edge_glyph(ci: CanvasItem, family: String, c: Vector2, size: float, t: float) -> void:
+	var grow := minf(1.0, t / 0.15)
+	var k := grow * (1.0 + 0.25 * (1.0 - grow)) * (1.0 - smoothstep(0.6, 1.0, t))
+	if k <= 0.05:
+		return
+	FamilyIcon.draw(ci, family, c + Vector2(0, -size * 0.8 * t), size * k)
