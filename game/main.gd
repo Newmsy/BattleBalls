@@ -1543,7 +1543,7 @@ func _build_ui() -> void:
 	# Speed, Skip and Sound sit in one row of pills along the bottom (FightLayout).
 	fight_box = _row([speed_picker, FightLayout.skip_pill(_skip_to_end)])
 
-	# The result: the popup every fight ends on (ResultPopup), sliding up
+	# The result: the popup every fight ends on (ResultPopup), popping up
 	# over the dimmed arena. What happened, then the one thing to do next
 	# (big), a way out beside it, and the rest (replay, share, clip, report
 	# code) as small tiles.
@@ -1772,15 +1772,15 @@ static func _neon_theme() -> Theme:
 	return theme
 
 
-## The result popup sits on the bottom edge, as tall as its content, in a
-## phone-width column on a wide screen (ResultPopup's sheet).
+## The result popup sits in the middle of the screen, as tall as its
+## content, in a phone-width column on a wide screen (ResultPopup's card).
 func _place_result(size: Vector2) -> void:
-	var w := minf(size.x, 760.0)
+	var x := ResultPopup.side(size.x)
 	var h := result_box.get_combined_minimum_size().y
-	_place(result_box, Vector2((size.x - w) / 2.0, size.y - h), Vector2(w, h))
+	_place(result_box, Vector2(x, maxf(0.0, (size.y - h) / 2.0)), Vector2(size.x - x * 2.0, h))
 
 
-## Slides the result popup up from the bottom edge, like every sheet.
+## Pops the result popup in over the middle of the screen, like every sheet.
 func _slide_in_result() -> void:
 	await get_tree().process_frame # The card has its content and size now.
 	if state != State.RESULT or not result_box.visible:
@@ -1790,10 +1790,7 @@ func _slide_in_result() -> void:
 	var to := result_box.position.y
 	if _result_slide:
 		_result_slide.kill()
-	result_box.position.y = size.y
-	_result_slide = create_tween()
-	_result_slide.tween_property(result_box, "position:y", to, ResultPopup.SLIDE_SECS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	_result_slide.finished.connect(_sync_share_targets)
+	_result_slide = ResultPopup.pop_in(self, result_box, func(v: float) -> void: result_box.position.y = to + v, _sync_share_targets)
 
 
 func _place(c: Control, pos: Vector2, size: Vector2) -> void:

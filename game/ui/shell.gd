@@ -414,11 +414,11 @@ func title_row(title: String, opts := {}) -> HBoxContainer:
 	return row
 
 
-## A bottom sheet over a dimmed screen; tapping the dim area closes it.
+## A modal card in the middle of a dimmed screen; tapping the dim area closes it.
 func sheet(content: Control) -> void:
 	# The same sheet every fight's result pops up in (ResultPopup).
 	var root := ResultPopup.frame(self, content, size.y, close_overlay, func(): _report("sheet"))
-	overlay(root, "-") # Reported once it has slid in, so taps land where it stops.
+	overlay(root, "-") # Reported once it has popped in, so taps land where it stops.
 	_overlay_tag = "sheet" # Back and the edge swipe close it.
 
 
