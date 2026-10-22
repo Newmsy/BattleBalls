@@ -542,7 +542,7 @@ static func _fight(job: Array) -> Dictionary:
 			var gear := [null, null]
 			gear[a_index] = a_kit
 			var powers := [a_power, 1.0] if a_index == 0 else [1.0, a_power]
-			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers, "gear": gear, "arena": job[0], "modifier": job[1], "rarity_potency": false})
+			var sim := MatchSim.new({"seed": 1000 + i, "p1": a if a_index == 0 else b, "p2": b if a_index == 0 else a, "angles": [null, null], "powers": powers, "gear": gear, "arena": job[0], "modifier": job[1], "rarity_potency": false, "family_edges": false})
 			var s := sim.run_to_end()
 			out.n += 1
 			if s.winner == a_index:
