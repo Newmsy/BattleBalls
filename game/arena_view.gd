@@ -1142,8 +1142,11 @@ func _draw() -> void:
 
 	if aim_dir != Vector2.ZERO:
 		var b := sim.balls[you_side]
-		for i in 12:
-			Dot.circle(self, b.pos * s + aim_dir * (b.radius + 40.0 + i * 38.0) * s, 5.0, Color(TEAM_COLORS[0], 1.0 - i / 12.0))
+		for i in 12: # A dark halo under each dot so the line reads on any floor.
+			var at := b.pos * s + aim_dir * (b.radius + 40.0 + i * 38.0) * s
+			var fade := 1.0 - i / 12.0
+			Dot.circle(self, at, 8.0, Color(0.03, 0.02, 0.08, 0.7 * fade))
+			Dot.circle(self, at, 5.0, Color(TEAM_COLORS[0], fade))
 
 	if ghost_dir != Vector2.ZERO:
 		_ghost_arrow(sim.balls[you_side], s)
@@ -1494,10 +1497,13 @@ func _ghost_arrow(b, s: float) -> void:
 	var from: Vector2 = b.pos + ghost_dir * (b.radius + 30.0)
 	var to: Vector2 = b.pos + ghost_dir * (b.radius + 330.0)
 	var dash := 0.0
+	var under := Color(0.03, 0.02, 0.08, pulse * 0.7)
+	var side := ghost_dir.orthogonal()
+	Dot.poly(self, PackedVector2Array([(to + ghost_dir * 6.0) * s, (to - ghost_dir * 52.0 + side * 37.0) * s, (to - ghost_dir * 52.0 - side * 37.0) * s]), under)
 	while dash < 260.0:
+		draw_line((from + ghost_dir * dash) * s, (from + ghost_dir * minf(dash + 22.0, 270.0)) * s, under, 11.0, true)
 		draw_line((from + ghost_dir * dash) * s, (from + ghost_dir * minf(dash + 22.0, 270.0)) * s, col, 6.0, true)
 		dash += 38.0
-	var side := ghost_dir.orthogonal()
 	Dot.poly(self, PackedVector2Array([to * s, (to - ghost_dir * 46.0 + side * 30.0) * s, (to - ghost_dir * 46.0 - side * 30.0) * s]), col)
 
 

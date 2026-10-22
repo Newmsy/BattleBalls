@@ -13,17 +13,11 @@
 extends RefCounted
 
 const Roster := preload("res://game/ui/roster.gd")
-const LiveOps := preload("res://game/liveops.gd")
 
 const ODDS := [["legendary", 1.5], ["epic", 5.5], ["rare", 15.0], ["uncommon", 28.0], ["common", 50.0]]
 const PITY_RESET := 50
 ## How much more often a wishlisted critter comes up than others of its rarity.
 const WISHLIST_WEIGHT := 2.0
-## This week's featured critter (the Critter Spotlight in liveops.json)
-## takes half of the rolls of its rarity.
-static func featured() -> String:
-	return LiveOps.spotlight(LiveOps.now()).critter
-
 
 ## Rolls `count` critters and updates profile.legendary_pity. Returns ids.
 static func pull(profile, count: int, rng: RandomNumberGenerator) -> Array:
@@ -39,12 +33,9 @@ static func roll(profile, rng: RandomNumberGenerator) -> String:
 	return _roll(profile, rng, false)
 
 
-## Which critter of `rarity` you get: the Spotlight takes half the rolls of
-## its rarity, the rest are weighted with wishlisted critters counting double.
+## Which critter of `rarity` you get: every critter of the rarity is equally
+## likely, with wishlisted critters counting double.
 static func pick_in_rarity(profile, rarity: String, rng: RandomNumberGenerator) -> String:
-	var spotlight := featured()
-	if rarity == rarity_of(spotlight) and rng.randf() < .5:
-		return spotlight
 	var pool: Array = []
 	for k in range(_rank(rarity), -1, -1):
 		pool = Roster.CRITTERS.filter(func(c): return c.rarity == Roster.RARITIES[k])
@@ -64,13 +55,11 @@ static func pick_in_rarity(profile, rarity: String, rng: RandomNumberGenerator) 
 ## The chance (0-1) that a roll of `id`'s rarity gives `id`.
 static func share_in_rarity(profile, id: String) -> float:
 	var rarity := rarity_of(id)
-	var spotlight := featured()
-	var held := .5 if rarity_of(spotlight) == rarity else 0.0
 	var total := 0.0
 	for c in Roster.CRITTERS:
 		if c.rarity == rarity:
 			total += _weight(profile, c.id)
-	return (held if id == spotlight else 0.0) + (1.0 - held) * _weight(profile, id) / total
+	return _weight(profile, id) / total
 
 
 ## The chance in percent that one summon (or drop) gives `id`, before the x10
