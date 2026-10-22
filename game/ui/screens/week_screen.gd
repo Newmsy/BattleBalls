@@ -1,5 +1,5 @@
 ## This Week board: today's Trick Shot, the Fight of the Day, the
-## Try-a-Critter loaner, the Critter Spotlight and the next Chaos Weekend, all from the live-ops schedule
+## Try-a-Critter loaner and the next Chaos Weekend, all from the live-ops schedule
 ## (game/liveops.gd). Opened from the banner on the Play tab.
 extends RefCounted
 
@@ -32,7 +32,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var bracket := BracketScreen.board_card(shell, t, tile)
 	if bracket != null:
 		tiles.append(bracket)
-	tiles.append_array([_try_critter(shell, t, counters), _spotlight(shell, t, counters), _chaos(shell, t, counters)])
+	tiles.append_array([_try_critter(shell, t, counters), _chaos(shell, t, counters)])
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 12)
@@ -57,7 +57,6 @@ static func build(shell, _params: Dictionary) -> Control:
 static func _info_text(shell, t: int) -> Array:
 	var l := Loaner.today(shell.profile, t)
 	var loan := Roster.get_critter(l.critter)
-	var spot := Roster.get_critter(LiveOps.spotlight(t).critter)
 	var loan_note := "%s is on loan to you today in %s. Practice only: it won't count for Ghost Arena or the campaign. Its Critter Shot is a bonus bank shot with it." % [loan.name, Loaner.modes_text()]
 	if l.owned:
 		loan_note = "You already own %s. Today it's on loan to everyone who doesn't. The Critter Shot is open to all." % loan.name
@@ -65,7 +64,6 @@ static func _info_text(shell, t: int) -> Array:
 		"Trick Shot: one called bank shot, %d tries, the same puzzle for everyone. A new one lands at midnight." % TRICK_TRIES,
 		"Fight of the Day: call who wins, then watch. Correct calls in a row build your streak.",
 		"Try-a-Critter: " + loan_note,
-		"Critter Spotlight: %s gets half of all %s rolls in the Summon Portal this week." % [spot.name, Roster.RARITY_NAMES[spot.rarity]],
 		"Chaos Weekend: one rule twist for every fight from Friday to Sunday, the same for both balls.",
 	]
 
@@ -241,22 +239,7 @@ static func open_critter_shot(shell, id: String) -> void:
 	shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")
 
 
-# --- Spotlight and Chaos -----------------------------------------------------------
-
-static func _spotlight(shell, t: int, counters: Array) -> Control:
-	var s := LiveOps.spotlight(t)
-	var c := Roster.get_critter(s.critter)
-	var col: Color = Roster.RARITY_COLORS[c.rarity]
-	var ends := line("", 18, Kit.MUTED)
-	counters.append([ends, "Ends in %s", s.ends])
-	ends.text = "Ends in %s" % LiveOps.countdown(t, s.ends)
-	var who := Kit.vbox(0, [line(c.name, 26), line("Half of %s rolls" % Roster.RARITY_NAMES[c.rarity], 18, col), ends])
-	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var summon := _action("Summon", func(): shell.show_tab("summon"), "ghost")
-	shell.mark("week_summon", summon)
-	return tile("Spotlight", Color("e8c8ff"), Color("6b3fb0"), Color("1c1040"),
-		[Kit.hbox(10, [CritterIcon.make(c.id, 1, 76), who])], summon)
-
+# --- Chaos -----------------------------------------------------------
 
 ## The weekend's rule twist; the tile opens its full description.
 static func _chaos(shell, t: int, counters: Array) -> Control:

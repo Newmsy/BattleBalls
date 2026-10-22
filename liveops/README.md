@@ -1,10 +1,8 @@
 # Live-ops schedule
 
-`liveops.json` plans the season ahead: the season and its week number, the
-weekly Critter Spotlight, each Chaos Weekend's twist, any hand-picked Fight
+`liveops.json` plans the season ahead: the season and its week number, each Chaos Weekend's twist, any hand-picked Fight
 of the Day and each day's Try-a-Critter loaner. The This Week board (Play
-tab), the Summon Portal's featured critter, the Fight of the Day and the
-loaner all read it through `game/liveops.gd`.
+tab), the Fight of the Day and the loaner all read it through `game/liveops.gd`.
 
 The file ships inside every build and is also served next to the web build
 (`/liveops.json`, copied by CI). At boot the game downloads it, and a valid
@@ -25,7 +23,6 @@ All dates are `YYYY-MM-DD`, UTC. Weeks start Monday 00:00 UTC.
 | `version` | number | The format version. Bump it only if the format changes. |
 | `revision` | number | **Bump it on every edit.** A cached or downloaded schedule is only used if its revision is at least the bundled one, so an old cache never hides a newer build's plan. |
 | `seasons` | `{name, start, weeks, debut?}` | `start` is a Monday. Seven weeks per season (design/monetisation.md). Each season gets a fresh Glow Pass; `debut` (a roster id) is the critter whose 3 copies sit on the pass's free track. |
-| `spotlight` | `{week, critter, blurb}` | `week` is a Monday; `critter` is any roster id (`game/ui/roster.gd`). It takes half the rolls of its rarity in the Summon Portal. |
 | `chaos` | `{weekend, modifier}` | `weekend` is the Friday; `modifier` is an id from `sim/modifiers.gd` (design/events.md). |
 | `fights` | `{date, p1, p2, seed, angles?, title?}` | Optional showcase fights; `p1`/`p2` must be playable in the sim. Days without one get a close fight generated from the date. |
 | `loaners` | `{date, critter, blurb?}` | Try-a-Critter: the critter lent for the day (UTC) to everyone who doesn't own it (`game/loaner.gd`). Any roster id passes validation, but the bundled file may only name critters the sim can play; a build that can't play a downloaded pick uses the rotation instead. Days without one rotate through the playable critters, rarest first. |
@@ -33,7 +30,7 @@ All dates are `YYYY-MM-DD`, UTC. Weeks start Monday 00:00 UTC.
 
 ## Planning a season
 
-1. Add the season, its seven Spotlight weeks and seven Chaos weekends.
+1. Add the season, its seven Chaos weekends.
 2. Optionally schedule the season's Bracket of Legends (otherwise it runs in
    the last week). Once store builds exist, list `entrants` before picks open
    so an old build can't run a different field.
