@@ -14,7 +14,7 @@ const CRITTER := {
 	"vibe": "A tiny anxious fish that finds a second gear when things look bad.",
 	"description": "Fish. It's small and slippery, and at 50% HP it panics into a lasting +35% speed.",
 	"stats": {"hp": 125.0, "radius": 54.0, "speed": 400.0, "contact_damage": 18.0},
-	"ability": [{"on": "hp_below", "hp": 0.5, "do": "grow"}],
+	"ability": [{"on": "hp_below", "hp": 0.5, "do": "grow"}, {"on": "always", "do": "school"}, {"on": "guard", "do": "school_guard"}],
 	"params": {
 		"grow_radius": 0.0,
 		"grow_speed": 0.35,
@@ -26,14 +26,18 @@ const CRITTER := {
 		"grow_pulse_damage": 0.0,
 		"grow_bolts": 0.0,
 		"bolt_damage": 3.0,
+		"school_count": 2, ## The panic calls this many little fish...
+		"school_secs": 6.0, ## ...for this long: they nip foes and each soaks half a hit.
+		"school_damage": 3.0,
+		"school_size": 14.0,
 	},
 	"tiers": [
-		{"text": "Small; at 50% HP panics: +35% speed", "now": "Small; at 50% HP panics: +{grow_speed%}% speed"},
+		{"text": "Small; at 50% HP panics: +35% speed, 2 fish join", "now": "Small; at 50% HP panics: +{grow_speed%}% speed, {school_count} fish join"},
 		{"text": "Panic speed +35% → +40%", "grow_speed": 0.4},
-		{"text": "+ Panicking heals 8", "now": "Small; at 50% HP panics: +{grow_speed%}% speed, heal {grow_heal}", "grow_heal": 8.0},
+		{"text": "+ Panicking heals 8", "now": "At 50% HP panics: +{grow_speed%}% speed, heal {grow_heal}, {school_count} fish", "grow_heal": 8.0},
 		{"text": "Panic speed +40% → +45%", "grow_speed": 0.45},
-		{"text": "+ The panic splashes the foe away for 8", "now": "Small; at 50% HP panics: +{grow_speed%}% speed, heal {grow_heal}, splash {grow_pulse_damage}", "grow_pulse_damage": 8.0},
+		{"text": "+ Panic splashes foe away (8) · fish 2 → 3", "now": "At 50% HP panics: +{grow_speed%}% speed, heal, splash, {school_count} fish", "grow_pulse_damage": 8.0, "school_count": 3},
 	],
-	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["fantail"], "scale": 0.85},
+	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["fantail"], "front": ["scales"], "scale": 0.85},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.4},
 }

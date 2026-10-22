@@ -194,11 +194,11 @@ func test_leviathan_tail_stings_and_the_dive_erupts_under_the_foe() -> void:
 	var sim := _sim("leviathan")
 	sim.balls[1].vel = Vector2.ZERO
 	var waves := 0.0
-	for i in 9 * 60:
+	for i in 7 * 60:
 		sim.step()
 	check_eq(Abilities.orb_items(sim, sim.balls[0]).size(), 3, "three tail segments")
 	sim.step()
-	check(sim.balls[0].state.has("dive_until"), "it dives at 9s")
+	check(sim.balls[0].state.has("dive_until"), "it dives at 7s")
 	_park(sim)
 	var target := sim.balls[1].pos
 	for i in 75:

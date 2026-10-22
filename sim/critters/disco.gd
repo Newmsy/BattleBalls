@@ -22,13 +22,14 @@ const CRITTER := {
 		"disco_slow": 0.3,
 		"disco_slow_secs": 1.0,
 		"disco_bounce": 0, ## 1: rays bend off the first wall they meet.
+		"disco_floor_dps": 3.0, ## Each flash lights a 3x3 dance floor for 2s: slow 25% and this much a second.
 	},
 	"tiers": [
-		{"text": "Every 4s flashes 6 rays: 4 dmg, slow 30%", "now": "Every 4s flashes {disco_rays} rays: {disco_damage} dmg, slow {disco_slow%}%"},
+		{"text": "Every 4s: 6 rays (4, slow 30%) + a lit dance floor", "now": "Every 4s: {disco_rays} rays ({disco_damage}, slow {disco_slow%}%) + a lit dance floor"},
 		{"text": "Ray dmg 4 → 5", "disco_damage": 5.0},
 		{"text": "Rays 6 → 8", "disco_rays": 8},
 		{"text": "Ray reach +28%", "disco_length": 320.0},
-		{"text": "+ Rays bounce off walls once", "now": "Every 4s flashes {disco_rays} bouncing rays: {disco_damage} dmg, slow {disco_slow%}%", "disco_bounce": 1},
+		{"text": "+ Rays bounce off walls once", "now": "Every 4s: {disco_rays} bouncing rays ({disco_damage}) + a lit dance floor", "disco_bounce": 1},
 	],
 	"art": {"eyes": {"none": true, "mouth": "grin"}, "front": ["tiles", "shades"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.15},

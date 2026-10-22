@@ -37,26 +37,28 @@ func test_munch_bites_grow_it_and_heal() -> void:
 	var sim := _sim("munch")
 	var b := sim.balls[0]
 	b.hp = 50.0
-	for i in 7:
+	for i in 4:
 		_hit(sim, b)
-	check_eq(Abilities.stacks(b), 5, "max 5 bites")
-	check_near(b.radius, b.def.radius * 1.25, 0.001, "+5% size a bite")
-	check_near(b.contact_damage, b.def.contact_damage + 5.0, 0.001, "+1 damage a bite")
-	check_near(b.hp, 50.0 + 7 * 3.0, 0.001, "every bite heals 3, full or not")
+	check_eq(Abilities.stacks(b), 4, "full at 4 bites")
+	check_near(b.radius, b.def.radius * 1.2, 0.001, "+5% size a bite")
+	check_near(b.contact_damage, b.def.contact_damage + 4.0, 0.001, "+1 damage a bite")
+	check_near(b.hp, 50.0 + 4 * b.def.stack_heal, 0.001, "every bite heals")
+	_hit(sim, b)
+	check(sim.stunned(sim.balls[1]), "T1: the hit after it fills swallows the foe")
 	var t3 := _sim("munch", "plain", [3, 1])
 	var g := {"source": t3.balls[1], "kind": "contact", "mult": 1.0}
-	for i in 5:
+	for i in 4:
 		_hit(t3, t3.balls[0])
 	t3.abilities.fire(t3, "guard", t3.balls[0], g)
 	check_near(g.mult, 0.85, 0.001, "T3 full size: 15% armour")
 	var t5 := _sim("munch", "plain", [5, 1])
 	var m := t5.balls[0]
-	for i in 6:
+	for i in 5:
 		_hit(t5, m)
-	check_eq(Abilities.stacks(m), 6, "T5: 6 bites")
+	check_eq(Abilities.stacks(m), 5, "T5: 5 bites")
 	_hit(t5, m)
 	check(t5.stunned(t5.balls[1]), "the hit after it fills swallows the foe")
-	check_eq(Abilities.stacks(m), 4, "a swallow drops 2 bites")
+	check_eq(Abilities.stacks(m), 3, "a swallow drops 2 bites")
 	_steps(t5, int(m.def.swallow_secs * MatchSim.TICK_RATE) + 1)
 	check(t5.balls[1].state.has("slam"), "then spits it out to slam a wall")
 	check(not m.state.has("swallow"), "and the swallow is over")
@@ -100,6 +102,8 @@ func test_sundae_scoops_and_splats() -> void:
 	check(t5.beams.is_empty(), "no sprinkles below 5 scoops")
 	_hit(t5, t5.balls[0])
 	check_eq(t5.beams.size(), 6, "T5 at 5 scoops: hits shower sprinkles")
+	check_eq(t5.shots.filter(func(s): return s.kind == "scoop").size(), 3, "and the full stack splits: 3 scoops thrown")
+	check_eq(Abilities.stacks(t5.balls[0]), 2, "dropping 3 scoops")
 
 
 func test_kaleido_clicks_through_its_modes() -> void:

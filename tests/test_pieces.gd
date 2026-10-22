@@ -171,11 +171,22 @@ func test_disco_rays_hit_and_slow() -> void:
 	var sim := _sim("disco")
 	_park(sim, Vector2(300, 500), Vector2(300 + 64 + 66 + 120, 500))
 	sim.balls[0].state.flashes = -1 # The first flash then has a ray at angle 0.
+	sim.balls[0].def.disco_floor_dps = 0.0 # Just the rays (the dance floor: test below).
 	sim.abilities.call("fx_disco", sim, sim.balls[0], {})
 	var hp: float = sim.balls[1].hp
 	sim.step()
 	check_near(hp - sim.balls[1].hp, sim.balls[0].def.disco_damage, 0.01, "a ray hits once")
 	check_near(sim.balls[1].slow, sim.balls[0].def.disco_slow, 0.001, "and slows")
+
+
+func test_disco_lights_a_dance_floor() -> void:
+	var sim := _sim("disco")
+	_park(sim, Vector2(350, 350), Vector2(800, 800))
+	sim.abilities.call("fx_disco", sim, sim.balls[0], {})
+	var tiles := sim.zones.filter(func(z): return z.kind == "tile")
+	check_eq(tiles.size(), 9, "a 3x3 floor of tiles")
+	check_near(tiles[4].pos.x, 350.0, 0.01, "lined up on the floor grid round it")
+	check_near(tiles[0].slow, 0.25, 0.001, "lit tiles slow")
 
 
 func test_ripple_runs_along_the_wall() -> void:

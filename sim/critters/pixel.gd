@@ -14,7 +14,7 @@ const CRITTER := {
 	"vibe": "A glitchy 8-bit sprite who blinks between frames.",
 	"description": "Sprite. Every 5s it teleports, leaving a pixel bomb (11) where it was.",
 	"stats": {"hp": 131.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
-	"ability": [{"on": "every", "secs": "glitch_every", "do": "glitch"}],
+	"ability": [{"on": "every", "secs": "glitch_every", "do": "glitch"}, {"on": "always", "do": "lag_track"}, {"on": "blast", "do": "lag"}],
 	"params": {
 		"glitch_every": 5.0,
 		"glitch_away": 250.0, ## Lands at least this far from where it was.
@@ -25,9 +25,10 @@ const CRITTER := {
 		"bomb_line": 1, ## Bombs dropped per teleport, back along its path.
 		"glitch_pulse": 0.0, ## T3: pulse damage where it lands.
 		"glitch_pulse_radius": 80.0,
+		"lag_secs": 0.4, ## A foe its bomb blasts glitches back to where it was this long ago.
 	},
 	"tiers": [
-		{"text": "Teleports every 5s, leaves a bomb (11)", "now": "Teleports every {glitch_every}s, leaves a bomb ({bomb_damage})"},
+		{"text": "Teleports every 5s, leaves a lag bomb (11)", "now": "Teleports every {glitch_every}s, leaves a lag bomb ({bomb_damage})"},
 		{"text": "Bomb 11 → 14", "bomb_damage": 14.0},
 		{"text": "+ Lands with a glitch pulse (4)", "now": "Teleports every {glitch_every}s: bomb {bomb_damage}, pulse {glitch_pulse}", "glitch_pulse": 4.0},
 		{"text": "Teleport every 5 → 4s", "glitch_every": 4.0},
