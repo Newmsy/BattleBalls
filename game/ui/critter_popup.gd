@@ -11,6 +11,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const Families := preload("res://sim/families.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 
@@ -82,8 +83,7 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 	var tags := Kit.hbox(8, [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol)])
 	var fam := Families.of(id)
 	if fam != "":
-		var fi: Dictionary = Families.info(fam)
-		tags.add_child(Kit.chip(fi.name, Color(fi.color)))
+		tags.add_child(FamilyIcon.chip(fam))
 	tags.add_child(Kit.chip(c.role, Kit.MUTED))
 	var stand := Kit.hbox(10, [Kit.glyph("stars", 26, Kit.FG, tier)])
 	if level > 0:

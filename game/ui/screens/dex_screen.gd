@@ -46,7 +46,9 @@ static func _entry(shell, owned: bool, c: Dictionary) -> Control:
 	name.clip_text = true
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var rarity := Kit.label(Roster.RARITY_NAMES[c.rarity], 17, Color(rcol, 1.0 if owned else .7), HORIZONTAL_ALIGNMENT_CENTER)
-	var v := Kit.vbox(0, [num, CritterIcon.make(c.id, 1, 124, false, not owned), name, rarity])
+	var art := CritterIcon.make(c.id, 1, 124, false, not owned)
+	art.family_badge = true
+	var v := Kit.vbox(0, [num, art, name, rarity])
 	# Found critters get the full rarity tint; unfound ones a faint one, so the silhouette still reads.
 	var border := Roster.rarity_border(c.rarity, Kit.LINE) if owned else Color(Roster.rarity_border(c.rarity, Kit.LINE), .45)
 	var bg := Roster.rarity_bg(c.rarity, Kit.PANEL) if owned else Roster.rarity_bg(c.rarity, Color("0f0d27"), .08)

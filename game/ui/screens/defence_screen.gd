@@ -8,6 +8,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaScreen := preload("res://game/ui/screens/arena_screen.gd")
 const Families := preload("res://sim/families.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -34,7 +35,7 @@ static func build(shell, params: Dictionary) -> Control:
 		var fam: Dictionary = Families.info(str(r.family))
 		var col: Color = Color(fam.get("color", "ffffff"))
 		var line := Kit.hbox(10, [
-			Kit.chip(fam.get("name", "?"), col),
+			FamilyIcon.chip(str(r.family)) if not fam.is_empty() else Kit.chip("?", col),
 			Kit.label(str(r.name), 24),
 			Kit.spacer(),
 			Kit.label("Held" if r.held else "Lost", 24, Kit.GOOD if r.held else Kit.BAD),

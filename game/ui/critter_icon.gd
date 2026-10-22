@@ -8,6 +8,8 @@ extends Control
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const CritterPopup := preload("res://game/ui/critter_popup.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
+const Families := preload("res://sim/families.gd")
 
 var critter_id := "vampire"
 var tier := 1
@@ -23,6 +25,8 @@ var radius_frac := .26
 var info := true
 var info_level := 0 ## Shown on the card when known.
 var info_power := 0
+## Shows the critter's family badge (game/ui/family_icon.gd) in a corner. Set before it enters the tree.
+var family_badge := false
 
 ## Seconds a press inside a button must be held to open the card instead.
 const HOLD := .45
@@ -70,6 +74,8 @@ static func face(id: String, side: float, tier_ := 1) -> Control:
 	return icon
 
 func _ready() -> void:
+	if family_badge and Families.of(critter_id) != "":
+		add_child(FamilyIcon.corner(Families.of(critter_id)))
 	_phase = float(hash(critter_id + str(get_instance_id())) % 1000) / 100.0
 	var node := get_parent()
 	while node != null and _clip == null:

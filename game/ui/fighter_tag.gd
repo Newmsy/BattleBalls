@@ -43,6 +43,7 @@ static func icon(critter: String, tier: int, side: float, silhouette := false, l
 	art.info_level = level # Its mini Critterpedia card shows these too.
 	art.info_power = power
 	art.radius_frac /= ART_SHRINK
+	art.family_badge = true
 	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	# Tier as gold stars (the same stars as the critter screen), level beside them.
 	var head := Kit.hbox(6, [Kit.glyph("stars", 22, Kit.FG, tier)], BoxContainer.ALIGNMENT_CENTER)

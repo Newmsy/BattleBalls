@@ -95,6 +95,7 @@ static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 	icon_layer.custom_minimum_size = Vector2(170, 170)
 	icon_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon := CritterIcon.make(k.id, k.tier, 170)
+	icon.family_badge = true
 	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	icon_layer.add_child(icon)
 	if k.stack.count >= 3 and k.tier < Roster.MAX_TIER:

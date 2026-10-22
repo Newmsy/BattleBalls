@@ -16,6 +16,7 @@ const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
 const Families := preload("res://sim/families.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
 
@@ -176,7 +177,10 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 	var fam: String = bot.get("family", "")
 	var fam_col: Color = Color(Families.info(fam).color) if fam != "" else Kit.FG
 	var stake := Ladder.stake(store.trophies, int(bot.get("trophies", store.trophies)))
-	var name := _fit(Kit.label(str(bot.name), 24, fam_col))
+	var name: Control = _fit(Kit.label(str(bot.name), 24, fam_col))
+	if fam != "":
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name = Kit.hbox(6, [FamilyIcon.make(fam, 28), name], BoxContainer.ALIGNMENT_CENTER)
 	var info := Kit.vbox(2, [
 		name,
 		Kit.hbox(6, [Kit.glyph("trophy", 20, Glyph.GOLD), Kit.label(Kit.commas(int(bot.get("trophies", 0))), 20, Kit.MUTED), Kit.power(ArenaTeams.rating(bot), 20, Kit.MUTED)]),
