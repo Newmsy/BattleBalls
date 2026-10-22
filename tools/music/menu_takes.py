@@ -9,8 +9,8 @@ import sys
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
-from make_music import (SR, Song, bass, clap, crash, env, hat, kick, lp, midi, perc, pulse, saw,  # noqa: E402
-                        shaker, sine, snare, supersaw, svf_lp, write_wav)
+from make_music import (SR, Song, bass, brass, clap, crash, env, hat, kick, lp, midi, noise, perc, pulse, saw,  # noqa: E402
+                        shaker, sine, snare, supersaw, svf_lp, tri, write_wav)
 
 
 @functools.lru_cache(maxsize=None)
@@ -52,6 +52,27 @@ def funk_bass(note, seconds):
     return np.tanh(y * 2.2) * env(n, 0.002, 0.12, 0.45, 0.02) * 0.5
 
 
+@functools.lru_cache(maxsize=None)
+def flute(note, seconds, from_note=None):
+    """A soft, breathy lead: sine + a little triangle and air, gentle vibrato."""
+    n = int(seconds * SR)
+    t = np.arange(n) / SR
+    f = midi(note) * (1 + 0.007 * np.sin(2 * np.pi * 5 * t) * np.clip((t - 0.12) / 0.2, 0, 1))
+    x = sine(f, n) * 0.8 + tri(f * 2, n) * 0.1
+    air = lp(noise(n, note * 97), 3000) * 0.06
+    return (x + air) * env(n, 0.03, 0.5, 0.8, min(0.08, seconds * 0.3)) * 0.5
+
+
+@functools.lru_cache(maxsize=None)
+def chip(note, seconds, from_note=None):
+    """An 8-bit square lead with a quick vibrato: arcade flavour."""
+    n = int(seconds * SR)
+    t = np.arange(n) / SR
+    f = midi(note) * (1 + 0.01 * np.sin(2 * np.pi * 6.5 * t) * np.clip((t - 0.1) / 0.1, 0, 1))
+    x = lp(pulse(f, n, 0.25), 5000)
+    return x * env(n, 0.003, 0.3, 0.6, min(0.04, seconds * 0.3)) * 0.3
+
+
 def melody(s, bar, notes, inst, bus, gain):
     prev = None
     for beat, length, note in notes:
@@ -59,56 +80,100 @@ def melody(s, bar, notes, inst, bus, gain):
         prev = note
 
 
-def groove():
-    """Take A, "Neon Groove": 108 BPM city-pop funk in F. Bbmaj7 Am7 Gm7 C7sus."""
-    s = Song(108, 16, tail=2.5)
-    chords = {  # pad voicing, e-piano voicing, bass root
-        "Bbmaj7": ([58, 62, 65, 69], (62, 65, 69, 72), 34),
-        "Am7": ([57, 60, 64, 67], (60, 64, 67, 72), 33),
-        "Gm7": ([55, 58, 62, 65], (58, 62, 65, 70), 31),
-        "C7sus": ([55, 60, 65, 70], (60, 65, 67, 70), 36),
-        "Dm7": ([57, 60, 62, 65], (60, 62, 65, 69), 38),
-    }
-    prog = ["Bbmaj7", "Am7", "Gm7", "C7sus"] * 2 + ["Bbmaj7", "Am7", "Dm7", "Gm7", "Bbmaj7", "Am7", "Gm7", "C7sus"]
+CITY = {  # pad voicing, e-piano voicing, bass root (F major).
+    "Bbmaj7": ([58, 62, 65, 69], (62, 65, 69, 72), 34),
+    "Am7": ([57, 60, 64, 67], (60, 64, 67, 72), 33),
+    "Gm7": ([55, 58, 62, 65], (58, 62, 65, 70), 31),
+    "C7sus": ([55, 60, 65, 70], (60, 65, 67, 70), 36),
+    "Dm7": ([57, 60, 62, 65], (60, 62, 65, 69), 38),
+}
+CITY_PROG = ["Bbmaj7", "Am7", "Gm7", "C7sus"] * 2 + ["Bbmaj7", "Am7", "Dm7", "Gm7", "Bbmaj7", "Am7", "Gm7", "C7sus"]
+FUNK = {  # A cooler ii-V-I-VI turnaround in F: Gm9 C9 Fmaj7 D7#9.
+    "Gm9": ([57, 58, 62, 65], (58, 62, 65, 69), 31),
+    "C9": ([55, 58, 62, 64], (58, 62, 64, 67), 36),
+    "Fmaj7": ([57, 60, 64, 65], (60, 64, 65, 69), 41),
+    "D7": ([54, 57, 60, 65], (57, 60, 65, 66), 38),
+    "Bbmaj7": CITY["Bbmaj7"], "Am7": CITY["Am7"],
+}
+FUNK_PROG = ["Gm9", "C9", "Fmaj7", "D7"] * 2 + ["Bbmaj7", "Am7", "Gm9", "C9", "Bbmaj7", "Am7", "Gm9", "C9"]
+TUNE = {  # Bar -> phrase. Hook: a sunny call and answer.
+    4: [(0, .5, 77), (.5, .5, 76), (1, 1, 74), (2.5, .5, 72), (3, 1, 74)],
+    5: [(0, .75, 76), (.75, .75, 72), (1.5, 2, 69)],
+    6: [(0, .5, 70), (.5, .5, 72), (1, .5, 74), (1.5, 1, 77), (2.5, .5, 74), (3, 1, 72)],
+    7: [(0, 3, 72), (3.5, .5, 69)],
+    8: [(0, .5, 77), (.5, .5, 76), (1, 1, 74), (2.5, .5, 72), (3, 1, 81)],
+    9: [(0, .75, 79), (.75, .75, 76), (1.5, 2, 72)],
+    10: [(0, .5, 74), (.5, .5, 76), (1, .5, 77), (1.5, 1, 81), (2.5, .5, 79), (3, 1, 77)],
+    11: [(0, 2, 74), (2, 1, 72), (3, 1, 70)],
+    12: [(0, .5, 77), (.5, .5, 76), (1, 1, 74), (2.5, .5, 72), (3, 1, 74)],
+    13: [(0, .75, 76), (.75, .75, 72), (1.5, 2, 69)],
+    14: [(0, .5, 70), (.5, .5, 74), (1, 1, 77), (2, 1, 76), (3, 1, 74)],
+    15: [(0, 2, 72), (2.5, .5, 74), (3, .5, 76), (3.5, .5, 77)],
+}
+FUNK_TUNE = {  # The same rhythm, notes bent to fit the turnaround.
+    4: [(0, .5, 77), (.5, .5, 74), (1, 1, 70), (2.5, .5, 72), (3, 1, 74)],
+    5: [(0, .75, 76), (.75, .75, 72), (1.5, 2, 70)],
+    6: [(0, .5, 69), (.5, .5, 72), (1, .5, 76), (1.5, 1, 77), (2.5, .5, 76), (3, 1, 72)],
+    7: [(0, 3, 72), (3.5, .5, 69)],
+}
+for _k in range(8, 16):
+    FUNK_TUNE[_k] = TUNE[_k]
+
+
+def groove(bpm=108, shift=0, lead=talk, lead_gain=1.2, chords=CITY, prog=CITY_PROG, tune=TUNE,
+           half_time=False, stabs=False, keys_gain=0.8, hats_gain=1.0):
+    """Take A, "Neon Groove": city-pop funk in F (Bbmaj7 Am7 Gm7 C7sus), with
+    knobs for the variants: tempo, key shift, lead voice, chords, drums."""
+    s = Song(bpm, 16, tail=2.5)
     # Syncopated bass: (beat, length, interval above the root).
     bass_line = [(0, 0.4, 0), (0.75, 0.2, 12), (1.5, 0.4, 0), (2.25, 0.2, 12), (2.5, 0.4, 10), (3.25, 0.4, 7), (3.75, 0.2, 12)]
     comp = [0.5, 1.75, 2.5, 3.75]  # E-piano stabs, off the beat.
     for bar, name in enumerate(prog):
         pad, keys, root = chords[name]
+        pad = [p + shift for p in pad]
+        keys = tuple(k + shift for k in keys)
+        root += shift
         s.add("pad", supersaw(pad, s.sec(4) + 0.5, 1700, 0.25, 0.5), bar * 4, gain=0.75)
         for b, l, iv in bass_line:
             s.add("bass", funk_bass(root + 12 + iv, s.sec(l)), bar * 4 + b, 0, 0.8)
         if bar >= 2:
             for b in comp:
-                s.add("keys", epiano(keys, s.sec(0.6)), bar * 4 + b, 0.2, 0.8)
-        for b in range(4):
-            s.kick(bar * 4 + b, 0.85 if b % 2 == 0 else 0.6)
-        for b in (1, 3):
-            s.add("drums", clap(), bar * 4 + b, 0, 0.8)
-            s.add("drums", snare(230, 0.15), bar * 4 + b, 0, 0.35)
+                s.add("keys", epiano(keys, s.sec(0.6)), bar * 4 + b, 0.2, keys_gain)
+        if stabs and bar % 2 == 1:  # Synth-brass hits answering the lead.
+            top = tuple(k + 12 for k in keys[1:])
+            s.add("stabs", brass(top, s.sec(0.4)), bar * 4 + 2.5, -0.2, 0.45)
+            s.add("stabs", brass(top, s.sec(0.6)), bar * 4 + 3.25, -0.2, 0.5)
+        if half_time:
+            s.kick(bar * 4, 0.9)
+            s.kick(bar * 4 + 2.5, 0.6)
+            s.add("drums", snare(210, 0.22), bar * 4 + 2, 0, 0.6)
+            s.add("drums", clap(), bar * 4 + 2, 0, 0.6)
+        else:
+            for b in range(4):
+                s.kick(bar * 4 + b, 0.85 if b % 2 == 0 else 0.6)
+            for b in (1, 3):
+                s.add("drums", clap(), bar * 4 + b, 0, 0.8)
+                s.add("drums", snare(230, 0.15), bar * 4 + b, 0, 0.35)
         for i in range(16):
             swing = 0.04 if i % 2 else 0.0  # A little swing on the 16ths.
-            s.add("hats", hat(i % 4 == 2, i % 3), bar * 4 + i * 0.25 + swing, 0.3, 0.45 if i % 4 == 2 else (0.3 if i % 2 == 0 else 0.18))
-    tune = {  # Bar -> phrase. Hook: a sunny call and answer.
-        4: [(0, .5, 77), (.5, .5, 76), (1, 1, 74), (2.5, .5, 72), (3, 1, 74)],
-        5: [(0, .75, 76), (.75, .75, 72), (1.5, 2, 69)],
-        6: [(0, .5, 70), (.5, .5, 72), (1, .5, 74), (1.5, 1, 77), (2.5, .5, 74), (3, 1, 72)],
-        7: [(0, 3, 72), (3.5, .5, 69)],
-        8: [(0, .5, 77), (.5, .5, 76), (1, 1, 74), (2.5, .5, 72), (3, 1, 81)],
-        9: [(0, .75, 79), (.75, .75, 76), (1.5, 2, 72)],
-        10: [(0, .5, 74), (.5, .5, 76), (1, .5, 77), (1.5, 1, 81), (2.5, .5, 79), (3, 1, 77)],
-        11: [(0, 2, 74), (2, 1, 72), (3, 1, 70)],
-        12: [(0, .5, 77), (.5, .5, 76), (1, 1, 74), (2.5, .5, 72), (3, 1, 74)],
-        13: [(0, .75, 76), (.75, .75, 72), (1.5, 2, 69)],
-        14: [(0, .5, 70), (.5, .5, 74), (1, 1, 77), (2, 1, 76), (3, 1, 74)],
-        15: [(0, 2, 72), (2.5, .5, 74), (3, .5, 76), (3.5, .5, 77)],
-    }
+            g = 0.45 if i % 4 == 2 else (0.3 if i % 2 == 0 else 0.18)
+            s.add("hats", hat(i % 4 == 2, i % 3), bar * 4 + i * 0.25 + swing, 0.3, g * hats_gain)
     for bar, notes in tune.items():
-        melody(s, bar, notes, talk, "lead", 1.2)
+        melody(s, bar, [(b, l, n + shift) for b, l, n in notes], lead, "lead", lead_gain)
     s.add("fx", crash(2.0), 16, 0.2, 0.35)
     s.add("fx", crash(2.0), 32, -0.2, 0.35)
-    sends = {"pad": (0.25, 0.0), "keys": (0.2, 0.15), "lead": (0.22, 0.3), "drums": (0.08, 0.0), "fx": (0.25, 0.0)}
-    return s.render(sends, ducked=("pad", "bass", "keys"), duck=0.4, delay_beats=0.75)
+    sends = {"pad": (0.25, 0.0), "keys": (0.2, 0.15), "lead": (0.22, 0.3), "stabs": (0.25, 0.15),
+             "drums": (0.08, 0.0), "fx": (0.25, 0.0)}
+    return s.render(sends, ducked=("pad", "bass", "keys", "stabs"), duck=0.4, delay_beats=0.75)
+
+
+VARIANTS = {
+    "a1-original": {},
+    "a2-faster-brassier": {"bpm": 118, "shift": 2, "stabs": True},
+    "a3-chill-flute": {"bpm": 98, "lead": flute, "lead_gain": 1.3, "half_time": True, "hats_gain": 0.6},
+    "a4-arcade-chip": {"bpm": 112, "lead": chip, "lead_gain": 1.3},
+    "a5-funkier-chords": {"chords": FUNK, "prog": FUNK_PROG, "tune": FUNK_TUNE, "stabs": True},
+}
 
 
 def night_drive():
@@ -160,7 +225,7 @@ def night_drive():
 
 if __name__ == "__main__":
     out = sys.argv[1]
-    for name, make in (("take-a-neon-groove", groove), ("take-b-night-drive", night_drive)):
-        x = make()
+    for name, kw in VARIANTS.items():
+        x = groove(**kw)
         write_wav(os.path.join(out, name + ".wav"), x)
         print(name, "%.1fs" % (x.shape[1] / SR))
