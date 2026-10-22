@@ -25,8 +25,9 @@ var radius_frac := .26
 var info := true
 var info_level := 0 ## Shown on the card when known.
 var info_power := 0
-## Shows the critter's family badge (game/ui/family_icon.gd) in a corner. Set before it enters the tree.
-var family_badge := false
+## Shows the critter's family badge (game/ui/family_icon.gd) in a corner, on every
+## critter but a silhouette (not found yet). Set before it enters the tree.
+var family_badge := true
 
 ## Seconds a press inside a button must be held to open the card instead.
 const HOLD := .45
@@ -74,7 +75,7 @@ static func face(id: String, side: float, tier_ := 1) -> Control:
 	return icon
 
 func _ready() -> void:
-	if family_badge and Families.of(critter_id) != "":
+	if family_badge and not silhouette and Families.of(critter_id) != "":
 		add_child(FamilyIcon.corner(Families.of(critter_id)))
 	_phase = float(hash(critter_id + str(get_instance_id())) % 1000) / 100.0
 	var node := get_parent()

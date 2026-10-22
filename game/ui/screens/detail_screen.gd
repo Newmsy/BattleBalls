@@ -63,7 +63,6 @@ static func build(shell, params: Dictionary) -> Control:
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	var hero := CritterIcon.make(c.id, b.tier, 220, true)
-	hero.family_badge = true
 	root.add_child(Kit.hbox(16, [hero, side], BoxContainer.ALIGNMENT_CENTER))
 
 	var how_level: Control = shell.info_button("How to level", [

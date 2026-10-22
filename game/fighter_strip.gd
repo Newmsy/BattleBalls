@@ -14,6 +14,8 @@ const CritterDb := preload("res://sim/critter_db.gd")
 const BossArt := preload("res://game/boss_art.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const CritterPopup := preload("res://game/ui/critter_popup.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
+const Families := preload("res://sim/families.gd")
 
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const PANEL := Color(27 / 255.0, 24 / 255.0, 66 / 255.0, 0.92)
@@ -169,6 +171,8 @@ func _draw_card(k: int, r: Rect2) -> void:
 		var b = _sim.balls[_ball[k]]
 		var frac := float(_sim.tick % every) / every if b.alive() else 0.0
 		draw_arc(face, fr + 5.0, -PI / 2.0, -PI / 2.0 + TAU * frac, 40, col, 4.0, true)
+	if not card.boss and Families.of(card.id) != "":
+		FamilyIcon.draw(self, Families.of(card.id), face + Vector2(-fr, fr) * .78, maxf(16.0, fr * .7))
 	var fs := A11y.font(22)
 	var tx := face.x + fr + 14.0
 	var tw := r.end.x - tx - 10.0
