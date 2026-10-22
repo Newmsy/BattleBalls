@@ -1,6 +1,6 @@
 ## Summon Portal: random Tier 1 critters for Summon Eggs (earned, never sold).
 ## Odds on screen, x10 guarantees a Rare or better, shared Legendary pity, one
-## free summon a day, weekly featured critter, and the Wishlist (3 picks that
+## free summon a day, and the Wishlist (3 picks that
 ## come up twice as often within their rarity). Capsules glow in their rarity's
 ## colour, then open on their own one by one with a burst that grows with rarity.
 extends RefCounted
@@ -28,17 +28,13 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(shell.title_row("Summon Portal", {"back": false, "info_title": "Odds and pity", "info_mark": "summon_info", "info": [
 		"Every summon is a Tier 1 critter. Odds (the same as campaign drops): " + ", ".join(odds_lines) + ".",
 		"A x10 always has a Rare or better.",
-		"Wishlist picks come up 2x as often within their rarity.",
+		"Every critter of a rarity is equally likely; Wishlist picks come up 2x as often.",
 		"Legendary within %d Rare+ rolls. Campaign drops count too." % Summon.PITY_RESET,
 		"Eggs: boss first clears, daily login, account levels, Brood Queen. Never sold."]}))
 
-	var featured := Roster.get_critter(Summon.featured())
 	var portal := _Portal.make(200)
-	var feat := Kit.hbox(14, [CritterIcon.make(featured.id, 1, 84), Kit.vbox(2, [Kit.caption("Spotlight", Color("e8c8ff")),
-		Kit.label(featured.name, 30), Kit.label("Half of %s pulls" % Roster.RARITY_NAMES[featured.rarity], 21, Color("e8c8ff"), HORIZONTAL_ALIGNMENT_LEFT, true)])])
-	feat.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var st := Kit.box(Color("221046"), Color("6b3fb0"), 36, 2, 20)
-	root.add_child(Kit.panel(Kit.vbox(4, [portal, feat]), st))
+	root.add_child(Kit.panel(portal, st))
 	if not Intro.done(p):
 		# A new player's first summon: just the portal and the button.
 		var first := Kit.button("Free x1", func(): _pull(shell, 1), "go", 30, 96) if p.free_summon else Kit.cost_button("x1", 1, "egg", func(): _pull(shell, 1), "go", 30, 96)

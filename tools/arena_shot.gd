@@ -1,5 +1,5 @@
 ## Renders one frame of a fight on an arena to a PNG (needs a display, e.g. xvfb-run).
-## Usage: godot --script res://tools/arena_shot.gd -- --arena=wells --p1=bubbles --p2=juggernaut --seed=3 --secs=6 --out=/tmp/x.png
+## Usage: godot --script res://tools/arena_shot.gd -- --arena=wells --p1=bubbles --p2=juggernaut --seed=3 --secs=6 --out=/tmp/x.png [--aim=342]
 extends SceneTree
 
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -22,6 +22,8 @@ func _initialize() -> void:
 	view.fit(Vector2(10, 10), 680.0)
 	var sim := MatchSim.new({"seed": int(a.seed), "p1": a.p1, "p2": a.p2, "angles": [null, null], "arena": a.arena})
 	view.sim = sim
+	if a.has("aim"): # Show the launch aim dots at this angle in degrees.
+		view.aim_dir = Vector2.from_angle(deg_to_rad(float(a.aim)))
 	var ticks := int(float(a.secs) * MatchSim.TICK_RATE)
 	for i in ticks:
 		view.snapshot_positions()

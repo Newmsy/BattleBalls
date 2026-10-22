@@ -27,10 +27,9 @@ func test_bundled_schedule_is_valid() -> void:
 
 func test_validation_catches_mistakes() -> void:
 	var bad := {"version": 1, "revision": 1, "seasons": [{"name": "S", "start": "2026-10-13", "weeks": 7}],
-		"spotlight": [{"week": "2026-10-12", "critter": "nobody"}],
 		"chaos": [{"weekend": "2026-10-17", "modifier": "big_head"}, {"weekend": "2026-10-16", "modifier": "moon_gravity"}],
 		"fights": [{"date": "2026-02-30", "p1": "vampire", "p2": "laser", "seed": 1}, {"date": "2026-10-14", "p1": "boulder", "p2": "laser", "seed": 1}]}
-	check_eq(LiveOps.validate(bad).size(), 6, "one problem per bad entry: %s" % [LiveOps.validate(bad)])
+	check_eq(LiveOps.validate(bad).size(), 5, "one problem per bad entry: %s" % [LiveOps.validate(bad)])
 	check(not LiveOps.validate({"seasons": "x"}).is_empty(), "lists must be lists")
 
 
@@ -39,10 +38,7 @@ func test_dates_land_in_the_right_week() -> void:
 	var wed := _at("2026-10-14")
 	check_eq(LiveOps.season(wed).week, 1, "preseason week 1")
 	check_eq(LiveOps.season(_at("2026-11-30")).name, "Season 1: Neon Nights", "Season 1 follows preseason")
-	check_eq(LiveOps.spotlight(_at("2026-11-30")).critter, "magnet", "Flux debuts in Season 1 week 1")
 	check_eq(LiveOps.season(_at("2027-01-18")), {}, "after the last season")
-	check_eq(LiveOps.spotlight(wed).critter, "laser", "Optic week")
-	check_eq(LiveOps.spotlight(_at("2026-10-19", 0)).critter, "bomber", "Monday midnight starts the next week")
 	var c := LiveOps.chaos(wed)
 	check_eq(c.modifier, "closing_walls", "this weekend")
 	check(not c.live, "not live on Wednesday")
@@ -58,7 +54,6 @@ func test_dates_land_in_the_right_week() -> void:
 func test_fallbacks_need_no_schedule() -> void:
 	LiveOps.use({})
 	var t := _at("2027-03-03")
-	check(LiveOps.spotlight(t).critter != "", "a spotlight")
 	check(LiveOps.chaos(t).name != "", "a chaos weekend")
 	check_eq(LiveOps.season(t), {}, "no season")
 	check(LiveOps.fight_of_the_day(t).winner >= 0, "a fight")
@@ -92,13 +87,6 @@ func test_fight_of_the_day_replays_exactly() -> void:
 	LiveOps.use(picked)
 	var g := LiveOps.fight_of_the_day(t)
 	check_eq([g.p1, g.seed, g.angles, g.title], ["laser", 42, [-450, 1350], "Mirror night"], "scheduled fight wins")
-	_reset()
-
-
-func test_summon_features_the_spotlight() -> void:
-	_reset()
-	LiveOps.now_override = _at("2026-10-21")
-	check_eq(Summon.featured(), "bomber", "Fuse week")
 	_reset()
 
 
