@@ -251,11 +251,11 @@ func _show_done() -> void:
 		puzzle.solutions.front(), puzzle.solutions.back(), _current_streak(), stats.best_streak]
 	if shooter != "":
 		info_label.text = "Window %d°–%d°" % [puzzle.solutions.front(), puzzle.solutions.back()]
-		_set_panel([headline, grid, _button("Menu", _go_menu)])
+		_set_panel([headline, grid, _button("Home", _go_menu)])
 		return
 	var share_button := _button("Share", Callable())
 	share_button.pressed.connect(func(): share_button.text = _share())
-	_set_panel([headline, grid, _row([share_button, _button("Menu", _go_menu)])])
+	_set_panel([headline, grid, _row([share_button, _button("Home", _go_menu)])])
 
 
 func _go_menu() -> void:

@@ -44,7 +44,6 @@ const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, Nest
 	"glitch": [preload("res://meta/glitch_core.gd"), preload("res://game/ui/screens/glitch_screen.gd")]}
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
-const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 const Zones := preload("res://meta/zones.gd")
 const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
@@ -1885,6 +1884,9 @@ func _skip_to_end() -> void:
 
 
 func _again() -> void:
+	if _is_quick_result():
+		_quick_fight() # New fight: a fresh foe and map, not the same one again.
+		return
 	match mode:
 		Mode.LIVE:
 			mode = Mode.NORMAL
@@ -1903,18 +1905,16 @@ func _again() -> void:
 
 ## The result's second main button: back to where this fight came from.
 func _on_change_button() -> void:
-	if not _board.is_empty():
+	if _is_quick_result():
+		_show_home()
+		if shell.current != "play":
+			shell.show_tab("play")
+	elif not _board.is_empty():
 		_back_to_board()
 	elif mode == Mode.RIVAL:
 		_show_home()
 		if shell.current != "friends":
 			shell.go("friends")
-	elif mode == Mode.NORMAL and not _is_duo():
-		# One-tap Quick fight: pick another fighter on Play, then tap Quick fight.
-		_show_home()
-		if shell.current != "play":
-			shell.show_tab("play")
-		PlayScreen.pick_fighter(shell)
 	else:
 		_play_normal()
 
@@ -1923,7 +1923,7 @@ func _label_result_buttons() -> void:
 	again_button.text = {Mode.NORMAL: "REMATCH", Mode.CHALLENGE: "TRY AGAIN", Mode.REPLAY: "BEAT THIS SHOT", Mode.RIVAL: "REMATCH", Mode.CAMPAIGN: "", Mode.LIVE: "FIGHT AGAIN", Mode.TUTORIAL: ""}[mode]
 	change_button.text = {Mode.REPLAY: "PLAY MY OWN", Mode.RIVAL: "FRIENDS"}.get(mode, "CHANGE CRITTER")
 	if not _board.is_empty():
-		change_button.text = "BRACKET" if _board.return_to == "bracket" else "THIS WEEK"
+		change_button.text = "BRACKET" if _board.return_to == "bracket" else "DAILY"
 	(share_button.get_meta("caption") as Label).text = "SEND" if mode == Mode.CHALLENGE else "SHARE"
 	# A link from someone who isn't a friend yet offers to add them.
 	friend_row.visible = _can_add_link_friend()
@@ -1940,7 +1940,22 @@ func _label_result_buttons() -> void:
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = ("Add %s" % who if who != "" else "Add friend").to_upper()
+	# Quick fight keeps only New fight and Home: nothing else to think about.
+	if _is_quick_result():
+		again_button.text = "NEW FIGHT"
+		change_button.text = "HOME"
+		friend_row.visible = false
+		tools_row.visible = false
+		copy_button.modulate.a = 0.0
+		copy_button.disabled = true
+	else:
+		tools_row.visible = true
 	_sync_share_targets()
+
+
+## A one-tap Quick fight (not 2v2, a board fight or a link).
+func _is_quick_result() -> bool:
+	return mode == Mode.NORMAL and quick_tier > 0 and not _is_duo() and _board.is_empty()
 
 
 func _caption(b: Button, text: String) -> void:
@@ -2513,7 +2528,8 @@ func _sync_share_targets() -> void:
 		if mode not in [Mode.REPLAY, Mode.RIVAL]:
 			buttons["c"] = challenge_button
 		for kind in buttons:
-			add.call(kind, _share_url(kind), _share_text(kind), buttons[kind].get_global_rect())
+			if buttons[kind].is_visible_in_tree():
+				add.call(kind, _share_url(kind), _share_text(kind), buttons[kind].get_global_rect())
 		if _clip_ready and clip_button.is_visible_in_tree():
 			add.call("clip", "", "", clip_button.get_global_rect())
 	JavaScriptBridge.eval("window.bbShare && (window.bbShare.targets = %s)" % JSON.stringify(targets), true)
