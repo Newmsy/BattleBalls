@@ -15,8 +15,9 @@
 ## the top. Everyone climbs the same tower, so the board stays fair. Your
 ## edge is picking boons that suit your trio, who you send, and your aim.
 ##
-## Your trio grows as it climbs: it fights at tier_at(floor), one tier up
-## every 2 floors (T5 on the last two). Every boon rolls a rarity
+## Both sides grow as you climb: your trio and the floor's foe fight at
+## tier_at(floor), one tier up every 2 floors (T5 on the last two), so foes
+## show their tier upgrades too. Every boon rolls a rarity
 ## (sim/boons.gd): Rare and Epic boons have bigger numbers, and a Legendary
 ## is a boon with an effect of its own.
 ##
@@ -31,7 +32,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 4
+const RULES_VERSION := 5
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 10
@@ -44,8 +45,9 @@ const OFFER := 3
 const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Elite", "Legend", "Champion"]
 ## Foe power per floor (sim/power.gd: 1.0 is your trio's). The first floors
 ## are a warm-up; most runs end around floor 7, and a full clear is rare
-## (tools/boon_balance.gd --runs checks the curve).
-const FOE_POWER := [0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.25, 1.35, 1.45]
+## (tools/boon_balance.gd --runs checks the curve: with foes tiering up too,
+## 800 runs ended on floor 7 at the median with ~11% full clears).
+const FOE_POWER := [0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.28, 1.42, 1.58]
 const FLOORS_PER_TIER := 2
 
 
@@ -105,7 +107,7 @@ static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> 
 	var foe: Dictionary = setup.floors[run.floor]
 	return {"seed": foe.seed, "p1": card(setup, run, slot).critter, "p2": foe.critter,
 		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons], "powers": [1.0, FOE_POWER[run.floor]],
-		"tiers": [tier_at(run.floor), 1], "hp": [null, run.get("foe_hp")]}
+		"tiers": [tier_at(run.floor), tier_at(run.floor)], "hp": [null, run.get("foe_hp")]}
 
 
 ## Records a fight. A win climbs a floor and, unless the run is won, deals a
