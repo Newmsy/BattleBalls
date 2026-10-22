@@ -267,8 +267,11 @@ try {
     const before = logs.length;
     await tapUi(page, logs, "fuse");
     console.log("fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
-    await page.waitForTimeout(800);
+    // What changed pops up once the new critter is out (UpgradePopup).
+    await waitForLogAfter(logs, before, "UI_SCREEN sheet", 5000);
+    await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(shots, "3e-fused.png") });
+    await tapUi(page, logs, "fuse_done", "fuse");
     await tapUi(page, logs, "tab_bag", "bag");
     await tapUi(page, logs, "gear_5", "sheet");
     await page.screenshot({ path: path.join(shots, "3f-bag-sheet.png") });
@@ -276,8 +279,12 @@ try {
     await tapUi(page, logs, "pick_juggernaut", "bag");
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
     // Three 1-star Bubble Shells now: Merge all makes a 2-star (design/gear.md).
+    const merging = logs.length;
     await tapUi(page, logs, "merge_all", "bag");
+    await waitForLogAfter(logs, merging, "UI_SCREEN sheet", 5000);
+    await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(shots, "3g-bag-merged.png") });
+    await tapUi(page, logs, "merge_done");
     await tapUi(page, logs, "tab_summon", "summon");
     await page.screenshot({ path: path.join(shots, "3h-summon.png") });
     await tapUi(page, logs, "wishlist_edit", "sheet");
