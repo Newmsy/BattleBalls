@@ -69,7 +69,14 @@ func test_pick_travels_with_the_save() -> void:
 	check_eq(FightSpeed.pick(), 1, "an unknown pick is ignored")
 	_state(1, 2)
 	check_eq(FightSpeed.pick(), 2, "the pick is kept while its speed is locked")
+	# Another fight scene (Spire, relays, Bounce Run) has no main.gd to report to:
+	# the pick waits as unsaved, so main.gd saves it instead of the save's older one.
 	FightSpeed.on_pick = Callable()
+	FightSpeed.unsaved = false
+	_state(10, 0)
+	FightSpeed.select(1)
+	check(FightSpeed.unsaved, "a pick nobody saved is marked unsaved")
+	FightSpeed.unsaved = false
 	_state(1, 0)
 	if before == "":
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(FightSpeed.SETTINGS_PATH))

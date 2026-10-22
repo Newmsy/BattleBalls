@@ -169,7 +169,7 @@ func _begin_aim(slot: int) -> void:
 	aim = _first_aim(slot)
 	arena.clear_effects()
 	_preview()
-	fight_hud.stats = [_stats_text(0), _stats_text(1)]
+	fighter_strip.stats = [_stats_text(0), _stats_text(1)]
 	info_label.text = _aim_text(slot)
 	var launch := _button("Launch", _launch, 36)
 	_mark(marks.launch, launch)
@@ -200,7 +200,7 @@ func _start_leg() -> void:
 	arena.clear_effects()
 	_accumulator = 0.0
 	state = State.FIGHT
-	fight_hud.stats = [_stats_text(0), _stats_text(1)] # The pair now out.
+	fighter_strip.stats = [_stats_text(0), _stats_text(1)] # The pair now out.
 	info_label.text = "" # The names are on the health bars.
 	# Speed, Skip and Sound: the bottom row of pills every fight screen has.
 	var skip := FightLayout.skip_pill(_skip_leg, marks.skip)
@@ -240,8 +240,24 @@ func _update_hud() -> void:
 		return
 	# Balls each side still has, the one fighting included.
 	var left := [relay.sides[0].size() - relay.slot[0], relay.sides[1].size() - relay.slot[1]]
-	fighter_strip.show_fight(sim if state == State.FIGHT else null)
+	# Aiming and between legs the controls have the room under the arena:
+	# only the foe's plate shows.
+	var plates := state in [State.AIM, State.FIGHT, State.LEG_END]
+	fighter_strip.show_fight(sim if plates else null)
+	fighter_strip.foe_only = state != State.FIGHT
+	fighter_strip.bench = [_bench(0), _bench(1)]
+	fight_hud.plates = plates
+	fight_hud.foe_only = state != State.FIGHT
 	fight_hud.show_fight(sim, "%d v %d" % left)
+
+
+## Side `s`'s teammates on the bench: the ones already out, then the ones to come.
+func _bench(s: int) -> Array:
+	var out := []
+	for j in relay.sides[s].size():
+		if j != relay.slot[s]:
+			out.append({"id": str(relay.sides[s][j]), "out": j < relay.slot[s]})
+	return out
 
 
 func _build_ui(tags: Array) -> void:
@@ -271,15 +287,14 @@ func _build_ui(tags: Array) -> void:
 ## arena, then the info line and controls, the fighters' cards while the
 ## balls are out.
 func _layout() -> void:
-	var r := FightLayout.rects(get_viewport().get_visible_rect().size)
+	var size := get_viewport().get_visible_rect().size
+	var r := FightLayout.rects(size)
 	arena.fit(r.arena.position, r.arena.size.x)
-	FightLayout.place_hud(fight_hud, r)
+	FightLayout.place_plates(fight_hud, fighter_strip, r, size)
 	var p: Rect2 = r.panel
 	var info_h := 0.0 if state == State.FIGHT else 56.0 # The aim hint, or who stays in.
 	_place(info_label, p.position, Vector2(p.size.x, 50))
 	_place(panel, p.position + Vector2(0, info_h), Vector2(p.size.x, maxf(0.0, p.size.y - info_h)))
-	var cards := FightLayout.cards_rect(r, info_h)
-	_place(fighter_strip, cards.position, cards.size)
 	arena.queue_redraw()
 
 

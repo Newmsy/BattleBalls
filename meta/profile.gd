@@ -51,6 +51,9 @@ var seen: Dictionary = {}
 ## One entry per (type, tier): {id, tier, count, level, xp}. The copies in a
 ## stack share its level; fusing 3 makes one copy of the next tier's stack.
 var stacks: Array[Dictionary] = []
+var _index := {} ## _stacks_of's stacks by critter id.
+var _index_of: Array = []
+var _index_size := -1
 ## Gear pieces: {uid, type, tier, on (critter id or "")} plus, filled in by
 ## gear_piece(), name, slot ("Shell"/"Core"/"Charm"), stats (the sim/gear.gd
 ## lines it fights with) and text. Three of a type and tier merge into one of
@@ -123,8 +126,8 @@ func owns(id: String) -> bool:
 ## Owned stacks of one critter, lowest tier first.
 func copies(id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
-	for s in stacks:
-		if s.id == id and s.count > 0:
+	for s in _stacks_of(id):
+		if s.count > 0:
 			out.append(s)
 	out.sort_custom(func(a, b): return a.tier < b.tier)
 	return out
@@ -833,7 +836,23 @@ func _item(name: String) -> Dictionary:
 
 
 func _stack(id: String, tier: int) -> Dictionary:
-	for s in stacks:
-		if s.id == id and s.tier == tier:
+	for s in _stacks_of(id):
+		if s.tier == tier:
 			return s
 	return {}
+
+
+## Every stack of one critter, from an index by id. Screens ask for power and
+## copies of each critter many times, and scanning a big collection each time
+## made them slow to open. Stacks are only ever appended (an emptied stack
+## keeps count 0), so the index is rebuilt when the array grows or is swapped.
+func _stacks_of(id: String) -> Array:
+	if not is_same(_index_of, stacks) or _index_size != stacks.size():
+		_index.clear()
+		for s in stacks:
+			if not _index.has(s.id):
+				_index[s.id] = []
+			_index[s.id].append(s)
+		_index_of = stacks
+		_index_size = stacks.size()
+	return _index.get(id, [])
