@@ -478,9 +478,8 @@ try {
     await waitForLog(challenge.logs, "BOOT_OK", 60000);
     await challenge.page.waitForTimeout(1500);
     await challenge.page.screenshot({ path: path.join(shots, "11-challenge-menu.png") });
+    // One tap fights: FIGHT! launches at once (no aim step after it).
     await tapUi(challenge.page, challenge.logs, "menu_fight");
-    await waitForLog(challenge.logs, "UI_AT aim_launch ", 5000);
-    await tapUi(challenge.page, challenge.logs, "aim_launch");
     console.log("challenge fight:", await waitForLog(challenge.logs, "FIGHT_START", 5000));
     await challenge.page.close();
   }
@@ -616,11 +615,10 @@ try {
     console.log("ghost arena:", await waitForLog(logs, "ARENA_READY", 10000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "19-arena-intro.png") });
-    // FIGHT! is pinned at the bottom of the intro. Then each ball's Launch
-    // and its leg's Skip (the middle pill of the bottom row) are tapped where
-    // the scene logs them (arena_launch, arena_skip), newest first.
-    const start = logs.length;
-    await tapUi(page, logs, "arena_fight");
+    // It opens straight on aiming the first ball. Each ball's Launch and its
+    // leg's Skip (the middle pill of the bottom row) are tapped where the
+    // scene logs them (arena_launch, arena_skip), newest first.
+    const start = 0;
     let result = null;
     let done = start;
     for (let i = 0; i < 60 && !result; i++) {
@@ -720,7 +718,7 @@ try {
     await tapUi(page, logs, "spire_climb");
     console.log("spire:", await waitForLog(logs, "SPIRE_READY", 10000));
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "SpireFight");
+    // The fight opens straight on the aim: Launch (or a tap on the arena) starts it.
     await tapUi(page, logs, "SpireLaunch");
     await tapUi(page, logs, "SpireSkip");
     console.log("spire result:", await waitForLog(logs, "SPIRE_RESULT", 30000));
@@ -964,6 +962,9 @@ try {
     await waitForLog(menu.logs, "UI_AT menu_duo ", 60000);
     await menu.page.waitForTimeout(800);
     await menu.page.screenshot({ path: path.join(shots, "46-duo-menu.png") });
+    // A tap on the menu's arena aims and launches: no FIGHT press first.
+    await tapUi(menu.page, menu.logs, "menu_arena");
+    console.log("2v2 tap to launch:", await waitForLog(menu.logs, "FIGHT_START", 5000));
     await menu.page.close();
     const { page, logs } = await openGame("?duo=1&p1=vampire&p3=honey&seed=42&auto=1&speed=4&offline=1");
     await waitForLog(logs, "FIGHT_START", 60000);

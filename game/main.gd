@@ -53,6 +53,8 @@ const Account := preload("res://game/online/account.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const ResultText := preload("res://game/result_text.gd")
 const ResultBanner := preload("res://game/ui/result_banner.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
+const FightAim := preload("res://game/fight_aim.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const ClipExport := preload("res://game/clip/clip_export.gd")
 const ClipCard := preload("res://game/clip/clip_card.gd")
@@ -151,7 +153,7 @@ var _accumulator := 0.0
 var finisher: FinisherCam
 var _hold := -1.0 ## Real seconds since the finishing blow, or -1 before it.
 var _skipped := false ## "Skip to end" also skips the finisher.
-var _dragging := false
+var aimer := FightAim.new() ## Tap the arena to aim, let go to launch.
 var _rng := RandomNumberGenerator.new() ## UI-only randomness (new seeds), never used by the sim.
 
 var arena: ArenaView
@@ -193,6 +195,8 @@ var fight_box: HBoxContainer
 var speed_picker: FightSpeed.Picker
 var aim_box: HBoxContainer
 var result_box: VBoxContainer
+var result_dim: Control ## Dims the finished fight behind the result popup.
+var _result_slide: Tween
 var result_label: Label
 var result_banner ## game/ui/result_banner.gd behind the headline row.
 var report_label: Label
@@ -214,7 +218,6 @@ var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
 var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
-var campaign_row: HBoxContainer
 ## The player's collection, energy and campaign progress, kept in save.data.profile.
 var profile
 ## The campaign stage being fought: {config, zone, stage, fighter, result?},
@@ -387,27 +390,22 @@ func _unhandled_input(event: InputEvent) -> void:
 	if state == State.CLIP and event is InputEventMouseButton and event.pressed:
 		_cancel_clip()
 		return
+	if state == State.MENU and _menu_aim_tap(event):
+		_begin_aim() # The menu's arena is the aim: the tap's angle launches on release.
 	if state != State.AIM or live.has("aimed"):
 		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			_dragging = true
-			_aim_towards(event.position)
-		elif _dragging:
-			_dragging = false
-			_aim_towards(event.position)
-			_launch()
-	elif event is InputEventMouseMotion and _dragging:
-		_aim_towards(event.position)
+	aimer.feed(event, arena, sim.balls[you_side].pos, func(a: int):
+		aim = a
+		_set_aim_preview(), _launch, sfx)
 
 
-func _aim_towards(screen_pos: Vector2) -> void:
-	var dir := arena.to_world(screen_pos) - sim.balls[you_side].pos
-	if dir.length() < 10.0:
-		return
-	aim = roundi(rad_to_deg(dir.angle()) * 10.0)
-	sfx.on_aim_drag(dir.length() / 600.0)
-	_set_aim_preview()
+## A press on the Quick fight menu's arena (2v2, Rival, Challenge) aims
+## straight away, so the fight starts from the launch angle with no FIGHT
+## press first. Live fights still need matching first.
+func _menu_aim_tap(event: InputEvent) -> bool:
+	if not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+		return false
+	return not _live_on() and not fight_button.disabled and ui.visible and FightAim.on_arena(arena, event.position)
 
 
 func _set_aim_preview() -> void:
@@ -589,7 +587,7 @@ func _menu_info_short() -> String:
 	if text == "":
 		text = def.display_name
 	if _is_duo():
-		text = "Pick 2. You aim %s." % def.display_name
+		text = "Pick 2, then tap the arena to aim %s." % def.display_name
 	if _is_loan(player_type):
 		text = "On loan: practice only."
 	if mode == Mode.RIVAL:
@@ -653,7 +651,7 @@ func _show_options(on: bool) -> void:
 func _report_menu() -> void:
 	await get_tree().process_frame
 	_sync_cover()
-	var marks := {"menu_fight": fight_button, "aim_launch": launch_button, "tier_you": tier_buttons[0], "tier_foe": tier_buttons[1], "menu_duo": duo_button, "menu_back": menu_back, "menu_options": more_button}
+	var marks := {"menu_fight": fight_button, "menu_arena": arena_clip, "aim_launch": launch_button, "tier_you": tier_buttons[0], "tier_foe": tier_buttons[1], "menu_duo": duo_button, "menu_back": menu_back, "menu_options": more_button}
 	for id in player_buttons:
 		marks["pick_" + id] = player_buttons[id]
 	for k in marks:
@@ -679,6 +677,11 @@ func _begin_aim() -> void:
 	info_label.text = FightSpeed.aim_hint() # Only for a new player's first few fights.
 	_show_only(aim_box)
 	_report_menu.call_deferred()
+
+
+func _fight_now() -> void:
+	_begin_aim()
+	_launch()
 
 
 func _pick_opponent() -> String:
@@ -871,11 +874,14 @@ func _show_result() -> void:
 		_count_fight = false
 		_record_fight()
 	print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
-	_show_only(result_box)
 	sfx.on_result(sim.winner if sim.winner < 0 else int(sim.winner != you_side))
 	if mode == Mode.CAMPAIGN:
+		# Its popup (stars, drops, XP) opens on the screen it came from.
+		_show_only(null)
 		_return_with_result()
 		return
+	_show_only(result_box)
+	_slide_in_result()
 	if auto_clip:
 		auto_clip = false
 		_on_clip_button()
@@ -1022,7 +1028,7 @@ func _live_launch() -> void:
 	if live.has("aimed") or live_client == null:
 		return
 	live.aimed = true
-	_dragging = false
+	aimer.dragging = false
 	live_client.send({"t": "aim", "match": int(live.match), "angle": aim})
 	info_label.text = "Locked in! Waiting for your foe's shot..."
 	_show_only(null)
@@ -1131,8 +1137,9 @@ func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: S
 	foe_aim = null
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
+	pve.caption = "%s · %s" % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name]
 	_begin_aim()
-	info_label.text = FightSpeed.with_aim_hint("%s · %s" % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name])
+	info_label.text = FightSpeed.with_aim_hint(pve.caption)
 
 
 ## Your critters in a 2v2 or 3v3 campaign stage: p1, p3 (and p5).
@@ -1212,7 +1219,6 @@ func _finish_stage() -> void:
 ## goes straight back to it with the popup up.
 func _return_with_result() -> void:
 	report_label.text = ""
-	campaign_row.visible = false
 	var fight_sim := sim
 	await get_tree().create_timer(1.1).timeout
 	if state == State.RESULT and mode == Mode.CAMPAIGN and sim == fight_sim:
@@ -1262,6 +1268,7 @@ func _back_to_campaign() -> void:
 	var screen: String = pve.get("boss", "vault")
 	if vault and pve.has("result"):
 		params.notice = pve.result
+		params.caption = pve.caption # The result popup's caption (ResultPopup.boss_result).
 		params.xp = pve.get("xp", {})
 		# Back on the level just fought, or the next one after a win (boss_level_grid.gd).
 		params.level = int(pve.vault) + (1 if params.xp.get("won", false) else 0)
@@ -1522,7 +1529,8 @@ func _build_ui() -> void:
 	tiers_row = _row(tier_buttons + [rules_button, done])
 	tiers_row.visible = false
 	menu_box.add_child(tiers_row)
-	fight_button = _button("FIGHT!", func(): _find_live() if _live_on() else _begin_aim(), 40, "go", 96)
+	# One tap fights: FIGHT! launches at the centre, or tap the arena to aim and launch.
+	fight_button = _button("FIGHT!", func(): _find_live() if _live_on() else _fight_now(), 40, "go", 96)
 	fight_button.size_flags_stretch_ratio = 2.0
 	menu_box.add_child(_row([new_seed_button, fight_button]))
 
@@ -1535,15 +1543,18 @@ func _build_ui() -> void:
 	# Speed, Skip and Sound sit in one row of pills along the bottom (FightLayout).
 	fight_box = _row([speed_picker, FightLayout.skip_pill(_skip_to_end)])
 
-	# The result: one card under the arena, like the campaign's victory sheet.
-	# What happened, then the one thing to do next (big), a way out beside it,
-	# and the rest (replay, share, clip, report code) as small tiles.
+	# The result: the popup every fight ends on (ResultPopup), sliding up
+	# over the dimmed arena. What happened, then the one thing to do next
+	# (big), a way out beside it, and the rest (replay, share, clip, report
+	# code) as small tiles.
+	result_dim = ColorRect.new()
+	result_dim.color = Color(.02, .015, .06, .65)
+	result_dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	result_dim.visible = false
 	result_box = VBoxContainer.new()
 	result_box.add_theme_constant_override("separation", 0)
 	var card := Kit.vbox(12)
-	var card_style := Kit.box(Color("16133a"), Kit.ACCENT, 40, 0, 24)
-	card_style.border_width_top = 3
-	result_card = Kit.panel(card, card_style)
+	result_card = ResultPopup.panel(card)
 	result_card.mouse_filter = Control.MOUSE_FILTER_PASS
 	result_box.add_child(result_card)
 	result_caption = Kit.caption("")
@@ -1560,7 +1571,7 @@ func _build_ui() -> void:
 	winner_slot = Control.new()
 	winner_slot.custom_minimum_size = Vector2(84, 84)
 	winner_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	result_label = _label("", 56)
+	result_label = _label("", 52)
 	pass_chip = Kit.hbox(4, [Kit.label("", 26, Kit.WARN), Kit.glyph("pass", 26, Kit.WARN)])
 	pass_chip.visible = false
 	result_banner = ResultBanner.wrap(Kit.hbox(16, [winner_slot, result_label, pass_chip], BoxContainer.ALIGNMENT_CENTER))
@@ -1585,11 +1596,9 @@ func _build_ui() -> void:
 	tools_row = _row([replay_button, share_button, challenge_button, clip_button])
 	tools_row.add_theme_constant_override("separation", 10)
 	card.add_child(tools_row)
-	campaign_row = _row([_button("Map", _back_to_campaign)])
-	card.add_child(campaign_row)
 
 
-	for c in [menu_header, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_box, live_box]:
+	for c in [menu_header, hud_label, info_label, stamp_label, menu_box, aim_box, fight_box, result_dim, result_box, live_box]:
 		ui.add_child(c)
 
 
@@ -1724,7 +1733,7 @@ func _layout() -> void:
 	for box in [menu_box, aim_box, fight_box, live_box]:
 		_place(box, Vector2(panel_pos.x, controls_top), Vector2(panel_width, maxf(CONTROLS_HEIGHT, size.y - controls_top - bottom_margin)))
 	# The result card takes the info line's room too: its detail is inside it.
-	_place(result_box, panel_pos, Vector2(panel_width, maxf(INFO_HEIGHT + CONTROLS_HEIGHT, size.y - panel_pos.y - bottom_margin)))
+	_place_result(size)
 	# The fighters' cards sit under the info line (its room only when it has
 	# something to say), clear of the bottom pills.
 	var cards := FightLayout.cards_rect(r, 50.0 if info_label.text != "" else 0.0)
@@ -1763,6 +1772,30 @@ static func _neon_theme() -> Theme:
 	return theme
 
 
+## The result popup sits on the bottom edge, as tall as its content, in a
+## phone-width column on a wide screen (ResultPopup's sheet).
+func _place_result(size: Vector2) -> void:
+	var w := minf(size.x, 760.0)
+	var h := result_box.get_combined_minimum_size().y
+	_place(result_box, Vector2((size.x - w) / 2.0, size.y - h), Vector2(w, h))
+
+
+## Slides the result popup up from the bottom edge, like every sheet.
+func _slide_in_result() -> void:
+	await get_tree().process_frame # The card has its content and size now.
+	if state != State.RESULT or not result_box.visible:
+		return
+	var size := get_viewport().get_visible_rect().size
+	_place_result(size)
+	var to := result_box.position.y
+	if _result_slide:
+		_result_slide.kill()
+	result_box.position.y = size.y
+	_result_slide = create_tween()
+	_result_slide.tween_property(result_box, "position:y", to, ResultPopup.SLIDE_SECS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_result_slide.finished.connect(_sync_share_targets)
+
+
 func _place(c: Control, pos: Vector2, size: Vector2) -> void:
 	c.position = pos
 	c.size = size
@@ -1772,6 +1805,9 @@ func _show_only(box: Control) -> void:
 	_sync_cover()
 	for b in [menu_box, aim_box, fight_box, result_box, live_box]:
 		b.visible = b == box
+	result_dim.visible = box == result_box
+	if shell_layer == null or not shell_layer.visible:
+		sfx.toggle_hidden = box == result_box # The popup covers the bottom row of pills.
 	# The result's detail line sits in its card, under the headline.
 	var card := result_card.get_child(0)
 	if box == result_box and info_label.get_parent() != card:
@@ -1893,10 +1929,8 @@ func _label_result_buttons() -> void:
 	if not _board.is_empty():
 		change_button.text = "BRACKET" if _board.return_to == "bracket" else "THIS WEEK"
 	(share_button.get_meta("caption") as Label).text = "SEND" if mode == Mode.CHALLENGE else "SHARE"
-	var campaign := mode == Mode.CAMPAIGN
 	# A link from someone who isn't a friend yet offers to add them.
 	friend_row.visible = _can_add_link_friend()
-	main_row.visible = not campaign
 	# Fight links and clips are 1v1 only for now. Live fights aren't
 	# shareable yet: a link replays from the seed, not the server's sides.
 	var links := not _is_duo() and mode != Mode.LIVE
@@ -1907,9 +1941,6 @@ func _label_result_buttons() -> void:
 	var report := links and mode != Mode.REPLAY
 	copy_button.modulate.a = 1.0 if report else 0.0
 	copy_button.disabled = not report
-	tools_row.visible = not campaign
-	campaign_row.visible = campaign
-	(campaign_row.get_child(0) as Button).text = ("Back" if pve.has("vault") else "Map").to_upper()
 	if friend_row.visible and not friend_button.disabled:
 		var who: String = friends.invite.get("name", "")
 		friend_button.text = ("Add %s" % who if who != "" else "Add friend").to_upper()

@@ -1,77 +1,32 @@
 ## Ghost Arena fight: your trio against an opponent's saved trio as a relay
-## (sim/relay.gd). Each of your balls is aimed by you when it first comes
-## out; the ghost fires its saved shots. The winner of a leg stays in with
-## its HP. Opened from the Arena screen with an attack already started in
-## ArenaStore; the result goes back to it.
-extends Node2D
+## (sim/relay.gd), on the shared relay fight screen (game/relay_fight.gd).
+## Each of your balls is aimed by you when it first comes out; the ghost
+## fires its saved shots. Opened from the Arena screen with an attack already
+## started in ArenaStore; the result goes back to it.
+extends "res://game/relay_fight.gd"
 
 const Intro := preload("res://game/ui/intro.gd")
-const Arenas := preload("res://sim/arenas.gd")
-const TouchInput := preload("res://game/ui/touch_input.gd")
-const MatchSim := preload("res://sim/match_sim.gd")
-const FightHud := preload("res://game/fight_hud.gd")
-const Relay := preload("res://sim/relay.gd")
 const Lineup := preload("res://sim/lineup.gd")
-const BallDefs := preload("res://sim/ball_defs.gd")
-const ArenaView := preload("res://game/arena_view.gd")
-const Sfx := preload("res://game/audio/sfx.gd")
-const Main := preload("res://game/main.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
-const ResultText := preload("res://game/result_text.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
-const Kit := preload("res://game/ui/ui_kit.gd")
-const Families := preload("res://sim/families.gd")
 
-enum State { INTRO, AIM, FIGHT, LEG_END, RESULT }
-
-const ARENA_PIXELS := 680.0
-const PANEL_HEIGHT := 400.0
-const FightSpeed := preload("res://game/fight_speed.gd")
-const FightLayout := preload("res://game/fight_layout.gd")
-const FighterStrip := preload("res://game/fighter_strip.gd")
-## Room kept under the intro and result panels for an iPhone's home bar.
-const SAFE_BOTTOM := 90.0
-const LEG_PAUSE := 1.4 ## Seconds to show a leg's winner before the next leg.
-
-var state := State.INTRO
 var store
 var bot: Dictionary
-var relay: Relay
-var sim: MatchSim
-var aimed: Array[bool] = [false, false, false]
-var aim := 0 ## Current aim for your ball, tenths of a degree, screen space.
 var result_delta := 0
 var slots := [[], []] ## Both trios as lineup slots, for the tier and power on show.
 
-var _accumulator := 0.0
-var _pause := 0.0
-var _dragging := false
-var _laid_out_for := -1 ## The state _layout last placed things for.
-var _result_marks := {}
 var _last_slots: Array = []
-var _intro_art := 56.0 ## Face size on the intro cards, grown to fill the room.
-
-var arena: ArenaView
-var sfx: Sfx
-var title_label: Label
-var hud_label: Label
-var fight_hud: FightHud ## Both health bars, above the arena.
-var fighter_strip: Control ## The two fighters' cards under the arena, as in Quick fight.
-var lineup_label: Label
-var info_label: Label
-var panel: VBoxContainer
 
 
 func _ready() -> void:
-	TouchInput.ensure(self)
-	TouchInput.set_back(self, func(): return _back_to_arena if state == State.RESULT else Callable())
 	store = ArenaStore.open()
 	bot = store.pending_bot()
 	if bot.is_empty():
 		_back_to_arena.call_deferred()
 		return
+	marks = {"launch": "arena_launch", "out": "arena_forfeit", "skip": "arena_skip"}
 	var ghost_aims: Array = []
 	for i in bot.lineup.slots.size():
 		ghost_aims.append(ArenaGhosts.slot_angle(bot.lineup, i, 1))
@@ -79,7 +34,8 @@ func _ready() -> void:
 	slots = [store.pending.get("slots", store.slots()), bot.lineup.slots]
 	var mine := Lineup.side(slots[0])
 	var theirs := Lineup.side(slots[1])
-	relay = Relay.new({
+	print("ARENA_READY bot=%s card=%s seed=%d" % [bot.id, store.pending.card, int(store.pending.seed)])
+	start(Relay.new({
 		"seed": int(store.pending.seed),
 		"arena": store.pending.get("arena", "square"),
 		"sides": [mine.sides, theirs.sides],
@@ -88,193 +44,28 @@ func _ready() -> void:
 		"powers": [mine.powers, theirs.powers],
 		"gear": [mine.gear, theirs.gear],
 		"talents": [mine.talents, theirs.talents],
-	})
-	arena = ArenaView.new()
-	arena.team_tags = ["YOU", "GHOST"]
-	add_child(arena)
-	sfx = Sfx.new()
-	add_child(sfx)
-	_build_ui()
-	get_viewport().size_changed.connect(_layout)
-	_layout()
-	print("ARENA_READY bot=%s card=%s seed=%d" % [bot.id, store.pending.card, int(store.pending.seed)])
-	_show_intro()
+	}), ["YOU", "GHOST"])
 
 
-func _process(delta: float) -> void:
-	match state:
-		State.FIGHT:
-			_accumulator += delta * FightSpeed.current()
-			var steps := 0
-			while _accumulator >= MatchSim.DT and steps < 32 and not sim.finished:
-				sim.step()
-				arena.consume_events(sim.events)
-				sfx.consume_events(sim.events, sim)
-				_accumulator -= MatchSim.DT
-				steps += 1
-			if sim.finished:
-				_end_leg()
-		State.LEG_END:
-			_pause -= delta
-			if _pause <= 0.0:
-				_next_leg()
-	if arena:
-		arena.advance_effects(delta * (FightSpeed.current() if state == State.FIGHT else 1.0))
-		_update_hud()
+## Each ball starts aimed where you last shot it from.
+func _first_aim(slot: int) -> int:
+	var shot = store.shots[slot]
+	return MatchSim.AIM_AT_CENTRE[0] + (int(shot) if shot != null else 0)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if state != State.AIM:
-		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			_dragging = true
-			_aim_towards(event.position)
-		elif _dragging:
-			_dragging = false
-			_aim_towards(event.position)
-			_launch()
-	elif event is InputEventMouseMotion and _dragging:
-		_aim_towards(event.position)
-
-
-func _aim_towards(screen_pos: Vector2) -> void:
-	var dir := arena.to_world(screen_pos) - sim.balls[0].pos
-	if dir.length() < 10.0:
-		return
-	aim = roundi(rad_to_deg(dir.angle()) * 10.0)
-	sfx.on_aim_drag(dir.length() / 600.0)
-	_preview()
-
-
-# --- Flow -------------------------------------------------------------------
-
-func _show_intro() -> void:
-	state = State.INTRO
-	sfx.on_menu()
-	sfx.toggle_hidden = true # Its corner would sit on FIGHT.
-	# Both trios, the map and the stakes all live in the panel under the arena.
-	info_label.text = ""
-	lineup_label.text = ""
-	sim = MatchSim.new(relay.leg_config())
-	arena.sim = sim
-	_intro_art = 56.0
-	var fight := _intro_panel()
-	_layout()
-	# Grow the faces into whatever room is left once the text has its size,
-	# so FIGHT always stays on screen.
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if state != State.INTRO or not is_instance_valid(panel):
-		return
-	var spare: float = panel.size.y - panel.get_combined_minimum_size().y
-	if spare > 8.0:
-		_intro_art = clampf(56.0 + spare / (2.0 * FighterTag.ART_SHRINK) - 4.0, 56.0, 160.0)
-		fight = _intro_panel()
-		await get_tree().process_frame
-		await get_tree().process_frame
-	# Where FIGHT landed, for the smoke test (it sits at the bottom now).
-	if is_instance_valid(fight) and fight.is_visible_in_tree():
-		var at := fight.get_global_rect().get_center()
-		print("UI_AT arena_fight %d %d" % [roundi(at.x), roundi(at.y)])
-
-
-## Fills the panel for the intro: both trios, the map and stakes, FIGHT.
-## Returns the FIGHT button.
-func _intro_panel() -> Button:
+## Under the first aim: who you're attacking, the trophy stakes and a small
+## Forfeit. An attack can't be left for free once it's started.
+func _aim_extras() -> Array:
+	if not unlaunched():
+		return []
 	var stake: Dictionary = store.pending_stake()
-	var fam: String = bot.get("family", "")
-	var theirs: Array = slots[1].duplicate()
-	theirs.sort_custom(func(a, b): return str(a.critter) < str(b.critter))
-	var fight := _button("FIGHT!", _next_leg, 40)
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var stakes := Kit.hbox(8, [
-		Kit.label(Arenas.get_def(relay.config.get("arena", "square")).display_name, 22, Kit.MUTED),
+	return [Kit.hbox(8, [
+		Kit.label("vs " + str(bot.name), 22, Kit.MUTED),
 		Kit.glyph("trophy", 22, Color("ffc23d")),
 		Kit.label("%+d / %d" % [int(stake.win), int(stake.loss)], 22, Kit.FG),
 		Kit.spacer(),
 		_forfeit_link(),
-	], BoxContainer.ALIGNMENT_CENTER)
-	_set_panel([
-		_team_row("You", Kit.GOOD, slots[0]),
-		_team_row(str(bot.name), Color(Families.info(fam).color) if fam != "" else Kit.BAD, theirs),
-		spacer,
-		stakes,
-		fight,
-	])
-	return fight
-
-
-## A caption over three cards: tier stars and level, face, power.
-## Their order stays hidden, so the foe row is sorted by name.
-func _team_row(caption: String, col: Color, team: Array) -> Control:
-	var art := _intro_art
-	var cards := Kit.hbox(8)
-	for slot in team:
-		var tag := FighterTag.of_slot(slot, art)
-		tag.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		var c := Kit.panel(tag, Kit.box(Kit.PANEL, Color(col, .5), 18, 2, 6))
-		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cards.add_child(c)
-	var head := Kit.label(caption, 20, col)
-	head.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	return Kit.vbox(4, [head, cards])
-
-
-func _next_leg() -> void:
-	if relay.finished:
-		_show_result()
-		return
-	var slot: int = relay.slot[0]
-	if not aimed[slot]:
-		_begin_aim(slot)
-	else:
-		_start_leg()
-
-
-func _begin_aim(slot: int) -> void:
-	state = State.AIM
-	sfx.toggle_hidden = false
-	_layout()
-	var shot = store.shots[slot]
-	aim = MatchSim.AIM_AT_CENTRE[0] + (int(shot) if shot != null else 0)
-	arena.clear_effects()
-	_preview()
-	info_label.text = "Ball %d/3 · drag to aim %s" % [slot + 1, BallDefs.get_def(relay.sides[0][slot]).display_name]
-	var launch := _button("Launch", _launch, 36)
-	_set_panel([launch])
-	_mark_at.call_deferred("arena_launch", launch)
-
-
-func _preview() -> void:
-	relay.aims[0][relay.slot[0]] = aim
-	sim = MatchSim.new(relay.leg_config())
-	arena.sim = sim
-	arena.aim_dir = Vector2.from_angle(deg_to_rad(aim / 10.0))
-
-
-func _launch() -> void:
-	aimed[relay.slot[0]] = true
-	relay.aims[0][relay.slot[0]] = aim
-	sfx.play("launch")
-	_start_leg()
-
-
-func _start_leg() -> void:
-	sim = MatchSim.new(relay.leg_config())
-	arena.sim = sim
-	arena.aim_dir = Vector2.ZERO
-	arena.clear_effects()
-	_accumulator = 0.0
-	state = State.FIGHT
-	info_label.text = "" # Tier, level and power sit under each health bar.
-	fight_hud.stats = [_stats_text(0), _stats_text(1)]
-	# Speed, Skip and Sound: the bottom row of pills every fight screen has.
-	var skip := FightLayout.skip_pill(_skip_leg)
-	_set_panel([_row([FightSpeed.picker(), skip])])
-	_mark_at.call_deferred("arena_skip", skip.button)
-	sfx.on_fight_start(sim)
+	], BoxContainer.ALIGNMENT_CENTER)]
 
 
 ## "T2 · Lv14 · 1,250 power" under the health bar of the ball `side` has out.
@@ -287,35 +78,7 @@ func _stats_text(side: int) -> String:
 	return " · ".join(parts)
 
 
-## Logs where a control is once it's laid out, for the smoke test ("UI_AT name x y").
-func _mark_at(name: String, c: Control) -> void:
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if is_instance_valid(c) and c.is_visible_in_tree():
-		var at := c.get_global_rect().get_center()
-		print("UI_AT %s %d %d" % [name, roundi(at.x), roundi(at.y)])
-
-
-func _skip_leg() -> void:
-	while not sim.finished:
-		sim.step()
-	arena.clear_effects()
-
-
-func _end_leg() -> void:
-	relay.record_leg(sim)
-	var w := sim.winner
-	if w == -1:
-		info_label.text = "Both balls are out!"
-	else:
-		info_label.text = "%s %s stays in · %d HP" % ["Your" if w == 0 else "Their", BallDefs.get_def(sim.balls[w].type_id).display_name, ceili(sim.balls[w].hp)]
-	state = State.LEG_END
-	_pause = LEG_PAUSE
-	_set_panel([])
-
-
 func _show_result() -> void:
-	state = State.RESULT
 	var won := relay.winner == 0
 	var used: Array = []
 	for i in 3:
@@ -326,25 +89,15 @@ func _show_result() -> void:
 	Intro.arena_fought = true
 	sfx.on_result(relay.winner)
 	var got: int = store.history[0].get("coins", 0) if not store.history.is_empty() else 0
-	info_label.text = ""
 	print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s" % [won, result_delta, store.trophies, relay.state_hash()])
-	_set_panel([_result_card(won, got)])
-	_layout()
-	await get_tree().process_frame
-	await get_tree().process_frame
-	for k in _result_marks:
-		var c: Control = _result_marks[k]
-		if is_instance_valid(c) and c.is_visible_in_tree():
-			var at := c.get_global_rect().get_center()
-			print("UI_AT %s %d %d" % [k, roundi(at.x), roundi(at.y)])
+	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
+	ResultPopup.show_over(ui_root, _result_card(got))
 
 
-## The post-match card: the trophy change as the headline, the league bar
-## filling (or emptying) from where it was, what the fight earned as icons
-## and numbers, then Next fight and Back.
-func _result_card(won: bool, got: int) -> Control:
-	var col: Color = ResultText.WIN if won else (ResultText.DRAW if relay.winner == -1 else ResultText.LOSE)
-	var title := Kit.label("YOU WIN!" if won else ("DRAW" if relay.winner == -1 else "YOU LOSE"), 30, col, HORIZONTAL_ALIGNMENT_CENTER)
+## The result popup every fight ends on (ResultPopup): the trophy change,
+## the league bar filling (or emptying) from where it was, what the fight
+## earned as icons and numbers, then Back and Next fight.
+func _result_card(got: int) -> Control:
 	var delta_col: Color = Kit.GOOD if result_delta > 0 else (Kit.BAD if result_delta < 0 else Kit.MUTED)
 	var headline := Kit.hbox(12, [Kit.glyph("trophy", 64, Color("ffc23d")), Kit.label("%+d" % result_delta, 72, delta_col)], BoxContainer.ALIGNMENT_CENTER)
 	# League bar, animated from before the fight to now.
@@ -367,20 +120,17 @@ func _result_card(won: bool, got: int) -> Control:
 	if result_delta > 0:
 		# Every trophy won is also a Trophy Room point.
 		rewards.add_child(Kit.hbox(6, [Kit.glyph("points", 30, Kit.WARN), Kit.label("+%d" % result_delta, 26, Kit.WARN)], BoxContainer.ALIGNMENT_CENTER))
-	var next := Kit.button("Next fight", _next_fight, "go", 30, 88)
-	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	next.size_flags_stretch_ratio = 2.0
-	var back := Kit.button("Back", _back_to_arena, "ghost", 26, 88)
-	back.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_result_marks = {"arena_next": next, "arena_back": back}
-	var foe := Kit.label("vs " + str(bot.name), 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
-	var card := Kit.vbox(16, [title, foe, headline, league])
+	var next := Kit.button("Next fight", _next_fight, "go", 26, 84)
+	var back := Kit.button("Back", _back_to_arena, "ghost", 26, 84)
+	_mark("arena_next", next, ResultPopup.SLIDE_SECS) # Where the popup stops.
+	_mark("arena_back", back, ResultPopup.SLIDE_SECS)
+	var outcome := ResultPopup.outcome_of(relay.winner)
+	var body: Array = [headline, league]
 	if rewards.get_child_count() > 0:
-		card.add_child(rewards)
-	card.add_child(Kit.hbox(12, [next, back]))
-	var style := Kit.box(Color("16133a"), col, 40, 0, 24)
-	style.border_width_top = 3
-	return Kit.panel(card, style)
+		body.append(rewards)
+	var card := ResultPopup.content("Ghost Arena · vs " + str(bot.name), outcome, body, [back, next])
+	next.size_flags_stretch_ratio = 1.5
+	return card
 
 
 ## How far through its league `trophies` sits (1 in the top league).
@@ -421,7 +171,8 @@ func _confirm_forfeit() -> void:
 	var loss: int = int(store.pending_stake().loss)
 	var yes := _button("Forfeit (%d)" % loss, _forfeit, 28)
 	yes.add_theme_color_override("font_color", Kit.BAD)
-	_set_panel([_label("Forfeit this attack? It counts as a loss.", 28), _row([yes, _button("Keep going", _show_intro, 28)])])
+	hold_aim = true # No aiming behind the question.
+	_set_panel([_label("Forfeit this attack? It counts as a loss.", 28), _row([yes, _button("Keep going", _next_leg, 28)])])
 
 
 func _forfeit() -> void:
@@ -429,161 +180,14 @@ func _forfeit() -> void:
 	_back_to_arena()
 
 
+## Back (or a swipe from the edge) mid-attack asks first: leaving is a loss.
+func _back() -> void:
+	if state == State.RESULT:
+		_back_to_arena()
+	elif unlaunched():
+		_confirm_forfeit()
+
+
 func _back_to_arena() -> void:
 	ArenaStore.reopen = true
 	get_tree().change_scene_to_file("res://game/main.tscn")
-
-
-# --- UI ---------------------------------------------------------------------
-
-func _update_hud() -> void:
-	if relay == null:
-		return
-	# Balls each side still has, the one fighting included.
-	var left := [relay.sides[0].size() - relay.slot[0], relay.sides[1].size() - relay.slot[1]]
-	if state != _laid_out_for:
-		_layout()
-	# Aiming and fighting look like every fight screen: the bars on top,
-	# the cards under the arena while the balls are out.
-	var view := _fight_view() and sim != null
-	lineup_label.visible = not view
-	fighter_strip.show_fight(sim if view and state == State.FIGHT else null)
-	if view:
-		hud_label.text = ""
-		if state == State.AIM:
-			fight_hud.stats = [_stats_text(0), _stats_text(1)]
-		fight_hud.show_fight(sim, "%d v %d" % left)
-	else:
-		fight_hud.show_fight(null)
-		hud_label.text = "%d left  vs  %d left" % left
-
-
-func _build_ui() -> void:
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	var ui := Control.new()
-	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ui.theme = Main._neon_theme()
-	layer.add_child(ui)
-	title_label = _label("GHOST ARENA", 48)
-	title_label.add_theme_color_override("font_outline_color", Color(Main.ACCENT, 0.45))
-	title_label.add_theme_constant_override("outline_size", 12)
-	hud_label = _label("", 28)
-	fight_hud = FightHud.new()
-	fight_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fight_hud.tags = ["YOU", "GHOST"]
-	ui.add_child(fight_hud)
-	fighter_strip = FighterStrip.new()
-	fighter_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ui.add_child(fighter_strip)
-	lineup_label = _label("", 24)
-	lineup_label.modulate = Color("a29fc9")
-	info_label = _label("", 26)
-	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel = VBoxContainer.new()
-	panel.add_theme_constant_override("separation", 16)
-	for c in [title_label, hud_label, lineup_label, info_label, panel]:
-		ui.add_child(c)
-
-
-## Same shape as the main screen: portrait stacks arena over the panel, wide
-## screens put the panel beside the arena.
-func _fight_view() -> bool:
-	return state in [State.AIM, State.FIGHT, State.LEG_END]
-
-
-func _layout() -> void:
-	var size := get_viewport().get_visible_rect().size
-	_laid_out_for = state
-	title_label.visible = not _fight_view()
-	if _fight_view():
-		_layout_fight(size)
-		return
-	var top := 190.0
-	var bottom_margin := 40.0
-	var panel_width := 680.0
-	var side: float
-	var left: float
-	var panel_pos: Vector2
-	if size.x >= size.y:
-		side = minf(size.y - top - bottom_margin, size.x - panel_width - 100.0)
-		left = maxf(20.0, (size.x - side - panel_width - 40.0) / 2.0)
-		panel_pos = Vector2(left + side + 40.0, top)
-	else:
-		side = clampf(size.y - top - 100.0 - PANEL_HEIGHT - bottom_margin, 300.0, minf(ARENA_PIXELS, size.x - 40.0))
-		left = (size.x - side) / 2.0
-		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
-		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 20.0)
-	arena.view_scale = side / MatchSim.ARENA_SIZE
-	arena.position = Vector2(left, top)
-	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
-	_place(hud_label, Vector2(0, 100), Vector2(size.x, 44))
-	_place(lineup_label, Vector2(0, 144), Vector2(size.x, 36))
-	_place(fight_hud, Vector2(left, 100), Vector2(side, 84))
-	_place(info_label, panel_pos, Vector2(panel_width, 90))
-	if state in [State.INTRO, State.RESULT] and size.x < size.y:
-		# The pre-fight panel fills the rest of the screen, FIGHT at the bottom,
-		# clear of the phone's home bar.
-		_place(panel, panel_pos, Vector2(panel_width, size.y - panel_pos.y - SAFE_BOTTOM))
-	else:
-		_place(panel, panel_pos + Vector2(0, 100), Vector2(panel_width, PANEL_HEIGHT - 100.0))
-	arena.queue_redraw()
-
-
-## Aiming and fighting: the same shape as every fight screen (FightLayout).
-func _layout_fight(size: Vector2) -> void:
-	var r := FightLayout.rects(size)
-	arena.view_scale = r.arena.size.x / MatchSim.ARENA_SIZE
-	arena.position = r.arena.position
-	FightLayout.place_hud(fight_hud, r)
-	var p: Rect2 = r.panel
-	var info_h := 0.0 if state == State.FIGHT else 56.0 # The aim hint, or who stays in.
-	_place(info_label, p.position, Vector2(p.size.x, 50))
-	_place(panel, p.position + Vector2(0, info_h), Vector2(p.size.x, maxf(0.0, p.size.y - info_h)))
-	var cards := FightLayout.cards_rect(r, info_h)
-	_place(fighter_strip, cards.position, cards.size)
-	arena.queue_redraw()
-
-
-func _place(c: Control, pos: Vector2, size: Vector2) -> void:
-	c.position = pos
-	c.size = size
-
-
-func _set_panel(children: Array) -> void:
-	if state != _laid_out_for: # Aiming and fighting move the panel (FightLayout).
-		_layout()
-	for c in panel.get_children():
-		panel.remove_child(c)
-		c.queue_free()
-	for c in children:
-		panel.add_child(c)
-
-
-func _label(text: String, font_size: int) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font_size)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
-
-
-func _button(text: String, on_press: Callable, font_size := 30) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.custom_minimum_size = Vector2(0, 84)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.add_theme_font_size_override("font_size", font_size)
-	if on_press.is_valid():
-		b.pressed.connect(on_press)
-	return b
-
-
-func _row(children: Array) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	for c in children:
-		row.add_child(c)
-	return row

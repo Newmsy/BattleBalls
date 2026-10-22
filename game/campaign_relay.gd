@@ -1,9 +1,9 @@
 ## A pairs or trios campaign stage (zone 2 on): your team against the stage's
-## enemy lineup as a relay, on the Spire's fight screen (game/spire.gd). The
-## stage is handed over in `pending`; when it ends the outcome goes into
-## `done` and main.gd settles it with Campaign.finish_team() and opens the
-## stage list with the results popup.
-extends "res://game/spire.gd"
+## enemy lineup as a relay, on the shared relay fight screen
+## (game/relay_fight.gd). The stage is handed over in `pending`; when it ends
+## the outcome goes into `done` and main.gd settles it with
+## Campaign.finish_team() and opens the stage list with the result popup.
+extends "res://game/relay_fight.gd"
 
 const Campaign := preload("res://meta/campaign.gd")
 const Zones := preload("res://meta/zones.gd")
@@ -17,51 +17,11 @@ var _last
 
 
 func _ready() -> void:
-	TouchInput.ensure(self)
-	TouchInput.set_back(self, func(): return _back if state in [State.INTRO, State.RESULT] else Callable())
 	if pending.is_empty():
 		_back.call_deferred()
 		return
-	var st := Zones.stage(pending.zone, pending.stage)
-	spec = {"floor": 0, "boss": Zones.is_boss(st)}
-	relay = Relay.new(pending.config)
-	for i in pending.picks.size():
-		aimed.append(false)
-	arena = ArenaView.new()
-	add_child(arena)
-	sfx = Sfx.new()
-	add_child(sfx)
-	_build_ui()
-	title_label.text = "%s · %s" % [Zones.zone(pending.zone).name.to_upper(), Zones.stage_key(pending.zone, pending.stage)]
-	get_viewport().size_changed.connect(_layout)
-	_layout()
 	print("RELAY_STAGE_READY stage=%s seed=%d" % [Zones.stage_key(pending.zone, pending.stage), int(pending.config.seed)])
-	_show_intro()
-
-
-func _show_intro() -> void:
-	state = State.INTRO
-	sfx.on_menu()
-	var st := Zones.stage(pending.zone, pending.stage)
-	var foes: Array = relay.sides[1].map(func(e): return BallDefs.get_def(e).display_name)
-	var mine: Array = relay.sides[0].map(func(e): return BallDefs.get_def(e).display_name)
-	for c in lineup_row.get_children():
-		c.queue_free()
-	lineup_row.add_child(Kit.label("%s  vs  %s" % [" + ".join(mine), " + ".join(foes)], 24, Kit.MUTED))
-	# The lineup above already says who's on each side.
-	info_label.text = str(st.name) if st.has("name") else str(Zones.zone(pending.zone).twist)
-	sim = MatchSim.new(relay.leg_config())
-	arena.sim = sim
-	var fight := _button("FIGHT!", _next_leg, 40)
-	fight.name = "SpireFight"
-	_set_panel([fight, _button("Back", _back, 24)])
-
-
-func _launch() -> void:
-	aimed[relay.slot[0]] = true
-	relay.aims[0][relay.slot[0]] = aim
-	sfx.play("launch")
-	_start_leg()
+	start(Relay.new(pending.config))
 
 
 func _end_leg() -> void:
@@ -70,17 +30,12 @@ func _end_leg() -> void:
 
 
 func _show_result() -> void:
-	state = State.RESULT
 	var fight := Campaign.relay_fight(relay, _last)
 	done = {"zone": pending.zone, "stage": pending.stage, "picks": pending.picks, "fight": fight}
 	sfx.on_result(0 if relay.winner == 0 else 1)
-	var won: bool = relay.winner == 0
-	var headline := _label("STAGE CLEARED!" if won else "NOT THIS TIME", 52)
-	headline.modulate = Color("45f5a6") if won else Color("ff5a7a")
-	info_label.text = ""
-	print("STAGE_END stage=%s won=%s legs=%d hash=%s" % [Zones.stage_key(pending.zone, pending.stage), won, relay.legs.size(), relay.state_hash()])
-	_set_panel([headline])
-	# The results popup (stars, drops, XP) waits on the stage list: go straight there.
+	print("STAGE_END stage=%s won=%s legs=%d hash=%s" % [Zones.stage_key(pending.zone, pending.stage), relay.winner == 0, relay.legs.size(), relay.state_hash()])
+	# Its result popup (stars, drops, XP) opens on the stage list, as for
+	# every campaign stage: a beat on the last knockout, then straight there.
 	await get_tree().create_timer(1.1).timeout
 	if is_inside_tree() and state == State.RESULT:
 		_back()
