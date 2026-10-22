@@ -267,11 +267,12 @@ const ZING_PITCH := {"nature": 0.85, "sea": 0.8, "tech": 1.2, "sweet": 1.3, "fro
 const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
-## Music per track: [file, volume dB, loops]. All are composed and rendered by
-## tools/music/make_music.py at the same loudness, so these set the mix.
+## Music per track: [file, volume dB, loops]. All are remixed from "Crypto" by
+## Kevin MacLeod (CC-BY 4.0, credited in CREDITS.md and Settings) by
+## tools/music/remix_crypto.py at the same loudness, so these set the mix.
 ## The intro plays once when the game opens and hands over to the menu loop;
-## overtime is the fight theme faster and a semitone up; victory loops past
-## its 2-bar fanfare (VICTORY_LOOP_FROM) while the win screen is up.
+## overtime is the fight theme faster with busier drums; victory loops past
+## its one-bar hit (VICTORY_LOOP_FROM) while the win screen is up.
 const MUSIC := {
 	"intro": ["music_intro", -10.0, false],
 	"menu": ["music_menu", -11.0, true],
@@ -279,7 +280,7 @@ const MUSIC := {
 	"overtime": ["music_overtime", -10.0, true],
 	"victory": ["music_victory", -9.0, true],
 }
-const VICTORY_LOOP_FROM := 8 * 60.0 / 124.0 ## 2 bars at 124 BPM.
+const VICTORY_LOOP_FROM := 3.0 / 1.1 ## Crypto's 3 s bar, sped up 1.1x.
 ## Seconds a track change fades over, so music never cuts with a click.
 const MUSIC_FADE := 0.3
 ## After a win, how long the victory tune waits for a results popup to hold

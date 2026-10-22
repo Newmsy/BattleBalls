@@ -5,14 +5,17 @@ licensed under Creative Commons: By Attribution 4.0
 the credit lives in CREDITS.md and on the in-game credits line.
 
 Crypto is 80 BPM (one bar = 3.0 s), in F# major. From it:
-- music_intro:    its opening bars, a riser and a big F# hit (~9 s, plays once).
+- music_intro:    a sparkle, its opening bars, a riser and a big F# hit (~9 s,
+                  plays once).
 - music_menu:     a 32-bar seamless loop of the track itself.
-- music_fight:    16 bars sped up to 100 BPM (pitch kept) with added drums.
+- music_fight:    16 bars sped up to 100 BPM (pitch kept) with drums and a
+                  synth layer (BATTLE_SYNTH).
 - music_overtime: 8 bars at 120 BPM with busier drums.
 - music_victory:  a one-bar F# brass hit, then an 8-bar loop at 88 BPM with
                   claps (VICTORY_LOOP_FROM in sfx.gd = the hit's length).
 
 Usage: python3 tools/music/remix_crypto.py [--src Crypto.mp3] [--out DIR] [--wav DIR]
+--wav keeps the wavs and also renders every battle synth option there (preview_*).
 The source mp3 is downloaded from incompetech if --src is missing.
 Needs numpy, scipy and ffmpeg (libvorbis, libmp3lame).
 """
@@ -41,7 +44,8 @@ ROOTS = (32, 32, 30, 27)
 HOOK = ((0, 75, 1), (1, 78, 0.5), (1.5, 75, 0.5), (2, 73, 2), (4, 70, 2), (6, 68, 2),
         (8, 66, 0.5), (8.5, 68, 0.5), (9, 70, 1), (10, 73, 2), (12, 75, 3), (15, 73, 1))
 HOOK2 = HOOK[:9] + ((10, 70, 1), (11, 68, 1), (12, 68, 4))
-BATTLE_SYNTH = "pads"  # Which layer music_fight/overtime get: pads, pulse or lead.
+BATTLE_SYNTH = "pulse"  # Which layer music_fight/overtime get: pads, pulse or lead.
+DRUMS = 0.55  # Added drums sit under Crypto, not on top of it.
 
 
 def load(path, tempo=1.0):
@@ -125,12 +129,12 @@ def synth(kind, bars, bar_s):
         if kind == "pads":  # Wide supersaw chords pumping with the kick.
             add(buf, np.vstack(supersaw(chord, bar_s + 0.6, 2400, 0.08, 0.6)), t0, 0.9)
             add(buf, np.vstack(supersaw(tuple(n + 12 for n in chord[1:]), bar_s + 0.6, 4000, 0.3, 0.6, 3)), t0, 0.25)
-        elif kind == "pulse":  # Driving octave bass in 8ths plus offbeat chord stabs.
+        elif kind == "pulse":  # Low driving bass in 8ths plus low offbeat chord stabs.
             for i in range(8):
-                add(buf, bass(root + (12 if i % 2 else 0), beat / 2 * 0.9, 1.8, 1.2), t0 + i * beat / 2, 0.55)
+                add(buf, bass(root + (12 if i % 4 == 3 else 0), beat / 2 * 0.9, 1.8, 1.2), t0 + i * beat / 2, 0.55)
             for k in range(4):
                 for note in chord:
-                    add(buf, pluck(note + 12, 0.4, bpm, 1.4), t0 + k * beat + beat / 2, 0.45, (note % 5 - 2) * 0.25)
+                    add(buf, pluck(note - 12, 0.4, bpm, 1.4), t0 + k * beat + beat / 2, 0.45, (note % 5 - 2) * 0.25)
         elif kind == "lead":  # Soft pads under a singing saw lead with delay.
             add(buf, np.vstack(supersaw(chord, bar_s + 0.6, 1400, 0.4, 0.8)), t0, 0.5)
             if b % 4 == 0 and b >= 4:
@@ -202,13 +206,13 @@ def build(src):
     starts = range(2, len(energy) - 18)
     fa = max(starts, key=lambda i: sum(energy[i:i + 16]))
     loop = seam_loop(xf, fa * BAR / t, 16 * BAR / t)
-    beds = {"music_fight": loop * 0.8 + drums(16, BAR / t, "fight")[:, :loop.shape[1]]}
+    beds = {"music_fight": loop * 0.8 + drums(16, BAR / t, "fight")[:, :loop.shape[1]] * DRUMS}
 
     # Overtime: 8 bars at 120 BPM, busier drums.
     t = 1.5
     xo = load(src, t)
     loop = seam_loop(xo, fa * BAR / t, 8 * BAR / t)
-    beds["music_overtime"] = loop * 0.75 + drums(8, BAR / t, "ot")[:, :loop.shape[1]]
+    beds["music_overtime"] = loop * 0.75 + drums(8, BAR / t, "ot")[:, :loop.shape[1]] * DRUMS
     for name, bed in beds.items():
         bar_s, bars = (BAR / 1.25, 16) if name == "music_fight" else (BAR / 1.5, 8)
         tracks[name] = master(bed)
@@ -252,7 +256,7 @@ def build(src):
     intro[:, n_open:n_open + tail.shape[1]] += tail * 0.8
     fade = secs(1.5)
     intro[:, -fade:] *= np.linspace(1, 0, fade) ** 2
-    add(intro, sparkle(), 0.0, 0.9, wrap=False)
+    add(intro, sparkle(), 0.0, 0.35, wrap=False)
     tracks["music_intro"] = master(intro)
     print("menu loop from bar %d, fight/overtime from bar %d, victory from bar %d, hit %.4f s" % (a, fa, va, hit_len))
     return tracks
@@ -283,7 +287,8 @@ def main():
     for name, x in build(src).items():
         if name.startswith("preview_") and not args.wav:
             continue
-        print(write_ogg(name, x, args.out, args.wav), "%.1fs" % (x.shape[1] / SR))
+        out = args.wav if name.startswith("preview_") else args.out
+        print(write_ogg(name, x, out, args.wav), "%.1fs" % (x.shape[1] / SR))
 
 
 if __name__ == "__main__":
