@@ -10,6 +10,7 @@ extends RefCounted
 
 const Dot := preload("res://game/dot.gd")
 const TALENTS := preload("res://sim/talents.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 
 const IRON := Color("3a3f4f")
 const IRON_HI := Color("5d6478")
@@ -333,7 +334,7 @@ static func _pinata(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void
 		Dot.circle(ci, c + Vector2(0.3, -0.06) * r, r * 0.06, Color(PINATA[0], 0.6))
 
 
-## The totem from above: a carved stone drum with nine family masks round
+## The totem from above: a carved stone drum with nine family icons round
 ## its rim. opts.family lights that family's mask; opts.volley (0-1) makes
 ## every mask blaze and beams run to them as a volley winds up.
 static func _totem(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
@@ -364,12 +365,7 @@ static func _totem(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
 			Dot.pline(ci, PackedVector2Array([c + d * r * 0.3, p]), Color(col, 0.5 * charge), maxf(2.0, r * 0.05 * charge), true)
 		if glow > 0.05:
 			Dot.circle(ci, p, r * 0.27, Color(col, 0.35 * glow))
-		Dot.circle(ci, p, r * 0.17, col.darkened(0.55 - 0.55 * glow))
-		var side := d.orthogonal()
-		var eye := Color(1, 1, 1, 0.4 + 0.6 * glow)
-		Dot.pline(ci, PackedVector2Array([p + side * r * 0.1 + d * r * 0.03, p + side * r * 0.03 + d * r * 0.05]), eye, maxf(1.5, r * 0.03), true)
-		Dot.pline(ci, PackedVector2Array([p - side * r * 0.1 + d * r * 0.03, p - side * r * 0.03 + d * r * 0.05]), eye, maxf(1.5, r * 0.03), true)
-		Dot.pline(ci, PackedVector2Array([p + side * r * 0.06 - d * r * 0.06, p - side * r * 0.06 - d * r * 0.06]), Color(0, 0, 0, 0.5), maxf(1.5, r * 0.025), true)
+		FamilyIcon.draw(ci, fams[k], p, r * 0.36) # Each mask is its family's icon.
 	# Spirit wisps circling the lit family's mask colour.
 	for k in 3:
 		var a := t * (1.1 + 0.2 * k) + k * TAU / 3.0

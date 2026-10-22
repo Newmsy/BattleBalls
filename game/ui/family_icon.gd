@@ -1,6 +1,6 @@
 ## A small badge per critter family, so you can tell a critter's family at a
 ## glance next to its art: Nature leaf, Sea fish, Tech cog, Sweet wrapped
-## candy, Frost snowflake, Toybox die, Spooky ghost, Fire flame, Cosmic
+## candy, Frost snowflake, Toybox toy brick, Spooky ghost, Fire flame, Cosmic
 ## crescent moon. Each has its own silhouette as well as its family colour
 ## (sim/families.gd), so it reads without colour too. Drawn once on a control
 ## that never redraws itself; render-only.
@@ -62,7 +62,7 @@ static func draw(ci: CanvasItem, family: String, c: Vector2, size: float, ring :
 		"tech": _cog(ci, c, g, col)
 		"sweet": _candy(ci, c, g, col)
 		"frost": _flake(ci, c, g, col)
-		"toybox": _die(ci, c, g, col)
+		"toybox": _brick(ci, c, g, col)
 		"spooky": _ghost(ci, c, g, col)
 		"fire": _flame(ci, c, g, col)
 		"cosmic": _moon(ci, c, g, col)
@@ -134,20 +134,14 @@ static func _flake(ci: CanvasItem, c: Vector2, g: float, col: Color) -> void:
 	Dot.circle(ci, c, g * .16, col)
 
 
-static func _die(ci: CanvasItem, c: Vector2, g: float, col: Color) -> void:
-	var turn := -.2
-	var pts := []
-	var h := .62
-	var rr := .2
-	for corner in [Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1), Vector2(1, -1)]:
-		var mid: Vector2 = corner * (h - rr)
-		var a0: float = corner.angle() - PI / 4.0
-		for k in 4:
-			var a: float = a0 + PI / 2.0 * k / 3.0
-			pts.append((mid + Vector2(cos(a), sin(a)) * rr).rotated(turn))
-	Dot.poly(ci, _pts(c, g, pts), col)
-	for p in [Vector2(-.33, -.33), Vector2.ZERO, Vector2(.33, .33)]:
-		Dot.circle(ci, c + p.rotated(turn) * g, g * .13, INK)
+## A toy brick: a block with two studs on top.
+static func _brick(ci: CanvasItem, c: Vector2, g: float, col: Color) -> void:
+	Dot.poly(ci, _pts(c, g, [Vector2(-.9, -.22), Vector2(.9, -.22), Vector2(.9, .7), Vector2(-.9, .7)]), col)
+	for x in [-.45, .45]:
+		Dot.poly(ci, _pts(c, g, [Vector2(x - .27, -.62), Vector2(x + .27, -.62), Vector2(x + .27, -.16), Vector2(x - .27, -.16)]), col)
+	# A dark seam under the studs and one down the middle, so it reads as a block.
+	_bar(ci, c + Vector2(-.9, -.22) * g, c + Vector2(.9, -.22) * g, g * .1, INK)
+	_bar(ci, c + Vector2(0, -.22) * g, c + Vector2(0, .7) * g, g * .1, INK)
 
 
 static func _ghost(ci: CanvasItem, c: Vector2, g: float, col: Color) -> void:
@@ -207,6 +201,6 @@ class _Corner extends Control:
 
 	func _draw() -> void:
 		var side := minf(size.x, size.y)
-		var b := clampf(side * .25, 22.0, 44.0)
-		var c := Vector2((size.x - side) / 2.0 + b * .6, (size.y + side) / 2.0 - b * .6)
+		var b := clampf(side * .2, 11.0, 36.0)
+		var c := Vector2((size.x - side) / 2.0 + b * .5, (size.y + side) / 2.0 - b * .5)
 		load("res://game/ui/family_icon.gd").draw(self, family, c, b)
