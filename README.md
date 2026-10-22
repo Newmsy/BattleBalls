@@ -12,7 +12,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `meta/` | Progression outside a fight: the player profile (collection, fusion, energy, account level, campaign stars), campaign zones, drops. Pure logic, clock passed in. Saved in the SaveGame as `data.profile`. |
 | `sim/critters/` | One file per critter: everything about it (see Adding a critter). |
 | `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim and meta; never changes their rules. |
-| `liveops/` | The live-ops schedule (`liveops.json`): seasons, Spotlight weeks, Chaos Weekends, Fight of the Day. See its README. |
+| `liveops/` | The live-ops schedule (`liveops.json`): seasons, Chaos Weekends, Fight of the Day. See its README. |
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |

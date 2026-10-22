@@ -111,7 +111,7 @@ func test_wishlist_holds_three_and_toggles() -> void:
 
 func test_wishlisted_critters_come_up_twice_as_often() -> void:
 	var p = UiProfile.sample()
-	var commons: Array = Roster.CRITTERS.filter(func(c): return c.rarity == "common" and c.id != Summon.featured()).map(func(c): return c.id)
+	var commons: Array = Roster.CRITTERS.filter(func(c): return c.rarity == "common").map(func(c): return c.id)
 	var wished: String = commons[0]
 	var other: String = commons[1]
 	p.toggle_wishlist(wished)
