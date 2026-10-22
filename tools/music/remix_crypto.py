@@ -26,12 +26,22 @@ import urllib.request
 import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
-from make_music import SR, boom, brass, clap, crash, hat, kick, riser, snare, write_wav  # noqa: E402
+from make_music import (SR, bass, bell, boom, brass, clap, crash, hat, hp, kick, lead, lp, noise, ping_pong,  # noqa: E402
+                        pluck, reverb, riser, snare, supersaw, write_wav)
 
 SRC_URL = "https://incompetech.com/music/royalty-free/mp3-royaltyfree/Crypto.mp3"
 OUT = os.path.join(os.path.dirname(__file__), "..", "..", "game", "audio")
 BAR = 3.0  # Seconds per bar at Crypto's 80 BPM; beat 1 of bar 0 is at 0.0 s.
 F_SHARP = (66, 70, 73, 78)  # F#4 A#4 C#5 F#5: the track's home chord.
+# The battle bars sit on a G# drone with D#, A#, F# on top, so the added synths
+# use sus chords (no third to clash with) over G# G# F# D#, one chord a bar.
+SUS = ((56, 58, 63, 68), (56, 58, 63, 68), (54, 56, 61, 66), (51, 56, 58, 63))
+ROOTS = (32, 32, 30, 27)
+# A hook in G# minor pentatonic without B: (beat, midi, beats) over 4 bars.
+HOOK = ((0, 75, 1), (1, 78, 0.5), (1.5, 75, 0.5), (2, 73, 2), (4, 70, 2), (6, 68, 2),
+        (8, 66, 0.5), (8.5, 68, 0.5), (9, 70, 1), (10, 73, 2), (12, 75, 3), (15, 73, 1))
+HOOK2 = HOOK[:9] + ((10, 70, 1), (11, 68, 1), (12, 68, 4))
+BATTLE_SYNTH = "pads"  # Which layer music_fight/overtime get: pads, pulse or lead.
 
 
 def load(path, tempo=1.0):
@@ -97,6 +107,61 @@ def drums(bars, bar_s, kind):
     return buf
 
 
+def duck(n, bar_s, depth=0.55):
+    """Sidechain pump: dips on every beat like it's keyed off the kick."""
+    beat = secs(bar_s / 4)
+    t = (np.arange(n) % beat) / SR
+    return 1 - depth * np.exp(-t / 0.11)
+
+
+def synth(kind, bars, bar_s):
+    """A synth layer for the battle tracks, as (2, n)."""
+    beat = bar_s / 4
+    bpm = 60 / beat
+    buf = np.zeros((2, secs(bars * bar_s)))
+    for b in range(bars):
+        t0 = b * bar_s
+        chord, root = SUS[b % 4], ROOTS[b % 4]
+        if kind == "pads":  # Wide supersaw chords pumping with the kick.
+            add(buf, np.vstack(supersaw(chord, bar_s + 0.6, 2400, 0.08, 0.6)), t0, 0.9)
+            add(buf, np.vstack(supersaw(tuple(n + 12 for n in chord[1:]), bar_s + 0.6, 4000, 0.3, 0.6, 3)), t0, 0.25)
+        elif kind == "pulse":  # Driving octave bass in 8ths plus offbeat chord stabs.
+            for i in range(8):
+                add(buf, bass(root + (12 if i % 2 else 0), beat / 2 * 0.9, 1.8, 1.2), t0 + i * beat / 2, 0.55)
+            for k in range(4):
+                for note in chord:
+                    add(buf, pluck(note + 12, 0.4, bpm, 1.4), t0 + k * beat + beat / 2, 0.45, (note % 5 - 2) * 0.25)
+        elif kind == "lead":  # Soft pads under a singing saw lead with delay.
+            add(buf, np.vstack(supersaw(chord, bar_s + 0.6, 1400, 0.4, 0.8)), t0, 0.5)
+            if b % 4 == 0 and b >= 4:
+                for at, note, length in (HOOK2 if b % 8 == 4 else HOOK):
+                    add(buf, lead(note, length * beat * 0.95), t0 + at * beat, 0.8, 0.1)
+    if kind == "lead":
+        buf += ping_pong(buf * 0.6, beat * 0.75, 0.35)
+    wet = reverb(buf)
+    buf = buf + wet * (0.5 if kind != "pulse" else 0.25)
+    if kind != "lead":
+        buf *= duck(buf.shape[1], bar_s)
+    for ch in range(2):
+        buf[ch] = hp(buf[ch], 120)
+    return buf
+
+
+def sparkle(seconds=1.6):
+    """Magic-dust shimmer for the app opening: falling-then-rising chimes on
+    the G# pentatonic over a bright airy swish."""
+    buf = np.zeros((2, secs(seconds + 1.2)))
+    notes = (80, 87, 85, 82, 92, 90, 87, 94, 92, 97, 99, 104)
+    for i, note in enumerate(notes):
+        t = 0.09 * i + 0.012 * (i % 3)
+        add(buf, bell(note, 0.9), t, 0.7 - 0.03 * i, ((i * 7) % 9 - 4) / 5, wrap=False)
+    n = secs(seconds)
+    env_ = np.sin(np.linspace(0, np.pi, n)) ** 2
+    air = hp(noise(n, 4242), 6000) * env_ * 0.12
+    add(buf, np.vstack([air, np.roll(air, 97)]), 0.0, 1.0, wrap=False)
+    return buf + reverb(buf) * 0.8
+
+
 def master(x, rms=0.14):
     x = x * (rms / max(np.sqrt(np.mean(x ** 2)), 1e-9))
     return np.where(np.abs(x) < 0.6, x, np.sign(x) * (0.6 + 0.35 * np.tanh((np.abs(x) - 0.6) / 0.35)))
@@ -137,13 +202,21 @@ def build(src):
     starts = range(2, len(energy) - 18)
     fa = max(starts, key=lambda i: sum(energy[i:i + 16]))
     loop = seam_loop(xf, fa * BAR / t, 16 * BAR / t)
-    tracks["music_fight"] = master(loop * 0.8 + drums(16, BAR / t, "fight")[:, :loop.shape[1]])
+    beds = {"music_fight": loop * 0.8 + drums(16, BAR / t, "fight")[:, :loop.shape[1]]}
 
     # Overtime: 8 bars at 120 BPM, busier drums.
     t = 1.5
     xo = load(src, t)
     loop = seam_loop(xo, fa * BAR / t, 8 * BAR / t)
-    tracks["music_overtime"] = master(loop * 0.75 + drums(8, BAR / t, "ot")[:, :loop.shape[1]])
+    beds["music_overtime"] = loop * 0.75 + drums(8, BAR / t, "ot")[:, :loop.shape[1]]
+    for name, bed in beds.items():
+        bar_s, bars = (BAR / 1.25, 16) if name == "music_fight" else (BAR / 1.5, 8)
+        tracks[name] = master(bed)
+        for kind in ("pads", "pulse", "lead"):
+            layered = master(bed + synth(kind, bars, bar_s)[:, :bed.shape[1]] * 0.7)
+            if kind == BATTLE_SYNTH:
+                tracks[name] = layered
+            tracks["preview_%s_%s" % (name[6:], kind)] = layered
 
     # Victory: a one-bar brass hit on F#, then 8 bars at 88 BPM with claps.
     t = 1.1
@@ -179,6 +252,7 @@ def build(src):
     intro[:, n_open:n_open + tail.shape[1]] += tail * 0.8
     fade = secs(1.5)
     intro[:, -fade:] *= np.linspace(1, 0, fade) ** 2
+    add(intro, sparkle(), 0.0, 0.9, wrap=False)
     tracks["music_intro"] = master(intro)
     print("menu loop from bar %d, fight/overtime from bar %d, victory from bar %d, hit %.4f s" % (a, fa, va, hit_len))
     return tracks
@@ -207,6 +281,8 @@ def main():
         if not os.path.exists(src):
             urllib.request.urlretrieve(SRC_URL, src)
     for name, x in build(src).items():
+        if name.startswith("preview_") and not args.wav:
+            continue
         print(write_ogg(name, x, args.out, args.wav), "%.1fs" % (x.shape[1] / SR))
 
 
