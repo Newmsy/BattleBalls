@@ -5,7 +5,6 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
-const DetailScreen := preload("res://game/ui/screens/detail_screen.gd")
 
 ## What the player has typed, kept across rebuilds.
 static var _draft := {"email": "", "code": ""}
@@ -19,7 +18,7 @@ static func build(shell, params: Dictionary) -> Control:
 		chip = Kit.chip("Guest", Kit.WARN)
 	elif acc != null and acc.status == "linked":
 		chip = Kit.chip("Saved", Kit.GOOD)
-	root.add_child(DetailScreen.header(shell, "Account", chip))
+	root.add_child(shell.title_row("Account", {"extra": [chip]}))
 
 	if acc == null or not acc.enabled():
 		root.add_child(_note("Offline", "Progress is on this device. Go online to back it up."))

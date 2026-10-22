@@ -25,14 +25,11 @@ static func build(shell, params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Weekly boss", CORE), Kit.label("The Glitch", 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("The Glitch", [
+	root.add_child(shell.title_row("The Glitch", {"eyebrow": "Weekly boss", "eyebrow_color": CORE, "info_mark": "glitch_info", "info": [
 		"The bug behind everything, in the Corrupted Core. Every 10 seconds it rewrites the rules:",
 		"Static: it fires pairs of glitch bolts at you. Warp: it blinks round the core (watch the flicker) and leaves corrupted floor behind. Pull: it drags you in and pulses: get out of the ring.",
 		"Stun it to cancel a warp or a pulse. Portals on both sides throw you across.",
-		"%d tries a week, %d energy each. Your first win pays the bundle and ends its week." % [GlitchCore.RUNS_PER_DAY, GlitchCore.ENERGY_COST]], "glitch_info")],
-		BoxContainer.ALIGNMENT_CENTER))
+		"%d tries a week, %d energy each. Your first win pays the bundle and ends its week." % [GlitchCore.RUNS_PER_DAY, GlitchCore.ENERGY_COST]]}))
 
 	var left := GlitchCore.runs_left(p, now)
 	var tries := ("%d/%d tries" % [left, GlitchCore.RUNS_PER_DAY]) if left > 0 else "Done this week"

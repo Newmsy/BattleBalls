@@ -34,18 +34,15 @@ static func build(shell, params: Dictionary) -> Control:
 	p.update_energy(now)
 	var root := Kit.vbox(22)
 
-	var back: Control = shell.back_button("back")
-	var head := Kit.vbox(2, [Kit.caption(("Zone %d · Team of 3" % (z + 1)) if zone.lineup == 3 else ("Zone %d · %dv%d" % [z + 1, zone.lineup, zone.lineup]), Color("9be89a")),
-		Kit.label(zone.name, 44)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var title_row := Kit.hbox(16, [back, head])
+	var extra := []
 	var has_story := not Story.chapter(z).is_empty()
 	if has_story:
 		var replay := Kit.card_button(Kit.label("Story", 22), play_story.bind(shell, z), Kit.LINE, Kit.PANEL, 999, 14)
 		replay.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		shell.mark("story", replay)
-		title_row.add_child(replay)
-	root.add_child(title_row)
+		extra.append(replay)
+	root.add_child(shell.title_row(zone.name, {"eyebrow": ("Zone %d · Team of 3" % (z + 1)) if zone.lineup == 3 else ("Zone %d · %dv%d" % [z + 1, zone.lineup, zone.lineup]),
+		"eyebrow_color": Color("9be89a"), "extra": extra}))
 
 	# The top bar shows the energy count; this only says when the next one lands.
 	var wait: int = p.seconds_to_next_energy(now)

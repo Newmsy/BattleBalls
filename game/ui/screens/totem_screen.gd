@@ -27,15 +27,12 @@ static func build(shell, params: Dictionary) -> Control:
 	var family := TotemShrine.family_today(now)
 	var fam_name: String = Talents.NAMES[family]
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.hbox(6, [Kit.caption("Daily boss ·", SHRINE), Kit.glyph("sparkle", 22, SHRINE)]), Kit.label("Totem of Nine", 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Totem of Nine", [
+	root.add_child(shell.title_row("Totem of Nine", {"eyebrow": "Daily boss ·", "eyebrow_color": SHRINE, "eyebrow_glyphs": ["sparkle"], "info_mark": "totem_info", "info": [
 		"A spirit totem of nine family heads in the Spirit Shrine. Its heads glow, then ring out spirit orbs with one gap to slip through. Every other volley is a fan aimed at you.",
 		"Today's family head is lit: %s critters hit it %d%% harder. The family changes every day." % [fam_name, roundi(Bosses.DEFS[TotemShrine.BOSS].family_bonus * 100.0)],
 		"Stun it while the heads glow to cancel the volley. Its pull drags your mines and trails toward it.",
 		"Sigils level up today's family's talents: %d at Lv 1 up to %d at Lv 15. Each level is stronger; beat one to open the next." % [TotemShrine.DIFFICULTIES[0].sigils, TotemShrine.DIFFICULTIES[-1].sigils],
-		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [TotemShrine.RUNS_PER_DAY, TotemShrine.ENERGY_COST]], "totem_info")],
-		BoxContainer.ALIGNMENT_CENTER))
+		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [TotemShrine.RUNS_PER_DAY, TotemShrine.ENERGY_COST]]}))
 
 	root.add_child(Kit.label("Today: %s family" % fam_name, 26, Talents.COLORS[family], HORIZONTAL_ALIGNMENT_LEFT, true))
 	var left := TotemShrine.runs_left(p, now)

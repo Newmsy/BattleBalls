@@ -35,8 +35,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"Points only come from the Arena. Boosts only work in the Ghost Arena.",
 		"Reset is free: every point comes back.",
 	]
-	var info: Control = shell.info_button("Trophy Room", how, "boosts_info")
-	root.add_child(Kit.hbox(18, [shell.back_button("back"), Kit.label("Trophy Room", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row("Trophy Room", {"info_mark": "boosts_info", "info": how}))
 
 	var reset := Kit.card_button(Kit.chip("Reset", Kit.MUTED), func():
 		var back: int = store.reset_boosts()

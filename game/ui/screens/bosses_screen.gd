@@ -46,12 +46,10 @@ static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var now := int(Time.get_unix_time_from_system())
 	var root := Kit.vbox(18)
-	var head := Kit.vbox(2, [Kit.caption("Daily", Color("ff8a3d")), Kit.label("Bosses", 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Bosses", [
+	root.add_child(shell.title_row("Bosses", {"eyebrow": "Daily", "eyebrow_color": Color("ff8a3d"), "info_mark": "bosses_info", "info": [
 		"Each boss has its own map, tricks and reward.",
 		"Stuns cancel a boss's wind-up and slows drag out its timers, so pick a critter whose trick fits the boss.",
-		"Runs reset every day; The Glitch's tries reset every week."], "bosses_info")], BoxContainer.ALIGNMENT_CENTER))
+		"Runs reset every day; The Glitch's tries reset every week."]}))
 	for h in HALL:
 		root.add_child(_card(shell, p, h, now))
 	return root

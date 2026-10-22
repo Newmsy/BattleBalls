@@ -40,7 +40,6 @@ static func build(shell, params: Dictionary) -> Control:
 		shell.toast.call_deferred("Defence held %d/%d raids (%+d)" % [held, raids.size(), dt])
 	var root := Kit.vbox(10)
 
-	var back: Control = shell.back_button("back")
 	var how := [
 		"Trios fight in order; a winner stays in with its HP left. Their order is hidden. Your last shots become your ghost.",
 		"Best trio fills in your strongest three.",
@@ -48,8 +47,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Tokens for the Bazaar.",
 		"Set your Defence trio: each day a few teams raid it. Holding wins trophies and Tokens.",
 	]
-	var info: Control = shell.info_button("Ghost Arena", how, "arena_info")
-	root.add_child(Kit.hbox(14, [back, Kit.label("Ghost Arena", 40), Kit.spacer(), info], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row("Ghost Arena", {"info_mark": "arena_info", "info": how}))
 	root.add_child(_league_panel(store))
 	var held_today: int = store.raids.filter(func(r): return r.held).size() if store.raid_day == ArenaStore.today() else 0
 	# A new player's first Arena win opens the Trophy Room; the rest come after.

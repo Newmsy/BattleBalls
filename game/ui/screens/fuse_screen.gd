@@ -25,11 +25,10 @@ static func build(shell, params: Dictionary) -> Control:
 		sel = ready[0]
 
 	var root := Kit.vbox(18)
-	var how: Control = shell.info_button("How fusing works", [
+	root.add_child(shell.title_row("Fusion Lab", {"back": false, "eyebrow": "3 of a kind → next tier", "info_title": "How fusing works", "info_mark": "fuse_info", "info": [
 		"3 of a kind → 1 of the next tier, up to T5.",
 		"The new copy keeps the highest level of the three, and its level cap goes up.",
-		"Gear goes back to your Bag."], "fuse_info")
-	root.add_child(Kit.hbox(12, [Kit.vbox(2, [Kit.caption("3 of a kind → next tier"), Kit.label("Fusion Lab", 40)]), Kit.spacer(), how], BoxContainer.ALIGNMENT_CENTER))
+		"Gear goes back to your Bag."]}))
 
 	var list := Kit.vbox(12, [Kit.caption("Ready to fuse")])
 	if ready.is_empty():
