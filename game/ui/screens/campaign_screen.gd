@@ -359,6 +359,8 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	var st := Zones.stage(z, i)
 	var name: String = st.get("name", Roster.get_critter(st.enemy).name)
 	var v := Kit.vbox(18)
+	if r.won and shell.sfx != null:
+		shell.sfx.hold_victory(v) # The victory tune plays while this popup is up.
 	var title := "Victory!" if r.won else "Defeated"
 	var head := Kit.label(title, 52, Kit.GOOD if r.won else Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
 	var banner = ResultBanner.wrap(head)

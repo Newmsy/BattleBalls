@@ -60,4 +60,42 @@ func test_sounds_stay_on_the_master_bus() -> void:
 	for p in sfx._players:
 		check_eq(p.bus, &"Master", "sound player bus")
 	check_eq(sfx._music.bus, &"Master", "music player bus")
+	check_eq(sfx._music_out.bus, &"Master", "fading music player bus")
+	sfx.free()
+
+
+## The intro plays once and hands over to the menu loop; a win plays the
+## victory tune until its popup closes; overtime switches to the faster theme.
+func test_music_flow() -> void:
+	var sfx := _sfx()
+	sfx.mode = "all"
+	Sfx._intro_played = false
+	Sfx._audio_unlocked = true
+	sfx.on_menu()
+	check_eq(sfx._music_track, "intro", "first menu music")
+	sfx.on_menu()
+	check_eq(sfx._music_track, "intro", "intro is not cut by another menu")
+	sfx._on_music_finished(sfx._music)
+	check_eq(sfx._music_track, "menu", "after the intro")
+	var sim := MatchSim.new({"seed": 3, "p1": "vampire", "p2": "laser", "angles": [null, null]})
+	sfx.on_fight_start(sim)
+	check_eq(sfx._music_track, "fight", "fight music")
+	sfx.on_result(0)
+	check_eq(sfx._music_track, "victory", "after a win")
+	var popup := Control.new()
+	runner.root.add_child(popup)
+	sfx.on_menu()
+	sfx.hold_victory(popup)
+	sfx._process(Sfx.VICTORY_GRACE + 0.1)
+	check_eq(sfx._music_track, "victory", "victory while its popup is up")
+	popup.free()
+	sfx._process(0.1)
+	check_eq(sfx._music_track, "menu", "menu once the popup closes")
+	sfx.on_fight_start(sim)
+	sfx.on_result(1)
+	check_eq(sfx._music_track, "menu", "after a loss")
+	sfx.on_result(0)
+	sfx.on_menu()
+	sfx._process(Sfx.VICTORY_GRACE + 0.1)
+	check_eq(sfx._music_track, "menu", "menu after a win with no popup")
 	sfx.free()

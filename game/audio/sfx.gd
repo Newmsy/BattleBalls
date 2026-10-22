@@ -79,7 +79,24 @@ const ZING_PITCH := {"nature": 0.85, "sea": 0.8, "tech": 1.2, "sweet": 1.3, "fro
 const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
-const MUSIC := {"menu": ["music_menu", -12.0], "fight": ["music_fight", -10.0]}
+## Music per track: [file, volume dB, loops]. All are composed and rendered by
+## tools/music/make_music.py at the same loudness, so these set the mix.
+## The intro plays once when the game opens and hands over to the menu loop;
+## overtime is the fight theme faster and a semitone up; victory loops past
+## its 2-bar fanfare (VICTORY_LOOP_FROM) while the win screen is up.
+const MUSIC := {
+	"intro": ["music_intro", -10.0, false],
+	"menu": ["music_menu", -11.0, true],
+	"fight": ["music_fight", -11.0, true],
+	"overtime": ["music_overtime", -10.0, true],
+	"victory": ["music_victory", -9.0, true],
+}
+const VICTORY_LOOP_FROM := 8 * 60.0 / 124.0 ## 2 bars at 124 BPM.
+## Seconds a track change fades over, so music never cuts with a click.
+const MUSIC_FADE := 0.3
+## After a win, how long the victory tune waits for a results popup to hold
+## it (hold_victory) before the menu music takes over.
+const VICTORY_GRACE := 1.6
 ## Contact damage at or above this share of the target's max HP is a "big hit".
 const BIG_HIT_SHARE := 0.18
 const LOW_HP_SHARE := 0.35
@@ -95,8 +112,17 @@ var _variants := {} ## sound name -> Array[AudioStream]
 var _players: Array[AudioStreamPlayer] = []
 var _last_start := {} ## sound name -> seconds
 var _ends := {} ## sound name -> end times of the copies started
-var _music: AudioStreamPlayer
+var _music: AudioStreamPlayer ## The current track.
+var _music_out: AudioStreamPlayer ## The previous track while it fades out.
 var _music_track := ""
+var _fade: Tween
+## The intro plays once per app launch, not every time a screen opens.
+static var _intro_played := false
+## Web: browsers start audio on the first tap, so the intro waits for it.
+static var _audio_unlocked := false
+var _victory_hold: WeakRef ## The results popup the victory tune plays under.
+var _victory_at := 0.0
+var _menu_pending := false
 var _was_overtime := false
 var _heartbeat_in := 0.0
 var _rain_in := 0.0
@@ -124,6 +150,12 @@ func _init() -> void:
 		_players.append(p)
 	_music = AudioStreamPlayer.new()
 	add_child(_music)
+	_music_out = AudioStreamPlayer.new()
+	add_child(_music_out)
+	for p in [_music, _music_out]:
+		p.finished.connect(_on_music_finished.bind(p))
+	if not OS.has_feature("web"):
+		_audio_unlocked = true
 	_load_settings()
 
 
@@ -141,8 +173,23 @@ func _notification(what: int) -> void:
 		AudioServer.set_bus_mute(0, what == NOTIFICATION_APPLICATION_PAUSED)
 
 
+func _input(event: InputEvent) -> void:
+	if _audio_unlocked or not (event is InputEventMouseButton or event is InputEventScreenTouch) or not event.pressed:
+		return
+	_audio_unlocked = true
+	if _music_track == "intro" and mode == "all" and not _music.playing:
+		_start_music("intro")
+
+
 func _process(delta: float) -> void:
 	_clock += delta
+	if _music_track == "victory" and _menu_pending:
+		var hold: Control = _victory_hold.get_ref() if _victory_hold else null
+		var held := hold != null and _shown(hold)
+		if not held and (_victory_hold != null or _clock - _victory_at > VICTORY_GRACE):
+			_menu_pending = false
+			_victory_hold = null
+			play_music("menu")
 	if fight_sim == null or fight_sim.finished:
 		return
 	_rain_in -= delta
@@ -166,7 +213,28 @@ func _process(delta: float) -> void:
 
 func on_menu() -> void:
 	fight_sim = null
+	if _music_track == "victory": # Hand over once the win screen is gone (_process).
+		_menu_pending = true
+		return
 	play_music("menu")
+
+
+## Whether a popup is still up: attached and not hidden by its parents.
+static func _shown(node: Node) -> bool:
+	if node.get_parent() == null:
+		return false
+	while node is CanvasItem:
+		if not node.visible:
+			return false
+		node = node.get_parent()
+	return true
+
+
+## Keeps the victory tune playing while this popup (a win's results) is up;
+## the menu music takes over once it closes.
+func hold_victory(popup: Control) -> void:
+	if _music_track == "victory":
+		_victory_hold = weakref(popup)
 
 
 func on_aim_drag(pull: float) -> void:
@@ -177,14 +245,19 @@ func on_fight_start(sim) -> void:
 	fight_sim = sim
 	_was_overtime = false
 	_heartbeat_in = 0.0
-	_music.pitch_scale = 1.0
+	_menu_pending = false
 	play("go")
 	play_music("fight")
 
 
 func on_result(winner: int) -> void:
 	fight_sim = null
-	_music.pitch_scale = 1.0
+	_menu_pending = false
+	_victory_hold = null
+	if winner == 0 and mode == "all": # The victory fanfare is the win jingle.
+		_victory_at = _clock
+		play_music("victory")
+		return
 	var jingle := "draw" if winner < 0 else ("win" if winner == 0 else "lose")
 	if is_inside_tree():
 		get_tree().create_timer(0.45).timeout.connect(func(): play(jingle))
@@ -443,7 +516,7 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 	if not _was_overtime and sim.in_overtime():
 		_was_overtime = true
 		play("overtime")
-		_music.pitch_scale = 1.06
+		play_music("overtime")
 
 
 ## Plays a sound (any variant) unless its cap or min gap says to skip it.
@@ -471,21 +544,55 @@ func playing_count(name: String) -> int:
 
 
 func play_music(track: String) -> void:
+	if track == "menu" and _music_track == "intro":
+		return # The intro hands over to the menu loop when it ends.
+	if track == "menu" and not _intro_played:
+		_intro_played = true
+		track = "intro"
 	if _music_track == track and (_music.playing or mode != "all"):
 		return
 	_music_track = track
 	if mode != "all":
-		_music.stop()
+		_stop_music()
 		return
+	if track == "intro" and not _audio_unlocked:
+		return # Starts on the first tap (_input).
+	_start_music(track)
+
+
+func _start_music(track: String) -> void:
 	var info: Array = MUSIC[track]
 	var stream = load(AUDIO_DIR + info[0] + ".ogg")
-	if stream == null:
+	if stream == null or not is_inside_tree():
 		return
-	stream.loop = true
+	stream.loop = info[2]
+	stream.loop_offset = VICTORY_LOOP_FROM if track == "victory" else 0.0
+	if _fade:
+		_fade.kill()
+	_music_out.stop()
+	if _music.playing: # Fade the old track out on the spare player.
+		var old := _music
+		_music = _music_out
+		_music_out = old
+		_fade = create_tween()
+		_fade.tween_property(old, "volume_db", old.volume_db - 40.0, MUSIC_FADE)
+		_fade.tween_callback(old.stop)
 	_music.stream = stream
 	_music.volume_db = info[1] + MASTER_DB
-	if is_inside_tree():
-		_music.play()
+	_music.play()
+
+
+func _stop_music() -> void:
+	if _fade:
+		_fade.kill()
+	_music.stop()
+	_music_out.stop()
+
+
+func _on_music_finished(player: AudioStreamPlayer) -> void:
+	if player == _music and _music_track == "intro":
+		_music_track = ""
+		play_music("menu")
 
 
 func sound_names() -> Array:
@@ -541,7 +648,7 @@ func _apply_mode() -> void:
 		_music_track = ""
 		play_music(track)
 	elif mode != "all":
-		_music.stop()
+		_stop_music()
 	if _toggle:
 		_toggle.text = MODE_LABELS[mode]
 
@@ -628,7 +735,7 @@ func show_board() -> void:
 	grid.add_child(title)
 	grid.add_child(Control.new())
 	for track in MUSIC:
-		grid.add_child(_board_button("Music: " + track, func(): _music_track = ""; play_music(track)))
+		grid.add_child(_board_button("Music: " + track, func(): _music_track = track; _start_music(track)))
 	for name in RULES:
 		for i in _variants[name].size():
 			var label: String = name if _variants[name].size() == 1 else "%s %d" % [name, i + 1]
