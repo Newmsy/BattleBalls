@@ -392,8 +392,7 @@ func _layout() -> void:
 		left = (size.x - side) / 2.0
 		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
 		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 20.0)
-	arena.view_scale = side / MatchSim.ARENA_SIZE
-	arena.position = Vector2(left, top)
+	arena.fit(Vector2(left, top), side)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	_place(call_label, Vector2(20, 100), Vector2(size.x - 40, 80))
 	_place(info_label, panel_pos, Vector2(panel_width, 90))
