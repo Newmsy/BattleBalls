@@ -11,7 +11,8 @@ const VOICES := 16
 ## Sound modes the toggle cycles through.
 const MODES := ["all", "sfx", "off"]
 const MODE_LABELS := {"all": "Sound: On", "sfx": "Music: Off", "off": "Sound: Off"}
-const TOGGLE_SIZE := Vector2(164, 56)
+const FightLayout := preload("res://game/fight_layout.gd")
+const TOGGLE_SIZE := FightLayout.PILL
 ## Per sound: [max playing at once, min seconds between starts, volume dB].
 ## Lower caps on frequent sounds keep the chaos readable.
 ## Pitch of the hit_big thud per pulse kind (sim pulse events), so each
@@ -104,15 +105,7 @@ var toggle_hidden := false:
 	set(v):
 		toggle_hidden = v
 		if _toggle:
-			_toggle.visible = not (toggle_hidden or in_fight)
-## Hidden during fights too, so the fight screen stays the fight's.
-var in_fight := false:
-	set(v):
-		if v == in_fight:
-			return
-		in_fight = v
-		if _toggle:
-			_toggle.visible = not (toggle_hidden or in_fight)
+			_toggle.visible = not toggle_hidden
 var _board: Control
 
 
@@ -589,7 +582,7 @@ func _build_toggle() -> void:
 func _place_toggle() -> void:
 	var size := get_viewport().get_visible_rect().size
 	_toggle.size = TOGGLE_SIZE
-	_toggle.position = Vector2(size.x - TOGGLE_SIZE.x - 16, size.y - TOGGLE_SIZE.y - 18)
+	_toggle.position = FightLayout.pill_position(size, 1) # Right of a fight's Speed and Skip pills.
 	if _board:
 		_board.size = size
 

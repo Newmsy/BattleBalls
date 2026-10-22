@@ -11,6 +11,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const FightLayout := preload("res://game/fight_layout.gd")
 
 const SETTINGS_PATH := "user://settings.cfg"
 const SPEEDS := [1.0, 2.0, 4.0]
@@ -116,8 +117,8 @@ static func next_index() -> int:
 	return i
 
 
-## The fight's speed pill: tap to cycle 1x, 2x, 4x. It sits in the bottom-left
-## corner like the Sound pill sits in the bottom-right, whichever row it is
+## The fight's speed pill: tap to cycle 1x, 2x, 4x. It sits at the left of the
+## bottom row (Skip in the middle, Sound on the right), whichever row it is
 ## added to (top_level keeps it out of the row's layout); it shows and hides
 ## with that row.
 static func picker(_font_size := 26, _height := 84) -> Picker:
@@ -145,16 +146,13 @@ static func _save() -> void:
 class Picker extends Control:
 	signal picked(speed: float)
 
-	const SIZE := Vector2(164, 56) ## The Sound pill's size (sfx.gd TOGGLE_SIZE).
-	const MARGIN := Vector2(16, 18)
-
 	var _button: Button
 	var _lock: Control
 
 	func _init() -> void:
 		top_level = true
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_button = Kit.button("", _cycle, "ghost", 20, int(SIZE.y))
+		_button = Kit.button("", _cycle, "ghost", 20, int(FightLayout.PILL.y))
 		_button.name = "SpeedPill"
 		_button.clip_text = true
 		_button.add_theme_font_override("font", Kit.FONT)
@@ -167,9 +165,8 @@ class Picker extends Control:
 		_place()
 
 	func _place() -> void:
-		var vp := get_viewport().get_visible_rect().size
-		size = SIZE
-		global_position = Vector2(MARGIN.x, vp.y - SIZE.y - MARGIN.y)
+		size = FightLayout.PILL
+		global_position = FightLayout.pill_position(get_viewport().get_visible_rect().size, -1)
 
 	## Redraws for the current pick and unlocks.
 	func refresh() -> void:
