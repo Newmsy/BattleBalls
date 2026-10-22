@@ -123,7 +123,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var wished: bool = p.on_wishlist(c.id)
 	var wish := Kit.card_button(Kit.chip("Wishlisted" if wished else "+ Wishlist", Color("ff5fc8")), func():
 		if p.toggle_wishlist(c.id):
-			shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"])
+			shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"], c.id)
 		else:
 			shell.toast("Wishlist full (3/3).")
 		shell.refresh(), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 4)
@@ -141,7 +141,7 @@ static func build(shell, params: Dictionary) -> Control:
 		shell.show_tab("play")
 		if Intro.step(p) == Intro.FIGHTER and Intro.reach(p, Intro.FIGHT_2):
 			Intro.to_campaign(shell)
-		shell.toast("%s is now your fighter." % c.name), "ghost", 26, 90)
+		shell.toast("%s is now your fighter." % c.name, c.id), "ghost", 26, 90)
 	shell.mark("detail_fighter", lineup)
 	var fuse := Kit.button("Fuse T%d" % ready.get("tier", b.tier), func(): shell.open_tab("fuse", {"id": c.id, "tier": ready.tier}), "go", 26, 90)
 	fuse.disabled = ready.is_empty()
@@ -170,10 +170,15 @@ static func _slot_sheet(shell, id: String, slot: String) -> void:
 			continue
 		seen[k] = true
 		var col: Color = BagScreen.tier_color(g.tier)
-		var who: String = "" if g.on == "" else "On " + Roster.get_critter(g.on).name
-		var info := Kit.vbox(2, [Kit.label(g.name, 24), Kit.label(g.text + ("  ·  " + who if who != "" else ""), 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+		var info := Kit.vbox(2, [Kit.label(g.name, 24), Kit.label(g.text, 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var row := Kit.hbox(12, [Glyph.make(g.type, 56, col), info, Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER)
+		var end := Kit.vbox(4, [Glyph.make("stars", 18, col, g.tier)])
+		if g.on != "":
+			# Who wears it now, as a face (long press for its card).
+			var face := CritterIcon.face(g.on, 40)
+			face.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			end.add_child(face)
+		var row := Kit.hbox(12, [Glyph.make(g.type, 56, col), info, end], BoxContainer.ALIGNMENT_CENTER)
 		var card := Kit.card_button(row, func():
 			p.equip(g.uid, id)
 			shell.close_overlay()

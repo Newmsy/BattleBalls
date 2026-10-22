@@ -150,7 +150,7 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 			if order >= 0:
 				next.erase(f.id)
 			elif tired:
-				shell.toast("%s is tired until Monday." % Roster.get_critter(f.id).name)
+				shell.toast("%s is tired until Monday." % Roster.get_critter(f.id).name, f.id)
 				return
 			elif next.size() >= spec.lineup:
 				shell.toast("This floor takes %d. Tap a pick to take it out." % spec.lineup)

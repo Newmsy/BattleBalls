@@ -16,6 +16,7 @@ const SaveGame := preload("res://game/online/save_game.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const Intro := preload("res://game/ui/intro.gd")
+const CritterIcon := preload("res://game/ui/critter_icon.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -62,6 +63,7 @@ const TOP_ALIGNED := ["play", "critters", "dex", "bag", "shop", "pass", "campaig
 const SCROLLS := ["play", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
+const TOAST_FACE := 52.0
 
 ## Emitted when the player starts a quick fight from the Play tab.
 signal play_requested
@@ -111,6 +113,7 @@ var _dots := {}
 var _top_labels := {}
 var _toast: Label
 var _toast_tween: Tween
+var _toast_face ## The critter a toast is about, at its left edge.
 var _marks := {}
 var _badge: Control ## The level badge (opens the account screen).
 var _built := false
@@ -278,11 +281,26 @@ func _restore_scroll(at: int) -> void:
 		sc.scroll_vertical = at
 
 
-func toast(text: String) -> void:
+## A short note above the tab bar. `critter` puts that critter's face at its left.
+func toast(text: String, critter := "") -> void:
 	_toast.text = text
+	if is_instance_valid(_toast_face):
+		_toast_face.queue_free()
+		_toast_face = null
+	var style := Kit.box(Color("221e55"), Kit.ACCENT, 24, 2, 18)
+	if critter != "":
+		style.content_margin_left = 18.0 + TOAST_FACE + 10.0
+		_toast_face = CritterIcon.face(critter, TOAST_FACE)
+		_toast_face.info = false
+		_toast_face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_toast.add_child(_toast_face)
+	_toast.add_theme_stylebox_override("normal", style)
 	var w := minf(620.0, size.x - 60.0)
 	_toast.size = Vector2(w, 0)
-	_toast.size.y = _toast.get_line_count() * 34.0 + 40.0
+	_toast.size.y = maxf(_toast.get_line_count() * 34.0 + 40.0, TOAST_FACE + 24.0 if critter != "" else 0.0)
+	if _toast_face != null:
+		_toast_face.position = Vector2(16.0, (_toast.size.y - TOAST_FACE) / 2.0)
+		_toast_face.size = Vector2(TOAST_FACE, TOAST_FACE)
 	var lift := TAB_HEIGHT + (_footer.size.y if _footer.visible else 0.0)
 	_toast.position = Vector2((size.x - _toast.size.x) / 2.0, size.y - lift - _toast.size.y - 40.0)
 	if _toast_tween:

@@ -6,6 +6,7 @@ extends RefCounted
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Legends := preload("res://game/legends.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -132,9 +133,11 @@ static func _pick_grid(shell, ev: Dictionary, t: int) -> Control:
 		card.custom_minimum_size.x = 0
 		shell.mark("champ_" + id, card)
 		grid.add_child(card)
-	var head := "Your pick: %s" % _name(pick) if pick != "" else "Pick your champion"
+	var head: Control = Kit.label("Pick your champion", 22, GOLD)
+	if pick != "":
+		head = Kit.hbox(8, [Kit.label("Your pick:", 22, GOLD), FighterTag.named(pick, 40, 22, GOLD, 1, _name(pick))])
 	_load_shares(shell, ev)
-	return Kit.vbox(10, [Kit.label(head, 22, GOLD, HORIZONTAL_ALIGNMENT_LEFT, true), grid])
+	return Kit.vbox(10, [head, grid])
 
 
 static func _choose(shell, ev: Dictionary, id: String) -> void:
@@ -142,7 +145,7 @@ static func _choose(shell, ev: Dictionary, id: String) -> void:
 		shell.toast("Picks are locked.")
 		shell.refresh()
 		return
-	shell.toast("%s is your champion." % _name(id))
+	shell.toast("%s is your champion." % _name(id), id)
 	Legends.submit_pick(shell.backend, ev, id)
 	shell.refresh()
 
@@ -300,18 +303,21 @@ static func _series_sheet(shell, ev: Dictionary, b, r: int, i: int) -> void:
 		shell.mark("game_0", watch)
 		shell.mark("reveal", reveal)
 		shell.sheet(Kit.vbox(16, [Kit.caption(b.round_name(r), GOLD),
-			Kit.label("%s vs %s" % [_name(m.a), _name(m.b)], 32, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
+			_versus(m.a, m.b, "vs"),
 			Kit.label("First to %d" % (Bracket.FINAL_WINS_NEEDED if r == b.rounds - 1 else Bracket.WINS_NEEDED), 22, Kit.MUTED),
 			watch, reveal]))
 		return
 	shell.refresh() # Show the result behind the sheet.
 	var v := Kit.vbox(14, [Kit.caption(b.round_name(r), GOLD),
-		Kit.label("%s %d - %d %s" % [_name(m.a), m.wins[0], m.wins[1], _name(m.b)], 32, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
-		Kit.label("%s goes through." % _name(m.winner), 24, GOLD)])
+		_versus(m.a, m.b, "%d - %d" % [m.wins[0], m.wins[1]]),
+		Kit.hbox(8, [FighterTag.named(m.winner, 40, 24, GOLD, 1, _name(m.winner)), Kit.label("goes through.", 24, GOLD)])])
 	for g in m.games.size():
 		var game: Dictionary = m.games[g]
 		var res := "Draw, replayed" if game.winner == "" else "%s wins in %ds" % [_name(game.winner), roundi(game.time)]
-		var info := Kit.vbox(2, [Kit.label("Game %d" % (g + 1), 24), Kit.label(res, 20, Kit.MUTED)])
+		var res_row: Control = Kit.label(res, 20, Kit.MUTED)
+		if game.winner != "":
+			res_row = Kit.hbox(6, [CritterIcon.face(game.winner, 32), res_row])
+		var info := Kit.vbox(2, [Kit.label("Game %d" % (g + 1), 24), res_row])
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var watch := Kit.button("Watch", func(): _watch(shell, ev, b, r, game), "ghost", 22, 64)
 		watch.custom_minimum_size.x = 160
@@ -331,6 +337,21 @@ static func _watch(shell, ev: Dictionary, b, r: int, game: Dictionary) -> void:
 
 static func _card(children: Array, border := Kit.LINE, bg := Kit.PANEL) -> Control:
 	return Kit.panel(Kit.vbox(10, children), Kit.box(bg, border, 30, 2, 18))
+
+
+## "Optic vs Comet" (or the score between) with both faces, for the series sheet.
+static func _versus(a: String, b: String, mid: String) -> Control:
+	var names: Array = []
+	for k in 2:
+		var nm := Kit.label(_name([a, b][k]), 26, Kit.FG, HORIZONTAL_ALIGNMENT_RIGHT if k == 0 else HORIZONTAL_ALIGNMENT_LEFT)
+		nm.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		nm.clip_text = true
+		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		names.append(nm)
+	var score := Kit.label(mid, 26, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	score.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return Kit.hbox(8, [names[0], CritterIcon.face(a, 52), score, CritterIcon.face(b, 52), names[1]])
 
 
 static func _name(id: String) -> String:

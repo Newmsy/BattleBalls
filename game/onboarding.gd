@@ -124,7 +124,17 @@ func _cold_open() -> void:
 	main.tutorial_preview([COLD_OPEN.p1, COLD_OPEN.p2], _names(COLD_OPEN.p1, COLD_OPEN.p2))
 	var row := Kit.hbox(16)
 	for id in [COLD_OPEN.p1, COLD_OPEN.p2]:
-		var b := Kit.button(BallDefs.get_def(id).display_name, _on_cold_pick.bind(id), "primary", 30, 100)
+		# The critter's face beside its name, so you know which ball you bet on.
+		var b := Kit.button("", _on_cold_pick.bind(id), "primary", 30, 100)
+		var face = CritterIcon.face(id, 64)
+		face.info = false # The tap is the bet.
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var words := Kit.label(BallDefs.get_def(id).display_name.to_upper(), 26, Kit.BG)
+		words.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		var inside := Kit.hbox(10, [face, words], BoxContainer.ALIGNMENT_CENTER)
+		inside.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		inside.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(inside)
 		_mark("pick_" + id, b)
 		row.add_child(b)
 	_show(Kit.vbox(18, [

@@ -95,7 +95,10 @@ static func _campaign_card(shell) -> Control:
 		next_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		next_l.clip_text = true
 		next_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		next_row = Kit.hbox(12, [next_l, Kit.power(Campaign.enemy_rating(z, next), 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+		var faces := Kit.hbox(2)
+		for id in Zones.enemies(st):
+			faces.add_child(CritterIcon.face(id, 40))
+		next_row = Kit.hbox(12, [faces, next_l, Kit.power(Campaign.enemy_rating(z, next), 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	var open := Kit.button("Continue", func(): shell.go("world"), "go", 32, 96)
 	shell.mark("campaign", open)
 	var zone := Kit.vbox(8, [
