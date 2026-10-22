@@ -1376,6 +1376,1243 @@ static func draw_gusts(ci: CanvasItem, p: Vector2, r: float, reach: float, t: fl
 		Dot.arc(ci, tip + Vector2.from_angle(a + 0.9 - PI / 2.0) * r * 0.2, r * 0.2, a, a + PI * 1.4, 8, Color(Color("e8fff0"), 0.5 * (1.0 - f)), 2.0, true)
 
 
+# --- Cool factor: fight animation and art touches (ideas/critter-cool-factor.md) ---
+# Render-only; small fixed loops, triangles and circles (no polygons that
+# could fold), so they stay cheap on phones and never break triangulation.
+
+const COOKIE := Color("c68642")
+const COOKIE_DARK := Color("5a3418")
+const GUM_PINK := Color("ff8cc6")
+const INK_PURPLE := Color("8a5cc8")
+const ECTO := Color("c8ffe8")
+const CYAN := Color("7ff3ff")
+const GOLD := Color("ffd23f")
+const CRACK_ICE := Color("d9f6ff")
+
+
+## A triangle, skipped when it would be too thin to see.
+static func _tri(ci: CanvasItem, a: Vector2, b: Vector2, c: Vector2, col: Color) -> void:
+	if absf((b - a).cross(c - a)) < 0.5:
+		return
+	Dot.poly(ci, PackedVector2Array([a, b, c]), col)
+
+
+## Crumb: a bitten-off cookie chunk tumbles out, lands and crumbles into floor
+## crumbs that fade. `age` over `life` (the flight is the first 0.45s).
+static func draw_cookie_chunk(ci: CanvasItem, from: Vector2, to: Vector2, size: float, age: float, life: float, seed: float) -> void:
+	var fly := clampf(age / 0.45, 0.0, 1.0)
+	if fly < 1.0:
+		var at := from.lerp(to, fly) - Vector2(0, sin(fly * PI) * size * 2.5)
+		var spin := seed + age * 14.0
+		var d := Vector2.from_angle(spin)
+		_tri(ci, at + d * size, at + d.rotated(2.2) * size * 0.85, at + d.rotated(-2.2) * size * 0.85, COOKIE)
+		Dot.circle(ci, at + d.rotated(1.0) * size * 0.3, size * 0.16, COOKIE_DARK)
+		Dot.circle(ci, at + d.rotated(-1.6) * size * 0.35, size * 0.13, COOKIE_DARK)
+		return
+	var fade := 1.0 - clampf((age - 0.45) / maxf(0.01, life - 0.45), 0.0, 1.0)
+	for q in 7:
+		var off := Vector2.from_angle(seed * 3.0 + q * 2.4) * size * (0.4 + 0.25 * (q % 3))
+		Dot.circle(ci, to + off, size * (0.12 + 0.05 * (q % 2)), Color(COOKIE if q % 3 else COOKIE_DARK, 0.9 * fade))
+
+
+## Pinball T5: TILT! flashes the arena rim and two flippers flick at the walls.
+static func draw_tilt(ci: CanvasItem, arena: Rect2, age: float, life: float, motion: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	var on := motion < 0.5 or fmod(age, 0.16) < 0.08
+	var col := Color("ffe066") if on else Color("ff5a7a")
+	ci.draw_rect(arena.grow(2.0), Color(col, 0.9 * a), false, 8.0)
+	ci.draw_rect(arena.grow(9.0), Color(col, 0.35 * a), false, 10.0)
+	var flick := sin(clampf(age / 0.3, 0.0, 1.0) * PI) # Up and back down once.
+	var len := arena.size.x * 0.16
+	var ang := lerpf(0.45, -0.5, flick)
+	for side: float in [-1.0, 1.0]:
+		var pivot := Vector2(arena.get_center().x + side * arena.size.x * 0.3, arena.end.y - 18.0)
+		var tip := pivot + Vector2(-side * cos(ang), sin(ang)) * len
+		ci.draw_line(pivot, tip, Color(Color("ff5a7a"), a), 16.0, true)
+		ci.draw_line(pivot, tip, Color(Color("ffd6e0"), a), 6.0, true)
+		Dot.circle(ci, pivot, 11.0, Color(Color("ffe066"), a))
+
+
+## Count Nibbles' drain: a thin red stream of droplets from the foe into it.
+static func draw_drain(ci: CanvasItem, from: Vector2, to: Vector2, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k * k
+	var side := (to - from).orthogonal().normalized() * minf(from.distance_to(to) * 0.18, 40.0)
+	var pts := PackedVector2Array()
+	for q in 11:
+		var f := q / 10.0
+		pts.append(from.lerp(to, f) + side * sin(f * PI))
+	Dot.pline(ci, pts, Color(BLOOD, 0.55 * a), 2.0, true)
+	for q in 5:
+		var f := fmod(k * 1.6 + q * 0.2, 1.0)
+		var i := mini(int(f * 10.0), 9)
+		var at := pts[i].lerp(pts[i + 1], f * 10.0 - i)
+		Dot.circle(ci, at, 3.5, Color(Color("ff2d55"), 0.9 * a))
+
+
+## Count Nibbles T5: its overheal shield as a bat-wing cape wrapped round it.
+static func draw_bat_cape(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	var col := Color("2a0d1e")
+	var lining := Color(BLOOD, 0.9)
+	for s: float in [-1.0, 1.0]:
+		var shoulder := p + Vector2(s * r * 0.35, -r * 0.95)
+		var prev := shoulder
+		for k in 5: # A fan of scalloped panels down the side.
+			var a: float = -PI / 2.0 + s * (0.5 + k * 0.55)
+			var wob := 1.0 + 0.04 * sin(t * 3.0 + k)
+			var edge := p + Vector2.from_angle(a) * r * 1.22 * wob
+			_tri(ci, shoulder, prev, edge, col if k % 2 == 0 else col.lightened(0.08))
+			ci.draw_line(prev, edge, lining, 2.0, true)
+			prev = edge
+
+
+## A muzzle flash: a quick star of rays pointing along `dir`.
+static func draw_muzzle(ci: CanvasItem, at: Vector2, dir: Vector2, size: float, k: float) -> void:
+	var a := 1.0 - k
+	if a <= 0.0 or size < 1.0:
+		return
+	var d := dir.normalized() if dir.length() > 0.001 else Vector2.RIGHT
+	Dot.circle(ci, at, size * (0.6 + 0.6 * k), Color(Color("fff6c4"), 0.6 * a))
+	for q in 5:
+		var ray := d.rotated((q - 2) * 0.45)
+		ci.draw_line(at, at + ray * size * (1.2 + 0.8 * k) * (1.0 if q == 2 else 0.6), Color(Color("ffe066"), a), 3.0, true)
+
+
+## Gumdrop's gum string, stretched: it sags while slack and pulls thin and
+## straight as it nears its full length (`stretch` 0..1). `double` is the
+## T5 stacked-goo look: two strands twisting round each other.
+static func draw_gum_strand(ci: CanvasItem, a: Vector2, b: Vector2, t: float, stretch: float, double: bool) -> void:
+	var span := a.distance_to(b)
+	var sag := minf(span * 0.22, 46.0) * (1.0 - 0.85 * stretch)
+	var w := lerpf(9.0, 3.5, stretch)
+	for strand in (2 if double else 1):
+		var pts := PackedVector2Array()
+		var side := (b - a).orthogonal().normalized() if span > 0.001 else Vector2.UP
+		for q in 15:
+			var k := q / 14.0
+			var twist := sin(k * TAU * 2.0 + t * 3.0 + strand * PI) * w * 0.6 if double else 0.0
+			pts.append(a.lerp(b, k) + Vector2(0, sag * sin(k * PI) + sin(t * 4.0 + k * 6.0) * 2.0) + side * twist)
+		Dot.pline(ci, pts, Color(GUM_PINK.darkened(0.25), 0.9), w + 4.0, true)
+		Dot.pline(ci, pts, GUM_PINK, w, true)
+		Dot.pline(ci, pts, Color(1, 1, 1, 0.45), maxf(1.0, w * 0.25), true)
+	if stretch < 0.7:
+		var mid := a.lerp(b, 0.5) + Vector2(0, sag)
+		var drip := fmod(t * 0.9, 1.0)
+		Dot.circle(ci, mid + Vector2(0, 6.0 + drip * 14.0), 3.5, Color(GUM_PINK, 0.9 * (1.0 - drip)))
+
+
+## The gum string snapping: two halves twang back to their ends, wobbling.
+static func draw_gum_snap(ci: CanvasItem, a: Vector2, b: Vector2, age: float, life: float, t: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var fade := 1.0 - k
+	var span := a.distance_to(b)
+	if span < 2.0:
+		return
+	var side := (b - a).orthogonal() / span
+	for end in [[a, b], [b, a]]:
+		var root: Vector2 = end[0]
+		var toward: Vector2 = (end[1] - root) / span
+		var reach := span * 0.5 * (1.0 - k)
+		if reach < 2.0:
+			continue
+		var pts := PackedVector2Array()
+		for q in 8:
+			var f := q / 7.0
+			var wob := sin(f * PI * 2.0 - age * 40.0) * 10.0 * f * fade
+			pts.append(root + toward * reach * f + side * wob)
+		Dot.pline(ci, pts, Color(GUM_PINK, 0.9 * fade), 5.0, true)
+
+
+## Honey's catch: a stuck foe coated in honey, dripping off it.
+static func draw_honey_coat(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	Dot.circle(ci, p, r * 1.08, Color(HONEY, 0.4))
+	Dot.arc(ci, p, r * 1.08, 0.0, TAU, 40, Color(Color("8a4b00"), 0.6), 3.0, true)
+	Dot.arc(ci, p + Vector2(-r * 0.2, -r * 0.2), r * 0.6, PI * 1.05, PI * 1.5, 12, Color(1, 1, 1, 0.65), 4.0, true)
+	for q in 4:
+		var f := fmod(t * 0.8 + q * 0.27, 1.0)
+		var x := (q - 1.5) * r * 0.45
+		var top := p + Vector2(x, sqrt(maxf(0.0, 1.0 - pow(x / (r * 1.08), 2.0))) * r * 1.05)
+		ci.draw_line(top, top + Vector2(0, r * 0.3 * f), Color(HONEY, 0.85), r * 0.1, true)
+		_drop(ci, top + Vector2(0, r * (0.3 * f + 0.5 * f * f)), r * 0.07, Color(HONEY, 0.9 * (1.0 - f)))
+
+
+## A glossy glint sliding across a puddle (Honey).
+static func draw_gloss(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	var f := fmod(t * 0.35 + seed, 1.0)
+	var at := p + Vector2(lerpf(-0.5, 0.5, f), lerpf(-0.35, 0.15, f)) * rad
+	_sparkle(ci, at, rad * 0.22 * sin(f * PI) * fade, Color(1, 1, 1, 0.85 * fade))
+
+
+## Honey T5: a big wobbling glob in flight with a bee trailing it.
+static func draw_lob_bee(ci: CanvasItem, from: Vector2, to: Vector2, r: float, age: float, life: float, t: float) -> void:
+	var fly := clampf(age / life / 0.7, 0.0, 1.0)
+	if fly >= 1.0:
+		return
+	var lift := from.distance_to(to) * 0.35 + 40.0
+	var head := from.lerp(to, fly) - Vector2(0, 4.0 * lift * fly * (1.0 - fly))
+	var wob := 1.0 + 0.18 * sin(t * 30.0)
+	Dot.arc(ci, head, r * 1.5 * wob, 0.0, TAU, 20, Color(Color("ffcf4d"), 0.8), 3.0, true)
+	var lag := maxf(fly - 0.18, 0.0)
+	var bee := from.lerp(to, lag) - Vector2(0, 4.0 * lift * lag * (1.0 - lag)) + Vector2(sin(t * 25.0), cos(t * 21.0)) * 6.0
+	draw_bee(ci, bee, r * 0.55, head - bee, t, true)
+
+
+## Drizzle's cloud over a shower: it darkens and its shadow grows on the spot
+## before the rain starts (`warn` 0..1), and rains after. `storm` (T5) has
+## lightning flickering inside it.
+static func draw_rain_cloud(ci: CanvasItem, p: Vector2, rad: float, warn: float, fade: float, storm: bool, t: float) -> void:
+	var shadow := clampf(warn, 0.0, 1.0)
+	Dot.circle(ci, p, rad * (0.3 + 0.7 * shadow), Color(0.0, 0.0, 0.06, 0.25 * shadow * fade))
+	var c := p - Vector2(0, rad * 0.75)
+	var col := Color("dfe6ff").lerp(Color("3a4270"), shadow)
+	var drift := sin(t * 0.8) * rad * 0.05
+	for q in 5:
+		var at := c + Vector2((q - 2) * rad * 0.28 + drift, (absi(q - 2) * 0.12 - 0.05 * (q % 2)) * rad)
+		Dot.circle(ci, at, rad * (0.32 - 0.04 * absi(q - 2)), Color(col, 0.75 * fade))
+	if storm and fmod(t * 2.3, 1.0) < 0.14:
+		var a := c + Vector2(-rad * 0.15, -rad * 0.1)
+		var pts := PackedVector2Array([a, a + Vector2(rad * 0.12, rad * 0.12), a + Vector2(0.0, rad * 0.18), a + Vector2(rad * 0.16, rad * 0.34)])
+		Dot.pline(ci, pts, Color(Color("fff6c4"), fade), 3.0, true)
+		Dot.circle(ci, c, rad * 0.35, Color(Color("fff6c4"), 0.25 * fade))
+
+
+## Ink's cloud: a murky puddle with tentacle-shaped wisps curling out of it.
+static func draw_ink_cloud(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	Dot.circle(ci, p, rad, Color(INK_PURPLE, 0.22 * fade))
+	Dot.circle(ci, p, rad * 0.6, Color(INK, 0.3 * fade))
+	for q in 4:
+		var a := seed + q * TAU / 4.0 + sin(t * 0.7 + q) * 0.3
+		var pts := PackedVector2Array()
+		for i in 9:
+			var f := i / 8.0
+			var curl := a + f * 2.2 * (1.0 if q % 2 else -1.0)
+			pts.append(p + Vector2.from_angle(curl) * rad * (0.35 + 0.6 * f))
+		Dot.pline(ci, pts, Color(INK_PURPLE.lightened(0.2), 0.6 * fade), 4.0, true)
+
+
+## Ink T5: a blinded foe's eyes smudged with ink.
+static func draw_ink_smudge(ci: CanvasItem, p: Vector2, r: float, look: Vector2, t: float) -> void:
+	var fwd := look.normalized() if look.length() > 0.001 else Vector2.RIGHT
+	for s: float in [-1.0, 1.0]:
+		var eye := p + fwd * r * 0.25 + fwd.orthogonal() * s * r * 0.3 - Vector2(0, r * 0.12)
+		Dot.circle(ci, eye, r * 0.24, Color(INK, 0.85))
+		Dot.circle(ci, eye + Vector2(r * 0.1, r * 0.08), r * 0.14, Color(INK_PURPLE, 0.7))
+		var f := fmod(t * 0.7 + s * 0.3, 1.0)
+		_drop(ci, eye + Vector2(0, r * (0.25 + 0.35 * f)), r * 0.06, Color(INK, 0.9 * (1.0 - f)))
+
+
+## Flying sticks (Tumble's burst): little twigs spinning outward.
+static func draw_sticks(ci: CanvasItem, c: Vector2, r: float, age: float, life: float, seed: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	for q in 9:
+		var d := Vector2.from_angle(seed + q * TAU / 9.0)
+		var at := c + d * r * (0.6 + 3.2 * (1.0 - pow(1.0 - k, 2.0))) + Vector2(0, 60.0 * k * k)
+		var spin := Vector2.from_angle(seed * 2.0 + q + age * (9.0 + q))
+		ci.draw_line(at - spin * r * 0.22, at + spin * r * 0.22, Color(BARK, a), 4.0, true)
+		if q % 3 == 0:
+			_leaf(ci, at + spin * r * 0.2, spin.angle() + 0.8, r * 0.15, Color(LEAF, a))
+
+
+## Bolt's teleport: a scanline dissolve (`out` true leaving, false arriving).
+static func draw_scanline(ci: CanvasItem, p: Vector2, r: float, age: float, life: float, out: bool) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var gone := k if out else 1.0 - k
+	for q in 9:
+		var y := (q - 4) / 4.5
+		var half := sqrt(maxf(0.0, 1.0 - y * y)) * r * (1.0 - gone) * (1.0 if q % 2 else 0.6)
+		if half < 1.0:
+			continue
+		var at := p + Vector2((q % 3 - 1) * r * 0.25 * gone, y * r)
+		ci.draw_line(at - Vector2(half, 0), at + Vector2(half, 0), Color(CYAN, 0.85 * (1.0 - k * 0.5)), 3.0, true)
+
+
+## Puff puffing up: its spines pop out one by one (`k` 0..1 how many are out).
+static func draw_spines_out(ci: CanvasItem, p: Vector2, r: float, col: Color, t: float, k: float) -> void:
+	var n := 18
+	var shown := clampi(int(ceil(k * n)), 0, n)
+	for i in shown:
+		var q := (i * 7) % n # Out in a scattered order, not round the rim.
+		var a := q * TAU / n + 0.1 * sin(t * 3.0)
+		var d := Vector2.from_angle(a)
+		var side := d.orthogonal() * r * 0.07
+		var len := r * (0.38 + 0.06 * sin(t * 12.0 + q))
+		_tri(ci, p + d * r * 0.92 - side, p + d * (r + len), p + d * r * 0.92 + side, Color(col.lightened(0.55), 0.95))
+
+
+## Puff deflating: a whoosh of air spinning off it.
+static func draw_whoosh(ci: CanvasItem, p: Vector2, r: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	for q in 3:
+		var start := age * 14.0 + q * TAU / 3.0
+		Dot.arc(ci, p, r * (1.1 + 0.6 * k + q * 0.12), start, start + 1.6, 14, Color(Color("e8fff0"), 0.75 * a), 3.0, true)
+
+
+## A spine streaking along a beam (Puff T5's deflate spray), `k` the beam strength.
+static func draw_spine_streak(ci: CanvasItem, a: Vector2, b: Vector2, k: float, col: Color) -> void:
+	var d := b - a
+	if d.length() < 2.0:
+		return
+	var head := a.lerp(b, clampf(1.15 - k, 0.0, 1.0))
+	var dir := d.normalized()
+	ci.draw_line(a.lerp(head, 0.4), head, Color(col, 0.45 * k), 3.0, true)
+	_tri(ci, head + dir * 9.0, head - dir * 5.0 + dir.orthogonal() * 3.0, head - dir * 5.0 - dir.orthogonal() * 3.0, Color(col.lightened(0.5), k))
+
+
+## Pucker's full sour: the foe's face scrunches up (squeezed eyes, pursed mouth).
+static func draw_pucker_face(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	var col := Color("3a2a10")
+	var shake := sin(t * 40.0) * r * 0.02
+	for s: float in [-1.0, 1.0]:
+		var eye := p + Vector2(s * r * 0.32 + shake, -r * 0.15)
+		ci.draw_line(eye + Vector2(-s * r * 0.15, -r * 0.1), eye + Vector2(s * r * 0.05, 0), col, 4.0, true)
+		ci.draw_line(eye + Vector2(s * r * 0.05, 0), eye + Vector2(-s * r * 0.15, r * 0.1), col, 4.0, true)
+	var mouth := p + Vector2(shake, r * 0.32)
+	Dot.circle(ci, mouth, r * 0.11, Color(Color("ff5a7a"), 0.95))
+	Dot.arc(ci, mouth, r * 0.13, 0.0, TAU, 14, col, 2.5, true)
+	for q in 4:
+		var d := Vector2.from_angle(q * TAU / 4.0 + PI / 4.0)
+		ci.draw_line(mouth + d * r * 0.15, mouth + d * r * 0.22, col, 2.0, true)
+
+
+## Drum's sticks striking the drumhead (`age` over `life`).
+static func draw_drum_sticks(ci: CanvasItem, p: Vector2, r: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var swing := sin(minf(1.0, k * 2.5) * PI * 0.5) # Down fast, then hold.
+	var a := 1.0 - maxf(0.0, (k - 0.5) * 2.0)
+	for s: float in [-1.0, 1.0]:
+		var grip := p + Vector2(s * r * 1.3, -r * 1.3)
+		var raised := grip + Vector2(s * r * 0.35, -r * 0.85)
+		var strike := p + Vector2(s * r * 0.25, -r * 0.85)
+		var tip := raised.lerp(strike, swing)
+		ci.draw_line(grip, tip, Color(Color("e9c48a"), a), 6.0, true)
+		Dot.circle(ci, tip, 7.0, Color(Color("fff1d6"), a))
+
+
+## Drum's shockwave with sound-wave ticks; `double` (T5) stacks two rings and
+## flashes a cymbal.
+static func draw_sound_ring(ci: CanvasItem, c: Vector2, reach: float, age: float, life: float, col: Color, double: bool) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	for ring in (2 if double else 1):
+		var rr := reach * (0.3 + 0.7 * sqrt(k)) * (1.0 - 0.14 * ring)
+		Dot.arc(ci, c, rr, 0.0, TAU, 56, Color(col, 0.85 * a), 5.0 * a + 1.5, true)
+		for q in 12:
+			var d := Vector2.from_angle(q * TAU / 12.0 + ring * 0.26)
+			var mid := c + d * rr
+			var o := d.orthogonal() * 6.0
+			ci.draw_line(mid - d * 8.0 + o * sin(q * 1.3), mid + d * 8.0 - o * sin(q * 1.3), Color(col.lightened(0.4), 0.8 * a), 2.0, true)
+	if double and k < 0.5:
+		var f := 1.0 - k * 2.0
+		Dot.circle(ci, c, reach * 0.3 * f, Color(GOLD, 0.45 * f))
+		for q in 8:
+			var d := Vector2.from_angle(q * TAU / 8.0 + 0.2)
+			ci.draw_line(c + d * reach * 0.1, c + d * reach * 0.38 * f, Color(Color("fff6c4"), f), 3.0, true)
+
+
+## Fin's big bite: a shark jaw of sharp teeth slamming shut on the hit.
+static func draw_shark_jaw(ci: CanvasItem, at: Vector2, dir: Vector2, size: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var close := minf(1.0, k * 3.0)
+	var a := 1.0 - maxf(0.0, (k - 0.4) / 0.6)
+	var d := dir.normalized() if dir.length() > 0.001 else Vector2.RIGHT
+	var o := d.orthogonal()
+	for jaw: float in [-1.0, 1.0]:
+		var gap: float = jaw * size * (0.9 - 0.75 * close)
+		var base := at + o * gap
+		Dot.arc(ci, at + o * gap * 1.2, size * 1.1, d.angle() - PI * 0.5 + (0.0 if jaw < 0 else PI), d.angle() + PI * 0.5 + (0.0 if jaw < 0 else PI), 16, Color(Color("dfe9f2"), 0.4 * a), 4.0, true)
+		for q in 5:
+			var along := d * size * (q - 2) * 0.42
+			var root := base + along
+			_tri(ci, root - d * size * 0.18, root + d * size * 0.18, root - o * jaw * size * 0.55, Color(1, 1, 1, a))
+
+
+## Fin's tooth counter: a row of teeth under its body, filling toward the
+## next big bite.
+static func draw_tooth_meter(ci: CanvasItem, p: Vector2, r: float, n: int, total: int) -> void:
+	if total <= 1:
+		return
+	for q in total:
+		var a := PI * 0.5 + (q - (total - 1) / 2.0) * 0.32
+		var d := Vector2.from_angle(a)
+		var root := p + d * r * 1.08
+		var lit := q < n
+		_tri(ci, root - d.orthogonal() * r * 0.08, root + d.orthogonal() * r * 0.08, root + d * r * 0.2, Color.WHITE if lit else Color(1, 1, 1, 0.22))
+
+
+## Fin T5: a bleeding foe drips as it rolls.
+static func draw_bleed_drips(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	for q in 3:
+		var f := fmod(t * 1.2 + q * 0.33, 1.0)
+		_drop(ci, p + Vector2((q - 1) * r * 0.4, r * (0.8 + 0.7 * f)), r * 0.07, Color(BLEED, 0.9 * (1.0 - f)))
+
+
+## Fin T5 at speed: its dorsal fin cuts a V wake.
+static func draw_wake(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	if vel.length() < 0.001:
+		return
+	var dir := vel.normalized()
+	var o := dir.orthogonal()
+	for k in 3:
+		var f := fmod(t * 1.8 + k / 3.0, 1.0)
+		var back := p - dir * r * (0.8 + 1.8 * f)
+		ci.draw_line(back + o * r * (0.4 + 0.9 * f), p - dir * r * 0.7 + o * r * 0.3, Color(WATER, 0.45 * (1.0 - f)), 2.5, true)
+		ci.draw_line(back - o * r * (0.4 + 0.9 * f), p - dir * r * 0.7 - o * r * 0.3, Color(WATER, 0.45 * (1.0 - f)), 2.5, true)
+
+
+## Optic charging its eye just before a wall beam (`k` 0..1).
+static func draw_eye_charge(ci: CanvasItem, at: Vector2, r: float, k: float, col: Color, t: float) -> void:
+	if k <= 0.0:
+		return
+	Dot.circle(ci, at, r * (0.25 + 0.35 * k), Color(col, 0.25 * k))
+	Dot.circle(ci, at, r * (0.12 + 0.12 * k), Color(Color.WHITE, 0.6 + 0.4 * k))
+	for q in 4:
+		var d := Vector2.from_angle(q * PI / 2.0 + t * 6.0)
+		ci.draw_line(at + d * r * 0.2, at + d * r * (0.25 + 0.4 * k), Color(col, k), 2.0, true)
+
+
+## Ripple's ripple running along the wall: a moving crest with foam, the
+## water behind it settling (`k` the beam strength).
+static func draw_crest(ci: CanvasItem, a: Vector2, b: Vector2, k: float, t: float) -> void:
+	var d := b - a
+	if d.length() < 2.0:
+		return
+	var f := clampf((1.0 - k) * 3.0, 0.0, 1.0)
+	var crest := a.lerp(b, f)
+	ci.draw_line(a, crest, Color(WATER, 0.25 * k), 10.0, true)
+	ci.draw_line(a, crest, Color(WATER, 0.7 * k), 3.0, true)
+	var dir := d.normalized()
+	var o := dir.orthogonal()
+	Dot.arc(ci, crest, 14.0, dir.angle() - PI * 0.5, dir.angle() + PI * 0.5, 10, Color(Color("e8feff"), 0.9 * k), 4.0, true)
+	for q in 3:
+		Dot.circle(ci, crest - dir * (6.0 + q * 9.0) + o * sin(t * 18.0 + q * 2.0) * 7.0, 3.0, Color(Color.WHITE, 0.8 * k))
+
+
+## Ripple T5: the tide wave curls over like a breaking wave.
+static func draw_curl(ci: CanvasItem, c: Vector2, reach: float, age: float, life: float, seed: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	var rr := reach * (0.35 + 0.65 * sqrt(k))
+	for q in 8:
+		var ang := seed + q * TAU / 8.0
+		var at := c + Vector2.from_angle(ang) * rr
+		Dot.arc(ci, at, reach * 0.12, ang - PI * 0.2, ang + PI * (0.6 + 0.6 * k), 12, Color(Color("e8feff"), 0.85 * a), 4.0, true)
+
+
+## Zapper's coil sparking up just before a zap (`k` 0..1).
+static func draw_coil_sparks(ci: CanvasItem, p: Vector2, r: float, k: float, t: float) -> void:
+	if k <= 0.0:
+		return
+	var top := p - Vector2(0, r * 1.05)
+	Dot.circle(ci, top, r * (0.15 + 0.3 * k), Color(Color("c9a6ff"), 0.3 + 0.4 * k))
+	var n := 1 + int(k * 5.0)
+	for q in n:
+		var a := floorf(t * 20.0) * 1.3 + q * TAU / n
+		var at := top + Vector2.from_angle(a) * r * 0.2
+		var out := at + Vector2.from_angle(a + 0.5) * r * (0.2 + 0.3 * k)
+		ci.draw_line(at, out, Color(Color("f0e2ff"), 0.9), 2.5, true)
+		ci.draw_line(out, out + Vector2.from_angle(a - 0.6) * r * 0.18, Color(Color("f0e2ff"), 0.9), 2.0, true)
+
+
+## Mole's helmet lamp shining ahead while it tunnels.
+static func draw_lamp_cone(ci: CanvasItem, p: Vector2, r: float, dir: Vector2, t: float) -> void:
+	if dir.length() < 0.001:
+		return
+	var d := dir.normalized()
+	var o := d.orthogonal()
+	var flick := 0.85 + 0.15 * sin(t * 17.0)
+	var lamp := p + d * r * 0.6
+	_tri(ci, lamp, lamp + d * r * 2.6 + o * r * 0.9, lamp + d * r * 2.6 - o * r * 0.9, Color(Color("fff3b0"), 0.18 * flick))
+	_tri(ci, lamp, lamp + d * r * 1.8 + o * r * 0.45, lamp + d * r * 1.8 - o * r * 0.45, Color(Color("fff3b0"), 0.22 * flick))
+	Dot.circle(ci, lamp, r * 0.16, Color("fff3b0"))
+
+
+## A small dirt pile left by a clod (Mole T5), fading.
+static func draw_dirt_pile(ci: CanvasItem, p: Vector2, size: float, fade: float, seed: float) -> void:
+	for q in 5:
+		var at := p + Vector2.from_angle(seed + q * 1.3) * size * 0.4 * (q % 3)
+		Dot.circle(ci, at, size * (0.45 - 0.06 * q), Color(DIRT.lightened(0.08 * (q % 2)), 0.85 * fade))
+
+
+## Sprout's pillar as a stalk: leaves unfurl as it grows (`grow` 0..1) and it
+## droops brown as it wilts (`wilt` 0..1).
+static func draw_stalk(ci: CanvasItem, p: Vector2, rad: float, grow: float, wilt: float, t: float) -> void:
+	Dot.circle(ci, p, rad * (0.4 + 0.6 * grow), Color("4a2f1b", 0.8)) # Soil.
+	if grow < 0.05:
+		return
+	var stem := Color("2f6b12").lerp(Color("7a5a2b"), wilt)
+	var leaf := SAP.lerp(Color("b08a3a"), wilt)
+	var h := rad * 1.35 * grow * (1.0 - 0.35 * wilt)
+	var sway := sin(t * 2.0 + p.x * 0.01) * rad * 0.1 + wilt * rad * 0.45
+	var top := p + Vector2(sway, -h)
+	ci.draw_line(p, p.lerp(top, 0.5) + Vector2(-sway * 0.3, 0), stem, rad * 0.18, true)
+	ci.draw_line(p.lerp(top, 0.5) + Vector2(-sway * 0.3, 0), top, stem, rad * 0.15, true)
+	for i in 3: # Leaves unfurl one after another up the stalk.
+		var unfurl := clampf(grow * 3.0 - i, 0.0, 1.0)
+		var at := p.lerp(top, 0.3 + 0.25 * i)
+		var s := -1.0 if i % 2 == 0 else 1.0
+		var ang := -PI / 2.0 + s * (1.3 - 0.6 * unfurl) + wilt * 1.2 * s
+		_leaf(ci, at, ang, rad * 0.7 * unfurl * (1.0 - 0.3 * wilt), leaf)
+	Dot.circle(ci, top, rad * 0.2 * grow * (1.0 - wilt), Color("ff9ecf"))
+	Dot.arc(ci, p, rad, 0.0, TAU, 32, Color(SAP, 0.6 * grow * (1.0 - wilt)), 2.0, true)
+
+
+## A scorch mark where a shell landed (Mortar), fading.
+static func draw_scorch(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float) -> void:
+	Dot.circle(ci, p, rad, Color(Color("1a120c"), 0.45 * fade))
+	Dot.circle(ci, p, rad * 0.55, Color(Color("0d0805"), 0.5 * fade))
+	for q in 7:
+		var d := Vector2.from_angle(seed + q * TAU / 7.0)
+		ci.draw_line(p + d * rad * 0.4, p + d * rad * (0.95 + 0.25 * sin(seed + q)), Color(Color("2a1a10"), 0.6 * fade), 3.0, true)
+	Dot.circle(ci, p, rad * 0.25, Color(BURN, 0.25 * fade))
+
+
+## Totem: a new carved face slams down onto the stack and glows in its buff colour.
+static func draw_face_slam(ci: CanvasItem, p: Vector2, r: float, col: Color, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var drop := clampf(k / 0.25, 0.0, 1.0)
+	var a := 1.0 - maxf(0.0, (k - 0.5) * 2.0)
+	var at := p - Vector2(0, r * (2.6 - 1.6 * drop * drop))
+	var w := r * 0.7
+	var block := Rect2(at - Vector2(w, w * 0.6), Vector2(w * 2.0, w * 1.2))
+	ci.draw_rect(block, Color(Color("8a5a3b"), a))
+	ci.draw_rect(block, Color(col, 0.9 * a), false, 3.0)
+	for s: float in [-1.0, 1.0]:
+		ci.draw_line(at + Vector2(s * w * 0.55, -w * 0.2), at + Vector2(s * w * 0.2, -w * 0.1), Color(Color("2a1a10"), a), 4.0, true)
+	ci.draw_line(at + Vector2(-w * 0.35, w * 0.25), at + Vector2(w * 0.35, w * 0.25), Color(Color("2a1a10"), a), 4.0, true)
+	if drop >= 1.0:
+		var g := 1.0 - clampf((k - 0.25) / 0.75, 0.0, 1.0)
+		Dot.arc(ci, p, r * (1.1 + 0.4 * (1.0 - g)), 0.0, TAU, 40, Color(col, 0.8 * g), 5.0, true)
+		Dot.circle(ci, p, r * 1.05, Color(col, 0.18 * g))
+
+
+## Totem T5: the golden face's shout as a ring with shout lines.
+static func draw_shout(ci: CanvasItem, c: Vector2, reach: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	var rr := reach * (0.3 + 0.7 * sqrt(k))
+	Dot.arc(ci, c, rr, 0.0, TAU, 56, Color(GOLD, 0.85 * a), 6.0 * a + 2.0, true)
+	for q in 10:
+		var d := Vector2.from_angle(q * TAU / 10.0 + 0.3)
+		ci.draw_line(c + d * rr * 0.75, c + d * rr * 0.95, Color(Color("fff1b0"), a), 4.0, true)
+
+
+## Yo-Yo going round the world: a glowing taut string and a swirl round the
+## anchor; `cradle` (T5) laces its two strings into a cat's cradle.
+static func draw_around_world(ci: CanvasItem, anchor: Vector2, p: Vector2, mirror: Vector2, cradle: bool, t: float) -> void:
+	var rr := anchor.distance_to(p)
+	if rr < 4.0:
+		return
+	ci.draw_line(anchor, p, Color(CYAN, 0.18), 12.0, true)
+	ci.draw_line(anchor, p, Color(CYAN, 0.35), 6.0, true)
+	var ang := (p - anchor).angle()
+	for q in 3:
+		Dot.arc(ci, anchor, rr * (1.0 - 0.06 * q), ang - 1.6 + q * 0.2, ang - 0.15, 16, Color(CYAN, 0.25 - 0.06 * q), 3.0, true)
+	Dot.circle(ci, anchor, 7.0, Color(CYAN, 0.6 + 0.3 * sin(t * 12.0)))
+	if cradle and mirror.distance_to(anchor) > 4.0:
+		ci.draw_line(anchor, mirror, Color(CYAN, 0.35), 6.0, true)
+		for q in 3:
+			var f := 0.3 + 0.2 * q
+			ci.draw_line(anchor.lerp(p, f), anchor.lerp(mirror, f + 0.15), Color(Color("dffcff"), 0.6), 2.0, true)
+			ci.draw_line(anchor.lerp(mirror, f), anchor.lerp(p, f + 0.15), Color(Color("dffcff"), 0.6), 2.0, true)
+
+
+## Dupe's split tearing open along a zipper seam between the two halves.
+static func draw_zipper(ci: CanvasItem, a: Vector2, b: Vector2, r: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var fade := 1.0 - k
+	var d := b - a
+	if d.length() < 2.0:
+		return
+	var mid := a.lerp(b, 0.5)
+	var seam := d.orthogonal().normalized()
+	var dir := d.normalized()
+	var open := minf(1.0, k * 2.5)
+	for q in 9:
+		var f := (q - 4) / 4.0
+		var at := mid + seam * f * r * 1.1
+		var part := dir * r * 0.12 * (1.0 + open * 2.0 * (1.0 - absf(f))) * (1.0 if q % 2 else -1.0)
+		ci.draw_line(at - part * 0.2, at + part, Color(Color("e8e8f0"), fade), 4.0, true)
+	var tab := mid + seam * r * lerpf(-1.1, 1.1, open)
+	Dot.circle(ci, tab, r * 0.12, Color(GOLD, fade))
+
+
+## A crack in the wall where a ball was slammed into it (Mammoth ice, Wrecker stone).
+static func draw_wall_crack(ci: CanvasItem, at: Vector2, size: float, fade: float, col: Color, seed: float) -> void:
+	for q in 6:
+		var a := seed + q * TAU / 6.0
+		var pts := PackedVector2Array([at])
+		var p := at
+		for step in 3:
+			p += Vector2.from_angle(a + sin(seed * 5.0 + q * 3.0 + step * 2.0) * 0.6) * size * (0.35 - 0.06 * step)
+			pts.append(p)
+		Dot.pline(ci, pts, Color(col, 0.85 * fade), 3.0 - 0.3 * (q % 2), true)
+	Dot.circle(ci, at, size * 0.18, Color(col, 0.5 * fade))
+
+
+## Mammoth T5: chunks of ice blown out of a frozen shatter.
+static func draw_ice_chunks(ci: CanvasItem, c: Vector2, r: float, age: float, life: float, seed: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	for q in 7:
+		var d := Vector2.from_angle(seed + q * TAU / 7.0)
+		var at := c + d * r * (0.5 + 2.8 * (1.0 - pow(1.0 - k, 2.0)))
+		var spin := Vector2.from_angle(seed + q * 2.0 + age * 8.0) * r * (0.22 + 0.05 * (q % 3))
+		_tri(ci, at + spin, at + spin.rotated(2.3), at + spin.rotated(-2.0), Color(CRACK_ICE if q % 2 else Color("8fd0ff"), a))
+
+
+## Wrecker's chain with weight: links along a sagging curve (`sag` bends it sideways).
+static func draw_sag_chain(ci: CanvasItem, a: Vector2, b: Vector2, link: float, sag: Vector2) -> void:
+	var span := a.distance_to(b)
+	if span < 1.0:
+		return
+	var ctrl := a.lerp(b, 0.5) + sag
+	var n := maxi(2, int(span / (link * 1.5)))
+	for q in n:
+		var f := (q + 0.5) / n
+		var c := a.lerp(ctrl, f).lerp(ctrl.lerp(b, f), f)
+		var tang := (ctrl - a).lerp(b - ctrl, f)
+		var dir := tang.normalized() if tang.length() > 0.001 else (b - a) / span
+		var w := link * (0.75 if q % 2 == 0 else 0.35)
+		var pts := PackedVector2Array()
+		for k in 13:
+			var ang := k * TAU / 12.0
+			pts.append(c + dir * cos(ang) * link * 0.8 + dir.orthogonal() * sin(ang) * w * 0.5)
+		Dot.pline(ci, pts, Color("2a2f36"), 4.5, true)
+		Dot.pline(ci, pts, Color("9aa3ad"), 2.0, true)
+
+
+## Wisp phasing out: shimmering see-through rings.
+static func draw_phase_shimmer(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	for q in 3:
+		var f := fmod(t * 1.4 + q / 3.0, 1.0)
+		var pts := PackedVector2Array()
+		for i in 25:
+			var a := i * TAU / 24.0
+			pts.append(p + Vector2.from_angle(a) * r * (0.7 + 0.5 * f) * (1.0 + 0.06 * sin(a * 5.0 + t * 8.0)))
+		Dot.pline(ci, pts, Color(Color("e3d6ff"), 0.45 * (1.0 - f)), 2.0, true)
+
+
+## A puff of ghostly smoke (Wisp popping back in; Foxfire's blue flame swap).
+static func draw_puff(ci: CanvasItem, c: Vector2, r: float, age: float, life: float, col: Color) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	for q in 7:
+		var d := Vector2.from_angle(q * TAU / 7.0 + 0.4)
+		Dot.circle(ci, c + d * r * (0.5 + 0.9 * k), r * (0.35 + 0.2 * k), Color(col, 0.45 * a))
+	Dot.circle(ci, c, r * 0.6 * (1.0 - k), Color(Color.WHITE, 0.5 * a))
+
+
+## Wisp T5's slowing trail as ectoplasm wisps.
+static func draw_ecto(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	Dot.circle(ci, p, rad, Color(ECTO, 0.16 * fade))
+	for q in 3:
+		var a := seed + q * 2.1 + t * 0.6
+		var at := p + Vector2.from_angle(a) * rad * 0.35
+		Dot.arc(ci, at, rad * 0.45, a, a + PI * 1.1, 12, Color(ECTO, 0.5 * fade), 2.5, true)
+	var f := fmod(t * 0.7 + seed, 1.0)
+	Dot.circle(ci, p + Vector2(sin(seed) * rad * 0.3, -rad * f), rad * 0.15 * (1.0 - f), Color(ECTO, 0.6 * fade * (1.0 - f)))
+
+
+## Pounce's target reticle landing on the attacker (`k` 0..1 landed).
+static func draw_reticle(ci: CanvasItem, p: Vector2, r: float, k: float, spin: float, col: Color) -> void:
+	var s := lerpf(2.6, 1.25, k * k)
+	var a := 0.35 + 0.6 * k
+	Dot.arc(ci, p, r * s, 0.0, TAU, 48, Color(col, a), 3.0, true)
+	for q in 4:
+		var d := Vector2.from_angle(spin + q * TAU / 4.0)
+		ci.draw_line(p + d * r * (s - 0.25), p + d * r * (s + 0.2), Color(col, a), 4.0, true)
+
+
+## Megabot's rocket pods flipping open before a salvo (`k` 0..1 open).
+static func draw_hatches(ci: CanvasItem, p: Vector2, r: float, k: float) -> void:
+	for s: float in [-1.0, 1.0]:
+		var hinge := p + Vector2(s * r * 0.95, -r * 0.35)
+		var w := r * 0.35 * cos(k * PI * 0.5)
+		var lid := hinge + Vector2(s * (r * 0.05 + r * 0.4 * sin(k * PI * 0.5)), -r * 0.5 * sin(k * PI * 0.5))
+		ci.draw_line(hinge, lid, Color("59606b"), r * 0.12 + w * 0.2, true)
+		if k > 0.3:
+			for q in 2:
+				Dot.circle(ci, hinge + Vector2(0, (q * 0.25) * r), r * 0.09, Color(Color("ff5a3d"), k))
+
+
+## A smoke trail behind a rocket.
+static func draw_rocket_smoke(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	if vel.length() < 0.001:
+		return
+	var back := -vel.normalized()
+	for q in 5:
+		var f := (q + 1) / 5.0
+		Dot.circle(ci, p + back * r * (2.0 + 3.0 * f) + back.orthogonal() * sin(t * 9.0 + q) * r * 0.4 * f, r * (0.5 + 0.7 * f), Color(0.75, 0.75, 0.8, 0.35 * (1.0 - f)))
+
+
+## Megabot T5 in Mega Mode: steam venting from its sides.
+static func draw_vent_steam(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	for s: float in [-1.0, 1.0]:
+		for q in 3:
+			var f := fmod(t * 1.6 + q / 3.0 + (0.5 if s > 0 else 0.0), 1.0)
+			var at := p + Vector2(s * r * (1.0 + 0.6 * f), -r * (0.2 + 0.9 * f))
+			Dot.circle(ci, at, r * (0.12 + 0.2 * f), Color(0.9, 0.92, 0.95, 0.5 * (1.0 - f)))
+
+
+## Supernova swelling: a corona that pulses brighter as it fills (`k` 0..1).
+static func draw_corona(ci: CanvasItem, p: Vector2, r: float, k: float, t: float) -> void:
+	if k <= 0.0:
+		return
+	var pulse := 0.5 + 0.5 * sin(t * (4.0 + 10.0 * k))
+	Dot.circle(ci, p, r * (1.2 + 0.25 * k + 0.05 * pulse), Color(Color("ffd6a5"), (0.08 + 0.18 * k) * (0.7 + 0.3 * pulse)))
+	for q in 10:
+		var a := q * TAU / 10.0 + t * 0.5
+		var d := Vector2.from_angle(a)
+		ci.draw_line(p + d * r * 1.08, p + d * r * (1.2 + 0.3 * k * (0.6 + 0.4 * sin(t * 7.0 + q))), Color(Color("fff3c4"), 0.25 + 0.5 * k), 3.0, true)
+
+
+## Supernova T5: its burning ring as a fading shockwave halo.
+static func draw_halo(ci: CanvasItem, p: Vector2, rad: float, fade: float, t: float) -> void:
+	var pulse := 0.5 + 0.5 * sin(t * 6.0)
+	Dot.arc(ci, p, rad, 0.0, TAU, 64, Color(Color("ffd6a5"), 0.25 * fade), 22.0, true)
+	Dot.arc(ci, p, rad, 0.0, TAU, 64, Color(Color("fff3c4"), (0.5 + 0.3 * pulse) * fade), 4.0, true)
+	Dot.arc(ci, p, rad * 0.92, 0.0, TAU, 64, Color(Color("ff9a3d"), 0.4 * fade), 2.0, true)
+
+
+## Ember's rebirth: an ash pile, an ember egg forming in it, then bursting open.
+static func draw_ember_egg(ci: CanvasItem, p: Vector2, r: float, age: float, life: float) -> void:
+	if r < 4.0:
+		return
+	var k := clampf(age / life, 0.0, 1.0)
+	var ash := 1.0 - clampf((k - 0.7) / 0.3, 0.0, 1.0)
+	for q in 6:
+		Dot.circle(ci, p + Vector2((q - 2.5) * r * 0.25, r * (0.45 - 0.08 * absf(q - 2.5))), r * 0.3, Color(Color("5a5560"), 0.8 * ash))
+	if k < 0.75:
+		var egg := clampf(k / 0.4, 0.0, 1.0)
+		var pts := PackedVector2Array()
+		for q in 20:
+			var a := q * TAU / 20.0
+			pts.append(p + Vector2(cos(a) * r * 0.5, sin(a) * r * 0.65 - r * 0.1) * maxf(egg, 0.1))
+		Dot.poly(ci, pts, Color(Color("ff7a1f"), 0.95))
+		Dot.circle(ci, p - Vector2(r * 0.12, r * 0.3) * egg, r * 0.12 * egg, Color(BURN_CORE, 0.9))
+		if k > 0.4: # Glowing cracks.
+			var c := (k - 0.4) / 0.35
+			ci.draw_line(p - Vector2(r * 0.3, r * 0.1), p + Vector2(0, -r * 0.2 * c), BURN_CORE, 3.0, true)
+			ci.draw_line(p + Vector2(0, -r * 0.2 * c), p + Vector2(r * 0.3 * c, r * 0.05), BURN_CORE, 3.0, true)
+	else: # Burst: shell halves fly apart.
+		var b := (k - 0.75) / 0.25
+		for s: float in [-1.0, 1.0]:
+			var at := p + Vector2(s * r * (0.3 + 1.2 * b), -r * (0.2 + 0.6 * b) + r * b * b)
+			_tri(ci, at + Vector2(0, -r * 0.35), at + Vector2(s * r * 0.35, r * 0.2), at + Vector2(-s * r * 0.15, r * 0.25), Color(Color("ff7a1f"), 1.0 - b))
+		Dot.circle(ci, p, r * (0.4 + 0.8 * b), Color(BURN_CORE, 0.6 * (1.0 - b)))
+
+
+## Ember T5: great fire wings spreading as it revives.
+static func draw_fire_wings(ci: CanvasItem, c: Vector2, r: float, age: float, life: float, t: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var spread := minf(1.0, k * 2.5)
+	var a := 1.0 - maxf(0.0, (k - 0.6) / 0.4)
+	for s: float in [-1.0, 1.0]:
+		var root := c + Vector2(s * r * 0.4, -r * 0.1)
+		var prev := root + Vector2(s * r * 0.5, -r * 0.6)
+		for q in 5:
+			var f := (q + 1) / 5.0
+			var tip := c + Vector2(s * r * (0.6 + 2.6 * spread * f), -r * (0.5 + 1.8 * spread * sin(f * PI * 0.85)) + sin(t * 10.0 + q) * r * 0.06)
+			_tri(ci, root, prev, tip, Color(BURN if q % 2 else Color("ffb347"), 0.75 * a))
+			prev = tip
+		ci.draw_line(root, prev, Color(BURN_CORE, a), 3.0, true)
+
+
+## Jackpot's reels over it: three windows spinning, then stopping one by one
+## on the prize icons (`icons`, 3 names) at `stop` seconds.
+static func draw_reels(ci: CanvasItem, p: Vector2, r: float, age: float, stop: float, icons: Array, t: float) -> void:
+	var w := r * 0.68
+	var row := p - Vector2(0, r * 2.45) # Above the HP badge.
+	var all := ["cherry", "bell", "coin", "shield", "seven"]
+	var a := 1.0 - clampf((age - stop - 0.6) / 0.3, 0.0, 1.0)
+	if a <= 0.0:
+		return
+	ci.draw_rect(Rect2(row - Vector2(w * 1.75, w * 0.62), Vector2(w * 3.5, w * 1.24)), Color(Color("2a1a40"), 0.9 * a))
+	ci.draw_rect(Rect2(row - Vector2(w * 1.75, w * 0.62), Vector2(w * 3.5, w * 1.24)), Color(GOLD, a), false, 3.0)
+	for q in 3:
+		var at := row + Vector2((q - 1) * w * 1.15, 0)
+		var stopped := age >= stop * (0.6 + 0.2 * q)
+		var icon: String = icons[q] if stopped else all[int(t * 18.0 + q * 2) % all.size()]
+		var roll := 0.0 if stopped else fmod(t * 18.0 + q * 2.0, 1.0) * w * 0.5 - w * 0.25
+		draw_reel_icon(ci, at + Vector2(0, roll), w * 0.42, icon, a)
+
+
+static func draw_reel_icon(ci: CanvasItem, at: Vector2, s: float, icon: String, a: float) -> void:
+	match icon:
+		"cherry":
+			Dot.circle(ci, at + Vector2(-s * 0.4, s * 0.3), s * 0.42, Color(Color("ff3d5a"), a))
+			Dot.circle(ci, at + Vector2(s * 0.4, s * 0.35), s * 0.42, Color(Color("ff3d5a"), a))
+			ci.draw_line(at + Vector2(-s * 0.4, 0), at + Vector2(0, -s * 0.8), Color(Color("3fbf4a"), a), 2.0, true)
+			ci.draw_line(at + Vector2(s * 0.4, 0), at + Vector2(0, -s * 0.8), Color(Color("3fbf4a"), a), 2.0, true)
+		"bell":
+			_tri(ci, at + Vector2(0, -s * 0.85), at + Vector2(-s * 0.75, s * 0.5), at + Vector2(s * 0.75, s * 0.5), Color(GOLD, a))
+			Dot.circle(ci, at + Vector2(0, s * 0.65), s * 0.2, Color(Color("ffb627"), a))
+		"coin":
+			Dot.circle(ci, at, s * 0.8, Color(GOLD, a))
+			Dot.arc(ci, at, s * 0.55, 0.0, TAU, 16, Color(Color("b8860b"), a), 2.0, true)
+		"shield":
+			_tri(ci, at + Vector2(-s * 0.7, -s * 0.6), at + Vector2(s * 0.7, -s * 0.6), at + Vector2(0, s * 0.85), Color(Color("7fe6ff"), a))
+		_: # A lucky 7.
+			ci.draw_line(at + Vector2(-s * 0.6, -s * 0.7), at + Vector2(s * 0.6, -s * 0.7), Color(Color("ff3d5a"), a), 4.0, true)
+			ci.draw_line(at + Vector2(s * 0.6, -s * 0.7), at + Vector2(-s * 0.15, s * 0.8), Color(Color("ff3d5a"), a), 4.0, true)
+
+
+## Stormwing's stored sparks crackling on its wing tips, one per spark.
+static func draw_wing_sparks(ci: CanvasItem, p: Vector2, r: float, n: int, look: Vector2, t: float) -> void:
+	var fwd := look.normalized() if look.length() > 0.001 else Vector2.RIGHT
+	var side := fwd.orthogonal()
+	var tips := [p + side * r * 1.25 - fwd * r * 0.3, p - side * r * 1.25 - fwd * r * 0.3, p - fwd * r * 1.25, p + side * r * 0.9 - fwd * r * 0.95, p - side * r * 0.9 - fwd * r * 0.95]
+	for q in mini(n, tips.size()):
+		var at: Vector2 = tips[q]
+		Dot.circle(ci, at, r * 0.16, Color(Color("8ecbff"), 0.35 + 0.25 * sin(t * 20.0 + q)))
+		var a := floorf(t * 16.0) * 1.9 + q * 2.0
+		var out := at + Vector2.from_angle(a) * r * 0.22
+		ci.draw_line(at, out, Color(Color("eaf6ff"), 0.95), 2.0, true)
+		ci.draw_line(out, out + Vector2.from_angle(a + 1.2) * r * 0.15, Color(Color("eaf6ff"), 0.95), 2.0, true)
+
+
+## Bubbles: a wobbling rainbow soap-film sheen swirling over its bubble.
+static func draw_soap_sheen(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	var rad := r * 1.25
+	for q in 3:
+		var a := t * (0.7 + 0.25 * q) + q * 2.1
+		var wob := 1.0 + 0.05 * sin(t * 3.0 + q)
+		Dot.arc(ci, p, rad * (0.55 + 0.13 * q) * wob, a, a + 1.4, 16, Color.from_hsv(fmod(t * 0.2 + q * 0.3, 1.0), 0.5, 1.0, 0.45), 4.0, true)
+
+
+## A splash on the floor where droplets landed (Bubbles' pop).
+static func draw_floor_splash(ci: CanvasItem, c: Vector2, r: float, age: float, life: float, seed: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	for q in 6:
+		var at := c + Vector2.from_angle(seed + q * TAU / 6.0) * r * (1.3 + 0.5 * (q % 2))
+		Dot.arc(ci, at, 3.0 + 10.0 * k, 0.0, TAU, 12, Color(Color("9ff3f6"), 0.8 * a), 2.0, true)
+
+
+## Bubbles T5: the pop wave as an expanding soap-film ring.
+static func draw_soap_ring(ci: CanvasItem, c: Vector2, reach: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	var rr := reach * (0.3 + 0.7 * sqrt(k))
+	for q in 12:
+		var a0 := q * TAU / 12.0 + k
+		Dot.arc(ci, c, rr, a0, a0 + TAU / 12.0, 6, Color.from_hsv(fmod(q / 12.0 + k * 0.5, 1.0), 0.45, 1.0, 0.85 * a), 6.0 * a + 2.0, true)
+	Dot.arc(ci, c, rr * 0.9, PI * 1.1, PI * 1.5, 12, Color(1, 1, 1, 0.6 * a), 3.0, true)
+
+
+## Sooty's hot patch: ember sparks streaking up and flickering.
+static func draw_ember_sparks(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	for q in 3:
+		var f := fmod(t * 1.3 + q / 3.0 + seed, 1.0)
+		var at := p + Vector2(sin(seed * 4.0 + q * 2.7) * rad * 0.5, -f * rad * 1.5)
+		var flick := 0.5 + 0.5 * sin(t * 25.0 + q * 3.0)
+		ci.draw_line(at, at + Vector2(0, rad * 0.2), Color(BURN_CORE, (1.0 - f) * fade * flick), 2.0, true)
+
+
+## Sooty's smoke plume, bigger at higher tiers.
+static func draw_smoke_plume(ci: CanvasItem, p: Vector2, r: float, tier: int, t: float) -> void:
+	var n := 2 + tier
+	var size := 0.8 + 0.12 * tier
+	for q in n:
+		var f := fmod(t * 0.7 + q / float(n), 1.0)
+		var at := p + Vector2(sin(t * 1.5 + q * 1.7) * r * 0.25 * f, -r * (0.8 + 1.8 * f * size))
+		Dot.circle(ci, at, r * (0.12 + 0.3 * f) * size, Color(0.3, 0.28, 0.32, 0.4 * (1.0 - f)))
+
+
+## Glowbug's bug leaving a short arc of light behind it as it orbits.
+static func draw_bug_trail(ci: CanvasItem, centre: Vector2, at: Vector2, spin: float) -> void:
+	var rr := centre.distance_to(at)
+	if rr < 2.0:
+		return
+	var ang := (at - centre).angle()
+	var back := -signf(spin) if spin != 0.0 else -1.0
+	for q in 3:
+		var a0 := ang + back * 0.12 * q
+		Dot.arc(ci, centre, rr, minf(a0, a0 + back * 0.14), maxf(a0, a0 + back * 0.14), 4, Color(Color("eaff6a"), 0.55 - 0.15 * q), 6.0 - 1.5 * q, true)
+
+
+## A firefly flash (Glowbug T5's flare at each bug).
+static func draw_firefly_flash(ci: CanvasItem, c: Vector2, size: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	Dot.circle(ci, c, size * (1.0 + k), Color(Color("f6ffb0"), 0.5 * a))
+	_twinkle(ci, c, size * 1.6 * a, Color(Color.WHITE, a))
+
+
+## Mossy's moss creeping over a drained foe: fuzz patches spreading (`k` 0..1).
+static func draw_moss_fuzz(ci: CanvasItem, p: Vector2, r: float, k: float, seed: float, t: float) -> void:
+	var n := 2 + int(k * 4.0)
+	for q in n:
+		var a := seed + q * 2.4
+		var at := p + Vector2.from_angle(a) * r * 0.75
+		for f in 4:
+			var o := Vector2.from_angle(f * TAU / 4.0 + t * 0.3) * r * 0.08
+			Dot.circle(ci, at + o, r * 0.1 * (0.6 + 0.4 * k), Color(Color("5fbf3a") if f % 2 else Color("8fd16a"), 0.85))
+
+
+## Mossy T5's spore patch: glowing dots drifting up.
+static func draw_spores(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	for q in 5:
+		var f := fmod(t * 0.45 + q / 5.0 + seed, 1.0)
+		var at := p + Vector2(sin(seed * 3.0 + q * 2.3 + t) * rad * 0.6, rad * 0.4 - f * rad * 1.2)
+		Dot.circle(ci, at, 5.0, Color(Color("c8ff8a"), 0.25 * fade * (1.0 - f)))
+		Dot.circle(ci, at, 2.0, Color(Color("f0ffd0"), 0.9 * fade * (1.0 - f)))
+
+
+## Chill's icy trail: a snowflake glyph and frosted edge on each slab.
+static func draw_frost_glyph(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float) -> void:
+	_flake(ci, p + Vector2.from_angle(seed * 4.0) * rad * 0.25, rad * 0.32, Color(Color("f2fbff"), 0.8 * fade))
+	for q in 4:
+		var a := seed + q * TAU / 4.0
+		Dot.arc(ci, p, rad * 0.95, a, a + 0.6, 6, Color(Color.WHITE, 0.45 * fade), 2.0, true)
+
+
+## Chill T5: drifting snow inside its frost breath.
+static func draw_snow_drift(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	for q in 7:
+		var f := fmod(t * 0.35 + q / 7.0, 1.0)
+		var a := seed + q * 0.9 + t * 0.4
+		var at := p + Vector2.from_angle(a) * rad * (0.15 + 0.75 * f)
+		_flake(ci, at, 5.0, Color(Color("f2fbff"), 0.8 * fade * (1.0 - f * 0.5)))
+
+
+## Pollen's seed as a tiny parachute dandelion seed drifting along.
+static func draw_dandelion(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	var back := -vel.normalized() if vel.length() > 0.001 else Vector2.UP
+	var top := p + back * r * 2.2 + back.orthogonal() * sin(t * 6.0 + p.x * 0.05) * r * 0.4
+	ci.draw_line(p, top, Color(Color("e8e0c0"), 0.9), 1.5, true)
+	for q in 7:
+		var d := back.rotated((q - 3) * 0.32)
+		ci.draw_line(top, top + d * r * 1.3, Color(1, 1, 1, 0.8), 1.2, true)
+	Dot.circle(ci, p, r * 0.5, Color("a07a3c"))
+
+
+## Pollen T5: a spent seed bursting into a flower.
+static func draw_flower_burst(ci: CanvasItem, c: Vector2, size: float, age: float, life: float, seed: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var open := minf(1.0, k * 3.0)
+	var a := 1.0 - maxf(0.0, (k - 0.6) / 0.4)
+	for q in 6:
+		var d := Vector2.from_angle(seed + q * TAU / 6.0)
+		Dot.circle(ci, c + d * size * 0.55 * open, size * 0.38 * open, Color(Color("ffd6f0") if q % 2 else Color("ff9ecf"), a))
+	Dot.circle(ci, c, size * 0.3 * open, Color(GOLD, a))
+
+
+## Sonar's ping bouncing back off the walls it reaches: an arc coming back in
+## from each wall's mirror image of the ping's centre.
+static func draw_sonar_echo(ci: CanvasItem, c: Vector2, reach: float, age: float, life: float, arena: Rect2) -> void:
+	var f := clampf(age / life, 0.0, 1.0)
+	var rr := reach * f
+	if f <= 0.0 or f >= 1.0:
+		return
+	var walls := [[Vector2(2.0 * arena.position.x - c.x, c.y), 0.0], [Vector2(2.0 * arena.end.x - c.x, c.y), PI],
+		[Vector2(c.x, 2.0 * arena.position.y - c.y), PI / 2.0], [Vector2(c.x, 2.0 * arena.end.y - c.y), -PI / 2.0]]
+	for w in walls:
+		var mirror: Vector2 = w[0]
+		if mirror.distance_to(c) >= rr * 2.0:
+			continue
+		var a: float = w[1]
+		Dot.arc(ci, mirror, rr, a - 0.5, a + 0.5, 12, Color(SONAR, 0.6 * (1.0 - f)), 3.0, true)
+
+
+## Sonar T5: its wings flaring wide as the mark lands.
+static func draw_wing_flare(ci: CanvasItem, p: Vector2, r: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var spread := sin(minf(1.0, k * 2.0) * PI * 0.5)
+	var a := 1.0 - maxf(0.0, (k - 0.5) * 2.0)
+	for s: float in [-1.0, 1.0]:
+		var root := p + Vector2(s * r * 0.8, -r * 0.1)
+		var tip := p + Vector2(s * r * (1.6 + 1.0 * spread), -r * (0.6 + 0.9 * spread))
+		var mid := p + Vector2(s * r * (1.5 + 0.8 * spread), r * 0.1)
+		var low := p + Vector2(s * r * (1.2 + 0.4 * spread), r * 0.55)
+		_tri(ci, root, tip, mid, Color(Color("3b2a5c"), a))
+		_tri(ci, root, mid, low, Color(Color("3b2a5c"), a))
+		Dot.pline(ci, PackedVector2Array([root, tip, mid, low]), Color(SONAR, a), 3.0, true)
+
+
+## Fuse's mine about to blow: a red light blinking faster with `danger` (0..1).
+static func draw_bomb_warn(ci: CanvasItem, p: Vector2, s: float, danger: float, t: float) -> void:
+	if danger <= 0.0:
+		return
+	var rate := 3.0 + 14.0 * danger
+	if fmod(t * rate, 1.0) < 0.5:
+		Dot.circle(ci, p, 20.0 * s * (1.0 + 0.4 * danger), Color(Color("ff4d4d"), 0.25 + 0.35 * danger))
+		Dot.circle(ci, p, 9.0 * s, Color("ffd0d0"))
+
+
+## A blast flash (Fuse T5's chain detonation).
+static func draw_blast_flash(ci: CanvasItem, c: Vector2, size: float, k: float) -> void:
+	var a := 1.0 - k
+	Dot.circle(ci, c, size * (0.5 + 0.8 * k), Color(Color("fff3c4"), 0.75 * a))
+	Dot.circle(ci, c, size * (0.3 + 0.4 * k), Color(Color.WHITE, a))
+
+
+## Two tiny flies buzzing round Whiff's cloud.
+static func draw_flies(ci: CanvasItem, p: Vector2, rad: float, t: float) -> void:
+	for q in 2:
+		var u := t * (2.2 + q * 0.5) + q * PI
+		var at := p + Vector2(sin(u) * rad * 0.7, sin(u * 2.0) * rad * 0.3 - rad * 0.4)
+		var flap := 0.5 + 0.5 * sin(t * 60.0 + q)
+		Dot.circle(ci, at + Vector2(-3, -3 - 2 * flap), 3.5, Color(1, 1, 1, 0.55))
+		Dot.circle(ci, at + Vector2(3, -3 - 2 * flap), 3.5, Color(1, 1, 1, 0.55))
+		Dot.circle(ci, at, 3.0, Color("1a1a1a"))
+
+
+## A foe squinting in the stink.
+static func draw_squint(ci: CanvasItem, p: Vector2, r: float) -> void:
+	for s: float in [-1.0, 1.0]:
+		var eye := p + Vector2(s * r * 0.32, -r * 0.18)
+		ci.draw_line(eye - Vector2(r * 0.16, 0), eye + Vector2(r * 0.16, r * 0.04 * s), Color("2a3a10"), 4.0, true)
+
+
+## Comet's stardust shifting colour along the trail as it ages, with sparkles.
+static func draw_stardust_glow(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	var col := Color("ffe9a8").lerp(STARDUST, 1.0 - fade).lerp(Color("8a7bff"), maxf(0.0, 0.6 - fade))
+	Dot.circle(ci, p, rad * 0.45, Color(col, 0.22 * fade))
+	if fmod(seed * 7.0, 1.0) < 0.4:
+		_twinkle(ci, p + Vector2.from_angle(seed * 3.0 + t) * rad * 0.3, rad * 0.22 * (0.5 + 0.5 * sin(t * 9.0 + seed * 5.0)) * fade, Color(Color.WHITE, fade))
+
+
+## Comet T5: a shooting star streaking right across the arena.
+static func draw_arena_streak(ci: CanvasItem, from: Vector2, to: Vector2, k: float) -> void:
+	var head := from.lerp(to, clampf(k * 1.4, 0.0, 1.0))
+	var tail := from.lerp(to, clampf(k * 1.4 - 0.35, 0.0, 1.0))
+	var a := 1.0 - clampf((k - 0.7) / 0.3, 0.0, 1.0)
+	ci.draw_line(tail, head, Color(STARDUST, 0.3 * a), 12.0, true)
+	ci.draw_line(tail, head, Color(Color("fff6e0"), 0.85 * a), 3.0, true)
+	_twinkle(ci, head, 16.0 * a, Color(Color.WHITE, a))
+
+
+## Zing's wing blur: a buzzing smear either side.
+static func draw_wing_blur(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	for s: float in [-1.0, 1.0]:
+		var c := p + Vector2(s * r * 0.95, -r * 0.7)
+		for q in 3:
+			var a := -PI / 2.0 + s * (0.4 + q * 0.35) + sin(t * 60.0 + q) * 0.15
+			Dot.arc(ci, p + Vector2(0, -r * 0.3), r * (1.0 + 0.12 * q), a - 0.25, a + 0.25, 6, Color(1, 1, 1, 0.22), 6.0, true)
+		Dot.circle(ci, c, r * 0.12, Color(1, 1, 1, 0.3))
+
+
+## Orbit's moon: a cratered rock with a molten glow round its edge.
+static func draw_moon(ci: CanvasItem, p: Vector2, r: float, t: float, seed: float) -> void:
+	Dot.circle(ci, p, r * 1.35, Color(Color("ff7a1f"), 0.18 + 0.08 * sin(t * 4.0 + seed)))
+	Dot.circle(ci, p, r, Color("b9b4d6"))
+	Dot.arc(ci, p, r, PI * 0.1, PI * 0.9, 12, Color(Color("ff9a3d"), 0.85), 3.0, true)
+	for q in 3:
+		var at := p + Vector2.from_angle(seed + q * 2.2) * r * 0.45
+		Dot.circle(ci, at, r * (0.22 - 0.04 * q), Color("8a84ad"))
+	Dot.circle(ci, p + Vector2(-r * 0.35, -r * 0.35), r * 0.18, Color(1, 1, 1, 0.5))
+
+
+## Orbit T5's ring flare: a bright halo racing out.
+static func draw_halo_flare(ci: CanvasItem, c: Vector2, reach: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	var rr := reach * (0.3 + 0.7 * sqrt(k))
+	Dot.arc(ci, c, rr, 0.0, TAU, 64, Color(Color("d6ccff"), 0.3 * a), 26.0 * a + 4.0, true)
+	Dot.arc(ci, c, rr, 0.0, TAU, 64, Color(Color.WHITE, 0.85 * a), 4.0, true)
+
+
+## Brewster's cauldron bubbling in the colour of its next potion.
+static func draw_cauldron_tint(ci: CanvasItem, p: Vector2, r: float, col: Color, t: float) -> void:
+	Dot.arc(ci, p + Vector2(0, -r * 0.35), r * 0.62, PI * 1.12, PI * 1.88, 14, Color(col, 0.9), r * 0.1, true)
+	for k in 3:
+		var f := fmod(t * 1.1 + k * 0.33, 1.0)
+		var at := p + Vector2(sin(k * 2.9 + t * 1.6) * r * 0.35, -r * (0.6 + 0.9 * f))
+		Dot.circle(ci, at, r * 0.08 * (0.6 + 0.6 * f), Color(col, 0.8 * (1.0 - f)))
+
+
+## Brewster T5's huge puddle: big bubbles popping and steam rising.
+static func draw_brew_steam(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float, t: float) -> void:
+	for q in 4:
+		var f := fmod(t * 0.8 + q * 0.25 + seed, 1.0)
+		var at := p + Vector2.from_angle(seed + q * 1.7) * rad * 0.5
+		Dot.arc(ci, at, rad * 0.14 * (0.3 + f), 0.0, TAU, 12, Color(Color("d8ff8a"), 0.8 * (1.0 - f) * fade), 2.5, true)
+	for q in 3:
+		var f := fmod(t * 0.5 + q / 3.0, 1.0)
+		Dot.circle(ci, p + Vector2((q - 1) * rad * 0.4 + sin(t + q) * 6.0, -rad * f), rad * (0.12 + 0.15 * f), Color(0.92, 0.95, 0.9, 0.3 * (1.0 - f) * fade))
+
+
+## Gearbox's rev gauge: a dial with a needle swinging up with each gear.
+static func draw_gauge(ci: CanvasItem, c: Vector2, size: float, gear: int, top: int, t: float) -> void:
+	var share := clampf(gear / maxf(1.0, top), 0.0, 1.0)
+	Dot.circle(ci, c, size, Color(Color("10162b"), 0.85))
+	Dot.arc(ci, c, size, PI * 0.75, PI * 2.25, 20, Color(COG, 0.9), 2.0, true)
+	Dot.arc(ci, c, size * 0.8, PI * 1.85, PI * 2.25, 8, Color(Color("ff5a3d"), 0.9), 3.0, true)
+	var jitter := sin(t * 40.0) * 0.04 * share
+	var needle := Vector2.from_angle(PI * 0.75 + PI * 1.5 * share + jitter)
+	ci.draw_line(c, c + needle * size * 0.85, Color("ffd23f"), 2.5, true)
+	Dot.circle(ci, c, size * 0.15, Color("ffd23f"))
+
+
+## Gearbox T5's turbo gear: a blue exhaust flame.
+static func draw_exhaust_flame(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
+	if vel.length() < 0.001:
+		return
+	var back := -vel.normalized()
+	var o := back.orthogonal()
+	var flick := 0.8 + 0.2 * sin(t * 30.0)
+	var base := p + back * r * 0.9
+	_tri(ci, base + o * r * 0.25, base - o * r * 0.25, base + back * r * 1.1 * flick, Color(Color("4d8dff"), 0.75))
+	_tri(ci, base + o * r * 0.12, base - o * r * 0.12, base + back * r * 0.7 * flick, Color(Color("dff1ff"), 0.9))
+
+
+## A buzzing cloud of bees (Swarm T5 launching the whole swarm).
+static func draw_buzz_cloud(ci: CanvasItem, c: Vector2, r: float, age: float, life: float, t: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	Dot.circle(ci, c, r * (1.4 + 0.8 * k), Color(Color("ffc93c"), 0.12 * a))
+	for q in 10:
+		var u := t * (5.0 + q % 3) + q * 1.3
+		var at := c + Vector2(sin(u), sin(u * 1.7)) * r * (1.0 + 0.8 * k)
+		Dot.circle(ci, at, 3.0, Color(Color("2a1d05"), a))
+		Dot.circle(ci, at + Vector2(0, -3), 2.5, Color(1, 1, 1, 0.5 * a))
+
+
+## Echo copying: its chrome tinted with the foe's colour and a mirror sweep.
+static func draw_chrome_tint(ci: CanvasItem, p: Vector2, r: float, col: Color, t: float) -> void:
+	Dot.circle(ci, p, r * 0.98, Color(col, 0.22))
+	var a := fmod(t * 0.8, 1.0) * TAU
+	Dot.arc(ci, p, r * 0.75, a, a + 0.7, 10, Color(col.lightened(0.5), 0.6), 4.0, true)
+	Dot.arc(ci, p, r * 1.02, 0.0, TAU, 40, Color(col, 0.6), 2.5, true)
+
+
+## Echo T5: its copy shield shining like a mirror.
+static func draw_mirror_shine(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	var rad := r * 1.18
+	Dot.arc(ci, p, rad, 0.0, TAU, 48, Color(Color("eef6ff"), 0.85), 4.0, true)
+	var f := fmod(t * 0.6, 1.0)
+	var x := lerpf(-rad, rad, f)
+	var h := sqrt(maxf(0.0, rad * rad - x * x))
+	if h > 2.0:
+		ci.draw_line(p + Vector2(x - h * 0.3, -h * 0.9), p + Vector2(x + h * 0.3, h * 0.9), Color(1, 1, 1, 0.55), 6.0, true)
+
+
+## Blizz's snowflake mine glittering as it spins.
+static func draw_mine_glitter(ci: CanvasItem, p: Vector2, s: float, t: float, seed: float) -> void:
+	for q in 3:
+		var a := t * 2.5 + seed + q * TAU / 3.0
+		var tw := 0.5 + 0.5 * sin(t * 11.0 + q * 2.0 + seed)
+		_sparkle(ci, p + Vector2.from_angle(a) * 26.0 * s, 7.0 * s * tw, Color(1, 1, 1, 0.9 * tw))
+
+
+## Blizz's frost patch with crystal edges.
+static func draw_crystal_edge(ci: CanvasItem, p: Vector2, rad: float, fade: float, seed: float) -> void:
+	for q in 8:
+		var d := Vector2.from_angle(seed + q * TAU / 8.0)
+		var o := d.orthogonal()
+		var at := p + d * rad * 0.92
+		_tri(ci, at - o * rad * 0.09, at + o * rad * 0.09, at + d * rad * 0.2, Color(Color("e8fbff"), 0.6 * fade))
+
+
+## A burst of ice crystals (Blizz T5's freeze).
+static func draw_crystal_burst(ci: CanvasItem, c: Vector2, r: float, age: float, life: float, seed: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	for q in 8:
+		var d := Vector2.from_angle(seed + q * TAU / 8.0)
+		var o := d.orthogonal()
+		var root := c + d * r * (0.8 + 0.6 * k)
+		var len := r * (0.35 + 0.4 * sin(k * PI))
+		_tri(ci, root - o * r * 0.1, root + o * r * 0.1, root + d * len, Color(Color("d9f6ff") if q % 2 else Color("9fd8ff"), a))
+
+
+## Flux flipping: field lines arcing pole to pole, swapping red/blue (`pulling`
+## is the new state).
+static func draw_field_flip(ci: CanvasItem, p: Vector2, r: float, age: float, life: float, pulling: bool) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	var to := Color("4d8dff") if pulling else Color("ff4d6a")
+	var from := Color("ff4d6a") if pulling else Color("4d8dff")
+	var col := from.lerp(to, minf(1.0, k * 3.0))
+	for q in 3:
+		var w := r * (0.6 + 0.45 * q) * (1.0 + 0.3 * k)
+		for s: float in [-1.0, 1.0]:
+			Dot.arc(ci, p + Vector2(s * w * 0.55, 0), w, PI * 0.5 + (0.0 if s < 0 else PI) - 1.1, PI * 0.5 + (0.0 if s < 0 else PI) + 1.1, 16, Color(col, 0.75 * a), 3.0, true)
+
+
+## Quasar's jets: little nozzles spinning at the beam roots.
+static func draw_jet_nozzles(ci: CanvasItem, p: Vector2, r: float, angle: float, n: int, t: float, col: Color) -> void:
+	for q in n:
+		var d := Vector2.from_angle(angle + q * TAU / n)
+		var at := p + d * r * 0.95
+		Dot.circle(ci, at, r * 0.2, Color(col, 0.5))
+		Dot.arc(ci, at, r * 0.22, t * 12.0 + q, t * 12.0 + q + PI * 1.2, 10, Color(Color.WHITE, 0.8), 2.5, true)
+
+
+## Glacia's ice pillar catching the light: a glint sweeping across it.
+static func draw_glint_sweep(ci: CanvasItem, p: Vector2, rad: float, k: float, seed: float, t: float) -> void:
+	var f := fmod(t * 0.5 + seed, 1.4)
+	if f > 1.0 or k < 0.5:
+		return
+	var x := lerpf(-rad, rad, f)
+	var h := sqrt(maxf(0.0, rad * rad - x * x)) * 0.8
+	if h > 2.0:
+		ci.draw_line(p + Vector2(x - h * 0.4, -h), p + Vector2(x + h * 0.4, h), Color(1, 1, 1, 0.6 * sin(f * PI)), 4.0, true)
+
+
+## Glacia T5: the 8-pillar ring drawn as a crystal cage.
+static func draw_crystal_cage(ci: CanvasItem, spots: Array, t: float) -> void:
+	var n := spots.size()
+	var glow := 0.45 + 0.2 * sin(t * 5.0)
+	for q in n:
+		var a: Vector2 = spots[q]
+		var b: Vector2 = spots[(q + 1) % n]
+		ci.draw_line(a, b, Color(Color("bfe9ff"), glow), 3.0, true)
+		ci.draw_line(a, spots[(q + 3) % n], Color(Color("e8fbff"), glow * 0.4), 1.5, true)
+
+
+## Void's accretion disk: arcs swirling round it, faster as the collapse nears
+## (`k` 0..1), and a warped lensing ring.
+static func draw_accretion(ci: CanvasItem, p: Vector2, r: float, k: float, t: float, spin: float) -> void:
+	for q in 4:
+		var a := spin + q * TAU / 4.0
+		Dot.arc(ci, p, r * (1.2 + 0.08 * q), a, a + 1.0, 12, Color(Color("c58bff").lerp(Color("ffd6a5"), k), 0.35 + 0.3 * k), 3.0, true)
+	var pts := PackedVector2Array()
+	for q in 33:
+		var a := q * TAU / 32.0
+		pts.append(p + Vector2.from_angle(a) * r * (1.55 + 0.07 * sin(a * 3.0 + t * 2.0) * (0.5 + k)))
+	Dot.pline(ci, pts, Color(Color("e8d6ff"), 0.25 + 0.2 * k), 2.0, true)
+
+
+## Void T5's burning ring of light.
+static func draw_fire_ring(ci: CanvasItem, p: Vector2, rad: float, fade: float, t: float) -> void:
+	Dot.arc(ci, p, rad, 0.0, TAU, 64, Color(BURN, 0.3 * fade), 18.0, true)
+	Dot.arc(ci, p, rad, 0.0, TAU, 64, Color(BURN_CORE, 0.85 * fade), 4.0, true)
+	for q in 8:
+		var a := q * TAU / 8.0 + t * 0.7
+		var flick := 0.6 + 0.4 * sin(t * 12.0 + q * 2.0)
+		var d := Vector2.from_angle(a)
+		ci.draw_line(p + d * rad, p + d * rad * (1.0 + 0.12 * flick), Color(BURN_CORE, 0.8 * fade * flick), 3.0, true)
+
+
+## Foxfire's illusion trailing a blue fox-fire tail.
+static func draw_foxfire_tail(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float, fade: float) -> void:
+	if vel.length() < 0.001:
+		return
+	var back := -vel.normalized()
+	var o := back.orthogonal()
+	for q in 3:
+		var f := (q + 1) / 3.0
+		var sway := sin(t * 9.0 + q * 1.7) * r * 0.25 * f
+		_tri(ci, p + o * r * 0.45 * (1.0 - f * 0.5), p - o * r * 0.45 * (1.0 - f * 0.5), p + back * r * (0.9 + 1.0 * f) + o * sway, Color(Color("6fb7ff").lerp(Color("c9f0ff"), f), 0.5 * fade * (1.0 - f * 0.4)))
+
+
+## Eclipse T5: the diamond-ring flash as both run at once.
+static func draw_diamond_ring(ci: CanvasItem, p: Vector2, r: float, age: float, life: float) -> void:
+	var k := clampf(age / life, 0.0, 1.0)
+	var a := 1.0 - k
+	Dot.arc(ci, p, r * 1.15, 0.0, TAU, 48, Color(Color("fff3c4"), 0.9 * a), 4.0, true)
+	var gem := p + Vector2.from_angle(-PI * 0.25) * r * 1.15
+	Dot.circle(ci, gem, r * 0.35 * a, Color(Color.WHITE, 0.6 * a))
+	for q in 4:
+		var d := Vector2.from_angle(q * PI / 2.0 + PI / 4.0)
+		ci.draw_line(gem - d * r * 1.1 * a, gem + d * r * 1.1 * a, Color(1, 1, 1, a), 3.0, true)
+
+
 # --- Tier looks: higher tiers glow, T5 blazes -----------------------------------
 
 const ASCEND := Color("ffd23f")
