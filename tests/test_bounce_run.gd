@@ -21,6 +21,11 @@ func test_day_numbers_follow_utc_days() -> void:
 func test_runs_are_deterministic_per_day() -> void:
 	check_eq(BounceRun.generate(5), BounceRun.generate(5), "same day, same run")
 	check(BounceRun.generate(5) != BounceRun.generate(6), "different days should differ")
+	check_eq(BounceRun.generate(5, 0), BounceRun.generate(5), "seed 0 is the day's own tower")
+	check(BounceRun.generate(5, 4242).cards != BounceRun.generate(5).cards, "a practice seed draws a fresh tower")
+	check_eq(BounceRun.generate(5, 4242), BounceRun.generate(5, 4242), "a practice seed replays")
+	var setup := BounceRun.generate(5, 4242)
+	check_eq(BounceRun.new_run(setup, [0, 1, 2], setup.start_offer.slice(0, BounceRun.START_BOONS)).seed, 4242, "the run keeps its seed")
 
 
 ## Every foe carries exactly as many boons as you can hold on that floor, and

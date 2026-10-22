@@ -60,9 +60,10 @@ static func day_number(unix_time: float) -> int:
 
 
 ## The day's run setup: the critter draft, the starting boon offer and the
-## foe on every floor.
-static func generate(day: int) -> Dictionary:
-	var rng := Rng.new(day * 2654435 + 977)
+## foe on every floor. A practice run passes its own `run_seed` (saved in the run
+## as run.seed) for a fresh tower; 0 is the day's shared one.
+static func generate(day: int, run_seed := 0) -> Dictionary:
+	var rng := Rng.new(_base(day, run_seed) * 2654435 + 977)
 	var cards: Array = []
 	var critters := _shuffled(BallDefs.PLAYABLE, rng)
 	for i in DRAFT:
@@ -76,7 +77,7 @@ static func generate(day: int) -> Dictionary:
 		for k in START_BOONS + f:
 			boons.append(_pick_boon(rng, critter, boons))
 		floors.append({"critter": critter, "boons": boons, "seed": rng.range_int(1, 999999), "title": FOE_TITLES[f]})
-	return {"day": day, "cards": cards, "start_offer": start_offer, "floors": floors}
+	return {"day": day, "seed": run_seed, "cards": cards, "start_offer": start_offer, "floors": floors}
 
 
 ## A fresh run for `setup` with the drafted card indices and the starting
@@ -84,7 +85,7 @@ static func generate(day: int) -> Dictionary:
 static func new_run(setup: Dictionary, picks: Array, start: Array) -> Dictionary:
 	assert(picks.size() == PICKS and start.size() == START_BOONS)
 	assert(start.all(func(id): return id in setup.start_offer))
-	return {"day": setup.day, "rules": RULES_VERSION, "picks": picks.duplicate(), "start": start.duplicate(),
+	return {"day": setup.day, "seed": setup.get("seed", 0), "rules": RULES_VERSION, "picks": picks.duplicate(), "start": start.duplicate(),
 		"boons": start.duplicate(), "floor": 0, "out": [false, false, false], "foe_hp": null, "ticks": 0, "log": [], "offer": [], "over": false}
 
 
@@ -151,7 +152,7 @@ static func offer(setup: Dictionary, run: Dictionary) -> Array:
 			continue
 		if abilities.any(func(a): return Boons.applies_to(id, a)):
 			pool.append(id)
-	var rng := Rng.new(setup.day * 7919 + run.floor * 104729 + 31)
+	var rng := Rng.new(_base(setup.day, setup.get("seed", 0)) * 7919 + run.floor * 104729 + 31)
 	var out: Array = []
 	for id in _shuffled(pool, rng).slice(0, OFFER):
 		out.append(_with_roll(rng, id, held + out.map(func(o): return Boons.base_of(o))))
@@ -193,6 +194,12 @@ static func replay(setup: Dictionary, run: Dictionary) -> Dictionary:
 			take_boon(check, run.boons[boon_i])
 			boon_i += 1
 	return check
+
+
+## What a run's draws are seeded from: the day, or a practice run's own seed
+## (offset so it never lands on a real day's tower).
+static func _base(day: int, run_seed: int) -> int:
+	return day if run_seed == 0 else 1000000 + run_seed
 
 
 static func _pick_boon(rng, critter: String, avoid: Array) -> String:

@@ -84,8 +84,9 @@ func _ready() -> void:
 	var params := _url_params()
 	if params.get("day", "").is_valid_int():
 		day = maxi(1, int(params.day))
-	setup = BounceRun.generate(day)
 	_load()
+	# A practice run carries its own seed; the ranked run is the day's tower.
+	setup = BounceRun.generate(day, int(run.get("seed", 0)))
 	arena = ArenaView.new()
 	add_child(arena)
 	sfx = Sfx.new()
@@ -556,9 +557,10 @@ func _show_over() -> void:
 		_fetch_board()
 
 
-## Same day's run again, unranked, from a fresh draft.
+## An unranked run on a fresh random tower: new draft, boons and foes.
 func _practice() -> void:
 	ranked = false
+	setup = BounceRun.generate(day, randi_range(1, 999999))
 	run = {}
 	picks = []
 	start_picks = []
