@@ -1,15 +1,17 @@
 extends Control
-## Health bars for both sides, drawn above the arena so the critters
-## themselves stay uncluttered. YOU on the left (solid frame), FOE on the
-## right (dashed frame): shape as well as colour tells the sides apart.
+## Health bars for every fighter, each along the bottom of its plate
+## (game/fight_layout.gd: the foe's plates above the arena, yours below), and
+## the clock notched into the arena's top edge. YOU bars have a solid frame,
+## FOE bars a dashed one: shape as well as colour tells the sides apart.
 ## A pale "chip" trails each bar so a big hit reads at a glance.
-## In a 2v2 each side gets two thinner bars, one per critter, under its tag.
+## It covers the whole screen and draws only where the layout says.
 ## Render-only: reads the sim, never changes it.
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const A11y := preload("res://game/a11y.gd")
 const FamilyEdges := preload("res://game/family_edges.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
+const FightLayout := preload("res://game/fight_layout.gd")
 
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const SHIELD := Color("9fd8ff")
@@ -19,11 +21,22 @@ const LOW := Color("ff5a7a")
 const LOW_SHARE := 0.35
 const CHIP_DELAY := 0.35 ## Seconds the chip holds before it drains.
 const CHIP_RATE := 1.4 ## Share of the bar the chip drains per second.
-const CENTER_W := 0.26 ## Share of the width kept for the clock between the bars.
 
+## Where things go: FightLayout.rects() for this screen (FightLayout.place_plates).
+var layout := {}
+## False draws only the clock (aiming, between relay legs): the plates' room
+## below the arena holds the screen's controls then.
+var plates := true:
+	set(v):
+		if v != plates:
+			plates = v
+			queue_redraw()
+## Only the foe's bars (aiming: the room under the arena holds the controls).
+var foe_only := false
 var tags: Array = ["YOU", "FOE"]
-## A small line under each 1v1 bar, like "T5 · Lv25 · 5,481 power" (empty: none).
-var stats: Array = ["", ""]
+## A team fight's power per side (viewer's first; empty: none), small in the
+## arena's corners by each side's plates.
+var power: Array = ["", ""]
 ## Under the clock: the fight's twist (Chaos Weekend rule), or the overtime damage.
 var caption := ""
 var center_text := ""
@@ -89,42 +102,43 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if layout.is_empty():
+		return
+	var arena: Rect2 = layout.arena
+	var clock := Vector2(arena.get_center().x, arena.position.y)
 	if not _live:
 		if center_text != "":
-			_text(Vector2(size.x / 2.0, size.y * 0.62), center_text, A11y.font(26), Color("f0eeff"))
+			_text(clock, center_text, A11y.font(26), Color("f0eeff"))
 		return
-	if _count == 6:
-		_draw_trios()
-		return
-	if _count == 4:
-		_draw_teams()
-		return
-	var fs := A11y.font(20)
-	var gap := size.x * CENTER_W
-	var bar_w := (size.x - gap) / 2.0
-	var sfs := A11y.font(20)
-	var stats_h := sfs + 6.0 if stats[0] != "" or stats[1] != "" or caption != "" else 0.0
-	var bar_h := maxf(22.0, minf(size.y * 0.4, 28.0))
-	var bar_y := size.y - bar_h - 4.0 - stats_h
-	for i in 2:
-		var x := 0.0 if i == 0 else size.x - bar_w
-		_bar(i, Rect2(x, bar_y, bar_w, bar_h), fs)
-		var label := "%s · %s" % [tags[i], _names[i]] if i == 0 else "%s · %s" % [_names[i], tags[i]]
-		var align := HORIZONTAL_ALIGNMENT_LEFT if i == 0 else HORIZONTAL_ALIGNMENT_RIGHT
-		draw_string_outline(FONT, Vector2(x, bar_y - 8.0), label, align, bar_w, fs, 4, Color(0, 0, 0, 0.6))
-		draw_string(FONT, Vector2(x, bar_y - 8.0), label, align, bar_w, fs, TEAM_COLORS[i])
-		if stats_h > 0.0 and stats[i] != "":
-			draw_string(FONT, Vector2(x, bar_y + bar_h + sfs + 2.0), stats[i], align, bar_w, sfs, Color(TEAM_COLORS[i].lerp(Color("f0eeff"), 0.55), 0.85))
-	if _edge != 0: # The side with the family edge: chevrons at its bar's inner end.
-		var x := bar_w + 22.0 if _edge > 0 else size.x - bar_w - 22.0
-		FamilyEdges.draw_chevrons(self, Vector2(x, bar_y + bar_h / 2.0), absi(_edge), 14.0, _edge_col)
-	_draw_clock(Vector2(size.x / 2.0, bar_y + bar_h / 2.0), gap - 8.0)
+	if plates:
+		for i in _count:
+			var p := FightLayout.plate(layout, i, _count)
+			if p.size.y < 60.0 or (foe_only and i % 2 == 0):
+				continue
+			var r := FightLayout.plate_bar(p, _count)
+			_bar(i, r, mini(A11y.font(22), int(r.size.y * 0.72)), tags[i] if i < 2 and _count < 6 else "")
+		if _edge != 0 and not (foe_only and _edge > 0): # The side with the family edge: chevrons at its plate's top right corner.
+			var p := FightLayout.plate(layout, 0 if _edge > 0 else 1, 2)
+			FamilyEdges.draw_chevrons(self, Vector2(p.end.x - 34.0, p.position.y + 30.0), absi(_edge), 16.0, _edge_col)
+	_draw_clock(clock, minf(260.0, arena.size.x * 0.5))
+	if plates:
+		var pfs := A11y.font(18)
+		for side in 2:
+			if str(power[side]) == "":
+				continue
+			var text := "Power %s" % power[side]
+			var y := arena.end.y - 14.0 if side == 0 else arena.position.y + 14.0 + pfs
+			var align := HORIZONTAL_ALIGNMENT_LEFT if side == 0 else HORIZONTAL_ALIGNMENT_RIGHT
+			var at := Vector2(arena.position.x + 14.0, y)
+			draw_string_outline(FONT, at, text, align, arena.size.x - 28.0, pfs, 5, Color(0, 0, 0, 0.75))
+			draw_string(FONT, at, text, align, arena.size.x - 28.0, pfs, TEAM_COLORS[side].lerp(Color.WHITE, 0.4))
 	if caption != "":
-		_text(Vector2(size.x / 2.0, bar_y + bar_h + sfs * 0.5 + 6.0), caption, A11y.font(20), Color("c9c3ff"))
+		var fs := A11y.font(20)
+		_text(clock + Vector2(0, fs + 24.0), caption, fs, Color("c9c3ff"))
 
 
-## The clock as a pill between the bars; in overtime it turns into a red
-## OVERTIME badge that pulses (steady with reduced motion).
+## The clock as a pill on the arena's top edge; in overtime it turns into a
+## red OVERTIME badge that pulses (steady with reduced motion).
 func _draw_clock(c: Vector2, max_w: float) -> void:
 	if center_text == "":
 		return
@@ -140,58 +154,15 @@ func _draw_clock(c: Vector2, max_w: float) -> void:
 		_round(r, h / 2.0, Color(LOW.darkened(0.35), 0.95))
 		_round_outline(r, h / 2.0, Color(LOW.lightened(0.3), beat), 2.0)
 	else:
-		_round(r, h / 2.0, TRACK)
+		_round(r, h / 2.0, Color(13 / 255.0, 11 / 255.0, 38 / 255.0))
 		_round_outline(r, h / 2.0, Color(1, 1, 1, 0.25), 2.0)
 	_text(c, text, fs, Color.WHITE)
 
 
-## 2v2: each critter's name above its own bar (the first carries the side's
-## tag), the HP number at the bar's inner end.
-func _draw_teams() -> void:
-	var gap := size.x * CENTER_W
-	var bar_w := (size.x - gap) / 2.0
-	var fs := A11y.font(20)
-	var name_h := fs + 2.0
-	var bar_h := clampf((size.y - 2.0 * name_h - 12.0) / 2.0, 16.0, 26.0)
-	var bfs := mini(fs, int(bar_h * 0.8))
-	for side in 2:
-		var x := 0.0 if side == 0 else size.x - bar_w
-		var align := HORIZONTAL_ALIGNMENT_LEFT if side == 0 else HORIZONTAL_ALIGNMENT_RIGHT
-		for k in 2:
-			var i := side + 2 * k
-			var y := k * (name_h + bar_h + 6.0)
-			var label: String = _names[i]
-			if k == 0:
-				label = "%s · %s" % [tags[side], label] if side == 0 else "%s · %s" % [label, tags[side]]
-			draw_string_outline(FONT, Vector2(x, y + fs), label, align, bar_w, fs, 4, Color(0, 0, 0, 0.6))
-			draw_string(FONT, Vector2(x, y + fs), label, align, bar_w, fs, TEAM_COLORS[side])
-			_bar(i, Rect2(x, y + name_h + 2.0, bar_w, bar_h), bfs)
-	_draw_clock(Vector2(size.x / 2.0, name_h + 2.0 + bar_h * 0.5), gap - 8.0)
-	if caption != "":
-		_text(Vector2(size.x / 2.0, size.y - A11y.font(20) * 0.6), caption, A11y.font(20), Color("c9c3ff"))
-
-
-## 3v3: three bars a side with each critter's name inside its bar, the
-## clock between the top two.
-func _draw_trios() -> void:
-	var gap := size.x * CENTER_W
-	var bar_w := (size.x - gap) / 2.0
-	var bar_h := clampf((size.y - 12.0) / 3.0, 18.0, 30.0)
-	var bfs := mini(A11y.font(20), int(bar_h * 0.72))
-	for side in 2:
-		var x := 0.0 if side == 0 else size.x - bar_w
-		for k in 3:
-			var i := side + 2 * k
-			_bar(i, Rect2(x, k * (bar_h + 6.0), bar_w, bar_h), bfs, _names[i] + "  ")
-	_draw_clock(Vector2(size.x / 2.0, bar_h * 0.5), gap - 8.0)
-	if caption != "":
-		_text(Vector2(size.x / 2.0, size.y - A11y.font(20) * 0.6), caption, A11y.font(20), Color("c9c3ff"))
-
-
-## One bar: the fill drains toward the arena centre (YOU from the right end,
-## FOE from the left), like a fighting game. `i` is a ball; its side is i % 2.
-## `prefix` (2v2) puts the critter's name before the HP inside the bar.
-func _bar(ball: int, r: Rect2, fs: int, prefix := "") -> void:
+## One bar: the fill drains from the right, the HP number at its left end and
+## the side's tag (`tag`, YOU / FOE) at its right. `ball` is a plate; its side
+## is ball % 2.
+func _bar(ball: int, r: Rect2, fs: int, tag := "") -> void:
 	var i := ball % 2
 	var col: Color = TEAM_COLORS[i]
 	var frac: float = _hp[ball] / _max[ball]
@@ -208,21 +179,24 @@ func _bar(ball: int, r: Rect2, fs: int, prefix := "") -> void:
 		_round_outline(r, rad, Color(col, beat), 2.0)
 	else:
 		_dashed_outline(r, Color(col, beat), 2.0)
-	var text := prefix + str(ceili(_hp[ball]))
+	var text := str(ceili(_hp[ball]))
 	if _shield[ball] > 0.0:
 		text += " +%d" % ceili(_shield[ball])
-	var align := HORIZONTAL_ALIGNMENT_LEFT if i == 0 else HORIZONTAL_ALIGNMENT_RIGHT
-	var base := Vector2(r.position.x + rad + 6.0, r.position.y + r.size.y / 2.0 + fs * 0.36)
-	draw_string_outline(FONT, base, text, align, r.size.x - rad * 2.0 - 12.0, fs, 5, Color(0, 0, 0, 0.75))
-	draw_string(FONT, base, text, align, r.size.x - rad * 2.0 - 12.0, fs, Color.WHITE)
+	var base := Vector2(r.position.x + rad * 0.6 + 6.0, r.position.y + r.size.y / 2.0 + fs * 0.36)
+	var room := r.size.x - rad * 1.2 - 12.0
+	draw_string_outline(FONT, base, text, HORIZONTAL_ALIGNMENT_LEFT, room, fs, 5, Color(0, 0, 0, 0.75))
+	draw_string(FONT, base, text, HORIZONTAL_ALIGNMENT_LEFT, room, fs, Color.WHITE)
+	if tag != "":
+		var tfs := mini(fs, A11y.font(18))
+		draw_string_outline(FONT, base, tag, HORIZONTAL_ALIGNMENT_RIGHT, room, tfs, 5, Color(0, 0, 0, 0.75))
+		draw_string(FONT, base, tag, HORIZONTAL_ALIGNMENT_RIGHT, room, tfs, Color(1, 1, 1, 0.8))
 
 
-func _fill(i: int, r: Rect2, frac: float, col: Color) -> void:
+func _fill(_side: int, r: Rect2, frac: float, col: Color) -> void:
 	if frac <= 0.0:
 		return
 	var w := r.size.x * frac
-	var x := r.position.x + (r.size.x - w if i == 0 else 0.0)
-	_round(Rect2(x, r.position.y, w, r.size.y), minf(r.size.y / 2.0, w / 2.0), col)
+	_round(Rect2(r.position.x, r.position.y, w, r.size.y), minf(r.size.y / 2.0, w / 2.0), col)
 
 
 func _text(c: Vector2, text: String, fs: int, col: Color) -> void:
