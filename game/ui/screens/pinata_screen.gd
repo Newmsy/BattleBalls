@@ -6,7 +6,6 @@ extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
-const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
@@ -48,7 +47,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
 
-	var pay := Kit.vbox(4, [Kit.hbox(8, [Glyph.make("coin", 30), Kit.label("%d to %d" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 26)], BoxContainer.ALIGNMENT_BEGIN)])
+	var pay := Kit.vbox(4, [Kit.amount("coin", "%d to %d" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 26)])
 	pay.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight := Kit.cost_button("Smash", PinataParty.ENERGY_COST, "energy", _fight.bind(shell, fighter), "go", 24, 72)
 	fight.custom_minimum_size.x = 160

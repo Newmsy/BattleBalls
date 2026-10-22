@@ -47,7 +47,7 @@ static func build(shell, params: Dictionary) -> Control:
 	# The top bar shows the energy count; this only says when the next one lands.
 	var wait: int = p.seconds_to_next_energy(now)
 	if wait > 0:
-		root.add_child(Kit.hbox(10, [Glyph.make("energy", 30), Kit.label("+1 in %d:%02d" % [wait / 60, wait % 60], 24, Kit.MUTED)]))
+		root.add_child(Kit.amount("energy", "+1 in %d:%02d" % [wait / 60, wait % 60], 24, Kit.MUTED))
 
 	if params.has("notice"):
 		root.add_child(Kit.panel(Kit.label(params.notice, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.box(Color("1d2a1f"), Kit.GOOD, 28, 2, 20)))
