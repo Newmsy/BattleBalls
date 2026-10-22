@@ -12,6 +12,12 @@ and a design doc disagree, the design doc wins and this file gets fixed.
    rock-paper-scissors.
 2. **Counters are a tilt, not a verdict.** At equal power a favourable matchup
    is worth **55-60%**. Anything **over 65%** at equal power is a bug to fix.
+   Family edges are the one deliberate exception (Newms chose "Bold",
+   2026-10-22, design/type-advantage.md): a very-good family edge is +20%
+   damage, about **72%**, and a good edge +10%, about **64%**. A ball one
+   tier or rarity step up must still win 65%+ into its very-bad family
+   matchup. Critter-vs-critter checks run with `family_edges` off; check the
+   edges themselves with `type_check.gd`.
 3. **No hard counters.** Every ball can beat every other ball. No immunity, no
    ability that switches off another ability entirely (Ghost can't be immune
    to Laser).
@@ -73,6 +79,7 @@ then fix every miss in one tuning PR.
 | Gear lines: one 5-star piece of each stat line vs the same ball bare | `balance.gd -- --fights=300 --gear` |
 | Rarity = a tier: T1 Legendary vs T2 Epic, T3 Rare, T5 Common and neighbours, real tiers (target ~50%) | `rarity_check.gd -- --pairs=150` |
 | Bounce Run boons | `GODOT=<godot> tools/ci/boons.sh --fights=40` |
+| Family edges: very good / good at equal power and against a tier-up foe | `type_check.gd -- --pairs=300` |
 
 `balance.gd` options for big rosters: `--only=<ids|@sample>` limits the run to
 pairings involving those critters, `--shard=k/n` splits it across machines,

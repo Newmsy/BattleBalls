@@ -94,9 +94,9 @@ static func boon_win_rate(id: String, seeds: int) -> Dictionary:
 		var b: String = pair[1]
 		for s in seeds:
 			for side in 2:
-				var cfg := {"seed": 1000 + s, "p1": a, "p2": b, "boons": [[id], []]}
+				var cfg := {"seed": 1000 + s, "p1": a, "p2": b, "boons": [[id], []], "family_edges": false}
 				if side == 1:
-					cfg = {"seed": 1000 + s, "p1": b, "p2": a, "boons": [[], [id]]}
+					cfg = {"seed": 1000 + s, "p1": b, "p2": a, "boons": [[], [id]], "family_edges": false}
 				var w: int = MatchSim.new(cfg).run_to_end().winner
 				score += 0.5 if w == -1 else (1.0 if w == side else 0.0)
 				n += 1
