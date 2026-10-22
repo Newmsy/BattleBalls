@@ -9,6 +9,7 @@ const CRITTER := {
 	"rarity": "rare",
 	"role": "Bruiser",
 	"status": "live",
+	"rarity_power": 0.935, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
 	"color": "d6ccc2",
 	"vibe": "A huggable mountain yeti with a very loud temper.",
 	"description": "Yeti. It's big and furry, and at 50% HP it roars out an avalanche that deals 15, knocks back and slows everything nearby 40% for 2s.",

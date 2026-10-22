@@ -7,7 +7,7 @@ const CRITTER := {
 	"name": "Spectra",
 	"type": "Prism",
 	"rarity": "legendary",
-	"rarity_power": 0.91, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"rarity_power": 0.87, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
 	"role": "Zoner",
 	"status": "live",
 	"color": "9ad8ff",

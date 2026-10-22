@@ -7,7 +7,7 @@ const CRITTER := {
 	"name": "Sundae",
 	"type": "Sundae",
 	"rarity": "legendary",
-	"rarity_power": 1.167, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"rarity_power": 1.14, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
 	"role": "Bruiser",
 	"status": "live",
 	"color": "fde2e4",
