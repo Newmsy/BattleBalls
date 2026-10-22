@@ -38,5 +38,5 @@ const CRITTER := {
 		{"text": "+ Below 50% HP the whole swarm launches", "now": "{bee_count} bees sting {bee_damage}; launch every {bee_every}s, all at 50% HP", "ability": [{"on": "hp_below", "hp": 0.5, "do": "swarm_all"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["bees"], "front": ["hive", "door"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.3},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.3},
 }

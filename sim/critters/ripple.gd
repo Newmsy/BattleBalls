@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ Ripples turn corners · a big wave (7 → 9)", "now": "Bounces: corner-turning ripple {ripple_damage}/s + wave {ripple_wave_damage}", "special": "Tidal", "ripple_corner": 1, "ripple_wave_radius": 220.0, "ripple_wave_damage": 9.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["droptop"], "front": ["shine"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},
+	"sound": {"ouch": "ouch_sea", "pitch": 1.3},
 }

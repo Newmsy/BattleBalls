@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "Tick 4 → 6 + rewind stops time 0.6s", "now": "Ring every 5s: {tick_damage}, slow {tick_slow%}%; at 30% HP rewind {rewind_secs}s, time stop", "rewind_stop": 0.6, "tick_damage": 6.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smirk"}, "back": ["gearcrown"], "front": ["clockface", "monocle"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 0.95},
+	"sound": {"ouch": "ouch_tech", "pitch": 0.95},
 }

@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ A 4th golden face: shouts every 5s (8)", "now": "Bumps stack {stack_max} faces (+{face_damage}, -{face_armor%}%, +{face_speed%}%, shout {shout_damage})", "stack_max": 4.0, "ability": [{"on": "every", "secs": 5.0, "do": "face_shout"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "flat"}, "back": ["totemstack"], "scale": .9},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.85},
+	"sound": {"ouch": "ouch_spooky", "pitch": 0.85},
 }

@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "+ Spent seeds burst for 3", "now": "Bumped: puffs {shot_count} bursting seeds ({shot_damage}), every {fire_cooldown}s", "shot_burst_damage": 3.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "o"}, "back": ["tufts"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.35},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.35},
 }

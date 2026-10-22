@@ -34,5 +34,5 @@ const CRITTER := {
 		{"text": "+ Below 30% HP it goes nova early, once", "ability": [{"on": "hp_below", "hp": 0.3, "do": "nova_early"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["corona"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 0.85},
+	"sound": {"ouch": "ouch_fire", "pitch": 0.85},
 }

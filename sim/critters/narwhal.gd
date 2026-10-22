@@ -32,5 +32,5 @@ const CRITTER := {
 		{"text": "+ A charge that misses curves round again", "now": "Charges every {lance_every}s (retries): beam {lance_beam_dps}/s, hit x{lance_hit_mult}", "lance_retry": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["horn", "fluke"], "front": ["speckles"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.05},
+	"sound": {"ouch": "ouch_frost", "pitch": 1.05},
 }

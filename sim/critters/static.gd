@@ -31,5 +31,5 @@ const CRITTER := {
 		{"text": "+ Every 2nd bounce: big zap for 16", "now": "Bounces zap nearby foes: {zap_damage}, slow {zap_slow%}% · 2nd: big {zap_big_damage}", "zap_big_every": 2, "zap_big_damage": 16.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["zighair"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.35},
+	"sound": {"ouch": "ouch_tech", "pitch": 1.35},
 }

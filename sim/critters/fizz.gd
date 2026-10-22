@@ -35,5 +35,5 @@ const CRITTER := {
 	],
 	"chaos": {"closing_walls": {"fizz_at": 1.5, "fizz_blast": 0.8}}, ## A shrinking arena means walls every few frames
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["ringpull"], "front": ["fizz"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.3},
+	"sound": {"ouch": "ouch_sweet", "pitch": 1.3},
 }

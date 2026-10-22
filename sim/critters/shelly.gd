@@ -36,5 +36,5 @@ const CRITTER := {
 		{"text": "+ Tucking in slams out: 10 + knockback", "now": "Below 30% HP: slam {grow_pulse_damage}, heal {grow_heal}, -{grow_armor%}% dmg taken", "grow_pulse_damage": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["shellhex"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.85},
+	"sound": {"ouch": "ouch_sea", "pitch": 0.85},
 }

@@ -43,5 +43,5 @@ const CRITTER := {
 	],
 	"chaos": {"double_trouble": {"hp": 1.05}, "glass_cannon": {"revive_hp": 0.75}}, ## Bigger beams pick off a fresh revive; in Glass Cannon a revive is worth more.
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": "ffb300", "brow": .3, "mouth": "smirk"}, "back": ["flame_crest"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.25},
+	"sound": {"ouch": "ouch_fire", "pitch": 1.25},
 }

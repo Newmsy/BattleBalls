@@ -37,5 +37,5 @@ const CRITTER := {
 		{"text": "+ At 5 scoops hits shower 6 sprinkles", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; throws, sprinkles", "spray_count": 6.0, "ability": [{"on": "hit", "do": "stack_spray"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .17, "closed": true, "mouth": "smile"}, "back": ["scoops"], "front": ["cup"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.15},
+	"sound": {"ouch": "ouch_sweet", "pitch": 1.15},
 }

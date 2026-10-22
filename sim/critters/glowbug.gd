@@ -34,5 +34,5 @@ const CRITTER := {
 		{"text": "+ Every 6s the bugs flare for 6", "now": "{moon_count} light-bugs sting for {moon_damage} · flare every 6s", "ability": [{"on": "every", "secs": 6.0, "do": "orb_flare"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["antenna2"], "front": ["glowbelly"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.4},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.4},
 }

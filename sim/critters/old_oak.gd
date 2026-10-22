@@ -33,6 +33,6 @@ const CRITTER := {
 		{"text": "All 4 stay · takes root again at 20% HP", "now": "At 50% and 20% HP: roots stay till hit, {root_regen} HP/s", "ability": [{"on": "hp_below", "hp": 0.2, "do": "root"}], "root_stay": 4},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["canopy"], "front": ["beard"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.7},
+	"sound": {"ouch": "ouch_nature", "pitch": 0.7},
 	"chaos": {"pillars": {"hp": 1.05}, "bumpers": {"hp": 1.04}}, ## Obstacles crowd out its root pillars.
 }

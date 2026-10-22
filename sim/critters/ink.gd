@@ -31,5 +31,5 @@ const CRITTER := {
 		{"text": "Squirt every 2.5 → 1.5s · ink stings 1.5 → 5/s", "now": "Hurt: stinging ink {ink_dps}/s, slow {ink_slow%}%, dash (every {ink_cooldown}s)", "ink_dps": 5.0, "ink_cooldown": 1.5},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "beak"}, "back": ["tentacles"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.15},
+	"sound": {"ouch": "ouch_sea", "pitch": 1.15},
 }

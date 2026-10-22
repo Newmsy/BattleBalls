@@ -30,5 +30,5 @@ const CRITTER := {
 		{"text": "+ A frozen foe shatters on its next hit: x2", "now": "Knockback hits; wall slam in {slam_window}s: {slam_damage}, freeze, shatter x{shatter_mult}", "shatter_mult": 2.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "none"}, "back": ["fur"], "front": ["tusks", "trunk"], "scale": 1.12},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.7},
+	"sound": {"ouch": "ouch_frost", "pitch": 0.7},
 }

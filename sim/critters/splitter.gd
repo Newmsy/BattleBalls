@@ -29,5 +29,5 @@ const CRITTER := {
 		{"text": "Mini speed x1.15 → 1.3", "split_speed": 1.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mis": true, "mouth": "smile"}, "front": ["seam"]},
-	"sound": {},
+	"sound": {"ouch": "ouch_sweet", "pitch": 1.15},
 }

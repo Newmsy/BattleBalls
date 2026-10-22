@@ -38,5 +38,5 @@ const CRITTER := {
 		{"text": "+ Every 4th bounce: a swarm of 4", "now": "Bounces fire a poison stinger ({shot_damage}); 4th: swarm of {shot_big_count}", "shot_big_every": 4},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "flat"}, "back": ["wings", "stinger"], "front": ["stripes"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.4},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.4},
 }

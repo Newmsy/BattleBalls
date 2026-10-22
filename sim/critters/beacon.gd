@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ A 2nd beam shines backwards", "now": "2 sweeping beams every {lamp_every}s: {lamp_dps}/s, +{lamp_vuln%}% dmg taken", "lamp_back": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smile"}, "back": ["lamp"], "front": ["stripes"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 0.9},
+	"sound": {"ouch": "ouch_sea", "pitch": 0.9},
 }

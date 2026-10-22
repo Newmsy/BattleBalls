@@ -31,5 +31,5 @@ const CRITTER := {
 		{"text": "+ Every 6s the paint flashes: 6 to foes on it", "now": "Paint trail {paint_life}s: +{paint_vuln%}% dmg taken, flash every 6s", "ability": [{"on": "every", "secs": 6.0, "do": "paint_flash"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "front": ["splats", "beret"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.2},
+	"sound": {"ouch": "ouch_toybox", "pitch": 1.2},
 }

@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "All 3 stay till hit · fall into 3 seeds (4)", "now": "Bounces plant pillars ({seed_damage} on bump) till hit; fall to seeds", "seed_shots": 3, "seed_stay": 3, "ability": [{"on": "always", "do": "seed_wilt"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["leaves"], "front": ["frost_freckles"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.35},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.35},
 }

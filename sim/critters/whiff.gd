@@ -29,5 +29,5 @@ const CRITTER := {
 		{"text": "+ Below 40% HP the cloud blooms huge for 4s", "now": "Stink cloud {stink_dps}/s, slow {stink_slow%}%; blooms at 40% HP", "ability": [{"on": "hp_below", "hp": 0.4, "do": "bloom"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["bigtail"], "front": ["stripe"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.05},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.05},
 }

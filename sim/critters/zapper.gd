@@ -30,5 +30,5 @@ const CRITTER := {
 		{"text": "+ Every 3rd zap is a storm of 3 arcs", "now": "Every {zap_every}s arc: {zap_damage}, stun {zap_stun}s + beam; 3rd: storm", "zap_storm_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "flat"}, "back": ["rodball"], "front": ["coil"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 1.05},
+	"sound": {"ouch": "ouch_tech", "pitch": 1.05},
 }

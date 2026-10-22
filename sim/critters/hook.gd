@@ -29,5 +29,5 @@ const CRITTER := {
 		{"text": "+ Every 2nd bounce: big reel-in, slow 30%", "now": "Bounces yank foe in (every 2nd: big, slows) · hit in 1s: +{yank_bonus}", "yank_big_every": 2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "smirk"}, "back": ["hook"], "front": ["bandana"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 0.95},
+	"sound": {"ouch": "ouch_sea", "pitch": 0.95},
 }

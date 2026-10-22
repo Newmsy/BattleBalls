@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ A touched illusion swaps with Foxfire", "now": "Every 6s {illusion_count} trailing illusions burst for {illusion_damage} + swap", "illusion_swap": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smirk"}, "back": ["ears", "foxtail"], "front": ["mask"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.2},
+	"sound": {"ouch": "ouch_spooky", "pitch": 1.2},
 }

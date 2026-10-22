@@ -31,5 +31,5 @@ const CRITTER := {
 		{"text": "+ From 3 spikes, hits fire 8 spikes (3)", "now": "+{spike_damage} dmg per hit landed, max {spike_max}; {spike_burst_at}+: spike ring", "ability": [{"on": "hit", "do": "spike_burst"}]},
 	],
 	"art": {"eyes": {"sep": .32, "w": .24, "h": .28, "p": .12, "mouth": "grin"}, "back": ["spike_ring"]},
-	"sound": {},
+	"sound": {"ouch": "ouch_nature", "pitch": 1.15},
 }

@@ -31,5 +31,5 @@ const CRITTER := {
 		{"text": "+ Rays bounce off walls once", "now": "Every 4s flashes {disco_rays} bouncing rays: {disco_damage} dmg, slow {disco_slow%}%", "disco_bounce": 1},
 	],
 	"art": {"eyes": {"none": true, "mouth": "grin"}, "front": ["tiles", "shades"]},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.15},
+	"sound": {"ouch": "ouch_toybox", "pitch": 1.15},
 }

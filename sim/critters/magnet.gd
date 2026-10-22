@@ -34,5 +34,5 @@ const CRITTER := {
 	],
 	"art": {"badge_top": 1.55, "body": "magnet", "pole": "2f7bff", "back": ["magnet_prongs"],
 		"eyes": {"sep": .3, "w": .19, "h": .23, "p": .1, "brow": .16, "mouth": "grin"}},
-	"sound": {"ouch": "ouch_magnet", "pitch": 1.0},
+	"sound": {"ouch": "ouch_tech", "pitch": 1.0},
 }

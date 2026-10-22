@@ -22,9 +22,16 @@ const RULES := {
 	"hit": [3, 0.05, -2.0],
 	"hit_big": [1, 0.25, 0.0],
 	"wall": [2, 0.07, -15.0],
-	"ouch_vampire": [1, 0.18, -7.0],
-	"ouch_laser": [1, 0.18, -9.0],
-	"ouch_magnet": [1, 0.18, -9.0],
+	# Family voices: each critter's file picks its family's and a pitch.
+	"ouch_nature": [1, 0.18, -8.0],
+	"ouch_sea": [1, 0.18, -8.5],
+	"ouch_tech": [1, 0.18, -10.0],
+	"ouch_sweet": [1, 0.18, -8.0],
+	"ouch_frost": [1, 0.18, -9.0],
+	"ouch_toybox": [1, 0.18, -11.5],
+	"ouch_spooky": [1, 0.18, -11.0],
+	"ouch_fire": [1, 0.18, -5.0],
+	"ouch_cosmic": [1, 0.18, -9.0],
 	"flip": [1, 0.3, -14.0],
 	"snap": [1, 0.2, -4.0],
 	"crit": [1, 0.15, -5.0],
@@ -70,7 +77,188 @@ const RULES := {
 	"sonar": [1, 0.3, -8.0],
 	"twinkle": [1, 0.3, -8.0],
 	"zing": [2, 0.08, -7.0],
+	# Family knocks: each family's material, tapped under every bump.
+	"knock_nature": [2, 0.06, -6.0],
+	"knock_sea": [2, 0.06, -10.0],
+	"knock_tech": [2, 0.06, -8.0],
+	"knock_sweet": [2, 0.06, -10.0],
+	"knock_frost": [2, 0.06, -9.0],
+	"knock_toybox": [2, 0.06, -10.0],
+	"knock_spooky": [2, 0.06, -5.0],
+	"knock_fire": [2, 0.06, -3.0],
+	"knock_cosmic": [2, 0.06, -12.0],
+	# Critter signatures (CRITTER_CUES) and shared battle moments.
+	"zoom": [1, 0.1, -6.0],
+	"kaboom": [2, 0.12, -2.0],
+	"mine_drop": [1, 0.15, -4.0],
+	"frost_crunch": [1, 0.22, -4.0],
+	"frost_breath": [1, 0.5, -6.0],
+	"thorn_snap": [1, 0.12, -1.0],
+	"moon_bonk": [1, 0.15, -5.0],
+	"warble": [1, 0.6, -12.0],
+	"void_suck": [1, 1.0, -3.0],
+	"nova_boom": [1, 0.6, -1.0],
+	"coal_hiss": [1, 0.5, -5.0],
+	"squirt": [1, 0.3, -4.0],
+	"lava_blorp": [1, 0.25, -5.0],
+	"ghost_wooo": [1, 0.5, -9.0],
+	"spook_hit": [1, 0.3, -3.0],
+	"chrome_ching": [1, 0.5, -6.0],
+	"pinball_ding": [2, 0.08, -8.0],
+	"flipper": [1, 0.15, -5.0],
+	"crunch": [1, 0.15, -6.0],
+	"bubble_blow": [1, 0.4, -10.0],
+	"bubble_pop": [2, 0.08, -9.0],
+	"gum_stretch": [1, 0.3, -7.0],
+	"gum_snap": [1, 0.2, -7.0],
+	"inflate": [1, 0.3, -9.0],
+	"spines": [1, 0.3, -3.0],
+	"shell_clack": [1, 0.4, -4.0],
+	"dart": [1, 0.4, -6.0],
+	"spore": [1, 0.35, -12.0],
+	"snuff": [1, 0.3, -7.0],
+	"fwoomp": [1, 0.3, -5.0],
+	"spring_boing": [1, 0.3, -8.0],
+	"ratchet": [1, 0.15, -10.0],
+	"sour": [1, 0.15, -9.0],
+	"pucker_pop": [1, 0.3, -4.0],
+	"seed_puff": [1, 0.4, -8.0],
+	"candy_clack": [2, 0.08, -7.0],
+	"reel": [1, 0.2, -6.0],
+	"disco_laser": [1, 0.3, -7.0],
+	"stoke": [1, 0.15, -4.0],
+	"trumpet": [1, 0.5, -10.0],
+	"ice_lock": [1, 0.25, -5.0],
+	"nom": [1, 0.12, -6.0],
+	"gulp": [1, 0.3, -6.0],
+	"ptoo": [1, 0.3, -4.0],
+	"burp": [1, 0.5, -6.0],
+	"wreck_clang": [1, 0.2, -5.0],
+	"totem_knock": [1, 0.2, -6.0],
+	"yoyo_whirr": [1, 0.4, -7.0],
+	"snow_burst": [1, 0.2, -4.0],
+	"snowflake": [1, 0.3, -10.0],
+	"foghorn": [1, 3.0, -8.0],
+	"hiss": [1, 0.4, -9.0],
+	"swipe": [1, 0.2, -5.0],
+	"warp_8bit": [1, 0.2, -10.0],
+	"boom_8bit": [1, 0.2, -6.0],
+	"kaleido_click": [1, 0.3, -8.0],
+	"puppet_string": [1, 0.2, -6.0],
+	"tada": [1, 0.5, -8.0],
+	"rocket": [2, 0.08, -8.0],
+	"lockon": [1, 0.4, -8.0],
+	"shield_up": [1, 0.4, -10.0],
+	"shield_tink": [1, 0.15, -10.0],
+	"scoop": [1, 0.12, -6.0],
+	"swell": [1, 0.3, -9.0],
+	"slot_spin": [1, 0.8, -6.0],
+	"coins": [1, 0.3, -7.0],
+	"tentacle_slap": [1, 0.3, -5.0],
+	"squelch": [1, 0.3, -6.0],
+	"thunder": [1, 0.6, -2.0],
+	"fox_whisper": [1, 0.6, -6.0],
+	"howl": [1, 1.0, -10.0],
+	"whale_call": [1, 0.6, -9.0],
+	"eclipse_flip": [1, 0.6, -8.0],
+	"ribbon": [1, 0.3, -6.0],
+	"confetti_pop": [1, 0.3, -1.0],
+	"prism_ray": [1, 0.15, -8.0],
+	"ripple_wash": [1, 0.3, -9.0],
+	"spine": [2, 0.06, -12.0],
+	"shing": [1, 0.12, -8.0],
+	"honey_squelch": [1, 0.3, -5.0],
+	"honey_drip": [1, 0.2, -10.0],
+	"dizzy": [1, 0.5, -10.0],
+	"dig": [1, 0.3, -6.0],
+	"ot_tick": [1, 0.2, -10.0],
+	"t5_shine": [1, 2.0, -9.0],
+	"ko_final": [1, 0.5, -1.0],
 }
+## Each critter's own sounds, by sim event: "type:kind" (tried first) or
+## "type", for events whose owner (the beam's owner, the damage's source, the
+## ball) is that critter. Each cue is [sound, volume dB, pitch], plus optionally
+## [..., key, step]: the pitch rises by `step` per unit of the event's `key`
+## ("speed" reads the ball's speed share instead). An empty list keeps the
+## event quiet where the shared sound would be wrong (Bubbles' little bubbles
+## used to zap like a laser). "zone:<kind>" plays when the critter puts down a
+## floor zone (a mine, a puddle). Damage cues replace only the hit's body:
+## crits, family edges and the target's voice still play. Events not listed
+## fall back on the shared sounds in consume_events.
+const CRITTER_CUES := {
+	"vampire": {"damage:contact": [["chomp", 0.0, 1.0]]},
+	"juggernaut": {"damage:contact": [["thwomp", 0.0, 1.0]], "damage:slam": [["thwomp", 0.0, 0.85]]},
+	"spiker": {"spike": [["shing", 0.0, 0.9, "spikes", 0.05]], "shot:spike": [["spine", 0.0, 1.0]], "shot_pop:spike": []},
+	"speedster": {"bounce": [["zoom", 0.0, 0.8, "speed", 0.5], ["wall", -4.0, 1.2]], "damage:afterimage": [["zoom", -10.0, 1.6]]},
+	"bomber": {"zone:mine": [["mine_drop", 0.0, 1.0]], "boom": [["kaboom", 0.0, 1.0]]},
+	"frost": {"damage:ice": [["frost_crunch", 0.0, 1.0]], "pulse:frost": [["frost_breath", 0.0, 1.0]]},
+	"thorns": {"reflect": [["thorn_snap", 0.0, 1.0]], "damage:reflect": [], "damage:burn": []},
+	"gravity": {"damage:moon": [["moon_bonk", 0.0, 1.0]], "pulse:flare": [["warble", 0.0, 1.0]]},
+	"mirror": {"copy": [["chrome_ching", 0.0, 1.0]], "reflect": [["chrome_ching", -6.0, 1.5]]},
+	"blackhole": {"pulse:nova": [["void_suck", 0.0, 1.0]], "damage:ring": [["nova_boom", 0.0, 0.85]]},
+	"prism": {"beam": [["prism_ray", 0.0, 1.0]], "reflect": [["prism_ray", -4.0, 1.3]]},
+	"pinball": {"ding": [["pinball_ding", 0.0, 1.0, "lit", 0.12]], "tilt": [["flipper", 0.0, 1.0]], "charge": [["flipper", -3.0, 1.2]]},
+	"crumb": {"beam": [], "grow": [["crunch", 0.0, 1.0]], "damage:beam": [["crunch", -6.0, 1.4]], "heal": [["crunch", -4.0, 0.9]]},
+	"sooty": {"pulse:fire": [["coal_hiss", 0.0, 1.0]], "damage:ember": [["knock_fire", -2.0, 1.0]]},
+	"bubbles": {"bubble": [["bubble_blow", 0.0, 1.0]], "bubble_pop": [["bubble_pop", 0.0, 0.8], ["splash", -6.0, 1.4]],
+		"beam": [], "pulse:wave": [], "damage:beam": [["bubble_pop", -3.0, 1.3]]},
+	"gumdrop": {"tether": [["gum_stretch", 0.0, 1.0]], "tether_end": [["gum_snap", 0.0, 1.0]], "damage:burn": []},
+	"puff": {"grow": [["inflate", 0.0, 1.0]], "pulse:pulse": [["spines", 0.0, 1.0]], "beam": [], "damage:beam": []},
+	"shelly": {"pulse:pulse": [["shell_clack", 0.0, 1.0]], "heal": []},
+	"minnow": {"pulse:pulse": [["dart", 0.0, 1.0]], "heal": []},
+	"mossy": {"heal": [], "damage:burn": [], "damage:spore": [["spore", 0.0, 1.0]]},
+	"glowbug": {"damage:moon": [["crackle", -4.0, 1.5]], "damage:bugflare": [["crackle", -4.0, 1.5]], "pulse:bugflare": [["twinkle", -8.0, 1.3]]},
+	"flicker": {"phase": [["snuff", 0.0, 1.0]], "pulse:flame": [["fwoomp", 0.0, 1.0]], "relight": [], "damage:burn": []},
+	"cogs": {"unwind": [["spring_boing", 0.0, 1.0]]},
+	"fizz": {"pop": [["fizzpop", 0.0, 1.0]]},
+	"honey": {"zone:honey": [["honey_drip", 0.0, 1.0]], "honey_stuck": [["honey_squelch", 0.0, 1.0]], "stun": [], "charge": []},
+	"bolt": {"teleport": [["warp_8bit", 0.0, 0.7], ["crackle", -6.0, 1.3]], "beam": []},
+	"ink": {"pulse:ink": [["squirt", 0.0, 1.0]]},
+	"pucker": {"sour": [["sour", 0.0, 1.0]], "pucker": [["pucker_pop", 0.0, 1.0]], "stun": [], "pulse:sour": []},
+	"pollen": {"shot:seed": [], "shot_pop:seed": [], "pulse:pulse": [["seed_puff", 0.0, 1.0]]},
+	"magmo": {"damage:contact": [["lava_blorp", 0.0, 1.0]], "damage:lava": [], "damage:burn": []},
+	"clam": {"shot:pearl": [["pew", 0.0, 0.7], ["bubble_pop", -6.0, 0.9]]},
+	"jawbreaker": {"orb_lost": [["candy_clack", 0.0, 0.8]], "damage:candy": [["candy_clack", 0.0, 1.2]]},
+	"ripple": {"beam": [["ripple_wash", 0.0, 1.0]]},
+	"comet": {"beam": [["twinkle", 0.0, 1.0]]},
+	"mortar": {"shot:shell": [["cannon", 0.0, 1.0]], "pulse:shell": [["kaboom", -6.0, 1.3]]},
+	"mole": {"dig": [["dig", 0.0, 1.0]], "charge": [], "boom": [["thwomp", -4.0, 1.3]]},
+	"zigzag": {"beam": [["crackle", -3.0, 1.2]]},
+	"sprout": {"piece_break:seed": [["crunch", 0.0, 0.8]], "rays:seed": [["rustle", -3.0, 1.4]]},
+	"hook": {"yank": [["reel", 0.0, 1.0]]},
+	"zapper": {"damage:zap": [["crackle", 0.0, 1.0]], "beam": [], "stun": [["dizzy", -4.0, 1.3]]},
+	"disco": {"rays:disco": [["disco_laser", 0.0, 1.0]]},
+	"drako": {"stack": [["stoke", 0.0, 0.9, "stacks", 0.08]], "beam": [], "breath": [["whoosh", 0.0, 1.0], ["roar", -6.0, 1.6]]},
+	"mammoth": {"damage:contact": [["thwomp", -3.0, 1.15]], "damage:slam": [["trumpet", 0.0, 1.0]], "stun": [["ice_lock", 0.0, 1.0]]},
+	"munch": {"damage:contact": [["chomp", 0.0, 0.85]], "grow": [["nom", 0.0, 1.0]], "stack": [], "swallow": [["gulp", 0.0, 1.0]],
+		"spit": [["ptoo", 0.0, 1.0]], "burp": [["burp", 0.0, 1.0]], "stun": [], "charge": []},
+	"wrecker": {"damage:wreck": [["wreck_clang", 0.0, 1.0]], "beam": [], "damage:beam": []},
+	"totem": {"stack": [["totem_knock", 0.0, 0.9, "stacks", 0.12]]},
+	"yoyo": {"yoyo": [["yoyo_whirr", 0.0, 1.0]], "beam": [], "walkies": [["yoyo_whirr", 0.0, 0.8], ["tada", -6.0, 1.2]]},
+	"swarm": {"damage:bee": [["buzz", 0.0, 1.1]], "launch": [["buzz", 0.0, 1.5]]},
+	"blizz": {"zone:mine": [["snowflake", 0.0, 1.0]], "boom": [["snow_burst", 0.0, 1.0]]},
+	"beacon": {"beam": [["foghorn", 0.0, 1.0]]},
+	"brewster": {"shot:blob": [["glug", 0.0, 1.0]]},
+	"pounce": {"mark": [["hiss", 0.0, 1.0]], "charge": [["swipe", 0.0, 1.0]], "pounce": [["thwomp", -4.0, 1.4], ["crit", -6.0, 1.2]]},
+	"pixel": {"teleport": [["warp_8bit", 0.0, 1.0]], "pulse:glitch": [], "boom": [["boom_8bit", 0.0, 1.0]]},
+	"kaleido": {"mode": [["kaleido_click", 0.0, 1.0]], "pulse:pulse": []},
+	"puppeteer": {"tether": [["puppet_string", 0.0, 1.0]], "tug": [["puppet_string", -8.0, 1.5]], "charge": [],
+		"fling": [["whoosh", -2.0, 1.5]], "bow": [["tada", 0.0, 1.0]], "stun": [], "tether_end": []},
+	"leviathan": {"dive": [["splash", -4.0, 1.4], ["whale_call", -6.0, 0.6]]},
+	"megabot": {"salvo_lock": [["lockon", 0.0, 1.0]], "shot:rocket": [["rocket", 0.0, 1.0]], "shot_pop:rocket": [["kaboom", -8.0, 1.5]],
+		"salvo": [["shield_up", 0.0, 0.8]], "mega": [["shield_up", 0.0, 0.7]]},
+	"sundae": {"grow": [], "stack": [["scoop", 0.0, 0.9, "stacks", 0.1]], "damage:splat": [["splat", -3.0, 1.2]]},
+	"supernova": {"grow": [], "stack": [["swell", 0.0, 0.8, "stacks", 0.06]], "pulse:nova": [["nova_boom", 0.0, 1.0]]},
+	"jackpot": {"spin": [["slot_spin", 0.0, 1.0]], "rays:coin": [["coins", 0.0, 1.0]], "beam": [["zap", -2.0, 1.3]]},
+	"kraken": {"pulse:inkslam": [["tentacle_slap", 0.0, 1.0]], "hug": [["squelch", 0.0, 1.0]], "damage:inkpool": []},
+	"stormwing": {"storm": [["thunder", 0.0, 1.0]], "beam": [], "stun": []},
+	"foxfire": {"illusions": [["fox_whisper", 0.0, 1.0]], "pulse:fire": [["fwoomp", 0.0, 1.2]], "swap": [["fox_whisper", -4.0, 1.3]]},
+	"frostfang": {"charge": [["howl", 0.0, 1.0]], "stun": [["ice_lock", 0.0, 1.0]], "pulse:shards": [["shatter", -2.0, 1.2]]},
+	"narwhal": {"charge": [["whale_call", 0.0, 1.0]], "beam": [["twinkle", -4.0, 0.9]], "lance": [["snap", 0.0, 1.1], ["shing", -4.0, 1.0]]},
+	"eclipse": {"mode": [["eclipse_flip", 0.0, 1.0]], "pulse:flare": [], "heal": [], "damage:burn": []},
+	"bonbon": {"wrap": [["ribbon", 0.0, 1.0]], "wrap_pop": [["confetti_pop", 0.0, 1.0]], "stun": [], "pulse:confetti": []},
+}
+## The voice and knock family per critter (see sim/families.gd).
 const Families := preload("res://sim/families.gd")
 ## Pitch of the edge-hit zing per attacking family, so each family's edge
 ## sounds its own; a very good hit goes a step higher still.
@@ -101,6 +289,7 @@ const VICTORY_GRACE := 1.6
 const BIG_HIT_SHARE := 0.18
 const LOW_HP_SHARE := 0.35
 const HEARTBEAT_EVERY := 0.85
+const SIM_DT := 1.0 / 60.0 ## consume_events runs once per sim step.
 
 var mode := "all"
 ## Set while a fight is on screen, for the overtime cue and low-HP pulse.
@@ -127,6 +316,8 @@ var _was_overtime := false
 var _heartbeat_in := 0.0
 var _rain_in := 0.0
 var _drum_beat := 0 ## Alternates Drum's wall taps between two pitches.
+var _tick_in := 0.0 ## Seconds to the next overtime clock tick.
+var _zones_heard := {} ## Instance ids of the floor zones already sounded.
 var _rng := RandomNumberGenerator.new() ## Render-side only: never the sim's.
 var _clock := 0.0
 var _toggle: Button
@@ -138,6 +329,9 @@ var toggle_hidden := false:
 		if _toggle:
 			_toggle.visible = not toggle_hidden
 var _board: Control
+## When set, play() appends [name, file, dB, pitch, time] here instead of
+## playing (tools/sfx/sound_audit.gd, tools/sfx/fight_clip.gd).
+var record = null
 
 
 func _init() -> void:
@@ -246,6 +440,7 @@ func on_fight_start(sim) -> void:
 	_was_overtime = false
 	_heartbeat_in = 0.0
 	_menu_pending = false
+	_zones_heard = {}
 	play("go")
 	play_music("fight")
 
@@ -266,68 +461,72 @@ func on_result(winner: int) -> void:
 
 ## Turns one sim step's events into sound.
 func consume_events(events: Array[Dictionary], sim) -> void:
+	_zone_cues(sim)
 	for e in events:
+		var owner = _owner(e, sim)
+		var cues = _critter_cues(e, owner)
+		if cues != null:
+			for c in cues:
+				var pitch: float = c[2]
+				if c.size() > 3:
+					var amount: float = _speed_share(owner) if c[3] == "speed" else float(e.get(c[3], 0))
+					pitch += c[4] * amount
+				play(c[0], c[1], pitch)
+			if not cues.is_empty() and owner.def.get("tier", 1) >= 5 and not e.type in ["damage", "bounce", "collide", "heal"]:
+				play("t5_shine") # A T5 ability rings with a little gold on top.
+			if e.type != "damage":
+				continue
 		match e.type:
 			"collide":
 				var a = sim.balls[e.a]
 				var b = sim.balls[e.b]
 				var avg_radius: float = (a.radius + b.radius) / 2.0
-				play("hit", 0.0, clampf(64.0 / avg_radius, 0.7, 1.4))
+				# Harder bumps ring louder: closing speed against a typical bump.
+				var force := clampf((a.vel - b.vel).length() / 900.0, 0.0, 1.0)
+				play("hit", lerpf(-6.0, 1.0, force), clampf(64.0 / avg_radius, 0.7, 1.4))
+				for ball in [a, b]: # Each side's family material under the bonk.
+					var fam := Families.of(ball.type_id)
+					if fam != "":
+						play("knock_" + fam, lerpf(-4.0, 0.0, force), clampf(64.0 / ball.radius, 0.75, 1.3))
 			"damage":
 				var target = sim.balls[e.target]
 				if e.get("backstab", false):
 					play("backstab")
 				if e.get("crit", false):
 					play("crit", 0.0, 1.0 if e.kind == "contact" else 1.25)
-				var src: String = sim.balls[e.source].type_id if e.get("source", -1) >= 0 and e.source < sim.balls.size() else ""
 				var edge: int = e.get("edge", 0)
-				if edge > 0 and src != "": # The family edge rings over the hit.
-					play("zing", 0.0 if edge == 2 else -3.0, ZING_PITCH.get(Families.of(src), 1.0) * (1.26 if edge == 2 else 1.0))
-				if e.kind == "beam":
+				if edge > 0 and owner != null: # The family edge rings over the hit.
+					play("zing", 0.0 if edge == 2 else -3.0, ZING_PITCH.get(Families.of(owner.type_id), 1.0) * (1.26 if edge == 2 else 1.0))
+				if cues != null:
+					pass # The critter's own sound is the hit's body.
+				elif e.kind == "beam":
 					play("sizzle")
-				elif src == "juggernaut" and e.kind in ["contact", "slam"]: # Boulder.
-					play("thwomp", 0.0, 1.0 if e.kind == "contact" else 0.85)
 				elif e.amount >= target.max_hp * BIG_HIT_SHARE:
 					play("hit_big")
-				if src in ["vampire", "munch"] and e.kind == "contact": # Count Nibbles and Munch bite.
-					play("chomp", 0.0, 1.0 if src == "vampire" else 0.85)
-				elif src == "zapper" and e.kind == "zap": # Its coil arc.
-					play("crackle", 0.0, 1.0)
-				elif src == "swarm" and e.kind != "contact": # A bee sting.
-					play("buzz", 0.0, 1.0 + _rng.randf() * 0.2)
-				elif src == "mammoth" and e.kind == "contact": # A heavy shove.
-					play("thwomp", -3.0, 1.15)
-				elif src == "glowbug" and e.kind != "contact": # Its light-bug's sting.
-					play("crackle", -4.0, 1.5)
-				# Each critter file names its ouch voice and pitch, so new critters
-				# reuse the existing chirps.
+				# Each critter file names its ouch voice (its family's) and pitch.
 				if target.alive() and target.def.ouch != "":
 					play(target.def.ouch, 0.0, target.def.voice_pitch)
 			"heal":
 				play("slurp")
 				play("heal", 0.0, 1.0 + clampf(e.amount / 20.0, 0.0, 0.3))
 			"bounce":
-				play("wall", 0.0, 0.9 + _rng.randf() * 0.25)
-				if e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "drum": # A little beat off the walls.
+				# A faster ball rings the wall a little higher.
+				var ball = sim.balls[e.ball] if e.ball < sim.balls.size() else null
+				play("wall", 0.0, 0.85 + 0.35 * _speed_share(ball) + _rng.randf() * 0.15)
+				if ball != null and ball.type_id == "drum": # A little beat off the walls.
 					_drum_beat += 1
 					play("drum", -6.0, 1.5 if _drum_beat % 2 else 1.2)
 			"beam":
-				var who: String = sim.balls[e.owner].type_id if e.get("owner", -1) >= 0 and e.owner < sim.balls.size() else ""
-				if who == "comet": # A shooting star.
-					play("twinkle")
-				elif who == "zigzag": # Its path turning to lightning.
-					play("crackle", -3.0, 1.2)
-				elif who == "drako":
-					pass # The breath already roared.
-				else:
-					play("zap")
+				play("zap")
 			"flip":
 				play("flip", 0.0, 1.0 if e.pulling else 0.85)
 			"snap":
 				play("snap")
 			"boom", "pulse":
 				var kind: String = e.get("kind", "")
-				if kind in ["zap", "bigzap"]:
+				if e.type == "boom": # A mine or bomb going off.
+					play("kaboom", 0.0, 1.0)
+				elif kind in ["zap", "bigzap"]:
 					play("crackle", 0.0, 1.15 if kind == "zap" else 0.8)
 				elif kind == "drum":
 					play("drum", 0.0, 0.9)
@@ -361,8 +560,16 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("hit_big", -4.0, 1.2)
 				elif kind == "quasar":
 					play("hum")
+				elif kind in ["nova", "thunder"]:
+					play("nova_boom", 0.0, 1.0 if kind == "nova" else 1.3)
+				elif kind == "frost": # Yeti's avalanche (the roar plays too).
+					play("snow_burst", -2.0, 0.8)
+				elif kind == "fire":
+					play("fwoomp")
+				elif kind == "ink":
+					play("squirt")
 				else:
-					play("hit_big", 0.0, 0.8 if e.type == "boom" else PULSE_PITCH.get(kind, 1.1))
+					play("hit_big", 0.0, PULSE_PITCH.get(kind, 1.1))
 			"reflect":
 				play("hit", -4.0, 1.5)
 			"ricochet": # A Ricochet Core's boosted bump.
@@ -373,31 +580,37 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("sizzle", -6.0, 0.8)
 			"portal":
 				play("flip", 0.0, 1.6)
+			"bumper": # An arena bumper: a pinball 'ding'.
+				play("pinball_ding", -2.0, 0.8)
 			"shot":
 				if e.kind == "pea":
 					play("pew")
-				elif e.kind == "blob" and e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "brewster":
-					play("glug", 0.0, 0.95 + _rng.randf() * 0.15)
 				elif e.kind == "pearl":
 					play("pew", 0.0, 0.7)
-				elif e.kind == "shell" and e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "mortar":
-					play("cannon", 0.0, 0.95 + _rng.randf() * 0.1)
 				elif e.kind == "stinger":
 					play("buzz", -2.0, 1.5)
 				else:
 					play("launch", -6.0, 1.8 if e.kind != "shell" and e.kind != "blob" else 0.9)
+			"shot_pop":
+				play("bubble_pop", -4.0, 0.8)
 			"shut": # Clam clamping shut.
 				play("clunk", 0.0, 1.3)
 			"salvo", "mega":
 				play("snap", 0.0, 0.7)
 			"phase":
 				play("flip", 0.0, 1.4)
-			"ambush", "copy":
+			"ambush":
+				play("spook_hit")
+			"copy":
 				play("snap", 0.0, 1.25)
 			"revive":
 				play("heal", 0.0, 0.8)
+				play("fwoomp", 0.0, 0.8)
 			"honey_lob": # Honey T5 lobbing a glob.
 				play("glug", 0.0, 1.3)
+			"honey_crush":
+				play("honey_squelch", 0.0, 0.8)
+				play("thwomp", -4.0, 1.2)
 			"heard": # Sonar T5 locking on.
 				play("sonar", 0.0, 1.3)
 			"split": # Splitter tearing in two: a gooey stretch and a pop.
@@ -414,12 +627,13 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"unwind":
 				play("snap", 0.0, 0.8)
 			"pop":
-				if e.ball < sim.balls.size() and sim.balls[e.ball].type_id == "fizz":
-					play("fizzpop")
-				else:
-					play("flip", 0.0, 1.8)
-			"stun":
-				play("zap", 0.0, 0.6)
+				play("flip", 0.0, 1.8)
+			"stun": # Cartoon birdies round a stunned head.
+				play("dizzy")
+			"shield":
+				play("shield_up")
+			"shield_hit", "shielded":
+				play("shield_tink")
 			"wrap":
 				play("stretch", 0.0, 1.3)
 			"spike_burst":
@@ -433,13 +647,12 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("shatter")
 				play("hit_big", -4.0, 0.9)
 			"storm": # Thunderbird's storm: a big electric crack.
-				play("crackle", 0.0, 0.7)
-				play("sizzle", -4.0, 0.8)
+				play("thunder")
 			"stack": # Stacks and forms: a rising tick per stack.
 				if e.up:
 					play("flip", -6.0, 1.1 + 0.08 * e.stacks)
 			"burp":
-				play("hit_big", 0.0, 0.7)
+				play("burp")
 			"roar":
 				play("roar")
 				play("hit_big", -4.0, 0.7)
@@ -466,7 +679,7 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("zap", 0.0, 1.5)
 			"charge":
 				play("launch", -3.0, 1.2)
-			"tether", "yank":
+			"tether", "yank", "tug":
 				play("stretch", 0.0, 0.8 if e.type == "tether" else (0.9 if e.get("big", false) else 1.2))
 			"tether_end", "bow":
 				play("click", 0.0, 0.7)
@@ -481,7 +694,7 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"gear": # Gearbox shifting up, a little higher each gear.
 				play("clunk", -3.0, 0.8 + 0.15 * e.gear)
 			"dig":
-				play("flip", 0.0, 0.6)
+				play("dig")
 			"clod":
 				play("hit", -6.0, 0.7)
 			# Batch H set pieces reuse existing sounds at their own pitch.
@@ -490,8 +703,14 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("rustle", -2.0, 1.3)
 				elif e.kind == "seed": # Sprout's sapling popping up.
 					play("rustle", -3.0, 1.6)
+				elif e.kind == "root":
+					pass # Old Oak's root already creaks.
+				elif e.kind == "ice": # Glacia's pillars rising.
+					play("snowflake", -2.0, 0.8)
 				elif e.kind != "illusion":
 					play("wall", -3.0, 0.7)
+			"piece_break":
+				play("crunch", -2.0, 0.7)
 			"rays":
 				if e.kind == "shard": # Glacia's ice shards.
 					play("shatter", -3.0, 1.3)
@@ -510,13 +729,87 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("flip", 0.0, 1.3)
 			"spin":
 				play("crit", 0.0, 1.3 if e.prizes.size() > 1 else 1.1)
+			"overcharge": # An Overcharge charm's boosted hit.
+				play("crackle", -3.0, 1.3)
+			"spawn": # A boss's minion joining in.
+				play("summon_pop", -4.0, 0.8)
+			# Boss set pieces.
+			"boss_windup": # A boss winding up a big move: a rising suck.
+				play("void_suck", -4.0, 1.2)
+			"glitch_warp", "glitch_phase":
+				play("warp_8bit", 0.0, 0.8 if e.type == "glitch_phase" else 1.0)
+			"egg_lay":
+				play("summon_land", 0.0, 0.8)
+			"egg_crack":
+				play("candy_clack", 0.0, 0.7)
+			"egg_hatch":
+				play("summon_pop", 0.0, 0.7)
+			"wyrm_shine":
+				play("twinkle", -4.0, 0.8)
+			"boss_fizzle":
+				play("snuff")
 			"end":
 				if e.reason != "time_limit":
 					play("ko")
+					play("ko_final")
+					for ball in sim.balls: # The loser's voice, long and low, as it pops.
+						if not ball.alive() and ball.def.get("ouch", "") != "":
+							play(ball.def.ouch, 2.0, ball.def.voice_pitch * 0.7)
+							break
 	if not _was_overtime and sim.in_overtime():
 		_was_overtime = true
+		_tick_in = 0.0
 		play("overtime")
 		play_music("overtime")
+	if _was_overtime and not sim.finished:
+		# A clock ticking faster and faster the longer overtime runs.
+		_tick_in -= SIM_DT
+		if _tick_in <= 0.0:
+			play("ot_tick", 0.0, 1.0 + minf(0.4, (sim.time() - sim.overtime_start) * 0.02))
+			_tick_in = maxf(0.3, 1.0 - (sim.time() - sim.overtime_start) * 0.03)
+
+
+## The ball an event belongs to: a beam's owner, a hit's source, the ball it
+## names, or (heals and shields) its target. Null when there is none.
+func _owner(e: Dictionary, sim):
+	for key in ["owner", "source", "ball", "target"]:
+		var i: int = e.get(key, -1)
+		if i >= 0 and i < sim.balls.size():
+			return sim.balls[i]
+	return null
+
+
+## The owner critter's own cues for this event (CRITTER_CUES), or null.
+func _critter_cues(e: Dictionary, owner):
+	if owner == null or not CRITTER_CUES.has(owner.type_id):
+		return null
+	var table: Dictionary = CRITTER_CUES[owner.type_id]
+	if e.has("kind") and table.has("%s:%s" % [e.type, e.kind]):
+		return table["%s:%s" % [e.type, e.kind]]
+	return table.get(e.type, null)
+
+
+## A ball's speed over its base speed, 0 at base up to 1 at double.
+func _speed_share(ball) -> float:
+	if ball == null or ball.def.get("speed", 0.0) <= 0.0:
+		return 0.0
+	return clampf(ball.vel.length() / ball.def.speed - 1.0, 0.0, 1.0)
+
+
+## Floor zones that just appeared (Fuse's mines, Honey's drips): their
+## critter's "zone:<kind>" cue, once each.
+func _zone_cues(sim) -> void:
+	var seen := {}
+	for z in sim.zones:
+		var id: int = z.get_instance_id()
+		seen[id] = true
+		if _zones_heard.has(id) or z.owner < 0 or z.owner >= sim.balls.size():
+			continue
+		var cues = _critter_cues({"type": "zone:" + z.kind}, sim.balls[z.owner])
+		if cues != null:
+			for c in cues:
+				play(c[0], c[1], c[2])
+	_zones_heard = seen
 
 
 ## Plays a sound (any variant) unless its cap or min gap says to skip it.
@@ -535,7 +828,11 @@ func play(name: String, volume_db := 0.0, pitch := 1.0) -> void:
 	ends.append(_clock + stream.get_length() / pitch)
 	_ends[name] = ends
 	_last_start[name] = _clock
-	_start(stream, rule[2] + volume_db + _rng.randf_range(-1.5, 1.5), pitch)
+	var db: float = rule[2] + volume_db + _rng.randf_range(-1.5, 1.5)
+	if record != null:
+		record.append([name, stream.resource_path, db + MASTER_DB, pitch, _clock])
+		return
+	_start(stream, db, pitch)
 
 
 ## How many copies of a sound are playing now, by our own bookkeeping.

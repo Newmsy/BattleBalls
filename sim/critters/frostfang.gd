@@ -35,5 +35,5 @@ const CRITTER := {
 		{"text": "Every hit freezes · shatter x1.6 → 2.2", "now": "Every hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_max": 1, "shatter_mult": 2.2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "6fd3ff", "mouth": "fangs"}, "back": ["ears"], "front": ["ruff"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 0.8},
+	"sound": {"ouch": "ouch_frost", "pitch": 0.8},
 }

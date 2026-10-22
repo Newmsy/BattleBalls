@@ -34,5 +34,5 @@ const CRITTER := {
 		{"text": "+ Every 3rd brew is one huge puddle", "now": "Every {fire_cooldown}s {brew_count} blobs: burn {brew_dps}/s or slow {brew_slow%}% · 3rd huge", "brew_big_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["witchhat"], "front": ["pot"]},
-	"sound": {"ouch": "ouch_vampire", "pitch": 1.0},
+	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},
 }

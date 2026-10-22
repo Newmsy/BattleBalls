@@ -33,5 +33,5 @@ const CRITTER := {
 		{"text": "+ The flare adds a spinning cross", "now": "2 spinning beams {quasar_dps}/s; cross flare to the walls every 6s", "quasar_cross": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "none"}, "back": ["jets"], "front": ["core"]},
-	"sound": {"ouch": "ouch_laser", "pitch": 0.8},
+	"sound": {"ouch": "ouch_cosmic", "pitch": 0.8},
 }
