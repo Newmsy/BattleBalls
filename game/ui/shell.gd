@@ -17,6 +17,7 @@ const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const TouchInput := preload("res://game/ui/touch_input.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 
 const SCREENS := {
@@ -104,6 +105,12 @@ var glow
 var current := ""
 var current_params := {}
 var _stack: Array = []
+## Pictures of the screens under the current one (one per _stack entry below
+## the top, null when not taken), for the swipe back (TouchInput).
+var _snaps: Array = []
+var _shown_at := 0 ## Frame the current screen was built on.
+var _tabs: Control ## The tab bar.
+const SNAP_DEPTH := 4 ## Only the nearest few are kept; deeper ones go back without a picture.
 var _tab := "play"
 var _holder: Control
 var _column := 664.0 ## Width the current screen gets: the phone column inside its side margins.
@@ -176,7 +183,8 @@ func build() -> void:
 	_footer.add_theme_constant_override("margin_bottom", 14)
 	_footer.visible = false
 	col.add_child(_footer)
-	col.add_child(_tab_bar())
+	_tabs = _tab_bar()
+	col.add_child(_tabs)
 	_overlay = Control.new()
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -214,13 +222,32 @@ func show_tab(t: String) -> void:
 func open_tab(t: String, params: Dictionary) -> void:
 	_tab = t
 	_stack = [[t, params]]
+	_snaps = []
 	_show(t, params)
 
 
 ## Open a screen on top of the current one (Back returns to it).
 func go(name: String, params := {}) -> void:
+	# Only a screen that has been on screen for a frame (not one built this
+	# frame, with the last scene's picture still in the viewport).
+	var shown := not overlay_open() and Engine.get_frames_drawn() > _shown_at + 1
+	_snaps.append(TouchInput.snapshot(self) if shown else null)
+	if _snaps.size() > SNAP_DEPTH:
+		_snaps[_snaps.size() - SNAP_DEPTH - 1] = null
 	_stack.append([name, params])
 	_show(name, params)
+
+
+## The picture of the screen Back would return to, for the swipe back to slide
+## the current screen off (empty when there isn't one: a sheet is open, or
+## it's a tab's own screen).
+## With the part of the screen that slides: between the top bar and the tab
+## bar, which stay put, as on iOS.
+func back_preview() -> Dictionary:
+	if overlay_open() or _stack.size() < 2 or _snaps.size() != _stack.size() - 1 or _snaps[-1] == null:
+		return {}
+	var top := _holder.get_global_rect().position.y
+	return {"texture": _snaps[-1], "rect": Rect2(0.0, top, size.x, _tabs.get_global_rect().position.y - top)}
 
 
 ## What Back (or a swipe in from the left edge) does now: close a sheet, or
@@ -233,6 +260,8 @@ func back_action() -> Callable:
 
 func back() -> void:
 	_stack.pop_back()
+	if not _snaps.is_empty():
+		_snaps.pop_back()
 	if _stack.is_empty():
 		show_tab(_tab)
 		return
@@ -491,6 +520,7 @@ func _show(name: String, params: Dictionary) -> void:
 		Analytics.track("screen", {"name": name})
 	current = name
 	current_params = params
+	_shown_at = Engine.get_frames_drawn()
 	_marks.clear()
 	_share.clear()
 	for c in _holder.get_children():

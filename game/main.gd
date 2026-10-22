@@ -314,7 +314,7 @@ func _ready() -> void:
 	print("BOOT_OK build=", _build_stamp(), " reduced_motion=", A11y.reduced_motion)
 	_build_shell()
 	TouchInput.ensure(self)
-	TouchInput.set_back(self, _swipe_back)
+	TouchInput.set_back(self, _swipe_back, func(): return shell.back_preview() if shell_layer != null and shell_layer.visible else {})
 	if pve_param != "":
 		_start_url_stage()
 	elif _wants_tutorial():
