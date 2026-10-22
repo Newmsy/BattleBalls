@@ -9,6 +9,7 @@ extends RefCounted
 const Kit := preload("res://game/ui/ui_kit.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Lineup := preload("res://sim/lineup.gd")
+const Roster := preload("res://game/ui/roster.gd")
 const ART_SHRINK := .7
 
 
@@ -59,3 +60,23 @@ static func pill_text(tier: int, level := 0) -> String:
 ## "T2 Lv14 Optic · 1,250 power", for text-only spots like the fight scene.
 static func text(name: String, tier: int, power: int, level := 0) -> String:
 	return "%s %s · %s power" % [pill_text(tier, level), name, Kit.commas(power)]
+
+
+## A critter's face with its name beside it, for rows that used to show the
+## name alone ("Your trio", "Next foe", "Worn by").
+static func named(critter: String, side: float, font := 22, color := Kit.FG, tier := 1, name := "") -> HBoxContainer:
+	var label := Kit.label(name if name != "" else Roster.get_critter(critter).name, font, color)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return Kit.hbox(6, [CritterIcon.face(critter, side, tier), label], BoxContainer.ALIGNMENT_BEGIN)
+
+
+## Several critters as faces with names, wrapping onto a second line when
+## they don't fit.
+static func named_row(critters: Array, side: float, font := 22, color := Kit.FG, tier := 1) -> HFlowContainer:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 16)
+	flow.add_theme_constant_override("v_separation", 6)
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for id in critters:
+		flow.add_child(named(id, side, font, color, tier))
+	return flow

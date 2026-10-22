@@ -69,7 +69,7 @@ static func build(shell, params: Dictionary) -> Control:
 		var wished: bool = p.on_wishlist(c.id)
 		var wish := Kit.button("Wishlisted" if wished else "+ Wishlist", func():
 			if p.toggle_wishlist(c.id):
-				shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"])
+				shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"], c.id)
 			else:
 				shell.toast("Wishlist full (3/3).")
 			shell.refresh(), "ghost", 26, 90)

@@ -76,7 +76,7 @@ static func _cell(shell, id: String, tags: Dictionary, current: String, on_pick:
 	var picked: bool = id == current
 	var tile := Kit.card_button(cell, func():
 		if lock:
-			shell.toast(lock_toast % str(c.name))
+			shell.toast(lock_toast % str(c.name), id)
 			return
 		shell.close_overlay()
 		if on_pick.is_valid():

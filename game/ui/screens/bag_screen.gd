@@ -7,6 +7,7 @@ const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Gear := preload("res://sim/gear.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
@@ -144,10 +145,10 @@ static func _gear_tile(shell, st: Dictionary) -> Control:
 
 static func _equip(shell, g: Dictionary, c: Dictionary) -> void:
 	if not shell.profile.equip(g.uid, c.id):
-		shell.toast("Charm slot unlocks when %s reaches %d stars." % [c.name, Gear.CHARM_TIER])
+		shell.toast("Charm slot unlocks when %s reaches %d stars." % [c.name, Gear.CHARM_TIER], c.id)
 		return
 	shell.close_overlay()
-	shell.toast("%s equipped to %s." % [g.name, c.name])
+	shell.toast("%s equipped to %s." % [g.name, c.name], c.id)
 	shell.refresh()
 	if Intro.step(shell.profile) == Intro.EQUIP and Intro.reach(shell.profile, Intro.FIGHT_3):
 		Intro.to_campaign(shell)
@@ -186,9 +187,11 @@ static func _gear_sheet(shell, g: Dictionary) -> void:
 	var p = shell.profile
 	var col := tier_color(g.tier)
 	var info := Kit.vbox(6, [Kit.label(g.name, 36), Kit.hbox(10, [Glyph.make("stars", 26, col, g.tier), Kit.chip(g.slot, col)], BoxContainer.ALIGNMENT_CENTER)])
-	var wearer: String = "Not equipped" if g.on == "" else "Worn by " + Roster.get_critter(g.on).name
+	var wearer: Control = Kit.label("Not equipped", 22, Kit.MUTED)
+	if g.on != "":
+		wearer = Kit.hbox(8, [Kit.label("Worn by", 22, Kit.MUTED), FighterTag.named(g.on, 44, 22, Kit.FG)], BoxContainer.ALIGNMENT_BEGIN)
 	var v := Kit.vbox(18, [Kit.hbox(18, [Glyph.make(g.type, 110, col), info]), Kit.label(g.text, 28, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
-		Kit.label(wearer, 22, Kit.MUTED)])
+		wearer])
 	var buttons := Kit.hbox(12)
 	var equip := Kit.button("Equip to" if g.on == "" else "Move to", _equip_pick.bind(shell, g), "primary", 26, 84)
 	equip.size_flags_horizontal = Control.SIZE_EXPAND_FILL

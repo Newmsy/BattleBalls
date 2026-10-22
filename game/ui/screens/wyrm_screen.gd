@@ -88,7 +88,7 @@ static func _lure(shell, id: String) -> void:
 	if not p.use_lure(id):
 		shell.toast("Need %d more Lures" % (p.lure_cost(id) - p.lures))
 		return
-	shell.toast("Lured %s!" % name)
+	shell.toast("Lured %s!" % name, id)
 	shell.refresh()
 
 

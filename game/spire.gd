@@ -223,12 +223,18 @@ func _show_result() -> void:
 	sfx.on_result(0 if r.won else 1)
 	var headline := _label("FLOOR %d CLEARED!" % r.floor if r.won else "NOT THIS TIME", 52)
 	headline.modulate = Color("45f5a6") if r.won else Color("ff5a7a")
-	var names: Array = r.spent.map(func(id): return BallDefs.get_def(id).display_name)
-	info_label.text = "Stamina used: %s" % ", ".join(names) if not names.is_empty() else ""
+	info_label.text = ""
+	# Who spent stamina, as faces: the names alone were a wall of text.
+	var spent := Kit.hbox(10, [Kit.label("Stamina used", 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	for id in r.spent:
+		spent.add_child(CritterIcon.face(id, 48))
 	print("SPIRE_RESULT floor=%d won=%s hash=%s" % [r.floor, r.won, relay.state_hash()])
 	var back := _button("Back", _back, 36)
 	back.name = "SpireBack"
-	_set_panel([headline, _reward_row(r.floor), back] if r.won else [headline, back])
+	var rows: Array = [headline, _reward_row(r.floor)] if r.won else [headline]
+	if not r.spent.is_empty():
+		rows.append(spent)
+	_set_panel(rows + [back])
 
 
 ## The floor's reward as icons and numbers; it's added to your stock back on the Spire screen.

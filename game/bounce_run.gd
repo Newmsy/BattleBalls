@@ -19,6 +19,7 @@ const BoonIcon := preload("res://game/ui/boon_icon.gd")
 const BounceBoard := preload("res://game/online/bounce_board.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const A11y := preload("res://game/a11y.gd")
+const FighterTag := preload("res://game/ui/fighter_tag.gd")
 
 enum State { DRAFT, START_BOONS, FLOOR, AIM, FIGHT, RESULT, BOON, OVER }
 
@@ -253,8 +254,8 @@ func _show_start_boons() -> void:
 	start.disabled = start_picks.size() != BounceRun.START_BOONS
 	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_start", start)
-	var trio := Kit.label("Your trio: %s" % ", ".join(picks.map(func(i): return _name(setup.cards[i].critter))),
-		22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var trio := Kit.hbox(12, [Kit.caption("Your trio"),
+		FighterTag.named_row(picks.map(func(i): return setup.cards[i].critter), 44, 22)], BoxContainer.ALIGNMENT_CENTER)
 	_set_page([trio, grid, Kit.hbox(14, [start, Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
 
 
@@ -428,13 +429,21 @@ func _show_boon() -> void:
 		var id: String = run.offer[i]
 		var b := Boons.get_def(id)
 		var col: Color = Roster.RARITY_COLORS[b.rarity]
-		var who := ""
+		var who: Control = null
 		if b.has("for"):
-			who = "For %s only" % ", ".join(_trio_with(b.for))
+			# Faces, not just names: which of your three this boon is for.
+			who = FighterTag.named_row(_trio_with(b.for), 34, 20, Kit.MUTED)
+			for k in 2:
+				var word := Kit.label(["For", "only"][k], 20, Kit.MUTED)
+				word.custom_minimum_size.y = 34
+				word.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				who.add_child(word)
+				if k == 0:
+					who.move_child(word, 0)
 		var head := Kit.hbox(10, [Kit.label(b.name, 32, col), Kit.spacer(), Kit.chip(Roster.RARITY_NAMES[b.rarity], col)])
 		var text := Kit.vbox(4, [head, Kit.label(b.text, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
-		if who != "":
-			text.add_child(Kit.label(who, 20, Kit.MUTED))
+		if who != null:
+			text.add_child(who)
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var body := Kit.hbox(14, [BoonIcon.make(b.icon, b.rarity, 84), text])
 		var card := Kit.card_button(body, func(): _take_boon(id), col, Roster.rarity_bg(b.rarity, Kit.PANEL, 0.3 if b.rarity == "legendary" else 0.18), 28, 20)
@@ -443,7 +452,10 @@ func _show_boon() -> void:
 	if not run.boons.is_empty():
 		items.append(Kit.caption("Your boons"))
 		items.append(_boon_strip(run.boons, 52))
-	items.append(Kit.label("Next: %s %s" % [setup.floors[run.floor].title, _name(setup.floors[run.floor].critter)], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	var next_foe: Dictionary = setup.floors[run.floor]
+	var next_words := Kit.label("Next: %s %s" % [next_foe.title, _name(next_foe.critter)], 22, Kit.MUTED)
+	next_words.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	items.append(Kit.hbox(8, [CritterIcon.face(next_foe.critter, 40), next_words]))
 	_set_page(items, "br_boon")
 	if up:
 		_show_tier_up(BounceRun.tier_at(run.floor))
@@ -1038,8 +1050,8 @@ func _trio_with(ability: String) -> Array:
 	var out: Array = []
 	for s in BounceRun.PICKS:
 		var c := BounceRun.card(setup, run, s)
-		if BallDefs.get_def(c.critter).ability == ability and not _name(c.critter) in out:
-			out.append(_name(c.critter))
+		if BallDefs.get_def(c.critter).ability == ability and not c.critter in out:
+			out.append(c.critter)
 	return out
 
 

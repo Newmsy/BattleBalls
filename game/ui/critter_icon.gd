@@ -59,6 +59,16 @@ static func make(id: String, tier_: int, side: float, pokeable_ := false, silhou
 	return icon
 
 
+
+## A small face for a line of text that names a critter (rows, sheets,
+## toasts): drawn once and filling its box, so long lists stay cheap. Taps
+## still open its card.
+static func face(id: String, side: float, tier_ := 1) -> Control:
+	var icon = make(id, tier_, side)
+	icon.still = true
+	icon.radius_frac = .44
+	return icon
+
 func _ready() -> void:
 	_phase = float(hash(critter_id + str(get_instance_id())) % 1000) / 100.0
 	var node := get_parent()
