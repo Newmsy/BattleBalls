@@ -174,6 +174,9 @@ var _bolts: Array[Dictionary] = [] ## Lightning: {from, to, age, seed}; ring one
 var _grow_flash := [0.0, 0.0] ## Prickles' spike flash.
 var _dot_seen: Array = [[], []] ## Damage-over-time looks each side already showed a popup for.
 const TRAIL_LEN := 18
+var _cool: Array[Dictionary] = [] ## Cool-factor one-off effects (see _cool_event).
+var _cool_seen := {} ## Cool-factor memory: per-ball counters and timers.
+var _flash := 0.0 ## White screen flash (thunder), 0..1.
 
 
 ## Tapping a ball in a running fight opens its mini Critterpedia card; the
@@ -269,6 +272,7 @@ func clear_effects() -> void:
 	_dot_seen = [[], []]
 	_trails = [[], []]
 	_wisps.clear()
+	_cool_clear()
 	_shake = 0.0
 	_hit = [0.0, 0.0]
 	_squash = [0.0, 0.0]
@@ -339,6 +343,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 	_fit_slots()
 	var hitters: Array = [] ## Balls that dealt damage this step, so a heal right after is life steal.
 	for e in events:
+		_cool_event(e)
 		match e.type:
 			"damage":
 				_hit[e.target] = HIT_LIFE
@@ -839,6 +844,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 						var ko := _cosmetic(1 - _side(b.index), "ko")
 						if not ko.is_empty():
 							_kos.append({"pos": b.pos, "r": b.radius, "item": ko, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+	_cool_after_events()
 	# Name a damage-over-time the moment it lands: BURN!, POISON!, BLEED!
 	for b in sim.balls:
 		if b.index >= sim.starters or b.index >= _dot_seen.size():
@@ -922,6 +928,7 @@ func advance_effects(delta: float) -> void:
 	for k in _rays:
 		k.age += delta
 	_rays = _rays.filter(func(k): return k.age < k.life)
+	_cool_advance(delta)
 	queue_redraw()
 
 
@@ -1003,8 +1010,11 @@ func _draw() -> void:
 
 	for z in sim.zones:
 		_draw_zone(z, s)
+		_draw_cool_zone(z, s)
+	_draw_cool_layer(s, true)
 	for p in sim.pieces:
 		_draw_piece(p, s, shake)
+		_draw_cool_piece(p, s)
 	for b in sim.balls:
 		_draw_lash(b, s)
 		_draw_prize_tells(b, s)
@@ -1017,7 +1027,7 @@ func _draw() -> void:
 				_draw_string(g.pos * s, sim.balls[i].pos * s)
 	for t in sim.tethers:
 		if sim.balls[t.owner].type_id == "gumdrop":
-			BattleFx.draw_gum_string(self, sim.balls[t.owner].pos * s, sim.balls[t.target].pos * s, _time)
+			_draw_gum_tether(t, s)
 		else:
 			_draw_string(sim.balls[t.owner].pos * s, sim.balls[t.target].pos * s)
 
@@ -1034,6 +1044,8 @@ func _draw() -> void:
 		elif sim.balls[beam.owner].def.get("beam_rainbow", 0):
 			col = Color.from_hsv(fmod(bi * 0.14 + _time * 0.5, 1.0), 0.7, 1.0)
 		bi += 1
+		if _draw_cool_beam(beam, a, b, k, bi):
+			continue
 		if sim.balls[beam.owner].type_id == "comet": # A shooting star.
 			BattleFx.draw_shooting_star(self, a, b, k, _time)
 			continue
@@ -1172,6 +1184,7 @@ func _draw() -> void:
 		BattleFx.draw_nova(self, k.pos * s, k.radius * s, k.age, k.color)
 	for k in _fx:
 		_draw_fx(k, s)
+	_draw_cool_layer(s, false)
 	for k in _rebirths:
 		if k.ball < sim.balls.size():
 			var g := sim.balls[k.ball]
@@ -2196,6 +2209,8 @@ func _draw_shot(shot, s: float) -> void:
 	var col: Color = sim.balls[shot.owner].def.color.lightened(0.25)
 	var p: Vector2 = shot.pos * s
 	var r: float = shot.radius * s
+	if _draw_cool_shot(shot, p, r, s):
+		return
 	if shot.lob:
 		var t: float = clampf(shot.age / shot.flight, 0.0, 1.0)
 		var land: Vector2 = shot.land * s
@@ -2284,12 +2299,14 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 	var p: Vector2 = item.pos * s
 	var r: float = item.size * s
 	var col: Color = b.def.color
+	if _draw_cool_orb(b, item, p, r, s):
+		return
 	if item.look == "tentacle" and item.has("from"):
 		BattleFx.draw_tentacle(self, item.from * s, p, r, col, _time, (item.pos - b.pos).angle())
 		return
 	if item.has("from"):
 		if item.look == "wreck":
-			BattleFx.draw_chain(self, item.from * s, p, 9.0 * s * 1.6)
+			_draw_wreck_chain(b, item, s)
 		else:
 			draw_line(item.from * s, p, Color(col.lightened(0.25), 0.85), 4.0 * s, true)
 	if item.look == "candy" and b.type_id == "jawbreaker":
@@ -2431,8 +2448,8 @@ func _draw_piece(p, s: float, shake: Vector2) -> void:
 		CritterFx.draw_crumb(self, pos, rad, k, fmod(p.pos.x * 0.017 + p.pos.y * 0.011, TAU), _time)
 		return
 	var cols: Array = PIECE_COLORS.get(p.kind, [PILLAR.darkened(0.6), PILLAR.lightened(0.2)])
-	if p.kind == "seed":
-		BattleFx.draw_sapling(self, pos, p.radius * s, k, _time)
+	if p.kind == "seed": # A stalk unfurling its leaves, wilting as it ends.
+		BattleFx.draw_stalk(self, pos, p.radius * s, grow, clampf(1.0 - (p.life - p.age) / 0.8, 0.0, 1.0), _time)
 		return
 	if p.kind in ["root", "vine", "ice"]:
 		var seed := fmod(p.pos.x * 0.013 + p.pos.y * 0.007, TAU)
@@ -2546,7 +2563,7 @@ func _draw_status(b, s: float) -> void:
 			BattleFx.draw_comet_tail(self, p, r, b.vel, _time)
 		"mortar":
 			var f = sim.nearest_foe(b)
-			BattleFx.draw_barrel(self, p, r, (f.pos - b.pos) if f != null else Vector2.UP, 0.0)
+			BattleFx.draw_barrel(self, p, r, (f.pos - b.pos) if f != null else Vector2.UP, _cool_recoil(b))
 		"painter":
 			BattleFx.draw_paint_drips(self, p, r, _time)
 		"sonar":
@@ -2561,7 +2578,7 @@ func _draw_status(b, s: float) -> void:
 	if b.def.get("grow_armor", 0.0) > 0.0 and b.mods.has("grow"): # Shelly tucked in.
 		BattleFx.draw_shell(self, p, r, Color(b.def.color), _time)
 	elif b.type_id == "puff" and b.mods.has("grow"): # Puffed up.
-		BattleFx.draw_spines(self, p, r, Color(b.def.color), _time)
+		BattleFx.draw_spines_out(self, p, r, Color(b.def.color), _time, _puff_out(b))
 	if b.state.get("regrowing", false) and b.hp < b.max_hp: # Mossy's sparkles.
 		for k in 3:
 			var f := fmod(_time * 0.8 + k / 3.0, 1.0)
@@ -2599,7 +2616,7 @@ func _draw_status(b, s: float) -> void:
 	var slam: Dictionary = b.state.get("slam", {})
 	if not slam.is_empty() and int(slam.get("source", -1)) >= 0 and sim.balls[int(slam.source)].type_id == "puppeteer":
 		BattleFx.draw_thrown(self, p, r, b.vel, _time)
-	if sim.stunned(b) and not wrapped:
+	if sim.stunned(b) and not wrapped and not _draw_cool_stun(b, p, r):
 		var block := Rect2(p - Vector2(r, r) * 1.1, Vector2(r, r) * 2.2)
 		_rounded_rect(block, r * 0.25, Color(FROZEN, 0.35))
 		_rounded_rect_outline(block, r * 0.25, Color(FROZEN, 0.9), 3.0)
@@ -2630,6 +2647,7 @@ func _draw_status(b, s: float) -> void:
 		BattleFx.draw_pinball(self, p, r, int(b.state.get("lit", 0)), int(b.def.bulb_max), _time)
 
 	_draw_forms(b, p, r, s)
+	_draw_cool_status(b, p, r, s)
 
 
 ## Whether a live vulnerable status on `b` came from a `type_id` critter.
@@ -2724,6 +2742,801 @@ func _hp_badge(def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float
 	RarityMark.draw(self, rarity, Vector2(x + mark_w * 0.45, rect.position.y + h / 2.0), fs * 0.62, rim)
 	x += mark_w
 	draw_string(FONT, Vector2(x, rect.position.y + h / 2.0 + fs * 0.36), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, POP_DAMAGE.lightened(0.25) if low else Color.WHITE)
+
+
+# --- Cool factor: per-critter fight animation and art (ideas/critter-cool-factor.md) ---
+# Render-only: read from sim events and state, draw with BattleFx helpers.
+# One-off effects live in _cool ({kind, age, life, floor, ...}); an effect
+# with a negative age waits that long before it shows.
+
+const COOL_CAP := 48 ## At most this many one-off cool effects at once.
+const FACE_COLS := [Color("ff5a5a"), Color("5ab0ff"), Color("5aff8a"), Color("ffd23f")]
+const REEL_ICONS := {"mines": "cherry", "cross": "bell", "coins": "coin", "shield": "shield"}
+
+
+func _cool_add(fx: Dictionary) -> void:
+	if _cool.size() >= COOL_CAP:
+		_cool.pop_front()
+	if not fx.has("age"):
+		fx.age = 0.0
+	_cool.append(fx)
+
+
+func _cool_clear() -> void:
+	_cool.clear()
+	_cool_seen.clear()
+	_flash = 0.0
+
+
+func _type_of(i) -> String:
+	return sim.balls[int(i)].type_id if sim and i != null and int(i) >= 0 and int(i) < sim.balls.size() else ""
+
+
+## Screen flash (thunder): off with reduced motion.
+func _screen_flash(amount: float) -> void:
+	_flash = maxf(_flash, amount * A11y.motion())
+
+
+## Counts events of one kind from one ball within this sim tick.
+func _cool_count(key: String) -> int:
+	var rec: Array = _cool_seen.get(key, [-1, 0])
+	var n: int = int(rec[1]) + 1 if int(rec[0]) == sim.tick else 1
+	_cool_seen[key] = [sim.tick, n]
+	return n
+
+
+func _cool_event(e: Dictionary) -> void:
+	match e.type:
+		"damage":
+			var src := _type_of(e.get("source", -1))
+			if e.kind == "slam" and src in ["mammoth", "wrecker"]: # A crack where the wall took the slam.
+				_cool_add({"kind": "crack", "floor": true, "pos": e.pos, "life": 1.6, "ice": src == "mammoth", "seed": _fx_rng.randf() * TAU})
+		"heal":
+			var g := sim.balls[e.target]
+			if g.type_id == "vampire" and not e.get("boon", false):
+				var f = sim.nearest_foe(g)
+				if f != null:
+					_cool_add({"kind": "drain", "from": e.target, "foe": f.index, "life": 0.5})
+		"shot":
+			if e.ball >= sim.balls.size():
+				return
+			var g := sim.balls[e.ball]
+			var dir: Vector2 = (e.pos - g.pos).normalized() if e.pos.distance_to(g.pos) > 0.001 else _look[e.ball]
+			match g.type_id:
+				"pip": # Recoil: it squashes back and puffs smoke; T5's triple pops three flashes.
+					_squash[e.ball] = maxf(_squash[e.ball], 0.22)
+					_burst(g.pos - dir * g.radius * 0.8, 4, [Color(0.8, 0.8, 0.82, 0.7), Color(0.6, 0.6, 0.65, 0.6)], Vector2(30.0, 110.0), -dir, 1.4, Vector2(5.0, 9.0))
+					var n := _cool_count("pip%d" % e.ball)
+					_cool_add({"kind": "muzzle", "ball": e.ball, "dir": dir, "life": 0.16, "age": -0.09 * (n - 1)})
+					if n == 3:
+						_add_popup(g.pos + Vector2(-60, -g.radius - 50), "POP-POP-POP!", Color("8ac926"), 1.05)
+				"mortar":
+					_cool_seen["recoil%d" % e.ball] = _time
+					if _cool_count("mortar%d" % e.ball) == 3:
+						_add_popup(g.pos + Vector2(-60, -g.radius - 50), "BARRAGE!", POP_SNAP, 1.1)
+						_burst(g.pos + dir * g.radius * 1.2, 10, [Color(0.75, 0.75, 0.78, 0.7)], Vector2(40.0, 160.0), dir, 1.6, Vector2(7.0, 12.0))
+				"zing":
+					if _cool_count("zing%d" % e.ball) == 4:
+						_cool_add({"kind": "fan", "ball": e.ball, "dir": dir, "life": 0.35})
+						_add_popup(g.pos + Vector2(-46, -g.radius - 50), "SWARM!", BattleFx.ZIG, 1.05)
+		"salvo_lock", "salvo":
+			if _type_of(e.ball) == "megabot":
+				_cool_add({"kind": "hatch", "ball": e.ball, "life": 0.4})
+		"grow":
+			var g := sim.balls[e.ball]
+			if g.type_id == "crumb" and e.get("bigger", false): # The bitten-off chunk tumbles out.
+				var d := _rand_dir()
+				_cool_add({"kind": "cookie", "floor": true, "from": g.pos + d * g.radius * 0.8, "to": g.pos + d * (g.radius + 120.0), "size": g.radius * 0.35, "life": 2.0, "seed": _fx_rng.randf() * TAU})
+			elif g.type_id == "tumble" and e.get("bigger", false): # New twigs sprout.
+				_burst(g.pos, 6, [BattleFx.LEAF, BattleFx.LEAF_LIGHT, BattleFx.BARK], Vector2(60.0, 180.0), Vector2.ZERO, TAU, Vector2(3.0, 5.0))
+		"bounce":
+			var g := sim.balls[e.ball]
+			if g.type_id == "tumble": # Dust puffs off each bounce.
+				_burst(e.pos, 4, [Color("c9a27e", 0.7), Color("e8d5b5", 0.6)], Vector2(30.0, 120.0), (g.pos - e.pos).normalized(), 2.4, Vector2(5.0, 9.0))
+			elif g.type_id == "ripple": # Splash droplets.
+				_burst(e.pos, 6, [Color("bff8ff"), BattleFx.WATER], Vector2(80.0, 240.0), (g.pos - e.pos).normalized(), 2.0, Vector2(2.5, 4.5), 60.0)
+		"stack":
+			var g := sim.balls[e.ball]
+			if g.type_id == "totem" and e.up and int(e.stacks) >= 1:
+				_cool_add({"kind": "face", "ball": e.ball, "col": FACE_COLS[mini(int(e.stacks), 4) - 1], "life": 0.6})
+		"shout":
+			var g := sim.balls[e.ball]
+			if g.type_id == "totem":
+				_cool_add({"kind": "shout", "pos": g.pos, "radius": g.def.get("shout_radius", 160.0), "life": 0.5})
+		"pulse", "boom":
+			_cool_pulse(e)
+		"teleport":
+			if _type_of(e.ball) == "bolt":
+				var g := sim.balls[e.ball]
+				_cool_add({"kind": "scan", "pos": e.from, "r": g.radius, "out": true, "life": 0.3})
+				_cool_add({"kind": "scan", "pos": e.to, "r": g.radius, "out": false, "life": 0.3})
+				_add_popup(e.to + Vector2(0, -g.radius - 46), "!", Color("7ff3ff"), 1.3)
+		"chomp":
+			if _type_of(e.ball) == "fin":
+				_cool_add({"kind": "jaw", "ball": e.ball, "life": 0.4})
+		"mark":
+			if _type_of(e.ball) == "pounce":
+				_cool_add({"kind": "reticle", "target": e.target, "life": 0.35, "double": sim.balls[e.ball].state.get("remarked", false)})
+		"split":
+			if e.get("twin", -1) >= 0:
+				_cool_add({"kind": "zipper", "ball": e.ball, "twin": e.twin, "life": 0.6})
+		"shatter":
+			var g := sim.balls[e.ball]
+			if _tier_of(int(g.state.get("stun_source", e.ball))) >= 5:
+				_cool_add({"kind": "chunks", "pos": e.pos, "r": g.radius, "life": 0.7, "seed": _fx_rng.randf() * TAU})
+		"revive":
+			var g := sim.balls[e.ball]
+			if g.type_id == "phoenix":
+				_cool_add({"kind": "egg", "ball": e.ball, "life": 0.6})
+				if int(g.def.get("revive_lives", 1)) > 1:
+					_cool_add({"kind": "wings", "ball": e.ball, "life": 1.0})
+		"spin":
+			var g := sim.balls[e.ball]
+			var icons := []
+			if e.prizes.size() > 1:
+				icons = ["seven", "seven", "seven"]
+			else:
+				var ic: String = REEL_ICONS.get(e.prizes[0], "coin")
+				icons = [ic, ic, ic]
+			var stop: float = g.def.get("spin_delay", 0.5)
+			_cool_add({"kind": "reels", "ball": e.ball, "icons": icons, "stop": stop, "life": stop + 0.9, "shower": e.prizes.size() > 1})
+		"bubble_pop":
+			var g := sim.balls[e.ball]
+			if g.type_id == "bubbles":
+				_burst(g.pos, 12, [Color("9ff3f6"), Color.WHITE, Color("d6fbff")], Vector2(120.0, 300.0), Vector2.ZERO, TAU, Vector2(2.5, 4.5))
+				_cool_add({"kind": "splash", "floor": true, "pos": g.pos, "r": g.radius, "life": 0.8, "seed": _fx_rng.randf() * TAU})
+		"heard":
+			var src: int = e.get("source", -1)
+			if _type_of(src) == "sonar":
+				_cool_add({"kind": "wingflare", "ball": src, "life": 0.6})
+		"stun":
+			var src: int = e.get("source", -1)
+			if _type_of(src) == "blizz" and _tier_of(src) >= 5:
+				_cool_add({"kind": "crystals", "pos": e.pos, "r": sim.balls[e.ball].radius, "life": 0.6, "seed": _fx_rng.randf() * TAU})
+		"pucker":
+			var src: int = e.get("source", -1)
+			if _tier_of(src) >= 5:
+				_cool_add({"kind": "juice", "floor": true, "pos": e.pos, "life": 1.6})
+		"flip":
+			if _type_of(e.ball) == "magnet":
+				_cool_add({"kind": "flip", "ball": e.ball, "pulling": e.pulling, "life": 0.5})
+		"beam":
+			if _type_of(e.owner) == "comet" and _tier_of(e.owner) >= 5 and e.a.distance_to(e.b) > 1.0:
+				var r := sim.arena_rect()
+				var d: Vector2 = (e.b - e.a).normalized()
+				_cool_add({"kind": "streak", "from": e.a - d * Abilities._exit_t(r, e.a, -d), "to": e.a + d * Abilities._exit_t(r, e.a, d), "life": 0.5})
+		"swap":
+			if _type_of(e.ball) == "foxfire":
+				_cool_add({"kind": "puff", "pos": e.from, "r": sim.balls[e.ball].radius, "col": Color("6fb7ff"), "life": 0.5})
+		"mode":
+			var g := sim.balls[e.ball]
+			if g.type_id == "eclipse" and sim.tick < int(g.state.get("total_until", -1)):
+				_cool_add({"kind": "diamond", "ball": e.ball, "life": 0.6})
+		"gear":
+			var g := sim.balls[e.ball]
+			if g.type_id == "gearbox" and g.vel.length() > 0.001: # An exhaust puff per shift.
+				var back: Vector2 = -g.vel.normalized()
+				var turbo: bool = int(e.gear) >= 4
+				_burst(g.pos + back * g.radius, 6, [Color("8fb8ff"), Color("dff1ff")] if turbo else [Color(0.7, 0.7, 0.74, 0.7), Color(0.5, 0.5, 0.55, 0.6)], Vector2(40.0, 160.0), back, 1.0, Vector2(5.0, 9.0))
+		"launch":
+			var g := sim.balls[e.ball]
+			if g.type_id == "swarm" and g.state.get("bees_out", []).size() >= 3:
+				_cool_add({"kind": "cloud", "ball": e.ball, "life": 0.8})
+		"honey_lob":
+			if _type_of(e.get("source", -1)) == "honey":
+				_cool_add({"kind": "lobbee", "from": e.from, "pos": e.pos, "life": BattleFx.HONEY_LOB_LIFE})
+		"tether_end":
+			if _type_of(e.ball) == "gumdrop" and e.target < sim.balls.size():
+				_cool_add({"kind": "gumsnap", "from": sim.balls[e.ball].pos, "to": e.pos, "life": 0.35})
+		"rays":
+			if e.kind == "seed" and not e.segments.is_empty(): # Sprout T5: seeds pop like popcorn.
+				var at: Vector2 = e.segments[0][0]
+				_burst(at, 8, [Color("fff6e0"), Color("ffe08a"), Color.WHITE], Vector2(80.0, 240.0), Vector2.ZERO, TAU, Vector2(4.0, 7.0), 120.0)
+				_add_popup(at + Vector2(-20, -60), "POP!", Color("ffe08a"))
+		"shot_pop":
+			if _type_of(e.ball) == "pollen" and _tier_of(e.ball) >= 5:
+				_cool_add({"kind": "flower", "pos": e.pos, "life": 0.7, "seed": _fx_rng.randf() * TAU})
+		"ding", "tilt":
+			var g := sim.balls[e.ball]
+			var lit := int(e.get("lit", 0))
+			_add_popup(e.pos + Vector2(-40, -g.radius - 70), "+%d" % (50 * lit * (lit + 1)), Color("ffe066"), 1.1)
+			if e.type == "tilt":
+				_cool_add({"kind": "tilt", "life": 0.6})
+
+
+func _cool_pulse(e: Dictionary) -> void:
+	var owner := _type_of(e.get("ball", -1))
+	var kind: String = e.get("kind", "")
+	if e.type == "boom":
+		if owner == "bomber" and _tier_of(e.ball) >= 5: # Chain blasts go off like dominoes.
+			var n := _cool_count("boom%d" % e.ball)
+			_cool_add({"kind": "blast", "pos": e.pos, "r": e.radius, "life": 0.25, "age": -0.09 * (n - 1)})
+		elif owner == "mole":
+			_cool_add({"kind": "pile", "floor": true, "pos": e.pos, "life": 2.0, "seed": _fx_rng.randf() * TAU})
+		return
+	match kind:
+		"drum":
+			if owner == "drum":
+				var last: float = _cool_seen.get("drum%d" % e.ball, -9.0)
+				_cool_seen["drum%d" % e.ball] = _time
+				_cool_add({"kind": "sticks", "ball": e.ball, "life": 0.3})
+				_cool_add({"kind": "sound", "pos": e.pos, "radius": e.radius, "col": RING_COLORS.drum, "double": _time - last < 0.45, "life": 0.5})
+		"ink":
+			if owner == "ink": # The squid jets back as it squirts.
+				var g := sim.balls[e.ball]
+				_squash[e.ball] = maxf(_squash[e.ball], 0.3)
+				var back: Vector2 = -g.vel.normalized() if g.vel.length() > 0.001 else Vector2.DOWN
+				_burst(g.pos + back * g.radius, 10, [Color("8a5cc8"), Color("2a0f45")], Vector2(120.0, 320.0), back, 0.9, Vector2(4.0, 7.0))
+		"pulse":
+			if owner == "tumble":
+				_cool_add({"kind": "sticks_burst", "pos": e.pos, "r": sim.balls[e.ball].radius, "life": 0.8, "seed": _fx_rng.randf() * TAU})
+			elif owner == "magnet":
+				_bolts.append({"from": e.pos, "radius": e.radius, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
+			elif owner == "pollen":
+				_cool_add({"kind": "flower", "pos": e.pos, "life": 0.7, "seed": _fx_rng.randf() * TAU})
+		"tide":
+			_cool_add({"kind": "curl", "pos": e.pos, "radius": e.radius, "life": 0.7, "seed": _fx_rng.randf() * TAU})
+		"bigzap":
+			if owner == "drizzle":
+				_screen_flash(0.35)
+		"thunder":
+			if owner == "stormwing":
+				_screen_flash(0.4)
+		"shell":
+			if owner == "mortar":
+				_cool_add({"kind": "scorch", "floor": true, "pos": e.pos, "radius": e.radius * 0.6, "life": 2.5, "seed": _fx_rng.randf() * TAU})
+		"wave":
+			if owner == "bubbles":
+				_cool_add({"kind": "soap", "pos": e.pos, "radius": e.radius, "life": 0.6})
+		"bugflare":
+			if owner == "glowbug":
+				_cool_add({"kind": "firefly", "pos": e.pos, "life": 0.4})
+		"flare":
+			if owner == "gravity":
+				_cool_add({"kind": "halo", "pos": e.pos, "radius": e.radius, "life": 0.6})
+		"ping":
+			if owner == "sonar":
+				_cool_add({"kind": "echo", "pos": e.pos, "radius": e.radius, "life": BattleFx.SONAR_LIFE})
+
+
+## State changes between steps that have no event of their own.
+func _cool_after_events() -> void:
+	for b in sim.balls:
+		var i: int = b.index
+		match b.type_id:
+			"pinball": # Each lit bulb pops a score.
+				var lit := int(b.state.get("lit", 0))
+				var was := int(_cool_seen.get("lit%d" % i, 0))
+				if lit > was:
+					_add_popup(b.pos + Vector2(36, -b.radius - 20), "+%d" % (lit * 100), Color("ffe066"), 0.75)
+				_cool_seen["lit%d" % i] = lit
+			"ghost":
+				if b.alive() and sim.tick == int(b.state.get("phase_until", -1)):
+					_cool_add({"kind": "puff", "pos": b.pos, "r": b.radius, "col": Color("e3d6ff"), "life": 0.45})
+			"puff":
+				var puffed: bool = b.mods.has("grow")
+				if not puffed and _cool_seen.get("puffed%d" % i, false) and b.alive():
+					_cool_add({"kind": "whoosh", "ball": i, "life": 0.45})
+					_add_popup(b.pos + Vector2(-34, -b.radius - 34), "PFFT!", Color("e8fff0"))
+				if puffed and not _cool_seen.get("puffed%d" % i, false):
+					_cool_seen["puff_from%d" % i] = _time
+				_cool_seen["puffed%d" % i] = puffed
+
+
+func _cool_advance(delta: float) -> void:
+	_flash = maxf(0.0, _flash - delta * 2.5)
+	for k in _cool:
+		var before: float = k.age
+		k.age += delta
+		if k.kind == "reels" and k.shower and before < k.stop and k.age >= k.stop and sim != null and k.ball < sim.balls.size():
+			var g := sim.balls[k.ball] # 777: a shower of coins.
+			_burst(g.pos - Vector2(0, g.radius), 18, [Color("ffd23f"), Color("ffb627"), Color.WHITE], Vector2(160.0, 420.0), Vector2.UP, 2.2, Vector2(4.0, 7.0))
+	_cool = _cool.filter(func(k): return k.age < k.life)
+	if sim == null:
+		return
+	for b in sim.balls:
+		if b.type_id == "pounce" and b.alive() and b.state.has("mark") and sim.tick < int(b.state.get("pounce_at", -1)) and b.index < _squash.size():
+			# The butt-wiggle crouch before it leaps.
+			_squash[b.index] = maxf(_squash[b.index], (0.1 + 0.07 * sin(_time * 34.0)) * A11y.motion())
+		elif b.type_id == "blackhole" and b.alive():
+			var every := maxi(1, int(round(b.def.get("collapse_every", 8.0) * MatchSim.TICK_RATE)))
+			var k: float = 1.0 if b.state.get("collapsing", false) else float(sim.tick % every) / every
+			_cool_seen["disk%d" % b.index] = float(_cool_seen.get("disk%d" % b.index, 0.0)) + delta * (1.0 + 7.0 * k * k)
+
+
+## Floor-level cool art (under balls) when `ground`, else the effects on top.
+func _draw_cool_layer(s: float, ground: bool) -> void:
+	if ground:
+		_draw_cool_ground(s)
+	for k in _cool:
+		if k.age >= 0.0 and k.get("floor", false) == ground:
+			_draw_cool(k, s)
+	if not ground and _flash > 0.0:
+		var r := sim.arena_rect()
+		draw_rect(Rect2(r.position * s, r.size * s), Color(1, 1, 1, _flash))
+
+
+## Per-ball art under the balls: Yo-Yo's round-the-world, Optic's triangle,
+## Glacia's cage, Mole's lamp, Fin's wake, Gearbox's flame, Foxfire's tails,
+## Eclipse's arena tint.
+func _draw_cool_ground(s: float) -> void:
+	for b in sim.balls:
+		if not b.alive():
+			continue
+		var p := ball_pos(b) * s
+		var r: float = b.radius * s
+		match b.type_id:
+			"yoyo":
+				if sim.tick < int(b.state.get("swing_until", -1)) and b.state.has("anchor"):
+					var mirror: Vector2 = b.state.anchor
+					for it in Abilities.orb_items(sim, b):
+						if it.look == "yoyo":
+							mirror = it.pos
+					BattleFx.draw_around_world(self, b.state.anchor * s, p, mirror * s, int(b.def.get("yoyo_strings", 1)) >= 2, _time)
+			"laser":
+				if b.def.get("beam_link", 0) > 0:
+					var pts: Array[Vector2] = []
+					for beam in sim.beams:
+						if beam.owner == b.index and beam.strength() > 0.2:
+							for q in [beam.a, beam.b]:
+								if pts.all(func(o): return o.distance_to(q) > 8.0):
+									pts.append(q)
+					if pts.size() >= 3 and absf((pts[1] - pts[0]).cross(pts[2] - pts[0])) > 400.0:
+						Dot.poly(self, PackedVector2Array([pts[0] * s, pts[1] * s, pts[2] * s]), Color(BEAM, 0.12 + 0.05 * sin(_time * 8.0)))
+			"glacia":
+				var ring: Dictionary = b.state.get("ring", {})
+				if ring.get("spots", []).size() >= 8:
+					BattleFx.draw_crystal_cage(self, ring.spots.map(func(q): return q * s), _time)
+			"mole":
+				if b.state.get("digging", false) and sim.tick < int(b.state.get("phase_until", -1)):
+					BattleFx.draw_lamp_cone(self, p, r, b.vel, _time)
+			"fin":
+				var base: float = b.base.get("speed", b.speed)
+				if _tier_of(b.index) >= 5 and base > 0.0 and b.vel.length() > base * 1.1:
+					BattleFx.draw_wake(self, p, r, b.vel, _time)
+			"gearbox":
+				if int(b.state.get("gear", 0)) >= 4:
+					BattleFx.draw_exhaust_flame(self, p, r, b.vel, _time)
+			"eclipse":
+				var both: bool = sim.tick < int(b.state.get("total_until", -1))
+				var moon: bool = int(b.state.get("mode", 0)) == 1
+				var ar := sim.arena_rect()
+				var tint := Color("ffd29a") if not moon else Color("9aa8ff")
+				if both:
+					tint = Color("ffffff")
+				draw_rect(Rect2(ar.position * s, ar.size * s), Color(tint, 0.05))
+	for piece in sim.pieces:
+		if piece.kind == "illusion" and _type_of(piece.owner) == "foxfire":
+			var sink: float = clampf((piece.life - piece.age) / 0.3, 0.0, 1.0)
+			BattleFx.draw_foxfire_tail(self, piece.pos * s, piece.radius * s, piece.vel, _time + piece.pos.x * 0.01, sink)
+
+
+func _draw_cool(k: Dictionary, s: float) -> void:
+	var t: float = k.age / k.life
+	match k.kind:
+		"crack":
+			BattleFx.draw_wall_crack(self, k.pos * s, 70.0 * s, 1.0 - t, BattleFx.CRACK_ICE if k.ice else Color("c9c2b0"), k.seed)
+		"cookie":
+			BattleFx.draw_cookie_chunk(self, k.from * s, k.to * s, k.size * s, k.age, k.life, k.seed)
+		"scorch":
+			BattleFx.draw_scorch(self, k.pos * s, k.radius * s, 1.0 - t, k.seed)
+		"pile":
+			BattleFx.draw_dirt_pile(self, k.pos * s, 26.0 * s, 1.0 - t, k.seed)
+		"juice":
+			Dot.arc(self, k.pos * s, 110.0 * s * (0.6 + 0.4 * sqrt(t)), 0.0, TAU, 40, Color(Color("9b4dff"), 0.7 * (1.0 - t)), 8.0 * (1.0 - t) + 2.0, true)
+		"splash":
+			BattleFx.draw_floor_splash(self, k.pos * s, k.r * s, k.age, k.life, k.seed)
+		"drain":
+			if k.from < sim.balls.size() and k.foe < sim.balls.size():
+				BattleFx.draw_drain(self, ball_pos(sim.balls[k.foe]) * s, ball_pos(sim.balls[k.from]) * s, k.age, k.life)
+		"muzzle":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_muzzle(self, (ball_pos(g) + k.dir * g.radius * 1.1) * s, k.dir, g.radius * s * 0.35, t)
+		"fan":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				var a0: float = k.dir.angle()
+				Dot.arc(self, ball_pos(g) * s, g.radius * s * (1.3 + 1.2 * t), a0 - 0.7, a0 + 0.7, 16, Color(BattleFx.ZIG, 0.8 * (1.0 - t)), 5.0, true)
+		"hatch":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_hatches(self, ball_pos(g) * s, g.radius * s, sin(minf(1.0, t * 2.0) * PI * 0.5) * (1.0 - maxf(0.0, t - 0.7) / 0.3))
+		"face":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_face_slam(self, ball_pos(g) * s, g.radius * s, k.col, k.age, k.life)
+		"shout":
+			BattleFx.draw_shout(self, k.pos * s, k.radius * s, k.age, k.life)
+		"scan":
+			BattleFx.draw_scanline(self, k.pos * s, k.r * s, k.age, k.life, k.out)
+		"jaw":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				var d: Vector2 = _look[k.ball] if k.ball < _look.size() else Vector2.RIGHT
+				BattleFx.draw_shark_jaw(self, (ball_pos(g) + d * g.radius * 1.15) * s, d, g.radius * s * 0.6, k.age, k.life)
+		"reticle":
+			if k.target < sim.balls.size():
+				var g := sim.balls[k.target]
+				var land := minf(1.0, t * 1.6)
+				BattleFx.draw_reticle(self, ball_pos(g) * s, g.radius * s, land, (1.0 - land) * 2.0, MARK)
+				if k.double:
+					BattleFx.draw_reticle(self, ball_pos(g) * s, g.radius * s * 1.25, land, PI / 4.0 - (1.0 - land) * 2.0, Color("ffb627"))
+		"zipper":
+			if k.twin < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_zipper(self, ball_pos(g) * s, ball_pos(sim.balls[k.twin]) * s, g.radius * s, k.age, k.life)
+		"chunks":
+			BattleFx.draw_ice_chunks(self, k.pos * s, k.r * s, k.age, k.life, k.seed)
+		"egg":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_ember_egg(self, ball_pos(g) * s, g.radius * s, k.age, k.life)
+		"wings":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_fire_wings(self, ball_pos(g) * s, g.radius * s, k.age, k.life, _time)
+		"reels":
+			if k.ball < sim.balls.size() and sim.balls[k.ball].alive():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_reels(self, ball_pos(g) * s, g.radius * s, k.age, k.stop, k.icons, _time)
+		"wingflare":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_wing_flare(self, ball_pos(g) * s, g.radius * s, k.age, k.life)
+		"crystals":
+			BattleFx.draw_crystal_burst(self, k.pos * s, k.r * s, k.age, k.life, k.seed)
+		"flip":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_field_flip(self, ball_pos(g) * s, g.radius * s, k.age, k.life, k.pulling)
+		"streak":
+			BattleFx.draw_arena_streak(self, k.from * s, k.to * s, t)
+		"puff":
+			BattleFx.draw_puff(self, k.pos * s, k.r * s, k.age, k.life, k.col)
+		"diamond":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_diamond_ring(self, ball_pos(g) * s, g.radius * s, k.age, k.life)
+		"cloud":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_buzz_cloud(self, ball_pos(g) * s, g.radius * s, k.age, k.life, _time)
+		"gumsnap":
+			BattleFx.draw_gum_snap(self, k.from * s, k.to * s, k.age, k.life, _time)
+		"flower":
+			BattleFx.draw_flower_burst(self, k.pos * s, 22.0 * s, k.age, k.life, k.seed)
+		"tilt":
+			var ar := sim.arena_rect()
+			BattleFx.draw_tilt(self, Rect2(ar.position * s, ar.size * s), k.age, k.life, A11y.motion())
+		"blast":
+			BattleFx.draw_blast_flash(self, k.pos * s, k.r * s * 0.6, t)
+		"sticks":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_drum_sticks(self, ball_pos(g) * s, g.radius * s, k.age, k.life)
+		"sound":
+			BattleFx.draw_sound_ring(self, k.pos * s, k.radius * s, k.age, k.life, k.col, k.double)
+		"sticks_burst":
+			BattleFx.draw_sticks(self, k.pos * s, k.r * s, k.age, k.life, k.seed)
+		"curl":
+			BattleFx.draw_curl(self, k.pos * s, k.radius * s, k.age, k.life, k.seed)
+		"soap":
+			BattleFx.draw_soap_ring(self, k.pos * s, k.radius * s, k.age, k.life)
+		"firefly":
+			BattleFx.draw_firefly_flash(self, k.pos * s, 14.0 * s, k.age, k.life)
+		"halo":
+			BattleFx.draw_halo_flare(self, k.pos * s, k.radius * s, k.age, k.life)
+		"echo":
+			var ar := sim.arena_rect()
+			BattleFx.draw_sonar_echo(self, k.pos * s, k.radius * s, k.age, k.life, Rect2(ar.position * s, ar.size * s))
+		"lobbee":
+			BattleFx.draw_lob_bee(self, k.from * s, k.pos * s, 12.0 * s, k.age, k.life, _time)
+		"whoosh":
+			if k.ball < sim.balls.size():
+				var g := sim.balls[k.ball]
+				BattleFx.draw_whoosh(self, ball_pos(g) * s, g.radius * s, k.age, k.life)
+
+
+## How far Puff's spines are out (they pop out one by one over 0.3s).
+func _puff_out(b) -> float:
+	return clampf((_time - float(_cool_seen.get("puff_from%d" % b.index, -9.0))) / 0.3, 0.0, 1.0)
+
+
+## Mortar's barrel kick right after a shot.
+func _cool_recoil(b) -> float:
+	return clampf(1.0 - (_time - float(_cool_seen.get("recoil%d" % b.index, -9.0))) / 0.25, 0.0, 1.0)
+
+
+## A stun drawn as something other than the ice block: Honey's coat, Pucker's
+## puckered face. Returns true when it drew one.
+func _draw_cool_stun(b, p: Vector2, r: float) -> bool:
+	match _type_of(b.state.get("stun_source", -1)):
+		"honey":
+			BattleFx.draw_honey_coat(self, p, r, _time)
+			return true
+		"pucker":
+			BattleFx.draw_sour(self, p, r, _time)
+			BattleFx.draw_pucker_face(self, p, r, _time)
+			return true
+	return false
+
+
+## Per-ball cool art over the critter (its own looks, and marks foes carry).
+func _draw_cool_status(b, p: Vector2, r: float, s: float) -> void:
+	var tier := _tier_of(b.index)
+	match b.type_id:
+		"vampire":
+			if b.shield > 0.0 and b.def.get("overheal_cap", 0.0) > 0.0:
+				BattleFx.draw_bat_cape(self, p, r, _time)
+		"laser":
+			var sp: float = b.vel.length()
+			if sp > 1.0:
+				var room := sim.arena_rect().grow(-b.radius)
+				var secs: float = Abilities._exit_t(room, b.pos, b.vel / sp) / sp
+				BattleFx.draw_eye_charge(self, p + _look[b.index] * r * 0.45, r, clampf(1.0 - secs / 0.3, 0.0, 1.0), BEAM, _time)
+		"zapper":
+			var every := maxi(1, int(round(b.def.get("zap_every", 2.0) * MatchSim.TICK_RATE)))
+			var left: int = every - sim.tick % every
+			BattleFx.draw_coil_sparks(self, p, r, clampf(1.0 - left / (0.3 * MatchSim.TICK_RATE), 0.0, 1.0), _time)
+			if not b.state.get("storm", []).is_empty(): # A storm brewing: a bright core.
+				Dot.circle(self, p, r * (0.5 + 0.1 * sin(_time * 30.0)), Color(1, 1, 1, 0.35))
+		"fin":
+			var every := int(b.def.get("chomp_every", 4))
+			BattleFx.draw_tooth_meter(self, p, r, int(b.state.get("chomps", 0)) % maxi(1, every), every)
+		"stormwing":
+			BattleFx.draw_wing_sparks(self, p, r, b.state.get("sparks", []).size(), _look[b.index], _time)
+		"supernova":
+			var full := float(b.def.get("stack_max", 4))
+			BattleFx.draw_corona(self, p, r, clampf(int(b.state.get("stacks", 0)) / maxf(1.0, full), 0.0, 1.0), _time)
+			if b.state.get("nova_warn", false) and b.state.has("nova_at"):
+				var left: float = (int(b.state.nova_at) - sim.tick) / float(MatchSim.TICK_RATE)
+				_text_centered(p - Vector2(0, r * 0.1), str(clampi(ceili(left * 3.0), 1, 3)), roundi(r * 0.9), Color("fff3c4"), 6)
+		"megabot":
+			if sim.tick < int(b.state.get("mega_until", -1)):
+				BattleFx.draw_vent_steam(self, p, r, _time)
+			if b.state.has("salvo_at"):
+				BattleFx.draw_hatches(self, p, r, 1.0)
+		"gearbox":
+			var g := int(b.state.get("gear", 0))
+			var at := p + Vector2(r * 0.95, r * 0.75)
+			BattleFx.draw_gauge(self, at, r * 0.32, g, int(b.def.get("gear_max", 3)), _time)
+			_text_centered(at + Vector2(0, r * 0.05), str(g + 1), roundi(r * 0.3), Color("ffd23f"), 4)
+		"sooty":
+			BattleFx.draw_smoke_plume(self, p, r, tier, _time + b.index)
+		"brewster":
+			var big := int(b.def.get("brew_big_every", 0))
+			var brews := int(b.state.get("brews", 0))
+			var key := "brew" if big > 0 and (brews + 1) % big == 0 else ("fire" if int(b.state.get("blobs", 0)) % 2 == 0 else "goo")
+			BattleFx.draw_cauldron_tint(self, p, r, BattleFx.POTIONS[key], _time)
+		"zing":
+			BattleFx.draw_wing_blur(self, p, r, _time)
+		"bubbles":
+			if b.state.get("bubble", 0.0) > 0.0 and sim.tick < int(b.state.get("bubble_until", -1)):
+				BattleFx.draw_soap_sheen(self, p, r, _time)
+		"mirror":
+			if b.state.has("copy_of"):
+				var src: String = b.state.copy_of
+				var col: Color = Color(BallDefs.DEFS[src].get("color", "ffffff")) if BallDefs.DEFS.has(src) else Color.WHITE
+				BattleFx.draw_chrome_tint(self, p, r, col, _time)
+				var fam := Families.of(src)
+				if fam != "":
+					FamilyIcon.draw(self, fam, p + Vector2(0, r * 0.45), r * 0.42)
+			if tier >= 5 and b.shield > 0.0:
+				BattleFx.draw_mirror_shine(self, p, r, _time)
+		"blackhole":
+			var every := maxi(1, int(round(b.def.get("collapse_every", 8.0) * MatchSim.TICK_RATE)))
+			var k: float = 1.0 if b.state.get("collapsing", false) else float(sim.tick % every) / every
+			BattleFx.draw_accretion(self, p, r, k, _time, float(_cool_seen.get("disk%d" % b.index, 0.0)))
+		"ghost":
+			if sim.tick < int(b.state.get("phase_until", -1)):
+				BattleFx.draw_phase_shimmer(self, p, r, _time)
+		"quasar":
+			var flaring: bool = sim.tick < int(b.state.get("flare_until", -1))
+			BattleFx.draw_jet_nozzles(self, p, r, float(b.state.get("quasar_angle", 0.0)), 4 if flaring and b.def.get("quasar_cross", 0) > 0 else 2, _time, Color(b.def.get("beam_color", "c77dff")))
+	# Marks foes carry.
+	for d in b.dots:
+		var src_type := _type_of(d.source)
+		if src_type == "mossy": # Moss creeping over it.
+			var left: float = (int(d.until) - sim.tick) / maxf(1.0, sim.balls[d.source].def.get("moss_secs", 3.0) * MatchSim.TICK_RATE)
+			BattleFx.draw_moss_fuzz(self, p, r, clampf(1.0 - left, 0.0, 1.0), float(b.index) * 1.7, _time)
+		elif src_type == "fin" and _tier_of(d.source) >= 5:
+			BattleFx.draw_bleed_drips(self, p, r, _time)
+	if sim.tick < int(b.state.get("heard_until", -1)):
+		Dot.arc(self, p, r * 1.05, 0.0, TAU, 40, Color(BattleFx.SONAR, 0.35 + 0.2 * sin(_time * 6.0)), 6.0, true)
+	for z in sim.zones:
+		if z.owner == b.index or z.owner < 0 or z.owner >= sim.balls.size() or sim.balls[z.owner].team == b.team:
+			continue
+		if z.kind == "stink" and z.pos.distance_to(b.pos) <= z.radius + b.radius * 0.5:
+			BattleFx.draw_squint(self, p, r)
+		elif z.kind == "ink" and _tier_of(z.owner) >= 5 and z.pos.distance_to(b.pos) <= z.radius + b.radius * 0.5:
+			BattleFx.draw_ink_smudge(self, p, r, _look[b.index], _time)
+	for o in sim.balls: # Bonbon T5 ties its wrap in gold.
+		var w: Dictionary = o.state.get("wrap", {})
+		if not w.is_empty() and int(w.target) == b.index and sim.tick < int(w.pop) and o.type_id == "bonbon" and _tier_of(o.index) >= 5:
+			draw_line(p + Vector2(-r, 0), p + Vector2(r, 0), Color("ffd23f"), r * 0.1, true)
+			draw_line(p + Vector2(0, -r), p + Vector2(0, r), Color("ffd23f"), r * 0.1, true)
+			Dot.circle(self, p + Vector2(0, -r * 0.95), r * 0.13, Color("ffd23f"))
+
+
+## Zone art on top of the zone's own look.
+func _draw_cool_zone(z, s: float) -> void:
+	if z.owner < 0 or z.owner >= sim.balls.size():
+		return
+	var owner := sim.balls[z.owner]
+	var p: Vector2 = z.pos * s
+	var fade: float = clampf(1.0 - z.age / maxf(z.life, 0.01), 0.0, 1.0)
+	var seed: float = fmod(z.pos.x * 0.07 + z.pos.y * 0.03, TAU)
+	match z.kind:
+		"rain":
+			var warn: float = clampf(z.age / maxf(z.arm, 0.01), 0.0, 1.0)
+			BattleFx.draw_rain_cloud(self, p, z.radius * s, warn, minf(1.0, fade * 3.0), _tier_of(z.owner) >= 5, _time + seed)
+		"honey":
+			BattleFx.draw_gloss(self, p, z.radius * s, fade, seed, _time)
+		"ink":
+			if owner.type_id == "ink":
+				BattleFx.draw_ink_cloud(self, p, z.radius * s, fade, seed, _time)
+		"wisp":
+			BattleFx.draw_ecto(self, p, z.radius * s, fade, seed, _time)
+		"ring":
+			if owner.type_id == "supernova":
+				BattleFx.draw_halo(self, p, z.radius * s, fade, _time)
+			elif owner.type_id == "blackhole":
+				BattleFx.draw_fire_ring(self, p, z.radius * s, fade, _time)
+		"ember":
+			BattleFx.draw_ember_sparks(self, p, z.radius * s, fade, seed, _time)
+		"spore":
+			BattleFx.draw_spores(self, p, z.radius * s, fade, seed, _time)
+		"ice":
+			if owner.type_id == "frost":
+				BattleFx.draw_frost_glyph(self, p, z.radius * s, fade, seed)
+		"frost":
+			if owner.type_id == "frost":
+				BattleFx.draw_snow_drift(self, p, z.radius * s, fade, seed, _time)
+		"stardust":
+			BattleFx.draw_stardust_glow(self, p, z.radius * s, fade, seed, _time)
+		"brew":
+			BattleFx.draw_brew_steam(self, p, z.radius * s, fade, seed, _time)
+		"snow":
+			BattleFx.draw_crystal_edge(self, p, z.radius * s, fade, seed)
+		"mine":
+			if owner.type_id == "blizz":
+				BattleFx.draw_mine_glitter(self, p, s, _time, seed)
+			elif owner.type_id == "bomber" and z.armed():
+				var danger := clampf(1.0 - (z.life - z.age) / 1.5, 0.0, 1.0)
+				for o in sim.foes(owner):
+					danger = maxf(danger, clampf(1.0 - (o.pos.distance_to(z.pos) - o.radius) / maxf(1.0, z.blast_radius * 2.0), 0.0, 1.0))
+				BattleFx.draw_bomb_warn(self, p, s, danger, _time + seed)
+		"stink":
+			if owner.type_id == "whiff":
+				if sim.tick < int(owner.state.get("bloom_until", -1)): # Bloom: sickly purple-green.
+					Dot.circle(self, p, z.radius * s, Color(Color("9b4dff"), 0.12 + 0.04 * sin(_time * 4.0)))
+				BattleFx.draw_flies(self, p, z.radius * s, _time + z.owner)
+
+
+## Pieces: Glacia's pillars catch the light.
+func _draw_cool_piece(piece, s: float) -> void:
+	if piece.kind == "ice":
+		var k: float = minf(clampf(piece.age / maxf(piece.grow, 0.15), 0.0, 1.0), clampf((piece.life - piece.age) / 0.3, 0.0, 1.0))
+		BattleFx.draw_glint_sweep(self, piece.pos * s, piece.radius * s, k, fmod(piece.pos.x * 0.013, 1.0), _time)
+
+
+## Beams drawn the cool way; returns true when it drew the beam.
+func _draw_cool_beam(beam, a: Vector2, b: Vector2, k: float, bi: int) -> bool:
+	var owner := sim.balls[beam.owner]
+	match owner.type_id:
+		"bolt": # The zap crackling along the jump line.
+			BattleFx.draw_bolt(self, a, b, (1.0 - k) * 0.25, floorf(_time * 20.0) + bi, Color("7ff3ff"))
+			return true
+		"puff":
+			BattleFx.draw_spine_streak(self, a, b, k, Color(owner.def.color))
+			return true
+		"ripple":
+			BattleFx.draw_crest(self, a, b, k, _time)
+			return true
+		"laser": # Shimmering through the colours.
+			var col := Color.from_hsv(fmod(0.53 + 0.06 * sin(_time * 7.0 + bi), 1.0), 0.75, 1.0)
+			draw_line(a, b, Color(col, 0.2 * k), 16.0, true)
+			draw_line(a, b, Color(col, 0.4 * k), 7.0, true)
+			draw_line(a, b, Color(col, 0.9 * k), 3.5, true)
+			draw_line(a, b, Color("e6f7ff", k), 1.4, true)
+			return true
+		"quasar":
+			var flaring: bool = sim.tick < int(owner.state.get("flare_until", -1))
+			var col := Color(owner.def.get("beam_color", "c77dff"))
+			if flaring and owner.def.get("quasar_cross", 0) > 0:
+				col = Color.from_hsv(fmod(bi * 0.25 + _time * 0.6, 1.0), 0.6, 1.0)
+			var w := 1.6 if flaring else 1.0
+			draw_line(a, b, Color(col, 0.18 * k), 14.0 * w, true)
+			draw_line(a, b, Color(col, 0.4 * k), 7.0 * w, true)
+			draw_line(a, b, Color(col, 0.9 * k), 3.5 * w, true)
+			draw_line(a, b, Color(1, 1, 1, k), 1.4 * (3.5 if flaring else 1.0), true) # The flare whites out the core.
+			return true
+	return false
+
+
+## Shots: trails under them, and Pollen's dandelion seeds. Returns true when
+## it drew the shot itself.
+func _draw_cool_shot(shot, p: Vector2, r: float, s: float) -> bool:
+	var owner := sim.balls[shot.owner]
+	if shot.lob:
+		if shot.kind == "shell" and owner.type_id == "mortar": # A shadow growing on the landing spot.
+			var t: float = clampf(shot.age / shot.flight, 0.0, 1.0)
+			Dot.circle(self, shot.land * s, shot.land_radius * s * 0.5 * t, Color(0, 0, 0, 0.25 * t))
+		return false
+	var back: Vector2 = -shot.vel.normalized() if shot.vel.length() > 0.001 else Vector2.ZERO
+	match owner.type_id:
+		"pip":
+			for q in 3:
+				Dot.circle(self, p + back * r * (1.2 + q * 0.9), r * (0.7 - q * 0.18), Color(Color("8ac926"), 0.45 - q * 0.12))
+		"pollen":
+			if shot.kind == "seed":
+				BattleFx.draw_dandelion(self, p, maxf(r, 5.0), shot.vel, _time)
+				return true
+		"megabot":
+			if shot.kind == "rocket":
+				BattleFx.draw_rocket_smoke(self, p, r, shot.vel, _time)
+		"zing":
+			draw_line(p, p + back * r * 7.0, Color(BattleFx.ZIG, 0.25), 2.0, true)
+	return false
+
+
+## Orbiters drawn the cool way; returns true when it drew the item itself.
+func _draw_cool_orb(b, item: Dictionary, p: Vector2, r: float, s: float) -> bool:
+	match item.look:
+		"bug": # A short light trail behind each bug.
+			BattleFx.draw_bug_trail(self, b.pos * s, p, b.def.get("moon_spin", 1.0))
+		"moon":
+			if b.type_id == "gravity":
+				BattleFx.draw_moon(self, p, r, _time, item.pos.x * 0.013 + item.pos.y * 0.007)
+				return true
+		"bee":
+			if b.type_id != "swarm":
+				return false
+			if item.get("flying", false): # A dotted flight line behind it.
+				var f = sim.nearest_foe(b)
+				var dir: Vector2 = (f.pos - item.pos).normalized() if f != null and f.pos.distance_to(item.pos) > 0.001 else Vector2.RIGHT
+				for q in 4:
+					Dot.circle(self, p - dir * r * (2.6 + q * 1.6), 2.5, Color(Color("ffc93c"), 0.6 - q * 0.12))
+				return false
+			# Circling bees loop figure-eights round their slot.
+			var u: float = _time * 3.0 + item.pos.x * 0.02
+			var off := Vector2(sin(u), sin(u * 2.0) * 0.5) * r * 1.1
+			var dir2 := Vector2(cos(u), cos(u * 2.0))
+			BattleFx.draw_bee(self, p + off, r, dir2, _time + item.pos.x * 0.01, false)
+			return true
+		"wreck":
+			if item.get("big", false): # Wind-up lap: motion blur behind the ball.
+				var c: Vector2 = b.pos * s
+				var ang := (p - c).angle()
+				var spin := signf(b.def.get("wreck_spin", 1.0))
+				for q in 3:
+					var at := c + Vector2.from_angle(ang - spin * 0.18 * (q + 1)) * c.distance_to(p)
+					Dot.circle(self, at, r * (1.0 - 0.12 * q), Color(Color("3a3f45"), 0.3 - 0.08 * q))
+	return false
+
+
+## Gumdrop's gum string: sagging while slack, thin and taut at full stretch;
+## a doubled strand when T5 has stacked the goo.
+func _draw_gum_tether(t: Dictionary, s: float) -> void:
+	var o := sim.balls[t.owner]
+	var f := sim.balls[t.target]
+	var reach: float = o.radius + f.radius + float(t.length)
+	var stretch := clampf((o.pos.distance_to(f.pos) - o.radius - f.radius) / maxf(1.0, reach - o.radius - f.radius), 0.0, 1.0)
+	var held: Dictionary = sim.status(f, "gum:%d" % o.index)
+	var double: bool = _tier_of(o.index) >= 5 and not held.is_empty() and float(held.get("amount", 0.0)) > float(o.def.get("gum_slow", 1.0)) + 0.001
+	BattleFx.draw_gum_strand(self, ball_pos(o) * s, ball_pos(f) * s, _time, stretch, double)
+
+
+## Wrecker's chain, sagging and swinging behind the spin.
+func _draw_wreck_chain(b, item: Dictionary, s: float) -> void:
+	var from: Vector2 = item.from * s
+	var to: Vector2 = item.pos * s
+	var span := from.distance_to(to)
+	var sag := Vector2.ZERO
+	if span > 1.0:
+		sag = (to - from).orthogonal() / span * span * 0.12 * -signf(b.def.get("wreck_spin", 1.0)) + Vector2(0, span * 0.05)
+	BattleFx.draw_sag_chain(self, from, to, 9.0 * s * 1.6, sag)
 
 
 # --- Shape helpers ------------------------------------------------------------
