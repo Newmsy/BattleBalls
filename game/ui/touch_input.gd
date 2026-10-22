@@ -2,7 +2,9 @@
 ## - a drag scrolls the ScrollContainer under the finger even when it starts on
 ##   a button or card (Godot's buttons swallow it otherwise), with a fling;
 ## - a swipe in from the left edge goes back, iOS style, where the current
-##   screen says what Back means (set_back);
+##   screen says what Back means (set_back): when it also has a picture of
+##   the screen underneath, the current screen follows the finger off to the
+##   right over it (pictures only: nothing is rebuilt while dragging);
 ## - a tap is still a tap: a press only becomes a scroll or swipe once it moves
 ##   past a small dead zone, and then the button under it is let go untapped.
 ## Works on the emulated mouse events (touch on phones, the mouse on desktop),
@@ -15,11 +17,20 @@ const BACK_DISTANCE := 0.22 ## Fraction of the width a swipe must cover to go ba
 const BACK_FLICK := 900.0 ## ...or a flick at least this fast (px/s) over 60 px.
 const FLING_DECAY := 4.5 ## Per second; higher stops a fling sooner.
 const NOT_BUILT_IN := 1 << 20 ## Dead zone that keeps Godot's own touch drag out of the way.
+const PARALLAX := 0.3 ## The screen underneath starts this far (of the width) to the left.
+const SHADE := 0.4 ## How dark the screen underneath starts.
+const SETTLE_SECS := 0.2
+
+const A11y := preload("res://game/a11y.gd")
 
 enum Drag { NONE, PENDING, SCROLL, EDGE, IGNORE }
 
 ## owner -> Callable returning the back action (a Callable) or an empty Callable.
 static var _back_sources := {}
+## owner -> Callable returning {texture: a picture of the whole screen its
+## back action returns to, rect: the part of the screen that slides}, or {}.
+static var _back_previews := {}
+static var _preview_source := Callable() ## The preview of the owner back_action() picked.
 static var _instance: Node
 
 var _drag := Drag.NONE
@@ -37,6 +48,10 @@ var _fling: ScrollContainer
 var _fling_axis := 1
 var _fling_speed := 0.0
 var _hint: Control ## The edge-swipe arrow.
+var _slide: Control ## The swipe-back pictures while dragging (null otherwise).
+var _top: TextureRect ## The current screen, following the finger.
+var _under: TextureRect ## The screen underneath.
+var _shade: ColorRect
 
 
 ## Adds the handler to the scene tree once; it survives scene changes.
@@ -50,12 +65,26 @@ static func ensure(from: Node) -> void:
 
 ## Says what a left-edge swipe does while `owner` is alive: `source` returns the
 ## action to run (a Callable), or an empty Callable when Back means nothing now.
-static func set_back(owner: Object, source: Callable) -> void:
+## `preview` returns a picture of the screen it goes back to (or null), so the
+## swipe can slide the current screen off over it.
+static func set_back(owner: Object, source: Callable, preview := Callable()) -> void:
 	_back_sources[owner] = source
+	if preview.is_valid():
+		_back_previews[owner] = preview
 
 
 static func clear_back(owner: Object) -> void:
 	_back_sources.erase(owner)
+	_back_previews.erase(owner)
+
+
+## A picture of what's on screen now (the last frame drawn), or null where
+## pictures aren't wanted: reduced motion, or no screen at all (headless).
+static func snapshot(from: Node) -> Texture2D:
+	if A11y.reduced_motion or DisplayServer.get_name() == "headless" or not from.is_inside_tree():
+		return null
+	var img := from.get_viewport().get_texture().get_image()
+	return ImageTexture.create_from_image(img) if img != null and not img.is_empty() else null
 
 
 ## True while a finger drags a list or a fling is still moving it. Busy
@@ -73,6 +102,7 @@ static func back_action() -> Callable:
 	for i in range(keys.size() - 1, -1, -1):
 		var action: Callable = _back_sources[keys[i]].call()
 		if action.is_valid():
+			_preview_source = _back_previews.get(keys[i], Callable())
 			return action
 	return Callable()
 
@@ -140,6 +170,7 @@ func _move(pos: Vector2) -> void:
 			if _back_action.is_valid() and moved.x > 0.0 and moved.x > absf(moved.y) * 1.2:
 				_drag = Drag.EDGE
 				_cancel_press()
+				_start_slide()
 				_update_hint(pos)
 			else:
 				_axis = 0 if absf(moved.x) > absf(moved.y) else 1
@@ -174,7 +205,10 @@ func _release() -> void:
 			var moved := _last - _start
 			var width := get_viewport().get_visible_rect().size.x
 			var flick := _velocity.x > BACK_FLICK and moved.x > 60.0
-			if (moved.x > width * BACK_DISTANCE or flick) and _back_action.is_valid():
+			var go := (moved.x > width * (BACK_DISTANCE if _slide == null else 1.0 / 3.0) or flick) and _back_action.is_valid()
+			if _slide != null:
+				_settle(go, _back_action)
+			elif go:
 				_back_action.call_deferred()
 			get_viewport().set_input_as_handled()
 	_drag = Drag.NONE
@@ -236,10 +270,116 @@ func _cancel_press() -> void:
 
 func _update_hint(pos: Vector2) -> void:
 	var width := get_viewport().get_visible_rect().size.x
+	if _slide != null:
+		_place_slide(clampf(pos.x - _start.x, 0.0, width) / width)
+		return
 	_hint.visible = true
 	_hint.progress = clampf((pos.x - _start.x) / (width * BACK_DISTANCE), 0.0, 1.0)
 	_hint.y = pos.y
 	_hint.queue_redraw()
+
+
+## The iOS-style swipe: when the back action has a picture of the screen it
+## returns to, cover everything with that picture (dimmed, a little to the
+## left) and a picture of the current screen on top, which then follows the
+## finger. Two textures moving: no screen is built or redrawn meanwhile.
+func _start_slide() -> void:
+	_end_slide()
+	if not _preview_source.is_valid() or A11y.reduced_motion:
+		return
+	var preview: Dictionary = _preview_source.call()
+	if not preview.get("texture") is Texture2D:
+		return
+	var top := snapshot(self)
+	if top == null:
+		return
+	var screen := get_viewport().get_visible_rect().size
+	var rect: Rect2 = preview.get("rect", Rect2(Vector2.ZERO, screen))
+	var size := rect.size
+	_slide = Control.new()
+	_slide.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_slide.position = rect.position
+	_slide.size = size
+	_slide.clip_contents = true
+	_under = _picture(_crop(preview.texture, rect, screen), size)
+	_shade = ColorRect.new()
+	_shade.color = Color(0, 0, 0, SHADE)
+	_shade.size = size
+	_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_top = _picture(_crop(top, rect, screen), size)
+	var shadow := _Shadow.new()
+	shadow.size = Vector2(28.0, size.y)
+	shadow.position = Vector2(-28.0, 0.0)
+	_top.add_child(shadow)
+	for c in [_under, _shade, _top]:
+		_slide.add_child(c)
+	_hint.get_parent().add_child(_slide)
+	_place_slide(0.0)
+
+
+## The part of a whole-screen picture under `rect` (in screen units).
+func _crop(tex: Texture2D, rect: Rect2, screen: Vector2) -> Texture2D:
+	var k := Vector2(tex.get_size()) / screen
+	var a := AtlasTexture.new()
+	a.atlas = tex
+	a.region = Rect2(rect.position * k, rect.size * k)
+	return a
+
+
+func _picture(tex: Texture2D, size: Vector2) -> TextureRect:
+	var r := TextureRect.new()
+	r.texture = tex
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_SCALE
+	r.size = size
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r
+
+
+## `t`: 0 with the current screen in place, 1 with it gone off the right edge.
+func _place_slide(t: float) -> void:
+	var w := _slide.size.x
+	_top.position.x = w * t
+	_under.position.x = -w * PARALLAX * (1.0 - t)
+	_shade.color.a = SHADE * (1.0 - t)
+
+
+## Let go: slide the rest of the way and go back, or slide back into place.
+## Going back runs once the current screen is off, then the pictures stay up
+## a couple of frames while the screen underneath is rebuilt for real.
+func _settle(go: bool, action: Callable) -> void:
+	var slide := _slide
+	var from := _top.position.x / slide.size.x
+	var tw := create_tween()
+	var move := func(t: float) -> void:
+		if is_instance_valid(slide) and slide == _slide:
+			_place_slide(t)
+	tw.tween_method(move, from, 1.0 if go else 0.0, SETTLE_SECS * ((1.0 - from) if go else from) + .05) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.finished.connect(func():
+		if go:
+			action.call()
+			await get_tree().process_frame
+			await get_tree().process_frame
+		if slide == _slide:
+			_end_slide())
+
+
+func _end_slide() -> void:
+	if is_instance_valid(_slide):
+		_slide.queue_free()
+	_slide = null
+
+
+## The soft shadow down the left edge of the sliding screen.
+class _Shadow extends Control:
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var w := size.x
+		var cols := PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, .35), Color(0, 0, 0, .35), Color(0, 0, 0, 0)])
+		draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, size.y), Vector2(0, size.y)]), cols)
 
 
 ## The control a press at `pos` lands on, the way the GUI picks it: the top

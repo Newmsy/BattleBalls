@@ -248,7 +248,20 @@ try {
     // Swiping in from the left edge goes back to the list, then reopen the card.
     {
       const before = logs.length;
-      await swipe(page, 4, 700, 420, 0);
+      // Held halfway: the card follows the finger over the list (TouchInput slide).
+      await page.mouse.move(...toPage(page, 4, 700));
+      await page.mouse.down();
+      for (let i = 1; i <= 10; i++) {
+        await page.mouse.move(...toPage(page, 4 + 26 * i, 700));
+        await page.waitForTimeout(16);
+      }
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: path.join(shots, "3c1-swipe-back.png") });
+      for (let i = 1; i <= 6; i++) {
+        await page.mouse.move(...toPage(page, 264 + 26 * i, 700));
+        await page.waitForTimeout(16);
+      }
+      await page.mouse.up();
       await waitForLogAfter(logs, before, "UI_SCREEN critters", 5000);
       console.log("edge swipe: detail -> critters");
       await tapUi(page, logs, "tile_vampire", "detail");
