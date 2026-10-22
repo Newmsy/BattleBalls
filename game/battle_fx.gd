@@ -22,7 +22,7 @@ const HONEY := Color("ffb627")
 ## not listed burns.
 const DOT_LOOKS := {
 	"thorns": "bleed", "fin": "bleed", "mirror": "bleed", "prism": "bleed",
-	"gumdrop": "poison", "honey": "poison", "sooty": "burn",
+	"gumdrop": "poison", "honey": "poison", "mossy": "poison", "sooty": "burn",
 	"blackhole": "curse", "glowbug": "curse", "gravity": "curse",
 }
 ## Slows that read as sticky goo rather than ice, by source critter or zone.

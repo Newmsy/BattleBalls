@@ -83,7 +83,8 @@ const EFFECTS := {
 	"chomp_heal": ["chomp_heal"],
 	"twig": ["twig_grow", "twig_damage", "twig_max"],
 	"twig_drop": ["twig_keep", "twig_burst", "twig_burst_radius"],
-	"regrow": ["regrow_after", "regrow_hps", "regrow_spores"],
+	"regrow": ["regrow_after", "regrow_hps", "regrow_spores", "moss_heal"],
+	"moss": ["moss_dps", "moss_secs"],
 	"phase_fire": ["trail_every", "trail_width", "trail_life", "trail_dps"],
 	"wind": ["wind_step", "wind_cap", "wind_secs", "wind_add"],
 	"unwind": ["wind_crit"],
@@ -99,7 +100,7 @@ const EFFECTS := {
 	"frost_hunt": ["hunt_accel"],
 	"paint": ["paint_every", "paint_width", "paint_life", "paint_vuln", "paint_linger"],
 	"paint_flash": ["paint_flash_damage"],
-	"lamp": ["lamp_life", "lamp_dps", "lamp_vuln", "lamp_vuln_secs", "lamp_sweep", "lamp_back"],
+	"lamp": ["lamp_life", "lamp_dps", "lamp_vuln", "lamp_vuln_secs", "lamp_sweep", "lamp_back", "lamp_aim"],
 	"lamp_sweep": [],
 	"wrap": ["wrap_hold", "wrap_vuln", "wrap_vuln_secs", "wrap_confetti", "wrap_pull_every", "wrap_pull"],
 	"wrap_tick": ["snare_max"],
@@ -161,7 +162,7 @@ const EFFECTS := {
 	"eclipse": ["eclipse_secs", "flip_radius", "moon_shield", "total_secs", "total_damage"],
 	"corona": ["sun_radius", "sun_dps", "moon_hps"],
 	"bubble": ["bubble_every", "bubble_size", "bubble_secs"],
-	"bubble_guard": ["bubble_min", "bubble_knock", "bubble_bolts", "bolt_damage"],
+	"bubble_guard": ["bubble_min", "bubble_knock", "bubble_bolts", "bolt_damage", "bubble_splash"],
 	"roar": ["roar_radius", "roar_damage", "roar_slow", "roar_secs", "roar_drifts"],
 	"snow_mine": ["mine_arm", "mine_radius", "mine_damage", "mine_max", "mine_life", "mine_trigger", "frost_radius", "frost_secs", "frost_slow"],
 	"snow_freeze": ["freeze_secs"],
@@ -203,7 +204,7 @@ const EFFECTS := {
 	"ping": ["ping_gap", "ping_turn", "ping_dash_mult", "ping_dash_secs", "ping_radius", "ping_damage", "ping_slow", "ping_slow_secs", "ping_mark"],
 	"ping_crit": ["ping_hit_mult"],
 	"dig": ["phase_secs"],
-	"surface": ["dig_radius", "dig_damage", "dig_rush", "dig_clods", "clod_damage"],
+	"surface": ["dig_radius", "dig_damage", "dig_rush", "dig_clods", "clod_damage", "dig_hunt"],
 	"lance": ["lance_speed_mult", "lance_secs", "lance_retry"],
 	"lance_tick": ["lance_beam_life", "lance_beam_dps"],
 	"lance_hit": ["lance_hit_mult", "lance_knock"],
@@ -825,6 +826,8 @@ func fx_regrow(sim, b, ctx: Dictionary) -> void:
 		b.state.hurt_at = sim.tick
 		b.state.regrowing = false
 		return
+	if sim.tick < int(b.state.get("moss_until", -1)) and sim.tick % (sim.TICK_RATE / 2) == 0:
+		_heal_now(sim, b, b.def.moss_heal * 0.5) # Moss on the foe feeds it.
 	var calm: int = sim.tick - int(b.state.get("hurt_at", 0))
 	b.state.regrowing = calm >= int(round(b.def.regrow_after * sim.TICK_RATE)) and b.dots.is_empty()
 	if not b.state.regrowing or calm % (sim.TICK_RATE / 2) != 0:
@@ -832,6 +835,16 @@ func fx_regrow(sim, b, ctx: Dictionary) -> void:
 	_heal_now(sim, b, b.def.regrow_hps * 0.5)
 	if b.def.regrow_spores > 0.0:
 		sim.add_zone(b, b.pos, {"kind": "spore", "radius": 60.0, "life": 2.0, "dps": b.def.regrow_spores})
+
+
+## Mossy: a hit plants moss on the foe, draining moss_dps a second for
+## moss_secs; while it grows there Mossy regrows moss_heal a second (fx_regrow).
+func fx_moss(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if t == null or not t.alive():
+		return
+	sim.add_burn(b, t, b.def.moss_dps, b.def.moss_secs)
+	b.state.moss_until = sim.tick + int(round(b.def.moss_secs * sim.TICK_RATE))
 
 
 ## A burning trail, only while phased (Flicker's T5).
@@ -1059,10 +1072,15 @@ func fx_paint_flash(sim, b, _ctx: Dictionary) -> void:
 ## lamp_life, and a foe it touches takes lamp_vuln more damage for
 ## lamp_vuln_secs. lamp_sweep > 0 swings it that many degrees over its life
 ## (needs lamp_sweep on "always"); lamp_back 1 also shines one backwards.
+## lamp_aim 1 turns the lamp to the foe first (a sweep then starts just
+## behind it so it swings across the foe).
 func fx_lamp(sim, b, _ctx: Dictionary) -> void:
 	if b.vel.length() < 0.001:
 		return
 	var dirs: Array[Vector2] = [b.vel.normalized()]
+	var f = sim.nearest_foe(b)
+	if b.def.lamp_aim > 0 and f != null and f.pos.distance_to(b.pos) > 0.001:
+		dirs[0] = DMath.rotated((f.pos - b.pos).normalized(), -deg_to_rad(b.def.lamp_sweep) / 2.0)
 	if b.def.lamp_back > 0:
 		dirs.append(-dirs[0])
 	var sweeps: Array = b.state.get("lamps", [])
@@ -1982,7 +2000,8 @@ func fx_bubble(sim, b, _ctx: Dictionary) -> void:
 
 ## The first hit of bubble_min or more pops the bubble, soaking up to
 ## bubble_size; smaller pings land as normal and leave it. bubble_knock
-## > 0 shoves the attacker away; bubble_bolts > 0 sprays little bubbles.
+## > 0 shoves the attacker away; bubble_bolts > 0 sprays little bubbles;
+## bubble_splash > 0 bursts as a wave hitting foes nearby for that much.
 func fx_bubble_guard(sim, b, ctx: Dictionary) -> void:
 	var size: float = b.state.get("bubble", 0.0)
 	if size <= 0.0 or sim.tick >= int(b.state.get("bubble_until", -1)) or ctx.source.team == b.team:
@@ -1999,6 +2018,8 @@ func fx_bubble_guard(sim, b, ctx: Dictionary) -> void:
 		src.vel = (src.pos - b.pos).normalized() * src.current_speed()
 	if b.def.bubble_bolts > 0:
 		_spray(sim, b, int(b.def.bubble_bolts), b.def.bolt_damage)
+	if b.def.bubble_splash > 0.0:
+		sim.pulse(b, b.pos, b.radius + 90.0, b.def.bubble_splash, false, "wave")
 
 
 ## Slows `o` by `amount` for `secs`: a timed slow status (MatchSim.add_status)
@@ -2810,9 +2831,15 @@ func fx_dig(sim, b, _ctx: Dictionary) -> void:
 
 ## As it surfaces: a shove (dig_damage within dig_radius, knocking foes away),
 ## dig_rush > 0 speeds it up that much for 1s, and dig_clods > 0 lobs that
-## many dirt clods (clod_damage each) where the foe is heading.
+## many dirt clods (clod_damage each) where the foe is heading. Underground
+## it tunnels toward the foe (turning at dig_hunt) to burst up beneath it.
 func fx_surface(sim, b, _ctx: Dictionary) -> void:
-	if not b.state.get("digging", false) or sim.tick < int(b.state.get("phase_until", -1)):
+	if not b.state.get("digging", false):
+		return
+	if sim.tick < int(b.state.get("phase_until", -1)):
+		var prey = sim.nearest_foe(b)
+		if b.def.dig_hunt > 0.0 and prey != null and prey.pos.distance_to(b.pos) > 0.001:
+			sim.steer(b, (prey.pos - b.pos).normalized() * b.def.dig_hunt)
 		return
 	b.state.digging = false
 	sim.pulse(b, b.pos, b.def.dig_radius, b.def.dig_damage, true, "dirt")

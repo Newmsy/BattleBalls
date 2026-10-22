@@ -206,7 +206,7 @@ func test_bubbles_bubble_soaks_one_hit() -> void:
 	_hurt(sim, b, 8.0)
 	check_near(b.hp, before, 0.001, "a small hit is soaked whole")
 	check_eq(b.state.bubble, 0.0, "and pops it")
-	check(sim.beams.size() == 4, "T5 sprays 4 bubbles")
+	check(sim.beams.size() == 5, "T5 sprays 5 bubbles")
 	_hurt(sim, b, 8.0)
 	check_near(b.hp, before - 8.0, 0.001, "the next hit lands")
 	sim.abilities.fx_bubble(sim, b, {})
