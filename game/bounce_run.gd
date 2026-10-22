@@ -275,9 +275,9 @@ func _show_floor() -> void:
 	var foe: Dictionary = setup.floors[run.floor]
 	sub_label.text = "Pick who to send" # The ladder and the foe card say which floor.
 	var foe_box := Kit.vbox(8, [
-		Kit.hbox(10, [Kit.caption("Floor %d · %s" % [run.floor + 1, foe.title], PINK), Kit.spacer(),
+		Kit.hbox(10, [Kit.caption("Floor %d · %s · T%d" % [run.floor + 1, foe.title, BounceRun.tier_at(run.floor)], PINK), Kit.spacer(),
 			Kit.caption("Power %d%%" % roundi(100.0 * BounceRun.FOE_POWER[run.floor]))]),
-		Kit.hbox(16, [CritterIcon.make(foe.critter, 1, 110), _expand(Kit.vbox(4, [
+		Kit.hbox(16, [CritterIcon.make(foe.critter, BounceRun.tier_at(run.floor), 110), _expand(Kit.vbox(4, [
 			Kit.label(_name(foe.critter), 30),
 			_ability_label(foe.critter),
 			_boon_strip(foe.boons, 44, false),
@@ -479,7 +479,7 @@ func _show_tier_up(tier: int) -> void:
 	var stars := Kit.hbox(6, [old_stars, _pop_wrap(new_star)], BoxContainer.ALIGNMENT_CENTER)
 	var head := Kit.label("TIER UP!", 52, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
 	var lines: Array = [head, stars, faces,
-		Kit.label("Your trio fights at T%d from now on." % tier, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)]
+		Kit.label("Your trio fights at T%d from now on. So do the foes!" % tier, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)]
 	var burst := Panel.new()
 	burst.add_theme_stylebox_override("panel", Kit.box(Color(GOLD, 0.55), Color(0, 0, 0, 0), 999, 0, 0))
 	burst.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -947,7 +947,7 @@ func _show_rules() -> void:
 	for t in [
 		"Draft 3 critters and 3 starting boons, then climb %d floors. Foes start easy and get tougher." % BounceRun.FLOORS,
 		"Pick who to send each floor. Lose and that critter is out, but the foe keeps the damage it took for your next send. Lose all three and the run ends.",
-		"Your trio starts at T1 and goes up a tier every %d floors, up to T5 on the last floors. Foes stay T1." % BounceRun.FLOORS_PER_TIER,
+		"Your trio and the foes start at T1 and go up a tier every %d floors, up to T5 on the last floors." % BounceRun.FLOORS_PER_TIER,
 		"Win a floor to pick another boon. Boons power your whole trio. Rarer boons are stronger; tap a held boon to see it.",
 		"A foe's Power is next to your trio's: 100% is even.",
 		"One ranked run a day. Ranked by floors, lives, then time.",

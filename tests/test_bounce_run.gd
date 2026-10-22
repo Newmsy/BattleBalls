@@ -207,12 +207,12 @@ func test_opening_bite_lands_on_the_first_hit_only() -> void:
 	check(hits[1] <= 15.0, "later hits are normal")
 
 
-func test_trio_goes_up_a_tier_every_two_floors() -> void:
+func test_both_sides_go_up_a_tier_every_two_floors() -> void:
 	check_eq(range(BounceRun.FLOORS).map(func(f): return BounceRun.tier_at(f)), [1, 1, 2, 2, 3, 3, 4, 4, 5, 5], "tiers by floor")
 	var setup := BounceRun.generate(2)
 	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
 	run.floor = 6
-	check_eq(BounceRun.fight_config(setup, run, 0, 0).tiers, [4, 1], "floor 7 fights at T4")
+	check_eq(BounceRun.fight_config(setup, run, 0, 0).tiers, [4, 4], "floor 7: trio and foe both fight at T4")
 
 
 func test_rarer_boons_have_bigger_numbers() -> void:
