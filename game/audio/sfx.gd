@@ -69,7 +69,12 @@ const RULES := {
 	"splat": [2, 0.1, -6.0],
 	"sonar": [1, 0.3, -8.0],
 	"twinkle": [1, 0.3, -8.0],
+	"zing": [2, 0.08, -7.0],
 }
+const Families := preload("res://sim/families.gd")
+## Pitch of the edge-hit zing per attacking family, so each family's edge
+## sounds its own; a very good hit goes a step higher still.
+const ZING_PITCH := {"nature": 0.85, "sea": 0.8, "tech": 1.2, "sweet": 1.3, "frost": 1.35, "toybox": 1.1, "spooky": 0.7, "fire": 0.95, "cosmic": 1.05}
 ## Seconds between rain patters while one of Drizzle's showers is falling.
 const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
@@ -202,6 +207,9 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				if e.get("crit", false):
 					play("crit", 0.0, 1.0 if e.kind == "contact" else 1.25)
 				var src: String = sim.balls[e.source].type_id if e.get("source", -1) >= 0 and e.source < sim.balls.size() else ""
+				var edge: int = e.get("edge", 0)
+				if edge > 0 and src != "": # The family edge rings over the hit.
+					play("zing", 0.0 if edge == 2 else -3.0, ZING_PITCH.get(Families.of(src), 1.0) * (1.26 if edge == 2 else 1.0))
 				if e.kind == "beam":
 					play("sizzle")
 				elif src == "juggernaut" and e.kind in ["contact", "slam"]: # Boulder.

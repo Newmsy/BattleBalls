@@ -10,6 +10,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const LazyTile := preload("res://game/ui/lazy_tile.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 
 const COLUMNS := 4
 
@@ -27,7 +28,8 @@ static func by_power(profile, ids: Array) -> Array:
 ## Opens the picker. `ids`: the critters to offer (already filtered and
 ## sorted). opts: title, hint, current (id shown as picked), tags ({id: short
 ## text under the tile, e.g. "#2"}), locked ({id: true}: those tiles are dimmed
-## with a lock and a tap only toasts `locked_toast` % name), on_pick (Callable(id)).
+## with a lock and a tap only toasts `locked_toast` % name), on_pick (Callable(id)),
+## foes (critter ids you'll fight, when known: each tile gets its family-edge badge).
 static func open(shell, ids: Array, opts := {}) -> void:
 	var p = shell.profile
 	var tags: Dictionary = opts.get("tags", {})
@@ -35,12 +37,13 @@ static func open(shell, ids: Array, opts := {}) -> void:
 	var locked_toast: String = opts.get("locked_toast", "%s can't take this yet.")
 	var current: String = opts.get("current", "")
 	var on_pick: Callable = opts.get("on_pick", Callable())
+	var foes: Array = opts.get("foes", [])
 	var grid := GridContainer.new()
 	grid.columns = COLUMNS
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	for id in ids:
-		grid.add_child(LazyTile.wrap(func(): return _cell(shell, id, tags, current, on_pick, locked.has(id), locked_toast), grid.get_child_count(), 16))
+		grid.add_child(LazyTile.wrap(func(): return _with_edge(_cell(shell, id, tags, current, on_pick, locked.has(id), locked_toast), id, foes), grid.get_child_count(), 16))
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var rows := ceili(ids.size() / float(COLUMNS))
 	var scroll := ScrollContainer.new()
@@ -89,8 +92,24 @@ static func _cell(shell, id: String, tags: Dictionary, current: String, on_pick:
 	return tile
 
 
+## A tile with its family-edge badge against `foes` in the top-right corner
+## (nothing when the foes aren't known or it's even).
+static func _with_edge(tile: Button, id: String, foes: Array) -> Button:
+	var score := FamilyEdge.team([id], foes)
+	if score != 0:
+		var b := FamilyEdge.badge(score, 22)
+		b.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		b.offset_left = -b.custom_minimum_size.x - 6
+		b.offset_right = -6
+		b.offset_top = 40 # Beside the critter, under the stars and level.
+		b.offset_bottom = 40 + b.custom_minimum_size.y
+		tile.add_child(b)
+	return tile
+
+
 ## Team mode: pick `size` different critters. opts: title, hint, size,
-## current (the team now, in order), on_confirm (Callable(team: Array)). Your
+## current (the team now, in order), on_confirm (Callable(team: Array)),
+## foes (as in open()). Your
 ## picks fill the slots in the order you tap them (that's the fight order);
 ## tap a pick again to take it out. A full team takes no more until you do.
 static func open_team(shell, ids: Array, opts := {}) -> void:
@@ -133,7 +152,7 @@ static func open_team(shell, ids: Array, opts := {}) -> void:
 	grid.add_theme_constant_override("v_separation", 8)
 	for id in ids:
 		grid.add_child(LazyTile.wrap(func():
-			var t := _team_cell(shell, id, toggle)
+			var t := _with_edge(_team_cell(shell, id, toggle), id, opts.get("foes", []))
 			tiles[id] = t
 			_restyle(t, id, picks.find(id))
 			return t, grid.get_child_count(), 16))

@@ -17,6 +17,8 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const Gear := preload("res://sim/gear.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Story := preload("res://meta/story.gd")
 const StoryCards := preload("res://game/ui/story_cards.gd")
@@ -79,12 +81,18 @@ static func build(shell, params: Dictionary) -> Control:
 		p.campaign_team = picks
 		p.changed.emit()
 		shell.refresh()
+	# The stage you're on: the picker badges each critter's family edge on its foes.
+	var next_foes := []
+	for i in zone.stages.size():
+		if Campaign.is_unlocked(p, z, i) and not Campaign.is_cleared(p, z, i):
+			next_foes = Zones.enemies(Zones.stage(z, i))
+			break
 	var pick := func() -> void:
 		var ids := CritterPicker.by_power(p, BallDefs.PLAYABLE)
 		if team.size() > 1:
-			CritterPicker.open_team(shell, ids, {"title": "Your team", "size": mini(zone.lineup, ids.size()), "current": team, "on_confirm": on_team})
+			CritterPicker.open_team(shell, ids, {"title": "Your team", "size": mini(zone.lineup, ids.size()), "current": team, "on_confirm": on_team, "foes": next_foes})
 		else:
-			CritterPicker.open(shell, ids, {"title": "Your fighter", "current": fighter, "on_pick": on_pick})
+			CritterPicker.open(shell, ids, {"title": "Your fighter", "current": fighter, "on_pick": on_pick, "foes": next_foes})
 	var change_btn := Kit.card_button(fighter_row, pick, Color("3a3480"), Kit.PANEL2, 32, 16)
 	shell.mark("campaign_fighter", change_btn)
 	root.add_child(change_btn)
@@ -127,7 +135,8 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 		return _locked_row(z, i, st, boss)
 	var stars := Campaign.stars_of(p, z, i)
 	var foes := Zones.enemies(st)
-	var name: String = st.get("name", " + ".join(foes.map(func(id): return Roster.get_critter(id).name)))
+	# Named stages (bosses) keep their name; the rest show their foes' faces instead.
+	var name: String = st.get("name", "")
 	var rec := Campaign.enemy_rating(z, i)
 	var mine: int = p.power_of(fighter)
 	if foes.size() > 1:
@@ -137,7 +146,9 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 			mine += p.power_of(id)
 		mine /= maxi(1, team.size())
 	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var title := Kit.hbox(8, [Kit.label(Zones.stage_key(z, i), 22, Kit.MUTED), _fit(Kit.label(name, 28))])
+	var title := Kit.hbox(8, [Kit.label(Zones.stage_key(z, i), 22, Kit.MUTED)])
+	if name != "":
+		title.add_child(_fit(Kit.label(name, 28)))
 	if boss:
 		title.add_child(Kit.chip("BOSS", Kit.BAD))
 	if Zones.zone(z).lineup == 3: # Trios zones mix relays, 2v2s and 3v3 brawls.
@@ -152,10 +163,14 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 			faces.add_child(_face(id, enemy_tier(st), side))
 		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
 			BoxContainer.ALIGNMENT_CENTER)
+		var parts := [vs]
+		var edge_row := _edge_row(p, z, foes, fighter)
+		if edge_row != null:
+			parts.append(edge_row)
 		var fight := Kit.cost_button("Fight", Zones.cost(st), "energy", _fight.bind(shell, z, i, fighter), "go", 30, 84)
 		_fade_if_short(fight, p, Zones.cost(st))
 		shell.mark("stage_%d_%d" % [z + 1, i + 1], fight)
-		var big := Kit.panel(Kit.vbox(12, [title, faces, vs, fight]), Kit.box(Color("17284a"), border.lightened(.2), 32, 3, 20))
+		var big := Kit.panel(Kit.vbox(12, [title, faces] + parts + [fight]), Kit.box(Color("17284a"), border.lightened(.2), 32, 3, 20))
 		return big
 
 	var info := Kit.vbox(4, [title, crowns(stars, 26)])
@@ -174,10 +189,29 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String) -> Control:
 	actions.add_child(again)
 	var art := Kit.hbox(0, [], BoxContainer.ALIGNMENT_CENTER)
 	for id in foes:
-		art.add_child(_face(id, enemy_tier(st), 84.0 / sqrt(float(foes.size()))))
+		art.add_child(_face(id, enemy_tier(st), [100.0, 100.0, 84.0, 70.0][mini(foes.size(), 3)]))
 	var row := Kit.hbox(12, [art, info, actions])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	return Kit.panel(row, Kit.box(Kit.PANEL, border, 28, 2, 12))
+
+
+## Family edges for the stage you're on: your side's edge on these foes, and
+## which families hit them hardest. Null when no family edge applies (bosses, Plain).
+static func _edge_row(p, z: int, foes: Array, fighter: String) -> Control:
+	var best := FamilyEdge.counters(foes)
+	if best.is_empty():
+		return null
+	var mine: Array = Campaign.team_for(p, Zones.zone(z).lineup) if foes.size() > 1 else [fighter]
+	var score := FamilyEdge.team(mine, foes)
+	var row := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
+	if score != 0:
+		row.add_child(FamilyEdge.badge(score, 24))
+		row.add_child(Kit.label(FamilyEdge.words(score), 20, Kit.GOOD if score > 0 else Kit.BAD))
+	row.add_child(Kit.spacer())
+	row.add_child(Kit.caption("Hits them hard"))
+	for f in best:
+		row.add_child(FamilyIcon.make(f, 30))
+	return row
 
 
 ## A Fight or Sweep that costs more energy than you have stays tappable (it
