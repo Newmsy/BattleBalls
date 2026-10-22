@@ -20,6 +20,9 @@ const RarityMark := preload("res://game/ui/rarity_mark.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const BattleFx := preload("res://game/battle_fx.gd")
 const ArenaTheme := preload("res://game/arena_theme.gd")
+const Families := preload("res://sim/families.gd")
+const FamilyEdges := preload("res://game/family_edges.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 
 const INK := Color("1a1530")
 const ARENA_FILL := Color("120f33")
@@ -97,6 +100,7 @@ const PILLAR := Color("6d79b8")
 const BUMPER := Color("ff6fae")
 const BUMPER_FLASH_LIFE := 0.2
 const BANNER_LIFE := 1.6
+const MATCHUP_TICKS := 108 ## The kick-off matchup shows for the fight's first 1.8 s.
 ## HP share under which the badge turns red (matches the heartbeat sound).
 const LOW_HP_SHARE := 0.35
 
@@ -156,6 +160,7 @@ var _pole_swap := [0.0, 0.0]
 var _fx_rng := RandomNumberGenerator.new()
 var _ko_age := 0.0
 var _banner := 0.0 ## Seconds left on the OVERTIME banner.
+var _supers := {} ## Very good family-edge hits seen per attacker, for "SUPER!" every third.
 var _was_overtime := false
 var _trails: Array = [[], []] ## Recent world positions per ball, oldest first.
 var _kos: Array[Dictionary] = []
@@ -271,6 +276,7 @@ func clear_effects() -> void:
 	_spike_flash = 0.0
 	_pole_swap = [0.0, 0.0]
 	_banner = 0.0
+	_supers.clear()
 	_was_overtime = false
 	_look = [Vector2(1, -1).normalized(), Vector2(-1, 1).normalized()]
 	if sim:
@@ -347,6 +353,9 @@ func consume_events(events: Array[Dictionary]) -> void:
 					_add_popup(t.pos + Vector2(-30, -t.radius - 52), "BACKSTAB!", POP_BACKSTAB, 1.15)
 					_shake = maxf(_shake, 8.0 * A11y.motion())
 				var src: int = e.get("source", -1)
+				var edge: int = e.get("edge", 0)
+				if edge > 0 and src >= 0 and src < sim.balls.size():
+					_edge_hit(src, t, e.pos, edge)
 				if src >= 0 and src < sim.balls.size() and src != e.target:
 					hitters.append(src)
 					var a := sim.balls[src]
@@ -827,6 +836,23 @@ func _add_popup(pos: Vector2, text: String, color: Color, size := 1.0) -> void:
 	_popups.append({"pos": pos, "text": text, "color": color, "age": 0.0, "size": size})
 
 
+## A hit with the family edge: a spark in the attacker's family colour and its
+## family glyph popping off the target; a very good one also says "SUPER!"
+## the first time and every third time after.
+func _edge_hit(src: int, t, at: Vector2, edge: int) -> void:
+	var fam := Families.of(sim.balls[src].type_id)
+	if fam == "":
+		return
+	var col := FamilyIcon.color(fam)
+	_burst(at, 10 if edge == 2 else 6, [col, col.lightened(0.5), Color.WHITE], Vector2(140.0, 380.0), Vector2.ZERO, TAU, Vector2(3.0, 6.5) if edge == 2 else Vector2(2.5, 5.0))
+	_fx.append({"kind": "edge_glyph", "family": fam, "pos": t.pos + Vector2(-t.radius * 0.7, -t.radius * 0.7), "big": edge == 2, "age": 0.0, "life": BattleFx.EDGE_GLYPH_LIFE})
+	if edge == 2:
+		var n: int = _supers.get(src, 0)
+		if n % 3 == 0:
+			_add_popup(t.pos + Vector2(-36, -t.radius - 80), "SUPER!", col.lightened(0.3), 1.25)
+		_supers[src] = n + 1
+
+
 func _spawn_particles(pos: Vector2, count: int) -> void:
 	for i in count:
 		_particles.append({"pos": pos, "vel": _rand_dir() * _fx_rng.randf_range(120.0, 460.0), "age": 0.0, "life": _fx_rng.randf_range(0.5, 1.1)})
@@ -1084,6 +1110,8 @@ func _draw() -> void:
 
 	if _banner > 0.0:
 		_draw_banner(full)
+	elif sim and sim.tick > 0 and sim.tick < MATCHUP_TICKS:
+		_draw_matchup(full)
 
 
 # --- Floor layer -------------------------------------------------------------
@@ -1159,6 +1187,32 @@ func _paint_floor(cv: CanvasItem) -> void:
 			Dot.pline(cv, closed, Color(border, 0.22 - i * 0.05), 4.0 + i * 4.0, true)
 		Dot.pline(cv, closed, border, 2.5, true)
 	_cv = self
+
+## The family matchup at kick-off, for an uneven 1v1: the edge family's
+## glyph, its ▲▲ / ▲, the other family's glyph, and the line ("Fire burns
+## Nature!"). Fades over the fight's first seconds; Skip jumps past it.
+func _draw_matchup(full: Rect2) -> void:
+	var m := FamilyEdges.matchup(sim)
+	if m.is_empty():
+		return
+	var age := float(sim.tick) / MatchSim.TICK_RATE
+	var life := float(MATCHUP_TICKS) / MatchSim.TICK_RATE
+	var a := clampf((life - age) / 0.4, 0.0, 1.0) * clampf(age / 0.15, 0.0, 1.0)
+	var pop := 1.0 if A11y.reduced_motion else 1.0 + 0.2 * maxf(0.0, 1.0 - age * 5.0)
+	var col := FamilyIcon.color(m.adv)
+	var c := full.get_center() # The middle is clear at kick-off: the balls start in the corners.
+	var fs := roundi(A11y.font(26) * pop)
+	var w := maxf(FONT.get_string_size(m.line, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 48.0, 220.0)
+	var h := 112.0 * pop
+	_rounded_rect(Rect2(c.x - w / 2.0, c.y - h / 2.0, w, h), 24.0, Color(0.04, 0.03, 0.12, 0.72 * a))
+	var g := 44.0 * pop
+	var row := c - Vector2(0, h * 0.2)
+	if a > 0.1: # The glyphs shrink away as the card fades (they draw opaque).
+		FamilyIcon.draw(self, m.adv, row - Vector2(g * 1.3, 0), g * a)
+		FamilyIcon.draw(self, m.other, row + Vector2(g * 1.3, 0), g * a)
+	FamilyEdges.draw_chevrons(self, row, absi(m.edge), 16.0 * pop, Color(col, a))
+	_text_centered(c + Vector2(0, h * 0.24), m.line, fs, Color(col.lightened(0.35), a), 6)
+
 
 ## OVERTIME call-out across the arena, so the cue reads with the sound off.
 func _draw_banner(full: Rect2) -> void:
@@ -2178,6 +2232,8 @@ func _draw_fx(k: Dictionary, s: float) -> void:
 			BattleFx.draw_avalanche(self, k.pos * s, k.radius * s, k.age, k.seed)
 		"sonar":
 			BattleFx.draw_sonar(self, k.pos * s, k.radius * s, k.age)
+		"edge_glyph":
+			BattleFx.draw_edge_glyph(self, k.family, k.pos * s, (46.0 if k.big else 36.0) * s, k.age / k.life)
 		"mitosis":
 			if k.twin < sim.balls.size():
 				var g := sim.balls[k.ball]

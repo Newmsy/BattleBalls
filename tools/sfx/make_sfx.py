@@ -595,6 +595,16 @@ def twinkle():
     return mix(*parts)
 
 
+def zing():
+    """A family edge hit: a bright upward 'zing' laid over the normal hit.
+    The game pitches it per family (and higher on a very good hit)."""
+    d = 0.2
+    body = osc(sweep(midi(79), midi(91), d, 0.4), "tri") * env(d, 0.001, 5) * 0.4
+    shine = osc(sweep(midi(91), midi(98), d, 0.4), "sine") * env(d, 0.001, 7) * 0.22
+    tick = bandnoise(0.025, 3000, 10000) * env(0.025, 0.0004, 6) * 0.3
+    return mix(tick, body, shine)
+
+
 SOUNDS = {
     "hit_0": lambda: hit(0), "hit_1": lambda: hit(1), "hit_2": lambda: hit(2),
     "hit_big": lambda: hit(0, big=True),
@@ -611,7 +621,7 @@ SOUNDS = {
     "crackle": crackle, "rustle": rustle, "fizzpop": fizzpop, "drum": drum, "rain": rain, "hum": hum,
     "ticktock": ticktock, "splash": splash, "shatter": shatter,
     "clunk": clunk, "glug": glug, "whoosh": whoosh, "buzz": buzz, "puff": puff, "roar": roar,
-    "cannon": cannon, "splat": splat, "sonar": sonar, "twinkle": twinkle,
+    "cannon": cannon, "splat": splat, "sonar": sonar, "twinkle": twinkle, "zing": zing,
 }
 
 
