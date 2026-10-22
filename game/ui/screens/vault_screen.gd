@@ -7,16 +7,13 @@ extends RefCounted
 
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
+const BossCard := preload("res://game/ui/boss_card.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
-const FighterTag := preload("res://game/ui/fighter_tag.gd")
-const Roster := preload("res://game/ui/roster.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
 const Gear := preload("res://sim/gear.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
-const BossArt := preload("res://game/boss_art.gd")
 const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
-const EnergySheet := preload("res://game/ui/energy_sheet.gd")
 
 const VAULT := Color("ff8a3d")
 
@@ -47,11 +44,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	root.add_child(BossLevelGrid.hero(shell, GearVault.BOSS, VAULT))
 	var fighter: String = Campaign.fighter_for(p)
-	var b: Dictionary = p.best(fighter)
-	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(fighter).name, 30), Kit.power(p.power_of(fighter), 24)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(14, [FighterTag.icon(fighter, b.tier, 92, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
-	root.add_child(Kit.card_button(row, func(): shell.open_tab("critters", {}), Color("3a3480"), Kit.PANEL2, 32, 14))
+	root.add_child(BossCard.fighter(shell, fighter, "vault"))
 
 	var level := BossLevelGrid.picked(p, GearVault.KEY, params)
 	root.add_child(BossLevelGrid.grid(shell, p, GearVault.KEY, level, VAULT, "vault"))
@@ -61,47 +54,15 @@ static func build(shell, params: Dictionary) -> Control:
 
 static func _card(shell, p, d: int, fighter: String, now: int, left: int) -> Control:
 	var diff: Dictionary = GearVault.DIFFICULTIES[d]
-	var rec := GearVault.enemy_rating(d, now)
-	var mine: int = p.power_of(fighter)
 	var col := BagScreen.tier_color(diff.tier)
-	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
-	var info := Kit.vbox(4, [Kit.label(diff.name, 28), Kit.hbox(8, [Glyph.make("stars", 20, col, diff.tier), Kit.label("+", 20, Kit.MUTED),
-		Kit.amount("hammer", diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER),
-		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "They're stronger"), 20, power_color)])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fight: Button
-	if left > 0 and not EnergySheet.has(p, GearVault.ENERGY_COST):
-		# Short on energy: still tappable, but it reads as short and opens the energy sheet.
-		var ink: Color = Kit.BUTTON_STYLES["go"][2]
-		fight = Kit.button("", func(): EnergySheet.open(shell), "go", 24, 72)
-		var out := Kit.hbox(6, [Kit.label("OUT OF", 24, ink), Kit.glyph("energy", 26, ink)], BoxContainer.ALIGNMENT_CENTER)
-		out.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		out.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		fight.add_child(out)
-		fight.modulate = Color(1, 1, 1, .75)
-	else:
-		fight = Kit.cost_button("Fight", GearVault.ENERGY_COST, "energy", _fight.bind(shell, d, fighter), "go", 24, 72)
-		fight.disabled = left <= 0
-	fight.custom_minimum_size.x = 150
-	shell.mark("vault_go", fight)
-	var p_tag := Kit.power(rec, 20, power_color)
-	p_tag.alignment = BoxContainer.ALIGNMENT_CENTER
-	var icon := Kit.vbox(0, [BossArt.icon(GearVault.BOSS, 76), p_tag])
-	var row := Kit.hbox(12, [icon, info, fight], BoxContainer.ALIGNMENT_CENTER)
-	return Kit.panel(row, Kit.box(Kit.PANEL, Color(col, .5), 30, 2, 12))
+	return BossCard.fight(shell, {"boss": GearVault.BOSS, "accent": col, "rec": GearVault.enemy_rating(d, now), "mine": p.power_of(fighter), "foe": "They're",
+		"title": diff.name, "pay": [Kit.hbox(8, [Glyph.make("stars", 20, col, diff.tier), Kit.label("+", 20, Kit.MUTED), Kit.amount("hammer", diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER)],
+		"cost": GearVault.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, d, fighter), "mark": "vault_go"})
 
 
 static func _fight(shell, d: int, fighter: String) -> void:
 	var cfg: Dictionary = GearVault.start(shell.profile, d, fighter, int(Time.get_unix_time_from_system()))
-	if cfg.get("error", "") == "energy":
-		shell.refresh()
-		EnergySheet.open(shell)
-		return
-	if cfg.has("error"):
-		shell.toast({"runs": "The Anvil King is done for today. Back tomorrow!", "no_ball": "Pick a critter that can fight first.", "level": "Beat the level before it first."}.get(cfg.error, "Beat the Zone 1 boss to face the Anvil King."))
-		shell.refresh()
-		return
-	shell.boss_requested.emit(cfg, d, fighter, "vault")
+	BossCard.start(shell, cfg, d, fighter, "vault", "The Anvil King is done for today. Back tomorrow!", "Beat the Zone 1 boss to face the Anvil King.")
 
 
 ## One line summing up an Anvil King result, for the fight's result text.
