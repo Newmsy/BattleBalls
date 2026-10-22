@@ -98,7 +98,7 @@ static func _league_panel(store) -> Control:
 		frac = float(t - lg.min) / float(nxt.min - lg.min)
 		next_text = "%d to %s" % [nxt.min - t, nxt.name]
 	var v := Kit.vbox(8, [
-		Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), Glyph.make("trophy", 34, Glyph.GOLD), Kit.label(Kit.commas(t), 34)], BoxContainer.ALIGNMENT_CENTER),
+		Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), Kit.amount("trophy", t, 30, Kit.FG, Glyph.GOLD)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.bar(frac, lg.color),
 		Kit.hbox(0, [Kit.label(next_text, 22, Kit.MUTED), Kit.spacer(), Kit.label("%d W · %d L" % [store.wins, store.losses], 22, Kit.MUTED)]),
 	])
@@ -182,7 +182,7 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 		name = Kit.hbox(6, [FamilyIcon.make(fam, 28), name], BoxContainer.ALIGNMENT_CENTER)
 	var info := Kit.vbox(2, [
 		name,
-		Kit.hbox(6, [Kit.glyph("trophy", 20, Glyph.GOLD), Kit.label(Kit.commas(int(bot.get("trophies", 0))), 20, Kit.MUTED), Kit.power(ArenaTeams.rating(bot), 20, Kit.MUTED)]),
+		Kit.hbox(6, [Kit.amount("trophy", int(bot.get("trophies", 0)), 20, Kit.MUTED, Glyph.GOLD), Kit.power(ArenaTeams.rating(bot), 20, Kit.MUTED)]),
 	])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var faces := Kit.hbox(0)

@@ -88,10 +88,9 @@ static func _floor_card(spec: Dictionary) -> Control:
 			Kit.label(BallDefs.get_def(e.id).display_name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]))
 	# Currencies as icon + number, never their names.
 	var r := Spire.reward(n)
-	var reward := Kit.hbox(8, [Kit.label("First clear", 22, Kit.GOOD), Kit.glyph("coin", 26, Glyph.GOLD), Kit.label(Kit.commas(r.coins), 22, Kit.GOOD)], BoxContainer.ALIGNMENT_CENTER)
+	var reward := Kit.hbox(8, [Kit.label("First clear", 22, Kit.GOOD), Kit.amount("coin", r.coins, 22, Kit.GOOD, Glyph.GOLD)], BoxContainer.ALIGNMENT_CENTER)
 	if r.orbs > 0:
-		reward.add_child(Kit.glyph("egg", 26, Kit.FG))
-		reward.add_child(Kit.label(str(r.orbs), 22, Kit.GOOD))
+		reward.add_child(Kit.amount("egg", r.orbs, 22, Kit.GOOD, Kit.FG))
 	var bits := []
 	if r.xp_chips > 0:
 		bits.append("XP Chip")

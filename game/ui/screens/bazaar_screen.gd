@@ -22,7 +22,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"The stock changes every day and each item sells once. Gear gets better as your league climbs.",
 	]
 	root.add_child(shell.title_row("Bazaar", {"info_mark": "bazaar_info", "info": how}))
-	var bank := Kit.hbox(10, [Glyph.make("token", 34), Kit.label(Kit.commas(store.coins), 34), Kit.spacer(), Kit.label("New stock tomorrow", 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var bank := Kit.hbox(10, [Kit.amount("token", store.coins, 30), Kit.spacer(), Kit.label("New stock tomorrow", 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.panel(bank, Kit.box(Color("17143e"), COIN, 28, 2, 16)))
 	var stock: Array = store.bazaar()
 	for i in stock.size():
@@ -38,7 +38,7 @@ static func _item(shell, store, item: Dictionary, i: int) -> Control:
 			sub = "%d-star %s gear" % [item.tier, Gear.PIECES[item.type].slot]
 	var sold: bool = store.is_bought(i)
 	var afford: bool = store.coins >= int(item.price)
-	var price := Kit.hbox(6, [Glyph.make("token", 24), Kit.label(Kit.commas(item.price), 26, Kit.FG if afford else Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var price := Kit.amount("token", item.price, 24, Kit.FG if afford else Kit.MUTED)
 	var info := Kit.vbox(2, [Kit.label(str(item.name), 28)])
 	if sub != "":
 		info.add_child(Kit.label(sub, 20, Kit.MUTED))

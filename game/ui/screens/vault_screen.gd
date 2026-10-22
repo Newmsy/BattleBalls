@@ -39,7 +39,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(Kit.label(today, 26, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var left := GearVault.runs_left(p, now)
 	root.add_child(Kit.hbox(10, [Kit.label("%d/%d runs" % [left, GearVault.RUNS_PER_DAY], 22, Kit.MUTED),
-		Kit.spacer(), Glyph.make("hammer", 30), Kit.label(Kit.commas(p.hammers), 24)], BoxContainer.ALIGNMENT_CENTER))
+		Kit.spacer(), Kit.amount("hammer", p.hammers)], BoxContainer.ALIGNMENT_CENTER))
 
 	if params.has("notice"):
 		var r: Dictionary = params.get("xp", {})
@@ -70,7 +70,7 @@ static func _card(shell, p, d: int, fighter: String, now: int, left: int) -> Con
 	var col := BagScreen.tier_color(diff.tier)
 	var power_color := Kit.GOOD if mine >= rec else (Kit.WARN if mine * 1.15 >= rec else Kit.BAD)
 	var info := Kit.vbox(4, [Kit.label(diff.name, 28), Kit.hbox(8, [Glyph.make("stars", 20, col, diff.tier), Kit.label("+", 20, Kit.MUTED),
-		Glyph.make("hammer", 22), Kit.label("%d" % diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER),
+		Kit.amount("hammer", diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label("You're stronger" if mine >= rec else ("Close fight" if mine * 1.15 >= rec else "They're stronger"), 20, power_color)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fight: Button
