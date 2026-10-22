@@ -348,6 +348,9 @@ func _ready() -> void:
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")
 				shell.go("bracket")
+	if url_params.has("perftour"): # ?perftour=1 (or =play,campaign) times every screen's open.
+		var only: Array = [] if url_params.perftour in ["", "1"] else Array(url_params.perftour.split(","))
+		preload("res://game/perf_tour.gd").run.call_deferred(shell, only)
 	friends.changed.connect(func(): if state == State.RESULT: _label_result_buttons())
 	if link_friend != "":
 		friends.set_invite(link_friend)
@@ -2596,9 +2599,12 @@ func _run_probe() -> void:
 
 
 func _read_url_params() -> Dictionary:
-	if not OS.has_feature("web"):
+	# Native dev runs take the same params after "--": godot -- demo=1 perftour=1
+	var query: String = "&".join(OS.get_cmdline_user_args())
+	if OS.has_feature("web"):
+		query = str(JavaScriptBridge.eval("window.location.search", true))
+	elif query == "":
 		return {}
-	var query: String = str(JavaScriptBridge.eval("window.location.search", true))
 	var params := {}
 	for pair in query.trim_prefix("?").split("&", false):
 		var kv := pair.split("=")

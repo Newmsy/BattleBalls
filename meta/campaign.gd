@@ -73,9 +73,14 @@ static func fighter_for(profile) -> String:
 	if can_fight(profile, profile.lineup):
 		return profile.lineup
 	var best_id := ""
+	var best_power := 0
 	for id in BallDefs.PLAYABLE:
-		if profile.owns(id) and (best_id == "" or profile.power_of(id) > profile.power_of(best_id)):
+		if not profile.owns(id):
+			continue
+		var power: int = profile.power_of(id)
+		if best_id == "" or power > best_power:
 			best_id = id
+			best_power = power
 	return best_id
 
 
@@ -92,7 +97,10 @@ static func team_for(profile, size: int) -> Array:
 	if first != "" and ids.is_empty():
 		ids.append(first)
 	var rest: Array = BallDefs.PLAYABLE.filter(func(id): return profile.owns(id) and not id in ids)
-	rest.sort_custom(func(a, b): return profile.power_of(a) > profile.power_of(b))
+	var power := {}
+	for id in rest:
+		power[id] = profile.power_of(id)
+	rest.sort_custom(func(a, b): return power[a] > power[b])
 	for id in rest:
 		if ids.size() >= size:
 			break
