@@ -25,9 +25,8 @@ const GEAR_INFO := ["3 of a kind → 1 with a star more (max 5). Costs Hammers."
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(22)
-	root.add_child(Kit.hbox(12, [Kit.label("Bag", 40), Kit.spacer(),
-		Glyph.make("hammer", 30), Kit.label(Kit.commas(p.hammers), 24),
-		shell.info_button("Gear", GEAR_INFO, "bag_info")], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row("Bag", {"back": false, "extra": [Kit.glyph("hammer", 30, Color.WHITE), Kit.label(Kit.commas(p.hammers), 24)],
+		"info_title": "Gear", "info_mark": "bag_info", "info": GEAR_INFO}))
 
 	var seg := Kit.hbox(8)
 	for s in [["gear", "Gear"], ["items", "Items"]]:

@@ -24,14 +24,9 @@ const TRY := Color("5ce1ff")
 static func build(shell, _params: Dictionary) -> Control:
 	var t := LiveOps.now()
 	var root := Kit.vbox(16)
-	var back: Control = shell.back_button("week_back")
 	var season := LiveOps.season(t)
-	var title := Kit.vbox(2, [Kit.label("This Week", 40)])
-	if not season.is_empty():
-		title.add_child(Kit.caption("%s · week %d of %d" % [season.name, season.week, season.weeks]))
-		title.move_child(title.get_child(1), 0)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [back, title, shell.info_button("This Week", _info_text(shell, t), "week_info")], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row("This Week", {"back_mark": "week_back", "info_mark": "week_info", "info": _info_text(shell, t),
+		"eyebrow": "" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks]}))
 	var counters := []
 	var tiles: Array = [_trick_shot(shell), _fight(shell, t)]
 	var bracket := BracketScreen.board_card(shell, t, tile)

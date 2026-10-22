@@ -11,10 +11,7 @@ const Talents := preload("res://sim/talents.gd")
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(20)
-	var head := Kit.vbox(2, [Kit.caption("Talent trees"), Kit.label("Factions", 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Factions", info_text(), "factions_info")],
-		BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row("Factions", {"eyebrow": "Talent trees", "info_mark": "factions_info", "info": info_text()}))
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 14)

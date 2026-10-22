@@ -14,16 +14,6 @@ const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 
 
-static func header(shell, title: String, extra: Control = null) -> Control:
-	var back: Control = shell.back_button("back")
-	var row := Kit.hbox(18, [back, Kit.label(title, 40)])
-	row.get_child(1).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if extra:
-		row.add_child(extra)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	return row
-
-
 static func build(shell, params: Dictionary) -> Control:
 	var p = shell.profile
 	var c := Roster.get_critter(params.id)
@@ -41,8 +31,7 @@ static func build(shell, params: Dictionary) -> Control:
 	for t in range(2, Roster.MAX_TIER + 1):
 		more.append("T%d: %s%s" % [t, AbilityText.change(c.id, t), "  (now)" if t == b.tier else ""])
 	more.append("3 of the same tier fuse into 1 of the next tier. Wishlisted critters come up twice as often in summons and drops.")
-	var info: Control = shell.info_button(c.name, more, "detail_info")
-	root.add_child(header(shell, c.name, Kit.hbox(12, [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol), info], BoxContainer.ALIGNMENT_CENTER)))
+	root.add_child(shell.title_row(c.name, {"extra": [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol)], "info_mark": "detail_info", "info": more}))
 
 	# Hero: the critter on the left, its numbers on the right.
 	var hp := roundi(120.0 * (1.0 + .03 * (b.level - 1)))

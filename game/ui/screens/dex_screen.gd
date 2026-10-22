@@ -8,7 +8,6 @@ const LazyTile := preload("res://game/ui/lazy_tile.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
-const DetailScreen := preload("res://game/ui/screens/detail_screen.gd")
 
 static var filter := "all"
 
@@ -16,7 +15,7 @@ static var filter := "all"
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(20)
-	root.add_child(DetailScreen.header(shell, "Critterpedia", Kit.label("%d / %d" % [p.found_count(), Roster.CRITTERS.size()], 24, Kit.MUTED)))
+	root.add_child(shell.title_row("Critterpedia", {"extra": [Kit.label("%d / %d" % [p.found_count(), Roster.CRITTERS.size()], 24, Kit.MUTED)]}))
 
 	var chips := Kit.hbox(6)
 	for f in ["all"] + Roster.RARITIES:

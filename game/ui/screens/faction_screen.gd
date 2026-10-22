@@ -19,10 +19,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var col: Color = Talents.COLORS[f]
 	var picks: Dictionary = p.talent_picks(f)
 	var root := Kit.vbox(16)
-	var head := Kit.vbox(2, [Kit.caption("Faction talents", col), Kit.label(Talents.NAMES[f], 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	root.add_child(Kit.hbox(16, [shell.back_button("back"), head, shell.info_button("Factions", FactionsScreen.info_text(), "faction_info")],
-		BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row(Talents.NAMES[f], {"eyebrow": "Faction talents", "eyebrow_color": col, "info_title": "Factions", "info_mark": "faction_info", "info": FactionsScreen.info_text()}))
 
 	var free: int = p.talent_points_free(f)
 	var status := Kit.label("Rank %d  ·  %d point%s to spend" % [p.faction_rank(f), free, "" if free == 1 else "s"], 24, Kit.GOOD if free > 0 else Kit.MUTED)

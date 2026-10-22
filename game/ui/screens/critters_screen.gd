@@ -38,7 +38,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var factions := Kit.card_button(Kit.label("Factions", 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), func(): shell.go("factions"), Kit.ACCENT, Kit.PANEL2, 999, 12)
 	factions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	shell.mark("factions", factions)
-	root.add_child(Kit.hbox(12, [Kit.label("My critters", 40), Kit.spacer(), factions, dex], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(shell.title_row("My critters", {"back": false, "extra": [factions, dex]}))
 
 	var chips := Kit.hbox(6)
 	for f in ["all"] + Roster.RARITIES:

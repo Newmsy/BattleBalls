@@ -14,16 +14,12 @@ const A11y := preload("res://game/a11y.gd")
 static func build(shell, params: Dictionary) -> Control:
 	var p = shell.profile
 	var root := Kit.vbox(18)
-	var back: Control = shell.back_button("back")
-	var head := Kit.vbox(2, [Kit.caption("Campaign", Color("9be89a")), Kit.label("The Neon Circuit", 40)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var info: Control = shell.info_button("The Neon Circuit", [
+	root.add_child(shell.title_row("The Neon Circuit", {"eyebrow": "Campaign", "eyebrow_color": Color("9be89a"), "info_mark": "world_info", "info": [
 		"The Circuit is a ring of glowing arenas. The Glitch has scrambled each zone's champion into a giant boss.",
 		"Beat a zone's boss to open the next. Zone 1 is 1v1, Zone 2 is 2v2, then teams of 3: relays, 2v2s and big 3v3 brawls.",
 		"Each zone has its own arenas: bumpers, ice, thorns, portals, a shrinking rim, lava.",
 		"Purify Magma Core, the last zone, to free the whole Circuit from The Glitch.",
-	], "world_info")
-	root.add_child(Kit.hbox(16, [back, head, info]))
+	]}))
 
 	var built: int = Zones.ZONES.size()
 	var open := 1
