@@ -272,8 +272,7 @@ func _build_ui(tags: Array) -> void:
 ## balls are out.
 func _layout() -> void:
 	var r := FightLayout.rects(get_viewport().get_visible_rect().size)
-	arena.view_scale = r.arena.size.x / MatchSim.ARENA_SIZE
-	arena.position = r.arena.position
+	arena.fit(r.arena.position, r.arena.size.x)
 	FightLayout.place_hud(fight_hud, r)
 	var p: Rect2 = r.panel
 	var info_h := 0.0 if state == State.FIGHT else 56.0 # The aim hint, or who stays in.

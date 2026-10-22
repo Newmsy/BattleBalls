@@ -21,6 +21,7 @@ const Abilities := preload("res://sim/abilities.gd")
 const BattleFx := preload("res://game/battle_fx.gd")
 const CritterFx := preload("res://game/critter_fx.gd")
 const ArenaTheme := preload("res://game/arena_theme.gd")
+const ArenaArt := preload("res://game/arena_art.gd")
 const Families := preload("res://sim/families.gd")
 const FamilyEdges := preload("res://game/family_edges.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
@@ -101,6 +102,11 @@ const PILLAR := Color("6d79b8")
 const BUMPER := Color("ff6fae")
 const BUMPER_FLASH_LIFE := 0.2
 const BANNER_LIFE := 1.6
+## The arena fills this share of the square it's given (fit); the rest is a
+## frame round it where the themed walls are drawn.
+const FRAME := 0.93
+const ART_SUPERSAMPLE := 2.0 ## Themed art is baked this many texels per screen pixel, so edges come out smooth.
+const ART_MAX_TEXTURE := 2048.0
 const MATCHUP_TICKS := 108 ## The kick-off matchup shows for the fight's first 1.8 s.
 ## HP share under which the badge turns red (matches the heartbeat sound).
 const LOW_HP_SHARE := 0.35
@@ -212,6 +218,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	if best != null:
 		CritterPopup.open(self, best.type_id, int(best.def.get("tier", 1)))
 		get_viewport().set_input_as_handled()
+
+
+## Fits the arena into a square `side` pixels wide at `at` (in the parent),
+## with a thin frame round it for the walls. Every fight screen sizes the
+## view through here.
+func fit(at: Vector2, side: float) -> void:
+	view_scale = side * FRAME / MatchSim.ARENA_SIZE
+	origin = at + Vector2.ONE * side * (1.0 - FRAME) / 2.0
+	set_camera(cam_zoom, cam_focus)
+
+
+## How wide the frame round the arena's square is, in pixels.
+func frame_margin() -> float:
+	return MatchSim.ARENA_SIZE * view_scale * (1.0 - FRAME) / (2.0 * FRAME)
 
 
 func to_world(screen_pos: Vector2) -> Vector2:
@@ -1243,7 +1263,8 @@ func _paint_floor_if_changed(shape: MatchSim, outline: PackedVector2Array) -> vo
 		_floor = _FloorLayer.new()
 		_floor.show_behind_parent = true
 		add_child(_floor)
-	var key := [shape.arena_id, outline, shape.in_overtime(), view_scale, shape.arena_scale()]
+	_bake_art_if_needed(shape.arena_id)
+	var key := [shape.arena_id, outline, shape.in_overtime(), view_scale, shape.arena_scale(), _bake_key]
 	_floor_shape = shape
 	_floor_outline = outline
 	if key != _floor_key:
@@ -1263,6 +1284,10 @@ func _paint_floor(cv: CanvasItem) -> void:
 	var overtime := shape.in_overtime()
 	if overtime:
 		_rounded_rect(full, 14.0, Color(0.35, 0.05, 0.12, 0.35))
+	if _art_ctx != null:
+		_paint_art_floor(cv, shape, overtime)
+		_cv = self
+		return
 	var theme := ArenaTheme.get_theme(shape.arena_id)
 	var border := OVERTIME_BORDER if overtime else Color(theme.border)
 	var fill := Color(theme.fill)
@@ -1293,6 +1318,115 @@ func _paint_floor(cv: CanvasItem) -> void:
 			Dot.pline(cv, closed, Color(border, 0.22 - i * 0.05), 4.0 + i * 4.0, true)
 		Dot.pline(cv, closed, border, 2.5, true)
 	_cv = self
+
+# --- Themed art (game/arena_art.gd) ---------------------------------------------
+
+## Paints the themed art once into a texture: the floor, walls and props
+## for the whole frame, then a pillar and a bumper sprite beside them. The
+## floor layer and the obstacles draw from it, a quad each.
+class _ArtPainter extends Node2D:
+	var view: Node2D
+
+	func _draw() -> void:
+		view._paint_art(self)
+
+
+var _bake: SubViewport
+var _painter: _ArtPainter
+var _bake_key := []
+var _art_ctx: ArenaArt.Kit.Ctx ## The themed map's shape for the painter; null for the plain look.
+var _art_k := 1.0 ## Texels per pixel in the baked texture.
+var _art_r := 0.0 ## Sprite radius in the atlas, pixels.
+var _art_atlas := Vector2.ZERO ## Top-left of the sprite cells, in arena pixels.
+
+
+func _bake_art_if_needed(id: String) -> void:
+	if ArenaArt.family(id) == "" or not view_scale > 0.0:
+		_art_ctx = null
+		_bake_key = []
+		return
+	var screen := get_viewport().get_final_transform().get_scale().x if is_inside_tree() else 1.0
+	var key := [id, view_scale, screen]
+	if key == _bake_key:
+		return
+	_bake_key = key
+	var m := frame_margin()
+	var span := MatchSim.ARENA_SIZE * view_scale + 2.0 * m
+	var r := 8.0
+	for o in MatchSim.new({"arena": id}).obstacles():
+		r = maxf(r, o.radius * view_scale)
+	var cell := r * 2.0 * ArenaArt.SPRITE_EXTENT
+	var k := minf(clampf(screen * ART_SUPERSAMPLE, 1.0, 4.0), ART_MAX_TEXTURE / (span + cell + 8.0))
+	if _bake == null:
+		_bake = SubViewport.new()
+		_bake.transparent_bg = true
+		_bake.disable_3d = true
+		_bake.gui_disable_input = true
+		_painter = _ArtPainter.new()
+		_painter.view = self
+		_bake.add_child(_painter)
+		add_child(_bake)
+	_art_ctx = ArenaArt.make_ctx(id, view_scale, m)
+	_art_k = k
+	_art_r = r
+	_art_atlas = Vector2(span - m + 4.0, -m)
+	_bake.size = Vector2i(ceili((span + cell + 8.0) * k), ceili(maxf(span, cell * 2.0 + 4.0) * k))
+	_painter.position = Vector2(m, m) * k
+	_painter.scale = Vector2(k, k)
+	_painter.queue_redraw()
+	_bake.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+
+func _paint_art(cv: CanvasItem) -> void:
+	if _art_ctx == null:
+		return
+	ArenaArt.paint(cv, _art_ctx)
+	var cell := _art_r * 2.0 * ArenaArt.SPRITE_EXTENT
+	ArenaArt.pillar(cv, _art_ctx, _art_atlas + Vector2.ONE * cell / 2.0, _art_r)
+	ArenaArt.bumper(cv, _art_ctx, _art_atlas + Vector2(cell / 2.0, cell * 1.5), _art_r)
+
+
+## Where sprite `slot` (0 pillar, 1 bumper) sits in the baked texture.
+func _art_src(slot: int) -> Rect2:
+	var cell := _art_r * 2.0 * ArenaArt.SPRITE_EXTENT
+	var m := frame_margin()
+	return Rect2((_art_atlas + Vector2(0.0, cell * slot) + Vector2(m, m)) * _art_k, Vector2.ONE * cell * _art_k)
+
+
+func _paint_art_floor(cv: CanvasItem, shape: MatchSim, overtime: bool) -> void:
+	var m := frame_margin()
+	var span := MatchSim.ARENA_SIZE * view_scale + 2.0 * m
+	cv.draw_texture_rect_region(_bake.get_texture(), Rect2(-m, -m, span, span), Rect2(Vector2.ZERO, Vector2.ONE * span * _art_k))
+	var now := _floor_outline
+	if shape.arena_scale() < 0.999: # Overtime walls closing in: shade what's been lost.
+		var far := ArenaArt.Kit.offset(now, span)
+		var box := Rect2(-m, -m, span, span)
+		var frame := PackedVector2Array([box.position, Vector2(box.end.x, box.position.y), box.end, Vector2(box.position.x, box.end.y)])
+		for i in now.size():
+			var j := (i + 1) % now.size()
+			for part in Geometry2D.intersect_polygons(PackedVector2Array([now[i], now[j], far[j], far[i]]), frame):
+				Dot.poly(cv, part, Color(0.04, 0.01, 0.06, 0.6))
+	if overtime:
+		var closed := now.duplicate()
+		closed.append(now[0])
+		cv.draw_polyline(closed, Color(OVERTIME_BORDER, 0.3), 9.0, true)
+		cv.draw_polyline(closed, OVERTIME_BORDER, 3.0, true)
+
+
+func _draw_art_obstacle(o: Dictionary, p: Vector2, rad: float) -> bool:
+	if _art_ctx == null or _bake == null:
+		return false
+	var slot := 0 if o.kind == "pillar" else 1
+	if slot == 1 and not ArenaArt.has_bumper(_art_ctx.id):
+		return false
+	var e := rad * ArenaArt.SPRITE_EXTENT
+	draw_texture_rect_region(_bake.get_texture(), Rect2(p - Vector2(e, e), Vector2(e, e) * 2.0), _art_src(slot))
+	if slot == 1:
+		var k := _bumper_flash / BUMPER_FLASH_LIFE
+		if k > 0.0:
+			Dot.circle(self, p, rad, Color(1, 1, 1, 0.5 * k))
+	return true
+
 
 ## The family matchup at kick-off, for an uneven 1v1: the edge family's
 ## glyph, its ▲▲ / ▲, the other family's glyph, and the line ("Fire burns
@@ -1604,6 +1738,8 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 			continue # Placed pieces draw themselves (_draw_piece).
 		var p: Vector2 = o.pos * s
 		var rad: float = o.radius * s
+		if o.kind != "spike" and _draw_art_obstacle(o, p, rad):
+			continue
 		if o.kind == "spike":
 			_draw_spike_post(p, rad)
 		elif o.kind == "bumper":
@@ -1719,6 +1855,8 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 				var c: Vector2 = f.pos * s
 				var r: float = f.radius * s
 				Dot.circle(self, c, r, Color(ICE, 0.12))
+				if _art_ctx != null: # A dark edge so the pond reads on pale themed floors.
+					Dot.arc(self, c, r + 2.0, 0, TAU, 72, Color(0.08, 0.25, 0.5, 0.45), 4.0, true)
 				Dot.arc(self, c, r, 0, TAU, 72, Color(ICE, 0.55), 2.5, true)
 				Dot.arc(self, c, r - 6.0, 0, TAU, 72, Color(ICE, 0.15), 6.0, true)
 				for j in 6: # Cracks in the ice.
@@ -1731,6 +1869,8 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 				var c: Vector2 = f.pos * s
 				var r: float = f.radius * s
 				Dot.circle(self, c, r, Color(GOO, 0.22))
+				if _art_ctx != null:
+					Dot.arc(self, c, r + 2.0, 0, TAU, 60, Color(0.3, 0.18, 0.02, 0.45), 4.0, true)
 				for j in 7: # Honeycomb cells.
 					var off := Vector2.ZERO if j == 0 else Vector2.from_angle(j * TAU / 6.0) * r * 0.5
 					var hex := PackedVector2Array()
