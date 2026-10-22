@@ -10,6 +10,7 @@ extends RefCounted
 
 const Dot := preload("res://game/dot.gd")
 const TALENTS := preload("res://sim/talents.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 
 const IRON := Color("3a3f4f")
 const IRON_HI := Color("5d6478")
@@ -333,7 +334,7 @@ static func _pinata(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void
 		Dot.circle(ci, c + Vector2(0.3, -0.06) * r, r * 0.06, Color(PINATA[0], 0.6))
 
 
-## The totem from above: a carved stone drum with nine family masks round
+## The totem from above: a carved stone drum with nine family icons round
 ## its rim. opts.family lights that family's mask; opts.volley (0-1) makes
 ## every mask blaze and beams run to them as a volley winds up.
 static func _totem(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
@@ -364,12 +365,7 @@ static func _totem(ci: CanvasItem, c: Vector2, r: float, o: Dictionary) -> void:
 			Dot.pline(ci, PackedVector2Array([c + d * r * 0.3, p]), Color(col, 0.5 * charge), maxf(2.0, r * 0.05 * charge), true)
 		if glow > 0.05:
 			Dot.circle(ci, p, r * 0.27, Color(col, 0.35 * glow))
-		Dot.circle(ci, p, r * 0.17, col.darkened(0.55 - 0.55 * glow))
-		var side := d.orthogonal()
-		var eye := Color(1, 1, 1, 0.4 + 0.6 * glow)
-		Dot.pline(ci, PackedVector2Array([p + side * r * 0.1 + d * r * 0.03, p + side * r * 0.03 + d * r * 0.05]), eye, maxf(1.5, r * 0.03), true)
-		Dot.pline(ci, PackedVector2Array([p - side * r * 0.1 + d * r * 0.03, p - side * r * 0.03 + d * r * 0.05]), eye, maxf(1.5, r * 0.03), true)
-		Dot.pline(ci, PackedVector2Array([p + side * r * 0.06 - d * r * 0.06, p - side * r * 0.06 - d * r * 0.06]), Color(0, 0, 0, 0.5), maxf(1.5, r * 0.025), true)
+		FamilyIcon.draw(ci, fams[k], p, r * 0.36) # Each mask is its family's icon.
 	# Spirit wisps circling the lit family's mask colour.
 	for k in 3:
 		var a := t * (1.1 + 0.2 * k) + k * TAU / 3.0
@@ -575,17 +571,18 @@ static func draw_death(ci: CanvasItem, id: String, c: Vector2, r: float, age: fl
 
 ## A boss in a menu (the boss hall, each boss's screen). Redraws slowly.
 ## A boss in a menu. The web build only draws a frame when something changed,
-## and a boss is a lot of antialiased lines, so every icon redraws on the same
-## shared clock with the critter icons (one frame for all of them, not one per
-## icon), small icons tick slower, and an icon that's hidden, off screen or
-## mid-scroll keeps its drawing.
+## and every redraw of a boss rebuilds its polygons, so small icons (cards, the
+## Bosses list) are drawn once and stay still; only a big hero portrait
+## animates, on the clock shared with the critter icons (one frame for all of
+## them), and keeps its drawing while hidden, off screen or mid-scroll.
 class BossIcon extends Control:
 	const TouchInput := preload("res://game/ui/touch_input.gd")
 	const CritterIcon := preload("res://game/ui/critter_icon.gd")
 	static var _art: Script ## This file, loaded once (it can't preload itself).
-	## Below this side an icon redraws on every SMALL_EVERY-th tick of the clock.
+	## Below this side an icon is drawn once and never animates.
 	const SMALL_SIDE := 120.0
-	const SMALL_EVERY := 3
+	## A hero redraws on every HERO_EVERY-th tick of the shared clock.
+	const HERO_EVERY := 2
 	var boss_id := "anvil_king"
 	var _tick := -1
 	var _clip: Control
@@ -593,6 +590,7 @@ class BossIcon extends Control:
 	func _ready() -> void:
 		if _art == null:
 			_art = load("res://game/boss_art.gd")
+		set_process(minf(custom_minimum_size.x, custom_minimum_size.y) >= SMALL_SIDE)
 		var node := get_parent()
 		while node != null and _clip == null:
 			if node is ScrollContainer:
@@ -602,7 +600,7 @@ class BossIcon extends Control:
 	func _process(_delta: float) -> void:
 		if not is_visible_in_tree() or TouchInput.scrolling():
 			return
-		var tick: int = CritterIcon.clock(SMALL_EVERY if minf(size.x, size.y) < SMALL_SIDE else 1)
+		var tick: int = CritterIcon.clock(HERO_EVERY)
 		if tick == _tick:
 			return
 		var r := get_global_rect()

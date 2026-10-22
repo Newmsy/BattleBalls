@@ -44,7 +44,7 @@ func _init() -> void:
 					for corner in 2:
 						var tiers := [2, side[1]]
 						var pw := [Power.multiplier(Power.RARITIES[r], 2, 1), Power.multiplier(Power.RARITIES[rr], side[1], 1)]
-						var cfg := {"seed": 7000 + s, "angles": [null, null]}
+						var cfg := {"seed": 7000 + s, "angles": [null, null], "family_edges": false}
 						if corner == 0:
 							cfg.merge({"p1": id, "p2": foe, "tiers": tiers, "powers": pw})
 						else:

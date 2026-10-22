@@ -8,6 +8,8 @@ extends Control
 
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const A11y := preload("res://game/a11y.gd")
+const FamilyEdges := preload("res://game/family_edges.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 
 const TEAM_COLORS := [Color("45f5a6"), Color("ff5a7a")]
 const SHIELD := Color("9fd8ff")
@@ -34,6 +36,10 @@ var _chip_hold := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var _count := 2 ## Bars: 2, or 4 in a 2v2 (index 2 is YOU's mate, 3 the foe's), or 6 in a 3v3.
 var _time := 0.0
 var _live := false
+## The 1v1 family edge from the YOU side's view (-2..2) and the colour of the
+## family that has it: ▲▲ / ▲ by that side's bar.
+var _edge := 0
+var _edge_col := Color.WHITE
 ## The sim side the viewer plays (a live match can put you on side 1): its
 ## balls fill the YOU bars on the left.
 var you_side := 0
@@ -62,6 +68,9 @@ func show_fight(sim, center := "") -> void:
 		_max[i] = maxf(1.0, b.max_hp)
 		_shield[i] = maxf(0.0, b.shield)
 		_names[i] = str(b.def.get("display_name", b.def.get("name", "")))
+	var m := FamilyEdges.matchup(sim) if _count == 2 else {}
+	_edge = int(m.get("edge", 0)) * (-1 if you_side == 1 else 1)
+	_edge_col = FamilyIcon.color(m.adv) if not m.is_empty() else Color.WHITE
 	_live = true
 	queue_redraw()
 
@@ -106,6 +115,9 @@ func _draw() -> void:
 		draw_string(FONT, Vector2(x, bar_y - 8.0), label, align, bar_w, fs, TEAM_COLORS[i])
 		if stats_h > 0.0 and stats[i] != "":
 			draw_string(FONT, Vector2(x, bar_y + bar_h + sfs + 2.0), stats[i], align, bar_w, sfs, Color(TEAM_COLORS[i].lerp(Color("f0eeff"), 0.55), 0.85))
+	if _edge != 0: # The side with the family edge: chevrons at its bar's inner end.
+		var x := bar_w + 22.0 if _edge > 0 else size.x - bar_w - 22.0
+		FamilyEdges.draw_chevrons(self, Vector2(x, bar_y + bar_h / 2.0), absi(_edge), 14.0, _edge_col)
 	_draw_clock(Vector2(size.x / 2.0, bar_y + bar_h / 2.0), gap - 8.0)
 	if caption != "":
 		_text(Vector2(size.x / 2.0, bar_y + bar_h + sfs * 0.5 + 6.0), caption, A11y.font(20), Color("c9c3ff"))

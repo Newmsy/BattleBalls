@@ -11,6 +11,8 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const Families := preload("res://sim/families.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 
@@ -82,8 +84,7 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 	var tags := Kit.hbox(8, [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol)])
 	var fam := Families.of(id)
 	if fam != "":
-		var fi: Dictionary = Families.info(fam)
-		tags.add_child(Kit.chip(fi.name, Color(fi.color)))
+		tags.add_child(FamilyIcon.chip(fam))
 	tags.add_child(Kit.chip(c.role, Kit.MUTED))
 	var stand := Kit.hbox(10, [Kit.glyph("stars", 26, Kit.FG, tier)])
 	if level > 0:
@@ -127,7 +128,8 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 	var ok := Kit.button("Got it", close, "go", 24, 76)
 	buttons.add_child(ok)
 
-	var body := Kit.vbox(16, [head, Kit.panel(ladder, Kit.box(Kit.PANEL, Kit.LINE, 22, 2, 14)), buttons])
+	var edges := FamilyEdge.matchup_line(id)
+	var body := Kit.vbox(16, [head, edges, Kit.panel(ladder, Kit.box(Kit.PANEL, Kit.LINE, 22, 2, 14)), buttons])
 	card = Kit.panel(body, Kit.box(Roster.rarity_bg(c.rarity, Color("16133a"), .14), Roster.rarity_border(c.rarity, Kit.ACCENT), 36, 3, 22))
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	card.custom_minimum_size.x = width
@@ -138,15 +140,15 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 	root.add_child(centre)
 	TouchInput.set_back(self, func(): return Callable(close) if is_inside_tree() else Callable())
 	if is_inside_tree():
-		_report.call_deferred(card, ok, full)
+		_report.call_deferred(card, ok, full, edges)
 
 
 ## Smoke test hooks: where the card and its buttons ended up, and whether it fits.
-func _report(card: Control, ok: Control, full: Control) -> void:
+func _report(card: Control, ok: Control, full: Control, edges: Control = null) -> void:
 	await get_tree().process_frame
 	if not is_inside_tree():
 		return
-	for b in [[ok, "popup_close"], [full, "popup_full"]]:
+	for b in [[ok, "popup_close"], [full, "popup_full"], [edges if edges is Button else null, "popup_edges"]]:
 		if b[0] != null:
 			var at: Vector2 = b[0].get_global_rect().get_center()
 			print("UI_AT %s %d %d" % [b[1], roundi(at.x), roundi(at.y)])

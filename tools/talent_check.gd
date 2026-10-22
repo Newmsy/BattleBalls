@@ -42,7 +42,7 @@ func _init() -> void:
 		for id in ids:
 			for s in fights:
 				var me := s % 2
-				var cfg := {"seed": 1000 + s, "angles": [null, null]}
+				var cfg := {"seed": 1000 + s, "angles": [null, null], "family_edges": false}
 				Lineup.apply(cfg, me, Lineup.make(id, 5, 1, [], Talents.suggested(f)))
 				Lineup.apply(cfg, 1 - me, Lineup.make(id, 5, 1))
 				var sim := MatchSim.new(cfg)

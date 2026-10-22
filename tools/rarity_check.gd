@@ -43,7 +43,7 @@ func _init() -> void:
 			var a: String = pool_a[(i * 7) % pool_a.size()]
 			var b: String = pool_b[(i * 13 + i / pool_a.size()) % pool_b.size()]
 			for corner in 2:
-				var cfg := {"seed": 5000 + i, "angles": [null, null]}
+				var cfg := {"seed": 5000 + i, "angles": [null, null], "family_edges": false}
 				if corner == 0:
 					cfg.merge({"p1": a, "p2": b, "tiers": [ta, tb], "powers": [pa, pb]})
 				else:

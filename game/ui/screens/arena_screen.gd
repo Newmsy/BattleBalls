@@ -16,6 +16,8 @@ const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
 const Families := preload("res://sim/families.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
 
@@ -176,7 +178,10 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 	var fam: String = bot.get("family", "")
 	var fam_col: Color = Color(Families.info(fam).color) if fam != "" else Kit.FG
 	var stake := Ladder.stake(store.trophies, int(bot.get("trophies", store.trophies)))
-	var name := _fit(Kit.label(str(bot.name), 24, fam_col))
+	var name: Control = _fit(Kit.label(str(bot.name), 24, fam_col))
+	if fam != "":
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name = Kit.hbox(6, [FamilyIcon.make(fam, 28), name], BoxContainer.ALIGNMENT_CENTER)
 	var info := Kit.vbox(2, [
 		name,
 		Kit.hbox(6, [Kit.glyph("trophy", 20, Glyph.GOLD), Kit.label(Kit.commas(int(bot.get("trophies", 0))), 20, Kit.MUTED), Kit.power(ArenaTeams.rating(bot), 20, Kit.MUTED)]),
@@ -192,7 +197,12 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 		Kit.label("%d" % int(stake.loss), 20, Kit.BAD, HORIZONTAL_ALIGNMENT_RIGHT),
 	])
 	stakes.custom_minimum_size.x = 44
-	var row := Kit.hbox(8, [info, faces, Kit.glyph("trophy", 22, Glyph.GOLD), stakes], BoxContainer.ALIGNMENT_CENTER)
+	# Your trio's family edge on theirs, as a badge over their faces.
+	var edge := FamilyEdge.team(store.trio, slots.map(func(s): return str(s.critter)))
+	var mark := FamilyEdge.badge(edge, 20)
+	mark.custom_minimum_size.y = 20 # Holds the line when even, so faces line up row to row.
+	var foe_side := Kit.vbox(0, [mark, faces])
+	var row := Kit.hbox(8, [info, foe_side, Kit.glyph("trophy", 22, Glyph.GOLD), stakes], BoxContainer.ALIGNMENT_CENTER)
 	return Kit.card_button(row, _attack.bind(shell, store, offer), Color(fam_col, .6), Kit.PANEL, 22, 10)
 
 

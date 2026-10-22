@@ -4,6 +4,7 @@
 ## The Critterpedia button opens every critter, found or not (dex_screen.gd).
 extends RefCounted
 
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const LazyTile := preload("res://game/ui/lazy_tile.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
@@ -53,7 +54,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var shown := all.filter(func(k): return filter == "all" or Roster.get_critter(k.id).rarity == filter)
 	var meter := _Collection.new()
 	meter.fill = _found_by_rarity(p)
-	root.add_child(Kit.hbox(12, [Kit.label("%d/%d found" % [p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED), meter], BoxContainer.ALIGNMENT_CENTER))
+	root.add_child(Kit.hbox(12, [Kit.label("%d/%d found" % [p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED), meter, FamilyEdge.info_chip(shell)], BoxContainer.ALIGNMENT_CENTER))
 	if shown.is_empty():
 		var what: String = "" if filter == "all" else Roster.RARITY_NAMES[filter] + " "
 		root.add_child(Kit.label("No %scritters yet." % what, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))

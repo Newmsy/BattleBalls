@@ -54,6 +54,7 @@ const Talents := preload("res://sim/talents.gd")
 const Weight := preload("res://sim/weight.gd")
 const DMath := preload("res://sim/dmath.gd")
 const Bosses := preload("res://sim/bosses.gd")
+const Families := preload("res://sim/families.gd")
 
 ## Bump whenever a change alters fight outcomes (i.e. golden replays are
 ## re-recorded): saved Ghost Arena lineups only meet fights on the same rules.
@@ -301,6 +302,8 @@ var rng
 ## Damage and crit rolls only, so abilities that use `rng` never shift them.
 var rolls
 var damage_rolls := true
+## Family edges (sim/families.gd); off only for critter-vs-critter audits.
+var family_edges := true
 var balls: Array[Ball] = []
 var beams: Array[Beam] = []
 var zones: Array[Zone] = []
@@ -341,6 +344,7 @@ func _init(cfg: Dictionary) -> void:
 	abilities = Abilities.new()
 	rolls = Rng.new(int(cfg.get("seed", 1)) ^ ROLL_SALT)
 	damage_rolls = cfg.get("damage_rolls", true)
+	family_edges = cfg.get("family_edges", true)
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	if cfg.has("p3"):
 		types.append_array([cfg.p3, cfg.get("p4", "plain")])
@@ -1083,6 +1087,11 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			amount *= Talents.hit_mult(self, source, target, h)
 		if h.kind == "contact":
 			amount = _boon_contact_damage(source, target, amount)
+		# Family edges: no rolls, so the seeded stream is the same either way.
+		var edge := 0
+		if family_edges and not h.get("env", false) and source.team != target.team:
+			edge = maxi(0, Families.edge(source.type_id, target.type_id))
+			amount *= 1.0 + Families.EDGE_BONUS[edge]
 		amount *= mult
 		if amount <= 0.0:
 			continue
@@ -1126,7 +1135,7 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		target.hp -= amount
 		if not env:
 			source.damage_dealt += amount
-		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos, "crit": crit, "backstab": backstab})
+		events.append({"type": "damage", "target": h.target, "source": h.source, "amount": amount, "kind": h.kind, "pos": h.pos, "crit": crit, "backstab": backstab, "edge": edge})
 		if talented:
 			Talents.after_hit(self, source, target, amount, h.kind, heals)
 		if h.kind == "contact":

@@ -9,6 +9,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const Families := preload("res://sim/families.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const DetailScreen := preload("res://game/ui/screens/detail_screen.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 
@@ -32,8 +33,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var tags := Kit.hbox(8)
 	var fam := Families.of(c.id)
 	if fam != "":
-		var fi: Dictionary = Families.info(fam)
-		tags.add_child(Kit.chip(fi.name, Color(fi.color)))
+		tags.add_child(FamilyIcon.chip(fam))
 	tags.add_child(Kit.chip(c.role, Kit.MUTED))
 	var found := Kit.label("Found" if owned else "Not found yet", 22, Kit.GOOD if owned else Kit.MUTED)
 	var side := Kit.vbox(10, [Kit.label("#%03d" % d.no, 26, Kit.MUTED), Kit.label(c.type, 30, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), tags, found])
