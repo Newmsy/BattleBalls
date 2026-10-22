@@ -46,7 +46,7 @@ func _init() -> void:
 							cfg.merge({"p1": id, "p2": foe, "tiers": tiers, "powers": pw})
 						else:
 							cfg.merge({"p1": foe, "p2": id, "tiers": [tiers[1], tiers[0]], "powers": [pw[1], pw[0]]})
-						var w := MatchSim.new(cfg).run_to_end().winner
+						var w: int = MatchSim.new(cfg).run_to_end().winner
 						if w == corner:
 							wins += 1.0
 						elif w < 0:
