@@ -1,5 +1,5 @@
-## Tap-to-launch aiming, the same on every fight screen: press on the arena
-## and your ball aims at the finger, drag to adjust, let go to launch. The
+## Tap-to-launch aiming, the same on every fight screen: press anywhere the
+## buttons don't take and your ball aims at the finger, drag to adjust, let go to launch. The
 ## launch angle (plus the seed) is all a fight needs to replay, so this is
 ## the only input a fight takes. Each fight scene keeps one and feeds it its
 ## unhandled input while aiming.
@@ -7,7 +7,7 @@ extends RefCounted
 
 const MatchSim := preload("res://sim/match_sim.gd")
 
-## How far outside the arena a press still counts as aiming, in world units.
+## How far outside the arena a press still counts as on it (on_arena), in world units.
 const REACH := 60.0
 
 var dragging := false
@@ -18,9 +18,9 @@ var dragging := false
 func feed(event: InputEvent, arena, from: Vector2, on_aim: Callable, on_launch: Callable, sfx = null) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			dragging = on_arena(arena, event.position)
-			if dragging:
-				_aim(arena, event.position, from, on_aim, sfx)
+			# Anywhere the buttons don't take: off the arena still points the shot.
+			dragging = true
+			_aim(arena, event.position, from, on_aim, sfx)
 		elif dragging:
 			dragging = false
 			_aim(arena, event.position, from, on_aim, sfx)
