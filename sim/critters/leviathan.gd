@@ -21,7 +21,10 @@ const CRITTER := {
 		"tail_damage": 3.0,
 		"tail_cooldown": 0.6,
 		"tail_slow": 0.0, ## T3: segments slow foes they touch.
-		"dive_every": 9.0,
+		"dive_every": 7.0,
+		"coil_damage": 6.0, ## A foe its tail touches gets coiled: this much...
+		"coil_secs": 0.5, ## ...held this long...
+		"coil_cooldown": 5.0, ## ...at most this often.
 		"dive_secs": 1.2,
 		"dive_lock": 0.5, ## The splash point stops following the foe this long before it erupts.
 		"dive_guard": 0.4, ## Damage taken while diving.
@@ -33,11 +36,11 @@ const CRITTER := {
 		"pool_slow": 0.3,
 	},
 	"tiers": [
-		{"text": "Tail stings 3; every 9s a wave for 8", "now": "Tail stings {tail_damage}; every {dive_every}s a wave for {wave_damage}"},
+		{"text": "Tail stings 3 and coils (6); every 7s a wave for 8", "now": "Tail stings {tail_damage} and coils ({coil_damage}); every {dive_every}s a wave for {wave_damage}"},
 		{"text": "Wave 8 → 10", "wave_damage": 10.0},
-		{"text": "Segments 3 → 4 + slow 20%", "now": "Slowing tail stings {tail_damage}; every {dive_every}s a wave for {wave_damage}", "tail_count": 4, "tail_slow": 0.2},
-		{"text": "Wave every 9 → 8s", "dive_every": 8.0},
-		{"text": "+ The eruption leaves a whirlpool (4/s)", "now": "Slowing tail {tail_damage}; every {dive_every}s wave {wave_damage} + whirlpool", "pool_dps": 4.0},
+		{"text": "Segments 3 → 4 + slow 20%", "now": "Slowing tail coils ({coil_damage}); every {dive_every}s a wave for {wave_damage}", "tail_count": 4, "tail_slow": 0.2},
+		{"text": "Wave every 7 → 6s", "dive_every": 6.0},
+		{"text": "+ The eruption leaves a whirlpool (4/s)", "now": "Slowing tail coils; every {dive_every}s wave {wave_damage} + whirlpool", "pool_dps": 4.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "none"}, "back": ["segments", "frill"], "front": ["gills"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.7},

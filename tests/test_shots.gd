@@ -130,11 +130,14 @@ func test_clam_shuts_for_armour_then_fires_its_pearl() -> void:
 	var def := BallDefs.get_def("clam")
 	sim.abilities.fx_shut(sim, c, {})
 	sim.deal(sim.balls[1], c, 10.0, "contact")
+	var foe_hp: float = sim.balls[1].hp
 	sim.step()
 	check_near(c.hp, def.hp - 10.0 * (1.0 - def.shut_armor), 0.001, "shut takes less")
+	sim.step()
+	check_near(foe_hp - sim.balls[1].hp, def.clamp_damage, 0.001, "and bites a foe that bumps it")
 	check_eq(sim.shots.size(), 0, "no pearl while shut")
 	_steps(sim, int(round(def.shut_secs * MatchSim.TICK_RATE)))
-	check_eq(sim.shots.size(), 1, "pearl when it pops open")
+	check_eq(sim.shots.size(), int(def.shot_count), "pearls when it pops open")
 	sim.deal(sim.balls[1], c, 10.0, "contact")
 	var before := c.hp
 	sim.step()

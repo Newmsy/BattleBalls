@@ -92,9 +92,9 @@ func test_validation_catches_text_mistakes() -> void:
 ## The ability line at each tier shows that tier's numbers, never T1's
 ## (a "now" that drops a number T1 showed would go stale), and fits a card.
 func test_ability_text_keeps_up_with_the_tiers() -> void:
-	check_eq(AbilityText.now("beacon", 1), "Aimed beam every 4s: 4.5/s, lit foes +20% dmg taken", "T1 line")
-	check_eq(AbilityText.now("beacon", 2), "Aimed beam every 4s: 6/s, lit foes +20% dmg taken", "T2 numbers")
-	check_eq(AbilityText.change("beacon", 2), "Beam 4.5 → 6/s", "T2 change")
+	check_eq(AbilityText.now("beacon", 1), "Aimed beam every 4s: 3.5/s, lit foes +20% dmg taken", "T1 line")
+	check_eq(AbilityText.now("beacon", 2), "Aimed beam every 4s: 5/s, lit foes +20% dmg taken", "T2 numbers")
+	check_eq(AbilityText.change("beacon", 2), "Beam 3.5 → 5/s", "T2 change")
 	check_eq(AbilityText.change("beacon", 1), AbilityText.now("beacon", 1), "T1 change is the ability")
 	check_eq(AbilityText.special("honey"), "Honey Pot", "T5 name")
 	check(not AbilityText.full("frostfang").begins_with("Wolf."), "full() drops the type")

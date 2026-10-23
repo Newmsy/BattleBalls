@@ -26,9 +26,11 @@ const CRITTER := {
 		"vine_damage": 6.0,
 		"vine_burst_radius": 100.0,
 		"vine_thorn_damage": 0.0, ## Thorn patch damage a second after the snap.
+		"overgrow_max": 3, ## Snapped vines stay as vine walls (this many at most)...
+		"overgrow_damage": 3.0, ## ...until a foe bounces off one for this.
 	},
 	"tiers": [
-		{"text": "Every 6s lashes foe to a vine 1s, snap 6", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage}"},
+		{"text": "Every 6s lashes foe to a vine 1s, snap 6; vines stay", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage}; vines stay"},
 		{"text": "Snap 6 → 8", "vine_damage": 8.0},
 		{"text": "+ The snap leaves thorns (4/s)", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage} + thorns", "vine_thorn_damage": 4.0},
 		{"text": "Lash every 6 → 5s", "vine_every": 5.0},

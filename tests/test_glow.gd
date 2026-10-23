@@ -21,7 +21,7 @@ var TEST_SAVE := "user://test_glow_save_%d.json" % OS.get_process_id()
 
 
 func _schedule() -> Dictionary:
-	return {"version": 1, "revision": 1, "spotlight": [], "chaos": [], "fights": [], "seasons": [
+	return {"version": 1, "revision": 1, "chaos": [], "fights": [], "seasons": [
 		{"name": "Season A", "start": "2026-10-12", "weeks": 7, "debut": "bomber"},
 		{"name": "Season B", "start": "2026-11-30", "weeks": 7},
 	]}

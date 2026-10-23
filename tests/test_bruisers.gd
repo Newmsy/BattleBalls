@@ -63,6 +63,17 @@ func test_speedster_speeds_up_on_bounces_and_resets_when_hit() -> void:
 	p.vel = Vector2(-p.speed, 0)
 	for i in 5:
 		sim.step()
+	check_near(z.speed, z.def.speed * (1.0 + z.def.max_speed_mult) / 2.0, 0.01, "top speed's sonic boom guard halves the first reset")
+	check(z.state.get("sonic", false) == false, "and the boom is ready again")
+	for i in 20: # Past the contact cooldown.
+		sim.step()
+	z.speed = z.def.speed * 1.4
+	z.pos = Vector2(500, 500)
+	z.vel = Vector2.ZERO
+	p.pos = z.pos + Vector2(z.radius + p.radius + 2.0, 0)
+	p.vel = Vector2(-p.speed, 0)
+	for i in 30:
+		sim.step()
 	check_near(z.speed, z.def.speed, 0.01, "reset after being hit")
 
 

@@ -18,7 +18,10 @@ const CRITTER := {
 	"params": {
 		"phase_secs": 1.0,
 		"phase_guard": 0.3,
-		"relight_damage": 5.0, ## The flame bursts back on when the fade ends.
+		"relight_damage": 4.0, ## The flame bursts back on when the fade ends.
+		"relight_nova_every": 0, ## T5 wick bomb: every this-many relights is a fire nova...
+		"relight_nova_damage": 14.0,
+		"relight_nova_radius": 260.0,
 		"relight_radius": 140.0,
 		"scorch_dps": 2.0,
 		"scorch_secs": 2.0,
@@ -28,11 +31,11 @@ const CRITTER := {
 		"trail_dps": 3.0,
 	},
 	"tiers": [
-		{"text": "After each hit fades 1s (-70% dmg taken), relights for 5", "now": "After each hit fades {phase_secs}s (-70% dmg taken), relights for {relight_damage}"},
-		{"text": "Relight 5 → 7", "relight_damage": 7.0},
+		{"text": "After each hit fades 1s (-70% dmg taken), relights for 4", "now": "After each hit fades {phase_secs}s (-70% dmg taken), relights for {relight_damage}"},
+		{"text": "Relight 4 → 6", "relight_damage": 6.0},
 		{"text": "+ Its hits burn 2/s for 2s", "now": "Burning hits; then fades {phase_secs}s (-70% taken), relights {relight_damage}", "ability": [{"on": "hit", "do": "scorch"}]},
-		{"text": "Relight 7 → 9, size +29%", "relight_radius": 180.0, "relight_damage": 9.0},
-		{"text": "+ Leaves a burning trail while faded", "now": "Burning hits; fades {phase_secs}s (-70% taken, fire trail), relights {relight_damage}", "ability": [{"on": "always", "do": "phase_fire"}]},
+		{"text": "Relight 6 → 8, size +29%", "relight_radius": 180.0, "relight_damage": 8.0},
+		{"text": "+ Fire trail; every 3rd relight: nova (14)", "now": "Burning hits; fades (fire trail), relights {relight_damage}; 3rd: nova", "relight_nova_every": 3, "ability": [{"on": "always", "do": "phase_fire"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smirk"}, "back": ["candle"], "front": ["drips"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.2},

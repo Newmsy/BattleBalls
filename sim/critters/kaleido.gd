@@ -22,9 +22,11 @@ const CRITTER := {
 		"mode_speed": 0.3,
 		"mode_pulse_radius": 0.0,
 		"mode_pulse_damage": 4.0,
+		"mode_shards": 6, ## Each click shatters this many mirror shards outward.
+		"mode_shard_damage": 3.0,
 	},
 	"tiers": [
-		{"text": "Every 4s: spikes +3, 12 shield, or +30% speed", "now": "Every {mode_secs}s: spikes +{mode_damage}, {mode_shield} shield, or +{mode_speed%}% speed"},
+		{"text": "Every 4s 6 shards fly (3), then spikes, shield or speed", "now": "Every {mode_secs}s {mode_shards} shards fly ({mode_shard_damage}), then spikes, shield or speed"},
 		{"text": "Spikes +3 → +4, shield 12 → 14", "mode_damage": 4.0, "mode_shield": 14.0},
 		{"text": "+ Each click pulses for 4", "now": "Every {mode_secs}s pulse + spikes +{mode_damage}, {mode_shield} shield or +{mode_speed%}% speed", "mode_pulse_radius": 90.0},
 		{"text": "Click every 4 → 3.5s", "mode_secs": 3.5},

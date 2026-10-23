@@ -21,15 +21,17 @@ const CRITTER := {
 		"lance_beam_life": 1.5,
 		"lance_beam_dps": 8.0,
 		"lance_hit_mult": 2.0, ## Its hit during a charge.
-		"lance_knock": 0.0, ## T3: the charge hit flings the foe (x speed).
+		"lance_knock": 1.3, ## The charge hit flings the foe (x speed)...
+		"skewer_damage": 8.0, ## ...and the first wall it meets in 0.6s pins it: this much...
+		"skewer_stun": 0.5, ## ...held this long.
 		"lance_retry": 0, ## T5: a charge that misses curves round once.
 	},
 	"tiers": [
-		{"text": "Charges every 4.5s: beam 8/s, hit x2", "now": "Charges every {lance_every}s: beam {lance_beam_dps}/s, hit x{lance_hit_mult}"},
+		{"text": "Charges every 4.5s: beam 8/s, x2 hit skewers foe to wall", "now": "Charges every {lance_every}s: beam {lance_beam_dps}/s, x{lance_hit_mult} hit skewers foe to wall"},
 		{"text": "Beam 8 → 10/s", "lance_beam_dps": 10.0},
-		{"text": "+ The charge hit knocks the foe back hard", "now": "Charges every {lance_every}s: beam {lance_beam_dps}/s, hit x{lance_hit_mult} + knockback", "lance_knock": 1.8},
+		{"text": "Charge knockback x1.3 → x1.8", "lance_knock": 1.8},
 		{"text": "Charge every 4.5 → 3.5s", "lance_every": 3.5},
-		{"text": "+ A charge that misses curves round again", "now": "Charges every {lance_every}s (retries): beam {lance_beam_dps}/s, hit x{lance_hit_mult}", "lance_retry": 1},
+		{"text": "+ A charge that misses curves round again", "now": "Charges every {lance_every}s (retries): beam {lance_beam_dps}/s, x{lance_hit_mult} skewer", "lance_retry": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["horn", "fluke"], "front": ["speckles"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.05},

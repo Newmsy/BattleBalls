@@ -1,4 +1,4 @@
-## Live-ops calendar: the season, the weekly Critter Spotlight, Chaos
+## Live-ops calendar: the season, Chaos
 ## Weekends, the Fight of the Day and the Try-a-Critter loaner, read from one schedule file
 ## (liveops/liveops.json, see liveops/README.md) so a season can be planned
 ## ahead without an app update.
@@ -115,7 +115,7 @@ static func validate(d: Dictionary) -> Array:
 	for key in ["version", "revision"]:
 		if not _num(d.get(key)):
 			errors.append("%s must be a number" % key)
-	for key in ["seasons", "spotlight", "chaos", "fights", "loaners", "brackets"]:
+	for key in ["seasons", "chaos", "fights", "loaners", "brackets"]:
 		if not d.get(key, []) is Array:
 			errors.append("%s must be a list" % key)
 			return errors
@@ -126,11 +126,6 @@ static func validate(d: Dictionary) -> Array:
 			errors.append("season %s must start on a Monday" % s.name)
 		elif s.has("debut") and Roster.CRITTERS.all(func(c): return c.id != s.get("debut")):
 			errors.append("season debut critter unknown: %s" % [s.get("debut")])
-	for s in d.get("spotlight", []):
-		if not s is Dictionary or _monday(s.get("week")) < 0:
-			errors.append("spotlight week must be a Monday: %s" % [s])
-		elif Roster.CRITTERS.all(func(c): return c.id != s.get("critter")):
-			errors.append("spotlight critter unknown: %s" % [s.get("critter")])
 	for c in d.get("chaos", []):
 		if not c is Dictionary or date_unix(c.get("weekend")) < 0 or _weekday(date_unix(c.weekend)) != 4:
 			errors.append("chaos weekend must be a Friday: %s" % [c])
@@ -215,17 +210,6 @@ static func season(t: int) -> Dictionary:
 			return {"name": s.name, "week": (t - start) / WEEK + 1, "weeks": int(s.weeks), "starts": start, "ends": end,
 				"debut": str(s.get("debut", ""))}
 	return {}
-
-
-## { critter, blurb, ends } for the Spotlight week holding `t`.
-static func spotlight(t: int) -> Dictionary:
-	var week := week_start(t)
-	for s in data().get("spotlight", []):
-		if _monday(s.week) == week:
-			return {"critter": s.critter, "blurb": s.get("blurb", ""), "ends": week + WEEK}
-	# Fallback: rotate through the Rare and better critters.
-	var pool: Array = Roster.CRITTERS.filter(func(c): return c.rarity != "common")
-	return {"critter": pool[posmod(_week_index(t), pool.size())].id, "blurb": "", "ends": week + WEEK}
 
 
 ## This week's Chaos Weekend: { modifier, name, description, starts, ends,

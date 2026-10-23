@@ -14,10 +14,10 @@ const CRITTER := {
 	"vibe": "A wise old sea turtle that knows exactly when to hide.",
 	"description": "Turtle. Below 30% HP it pulls into its shell: -40% dmg taken, but -20% speed.",
 	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
-	"ability": [{"on": "hp_below", "hp": 0.3, "do": "grow"}, {"on": "guard", "do": "grow_guard"}],
+	"ability": [{"on": "hp_below", "hp": 0.3, "do": "grow"}, {"on": "guard", "do": "grow_guard"}, {"on": "strike", "do": "shell_kick"}],
 	"params": {
 		"grow_radius": 0.0,
-		"grow_speed": -0.2,
+		"grow_speed": 0.25, ## Tucked in, it spins like a kicked shell...
 		"grow_add": 0.0,
 		"grow_secs": 0.0,
 		"grow_stack": 0.0,
@@ -27,13 +27,14 @@ const CRITTER := {
 		"grow_bolts": 0.0,
 		"bolt_damage": 3.0,
 		"grow_armor": 0.4,
+		"shell_hit": 1.3, ## ...its hits deal this x and fling the foe.
 	},
 	"tiers": [
-		{"text": "Below 30% HP: -40% dmg taken, -20% speed", "now": "Below 30% HP: -{grow_armor%}% dmg taken, {grow_speed%}% speed"},
+		{"text": "Below 30% HP shell spin: -40% dmg taken, +25% speed", "now": "Below 30% HP shell spin: -{grow_armor%}% dmg taken, +{grow_speed%}% speed"},
 		{"text": "Shell -40% → -45% dmg taken", "grow_armor": 0.45},
-		{"text": "+ Tucking in heals 8", "now": "Below 30% HP: -{grow_armor%}% dmg taken, {grow_speed%}% speed, heal {grow_heal}", "grow_heal": 8.0},
+		{"text": "+ Tucking in heals 8", "now": "Below 30% HP shell spin: -{grow_armor%}% taken, heal {grow_heal}", "grow_heal": 8.0},
 		{"text": "Shell -45% → -50% dmg taken", "grow_armor": 0.5},
-		{"text": "+ Tucking in slams out: 10 + knockback", "now": "Below 30% HP: slam {grow_pulse_damage}, heal {grow_heal}, -{grow_armor%}% dmg taken", "grow_pulse_damage": 10.0},
+		{"text": "+ Tucking in slams out: 10 + knockback", "now": "Below 30% HP shell spin: slam {grow_pulse_damage}, heal {grow_heal}, -{grow_armor%}%", "grow_pulse_damage": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["shellhex"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.85},

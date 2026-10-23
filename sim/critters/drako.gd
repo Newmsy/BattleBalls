@@ -14,7 +14,7 @@ const CRITTER := {
 	"vibe": "A baby dragon who is very serious about being fearsome.",
 	"description": "Dragon. Every hit stokes its fire (+1 dmg), and at 4 stokes its next hit breathes a cone of 5 fireballs (5 each, plus a burn) and starts again.",
 	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
-	"ability": [{"on": "hit", "do": "stack_breath"}, {"on": "guard", "do": "stack_guard"}],
+	"ability": [{"on": "hit", "do": "stack_breath"}, {"on": "guard", "do": "stack_guard"}, {"on": "every", "secs": "breath_every", "do": "breath_timer"}],
 	"params": {
 		"stack_max": 4.0,
 		"stack_radius": 0.0,
@@ -27,9 +27,10 @@ const CRITTER := {
 		"fire_damage": 5.0,
 		"fire_burn": 2.0,
 		"fire_streak": 0.0,
+		"breath_every": 9.0, ## It also breathes on its own this often (its stokes stay).
 	},
 	"tiers": [
-		{"text": "Hits stoke +1 dmg; at 4: breathes 5 fireballs (5)", "now": "Hits stoke +{stack_add} dmg; at {stack_max}: breathes {fire_count} fireballs ({fire_damage})"},
+		{"text": "Hits stoke +1 dmg; at 4 or every 9s: 5 fireballs (5)", "now": "Hits stoke +{stack_add} dmg; at {stack_max} or every {breath_every}s: {fire_count} fireballs ({fire_damage})"},
 		{"text": "Fireballs 5 → 6", "fire_damage": 6.0},
 		{"text": "+ Each stoke: -5% dmg taken", "now": "Stokes +{stack_add} dmg, -{stack_armor%}% taken; at {stack_max}: {fire_count} fireballs ({fire_damage})", "stack_armor": 0.05},
 		{"text": "Stokes needed 4 → 3", "stack_max": 3.0},

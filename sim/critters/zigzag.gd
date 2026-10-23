@@ -14,20 +14,21 @@ const CRITTER := {
 	"vibe": "A hyper bolt of lightning that leaves its path still crackling.",
 	"description": "Lightning. After every hit, its path to the next wall becomes a crackling beam (8/s for 1.5s).",
 	"stats": {"hp": 115.0, "radius": 66.0, "speed": 400.0, "contact_damage": 20.0},
-	"ability": [{"on": "hit", "do": "zz_arm"}, {"on": "wall", "do": "zz_beam"}, {"on": "always", "do": "slows"}],
+	"ability": [{"on": "hit", "do": "zz_arm"}, {"on": "wall", "do": "zz_beam"}, {"on": "always", "do": "slows"}, {"on": "hit", "do": "zz_bolt_arm"}, {"on": "always", "do": "zz_bolt"}],
 	"params": {
 		"zz_life": 1.5,
 		"zz_damage": 8.0, ## A second.
 		"zz_slow": 0.0,
 		"zz_segments": 1, ## 2: the beam zigzags one more bounce.
 		"beam_max": 6,
+		"zz_bolt_delay": 0.5, ## After a hit, a bolt zigzags at the foe this much later.
 	},
 	"tiers": [
-		{"text": "After a hit, its path crackles 8/s for 1.5s", "now": "After a hit, its path crackles {zz_damage}/s for {zz_life}s"},
+		{"text": "After a hit: a bolt at the foe + its path crackle 8/s", "now": "After a hit: a bolt at the foe + its path crackle {zz_damage}/s"},
 		{"text": "Beam 8 → 10/s", "zz_damage": 10.0},
-		{"text": "+ The beam slows 20%", "now": "After a hit, its path crackles {zz_damage}/s for {zz_life}s, slow {zz_slow%}%", "zz_slow": 0.2},
+		{"text": "+ The beam slows 20%", "now": "After a hit: a bolt at the foe + its path crackle, slow {zz_slow%}%", "zz_slow": 0.2},
 		{"text": "Beam lasts 1.5 → 2s", "zz_life": 2.0},
-		{"text": "Zigzags 2 more bounces, 10 → 18/s, slow 30%", "now": "After a hit, its path zigzags {zz_damage}/s for {zz_life}s, slow {zz_slow%}%", "zz_segments": 3, "zz_damage": 18.0, "zz_slow": 0.3},
+		{"text": "Zigzags 2 more bounces, 10 → 18/s, slow 30%", "now": "After a hit: a bolt at the foe + 3 zigzags {zz_damage}/s, slow {zz_slow%}%", "zz_segments": 3, "zz_damage": 18.0, "zz_slow": 0.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["spikyhair"], "front": ["zigmark"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.35},

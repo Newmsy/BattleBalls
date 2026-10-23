@@ -14,16 +14,20 @@ const CRITTER := {
 	"vibe": "Grumpy hedge that just wants to be left alone.",
 	"description": "Bramble. When bumped, it sends 18% of the damage back at the attacker (up to 5 a hit), and its sting burns 0.5/s (a burning foe can't heal).",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
-	"ability": [{"on": "hurt", "do": "reflect"}],
+	"ability": [{"on": "hurt", "do": "reflect"}, {"on": "hurt", "do": "thorn_burst"}],
 	"params": {
 		"reflect_ratio": 0.18, ## Share of damage taken sent back.
 		"reflect_low": 0.0, ## Share below half HP, when above 0.
 		"reflect_burn": 0.5, ## Burn per second on the attacker for 2s, when above 0. Burning foes can't heal.
 		"reflect_cap": 5.0, ## Most sent back from one hit.
 		"reflect_from": "contact", ## all, contact, ability (not contact) or copying.
+		"thorn_every": 3, ## Every this-many bumps taken, thorns fly...
+		"thorn_count": 8,
+		"thorn_damage": 3.0,
+		"thorn_patch_dps": 2.0, ## ...and a thorn patch is left for 3s.
 	},
 	"tiers": [
-		{"text": "Bumped: sends back 18% of dmg, sting burns 0.5/s", "now": "Bumped: sends back {reflect_ratio%}% of dmg, sting burns {reflect_burn}/s"},
+		{"text": "Sends back 18% of bumps, burns; every 3rd: 8 thorns fly", "now": "Sends back {reflect_ratio%}% of bumps, burns; every 3rd: {thorn_count} thorns fly"},
 		{"text": "Sends back 18 → 22%", "reflect_ratio": 0.22},
 		{"text": "Burn 0.5 → 1/s", "reflect_burn": 1.0},
 		{"text": "Sends back 22 → 26%", "reflect_ratio": 0.26},
