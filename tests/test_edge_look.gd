@@ -16,13 +16,13 @@ func test_every_edge_has_a_kickoff_line() -> void:
 
 
 func test_matchup_reads_from_side_zero() -> void:
-	var sim = MatchSim.new({"seed": 1, "p1": "sooty", "p2": "sprout"})
+	var sim = MatchSim.new({"seed": 1, "p1": "sooty", "p2": "frost"})
 	var m := FamilyEdges.matchup(sim)
-	check_eq(m.get("edge", 0), 2, "Fire on Nature is very good")
-	check_eq(m.get("line", ""), "Fire burns Nature!", "the edge side's line")
-	sim = MatchSim.new({"seed": 1, "p1": "sprout", "p2": "sooty"})
+	check_eq(m.get("edge", 0), 2, "Fire on Frost is very good")
+	check_eq(m.get("line", ""), "Fire melts Frost!", "the edge side's line")
+	sim = MatchSim.new({"seed": 1, "p1": "frost", "p2": "sooty"})
 	m = FamilyEdges.matchup(sim)
-	check_eq(m.get("edge", 0), -2, "Nature on Fire is very bad")
+	check_eq(m.get("edge", 0), -2, "Frost on Fire is very bad")
 	check_eq(m.get("adv", ""), "fire", "the edge side is still Fire")
 	sim = MatchSim.new({"seed": 1, "p1": "sprout", "p2": "bubbles"})
-	check(FamilyEdges.matchup(sim).is_empty(), "Nature and Sea are across the wheel: no banner")
+	check(FamilyEdges.matchup(sim).is_empty(), "Nature and Sea are in different triangles: no banner")

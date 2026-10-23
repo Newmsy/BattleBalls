@@ -7,35 +7,18 @@ const Families := preload("res://sim/families.gd")
 
 ## The kick-off line for the side with the edge, keyed "attacker>target".
 const LINES := {
-	# Very good: the next family clockwise on the wheel.
-	"sea>tech": "Sea shorts out Tech!",
-	"tech>cosmic": "Tech rockets conquer Cosmic!",
-	"cosmic>fire": "Cosmic black holes swallow Fire!",
-	"fire>nature": "Fire burns Nature!",
-	"nature>toybox": "Nature's termites chew Toybox!",
-	"toybox>frost": "Toybox snow-globes Frost!",
-	"frost>sweet": "Frost gives Sweet brain freeze!",
-	"sweet>spooky": "Sweet treats tame Spooky!",
-	"spooky>sea": "Spooky ghost ships haunt the Sea!",
-	# Good: the two after that.
-	"sea>cosmic": "Sea depths drown out Cosmic!",
+	# Elements.
 	"sea>fire": "Sea waves douse Fire!",
-	"tech>fire": "Tech extinguishers douse Fire!",
-	"tech>nature": "Tech mowers trim Nature!",
-	"cosmic>nature": "Cosmic meteors scorch Nature!",
-	"cosmic>toybox": "Cosmic zero-g floats Toybox away!",
-	"fire>toybox": "Fire melts Toybox!",
 	"fire>frost": "Fire melts Frost!",
-	"nature>frost": "Nature's spring thaws Frost!",
-	"nature>sweet": "Nature's bugs swarm Sweet!",
-	"toybox>sweet": "Toybox tea parties gobble Sweet!",
-	"toybox>spooky": "Toybox nightlights scare Spooky!",
-	"frost>spooky": "Frost chills Spooky to the bone!",
 	"frost>sea": "Frost freezes the Sea!",
-	"sweet>sea": "Sweet sponge cake soaks up the Sea!",
-	"sweet>tech": "Sweet syrup gums up Tech!",
-	"spooky>tech": "Spooky gremlins jam Tech!",
+	# Dreams.
+	"cosmic>sweet": "Cosmic comets smash Sweet!",
+	"sweet>spooky": "Sweet treats tame Spooky!",
 	"spooky>cosmic": "Spooky eclipses Cosmic!",
+	# Playground.
+	"tech>toybox": "Tech hacks the Toybox!",
+	"toybox>nature": "Toybox trucks flatten Nature!",
+	"nature>tech": "Nature's vines choke Tech!",
 }
 
 
