@@ -1,6 +1,6 @@
 ## Renders the loading screen (game/ui/splash_art.gd) to a PNG. Since
-## 2026-10-23 game/brand/loading.png is Newms's painted key art (darkened a
-## touch), so this only writes previews and clips unless you pick a
+## 2026-10-23 game/brand/loading.png is Newms's painted key art (the toned-down
+## cut), so this only writes previews and clips unless you pick a
 ## code-drawn look to replace it. Needs a real renderer, not --headless:
 ##   xvfb-run -s "-screen 0 1280x1800x24" godot --rendering-driver opengl3 \
 ##     --resolution 720x1560 --script res://tools/brand/render_loading.gd

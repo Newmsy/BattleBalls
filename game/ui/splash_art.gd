@@ -3,7 +3,7 @@
 ## the web page and the native boot splash (game/brand/loading.png), so the
 ## hand-off from the page to the game is seamless.
 ##
-## "art" (the default) is Newms's painted key art, slightly darkened, with
+## "art" (the default) is Newms's painted key art (the toned-down cut), with
 ## light movement on top: turning sun rays, a glint racing round the arena
 ## ring, a shimmer sweeping down the grid, twinkles and rising glow motes.
 ## The other looks are the code-drawn versions it was painted from: a sunset
