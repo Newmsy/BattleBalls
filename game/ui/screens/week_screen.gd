@@ -1,6 +1,6 @@
-## This Week board: today's Trick Shot, the Fight of the Day, the
-## Try-a-Critter loaner and the next Chaos Weekend, all from the live-ops schedule
-## (game/liveops.gd). Opened from the banner on the Play tab.
+## The Daily board: today's Trick Shot and Bounce Run, the Fight of the Day,
+## the Try-a-Critter loaner and the next Chaos Weekend, all from the live-ops
+## schedule (game/liveops.gd). Opened from the Daily door on the Play tab.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -25,10 +25,10 @@ static func build(shell, _params: Dictionary) -> Control:
 	var t := LiveOps.now()
 	var root := Kit.vbox(16)
 	var season := LiveOps.season(t)
-	root.add_child(shell.title_row("This Week", {"back_mark": "week_back", "info_mark": "week_info", "info": _info_text(shell, t),
+	root.add_child(shell.title_row("Daily", {"back_mark": "week_back", "info_mark": "week_info", "info": _info_text(shell, t),
 		"eyebrow": "" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks]}))
 	var counters := []
-	var tiles: Array = [_trick_shot(shell), _fight(shell, t)]
+	var tiles: Array = [_trick_shot(shell), _bounce_run(shell), _fight(shell, t)]
 	var bracket := BracketScreen.board_card(shell, t, tile)
 	if bracket != null:
 		tiles.append(bracket)
@@ -62,6 +62,7 @@ static func _info_text(shell, t: int) -> Array:
 		loan_note = "You already own %s. Today it's on loan to everyone who doesn't. The Critter Shot is open to all." % loan.name
 	return [
 		"Trick Shot: one called bank shot, %d tries, the same puzzle for everyone. A new one lands at midnight." % TRICK_TRIES,
+		"Bounce Run: a fresh run every day. Draft critters as you go and see how far your trio gets.",
 		"Fight of the Day: call who wins, then watch. Correct calls in a row build your streak.",
 		"Try-a-Critter: " + loan_note,
 		"Chaos Weekend: one rule twist for every fight from Friday to Sunday, the same for both balls.",
@@ -131,6 +132,13 @@ static func _trick_shot(shell) -> Control:
 	var done: bool = s.solved or s.tries >= TRICK_TRIES
 	return tile("Trick Shot", Color("9be89a"), Kit.LINE, Kit.PANEL,
 		[line("Daily #%d" % day, 28), lines(status)], play, Kit.chip("Done" if done else "New", Kit.GOOD if done else Kit.WARN, 16))
+
+
+## Bounce Run: one roguelike run a day with a drafted trio.
+static func _bounce_run(shell) -> Control:
+	var play := _action("Play", func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"))
+	shell.mark("week_bouncerun", play)
+	return tile("Bounce Run", Color("ffc23d"), Kit.LINE, Kit.PANEL, [line("Today's run", 28), lines("Draft a trio and bounce as far as you can.")], play)
 
 
 ## { tries, solved, streak } for Trick Shot `day`, from its save file, or for
@@ -252,17 +260,3 @@ static func _chaos(shell, t: int, counters: Array) -> Control:
 	shell.mark("week_chaos", more)
 	return tile("Chaos Weekend", CHAOS, Color("5a2550"), Color("1e0f2c"),
 		[lines(c.name, 26), when], more, Kit.chip("Live" if c.live else "Next", CHAOS, 16))
-
-
-## The banner on the Play tab that opens this board.
-static func banner(shell) -> Control:
-	var t := LiveOps.now()
-	var c := LiveOps.chaos(t)
-	var chaos := ("Chaos Weekend: %s, live for %s" if c.live else "Chaos Weekend: %s in %s") % [c.name, LiveOps.countdown(t, c.ends if c.live else c.starts)]
-	var v := Kit.vbox(6, [
-		Kit.hbox(8, [Kit.caption("This week", Color("e8c8ff")), Kit.spacer(), Kit.label("›", 26, Kit.ACCENT)]),
-		Kit.label(chaos, 24, CHAOS, HORIZONTAL_ALIGNMENT_LEFT, true),
-	])
-	var b := Kit.card_button(v, func(): shell.go("week"), Color("6b3fb0"), Color("1c1040"), 32, 18)
-	shell.mark("thisweek", b)
-	return b

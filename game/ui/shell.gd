@@ -34,6 +34,8 @@ const SCREENS := {
 	"bazaar": preload("res://game/ui/screens/bazaar_screen.gd"),
 	"defence": preload("res://game/ui/screens/defence_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
+	"adventure": preload("res://game/ui/screens/adventure_screen.gd"),
+	"versus": preload("res://game/ui/screens/versus_screen.gd"),
 	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
 	"world": preload("res://game/ui/screens/world_screen.gd"),
@@ -59,10 +61,10 @@ const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## week's events and the bracket). Every other screen must fit a
 ## 720x1280 phone without scrolling: put detail behind an "i" (info()) and
 ## the main action in pin(). See design/ui.md, "No scrolling".
-## Play scrolls only below its two big cards: its mode groups grow too.
+## Play fits one screen (its doors); it scrolls only with Larger text.
 ## Growing lists read top-down, so they never get centred (see _show).
-const TOP_ALIGNED := ["play", "critters", "dex", "bag", "shop", "pass", "campaign", "bracket", "world"]
-const SCROLLS := ["play", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
+const TOP_ALIGNED := ["critters", "dex", "bag", "shop", "pass", "campaign", "bracket", "world"]
+const SCROLLS := ["play", "week", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
 const TOAST_FACE := 52.0

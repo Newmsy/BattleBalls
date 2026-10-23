@@ -1061,7 +1061,7 @@ class _Path extends Control:
 
 
 func _menu_button() -> Button:
-	return Kit.button("Menu", _go_menu, "ghost", 26, 80)
+	return Kit.button("Home", _go_menu, "ghost", 26, 80)
 
 
 func _trio_with(ability: String) -> Array:
