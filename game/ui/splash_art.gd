@@ -59,9 +59,9 @@ const FADE := .4
 ## Shown once per run: coming back to the menu from a mode doesn't replay it.
 static var played := false
 
-## Which scene: "meadow" (sunny grass), "sunset" (a glowing arena stage at
-## sunset) or "sky" (a rainbow over a sea of clouds).
-var look := "meadow"
+## Which scene: "sunset" (Newms's pick, 2026-10-23: a glowing arena stage at
+## sunset), "meadow" (sunny grass) or "sky" (a rainbow over a sea of clouds).
+var look := "sunset"
 
 var _t := 0.0
 var _tick := -1

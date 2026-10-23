@@ -23,7 +23,7 @@ func _initialize() -> void:
 	root.add_child(vp)
 	var art = SplashArt.new()
 	art.set_process(false)
-	art.look = args.get("look", "meadow")
+	art.look = args.get("look", art.look)
 	art._t = float(args.get("t", "1.3"))
 	vp.add_child(art)
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

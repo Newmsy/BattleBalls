@@ -3,10 +3,10 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
-		<meta name="theme-color" content="#2f86ff">
+		<meta name="theme-color" content="#ff6fb0">
 		<title>$GODOT_PROJECT_NAME</title>
 		<style>
-/* Battle Balls loading screen: the bright meadow from game/ui/splash_art.gd,
+/* Battle Balls loading screen: the sunset arena from game/ui/splash_art.gd,
    rendered to game/brand/loading.png (tools/brand/render_loading.gd), which
    Godot's export serves as $GODOT_SPLASH. The game draws the same picture
    live and calls window.bbGameReady() once it has, so the hand-over is seamless. */
@@ -17,7 +17,7 @@ html, body, #canvas {
 }
 
 html, body {
-	background-color: #6cc6ff;
+	background-color: #ff8f7a;
 }
 
 body {
@@ -40,7 +40,7 @@ body {
 	inset: 0;
 	visibility: hidden;
 	overflow: hidden;
-	background: linear-gradient(#2f86ff 0%, #6cc6ff 35%, #d2f3ff 56%, #8be36f 57%, #4cbc4f 80%, #2f9a43 100%);
+	background: linear-gradient(#ff6fb0 0%, #ff8f7a 35%, #ffe9a0 56%, #7a46d8 57%, #4a2a9e 80%, #2c1a6e 100%);
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	transition: opacity 0.35s ease-out;
 	z-index: 1;
@@ -145,6 +145,17 @@ body {
 	margin: 0 2rem;
 	padding: 1rem;
 	text-align: center;
+}
+
+/* Short phones (iPhone SE): keep the bar low and drop the tip so the
+   critters on the arena ring stay in view. */
+@media (max-aspect-ratio: 10/17) and (max-height: 700px), (min-aspect-ratio: 10/17) {
+	#status-foot {
+		bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px));
+	}
+	#status-tip {
+		display: none !important;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
