@@ -7,35 +7,18 @@ const Families := preload("res://sim/families.gd")
 
 ## The kick-off line for the side with the edge, keyed "attacker>target".
 const LINES := {
-	# The very good loop.
-	"fire>nature": "Fire burns Nature!",
-	"nature>sweet": "Nature's bugs swarm Sweet!",
-	"sweet>spooky": "Sweet treats tame Spooky!",
-	"spooky>toybox": "Spooky haunts Toybox!",
-	"toybox>frost": "Toybox snow-globes Frost!",
-	"frost>sea": "Frost freezes Sea!",
-	"sea>tech": "Sea shorts out Tech!",
-	"tech>cosmic": "Tech rockets conquer Cosmic!",
-	"cosmic>fire": "Cosmic black holes swallow Fire!",
-	# Good.
-	"nature>sea": "Nature's roots drink the Sea!",
-	"nature>tech": "Nature's vines choke Tech!",
-	"sea>sweet": "Sea water melts Sweet!",
+	# Elements.
 	"sea>fire": "Sea waves douse Fire!",
-	"tech>toybox": "Tech hacks the Toybox!",
-	"tech>spooky": "Tech gadgets bust Spooky!",
-	"sweet>tech": "Sweet syrup gums up Tech!",
-	"sweet>toybox": "Sweet goo jams the Toybox!",
-	"frost>nature": "Frost wilts Nature!",
-	"frost>sweet": "Frost gives Sweet brain freeze!",
-	"toybox>fire": "Toybox squirt guns douse Fire!",
-	"toybox>cosmic": "Toybox kites snag Cosmic!",
-	"spooky>nature": "Spooky withers Nature!",
-	"spooky>cosmic": "Spooky eclipses Cosmic!",
 	"fire>frost": "Fire melts Frost!",
-	"fire>spooky": "Fire banishes Spooky!",
-	"cosmic>sea": "Cosmic moons pull the Sea!",
-	"cosmic>frost": "Cosmic comets blaze through Frost!",
+	"frost>sea": "Frost freezes the Sea!",
+	# Dreams.
+	"cosmic>sweet": "Cosmic comets smash Sweet!",
+	"sweet>spooky": "Sweet treats tame Spooky!",
+	"spooky>cosmic": "Spooky eclipses Cosmic!",
+	# Playground.
+	"tech>toybox": "Tech hacks the Toybox!",
+	"toybox>nature": "Toybox trucks flatten Nature!",
+	"nature>tech": "Nature's vines choke Tech!",
 }
 
 
