@@ -78,3 +78,42 @@ func test_swiping_back_through_the_shell() -> void:
 	shell.overlay(Control.new(), "reveal")
 	check(not shell.back_action().is_valid(), "a summon reveal isn't swiped away")
 	shell.free()
+
+
+func test_where_nothing_says_the_swipe_presses_the_back_on_screen() -> void:
+	var root := Node.new()
+	var page: Control = _rect(Control.new(), Vector2.ZERO, Vector2(400, 800))
+	root.add_child(page)
+	check_eq(TouchInput.back_button_on_screen(root), null, "no Back on screen")
+	var back: Button = _rect(Button.new(), Vector2(20, 700), Vector2(160, 80))
+	back.text = "Back"
+	page.add_child(back)
+	var go: Button = _rect(Button.new(), Vector2(200, 700), Vector2(160, 80))
+	go.text = "LAUNCH"
+	page.add_child(go)
+	check_eq(TouchInput.back_button_on_screen(root), back, "a button reading BACK counts")
+	back.disabled = true
+	check_eq(TouchInput.back_button_on_screen(root), null, "not while disabled")
+	back.disabled = false
+	var home: Button = _rect(Button.new(), Vector2(20, 600), Vector2(160, 80))
+	home.text = "HOME"
+	page.add_child(home)
+	back.visible = false
+	check_eq(TouchInput.back_button_on_screen(root), null, "HOME isn't a Back unless marked")
+	TouchInput.mark_back(home)
+	check_eq(TouchInput.back_button_on_screen(root), home, "marked")
+	back.visible = true
+	# A popup over the page: its Close wins and the page's Backs are covered.
+	var layer := CanvasLayer.new()
+	layer.layer = 5
+	root.add_child(layer)
+	var dim: Button = _rect(Button.new(), Vector2.ZERO, Vector2(400, 800))
+	layer.add_child(dim)
+	check_eq(TouchInput.back_button_on_screen(root), null, "covered by the popup")
+	var close: Button = _rect(Button.new(), Vector2(100, 300), Vector2(200, 80))
+	close.text = "Close"
+	layer.add_child(close)
+	check_eq(TouchInput.back_button_on_screen(root), close, "the popup's Close")
+	layer.visible = false
+	check(TouchInput.back_button_on_screen(root) in [back, home], "popup gone: the page's Back again")
+	root.free()

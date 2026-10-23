@@ -22,6 +22,7 @@ const AbilityText := preload("res://game/ui/ability_text.gd")
 const BoonIcon := preload("res://game/ui/boon_icon.gd")
 const BounceBoard := preload("res://game/online/bounce_board.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
+const TouchInput := preload("res://game/ui/touch_input.gd")
 const A11y := preload("res://game/a11y.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 
@@ -81,6 +82,7 @@ var rules_button: Button ## The "i" in the corner: how a run works.
 func _ready() -> void:
 	if arena != null:
 		return # Tests may start the scene by hand before the tree does.
+	TouchInput.ensure(self) # Its Back, Home and Close buttons take the edge swipe too.
 	today = BounceRun.day_number(Time.get_unix_time_from_system())
 	day = today
 	var params := _url_params()
@@ -1063,7 +1065,9 @@ class _Path extends Control:
 
 
 func _menu_button() -> Button:
-	return Kit.button("Home", _go_menu, "ghost", 26, 80)
+	var b := Kit.button("Home", _go_menu, "ghost", 26, 80)
+	TouchInput.mark_back(b) # The edge swipe leaves too (the run is saved).
+	return b
 
 
 func _trio_with(ability: String) -> Array:

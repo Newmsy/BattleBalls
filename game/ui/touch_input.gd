@@ -4,7 +4,9 @@
 ## - a swipe in from the left edge goes back, iOS style, where the current
 ##   screen says what Back means (set_back): when it also has a picture of
 ##   the screen underneath, the current screen follows the finger off to the
-##   right over it (pictures only: nothing is rebuilt while dragging);
+##   right over it (pictures only: nothing is rebuilt while dragging). Where
+##   nothing says, it presses the Back (or Close) button on screen, so every
+##   screen with a Back gets the swipe without wiring anything;
 ## - a tap is still a tap: a press only becomes a scroll or swipe once it moves
 ##   past a small dead zone, and then the button under it is let go untapped.
 ## Works on the emulated mouse events (touch on phones, the mouse on desktop),
@@ -20,6 +22,8 @@ const NOT_BUILT_IN := 1 << 20 ## Dead zone that keeps Godot's own touch drag out
 const PARALLAX := 0.3 ## The screen underneath starts this far (of the width) to the left.
 const SHADE := 0.4 ## How dark the screen underneath starts.
 const SETTLE_SECS := 0.2
+const BACK_META := "swipe_back" ## mark_back(): the button a swipe presses.
+const BACK_WORDS := ["BACK", "CLOSE"] ## Buttons that read like Back count anyway.
 
 const A11y := preload("res://game/a11y.gd")
 
@@ -93,7 +97,15 @@ static func scrolling() -> bool:
 	return is_instance_valid(_instance) and (_instance._drag == Drag.SCROLL or is_instance_valid(_instance._fling))
 
 
-## What a left-edge swipe would do right now (an empty Callable for nothing).
+## Makes `b` the button a left-edge swipe presses when it is on screen and
+## nothing covers it. Buttons that read BACK or CLOSE count without this.
+static func mark_back(b: BaseButton) -> BaseButton:
+	b.set_meta(BACK_META, true)
+	return b
+
+
+## What a left-edge swipe would do right now (an empty Callable for nothing):
+## what the newest set_back() owner says, else the Back button on screen.
 static func back_action() -> Callable:
 	for owner in _back_sources.keys():
 		if not is_instance_valid(owner) or (owner is Node and not owner.is_inside_tree()):
@@ -104,7 +116,35 @@ static func back_action() -> Callable:
 		if action.is_valid():
 			_preview_source = _back_previews.get(keys[i], Callable())
 			return action
-	return Callable()
+	_preview_source = Callable()
+	if not is_instance_valid(_instance):
+		return Callable()
+	var button := back_button_on_screen(_instance.get_tree().root)
+	return Callable(button, "emit_signal").bind("pressed") if button != null else Callable()
+
+
+## The Back button a tap could reach right now: a marked (mark_back) or
+## BACK / CLOSE button that is shown, enabled and not under anything else
+## (a popup over a page covers the page's Back). The topmost one wins.
+static func back_button_on_screen(root: Node) -> BaseButton:
+	var found: Array = []
+	_collect_backs(root, found)
+	for i in range(found.size() - 1, -1, -1):
+		var b: BaseButton = found[i]
+		var hit := find_control(root, b.get_global_transform_with_canvas() * (b.size / 2.0))
+		if hit == b or (hit != null and b.is_ancestor_of(hit)):
+			return b
+	return null
+
+
+static func _collect_backs(node: Node, out: Array) -> void:
+	for child in node.get_children():
+		if (child is CanvasItem or child is CanvasLayer) and not child.visible:
+			continue
+		if child is BaseButton and not child.disabled \
+				and (child.has_meta(BACK_META) or (child is Button and child.text.strip_edges().to_upper() in BACK_WORDS)):
+			out.append(child)
+		_collect_backs(child, out)
 
 
 ## Lets go of whatever the finger is pressing without tapping it (a long

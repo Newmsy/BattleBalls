@@ -1490,6 +1490,7 @@ func _build_ui() -> void:
 	var back := Kit.card_button(Glyph.make("back", 30, Kit.FG), func(): _show_home(), Kit.LINE, Kit.PANEL, 999, 16)
 	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	menu_back = back
+	TouchInput.mark_back(back)
 	menu_info_button = Kit.card_button(Glyph.make("info", 30, Kit.FG), _show_menu_info, Kit.LINE, Kit.PANEL, 999, 16)
 	menu_info_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	menu_header = Kit.hbox(16, [back, title_label, menu_info_button], BoxContainer.ALIGNMENT_BEGIN)
@@ -1698,8 +1699,8 @@ func _show_home() -> void:
 
 
 ## What a swipe in from the left edge does: the shell's Back on the home
-## screens, Home from the Quick fight menu, the menu from a result. Not while
-## aiming or fighting (the arena owns those drags).
+## screens, Home from the Quick fight menu, what BACK does while aiming, the
+## menu from a result. Not while fighting.
 func _swipe_back() -> Callable:
 	if shell_layer != null and shell_layer.visible:
 		return shell.back_action()
@@ -1707,6 +1708,8 @@ func _swipe_back() -> Callable:
 		return Callable()
 	if live_client != null and state != State.FIGHT:
 		return _cancel_live
+	if state == State.AIM:
+		return _aim_back if aim_back_button.visible else Callable()
 	if mode == Mode.CAMPAIGN:
 		return _back_to_campaign if state == State.RESULT else Callable()
 	match state:
