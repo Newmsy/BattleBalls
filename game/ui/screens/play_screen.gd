@@ -1,6 +1,6 @@
-## Play tab (home): three themed doors, Adventure, Daily and Versus, then a
-## slim Glow Pass and Shop row. Each door shows its best taps (Continue, the
-## dailies, Ghost Arena and Quick fight); its header opens a hub screen with
+## Play tab (home): a slim Glow Pass and Shop row under the top bar, then three
+## themed doors, Adventure, Daily and Versus. Each door shows its best taps
+## (Continue, the dailies, Ghost Arena and Quick fight); its header opens a hub screen with
 ## everything in it (adventure_screen, week_screen, versus_screen). A new mode
 ## goes in one hub, and on its door only if it's that door's best tap.
 extends RefCounted
@@ -29,8 +29,13 @@ const ADVENTURE := Color("45f5a6")
 const BOSS := Color("ff8a3d")
 const Loaner := preload("res://game/loaner.gd")
 
+## True on a tall phone (more than a 9:16 screen's height): the doors' badges,
+## buttons and words grow a step so they fill the room instead of floating.
+static var tall := false
+
 
 static func build(shell, _params: Dictionary) -> Control:
+	tall = shell.size.y > 1400.0
 	var root := Kit.vbox(14)
 	if not Intro.done(shell.profile):
 		# A new player's first fights: the campaign, then the Arena once 1-3 opens it.
@@ -40,12 +45,18 @@ static func build(shell, _params: Dictionary) -> Control:
 			root.add_child(group("Versus", VERSUS, [mode_tile(shell, "arena", "Ghost Arena", "%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)],
 				VERSUS, func(): shell.go("arena"), "ghost")]))
 		return root
-	# One column that fills the room: on a tall phone the Adventure door (the
-	# main road) takes the spare height instead of leaving a gap above the tab
-	# bar. The shell keeps this first child at the top rather than centring it.
-	var adventure := _adventure_door(shell)
-	adventure.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var col := Kit.vbox(14, [adventure, _daily_door(shell), _versus_door(shell), _style_row(shell)])
+	# One column that fills the room: the Glow Pass and Shop row on top, then
+	# the doors share the height and spread their rows out, so a tall phone has
+	# no dead band in one door. The shell keeps this first child at the top
+	# rather than centring it.
+	var doors := [_adventure_door(shell), _daily_door(shell), _versus_door(shell)]
+	# Each door's share of the height is roughly in step with its own size (about
+	# 410, 300 and 360 high; Adventure a little more), so the spare spreads
+	# out instead of pooling in one door.
+	for i in doors.size():
+		doors[i].size_flags_vertical = Control.SIZE_EXPAND_FILL
+		doors[i].size_flags_stretch_ratio = [4.4, 2.8, 3.5][i]
+	var col := Kit.vbox(14, [_style_row(shell)] + doors)
 	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(col)
@@ -65,9 +76,27 @@ static func door(shell, mark: String, title: String, sub: String, accent: Color,
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark(mark, header)
 	var st := Kit.box(accent.darkened(.86), accent.darkened(.4), 32, 2, 18)
-	var v := Kit.vbox(8, [header] + body)
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Spare height goes into the gaps between the rows, so a tall door spreads
+	# out evenly instead of floating its rows in the middle.
+	var v := Kit.vbox(0, [header])
+	for c in body:
+		v.add_child(_gap())
+		v.add_child(c)
 	return Kit.panel(v, st)
+
+
+## An 8px row between a door's rows that soaks up its spare height.
+static func _gap() -> Control:
+	var g := Control.new()
+	g.custom_minimum_size.y = 8
+	g.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return g
+
+
+## A size on the doors, a step bigger on a tall phone.
+static func _s(n: float) -> int:
+	return roundi(n * 1.2) if tall else int(n)
 
 
 ## A small round action on a door: a badge (or faces) over a word and a status.
@@ -91,25 +120,33 @@ static func door_spot(shell, mark: String, art: Control, title: String, status: 
 ## bosses beside it. The header opens the Adventure hub.
 static func _adventure_door(shell) -> Control:
 	var c := campaign_state(shell.profile)
-	var name := Kit.label(c.zone.name, 30)
+	var name := Kit.label(c.zone.name, _s(30))
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var top := Kit.hbox(10, [name, Glyph.make("crown", 26, Kit.FG, 1), Kit.label("%d/%d" % [c.stars, c.max_stars], 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
-	var go := Kit.button("Continue", func(): shell.go("world"), "go", 30, 88)
+	# The next foe, big, beside the zone: the door's picture (a lone small face
+	# in the Next line would only repeat it).
+	if c.faces != null and c.faces.get_child_count() == 1:
+		c.faces.visible = false
+	var where := Kit.vbox(8, [top, c.next_row])
+	where.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	where.alignment = BoxContainer.ALIGNMENT_CENTER
+	var zone := Kit.hbox(16, [_sized(CritterIcon.face(c.foe, 128 if tall else 80), 136 if tall else 84), where], BoxContainer.ALIGNMENT_CENTER)
+	var go := Kit.button("Continue", func(): shell.go("world"), "go", _s(30), _s(88))
 	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	go.size_flags_stretch_ratio = 2.0
 	go.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	shell.mark("campaign", go)
 	var climb = SpireClimb.load_file(LiveOps.now())
-	var spire := door_spot(shell, "spire", icon_badge("tower", DAILY, 50), "Spire", "%d/%d" % [climb.cleared, Spire.FLOORS], DAILY, func(): shell.go("spire"))
+	var spire := door_spot(shell, "spire", icon_badge("tower", DAILY, _s(50)), "Spire", "%d/%d" % [climb.cleared, Spire.FLOORS], DAILY, func(): shell.go("spire"))
 	var bosses: Control
 	if BossesScreen.any_open(shell.profile):
 		var left := BossesScreen.runs_left_total(shell.profile, int(Time.get_unix_time_from_system()))
-		bosses = door_spot(shell, "bosses", icon_badge("hammer", BOSS, 50), "Bosses", "%d left" % left if left > 0 else "Done", BOSS if left > 0 else Kit.MUTED, func(): shell.go("bosses"))
+		bosses = door_spot(shell, "bosses", icon_badge("hammer", BOSS, _s(50)), "Bosses", "%d left" % left if left > 0 else "Done", BOSS if left > 0 else Kit.MUTED, func(): shell.go("bosses"))
 	else:
-		bosses = door_spot(shell, "locked_dailies", icon_badge("lock", Kit.MUTED, 50), "Bosses", "Opens 1-5", Kit.MUTED, _bosses_locked_info(shell))
+		bosses = door_spot(shell, "locked_dailies", icon_badge("lock", Kit.MUTED, _s(50)), "Bosses", "Opens 1-5", Kit.MUTED, _bosses_locked_info(shell))
 		bosses.modulate = Color(1, 1, 1, .6)
 	return door(shell, "adventure", "ADVENTURE", "Campaign · Spire · Bosses", ADVENTURE, func(): shell.go("adventure"),
-		[top, c.next_row, Kit.hbox(10, [go, spire, bosses], BoxContainer.ALIGNMENT_CENTER)])
+		[zone, Kit.hbox(10, [go, spire, bosses], BoxContainer.ALIGNMENT_CENTER)])
 
 
 ## Daily: today's puzzle and run, then this week's events. The header opens the
@@ -121,17 +158,17 @@ static func _daily_door(shell) -> Control:
 	var trick_line := "Solved" if trick.solved else ("Done" if trick.tries >= WeekScreen.TRICK_TRIES else "New")
 	var week := func(): shell.go("week")
 	var f := LiveOps.fight_of_the_day(t)
-	var fotd := Kit.hbox(-12, [CritterIcon.face(f.p1, 40), CritterIcon.face(f.p2, 40)], BoxContainer.ALIGNMENT_CENTER)
+	var fotd := Kit.hbox(-12, [CritterIcon.face(f.p1, _s(40)), CritterIcon.face(f.p2, _s(40))], BoxContainer.ALIGNMENT_CENTER)
 	var loan := Loaner.today(shell.profile, t)
 	var chaos := LiveOps.chaos(t)
 	var row := Kit.hbox(4, [
-		door_spot(shell, "trickshot", icon_badge("target", DAILY, 50), "Trick Shot", trick_line, DAILY,
+		door_spot(shell, "trickshot", icon_badge("target", DAILY, _s(50)), "Trick Shot", trick_line, DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.solved and trick.tries == 0),
-		door_spot(shell, "bouncerun", icon_badge("bounce", DAILY, 50), "Bounce Run", "New run", DAILY,
+		door_spot(shell, "bouncerun", icon_badge("bounce", DAILY, _s(50)), "Bounce Run", "New run", DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")),
-		door_spot(shell, "daily_fotd", _sized(fotd, 54), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
-		door_spot(shell, "daily_try", _sized(CritterIcon.face(loan.critter, 50), 54), "Try it", Roster.get_critter(loan.critter).name, WeekScreen.TRY, week),
-		door_spot(shell, "daily_chaos", icon_badge("bolt", WeekScreen.CHAOS, 50), "Chaos", ("Live " if chaos.live else "") + LiveOps.countdown(t, chaos.ends if chaos.live else chaos.starts), WeekScreen.CHAOS, week),
+		door_spot(shell, "daily_fotd", _sized(fotd, _s(54)), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
+		door_spot(shell, "daily_try", _sized(CritterIcon.face(loan.critter, _s(50)), _s(54)), "Try it", Roster.get_critter(loan.critter).name, WeekScreen.TRY, week),
+		door_spot(shell, "daily_chaos", icon_badge("bolt", WeekScreen.CHAOS, _s(50)), "Chaos", ("Live " if chaos.live else "") + LiveOps.countdown(t, chaos.ends if chaos.live else chaos.starts), WeekScreen.CHAOS, week),
 	])
 	var season := LiveOps.season(t)
 	var sub := "Puzzles, runs and this week's events" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks]
@@ -142,9 +179,9 @@ static func _daily_door(shell) -> Control:
 ## another), plus 2v2 and Friends. The header opens the Versus hub.
 static func _versus_door(shell) -> Control:
 	var store = ArenaStore.open()
-	var league := Kit.vbox(0, [Kit.label("Ghost Arena", 26), Kit.label("%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)], 19, VERSUS)])
+	var league := Kit.vbox(0, [Kit.label("Ghost Arena", _s(26)), Kit.label("%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)], 19, VERSUS)])
 	league.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var arena := Kit.card_button(Kit.hbox(12, [icon_badge("ghost", VERSUS, 56), league], BoxContainer.ALIGNMENT_CENTER), func(): shell.go("arena"), VERSUS.darkened(.45), VERSUS.darkened(.8), 24, 10)
+	var arena := Kit.card_button(Kit.hbox(12, [icon_badge("ghost", VERSUS, _s(56)), league], BoxContainer.ALIGNMENT_CENTER), func(): shell.go("arena"), VERSUS.darkened(.45), VERSUS.darkened(.8), 24, 10)
 	arena.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("arena", arena)
 	var fr = shell.friends
@@ -192,7 +229,7 @@ static func quick_fight_row(shell, with_duo := false) -> Control:
 	return row
 
 
-## Under the doors: the Glow Pass bar and the Shop, small because they're looks only.
+## Above the doors: the Glow Pass bar and the Shop, slim because they're looks only.
 static func _style_row(shell) -> Control:
 	var glow = shell.glow
 	var season: Dictionary = glow.season()
@@ -240,17 +277,19 @@ static func campaign_state(p) -> Dictionary:
 		if not Campaign.is_cleared(p, z, i) and next < 0: next = i
 		star_total += Campaign.stars_of(p, z, i)
 	var next_row: Control = Kit.label("All %d stages cleared." % stages.size(), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var faces = null
+	var foe: String = Zones.enemies(stages[next if next >= 0 else stages.size() - 1])[0]
 	if next >= 0:
 		var st: Dictionary = stages[next]
 		var next_l := Kit.label("Next: %s %s" % [Zones.stage_key(z, next), st.get("name", Roster.get_critter(st.enemy).name)], 22, Kit.MUTED)
 		next_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		next_l.clip_text = true
 		next_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var faces := Kit.hbox(2)
+		faces = Kit.hbox(2)
 		for id in Zones.enemies(st):
 			faces.add_child(CritterIcon.face(id, 40))
 		next_row = Kit.hbox(12, [faces, next_l, Kit.power(Campaign.enemy_rating(z, next), 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
-	return {"z": z, "zone": zd, "stars": star_total, "max_stars": stages.size() * 3, "next_row": next_row}
+	return {"z": z, "zone": zd, "stars": star_total, "max_stars": stages.size() * 3, "next_row": next_row, "faces": faces, "foe": foe}
 
 
 ## The campaign: the main way forward, so it gets the first big card.
