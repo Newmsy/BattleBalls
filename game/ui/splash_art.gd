@@ -1,14 +1,18 @@
-## The bright loading screen: a sunny sky over rolling grass, light rays
-## fanning out from a BATTLE BALLS badge, and our own critters flying around
-## it with spinning coins (Newms 2026-10-23, "a fun, bright loading screen").
-## The same drawing makes the boot image (tools/brand/render_loading.gd ->
-## game/brand/loading.png, which the web shell and the native boot splash
-## show) and the live version main.gd fades out at start-up, so the hand-off
-## from the page to the game is seamless.
+## The bright loading screen (Newms 2026-10-23, "a fun, bright loading screen").
+## The live version main.gd fades out at start-up shows the same picture as
+## the web page and the native boot splash (game/brand/loading.png), so the
+## hand-off from the page to the game is seamless.
 ##
-## Cheap on battery: the scenery and the badge are drawn once on layers that
-## never redraw; only the rays, the flyers and the coins move, at 30 fps,
-## and only for the second or two the screen is up. Render-only.
+## "art" (the default) is Newms's painted key art, slightly darkened, with
+## light movement on top: turning sun rays, a glint racing round the arena
+## ring, a shimmer sweeping down the grid, twinkles and rising glow motes.
+## The other looks are the code-drawn versions it was painted from: a sunset
+## arena, a sunny meadow and a rainbow sky, with every critter playing its
+## own fight effect (tools/brand/render_loading.gd renders them).
+##
+## Cheap on battery: the picture is drawn once on a layer that never
+## redraws; only the overlay moves, at 30 fps, and only for the second or
+## two the screen is up. Render-only.
 extends Control
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
@@ -17,6 +21,18 @@ const CritterFx := preload("res://game/critter_fx.gd")
 const Dot := preload("res://game/dot.gd")
 const A11y := preload("res://game/a11y.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
+const ART := preload("res://game/brand/loading.png")
+## Spots on the painting, in its own pixels: the sun behind the title, the
+## arena ring (centre and radii) and the coins and sparkles that twinkle.
+const ART_SUN := Vector2(426, 262)
+const ART_RING := [Vector2(432, 1262), 330.0, 58.0]
+const ART_HORIZON := 1090.0
+const ART_TWINKLES := [Vector2(57, 630), Vector2(312, 826), Vector2(790, 870), Vector2(62, 1150), Vector2(782, 1153), Vector2(568, 778),
+	Vector2(766, 438), Vector2(36, 528), Vector2(588, 712), Vector2(250, 590), Vector2(806, 1262), Vector2(50, 1306)]
+## Glows that pulse on the painted effects: [spot, radius, colour, beat]: the
+## fireballs, the laser's spark, the phoenix, Count Nibbles' shield, the frost.
+const ART_GLOWS := [[Vector2(320, 815), 70.0, Color(1, .6, .15), 3.1], [Vector2(505, 818), 60.0, Color(.5, .9, 1), 4.3],
+	[Vector2(432, 552), 90.0, Color(1, .7, .2), 2.2], [Vector2(428, 1068), 190.0, Color(1, .2, .35), 1.6], [Vector2(690, 1300), 90.0, Color(.7, .9, 1), 2.6]]
 
 ## The composition is laid out on a 720 x 1280 portrait card centred on the
 ## screen; the sky and the grass stretch to fill whatever is around it.
@@ -59,9 +75,10 @@ const FADE := .4
 ## Shown once per run: coming back to the menu from a mode doesn't replay it.
 static var played := false
 
-## Which scene: "sunset" (Newms's pick, 2026-10-23: a glowing arena stage at
-## sunset), "meadow" (sunny grass) or "sky" (a rainbow over a sea of clouds).
-var look := "sunset"
+## Which scene: "art" (Newms's painted key art), or a code-drawn one:
+## "sunset" (a glowing arena stage at sunset, what the art was painted from),
+## "meadow" (sunny grass) or "sky" (a rainbow over a sea of clouds).
+var look := "art"
 
 var _t := 0.0
 var _tick := -1
@@ -150,6 +167,10 @@ func _horizon() -> float:
 # --- Scenery (drawn once) ----------------------------------------------------
 
 func _draw_back(ci: CanvasItem) -> void:
+	if look == "art":
+		var sc := _art_scale()
+		ci.draw_texture_rect(ART, Rect2(_art_at(Vector2.ZERO), ART.get_size() * sc), false)
+		return
 	if look == "sunset":
 		_back_sunset(ci)
 		return
@@ -305,6 +326,9 @@ func _flower(ci: CanvasItem, p: Vector2, r: float, col: Color) -> void:
 # --- Moving parts (redrawn at 30 fps while shown) ---------------------------
 
 func _draw_live(ci: CanvasItem) -> void:
+	if look == "art":
+		_art_live(ci)
+		return
 	var k := _k()
 	var c := _centre()
 	var t := _t
@@ -336,6 +360,58 @@ func _draw_live(ci: CanvasItem) -> void:
 		_effect(ci, f[6], false, p, r, dir, t + ph, c + Vector2(f[2], f[3]) * k)
 	for co in COINS:
 		_coin(ci, c + Vector2(co[0], co[1] + sin(t * 1.8 + co[3]) * 8) * k, co[2] * k, t * 2.4 + co[3])
+
+
+# --- The painted art: fills the screen, cropped at the sides or ends ---------
+
+func _art_scale() -> float:
+	return maxf(size.x / ART.get_width(), size.y / ART.get_height())
+
+
+## Screen position of a point on the painting.
+func _art_at(q: Vector2) -> Vector2:
+	var sc := _art_scale()
+	return (size - ART.get_size() * sc) / 2.0 + q * sc
+
+
+func _art_live(ci: CanvasItem) -> void:
+	var sc := _art_scale()
+	var t := _t + 20.0
+	# Soft rays turning slowly from the sun behind the title.
+	var sun := _art_at(ART_SUN)
+	var reach := size.length()
+	for i in 12:
+		var a := TAU * i / 12.0 + t * .05
+		Dot.poly(ci, PackedVector2Array([sun, sun + Vector2.from_angle(a - .06) * reach, sun + Vector2.from_angle(a + .06) * reach]),
+			Color(1, .95, .8, .07 + .03 * sin(t * 1.3 + i)))
+	# A shimmer sweeping down the grid floor, its lines closer near the horizon.
+	var hz := _art_at(Vector2(0, ART_HORIZON)).y
+	for j in 2:
+		var f := fposmod(t * .35 + j * .5, 1.0)
+		var y := lerpf(hz, size.y + 40 * sc, f * f)
+		ci.draw_line(Vector2(0, y), Vector2(size.x, y), Color(1, .5, .95, .28 * sin(f * PI)), (3 + 10 * f) * sc, true)
+	for g in ART_GLOWS:
+		var pulse := .5 + .5 * sin(t * g[3])
+		var gc: Color = g[2]
+		for k in 3:
+			Dot.circle(ci, _art_at(g[0]), g[1] * sc * (.55 + k * .25) * (.9 + .15 * pulse), Color(gc, .07 * pulse))
+	# A bright glint racing round the arena ring, with a short tail.
+	var rc := _art_at(ART_RING[0])
+	for k in 8:
+		var a := t * 2.2 - k * .07
+		var at := rc + Vector2(cos(a) * ART_RING[1], sin(a) * ART_RING[2]) * sc
+		Dot.circle(ci, at, (16 - k * 1.5) * sc, Color(.8, .98, 1, .75 - k * .09))
+	# Coins and sparkles catch the light in turn.
+	for i in ART_TWINKLES.size():
+		var tw := sin(t * 2.3 + i * 1.7)
+		if tw > 0.3:
+			_twinkle(ci, _art_at(ART_TWINKLES[i]) + Vector2(8, -8) * sc, 15 * sc * tw, Color(1, 1, .95, tw))
+	# Little glow motes drifting up from the arena.
+	for i in 14:
+		var f := fposmod(t * .12 + i * .137, 1.0)
+		var x := fposmod(i * 97.0 + sin(t * .7 + i) * 20.0, ART.get_width())
+		var at := _art_at(Vector2(x, lerpf(1700, 500, f)))
+		Dot.circle(ci, at, (3 + i % 3) * sc, Color(1, .8, .95, .6 * sin(f * PI)))
 
 
 ## One critter's signature effect, behind it (`back`) or in front.
@@ -421,6 +497,8 @@ func _coin(ci: CanvasItem, p: Vector2, r: float, a: float) -> void:
 # --- The title (drawn once) --------------------------------------------------
 
 func _draw_title(ci: CanvasItem) -> void:
+	if look == "art":
+		return
 	var k := _k()
 	var sun := _sun()
 	_title(ci, "BATTLE", sun + Vector2(0, -12) * k, 112 * k, Color.WHITE, Color("dcd2ff"))
