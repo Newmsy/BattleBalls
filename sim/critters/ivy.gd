@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "0b8a5f",
 	"vibe": "A graceful vine spirit who decides where everyone stands.",
-	"description": "Vine spirit. Every 6s it raises a vine pillar beside the foe and lashes the foe to it for 1s, then the vine snaps in a burst for 6.",
+	"description": "Vine spirit. Every {vine_every}s it raises a vine pillar beside the foe and lashes the foe to it for {vine_lash}s, then the vine snaps in a burst ({vine_damage} dmg) and stays as a vine wall until a foe bounces off it ({overgrow_damage} dmg).",
 	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.0},
 	"ability": [{"on": "every", "secs": "vine_every", "do": "vine"}, {"on": "always", "do": "vine_tick"}],
 	"params": {
@@ -31,8 +31,8 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Every 6s lashes foe to a vine 1s, snap 6; vines stay", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage}; vines stay"},
-		{"text": "Snap 6 → 8", "vine_damage": 8.0},
-		{"text": "+ The snap leaves thorns (4/s)", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage} + thorns", "vine_thorn_damage": 4.0},
+		{"text": "Snap {^vine_damage} → {vine_damage}", "vine_damage": 8.0},
+		{"text": "+ The snap leaves thorns ({vine_thorn_damage}/sec)", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage} + thorns", "vine_thorn_damage": 4.0},
 		{"text": "Lash every 6 → 5s", "vine_every": 5.0},
 		{"text": "+ Two pillars at once", "now": "Every {vine_every}s lashes foe to 2 vines {vine_lash}s, snap {vine_damage} + thorns", "vine_pairs": 2},
 	],

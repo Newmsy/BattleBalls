@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "b9a7ff",
 	"vibe": "A regal ice queen, cool, polite and utterly in charge.",
-	"description": "Ice queen. Every 5.5s it raises a ring of 5 ice pillars around the foe, then shatters them so the shards fly inward (7 each).",
+	"description": "Ice queen. Every 5.5s it raises a ring of 5 ice pillars around the foe, then shatters them so the shards fly inward ({shard_damage} each).",
 	"stats": {"hp": 103.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "every", "secs": 5.5, "do": "ice_ring"}, {"on": "always", "do": "ice_ring_tick"}, {"on": "always", "do": "slows"}],
 	"params": {
@@ -29,7 +29,7 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Every 5.5s rings the foe in 5 pillars; shards 7", "now": "Every 5.5s rings the foe in {ring_count} pillars; shards {shard_damage}"},
-		{"text": "Shards 7 → 8", "shard_damage": 8.0},
+		{"text": "Shards {^shard_damage} → {shard_damage}", "shard_damage": 8.0},
 		{"text": "+ Shards slow 20%", "now": "Every 5.5s rings the foe in {ring_count} pillars; shards {shard_damage}, slow {shard_slow%}%", "shard_slow": 0.2},
 		{"text": "Pillars 5 → 6", "ring_count": 6},
 		{"text": "+ Every 2nd ring: 8 pillars, fires twice", "now": "Every 5.5s {ring_count} pillars (2nd: {ring_big_count}, twice); shards {shard_damage}, slow", "ring_big_every": 2},

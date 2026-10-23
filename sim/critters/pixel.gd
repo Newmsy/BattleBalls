@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "7cff4f",
 	"vibe": "A glitchy 8-bit sprite who blinks between frames.",
-	"description": "Sprite. Every 5s it teleports, leaving a pixel bomb (11) where it was.",
+	"description": "Sprite. Every {glitch_every}s it teleports, leaving a lag bomb ({bomb_damage} dmg) where it was; a foe it blasts glitches back to where it was {lag_secs}s ago.",
 	"stats": {"hp": 131.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
 	"ability": [{"on": "every", "secs": "glitch_every", "do": "glitch"}, {"on": "always", "do": "lag_track"}, {"on": "blast", "do": "lag"}],
 	"params": {
@@ -28,11 +28,11 @@ const CRITTER := {
 		"lag_secs": 0.4, ## A foe its bomb blasts glitches back to where it was this long ago.
 	},
 	"tiers": [
-		{"text": "Teleports every 5s, leaves a lag bomb (11)", "now": "Teleports every {glitch_every}s, leaves a lag bomb ({bomb_damage})"},
-		{"text": "Bomb 11 → 14", "bomb_damage": 14.0},
-		{"text": "+ Lands with a glitch pulse (4)", "now": "Teleports every {glitch_every}s: bomb {bomb_damage}, pulse {glitch_pulse}", "glitch_pulse": 4.0},
+		{"text": "Teleports every 5s, leaves a lag bomb (11 dmg)", "now": "Teleports every {glitch_every}s, leaves a lag bomb ({bomb_damage} dmg)"},
+		{"text": "Bomb {^bomb_damage} → {bomb_damage}", "bomb_damage": 14.0},
+		{"text": "+ Lands with a glitch pulse ({glitch_pulse} dmg)", "now": "Teleports every {glitch_every}s: bomb {bomb_damage}, pulse {glitch_pulse}", "glitch_pulse": 4.0},
 		{"text": "Teleport every 5 → 4s", "glitch_every": 4.0},
-		{"text": "+ Leaves a line of 3 bombs", "now": "Teleports every {glitch_every}s: {bomb_line} bombs ({bomb_damage}), pulse {glitch_pulse}", "bomb_line": 3, "bomb_max": 6},
+		{"text": "+ Leaves a line of 3 bombs", "now": "Teleports every {glitch_every}s: {bomb_line} bombs ({bomb_damage} dmg), pulse {glitch_pulse}", "bomb_line": 3, "bomb_max": 6},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "smile"}, "body": "pixel"},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.4},

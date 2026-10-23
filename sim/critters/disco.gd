@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "a06cd5",
 	"vibe": "A glittering party animal that dazzles everyone around it.",
-	"description": "Disco ball. Every 4s it flashes 6 short light beams outward that hit for 4 and slow foes 30% for 1s.",
+	"description": "Disco ball. Every 4s it flashes {disco_rays} short light beams outward that hit for {disco_damage} and slow foes {disco_slow%}% for {disco_slow_secs}s, and lights a dance floor round it for 2s (slow 25%, {disco_floor_dps}/sec).",
 	"stats": {"hp": 122.0, "radius": 66.0, "speed": 400.0, "contact_damage": 18.5},
 	"ability": [{"on": "every", "secs": 4.0, "do": "disco"}, {"on": "always", "do": "slows"}],
 	"params": {
@@ -26,10 +26,10 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Every 4s: 6 rays (4, slow 30%) + a lit dance floor", "now": "Every 4s: {disco_rays} rays ({disco_damage}, slow {disco_slow%}%) + a lit dance floor"},
-		{"text": "Ray dmg 4 → 5", "disco_damage": 5.0},
+		{"text": "Ray dmg {^disco_damage} → {disco_damage}", "disco_damage": 5.0},
 		{"text": "Rays 6 → 8", "disco_rays": 8},
 		{"text": "Ray reach +28%", "disco_length": 320.0},
-		{"text": "+ Rays bounce off walls once", "now": "Every 4s: {disco_rays} bouncing rays ({disco_damage}) + a lit dance floor", "disco_bounce": 1},
+		{"text": "+ Rays bounce off walls once", "now": "Every 4s: {disco_rays} bouncing rays ({disco_damage} dmg) + a lit dance floor", "disco_bounce": 1},
 	],
 	"art": {"eyes": {"none": true, "mouth": "grin"}, "front": ["tiles", "shades"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.15},

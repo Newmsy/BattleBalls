@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "6f4518",
 	"vibe": "A slow, kind forest elder who has seen a thousand fights.",
-	"description": "Ancient tree. At 50% HP it takes root: 4 root pillars burst up around it and it regrows 3 HP/s while they stand (6s; higher tiers keep roots until a foe hits them).",
+	"description": "Ancient tree. Every {swat_every}s its branches swat nearby foes away ({swat_damage} dmg). At 50% HP it takes root: {root_count} root pillars burst up around it and it regrows {root_regen} HP/sec while they stand ({root_life}s; higher tiers keep roots until a foe hits them).",
 	"stats": {"hp": 122.0, "radius": 76.8, "speed": 400.0, "contact_damage": 17.5},
 	"ability": [{"on": "hp_below", "hp": 0.5, "do": "root"}, {"on": "always", "do": "root_tick"}, {"on": "every", "secs": "swat_every", "do": "swat"}],
 	"params": {
@@ -29,11 +29,11 @@ const CRITTER := {
 		"swat_damage": 6.0, ## ...for this, knocking them away.
 	},
 	"tiers": [
-		{"text": "Swats near foes every 4s (6); at 50% HP roots, regrows 3/s", "now": "Swats near foes every {swat_every}s ({swat_damage}); at 50% HP roots, regrows {root_regen}/s"},
-		{"text": "Regrow 3 → 4 HP/s · 1 root stays till hit", "root_regen": 4.0, "root_stay": 1},
-		{"text": "+ Roots erupt: 8 + knockback · 2 stay", "root_shove": 150.0, "root_stay": 2},
+		{"text": "Swats foes every 4s (6 dmg); roots at 50% HP: +3 HP/sec", "now": "Swats foes every {swat_every}s ({swat_damage} dmg); roots at 50% HP: +{root_regen} HP/sec"},
+		{"text": "Regrow 3 → 4 HP/sec · 1 root stays till hit", "root_regen": 4.0, "root_stay": 1},
+		{"text": "+ Roots erupt: {root_shove_damage} + knockback · 2 stay", "root_shove": 150.0, "root_stay": 2},
 		{"text": "3 roots stay until a foe hits them", "root_stay": 3},
-		{"text": "All 4 stay · takes root again at 20% HP", "now": "Swats ({swat_damage}); at 50% and 20% HP roots, regrows {root_regen}/s", "ability": [{"on": "hp_below", "hp": 0.2, "do": "root"}], "root_stay": 4},
+		{"text": "All 4 stay · takes root again at 20% HP", "now": "Swats ({swat_damage} dmg); roots at 50% and 20% HP: +{root_regen} HP/sec", "ability": [{"on": "hp_below", "hp": 0.2, "do": "root"}], "root_stay": 4},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["canopy"], "front": ["beard"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 0.7},

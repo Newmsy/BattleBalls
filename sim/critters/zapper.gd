@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "c47a2c",
 	"vibe": "A buzzing coil bot that loves to share its electricity.",
-	"description": "Coil bot. Every 4.5s it zaps the foe with an arc for 2 that stuns it 0.3s.",
+	"description": "Coil bot. Every 4.5s it zaps the foe with an arc for {zap_damage} that stuns it 0.3s.",
 	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "every", "secs": "zap_every", "do": "arc"}, {"on": "always", "do": "arc_tick"}],
 	"params": {
@@ -24,8 +24,8 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Every 4.5s an arc zaps the foe: 2, stun 0.3s", "now": "Every {zap_every}s an arc zaps the foe: {zap_damage}, stun {zap_stun}s"},
-		{"text": "Zap 2 → 3", "zap_damage": 3.0},
-		{"text": "+ The arc lingers 1s as a beam (3/s)", "now": "Every {zap_every}s an arc zaps the foe: {zap_damage}, stun {zap_stun}s + beam", "zap_linger_dps": 3.0},
+		{"text": "Zap {^zap_damage} → {zap_damage}", "zap_damage": 3.0},
+		{"text": "+ The arc lingers 1s as a beam ({zap_linger_dps}/sec)", "now": "Every {zap_every}s an arc zaps the foe: {zap_damage}, stun {zap_stun}s + beam", "zap_linger_dps": 3.0},
 		{"text": "Zap every 4.5 → 3.5s", "zap_every": 3.5},
 		{"text": "+ Every 3rd zap is a storm of 3 arcs", "now": "Every {zap_every}s arc: {zap_damage}, stun {zap_stun}s + beam; 3rd: storm", "zap_storm_every": 3},
 	],

@@ -102,7 +102,7 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 	# The ability as it is at this tier, with its numbers, then what each tier
 	# adds (the tiers it has in full colour, this one lit gold).
 	var text_w := width - 56.0 - 12.0 - 64.0
-	var now := Kit.label(AbilityText.now(id, tier), 23, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var now := Kit.label(AbilityText.now(id, tier, maxi(1, level)), 23, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
 	now.custom_minimum_size.x = width - 64.0 # Wrapped text measures before layout.
 	# At T1 the T1 row already says it all.
 	var ladder := Kit.vbox(6, [Kit.caption("Ability at T%d" % tier, Glyph.GOLD), now, Kit.caption("Each tier")] if tier > 1 else [Kit.caption("Ability by tier")])
@@ -113,7 +113,7 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 			Kit.box(Glyph.GOLD if here else (Kit.ACCENT if has else Kit.LINE), Color(0, 0, 0, 0), 10, 0, 2))
 		tag.custom_minimum_size = Vector2(52, 0)
 		tag.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-		var l := Kit.label(AbilityText.change(id, i + 1), 20, Kit.FG if has else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var l := Kit.label(AbilityText.change(id, i + 1, maxi(1, level)), 20, Kit.FG if has else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 		l.custom_minimum_size.x = text_w
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		ladder.add_child(Kit.hbox(12, [tag, l]))

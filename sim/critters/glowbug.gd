@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "d4ff3a",
 	"vibe": "A dreamy firefly that brings its own little lights to every fight.",
-	"description": "Firefly. A tiny light-bug circles it and stings foes it touches for 4.",
+	"description": "Firefly. A tiny light-bug circles it and stings foes it touches for {moon_damage}.",
 	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
 	"ability": [{"on": "always", "do": "moons"}],
 	"params": {
@@ -28,10 +28,10 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "A light-bug circles it and stings for 4", "now": "A light-bug circles it and stings for {moon_damage}"},
-		{"text": "Sting 4 → 5", "moon_damage": 5.0},
+		{"text": "Sting {^moon_damage} → {moon_damage}", "moon_damage": 5.0},
 		{"text": "Bugs 1 → 2", "now": "{moon_count} light-bugs circle it and sting for {moon_damage}", "moon_count": 2},
 		{"text": "Bug orbit +50%", "moon_orbit": 60.0},
-		{"text": "+ Every 6s the bugs flare for 6", "now": "{moon_count} light-bugs sting for {moon_damage} · flare every 6s", "ability": [{"on": "every", "secs": 6.0, "do": "orb_flare"}]},
+		{"text": "+ Every 6s the bugs flare for {orb_flare_damage}", "now": "{moon_count} light-bugs sting for {moon_damage} · flare every 6s", "ability": [{"on": "every", "secs": 6.0, "do": "orb_flare"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["antenna2"], "front": ["glowbelly"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.4},

@@ -28,7 +28,7 @@ const CRITTER := {
 	"tiers": [
 		{"text": "Wraps foe every 6s: stun 0.5s, then +20% dmg taken", "now": "Wraps foe every {wrap_every}s: stun {wrap_hold}s, then +{wrap_vuln%}% dmg taken"},
 		{"text": "Dmg taken +20% → +25%; ribbon left as a snare", "now": "Wraps foe every {wrap_every}s: stun {wrap_hold}s, +{wrap_vuln%}% dmg taken, snare", "wrap_vuln": 0.25, "snare_max": 1},
-		{"text": "+ The pop scatters confetti for 6", "now": "Wraps every {wrap_every}s: stun {wrap_hold}s, confetti {wrap_confetti}, +{wrap_vuln%}% taken, snare", "wrap_confetti": 6.0},
+		{"text": "+ The pop scatters confetti ({wrap_confetti} dmg)", "now": "Wraps every {wrap_every}s: stun {wrap_hold}s, confetti {wrap_confetti}, +{wrap_vuln%}% taken, snare", "wrap_confetti": 6.0},
 		{"text": "Wrap every 6 → 5s; snares 1 → 2", "wrap_every": 5.0, "snare_max": 2},
 		{"text": "+ Every 3rd wrap pulls the foe to Bonbon", "wrap_pull_every": 3},
 	],

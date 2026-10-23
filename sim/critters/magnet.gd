@@ -13,7 +13,7 @@ const CRITTER := {
 	"rarity_power": 0.955, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
 	"color": "ff3b5c",
 	"vibe": "A buzzing little horseshoe that can't decide if it loves you or hates you.",
-	"description": "Magnet. Every 3s its field flips: Pull drags the foe in and its first hit of each Pull snaps for x2.5; a weaker Push shoves it away.",
+	"description": "Magnet. Every 3s its field flips: Pull drags the foe in and its first hit of each Pull snaps for x{snap_mult}; a weaker Push shoves it away.",
 	"stats": {"hp": 100.0, "radius": 62.0, "speed": 400.0, "contact_damage": 13.0},
 	"ability": [{"on": "always", "do": "field"}, {"on": "strike", "do": "snap"}],
 	"params": {
@@ -28,7 +28,7 @@ const CRITTER := {
 	"tiers": [
 		{"text": "Field flips every 3s; first Pull hit x2.5", "now": "Field flips every {field_period}s; first Pull hit x{snap_mult}"},
 		{"text": "Field pull +14%", "field_accel": 800.0},
-		{"text": "Snap x2.5 → 3", "snap_mult": 3.0},
+		{"text": "Snap x{^snap_mult} → {snap_mult}", "snap_mult": 3.0},
 		{"text": "Flip every 3 → 2.5s", "field_period": 2.5},
 		{"text": "+ Flips fire a pulse ring: 6 + knockback", "now": "Field flips every {field_period}s (pulse {flip_pulse}); first Pull hit x{snap_mult}", "flip_pulse": 6.0},
 	],

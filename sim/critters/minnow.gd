@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "00e5ff",
 	"vibe": "A tiny anxious fish that finds a second gear when things look bad.",
-	"description": "Fish. It's small and slippery, and at 50% HP it panics into a lasting +35% speed.",
+	"description": "Fish. It's small and slippery, and at 50% HP it panics into a lasting +{grow_speed%}% speed while {school_count} little fish swim round it for {school_secs}s, nipping foes ({school_damage} dmg) and each soaking half of one hit.",
 	"stats": {"hp": 125.0, "radius": 54.0, "speed": 400.0, "contact_damage": 18.0},
 	"ability": [{"on": "hp_below", "hp": 0.5, "do": "grow"}, {"on": "always", "do": "school"}, {"on": "guard", "do": "school_guard"}],
 	"params": {
@@ -36,7 +36,7 @@ const CRITTER := {
 		{"text": "Panic speed +35% → +40%", "grow_speed": 0.4},
 		{"text": "+ Panicking heals 8", "now": "At 50% HP panics: +{grow_speed%}% speed, heal {grow_heal}, {school_count} fish", "grow_heal": 8.0},
 		{"text": "Panic speed +40% → +45%", "grow_speed": 0.45},
-		{"text": "+ Panic splashes foe away (8) · fish 2 → 3", "now": "At 50% HP panics: +{grow_speed%}% speed, heal, splash, {school_count} fish", "grow_pulse_damage": 8.0, "school_count": 3},
+		{"text": "+ Panic splashes foe away ({grow_pulse_damage} dmg) · fish 2 → 3", "now": "At 50% HP panics: +{grow_speed%}% speed, heal, splash, {school_count} fish", "grow_pulse_damage": 8.0, "school_count": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["fantail"], "front": ["scales"], "scale": 0.85},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.4},

@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "b7b7a4",
 	"vibe": "A patient snow-lynx kitten that waits for the perfect moment.",
-	"description": "Snow lynx. When hurt, at most every 4s, it marks the attacker and pounces 1s later; its hit on a marked foe deals x2.",
+	"description": "Snow lynx. When hurt, at most every 4s, it marks the attacker and pounces 1s later; its hit on a marked foe deals x{marked_mult}.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.5},
 	"ability": [{"on": "hurt", "do": "mark"}, {"on": "always", "do": "pounce"}, {"on": "strike", "do": "marked"}],
 	"params": {

@@ -12,6 +12,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const Gear := preload("res://sim/gear.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -29,16 +30,16 @@ static func build(shell, params: Dictionary) -> Control:
 	var cap := Roster.level_cap(b.tier)
 	var more := [c.vibe, AbilityText.full(c.id)]
 	for t in range(2, Roster.MAX_TIER + 1):
-		more.append("T%d: %s%s" % [t, AbilityText.change(c.id, t), "  (now)" if t == b.tier else ""])
+		more.append("T%d: %s%s" % [t, AbilityText.change(c.id, t, b.level), "  (now)" if t == b.tier else ""])
+	more.append(AbilityText.EVERY_TIER)
 	more.append("3 of the same tier fuse into 1 of the next tier. Wishlisted critters come up twice as often in summons and drops.")
 	root.add_child(shell.title_row(c.name, {"extra": [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol)], "info_mark": "detail_info", "info": more}))
 
-	# Hero: the critter on the left, its numbers on the right.
-	var hp := roundi(120.0 * (1.0 + .03 * (b.level - 1)))
-	var dmg := roundi(10.0 * (1.0 + .03 * (b.level - 1)))
-	var speed: String = {"juggernaut": "Slow", "speedster": "Fast", "ghost": "Fast", "splitter": "Fast"}.get(c.id, "Normal")
+	# Hero: the critter on the left, its numbers on the right: HP, contact
+	# damage and speed as this copy fights, gear included.
+	var fight := Gear.apply_def(CritterDb.fight_def(c.id, b.tier, b.level), Gear.totals(p.gear_on(c.id)))
 	var stats := Kit.hbox(18)
-	for st in [["HP", str(hp)], ["DMG", str(dmg)], ["SPEED", speed]]:
+	for st in [["HP", str(roundi(fight.hp))], ["DMG", str(roundi(fight.contact_damage))], ["SPEED", str(roundi(fight.speed))]]:
 		stats.add_child(Kit.vbox(0, [Kit.label(st[0], 19, Kit.MUTED), Kit.label(st[1], 28)]))
 	var side := Kit.vbox(8, [Glyph.make("stars", 30, Kit.FG, b.tier, Roster.MAX_TIER), Kit.label("%s · %s" % [c.type, c.role], 22, Kit.MUTED),
 		Kit.power(power, 36), stats])
@@ -67,7 +68,7 @@ static func build(shell, params: Dictionary) -> Control:
 		var have: bool = i < b.tier
 		var tag := Kit.panel(Kit.label("T%d" % (i + 1), 22, Kit.BG if have else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(Kit.ACCENT if have else Color("221e4f"), Color(0, 0, 0, 0), 14, 0, 4))
 		tag.custom_minimum_size = Vector2(62, 0)
-		var l := Kit.label(AbilityText.now(c.id, b.tier) if have else "Next: " + AbilityText.change(c.id, i + 1), 23, Kit.FG if have else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var l := Kit.label(AbilityText.now(c.id, b.tier, b.level) if have else "Next: " + AbilityText.change(c.id, i + 1, b.level), 23, Kit.FG if have else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var row := Kit.hbox(14, [tag, l])
 		if i == 4:

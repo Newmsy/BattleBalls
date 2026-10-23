@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "4f7a3a",
 	"vibe": "Grumpy hedge that just wants to be left alone.",
-	"description": "Bramble. When bumped, it sends 18% of the damage back at the attacker (up to 5 a hit), and its sting burns 0.5/s (a burning foe can't heal).",
+	"description": "Bramble. When bumped, it sends {reflect_ratio%}% of the damage back at the attacker (up to {reflect_cap} a hit), and its sting burns {reflect_burn}/sec (a burning foe can't heal). Every {thorn_every}rd bump it takes shoots {thorn_count} thorns ({thorn_damage} dmg each) and leaves a thorn patch.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "hurt", "do": "reflect"}, {"on": "hurt", "do": "thorn_burst"}],
 	"params": {
@@ -29,7 +29,7 @@ const CRITTER := {
 	"tiers": [
 		{"text": "Sends back 18% of bumps, burns; every 3rd: 8 thorns fly", "now": "Sends back {reflect_ratio%}% of bumps, burns; every 3rd: {thorn_count} thorns fly"},
 		{"text": "Sends back 18 → 22%", "reflect_ratio": 0.22},
-		{"text": "Burn 0.5 → 1/s", "reflect_burn": 1.0},
+		{"text": "Burn {^reflect_burn} → {reflect_burn}/sec", "reflect_burn": 1.0},
 		{"text": "Sends back 22 → 26%", "reflect_ratio": 0.26},
 		{"text": "+ Below 50% HP: sends back 50%", "now": "Bumped: sends back {reflect_ratio%}% ({reflect_low%}% below 50% HP), burns", "reflect_low": 0.5},
 	],

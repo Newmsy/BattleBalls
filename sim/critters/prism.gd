@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "9ad8ff",
 	"vibe": "Dazzling and a bit vain about it.",
-	"description": "Prism. Every wall bounce casts a rainbow beam at the foe, and 15% of the ability damage it takes splits back as a beam.",
+	"description": "Prism. Every wall bounce casts a rainbow beam at the foe ({prism_damage} dmg), and {reflect_ratio%}% of the ability dmg it takes splits back as a beam.",
 	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "wall", "do": "beam_at"}, {"on": "hurt", "do": "reflect"}],
 	"params": {
@@ -31,7 +31,7 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Bounces cast a rainbow beam; reflects 10% ability dmg", "now": "Bounces cast a rainbow beam; reflects {reflect_ratio%}% ability dmg"},
-		{"text": "Beam hit 1 → 1.8", "prism_damage": 1.8},
+		{"text": "Beam hit {^prism_damage} → {prism_damage}", "prism_damage": 1.8},
 		{"text": "Beams 1 → 3", "now": "Bounces cast {prism_fan} rainbow beams; reflects {reflect_ratio%}% ability dmg", "prism_fan": 3},
 		{"text": "Reflect 10 → 25%", "reflect_ratio": 0.25},
 		{"text": "+ Every 3rd cast: full spectrum, 7 beams", "now": "Bounces cast {prism_fan} beams (3rd: 7); reflects {reflect_ratio%}% ability dmg", "prism_full_every": 3},

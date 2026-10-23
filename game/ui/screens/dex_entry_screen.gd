@@ -13,7 +13,8 @@ const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 
 ## Base stats with the roster's top value, so the bars compare critters.
-const STATS := [["HP", "hp", 140.0], ["DMG", "contact_damage", 23.0], ["SPEED", "speed", 440.0], ["SIZE", "radius", 82.0]]
+const STATS := [["HP", "hp"], ["DMG", "contact_damage"], ["SPEED", "speed"], ["SIZE", "radius"]]
+static var _bests := {}
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -24,7 +25,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var rcol: Color = Roster.RARITY_COLORS[c.rarity]
 	var root := Kit.vbox(18)
 	var more := [c.vibe, AbilityText.full(c.id), "You own %d." % p.total_copies(c.id) if owned else "Summon it or win it in the campaign.",
-		"Starts at T1. Fuse 3 → next tier."]
+		"Starts at T1. Fuse 3 → next tier. " + AbilityText.EVERY_TIER, "Numbers are at level 1 with no gear."]
 	root.add_child(shell.title_row(c.name, {"extra": [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol)], "info_mark": "dex_info", "info": more}))
 
 	# Hero: the art, then number, type, family and role.
@@ -39,14 +40,16 @@ static func build(shell, params: Dictionary) -> Control:
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	root.add_child(Kit.hbox(16, [CritterIcon.make(c.id, p.best(c.id).get("tier", 1), 190, true), side], BoxContainer.ALIGNMENT_CENTER))
 
-	# Base stats at T1 level 1, with bars against the roster's best.
+	# Stats as it fights at T1 level 1 (rarity included, like its ability
+	# numbers), with bars against the roster's best.
 	var stats := Kit.hbox(14)
+	var fight := CritterDb.fight_def(c.id, 1)
 	for st in STATS:
-		var v: float = d.stats[st[1]]
-		var col := Kit.vbox(4, [Kit.label(st[0], 18, Kit.MUTED), Kit.label(_num(v), 26), Kit.bar(clampf(v / st[2], 0.0, 1.0), rcol, 10)])
+		var v: float = fight[st[1]]
+		var col := Kit.vbox(4, [Kit.label(st[0], 18, Kit.MUTED), Kit.label(_num(v), 26), Kit.bar(clampf(v / _best(st[1]), 0.0, 1.0), rcol, 10)])
 		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		stats.add_child(col)
-	root.add_child(Kit.panel(Kit.vbox(10, [Kit.caption("Base stats"), stats]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
+	root.add_child(Kit.panel(Kit.vbox(10, [Kit.caption("Stats at T1"), stats]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
 	# Ability: what each tier adds, T1 to T5.
 	var head := Kit.hbox(10, [Kit.caption("Ability")])
@@ -83,5 +86,17 @@ static func build(shell, params: Dictionary) -> Control:
 	return root
 
 
+## The roster's highest T1 value of a stat, for the bars.
+static func _best(key: String) -> float:
+	if _bests.is_empty():
+		for st in STATS:
+			_bests[st[1]] = 1.0
+		for id in CritterDb.live_ids():
+			var f := CritterDb.fight_def(id, 1)
+			for k in _bests:
+				_bests[k] = maxf(_bests[k], float(f[k]))
+	return _bests[key]
+
+
 static func _num(v: float) -> String:
-	return str(int(v)) if is_equal_approx(v, roundf(v)) else "%.1f" % v
+	return str(roundi(v))

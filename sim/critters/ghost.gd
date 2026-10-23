@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "e3d6ff",
 	"vibe": "Shy and spooky, giggles when you miss it.",
-	"description": "Ghost. Every 5s it phases out for 1.2s (-80% dmg taken), and its next hit after deals x2.",
+	"description": "Ghost. Every 5s it phases out for 1.2s (-80% dmg taken), and its next hit after deals x{ambush_mult}.",
 	"stats": {"hp": 102.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
 	"ability": [{"on": "every", "secs": "phase_every", "do": "phase"}, {"on": "guard", "do": "phased"}, {"on": "strike", "do": "ambush"}],
 	"params": {

@@ -72,11 +72,12 @@ static func build(shell, params: Dictionary) -> Control:
 		var lines := ["Max level %d → %d" % [pv.cap_before, pv.cap_after]]
 		if pv.level > 1:
 			lines.append("Keeps Lv %d" % pv.level)
-		lines.append("T%d adds: %s" % [pv.tier, AbilityText.change(sel.id, pv.tier)])
+		lines.append("T%d adds: %s" % [pv.tier, AbilityText.change(sel.id, pv.tier, pv.level)])
+		lines.append(AbilityText.EVERY_TIER)
 		var more: Control = shell.info_button("%s T%d" % [c.name, pv.tier], lines, "fuse_result_info")
 		var rows := Kit.vbox(8, [Kit.hbox(8, [Kit.caption("Result: %s T%d" % [c.name, pv.tier]), Kit.spacer(), more], BoxContainer.ALIGNMENT_CENTER)])
 		rows.add_child(_kv("Power", "%s → %s" % [Kit.commas(pv.power_before), Kit.commas(pv.power_after)], true))
-		rows.add_child(_kv("New", AbilityText.change(sel.id, pv.tier), true))
+		rows.add_child(_kv("New", AbilityText.change(sel.id, pv.tier, pv.level), true))
 		root.add_child(Kit.panel(rows, Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20)))
 		var btn := Kit.button("Fuse", func(): pass, "go", 34, 96)
 		btn.pressed.connect(func(): _do_fuse(shell, lab, btn, sel))

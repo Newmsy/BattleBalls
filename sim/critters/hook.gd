@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "9a031e",
 	"vibe": "A swashbuckling grapple that loves to reel in a catch.",
-	"description": "Grapple. Every wall bounce it yanks the foe toward itself, and a yanked foe that meets Hook within 1s takes +5.",
+	"description": "Grapple. Every {harpoon_every}s it harpoons the foe so they rush at each other, every wall bounce yanks the foe toward it, and a reeled-in foe that meets Hook right after takes +{yank_bonus}.",
 	"stats": {"hp": 132.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.5},
 	"ability": [{"on": "wall", "do": "yank"}, {"on": "hit", "do": "yank_bonus"}, {"on": "every", "secs": "harpoon_every", "do": "harpoon"}],
 	"params": {

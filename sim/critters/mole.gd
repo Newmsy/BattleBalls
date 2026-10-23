@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "b08968",
 	"vibe": "A busy little digger who pops up exactly where you didn't want it.",
-	"description": "Mole. Every 6s it burrows for 1s (-70% dmg taken), tunnels toward the foe, then bursts up beneath it for 9 with a knockback.",
+	"description": "Mole. Every 6s it burrows for 1s (-70% dmg taken), tunnels toward the foe, then bursts up beneath it for {dig_damage} with a knockback.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "every", "secs": "dig_every", "do": "dig"}, {"on": "guard", "do": "phased"}, {"on": "always", "do": "surface"}],
 	"params": {
@@ -27,10 +27,10 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Digs every 6s (-70% taken), tunnels to foe, bursts up for 9", "now": "Digs every {dig_every}s (-70% taken), tunnels to foe, bursts up for {dig_damage}"},
-		{"text": "Burst 9 → 11", "dig_damage": 11.0},
+		{"text": "Burst {^dig_damage} → {dig_damage}", "dig_damage": 11.0},
 		{"text": "+ Surfacing: +20% speed for 1s", "now": "Digs every {dig_every}s (-70% taken), bursts up for {dig_damage}, rushes", "dig_rush": 0.2},
 		{"text": "Dig every 6 → 5s", "dig_every": 5.0},
-		{"text": "+ The burst throws 3 dirt clods (4)", "now": "Digs every {dig_every}s (-70% taken), bursts {dig_damage} + {dig_clods} clods, rushes", "dig_clods": 3},
+		{"text": "+ The burst throws 3 dirt clods ({clod_damage} dmg)", "now": "Digs every {dig_every}s (-70% taken), bursts {dig_damage} + {dig_clods} clods, rushes", "dig_clods": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "smile"}, "front": ["helmet", "starnose"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.1},

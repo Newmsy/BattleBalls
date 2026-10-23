@@ -28,9 +28,9 @@ const CRITTER := {
 	"tiers": [
 		{"text": "Bounces plant a pillar for 4s, max 3", "now": "Bounces plant a pillar for {seed_life}s, max {seed_max}"},
 		{"text": "Pillars last 4 → 5s · 1 stays till hit", "seed_life": 5.0, "seed_stay": 1},
-		{"text": "+ Bouncing off a pillar deals 4", "now": "Bounces plant a pillar ({seed_damage} on bump) for {seed_life}s, max {seed_max}", "seed_damage": 4.0},
-		{"text": "Pillar size +33% · 2 stay till hit", "seed_radius": 40.0, "seed_stay": 2},
-		{"text": "All 3 stay till hit · fall into 3 seeds (4)", "now": "Bounces plant pillars ({seed_damage} on bump) till hit; fall to seeds", "seed_shots": 3, "seed_stay": 3, "ability": [{"on": "always", "do": "seed_wilt"}]},
+		{"text": "+ Bouncing off a pillar deals {seed_damage}", "now": "Bounces plant a pillar ({seed_damage} on bump) for {seed_life}s, max {seed_max}", "seed_damage": 4.0},
+		{"text": "Pillar size +{+seed_radius}% · 2 stay till hit", "seed_radius": 40.0, "seed_stay": 2},
+		{"text": "All 3 stay till hit · fall into 3 seeds ({seed_damage} dmg)", "now": "Bounces plant pillars ({seed_damage} on bump) till hit; fall to seeds", "seed_shots": 3, "seed_stay": 3, "ability": [{"on": "always", "do": "seed_wilt"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["leaves"], "front": ["frost_freckles"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.35},

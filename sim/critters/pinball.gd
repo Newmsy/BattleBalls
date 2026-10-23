@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "f1f3f5",
 	"vibe": "A show-off arcade ball that treats every wall like a bumper worth points.",
-	"description": "Pinball. Every wall it touches since its last hit adds +1 to its next hit, up to 5 walls.",
+	"description": "Pinball. Every wall it touches since its last hit adds +{bulb_damage} to its next hit, up to 5 walls.",
 	"stats": {"hp": 126.0, "radius": 64.0, "speed": 400.0, "contact_damage": 16.5},
 	"ability": [{"on": "wall", "do": "light"}, {"on": "strike", "do": "cash_in"}],
 	"params": {
@@ -22,9 +22,9 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "+1 dmg per wall since its last hit, max 5", "now": "+{bulb_damage} dmg per wall since its last hit, max {bulb_max}"},
-		{"text": "Per wall +1 → +1.5", "bulb_damage": 1.5},
+		{"text": "Per wall +{^bulb_damage} → +{bulb_damage}", "bulb_damage": 1.5},
 		{"text": "+ Cashing in 3+ walls knocks the foe back", "bulb_knock": 3},
-		{"text": "Per wall +1.5 → +2", "bulb_damage": 2.0},
+		{"text": "Per wall +{^bulb_damage} → +{bulb_damage}", "bulb_damage": 2.0},
 		{"text": "+ A hit after 5 walls is a TILT! x2", "now": "+{bulb_damage} dmg per wall, max {bulb_max}; at {bulb_max}: TILT! x{bulb_tilt}", "bulb_tilt": 2.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "body": "chrome", "tint": true, "back": ["rears"], "front": ["bulbs"]},

@@ -34,7 +34,7 @@ const CRITTER := {
 	"tiers": [
 		{"text": "Every 6s spins a prize: mines, beams or coins", "now": "Every {spin_every}s spins a prize: mines, beams or coins"},
 		{"text": "Prize dmg +20%", "prize_mult": 1.2},
-		{"text": "+ A 4th prize: a 20 shield", "now": "Every {spin_every}s spins a prize: mines, beams, coins or shield", "spin_prizes": 4},
+		{"text": "+ A 4th prize: a {prize_shield} shield", "now": "Every {spin_every}s spins a prize: mines, beams, coins or shield", "spin_prizes": 4},
 		{"text": "Spin every 6 → 5s", "spin_every": 5.0},
 		{"text": "+ Every 4th spin pays out every prize", "now": "Every {spin_every}s spins: mines, beams, coins or shield; 4th: all", "spin_jackpot_every": 4},
 	],

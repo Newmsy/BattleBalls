@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "9ef01a",
 	"vibe": "An eager little pea pod that fires first and asks questions never.",
-	"description": "Pea shooter. Every 3s it spits a pea (6) the way it's rolling.",
+	"description": "Pea shooter. Every 3s it spits a pea ({shot_damage} dmg) the way it's rolling.",
 	"stats": {"hp": 128.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.5},
 	"ability": [{"on": "every", "secs": "fire_cooldown", "do": "shoot"}],
 	"params": {
@@ -29,7 +29,7 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Spits a pea every 3s for 6", "now": "Spits a pea every {fire_cooldown}s for {shot_damage}"},
-		{"text": "Pea 6 → 7", "shot_damage": 7.0},
+		{"text": "Pea {^shot_damage} → {shot_damage}", "shot_damage": 7.0},
 		{"text": "+ Peas bounce off 1 wall", "now": "Spits a bouncing pea every {fire_cooldown}s for {shot_damage}", "shot_bounces": 1},
 		{"text": "Pea every 3 → 2.5s", "fire_cooldown": 2.5},
 		{"text": "+ Every 3rd shot is 3 peas", "now": "Bouncing pea every {fire_cooldown}s for {shot_damage} · every 3rd x{shot_big_count}", "shot_big_every": 3},

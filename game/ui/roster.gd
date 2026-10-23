@@ -1,5 +1,5 @@
-## UI catalogue of every critter: names, rarity, colours and the per-tier
-## ability text shown on the detail and fuse screens. Built from the critter
+## UI catalogue of every critter: names, rarity and colours (the ability
+## text is game/ui/ability_text.gd). Built from the critter
 ## files in sim/critters/ (sim/critter_db.gd), so a new file shows up here too.
 ## Planned critters appear in the collection before their ability is built.
 extends RefCounted
@@ -24,7 +24,7 @@ static func _critters() -> Array:
 		if c.status == "baseline":
 			continue
 		out.append({"id": id, "name": c.name, "type": c.type, "rarity": c.rarity, "role": c.role, "color": Color(c.color),
-			"vibe": c.vibe, "ladder": c.tiers.map(func(t): return t.text), "live": c.status == "live"})
+			"vibe": c.vibe, "live": c.status == "live"})
 	return out
 
 

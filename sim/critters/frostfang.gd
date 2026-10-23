@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "6d6875",
 	"vibe": "A lone winter wolf, quiet until the howl.",
-	"description": "Wolf. Every hit adds frost to the foe, and the 2nd freezes it solid for 0.6s as ice shards burst out (6); Frostfang then hunts the frozen foe down and shatters it for x1.6.",
+	"description": "Wolf. Every hit adds frost to the foe, and the {bite_max}nd freezes it solid for {bite_freeze}s as ice shards burst out ({shard_damage} dmg); Frostfang then hunts the frozen foe down and shatters it for x{shatter_mult}. Every {howl_every}s it howls up {wolf_count} ice wolves that hunt the foe ({wolf_damage} dmg each, slow 20%).",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
 	"ability": [{"on": "hit", "do": "frostbite"}, {"on": "strike", "do": "shatter"}, {"on": "always", "do": "frost_hunt"}, {"on": "every", "secs": "howl_every", "do": "howl"}],
 	"params": {
@@ -32,10 +32,10 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "2nd hit freezes, shards 6 · shatter x1.6 · howls every 10s", "now": "2nd hit freezes, shards {shard_damage} · shatter x{shatter_mult} · howls every {howl_every}s"},
-		{"text": "Shards 6 → 7", "shard_damage": 7.0},
+		{"text": "Shards {^shard_damage} → {shard_damage}", "shard_damage": 7.0},
 		{"text": "+ Frozen foe: +15% dmg taken for 2s", "now": "Every 2nd hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_sour": 0.15},
-		{"text": "Shards 7 → 8, size +29%", "shard_damage": 8.0, "shard_radius": 180.0},
-		{"text": "Every hit freezes · shatter x1.6 → 2.2", "now": "Every hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_max": 1, "shatter_mult": 2.2},
+		{"text": "Shards {^shard_damage} → {shard_damage}, size +{+shard_radius}%", "shard_damage": 8.0, "shard_radius": 180.0},
+		{"text": "Every hit freezes · shatter x{^shatter_mult} → {shatter_mult}", "now": "Every hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_max": 1, "shatter_mult": 2.2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "6fd3ff", "mouth": "fangs"}, "back": ["ears"], "front": ["ruff"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 0.8},
