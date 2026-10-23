@@ -404,6 +404,7 @@ func back_button(mark_as := "back") -> Control:
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	mark(mark_as, b)
+	TouchInput.mark_back(b)
 	return b
 
 
