@@ -83,11 +83,13 @@ static func side(width: float) -> float:
 
 ## Fades `c` in while it rises RISE px into place (just the fade with reduced
 ## motion). `move` sets its offset from the resting place.
-static func pop_in(host: Node, c: CanvasItem, move: Callable, done := Callable()) -> Tween:
+static func pop_in(_host: Node, c: CanvasItem, move: Callable, done := Callable()) -> Tween:
 	var rise := RISE * A11y.motion()
 	c.modulate.a = 0.0
 	move.call(rise)
-	var tw := host.create_tween().set_parallel()
+	# Bound to `c`, so a sheet replaced mid pop-in (Settings re-opening on a
+	# toggle) takes its tween with it instead of animating a freed card.
+	var tw := c.create_tween().set_parallel()
 	tw.tween_property(c, "modulate:a", 1.0, SLIDE_SECS * .8)
 	tw.tween_method(move, rise, 0.0, SLIDE_SECS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	if done.is_valid():
