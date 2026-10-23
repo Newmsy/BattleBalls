@@ -71,6 +71,7 @@ const LiveClient := preload("res://game/online/live_client.gd")
 const LiveMatch := preload("res://sim/live_match.gd")
 const SimVersion := preload("res://sim/sim_version.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
+const SplashArt := preload("res://game/ui/splash_art.gd")
 
 ## CLIP plays the finished fight again in the vertical clip layout.
 enum State { MENU, AIM, FIGHT, RESULT, CLIP }
@@ -276,6 +277,9 @@ func _ready() -> void:
 		save.commit()
 	_apply_picks()
 	url_params = _read_url_params()
+	# The bright loading screen fades into the game on a plain start; links,
+	# smoke tests and ?modes skip it (?splash=1 forces it).
+	SplashArt.boot(self, url_params.is_empty() or url_params.has("splash"))
 	if url_params.has("perf"): # ?perf=1 logs frame cost to the console every 2s.
 		_perf_log()
 	# ?stats opens the owner's stats screen (game/stats/), which isn't play.
