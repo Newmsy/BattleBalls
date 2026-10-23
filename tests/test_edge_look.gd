@@ -24,5 +24,5 @@ func test_matchup_reads_from_side_zero() -> void:
 	m = FamilyEdges.matchup(sim)
 	check_eq(m.get("edge", 0), -2, "Nature on Fire is very bad")
 	check_eq(m.get("adv", ""), "fire", "the edge side is still Fire")
-	sim = MatchSim.new({"seed": 1, "p1": "sprout", "p2": "pinball"})
-	check(FamilyEdges.matchup(sim).is_empty(), "Nature and Toybox are neutral: no banner")
+	sim = MatchSim.new({"seed": 1, "p1": "sprout", "p2": "bubbles"})
+	check(FamilyEdges.matchup(sim).is_empty(), "Nature and Sea are across the wheel: no banner")

@@ -40,6 +40,17 @@ func test_very_good_arrows_make_one_loop() -> void:
 	check_eq(at, "fire", "and comes back to the start")
 
 
+func test_edges_follow_the_wheel() -> void:
+	var wheel: Array = Families.WHEEL
+	check_eq(wheel.size(), 9, "every family is on the wheel once")
+	for i in wheel.size():
+		for k in range(1, 9):
+			var want: int = [0, 2, 1, 1, 0, 0, -1, -1, -2][k]
+			var a: String = wheel[i]
+			var t: String = wheel[(i + k) % 9]
+			check_eq(Families.edge(_member(a), _member(t)), want, "%s vs %s, %d clockwise" % [a, t, k])
+
+
 func test_plain_bosses_and_own_family_are_even() -> void:
 	check_eq(Families.edge("plain", "laser"), 0, "Plain has no family")
 	check_eq(Families.edge("speedster", "sooty"), 0, "Fire vs Fire")
