@@ -12,7 +12,7 @@ const CRITTER := {
 	"rarity_power": 0.935, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
 	"color": "d6ccc2",
 	"vibe": "A huggable mountain yeti with a very loud temper.",
-	"description": "Yeti. It's big and furry, and at 50% HP it roars out an avalanche that deals 15, knocks back and slows everything nearby 40% for 2s.",
+	"description": "Yeti. It's big and furry, and at 50% HP it roars out an avalanche that deals {roar_damage}, knocks back and slows everything nearby {roar_slow%}% for {roar_secs}s.",
 	"stats": {"hp": 140.0, "radius": 69.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "hp_below", "hp": 0.5, "do": "roar"}],
 	"params": {
@@ -25,7 +25,7 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "At 50% HP roars: 12, knockback, slow 40%", "now": "At 50% HP roars: {roar_damage}, knockback, slow {roar_slow%}%"},
-		{"text": "Avalanche 12 → 16", "roar_damage": 16.0},
+		{"text": "Avalanche {^roar_damage} → {roar_damage}", "roar_damage": 16.0},
 		{"text": "+ Roars again at 25% HP", "now": "At 50% and 25% HP roars: {roar_damage}, knockback, slow {roar_slow%}%", "ability": [{"on": "hp_below", "hp": 0.25, "do": "roar"}]},
 		{"text": "Slow lasts 2 → 3s", "roar_secs": 3.0},
 		{"text": "+ Roars roll a snowball (x1.5 hits 3s), 3 drifts", "now": "At 50%/25% HP roars {roar_damage}, drifts, snowball x1.5 hits", "roar_drifts": 3.0, "snowball_secs": 3.0},

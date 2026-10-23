@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "f5c400",
 	"vibe": "A buzzy little wasp that never misses a chance to sting.",
-	"description": "Wasp. Every wall bounce, at most every 0.6s, it fires a homing stinger at the foe for 1.8.",
+	"description": "Wasp. Every wall bounce, at most every 0.6s, it fires a homing stinger at the foe for {shot_damage}.",
 	"stats": {"hp": 115.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.5},
 	"ability": [{"on": "wall", "do": "shoot"}],
 	"params": {
@@ -32,10 +32,10 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Bounces fire a homing stinger for 1.8", "now": "Bounces fire a homing stinger for {shot_damage}"},
-		{"text": "Stinger 1.8 → 2.5", "shot_damage": 2.5},
-		{"text": "+ Stingers poison 2/s for 2s", "now": "Bounces fire a poison homing stinger for {shot_damage}", "shot_burn": 2.0},
+		{"text": "Stinger {^shot_damage} → {shot_damage}", "shot_damage": 2.5},
+		{"text": "+ Stingers poison {shot_burn}/sec for 2s", "now": "Bounces fire a poison homing stinger for {shot_damage}", "shot_burn": 2.0},
 		{"text": "Homing +40%", "shot_homing": 3.5},
-		{"text": "+ Every 4th bounce: a swarm of 4", "now": "Bounces fire a poison stinger ({shot_damage}); 4th: swarm of {shot_big_count}", "shot_big_every": 4},
+		{"text": "+ Every 4th bounce: a swarm of 4", "now": "Bounces fire a poison stinger ({shot_damage} dmg); 4th: swarm of {shot_big_count}", "shot_big_every": 4},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "flat"}, "back": ["wings", "stinger"], "front": ["stripes"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.4},

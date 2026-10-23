@@ -29,7 +29,7 @@ const CRITTER := {
 		{"text": "Backstab +3 → +5", "blink_bonus": 5.0},
 		{"text": "+ The spot it leaves crackles for 5", "now": "Every 2nd hit teleports behind foe, crackles; next hit +{blink_bonus}", "blink_crackle": 5.0},
 		{"text": "Teleports every 2nd hit → every hit", "now": "Every hit teleports behind foe, crackles; next hit +{blink_bonus}", "blink_every": 1},
-		{"text": "+ Zap beam along the jump (10/s)", "now": "Each hit: zap-teleports behind foe; next hit +{blink_bonus}", "blink_zap": 10.0},
+		{"text": "+ Zap beam along the jump (10/sec)", "now": "Each hit: zap-teleports behind foe; next hit +{blink_bonus}", "blink_zap": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "flat"}, "back": ["boltant"], "front": ["panel"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.25},

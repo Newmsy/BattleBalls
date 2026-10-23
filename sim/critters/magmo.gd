@@ -12,7 +12,7 @@ const CRITTER := {
 	"rarity_power": 0.94, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
 	"color": "ff4500",
 	"vibe": "A hot-headed lava blob who leaves a splash in every fight.",
-	"description": "Lava blob. Every hit splashes a lava puddle (5/s for 2.5s) that burns foes who stay in it.",
+	"description": "Lava blob. Every hit splashes a lava puddle ({lava_dps}/sec for {lava_life}s, up to {lava_max}) that burns foes who stay in it.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "hit", "do": "lava"}, {"on": "hit", "do": "erupt"}],
 	"params": {
@@ -28,11 +28,11 @@ const CRITTER := {
 		"erupt_damage": 4.0,
 	},
 	"tiers": [
-		{"text": "Hits splash lava: 4/s for 2.5s", "now": "Hits splash lava: {lava_dps}/s for {lava_life}s"},
-		{"text": "Lava 4 → 6/s", "lava_dps": 6.0},
-		{"text": "+ Leaving lava keeps burning 2/s for 2s", "now": "Hits splash lava: {lava_dps}/s for {lava_life}s, burns after", "ability": [{"on": "always", "do": "linger"}]},
+		{"text": "Hits splash lava: 4/sec for 2.5s", "now": "Hits splash lava: {lava_dps}/sec for {lava_life}s"},
+		{"text": "Lava {^lava_dps} → {lava_dps}/sec", "lava_dps": 6.0},
+		{"text": "+ Leaving lava keeps burning {linger_dps}/sec for 2s", "now": "Hits splash lava: {lava_dps}/sec for {lava_life}s, burns after", "ability": [{"on": "always", "do": "linger"}]},
 		{"text": "Lava lasts 2.5 → 3.5s", "lava_life": 3.5},
-		{"text": "+ Every 3rd hit erupts; -20% dmg taken in lava", "now": "Hits splash lava {lava_dps}/s, 3rd erupts · -20% taken in it", "erupt_every": 3, "ability": [{"on": "guard", "do": "home_guard"}]},
+		{"text": "+ Every 3rd hit erupts; -20% dmg taken in lava", "now": "Hits splash lava {lava_dps}/sec, 3rd erupts · -20% taken in it", "erupt_every": 3, "ability": [{"on": "guard", "do": "home_guard"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "grin"}, "front": ["crust", "drips"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 0.8},

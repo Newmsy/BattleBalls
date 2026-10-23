@@ -7,6 +7,8 @@ extends RefCounted
 const Abilities := preload("res://sim/abilities.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
+const Power := preload("res://sim/power.gd")
+const DMath := preload("res://sim/dmath.gd")
 
 const DIR := "res://sim/critters/"
 const RARITIES := ["common", "uncommon", "rare", "epic", "legendary"]
@@ -161,40 +163,64 @@ static func validate(id: String, c: Dictionary) -> Array[String]:
 
 
 ## Ability text rules (README "Adding a critter"): T1 and every "now" line fit
-## TEXT_MAX once filled in, and "{key}" names a param; T2-T5 fit CHANGE_MAX;
-## arrows are "→"; a T1 "now" fills in to exactly the T1 text, so the T1
-## numbers match the params.
+## TEXT_MAX once filled in, and every placeholder names a param; T2-T5 fit
+## CHANGE_MAX; arrows are "→"; rates are "/sec", not "/s"; a T1 "now" fills in
+## to exactly the T1 text, so the T1 numbers match the params. Lengths are
+## checked with the file's own numbers (screens show the sim's, see fill()).
 static func _validate_text(id: String, c: Dictionary) -> Array[String]:
 	var errors: Array[String] = []
 	var params: Dictionary = c.params.duplicate()
+	var prev: Dictionary = params.duplicate()
 	var line := str(c.tiers[0].get("now", c.tiers[0].text))
+	var re := RegEx.create_from_string("\\{[\\^+]?([a-z_0-9]+)%?\\}")
+	var rate := RegEx.create_from_string("[0-9}]( HP)?/s\\b")
+	var texts := {"description": str(c.description)}
 	for t in TIERS:
 		var tier: Dictionary = c.tiers[t]
+		prev = params.duplicate()
 		for key in tier:
 			if params.has(key):
 				params[key] = tier[key]
 		var text := str(tier.get("text", ""))
+		texts["tier %d text" % (t + 1)] = text
 		if "->" in text:
 			errors.append("%s: tier %d text uses \"->\"; use \"→\"" % [id, t + 1])
-		if t > 0 and text.length() > CHANGE_MAX:
+		if t > 0 and fill(text, params, prev).length() > CHANGE_MAX:
 			errors.append("%s: tier %d text is over %d characters" % [id, t + 1, CHANGE_MAX])
 		if tier.has("now"):
 			line = str(tier.now)
-			var re := RegEx.create_from_string("\\{([a-z_0-9]+)%?\\}")
-			for m in re.search_all(line):
-				if not c.params.has(m.get_string(1)):
-					errors.append("%s: tier %d \"now\" names \"%s\", which isn't in params" % [id, t + 1, m.get_string(1)])
+			texts["tier %d now" % (t + 1)] = line
 		var now := fill(line, params)
 		if now.length() > TEXT_MAX:
 			errors.append("%s: tier %d ability line is over %d characters: %s" % [id, t + 1, TEXT_MAX, now])
-		if t == 0 and tier.has("now") and now != text:
+		if t == 0 and tier.has("now") and now != fill(text, params):
 			errors.append("%s: T1 \"now\" fills in to \"%s\", not the T1 text" % [id, now])
+	for where in texts:
+		for m in re.search_all(texts[where]):
+			if not c.params.has(m.get_string(1)):
+				errors.append("%s: %s names \"%s\", which isn't in params" % [id, where, m.get_string(1)])
+		if rate.search(texts[where]) != null:
+			errors.append("%s: %s writes a rate as \"/s\"; write \"/sec\" (players read /s as per stack)" % [id, where])
 	return errors
 
 
-## `line` with every "{key}" replaced by that param and "{key%}" by it as a
-## percent (0.2 → 20); numbers lose trailing zeros. Unknown keys stay as written.
-static func fill(line: String, params: Dictionary) -> String:
+## A critter as it fights at `tier` and `level` with no gear or talents: what
+## MatchSim builds for a Lineup slot (sim_def with rarity's ability tiers,
+## scaled by Power and its rarity_power). Ability text is filled from this, so
+## the numbers on screen are the ones that fight.
+static func fight_def(id: String, tier: int, level := 1) -> Dictionary:
+	var c := get_critter(id)
+	var steps := maxi(0, RARITIES.find(str(c.rarity)))
+	var power := Power.multiplier(str(c.rarity), tier, level) * DMath.ipow(float(c.get("rarity_power", 1.0)), steps)
+	return Power.scale_def(sim_def(id, tier, Power.rarity_tiers(str(c.rarity))), power)
+
+
+## `line` with its placeholders filled in from `params`: "{key}" is the param,
+## "{key%}" the param as a percent (0.2 → 20), "{^key}" / "{^key%}" the same
+## from `prev` (the tier before, for "old → new") and "{+key}" how much it
+## grew since `prev`, in percent (70 → 90 is 29). Numbers show as players read
+## them (shown()). Unknown keys stay as written.
+static func fill(line: String, params: Dictionary, prev := {}) -> String:
 	var out := ""
 	var i := 0
 	while i < line.length():
@@ -205,10 +231,29 @@ static func fill(line: String, params: Dictionary) -> String:
 		var key := line.substr(open + 1, close - open - 1)
 		var pct := key.ends_with("%")
 		key = key.trim_suffix("%")
+		var src := params
+		var grow := false
+		if key.begins_with("^"):
+			key = key.substr(1)
+			src = prev
+		elif key.begins_with("+"):
+			key = key.substr(1)
+			grow = true
 		out += line.substr(i, open - i)
-		out += num(float(params[key]) * (100.0 if pct else 1.0)) if params.has(key) else line.substr(open, close - open + 1)
+		if grow and params.has(key) and float(prev.get(key, 0.0)) != 0.0:
+			out += str(roundi((float(params[key]) / float(prev[key]) - 1.0) * 100.0))
+		elif not grow and src.has(key) and (src[key] is float or src[key] is int):
+			out += shown(float(src[key]) * (100.0 if pct else 1.0))
+		else:
+			out += line.substr(open, close - open + 1)
 		i = close + 1
 	return out + line.substr(i)
+
+
+## A number as ability text shows it: whole from 10 up, else to one decimal
+## (6.0 → "6", 5.625 → "5.6", 37.5 → "38").
+static func shown(v: float) -> String:
+	return num(roundf(v) if absf(v) >= 10.0 else roundf(v * 10.0) / 10.0)
 
 
 ## 6.0 → "6", 6.5 → "6.5", 0.25 → "0.25".

@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "ffb4a2",
 	"vibe": "A mischievous fox spirit who loves a good trick.",
-	"description": "Fox spirit. Every 6s it splits off 2 fox-fire illusions, and an illusion that's touched bursts into flame for 8 and a burn.",
+	"description": "Fox spirit. Every 6s it splits off 2 fox-fire illusions, and an illusion that's touched bursts into flame for {illusion_damage} and a burn.",
 	"stats": {"hp": 104.0, "radius": 64.0, "speed": 400.0, "contact_damage": 13.0},
 	"ability": [{"on": "every", "secs": 6.0, "do": "illusions"}, {"on": "always", "do": "illusion_tick"}],
 	"params": {
@@ -27,8 +27,8 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Every 6s splits off 2 illusions that burst for 8", "now": "Every 6s splits off {illusion_count} illusions that burst for {illusion_damage}"},
-		{"text": "Burst 8 → 10", "illusion_damage": 10.0},
-		{"text": "+ Illusions leave flame trails (4/s)", "now": "Every 6s {illusion_count} trailing illusions that burst for {illusion_damage}", "illusion_trail_damage": 4.0},
+		{"text": "Burst {^illusion_damage} → {illusion_damage}", "illusion_damage": 10.0},
+		{"text": "+ Illusions leave flame trails ({illusion_trail_damage}/sec)", "now": "Every 6s {illusion_count} trailing illusions that burst for {illusion_damage}", "illusion_trail_damage": 4.0},
 		{"text": "Illusions 2 → 3", "illusion_count": 3},
 		{"text": "+ A touched illusion swaps with Foxfire", "now": "Every 6s {illusion_count} trailing illusions burst for {illusion_damage} + swap", "illusion_swap": 1},
 	],

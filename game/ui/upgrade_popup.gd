@@ -47,7 +47,7 @@ static func critter(shell, pv: Dictionary, on_continue := Callable()) -> void:
 	])
 	if pv.level > 1:
 		lines.add_child(row("bolt", Kit.ACCENT, "Level", "", "Keeps Lv %d" % pv.level))
-	var ability := Kit.label(AbilityText.change(pv.id, pv.tier), 23, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var ability := Kit.label(AbilityText.change(pv.id, pv.tier, pv.level), 23, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
 	ability.custom_minimum_size.x = _text_width(shell)
 	var tint: Color = Roster.RARITY_COLORS.get(c.rarity, Kit.ACCENT)
 	var new_box := Kit.panel(Kit.vbox(6, [Kit.hbox(8, [Kit.glyph("sparkle", 24, GOLD), Kit.caption("New at T%d" % pv.tier, GOLD)]), ability]),

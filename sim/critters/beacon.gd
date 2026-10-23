@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "06d6a0",
 	"vibe": "A steady old lighthouse keeper who keeps an eye on everything.",
-	"description": "Lighthouse. Every 4s it turns to the foe and shines a beam to the far wall (4.5/s), and foes caught in the light take +20% dmg for 2s.",
+	"description": "Lighthouse. Every {lamp_every}s it turns to the foe and shines a beam to the far wall ({lamp_dps}/sec), and foes caught in the light take +{lamp_vuln%}% dmg for {lamp_vuln_secs}s.",
 	"stats": {"hp": 116.0, "radius": 64.0, "speed": 400.0, "contact_damage": 20.0},
 	"ability": [{"on": "every", "secs": "lamp_every", "do": "lamp"}],
 	"params": {
@@ -27,11 +27,11 @@ const CRITTER := {
 		"lamp_spin_every": 0, ## T5: every this-many shines turn a full circle.
 	},
 	"tiers": [
-		{"text": "Aimed beam every 4s: 3.5/s, lit foes +20% dmg taken", "now": "Aimed beam every {lamp_every}s: {lamp_dps}/s, lit foes +{lamp_vuln%}% dmg taken"},
-		{"text": "Beam 3.5 → 5/s", "lamp_dps": 5.0},
-		{"text": "+ Beam sweeps 45°", "now": "Sweeping beam every {lamp_every}s: {lamp_dps}/s, lit +{lamp_vuln%}% dmg taken", "lamp_sweep": 45.0, "ability": [{"on": "always", "do": "lamp_sweep"}]},
+		{"text": "Aimed beam every 4s: 3.5/sec, lit foes +20% dmg taken", "now": "Aimed beam every {lamp_every}s: {lamp_dps}/sec, lit foes +{lamp_vuln%}% dmg taken"},
+		{"text": "Beam {^lamp_dps} → {lamp_dps}/sec", "lamp_dps": 5.0},
+		{"text": "+ Beam sweeps 45°", "now": "Sweeping beam every {lamp_every}s: {lamp_dps}/sec, lit +{lamp_vuln%}% dmg taken", "lamp_sweep": 45.0, "ability": [{"on": "always", "do": "lamp_sweep"}]},
 		{"text": "Beam every 4 → 3.5s", "lamp_every": 3.5},
-		{"text": "+ A 2nd beam backwards; every 3rd: full spin", "now": "2 sweeping beams every {lamp_every}s (3rd spins): {lamp_dps}/s, lit +{lamp_vuln%}%", "lamp_back": 1, "lamp_spin_every": 3},
+		{"text": "+ A 2nd beam backwards; every 3rd: full spin", "now": "2 sweeping beams every {lamp_every}s (3rd spins): {lamp_dps}/sec, lit +{lamp_vuln%}%", "lamp_back": 1, "lamp_spin_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smile"}, "back": ["lamp"], "front": ["stripes"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.9},

@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "2a9d8f",
 	"vibe": "A stack of carved faces that all have opinions.",
-	"description": "Totem. Every bump adds a carved face on top, up to 3, each with its own buff: +2 dmg, -15% dmg taken, +15% speed.",
+	"description": "Totem. Every bump adds a carved face on top, up to 3, each with its own buff: +{face_damage} dmg, -15% dmg taken, +15% speed.",
 	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "bump", "do": "face"}, {"on": "guard", "do": "face_guard"}, {"on": "hurt", "do": "stack_drop"}],
 	"params": {
@@ -29,10 +29,10 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Bumps stack 3 faces: +2 dmg, -15% taken, +15% speed", "now": "Bumps stack {stack_max} faces: +{face_damage} dmg, -{face_armor%}% taken, +{face_speed%}% speed"},
-		{"text": "Damage face +2 → +3", "face_damage": 3.0},
+		{"text": "Damage face +{^face_damage} → +{face_damage}", "face_damage": 3.0},
 		{"text": "+ Starts with one face", "ability": [{"on": "start", "do": "face"}]},
 		{"text": "Guard face -15% → -20%", "face_armor": 0.2},
-		{"text": "+ A 4th golden face: shouts every 5s (8)", "now": "Bumps stack {stack_max} faces (+{face_damage}, -{face_armor%}%, +{face_speed%}%, shout {shout_damage})", "stack_max": 4.0, "ability": [{"on": "every", "secs": 5.0, "do": "face_shout"}]},
+		{"text": "+ A 4th golden face: shouts every 5s ({shout_damage} dmg)", "now": "Bumps stack {stack_max} faces (+{face_damage}, -{face_armor%}%, +{face_speed%}%, shout {shout_damage})", "stack_max": 4.0, "ability": [{"on": "every", "secs": 5.0, "do": "face_shout"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "flat"}, "back": ["totemstack"], "scale": .9},
 	"sound": {"ouch": "ouch_spooky", "pitch": 0.85},

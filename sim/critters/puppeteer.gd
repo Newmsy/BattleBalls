@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "6d2e46",
 	"vibe": "A theatrical little puppet-master who wants you in its show.",
-	"description": "Puppeteer. When it hits, at most every 6s, it ties a string to the foe, drags it along for 0.7s, then hurls it into the nearest wall for a 8 slam. From T2 the string stays tied after the throw, and every wall bounce Puppeteer makes tugs the foe toward it.",
+	"description": "Puppeteer. When it hits, at most every {string_cooldown}s, it ties a string to the foe, drags it along for {string_secs}s, then hurls it into the nearest wall ({string_slam} dmg). The string stays tied after the throw, and every wall bounce Puppeteer makes tugs the foe toward it.",
 	"stats": {"hp": 119.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.5},
 	"ability": [{"on": "hit", "do": "string"}, {"on": "always", "do": "string_fling"}, {"on": "wall", "do": "string_tug"}, {"on": "always", "do": "string_tie"}],
 	"params": {
@@ -32,7 +32,7 @@ const CRITTER := {
 		{"text": "String every 5 → 4s", "string_cooldown": 4.0},
 		{"text": "Slam 8 → 11 + stun 0.4s", "now": "Every {string_cooldown}s strings foe, hurls: slam {string_slam} + stun, tugs", "string_slam": 11.0, "string_slam_stun": 0.4},
 		{"text": "String 0.7 → 1s", "string_secs": 1.0},
-		{"text": "+ 2 strings, throws harder, bows: 10 shield", "now": "Every {string_cooldown}s 2 strings, hurls: slam {string_slam} + stun, bow", "string_ties": 2, "string_fling": 1.1, "ability": [{"on": "always", "do": "string_snap"}]},
+		{"text": "+ 2 strings, throws harder, bows: {string_shield} shield", "now": "Every {string_cooldown}s 2 strings, hurls: slam {string_slam} + stun, bow", "string_ties": 2, "string_fling": 1.1, "ability": [{"on": "always", "do": "string_snap"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["controlbar", "tophat"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},

@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "52b788",
 	"vibe": "A wise old sea turtle that knows exactly when to hide.",
-	"description": "Turtle. Below 30% HP it pulls into its shell: -40% dmg taken, but -20% speed.",
+	"description": "Turtle. Below 30% HP it tucks into its shell and spins: -{grow_armor%}% dmg taken, +{grow_speed%}% speed, and its hits deal x{shell_hit} and fling the foe away.",
 	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
 	"ability": [{"on": "hp_below", "hp": 0.3, "do": "grow"}, {"on": "guard", "do": "grow_guard"}, {"on": "strike", "do": "shell_kick"}],
 	"params": {
@@ -34,7 +34,7 @@ const CRITTER := {
 		{"text": "Shell -40% → -45% dmg taken", "grow_armor": 0.45},
 		{"text": "+ Tucking in heals 8", "now": "Below 30% HP shell spin: -{grow_armor%}% taken, heal {grow_heal}", "grow_heal": 8.0},
 		{"text": "Shell -45% → -50% dmg taken", "grow_armor": 0.5},
-		{"text": "+ Tucking in slams out: 10 + knockback", "now": "Below 30% HP shell spin: slam {grow_pulse_damage}, heal {grow_heal}, -{grow_armor%}%", "grow_pulse_damage": 10.0},
+		{"text": "+ Tucking in slams out: {grow_pulse_damage} + knockback", "now": "Below 30% HP shell spin: slam {grow_pulse_damage}, heal {grow_heal}, -{grow_armor%}%", "grow_pulse_damage": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["shellhex"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.85},

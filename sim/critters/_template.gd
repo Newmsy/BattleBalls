@@ -13,7 +13,7 @@ const CRITTER := {
 	"status": "planned", ## planned (collection only) until its ability is built, then live.
 	"color": "8a94a8", ## Body colour, hex.
 	"vibe": "One-line personality.",
-	"description": "Type. The whole ability in one sentence, with the side effects and durations T1 leaves out.",
+	"description": "Type. The whole ability in one sentence, with the side effects and durations T1 leaves out. Damage-type numbers as {param} (see tiers).",
 	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
 	## Trigger + effect pairs from sim/abilities.gd (TRIGGERS and EFFECTS).
 	## "every" takes "secs"; "hp_below" takes "hp" (0-1).
@@ -23,18 +23,27 @@ const CRITTER := {
 	## T1 to T5: the text players see, plus any params that change at that tier
 	## (they carry over to higher tiers). T1 "text" is the ability (<= 60 chars;
 	## side effects and durations go in description). T2-T5 "text" says what
-	## the tier adds (<= 50): "Label old → new" ("Heal 30 → 35%") or "+ New
-	## thing". Units: N/s, xN, every 3rd, +N% dmg taken, Ns, slow N%, sizes as
-	## +N%. "now" is the whole ability from that tier up in one line (<= 60),
-	## with {param} / {param%} filled in (game/ui/ability_text.gd); the T1 "now"
-	## must fill in to the T1 text. Give a tier a "now" when it adds something
-	## the line should show. Optional T5 "special": the signature's name.
+	## the tier adds (<= 50): "Label old → new" or "+ New thing". "now" is the
+	## whole ability from that tier up in one line (<= 60); the T1 "now" must
+	## fill in to the T1 text with the params as written. Give a tier a "now"
+	## when it adds something the line should show. Optional T5 "special": the
+	## signature's name.
+	## Numbers: write any param the sim grows (CritterDb.sim_def: *_damage,
+	## *_dps, *_burn, *_shield, *_hps, hit multipliers, *_radius) as a
+	## placeholder, never a literal, because screens show it as it fights at
+	## that tier, rarity and level: {key} (its value), {key%} (0.2 → 20),
+	## {^key} / {^key%} (the tier before, for "old → new") and {+key} (growth
+	## since the tier before, in %, for "size +{+mine_radius}%").
+	## Units, the same on every screen: damage "12" or "(12 dmg)", rates
+	## "4/sec" and heals "3 HP/sec" (never "/s": players read it as "per
+	## stack"), durations "3s", cooldowns "every 4s", "every 3rd hit", "x2",
+	## "slow 30%", "+20% dmg taken", "per hit" / "each" for stacks.
 	"tiers": [
 		{"text": "Heals 30% of dmg dealt", "now": "Heals {heal_ratio%}% of dmg dealt"},
-		{"text": "Heal 30 → 35%", "heal_ratio": 0.35},
-		{"text": "Heal 35 → 40%", "heal_ratio": 0.4},
-		{"text": "Heal 40 → 45%", "heal_ratio": 0.45},
-		{"text": "Heal 45 → 50%", "heal_ratio": 0.5},
+		{"text": "Heal {^heal_ratio%} → {heal_ratio%}%", "heal_ratio": 0.35},
+		{"text": "Heal {^heal_ratio%} → {heal_ratio%}%", "heal_ratio": 0.4},
+		{"text": "Heal {^heal_ratio%} → {heal_ratio%}%", "heal_ratio": 0.45},
+		{"text": "Heal {^heal_ratio%} → {heal_ratio%}%", "heal_ratio": 0.5},
 	],
 	## Look, from the kit in game/ui/critter_art.gd: body (BODIES), eyes (keys
 	## listed on _face), and features (FEATURES) drawn behind or in front.

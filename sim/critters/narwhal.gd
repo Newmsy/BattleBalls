@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "b8e0d2",
 	"vibe": "A dreamy arctic unicorn of the sea who charges like a knight.",
-	"description": "Narwhal. Every 4.5s it charges at the foe, its horn leaving a glittering beam along the path (8/s), and the charge hit deals x2.",
+	"description": "Narwhal. Every {lance_every}s it charges at the foe, its horn leaving a glittering beam along the path ({lance_beam_dps}/sec); the charge hit deals x{lance_hit_mult} and skewers the foe: the first wall it meets pins it ({skewer_damage} dmg, stun {skewer_stun}s).",
 	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 12.0},
 	"ability": [{"on": "every", "secs": "lance_every", "do": "lance"}, {"on": "always", "do": "lance_tick"}, {"on": "strike", "do": "lance_hit"}],
 	"params": {
@@ -27,11 +27,11 @@ const CRITTER := {
 		"lance_retry": 0, ## T5: a charge that misses curves round once.
 	},
 	"tiers": [
-		{"text": "Charges every 4.5s: beam 8/s, x2 hit skewers foe to wall", "now": "Charges every {lance_every}s: beam {lance_beam_dps}/s, x{lance_hit_mult} hit skewers foe to wall"},
-		{"text": "Beam 8 → 10/s", "lance_beam_dps": 10.0},
+		{"text": "Charges every 4.5s: beam 8/sec, x2 hit pins foe to a wall", "now": "Charges every {lance_every}s: beam {lance_beam_dps}/sec, x{lance_hit_mult} hit pins foe to a wall"},
+		{"text": "Beam {^lance_beam_dps} → {lance_beam_dps}/sec", "lance_beam_dps": 10.0},
 		{"text": "Charge knockback x1.3 → x1.8", "lance_knock": 1.8},
 		{"text": "Charge every 4.5 → 3.5s", "lance_every": 3.5},
-		{"text": "+ A charge that misses curves round again", "now": "Charges every {lance_every}s (retries): beam {lance_beam_dps}/s, x{lance_hit_mult} skewer", "lance_retry": 1},
+		{"text": "+ A charge that misses curves round again", "now": "Charges every {lance_every}s (retries): beam {lance_beam_dps}/sec, x{lance_hit_mult}, pins", "lance_retry": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["horn", "fluke"], "front": ["speckles"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.05},

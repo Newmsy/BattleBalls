@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "7400b8",
 	"vibe": "A hypnotic cosmic lighthouse that never stops spinning.",
-	"description": "Quasar. Two opposite beams (8/s) slowly spin out from it, and every 6s they flare all the way to the walls (12/s).",
+	"description": "Quasar. Two opposite beams ({quasar_dps}/sec) slowly spin out from it, and every 6s they flare all the way to the walls ({quasar_flare_dps}/sec).",
 	"stats": {"hp": 120.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "always", "do": "quasar"}, {"on": "every", "secs": 6.0, "do": "quasar_flare"}],
 	"params": {
@@ -26,11 +26,11 @@ const CRITTER := {
 		"beam_color": "c77dff",
 	},
 	"tiers": [
-		{"text": "2 spinning beams 8/s; flare to the walls every 6s", "now": "2 spinning beams {quasar_dps}/s; flare to the walls every 6s"},
-		{"text": "Beams 8 → 10/s", "quasar_dps": 10.0},
+		{"text": "2 spinning beams 8/sec; flare to the walls every 6s", "now": "2 spinning beams {quasar_dps}/sec; flare to the walls every 6s"},
+		{"text": "Beams {^quasar_dps} → {quasar_dps}/sec", "quasar_dps": 10.0},
 		{"text": "+ Spin reverses after each flare", "quasar_reverse": 1},
 		{"text": "Beam length +20%", "quasar_length": 300.0},
-		{"text": "+ The flare adds a spinning cross", "now": "2 spinning beams {quasar_dps}/s; cross flare to the walls every 6s", "quasar_cross": 1},
+		{"text": "+ The flare adds a spinning cross", "now": "2 spinning beams {quasar_dps}/sec; cross flare to the walls every 6s", "quasar_cross": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "none"}, "back": ["jets"], "front": ["core"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 0.8},

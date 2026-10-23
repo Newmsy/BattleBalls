@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "7d8799",
 	"vibe": "Big, slow and completely unbothered.",
-	"description": "Juggernaut. Huge and slow. A foe it hits takes 9 if it hits a wall within 0.3s.",
+	"description": "Juggernaut. Huge and slow. A foe it hits takes {slam_damage} if it hits a wall within {slam_window}s, and each hit knocks a rock off past the foe (up to {rock_max}, lasts {rock_life}s) that also slams a foe bounced into it.",
 	"stats": {"hp": 115.0, "radius": 82.0, "speed": 320.0, "contact_damage": 23.0},
 	"ability": [{"on": "hit", "do": "mark_slam"}, {"on": "foe_wall", "do": "slam"}, {"on": "hit", "do": "rubble"}],
 	"params": {
@@ -27,10 +27,10 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Hit foes take 9 off a wall (0.3s); hits drop a rock", "now": "Hit foes take {slam_damage} off a wall ({slam_window}s); hits drop a rock"},
-		{"text": "Slam 9 → 10", "slam_damage": 10.0},
+		{"text": "Slam {^slam_damage} → {slam_damage}", "slam_damage": 10.0},
 		{"text": "Slam window 0.3 → 0.4s", "slam_window": 0.4},
-		{"text": "Slam 10 → 12", "slam_damage": 12.0},
-		{"text": "+ Hits send a shockwave: 5 + knockback", "now": "Hits: shockwave {boom_damage}; foe takes {slam_damage} off a wall in {slam_window}s", "ability": [{"on": "hit", "do": "boom"}]},
+		{"text": "Slam {^slam_damage} → {slam_damage}", "slam_damage": 12.0},
+		{"text": "+ Hits send a shockwave: {boom_damage} + knockback", "now": "Hits: shockwave {boom_damage}; foe takes {slam_damage} off a wall in {slam_window}s", "ability": [{"on": "hit", "do": "boom"}]},
 	],
 	## Chaos Weekends: fast, cramped twists favour its big hits; Double Trouble
 	## feeds Vampire's heal off them. Tuned with tools/balance.gd --modifiers.

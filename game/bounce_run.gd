@@ -18,6 +18,7 @@ const Sfx := preload("res://game/audio/sfx.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const AbilityText := preload("res://game/ui/ability_text.gd")
 const BoonIcon := preload("res://game/ui/boon_icon.gd")
 const BounceBoard := preload("res://game/online/bounce_board.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
@@ -1081,9 +1082,7 @@ static func _name(critter: String) -> String:
 ## The critter's ability in a sentence, without the leading "Type." its
 ## description starts with (the card already shows the name).
 static func _ability_text(critter: String) -> String:
-	var d: String = BallDefs.get_def(critter).description
-	var cut := d.find(". ")
-	return d.substr(cut + 2) if cut >= 0 and cut < 24 else d
+	return AbilityText.full(critter)
 
 
 static func _clock(ticks: int) -> String:

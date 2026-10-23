@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "8e3bbd",
 	"vibe": "A playful deep-sea giant who just wants to hug everything at once.",
-	"description": "Kraken. Four long tentacles sweep in a wide circle around it (1.5 a touch), and every 6s they slam down, leaving ink puddles that slow foes 25%.",
+	"description": "Kraken. Four long tentacles sweep in a wide circle around it ({tentacle_damage} dmg a touch), and every 6s they slam down, grabbing the foe for {grab_secs}s and leaving ink puddles that slow foes {ink_slow%}%.",
 	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.5},
 	"ability": [{"on": "always", "do": "tentacles"}, {"on": "every", "secs": 6.0, "do": "ink_slam"}],
 	"params": {
@@ -36,7 +36,7 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "4 tentacles sweep for 1.5; slam every 6s grabs the foe", "now": "{tentacle_count} tentacles sweep for {tentacle_damage}; slam every 6s grabs the foe"},
-		{"text": "Tentacles 1.5 → 2.5", "tentacle_damage": 2.5},
+		{"text": "Tentacles {^tentacle_damage} → {tentacle_damage}", "tentacle_damage": 2.5},
 		{"text": "+ Slams knock foes back", "now": "{tentacle_count} tentacles sweep {tentacle_damage}; every 6s a grab + knockback slam", "ink_shove": 1},
 		{"text": "Tentacle reach +39%", "tentacle_orbit": 106.0},
 		{"text": "+ Every 3rd slam is a giant hug", "now": "{tentacle_count} tentacles sweep {tentacle_damage}; grab slam every 6s, 3rd hugs", "hug_every": 3},

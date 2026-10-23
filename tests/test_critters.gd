@@ -5,6 +5,7 @@ extends "res://tests/test_case.gd"
 const CritterDb := preload("res://sim/critter_db.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
+const Lineup := preload("res://sim/lineup.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const Roster := preload("res://game/ui/roster.gd")
@@ -84,20 +85,30 @@ func test_validation_catches_text_mistakes() -> void:
 	var c := CritterDb.get_critter("beacon").duplicate(true)
 	c.tiers[1].text = "Beam 6 -> 8 damage a second, sweeping a little further every time it shines"
 	c.tiers[0].now = "Beam every {lamp_every}s: {lamp_dps}/s, {lamp_glow} glow"
+	c.tiers[2].text = "+ Glow {^lamp_shine} → {lamp_shine}"
 	var text := "\n".join(CritterDb.validate("beacon", c))
-	for word in ["->", "over 50", "lamp_glow", "not the T1 text"]:
+	for word in ["->", "over 50", "lamp_glow", "lamp_shine", "not the T1 text", "/sec"]:
 		check(word in text, "flags " + word)
 
 
 ## The ability line at each tier shows that tier's numbers, never T1's
 ## (a "now" that drops a number T1 showed would go stale), and fits a card.
+## The numbers are the ones the critter fights with at that tier, rarity and
+## level, not the file's T1 values.
 func test_ability_text_keeps_up_with_the_tiers() -> void:
-	check_eq(AbilityText.now("beacon", 1), "Aimed beam every 4s: 3.5/s, lit foes +20% dmg taken", "T1 line")
-	check_eq(AbilityText.now("beacon", 2), "Aimed beam every 4s: 5/s, lit foes +20% dmg taken", "T2 numbers")
-	check_eq(AbilityText.change("beacon", 2), "Beam 3.5 → 5/s", "T2 change")
+	check_eq(AbilityText.now("sooty", 1), "Hot patch every 4s: 3/sec", "a T1 Common shows its file's numbers")
+	check_eq(AbilityText.change("sooty", 2), "Patch 3 → 5.6/sec", "T2 change: the tier's upgrade plus its potency and Power")
 	check_eq(AbilityText.change("beacon", 1), AbilityText.now("beacon", 1), "T1 change is the ability")
 	check_eq(AbilityText.special("honey"), "Honey Pot", "T5 name")
 	check(not AbilityText.full("frostfang").begins_with("Wolf."), "full() drops the type")
+	for slot in [{"critter": "beacon", "tier": 2, "level": 1}, {"critter": "sooty", "tier": 3, "level": 9}, {"critter": "quasar", "tier": 1, "level": 1}]:
+		var cfg := {"seed": 1, "p2": "plain"}
+		Lineup.apply(cfg, 0, slot)
+		var def: Dictionary = MatchSim.new(cfg).balls[0].def
+		var key: String = {"beacon": "lamp_dps", "sooty": "patch_dps", "quasar": "quasar_dps"}[slot.critter]
+		var shown := CritterDb.shown(def[key]) + "/sec"
+		check(shown in AbilityText.now(slot.critter, slot.tier, slot.level), "%s T%d Lv%d says %s, as it fights: %s" % [slot.critter, slot.tier, slot.level, shown, AbilityText.now(slot.critter, slot.tier, slot.level)])
+		check_eq(AbilityText.now(slot.critter, slot.tier, 1, def), AbilityText.now(slot.critter, slot.tier, slot.level), "a fighting ball's def fills the same line")
 	var re := RegEx.create_from_string("\\{([a-z_0-9]+)%?\\}")
 	for id in Roster.ids():
 		var c := CritterDb.get_critter(id)

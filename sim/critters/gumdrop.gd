@@ -26,7 +26,7 @@ const CRITTER := {
 	"tiers": [
 		{"text": "Hits slow 25%; every 4s a hit strings foe 1s", "now": "Hits slow {gum_slow%}%; every {gum_string_cooldown}s a hit strings foe {gum_string}s"},
 		{"text": "Slow 25 → 30%", "gum_slow": 0.3},
-		{"text": "+ The goo burns 1/s for 2s", "now": "Hits slow {gum_slow%}% + burn; every {gum_string_cooldown}s a hit strings foe {gum_string}s", "gum_burn": 1.0},
+		{"text": "+ The goo burns {gum_burn}/sec for 2s", "now": "Hits slow {gum_slow%}% + burn; every {gum_string_cooldown}s a hit strings foe {gum_string}s", "gum_burn": 1.0},
 		{"text": "Slow lasts 1.5 → 2s", "gum_secs": 2.0},
 		{"text": "Slow stacks x2 (max 45%), string every 2.5s", "now": "Hits slow {gum_slow%}% (stacks to {gum_cap%}%) + burn; string every {gum_string_cooldown}s", "gum_stacks": 2, "gum_string_cooldown": 2.5},
 	],

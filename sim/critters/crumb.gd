@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "a0522d",
 	"vibe": "A plucky cookie who gets faster with every bite taken out of it.",
-	"description": "Cookie. At 66% and 33% HP a bite breaks off: -10% size, +12% speed, and 4 crumbs fly at the foe (3 each).",
+	"description": "Cookie. At 66% and 33% HP a bite breaks off: -10% size, +{grow_speed%}% speed, {grow_bolts} crumbs fly at the foe ({bolt_damage} dmg each) and {crumb_pieces} cookie pieces drop that it can roll over to heal {crumb_heal}.",
 	"stats": {"hp": 135.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "hp_below", "hp": 0.66, "do": "grow"}, {"on": "hp_below", "hp": 0.33, "do": "grow"}, {"on": "always", "do": "crumb_pick"}],
 	"params": {

@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "b388ff",
 	"vibe": "A jittery ball of static that can't stop zapping things.",
-	"description": "Spark. Every wall bounce zaps everything near it for 5 and slows it 20% for 1s.",
+	"description": "Spark. Every wall bounce zaps everything near it for {zap_damage} and slows it {zap_slow%}% for {zap_slow_secs}s. Each bounce also stores a charge (up to {charge_max}); its next hit arcs them all into the foe ({charge_damage} dmg each) and stuns it {charge_stun}s.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.0},
 	"ability": [{"on": "wall", "do": "zap"}, {"on": "wall", "do": "static_charge"}, {"on": "hit", "do": "static_arc"}],
 	"params": {
@@ -28,10 +28,10 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "Bounces zap: 5, slow 20%; stored charges +3 each on a hit", "now": "Bounces zap: {zap_damage}, slow {zap_slow%}%; stored charges +{charge_damage} each on a hit"},
-		{"text": "Zap 5 → 6", "zap_damage": 6.0},
+		{"text": "Zap {^zap_damage} → {zap_damage}", "zap_damage": 6.0},
 		{"text": "Slow 20 → 30%", "zap_slow": 0.3},
-		{"text": "Zap size +27%", "zap_radius": 190.0},
-		{"text": "+ Every 2nd bounce: big zap for 16", "now": "Bounces zap nearby foes: {zap_damage}, slow {zap_slow%}% · 2nd: big {zap_big_damage}", "zap_big_every": 2, "zap_big_damage": 16.0},
+		{"text": "Zap size +{+zap_radius}%", "zap_radius": 190.0},
+		{"text": "+ Every 2nd bounce: big zap for {zap_big_damage}", "now": "Bounces zap nearby foes: {zap_damage}, slow {zap_slow%}% · 2nd: big {zap_big_damage}", "zap_big_every": 2, "zap_big_damage": 16.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["zighair"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.35},

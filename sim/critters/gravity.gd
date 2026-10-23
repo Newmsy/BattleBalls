@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "5b4bd6",
 	"vibe": "Serene little planet; everything comes to it eventually.",
-	"description": "Gravity. Gently pulls foes toward itself, and its molten moons bonk for 5 and singe anything that comes close (1/s; a burning foe can't heal).",
+	"description": "Gravity. Gently pulls foes toward itself, and its molten moons bonk for {moon_damage} and singe anything that comes close ({moon_burn}/sec; a burning foe can't heal).",
 	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 17.0},
 	"ability": [{"on": "always", "do": "pull"}, {"on": "always", "do": "moons"}],
 	"params": {

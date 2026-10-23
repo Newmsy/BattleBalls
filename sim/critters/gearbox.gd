@@ -11,7 +11,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "a7c957",
 	"vibe": "A revved-up racing bot that lives for top gear.",
-	"description": "Gearbox. Every 3s it shifts up a gear (+15% speed each), and in top gear its next hit slams for x2 and drops it back to first.",
+	"description": "Gearbox. Every 3s it shifts up a gear (+15% speed each), and in top gear its next hit slams for x{gear_slam_mult} and drops it back to first.",
 	"stats": {"hp": 104.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "every", "secs": "gear_every", "do": "shift"}, {"on": "hurt", "do": "downshift"}, {"on": "strike", "do": "gear_slam"}],
 	"params": {
@@ -32,7 +32,7 @@ const CRITTER := {
 		{"text": "Speed per gear +15% → +18%", "gear_step": 0.18},
 		{"text": "+ Being hit no longer drops a gear", "gear_keep": 1},
 		{"text": "Shift every 3 → 2.5s", "gear_every": 2.5},
-		{"text": "+ 4th turbo gear with a fire trail (6/s)", "now": "Shifts every {gear_every}s (+{gear_step%}%, 4 gears); top slams x{gear_slam_mult}", "gear_max": 4, "ability": [{"on": "always", "do": "gear_trail"}]},
+		{"text": "+ 4th turbo gear with a fire trail ({trail_dps}/sec)", "now": "Shifts every {gear_every}s (+{gear_step%}%, 4 gears); top slams x{gear_slam_mult}", "gear_max": 4, "ability": [{"on": "always", "do": "gear_trail"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["gearstick"], "front": ["number", "goggles"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.05},

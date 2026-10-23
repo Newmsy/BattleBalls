@@ -12,7 +12,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "ff6a2a",
 	"vibe": "Proud and fiery; refuses to stay down.",
-	"description": "Phoenix. Its hits scorch (0.5/s; a burning foe can't heal), and the first time it falls it bursts back to life at 20% HP in a blast of flame.",
+	"description": "Phoenix. Its hits scorch ({scorch_dps}/sec; a burning foe can't heal), and the first time it falls it bursts back to life at 20% HP in a blast of flame.",
 	"stats": {"hp": 112.0, "radius": 64.0, "speed": 400.0, "contact_damage": 15.0},
 	"ability": [{"on": "fall", "do": "revive"}, {"on": "hit", "do": "scorch"}],
 	"params": {

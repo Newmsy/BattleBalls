@@ -23,9 +23,9 @@ const CRITTER := {
 	},
 	"tiers": [
 		{"text": "At 50% HP splits into two minis"},
-		{"text": "+ Minis +2 dmg", "now": "At 50% HP splits into two minis (+{split_damage} dmg)", "split_damage": 2.0},
+		{"text": "+ Minis +{split_damage} dmg", "now": "At 50% HP splits into two minis (+{split_damage} dmg)", "split_damage": 2.0},
 		{"text": "+ Minis split again at 50% of their HP", "now": "At 50% HP splits into minis that split again (+{split_damage} dmg)", "split_gens": 2},
-		{"text": "Mini dmg +2 → +3", "split_damage": 3.0},
+		{"text": "Mini dmg +{^split_damage} → +{split_damage}", "split_damage": 3.0},
 		{"text": "Mini speed x1.15 → 1.3", "split_speed": 1.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mis": true, "mouth": "smile"}, "front": ["seam"]},
