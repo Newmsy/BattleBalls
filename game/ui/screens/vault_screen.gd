@@ -32,7 +32,10 @@ static func build(shell, params: Dictionary) -> Control:
 		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [GearVault.RUNS_PER_DAY, GearVault.ENERGY_COST]]}))
 
 	var names: Array = GearVault.types_today(now).map(func(t): return Gear.PIECES[t].name)
-	var today := "Today: " + ("any gear" if slot == "" else "%ss (%s)" % [slot, " or ".join(names)])
+	# "Cores: Spike, Echo, Leech or Ricochet", not "Spike Core or Echo Core or ...".
+	var short: Array = names.map(func(n: String): return n.trim_suffix(" " + slot))
+	var listed: String = short[0] if short.size() == 1 else ", ".join(short.slice(0, -1)) + " or " + short[-1]
+	var today := "Today: " + ("any gear" if slot == "" else "%ss: %s" % [slot, listed])
 	root.add_child(Kit.label(today, 26, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var left := GearVault.runs_left(p, now)
 	root.add_child(Kit.hbox(10, [Kit.label("%d/%d runs" % [left, GearVault.RUNS_PER_DAY], 22, Kit.MUTED),
