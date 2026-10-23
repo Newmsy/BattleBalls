@@ -886,6 +886,7 @@ func _show_result() -> void:
 		return
 	_show_only(result_box)
 	_slide_in_result()
+	sfx.hold_victory(result_box) # A win's tune plays while the result is up.
 	if auto_clip:
 		auto_clip = false
 		_on_clip_button()

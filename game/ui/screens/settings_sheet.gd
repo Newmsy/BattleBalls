@@ -15,6 +15,8 @@ const OPTIONS := [
 	["sound_cues", "Sound cues on screen", "Shows OVERTIME and low-HP alerts that are otherwise only heard."],
 ]
 
+const MUSIC_CREDIT := "Music: \"Crypto\" by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0."
+
 
 static func open(shell) -> void:
 	shell.sheet(build(shell))
@@ -31,6 +33,8 @@ static func build(shell) -> Control:
 		v.add_child(_testing(shell))
 	# Solid ring for yours, dashed spiky ring for the foe, a shape per rarity.
 	v.add_child(Kit.label("Colourblind marks: always on.", 22, Kit.MUTED))
+	# CC-BY 4.0 asks for this credit wherever the music is used.
+	v.add_child(Kit.label(MUSIC_CREDIT, 20, Color(Kit.MUTED, .7), HORIZONTAL_ALIGNMENT_LEFT, true))
 	if shell.build_stamp != "":
 		v.add_child(Kit.label("Battle Balls " + shell.build_stamp, 20, Color(Kit.MUTED, .7)))
 	return v

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Renders every Battle Balls sound effect and music loop from code.
+"""Renders every Battle Balls sound effect from code (music: tools/music/).
 
 Each sound is a small recipe (oscillators, noise, pitch sweeps, envelopes)
 in the style of sfxr, so any sound can be tweaked by editing a number here
@@ -7,7 +7,7 @@ and re-running. Output goes to game/audio/ and is committed, so CI and the
 game never need Python.
 
 Usage: python3 tools/sfx/make_sfx.py [--only NAME_PREFIX]
-Needs numpy, and ffmpeg (with libvorbis) for the music loops.
+Needs numpy.
 
 Rules of thumb (see /design/sound.md):
 - Phone speakers play almost nothing below ~250 Hz, so "weight" comes from a
@@ -16,8 +16,6 @@ Rules of thumb (see /design/sound.md):
 """
 import argparse
 import os
-import subprocess
-import tempfile
 import wave
 import zlib
 
@@ -1407,104 +1405,6 @@ BATTLE = {
 SOUNDS.update(BATTLE)
 
 
-# --- Music (placeholder synthwave loops) -------------------------------------
-
-BPM = 112
-BEAT = 60.0 / BPM
-MSR = 22050  # Music sample rate: plenty for a phone speaker, half the size.
-
-
-def _m_osc(freq, dur, shape):
-    t = np.arange(int(dur * MSR)) / MSR
-    ph = 2 * np.pi * freq * t
-    if shape == "saw":
-        return 2 * ((freq * t) % 1.0) - 1
-    if shape == "square":
-        return np.sign(np.sin(ph)) * 0.7
-    return np.sin(ph)
-
-
-def _m_env(n, a, k):
-    e = np.exp(-k * np.linspace(0, 1, n))
-    a = max(1, int(a * MSR))
-    e[:a] *= np.linspace(0, 1, a)
-    return e
-
-
-def _m_lp(x, cutoff):
-    alpha = 1 - np.exp(-2 * np.pi * cutoff / MSR)
-    # Cheap: filter twice with a vectorised IIR via scipy-free loop on chunks.
-    y = np.empty_like(x)
-    acc = 0.0
-    for i in range(len(x)):
-        acc += alpha * (x[i] - acc)
-        y[i] = acc
-    return y
-
-
-def music(drums):
-    """8 bars of Am - F - C - G synthwave: pad, arp, bass and (fight) drums."""
-    bars = 8
-    total = int(bars * 4 * BEAT * MSR)
-    out = np.zeros(total)
-    chords = [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]]
-    mrng = np.random.default_rng(7)
-
-    def put(sig, start):
-        s = int(start * MSR)
-        e = min(total, s + len(sig))
-        out[s:e] += sig[:e - s]
-
-    for bar in range(bars):
-        ch = chords[bar % 4]
-        t0 = bar * 4 * BEAT
-        # Pad: detuned saws, soft attack.
-        d = 4 * BEAT
-        pad = sum(_m_osc(midi(n) * det, d, "saw") for n in ch for det in (0.997, 1.003))
-        put(_m_lp(pad, 1400) * _m_env(len(pad), 0.3, 0.6) * 0.05, t0)
-        # Arp: 16th notes over the chord, an octave up.
-        arp_notes = [ch[0] + 12, ch[1] + 12, ch[2] + 12, ch[1] + 24]
-        for i in range(16):
-            n = arp_notes[i % 4]
-            s = _m_osc(midi(n), BEAT / 4, "square")
-            put(_m_lp(s, 2600) * _m_env(len(s), 0.003, 6) * 0.07, t0 + i * BEAT / 4)
-        # Bass: 8th notes on the root, phone-audible octave.
-        for i in range(8):
-            n = ch[0] - 12 + (12 if i % 2 else 0)
-            s = _m_osc(midi(n), BEAT / 2, "saw")
-            put(_m_lp(s, 900) * _m_env(len(s), 0.005, 3) * 0.16, t0 + i * BEAT / 2)
-        if drums:
-            for beat in range(4):
-                bt = t0 + beat * BEAT
-                kick_f = 150 * (55 / 150) ** np.linspace(0, 1, int(0.18 * MSR)) ** 0.4
-                kick = np.sin(2 * np.pi * np.cumsum(kick_f) / MSR) * _m_env(int(0.18 * MSR), 0.001, 5)
-                put(kick * 0.5, bt)
-                hat = mrng.uniform(-1, 1, int(0.04 * MSR))
-                hat = (hat - _m_lp(hat, 7000)) * _m_env(len(hat), 0.001, 6) * 0.12
-                put(hat, bt + BEAT / 2)
-                if beat in (1, 3):
-                    sn = mrng.uniform(-1, 1, int(0.16 * MSR))
-                    sn = (sn - _m_lp(sn, 1200)) * _m_env(len(sn), 0.001, 5) * 0.25
-                    put(sn + _m_osc(220, 0.16, "sine") * _m_env(len(sn), 0.001, 8) * 0.15, bt)
-    out = out / np.max(np.abs(out)) * 0.8
-    return out
-
-
-def write_ogg(name, x):
-    path = os.path.join(OUT, name + ".ogg")
-    with tempfile.TemporaryDirectory() as tmp:
-        wav_path = os.path.join(tmp, "m.wav")
-        with wave.open(wav_path, "wb") as w:
-            w.setnchannels(1)
-            w.setsampwidth(2)
-            w.setframerate(MSR)
-            w.writeframes((np.clip(x, -1, 1) * 32767).astype("<i2").tobytes())
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav_path, "-c:a", "libvorbis",
-                        "-q:a", "2", "-map_metadata", "-1", "-fflags", "+bitexact", "-flags:a", "+bitexact",
-                        path], check=True)
-    return path
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", default="")
@@ -1516,9 +1416,6 @@ def main():
             rng = np.random.default_rng(zlib.crc32(name.encode()))
             SR = BATTLE_RATE if name in BATTLE else 32000
             print(write_wav(name, make()))
-    if "music".startswith(args.only) or args.only.startswith("music"):
-        print(write_ogg("music_menu", music(drums=False)))
-        print(write_ogg("music_fight", music(drums=True)))
 
 
 if __name__ == "__main__":

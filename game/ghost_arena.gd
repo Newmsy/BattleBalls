@@ -91,7 +91,7 @@ func _show_result() -> void:
 	var got: int = store.history[0].get("coins", 0) if not store.history.is_empty() else 0
 	print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s" % [won, result_delta, store.trophies, relay.state_hash()])
 	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
-	ResultPopup.show_over(ui_root, _result_card(got))
+	sfx.hold_victory(ResultPopup.show_over(ui_root, _result_card(got)))
 
 
 ## The result popup every fight ends on (ResultPopup): the trophy change,

@@ -230,7 +230,7 @@ func _end_leg() -> void:
 ## The result popup every fight ends on, over this screen.
 func _popup(caption: String, body: Array, buttons: Array) -> void:
 	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
-	ResultPopup.show_over(ui_root, ResultPopup.content(caption, ResultPopup.outcome_of(relay.winner), body, buttons))
+	sfx.hold_victory(ResultPopup.show_over(ui_root, ResultPopup.content(caption, ResultPopup.outcome_of(relay.winner), body, buttons)))
 
 
 # --- UI ---------------------------------------------------------------------

@@ -10,3 +10,4 @@ smoke/screens/
 liveops/bracket_results.json
 # Written at export time by tools/sim_version.gd (sim/sim_version.gd).
 sim_version.txt
+__pycache__/

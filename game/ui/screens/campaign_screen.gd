@@ -360,6 +360,8 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	var name: String = st.get("name", Roster.get_critter(st.enemy).name)
 	var v := ResultPopup.content("%s %s · %s" % ["Sweep" if kind == "sweep" else "Stage", Zones.stage_key(z, i), name],
 		ResultPopup.Outcome.WIN if r.won else ResultPopup.Outcome.LOSE)
+	if r.won and shell.sfx != null:
+		shell.sfx.hold_victory(v) # The victory tune plays while this popup is up.
 	if r.won:
 		var star_row := Kit.hbox(12, [crowns(r.stars, 52)], BoxContainer.ALIGNMENT_CENTER)
 		v.add_child(star_row)
