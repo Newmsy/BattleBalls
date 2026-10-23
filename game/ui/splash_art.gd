@@ -12,6 +12,8 @@
 extends Control
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
+const BattleFx := preload("res://game/battle_fx.gd")
+const CritterFx := preload("res://game/critter_fx.gd")
 const Dot := preload("res://game/dot.gd")
 const A11y := preload("res://game/a11y.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
@@ -28,24 +30,27 @@ const SKY_LOW := Color("d2f3ff")
 const GRASS := Color("4cbc4f")
 const GRASS_LIGHT := Color("8be36f")
 
-## The flyers: [critter, tier, x, y, radius, heading (rad), streaks]
-## (x, y from the badge centre in design units). One or two per family.
-const FLYERS := [
-	["drako", 5, -235, -330, 56, -0.5, true],
-	["laser", 4, 238, -375, 46, 3.6, true],
-	["kraken", 5, 252, -120, 58, 3.3, false],
-	["sprout", 3, -258, -95, 46, 0.2, false],
-	["ghost", 4, -140, -470, 38, -0.9, true],
-	["comet", 5, 140, -485, 36, 3.9, true],
-	["sundae", 5, -232, 318, 54, 0.0, false],
-	["yeti", 4, 226, 330, 56, 3.14, false],
-	["yoyo", 3, -40, 470, 38, 0.0, false],
-	["phoenix", 5, 0, -548, 42, -1.57, true],
+## The cast: [critter, tier, x, y, radius, heading (rad), effect]
+## (x, y from the screen centre in design units). Each plays a loop of its
+## own fight effect, from game/battle_fx.gd and game/critter_fx.gd where one
+## exists. Count Nibbles takes centre stage on the arena ring.
+const CAST := [
+	["drako", 5, -245, -140, 56, 0.35, "fire"],
+	["laser", 4, 250, -150, 48, 2.75, "laser"],
+	["phoenix", 5, 0, -270, 46, -1.57, "flames"],
+	["ghost", 4, -235, -295, 38, -0.4, "ghost"],
+	["comet", 5, 240, -300, 36, 3.6, "comet"],
+	["sprout", 3, -258, 15, 48, 0.0, "leaves"],
+	["kraken", 5, 255, 25, 58, 3.14, "tentacles"],
+	["sundae", 5, -235, 330, 54, 0.0, "scoops"],
+	["yeti", 4, 232, 345, 56, 3.14, "frost"],
+	["yoyo", 3, 0, 470, 34, 0.0, "yoyo"],
+	["vampire", 5, 0, 165, 100, 1.57, "blood"],
 ]
 ## Spinning coins: [x, y, radius, phase]
-const COINS := [[-300, -215, 24, 0.0], [318, 215, 22, 1.7], [-305, 205, 18, 3.1], [165, -255, 16, 4.4], [312, -470, 20, 2.2], [-292, -560, 18, 5.0], [92, 255, 15, 0.9]]
+const COINS := [[-310, -230, 22, 0.0], [318, 215, 22, 1.7], [-305, 205, 18, 3.1], [130, -110, 16, 4.4], [-110, -60, 15, 2.2], [318, -30, 18, 5.0], [140, 420, 15, 0.9]]
 ## Twinkles: [x, y, size, phase]
-const SPARKS := [[-150, -260, 14, 0.0], [190, -200, 12, 1.4], [-60, -380, 10, 2.6], [300, -300, 11, 3.8], [-310, 70, 12, 4.9], [140, -610, 10, 0.7]]
+const SPARKS := [[-150, -260, 14, 0.0], [170, -300, 12, 1.4], [-80, -20, 10, 2.6], [100, -40, 11, 3.8], [-310, 120, 12, 4.9], [300, -330, 10, 0.7]]
 
 ## Seconds the live screen stays up before it fades into the game, and the fade.
 const HOLD := 1.1
@@ -70,7 +75,7 @@ func _init() -> void:
 	add_child(back)
 	_live = _Layer.new(self, _draw_live)
 	add_child(_live)
-	add_child(_Layer.new(self, _draw_badge))
+	add_child(_Layer.new(self, _draw_title))
 	resized.connect(func():
 		for c in get_children():
 			c.queue_redraw())
@@ -133,6 +138,11 @@ func _centre() -> Vector2:
 	return size / 2.0 + Vector2(0, -40) * _k()
 
 
+## Where the title sits and the light rays fan out from.
+func _sun() -> Vector2:
+	return _centre() + Vector2(0, -480) * _k()
+
+
 func _horizon() -> float:
 	return _centre().y + 150.0 * _k()
 
@@ -155,7 +165,7 @@ func _draw_back(ci: CanvasItem) -> void:
 	_vgrad(ci, c.y - 300 * k, hz + 4, w, [SKY_MID, SKY_LOW])
 	# The sun behind the badge.
 	for i in 6:
-		Dot.circle(ci, c, (520 - i * 70) * k, Color(1, .98, .85, .07 + i * .02))
+		Dot.circle(ci, _sun(), (520 - i * 70) * k, Color(1, .98, .85, .07 + i * .02))
 	# Clouds.
 	for cl in [[-250, -470, 1.0], [270, -600, .8], [-40, -700, .6], [330, -250, .7], [-330, -150, .55]]:
 		_cloud(ci, c + Vector2(cl[0], cl[1]) * k, 70 * cl[2] * k)
@@ -195,8 +205,8 @@ func _back_sunset(ci: CanvasItem) -> void:
 	_vgrad(ci, c.y - 250 * k, hz + 4, w, [Color("ff8f7a"), Color("ffc46b"), Color("ffe9a0")])
 	# A big low sun behind the badge.
 	for i in 5:
-		Dot.circle(ci, c + Vector2(0, 40) * k, (470 - i * 60) * k, Color(1, .95, .7, .1 + i * .03))
-	Dot.circle(ci, c + Vector2(0, 40) * k, 220 * k, Color("fff2b8"))
+		Dot.circle(ci, _sun(), (470 - i * 60) * k, Color(1, .95, .7, .1 + i * .03))
+	Dot.circle(ci, _sun(), 200 * k, Color("fff2b8"))
 	for cl in [[-260, -470, .9], [280, -590, .7], [330, -230, .6], [-320, -150, .5]]:
 		_cloud(ci, c + Vector2(cl[0], cl[1]) * k, 70 * cl[2] * k, Color("ffe1ef"), Color(1, .55, .6, .35))
 	_hills(ci, hz - 70 * k, 70 * k, 0.006 / k, 1.3, Color("e0609a"), w)
@@ -226,7 +236,7 @@ func _back_sky(ci: CanvasItem) -> void:
 	var w := size.x
 	_vgrad(ci, 0, size.y, w, [Color("4fb4ff"), Color("8fd6ff"), Color("cfe9ff"), Color("f1dcff")])
 	for i in 6:
-		Dot.circle(ci, c, (520 - i * 70) * k, Color(1, 1, 1, .06 + i * .02))
+		Dot.circle(ci, _sun(), (520 - i * 70) * k, Color(1, 1, 1, .06 + i * .02))
 	# A rainbow arching behind the badge.
 	var rc := c + Vector2(0, 260) * k
 	var bands := [Color("ff5a7a"), Color("ffa24a"), Color("ffe066"), Color("6fe07a"), Color("4fc8ff"), Color("9a7bff")]
@@ -298,39 +308,95 @@ func _draw_live(ci: CanvasItem) -> void:
 	var k := _k()
 	var c := _centre()
 	var t := _t
-	# Light rays fanning out from the badge, turning slowly.
+	# Light rays fanning out from behind the title, turning slowly.
+	var sun := _sun()
 	var reach := size.length()
 	for i in 16:
 		var a := TAU * i / 16.0 + t * .06
 		var half := 0.07 if i % 2 == 0 else 0.04
-		Dot.poly(ci, PackedVector2Array([c, c + Vector2.from_angle(a - half) * reach, c + Vector2.from_angle(a + half) * reach]),
+		Dot.poly(ci, PackedVector2Array([sun, sun + Vector2.from_angle(a - half) * reach, sun + Vector2.from_angle(a + half) * reach]),
 			(Color(1, .96, .8) if look == "sunset" else Color(1, 1, .92)) * Color(1, 1, 1, .16 if i % 2 == 0 else .1))
 	for s in SPARKS:
 		var tw := .5 + .5 * sin(t * 3.0 + s[3])
 		_twinkle(ci, c + Vector2(s[0], s[1]) * k, s[2] * k * (.5 + tw * .7), Color(1, 1, 1, .5 + tw * .5))
-	for f in FLYERS:
-		var ph: float = f[2] * .013 + f[3] * .007
-		var bob := Vector2(sin(t * 1.6 + ph) * 8, cos(t * 2.1 + ph) * 12)
+	for f in CAST:
+		var ph: float = 20.0 + f[2] * .013 + f[3] * .007 # Kept positive: the effects loop with fmod.
+		var bob := Vector2(sin(t * 1.6 + ph) * 8, cos(t * 2.1 + ph) * 12) * (.3 if f[0] == "vampire" else 1.0)
 		var p := c + (Vector2(f[2], f[3]) + bob) * k
 		var r: float = f[4] * k
-		var head: float = f[5]
-		if f[6]:
-			var back := -Vector2.from_angle(head)
-			var side := back.orthogonal()
-			for j in 3:
-				var o: Vector2 = side * (j - 1) * r * .45
-				var a0: Vector2 = p + back * r * 1.05 + o
-				var a1: Vector2 = a0 + back * r * (1.1 - absf(j - 1) * .35) * (1.0 + .15 * sin(t * 8.0 + j))
-				ci.draw_line(a0, a1, Color(1, 1, 1, .7), r * .13, true)
-		else:
-			# A soft shadow on the grass for the ones on the ground.
-			if p.y > _horizon() and look != "sky":
-				CritterArt._ell(ci, Vector2(p.x, p.y + r * 1.05), r * .9, r * .22, Color(.1, .3, .12, .35))
-		var look := Vector2.from_angle(head)
-		CritterArt.draw_critter(ci, f[0], p, r, {"t": t + ph, "tier": f[1], "look": look,
+		var dir := Vector2.from_angle(f[5])
+		if f[6] == "yoyo": # Loop-the-loops round its spot.
+			p += Vector2.from_angle(t * 4.0) * r * 1.3
+		if p.y > _horizon() and look != "sky": # A soft shadow on the ground.
+			CritterArt._ell(ci, Vector2(p.x, c.y + (f[3] + r / k * 1.02) * k), r * .9, r * .22, Color(.1, .3, .12, .35))
+		_effect(ci, f[6], true, p, r, dir, t + ph, c + Vector2(f[2], f[3]) * k)
+		CritterArt.draw_critter(ci, f[0], p, r, {"t": t + ph, "tier": f[1], "look": dir,
 			"blink": 1.0 if fmod(t + ph * 3.0, 3.4) < .12 else 0.0})
+		ci.draw_set_transform_matrix(Transform2D.IDENTITY) # Critter art can leave its own set.
+		_effect(ci, f[6], false, p, r, dir, t + ph, c + Vector2(f[2], f[3]) * k)
 	for co in COINS:
 		_coin(ci, c + Vector2(co[0], co[1] + sin(t * 1.8 + co[3]) * 8) * k, co[2] * k, t * 2.4 + co[3])
+
+
+## One critter's signature effect, behind it (`back`) or in front.
+func _effect(ci: CanvasItem, kind: String, back: bool, p: Vector2, r: float, dir: Vector2, t: float, home: Vector2) -> void:
+	match kind:
+		"fire": # Drako breathes a stream of fireballs.
+			if not back:
+				BattleFx.draw_fireballs(ci, p + dir * r * 1.0, p + dir * r * 3.3, 1.0, t, r * .42)
+		"laser": # Laser fires a pulsing beam with a spark where it lands.
+			if back:
+				var a := p + dir * r * .9
+				var b := p + dir * r * 3.6
+				var pulse := .7 + .3 * sin(t * 9.0)
+				ci.draw_line(a, b, Color(.15, .8, 1, .25), r * .95 * pulse, true)
+				ci.draw_line(a, b, Color("27c8ff"), r * .42 * pulse, true)
+				ci.draw_line(a, b, Color(1, 1, 1, .95), r * .15, true)
+				_twinkle(ci, b, r * (.45 + .25 * sin(t * 13.0)), Color(.85, .97, 1, .95))
+		"flames": # Phoenix burns, embers rising.
+			if not back:
+				BattleFx._flames(ci, p, r, t)
+		"ghost": # Ghost leaves fading copies of itself.
+			if back:
+				for i in range(3, 0, -1):
+					BattleFx.draw_afterimage(ci, p - dir * r * .75 * i, r * (1.0 - .08 * i), 1.0 - i * .25, Color("e3d6ff"))
+		"comet": # Comet streaks past.
+			if back:
+				BattleFx.draw_speed_blur(ci, Color("ff5ad1"), p, r, dir, 1.9, t)
+		"tentacles": # Kraken's arms wave out below it.
+			if back:
+				for i in 3:
+					var d := Vector2.from_angle(PI * .5 + (i - 1) * .75 + sin(t * 1.3 + i) * .15)
+					BattleFx.draw_tentacle(ci, p + d * r * .5, p + d * r * 2.1, r * .2, Color("8e3bbd"), t, i * 2.0)
+		"leaves": # Sprout's leaves swirl round it.
+			if not back:
+				for i in 6:
+					var a := t * 1.4 + i * TAU / 6.0
+					var at := p + Vector2(cos(a), sin(a) * .55) * r * 1.55
+					BattleFx._leaf(ci, at, a + PI * .5, r * (.6 if sin(a) > 0 else .45), CritterFx.LEAF if i % 2 else CritterFx.LEAF.lightened(.25))
+		"scoops": # Sundae flings scoops that arc up and drop.
+			if not back:
+				for i in 3:
+					var f := fmod(t * .6 + i / 3.0, 1.0)
+					var at := p + Vector2((i - 1) * r * 1.9 * f, -r * 1.1 - sin(f * PI) * r * 2.2 + f * r * .6)
+					CritterFx.draw_scoop(ci, at, r * .3 * (1.0 - .3 * f), i)
+		"frost": # Yeti's icy breath and falling snow.
+			if back:
+				BattleFx.draw_frost_breath(ci, p, r * 1.4, -dir, t)
+			else:
+				for i in 6:
+					var f := fmod(t * .35 + i / 6.0, 1.0)
+					var at := p + Vector2(sin(i * 2.4 + t) * r * 1.4, -r * 1.8 + f * r * 3.0)
+					_twinkle(ci, at, r * .12, Color(1, 1, 1, .9 * sin(f * PI)))
+		"yoyo": # Yoyo's loop trail.
+			if back:
+				var a0 := t * 4.0
+				for i in 8:
+					var a := a0 - i * .28
+					Dot.circle(ci, home + Vector2.from_angle(a) * r * 1.3, r * (.9 - i * .09), Color(.6, .95, 1, .5 - i * .055))
+		"blood": # Count Nibbles' blood shield.
+			if not back:
+				BattleFx.draw_blood_shield(ci, p, r, t)
 
 
 func _twinkle(ci: CanvasItem, p: Vector2, s: float, col: Color) -> void:
@@ -352,81 +418,13 @@ func _coin(ci: CanvasItem, p: Vector2, r: float, a: float) -> void:
 	Dot.circle(ci, p + Vector2(-r * .4 * sx, -r * .45), r * .14, Color(1, 1, 1, .8))
 
 
-# --- The badge (drawn once) --------------------------------------------------
+# --- The title (drawn once) --------------------------------------------------
 
-func _draw_badge(ci: CanvasItem) -> void:
+func _draw_title(ci: CanvasItem) -> void:
 	var k := _k()
-	var c := _centre()
-	# Wings of ribbon behind the shield.
-	for sgn in [-1.0, 1.0]:
-		var wing := PackedVector2Array([Vector2(150, -40), Vector2(300, -10), Vector2(262, 50), Vector2(312, 110), Vector2(150, 90)])
-		var outline := PackedVector2Array([Vector2(140, -54), Vector2(326, -18), Vector2(284, 50), Vector2(340, 124), Vector2(140, 104)])
-		Dot.poly(ci, _place(outline, c, k, sgn), INK)
-		Dot.poly(ci, _place(wing, c, k, sgn), Color("e8325c"))
-		Dot.poly(ci, _place(PackedVector2Array([Vector2(150, -40), Vector2(300, -10), Vector2(290, 6), Vector2(150, -18)]), c, k, sgn), Color("ff6b8c"))
-	# The shield: ink outline, gold rim, violet face with a lit top.
-	Dot.poly(ci, _place(_shield(1.08), c + Vector2(0, 10) * k, k), Color(0.1, 0.05, 0.2, .35))
-	Dot.poly(ci, _place(_shield(1.06), c, k), INK)
-	Dot.poly(ci, _place(_shield(1.0), c, k), GOLD)
-	Dot.poly(ci, _place(_shield(.98), c + Vector2(0, 6) * k, k), Color("d98a12"))
-	var face := _place(_shield(.86), c + Vector2(0, 6) * k, k)
-	var cols := PackedColorArray()
-	for q in face:
-		cols.append(Color("8f6bff").lerp(Color("c42a8a"), clampf((q.y - (c.y - 180 * k)) / (420 * k), 0, 1)))
-	ci.draw_polygon(face, cols)
-	Dot.poly(ci, _place(_shield(.86).slice(0, 13), c + Vector2(0, 6) * k, k), Color(1, 1, 1, .1))
-	# The mascot perched on top, crowned.
-	var m := c + Vector2(0, -232) * k
-	CritterArt.draw_critter(ci, "vampire", m, 74 * k, {"tier": 5, "look": Vector2(0.3, 0.6).normalized()})
-	var crown := PackedVector2Array([Vector2(-42, 0), Vector2(-50, -46), Vector2(-22, -22), Vector2(0, -58), Vector2(22, -22), Vector2(50, -46), Vector2(42, 0)])
-	var cp := m + Vector2(0, -66) * k
-	Dot.poly(ci, _place(_grow(crown, 7), cp, k), INK)
-	Dot.poly(ci, _place(crown, cp, k), Color("ffd23f"))
-	for g in [Vector2(0, -12), Vector2(-26, -10), Vector2(26, -10)]:
-		Dot.circle(ci, cp + g * k, 6 * k, Color("ff4f9a") if g.x == 0 else Color("4fd8ff"))
-	# The title on a banner across the shield.
-	var band := PackedVector2Array([Vector2(-236, -30), Vector2(236, -30), Vector2(226, 158), Vector2(-226, 158)])
-	Dot.poly(ci, _place(_grow(band, 8), c, k), INK)
-	Dot.poly(ci, _place(band, c, k), Color("ff3d6e"))
-	Dot.poly(ci, _place(PackedVector2Array([Vector2(-236, -30), Vector2(236, -30), Vector2(234, 0), Vector2(-234, 0)]), c, k), Color("ff7a96"))
-	Dot.poly(ci, _place(PackedVector2Array([Vector2(-228, 130), Vector2(228, 130), Vector2(226, 158), Vector2(-226, 158)]), c, k), Color("c21f4c"))
-	_title(ci, "BATTLE", c + Vector2(0, 52) * k, 92 * k, Color.WHITE, Color("dcd2ff"))
-	_title(ci, "BALLS", c + Vector2(0, 150) * k, 120 * k, Color("ffe066"), Color("ffab1f"))
-
-
-## The shield outline, `s` times full size, top edge first (13 points), centred on (0, 0).
-func _shield(s: float) -> PackedVector2Array:
-	var pts := PackedVector2Array()
-	for i in 13: # A shallow arch across the top.
-		var u := i / 12.0
-		pts.append(Vector2(lerpf(-200, 200, u), -168 - sin(u * PI) * 34))
-	for i in 10: # Right side bowing down to the point.
-		var u := (i + 1) / 10.0
-		pts.append(Vector2(200 * (1.0 - u * u) + 6 * sin(u * PI), lerpf(-168, 268, u) - 40 * sin(u * PI)))
-	for i in range(8, -1, -1): # And the left side back up.
-		var q: Vector2 = pts[13 + i]
-		pts.append(Vector2(-q.x, q.y))
-	for i in pts.size():
-		pts[i] *= s
-	return pts
-
-
-func _grow(pts: PackedVector2Array, by: float) -> PackedVector2Array:
-	var mid := Vector2.ZERO
-	for q in pts:
-		mid += q
-	mid /= pts.size()
-	var out := PackedVector2Array()
-	for q in pts:
-		out.append(q + (q - mid).normalized() * by)
-	return out
-
-
-func _place(pts: PackedVector2Array, at: Vector2, k: float, flip := 1.0) -> PackedVector2Array:
-	var out := PackedVector2Array()
-	for q in pts:
-		out.append(at + Vector2(q.x * flip, q.y) * k)
-	return out
+	var sun := _sun()
+	_title(ci, "BATTLE", sun + Vector2(0, -12) * k, 112 * k, Color.WHITE, Color("dcd2ff"))
+	_title(ci, "BALLS", sun + Vector2(0, 112) * k, 150 * k, Color("ffe066"), Color("ffab1f"))
 
 
 ## A chunky outlined word with a two-tone fill (light top, deeper bottom), centred on `base`.
