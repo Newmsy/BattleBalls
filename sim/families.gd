@@ -30,24 +30,31 @@ const MEMBERS := {
 	"cosmic": ["comet", "gravity", "prism", "quasar", "stormwing", "blackhole", "eclipse"],
 }
 
-## Family edges (Newms 2026-10-22, the "Bold" strength): each family is very
-## good (2) against one family, good (1) against two, even with two, and bad
-## or very bad against the rest, the mirror of these. The very-good arrows
-## make one loop: Fire > Nature > Sweet > Spooky > Toybox > Frost > Sea >
-## Tech > Cosmic > Fire. Only the attacker gains; there is no penalty side.
+## Family edges (Newms 2026-10-22, the "Bold" strength), simplified to three
+## rock-paper-scissors triangles (Newms 2026-10-23) so the chart is easy to
+## learn: each family is very good (2) against the next family round its
+## triangle, so very bad against the one before it, and even with the six
+## families in the other two triangles. Only the attacker gains; there is no
+## penalty side.
+const TRIANGLES := [
+	{"name": "Elements", "families": ["sea", "fire", "frost"]},
+	{"name": "Dreams", "families": ["cosmic", "sweet", "spooky"]},
+	{"name": "Playground", "families": ["tech", "toybox", "nature"]},
+]
 const EDGES := {
-	"nature": {"sweet": 2, "sea": 1, "tech": 1},
-	"sea": {"tech": 2, "sweet": 1, "fire": 1},
-	"tech": {"cosmic": 2, "toybox": 1, "spooky": 1},
-	"sweet": {"spooky": 2, "tech": 1, "toybox": 1},
-	"frost": {"sea": 2, "nature": 1, "sweet": 1},
-	"toybox": {"frost": 2, "fire": 1, "cosmic": 1},
-	"spooky": {"toybox": 2, "nature": 1, "cosmic": 1},
-	"fire": {"nature": 2, "frost": 1, "spooky": 1},
-	"cosmic": {"fire": 2, "sea": 1, "frost": 1},
+	"sea": {"fire": 2},
+	"fire": {"frost": 2},
+	"frost": {"sea": 2},
+	"cosmic": {"sweet": 2},
+	"sweet": {"spooky": 2},
+	"spooky": {"cosmic": 2},
+	"tech": {"toybox": 2},
+	"toybox": {"nature": 2},
+	"nature": {"tech": 2},
 }
-## Extra damage per edge level: very good ~72% at equal power, good ~64%,
-## and a ball one tier up still wins ~65% into its very-bad matchup.
+## Extra damage per edge level: very good ~72% at equal power, and a ball one
+## tier up still wins ~65% into its very-bad matchup. The triangles only use
+## very good; level 1 (good, ~64%) stays for a later twist.
 const EDGE_BONUS := [0.0, 0.10, 0.20]
 
 static var _of := {}
