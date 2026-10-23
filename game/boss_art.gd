@@ -569,20 +569,19 @@ static func draw_death(ci: CanvasItem, id: String, c: Vector2, r: float, age: fl
 				Dot.poly(ci, PackedVector2Array([p + d * size, p + sd * size * 0.45, p - d * size * 0.6, p - sd * size * 0.45]), col)
 
 
-## A boss in a menu (the boss hall, each boss's screen). Redraws slowly.
 ## A boss in a menu. The web build only draws a frame when something changed,
 ## and every redraw of a boss rebuilds its polygons, so small icons (cards, the
-## Bosses list) are drawn once and stay still; only a big hero portrait
-## animates, on the clock shared with the critter icons (one frame for all of
-## them), and keeps its drawing while hidden, off screen or mid-scroll.
+## Bosses list) are drawn once and stay still. A big hero portrait animates at
+## HERO_RATE, a multiple of the critter icons' shared clock so their redraws
+## land on the same frames (slower than that reads as lag next to the 60 fps
+## fight), and keeps its drawing while hidden, off screen or mid-scroll.
 class BossIcon extends Control:
 	const TouchInput := preload("res://game/ui/touch_input.gd")
-	const CritterIcon := preload("res://game/ui/critter_icon.gd")
 	static var _art: Script ## This file, loaded once (it can't preload itself).
 	## Below this side an icon is drawn once and never animates.
 	const SMALL_SIDE := 120.0
-	## A hero redraws on every HERO_EVERY-th tick of the shared clock.
-	const HERO_EVERY := 2
+	## Hero redraws a second: a multiple of CritterIcon.IDLE_RATE.
+	const HERO_RATE := 30
 	var boss_id := "anvil_king"
 	var _tick := -1
 	var _clip: Control
@@ -600,7 +599,7 @@ class BossIcon extends Control:
 	func _process(_delta: float) -> void:
 		if not is_visible_in_tree() or TouchInput.scrolling():
 			return
-		var tick: int = CritterIcon.clock(HERO_EVERY)
+		var tick: int = Time.get_ticks_msec() * HERO_RATE / 1000
 		if tick == _tick:
 			return
 		var r := get_global_rect()
