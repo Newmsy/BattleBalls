@@ -1,6 +1,7 @@
 ## Bag tab: gear (Shells, Cores and Charms, with who wears each) and items.
-## Tap gear to move it to another critter (swapping is always free) or merge
-## three of a kind into the next tier (design/gear.md).
+## Gear is a compact list: one row per type and tier, with its effect in words,
+## who wears it and a Merge button once three match. Tap a row to move it to
+## another critter (swapping is always free) or merge (design/gear.md).
 extends RefCounted
 
 const Intro := preload("res://game/ui/intro.gd")
@@ -17,6 +18,7 @@ const Profile := preload("res://meta/profile.gd")
 const UpgradePopup := preload("res://game/ui/upgrade_popup.gd")
 
 static var section := "gear"
+static var slot_filter := "" ## "" = all slots, else "Shell", "Core" or "Charm".
 
 const GEAR_INFO := ["3 of a kind → 1 with a star more (max 5). Costs Hammers.",
 	"Shells keep you alive, Cores hit harder, Charms (from 3-star critters) speed you or your ability up.",
@@ -40,15 +42,20 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(seg)
 
 	if section == "gear":
+		if not p.gear.is_empty():
+			root.add_child(_filters(shell, p))
 		for slot in Gear.SLOTS:
-			var grid := _grid()
-			var pieces := 0
-			for g in stacks(p, slot):
-				grid.add_child(_gear_tile(shell, g))
-				pieces += g.count
-			if grid.get_child_count() > 0:
-				var head := Kit.hbox(10, [Glyph.make(slot.to_lower(), 26, Kit.MUTED), Kit.caption("%ss (%d)" % [slot, pieces]), _Rule.new()], BoxContainer.ALIGNMENT_CENTER)
-				root.add_child(Kit.vbox(12, [head, grid]))
+			if slot_filter != "" and slot != slot_filter:
+				continue
+			var list := Kit.vbox(8)
+			for r in rows(p, slot):
+				list.add_child(_gear_row(shell, r))
+			if list.get_child_count() > 0:
+				if slot_filter == "":
+					var head := Kit.hbox(10, [Glyph.make(slot.to_lower(), 22, Kit.MUTED), Kit.caption("%ss" % slot), _Rule.new()], BoxContainer.ALIGNMENT_CENTER)
+					root.add_child(Kit.vbox(8, [head, list]))
+				else:
+					root.add_child(list)
 		if p.gear.is_empty():
 			root.add_child(Kit.label("No gear yet.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		_pin_merge_all(shell, p)
@@ -69,32 +76,6 @@ static func tier_color(tier: int) -> Color:
 	return Roster.RARITY_COLORS[Gear.RARITY_TIERS.keys()[clampi(tier, 1, Gear.MAX_TIER) - 1]]
 
 
-## One slot's gear as tiles, best first: each worn piece on its own, unworn
-## pieces of the same type and tier stacked into one ({piece, count}).
-static func stacks(p, slot: String) -> Array:
-	var out := []
-	var free := {}
-	for g in p.gear:
-		if g.slot != slot:
-			continue
-		if g.on != "":
-			out.append({"piece": g, "count": 1})
-			continue
-		var k := "%s/%d" % [g.type, g.tier]
-		if free.has(k):
-			free[k].count += 1
-		else:
-			free[k] = {"piece": g, "count": 1}
-			out.append(free[k])
-	out.sort_custom(func(a, b):
-		if a.piece.tier != b.piece.tier:
-			return a.piece.tier > b.piece.tier
-		if a.piece.type != b.piece.type:
-			return Gear.TYPES.find(a.piece.type) < Gear.TYPES.find(b.piece.type)
-		return a.piece.on != "" and b.piece.on == "")
-	return out
-
-
 ## Merge all, pinned under the grid while any set is complete.
 static func _pin_merge_all(shell, p) -> void:
 	if p.gear_sets().is_empty():
@@ -111,36 +92,91 @@ static func _pin_merge_all(shell, p) -> void:
 	shell.pin(b)
 
 
+## All / Shells / Cores / Charms, each with how many pieces you own.
+static func _filters(shell, p) -> Control:
+	var row := Kit.hbox(8)
+	for f in [["", "All"], ["Shell", "Shells"], ["Core", "Cores"], ["Charm", "Charms"]]:
+		var n := 0
+		for g in p.gear:
+			if f[0] == "" or g.slot == f[0]:
+				n += 1
+		var on: bool = slot_filter == f[0]
+		var b := Kit.card_button(Kit.label("%s %d" % [f[1], n], 20, Kit.FG if on else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
+			func(): slot_filter = f[0]; shell.refresh(), Kit.ACCENT if on else Kit.LINE, Kit.PANEL2 if on else Kit.PANEL, 999, 8)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		shell.mark("gear_filter_" + (f[0].to_lower() if f[0] != "" else "all"), b)
+		row.add_child(b)
+	return row
+
+
+## One slot's gear as rows, best first: every piece of one type and tier in one
+## row ({piece, pieces, count, wearers}). `piece` is what a tap opens: a spare
+## if there is one (so Equip to is the next step), else the worn one.
+static func rows(p, slot: String) -> Array:
+	var out := []
+	var by := {}
+	for g in p.gear:
+		if g.slot != slot:
+			continue
+		var k := "%s/%d" % [g.type, g.tier]
+		if not by.has(k):
+			by[k] = {"piece": g, "pieces": [], "count": 0, "wearers": []}
+			out.append(by[k])
+		var r: Dictionary = by[k]
+		r.pieces.append(g)
+		r.count += 1
+		if g.on != "":
+			r.wearers.append(g.on)
+		elif r.piece.on != "":
+			r.piece = g
+	out.sort_custom(func(a, b):
+		if a.piece.tier != b.piece.tier:
+			return a.piece.tier > b.piece.tier
+		return Gear.TYPES.find(a.piece.type) < Gear.TYPES.find(b.piece.type))
+	return out
+
+
+## A gear row: icon, name, stars and count, the effect in words, then Merge
+## (with its cost) once three match, and who wears it or "Spare".
+static func _gear_row(shell, r: Dictionary) -> Control:
+	var p = shell.profile
+	var g: Dictionary = r.piece
+	var col := tier_color(g.tier)
+	var name := Kit.label(g.name, 24)
+	var top := Kit.hbox(8, [name, Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_BEGIN)
+	if r.count > 1:
+		top.add_child(Kit.label("x%d" % r.count, 19, Kit.MUTED))
+	var effect := Kit.label(g.text, 19, Kit.MUTED)
+	effect.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	effect.clip_text = true
+	var words := Kit.vbox(0, [top, effect])
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := Kit.hbox(12, [Glyph.make(g.type, 60, col), words], BoxContainer.ALIGNMENT_CENTER)
+	if g.tier < Gear.MAX_TIER and p.has_gear_set(g.type, g.tier):
+		var merge := Kit.cost_button("Merge", p.merge_cost(g.tier), "hammer", _merge.bind(shell, g), "go", 19, 56)
+		merge.disabled = p.hammers < p.merge_cost(g.tier)
+		merge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		merge.size_flags_horizontal = Control.SIZE_SHRINK_END
+		merge.custom_minimum_size.x = 150
+		shell.mark("gear_row_merge_%s_%d" % [g.type, g.tier], merge)
+		row.add_child(merge)
+	if r.wearers.is_empty():
+		row.add_child(Kit.label("Spare", 19, Kit.MUTED))
+	else:
+		var faces := Kit.hbox(-10, [], BoxContainer.ALIGNMENT_END)
+		for id in r.wearers.slice(0, 3):
+			faces.add_child(CritterIcon.face(id, 44))
+		row.add_child(faces)
+	var card := Kit.card_button(row, func(): _gear_sheet(shell, g), Color(col, .45), Kit.PANEL, 22, 10)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for piece in r.pieces:
+		shell.mark("gear_%d" % piece.uid, card)
+	return card
+
+
 ## "3-star Iron Shell".
 static func piece_name(g: Dictionary) -> String:
 	return "%d-star %s" % [g.tier, g.name]
-
-
-static func _gear_tile(shell, st: Dictionary) -> Control:
-	var p = shell.profile
-	var g: Dictionary = st.piece
-	var col := tier_color(g.tier)
-	var status: String = ("x%d" % st.count if st.count > 1 else "Spare") if g.on == "" else "On " + Roster.get_critter(g.on).name
-	var status_label := Kit.label(status, 19, Kit.GOOD if g.on != "" else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
-	var status_row: Control = status_label
-	if g.on != "":
-		# The wearer's face beside "On Optic": drawn once, so a long bag stays cheap.
-		var face := CritterIcon.make(g.on, 1, 34)
-		face.still = true
-		face.radius_frac = .44
-		status_label.text = Roster.get_critter(g.on).name
-		status_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-		status_label.custom_minimum_size.x = 0
-		status_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		status_row = Kit.hbox(6, [face, status_label], BoxContainer.ALIGNMENT_CENTER)
-	var v := Kit.vbox(4, [_center(Glyph.make(g.type, 84, col)), Kit.label(g.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
-		_center(Glyph.make("stars", 20, col, g.tier)), status_row])
-	if p.has_gear_set(g.type, g.tier):
-		v.add_child(_center(Kit.chip("MERGE", Kit.GOOD, 16)))
-	var card := Kit.card_button(v, func(): _gear_sheet(shell, g), Color(col, .55), Kit.PANEL, 28, 12)
-	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shell.mark("gear_%d" % g.uid, card)
-	return card
 
 
 static func _equip(shell, g: Dictionary, c: Dictionary) -> void:

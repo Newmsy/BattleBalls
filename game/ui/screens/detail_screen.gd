@@ -96,9 +96,14 @@ static func build(shell, params: Dictionary) -> Control:
 		if not g.is_empty():
 			line = Glyph.make("stars", 18, col, g.tier)
 		else:
-			line = Kit.label("+ Add" if open else "Locked", 16, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+			line = Kit.label("+ Add" if open else "Opens at %d stars" % Gear.CHARM_TIER, 16, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 		# Short phones drop the name to keep the screen from scrolling.
 		var v := Kit.vbox(4, [BagScreen._center(icon), name, BagScreen._center(line)] if tall else [BagScreen._center(icon), BagScreen._center(line)])
+		if not g.is_empty():
+			# What the piece does, in words, so nobody has to open it to find out.
+			var effect := Kit.label(g.text, 15, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
+			effect.custom_minimum_size.x = 0
+			v.add_child(effect)
 		var tap: Callable = _slot_sheet.bind(shell, c.id, slot) if open else shell.toast.bind("Charm slot unlocks when %s reaches %d stars." % [c.name, Gear.CHARM_TIER])
 		var card := Kit.card_button(v, tap, Color(col, .5) if not g.is_empty() else Kit.LINE, Kit.PANEL2, 24, 12)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
