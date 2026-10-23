@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Whiff",
 	"type": "Skunk",
 	"rarity": "rare",
+	"tier_power": [1.09, 1.08, 1.06, 1.13, 1.21], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "9d8ec7",

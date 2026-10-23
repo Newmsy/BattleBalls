@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Drum",
 	"type": "Drum",
 	"rarity": "uncommon",
+	"tier_power": [1.04, 1.02, 1.00, 1.04, 1.08], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "e63946",

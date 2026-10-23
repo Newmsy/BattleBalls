@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Coil bot",
 	"rarity": "rare",
 	"rarity_power": 0.922, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.25, 1.15, 1.05, 1.02, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "c47a2c",

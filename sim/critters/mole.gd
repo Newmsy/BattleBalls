@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Mole",
 	"type": "Mole",
 	"rarity": "rare",
+	"tier_power": [0.97, 1.01, 1.05, 1.04, 0.92], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "b08968",

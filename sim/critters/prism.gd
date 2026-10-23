@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Prism",
 	"rarity": "legendary",
 	"rarity_power": 0.87, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
+	"tier_power": [1.19, 1.11, 0.83, 0.87, 0.90], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Zoner",
 	"status": "live",
 	"color": "9ad8ff",
@@ -16,7 +17,7 @@ const CRITTER := {
 	"stats": {"hp": 118.0, "radius": 64.0, "speed": 400.0, "contact_damage": 14.0},
 	"ability": [{"on": "wall", "do": "beam_at"}, {"on": "hurt", "do": "reflect"}],
 	"params": {
-		"prism_damage": 1.0, ## Per hit, 4 hits a second.
+		"prism_damage": 1.4, ## Per hit, 4 hits a second.
 		"prism_life": 0.8,
 		"prism_fan": 1,
 		"prism_full_every": 0, ## Every Nth cast fans 7, when above 0.

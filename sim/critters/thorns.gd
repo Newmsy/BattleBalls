@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Thorns",
 	"rarity": "uncommon",
 	"rarity_power": 1.106, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.89, 0.94, 1.00, 1.10, 1.21], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "4f7a3a",

@@ -159,4 +159,4 @@ func test_relay_passes_each_balls_gear() -> void:
 	var cfg := relay.leg_config()
 	check_eq(cfg.gear, [{"health": 0.1}, null], "first leg gear")
 	var sim := MatchSim.new(cfg)
-	check_near(sim.balls[0].max_hp, BallDefs.get_def("vampire").hp * 1.1, 0.001, "gear reaches the leg")
+	check_near(sim.balls[0].max_hp, BallDefs.get_def("vampire").hp * sqrt(float(BallDefs.get_def("vampire").tier_power)) * 1.1, 0.001, "gear reaches the leg")

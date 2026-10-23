@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Vine spirit",
 	"rarity": "legendary",
 	"rarity_power": 0.962, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.00, 1.00, 1.00, 0.94, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "0b8a5f",

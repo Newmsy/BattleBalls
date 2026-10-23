@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Muncher",
 	"rarity": "epic",
 	"rarity_power": 1.153, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.94, 1.03, 1.13, 1.28, 1.46], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "fb8500",

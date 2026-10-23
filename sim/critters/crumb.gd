@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Crumb",
 	"type": "Cookie",
 	"rarity": "common",
+	"tier_power": [0.88, 0.92, 0.97, 1.01, 1.05], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "a0522d",

@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Sprite",
 	"rarity": "epic",
 	"rarity_power": 0.874, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.17, 1.18, 1.19, 1.12, 0.94], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "7cff4f",

@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Sundae",
 	"rarity": "legendary",
 	"rarity_power": 1.14, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
+	"tier_power": [1.06, 1.25, 0.95, 1.00, 1.05], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "fde2e4",

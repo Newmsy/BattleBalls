@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Sea serpent",
 	"rarity": "legendary",
 	"rarity_power": 0.971, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.93, 0.97, 1.00, 0.98, 0.97], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "0f7173",

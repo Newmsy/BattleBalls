@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Honey",
 	"type": "Honey pot",
 	"rarity": "uncommon",
+	"tier_power": [1.07, 1.06, 1.05, 1.01, 0.78], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Zoner",
 	"status": "live",
 	"color": "d97706",
@@ -17,7 +18,7 @@ const CRITTER := {
 	"params": {
 		"honey_sting_damage": 0.0, ## T5: a foe getting stuck takes this.
 		"honey_dps": 0.0, ## T5: puddles sting this much a second.
-		"honey_lob": 4.0, ## T5: seconds between honey lobbed under the foe.
+		"honey_lob": 6.0, ## T5: seconds between honey lobbed under the foe.
 		"honey_pull": 0.0, ## T5: puddles drag foes within twice their size in this hard.
 		"honey_radius": 55.0,
 		"honey_life": 4.0,
@@ -35,7 +36,7 @@ const CRITTER := {
 		{"text": "Puddles 4 → 5s, crush x{^honey_crush} → {honey_crush}", "honey_life": 5.0, "honey_crush": 1.75},
 		{"text": "+ Foes stay slowed 35% for 1s after", "now": "Bounces drip honey: sticks {honey_stick}s, then slow; next hit x{honey_crush}", "ability": [{"on": "always", "do": "linger"}]},
 		{"text": "Max puddles 4 → 6, size +{+honey_radius}%", "honey_max": 6, "honey_radius": 70.0},
-		{"text": "+ Honey lobs every 4s: pull, {honey_dps}/sec, x{honey_crush}", "now": "Drips + lobs honey (every {honey_lob}s): sticks {honey_stick}s, hit x{honey_crush}", "special": "Honey Pot", "honey_merge_radius": 90.0, "honey_crush": 2.2, "honey_pull": 900.0, "honey_sting_damage": 14.0, "honey_dps": 6.0, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}]},
+		{"text": "+ Honey lobs every {honey_lob}s: pull, {honey_dps}/sec, x{honey_crush}", "now": "Drips + lobs honey (every {honey_lob}s): sticks {honey_stick}s, hit x{honey_crush}", "special": "Honey Pot", "honey_merge_radius": 90.0, "honey_crush": 1.6, "honey_pull": 500.0, "honey_sting_damage": 5.0, "honey_dps": 6.0, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["jarlid", "drips"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 0.85},

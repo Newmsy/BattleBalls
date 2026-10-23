@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Pinball",
 	"type": "Pinball",
 	"rarity": "common",
+	"tier_power": [1.00, 0.98, 0.96, 0.93, 0.90], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "f1f3f5",

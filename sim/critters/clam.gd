@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Clam",
 	"rarity": "rare",
 	"rarity_power": 0.925, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.88, 0.82, 0.96, 0.87, 0.94], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "f7c6d9",

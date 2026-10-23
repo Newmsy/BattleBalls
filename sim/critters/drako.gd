@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Dragon",
 	"rarity": "epic",
 	"rarity_power": 1.026, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.91, 0.93, 0.94, 0.91, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "2b9348",

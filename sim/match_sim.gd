@@ -371,7 +371,7 @@ func _init(cfg: Dictionary) -> void:
 		var raw := Bosses.sim_def(types[i]) if is_boss else BallDefs.get_def(types[i], int(tiers[i]), bonus)
 		var power := float(powers[i])
 		if rarity_potency and not is_boss:
-			power *= DMath.ipow(float(raw.get("rarity_power", 1.0)), maxi(0, Power.RARITIES.find(str(raw.get("rarity", "")))))
+			power *= DMath.ipow(float(raw.get("rarity_power", 1.0)), maxi(0, Power.RARITIES.find(str(raw.get("rarity", ""))))) * float(raw.get("tier_power", 1.0))
 		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(raw, power), kit), modifier)
 		def = Modifiers.apply_arena_tweaks(def, arena_id)
 		if cfg.has("boons") and i < cfg.boons.size():

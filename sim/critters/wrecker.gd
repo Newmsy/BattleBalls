@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Wrecker",
 	"type": "Wrecking ball",
 	"rarity": "epic",
+	"tier_power": [0.94, 0.97, 1.00, 0.96, 0.92], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "495057",

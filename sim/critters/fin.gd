@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Shark",
 	"rarity": "uncommon",
 	"rarity_power": 0.881, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.09, 1.02, 0.96, 0.94, 0.91], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "4f8fb8",

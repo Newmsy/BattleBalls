@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Lightning",
 	"rarity": "rare",
 	"rarity_power": 1.049, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.81, 0.83, 0.86, 0.86, 0.86], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "faff70",

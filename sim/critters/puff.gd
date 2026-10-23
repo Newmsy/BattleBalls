@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Puff",
 	"type": "Pufferfish",
 	"rarity": "uncommon",
+	"tier_power": [1.09, 1.04, 1.00, 1.06, 1.12], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "ffd84a",

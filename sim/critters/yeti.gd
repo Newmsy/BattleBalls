@@ -10,6 +10,7 @@ const CRITTER := {
 	"role": "Bruiser",
 	"status": "live",
 	"rarity_power": 0.935, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
+	"tier_power": [1.22, 1.18, 1.00, 1.00, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"color": "d6ccc2",
 	"vibe": "A huggable mountain yeti with a very loud temper.",
 	"description": "Yeti. It's big and furry, and at 50% HP it roars out an avalanche that deals {roar_damage}, knocks back and slows everything nearby {roar_slow%}% for {roar_secs}s.",

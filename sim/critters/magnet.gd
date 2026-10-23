@@ -11,6 +11,7 @@ const CRITTER := {
 	"role": "Disruptor",
 	"status": "live",
 	"rarity_power": 0.955, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
+	"tier_power": [0.93, 0.90, 0.87, 0.79, 0.84], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"color": "ff3b5c",
 	"vibe": "A buzzing little horseshoe that can't decide if it loves you or hates you.",
 	"description": "Magnet. Every 3s its field flips: Pull drags the foe in and its first hit of each Pull snaps for x{snap_mult}; a weaker Push shoves it away.",

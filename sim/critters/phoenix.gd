@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Phoenix",
 	"rarity": "legendary",
 	"rarity_power": 1.023, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.11, 1.16, 1.00, 1.10, 0.77], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "ff6a2a",
@@ -24,8 +25,8 @@ const CRITTER := {
 		"revive_bolts": 0,
 		"sunfire_every": 4.0, ## T5.
 		"sunfire_radius": 220.0,
-		"sunfire_damage": 6.0,
-		"sunfire_burn": 3.0,
+		"sunfire_damage": 3.0,
+		"sunfire_burn": 1.5,
 		"revive_lives": 1, ## T5: rises this many times.
 		"scorch_dps": 0.5,
 		"scorch_secs": 1.5,
@@ -39,7 +40,7 @@ const CRITTER := {
 		{"text": "Revive HP 20% → 25%", "revive_hp": 0.25},
 		{"text": "+ After reviving it leaves a flame trail", "ability": [{"on": "always", "do": "fire_trail"}]},
 		{"text": "Revive HP 25% → 30%", "revive_hp": 0.3},
-		{"text": "+ Sunfire every 4s · revives twice at 50%", "now": "Burning hits, sunfire every {sunfire_every}s; revives {revive_lives}x at {revive_hp%}%", "special": "Eternal Flame", "revive_bolts": 8, "revive_shield": 20.0, "revive_lives": 2, "revive_hp": 0.5, "ability": [{"on": "every", "secs": "sunfire_every", "do": "sunfire"}]},
+		{"text": "+ Sunfire every 4s · revives twice at {revive_hp%}%", "now": "Burning hits, sunfire every {sunfire_every}s; revives {revive_lives}x at {revive_hp%}%", "special": "Eternal Flame", "revive_bolts": 4, "revive_lives": 2, "revive_hp": 0.2, "ability": [{"on": "every", "secs": "sunfire_every", "do": "sunfire"}]},
 	],
 	"chaos": {"double_trouble": {"hp": 1.05}, "glass_cannon": {"revive_hp": 0.75}}, ## Bigger beams pick off a fresh revive; in Glass Cannon a revive is worth more.
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": "ffb300", "brow": .3, "mouth": "smirk"}, "back": ["flame_crest"]},
