@@ -1,9 +1,10 @@
-## Renders the bright loading screen (game/ui/splash_art.gd) to
-## game/brand/loading.png: the image the web page shows while the game
-## downloads and the native boot splash. Needs a real renderer, not --headless:
+## Renders the loading screen (game/ui/splash_art.gd) to a PNG. Since
+## 2026-10-23 game/brand/loading.png is Newms's painted key art (darkened a
+## touch), so this only writes previews and clips unless you pick a
+## code-drawn look to replace it. Needs a real renderer, not --headless:
 ##   xvfb-run -s "-screen 0 1280x1800x24" godot --rendering-driver opengl3 \
 ##     --resolution 720x1560 --script res://tools/brand/render_loading.gd
-## Optional: -- out=<path> w=<px> h=<px> t=<seconds into the loop> look=<meadow|sunset|sky>
+## Optional: -- out=<path> w=<px> h=<px> t=<seconds into the loop> look=<art|sunset|meadow|sky>
 ## frames=<n> also writes n frames at 30 fps to <out>_000.png... (for a preview clip).
 extends SceneTree
 
@@ -30,6 +31,10 @@ func _initialize() -> void:
 	await process_frame
 	await process_frame
 	await RenderingServer.frame_post_draw
+	if art.look == "art" and not args.has("out"):
+		push_error("loading.png is the painted art itself: pass out=<path> for a preview")
+		quit(1)
+		return
 	var out: String = args.get("out", "res://game/brand/loading.png")
 	for i in int(args.get("frames", "0")):
 		art._t += 1.0 / 30.0
