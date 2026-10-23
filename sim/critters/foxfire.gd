@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Fox spirit",
 	"rarity": "legendary",
 	"rarity_power": 0.944, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.97, 0.91, 0.85, 0.80, 1.14], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "ffb4a2",

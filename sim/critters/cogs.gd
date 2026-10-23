@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Cogs",
 	"type": "Gear",
 	"rarity": "uncommon",
+	"tier_power": [1.00, 1.03, 1.06, 1.12, 1.19], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "b5838d",

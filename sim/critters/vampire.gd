@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Count Nibbles",
 	"type": "Vampire",
 	"rarity": "common",
+	"tier_power": [1.06, 1.05, 1.04, 1.16, 1.28], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "c2264a",

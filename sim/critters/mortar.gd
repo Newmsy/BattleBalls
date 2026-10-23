@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Toy cannon",
 	"rarity": "rare",
 	"rarity_power": 0.935, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.15, 1.07, 1.00, 0.97, 0.95], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Zoner",
 	"status": "live",
 	"color": "5c6b3a",

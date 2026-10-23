@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Kraken",
 	"rarity": "legendary",
 	"rarity_power": 0.977, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.00, 1.03, 1.06, 1.16, 1.26], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Zoner",
 	"status": "live",
 	"color": "8e3bbd",

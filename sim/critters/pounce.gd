@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Pounce",
 	"type": "Snow lynx",
 	"rarity": "epic",
+	"tier_power": [0.94, 0.94, 0.95, 0.94, 0.93], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "b7b7a4",

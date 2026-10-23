@@ -10,6 +10,7 @@ const CRITTER := {
 	"role": "Bruiser",
 	"status": "live",
 	"rarity_power": 0.94, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
+	"tier_power": [1.20, 1.10, 1.00, 1.02, 1.03], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"color": "ff4500",
 	"vibe": "A hot-headed lava blob who leaves a splash in every fight.",
 	"description": "Lava blob. Every hit splashes a lava puddle ({lava_dps}/sec for {lava_life}s, up to {lava_max}) that burns foes who stay in it.",

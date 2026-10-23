@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Lighthouse",
 	"rarity": "epic",
 	"rarity_power": 1.04, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.85, 0.81, 1.00, 1.00, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Zoner",
 	"status": "live",
 	"color": "06d6a0",

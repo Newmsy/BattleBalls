@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Fizz",
 	"type": "Soda",
 	"rarity": "uncommon",
+	"tier_power": [0.94, 0.97, 1.00, 0.91, 0.82], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "ff4da6",

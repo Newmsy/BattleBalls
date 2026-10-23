@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Thunderbird",
 	"rarity": "legendary",
 	"rarity_power": 0.942, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.06, 1.03, 1.00, 1.11, 1.25], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "4895ef",

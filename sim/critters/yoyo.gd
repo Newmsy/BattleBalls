@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Yo-Yo",
 	"rarity": "epic",
 	"rarity_power": 1.057, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.04, 1.04, 1.03, 0.92, 0.83], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Zoner",
 	"status": "live",
 	"color": "00b4d8",

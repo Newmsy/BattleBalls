@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Static",
 	"type": "Spark",
 	"rarity": "uncommon",
+	"tier_power": [0.83, 0.83, 0.82, 0.80, 0.79], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Zoner",
 	"status": "live",
 	"color": "b388ff",

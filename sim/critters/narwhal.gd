@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Narwhal",
 	"type": "Narwhal",
 	"rarity": "legendary",
+	"tier_power": [0.97, 1.01, 1.05, 0.84, 0.67], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "b8e0d2",

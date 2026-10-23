@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Beehive",
 	"rarity": "epic",
 	"rarity_power": 0.938, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.16, 1.12, 0.97, 0.89, 0.82], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Zoner",
 	"status": "live",
 	"color": "bb8a2d",

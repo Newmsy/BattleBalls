@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Eclipse",
 	"rarity": "legendary",
 	"rarity_power": 0.911, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.08, 1.07, 0.92, 0.89, 0.87], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "f4a259",
@@ -19,15 +20,15 @@ const CRITTER := {
 		"eclipse_secs": 5.0,
 		"flip_radius": 160.0,
 		"sun_radius": 66.0,
-		"sun_dps": 4.0,
+		"sun_dps": 5.5,
 		"moon_hps": 1.5,
 		"moon_shield": 0.0,
 		"total_secs": 0.0,
 		"total_damage": 12.0,
 	},
 	"tiers": [
-		{"text": "Flips every 5s: Sun burns 4/sec, Moon heals 1.5 HP/sec", "now": "Flips every {eclipse_secs}s: Sun burns {sun_dps}/sec, Moon heals {moon_hps} HP/sec"},
-		{"text": "Sun {^sun_dps} → {sun_dps}/sec, heal {^moon_hps} → {moon_hps} HP/sec", "sun_dps": 7.0, "moon_hps": 4.0},
+		{"text": "Flips every 5s: Sun burns 5.5/sec, Moon heals 1.5 HP/sec", "now": "Flips every {eclipse_secs}s: Sun burns {sun_dps}/sec, Moon heals {moon_hps} HP/sec"},
+		{"text": "Sun {^sun_dps} → {sun_dps}/sec, heal {^moon_hps} → {moon_hps} HP/sec", "sun_dps": 7.0, "moon_hps": 2.5},
 		{"text": "+ Moon gives a {moon_shield} shield", "now": "Flips every {eclipse_secs}s: Sun {sun_dps}/sec, Moon {moon_hps} HP/sec + {moon_shield} shield", "moon_shield": 10.0},
 		{"text": "Flip every 5 → 4s", "eclipse_secs": 4.0},
 		{"text": "+ Both at once 1.5s after flips · flash {total_damage}", "now": "Flips every {eclipse_secs}s: burn {sun_dps}/sec, heal {moon_hps} HP/sec, both {total_secs}s after", "special": "Total Eclipse", "total_secs": 1.5},

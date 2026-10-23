@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Breeze",
 	"rarity": "rare",
 	"rarity_power": 1.104, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.81, 0.87, 0.94, 0.90, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "c7f9cc",

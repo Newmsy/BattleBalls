@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Ice queen",
 	"rarity": "legendary",
 	"rarity_power": 0.908, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.93, 0.89, 1.00, 1.02, 1.04], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "b9a7ff",

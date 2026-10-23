@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Pollen",
 	"type": "Dandelion",
 	"rarity": "uncommon",
+	"tier_power": [1.05, 0.97, 0.90, 0.87, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "caffbf",

@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Boulder",
 	"type": "Juggernaut",
 	"rarity": "common",
+	"tier_power": [0.96, 0.96, 0.96, 0.89, 0.69], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",
 	"status": "live",
 	"color": "7d8799",

@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Gumdrop",
 	"type": "Gumdrop",
 	"rarity": "common",
+	"tier_power": [1.00, 1.00, 1.00, 1.09, 1.19], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "9b5de5",

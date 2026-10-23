@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Mirror",
 	"rarity": "epic",
 	"rarity_power": 0.955, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.03, 1.02, 1.00, 0.96, 0.93], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "cfd8e6",

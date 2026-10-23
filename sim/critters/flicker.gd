@@ -10,6 +10,7 @@ const CRITTER := {
 	"role": "Skirmisher",
 	"status": "live",
 	"rarity_power": 0.93, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
+	"tier_power": [1.17, 1.24, 1.00, 0.98, 0.96], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"color": "fff1c1",
 	"vibe": "A cheeky candle that vanishes in a puff of smoke after every poke.",
 	"description": "Candle. After every hit its flame goes out for {phase_secs}s and it fades (-70% dmg taken); then it relights in a burst of fire ({relight_damage} dmg).",

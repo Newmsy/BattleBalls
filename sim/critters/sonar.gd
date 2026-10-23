@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Bat",
 	"rarity": "rare",
 	"rarity_power": 1.075, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.00, 1.08, 1.17, 1.15, 0.70], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "3c096c",
@@ -32,7 +33,7 @@ const CRITTER := {
 		{"text": "Swerve speed x1.4 → 1.5", "ping_dash_mult": 1.5},
 		{"text": "+ The ping deals {ping_damage}", "now": "Bounces ping: swerve at foe, {ping_damage} dmg, slow {ping_slow%}%", "ping_damage": 4.0},
 		{"text": "Ping size +{+ping_radius}%", "ping_radius": 220.0},
-		{"text": "+ Pings find the foe · next hit in 3s x{ping_hit_mult}", "now": "Bounces ping: swerve, {ping_damage} dmg, slow {ping_slow%}% · hit in {ping_mark}s x{ping_hit_mult}", "special": "Echolocation", "ping_hit_mult": 2.5, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
+		{"text": "+ Pings find the foe · next hit in 3s x{ping_hit_mult}", "now": "Bounces ping: swerve, {ping_damage} dmg, slow {ping_slow%}% · hit in {ping_mark}s x{ping_hit_mult}", "special": "Echolocation", "ping_hit_mult": 1.8, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "fangs"}, "back": ["batwings", "ears"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.3},

@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Bubbles",
 	"type": "Bubble",
 	"rarity": "common",
+	"tier_power": [1.00, 1.00, 1.00, 0.92, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
 	"color": "6fe3e8",

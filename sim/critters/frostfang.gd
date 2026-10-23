@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Wolf",
 	"rarity": "legendary",
 	"rarity_power": 1.024, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [0.76, 0.88, 1.00, 1.00, 0.60], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "6d6875",
@@ -35,7 +36,7 @@ const CRITTER := {
 		{"text": "Shards {^shard_damage} → {shard_damage}", "shard_damage": 7.0},
 		{"text": "+ Frozen foe: +15% dmg taken for 2s", "now": "Every 2nd hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_sour": 0.15},
 		{"text": "Shards {^shard_damage} → {shard_damage}, size +{+shard_radius}%", "shard_damage": 8.0, "shard_radius": 180.0},
-		{"text": "Every hit freezes · shatter x{^shatter_mult} → {shatter_mult}", "now": "Every hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_max": 1, "shatter_mult": 2.2},
+		{"text": "Every hit freezes · shatter x{^shatter_mult} → {shatter_mult}", "now": "Every hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_max": 1, "shard_damage": 4.0, "shatter_mult": 1.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "6fd3ff", "mouth": "fangs"}, "back": ["ears"], "front": ["ruff"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 0.8},

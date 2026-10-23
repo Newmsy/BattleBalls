@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Robot",
 	"rarity": "uncommon",
 	"rarity_power": 1.181, ## Per rarity step: its kit gains less than most from rarity (tools/rarity_critters.gd).
+	"tier_power": [1.00, 1.07, 1.13, 1.25, 1.36], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "3a3aff",

@@ -85,6 +85,11 @@ static func sim_def(id: String, tier := 1, bonus_tiers := 0.0) -> Dictionary:
 		## only): evens out kits that gain more or less than most from rarity's
 		## ability potency (tools/rarity_critters.gd).
 		"rarity_power": float(c.get("rarity_power", 1.0)),
+		## Fight power at this tier on top of that (MatchSim, real fights
+		## only): evens a kit out against its own rarity at each tier, for
+		## kits whose tier upgrades land bigger or smaller than most
+		## (tools/round_robin.gd --same).
+		"tier_power": float(c.get("tier_power", [1.0, 1.0, 1.0, 1.0, 1.0])[clampi(tier, 1, TIERS) - 1]),
 		"tier": clampi(tier, 1, TIERS), ## So the renderer can draw a stronger ability bigger.
 	}
 	def.merge(c.stats, true)
@@ -126,6 +131,8 @@ static func validate(id: String, c: Dictionary) -> Array[String]:
 		return errors
 	if not id.is_valid_identifier() or id != id.to_lower():
 		errors.append("%s: file name must be a lowercase snake_case id" % id)
+	if c.has("tier_power") and (not c.tier_power is Array or c.tier_power.size() != TIERS or c.tier_power.any(func(x): return not (x is float or x is int) or x <= 0.0)):
+		errors.append("%s: tier_power must be %d positive numbers, one per tier" % [id, TIERS])
 	if not c.rarity in RARITIES:
 		errors.append("%s: rarity \"%s\" is not one of %s" % [id, c.rarity, RARITIES])
 	if not c.role in ROLES:
@@ -206,12 +213,13 @@ static func _validate_text(id: String, c: Dictionary) -> Array[String]:
 
 ## A critter as it fights at `tier` and `level` with no gear or talents: what
 ## MatchSim builds for a Lineup slot (sim_def with rarity's ability tiers,
-## scaled by Power and its rarity_power). Ability text is filled from this, so
+## scaled by Power, its rarity_power and tier_power). Ability text is filled from this, so
 ## the numbers on screen are the ones that fight.
 static func fight_def(id: String, tier: int, level := 1) -> Dictionary:
 	var c := get_critter(id)
 	var steps := maxi(0, RARITIES.find(str(c.rarity)))
 	var power := Power.multiplier(str(c.rarity), tier, level) * DMath.ipow(float(c.get("rarity_power", 1.0)), steps)
+	power *= float(c.get("tier_power", [1.0, 1.0, 1.0, 1.0, 1.0])[clampi(tier, 1, TIERS) - 1])
 	return Power.scale_def(sim_def(id, tier, Power.rarity_tiers(str(c.rarity))), power)
 
 

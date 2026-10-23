@@ -8,6 +8,7 @@ const CRITTER := {
 	"type": "Wasp",
 	"rarity": "rare",
 	"rarity_power": 0.865, ## Per rarity step; also trimmed after the 2026-10-22 round robin (tools/round_robin.gd): it topped its rarity.
+	"tier_power": [1.16, 1.02, 0.88, 0.92, 0.97], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Skirmisher",
 	"status": "live",
 	"color": "f5c400",

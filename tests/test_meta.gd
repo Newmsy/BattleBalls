@@ -58,7 +58,7 @@ func test_rarity_builds_the_ability_tiers_up() -> void:
 	# (no tier upgrades), so a T1 Legendary can fight a T5 Common evenly.
 	var sim := MatchSim.new({"seed": 1, "p1": "glacia", "p2": "crumb"})
 	var steps := 4.0 * Power.RARITY_ABILITY_TIERS
-	var trim := sqrt(pow(float(BallDefs.get_def("glacia").rarity_power), 4)) # Its per-critter rarity power, as damage.
+	var trim := sqrt(pow(float(BallDefs.get_def("glacia").rarity_power), 4) * float(BallDefs.get_def("glacia").tier_power)) # Its per-critter rarity and tier power, as damage.
 	check_near(sim.balls[0].def.shard_damage, BallDefs.get_def("glacia").shard_damage * (1.0 + 0.25 * steps) * trim, 0.001, "Legendary T1 potency")
 	check_eq(Power.rarity_tiers("common"), 0.0, "Commons get none")
 	var off := MatchSim.new({"seed": 1, "p1": "glacia", "p2": "crumb", "rarity_potency": false})

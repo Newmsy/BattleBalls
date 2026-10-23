@@ -7,6 +7,7 @@ const CRITTER := {
 	"name": "Glowbug",
 	"type": "Firefly",
 	"rarity": "uncommon",
+	"tier_power": [1.00, 1.06, 1.00, 1.00, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Zoner",
 	"status": "live",
 	"color": "d4ff3a",
