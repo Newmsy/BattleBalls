@@ -440,7 +440,8 @@ func title_row(title: String, opts := {}) -> HBoxContainer:
 		row.add_child(b)
 		row.move_child(b, 0)
 	for c in opts.get("extra", []):
-		row.add_child(c)
+		if c != null: # Optional chips (Account's Guest/Saved, Friends' count) can be absent.
+			row.add_child(c)
 	if opts.has("info"):
 		row.add_child(info_button(opts.get("info_title", title), opts.info, opts.get("info_mark", "info")))
 	return row
@@ -757,6 +758,9 @@ func _tab_bar() -> Control:
 		var content := Kit.vbox(4)
 		content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		content.alignment = BoxContainer.ALIGNMENT_END
+		# PLAY's big disc is taller than the bar: let it rise above the bar
+		# instead of pushing its label off the bottom of the screen.
+		content.grow_vertical = Control.GROW_DIRECTION_BEGIN
 		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var icon_box := CenterContainer.new()
 		icon_box.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -29,7 +29,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(shell.title_row("Fusion Lab", {"back": false, "eyebrow": "3 of a kind → next tier", "info_title": "How fusing works", "info_mark": "fuse_info", "info": [
 		"3 of a kind → 1 of the next tier, up to T5.",
 		"The new copy keeps the highest level of the three, and its level cap goes up.",
-		"Gear goes back to your Bag."]}))
+		"Its gear stays on."]}))
 
 	var list := Kit.vbox(12, [Kit.caption("Ready to fuse")])
 	if ready.is_empty():

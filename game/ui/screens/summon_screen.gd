@@ -175,7 +175,10 @@ static func _pull(shell, n: int) -> void:
 		_rng = RandomNumberGenerator.new()
 		_rng.randomize()
 	var ids: Array = Summon.pull(p, n, _rng)
-	var fresh: Array = ids.map(func(id): return not p.owns(id))
+	# NEW only on a critter's first copy: a second one in the same x10 is a dupe.
+	var fresh: Array = []
+	for i in ids.size():
+		fresh.append(not p.owns(ids[i]) and not ids[i] in ids.slice(0, i))
 	p.add_copies(ids)
 	print("UI_SUMMON ", ",".join(ids))
 	Analytics.track("summon", {"count": n, "new": fresh.count(true)})
