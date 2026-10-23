@@ -3,11 +3,13 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
-		<meta name="theme-color" content="#0b0a1f">
+		<meta name="theme-color" content="#2f86ff">
 		<title>$GODOT_PROJECT_NAME</title>
 		<style>
-/* Battle Balls loading screen (Neon Critters). Godot's export fills in the
-   $GODOT_* placeholders; the splash image is game/brand/splash.png. */
+/* Battle Balls loading screen: the bright meadow from game/ui/splash_art.gd,
+   rendered to game/brand/loading.png (tools/brand/render_loading.gd), which
+   Godot's export serves as $GODOT_SPLASH. The game draws the same picture
+   live and calls window.bbGameReady() once it has, so the hand-over is seamless. */
 html, body, #canvas {
 	margin: 0;
 	padding: 0;
@@ -15,11 +17,11 @@ html, body, #canvas {
 }
 
 html, body {
-	background-color: #0b0a1f;
+	background-color: #6cc6ff;
 }
 
 body {
-	color: #f0eeff;
+	color: #ffffff;
 	overflow: hidden;
 	overscroll-behavior: none;
 	touch-action: none;
@@ -36,16 +38,9 @@ body {
 #status {
 	position: absolute;
 	inset: 0;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	gap: 3vh;
 	visibility: hidden;
-	background:
-		repeating-linear-gradient(0deg, rgba(143, 123, 255, 0.06) 0 1px, transparent 1px 44px),
-		repeating-linear-gradient(90deg, rgba(143, 123, 255, 0.06) 0 1px, transparent 1px 44px),
-		radial-gradient(ellipse at 50% 40%, #2c2170 0%, #141038 55%, #0b0a1f 100%);
+	overflow: hidden;
+	background: linear-gradient(#2f86ff 0%, #6cc6ff 35%, #d2f3ff 56%, #8be36f 57%, #4cbc4f 80%, #2f9a43 100%);
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	transition: opacity 0.35s ease-out;
 	z-index: 1;
@@ -55,43 +50,42 @@ body {
 	opacity: 0;
 }
 
-#status::before {
-	/* The arena's glowing border. */
-	content: '';
-	position: absolute;
-	inset: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
-	border: 3px solid #c2b5ff;
-	border-radius: 34px;
-	box-shadow: 0 0 22px 4px rgba(143, 123, 255, 0.55), inset 0 0 22px 2px rgba(143, 123, 255, 0.35);
-	pointer-events: none;
-}
-
 #status-splash {
-	width: min(78vw, 46vh, 420px);
-	height: auto;
-	animation: bob 1.1s ease-in-out infinite alternate;
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: 50% 47%;
 }
 
-@keyframes bob {
-	from { transform: translateY(0) scale(1, 1); }
-	to { transform: translateY(-2.2vh) scale(0.99, 1.01); }
+#status-foot {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: max(6vh, calc(env(safe-area-inset-bottom) + 24px));
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 14px;
 }
 
 #status-progress {
 	display: none;
 	flex-direction: column;
 	align-items: center;
-	gap: 12px;
-	width: min(64vw, 320px);
+	gap: 10px;
+	width: min(70vw, 340px);
 }
 
 #status-bar {
 	position: relative;
 	width: 100%;
-	height: 14px;
+	height: 20px;
 	border-radius: 999px;
-	background: #1b1842;
-	border: 2px solid #2b2760;
+	background: #ffffff;
+	border: 4px solid #2a1748;
+	box-shadow: 0 4px 0 rgba(42, 23, 72, 0.35);
 	overflow: hidden;
 }
 
@@ -100,8 +94,7 @@ body {
 	inset: 0 auto 0 0;
 	width: 6%;
 	border-radius: 999px;
-	background: linear-gradient(90deg, #8f7bff, #ff6fae);
-	box-shadow: 0 0 12px #8f7bff;
+	background: linear-gradient(#ffe066 0 45%, #ffab1f 55% 100%);
 	transition: width 0.2s ease-out;
 }
 
@@ -115,32 +108,39 @@ body {
 	to { left: 70%; }
 }
 
+#status-label, #status-tip {
+	color: #ffffff;
+	font-weight: 800;
+	text-align: center;
+	text-shadow: 0 2px 0 #2a1748, 2px 0 0 #2a1748, -2px 0 0 #2a1748, 0 -2px 0 #2a1748,
+		2px 2px 0 #2a1748, -2px 2px 0 #2a1748, 2px -2px 0 #2a1748, -2px -2px 0 #2a1748, 0 4px 0 rgba(42, 23, 72, 0.4);
+}
+
 #status-label {
-	font-size: 15px;
-	font-weight: 700;
-	letter-spacing: 0.14em;
+	font-size: 17px;
+	letter-spacing: 0.12em;
 	text-transform: uppercase;
-	color: #a29fc9;
 }
 
 #status-tip {
-	position: absolute;
-	bottom: max(9vh, calc(env(safe-area-inset-bottom) + 40px));
-	left: 32px;
-	right: 32px;
-	text-align: center;
+	margin: 0 28px;
 	font-size: 15px;
 	line-height: 1.4;
-	color: #a29fc9;
 	transition: opacity 0.3s;
 }
 
 #status-notice {
 	display: none;
-	background-color: #1b1842;
-	border-radius: 16px;
-	border: 2px solid #ff5a7a;
-	color: #f0eeff;
+	position: absolute;
+	top: 50%;
+	left: 0;
+	right: 0;
+	transform: translateY(-50%);
+	background-color: #ffffff;
+	border-radius: 18px;
+	border: 4px solid #2a1748;
+	color: #2a1748;
+	font-weight: 700;
 	line-height: 1.4;
 	margin: 0 2rem;
 	padding: 1rem;
@@ -148,7 +148,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	#status-splash, #status-bar.indeterminate #status-fill {
+	#status-bar.indeterminate #status-fill {
 		animation: none;
 	}
 }
@@ -166,12 +166,14 @@ body {
 
 		<div id="status">
 			<img id="status-splash" src="$GODOT_SPLASH" alt="Battle Balls">
-			<div id="status-progress">
-				<div id="status-bar" class="indeterminate"><div id="status-fill"></div></div>
-				<div id="status-label">Loading arena</div>
+			<div id="status-foot">
+				<div id="status-progress">
+					<div id="status-bar" class="indeterminate"><div id="status-fill"></div></div>
+					<div id="status-label">Loading arena</div>
+				</div>
+				<div id="status-tip"></div>
 			</div>
 			<div id="status-notice"></div>
-			<div id="status-tip"></div>
 		</div>
 
 		<script>
@@ -237,6 +239,10 @@ const engine = new Engine(GODOT_CONFIG);
 			statusTip.style.opacity = 1;
 		}, 300);
 	}, 3200);
+
+	window.bbGameReady = function () {
+		setStatusMode('hidden');
+	};
 
 	let initializing = true;
 	let statusMode = '';
@@ -326,7 +332,10 @@ const engine = new Engine(GODOT_CONFIG);
 				}
 			},
 		}).then(() => {
-			setStatusMode('hidden');
+			// The game says when it has drawn its own copy of this screen
+			// (game/ui/splash_art.gd); the timer is a safety net.
+			statusLabel.textContent = 'Entering arena';
+			setTimeout(() => setStatusMode('hidden'), 4000);
 		}, displayFailureNotice);
 	}
 }());
