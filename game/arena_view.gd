@@ -130,6 +130,8 @@ var preview_modifier := Modifiers.NONE
 var preview_arena := "square"
 ## Tier of each ball (stars on the badge, how big its feature grows).
 var tiers: Array = [1, 1]
+## Balls drawn with the elite look (Bounce Run's Elites and Champion).
+var elites: Array = []
 ## Where the arena sits at zoom 1; the finisher cam moves and scales from here.
 var origin := Vector2.ZERO
 var cam_zoom := 1.0
@@ -1185,6 +1187,8 @@ func _draw() -> void:
 		elif b.alive() and b.state.get("digging", false) and sim.tick < int(b.state.get("phase_until", -1)):
 			BattleFx.draw_burrow(self, ball_pos(b) * s, b.radius * s, b.vel, _time)
 		elif b.alive():
+			if b.index in elites:
+				BattleFx.draw_elite_aura(self, ball_pos(b) * s, b.radius * s, _time)
 			var tier := _tier_of(b.index)
 			if tier >= 3: # Higher tiers glow softly, warmer and brighter toward T5.
 				BattleFx.draw_tier_aura(self, ball_pos(b) * s, b.radius * s, tier, Color(b.def.color), _time + b.index)

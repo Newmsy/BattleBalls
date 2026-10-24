@@ -68,6 +68,17 @@ func _draw() -> void:
 			draw_colored_polygon(CritterArt.star_pts(c + Vector2(0, s * .01), s * .2, s * .09, 5), Color("d9a22e"))
 			draw_colored_polygon(CritterArt.star_pts(c, s * .2, s * .09, 5), Color("fff0b0"))
 			draw_circle(c + Vector2(-s * .2, -s * .2), s * .06, Color(1, 1, 1, .6))
+		"button":
+			# Bounce Run's Buttons: a cream-gold sewing button with a teal rim,
+			# a raised lip, four holes and a glint (tools/event_art/scenes/buttons_icon.mjs).
+			draw_circle(c, s * .5, Color("16827f"))
+			draw_circle(c, s * .43, Color("37d6c8"))
+			draw_circle(c, s * .36, Color("c99a3e"))
+			draw_circle(c + Vector2(0, -s * .015), s * .33, Color("f5dc98"))
+			draw_arc(c, s * .25, 0, TAU, 24, Color("d9b25c"), s * .04, true)
+			for q in [Vector2(-1, -1), Vector2(1, -1), Vector2(-1, 1), Vector2(1, 1)]:
+				draw_circle(c + q * s * .09, s * .055, Color("7a5418"))
+			draw_circle(c + Vector2(-s * .2, -s * .22), s * .05, Color(1, 1, 1, .6))
 		"hammer":
 			# A forge hammer, tilted: wooden handle, steel head with a hot face.
 			var t := Transform2D(-PI / 5.0, c)

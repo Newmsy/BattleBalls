@@ -4,6 +4,8 @@ const BounceRun := preload("res://sim/bounce_run.gd")
 const Boons := preload("res://sim/boons.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const BounceBot := preload("res://tools/bounce_bot.gd")
+const Rng := preload("res://sim/rng.gd")
 
 
 ## The first START_BOONS boons of the day's offer.
@@ -28,58 +30,85 @@ func test_runs_are_deterministic_per_day() -> void:
 	check_eq(BounceRun.new_run(setup, [0, 1, 2], setup.start_offer.slice(0, BounceRun.START_BOONS)).seed, 4242, "the run keeps its seed")
 
 
-## Every foe carries exactly as many boons as you can hold on that floor, and
-## every boon it carries works for its critter.
-func test_foes_are_power_equalised() -> void:
-	for day in range(1, 60):
+## A new run on day `day` with the first three cards and starting boons.
+static func _new(day: int) -> Array:
+	var setup := BounceRun.generate(day)
+	return [setup, BounceRun.new_run(setup, [0, 1, 2], _start(setup))]
+
+
+## Every map has the same shape rules: a 20-floor climb, links only to the
+## next floor, no crossings, fixed rows, and the Champion on top.
+func test_maps_follow_the_rules() -> void:
+	for day in range(1, 50):
 		var setup := BounceRun.generate(day)
+		var nodes: Dictionary = setup.nodes
+		var rows := {}
+		for id in nodes:
+			var n: Dictionary = nodes[id]
+			rows[n.row] = rows.get(n.row, 0) + 1
+			for k in n.kids:
+				check_eq(nodes[k].row, n.row + 1, "day %d: links go up one floor" % day)
+			if n.row < BounceRun.FLOORS - 1:
+				check(not n.kids.is_empty(), "day %d: no dead ends" % day)
+			match n.row:
+				0:
+					check_eq(n.type, "fight", "floor 1 is all fights")
+				BounceRun.CHEST_ROW:
+					check_eq(n.type, "chest", "the middle floor is all chests")
+				BounceRun.REST_ROW:
+					check_eq(n.type, "rest", "Charge Pads before the Champion")
+				BounceRun.FLOORS - 1:
+					check_eq(n.type, "boss", "the Champion on top")
+			if n.type == "elite":
+				check(n.row >= 4, "day %d: no early elites" % day)
+			if n.type in ["fight", "elite", "boss"]:
+				var ability: String = BallDefs.get_def(n.foe.critter).ability
+				for id2 in n.foe.boons:
+					check(Boons.applies_to(id2, ability), "day %d: foe boon %s works for %s" % [day, id2, n.foe.critter])
+		check_eq(rows.size(), BounceRun.FLOORS, "day %d: every floor has nodes" % day)
+		check_eq(rows[BounceRun.FLOORS - 1], 1, "one Champion")
+		check(rows[0] >= 2, "day %d: a choice of start" % day)
+		# No two links cross between the same floors.
+		for a in nodes:
+			for b in nodes:
+				if nodes[a].row != nodes[b].row or a >= b or nodes[a].row >= BounceRun.FLOORS - 2:
+					continue
+				for ka in nodes[a].kids:
+					for kb in nodes[b].kids:
+						var left: bool = nodes[a].col < nodes[b].col
+						check(nodes[ka].col <= nodes[kb].col if left else nodes[ka].col >= nodes[kb].col, "day %d: links cross" % day)
 		check_eq(setup.cards.size(), BounceRun.DRAFT, "draft size")
-		check_eq(setup.floors.size(), BounceRun.FLOORS, "floors")
-		for f in BounceRun.FLOORS:
-			var foe: Dictionary = setup.floors[f]
-			check_eq(foe.boons.size(), BounceRun.START_BOONS + f, "day %d floor %d boon count" % [day, f + 1])
-			var ability: String = BallDefs.get_def(foe.critter).ability
-			for id in foe.boons:
-				check(Boons.applies_to(id, ability), "day %d floor %d: %s is useless on %s" % [day, f + 1, id, foe.critter])
-		check_eq(setup.start_offer.size(), BounceRun.START_OFFER, "day %d start offer size" % day)
 		for id in setup.start_offer:
 			check(id in Boons.GENERAL and setup.start_offer.count(id) == 1, "day %d start offer: %s is a general boon, once" % [day, id])
-		var critters: Array = setup.cards.map(func(c): return c.critter)
-		# Every critter shows up before any repeats: all of them while the
-		# roster fits in one draft, five different ones once it doesn't.
-		if BallDefs.PLAYABLE.size() <= BounceRun.DRAFT:
-			for id in BallDefs.PLAYABLE:
-				check(id in critters, "day %d draft offers every critter (missing %s)" % [day, id])
-		else:
-			for id in critters:
-				check(critters.count(id) == 1, "day %d draft repeats %s" % [day, id])
 
 
-func test_offers_are_new_usable_boons() -> void:
-	var setup := BounceRun.generate(3)
-	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
-	for f in BounceRun.FLOORS - 1:
-		run.floor = f + 1
-		var offer := BounceRun.offer(setup, run)
-		# Full offers while enough usable boons are left.
-		var left := 0
-		for id in Boons.ALL:
-			if not id in run.boons.map(func(o): return Boons.base_of(o)) and range(BounceRun.PICKS).any(func(s): return Boons.applies_to(id, BallDefs.get_def(BounceRun.card(setup, run, s).critter).ability)):
-				left += 1
-		check_eq(offer.size(), mini(BounceRun.OFFER, left), "floor %d offer size" % (f + 1))
-		check(offer.size() >= 2, "floor %d offers a real choice" % (f + 1))
-		for id in offer:
-			check(not Boons.base_of(id) in run.boons.map(func(o): return Boons.base_of(o)), "offer repeats an owned boon")
-		run.boons.append(offer[0])
-	check_eq(BounceRun.offer(setup, run), BounceRun.offer(setup, run), "offers are seeded")
+## You can only step to nodes linked from where you are, starting on floor 1.
+func test_you_walk_the_links() -> void:
+	var p := _new(3)
+	var setup: Dictionary = p[0]
+	var run: Dictionary = p[1]
+	var first := BounceRun.next_nodes(setup, run)
+	check(first.all(func(id): return setup.nodes[id].row == 0), "start on floor 1")
+	BounceRun.go(setup, run, first[0])
+	check_eq(BounceRun.phase(setup, run), "fight", "floor 1 is a fight")
+	check_eq(BounceRun.next_nodes(setup, run), [], "no moving mid-fight")
+	BounceRun.record(setup, run, 0, -450, 0, 300, 0.0)
+	check_eq(run.floor, 1, "a win clears the floor")
+	check_eq(run.buttons, BounceRun.PAY.fight, "and pays Buttons")
+	check_eq(BounceRun.phase(setup, run), "boon", "then a boon pick")
+	BounceRun.take_boon(run, run.offer[0])
+	check_eq(BounceRun.next_nodes(setup, run), setup.nodes[first[0]].kids, "then the linked nodes above")
 
 
 func test_a_loss_costs_the_fighter_and_three_end_the_run() -> void:
-	var setup := BounceRun.generate(1)
-	var run := BounceRun.new_run(setup, [0, 2, 4], _start(setup))
-	BounceRun.record(setup, run, 1, 0, 1, 600)
+	var p := _new(1)
+	var setup: Dictionary = p[0]
+	var run: Dictionary = p[1]
+	BounceRun.go(setup, run, BounceRun.next_nodes(setup, run)[0])
+	BounceRun.record(setup, run, 1, 0, 1, 600, 20.0)
 	check(run.out[1] and not run.over, "first loss knocks out the fighter only")
 	check_eq(run.floor, 0, "a loss doesn't climb")
+	check_eq(BounceRun.fight_config(setup, run, 0, -450).hp, [null, 20.0], "the foe keeps its damage")
 	BounceRun.record(setup, run, 0, 0, -1, 600)
 	check(run.out[0], "a draw is not a win")
 	BounceRun.record(setup, run, 2, 0, 1, 600)
@@ -87,57 +116,132 @@ func test_a_loss_costs_the_fighter_and_three_end_the_run() -> void:
 	check_eq(BounceRun.score(run), {"floors": 0, "lives": 0, "ticks": 1800}, "score")
 
 
-## The foe keeps the damage it took when it beats one of your critters, so
-## the next one you send finishes it off; a cleared floor's next foe is fresh.
-func test_the_foe_keeps_its_damage_between_sends() -> void:
-	var setup := BounceRun.generate(3)
-	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
-	check_eq(BounceRun.fight_config(setup, run, 0, -450).hp, [null, null], "the first send meets a fresh foe")
-	BounceRun.record(setup, run, 0, -450, 1, 600, 37.5)
-	check_eq(BounceRun.fight_config(setup, run, 1, -450).hp, [null, 37.5], "the next send meets the hurt foe")
-	var sim := MatchSim.new(BounceRun.fight_config(setup, run, 1, -450))
-	check_eq(sim.balls[1].hp, 37.5, "the sim starts the foe on that HP")
-	BounceRun.record(setup, run, 1, -450, -1, 600, -4.0)
-	check_eq(run.foe_hp, 0.01, "a double KO leaves the foe barely standing")
-	BounceRun.record(setup, run, 2, -450, 0, 300, 0.0)
-	check_eq(BounceRun.fight_config(setup, run, 2, -450).hp, [null, null], "the next floor's foe is fresh")
-
-
-func test_winning_every_floor_clears_the_run() -> void:
-	var setup := BounceRun.generate(2)
-	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
-	for f in BounceRun.FLOORS:
-		BounceRun.record(setup, run, 0, 0, 0, 100)
-		if not run.over:
-			check_eq(run.offer.size(), BounceRun.OFFER, "a win deals a full offer")
-			BounceRun.take_boon(run, run.offer[0])
-	check(run.over, "the top floor ends the run")
-	check_eq(BounceRun.score(run), {"floors": BounceRun.FLOORS, "lives": 3, "ticks": 100 * BounceRun.FLOORS}, "perfect run")
-	check_eq(run.boons.size(), BounceRun.START_BOONS + BounceRun.FLOORS - 1, "the starting boons, then one after every win but the last")
-
-
-## There are enough general boons that every win offers a full choice, even
-## on the last floor of a perfect run.
-func test_every_offer_is_full() -> void:
-	for day in range(1, 40):
+## Elites and the Champion are bigger and stronger than a floor's normal foe.
+func test_elites_are_bigger_and_tougher() -> void:
+	var seen := false
+	for day in range(1, 20):
 		var setup := BounceRun.generate(day)
-		var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
-		while not run.over:
-			BounceRun.record(setup, run, 0, 0, 0, 100)
-			if not run.over:
-				check_eq(run.offer.size(), BounceRun.OFFER, "day %d floor %d offer" % [day, run.floor])
-				BounceRun.take_boon(run, run.offer[run.offer.size() - 1])
+		for id in setup.nodes:
+			var n: Dictionary = setup.nodes[id]
+			if n.type == "elite":
+				seen = true
+				check_eq(n.foe.size, BounceRun.ELITE_SIZE, "elites are bigger")
+				check_near(n.foe.power, BounceRun.FOE_POWER[n.row] * BounceRun.ELITE_POWER, 0.0001, "and stronger")
+			if n.type == "boss":
+				check_eq(n.foe.size, BounceRun.BOSS_SIZE, "the Champion is big")
+				check(n.foe.boons.any(func(b): return b in Boons.LEGENDARY), "with a Legendary boon")
+	check(seen, "elites turn up")
 
 
-## Foes start well under your power and end over it.
+## A hatched egg critter fights beside you as p3: a 2v1, small and a tier down.
+func test_the_hatchling_makes_it_two_on_one() -> void:
+	var p := _new(2)
+	var setup: Dictionary = p[0]
+	var run: Dictionary = p[1]
+	run.hatchling = "spiker"
+	run.floor = 8
+	var row8: Array = setup.nodes.keys().filter(func(id): return setup.nodes[id].row == 8 and setup.nodes[id].type == "fight")
+	if row8.is_empty():
+		return
+	run.at = row8[0]
+	run.done = false
+	var cfg := BounceRun.fight_config(setup, run, 0, -450)
+	check_eq(cfg.p3, "spiker", "the hatchling joins")
+	check(cfg.has("p4") and cfg.p4 == null, "nobody joins the foe")
+	var sim := MatchSim.new(cfg)
+	check_eq(sim.balls.size(), 3, "three balls")
+	check_eq(sim.balls[2].team, 0, "on your side")
+	check(sim.balls[2].radius < sim.balls[0].radius, "and smaller")
+	check_eq(cfg.tiers[2], BounceRun.tier_at(8) - 1, "a tier down")
+	var result := sim.run_to_end()
+	check(result.winner in [-1, 0, 1], "the fight ends with a team winning")
+
+
+## The trader's critters lean rare: over many maps, most offers are Rare or better.
+func test_the_trader_offers_rarer_critters() -> void:
+	var counts := {}
+	var n := 0
+	for day in range(1, 120):
+		var p := _new(day)
+		var setup: Dictionary = p[0]
+		var run: Dictionary = p[1]
+		for id in setup.nodes:
+			if setup.nodes[id].get("event", "") == "tide_pool_trader":
+				run.at = id
+				run.done = false
+				var offer := BounceRun.trade_offer(setup, run)
+				check_eq(offer.size(), 2, "two critters")
+				for c in offer:
+					check(not c in run.critters, "never one you have")
+					var r: String = BallDefs.DEFS[c].get("rarity", "common")
+					counts[r] = counts.get(r, 0) + 1
+					n += 1
+	var rare_up: int = counts.get("rare", 0) + counts.get("epic", 0) + counts.get("legendary", 0)
+	check(n > 20 and rare_up * 100 / n >= 70, "mostly Rare or better: %s" % [counts])
+
+
+## Every event choice works from a run that can take it, and the shop, Charge
+## Pad and Glitches do what they say.
+func test_events_shops_and_rests() -> void:
+	var p := _new(5)
+	var setup: Dictionary = p[0]
+	var run: Dictionary = p[1]
+	var node_id: int = setup.nodes.keys().filter(func(id): return setup.nodes[id].type != "boss")[0]
+	for ev in BounceRun.EVENT_IDS:
+		for c in BounceRun.EVENTS[ev].choices:
+			var r := run.duplicate(true)
+			r.buttons = 100
+			r.out = [false, true, false]
+			r.boons.append("glitch_singed")
+			var s := setup.duplicate(true)
+			s.nodes[node_id].type = "mystery"
+			s.nodes[node_id].holds = "event"
+			s.nodes[node_id].event = ev
+			r.at = node_id
+			r.done = false
+			check(BounceRun.can_choose(s, r, c.id), "%s/%s can be taken" % [ev, c.id])
+			var args := BounceRun.choice_args(s, r, c)
+			BounceRun.choose(s, r, c.id, args[0] if not args.is_empty() else null)
+			check(r.done or r.rival, "%s/%s finishes the event" % [ev, c.id])
+			match c.id:
+				"hatch":
+					check(r.hatchling != "" and BallDefs.DEFS[r.hatchling].rarity == "common", "a Common hatchling")
+				"sell":
+					check_eq(r.buttons, 140, "sold for 40")
+				"drink":
+					check(not r.out[1], "revived")
+				"smash":
+					check(not "glitch_singed" in r.boons, "Glitch cleaned")
+				"dash":
+					check(r.dash and "glitch_singed" in r.boons, "dashed with a Glitch")
+	# Shop.
+	var r := run.duplicate(true)
+	var shop_id: int = node_id
+	var s2 := setup.duplicate(true)
+	s2.nodes[shop_id].type = "shop"
+	s2.nodes[shop_id].erase("holds")
+	r.at = -1
+	r.done = true
+	s2.nodes[shop_id].row = 0
+	BounceRun.go(s2, r, shop_id)
+	check_eq(BounceRun.phase(s2, r), "shop", "in the shop")
+	check(not BounceRun.can_buy(s2, r, "boon:0"), "no Buttons, no boon")
+	r.buttons = 200
+	var bought: String = r.shop.stock[2]
+	BounceRun.buy(s2, r, "boon:2")
+	check(bought in r.boons and r.buttons == 200 - BounceRun.price(s2, r, "boon:2"), "bought a boon")
+	check(not BounceRun.can_buy(s2, r, "boon:2"), "sold out")
+	check(not BounceRun.can_buy(s2, r, "revive"), "nobody to revive")
+	BounceRun.leave(s2, r)
+	check(r.done and r.floor == 1, "leaving clears the floor")
+
+
 func test_floors_get_harder() -> void:
 	check_eq(BounceRun.FOE_POWER.size(), BounceRun.FLOORS, "a power per floor")
 	check(BounceRun.FOE_POWER[0] < 1.0 and BounceRun.FOE_POWER[BounceRun.FLOORS - 1] > 1.0, "easy start, hard top")
 	for f in range(1, BounceRun.FLOORS):
 		check(BounceRun.FOE_POWER[f] > BounceRun.FOE_POWER[f - 1], "floor %d is harder than the one before" % (f + 1))
-	var setup := BounceRun.generate(1)
-	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
-	check_eq(BounceRun.fight_config(setup, run, 0, -450).powers, [1.0, BounceRun.FOE_POWER[0]], "the fight uses the floor's power")
+	check_eq(range(BounceRun.FLOORS).map(func(f): return BounceRun.tier_at(f)), [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5], "tiers by floor")
 
 
 func test_scores_rank_floors_then_lives_then_time() -> void:
@@ -146,23 +250,22 @@ func test_scores_rank_floors_then_lives_then_time() -> void:
 	check(BounceRun.better({"floors": 5, "lives": 2, "ticks": 100}, {"floors": 5, "lives": 2, "ticks": 200}), "then faster")
 
 
-## A played run replays to the same score from its log alone.
+## Random played runs replay to the same run from their log alone, and average
+## about ten fights.
 func test_runs_replay_from_their_log() -> void:
-	var setup := BounceRun.generate(4)
-	var run := BounceRun.new_run(setup, [1, 2, 3], _start(setup))
-	var aims := [-450, -300, -600, -500, -400, -350, -550, -450, -420, -480, -380]
-	var i := 0
-	while not run.over:
-		var slot: int = BounceRun.living(run)[0]
-		var aim: int = aims[i % aims.size()]
-		i += 1
-		var result := MatchSim.new(BounceRun.fight_config(setup, run, slot, aim)).run_to_end()
-		BounceRun.record(setup, run, slot, aim, result.winner, result.ticks, result.hp[1])
-		if not run.offer.is_empty():
-			BounceRun.take_boon(run, run.offer[i % run.offer.size()])
-	var check_run := BounceRun.replay(setup, run)
-	check_eq(BounceRun.score(check_run), BounceRun.score(run), "replayed score")
-	check_eq(check_run.log, run.log, "replayed log")
+	var fights := 0
+	for i in 6:
+		var rng := Rng.new(i * 977 + 5)
+		var setup := BounceRun.generate(10 + i)
+		var run := BounceBot.start(setup, rng)
+		fights += BounceBot.play(setup, run, rng).fights.size()
+		check(run.over, "run %d ended" % i)
+		var again := BounceRun.replay(setup, run)
+		check_eq(BounceRun.score(again), BounceRun.score(run), "replayed score")
+		check_eq(again.boons, run.boons, "replayed boons")
+		check_eq(again.buttons, run.buttons, "replayed Buttons")
+		check_eq(again.log, run.log, "replayed log")
+	check(fights >= 6 * 4, "runs have real fights in them (%d)" % fights)
 
 
 # --- Boons in the sim ----------------------------------------------------------
@@ -207,14 +310,6 @@ func test_opening_bite_lands_on_the_first_hit_only() -> void:
 	check(hits[1] <= 15.0, "later hits are normal")
 
 
-func test_both_sides_go_up_a_tier_every_two_floors() -> void:
-	check_eq(range(BounceRun.FLOORS).map(func(f): return BounceRun.tier_at(f)), [1, 1, 2, 2, 3, 3, 4, 4, 5, 5], "tiers by floor")
-	var setup := BounceRun.generate(2)
-	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
-	run.floor = 6
-	check_eq(BounceRun.fight_config(setup, run, 0, 0).tiers, [4, 4], "floor 7: trio and foe both fight at T4")
-
-
 func test_rarer_boons_have_bigger_numbers() -> void:
 	var common := Boons.get_def("thick_shell")
 	var rare := Boons.get_def("thick_shell:rare")
@@ -228,19 +323,12 @@ func test_rarer_boons_have_bigger_numbers() -> void:
 			check(Boons.get_def(Boons.with_rarity(id, r)).text.length() > 5, "%s %s has text" % [id, r])
 
 
-func test_offers_roll_seeded_rarities() -> void:
-	var seen := {}
-	for day in range(1, 40):
-		var setup := BounceRun.generate(day)
-		var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
-		for f in range(1, BounceRun.FLOORS):
-			run.floor = f
-			var offer := BounceRun.offer(setup, run)
-			check_eq(offer, BounceRun.offer(setup, run), "seeded")
-			for id in offer:
-				seen[Boons.rarity_of(id)] = true
-			run.boons.append(offer[0])
-	check_eq(seen.keys().size(), 4, "every rarity turns up: %s" % [seen.keys()])
+func test_glitches_are_bad_and_never_offered() -> void:
+	for id in Boons.GLITCHES:
+		check(Boons.is_glitch(id) and not id in Boons.ALL, "%s stays out of offers" % id)
+		var def := Boons.apply_to_def(BallDefs.get_def("vampire"), [id])
+		var base := BallDefs.get_def("vampire")
+		check(def.hp <= base.hp and def.speed <= base.speed, "%s only hurts" % id)
 
 
 func _first_hits(cfg: Dictionary, n: int) -> Array:
@@ -284,7 +372,8 @@ func test_vampire_kiss_heals_and_phoenix_rises() -> void:
 
 # --- The scene ---------------------------------------------------------------
 
-## Plays a whole run through the scene's own flow, headless, skipping fights.
+## Plays a whole run through the scene's own flow, headless, skipping fights
+## and taking the first option everywhere.
 func test_scene_plays_a_run_to_the_end() -> void:
 	var path := "user://test_bounce_run.cfg"
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
@@ -299,19 +388,40 @@ func test_scene_plays_a_run_to_the_end() -> void:
 	for i in [0, 2, 4]:
 		scene._toggle_start_boon(i)
 	scene._start_run()
-	var fights := 0
-	while scene.state != scene.State.OVER and fights < 20:
-		fights += 1
-		check_eq(scene.state, scene.State.FLOOR, "floor screen before fight %d" % fights)
-		scene._choose_fighter(BounceRun.living(scene.run)[0])
-		scene._launch()
-		scene._skip()
-		scene._process(0.016)
-		check_eq(scene.state, scene.State.RESULT, "result after fight %d" % fights)
-		scene._after_result()
-		if scene.state == scene.State.BOON:
-			scene._take_boon(scene.run.offer[0])
+	var steps := 0
+	var seen := {}
+	while scene.state != scene.State.OVER and steps < 200:
+		steps += 1
+		seen[scene.state] = true
+		match scene.state:
+			scene.State.MAP:
+				scene._selected = BounceRun.next_nodes(scene.setup, scene.run)[0]
+				scene._go_node()
+			scene.State.FLOOR:
+				scene._choose_fighter(BounceRun.living(scene.run)[0])
+				scene._launch()
+				scene._skip()
+				scene._process(0.016)
+				check_eq(scene.state, scene.State.RESULT, "result after a fight")
+				scene._after_result()
+			scene.State.BOON:
+				scene._take_boon(scene.run.offer[0])
+			scene.State.EVENT:
+				if BounceRun.phase(scene.setup, scene.run) == "event":
+					var ev := BounceRun.event(scene.setup, scene.run)
+					var c: Dictionary = ev.choices[-1] # Leave / the safe option.
+					scene._apply(func(): BounceRun.choose(scene.setup, scene.run, c.id), c.name)
+				else:
+					scene._show_next()
+			scene.State.SHOP:
+				BounceRun.leave(scene.setup, scene.run)
+				scene._show_next()
+			scene.State.REST:
+				scene._rest("revive" if BounceRun.can_rest(scene.run, "revive") else "pass")
+				if scene.state == scene.State.EVENT:
+					scene._show_next()
 	check(scene.run.over, "the run ended")
+	check(seen.has(scene.State.MAP), "the map showed")
 	check_eq(BounceRun.replay(scene.setup, scene.run).log, scene.run.log, "the played run replays")
 	# Reopening the scene shows the finished ranked run, not a new draft.
 	var again = load("res://game/bounce_run.tscn").instantiate()
@@ -341,13 +451,15 @@ func test_a_fight_left_mid_way_still_counts() -> void:
 	for i in [0, 2, 4]:
 		scene._toggle_start_boon(i)
 	scene._start_run()
+	scene._selected = BounceRun.next_nodes(scene.setup, scene.run)[0]
+	scene._go_node()
 	scene._choose_fighter(0)
 	scene._launch()
 	var again = load("res://game/bounce_run.tscn").instantiate()
 	again.save_path = path
 	runner.root.add_child(again)
 	again._ready()
-	check_eq(again.run.log.size(), 1, "the abandoned fight was recorded")
+	check_eq(again.run.log.filter(func(e): return e.t == "fight").size(), 1, "the abandoned fight was recorded")
 	check(not again.run.has("launched"), "and cleared")
 	scene.queue_free()
 	again.queue_free()
