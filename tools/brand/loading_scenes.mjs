@@ -162,7 +162,7 @@ function cast(rim) {
 function ground(rim) {
   let s = "";
   // Sundae flinging scoops, front left.
-  for (const [x, y, c] of [[150, 1196, "#7a4a2a"], [120, 1150, "#ffb3d1"], [176, 1120, "#fff1d6"]]) s += `<circle cx="${x}" cy="${y}" r="20" fill="${c}"/><circle cx="${x}" cy="${y - 20}" r="6" fill="#ff2d55"/>`;
+  for (const [x, y, c] of [[226, 1176, "#7a4a2a"], [96, 1132, "#ffb3d1"], [186, 1100, "#fff1d6"]]) s += `<circle cx="${x}" cy="${y}" r="20" fill="${c}"/><circle cx="${x}" cy="${y - 20}" r="6" fill="#ff2d55"/>`;
   s += `<ellipse cx="150" cy="1372" rx="62" ry="12" fill="#000" opacity="0.35"/>`;
   s += body(150, 1300, 72, "#fbe3d8", { rim });
   s += `<path d="M 80 1300 A 72 72 0 0 0 220 1300 Z" fill="#e0a45c"/><path d="M 84 1310 L 216 1310 M 96 1336 L 204 1336 M 118 1360 L 182 1360 M 110 1300 L 150 1371 M 150 1300 L 190 1365 M 190 1300 L 210 1330 M 110 1300 L 90 1330" stroke="#a96a2a" stroke-width="4" opacity="0.8"/>`;
@@ -233,6 +233,131 @@ function ring(cx, cy, rx, ry, col) {
     <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="#fff" stroke-width="2" opacity="0.8"/>`;
 }
 
+// --- Detail pieces for the dusk arena ------------------------------------
+
+// A cumulus cloud: dark lobes, lighter tops catching the sky, a hot pink
+// underside lit by the sun, plus a few loose wisps.
+function cloud(x, y, sc, flip = 1) {
+  const lobes = [[-70, 14, 38], [-30, -14, 54], [24, -26, 50], [64, -2, 42], [96, 18, 30]];
+  let s = `<g transform="translate(${x} ${y}) scale(${sc * flip} ${sc})">`;
+  s += `<ellipse cx="10" cy="34" rx="150" ry="40" fill="#ff5aa8" opacity="0.25" filter="url(#blur10)"/>`;
+  for (const [dx, dy, r] of lobes) s += `<circle cx="${dx}" cy="${dy}" r="${r}" fill="#4a2278"/>`;
+  s += `<rect x="-110" y="8" width="230" height="40" rx="20" fill="#4a2278"/>`;
+  for (const [dx, dy, r] of lobes) s += `<circle cx="${dx - r * 0.18}" cy="${dy - r * 0.2}" r="${r * 0.72}" fill="#6a3398"/>`;
+  for (const [dx, dy, r] of lobes) s += `<circle cx="${dx - r * 0.3}" cy="${dy - r * 0.4}" r="${r * 0.35}" fill="#8c4ab0" opacity="0.8"/>`;
+  s += `<path d="M -108 36 Q -40 58 10 50 Q 70 60 118 34" stroke="#ff9ac4" stroke-width="6" fill="none" stroke-linecap="round"/>`;
+  s += `<path d="M -96 44 Q -20 62 60 54" stroke="#ffd1a8" stroke-width="2.5" fill="none" opacity="0.8" stroke-linecap="round"/>`;
+  s += `<path d="M 130 0 q 30 -4 60 4 M 140 16 q 24 -2 46 4" stroke="#6a3398" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+  return s + `</g>`;
+}
+
+// A mountain range with faceted peaks: each slope facing the sun gets a
+// lighter face and a bright rim, the other side falls into shadow.
+function peaks(list, base, col, lit, edge) {
+  let s = "";
+  for (const [x, top, w] of list) {
+    const l = x - w, r = x + w;
+    s += `<path d="M ${l} ${base} L ${x - w * 0.12} ${top + 14} L ${x} ${top} L ${x + w * 0.2} ${top + 22} L ${r} ${base} Z" fill="${col}"/>`;
+    const sunSide = x > 426 ? -1 : 1;
+    const fx = sunSide > 0 ? r : l;
+    s += `<path d="M ${x} ${top} L ${x + sunSide * w * 0.2} ${top + 22} L ${fx} ${base} L ${x + sunSide * w * 0.15} ${base} L ${x + sunSide * w * 0.05} ${top + (base - top) * 0.45} Z" fill="${lit}" opacity="0.55"/>`;
+    s += `<path d="M ${l} ${base} L ${x - w * 0.12} ${top + 14} L ${x} ${top} L ${x + w * 0.2} ${top + 22} L ${r} ${base}" fill="none" stroke="${edge}" stroke-width="3" stroke-linejoin="round" opacity="0.9"/>`;
+    // Glowing crevices.
+    s += `<path d="M ${x} ${top + 30} l ${-w * 0.08} ${(base - top) * 0.25} l ${w * 0.05} ${(base - top) * 0.15}" fill="none" stroke="${edge}" stroke-width="2" opacity="0.45"/>`;
+  }
+  return s;
+}
+
+// Distant arena on the ridge: a domed stadium and two towers with lit windows
+// and pennants, all silhouetted against the dusk.
+function castle(cx, by) {
+  let s = `<ellipse cx="${cx}" cy="${by - 30}" rx="150" ry="60" fill="#ff6ab0" opacity="0.25" filter="url(#blur24)"/>`;
+  s += `<path d="M ${cx - 90} ${by} L ${cx - 90} ${by - 40} Q ${cx} ${by - 100} ${cx + 90} ${by - 40} L ${cx + 90} ${by} Z" fill="#26103f"/>`;
+  s += `<path d="M ${cx - 90} ${by - 40} Q ${cx} ${by - 100} ${cx + 90} ${by - 40}" fill="none" stroke="#ff8fd0" stroke-width="2.5"/>`;
+  for (let i = 0; i < 7; i++) s += `<rect x="${cx - 66 + i * 20}" y="${by - 34}" width="7" height="12" rx="3" fill="#ffd27a"/>`;
+  for (const [tx, th] of [[cx - 110, 120], [cx + 110, 100]]) {
+    s += `<rect x="${tx - 16}" y="${by - th}" width="32" height="${th}" fill="#26103f"/><path d="M ${tx - 22} ${by - th} L ${tx} ${by - th - 36} L ${tx + 22} ${by - th} Z" fill="#3a1660" stroke="#ff8fd0" stroke-width="2"/>`;
+    s += `<line x1="${tx}" y1="${by - th - 36}" x2="${tx}" y2="${by - th - 62}" stroke="#26103f" stroke-width="3"/><path d="M ${tx} ${by - th - 62} l 22 6 l -22 6 z" fill="#33dcff"/>`;
+    for (let k = 0; k < 3; k++) s += `<rect x="${tx - 4}" y="${by - th + 16 + k * 26}" width="8" height="12" rx="3" fill="#ffd27a"/>`;
+  }
+  // Searchlights sweeping up from the stadium.
+  for (const a of [-0.35, 0.3]) s += `<path d="M ${cx} ${by - 60} L ${cx + Math.sin(a - 0.04) * 500} ${by - 60 - Math.cos(a) * 500} L ${cx + Math.sin(a + 0.04) * 500} ${by - 60 - Math.cos(a) * 500} Z" fill="#9ae6ff" opacity="0.08"/>`;
+  return s;
+}
+
+// A glowing crystal cluster for the foreground corners.
+function crystals(x, y, sc, col, flip = 1) {
+  const shards = [[0, 0, 26, 150, -8], [-36, 18, 20, 100, -24], [34, 22, 18, 110, 16], [-62, 40, 14, 60, -38], [60, 44, 12, 70, 34]];
+  let s = `<g transform="translate(${x} ${y}) scale(${sc * flip} ${sc})"><ellipse cx="0" cy="-40" rx="110" ry="90" fill="${col}" opacity="0.3" filter="url(#blur24)"/>`;
+  for (const [dx, dy, w, h, rot] of shards) {
+    s += `<g transform="translate(${dx} ${dy}) rotate(${rot})">
+      <path d="M ${-w} 0 L ${-w} ${-h * 0.75} L 0 ${-h} L ${w} ${-h * 0.75} L ${w} 0 Z" fill="${shade(col, -0.35)}"/>
+      <path d="M ${-w} 0 L ${-w} ${-h * 0.75} L 0 ${-h} L 0 0 Z" fill="${col}"/>
+      <path d="M ${-w * 0.6} ${-h * 0.1} L ${-w * 0.6} ${-h * 0.7} L ${-w * 0.2} ${-h * 0.86}" stroke="#fff" stroke-width="3" fill="none" opacity="0.7"/>
+      <path d="M ${-w} ${-h * 0.75} L 0 ${-h} L ${w} ${-h * 0.75}" stroke="${shade(col, 0.5)}" stroke-width="2" fill="none"/></g>`;
+  }
+  for (const [dx, r] of [[-80, 14], [-50, 20], [-14, 16], [26, 22], [70, 15], [96, 10]]) s += `<ellipse cx="${dx}" cy="${4 + r * 0.2}" rx="${r * 1.3}" ry="${r * 0.7}" fill="#24104a" stroke="${col}" stroke-opacity="0.5" stroke-width="2"/>`;
+  return s + `</g>`;
+}
+
+// Mirror an element in the glossy floor at contact height cy.
+const reflect = (cy, inner, o = 0.22) =>
+  `<g transform="translate(0 ${2 * cy}) scale(1 -1)" opacity="${o}" filter="url(#blur4)">${inner}</g>`;
+
+// Extra critter details layered on top of the shared cast.
+function castDetail() {
+  let s = "";
+  // Ghost: a wispy tail curling off behind it.
+  s += `<path d="M 118 580 q -50 30 -90 10 q 30 -4 40 -26 q -30 10 -50 -6" fill="#e3d6ff" opacity="0.35"/>`;
+  // Comet: a tapering tail of light with stars caught in it.
+  s += `<defs><linearGradient id="ctail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff9ae8" stop-opacity="0.8"/><stop offset="1" stop-color="#ff9ae8" stop-opacity="0"/></linearGradient></defs>`;
+  s += `<path d="M 730 515 L 860 470 L 870 560 L 730 580 Z" fill="url(#ctail)" opacity="0.6"/>`;
+  s += sparkle(800, 520, 8) + sparkle(835, 545, 5) + sparkle(770, 560, 6, "#ffd1f3");
+  // Phoenix: an inner flame tongue and embers drifting up.
+  s += spikes(432, 565, 52, 66, 9, "#fff2a8", 0.2, Math.PI * 1.15, Math.PI * 1.85);
+  for (const [x, y, r] of [[380, 470, 4], [470, 455, 5], [500, 490, 3], [355, 500, 3], [445, 430, 3]]) s += `<circle cx="${x}" cy="${y}" r="${r * 2.5}" fill="#ff7a1f" opacity="0.4" filter="url(#blur4)"/><circle cx="${x}" cy="${y}" r="${r}" fill="#ffe066"/>`;
+  // Drako: scale ridges on the brow and smoke from the nostrils.
+  for (let i = 0; i < 4; i++) s += `<path d="M ${100 + i * 20} 694 q 10 -10 20 0" fill="none" stroke="#1f7a37" stroke-width="4" stroke-linecap="round"/>`;
+  s += `<path d="M 104 798 h 52 M 108 808 h 44" stroke="#6fbf82" stroke-width="3" stroke-linecap="round"/>`;
+  s += `<circle cx="196" cy="742" r="9" fill="#9a8aa8" opacity="0.5"/><circle cx="208" cy="728" r="12" fill="#9a8aa8" opacity="0.35"/><circle cx="224" cy="712" r="15" fill="#9a8aa8" opacity="0.2"/>`;
+  // Laser: a muzzle ring and a scorch flash where the beam lands.
+  s += `<ellipse cx="660" cy="742" rx="10" ry="16" transform="rotate(-26 660 742)" fill="none" stroke="#c9f4ff" stroke-width="4"/>`;
+  s += `<circle cx="505" cy="818" r="40" fill="#7fe6ff" opacity="0.35" filter="url(#blur10)"/>`;
+  for (let i = 0; i < 6; i++) {
+    const a = i * 1.05 + 0.3;
+    s += `<line x1="${505 + Math.cos(a) * 18}" y1="${818 + Math.sin(a) * 18}" x2="${505 + Math.cos(a) * 36}" y2="${818 + Math.sin(a) * 36}" stroke="#e6fbff" stroke-width="3" stroke-linecap="round"/>`;
+  }
+  // Sprout: veins on the head leaves and a little flower.
+  s += `<path d="M 133 868 q -18 -16 -36 -12 M 137 868 q 18 -16 36 -12" stroke="#3f8a26" stroke-width="2" fill="none"/>`;
+  s += `<circle cx="172" cy="882" r="9" fill="#ff8ac0"/><circle cx="172" cy="882" r="4" fill="#ffe066"/>`;
+  // Kraken: spots on the body and suckers along the tentacles.
+  for (const [x, y, r] of [[670, 905, 9], [760, 915, 7], [750, 990, 8], [680, 995, 6]]) s += `<circle cx="${x}" cy="${y}" r="${r}" fill="#6b2a99" opacity="0.6"/>`;
+  for (let i = 0; i < 5; i++) {
+    const a = Math.PI * (0.15 + i * 0.175);
+    for (let k = 1; k <= 3; k++) s += `<circle cx="${715 + Math.cos(a) * (50 + k * 18)}" cy="${950 + Math.sin(a) * (48 + k * 15)}" r="3" fill="#e9c8ff" opacity="0.8"/>`;
+  }
+  // Two little bats flitting round Nibbles.
+  for (const [x, y, sc] of [[270, 930, 1], [600, 900, 0.8]]) s += `<path transform="translate(${x} ${y}) scale(${sc})" d="M 0 0 q -14 -16 -32 -8 q 8 4 6 12 q 10 -6 14 0 q 6 -10 12 -4 q 6 -6 12 4 q 4 -6 14 0 q -2 -8 6 -12 q -18 -8 -32 8 z" fill="#2a0f2a" stroke="#ff7a96" stroke-width="1.5"/>`;
+  return s;
+}
+
+function groundDetail() {
+  let s = "";
+  // Sundae: a cream cap with drips and sprinkles, a cherry on top.
+  s += `<path transform="translate(0 -18)" d="M 86 1262 q 10 -60 64 -64 q 54 4 64 64 q -10 6 -14 -2 q -4 18 -12 2 q -10 12 -18 0 q -10 14 -20 0 q -8 16 -18 0 q -10 10 -16 -2 q -6 10 -14 0 q -8 8 -16 2 z" fill="#fff6ee" opacity="0.95"/>`;
+  for (const [x, y, c, a] of [[120, 1206, "#ff5aa8", 20], [150, 1194, "#7fe6ff", -30], [180, 1210, "#ffe066", 60], [136, 1226, "#a6ff6e", -10], [168, 1230, "#ff5aa8", 40]]) s += `<rect x="${x}" y="${y}" width="10" height="3.5" rx="1.5" fill="${c}" transform="rotate(${a} ${x} ${y})"/>`;
+  s += `<circle cx="150" cy="1180" r="11" fill="#ff2d55"/><circle cx="146" cy="1176" r="3.5" fill="#fff" opacity="0.8"/><path d="M 152 1170 q 6 -14 14 -16" stroke="#3f8a26" stroke-width="2.5" fill="none"/>`;
+  // Yeti: shaggy tufts round the outline.
+  for (let i = 0; i < 14; i++) {
+    const a = Math.PI * (0.05 + i * 0.065) + Math.PI;
+    const x = 690 + Math.cos(a) * 74, y = 1300 + Math.sin(a) * 74;
+    s += `<path d="M ${x} ${y} l ${Math.cos(a - 0.3) * 14} ${Math.sin(a - 0.3) * 14} l ${Math.cos(a + 0.4) * 6} ${Math.sin(a + 0.4) * 6}" fill="none" stroke="#eef2fa" stroke-width="4" stroke-linecap="round"/>`;
+  }
+  // Yoyo: speed streaks along its loop.
+  for (const a of [0.3, 0.6, 0.9]) s += `<path d="M ${480 + Math.cos(Math.PI + a) * 70} ${1460 + Math.sin(Math.PI + a) * 40} A 70 40 0 0 1 ${480 + Math.cos(Math.PI + a + 0.4) * 70} ${1460 + Math.sin(Math.PI + a + 0.4) * 40}" stroke="#fff" stroke-width="3" fill="none" opacity="${0.9 - a * 0.6}"/>`;
+  return s;
+}
+
 const svg = (body_) => `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${defs}${body_}</svg>`;
 
 // --- Option A: Dusk arena -----------------------------------------------
@@ -248,31 +373,41 @@ function dusk() {
     <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#fff2b8"/><stop offset="0.6" stop-color="#ffc35a"/><stop offset="1" stop-color="#ff6a8a"/></radialGradient>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#sky)"/>`;
-  for (let i = 0; i < 90; i++) {
-    const x = rnd() * W, y = rnd() * 760, r = rnd() * 1.8 + 0.4;
-    s += `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity="${0.3 + rnd() * 0.6}"/>`;
+  // Nebula wisps and a field of tinted stars, a crescent moon, a shooting star.
+  for (const [x, y, rx, ry, c, o] of [[160, 160, 260, 90, "#5a2ab8", 0.35], [660, 110, 240, 80, "#b83a9a", 0.28], [420, 60, 300, 60, "#2a4ab8", 0.3], [720, 300, 160, 70, "#7a2ab8", 0.25]])
+    s += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${c}" opacity="${o}" filter="url(#blur60)"/>`;
+  for (let i = 0; i < 150; i++) {
+    const x = rnd() * W, y = rnd() * 780, r = rnd() * 1.8 + 0.4;
+    const c = ["#fff", "#fff", "#fff", "#ffd1f3", "#bfefff"][i % 5];
+    if (r > 1.9) s += `<circle cx="${x}" cy="${y}" r="${r * 3}" fill="${c}" opacity="0.2" filter="url(#blur4)"/>`;
+    s += `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}" opacity="${0.3 + rnd() * 0.6}"/>`;
   }
-  s += sparkle(120, 140, 14) + sparkle(740, 220, 10) + sparkle(640, 90, 8);
+  s += sparkle(120, 140, 14) + sparkle(740, 220, 10) + sparkle(640, 90, 8) + sparkle(300, 60, 9, "#bfefff") + sparkle(60, 300, 7, "#ffd1f3");
+  s += `<circle cx="745" cy="130" r="60" fill="#ffe6f6" opacity="0.25" filter="url(#blur24)"/><path d="M 760 88 A 44 44 0 1 0 778 160 A 36 36 0 1 1 760 88 Z" fill="#ffeef8"/>`;
+  s += `<defs><linearGradient id="shoot" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff"/></linearGradient></defs>`;
+  s += `<path d="M 40 70 L 214 128 L 210 134 Z" fill="url(#shoot)"/>` + sparkle(214, 131, 8);
   // Sun with stripes, its glow and light rays behind the title.
   s += `<circle cx="426" cy="560" r="420" fill="#ff6a9a" opacity="0.35" filter="url(#blur60)"/>`;
-  for (let i = 0; i < 14; i++) {
-    const a = (i / 14) * Math.PI * 2;
-    s += `<path d="M 426 330 L ${426 + Math.cos(a - 0.05) * 1400} ${330 + Math.sin(a - 0.05) * 1400} L ${426 + Math.cos(a + 0.05) * 1400} ${330 + Math.sin(a + 0.05) * 1400} Z" fill="#ffd9a8" opacity="0.06"/>`;
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2, w = i % 2 ? 0.03 : 0.06;
+    s += `<path d="M 426 330 L ${426 + Math.cos(a - w) * 1400} ${330 + Math.sin(a - w) * 1400} L ${426 + Math.cos(a + w) * 1400} ${330 + Math.sin(a + w) * 1400} Z" fill="#ffd9a8" opacity="${i % 2 ? 0.04 : 0.07}"/>`;
   }
+  s += `<defs><clipPath id="sunbands">`;
+  for (let k = 0; k < 9; k++) s += `<rect x="0" y="${330 - 215 + k * 26 + (k > 4 ? (k - 4) * 3 : 0)}" width="${W}" height="${k > 4 ? 26 - (k - 4) * 5 : 26}"/>`;
+  s += `<rect x="0" y="${330 - 215 + 9 * 26}" width="${W}" height="0"/></clipPath></defs>`;
   s += `<circle cx="426" cy="330" r="250" fill="#ffb35c" opacity="0.4" filter="url(#blur24)"/><circle cx="426" cy="330" r="215" fill="url(#sun)" opacity="0.92"/>`;
-  for (let k = 0; k < 0; k++) s += `<rect x="190" y="${400 + k * 22}" width="480" height="${4 + k * 2}" fill="#2a145a" opacity="0.55"/>`;
+  for (let k = 0; k < 6; k++) s += `<rect x="200" y="${380 + k * 26}" width="460" height="${3 + k * 2.5}" fill="#7a2a86" opacity="0.7"/>`;
+  s += `<circle cx="426" cy="330" r="215" fill="none" stroke="#fff2b8" stroke-width="3" opacity="0.6"/>`;
   // Clouds lit from below.
-  for (const [x, y, sc] of [[110, 470, 1], [760, 400, 0.9], [740, 620, 0.7]]) {
-    s += `<g opacity="0.85">`;
-    for (const [dx, dy, r] of [[-60, 10, 40], [-20, -12, 52], [30, -4, 46], [70, 12, 34]]) s += `<circle cx="${x + dx * sc}" cy="${y + dy * sc}" r="${r * sc}" fill="#5a2a8a"/>`;
-    s += `<rect x="${x - 95 * sc}" y="${y + 6 * sc}" width="${190 * sc}" height="${36 * sc}" rx="${18 * sc}" fill="#5a2a8a"/>`;
-    s += `<path d="M ${x - 90 * sc} ${y + 30 * sc} Q ${x} ${y + 52 * sc} ${x + 95 * sc} ${y + 30 * sc}" stroke="#ff8fb8" stroke-width="${5 * sc}" fill="none" opacity="0.8"/></g>`;
-  }
-  // Mountains: far, mid, near, each rim-lit along its top.
+  s += cloud(100, 470, 1) + cloud(770, 395, 0.85, -1) + cloud(760, 630, 0.6, -1) + cloud(40, 250, 0.5);
+  // Far faceted peaks, the arena on the ridge, then rolling hills.
+  s += peaks([[40, 740, 150], [250, 800, 140], [610, 780, 150], [820, 730, 140]], 1080, "#3a1462", "#c04a9e", "#ff8fb8");
+  s += `<rect x="0" y="860" width="${W}" height="220" fill="#ff5aa8" opacity="0.12" filter="url(#blur24)"/>`;
+  s += castle(426, 912);
   const range = (base, amp, seed, col, edge) => {
     let d = `M 0 ${H} L 0 ${base}`;
     const pts = [];
-    for (let x = 0; x <= W; x += 40) {
+    for (let x = 0; x <= W; x += 20) {
       const y = base - amp * (0.5 + 0.5 * Math.sin(x * 0.012 + seed)) - amp * 0.4 * Math.sin(x * 0.031 + seed * 2);
       pts.push([x, y]);
       d += ` L ${x} ${y}`;
@@ -280,20 +415,48 @@ function dusk() {
     d += ` L ${W} ${H} Z`;
     return `<path d="${d}" fill="${col}"/><polyline points="${pts.map((p) => p.join(",")).join(" ")}" fill="none" stroke="${edge}" stroke-width="3" opacity="0.8"/>`;
   };
-  s += range(900, 170, 1.1, "#4a1a6e", "#ff8fb8") + range(990, 110, 3.3, "#2f1052", "#ff5aa8") + range(1040, 60, 5.0, "#1e0a3c", "#c44fff");
-  // The floor and its neon grid.
+  s += range(1010, 90, 3.3, "#2a0f4c", "#ff5aa8");
+  // Pine silhouettes along the near hills.
+  for (const [x, h] of [[20, 70], [52, 54], [86, 80], [236, 50], [262, 66], [590, 60], [618, 84], [652, 56], [790, 74], [826, 58]]) {
+    const y = 1010 - 90 * (0.5 + 0.5 * Math.sin(x * 0.012 + 3.3)) - 36 * Math.sin(x * 0.031 + 6.6) + 6;
+    s += `<path d="M ${x} ${y - h} L ${x + h * 0.28} ${y} L ${x - h * 0.28} ${y} Z" fill="#1a0834"/><path d="M ${x} ${y - h} L ${x + h * 0.28} ${y}" stroke="#ff5aa8" stroke-width="1.5" opacity="0.6"/>`;
+  }
+  s += range(1050, 40, 5.0, "#1e0a3c", "#c44fff");
+  // The floor: horizon haze, neon grid with glowing crossings, the ring.
   s += `<rect x="0" y="1060" width="${W}" height="${H - 1060}" fill="url(#floor)"/>`;
   s += `<rect x="0" y="1050" width="${W}" height="24" fill="#ff5ad8" opacity="0.6" filter="url(#blur10)"/>`;
+  s += `<rect x="0" y="1062" width="${W}" height="70" fill="#ff7ad0" opacity="0.18" filter="url(#blur24)"/>`;
   s += grid(1062, "#d24fff", { opacity: 0.55 });
+  for (let i = 0; i < 18; i++) {
+    const x = 40 + rnd() * (W - 80), y = 1120 + rnd() * 650;
+    s += `<circle cx="${x}" cy="${y}" r="10" fill="#ff7ae8" opacity="0.35" filter="url(#blur4)"/><circle cx="${x}" cy="${y}" r="2.5" fill="#ffd1f3"/>`;
+  }
+  // Floor reflections of the cast standing on it.
+  s += reflect(1240, body(428, 1090, 135, "#d42a4a", { glow: 0 }), 0.18);
+  s += reflect(1372, body(150, 1300, 72, "#fbe3d8", { glow: 0 }), 0.15) + reflect(1374, body(690, 1300, 76, "#cfd6e4", { glow: 0 }), 0.15);
   s += `<ellipse cx="432" cy="1262" rx="380" ry="90" fill="#27c8ff" opacity="0.12" filter="url(#blur24)"/>` + ring(432, 1262, 330, 58, "#33dcff");
+  s += `<ellipse cx="432" cy="1262" rx="290" ry="46" fill="none" stroke="#33dcff" stroke-width="2" stroke-dasharray="14 10" opacity="0.6"/>`;
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2, x = 432 + Math.cos(a) * 345, y = 1262 + Math.sin(a) * 66;
+    s += `<line x1="${432 + Math.cos(a) * 335}" y1="${1262 + Math.sin(a) * 62}" x2="${x}" y2="${y}" stroke="#bff6ff" stroke-width="2" opacity="0.7"/>`;
+  }
+  for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+    const x = 432 + Math.cos(a) * 330, y = 1262 + Math.sin(a) * 58;
+    s += `<circle cx="${x}" cy="${y}" r="18" fill="#33dcff" opacity="0.5" filter="url(#blur10)"/><path d="M ${x} ${y - 10} L ${x + 8} ${y} L ${x} ${y + 10} L ${x - 8} ${y} Z" fill="#fff"/>`;
+  }
   s += `<ellipse cx="428" cy="1240" rx="150" ry="26" fill="#000" opacity="0.45"/>`;
-  s += title(300) + cast("#ff9ad8") + nibbles() + ground("#ff9ad8");
-  for (const [x, y, r] of [[57, 630, 22], [312, 826, 0], [790, 870, 22], [62, 1150, 22], [782, 1153, 22], [568, 778, 14], [770, 438, 16]]) if (r) s += coin(x, y, r);
+  s += title(300) + cast("#ff9ad8") + castDetail() + nibbles() + ground("#ff9ad8") + groundDetail();
+  // Title glints.
+  s += sparkle(170, 330, 16) + sparkle(700, 474, 14) + sparkle(300, 410, 9, "#fff6a8");
+  for (const [x, y, r] of [[57, 630, 22], [790, 870, 22], [62, 1150, 22], [782, 1153, 22], [568, 778, 14], [770, 438, 16], [300, 1560, 18], [600, 1640, 16]]) s += coin(x, y, r);
   for (const [x, y, sz] of [[260, 600, 14], [600, 470, 12], [40, 1060, 12], [810, 1050, 14], [330, 1500, 10], [620, 1560, 10]]) s += sparkle(x, y, sz);
+  // Crystal clusters in the foreground corners, then a vignette at the foot.
+  s += crystals(60, 1700, 1, "#c44fff") + crystals(800, 1640, 0.8, "#33dcff", -1);
+  s += `<defs><linearGradient id="foot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b0624" stop-opacity="0"/><stop offset="1" stop-color="#0b0624" stop-opacity="0.85"/></linearGradient></defs><rect x="0" y="1560" width="${W}" height="${H - 1560}" fill="url(#foot)"/>`;
   // Fireflies of light rising off the floor.
-  for (let i = 0; i < 26; i++) {
-    const x = rnd() * W, y = 1100 + rnd() * 700;
-    s += `<circle cx="${x}" cy="${y}" r="${2 + rnd() * 3}" fill="#ff9ae8" opacity="${0.3 + rnd() * 0.5}"/>`;
+  for (let i = 0; i < 40; i++) {
+    const x = rnd() * W, y = 1000 + rnd() * 800;
+    s += `<circle cx="${x}" cy="${y}" r="${2 + rnd() * 3}" fill="${i % 3 ? "#ff9ae8" : "#9ae6ff"}" opacity="${0.3 + rnd() * 0.5}"/>`;
   }
   return svg(s);
 }
@@ -361,7 +524,7 @@ function stage() {
   return svg(s);
 }
 
-const SCENES = { dusk, stage };
+const SCENES = { dusk };
 
 const out = path.resolve(process.argv[2] || path.join(repo, "build/loading_scenes"));
 fs.mkdirSync(out, { recursive: true });
