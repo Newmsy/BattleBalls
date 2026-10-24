@@ -12,6 +12,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Summon := preload("res://game/ui/summon.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const Painted := preload("res://game/ui/painted.gd")
 const Dev := preload("res://game/dev.gd")
 
 static var _rng: RandomNumberGenerator
@@ -25,27 +26,31 @@ static func build(shell, _params: Dictionary) -> Control:
 		for o in Summon.ODDS:
 			if o[0] == r:
 				odds_lines.append("%s %s" % [Roster.RARITY_NAMES[r], ("%.1f%%" % o[1]).replace(".0%", "%")])
-	root.add_child(shell.title_row("Summon Portal", {"back": false, "info_title": "Odds and pity", "info_mark": "summon_info", "info": [
+	var title: Control = shell.title_row("Summon Portal", {"back": false, "info_title": "Odds and pity", "info_mark": "summon_info", "info": [
 		"Every summon is a Tier 1 critter. Odds: " + ", ".join(odds_lines) + ".",
 		"A x10 always has a Rare or better.",
 		"Every critter of a rarity is equally likely; Wishlist picks come up 2x as often.",
 		"Legendary within %d Rare+ rolls. Campaign drops count too." % Summon.PITY_RESET,
-		"Eggs: boss first clears, daily login, account levels, Brood Queen."]}))
+		"Eggs: boss first clears, daily login, account levels, Brood Queen."]})
 
-	var portal := _Portal.make(200)
-	var st := Kit.box(Color("221046"), Color("6b3fb0"), 36, 2, 20)
-	root.add_child(Kit.panel(portal, st))
+	# The Portal Hall painting fills whatever room the cards below leave, with
+	# the title on it. One child in root, so the shell stretches it instead of
+	# centring a short column.
+	var body := Kit.vbox(18, [_Hall.make(title)])
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(body)
 	if not Intro.done(p):
 		# A new player's first summon: just the portal and the button.
 		var first := Kit.button("Free x1", func(): _pull(shell, 1), "go", 30, 96) if p.free_summon else Kit.cost_button("x1", 1, "egg", func(): _pull(shell, 1), "go", 30, 96)
 		first.disabled = not p.free_summon and p.orbs < 1
+		_egg_on(first, HATCH_X1)
 		shell.mark("pull1", first)
 		shell.pin(first)
 		return root
-	root.add_child(_wishlist_panel(shell))
+	body.add_child(_wishlist_panel(shell))
 
 	var pity: int = p.legendary_pity
-	root.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(0, [Kit.caption("Legendary"), Kit.spacer(), Kit.label("in %d" % pity, 22)]),
+	body.add_child(Kit.panel(Kit.vbox(8, [Kit.hbox(0, [Kit.caption("Legendary"), Kit.spacer(), Kit.label("in %d" % pity, 22)]),
 		Kit.bar(float(Summon.PITY_RESET - pity) / Summon.PITY_RESET, Glyph.GOLD)]), Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
 
 	var free := Dev.free_summons()
@@ -56,6 +61,8 @@ static func build(shell, _params: Dictionary) -> Control:
 		else Kit.cost_button("x10", 10, "egg", func(): _pull(shell, 10), "primary", 28, 96)
 	one.disabled = not (p.free_summon or free) and p.orbs < 1
 	ten.disabled = not free and p.orbs < 10
+	_egg_on(one, HATCH_X1)
+	_egg_on(ten, HATCH_X10)
 	shell.mark("pull1", one)
 	shell.mark("pull10", ten)
 	shell.pin(Kit.hbox(14, [one, ten]))
@@ -63,6 +70,29 @@ static func build(shell, _params: Dictionary) -> Control:
 
 
 const WISH := Color("ff5fc8")
+const HATCH_X1 := preload("res://game/ui/art/summon/hatch_x1.png")
+const HATCH_X10 := preload("res://game/ui/art/summon/hatch_x10.png")
+
+
+## A painted egg (or clutch of eggs) in front of a hatch button's label.
+static func _egg_on(b: Button, art: Texture2D) -> void:
+	var row: HBoxContainer = b.get_meta("row") if b.has_meta("row") else null
+	if row == null:
+		var words := Kit.label(b.text, b.get_meta("base_font", 28), b.get_theme_color("font_color"))
+		b.text = ""
+		row = Kit.hbox(4, [words], BoxContainer.ALIGNMENT_CENTER)
+		row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(row)
+		b.draw.connect(func(): row.modulate.a = .5 if b.disabled else 1.0)
+	var pic := TextureRect.new()
+	pic.texture = art
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.custom_minimum_size = Vector2(88, 72)
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(pic)
+	row.move_child(pic, 0)
 
 
 static func _wishlist_panel(shell) -> Control:
@@ -88,6 +118,18 @@ static func _wishlist_panel(shell) -> Control:
 			v = Kit.vbox(0, [Kit.label("+", 64, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), Kit.label("Pick one", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
 		var slot := Kit.card_button(v, func(): _open_picker(shell), Color(WISH, .6) if i < p.wishlist.size() else Kit.LINE, Kit.PANEL2, 24, 8)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var home := Painted.habitat(p.wishlist[i]) if i < p.wishlist.size() else ""
+		if home != "":
+			# The wished critter stands on its family home's lit stage.
+			var win := Painted.make(home, {"focus": Vector2(200, 250), "at": Vector2(0.5, 0.36), "px": 1.8,
+				"radius": 21.0, "bottom_dark": 0.55, "bottom_fade": 0.2})
+			win.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			for side in ["left", "top"]:
+				win.set("offset_" + side, 3)
+			for side in ["right", "bottom"]:
+				win.set("offset_" + side, -3)
+			slot.add_child(win)
+			slot.move_child(win, 0)
 		slots.add_child(slot)
 	return Kit.panel(Kit.vbox(12, [head, slots]), Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20))
 
@@ -882,75 +924,64 @@ class EggArt:
 		return pts
 
 
-## The Summon Portal at the top of the screen: a carved stone ring set with
-## a gem for each of the nine families, on a stepped plinth, around a slow
-## violet vortex. The ring and plinth are drawn once (a still layer on top);
-## only the vortex behind them moves, on the shared idle clock.
-class _Portal extends Control:
-	const Families := preload("res://sim/families.gd")
-	const Dot := preload("res://game/dot.gd")
-	const STONE := Color("3a3150")
-	const STONE_LIT := Color("5d5378")
-	const STONE_DARK := Color("221c33")
-	const GOLD := Color("d9b56a")
+## The Portal Hall at the top of the screen, title on it: a painting
+## (tools/summon_art/scenes/portal_hall.mjs) of the carved portal, a gem for
+## each family, with an egg of every family in a nest before it. It grows to
+## the room the cards below leave and crops around the portal, bleeding out to
+## the phone's edges. The painting is drawn once; only the vortex over the
+## portal's opening moves, on the shared idle clock.
+class _Hall extends Control:
+	const ART := preload("res://game/ui/art/summon/portal_hall.png")
+	## Portal centre and opening radius in the painting (portal_hall.mjs PORTAL).
+	const PORTAL := Vector3(360, 300, 125.8)
+	const MIN_H := 360.0
+	const BLEED := 28.0 ## The shell's side margin on a phone.
+	const FADE := Color("0d0f26")
+	var _swirl: _Vortex
 
-	static func make(height: float) -> Control:
-		var holder := Control.new()
-		holder.custom_minimum_size = Vector2(0, height)
-		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var swirl := _Vortex.new()
-		var frame := _Portal.new()
-		for layer in [swirl, frame]:
-			layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-			holder.add_child(layer)
-		return holder
+	static func make(title: Control) -> Control:
+		var h := _Hall.new()
+		h.custom_minimum_size = Vector2(0, MIN_H)
+		h.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h._swirl = _Vortex.new()
+		h._swirl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h._swirl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		h.add_child(h._swirl)
+		title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		h.add_child(title)
+		h.resized.connect(h._place)
+		return h
 
-	## The ring's centre and outer radius for a layer of this size.
-	static func ring(sz: Vector2) -> Array:
-		var r := minf(sz.y * .44, sz.x * .3)
-		return [Vector2(sz.x / 2.0, sz.y * .47), r]
+	## Where the painting lands: [dest rect, source rect], cropped to keep the
+	## portal about 45% down and as much of the egg crescent as fits.
+	func _fit() -> Array:
+		var dest := Rect2(-BLEED, 0, size.x + BLEED * 2.0, size.y)
+		var tex := Vector2(ART.get_size())
+		var s := maxf(dest.size.x / tex.x, dest.size.y / tex.y)
+		var src_size := dest.size / s
+		var y := clampf(PORTAL.y - src_size.y * .45, 0.0, tex.y - src_size.y)
+		return [dest, Rect2(Vector2((tex.x - src_size.x) / 2.0, y), src_size)]
+
+	func _place() -> void:
+		var f := _fit()
+		var dest: Rect2 = f[0]
+		var src: Rect2 = f[1]
+		var s := dest.size.x / src.size.x
+		_swirl.centre = dest.position + (Vector2(PORTAL.x, PORTAL.y) - src.position) * s
+		_swirl.hole = PORTAL.z * s
+		queue_redraw()
+		_swirl.queue_redraw()
 
 	func _draw() -> void:
-		var g := ring(size)
-		var c: Vector2 = g[0]
-		var r: float = g[1]
-		var band := r * .2
-		# Stepped plinth the ring stands on.
-		var foot := c.y + r * .98
-		for k in 2:
-			var w := r * (1.15 + k * .35)
-			var h := r * .11
-			var y := foot + k * h
-			Dot.poly(self, PackedVector2Array([Vector2(c.x - w + h, y), Vector2(c.x + w - h, y), Vector2(c.x + w, y + h), Vector2(c.x - w, y + h)]), STONE_DARK if k else STONE)
-			draw_line(Vector2(c.x - w + h, y), Vector2(c.x + w - h, y), STONE_LIT, 2.0, true)
-		# The stone ring: a dark band, a lit inner lip, a thin gold inlay and
-		# seams between the blocks.
-		draw_arc(c, r - band / 2.0, 0.0, TAU, 64, STONE, band, true)
-		draw_arc(c, r - band * .08, PI * .85, PI * 1.9, 32, STONE_LIT, band * .16, true)
-		draw_arc(c, r - band, 0.0, TAU, 64, STONE_DARK, band * .22, true)
-		draw_arc(c, r - band * .55, 0.0, TAU, 64, Color(GOLD, .55), 1.5, true)
-		var fams: Array = Families.FAMILIES
-		for i in fams.size():
-			var a := -PI / 2.0 + TAU * (i + .5) / fams.size()
-			var d := Vector2.from_angle(a)
-			draw_line(c + d * (r - band * .95), c + d * (r - band * .05), STONE_DARK, 2.0, true)
-		# A gem for each family, set into the ring between the seams.
-		for i in fams.size():
-			var a := -PI / 2.0 + TAU * i / fams.size()
-			var p := c + Vector2.from_angle(a) * (r - band * .5)
-			var col := Color(fams[i].color).darkened(.1)
-			var s := band * .34
-			Dot.circle(self, p, s * 1.25, STONE_DARK)
-			var gem := PackedVector2Array([p + Vector2(0, -s), p + Vector2(s * .8, 0), p + Vector2(0, s), p + Vector2(-s * .8, 0)])
-			Dot.poly(self, gem, col)
-			Dot.poly(self, PackedVector2Array([gem[0], gem[1], p, gem[3]]), col.lightened(.25))
-			Dot.circle(self, p + Vector2(-s * .25, -s * .4), s * .18, Color(1, 1, 1, .7))
-		# The keystone at the top.
-		var top := c + Vector2(0, -r)
-		var kw := band * .7
-		Dot.poly(self, PackedVector2Array([top + Vector2(-kw, -band * .25), top + Vector2(kw, -band * .25), top + Vector2(kw * .7, band * 1.1), top + Vector2(-kw * .7, band * 1.1)]), STONE_LIT)
-		Dot.poly(self, PackedVector2Array([top + Vector2(0, band * .05), top + Vector2(kw * .35, band * .42), top + Vector2(0, band * .8), top + Vector2(-kw * .35, band * .42)]), GOLD)
+		var f := _fit()
+		var dest: Rect2 = f[0]
+		draw_texture_rect_region(ART, dest, f[1])
+		# Melt the cropped foot into the page so the cards below sit on it.
+		var y0 := dest.end.y - 70.0
+		var clear := Color(FADE, 0)
+		draw_polygon(PackedVector2Array([Vector2(dest.position.x, y0), Vector2(dest.end.x, y0), dest.end, Vector2(dest.position.x, dest.end.y)]),
+			PackedColorArray([clear, clear, FADE, FADE]))
 
 
 ## The vortex inside the portal ring: a deep well with three spiral arms and
@@ -962,6 +993,8 @@ class _Vortex extends Control:
 	const A11y := preload("res://game/a11y.gd")
 	const ARMS := 3
 	const MOTES := 12
+	var centre := Vector2.ZERO ## Set by _Hall: the painted portal's opening.
+	var hole := 0.0
 	var _tick := -1
 
 	func _process(_delta: float) -> void:
@@ -973,14 +1006,12 @@ class _Vortex extends Control:
 			queue_redraw()
 
 	func _draw() -> void:
-		var g := _Portal.ring(size)
-		var c: Vector2 = g[0]
-		var hole: float = g[1] * .82
+		if hole <= 0.0:
+			return
+		var c := centre
 		var t := 0.0 if A11y.reduced_motion else Time.get_ticks_msec() / 1000.0
-		# A soft glow spilling out around the ring, then the well darkening
-		# toward its edge with a pale core.
-		for k in 4:
-			Dot.circle(self, c, hole * (1.9 - k * .2), Color(.45, .3, .85, .045))
+		# The well darkening toward its edge with a pale core (the glow around
+		# the ring is in the painting).
 		Dot.circle(self, c, hole, Color("1a0f38"))
 		for k in 6:
 			var f := 1.0 - k / 6.0
