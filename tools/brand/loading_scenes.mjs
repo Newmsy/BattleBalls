@@ -116,6 +116,57 @@ function starPath(x, y, r1, r2, n = 5) {
 const sparkle = (x, y, s, col = "#fff", o = 0.9) =>
   `<path d="M ${x} ${y - s} Q ${x} ${y} ${x + s} ${y} Q ${x} ${y} ${x} ${y + s} Q ${x} ${y} ${x - s} ${y} Q ${x} ${y} ${x} ${y - s} Z" fill="${col}" opacity="${o}"/>`;
 
+// A flame jet from a mouth at (x0, y0) toward (x1, y1): a wavy cone that
+// widens from w0 to w1, layered red to white-hot, with a bloom and embers.
+function flameJet(x0, y0, x1, y1, w0, w1) {
+  const dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy);
+  const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+  const layer = (k, col, wob) => {
+    const top = [], bot = [];
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24, w = (w0 + (w1 - w0) * Math.pow(t, 0.8)) * k;
+      const lick = 1 + wob * Math.sin(t * 19 + k * 3) * t;
+      const cx = x0 + ux * L * t * (0.55 + 0.45 * k), cy = y0 + uy * L * t * (0.55 + 0.45 * k);
+      top.push([cx + nx * w * lick, cy + ny * w * lick]);
+      bot.push([cx - nx * w * (2 - lick), cy - ny * w * (2 - lick)]);
+    }
+    const tip = [x0 + ux * L * (0.55 + 0.45 * k) + ux * w1 * k * 1.1, y0 + uy * L * (0.55 + 0.45 * k) + uy * w1 * k * 1.1];
+    const e = top[24], f = bot[24];
+    let d = `M ${x0} ${y0} ` + top.map((p) => `L ${p[0]} ${p[1]}`).join(" ");
+    d += ` Q ${tip[0] + nx * w1 * k} ${tip[1] + ny * w1 * k} ${tip[0]} ${tip[1]} Q ${tip[0] - nx * w1 * k} ${tip[1] - ny * w1 * k} ${f[0]} ${f[1]} `;
+    d += bot.reverse().map((p) => `L ${p[0]} ${p[1]}`).join(" ") + " Z";
+    return `<path d="${d}" fill="${col}" stroke-linejoin="round"/>`;
+  };
+  let s = `<path d="M ${x0} ${y0} L ${x1 + nx * w1 * 1.4} ${y1 + ny * w1 * 1.4} L ${x1 - nx * w1 * 1.4} ${y1 - ny * w1 * 1.4} Z" fill="#ff5a1f" opacity="0.45" filter="url(#blur24)"/>`;
+  s += layer(1, "#d8261f", 0.22) + layer(0.78, "#ff6a1f", 0.18) + layer(0.55, "#ffb020", 0.14) + layer(0.32, "#ffe066", 0.1) + layer(0.14, "#fff8dc", 0.05);
+  for (let i = 0; i < 9; i++) {
+    const t = 0.35 + rnd() * 0.75, off = (rnd() - 0.5) * w1 * 2.6;
+    const x = x0 + dx * t + nx * off, y = y0 + dy * t + ny * off, r = 2 + rnd() * 3.5;
+    s += `<circle cx="${x}" cy="${y}" r="${r * 2.6}" fill="#ff7a1f" opacity="0.45" filter="url(#blur4)"/><circle cx="${x}" cy="${y}" r="${r}" fill="#ffe8a0"/>`;
+  }
+  return s;
+}
+
+// A curling flame tongue rooted at (x, y), pointing at angle a.
+function tongue(x, y, a, len, w, col, curl = 0.3) {
+  const ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux;
+  const tx = x + ux * len + nx * len * curl, ty = y + uy * len + ny * len * curl;
+  return `<path d="M ${x + nx * w} ${y + ny * w} C ${x + nx * w + ux * len * 0.6} ${y + ny * w + uy * len * 0.6} ${tx + nx * w * 0.6} ${ty + ny * w * 0.6} ${tx} ${ty} C ${tx - nx * w * 0.2 - ux * len * 0.4} ${ty - ny * w * 0.2 - uy * len * 0.4} ${x - nx * w + ux * len * 0.4} ${y - ny * w + uy * len * 0.4} ${x - nx * w} ${y - ny * w} Z" fill="${col}"/>`;
+}
+
+// A crown of flame tongues round the top of a ball, red to yellow.
+function flameCrown(cx, cy, r) {
+  let s = `<circle cx="${cx}" cy="${cy - r * 0.4}" r="${r * 1.5}" fill="#ff6a1f" opacity="0.35" filter="url(#blur24)"/>`;
+  for (const [k, col, lenK] of [[0, "#d8261f", 1], [1, "#ff6a1f", 0.8], [2, "#ffb020", 0.6], [3, "#ffe066", 0.42]]) {
+    for (let i = 0; i < 9; i++) {
+      const a = Math.PI * (1.08 + i * 0.105) + (k % 2) * 0.05;
+      const mid = 1 - Math.abs(i - 4) / 5;
+      s += tongue(cx + Math.cos(a) * r * 0.82, cy + Math.sin(a) * r * 0.82, a - 0.1 * (i - 4) * 0.2, r * (0.55 + 0.55 * mid) * lenK, r * 0.2 * (1 - k * 0.15), col, (i % 2 ? 0.25 : -0.25));
+    }
+  }
+  return s;
+}
+
 // --- The cast (positions follow the painted picture) --------------------
 
 function cast(rim) {
@@ -127,13 +178,13 @@ function cast(rim) {
   for (let i = 0; i < 5; i++) s += `<line x1="${700 + 40}" y1="${545 + (i - 2) * 14}" x2="${700 + 150 - Math.abs(i - 2) * 20}" y2="${545 + (i - 2) * 14 + 30}" stroke="#ff9ae8" stroke-width="5" stroke-linecap="round" opacity="${0.75 - Math.abs(i - 2) * 0.2}"/>`;
   s += body(700, 545, 44, "#ff5ad1", { rim: "#ffd1f3" }) + face(700, 545, 44, { lx: -0.6, mood: "happy" });
   // Phoenix crowned in flame under the title.
-  s += spikes(432, 565, 58, 92, 11, "#ff6a2a", 0, Math.PI * 1.05, Math.PI * 1.95) + spikes(432, 565, 56, 78, 11, "#ffd23f", 0.12, Math.PI * 1.05, Math.PI * 1.95);
-  s += body(432, 565, 62, "#ff7a2a", { rim: "#ffe066", glow: 0.7 }) + face(432, 565, 62, { mood: "angry", ly: 0.3 });
+  s += flameCrown(432, 565, 62);
+  s += body(432, 565, 62, "#ff7a2a", { rim: "#ffe066", glow: 0.7 }) + face(432, 565, 62, { mood: "angry", lx: -0.5, ly: 0.4 });
+  s += `<ellipse cx="420" cy="590" rx="13" ry="10" fill="#4a0e10"/>` + flameJet(416, 592, 282, 676, 7, 34);
   // Drako breathing fireballs, left.
   s += `<path d="M 95 700 l -18 -44 l 34 26 z M 165 700 l 18 -44 l -34 26 z" fill="#ffd23f"/>`;
-  for (const [x, y, r] of [[205, 768, 16], [240, 780, 20], [276, 792, 24], [318, 806, 30]]) s += `<circle cx="${x}" cy="${y}" r="${r * 1.6}" fill="#ff7a1f" opacity="0.35" filter="url(#blur10)"/><circle cx="${x}" cy="${y}" r="${r}" fill="#ff7a1f"/><circle cx="${x}" cy="${y}" r="${r * 0.55}" fill="#ffe066"/>`;
-  s += body(130, 750, 66, "#2fae4f", { rim }) + face(130, 750, 66, { mood: "angry", lx: 0.5 });
-  s += `<ellipse cx="130" cy="788" rx="40" ry="22" fill="#a8e6b4" opacity="0.8"/>`;
+  s += body(130, 750, 66, "#2fae4f", { rim }) + `<ellipse cx="124" cy="796" rx="36" ry="14" fill="#a8e6b4" opacity="0.8"/>` + face(130, 750, 66, { mood: "angry", lx: 0.5 });
+  s += `<ellipse cx="150" cy="776" rx="15" ry="11" fill="#3a0a10"/><path d="M 140 768 l 4 6 l 4 -6 M 152 768 l 4 6 l 4 -6" fill="#fff"/>` + flameJet(156, 776, 352, 812, 8, 40);
   // Laser firing its beam, right.
   s += `<line x1="715" y1="715" x2="505" y2="818" stroke="#27c8ff" stroke-width="26" opacity="0.35" filter="url(#blur10)"/><line x1="660" y1="742" x2="505" y2="818" stroke="#7fe6ff" stroke-width="10"/><line x1="660" y1="742" x2="505" y2="818" stroke="#fff" stroke-width="3"/>`;
   s += sparkle(505, 818, 34, "#e6fbff") + `<line x1="690" y1="660" x2="676" y2="632" stroke="#1d6f99" stroke-width="5"/><line x1="740" y1="660" x2="754" y2="632" stroke="#1d6f99" stroke-width="5"/><circle cx="676" cy="630" r="7" fill="#9ff0ff"/><circle cx="754" cy="630" r="7" fill="#9ff0ff"/>`;
@@ -314,8 +365,6 @@ function castDetail() {
   s += `<path d="M 730 515 L 860 470 L 870 560 L 730 580 Z" fill="url(#ctail)" opacity="0.6"/>`;
   s += sparkle(800, 520, 8) + sparkle(835, 545, 5) + sparkle(770, 560, 6, "#ffd1f3");
   // Phoenix: an inner flame tongue and embers drifting up.
-  s += spikes(432, 565, 52, 66, 9, "#fff2a8", 0.2, Math.PI * 1.15, Math.PI * 1.85);
-  for (const [x, y, r] of [[380, 470, 4], [470, 455, 5], [500, 490, 3], [355, 500, 3], [445, 430, 3]]) s += `<circle cx="${x}" cy="${y}" r="${r * 2.5}" fill="#ff7a1f" opacity="0.4" filter="url(#blur4)"/><circle cx="${x}" cy="${y}" r="${r}" fill="#ffe066"/>`;
   // Drako: scale ridges on the brow and smoke from the nostrils.
   for (let i = 0; i < 4; i++) s += `<path d="M ${100 + i * 20} 694 q 10 -10 20 0" fill="none" stroke="#1f7a37" stroke-width="4" stroke-linecap="round"/>`;
   s += `<path d="M 104 798 h 52 M 108 808 h 44" stroke="#6fbf82" stroke-width="3" stroke-linecap="round"/>`;
@@ -403,7 +452,7 @@ function dusk() {
   // Far faceted peaks, the arena on the ridge, then rolling hills.
   s += peaks([[40, 740, 150], [250, 800, 140], [610, 780, 150], [820, 730, 140]], 1080, "#3a1462", "#c04a9e", "#ff8fb8");
   s += `<rect x="0" y="860" width="${W}" height="220" fill="#ff5aa8" opacity="0.12" filter="url(#blur24)"/>`;
-  s += castle(426, 912);
+
   const range = (base, amp, seed, col, edge) => {
     let d = `M 0 ${H} L 0 ${base}`;
     const pts = [];
@@ -451,7 +500,6 @@ function dusk() {
   for (const [x, y, r] of [[57, 630, 22], [790, 870, 22], [62, 1150, 22], [782, 1153, 22], [568, 778, 14], [770, 438, 16], [300, 1560, 18], [600, 1640, 16]]) s += coin(x, y, r);
   for (const [x, y, sz] of [[260, 600, 14], [600, 470, 12], [40, 1060, 12], [810, 1050, 14], [330, 1500, 10], [620, 1560, 10]]) s += sparkle(x, y, sz);
   // Crystal clusters in the foreground corners, then a vignette at the foot.
-  s += crystals(60, 1700, 1, "#c44fff") + crystals(800, 1640, 0.8, "#33dcff", -1);
   s += `<defs><linearGradient id="foot" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b0624" stop-opacity="0"/><stop offset="1" stop-color="#0b0624" stop-opacity="0.85"/></linearGradient></defs><rect x="0" y="1560" width="${W}" height="${H - 1560}" fill="url(#foot)"/>`;
   // Fireflies of light rising off the floor.
   for (let i = 0; i < 40; i++) {
