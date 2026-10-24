@@ -15,7 +15,8 @@ const GLOW := 3.0
 const FLICKER := 4.0
 
 ## Per painting: spots [x, y, radius x, radius y (art pixels), kind, amount,
-## speed (Hz), phase, glow colour] (at most 4) and the motes' colour.
+## speed (Hz), phase, glow colour] (at most 4), the motes' colour and, for a
+## painting that isn't 720x440, its "size".
 const SPECS := {
 	"lost_egg": {"motes": Color("7dffb0"), "spots": [
 		[365, 225, 85, 100, BOB, 0.012, 0.6, 0.0, null], [328, 232, 55, 26, GLOW, 0.5, 0.8, 0.0, Color("5cff9a")]]},
@@ -98,10 +99,18 @@ const SPECS := {
 	"banner_defeat": {"motes": Color("ff9f43"), "spots": [
 		[350, 320, 60, 65, FLICKER, 0.55, 0.9, 0.0, Color("ff9f43")], [566, 90, 28, 32, FLICKER, 0.6, 0.5, 0.0, Color("fff2b0")],
 		[530, 344, 34, 34, BOB, 0.008, 0.3, 0.0, null], [610, 280, 32, 42, BOB, 0.02, 0.35, 0.2, null]]},
+	# The Fusion Lab (game/ui/fuse_art): reactor swirl, bubbling tubes, pads.
+	"fuse_chamber": {"size": Vector2(720, 680), "motes": Color("b98cff"), "spots": [
+		[360, 316, 130, 130, GLOW, 0.35, 0.4, 0.0, Color("b98cff")], [74, 330, 40, 170, FLICKER, 0.4, 0.7, 0.0, Color("5ce1ff")],
+		[646, 330, 40, 170, FLICKER, 0.4, 0.6, 0.5, Color("ff7ad9")], [360, 560, 300, 80, GLOW, 0.35, 0.5, 0.2, Color("5ce1ff")]]},
+	"fuse_band": {"size": Vector2(720, 220), "motes": Color("5ce1ff"), "spots": [
+		[493, 110, 100, 100, GLOW, 0.35, 0.4, 0.0, Color("b98cff")], [672, 135, 30, 100, FLICKER, 0.4, 0.6, 0.0, Color("ff7ad9")],
+		[318, 143, 24, 90, FLICKER, 0.4, 0.7, 0.5, Color("5ce1ff")]]},
 }
 const MOTES := 9
 
 var art_id := ""
+var art_size := Vector2(W, H)
 var _t := 0.0
 var _tick := -1
 var _mat: ShaderMaterial
@@ -118,13 +127,15 @@ static func make(id: String, path: String) -> TextureRect:
 	a.clip_contents = true
 	var spec: Dictionary = SPECS.get(id, {})
 	if not spec.is_empty():
+		var sz: Vector2 = spec.get("size", Vector2(W, H))
+		a.art_size = sz
 		a._mat = ShaderMaterial.new()
 		a._mat.shader = SHADER
 		var rects: Array[Vector4] = []
 		var moves: Array[Vector4] = []
 		var cols: Array[Vector4] = []
 		for s in spec.spots:
-			rects.append(Vector4(s[0] / W, s[1] / H, s[2] / W, s[3] / H))
+			rects.append(Vector4(s[0] / sz.x, s[1] / sz.y, s[2] / sz.x, s[3] / sz.y))
 			moves.append(Vector4(s[4], s[5], s[6], s[7]))
 			var c: Color = s[8] if s[8] != null else Color.BLACK
 			cols.append(Vector4(c.r, c.g, c.b, 1.0))
@@ -164,12 +175,13 @@ class _Motes extends Control:
 		if spec.is_empty() or A11y.reduced_motion:
 			return
 		var t: float = art._t
-		var s := maxf(size.x / W, size.y / H) if art.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED else minf(size.x / W, size.y / H)
-		var origin := (size - Vector2(W, H) * s) / 2.0
+		var wh: Vector2 = art.art_size
+		var s := maxf(size.x / wh.x, size.y / wh.y) if art.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED else minf(size.x / wh.x, size.y / wh.y)
+		var origin := (size - wh * s) / 2.0
 		for i in MOTES:
 			var h := hash([art.art_id, i])
 			var f := fmod(t * (0.06 + (h & 63) / 63.0 * 0.06) + ((h >> 6) & 255) / 255.0, 1.0)
-			var p := origin + Vector2(((h >> 14) & 1023) / 1023.0 * W + sin(t * 0.8 + i) * 10.0, H * (1.0 - f)) * s
+			var p := origin + Vector2(((h >> 14) & 1023) / 1023.0 * wh.x + sin(t * 0.8 + i) * 10.0, wh.y * (1.0 - f)) * s
 			var a := sin(f * PI) * 0.7
 			var col: Color = spec.motes
 			draw_circle(p, 4.5 * s, Color(col, a * 0.25))
