@@ -507,7 +507,7 @@ func mark(name: String, c: Control) -> void:
 
 
 ## Screens call this to get back to the arena menu, optionally with `ball`
-## picked as yours (the Try-a-Critter card does).
+## picked as yours.
 func request_play(ball := "", duo := false) -> void:
 	play_with = ball
 	play_duo = duo

@@ -40,8 +40,8 @@ static func day_number(date: Dictionary) -> int:
 
 
 ## Setup number `k` for a day. Generation tries k = 0, 1, 2... until one has a
-## fair number of solutions. `shooter` forces your ball (the Try-a-Critter
-## Critter Shot) and makes a different puzzle from the day's main one.
+## fair number of solutions. `shooter` forces your ball and makes a different
+## puzzle from the day's main one.
 static func candidate(day: int, k: int, shooter := "") -> Dictionary:
 	var rng := Rng.new(day * 7919 + k * 104729 + (17 if shooter == "" else 31337 + shooter.hash() % 9973))
 	var p1: String = BALLS[rng.range_int(0, BALLS.size() - 1)]

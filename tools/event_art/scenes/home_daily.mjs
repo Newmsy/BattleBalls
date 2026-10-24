@@ -1,6 +1,6 @@
 // Home, Daily door header band (a strip of this scene): a little fairground at sunrise. A striped tent, string lights,
-// a Trick Shot target on an easel, bouncy pads, and a storm cloud rolling in
-// for Chaos week. Warm gold palette, calm on the left for the title.
+// a Trick Shot target on an easel and bouncy pads (the full scene also has a
+// storm cloud, cut out of the door band). Warm gold palette, calm on the left for the title.
 import { blurs, rng, stringLights, sparkle } from "./_shop_charge_pad_glow_chest_parts.mjs";
 import { critter, shadow, sky, motes } from "./_banner_parts.mjs";
 import { shade } from "../../brand/parts.mjs";

@@ -11,7 +11,6 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
-const Loaner := preload("res://game/loaner.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
@@ -105,11 +104,10 @@ static func _league_panel(store) -> Control:
 	return Kit.panel(v, Kit.box(Color("17143e"), lg.color, 32, 2, 20))
 
 
-## Critters that can go in a ranked trio: owned ones only, so no loaner
-## (Try-a-Critter) and nothing the player hasn't got.
+## Critters that can go in a ranked trio: owned ones only.
 ## Strongest first.
 static func owned_critters(profile) -> Array:
-	return CritterPicker.by_power(profile, BallDefs.PLAYABLE.filter(func(id): return Loaner.can_use(profile, id, "ghost_arena")))
+	return CritterPicker.by_power(profile, BallDefs.PLAYABLE.filter(func(id): return profile.owns(id)))
 
 
 ## A hub tile: icon, name and one status line.

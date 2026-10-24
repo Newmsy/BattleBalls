@@ -11,7 +11,6 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const Bosses := preload("res://sim/bosses.gd")
 const Power := preload("res://sim/power.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
-const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const ArenaView := preload("res://game/arena_view.gd")
 const FightHud := preload("res://game/fight_hud.gd")
@@ -28,7 +27,6 @@ const LiveOps := preload("res://game/liveops.gd")
 const Onboarding := preload("res://game/onboarding.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const Story := preload("res://meta/story.gd")
-const Loaner := preload("res://game/loaner.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Profile := preload("res://meta/profile.gd")
 const Campaign := preload("res://meta/campaign.gd")
@@ -116,9 +114,6 @@ var aim := -450 ## Player launch angle, tenths of a degree.
 var foe_aim = null ## Opponent launch angle, or null to let the seed pick it.
 var link_error := ""
 var auto_start := false
-## Chaos Weekend rule twist. Starts on this weekend's modifier (Normal on
-## weekdays); the menu's Rules button cycles through all of them for testing.
-var modifier := Modifiers.NONE
 var auto_clip := false ## ?clip=1: make a clip as soon as the fight ends (smoke test).
 var url_picks := false ## URL params chose the balls: don't overwrite them from the save.
 ## Quick fight tiers for testing: [yours, the foe's]. Yours 0 is equal stats
@@ -185,12 +180,10 @@ var info_label: Label
 var stamp_label: Label
 var menu_box: VBoxContainer
 var player_buttons := {}
-var player_loan_tags := {} ## id -> the LOAN tag on its pick tile.
 var pick_scroll: ScrollContainer
 var fight_button: Button
 var launch_button: Button
 var seed_label: Label
-var rules_button: Button
 var fight_box: HBoxContainer
 var speed_picker: FightSpeed.Picker
 var aim_box: HBoxContainer
@@ -202,7 +195,7 @@ var result_banner ## game/ui/result_banner.gd behind the headline row.
 var report_label: Label
 var new_seed_button: Button
 var options_row: HBoxContainer ## 1v1 / 2v2 and the "More" button.
-var tiers_row: HBoxContainer ## Tiers and Chaos rules, swapped in for options_row.
+var tiers_row: HBoxContainer ## Tier buttons, swapped in for options_row.
 var solo_button: Button
 var more_button: Button
 ## The Quick fight menu's "i": the long ability and rules text in a card.
@@ -259,7 +252,6 @@ func _ready() -> void:
 	OS.low_processor_usage_mode = OS.has_feature("web")
 	_rng.randomize()
 	seed_value = _rng.randi_range(1, 99999)
-	modifier = _weekend_modifier()
 	backend = Backend.new()
 	add_child(backend)
 	friends = Friends.new(backend)
@@ -442,7 +434,7 @@ func _config() -> Dictionary:
 		var cfg: Dictionary = pve.config.duplicate()
 		cfg.angles = [aim, null]
 		return cfg
-	var cfg := {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena(), "modifier": modifier}
+	var cfg := {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena()}
 	if _is_duo():
 		cfg.p3 = _mate()
 		cfg.p4 = _foe_mate(opponent_type)
@@ -565,29 +557,25 @@ func _refresh_menu() -> void:
 	duo_button.visible = mode == Mode.NORMAL
 	solo_button.button_pressed = not _is_duo()
 	duo_button.button_pressed = _is_duo()
-	more_button.text = ("More" if mode == Mode.NORMAL else "Rules: " + Modifiers.display_name(modifier)).to_upper()
+	more_button.text = "MORE"
 	fight_button.text = "LIVE FIGHT" if _live_on() else "FIGHT!"
 	fight_button.disabled = _is_duo() and mate_type == ""
 	if _is_duo(): # Both tiles of the pair are lit.
 		seed_label.text = ("Pick 2 · %s" % Arenas.get_def(_pick_arena()).display_name).to_upper()
 		if mate_type == "":
 			fight_button.text = "PICK 1 MORE"
-	rules_button.text = Modifiers.display_name(modifier).to_upper()
 	_refresh_tier_buttons()
-	for id in player_loan_tags:
-		player_loan_tags[id].visible = _is_loan(id)
 	info_label.text = _menu_info_short()
-	arena.preview_types = _fight_types(player_type, _pick_opponent())
+	arena.preview_types = [player_type, _pick_opponent()]
 	if _is_duo():
 		arena.preview_types = arena.preview_types + [_mate(), _foe_mate(_pick_opponent())]
-	arena.preview_modifier = modifier
 	arena.preview_arena = _pick_arena()
 	arena.queue_redraw()
 	_report_menu.call_deferred()
 
 
 ## The Quick fight menu's one line under the picks: the picked critter's
-## ability, or what this fight is (pair, loan, rival, challenge, twist).
+## ability, or what this fight is (pair, rival, challenge).
 func _menu_info_short() -> String:
 	var def := BallDefs.get_def(player_type)
 	var text := AbilityText.now(player_type, maxi(1, _fight_tiers()[0]))
@@ -595,19 +583,15 @@ func _menu_info_short() -> String:
 		text = def.display_name
 	if _is_duo():
 		text = "Pick 2, then tap the arena to aim %s." % def.display_name
-	if _is_loan(player_type):
-		text = "On loan: practice only."
 	if mode == Mode.RIVAL:
 		text = "Beat %s's %s!" % [rival.name, BallDefs.get_def(opponent_type).display_name]
 	elif mode == Mode.CHALLENGE:
 		text = "Beat your friend's %s shot!" % BallDefs.get_def(opponent_type).display_name
-	if modifier != Modifiers.NONE:
-		text = "%s twist on" % Modifiers.display_name(modifier)
 	return text
 
 
 ## Behind the menu's "i": the picked critter's long ability text, plus the
-## rival rules and the twist's description when they apply.
+## rival rules when they apply.
 func _menu_info_full() -> Array:
 	var full := AbilityText.full(player_type)
 	var lines := [full if full != "" else str(BallDefs.get_def(player_type).description)]
@@ -615,8 +599,6 @@ func _menu_info_full() -> Array:
 		lines.append("2v2: tap a critter to add it to your pair or take it out.")
 	if mode == Mode.RIVAL:
 		lines.append("Unranked: only your record against them changes.")
-	if modifier != Modifiers.NONE:
-		lines.append("%s: %s" % [Modifiers.display_name(modifier), Modifiers.get_def(modifier).description])
 	return lines
 
 
@@ -647,7 +629,7 @@ func _show_menu_info() -> void:
 	ui.add_child(root)
 
 
-## "More" swaps the 1v1/2v2 row for the tier and Chaos rules buttons, and Done swaps it back.
+## "More" swaps the 1v1/2v2 row for the tier buttons, and Done swaps it back.
 func _show_options(on: bool) -> void:
 	options_row.visible = not on
 	tiers_row.visible = on
@@ -704,26 +686,6 @@ func _pick_opponent() -> String:
 		if not same.is_empty():
 			ids = same
 	return ids[seed_value % ids.size()]
-
-
-## The balls that will actually fight: Mirror Match overrides both picks.
-func _fight_types(p1: String, p2: String) -> Array:
-	if Modifiers.get_def(modifier).get("mirror", false):
-		var m := Modifiers.mirror_ball(seed_value)
-		return [m, m]
-	return [p1, p2]
-
-
-## This weekend's Chaos twist from the live-ops schedule, or NONE off-weekend.
-func _weekend_modifier() -> String:
-	var c := LiveOps.chaos(LiveOps.now())
-	return c.modifier if c.live else Modifiers.NONE
-
-
-func _cycle_rules() -> void:
-	var ids: Array = [Modifiers.NONE] + Modifiers.DEFS.keys()
-	modifier = ids[(ids.find(modifier) + 1) % ids.size()]
-	_refresh_menu()
 
 
 func _launch() -> void:
@@ -926,7 +888,6 @@ func _report_code() -> String:
 	var code := "BB1.%s.%s.%d.%d.%s" % [player_type, opponent_type, seed_value, aim, _build_stamp().replace(" ", "")]
 	if _pick_arena() != "square":
 		code += "." + _pick_arena()
-	code += "." + modifier if modifier != Modifiers.NONE else ""
 	var t := _fight_tiers()
 	return code + (".t%d%d" % t if t[0] > 0 else "")
 
@@ -1325,15 +1286,7 @@ func _sync_settings(boot: bool) -> void:
 		save.commit()
 
 
-## Today's Try-a-Critter loaner, for a player who doesn't own it.
-func _is_loan(id: String) -> bool:
-	return shell != null and Loaner.is_loan(shell.profile, id)
-
-
 func _record_fight() -> void:
-	# A loaner is practice: no stats, no aim history, never your ghost.
-	if _is_loan(player_type):
-		return
 	if mode != Mode.CAMPAIGN:
 		save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": FightSpeed.index()}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
@@ -1514,8 +1467,8 @@ func _build_ui() -> void:
 	stamp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	stamp_label.visible = false
 
-	# Quick fight: pick a critter, 1v1 or 2v2, then one big FIGHT!. Tiers and
-	# Chaos rules sit behind "More" so the screen reads like a game,
+	# Quick fight: pick a critter, 1v1 or 2v2, then one big FIGHT!. Tiers
+	# sit behind "More" so the screen reads like a game,
 	# not a test bench. Every row fits the panel width at any text size.
 	menu_box = VBoxContainer.new()
 	menu_box.add_theme_constant_override("separation", 14)
@@ -1525,8 +1478,6 @@ func _build_ui() -> void:
 	menu_box.add_child(_pick_grid(BallDefs.PLAYABLE, _pick_player))
 	# A new seed: a new arena and a new random foe.
 	new_seed_button = _button("Shuffle", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 24, "ghost", 96)
-	# Chaos Weekend modifiers, until the event screen exists.
-	rules_button = _button("", _cycle_rules, 22, "ghost", 68)
 	# Tiers to test with: tap to cycle equal stats, then one to five stars.
 	tier_buttons = [_tier_button(0), _tier_button(1)]
 	solo_button = _button("1v1", _set_duo.bind(false), 24, "ghost", 68)
@@ -1547,7 +1498,7 @@ func _build_ui() -> void:
 	options_row = _row([solo_button, duo_button, more_button])
 	menu_box.add_child(options_row)
 	var done := _button("Done", func(): _show_options(false), 22, "ghost", 68)
-	tiers_row = _row(tier_buttons + [rules_button, done])
+	tiers_row = _row(tier_buttons + [done])
 	tiers_row.visible = false
 	menu_box.add_child(tiers_row)
 	# One tap fights: FIGHT! launches at the centre, or tap the arena to aim and launch.
@@ -1640,7 +1591,7 @@ func _build_shell() -> void:
 		shell_layer.visible = false
 		sfx.toggle_hidden = false
 		_use_lineup()
-		# A loaner (Try-a-Critter) wins over your own fighter for this fight.
+		# A critter picked from a screen wins over your own fighter for this fight.
 		if shell.play_with in BallDefs.PLAYABLE:
 			player_type = shell.play_with
 		shell.play_with = ""
@@ -1862,7 +1813,7 @@ func _update_hud() -> void:
 	if _stats_for != sim:
 		_stats_for = sim
 		fighter_strip.stats = ["", ""] if sim.starters > 2 else [_side_stats(you_side), _side_stats(1 - you_side)]
-	var twist: String = Modifiers.display_name(sim.config.modifier) if sim.config.get("modifier", Modifiers.NONE) != Modifiers.NONE else ""
+	var twist := ""
 	# The info line has no room in a fight (the plates fill the screen): what
 	# it says (a replay's title) shows under the clock, after the twist.
 	if twist == "" and state == State.FIGHT:
@@ -2071,7 +2022,6 @@ func _play_normal(menu := true) -> void:
 	opponent_choice = OPPONENT_RANDOM
 	mode = Mode.NORMAL
 	foe_aim = null
-	modifier = _weekend_modifier()
 	arena_override = url_arena
 	rival = {}
 	if OS.has_feature("web"):
@@ -2106,7 +2056,6 @@ func _watch_board_fight(f: Dictionary) -> void:
 	seed_value = f.seed
 	aim = f.angles[0]
 	foe_aim = f.angles[1]
-	modifier = Modifiers.NONE ## The Fight of the Day's known result is on normal rules.
 	link_tiers = [0, 0]
 	arena_override = f.get("arena", "square")
 	_board_pick = f.pick
@@ -2203,15 +2152,6 @@ func _pick_grid(ids: Array, on_pick: Callable) -> ScrollContainer:
 		name_label.offset_bottom = -6.0
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		b.add_child(name_label)
-		var loan := Kit.chip("Loan", Kit.WARN, 16)
-		loan.anchor_left = 1.0
-		loan.anchor_right = 1.0
-		loan.offset_right = -8.0
-		loan.offset_top = 8.0
-		loan.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		loan.visible = false
-		b.add_child(loan)
-		player_loan_tags[id] = loan
 		b.toggled.connect(func(on): name_label.add_theme_color_override("font_color", Color("0b0a1f") if on else Color("f0eeff")))
 		player_buttons[id] = b
 		grid.add_child(b)
@@ -2517,8 +2457,6 @@ func _share_url(kind: String) -> String:
 	var mine := str(friends.me.get("code", ""))
 	if mine != "":
 		url += "&f=" + mine
-	# The fight's Chaos Weekend twist rides along, so it replays the same any day.
-	url += "&mod=" + modifier if modifier != Modifiers.NONE else ""
 	# A tiered Quick fight replays at its tiers; a challenge is taken at equal stats.
 	var t := _fight_tiers()
 	return url + ("&t=%d%d" % t if kind == "r" and t[0] > 0 else "")
@@ -2682,12 +2620,6 @@ func _read_url_params() -> Dictionary:
 	# ?today=2026-10-17 pins the live-ops clock to that day's noon (UTC).
 	if LiveOps.date_unix(params.get("today", "")) >= 0:
 		LiveOps.now_override = LiveOps.date_unix(params.today) + 12 * 3600
-	if Modifiers.has(params.get("mod", "-")):
-		modifier = params.mod
-	elif params.has("r") or params.has("c"):
-		modifier = Modifiers.NONE ## A shared fight without a twist was played on normal rules.
-	else:
-		modifier = _weekend_modifier()
 	if params.get("demo", "") == "friends":
 		friends.show_demo()
 	if Friends.is_code(params.get("f", "")):

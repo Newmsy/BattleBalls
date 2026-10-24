@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cmoihq80f7ig7"
-path="res://.godot/imported/tok_frame_cyan.png-c6615399c5f75bae5e335f78585a37db.ctex"
+uid="uid://bqe5g65jjpfeu"
+path="res://.godot/imported/daily_bracket.png-6113562c44ed7c8ffba8b8bf4be9d69f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://game/ui/home_art/tok_frame_cyan.png"
-dest_files=["res://.godot/imported/tok_frame_cyan.png-c6615399c5f75bae5e335f78585a37db.ctex"]
+source_file="res://game/ui/home_art/daily_bracket.png"
+dest_files=["res://.godot/imported/daily_bracket.png-6113562c44ed7c8ffba8b8bf4be9d69f.ctex"]
 
 [params]
 

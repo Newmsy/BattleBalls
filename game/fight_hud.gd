@@ -35,7 +35,7 @@ var tags: Array = ["YOU", "FOE"]
 ## A team fight's power per side (viewer's first; empty: none), small in the
 ## arena's corners by each side's plates.
 var power: Array = ["", ""]
-## Under the clock: the fight's twist (Chaos Weekend rule), or the overtime damage.
+## Under the clock: a replay's title, or the overtime damage.
 var caption := ""
 var center_text := ""
 var _hp := [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

@@ -12,7 +12,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `meta/` | Progression outside a fight: the player profile (collection, fusion, energy, account level, campaign stars), campaign zones, drops. Pure logic, clock passed in. Saved in the SaveGame as `data.profile`. |
 | `sim/critters/` | One file per critter: everything about it (see Adding a critter). |
 | `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim and meta; never changes their rules. |
-| `liveops/` | The live-ops schedule (`liveops.json`): seasons, Chaos Weekends, Fight of the Day. See its README. |
+| `liveops/` | The live-ops schedule (`liveops.json`): seasons, Fight of the Day, Bracket of Legends. See its README. |
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |
@@ -42,10 +42,9 @@ CI builds every ready (non-draft) PR for the web and deploys it to Vercel
 comment with its preview URL; `main` deploys to production. Smoke-test
 screenshots are served at `<preview>/smoke/`.
 
-URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink&mod=big_head`
+URL params jump straight to a fight: `?p1=vampire&p2=laser&seed=42&aim=-450&auto=1&speed=2&arena=rink`
 (`aim` is the launch angle in tenths of a degree, screen space, y down;
-`arena` is an id from `sim/arenas.gd`; `mod` is an optional Chaos Weekend
-modifier id from `sim/modifiers.gd`).
+`arena` is an id from `sim/arenas.gd`).
 
 A first visit with no URL params plays the onboarding
 (`game/onboarding.gd`; the design lives in the project's design/onboarding.md).
