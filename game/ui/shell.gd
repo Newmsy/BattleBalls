@@ -20,6 +20,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Motion := preload("res://game/ui/motion.gd")
+const LevelUp := preload("res://game/ui/level_up.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -897,14 +898,12 @@ func _tick_energy() -> void:
 
 
 func _refresh_top() -> void:
-	_top_labels.level.text = str(profile.account_level)
+	_set_level()
 	_tick_energy()
 	_set_top("energy", profile.energy)
 	_set_top("coin", profile.coins)
 	_set_top("orb", profile.orbs)
 	_fly_from = Vector2(-1, -1)
-	_level_ring.set("frac", float(profile.account_xp) / maxf(1.0, profile.account_xp_to_next()))
-	_level_ring.queue_redraw()
 	var fusable := _fuse_signature()
 	if current == "fuse":
 		_set_badge("fuse_seen", fusable)
@@ -983,6 +982,39 @@ func _set_top(kind: String, value: int, quiet := false) -> void:
 			sfx.play("click", -8.0, 1.2 + .05 * k)
 		if k == n - 1:
 			Motion.flash(pill, Color(1.0, 1.5, 1.2), .5))
+
+
+## The level badge and its XP ring. A level reached out of sight waits like
+## a coin does; then the ring fills, the badge pops and LevelUp celebrates.
+func _set_level() -> void:
+	var lv: int = profile.account_level
+	var frac := float(profile.account_xp) / maxf(1.0, profile.account_xp_to_next())
+	var seen = _shown.get("level")
+	var ring_from: float = _level_ring.get("frac")
+	if seen != null and lv > int(seen) and (not is_visible_in_tree() or overlay_open()):
+		return # Held until you're back on a screen.
+	_shown["level"] = lv
+	_top_labels.level.text = str(lv)
+	if seen == null or lv < int(seen) or Motion.calm() or not is_inside_tree():
+		_level_ring.set("frac", frac)
+		_level_ring.queue_redraw()
+		if seen != null and lv > int(seen):
+			LevelUp.show_on(_fx, lv, sfx)
+		return
+	var ring := func(f: float) -> void:
+		_level_ring.set("frac", f)
+		_level_ring.queue_redraw()
+	var tw := _level_ring.create_tween()
+	if lv > int(seen):
+		_top_labels.level.text = str(seen)
+		tw.tween_method(ring, ring_from, 1.0, .4).set_ease(Tween.EASE_OUT)
+		tw.tween_callback(func():
+			_top_labels.level.text = str(lv)
+			Motion.bump(_badge, 1.35, .32)
+			Motion.flash(_badge, Color(1.8, 1.7, 1.2), .5)
+			LevelUp.show_on(_fx, lv, sfx))
+		ring_from = 0.0
+	tw.tween_method(ring, ring_from, frac, .35).set_ease(Tween.EASE_OUT)
 
 
 func _notification(what: int) -> void:

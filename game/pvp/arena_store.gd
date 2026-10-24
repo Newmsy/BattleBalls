@@ -33,6 +33,11 @@ const RAIDS_PER_DAY := 3
 
 ## Set by the arena fight scene so the home screen reopens on the Arena.
 static var reopen := false
+## The trophies and league the Arena screen last showed (render-only: it
+## ticks from these after a fight). Here because this script stays loaded
+## through the fight scene.
+static var seen_trophies := -1
+static var seen_league := -1
 
 var path := SAVE_PATH
 var trophies := 0
