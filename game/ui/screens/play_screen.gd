@@ -370,8 +370,9 @@ static func campaign_card(shell) -> Control:
 
 ## Quick fight with your fighter on it: tap the fighter to pick another, and
 ## the card updates in place. Quick fight itself is one tap: your fighter
-## against a random foe of its rarity and tier, on a random arena.
-static func quick_fight_card(shell) -> Control:
+## against a random foe of its rarity and tier, on a random arena. `band`
+## (a painting with its title, on the Versus hub) heads the card.
+static func quick_fight_card(shell, band: Control = null) -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
@@ -391,7 +392,13 @@ static func quick_fight_card(shell) -> Control:
 	fight.size_flags_horizontal = Control.SIZE_SHRINK_END
 	fight.custom_minimum_size.x = 210
 	shell.mark("quickfight", fight)
-	return Kit.panel(Kit.hbox(12, [fighter, fight], BoxContainer.ALIGNMENT_CENTER), Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 18))
+	var card := Kit.hbox(12, [fighter, fight], BoxContainer.ALIGNMENT_CENTER)
+	var st := Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 18)
+	if band == null:
+		return Kit.panel(card, st)
+	# The Versus hub heads it with a painted band that runs to the border.
+	st.set_content_margin_all(2)
+	return Kit.panel(Kit.vbox(0, [band, _padded(card, 8, 14)]), st)
 
 
 ## The fighter picker (also opened by a Quick fight result's Change critter).

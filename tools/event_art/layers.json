@@ -1271,6 +1271,102 @@
    }
   ]
  },
+ "room_bazaar": {
+  "size": [
+   240,
+   220
+  ],
+  "layers": [
+   {
+    "id": "seller",
+    "move": "idle 3 0.7 0",
+    "pivot": [
+     121,
+     156
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     91,
+     89,
+     60,
+     69
+    ]
+   },
+   {
+    "id": "counter",
+    "move": "still",
+    "pivot": [
+     120,
+     196
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     16,
+     126,
+     208,
+     74
+    ]
+   }
+  ]
+ },
+ "room_defence": {
+  "size": [
+   240,
+   220
+  ],
+  "layers": [
+   {
+    "id": "l",
+    "move": "idle 2 0.8 0",
+    "pivot": [
+     61,
+     87
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     39,
+     38,
+     43,
+     51
+    ]
+   },
+   {
+    "id": "m",
+    "move": "idle 2 0.7 0.4",
+    "pivot": [
+     121,
+     87
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     95,
+     11,
+     51,
+     78
+    ]
+   },
+   {
+    "id": "r",
+    "move": "idle 2 0.8 0.7",
+    "pivot": [
+     181,
+     87
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     159,
+     25,
+     43,
+     64
+    ]
+   }
+  ]
+ },
  "scrap_robot": {
   "size": [
    720,
@@ -1619,6 +1715,262 @@
      48,
      350,
      345
+    ]
+   }
+  ]
+ },
+ "vs_duo": {
+  "size": [
+   360,
+   280
+  ],
+  "layers": [
+   {
+    "id": "a",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     121,
+     239
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     93,
+     175,
+     55,
+     67
+    ]
+   },
+   {
+    "id": "b",
+    "move": "idle 4 1.0 0.3",
+    "pivot": [
+     71,
+     255
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     43,
+     191,
+     55,
+     67
+    ]
+   },
+   {
+    "id": "c",
+    "move": "idle 3 0.8 0.5",
+    "pivot": [
+     241,
+     239
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     213,
+     159,
+     55,
+     83
+    ]
+   },
+   {
+    "id": "d",
+    "move": "idle 4 1.0 0.8",
+    "pivot": [
+     291,
+     255
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     263,
+     193,
+     55,
+     65
+    ]
+   }
+  ]
+ },
+ "vs_friends": {
+  "size": [
+   360,
+   280
+  ],
+  "layers": [
+   {
+    "id": "blue",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     127,
+     230
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     93,
+     151,
+     68,
+     82
+    ]
+   },
+   {
+    "id": "pink",
+    "move": "idle 3 0.6 0.5",
+    "pivot": [
+     235,
+     230
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     201,
+     149,
+     68,
+     84
+    ]
+   },
+   {
+    "id": "gift",
+    "move": "bob 5 0.5 0.2",
+    "pivot": [
+     180,
+     176
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     140,
+     107,
+     80,
+     83
+    ]
+   },
+   {
+    "id": "heart",
+    "move": "bob 4 0.7 0.6",
+    "pivot": [
+     180,
+     120
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     162,
+     95,
+     36,
+     29
+    ]
+   }
+  ]
+ },
+ "vs_ghost": {
+  "size": [
+   720,
+   240
+  ],
+  "layers": [
+   {
+    "id": "me",
+    "move": "idle 3 0.7 0",
+    "pivot": [
+     331,
+     208
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     295,
+     124,
+     72,
+     87
+    ]
+   },
+   {
+    "id": "g1",
+    "move": "bob 6 0.45 0",
+    "pivot": [
+     600,
+     192
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     549,
+     91,
+     102,
+     106
+    ]
+   },
+   {
+    "id": "g2",
+    "move": "bob 6 0.5 0.35",
+    "pivot": [
+     540,
+     212
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     485,
+     102,
+     110,
+     116
+    ]
+   },
+   {
+    "id": "g3",
+    "move": "bob 6 0.42 0.7",
+    "pivot": [
+     660,
+     224
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     601,
+     106,
+     118,
+     124
+    ]
+   }
+  ]
+ },
+ "vs_quick": {
+  "size": [
+   720,
+   200
+  ],
+  "layers": [
+   {
+    "id": "me",
+    "move": "idle 4 0.9 0",
+    "pivot": [
+     331,
+     185
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     293,
+     93,
+     76,
+     94
+    ]
+   },
+   {
+    "id": "foe",
+    "move": "bob 4 0.6 0.4",
+    "pivot": [
+     521,
+     188
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     489,
+     116,
+     64,
+     74
     ]
    }
   ]
