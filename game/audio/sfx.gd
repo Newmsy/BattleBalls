@@ -567,6 +567,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("snow_burst", -2.0, 0.8)
 				elif kind == "fire":
 					play("fwoomp")
+				elif kind == "land": # Touching down from a launch pad.
+					play("thwomp", 0.0, 1.1)
 				elif kind == "ink":
 					play("squirt")
 				else:
@@ -581,6 +583,17 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("sizzle", -6.0, 0.8)
 			"portal":
 				play("flip", 0.0, 1.6)
+			"core": # A power core taken: a bright shine and a charge-up.
+				play("t5_shine", 0.0, 1.1)
+				play("shield_up", -4.0, 1.2)
+			"crystal_crack":
+				play("shield_tink", -4.0, 1.3 + _rng.randf() * 0.2)
+			"crystal_break":
+				play("shatter", 0.0, 0.9)
+			"crystal_grow":
+				play("snowflake", -8.0, 1.4)
+			"jump": # Off a launch pad.
+				play("spring_boing", -2.0, 1.0)
 			"bumper": # An arena bumper: a pinball 'ding'.
 				play("pinball_ding", -2.0, 0.8)
 			"shot":

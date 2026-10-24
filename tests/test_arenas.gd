@@ -46,6 +46,10 @@ func test_every_arena_is_point_symmetric() -> void:
 				var there: Vector2 = g.rect.get_center() if g.has("rect") else g.pos
 				return g.kind == f.kind and there.distance_to(mirrored) < 0.01 and (not f.has("dir") or g.dir.is_equal_approx(-f.dir)))
 			check(found, "%s %s floor at %s has no mirror" % [id, f.kind, here])
+		var cores: Array = Arenas.get_def(id).get("cores", [])
+		for k in cores:
+			var mirrored: Vector2 = c * 2.0 - k.pos
+			check(cores.any(func(v): return v.pos.distance_to(mirrored) < 0.01 and v.radius == k.radius), "%s core at %s has no mirror" % [id, k.pos])
 
 
 func test_starts_are_clear_of_every_obstacle_and_corner() -> void:
@@ -412,3 +416,90 @@ func test_ghost_arena_and_spire_fights_carry_their_map() -> void:
 	var spec: Dictionary = Spire.floor_def(0, 3)
 	check(spec.arena in Arenas.PLAYABLE, "spire floors roll a map")
 	check_eq(Spire.relay_config(spec, [{"id": "plain", "power": 1.0}]).arena, spec.arena, "and fight on it")
+
+
+func test_a_power_core_overcharges_its_taker_then_goes_dark() -> void:
+	var sim := MatchSim.new({"seek": 0.0, "seed": 1, "p1": "plain", "p2": "plain", "angles": [null, null], "arena": "arcane", "damage_rolls": false})
+	_park(sim)
+	check(not sim.cores()[0].lit, "dark at kick-off")
+	while sim.tick < int(MatchSim.CORE_FIRST * MatchSim.TICK_RATE):
+		sim.step()
+	check(sim.cores()[0].lit, "lights after CORE_FIRST")
+	var b := sim.balls[0]
+	b.pos = Vector2(500, 500)
+	sim.step()
+	check(sim.events.any(func(e): return e.type == "core" and e.ball == 0), "ball 0 takes it")
+	check(sim.overcharged(b) and not sim.overcharged(sim.balls[1]), "only the taker is overcharged")
+	check(not sim.cores()[0].lit, "the core goes dark")
+	check_near(sim.cores()[0].ready_in, MatchSim.CORE_RESPAWN, 0.05, "for CORE_RESPAWN seconds")
+	var foe := sim.balls[1]
+	var hp := foe.hp
+	sim.add_hit(b, foe, 10.0, "beam", foe.pos)
+	sim.step()
+	check_near(hp - foe.hp, 10.0 * MatchSim.OVERCHARGE_ABILITY, 0.01, "ability damage is boosted")
+	for i in int(MatchSim.OVERCHARGE_SECS * MatchSim.TICK_RATE):
+		sim.step()
+	check(not sim.overcharged(b), "Overcharge wears off")
+	b.pos = Vector2(500, 150)
+	for i in int(MatchSim.CORE_RESPAWN * MatchSim.TICK_RATE):
+		sim.step()
+	check(sim.cores()[0].lit, "lights again")
+
+
+func test_a_core_reached_together_overcharges_both() -> void:
+	var sim := _sim("nebula")
+	_park(sim)
+	while sim.tick < int(MatchSim.CORE_FIRST * MatchSim.TICK_RATE):
+		sim.step()
+	sim.balls[0].pos = Vector2(470, 530)
+	sim.balls[1].pos = Vector2(530, 470)
+	sim.step()
+	check(sim.overcharged(sim.balls[0]) and sim.overcharged(sim.balls[1]), "a dead heat is shared")
+
+
+func test_crystals_crack_shatter_nick_and_grow_back() -> void:
+	var sim := _runner("prism", "plain", Vector2(320, 330), Vector2.DOWN)
+	var count := func() -> int: return sim.obstacles().filter(func(o): return o.kind == "crystal").size()
+	check_eq(count.call(), 2, "two crystals")
+	var cracked := false
+	for i in 40:
+		sim.step()
+		if sim.events.any(func(e): return e.type == "crystal_crack"):
+			cracked = true
+			break
+	check(cracked, "a bounce cracks it")
+	var foe := sim.balls[1]
+	foe.pos = Vector2(320, 620)
+	sim.balls[0].pos = Vector2(150, 150)
+	sim.balls[0].vel = Vector2.ZERO
+	var idx: int = sim.obstacles().filter(func(o): return o.kind == "crystal" and o.pos.x < 500)[0].crystal
+	var hp := foe.hp
+	sim.crack_crystal(idx, sim.balls[0], Vector2(320, 500))
+	sim.crack_crystal(idx, sim.balls[0], Vector2(320, 500))
+	check_eq(count.call(), 1, "the third crack shatters it")
+	sim.step()
+	check(foe.hp < hp, "shards nick the breaker's foe")
+	for i in int(MatchSim.CRYSTAL_REGROW * MatchSim.TICK_RATE) + 2:
+		sim.step()
+	check_eq(count.call(), 2, "and it grows back")
+
+
+func test_a_launch_pad_flies_over_balls_and_lands_with_a_pulse() -> void:
+	var sim := _runner("toybox", "plain", Vector2(500, 700), Vector2.DOWN)
+	var foe := sim.balls[1]
+	foe.pos = Vector2(500, 900)
+	var b := sim.balls[0]
+	var flew := false
+	var bumped := false
+	var landed := false
+	for i in 90:
+		sim.step()
+		flew = flew or sim.airborne(b)
+		if sim.airborne(b) and sim.events.any(func(e): return e.type == "collide"):
+			bumped = true
+		if sim.events.any(func(e): return e.type == "pulse" and e.kind == "land"):
+			landed = true
+			break
+	check(flew, "the pad throws it")
+	check(not bumped, "it flies over the other ball")
+	check(landed, "and lands with a pulse")

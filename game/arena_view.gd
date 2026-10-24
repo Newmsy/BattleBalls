@@ -47,7 +47,7 @@ const ZONE_COLORS := {"ice": Color("bfe9ff"), "frost": Color("9fd8ff"), "wisp": 
 const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire": Color("ff7a1f"), "nova": Color("e8d6ff"), "flare": Color("a89cff"), "boom": Color("ff8a3d"),
 	"zap": Color("c9a6ff"), "bigzap": Color("f0e2ff"), "drum": Color("ff5a6a"), "wind": Color("c7f9cc"), "ink": Color("8a5cc8"), "stink": Color("9be36b"),
 	"shell": Color("ffb347"), "blob": Color("7cff6b"), "hammer": Color("ff8a3d"), "quake": Color("ffd166"), "lash": Color("7af0ff"),
-	"shards": Color("cdf3ff"), "paint": Color("ffd23f"), "confetti": Color("f15bb5"), "thunder": Color("8ecbff"),
+	"shards": Color("cdf3ff"), "land": Color("ff4fa3"), "paint": Color("ffd23f"), "confetti": Color("f15bb5"), "thunder": Color("8ecbff"),
 	"bugflare": Color("e8ff7a"), "candy": Color("ff9de2"), "inkslam": Color("b36bff"), "wave": Color("5ff0e6"), "quasar": Color("e0b3ff"),
 	"glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968"),
 	"petal": Color("ff9ecf"), "tick": Color("ffd166"), "root": Color("a5743a"), "sunfire": Color("ffe14d")}
@@ -81,6 +81,9 @@ const LAVA := Color("ff5a1f")
 const PORTAL := Color("7cff9b")
 const PORTAL_B := Color("c77dff")
 const ICE := Color("bfe9ff")
+const CORE := Color("ffd23f") ## Power cores and the Overcharge aura.
+const CRYSTAL := Color("8fe3ff")
+const JUMP := Color("ff4fa3") ## Launch pads.
 const GOO := Color("ffb627")
 const CONVEYOR := Color("ffd23f")
 const FIELD_PUSH := Color("ff4d6a")
@@ -728,6 +731,24 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"lava":
 				_spawn_particles(e.pos, 3)
 				_rings.append({"pos": e.pos, "radius": 40.0, "color": LAVA, "age": 0.0})
+			"core":
+				var cb := sim.balls[e.ball]
+				_rings.append({"pos": e.pos, "radius": 110.0, "color": CORE, "age": 0.0})
+				_rings.append({"pos": cb.pos, "radius": cb.radius * 1.8, "color": CORE, "age": 0.0})
+				_burst(e.pos, 16, [CORE, Color("fff3b0"), Color.WHITE], Vector2(160.0, 420.0))
+				_add_popup(cb.pos + Vector2(0, -cb.radius - 56), "OVERCHARGE!", CORE, 1.2)
+				_shake = maxf(_shake, 5.0 * A11y.motion())
+			"crystal_crack":
+				_burst(e.pos, 5, [CRYSTAL, Color.WHITE], Vector2(80.0, 220.0))
+			"crystal_break":
+				_burst(e.pos, 18, [CRYSTAL, Color("d8f6ff"), Color.WHITE], Vector2(220.0, 560.0), Vector2.ZERO, TAU, Vector2(4.0, 8.0))
+				_rings.append({"pos": e.pos, "radius": e.radius, "color": CRYSTAL, "age": 0.0})
+				_shake = maxf(_shake, 6.0 * A11y.motion())
+			"crystal_grow":
+				_rings.append({"pos": e.pos, "radius": 50.0, "color": CRYSTAL, "age": 0.0})
+			"jump":
+				_rings.append({"pos": e.pos, "radius": 90.0, "color": JUMP, "age": 0.0})
+				_burst(e.pos, 8, [JUMP, CORE], Vector2(120.0, 300.0))
 			"portal":
 				_rings.append({"pos": e.from, "radius": 70.0, "color": PORTAL, "age": 0.0})
 				_rings.append({"pos": e.to, "radius": 70.0, "color": PORTAL, "age": 0.0})
@@ -1011,8 +1032,10 @@ func _draw() -> void:
 	var plain := outline.size() == 4 and not shape.arena.has("sides")
 	_draw_ambient(theme.ambient, arena, PackedVector2Array() if plain else outline)
 	_draw_floors(shape.floors())
+	_draw_cores(shape)
 	_draw_wells(shape.wells())
 	_draw_spike_walls(shape)
+	_draw_crystal_stubs(shape)
 	_draw_obstacles(shape.obstacles())
 
 	if sim == null:
@@ -1190,7 +1213,12 @@ func _draw() -> void:
 				BattleFx.draw_tier_aura(self, ball_pos(b) * s, b.radius * s, tier, Color(b.def.color), _time + b.index)
 				if tier >= 5:
 					BattleFx.draw_ascend_trail(self, ball_pos(b) * s, b.radius * s, b.vel, _time + b.index)
-			_draw_critter(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
+			var air := _air(b)
+			if air > 0.0: # Off a launch pad: a shadow on the floor, the ball up and bigger.
+				_ellipse(ball_pos(b) * s + Vector2(0, b.radius * s * 0.6), b.radius * s * (1.0 - 0.3 * air), b.radius * s * 0.4, Color(0, 0, 0, 0.35))
+			if sim.overcharged(b):
+				_draw_overcharge(b, _air_pos(b, s), b.radius * s)
+			_draw_critter(b.index, b.def, _air_pos(b, s), b.radius * s * (1.0 + 0.3 * air), b.hp, b.max_hp, shake)
 			_draw_status(b, s)
 		elif b.index == ko_ball:
 			_draw_critter(b.index, b.def, ball_pos(b) * s, b.radius * s, 0.0, b.max_hp, shake, true)
@@ -1226,7 +1254,7 @@ func _draw() -> void:
 	_place_tags(s, ko_ball)
 	for b in sim.balls:
 		if b.alive() or b.index == ko_ball:
-			_draw_overlay(b.index, b.def, ball_pos(b) * s, b.radius * s, b.hp, b.max_hp, shake)
+			_draw_overlay(b.index, b.def, _air_pos(b, s), b.radius * s * (1.0 + 0.3 * _air(b)), b.hp, b.max_hp, shake)
 
 	for p in _popups:
 		var t: float = p.age / POPUP_LIFE
@@ -1417,7 +1445,7 @@ func _paint_art_floor(cv: CanvasItem, shape: MatchSim, overtime: bool) -> void:
 
 
 func _draw_art_obstacle(o: Dictionary, p: Vector2, rad: float) -> bool:
-	if _art_ctx == null or _bake == null:
+	if _art_ctx == null or _bake == null or o.kind == "crystal":
 		return false
 	var slot := 0 if o.kind == "pillar" else 1
 	if slot == 1 and not ArenaArt.has_bumper(_art_ctx.id):
@@ -1748,6 +1776,8 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 			continue
 		if o.kind == "spike":
 			_draw_spike_post(p, rad)
+		elif o.kind == "crystal":
+			_draw_crystal(p, rad, o.hits, 1.0)
 		elif o.kind == "bumper":
 			var k := _bumper_flash / BUMPER_FLASH_LIFE
 			var col := BUMPER.lerp(Color.WHITE, k * 0.7)
@@ -1918,6 +1948,18 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 					while sx < u1 - 10.0:
 						draw_line(at.call(sx, edge), at.call(minf(sx + 10.0, u1), edge), Color(CONVEYOR, 0.5) if int(sx / 10.0) % 2 == 0 else Color(INK, 0.6), 4.0)
 						sx += 10.0
+			"launch": # A springboard: rings and chevrons bobbing upward.
+				var c: Vector2 = f.pos * s
+				var r: float = f.radius * s
+				Dot.circle(self, c, r, Color(0.1, 0.05, 0.22, 0.6))
+				Dot.arc(self, c, r, 0, TAU, 56, JUMP, 3.5, true)
+				Dot.arc(self, c, r + 5.0, 0, TAU, 56, Color(JUMP, 0.25), 8.0, true)
+				Dot.arc(self, c, r * 0.72, 0, TAU, 48, Color(CORE, 0.8), 2.5, true)
+				var bob := fmod(_time * 1.6, 1.0)
+				for j in 3:
+					var y := r * (0.32 - 0.3 * j - 0.12 * bob)
+					var w := r * 0.28
+					Dot.pline(self, PackedVector2Array([c + Vector2(-w, y + w * 0.6), c + Vector2(0, y - w * 0.15), c + Vector2(w, y + w * 0.6)]), Color(1, 1, 1, 0.55 + 0.15 * j), 4.0, true)
 			"portal":
 				var c: Vector2 = f.pos * s
 				var r: float = f.radius * s
@@ -1957,6 +1999,106 @@ func _draw_lava(f: Dictionary, s: float) -> void:
 		Dot.arc(self, at, r * 0.09 * ph, 0, TAU, 16, Color("fff0b3", 0.6 * (1.0 - ph)), 1.5, true)
 	Dot.arc(self, c, r, 0, TAU, 72, Color("ffb347"), 2.5, true)
 	Dot.arc(self, c, r + 4.0, 0, TAU, 72, Color(LAVA, 0.3), 8.0, true)
+
+
+## Power cores: a pulsing golden hex while lit; a dark socket filling back
+## up (a ring sweeping round) while it recharges.
+func _draw_cores(shape) -> void:
+	var s := view_scale
+	for c in shape.cores():
+		var p: Vector2 = c.pos * s
+		var r: float = c.radius * s
+		if not c.lit:
+			Dot.circle(self, p, r, Color(0.05, 0.03, 0.1, 0.45))
+			var k: float = 1.0 - c.ready_in / MatchSim.CORE_RESPAWN
+			Dot.arc(self, p, r, 0, TAU, 40, Color(CORE, 0.18), 2.0, true)
+			if k > 0.0:
+				Dot.arc(self, p, r, -PI / 2.0, -PI / 2.0 + TAU * k, 40, Color(CORE, 0.55), 3.0, true)
+			continue
+		var beat := 0.5 + 0.5 * sin(_time * 4.0)
+		Dot.circle(self, p, r * (1.5 + 0.15 * beat), Color(CORE, 0.12))
+		Dot.circle(self, p, r * 1.15, Color(CORE, 0.18))
+		var hex := PackedVector2Array()
+		for j in 6:
+			hex.append(p + Vector2.from_angle(TAU * j / 6.0 + PI / 6.0 + _time * 0.6) * r * 0.66)
+		Dot.poly(self, hex, Color("fff3b0"))
+		hex.append(hex[0])
+		Dot.pline(self, hex, CORE, 3.0, true)
+		Dot.arc(self, p, r, 0, TAU, 48, Color(CORE, 0.6 + 0.3 * beat), 2.5, true)
+		for j in 8: # Rays ticking round.
+			var a := TAU * j / 8.0 - _time * 0.8
+			Dot.pline(self, PackedVector2Array([p + Vector2.from_angle(a) * r * 1.1, p + Vector2.from_angle(a) * r * 1.4]), Color(CORE, 0.6), 2.5, true)
+
+
+## The golden Overcharge aura: two rings and a few sparks crackling round.
+func _draw_overcharge(b, p: Vector2, r: float) -> void:
+	var left: float = (int(b.state.get("overcharge_until", 0)) - sim.tick) * MatchSim.DT
+	var a := clampf(left / 0.6, 0.25, 1.0) # Fades out over its last moments.
+	var beat := 0.5 + 0.5 * sin(_time * 10.0)
+	Dot.arc(self, p, r * 1.25, 0, TAU, 48, Color(CORE, 0.55 * a), 5.0, true)
+	Dot.arc(self, p, r * (1.45 + 0.08 * beat), 0, TAU, 48, Color(CORE, 0.25 * a), 3.0, true)
+	for j in 6:
+		var ang := TAU * j / 6.0 + _time * 2.5
+		var q0 := p + Vector2.from_angle(ang) * r * 1.3
+		var q1 := p + Vector2.from_angle(ang + 0.15) * r * 1.55
+		var q2 := p + Vector2.from_angle(ang - 0.05) * r * 1.75
+		Dot.pline(self, PackedVector2Array([q0, q1, q2]), Color(1, 0.95, 0.6, 0.85 * a), 2.0, true)
+
+
+## A crystal: a faceted ice-blue gem, more cracks the fewer hits it has left.
+## `grow` below 1 draws it regrowing (smaller and faint).
+func _draw_crystal(p: Vector2, rad: float, hits: int, grow: float) -> void:
+	var shape := [1.0, 0.82, 1.08, 0.86, 1.04, 0.9, 1.0, 0.84]
+	var outer := PackedVector2Array()
+	var inner := PackedVector2Array()
+	for j in 8:
+		var d := Vector2.from_angle(TAU * j / 8.0 + 0.2)
+		outer.append(p + d * rad * grow * shape[j])
+		inner.append(p + d * rad * grow * 0.55 * shape[j])
+	var a := 1.0 if grow >= 1.0 else 0.35
+	Dot.circle(self, p + Vector2(3, 5), rad * grow, Color(0, 0, 0, 0.3 * a))
+	Dot.poly(self, outer, Color(CRYSTAL, 0.85 * a))
+	Dot.poly(self, inner, Color(0.92, 1.0, 1.0, 0.7 * a))
+	outer.append(outer[0])
+	Dot.pline(self, outer, Color(0.2, 0.55, 1.0, a), 2.5, true)
+	var cracks := MatchSim.CRYSTAL_HITS - hits if grow >= 1.0 else 0
+	var dirs := [Vector2(1, -0.4), Vector2(-0.6, 0.9), Vector2(-0.9, -0.7)]
+	for j in mini(cracks, dirs.size()):
+		var d: Vector2 = dirs[j].normalized()
+		Dot.pline(self, PackedVector2Array([p + d * rad * 0.1, p + d.rotated(0.4) * rad * 0.5, p + d.rotated(-0.2) * rad * 0.95]), Color(0.08, 0.18, 0.45, 0.9), 2.0, true)
+	var glint := fmod(_time * 0.3 + p.x * 0.01, 1.0) # A glint sliding over the gem.
+	if grow >= 1.0:
+		Dot.arc(self, p, rad * 0.75, -2.4 + glint * 2.0, -2.0 + glint * 2.0, 10, Color(1, 1, 1, 0.5), 2.5, true)
+
+
+## Shattered crystals growing back where they stood.
+func _draw_crystal_stubs(shape) -> void:
+	if shape.arena_scale() < MatchSim.OBSTACLE_MIN_SCALE:
+		return
+	var s := view_scale
+	var k: float = shape.arena_scale()
+	var defs: Array = shape.arena.get("obstacles", [])
+	for i in defs.size():
+		var st: Dictionary = shape.crystal_state(i)
+		if st.is_empty() or st.hits > 0:
+			continue
+		var left: float = maxf(0.0, (st.back - shape.tick) * MatchSim.DT)
+		var g := 0.25 + 0.6 * (1.0 - left / MatchSim.CRYSTAL_REGROW)
+		var at: Vector2 = shape.centre + (defs[i].pos - shape.centre) * k
+		_draw_crystal(at * s, defs[i].radius * k * s, 0, g)
+
+
+## 0 on the ground, up to 1 at the top of a launch pad hop.
+func _air(b) -> float:
+	if not sim.airborne(b):
+		return 0.0
+	var t: float = (sim.tick - 1 + render_alpha - b.air_from) / float(b.air_until - b.air_from)
+	return sin(PI * clampf(t, 0.0, 1.0))
+
+
+## Where to draw `b` in view space, lifted while it flies.
+func _air_pos(b, s: float) -> Vector2:
+	return ball_pos(b) * s - Vector2(0, 70.0 * s * _air(b))
 
 
 ## Gravity wells: a dark core, a spiral swirling in and rings flowing inward.
