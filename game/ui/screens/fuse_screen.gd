@@ -1,5 +1,7 @@
-## Fusion Lab: pick a ready critter, see exactly what improves, press Fuse.
-## The three copies spiral into the middle, flash, and the next tier pops out.
+## Fusion Lab: pick a ready critter from the jars on the shelf, see what
+## improves, press Fuse. The three copies stand on the painted chamber's pads,
+## spiral into its core, flash, and the next tier pops out.
+## The paintings come from tools/event_art/scenes/fuse_*.mjs (game/ui/fuse_art).
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -10,9 +12,22 @@ const Analytics := preload("res://game/online/analytics.gd")
 const A11y := preload("res://game/a11y.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const UpgradePopup := preload("res://game/ui/upgrade_popup.gd")
+const LivingArt := preload("res://game/bounce_run/living_art.gd")
 
-const LAB_HEIGHT := 330.0
-const SLOT := 116.0
+const ART := "res://game/ui/fuse_art/%s.png"
+const LAB := Color("5ce1ff")
+const STAGE := Color("8f7bff")
+const BAND_H := 200.0
+## The chamber painting's size and where its pads and core sit
+## (fuse_chamber.mjs PADS and CORE): x, y, pad scale.
+const CHAMBER := Vector2(720, 680)
+const PADS := [Vector3(360, 462, .82), Vector3(184, 586, 1.0), Vector3(536, 586, 1.0)]
+const CORE := Vector2(360, 532)
+## How much of the painting's faded floor hides under the result pill.
+const FLOOR_CUT := 30.0
+const SLOT := 112.0
+const JAR := Vector2(150, 200) ## A jar picture (180x240 art) as drawn.
+const SHELF_H := 232.0
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -25,60 +40,24 @@ static func build(shell, params: Dictionary) -> Control:
 	elif not ready.is_empty():
 		sel = ready[0]
 
-	var root := Kit.vbox(18)
-	root.add_child(shell.title_row("Fusion Lab", {"back": false, "eyebrow": "3 of a kind → next tier", "info_title": "How fusing works", "info_mark": "fuse_info", "info": [
-		"3 of a kind → 1 of the next tier, up to T5.",
-		"The new copy keeps the highest level of the three, and its level cap goes up.",
-		"Its gear stays on."]}))
+	var root := Kit.vbox(16)
+	var shelf := _shelf(shell, ready, sel, params)
+	root.add_child(shelf.door)
 
-	var list := Kit.vbox(12, [Kit.caption("Ready to fuse")])
-	if ready.is_empty():
-		list.add_child(Kit.panel(Kit.label("Nothing to fuse. Get 3 of a kind.", 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)))
-	else:
-		var scroll := ScrollContainer.new()
-		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-		var row := Kit.hbox(12)
-		var sel_card: Control = null
-		for s in ready:
-			var on: bool = s == sel
-			var v := Kit.vbox(2, [CritterIcon.make(s.id, s.tier, 96), Kit.label(Roster.get_critter(s.id).name, 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-				_center(Glyph.make("stars", 20, Kit.FG, s.tier)), Kit.label("x%d" % s.count, 19, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
-			var rarity: String = Roster.get_critter(s.id).rarity
-			var card := Kit.card_button(v, func(): shell.refresh_with({"id": s.id, "tier": s.tier, "x": scroll.scroll_horizontal}),
-				Kit.GOOD if on else Roster.rarity_border(rarity, Kit.LINE), Roster.rarity_bg(rarity, Kit.PANEL), 28, 8)
-			if on:
-				sel_card = card
-			card.custom_minimum_size.x = 160
-			shell.mark("ready_%s_%d" % [s.id, s.tier], card)
-			row.add_child(card)
-		scroll.add_child(row)
-		scroll.custom_minimum_size.y = row.get_combined_minimum_size().y
-		list.add_child(scroll)
-		# Keep your place in a long list: same scroll as before, selected card in view.
-		scroll.ready.connect(func(): _restore_x(scroll, int(params.get("x", 0)), sel_card))
-	root.add_child(list)
-
-	var lab := _lab(sel)
+	var lab := _lab(sel, 280.0)
 	lab.set_meta("ready", ready)
-	if list.get_child_count() > 1 and list.get_child(1) is ScrollContainer:
-		lab.set_meta("scroll", list.get_child(1))
-	root.add_child(lab)
+	if shelf.scroll != null:
+		lab.set_meta("scroll", shelf.scroll)
+	var stage := Kit.vbox(0, [lab])
+	if not sel.is_empty():
+		stage.add_child(_result(shell, sel))
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var stage_door := _door(stage, STAGE)
+	# The stage takes the rest of the screen: a tall phone sees more of the lab.
+	stage_door.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(stage_door)
 
 	if not sel.is_empty():
-		var c := Roster.get_critter(sel.id)
-		var pv: Dictionary = p.fuse_preview(sel.id, sel.tier)
-		# The two things that change most up front; the rest behind the "i".
-		var lines := ["Max level %d → %d" % [pv.cap_before, pv.cap_after]]
-		if pv.level > 1:
-			lines.append("Keeps Lv %d" % pv.level)
-		lines.append("T%d adds: %s" % [pv.tier, AbilityText.change(sel.id, pv.tier, pv.level)])
-		lines.append(AbilityText.EVERY_TIER)
-		var more: Control = shell.info_button("%s T%d" % [c.name, pv.tier], lines, "fuse_result_info")
-		var rows := Kit.vbox(8, [Kit.hbox(8, [Kit.caption("Result: %s T%d" % [c.name, pv.tier]), Kit.spacer(), more], BoxContainer.ALIGNMENT_CENTER)])
-		rows.add_child(_kv("Power", "%s → %s" % [Kit.commas(pv.power_before), Kit.commas(pv.power_after)], true))
-		rows.add_child(_kv("New", AbilityText.change(sel.id, pv.tier, pv.level), true))
-		root.add_child(Kit.panel(rows, Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20)))
 		var btn := Kit.button("Fuse", func(): pass, "go", 34, 96)
 		btn.pressed.connect(func(): _do_fuse(shell, lab, btn, sel))
 		shell.mark("fuse", btn)
@@ -86,29 +65,194 @@ static func build(shell, params: Dictionary) -> Control:
 	return root
 
 
-static func _lab(sel: Dictionary) -> Control:
+## A painted door like the Play tab's: dark tint of its accent, clipped corners.
+static func _door(content: Control, accent: Color) -> Control:
+	var d := Kit.panel(content, Kit.box(accent.darkened(.88), accent.darkened(.45), 30, 2, 0))
+	d.clip_contents = true
+	return d
+
+
+## The top door: the lab wall band with the title on it, and the ready
+## critters floating in specimen jars (tinted by rarity) on a shelf.
+static func _shelf(shell, ready: Array, sel: Dictionary, params: Dictionary) -> Dictionary:
+	var band := LivingArt.make("fuse_band", ART % "fuse_band")
+	band.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	band.custom_minimum_size.y = BAND_H
+	band.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var fade := _fade(LAB.darkened(.88), BAND_H)
+
+	var head: Control = shell.title_row("Fusion Lab", {"back": false, "eyebrow": "3 of a kind → next tier", "eyebrow_color": Color("cfcbe8"), "info_title": "How fusing works", "info_mark": "fuse_info", "info": [
+		"3 of a kind → 1 of the next tier, up to T5.",
+		"The new copy keeps the highest level of the three, and its level cap goes up.",
+		"Its gear stays on."]})
+	var title: Label = _find_label(head, "Fusion Lab")
+	if title:
+		title.add_theme_color_override("font_color", LAB)
+
+	var shelf := Control.new()
+	shelf.custom_minimum_size.y = SHELF_H
+	shelf.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var plank := Panel.new()
+	var pst := Kit.box(Color("241e62"), Color("7a70d0"), 0, 0, 0)
+	pst.border_width_top = 2
+	pst.shadow_color = Color(0, 0, 0, .5)
+	pst.shadow_size = 10
+	pst.shadow_offset = Vector2(0, 6)
+	plank.add_theme_stylebox_override("panel", pst)
+	plank.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plank.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	plank.offset_left = -24
+	plank.offset_right = 24
+	plank.offset_top = JAR.y * .64
+	plank.offset_bottom = JAR.y * .64 + 22
+	shelf.add_child(plank)
+
+	var scroll: ScrollContainer = null
+	if ready.is_empty():
+		var none := Kit.label("Nothing to fuse. Get 3 of a kind.", 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
+		none.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		none.offset_top = JAR.y * .64 - 50
+		shelf.add_child(none)
+	else:
+		scroll = ScrollContainer.new()
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+		scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var row := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var sel_jar: Control = null
+		for s in ready:
+			var jar := _jar(s, s == sel, func(): shell.refresh_with({"id": s.id, "tier": s.tier, "x": scroll.scroll_horizontal}))
+			if s == sel:
+				sel_jar = jar
+			shell.mark("ready_%s_%d" % [s.id, s.tier], jar)
+			row.add_child(jar)
+		scroll.add_child(row)
+		shelf.add_child(scroll)
+		# Keep your place in a long list: same scroll as before, selected jar in view.
+		scroll.ready.connect(func(): _restore_x(scroll, int(params.get("x", 0)), sel_jar))
+
+	var body := Kit.vbox(4, [head, shelf])
+	var pad := MarginContainer.new()
+	for side in ["left", "right"]:
+		pad.add_theme_constant_override("margin_" + side, 20)
+	pad.add_theme_constant_override("margin_top", 14)
+	pad.add_theme_constant_override("margin_bottom", 8)
+	pad.add_child(body)
+	var stack := Control.new()
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in [band, fade]:
+		stack.add_child(c)
+		c.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		c.offset_bottom = BAND_H
+	var door := _door(stack, LAB)
+	door.add_child(pad)
+	# The band sits behind the title and the jars' lids; the shelf hangs below it.
+	return {"door": door, "scroll": scroll}
+
+
+## A gradient from clear to `col` over the bottom of a band of height `h`.
+static func _fade(col: Color, h: float) -> TextureRect:
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, .5, 1.0])
+	g.colors = PackedColorArray([Color(col, 0), Color(col, 0), col])
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	gt.width = 4
+	gt.height = 64
+	var t := TextureRect.new()
+	t.texture = gt
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.custom_minimum_size.y = h
+	return t
+
+
+static func _find_label(n: Node, text: String) -> Label:
+	if n is Label and n.text == text:
+		return n
+	for c in n.get_children():
+		var l := _find_label(c, text)
+		if l:
+			return l
+	return null
+
+
+## One ready stack: its critter and tier stars floating in a jar tinted by its
+## rarity, the count on the jar's base and its name under it. The picked
+## jar glows green.
+static func _jar(s: Dictionary, on: bool, pick: Callable) -> Button:
+	var c := Roster.get_critter(s.id)
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	for st in ["normal", "hover", "focus", "pressed", "hover_pressed", "disabled"]:
+		b.add_theme_stylebox_override(st, StyleBoxEmpty.new())
+	b.custom_minimum_size = Vector2(JAR.x, SHELF_H)
+	b.pressed.connect(pick)
+	var k := JAR.x / 180.0
+	if on:
+		var glow := Panel.new()
+		var gs := Kit.box(Color(Kit.GOOD, .12), Kit.GOOD, 30, 3, 0)
+		gs.shadow_color = Color(Kit.GOOD, .45)
+		gs.shadow_size = 14
+		glow.add_theme_stylebox_override("panel", gs)
+		glow.position = Vector2(24, 36) * k
+		glow.size = Vector2(132, 164) * k
+		b.add_child(glow)
+	var art := TextureRect.new()
+	art.texture = load(ART % ("jar_" + c.rarity))
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_SCALE
+	art.size = JAR
+	b.add_child(art)
+	var icon := CritterIcon.make(s.id, s.tier, 80)
+	icon.position = Vector2(JAR.x / 2.0 - 40, 112 * k - 40)
+	b.add_child(icon)
+	var n := Kit.label("x%d" % s.count, 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	n.position = Vector2(0, 207 * k - 13)
+	n.size = Vector2(JAR.x, 26)
+	b.add_child(n)
+	var stars := _center(Glyph.make("stars", 16, Color("ffd36b"), s.tier))
+	stars.position = Vector2(0, 168 * k - 10)
+	stars.size = Vector2(JAR.x, 20)
+	b.add_child(stars)
+	var tag := Kit.label(c.name, 18, Kit.GOOD if on else Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	tag.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	tag.clip_text = true
+	tag.position = Vector2(-4, JAR.y + 4)
+	tag.size = Vector2(JAR.x + 8, 26)
+	b.add_child(tag)
+	for ch in b.get_children():
+		if ch is Control and ch != icon:
+			ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return b
+
+
+## The stage: the painted chamber (cropped to its dais) with the three copies
+## standing on its pads.
+static func _lab(sel: Dictionary, h: float) -> Control:
 	var lab := Control.new()
-	lab.custom_minimum_size = Vector2(0, LAB_HEIGHT)
+	lab.custom_minimum_size = Vector2(0, h)
+	lab.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	lab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bg := Panel.new()
-	bg.add_theme_stylebox_override("panel", Kit.box(Kit.PANEL, Kit.LINE, 44, 2, 0))
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lab.add_child(bg)
-	for layer in [_Forge.new(), _Ring.new()]:
-		layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		lab.add_child(layer)
+	lab.clip_contents = true
+	var art := LivingArt.make("fuse_chamber", ART % "fuse_chamber")
+	lab.add_child(art)
+	lab.set_meta("art", art)
 	var slots: Array = []
 	for k in 3:
 		var slot: Control
+		var side: float = SLOT * PADS[k].z
 		if sel.is_empty():
-			slot = Kit.panel(Kit.label("+", 40, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(Kit.PANEL2, Kit.LINE, 999, 2, 0))
-			(slot.get_child(0) as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			slot = Control.new()
 		else:
-			slot = CritterIcon.make(sel.id, sel.tier, SLOT)
-		slot.size = Vector2(SLOT, SLOT)
-		slot.set_meta("angle", -PI / 2 + k * TAU / 3)
+			slot = CritterIcon.make(sel.id, sel.tier, side)
+		slot.size = Vector2(side, side)
+		slot.set_meta("pad", k)
 		lab.add_child(slot)
 		slots.append(slot)
 	lab.set_meta("slots", slots)
@@ -122,25 +266,76 @@ static func _lab(sel: Dictionary) -> Control:
 	return lab
 
 
+## The painting's scale and top-left corner inside a lab of `sz`: full width
+## (or taller than the lab on a very tall phone, cropping the sides), its
+## faded floor tucked under the result pill.
+static func _frame(sz: Vector2) -> Rect2:
+	var k := maxf(sz.x / CHAMBER.x, (sz.y + FLOOR_CUT) / CHAMBER.y)
+	return Rect2((sz.x - CHAMBER.x * k) / 2.0, sz.y + FLOOR_CUT - CHAMBER.y * k, k, k)
+
+
+## A point of the painting in the lab's space.
+static func _at(f: Rect2, p: Vector2) -> Vector2:
+	return f.position + p * f.size.x
+
+
+## Where the three copies meet, in the lab's space.
+static func core(lab: Control) -> Vector2:
+	return _at(_frame(lab.size), CORE)
+
+
 static func _place_slots(lab: Control) -> void:
+	var f := _frame(lab.size)
+	var art: Control = lab.get_meta("art")
+	art.position = f.position
+	art.size = CHAMBER * f.size.x
 	if lab.get_meta("fusing", false):
 		return
-	var centre := Vector2(lab.size.x / 2.0, LAB_HEIGHT / 2.0)
+	# The copies grow with the painting, so a tall phone's bigger lab isn't empty.
+	var grow := clampf(f.size.x / .92, 1.0, 1.4)
 	for s in lab.get_meta("slots"):
-		var a: float = s.get_meta("angle")
-		s.position = centre + Vector2(cos(a) * 150.0, sin(a) * 100.0) - s.size / 2.0
+		var pad: Vector3 = PADS[s.get_meta("pad")]
+		s.pivot_offset = s.size / 2.0
+		s.scale = Vector2.ONE * grow
+		# Feet on the pad: the icon's bottom sits a little below the pad's centre.
+		s.position = _at(f, Vector2(pad.x, pad.y)) - Vector2(0, s.size.y * grow * .36) - s.size / 2.0
+
+
+## What this fuse gives: name and tier, power before → after and the new
+## ability line, with the rest behind the "i".
+static func _result(shell, sel: Dictionary) -> Control:
+	var c := Roster.get_critter(sel.id)
+	var pv: Dictionary = shell.profile.fuse_preview(sel.id, sel.tier)
+	var lines := ["Max level %d → %d" % [pv.cap_before, pv.cap_after]]
+	if pv.level > 1:
+		lines.append("Keeps Lv %d" % pv.level)
+	lines.append("T%d adds: %s" % [pv.tier, AbilityText.change(sel.id, pv.tier, pv.level)])
+	lines.append(AbilityText.EVERY_TIER)
+	var more: Control = shell.info_button("%s T%d" % [c.name, pv.tier], lines, "fuse_result_info")
+	var top := Kit.hbox(8, [Kit.label("%s T%d" % [c.name, pv.tier], 26), Kit.glyph("stars", 22, Color("ffd36b"), pv.tier)], BoxContainer.ALIGNMENT_CENTER)
+	var power := Kit.hbox(6, [Kit.glyph("power", 20, Kit.WARN), Kit.label("%s →" % Kit.commas(pv.power_before), 21, Kit.MUTED), Kit.label(Kit.commas(pv.power_after), 21, Kit.GOOD)], BoxContainer.ALIGNMENT_CENTER)
+	var gain := Kit.label(AbilityText.change(sel.id, pv.tier, pv.level), 21, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER, true)
+	var info := Kit.vbox(2, [top, power, gain])
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var pill := Kit.panel(Kit.hbox(8, [info, more], BoxContainer.ALIGNMENT_CENTER), Kit.box(Color(Kit.BG, .88), Color(LAB, .45), 24, 2, 12))
+	var pad := MarginContainer.new()
+	for side in ["left", "right"]:
+		pad.add_theme_constant_override("margin_" + side, 16)
+	pad.add_theme_constant_override("margin_top", -26)
+	pad.add_theme_constant_override("margin_bottom", 14)
+	pad.add_child(pill)
+	return pad
 
 
 static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 	btn.disabled = true
 	lab.set_meta("fusing", true)
-	var centre := Vector2(lab.size.x / 2.0, LAB_HEIGHT / 2.0)
+	var centre := core(lab)
 	var tw := lab.create_tween().set_parallel(true)
 	for s in lab.get_meta("slots"):
-		s.pivot_offset = s.size / 2.0
 		tw.tween_property(s, "position", centre - s.size / 2.0, .6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		tw.tween_property(s, "rotation", TAU, .6).set_ease(Tween.EASE_IN)
-		tw.tween_property(s, "scale", Vector2(.5, .5), .6).set_ease(Tween.EASE_IN)
+		tw.tween_property(s, "scale", s.scale * .5, .6).set_ease(Tween.EASE_IN)
 	var pv: Dictionary = shell.profile.fuse_preview(sel.id, sel.tier)
 	tw.chain().tween_callback(func():
 		var result: Dictionary = shell.profile.fuse(sel.id, sel.tier)
@@ -153,7 +348,8 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		var pow := Kit.power(pv.power_before, 28, Kit.GOOD)
 		pow.alignment = BoxContainer.ALIGNMENT_CENTER
 		var num: Label = pow.get_child(1)
-		var out := Kit.vbox(4, [CritterIcon.make(sel.id, result.tier, 170, true), Kit.label("%s T%d" % [Roster.get_critter(sel.id).name, result.tier], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+		var big := 150 if lab.size.y > 340.0 else 110
+		var out := Kit.vbox(4, [CritterIcon.make(sel.id, result.tier, big, true), Kit.label("%s T%d" % [Roster.get_critter(sel.id).name, result.tier], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 			_center(Glyph.make("stars", 30, Kit.FG, result.tier)), pow])
 		if A11y.reduced_motion:
 			num.text = Kit.commas(pv.power_after)
@@ -162,7 +358,7 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		lab.add_child(out)
 		lab.move_child(out, lab.get_child_count() - 2)
 		out.reset_size()
-		out.position = centre - out.size / 2.0
+		out.position = Vector2(centre.x, lab.size.y / 2.0) - out.size / 2.0
 		out.pivot_offset = out.size / 2.0
 		out.scale = Vector2(.2, .2)
 		lab.create_tween().tween_property(out, "scale", Vector2.ONE, .45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -234,108 +430,8 @@ static func _restore_x(scroll: ScrollContainer, at: int, card: Control) -> void:
 		scroll.ensure_control_visible(card)
 
 
-static func _kv(k: String, v: String, good := false) -> Control:
-	var key := Kit.label(k, 23, Kit.MUTED)
-	key.custom_minimum_size.x = 120
-	var val := Kit.label(v, 23, Kit.GOOD if good else Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
-	val.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.hbox(12, [key, val])
-
-
 static func _center(c: Control) -> Control:
 	var cc := CenterContainer.new()
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(c)
 	return cc
-
-
-## The fusion platform under the slots: a round steel deck seen at an angle,
-## an engraved inner ring, a socket pad under each slot and grooves running
-## from the sockets into the core. Drawn once.
-class _Forge extends Control:
-	const Dot := preload("res://game/dot.gd")
-	const DECK := Color("1f1b4a")
-	const RIM := Color("3a3480")
-	const GROOVE := Color("0f0d2a")
-	const LAB_H := 330.0 ## The lab's LAB_HEIGHT and SLOT.
-	const SLOT_SIDE := 116.0
-
-	## Where slot k's critter stands and where the three meet, in the lab's space.
-	static func socket(sz: Vector2, k: int) -> Vector2:
-		var a := -PI / 2 + k * TAU / 3
-		return Vector2(sz.x / 2.0, LAB_H / 2.0) + Vector2(cos(a) * 150.0, sin(a) * 100.0 + SLOT_SIDE * .32)
-
-	static func core(sz: Vector2) -> Vector2:
-		return Vector2(sz.x / 2.0, LAB_H / 2.0 + 18.0)
-
-	func _draw() -> void:
-		var mid: Vector2 = core(size)
-		_ellipse(mid + Vector2(0, 10), Vector2(222, 132), Color(0, 0, 0, .3))
-		_ellipse(mid, Vector2(218, 128), RIM)
-		_ellipse(mid, Vector2(210, 121), DECK)
-		_ring(mid, Vector2(168, 96), Color(RIM, .8), 2.0)
-		_ring(mid, Vector2(120, 68), Color(RIM, .5), 2.0)
-		for k in 3:
-			var p: Vector2 = _Forge.socket(size, k)
-			draw_line(p, mid, GROOVE, 12.0, true)
-			draw_line(p, mid, Color(RIM, .7), 2.0, true)
-		for k in 3:
-			var p: Vector2 = socket(size, k)
-			_ellipse(p, Vector2(56, 19), GROOVE)
-			_ring(p, Vector2(56, 19), RIM, 3.0)
-			_ring(p, Vector2(42, 13), Color(.56, .48, 1.0, .35), 2.0)
-		_ellipse(mid, Vector2(34, 16), GROOVE)
-		_ring(mid, Vector2(34, 16), RIM, 3.0)
-
-	func _ellipse(c: Vector2, r: Vector2, col: Color) -> void:
-		draw_set_transform(c, 0.0, Vector2(1.0, r.y / r.x))
-		Dot.circle(self, Vector2.ZERO, r.x, col)
-		draw_set_transform_matrix(Transform2D.IDENTITY)
-
-	func _ring(c: Vector2, r: Vector2, col: Color, w: float) -> void:
-		var pts := PackedVector2Array()
-		for i in 49:
-			var a := TAU * i / 48
-			pts.append(c + Vector2(cos(a) * r.x, sin(a) * r.y))
-		draw_polyline(pts, col, w, true)
-
-
-## The moving part of the lab: dashes turning slowly round the deck's rim,
-## light running down the grooves into the core and the core's glow. Slow,
-## so it redraws on the shared idle clock and only while it shows.
-class _Ring extends Control:
-	const CritterIcon := preload("res://game/ui/critter_icon.gd")
-	const Dot := preload("res://game/dot.gd")
-	const A11y := preload("res://game/a11y.gd")
-	const LIGHT := Color(.62, .54, 1.0)
-	var _tick := -1
-
-	func _process(_delta: float) -> void:
-		if not is_visible_in_tree():
-			return
-		var tick := CritterIcon.clock()
-		if tick != _tick:
-			_tick = tick
-			queue_redraw()
-
-	func _draw() -> void:
-		var t := 0.0 if A11y.reduced_motion else Time.get_ticks_msec() / 1000.0
-		var core: Vector2 = _Forge.core(size)
-		var segs := PackedVector2Array()
-		for i in 28:
-			var a := t * .25 + i * TAU / 28
-			segs.append(core + Vector2(cos(a) * 214.0, sin(a) * 124.5))
-			segs.append(core + Vector2(cos(a + .1) * 214.0, sin(a + .1) * 124.5))
-		draw_multiline(segs, Color(LIGHT, .55), 3.0, true)
-		for k in 3:
-			var p: Vector2 = _Forge.socket(size, k)
-			var u := fmod(t * .45 + k / 3.0, 1.0)
-			var at := p.lerp(core, u)
-			Dot.circle(self, at, 9.0, Color(LIGHT, .18 * sin(u * PI)))
-			Dot.circle(self, at, 4.0, Color(1, 1, 1, .7 * sin(u * PI)))
-		var pulse := .5 + .5 * sin(t * 2.2)
-		draw_set_transform(core, 0.0, Vector2(1.0, .5))
-		Dot.circle(self, Vector2.ZERO, 44.0 + 6.0 * pulse, Color(LIGHT, .12))
-		Dot.circle(self, Vector2.ZERO, 26.0, Color(LIGHT, .35 + .2 * pulse))
-		Dot.circle(self, Vector2.ZERO, 11.0, Color(1, 1, 1, .8))
-		draw_set_transform_matrix(Transform2D.IDENTITY)

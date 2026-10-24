@@ -10,6 +10,7 @@ const LazyTile := preload("res://game/ui/lazy_tile.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const Painted := preload("res://game/ui/painted.gd")
 
 static var filter := "all"
 
@@ -30,7 +31,7 @@ static func cards(p) -> Array:
 
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
-	var root := Kit.vbox(22)
+	var root := Kit.vbox(18)
 	var dex := Kit.card_button(Kit.hbox(8, [Kit.glyph("critters", 26, Kit.ACCENT), Kit.label("Critterpedia", 22, Kit.FG)], BoxContainer.ALIGNMENT_CENTER),
 		func(): shell.go("dex"), Kit.ACCENT, Kit.PANEL2, 999, 12)
 	dex.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -38,7 +39,10 @@ static func build(shell, _params: Dictionary) -> Control:
 	var factions := Kit.card_button(Kit.label("Factions", 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), func(): shell.go("factions"), Kit.ACCENT, Kit.PANEL2, 999, 12)
 	factions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	shell.mark("factions", factions)
-	root.add_child(shell.title_row("My critters", {"back": false, "extra": [factions, dex]}))
+	var meter := _Collection.new()
+	meter.fill = _found_by_rarity(p)
+	var found := Kit.hbox(12, [Kit.label("%d/%d found" % [p.found_count(), Roster.CRITTERS.size()], 21, Kit.FG), meter, FamilyEdge.info_chip(shell)], BoxContainer.ALIGNMENT_CENTER)
+	root.add_child(_den(shell.title_row("My critters", {"back": false, "extra": [factions, dex]}), found, shell.size.y >= 1400.0))
 
 	var chips := Kit.hbox(6)
 	for f in ["all"] + Roster.RARITIES:
@@ -52,9 +56,6 @@ static func build(shell, _params: Dictionary) -> Control:
 
 	var all := cards(p)
 	var shown := all.filter(func(k): return filter == "all" or Roster.get_critter(k.id).rarity == filter)
-	var meter := _Collection.new()
-	meter.fill = _found_by_rarity(p)
-	root.add_child(Kit.hbox(12, [Kit.label("%d/%d found" % [p.found_count(), Roster.CRITTERS.size()], 21, Kit.MUTED), meter, FamilyEdge.info_chip(shell)], BoxContainer.ALIGNMENT_CENTER))
 	if shown.is_empty():
 		var what: String = "" if filter == "all" else Roster.RARITY_NAMES[filter] + " "
 		root.add_child(Kit.label("No %scritters yet." % what, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
@@ -73,6 +74,33 @@ static func build(shell, _params: Dictionary) -> Control:
 		grid.add_child(LazyTile.wrap(func(): return _tile(shell, k, mark_as), i, 15))
 	root.add_child(grid)
 	return root
+
+
+## The Den: a painted header band (your critters lounging at home) with the
+## title row on top and the found meter along the bottom. Shorter on small phones.
+static func _den(title: Control, found: Control, tall: bool) -> Control:
+	var band := Control.new()
+	band.custom_minimum_size = Vector2(0, 250 if tall else 210)
+	band.add_child(Painted.make("band_den", {"focus": Vector2(470, 150), "radius": 30.0, "top_dark": 0.6, "bottom_dark": 0.75}))
+	band.get_child(0).set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var frame := Panel.new()
+	frame.add_theme_stylebox_override("panel", Kit.box(Color(0, 0, 0, 0), Color("3a3480"), 30, 3, 0))
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	band.add_child(frame)
+	var m := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 16 if side != "left" else 22)
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gap := Control.new()
+	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var v := Kit.vbox(0, [title, gap, found])
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(v)
+	band.add_child(m)
+	return band
 
 
 ## [found, total] per rarity, common first.
@@ -113,6 +141,19 @@ static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 	var v := Kit.vbox(4, [icon_layer, name, stars, info])
 	var t := Kit.card_button(v, func(): shell.go("detail", {"id": k.id, "tier": k.tier}), Roster.rarity_border(c.rarity, Kit.LINE), Roster.rarity_bg(c.rarity, Kit.PANEL), 28, 8)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var home := Painted.habitat(k.id)
+	if home != "":
+		# A window onto the critter's family home, the critter standing on its
+		# lit stage, melting into the rarity-tinted card under the name.
+		var win := Painted.make(home, {"focus": Vector2(200, 250), "at": Vector2(0.5, 0.49), "px": 1.8,
+			"radius": Vector4(25, 25, 0, 0), "bottom_fade": 0.35})
+		win.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		win.offset_left = 3
+		win.offset_right = -3
+		win.offset_top = 3
+		win.offset_bottom = 193
+		t.add_child(win)
+		t.move_child(win, 0)
 	shell.mark(mark_as, t)
 	return t
 
