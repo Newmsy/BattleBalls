@@ -331,8 +331,9 @@ export default function () {
 
   <!-- the big sleeper -->
   <ellipse cx="${sx + 6}" cy="${sy + sr * 0.86}" rx="${sr * 1.25}" ry="${sr * 0.2}" fill="#000" opacity="0.45" filter="url(#swBlur6)"/>
-  ${sleeper(sx, sy, sr)}
-  ${snore}
+  <!-- living layers (render.mjs): the sleeper breathes, the kelp sways -->
+  <g data-layer="sleeper" data-move="breathe 0.025 0.4 0" data-pivot="${sx} ${sy + sr * 0.86}">${sleeper(sx, sy, sr)}</g>
+  <g data-layer="snore" data-move="bob 5 0.8 0.3" data-follow="sleeper">${snore}</g>
 
   <!-- the chest -->
   <ellipse cx="292" cy="352" rx="84" ry="12" fill="#000" opacity="0.5" filter="url(#swBlur6)"/>
@@ -346,8 +347,8 @@ export default function () {
   <path d="M -10 440 L -10 360 Q 30 340 80 352 Q 130 366 150 410 L 156 440 Z" fill="#0c0b26" stroke="#2a2c6a" stroke-width="2"/>
   <path d="M 730 440 L 730 350 Q 690 334 640 350 Q 600 368 588 410 L 584 440 Z" fill="#0c0b26" stroke="#2a2c6a" stroke-width="2"/>
   ${coral(96, 372, 0.9, "#ff7ac8")}${coral(630, 366, 0.8, "#ff8a5c")}
-  ${kelp(26, 440, 250, "#3fae6a", 22, R, 6, 10)}${kelp(58, 440, 180, "#5fd068", -16, R, 4, 8)}
-  ${kelp(694, 440, 270, "#3fae6a", -22, R, 6, 10)}${kelp(664, 440, 170, "#5fd068", 14, R, 4, 8)}
+  <g data-layer="kelpl" data-move="sway 3 0.5 0" data-pivot="40 440">${kelp(26, 440, 250, "#3fae6a", 22, R, 6, 10)}${kelp(58, 440, 180, "#5fd068", -16, R, 4, 8)}</g>
+  <g data-layer="kelpr" data-move="sway 3 0.45 0.4" data-pivot="680 440">${kelp(694, 440, 270, "#3fae6a", -22, R, 6, 10)}${kelp(664, 440, 170, "#5fd068", 14, R, 4, 8)}</g>
   <rect width="${W}" height="${H}" fill="url(#swVig)"/>
 </svg>`;
 }

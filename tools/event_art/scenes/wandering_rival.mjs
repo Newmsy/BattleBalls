@@ -75,7 +75,7 @@ export default function () {
     <!-- eye holes with flame-shaped trim -->
     ${[-1, 1].map((d) => {
       const ex = cx + d * r * 0.36;
-      return `<path d="M ${ex - d * r * 0.3} ${ey + r * 0.04} Q ${ex - d * r * 0.26} ${ey - r * 0.36} ${ex + d * r * 0.06} ${ey - r * 0.34} Q ${ex + d * r * 0.34} ${ey - r * 0.28} ${ex + d * r * 0.28} ${ey + r * 0.06} Q ${ex} ${ey + r * 0.34} ${ex - d * r * 0.3} ${ey + r * 0.04} Z" fill="#fff" stroke="${INK}" stroke-width="5"/>
+      return `<path d="M ${ex - d * r * 0.3} ${ey + r * 0.04} Q ${ex - d * r * 0.26} ${ey - r * 0.36} ${ex + d * r * 0.06} ${ey - r * 0.34} Q ${ex + d * r * 0.34} ${ey - r * 0.28} ${ex + d * r * 0.28} ${ey + r * 0.06} Q ${ex} ${ey + r * 0.34} ${ex - d * r * 0.3} ${ey + r * 0.04} Z" class="la-eye" fill="#fff" stroke="${INK}" stroke-width="5"/>
         <path d="M ${ex - d * r * 0.3} ${ey + r * 0.04} Q ${ex - d * r * 0.26} ${ey - r * 0.36} ${ex + d * r * 0.06} ${ey - r * 0.34} Q ${ex + d * r * 0.34} ${ey - r * 0.28} ${ex + d * r * 0.28} ${ey + r * 0.06}" fill="none" stroke="${CY}" stroke-width="3" transform="translate(${d * 2} -4)"/>`;
     }).join("")}
     ${eye(cx - r * 0.34, ey - r * 0.02, r * 0.17, r * 0.2, 0.15, 0.35, r * 0.1)}
@@ -109,11 +109,17 @@ export default function () {
     <!-- knot -->
     <ellipse cx="${cx - r * 0.66}" cy="${sy + 10}" rx="14" ry="12" fill="${shade(CY, -0.25)}" stroke="#0b4b5a" stroke-width="2"/>`;
 
+  // Living layers (render.mjs): the rival idles, its scarf tails and
+  // headband tails flutter from where they're tied and ride along with it.
   const rival = `
-    <g transform="rotate(-5 ${cx} ${cy + r})">
+    <g data-layer="scarf" data-move="sway 7 1.1 0" data-pivot="${cx - r * 0.66} ${sy + 10}" data-follow="rival" transform="rotate(-5 ${cx} ${cy + r})">
       ${scarf.split("<g clip-path")[0]}
+    </g>
+    <g data-layer="band" data-move="sway 6 0.9 0.3" data-pivot="${cx + r * 0.85} ${cy - r * 0.4}" data-follow="rival" transform="rotate(-5 ${cx} ${cy + r})">
       <path d="M ${cx + r * 0.8} ${cy - r * 0.5} Q ${cx + r * 1.3} ${cy - r * 0.9} ${cx + r * 1.7} ${cy - r * 0.7} L ${cx + r * 1.62} ${cy - r * 0.56} Q ${cx + r * 1.3} ${cy - r * 0.66} ${cx + r * 0.9} ${cy - r * 0.3} Z" fill="url(#wrMask)" stroke="#8a1e30" stroke-width="2"/>
       <path d="M ${cx + r * 0.86} ${cy - r * 0.4} Q ${cx + r * 1.3} ${cy - r * 0.36} ${cx + r * 1.56} ${cy - r * 0.16} L ${cx + r * 1.44} ${cy - r * 0.06} Q ${cx + r * 1.2} ${cy - r * 0.22} ${cx + r * 0.9} ${cy - r * 0.22} Z" fill="url(#wrMask)" stroke="#8a1e30" stroke-width="2"/>
+    </g>
+    <g data-layer="rival" data-move="idle 4 0.7 0" transform="rotate(-5 ${cx} ${cy + r})">
       <!-- RGB split rim behind the body -->
       <circle cx="${cx - 5}" cy="${cy}" r="${r}" fill="${CY}" opacity="0.55"/>
       <circle cx="${cx + 5}" cy="${cy + 1}" r="${r}" fill="${MG}" opacity="0.55"/>
@@ -186,8 +192,10 @@ export default function () {
   ${px}
   ${rival}
   <!-- scan lines over the scene -->
+  <g data-layer="scan">
   <rect x="0" y="${cy - 40}" width="720" height="3" fill="${CY}" opacity="0.18"/>
   <rect x="0" y="${cy + 30}" width="720" height="2" fill="${MG}" opacity="0.2"/>
+  </g>
   <rect width="720" height="440" fill="url(#wrVig)"/>
 </svg>`;
 }

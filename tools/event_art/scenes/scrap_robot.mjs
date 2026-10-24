@@ -226,14 +226,17 @@ export default function () {
 
   <!-- robot shadow and the robot -->
   <ellipse cx="${rx + 6}" cy="${ry + rr + 10}" rx="${rr * 1.1}" ry="16" fill="#000" opacity="0.5"/>
-  ${robot}
+  <!-- living layers (render.mjs): the robot creaks in the heap, the critter idles -->
+  <g data-layer="robot" data-move="sway 1.5 0.5 0">${robot}</g>
   <!-- junk in front of the robot, half burying it -->
+  <g data-layer="junk">
   ${plate(330, 300, 90, 30, 12, "#4a5478")}
   ${gear(436, 302, 26, 9, "#7a86a8", 0.1)}
   ${pipe(300, 326, 360, 352, 14, "#5a6488")}
   ${cables}
+  </g>
 
-  ${critter}
+  <g data-layer="critter" data-move="idle 4 0.8 0">${critter}</g>
 
   <!-- foreground junk silhouettes framing the bottom corners -->
   <path d="M 0 380 Q 40 360 90 374 L 120 360 L 150 380 L 160 440 L 0 440 Z" fill="#0a0a1e"/>

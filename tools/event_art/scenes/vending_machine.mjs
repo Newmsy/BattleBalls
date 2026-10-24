@@ -247,7 +247,8 @@ export default function () {
   <ellipse cx="${mx + mw / 2 + 16}" cy="${my + mh + 12}" rx="${mw * 0.6}" ry="10" fill="${GL}" opacity="0.25" filter="url(#vmGlowS)"/>
 
   <!-- machine, slightly tilted from the kick -->
-  <g transform="rotate(-2.2 ${mx + mw / 2} ${my + mh})">
+  <!-- living layer (render.mjs): the machine still shudders from the kick -->
+  <g data-layer="machine" data-move="sway 0.5 3.1 0" transform="rotate(-2.2 ${mx + mw / 2} ${my + mh})">
     <!-- RGB ghost copies -->
     <g opacity="0.8" transform="translate(-7 -1)"><use href="#vmMachine" filter="url(#vmCyan)"/></g>
     <g opacity="0.8" transform="translate(7 1)"><use href="#vmMachine" filter="url(#vmMag)"/></g>

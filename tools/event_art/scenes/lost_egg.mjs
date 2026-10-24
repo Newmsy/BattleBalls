@@ -135,13 +135,16 @@ export default function lostEgg() {
   ${twigsBack}
   <ellipse cx="${ex}" cy="${ey - 30}" rx="125" ry="140" fill="${NAT}" opacity="0.16" filter="url(#le_g30)"/>
   <ellipse cx="${ex}" cy="${ny - 6}" rx="70" ry="10" fill="#05061a" opacity="0.6" filter="url(#le_g6)"/>
+  <!-- living layers (render.mjs): the egg wobbles in its nest, about to hatch -->
+  <g data-layer="egg" data-move="sway 3 0.8 0" data-pivot="${ex} ${ny - 6}">
   ${egg(ex, ey, es, { family: "nature", rarity: "common", seed: 4, cracked: 0.5, crackGlow: "#9dffc4", tilt: -6 })}
   <!-- rim light from the leaking glow -->
   <circle cx="${ex - 18}" cy="${ey - 10}" r="22" fill="#b6ffd2" opacity="0.5" filter="url(#le_g14)"/>
+  </g>
   ${tap(ex + 70, ey - 70, -0.8, 3)}${tap(ex - 74, ey - 64, -2.3, 2)}
   ${chip}
   ${moss}
-  ${twigsFront}
+  <g data-layer="twigs">${twigsFront}</g>
   ${flies}
   ${frontGrass}
   <rect width="${W}" height="${H}" fill="url(#le_vig)"/>

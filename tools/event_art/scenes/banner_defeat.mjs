@@ -122,13 +122,15 @@ export default () =>
   ${path()}
   <!-- the tired trio -->
   <ellipse cx="206" cy="372" rx="48" ry="10" fill="#000" opacity="0.45" filter="url(#bl4)"/>
+  <g data-layer="sea" data-move="breathe 0.025 0.3 0">
   ${critter(206, 330, 46, FAM.sea, { acc: "fin", mood: "tired", look: [0.6, 0.2], rim: WARM, rimSide: 1, sy: 0.94, tilt: 4 })}
   ${marshmallow()}
+  </g>
   <ellipse cx="478" cy="374" rx="46" ry="10" fill="#000" opacity="0.45" filter="url(#bl4)"/>
-  ${critter(478, 334, 44, FAM.sweet, { acc: "ears", mood: "tired", look: [-0.6, 0.2], rim: WARM, rimSide: -1, sy: 0.94, tilt: -4 })}
+  <g data-layer="sweet" data-move="breathe 0.025 0.3 0.5">${critter(478, 334, 44, FAM.sweet, { acc: "ears", mood: "tired", look: [-0.6, 0.2], rim: WARM, rimSide: -1, sy: 0.94, tilt: -4 })}</g>
   <ellipse cx="548" cy="384" rx="36" ry="8" fill="#000" opacity="0.45" filter="url(#bl4)"/>
-  ${critter(546, 356, 32, FAM.nature, { acc: "leaf", mood: "sleepy", rim: WARM, rimSide: -1, sy: 0.9, tilt: -22 })}
-  ${zzz(574, 300)}
+  <g data-layer="sleepy" data-move="breathe 0.04 0.25 0">${critter(546, 356, 32, FAM.nature, { acc: "leaf", mood: "sleepy", rim: WARM, rimSide: -1, sy: 0.9, tilt: -22 })}</g>
+  <g data-layer="zzz" data-move="bob 5 0.4 0">${zzz(574, 300)}</g>
   ${fire()}
   ${sparkle(300, 210, 6, "#fff4c0", 0.7)}${sparkle(420, 196, 5, "#fff4c0", 0.6)}
   ${edges(0.9)}`);

@@ -332,7 +332,7 @@ export default function () {
   ${anvil}
   ${tongs}
   ${gem}
-  ${critter}
+  <g data-layer="critter" data-move="idle 3 0.6 0">${critter}</g>
 
   <!-- foreground framing silhouettes -->
   <path d="M 0 0 L 0 120 Q 18 90 14 60 Q 30 40 26 0 Z" fill="#0a0612"/>

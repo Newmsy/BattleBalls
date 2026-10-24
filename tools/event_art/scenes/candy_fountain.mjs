@@ -160,6 +160,8 @@ export default function candyFountain() {
   <!-- drips spilling from the bowl -->
   ${[-70, -38, 30, 64].map((dx, k) => `<path d="M ${cx + dx - 6} 222 Q ${cx + dx - 6} ${250 + k * 6} ${cx + dx} ${258 + k * 8} Q ${cx + dx + 6} ${250 + k * 6} ${cx + dx + 6} 222 Z" fill="#ff8ad0"/><circle cx="${cx + dx}" cy="${276 + k * 6}" r="3.5" fill="#ffb3e0"/>`).join("")}
 
+  <!-- living layers (render.mjs): the fizz column breathes, the critter bobs behind the rim -->
+  <g data-layer="fizz" data-move="breathe 0.04 0.9 0" data-pivot="${cx} 208">
   <!-- the fizz column -->
   <ellipse cx="${cx}" cy="140" rx="80" ry="110" fill="${SWEET}" opacity="0.35" filter="url(#cf_g20)"/>
   <path d="M ${cx - 20} 208 Q ${cx - 30} 150 ${cx - 14} 95 Q ${cx - 30} 70 ${cx} 58 Q ${cx + 30} 70 ${cx + 14} 95 Q ${cx + 30} 150 ${cx + 20} 208 Z" fill="url(#cf_fizz)"/>
@@ -168,15 +170,18 @@ export default function candyFountain() {
   ${[[-26, 70, 16], [26, 72, 15], [0, 54, 20], [-14, 44, 12], [15, 46, 12], [-40, 86, 10], [40, 88, 10]].map(([dx, y, r]) => `<circle cx="${cx + dx}" cy="${y}" r="${r}" fill="#ffe6f5"/><circle cx="${cx + dx - r * 0.3}" cy="${y - r * 0.3}" r="${r * 0.35}" fill="#fff"/>`).join("")}
   ${fizz}
   ${spray}
+  </g>
 
   <!-- critter behind the basin front -->
-  ${critter}
+  <g data-layer="critter" data-move="bob 5 0.7 0.3">${critter}</g>
   <!-- basin front wall -->
+  <g data-layer="basin">
   <path d="M ${cx - 175} 300 Q ${cx - 172} 345 ${cx - 150} 356 Q ${cx} 386 ${cx + 150} 356 Q ${cx + 172} 345 ${cx + 175} 300 Q ${cx} 352 ${cx - 175} 300 Z" fill="url(#cf_basin)"/>
   ${scallop(cx, 306, 175, 32, 14, 9, "#ff8ad0")}
   ${[[-120, 336], [-60, 352], [0, 357], [60, 352], [120, 336]].map(([dx, y]) => `<circle cx="${cx + dx}" cy="${y}" r="7" fill="#fff4b0"/><circle cx="${cx + dx}" cy="${y}" r="12" fill="#fff4b0" opacity="0.4" filter="url(#cf_g8)"/>`).join("")}
+  </g>
   <!-- critter paws over the rim -->
-  <ellipse cx="${kx - 18}" cy="${ky + 24}" rx="11" ry="7" fill="#ff8fcf" stroke="#a8306f" stroke-width="2"/><ellipse cx="${kx + 18}" cy="${ky + 25}" rx="11" ry="7" fill="#ff8fcf" stroke="#a8306f" stroke-width="2"/>
+  <g data-layer="paws" data-follow="critter"><ellipse cx="${kx - 18}" cy="${ky + 24}" rx="11" ry="7" fill="#ff8fcf" stroke="#a8306f" stroke-width="2"/><ellipse cx="${kx + 18}" cy="${ky + 25}" rx="11" ry="7" fill="#ff8fcf" stroke="#a8306f" stroke-width="2"/></g>
 
   ${sprinkles}
   ${gum(120, 380, 30, "#5CFF9A")}${gum(178, 404, 22, "#FFD34E")}${gum(610, 392, 32, "#3EA8FF")}${gum(560, 412, 20, "#FF8AD0")}${gum(78, 300, 16, "#C9A6FF")}${gum(655, 308, 18, "#FF7A45")}

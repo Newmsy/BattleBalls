@@ -221,16 +221,17 @@ export default function () {
   <!-- mounds of earth -->
   <ellipse cx="300" cy="356" rx="48" ry="9" fill="#1a1338"/><ellipse cx="440" cy="360" rx="52" ry="9" fill="#1a1338"/>
 
-  ${tail}
+  <!-- living layers (render.mjs): the lantern ghost floats, the critter trembles behind its stone -->
+  <g data-layer="tail" data-follow="lantern">${tail}</g>
   <!-- glow pool cast on the stones -->
   <ellipse cx="${lx}" cy="${ly + 20}" rx="120" ry="110" fill="${GH}" opacity="0.12" filter="url(#glBlurL)"/>
   <ellipse cx="${lx}" cy="${ly + 4}" rx="70" ry="80" fill="${GH}" opacity="0.35" filter="url(#glBlurL)"/>
-  <g transform="translate(${lx} ${ly}) scale(1.32) translate(${-lx} ${-ly})">${lantern}</g>
+  <g data-layer="lantern" data-move="bob 7 0.5 0"><g transform="translate(${lx} ${ly}) scale(1.32) translate(${-lx} ${-ly})">${lantern}</g></g>
   ${sparks}
 
   <!-- the nervous critter, half hidden behind a foreground stone -->
-  ${critter}
-  ${stone(176, 414, 90, 108, { tilt: 4, kind: "round", tone: "#33295e", rim: 0.75 })}
+  <g data-layer="critter" data-move="bob 3 0.6 0.5">${critter}</g>
+  <g data-layer="stone">${stone(176, 414, 90, 108, { tilt: 4, kind: "round", tone: "#33295e", rim: 0.75 })}</g>
 
   <!-- foreground stone bottom right, framing -->
   ${stone(650, 448, 96, 120, { tilt: -10, kind: "cross", tone: "#1e1640", rim: 0.4 })}
