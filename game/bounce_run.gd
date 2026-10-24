@@ -355,7 +355,8 @@ func _show_floor() -> void:
 		# The foe keeps the damage your last critter did (sim/bounce_run.gd).
 		foe_box.add_child(Kit.hbox(10, [_expand(Kit.bar(hurt, PINK, 16)), Kit.caption("%d%% HP left" % ceili(100.0 * hurt), PINK)]))
 	if big:
-		foe_box.add_child(Kit.label("Bigger and tougher than a normal foe." if foe.kind == "elite" else "Beat the Champion to clear the run!", 20, rim, HORIZONTAL_ALIGNMENT_LEFT, true))
+		if foe.kind != "elite":
+			foe_box.add_child(Kit.label("Beat the Champion to clear the run!", 20, rim, HORIZONTAL_ALIGNMENT_LEFT, true))
 	elif foe.kind == "rival":
 		foe_box.add_child(Kit.label("Losing knocks nobody out, but costs 20 Buttons.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var trio_cap := "Your trio · T%d" % tier
@@ -1017,7 +1018,7 @@ func _boon_strip(ids: Array, side: float, names := true) -> Control:
 func _show_boon_info(id: String) -> void:
 	var b := Boons.get_def(id)
 	var col := _boon_col(b.rarity)
-	var rarity: String = "Glitch (a bad boon)" if b.rarity == "glitch" else Roster.RARITY_NAMES[b.rarity] + " boon"
+	var rarity: String = "Glitch" if b.rarity == "glitch" else Roster.RARITY_NAMES[b.rarity] + " boon"
 	var lines: Array = [
 		BoonIcon.make(b.icon, _icon_rarity(b.rarity), 140),
 		Kit.label(b.name, 40, col, HORIZONTAL_ALIGNMENT_CENTER),
@@ -1038,7 +1039,7 @@ func _show_rules() -> void:
 		"Draft 3 critters and 3 starting boons, then climb a %d-floor map to the Champion. Tap a glowing node to pick your path." % BounceRun.FLOORS,
 		"Fights: pick who to send. Lose and that critter is out, but the foe keeps its damage for your next send. Lose all three and the run ends.",
 		"Elites are bigger and tougher but pay more. ? nodes hide events with choices. Shops sell boons for Buttons, which you earn in the run. Charge Pads revive, polish or clean.",
-		"Glitches are bad boons you only get by choosing a risky option. Shops and Charge Pads clean them.",
+		"Glitches are bad boons. Shops and Charge Pads clean them.",
 		"Your trio and the foes go up a tier every %d floors, up to T5 near the top." % BounceRun.FLOORS_PER_TIER,
 		"One ranked run a day, the same map for everyone. Ranked by floors, lives, then time.",
 	]:

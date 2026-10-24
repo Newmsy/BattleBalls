@@ -12,7 +12,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(20)
 	root.add_child(shell.title_row("Versus", {"back_mark": "versus_back", "info_mark": "versus_info", "info": [
 		"Ghost Arena: fight other players' saved trios for trophies and Tokens.",
-		"Quick fight: your fighter against a random foe of the same rarity and tier, on a random arena. Practice, nothing at stake.",
+		"Quick fight: your fighter against a random foe. Practice, nothing at stake.",
 		"2v2: pick a pair for a four-ball brawl.",
 		"Friends: add friends, send energy and rematch their teams."]}))
 	var store = ArenaStore.open()

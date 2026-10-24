@@ -31,8 +31,6 @@ static func build(shell) -> Control:
 	v.add_child(_stats_row(shell))
 	if Dev.TOOLS_ENABLED:
 		v.add_child(_testing(shell))
-	# Solid ring for yours, dashed spiky ring for the foe, a shape per rarity.
-	v.add_child(Kit.label("Colourblind marks: always on.", 22, Kit.MUTED))
 	# CC-BY 4.0 asks for this credit wherever the music is used.
 	v.add_child(Kit.label(MUSIC_CREDIT, 20, Color(Kit.MUTED, .7), HORIZONTAL_ALIGNMENT_LEFT, true))
 	if shell.build_stamp != "":

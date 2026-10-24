@@ -26,7 +26,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var season: String = ev.name.replace("Bracket of Legends", "").strip_edges() if not ev.is_empty() else ""
 	var eyebrow := " · ".join([season, badge].filter(func(s): return s != ""))
 	var about := ["Once a season every critter enters one bracket at equal power.",
-		"Pick your champion before the first round. Call it right and you earn the Oracle title for that bracket. Rewards are cosmetic only."]
+		"Pick your champion before the first round. Call it right and you earn the Oracle title for that bracket."]
 	if not ev.is_empty():
 		about[0] = _blurb(ev, Legends.bracket(ev))
 	root.add_child(shell.title_row("Bracket of Legends", {"back_mark": "bracket_back", "eyebrow": eyebrow, "eyebrow_color": GOLD if not titles.is_empty() else Kit.MUTED,

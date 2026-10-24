@@ -19,8 +19,7 @@ static func build(shell, params: Dictionary) -> Control:
 	store.fit_to(owned)
 	var root := Kit.vbox(12)
 	var how := [
-		"Your Defence trio is the team other players will fight once online play opens. It uses your attack trio's last saved shots.",
-		"Until then, %d themed teams near your Defence's power raid it each day, the first time you open the Arena." % ArenaStore.RAIDS_PER_DAY,
+		"Your Defence trio gets raided by %d teams near its power each day, using your attack trio's last saved shots." % ArenaStore.RAIDS_PER_DAY,
 		"Each raid you hold wins +5 trophies and %d Tokens. A lost raid costs a few trophies, capped each day, never below your league floor." % ArenaStore.COINS_DEFENCE,
 	]
 	root.add_child(shell.title_row("Defence", {"info_mark": "defence_info", "info": how}))
