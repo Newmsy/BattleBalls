@@ -13,6 +13,7 @@ const Gear := preload("res://sim/gear.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
+const Painted := preload("res://game/ui/painted.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -52,8 +53,30 @@ static func build(shell, params: Dictionary) -> Control:
 		side.add_child(fchip)
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
+	var tall: bool = shell.size.y >= 1400.0
 	var hero := CritterIcon.make(c.id, b.tier, 220, true)
-	root.add_child(Kit.hbox(16, [hero, side], BoxContainer.ALIGNMENT_CENTER))
+	var hero_row := Kit.hbox(16, [hero, side], BoxContainer.ALIGNMENT_CENTER)
+	var home := Painted.habitat(c.id)
+	if home == "":
+		root.add_child(hero_row)
+	else:
+		# The critter standing on the lit stage of its family's home, its numbers
+		# on the darker right of the painting.
+		var stage := PanelContainer.new()
+		stage.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+		stage.add_child(Painted.make(home, {"focus": Vector2(200, 250), "at": Vector2(0.22, 0.5), "radius": 30.0, "right_dark": 0.8, "top_dark": 0.5}))
+		stage.custom_minimum_size.y = 340 if tall else 0
+		var frame := Panel.new()
+		frame.add_theme_stylebox_override("panel", Kit.box(Color(0, 0, 0, 0), Color("3a3480"), 30, 3, 0))
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stage.add_child(frame)
+		var m := MarginContainer.new()
+		for side_name in ["left", "right", "top", "bottom"]:
+			m.add_theme_constant_override("margin_" + side_name, (18 if tall else 4) if side_name in ["top", "bottom"] else 26)
+		hero_row.alignment = BoxContainer.ALIGNMENT_BEGIN
+		m.add_child(hero_row)
+		stage.add_child(m)
+		root.add_child(stage)
 
 	var how_level: Control = shell.info_button("How to level", [
 		"Your critter earns XP when it fights in campaign stages.",
@@ -78,7 +101,6 @@ static func build(shell, params: Dictionary) -> Control:
 
 	var gear: Array = p.gear_on(c.id)
 	var slots := Kit.hbox(12)
-	var tall: bool = shell.size.y >= 1400.0
 	for slot in Gear.SLOTS:
 		var g: Dictionary = {}
 		for x in gear:
