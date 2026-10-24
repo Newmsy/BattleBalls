@@ -295,6 +295,21 @@ func tick_triggers(sim, b) -> void:
 					call("fx_" + e.do, sim, b, {})
 
 
+## A power core's Overcharge (MatchSim._update_cores): the ball's "wall"
+## abilities fire as if it had just bounced, and its "every" ones fire now.
+func surge(sim, b) -> void:
+	var def: Dictionary = b.def
+	var dir: Vector2 = b.vel.normalized() if b.vel.length() > 0.001 else Vector2.UP
+	var point: Vector2 = b.pos - dir * b.radius
+	for e in def.effects:
+		if not is_same(b.def, def):
+			return
+		if e.on == "wall":
+			call("fx_" + e.do, sim, b, {"point": point})
+		elif e.on == "every":
+			call("fx_" + e.do, sim, b, {})
+
+
 # --- Effects ------------------------------------------------------------------
 
 ## Heals for heal_ratio of the damage just dealt. Heals land after all damage

@@ -103,6 +103,30 @@ const HAZARD_CAP := 0.15
 const LAVA_DPS := 6.0 ## Dealt in half-second ticks while a ball overlaps lava.
 const ICE_SPEED := 1.3 ## Speed multiplier while a ball's centre is on ice.
 const PORTAL_COOLDOWN := 1.0 ## Seconds before a ball can take a portal again.
+## Power cores (arena "cores"): the first ball through a lit core is
+## Overcharged for OVERCHARGE_SECS: its "wall" and "every" abilities fire at
+## once and its ability damage is multiplied while it lasts. A taken core goes
+## dark for CORE_RESPAWN seconds. Kept mild (Newms: not polarising): in mirror
+## matches on the core maps the first taker wins ~58% (48% with no boost).
+const CORE_FIRST := 6.0 ## Seconds into the fight a core first lights.
+const CORE_RESPAWN := 12.0
+const OVERCHARGE_SECS := 4.0
+const OVERCHARGE_ABILITY := 1.2
+## Crystals (obstacle kind "crystal"): crack on each ball bounce, shot, beam,
+## pulse or blast, and shatter after CRYSTAL_HITS, nicking the breaker's foes
+## nearby. They grow back after CRYSTAL_REGROW seconds once nothing sits there.
+const CRYSTAL_HITS := 3
+const CRYSTAL_REGROW := 12.0
+const CRYSTAL_SHARD_DAMAGE := 6.0
+const CRYSTAL_SHARD_REACH := 150.0
+## Launch pads (floor kind "launch"): a ball whose centre reaches the inner 60%
+## flies for LAUNCH_SECS over balls, obstacles, floors and ground effects (walls
+## still bounce it), then lands with a knockback pulse that counts as a wall
+## bounce for its abilities.
+const LAUNCH_SECS := 0.7
+const LAUNCH_COOLDOWN := 2.0
+const LAND_RADIUS := 150.0
+const LAND_DAMAGE := 5.0
 ## Inward normals of the four cut corners: bottom-left, top-left, top-right, bottom-right.
 const CORNER_NORMALS := [Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1), Vector2(-1, -1)]
 ## Each hit deals between (1 - variance)x and (1 + variance)x its damage (Newms).
@@ -181,6 +205,9 @@ class Ball:
 	var spike_ready := 0 ## Tick it may next be spiked.
 	var lava_ready := 0 ## Tick lava may next burn it.
 	var portal_ready := 0 ## Tick it may next take a portal.
+	var launch_ready := 0 ## Tick it may next take a launch pad.
+	var air_from := -1 ## Launched on this tick...
+	var air_until := -1 ## ...and flying until this one (see MatchSim.airborne).
 	var floor_speed := 1.0 ## Ice under it (see ICE_SPEED).
 	var anchored := false ## A boss or a boss's egg: pinned to state.anchor (sim/bosses.gd).
 
@@ -330,6 +357,10 @@ var _contact_cooldown_until := {} ## "i:j" -> tick
 ## Damage queued by effects and collisions (add_hit), applied in _apply_hits.
 ## Damage queued after that (revive blasts, timed pulses) lands next tick.
 var _hits: Array[Dictionary] = []
+## Tick each arena power core next lights (see CORE_FIRST, CORE_RESPAWN).
+var _core_ready: Array[int] = []
+## Crystal obstacles by index in arena.obstacles: {hits, back (tick it may regrow, broken while hits is 0)}.
+var _crystals := {}
 
 
 func _init(cfg: Dictionary) -> void:
@@ -337,6 +368,11 @@ func _init(cfg: Dictionary) -> void:
 	arena_id = cfg.get("arena", "square")
 	arena = Arenas.get_def(arena_id)
 	_sides = _side_walls(arena)
+	for c in arena.get("cores", []):
+		_core_ready.append(int(round(CORE_FIRST * TICK_RATE)))
+	for i in arena.get("obstacles", []).size():
+		if arena.obstacles[i].kind == "crystal":
+			_crystals[i] = {"hits": CRYSTAL_HITS, "back": 0}
 	rng = Rng.new(int(cfg.get("seed", 1)))
 	modifier = cfg.get("modifier", Modifiers.NONE)
 	var mod := Modifiers.get_def(modifier)
@@ -465,10 +501,16 @@ func obstacles() -> Array[Dictionary]:
 	var k := arena_scale()
 	if k < OBSTACLE_MIN_SCALE:
 		return out
-	for o in arena.obstacles:
+	for i in arena.obstacles.size():
+		var o: Dictionary = arena.obstacles[i]
 		var at: Vector2 = o.pos
 		if o.has("orbit"): # Circles the centre at orbit rad/s, starting at pos.
 			at = centre + DMath.rotated(o.pos - centre, o.orbit * time())
+		if o.kind == "crystal":
+			if _crystals[i].hits <= 0:
+				continue # Shattered.
+			out.append({"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind, "crystal": i, "hits": _crystals[i].hits})
+			continue
 		out.append({"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind})
 	for p in pieces:
 		if p.blocking:
@@ -517,7 +559,7 @@ static func on_floor(f: Dictionary, p: Vector2, margin := 0.0) -> bool:
 func _update_floors() -> void:
 	var pads := floors()
 	for b in balls:
-		if not b.alive():
+		if not b.alive() or airborne(b):
 			continue
 		var ice := 1.0
 		for i in pads.size():
@@ -542,6 +584,12 @@ func _update_floors() -> void:
 						b.portal_ready = tick + int(round(PORTAL_COOLDOWN * TICK_RATE))
 						events.append({"type": "portal", "ball": b.index, "from": b.pos, "to": to})
 						b.pos = to
+				"launch":
+					if tick >= b.launch_ready and b.pos.distance_to(f.pos) <= f.radius * 0.6:
+						b.launch_ready = tick + int(round(LAUNCH_COOLDOWN * TICK_RATE))
+						b.air_from = tick
+						b.air_until = tick + int(round(LAUNCH_SECS * TICK_RATE))
+						events.append({"type": "jump", "ball": b.index, "pos": f.pos})
 		if ice != b.floor_speed:
 			b.floor_speed = ice
 			b.vel = b.vel.normalized() * b.current_speed()
@@ -660,6 +708,10 @@ func step() -> void:
 		_update_wells()
 	if arena.has("floors"):
 		_update_floors()
+	if not _core_ready.is_empty():
+		_update_cores()
+	if not _crystals.is_empty():
+		_update_crystals()
 	_update_zones()
 	_update_pieces()
 	var seek: float = config.get("seek", SEEK)
@@ -690,6 +742,8 @@ func step() -> void:
 				# A charge carries its own momentum: slows don't drag it.
 				b.pos += b.vel * DT * (1.0 - (b.slow if b.charge_ticks == 0 else 0.0))
 			_resolve_walls(b)
+			if b.air_until == tick:
+				_land(b)
 	if boss != null:
 		Bosses.pin_all(self)
 	if not tethers.is_empty():
@@ -765,6 +819,119 @@ func state_hash() -> String:
 	return ctx.finish().hex_encode()
 
 
+## Power cores at the current overtime scale (gone with the obstacles): each
+## {pos, radius, lit, ready_in (seconds until it lights, 0 when lit)}.
+func cores() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var k := arena_scale()
+	if k < OBSTACLE_MIN_SCALE:
+		return out
+	var defs: Array = arena.get("cores", [])
+	for i in defs.size():
+		var left := maxi(0, _core_ready[i] - tick)
+		out.append({"pos": centre + (defs[i].pos - centre) * k, "radius": defs[i].radius * k, "lit": left == 0, "ready_in": left * DT})
+	return out
+
+
+## A ball reaching a lit core takes it: Overcharged, and the core goes dark.
+## Balls reaching it on the same tick: the nearest takes it; an exact tie
+## (a mirror match) gives it to both.
+func _update_cores() -> void:
+	var list := cores()
+	for i in list.size():
+		var c: Dictionary = list[i]
+		if not c.lit:
+			continue
+		var takers: Array[Ball] = []
+		var best := INF
+		for b in balls:
+			if not b.alive() or airborne(b) or b.anchored:
+				continue
+			var d: float = b.pos.distance_to(c.pos)
+			if d > c.radius + b.radius * 0.5:
+				continue
+			if d < best:
+				best = d
+				takers = [b]
+			elif d == best:
+				takers.append(b)
+		if takers.is_empty():
+			continue
+		_core_ready[i] = tick + int(round(CORE_RESPAWN * TICK_RATE))
+		for b in takers:
+			b.state.overcharge_until = tick + int(round(OVERCHARGE_SECS * TICK_RATE))
+			events.append({"type": "core", "ball": b.index, "pos": c.pos})
+			abilities.surge(self, b)
+
+
+func overcharged(b: Ball) -> bool:
+	return tick < int(b.state.get("overcharge_until", -1))
+
+
+## Takes a crack off crystal `i` (an index in arena.obstacles) by `by` at
+## `at`; the last crack shatters it and its shards hit `by`'s foes nearby.
+func crack_crystal(i: int, by: Ball, at: Vector2) -> void:
+	var c: Dictionary = _crystals[i]
+	if c.hits <= 0:
+		return
+	c.hits -= 1
+	var k := arena_scale()
+	var pos: Vector2 = centre + (arena.obstacles[i].pos - centre) * k
+	if c.hits > 0:
+		events.append({"type": "crystal_crack", "index": i, "pos": at, "hits": c.hits})
+		return
+	c.back = tick + int(round(CRYSTAL_REGROW * TICK_RATE))
+	events.append({"type": "crystal_break", "index": i, "ball": by.index, "pos": pos, "radius": CRYSTAL_SHARD_REACH})
+	for o in foes(by):
+		if o.pos.distance_to(pos) <= CRYSTAL_SHARD_REACH + o.radius and not airborne(o):
+			deal(by, o, CRYSTAL_SHARD_DAMAGE, "shard", pos)
+
+
+## Cracks every standing crystal a blast of `radius` at `pos` reaches.
+func _crack_in(owner: Ball, pos: Vector2, radius: float) -> void:
+	if _crystals.is_empty():
+		return
+	for o in obstacles():
+		if o.has("crystal") and o.pos.distance_to(pos) <= radius + o.radius:
+			crack_crystal(o.crystal, owner, o.pos)
+
+
+## Shattered crystals grow back once their time is up and no ball is on the spot.
+func _update_crystals() -> void:
+	var k := arena_scale()
+	for i in _crystals:
+		var c: Dictionary = _crystals[i]
+		if c.hits > 0 or tick < c.back:
+			continue
+		var pos: Vector2 = centre + (arena.obstacles[i].pos - centre) * k
+		var clear := true
+		for b in balls:
+			if b.alive() and b.pos.distance_to(pos) < b.radius + arena.obstacles[i].radius * k:
+				clear = false
+				break
+		if clear:
+			c.hits = CRYSTAL_HITS
+			events.append({"type": "crystal_grow", "index": i, "pos": pos})
+
+
+## Flying off a launch pad: passes over balls, obstacles, floors and ground effects.
+func airborne(b: Ball) -> bool:
+	return tick < b.air_until
+
+
+## Crystal `i`'s {hits, back}, for the renderer.
+func crystal_state(i: int) -> Dictionary:
+	return _crystals.get(i, {})
+
+
+## Touching down from a launch pad: a knockback pulse that counts as a wall
+## bounce for the ball's abilities.
+func _land(b: Ball) -> void:
+	pulse(b, b.pos, LAND_RADIUS, LAND_DAMAGE, true, "land")
+	b.banked = true
+	abilities.fire(self, "wall", b, {"point": b.pos + b.vel.normalized() * b.radius})
+
+
 func _resolve_walls(b: Ball) -> void:
 	var r := arena_rect()
 	if b.pos.x - b.radius < r.position.x:
@@ -797,6 +964,8 @@ func _resolve_walls(b: Ball) -> void:
 			if b.vel.dot(n) < 0.0:
 				b.vel -= 2.0 * b.vel.dot(n) * n
 				_on_wall_bounce(b, b.pos - n * b.radius)
+	if airborne(b):
+		return # Flying over every obstacle.
 	for o in obstacles():
 		var delta: Vector2 = b.pos - o.pos
 		var reach: float = b.radius + o.radius
@@ -807,6 +976,8 @@ func _resolve_walls(b: Ball) -> void:
 		b.pos = o.pos + n * reach
 		if b.vel.dot(n) < 0.0:
 			b.vel -= 2.0 * b.vel.dot(n) * n
+			if o.has("crystal"):
+				crack_crystal(o.crystal, b, o.pos + n * o.radius)
 			if o.kind == "bumper":
 				b.boost_ticks = int(round(BUMPER_BOOST_TIME * TICK_RATE))
 				b.vel = b.vel.normalized() * b.current_speed()
@@ -833,7 +1004,7 @@ func _resolve_walls(b: Ball) -> void:
 func _update_wells() -> void:
 	for w in wells():
 		for b in balls:
-			if not b.alive():
+			if not b.alive() or airborne(b):
 				continue
 			var d: Vector2 = w.pos - b.pos
 			var dist := d.length()
@@ -931,7 +1102,7 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 		for j in range(i + 1, balls.size()):
 			var a := balls[i]
 			var b := balls[j]
-			if not a.alive() or not b.alive():
+			if not a.alive() or not b.alive() or airborne(a) or airborne(b):
 				continue
 			var delta := b.pos - a.pos
 			var dist := delta.length()
@@ -1048,8 +1219,15 @@ func _update_beams(hits: Array[Dictionary]) -> void:
 		if beam.age >= beam.life:
 			beams.erase(beam)
 			continue
+		if not _crystals.is_empty(): # Each beam cracks a crystal it crosses once.
+			for o in obstacles():
+				if o.has("crystal") and not beam.last_hit_tick.has("c%d" % o.crystal):
+					var near := Geometry2D.get_closest_point_to_segment(o.pos, beam.a, beam.b)
+					if near.distance_to(o.pos) <= o.radius + BEAM_HALF_WIDTH:
+						beam.last_hit_tick["c%d" % o.crystal] = tick
+						crack_crystal(o.crystal, balls[beam.owner], near)
 		for target in balls:
-			if target.team == balls[beam.owner].team or not target.alive():
+			if target.team == balls[beam.owner].team or not target.alive() or airborne(target):
 				continue
 			var closest := Geometry2D.get_closest_point_to_segment(target.pos, beam.a, beam.b)
 			if closest.distance_to(target.pos) > target.radius + BEAM_HALF_WIDTH:
@@ -1087,6 +1265,8 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			amount *= Talents.hit_mult(self, source, target, h)
 		if h.kind == "contact":
 			amount = _boon_contact_damage(source, target, amount)
+		if h.kind != "contact" and not h.get("env", false) and overcharged(source):
+			amount *= OVERCHARGE_ABILITY
 		# Family edges: no rolls, so the seeded stream is the same either way.
 		var edge := 0
 		if family_edges and not h.get("env", false) and source.team != target.team:
@@ -1428,9 +1608,10 @@ func add_burn(source: Ball, target: Ball, dps: float, secs: float) -> void:
 ## knock, turns them to fly straight away from `pos`. Emits "pulse".
 func pulse(owner: Ball, pos: Vector2, radius: float, damage: float, knock := false, kind := "pulse") -> void:
 	events.append({"type": "pulse", "ball": owner.index, "pos": pos, "radius": radius, "kind": kind})
+	_crack_in(owner, pos, radius)
 	for o in foes(owner):
 		var d := o.pos - pos
-		if d.length() > radius + o.radius:
+		if d.length() > radius + o.radius or airborne(o):
 			continue
 		if damage > 0.0:
 			deal(owner, o, damage, kind)
@@ -1470,7 +1651,7 @@ func _update_zones() -> void:
 		if not foes_of.has(z.owner):
 			foes_of[z.owner] = foes(owner)
 		for o in foes_of[z.owner]:
-			if not o.alive() or o.pos.distance_to(z.pos) > z.radius + o.radius:
+			if not o.alive() or o.pos.distance_to(z.pos) > z.radius + o.radius or airborne(o):
 				continue
 			if z.blast > 0.0:
 				_explode(z)
@@ -1487,6 +1668,7 @@ func _explode(z: Zone) -> void:
 	zones.erase(z)
 	var owner := balls[z.owner]
 	events.append({"type": "boom", "ball": z.owner, "pos": z.pos, "radius": z.blast_radius})
+	_crack_in(owner, z.pos, z.blast_radius)
 	for o in foes(owner):
 		if o.pos.distance_to(z.pos) <= z.blast_radius + o.radius:
 			deal(owner, o, z.blast, "mine", z.pos)
@@ -1572,7 +1754,7 @@ func _update_shots() -> void:
 		s.pos += s.vel * DT
 		var struck := false
 		for o in foes(owner):
-			if s.pos.distance_to(o.pos) > o.radius + s.radius:
+			if s.pos.distance_to(o.pos) > o.radius + s.radius or airborne(o):
 				continue
 			struck = true
 			deal(owner, o, s.damage, "shot", s.pos)
@@ -1583,6 +1765,11 @@ func _update_shots() -> void:
 			if s.slow > 0.0:
 				o.state.shot_slow = {"amount": s.slow, "until": tick + TICK_RATE}
 			break
+		if not struck and not _crystals.is_empty():
+			for o in obstacles():
+				var d: Vector2 = s.pos - o.pos
+				if o.has("crystal") and d.length() < s.radius + o.radius and s.vel.dot(d) < 0.0:
+					crack_crystal(o.crystal, owner, o.pos + d.normalized() * o.radius)
 		if struck:
 			shots.erase(s)
 		elif _shot_walls(s):

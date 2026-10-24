@@ -7,7 +7,8 @@
 ##   octagon. 0 keeps the square.
 ## obstacles: solid circles balls bounce off. Bounces off them count as wall
 ##   bounces for abilities. kind "bumper" also kicks the ball off faster;
-##   kind "spike" also deals spike damage (see MatchSim.SPIKE_*).
+##   kind "spike" also deals spike damage (see MatchSim.SPIKE_*); kind
+##   "crystal" cracks on hits and shatters, then grows back (MatchSim.CRYSTAL_*).
 ## wells: gravity wells on the floor. Balls pass over them; each bends every
 ##   ball's path toward its centre (accel, units/s^2, fading to 0 at reach),
 ##   scaled by the ball's weight (sim/weight.gd). Inside core it lets go, so a
@@ -18,7 +19,10 @@
 ##   is on one when it overlaps it by half its radius (portals: its centre
 ##   reaches the inner 60%). kind "ice" speeds it up, "goo" slows it by `slow`,
 ##   "lava" burns (capped with spikes), "conveyor" pushes it along `dir` at
-##   `accel` (by weight), "portal" sends it to floor `to` keeping its velocity.
+##   `accel` (by weight), "portal" sends it to floor `to` keeping its velocity,
+##   "launch" throws it into the air over everything (MatchSim.LAUNCH_*).
+## cores: power cores {pos, radius}: the first ball through a lit one is
+##   Overcharged, then it goes dark for a while (MatchSim.CORE_*).
 ## orbit (on an obstacle): circles the centre at this many rad/s from pos.
 ## start_scale: starts sit this much closer to the centre (same aim lines),
 ##   so round and hexagonal maps keep the corners' room.
@@ -253,22 +257,22 @@ const DEFS := {
 	},
 	"ruins": {
 		"display_name": "Jungle Ruins",
-		"description": "A ring of broken columns around an open middle.",
+		"description": "Old columns and shining crystals that crack and shatter, then grow back.",
 		"corner_cut": 0.0,
 		"sides": {"n": 8, "inradius": 470.0, "rot": 22.5},
 		"start_scale": 0.8,
 		"obstacles": [
 			{"pos": Vector2(680, 500), "radius": 34.0, "kind": "pillar"},
 			{"pos": Vector2(320, 500), "radius": 34.0, "kind": "pillar"},
-			{"pos": Vector2(590, 655.88), "radius": 34.0, "kind": "pillar"},
-			{"pos": Vector2(410, 344.12), "radius": 34.0, "kind": "pillar"},
-			{"pos": Vector2(410, 655.88), "radius": 34.0, "kind": "pillar"},
-			{"pos": Vector2(590, 344.12), "radius": 34.0, "kind": "pillar"},
+			{"pos": Vector2(590, 655.88), "radius": 40.0, "kind": "crystal"},
+			{"pos": Vector2(410, 344.12), "radius": 40.0, "kind": "crystal"},
+			{"pos": Vector2(410, 655.88), "radius": 40.0, "kind": "crystal"},
+			{"pos": Vector2(590, 344.12), "radius": 40.0, "kind": "crystal"},
 		],
 	},
 	"nebula": {
 		"display_name": "Nebula Drift",
-		"description": "A round pocket of space. Two gravity wells swirl the paths.",
+		"description": "A round pocket of space. Two gravity wells swirl the paths round a power core.",
 		"corner_cut": 0.0,
 		"sides": {"n": 12, "inradius": 470.0, "rot": 15.0},
 		"start_scale": 0.8,
@@ -277,6 +281,7 @@ const DEFS := {
 			{"pos": Vector2(330, 330), "reach": 210.0, "accel": 950.0, "core": 26.0},
 			{"pos": Vector2(670, 670), "reach": 210.0, "accel": 950.0, "core": 26.0},
 		],
+		"cores": [{"pos": Vector2(500, 500), "radius": 44.0}],
 	},
 	"asteroid": {
 		"display_name": "Asteroid Belt",
@@ -329,7 +334,7 @@ const DEFS := {
 	},
 	"cloud": {
 		"display_name": "Cloud Kingdom",
-		"description": "A round sky island. Slick clouds speed you up.",
+		"description": "A round sky island. Slick clouds speed you up; jump pads throw you over it all.",
 		"corner_cut": 0.0,
 		"sides": {"n": 12, "inradius": 470.0, "rot": 0.0},
 		"start_scale": 0.8,
@@ -337,11 +342,13 @@ const DEFS := {
 		"floors": [
 			{"kind": "ice", "pos": Vector2(320, 320), "radius": 110.0},
 			{"kind": "ice", "pos": Vector2(680, 680), "radius": 110.0},
+			{"kind": "launch", "pos": Vector2(500, 230), "radius": 65.0},
+			{"kind": "launch", "pos": Vector2(500, 770), "radius": 65.0},
 		],
 	},
 	"sunset": {
 		"display_name": "Sunset Grid",
-		"description": "A ten-sided synthwave stage. Two belts run opposite ways.",
+		"description": "Ride the belts into the sunset, or cut through the middle for the power core.",
 		"corner_cut": 0.0,
 		"sides": {"n": 10, "inradius": 470.0, "rot": 18.0},
 		"start_scale": 0.8,
@@ -350,6 +357,7 @@ const DEFS := {
 			{"kind": "conveyor", "rect": Rect2(300, 300, 400, 90), "dir": Vector2.RIGHT, "accel": 480.0},
 			{"kind": "conveyor", "rect": Rect2(300, 610, 400, 90), "dir": Vector2.LEFT, "accel": 480.0},
 		],
+		"cores": [{"pos": Vector2(500, 500), "radius": 44.0}],
 	},
 	"alley": {
 		"display_name": "Neon Alley",
@@ -411,7 +419,7 @@ const DEFS := {
 	},
 	"toybox": {
 		"display_name": "Toy Chest",
-		"description": "Bouncy blocks all over the toy chest floor and a big ball in the middle.",
+		"description": "Bouncy blocks, a big ball in the middle and two springboards to fly off.",
 		"corner_cut": 0.0,
 		"obstacles": [
 			{"pos": Vector2(500, 500), "radius": 56.0, "kind": "pillar"},
@@ -419,6 +427,10 @@ const DEFS := {
 			{"pos": Vector2(680, 680), "radius": 36.0, "kind": "bumper"},
 			{"pos": Vector2(700, 300), "radius": 36.0, "kind": "bumper"},
 			{"pos": Vector2(300, 700), "radius": 36.0, "kind": "bumper"},
+		],
+		"floors": [
+			{"kind": "launch", "pos": Vector2(500, 180), "radius": 70.0},
+			{"kind": "launch", "pos": Vector2(500, 820), "radius": 70.0},
 		],
 	},
 	"speedway": {
@@ -435,7 +447,7 @@ const DEFS := {
 	},
 	"arcane": {
 		"display_name": "Arcane Circle",
-		"description": "A summoning circle: two rune portals and two crystal pylons.",
+		"description": "A summoning circle: rune portals, crystal pylons and a power core in the middle.",
 		"corner_cut": 0.0,
 		"sides": {"n": 20, "inradius": 470.0, "rot": 0.0},
 		"start_scale": 0.8,
@@ -447,16 +459,19 @@ const DEFS := {
 			{"kind": "portal", "pos": Vector2(500, 260), "radius": 60.0, "to": 1},
 			{"kind": "portal", "pos": Vector2(500, 740), "radius": 60.0, "to": 0},
 		],
+		"cores": [{"pos": Vector2(500, 500), "radius": 44.0}],
 	},
 	"prism": {
 		"display_name": "Prism Mines",
-		"description": "A tight mine shaft. Crystal spikes and a slick crystal floor.",
+		"description": "A tight mine shaft. Crystal spikes, breakable crystals and a slick crystal floor.",
 		"corner_cut": 0.0,
 		"sides": {"n": 4, "inradius": 400.0, "rot": 0.0},
 		"start_scale": 0.8,
 		"obstacles": [
 			{"pos": Vector2(500, 330), "radius": 30.0, "kind": "spike"},
 			{"pos": Vector2(500, 670), "radius": 30.0, "kind": "spike"},
+			{"pos": Vector2(320, 500), "radius": 40.0, "kind": "crystal"},
+			{"pos": Vector2(680, 500), "radius": 40.0, "kind": "crystal"},
 		],
 		"floors": [{"kind": "ice", "pos": Vector2(500, 500), "radius": 120.0}],
 	},
