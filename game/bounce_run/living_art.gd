@@ -113,20 +113,6 @@ const SPECS := {
 		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("ffd23d")], [676, 252, 36, 36, BOB, 0.012, 0.6, 0.0, null]]},
 	"home_zone_magma_core": {"motes": Color("ff8a3d"), "spots": [
 		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("ff8a3d")], [676, 252, 36, 36, BOB, 0.012, 0.6, 0.0, null]]},
-	# The Adventure hub's tall cards (360x560 art, spots given in 720x440 units:
-	# x doubled, y x0.786): the Spire's beacon and door glow, the forge fire
-	# breathes behind the Anvil King, the little heroes bob.
-	"adventure_spire_0": {"motes": Color("ffd36b"), "spots": [[372, 52, 60, 24, GLOW, 0.45, 0.4, 0.0, Color("ffd36b")], [372, 368, 60, 24, GLOW, 0.3, 0.3, 0.3, Color("ffb347")],
-		[192, 347, 52, 20, BOB, 0.012, 0.6, 0.0, null]]},
-	"adventure_spire_1": {"motes": Color("ffd36b"), "spots": [[372, 52, 60, 24, GLOW, 0.45, 0.4, 0.0, Color("ffd36b")], [372, 368, 60, 24, GLOW, 0.3, 0.3, 0.3, Color("ffb347")],
-		[192, 347, 52, 20, BOB, 0.012, 0.6, 0.0, null]]},
-	"adventure_spire_2": {"motes": Color("ffd36b"), "spots": [[372, 52, 60, 24, GLOW, 0.45, 0.4, 0.0, Color("ffd36b")], [372, 368, 60, 24, GLOW, 0.3, 0.3, 0.3, Color("ffb347")],
-		[192, 347, 52, 20, BOB, 0.012, 0.6, 0.0, null]]},
-	"adventure_spire_3": {"motes": Color("ffd36b"), "spots": [[372, 52, 60, 24, GLOW, 0.45, 0.4, 0.0, Color("ffd36b")], [372, 368, 60, 24, GLOW, 0.3, 0.3, 0.3, Color("ffb347")],
-		[192, 347, 52, 20, BOB, 0.012, 0.6, 0.0, null]]},
-	"adventure_bosses": {"motes": Color("ff8a3d"), "spots": [
-		[352, 236, 240, 110, GLOW, 0.3, 0.35, 0.0, Color("ff8a3d")], [352, 196, 200, 80, BOB, 0.006, 0.45, 0.0, null],
-		[140, 349, 52, 20, BOB, 0.012, 0.6, 0.2, null]]},
 }
 const MOTES := 9
 

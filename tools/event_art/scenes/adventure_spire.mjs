@@ -44,7 +44,7 @@ export default function paint(lit = 4, { bare = false } = {}) {
     <circle cx="186" cy="${top - 66}" r="34" fill="#ffd36b" opacity="0.35" filter="url(#bl16)"/>
     <circle cx="186" cy="${top - 66}" r="10" fill="#fff4cf" stroke="#a8701a" stroke-width="2"/>
     <path d="M 186 ${top - 76} L 186 ${top - 104}" stroke="#120c2a" stroke-width="3"/>
-    <path d="M 186 ${top - 104} L 212 ${top - 96} L 186 ${top - 88} Z" fill="#ffb347" stroke="#7a4a1a" stroke-width="2" stroke-linejoin="round"/>
+    <g data-layer="flag" data-move="sway 8 0.7 0" data-pivot="186 ${top - 96}"><path d="M 186 ${top - 104} L 212 ${top - 96} L 186 ${top - 88} Z" fill="#ffb347" stroke="#7a4a1a" stroke-width="2" stroke-linejoin="round"/></g>
     ${sparkle(222, top - 70, 7, "#fff8dc", 0.9)}${sparkle(150, top - 40, 5, "#fff8dc", 0.7)}`;
   // drifting cloud bands wrapping the tower
   const cloud = (y, x, s, o) => `<g opacity="${o}">${[0, 1, 2, 3].map((j) => `<ellipse cx="${f(x + j * 34 * s)}" cy="${f(y - (j % 2) * 8 * s)}" rx="${f(34 * s)}" ry="${f(14 * s)}" fill="#3d3478"/>`).join("")}<rect x="${f(x - 20 * s)}" y="${f(y)}" width="${f(140 * s)}" height="${f(10 * s)}" fill="#3d3478"/></g>`;
@@ -71,6 +71,6 @@ export default function paint(lit = 4, { bare = false } = {}) {
   ${cloud(410, 236, 0.8, 0.45)}${cloud(186, -40, 0.8, 0.45)}
   ${hill}${steps}
   ${motes(9, 18, 100, 120, 280, 500, ["#ffd36b", "#ffb347", "#fff4cf"])}
-  ${shadow(96, 468, 22, 0.6)}${critter(96, 442, 22, "#7b77ff", { acc: "antenna", mood: "determined", look: [0.6, -0.7], rim: "#ffd36b", rimSide: 1 })}
+  ${shadow(96, 468, 22, 0.6)}<g data-layer="hero" data-move="idle 3 0.6 0">${critter(96, 442, 22, "#7b77ff", { acc: "antenna", mood: "determined", look: [0.6, -0.7], rim: "#ffd36b", rimSide: 1 })}</g>
   </svg>`;
 }

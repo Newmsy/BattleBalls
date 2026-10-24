@@ -25,24 +25,24 @@ export default function () {
   const king = `
     <ellipse cx="${kx}" cy="${ky}" rx="${kr * 1.5}" ry="${kr * 1.4}" fill="#ff7a2a" opacity="0.28" filter="url(#bl24)"/>
     <circle cx="${kx}" cy="${ky}" r="${kr + 10}" fill="#1a0c1e" opacity="0.55" filter="url(#bl8)"/>
-    ${critter(kx, ky, kr, "#ff8a3d", { mood: "determined", look: [0.1, 0.5], rim: "#ffd36b", rimSide: -1 })}
-    ${crown(kx + 4, ky - kr * 0.86, 1.15)}`;
+    <g data-layer="king" data-move="idle 4 0.5 0">${critter(kx, ky, kr, "#ff8a3d", { mood: "determined", look: [0.1, 0.5], rim: "#ffd36b", rimSide: -1 })}</g>
+    <g data-layer="crown" data-follow="king">${crown(kx + 4, ky - kr * 0.86, 1.15)}</g>`;
   // hammer raised on the right, behind/over the king's shoulder
-  const hammer = `<g transform="rotate(28 286 180)">
+  const hammer = `<g data-layer="hammer" data-move="sway 4 0.5 0.3" data-pivot="250 300"><g transform="rotate(28 286 180)">
     <rect x="280" y="150" width="16" height="150" rx="6" fill="#8a5a3a" stroke="#2a120a" stroke-width="3"/>
     <rect x="283" y="156" width="5" height="140" fill="#b8805a"/>
     <rect x="246" y="104" width="84" height="54" rx="8" fill="#8a90aa" stroke="#1e1a34" stroke-width="3.5"/>
     <rect x="246" y="104" width="84" height="16" rx="7" fill="#c8ccdc"/>
     <rect x="276" y="104" width="12" height="54" fill="#5e6280"/>
-  </g>
+  </g></g>
   ${sparkle(330, 112, 9, "#fff4cf", 0.9)}`;
   // anvil in front of the king
   const ay = 360;
-  const anvil = `<ellipse cx="176" cy="${ay + 70}" rx="130" ry="16" fill="#000" opacity="0.5" filter="url(#bl6)"/>
+  const anvil = `<g data-layer="anvil" data-move="still 0 0 0"><ellipse cx="176" cy="${ay + 70}" rx="130" ry="16" fill="#000" opacity="0.5" filter="url(#bl6)"/>
     <path d="M 70 ${ay} L 262 ${ay} Q 300 ${ay} 316 ${ay - 12} Q 304 ${ay + 18} 262 ${ay + 22} L 236 ${ay + 22} L 228 ${ay + 44} L 252 ${ay + 64} L 100 ${ay + 64} L 124 ${ay + 44} L 116 ${ay + 22} L 86 ${ay + 22} Q 66 ${ay + 18} 70 ${ay} Z" fill="#3e4060" stroke="#14122a" stroke-width="3.5" stroke-linejoin="round"/>
     <path d="M 74 ${ay + 2} L 262 ${ay + 2} Q 296 ${ay} 310 ${ay - 8}" fill="none" stroke="#9aa0c0" stroke-width="4" stroke-linecap="round"/>
     <path d="M 236 ${ay + 22} L 228 ${ay + 44} L 252 ${ay + 64} L 196 ${ay + 64} Z" fill="#2a2a46"/>
-    <ellipse cx="150" cy="${ay - 2}" rx="40" ry="6" fill="#ffb347" opacity="0.5" filter="url(#bl4)"/>`;
+    <ellipse cx="150" cy="${ay - 2}" rx="40" ry="6" fill="#ffb347" opacity="0.5" filter="url(#bl4)"/></g>`;
   let floor = "";
   for (let k = 0; k < 7; k++) floor += `<path d="M ${-40 + k * 70} ${H} L ${120 + k * 28} 440" stroke="#2a1830" stroke-width="2" opacity="0.8"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${blurs()}
@@ -58,7 +58,7 @@ export default function () {
   ${floor}
   ${hammer}${king}${anvil}
   ${motes(17, 26, 30, 60, 330, 470, ["#ffd36b", "#ff8a3d", "#ffb347"])}
-  ${shadow(70, 470, 24, 0.7)}${critter(70, 444, 22, "#7b77ff", { acc: "antenna", mood: "determined", look: [0.7, -0.6], rim: "#ff8a3d", rimSide: 1 })}
+  ${shadow(70, 470, 24, 0.7)}<g data-layer="hero" data-move="idle 3 0.6 0.4">${critter(70, 444, 22, "#7b77ff", { acc: "antenna", mood: "determined", look: [0.7, -0.6], rim: "#ff8a3d", rimSide: 1 })}</g>
   <rect width="${W}" height="${H}" fill="#0D0F26" opacity="0.08"/>
   </svg>`;
 }
