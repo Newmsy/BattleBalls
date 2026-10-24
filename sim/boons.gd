@@ -163,6 +163,15 @@ const DEFS := {
 	},
 }
 
+## Glitches: bad boons a Bounce Run event can hand you (only ever by
+## choice). Their ids carry GLITCH_PREFIX; they never show up in offers, and
+## a shop or Charge Pad cleans them.
+const GLITCH_PREFIX := "glitch_"
+const GLITCHES := {
+	"glitch_sticky_floor": {"name": "Sticky Floor", "text": "Move 6% slower.", "icon": "bolt", "speed": 0.94},
+	"glitch_singed": {"name": "Singed", "text": "-5% max HP.", "icon": "shield", "hp": 0.95},
+}
+
 const RARITIES := ["common", "rare", "epic", "legendary"]
 ## Roll weights for an offered boon, in RARITIES order (out of 100).
 const ODDS := [58, 27, 11, 4]
@@ -190,6 +199,11 @@ static var _cache := {}
 static func get_def(id: String) -> Dictionary:
 	if _cache.has(id):
 		return _cache[id]
+	if GLITCHES.has(id):
+		var g: Dictionary = GLITCHES[id].duplicate()
+		g.rarity = "glitch"
+		_cache[id] = g
+		return g
 	var base := base_of(id)
 	assert(DEFS.has(base), "Unknown boon id: %s" % id)
 	var def: Dictionary = DEFS[base].duplicate()
@@ -207,6 +221,10 @@ static func get_def(id: String) -> Dictionary:
 		def.text = describe(def)
 	_cache[id] = def
 	return def
+
+
+static func is_glitch(id: String) -> bool:
+	return id.begins_with(GLITCH_PREFIX)
 
 
 ## "thick_shell" for "thick_shell:epic".

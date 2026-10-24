@@ -945,7 +945,8 @@ try {
   }
 
   // 15. Bounce Run: the Play tab has its card; open it by link (the card sits
-  // below the fold), draft three critters and three boons, fight floor 1.
+  // below the fold), draft three critters and three boons, pick a node on the
+  // map and fight floor 1.
   if (mine(27)) {
     const home = await openGame("?seed=7&offline=1");
     await waitForLog(home.logs, "UI_AT bouncerun ", 60000);
@@ -959,8 +960,11 @@ try {
     await tapUi(page, logs, "br_next", "br_start_boons");
     for (const i of [0, 1, 2]) await tapUi(page, logs, `br_sboon_${i}`, "br_start_boons");
     await page.screenshot({ path: path.join(shots, "40b-bouncerun-start-boons.png") });
-    await tapUi(page, logs, "br_start", "br_floor");
-    await page.screenshot({ path: path.join(shots, "41-bouncerun-floor.png") });
+    await tapUi(page, logs, "br_start", "br_map");
+    await page.screenshot({ path: path.join(shots, "41-bouncerun-map.png") });
+    await tapUi(page, logs, "br_node_0", "br_map");
+    await tapUi(page, logs, "br_go", "br_floor");
+    await page.screenshot({ path: path.join(shots, "41b-bouncerun-floor.png") });
     await tapUi(page, logs, "br_send_0", "br_aim");
     await page.screenshot({ path: path.join(shots, "42-bouncerun-aim.png") });
     await tapUi(page, logs, "br_launch", "br_fight");
@@ -972,6 +976,11 @@ try {
     const won = logs.some((l) => l.startsWith("BOUNCERUN_RESULT") && l.includes("won=true"));
     await tapUi(page, logs, "br_continue", won ? "br_boon" : "br_floor");
     await page.screenshot({ path: path.join(shots, won ? "45-bouncerun-boon.png" : "45-bouncerun-retry.png") });
+    if (won) {
+      // After the boon, back on the map with floor 2's nodes lit.
+      await tapUi(page, logs, "br_boon_0", "br_map");
+      await page.screenshot({ path: path.join(shots, "45b-bouncerun-map-floor2.png") });
+    }
     await page.close();
   }
 

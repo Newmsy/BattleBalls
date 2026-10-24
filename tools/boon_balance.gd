@@ -15,6 +15,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Boons := preload("res://sim/boons.gd")
 const BounceRun := preload("res://sim/bounce_run.gd")
 const Rng := preload("res://sim/rng.gd")
+const BounceBot := preload("res://tools/bounce_bot.gd")
 
 const BOON_MIN := 0.52 ## Below this a boon is a dud pick.
 const BOON_MAX := 0.62 ## Above this a boon decides fights. 0.65 is a FAIL.
@@ -110,7 +111,8 @@ static func _wilson(p: float, n: int, sign: float) -> float:
 	return centre + sign * half
 
 
-## Plays whole runs with random drafts, fighters, aims and boon picks.
+## Plays whole runs with random drafts, paths, fighters, aims, boon picks,
+## event choices and shop buys (tools/bounce_bot.gd).
 static func _random_runs(count: int, from := 0) -> String:
 	var wins: Array = []
 	var played: Array = []
@@ -119,34 +121,20 @@ static func _random_runs(count: int, from := 0) -> String:
 		played.append(0)
 	var cleared := 0
 	var floors_total := 0
+	var fights_total := 0
 	var ended: Array = [] ## Floor each run ended on (FLOORS + 1 = cleared).
 	for f in BounceRun.FLOORS + 1:
 		ended.append(0)
 	for r in range(from, from + count):
 		var rng := Rng.new(r * 31 + 7)
 		var setup := BounceRun.generate(1 + r % 60)
-		var picks: Array = []
-		while picks.size() < BounceRun.PICKS:
-			var c := rng.range_int(0, BounceRun.DRAFT - 1)
-			if not c in picks:
-				picks.append(c)
-		var start: Array = []
-		while start.size() < BounceRun.START_BOONS:
-			var b: String = setup.start_offer[rng.range_int(0, setup.start_offer.size() - 1)]
-			if not b in start:
-				start.append(b)
-		var run := BounceRun.new_run(setup, picks, start)
-		while not run.over:
-			var living := BounceRun.living(run)
-			var slot: int = living[rng.range_int(0, living.size() - 1)]
-			var aim := -450 + rng.range_int(-400, 400)
-			var result := MatchSim.new(BounceRun.fight_config(setup, run, slot, aim)).run_to_end()
-			played[run.floor] += 1
-			if result.winner == 0:
-				wins[run.floor] += 1
-			BounceRun.record(setup, run, slot, aim, result.winner, result.ticks, result.hp[1])
-			if not run.offer.is_empty():
-				BounceRun.take_boon(run, run.offer[rng.range_int(0, run.offer.size() - 1)])
+		var run := BounceBot.start(setup, rng)
+		var res := BounceBot.play(setup, run, rng)
+		for f in res.fights:
+			played[f.row] += 1
+			if f.winner == 0:
+				wins[f.row] += 1
+		fights_total += res.fights.size()
 		floors_total += run.floor
 		ended[run.floor] += 1
 		if run.floor >= BounceRun.FLOORS:
@@ -160,7 +148,7 @@ static func _random_runs(count: int, from := 0) -> String:
 		if played[f] > 0:
 			lines.append("| %d | %d | %.1f%% |" % [f + 1, played[f], 100.0 * wins[f] / played[f]])
 	lines.append("")
-	lines.append("Average floors cleared %.2f, full clears %.1f%%." % [float(floors_total) / count, 100.0 * cleared / count])
+	lines.append("Average floors cleared %.2f, fights per run %.2f, full clears %.1f%%." % [float(floors_total) / count, float(fights_total) / count, 100.0 * cleared / count])
 	lines.append("")
 	lines.append("| Run ended on | Runs |")
 	lines.append("|---|---|")

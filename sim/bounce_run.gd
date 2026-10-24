@@ -1,28 +1,31 @@
 ## Bounce Run: a daily roguelite run built from the UTC day number alone, so
-## every device gets the same draft, foes and boon offers without a server.
+## every device gets the same draft, map, foes, events and shop stock without
+## a server.
 ##
 ## Draft 3 of DRAFT critters, then 3 of START_OFFER starting boons for the
-## whole trio, then climb FLOORS fights. Before each fight you see the foe and
-## send one of your living critters. A win earns another boon (pick 1 of 3); a
-## loss knocks that critter out of the run, and you retry the floor with
-## another. The foe keeps the damage it took (run.foe_hp), so the next critter
-## you send finishes off a weakened foe; it heals up only for the next floor.
-## The run ends when the top floor falls or your trio is out.
+## whole trio, then climb a FLOORS-tall branching map (Slay the Spire style).
+## Each floor you step to one of the nodes linked above you:
+##   fight / elite  a foe you see before you commit. Send one of your living
+##                  critters; a win earns a boon (pick 1 of 3) and Buttons, a
+##                  loss knocks that critter out and you retry with another.
+##                  The foe keeps the damage it took (run.foe_hp). Elites are
+##                  bigger, stronger and pay better.
+##   mystery        usually an event with choices (EVENTS), sometimes a fight
+##                  or a shop. What it holds is fixed for the day.
+##   shop           spend Buttons (run-only currency) on boons and services.
+##   rest           a Charge Pad: revive, polish a boon, or clean Glitches.
+##   chest          a treasure chest: a free pick of Rare-or-better boons.
+##   boss           the Champion on the top floor.
+## Glitches are bad boons (sim/boons.gd) that only ever come from a choice.
+## The run ends when the Champion falls or your trio is out.
 ##
-## A floor's foe carries exactly as many boons as you can have there (three
-## to start plus one per floor cleared), drawn from the same pool, and its
-## power follows FOE_POWER: well under yours on the first floors, over it at
-## the top. Everyone climbs the same tower, so the board stays fair. Your
-## edge is picking boons that suit your trio, who you send, and your aim.
-##
-## Both sides grow as you climb: your trio and the floor's foe fight at
-## tier_at(floor), one tier up every 2 floors (T5 on the last two), so foes
-## show their tier upgrades too. Every boon rolls a rarity
-## (sim/boons.gd): Rare and Epic boons have bigger numbers, and a Legendary
-## is a boon with an effect of its own.
+## Both sides grow as you climb: your trio and the foes fight at
+## tier_at(floor), one tier up every FLOORS_PER_TIER floors (T5 on the last
+## four), and foe power follows FOE_POWER.
 ##
 ## A run is plain data (see new_run) so it can be saved, resumed, posted to
-## the leaderboard and re-checked later by replaying its log.
+## the leaderboard and re-checked later: every step is in run.log, and
+## replay() rebuilds the run from it.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
@@ -33,23 +36,99 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 6
+const RULES_VERSION := 7
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
-const FLOORS := 10
+const FLOORS := 20
+const COLS := 4 ## Map lanes.
+const PATHS := 6 ## Walks up the map that make its links.
 const DRAFT := 6 ## Critter cards in the draft.
 const PICKS := 3
 const START_OFFER := 6 ## General boons offered at the start.
 const START_BOONS := 3 ## Of those, how many the trio starts with.
 const OFFER := 3
-## Foe names per floor, for flavour. The top floor is the day's champion.
-const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Elite", "Legend", "Champion"]
+const FLOORS_PER_TIER := 4
+## Foe names by floor pair, for flavour.
+const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Brawler", "Legend", "Champion"]
 ## Foe power per floor (sim/power.gd: 1.0 is your trio's). The first floors
-## are a warm-up; most runs end around floor 7, and a full clear is rare
-## (tools/boon_balance.gd --runs checks the curve: with foes tiering up too,
-## 800 runs ended on floor 7 at the median with ~11% full clears).
-const FOE_POWER := [0.55, 0.65, 0.75, 0.85, 0.95, 1.05, 1.15, 1.28, 1.42, 1.58]
-const FLOORS_PER_TIER := 2
+## are a warm-up and the top is a wall (tools/boon_balance.gd --runs checks
+## the curve).
+const FOE_POWER := [0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0,
+	1.05, 1.1, 1.15, 1.21, 1.28, 1.35, 1.42, 1.5, 1.58, 1.62]
+const ELITE_POWER := 1.12 ## On top of the floor's power.
+const ELITE_SIZE := 1.28
+const BOSS_SIZE := 1.32
+## A hatched Lost Egg critter fights beside whoever you send: small, a tier
+## down and weaker, so it helps without carrying.
+const HATCH_POWER := 0.7
+const HATCH_SIZE := 0.72
+
+## Fixed rows (index = floor - 1): the first is all fights, the middle all
+## chests, the one before the Champion all Charge Pads.
+const CHEST_ROW := 9
+const REST_ROW := 18
+## Roll weights for the other rows.
+const NODE_WEIGHTS := {"fight": 40, "mystery": 25, "elite": 12, "shop": 10, "rest": 10}
+## What a mystery node holds, out of 100.
+const MYSTERY := {"event": 75, "fight": 15, "shop": 10}
+
+## Buttons: earned in the run, spent in its shops, gone when it ends.
+const PAY := {"fight": 15, "elite": 30}
+const PRICES := {"common": 30, "rare": 50, "epic": 80, "legendary": 120, "revive": 60, "clean": 30, "restock": 10}
+## How likely each rarity is to be one of the tide pool trader's critters.
+const TRADER_ODDS := {"common": 4, "uncommon": 8, "rare": 22, "epic": 36, "legendary": 30}
+
+## Every event a mystery node can hold, with its choices (shown in order).
+## `arg` says what the player picks for that choice: a living critter, a
+## knocked-out one, a boon, a Glitch, or a trader critter.
+const EVENTS := {
+	"lost_egg": {"name": "Lost Egg", "family": "nature", "text": "A mossy egg wobbles in the grass. Something inside is tapping back.",
+		"choices": [
+			{"id": "hatch", "name": "Hatch it", "text": "A small Common critter joins every fight beside yours, one tier lower."},
+			{"id": "sell", "name": "Sell it", "buttons": 40},
+			{"id": "leave", "name": "Leave it"}]},
+	"tide_pool_trader": {"name": "Tide Pool Trader", "family": "sea", "text": "A hermit crab collects critters. It likes yours.",
+		"choices": [
+			{"id": "swap", "name": "Swap a critter", "text": "Trade a critter for one of these. They're usually rarer.", "arg": "trade"},
+			{"id": "swap_boon", "name": "Swap a boon", "text": "Your newest boon becomes a random one a rarity higher."},
+			{"id": "leave", "name": "Leave"}]},
+	"vending_machine": {"name": "Glitchy Vending Machine", "family": "glitch", "text": "It hums. The screen flickers: INSERT BUTTON.",
+		"choices": [
+			{"id": "pay", "name": "Pay", "text": "A random Rare boon.", "cost": 25},
+			{"id": "kick", "name": "Kick it", "text": "Either an Epic boon or a Glitch (Sticky Floor)."},
+			{"id": "leave", "name": "Walk away"}]},
+	"candy_fountain": {"name": "Candy Fountain", "family": "sweet", "text": "Pink fizz bubbles up out of the floor.",
+		"choices": [
+			{"id": "drink", "name": "Drink", "text": "Revive a knocked-out critter. Nobody out? Take Snack Stash instead.", "arg": "out_or_none"},
+			{"id": "bottle", "name": "Bottle it", "buttons": 30}]},
+	"frozen_vault": {"name": "Frozen Vault", "family": "frost", "text": "A boon shines inside a block of ice.",
+		"choices": [
+			{"id": "chip", "name": "Chip it free", "text": "Give up one of your boons for a random Epic one.", "arg": "boon"},
+			{"id": "leave", "name": "Leave it"}]},
+	"training_dummy": {"name": "Training Dummy", "family": "toybox", "text": "It squeaks when you bump it.",
+		"choices": [
+			{"id": "spar", "name": "Spar", "text": "Pick a critter: its next fight is one tier higher.", "arg": "living"},
+			{"id": "scrap", "name": "Take it apart", "buttons": 20}]},
+	"haunted_mirror": {"name": "Haunted Mirror", "family": "spooky", "text": "Your reflection grins back. It shouldn't.",
+		"choices": [
+			{"id": "look", "name": "Look closer", "text": "Polish a boon one rarity up, but your next foe gets a copy.", "arg": "polish"},
+			{"id": "smash", "name": "Smash it", "text": "Clean a Glitch.", "arg": "glitch"},
+			{"id": "leave", "name": "Back away"}]},
+	"lava_bridge": {"name": "Lava Bridge", "family": "fire", "text": "A shortcut over the magma. It looks hot.",
+		"choices": [
+			{"id": "dash", "name": "Dash across", "text": "Skip the next floor (it counts, but pays nothing) and take a Glitch (Singed)."},
+			{"id": "long", "name": "Go the long way"}]},
+	"star_map": {"name": "Star Map", "family": "cosmic", "text": "The constellations look a lot like a route.",
+		"choices": [
+			{"id": "read", "name": "Read it", "text": "See what every mystery node holds."},
+			{"id": "wish", "name": "Make a wish", "text": "Boon picks offer 4 instead of 3, but the Champion gets an extra boon."}]},
+	"wandering_rival": {"name": "Wandering Rival", "family": "glitch", "text": "A masked critter blocks the path. \"One round?\"",
+		"choices": [
+			{"id": "fight", "name": "Fight", "text": "Losing knocks nobody out. Win: an Epic boon pick and 20 Buttons. Lose: -20 Buttons."},
+			{"id": "wave", "name": "Wave politely"}]},
+}
+const EVENT_IDS := ["lost_egg", "tide_pool_trader", "vending_machine", "candy_fountain", "frozen_vault",
+	"training_dummy", "haunted_mirror", "lava_bridge", "star_map", "wandering_rival"]
 
 
 ## The tier your trio fights at on floor index `floor_i` (0 = the first floor).
@@ -63,8 +142,8 @@ static func day_number(unix_time: float) -> int:
 
 
 ## The day's run setup: the critter draft, the starting boon offer and the
-## foe on every floor. A practice run passes its own `run_seed` (saved in the run
-## as run.seed) for a fresh tower; 0 is the day's shared one.
+## map with everything on it. A practice run passes its own `run_seed` (saved
+## in the run as run.seed) for a fresh map; 0 is the day's shared one.
 static func generate(day: int, run_seed := 0) -> Dictionary:
 	var rng := Rng.new(_base(day, run_seed) * 2654435 + 977)
 	var cards: Array = []
@@ -73,14 +152,117 @@ static func generate(day: int, run_seed := 0) -> Dictionary:
 		# Every playable critter shows up before any repeats.
 		cards.append({"critter": critters[i % critters.size()]})
 	var start_offer: Array = _shuffled(Boons.GENERAL, rng).slice(0, START_OFFER)
-	var floors: Array = []
-	for f in FLOORS:
-		var critter: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
-		var boons: Array = []
-		for k in START_BOONS + f:
-			boons.append(_pick_boon(rng, critter, boons))
-		floors.append({"critter": critter, "boons": boons, "seed": rng.range_int(1, 999999), "title": FOE_TITLES[f]})
-	return {"day": day, "seed": run_seed, "cards": cards, "start_offer": start_offer, "floors": floors}
+	return {"day": day, "seed": run_seed, "cards": cards, "start_offer": start_offer, "nodes": _map(rng)}
+
+
+## The map: nodes keyed by id (row * COLS + col; the Champion is the only
+## node on the top row), each {id, row, col, type, kids, ...}. Built from
+## PATHS walks up the lanes that never cross, so it reads like a tree.
+static func _map(rng) -> Dictionary:
+	var nodes := {}
+	var starts: Array = _shuffled(range(COLS), rng)
+	for p in PATHS:
+		var col: int = starts[p] if p < COLS - 1 else starts[rng.range_int(0, COLS - 2)] # 3 different starts.
+		for row in FLOORS - 1:
+			var id: int = row * COLS + col
+			if not nodes.has(id):
+				nodes[id] = {"id": id, "row": row, "col": col, "kids": []}
+			if row == FLOORS - 2:
+				break
+			var next := clampi(col + rng.range_int(-1, 1), 0, COLS - 1)
+			# No crossing: a step sideways can't pass over a link already
+			# going the other way between the same two lanes.
+			if next != col:
+				var other: int = row * COLS + next
+				if nodes.has(other) and (other + COLS + (col - next)) in nodes[other].kids:
+					next = col
+			var kid: int = (row + 1) * COLS + next
+			if not kid in nodes[id].kids:
+				nodes[id].kids.append(kid)
+			col = next
+	var boss_id: int = (FLOORS - 1) * COLS
+	nodes[boss_id] = {"id": boss_id, "row": FLOORS - 1, "col": -1, "kids": [], "type": "boss"}
+	var ids: Array = nodes.keys()
+	ids.sort()
+	for id in ids:
+		var n: Dictionary = nodes[id]
+		n.kids.sort()
+		if n.row == FLOORS - 2:
+			n.kids = [boss_id]
+	var events := _shuffled(EVENT_IDS, rng)
+	var next_event := 0
+	for id in ids:
+		var n: Dictionary = nodes[id]
+		if n.row == FLOORS - 1:
+			pass
+		elif n.row == 0:
+			n.type = "fight"
+		elif n.row == CHEST_ROW:
+			n.type = "chest"
+		elif n.row == REST_ROW:
+			n.type = "rest"
+		else:
+			n.type = _roll_type(rng, n, _parents(nodes, id).map(func(q): return nodes[q].type))
+		n.seed = rng.range_int(1, 999999)
+		if n.type == "mystery":
+			n.holds = _roll(rng, MYSTERY)
+			if n.holds == "event":
+				n.event = events[next_event % events.size()]
+				next_event += 1
+				if next_event % events.size() == 0:
+					events = _shuffled(EVENT_IDS, rng)
+		if n.type in ["fight", "elite", "boss"] or n.get("holds", "") == "fight" or n.get("event", "") == "wandering_rival":
+			n.foe = _foe(rng, n)
+	return nodes
+
+
+static func _roll_type(rng, n: Dictionary, parent_types: Array) -> String:
+	var weights := {}
+	for t in NODE_WEIGHTS:
+		if t == "elite" and n.row < 4 or t == "shop" and n.row < 3 or t == "rest" and (n.row < 5 or n.row == REST_ROW - 1):
+			continue
+		if t != "fight" and t != "mystery" and t in parent_types:
+			continue # No shop after a shop, elite after an elite, ...
+		if n.row == CHEST_ROW - 1 and t == "rest":
+			continue
+		weights[t] = NODE_WEIGHTS[t]
+	return _roll(rng, weights)
+
+
+static func _foe(rng, n: Dictionary) -> Dictionary:
+	var row: int = n.row
+	var kind: String = n.type if n.type in ["elite", "boss"] else "fight"
+	var critter: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
+	var boons: Array = []
+	for k in START_BOONS + (row * 4) / 5:
+		boons.append(_pick_boon(rng, critter, boons))
+	var foe := {"critter": critter, "boons": boons, "seed": rng.range_int(1, 999999), "power": FOE_POWER[row], "size": 1.0,
+		"title": FOE_TITLES[mini(row / 2, FOE_TITLES.size() - 2)], "kind": kind}
+	if kind == "elite":
+		foe.power *= ELITE_POWER
+		foe.size = ELITE_SIZE
+		foe.title = "Elite " + foe.title
+		boons.append(_pick_boon(rng, critter, boons, "rare"))
+	elif kind == "boss":
+		foe.size = BOSS_SIZE
+		foe.title = "Champion"
+		var free: Array = Boons.LEGENDARY.filter(func(id): return not id in boons)
+		if not free.is_empty():
+			boons.append(free[rng.range_int(0, free.size() - 1)])
+		foe.wish_boon = _pick_boon(rng, critter, boons, "epic") # Only with a Star Map wish.
+	if n.get("event", "") == "wandering_rival":
+		foe.title = "Masked Rival"
+		foe.kind = "rival"
+	return foe
+
+
+## Node ids linked into `id` from the row below.
+static func _parents(nodes: Dictionary, id: int) -> Array:
+	var out: Array = []
+	for q in nodes:
+		if id in nodes[q].kids:
+			out.append(q)
+	return out
 
 
 ## A fresh run for `setup` with the drafted card indices and the starting
@@ -89,12 +271,85 @@ static func new_run(setup: Dictionary, picks: Array, start: Array) -> Dictionary
 	assert(picks.size() == PICKS and start.size() == START_BOONS)
 	assert(start.all(func(id): return id in setup.start_offer))
 	return {"day": setup.day, "seed": setup.get("seed", 0), "rules": RULES_VERSION, "picks": picks.duplicate(), "start": start.duplicate(),
-		"boons": start.duplicate(), "floor": 0, "out": [false, false, false], "foe_hp": null, "ticks": 0, "log": [], "offer": [], "over": false}
+		"critters": picks.map(func(i): return setup.cards[i].critter), "boons": start.duplicate(),
+		"floor": 0, "at": -1, "done": true, "out": [false, false, false], "foe_hp": null, "ticks": 0, "fights": 0,
+		"buttons": 0, "hatchling": "", "spar": -1, "foe_gift": [], "wish": false, "revealed": false, "dash": false,
+		"rival": false, "shop": {}, "log": [], "offer": [], "over": false}
 
 
-## The pick slot's card.
-static func card(setup: Dictionary, run: Dictionary, slot: int) -> Dictionary:
-	return setup.cards[run.picks[slot]]
+## The pick slot's card (after any trades).
+static func card(_setup: Dictionary, run: Dictionary, slot: int) -> Dictionary:
+	return {"critter": run.critters[slot]}
+
+
+static func node(setup: Dictionary, id: int) -> Dictionary:
+	return setup.nodes.get(id, {})
+
+
+## What the player is doing now: "boon" (a pick is waiting), "map" (pick the
+## next node), "fight", "event", "shop", "rest", or "over".
+static func phase(setup: Dictionary, run: Dictionary) -> String:
+	if run.over:
+		return "over"
+	if not run.offer.is_empty():
+		return "boon"
+	if run.done or run.at < 0:
+		return "map"
+	var kind := kind_of(setup, run.at)
+	if kind == "event" and run.rival:
+		return "fight"
+	return "fight" if kind in ["fight", "elite", "boss"] else kind
+
+
+## A node's type, with a mystery node's contents filled in.
+static func kind_of(setup: Dictionary, id: int) -> String:
+	var n := node(setup, id)
+	return n.get("holds", n.type) if n.type == "mystery" else n.type
+
+
+## Node ids you can step to now.
+static func next_nodes(setup: Dictionary, run: Dictionary) -> Array:
+	if run.over or not run.done or not run.offer.is_empty():
+		return []
+	if run.at < 0:
+		return setup.nodes.keys().filter(func(id): return setup.nodes[id].row == 0)
+	var out: Array = node(setup, run.at).kids.duplicate()
+	if run.dash:
+		var far: Array = []
+		for k in out:
+			for g in node(setup, k).kids:
+				if not g in far:
+					far.append(g)
+		out = far
+	out.sort()
+	return out
+
+
+## Steps onto node `id`. A chest deals its boon pick straight away.
+static func go(setup: Dictionary, run: Dictionary, id: int) -> void:
+	assert(id in next_nodes(setup, run))
+	run.log.append({"t": "go", "n": id})
+	run.at = id
+	run.done = false
+	run.dash = false
+	run.foe_hp = null
+	var kind := kind_of(setup, id)
+	if kind == "chest":
+		run.offer = offer(setup, run, "rare")
+		_clear(setup, run)
+	elif kind == "shop":
+		run.shop = {"stock": _shop_stock(setup, run, 0), "sold": [], "restocked": false}
+
+
+## The foe you face now, or {} off a fight.
+static func foe(setup: Dictionary, run: Dictionary) -> Dictionary:
+	if phase(setup, run) != "fight":
+		return {}
+	var f: Dictionary = node(setup, run.at).foe.duplicate()
+	f.boons = f.boons + run.foe_gift
+	if f.kind == "boss" and run.wish:
+		f.boons = f.boons + [f.wish_boon]
+	return f
 
 
 ## Boons a pick slot fights with: the run's boons, shared by the whole trio
@@ -103,30 +358,61 @@ static func fighter_boons(_setup: Dictionary, run: Dictionary, _slot: int) -> Ar
 	return run.boons
 
 
-## MatchSim config for sending `slot` at the current floor with `aim`. Every
-## fight is on its own map, picked from the floor's seed and how many fights
+## MatchSim config for sending `slot` at the current node with `aim`. Every
+## fight is on its own map, picked from the foe's seed and how many fights
 ## the run has had (so a retry is somewhere new and a replay finds the same).
+## A hatched egg critter fights as p3 on your side (a 2v1).
 static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> Dictionary:
-	var foe: Dictionary = setup.floors[run.floor]
-	return {"seed": foe.seed, "arena": Arenas.pick(foe.seed * 16 + run.log.size()), "p1": card(setup, run, slot).critter, "p2": foe.critter,
-		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons], "powers": [1.0, FOE_POWER[run.floor]],
-		"tiers": [tier_at(run.floor), tier_at(run.floor)], "hp": [null, run.get("foe_hp")]}
+	var f := foe(setup, run)
+	var row: int = node(setup, run.at).row
+	var tier := tier_at(row)
+	var cfg := {"seed": f.seed, "arena": Arenas.pick(f.seed * 16 + run.fights), "p1": card(setup, run, slot).critter, "p2": f.critter,
+		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), f.boons], "powers": [1.0, f.power],
+		"tiers": [mini(tier + (1 if run.spar == slot else 0), 5), tier], "sizes": [1.0, f.size], "hp": [null, run.get("foe_hp")]}
+	if run.hatchling != "":
+		cfg.p3 = run.hatchling
+		cfg.p4 = null
+		cfg.angles.append(null)
+		cfg.boons.append([])
+		cfg.powers.append(HATCH_POWER)
+		cfg.tiers.append(maxi(1, tier - 1))
+		cfg.sizes.append(HATCH_SIZE)
+		cfg.hp.append(null)
+	return cfg
 
 
-## Records a fight. A win climbs a floor and, unless the run is won, deals a
-## boon offer to pick from; anything else knocks the fighter out and leaves
-## the foe on `foe_hp` (its HP at the end of the fight) for your next send.
+## Records a fight. A win clears the node: Buttons and a boon pick (an Epic
+## pick for beating the rival), or the run is won at the Champion. A loss
+## knocks the fighter out and leaves the foe on `foe_hp` for your next send;
+## losing to the rival only costs Buttons.
 static func record(setup: Dictionary, run: Dictionary, slot: int, aim: int, winner: int, ticks: int, foe_hp := 0.0) -> void:
-	assert(not run.over and run.offer.is_empty() and not run.out[slot])
-	run.log.append({"floor": run.floor, "slot": slot, "aim": aim, "won": winner == 0, "ticks": ticks})
+	assert(phase(setup, run) == "fight" and not run.out[slot])
+	var f := foe(setup, run)
+	run.log.append({"t": "fight", "slot": slot, "aim": aim, "won": winner == 0, "ticks": ticks})
 	run.ticks += ticks
+	run.fights += 1
+	if run.spar == slot:
+		run.spar = -1
+	if f.kind == "rival":
+		run.rival = false
+		if winner == 0:
+			run.buttons += 20
+			run.offer = offer(setup, run, "epic")
+		else:
+			run.buttons = maxi(0, run.buttons - 20)
+		_clear(setup, run)
+		return
 	if winner == 0:
 		run.foe_hp = null
-		run.floor += 1
-		if run.floor >= FLOORS:
+		run.foe_gift = []
+		if f.kind == "boss":
+			run.floor = FLOORS
+			run.done = true
 			run.over = true
-		else:
-			run.offer = offer(setup, run)
+			return
+		run.buttons += PAY.get(f.kind, PAY.fight)
+		run.offer = offer(setup, run, "rare" if f.kind == "elite" else "common")
+		_clear(setup, run)
 	else:
 		run.out[slot] = true
 		# A double KO still leaves the foe standing, just barely.
@@ -135,39 +421,328 @@ static func record(setup: Dictionary, run: Dictionary, slot: int, aim: int, winn
 			run.over = true
 
 
+## Marks the current node cleared: the floor counts and the map opens.
+static func _clear(setup: Dictionary, run: Dictionary) -> void:
+	run.done = true
+	run.floor = maxi(run.floor, node(setup, run.at).row + 1)
+
+
 ## Takes boon `id` from the current offer.
 static func take_boon(run: Dictionary, id: String) -> void:
 	assert(id in run.offer)
+	run.log.append({"t": "boon", "id": id})
 	run.boons.append(id)
 	run.offer = []
 
 
-## OFFER boons for the floor just cleared, seeded by day and floor. Skips
+## Boons for the node just cleared, seeded by the day and the node. Skips
 ## boons the trio already runs (at any rarity) and ability boons none of the
-## trio can use. Each card rolls a rarity; a Legendary roll swaps the card for
-## a Legendary boon the trio doesn't have yet.
-static func offer(setup: Dictionary, run: Dictionary) -> Array:
+## trio can use. Each card rolls a rarity, at least `floor_rarity`; a
+## Legendary roll swaps the card for a Legendary boon the trio doesn't have.
+static func offer(setup: Dictionary, run: Dictionary, floor_rarity := "common", salt := 0) -> Array:
+	var pool := _boon_pool(setup, run)
+	var held: Array = run.boons.map(func(id): return Boons.base_of(id))
+	var rng := Rng.new(_base(setup.day, setup.get("seed", 0)) * 7919 + run.at * 104729 + salt * 613 + 31)
+	var out: Array = []
+	for id in _shuffled(pool, rng).slice(0, OFFER + (1 if run.wish else 0)):
+		out.append(_with_roll(rng, id, held + out.map(func(o): return Boons.base_of(o)), floor_rarity))
+	return out
+
+
+static func _boon_pool(setup: Dictionary, run: Dictionary) -> Array:
 	var abilities: Array = []
 	for slot in PICKS:
 		abilities.append(BallDefs.get_def(card(setup, run, slot).critter).ability)
 	var held: Array = run.boons.map(func(id): return Boons.base_of(id))
 	var pool: Array = []
 	for id in Boons.ALL:
-		if id in held:
-			continue
-		if abilities.any(func(a): return Boons.applies_to(id, a)):
+		if not id in held and abilities.any(func(a): return Boons.applies_to(id, a)):
 			pool.append(id)
-	var rng := Rng.new(_base(setup.day, setup.get("seed", 0)) * 7919 + run.floor * 104729 + 31)
+	return pool
+
+
+# --- Shop -------------------------------------------------------------------
+
+## Three boons on the shelf, one Common, one Rare, one Epic (a Legendary roll
+## can upgrade any of them), plus the services.
+static func _shop_stock(setup: Dictionary, run: Dictionary, restock: int) -> Array:
+	var pool := _boon_pool(setup, run)
+	var held: Array = run.boons.map(func(id): return Boons.base_of(id))
+	var rng := Rng.new(_base(setup.day, setup.get("seed", 0)) * 5381 + run.at * 7727 + restock * 131 + 7)
 	var out: Array = []
-	for id in _shuffled(pool, rng).slice(0, OFFER):
-		out.append(_with_roll(rng, id, held + out.map(func(o): return Boons.base_of(o))))
+	var shelf := _shuffled(pool, rng).slice(0, 3)
+	for i in shelf.size():
+		out.append(_with_roll(rng, shelf[i], held + out.map(func(o): return Boons.base_of(o)), ["common", "rare", "epic"][i]))
 	return out
 
+
+## Price of a shop item: "boon:<i>", "revive", "clean" or "restock".
+static func price(setup: Dictionary, run: Dictionary, item: String) -> int:
+	if item.begins_with("boon:"):
+		return PRICES[Boons.rarity_of(run.shop.stock[int(item.get_slice(":", 1))])]
+	return PRICES[item]
+
+
+## True when `item` can be bought now (stock left, Buttons, someone to revive...).
+static func can_buy(setup: Dictionary, run: Dictionary, item: String) -> bool:
+	if phase(setup, run) != "shop" or item in run.shop.sold:
+		return false
+	if item.begins_with("boon:") and int(item.get_slice(":", 1)) >= run.shop.stock.size():
+		return false
+	if run.buttons < price(setup, run, item):
+		return false
+	match item:
+		"revive":
+			return run.out.has(true)
+		"clean":
+			return not glitches(run).is_empty()
+		"restock":
+			return not run.shop.restocked
+	return true
+
+
+## Buys `item`; `arg` is the critter slot to revive or the Glitch to clean.
+static func buy(setup: Dictionary, run: Dictionary, item: String, arg = null) -> void:
+	assert(can_buy(setup, run, item))
+	run.log.append({"t": "buy", "item": item, "arg": arg})
+	run.buttons -= price(setup, run, item)
+	match item:
+		"revive":
+			run.out[int(arg) if arg != null else run.out.find(true)] = false
+		"clean":
+			run.boons.erase(arg if arg != null else glitches(run)[0])
+		"restock":
+			run.shop.restocked = true
+			run.shop.stock = _shop_stock(setup, run, 1)
+			run.shop.sold = run.shop.sold.filter(func(s): return not s.begins_with("boon:"))
+		_:
+			run.boons.append(run.shop.stock[int(item.get_slice(":", 1))])
+			run.shop.sold.append(item)
+
+
+## Leaves the shop for the map.
+static func leave(setup: Dictionary, run: Dictionary) -> void:
+	assert(phase(setup, run) == "shop")
+	run.log.append({"t": "leave"})
+	run.shop = {}
+	_clear(setup, run)
+
+
+# --- Charge Pad ---------------------------------------------------------------
+
+## Rest choices: "revive" (arg slot), "polish" (arg boon id), "clean", or
+## "pass" when there's nothing to do.
+static func can_rest(run: Dictionary, choice: String) -> bool:
+	match choice:
+		"pass":
+			return true
+		"revive":
+			return run.out.has(true)
+		"polish":
+			return not polishable(run).is_empty()
+		"clean":
+			return not glitches(run).is_empty()
+	return false
+
+
+static func rest(setup: Dictionary, run: Dictionary, choice: String, arg = null) -> void:
+	assert(phase(setup, run) == "rest" and can_rest(run, choice))
+	run.log.append({"t": "rest", "choice": choice, "arg": arg})
+	match choice:
+		"revive":
+			run.out[int(arg) if arg != null else run.out.find(true)] = false
+		"polish":
+			_polish(run, arg if arg != null else polishable(run)[0])
+		"clean":
+			for g in glitches(run):
+				run.boons.erase(g)
+	_clear(setup, run)
+
+
+## Boons that can go one rarity up (Common and Rare ones).
+static func polishable(run: Dictionary) -> Array:
+	return run.boons.filter(func(id): return not Boons.is_glitch(id) and Boons.rarity_of(id) in ["common", "rare"])
+
+
+static func glitches(run: Dictionary) -> Array:
+	return run.boons.filter(func(id): return Boons.is_glitch(id))
+
+
+static func _polish(run: Dictionary, id: String) -> String:
+	var up := Boons.with_rarity(Boons.base_of(id), "rare" if Boons.rarity_of(id) == "common" else "epic")
+	run.boons[run.boons.find(id)] = up
+	return up
+
+
+# --- Events -------------------------------------------------------------------
+
+## The event at the current node, or {}.
+static func event(setup: Dictionary, run: Dictionary) -> Dictionary:
+	if phase(setup, run) != "event":
+		return {}
+	return EVENTS[node(setup, run.at).event]
+
+
+## The two critters the tide pool trader offers here, weighted toward the rarer
+## ones (TRADER_ODDS) and never one you already run.
+static func trade_offer(setup: Dictionary, run: Dictionary) -> Array:
+	var rng := Rng.new(int(node(setup, run.at).seed) * 31 + 5)
+	var out: Array = []
+	for k in 2:
+		var weights := {}
+		for c in BallDefs.PLAYABLE:
+			if not c in run.critters and not c in out:
+				weights[c] = TRADER_ODDS.get(str(BallDefs.DEFS[c].get("rarity", "common")), 4)
+		out.append(_roll(rng, weights))
+	return out
+
+
+## Options for an event choice's `arg`: slots, boon ids or [slot, k] trades.
+## Empty when the choice needs no pick.
+static func choice_args(setup: Dictionary, run: Dictionary, choice: Dictionary) -> Array:
+	match choice.get("arg", ""):
+		"living":
+			return living(run)
+		"out_or_none":
+			return dead(run)
+		"boon":
+			return run.boons.filter(func(id): return not Boons.is_glitch(id))
+		"polish":
+			return polishable(run)
+		"glitch":
+			return glitches(run)
+		"trade":
+			var out: Array = []
+			for s in living(run):
+				for k in 2:
+					out.append([s, k])
+			return out
+	return []
+
+
+## True when the event's choice can be taken now.
+static func can_choose(setup: Dictionary, run: Dictionary, choice_id: String) -> bool:
+	var ev := event(setup, run)
+	if ev.is_empty():
+		return false
+	var choice: Dictionary = {}
+	for c in ev.choices:
+		if c.id == choice_id:
+			choice = c
+	if choice.is_empty() or run.buttons < int(choice.get("cost", 0)):
+		return false
+	match choice_id:
+		"hatch":
+			return run.hatchling == ""
+		"swap_boon":
+			return not _swappable(run).is_empty()
+		"dash":
+			return node(setup, run.at).row + 2 < FLOORS
+		"drink":
+			return true
+	return choice.get("arg", "") in ["", "out_or_none"] or not choice_args(setup, run, choice).is_empty()
+
+
+## Takes an event choice; `arg` is one of choice_args() when it asks for one.
+static func choose(setup: Dictionary, run: Dictionary, choice_id: String, arg = null) -> void:
+	assert(can_choose(setup, run, choice_id))
+	var ev := event(setup, run)
+	var n := node(setup, run.at)
+	run.log.append({"t": "event", "choice": choice_id, "arg": arg})
+	var rng := Rng.new(int(n.seed) * 17 + 3)
+	for c in ev.choices:
+		if c.id == choice_id:
+			run.buttons += int(c.get("buttons", 0)) - int(c.get("cost", 0))
+	match choice_id:
+		"hatch":
+			var commons: Array = BallDefs.PLAYABLE.filter(func(c): return BallDefs.DEFS[c].get("rarity", "") == "common")
+			run.hatchling = commons[rng.range_int(0, commons.size() - 1)]
+		"swap":
+			run.critters[int(arg[0])] = trade_offer(setup, run)[int(arg[1])]
+		"swap_boon":
+			var old: String = _swappable(run)[-1]
+			var up: String = {"common": "rare", "rare": "epic", "epic": "legendary"}[Boons.rarity_of(old)]
+			run.boons.erase(old)
+			run.boons.append(_random_boon(setup, run, rng, up))
+		"pay":
+			run.boons.append(_random_boon(setup, run, rng, "rare"))
+		"kick":
+			if rng.range_int(0, 1) == 0:
+				run.boons.append(_random_boon(setup, run, rng, "epic"))
+			else:
+				_glitch(run, "sticky_floor")
+		"drink":
+			if arg != null:
+				run.out[int(arg)] = false
+			elif not "snack_stash" in run.boons.map(func(id): return Boons.base_of(id)):
+				run.boons.append("snack_stash")
+			else:
+				run.buttons += 15
+		"chip":
+			run.boons.erase(arg)
+			run.boons.append(_random_boon(setup, run, rng, "epic"))
+		"spar":
+			run.spar = int(arg)
+		"look":
+			run.foe_gift = [_polish(run, arg)]
+		"smash":
+			run.boons.erase(arg)
+		"dash":
+			_glitch(run, "singed")
+			_clear(setup, run)
+			run.floor = n.row + 2
+			run.dash = true
+			return
+		"read":
+			run.revealed = true
+		"wish":
+			run.wish = true
+		"fight":
+			run.rival = true
+			return
+	_clear(setup, run)
+
+
+## Boons the trader can swap up (anything but Glitches and Legendaries).
+static func _swappable(run: Dictionary) -> Array:
+	return run.boons.filter(func(id): return not Boons.is_glitch(id) and Boons.rarity_of(id) != "legendary")
+
+
+## A random boon the trio doesn't run, at `rarity` (a Legendary when asked
+## and one is free, else Epic).
+static func _random_boon(setup: Dictionary, run: Dictionary, rng, rarity: String) -> String:
+	var held: Array = run.boons.map(func(id): return Boons.base_of(id))
+	if rarity == "legendary":
+		var free: Array = Boons.LEGENDARY.filter(func(id): return not id in held)
+		if not free.is_empty():
+			return free[rng.range_int(0, free.size() - 1)]
+		rarity = "epic"
+	var pool := _boon_pool(setup, run)
+	if pool.is_empty():
+		pool = Boons.GENERAL.duplicate()
+	return Boons.with_rarity(pool[rng.range_int(0, pool.size() - 1)], rarity)
+
+
+static func _glitch(run: Dictionary, base: String) -> void:
+	var id := Boons.GLITCH_PREFIX + base
+	if not id in run.boons:
+		run.boons.append(id)
+
+
+# --- Score and replay -----------------------------------------------------------
 
 static func living(run: Dictionary) -> Array:
 	var out: Array = []
 	for slot in PICKS:
 		if not run.out[slot]:
+			out.append(slot)
+	return out
+
+
+static func dead(run: Dictionary) -> Array:
+	var out: Array = []
+	for slot in PICKS:
+		if run.out[slot]:
 			out.append(slot)
 	return out
 
@@ -187,45 +762,72 @@ static func better(a: Dictionary, b: Dictionary) -> bool:
 
 
 ## Replays a run's log from its picks and returns the rebuilt run, so a
-## posted score can be checked against the sim. Boon picks come from `run`.
+## posted score can be checked against the sim: every fight is fought again.
 static func replay(setup: Dictionary, run: Dictionary) -> Dictionary:
 	var check := new_run(setup, run.picks, run.start)
-	var boon_i := START_BOONS
 	for entry in run.log:
-		var sim := MatchSim.new(fight_config(setup, check, entry.slot, entry.aim))
-		var result := sim.run_to_end()
-		record(setup, check, entry.slot, entry.aim, result.winner, result.ticks, result.hp[1])
-		if not check.offer.is_empty() and boon_i < run.boons.size():
-			take_boon(check, run.boons[boon_i])
-			boon_i += 1
+		match entry.t:
+			"go":
+				go(setup, check, int(entry.n))
+			"fight":
+				var sim := MatchSim.new(fight_config(setup, check, int(entry.slot), int(entry.aim)))
+				var result := sim.run_to_end()
+				record(setup, check, int(entry.slot), int(entry.aim), result.winner, result.ticks, result.hp[1])
+			"boon":
+				take_boon(check, entry.id)
+			"buy":
+				buy(setup, check, entry.item, entry.arg)
+			"leave":
+				leave(setup, check)
+			"rest":
+				rest(setup, check, entry.choice, entry.arg)
+			"event":
+				choose(setup, check, entry.choice, entry.arg)
 	return check
 
 
 ## What a run's draws are seeded from: the day, or a practice run's own seed
-## (offset so it never lands on a real day's tower).
+## (offset so it never lands on a real day's map).
 static func _base(day: int, run_seed: int) -> int:
 	return day if run_seed == 0 else 1000000 + run_seed
 
 
-static func _pick_boon(rng, critter: String, avoid: Array) -> String:
+static func _pick_boon(rng, critter: String, avoid: Array, floor_rarity := "common") -> String:
 	var ability: String = BallDefs.get_def(critter).ability
 	var held: Array = avoid.map(func(id): return Boons.base_of(id))
 	var pool := Boons.ALL.filter(func(id): return Boons.applies_to(id, ability) and not id in held)
 	if pool.is_empty():
 		pool = Boons.ALL.filter(func(id): return Boons.applies_to(id, ability))
-	return _with_roll(rng, pool[rng.range_int(0, pool.size() - 1)], held)
+	return _with_roll(rng, pool[rng.range_int(0, pool.size() - 1)], held, floor_rarity)
 
 
-## `base` at a seeded rarity. A Legendary roll gives a Legendary boon not in
-## `held` (base ids), or an Epic when all of them are taken.
-static func _with_roll(rng, base: String, held: Array) -> String:
+## `base` at a seeded rarity, at least `floor_rarity`. A Legendary roll gives
+## a Legendary boon not in `held` (base ids), or an Epic when all are taken.
+static func _with_roll(rng, base: String, held: Array, floor_rarity := "common") -> String:
 	var rarity := Boons.roll_rarity(rng)
+	if Boons.RARITIES.find(rarity) < Boons.RARITIES.find(floor_rarity):
+		rarity = floor_rarity
 	if rarity == "legendary":
 		var free: Array = Boons.LEGENDARY.filter(func(id): return not id in held)
 		if not free.is_empty():
 			return free[rng.range_int(0, free.size() - 1)]
 		rarity = "epic"
 	return Boons.with_rarity(base, rarity)
+
+
+## A key of `weights` ({key: weight}) picked by one seeded draw.
+static func _roll(rng, weights: Dictionary) -> String:
+	var keys: Array = weights.keys()
+	keys.sort()
+	var total := 0
+	for k in keys:
+		total += int(weights[k])
+	var r: int = rng.range_int(0, total - 1)
+	for k in keys:
+		r -= int(weights[k])
+		if r < 0:
+			return k
+	return keys[-1]
 
 
 static func _shuffled(items: Array, rng) -> Array:

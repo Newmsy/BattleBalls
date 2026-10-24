@@ -19,7 +19,7 @@
 ## level 1 Common. Each rarity step above Common also builds the ability half
 ## a tier stronger (Power.rarity_tiers); `rarity_potency: false` switches that
 ## off for kit-vs-kit audits. `sizes` (optional) scale the radius (campaign bosses).
-## `p3`, `p4` (optional) make it a 2v2: all four balls fight at once, p3 on
+## `p3`, `p4` (optional) make it a 2v2 (`p4: null` makes it a 2v1): all four balls fight at once, p3 on
 ## p1's team and p4 on p2's. Then the per-ball arrays above may hold four
 ## entries (index 2 = p3, 3 = p4; missing ones default) and the balls start
 ## from TEAM_STARTS. `p5`, `p6` as well make it a 3v3 (TRIO_STARTS; p5 with
@@ -383,7 +383,9 @@ func _init(cfg: Dictionary) -> void:
 	family_edges = cfg.get("family_edges", true)
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
 	if cfg.has("p3"):
-		types.append_array([cfg.p3, cfg.get("p4", "plain")])
+		types.append(cfg.p3)
+		if cfg.get("p4", "plain") != null: # null: a 2v1 (Bounce Run's hatchling).
+			types.append(cfg.get("p4", "plain"))
 	if cfg.has("p5"):
 		types.append_array([cfg.p5, cfg.get("p6", "plain")])
 	starters = types.size()
