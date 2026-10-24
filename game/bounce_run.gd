@@ -1270,7 +1270,11 @@ func _art(id: String, scale := 1.0) -> Control:
 ## when the page would scroll. Measured after a layout pass, when wrapped
 ## labels know their height.
 func _fit_art() -> void:
+	if not is_inside_tree():
+		return
 	await get_tree().process_frame
+	if not is_instance_valid(page):
+		return
 	var kids := page.get_children().filter(func(c): return c is Control and c.visible)
 	if kids.is_empty():
 		return
