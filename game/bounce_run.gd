@@ -1347,7 +1347,7 @@ func _pick_trade() -> void:
 ## says which and words the header.
 func _pick(options: Array, kind: String, on_pick: Callable, back: Callable) -> void:
 	sub_label.text = {"living": "Pick a critter", "out_or_none": "Who comes back?", "revive": "Who comes back?", "swap_out": "Who leaves?",
-		"boon": "Pick a boon to give up", "polish": "Pick a boon to polish", "glitch": "Pick a Glitch to clean"}.get(kind, "Pick one")
+		"boon": "Pick a boon to give up", "polish": "Pick a boon to polish", "glitch": "Pick a Glitch to clean", "reroll": "Pick a boon to swap"}.get(kind, "Pick one")
 	var items: Array = [_status_row()]
 	for k in options.size():
 		var o = options[k]
@@ -1430,8 +1430,6 @@ func _changes(before: Dictionary) -> Array:
 		lines.append(Kit.label("Every ? node on the map now shows what it holds.", 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
 	if run.wish and not before.wish:
 		lines.append(Kit.label("Boon picks now offer 4. The Champion is 15% stronger.", 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
-	if run.dash and not before.dash:
-		lines.append(Kit.label("You skip ahead a floor.", 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
 	return lines
 
 
