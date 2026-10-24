@@ -4,6 +4,28 @@
 ## the index of the layer it rides along with (-1 none)].
 ## Kinds: 0 still, 1 bob, 2 sway, 3 breathe, 4 idle (see LivingArt).
 const LAYERS := {
+	"adventure_bosses": [
+		["_Lhammer", Rect2(223, 93, 137, 199), Vector4(2, 4, 0.5, 0.3), Vector2(250, 300), false, -1],
+		["_Lking", Rect2(75, 149, 207, 213), Vector4(4, 4, 0.5, 0), Vector2(180, 359), true, -1],
+		["_Lcrown", Rect2(116, 95, 128, 77), Vector4(0, 0, 0.5, 0), Vector2(180, 167), false, 1],
+		["_Lanvil", Rect2(36, 342, 284, 117), Vector4(0, 0, 0.5, 0), Vector2(181, 446), false, -1],
+	],
+	"adventure_spire_0": [
+		["_Lflag", Rect2(183, 25, 32, 22), Vector4(2, 8, 0.7, 0), Vector2(186, 36), false, -1],
+		["_Lhero", Rect2(71, 391, 51, 78), Vector4(4, 3, 0.6, 0), Vector2(97, 467), true, -1],
+	],
+	"adventure_spire_1": [
+		["_Lflag", Rect2(183, 25, 32, 22), Vector4(2, 8, 0.7, 0), Vector2(186, 36), false, -1],
+		["_Lhero", Rect2(71, 391, 51, 78), Vector4(4, 3, 0.6, 0), Vector2(97, 467), true, -1],
+	],
+	"adventure_spire_2": [
+		["_Lflag", Rect2(183, 25, 32, 22), Vector4(2, 8, 0.7, 0), Vector2(186, 36), false, -1],
+		["_Lhero", Rect2(71, 391, 51, 78), Vector4(4, 3, 0.6, 0), Vector2(97, 467), true, -1],
+	],
+	"adventure_spire_3": [
+		["_Lflag", Rect2(183, 25, 32, 22), Vector4(2, 8, 0.7, 0), Vector2(186, 36), false, -1],
+		["_Lhero", Rect2(71, 391, 51, 78), Vector4(4, 3, 0.6, 0), Vector2(97, 467), true, -1],
+	],
 	"banner_boon": [
 		["_Lorb", Rect2(226, 4, 292, 292), Vector4(1, 6, 0.5, 0), Vector2(372, 254), false, -1],
 		["_Lhero", Rect2(146, 251, 122, 156), Vector4(4, 4, 0.6, 0.4), Vector2(209, 412), true, -1],
@@ -113,6 +135,15 @@ const LAYERS := {
 		["_Lfront", Rect2(32, 557, 656, 129), Vector4(4, 3, 0.45, 0.5), Vector2(361, 689), false, -1],
 		["_Llegend", Rect2(321, 604, 78, 96), Vector4(4, 4, 0.35, 0.25), Vector2(359, 704), false, -1],
 	],
+	"room_bazaar": [
+		["_Lseller", Rect2(91, 89, 60, 69), Vector4(4, 3, 0.7, 0), Vector2(121, 156), false, -1],
+		["_Lcounter", Rect2(16, 126, 208, 74), Vector4(0, 0, 0.5, 0), Vector2(120, 196), false, -1],
+	],
+	"room_defence": [
+		["_Ll", Rect2(39, 38, 43, 51), Vector4(4, 2, 0.8, 0), Vector2(61, 87), true, -1],
+		["_Lm", Rect2(95, 11, 51, 78), Vector4(4, 2, 0.7, 0.4), Vector2(121, 87), true, -1],
+		["_Lr", Rect2(159, 25, 43, 64), Vector4(4, 2, 0.8, 0.7), Vector2(181, 87), true, -1],
+	],
 	"scrap_robot": [
 		["_Lrobot", Rect2(288, 95, 192, 214), Vector4(2, 1.5, 0.5, 0), Vector2(389, 325), false, -1],
 		["_Ljunk", Rect2(280, 273, 290, 150), Vector4(0, 0, 0.5, 0), Vector2(424, 420), false, -1],
@@ -146,6 +177,28 @@ const LAYERS := {
 	],
 	"vending_machine": [
 		["_Lmachine", Rect2(192, 48, 350, 345), Vector4(2, 0.5, 3.1, 0), Vector2(368, 393), false, -1],
+	],
+	"vs_duo": [
+		["_La", Rect2(93, 175, 55, 67), Vector4(4, 3, 0.8, 0), Vector2(121, 239), true, -1],
+		["_Lb", Rect2(43, 191, 55, 67), Vector4(4, 4, 1, 0.3), Vector2(71, 255), false, -1],
+		["_Lc", Rect2(213, 159, 55, 83), Vector4(4, 3, 0.8, 0.5), Vector2(241, 239), true, -1],
+		["_Ld", Rect2(263, 193, 55, 65), Vector4(4, 4, 1, 0.8), Vector2(291, 255), false, -1],
+	],
+	"vs_friends": [
+		["_Lblue", Rect2(93, 151, 68, 82), Vector4(4, 3, 0.6, 0), Vector2(127, 230), false, -1],
+		["_Lpink", Rect2(201, 149, 68, 84), Vector4(4, 3, 0.6, 0.5), Vector2(235, 230), false, -1],
+		["_Lgift", Rect2(140, 107, 80, 83), Vector4(1, 5, 0.5, 0.2), Vector2(180, 176), false, -1],
+		["_Lheart", Rect2(162, 95, 36, 29), Vector4(1, 4, 0.7, 0.6), Vector2(180, 120), false, -1],
+	],
+	"vs_ghost": [
+		["_Lme", Rect2(295, 124, 72, 87), Vector4(4, 3, 0.7, 0), Vector2(331, 208), true, -1],
+		["_Lg1", Rect2(549, 91, 102, 106), Vector4(1, 6, 0.45, 0), Vector2(600, 192), true, -1],
+		["_Lg2", Rect2(485, 102, 110, 116), Vector4(1, 6, 0.5, 0.35), Vector2(540, 212), true, -1],
+		["_Lg3", Rect2(601, 106, 118, 124), Vector4(1, 6, 0.42, 0.7), Vector2(660, 224), true, -1],
+	],
+	"vs_quick": [
+		["_Lme", Rect2(293, 93, 76, 94), Vector4(4, 4, 0.9, 0), Vector2(331, 185), true, -1],
+		["_Lfoe", Rect2(489, 116, 64, 74), Vector4(1, 4, 0.6, 0.4), Vector2(521, 188), true, -1],
 	],
 	"wandering_rival": [
 		["_Lscarf", Rect2(141, 302, 173, 95), Vector4(2, 7, 1.1, 0), Vector2(297, 323), false, 2],

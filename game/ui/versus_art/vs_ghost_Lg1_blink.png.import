@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cmoihq80f7ig7"
-path="res://.godot/imported/tok_frame_cyan.png-c6615399c5f75bae5e335f78585a37db.ctex"
+uid="uid://d1l6sowhnokwt"
+path="res://.godot/imported/vs_ghost_Lg1_blink.png-466c62f1177011976072a88df7a33f82.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://game/ui/home_art/tok_frame_cyan.png"
-dest_files=["res://.godot/imported/tok_frame_cyan.png-c6615399c5f75bae5e335f78585a37db.ctex"]
+source_file="res://game/ui/versus_art/vs_ghost_Lg1_blink.png"
+dest_files=["res://.godot/imported/vs_ghost_Lg1_blink.png-466c62f1177011976072a88df7a33f82.ctex"]
 
 [params]
 

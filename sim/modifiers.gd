@@ -1,4 +1,5 @@
-## Chaos Weekend rule twists. Pure data plus a few helpers: the sim applies a
+## Rule twists (they ran as Chaos Weekends until 2026-10-24; no game mode
+## uses them now, the balance tool still can). Pure data plus a few helpers: the sim applies a
 ## modifier to both balls at the start of a fight, so every modifier is
 ## symmetric and the same config still gives the same fight.
 ##
@@ -14,7 +15,6 @@
 ##   beam_life                  multiplier on how long Laser beams last
 ##   overtime_start             seconds before the arena starts closing in
 ##   mirror                     both sides use the same seed-picked ball
-## Design notes and the rotation live in design/events.md (project files).
 extends RefCounted
 
 const NONE := ""
@@ -54,15 +54,6 @@ const DEFS := {
 		"overtime_start": 10.0,
 	},
 }
-
-## Weekend rotation order, one per week. Mirror Match sits between two stat
-## twists so back-to-back weekends never feel alike.
-const ROTATION := ["big_head", "glass_cannon", "mirror_match", "hyper_speed", "closing_walls", "double_trouble"]
-
-## Monday 2026-01-05 00:00 UTC: week 0 of the rotation.
-const ROTATION_EPOCH := 1767571200
-const WEEK := 7 * 24 * 3600
-const DAY := 24 * 3600
 
 
 static func has(id: String) -> bool:
@@ -154,13 +145,3 @@ const MIRROR_POOL := ["vampire", "laser", "magnet"]
 ## The ball both sides use in a Mirror Match, picked from the seed.
 static func mirror_ball(seed_value: int, playable: Array = MIRROR_POOL) -> String:
 	return playable[posmod(seed_value, playable.size())]
-
-
-## The modifier for the weekend containing `unix_time`, or NONE on weekdays.
-## Weekends run Friday 00:00 to Monday 00:00 UTC.
-static func weekend_modifier(unix_time: int) -> String:
-	var since := unix_time - ROTATION_EPOCH
-	var day_of_week := posmod(floori(float(since) / DAY), 7) ## 0 = Monday.
-	if day_of_week < 4:
-		return NONE
-	return ROTATION[posmod(floori(float(since) / WEEK), ROTATION.size())]

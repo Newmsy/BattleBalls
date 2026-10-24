@@ -27,9 +27,9 @@ func test_bundled_schedule_is_valid() -> void:
 
 func test_validation_catches_mistakes() -> void:
 	var bad := {"version": 1, "revision": 1, "seasons": [{"name": "S", "start": "2026-10-13", "weeks": 7}],
-		"chaos": [{"weekend": "2026-10-17", "modifier": "big_head"}, {"weekend": "2026-10-16", "modifier": "moon_gravity"}],
+		"chaos": [{"weekend": "2026-10-17", "modifier": "big_head"}], "loaners": [{"date": "x"}],
 		"fights": [{"date": "2026-02-30", "p1": "vampire", "p2": "laser", "seed": 1}, {"date": "2026-10-14", "p1": "boulder", "p2": "laser", "seed": 1}]}
-	check_eq(LiveOps.validate(bad).size(), 5, "one problem per bad entry: %s" % [LiveOps.validate(bad)])
+	check_eq(LiveOps.validate(bad).size(), 3, "one problem per bad entry, old chaos/loaners lists ignored: %s" % [LiveOps.validate(bad)])
 	check(not LiveOps.validate({"seasons": "x"}).is_empty(), "lists must be lists")
 
 
@@ -39,36 +39,15 @@ func test_dates_land_in_the_right_week() -> void:
 	check_eq(LiveOps.season(wed).week, 1, "preseason week 1")
 	check_eq(LiveOps.season(_at("2026-11-30")).name, "Season 1: Neon Nights", "Season 1 follows preseason")
 	check_eq(LiveOps.season(_at("2027-01-18")), {}, "after the last season")
-	var c := LiveOps.chaos(wed)
-	check_eq(c.modifier, "closing_walls", "this weekend")
-	check(not c.live, "not live on Wednesday")
-	check_eq(c.starts, LiveOps.date_unix("2026-10-16"), "starts Friday 00:00 UTC")
-	check(LiveOps.chaos(_at("2026-10-16", 0)).live, "live from Friday midnight")
-	check(LiveOps.chaos(_at("2026-10-18", 23)).live, "live through Sunday")
-	check_eq(LiveOps.chaos(_at("2026-10-19", 0)).modifier, "double_trouble", "next week's twist")
 	check_eq(LiveOps.countdown(0, LiveOps.DAY + 7200), "1d 2h", "countdown")
 
 
-## With no schedule the clock rotation takes over, and it matches the sim's
-## Chaos Weekend rotation.
+## With no schedule the clock rotation takes over.
 func test_fallbacks_need_no_schedule() -> void:
 	LiveOps.use({})
 	var t := _at("2027-03-03")
-	check(LiveOps.chaos(t).name != "", "a chaos weekend")
 	check_eq(LiveOps.season(t), {}, "no season")
 	check(LiveOps.fight_of_the_day(t).winner >= 0, "a fight")
-	if ResourceLoader.exists("res://sim/modifiers.gd"):
-		var Modifiers = load("res://sim/modifiers.gd")
-		check_eq(LiveOps.CHAOS_ROTATION, Modifiers.ROTATION, "same rotation as the sim")
-		check_eq(LiveOps.EPOCH, Modifiers.ROTATION_EPOCH, "same week 0")
-	_reset()
-	# The bundled schedule agrees with the rotation, so the sim and the board match.
-	for w in 7:
-		var tw := _at("2026-10-14") + w * LiveOps.WEEK
-		LiveOps.use({})
-		var rotation: String = LiveOps.chaos(tw).modifier
-		_reset()
-		check_eq(LiveOps.chaos(tw).modifier, rotation, "week %d" % w)
 
 
 func test_fight_of_the_day_replays_exactly() -> void:
@@ -98,6 +77,8 @@ func test_board_builds_and_starts_the_fight() -> void:
 		LiveOps.now_override = _at(date)
 		shell.go("week")
 		check_eq(shell.current, "week", "board on " + date)
+		check(shell._marks.has("week_quests"), "Quests door on the board")
+		check(not shell._marks.has("week_chaos") and not shell._marks.has("try_shot"), "no Chaos or Try-a-Critter cards")
 	var got := []
 	shell.watch_requested.connect(func(f): got.append(f))
 	var f := LiveOps.fight_of_the_day(LiveOps.now())

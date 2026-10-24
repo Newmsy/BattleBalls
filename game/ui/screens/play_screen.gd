@@ -28,7 +28,6 @@ const VERSUS := Color("ff4fd8")
 const STYLE := Color("5ce1ff")
 const ADVENTURE := Color("45f5a6")
 const BOSS := Color("ff8a3d")
-const Loaner := preload("res://game/loaner.gd")
 
 ## True on a tall phone (more than a 9:16 screen's height): the doors' badges,
 ## buttons and words grow a step so they fill the room instead of floating.
@@ -231,16 +230,13 @@ static func _daily_door(shell) -> Control:
 	var week := func(): shell.go("week")
 	var f := LiveOps.fight_of_the_day(t)
 	var fotd := Kit.hbox(-12, [CritterIcon.face(f.p1, _s(30)), CritterIcon.face(f.p2, _s(30))], BoxContainer.ALIGNMENT_CENTER)
-	var loan := Loaner.today(shell.profile, t)
-	var chaos := LiveOps.chaos(t)
 	var row := Kit.hbox(4, [
 		door_spot(shell, "trickshot", token("trick", _s(62)), "Trick Shot", trick_line, DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.solved and trick.tries == 0),
 		door_spot(shell, "bouncerun", token("bounce", _s(62)), "Bounce Run", "New run", DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")),
 		door_spot(shell, "daily_fotd", token_with("frame_gold", fotd, _s(62)), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
-		door_spot(shell, "daily_try", token_with("frame_cyan", CritterIcon.face(loan.critter, _s(40)), _s(62)), "Try it", Roster.get_critter(loan.critter).name, WeekScreen.TRY, week),
-		door_spot(shell, "daily_chaos", token("chaos", _s(62)), "Chaos", ("Live " if chaos.live else "") + LiveOps.countdown(t, chaos.ends if chaos.live else chaos.starts), WeekScreen.CHAOS, week),
+		door_spot(shell, "daily_quests", token("quests", _s(62)), "Quests", "Soon", DAILY, week),
 	])
 	var season := LiveOps.season(t)
 	var sub := "Puzzles, runs and this week's events" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks]
@@ -374,8 +370,9 @@ static func campaign_card(shell) -> Control:
 
 ## Quick fight with your fighter on it: tap the fighter to pick another, and
 ## the card updates in place. Quick fight itself is one tap: your fighter
-## against a random foe of its rarity and tier, on a random arena.
-static func quick_fight_card(shell) -> Control:
+## against a random foe of its rarity and tier, on a random arena. `band`
+## (a painting with its title, on the Versus hub) heads the card.
+static func quick_fight_card(shell, band: Control = null) -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
@@ -395,7 +392,13 @@ static func quick_fight_card(shell) -> Control:
 	fight.size_flags_horizontal = Control.SIZE_SHRINK_END
 	fight.custom_minimum_size.x = 210
 	shell.mark("quickfight", fight)
-	return Kit.panel(Kit.hbox(12, [fighter, fight], BoxContainer.ALIGNMENT_CENTER), Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 18))
+	var card := Kit.hbox(12, [fighter, fight], BoxContainer.ALIGNMENT_CENTER)
+	var st := Kit.box(Kit.PANEL, Color("3a3480"), 36, 2, 18)
+	if band == null:
+		return Kit.panel(card, st)
+	# The Versus hub heads it with a painted band that runs to the border.
+	st.set_content_margin_all(2)
+	return Kit.panel(Kit.vbox(0, [band, _padded(card, 8, 14)]), st)
 
 
 ## The fighter picker (also opened by a Quick fight result's Change critter).

@@ -1,7 +1,7 @@
 name: Balance audit
 
 # The full balance sweep (BALANCE.md): every pairing of the live roster on
-# every arena and Chaos Weekend modifier, the power step and the gear lines,
+# every arena, the power step and the gear lines,
 # split over 20 machines; the report job merges their results into one report
 # (job summary and the balance-audit-report artifact). Balance checks are not
 # in PR CI (Newms, 2026-10-15): run this by hand (Actions > Balance audit > Run
@@ -29,7 +29,7 @@ env:
   GODOT_VERSION: "4.3"
   FIGHTS: ${{ inputs.fights || '100' }}
   # Equal power everywhere; power step and gear lines on the square.
-  EQUAL_ARGS: --arena=all --modifiers --variant-fights=50
+  EQUAL_ARGS: --arena=all --variant-fights=50
   POWER_ARGS: --no-equal --power-step --gear
 
 jobs:

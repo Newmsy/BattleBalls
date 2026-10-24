@@ -363,7 +363,7 @@ static func _date(t: int) -> String:
 	return "%s %d %s" % [WEEKDAYS[LiveOps._weekday(t)], d.day, months[d.month - 1]]
 
 
-## The bracket tile on the This Week board, built with WeekScreen.tile.
+## The bracket card on the Daily board, built with WeekScreen.tile.
 static func board_card(shell, t: int, tile: Callable) -> Control:
 	var ev := Legends.current(t)
 	if ev.is_empty():
@@ -386,13 +386,10 @@ static func board_card(shell, t: int, tile: Callable) -> Control:
 			button = "See the final" if not known else button
 	if pick != "" and phase != "done":
 		text += " Yours: %s." % _name(pick)
-	var icons := Kit.hbox(-22)
-	for id in b.draw.slice(0, 4):
-		icons.add_child(CritterIcon.make(id, 1, 64))
 	var go := Kit.button(button, func(): shell.go("bracket"), "primary", 22, 64)
 	shell.mark("week_bracket", go)
 	var words := Kit.label(text, 20, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
 	words.max_lines_visible = 2
 	words.custom_minimum_size.x = 200
-	return tile.call("Bracket", GOLD, Color("7a5a12"), Color("1f1806"), [icons, words], go,
-		Kit.chip({"picks": "Picks", "live": "Live", "done": "Final"}[phase], GOLD, 16))
+	return tile.call("Bracket", GOLD, Color("7a5a12"), Color("1f1806"), [words], go,
+		Kit.chip({"picks": "Picks", "live": "Live", "done": "Final"}[phase], GOLD, 16), "daily_bracket")

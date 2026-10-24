@@ -2,10 +2,6 @@
 ## a shareable result grid. The puzzle comes from sim/trick_shot.gd and the
 ## local date. URL params: ?mode=trickshot&day=12&aim=166&auto=1
 ## (day picks a puzzle, aim presets the aim in degrees, auto shoots at once).
-##
-## Critter Shot: a second, separate puzzle each day shot with the Try-a-Critter
-## loaner (game/loaner.gd). It has its own tries and never touches the streak.
-## Open it by setting `critter_shot` before changing scene, or ?shooter=laser.
 extends Node2D
 
 const TouchInput := preload("res://game/ui/touch_input.gd")
@@ -17,7 +13,6 @@ const TrickShotView := preload("res://game/trick_shot_view.gd")
 const A11y := preload("res://game/a11y.gd")
 const Main := preload("res://game/main.gd")
 const Analytics := preload("res://game/online/analytics.gd")
-const BallDefs := preload("res://sim/ball_defs.gd")
 
 enum State { AIM, SHOT, RESULT, DONE }
 
@@ -29,14 +24,11 @@ const SHOT_SPEED := 1.5
 const LINGER_TICKS := 40 ## Ticks shown after the decisive moment.
 const SQUARES := {"solved": "🟩", "wrong_walls": "🟨", "miss": "🟥"}
 
-## Set to a critter id to open that day's Critter Shot instead of the main shot.
-static var critter_shot := ""
 
 var state := State.AIM
 var today := 1
 var day := 1
 var puzzle: Dictionary
-var shooter := "" ## The Critter Shot's ball, or "" for the main puzzle.
 var aim := 0 ## Degrees, screen space (0 = right, 90 = down).
 var tries: Array = [] ## [{ aim, result, walls }]
 var sim: MatchSim
@@ -64,12 +56,8 @@ func _ready() -> void:
 	var params := _url_params()
 	if params.get("day", "").is_valid_int():
 		day = maxi(1, int(params.day))
-	shooter = critter_shot
-	critter_shot = ""
-	if params.get("shooter", "") in BallDefs.PLAYABLE:
-		shooter = params.shooter
 	var t := Time.get_ticks_msec()
-	puzzle = TrickShot.generate(day, shooter)
+	puzzle = TrickShot.generate(day)
 	aim = _default_aim()
 	if params.get("aim", "").is_valid_int():
 		aim = posmod(int(params.aim), 360)
@@ -156,8 +144,6 @@ func _show_aim() -> void:
 	arena.clear_effects()
 	_set_aim(aim)
 	info_label.text = "Try %d/%d" % [tries.size() + 1, TrickShot.TRIES]
-	if shooter != "":
-		info_label.text = "Shooter: %s · %s" % [BallDefs.get_def(shooter).display_name, info_label.text]
 	var nudge := func(by: int): _set_aim(aim + by)
 	var aim_label := _label("%d°" % aim, 40)
 	aim_label.name = "Aim"
@@ -249,10 +235,6 @@ func _show_done() -> void:
 		grid.add_child(sq)
 	info_label.text = "Window %d°–%d° · Streak %d (best %d)" % [
 		puzzle.solutions.front(), puzzle.solutions.back(), _current_streak(), stats.best_streak]
-	if shooter != "":
-		info_label.text = "Window %d°–%d°" % [puzzle.solutions.front(), puzzle.solutions.back()]
-		_set_panel([headline, grid, _button("Home", _go_menu)])
-		return
 	var share_button := _button("Share", Callable())
 	share_button.pressed.connect(func(): share_button.text = _share())
 	_set_panel([headline, grid, _row([share_button, _button("Home", _go_menu)])])
@@ -305,10 +287,8 @@ func _load() -> void:
 	tries = _save.get_value(_tries_section(), str(day), [])
 
 
-## Critter Shot tries live apart from the main puzzle's, so the board and the
-## streak only ever read the main one.
 func _tries_section() -> String:
-	return "days" if shooter == "" else "critter_" + shooter
+	return "days"
 
 
 func _save_day() -> void:
@@ -320,8 +300,6 @@ func _save_day() -> void:
 
 ## Counts a finished day. Streaks only follow today's puzzle, not replays of old days.
 func _record_finish() -> void:
-	if shooter != "":
-		return
 	stats.played += 1
 	if not _solved():
 		if day == today:
@@ -359,7 +337,7 @@ func _build_ui() -> void:
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.theme = Main._neon_theme()
 	layer.add_child(ui)
-	title_label = _label(("TRICK SHOT #%d" if shooter == "" else "CRITTER SHOT #%d") % day, 48)
+	title_label = _label("TRICK SHOT #%d" % day, 48)
 	title_label.add_theme_color_override("font_outline_color", Color(Main.ACCENT, 0.45))
 	title_label.add_theme_constant_override("outline_size", 12)
 	call_label = _label("Bank off %s, then hit the foe" % _walls_text(puzzle.walls), 28)

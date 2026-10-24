@@ -93,6 +93,12 @@ static func snapshot(from: Node) -> Texture2D:
 
 ## True while a finger drags a list or a fling is still moving it. Busy
 ## animations (the live critter icons) hold still meanwhile so scrolling stays smooth.
+## True while the edge swipe's pictures are up (the screen change it ends
+## with has already been animated).
+static func sliding() -> bool:
+	return is_instance_valid(_instance) and is_instance_valid(_instance._slide)
+
+
 static func scrolling() -> bool:
 	return is_instance_valid(_instance) and (_instance._drag == Drag.SCROLL or is_instance_valid(_instance._fling))
 

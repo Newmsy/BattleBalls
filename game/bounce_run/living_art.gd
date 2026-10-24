@@ -96,6 +96,15 @@ const SPECS := {
 		[600, 80, 75, 75, FLICKER, 0.6, 0.6, 0.5, Color("6fe8ff")]]},
 	"banner_defeat": {"motes": Color("ff9f43"), "spots": [
 		[350, 320, 60, 65, FLICKER, 0.55, 0.9, 0.0, Color("ff9f43")], [566, 90, 28, 32, FLICKER, 0.6, 0.5, 0.0, Color("fff2b0")]]},
+	# The Versus hub cards and Ghost Arena rooms (game/ui/versus_art, HomePainting).
+	"vs_ghost": {"size": Vector2(720, 240), "motes": Color("c9b8ff"), "spots": [
+		[480, 196, 280, 40, GLOW, 0.35, 0.4, 0.0, Color("ff4fd8")]]},
+	"vs_quick": {"size": Vector2(720, 200), "motes": Color("cfc8ff"), "spots": [
+		[610, 100, 45, 50, GLOW, 0.45, 0.5, 0.0, Color("8f7bff")]]},
+	"room_trophy": {"size": Vector2(240, 220), "motes": Color("ffd36b"), "spots": [
+		[120, 112, 60, 50, GLOW, 0.35, 0.4, 0.0, Color("ffd36b")]]},
+	"room_defence": {"size": Vector2(240, 220), "motes": Color("45f5a6"), "spots": [
+		[120, 152, 46, 46, GLOW, 0.35, 0.4, 0.0, Color("45f5a6")]]},
 	# Home's Adventure door paintings (game/ui/home_art, HomePainting): the gate glows.
 	"home_zone_glow_garden": {"motes": Color("7dffb0"), "spots": [
 		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("7dffb0")]]},

@@ -540,7 +540,7 @@ try {
     await page.close();
   }
 
-  // 8. This Week board on a Chaos Saturday: open it from the Play tab, call
+  // 8. Daily board on a Saturday: open it from the Play tab, call
   // the Fight of the Day, watch it to the end and come back to the board.
   if (mine(22)) {
     const { page, logs } = await openGame("?today=2026-10-17&speed=4");
@@ -557,8 +557,7 @@ try {
     await page.close();
   }
 
-  // 9. Try-a-Critter: the board's loaner card, then that day's Critter Shot
-  // (a separate puzzle shot with the loaner) solved with a known aim.
+  // 9. Quests door: the board's wide painted Quests card opens its info sheet.
   if (mine(21)) {
     const { page, logs } = await openGame("?today=2026-10-15");
     await waitForLog(logs, "BOOT_OK", 60000);
@@ -566,20 +565,9 @@ try {
     await page.waitForTimeout(800);
     await tapUi(page, logs, "thisweek", "week");
     await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "16-try-a-critter.png") });
+    await tapUi(page, logs, "week_quests", "sheet");
+    await page.screenshot({ path: path.join(shots, "16-quests-door.png") });
     await page.close();
-    const probe = await openGame("?mode=trickshot&day=2&shooter=laser");
-    const ready = await waitForLog(probe.logs, "TRICKSHOT_READY", 60000);
-    if (!ready.includes("shooter=laser")) throw new Error(`Critter Shot should be shot by Optic: ${ready}`);
-    const [lo, hi] = ready.match(/solutions=(\d+)-(\d+)/).slice(1).map(Number);
-    await probe.page.close();
-    const shot = await openGame(`?mode=trickshot&day=2&shooter=laser&aim=${Math.round((lo + hi) / 2)}&auto=1`);
-    const result = await waitForLog(shot.logs, "TRICKSHOT_RESULT", 60000);
-    console.log("critter shot result:", result);
-    if (!result.includes("result=solved")) throw new Error(`The middle aim should solve the Critter Shot: ${result}`);
-    await shot.page.waitForTimeout(800);
-    await shot.page.screenshot({ path: path.join(shots, "17-critter-shot.png") });
-    await shot.page.close();
   }
 
   // 9b. Finisher cam, then Save clip: the KO is shown zoomed in, the clip
@@ -929,18 +917,6 @@ try {
     console.log("bracket game end:", await waitForLog(logs, "MATCH_END", 90000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "33-bracket-game-result.png") });
-    await page.close();
-  }
-
-  // 14. Chaos Weekend modifier from the URL reaches the sim and the report code.
-  if (mine(15)) {
-    const { page, logs } = await openGame("?p1=vampire&p2=laser&seed=7&auto=1&speed=4&mod=big_head");
-    await waitForLog(logs, "BOOT_OK", 60000);
-    const start = await waitForLog(logs, "FIGHT_START", 5000);
-    if (!start.endsWith(".big_head")) throw new Error(`modifier missing from report code: ${start}`);
-    await page.waitForTimeout(3000);
-    await page.screenshot({ path: path.join(shots, "26-big-head.png") });
-    console.log("modifier fight:", await waitForLog(logs, "MATCH_END", 90000));
     await page.close();
   }
 

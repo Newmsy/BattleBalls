@@ -5,7 +5,7 @@ extends "res://tests/test_case.gd"
 
 const LivingArt := preload("res://game/bounce_run/living_art.gd")
 const Layers := preload("res://game/bounce_run/living_layers.gd")
-const DIRS := ["res://game/bounce_run/art/%s.png", "res://game/ui/home_art/%s.png", "res://game/ui/art/summon/%s.png"]
+const DIRS := ["res://game/bounce_run/art/%s.png", "res://game/ui/home_art/%s.png", "res://game/ui/versus_art/%s.png", "res://game/ui/art/summon/%s.png"]
 
 
 func _path(id: String) -> String:

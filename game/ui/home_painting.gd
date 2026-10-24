@@ -1,4 +1,4 @@
-## A painting that fills a Home door (or the top band of one), cropped to fill
+## A painting that fills a Home door (or the top band of one, or a Versus card), cropped to fill
 ## its box around a focus point, with rounded corners and darkened edges under
 ## the door's words (living_art.gdshader). Paintings with LivingArt glow spots
 ## or moving layers idle like the Bounce Run events: they redraw on the shared idle clock, only
@@ -20,13 +20,14 @@ var _tick := -1
 
 
 ## `fade` is [top fade end, its strength, bottom fade start, its strength]
-## (fractions of the height), towards `fade_col`.
-static func make(id: String, focus_at: Vector2, corner: float, fade: Vector4, fade_col: Color) -> Control:
+## (fractions of the height), towards `fade_col`. `dir` is where the painting
+## lives (the Versus hub's are in game/ui/versus_art).
+static func make(id: String, focus_at: Vector2, corner: float, fade: Vector4, fade_col: Color, dir := DIR) -> Control:
 	var p := new()
-	p.tex = load(DIR % id)
+	p.tex = load(dir % id)
 	p.focus = focus_at
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p._mat = LivingArt.material_for(id, DIR % id)
+	p._mat = LivingArt.material_for(id, dir % id)
 	p._living = p._mat != null
 	if p._mat == null:
 		p._mat = ShaderMaterial.new()

@@ -8,7 +8,8 @@
 // `export const transparent = true` to render on a transparent background
 // (used by the map's node tokens), `export const dir = "game/..."` to write
 // somewhere other than game/bounce_run/art (the Home screen art), and
-// `export const many = { name: fn }` to render several pictures from one file.
+// `export const many = { name: fn }` to render several pictures from one file
+// (with `export const sizes = { name: [w, h] }` where one differs from `size`).
 //
 // Living layers: wrap a part that should move (a critter, a scarf, a lantern)
 // in <g data-layer="rival" data-move="bob 5 0.7 0">. The picture's PNG is
@@ -92,7 +93,8 @@ for (const n of names) {
   const out = mod.dir ? path.join(repo, mod.dir) : dst;
   fs.mkdirSync(out, { recursive: true });
   for (const [name, draw] of mod.many ? Object.entries(mod.many) : [[n, mod.default]]) {
-    await page.setViewportSize({ width: W, height: H });
+    const [w, h] = (mod.sizes && mod.sizes[name]) || [W, H];
+    await page.setViewportSize({ width: w, height: h });
     await page.setContent(`<html><head><style id="la"></style></head><body style="margin:0;background:${bg}">${draw()}</body></html>`);
     const style = (css) => page.evaluate((css) => { document.getElementById("la").textContent = css; }, css);
     const layers = await page.evaluate(() => [...document.querySelectorAll("[data-layer]")].map((e) => {
@@ -108,14 +110,14 @@ for (const n of names) {
     }));
     await style(layers.length ? "[data-layer]{display:none}" : "");
     const file = path.join(out, name + ".png");
-    await page.screenshot({ path: file, clip: { x: 0, y: 0, width: W, height: H }, omitBackground: !!mod.transparent });
+    await page.screenshot({ path: file, clip: { x: 0, y: 0, width: w, height: h }, omitBackground: !!mod.transparent });
     console.log(path.relative(repo, file));
     const kept = [], made = new Set();
     for (const l of layers) {
       await page.evaluate(() => { document.body.style.background = "transparent"; });
       await style(ONLY(l.id));
-      const full = await page.screenshot({ clip: { x: 0, y: 0, width: W, height: H }, omitBackground: true });
-      const rect = await usedRect(full, W, H);
+      const full = await page.screenshot({ clip: { x: 0, y: 0, width: w, height: h }, omitBackground: true });
+      const rect = await usedRect(full, w, h);
       if (!rect) continue;
       const clip = { x: rect[0], y: rect[1], width: rect[2], height: rect[3] };
       const lf = path.join(out, `${name}_L${l.id}.png`);
@@ -137,7 +139,7 @@ for (const n of names) {
       if (!made.has(f.replace(/\.import$/, ""))) fs.rmSync(path.join(out, f));
     }
     await page.evaluate((bg) => { document.body.style.background = bg; }, bg);
-    if (kept.length) manifest[name] = { size: [W, H], layers: kept };
+    if (kept.length) manifest[name] = { size: [w, h], layers: kept };
     else delete manifest[name];
   }
 }

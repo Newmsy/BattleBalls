@@ -1,24 +1,11 @@
 {
   "version": 1,
-  "revision": 4,
+  "revision": 5,
   "seasons": [
     {"name": "Preseason", "start": "2026-10-12", "weeks": 7},
     {"name": "Season 1: Neon Nights", "start": "2026-11-30", "weeks": 7}
   ],
-  "chaos": [
-    {"weekend": "2026-10-16", "modifier": "closing_walls"},
-    {"weekend": "2026-10-23", "modifier": "double_trouble"},
-    {"weekend": "2026-10-30", "modifier": "big_head"},
-    {"weekend": "2026-11-06", "modifier": "glass_cannon"},
-    {"weekend": "2026-11-13", "modifier": "mirror_match"},
-    {"weekend": "2026-11-20", "modifier": "hyper_speed"},
-    {"weekend": "2026-11-27", "modifier": "closing_walls"}
-  ],
   "fights": [],
-  "loaners": [
-    {"date": "2026-10-15", "critter": "laser", "blurb": "Bounces beams off every wall. Borrow it for a day!"},
-    {"date": "2026-10-16", "critter": "vampire", "blurb": "Drinks up every hit. Try it with the walls closing in!"}
-  ],
   "brackets": [
     {"week": "2026-10-19", "seed": 20261019, "name": "Preseason Bracket of Legends"}
   ]

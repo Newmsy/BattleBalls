@@ -70,15 +70,3 @@ func test_every_modifier_is_deterministic_and_finishes() -> void:
 		var b := _sim(id, 11).run_to_end()
 		check_eq(a.hash, b.hash, id + " is deterministic")
 		check(a.ticks <= int(MatchSim.TIME_LIMIT * MatchSim.TICK_RATE) + 1, id + " finishes")
-
-
-func test_rotation_only_runs_on_weekends() -> void:
-	var monday := Modifiers.ROTATION_EPOCH
-	check_eq(Modifiers.weekend_modifier(monday + 3 * Modifiers.DAY + 100), Modifiers.NONE, "Thursday is normal")
-	check_eq(Modifiers.weekend_modifier(monday + 4 * Modifiers.DAY), Modifiers.ROTATION[0], "Friday starts week 0's twist")
-	check_eq(Modifiers.weekend_modifier(monday + 7 * Modifiers.DAY - 1), Modifiers.ROTATION[0], "Sunday night is still on")
-	check_eq(Modifiers.weekend_modifier(monday + Modifiers.WEEK + 5 * Modifiers.DAY), Modifiers.ROTATION[1], "next weekend rotates")
-	check_eq(Modifiers.weekend_modifier(monday + Modifiers.ROTATION.size() * Modifiers.WEEK + 5 * Modifiers.DAY), Modifiers.ROTATION[0], "rotation wraps")
-	for id in Modifiers.ROTATION:
-		check(Modifiers.DEFS.has(id), "rotation entry %s exists" % id)
-	check_eq(Modifiers.ROTATION.size(), Modifiers.DEFS.size(), "every modifier is in the rotation")
