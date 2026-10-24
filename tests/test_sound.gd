@@ -64,19 +64,14 @@ func test_sounds_stay_on_the_master_bus() -> void:
 	sfx.free()
 
 
-## The intro plays once and hands over to the menu loop; a win plays the
-## victory tune until its popup closes; overtime switches to the faster theme.
+## The menu loop plays from the start; a win plays the victory tune until its
+## popup closes; overtime switches to the faster theme.
 func test_music_flow() -> void:
 	var sfx := _sfx()
 	sfx.mode = "all"
-	Sfx._intro_played = false
 	Sfx._audio_unlocked = true
 	sfx.on_menu()
-	check_eq(sfx._music_track, "intro", "first menu music")
-	sfx.on_menu()
-	check_eq(sfx._music_track, "intro", "intro is not cut by another menu")
-	sfx._on_music_finished(sfx._music)
-	check_eq(sfx._music_track, "menu", "after the intro")
+	check_eq(sfx._music_track, "menu", "first music is the menu loop")
 	var sim := MatchSim.new({"seed": 3, "p1": "vampire", "p2": "laser", "angles": [null, null]})
 	sfx.on_fight_start(sim)
 	check_eq(sfx._music_track, "fight", "fight music")
@@ -98,6 +93,23 @@ func test_music_flow() -> void:
 	sfx.on_menu()
 	sfx._process(Sfx.VICTORY_GRACE + 0.1)
 	check_eq(sfx._music_track, "menu", "menu after a win with no popup")
+	sfx.free()
+
+
+## The menu loop carries on where it was: on through a scene change (the new
+## screen's Sfx counts the load time), and paused through a fight.
+func test_menu_music_resumes() -> void:
+	Sfx._menu_pos = 30.0
+	Sfx._menu_left_at = 100.0
+	check_eq(Sfx._menu_resume(100.5, 160.0), 30.5, "a scene change keeps counting")
+	check_eq(Sfx._menu_resume(250.0, 160.0), 20.0, "and wraps round the loop")
+	var sfx := _sfx()
+	sfx._save_menu_pos(false) # A fight opened right after the scene change.
+	check_eq(Sfx._menu_left_at, -1.0, "a fight stops the clock")
+	check(Sfx._menu_pos > 30.0, "at the time the fight started")
+	Sfx._menu_pos = 30.0
+	check_eq(Sfx._menu_resume(999.0, 160.0), 30.0, "after the fight it picks up where it paused")
+	Sfx._menu_pos = 0.0
 	sfx.free()
 
 

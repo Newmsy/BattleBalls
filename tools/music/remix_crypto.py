@@ -278,7 +278,7 @@ def main():
     ap.add_argument("--src", default="")
     ap.add_argument("--wav", default="")
     ap.add_argument("--out", default=OUT)
-    ap.add_argument("--menu", action="store_true", help="also write the old Crypto menu loop")
+    ap.add_argument("--menu", action="store_true", help="also write the old Crypto menu loop and intro")
     args = ap.parse_args()
     src = args.src
     if not src or not os.path.exists(src):
@@ -288,8 +288,8 @@ def main():
     for name, x in build(src).items():
         if name.startswith("preview_") and not args.wav:
             continue
-        if name == "music_menu" and not args.menu:
-            continue  # The menu now plays "Nocturnal Menu" (loop_track.py).
+        if name in ("music_menu", "music_intro") and not args.menu:
+            continue  # The game opens straight into "Nocturnal Menu" (loop_track.py).
         out = args.wav if name.startswith("preview_") else args.out
         print(write_ogg(name, x, out, args.wav), "%.1fs" % (x.shape[1] / SR))
 
