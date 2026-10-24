@@ -6,9 +6,9 @@
 // Files starting with _ are shared parts (and the Buttons icon reference).
 // A scene may also `export const size = [w, h]` (default 720x440) and
 // `export const transparent = true` to render on a transparent background
-// (used by the map's node tokens), `export const dir = "game/..."` to render
-// somewhere else (the Fusion Lab art goes to game/ui/fuse_art), and
-// `export const many = {name: fn}` to render several pictures from one scene.
+// (used by the map's node tokens), `export const dir = "game/..."` to write
+// somewhere other than game/bounce_run/art (the Home screen art), and
+// `export const many = { name: fn }` to render several pictures from one file.
 // Usage (from the repo root): node tools/event_art/render.mjs [name ...]
 import { createRequire } from "node:module";
 import fs from "node:fs";
@@ -38,9 +38,9 @@ for (const n of names) {
   const bg = mod.transparent ? "transparent" : "#0D0F26";
   const out = mod.dir ? path.join(repo, mod.dir) : dst;
   fs.mkdirSync(out, { recursive: true });
-  for (const [name, fn] of mod.many ? Object.entries(mod.many) : [[n, mod.default]]) {
+  for (const [name, draw] of mod.many ? Object.entries(mod.many) : [[n, mod.default]]) {
     await page.setViewportSize({ width: W, height: H });
-    await page.setContent(`<html><body style="margin:0;background:${bg}">${fn()}</body></html>`);
+    await page.setContent(`<html><body style="margin:0;background:${bg}">${draw()}</body></html>`);
     const file = path.join(out, name + ".png");
     await page.screenshot({ path: file, clip: { x: 0, y: 0, width: W, height: H }, omitBackground: !!mod.transparent });
     console.log(path.relative(repo, file));
