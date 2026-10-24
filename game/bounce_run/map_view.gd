@@ -15,6 +15,7 @@ const COLORS := {
 	"fight": Color("3ee6ff"), "elite": Color("ff4fb8"), "mystery": Color("b88cff"), "shop": Color("ffd34e"),
 	"rest": Color("5cff9a"), "chest": Color("ff9f43"), "boss": Color("ff5a6e"), "event": Color("b88cff"),
 }
+const ART := "res://game/bounce_run/art/%s.png"
 const PAD := 62.0 ## Side margin to the outer lanes (room for the glow).
 const NAMES := {
 	"fight": "Fight", "elite": "Elite", "mystery": "Mystery", "shop": "Shop", "rest": "Charge Pad",
@@ -27,6 +28,7 @@ var selected := -1
 var row_h := 120.0 ## Pixels between floors.
 var on_select: Callable ## Called with the node id a tap picks.
 var _press := Vector2.INF
+static var _textures := {}
 var _reach: Array = []
 var _route: Array = []
 
@@ -110,6 +112,9 @@ func _draw() -> void:
 	if setup.is_empty():
 		return
 	var r := _r()
+	var back := _tex("map_backdrop")
+	if back:
+		draw_texture_rect(back, Rect2(Vector2.ZERO, size), false)
 	var walked := {}
 	for i in range(1, _route.size()):
 		walked["%d-%d" % [_route[i - 1], _route[i]]] = true
@@ -138,7 +143,16 @@ func _draw() -> void:
 			rr *= 1.15
 			Dot.circle(self, p, rr * 1.5, Color(col, .14))
 			Dot.circle(self, p, rr * 1.25, Color(col, .22))
-		if id in _route:
+		var token := _tex("map_node_" + t)
+		if token:
+			# The painted token (a 150 px badge in a 160 px square): past and
+			# out-of-reach nodes fade back, the route stays lit.
+			var dim: bool = not id in _route and (n.row < run.floor or (not id in _reach and n.row <= run.floor))
+			var tint := Color(.45, .45, .55, .55) if dim else (Color.WHITE if id in _reach or id in _route else Color(.8, .8, .88, .92))
+			draw_texture_rect(token, Rect2(p - Vector2.ONE * rr * 160.0 / 150.0, Vector2.ONE * rr * 320.0 / 150.0), false, tint)
+			if id in _route:
+				draw_arc(p, rr + 2.0, 0.0, TAU, 40, Kit.GOOD, 4.0, true)
+		elif id in _route:
 			Dot.circle(self, p, rr, col)
 			_icon(t, p, rr * .62, Kit.BG)
 		else:
@@ -150,6 +164,14 @@ func _draw() -> void:
 			draw_arc(p, rr + 7.0, 0.0, TAU, 40, Kit.FG, 4.0, true)
 		if id == run.at and not run.done:
 			draw_arc(p, rr + 6.0, 0.0, TAU, 40, Kit.FG, 3.0, true)
+
+
+## A painted map texture (game/bounce_run/art), or null when it isn't there.
+static func _tex(name: String) -> Texture2D:
+	if not _textures.has(name):
+		var path := ART % name
+		_textures[name] = load(path) if ResourceLoader.exists(path) else null
+	return _textures[name]
 
 
 func _dashed(a: Vector2, b: Vector2, col: Color, w: float) -> void:
