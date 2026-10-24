@@ -181,7 +181,7 @@ export default function () {
   <path d="M 0 300 Q 90 300 170 322 Q 232 334 250 356" fill="none" stroke="#ffb07a" stroke-width="2.5" opacity="0.6"/>
   <path d="M 70 340 l 20 22 l -6 20 l 18 24 M 150 352 l 10 18 l -8 14" fill="none" stroke="#ff8a3a" stroke-width="2" opacity="0.75" filter="url(#lbGlowS)"/>
   <path d="M 70 340 l 20 22 l -6 20 l 18 24 M 150 352 l 10 18 l -8 14" fill="none" stroke="#ffd36a" stroke-width="1.2"/>
-  ${critter}
+  <g data-layer="critter" data-move="idle 4 0.9 0">${critter}</g>
   <!-- foreground rocks bottom right, framing -->
   <path d="M 600 440 Q 620 392 664 384 Q 706 382 720 396 L 720 440 Z" fill="#1a0c1c"/>
   <path d="M 600 440 Q 620 392 664 384 Q 706 382 720 396" fill="none" stroke="#ff9a3a" stroke-width="2" opacity="0.5"/>

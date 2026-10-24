@@ -34,9 +34,9 @@ extends RefCounted
 const DEFS := {
 	"thick_shell": {
 		"name": "Thick Shell",
-		"text": "+7% max HP.",
+		"text": "+6% max HP.",
 		"icon": "shield",
-		"hp": 1.07,
+		"hp": 1.06,
 	},
 	"spiky_rim": {
 		"name": "Spiky Rim",
@@ -46,9 +46,9 @@ const DEFS := {
 	},
 	"zoomies": {
 		"name": "Zoomies",
-		"text": "Move 8% faster.",
+		"text": "Move 10% faster.",
 		"icon": "bolt",
-		"speed": 1.08,
+		"speed": 1.1,
 	},
 	"wall_snack": {
 		"name": "Wall Snack",
@@ -96,19 +96,19 @@ const DEFS := {
 		"name": "Rebound Bolt",
 		"text": "Wall bounces fire a homing spark: {n}% of a bump.",
 		"icon": "rebound",
-		"b_bolt": 0.08,
+		"b_bolt": 0.06,
 	},
 	"pinball": {
 		"name": "Pinball",
 		"text": "Bump a foe into a wall: it takes {n}% of a bump more.",
 		"icon": "pinball",
-		"b_pinball": 0.2,
+		"b_pinball": 0.14,
 	},
 	"bounce_mine": {
 		"name": "Bounce Mine",
 		"text": "Every 3rd wall bounce drops a mine: {n}% of a bump.",
 		"icon": "mine",
-		"b_mine": 0.3,
+		"b_mine": 0.27,
 	},
 	"payback": {
 		"name": "Payback",
@@ -151,24 +151,24 @@ const DEFS := {
 	},
 	"phoenix_feather": {
 		"name": "Phoenix Feather",
-		"text": "Revive once at 35% HP.",
+		"text": "Revive once at 28% HP.",
 		"icon": "feather",
 		"rarity": "legendary",
-		"boon_revive": 0.35,
+		"boon_revive": 0.28,
 	},
 	"thorn_crown": {
 		"name": "Thorn Crown",
-		"text": "Reflect 35% of bump damage.",
+		"text": "Reflect 28% of bump damage.",
 		"icon": "thorns",
 		"rarity": "legendary",
-		"thorns": 0.35,
+		"thorns": 0.28,
 	},
 	"vampire_kiss": {
 		"name": "Vampire Kiss",
-		"text": "Heal 20% of bump damage dealt.",
+		"text": "Heal 24% of bump damage dealt.",
 		"icon": "drop",
 		"rarity": "legendary",
-		"lifesteal": 0.2,
+		"lifesteal": 0.24,
 	},
 	"overcharge": {
 		"name": "Overcharge",
@@ -202,7 +202,7 @@ const GLITCH_PREFIX := "glitch_"
 const GLITCHES := {
 	"glitch_sticky_floor": {"name": "Sticky Floor", "text": "Move 6% slower.", "icon": "bolt", "speed": 0.94},
 	"glitch_singed": {"name": "Singed", "text": "-5% max HP.", "icon": "shield", "hp": 0.95},
-	"glitch_chilled": {"name": "Chilled", "text": "Move 5% slower.", "icon": "bolt", "speed": 0.95},
+	"glitch_chilled": {"name": "Chilled", "text": "Move 7% slower.", "icon": "bolt", "speed": 0.93},
 	"glitch_rusty": {"name": "Rusty", "text": "-5% damage.", "icon": "spike", "damage": 0.95},
 }
 

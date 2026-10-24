@@ -175,7 +175,8 @@ export default function trainingDummy() {
   ${spring}
   <ellipse cx="${bx}" cy="200" rx="140" ry="150" fill="${TOY}" opacity="0.14" filter="url(#td_g16)"/>
   ${arcs}
-  <g transform="rotate(7 ${bx} ${base})">
+  <!-- living layer (render.mjs): the dummy wobbles on its spring -->
+  <g data-layer="dummy" data-move="sway 4 0.9 0" data-pivot="${bx} ${base}" transform="rotate(7 ${bx} ${base})">
     <path d="${body}" fill="url(#td_body)" stroke="${shade(TOY, -0.55)}" stroke-width="4"/>
     <g clip-path="url(#td_bodyclip)">
       ${rings}

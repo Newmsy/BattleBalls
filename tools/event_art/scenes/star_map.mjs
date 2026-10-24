@@ -203,7 +203,7 @@ export default function () {
   <!-- telescope + critter -->
   <ellipse cx="${kx + 40}" cy="${ky + 20}" rx="120" ry="70" fill="${COSMIC}" opacity="0.18" filter="url(#smBlur24)"/>
   ${tube}
-  ${critter}
+  <g data-layer="critter" data-move="idle 3 0.5 0">${critter}</g>
 
   <!-- star chart scroll + candle on the ledge -->
   <g transform="rotate(-6 440 362)">

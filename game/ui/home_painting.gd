@@ -1,7 +1,7 @@
 ## A painting that fills a Home door (or the top band of one), cropped to fill
 ## its box around a focus point, with rounded corners and darkened edges under
-## the door's words (living_art.gdshader). Paintings with LivingArt SPECS
-## idle like the Bounce Run events: they redraw on the shared idle clock, only
+## the door's words (living_art.gdshader). Paintings with LivingArt glow spots
+## or moving layers idle like the Bounce Run events: they redraw on the shared idle clock, only
 ## while on screen, and hold still with Reduced motion. Render only.
 extends Control
 
@@ -26,7 +26,7 @@ static func make(id: String, focus_at: Vector2, corner: float, fade: Vector4, fa
 	p.tex = load(DIR % id)
 	p.focus = focus_at
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p._mat = LivingArt.material_for(id)
+	p._mat = LivingArt.material_for(id, DIR % id)
 	p._living = p._mat != null
 	if p._mat == null:
 		p._mat = ShaderMaterial.new()
@@ -55,5 +55,5 @@ func _process(delta: float) -> void:
 	var tick := CritterIcon.clock()
 	if tick != _tick:
 		_tick = tick
-		_mat.set_shader_parameter("t", _t)
+		LivingArt.animate(_mat, _t)
 		queue_redraw()

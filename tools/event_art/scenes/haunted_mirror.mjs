@@ -173,17 +173,19 @@ export default function () {
     <!-- reflected room: far candle glow and wallpaper hint -->
     <circle cx="${mx - 70}" cy="${my + 30}" r="50" fill="#ffb86a" opacity="0.15" filter="url(#hmGlowL)"/>
     <ellipse cx="${mx}" cy="${my + mry - 10}" rx="${mrx}" ry="40" fill="${SP}" opacity="0.35" filter="url(#hmMist)"/>
-    ${ghost}
+    <g data-layer="ghost" data-move="bob 6 0.45 0">${ghost}</g>
     <!-- glass sheen -->
     <path d="M ${mx - mrx} ${my - 40} L ${mx - 20} ${my - mry} L ${mx + 10} ${my - mry} L ${mx - mrx} ${my + 20} Z" fill="#fff" opacity="0.07"/>
     <path d="M ${mx - mrx} ${my + 50} L ${mx + 40} ${my - mry} L ${mx + 54} ${my - mry} L ${mx - mrx} ${my + 74} Z" fill="#fff" opacity="0.05"/>
   </g>
-  <!-- frame -->
+  <!-- frame (a still layer: the ghost floats behind it) -->
+  <g data-layer="frame">
   <ellipse cx="${mx}" cy="${my}" rx="${mrx + 6}" ry="${mry + 6}" fill="none" stroke="${SP}" stroke-width="8" opacity="0.55" filter="url(#hmGlowS)"/>
   <ellipse cx="${mx}" cy="${my}" rx="${mrx + 8}" ry="${mry + 8}" fill="none" stroke="url(#hmFrame)" stroke-width="16"/>
   <ellipse cx="${mx}" cy="${my}" rx="${mrx + 8}" ry="${mry + 8}" fill="none" stroke="#1a1130" stroke-width="2" opacity="0.6" stroke-dasharray="3 9"/>
   <ellipse cx="${mx}" cy="${my}" rx="${mrx + 1}" ry="${mry + 1}" fill="none" stroke="#e6d8ff" stroke-width="1.5" opacity="0.7"/>
   ${crest}${sides}${bottom}
+  </g>
 
   <!-- candles -->
   ${candle(214, 384, 150, { lean: -2 })}
@@ -194,7 +196,7 @@ export default function () {
   <!-- purple mist rolling across the floor -->
   <g filter="url(#hmMist)">${mist}</g>
 
-  ${critter}
+  <g data-layer="critter" data-move="idle 3 0.4 0.5">${critter}</g>
   <ellipse cx="160" cy="420" rx="160" ry="22" fill="${SP}" opacity="0.3" filter="url(#hmMist)"/>
   <ellipse cx="520" cy="414" rx="200" ry="20" fill="${SP}" opacity="0.25" filter="url(#hmMist)"/>
 

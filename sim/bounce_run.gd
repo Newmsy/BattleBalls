@@ -37,7 +37,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 9
+const RULES_VERSION := 10
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 20
@@ -54,9 +54,11 @@ const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Vete
 ## Foe power per floor (sim/power.gd: 1.0 is your trio's). The first floors
 ## are a warm-up and the top is a wall (tools/boon_balance.gd --runs checks
 ## the curve). Foes carry no boons, so power alone makes the climb, about
-## 12% steeper each floor.
+## 12% steeper each floor, 16% from floor 14, and the Champion is a wall: a
+## greedy player (tools/boon_balance.gd --runs --greedy) clears about 30% of
+## runs, a random one about 3%, and a random run's median ends on floor 13.
 const FOE_POWER := [0.55, 0.67, 0.81, 0.95, 1.11, 1.28, 1.46, 1.66, 1.86, 2.08,
-	2.31, 2.55, 2.81, 3.1, 3.43, 3.78, 4.15, 4.56, 4.99, 5.31]
+	2.31, 2.55, 2.81, 3.22, 3.71, 4.25, 4.86, 5.55, 6.31, 8.74]
 const DOWNSIDE_POWER := 0.15 ## A Haunted Mirror look, a Star Map wish (and a few other risky picks) make a foe this much stronger.
 const ELITE_POWER := 1.12 ## On top of the floor's power.
 const ELITE_SIZE := 1.28
@@ -77,7 +79,7 @@ const MYSTERY := {"event": 75, "fight": 15, "shop": 10}
 
 ## Buttons: earned in the run, spent in its shops, gone when it ends.
 const PAY := {"fight": 15, "elite": 30}
-const PRICES := {"common": 30, "rare": 50, "epic": 80, "legendary": 120, "revive": 60, "clean": 30, "restock": 10}
+const PRICES := {"common": 25, "rare": 45, "epic": 80, "legendary": 120, "revive": 50, "clean": 30, "restock": 10}
 ## How likely each rarity is to be one of the tide pool trader's critters.
 const TRADER_ODDS := {"common": 4, "uncommon": 8, "rare": 22, "epic": 36, "legendary": 30}
 

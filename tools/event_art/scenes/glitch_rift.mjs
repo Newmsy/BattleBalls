@@ -193,9 +193,10 @@ export default function () {
   ${debris}
 
   <!-- the golden orb -->
-  ${orb}
+  <!-- living layers (render.mjs): the orb hovers, the critter idles -->
+  <g data-layer="orb" data-move="bob 6 0.6 0">${orb}</g>
 
-  ${critter}
+  <g data-layer="critter" data-move="idle 4 0.7 0.4">${critter}</g>
 
   <!-- foreground floor slab corner, left, framing -->
   <path d="M 0 360 L 120 372 L 150 440 L 0 440 Z" fill="#0d0a26"/>
