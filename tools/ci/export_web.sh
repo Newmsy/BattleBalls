@@ -47,5 +47,19 @@ timeout 120 ~/godot/godot --headless --script res://tools/sim_version.gd
 mkdir -p build/web
 timeout 300 ~/godot/godot --headless --export-release "Web" build/web/index.html
 test -s build/web/index.wasm
+# Godot 4.3's web audio copies a sound's whole buffer every time it plays
+# (Sample.getAudioBuffer). Nothing writes to those buffers, so share the one
+# copy: dozens of sounds a second otherwise churn memory iPhone Safari is slow
+# to give back.
+python3 - <<'PY'
+p = "build/web/index.js"
+s = open(p).read()
+old = "getAudioBuffer(){return this._duplicateAudioBuffer()}"
+if old in s:
+    open(p, "w").write(s.replace(old, "getAudioBuffer(){return this._audioBuffer}"))
+    print("Patched web audio: sounds share their buffers")
+else:
+    print("::warning::Godot web audio buffer patch did not apply (engine changed?)")
+PY
 # The live-ops schedule, served next to the game so builds can refresh it.
 cp liveops/liveops.json build/web/liveops.json
