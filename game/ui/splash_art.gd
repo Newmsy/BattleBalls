@@ -24,15 +24,17 @@ const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const ART := preload("res://game/brand/loading.png")
 ## Spots on the painting, in its own pixels: the sun behind the title, the
 ## arena ring (centre and radii) and the coins and sparkles that twinkle.
-const ART_SUN := Vector2(426, 262)
+const ART_SUN := Vector2(426, 330)
 const ART_RING := [Vector2(432, 1262), 330.0, 58.0]
-const ART_HORIZON := 1090.0
-const ART_TWINKLES := [Vector2(57, 630), Vector2(312, 826), Vector2(790, 870), Vector2(62, 1150), Vector2(782, 1153), Vector2(568, 778),
-	Vector2(766, 438), Vector2(36, 528), Vector2(588, 712), Vector2(250, 590), Vector2(806, 1262), Vector2(50, 1306)]
-## Glows that pulse on the painted effects: [spot, radius, colour, beat]: the
-## fireballs, the laser's spark, the phoenix, Count Nibbles' shield, the frost.
-const ART_GLOWS := [[Vector2(320, 815), 70.0, Color(1, .6, .15), 3.1], [Vector2(505, 818), 60.0, Color(.5, .9, 1), 4.3],
-	[Vector2(432, 552), 90.0, Color(1, .7, .2), 2.2], [Vector2(428, 1068), 190.0, Color(1, .2, .35), 1.6], [Vector2(690, 1300), 90.0, Color(.7, .9, 1), 2.6]]
+const ART_HORIZON := 1062.0
+const ART_TWINKLES := [Vector2(57, 630), Vector2(790, 870), Vector2(62, 1150), Vector2(782, 1153), Vector2(568, 778), Vector2(770, 438),
+	Vector2(300, 1560), Vector2(600, 1640), Vector2(260, 600), Vector2(810, 1050), Vector2(170, 330), Vector2(700, 474)]
+## Glows that pulse on the painted effects: [spot, radius, colour, beat]: Drako's
+## and the phoenix's flame jets, the laser's spark, the phoenix, Count Nibbles'
+## shield, the frost.
+const ART_GLOWS := [[Vector2(320, 808), 80.0, Color(1, .6, .15), 3.1], [Vector2(300, 668), 70.0, Color(1, .55, .15), 3.7],
+	[Vector2(505, 818), 60.0, Color(.5, .9, 1), 4.3], [Vector2(432, 545), 90.0, Color(1, .7, .2), 2.2],
+	[Vector2(428, 1068), 190.0, Color(1, .2, .35), 1.6], [Vector2(690, 1300), 90.0, Color(.7, .9, 1), 2.6]]
 
 ## The composition is laid out on a 720 x 1280 portrait card centred on the
 ## screen; the sky and the grass stretch to fill whatever is around it.

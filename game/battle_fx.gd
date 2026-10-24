@@ -2640,6 +2640,30 @@ static func draw_tier_aura(ci: CanvasItem, p: Vector2, r: float, tier: int, col:
 		Dot.circle(ci, at, r * 0.035, Color(1, 1, 1, 0.6))
 
 
+## Bounce Run Elites and the Champion: a dark crimson halo, a slowly turning
+## ring of spikes and two horns, so a big foe reads as dangerous at a glance.
+const ELITE := Color("ff3d6e")
+
+
+static func draw_elite_aura(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
+	if r < 2.0:
+		return
+	var pulse := 0.5 + 0.5 * sin(t * 3.0)
+	Dot.circle(ci, p, r * (1.42 + 0.04 * pulse), Color(ELITE, 0.10))
+	Dot.circle(ci, p, r * 1.26, Color(ELITE, 0.16))
+	var n := 12
+	for q in n: # Spikes leaning with the spin, like a saw blade.
+		var a := t * 0.6 + q * TAU / n
+		var base := Vector2.from_angle(a)
+		var tip := p + Vector2.from_angle(a + 0.12) * r * (1.38 + 0.05 * pulse)
+		Dot.poly(ci, PackedVector2Array([p + base.rotated(-0.13) * r * 1.12, tip, p + base.rotated(0.13) * r * 1.12]), Color(ELITE, 0.75))
+	ci.draw_arc(p, r * 1.13, 0.0, TAU, 48, Color("ffd0dc", 0.55 + 0.25 * pulse), maxf(2.0, r * 0.05), true)
+	for side in [-1.0, 1.0]: # Horns over the brow.
+		var root := p + Vector2(side * r * 0.5, -r * 0.78)
+		Dot.poly(ci, PackedVector2Array([root + Vector2(-side * r * 0.16, 0), root + Vector2(side * r * 0.2, -r * 0.5), root + Vector2(side * r * 0.2, r * 0.06)]), Color("2a0a18"))
+		Dot.poly(ci, PackedVector2Array([root + Vector2(-side * r * 0.1, -r * 0.02), root + Vector2(side * r * 0.17, -r * 0.42), root + Vector2(side * r * 0.14, r * 0.02)]), ELITE)
+
+
 ## T5 critters shed gold sparkles as they move.
 static func draw_ascend_trail(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, t: float) -> void:
 	if vel.length() < 0.001:
