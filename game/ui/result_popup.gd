@@ -18,6 +18,8 @@ const SLIDE_SECS := .22
 const MAX_WIDTH := 760.0 ## A phone-width column on a wide screen.
 const MARGIN := 24.0 ## Kept clear round the card, so it never touches an edge.
 const RISE := 48.0 ## How far the card rises as it fades in.
+const POP_FROM := .88 ## The scale the card grows from as it rises.
+const OUT_SECS := .12
 
 
 ## The headline for an outcome, the same words in every mode.
@@ -92,9 +94,32 @@ static func pop_in(_host: Node, c: CanvasItem, move: Callable, done := Callable(
 	var tw := c.create_tween().set_parallel()
 	tw.tween_property(c, "modulate:a", 1.0, SLIDE_SECS * .8)
 	tw.tween_method(move, rise, 0.0, SLIDE_SECS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	if A11y.motion() > 0.0 and c is Control:
+		# And grows into place with a little overshoot.
+		var card := c as Control
+		card.scale = Vector2(POP_FROM, POP_FROM)
+		tw.tween_method(func(s: float) -> void:
+			card.pivot_offset = card.size / 2.0
+			card.scale = Vector2(s, s), POP_FROM, 1.0, SLIDE_SECS * 1.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if done.is_valid():
 		tw.finished.connect(done)
 	return tw
+
+
+## A closed popup (frame's root) shrinks and fades away, then frees itself.
+## It takes no taps meanwhile, so the screen under it is live at once.
+static func pop_out(root: Control) -> void:
+	root.propagate_call("set", ["mouse_filter", Control.MOUSE_FILTER_IGNORE])
+	var card: Control = null
+	for c in root.get_children():
+		if c is PanelContainer:
+			card = c
+	var tw := root.create_tween().set_parallel()
+	tw.tween_property(root, "modulate:a", 0.0, OUT_SECS)
+	if card != null:
+		card.pivot_offset = card.size / 2.0
+		tw.tween_property(card, "scale", Vector2(.92, .92), OUT_SECS).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(root.queue_free)
 
 
 ## A full-screen dim with `content` in a card in the middle of the screen,

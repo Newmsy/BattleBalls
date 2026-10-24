@@ -5,6 +5,7 @@ extends RefCounted
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const Glyph := preload("res://game/ui/glyph.gd")
 const A11y := preload("res://game/a11y.gd")
+const Motion := preload("res://game/ui/motion.gd")
 
 const BG := Color("0b0a1f")
 const PANEL := Color("141233")
@@ -153,6 +154,7 @@ static func button(text: String, on_press: Callable, kind := "primary", font_siz
 		b.add_theme_color_override(s, cols[2])
 	b.add_theme_color_override("font_disabled_color", Color(cols[2], .5))
 	b.pressed.connect(on_press)
+	Motion.press(b)
 	return b
 
 
@@ -179,6 +181,7 @@ static func card_button(content: Control, on_press: Callable, border := LINE, bg
 	for s in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
 		b.add_theme_stylebox_override(s, st)
 	b.pressed.connect(on_press)
+	Motion.press(b)
 	var m := MarginContainer.new()
 	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE

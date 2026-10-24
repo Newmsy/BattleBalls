@@ -19,6 +19,7 @@ const Intro := preload("res://game/ui/intro.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
+const Motion := preload("res://game/ui/motion.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -140,6 +141,14 @@ var _coach: Label ## A new player's next step (game/ui/intro.gd), above the foot
 var _level_ring: Control ## Account XP around the level badge.
 var _tab_icons := {} ## Tab id -> TabIcon; PLAY's disc is lit only on Play's home.
 var _tab_labels := {}
+var _tab_mark: Panel ## The gold bar under the open tab; it glides to a tapped tab.
+var _pills := {} ## Currency kind -> its top bar pill (where gains fly to).
+## What each top bar pill shows. Gains made while a popup is up or the menus
+## are hidden (a fight) wait here and fly in once you're back.
+var _shown := {}
+var _fly_from := Vector2(-1, -1) ## Where the next gain flies from (reward_from).
+var _fx: Control ## Over everything: flying coins and eggs.
+var _report_after := 0 ## Msec tick a screen's slide ends: marks are logged after it.
 
 ## Red dots are for something to do, and go once you've looked: the Fuse dot
 ## only for sets that turned fusable since your last visit to Fuse (per device).
@@ -195,6 +204,10 @@ func build() -> void:
 	_toast.add_theme_stylebox_override("normal", Kit.box(Color("221e55"), Kit.ACCENT, 24, 2, 18))
 	_toast.modulate.a = 0.0
 	add_child(_toast)
+	_fx = Control.new()
+	_fx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fx)
 	profile.changed.connect(_refresh_top)
 	set_friends(friends)
 	resized.connect(func(): if current != "": refresh())
@@ -238,6 +251,7 @@ func go(name: String, params := {}) -> void:
 		_snaps[_snaps.size() - SNAP_DEPTH - 1] = null
 	_stack.append([name, params])
 	_show(name, params)
+	_slide_in(_snaps[-1])
 
 
 ## The picture of the screen Back would return to, for the swipe back to slide
@@ -261,6 +275,11 @@ func back_action() -> Callable:
 
 
 func back() -> void:
+	# A picture of the screen leaving, to slide off the rebuilt one (not when
+	# the edge swipe has already slid it away).
+	var leaving: Texture2D = null
+	if not Motion.calm() and not TouchInput.sliding() and not overlay_open() and Engine.get_frames_drawn() > _shown_at + 1:
+		leaving = TouchInput.snapshot(self)
 	_stack.pop_back()
 	if not _snaps.is_empty():
 		_snaps.pop_back()
@@ -269,6 +288,7 @@ func back() -> void:
 		return
 	var top: Array = _stack[-1]
 	_show(top[0], top[1])
+	_slide_out(leaving)
 
 
 ## Rebuild the current screen in place, e.g. after the data changed. Keeps
@@ -350,6 +370,18 @@ func toast(text: String, critter := "") -> void:
 		_toast_tween.kill()
 	_toast_tween = create_tween()
 	_toast.modulate.a = 1.0
+	if not Motion.calm():
+		# Slides up into place with a little pop; the face in it hops.
+		var rest := _toast.position.y
+		_toast.position.y = rest + 20.0
+		_toast.pivot_offset = _toast.size / 2.0
+		_toast.scale = Vector2(.92, .92)
+		_toast_tween.set_parallel()
+		_toast_tween.tween_property(_toast, "position:y", rest, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		_toast_tween.tween_property(_toast, "scale", Vector2.ONE, .26).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		_toast_tween.set_parallel(false)
+		if _toast_face != null:
+			Motion.bump(_toast_face, 1.25, .3, true)
 	_toast_tween.tween_interval(2.2)
 	_toast_tween.tween_property(_toast, "modulate:a", 0.0, .3)
 
@@ -369,10 +401,20 @@ func overlay_open() -> bool:
 
 
 func close_overlay() -> void:
+	var was_sheet := _overlay_tag == "sheet" and overlay_open()
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_overlay_tag = ""
 	for c in _overlay.get_children():
-		c.queue_free()
+		if was_sheet and not Motion.calm() and c is Control:
+			# The sheet shrinks away on top while the screen under it is live.
+			_overlay.remove_child(c)
+			_fx.add_child(c)
+			ResultPopup.pop_out(c)
+		else:
+			c.queue_free()
 	share_layout_changed.emit()
+	if is_inside_tree() and profile != null:
+		_refresh_top.call_deferred() # Coins won while it was up fly in now.
 
 
 ## Pin a screen's main action (Fuse, Summon, Climb...) under the screen,
@@ -565,7 +607,148 @@ func _show(name: String, params: Dictionary) -> void:
 		if t != "play":
 			_tab_icons[t].set_active(t == _tab)
 	_refresh_top()
+	_place_tab_mark.call_deferred()
 	_report.call_deferred(name)
+
+
+# --- Screen changes --------------------------------------------------------------
+
+## A tab tapped in the tab bar: the new screen slides in from the side the
+## tab is on and its cards cascade in; the tab's icon hops.
+func _on_tab(t: String) -> void:
+	var dir := signf(TAB_IDS.find(t) - TAB_IDS.find(_tab))
+	show_tab(t)
+	if t in _tab_icons:
+		Motion.bump(_tab_icons[t], 1.16, .3, true)
+	_arrive(Vector2(Motion.TAB_SHIFT * dir, 0.0), Motion.TAB_SECS)
+
+
+## The current screen eases in from `offset` and fades up, then its cards
+## cascade in. Taps work on it straight away.
+func _arrive(offset: Vector2, secs: float) -> void:
+	var sc := _scroll
+	if Motion.calm():
+		offset = Vector2.ZERO
+	sc.modulate.a = 0.0
+	sc.position += offset
+	var tw := sc.create_tween().set_parallel()
+	tw.tween_property(sc, "modulate:a", 1.0, secs * .9)
+	if offset != Vector2.ZERO:
+		tw.tween_property(sc, "position", sc.position - offset, secs).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_hold_report(maxf(secs, _cascade()))
+
+
+## The screen's own cards, one after another.
+func _cascade() -> float:
+	var margin := _scroll.get_child(0) if _scroll.get_child_count() > 0 else null
+	var screen: Node = margin.get_child(0) if margin != null and margin.get_child_count() > 0 else null
+	if not screen is BoxContainer:
+		return 0.0
+	return Motion.cascade(screen.get_children())
+
+
+## A pushed screen (go) slides in from the right over a picture of the last
+## one, which drifts left under a shade: iOS's push. The real screen is built
+## and live from the first frame.
+func _slide_in(old: Texture2D) -> void:
+	if old == null or Motion.calm():
+		_arrive(Vector2.ZERO, .12)
+		return
+	var rect := _holder.get_global_rect()
+	var w := rect.size.x
+	var under := Motion.picture(old, rect, get_viewport().get_visible_rect().size)
+	var shade := _shade(rect.size)
+	var ground := _ground(rect)
+	for c in [under, shade, ground]:
+		_holder.add_child(c)
+		_holder.move_child(c, _holder.get_child_count() - 2) # Under the screen.
+	var sc := _scroll
+	var move := func(t: float) -> void:
+		var x := w * (1.0 - t)
+		sc.position.x = x
+		ground.position.x = x
+		under.position.x = -w * Motion.PARALLAX * t
+		shade.color.a = Motion.SHADE * t
+	move.call(0.0)
+	var tw := sc.create_tween()
+	tw.tween_method(move, 0.0, 1.0, Motion.SLIDE_SECS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_callback(func():
+		for c in [under, shade, ground]:
+			c.queue_free())
+	_hold_report(Motion.SLIDE_SECS)
+
+
+## Back: a picture of the screen you left slides off to the right, showing
+## the one underneath (already rebuilt) coming back from the left.
+func _slide_out(leaving: Texture2D) -> void:
+	if leaving == null:
+		if Motion.calm():
+			_arrive(Vector2.ZERO, .12)
+		return
+	var rect := _holder.get_global_rect()
+	var w := rect.size.x
+	var top := Motion.picture(leaving, rect, get_viewport().get_visible_rect().size)
+	var shade := _shade(rect.size)
+	var ground := _ground(rect)
+	_holder.add_child(ground)
+	_holder.move_child(ground, _holder.get_child_count() - 2)
+	_holder.add_child(shade)
+	_holder.add_child(top)
+	var sc := _scroll
+	var move := func(t: float) -> void:
+		var x := -w * Motion.PARALLAX * (1.0 - t)
+		sc.position.x = x
+		ground.position.x = x
+		top.position.x = w * t
+		shade.color.a = Motion.SHADE * (1.0 - t)
+	move.call(0.0)
+	var tw := sc.create_tween()
+	tw.tween_method(move, 0.0, 1.0, Motion.SLIDE_SECS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_callback(func():
+		for c in [top, shade, ground]:
+			c.queue_free())
+	_hold_report(Motion.SLIDE_SECS)
+
+
+func _shade(sz: Vector2) -> ColorRect:
+	var shade := ColorRect.new()
+	shade.color = Color(0, 0, 0, 0)
+	shade.size = sz
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return shade
+
+
+## The backdrop behind a sliding screen (screens are see-through), lined up
+## with the real one. Drawn once.
+func _ground(rect: Rect2) -> Control:
+	var clip := Control.new()
+	clip.clip_contents = true
+	clip.size = rect.size
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := _Backdrop.new()
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.size = size
+	bg.position = -(rect.position - get_global_rect().position)
+	clip.add_child(bg)
+	return clip
+
+
+## Smoke tests tap what _report logs: log it once the screen has stopped.
+func _hold_report(secs: float) -> void:
+	_report_after = Time.get_ticks_msec() + int(secs * 1000.0) + 20
+
+
+## The gold bar glides under the open tab.
+func _place_tab_mark() -> void:
+	if not is_instance_valid(_tab_mark) or not _tab in _tab_buttons:
+		return
+	var b: Control = _tab_buttons[_tab]
+	_tab_mark.visible = b.visible and _tabs.visible
+	var to := b.position.x + (b.size.x - _tab_mark.size.x) / 2.0
+	if _tab_mark.position.x < 0.0 or Motion.calm():
+		_tab_mark.position.x = to
+		return
+	_tab_mark.create_tween().tween_property(_tab_mark, "position:x", to, .22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
 func _report_after_scroll(name: String) -> void:
@@ -584,6 +767,8 @@ func _report_after_scroll(name: String) -> void:
 func _report(name: String) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
+	while Time.get_ticks_msec() < _report_after:
+		await get_tree().process_frame
 	if name != current and name not in ["overlay", "sheet", "reveal", "story"]:
 		return
 	print("UI_SCREEN ", name)
@@ -678,6 +863,7 @@ func _pill(kind: String) -> Control:
 		tick.timeout.connect(_tick_energy)
 		row.add_child(tick)
 	var p := Kit.panel(row, Kit.box(Kit.PANEL, Kit.LINE, 999, 2, 0))
+	_pills[kind] = p
 	# Tap a currency to learn where it comes from.
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
 	p.gui_input.connect(func(e):
@@ -702,7 +888,7 @@ func _tick_energy() -> void:
 	var before: int = profile.energy
 	profile.update_energy(now)
 	if profile.energy != before:
-		_top_labels.energy.text = "%d/%d" % [profile.energy, profile.energy_max]
+		_set_top("energy", profile.energy, true)
 	var wait: int = profile.seconds_to_next_energy(now)
 	next.visible = wait > 0
 	if wait > 0:
@@ -711,19 +897,26 @@ func _tick_energy() -> void:
 
 func _refresh_top() -> void:
 	_top_labels.level.text = str(profile.account_level)
-	_top_labels.energy.text = "%d/%d" % [profile.energy, profile.energy_max]
 	_tick_energy()
-	_top_labels.coin.text = Kit.commas(profile.coins)
-	_top_labels.orb.text = str(profile.orbs)
+	_set_top("energy", profile.energy)
+	_set_top("coin", profile.coins)
+	_set_top("orb", profile.orbs)
+	_fly_from = Vector2(-1, -1)
 	_level_ring.set("frac", float(profile.account_xp) / maxf(1.0, profile.account_xp_to_next()))
 	_level_ring.queue_redraw()
 	var fusable := _fuse_signature()
 	if current == "fuse":
 		_set_badge("fuse_seen", fusable)
+	var was_lit := {}
+	for t in _dots:
+		was_lit[t] = _dots[t].visible
 	_dots.fuse.visible = fusable != "" and _new_since(fusable, _badge_value("fuse_seen"))
 	_dots.summon.visible = profile.free_summon and Intro.done(profile)
 	var pass_claims: int = glow.claimable_count() if glow != null and not glow.season().is_empty() else 0
 	_dots.play.visible = (friends.attention() > 0 or pass_claims > 0) and Intro.done(profile)
+	for t in _dots:
+		if _dots[t].visible and not was_lit[t] and is_visible_in_tree():
+			Motion.pop(_dots[t], 0.0, .35)
 	# Play's disc is the big call to action only on Play's own home screen.
 	_tab_icons.play.set_active(current == "play")
 	# A new player sees only the tabs their first fights have opened.
@@ -732,6 +925,69 @@ func _refresh_top() -> void:
 	var hint := Intro.coach(profile, current)
 	_coach.text = hint
 	_coach.visible = hint != ""
+
+
+## The next coins, eggs or energy you gain fly into the top bar from `c`
+## (e.g. a Glow Pass card you claimed) instead of from the middle.
+func reward_from(c: Control) -> void:
+	_fly_from = c.get_global_rect().get_center()
+
+
+func _pill_text(kind: String, v: int) -> String:
+	match kind:
+		"energy":
+			return "%d/%d" % [v, profile.energy_max]
+		"coin":
+			return Kit.commas(v)
+	return str(v)
+
+
+## Show a pill's new value. A spend counts down at once; a gain counts up
+## with a green pulse, or flies in as icons when it was made out of sight
+## (under a popup, during a fight) or from a known place (reward_from).
+## `quiet`: just set it (the energy refill tick).
+func _set_top(kind: String, value: int, quiet := false) -> void:
+	var l: Label = _top_labels[kind]
+	var was = _shown.get(kind)
+	if was == null or quiet or not is_inside_tree():
+		_shown[kind] = value
+		l.text = _pill_text(kind, value)
+		if quiet and was != null and value > int(was):
+			Motion.flash(_pills[kind], Color(1.0, 1.5, 1.2))
+		return
+	var from: int = was
+	if value == from:
+		l.text = _pill_text(kind, value) # The energy cap may have moved.
+		return
+	if value < from:
+		_shown[kind] = value
+		Motion.count(l, from, value, .35, _pill_text.bind(kind))
+		return
+	if not is_visible_in_tree() or overlay_open():
+		return # Held: it flies in once the popup closes or the menus come back.
+	_shown[kind] = value
+	var pill: Control = _pills[kind]
+	var start := _fly_from if _fly_from.x >= 0.0 else get_global_rect().get_center()
+	if Motion.calm():
+		l.text = _pill_text(kind, value)
+		return
+	var gain := value - from
+	var n: int = clampi(gain if kind == "orb" else 3 + gain / 40, 3, 10)
+	var target := pill.get_global_rect().position + Vector2(pill.size.y / 2.0, pill.size.y / 2.0)
+	Motion.fly(_fx, Glyph.make.bind(kind, 46), start, target, n, func(k: int) -> void:
+		var v := value if k == n - 1 else from + gain * (k + 1) / n
+		l.text = _pill_text(kind, v)
+		Motion.bump(pill, 1.14, .18)
+		if sfx != null:
+			sfx.play("click", -8.0, 1.2 + .05 * k)
+		if k == n - 1:
+			Motion.flash(pill, Color(1.0, 1.5, 1.2), .5))
+
+
+func _notification(what: int) -> void:
+	# Back from a fight: what it won flies in.
+	if what == NOTIFICATION_VISIBILITY_CHANGED and _built and is_visible_in_tree() and profile != null:
+		_refresh_top.call_deferred()
 
 
 # --- Tab bar -------------------------------------------------------------------
@@ -754,7 +1010,7 @@ func _tab_bar() -> Control:
 		var id: String = tab[0]
 		var b := Button.new()
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.pressed.connect(show_tab.bind(id))
+		b.pressed.connect(_on_tab.bind(id))
 		var content := Kit.vbox(4)
 		content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		content.alignment = BoxContainer.ALIGNMENT_END
@@ -787,6 +1043,13 @@ func _tab_bar() -> Control:
 		_dots[id] = dot
 		_tab_buttons[id] = b
 		row.add_child(b)
+	_tab_mark = Panel.new()
+	_tab_mark.add_theme_stylebox_override("panel", Kit.box(Color("ffd166"), Color(0, 0, 0, 0), 999, 0, 0))
+	_tab_mark.size = Vector2(34, 5)
+	_tab_mark.position = Vector2(-100, TAB_HEIGHT - 10)
+	_tab_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(_tab_mark)
+	bar.resized.connect(func(): _tab_mark.position.x = -100; _place_tab_mark.call_deferred())
 	return bar
 
 
