@@ -12,6 +12,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Summon := preload("res://game/ui/summon.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const Painted := preload("res://game/ui/painted.gd")
 const Dev := preload("res://game/dev.gd")
 
 static var _rng: RandomNumberGenerator
@@ -75,7 +76,7 @@ const HATCH_X10 := preload("res://game/ui/art/summon/hatch_x10.png")
 
 ## A painted egg (or clutch of eggs) in front of a hatch button's label.
 static func _egg_on(b: Button, art: Texture2D) -> void:
-	var row: HBoxContainer = b.get_meta("row", null)
+	var row: HBoxContainer = b.get_meta("row") if b.has_meta("row") else null
 	if row == null:
 		var words := Kit.label(b.text, b.get_meta("base_font", 28), b.get_theme_color("font_color"))
 		b.text = ""
@@ -117,6 +118,18 @@ static func _wishlist_panel(shell) -> Control:
 			v = Kit.vbox(0, [Kit.label("+", 64, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), Kit.label("Pick one", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
 		var slot := Kit.card_button(v, func(): _open_picker(shell), Color(WISH, .6) if i < p.wishlist.size() else Kit.LINE, Kit.PANEL2, 24, 8)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var home := Painted.habitat(p.wishlist[i]) if i < p.wishlist.size() else ""
+		if home != "":
+			# The wished critter stands on its family home's lit stage.
+			var win := Painted.make(home, {"focus": Vector2(200, 250), "at": Vector2(0.5, 0.36), "px": 1.8,
+				"radius": 21.0, "bottom_dark": 0.55, "bottom_fade": 0.2})
+			win.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			for side in ["left", "top"]:
+				win.set("offset_" + side, 3)
+			for side in ["right", "bottom"]:
+				win.set("offset_" + side, -3)
+			slot.add_child(win)
+			slot.move_child(win, 0)
 		slots.add_child(slot)
 	return Kit.panel(Kit.vbox(12, [head, slots]), Kit.box(Kit.PANEL, Kit.LINE, 32, 2, 20))
 
