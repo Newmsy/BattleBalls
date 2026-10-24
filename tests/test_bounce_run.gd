@@ -4,6 +4,7 @@ const BounceRun := preload("res://sim/bounce_run.gd")
 const Boons := preload("res://sim/boons.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Families := preload("res://sim/families.gd")
 const BounceBot := preload("res://tools/bounce_bot.gd")
 const Rng := preload("res://sim/rng.gd")
 
@@ -222,7 +223,15 @@ func test_events_shops_and_rests() -> void:
 				"smash":
 					check(not "glitch_singed" in r.boons, "Glitch cleaned")
 				"dash":
-					check(r.dash and "glitch_singed" in r.boons, "dashed with a Glitch")
+					check(r.offer.size() >= 3 and r.offer.all(func(id): return Boons.rarity_of(id) in ["epic", "legendary"]), "an Epic boon pick")
+				"offer_boon":
+					check(not r.out[1] and r.boons.size() == run.boons.size(), "a boon for a revive")
+				"reach_in":
+					check(r.boons.any(func(id): return id in Boons.LEGENDARY) and "glitch_rusty" in r.boons, "a Legendary and Glitches")
+				"plug_in":
+					check(r.critters[args[0]] in Families.MEMBERS.tech, "a Tech critter joins")
+				"reforge":
+					check(Boons.with_rarity(Boons.base_of(args[0]), "epic") in r.boons, "made Epic")
 	# Shop.
 	var r := run.duplicate(true)
 	var shop_id: int = node_id

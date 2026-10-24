@@ -170,6 +170,8 @@ const GLITCH_PREFIX := "glitch_"
 const GLITCHES := {
 	"glitch_sticky_floor": {"name": "Sticky Floor", "text": "Move 6% slower.", "icon": "bolt", "speed": 0.94},
 	"glitch_singed": {"name": "Singed", "text": "-5% max HP.", "icon": "shield", "hp": 0.95},
+	"glitch_chilled": {"name": "Chilled", "text": "Move 5% slower.", "icon": "bolt", "speed": 0.95},
+	"glitch_rusty": {"name": "Rusty", "text": "-5% damage.", "icon": "spike", "damage": 0.95},
 }
 
 const RARITIES := ["common", "rare", "epic", "legendary"]

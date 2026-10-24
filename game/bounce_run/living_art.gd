@@ -44,6 +44,36 @@ const SPECS := {
 	"wandering_rival": {"motes": Color("ff5a6e"), "spots": [
 		[355, 215, 115, 115, BOB, 0.012, 0.7, 0.0, null], [360, 355, 200, 48, GLOW, 0.4, 0.6, 0.0, Color("ff4fb8")],
 		[205, 372, 90, 45, SWAY, 0.02, 1.1, 0.0, null]]},
+	"sunken_wreck": {"motes": Color("bfefff"), "spots": [
+		[552, 262, 110, 90, BOB, 0.01, 0.45, 0.0, null], [290, 300, 95, 60, GLOW, 0.45, 0.6, 0.0, Color("ffd23f")],
+		[472, 150, 30, 120, BOB, 0.016, 0.8, 0.3, null], [40, 330, 50, 110, SWAY, 0.02, 0.5, 0.0, null]]},
+	"beehive": {"motes": Color("d8ff7a"), "spots": [
+		[360, 150, 125, 110, SWAY, 0.006, 0.5, 0.0, null], [360, 384, 160, 34, GLOW, 0.4, 0.5, 0.0, Color("ffc93c")],
+		[220, 160, 40, 40, BOB, 0.016, 1.4, 0.0, null], [512, 136, 38, 38, BOB, 0.016, 1.3, 0.5, null]]},
+	"fallen_star": {"motes": Color("fff3b0"), "spots": [
+		[384, 270, 110, 95, FLICKER, 0.45, 1.2, 0.0, Color("ffd23f")], [176, 310, 60, 60, BOB, 0.012, 0.6, 0.0, null],
+		[384, 330, 150, 40, GLOW, 0.4, 0.5, 0.3, Color("ffd77a")], [330, 90, 280, 80, FLICKER, 0.3, 0.7, 0.0, Color("ffffff")]]},
+	"ember_forge": {"motes": Color("ff9f43"), "spots": [
+		[170, 225, 90, 60, FLICKER, 0.5, 0.9, 0.0, Color("ff8a3a")], [354, 240, 60, 60, GLOW, 0.45, 0.5, 0.0, Color("ffd36a")],
+		[350, 292, 95, 22, GLOW, 0.35, 0.35, 0.3, Color("ff6a2e")], [528, 300, 70, 80, BOB, 0.01, 0.6, 0.0, null]]},
+	"snow_globe": {"motes": Color("e8f4ff"), "spots": [
+		[356, 238, 50, 45, BOB, 0.014, 0.6, 0.0, null], [360, 196, 115, 115, GLOW, 0.3, 0.4, 0.0, Color("8fe6ff")],
+		[360, 100, 360, 70, FLICKER, 0.35, 0.3, 0.0, Color("5fffb8")], [610, 72, 40, 40, GLOW, 0.35, 0.3, 0.5, Color("e6f4ff")]]},
+	"gumball_machine": {"motes": Color("ffd6f0"), "spots": [
+		[360, 178, 110, 105, GLOW, 0.35, 0.5, 0.0, Color("ff7ac8")], [588, 335, 60, 62, BOB, 0.012, 0.7, 0.0, null],
+		[486, 388, 22, 22, BOB, 0.014, 0.9, 0.4, null], [546, 402, 20, 14, GLOW, 0.4, 0.8, 0.2, Color("ffd23f")]]},
+	"jack_in_the_box": {"motes": Color("ffe9a8"), "spots": [
+		[382, 222, 60, 22, GLOW, 0.5, 0.6, 0.0, Color("ffc93c")], [390, 188, 95, 22, SWAY, 0.012, 0.8, 0.0, null],
+		[622, 320, 48, 48, BOB, 0.012, 0.9, 0.3, null], [282, 60, 50, 55, SWAY, 0.02, 0.4, 0.0, null]]},
+	"ghost_lantern": {"motes": Color("b88cff"), "spots": [
+		[364, 150, 80, 95, BOB, 0.012, 0.5, 0.0, null], [364, 152, 40, 46, FLICKER, 0.5, 1.1, 0.0, Color("8fffe6")],
+		[364, 170, 170, 120, GLOW, 0.3, 0.4, 0.3, Color("b07cff")], [232, 338, 40, 40, BOB, 0.008, 0.6, 0.5, null]]},
+	"glitch_rift": {"motes": Color("3ee6ff"), "spots": [
+		[362, 240, 45, 45, BOB, 0.014, 0.6, 0.0, null], [362, 240, 90, 90, GLOW, 0.45, 0.5, 0.0, Color("ffd23f")],
+		[378, 258, 260, 85, FLICKER, 0.5, 1.4, 0.0, Color("ff4fb8")], [572, 284, 40, 40, BOB, 0.01, 0.7, 0.4, null]]},
+	"scrap_robot": {"motes": Color("3ee6ff"), "spots": [
+		[410, 210, 34, 30, FLICKER, 0.6, 1.2, 0.0, Color("3ee6ff")], [384, 214, 95, 95, SWAY, 0.006, 0.5, 0.0, null],
+		[214, 286, 42, 42, BOB, 0.012, 0.8, 0.0, null], [508, 380, 24, 40, SWAY, 0.02, 0.9, 0.3, null]]},
 	"shop": {"motes": Color("ffd34e"), "spots": [
 		[365, 250, 95, 100, BOB, 0.01, 0.6, 0.0, null], [360, 40, 360, 30, FLICKER, 0.5, 0.6, 0.0, Color("ffffff")],
 		[200, 185, 140, 60, GLOW, 0.35, 0.5, 0.0, Color("b88cff")], [540, 245, 55, 60, GLOW, 0.3, 0.4, 0.5, Color("ffd34e")]]},

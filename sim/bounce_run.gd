@@ -32,11 +32,12 @@ const Rng := preload("res://sim/rng.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Boons := preload("res://sim/boons.gd")
+const Families := preload("res://sim/families.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 8
+const RULES_VERSION := 9
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 20
@@ -56,7 +57,7 @@ const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Vete
 ## 12% steeper each floor.
 const FOE_POWER := [0.55, 0.67, 0.81, 0.95, 1.11, 1.28, 1.46, 1.66, 1.86, 2.08,
 	2.31, 2.55, 2.81, 3.1, 3.43, 3.78, 4.15, 4.56, 4.99, 5.31]
-const DOWNSIDE_POWER := 0.15 ## A Haunted Mirror look or a Star Map wish makes a foe this much stronger.
+const DOWNSIDE_POWER := 0.15 ## A Haunted Mirror look, a Star Map wish (and a few other risky picks) make a foe this much stronger.
 const ELITE_POWER := 1.12 ## On top of the floor's power.
 const ELITE_SIZE := 1.28
 const BOSS_SIZE := 1.32
@@ -116,9 +117,9 @@ const EVENTS := {
 			{"id": "look", "name": "Look closer", "text": "Polish a boon one rarity up, but your next foe is 15% stronger.", "arg": "polish"},
 			{"id": "smash", "name": "Smash it", "text": "Clean a Glitch.", "arg": "glitch"},
 			{"id": "leave", "name": "Back away"}]},
-	"lava_bridge": {"name": "Lava Bridge", "family": "fire", "text": "A shortcut over the magma. It looks hot.",
+	"lava_bridge": {"name": "Lava Bridge", "family": "fire", "text": "A shortcut over the magma. Something shiny waits on the far side.",
 		"choices": [
-			{"id": "dash", "name": "Dash across", "text": "Skip the next floor (it counts, but pays nothing) and take a Glitch (Singed)."},
+			{"id": "dash", "name": "Dash across", "text": "Pick an Epic boon, and take a Glitch (Singed)."},
 			{"id": "long", "name": "Go the long way"}]},
 	"star_map": {"name": "Star Map", "family": "cosmic", "text": "The constellations look a lot like a route.",
 		"choices": [
@@ -128,9 +129,57 @@ const EVENTS := {
 		"choices": [
 			{"id": "fight", "name": "Fight", "text": "Losing knocks nobody out. Win: an Epic boon pick and 20 Buttons. Lose: -20 Buttons."},
 			{"id": "wave", "name": "Wave politely"}]},
+	"sunken_wreck": {"name": "Sunken Wreck", "family": "sea", "text": "A chest glints in a sunken ship. Something big is snoring beside it.",
+		"choices": [
+			{"id": "open_chest", "name": "Open the chest", "text": "Pick a Rare-or-better boon, but your next foe is 15% stronger."},
+			{"id": "grab_coins", "name": "Grab some coins", "buttons": 25}]},
+	"ember_forge": {"name": "Ember Forge", "family": "fire", "text": "The anvil is still red hot.",
+		"choices": [
+			{"id": "temper", "name": "Temper a boon", "text": "Polish a boon one rarity up.", "cost": 40, "arg": "polish"},
+			{"id": "reforge", "name": "Into the fire", "text": "A boon becomes Epic, and take a Glitch (Singed).", "arg": "polish"},
+			{"id": "leave", "name": "Leave"}]},
+	"snow_globe": {"name": "Snow Globe", "family": "frost", "text": "A tiny critter waves from inside the snow.",
+		"choices": [
+			{"id": "shake_globe", "name": "Shake it", "text": "Swap a boon for a random one of the same rarity.", "arg": "reroll"},
+			{"id": "smash_globe", "name": "Smash it", "text": "Take a Glitch (Chilled).", "buttons": 40},
+			{"id": "leave", "name": "Leave it"}]},
+	"gumball_machine": {"name": "Gumball Machine", "family": "sweet", "text": "One coin, one gumball.",
+		"choices": [
+			{"id": "gumball", "name": "Buy a gumball", "text": "A random boon of a random rarity.", "cost": 10},
+			{"id": "rattle", "name": "Rattle it", "text": "Take a Glitch (Sticky Floor).", "buttons": 20},
+			{"id": "leave", "name": "Walk away"}]},
+	"jack_in_the_box": {"name": "Jack-in-the-Box", "family": "toybox", "text": "The crank turns by itself. Click. Click.",
+		"choices": [
+			{"id": "crank", "name": "Turn the crank", "text": "Either a Rare-or-better boon pick or a 15% stronger next foe."},
+			{"id": "leave", "name": "Leave it"}]},
+	"ghost_lantern": {"name": "Ghost Lantern", "family": "spooky", "text": "A lantern drifts over the graves. It wants something warm.",
+		"choices": [
+			{"id": "offer_boon", "name": "Feed it a boon", "text": "Give up a boon to bring a knocked-out critter back.", "arg": "boon"},
+			{"id": "follow_light", "name": "Follow it", "text": "See what every mystery node holds."},
+			{"id": "leave", "name": "Back away"}]},
+	"glitch_rift": {"name": "Glitch Rift", "family": "glitch", "text": "The floor splits into static. Something gold floats inside.",
+		"choices": [
+			{"id": "reach_in", "name": "Reach in", "text": "A Legendary boon, and two Glitches (Rusty and Sticky Floor)."},
+			{"id": "leave", "name": "Step back"}]},
+	"beehive": {"name": "Beehive", "family": "nature", "text": "Golden honey drips from a buzzing hive.",
+		"choices": [
+			{"id": "scoop_honey", "name": "Scoop the honey", "text": "A random Epic boon, but the bees make your next foe 15% stronger."},
+			{"id": "leave", "name": "Tiptoe past"}]},
+	"fallen_star": {"name": "Fallen Star", "family": "cosmic", "text": "A star lands with a fizz. It's still warm.",
+		"choices": [
+			{"id": "wish_star", "name": "Wish on it", "text": "Polish a boon one rarity up.", "arg": "polish"},
+			{"id": "keep_star", "name": "Keep it", "buttons": 45}]},
+	"scrap_robot": {"name": "Scrap Robot", "family": "tech", "text": "A robot in a scrap heap. Its eye blinks on.",
+		"choices": [
+			{"id": "plug_in", "name": "Plug a critter in", "text": "It swaps for a random Tech critter, Rare or better.", "arg": "living"},
+			{"id": "strip", "name": "Strip it for parts", "buttons": 25}]},
 }
 const EVENT_IDS := ["lost_egg", "tide_pool_trader", "vending_machine", "candy_fountain", "frozen_vault",
-	"training_dummy", "haunted_mirror", "lava_bridge", "star_map", "wandering_rival"]
+	"training_dummy", "haunted_mirror", "lava_bridge", "star_map", "wandering_rival", "sunken_wreck", "ember_forge",
+	"snow_globe", "gumball_machine", "jack_in_the_box", "ghost_lantern", "glitch_rift", "beehive", "fallen_star", "scrap_robot"]
+## The Scrap Robot's critters.
+const ROBOT_FAMILY := "tech"
+const ROBOT_RARITIES := ["rare", "epic", "legendary"]
 
 
 ## The tier your trio fights at on floor index `floor_i` (0 = the first floor).
@@ -290,7 +339,7 @@ static func new_run(setup: Dictionary, picks: Array, start: Array) -> Dictionary
 	return {"day": setup.day, "seed": setup.get("seed", 0), "rules": RULES_VERSION, "picks": picks.duplicate(), "start": start.duplicate(),
 		"critters": picks.map(func(i): return setup.cards[i].critter), "boons": start.duplicate(),
 		"floor": 0, "at": -1, "done": true, "out": [false, false, false], "foe_hp": null, "ticks": 0, "fights": 0,
-		"buttons": 0, "hatchling": "", "spar": -1, "foe_boost": 0.0, "wish": false, "revealed": false, "dash": false,
+		"buttons": 0, "hatchling": "", "spar": -1, "foe_boost": 0.0, "wish": false, "revealed": false,
 		"rival": false, "shop": {}, "log": [], "offer": [], "over": false}
 
 
@@ -331,13 +380,6 @@ static func next_nodes(setup: Dictionary, run: Dictionary) -> Array:
 	if run.at < 0:
 		return setup.nodes.keys().filter(func(id): return setup.nodes[id].row == 0)
 	var out: Array = node(setup, run.at).kids.duplicate()
-	if run.dash:
-		var far: Array = []
-		for k in out:
-			for g in node(setup, k).kids:
-				if not g in far:
-					far.append(g)
-		out = far
 	out.sort()
 	return out
 
@@ -348,7 +390,6 @@ static func go(setup: Dictionary, run: Dictionary, id: int) -> void:
 	run.log.append({"t": "go", "n": id})
 	run.at = id
 	run.done = false
-	run.dash = false
 	run.foe_hp = null
 	var kind := kind_of(setup, id)
 	if kind == "chest":
@@ -629,6 +670,8 @@ static func choice_args(setup: Dictionary, run: Dictionary, choice: Dictionary) 
 			return polishable(run)
 		"glitch":
 			return glitches(run)
+		"reroll":
+			return _swappable(run)
 		"trade":
 			var out: Array = []
 			for s in living(run):
@@ -654,10 +697,12 @@ static func can_choose(setup: Dictionary, run: Dictionary, choice_id: String) ->
 			return run.hatchling == ""
 		"swap_boon":
 			return not _swappable(run).is_empty()
-		"dash":
-			return node(setup, run.at).row + 2 < FLOORS
 		"drink":
 			return true
+		"offer_boon":
+			return run.out.has(true) and not choice_args(setup, run, choice).is_empty()
+		"plug_in":
+			return not _robot_pool(run).is_empty()
 	return choice.get("arg", "") in ["", "out_or_none"] or not choice_args(setup, run, choice).is_empty()
 
 
@@ -708,10 +753,7 @@ static func choose(setup: Dictionary, run: Dictionary, choice_id: String, arg = 
 			run.boons.erase(arg)
 		"dash":
 			_glitch(run, "singed")
-			_clear(setup, run)
-			run.floor = n.row + 2
-			run.dash = true
-			return
+			run.offer = offer(setup, run, "epic", 1)
 		"read":
 			run.revealed = true
 		"wish":
@@ -719,7 +761,56 @@ static func choose(setup: Dictionary, run: Dictionary, choice_id: String, arg = 
 		"fight":
 			run.rival = true
 			return
+		"open_chest":
+			run.offer = offer(setup, run, "rare", 1)
+			run.foe_boost = DOWNSIDE_POWER
+		"temper":
+			_polish(run, arg)
+		"reforge":
+			run.boons[run.boons.find(arg)] = Boons.with_rarity(Boons.base_of(arg), "epic")
+			_glitch(run, "singed")
+		"shake_globe":
+			var rarity := Boons.rarity_of(arg)
+			run.boons.erase(arg)
+			run.boons.append(_random_boon(setup, run, rng, rarity))
+		"smash_globe":
+			_glitch(run, "chilled")
+		"gumball":
+			run.boons.append(_random_boon(setup, run, rng, Boons.roll_rarity(rng)))
+		"rattle":
+			_glitch(run, "sticky_floor")
+		"crank":
+			if rng.range_int(0, 1) == 0:
+				run.offer = offer(setup, run, "rare", 1)
+			else:
+				run.foe_boost = DOWNSIDE_POWER
+		"offer_boon":
+			run.boons.erase(arg)
+			run.out[run.out.find(true)] = false
+		"follow_light":
+			run.revealed = true
+		"reach_in":
+			run.boons.append(_random_boon(setup, run, rng, "legendary"))
+			_glitch(run, "rusty")
+			_glitch(run, "sticky_floor")
+		"scoop_honey":
+			run.boons.append(_random_boon(setup, run, rng, "epic"))
+			run.foe_boost = DOWNSIDE_POWER
+		"wish_star":
+			_polish(run, arg)
+		"plug_in":
+			var pool := _robot_pool(run)
+			run.critters[int(arg)] = pool[rng.range_int(0, pool.size() - 1)]
 	_clear(setup, run)
+
+
+## Tech critters, Rare or better, that the trio doesn't already run.
+static func _robot_pool(run: Dictionary) -> Array:
+	var out: Array = []
+	for c in Families.MEMBERS[ROBOT_FAMILY]:
+		if c in BallDefs.PLAYABLE and str(BallDefs.DEFS[c].get("rarity", "")) in ROBOT_RARITIES and not c in run.critters:
+			out.append(c)
+	return out
 
 
 ## Boons the trader can swap up (anything but Glitches and Legendaries).
