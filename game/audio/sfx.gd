@@ -280,15 +280,15 @@ const ZING_PITCH := {"nature": 0.85, "sea": 0.8, "tech": 1.2, "sweet": 1.3, "fro
 const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
-## Music per track: [file, volume dB, loops]. The menu loop is "Nocturnal Menu"
-## (FreeMusic AI), looped by tools/music/loop_track.py; the rest are remixed from
-## "Crypto" by Kevin MacLeod (CC-BY 4.0, credited in CREDITS.md and Settings) by
-## tools/music/remix_crypto.py. All render at the same loudness, so these set the mix.
-## The intro plays once when the game opens and hands over to the menu loop;
-## overtime is the fight theme faster with busier drums; victory loops past
-## its one-bar hit (VICTORY_LOOP_FROM) while the win screen is up.
+## Music per track: [file, volume dB, loops]. Menu: "Nocturnal Menu"; fight and
+## overtime: "Neon Pulse" at 120 and 140 BPM (both FreeMusic AI, looped by
+## tools/music/loop_track.py); victory: remixed from "Crypto" by Kevin MacLeod
+## (CC-BY 4.0, credited in CREDITS.md and Settings) by tools/music/remix_crypto.py.
+## All render at the same loudness, so these set the mix.
+## The menu loop plays across every screen outside fights and picks up where it
+## left off; overtime is the fight theme faster; victory loops
+## past its one-bar hit (VICTORY_LOOP_FROM) while the win screen is up.
 const MUSIC := {
-	"intro": ["music_intro", -10.0, false],
 	"menu": ["music_menu", -11.0, true],
 	"fight": ["music_fight", -11.0, true],
 	"overtime": ["music_overtime", -10.0, true],
@@ -320,10 +320,14 @@ var _music: AudioStreamPlayer ## The current track.
 var _music_out: AudioStreamPlayer ## The previous track while it fades out.
 var _music_track := ""
 var _fade: Tween
-## The intro plays once per app launch, not every time a screen opens.
-static var _intro_played := false
-## Web: browsers start audio on the first tap, so the intro waits for it.
+## Web: browsers start audio on the first tap, so the first track waits for it.
 static var _audio_unlocked := false
+## Where the menu loop was when it last stopped, so it carries on rather than
+## restarting. Fight screens are their own scenes, each with a new Sfx, so this
+## has to outlive the node. _menu_left_at is when a scene change cut it off
+## (the music keeps "playing" through the load); -1 once a fight paused it.
+static var _menu_pos := 0.0
+static var _menu_left_at := -1.0
 var _victory_hold: WeakRef ## The results popup the victory tune plays under.
 var _victory_at := 0.0
 var _menu_pending := false
@@ -363,7 +367,6 @@ func _init() -> void:
 	_music_out = AudioStreamPlayer.new()
 	add_child(_music_out)
 	for p in [_music, _music_out]:
-		p.finished.connect(_on_music_finished.bind(p))
 		# The web build plays sounds as browser samples by default, which
 		# decodes a whole track up front: the 3 min menu loop cost ~230 MB
 		# (engine heap that never shrinks, plus a copy per play) and crashed
@@ -390,12 +393,16 @@ func _notification(what: int) -> void:
 		AudioServer.set_bus_mute(0, what == NOTIFICATION_APPLICATION_PAUSED)
 
 
+func _exit_tree() -> void:
+	_save_menu_pos(true) # A scene change: the next screen's Sfx carries on from here.
+
+
 func _input(event: InputEvent) -> void:
 	if _audio_unlocked or not (event is InputEventMouseButton or event is InputEventScreenTouch) or not event.pressed:
 		return
 	_audio_unlocked = true
-	if _music_track == "intro" and mode == "all" and not _music.playing:
-		_start_music("intro")
+	if _music_track != "" and mode == "all" and not _music.playing:
+		_start_music(_music_track)
 
 
 func _process(delta: float) -> void:
@@ -905,20 +912,34 @@ func playing_count(name: String) -> int:
 
 
 func play_music(track: String) -> void:
-	if track == "menu" and _music_track == "intro":
-		return # The intro hands over to the menu loop when it ends.
-	if track == "menu" and not _intro_played:
-		_intro_played = true
-		track = "intro"
 	if _music_track == track and (_music.playing or mode != "all"):
 		return
+	if track != "menu":
+		_save_menu_pos(false)
 	_music_track = track
 	if mode != "all":
 		_stop_music()
 		return
-	if track == "intro" and not _audio_unlocked:
+	if not _audio_unlocked:
 		return # Starts on the first tap (_input).
 	_start_music(track)
+
+
+## Remembers where the menu loop is before it stops. running: the music should
+## count on through a scene load; otherwise (a fight) it waits where it was.
+func _save_menu_pos(running: bool) -> void:
+	if _music_track == "menu" and _music != null and _music.playing:
+		_menu_pos = _music.get_playback_position()
+		_menu_left_at = Time.get_ticks_msec() / 1000.0 if running else -1.0
+	elif not running and _menu_left_at >= 0.0: # A fight scene opened straight after a scene change.
+		_menu_pos += Time.get_ticks_msec() / 1000.0 - _menu_left_at
+		_menu_left_at = -1.0
+
+
+## Where the menu loop picks up, in seconds into a loop `length` long.
+static func _menu_resume(now: float, length: float) -> float:
+	var at := _menu_pos + (now - _menu_left_at if _menu_left_at >= 0.0 else 0.0)
+	return fmod(at, length) if length > 0.0 else 0.0
 
 
 func _start_music(track: String) -> void:
@@ -940,7 +961,7 @@ func _start_music(track: String) -> void:
 		_fade.tween_callback(old.stop)
 	_music.stream = stream
 	_music.volume_db = info[1] + MASTER_DB
-	_music.play()
+	_music.play(_menu_resume(Time.get_ticks_msec() / 1000.0, stream.get_length()) if track == "menu" else 0.0)
 
 
 func _stop_music() -> void:
@@ -948,12 +969,6 @@ func _stop_music() -> void:
 		_fade.kill()
 	_music.stop()
 	_music_out.stop()
-
-
-func _on_music_finished(player: AudioStreamPlayer) -> void:
-	if player == _music and _music_track == "intro":
-		_music_track = ""
-		play_music("menu")
 
 
 func sound_names() -> Array:
