@@ -66,9 +66,16 @@ export function eye(cx, cy, w, h, lx, ly, pupil) {
   const px = cx + lx * w * 0.42;
   const py = cy + ly * h * 0.42;
   return `
-  <ellipse cx="${cx}" cy="${cy}" rx="${w}" ry="${h}" fill="#fff"/>
+  <g class="la-eye"><ellipse cx="${cx}" cy="${cy}" rx="${w}" ry="${h}" fill="#fff"/>
   <ellipse cx="${px}" cy="${py}" rx="${pupil}" ry="${pupil * 1.12}" fill="${INK}"/>
-  <circle cx="${px - pupil * 0.38}" cy="${py - pupil * 0.42}" r="${pupil * 0.36}" fill="#fff"/>`;
+  <circle cx="${px - pupil * 0.38}" cy="${py - pupil * 0.42}" r="${pupil * 0.36}" fill="#fff"/></g>
+  ${shutEye(cx, cy, w, h)}`;
+}
+
+// The same eye shut, a lash curve: hidden unless the event art renderer
+// draws a living layer's blink frame (tools/event_art/render.mjs).
+export function shutEye(cx, cy, w, h) {
+  return `<path class="la-shut" display="none" d="M ${cx - w * 1.05} ${cy - h * 0.05} Q ${cx} ${cy + h * 0.55} ${cx + w * 1.05} ${cy - h * 0.05}" fill="none" stroke="${INK}" stroke-width="${Math.max(2, h * 0.3)}" stroke-linecap="round"/>`;
 }
 
 // Determined brow: thick rounded bar slanting down toward the middle.

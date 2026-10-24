@@ -104,12 +104,13 @@ export default () => {
     backArt += `<g>${art}<g opacity="0.42"><ellipse cx="${x}" cy="${y - r * 0.2}" rx="${r * 1.35}" ry="${r * 1.7}" fill="#0D0F26" filter="url(#bl4)"/></g></g>`;
   }
   let frontPeds = "", frontArt = "";
-  for (const [x, y, r, col, acc, mood, look, tilt] of front) {
+  for (const [k, [x, y, r, col, acc, mood, look, tilt]] of front.entries()) {
     frontPeds += pedestal(x, y + r * 0.92, r * 1.12, col, true);
+    // Each pick idles on its own living layer (render.mjs), out of step.
     frontArt += `
       <circle cx="${x}" cy="${y}" r="${r * 1.45}" fill="${col}" opacity="0.4" filter="url(#bl16)"/>
       ${shadow(x, y + r * 0.95, r * 0.8, 0.45)}
-      ${critter(x, y, r, col, { acc, mood, look, tilt, rim: "#fff0c8", rimSide: x < 360 ? 1 : x > 360 ? -1 : 1 })}`;
+      <g data-layer="pick${k}" data-move="idle 4 0.6 ${(k / 3).toFixed(2)}">${critter(x, y, r, col, { acc, mood, look, tilt, rim: "#fff0c8", rimSide: x < 360 ? 1 : x > 360 ? -1 : 1 })}</g>`;
   }
   // Hop arcs: little dotted bounce trails from the back line to each pick.
   const hops = [

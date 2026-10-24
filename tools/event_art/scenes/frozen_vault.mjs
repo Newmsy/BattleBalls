@@ -197,7 +197,7 @@ export default function () {
   <ellipse cx="${bx + 10}" cy="${fy + fh + 26}" rx="200" ry="34" fill="#7fe0ff" opacity="0.3" filter="url(#fvBlur24)"/>
   <rect width="${W}" height="${H}" fill="url(#fvVignette)"/>
   <rect width="${W}" height="${H}" fill="url(#fvSide2)"/>
-  ${critter}
+  <g data-layer="critter" data-move="idle 4 0.6 0">${critter}</g>
   ${snow}
   ${twinkle(bx + 66, by - 74, 12, "#fff6c8")}${twinkle(bx - 74, by + 52, 8, "#e9fbff")}${twinkle(fx + fw + 44, fy - 6, 9, "#ffffff", 0.9)}
 </svg>`;

@@ -263,14 +263,19 @@ export default function () {
   ${moss}${vines}${leaves}
 
   <!-- the hive -->
-  ${hv.svg}
+  <!-- living layers (render.mjs): the hive swings from the branch, the bees hover -->
+  <g data-layer="hive" data-move="sway 1.5 0.5 0" data-pivot="360 58">${hv.svg}</g>
   ${falling}
 
   <!-- bees -->
+  <g data-layer="bees1" data-move="bob 6 1.4 0">
   ${buzz(176, 164, -1)}${bee(220, 160, 24, { look: [0.6, 0.2], flip: 1, tilt: -6 })}
-  ${buzz(560, 132, 1)}${bee(512, 136, 22, { look: [-0.6, 0.1], flip: -1, tilt: 8, mood: "o" })}
   ${buzz(600, 262, 1)}${bee(552, 262, 19, { look: [-0.7, -0.3], flip: -1, tilt: -4 })}
+  </g>
+  <g data-layer="bees2" data-move="bob 6 1.3 0.5">
+  ${buzz(560, 132, 1)}${bee(512, 136, 22, { look: [-0.6, 0.1], flip: -1, tilt: 8, mood: "o" })}
   ${buzz(228, 288, -1)}${bee(262, 270, 16, { look: [0.5, -0.4], flip: 1, tilt: 10 })}
+  </g>
 
   <!-- bushes, peeking critter, mushrooms -->
   ${bush(612, 370, 52, "#2f7a3a", R)}

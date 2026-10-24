@@ -143,10 +143,10 @@ export default () =>
   ${backdrop()}
   ${rays()}
   ${chest()}
-  ${floaters()}
+  <g data-layer="floaters" data-move="bob 6 0.6 0">${floaters()}</g>
   ${flyingCoins()}
   ${sparkles()}
-  ${gawper(150, 330, 52)}
+  <g data-layer="gawper" data-move="idle 4 0.55 0.3">${gawper(150, 330, 52)}</g>
   <defs><radialGradient id="vig" cx="0.5" cy="0.45" r="0.75"><stop offset="0.6" stop-color="#0D0F26" stop-opacity="0"/><stop offset="1" stop-color="#0D0F26" stop-opacity="0.7"/></radialGradient></defs>
   <rect width="720" height="440" fill="url(#vig)"/>
   <path d="M -10 440 L -10 380 Q 60 360 120 400 Q 160 420 180 440 Z" fill="#0d0a2a"/>

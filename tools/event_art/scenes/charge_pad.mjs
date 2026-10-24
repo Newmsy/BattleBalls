@@ -185,7 +185,7 @@ export default () =>
   ${cushions()}
   ${pad()}
   ${motes()}
-  ${sleeper(PX, 284, 70)}
+  <g data-layer="sleeper" data-move="breathe 0.03 0.3 0">${sleeper(PX, 284, 70)}</g>
   ${chargeMeter(PX - 6, 128)}
   ${sparkle(250, 270, 6, "#c8ffdf")}${sparkle(472, 230, 5, "#c8ffdf")}
   <path d="M -10 440 Q 40 380 20 330 Q 70 370 60 440 Z" fill="#0a1a18"/>
