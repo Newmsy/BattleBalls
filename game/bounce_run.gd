@@ -27,6 +27,7 @@ const A11y := preload("res://game/a11y.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const MapView := preload("res://game/bounce_run/map_view.gd")
+const LivingArt := preload("res://game/bounce_run/living_art.gd")
 const ART := "res://game/bounce_run/art/%s.png"
 
 enum State { DRAFT, START_BOONS, MAP, FLOOR, AIM, FIGHT, RESULT, BOON, EVENT, SHOP, REST, OVER }
@@ -311,7 +312,7 @@ func _show_start_boons() -> void:
 	_mark("br_start", start)
 	var trio := Kit.hbox(12, [Kit.caption("Your trio"),
 		FighterTag.named_row(picks.map(func(i): return setup.cards[i].critter), 44, 22)], BoxContainer.ALIGNMENT_CENTER)
-	_set_page([trio, grid, Kit.hbox(14, [start, Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
+	_set_page([_art("banner_draft", 0.55), trio, grid, Kit.hbox(14, [start, Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
 
 
 func _toggle_start_boon(i: int) -> void:
@@ -507,7 +508,7 @@ func _show_boon() -> void:
 	_board_mode()
 	var chest := BounceRun.kind_of(setup, run.at) == "chest"
 	sub_label.text = "Glow Chest! Pick a boon" if chest else "Pick a boon"
-	var items: Array = [_art("glow_chest", 0.55)] if chest else [_status_row()]
+	var items: Array = [_art("glow_chest", 0.55)] if chest else [_art("banner_boon", 0.5), _status_row()]
 	for i in run.offer.size():
 		var id: String = run.offer[i]
 		var b := Boons.get_def(id)
@@ -556,7 +557,7 @@ func _show_tier_up(tier: int) -> void:
 	var new_star := Kit.glyph("stars", 44, GOLD, 1)
 	var stars := Kit.hbox(6, [old_stars, _pop_wrap(new_star)], BoxContainer.ALIGNMENT_CENTER)
 	var head := Kit.label("TIER UP!", 52, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
-	var lines: Array = [head, stars, faces,
+	var lines: Array = [_art("banner_tier_up", 0.6), head, stars, faces,
 		Kit.label("Your trio fights at T%d from now on. So do the foes!" % tier, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)]
 	var burst := Panel.new()
 	burst.add_theme_stylebox_override("panel", Kit.box(Color(GOLD, 0.55), Color(0, 0, 0, 0), 999, 0, 0))
@@ -629,7 +630,7 @@ func _show_over() -> void:
 	share_button = Kit.button("Share", func(): share_button.text = _share(), "go", 30)
 	var practice := Kit.button("Practice run", _practice, "ghost", 28)
 	_mark("br_practice", practice)
-	var items: Array = [head, line, _floor_pips(s.floors), Kit.hbox(14, [share_button, practice])]
+	var items: Array = [_art("banner_victory" if cleared else "banner_defeat", 0.75), head, line, _floor_pips(s.floors), Kit.hbox(14, [share_button, practice])]
 	items.append(Kit.label("Best %d · %d/%d cleared" % [stats.best_floors, stats.clears, stats.played], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
 	items.append(_leaderboard())
 	items.append(_menu_button())
@@ -1251,14 +1252,10 @@ func _go_node(id: int) -> void:
 
 ## An event's painting, `scale` of the page width (720x440 art).
 func _art(id: String, scale := 1.0) -> Control:
-	var tex := TextureRect.new()
-	tex.texture = load(ART % id)
-	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var tex := LivingArt.make(id, ART % id)
 	var w := page.custom_minimum_size.x * scale
 	tex.custom_minimum_size = Vector2(w, w * 440.0 / 720.0)
 	tex.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return tex
 
 
@@ -1269,7 +1266,7 @@ func _show_event() -> void:
 	var ev := BounceRun.event(setup, run)
 	var id: String = BounceRun.node(setup, run.at).event
 	sub_label.text = "Floor %d · Event" % (_row() + 1)
-	var items: Array = [_art(id), Kit.label(ev.name, 36, Kit.FG), Kit.label(ev.text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]
+	var items: Array = [_status_row(), _art(id), Kit.label(ev.name, 36, Kit.FG), Kit.label(ev.text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]
 	for k in ev.choices.size():
 		var c: Dictionary = ev.choices[k]
 		var ok := BounceRun.can_choose(setup, run, c.id)

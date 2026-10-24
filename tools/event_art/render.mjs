@@ -4,6 +4,9 @@
 // it as a plain texture, so it costs nothing per frame. Each PNG's .import
 // keeps it lossy-compressed (compress/mode=1) so the web download stays small.
 // Files starting with _ are shared parts (and the Buttons icon reference).
+// A scene may also `export const size = [w, h]` (default 720x440) and
+// `export const transparent = true` to render on a transparent background
+// (used by the map's node tokens).
 // Usage (from the repo root): node tools/event_art/render.mjs [name ...]
 import { createRequire } from "node:module";
 import fs from "node:fs";
@@ -18,7 +21,6 @@ try {
 } catch {
   chromium = createRequire(import.meta.url)("playwright").chromium;
 }
-const W = 720, H = 440;
 const src = path.join(here, "scenes");
 const dst = path.join(repo, "game/bounce_run/art");
 fs.mkdirSync(dst, { recursive: true });
@@ -27,12 +29,15 @@ const names = fs.readdirSync(src).filter((f) => f.endsWith(".mjs") && !f.startsW
   .filter((n) => !only.length || only.includes(n));
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-const page = await browser.newPage({ viewport: { width: W, height: H } });
+const page = await browser.newPage({ viewport: { width: 720, height: 440 } });
 for (const n of names) {
-  const svg = (await import(pathToFileURL(path.join(src, n + ".mjs")).href)).default();
-  await page.setContent(`<html><body style="margin:0;background:#0D0F26">${svg}</body></html>`);
+  const mod = await import(pathToFileURL(path.join(src, n + ".mjs")).href);
+  const [W, H] = mod.size || [720, 440];
+  const bg = mod.transparent ? "transparent" : "#0D0F26";
+  await page.setViewportSize({ width: W, height: H });
+  await page.setContent(`<html><body style="margin:0;background:${bg}">${mod.default()}</body></html>`);
   const file = path.join(dst, n + ".png");
-  await page.screenshot({ path: file, clip: { x: 0, y: 0, width: W, height: H } });
+  await page.screenshot({ path: file, clip: { x: 0, y: 0, width: W, height: H }, omitBackground: !!mod.transparent });
   console.log(path.relative(repo, file));
 }
 await browser.close();
