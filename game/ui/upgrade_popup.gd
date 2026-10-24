@@ -9,6 +9,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const Gear := preload("res://sim/gear.gd")
+const A11y := preload("res://game/a11y.gd")
 
 const GOLD := Color("ffd166")
 
@@ -41,8 +42,9 @@ static func critter(shell, pv: Dictionary, on_continue := Callable()) -> void:
 	var c := Roster.get_critter(pv.id)
 	var face := CritterIcon.make(pv.id, pv.tier, 150, true)
 	face.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var power := row("power", Kit.WARN, "Power", Kit.commas(pv.power_before), Kit.commas(pv.power_after))
 	var lines := Kit.vbox(12, [
-		row("power", Kit.WARN, "Power", Kit.commas(pv.power_before), Kit.commas(pv.power_after)),
+		power,
 		row("crown", Kit.FG, "Max level", str(pv.cap_before), str(pv.cap_after)),
 	])
 	if pv.level > 1:
@@ -54,6 +56,26 @@ static func critter(shell, pv: Dictionary, on_continue := Callable()) -> void:
 		Kit.box(Color(GOLD, .08), Color(GOLD, .5), 24, 2, 16))
 	_open(shell, "Fused!", [face, Kit.label("%s T%d" % [c.name, pv.tier], 34, tint, HORIZONTAL_ALIGNMENT_CENTER),
 		stars(pv.tier - 1, pv.tier), lines, new_box], on_continue, "fuse_done")
+	count_up(power.get_child(power.get_child_count() - 1), pv.power_before, pv.power_after)
+
+
+## The new number counts up from the old one, then pops and flashes, so the
+## gain is the moment the eye lands on. Shows the final number straight away
+## with Reduced motion.
+static func count_up(num: Label, from: int, to: int) -> void:
+	if A11y.reduced_motion or from == to:
+		return
+	num.text = Kit.commas(from)
+	var tw := num.create_tween()
+	tw.tween_interval(.35)
+	tw.tween_method(func(v: float): num.text = Kit.commas(roundi(v)), float(from), float(to), .9).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_callback(func():
+		num.pivot_offset = num.size / 2.0
+		num.scale = Vector2(1.35, 1.35)
+		num.modulate = Color(1.6, 1.6, 1.6))
+	tw.set_parallel(true)
+	tw.chain().tween_property(num, "scale", Vector2.ONE, .35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(num, "modulate", Color.WHITE, .45)
 
 
 ## A merged gear piece. `made`: the new piece (Profile.merge_gear).

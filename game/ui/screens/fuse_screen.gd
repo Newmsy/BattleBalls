@@ -344,20 +344,12 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		var flash: ColorRect = lab.get_meta("flash")
 		flash.color.a = .95
 		lab.create_tween().tween_property(flash, "color:a", 0.0, .55)
-		# The payoff: the new power counts up from the old one, in green.
-		var pow := Kit.power(pv.power_before, 28, Kit.GOOD)
-		pow.alignment = BoxContainer.ALIGNMENT_CENTER
-		var num: Label = pow.get_child(1)
+		# Just the new critter pops out over the painting; its power counts up
+		# in the popup that follows, where it reads clearly.
 		var big := 150 if lab.size.y > 340.0 else 110
-		var out := Kit.vbox(4, [CritterIcon.make(sel.id, result.tier, big, true), Kit.label("%s T%d" % [Roster.get_critter(sel.id).name, result.tier], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-			_center(Glyph.make("stars", 30, Kit.FG, result.tier)), pow])
-		if A11y.reduced_motion:
-			num.text = Kit.commas(pv.power_after)
-		else:
-			lab.create_tween().tween_method(func(v: float): num.text = Kit.commas(roundi(v)), float(pv.power_before), float(pv.power_after), .8).set_delay(.3).set_ease(Tween.EASE_OUT)
+		var out := CritterIcon.make(sel.id, result.tier, big, true)
 		lab.add_child(out)
 		lab.move_child(out, lab.get_child_count() - 2)
-		out.reset_size()
 		out.position = Vector2(centre.x, lab.size.y / 2.0) - out.size / 2.0
 		out.pivot_offset = out.size / 2.0
 		out.scale = Vector2(.2, .2)
