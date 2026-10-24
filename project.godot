@@ -11,6 +11,10 @@ boot_splash/image="res://game/brand/loading.png"
 boot_splash/fullsize=true
 config/icon="res://game/brand/icon.png"
 
+[audio]
+
+driver/output_latency.web=150
+
 [display]
 
 window/size/viewport_width=720
