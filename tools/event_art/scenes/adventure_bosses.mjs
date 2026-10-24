@@ -1,7 +1,9 @@
-// Adventure hub, Bosses card (game/ui/home_art/adventure_bosses.png): a forge cavern where the Anvil King looms huge
-// behind his anvil, crown on, hammer raised, embers in the air, and a small
-// hero squares up at the front. Portrait; title over the top band, status
-// over the bottom band.
+// Adventure hub, Bosses card (game/ui/home_art/adventure_bosses.png): a
+// forge cavern where the Anvil King looms huge behind his anvil, crown on,
+// hammer raised, embers in the air, and a small hero squares up at the front.
+// Moving layers (at most 4): hammer, king, the crown riding on the king, and
+// the anvil held still in front of him. Portrait; title over the top band,
+// status over the bottom band.
 import { blurs, rng } from "./_shop_charge_pad_glow_chest_parts.mjs";
 import { critter, shadow, motes, sparkle } from "./_banner_parts.mjs";
 
@@ -38,7 +40,7 @@ export default function () {
   ${sparkle(330, 112, 9, "#fff4cf", 0.9)}`;
   // anvil in front of the king
   const ay = 360;
-  const anvil = `<g data-layer="anvil" data-move="still 0 0 0"><ellipse cx="176" cy="${ay + 70}" rx="130" ry="16" fill="#000" opacity="0.5" filter="url(#bl6)"/>
+  const anvil = `<g data-layer="anvil" data-move="still"><ellipse cx="176" cy="${ay + 70}" rx="130" ry="16" fill="#000" opacity="0.5" filter="url(#bl6)"/>
     <path d="M 70 ${ay} L 262 ${ay} Q 300 ${ay} 316 ${ay - 12} Q 304 ${ay + 18} 262 ${ay + 22} L 236 ${ay + 22} L 228 ${ay + 44} L 252 ${ay + 64} L 100 ${ay + 64} L 124 ${ay + 44} L 116 ${ay + 22} L 86 ${ay + 22} Q 66 ${ay + 18} 70 ${ay} Z" fill="#3e4060" stroke="#14122a" stroke-width="3.5" stroke-linejoin="round"/>
     <path d="M 74 ${ay + 2} L 262 ${ay + 2} Q 296 ${ay} 310 ${ay - 8}" fill="none" stroke="#9aa0c0" stroke-width="4" stroke-linecap="round"/>
     <path d="M 236 ${ay + 22} L 228 ${ay + 44} L 252 ${ay + 64} L 196 ${ay + 64} Z" fill="#2a2a46"/>
@@ -58,7 +60,7 @@ export default function () {
   ${floor}
   ${hammer}${king}${anvil}
   ${motes(17, 26, 30, 60, 330, 470, ["#ffd36b", "#ff8a3d", "#ffb347"])}
-  ${shadow(70, 470, 24, 0.7)}<g data-layer="hero" data-move="idle 3 0.6 0.4">${critter(70, 444, 22, "#7b77ff", { acc: "antenna", mood: "determined", look: [0.7, -0.6], rim: "#ff8a3d", rimSide: 1 })}</g>
+  ${shadow(70, 470, 24, 0.7)}${critter(70, 444, 22, "#7b77ff", { acc: "antenna", mood: "determined", look: [0.7, -0.6], rim: "#ff8a3d", rimSide: 1 })}
   <rect width="${W}" height="${H}" fill="#0D0F26" opacity="0.08"/>
   </svg>`;
 }

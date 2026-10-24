@@ -1,4 +1,236 @@
 {
+ "adventure_bosses": {
+  "size": [
+   360,
+   560
+  ],
+  "layers": [
+   {
+    "id": "hammer",
+    "move": "sway 4 0.5 0.3",
+    "pivot": [
+     250,
+     300
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     223,
+     93,
+     137,
+     199
+    ]
+   },
+   {
+    "id": "king",
+    "move": "idle 4 0.5 0",
+    "pivot": [
+     180,
+     359
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     75,
+     149,
+     207,
+     213
+    ]
+   },
+   {
+    "id": "crown",
+    "move": "still",
+    "pivot": [
+     180,
+     167
+    ],
+    "blink": false,
+    "follow": "king",
+    "rect": [
+     116,
+     95,
+     128,
+     77
+    ]
+   },
+   {
+    "id": "anvil",
+    "move": "still",
+    "pivot": [
+     181,
+     446
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     36,
+     342,
+     284,
+     117
+    ]
+   }
+  ]
+ },
+ "adventure_spire_0": {
+  "size": [
+   360,
+   560
+  ],
+  "layers": [
+   {
+    "id": "flag",
+    "move": "sway 8 0.7 0",
+    "pivot": [
+     186,
+     36
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     183,
+     25,
+     32,
+     22
+    ]
+   },
+   {
+    "id": "hero",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     97,
+     467
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     71,
+     391,
+     51,
+     78
+    ]
+   }
+  ]
+ },
+ "adventure_spire_1": {
+  "size": [
+   360,
+   560
+  ],
+  "layers": [
+   {
+    "id": "flag",
+    "move": "sway 8 0.7 0",
+    "pivot": [
+     186,
+     36
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     183,
+     25,
+     32,
+     22
+    ]
+   },
+   {
+    "id": "hero",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     97,
+     467
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     71,
+     391,
+     51,
+     78
+    ]
+   }
+  ]
+ },
+ "adventure_spire_2": {
+  "size": [
+   360,
+   560
+  ],
+  "layers": [
+   {
+    "id": "flag",
+    "move": "sway 8 0.7 0",
+    "pivot": [
+     186,
+     36
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     183,
+     25,
+     32,
+     22
+    ]
+   },
+   {
+    "id": "hero",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     97,
+     467
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     71,
+     391,
+     51,
+     78
+    ]
+   }
+  ]
+ },
+ "adventure_spire_3": {
+  "size": [
+   360,
+   560
+  ],
+  "layers": [
+   {
+    "id": "flag",
+    "move": "sway 8 0.7 0",
+    "pivot": [
+     186,
+     36
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     183,
+     25,
+     32,
+     22
+    ]
+   },
+   {
+    "id": "hero",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     97,
+     467
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     71,
+     391,
+     51,
+     78
+    ]
+   }
+  ]
+ },
  "banner_boon": {
   "size": [
    720,
