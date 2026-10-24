@@ -28,7 +28,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"A spirit totem of nine family heads in the Spirit Shrine. Its heads glow, then ring out spirit orbs with one gap to slip through. Every other volley is a fan aimed at you.",
 		"Today's family head is lit: %s critters hit it %d%% harder. The family changes every day." % [fam_name, roundi(Bosses.DEFS[TotemShrine.BOSS].family_bonus * 100.0)],
 		"Stun it while the heads glow to cancel the volley. Its pull drags your mines and trails toward it.",
-		"Sigils level up today's family's talents: %d at Lv 1 up to %d at Lv 15. Each level is stronger; beat one to open the next." % [TotemShrine.DIFFICULTIES[0].sigils, TotemShrine.DIFFICULTIES[-1].sigils],
+		"Sigils level up today's family's talents: %d at Lv 1 up to %d at Lv 15." % [TotemShrine.DIFFICULTIES[0].sigils, TotemShrine.DIFFICULTIES[-1].sigils],
 		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [TotemShrine.RUNS_PER_DAY, TotemShrine.ENERGY_COST]]}))
 
 	root.add_child(Kit.label("Today: %s family" % fam_name, 26, Talents.COLORS[family], HORIZONTAL_ALIGNMENT_LEFT, true))

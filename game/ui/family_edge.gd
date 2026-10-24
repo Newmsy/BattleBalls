@@ -177,7 +177,7 @@ static func open_chart(from: Node, focus := "") -> void:
 	root.add_child(dim)
 	var bonus: Array = Families.EDGE_BONUS
 	var ok := Kit.button("Got it", close_chart, "go", 24, 72)
-	var why := Kit.label("Three rock-paper-scissors triangles. Each family hits the next one round its triangle for +%d%%. Every other matchup is even." \
+	var why := Kit.label("Each family hits the next one round its triangle for +%d%%. Every other matchup is even." \
 		% roundi(bonus[2] * 100.0), 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	why.custom_minimum_size.x = width - 44.0 # Wrapped text measures before layout.
 	var rows := [Kit.label("Family edges", 32), why]

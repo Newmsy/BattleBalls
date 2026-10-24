@@ -25,8 +25,8 @@ static func build(shell, params: Dictionary) -> Control:
 	var costs: Array = Economy.LURE_COST.keys().map(func(r): return "%s %d" % [r.capitalize(), Economy.LURE_COST[r]])
 	root.add_child(shell.title_row("Prism Wyrm", {"eyebrow": "Daily boss ·", "eyebrow_color": RIFT, "eyebrow_glyphs": ["target"], "info_mark": "wyrm_info", "info": [
 		"A crystal serpent snaking figure-eights through the Crystal Rift. Only its glowing scale can be hurt; the rest of it is armour. The glow runs from its head down to its tail.",
-		"Its tail lashes where it's heading: get clear of the ring. Stun it to cancel a lash. Precise and homing critters do best.",
-		"Lures buy wishlist copies (%s). %d at Lv 1 up to %d at Lv 15; each level is stronger and beating one opens the next." % [", ".join(costs), WyrmRift.DIFFICULTIES[0].lures, WyrmRift.DIFFICULTIES[-1].lures],
+		"Its tail lashes where it's heading: get clear of the ring. Stun it to cancel a lash.",
+		"Lures buy wishlist copies (%s). %d at Lv 1 up to %d at Lv 15." % [", ".join(costs), WyrmRift.DIFFICULTIES[0].lures, WyrmRift.DIFFICULTIES[-1].lures],
 		"%d runs a day, %d energy each. A loss gives back all but 1 energy." % [WyrmRift.RUNS_PER_DAY, WyrmRift.ENERGY_COST]]}))
 
 	var left := WyrmRift.runs_left(p, now)

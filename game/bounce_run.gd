@@ -312,7 +312,7 @@ func _show_start_boons() -> void:
 	_mark("br_start", start)
 	var trio := Kit.hbox(12, [Kit.caption("Your trio"),
 		FighterTag.named_row(picks.map(func(i): return setup.cards[i].critter), 44, 22)], BoxContainer.ALIGNMENT_CENTER)
-	_set_page([_art("banner_draft", 0.55), trio, grid, Kit.hbox(14, [start, Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
+	_set_page([_art("banner_draft"), trio, grid, Kit.hbox(14, [start, Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
 
 
 func _toggle_start_boon(i: int) -> void:
@@ -355,7 +355,8 @@ func _show_floor() -> void:
 		# The foe keeps the damage your last critter did (sim/bounce_run.gd).
 		foe_box.add_child(Kit.hbox(10, [_expand(Kit.bar(hurt, PINK, 16)), Kit.caption("%d%% HP left" % ceili(100.0 * hurt), PINK)]))
 	if big:
-		foe_box.add_child(Kit.label("Bigger and tougher than a normal foe." if foe.kind == "elite" else "Beat the Champion to clear the run!", 20, rim, HORIZONTAL_ALIGNMENT_LEFT, true))
+		if foe.kind != "elite":
+			foe_box.add_child(Kit.label("Beat the Champion to clear the run!", 20, rim, HORIZONTAL_ALIGNMENT_LEFT, true))
 	elif foe.kind == "rival":
 		foe_box.add_child(Kit.label("Losing knocks nobody out, but costs 20 Buttons.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var trio_cap := "Your trio · T%d" % tier
@@ -508,7 +509,7 @@ func _show_boon() -> void:
 	_board_mode()
 	var chest := BounceRun.kind_of(setup, run.at) == "chest"
 	sub_label.text = "Glow Chest! Pick a boon" if chest else "Pick a boon"
-	var items: Array = [_art("glow_chest", 0.55)] if chest else [_art("banner_boon", 0.5), _status_row()]
+	var items: Array = [_status_row(), _art("glow_chest" if chest else "banner_boon")]
 	for i in run.offer.size():
 		var id: String = run.offer[i]
 		var b := Boons.get_def(id)
@@ -630,7 +631,7 @@ func _show_over() -> void:
 	share_button = Kit.button("Share", func(): share_button.text = _share(), "go", 30)
 	var practice := Kit.button("Practice run", _practice, "ghost", 28)
 	_mark("br_practice", practice)
-	var items: Array = [_art("banner_victory" if cleared else "banner_defeat", 0.75), head, line, _floor_pips(s.floors), Kit.hbox(14, [share_button, practice])]
+	var items: Array = [_art("banner_victory" if cleared else "banner_defeat"), head, line, _floor_pips(s.floors), Kit.hbox(14, [share_button, practice])]
 	items.append(Kit.label("Best %d · %d/%d cleared" % [stats.best_floors, stats.clears, stats.played], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
 	items.append(_leaderboard())
 	items.append(_menu_button())
@@ -874,6 +875,7 @@ func _set_panel(children: Array, screen: String) -> void:
 func _set_page(children: Array, screen: String) -> void:
 	_replace_children(page, children)
 	scroll.scroll_vertical = 0
+	_fit_art()
 	_report.call_deferred(screen)
 
 
@@ -891,8 +893,8 @@ func _mark(name: String, c: Control) -> void:
 
 
 func _report(screen: String) -> void:
-	await get_tree().process_frame
-	await get_tree().process_frame
+	for i in 3: # _fit_art resizes after the first.
+		await get_tree().process_frame
 	print("UI_SCREEN ", screen)
 	for k in _marks.keys():
 		if not is_instance_valid(_marks[k]):
@@ -1017,7 +1019,7 @@ func _boon_strip(ids: Array, side: float, names := true) -> Control:
 func _show_boon_info(id: String) -> void:
 	var b := Boons.get_def(id)
 	var col := _boon_col(b.rarity)
-	var rarity: String = "Glitch (a bad boon)" if b.rarity == "glitch" else Roster.RARITY_NAMES[b.rarity] + " boon"
+	var rarity: String = "Glitch" if b.rarity == "glitch" else Roster.RARITY_NAMES[b.rarity] + " boon"
 	var lines: Array = [
 		BoonIcon.make(b.icon, _icon_rarity(b.rarity), 140),
 		Kit.label(b.name, 40, col, HORIZONTAL_ALIGNMENT_CENTER),
@@ -1038,7 +1040,7 @@ func _show_rules() -> void:
 		"Draft 3 critters and 3 starting boons, then climb a %d-floor map to the Champion. Tap a glowing node to pick your path." % BounceRun.FLOORS,
 		"Fights: pick who to send. Lose and that critter is out, but the foe keeps its damage for your next send. Lose all three and the run ends.",
 		"Elites are bigger and tougher but pay more. ? nodes hide events with choices. Shops sell boons for Buttons, which you earn in the run. Charge Pads revive, polish or clean.",
-		"Glitches are bad boons you only get by choosing a risky option. Shops and Charge Pads clean them.",
+		"Glitches are bad boons. Shops and Charge Pads clean them.",
 		"Your trio and the foes go up a tier every %d floors, up to T5 near the top." % BounceRun.FLOORS_PER_TIER,
 		"One ranked run a day, the same map for everyone. Ranked by floors, lives, then time.",
 	]:
@@ -1256,7 +1258,33 @@ func _art(id: String, scale := 1.0) -> Control:
 	var w := page.custom_minimum_size.x * scale
 	tex.custom_minimum_size = Vector2(w, w * 440.0 / 720.0)
 	tex.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	if scale == 1.0:
+		# A page's painting runs full width and takes the page's spare height
+		# (cropping its sides), or gives some up so the buttons stay on screen.
+		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		tex.set_meta("fill", true)
 	return tex
+
+
+## Sizes a page's full-width painting so the page exactly fits the screen:
+## taller when there's room (up to square-ish), shorter (down to a strip)
+## when the page would scroll. Measured after a layout pass, when wrapped
+## labels know their height.
+func _fit_art() -> void:
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	if not is_instance_valid(page):
+		return
+	var kids := page.get_children().filter(func(c): return c is Control and c.visible)
+	if kids.is_empty():
+		return
+	var used: float = kids[-1].position.y + kids[-1].size.y - kids[0].position.y
+	for c in kids:
+		if c is TextureRect and c.has_meta("fill"):
+			var w: float = c.custom_minimum_size.x
+			c.custom_minimum_size.y = clampf(c.size.y + scroll.size.y - 8.0 - used, w * 0.3, w * 1.0)
+			return
 
 
 func _show_event() -> void:
@@ -1305,7 +1333,7 @@ func _event_choice(c: Dictionary) -> void:
 func _pick_trade() -> void:
 	var offer := BounceRun.trade_offer(setup, run)
 	sub_label.text = "Pick a critter to take"
-	var items: Array = [_art("tide_pool_trader", 0.6)]
+	var items: Array = [_art("tide_pool_trader")]
 	for k in offer.size():
 		var card := _critter_card(offer[k], func(): _pick(BounceRun.living(run), "swap_out", func(slot):
 			_apply(func(): BounceRun.choose(setup, run, "swap", [slot, k]), "Swap"), _pick_trade), -1, false, BounceRun.tier_at(_row()))
@@ -1412,7 +1440,7 @@ func _show_shop() -> void:
 	sfx.on_menu()
 	_board_mode()
 	sub_label.text = "Floor %d · Shop" % (_row() + 1)
-	var items: Array = [_art("shop", 0.62), _status_row()]
+	var items: Array = [_status_row(), _art("shop")]
 	var shelf := Kit.hbox(10)
 	for i in run.shop.stock.size():
 		var id: String = run.shop.stock[i]
@@ -1473,7 +1501,7 @@ func _show_rest() -> void:
 	sfx.on_menu()
 	_board_mode()
 	sub_label.text = "Floor %d · Charge Pad" % (_row() + 1)
-	var items: Array = [_art("charge_pad"), _status_row(), Kit.label("Pick one before you move on.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)]
+	var items: Array = [_status_row(), _art("charge_pad"), Kit.label("Pick one before you move on.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)]
 	var choices := {"revive": ["Revive", "A knocked-out critter is back in the run."], "polish": ["Polish", "One boon goes a rarity up."],
 		"clean": ["Clean", "Every Glitch is gone."]}
 	var any := false

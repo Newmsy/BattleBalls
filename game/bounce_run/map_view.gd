@@ -16,7 +16,8 @@ const COLORS := {
 	"rest": Color("5cff9a"), "chest": Color("ff9f43"), "boss": Color("ff5a6e"), "event": Color("b88cff"),
 }
 const ART := "res://game/bounce_run/art/%s.png"
-const PAD := 62.0 ## Side margin to the outer lanes (room for the glow).
+const PAD := 52.0 ## Side margin to the outer lanes (room for the glow).
+const SPREAD := 0.7 ## How far each floor is stretched to the full width.
 const NAMES := {
 	"fight": "Fight", "elite": "Elite", "mystery": "Mystery", "shop": "Shop", "rest": "Charge Pad",
 	"chest": "Glow Chest", "boss": "Champion", "event": "Event",
@@ -28,6 +29,7 @@ var selected := -1
 var row_h := 120.0 ## Pixels between floors.
 var on_select: Callable ## Called with the node id a tap picks.
 var _press := Vector2.INF
+var _spans := {} ## Row -> its leftmost and rightmost lane.
 static var _textures := {}
 var _reach: Array = []
 var _route: Array = []
@@ -39,6 +41,12 @@ func show_run(setup_: Dictionary, run_: Dictionary, selected_ := -1) -> void:
 	selected = selected_
 	_reach = BounceRun.next_nodes(setup, run)
 	_route = run.log.filter(func(e): return e.t == "go").map(func(e): return int(e.n))
+	_spans = {}
+	for id in setup.nodes:
+		var n: Dictionary = setup.nodes[id]
+		if n.col >= 0:
+			var sp: Vector2i = _spans.get(n.row, Vector2i(n.col, n.col))
+			_spans[n.row] = Vector2i(mini(sp.x, n.col), maxi(sp.y, n.col))
 	queue_redraw()
 
 
@@ -60,7 +68,13 @@ func node_pos(id: int) -> Vector2:
 	var h := hash([setup.get("seed", 0), setup.day, id])
 	var lane := (size.x - 2.0 * PAD) / float(BounceRun.COLS - 1)
 	var wob := Vector2(((h & 255) / 255.0 - 0.5) * lane * 0.3, (((h >> 8) & 255) / 255.0 - 0.5) * row_h * 0.2)
-	return Vector2(PAD + lane * n.col, y) + wob
+	# Each floor is stretched most of the way to both edges (its order kept,
+	# so links still never cross): the map fills the width like StS's.
+	var f: float = n.col / float(BounceRun.COLS - 1)
+	var sp: Vector2i = _spans.get(n.row, Vector2i(0, BounceRun.COLS - 1))
+	if sp.y > sp.x:
+		f = lerpf(f, (n.col - sp.x) / float(sp.y - sp.x), SPREAD)
+	return Vector2(PAD + (size.x - 2.0 * PAD) * f, y) + wob
 
 
 ## The map's full height for rows `row_h` apart.
@@ -114,7 +128,10 @@ func _draw() -> void:
 	var r := _r()
 	var back := _tex("map_backdrop")
 	if back:
-		draw_texture_rect(back, Rect2(Vector2.ZERO, size), false)
+		# Cover the map without squashing the painting: scale to fill, crop the sides.
+		var k := maxf(size.x / back.get_width(), size.y / back.get_height())
+		var art := Vector2(back.get_width(), back.get_height()) * k
+		draw_texture_rect(back, Rect2(Vector2((size.x - art.x) / 2.0, size.y - art.y), art), false)
 	var walked := {}
 	for i in range(1, _route.size()):
 		walked["%d-%d" % [_route[i - 1], _route[i]]] = true

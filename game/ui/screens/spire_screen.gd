@@ -48,7 +48,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(shell.title_row("The Spire", {"back_mark": "spire_back", "info_mark": "spire_info", "info": [
 		"One %d-floor tower for everyone, rebuilt every Monday. Pick your lineup for each floor; they fight in the order you pick them, and a winner stays in with the HP it has left." % Spire.FLOORS,
 		"Boss floors: the boss is huge and takes on your whole lineup alone.",
-		"Every critter that comes out to fight spends 1 of its %d Stamina, win or lose. Tired critters rest until Monday, so spread the climb across your whole collection." % SpireClimb.STAMINA,
+		"Every critter that comes out to fight spends 1 of its %d Stamina, win or lose. Tired critters rest until Monday." % SpireClimb.STAMINA,
 		"Coming up: " + _upcoming_text(climb),
 	]}))
 	var sub := "%d/%d · resets in %s" % [climb.cleared, Spire.FLOORS, LiveOps.countdown(now, Spire.week_end(climb.week))]

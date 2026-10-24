@@ -612,7 +612,7 @@ func _menu_info_full() -> Array:
 	var full := AbilityText.full(player_type)
 	var lines := [full if full != "" else str(BallDefs.get_def(player_type).description)]
 	if _is_duo():
-		lines.append("2v2: all four fight at once. Tap a critter to add it to your pair or take it out.")
+		lines.append("2v2: tap a critter to add it to your pair or take it out.")
 	if mode == Mode.RIVAL:
 		lines.append("Unranked: only your record against them changes.")
 	if modifier != Modifiers.NONE:

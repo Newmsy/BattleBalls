@@ -32,7 +32,6 @@ static func build(shell, params: Dictionary) -> Control:
 		"Spend points on a family's Health, Attack, Defense and Speed. Every critter of that family gets the boost in the Ghost Arena, attacking and defending.",
 		"%d levels per stat. Max boost is about +%d%% power." % [
 			ArenaBoosts.MAX_LEVEL, roundi(100.0 * ArenaBoosts.LINE_POWER * ArenaBoosts.ORDER.size())],
-		"Points only come from the Arena. Boosts only work in the Ghost Arena.",
 		"Reset is free: every point comes back.",
 	]
 	root.add_child(shell.title_row("Trophy Room", {"info_mark": "boosts_info", "info": how}))

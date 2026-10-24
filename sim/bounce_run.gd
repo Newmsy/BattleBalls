@@ -86,12 +86,12 @@ const TRADER_ODDS := {"common": 4, "uncommon": 8, "rare": 22, "epic": 36, "legen
 const EVENTS := {
 	"lost_egg": {"name": "Lost Egg", "family": "nature", "text": "A mossy egg wobbles in the grass. Something inside is tapping back.",
 		"choices": [
-			{"id": "hatch", "name": "Hatch it", "text": "A small Common critter joins every fight beside yours, one tier lower."},
+			{"id": "hatch", "name": "Hatch it", "text": "A hatchling joins every fight beside yours."},
 			{"id": "sell", "name": "Sell it", "buttons": 40},
 			{"id": "leave", "name": "Leave it"}]},
 	"tide_pool_trader": {"name": "Tide Pool Trader", "family": "sea", "text": "A hermit crab collects critters. It likes yours.",
 		"choices": [
-			{"id": "swap", "name": "Swap a critter", "text": "Trade a critter for one of these. They're usually rarer.", "arg": "trade"},
+			{"id": "swap", "name": "Swap a critter", "text": "Trade a critter for one of these.", "arg": "trade"},
 			{"id": "swap_boon", "name": "Swap a boon", "text": "Your newest boon becomes a random one a rarity higher."},
 			{"id": "leave", "name": "Leave"}]},
 	"vending_machine": {"name": "Glitchy Vending Machine", "family": "glitch", "text": "It hums. The screen flickers: INSERT BUTTON.",
