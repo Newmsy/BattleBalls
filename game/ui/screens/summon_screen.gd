@@ -26,11 +26,11 @@ static func build(shell, _params: Dictionary) -> Control:
 			if o[0] == r:
 				odds_lines.append("%s %s" % [Roster.RARITY_NAMES[r], ("%.1f%%" % o[1]).replace(".0%", "%")])
 	root.add_child(shell.title_row("Summon Portal", {"back": false, "info_title": "Odds and pity", "info_mark": "summon_info", "info": [
-		"Every summon is a Tier 1 critter. Odds (the same as campaign drops): " + ", ".join(odds_lines) + ".",
+		"Every summon is a Tier 1 critter. Odds: " + ", ".join(odds_lines) + ".",
 		"A x10 always has a Rare or better.",
 		"Every critter of a rarity is equally likely; Wishlist picks come up 2x as often.",
 		"Legendary within %d Rare+ rolls. Campaign drops count too." % Summon.PITY_RESET,
-		"Eggs: boss first clears, daily login, account levels, Brood Queen. Never sold."]}))
+		"Eggs: boss first clears, daily login, account levels, Brood Queen."]}))
 
 	var portal := _Portal.make(200)
 	var st := Kit.box(Color("221046"), Color("6b3fb0"), 36, 2, 20)

@@ -26,7 +26,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(shell.title_row("Glow Pass", {"back_mark": "pass_back", "info_mark": "pass_info", "info": [
 		"Pass XP comes from play: fights give 10-30 XP, solving the Daily Trick Shot gives %d, and bounties give more." % GlowPass.TRICK_XP,
 		"Finish %d bounties in a week to open the weekly chest (+%s XP)." % [GlowPass.CHEST_AFTER, Kit.commas(GlowPass.CHEST_XP)],
-		"Free track: all power. Premium: looks and gems only. Unlocking later backfills.",
+		"Premium adds looks and gems. Unlock any time to claim past levels.",
 		"Past level 50: a bonus box every %s XP (Coins and a few gems), up to %d." % [Kit.commas(GlowPass.BONUS_XP), GlowPass.BONUS_MAX],
 	]}))
 	var season: Dictionary = glow.season(t)

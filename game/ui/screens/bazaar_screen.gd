@@ -17,7 +17,7 @@ static func build(shell, params: Dictionary) -> Control:
 		store = ArenaStore.open()
 	var root := Kit.vbox(12)
 	var how := [
-		"Tokens come only from the Ghost Arena, never for money: about 15 for a win (more against a team above you), %d for a loss, %d for each raid your Defence holds." % [
+		"Tokens come only from the Ghost Arena: about 15 for a win (more against a team above you), %d for a loss, %d for each raid your Defence holds." % [
 			ArenaStore.COINS_LOSS, ArenaStore.COINS_DEFENCE],
 		"The stock changes every day and each item sells once. Gear gets better as your league climbs.",
 	]

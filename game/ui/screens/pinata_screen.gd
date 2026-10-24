@@ -22,7 +22,7 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(shell.title_row("Piñata Titan", {"eyebrow": "Daily boss ·", "eyebrow_color": PARTY, "eyebrow_glyphs": ["coin"], "info_mark": "pinata_info", "info": [
 		"A giant party piñata swinging on its rope over Fiesta Plaza. It never hits back: you get 30 seconds to smash it.",
 		"Every hit pops coins out, and a crit is a candy shower. Break it before the clock for a %d coin jackpot." % PinataParty.JACKPOT,
-		"It's as strong as your fighter, so big hitters and fast, busy critters earn the most. Stuns stop its swing and slows drag it out.",
+		"Stuns stop its swing and slows drag it out.",
 		"Every run pays %d to %d coins. Coins buy cosmetics in the Glow shop." % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)],
 		"%d runs a day, %d energy each." % [PinataParty.RUNS_PER_DAY, PinataParty.ENERGY_COST]]}))
 
