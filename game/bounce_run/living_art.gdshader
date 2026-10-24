@@ -10,6 +10,17 @@ uniform vec4 spot_rect[4]; // centre x, centre y, radius x, radius y (UV)
 uniform vec4 spot_move[4]; // kind (1 bob, 2 sway, 3 glow, 4 flicker), amount, speed (Hz), phase
 uniform vec4 glow_col[4];
 uniform float sweep = 0.0; // 1 = a soft light band crosses now and then
+// Home door paintings (HomePainting) also round their corners and darken
+// their top and bottom under the door's words. px_size 0 turns this off.
+uniform vec2 px_size = vec2(0.0); // drawn size in pixels
+uniform float corner = 0.0; // corner radius in pixels
+uniform vec4 fade = vec4(0.0); // top fade end (0-1 of the height), its strength, bottom fade start, its strength
+uniform vec3 fade_col = vec3(0.05, 0.06, 0.15);
+varying vec2 local;
+
+void vertex() {
+	local = VERTEX;
+}
 
 float mask(vec2 uv, vec4 r) {
 	vec2 d = (uv - r.xy) / r.zw;
@@ -45,5 +56,14 @@ void fragment() {
 		float band = exp(-pow((UV.x + UV.y * 0.35 - x) * 6.0, 2.0));
 		add += vec3(0.10, 0.11, 0.16) * band * sweep * c.rgb * 2.0;
 	}
-	COLOR = vec4(c.rgb + add, c.a) * COLOR;
+	vec3 rgb = c.rgb + add;
+	float a = c.a;
+	if (px_size.x > 0.0) {
+		float y = local.y / px_size.y;
+		float shade = max(fade.y * (1.0 - smoothstep(0.0, fade.x, y)), fade.w * smoothstep(fade.z, 1.0, y));
+		rgb = mix(rgb, fade_col, shade);
+		vec2 q = abs(local - px_size * 0.5) - (px_size * 0.5 - corner);
+		a *= 1.0 - smoothstep(-0.75, 0.75, length(max(q, 0.0)) - corner);
+	}
+	COLOR = vec4(rgb, a) * COLOR;
 }

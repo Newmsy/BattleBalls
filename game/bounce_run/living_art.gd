@@ -98,6 +98,21 @@ const SPECS := {
 	"banner_defeat": {"motes": Color("ff9f43"), "spots": [
 		[350, 320, 60, 65, FLICKER, 0.55, 0.9, 0.0, Color("ff9f43")], [566, 90, 28, 32, FLICKER, 0.6, 0.5, 0.0, Color("fff2b0")],
 		[530, 344, 34, 34, BOB, 0.008, 0.3, 0.0, null], [610, 280, 32, 42, BOB, 0.02, 0.35, 0.2, null]]},
+	# Home's Adventure door paintings (game/ui/home_art, HomePainting): the gate glows, the guardian bobs.
+	"home_zone_glow_garden": {"motes": Color("7dffb0"), "spots": [
+		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("7dffb0")], [676, 252, 36, 36, BOB, 0.012, 0.6, 0.0, null]]},
+	"home_zone_circuit_lab": {"motes": Color("39d7ff"), "spots": [
+		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("39d7ff")], [676, 252, 36, 36, BOB, 0.012, 0.6, 0.0, null]]},
+	"home_zone_frostbite_caves": {"motes": Color("bfefff"), "spots": [
+		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("bfefff")], [676, 252, 36, 36, BOB, 0.012, 0.6, 0.0, null]]},
+	"home_zone_bramble_hollow": {"motes": Color("d8ff7a"), "spots": [
+		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("d8ff7a")], [676, 252, 36, 36, BOB, 0.012, 0.6, 0.0, null]]},
+	"home_zone_haunted_arcade": {"motes": Color("ff9ae6"), "spots": [
+		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("ff9ae6")], [676, 252, 36, 36, BOB, 0.012, 0.6, 0.0, null]]},
+	"home_zone_starfall_rim": {"motes": Color("ffd23d"), "spots": [
+		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("ffd23d")], [676, 252, 36, 36, BOB, 0.012, 0.6, 0.0, null]]},
+	"home_zone_magma_core": {"motes": Color("ff8a3d"), "spots": [
+		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("ff8a3d")], [676, 252, 36, 36, BOB, 0.012, 0.6, 0.0, null]]},
 }
 const MOTES := 9
 
@@ -116,23 +131,8 @@ static func make(id: String, path: String) -> TextureRect:
 	a.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	a.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	a.clip_contents = true
-	var spec: Dictionary = SPECS.get(id, {})
-	if not spec.is_empty():
-		a._mat = ShaderMaterial.new()
-		a._mat.shader = SHADER
-		var rects: Array[Vector4] = []
-		var moves: Array[Vector4] = []
-		var cols: Array[Vector4] = []
-		for s in spec.spots:
-			rects.append(Vector4(s[0] / W, s[1] / H, s[2] / W, s[3] / H))
-			moves.append(Vector4(s[4], s[5], s[6], s[7]))
-			var c: Color = s[8] if s[8] != null else Color.BLACK
-			cols.append(Vector4(c.r, c.g, c.b, 1.0))
-		a._mat.set_shader_parameter("count", rects.size())
-		a._mat.set_shader_parameter("spot_rect", rects)
-		a._mat.set_shader_parameter("spot_move", moves)
-		a._mat.set_shader_parameter("glow_col", cols)
-		a._mat.set_shader_parameter("sweep", 1.0)
+	a._mat = material_for(id)
+	if a._mat != null:
 		a.material = a._mat
 		a._motes = _Motes.new()
 		a._motes.art = a
@@ -140,6 +140,29 @@ static func make(id: String, path: String) -> TextureRect:
 		a._motes.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		a.add_child(a._motes)
 	return a
+
+
+## The living shader set up with a painting's SPECS spots (null when it has none).
+static func material_for(id: String) -> ShaderMaterial:
+	var spec: Dictionary = SPECS.get(id, {})
+	if spec.is_empty():
+		return null
+	var m := ShaderMaterial.new()
+	m.shader = SHADER
+	var rects: Array[Vector4] = []
+	var moves: Array[Vector4] = []
+	var cols: Array[Vector4] = []
+	for s in spec.spots:
+		rects.append(Vector4(s[0] / W, s[1] / H, s[2] / W, s[3] / H))
+		moves.append(Vector4(s[4], s[5], s[6], s[7]))
+		var c: Color = s[8] if s[8] != null else Color.BLACK
+		cols.append(Vector4(c.r, c.g, c.b, 1.0))
+	m.set_shader_parameter("count", rects.size())
+	m.set_shader_parameter("spot_rect", rects)
+	m.set_shader_parameter("spot_move", moves)
+	m.set_shader_parameter("glow_col", cols)
+	m.set_shader_parameter("sweep", 1.0)
+	return m
 
 
 func _process(delta: float) -> void:
