@@ -365,6 +365,14 @@ func _init() -> void:
 	add_child(_music)
 	_music_out = AudioStreamPlayer.new()
 	add_child(_music_out)
+	for p in [_music, _music_out]:
+		# The web build plays sounds as browser samples by default, which
+		# decodes a whole track up front: the 3 min menu loop cost ~230 MB
+		# (engine heap that never shrinks, plus a copy per play) and crashed
+		# iPhone Safari. Streamed music is mixed a little at a time instead;
+		# project.godot's audio/driver/output_latency.web gives the mix enough
+		# buffer to ride out a slow frame.
+		p.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	if not OS.has_feature("web"):
 		_audio_unlocked = true
 	_load_settings()
