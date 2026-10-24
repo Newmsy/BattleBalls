@@ -126,3 +126,7 @@ without it should win **52-62%** (a boon worth picking, never a verdict);
 The sim amplifies stat edges: +14% HP alone won 63%, so boon numbers stay
 small. A new boon or a change to one pastes `boon_balance.gd -- --fights=200`
 output into its PR.
+A new boon should do something you can see in the fight (a burn, a spark, a
+mine, a stun, a slam), not just add a stat or two (Newms). Its damage is a
+share of the holder's bump damage (the `b_*` fields), so it keeps up with
+tiers and power, and rarity scales that share.

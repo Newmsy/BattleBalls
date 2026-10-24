@@ -773,6 +773,18 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("flip", 0.0, 1.3)
 			"spin":
 				play("crit", 0.0, 1.3 if e.prizes.size() > 1 else 1.1)
+			"boon": # A Bounce Run boon going off.
+				match e.id:
+					"pinball":
+						play("thwomp", -2.0, 1.3)
+					"payback":
+						play("snap", -2.0, 0.9)
+					"zap_collar":
+						play("crackle", -2.0, 1.5)
+					"second_wind":
+						play("shield_up", 0.0, 1.1)
+					"fever":
+						play("t5_shine", -2.0, 0.8)
 			"overcharge": # An Overcharge charm's boosted hit.
 				play("crackle", -3.0, 1.3)
 			"spawn": # A boss's minion joining in.

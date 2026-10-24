@@ -20,6 +20,10 @@
 ##   thorns                 share of contact damage taken hit back at the bumper
 ##   lifesteal              heal this share of the contact damage you deal
 ##   overcharge             every Nth contact hit of a fight deals double
+##   b_storm, b_fling, size  Storm Heart and Titan Belt (see MatchSim)
+##   b_*                    the other fight-shaping boons (MECHANICS): bump
+##                          burn, chill, pinball slams, payback, zap stuns,
+##                          wall-bounce sparks and mines, Second Wind, Fever
 ##
 ## Rarity: an offered boon rolls a rarity (roll_rarity). "id" is Common;
 ## "id:rare" and "id:epic" are the same boon with bigger numbers (SCALE).
@@ -76,47 +80,59 @@ const DEFS := {
 		"icon": "guard",
 		"contact_armor": 0.07,
 	},
-	"rubber_band": {
-		"name": "Rubber Band",
-		"text": "+4% speed, heal 0.2 per bounce.",
-		"icon": "bolt",
-		"speed": 1.04,
-		"bounce_heal": 0.2,
+	"ember_rim": {
+		"name": "Ember Rim",
+		"text": "Bumps set the foe on fire: +{n}% of a bump over 2s.",
+		"icon": "flame",
+		"b_burn": 0.09,
 	},
-	"lucky_charm": {
-		"name": "Lucky Charm",
-		"text": "First hit +3, and an 8 HP shield in overtime.",
-		"icon": "bubble",
-		"first_strike": 3.0,
-		"overtime_shield": 8.0,
+	"frost_rim": {
+		"name": "Frost Rim",
+		"text": "Bumps chill the foe: {n}% slower for 1.5s.",
+		"icon": "snow",
+		"b_chill": 0.2,
 	},
-	"hard_hat": {
-		"name": "Hard Hat",
-		"text": "+3% max HP and take 3% less damage from bumps.",
-		"icon": "guard",
-		"hp": 1.03,
-		"contact_armor": 0.03,
+	"rebound_bolt": {
+		"name": "Rebound Bolt",
+		"text": "Wall bounces fire a homing spark: {n}% of a bump.",
+		"icon": "rebound",
+		"b_bolt": 0.08,
 	},
-	"rally_cap": {
-		"name": "Rally Cap",
-		"text": "-3% bump damage. 12 HP shield in overtime.",
-		"icon": "guard",
-		"contact_armor": 0.03,
-		"overtime_shield": 12.0,
+	"pinball": {
+		"name": "Pinball",
+		"text": "Bump a foe into a wall: it takes {n}% of a bump more.",
+		"icon": "pinball",
+		"b_pinball": 0.2,
 	},
-	"snack_stash": {
-		"name": "Snack Stash",
-		"text": "+2% max HP, heal 0.2 per bounce.",
-		"icon": "heart",
-		"hp": 1.02,
-		"bounce_heal": 0.2,
+	"bounce_mine": {
+		"name": "Bounce Mine",
+		"text": "Every 3rd wall bounce drops a mine: {n}% of a bump.",
+		"icon": "mine",
+		"b_mine": 0.3,
 	},
-	"pep_talk": {
-		"name": "Pep Talk",
-		"text": "+4% max HP and +3% damage.",
-		"icon": "shield",
-		"hp": 1.04,
-		"damage": 1.03,
+	"payback": {
+		"name": "Payback",
+		"text": "Get rammed, and your next bump hits {n}% harder.",
+		"icon": "fist",
+		"b_payback": 0.3,
+	},
+	"zap_collar": {
+		"name": "Zap Collar",
+		"text": "Every 4th bump stuns the foe for {n}s.",
+		"icon": "collar",
+		"b_zap": 0.2,
+	},
+	"second_wind": {
+		"name": "Second Wind",
+		"text": "Once, below 40% HP: dash off with a {n}% HP shield.",
+		"icon": "wind",
+		"b_wind": 0.06,
+	},
+	"fever": {
+		"name": "Overtime Fever",
+		"text": "In overtime, grow big and bump {n}% harder.",
+		"icon": "thermo",
+		"b_fever": 0.16,
 	},
 	"sharper_fangs": {
 		"name": "Sharper Fangs",
@@ -161,6 +177,22 @@ const DEFS := {
 		"rarity": "legendary",
 		"overcharge": 3,
 	},
+	"storm_heart": {
+		"name": "Storm Heart",
+		"text": "Every 5s, lightning strikes your foe.",
+		"icon": "storm",
+		"rarity": "legendary",
+		"b_storm": 0.2,
+	},
+	"titan_belt": {
+		"name": "Titan Belt",
+		"text": "Grow 25% bigger. Your bumps fling foes into walls.",
+		"icon": "titan",
+		"rarity": "legendary",
+		"size": 1.25,
+		"b_fling": 1.0,
+		"b_pinball": 0.5,
+	},
 }
 
 ## Glitches: bad boons a Bounce Run event can hand you (only ever by
@@ -179,19 +211,26 @@ const RARITIES := ["common", "rare", "epic", "legendary"]
 const ODDS := [58, 27, 11, 4]
 ## How much bigger a Rare or Epic boon's numbers are than its Common.
 const SCALE := {"common": 1.0, "rare": 1.6, "epic": 2.3}
-const LEGENDARY := ["phoenix_feather", "thorn_crown", "vampire_kiss", "overcharge"]
+const LEGENDARY := ["phoenix_feather", "thorn_crown", "vampire_kiss", "overcharge", "storm_heart", "titan_belt"]
 
 ## Every boon, in a fixed order (offers and drafts index into this).
 const ALL := ["thick_shell", "spiky_rim", "zoomies", "wall_snack", "overtime_bubble",
-	"opening_bite", "bank_shot", "bumper_guard", "sharper_fangs", "prism", "pep_talk",
-	"rubber_band", "lucky_charm", "hard_hat", "rally_cap", "snack_stash"]
+	"opening_bite", "bank_shot", "bumper_guard", "sharper_fangs", "prism", "ember_rim",
+	"frost_rim", "rebound_bolt", "pinball", "bounce_mine", "payback", "zap_collar",
+	"second_wind", "fever"]
 
 ## Boons any critter can use (no `for`): the starting picks come from these.
 static var GENERAL: Array = ALL.filter(func(id): return not DEFS[id].has("for"))
 
-## Runtime boon fields the sim reads straight off the def (0 = off).
+## Fight-shaping boon fields (b_*), read by MatchSim. Damage ones are shares
+## of the holder's bump damage, so they keep up with tier and power.
+const MECHANICS := ["b_burn", "b_chill", "b_bolt", "b_pinball", "b_mine", "b_payback", "b_zap",
+	"b_wind", "b_fever", "b_storm", "b_fling"]
+
+## Runtime boon fields the sim reads straight off the def (0 = off), MECHANICS included.
 const RUNTIME := ["bounce_heal", "overtime_shield", "first_strike", "bank_bonus", "contact_armor",
-	"boon_revive", "thorns", "lifesteal", "overcharge"]
+	"boon_revive", "thorns", "lifesteal", "overcharge",
+	"b_burn", "b_chill", "b_bolt", "b_pinball", "b_mine", "b_payback", "b_zap", "b_wind", "b_fever", "b_storm", "b_fling"]
 
 static var _cache := {}
 
@@ -217,10 +256,13 @@ static func get_def(id: String) -> Dictionary:
 		for key in ["hp", "damage", "speed"]:
 			if def.has(key):
 				def[key] = 1.0 + (def[key] - 1.0) * k
-		for key in ["bounce_heal", "overtime_shield", "first_strike", "bank_bonus", "contact_armor", "heal_ratio", "beam_life"]:
+		for key in ["bounce_heal", "overtime_shield", "first_strike", "bank_bonus", "contact_armor", "heal_ratio", "beam_life"] + MECHANICS:
 			if def.has(key):
 				def[key] = def[key] * k
-		def.text = describe(def)
+		if not "{n}" in def.text:
+			def.text = describe(def)
+	if "{n}" in def.text:
+		def.text = _fill(def)
 	_cache[id] = def
 	return def
 
@@ -281,6 +323,15 @@ static func describe(def: Dictionary) -> String:
 	return text[0].to_upper() + text.substr(1)
 
 
+## A mechanic boon's text with its number in place of {n}.
+static func _fill(def: Dictionary) -> String:
+	for key in MECHANICS:
+		if def.has(key):
+			var x: float = def[key]
+			return def.text.replace("{n}", _num(x) if key == "b_zap" else _num(x * 100.0))
+	return def.text
+
+
 static func _num(x: float) -> String:
 	return str(roundi(x)) if absf(x - roundf(x)) < 0.05 or x >= 10.0 else "%.1f" % x
 
@@ -301,6 +352,8 @@ static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 		if not applies_to(id, str(def.get("ability", ""))):
 			continue
 		out.hp *= boon.get("hp", 1.0)
+		if boon.has("size"):
+			out.radius *= boon.size
 		out.speed *= boon.get("speed", 1.0)
 		var damage: float = boon.get("damage", 1.0)
 		for key in out:

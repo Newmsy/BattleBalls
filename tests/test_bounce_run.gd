@@ -388,6 +388,73 @@ func test_vampire_kiss_heals_and_phoenix_rises() -> void:
 	check(rose, "Phoenix Feather brings the ball back once")
 
 
+## Events from a fight where ball 0 holds `boons`, for up to `secs` seconds.
+func _boon_events(boons: Array, secs := 40.0, seed := 3) -> Array:
+	var sim := MatchSim.new({"seed": seed, "p1": "plain", "p2": "plain", "boons": [boons, []]})
+	var out: Array = []
+	while not sim.finished and sim.time() < secs:
+		sim.step()
+		out.append_array(sim.events)
+	return out
+
+
+func test_mechanic_boons_go_off() -> void:
+	var ev := _boon_events(["ember_rim"])
+	check(ev.any(func(e): return e.type == "damage" and e.kind == "burn" and e.target == 1), "Ember Rim burns the foe")
+	ev = _boon_events(["rebound_bolt"])
+	check(ev.any(func(e): return e.type == "shot" and e.kind == "boon_bolt" and e.ball == 0), "Rebound Bolt fires off walls")
+	check(ev.any(func(e): return e.type == "damage" and e.kind == "shot" and e.source == 0), "and the spark lands")
+	ev = _boon_events(["bounce_mine"])
+	check(ev.any(func(e): return e.type == "boom" and e.ball == 0), "Bounce Mine mines go off")
+	ev = _boon_events(["zap_collar"])
+	check(ev.any(func(e): return e.type == "stun" and e.source == 0), "Zap Collar stuns")
+	ev = _boon_events(["pinball"], 60.0, 5)
+	check(ev.any(func(e): return e.type == "boon" and e.id == "pinball"), "Pinball slams a foe into a wall")
+	ev = _boon_events(["storm_heart"], 11.0)
+	check(ev.filter(func(e): return e.type == "boon" and e.id == "storm_heart").size() == 2, "Storm Heart strikes every 5s")
+	ev = _boon_events(["payback"])
+	check(ev.any(func(e): return e.type == "boon" and e.id == "payback" and e.ball == 0), "Payback hits back")
+
+
+func test_frost_rim_slows_and_titan_belt_grows() -> void:
+	var sim := MatchSim.new({"seed": 1, "p1": "plain", "p2": "plain", "boons": [["frost_rim", "titan_belt"], []],
+		"starts": [Vector2(400, 500), Vector2(600, 500)], "angles": [0, 1800]})
+	check_near(sim.balls[0].radius, sim.balls[1].radius * 1.25, 0.01, "Titan Belt: 25% bigger")
+	var flung := false
+	while not sim.finished and sim.time() < 1.0:
+		sim.step()
+		if sim.events.any(func(e): return e.type == "damage" and e.target == 1 and e.kind == "contact"):
+			check(sim.balls[1].slow_amount > 0.0 and sim.tick < sim.balls[1].slow_until, "chilled")
+			flung = sim.balls[1].boost_ticks > 0
+			break
+	check(flung, "flung")
+
+
+func test_second_wind_and_fever_fire_once() -> void:
+	var sim := MatchSim.new({"seed": 3, "p1": "plain", "p2": "plain", "boons": [["second_wind", "fever"], []], "powers": [0.7, 1.4]})
+	var winds := 0
+	var fevers := 0
+	while not sim.finished:
+		sim.step()
+		for e in sim.events:
+			if e.type == "boon" and e.ball == 0:
+				winds += int(e.id == "second_wind")
+				fevers += int(e.id == "fever")
+	check_eq(winds, 1, "Second Wind once")
+	check(fevers <= 1, "Fever at most once")
+
+
+func test_every_boon_has_text_and_a_badge() -> void:
+	var src: String = FileAccess.get_file_as_string("res://game/ui/boon_icon.gd")
+	for id in Boons.ALL + Boons.LEGENDARY:
+		for r in ["common", "rare", "epic"] if not id in Boons.LEGENDARY else ["legendary"]:
+			var def := Boons.get_def(Boons.with_rarity(id, r))
+			check(not "{" in def.text and def.text.length() < 70, "%s %s text: %s" % [id, r, def.text])
+		check('"%s"' % Boons.get_def(id).icon in src, "%s has a drawn badge" % id)
+	check(Boons.get_def("ember_rim:epic").b_burn > Boons.get_def("ember_rim").b_burn, "mechanic boons scale with rarity")
+	check(Boons.get_def("ember_rim:epic").text != Boons.get_def("ember_rim").text, "and their text shows it")
+
+
 # --- The scene ---------------------------------------------------------------
 
 ## Plays a whole run through the scene's own flow, headless, skipping fights
