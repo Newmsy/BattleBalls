@@ -36,11 +36,11 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 7
+const RULES_VERSION := 8
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 20
-const COLS := 4 ## Map lanes.
+const COLS := 7 ## Map lanes (Slay the Spire uses 7).
 const PATHS := 6 ## Walks up the map that make its links.
 const DRAFT := 6 ## Critter cards in the draft.
 const PICKS := 3
@@ -52,9 +52,11 @@ const FLOORS_PER_TIER := 4
 const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Brawler", "Legend", "Champion"]
 ## Foe power per floor (sim/power.gd: 1.0 is your trio's). The first floors
 ## are a warm-up and the top is a wall (tools/boon_balance.gd --runs checks
-## the curve).
-const FOE_POWER := [0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0,
-	1.05, 1.1, 1.15, 1.21, 1.28, 1.35, 1.42, 1.5, 1.58, 1.62]
+## the curve). Foes carry no boons, so power alone makes the climb, about
+## 12% steeper each floor.
+const FOE_POWER := [0.55, 0.67, 0.81, 0.95, 1.11, 1.28, 1.46, 1.66, 1.86, 2.08,
+	2.31, 2.55, 2.81, 3.1, 3.43, 3.78, 4.15, 4.56, 4.99, 5.31]
+const DOWNSIDE_POWER := 0.15 ## A Haunted Mirror look or a Star Map wish makes a foe this much stronger.
 const ELITE_POWER := 1.12 ## On top of the floor's power.
 const ELITE_SIZE := 1.28
 const BOSS_SIZE := 1.32
@@ -111,7 +113,7 @@ const EVENTS := {
 			{"id": "scrap", "name": "Take it apart", "buttons": 20}]},
 	"haunted_mirror": {"name": "Haunted Mirror", "family": "spooky", "text": "Your reflection grins back. It shouldn't.",
 		"choices": [
-			{"id": "look", "name": "Look closer", "text": "Polish a boon one rarity up, but your next foe gets a copy.", "arg": "polish"},
+			{"id": "look", "name": "Look closer", "text": "Polish a boon one rarity up, but your next foe is 15% stronger.", "arg": "polish"},
 			{"id": "smash", "name": "Smash it", "text": "Clean a Glitch.", "arg": "glitch"},
 			{"id": "leave", "name": "Back away"}]},
 	"lava_bridge": {"name": "Lava Bridge", "family": "fire", "text": "A shortcut over the magma. It looks hot.",
@@ -121,7 +123,7 @@ const EVENTS := {
 	"star_map": {"name": "Star Map", "family": "cosmic", "text": "The constellations look a lot like a route.",
 		"choices": [
 			{"id": "read", "name": "Read it", "text": "See what every mystery node holds."},
-			{"id": "wish", "name": "Make a wish", "text": "Boon picks offer 4 instead of 3, but the Champion gets an extra boon."}]},
+			{"id": "wish", "name": "Make a wish", "text": "Boon picks offer 4 instead of 3, but the Champion is 15% stronger."}]},
 	"wandering_rival": {"name": "Wandering Rival", "family": "glitch", "text": "A masked critter blocks the path. \"One round?\"",
 		"choices": [
 			{"id": "fight", "name": "Fight", "text": "Losing knocks nobody out. Win: an Epic boon pick and 20 Buttons. Lose: -20 Buttons."},
@@ -156,30 +158,28 @@ static func generate(day: int, run_seed := 0) -> Dictionary:
 
 
 ## The map: nodes keyed by id (row * COLS + col; the Champion is the only
-## node on the top row), each {id, row, col, type, kids, ...}. Built from
-## PATHS walks up the lanes that never cross, so it reads like a tree.
+## node on the top row), each {id, row, col, type, kids, ...}. Each floor is
+## 4-6 nodes whose edges drift a lane at a time; links between two floors
+## never cross and join near lanes, so paths split and merge like Slay the
+## Spire's, about 1.8 ways on from each node.
 static func _map(rng) -> Dictionary:
 	var nodes := {}
-	var starts: Array = _shuffled(range(COLS), rng)
-	for p in PATHS:
-		var col: int = starts[p] if p < COLS - 1 else starts[rng.range_int(0, COLS - 2)] # 3 different starts.
-		for row in FLOORS - 1:
-			var id: int = row * COLS + col
-			if not nodes.has(id):
-				nodes[id] = {"id": id, "row": row, "col": col, "kids": []}
-			if row == FLOORS - 2:
-				break
-			var next := clampi(col + rng.range_int(-1, 1), 0, COLS - 1)
-			# No crossing: a step sideways can't pass over a link already
-			# going the other way between the same two lanes.
-			if next != col:
-				var other: int = row * COLS + next
-				if nodes.has(other) and (other + COLS + (col - next)) in nodes[other].kids:
-					next = col
-			var kid: int = (row + 1) * COLS + next
-			if not kid in nodes[id].kids:
-				nodes[id].kids.append(kid)
-			col = next
+	var lo: int = rng.range_int(0, 1)
+	var hi: int = rng.range_int(COLS - 2, COLS - 1)
+	var below: Array = []
+	for row in FLOORS - 1:
+		if row > 0:
+			lo = clampi(lo + rng.range_int(-1, 1), 0, 2)
+			hi = clampi(hi + rng.range_int(-1, 1), COLS - 3, COLS - 1)
+		var inner: Array = _shuffled(range(lo + 1, hi), rng)
+		var lanes: Array = [lo, hi] + inner.slice(0, mini(inner.size(), rng.range_int(2, 4)))
+		lanes.sort()
+		var here: Array = lanes.map(func(c): return row * COLS + c)
+		for i in here.size():
+			nodes[here[i]] = {"id": here[i], "row": row, "col": lanes[i], "kids": []}
+		if not below.is_empty():
+			_link(nodes, below, here, rng)
+		below = here
 	var boss_id: int = (FLOORS - 1) * COLS
 	nodes[boss_id] = {"id": boss_id, "row": FLOORS - 1, "col": -1, "kids": [], "type": "boss"}
 	var ids: Array = nodes.keys()
@@ -216,6 +216,30 @@ static func _map(rng) -> Dictionary:
 	return nodes
 
 
+## Links floor `a` to the floor above, `b` (both sorted by lane), as a
+## staircase: from the left ends to the right ends, each step moving the
+## pointer on whichever side keeps the next link shortest. Links never cross,
+## and every node gets a way in and a way on.
+static func _link(nodes: Dictionary, a: Array, b: Array, rng) -> void:
+	var i := 0
+	var j := 0
+	nodes[a[0]].kids.append(b[0])
+	while i < a.size() - 1 or j < b.size() - 1:
+		var steps: Array = [] # [di, dj, length]
+		if i < a.size() - 1:
+			steps.append([1, 0, absi(nodes[a[i + 1]].col - nodes[b[j]].col)])
+		if j < b.size() - 1:
+			steps.append([0, 1, absi(nodes[a[i]].col - nodes[b[j + 1]].col)])
+		var best: Array = steps[0]
+		for st in steps:
+			if st[2] < best[2] or st[2] == best[2] and rng.range_int(0, 1) == 0:
+				best = st
+		i += best[0]
+		j += best[1]
+		if not b[j] in nodes[a[i]].kids:
+			nodes[a[i]].kids.append(b[j])
+
+
 static func _roll_type(rng, n: Dictionary, parent_types: Array) -> String:
 	var weights := {}
 	for t in NODE_WEIGHTS:
@@ -233,23 +257,16 @@ static func _foe(rng, n: Dictionary) -> Dictionary:
 	var row: int = n.row
 	var kind: String = n.type if n.type in ["elite", "boss"] else "fight"
 	var critter: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
-	var boons: Array = []
-	for k in START_BOONS + (row * 4) / 5:
-		boons.append(_pick_boon(rng, critter, boons))
-	var foe := {"critter": critter, "boons": boons, "seed": rng.range_int(1, 999999), "power": FOE_POWER[row], "size": 1.0,
+	# Foes never get boons: boons are yours. Floors get harder through power.
+	var foe := {"critter": critter, "boons": [], "seed": rng.range_int(1, 999999), "power": FOE_POWER[row], "size": 1.0,
 		"title": FOE_TITLES[mini(row / 2, FOE_TITLES.size() - 2)], "kind": kind}
 	if kind == "elite":
 		foe.power *= ELITE_POWER
 		foe.size = ELITE_SIZE
 		foe.title = "Elite " + foe.title
-		boons.append(_pick_boon(rng, critter, boons, "rare"))
 	elif kind == "boss":
 		foe.size = BOSS_SIZE
 		foe.title = "Champion"
-		var free: Array = Boons.LEGENDARY.filter(func(id): return not id in boons)
-		if not free.is_empty():
-			boons.append(free[rng.range_int(0, free.size() - 1)])
-		foe.wish_boon = _pick_boon(rng, critter, boons, "epic") # Only with a Star Map wish.
 	if n.get("event", "") == "wandering_rival":
 		foe.title = "Masked Rival"
 		foe.kind = "rival"
@@ -273,7 +290,7 @@ static func new_run(setup: Dictionary, picks: Array, start: Array) -> Dictionary
 	return {"day": setup.day, "seed": setup.get("seed", 0), "rules": RULES_VERSION, "picks": picks.duplicate(), "start": start.duplicate(),
 		"critters": picks.map(func(i): return setup.cards[i].critter), "boons": start.duplicate(),
 		"floor": 0, "at": -1, "done": true, "out": [false, false, false], "foe_hp": null, "ticks": 0, "fights": 0,
-		"buttons": 0, "hatchling": "", "spar": -1, "foe_gift": [], "wish": false, "revealed": false, "dash": false,
+		"buttons": 0, "hatchling": "", "spar": -1, "foe_boost": 0.0, "wish": false, "revealed": false, "dash": false,
 		"rival": false, "shop": {}, "log": [], "offer": [], "over": false}
 
 
@@ -346,9 +363,9 @@ static func foe(setup: Dictionary, run: Dictionary) -> Dictionary:
 	if phase(setup, run) != "fight":
 		return {}
 	var f: Dictionary = node(setup, run.at).foe.duplicate()
-	f.boons = f.boons + run.foe_gift
+	f.power *= 1.0 + float(run.foe_boost)
 	if f.kind == "boss" and run.wish:
-		f.boons = f.boons + [f.wish_boon]
+		f.power *= 1.0 + DOWNSIDE_POWER
 	return f
 
 
@@ -395,6 +412,7 @@ static func record(setup: Dictionary, run: Dictionary, slot: int, aim: int, winn
 		run.spar = -1
 	if f.kind == "rival":
 		run.rival = false
+		run.foe_boost = 0.0 # A Haunted Mirror boost spends itself on the rival too.
 		if winner == 0:
 			run.buttons += 20
 			run.offer = offer(setup, run, "epic")
@@ -404,7 +422,7 @@ static func record(setup: Dictionary, run: Dictionary, slot: int, aim: int, winn
 		return
 	if winner == 0:
 		run.foe_hp = null
-		run.foe_gift = []
+		run.foe_boost = 0.0
 		if f.kind == "boss":
 			run.floor = FLOORS
 			run.done = true
@@ -684,7 +702,8 @@ static func choose(setup: Dictionary, run: Dictionary, choice_id: String, arg = 
 		"spar":
 			run.spar = int(arg)
 		"look":
-			run.foe_gift = [_polish(run, arg)]
+			_polish(run, arg)
+			run.foe_boost = DOWNSIDE_POWER
 		"smash":
 			run.boons.erase(arg)
 		"dash":
@@ -790,15 +809,6 @@ static func replay(setup: Dictionary, run: Dictionary) -> Dictionary:
 ## (offset so it never lands on a real day's map).
 static func _base(day: int, run_seed: int) -> int:
 	return day if run_seed == 0 else 1000000 + run_seed
-
-
-static func _pick_boon(rng, critter: String, avoid: Array, floor_rarity := "common") -> String:
-	var ability: String = BallDefs.get_def(critter).ability
-	var held: Array = avoid.map(func(id): return Boons.base_of(id))
-	var pool := Boons.ALL.filter(func(id): return Boons.applies_to(id, ability) and not id in held)
-	if pool.is_empty():
-		pool = Boons.ALL.filter(func(id): return Boons.applies_to(id, ability))
-	return _with_roll(rng, pool[rng.range_int(0, pool.size() - 1)], held, floor_rarity)
 
 
 ## `base` at a seeded rarity, at least `floor_rarity`. A Legendary roll gives

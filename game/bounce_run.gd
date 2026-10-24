@@ -35,6 +35,7 @@ const SAVE_PATH := "user://bounce_run.cfg"
 const SHARE_URL := "https://battleballs.vercel.app/?mode=bouncerun"
 const ARENA_PIXELS := 680.0
 const PANEL_HEIGHT := 330.0
+const MAP_ROWS_SHOWN := 5.2 ## Floors the map shows at once; it scrolls for the rest.
 const FightSpeed := preload("res://game/fight_speed.gd")
 const FightLayout := preload("res://game/fight_layout.gd")
 const FightHud := preload("res://game/fight_hud.gd")
@@ -85,7 +86,7 @@ var page: VBoxContainer
 var share_button: Button
 var rules_button: Button ## The "i" in the corner: how a run works.
 var map_view: MapView
-var _selected := -1 ## The map node tapped, waiting for Go.
+var map_scroll: ScrollContainer
 
 
 func _ready() -> void:
@@ -346,7 +347,6 @@ func _show_floor() -> void:
 		Kit.hbox(16, [CritterIcon.make(foe.critter, tier, 132 if big else 110), _expand(Kit.vbox(4, [
 			Kit.label(_name(foe.critter), 30),
 			_ability_label(foe.critter),
-			_boon_strip(foe.boons, 44, false),
 		]))]),
 	])
 	var hurt := _foe_hp_frac()
@@ -853,7 +853,9 @@ func _layout() -> void:
 		_place(info_label, p.position, Vector2(p.size.x, 50))
 		_place(panel, p.position + Vector2(0, info_h), Vector2(p.size.x, maxf(0.0, p.size.y - info_h)))
 	var page_width := minf(680.0, size.x - 40.0)
-	_place(scroll, Vector2((size.x - page_width) / 2.0, 150), Vector2(page_width, size.y - 150 - bottom_margin))
+	# Pages end above the Sound pill in the bottom corner, so it never covers a button.
+	var page_bottom := FightLayout.pill_position(size, 1).y - 12.0
+	_place(scroll, Vector2((size.x - page_width) / 2.0, 150), Vector2(page_width, page_bottom - 150))
 	page.custom_minimum_size.x = page_width
 	arena.queue_redraw()
 
@@ -1188,28 +1190,28 @@ func _show_map() -> void:
 	sfx.on_menu()
 	_board_mode()
 	var reach := BounceRun.next_nodes(setup, run)
-	if not _selected in reach:
-		_selected = reach[0] if reach.size() == 1 else -1
-	sub_label.text = "Pick your path"
-	if map_view == null or not is_instance_valid(map_view):
-		map_view = MapView.new()
-		map_view.on_select = func(id: int):
-			_selected = id
-			sfx.play("wall")
-			_show_map()
+	sub_label.text = "Tap a glowing node to go there"
+	# A fresh view each time: the page's old children are freed.
+	map_view = MapView.new()
+	map_view.on_select = _go_node
+	var view_h := maxf(420.0, scroll.size.y - 190.0)
+	map_view.row_h = view_h / MAP_ROWS_SHOWN
+	map_view.custom_minimum_size = Vector2(0, MapView.height_for(map_view.row_h))
 	map_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	map_view.custom_minimum_size = Vector2(0, maxf(420.0, scroll.size.y - 330.0))
-	map_view.show_run(setup, run, _selected)
-	_mark("br_map", map_view)
+	map_scroll = ScrollContainer.new()
+	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	map_scroll.custom_minimum_size = Vector2(0, view_h)
+	map_scroll.add_child(map_view)
+	map_view.show_run(setup, run)
+	_mark("br_map", map_scroll)
 	for k in reach.size():
 		_marks["br_node_%d" % k] = _NodeMark.new(map_view, reach[k])
-	var go := Kit.button("Go", _go_node, "go", 32)
-	go.disabled = _selected < 0
-	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_mark("br_go", go)
 	print("BOUNCERUN_REACH floor=%d kinds=%s" % [run.floor + 1, ",".join(reach.map(func(id): return BounceRun.kind_of(setup, id)))])
-	var card := _node_card(_selected)
-	_set_page([_status_row(), map_view, card, Kit.hbox(14, [go, _menu_button()])], "br_map")
+	var home := _menu_button()
+	home.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_set_page([_status_row(), map_scroll, home], "br_map")
+	_scroll_map.call_deferred()
 	var tier := BounceRun.tier_at(mini(run.floor, BounceRun.FLOORS - 1))
 	if tier > int(run.get("tier_seen", 1)):
 		run.tier_seen = tier
@@ -1217,49 +1219,29 @@ func _show_map() -> void:
 		_show_tier_up(tier)
 
 
-## What a map node holds, in a line or two, for the selected node.
-func _node_card(id: int) -> Control:
-	if id < 0:
-		return Kit.label("Tap a glowing node above to pick where to go.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
-	var n := BounceRun.node(setup, id)
-	var t := map_view.shown_type(id)
-	var col: Color = MapView.COLORS[t]
-	var tier := BounceRun.tier_at(n.row)
-	var line := ""
-	var face: Control = null
-	match t:
-		"fight", "elite", "boss":
-			var f: Dictionary = n.foe
-			face = CritterIcon.face(f.critter, 64, tier)
-			line = "%s %s · T%d · Power %d%%" % [f.title, _name(f.critter), tier, roundi(100.0 * f.power)]
-			if t == "fight":
-				line += "\nWin: a boon and 15"
-			elif t == "elite":
-				line += "\nBigger and tougher. Win: a Rare+ boon and 30"
-			else:
-				line += "\nBeat the Champion to clear the run!"
-		"mystery":
-			line = "Could be an event, a fight or a shop."
-		"event":
-			line = "An event with choices."
-		"shop":
-			line = "Spend Buttons on boons, a revive or a clean-up."
-		"rest":
-			line = "Revive a critter, polish a boon, or clean Glitches."
-		"chest":
-			line = "A free pick of Rare-or-better boons."
-	var text := Kit.vbox(2, [Kit.label("Floor %d · %s" % [n.row + 1, MapView.NAMES[t]], 26, col),
-		Kit.label(line, 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(12, [face, text] if face else [text])
-	return Kit.panel(row, Kit.box(Kit.PANEL, col, 24, 2, 14))
-
-
-func _go_node() -> void:
-	if _selected < 0:
+## Glides the map up from the floor you just cleared to the one you pick
+## next (straight there with Reduced motion).
+func _scroll_map() -> void:
+	var view := map_view
+	var sc := map_scroll
+	if not is_instance_valid(view) or not is_instance_valid(sc):
 		return
-	var id := _selected
-	_selected = -1
+	view.size.y = view.custom_minimum_size.y
+	var to := view.scroll_for(sc.size.y)
+	var from := minf(to + view.row_h, view.size.y - sc.size.y) if run.floor > 0 else to
+	sc.scroll_vertical = roundi(from)
+	if from == to or A11y.reduced_motion:
+		sc.scroll_vertical = roundi(to)
+		return
+	var tw := sc.create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_interval(0.15)
+	tw.tween_method(func(v: float): sc.scroll_vertical = roundi(v), from, to, 0.55)
+	tw.tween_callback(func(): if state == State.MAP: _report("br_map")) # The nodes moved: tell the smoke test.
+
+
+func _go_node(id: int) -> void:
+	if state != State.MAP or not id in BounceRun.next_nodes(setup, run):
+		return
 	BounceRun.go(setup, run, id)
 	_save_run()
 	sfx.play("launch")
@@ -1417,16 +1399,14 @@ func _changes(before: Dictionary) -> Array:
 			lines.append(Kit.hbox(10, [CritterIcon.make(run.critters[s], BounceRun.tier_at(_row()), 80), _expand(Kit.label("%s joins your trio (for %s)." % [_name(run.critters[s]), _name(before.critters[s])], 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))]))
 	if run.spar >= 0 and run.spar != before.spar:
 		lines.append(Kit.label("%s fights its next fight one tier higher." % _name(run.critters[run.spar]), 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
-	if run.foe_gift.size() > before.foe_gift.size():
-		lines.append(Kit.label("Your next foe gets a copy of it...", 22, PINK, HORIZONTAL_ALIGNMENT_LEFT, true))
+	if run.foe_boost > before.foe_boost:
+		lines.append(Kit.label("Your next foe is 15% stronger...", 22, PINK, HORIZONTAL_ALIGNMENT_LEFT, true))
 	if run.revealed and not before.revealed:
 		lines.append(Kit.label("Every ? node on the map now shows what it holds.", 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
 	if run.wish and not before.wish:
-		lines.append(Kit.label("Boon picks now offer 4. The Champion gets an extra boon.", 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
+		lines.append(Kit.label("Boon picks now offer 4. The Champion is 15% stronger.", 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
 	if run.dash and not before.dash:
 		lines.append(Kit.label("You skip ahead a floor.", 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true))
-	if lines.is_empty() and run.done:
-		lines.append(Kit.label("Nothing happens.", 22, Kit.MUTED))
 	return lines
 
 
