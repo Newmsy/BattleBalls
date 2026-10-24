@@ -112,7 +112,7 @@ export default function () {
     <!-- snow ground the critter stands on -->
     <path d="M ${gx - gr} ${gy + 80} Q ${gx - 50} ${gy + 56} ${gx} ${gy + 74} Q ${gx + 60} ${gy + 58} ${gx + gr} ${gy + 76} L ${gx + gr} ${gy + gr} L ${gx - gr} ${gy + gr} Z" fill="url(#sgInnerSnow)"/>
     <path d="M ${gx - gr} ${gy + 80} Q ${gx - 50} ${gy + 56} ${gx} ${gy + 74} Q ${gx + 60} ${gy + 58} ${gx + gr} ${gy + 76}" stroke="#fff" stroke-width="2.5" fill="none" opacity="0.9"/>
-    ${critter}
+    <g data-layer="critter" data-move="idle 4 0.6 0">${critter}</g>
     <!-- tiny snowman -->
     <circle cx="${gx + 52}" cy="${gy + 70}" r="9" fill="#f6fcff" stroke="#9ab8e8" stroke-width="1.2"/>
     <circle cx="${gx + 52}" cy="${gy + 56}" r="6.5" fill="#f6fcff" stroke="#9ab8e8" stroke-width="1.2"/>
@@ -218,7 +218,8 @@ export default function () {
 
   <!-- globe interior -->
   <g clip-path="url(#sgClip)">${scene}</g>
-  <!-- glass -->
+  <!-- glass (a still layer, over the critter inside) -->
+  <g data-layer="glass">
   <circle cx="${gx}" cy="${gy}" r="${gr}" fill="url(#sgGlass)"/>
   <circle cx="${gx}" cy="${gy}" r="${gr}" fill="url(#sgSheen)"/>
   <circle cx="${gx}" cy="${gy}" r="${gr}" fill="none" stroke="#e8fbff" stroke-width="3" opacity="0.8"/>
@@ -231,6 +232,7 @@ export default function () {
   <!-- aurora reflection along the right rim -->
   <path d="M ${gx + gr * 0.94} ${gy - gr * 0.2} A ${gr * 0.96} ${gr * 0.96} 0 0 1 ${gx + gr * 0.5} ${gy + gr * 0.8}" fill="none" stroke="#5fffb8" stroke-width="5" stroke-linecap="round" opacity="0.4"/>
   <path d="M ${gx - gr * 0.9} ${gy + gr * 0.3} A ${gr * 0.95} ${gr * 0.95} 0 0 0 ${gx - gr * 0.55} ${gy + gr * 0.75}" fill="none" stroke="#b07cff" stroke-width="4" stroke-linecap="round" opacity="0.4"/>
+  </g>
 
   <!-- pedestal -->
   <path d="M ${gx - 100} 302 Q ${gx} 322 ${gx + 100} 302 L ${gx + 112} 344 Q ${gx} 362 ${gx - 112} 344 Z" fill="url(#sgWood)" stroke="#0e0c2a" stroke-width="3" stroke-linejoin="round"/>

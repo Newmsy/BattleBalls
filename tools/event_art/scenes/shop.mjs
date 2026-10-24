@@ -188,14 +188,17 @@ export default () => {
   ${canopy()}
   ${lantern(90, 152)}${lantern(630, 152)}
   ${stringLights(78, 114, 642, 114, 7, 12, BULBS, 5)}
-  ${shopkeeper(360, 238, 82)}
+  ${"" /* living layers (render.mjs): the shopkeeper idles behind the counter, the customers bob */}
+  <g data-layer="keeper" data-move="idle 4 0.6 0">${shopkeeper(360, 238, 82)}</g>
+  <g data-layer="counter">
   ${counter()}
   ${displayStand(206, 314)}
   ${jar(528, 314)}
   ${coin(452, 306, 13, { rot: 20, sy: 0.4, glow: false })}
   ${coin(474, 309, 12, { rot: -10, sy: 0.4, glow: false })}
   ${coin(590, 300, 14, { rot: 15, sy: 0.85, glow: false })}
+  </g>
   <ellipse cx="360" cy="380" rx="240" ry="60" fill="#ffb86b" opacity="0.10" filter="url(#bl24)"/>
-  ${customer(96, 446, 74, "#3EA8FF", 1)}${customer(650, 468, 62, "#5CFF9A", -1)}
+  <g data-layer="customers" data-move="bob 4 0.5 0.3">${customer(96, 446, 74, "#3EA8FF", 1)}${customer(650, 468, 62, "#5CFF9A", -1)}</g>
   ${sparkle(620, 250, 6)}${sparkle(100, 200, 5, "#c8fff9", 0.8)}`);
 };

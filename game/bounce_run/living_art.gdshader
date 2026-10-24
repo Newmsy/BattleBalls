@@ -1,14 +1,26 @@
-// A painting that breathes: up to four soft elliptical spots of the picture
-// bob, sway or glow, plus a slow light sweep. Render only. The time comes
-// from LivingArt (a uniform, not TIME) so it only redraws on the shared
-// idle clock and stays cheap on battery.
+// A painting that breathes. Its moving parts are separate cut-out layers
+// (render.mjs data-layer parts) drawn over the background plate, each moved
+// whole (bob, sway, breathe, idle) around its pivot, so nothing smears.
+// Up to four soft spots glow or flicker, plus a slow light sweep. Render
+// only. The time comes from LivingArt (a uniform, not TIME) so it only
+// redraws on the shared idle clock and stays cheap on battery.
 shader_type canvas_item;
 
 uniform float t = 0.0;
 uniform int count = 0;
 uniform vec4 spot_rect[4]; // centre x, centre y, radius x, radius y (UV)
-uniform vec4 spot_move[4]; // kind (1 bob, 2 sway, 3 glow, 4 flicker), amount, speed (Hz), phase
+uniform vec4 spot_move[4]; // kind (3 glow, 4 flicker), amount, speed (Hz), phase
 uniform vec4 glow_col[4];
+uniform vec2 art_px = vec2(720.0, 440.0); // the painting's size in art pixels
+uniform int layers = 0;
+uniform sampler2D lay0 : filter_linear, repeat_disable;
+uniform sampler2D lay1 : filter_linear, repeat_disable;
+uniform sampler2D lay2 : filter_linear, repeat_disable;
+uniform sampler2D lay3 : filter_linear, repeat_disable;
+uniform vec4 lay_rect[4]; // x, y, w, h (art px)
+uniform vec4 lay_move[4]; // kind (0 still, 1 bob, 2 sway, 3 breathe, 4 idle), amount, speed (Hz), phase
+uniform vec2 lay_pivot[4]; // art px
+uniform int lay_parent[4]; // the layer it rides along with, -1 none
 uniform float sweep = 0.0; // 1 = a soft light band crosses now and then
 // Home door paintings (HomePainting) also round their corners and darken
 // their top and bottom under the door's words. px_size 0 turns this off.
@@ -17,9 +29,11 @@ uniform float corner = 0.0; // corner radius in pixels
 uniform vec4 fade = vec4(0.0); // top fade end (0-1 of the height), its strength, bottom fade start, its strength
 uniform vec3 fade_col = vec3(0.05, 0.06, 0.15);
 varying vec2 local;
+varying vec4 modulate;
 
 void vertex() {
 	local = VERTEX;
+	modulate = COLOR;
 }
 
 float mask(vec2 uv, vec4 r) {
@@ -27,21 +41,56 @@ float mask(vec2 uv, vec4 r) {
 	return 1.0 - smoothstep(0.55, 1.0, length(d));
 }
 
+// Where art point p sits on layer i before the layer's own motion.
+vec2 unmove(int i, vec2 p) {
+	vec4 m = lay_move[i];
+	if (m.x < 0.5) {
+		return p;
+	}
+	float w = sin(6.2831853 * (t * m.z + m.w));
+	vec2 q = p - lay_pivot[i];
+	if (m.x < 1.5) {
+		q.y += m.y * w; // bob
+	} else if (m.x < 2.5) {
+		float a = -radians(m.y) * w; // sway
+		q = mat2(vec2(cos(a), sin(a)), vec2(-sin(a), cos(a))) * q;
+	} else if (m.x < 3.5) {
+		q /= vec2(1.0 - 0.5 * m.y * w, 1.0 + m.y * w); // breathe
+	} else {
+		float h = 0.5 + 0.5 * w; // idle: hop up and stretch a touch, settle and squash
+		q.y += m.y * h;
+		q /= vec2(1.0 - 0.012 * w, 1.0 + 0.024 * w);
+	}
+	return q + lay_pivot[i];
+}
+
+vec4 layer_px(int i, vec2 uv) {
+	if (i == 0) return texture(lay0, uv);
+	if (i == 1) return texture(lay1, uv);
+	if (i == 2) return texture(lay2, uv);
+	return texture(lay3, uv);
+}
+
 void fragment() {
 	vec2 uv = UV;
-	vec3 add = vec3(0.0);
+	vec4 c = texture(TEXTURE, uv);
+	vec2 p = UV * art_px;
 	for (int i = 0; i < 4; i++) {
-		if (i >= count) break;
-		vec4 r = spot_rect[i];
-		vec4 m = spot_move[i];
-		float w = sin(6.2831853 * (t * m.z + m.w));
-		if (m.x < 1.5) {
-			uv.y -= m.y * w * mask(UV, r); // bob
-		} else if (m.x < 2.5) {
-			uv.x -= m.y * w * mask(UV, r) * (r.y + r.w - UV.y) / (2.0 * r.w); // sway, pinned at the bottom
+		if (i >= layers) break;
+		vec2 q = p;
+		if (lay_parent[i] >= 0) {
+			q = unmove(lay_parent[i], q);
+		}
+		q = unmove(i, q);
+		vec2 luv = (q - lay_rect[i].xy) / lay_rect[i].zw;
+		if (luv.x >= 0.0 && luv.y >= 0.0 && luv.x <= 1.0 && luv.y <= 1.0) {
+			vec4 l = layer_px(i, luv);
+			float a = l.a + c.a * (1.0 - l.a);
+			c.rgb = a > 0.0 ? (l.rgb * l.a + c.rgb * c.a * (1.0 - l.a)) / a : c.rgb;
+			c.a = a;
 		}
 	}
-	vec4 c = texture(TEXTURE, uv);
+	vec3 add = vec3(0.0);
 	for (int i = 0; i < 4; i++) {
 		if (i >= count) break;
 		vec4 m = spot_move[i];
@@ -65,5 +114,8 @@ void fragment() {
 		vec2 q = abs(local - px_size * 0.5) - (px_size * 0.5 - corner);
 		a *= 1.0 - smoothstep(-0.75, 0.75, length(max(q, 0.0)) - corner);
 	}
-	COLOR = vec4(rgb, a) * COLOR;
+	// Multiplying by the picture once more is the deeper, richer look the
+	// paintings have always had in game (fragment COLOR used to carry the
+	// texture), now applied to the composite so the layers get it too.
+	COLOR = vec4(rgb, a) * c * modulate;
 }

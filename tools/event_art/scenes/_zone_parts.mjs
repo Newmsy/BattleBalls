@@ -35,10 +35,11 @@ export function stagePath(gx, gy, { top = "#3a2a50", hi = "#55406e", side = "#14
 export const hero = (rim = "#ffb347", x = 150, y = 398) =>
   `${shadow(x, y + 30, 26, 0.6)}${critter(x, y, 26, "#7b77ff", { acc: "antenna", mood: "determined", look: [0.7, -0.3], rim, rimSide: 1 })}`;
 
-// The zone's guardian on a little rise beside the gate.
+// The zone's guardian on a little rise beside the gate, idling on its own
+// living layer (render.mjs).
 export const guardian = (x, y, col, acc, rim, rock = "#2a1840") =>
   `${shadow(x, y + 40, 30, 0.6)}<path d="M ${x - 28} ${y + 44} Q ${x} ${y + 14} ${x + 30} ${y + 44} Z" fill="${rock}" stroke="#0b0614" stroke-width="2"/>
-  ${critter(x, y, 26, col, { acc, mood: "determined", look: [-0.6, 0.2], rim, rimSide: -1 })}`;
+  <g data-layer="guardian" data-move="idle 3 0.6 0">${critter(x, y, 26, col, { acc, mood: "determined", look: [-0.6, 0.2], rim, rimSide: -1 })}</g>`;
 
 // Darkens the left side a little so the door title reads over any painting.
 export const leftFade = () => `<defs><linearGradient id="zpL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0D0F26" stop-opacity="0.6"/><stop offset="0.36" stop-color="#0D0F26" stop-opacity="0"/></linearGradient></defs>

@@ -287,11 +287,12 @@ export default function () {
 
   <!-- the trader -->
   <ellipse cx="${cx + 15}" cy="${cy + r * 0.95}" rx="${r * 1.6}" ry="${r * 0.25}" fill="#000" opacity="0.4" filter="url(#tpBlur6)"/>
-  ${crab(cx, cy, r)}
+  <!-- living layers (render.mjs): the trader idles, the trade bubbles float -->
+  <g data-layer="crab" data-move="idle 3 0.6 0">${crab(cx, cy, r)}</g>
 
   <!-- trade bubbles -->
-  ${bubble(bl[0], bl[1], bl[2], mini(bl[0], bl[1] + 2, 34, "#5CFF9A", { look: [0.4, 0.1] }), false)}
-  ${bubble(br[0], br[1], br[2], mini(br[0], br[1] + 2, 37, "#C9A6FF", { look: [-0.4, 0.1], mood: "o" }), true)}
+  <g data-layer="left" data-move="bob 6 0.5 0">${bubble(bl[0], bl[1], bl[2], mini(bl[0], bl[1] + 2, 34, "#5CFF9A", { look: [0.4, 0.1] }), false)}</g>
+  <g data-layer="right" data-move="bob 6 0.5 0.5">${bubble(br[0], br[1], br[2], mini(br[0], br[1] + 2, 37, "#C9A6FF", { look: [-0.4, 0.1], mood: "o" }), true)}</g>
 
   <!-- foreground rocks, framing the pool -->
   ${rock("M -10 440 L -10 372 Q 30 350 80 366 Q 130 380 150 420 L 160 440 Z", "#141236", "#3a3a8a")}

@@ -289,7 +289,7 @@ export default function () {
 
   ${sprinkles}
   ${rolled}
-  ${critter}
+  <g data-layer="critter" data-move="idle 4 0.7 0">${critter}</g>
   ${motes}
   ${twinkle(214, 70, 5, "#ffe6f6", 0.8)}${twinkle(520, 56, 6, "#ffe6f6", 0.7)}
   <!-- foreground gumdrops, out of focus -->

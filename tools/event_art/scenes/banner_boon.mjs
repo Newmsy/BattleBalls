@@ -129,15 +129,15 @@ export default () =>
   ${rays()}
   ${motes(17, 24, 90, 60, 650, 380, [TEAL, GOLD, VIO])}
   ${pedestal()}
-  ${orb()}
+  <g data-layer="orb" data-move="bob 6 0.5 0">${orb()}</g>
   ${sparks()}
   <!-- the happy critter, looking up at its new boon -->
   <circle cx="198" cy="330" r="80" fill="${FAM.sweet}" opacity="0.25" filter="url(#bl24)"/>
   ${shadow(198, 392, 52, 0.55)}
-  ${critter(198, 340, 56, FAM.sweet, { acc: "ears", mood: "wow", look: [0.75, -0.65], rim: "#c8fff9", rimSide: 1, tilt: 8 })}
+  <g data-layer="hero" data-move="idle 4 0.6 0.4">${critter(198, 340, 56, FAM.sweet, { acc: "ears", mood: "wow", look: [0.75, -0.65], rim: "#c8fff9", rimSide: 1, tilt: 8 })}</g>
   ${sparkle(256, 262, 10, "#fff")}
   ${sparkle(140, 286, 6, "#ffd0ea", 0.8)}
   <!-- a tiny friend peeking from the right -->
   ${shadow(560, 380, 30, 0.5)}
-  ${critter(560, 360, 30, FAM.frost, { acc: "crystal", mood: "cheer", tilt: -10 })}
+  <g data-layer="friend" data-move="bob 5 0.7 0.1">${critter(560, 360, 30, FAM.frost, { acc: "crystal", mood: "cheer", tilt: -10 })}</g>
   ${edges()}`);

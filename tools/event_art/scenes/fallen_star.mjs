@@ -227,7 +227,7 @@ export default function () {
   ${clods}
   <!-- light spill on the meadow -->
   <ellipse cx="${cx}" cy="${cy + 40}" rx="260" ry="40" fill="#ffd23f" opacity="0.12" filter="url(#fsBlur18)"/>
-  ${critter}
+  <g data-layer="critter" data-move="idle 4 0.6 0">${critter}</g>
   ${bits}
   ${rocks}
   ${flower(112, 372, "#8fe6ff")}${flower(612, 372, "#ff7ac8")}${flower(640, 388, "#ffe08a")}

@@ -66,6 +66,22 @@ the same layout to screen-record. The export preset's `head_include` turns on
 `?pve=1-3&auto=1` plays campaign stage 1-3 on a fresh, unsaved profile.
 `?demo=1` loads the filled-in sample profile (unsaved), for previews and the smoke test.
 
+## Painted screens and living art
+
+Paintings (Bounce Run events, banners, shop, the Home doors) are SVG scenes
+in `tools/event_art/scenes/*.mjs`, rendered by `NODE_PATH=$(npm root -g) node
+tools/event_art/render.mjs [name ...]` into PNGs (see the header of
+`render.mjs`). To make part of a painting move, wrap it in
+`<g data-layer="name" data-move="idle 4 0.7 0">`: the renderer writes the
+picture without it plus a cut-out of it (and a blink frame when it has
+`eye()` eyes), and `game/bounce_run/living_layers.gd`. In game,
+`LivingArt.make(id, path)` (or `material_for()` + `animate()` on your own
+Control, like `game/ui/home_painting.gd`) draws the layers back and moves each
+one whole (bob, sway, breathe, idle), so the flat picture is never warped.
+Glows and flickers are `LivingArt.SPECS` spots. At most 4 layers and 4 spots
+per painting; a static part drawn over a moving one must be a still layer.
+`tools/event_art/preview.gd` records a painting's idle for review.
+
 ## Icon and loading screen
 
 All brand art is drawn in code in `tools/brand/designs.mjs` (Neon Critters
