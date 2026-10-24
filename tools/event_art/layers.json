@@ -1,0 +1,1818 @@
+{
+ "banner_boon": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "orb",
+    "move": "bob 6 0.5 0",
+    "pivot": [
+     372,
+     254
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     226,
+     4,
+     292,
+     292
+    ]
+   },
+   {
+    "id": "hero",
+    "move": "idle 4 0.6 0.4",
+    "pivot": [
+     209,
+     412
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     146,
+     251,
+     122,
+     156
+    ]
+   },
+   {
+    "id": "friend",
+    "move": "bob 5 0.7 0.1",
+    "pivot": [
+     555,
+     399
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     521,
+     311,
+     69,
+     86
+    ]
+   }
+  ]
+ },
+ "banner_defeat": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "sea",
+    "move": "breathe 0.025 0.3 0",
+    "pivot": [
+     244,
+     404
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     159,
+     263,
+     169,
+     146
+    ]
+   },
+   {
+    "id": "sweet",
+    "move": "breathe 0.025 0.3 0.5",
+    "pivot": [
+     476,
+     385
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     427,
+     265,
+     98,
+     119
+    ]
+   },
+   {
+    "id": "sleepy",
+    "move": "breathe 0.04 0.25 0",
+    "pivot": [
+     533,
+     401
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     498,
+     310,
+     74,
+     83
+    ]
+   },
+   {
+    "id": "zzz",
+    "move": "bob 5 0.4 0",
+    "pivot": [
+     602,
+     312
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     570,
+     246,
+     64,
+     70
+    ]
+   }
+  ]
+ },
+ "banner_draft": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "pick0",
+    "move": "idle 4 0.6 0.00",
+    "pivot": [
+     218,
+     355
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     162,
+     218,
+     113,
+     134
+    ]
+   },
+   {
+    "id": "pick1",
+    "move": "idle 4 0.6 0.33",
+    "pivot": [
+     362,
+     374
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     296,
+     184,
+     131,
+     193
+    ]
+   },
+   {
+    "id": "pick2",
+    "move": "idle 4 0.6 0.67",
+    "pivot": [
+     506,
+     356
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     448,
+     219,
+     112,
+     134
+    ]
+   }
+  ]
+ },
+ "banner_tier_up": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "critter",
+    "move": "idle 6 0.6 0",
+    "pivot": [
+     363,
+     315
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     294,
+     102,
+     136,
+     216
+    ]
+   },
+   {
+    "id": "ring",
+    "move": "still",
+    "pivot": [
+     360,
+     366
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     216,
+     141,
+     288,
+     243
+    ]
+   }
+  ]
+ },
+ "banner_victory": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "sides",
+    "move": "bob 6 0.9 0",
+    "pivot": [
+     362,
+     343
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     200,
+     212,
+     321,
+     126
+    ]
+   },
+   {
+    "id": "champ",
+    "move": "idle 7 0.9 0.5",
+    "pivot": [
+     362,
+     350
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     300,
+     226,
+     123,
+     126
+    ]
+   },
+   {
+    "id": "crenels",
+    "move": "still",
+    "pivot": [
+     360,
+     354
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     123,
+     311,
+     474,
+     46
+    ]
+   },
+   {
+    "id": "crown",
+    "move": "still",
+    "pivot": [
+     360,
+     263
+    ],
+    "blink": false,
+    "follow": "champ",
+    "rect": [
+     309,
+     171,
+     102,
+     102
+    ]
+   }
+  ]
+ },
+ "beehive": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "hive",
+    "move": "sway 1.5 0.5 0",
+    "pivot": [
+     360,
+     58
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     126,
+     0,
+     468,
+     364
+    ]
+   },
+   {
+    "id": "bees1",
+    "move": "bob 6 1.4 0",
+    "pivot": [
+     388,
+     296
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     153,
+     109,
+     470,
+     195
+    ]
+   },
+   {
+    "id": "bees2",
+    "move": "bob 6 1.3 0.5",
+    "pivot": [
+     394,
+     302
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     205,
+     89,
+     378,
+     218
+    ]
+   }
+  ]
+ },
+ "candy_fountain": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "fizz",
+    "move": "breathe 0.04 0.9 0",
+    "pivot": [
+     360,
+     208
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     238,
+     0,
+     239,
+     284
+    ]
+   },
+   {
+    "id": "critter",
+    "move": "bob 5 0.7 0.3",
+    "pivot": [
+     522,
+     333
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     472,
+     244,
+     100,
+     100
+    ]
+   },
+   {
+    "id": "basin",
+    "move": "still",
+    "pivot": [
+     360,
+     371
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     183,
+     298,
+     354,
+     85
+    ]
+   },
+   {
+    "id": "paws",
+    "move": "still",
+    "pivot": [
+     522,
+     326
+    ],
+    "blink": false,
+    "follow": "critter",
+    "rect": [
+     490,
+     308,
+     64,
+     21
+    ]
+   }
+  ]
+ },
+ "charge_pad": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "sleeper",
+    "move": "breathe 0.03 0.3 0",
+    "pivot": [
+     371,
+     357
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     278,
+     135,
+     185,
+     224
+    ]
+   }
+  ]
+ },
+ "ember_forge": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "critter",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     559,
+     380
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     450,
+     204,
+     200,
+     186
+    ]
+   }
+  ]
+ },
+ "fallen_star": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "critter",
+    "move": "idle 4 0.6 0",
+    "pivot": [
+     176,
+     368
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     104,
+     238,
+     144,
+     144
+    ]
+   }
+  ]
+ },
+ "frozen_vault": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "critter",
+    "move": "idle 4 0.6 0",
+    "pivot": [
+     150,
+     381
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     95,
+     281,
+     110,
+     112
+    ]
+   }
+  ]
+ },
+ "ghost_lantern": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "tail",
+    "move": "still",
+    "pivot": [
+     224,
+     245
+    ],
+    "blink": false,
+    "follow": "lantern",
+    "rect": [
+     113,
+     163,
+     229,
+     86
+    ]
+   },
+   {
+    "id": "lantern",
+    "move": "bob 7 0.5 0",
+    "pivot": [
+     364,
+     233
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     288,
+     31,
+     152,
+     204
+    ]
+   },
+   {
+    "id": "critter",
+    "move": "bob 3 0.6 0.5",
+    "pivot": [
+     229,
+     377
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     182,
+     282,
+     94,
+     97
+    ]
+   },
+   {
+    "id": "stone",
+    "move": "still",
+    "pivot": [
+     179,
+     418
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     127,
+     303,
+     102,
+     118
+    ]
+   }
+  ]
+ },
+ "glitch_rift": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "orb",
+    "move": "bob 6 0.6 0",
+    "pivot": [
+     362,
+     354
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     206,
+     84,
+     312,
+     312
+    ]
+   },
+   {
+    "id": "critter",
+    "move": "idle 4 0.7 0.4",
+    "pivot": [
+     563,
+     335
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     522,
+     229,
+     94,
+     99
+    ]
+   }
+  ]
+ },
+ "glow_chest": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "floaters",
+    "move": "bob 6 0.6 0",
+    "pivot": [
+     376,
+     199
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     203,
+     7,
+     345,
+     197
+    ]
+   },
+   {
+    "id": "gawper",
+    "move": "idle 4 0.55 0.3",
+    "pivot": [
+     153,
+     391
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     96,
+     271,
+     113,
+     127
+    ]
+   }
+  ]
+ },
+ "gumball_machine": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "critter",
+    "move": "idle 4 0.7 0",
+    "pivot": [
+     591,
+     402
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     510,
+     256,
+     156,
+     160
+    ]
+   }
+  ]
+ },
+ "haunted_mirror": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "ghost",
+    "move": "bob 6 0.45 0",
+    "pivot": [
+     384,
+     340
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     280,
+     95,
+     208,
+     253
+    ]
+   },
+   {
+    "id": "frame",
+    "move": "still",
+    "pivot": [
+     380,
+     380
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     238,
+     20,
+     284,
+     363
+    ]
+   },
+   {
+    "id": "critter",
+    "move": "idle 3 0.4 0.5",
+    "pivot": [
+     154,
+     416
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     92,
+     263,
+     123,
+     155
+    ]
+   }
+  ]
+ },
+ "home_zone_bramble_hollow": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "guardian",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     677,
+     282
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     647,
+     212,
+     60,
+     72
+    ]
+   }
+  ]
+ },
+ "home_zone_circuit_lab": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "guardian",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     675,
+     284
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     645,
+     196,
+     60,
+     90
+    ]
+   }
+  ]
+ },
+ "home_zone_frostbite_caves": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "guardian",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     671,
+     282
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     641,
+     209,
+     60,
+     75
+    ]
+   }
+  ]
+ },
+ "home_zone_glow_garden": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "guardian",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     671,
+     282
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     641,
+     212,
+     60,
+     72
+    ]
+   }
+  ]
+ },
+ "home_zone_haunted_arcade": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "guardian",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     677,
+     282
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     647,
+     215,
+     60,
+     69
+    ]
+   }
+  ]
+ },
+ "home_zone_magma_core": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "guardian",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     669,
+     282
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     639,
+     195,
+     60,
+     89
+    ]
+   }
+  ]
+ },
+ "home_zone_starfall_rim": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "guardian",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     676,
+     282
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     641,
+     223,
+     70,
+     61
+    ]
+   }
+  ]
+ },
+ "jack_in_the_box": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "mobile",
+    "move": "sway 4 0.4 0",
+    "pivot": [
+     280,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     235,
+     0,
+     88,
+     90
+    ]
+   },
+   {
+    "id": "lid",
+    "move": "bob 3 0.8 0",
+    "pivot": [
+     389,
+     212
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     291,
+     168,
+     196,
+     48
+    ]
+   },
+   {
+    "id": "critter",
+    "move": "idle 4 0.9 0.3",
+    "pivot": [
+     624,
+     370
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     576,
+     276,
+     94,
+     96
+    ]
+   }
+  ]
+ },
+ "lava_bridge": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "critter",
+    "move": "idle 4 0.9 0",
+    "pivot": [
+     207,
+     348
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     167,
+     268,
+     78,
+     89
+    ]
+   }
+  ]
+ },
+ "lost_egg": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "egg",
+    "move": "sway 3 0.8 0",
+    "pivot": [
+     362,
+     312
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     259,
+     125,
+     181,
+     196
+    ]
+   },
+   {
+    "id": "twigs",
+    "move": "still",
+    "pivot": [
+     363,
+     366
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     180,
+     311,
+     365,
+     62
+    ]
+   }
+  ]
+ },
+ "room_bazaar": {
+  "size": [
+   240,
+   220
+  ],
+  "layers": [
+   {
+    "id": "seller",
+    "move": "idle 3 0.7 0",
+    "pivot": [
+     121,
+     156
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     91,
+     89,
+     60,
+     69
+    ]
+   },
+   {
+    "id": "counter",
+    "move": "still",
+    "pivot": [
+     120,
+     196
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     16,
+     126,
+     208,
+     74
+    ]
+   }
+  ]
+ },
+ "room_defence": {
+  "size": [
+   240,
+   220
+  ],
+  "layers": [
+   {
+    "id": "l",
+    "move": "idle 2 0.8 0",
+    "pivot": [
+     61,
+     87
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     39,
+     38,
+     43,
+     51
+    ]
+   },
+   {
+    "id": "m",
+    "move": "idle 2 0.7 0.4",
+    "pivot": [
+     121,
+     87
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     95,
+     11,
+     51,
+     78
+    ]
+   },
+   {
+    "id": "r",
+    "move": "idle 2 0.8 0.7",
+    "pivot": [
+     181,
+     87
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     159,
+     25,
+     43,
+     64
+    ]
+   }
+  ]
+ },
+ "scrap_robot": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "robot",
+    "move": "sway 1.5 0.5 0",
+    "pivot": [
+     389,
+     325
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     288,
+     95,
+     192,
+     214
+    ]
+   },
+   {
+    "id": "junk",
+    "move": "still",
+    "pivot": [
+     424,
+     420
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     280,
+     273,
+     290,
+     150
+    ]
+   },
+   {
+    "id": "critter",
+    "move": "idle 4 0.8 0",
+    "pivot": [
+     244,
+     328
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     174,
+     206,
+     143,
+     124
+    ]
+   }
+  ]
+ },
+ "shop": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "keeper",
+    "move": "idle 4 0.6 0",
+    "pivot": [
+     360,
+     336
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     242,
+     120,
+     236,
+     236
+    ]
+   },
+   {
+    "id": "counter",
+    "move": "still",
+    "pivot": [
+     360,
+     446
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     46,
+     172,
+     628,
+     268
+    ]
+   },
+   {
+    "id": "customers",
+    "move": "bob 4 0.5 0.3",
+    "pivot": [
+     367,
+     530
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     20,
+     367,
+     691,
+     73
+    ]
+   }
+  ]
+ },
+ "snow_globe": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "critter",
+    "move": "idle 4 0.6 0",
+    "pivot": [
+     371,
+     278
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     321,
+     193,
+     101,
+     88
+    ]
+   },
+   {
+    "id": "glass",
+    "move": "still",
+    "pivot": [
+     360,
+     318
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     234,
+     70,
+     252,
+     252
+    ]
+   }
+  ]
+ },
+ "star_map": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "critter",
+    "move": "idle 3 0.5 0",
+    "pivot": [
+     131,
+     418
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     64,
+     298,
+     134,
+     135
+    ]
+   }
+  ]
+ },
+ "sunken_wreck": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "sleeper",
+    "move": "breathe 0.025 0.4 0",
+    "pivot": [
+     552,
+     343.12
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     410,
+     143,
+     284,
+     219
+    ]
+   },
+   {
+    "id": "snore",
+    "move": "bob 5 0.8 0.3",
+    "pivot": [
+     475,
+     273
+    ],
+    "blink": false,
+    "follow": "sleeper",
+    "rect": [
+     445,
+     18,
+     60,
+     258
+    ]
+   },
+   {
+    "id": "kelpl",
+    "move": "sway 3 0.5 0",
+    "pivot": [
+     40,
+     440
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     3,
+     181,
+     78,
+     259
+    ]
+   },
+   {
+    "id": "kelpr",
+    "move": "sway 3 0.45 0.4",
+    "pivot": [
+     680,
+     440
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     643,
+     161,
+     74,
+     279
+    ]
+   }
+  ]
+ },
+ "tide_pool_trader": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "crab",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     362,
+     333
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     149,
+     98,
+     426,
+     259
+    ]
+   },
+   {
+    "id": "left",
+    "move": "bob 6 0.5 0",
+    "pivot": [
+     178,
+     231
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     77,
+     55,
+     202,
+     202
+    ]
+   },
+   {
+    "id": "right",
+    "move": "bob 6 0.5 0.5",
+    "pivot": [
+     552,
+     228
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     444,
+     40,
+     216,
+     216
+    ]
+   }
+  ]
+ },
+ "training_dummy": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "dummy",
+    "move": "sway 4 0.9 0",
+    "pivot": [
+     360,
+     330
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     293,
+     68,
+     165,
+     260
+    ]
+   }
+  ]
+ },
+ "vending_machine": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "machine",
+    "move": "sway 0.5 3.1 0",
+    "pivot": [
+     368,
+     393
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     192,
+     48,
+     350,
+     345
+    ]
+   }
+  ]
+ },
+ "vs_duo": {
+  "size": [
+   360,
+   280
+  ],
+  "layers": [
+   {
+    "id": "a",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     121,
+     239
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     93,
+     175,
+     55,
+     67
+    ]
+   },
+   {
+    "id": "b",
+    "move": "idle 4 1.0 0.3",
+    "pivot": [
+     71,
+     255
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     43,
+     191,
+     55,
+     67
+    ]
+   },
+   {
+    "id": "c",
+    "move": "idle 3 0.8 0.5",
+    "pivot": [
+     241,
+     239
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     213,
+     159,
+     55,
+     83
+    ]
+   },
+   {
+    "id": "d",
+    "move": "idle 4 1.0 0.8",
+    "pivot": [
+     291,
+     255
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     263,
+     193,
+     55,
+     65
+    ]
+   }
+  ]
+ },
+ "vs_friends": {
+  "size": [
+   360,
+   280
+  ],
+  "layers": [
+   {
+    "id": "blue",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     127,
+     230
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     93,
+     151,
+     68,
+     82
+    ]
+   },
+   {
+    "id": "pink",
+    "move": "idle 3 0.6 0.5",
+    "pivot": [
+     235,
+     230
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     201,
+     149,
+     68,
+     84
+    ]
+   },
+   {
+    "id": "gift",
+    "move": "bob 5 0.5 0.2",
+    "pivot": [
+     180,
+     176
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     140,
+     107,
+     80,
+     83
+    ]
+   },
+   {
+    "id": "heart",
+    "move": "bob 4 0.7 0.6",
+    "pivot": [
+     180,
+     120
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     162,
+     95,
+     36,
+     29
+    ]
+   }
+  ]
+ },
+ "vs_ghost": {
+  "size": [
+   720,
+   240
+  ],
+  "layers": [
+   {
+    "id": "me",
+    "move": "idle 3 0.7 0",
+    "pivot": [
+     331,
+     208
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     295,
+     124,
+     72,
+     87
+    ]
+   },
+   {
+    "id": "g1",
+    "move": "bob 6 0.45 0",
+    "pivot": [
+     600,
+     192
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     549,
+     91,
+     102,
+     106
+    ]
+   },
+   {
+    "id": "g2",
+    "move": "bob 6 0.5 0.35",
+    "pivot": [
+     540,
+     212
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     485,
+     102,
+     110,
+     116
+    ]
+   },
+   {
+    "id": "g3",
+    "move": "bob 6 0.42 0.7",
+    "pivot": [
+     660,
+     224
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     601,
+     106,
+     118,
+     124
+    ]
+   }
+  ]
+ },
+ "vs_quick": {
+  "size": [
+   720,
+   200
+  ],
+  "layers": [
+   {
+    "id": "me",
+    "move": "idle 4 0.9 0",
+    "pivot": [
+     331,
+     185
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     293,
+     93,
+     76,
+     94
+    ]
+   },
+   {
+    "id": "foe",
+    "move": "bob 4 0.6 0.4",
+    "pivot": [
+     521,
+     188
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     489,
+     116,
+     64,
+     74
+    ]
+   }
+  ]
+ },
+ "wandering_rival": {
+  "size": [
+   720,
+   440
+  ],
+  "layers": [
+   {
+    "id": "scarf",
+    "move": "sway 7 1.1 0",
+    "pivot": [
+     296.64,
+     323.44
+    ],
+    "blink": false,
+    "follow": "rival",
+    "rect": [
+     141,
+     302,
+     173,
+     95
+    ]
+   },
+   {
+    "id": "band",
+    "move": "sway 6 0.9 0.3",
+    "pivot": [
+     441.6,
+     213.6
+    ],
+    "blink": false,
+    "follow": "rival",
+    "rect": [
+     420,
+     164,
+     92,
+     74
+    ]
+   },
+   {
+    "id": "rival",
+    "move": "idle 4 0.7 0",
+    "pivot": [
+     353,
+     370
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     248,
+     151,
+     211,
+     212
+    ]
+   },
+   {
+    "id": "scan",
+    "move": "still",
+    "pivot": [
+     360,
+     284
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     0,
+     210,
+     720,
+     76
+    ]
+   }
+  ]
+ }
+}

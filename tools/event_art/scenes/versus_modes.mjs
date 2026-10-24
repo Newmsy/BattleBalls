@@ -43,11 +43,14 @@ const ghostArena = () => {
   <ellipse cx="480" cy="196" rx="280" ry="40" fill="none" stroke="#a98cff" stroke-width="3" opacity="0.7"/>
   <ellipse cx="480" cy="196" rx="280" ry="40" fill="none" stroke="${PINK}" stroke-width="10" opacity="0.18" filter="url(#bl6)"/>
   ${shadow(330, 204, 30, 0.6)}
-  ${critter(330, 172, 32, "#3fa9f5", { acc: "fin", mood: "determined", look: [0.9, 0], rim: "#c9b8ff", rimSide: 1 })}
-  ${ghostCritter(600, 144, 24, "#b07cff", "horns", 0.55)}${ghostCritter(540, 160, 26, "#8fe6ff", "crystal", 0.65)}${ghostCritter(660, 168, 28, "#ff9ae6", "ears", 0.75)}
+  ${mist}
+  <g data-layer="me" data-move="idle 3 0.7 0">${critter(330, 172, 32, "#3fa9f5", { acc: "fin", mood: "determined", look: [0.9, 0], rim: "#c9b8ff", rimSide: 1 })}</g>
+  <g data-layer="g1" data-move="bob 6 0.45 0">${ghostCritter(600, 144, 24, "#b07cff", "horns", 0.55)}</g>
+  <g data-layer="g2" data-move="bob 6 0.5 0.35">${ghostCritter(540, 160, 26, "#8fe6ff", "crystal", 0.65)}</g>
+  <g data-layer="g3" data-move="bob 6 0.42 0.7">${ghostCritter(660, 168, 28, "#ff9ae6", "ears", 0.75)}</g>
   ${sparkle(436, 160, 12, "#fff", 0.9)}${sparkle(452, 146, 5, CYAN, 0.9)}
   ${ghost(120, 70, 0.55, { o: 0.4, look: 1 })}
-  ${mist}${motes(6, 12, 200, 100, 720, 230, ["#c9b8ff", "#ffb3ec", "#9ad8ff"])}
+  ${motes(6, 12, 200, 100, 720, 230, ["#c9b8ff", "#ffb3ec", "#9ad8ff"])}
   ${fadeL(W, H, "gL", 0.8, 0.42)}`);
 };
 
@@ -65,9 +68,9 @@ const quick = () => {
   <path d="M 100 196 L 160 140 L 710 140 L 740 196 Z" fill="url(#qF)"/>
   ${posts}
   <path d="M 170 84 L 700 84 M 170 108 L 700 108" stroke="#ff4fd8" stroke-width="3" opacity="0.7"/>
-  ${shadow(330, 178, 34, 0.6)}${critter(330, 146, 34, "#ff7ac8", { acc: "ears", mood: "determined", look: [0.9, -0.1], rim: "#cfc8ff" })}
+  ${shadow(330, 178, 34, 0.6)}<g data-layer="me" data-move="idle 4 0.9 0">${critter(330, 146, 34, "#ff7ac8", { acc: "ears", mood: "determined", look: [0.9, -0.1], rim: "#cfc8ff" })}</g>
   <path d="M 276 128 l -18 -6 M 272 146 l -20 0 M 276 164 l -18 6" stroke="#cfc8ff" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
-  ${shadow(520, 182, 28, 0.5)}<g opacity="0.85">${critter(520, 156, 28, "#5a4a8a", { acc: "horns", mood: "determined", look: [-0.9, 0], blushOn: false })}</g>
+  ${shadow(520, 182, 28, 0.5)}<g data-layer="foe" data-move="bob 4 0.6 0.4"><g opacity="0.85">${critter(520, 156, 28, "#5a4a8a", { acc: "horns", mood: "determined", look: [-0.9, 0], blushOn: false })}</g></g>
   <circle cx="520" cy="156" r="40" fill="#8f7bff" opacity="0.15" filter="url(#bl12)"/>
   ${sparkle(426, 140, 10, "#fff", 0.9)}
   ${motes(9, 8, 200, 60, 720, 190, ["#cfc8ff", "#ffd36b"])}
@@ -87,10 +90,10 @@ const duo = () => {
   ${[24, 336].map((x) => `<rect x="${x - 6}" y="120" width="12" height="80" rx="3" fill="#ff4fd8"/><circle cx="${x}" cy="120" r="8" fill="#ffb3ec"/>`).join("")}
   ${ropeY.map((y, k) => `<path d="M 24 ${y - 30 + k * 6} L 336 ${y - 30 + k * 6}" stroke="${["#ff4fd8", "#fff0fb", "#5ce1ff"][k]}" stroke-width="3" opacity="0.75"/>`).join("")}
   ${shadow(70, 252, 24)}${shadow(120, 236, 24)}${shadow(240, 236, 24)}${shadow(290, 252, 24)}
-  ${critter(120, 212, 24, "#3fa9f5", { acc: "fin", mood: "determined", look: [0.9, 0] })}
-  ${critter(70, 228, 24, "#5fd068", { acc: "leaf", mood: "cheer", look: [0.9, 0] })}
-  ${critter(240, 212, 24, "#ff6a3d", { acc: "flame", mood: "determined", look: [-0.9, 0] })}
-  ${critter(290, 228, 24, "#ffc93c", { acc: "propeller", mood: "cheer", look: [-0.9, 0] })}
+  <g data-layer="a" data-move="idle 3 0.8 0">${critter(120, 212, 24, "#3fa9f5", { acc: "fin", mood: "determined", look: [0.9, 0] })}</g>
+  <g data-layer="b" data-move="idle 4 1.0 0.3">${critter(70, 228, 24, "#5fd068", { acc: "leaf", mood: "cheer", look: [0.9, 0] })}</g>
+  <g data-layer="c" data-move="idle 3 0.8 0.5">${critter(240, 212, 24, "#ff6a3d", { acc: "flame", mood: "determined", look: [-0.9, 0] })}</g>
+  <g data-layer="d" data-move="idle 4 1.0 0.8">${critter(290, 228, 24, "#ffc93c", { acc: "propeller", mood: "cheer", look: [-0.9, 0] })}</g>
   <circle cx="180" cy="210" r="18" fill="#fff0fb" opacity="0.5" filter="url(#bl8)"/>${sparkle(180, 210, 15, "#fff", 1)}${sparkle(194, 192, 6, GOLD, 0.9)}
   ${sky(3, 16, 0, 0, 360, 90)}
   ${motes(2, 8, 20, 90, 340, 260, ["#ffb3ec", "#ffd36b", "#9ad8ff"])}
@@ -111,13 +114,13 @@ const friends = () => {
   <path d="M 60 250 L 60 200 Q 60 184 76 184 L 284 184 Q 300 184 300 200 L 300 250 Z" fill="#6a3a8a" stroke="#1a0c2a" stroke-width="3"/>
   <rect x="44" y="214" width="272" height="44" rx="16" fill="#8a4aa8" stroke="#1a0c2a" stroke-width="3"/>
   <rect x="34" y="204" width="34" height="60" rx="14" fill="#7a4098" stroke="#1a0c2a" stroke-width="3"/><rect x="292" y="204" width="34" height="60" rx="14" fill="#7a4098" stroke="#1a0c2a" stroke-width="3"/>
-  ${critter(126, 196, 30, "#3fa9f5", { acc: "fin", mood: "cheer", look: [0.6, -0.2] })}
-  ${critter(234, 196, 30, "#ff7ac8", { acc: "ears", mood: "cheer", look: [-0.6, -0.2] })}
-  <g transform="translate(180 150)"><circle r="26" fill="#ffd36b" opacity="0.3" filter="url(#bl8)"/>
+  <g data-layer="blue" data-move="idle 3 0.6 0">${critter(126, 196, 30, "#3fa9f5", { acc: "fin", mood: "cheer", look: [0.6, -0.2] })}</g>
+  <g data-layer="pink" data-move="idle 3 0.6 0.5">${critter(234, 196, 30, "#ff7ac8", { acc: "ears", mood: "cheer", look: [-0.6, -0.2] })}</g>
+  <g data-layer="gift" data-move="bob 5 0.5 0.2"><g transform="translate(180 150)"><circle r="26" fill="#ffd36b" opacity="0.3" filter="url(#bl8)"/>
   <rect x="-18" y="-14" width="36" height="30" rx="5" fill="#45f5a6" stroke="#0e3a2a" stroke-width="2.5"/><rect x="-4" y="-14" width="8" height="30" fill="#ffd36b"/>
   <path d="M 0 -14 q -14 -12 -16 -2 q 4 6 16 2 q 12 4 16 -2 q -2 -10 -16 2 Z" fill="#ffd36b" stroke="#8a5a10" stroke-width="2"/>
-  <path d="M 4 -40 L -6 -24 L 1 -24 L -4 -12 L 8 -28 L 1 -28 L 6 -40 Z" fill="#5ce1ff" stroke="#0a3a5a" stroke-width="1.5"/></g>
-  <path d="M 180 104 q -8 -10 -14 -2 q -4 8 14 18 q 18 -10 14 -18 q -6 -8 -14 2 Z" fill="#ff6a8a" stroke="#7a1a3a" stroke-width="2" opacity="0.9"/>
+  <path d="M 4 -40 L -6 -24 L 1 -24 L -4 -12 L 8 -28 L 1 -28 L 6 -40 Z" fill="#5ce1ff" stroke="#0a3a5a" stroke-width="1.5"/></g></g>
+  <g data-layer="heart" data-move="bob 4 0.7 0.6"><path d="M 180 104 q -8 -10 -14 -2 q -4 8 14 18 q 18 -10 14 -18 q -6 -8 -14 2 Z" fill="#ff6a8a" stroke="#7a1a3a" stroke-width="2" opacity="0.9"/></g>
   ${motes(5, 8, 20, 100, 340, 260, ["#ffd36b", "#ff9ae6"])}
   ${fadeT(W, H, "fT", 0.85, 0.36)}`);
 };

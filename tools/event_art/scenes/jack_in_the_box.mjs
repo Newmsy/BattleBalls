@@ -293,7 +293,7 @@ export default function () {
   <path d="M 512 112 A 20 20 0 0 1 530 110" stroke="${TB}" stroke-width="2" fill="none" opacity="0.4"/>
 
   <!-- star mobile -->
-  ${mob(250, 40, 11, "#8fe6ff")}${mob(282, 68, 9, TB)}${mob(310, 30, 8, "#ff7ac8")}
+  <g data-layer="mobile" data-move="sway 4 0.4 0" data-pivot="280 0">${mob(250, 40, 11, "#8fe6ff")}${mob(282, 68, 9, TB)}${mob(310, 30, 8, "#ff7ac8")}</g>
   <path d="M 236 0 L 324 0" stroke="#4a4a80" stroke-width="2"/>
 
   <!-- skirting + floor -->
@@ -309,7 +309,8 @@ export default function () {
   <path d="M ${X + 10} ${Y - 2} L ${X + S + DX - 6} ${Y + DY + 2} L ${X + S + 120} -10 L ${X - 70} -10 Z" fill="url(#jbBeam)" opacity="0.6" filter="url(#jbBlurM)"/>
 
   ${box}
-  ${lidSvg}
+  <!-- living layers (render.mjs): the lid rattles, the mobile turns, the critter idles -->
+  <g data-layer="lid" data-move="bob 3 0.8 0">${lidSvg}</g>
   ${crank}
 
   <!-- scattered blocks, left -->
@@ -318,7 +319,7 @@ export default function () {
   ${block(186, 372, 40, "#ff7ac8", "heart", { rot: 14 })}
   ${block(470, 394, 34, "#b07cff", "triangle", { rot: -20, side: -1 })}
   ${drum}
-  ${critter}
+  <g data-layer="critter" data-move="idle 4 0.9 0.3">${critter}</g>
   ${motes}
   ${twinkle(X + S + DX + 18, Y + DY - 40, 7, "#fff1b0", 0.9)}
   ${twinkle(X - 22, Y - 28, 5, "#fff1b0", 0.7)}

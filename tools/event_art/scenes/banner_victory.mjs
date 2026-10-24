@@ -152,10 +152,12 @@ export default () =>
   ${confetti()}
   <!-- the champions -->
   ${shadow(258, 318, 46, 0.5)}${shadow(462, 318, 46, 0.5)}${shadow(360, 330, 56, 0.5)}
+  <g data-layer="sides" data-move="bob 6 0.9 0">
   ${critter(258, 282, 46, FAM.sea, { acc: "fin", mood: "cheer", tilt: -10, rim: GOLD, rimSide: 1 })}
   ${critter(462, 282, 46, FAM.nature, { acc: "leaf", mood: "cheer", tilt: 10, rim: GOLD, rimSide: -1 })}
-  ${critter(360, 286, 56, FAM.fire, { mood: "cheer", rim: GOLD, rimSide: 1 })}
-  ${crenels(true)}
-  ${crown(360, 222, 30)}
+  </g>
+  <g data-layer="champ" data-move="idle 7 0.9 0.5">${critter(360, 286, 56, FAM.fire, { mood: "cheer", rim: GOLD, rimSide: 1 })}</g>
+  <g data-layer="crenels">${crenels(true)}</g>
+  <g data-layer="crown" data-follow="champ">${crown(360, 222, 30)}</g>
   ${sparkle(198, 240, 9, "#fff4c0")}${sparkle(524, 236, 9, "#fff4c0")}${sparkle(410, 216, 7, "#fff")}
   ${edges(0.9)}`);

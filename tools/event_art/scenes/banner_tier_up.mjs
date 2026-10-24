@@ -118,8 +118,8 @@ export default () => {
   <!-- upward motion trail under the critter -->
   <path d="M ${CX - R * 0.8} ${CY + R * 0.4} L ${CX - R * 0.5} 338 L ${CX + R * 0.5} 338 L ${CX + R * 0.8} ${CY + R * 0.4} Z" fill="#fff4c0" opacity="0.35" filter="url(#bl8)"/>
   ${chevrons()}
-  ${critter(CX, CY, R, FAM.fire, { acc: "flame", mood: "determined", look: [0, -0.5], rim: "#fff4c0", rimSide: 1, sx: 0.94, sy: 1.06 })}
-  ${ringHalf(true)}
+  <g data-layer="critter" data-move="idle 6 0.6 0">${critter(CX, CY, R, FAM.fire, { acc: "flame", mood: "determined", look: [0, -0.5], rim: "#fff4c0", rimSide: 1, sx: 0.94, sy: 1.06 })}</g>
+  <g data-layer="ring">${ringHalf(true)}</g>
   ${starArc()}
   ${sp}
   ${edges()}`);
