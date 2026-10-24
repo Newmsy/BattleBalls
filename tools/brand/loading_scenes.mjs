@@ -2,8 +2,11 @@
 // moody scenes lit by glowing accents, glossy gradient critters with rim
 // light) that keep the layout of the painted loading picture: title at
 // the top, Count Nibbles centre stage on a ring, the cast round him.
+// The dusk scene is the loading picture (game/brand/loading.png); splash_art.gd
+// lays its live glows over it at the ART_* spots, so keep those in step.
 // Usage (from the repo root, after `cd smoke && npm ci`):
 //   node tools/brand/loading_scenes.mjs [outdir]   -> <outdir>/loading_<name>.png
+//   cp <outdir>/loading_dusk.png game/brand/loading.png
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
@@ -409,7 +412,7 @@ function groundDetail() {
 
 const svg = (body_) => `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${defs}${body_}</svg>`;
 
-// --- Option A: Dusk arena -----------------------------------------------
+// --- Dusk arena -----------------------------------------------------------
 // The painted picture's sunset at dusk: a deep indigo sky with stars, a
 // low magenta-gold sun behind the title, layered mountains rim-lit pink,
 // and the neon grid and ring glowing out of the dark.
@@ -505,69 +508,6 @@ function dusk() {
   for (let i = 0; i < 40; i++) {
     const x = rnd() * W, y = 1000 + rnd() * 800;
     s += `<circle cx="${x}" cy="${y}" r="${2 + rnd() * 3}" fill="${i % 3 ? "#ff9ae8" : "#9ae6ff"}" opacity="${0.3 + rnd() * 0.5}"/>`;
-  }
-  return svg(s);
-}
-
-// --- Option B: Spotlight stage --------------------------------------------
-// Night show: a dark blue stage under swinging spotlights and festoon
-// lights, the title hung like a marquee, Nibbles on a lit round podium and
-// the cast in the glow around him, confetti in the air.
-function stage() {
-  let s = `<defs>
-    <linearGradient id="bsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#070a24"/><stop offset="0.5" stop-color="#1a1650"/><stop offset="0.62" stop-color="#2c1c66"/><stop offset="1" stop-color="#0c0820"/></linearGradient>
-    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6d0" stop-opacity="0.5"/><stop offset="1" stop-color="#fff6d0" stop-opacity="0"/></linearGradient>
-    <radialGradient id="pod" cx="0.5" cy="0.4" r="0.6"><stop offset="0" stop-color="#5a3aa8"/><stop offset="1" stop-color="#22145a"/></radialGradient>
-  </defs>
-  <rect width="${W}" height="${H}" fill="url(#bsky)"/>`;
-  // Curtains at the sides.
-  for (const side of [0, 1]) {
-    const x0 = side ? W : 0, dir = side ? -1 : 1;
-    let d = `M ${x0} 0 L ${x0 + dir * 120} 0 Q ${x0 + dir * 70} 600 ${x0 + dir * 150} 1100 L ${x0} 1100 Z`;
-    s += `<path d="${d}" fill="#5a0f3a"/>`;
-    for (let k = 0; k < 4; k++) s += `<path d="M ${x0 + dir * (20 + k * 28)} 0 Q ${x0 + dir * (10 + k * 22)} 600 ${x0 + dir * (30 + k * 32)} 1100" stroke="#8a1a5a" stroke-width="10" fill="none" opacity="0.7"/>`;
-  }
-  s += `<path d="M 0 0 L ${W} 0 L ${W} 70 Q ${W * 0.75} 120 ${W / 2} 80 Q ${W * 0.25} 120 0 70 Z" fill="#7a1248"/><path d="M 0 70 Q ${W * 0.25} 120 ${W / 2} 80 Q ${W * 0.75} 120 ${W} 70" stroke="#ffcf3d" stroke-width="6" fill="none"/>`;
-  // Spotlight beams converging on the podium.
-  for (const [x, c] of [[90, "#ffe7a8"], [W - 90, "#ffe7a8"], [260, "#ff9ad8"], [W - 260, "#9ae6ff"]]) {
-    s += `<path d="M ${x - 14} 90 L ${x + 14} 90 L ${428 + 210} 1300 L ${428 - 210} 1300 Z" fill="${c}" opacity="0.07"/>`;
-    s += `<circle cx="${x}" cy="96" r="22" fill="#2a2050" stroke="#6b5fae" stroke-width="5"/><circle cx="${x}" cy="102" r="12" fill="${c}"/><circle cx="${x}" cy="102" r="40" fill="${c}" opacity="0.4" filter="url(#blur10)"/>`;
-  }
-  // Festoon lights.
-  for (const [y0, sag] of [[118, 30], [640, 50]]) {
-    let d = "";
-    for (let i = 0; i <= 20; i++) {
-      const t = i / 20, x = 60 + t * (W - 120), y = y0 + Math.sin(t * Math.PI) * sag;
-      d += `${i ? "L" : "M"} ${x} ${y} `;
-      if (i % 2 === 0) {
-        const c = ["#ffd23f", "#ff5aa8", "#7fe6ff", "#a6ff6e"][(i / 2) % 4];
-        s += `<circle cx="${x}" cy="${y + 10}" r="18" fill="${c}" opacity="0.4" filter="url(#blur10)"/><circle cx="${x}" cy="${y + 10}" r="7" fill="${c}"/>`;
-      }
-    }
-    s += `<path d="${d}" stroke="#3a2a60" stroke-width="3" fill="none"/>`;
-  }
-  // Marquee board behind the title.
-  s += `<rect x="96" y="150" width="${W - 192}" height="330" rx="40" fill="#1a0f3c" stroke="#ffcf3d" stroke-width="8"/>`;
-  for (let i = 0; i < 26; i++) {
-    const t = i / 26;
-    const per = 2 * (W - 192 + 330);
-    let d = t * per, x, y;
-    if (d < W - 192) { x = 96 + d; y = 150; } else if ((d -= W - 192) < 330) { x = W - 96; y = 150 + d; } else if ((d -= 330) < W - 192) { x = W - 96 - d; y = 480; } else { d -= W - 192; x = 96; y = 480 - d; }
-    s += `<circle cx="${x}" cy="${y}" r="9" fill="#fff3b8"/><circle cx="${x}" cy="${y}" r="20" fill="#ffd23f" opacity="0.35" filter="url(#blur4)"/>`;
-  }
-  // The stage floor: glossy boards, a lit round podium with the ring.
-  s += `<rect x="0" y="1100" width="${W}" height="${H - 1100}" fill="#170d38"/>`;
-  for (let i = -10; i <= 10; i++) s += `<line x1="${W / 2 + i * 40}" y1="1100" x2="${W / 2 + i * 160}" y2="${H}" stroke="#2a1a5a" stroke-width="3"/>`;
-  s += `<ellipse cx="432" cy="1262" rx="420" ry="140" fill="#ffe7a8" opacity="0.12" filter="url(#blur24)"/>`;
-  s += `<ellipse cx="432" cy="1290" rx="360" ry="80" fill="#120a2c"/><ellipse cx="432" cy="1262" rx="360" ry="80" fill="url(#pod)" stroke="#8a6aff" stroke-width="4"/>`;
-  s += ring(432, 1262, 330, 58, "#33dcff");
-  s += `<ellipse cx="428" cy="1240" rx="150" ry="26" fill="#000" opacity="0.45"/>`;
-  s += title(282, { fill2: "#ffcf3d" }) + cast("#ffcf7a") + nibbles() + ground("#ffcf7a");
-  for (const [x, y, r] of [[57, 630, 22], [790, 870, 22], [62, 1150, 22], [782, 1153, 22], [568, 778, 14], [770, 438, 16]]) s += coin(x, y, r);
-  // Confetti.
-  for (let i = 0; i < 70; i++) {
-    const x = rnd() * W, y = 560 + rnd() * 1200, c = ["#ffd23f", "#ff5aa8", "#7fe6ff", "#a6ff6e", "#ffffff"][i % 5];
-    s += `<rect x="${x}" y="${y}" width="${6 + rnd() * 6}" height="${3 + rnd() * 4}" fill="${c}" transform="rotate(${rnd() * 180} ${x} ${y})" opacity="${0.5 + rnd() * 0.5}"/>`;
   }
   return svg(s);
 }
