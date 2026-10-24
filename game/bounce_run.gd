@@ -25,6 +25,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const A11y := preload("res://game/a11y.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
+const FinisherCam := preload("res://game/finisher_cam.gd")
 
 enum State { DRAFT, START_BOONS, FLOOR, AIM, FIGHT, RESULT, BOON, OVER }
 
@@ -63,6 +64,10 @@ var _board_rows = null ## Leaderboard rows once fetched; null while loading.
 var _board_note := ""
 
 var arena: ArenaView
+var arena_clip: Control ## Holds the arena; clips it while the finisher cam zooms.
+var finisher: FinisherCam
+var _hold := -1.0 ## Real seconds on the KO face so far, or -1 before the blow.
+var _skipped := false ## Skip also skips the finisher.
 var sfx: Sfx
 var board: BounceBoard
 var ui: Control
@@ -91,8 +96,11 @@ func _ready() -> void:
 	_load()
 	# A practice run carries its own seed; the ranked run is the day's tower.
 	setup = BounceRun.generate(day, int(run.get("seed", 0)))
+	arena_clip = Control.new()
+	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(arena_clip)
 	arena = ArenaView.new()
-	add_child(arena)
+	arena_clip.add_child(arena)
 	sfx = Sfx.new()
 	add_child(sfx)
 	board = BounceBoard.new()
@@ -121,17 +129,68 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if state == State.FIGHT:
-		_accumulator += delta * FightSpeed.current()
-		var steps := 0
-		while _accumulator >= MatchSim.DT and steps < 32 and not sim.finished:
-			sim.step()
-			_consume(sim.events)
-			_accumulator -= MatchSim.DT
-			steps += 1
-		if sim.finished:
+		if _advance_fight(delta, FightSpeed.current()):
+			_unzoom()
 			_finish_fight()
 		_update_hud()
-	arena.advance_effects(delta * (FightSpeed.current() if state == State.FIGHT else 1.0))
+	else:
+		arena.advance_effects(delta)
+
+
+## Steps the fight in real time at `speed`, slowing into the finisher cam (the
+## killing blow in slow motion, zoomed in, then a beat on the KO face), as in
+## Quick fight (game/main.gd). Render-only. True once the fight and its
+## finisher are over. Reduced motion keeps the KO face without slow-mo or zoom.
+func _advance_fight(delta: float, speed: float) -> bool:
+	var finishing := finisher.ko_tick >= 0 and not _skipped
+	var cinematic := finishing and not A11y.reduced_motion
+	var rate := speed
+	_accumulator += delta
+	var steps := 0
+	while not sim.finished and steps < 32:
+		rate = finisher.time_scale(sim.tick, speed) if cinematic else speed
+		if _accumulator < MatchSim.DT / rate:
+			break
+		_accumulator -= MatchSim.DT / rate
+		arena.snapshot_positions()
+		sim.step()
+		_consume(sim.events)
+		steps += 1
+	arena.render_alpha = 1.0 if sim.finished else clampf(_accumulator / (MatchSim.DT / rate), 0.0, 1.0)
+	if not finishing:
+		arena.advance_effects(delta * speed)
+		return sim.finished
+	if sim.finished:
+		if _hold < 0.0:
+			_hold = 0.0
+			arena.ko_ball = finisher.loser
+		else:
+			_hold += delta
+		rate = 0.5
+	if cinematic and finisher.active(sim.tick):
+		var t := sim.tick - 1.0 + arena.render_alpha
+		var z := finisher.zoom(t, maxf(0.0, _hold))
+		var target := finisher.focus(arena.ball_pos(sim.balls[finisher.loser]), arena.ball_pos(sim.balls[finisher.winner]), z)
+		var start := not arena_clip.clip_contents
+		arena.set_camera(z, target if start else FinisherCam.follow(arena.cam_focus, target, delta))
+		arena.finisher_amount = clampf(finisher.progress(t) / 0.25, 0.0, 1.0)
+		arena_clip.clip_contents = true
+	arena.advance_effects(delta * rate)
+	return _hold >= FinisherCam.HOLD
+
+
+## Back to the whole arena, keeping the KO face on the critter that fell.
+func _unzoom() -> void:
+	arena.finisher_amount = 0.0
+	arena.set_camera(1.0, Vector2.ONE * MatchSim.ARENA_SIZE / 2.0)
+	arena_clip.clip_contents = false
+
+
+## Puts the arena (and its clip) at `at`, `side` pixels square.
+func _fit_arena(at: Vector2, side: float) -> void:
+	arena_clip.position = at
+	arena_clip.size = Vector2(side, side)
+	arena.fit(Vector2.ZERO, side)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -325,6 +384,7 @@ func _choose_fighter(s: int) -> void:
 func _preview() -> void:
 	sim = MatchSim.new(BounceRun.fight_config(setup, run, slot, aim))
 	arena.sim = sim
+	arena.reset_camera() # Drops the last fight's KO face.
 	arena.aim_dir = Vector2.from_angle(deg_to_rad(aim / 10.0))
 	_update_hud()
 
@@ -336,11 +396,17 @@ func _launch() -> void:
 	# Saved before the fight plays, so closing the app mid-fight can't undo a loss.
 	run.launched = {"slot": slot, "aim": aim}
 	_save_run()
-	sim = MatchSim.new(BounceRun.fight_config(setup, run, slot, aim))
+	var config := BounceRun.fight_config(setup, run, slot, aim)
+	sim = MatchSim.new(config)
 	arena.sim = sim
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
+	arena.reset_camera()
+	arena_clip.clip_contents = false
+	finisher = FinisherCam.plan(config)
 	_accumulator = 0.0
+	_hold = -1.0
+	_skipped = false
 	state = State.FIGHT
 	sfx.on_fight_start(sim)
 	info_label.text = ""
@@ -353,6 +419,7 @@ func _launch() -> void:
 
 
 func _skip() -> void:
+	_skipped = true
 	while not sim.finished:
 		sim.step()
 	arena.clear_effects()
@@ -757,7 +824,7 @@ func _layout() -> void:
 		left = (size.x - side) / 2.0
 		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
 		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 20.0)
-	arena.fit(Vector2(left, top), side)
+	_fit_arena(Vector2(left, top), side)
 	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
 	rules_button.position = Vector2(size.x - 92.0, 26.0)
 	rules_button.size = Vector2.ZERO
@@ -770,7 +837,7 @@ func _layout() -> void:
 		c.visible = not fight_view
 	if fight_view: # The same shape as every fight screen (FightLayout).
 		var r := FightLayout.rects(size)
-		arena.fit(r.arena.position, r.arena.size.x)
+		_fit_arena(r.arena.position, r.arena.size.x)
 		FightLayout.place_plates(fight_hud, fighter_strip, r, size)
 		var p: Rect2 = r.panel
 		var info_h := 0.0 if state == State.FIGHT else 56.0
