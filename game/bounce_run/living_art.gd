@@ -134,7 +134,7 @@ class _Motes extends Control:
 		if spec.is_empty() or A11y.reduced_motion:
 			return
 		var t: float = art._t
-		var s := minf(size.x / W, size.y / H)
+		var s := maxf(size.x / W, size.y / H) if art.stretch_mode == TextureRect.STRETCH_KEEP_ASPECT_COVERED else minf(size.x / W, size.y / H)
 		var origin := (size - Vector2(W, H) * s) / 2.0
 		for i in MOTES:
 			var h := hash([art.art_id, i])
