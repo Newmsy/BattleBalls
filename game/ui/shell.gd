@@ -223,6 +223,7 @@ func set_profile(p) -> void:
 	if profile.changed.is_connected(_refresh_top):
 		profile.changed.disconnect(_refresh_top)
 	profile = p
+	_shown = {} # Another save's coins land as they are, not flying in.
 	if _built:
 		profile.changed.connect(_refresh_top)
 		if current != "":
