@@ -2,8 +2,11 @@
 // in-game _Portal: stone ring, 9 family gems, plinth, soft vortex), twig nests
 // and a moonlit stone hall. Matte stone and shells; light comes from the vortex
 // and a few lanterns, never neon outlines.
-import { shade, rng, f } from "./_p.mjs";
-import { FAMILY_INK } from "./_eggs.mjs";
+import { shade } from "../../brand/parts.mjs";
+import { rng } from "./_shop_charge_pad_glow_chest_parts.mjs";
+import { FAMILY_INK } from "./_egg_parts.mjs";
+
+const f = (n) => (+n).toFixed(1);
 
 let uid = 0;
 const nid = (p) => `${p}${uid++}`;
@@ -74,35 +77,20 @@ export function portal(cx, cy, r, { glow = 1, plinth = true } = {}) {
   ${blocks}${bevel}${gems}${key}`;
 }
 
-// A twig nest seen slightly from above. Returns [back, front] so an egg or
-// critter can sit between them. w = nest width.
-export function nest(cx, cy, w, { seed = 3, moss = true } = {}) {
-  const R = rng(seed);
-  const rx = w / 2, ry = w * 0.16;
-  let back = `<ellipse cx="${cx}" cy="${f(cy + ry * 0.9)}" rx="${f(rx * 1.1)}" ry="${f(ry * 0.8)}" fill="#000" opacity="0.5" filter="url(#bl4)"/>
-    <ellipse cx="${cx}" cy="${cy}" rx="${f(rx)}" ry="${f(ry * 1.2)}" fill="#2a2036"/>
-    <ellipse cx="${cx}" cy="${f(cy - ry * 0.15)}" rx="${f(rx * 0.8)}" ry="${f(ry * 0.75)}" fill="#150f20"/>`;
-  for (let k = 0; k < 12; k++) {
-    const a = Math.PI + (k / 11) * Math.PI;
-    const x = cx + Math.cos(a) * rx * 0.92, y = cy + Math.sin(a) * ry;
-    const len = w * (0.2 + R() * 0.12), r = (R() - 0.5) * 0.8 + Math.cos(a) * 0.3;
-    back += `<line x1="${f(x - (Math.cos(r) * len) / 2)}" y1="${f(y - (Math.sin(r) * len) / 2)}" x2="${f(x + (Math.cos(r) * len) / 2)}" y2="${f(y + (Math.sin(r) * len) / 2)}" stroke="${k % 2 ? "#4a3a52" : "#3b2f47"}" stroke-width="${f(w * 0.022 + R() * w * 0.012)}" stroke-linecap="round"/>`;
-  }
-  let front = "";
-  for (let k = 0; k < 16; k++) {
-    const t = k / 15;
-    const x = cx - rx * 1.02 + t * rx * 2.04, y = cy + ry * 0.3 + Math.sin(t * Math.PI) * ry * 0.95 + (R() - 0.5) * ry * 0.4;
-    const len = w * (0.18 + R() * 0.14), r = (R() - 0.5) * 0.9;
-    const c = ["#6a5470", "#5a4762", "#7a6280"][k % 3], sw = w * 0.034 + R() * w * 0.012;
-    front += `<line x1="${f(x - (Math.cos(r) * len) / 2)}" y1="${f(y - (Math.sin(r) * len) / 2)}" x2="${f(x + (Math.cos(r) * len) / 2)}" y2="${f(y + (Math.sin(r) * len) / 2)}" stroke="${shade(c, -0.35)}" stroke-width="${f(sw)}" stroke-linecap="round"/>
-      <line x1="${f(x - (Math.cos(r) * len) / 2)}" y1="${f(y - (Math.sin(r) * len) / 2 - sw * 0.25)}" x2="${f(x + (Math.cos(r) * len) / 2)}" y2="${f(y + (Math.sin(r) * len) / 2 - sw * 0.25)}" stroke="${c}" stroke-width="${f(sw * 0.55)}" stroke-linecap="round"/>`;
-  }
-  if (moss)
-    for (let k = 0; k < 4; k++) {
-      const t = (k + 0.3 + R() * 0.4) / 4, x = cx - rx * 0.9 + t * rx * 1.8, y = cy + Math.sin(t * Math.PI) * ry * 0.7, r = w * (0.04 + R() * 0.035);
-      front = `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="#1c4a40"/><circle cx="${f(x + r * 0.7)}" cy="${f(y + r * 0.2)}" r="${f(r * 0.7)}" fill="#1c4a40"/><circle cx="${f(x - r * 0.2)}" cy="${f(y - r * 0.35)}" r="${f(r * 0.55)}" fill="#2a6a52"/>` + front;
-    }
-  return [back, front];
+// A short carved stone pedestal standing on the floor at (cx, baseY), w wide,
+// lit from the portal above. Returns the y of its top face for an egg to sit on.
+export function pedestal(cx, baseY, w) {
+  const h = w * 0.42, rx = w / 2, ry = w * 0.13, top = baseY - h;
+  const body = `M ${f(cx - rx * 0.78)} ${f(top)} L ${f(cx - rx * 0.86)} ${f(baseY)} A ${f(rx * 0.86)} ${f(ry)} 0 0 0 ${f(cx + rx * 0.86)} ${f(baseY)} L ${f(cx + rx * 0.78)} ${f(top)} Z`;
+  const svg = `<ellipse cx="${cx}" cy="${f(baseY + ry * 0.4)}" rx="${f(rx * 1.15)}" ry="${f(ry * 1.2)}" fill="#000" opacity="0.5" filter="url(#bl4)"/>
+    <path d="${body}" fill="#3a3456" stroke="#1c1830" stroke-width="2.5"/>
+    <path d="M ${f(cx - rx * 0.78)} ${f(top)} L ${f(cx - rx * 0.86)} ${f(baseY)} A ${f(rx * 0.86)} ${f(ry)} 0 0 0 ${f(cx - rx * 0.3)} ${f(baseY + ry * 0.92)} L ${f(cx - rx * 0.28)} ${f(top + ry)} Z" fill="#4c4670" opacity="0.8"/>
+    <line x1="${f(cx - rx * 0.82)}" y1="${f(top + h * 0.55)}" x2="${f(cx + rx * 0.82)}" y2="${f(top + h * 0.55)}" stroke="#1c1830" stroke-width="2" opacity="0.6"/>
+    <rect x="${f(cx - rx * 0.95)}" y="${f(baseY - h * 0.16)}" width="${f(rx * 1.9)}" height="${f(h * 0.2)}" rx="3" fill="#2e2a4e" stroke="#1c1830" stroke-width="2"/>
+    <ellipse cx="${cx}" cy="${f(top)}" rx="${f(rx)}" ry="${f(ry)}" fill="#5a5480" stroke="#1c1830" stroke-width="2.5"/>
+    <ellipse cx="${cx}" cy="${f(top - ry * 0.12)}" rx="${f(rx * 0.72)}" ry="${f(ry * 0.6)}" fill="#6e68a0" opacity="0.55"/>
+    <path d="M ${f(cx - rx * 0.95)} ${f(top)} A ${f(rx)} ${f(ry)} 0 0 1 ${f(cx + rx * 0.95)} ${f(top)}" fill="none" stroke="#b9a6ff" stroke-width="1.6" opacity="0.45"/>`;
+  return [svg, top];
 }
 
 // Hanging paper lantern with a warm, soft (not neon) light.

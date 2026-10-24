@@ -1039,6 +1039,62 @@
    }
   ]
  },
+ "portal_hall": {
+  "size": [
+   720,
+   760
+  ],
+  "layers": [
+   {
+    "id": "back",
+    "move": "idle 3 0.45 0",
+    "pivot": [
+     361,
+     575
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     69,
+     451,
+     582,
+     121
+    ]
+   },
+   {
+    "id": "front",
+    "move": "idle 3 0.45 0.5",
+    "pivot": [
+     361,
+     689
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     32,
+     557,
+     656,
+     129
+    ]
+   },
+   {
+    "id": "legend",
+    "move": "idle 4 0.35 0.25",
+    "pivot": [
+     359,
+     704
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     321,
+     604,
+     78,
+     96
+    ]
+   }
+  ]
+ },
  "scrap_robot": {
   "size": [
    720,

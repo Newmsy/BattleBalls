@@ -925,25 +925,39 @@ class EggArt:
 
 
 ## The Portal Hall at the top of the screen, title on it: a painting
-## (tools/summon_art/scenes/portal_hall.mjs) of the carved portal, a gem for
-## each family, with an egg of every family in a nest before it. It grows to
-## the room the cards below leave and crops around the portal, bleeding out to
-## the phone's edges. The painting is drawn once; only the vortex over the
-## portal's opening moves, on the shared idle clock.
+## (tools/event_art/scenes/portal_hall.mjs) of the carved portal, a gem for
+## each family, with an egg of every family on a stone pedestal before it. It
+## grows to the room the cards below leave and crops around the portal,
+## bleeding out to the phone's edges. The eggs idle as living layers and the
+## lanterns flicker (LivingArt), and the vortex spins over the portal's
+## opening, all on the shared idle clock and only while on screen.
 class _Hall extends Control:
-	const ART := preload("res://game/ui/art/summon/portal_hall.png")
+	const LivingArt := preload("res://game/bounce_run/living_art.gd")
+	const CritterIcon := preload("res://game/ui/critter_icon.gd")
+	const A11y := preload("res://game/a11y.gd")
+	const PATH := "res://game/ui/art/summon/portal_hall.png"
 	## Portal centre and opening radius in the painting (portal_hall.mjs PORTAL).
 	const PORTAL := Vector3(360, 300, 125.8)
 	const MIN_H := 360.0
 	const BLEED := 28.0 ## The shell's side margin on a phone.
 	const FADE := Color("0d0f26")
+	var _art: Texture2D
+	var _mat: ShaderMaterial
 	var _swirl: _Vortex
+	var _t := 0.0
+	var _tick := -1
 
 	static func make(title: Control) -> Control:
 		var h := _Hall.new()
+		h._art = load(PATH)
 		h.custom_minimum_size = Vector2(0, MIN_H)
 		h.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h._mat = LivingArt.material_for("portal_hall", PATH)
+		# Fade the cropped foot into the page so the cards below sit on it.
+		h._mat.set_shader_parameter("fade", Vector4(0.0, 0.0, 0.8, 1.0))
+		h._mat.set_shader_parameter("fade_col", Vector3(FADE.r, FADE.g, FADE.b))
+		h.material = h._mat
 		h._swirl = _Vortex.new()
 		h._swirl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		h._swirl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -957,7 +971,7 @@ class _Hall extends Control:
 	## portal about 45% down and as much of the egg crescent as fits.
 	func _fit() -> Array:
 		var dest := Rect2(-BLEED, 0, size.x + BLEED * 2.0, size.y)
-		var tex := Vector2(ART.get_size())
+		var tex := Vector2(_art.get_size())
 		var s := maxf(dest.size.x / tex.x, dest.size.y / tex.y)
 		var src_size := dest.size / s
 		var y := clampf(PORTAL.y - src_size.y * .45, 0.0, tex.y - src_size.y)
@@ -970,18 +984,26 @@ class _Hall extends Control:
 		var s := dest.size.x / src.size.x
 		_swirl.centre = dest.position + (Vector2(PORTAL.x, PORTAL.y) - src.position) * s
 		_swirl.hole = PORTAL.z * s
+		_mat.set_shader_parameter("px_size", dest.size)
 		queue_redraw()
 		_swirl.queue_redraw()
+
+	func _process(delta: float) -> void:
+		if A11y.reduced_motion or not is_visible_in_tree():
+			return
+		_t += delta
+		var tick := CritterIcon.clock()
+		if tick != _tick:
+			_tick = tick
+			LivingArt.animate(_mat, _t)
+			queue_redraw()
 
 	func _draw() -> void:
 		var f := _fit()
 		var dest: Rect2 = f[0]
-		draw_texture_rect_region(ART, dest, f[1])
-		# Melt the cropped foot into the page so the cards below sit on it.
-		var y0 := dest.end.y - 70.0
-		var clear := Color(FADE, 0)
-		draw_polygon(PackedVector2Array([Vector2(dest.position.x, y0), Vector2(dest.end.x, y0), dest.end, Vector2(dest.position.x, dest.end.y)]),
-			PackedColorArray([clear, clear, FADE, FADE]))
+		# Drawn from the shader's own origin so its edge mask doesn't clip the bleed.
+		draw_set_transform(dest.position)
+		draw_texture_rect_region(_art, Rect2(Vector2.ZERO, dest.size), f[1])
 
 
 ## The vortex inside the portal ring: a deep well with three spiral arms and

@@ -108,6 +108,11 @@ const LAYERS := {
 		["_Legg", Rect2(259, 125, 181, 196), Vector4(2, 3, 0.8, 0), Vector2(362, 312), false, -1],
 		["_Ltwigs", Rect2(180, 311, 365, 62), Vector4(0, 0, 0.5, 0), Vector2(363, 366), false, -1],
 	],
+	"portal_hall": [
+		["_Lback", Rect2(69, 451, 582, 121), Vector4(4, 3, 0.45, 0), Vector2(361, 575), false, -1],
+		["_Lfront", Rect2(32, 557, 656, 129), Vector4(4, 3, 0.45, 0.5), Vector2(361, 689), false, -1],
+		["_Llegend", Rect2(321, 604, 78, 96), Vector4(4, 4, 0.35, 0.25), Vector2(359, 704), false, -1],
+	],
 	"scrap_robot": [
 		["_Lrobot", Rect2(288, 95, 192, 214), Vector4(2, 1.5, 0.5, 0), Vector2(389, 325), false, -1],
 		["_Ljunk", Rect2(280, 273, 290, 150), Vector4(0, 0, 0.5, 0), Vector2(424, 420), false, -1],

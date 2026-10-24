@@ -1,9 +1,11 @@
-// Painted eggs for the hatch buttons: one egg on x1, a clutch of three on x10.
-import { blurs } from "./_p.mjs";
-import { egg } from "./_eggs.mjs";
+// Painted eggs for the Summon tab's hatch buttons: one egg on x1, a clutch
+// of three on x10.
+import { blurs } from "./_shop_charge_pad_glow_chest_parts.mjs";
+import { egg } from "./_egg_parts.mjs";
 
 export const size = [220, 180];
 export const transparent = true;
+export const dir = "game/ui/art/summon";
 const svg = (body) => `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="180" viewBox="0 0 220 180">${blurs()}${body}</svg>`;
 
 export const many = {
