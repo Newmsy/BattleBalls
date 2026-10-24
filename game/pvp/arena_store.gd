@@ -157,8 +157,7 @@ func fill_best(owned: Array, which := "trio") -> void:
 	save()
 
 
-## Ranked trios use only critters the player owns, never a loaner or one
-## they haven't got, and never the same critter twice (older saves could).
+## Ranked trios use only critters the player owns, and never the same critter twice (older saves could).
 ## Any other slot takes the strongest owned critter not already in the trio
 ## (`owned` is strongest first). Returns true if the trio changed.
 func fit_to(owned: Array) -> bool:

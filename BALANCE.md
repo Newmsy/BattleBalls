@@ -56,12 +56,11 @@ In the PR that adds or changes it:
 - Set `"status": "live"` in its file (`sim/critters/<id>.gd`) so the game, CI and the audit include it.
 - Golden replays and unit tests for the ability, as for any sim change.
 
-## Chaos Weekend modifiers
+## Rule twists
 
-Weekend rule twists (`sim/modifiers.gd`) apply to both balls, but they still
-shift matchups, so the same 65% limit and 20-60s median hold under every
-modifier. Aim for 60% or less so new critters have headroom. A new critter
-is checked under every modifier as well as base rules.
+Chaos Weekends were removed (Newms, 2026-10-24), so no mode plays the rule
+twists in `sim/modifiers.gd` any more and critters are not checked under
+them. `balance.gd --modifiers` still runs them if a twist ever comes back.
 
 ## What checks it
 
@@ -74,8 +73,8 @@ then fix every miss in one tuning PR.
 
 | Check | How |
 |---|---|
-| Full audit: every pairing on every arena and Chaos Weekend modifier, power step and gear lines, 20 machines, one merged report | Actions > `Balance audit` > Run workflow (`.github/workflows/balance-audit.yml`) |
-| One critter against the field | `balance.gd -- --fights=200 --power-step --arena=all --modifiers --only=<id>` |
+| Full audit: every pairing on every arena, power step and gear lines, 20 machines, one merged report | Actions > `Balance audit` > Run workflow (`.github/workflows/balance-audit.yml`) |
+| One critter against the field | `balance.gd -- --fights=200 --power-step --arena=all --only=<id>` |
 | Gear lines: one 5-star piece of each stat line vs the same ball bare | `balance.gd -- --fights=300 --gear` |
 | Rarity = a tier: T1 Legendary vs T2 Epic, T3 Rare, T5 Common and neighbours, real tiers (target ~50%) | `rarity_check.gd -- --pairs=150` |
 | Same rarity, same tier: every critter vs the rest of its rarity at one tier (target 38-62%). Even outliers out with the critter's optional `tier_power` (fight power per tier, 5 numbers), or its tier upgrades when one tier's kit runs away | `round_robin.gd -- --same --tier=N --seeds=8` (one tier ~3 min on 4 cores; `--only=<id>` for one critter) |

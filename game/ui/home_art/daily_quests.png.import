@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b02c1aybsjhm0"
-path="res://.godot/imported/tok_chaos.png-5121d7b003cb75385f037c7ad4506aef.ctex"
+uid="uid://bqkkuo5e55hm5"
+path="res://.godot/imported/daily_quests.png-597578d7f6f5034feaa1ab9754f2da02.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://game/ui/home_art/tok_chaos.png"
-dest_files=["res://.godot/imported/tok_chaos.png-5121d7b003cb75385f037c7ad4506aef.ctex"]
+source_file="res://game/ui/home_art/daily_quests.png"
+dest_files=["res://.godot/imported/daily_quests.png-597578d7f6f5034feaa1ab9754f2da02.ctex"]
 
 [params]
 

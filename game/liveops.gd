@@ -1,5 +1,5 @@
-## Live-ops calendar: the season, Chaos
-## Weekends, the Fight of the Day and the Try-a-Critter loaner, read from one schedule file
+## Live-ops calendar: the season, the Fight of the Day and the weekly
+## bracket, read from one schedule file
 ## (liveops/liveops.json, see liveops/README.md) so a season can be planned
 ## ahead without an app update.
 ##
@@ -8,8 +8,7 @@
 ## schedule leaves out falls back to a rotation worked out from the clock, so
 ## the board always shows something sensible offline.
 ##
-## All dates are UTC. Weeks start Monday 00:00; Chaos Weekends run Friday
-## 00:00 to Monday 00:00 (design/events.md).
+## All dates are UTC. Weeks start Monday 00:00.
 extends RefCounted
 
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -23,22 +22,8 @@ const REMOTE := "https://battleballs.vercel.app/liveops.json"
 
 const DAY := 86400
 const WEEK := 7 * DAY
-## Monday 2026-01-05 00:00 UTC: week 0 of every fallback rotation (matches
-## the Chaos Weekend rotation in sim/modifiers.gd).
+## Monday 2026-01-05 00:00 UTC: week 0 of every fallback rotation.
 const EPOCH := 1767571200
-const WEEKEND_START := 4 * DAY ## Friday, from Monday 00:00.
-
-## Chaos Weekend rotation and display text. sim/modifiers.gd owns the rules;
-## this copy keeps the board working without it.
-const CHAOS_ROTATION := ["big_head", "glass_cannon", "mirror_match", "hyper_speed", "closing_walls", "double_trouble"]
-const CHAOS_TEXT := {
-	"big_head": ["Big Head", "Every ball is 1.35x bigger."],
-	"glass_cannon": ["Glass Cannon", "Three quarters HP, 1.35x damage."],
-	"mirror_match": ["Mirror Match", "Both sides get the same random ball."],
-	"hyper_speed": ["Hyper Speed", "Every ball moves 1.4x faster. Beams fade faster too."],
-	"closing_walls": ["Closing Walls", "Overtime starts at 10 seconds: the arena shrinks early."],
-	"double_trouble": ["Double Trouble", "Every ability hits harder."],
-}
 
 ## Fight of the Day generator: keep the first seed whose fight is close.
 const FIGHT_TRIES := 12
@@ -115,7 +100,7 @@ static func validate(d: Dictionary) -> Array:
 	for key in ["version", "revision"]:
 		if not _num(d.get(key)):
 			errors.append("%s must be a number" % key)
-	for key in ["seasons", "chaos", "fights", "loaners", "brackets"]:
+	for key in ["seasons", "fights", "brackets"]:
 		if not d.get(key, []) is Array:
 			errors.append("%s must be a list" % key)
 			return errors
@@ -126,18 +111,6 @@ static func validate(d: Dictionary) -> Array:
 			errors.append("season %s must start on a Monday" % s.name)
 		elif s.has("debut") and Roster.CRITTERS.all(func(c): return c.id != s.get("debut")):
 			errors.append("season debut critter unknown: %s" % [s.get("debut")])
-	for c in d.get("chaos", []):
-		if not c is Dictionary or date_unix(c.get("weekend")) < 0 or _weekday(date_unix(c.weekend)) != 4:
-			errors.append("chaos weekend must be a Friday: %s" % [c])
-		elif not CHAOS_TEXT.has(c.get("modifier")):
-			errors.append("chaos modifier unknown: %s" % [c.get("modifier")])
-	# A loaner only has to be a known critter: a newer schedule may name one
-	# this build cannot play yet, and loaner() falls back for that day.
-	for l in d.get("loaners", []):
-		if not l is Dictionary or date_unix(l.get("date")) < 0:
-			errors.append("loaner needs a date: %s" % [l])
-		elif Roster.CRITTERS.all(func(c): return c.id != l.get("critter")):
-			errors.append("loaner critter unknown: %s" % [l.get("critter")])
 	for f in d.get("fights", []):
 		if not f is Dictionary or date_unix(f.get("date")) < 0:
 			errors.append("fight needs a date: %s" % [f])
@@ -194,10 +167,6 @@ static func day_start(t: int) -> int:
 	return EPOCH + floori(float(t - EPOCH) / DAY) * DAY
 
 
-static func _week_index(t: int) -> int:
-	return floori(float(t - EPOCH) / WEEK)
-
-
 # --- What's on -------------------------------------------------------------------
 
 ## { name, week, weeks, starts, ends, debut } for the season running at `t`,
@@ -210,40 +179,6 @@ static func season(t: int) -> Dictionary:
 			return {"name": s.name, "week": (t - start) / WEEK + 1, "weeks": int(s.weeks), "starts": start, "ends": end,
 				"debut": str(s.get("debut", ""))}
 	return {}
-
-
-## This week's Chaos Weekend: { modifier, name, description, starts, ends,
-## live }. Before Friday it is the coming weekend; on the weekend it is live.
-static func chaos(t: int) -> Dictionary:
-	var starts := week_start(t) + WEEKEND_START
-	var id: String = CHAOS_ROTATION[posmod(_week_index(t), CHAOS_ROTATION.size())]
-	for c in data().get("chaos", []):
-		if date_unix(c.weekend) == starts:
-			id = c.modifier
-	var text: Array = CHAOS_TEXT[id]
-	return {"modifier": id, "name": text[0], "description": text[1], "starts": starts, "ends": starts + 3 * DAY, "live": t >= starts}
-
-
-## Today's Try-a-Critter loaner: { critter, blurb, date, ends }. A scheduled
-## critter this build cannot fight with is skipped for the rotation, which
-## walks the playable critters rarest first, one a day.
-static func loaner(t: int) -> Dictionary:
-	var day := day_start(t)
-	var date := Time.get_date_string_from_unix_time(day)
-	for l in data().get("loaners", []):
-		if l.date == date and l.critter in BallDefs.PLAYABLE:
-			return {"critter": l.critter, "blurb": l.get("blurb", ""), "date": date, "ends": day + DAY}
-	var pool := loaner_pool()
-	var id: String = pool[posmod(floori(float(day - EPOCH) / DAY), pool.size())]
-	return {"critter": id, "blurb": "", "date": date, "ends": day + DAY}
-
-
-## Critters that can be lent: on the roster and playable in the sim, rarest first.
-static func loaner_pool() -> Array:
-	var pool: Array = Roster.CRITTERS.filter(func(c): return c.id in BallDefs.PLAYABLE)
-	var rank := func(c): return Roster.RARITIES.find(c.rarity) * 1000 - Roster.CRITTERS.find(c)
-	pool.sort_custom(func(a, b): return rank.call(a) > rank.call(b))
-	return pool.map(func(c): return c.id)
 
 
 ## Today's Fight of the Day: { date, p1, p2, seed, angles, title, winner,

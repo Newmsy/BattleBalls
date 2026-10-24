@@ -28,7 +28,6 @@ const VERSUS := Color("ff4fd8")
 const STYLE := Color("5ce1ff")
 const ADVENTURE := Color("45f5a6")
 const BOSS := Color("ff8a3d")
-const Loaner := preload("res://game/loaner.gd")
 
 ## True on a tall phone (more than a 9:16 screen's height): the doors' badges,
 ## buttons and words grow a step so they fill the room instead of floating.
@@ -231,16 +230,13 @@ static func _daily_door(shell) -> Control:
 	var week := func(): shell.go("week")
 	var f := LiveOps.fight_of_the_day(t)
 	var fotd := Kit.hbox(-12, [CritterIcon.face(f.p1, _s(30)), CritterIcon.face(f.p2, _s(30))], BoxContainer.ALIGNMENT_CENTER)
-	var loan := Loaner.today(shell.profile, t)
-	var chaos := LiveOps.chaos(t)
 	var row := Kit.hbox(4, [
 		door_spot(shell, "trickshot", token("trick", _s(62)), "Trick Shot", trick_line, DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.solved and trick.tries == 0),
 		door_spot(shell, "bouncerun", token("bounce", _s(62)), "Bounce Run", "New run", DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")),
 		door_spot(shell, "daily_fotd", token_with("frame_gold", fotd, _s(62)), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
-		door_spot(shell, "daily_try", token_with("frame_cyan", CritterIcon.face(loan.critter, _s(40)), _s(62)), "Try it", Roster.get_critter(loan.critter).name, WeekScreen.TRY, week),
-		door_spot(shell, "daily_chaos", token("chaos", _s(62)), "Chaos", ("Live " if chaos.live else "") + LiveOps.countdown(t, chaos.ends if chaos.live else chaos.starts), WeekScreen.CHAOS, week),
+		door_spot(shell, "daily_quests", token("quests", _s(62)), "Quests", "Soon", DAILY, week),
 	])
 	var season := LiveOps.season(t)
 	var sub := "Puzzles, runs and this week's events" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks]

@@ -1,7 +1,7 @@
 // Home screen: painted round tokens for the door actions, in the Bounce Run map-node style
-// (shared _map_token frame): Spire, Bosses, Trick Shot, Bounce Run, Chaos,
-// Ghost Arena, Friends and a lock, plus empty gold and cyan frames that the
-// game fills with today's critter faces (Fight of the Day, Try it).
+// (shared _map_token frame): Spire, Bosses, Trick Shot, Bounce Run, Quests,
+// Ghost Arena, Friends and a lock, plus an empty gold frame that the game
+// fills with today's Fight of the Day faces.
 import { token, twinkle } from "./_map_token.mjs";
 import { critter, sparkle } from "./_banner_parts.mjs";
 
@@ -46,11 +46,15 @@ const lock = () => token("#8a86b0", `
   <path d="M 64 76 L 64 64 Q 64 46 80 46 Q 96 46 96 64 L 96 76" fill="none" stroke="#2a2648" stroke-width="2" opacity="0.5"/>
   <circle cx="80" cy="92" r="6" fill="#2a2648"/><rect x="77" y="94" width="6" height="12" rx="2" fill="#2a2648"/>`, { face: "#4a4670" });
 
-const chaos = () => token(PINK, `
-  ${[[64, 62, 20], [88, 54, 22], [106, 66, 16], [78, 70, 18]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#4a3a7a"/>`).join("")}
-  <circle cx="82" cy="50" r="10" fill="#6a5aa0"/>
-  <path d="M 82 74 L 68 104 L 82 102 L 72 132 L 102 92 L 86 94 L 96 74 Z" fill="#ffd0f2" stroke="#a02a80" stroke-width="2.5" stroke-linejoin="round"/>
-  <path d="M 82 74 L 68 104 L 82 102 L 72 132 L 102 92 L 86 94 L 96 74 Z" fill="${PINK}" opacity="0.5" filter="url(#bl6)"/>`, { face: "#a02a80" });
+// Quests: a pinned note with a tick and a star sticker.
+const quests = () => token(GOLD, `
+  <g transform="rotate(-6 80 84)">
+    <rect x="50" y="44" width="62" height="78" rx="5" fill="#f4e6c8" stroke="#8a6a4a" stroke-width="3"/>
+    ${[62, 76, 90].map((y, k) => `<line x1="60" y1="${y}" x2="${100 - k * 8}" y2="${y}" stroke="#8a6a4a" stroke-width="4" stroke-linecap="round" opacity="0.7"/>`).join("")}
+    <path d="M 62 104 l 8 9 l 16 -18" fill="none" stroke="#3aa860" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="81" cy="46" r="6" fill="#ff6a5a" stroke="#2a1a1a" stroke-width="1.5"/>
+  </g>
+  ${sparkle(112, 106, 10, GOLD, 0.95)}${twinkle(48, 40, 6, "#fff", 0.9)}`, { face: "#d89a3e" });
 
 const ghost = () => token(PINK, `
   <path d="M 52 120 L 52 76 Q 52 40 80 40 Q 108 40 108 76 L 108 120 Q 100 110 94 120 Q 87 110 80 120 Q 73 110 66 120 Q 59 110 52 120 Z" fill="#f6e8ff" stroke="#8a5ab0" stroke-width="3"/>
@@ -65,8 +69,8 @@ const friends = () => token(VIOLET, `
   <path d="M 80 56 q -8 -10 -14 -2 q -4 8 14 18 q 18 -10 14 -18 q -6 -8 -14 2 Z" fill="#ff6a8a" stroke="#7a1a3a" stroke-width="2"/>`, { face: "#5a4ac0" });
 
 export const many = {
-  tok_spire: spire, tok_bosses: bosses, tok_trick: trick, tok_bounce: bounce, tok_chaos: chaos,
+  tok_spire: spire, tok_bosses: bosses, tok_trick: trick, tok_bounce: bounce, tok_quests: quests,
   tok_ghost: ghost, tok_friends: friends, tok_lock: lock,
-  tok_frame_gold: () => token(GOLD, "", { face: "#c88a3e" }), tok_frame_cyan: () => token(CYAN, "", { face: "#3a6ac0" }),
+  tok_frame_gold: () => token(GOLD, "", { face: "#c88a3e" }),
 };
 export default spire;
