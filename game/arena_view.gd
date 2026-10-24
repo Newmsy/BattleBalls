@@ -51,6 +51,10 @@ const RING_COLORS := {"pulse": Color("ffe28a"), "frost": Color("9fd8ff"), "fire"
 	"bugflare": Color("e8ff7a"), "candy": Color("ff9de2"), "inkslam": Color("b36bff"), "wave": Color("5ff0e6"), "quasar": Color("e0b3ff"),
 	"glitch": Color("7cff4f"), "ping": Color("b48cff"), "dirt": Color("b08968"),
 	"petal": Color("ff9ecf"), "tick": Color("ffd166"), "root": Color("a5743a"), "sunfire": Color("ffe14d")}
+## Bounce Run boon triggers: [popup, colour] ("" = ring only).
+const BOON_POPS := {"pinball": ["PINBALL!", Color("ff9a3d")], "payback": ["PAYBACK!", Color("ff5a6a")],
+	"zap_collar": ["ZAP!", Color("c9a6ff")], "second_wind": ["SECOND WIND!", Color("c7f9cc")],
+	"fever": ["FEVER!", Color("ff4f6d")], "storm_heart": ["", Color("8ecbff")]}
 ## Statuses: frozen (stunned) balls sit in an ice block; vulnerable ones glow sour green.
 const FROZEN := Color("bfefff")
 const VULNERABLE := Color("9ef01a")
@@ -508,6 +512,14 @@ func consume_events(events: Array[Dictionary]) -> void:
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-60, -g.radius - 40), "OVERCHARGE!", POP_SNAP)
 				_shake = maxf(_shake, 5.0 * A11y.motion())
+			"boon": # A Bounce Run boon going off (sim/boons.gd).
+				var g := sim.balls[e.ball]
+				var look: Array = BOON_POPS.get(e.id, ["", POP_SNAP])
+				if look[0] != "":
+					_add_popup(e.pos + Vector2(-56, -g.radius - 40), look[0], look[1])
+				_rings.append({"pos": e.pos, "radius": g.radius * 1.3, "color": look[1], "age": 0.0})
+				if e.id in ["pinball", "storm_heart"]:
+					_shake = maxf(_shake, 5.0 * A11y.motion())
 			"ricochet": # A Ricochet Core: the bump after a wall bounce hits harder.
 				var g := sim.balls[e.ball]
 				_add_popup(g.pos + Vector2(-56, -g.radius - 40), "RICOCHET!", POP_SNAP)
@@ -2539,6 +2551,12 @@ func _draw_shot(shot, s: float) -> void:
 		BattleFx.draw_spike_shot(self, p, maxf(r, 6.0), shot.vel)
 		return
 	match shot.kind:
+		"boon_bolt": # Rebound Bolt: a hot spark with a short tail.
+			var d: Vector2 = shot.vel.normalized()
+			draw_line(p - d * r * 3.0, p, Color("ffd166", 0.5), r * 0.9)
+			Dot.circle(self, p, r * 1.2, Color("ffd166", 0.45))
+			Dot.circle(self, p, r * 0.7, Color.WHITE)
+			return
 		"gear":
 			CritterFx.draw_gear(self, p, maxf(r, 6.0), _time * 12.0 + shot.pos.x * 0.01)
 			return
@@ -2908,6 +2926,8 @@ func _draw_status(b, s: float) -> void:
 	var slam: Dictionary = b.state.get("slam", {})
 	if not slam.is_empty() and int(slam.get("source", -1)) >= 0 and sim.balls[int(slam.source)].type_id == "puppeteer":
 		BattleFx.draw_thrown(self, p, r, b.vel, _time)
+	elif slam.get("boon", false) and sim.tick <= int(slam.until): # Pinball: knocked flying, glowing hot.
+		Dot.arc(self, p, r * 1.15, 0.0, TAU, 24, Color("ff9a3d", 0.8), 3.0, true)
 	if sim.stunned(b) and not wrapped and not _draw_cool_stun(b, p, r):
 		var block := Rect2(p - Vector2(r, r) * 1.1, Vector2(r, r) * 2.2)
 		_rounded_rect(block, r * 0.25, Color(FROZEN, 0.35))

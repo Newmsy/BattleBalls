@@ -137,6 +137,18 @@ const BASE_CRIT_MULT := 1.5
 ## of each other, the striker catching the target up.
 const BACKSTAB_MULT := 1.3
 const BACKSTAB_ANGLE := 45.0
+## Bounce Run boons (sim/boons.gd) that shape the fight.
+const BOON_BURN_SECS := 2.0 ## Ember Rim.
+const BOON_CHILL_SECS := 1.5 ## Frost Rim.
+const BOON_SLAM_WINDOW := 1.2 ## Pinball: seconds a bumped foe has to hit a wall.
+const BOON_BOLT_COOLDOWN := 3.0 ## Rebound Bolt.
+const BOON_BOLT_SPEED := 560.0
+const BOON_MINE_EVERY := 3 ## Bounce Mine: wall bounces per mine.
+const BOON_ZAP_EVERY := 4 ## Zap Collar: bumps per stun.
+const BOON_WIND_AT := 0.4 ## Second Wind: HP share it kicks in below.
+const BOON_FEVER_SIZE := 1.15 ## Overtime Fever.
+const BOON_STORM_SECS := 5.0 ## Storm Heart.
+const BOON_FLING_SECS := 0.8 ## Titan Belt: a bumped foe flies at bumper speed this long.
 ## Mixed into the fight seed for the per-hit roll stream.
 const ROLL_SALT := 0x2F6B3C1D
 ## Statuses (roster.md): a stun (freeze) holds a ball still for at most
@@ -683,6 +695,9 @@ func step() -> void:
 			if b.def.get("overtime_shield", 0.0) > 0.0 and b.alive():
 				b.shield += b.def.overtime_shield
 				events.append({"type": "shield", "target": b.index, "amount": b.def.overtime_shield, "pos": b.pos})
+			if b.def.get("b_fever", 0.0) > 0.0 and b.alive():
+				set_mod(b, "fever", {"radius": BOON_FEVER_SIZE, "damage": 1.0 + b.def.b_fever})
+				events.append({"type": "boon", "id": "fever", "ball": b.index, "pos": b.pos})
 	# An arena may start its own slower squeeze early (shrink_start /
 	# shrink_speed); overtime's squeeze takes over once it is the tighter one.
 	var shrink_from: float = minf(overtime_start, arena.get("shrink_start", overtime_start))
@@ -727,6 +742,8 @@ func step() -> void:
 		if not b.tal.is_empty():
 			Talents.tick(self, b)
 	_update_dots()
+	if tick > 0 and tick % int(round(BOON_STORM_SECS * TICK_RATE)) == 0:
+		_boon_storm()
 	for b in balls:
 		if not b.mods.is_empty():
 			_expire_mods(b)
@@ -766,6 +783,8 @@ func step() -> void:
 			b.fired["boon_revive"] = true
 			b.hp = b.max_hp * b.def.boon_revive
 			events.append({"type": "revive", "ball": b.index, "pos": b.pos, "boon": true})
+		if b.def.get("b_wind", 0.0) > 0.0 and b.alive() and b.hp < b.max_hp * BOON_WIND_AT and not b.fired.has("b_wind"):
+			_second_wind(b)
 	for i in balls.size(): # A split adds balls here; they start next tick.
 		if balls[i].alive():
 			abilities.tick_triggers(self, balls[i])
@@ -1051,11 +1070,15 @@ func _on_wall_bounce(b: Ball, point: Vector2, obstacle := false) -> void:
 	if not slam.is_empty() and tick <= slam.until and not (obstacle and slam.get("walls_only", false)):
 		b.state.erase("slam")
 		deal(balls[slam.source], b, slam.damage, "slam", point)
+		if slam.get("boon", false):
+			events.append({"type": "boon", "id": "pinball", "ball": slam.source, "pos": point})
 		if slam.get("stun", 0.0) > 0.0:
 			stun(balls[slam.source], b, slam.stun)
 		if slam.has("zone"):
 			add_zone(balls[slam.source], point, slam.zone)
 	b.banked = true
+	if b.def.get("b_bolt", 0.0) > 0.0 or b.def.get("b_mine", 0.0) > 0.0:
+		_boon_bounce(b)
 	if not b.tal.is_empty():
 		Talents.on_bounce(self, b)
 	var bounce_heal: float = b.def.get("bounce_heal", 0.0)
@@ -1160,6 +1183,11 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			# The ball that rams harder hits harder, so even mirror matches trade unevenly.
 			hits.append({"source": i, "target": j, "amount": a.contact_damage * _impact_scale(a_share) * _pace_scale(a) * _strike(a, b), "kind": "contact", "pos": b.pos, "backstab": stab == 0})
 			hits.append({"source": j, "target": i, "amount": b.contact_damage * _impact_scale(1.0 - a_share) * _pace_scale(b) * _strike(b, a), "kind": "contact", "pos": a.pos, "backstab": stab == 1})
+			# Payback: the ball that got rammed (gave less of the closing speed) hits back next time.
+			if a_share < 0.5 and a.def.get("b_payback", 0.0) > 0.0:
+				a.state.payback_at = tick
+			elif a_share > 0.5 and b.def.get("b_payback", 0.0) > 0.0:
+				b.state.payback_at = tick
 
 
 ## Which ball (0 = a, 1 = b) rams the other from behind, from velocities before
@@ -1349,6 +1377,11 @@ func _boon_contact_damage(source: Ball, target: Ball, amount: float) -> float:
 		if bank > 0.0:
 			amount *= 1.0 + bank
 			events.append({"type": "ricochet", "ball": source.index, "pos": source.pos})
+	var payback: float = source.def.get("b_payback", 0.0)
+	if payback > 0.0 and int(source.state.get("payback_at", tick)) < tick:
+		source.state.erase("payback_at")
+		amount *= 1.0 + payback
+		events.append({"type": "boon", "id": "payback", "ball": source.index, "pos": source.pos})
 	var every := int(source.def.get("overcharge", 0.0))
 	if every > 0:
 		source.boon_hits += 1
@@ -1369,6 +1402,69 @@ func _boon_after_contact(source: Ball, target: Ball, amount: float, pos: Vector2
 	var steal: float = source.def.get("lifesteal", 0.0)
 	if steal > 0.0:
 		heals.append({"ball": source.index, "amount": amount * steal})
+	if source.team != target.team and target.alive():
+		_boon_on_bump(source, target)
+
+
+## The bump-shaping boons (sim/boons.gd MECHANICS) after `source` lands a bump on `target`.
+func _boon_on_bump(source: Ball, target: Ball) -> void:
+	var bump: float = source.def.contact_damage
+	var burn: float = source.def.get("b_burn", 0.0)
+	if burn > 0.0:
+		add_burn(source, target, burn * bump / BOON_BURN_SECS, BOON_BURN_SECS)
+	var chill: float = source.def.get("b_chill", 0.0)
+	if chill > 0.0:
+		slow_for(target, chill, BOON_CHILL_SECS)
+	var pinball: float = source.def.get("b_pinball", 0.0)
+	var slam: Dictionary = target.state.get("slam", {})
+	if pinball > 0.0 and (slam.is_empty() or tick > int(slam.until)):
+		target.state.slam = {"source": source.index, "damage": pinball * bump, "until": tick + int(round(BOON_SLAM_WINDOW * TICK_RATE)), "boon": true}
+	if source.def.get("b_fling", 0.0) > 0.0 and not target.anchored:
+		target.boost_ticks = int(round(BOON_FLING_SECS * TICK_RATE))
+		if target.vel.length() > 0.001:
+			target.vel = target.vel.normalized() * target.current_speed()
+	var zap: float = source.def.get("b_zap", 0.0)
+	if zap > 0.0:
+		source.state.zap_hits = int(source.state.get("zap_hits", 0)) + 1
+		if source.state.zap_hits % BOON_ZAP_EVERY == 0 and stun(source, target, zap):
+			events.append({"type": "boon", "id": "zap_collar", "ball": source.index, "pos": target.pos})
+
+
+## Rebound Bolt and Bounce Mine on a wall bounce of `b`.
+func _boon_bounce(b: Ball) -> void:
+	var bump: float = b.def.contact_damage
+	var bolt: float = b.def.get("b_bolt", 0.0)
+	if bolt > 0.0 and tick >= int(b.state.get("bolt_ready", 0)):
+		var f := nearest_foe(b)
+		if f != null and f.pos.distance_to(b.pos) > 0.001:
+			b.state.bolt_ready = tick + int(round(BOON_BOLT_COOLDOWN * TICK_RATE))
+			add_shot(b, b.pos, (f.pos - b.pos).normalized() * BOON_BOLT_SPEED,
+				{"kind": "boon_bolt", "radius": 10.0, "damage": bolt * bump, "life": 2.0, "homing": 3.0})
+	var mine: float = b.def.get("b_mine", 0.0)
+	if mine > 0.0:
+		b.state.mine_bounces = int(b.state.get("mine_bounces", 0)) + 1
+		if b.state.mine_bounces % BOON_MINE_EVERY == 0:
+			add_zone(b, b.pos, {"kind": "mine", "radius": 22.0, "life": 8.0, "arm": 0.6, "blast": mine * bump, "blast_radius": 70.0})
+
+
+## Storm Heart: lightning on the nearest foe of every holder.
+func _boon_storm() -> void:
+	for b in balls:
+		if b.alive() and b.def.get("b_storm", 0.0) > 0.0:
+			var f := nearest_foe(b)
+			if f != null:
+				pulse(b, f.pos, 40.0, b.def.b_storm * b.def.contact_damage, false, "zap")
+				events.append({"type": "boon", "id": "storm_heart", "ball": b.index, "pos": f.pos})
+
+
+## Second Wind: once, below BOON_WIND_AT of max HP, a shield and a dash.
+func _second_wind(b: Ball) -> void:
+	b.fired["b_wind"] = true
+	var amount: float = b.def.b_wind * b.max_hp
+	b.shield += amount
+	events.append({"type": "shield", "target": b.index, "amount": amount, "pos": b.pos})
+	events.append({"type": "boon", "id": "second_wind", "ball": b.index, "pos": b.pos})
+	charge(b, b.vel, 1.5, 1.0)
 
 
 ## A team's HP: its starting ball's, plus what its mate and split-off balls

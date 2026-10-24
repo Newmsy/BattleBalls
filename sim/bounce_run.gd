@@ -36,7 +36,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 8
+const RULES_VERSION := 9
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 20
@@ -101,7 +101,7 @@ const EVENTS := {
 			{"id": "leave", "name": "Walk away"}]},
 	"candy_fountain": {"name": "Candy Fountain", "family": "sweet", "text": "Pink fizz bubbles up out of the floor.",
 		"choices": [
-			{"id": "drink", "name": "Drink", "text": "Revive a knocked-out critter. Nobody out? Take Snack Stash instead.", "arg": "out_or_none"},
+			{"id": "drink", "name": "Drink", "text": "Revive a knocked-out critter. Nobody out? Take Wall Snack instead.", "arg": "out_or_none"},
 			{"id": "bottle", "name": "Bottle it", "buttons": 30}]},
 	"frozen_vault": {"name": "Frozen Vault", "family": "frost", "text": "A boon shines inside a block of ice.",
 		"choices": [
@@ -692,8 +692,8 @@ static func choose(setup: Dictionary, run: Dictionary, choice_id: String, arg = 
 		"drink":
 			if arg != null:
 				run.out[int(arg)] = false
-			elif not "snack_stash" in run.boons.map(func(id): return Boons.base_of(id)):
-				run.boons.append("snack_stash")
+			elif not "wall_snack" in run.boons.map(func(id): return Boons.base_of(id)):
+				run.boons.append("wall_snack")
 			else:
 				run.buttons += 15
 		"chip":

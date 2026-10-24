@@ -77,6 +77,60 @@ func _glyph(c: Vector2, s: float, col: Color) -> void:
 		"drop": # Vampire Kiss.
 			draw_circle(c + Vector2(0, .3) * h, h * .62, col)
 			_poly(c, h, [Vector2(0, -1), Vector2(.58, .1), Vector2(-.58, .1)], col)
+		"flame": # Ember Rim.
+			_poly(c, h, [Vector2(0, -1), Vector2(.55, -.15), Vector2(.7, .45), Vector2(.3, .95), Vector2(-.3, .95), Vector2(-.7, .45), Vector2(-.45, -.25), Vector2(-.2, .05)], col)
+			_poly(c, h, [Vector2(0, -.1), Vector2(.3, .45), Vector2(.15, .8), Vector2(-.15, .8), Vector2(-.3, .45)], INK)
+		"snow": # Frost Rim.
+			for k in 3:
+				var d := Vector2.from_angle(k * PI / 3.0 + PI / 2.0) * h * .9
+				draw_line(c - d, c + d, col, maxf(2.0, s * .1))
+				for e in [d, -d]:
+					var t: Vector2 = c + e * .6
+					draw_line(t, t + e.rotated(.8) * .3, col, maxf(1.5, s * .07))
+					draw_line(t, t + e.rotated(-.8) * .3, col, maxf(1.5, s * .07))
+		"rebound": # Rebound Bolt: a spark bouncing off a wall.
+			draw_line(c + Vector2(-.9, -1) * h, c + Vector2(-.9, 1) * h, col, maxf(2.0, s * .1))
+			draw_polyline(PackedVector2Array([c + Vector2(.1, -.9) * h, c + Vector2(-.75, 0) * h, c + Vector2(.4, .55) * h]), col, maxf(2.0, s * .08), true)
+			_poly(c + Vector2(.55, .6) * h, h * .45, [Vector2(0, -1), Vector2(.3, -.3), Vector2(1, 0), Vector2(.3, .3), Vector2(0, 1), Vector2(-.3, .3), Vector2(-1, 0), Vector2(-.3, -.3)], col)
+		"pinball": # Pinball: a ball knocked into a wall.
+			draw_line(c + Vector2(.95, -1) * h, c + Vector2(.95, 1) * h, col, maxf(2.0, s * .12))
+			draw_circle(c + Vector2(.3, 0) * h, h * .48, col)
+			for y in [-.5, 0.0, .5]:
+				draw_line(c + Vector2(-1, y) * h, c + Vector2(-.4, y) * h, col, maxf(1.5, s * .07))
+		"mine": # Bounce Mine.
+			for k in 8:
+				var d := Vector2.from_angle(k * TAU / 8.0)
+				draw_line(c + d * h * .4, c + d * h * .95, col, maxf(2.0, s * .08))
+			draw_circle(c, h * .58, col)
+			draw_circle(c, h * .2, INK)
+		"fist": # Payback: two arrows trading blows.
+			_poly(c, h, [Vector2(-1, -.35), Vector2(.2, -.35), Vector2(.2, -.7), Vector2(.8, -.1), Vector2(-1, -.1)], col)
+			_poly(c, h, [Vector2(1, .35), Vector2(-.2, .35), Vector2(-.2, .7), Vector2(-.8, .1), Vector2(1, .1)], col)
+		"collar": # Zap Collar: a ring with a bolt on it.
+			draw_arc(c, h * .8, 0, TAU, 28, col, maxf(2.0, s * .1), true)
+			_poly(c, h * .7, [Vector2(.2, -1), Vector2(-.6, .15), Vector2(-.05, .15), Vector2(-.25, 1), Vector2(.65, -.25), Vector2(.1, -.25)], col)
+		"wind": # Second Wind: gust lines.
+			draw_arc(c + Vector2(.25, -.45) * h, h * .32, PI * .9, TAU + PI * .5, 14, col, maxf(2.0, s * .09), true)
+			draw_line(c + Vector2(-1, -.13) * h, c + Vector2(.25, -.13) * h, col, maxf(2.0, s * .09))
+			draw_line(c + Vector2(-.8, .25) * h, c + Vector2(.85, .25) * h, col, maxf(2.0, s * .09))
+			draw_arc(c + Vector2(.45, .6) * h, h * .35, -PI * .5, PI * .9, 14, col, maxf(2.0, s * .09), true)
+		"thermo": # Overtime Fever: a thermometer.
+			draw_line(c + Vector2(0, -.85) * h, c + Vector2(0, .35) * h, col, maxf(3.0, s * .2))
+			draw_circle(c + Vector2(0, .6) * h, h * .36, col)
+			draw_line(c + Vector2(0, -.1) * h, c + Vector2(0, .5) * h, INK, maxf(1.5, s * .07))
+			for y in [-.6, -.3]:
+				draw_line(c + Vector2(.2, y) * h, c + Vector2(.45, y) * h, col, maxf(1.5, s * .06))
+		"storm": # Storm Heart: a cloud with lightning.
+			draw_circle(c + Vector2(-.4, -.3) * h, h * .38, col)
+			draw_circle(c + Vector2(.15, -.5) * h, h * .45, col)
+			draw_circle(c + Vector2(.55, -.2) * h, h * .32, col)
+			draw_rect(Rect2(c + Vector2(-.75, -.3) * h, Vector2(1.6, .35) * h), col)
+			_poly(c + Vector2(0, .5) * h, h * .55, [Vector2(.2, -1), Vector2(-.6, .15), Vector2(-.05, .15), Vector2(-.25, 1), Vector2(.65, -.25), Vector2(.1, -.25)], col)
+		"titan": # Titan Belt: a big ball with a buckled belt.
+			draw_circle(c, h * .92, col)
+			draw_rect(Rect2(c + Vector2(-.92, -.16) * h, Vector2(1.84, .32) * h), INK)
+			draw_rect(Rect2(c + Vector2(-.24, -.3) * h, Vector2(.48, .6) * h), col.lightened(.3))
+			draw_rect(Rect2(c + Vector2(-.12, -.16) * h, Vector2(.24, .32) * h), INK)
 		_:
 			draw_circle(c, h * .6, col)
 
