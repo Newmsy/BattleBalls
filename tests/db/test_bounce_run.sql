@@ -39,6 +39,30 @@ begin
   end;
   perform public.submit_bounce_run(today, 10, 1, 12 * 1800,
     jsonb_build_object('fights', (select jsonb_agg(i) from generate_series(1, 12) i)), 2);
+  -- Rules 7+ (the 20-floor map): the log holds every step, only t = fight
+  -- entries are fights, and floors go to 20. Floor 14, out of lives, after
+  -- 10 fights (a revive and some non-fight floors in between).
+  perform public.submit_bounce_run(today, 14, 0, 10 * 1800, jsonb_build_object('fights',
+    (select jsonb_agg(jsonb_build_object('t', 'go', 'n', i)) from generate_series(1, 14) i)
+    || (select jsonb_agg(jsonb_build_object('t', 'fight', 'slot', 0, 'aim', i)) from generate_series(1, 10) i)
+    || '[{"t": "boon", "id": "hard_hat"}, {"t": "rest", "choice": "revive"}]'::jsonb), 8);
+  perform public.submit_bounce_run(today, 20, 2, 16 * 1800, jsonb_build_object('fights',
+    (select jsonb_agg(jsonb_build_object('t', 'fight')) from generate_series(1, 16) i)), 8);
+  begin
+    perform public.submit_bounce_run(today, 21, 1, 9000, '{"fights": [{"t": "fight"}]}', 8);
+    assert false, 'the map is 20 floors';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.submit_bounce_run(today, 6, 0, 2 * 1800, '{"fights": [{"t": "go"}, {"t": "fight"}, {"t": "fight"}]}', 8);
+    assert false, 'three critters out takes at least three fights';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.submit_bounce_run(today, 12, 1, 9000, '{"fights": [{"t": "fight"}, {"t": "fight"}, {"t": "fight"}]}', 8);
+    assert false, 'rules 7+ runs end on floor 20 or with no lives';
+  exception when invalid_parameter_value then null;
+  end;
   begin
     perform public.submit_bounce_run(today - 5, 0, 0, 9000, '{"fights": [1,2,3]}', 1);
     assert false, 'old days are closed';

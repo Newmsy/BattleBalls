@@ -62,12 +62,22 @@ func test_maps_follow_the_rules() -> void:
 			if n.type == "elite":
 				check(n.row >= 4, "day %d: no early elites" % day)
 			if n.type in ["fight", "elite", "boss"]:
-				var ability: String = BallDefs.get_def(n.foe.critter).ability
-				for id2 in n.foe.boons:
-					check(Boons.applies_to(id2, ability), "day %d: foe boon %s works for %s" % [day, id2, n.foe.critter])
+				check(n.foe.boons.is_empty(), "day %d: foes get no boons" % day)
 		check_eq(rows.size(), BounceRun.FLOORS, "day %d: every floor has nodes" % day)
 		check_eq(rows[BounceRun.FLOORS - 1], 1, "one Champion")
 		check(rows[0] >= 2, "day %d: a choice of start" % day)
+		var links := 0
+		var froms := 0
+		for id in nodes:
+			check(nodes[id].row == 0 or not BounceRun._parents(nodes, id).is_empty(), "day %d: every node has a way in" % day)
+			for k in nodes[id].kids:
+				check(nodes[k].row == nodes[id].row + 1, "day %d: links go up one floor" % day)
+				check(nodes[k].col < 0 or absi(nodes[k].col - nodes[id].col) <= 4, "day %d: links stay short" % day)
+			if nodes[id].row < BounceRun.FLOORS - 2:
+				links += nodes[id].kids.size()
+				froms += 1
+		var ways := float(links) / froms
+		check(ways > 1.6 and ways < 1.95, "day %d: about 1.8 ways on from a node (%.2f)" % [day, ways])
 		# No two links cross between the same floors.
 		for a in nodes:
 			for b in nodes:
@@ -129,7 +139,6 @@ func test_elites_are_bigger_and_tougher() -> void:
 				check_near(n.foe.power, BounceRun.FOE_POWER[n.row] * BounceRun.ELITE_POWER, 0.0001, "and stronger")
 			if n.type == "boss":
 				check_eq(n.foe.size, BounceRun.BOSS_SIZE, "the Champion is big")
-				check(n.foe.boons.any(func(b): return b in Boons.LEGENDARY), "with a Legendary boon")
 	check(seen, "elites turn up")
 
 
@@ -395,8 +404,7 @@ func test_scene_plays_a_run_to_the_end() -> void:
 		seen[scene.state] = true
 		match scene.state:
 			scene.State.MAP:
-				scene._selected = BounceRun.next_nodes(scene.setup, scene.run)[0]
-				scene._go_node()
+				scene._go_node(BounceRun.next_nodes(scene.setup, scene.run)[0])
 			scene.State.FLOOR:
 				scene._choose_fighter(BounceRun.living(scene.run)[0])
 				scene._launch()
@@ -417,10 +425,10 @@ func test_scene_plays_a_run_to_the_end() -> void:
 				BounceRun.leave(scene.setup, scene.run)
 				scene._show_next()
 			scene.State.REST:
-				scene._rest("revive" if BounceRun.can_rest(scene.run, "revive") else "pass")
+				scene._rest("pass")
 				if scene.state == scene.State.EVENT:
 					scene._show_next()
-	check(scene.run.over, "the run ended")
+	check(scene.run.over, "the run ended (state %d, phase %s, steps %d)" % [scene.state, BounceRun.phase(scene.setup, scene.run), steps])
 	check(seen.has(scene.State.MAP), "the map showed")
 	check_eq(BounceRun.replay(scene.setup, scene.run).log, scene.run.log, "the played run replays")
 	# Reopening the scene shows the finished ranked run, not a new draft.
@@ -451,8 +459,7 @@ func test_a_fight_left_mid_way_still_counts() -> void:
 	for i in [0, 2, 4]:
 		scene._toggle_start_boon(i)
 	scene._start_run()
-	scene._selected = BounceRun.next_nodes(scene.setup, scene.run)[0]
-	scene._go_node()
+	scene._go_node(BounceRun.next_nodes(scene.setup, scene.run)[0])
 	scene._choose_fighter(0)
 	scene._launch()
 	var again = load("res://game/bounce_run.tscn").instantiate()

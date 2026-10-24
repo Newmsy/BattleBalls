@@ -1,7 +1,9 @@
 ## The Bounce Run map: FLOORS rows of nodes from the bottom (floor 1) to the
 ## Champion on top, the links between them, the route you took lit, and the
-## nodes you can step to now ringed and bigger. Tap one to select it. Drawn
-## once per change (no per-frame redraw), so it costs nothing while you think.
+## nodes you can step to now ringed and bigger. It is taller than the screen
+## (row_h per floor) and sits in a ScrollContainer; tap a reachable node to go
+## there. Drawn once per change (no per-frame redraw), so it costs nothing
+## while you think.
 extends Control
 
 const BounceRun := preload("res://sim/bounce_run.gd")
@@ -13,6 +15,7 @@ const COLORS := {
 	"fight": Color("3ee6ff"), "elite": Color("ff4fb8"), "mystery": Color("b88cff"), "shop": Color("ffd34e"),
 	"rest": Color("5cff9a"), "chest": Color("ff9f43"), "boss": Color("ff5a6e"), "event": Color("b88cff"),
 }
+const PAD := 62.0 ## Side margin to the outer lanes (room for the glow).
 const NAMES := {
 	"fight": "Fight", "elite": "Elite", "mystery": "Mystery", "shop": "Shop", "rest": "Charge Pad",
 	"chest": "Glow Chest", "boss": "Champion", "event": "Event",
@@ -21,7 +24,9 @@ const NAMES := {
 var setup: Dictionary
 var run: Dictionary
 var selected := -1
+var row_h := 120.0 ## Pixels between floors.
 var on_select: Callable ## Called with the node id a tap picks.
+var _press := Vector2.INF
 var _reach: Array = []
 var _route: Array = []
 
@@ -46,24 +51,45 @@ func shown_type(id: int) -> String:
 
 func node_pos(id: int) -> Vector2:
 	var n: Dictionary = setup.nodes[id]
-	var pad := Vector2(70.0, _r() * 1.6)
-	var y: float = size.y - pad.y - (size.y - 2.0 * pad.y) * n.row / float(BounceRun.FLOORS - 1)
+	var y: float = size.y - row_h * (n.row + 0.6)
 	if n.col < 0:
-		return Vector2(size.x / 2.0, y)
-	return Vector2(pad.x + (size.x - 2.0 * pad.x) * n.col / float(BounceRun.COLS - 1), y)
+		return Vector2(size.x / 2.0, y - row_h * 0.15)
+	# A little seeded wobble, so the lanes don't read as a grid (render only).
+	var h := hash([setup.get("seed", 0), setup.day, id])
+	var lane := (size.x - 2.0 * PAD) / float(BounceRun.COLS - 1)
+	var wob := Vector2(((h & 255) / 255.0 - 0.5) * lane * 0.3, (((h >> 8) & 255) / 255.0 - 0.5) * row_h * 0.2)
+	return Vector2(PAD + lane * n.col, y) + wob
 
 
-## A node's radius: as big as the row spacing allows.
+## The map's full height for rows `row_h` apart.
+static func height_for(row_h_: float) -> float:
+	return row_h_ * (BounceRun.FLOORS + 0.3)
+
+
+## Where to scroll so the floor you pick next sits low on screen, with the
+## floors ahead above it.
+func scroll_for(view_h: float) -> float:
+	var row: int = mini(int(run.floor), BounceRun.FLOORS - 1)
+	var y := size.y - row_h * (row + 0.6)
+	return clampf(y - view_h * 0.72, 0.0, maxf(0.0, size.y - view_h))
+
+
+## A node's radius: big enough to tap with a thumb.
 func _r() -> float:
-	return clampf(size.y / BounceRun.FLOORS * 0.36, 9.0, 24.0)
+	return clampf(minf(row_h * 0.26, (size.x - 2.0 * PAD) / float(BounceRun.COLS - 1) * 0.36), 14.0, 34.0)
 
 
 func _gui_input(event: InputEvent) -> void:
+	# Taps go on release, and only when the finger stayed put, so a drag
+	# scrolls the map instead of picking a node.
 	var at := Vector2.INF
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		at = event.position
-	elif event is InputEventScreenTouch and event.pressed:
-		at = event.position
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_press = event.position
+			return
+		if _press != Vector2.INF and event.position.distance_to(_press) < 24.0:
+			at = event.position
+		_press = Vector2.INF
 	if at == Vector2.INF or _reach.is_empty():
 		return
 	var best := -1
@@ -74,7 +100,7 @@ func _gui_input(event: InputEvent) -> void:
 			best_d = d
 			best = id
 	# Generous: only the reachable nodes take taps, so a near miss still counts.
-	if best >= 0 and best_d < maxf(70.0, _r() * 3.0):
+	if best >= 0 and best_d < maxf(60.0, _r() * 2.2):
 		accept_event()
 		if on_select.is_valid():
 			on_select.call(best)
@@ -94,11 +120,11 @@ func _draw() -> void:
 			var b := node_pos(k)
 			var key := "%d-%d" % [id, k]
 			if walked.has(key):
-				draw_line(a, b, Kit.GOOD, 5.0, true)
+				draw_line(a, b, Kit.GOOD, 6.0, true)
 			elif id == run.at and k in _reach and run.done:
 				draw_line(a, b, Color(Kit.FG, .75), 3.0, true)
 			else:
-				_dashed(a, b, Color(Kit.LINE, .9), 2.0)
+				_dashed(a, b, Color(Kit.MUTED, .55), 3.0)
 	if run.at >= 0 and run.get("dash", false):
 		for k in _reach:
 			_dashed(node_pos(run.at), node_pos(k), Color(COLORS.chest, .8), 3.0)
@@ -109,9 +135,9 @@ func _draw() -> void:
 		var col: Color = COLORS[t]
 		var rr := r * (1.55 if t == "boss" else 1.0)
 		if id in _reach:
-			rr *= 1.3
-			Dot.circle(self, p, rr * 1.75, Color(col, .14))
-			Dot.circle(self, p, rr * 1.4, Color(col, .22))
+			rr *= 1.15
+			Dot.circle(self, p, rr * 1.5, Color(col, .14))
+			Dot.circle(self, p, rr * 1.25, Color(col, .22))
 		if id in _route:
 			Dot.circle(self, p, rr, col)
 			_icon(t, p, rr * .62, Kit.BG)

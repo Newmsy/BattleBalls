@@ -962,8 +962,8 @@ try {
     await page.screenshot({ path: path.join(shots, "40b-bouncerun-start-boons.png") });
     await tapUi(page, logs, "br_start", "br_map");
     await page.screenshot({ path: path.join(shots, "41-bouncerun-map.png") });
-    await tapUi(page, logs, "br_node_0", "br_map");
-    await tapUi(page, logs, "br_go", "br_floor");
+    // A tap on a lit node goes straight there (floor 1 is all fights).
+    await tapUi(page, logs, "br_node_0", "br_floor");
     await page.screenshot({ path: path.join(shots, "41b-bouncerun-floor.png") });
     await tapUi(page, logs, "br_send_0", "br_aim");
     await page.screenshot({ path: path.join(shots, "42-bouncerun-aim.png") });

@@ -85,7 +85,7 @@ const DEFS := {
 	},
 	"lucky_charm": {
 		"name": "Lucky Charm",
-		"text": "First hit +3. 8 HP shield in overtime.",
+		"text": "First hit +3, and an 8 HP shield in overtime.",
 		"icon": "bubble",
 		"first_strike": 3.0,
 		"overtime_shield": 8.0,
