@@ -784,6 +784,87 @@ def knock_cosmic():
     return np.sin(2 * np.pi * 1600 * t + 2.5 * np.exp(-20 * t) * np.sin(2 * np.pi * 2240 * t)) * env(d, 0.001, 6)
 
 
+# Wall hits: each arena theme's wall (game/arena_art.gd families) has its own
+# material. The game scales volume and pitch by how hard the ball hit.
+
+def wallhit_classics():
+    """Neon glass panel: a ting over a body thunk."""
+    return mix(bell(1900, 0.22, 7) * 0.7, tone(420, 0.08, "tri") * env(0.08, 0.0006, 8) * 0.8,
+               bandnoise(0.01, 2500, 9000) * env(0.01, 0.0003, 6) * 0.5)
+
+
+def wallhit_ice():
+    """Ice sheet: a hard clink and a little crackle."""
+    return mix(bell(2600, 0.2, 7, ((1, 1.0), (2.3, 0.5), (4.7, 0.3))) * 0.8,
+               crackles(0.12, 0.9, 3000, 9000) * env(0.12, 0.001, 4) * 0.8, tone(700, 0.05, "tri") * env(0.05, 0.0005, 8) * 0.4)
+
+
+def wallhit_candy():
+    """Hard candy shell: a bright clack and a sugary boing."""
+    d = 0.16
+    return mix(bandnoise(0.012, 1500, 7000) * env(0.012, 0.0004, 6), tone(1250, 0.06, "tri") * env(0.06, 0.0005, 8) * 0.7,
+               osc(sweep(500, 820, d, 0.4) * vib(d, 22, 0.08), "sine") * env(d, 0.002, 6) * 0.5)
+
+
+def wallhit_temple():
+    """Stone block: a dull thock with grit."""
+    return mix(lowpass(noise(0.05), 1600) * env(0.05, 0.0005, 6) * 1.6, osc(sweep(330, 190, 0.1), "sine") * env(0.1, 0.0008, 7),
+               crackles(0.09, 0.95, 1200, 5000) * env(0.09, 0.002, 4) * 0.4)
+
+
+def wallhit_space():
+    """Metal hull: an FM clang with shimmer."""
+    d = 0.3
+    t = t_axis(d)
+    fm = np.sin(2 * np.pi * 620 * t + 2.2 * np.exp(-12 * t) * np.sin(2 * np.pi * 1710 * t)) * env(d, 0.0008, 6)
+    return mix(fm * 0.8, bell(1480, d, 7, ((1, 1.0), (2.7, 0.4))) * 0.4, bandnoise(0.01, 2000, 9000) * env(0.01, 0.0003, 6) * 0.4)
+
+
+def wallhit_ocean():
+    """A wet slap and a splash."""
+    return mix(bandnoise(0.05, 500, 5000) * env(0.05, 0.0006, 7) * 1.2, osc(sweep(420, 900, 0.08, 0.6), "sine") * env(0.08, 0.002, 6) * 0.6,
+               delay(bandnoise(0.15, 2500, 9000) * env(0.15, 0.01, 4) * 0.3, 0.02))
+
+
+def wallhit_sky():
+    """A cloud cushion: a soft whump of air."""
+    return mix(lowpass(noise(0.14), sweep(2500, 400, 0.14)) * env(0.14, 0.004, 4) * 1.4, osc(sweep(380, 240, 0.1), "sine") * env(0.1, 0.003, 6) * 0.6)
+
+
+def wallhit_volcano():
+    """Rock: a thud with ember crackle."""
+    return mix(osc(sweep(300, 140, 0.12), "sine") * env(0.12, 0.0006, 6), lowpass(noise(0.04), 2500) * env(0.04, 0.0004, 6),
+               crackles(0.18, 0.93, 2500, 9000) * env(0.18, 0.003, 3) * 0.55)
+
+
+def wallhit_synth():
+    """A neon synth blip."""
+    d = 0.12
+    return mix(lowpass(osc(sweep(1400, 700, d, 0.4), "saw"), sweep(6000, 900, d)) * env(d, 0.001, 6) * 0.6,
+               tone(2100, 0.04, "square") * env(0.04, 0.0005, 8) * 0.2)
+
+
+def wallhit_desert():
+    """Sandstone: a soft thump and a hiss of sand."""
+    return mix(osc(sweep(360, 220, 0.08), "tri") * env(0.08, 0.0008, 7), bandnoise(0.16, 2500, 8000) * env(0.16, 0.004, 3) * 0.35)
+
+
+def wallhit_haunted():
+    """A hollow wooden knock."""
+    knock = mix(bandnoise(0.01, 1000, 5000) * env(0.01, 0.0004, 6), tone(520, 0.12, "tri") * env(0.12, 0.0006, 7))
+    return mix(knock, tone(260, 0.2) * env(0.2, 0.002, 5) * 0.4)
+
+
+def wallhit_toybox():
+    """A plastic bumper boing."""
+    d = 0.18
+    return mix(bandnoise(0.008, 2000, 8000) * env(0.008, 0.0003, 6) * 0.5,
+               osc(sweep(420, 760, d, 0.3) * vib(d, 16, 0.1), "tri") * env(d, 0.002, 5) * 0.9)
+
+
+WALL_MATERIALS = ["classics", "ice", "candy", "temple", "space", "ocean", "sky", "volcano", "synth", "desert", "haunted", "toybox"]
+
+
 # Critter signatures.
 
 def zoom():
@@ -1390,6 +1471,7 @@ BATTLE = {
        for fam in ["nature", "sea", "tech", "sweet", "frost", "toybox", "spooky", "fire", "cosmic"] for v in range(2)},
     **{f"knock_{fam}": globals()[f"knock_{fam}"]
        for fam in ["nature", "sea", "tech", "sweet", "frost", "toybox", "spooky", "fire", "cosmic"]},
+    **{f"wallhit_{m}": globals()[f"wallhit_{m}"] for m in WALL_MATERIALS},
     **{n: globals()[n] for n in [
         "zoom", "kaboom", "mine_drop", "frost_crunch", "frost_breath", "thorn_snap", "moon_bonk", "warble",
         "void_suck", "nova_boom", "coal_hiss", "squirt", "lava_blorp", "ghost_wooo", "spook_hit", "chrome_ching",
