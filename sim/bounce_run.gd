@@ -26,13 +26,14 @@
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
+const Arenas := preload("res://sim/arenas.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Boons := preload("res://sim/boons.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 5
+const RULES_VERSION := 6
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 10
@@ -102,10 +103,12 @@ static func fighter_boons(_setup: Dictionary, run: Dictionary, _slot: int) -> Ar
 	return run.boons
 
 
-## MatchSim config for sending `slot` at the current floor with `aim`.
+## MatchSim config for sending `slot` at the current floor with `aim`. Every
+## fight is on its own map, picked from the floor's seed and how many fights
+## the run has had (so a retry is somewhere new and a replay finds the same).
 static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> Dictionary:
 	var foe: Dictionary = setup.floors[run.floor]
-	return {"seed": foe.seed, "p1": card(setup, run, slot).critter, "p2": foe.critter,
+	return {"seed": foe.seed, "arena": Arenas.pick(foe.seed * 16 + run.log.size()), "p1": card(setup, run, slot).critter, "p2": foe.critter,
 		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), foe.boons], "powers": [1.0, FOE_POWER[run.floor]],
 		"tiers": [tier_at(run.floor), tier_at(run.floor)], "hp": [null, run.get("foe_hp")]}
 
