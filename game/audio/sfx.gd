@@ -280,12 +280,13 @@ const ZING_PITCH := {"nature": 0.85, "sea": 0.8, "tech": 1.2, "sweet": 1.3, "fro
 const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
-## Music per track: [file, volume dB, loops]. The menu loop is "Nocturnal Menu"
-## (FreeMusic AI), looped by tools/music/loop_track.py; the rest are remixed from
-## "Crypto" by Kevin MacLeod (CC-BY 4.0, credited in CREDITS.md and Settings) by
-## tools/music/remix_crypto.py. All render at the same loudness, so these set the mix.
+## Music per track: [file, volume dB, loops]. Menu: "Nocturnal Menu"; fight and
+## overtime: "Neon Pulse" at 120 and 140 BPM (both FreeMusic AI, looped by
+## tools/music/loop_track.py); victory: remixed from "Crypto" by Kevin MacLeod
+## (CC-BY 4.0, credited in CREDITS.md and Settings) by tools/music/remix_crypto.py.
+## All render at the same loudness, so these set the mix.
 ## The menu loop plays across every screen outside fights and picks up where it
-## left off; overtime is the fight theme faster with busier drums; victory loops
+## left off; overtime is the fight theme faster; victory loops
 ## past its one-bar hit (VICTORY_LOOP_FROM) while the win screen is up.
 const MUSIC := {
 	"menu": ["music_menu", -11.0, true],
