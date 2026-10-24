@@ -17,7 +17,6 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(shell.title_row("The Neon Circuit", {"eyebrow": "Campaign", "eyebrow_color": Color("9be89a"), "info_mark": "world_info", "info": [
 		"The Circuit is a ring of glowing arenas. The Glitch has scrambled each zone's champion into a giant boss.",
 		"Beat a zone's boss to open the next. Zone 1 is 1v1, Zone 2 is 2v2, then teams of 3: relays, 2v2s and big 3v3 brawls.",
-		"Each zone has its own arenas: bumpers, ice, thorns, portals, a shrinking rim, lava.",
 		"Purify Magma Core, the last zone, to free the whole Circuit from The Glitch.",
 	]}))
 

@@ -173,8 +173,10 @@ static func item_sheet(shell, id: String) -> void:
 	var v := Kit.vbox(16, [
 		Kit.hbox(12, [Kit.label(it.name, 36), Kit.spacer(), Kit.chip(Catalog.SLOT_NAMES[it.slot], Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER),
 		TryOn.make(p.lineup, tier, look, 320.0),
-		Kit.label(_where_text(it), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 	])
+	var where := _where_text(it)
+	if where != "":
+		v.add_child(Kit.label(where, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var btn: Button
 	if glow.owns(id):
 		var worn: bool = glow.equipped(it.slot) == id
@@ -210,12 +212,12 @@ static func item_sheet(shell, id: String) -> void:
 static func _where_text(it: Dictionary) -> String:
 	match it.where:
 		"pass_free":
-			return "Earned on the Glow Pass free track. Never sold."
+			return "From the Glow Pass free track."
 		"pass_premium":
-			return "On this season's Glow Pass. Never sold in the shop."
+			return "On this season's Glow Pass."
 		"founder":
 			return "Part of the Founder Pack."
-	return "Looks only. No stat change."
+	return ""
 
 
 static func _wardrobe_sheet(shell, slot: String) -> void:
@@ -253,8 +255,7 @@ static func _wardrobe_sheet(shell, slot: String) -> void:
 static func gem_sheet(shell) -> void:
 	var glow = shell.glow
 	var store = glow.store
-	var v := Kit.vbox(14, [Kit.hbox(10, [Glyph.make("gem", 44), Kit.label("Glow Gems", 36), Kit.spacer(), Kit.label("You have %s" % Kit.commas(glow.gems()), 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
-		Kit.label("Looks and the Glow Pass. Never power.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	var v := Kit.vbox(14, [Kit.hbox(10, [Glyph.make("gem", 44), Kit.label("Glow Gems", 36), Kit.spacer(), Kit.label("You have %s" % Kit.commas(glow.gems()), 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)])
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)

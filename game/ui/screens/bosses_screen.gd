@@ -47,8 +47,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	var root := Kit.vbox(18)
 	root.add_child(shell.title_row("Bosses", {"eyebrow": "Daily", "eyebrow_color": Color("ff8a3d"), "info_mark": "bosses_info", "info": [
-		"Each boss has its own map, tricks and reward.",
-		"Stuns cancel a boss's wind-up and slows drag out its timers, so pick a critter whose trick fits the boss.",
+		"Stuns cancel a boss's wind-up and slows drag out its timers.",
 		"Runs reset every day; The Glitch's tries reset every week."]}))
 	for h in HALL:
 		root.add_child(_card(shell, p, h, now))

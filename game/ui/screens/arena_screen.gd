@@ -43,7 +43,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var how := [
 		"Trios fight in order; a winner stays in with its HP left. Their order is hidden. Your last shots become your ghost.",
 		"Best trio fills in your strongest three.",
-		"Opponents are themed teams with trophies near yours, and the more trophies a team has, the stronger it is. Beating a team above you wins more and losing to it costs less. One free refresh a day.",
+		"Opponents are themed teams with trophies near yours. Beating a team above you wins more and losing to it costs less. One free refresh a day.",
 		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Tokens for the Bazaar.",
 		"Set your Defence trio: each day a few teams raid it. Holding wins trophies and Tokens.",
 	]

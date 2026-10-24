@@ -59,7 +59,7 @@ static func _info_text(shell, t: int) -> Array:
 	var loan := Roster.get_critter(l.critter)
 	var loan_note := "%s is on loan to you today in %s. Practice only: it won't count for Ghost Arena or the campaign. Its Critter Shot is a bonus bank shot with it." % [loan.name, Loaner.modes_text()]
 	if l.owned:
-		loan_note = "You already own %s. Today it's on loan to everyone who doesn't. The Critter Shot is open to all." % loan.name
+		loan_note = "You already own %s. Its Critter Shot is open to all." % loan.name
 	return [
 		"Trick Shot: one called bank shot, %d tries, the same puzzle for everyone. A new one lands at midnight." % TRICK_TRIES,
 		"Bounce Run: a fresh run every day. Draft critters as you go and see how far your trio gets.",

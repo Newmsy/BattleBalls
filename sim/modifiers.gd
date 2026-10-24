@@ -22,12 +22,12 @@ const NONE := ""
 const DEFS := {
 	"big_head": {
 		"display_name": "Big Head",
-		"description": "Every ball is 1.35x bigger. More bumps, fewer misses.",
+		"description": "Every ball is 1.35x bigger.",
 		"radius": 1.35,
 	},
 	"glass_cannon": {
 		"display_name": "Glass Cannon",
-		"description": "Three quarters HP, 1.35x damage. Fights end fast.",
+		"description": "Three quarters HP, 1.35x damage.",
 		"hp": 0.75,
 		"damage": 1.35,
 	},
@@ -40,12 +40,12 @@ const DEFS := {
 	},
 	"double_trouble": {
 		"display_name": "Double Trouble",
-		"description": "Abilities hit harder: bigger heals, more and hotter beams, bigger snaps.",
+		"description": "Abilities hit harder.",
 		"ability": 1.5,
 	},
 	"mirror_match": {
 		"display_name": "Mirror Match",
-		"description": "Both sides get the same random ball. Only your aim decides.",
+		"description": "Both sides get the same random ball.",
 		"mirror": true,
 	},
 	"closing_walls": {
