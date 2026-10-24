@@ -8,7 +8,8 @@
 // `export const transparent = true` to render on a transparent background
 // (used by the map's node tokens), `export const dir = "game/..."` to write
 // somewhere other than game/bounce_run/art (the Home screen art), and
-// `export const many = { name: fn }` to render several pictures from one file.
+// `export const many = { name: fn }` to render several pictures from one file
+// (with `export const sizes = { name: [w, h] }` where one differs from `size`).
 // Usage (from the repo root): node tools/event_art/render.mjs [name ...]
 import { createRequire } from "node:module";
 import fs from "node:fs";
@@ -39,10 +40,11 @@ for (const n of names) {
   const out = mod.dir ? path.join(repo, mod.dir) : dst;
   fs.mkdirSync(out, { recursive: true });
   for (const [name, draw] of mod.many ? Object.entries(mod.many) : [[n, mod.default]]) {
-    await page.setViewportSize({ width: W, height: H });
+    const [w, h] = (mod.sizes && mod.sizes[name]) || [W, H];
+    await page.setViewportSize({ width: w, height: h });
     await page.setContent(`<html><body style="margin:0;background:${bg}">${draw()}</body></html>`);
     const file = path.join(out, name + ".png");
-    await page.screenshot({ path: file, clip: { x: 0, y: 0, width: W, height: H }, omitBackground: !!mod.transparent });
+    await page.screenshot({ path: file, clip: { x: 0, y: 0, width: w, height: h }, omitBackground: !!mod.transparent });
     console.log(path.relative(repo, file));
   }
 }
