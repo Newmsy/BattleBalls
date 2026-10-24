@@ -87,6 +87,19 @@ const RULES := {
 	"knock_spooky": [2, 0.06, -5.0],
 	"knock_fire": [2, 0.06, -3.0],
 	"knock_cosmic": [2, 0.06, -12.0],
+	# Wall hits: one material per arena theme (game/arena_art.gd families).
+	"wallhit_classics": [2, 0.06, -6.0],
+	"wallhit_ice": [2, 0.06, -6.0],
+	"wallhit_candy": [2, 0.06, -5.0],
+	"wallhit_temple": [2, 0.06, -4.0],
+	"wallhit_space": [2, 0.06, -7.0],
+	"wallhit_ocean": [2, 0.06, -5.0],
+	"wallhit_sky": [2, 0.06, -3.0],
+	"wallhit_volcano": [2, 0.06, -4.0],
+	"wallhit_synth": [2, 0.06, -7.0],
+	"wallhit_desert": [2, 0.06, -3.0],
+	"wallhit_haunted": [2, 0.06, -5.0],
+	"wallhit_toybox": [2, 0.06, -6.0],
 	# Critter signatures (CRITTER_CUES) and shared battle moments.
 	"zoom": [1, 0.1, -6.0],
 	"kaboom": [2, 0.12, -2.0],
@@ -189,7 +202,7 @@ const CRITTER_CUES := {
 	"vampire": {"damage:contact": [["chomp", 0.0, 1.0]]},
 	"juggernaut": {"damage:contact": [["thwomp", 0.0, 1.0]], "damage:slam": [["thwomp", 0.0, 0.85]]},
 	"spiker": {"spike": [["shing", 0.0, 0.9, "spikes", 0.05]], "shot:spike": [["spine", 0.0, 1.0]], "shot_pop:spike": []},
-	"speedster": {"bounce": [["zoom", 0.0, 0.8, "speed", 0.5], ["wall", -4.0, 1.2]], "damage:afterimage": [["zoom", -10.0, 1.6]]},
+	"speedster": {"bounce": [["zoom", 0.0, 0.8, "speed", 0.5]], "damage:afterimage": [["zoom", -10.0, 1.6]]},
 	"bomber": {"zone:mine": [["mine_drop", 0.0, 1.0]], "boom": [["kaboom", 0.0, 1.0]]},
 	"frost": {"damage:ice": [["frost_crunch", 0.0, 1.0]], "pulse:frost": [["frost_breath", 0.0, 1.0]]},
 	"thorns": {"reflect": [["thorn_snap", 0.0, 1.0]], "damage:reflect": [], "damage:burn": []},
@@ -267,9 +280,10 @@ const ZING_PITCH := {"nature": 0.85, "sea": 0.8, "tech": 1.2, "sweet": 1.3, "fro
 const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
-## Music per track: [file, volume dB, loops]. All are remixed from "Crypto" by
-## Kevin MacLeod (CC-BY 4.0, credited in CREDITS.md and Settings) by
-## tools/music/remix_crypto.py at the same loudness, so these set the mix.
+## Music per track: [file, volume dB, loops]. The menu loop is "Nocturnal Menu"
+## (FreeMusic AI), looped by tools/music/loop_track.py; the rest are remixed from
+## "Crypto" by Kevin MacLeod (CC-BY 4.0, credited in CREDITS.md and Settings) by
+## tools/music/remix_crypto.py. All render at the same loudness, so these set the mix.
 ## The intro plays once when the game opens and hands over to the menu loop;
 ## overtime is the fight theme faster with busier drums; victory loops past
 ## its one-bar hit (VICTORY_LOOP_FROM) while the win screen is up.
@@ -317,6 +331,7 @@ var _was_overtime := false
 var _heartbeat_in := 0.0
 var _rain_in := 0.0
 var _drum_beat := 0 ## Alternates Drum's wall taps between two pitches.
+var _wall_sound := "wallhit_classics" ## This fight's wall material (see wall_sound()).
 var _tick_in := 0.0 ## Seconds to the next overtime clock tick.
 var _zones_heard := {} ## Instance ids of the floor zones already sounded.
 var _rng := RandomNumberGenerator.new() ## Render-side only: never the sim's.
@@ -438,6 +453,7 @@ func on_aim_drag(pull: float) -> void:
 
 func on_fight_start(sim) -> void:
 	fight_sim = sim
+	_wall_sound = wall_sound(sim.arena_id)
 	_was_overtime = false
 	_heartbeat_in = 0.0
 	_menu_pending = false
@@ -464,6 +480,8 @@ func on_result(winner: int) -> void:
 func consume_events(events: Array[Dictionary], sim) -> void:
 	_zone_cues(sim)
 	for e in events:
+		if e.type == "bounce":
+			_wall_hit(e, sim)
 		var owner = _owner(e, sim)
 		var cues = _critter_cues(e, owner)
 		if cues != null:
@@ -511,9 +529,7 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("slurp")
 				play("heal", 0.0, 1.0 + clampf(e.amount / 20.0, 0.0, 0.3))
 			"bounce":
-				# A faster ball rings the wall a little higher.
 				var ball = sim.balls[e.ball] if e.ball < sim.balls.size() else null
-				play("wall", 0.0, 0.85 + 0.35 * _speed_share(ball) + _rng.randf() * 0.15)
 				if ball != null and ball.type_id == "drum": # A little beat off the walls.
 					_drum_beat += 1
 					play("drum", -6.0, 1.5 if _drum_beat % 2 else 1.2)
@@ -804,6 +820,33 @@ func _critter_cues(e: Dictionary, owner):
 
 
 ## A ball's speed over its base speed, 0 at base up to 1 at double.
+## The wall sound for arena `id`: its themed art's material, plain neon glass
+## for maps without one (boss maps). Loaded here, not preloaded, so the art
+## painters don't load with this autoload.
+static func wall_sound(id: String) -> String:
+	var fam: String = load("res://game/arena_art.gd").family(id)
+	return "wallhit_" + fam if RULES.has("wallhit_" + fam) else "wallhit_classics"
+
+
+## A ball bouncing off the arena's edge or a pillar: the arena's wall material,
+## louder and brighter the more head-on and fast it hit, lower for big balls.
+## Bumpers ding on their own; critter-made pieces keep the plain glass ting.
+func _wall_hit(e: Dictionary, sim) -> void:
+	if e.ball >= sim.balls.size():
+		return
+	var ball = sim.balls[e.ball]
+	for o in sim.obstacles():
+		if e.pos.distance_to(o.pos) <= float(o.radius) + 4.0:
+			if o.has("piece"):
+				play("wall", 0.0, 0.85 + _rng.randf() * 0.15)
+			if o.has("piece") or o.kind == "bumper":
+				return
+	var n: Vector2 = (ball.pos - e.pos).normalized()
+	var hit: float = absf(ball.vel.dot(n)) / maxf(1.0, float(ball.def.get("speed", 300.0)))
+	var k := clampf((hit - 0.3) / 1.4, 0.0, 1.0)
+	play(_wall_sound, lerpf(-7.0, 0.0, k), clampf(64.0 / ball.radius, 0.8, 1.25) * (0.92 + 0.16 * k))
+
+
 func _speed_share(ball) -> float:
 	if ball == null or ball.def.get("speed", 0.0) <= 0.0:
 		return 0.0
