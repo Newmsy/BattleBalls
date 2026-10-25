@@ -41,6 +41,9 @@ func _initialize() -> void:
 		quit(1)
 		return
 	lobby = Lobby.new(_fresh_seed)
+	# Headless Godot naps between frames; 20 ms (50 ticks a second) is plenty
+	# for matchmaking and keeps the always-on container's CPU (and bill) low.
+	OS.low_processor_usage_mode_sleep_usec = 20000
 	var port := int(OS.get_environment("PORT")) if OS.get_environment("PORT") != "" else 8080
 	var err := tcp.listen(port)
 	if err != OK:

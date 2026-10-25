@@ -449,7 +449,7 @@ docker build -f server/Dockerfile -t battleballs-live .              # the image
 ```
 
 In the game, Quick fight's FIGHT! finds a live foe when Settings > Testing >
-Live Quick fights is on (needs `Dev.LIVE_SERVER` in `game/dev.gd`), or for one
+Live Quick fights is on (`Dev.LIVE_SERVER` in `game/dev.gd` is the Azure server), or for one
 visit with `?live=ws://127.0.0.1:8080` (add `&auto=1` to queue and launch at
 once). `game/online/live_client.gd` is the phone's side of the protocol; you can
 be on sim side 1, so the arena, health bars and result follow `you_side`.
