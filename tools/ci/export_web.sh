@@ -63,3 +63,5 @@ else:
 PY
 # The live-ops schedule, served next to the game so builds can refresh it.
 cp liveops/liveops.json build/web/liveops.json
+# Privacy policy, terms and support pages (linked from Settings and the store listings).
+cp site/*.html site/*.css build/web/
