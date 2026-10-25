@@ -7,7 +7,8 @@
 ##   CritterArt.draw_critter(self, "vampire", centre, radius, {"t": time, "tier": 2})
 ## State keys (all optional): t, tier, look (Vector2), blink (0-1), hit, flash,
 ## stacks, eye_flash, hp_frac, pole_swap (0-1, a magnet mid-flip), silhouette
-## (bool: draw as an unfound dark shape).
+## (bool: draw as an unfound dark shape), grey (bool: drawn in greyscale, as
+## Echo wears a critter it is copying).
 extends RefCounted
 
 const Dot := preload("res://game/dot.gd")
@@ -15,9 +16,9 @@ const CritterDb := preload("res://sim/critter_db.gd")
 
 const INK := Color("1a1530")
 ## The kit a critter's "art" can use; tests check every critter file against it.
-const BODIES := ["gradient", "bomb", "ghost", "chrome", "starfield", "prism", "magnet", "cloud", "pixel", "eclipse"]
-const FEATURES := ["cape_collar", "spike_ring", "speed_streaks", "antennae", "ice_crown", "thorn_ring", "wisp_tail", "orbit_ring",
-	"swirl_arms", "flame_crest", "rock_band", "headband", "fuse", "frost_freckles", "vines", "seam", "magnet_prongs",
+const BODIES := ["gradient", "bomb", "ghost", "chrome", "starfield", "prism", "magnet", "cloud", "pixel", "eclipse", "mirror", "chomper", "gumdrop"]
+const FEATURES := ["cape_collar", "spike_ring", "speed_streaks", "antennae", "ice_crown", "wisp_tail", "orbit_ring",
+	"swirl_arms", "flame_crest", "rock_band", "headband", "fuse", "frost_freckles", "seam", "magnet_prongs",
 	"antenna2", "bandana", "barrel", "batwings", "beard", "bees", "belly", "beret", "bigtail", "bite", "bloom", "boltant",
 	"boltcrest", "bow", "bulbs", "candle", "candyrings", "canopy", "cap", "chainball", "cheeks", "chestlight", "chips", "clamshell",
 	"clockface", "coil", "comettail", "controlbar", "core", "corona", "crust", "cup", "door", "dorsal", "drips", "drops", "droptop",
@@ -26,9 +27,9 @@ const FEATURES := ["cape_collar", "spike_ring", "speed_streaks", "antennae", "ic
 	"horns", "jarlid", "jets", "key", "lamp", "leaves", "lever", "mask", "monocle", "moons", "mushroom", "napkin", "number",
 	"panel", "pearl", "pods", "pot", "rears", "reels", "ringpull", "rodball", "rope", "ruff", "scoops", "segments", "shades",
 	"shards", "sheen", "shellhex", "shine", "sidefins", "smoke", "snout", "snowflake", "speckles", "spikyhair", "splats", "spots",
-	"starnose", "stemleaf", "sticks", "stinger", "stripe", "stripes", "sugar", "tallcrystals", "tentacles", "tiles", "tophat",
-	"totemstack", "trunk", "tuft", "tufts", "tusks", "twigs", "vinewrap", "vvisor", "whiskers", "windcurls", "wings", "witchhat",
-	"wrapper", "yoyo", "zighair", "zigmark", "scales", "lens"]
+	"stemleaf", "sticks", "stinger", "stripe", "stripes", "sugar", "tallcrystals", "tentacles", "tiles", "tophat",
+	"totemstack", "trunk", "tuft", "tusks", "twigs", "vinewrap", "vvisor", "whiskers", "windcurls", "wings", "witchhat",
+	"wrapper", "yoyo", "zighair", "zigmark", "scales", "lens", "squid", "squidspots", "paws", "molesnout", "bramble", "dandelion"]
 const MOUTHS := ["smile", "grin", "smirk", "flat", "frown", "o", "fangs", "teeth", "pout", "beak", "bigmouth", "none"]
 const SILHOUETTE := Color("232052")
 ## Tier looks: from T3 a critter gets a small step up on its own body, and at T5
@@ -38,6 +39,9 @@ const GOLD := Color("ffd23f")
 const GOLD_LIGHT := Color("fff1b0")
 
 static var _sil := false
+static var _grey := false
+## The outline (pixels) of a body that isn't a circle, for the hit flash.
+static var _hit_shape := PackedVector2Array()
 
 
 static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Dictionary = {}) -> void:
@@ -47,6 +51,8 @@ static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Di
 	st.art = d.art
 	st.id = id
 	_sil = st.get("silhouette", false)
+	_grey = st.get("grey", false)
+	_hit_shape = PackedVector2Array()
 	var art: Dictionary = d.art
 	var col := Color(d.color)
 	r *= art.get("scale", 1.0)
@@ -61,17 +67,29 @@ static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Di
 		if st.get("ko", false):
 			_ko_face(ci, c, r)
 			_sil = false
+			_grey = false
 			return
 		if st.hit > 0.0:
-			_circ(ci, c, r, Color(1, 1, 1, minf(.85, st.hit * 2.4)))
-		_face(ci, art.get("eyes", {}), col, c, r, st)
+			var flash := Color(1, 1, 1, minf(.85, st.hit * 2.4))
+			if _hit_shape.size() > 2:
+				_poly(ci, _hit_shape, flash)
+			else:
+				_circ(ci, c, r, flash)
+		var eyes: Dictionary = art.get("eyes", {})
+		_face(ci, eyes, col, c + Vector2(0, eyes.get("dy", 0.0) * r), r, st)
 	_sil = false
+	_grey = false
 
 
 # --- Primitives (every colour passes through _c for silhouettes) -------------
 
 static func _c(col: Color) -> Color:
-	return Color(SILHOUETTE, col.a) if _sil else col
+	if _sil:
+		return Color(SILHOUETTE, col.a)
+	if _grey: # A cool silver grey, so a copy still reads as Echo's mirror.
+		var l := col.get_luminance()
+		return Color(l * .95, l, minf(1.0, l * 1.06 + .03), col.a)
+	return col
 
 
 static func shade(col: Color, amt: float) -> Color:
@@ -178,6 +196,22 @@ static func _body(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 	_ring(ci, c, r, shade(col, -.5), maxf(1.5, r * .07))
 
 
+## A body that isn't a circle (Gumdrop, Munch's head and jaw): the same
+## smooth shading as _body, mapped onto the outline `pts` (pixels) as if it
+## were a ball of radius r centred on c.
+static func _shaped(ci: CanvasItem, pts: PackedVector2Array, c: Vector2, r: float, col: Color) -> void:
+	var uv := PackedVector2Array()
+	for p in pts:
+		uv.append((p - c) / (r * 2.0) + Vector2(.5, .5))
+	ci.draw_colored_polygon(pts, _c(shade(col, -.2)))
+	ci.draw_colored_polygon(pts, _c(shade(col, .45)), uv, _shade_disc())
+	ci.draw_colored_polygon(pts, _c(Color(shade(col, -.6), .55)), uv, _soft("core"))
+	ci.draw_colored_polygon(pts, _c(Color(1, 1, 1, .5)), uv, _soft("sheen"))
+	var ring := pts.duplicate()
+	ring.append(pts[0])
+	_pline(ci, ring, shade(col, -.5), maxf(1.5, r * .07))
+
+
 static var _shade_tex: Texture2D
 static var _soft_tex := {}
 
@@ -209,6 +243,8 @@ static func _soft(kind: String) -> Texture2D:
 			if kind == "core":
 				var d := (p - Vector2(-.3, -.35)).length() / 1.35
 				a = smoothstep(.55, 1.0, d)
+			elif kind == "glow": # A soft round light, brightest in the middle.
+				a = exp(-p.length_squared() * 3.5)
 			else:
 				var q := (p - Vector2(-.38, -.48)) / Vector2(.3, .2)
 				q = q.rotated(.7)
@@ -269,6 +305,9 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 	var tier: int = s.tier
 	_C = c
 	_R = r
+	if _sil and style == "ghost": # See-through ghosts still make a solid shadow.
+		_circ(ci, c, r, Color.WHITE)
+		return
 	match style:
 		"magnet":
 			magnet_body(ci, c, r, col, Color(s.art.get("pole", "2f7bff")), s.pole_swap)
@@ -301,13 +340,15 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 			if s.art.get("tint", false):
 				_circ(ci, c, r, Color(col, .25))
 			_ring(ci, c, r, Color("4a5466"), maxf(1.5, r * .07))
-			if tier >= 3 and not s.art.get("tint", false):
-				# Echo: a rainbow mirror rim at T3; at T5 the whole ball shines like a mirror.
-				_ring(ci, c, r * .95, Color.from_hsv(fmod(t * .25, 1.0), .45, 1.0, .75), maxf(1.0, r * .05))
-				if tier >= 5:
-					_ring(ci, c, r * 1.1, Color(1, 1, 1, .25 + .15 * sin(t * 3.0)), r * .1)
-					_glint(ci, c + Vector2(-.42, -.48) * r, r * .45, t)
-					_glint(ci, c + Vector2(.55, .42) * r, r * .22, t, 2.0)
+		"mirror":
+			mirror_body(ci, c, r, t, tier)
+		"chomper":
+			_chomper(ci, col, c, r, t, tier)
+		"gumdrop":
+			if tier >= 5: # Gumdrop's T5: a little lime gumdrop bobs on its head.
+				_shaped(ci, _gum_pts(c + Vector2(.05, -1.12 + .04 * sin(t * 3.0)) * r, r * .42), c + Vector2(.05, -1.12) * r, r * .42, Color("5fd38a"))
+			_hit_shape = _gum_pts(c, r)
+			_shaped(ci, _hit_shape, c, r, col)
 		"cloud":
 			var puffs := [Vector3(-.55, .1, .55), Vector3(.55, .1, .55), Vector3(0, -.3, .65), Vector3(-.3, .35, .5), Vector3(.3, .35, .5)]
 			for b in puffs:
@@ -512,18 +553,6 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 				_pline(ci, pts, Color("7cc7ea"), 1.0)
 				if (tier >= 5 and i % 2 == 0) or (tier >= 3 and i == n / 2):
 					_glint(ci, tip, r * .16, t, i * 1.3, Color("bff0ff"))
-		"thorn_ring":
-			var n := 4 + tier
-			for i in n:
-				var a := float(i) / n * TAU + .5
-				_poly(ci, PackedVector2Array([c + Vector2(cos(a - .12), sin(a - .12)) * r * .95, c + Vector2(cos(a), sin(a)) * r * 1.25, c + Vector2(cos(a + .12), sin(a + .12)) * r * .95]), Color("2e4a1f"))
-				# Bramble's thorns bud at T3 and flower into red blooms at T5.
-				if tier >= 5 and i % 2 == 0:
-					var bloom := c + Vector2(cos(a), sin(a)) * r * 1.27
-					_poly(ci, star_pts(bloom, r * .17, r * .1, 5, a + t * .3), Color("e8344a"))
-					_circ(ci, bloom, r * .06, GOLD)
-				elif tier >= 3 and i % 3 == 0:
-					_circ(ci, c + Vector2(cos(a), sin(a)) * r * 1.25, r * .07, Color("e8344a"))
 		"wisp_tail":
 			var L := r * (.6 + .18 * tier)
 			var perp := Vector2(-look.y, look.x)
@@ -643,28 +672,11 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 					var fp := m + dir * r * (.25 + q * 1.1) + side * sin(t * 3.0 + i * 2.0) * r * .3 * q
 					var big := 1.4 if tier >= 5 else 1.0
 					_poly(ci, star_pts(fp, r * (.07 + .04 * q) * big, r * .03 * big, 6, t + i), Color(.92, .98, 1.0, 1.0 - q * .7))
-		"vines":
-			for row in [[-.8, 0.0], [.75, 2.0]]:
-				var y0: float = row[0] * r
-				var pts := PackedVector2Array()
-				var x := -r
-				while x <= r:
-					var y := y0 + sin(x / r * 4.0 + row[1]) * r * .08
-					if absf(x) <= _chord_x(r * .97, y):
-						pts.append(c + Vector2(x, y))
-					x += r * .1
-				_pline(ci, pts, Color("2e4a1f"), maxf(2.0, r * .1))
-				if row[0] < 0:
-					var tx := -r * .8
-					while tx <= r * .8:
-						var ty := y0 + sin(tx / r * 4.0) * r * .08
-						if absf(tx) <= _chord_x(r * .9, ty):
-							_poly(ci, PackedVector2Array([c + Vector2(tx - r * .05, ty), c + Vector2(tx, ty - r * .13), c + Vector2(tx + r * .05, ty)]), Color("d9e8b0"))
-						tx += r * .4
 		"seam":
 			var seam := _quad(c + Vector2(0, -.97) * r, c + Vector2(.08, 0) * r, c + Vector2(0, .97) * r, 24)
 			for i in range(0, seam.size() - 1, 2):
-				_line(ci, seam[i], seam[i + 1], shade(col, -.4), maxf(1.2, r * .05))
+				if absf(seam[i].y - c.y + r * .08) > r * .32: # Stops short of the eyes.
+					_line(ci, seam[i], seam[i + 1], shade(col, -.4), maxf(1.2, r * .05))
 			var n := tier + 2
 			for i in n:
 				var y := -r * .75 + i * r * 1.5 / (n - 1)
@@ -701,6 +713,11 @@ static var _clip_pts := PackedVector2Array()
 
 static func _P(a: float, rad: float) -> Vector2:
 	return Vector2(cos(a), sin(a)) * rad
+
+
+## A unit-space length in pixels.
+static func r_px(u: float) -> float:
+	return u * _R
 
 
 static func _to_px(p: Vector2) -> Vector2:
@@ -1190,10 +1207,11 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				_uarc(ci, Vector2(1.05, -.2), .22, 2.95 - 1.15, 2.95 + 1.15, GOLD, .06)
 		"clamshell":
 			# Clam: an opal shimmer on the shell's seam (T3), a gold seam at T5.
-			_uline(ci, Vector2(-1, .05), Vector2(1, .05), GOLD if n >= 5 else (_hsl(t * 60.0, .7, .75) if n >= 3 else shade(c, -.45)), .07)
+			# The seam runs under the eyes, the pearl just below it.
+			_uline(ci, Vector2(-1, .32), Vector2(1, .32), GOLD if n >= 5 else (_hsl(t * 60.0, .7, .75) if n >= 3 else shade(c, -.45)), .07)
 			for i in range(-3, 4):
-				_uline(ci, Vector2(i * .22, -.9 + absi(i) * .05), Vector2(i * .3, -.05), shade(c, -.25), .04)
-				_uline(ci, Vector2(i * .22, .95 - absi(i) * .05), Vector2(i * .3, .15), shade(c, -.25), .04)
+				_uline(ci, Vector2(i * .22, -.9 + absi(i) * .05), Vector2(i * .3, .22), shade(c, -.25), .04)
+				_uline(ci, Vector2(i * .2, .95 - absi(i) * .03), Vector2(i * .26, .42), shade(c, -.25), .04)
 		"clockface":
 			_ucirc(ci, Vector2(0, .3), .5, Color("fdf3d8"))
 			_uring(ci, Vector2(0, .3), .5, GOLD if n >= 3 else Color("7a5a1e"), .07 if n >= 3 else .05) # Clockwork: a gold bezel from T3.
@@ -1299,10 +1317,14 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 		"drips":
 			_clip_on()
 			for i in 7:
-				_uell(ci, Vector2(-.9 + i * .3, -.5 + (i % 2) * .06), .1, .14 + (i % 3) * .05, shade(c, .3))
+				# Each drip hangs from the band and slowly stretches.
+				var L := .14 + (i % 3) * .07 + .04 * sin(t * 1.5 + i * 1.3)
+				var x := -.9 + i * .3
+				_urect(ci, x - .06, -.62, .12, L + .06, shade(c, .3), .06)
+				_ucirc(ci, Vector2(x, -.56 + L), .085, shade(c, .3))
 				if id == "honey" and n >= 3 and i % 2 == 0:
 					# Honey: glossy drips.
-					_ucirc(ci, Vector2(-.93 + i * .3, -.45 + (i % 2) * .06), .03, Color(1, 1, 1, .6))
+					_ucirc(ci, Vector2(x - .03, -.58 + L), .03, Color(1, 1, 1, .6))
 			if id == "flicker" and n >= 3:
 				# Flicker: wax trails run down the candle (long ones at T5).
 				for i in 4 if n >= 5 else 2:
@@ -1527,16 +1549,29 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				_ufill(ci, PackedVector2Array([Vector2(i * .25, .45), Vector2(i * .25 + .125, .45), Vector2(i * .25 + .325, .75), Vector2(i * .25 + .2, .75)]), Color("ffcc1f") if i % 2 else Color("1a1a1a"))
 			_urect(ci, -1, .44, 2, .02, Color("1a1a1a"))
 		"helmet":
-			if n >= 3:
-				# Mole: the helmet lamp throws a light cone (brighter, on a polished riveted helmet, at T5).
-				_ufill(ci, PackedVector2Array([Vector2(0, -.8), Vector2(1.55, -1.5), Vector2(1.4, -.55)]), Color(1, .97, .7, .26 if n >= 5 else .16))
+			var lamp := Vector2(0, -.8)
+			if n >= 3 and not _sil:
+				# Mole: the helmet lamp throws a light cone that fades out (brighter at T5).
+				var beam := PackedVector2Array([_to_px(lamp), _to_px(Vector2(1.6, -1.55)), _to_px(Vector2(1.45, -.5))])
+				var warm := Color(1, .97, .7, .38 if n >= 5 else .24)
+				ci.draw_primitive(beam, PackedColorArray([warm, Color(warm, 0.0), Color(warm, 0.0)]), PackedVector2Array())
 			_udome(ci, Vector2(0, -.55), .85, .5, GOLD if n >= 5 else Color("e3b23c"))
 			if n >= 5:
 				for x in [-.62, -.32, .32, .62]:
 					_ucirc(ci, Vector2(x, -.62), .035, Color("a87f1e"))
-				_uglint(ci, Vector2(-.42, -.85), .15, t)
-			_ucirc(ci, Vector2(0, -.8), .16, Color("fffbd0"))
-			_ucirc(ci, Vector2(0, -.8), .3, Color(1, .98, .78, .3))
+				# Mole's T5: a spinning gold drill on top of the helmet.
+				_ufill(ci, PackedVector2Array([Vector2(-.2, -1.02), Vector2(.2, -1.02), Vector2(0, -1.55)]), GOLD)
+				var spin := fmod(t * 3.0, 1.0)
+				for j in 3:
+					var y := -1.08 - (j + spin) * .14
+					if y > -1.46:
+						var w := .2 * (1.55 + y) / .53
+						_uline(ci, Vector2(-w, y + .035), Vector2(w, y - .035), Color("b8860b"), .035)
+			if not _sil:
+				var g := r_px(.42)
+				var lp := _to_px(lamp)
+				ci.draw_texture_rect(_soft("glow"), Rect2(lp - Vector2(g, g), Vector2(g, g) * 2.0), false, _c(Color(1, .96, .7, .75)))
+			_ucirc(ci, lamp, .15, Color("fffbd0"))
 		"hive":
 			_clip_on()
 			for i in range(-3, 4):
@@ -1691,6 +1726,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 					_ucirc(ci, p, .13, Color(.7, 1, .5, .35 * (1.0 - q)))
 					_ucirc(ci, p, .06, Color(.88, 1, .62, 1.0 - q * .7))
 		"napkin":
+			_xf = Transform2D(0.0, Vector2(0, _munch_drop(t))) # Tied on the jaw, so it chomps too.
 			if n >= 3:
 				# Munch: a big tied-on bib (T3); at T5 it has a gold edge and a gold crest.
 				for k in [-1, 1]:
@@ -1716,18 +1752,18 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			if n >= 5:
 				# Clam's T5: a golden pearl between two opal ones.
 				for k in [-1, 1]:
-					_ucirc(ci, Vector2(k * .3, .52), .09, _hsl(t * 50.0 + k * 90, .7, .88))
-				_ucirc(ci, Vector2(0, .45), .19, GOLD)
-				_ucirc(ci, Vector2(-.05, .4), .06, Color.WHITE)
-				_uglint(ci, Vector2(.1, .32), .14, t)
+					_ucirc(ci, Vector2(k * .3, .62), .09, _hsl(t * 50.0 + k * 90, .7, .88))
+				_ucirc(ci, Vector2(0, .56), .19, GOLD)
+				_ucirc(ci, Vector2(-.05, .51), .06, Color.WHITE)
+				_uglint(ci, Vector2(.1, .43), .14, t)
 			elif n >= 3:
 				# Clam: an opalescent pearl.
-				_ucirc(ci, Vector2(0, .45), .16, Color("fbf6ff"))
-				_uring(ci, Vector2(0, .45), .11, _hsl(t * 60.0, .8, .75, .8), .04)
-				_ucirc(ci, Vector2(-.04, .41), .04, Color.WHITE)
+				_ucirc(ci, Vector2(0, .56), .16, Color("fbf6ff"))
+				_uring(ci, Vector2(0, .56), .11, _hsl(t * 60.0, .8, .75, .8), .04)
+				_ucirc(ci, Vector2(-.04, .52), .04, Color.WHITE)
 			else:
-				_ucirc(ci, Vector2(0, .45), .14, Color("fbf6ff"))
-				_ucirc(ci, Vector2(-.04, .41), .04, Color.WHITE)
+				_ucirc(ci, Vector2(0, .56), .14, Color("fbf6ff"))
+				_ucirc(ci, Vector2(-.04, .52), .04, Color.WHITE)
 		"pods":
 			for k in [-1, 1]:
 				_urect(ci, k * .95 - .22, -.75, .44, .55, Color("5d7699"), .1)
@@ -2005,9 +2041,6 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 					_uell(ci, p, .09, .06, shade(c, -.1))
 				else:
 					_uell(ci, p, .13, .1, shade(c, -.35))
-		"starnose":
-			_ustar(ci, Vector2(0, .3), .22, .1, 8, Color("ff8fb1"))
-			_ucirc(ci, Vector2(0, .3), .08, Color("ff6f9a"))
 		"stemleaf":
 			_uline(ci, Vector2(0, -.9), Vector2(.05, -1.2), Color("5b3a1e"), .07)
 			_uell(ci, Vector2(.25, -1.18), .2, .08, Color("4caf50"), -.4)
@@ -2043,11 +2076,15 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			for i in range(-2, 3):
 				_urect(ci, -1, i * .42 + .05, 2, .16, Color(.08, .08, .12, .8))
 		"sugar":
-			_clip_on()
-			for i in 18:
-				_ucirc(ci, Vector2((_hash(i) - .5) * 1.8, (_hash(i + 9) - .5) * 1.8), .03, Color(1, 1, 1, .75))
+			# Gumdrop: sugar crystals frost its dome.
+			for i in 24:
+				var q := Vector2((_hash(i) - .5) * 1.7, (_hash(i + 9) - .5) * 1.6 - .05)
+				var inside := q.y > .25 and absf(q.x) < .8 and q.y < .72 or q.y <= .25 and (q.x / .9) ** 2 + ((q.y - .25) / 1.08) ** 2 < 1.0
+				if inside:
+					_xf = Transform2D(_hash(i + 30) * 1.5, q)
+					_urect(ci, -.035, -.035, .07, .07, Color(1, 1, 1, .7))
+			_xf = Transform2D.IDENTITY
 			if n >= 3:
-				_clip = false
 				# Gumdrop: sugar crystals sparkle (more, with a glossy shine, at T5).
 				for i in 3 if n < 5 else 6:
 					_uglint(ci, Vector2((_hash(i + 50) - .5) * 1.4, (_hash(i + 60) - .5) * 1.4), .2 if n < 5 else .26, t, i * 1.9)
@@ -2067,12 +2104,6 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 					_uglint(ci, Vector2(x, -.85 - h + (absf(x) * .15 if n >= 5 else 0.0)), .2 if i == mid else .13, t, i)
 		"tentacles":
 			var kraken := id == "kraken" and n >= 5
-			if id == "ink" and n >= 5:
-				# Ink's T5: an ink cloud billows behind it.
-				for i in 4:
-					var p := Vector2(-1.05 + i * .7 + sin(t + i) * .1, .2 + (i % 2) * .25)
-					_ucirc(ci, p, .52, Color(.62, .45, .95, .45))
-					_ucirc(ci, p, .45, Color(.12, .08, .22, .9))
 			if kraken:
 				# Kraken's T5: two big suckered arms curl up its sides.
 				for k in [-1, 1]:
@@ -2088,11 +2119,116 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 					pts.append(Vector2(x + sin(t * 3.0 + i + j * .8) * .1, .6 + j * (.17 if kraken else .14)))
 				_ustroke(ci, pts, shade(c, -.2), (.16 - .01 * i) * (1.3 if kraken else 1.0))
 				if n >= 3:
-					# Ink and Kraken: suckers on the tentacles (T3+), curled tips for Ink at T5.
+					# Kraken: suckers on the tentacles (T3+).
 					for j in [3, 5]:
 						_ucirc(ci, pts[j], .05 * (1.3 if kraken else 1.0), shade(c, .45) if kraken else Color("d9b8ff"))
-				if id == "ink" and n >= 5:
-					_uring(ci, pts[5] + Vector2(.07, .02), .08, shade(c, -.2), .05)
+		"squid":
+			# Ink: a squid. Arrowhead fins over the top, two long feeding tentacles and a
+			# fringe of short arms that wave; tentacle tips glow from T3, and at T5 the
+			# fins glow and puffs of ink trail off behind it.
+			if n >= 5:
+				for i in 3:
+					var k := fmod(t * .5 + i / 3.0, 1.0)
+					_ucirc(ci, Vector2(-1.15 - k * .7, .5 - i * .45), .22 + k * .3, Color(.3, .24, .5, .5 * (1.0 - k)))
+			var tip := Color("7fe8ff") if n >= 3 else shade(c, .15)
+			for k in [-1, 1]:
+				var arm := PackedVector2Array()
+				for i in 9:
+					var u := i / 8.0
+					arm.append(Vector2(k * (.4 + u * .7 + .15 * sin(t * 3.0 + u * 4.0 + k) * u), .6 + u * .85 - .35 * u * u))
+				_utaper(ci, arm, .3, .1, shade(c, -.3))
+				_ucirc(ci, arm[8], .15 if n >= 5 else .12, tip)
+			for i in 6:
+				var x := -.5 + i * .2
+				var arm := PackedVector2Array()
+				for j in 5:
+					var u := j / 4.0
+					arm.append(Vector2(x * (1.0 + u * .35) + .12 * sin(t * 4.0 + i + u * 3.0) * u, .6 + u * .62))
+				_utaper(ci, arm, .24, .08, shade(c, -.15))
+			_ufill(ci, PackedVector2Array([Vector2(-1.02, -.05), Vector2(0, -1.75), Vector2(1.02, -.05)]), shade(c, -.25))
+			_ufill(ci, PackedVector2Array([Vector2(-.7, -.4), Vector2(0, -1.5), Vector2(.7, -.4)]), shade(c, .1))
+			if n >= 5:
+				_ustroke(ci, PackedVector2Array([Vector2(-1.02, -.05), Vector2(0, -1.75), Vector2(1.02, -.05)]), Color(.5, .91, 1.0, .5 + .3 * sin(t * 4.0)), .05)
+		"squidspots":
+			# Ink: spots on the mantle, dull at T1, cyan from T3, more and pulsing at T5.
+			var spots := [Vector2(-.55, -.55), Vector2(.5, -.6), Vector2(-.7, .25), Vector2(.65, .3), Vector2(0, -.92), Vector2(-.25, .62), Vector2(.3, .64), Vector2(-.82, -.15), Vector2(.84, -.1), Vector2(.12, .8)]
+			for i in (10 if n >= 5 else 7):
+				var on := .6 + .4 * sin(t * 5.0 + i) if n >= 5 else 1.0
+				_ucirc(ci, spots[i], .07, Color(Color("7fe8ff") if n >= 3 else shade(c, .3), on))
+		"paws":
+			# Mole: big digging paws that paddle as it goes; the claws turn gold at T5.
+			var claw := GOLD if n >= 5 else Color("f6eee2")
+			for k in [-1, 1]:
+				_xf = Transform2D(k * .22 * sin(t * 4.0), Vector2(k * .95, .45))
+				var paw := ellipse_pts(Vector2.ZERO, .36, .27, -.35 * k, 0.0, TAU, 20)
+				_ufill(ci, paw, Color("f2a6b8"))
+				_ustroke(ci, paw, Color("c26f86"), .04)
+				for f in 3:
+					var d := Vector2(k * cos(-.55 + f * .55), sin(-.55 + f * .55))
+					var o := d.orthogonal() * .07
+					_ufill(ci, PackedVector2Array([d * .26 + o, d * .56, d * .26 - o]), claw)
+			_xf = Transform2D.IDENTITY
+		"molesnout":
+			# Mole: a pink snout with nostrils and whiskers.
+			_uell(ci, Vector2(0, .32), .24, .17, Color("f2a6b8"))
+			_uell(ci, Vector2(-.06, .27), .08, .04, Color(1, 1, 1, .45))
+			for k in [-1, 1]:
+				_ucirc(ci, Vector2(k * .07, .35), .03, Color("8a3550"))
+				for j in 2:
+					_uline(ci, Vector2(k * .22, .31 + j * .07), Vector2(k * .62, .25 + j * .15), Color(1, 1, 1, .55), .022)
+		"bramble":
+			# Bramble: thorny canes creep round it and hooked thorns stick out of its
+			# edge; blackberries ripen on the canes at T3 and red roses bloom at T5.
+			var cane := Color("5a3a24")
+			for i in 6:
+				var a := i * TAU / 6.0 + .4
+				_ufill(ci, PackedVector2Array([_P(a - .13, .93), _P(a + .1, 1.32), _P(a + .14, .93)]), shade(cane, -.2))
+			var creep := t * .25
+			var wave := func(x: float, j: int) -> float: return -.74 + j * 1.3 + sin(x * 2.6 + j * 2.0 + creep) * .1 # Over the brow and under the chin, clear of the face.
+			_clip_on()
+			for j in 2:
+				var pts := PackedVector2Array()
+				for i in 26:
+					pts.append(Vector2(-1 + i * .08, wave.call(-1 + i * .08, j)))
+				_ustroke(ci, pts, cane, .1)
+				for i in 5:
+					var x := -.8 + i * .4
+					var y: float = wave.call(x, j)
+					var up := -1.0 if (i + j) % 2 == 0 else 1.0
+					_ufill(ci, PackedVector2Array([Vector2(x - .05, y), Vector2(x + .04, y + up * .15), Vector2(x + .05, y)]), Color("d8c39a"))
+			for b in [Vector2(-.45, 0), Vector2(.4, 1)]:
+				_uell(ci, Vector2(b.x, wave.call(b.x, int(b.y)) - .1), .12, .07, Color("6fae4a"), .6)
+			_clip = false
+			if n >= 3:
+				var spots := [Vector2(.25, 0), Vector2(-.2, 1)] if n < 5 else [Vector2(.25, 0), Vector2(-.2, 1), Vector2(.5, 1)]
+				for b in spots:
+					var p := Vector2(b.x, wave.call(b.x, int(b.y)) + (.12 if b.y < 1 else -.14))
+					for q in [Vector2(-.05, 0), Vector2(.05, 0), Vector2(0, .08)]:
+						_ucirc(ci, p + q, .06, Color("3b1d4f"))
+					_ucirc(ci, p + Vector2(-.04, -.02), .02, Color(1, 1, 1, .7))
+			if n >= 5:
+				for b in [Vector2(-.55, 0), Vector2(.6, 0), Vector2(-.5, 1)]:
+					_uflower(ci, Vector2(b.x, wave.call(b.x, int(b.y))), .17, Color("e8344a"), GOLD)
+		"dandelion":
+			# Pollen: a dandelion clock. Seeds on fine stalks make its fuzzy edge and
+			# sway; one by one they float off (two at T3, four at T5, gold at T5), and
+			# at T5 little flowers open among them.
+			var seed := GOLD_LIGHT if n >= 5 else Color(1, 1, 1, .92)
+			for i in 18:
+				var a := i / 18.0 * TAU + .05 * sin(t * 2.0 + i)
+				_uline(ci, _P(a, .9), _P(a, 1.14), Color(1, 1, 1, .45), .022)
+				if n >= 5 and i % 6 == 1:
+					_uflower(ci, _P(a, 1.2), .14, Color("fff1a8"), Color("ff8a3d"))
+				else:
+					_ustar(ci, _P(a, 1.18), .1, .035, 6, seed, a)
+			var away := 1 if n < 3 else (2 if n < 5 else 4)
+			for i in away:
+				var q := fmod(t * .3 + float(i) / away, 1.0)
+				var a := -.8 + i * .9
+				var p := _P(a, 1.18 + q * 1.1) + Vector2(sin(t * 2.0 + i) * .1, -q * .5)
+				var fade := Color(seed, seed.a * (1.0 - q))
+				_uline(ci, p, p + _P(a + PI, .3), Color(1, 1, 1, .45 * (1.0 - q)), .022)
+				_ustar(ci, p, .1, .035, 6, fade, a)
 		"tiles":
 			_clip_on()
 			for yi in 10:
@@ -2151,19 +2287,6 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			if n >= 5:
 				_ucirc(ci, Vector2(0, -1.42), .11, GOLD)
 				_uglint(ci, Vector2(.05, -1.47), .14, t)
-		"tufts":
-			for i in 16:
-				var a := i / 16.0 * TAU
-				_ufill(ci, PackedVector2Array([_P(a - .15, .9), _P(a, 1.22), _P(a + .15, .9)]), shade(c, .15))
-				if n >= 5 and i % 4 == 1:
-					_uflower(ci, _P(a, 1.24), .14, Color("fff1a8"), Color("ff8a3d")) # Pollen's T5: seeds burst into flowers.
-			if n >= 3:
-				# Pollen: dandelion seeds parachute off it.
-				for i in 3 if n >= 5 else 2:
-					var q := fmod(t * .3 + i / 3.0, 1.0)
-					var p := Vector2(.6 + q * .9 + sin(t * 2.0 + i) * .1, -1.0 - q * .8)
-					_uline(ci, p, p + Vector2(0, .14), Color(1, 1, 1, .85 * (1.0 - q)), .02)
-					_uarc(ci, p, .08, PI, TAU, Color(1, 1, 1, .85 * (1.0 - q)), .02)
 		"tusks": # Thick at the cheek, sweeping out and down, then curling in to a point.
 			for k in [-1, 1]:
 				var tusk := _quad(Vector2(k * .3, .28), Vector2(k * 1.05, .78), Vector2(k * .42, 1.02), 10)
@@ -2292,9 +2415,9 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			_ucirc(ci, Vector2.ZERO, .12, Color("fff8b0"))
 			if n >= 3:
 				# Yo-Yo: a glowing string (T3); at T5 a second string in a cat's cradle.
-				_uline(ci, Vector2.ZERO, Vector2(.2, -1.4), Color(1, .97, .69, .3), .09)
+				_uline(ci, Vector2(0, -.68), Vector2(.2, -1.4), Color(1, .97, .69, .3), .09)
 				_uglint(ci, _P(t * 3.0, .68), .12, t)
-			_uline(ci, Vector2.ZERO, Vector2(.2, -1.4), Color(1, .97, .69, .7), .03)
+			_uline(ci, Vector2(0, -.68), Vector2(.2, -1.4), Color(1, .97, .69, .7), .03)
 			if n >= 5:
 				_ustroke(ci, PackedVector2Array([Vector2(-.6, -1.45), Vector2(.75, -.95), Vector2(.6, -1.45), Vector2(-.75, -.95), Vector2(-.6, -1.45)]), Color(1, .97, .69, .85), .03)
 				for k in [-1, 1]:
@@ -2330,6 +2453,104 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 
 ## Flux's two-pole body: red and blue halves split down the middle. `swap`
 ## runs 0 -> 1 as the poles spin half a turn when the field flips.
+## Echo: a faceted mirror. Glass facets catch a sweep of light (faint at T1,
+## blazing at T5), shards poke out of the rim (two at T1, three at T3, five at
+## T5), and the rim goes rainbow at T3 and gold at T5.
+static func mirror_body(ci: CanvasItem, c: Vector2, r: float, t: float, tier: int) -> void:
+	var shards := [-2.3, -.5, 1.9, .75, -1.35]
+	for i in (2 if tier < 3 else (3 if tier < 5 else 5)):
+		var a: float = shards[i]
+		_poly(ci, PackedVector2Array([c + _P(a - .22, r * .92), c + _P(a, r * (1.3 + .04 * i)), c + _P(a + .22, r * .92)]), Color("e8f2ff"))
+	var ring := []
+	for i in 9:
+		ring.append(i * TAU / 9.0 + .2)
+	var mids := [c + Vector2(-.35, -.3) * r, c + Vector2(.4, -.25) * r, c + Vector2(.05, .45) * r]
+	var facets := []
+	for i in 9:
+		var pts := PackedVector2Array([mids[floori(i / 3.0)]])
+		pts.append_array(ellipse_pts(c, r, r, 0.0, ring[i], ring[(i + 1) % 9] + (TAU if i == 8 else 0.0), 4))
+		facets.append(pts)
+	for k in 3:
+		facets.append(PackedVector2Array([c + _P(ring[(k * 3 + 3) % 9], r), mids[k], mids[(k + 1) % 3]]))
+	facets.append(PackedVector2Array(mids))
+	var tints := [Color("cfdcf5"), Color("aebfe2"), Color("bfe9f5"), Color("c4bdf0"), Color("dbe5f8"), Color("9fb0d6")]
+	var sweep := fmod(t * .6, 1.6) - .3
+	var glow := .35 if tier < 3 else (.6 if tier < 5 else 1.0)
+	for i in facets.size():
+		var pts: PackedVector2Array = facets[i]
+		var cen := Vector2.ZERO
+		for q in pts:
+			cen += q
+		cen = (cen / pts.size() - c) / r
+		var flash := clampf(1.0 - absf((cen.x + cen.y) * .5 + .5 - sweep) * 4.0, 0.0, 1.0) * glow
+		_poly(ci, pts, tints[i % tints.size()].lerp(Color.WHITE, flash))
+	for pts in facets:
+		var edge: PackedVector2Array = pts.duplicate()
+		edge.append(pts[0])
+		_pline(ci, edge, Color(1, 1, 1, .4), maxf(1.0, r * .025))
+	_gloss(ci, c, r, Color("cfd8e6"), false)
+	if tier >= 5:
+		_ring(ci, c, r * 1.1, Color(1, 1, 1, .25 + .15 * sin(t * 3.0)), r * .1)
+		_ring(ci, c, r, GOLD, maxf(1.5, r * .09))
+		_glint(ci, c + Vector2(-.42, -.48) * r, r * .45, t)
+		_glint(ci, c + Vector2(.55, .42) * r, r * .22, t, 2.0)
+	elif tier >= 3:
+		_ring(ci, c, r, Color.from_hsv(fmod(t * .25, 1.0), .45, 1.0), maxf(1.5, r * .08))
+	else:
+		_ring(ci, c, r, Color("2a3560"), maxf(1.5, r * .07))
+
+
+## Echo wearing a copy: a silver mirror rim with a glint running round it, over
+## the copied critter drawn in grey (state "grey").
+static func mirror_rim(ci: CanvasItem, c: Vector2, r: float, t: float) -> void:
+	_ring(ci, c, r * 1.04, Color("e8f2ff"), maxf(1.5, r * .09))
+	_glint(ci, c + _P(t * 2.0, r * 1.04), r * .3, t)
+
+
+## How far Munch's jaw hangs open (unit space): it chomps on a loop.
+static func _munch_drop(t: float) -> float:
+	var open := .5 + .5 * sin(t * 5.0)
+	return .05 + .32 * open * open
+
+
+## Munch: a head and a jaw that chomps open and shut, teeth on both. From T3
+## crumbs fly round it (five at T5), and at T5 one top tooth is gold.
+static func _chomper(ci: CanvasItem, col: Color, c: Vector2, r: float, t: float, tier: int) -> void:
+	var drop := _munch_drop(t) * r
+	var lip := .25 * r
+	var a0 := asin(.25)
+	_ell(ci, c + Vector2(0, lip + drop * .5), r * .78, r * .14 + drop * .55, Color("4a0f14"))
+	_ell(ci, c + Vector2(0, lip + drop * .8), r * .4, r * .08 + drop * .25, Color("e2506a"))
+	var jaw := ellipse_pts(c + Vector2(0, drop), r, r, 0.0, a0, PI - a0, 20)
+	_shaped(ci, jaw, c + Vector2(0, drop), r, shade(col, -.06))
+	for i in 5:
+		var x := (-.5 + i * .25) * r
+		_poly(ci, PackedVector2Array([c + Vector2(x - .1 * r, lip + drop), c + Vector2(x, lip + drop - .13 * r), c + Vector2(x + .1 * r, lip + drop)]), Color.WHITE)
+	var head := ellipse_pts(c, r, r, 0.0, PI - a0, TAU + a0, 32)
+	_shaped(ci, head, c, r, col)
+	for i in 6:
+		var x := (-.62 + i * .25) * r
+		_poly(ci, PackedVector2Array([c + Vector2(x - .11 * r, lip), c + Vector2(x + .11 * r, lip), c + Vector2(x, lip + .16 * r)]), GOLD if tier >= 5 and i == 3 else Color.WHITE)
+	_hit_shape = head.duplicate()
+	_hit_shape.append_array(jaw)
+	if tier >= 3:
+		for i in (5 if tier >= 5 else 2):
+			var a := t * 2.0 + i * 1.3
+			var p := c + Vector2(cos(a) * 1.3, sin(a) * .45 + .15) * r
+			_poly(ci, PackedVector2Array([p + Vector2(-.1, -.07) * r, p + Vector2(.1, -.08) * r, p + Vector2(.09, .07) * r, p + Vector2(-.08, .08) * r]), Color("c98a4b"))
+
+
+## Gumdrop's outline: a dome on a flat, rounded base.
+static func _gum_pts(c: Vector2, r: float) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in 21:
+		var a := lerpf(PI, TAU, i / 20.0)
+		pts.append(c + Vector2(cos(a) * .98, .25 + sin(a) * 1.18) * r)
+	for p in [Vector2(1.0, .55), Vector2(.92, .78), Vector2(.75, .86), Vector2(-.75, .86), Vector2(-.92, .78), Vector2(-1.0, .55)]:
+		pts.append(c + p * r)
+	return pts
+
+
 static func magnet_body(ci: CanvasItem, c: Vector2, r: float, red: Color, blue: Color, swap: float) -> void:
 	var rot := PI * swap
 	var halves := [[red, rot + PI / 2], [blue, rot - PI / 2]]
@@ -2507,6 +2728,8 @@ static func _face(ci: CanvasItem, e: Dictionary, col: Color, c: Vector2, r: floa
 ## `c` is the body centre, for mouths drawn on the body rather than under the eyes.
 static func _mouth(ci: CanvasItem, kind: String, r: float, m: Vector2, hp_frac: float, ink: Color, c: Vector2) -> void:
 	var lw := maxf(1.4, r * .065)
+	if kind == "none":
+		return
 	if hp_frac < .35:
 		var pts := PackedVector2Array([m + Vector2(-r * .16, 0)])
 		for i in range(1, 5):

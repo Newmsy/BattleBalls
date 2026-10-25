@@ -34,6 +34,6 @@ const CRITTER := {
 		{"text": "Copy every 6 → 5s max", "copy_cooldown": 5.0},
 		{"text": "+ A copy lasts until the next one", "now": "Hurt: keeps a copy of foe's ability + {copy_shield} shield, every {copy_cooldown}s", "copy_secs": 600.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .25, "p": .1, "mouth": "smile"}, "body": "chrome"},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .25, "p": .1, "mouth": "smile"}, "body": "mirror"},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.1},
 }

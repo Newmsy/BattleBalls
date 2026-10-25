@@ -2472,14 +2472,6 @@ static func draw_buzz_cloud(ci: CanvasItem, c: Vector2, r: float, age: float, li
 		Dot.circle(ci, at + Vector2(0, -3), 2.5, Color(1, 1, 1, 0.5 * a))
 
 
-## Echo copying: its chrome tinted with the foe's colour and a mirror sweep.
-static func draw_chrome_tint(ci: CanvasItem, p: Vector2, r: float, col: Color, t: float) -> void:
-	Dot.circle(ci, p, r * 0.98, Color(col, 0.22))
-	var a := fmod(t * 0.8, 1.0) * TAU
-	Dot.arc(ci, p, r * 0.75, a, a + 0.7, 10, Color(col.lightened(0.5), 0.6), 4.0, true)
-	Dot.arc(ci, p, r * 1.02, 0.0, TAU, 40, Color(col, 0.6), 2.5, true)
-
-
 ## Echo T5: its copy shield shining like a mirror.
 static func draw_mirror_shine(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
 	var rad := r * 1.18

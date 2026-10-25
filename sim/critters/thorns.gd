@@ -35,6 +35,6 @@ const CRITTER := {
 		{"text": "+ Below 50% HP: sends back 50%", "now": "Bumped: sends back {reflect_ratio%}% ({reflect_low%}% below 50% HP), burns", "reflect_low": 0.5},
 	],
 	"chaos": {"closing_walls": {"reflect_cap": 0.7}}, ## Short fights: big hitters can't outlast the sting.
-	"art": {"eyes": {"sep": .3, "w": .17, "h": .19, "p": .09, "brow": .32, "mouth": "frown"}, "back": ["thorn_ring"], "front": ["vines"]},
+	"art": {"eyes": {"sep": .3, "w": .17, "h": .19, "p": .09, "brow": .32, "mouth": "frown"}, "front": ["bramble"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 0.8},
 }

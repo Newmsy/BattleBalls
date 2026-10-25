@@ -11,7 +11,7 @@ const CRITTER := {
 	"tier_power": [1.00, 0.95, 1.06, 1.11, 0.95], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",
 	"status": "live",
-	"color": "3c1f5c",
+	"color": "2f4aa0",
 	"vibe": "A shy squid that squirts ink when startled and hopes nobody noticed.",
 	"description": "Squid. When hurt, at most every 3s, it squirts a stinging ink cloud that lasts 2.5s, slows foes inside 35% and stings them {ink_dps}/sec.",
 	"stats": {"hp": 125.0, "radius": 64.0, "speed": 400.0, "contact_damage": 19.25},
@@ -31,6 +31,6 @@ const CRITTER := {
 		{"text": "Squirt every 3 → 2.5s", "ink_cooldown": 2.5},
 		{"text": "Squirt every 2.5 → 1.5s · ink stings {^ink_dps} → {ink_dps}/sec", "now": "Hurt: stinging ink {ink_dps}/sec, slow {ink_slow%}%, dash (every {ink_cooldown}s)", "ink_dps": 5.0, "ink_cooldown": 1.5},
 	],
-	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "beak"}, "back": ["tentacles"]},
+	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "beak"}, "back": ["squid"], "front": ["squidspots"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.15},
 }
