@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const GearArt := preload("res://game/ui/gear_art.gd")
 const A11y := preload("res://game/a11y.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
@@ -289,7 +290,7 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 			var CritterIcon = load("res://game/ui/critter_icon.gd")
 			g = CritterIcon.make(r.id, 1, side)
 		"gear":
-			g = Glyph.make(r.type, side * .7, BagScreen.tier_color(int(r.tier)))
+			g = GearArt.piece(r.type, int(r.tier), side * .8, BagScreen.tier_color(int(r.tier)))
 		_:
 			g = Glyph.make("bolt", side * .7, Kit.GOOD)
 	var cc := CenterContainer.new()

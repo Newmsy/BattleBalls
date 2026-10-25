@@ -7,6 +7,7 @@ extends RefCounted
 
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
+const GearArt := preload("res://game/ui/gear_art.gd")
 const BossCard := preload("res://game/ui/boss_card.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Campaign := preload("res://meta/campaign.gd")
@@ -96,7 +97,7 @@ static func result_row(r: Dictionary) -> Control:
 		return row
 	for g in r.gear:
 		var col := BagScreen.tier_color(g.tier)
-		row.add_child(Kit.glyph(g.type, 34, col))
+		row.add_child(GearArt.piece(g.type, g.tier, 40, col))
 		row.add_child(Kit.glyph("stars", 20, col, g.tier))
 	if r.get("hammers", 0) > 0:
 		row.add_child(Kit.label("+%d" % r.hammers, 24))

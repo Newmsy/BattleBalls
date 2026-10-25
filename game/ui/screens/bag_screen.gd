@@ -2,6 +2,8 @@
 ## Gear is a compact list: one row per type and tier, with its effect in words,
 ## who wears it and a Merge button once three match. Tap a row to move it to
 ## another critter (swapping is always free) or merge (design/gear.md).
+## Each section opens with a painted band and every piece is its painting
+## (game/ui/gear_art, from tools/event_art/scenes/gear_*.mjs).
 extends RefCounted
 
 const Intro := preload("res://game/ui/intro.gd")
@@ -16,9 +18,13 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
 const Profile := preload("res://meta/profile.gd")
 const UpgradePopup := preload("res://game/ui/upgrade_popup.gd")
+const GearArt := preload("res://game/ui/gear_art.gd")
+const LivingArt := preload("res://game/bounce_run/living_art.gd")
 
 static var section := "gear"
-static var slot_filter := "" ## "" = all slots, else "Shell", "Core" or "Charm".
+## What each section band says under its title.
+const SLOT_LINES := {"Shell": "Keep you alive", "Core": "Hit harder", "Charm": "Speed and tricks · 3★ critters"}
+const BAND_H := 140.0
 
 const GEAR_INFO := ["3 of a kind → 1 with a star more (max 5). Costs Hammers.",
 	"Shells keep you alive, Cores hit harder, Charms (from 3-star critters) speed you or your ability up.",
@@ -42,20 +48,14 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(seg)
 
 	if section == "gear":
-		if not p.gear.is_empty():
-			root.add_child(_filters(shell, p))
 		for slot in Gear.SLOTS:
-			if slot_filter != "" and slot != slot_filter:
-				continue
 			var list := Kit.vbox(8)
+			var n := 0
 			for r in rows(p, slot):
 				list.add_child(_gear_row(shell, r))
+				n += r.count
 			if list.get_child_count() > 0:
-				if slot_filter == "":
-					var head := Kit.hbox(10, [Glyph.make(slot.to_lower(), 22, Kit.MUTED), Kit.caption("%ss" % slot), _Rule.new()], BoxContainer.ALIGNMENT_CENTER)
-					root.add_child(Kit.vbox(8, [head, list]))
-				else:
-					root.add_child(list)
+				root.add_child(Kit.vbox(8, [_band(slot, n), list]))
 		if p.gear.is_empty():
 			root.add_child(Kit.label("No gear yet.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		_pin_merge_all(shell, p)
@@ -92,21 +92,26 @@ static func _pin_merge_all(shell, p) -> void:
 	shell.pin(b)
 
 
-## All / Shells / Cores / Charms, each with how many pieces you own.
-static func _filters(shell, p) -> Control:
-	var row := Kit.hbox(8)
-	for f in [["", "All"], ["Shell", "Shells"], ["Core", "Cores"], ["Charm", "Charms"]]:
-		var n := 0
-		for g in p.gear:
-			if f[0] == "" or g.slot == f[0]:
-				n += 1
-		var on: bool = slot_filter == f[0]
-		var b := Kit.card_button(Kit.label("%s %d" % [f[1], n], 20, Kit.FG if on else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
-			func(): slot_filter = f[0]; shell.refresh(), Kit.ACCENT if on else Kit.LINE, Kit.PANEL2 if on else Kit.PANEL, 999, 8)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		shell.mark("gear_filter_" + (f[0].to_lower() if f[0] != "" else "all"), b)
-		row.add_child(b)
-	return row
+## A gear section's painted band: the slot's arena painting with its name,
+## how many pieces you hold and what that slot does on the calm left side.
+static func _band(slot: String, n: int) -> Control:
+	var art := LivingArt.make("gear_band_%ss" % slot.to_lower(), "res://game/ui/gear_art/gear_band_%ss.png" % slot.to_lower())
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var title := Kit.hbox(8, [Kit.label("%sS" % slot.to_upper(), 32), Kit.label(str(n), 22, Kit.MUTED)], BoxContainer.ALIGNMENT_BEGIN)
+	var words := Kit.vbox(0, [title, Kit.label(SLOT_LINES[slot], 18, Color("cfcbe8"))])
+	words.position = Vector2(20, 14)
+	var rim := Panel.new()
+	rim.add_theme_stylebox_override("panel", Kit.box(Color(0, 0, 0, 0), Kit.LINE, 22, 2, 0))
+	rim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var band := Control.new()
+	band.custom_minimum_size.y = BAND_H
+	band.clip_contents = true
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in [art, words, rim]:
+		band.add_child(c)
+	return band
 
 
 ## One slot's gear as rows, best first: every piece of one type and tier in one
@@ -151,7 +156,7 @@ static func _gear_row(shell, r: Dictionary) -> Control:
 	effect.clip_text = true
 	var words := Kit.vbox(0, [top, effect])
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(12, [Glyph.make(g.type, 60, col), words], BoxContainer.ALIGNMENT_CENTER)
+	var row := Kit.hbox(12, [GearArt.tile(g.type, g.tier, 72, col), words], BoxContainer.ALIGNMENT_CENTER)
 	if g.tier < Gear.MAX_TIER and p.has_gear_set(g.type, g.tier):
 		var merge := Kit.cost_button("Merge", p.merge_cost(g.tier), "hammer", _merge.bind(shell, g), "go", 19, 56)
 		merge.disabled = p.hammers < p.merge_cost(g.tier)
@@ -215,7 +220,7 @@ static func _merge(shell, g: Dictionary) -> void:
 		shell.toast("Need more Hammers.")
 		return
 	print("UI_MERGED %s T%d" % [made.type, made.tier])
-	UpgradePopup.slam(shell, made.type, tier_color(made.tier), UpgradePopup.gear.bind(shell, made, tier_color(made.tier), cost))
+	UpgradePopup.slam(shell, made.type, tier_color(made.tier), UpgradePopup.gear.bind(shell, made, tier_color(made.tier), cost), made.tier - 1)
 
 
 static func _merge_all(shell) -> void:
@@ -223,20 +228,39 @@ static func _merge_all(shell) -> void:
 	var made: Array = shell.profile.merge_all_gear()
 	shell.refresh()
 	if made.size() == 1:
-		UpgradePopup.slam(shell, made[0].type, tier_color(made[0].tier), UpgradePopup.gear.bind(shell, made[0], tier_color(made[0].tier), cost))
+		UpgradePopup.slam(shell, made[0].type, tier_color(made[0].tier), UpgradePopup.gear.bind(shell, made[0], tier_color(made[0].tier), cost), made[0].tier - 1)
 	elif not made.is_empty():
 		UpgradePopup.gear_list(shell, made, tier_color, cost)
+
+
+## The gear sheet's header: the piece standing big on a spotlit pedestal.
+static func _pedestal(g: Dictionary) -> Control:
+	var art := LivingArt.make("gear_plinth", "res://game/ui/gear_art/gear_plinth.png")
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var piece := GearArt.piece(g.type, g.tier, 170, tier_color(g.tier))
+	piece.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	piece.offset_left = -85
+	piece.offset_right = 85
+	piece.offset_top = -214
+	piece.offset_bottom = -44
+	var box := Control.new()
+	box.custom_minimum_size.y = 260
+	box.clip_contents = true
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(art)
+	box.add_child(piece)
+	return box
 
 
 static func _gear_sheet(shell, g: Dictionary) -> void:
 	var p = shell.profile
 	var col := tier_color(g.tier)
-	var info := Kit.vbox(6, [Kit.label(g.name, 36), Kit.hbox(10, [Glyph.make("stars", 26, col, g.tier), Kit.chip(g.slot, col)], BoxContainer.ALIGNMENT_CENTER)])
+	var info := Kit.vbox(6, [Kit.label(g.name, 36), Kit.hbox(10, [Glyph.make("stars", 26, col, g.tier), Kit.chip(g.slot, col)], BoxContainer.ALIGNMENT_BEGIN)])
 	var wearer: Control = Kit.label("Not equipped", 22, Kit.MUTED)
 	if g.on != "":
 		wearer = Kit.hbox(8, [Kit.label("Worn by", 22, Kit.MUTED), FighterTag.named(g.on, 44, 22, Kit.FG)], BoxContainer.ALIGNMENT_BEGIN)
-	var v := Kit.vbox(18, [Kit.hbox(18, [Glyph.make(g.type, 110, col), info]), Kit.label(g.text, 28, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true),
-		wearer])
+	var v := Kit.vbox(18, [_pedestal(g), info, Kit.label(g.text, 28, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), wearer])
 	var buttons := Kit.hbox(12)
 	var equip := Kit.button("Equip to" if g.on == "" else "Move to", _equip_pick.bind(shell, g), "primary", 26, 84)
 	equip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -336,26 +360,3 @@ static func _center(c: Control) -> Control:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cc.add_child(c)
 	return cc
-
-
-## The line after a gear section's name: fades out toward the right edge,
-## with a small diamond where it starts. Drawn once.
-class _Rule extends Control:
-	const Dot := preload("res://game/dot.gd")
-	const Kit := preload("res://game/ui/ui_kit.gd")
-
-	func _init() -> void:
-		custom_minimum_size = Vector2(0, 12)
-		size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		resized.connect(queue_redraw)
-
-	func _draw() -> void:
-		var y := size.y / 2.0
-		var n := 8
-		for k in n:
-			var x0 := 10.0 + (size.x - 10.0) * k / n
-			var x1 := 10.0 + (size.x - 10.0) * (k + 1) / n
-			draw_line(Vector2(x0, y), Vector2(x1, y), Color(Kit.LINE.lightened(.25), .9 * (1.0 - float(k) / n)), 2.0)
-		Dot.poly(self, PackedVector2Array([Vector2(0, y), Vector2(5, y - 5), Vector2(10, y), Vector2(5, y + 5)]), Kit.LINE.lightened(.35))

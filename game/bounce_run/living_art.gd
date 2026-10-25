@@ -131,6 +131,17 @@ const SPECS := {
 	"portal_hall": {"size": Vector2(720, 760), "motes": Color("cbb8ff"), "spots": [
 		[150, 180, 34, 40, FLICKER, 0.5, 0.8, 0.0, Color("ffcf7a")], [570, 180, 34, 40, FLICKER, 0.5, 0.7, 0.5, Color("ffcf7a")],
 		[360, 300, 180, 180, GLOW, 0.25, 0.35, 0.0, Color("b98cff")]]},
+	# The Bag's gear paintings (game/ui/gear_art): section bands, gear sheet pedestal, merge forge.
+	"gear_band_shells": {"size": Vector2(720, 200), "motes": Color("4cd98a"), "spots": [
+		[530, 132, 50, 70, GLOW, 0.4, 0.6, 0.0, Color("4cd98a")]]},
+	"gear_band_cores": {"size": Vector2(720, 200), "motes": Color("3d9bff"), "spots": [
+		[500, 132, 70, 70, GLOW, 0.4, 0.7, 0.0, Color("fff4d8")], [390, 100, 40, 40, FLICKER, 0.4, 0.6, 0.3, Color("3d9bff")]]},
+	"gear_band_charms": {"size": Vector2(720, 200), "motes": Color("ffb347"), "spots": [
+		[614, 94, 40, 40, GLOW, 0.4, 0.5, 0.0, Color("ffb347")]]},
+	"gear_plinth": {"size": Vector2(720, 300), "motes": Color("fff4d8"), "spots": [
+		[360, 140, 140, 200, GLOW, 0.25, 0.35, 0.0, Color("fff4d8")]]},
+	"gear_forge": {"size": Vector2(720, 340), "motes": Color("ffd36b"), "spots": [
+		[470, 170, 150, 140, FLICKER, 0.35, 0.6, 0.0, Color("ff8a3d")]]},
 }
 const MOTES := 9
 
