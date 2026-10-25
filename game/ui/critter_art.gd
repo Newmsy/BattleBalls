@@ -279,8 +279,9 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 			# Kit ghost in the critter's own colour (Bubbles).
 			var a := .7 + .2 * sin(t * 2.0)
 			_circ(ci, c, r * 1.08, Color(col, .2 * a))
-			_circ(ci, c, r, Color(col, .55 * a))
-			ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, _c(Color(col.lerp(Color.WHITE, .75), .85 * a)))
+			_circ(ci, c, r, Color(col, .85 * a))
+			ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, _c(Color(col.lerp(Color.WHITE, .8), .95 * a)))
+			ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r * .7, c.y - r * .75, r * 1.2, r * 1.2), false, _c(Color(1, 1, 1, .9 * a)))
 			_gloss(ci, c, r, col, false)
 		"ghost":
 			var a := .75 + .2 * sin(t * 2.0)
@@ -2336,7 +2337,7 @@ static func magnet_body(ci: CanvasItem, c: Vector2, r: float, red: Color, blue: 
 		var pts := ellipse_pts(c, r, r, 0.0, h[1], h[1] + PI, 24)
 		_poly(ci, pts, shade(h[0], -.12))
 	if not _sil:
-		ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, Color(1, 1, 1, .35))
+		ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, Color(1, 1, 1, .5))
 		_gloss(ci, c, r, red.lerp(blue, .5))
 	var axis := Vector2(cos(rot + PI / 2), sin(rot + PI / 2)) * r * .97
 	_line(ci, c - axis, c + axis, Color("e6ecf5"), maxf(1.5, r * .06))
