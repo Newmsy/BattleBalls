@@ -84,6 +84,8 @@ signal rival_requested(friend: Dictionary)
 signal share_tapped(kind: String)
 ## The current screen's share buttons moved (see share_targets).
 signal share_layout_changed
+## A popup or sheet over the screen has just closed.
+signal overlay_closed
 
 ## Friends state (game/online/friends.gd). main.gd swaps in one with the backend.
 var friends = Friends.new()
@@ -154,6 +156,7 @@ var _report_after := 0 ## Msec tick a screen's slide ends: marks are logged afte
 ## tapped card's face grows into (go_from). Screens set it in build().
 var hero: Control
 var _pop_next: Array = [] ## Marks to pop once the next screen is built (pop_after).
+var _zoom_rect := Rect2() ## A painting the next go() zooms through (zoom_from).
 
 ## Red dots are for something to do, and go once you've looked: the Fuse dot
 ## only for sets that turned fusable since your last visit to Fuse (per device).
@@ -311,8 +314,39 @@ func go(name: String, params := {}) -> void:
 	if _snaps.size() > SNAP_DEPTH:
 		_snaps[_snaps.size() - SNAP_DEPTH - 1] = null
 	_stack.append([name, params])
+	var zoom := _zoom_rect
+	_zoom_rect = Rect2()
 	_show(name, params)
-	_slide_in(_snaps[-1])
+	if zoom.has_area() and _snaps[-1] != null and not Motion.calm():
+		_zoom_in(_snaps[-1], zoom)
+	else:
+		_slide_in(_snaps[-1])
+
+
+## The next go() zooms through `painting` (a Home door's art) instead of
+## sliding: the picture grows to fill the screen and fades into the hub.
+func zoom_from(painting: Control) -> void:
+	_zoom_rect = painting.get_global_rect()
+
+
+func _zoom_in(old: Texture2D, rect: Rect2) -> void:
+	var screen := get_viewport().get_visible_rect().size
+	var room := _holder.get_global_rect()
+	var pic := Motion.picture(old, rect, screen)
+	var base := _fx.get_global_rect().position
+	pic.position = rect.position - base
+	pic.pivot_offset = Vector2.ZERO
+	_fx.add_child(pic)
+	# Grow the painting (one whole picture, never warped part by part) until
+	# it covers the screen's room, keeping its shape.
+	var k := maxf(room.size.x / rect.size.x, room.size.y / rect.size.y)
+	var to := room.get_center() - rect.size * k / 2.0 - base
+	var tw := pic.create_tween().set_parallel()
+	tw.tween_property(pic, "position", to, .3).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(pic, "scale", Vector2(k, k), .3).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(pic, "modulate:a", 0.0, .16).set_delay(.18)
+	tw.chain().tween_callback(pic.queue_free)
+	_arrive(Vector2.ZERO, .3)
 
 
 ## The picture of the screen Back would return to, for the swipe back to slide
@@ -462,7 +496,8 @@ func overlay_open() -> bool:
 
 
 func close_overlay() -> void:
-	var was_sheet := _overlay_tag == "sheet" and overlay_open()
+	var was_open := overlay_open()
+	var was_sheet := _overlay_tag == "sheet" and was_open
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay_tag = ""
 	for c in _overlay.get_children():
@@ -474,6 +509,8 @@ func close_overlay() -> void:
 		else:
 			c.queue_free()
 	share_layout_changed.emit()
+	if was_open:
+		overlay_closed.emit()
 	if is_inside_tree() and profile != null:
 		_refresh_top.call_deferred() # Coins won while it was up fly in now.
 

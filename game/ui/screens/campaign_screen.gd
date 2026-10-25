@@ -5,6 +5,11 @@
 extends RefCounted
 
 const ResultPopup := preload("res://game/ui/result_popup.gd")
+const Motion := preload("res://game/ui/motion.gd")
+
+## Crowns per stage ("zone_stage") as the list last showed them: new ones stamp in.
+static var _seen_stars := {}
+static var _pulse_next := false
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
@@ -133,6 +138,9 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String, zone_team: Ar
 	if not Campaign.is_unlocked(p, z, i):
 		return _locked_row(z, i, st, boss)
 	var stars := Campaign.stars_of(p, z, i)
+	var key := "%d_%d" % [z, i]
+	var had: int = _seen_stars.get(key, stars)
+	_seen_stars[key] = stars
 	var foes := Zones.enemies(st)
 	# Named stages (bosses) keep their name; the rest show their foes' faces instead.
 	var name: String = st.get("name", "")
@@ -169,9 +177,26 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String, zone_team: Ar
 		_fade_if_short(fight, p, Zones.cost(st))
 		shell.mark("stage_%d_%d" % [z + 1, i + 1], fight)
 		var big := Kit.panel(Kit.vbox(12, [title, faces] + parts + [fight]), Kit.box(Color("17284a"), border.lightened(.2), 32, 3, 20))
+		if _pulse_next:
+			# Just won the stage before: this one's Fight pulses twice.
+			_pulse_next = false
+			_after_popup(shell, fight, func():
+				var tw := fight.create_tween()
+				tw.tween_interval(.5)
+				tw.tween_callback(Motion.bump.bind(fight, 1.08, .3))
+				tw.tween_interval(.4)
+				tw.tween_callback(Motion.bump.bind(fight, 1.08, .3)))
 		return big
 
-	var info := Kit.vbox(4, [title, crowns(stars, 26)])
+	var crown_row := crowns(stars, 26)
+	if had < stars and not Motion.calm():
+		# Crowns won since you last saw this row stamp in.
+		_pulse_next = true
+		var fresh: Array = crown_row.get_children().slice(had, stars)
+		for c in fresh:
+			c.modulate.a = 0.0
+		_after_popup(shell, crown_row, func(): ResultPopup.stamp(fresh, fresh.size(), shell.sfx, .2))
+	var info := Kit.vbox(4, [title, crown_row])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var actions := Kit.hbox(8)
 	if Campaign.can_sweep(p, z, i):
@@ -191,6 +216,22 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String, zone_team: Ar
 	var row := Kit.hbox(12, [art, info, actions])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	return Kit.panel(row, Kit.box(Kit.PANEL, border, 28, 2, 12))
+
+
+## Runs `f` now, or once the result popup over the list has closed.
+## `keep`: the control it animates (nothing happens once that is gone).
+static func _after_popup(shell, keep: Control, f: Callable) -> void:
+	var run := func():
+		if is_instance_valid(keep) and keep.is_inside_tree():
+			f.call()
+	# Deferred: the stage result pops up after the list is built.
+	(func():
+		if not is_instance_valid(shell):
+			return
+		if shell.overlay_open():
+			shell.overlay_closed.connect(run, CONNECT_ONE_SHOT)
+		else:
+			run.call()).call_deferred()
 
 
 ## Family edges for the stage you're on: your side's edge on these foes, and
