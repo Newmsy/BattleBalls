@@ -109,11 +109,12 @@ const BOSS_GEAR := [["thorn_shell", 2], ["spike_core", 2], ["spring_shell", 3], 
 
 
 ## First-clear reward for a floor, paid once per week.
-## {coins, orbs, xp_chips, gear: {} or {type, tier}}.
+## {coins, orbs, hammers, gear: {} or {type, tier}}. Every third floor pays
+## a Hammer (it paid an XP Chip until the 2026-10-25 progression check).
 static func reward(floor_no: int) -> Dictionary:
-	var r := {"coins": 40 + 10 * floor_no, "orbs": 0, "xp_chips": 0, "gear": {}}
+	var r := {"coins": 40 + 10 * floor_no, "orbs": 0, "hammers": 0, "gear": {}}
 	if floor_no % 3 == 0:
-		r.xp_chips = 1
+		r.hammers = 1
 	if floor_no % 5 == 0:
 		r.orbs = 1
 	if is_boss(floor_no):

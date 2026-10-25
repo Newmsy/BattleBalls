@@ -94,8 +94,8 @@ static func _floor_card(spec: Dictionary) -> Control:
 	if r.orbs > 0:
 		reward.add_child(Kit.amount("egg", r.orbs, 22, Kit.GOOD, Kit.FG))
 	var bits := []
-	if r.xp_chips > 0:
-		bits.append("XP Chip")
+	if r.hammers > 0:
+		reward.add_child(Kit.amount("hammer", r.hammers, 22, Kit.GOOD, Kit.FG))
 	if not r.gear.is_empty():
 		bits.append(gear_name(r.gear))
 	if not bits.is_empty():
@@ -250,8 +250,8 @@ static func _collect(shell, climb) -> void:
 	var bits := ["+%d coins" % t.coins]
 	if t.orbs > 0:
 		bits.append("+%d egg%s" % [t.orbs, "" if t.orbs == 1 else "s"])
-	if t.xp_chips > 0:
-		bits.append("+%d XP Chip%s" % [t.xp_chips, "" if t.xp_chips == 1 else "s"])
+	if t.hammers > 0:
+		bits.append("+%d hammer%s" % [t.hammers, "" if t.hammers == 1 else "s"])
 	for g in t.gear:
 		bits.append(gear_name(g))
 	shell.toast(", ".join(bits))
@@ -262,8 +262,7 @@ static func grant(p, t: Dictionary) -> void:
 	p.coins += int(t.coins)
 	p.orbs += int(t.orbs)
 	_add_item(p, "Summon Egg", 0, "", Color("c86bff")).count = p.orbs
-	if t.xp_chips > 0:
-		_add_item(p, "XP Chip", t.xp_chips, "+200 XP to one critter.", Color("45f5a6"))
+	p.hammers += int(t.get("hammers", 0))
 	for g in t.gear:
 		p.add_gear(g.type, g.tier)
 	p.changed.emit()

@@ -16,8 +16,8 @@ const HALL := [
 	{"screen": "vault", "rules": preload("res://meta/gear_vault.gd"), "farms": ["shell", "hammer"], "glyph": "hammer", "color": "ff8a3d", "lock": "Beat the Zone 1 boss"},
 	{"screen": "nest", "rules": preload("res://meta/brood_nest.gd"), "farms": ["egg"], "glyph": "egg", "color": "ff6fae", "lock": "Beat the Zone 2 boss"},
 	{"screen": "totem", "rules": preload("res://meta/totem_shrine.gd"), "farms": ["sparkle"], "glyph": "sparkle", "color": "c9a6ff", "lock": "Beat the Zone 3 boss"},
-	{"screen": "wyrm", "rules": preload("res://meta/wyrm_rift.gd"), "farms": ["target"], "glyph": "target", "color": "7af0ff", "lock": "Beat the Zone 4 boss"},
-	{"screen": "glitch", "rules": preload("res://meta/glitch_core.gd"), "farms": ["egg", "target", "hammer"], "glyph": "sparkle", "color": "7cff4f", "lock": "Beat the Zone 5 boss", "weekly": true},
+	{"screen": "wyrm", "rules": preload("res://meta/wyrm_rift.gd"), "farms": ["target"], "glyph": "target", "color": "7af0ff", "lock": "Beat the Zone 3 boss"},
+	{"screen": "glitch", "rules": preload("res://meta/glitch_core.gd"), "farms": ["egg", "target", "hammer"], "glyph": "sparkle", "color": "7cff4f", "lock": "Beat the Zone 4 boss", "weekly": true},
 ]
 
 
