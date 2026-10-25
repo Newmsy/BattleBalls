@@ -187,8 +187,7 @@ func _draw_back(ci: CanvasItem) -> void:
 	_vgrad(ci, 0, c.y - 300 * k, w, [SKY_TOP, SKY_MID])
 	_vgrad(ci, c.y - 300 * k, hz + 4, w, [SKY_MID, SKY_LOW])
 	# The sun behind the badge.
-	for i in 6:
-		Dot.circle(ci, _sun(), (520 - i * 70) * k, Color(1, .98, .85, .07 + i * .02))
+	Dot.glow(ci, _sun(), 540 * k, Color(1, .98, .85, .54), .3)
 	# Clouds.
 	for cl in [[-250, -470, 1.0], [270, -600, .8], [-40, -700, .6], [330, -250, .7], [-330, -150, .55]]:
 		_cloud(ci, c + Vector2(cl[0], cl[1]) * k, 70 * cl[2] * k)
@@ -227,8 +226,7 @@ func _back_sunset(ci: CanvasItem) -> void:
 	_vgrad(ci, 0, c.y - 250 * k, w, [Color("ff6fb0"), Color("ff8f7a")])
 	_vgrad(ci, c.y - 250 * k, hz + 4, w, [Color("ff8f7a"), Color("ffc46b"), Color("ffe9a0")])
 	# A big low sun behind the badge.
-	for i in 5:
-		Dot.circle(ci, _sun(), (470 - i * 60) * k, Color(1, .95, .7, .1 + i * .03))
+	Dot.glow(ci, _sun(), 490 * k, Color(1, .95, .7, .58), .45)
 	Dot.circle(ci, _sun(), 200 * k, Color("fff2b8"))
 	for cl in [[-260, -470, .9], [280, -590, .7], [330, -230, .6], [-320, -150, .5]]:
 		_cloud(ci, c + Vector2(cl[0], cl[1]) * k, 70 * cl[2] * k, Color("ffe1ef"), Color(1, .55, .6, .35))
@@ -258,8 +256,7 @@ func _back_sky(ci: CanvasItem) -> void:
 	var c := _centre()
 	var w := size.x
 	_vgrad(ci, 0, size.y, w, [Color("4fb4ff"), Color("8fd6ff"), Color("cfe9ff"), Color("f1dcff")])
-	for i in 6:
-		Dot.circle(ci, _sun(), (520 - i * 70) * k, Color(1, 1, 1, .06 + i * .02))
+	Dot.glow(ci, _sun(), 540 * k, Color(1, 1, 1, .5), .3)
 	# A rainbow arching behind the badge.
 	var rc := c + Vector2(0, 260) * k
 	var bands := [Color("ff5a7a"), Color("ffa24a"), Color("ffe066"), Color("6fe07a"), Color("4fc8ff"), Color("9a7bff")]
@@ -395,8 +392,7 @@ func _art_live(ci: CanvasItem) -> void:
 	for g in ART_GLOWS:
 		var pulse := .5 + .5 * sin(t * g[3])
 		var gc: Color = g[2]
-		for k in 3:
-			Dot.circle(ci, _art_at(g[0]), g[1] * sc * (.55 + k * .25) * (.9 + .15 * pulse), Color(gc, .07 * pulse))
+		Dot.glow(ci, _art_at(g[0]), g[1] * sc * 1.15 * (.9 + .15 * pulse), Color(gc, .2 * pulse), .45)
 	# A bright glint racing round the arena ring, with a short tail.
 	var rc := _art_at(ART_RING[0])
 	for k in 8:

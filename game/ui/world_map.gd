@@ -197,8 +197,7 @@ func _draw() -> void:
 		var c := center(i)
 		var col := Color(zones[i].color)
 		if i < open_count and (i < _from_open or _reveal >= 1.0):
-			for g in 4:
-				draw_circle(c, OPEN_R + 6 + g * 7, Color(col, .1 - g * .02))
+			Dot.glow(self, c, OPEN_R + 30, Color(col, .3), OPEN_R / (OPEN_R + 30.0))
 			draw_circle(c, OPEN_R, Kit.PANEL2)
 			draw_arc(c, OPEN_R, 0, TAU, 64, col, 5.0, true)
 			draw_arc(c, OPEN_R - 9, 0, TAU, 64, Color(col, .35), 2.0, true)
