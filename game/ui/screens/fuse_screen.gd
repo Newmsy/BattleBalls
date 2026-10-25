@@ -388,6 +388,7 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 	var pv: Dictionary = shell.profile.fuse_preview(sel.id, sel.tier)
 	tw.chain().tween_callback(func():
 		var result: Dictionary = shell.profile.fuse(sel.id, sel.tier)
+		shell.glow.record("fuse")
 		for s in lab.get_meta("slots"):
 			s.visible = false
 		flash.color = Color(rarity.lerp(Color.WHITE, .55), .95)

@@ -10,6 +10,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 const LiveOps := preload("res://game/liveops.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
 
 var climb
 var spec: Dictionary
@@ -35,6 +36,9 @@ func _on_launched() -> void:
 func _show_result() -> void:
 	var r: Dictionary = climb.settle(relay)
 	climb.save_file()
+	GlowState.note_fight(0 if r.won else 1, 0.0)
+	if r.won:
+		GlowState.note("spire")
 	sfx.on_result(0 if r.won else 1)
 	print("SPIRE_RESULT floor=%d won=%s hash=%s" % [r.floor, r.won, relay.state_hash()])
 	# Who spent stamina, as faces: the names alone were a wall of text.

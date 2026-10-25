@@ -47,7 +47,7 @@ static func _info_text() -> Array:
 		"Trick Shot: one called bank shot, %d tries, the same puzzle for everyone. A new one lands at midnight." % TRICK_TRIES,
 		"Bounce Run: a fresh run every day. Draft critters as you go and see how far your trio gets.",
 		"Fight of the Day: tap who you think wins, then watch. Correct calls in a row build your streak.",
-		"Quests: daily jobs that pay out energy, eggs and more. Coming soon.",
+		"Quests: three a day and three a week, paying energy, eggs, coins and more.",
 	]
 
 
@@ -226,6 +226,7 @@ static func call_fight(shell, f: Dictionary, pick: int) -> void:
 	cfg.load(SAVE_PATH)
 	cfg.set_value("fotd", f.date, [pick, pick == f.winner])
 	cfg.save(SAVE_PATH)
+	shell.glow.record("fotd")
 	shell.watch(f.merged({"pick": pick}))
 
 
@@ -254,18 +255,17 @@ static func fight_streak(t: int) -> int:
 
 # --- Quests ---------------------------------------------------------------------
 
-## The wide Quests door along the bottom. Quests themselves come later; for
-## now the door shows what they pay and says so.
+## The wide Quests door along the bottom: today's quests done, what they
+## pay, and the way in. A chip says when something is ready to claim.
 static func _quests(shell) -> Control:
+	var q: Dictionary = shell.glow.quests(LiveOps.now())
+	var ready: int = shell.glow.quests_ready()
 	var rewards := Kit.hbox(14, [Kit.glyph("energy", 34, Color.WHITE), Kit.glyph("egg", 34, Color.WHITE), Kit.glyph("coin", 34, Color.WHITE)], BoxContainer.ALIGNMENT_CENTER)
-	var words := lines("Earn energy, eggs and more.", 20)
+	var words := lines("%d/3 done today" % q.chest.done if not (q.daily as Array).is_empty() else "Three new quests", 20)
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var open := _action("See quests", func(): shell.info("Quests", [
-		"Quests are daily jobs: win fights, land trick shots, run far in Bounce Run.",
-		"Each one pays out energy, eggs, coins and more. They open soon.",
-	]), "ghost")
+	var open := _action("Quests", func(): shell.go("quests"))
 	open.custom_minimum_size.x = 180
 	shell.mark("week_quests", open)
 	var body := Kit.hbox(14, [words, rewards, open], BoxContainer.ALIGNMENT_CENTER)
-	var card := tile("Quests", QUESTS, Kit.LINE, Kit.PANEL, [body], null, Kit.chip("Soon", QUESTS, 16), "daily_quests", null, 112)
-	return card
+	var badge: Control = Kit.chip("Claim", Kit.GOOD, 16) if ready > 0 else null
+	return tile("Quests", QUESTS, Kit.LINE, Kit.PANEL, [body], null, badge, "daily_quests", null, 112)

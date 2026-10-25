@@ -13,6 +13,11 @@ extends RefCounted
 const Catalog := preload("res://game/glow/catalog.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
 const LiveOps := preload("res://game/liveops.gd")
+const Quests := preload("res://meta/quests.gd")
+const Families := preload("res://sim/families.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
+const BossesScreen := preload("res://game/ui/screens/bosses_screen.gd")
 
 const LEDGER_MAX := 300
 
@@ -41,7 +46,9 @@ static func defaults() -> Dictionary:
 		"txns": [], ## Store transactions already granted (last 100).
 		"ledger": [], ## {t, what, n, why}: newest last.
 		"pass": {"season": "", "xp": 0, "premium": false, "free": [], "paid": [], "boxes": 0},
-		"bounties": {"day": -1, "progress": {}, "done": []},
+		"quest_day": {"day": -1, "list": [], "progress": {}, "claimed": [], "chest": false, "swapped": false, "counted": false},
+		"quest_week": {"week": -1, "list": [], "progress": {}, "claimed": [], "chest": false, "won_with": []},
+		"quest_carry": [], ## Finished, unclaimed quest rewards from a day or week gone by.
 		"week": {"week": -1, "count": 0, "chest": false},
 	}
 
@@ -355,19 +362,92 @@ func open_box(t := -1) -> Array:
 	return GlowPass.BONUS_BOX.duplicate()
 
 
-# --- Bounties and play ------------------------------------------------------------
+# --- Quests and play --------------------------------------------------------------
 
-## Today's bounties with progress: [{id, text, goal, progress, done, xp}].
-func bounties(t := -1) -> Array:
-	var b := _bounty_day(t)
-	var out := []
-	for d in GlowPass.bounties_for(_day(t)):
-		out.append({"id": d.id, "text": d.text, "goal": d.goal, "xp": GlowPass.BOUNTY_XP,
-			"progress": mini(int(d.goal), int(b.progress.get(d.kind, 0))), "done": d.id in b.done})
+## Today's quests, this week's, and both chests (design: meta/quests.gd):
+## {daily: [q], weekly: [q], chest: {ready, claimed, done}, week_chest: {...},
+## swap: bool, day_ends, week_ends}. Each q is the stored quest plus
+## {progress, done, claimed}. The day's and week's quests are rolled the first
+## time they're asked for with a profile; a scene with no profile only counts
+## progress.
+func quests(t := -1) -> Dictionary:
+	var d := _quest_day(t)
+	var w := _quest_week(t)
+	if profile != null:
+		var ctx := quest_ctx()
+		if (d.list as Array).is_empty():
+			d.list = Quests.roll_day(_day(t), ctx)
+		if (w.list as Array).is_empty():
+			w.list = Quests.roll_week(_week(t), ctx)
+	settle()
+	var out := {"daily": _views(d), "weekly": _views(w), "swap": not d.swapped,
+		"day_ends": LiveOps.day_start(_now(t)) + LiveOps.DAY, "week_ends": LiveOps.week_start(_now(t)) + LiveOps.WEEK}
+	out.chest = _chest_view(d, Quests.DAILY_CHEST)
+	out.week_chest = _chest_view(w, Quests.WEEKLY_CHEST)
 	return out
 
 
-## Bounties done this week, and whether the weekly chest is open/claimed.
+## Quests and chests finished but not claimed yet (the Daily door's dot).
+func quests_ready(t := -1) -> int:
+	var q := quests(t)
+	var n := 0
+	for v in q.daily + q.weekly:
+		if v.done and not v.claimed:
+			n += 1
+	return n + int(q.chest.ready) + int(q.week_chest.ready)
+
+
+## Claims a finished quest: its rewards, and pass XP for a daily one (which
+## also counts toward the pass's weekly chest). Returns the rewards given, or
+## [] when it isn't done or was already claimed.
+func claim_quest(id: String, t := -1) -> Array:
+	for weekly in [false, true]:
+		var b := _quest_week(t) if weekly else _quest_day(t)
+		for q in b.list:
+			if q.get("id", "") != id:
+				continue
+			if id in b.claimed or not Quests.done(q, b.progress):
+				return []
+			b.claimed.append(id)
+			_pay({"rewards": q.rewards, "xp": 0 if weekly else Quests.PASS_XP, "count": 0 if weekly else 1}, "quest " + id, t)
+			_commit()
+			return q.rewards
+	return []
+
+
+## Opens the daily (or weekly) chest once all three quests are done.
+func claim_quest_chest(weekly := false, t := -1) -> Array:
+	var b := _quest_week(t) if weekly else _quest_day(t)
+	var rewards: Array = Quests.WEEKLY_CHEST if weekly else Quests.DAILY_CHEST
+	if b.chest or not _all_done(b):
+		return []
+	b.chest = true
+	_pay({"rewards": rewards}, "weekly quest chest" if weekly else "daily quest chest", t)
+	_commit()
+	return rewards
+
+
+## Today's free swap: an unfinished daily quest becomes the next one in its
+## slot. Returns the new quest, or {} when the swap is used or not allowed.
+func swap_quest(id: String, t := -1) -> Dictionary:
+	var d := _quest_day(t)
+	if d.swapped or profile == null:
+		return {}
+	for i in d.list.size():
+		var q: Dictionary = d.list[i]
+		if q.get("id", "") != id or Quests.done(q, d.progress):
+			continue
+		var next := Quests.swap(q, _day(t), quest_ctx())
+		if next.is_empty():
+			return {}
+		d.list[i] = next
+		d.swapped = true
+		_commit()
+		return next
+	return {}
+
+
+## Daily quests claimed this week, and whether the weekly chest is open/claimed.
 func week_state(t := -1) -> Dictionary:
 	var w: Dictionary = g().week
 	var idx := _week(t)
@@ -391,52 +471,171 @@ func open_chest(t := -1) -> bool:
 	return true
 
 
-## A finished fight: pass XP and bounty progress. Returns the XP added.
-func record_fight(winner: int, damage: float, t := -1) -> int:
+## Counts progress toward today's and this week's quests. MAX_KINDS keep the
+## best value (Bounce Run floor) instead of adding up.
+func record(kind: String, n := 1, t := -1) -> void:
+	_count(kind, n, t)
+	_commit()
+
+
+func _count(kind: String, n: int, t: int) -> void:
+	for b in [_quest_day(t), _quest_week(t)]:
+		if kind in Quests.MAX_KINDS:
+			b.progress[kind] = maxi(int(b.progress.get(kind, 0)), n)
+		else:
+			b.progress[kind] = int(b.progress.get(kind, 0)) + n
+	var d := _quest_day(t)
+	if not d.counted and _all_done(d):
+		d.counted = true # A finished day counts once for "Clear 5 daily chests".
+		var w := _quest_week(t)
+		w.progress.chest = int(w.progress.get("chest", 0)) + 1
+
+
+## A finished fight: pass XP and quest progress. `ctx` says who fought:
+## {critter: id, tier: int, duo: bool, mode: "arena"/"spire"/...}. Returns the
+## pass XP added.
+func record_fight(winner: int, damage: float, t := -1, ctx := {}) -> int:
 	var result := "draw"
 	if winner == 0:
 		result = "win"
 	elif winner == 1:
 		result = "loss"
 	_count("fight", 1, t)
+	_count("damage", roundi(damage), t)
 	if result == "win":
 		_count("win", 1, t)
-	_count("damage", roundi(damage), t)
-	var xp := add_xp(GlowPass.FIGHT_XP[result], "fight " + result, t)
-	return xp + _finish_bounties(t)
+		_record_win(ctx, t)
+	_commit()
+	return add_xp(GlowPass.FIGHT_XP[result], "fight " + result, t)
+
+
+## A campaign stage, sweep or boss run's result (meta/campaign.gd and the
+## boss rules): a win counts as a stage (or boss) and its stars, and every
+## critter level gained counts.
+func record_result(kind: String, r: Dictionary, t := -1) -> void:
+	if r.get("won", false):
+		_count(kind, 1, t)
+		if int(r.get("stars", 0)) > 0:
+			_count("stars", int(r.stars), t)
+	if int(r.get("levels", 0)) > 0:
+		_count("level", int(r.levels), t)
+	_commit()
 
 
 ## Solved the Daily Trick Shot.
 func record_trick(t := -1) -> int:
-	_count("trick", 1, t)
-	return add_xp(GlowPass.TRICK_XP, "trick shot", t) + _finish_bounties(t)
+	record("trick", 1, t)
+	return add_xp(GlowPass.TRICK_XP, "trick shot", t)
 
 
-func _count(kind: String, n: int, t: int) -> void:
-	var b := _bounty_day(t)
-	b.progress[kind] = int(b.progress.get(kind, 0)) + n
+func _record_win(ctx: Dictionary, t: int) -> void:
+	var id := str(ctx.get("critter", ""))
+	if ctx.get("duo", false):
+		_count("duo_win", 1, t)
+	if id == "" or not id in BallDefs.PLAYABLE:
+		return
+	var fam := Families.of(id)
+	if fam != "":
+		_count("win_fam:" + fam, 1, t)
+	if CritterDb.RARITIES.find(str(CritterDb.get_critter(id).rarity)) >= 2:
+		_count("win_rare", 1, t)
+	if int(ctx.get("tier", 1)) >= 3:
+		_count("win_t3", 1, t)
+	var w := _quest_week(t)
+	if not id in w.won_with:
+		w.won_with.append(id)
+		w.progress.critters = w.won_with.size()
 
 
-func _finish_bounties(t: int) -> int:
-	var b := _bounty_day(t)
-	var xp := 0
-	for d in GlowPass.bounties_for(_day(t)):
-		if d.id not in b.done and int(b.progress.get(d.kind, 0)) >= int(d.goal):
-			b.done.append(d.id)
-			var w := week_state(t)
-			w.count = int(w.count) + 1
-			xp += add_xp(GlowPass.BOUNTY_XP, "bounty " + d.id, t)
+## What the player has, for which quests can roll (Quests.eligible).
+func quest_ctx() -> Dictionary:
+	var fams := {}
+	var rare := false
+	var t3 := false
+	for s in profile.stacks:
+		if int(s.count) <= 0 or not str(s.id) in BallDefs.PLAYABLE:
+			continue
+		var f := Families.of(str(s.id))
+		if f != "":
+			fams[f] = true
+		if CritterDb.RARITIES.find(str(CritterDb.get_critter(s.id).rarity)) >= 2:
+			rare = true
+		if int(s.tier) >= 3:
+			t3 = true
+	return {"bosses": BossesScreen.any_open(profile), "families": fams.keys(), "rare": rare, "t3": t3,
+		"fuse": not profile.ready_to_fuse().is_empty(), "egg": int(profile.orbs) > 0 or bool(profile.free_summon)}
+
+
+## Rewards from quests finished but never claimed before their day or week
+## ended. They wait here and go to the profile the next time there is one.
+func settle() -> void:
+	var carry: Array = g().quest_carry
+	if carry.is_empty() or profile == null:
+		return
+	g().quest_carry = []
+	for c in carry:
+		_pay(c, str(c.get("why", "quest")), -1)
 	_commit()
-	return xp
 
 
-func _bounty_day(t: int) -> Dictionary:
-	var b: Dictionary = g().bounties
-	if int(b.day) != _day(t):
-		b.day = _day(t)
-		b.progress = {}
-		b.done = []
-	return b
+func _pay(c: Dictionary, why: String, t: int) -> void:
+	if profile == null:
+		g().quest_carry.append(c.merged({"why": why}))
+		return
+	for r in c.get("rewards", []):
+		grant(r, why)
+	if int(c.get("count", 0)) > 0:
+		var w := week_state(t)
+		w.count = int(w.count) + int(c.count)
+	add_xp(int(c.get("xp", 0)), why, t)
+
+
+func _views(b: Dictionary) -> Array:
+	var out := []
+	for q in b.list:
+		if q.is_empty():
+			continue
+		out.append(q.merged({"progress": Quests.progress(q, b.progress), "done": Quests.done(q, b.progress), "claimed": q.id in b.claimed}))
+	return out
+
+
+func _chest_view(b: Dictionary, rewards: Array) -> Dictionary:
+	var done := 0
+	for q in b.list:
+		done += int(Quests.done(q, b.progress))
+	var all := _all_done(b)
+	return {"done": done, "of": (b.list as Array).size(), "ready": all and not b.chest, "claimed": b.chest, "rewards": rewards}
+
+
+func _all_done(b: Dictionary) -> bool:
+	var list: Array = b.list
+	return not list.is_empty() and list.all(func(q): return Quests.done(q, b.progress))
+
+
+## Today's quest state; a new day carries over whatever was finished and not
+## claimed, then starts fresh.
+func _quest_day(t: int) -> Dictionary:
+	var d: Dictionary = g().quest_day
+	if int(d.day) != _day(t):
+		_carry_over(d, Quests.DAILY_CHEST, Quests.PASS_XP, 1)
+		d.merge({"day": _day(t), "list": [], "progress": {}, "claimed": [], "chest": false, "swapped": false, "counted": false}, true)
+	return d
+
+
+func _quest_week(t: int) -> Dictionary:
+	var w: Dictionary = g().quest_week
+	if int(w.week) != _week(t):
+		_carry_over(w, Quests.WEEKLY_CHEST, 0, 0)
+		w.merge({"week": _week(t), "list": [], "progress": {}, "claimed": [], "chest": false, "won_with": []}, true)
+	return w
+
+
+func _carry_over(b: Dictionary, chest: Array, xp: int, count: int) -> void:
+	for q in b.list:
+		if not q.is_empty() and Quests.done(q, b.progress) and not q.id in b.claimed:
+			g().quest_carry.append({"rewards": q.rewards, "xp": xp, "count": count, "why": "quest " + q.id})
+	if not b.chest and _all_done(b):
+		g().quest_carry.append({"rewards": chest, "why": "quest chest"})
 
 
 # --- Grants and the ledger --------------------------------------------------------
@@ -493,3 +692,19 @@ func _day(t: int) -> int:
 
 func _week(t: int) -> int:
 	return floori(float(LiveOps.week_start(_now(t)) - LiveOps.EPOCH) / LiveOps.WEEK)
+
+
+## Quest progress from a scene that has no shell (Trick Shot, Bounce Run, the
+## Ghost Arena, the Spire): loads the local save, counts, saves.
+static func note(kind: String, n := 1) -> void:
+	_local().record(kind, n)
+
+
+static func note_fight(winner: int, damage: float, ctx := {}) -> int:
+	return _local().record_fight(winner, damage, -1, ctx)
+
+
+static func _local():
+	var save = load("res://game/online/save_game.gd").new()
+	save.load_local()
+	return load("res://game/glow/glow_state.gd").new(save)

@@ -55,6 +55,7 @@ const SCREENS := {
 	"account": preload("res://game/ui/screens/account_screen.gd"),
 	"shop": preload("res://game/ui/screens/shop_screen.gd"),
 	"pass": preload("res://game/ui/screens/pass_screen.gd"),
+	"quests": preload("res://game/ui/screens/quests_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
@@ -231,6 +232,8 @@ func set_profile(p) -> void:
 	if profile.changed.is_connected(_refresh_top):
 		profile.changed.disconnect(_refresh_top)
 	profile = p
+	if glow != null:
+		glow.profile = p # Pass and quest rewards land on the profile on screen.
 	_shown = {} # Another save's coins land as they are, not flying in.
 	if _built:
 		profile.changed.connect(_refresh_top)

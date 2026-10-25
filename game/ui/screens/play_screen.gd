@@ -244,11 +244,19 @@ static func _daily_door(shell) -> Control:
 		door_spot(shell, "bouncerun", token("bounce", _s(62)), "Bounce Run", "New run", DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")),
 		door_spot(shell, "daily_fotd", token_with("frame_gold", fotd, _s(62)), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
-		door_spot(shell, "daily_quests", token("quests", _s(62)), "Quests", "Soon", DAILY, week),
+		door_spot(shell, "daily_quests", token("quests", _s(62)), "Quests", _quest_line(shell), DAILY, func(): shell.go("quests"), shell.glow.quests_ready() > 0),
 	])
 	var season := LiveOps.season(t)
 	var sub := "Puzzles, runs and this week's events" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks]
 	return door(shell, "thisweek", "DAILY", sub, DAILY, week, [row], {"id": "home_daily", "focus": Vector2(.75, .5)})
+
+
+## The Quests spot's status: Claim when something is ready, else today's count.
+static func _quest_line(shell) -> String:
+	if shell.glow.quests_ready() > 0:
+		return "Claim"
+	var q: Dictionary = shell.glow.quests(LiveOps.now())
+	return "New" if (q.daily as Array).is_empty() else "%d/3" % q.chest.done
 
 
 ## Versus: Ghost Arena, then Quick fight with your fighter (tap the face to pick
