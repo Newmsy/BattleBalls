@@ -29,7 +29,7 @@ static func make(art: String, opts := {}) -> Control:
 	p._mat.shader = SHADER
 	var r = opts.get("radius", 0.0)
 	p._mat.set_shader_parameter("radius", r if r is Vector4 else Vector4(r, r, r, r))
-	for k in ["top_dark", "right_dark", "bottom_dark", "bottom_fade"]:
+	for k in ["top_dark", "left_dark", "right_dark", "bottom_dark", "bottom_fade"]:
 		p._mat.set_shader_parameter(k, opts.get(k, 0.0))
 	p.material = p._mat
 	p.resized.connect(p._on_resized)
