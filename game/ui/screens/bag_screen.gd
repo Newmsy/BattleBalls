@@ -322,6 +322,8 @@ static func _use_chip(shell, id: String) -> void:
 	if g.is_empty():
 		shell.toast("No XP Chips left.")
 		return
+	if int(g.get("levels", 0)) > 0:
+		shell.glow.record("level", int(g.levels))
 	var left: int = p.xp_chips()
 	var v := Kit.vbox(20, [Kit.label("XP Chip used", 34), XpBar.make(g, shell.sfx)])
 	var buttons := Kit.hbox(14)

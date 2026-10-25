@@ -356,6 +356,8 @@ static func _fight(shell, z: int, i: int, fighter: String) -> void:
 
 static func _sweep(shell, z: int, i: int, fighter: String) -> void:
 	var r: Dictionary = Campaign.sweep(shell.profile, z, i, fighter, int(Time.get_unix_time_from_system()))
+	if not r.has("error"):
+		shell.glow.record_result("stage", r)
 	if r.has("error"):
 		_show_error(shell, r.error)
 		return

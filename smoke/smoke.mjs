@@ -557,7 +557,8 @@ try {
     await page.close();
   }
 
-  // 9. Quests door: the board's wide painted Quests card opens its info sheet.
+  // 9. Quests: the board's wide painted Quests door opens the Quests screen,
+  // and the free swap rolls a different quest.
   if (mine(21)) {
     const { page, logs } = await openGame("?today=2026-10-15");
     await waitForLog(logs, "BOOT_OK", 60000);
@@ -565,8 +566,10 @@ try {
     await page.waitForTimeout(800);
     await tapUi(page, logs, "thisweek", "week");
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "week_quests", "sheet");
     await page.screenshot({ path: path.join(shots, "16-quests-door.png") });
+    await tapUi(page, logs, "week_quests", "quests");
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(shots, "16b-quests.png") });
     await page.close();
   }
 

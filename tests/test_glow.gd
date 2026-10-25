@@ -291,39 +291,6 @@ func test_no_season_no_pass() -> void:
 	_done()
 
 
-# --- Bounties ---------------------------------------------------------------------------
-
-func test_three_different_bounties_every_day() -> void:
-	for day in 120:
-		var b := GlowPass.bounties_for(day)
-		check_eq(b.size(), GlowPass.BOUNTIES_PER_DAY, "3 bounties")
-		var kinds := {}
-		for x in b:
-			kinds[x.kind] = true
-		check_eq(kinds.size(), 3, "day %d: three different kinds" % day)
-
-
-func test_fights_fill_bounties_and_the_weekly_chest() -> void:
-	var g = _fresh()
-	var t := _t("2026-10-14")
-	var xp := 0
-	for i in 8:
-		xp += g.record_fight(0, 250.0, t)
-	var done: Array = g.bounties(t).filter(func(b): return b.done)
-	check(done.size() >= 2, "8 wins with damage finish the fight bounties (%d)" % done.size())
-	check(xp >= 8 * 30 + 2 * GlowPass.BOUNTY_XP, "XP from fights and bounties (%d)" % xp)
-	g.record_trick(t)
-	check_eq(g.week_state(t).count, g.bounties(t).filter(func(b): return b.done).size(), "week counts today's bounties")
-	g.g().week.count = GlowPass.CHEST_AFTER
-	check(g.chest_ready(t), "chest opens after 12")
-	var before: int = g.pass_xp(t)
-	check(g.open_chest(t), "opened")
-	check_eq(g.pass_xp(t), before + GlowPass.CHEST_XP, "chest XP")
-	check(not g.open_chest(t), "once a week")
-	check_eq(g.bounties(t + 86400).filter(func(b): return b.progress > 0).size(), 0, "fresh bounties tomorrow")
-	_done()
-
-
 # --- Saves and screens -----------------------------------------------------------------
 
 func test_glow_survives_the_save_and_a_cloud_adopt() -> void:

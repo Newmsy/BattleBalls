@@ -27,6 +27,7 @@ const A11y := preload("res://game/a11y.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const MapView := preload("res://game/bounce_run/map_view.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
 const LivingArt := preload("res://game/bounce_run/living_art.gd")
 const ART := "res://game/bounce_run/art/%s.png"
 
@@ -447,6 +448,9 @@ func _finish_fight() -> void:
 	run.erase("launched")
 	BounceRun.record(setup, run, slot, aim, sim.winner, sim.tick, sim.team_hp(1))
 	_save_run()
+	GlowState.note_fight(sim.winner, sim.balls[0].damage_dealt, {"critter": sim.balls[0].type_id})
+	if won:
+		GlowState.note("bounce_floor", cleared_floor)
 	sfx.on_result(sim.winner)
 	print("BOUNCERUN_RESULT floor=%d won=%s ticks=%d over=%s" % [cleared_floor, won, sim.tick, run.over])
 	var info := ""
