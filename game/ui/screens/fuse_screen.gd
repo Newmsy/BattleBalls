@@ -280,6 +280,40 @@ static func _at(f: Rect2, p: Vector2) -> Vector2:
 
 
 ## Where the three copies meet, in the lab's space.
+## Sparks pulled in from all round into the core during the build-up.
+static func _sparks(lab: Control, centre: Vector2, col: Color) -> void:
+	for k in 12:
+		var a := TAU * k / 12.0 + randf() * .4
+		var from := centre + Vector2.from_angle(a) * randf_range(150.0, 220.0)
+		var sp := Panel.new()
+		sp.add_theme_stylebox_override("panel", Kit.box(col.lerp(Color.WHITE, .6), Color(0, 0, 0, 0), 999, 0, 0))
+		sp.size = Vector2(9, 9)
+		sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sp.position = from - sp.size / 2.0
+		lab.add_child(sp)
+		var tw := sp.create_tween()
+		tw.tween_interval(.025 * k)
+		tw.tween_property(sp, "position", centre - sp.size / 2.0, .3).set_ease(Tween.EASE_IN)
+		tw.tween_callback(sp.queue_free)
+
+
+## A ring of the rarity colour bursting out of the core as the new tier lands.
+static func _ring(lab: Control, centre: Vector2, col: Color) -> void:
+	if A11y.reduced_motion:
+		return
+	var ring := Panel.new()
+	ring.add_theme_stylebox_override("panel", Kit.box(Color(0, 0, 0, 0), col.lerp(Color.WHITE, .3), 999, 6, 0))
+	ring.size = Vector2(120, 120)
+	ring.position = centre - ring.size / 2.0
+	ring.pivot_offset = ring.size / 2.0
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lab.add_child(ring)
+	var tw := ring.create_tween().set_parallel()
+	tw.tween_property(ring, "scale", Vector2(3.4, 3.4), .6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(ring, "modulate:a", 0.0, .6)
+	tw.chain().tween_callback(ring.queue_free)
+
+
 static func core(lab: Control) -> Vector2:
 	return _at(_frame(lab.size), CORE)
 
@@ -331,7 +365,22 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 	btn.disabled = true
 	lab.set_meta("fusing", true)
 	var centre := core(lab)
+	var rarity: Color = Roster.RARITY_COLORS.get(Roster.get_critter(sel.id).rarity, LAB)
+	var flash: ColorRect = lab.get_meta("flash")
 	var tw := lab.create_tween().set_parallel(true)
+	if not A11y.reduced_motion:
+		# The build-up: the chamber glows in the critter's rarity colour and the
+		# copies tremble while sparks are pulled into the core.
+		if shell.sfx != null:
+			shell.sfx.play("summon_charge", -4.0)
+		flash.color = Color(rarity, 0.0)
+		tw.tween_property(flash, "color:a", .28, .4).set_ease(Tween.EASE_IN)
+		for s in lab.get_meta("slots"):
+			var shake := lab.create_tween()
+			for k in 6:
+				shake.tween_property(s, "rotation", .09 if k % 2 == 0 else -.09, .066)
+		_sparks(lab, centre, rarity)
+		tw.chain()
 	for s in lab.get_meta("slots"):
 		tw.tween_property(s, "position", centre - s.size / 2.0, .6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		tw.tween_property(s, "rotation", TAU, .6).set_ease(Tween.EASE_IN)
@@ -341,9 +390,9 @@ static func _do_fuse(shell, lab: Control, btn: Button, sel: Dictionary) -> void:
 		var result: Dictionary = shell.profile.fuse(sel.id, sel.tier)
 		for s in lab.get_meta("slots"):
 			s.visible = false
-		var flash: ColorRect = lab.get_meta("flash")
-		flash.color.a = .95
+		flash.color = Color(rarity.lerp(Color.WHITE, .55), .95)
 		lab.create_tween().tween_property(flash, "color:a", 0.0, .55)
+		_ring(lab, centre, rarity)
 		# Just the new critter pops out over the painting; its power counts up
 		# in the popup that follows, where it reads clearly.
 		var big := 150 if lab.size.y > 340.0 else 110

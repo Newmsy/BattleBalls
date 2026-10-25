@@ -10,6 +10,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const Gear := preload("res://sim/gear.gd")
 const A11y := preload("res://game/a11y.gd")
+const Motion := preload("res://game/ui/motion.gd")
 
 const GOLD := Color("ffd166")
 
@@ -32,7 +33,9 @@ static func row(glyph: String, tint: Color, what: String, before: String, after:
 
 ## Old stars → new stars, the new ones in `tint`.
 static func stars(before: int, after: int, tint := GOLD) -> Control:
-	return Kit.hbox(12, [Kit.glyph("stars", 28, Kit.MUTED, before), Kit.label("→", 26, Kit.MUTED), Kit.glyph("stars", 34, tint, after)],
+	var now := Kit.glyph("stars", 34, tint, after)
+	Motion.pop(now, 1.8, .3, .3)
+	return Kit.hbox(12, [Kit.glyph("stars", 28, Kit.MUTED, before), Kit.label("→", 26, Kit.MUTED), now],
 		BoxContainer.ALIGNMENT_CENTER)
 
 
@@ -107,10 +110,60 @@ static func gear_list(shell, made: Array, tier_color: Callable, spent: int, on_c
 		on_continue, "merge_done")
 
 
+## The beat before a merge's popup: three copies of the piece slide in from
+## the sides, slam into one with a clank and a ring of sparks, then `then`
+## runs (at once with Reduced motion). About 0.4s; taps go through.
+static func slam(shell, kind: String, col: Color, then: Callable) -> void:
+	if Motion.calm():
+		then.call()
+		return
+	var layer: Control = shell._fx
+	var centre: Vector2 = shell.get_global_rect().get_center() - layer.get_global_rect().position
+	var side := 120.0
+	var froms := [Vector2(-230, 0), Vector2(230, 0), Vector2(0, -230)]
+	var pieces: Array = []
+	for f in froms:
+		var g := Glyph.make(kind, side, col)
+		g.size = Vector2(side, side)
+		g.position = centre + f - g.size / 2.0
+		g.pivot_offset = g.size / 2.0
+		g.modulate.a = 0.0
+		layer.add_child(g)
+		pieces.append(g)
+	var tw := layer.create_tween().set_parallel()
+	for g in pieces:
+		tw.tween_property(g, "modulate:a", 1.0, .1)
+		tw.tween_property(g, "position", centre - g.size / 2.0, .26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(func():
+		if shell.sfx != null:
+			shell.sfx.play("clunk", 0.0, 1.2)
+		var ring := Panel.new()
+		ring.add_theme_stylebox_override("panel", Kit.box(Color(0, 0, 0, 0), col.lerp(Color.WHITE, .4), 999, 6, 0))
+		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ring.size = Vector2(side, side)
+		ring.position = centre - ring.size / 2.0
+		ring.pivot_offset = ring.size / 2.0
+		layer.add_child(ring)
+		var out := ring.create_tween().set_parallel()
+		out.tween_property(ring, "scale", Vector2(3, 3), .4).set_ease(Tween.EASE_OUT)
+		out.tween_property(ring, "modulate:a", 0.0, .4)
+		out.chain().tween_callback(ring.queue_free)
+		for g in pieces:
+			var fade: Tween = g.create_tween().set_parallel()
+			fade.tween_property(g, "scale", Vector2(1.4, 1.4), .14)
+			fade.tween_property(g, "modulate:a", 0.0, .14)
+			fade.chain().tween_callback(g.queue_free)
+		then.call())
+
+
 static func _open(shell, title: String, body: Array, on_continue: Callable, mark_as: String) -> void:
 	var v := Kit.vbox(16, [Kit.label(title, 40, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER)])
 	for c in body:
 		v.add_child(c)
+	# What changed arrives line by line.
+	for c in body:
+		if c is VBoxContainer and c.get_child_count() > 0 and c.get_child(0) is HBoxContainer:
+			Motion.cascade(c.get_children())
 	var ok := Kit.button("Continue", func():
 		shell.close_overlay()
 		if on_continue.is_valid():
