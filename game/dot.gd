@@ -102,3 +102,34 @@ static func pline(ci: CanvasItem, pts, col: Color, w := -1.0, aa := false) -> vo
 		ci.draw_line(pts[0], pts[1], col, w, aa)
 	else:
 		ci.draw_multiline(PackedVector2Array([pts[0], pts[1], pts[1], pts[2]]), col, w, aa)
+
+
+## A soft round glow (or with black, a soft shadow) as one textured quad: full
+## col inside inner * r, easing smoothly out to nothing at r. Use it instead
+## of stacking faint circles, which shows as rings.
+static var _glow_tex := {}
+
+static func glow(ci: CanvasItem, c: Vector2, r: float, col: Color, inner := 0.0) -> void:
+	if not r > 0.0 or col.a <= 0.0:
+		return
+	var key := clampi(roundi(inner * 10.0), 0, 9)
+	if not _glow_tex.has(key):
+		_glow_tex[key] = _make_glow(key / 10.0)
+	ci.draw_texture_rect(_glow_tex[key], Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, col)
+
+
+static func _make_glow(inner: float) -> Texture2D:
+	var n := 128
+	var half := n / 2.0
+	var px := PackedByteArray()
+	px.resize(n * n * 2)
+	var i := 0
+	for y in n:
+		var dy := y + 0.5 - half
+		for x in n:
+			var dx := x + 0.5 - half
+			var u := clampf((sqrt(dx * dx + dy * dy) / half - inner) / (1.0 - inner), 0.0, 1.0)
+			px[i] = 255
+			px[i + 1] = int(pow(1.0 - u * u * (3.0 - 2.0 * u), 1.4) * 255.0)
+			i += 2
+	return ImageTexture.create_from_image(Image.create_from_data(n, n, false, Image.FORMAT_LA8, px))

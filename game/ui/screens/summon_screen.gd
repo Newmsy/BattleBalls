@@ -672,8 +672,7 @@ class _Capsule extends Control:
 			draw_set_transform_matrix(Transform2D.IDENTITY)
 			var halo := (.03 * (_ri - 2) if _ri >= 3 else 0.0) * (.8 + .2 * pulse) + grow * .1
 			if halo > 0.0:
-				for k in 3:
-					Dot.circle(self, c, r * (1.1 + k * .14 + grow * .4), Color(_col, halo))
+				Dot.glow(self, c, r * (1.45 + grow * .4), Color(_col, minf(1.0, halo * 3.0)), .75)
 			var cracked := clampf(_crack_t / maxf(.05, _crack_len * .85), 0.0, 1.0) if _crack_t >= 0.0 else 0.0
 			if _charge_t >= 0.0:
 				cracked = maxf(cracked, grow)
@@ -700,8 +699,8 @@ class _Capsule extends Control:
 				var w := .13
 				draw_colored_polygon(PackedVector2Array([c + Vector2(cos(a - w), sin(a - w)) * r * .5, tip,
 					c + Vector2(cos(a + w), sin(a + w)) * r * .5]), Color(_col, .18 + .08 * hp))
-		for k in 5:
-			draw_circle(c, r * (1.25 - k * .15) * (1.0 + .1 * _ri), Color(_col, (.05 + .025 * _ri) * (1.0 + hp * .4)))
+		var ha := (.05 + .025 * _ri) * (1.0 + hp * .4)
+		Dot.glow(self, c, r * 1.35 * (1.0 + .1 * _ri), Color(_col, 1.0 - pow(1.0 - ha, 5.0)), .45)
 		if _open_t >= BURST_TIME:
 			_draw_new_tag()
 			return
@@ -1063,9 +1062,8 @@ class _Vortex extends Control:
 		# The well darkening toward its edge with a pale core (the glow around
 		# the ring is in the painting).
 		Dot.circle(self, c, hole, Color("1a0f38"))
-		for k in 6:
-			var f := 1.0 - k / 6.0
-			Dot.circle(self, c, hole * f, Color(.36 + .1 * k, .24 + .08 * k, .7 + .04 * k, .16))
+		Dot.glow(self, c, hole, Color(.5, .36, .82, .7), .2)
+		Dot.glow(self, c, hole * .6, Color(.8, .66, 1.0, .45))
 		Dot.circle(self, c, hole * (.16 + .5 * _surge), Color(.95, .9, 1.0, .85))
 		# Spiral arms turning inward.
 		for arm in ARMS:
@@ -1091,8 +1089,7 @@ class _Backdrop extends Control:
 	func _draw() -> void:
 		var c := Vector2(size.x / 2.0, size.y * .48)
 		var r := maxf(size.x, size.y) * .5
-		for k in 6:
-			Dot.circle(self, c, r * (1.0 - k * .14), Color(.42, .26, .8, .035))
+		Dot.glow(self, c, r, Color(.42, .26, .8, .2), .25)
 		for k in 3:
 			draw_arc(c, r * (.35 + k * .17), 0.0, TAU, 72, Color(.7, .6, 1.0, .05), 2.0, true)
 		var rng := RandomNumberGenerator.new()

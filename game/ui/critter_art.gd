@@ -251,12 +251,10 @@ static func _shade_disc() -> Texture2D:
 
 static func _aura(ci: CanvasItem, rarity: String, c: Vector2, r: float, t: float) -> void:
 	if rarity == "epic":
-		for k in 5:
-			Dot.circle(ci, c, r * (1.0 + k * .09), Color(.7, .4, 1.0, .1))
+		Dot.glow(ci, c, r * 1.42, Color(.7, .4, 1.0, .42), .7)
 	elif rarity == "legendary":
 		var pulse := .8 + .2 * sin(t * 4.0)
-		for k in 6:
-			Dot.circle(ci, c, r * (1.0 + k * .09 * pulse), Color(1.0, .76, .24, .1))
+		Dot.glow(ci, c, r * (1.0 + .52 * pulse), Color(1.0, .76, .24, .48), .65)
 		for i in 2:
 			var a := t * 1.5 + i * PI
 			var p := c + Vector2(cos(a), sin(a)) * r * 1.35
