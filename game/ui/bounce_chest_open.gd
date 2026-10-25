@@ -9,6 +9,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Motion := preload("res://game/ui/motion.gd")
 const ChestArt := preload("res://game/ui/chest_art.gd")
 const BounceChest := preload("res://meta/bounce_chest.gd")
+const Dot := preload("res://game/dot.gd")
 const PassScreen := preload("res://game/ui/screens/pass_screen.gd")
 
 const CHEST_H := 320.0
@@ -295,5 +296,4 @@ class _Rays extends Control:
 			var w := .11
 			var pts := PackedVector2Array([c, c + Vector2.from_angle(a - w) * r, c + Vector2.from_angle(a + w) * r])
 			draw_colored_polygon(pts, Color(color, .1))
-		for k in 4:
-			draw_circle(c, r * (.32 - .07 * k), Color(color, .07 + .05 * k))
+		Dot.glow(self, c, r * .34, Color(color, .47), .3)

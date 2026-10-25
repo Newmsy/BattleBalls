@@ -1292,10 +1292,8 @@ class _Backdrop extends Control:
 		# The wash: one quad, lighter at the top, into the base colour by mid-screen.
 		draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h * .55), Vector2(0, h * .55)]),
 			PackedColorArray([TOP, TOP, Kit.BG, Kit.BG]))
-		# The glow rings stay phone-sized over the middle on a wide window.
-		var cw := minf(w, 1100.0)
-		for k in 4:
-			Dot.circle(self, Vector2(w * .5, -h * .05), cw * (.75 - k * .14), Color(.45, .35, 1.0, .03))
+		# The glow stays phone-sized over the middle on a wide window.
+		Dot.glow(self, Vector2(w * .5, -h * .05), minf(w, 1100.0) * .8, Color(.45, .35, 1.0, .12), .4)
 		# The dot grid, offset every other row, brightest near the top.
 		var rows := int(h * .6 / GAP)
 		for j in rows:
