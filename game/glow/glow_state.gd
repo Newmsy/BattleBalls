@@ -193,7 +193,10 @@ func bundle_price(b: Dictionary) -> int:
 # --- Store (real money, or the fake store) ----------------------------------------
 
 func _on_purchased(product_id: String, txn: String) -> void:
-	if apply_purchase(product_id, txn):
+	var granted := apply_purchase(product_id, txn)
+	# Granted now or before: either way the store may finish the transaction.
+	store.finish(product_id, txn)
+	if granted:
 		purchase_finished.emit(product_id, true, _thanks(product_id))
 
 
