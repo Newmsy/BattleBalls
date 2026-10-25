@@ -106,6 +106,63 @@ static func pop_in(_host: Node, c: CanvasItem, move: Callable, done := Callable(
 	return tw
 
 
+## Earned crowns (or stars) slam into place one by one with a thud, after
+## the banner has opened; unearned ones just fade in. `slots`: the row's
+## children, `earned` how many from the left are lit. Returns when it ends.
+static func stamp(slots: Array, earned: int, sfx = null, start := .45) -> float:
+	var at := start
+	for k in slots.size():
+		var c: Control = slots[k]
+		if A11y.motion() == 0.0:
+			continue
+		var lit := k < earned
+		c.modulate.a = 0.0
+		var tw := c.create_tween()
+		tw.tween_interval(at)
+		tw.tween_callback(func():
+			c.modulate.a = 1.0
+			c.pivot_offset = c.size / 2.0
+			c.scale = Vector2(2.3, 2.3) if lit else Vector2(.8, .8)
+			c.rotation = -.25 if lit else 0.0
+			if lit and sfx != null:
+				sfx.play("clunk", -4.0, 1.0 + .08 * k))
+		tw.set_parallel()
+		tw.tween_property(c, "scale", Vector2.ONE, .24 if lit else .15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(c, "rotation", 0.0, .2).set_ease(Tween.EASE_OUT)
+		at += .2 if lit else .08
+	return at
+
+
+## Reward cards pop out one after another from `start`; a card with a glow
+## colour (Rare and up, a new critter) sends out a ring of it as it lands.
+## `cards`: [[Control, Color or null], ...].
+static func drop_in(cards: Array, sfx = null, start := 1.0) -> void:
+	var at := start
+	for k in cards.size():
+		var c: Control = cards[k][0]
+		var glow = cards[k][1]
+		if A11y.motion() == 0.0:
+			return
+		c.modulate.a = 0.0
+		var tw := c.create_tween()
+		tw.tween_interval(at)
+		tw.tween_callback(func():
+			c.modulate.a = 1.0
+			c.pivot_offset = c.size / 2.0
+			c.scale = Vector2.ZERO
+			c.rotation = -.3
+			if sfx != null:
+				sfx.play("summon_pop", -6.0, 1.0 + .06 * k))
+		tw.set_parallel()
+		tw.tween_property(c, "scale", Vector2.ONE, .3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(c, "rotation", 0.0, .26).set_ease(Tween.EASE_OUT)
+		if glow is Color:
+			tw.set_parallel(false)
+			tw.tween_property(c, "modulate", Color(1.0 + glow.r * .8, 1.0 + glow.g * .8, 1.0 + glow.b * .8), .08)
+			tw.tween_property(c, "modulate", Color.WHITE, .4)
+		at += .14
+
+
 ## A closed popup (frame's root) shrinks and fades away, then frees itself.
 ## It takes no taps meanwhile, so the screen under it is live at once.
 static func pop_out(root: Control) -> void:

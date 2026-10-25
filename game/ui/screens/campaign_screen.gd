@@ -363,8 +363,11 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	if r.won and shell.sfx != null:
 		shell.sfx.hold_victory(v) # The victory tune plays while this popup is up.
 	if r.won:
-		var star_row := Kit.hbox(12, [crowns(r.stars, 52)], BoxContainer.ALIGNMENT_CENTER)
+		var crown_row := crowns(r.stars, 52)
+		var star_row := Kit.hbox(12, [crown_row], BoxContainer.ALIGNMENT_CENTER)
 		v.add_child(star_row)
+		var drop_cards: Array = []
+		var drops_at := ResultPopup.stamp(crown_row.get_children(), r.stars, shell.sfx)
 		if not r.drops.is_empty() or not r.get("gear", []).is_empty() or r.get("orbs", 0) > 0:
 			var drops := GridContainer.new()
 			drops.columns = 3
@@ -374,19 +377,26 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 				var c := Roster.get_critter(id)
 				var cell := Kit.vbox(4, [CritterIcon.make(id, 1, 96), _fit(Kit.label(c.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
 				cell.custom_minimum_size.x = 150
-				drops.add_child(Kit.panel(cell, Kit.box(Kit.PANEL2, Kit.LINE, 24, 2, 10)))
+				var card := Kit.panel(cell, Kit.box(Kit.PANEL2, Kit.LINE, 24, 2, 10))
+				drops.add_child(card)
+				drop_cards.append([card, Roster.RARITY_COLORS.get(c.rarity) if c.rarity in ["rare", "epic", "legendary"] else null])
 			if r.get("orbs", 0) > 0:
 				var orb_cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make("orb", 84)], BoxContainer.ALIGNMENT_CENTER),
 					_fit(Kit.label("%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"], 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
 				orb_cell.custom_minimum_size.x = 150
-				drops.add_child(Kit.panel(orb_cell, Kit.box(Kit.PANEL2, Color("c77dff"), 24, 2, 10)))
+				var orb_card := Kit.panel(orb_cell, Kit.box(Kit.PANEL2, Color("c77dff"), 24, 2, 10))
+				drops.add_child(orb_card)
+				drop_cards.append([orb_card, null])
 			for g in r.get("gear", []):
 				var col := BagScreen.tier_color(g.tier)
 				var cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make(g.type, 72, col)], BoxContainer.ALIGNMENT_CENTER),
 					Kit.hbox(0, [Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER), _fit(Kit.label(g.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
 				cell.custom_minimum_size.x = 150
-				drops.add_child(Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10)))
+				var gear_card := Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10))
+				drops.add_child(gear_card)
+				drop_cards.append([gear_card, col if g.tier >= 3 else null])
 			v.add_child(Kit.vbox(8, [Kit.caption("Drops"), drops]))
+			ResultPopup.drop_in(drop_cards, shell.sfx, drops_at + .1)
 	else:
 		v.add_child(Kit.label("Try a stronger critter, or fuse one up.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var spent := Zones.cost(st) - int(r.refund)

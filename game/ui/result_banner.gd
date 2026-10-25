@@ -6,9 +6,12 @@ extends MarginContainer
 
 const Dot := preload("res://game/dot.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
+const A11y := preload("res://game/a11y.gd")
+const OPEN_SECS := .32
 
 var col := Color.WHITE
 var win := false
+var _open := 1.0 ## 0 rolled up in the middle, 1 unfurled.
 
 
 static func wrap(row: Control) -> Node:
@@ -26,12 +29,38 @@ func set_mood(colour: Color, won: bool) -> void:
 	queue_redraw()
 	if not resized.is_connected(queue_redraw):
 		resized.connect(queue_redraw)
+	_unfurl()
+
+
+## The ribbon stretches open from the middle, the win rays fan out once,
+## then the headline drops in with a bounce. A tween, so it costs nothing
+## once it has stopped.
+func _unfurl() -> void:
+	if A11y.motion() == 0.0:
+		return
+	_open = 0.0
+	var row: Control = get_child(0) if get_child_count() > 0 else null
+	if row != null:
+		row.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_method(func(t: float) -> void:
+		_open = t
+		queue_redraw(), 0.0, 1.0, OPEN_SECS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC).set_delay(.08)
+	if row == null:
+		return
+	tw.tween_callback(func():
+		row.modulate.a = 1.0
+		row.pivot_offset = row.size / 2.0
+		row.scale = Vector2(1.35, 1.35))
+	tw.tween_property(row, "scale", Vector2.ONE, .26).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _draw() -> void:
 	var c := size / 2.0
 	var h := size.y
-	var w := minf(size.x, h * 7.5)
+	var w := minf(size.x, h * 7.5) * lerpf(.12, 1.0, _open)
+	if _open <= 0.0:
+		return
 	if win:
 		# Rays behind everything, squashed wide so they stay inside the card.
 		draw_set_transform(c, 0.0, Vector2(1.0, .42))
@@ -39,7 +68,7 @@ func _draw() -> void:
 			var a := TAU * k / 14 + .11
 			var tip := Vector2.from_angle(a) * w * .55
 			var side := Vector2.from_angle(a + PI / 2) * w * .035
-			Dot.poly(self, PackedVector2Array([Vector2.ZERO, tip - side, tip + side]), Color(col, .07))
+			Dot.poly(self, PackedVector2Array([Vector2.ZERO, tip - side, tip + side]), Color(col, .07 * _open))
 		draw_set_transform_matrix(Transform2D.IDENTITY)
 		Dot.circle(self, c, h * .9, Color(col, .06))
 	# The ribbon: a band with a fold and a notched tail at each end.
