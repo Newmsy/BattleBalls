@@ -75,11 +75,11 @@ static func build(shell, _params: Dictionary) -> Control:
 static func door(shell, mark: String, title: String, sub: String, accent: Color, hub: Callable, body: Array, paint := {}) -> Control:
 	var head := Kit.vbox(0, [Kit.label(title, 34, accent), Kit.label(sub, 19, Kit.MUTED)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# A painted door zooms you through its painting into the hub.
+	# A painted door opens into its hub with a wash of its colour.
 	var painting: Array = [null]
 	var open_hub := func():
 		if is_instance_valid(painting[0]):
-			shell.zoom_from(painting[0])
+			shell.light_from(painting[0], accent)
 		hub.call()
 	var header := Kit.card_button(Kit.hbox(8, [head, Kit.label("›", 44, accent)], BoxContainer.ALIGNMENT_CENTER), open_hub, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 0)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
