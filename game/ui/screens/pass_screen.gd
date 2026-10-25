@@ -13,6 +13,9 @@ const Roster := preload("res://game/ui/roster.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const ShopScreen := preload("res://game/ui/screens/shop_screen.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
+
+## Cards claimed by the last tap (their marks): they flip over when the list is rebuilt.
+static var _just_claimed: Array = []
 const Gear := preload("res://sim/gear.gd")
 
 const GLOW := Color("ffd36b")
@@ -106,6 +109,8 @@ static func build(shell, _params: Dictionary) -> Control:
 	var n: int = glow.claimable_count(t)
 	if n > 0:
 		var all := Kit.button("Claim all (%d)" % n, func():
+			_just_claimed = _claimable_marks(glow, t)
+			shell.reward_from(shell._marks.get("claim_all", shell))
 			var got: Array = glow.claim_all(t)
 			shell.toast("Claimed %d reward%s!" % [got.size(), "" if got.size() == 1 else "s"])
 			shell.refresh(), "go", 30, 92)
@@ -197,6 +202,8 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 	var border := Kit.GOOD if state == "Claim" else (Color(accent, .35) if l <= glow.pass_level(t) and track == "free" else frame)
 	var card := Kit.card_button(row, func():
 		if state == "Claim":
+			_just_claimed = ["claim_%s_%d" % [track, l]]
+			shell.reward_from(shell._marks.get("claim_%s_%d" % [track, l], shell))
 			glow.claim(l, track, t)
 			shell.toast("Got %s!" % reward_text(r))
 			shell.refresh()
@@ -209,7 +216,35 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.modulate = Color(1, 1, 1, .55) if state == "locked" else Color.WHITE
 	shell.mark("claim_%s_%d" % [track, l], card)
+	var k := _just_claimed.find("claim_%s_%d" % [track, l])
+	if k >= 0:
+		# Just claimed: it flips over to its claimed side, a ripple down the list on Claim all.
+		_flip(card, .06 * k)
+		_just_claimed[k] = ""
 	return card
+
+
+## The cards a Claim all is about to claim (their marks), top to bottom.
+static func _claimable_marks(glow, t: int) -> Array:
+	var out: Array = []
+	for l in range(1, GlowPass.LEVELS + 1):
+		for track in ["free", "premium"]:
+			if glow.can_claim(l, track, t):
+				out.append("claim_%s_%d" % [track, l])
+	return out
+
+
+## A card turning over: squashed flat, then opening out on its new face.
+static func _flip(c: Control, delay: float) -> void:
+	if A11y.reduced_motion:
+		return
+	c.ready.connect(func():
+		c.pivot_offset = c.size / 2.0
+		c.scale = Vector2(0.0, 1.0)
+		var tw := c.create_tween()
+		tw.tween_interval(delay)
+		tw.tween_property(c, "scale", Vector2(1.08, 1.0), .16).set_ease(Tween.EASE_OUT)
+		tw.tween_property(c, "scale", Vector2.ONE, .14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
 
 
 ## `beside_icon`: the currency's icon is right there, so show just the number.

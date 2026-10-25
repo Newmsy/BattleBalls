@@ -20,6 +20,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Motion := preload("res://game/ui/motion.gd")
+const LevelUp := preload("res://game/ui/level_up.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -149,6 +150,10 @@ var _shown := {}
 var _fly_from := Vector2(-1, -1) ## Where the next gain flies from (reward_from).
 var _fx: Control ## Over everything: flying coins and eggs.
 var _report_after := 0 ## Msec tick a screen's slide ends: marks are logged after it.
+## The current screen's big critter (the critter page's hero), which a
+## tapped card's face grows into (go_from). Screens set it in build().
+var hero: Control
+var _pop_next: Array = [] ## Marks to pop once the next screen is built (pop_after).
 
 ## Red dots are for something to do, and go once you've looked: the Fuse dot
 ## only for sets that turned fusable since your last visit to Fuse (per device).
@@ -240,6 +245,61 @@ func open_tab(t: String, params: Dictionary) -> void:
 	_stack = [[t, params]]
 	_snaps = []
 	_show(t, params)
+
+
+## Open a screen from a tapped critter card: the card's face `from` grows
+## into the new screen's hero (the critter page) while the page fades in.
+func go_from(name: String, params: Dictionary, from: Control) -> void:
+	if Motion.calm() or not is_instance_valid(from) or overlay_open():
+		go(name, params)
+		return
+	var rect := from.get_global_rect()
+	_snaps.append(null) # No slide to take a picture for.
+	if _snaps.size() > SNAP_DEPTH:
+		_snaps[_snaps.size() - SNAP_DEPTH - 1] = null
+	_stack.append([name, params])
+	_show(name, params)
+	_arrive(Vector2.ZERO, .2)
+	_grow_hero(rect)
+
+
+func _grow_hero(from: Rect2) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var h := hero
+	if not is_instance_valid(h) or not h.is_visible_in_tree():
+		return
+	var to := h.get_global_rect()
+	var base := _fx.get_global_rect().position
+	var ghost := CritterIcon.make(h.critter_id, h.tier, to.size.x)
+	ghost.info = false
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.position = from.position - base
+	ghost.size = from.size
+	_fx.add_child(ghost)
+	h.modulate.a = 0.0
+	var tw := ghost.create_tween().set_parallel()
+	tw.tween_property(ghost, "position", to.position - base, .28).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(ghost, "size", to.size, .28).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.chain().tween_callback(func():
+		if is_instance_valid(h):
+			h.modulate.a = 1.0
+		ghost.queue_free())
+	_hold_report(.3)
+
+
+## After the next rebuild (refresh), pop the controls marked `marks`, e.g.
+## the wishlist chip just toggled or a gear slot just filled.
+func pop_after(marks: Array) -> void:
+	_pop_next = marks.duplicate()
+
+
+## A tab that has just opened up: its icon rises into the bar with a flash.
+func spotlight_tab(t: String) -> void:
+	if not t in _tab_icons:
+		return
+	Motion.pop(_tab_icons[t], 0.0, .5, .1)
+	Motion.flash(_tab_icons[t], Color(1.8, 1.7, 1.2), .9)
 
 
 ## Open a screen on top of the current one (Back returns to it).
@@ -568,6 +628,7 @@ func _show(name: String, params: Dictionary) -> void:
 	current = name
 	current_params = params
 	_shown_at = Engine.get_frames_drawn()
+	hero = null
 	_marks.clear()
 	_share.clear()
 	for c in _holder.get_children():
@@ -609,6 +670,11 @@ func _show(name: String, params: Dictionary) -> void:
 			_tab_icons[t].set_active(t == _tab)
 	_refresh_top()
 	_place_tab_mark.call_deferred()
+	for m in _pop_next:
+		if _marks.has(m) and is_instance_valid(_marks[m]):
+			Motion.pop(_marks[m], .6, .32)
+			Motion.flash(_marks[m], Color(1.4, 1.5, 1.2), .5)
+	_pop_next = []
 	_report.call_deferred(name)
 
 
@@ -897,14 +963,12 @@ func _tick_energy() -> void:
 
 
 func _refresh_top() -> void:
-	_top_labels.level.text = str(profile.account_level)
+	_set_level()
 	_tick_energy()
 	_set_top("energy", profile.energy)
 	_set_top("coin", profile.coins)
 	_set_top("orb", profile.orbs)
 	_fly_from = Vector2(-1, -1)
-	_level_ring.set("frac", float(profile.account_xp) / maxf(1.0, profile.account_xp_to_next()))
-	_level_ring.queue_redraw()
 	var fusable := _fuse_signature()
 	if current == "fuse":
 		_set_badge("fuse_seen", fusable)
@@ -983,6 +1047,39 @@ func _set_top(kind: String, value: int, quiet := false) -> void:
 			sfx.play("click", -8.0, 1.2 + .05 * k)
 		if k == n - 1:
 			Motion.flash(pill, Color(1.0, 1.5, 1.2), .5))
+
+
+## The level badge and its XP ring. A level reached out of sight waits like
+## a coin does; then the ring fills, the badge pops and LevelUp celebrates.
+func _set_level() -> void:
+	var lv: int = profile.account_level
+	var frac := float(profile.account_xp) / maxf(1.0, profile.account_xp_to_next())
+	var seen = _shown.get("level")
+	var ring_from: float = _level_ring.get("frac")
+	if seen != null and lv > int(seen) and (not is_visible_in_tree() or overlay_open()):
+		return # Held until you're back on a screen.
+	_shown["level"] = lv
+	_top_labels.level.text = str(lv)
+	if seen == null or lv < int(seen) or Motion.calm() or not is_inside_tree():
+		_level_ring.set("frac", frac)
+		_level_ring.queue_redraw()
+		if seen != null and lv > int(seen):
+			LevelUp.show_on(_fx, lv, sfx)
+		return
+	var ring := func(f: float) -> void:
+		_level_ring.set("frac", f)
+		_level_ring.queue_redraw()
+	var tw := _level_ring.create_tween()
+	if lv > int(seen):
+		_top_labels.level.text = str(seen)
+		tw.tween_method(ring, ring_from, 1.0, .4).set_ease(Tween.EASE_OUT)
+		tw.tween_callback(func():
+			_top_labels.level.text = str(lv)
+			Motion.bump(_badge, 1.35, .32)
+			Motion.flash(_badge, Color(1.8, 1.7, 1.2), .5)
+			LevelUp.show_on(_fx, lv, sfx))
+		ring_from = 0.0
+	tw.tween_method(ring, ring_from, frac, .35).set_ease(Tween.EASE_OUT)
 
 
 func _notification(what: int) -> void:

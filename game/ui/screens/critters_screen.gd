@@ -139,7 +139,7 @@ static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 		badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 		icon_layer.add_child(badge)
 	var v := Kit.vbox(4, [icon_layer, name, stars, info])
-	var t := Kit.card_button(v, func(): shell.go("detail", {"id": k.id, "tier": k.tier}), Roster.rarity_border(c.rarity, Kit.LINE), Roster.rarity_bg(c.rarity, Kit.PANEL), 28, 8)
+	var t := Kit.card_button(v, func(): shell.go_from("detail", {"id": k.id, "tier": k.tier}, icon), Roster.rarity_border(c.rarity, Kit.LINE), Roster.rarity_bg(c.rarity, Kit.PANEL), 28, 8)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var home := Painted.habitat(k.id)
 	if home != "":

@@ -12,6 +12,8 @@ extends RefCounted
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Gear := preload("res://sim/gear.gd")
+const A11y := preload("res://game/a11y.gd")
+const Motion := preload("res://game/ui/motion.gd")
 
 ## Set when a Ghost Arena fight finishes this session; the Arena screen
 ## then opens the Trophy Room for a new player.
@@ -128,6 +130,7 @@ static func moment(shell, at: int) -> void:
 			return
 		if screen in shell.TAB_IDS:
 			shell.show_tab(screen)
+			shell.spotlight_tab(screen)
 		elif screen == "boosts":
 			shell.show_tab("play")
 			shell.go("arena")
@@ -140,9 +143,32 @@ static func moment(shell, at: int) -> void:
 	line.custom_minimum_size.x = minf(600.0, shell.size.x - 100.0)
 	shell.sheet(Kit.vbox(16, [
 		Kit.caption("Unlocked" if at != DONE else "All unlocked", Kit.GOOD),
-		badge,
+		_burst_behind(badge),
 		Kit.label(m[0], 44, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 		line,
 		go,
 	]))
 	print("INTRO_UNLOCK %s" % m[3])
+
+
+## The badge bursts in over a gold flash, like Bounce Run's TIER UP.
+static func _burst_behind(badge: Control) -> Control:
+	var holder := CenterContainer.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if A11y.reduced_motion:
+		holder.add_child(badge)
+		return holder
+	var burst := Panel.new()
+	burst.add_theme_stylebox_override("panel", Kit.box(Color("ffd166", .5), Color(0, 0, 0, 0), 999, 0, 0))
+	burst.custom_minimum_size = Vector2(150, 150)
+	burst.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(burst)
+	holder.add_child(badge)
+	var tw := burst.create_tween().set_parallel()
+	tw.tween_interval(.15)
+	tw.chain().tween_method(func(t: float) -> void:
+		burst.pivot_offset = burst.size / 2.0
+		burst.scale = Vector2.ONE * lerpf(.5, 4.0, t)
+		burst.modulate.a = 1.0 - t, 0.0, 1.0, .7).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	Motion.pop(badge, 0.0, .45, .15)
+	return holder

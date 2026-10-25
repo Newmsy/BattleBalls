@@ -215,7 +215,7 @@ static func _merge(shell, g: Dictionary) -> void:
 		shell.toast("Need more Hammers.")
 		return
 	print("UI_MERGED %s T%d" % [made.type, made.tier])
-	UpgradePopup.gear(shell, made, tier_color(made.tier), cost)
+	UpgradePopup.slam(shell, made.type, tier_color(made.tier), UpgradePopup.gear.bind(shell, made, tier_color(made.tier), cost))
 
 
 static func _merge_all(shell) -> void:
@@ -223,7 +223,7 @@ static func _merge_all(shell) -> void:
 	var made: Array = shell.profile.merge_all_gear()
 	shell.refresh()
 	if made.size() == 1:
-		UpgradePopup.gear(shell, made[0], tier_color(made[0].tier), cost)
+		UpgradePopup.slam(shell, made[0].type, tier_color(made[0].tier), UpgradePopup.gear.bind(shell, made[0], tier_color(made[0].tier), cost))
 	elif not made.is_empty():
 		UpgradePopup.gear_list(shell, made, tier_color, cost)
 

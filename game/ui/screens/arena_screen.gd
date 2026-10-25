@@ -19,6 +19,8 @@ const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
 
+const Motion := preload("res://game/ui/motion.gd")
+const LevelUp := preload("res://game/ui/level_up.gd")
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
 const ART := "res://game/ui/versus_art/%s.png"
 
@@ -49,7 +51,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"Set your Defence trio: each day a few teams raid it. Holding wins trophies and Tokens.",
 	]
 	root.add_child(shell.title_row("Ghost Arena", {"info_mark": "arena_info", "info": how}))
-	root.add_child(_league_panel(store))
+	root.add_child(_league_panel(shell, store))
 	var held_today: int = store.raids.filter(func(r): return r.held).size() if store.raid_day == ArenaStore.today() else 0
 	# A new player's first Arena win opens the Trophy Room; the rest come after.
 	var p = shell.profile
@@ -88,7 +90,7 @@ static func build(shell, params: Dictionary) -> Control:
 	return root
 
 
-static func _league_panel(store) -> Control:
+static func _league_panel(shell, store) -> Control:
 	var t: int = store.trophies
 	var idx := Ladder.league_index(t)
 	var lg: Dictionary = Ladder.LEAGUES[idx]
@@ -98,12 +100,43 @@ static func _league_panel(store) -> Control:
 		var nxt: Dictionary = Ladder.LEAGUES[idx + 1]
 		frac = float(t - lg.min) / float(nxt.min - lg.min)
 		next_text = "%d to %s" % [nxt.min - t, nxt.name]
+	var count := Kit.amount("trophy", t, 30, Kit.FG, Glyph.GOLD)
+	var bar := Kit.bar(frac, lg.color)
+	var head := Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), count], BoxContainer.ALIGNMENT_CENTER)
+	_trophy_change(shell, t, idx, head, count, bar)
 	var v := Kit.vbox(8, [
-		Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), Kit.amount("trophy", t, 30, Kit.FG, Glyph.GOLD)], BoxContainer.ALIGNMENT_CENTER),
-		Kit.bar(frac, lg.color),
+		head,
+		bar,
 		Kit.hbox(0, [Kit.label(next_text, 22, Kit.MUTED), Kit.spacer(), Kit.label("%d W · %d L" % [store.wins, store.losses], 22, Kit.MUTED)]),
 	])
 	return Kit.panel(v, Kit.box(Color("17143e"), lg.color, 32, 2, 20))
+
+
+## Back from a fight: the trophy count ticks from what you last saw to now,
+## with a +/- chip, and reaching a new league gets its own moment.
+static func _trophy_change(shell, t: int, league: int, head: HBoxContainer, count: HBoxContainer, bar: ProgressBar) -> void:
+	var was := ArenaStore.seen_trophies
+	var was_league := ArenaStore.seen_league
+	ArenaStore.seen_trophies = t
+	ArenaStore.seen_league = league
+	if was < 0 or was == t:
+		return
+	var num: Label = count.get_child(1)
+	Motion.count(num, was, t, .7, Kit.commas)
+	var gain := t - was
+	var chip := Kit.chip(("+%d" if gain > 0 else "%d") % gain, Kit.GOOD if gain > 0 else Kit.BAD, 22)
+	head.add_child(chip)
+	Motion.pop(chip, .4, .3, .1)
+	var tw := chip.create_tween()
+	tw.tween_interval(1.8)
+	tw.tween_property(chip, "modulate:a", 0.0, .3)
+	if league == was_league:
+		var to := bar.value
+		bar.value = clampf(bar.value - float(gain) / maxf(1.0, float(Ladder.LEAGUES[mini(league + 1, Ladder.LEAGUES.size() - 1)].min - Ladder.LEAGUES[league].min)), 0.0, 1.0)
+		bar.create_tween().tween_property(bar, "value", to, .7).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	elif league > was_league:
+		var lg: Dictionary = Ladder.LEAGUES[league]
+		LevelUp.celebrate(shell._fx, {"caption": "NEW LEAGUE", "head": str(lg.name).to_upper() + "!", "color": lg.color}, shell.sfx)
 
 
 ## Critters that can go in a ranked trio: owned ones only.
