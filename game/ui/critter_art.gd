@@ -58,8 +58,12 @@ static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Di
 	r *= art.get("scale", 1.0)
 	if not _sil:
 		_aura(ci, d.rarity, c, r, st.t)
+	# A hit jolts the loose parts behind the body (ears, horns, wings, props).
+	# Hits under 0.12 (all of them with reduced motion on) don't shake.
+	var jolt := clampf((st.hit - .12) * 4.0, 0.0, 1.0)
+	var back_c := c + Vector2(sin(st.t * 71.0), cos(st.t * 53.0)) * r * .07 * jolt if jolt > 0.0 and not _sil else c
 	for f in art.get("back", []):
-		_feature(ci, f, true, col, c, r, st)
+		_feature(ci, f, true, col, back_c, r, st)
 	_body_for(ci, art.get("body", "gradient"), col, c, r, st)
 	for f in art.get("front", []):
 		_feature(ci, f, false, col, c, r, st)
@@ -493,7 +497,7 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 				var a := float(i) / n * TAU + .2
 				var w := PI / n * (.7 + .2 * grown)
 				var bl := c + Vector2(cos(a - w), sin(a - w)) * r * .92
-				var tip := c + Vector2(cos(a), sin(a)) * (r + L)
+				var tip := c + Vector2(cos(a), sin(a)) * (r + L * (1.0 + .22 * sin(t * 2.5 + i * 1.3))) # Idle: the spikes ripple.
 				var br := c + Vector2(cos(a + w), sin(a + w)) * r * .92
 				_poly(ci, PackedVector2Array([bl, tip, br]), spike)
 				if (tier >= 5 or (tier >= 3 and i % 2 == 0)) and s.flash <= 0.0:
@@ -688,6 +692,9 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 				_urect(ci, .06, -1, 1, 2, Color(1, 1, 1, .2 if tier < 5 else .32))
 				_urect(ci, -1, -1, 1.06, 2, Color(0, 0, 0, .12 if tier < 5 else .22))
 				_clip = false
+			var gy := fmod(t * .45, 1.0) # Idle: a glint runs down the seam (skipping the eyes).
+			if not _sil and absf(gy * 1.8 - .9 + .08) > .32:
+				_star(ci, c + Vector2(.06, gy * 1.8 - .9) * r, r * .12, r * .035, 4, Color(1, 1, 1, .8))
 			var seam := _quad(c + Vector2(0, -.97) * r, c + Vector2(.08, 0) * r, c + Vector2(0, .97) * r, 24)
 			for i in range(0, seam.size() - 1, 2):
 				if absf(seam[i].y - c.y + r * .08) > r * .32: # Stops short of the eyes.
@@ -976,11 +983,10 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				_xf = Transform2D.IDENTITY
 			_urect(ci, -.18, -1.45, .36, .65, Color("4d5a2a"), .06)
 			_urect(ci, -.24, -1.5, .48, .14, Color("2f3818"), .04)
-			if n >= 3:
-				# Mortar: smoke puffs from the barrel.
-				for i in 3 if n >= 5 else 2:
-					var p := fmod(t * .6 + i / 3.0, 1.0)
-					_ucirc(ci, Vector2(sin(t * 2.0 + i) * .1, -1.6 - p * .6), .1 + p * .14, Color(.75, .72, .7, .55 * (1.0 - p)))
+			# Mortar: a wisp of smoke from the barrel (more puffs at T3 and T5).
+			for i in 3 if n >= 5 else (2 if n >= 3 else 1):
+				var p := fmod(t * .6 + i / 3.0, 1.0)
+				_ucirc(ci, Vector2(sin(t * 2.0 + i) * .1, -1.6 - p * .6), .1 + p * .14, Color(.75, .72, .7, .55 * (1.0 - p)))
 		"batwings":
 			var big := 1.3 if n >= 5 else 1.0
 			for k in [-1, 1]:
@@ -1255,6 +1261,11 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			_ucirc(ci, Vector2(0, .55), .13, Color("ffe14a"))
 			_ucirc(ci, Vector2(0, .55), .22, Color(1, .88, .29, .2 + .15 * sin(t * 3.0)))
 		"chips":
+			# Idle: crumbs drop off it now and then.
+			_clip = false
+			for i in 2:
+				var q := fmod(t * .5 + i * .5, 1.0)
+				_ucirc(ci, Vector2(.3 + i * .3, .85 + q * .6), .07, Color(shade(c, -.2), 1.0 - q))
 			for p in [Vector2(-.55, -.4), Vector2(.6, -.25), Vector2(-.3, .6), Vector2(.45, .55), Vector2(0, -.7), Vector2(-.75, .2)]:
 				if n >= 5:
 					_ucirc(ci, p, .16, Color(1, .6, .2, .28 + .12 * sin(t * 3.0 + p.x * 5.0)))
@@ -1453,11 +1464,12 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 					var a := -PI / 2 + (i - 3) * .42
 					_ufill(ci, PackedVector2Array([_P(a - .12, .85), _P(a, 1.45 if i % 2 == 0 else 1.3), _P(a + .12, .85)]), Color("dff6ff") if i % 2 else Color("9fe0ff"))
 			for k in [-1, 1]:
-				_ufill(ci, PackedVector2Array([Vector2(k * .35, -.8), Vector2(k * .8, -1.45), Vector2(k * .85, -.5)]), shade(c, -.3))
-				_ufill(ci, PackedVector2Array([Vector2(k * .45, -.75), Vector2(k * .76, -1.22), Vector2(k * .78, -.6)]), shade(c, .35))
+				var tw := Vector2(k * .06, .1) if fmod(t + (k + 1) * .9, 3.3) < .18 else Vector2.ZERO # Idle: an ear twitches now and then.
+				_ufill(ci, PackedVector2Array([Vector2(k * .35, -.8), Vector2(k * .8, -1.45) + tw, Vector2(k * .85, -.5)]), shade(c, -.3))
+				_ufill(ci, PackedVector2Array([Vector2(k * .45, -.75), Vector2(k * .76, -1.22) + tw * .8, Vector2(k * .78, -.6)]), shade(c, .35))
 				if n < 3:
 					continue
-				var tip := Vector2(k * .8, -1.45)
+				var tip := Vector2(k * .8, -1.45) + tw
 				match id:
 					"foxfire": # Blue fox-fire wisps on the ear tips (bigger at T5).
 						var big := 1.4 if n >= 5 else 1.0
@@ -1649,10 +1661,11 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 					for i in 2:
 						var q := fmod(t * .7 + i * .5, 1.0)
 						_ucirc(ci, Vector2(-1.38 - q * .4, .45 - q * .3), .08 + q * .1, Color(.6, .6, .65, .5 * (1.0 - q)))
-			_uline(ci, Vector2(0, -.85), Vector2(0, -1.3), Color("666666"), .07)
-			_ucirc(ci, Vector2(0, -1.38), .13, Color("222222"))
+			var knob := Vector2(sin(t * 4.0) * .08, -1.38) # Idle: the gear stick jiggles.
+			_uline(ci, Vector2(0, -.85), knob + Vector2(0, .08), Color("666666"), .07)
+			_ucirc(ci, knob, .13, Color("222222"))
 			if n >= 5:
-				_uring(ci, Vector2(0, -1.38), .13, GOLD, .04)
+				_uring(ci, knob, .13, GOLD, .04)
 		"gills":
 			for k in [-1, 1]:
 				for i in 3:
@@ -1735,6 +1748,9 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 						_ucirc(ci, Vector2(x, -1.0 + dl), .085, Color("f4a81d"))
 					_urect(ci, -1, -1.1, 2, .22, Color("f4a81d"))
 		"hook":
+			# Idle: the hook swings gently from its shoulder.
+			var piv := Vector2(.9, -.3)
+			_xf = Transform2D(.12 * sin(t * 2.0), piv) * Transform2D(0.0, -piv)
 			if n >= 3:
 				# Hook: a chain of links instead of the rope (T3); at T5 a glinting gold hook.
 				var a := Vector2(.9, -.3)
@@ -1748,6 +1764,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			_uarc(ci, Vector2(1.25, -1.05), .17, PI * .1, -PI * .7, GOLD if n >= 5 else Color("cfd6e2"), .08)
 			if n >= 5:
 				_uglint(ci, Vector2(1.25, -1.05) + _P(-PI * .7, .17), .18, t)
+			_xf = Transform2D.IDENTITY
 		"horn":
 			# Narwhal: the horn grows at T3 and T5.
 			var horn_tip := Vector2(.55, -1.75) if n < 3 else (Vector2(.62, -1.9) if n < 5 else Vector2(.7, -2.05))
@@ -1952,6 +1969,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			else:
 				_ucirc(ci, Vector2(0, .56), .14, Color("fbf6ff"))
 				_ucirc(ci, Vector2(-.04, .52), .04, Color.WHITE)
+				_uglint(ci, Vector2(.07, .49), .1, t) # Idle: the pearl twinkles.
 		"pods":
 			for k in [-1, 1]:
 				_urect(ci, k * .95 - .22, -.75, .44, .55, Color("5d7699"), .1)
@@ -2083,7 +2101,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				if n >= 5:
 					_usauce(ci, Vector2(0, -1.3), .38)
 				# The cherry sits on the top scoop (the spec floats it at T3+ height).
-				var cherry := Vector2(.05, -1.75 if count >= 3 else -1.38)
+				var cherry := Vector2(.05 + sin(t * 3.0) * .05, -1.75 if count >= 3 else -1.38) # Idle: the cherry wobbles.
 				if n >= 5:
 					_ustroke(ci, _quad(cherry + Vector2(0, -.08), cherry + Vector2(.05, -.25), cherry + Vector2(.2, -.32), 6), Color("4a7a2a"), .03)
 				_ucirc(ci, cherry, .12, Color("e0213b"))
@@ -2149,6 +2167,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			if n >= 3:
 				# Shelly: a pale rim round the shell (T3), gold at T5.
 				_ustroke(ci, ellipse_pts(Vector2(0, -.05), .96, .8, 0.0, PI, TAU, 18), Color("f2e6c8") if n < 5 else GOLD, .08)
+			_uglint(ci, Vector2(sin(t * .9) * .7, -.62 + absf(sin(t * .9)) * .2), .16, t) # Idle: light slides over the shell.
 			for i in range(-2, 3):
 				_ustar(ci, Vector2(i * .38, -.45 + absi(i) * .12), .17, .17, 3, (GOLD if i == 0 else Color("e0b85a")) if n >= 5 else shade(c, .05), 0.0)
 		"shine":
@@ -2166,14 +2185,14 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			if n >= 3:
 				# Puff: spines pop out all round (longer and gold-tipped at T5).
 				var k_ := 16 if n >= 5 else 10
-				var L := 1.38 if n >= 5 else 1.22
+				var L := (1.38 if n >= 5 else 1.22) + .05 * sin(t * 2.2) # Idle: it puffs up and down.
 				for i in k_:
 					var a := i * TAU / k_ + .15
 					_ufill(ci, PackedVector2Array([_P(a - .09, .92), _P(a, L), _P(a + .09, .92)]), Color("f4efd6"))
 					if n >= 5:
 						_ufill(ci, PackedVector2Array([_P(a - .03, L - .13), _P(a, L), _P(a + .03, L - .13)]), GOLD)
 			for k in [-1, 1]:
-				_ufill(ci, PackedVector2Array([Vector2(k * .9, -.2), Vector2(k * 1.35, .1), Vector2(k * .9, .35)]), shade(c, -.2))
+				_ufill(ci, PackedVector2Array([Vector2(k * .9, -.2), Vector2(k * (1.35 + .1 * sin(t * 6.0 + k)), .1), Vector2(k * .9, .35)]), shade(c, -.2)) # Idle: the fins paddle.
 		"smoke":
 			# Sooty: the plume grows with tier (with rising embers at T5).
 			var puffs := 3 if n < 3 else (4 if n < 5 else 5)
@@ -2271,8 +2290,9 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				_uell(ci, Vector2(1.15, -1.0), .1, .04, GOLD_LIGHT, -.15)
 				_uglint(ci, Vector2(1.32, -1.06), .14, t)
 			for k in [-1, 1]:
-				_uline(ci, Vector2(k * .3, -.8), Vector2(k * .7, -1.45), Color("d9a35a"), .08)
-				_ucirc(ci, Vector2(k * .72, -1.5), .1, Color("e8344a") if n >= 3 else Color("f6ecd9")) # Drum: red-wrapped sticks from T3.
+				var tap := Vector2(0, .14 * absf(sin(t * 4.0 + k * 1.6))) # Idle: the sticks tap out a beat.
+				_uline(ci, Vector2(k * .3, -.8), Vector2(k * .7, -1.45) + tap, Color("d9a35a"), .08)
+				_ucirc(ci, Vector2(k * .72, -1.5) + tap, .1, Color("e8344a") if n >= 3 else Color("f6ecd9")) # Drum: red-wrapped sticks from T3.
 		"stinger":
 			# Zing: a longer, gold-tipped stinger (T3), all gold with a glint at T5.
 			var sa := Vector2(-.85, .3)
@@ -2421,7 +2441,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			for i in 6:
 				var a := i * TAU / 6.0 + .4
 				_ufill(ci, PackedVector2Array([_P(a - .13, .93), _P(a + .1, 1.32), _P(a + .14, .93)]), shade(cane, -.2))
-			var creep := t * .25
+			var creep := t * .9
 			var wave := func(x: float, j: int) -> float: return -.74 + j * 1.3 + sin(x * 2.6 + j * 2.0 + creep) * .1 # Over the brow and under the chin, clear of the face.
 			_clip_on()
 			for j in 2:
@@ -2599,10 +2619,11 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				else:
 					_uline(ci, Vector2(-.15, y + .13), Vector2(.15, y + .13), INK, .04)
 		"trunk": # Tapers down between the tusks and curls at the tip.
-			var trunk := _quad(Vector2(0, .12), Vector2(.1, .85), Vector2(-.16, 1.1), 10)
+			var sw := sin(t * 1.8) * .14 # Idle: the trunk swings.
+			var trunk := _quad(Vector2(0, .12), Vector2(.1 + sw * .5, .85), Vector2(-.16 + sw, 1.1), 10)
 			_utaper(ci, trunk, .34, .16, shade(c, -.35))
 			_utaper(ci, trunk, .27, .1, shade(c, -.08))
-			_uring(ci, Vector2(-.22, 1.04), .07, shade(c, -.08), .07)
+			_uring(ci, Vector2(-.22 + sw, 1.04), .07, shade(c, -.08), .07)
 			if n >= 5:
 				# Mammoth's T5: a cap of snow on its head, icicles dripping off it.
 				_udome(ci, Vector2(0, -.72), .78, .42, Color("f2fbff"))
@@ -2631,10 +2652,12 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 					_utaper(ci, tusk.slice(7), .09, .02, Color("bfeaff"))
 		"twigs":
 			_clip_on()
+			_xf = Transform2D(t * .5, Vector2.ZERO) # Idle: it rolls like a tumbleweed.
 			for i in 9:
 				var p := _P(_hash(i) * 3.14 + 1.5, 1.2)
 				var dy := _hash(i + 5) - .5
 				_uline(ci, Vector2(-p.x, -p.y + dy), Vector2(p.x, p.y + dy), shade(c, -.35), .05)
+			_xf = Transform2D.IDENTITY
 			_clip = false
 			if n >= 3:
 				# Tumble: new twigs sprout out of it (in leaf at T5).
