@@ -55,6 +55,7 @@ static func build(shell, params: Dictionary) -> Control:
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	var tall: bool = shell.size.y >= 1400.0
 	var hero := CritterIcon.make(c.id, b.tier, 220, true)
+	shell.hero = hero # A tapped card's face grows into it (shell.go_from).
 	var hero_row := Kit.hbox(16, [hero, side], BoxContainer.ALIGNMENT_CENTER)
 	var home := Painted.habitat(c.id)
 	if home == "":
@@ -144,6 +145,7 @@ static func build(shell, params: Dictionary) -> Control:
 			shell.toast("%s %s your wishlist." % [c.name, "left" if wished else "is on"], c.id)
 		else:
 			shell.toast("Wishlist full (3/3).")
+		shell.pop_after(["wish_this"])
 		shell.refresh(), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 4)
 	shell.mark("wish_this", wish)
 	chips.add_child(wish)
@@ -156,6 +158,7 @@ static func build(shell, params: Dictionary) -> Control:
 	# Picking a fighter means you want to fight with it: back to Play, where Quick fight is.
 	var lineup := Kit.button("Your fighter" if p.lineup == c.id else "Pick", func():
 		p.set_lineup(c.id)
+		shell.pop_after(["fighter"]) # Its card on Play pops as you land there.
 		shell.show_tab("play")
 		if Intro.step(p) == Intro.FIGHTER and Intro.reach(p, Intro.FIGHT_2):
 			Intro.to_campaign(shell)
@@ -200,6 +203,7 @@ static func _slot_sheet(shell, id: String, slot: String) -> void:
 		var card := Kit.card_button(row, func():
 			p.equip(g.uid, id)
 			shell.close_overlay()
+			shell.pop_after(["slot_" + slot.to_lower()]) # The slot snaps full.
 			shell.refresh()
 			if Intro.step(p) == Intro.EQUIP and Intro.reach(p, Intro.FIGHT_3):
 				Intro.to_campaign(shell),

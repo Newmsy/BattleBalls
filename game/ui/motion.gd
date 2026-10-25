@@ -95,13 +95,16 @@ static func cascade(cards: Array) -> float:
 
 ## Count `label` from one number to another; `fmt` turns a number into its
 ## text (Kit.commas, "%d/%d"...).
-static func count(label: Label, from: float, to: float, secs := .4, fmt := Callable()) -> void:
+static func count(label: Label, from: float, to: float, secs := .4, fmt := Callable(), delay := 0.0) -> void:
 	var show := func(v: float) -> void:
 		label.text = fmt.call(roundi(v)) if fmt.is_valid() else str(roundi(v))
 	if calm() or is_equal_approx(from, to):
 		show.call(to)
 		return
-	_tween(label, "count").tween_method(show, from, to, secs).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	show.call(from)
+	var tw := _tween(label, "count")
+	tw.tween_interval(delay)
+	tw.tween_method(show, from, to, secs).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
 ## A flash of colour that fades back to normal (a pill's gain, a value changing).
