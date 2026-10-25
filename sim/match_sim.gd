@@ -10,7 +10,8 @@
 ## `hp` (optional) sets each ball's starting HP (null = full), for relays
 ## where a winner stays in with what it has left.
 ## `boons` (optional, [[ids], [ids]]) gives each ball Bounce Run boons from
-## sim/boons.gd.
+## sim/boons.gd, and `relics` (optional, same shape) Bounce Run relics from
+## sim/relics.gd.
 ## `fields: false` (optional) switches off every-tick abilities (fields like
 ## Flux's) and ability movement (teleports, charges, strings, yanks, gear
 ## speed), so Daily Trick Shot balls fly straight.
@@ -48,6 +49,7 @@ const Boons := preload("res://sim/boons.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const Abilities := preload("res://sim/abilities.gd")
+const Relics := preload("res://sim/relics.gd")
 const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
 const Talents := preload("res://sim/talents.gd")
@@ -196,6 +198,7 @@ class Ball:
 	var slow_until := -1
 	var fired := {} ## One-shot triggers already used (Abilities.tick_triggers).
 	var state := {} ## Per-ball ability state, e.g. a field's "pulling" (read by the renderer).
+	var relic_defs := {} ## Bounce Run relic id -> the def its entries run with (sim/relics.gd).
 	var stun_until := -1 ## Stunned (frozen in place) while tick < this.
 	var stun_immune_until := -1
 	## Timed statuses by key: {kind: "vulnerable" | "slow", amount, until (tick, exclusive), source}.
@@ -426,7 +429,13 @@ func _init(cfg: Dictionary) -> void:
 		def = Modifiers.apply_arena_tweaks(def, arena_id)
 		if cfg.has("boons") and i < cfg.boons.size():
 			def = Boons.apply_to_def(def, cfg.boons[i])
+		var relic_defs := {}
+		if cfg.has("relics") and i < cfg.relics.size() and not cfg.relics[i].is_empty():
+			var with := Relics.apply_to_def(def, cfg.relics[i])
+			def = with.def
+			relic_defs = with.relic_defs
 		var b := Ball.new()
+		b.relic_defs = relic_defs
 		b.index = i
 		b.team = i % 2
 		b.type_id = types[i]
@@ -1624,6 +1633,7 @@ func spawn_twin(parent: Ball, hp: float, radius_mult: float, speed_mult: float, 
 	b.team = parent.team
 	b.type_id = parent.type_id
 	b.def = parent.def
+	b.relic_defs = parent.relic_defs
 	b.radius = parent.radius
 	b.speed = parent.speed
 	b.max_hp = hp
