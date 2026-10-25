@@ -357,6 +357,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if shell != null and shell.glow != null and shell.glow.store != null:
+		shell.glow.store.poll()
 	var covered := _sync_cover()
 	if mode == Mode.LIVE and state == State.AIM and not live.has("aimed"):
 		_tick_live_aim(delta)
@@ -1590,7 +1592,7 @@ func _build_shell() -> void:
 	# Menus to a fight and back: the new picture opens out of a circle from the tap.
 	shell_layer.visibility_changed.connect(func(): Wipe.open(self, get_viewport().get_mouse_position()))
 	shell = Shell.new()
-	shell.glow = GlowState.new(save, profile, Store.new())
+	shell.glow = GlowState.new(save, profile, Store.make(backend))
 	shell.friends = friends
 	shell.profile = profile
 	shell.set_account(account)
