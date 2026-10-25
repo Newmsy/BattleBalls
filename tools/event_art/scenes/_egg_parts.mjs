@@ -69,19 +69,81 @@ export function leaf([cx, cy], len, r) {
   return pts;
 }
 
-// EggArt.pattern for the families event art needs so far: [kind, points, width or 0 for filled].
+// EggArt.pattern (game/ui/screens/summon_screen.gd), all nine families.
+const ring = ([cx, cy], r, n = 12) => Array.from({ length: n + 1 }, (_, i) => [cx + Math.cos((TAU * i) / n) * r, cy + Math.sin((TAU * i) / n) * r]);
+const ellipseR = ([cx, cy], [rx, ry], a) => Array.from({ length: 25 }, (_, i) => { const t = (TAU * i) / 24; const [x, y] = rot([Math.cos(t) * rx, Math.sin(t) * ry], a); return [cx + x, cy + y]; });
+const starPts = ([cx, cy], r1, r2, n, a0 = -Math.PI / 2) => Array.from({ length: n * 2 }, (_, i) => { const rr = i % 2 ? r2 : r1, a = a0 + (i * Math.PI) / n; return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]; });
+const crescent = ([cx, cy], r) => {
+  const pts = [];
+  for (let i = 0; i < 13; i++) { const a = Math.PI * 0.3 + (Math.PI * 1.4 * i) / 12; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]); }
+  for (let i = 12; i >= 0; i--) { const a = Math.PI * 0.4 + (Math.PI * 1.2 * i) / 12; pts.push([cx + r * 0.35 + Math.cos(a) * r * 0.8, cy + Math.sin(a) * r * 0.8]); }
+  return pts;
+};
 export function eggPattern(family, r) {
   const out = [];
-  if (family === "nature") {
-    out.push(["vine", wave(-0.55, 0.55, 0.25, 0.12, 2.2), 0.05]);
-    for (const p of [[-0.35, 0.05], [0.12, 0.38], [0.4, -0.2], [-0.1, -0.55]]) out.push(["leaf", leaf(p, 0.2, r.range(-1, 1)), 0]);
-  } else {
-    for (let k = 0; k < 7; k++) {
-      const c = [r.range(-0.5, 0.5), r.range(-0.7, 0.6)], rr = r.range(0.04, 0.08);
-      const ring = [];
-      for (let i = 0; i < 13; i++) ring.push([c[0] + Math.cos((TAU * i) / 12) * rr, c[1] + Math.sin((TAU * i) / 12) * rr]);
-      out.push(["speck", ring, 0]);
+  switch (family) {
+    case "nature":
+      out.push(["vine", wave(-0.55, 0.55, 0.25, 0.12, 2.2), 0.05]);
+      for (const p of [[-0.35, 0.05], [0.12, 0.38], [0.4, -0.2], [-0.1, -0.55]]) out.push(["leaf", leaf(p, 0.2, r.range(-1, 1)), 0]);
+      break;
+    case "sea":
+      out.push(["wave", wave(-0.72, 0.72, -0.05, 0.1, 3), 0.07]);
+      out.push(["wave", wave(-0.68, 0.68, 0.35, 0.08, 3), 0.06]);
+      for (const p of [[-0.3, -0.5], [0.15, -0.7], [0.35, -0.42]]) out.push(["bubble", ring(p, 0.08 + r.randf() * 0.05), 0.04]);
+      break;
+    case "tech":
+      out.push(["trace", [[-0.7, 0.1], [-0.3, 0.1], [-0.15, -0.15], [0.2, -0.15], [0.2, -0.55]], 0.05]);
+      out.push(["trace", [[-0.5, 0.55], [-0.1, 0.55], [0.05, 0.3], [0.6, 0.3]], 0.05]);
+      out.push(["trace", [[-0.35, -0.45], [-0.35, -0.75]], 0.05]);
+      for (const p of [[0.2, -0.55], [0.6, 0.3], [-0.35, -0.75], [-0.5, 0.55], [-0.7, 0.1]]) out.push(["pad", ring(p, 0.065), 0]);
+      break;
+    case "sweet": {
+      const drip = [];
+      for (let i = 0; i < 13; i++) { const x = -0.62 + (1.24 * i) / 12; drip.push([x, -0.42 + (i % 3 === 1 ? 0.12 : 0) + 0.05 * Math.sin(x * 7)]); }
+      drip.push([0.4, -0.85], [0, -1], [-0.4, -0.85]);
+      out.push(["icing", drip, 0]);
+      for (let k = 0; k < 9; k++) { const p = [r.range(-0.5, 0.5), r.range(-0.15, 0.65)], a = r.range(0, Math.PI); out.push(["sprinkle", [[p[0] - Math.cos(a) * 0.07, p[1] - Math.sin(a) * 0.07], [p[0] + Math.cos(a) * 0.07, p[1] + Math.sin(a) * 0.07]], 0.05]); }
+      break;
     }
+    case "frost": {
+      const c = [0, -0.05];
+      for (let k = 0; k < 6; k++) {
+        const a = (k * Math.PI) / 3, d = [Math.cos(a), Math.sin(a)];
+        out.push(["arm", [c, [c[0] + d[0] * 0.42, c[1] + d[1] * 0.42]], 0.06]);
+        const m = [c[0] + d[0] * 0.26, c[1] + d[1] * 0.26];
+        const d1 = rot(d, 0.9), d2 = rot(d, -0.9);
+        out.push(["twig", [[m[0] + d1[0] * 0.1, m[1] + d1[1] * 0.1], m, [m[0] + d2[0] * 0.1, m[1] + d2[1] * 0.1]], 0.045]);
+      }
+      for (const p of [[-0.45, -0.65], [0.45, 0.5], [-0.5, 0.45]]) out.push(["flake", starPts(p, 0.07, 0.025, 6), 0]);
+      break;
+    }
+    case "toybox": {
+      for (const p of [[-0.4, -0.4], [0.3, -0.6], [0.05, -0.05], [-0.45, 0.35], [0.45, 0.2], [0.1, 0.58]]) out.push(["dot", ring(p, 0.1 + r.randf() * 0.04), 0]);
+      const zig = [];
+      for (let i = 0; i < 9; i++) zig.push([-0.76 + (1.52 * i) / 8, 0.3 + (i % 2 ? -0.07 : 0.07)]);
+      out.push(["zig", zig, 0.06]);
+      break;
+    }
+    case "spooky":
+      out.push(["bat", [[-0.6, 0.05], [-0.4, -0.08], [-0.3, 0.08], [-0.12, -0.05], [0, -0.18], [0.12, -0.05], [0.3, 0.08], [0.4, -0.08], [0.6, 0.05], [0.3, 0.2], [0, 0.1], [-0.3, 0.2]], 0]);
+      out.push(["moon", crescent([0.3, -0.6], 0.17), 0]);
+      for (const p of [[-0.22, 0.5], [0.18, 0.5]]) out.push(["eye", ring(p, 0.07), 0]);
+      break;
+    case "fire": {
+      const fl = [[-0.66, 0.45]];
+      for (let k = 0; k < 5; k++) { const x = -0.55 + k * 0.27; fl.push([x - 0.07, 0.1], [x + 0.02, -0.35 - 0.25 * (k % 2 === 0 ? 1 : 0) * (k === 2 ? 1 : 0.6)], [x + 0.1, 0.05]); }
+      fl.push([0.66, 0.45], [0.45, 0.8], [-0.45, 0.8]);
+      out.push(["flame", fl, 0]);
+      for (const p of [[-0.3, -0.7], [0.25, -0.85], [0.05, -0.6]]) out.push(["ember", ring(p, 0.045 + r.randf() * 0.03), 0]);
+      break;
+    }
+    case "cosmic":
+      out.push(["orbit", ellipseR([0, 0.05], [0.95, 0.22], -0.35), 0.05]);
+      for (const p of [[-0.3, -0.55], [0.35, -0.3], [-0.15, 0.45], [0.4, 0.45]]) { const big = r.range(0.07, 0.12); out.push(["star", starPts(p, big, big * 0.4, 5), 0]); }
+      out.push(["planet", ring([0.05, 0.05], 0.13), 0]);
+      break;
+    default:
+      for (let k = 0; k < 7; k++) out.push(["speck", ring([r.range(-0.5, 0.5), r.range(-0.7, 0.6)], r.range(0.04, 0.08)), 0]);
   }
   return out;
 }

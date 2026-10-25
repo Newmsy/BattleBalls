@@ -127,6 +127,10 @@ const SPECS := {
 	"fuse_band": {"size": Vector2(720, 220), "motes": Color("5ce1ff"), "spots": [
 		[493, 110, 100, 100, GLOW, 0.35, 0.4, 0.0, Color("b98cff")], [672, 135, 30, 100, FLICKER, 0.4, 0.6, 0.0, Color("ff7ad9")],
 		[318, 143, 24, 90, FLICKER, 0.4, 0.7, 0.5, Color("5ce1ff")]]},
+	# The Summon tab's Portal Hall (summon_screen.gd _Hall): lanterns and the ring's gems.
+	"portal_hall": {"size": Vector2(720, 760), "motes": Color("cbb8ff"), "spots": [
+		[150, 180, 34, 40, FLICKER, 0.5, 0.8, 0.0, Color("ffcf7a")], [570, 180, 34, 40, FLICKER, 0.5, 0.7, 0.5, Color("ffcf7a")],
+		[360, 300, 180, 180, GLOW, 0.25, 0.35, 0.0, Color("b98cff")]]},
 }
 const MOTES := 9
 
