@@ -166,15 +166,87 @@ static func _chord_x(rad: float, y: float) -> float:
 
 # --- Body, aura ---------------------------------------------------------------
 
-## A radial gradient approximated with stacked circles, lit from the top left.
+## A smooth radial gradient lit from the top left: the dark disc, then the
+## light colour through a baked shading texture (one quad, so it batches
+## like Dot circles).
 static func _body(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 	var dark := shade(col, -.2)
 	var light := shade(col, .45)
 	_circ(ci, c, r, dark)
-	for k in range(1, 8):
-		var f := k / 7.0
-		_circ(ci, c + Vector2(-.35, -.4) * r * f * .9, r * (1.0 - f * .82), dark.lerp(light, f))
+	ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, _c(light))
+	_gloss(ci, c, r, col)
 	_ring(ci, c, r, shade(col, -.5), maxf(1.5, r * .07))
+
+
+static var _shade_tex: Texture2D
+static var _soft_tex := {}
+
+
+## The round-ball finish over a body: a shadow wrapping the side away from
+## the light (skipped when core is false, e.g. see-through ghosts) and a gloss.
+static func _gloss(ci: CanvasItem, c: Vector2, r: float, col: Color, core := true) -> void:
+	var box := Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0)
+	if core:
+		ci.draw_texture_rect(_soft("core"), box, false, _c(Color(shade(col, -.6), .55)))
+	ci.draw_texture_rect(_soft("sheen"), box, false, _c(Color(1, 1, 1, .5)))
+
+
+## Soft extras on the body: "core" darkens the rim away from the light (a
+## shadow that wraps round the ball), "sheen" is a blurred gloss spot.
+static func _soft(kind: String) -> Texture2D:
+	if _soft_tex.has(kind):
+		return _soft_tex[kind]
+	var n := 128
+	var half := n / 2.0
+	var px := PackedByteArray()
+	px.resize(n * n * 2)
+	var i := 0
+	for y in n:
+		for x in n:
+			var p := Vector2(x + .5 - half, y + .5 - half) / (half - 1.0)
+			var edge := clampf((1.0 - p.length()) * (half - 1.0) + .5, 0.0, 1.0)
+			var a := 0.0
+			if kind == "core":
+				var d := (p - Vector2(-.3, -.35)).length() / 1.35
+				a = smoothstep(.55, 1.0, d)
+			else:
+				var q := (p - Vector2(-.38, -.48)) / Vector2(.3, .2)
+				q = q.rotated(.7)
+				a = exp(-q.length_squared() * 1.6)
+			px[i] = 255
+			px[i + 1] = int(a * edge * 255.0)
+			i += 2
+	_soft_tex[kind] = ImageTexture.create_from_image(Image.create_from_data(n, n, false, Image.FORMAT_LA8, px))
+	return _soft_tex[kind]
+
+## Alpha = how far towards the light a point is: the continuous version of a
+## stack of shrinking circles sliding towards the top-left highlight (each
+## circle nests in the one before, so the largest f whose circle holds the
+## point is the smaller root of |p - o f|^2 = (1 - .82 f)^2).
+static func _shade_disc() -> Texture2D:
+	if _shade_tex:
+		return _shade_tex
+	var n := 256
+	var half := n / 2.0
+	var o := Vector2(-.315, -.36)
+	var qa := o.length_squared() - .6724
+	var px := PackedByteArray()
+	px.resize(n * n * 2)
+	var i := 0
+	for y in n:
+		for x in n:
+			var p := Vector2(x + .5 - half, y + .5 - half) / (half - 1.0)
+			var f := 1.0
+			if (p - o).length_squared() > .0324:
+				var qb := 1.64 - 2.0 * p.dot(o)
+				var qc := p.length_squared() - 1.0
+				f = clampf((-qb + sqrt(maxf(0.0, qb * qb - 4.0 * qa * qc))) / (2.0 * qa), 0.0, 1.0)
+			var edge := clampf((1.0 - p.length()) * (half - 1.0) + .5, 0.0, 1.0)
+			px[i] = 255
+			px[i + 1] = int(f * f * (3.0 - 2.0 * f) * edge * 255.0)
+			i += 2
+	_shade_tex = ImageTexture.create_from_image(Image.create_from_data(n, n, false, Image.FORMAT_LA8, px))
+	return _shade_tex
 
 
 static func _aura(ci: CanvasItem, rarity: String, c: Vector2, r: float, t: float) -> void:
@@ -207,16 +279,16 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 			# Kit ghost in the critter's own colour (Bubbles).
 			var a := .7 + .2 * sin(t * 2.0)
 			_circ(ci, c, r * 1.08, Color(col, .2 * a))
-			for k in 8:
-				var f := k / 7.0
-				_circ(ci, c + Vector2(-.3, -.35) * r * f * .9, r * (1.0 - f * .85), Color(col.lerp(Color.WHITE, f), (.55 + .35 * f) * a))
+			_circ(ci, c, r, Color(col, .85 * a))
+			ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, _c(Color(col.lerp(Color.WHITE, .8), .95 * a)))
+			ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r * .7, c.y - r * .75, r * 1.2, r * 1.2), false, _c(Color(1, 1, 1, .9 * a)))
+			_gloss(ci, c, r, col, false)
 		"ghost":
 			var a := .75 + .2 * sin(t * 2.0)
 			_circ(ci, c, r * 1.08, Color(.79, .71, 1.0, .25 * a))
 			_circ(ci, c, r, Color(.78, .7, 1.0, .6 * a))
-			for k in range(1, 6):
-				var f := k / 5.0
-				_circ(ci, c + Vector2(-.3, -.35) * r * f * .9, r * (1.0 - f * .8), Color(.85 + .15 * f, .8 + .2 * f, 1.0, (.6 + .35 * f) * a))
+			ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, _c(Color(1, 1, 1, .9 * a)))
+			_gloss(ci, c, r, Color.WHITE, false)
 		"chrome":
 			var cols := [Color("f7f9fd"), Color("c4ccd8"), Color("8a95a8"), Color("e9eef5"), Color("aab4c3"), Color("5f6a7d")]
 			for i in cols.size():
@@ -363,7 +435,10 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 					for v in [Vector2(1.32, -.08), Vector2(1.25, .5)]:
 						_line(ci, c + Vector2(k * .85, -.3) * r, c + Vector2(k * v.x, v.y) * r, Color("e8344a"), maxf(1.0, r * .05))
 			for k in [-1, 1]:
-				_poly(ci, PackedVector2Array([c + Vector2(k * .25, -.9) * r, c + Vector2(k * 1.12, -h) * r, c + Vector2(k * .95, -.15) * r]), shade(col, -.55))
+				var panel := PackedVector2Array([c + Vector2(k * .25, -.9) * r, c + Vector2(k * 1.12, -h) * r, c + Vector2(k * .95, -.15) * r])
+				# Shaded like cloth: catches light at the tip, falls dark behind the ball.
+				ci.draw_primitive(panel, PackedColorArray([_c(shade(col, -.5)), _c(shade(col, -.15)), _c(shade(col, -.72))]), PackedVector2Array())
+				_line(ci, panel[0], panel[1], Color(shade(col, .3), .7), maxf(1.0, r * .035))
 				if tier >= 3:
 					_poly(ci, PackedVector2Array([c + Vector2(k * .35, -.86) * r, c + Vector2(k * 1.02, -h + .1) * r, c + Vector2(k * .9, -.3) * r]), lining)
 			if tier >= 5:
@@ -809,10 +884,14 @@ static func _bitten_body(ci: CanvasItem, c: Vector2, r: float, col: Color, hp_fr
 	var outline: Array = cut.call(ellipse_pts(c, r, r, 0.0, 0.0, TAU, 48))
 	for q in outline:
 		_poly(ci, q, dark)
-	for k in range(1, 8):
-		var f := k / 7.0
-		for q in cut.call(ellipse_pts(c + Vector2(-.35, -.4) * r * f * .9, r * (1.0 - f * .82), r * (1.0 - f * .82), 0.0, 0.0, TAU, 40)):
-			_poly(ci, q, dark.lerp(light, f))
+	# Same shading as _body, through the bitten outline (UVs map the ball's box).
+	var layers := [[_shade_disc(), light], [_soft("core"), Color(shade(col, -.6), .55)], [_soft("sheen"), Color(1, 1, 1, .5)]]
+	for q in outline:
+		var uv := PackedVector2Array()
+		for p in q:
+			uv.append((p - c) / (r * 2.0) + Vector2(.5, .5))
+		for layer in layers:
+			ci.draw_colored_polygon(q, _c(layer[1]), uv, layer[0])
 	for q in outline:
 		var loop: PackedVector2Array = q.duplicate()
 		loop.append(q[0])
@@ -2258,9 +2337,8 @@ static func magnet_body(ci: CanvasItem, c: Vector2, r: float, red: Color, blue: 
 		var pts := ellipse_pts(c, r, r, 0.0, h[1], h[1] + PI, 24)
 		_poly(ci, pts, shade(h[0], -.12))
 	if not _sil:
-		for k in range(1, 7):
-			var f := k / 6.0
-			Dot.circle(ci, c + Vector2(-.35, -.4) * r * f * .9, r * (1.0 - f * .82), Color(1, 1, 1, .07))
+		ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, Color(1, 1, 1, .5))
+		_gloss(ci, c, r, red.lerp(blue, .5))
 	var axis := Vector2(cos(rot + PI / 2), sin(rot + PI / 2)) * r * .97
 	_line(ci, c - axis, c + axis, Color("e6ecf5"), maxf(1.5, r * .06))
 	_ring(ci, c, r, Color("2a1f4a"), maxf(1.5, r * .07))
