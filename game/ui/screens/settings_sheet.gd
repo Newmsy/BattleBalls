@@ -15,6 +15,10 @@ const OPTIONS := [
 	["sound_cues", "Sound cues on screen", "Shows OVERTIME and low-HP alerts that are otherwise only heard."],
 ]
 
+## Privacy policy, terms and support pages (site/, served next to the web build).
+const SITE := "https://battleballs.vercel.app/"
+const LINKS := [["Privacy", "privacy.html"], ["Terms", "terms.html"], ["Support", "support.html"]]
+
 const MUSIC_CREDIT := "Music: \"Crypto\" by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0."
 
 
@@ -29,6 +33,7 @@ static func build(shell) -> Control:
 	for o in OPTIONS:
 		v.add_child(_row(shell, o[0], o[1], o[2]))
 	v.add_child(_stats_row(shell))
+	v.add_child(_links(shell))
 	if Dev.tools_enabled():
 		v.add_child(_testing(shell))
 	# CC-BY 4.0 asks for this credit wherever the music is used.
@@ -94,6 +99,19 @@ static func _toggle(shell, key: String) -> void:
 		A11y.apply_fonts(shell.get_tree().root)
 		shell.refresh()
 	open(shell)
+
+
+## Account, then the privacy policy, terms and support pages.
+static func _links(shell) -> Control:
+	var row := Kit.hbox(10)
+	var acc := Kit.button("Account", func(): shell.close_overlay(); shell.go("account"), "ghost", 20, 64)
+	shell.mark("settings_account", acc)
+	row.add_child(acc)
+	for l in LINKS:
+		var b := Kit.button(l[0], func(): OS.shell_open(SITE + l[1]), "ghost", 20, 64)
+		shell.mark("settings_" + l[1].get_basename(), b)
+		row.add_child(b)
+	return row
 
 
 ## The version line. Tapping it Dev.TAP_TO_UNLOCK times shows or hides Testing.

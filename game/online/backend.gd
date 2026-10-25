@@ -19,6 +19,7 @@ const REFRESH_MARGIN := 60 ## Refresh the access token this many seconds early.
 signal account_changed
 ## sign_out() ran; emitted just before account_changed so the save can reset first.
 signal signed_out
+signal account_deleted ## Before signed_out, when the player deleted their account.
 signal _session_settled(ok: bool)
 
 var url := ""
@@ -162,6 +163,22 @@ func sign_out() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SESSION_PATH))
 	signed_out.emit()
 	account_changed.emit()
+
+
+## Deletes the signed-in user and everything tied to it on the server
+## (delete_my_account), then forgets this device's session and data. Returns
+## the failed call's result, or {} when it worked.
+func delete_account() -> Dictionary:
+	var res := await call_rpc("delete_my_account", {})
+	if not res.ok:
+		return res
+	session = {}
+	if FileAccess.file_exists(SESSION_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SESSION_PATH))
+	account_deleted.emit()
+	signed_out.emit()
+	account_changed.emit()
+	return {}
 
 
 ## After an Apple/Google redirect or an emailed sign-in link, the web page

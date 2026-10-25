@@ -171,6 +171,25 @@ func sign_out() -> void:
 	await refresh()
 
 
+## Deletes this account (or guest) and its progress for good, on the server
+## and this device. The device carries on as a new guest.
+func delete_account() -> bool:
+	busy = true
+	message = ""
+	changed.emit()
+	var res: Dictionary = await backend.delete_account()
+	if not res.is_empty():
+		return _done(false, "Can't reach the server. Check your connection." if int(res.get("code", 0)) == 0 else "Couldn't delete your account. Try again.")
+	email = ""
+	linked_providers = []
+	pending = {}
+	busy = false
+	message = "Account deleted. You're playing as a new guest."
+	status = "loading"
+	await refresh()
+	return true
+
+
 func _done(ok: bool, text: String) -> bool:
 	busy = false
 	message = text

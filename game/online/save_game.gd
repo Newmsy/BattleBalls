@@ -215,6 +215,21 @@ func adopt(rev: int, d: Dictionary, account: String) -> void:
 	changed.emit()
 
 
+## The account was deleted: forget its progress on this device too, backups
+## included. Signing out follows and starts a new guest.
+func wipe() -> void:
+	for f in DirAccess.get_files_at(BACKUP_DIR):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(BACKUP_DIR + "/" + f))
+	for p in mirrored:
+		if FileAccess.file_exists(p):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(p))
+	data = defaults()
+	base_rev = 0
+	dirty = false
+	owner = ""
+	save_local()
+
+
 ## Signing out: keep a backup, then start this device fresh (the account's
 ## progress stays in the cloud for the next sign-in).
 func reset_for_sign_out() -> void:
