@@ -10,6 +10,7 @@ const Bosses := preload("res://sim/bosses.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Modifiers := preload("res://sim/modifiers.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const FONT := preload("res://game/fonts/ChakraPetch-Bold.ttf")
 const Catalog := preload("res://game/glow/catalog.gd")
@@ -2197,13 +2198,19 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	Dot.circle(self, Vector2(r * 0.08, r * 0.14), r, Color(0, 0, 0, 0.35))
 	var phase := fmod(_time + i * 1.7, BLINK_PERIOD)
 	var blink := sin(phase / 0.12 * PI) if phase < 0.12 else 0.0
-	CritterArt.draw_critter(self, def.id, Vector2.ZERO, r, {"t": _time, "tier": _tier_of(i), "look": look, "blink": blink,
+	# Echo copying an ability wears the copied critter's look, in grey.
+	var art_id: String = def.id
+	if def.id == "mirror" and sim != null and i < sim.balls.size() and CritterDb.has(String(sim.balls[i].state.get("copy_of", ""))):
+		art_id = sim.balls[i].state.copy_of
+	CritterArt.draw_critter(self, art_id, Vector2.ZERO, r, {"t": _time, "tier": _tier_of(i), "look": look, "blink": blink, "grey": art_id != def.id,
 		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko,
 		"live_tail": sim != null and i < sim.balls.size() and sim.balls[i].state.has("path"),
 		"stacks": int(sim.balls[i].state.get("spikes", 0)) if sim and i < sim.balls.size() else 0, "flash": _grow_flash[i] if i < 2 else 0.0,
 		"phased": sim != null and i < sim.balls.size() and sim.tick < int(sim.balls[i].state.get("phase_until", -1)),
 		"wind": _art_meter(i, "wind"), "pressure": _art_meter(i, "pressure"),
 		"live_stacks": int(sim.balls[i].state.get("stacks", 0)) if sim and i < sim.balls.size() and sim.balls[i].def.has("stack_max") else -1})
+	if art_id != def.id:
+		CritterArt.mirror_rim(self, Vector2.ZERO, r, _time)
 	var hat := _cosmetic(_side(i), "hat")
 	if not hat.is_empty():
 		CosmeticArt.draw_hat(self, hat, Vector2.ZERO, r, _time)
@@ -3625,13 +3632,6 @@ func _draw_cool_status(b, p: Vector2, r: float, s: float) -> void:
 			if b.state.get("bubble", 0.0) > 0.0 and sim.tick < int(b.state.get("bubble_until", -1)):
 				BattleFx.draw_soap_sheen(self, p, r, _time)
 		"mirror":
-			if b.state.has("copy_of"):
-				var src: String = b.state.copy_of
-				var col: Color = Color(BallDefs.DEFS[src].get("color", "ffffff")) if BallDefs.DEFS.has(src) else Color.WHITE
-				BattleFx.draw_chrome_tint(self, p, r, col, _time)
-				var fam := Families.of(src)
-				if fam != "":
-					FamilyIcon.draw(self, fam, p + Vector2(0, r * 0.45), r * 0.42)
 			if tier >= 5 and b.shield > 0.0:
 				BattleFx.draw_mirror_shine(self, p, r, _time)
 		"blackhole":

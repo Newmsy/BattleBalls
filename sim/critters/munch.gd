@@ -36,6 +36,6 @@ const CRITTER := {
 		{"text": "Max bites 4 → 5", "stack_max": 5.0},
 		{"text": "+ Spit slam 13 → 18, burps {burp_damage} + knockback", "card": "Bites heal and grow it. When full it gets tougher, swallows the foe, spits it at a wall and burps.", "now": "Bites heal {stack_heal}; full: -{stack_full_armor%}% taken, swallow, burp {burp_damage}", "burp_radius": 150.0, "swallow_slam": 18.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "bigmouth"}, "front": ["napkin"]},
+	"art": {"eyes": {"sep": .3, "w": .16, "h": .19, "p": .08, "dy": -.12, "mouth": "none"}, "body": "chomper", "front": ["napkin"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 0.95},
 }
