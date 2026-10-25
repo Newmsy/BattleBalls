@@ -577,7 +577,7 @@ try {
   // which then opens the Daily board) turns the Daily board's Bounce Run button into Open; the chest shakes,
   // bursts open, spills its rewards and Collect pays them.
   if (mine(11)) {
-    const { page, logs } = await openGame("?demo=1&tutorial=0");
+    const { page, logs } = await openGame("?demo=1&tutorial=0&dev=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);

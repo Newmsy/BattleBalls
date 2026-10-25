@@ -2607,6 +2607,9 @@ func _read_url_params() -> Dictionary:
 		if params.get("p3", "") in BallDefs.PLAYABLE:
 			mate_type = params.p3
 	backend.disabled = params.get("offline", "") == "1"
+	# ?dev=1 shows Settings > Testing on this device from now on; ?dev=0 hides it.
+	if params.get("dev", "") in ["0", "1"]:
+		Dev.set_tools(params.dev == "1")
 	# ?live=ws://127.0.0.1:8080 points this visit's live fights at that server (and turns them on).
 	if params.get("live", "").begins_with("ws"):
 		Dev.live_url_override = params.live
