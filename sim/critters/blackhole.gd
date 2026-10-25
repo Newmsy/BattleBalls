@@ -27,11 +27,11 @@ const CRITTER := {
 		"collapse_guard": 1.0, ## Damage taken while collapsing.
 	},
 	"tiers": [
-		{"text": "Collapses every 8s, pulls foes in, blast 18", "now": "Collapses every {collapse_every}s, pulls foes in, blast {collapse_damage}"},
+		{"text": "Collapses every 8s, pulls foes in, blast 18", "card": "Collapses, dragging foes in, then explodes in a ring of burning light.", "now": "Collapses every {collapse_every}s, pulls foes in, blast {collapse_damage}"},
 		{"text": "Blast {^collapse_damage} → {collapse_damage}", "collapse_damage": 22.0},
-		{"text": "+ -30% dmg taken while collapsing", "now": "Collapses every {collapse_every}s (-30% dmg taken), blast {collapse_damage}", "collapse_guard": 0.7},
+		{"text": "+ -30% dmg taken while collapsing", "card": "Collapses, dragging foes in and shrugging off hits, then explodes in burning light.", "now": "Collapses every {collapse_every}s (-30% dmg taken), blast {collapse_damage}", "collapse_guard": 0.7},
 		{"text": "Collapse every 8 → 7s", "collapse_every": 7.0},
-		{"text": "+ Blast leaves a burning ring (5/sec)", "now": "Collapses every {collapse_every}s (-30% taken), blast {collapse_damage} + fire ring", "collapse_ring": 5.0},
+		{"text": "+ Blast leaves a burning ring (5/sec)", "card": "Collapses, dragging foes in and shrugging off hits, then explodes into a ring of fire.", "now": "Collapses every {collapse_every}s (-30% taken), blast {collapse_damage} + fire ring", "collapse_ring": 5.0},
 	],
 	"art": {"eyes": {"sep": .3, "dot": true, "mouth": "none", "ink": "ffffff", "mouth_ink": "e8e0ff"}, "body": "starfield", "back": ["swirl_arms"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 0.6},

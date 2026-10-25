@@ -23,11 +23,11 @@ const CRITTER := {
 		"twig_burst_radius": 140.0,
 	},
 	"tiers": [
-		{"text": "Wall bounces: +5% size, +1 dmg, max 6", "now": "Wall bounces: +{twig_grow%}% size, +{twig_damage} dmg, max {twig_max}"},
+		{"text": "Wall bounces: +5% size, +1 dmg, max 6", "card": "Wall bounces make it bigger and harder-hitting, until something bumps it.", "now": "Wall bounces: +{twig_grow%}% size, +{twig_damage} dmg, max {twig_max}"},
 		{"text": "Max stacks 6 → 8", "twig_max": 8.0},
-		{"text": "+ A bump only knocks off half", "twig_keep": 0.5},
+		{"text": "+ A bump only knocks off half", "card": "Wall bounces make it bigger and harder-hitting; a bump only knocks half of it off.", "twig_keep": 0.5},
 		{"text": "Per bounce +{^twig_damage} → +{twig_damage} dmg", "twig_damage": 1.5},
-		{"text": "+ At max, a bump on it bursts for 10", "now": "Wall bounces: +{twig_grow%}% size, +{twig_damage} dmg, max {twig_max}, then burst", "twig_burst": 10.0},
+		{"text": "+ At max, a bump on it bursts for 10", "card": "Wall bounces make it bigger and harder-hitting; fully grown, a bump makes it burst in a blast.", "now": "Wall bounces: +{twig_grow%}% size, +{twig_damage} dmg, max {twig_max}, then burst", "twig_burst": 10.0},
 	],
 	"chaos": {"hyper_speed": {"twig_damage": 0.75}}, ## Hyper Speed piles on twigs too fast
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "smirk"}, "front": ["twigs"]},

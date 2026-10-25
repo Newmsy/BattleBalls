@@ -32,11 +32,11 @@ const CRITTER := {
 		"linger_secs": 1.0, ## ...for this long.
 	},
 	"tiers": [
-		{"text": "Bounces drip honey: sticks foe 0.6s, next hit x1.5", "now": "Bounces drip honey: sticks foe {honey_stick}s, next hit x{honey_crush}"},
+		{"text": "Bounces drip honey: sticks foe 0.6s, next hit x1.5", "card": "Wall bounces drip honey that holds foes stuck, and its next hit on a stuck foe crushes.", "now": "Bounces drip honey: sticks foe {honey_stick}s, next hit x{honey_crush}"},
 		{"text": "Puddles 4 → 5s, crush x{^honey_crush} → {honey_crush}", "honey_life": 5.0, "honey_crush": 1.75},
-		{"text": "+ Foes stay slowed 35% for 1s after", "now": "Bounces drip honey: sticks {honey_stick}s, then slow; next hit x{honey_crush}", "ability": [{"on": "always", "do": "linger"}]},
+		{"text": "+ Foes stay slowed 35% for 1s after", "card": "Wall bounces drip honey that holds foes and slows them after. Its next hit on a stuck foe crushes.", "now": "Bounces drip honey: sticks {honey_stick}s, then slow; next hit x{honey_crush}", "ability": [{"on": "always", "do": "linger"}]},
 		{"text": "Max puddles 4 → 6, size +{+honey_radius}%", "honey_max": 6, "honey_radius": 70.0},
-		{"text": "+ Honey lobs every {honey_lob}s: pull, {honey_dps}/sec, x{honey_crush}", "now": "Drips + lobs honey (every {honey_lob}s): sticks {honey_stick}s, hit x{honey_crush}", "special": "Honey Pot", "honey_merge_radius": 90.0, "honey_crush": 1.6, "honey_pull": 500.0, "honey_sting_damage": 5.0, "honey_dps": 6.0, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}]},
+		{"text": "+ Honey lobs every {honey_lob}s: pull, {honey_dps}/sec, x{honey_crush}", "card": "Drips honey and lobs honey pots that pull foes in and hold them. Its next hit on them crushes.", "now": "Drips + lobs honey (every {honey_lob}s): sticks {honey_stick}s, hit x{honey_crush}", "special": "Honey Pot", "honey_merge_radius": 90.0, "honey_crush": 1.6, "honey_pull": 500.0, "honey_sting_damage": 5.0, "honey_dps": 6.0, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["jarlid", "drips"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 0.85},

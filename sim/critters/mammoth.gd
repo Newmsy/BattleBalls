@@ -23,11 +23,11 @@ const CRITTER := {
 		"shatter_mult": 0.0, ## T5: hitting a frozen foe.
 	},
 	"tiers": [
-		{"text": "Hits knock foes back; wall slam in 0.8s: 7 + freeze", "now": "Hits knock foes back; wall slam in {slam_window}s: {slam_damage} + freeze"},
+		{"text": "Hits knock foes back; wall slam in 0.8s: 7 + freeze", "card": "Its hits knock foes back hard, and a foe slammed into a wall gets hurt and frozen.", "now": "Hits knock foes back; wall slam in {slam_window}s: {slam_damage} + freeze"},
 		{"text": "Slam {^slam_damage} → {slam_damage}", "slam_damage": 9.0},
-		{"text": "+ The slam leaves ice: slow 30% for 3s", "now": "Knockback hits; wall slam in {slam_window}s: {slam_damage}, freeze, ice", "slam_patch": 70.0},
+		{"text": "+ The slam leaves ice: slow 30% for 3s", "card": "Its hits knock foes back hard; a wall slam hurts, freezes them and leaves slowing ice.", "now": "Knockback hits; wall slam in {slam_window}s: {slam_damage}, freeze, ice", "slam_patch": 70.0},
 		{"text": "Slam window 0.8 → 1.1s", "slam_window": 1.1},
-		{"text": "+ A frozen foe shatters on its next hit: x{shatter_mult}", "now": "Knockback hits; wall slam in {slam_window}s: {slam_damage}, freeze, shatter x{shatter_mult}", "shatter_mult": 2.0},
+		{"text": "+ A frozen foe shatters on its next hit: x{shatter_mult}", "card": "Its hits knock foes back hard; a wall slam hurts and freezes them, and its next hit shatters them.", "now": "Knockback hits; wall slam in {slam_window}s: {slam_damage}, freeze, shatter x{shatter_mult}", "shatter_mult": 2.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "none"}, "back": ["fur"], "front": ["tusks", "trunk"], "scale": 1.12},
 	"sound": {"ouch": "ouch_frost", "pitch": 0.7},

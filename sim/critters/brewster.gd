@@ -27,11 +27,11 @@ const CRITTER := {
 		"brew_big_radius": 160.0,
 	},
 	"tiers": [
-		{"text": "Every 5s lobs 3 blobs: burn 4/sec or slow 35%", "now": "Every {fire_cooldown}s lobs {brew_count} blobs: burn {brew_dps}/sec or slow {brew_slow%}%"},
+		{"text": "Every 5s lobs 3 blobs: burn 4/sec or slow 35%", "card": "Lobs potion blobs near the foe that splash into burning or slowing puddles.", "now": "Every {fire_cooldown}s lobs {brew_count} blobs: burn {brew_dps}/sec or slow {brew_slow%}%"},
 		{"text": "Burn {^brew_dps} → {brew_dps}/sec", "brew_dps": 5.0},
 		{"text": "Blobs 3 → 4", "brew_count": 4},
 		{"text": "Brew every 5 → 4s", "fire_cooldown": 4.0},
-		{"text": "+ Every 3rd brew is one huge puddle", "now": "Every {fire_cooldown}s {brew_count} blobs: burn {brew_dps}/sec or slow {brew_slow%}% · 3rd huge", "brew_big_every": 3},
+		{"text": "+ Every 3rd brew is one huge puddle", "card": "Lobs potion blobs that splash into burning or slowing puddles, sometimes one huge puddle.", "now": "Every {fire_cooldown}s {brew_count} blobs: burn {brew_dps}/sec or slow {brew_slow%}% · 3rd huge", "brew_big_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["witchhat"], "front": ["pot"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},

@@ -27,11 +27,11 @@ const CRITTER := {
 		"wreck_windup_reach": 260.0, ## From its centre, during the wind-up lap.
 	},
 	"tiers": [
-		{"text": "A wrecking ball swings round it for 9", "now": "A wrecking ball swings round it for {wreck_damage}"},
+		{"text": "A wrecking ball swings round it for 9", "card": "A heavy wrecking ball swings round it on a chain. Foes it knocks into a wall take a slam.", "now": "A wrecking ball swings round it for {wreck_damage}"},
 		{"text": "Ball {^wreck_damage} → {wreck_damage}", "wreck_damage": 11.0},
-		{"text": "+ The chain is a beam ({wreck_chain_dps}/sec)", "now": "A wrecking ball swings for {wreck_damage}; chain beam {wreck_chain_dps}/sec", "wreck_chain_dps": 4.0},
+		{"text": "+ The chain is a beam ({wreck_chain_dps}/sec)", "card": "A wrecking ball swings round it on a chain of light that hurts. Foes knocked into a wall take a slam.", "now": "A wrecking ball swings for {wreck_damage}; chain beam {wreck_chain_dps}/sec", "wreck_chain_dps": 4.0},
 		{"text": "Spin +30%", "wreck_spin": 2.6},
-		{"text": "+ Every 8s a big wind-up lap", "now": "Ball swings for {wreck_damage}, chain {wreck_chain_dps}/sec; wide lap every {wreck_windup_every}s", "wreck_windup_every": 8.0},
+		{"text": "+ Every 8s a big wind-up lap", "card": "A wrecking ball swings round on a chain of light, with a big wide lap now and then. Wall slams hurt.", "now": "Ball swings for {wreck_damage}, chain {wreck_chain_dps}/sec; wide lap every {wreck_windup_every}s", "wreck_windup_every": 8.0},
 	],
 	"art": {"eyes": {"visor": true, "mouth": "flat"}, "back": ["chainball"], "front": ["hazard", "hardhat"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 0.75},

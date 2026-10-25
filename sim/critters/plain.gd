@@ -15,7 +15,7 @@ const CRITTER := {
 	"stats": {"hp": 100.0, "radius": 64.0, "speed": 400.0, "contact_damage": 10.0},
 	"ability": [],
 	"params": {},
-	"tiers": [{"text": "No ability"}, {"text": "No ability"}, {"text": "No ability"}, {"text": "No ability"}, {"text": "No ability"}],
+	"tiers": [{"text": "No ability", "card": "Just a plain ball."}, {"text": "No ability"}, {"text": "No ability"}, {"text": "No ability"}, {"text": "No ability"}],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}},
 	"sound": {},
 }

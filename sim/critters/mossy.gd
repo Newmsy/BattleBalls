@@ -23,11 +23,11 @@ const CRITTER := {
 		"moss_heal": 0.4, ## ...and what it feeds Mossy a second.
 	},
 	"tiers": [
-		{"text": "Moss 0.4/sec, heals 0.4 HP/sec · idle 3s: +0.8 HP/sec", "now": "Moss {moss_dps}/sec, heals {moss_heal} HP/sec · idle {regrow_after}s: +{regrow_hps} HP/sec"},
+		{"text": "Moss 0.4/sec, heals 0.4 HP/sec · idle 3s: +0.8 HP/sec", "card": "Hits plant draining moss on the foe that heals it. Left alone, it regrows HP.", "now": "Moss {moss_dps}/sec, heals {moss_heal} HP/sec · idle {regrow_after}s: +{regrow_hps} HP/sec"},
 		{"text": "Moss {^moss_dps} → {moss_dps}/sec, regrow {^regrow_hps} → {regrow_hps}/sec", "moss_dps": 0.5, "moss_heal": 0.5, "regrow_hps": 1.0},
 		{"text": "Moss lasts 3 → 4s, idle wait 3 → 2.5s", "moss_secs": 4.0, "regrow_after": 2.5},
 		{"text": "Moss {^moss_dps} → {moss_dps}/sec, regrow {^regrow_hps} → {regrow_hps}/sec", "moss_dps": 0.6, "moss_heal": 0.6, "regrow_hps": 1.2},
-		{"text": "+ Regrowing sheds stinging spores (3/sec)", "now": "Moss {moss_dps}/sec, heals {moss_heal} HP/sec · +{regrow_hps} HP/sec, spores", "regrow_spores": 3.0},
+		{"text": "+ Regrowing sheds stinging spores (3/sec)", "card": "Hits plant draining moss that heals it. Left alone, it regrows HP and sheds stinging spores.", "now": "Moss {moss_dps}/sec, heals {moss_heal} HP/sec · +{regrow_hps} HP/sec, spores", "regrow_spores": 3.0},
 	],
 	"chaos": {"closing_walls": {"hp": 1.1}, "bumpers": {"hp": 1.1}}, ## Shrinking walls and bumper knocks leave no quiet moment to regrow
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["fuzz", "mushroom"]},

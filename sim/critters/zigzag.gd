@@ -25,11 +25,11 @@ const CRITTER := {
 		"zz_bolt_delay": 0.5, ## After a hit, a bolt zigzags at the foe this much later.
 	},
 	"tiers": [
-		{"text": "After a hit: a bolt at the foe + its path crackle 8/sec", "now": "After a hit: a bolt at the foe + its path crackle {zz_damage}/sec"},
+		{"text": "After a hit: a bolt at the foe + its path crackle 8/sec", "card": "After each hit, a lightning bolt zigzags at the foe and its path crackles.", "now": "After a hit: a bolt at the foe + its path crackle {zz_damage}/sec"},
 		{"text": "Beam {^zz_damage} → {zz_damage}/sec", "zz_damage": 10.0},
-		{"text": "+ The beam slows 20%", "now": "After a hit: a bolt at the foe + its path crackle, slow {zz_slow%}%", "zz_slow": 0.2},
+		{"text": "+ The beam slows 20%", "card": "After each hit, a lightning bolt zigzags at the foe and its path crackles and slows.", "now": "After a hit: a bolt at the foe + its path crackle, slow {zz_slow%}%", "zz_slow": 0.2},
 		{"text": "Beam lasts 1.5 → 2s", "zz_life": 2.0},
-		{"text": "Zigzags 2 more bounces, {^zz_damage} → {zz_damage}/sec, slow 30%", "now": "After a hit: a bolt at the foe + 3 zigzags {zz_damage}/sec, slow {zz_slow%}%", "zz_segments": 3, "zz_damage": 18.0, "zz_slow": 0.3},
+		{"text": "Zigzags 2 more bounces, {^zz_damage} → {zz_damage}/sec, slow 30%", "card": "After each hit, lightning zigzags at the foe and off the walls, its path crackling and slowing.", "now": "After a hit: a bolt at the foe + 3 zigzags {zz_damage}/sec, slow {zz_slow%}%", "zz_segments": 3, "zz_damage": 18.0, "zz_slow": 0.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["spikyhair"], "front": ["zigmark"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.35},

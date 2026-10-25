@@ -23,11 +23,11 @@ const CRITTER := {
 		"chomp_heal": 0.0,
 	},
 	"tiers": [
-		{"text": "Every 4th hit bites for x2.5", "now": "Every 4th hit bites for x{chomp_mult}"},
+		{"text": "Every 4th hit bites for x2.5", "card": "Every few hits it takes a big bite for heavy damage.", "now": "Every 4th hit bites for x{chomp_mult}"},
 		{"text": "Big bite x{^chomp_mult} → {chomp_mult}", "chomp_mult": 3.0},
-		{"text": "+ A big bite bleeds {chomp_burn}/sec for 3s", "now": "Every 4th hit bites for x{chomp_mult} + bleed {chomp_burn}/sec", "chomp_burn": 2.0},
+		{"text": "+ A big bite bleeds {chomp_burn}/sec for 3s", "card": "Every few hits it takes a big bite that hits hard and makes the foe bleed.", "now": "Every 4th hit bites for x{chomp_mult} + bleed {chomp_burn}/sec", "chomp_burn": 2.0},
 		{"text": "Bites every 4th → 3rd hit", "now": "Every 3rd hit bites for x{chomp_mult} + bleed {chomp_burn}/sec", "chomp_every": 3.0},
-		{"text": "+ A big bite heals 50% of its dmg", "now": "Every 3rd hit bites x{chomp_mult}, bleeds, heals {chomp_heal%}%", "chomp_heal": 0.5},
+		{"text": "+ A big bite heals 50% of its dmg", "card": "Every few hits it takes a big bite that hits hard, makes the foe bleed and heals itself.", "now": "Every 3rd hit bites x{chomp_mult}, bleeds, heals {chomp_heal%}%", "chomp_heal": 0.5},
 	],
 	"chaos": {"closing_walls": {"chomp_mult": 0.75}, "glass_cannon": {"chomp_mult": 1.2}}, ## Closing Walls crowds foes into more bites; Glass Cannon fights end before many bites land
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "teeth"}, "back": ["dorsal"], "front": ["belly"]},

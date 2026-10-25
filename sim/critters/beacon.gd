@@ -28,11 +28,11 @@ const CRITTER := {
 		"lamp_spin_every": 0, ## T5: every this-many shines turn a full circle.
 	},
 	"tiers": [
-		{"text": "Aimed beam every 4s: 3.5/sec, lit foes +20% dmg taken", "now": "Aimed beam every {lamp_every}s: {lamp_dps}/sec, lit foes +{lamp_vuln%}% dmg taken"},
+		{"text": "Aimed beam every 4s: 3.5/sec, lit foes +20% dmg taken", "card": "Turns to the foe and shines a beam to the far wall. Lit foes take extra damage.", "now": "Aimed beam every {lamp_every}s: {lamp_dps}/sec, lit foes +{lamp_vuln%}% dmg taken"},
 		{"text": "Beam {^lamp_dps} → {lamp_dps}/sec", "lamp_dps": 5.0},
-		{"text": "+ Beam sweeps 45°", "now": "Sweeping beam every {lamp_every}s: {lamp_dps}/sec, lit +{lamp_vuln%}% dmg taken", "lamp_sweep": 45.0, "ability": [{"on": "always", "do": "lamp_sweep"}]},
+		{"text": "+ Beam sweeps 45°", "card": "Sweeps a beam across the arena. Lit foes take extra damage.", "now": "Sweeping beam every {lamp_every}s: {lamp_dps}/sec, lit +{lamp_vuln%}% dmg taken", "lamp_sweep": 45.0, "ability": [{"on": "always", "do": "lamp_sweep"}]},
 		{"text": "Beam every 4 → 3.5s", "lamp_every": 3.5},
-		{"text": "+ A 2nd beam backwards; every 3rd: full spin", "now": "2 sweeping beams every {lamp_every}s (3rd spins): {lamp_dps}/sec, lit +{lamp_vuln%}%", "lamp_back": 1, "lamp_spin_every": 3},
+		{"text": "+ A 2nd beam backwards; every 3rd: full spin", "card": "Sweeps beams front and back, sometimes in a full spin. Lit foes take extra damage.", "now": "2 sweeping beams every {lamp_every}s (3rd spins): {lamp_dps}/sec, lit +{lamp_vuln%}%", "lamp_back": 1, "lamp_spin_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smile"}, "back": ["lamp"], "front": ["stripes"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.9},

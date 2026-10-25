@@ -27,11 +27,11 @@ const CRITTER := {
 		"pounce_remark": 0, ## T5: a marked hit marks the foe again, once.
 	},
 	"tiers": [
-		{"text": "Hurt: marks attacker (every 4s), pounces; hit x2", "now": "Hurt: marks attacker (every {mark_cooldown}s), pounces; hit x{marked_mult}"},
+		{"text": "Hurt: marks attacker (every 4s), pounces; hit x2", "card": "When hurt, it marks the attacker and pounces on it for a big hit.", "now": "Hurt: marks attacker (every {mark_cooldown}s), pounces; hit x{marked_mult}"},
 		{"text": "Pounce speed x1.8 → 2", "pounce_speed_mult": 2.0},
-		{"text": "+ The pounce slows 20%", "now": "Hurt: marks (every {mark_cooldown}s), pounces, slow {pounce_slow%}%; hit x{marked_mult}", "pounce_slow": 0.2},
+		{"text": "+ The pounce slows 20%", "card": "When hurt, it marks the attacker and pounces on it for a big, slowing hit.", "now": "Hurt: marks (every {mark_cooldown}s), pounces, slow {pounce_slow%}%; hit x{marked_mult}", "pounce_slow": 0.2},
 		{"text": "Mark every 4 → 3s max", "mark_cooldown": 3.0},
-		{"text": "+ A marked hit marks the foe again, once", "now": "Hurt: marks (every {mark_cooldown}s), 2 pounces, slow {pounce_slow%}%; x{marked_mult}", "pounce_remark": 1},
+		{"text": "+ A marked hit marks the foe again, once", "card": "When hurt, it marks the attacker and pounces for a big, slowing hit, then marks it again.", "now": "Hurt: marks (every {mark_cooldown}s), 2 pounces, slow {pounce_slow%}%; x{marked_mult}", "pounce_remark": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smirk"}, "back": ["ears"], "front": ["spots", "whiskers"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.15},

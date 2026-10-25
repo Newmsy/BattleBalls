@@ -31,11 +31,11 @@ const CRITTER := {
 		"clamp_damage": 6.0, ## A foe that bumps it while shut gets bitten.
 	},
 	"tiers": [
-		{"text": "Every 6s shuts (-60% taken, bites 6), 3 pearls 6", "now": "Every {fire_cooldown}s shuts (-{shut_armor%}% taken, bites {clamp_damage}), {shot_count} pearls {shot_damage}"},
+		{"text": "Every 6s shuts (-60% taken, bites 6), 3 pearls 6", "card": "Snaps shut to shrug off hits and bite attackers, then opens and fires pearls at the foe.", "now": "Every {fire_cooldown}s shuts (-{shut_armor%}% taken, bites {clamp_damage}), {shot_count} pearls {shot_damage}"},
 		{"text": "Pearls {^shot_damage} → {shot_damage}", "shot_damage": 8.0},
-		{"text": "+ The pearl knocks the foe back", "now": "Every {fire_cooldown}s shuts, bites; {shot_count} pearls {shot_damage} + knockback", "shot_knock": 1},
+		{"text": "+ The pearl knocks the foe back", "card": "Snaps shut to shrug off hits and bite attackers, then fires pearls that knock the foe back.", "now": "Every {fire_cooldown}s shuts, bites; {shot_count} pearls {shot_damage} + knockback", "shot_knock": 1},
 		{"text": "Snap every 6 → 5s", "fire_cooldown": 5.0},
-		{"text": "+ Pearls split in 3 off walls", "now": "Every {fire_cooldown}s shuts, bites; {shot_count} splitting pearls {shot_damage}", "shot_split": 3},
+		{"text": "+ Pearls split in 3 off walls", "card": "Snaps shut to shrug off hits and bite attackers, then fires pearls that split off walls.", "now": "Every {fire_cooldown}s shuts, bites; {shot_count} splitting pearls {shot_damage}", "shot_split": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "none"}, "front": ["clamshell", "pearl"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.9},
