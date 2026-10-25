@@ -60,9 +60,9 @@ func _reward_row(floor_no: int) -> Control:
 	if rw.orbs > 0:
 		row.add_child(Kit.glyph("egg", 34, Kit.FG))
 		row.add_child(Kit.label(str(rw.orbs), 30))
-	if rw.xp_chips > 0: # The XP Chip's Bag glyph.
-		row.add_child(Kit.glyph("bolt", 34, Kit.GOOD))
-		row.add_child(Kit.label(str(rw.xp_chips), 30))
+	if rw.hammers > 0:
+		row.add_child(Kit.glyph("hammer", 34, Kit.FG))
+		row.add_child(Kit.label(str(rw.hammers), 30))
 	if not rw.gear.is_empty(): # The piece's glyph and stars; its name is on the Spire screen.
 		row.add_child(Kit.glyph(str(rw.gear.type), 34, Kit.GOOD))
 		row.add_child(Kit.glyph("stars", 22, Kit.GOOD, int(rw.gear.tier)))

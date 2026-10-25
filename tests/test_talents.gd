@@ -99,7 +99,7 @@ func test_every_faction_tree_fights() -> void:
 func test_points_come_from_play_and_respecs_are_free() -> void:
 	var p = Profile.new_game(T0, "vampire")
 	check_eq(p.faction_rank("spooky"), 0, "no points at the start")
-	p.add_xp("vampire", Profile.faction_xp_to_next(0))
+	p.add_xp("vampire", ceili(Profile.faction_xp_to_next(0) / Profile.FACTION_XP_SHARE))
 	check_eq(p.faction_rank("spooky"), 1, "fight XP becomes a point")
 	p.stacks.append({"id": "ghost", "tier": 3, "count": 1, "level": 1, "xp": 0})
 	check_eq(p.faction_rank("spooky"), 3, "a T3 Spooky critter adds T2 and T3 milestones")

@@ -24,7 +24,10 @@ const PASS_XP := 300
 const ENERGY := {"kind": "energy", "n": 15}
 const EGG := {"kind": "orbs", "n": 1}
 const COINS := {"kind": "coins", "n": 300}
-const CHIPS := {"kind": "xp_chip", "n": 2}
+## Hammers, not XP Chips (Newms 2026-10-25, progression check): levels are
+## capped by tier, so chips piled up unused while Hammers hold gear back.
+const HAMMERS := {"kind": "hammers", "n": 2}
+const WEEKLY_HAMMERS := {"kind": "hammers", "n": 3}
 const DAILY_CHEST := [{"kind": "orbs", "n": 2}, {"kind": "energy", "n": 20}]
 const WEEKLY_CHEST := [{"kind": "orbs", "n": 5}, {"kind": "coins", "n": 500}]
 
@@ -80,13 +83,13 @@ const MAX_KINDS := ["bounce_floor"]
 
 
 ## What a daily quest in `slot` pays on `day`. "Go somewhere" pays coins and
-## XP chips on alternate days.
+## Hammers on alternate days.
 static func daily_reward(slot: String, day: int) -> Array:
 	match slot:
 		"warmup":
 			return [ENERGY]
 		"mode":
-			return [COINS] if posmod(day, 2) == 0 else [CHIPS]
+			return [COINS] if posmod(day, 2) == 0 else [HAMMERS]
 	return [EGG]
 
 
@@ -95,12 +98,12 @@ static func daily_reward(slot: String, day: int) -> Array:
 static func weekly_reward(slot: String, week: int) -> Array:
 	match slot:
 		"grind":
-			return [{"kind": "hammers", "n": 3}]
+			return [WEEKLY_HAMMERS]
 		"challenge":
 			var types: Array = Gear.PIECES.keys()
 			types.sort()
 			return [{"kind": "gear", "type": types[posmod(week * 7 + 3, types.size())], "tier": 2}]
-	return [CHIPS]
+	return [WEEKLY_HAMMERS]
 
 
 ## The day's order of quests for one slot: the whole pool, shuffled by the

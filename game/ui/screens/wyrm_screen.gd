@@ -88,7 +88,7 @@ static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 
 static func _fight(shell, d: int, fighter: String) -> void:
 	var cfg: Dictionary = WyrmRift.start(shell.profile, d, fighter, int(Time.get_unix_time_from_system()))
-	BossCard.start(shell, cfg, d, fighter, "wyrm", "The wyrm has slithered off for today. Back tomorrow!", "Beat the Zone 4 boss to face the Prism Wyrm.")
+	BossCard.start(shell, cfg, d, fighter, "wyrm", "The wyrm has slithered off for today. Back tomorrow!", "Beat the Zone 3 boss to face the Prism Wyrm.")
 
 
 ## One line summing up a Wyrm result, for the result popup.
