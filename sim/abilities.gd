@@ -241,6 +241,10 @@ const EFFECTS := {
 	"time_stop": ["stop_every", "stop_secs"],
 	"swat": ["swat_every", "swat_radius", "swat_damage"],
 	"banana_split": ["split_count", "split_damage", "splat_radius"],
+	# Bounce Run relics (sim/relics.gd): small pieces that tame a critter's ability.
+	"relic_nth": ["relic_every", "relic_do"],
+	"relic_spikes": ["shot_count", "shot_speed", "shot_damage"],
+	"relic_nova": ["nova_every", "nova_radius", "nova_damage"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -270,7 +274,25 @@ func fire(sim, trigger: String, b, ctx := {}) -> void:
 		if not is_same(b.def, def):
 			return # A copy started or ended (Echo): its effects no longer apply.
 		if e.on == trigger:
-			call("fx_" + e.do, sim, b, ctx)
+			_run(sim, b, e, ctx)
+
+
+## Calls entry `e`'s effect. A Bounce Run relic's entry (sim/relics.gd) runs
+## with the relic's own def in place of the ball's, so its numbers never mix
+## with the holder's ability; one the ball has no def for (an Echo copy of a
+## relic holder) does nothing.
+func _run(sim, b, e: Dictionary, ctx: Dictionary) -> void:
+	if not e.has("relic"):
+		call("fx_" + e.do, sim, b, ctx)
+		return
+	var rd = b.relic_defs.get(e.relic)
+	if rd == null:
+		return
+	var keep: Dictionary = b.def
+	b.def = rd
+	call("fx_" + e.do, sim, b, ctx)
+	if is_same(b.def, rd):
+		b.def = keep
 
 
 ## Timer and HP-threshold triggers, checked once per tick after hits land.
@@ -282,17 +304,18 @@ func tick_triggers(sim, b) -> void:
 		match e.on:
 			"start":
 				if sim.tick == 0:
-					call("fx_" + e.do, sim, b, {})
+					_run(sim, b, e, {})
 			"every":
-				var secs: float = b.def[e.secs] if e.secs is String else e.secs
+				var src: Dictionary = b.relic_defs.get(e.relic, b.def) if e.has("relic") else b.def
+				var secs: float = src[e.secs] if e.secs is String else e.secs
 				var every := maxi(1, int(round(secs * sim.TICK_RATE)))
 				if sim.tick > 0 and sim.tick % every == 0:
-					call("fx_" + e.do, sim, b, {})
+					_run(sim, b, e, {})
 			"hp_below":
-				var key := "hp_below:%s" % e.hp
+				var key := "hp_below:%s%s" % [e.hp, ":" + e.relic if e.has("relic") else ""]
 				if not b.fired.has(key) and b.hp < b.max_hp * e.hp:
 					b.fired[key] = true
-					call("fx_" + e.do, sim, b, {})
+					_run(sim, b, e, {})
 
 
 ## A power core's Overcharge (MatchSim._update_cores): the ball's "wall"
@@ -305,9 +328,9 @@ func surge(sim, b) -> void:
 		if not is_same(b.def, def):
 			return
 		if e.on == "wall":
-			call("fx_" + e.do, sim, b, {"point": point})
+			_run(sim, b, e, {"point": point})
 		elif e.on == "every":
-			call("fx_" + e.do, sim, b, {})
+			_run(sim, b, e, {})
 
 
 # --- Effects ------------------------------------------------------------------
@@ -3959,3 +3982,33 @@ func fx_banana_split(sim, b, ctx: Dictionary) -> void:
 		var at: Vector2 = t.pos + DMath.from_angle(k * TAU / b.def.split_count) * 80.0
 		sim.add_lob(b, at, 0.45, {"kind": "scoop", "land_radius": 70.0, "damage": b.def.split_damage, "zone": _splat(b)})
 	set_stacks(sim, b, stacks(b) - int(b.def.split_count))
+
+
+# --- Bounce Run relics (sim/relics.gd) -----------------------------------------
+
+## Every relic_every-th contact hit it lands runs the effect relic_do (with
+## this hit's context), e.g. the Relic of Drum's boom on every 3rd bump.
+func fx_relic_nth(sim, b, ctx: Dictionary) -> void:
+	var key := "relic_hits:%s" % b.def.get("relic_id", "")
+	b.state[key] = int(b.state.get(key, 0)) + 1
+	if b.state[key] % maxi(1, int(b.def.relic_every)) == 0:
+		call("fx_" + str(b.def.relic_do), sim, b, ctx)
+
+
+## The Relic of Prickles: a ring of shot_count spikes.
+func fx_relic_spikes(sim, b, _ctx: Dictionary) -> void:
+	_volley(sim, b, int(b.def.shot_count), "ring")
+	sim.events.append({"type": "spike_burst", "ball": b.index, "pos": b.pos})
+
+
+## The Relic of Supernova: every nova_every seconds it swells for a second,
+## then pops for nova_damage within nova_radius.
+func fx_relic_nova(sim, b, _ctx: Dictionary) -> void:
+	var every := maxi(2, int(round(b.def.nova_every * sim.TICK_RATE)))
+	var t: int = sim.tick % every
+	if sim.tick == 0:
+		return
+	if t == every - sim.TICK_RATE:
+		sim.set_mod(b, "relic_swell", {"radius": 1.12}, 1.0)
+	elif t == 0:
+		sim.pulse(b, b.pos, b.def.nova_radius, b.def.nova_damage, false, "nova")
