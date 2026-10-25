@@ -13,6 +13,10 @@ const TrickShot := preload("res://sim/trick_shot.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const BracketScreen := preload("res://game/ui/screens/bracket_screen.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
+const BounceRun := preload("res://sim/bounce_run.gd")
+const BounceChest := preload("res://meta/bounce_chest.gd")
+const BounceChestOpen := preload("res://game/ui/bounce_chest_open.gd")
+const ChestArt := preload("res://game/ui/chest_art.gd")
 
 const SAVE_PATH := "user://this_week.cfg"
 const TRICK_SAVE := "user://trick_shot.cfg"
@@ -45,7 +49,7 @@ static func build(shell, _params: Dictionary) -> Control:
 static func _info_text() -> Array:
 	return [
 		"Trick Shot: one called bank shot, %d tries, the same puzzle for everyone. A new one lands at midnight." % TRICK_TRIES,
-		"Bounce Run: a fresh run every day. Draft critters as you go and see how far your trio gets.",
+		"Bounce Run: draft a trio and climb 20 floors, as many runs as you like. Your best floor each day opens a chest the next day.",
 		"Fight of the Day: tap who you think wins, then watch. Correct calls in a row build your streak.",
 		"Quests: three a day and three a week, paying energy, eggs, coins and more.",
 	]
@@ -171,11 +175,29 @@ static func _trick_shot(shell) -> Control:
 		[line("Daily #%d" % day, 26), lines(status, 20)], play, Kit.chip("Done" if done else "New", Kit.GOOD if done else Kit.WARN, 16), "daily_trick")
 
 
-## Bounce Run: one roguelike run a day with a drafted trio.
+## Bounce Run: roguelike runs with a drafted trio. The best floor of a day
+## opens a chest the next day: then the card's button opens it first.
 static func _bounce_run(shell) -> Control:
+	var day := BounceRun.day_number(Time.get_unix_time_from_system())
+	var best := BounceChest.best_floors()
+	var chest := BounceChest.pending(best, int(shell.profile.bounce_chest), day) if shell.profile != null else {}
+	if not chest.is_empty():
+		var t: Dictionary = BounceChest.TIERS[int(chest.tier)]
+		var open := _action("Open", func(): BounceChestOpen.show_on(shell, chest))
+		shell.mark("week_bounce_chest", open)
+		var art := CenterContainer.new()
+		art.add_child(ChestArt.make(str(t.id), 84.0))
+		return tile("Bounce Run", Color("ffc23d"), Kit.LINE, Kit.PANEL, [art, lines(t.name, 22)], open, Kit.chip("Chest", Kit.WARN, 16), "daily_bounce")
 	var play := _action("Play", func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"))
 	shell.mark("week_bouncerun", play)
-	return tile("Bounce Run", Color("ffc23d"), Kit.LINE, Kit.PANEL, [line("Today's run", 26), lines("Draft a trio and bounce as far as you can.", 20)], play, null, "daily_bounce")
+	var today := int(best.get(day, 0))
+	var t := BounceChest.tier_for(today)
+	var body: Array = [line("Best today: floor %d" % today if today > 0 else "Climb 20 floors", 26)]
+	if t >= 0:
+		body.append(lines("%s tomorrow" % BounceChest.TIERS[t].name, 20))
+	else:
+		body.append(lines("Reach floor %d for a chest." % int(BounceChest.TIERS[0].floor), 20))
+	return tile("Bounce Run", Color("ffc23d"), Kit.LINE, Kit.PANEL, body, play, null, "daily_bounce")
 
 
 ## { tries, solved, streak } for Trick Shot `day`, from its save file.

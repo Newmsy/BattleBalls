@@ -78,6 +78,8 @@ var vault := {}
 var nest := {}
 ## Runs used today at the later farming bosses: {key: {day, runs}} (meta/boss_runs.gd).
 var boss_days := {}
+## The last UTC day whose Bounce Run chest was opened (meta/bounce_chest.gd).
+var bounce_chest := 0
 ## Highest level beaten at each levelled boss: {key: 0-15} (meta/boss_levels.gd).
 var boss_levels := {}
 ## Lures from the Prism Wyrm: spent on a copy of a wishlisted critter (use_lure).
@@ -686,7 +688,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "boss_days", "boss_levels", "factions", "intro", "story"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest"]
 
 
 func to_dict() -> Dictionary:
@@ -705,7 +707,7 @@ static func from_dict(d: Dictionary, now: int):
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
 	# Saves from before hammers keep new_game's starter hammers.
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs"]:
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))

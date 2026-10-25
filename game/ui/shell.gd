@@ -900,7 +900,7 @@ func _report(name: String) -> void:
 	await get_tree().process_frame
 	while Time.get_ticks_msec() < _report_after:
 		await get_tree().process_frame
-	if name != current and name not in ["overlay", "sheet", "reveal", "story"]:
+	if name != current and name not in ["overlay", "sheet", "reveal", "story", "bounce_chest"]:
 		return
 	print("UI_SCREEN ", name)
 	if name == current:
