@@ -69,7 +69,7 @@ func active(tick: int) -> bool:
 
 
 ## Playback speed at `tick`, easing from the normal `speed` into slow motion
-## (so a 4x fight still gets its slow-motion finish).
+## (so a 2x fight still gets its slow-motion finish).
 func time_scale(tick: int, speed := 1.0) -> float:
 	var p := progress(tick)
 	if p < 0.0:

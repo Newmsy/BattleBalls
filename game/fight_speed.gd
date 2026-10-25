@@ -16,8 +16,9 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const FightLayout := preload("res://game/fight_layout.gd")
 
 const SETTINGS_PATH := "user://settings.cfg"
-const SPEEDS := [1.0, 2.0, 4.0]
-const UNLOCK_LEVELS := [1, 5, 10]
+## 4x was cut (Newms 2026-10-25): a pick saved as 4x (index 2) plays at 2x.
+const SPEEDS := [1.0, 2.0]
+const UNLOCK_LEVELS := [1, 5]
 ## The aim tip shows on every aim screen until the account reaches this level
 ## (a new player's first few fights), then the screens show nothing there.
 const AIM_HINT_BELOW_LEVEL := 3
@@ -101,10 +102,11 @@ static func pick() -> int:
 
 
 ## Takes the pick another device made (from the cloud save) without calling
-## on_pick back.
+## on_pick back. An old 4x pick comes back as 2x.
 static func restore(i: int) -> void:
 	_ensure_loaded()
-	if i < 0 or i >= SPEEDS.size() or i == _pick:
+	i = mini(i, SPEEDS.size() - 1)
+	if i < 0 or i == _pick:
 		return
 	_pick = i
 	_save()
@@ -148,7 +150,7 @@ static func next_index() -> int:
 	return i
 
 
-## The fight's speed pill: tap to cycle 1x, 2x, 4x. It sits at the left of the
+## The fight's speed pill: tap to swap 1x and 2x. It sits at the left of the
 ## bottom row (Skip in the middle, Sound on the right), whichever row it is
 ## added to (top_level keeps it out of the row's layout); it shows and hides
 ## with that row.
@@ -162,7 +164,7 @@ static func _ensure_loaded() -> void:
 	_loaded = true
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS_PATH) == OK:
-		_pick = int(cfg.get_value("fight", "speed", 0))
+		_pick = clampi(int(cfg.get_value("fight", "speed", 0)), 0, SPEEDS.size() - 1)
 		unlock_all = bool(cfg.get_value("fight", "unlock_all", false))
 		account_level = int(cfg.get_value("fight", "account_level", account_level))
 		unsaved = bool(cfg.get_value("fight", "unsaved", false))

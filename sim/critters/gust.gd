@@ -37,6 +37,6 @@ const CRITTER := {
 		{"text": "Reach +18%, huff every 4s, whirl 3s", "wind_range": 260.0, "huff_every": 4.0, "whirl_secs": 3.0},
 		{"text": "+ Icy huff: {huff_damage} dmg, slow 15%", "card": "Its wind pushes foes away. Icy huffs hurt, slow and send a twister that flings the foe into walls.", "now": "Icy huff every {huff_every}s ({huff_damage} dmg), {whirl_secs}s twisters", "huff_damage": 6.0, "huff_slow": 0.15, "whirl_secs": 3.5},
 	],
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["windcurls"]},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["windcurls"], "front": ["gustswirl"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.2},
 }

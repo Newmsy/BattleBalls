@@ -33,6 +33,6 @@ const CRITTER := {
 		{"text": "Dig every 6 → 5s", "dig_every": 5.0},
 		{"text": "+ The burst throws 3 dirt clods ({clod_damage} dmg)", "card": "Burrows, hard to hurt, tunnels to the foe and bursts up beneath it, throwing dirt clods.", "now": "Digs every {dig_every}s (-70% taken), bursts {dig_damage} + {dig_clods} clods, rushes", "dig_clods": 3},
 	],
-	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "smile"}, "front": ["helmet", "starnose"]},
+	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "none"}, "back": ["paws"], "front": ["helmet", "molesnout"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.1},
 }
