@@ -70,6 +70,9 @@ const TOP_ALIGNED := ["critters", "dex", "bag", "shop", "pass", "campaign", "bra
 const SCROLLS := ["play", "week", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
+## Tablets and desktop: the top bar and tab buttons stay this wide in the middle
+## instead of spreading to the window's edges (the screens keep a phone column).
+const WIDE_BARS := 900.0
 const TOAST_FACE := 52.0
 
 ## Emitted when the player starts a quick fight from the Play tab.
@@ -157,6 +160,8 @@ var _report_after := 0 ## Msec tick a screen's slide ends: marks are logged afte
 ## tapped card's face grows into (go_from). Screens set it in build().
 var hero: Control
 var _pop_next: Array = [] ## Marks to pop once the next screen is built (pop_after).
+var _top_margin: MarginContainer
+var _tab_row: HBoxContainer
 var _light := {} ## The door the next go() opens through (light_from): rect, color.
 
 ## Red dots are for something to do, and go once you've looked: the Fuse dot
@@ -219,7 +224,8 @@ func build() -> void:
 	add_child(_fx)
 	profile.changed.connect(_refresh_top)
 	set_friends(friends)
-	resized.connect(func(): if current != "": refresh())
+	resized.connect(func(): _fit_wide(); if current != "": refresh())
+	_fit_wide()
 	show_tab("play")
 	# Coming back from a Ghost Arena fight lands on the Arena again.
 	if ArenaStore.reopen:
@@ -875,7 +881,7 @@ func _place_tab_mark() -> void:
 		return
 	var b: Control = _tab_buttons[_tab]
 	_tab_mark.visible = b.visible and _tabs.visible
-	var to := b.position.x + (b.size.x - _tab_mark.size.x) / 2.0
+	var to := _tab_row.position.x + b.position.x + (b.size.x - _tab_mark.size.x) / 2.0
 	if _tab_mark.position.x < 0.0 or Motion.calm():
 		_tab_mark.position.x = to
 		return
@@ -944,8 +950,7 @@ func _report_fit() -> void:
 
 func _top_bar() -> Control:
 	var m := MarginContainer.new()
-	m.add_theme_constant_override("margin_left", 22)
-	m.add_theme_constant_override("margin_right", 22)
+	_top_margin = m
 	m.add_theme_constant_override("margin_top", int(TOP_PAD))
 	m.add_theme_constant_override("margin_bottom", 12)
 	var lvl := Kit.panel(Kit.label("", 28, Kit.BG, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(Kit.ACCENT, Color("b9abff"), 999, 3, 0))
@@ -1152,6 +1157,16 @@ func _notification(what: int) -> void:
 		_refresh_top.call_deferred()
 
 
+## On a window wider than WIDE_BARS the top bar's pills and the tab buttons
+## gather in the middle, over the phone column, rather than at far corners.
+func _fit_wide() -> void:
+	var inset := maxf(0.0, (size.x - WIDE_BARS) / 2.0)
+	for side in ["left", "right"]:
+		_top_margin.add_theme_constant_override("margin_" + side, 22 + int(inset))
+	_tab_row.offset_left = inset
+	_tab_row.offset_right = -inset
+
+
 # --- Tab bar -------------------------------------------------------------------
 
 func _tab_bar() -> Control:
@@ -1168,6 +1183,7 @@ func _tab_bar() -> Control:
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	row.add_theme_constant_override("separation", 0)
 	bar.add_child(row)
+	_tab_row = row
 	for tab in TABS:
 		var id: String = tab[0]
 		var b := Button.new()
@@ -1276,8 +1292,10 @@ class _Backdrop extends Control:
 		# The wash: one quad, lighter at the top, into the base colour by mid-screen.
 		draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h * .55), Vector2(0, h * .55)]),
 			PackedColorArray([TOP, TOP, Kit.BG, Kit.BG]))
+		# The glow rings stay phone-sized over the middle on a wide window.
+		var cw := minf(w, 1100.0)
 		for k in 4:
-			Dot.circle(self, Vector2(w * .5, -h * .05), w * (.75 - k * .14), Color(.45, .35, 1.0, .03))
+			Dot.circle(self, Vector2(w * .5, -h * .05), cw * (.75 - k * .14), Color(.45, .35, 1.0, .03))
 		# The dot grid, offset every other row, brightest near the top.
 		var rows := int(h * .6 / GAP)
 		for j in rows:
@@ -1287,3 +1305,16 @@ class _Backdrop extends Control:
 			while x < w:
 				Dot.circle(self, Vector2(x, GAP * (j + .5)), 1.6, Color(.7, .65, 1.0, .1 * fade))
 				x += GAP
+		# Tablets and desktop: the sides fall into shadow so the middle reads as
+		# the stage, framed by a faint rim of light.
+		var side := (w - 1000.0) / 2.0
+		if side > 24.0:
+			var dark := Color(0.0, 0.0, 0.03, .55)
+			var clear := Color(0.0, 0.0, 0.03, 0.0)
+			draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(side, 0), Vector2(side, h), Vector2(0, h)]),
+				PackedColorArray([dark, clear, clear, dark]))
+			draw_polygon(PackedVector2Array([Vector2(w - side, 0), Vector2(w, 0), Vector2(w, h), Vector2(w - side, h)]),
+				PackedColorArray([clear, dark, dark, clear]))
+			var rim := Color(.55, .45, 1.0, .10)
+			draw_line(Vector2(side, 0), Vector2(side, h), rim, 2.0)
+			draw_line(Vector2(w - side, 0), Vector2(w - side, h), rim, 2.0)
