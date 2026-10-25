@@ -10,6 +10,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Zones := preload("res://meta/zones.gd")
 const Dot := preload("res://game/dot.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
+const Motion := preload("res://game/ui/motion.gd")
 
 ## Node centres as fractions of the map, zone 1 first (bottom).
 const SPOTS := [Vector2(.25, .88), Vector2(.72, .75), Vector2(.3, .62), Vector2(.74, .49), Vector2(.28, .36), Vector2(.72, .23), Vector2(.34, .09)]
@@ -22,6 +23,12 @@ var glitched := true ## Zone 1's boss isn't purified yet: the Glitch sits on it.
 var nodes: Array[Control] = []
 var _labels: Array[Control] = []
 var _you: Control
+## How many zones were open the last time the map was shown: newly opened
+## ones get their moment (the light runs along the path, the node pops open,
+## you hop over).
+static var seen_open := -1
+var _from_open := 0 ## Zones open before this showing (the reveal starts after them).
+var _reveal := 1.0 ## 0..1 through the newly lit path.
 
 
 static func make(zones_: Array, open_count_: int, glitched_: bool, height: float, on_zone: Callable, fighter: String, fighter_tier: int) -> Control:
@@ -66,7 +73,38 @@ static func make(zones_: Array, open_count_: int, glitched_: bool, height: float
 	m._you.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	m._you.size = m._you.custom_minimum_size
 	m.add_child(m._you)
+	m._from_open = open_count_
+	if seen_open > 0 and seen_open < open_count_ and not Motion.calm():
+		m._from_open = seen_open
+		m._reveal = 0.0
+		for i in range(seen_open, open_count_):
+			m.nodes[i].modulate.a = 0.0
+			m._labels[i].modulate.a = 0.0
+	seen_open = open_count_
 	return m
+
+
+func _ready() -> void:
+	if _reveal >= 1.0:
+		return
+	# The light runs on from the last zone you had to the new one; then it
+	# pops open and you hop over to it.
+	var tw := create_tween()
+	tw.tween_interval(.35)
+	tw.tween_method(func(t: float) -> void:
+		_reveal = t
+		queue_redraw(), 0.0, 1.0, .8).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(func():
+		for i in range(_from_open, open_count):
+			nodes[i].modulate.a = 1.0
+			Motion.pop(nodes[i], 0.0, .4)
+			Motion.cascade([_labels[i]])
+		var to := _you.position
+		var from := _you_spot(_from_open - 1)
+		_you.position = from
+		var hop := create_tween()
+		hop.tween_method(func(t: float) -> void:
+			_you.position = from.lerp(to, t) - Vector2(0, sin(t * PI) * 60.0), 0.0, 1.0, .45).set_ease(Tween.EASE_IN_OUT))
 
 
 func _notification(what: int) -> void:
@@ -92,13 +130,19 @@ func _layout() -> void:
 		else:
 			t.position = Vector2(c.x - r - 16 - t.size.x, c.y - t.size.y / 2.0)
 		t.position.x = clampf(t.position.x, 0, maxf(0, size.x - t.size.x))
-	# You stand next to the furthest zone you can play.
-	var at := center(open_count - 1)
-	# Opposite the zone's label so it never covers the text.
-	var left: bool = SPOTS[open_count - 1].x < .5
-	_you.position = Vector2(at.x - OPEN_R - _you.size.x + 18 if left else at.x + OPEN_R - 18, at.y - OPEN_R - 4)
-	_you.position.x = clampf(_you.position.x, 0, maxf(0, size.x - _you.size.x))
+	# You stand next to the furthest zone you can play (the last one you had
+	# while a new one is being revealed).
+	_you.position = _you_spot(open_count - 1 if _reveal >= 1.0 else _from_open - 1)
 	queue_redraw()
+
+
+## Where you stand by zone i: opposite its label so you never cover the text.
+func _you_spot(i: int) -> Vector2:
+	var at := center(i)
+	var left: bool = SPOTS[i].x < .5
+	var p := Vector2(at.x - OPEN_R - _you.size.x + 18 if left else at.x + OPEN_R - 18, at.y - OPEN_R - 4)
+	p.x = clampf(p.x, 0, maxf(0, size.x - _you.size.x))
+	return p
 
 
 func _draw() -> void:
@@ -117,10 +161,24 @@ func _draw() -> void:
 		draw_line(Vector2(size.x / 2.0 + (x - size.x / 2.0) * .35, size.y * .8), Vector2(x, size.y), grid, 2.0)
 
 	# The path, zone to zone. Lit up to the furthest open zone, dim after.
+	# Newly opened segments light up one after another as _reveal runs.
+	var fresh := maxi(1, open_count - _from_open)
 	for i in nodes.size() - 1:
 		var pts := _curve(center(i), center(i + 1))
 		var lit := i + 1 < open_count
 		var col := Color(zones[i].color) if lit else Kit.LINE
+		if lit and i + 1 >= _from_open and _reveal < 1.0:
+			# Dim underneath, the bright part growing along it.
+			for k in range(0, pts.size() - 1, 2):
+				draw_line(pts[k], pts[k + 1], Color(Kit.LINE, 1.0).lightened(.15), 6.0, true)
+			var part := clampf(_reveal * fresh - (i + 1 - _from_open), 0.0, 1.0)
+			var n := int(round(part * (pts.size() - 1)))
+			if n >= 1:
+				var head := pts.slice(0, n + 1)
+				draw_polyline(head, Color(col, .4), 10.0, true)
+				draw_polyline(head, col.lightened(.3), 4.0, true)
+				Dot.circle(self, head[head.size() - 1], 9.0, col.lightened(.6))
+			continue
 		if lit:
 			draw_polyline(pts, Color(col, .14), 22.0, true)
 			draw_polyline(pts, Color(col, .4), 10.0, true)
@@ -138,7 +196,7 @@ func _draw() -> void:
 	for i in nodes.size():
 		var c := center(i)
 		var col := Color(zones[i].color)
-		if i < open_count:
+		if i < open_count and (i < _from_open or _reveal >= 1.0):
 			for g in 4:
 				draw_circle(c, OPEN_R + 6 + g * 7, Color(col, .1 - g * .02))
 			draw_circle(c, OPEN_R, Kit.PANEL2)
@@ -148,7 +206,7 @@ func _draw() -> void:
 			draw_circle(c, LOCKED_R, Kit.PANEL)
 			draw_arc(c, LOCKED_R, 0, TAU, 48, Color(col, .45), 3.0, true)
 	# The Glitch peeks over the furthest open zone until its boss is purified (glitch.md).
-	if glitched:
+	if glitched and _reveal >= 1.0:
 		var g := center(open_count - 1) + Vector2(OPEN_R * .55, OPEN_R * .62)
 		var pink := Color("ff3fd8")
 		for px in [Vector2(0, 0), Vector2(10, 0), Vector2(-10, 10), Vector2(0, 10), Vector2(10, 10), Vector2(20, 10), Vector2(0, 20), Vector2(10, 20)]:

@@ -226,6 +226,13 @@ static func _pull(shell, n: int) -> void:
 	Analytics.track("summon", {"count": n, "new": fresh.count(true)})
 	# A new player's first summon opens Critters: shown once the reveal is done.
 	_reveal_unlocks = Intro.step(p) == Intro.SUMMON and Intro.reach(p, Intro.FIGHTER)
+	# The portal winds up for a beat (its vortex spins up and flares), then the eggs drop.
+	var swirl = _Vortex.shown
+	if is_instance_valid(swirl) and swirl.is_visible_in_tree() and not preload("res://game/a11y.gd").reduced_motion:
+		if shell.sfx != null:
+			shell.sfx.play("summon_charge", -6.0, 1.3)
+		swirl.surge(func(): shell.overlay(_reveal(shell, ids, fresh), "reveal"))
+		return
 	shell.overlay(_reveal(shell, ids, fresh), "reveal")
 
 
@@ -993,12 +1000,32 @@ class _Vortex extends Control:
 	const A11y := preload("res://game/a11y.gd")
 	const ARMS := 3
 	const MOTES := 12
+	const SURGE_SECS := .35
+	## The vortex on the Summon screen now (a summon winds it up first).
+	static var shown: Control
 	var centre := Vector2.ZERO ## Set by _Hall: the painted portal's opening.
 	var hole := 0.0
 	var _tick := -1
+	var _t := 0.0 ## Its own clock: runs faster while it surges.
+	var _surge := 0.0 ## 0 idle .. 1 flaring.
 
-	func _process(_delta: float) -> void:
+	func _ready() -> void:
+		shown = self
+		_t = Time.get_ticks_msec() / 1000.0
+
+	## Spin up and flare for SURGE_SECS, then `then` (the reveal opens).
+	func surge(then: Callable) -> void:
+		var tw := create_tween()
+		tw.tween_property(self, "_surge", 1.0, SURGE_SECS).set_ease(Tween.EASE_IN)
+		tw.tween_callback(then)
+		tw.tween_property(self, "_surge", 0.0, .4)
+
+	func _process(delta: float) -> void:
 		if not is_visible_in_tree():
+			return
+		_t += delta * (1.0 + 7.0 * _surge)
+		if _surge > 0.0:
+			queue_redraw() # Every frame, only while it winds up.
 			return
 		var tick := CritterIcon.clock()
 		if tick != _tick:
@@ -1009,14 +1036,14 @@ class _Vortex extends Control:
 		if hole <= 0.0:
 			return
 		var c := centre
-		var t := 0.0 if A11y.reduced_motion else Time.get_ticks_msec() / 1000.0
+		var t := 0.0 if A11y.reduced_motion else _t
 		# The well darkening toward its edge with a pale core (the glow around
 		# the ring is in the painting).
 		Dot.circle(self, c, hole, Color("1a0f38"))
 		for k in 6:
 			var f := 1.0 - k / 6.0
 			Dot.circle(self, c, hole * f, Color(.36 + .1 * k, .24 + .08 * k, .7 + .04 * k, .16))
-		Dot.circle(self, c, hole * .16, Color(.95, .9, 1.0, .85))
+		Dot.circle(self, c, hole * (.16 + .5 * _surge), Color(.95, .9, 1.0, .85))
 		# Spiral arms turning inward.
 		for arm in ARMS:
 			var a0 := -t * .5 + TAU * arm / ARMS

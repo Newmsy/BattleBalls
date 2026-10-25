@@ -8,6 +8,7 @@
 extends Node2D
 
 const MatchSim := preload("res://sim/match_sim.gd")
+const Wipe := preload("res://game/ui/wipe.gd")
 const Bosses := preload("res://sim/bosses.gd")
 const Power := preload("res://sim/power.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -1579,6 +1580,8 @@ func _build_shell() -> void:
 	shell_layer.layer = 5
 	shell_layer.visible = false
 	add_child(shell_layer)
+	# Menus to a fight and back: the new picture opens out of a circle from the tap.
+	shell_layer.visibility_changed.connect(func(): Wipe.open(self, get_viewport().get_mouse_position()))
 	shell = Shell.new()
 	shell.glow = GlowState.new(save, shell.profile, Store.new())
 	shell.friends = friends

@@ -75,7 +75,13 @@ static func build(shell, _params: Dictionary) -> Control:
 static func door(shell, mark: String, title: String, sub: String, accent: Color, hub: Callable, body: Array, paint := {}) -> Control:
 	var head := Kit.vbox(0, [Kit.label(title, 34, accent), Kit.label(sub, 19, Kit.MUTED)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var header := Kit.card_button(Kit.hbox(8, [head, Kit.label("›", 44, accent)], BoxContainer.ALIGNMENT_CENTER), hub, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 0)
+	# A painted door zooms you through its painting into the hub.
+	var painting: Array = [null]
+	var open_hub := func():
+		if is_instance_valid(painting[0]):
+			shell.zoom_from(painting[0])
+		hub.call()
+	var header := Kit.card_button(Kit.hbox(8, [head, Kit.label("›", 44, accent)], BoxContainer.ALIGNMENT_CENTER), open_hub, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 0)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark(mark, header)
 	var bg := accent.darkened(.86)
@@ -93,6 +99,7 @@ static func door(shell, mark: String, title: String, sub: String, accent: Color,
 	st.set_content_margin_all(2)
 	if paint.get("hero", false):
 		var art := HomePainting.make(paint.id, paint.focus, 30.0, Vector4(.24, .5, .3, .92), Kit.BG)
+		painting[0] = art
 		# The painting shows through the spare room between the header and the rows.
 		var room := _gap()
 		room.custom_minimum_size.y = 40 if tall else 0
@@ -108,7 +115,8 @@ static func door(shell, mark: String, title: String, sub: String, accent: Color,
 	band.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# On a short phone the band is just the header's height; a tall one grows it.
 	band.custom_minimum_size.y = 130 if tall else 0
-	band.add_child(HomePainting.make(paint.id, paint.focus, 30.0, Vector4(.3, .35, .55, 1.0), bg))
+	painting[0] = HomePainting.make(paint.id, paint.focus, 30.0, Vector4(.3, .35, .55, 1.0), bg)
+	band.add_child(painting[0])
 	band.add_child(_padded(header, 16, 0))
 	var rows := Kit.vbox(8, body)
 	return Kit.panel(Kit.vbox(0, [band, _padded(rows, 0, 16)]), st)
