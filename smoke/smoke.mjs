@@ -377,10 +377,10 @@ try {
     await page.close();
   }
 
-  // 2c. Shop and Glow Pass (?screen=shop): buy gems from the test store, buy this week's first bundle (it goes
+  // 2c. Shop and Glow Pass (?screen=shop, &dev=1 for the test store): buy gems from it, buy this week's first bundle (it goes
   // on at once), then fight wearing it. Then the pass: unlock the premium track from the test store.
   if (mine(68)) {
-    const { page, logs } = await openGame("?screen=shop&seed=7&today=2026-10-20&offline=1");
+    const { page, logs } = await openGame("?screen=shop&seed=7&today=2026-10-20&offline=1&dev=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN shop", 10000);
     await page.waitForTimeout(1200);
@@ -408,7 +408,7 @@ try {
     await page.close();
   }
   if (mine(15)) {
-    const { page, logs } = await openGame("?screen=pass&today=2026-10-20&offline=1");
+    const { page, logs } = await openGame("?screen=pass&today=2026-10-20&offline=1&dev=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN pass", 10000);
     await page.waitForTimeout(800);

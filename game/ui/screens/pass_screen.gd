@@ -61,8 +61,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	# Premium unlock.
 	if not ps.premium:
 		var store = glow.store
-		var buy := Kit.button("Unlock · " + store.price("glow_pass"), func(): store.purchase("glow_pass"), "primary", 28, 88)
-		shell.mark("pass_buy", buy)
+		var buttons := []
+		if store.available():
+			var buy := Kit.button("Unlock · " + store.price("glow_pass"), func(): store.purchase("glow_pass"), "primary", 28, 88)
+			shell.mark("pass_buy", buy)
+			buttons.append(buy)
 		var with_gems := Kit.cost_button("", Catalog.PASS_GEMS, "gem", func():
 			var err: String = glow.buy_pass_with_gems(t)
 			if err == "Not enough Glow Gems.":
@@ -71,6 +74,7 @@ static func build(shell, _params: Dictionary) -> Control:
 				shell.toast(err if err != "" else "Glow Pass unlocked!")
 				shell.refresh(), "ghost", 26, 88)
 		shell.mark("pass_gems", with_gems)
+		buttons.append(with_gems)
 		var n_cos := 0
 		var n_gems := 0
 		for l in range(1, GlowPass.LEVELS + 1):
@@ -81,7 +85,7 @@ static func build(shell, _params: Dictionary) -> Control:
 				n_gems += int(r.n)
 		root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Premium track", PREMIUM),
 			Kit.hbox(8, [Kit.label("%d looks + %s" % [n_cos, Kit.commas(n_gems)], 24), Kit.glyph("gem", 26, Kit.FG)], BoxContainer.ALIGNMENT_CENTER),
-			Kit.hbox(12, [buy, with_gems])]), Kit.box(Color("1f1440"), Color(PREMIUM, .6), 36, 2, 24)))
+			Kit.hbox(12, buttons)]), Kit.box(Color("1f1440"), Color(PREMIUM, .6), 36, 2, 24)))
 
 	# Today's quests (each daily one pays pass XP) and the weekly chest.
 	var q: Dictionary = glow.quests(t)
