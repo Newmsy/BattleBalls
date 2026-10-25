@@ -5,6 +5,8 @@ extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
+const GearArt := preload("res://game/ui/gear_art.gd")
+const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Gear := preload("res://sim/gear.gd")
 
@@ -31,7 +33,8 @@ static func build(shell, params: Dictionary) -> Control:
 
 
 static func _item(shell, store, item: Dictionary, i: int) -> Control:
-	var glyph := "orb" if item.kind == "orbs" else ("energy" if item.kind == "energy" else str(item.type))
+	var icon: Control = GearArt.tile(item.type, item.tier, 56, BagScreen.tier_color(item.tier)) if item.kind == "gear" \
+		else Glyph.make("orb" if item.kind == "orbs" else "energy", 56)
 	var sub := ""
 	match item.kind:
 		"gear":
@@ -43,7 +46,7 @@ static func _item(shell, store, item: Dictionary, i: int) -> Control:
 	if sub != "":
 		info.add_child(Kit.label(sub, 20, Kit.MUTED))
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(14, [Glyph.make(glyph, 56), info, Kit.label("Sold", 24, Kit.MUTED) if sold else price], BoxContainer.ALIGNMENT_CENTER)
+	var row := Kit.hbox(14, [icon, info, Kit.label("Sold", 24, Kit.MUTED) if sold else price], BoxContainer.ALIGNMENT_CENTER)
 	var btn := Kit.card_button(row, func():
 		if store.buy(shell.profile, i):
 			shell.toast("Bought %s." % item.name)

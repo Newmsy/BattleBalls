@@ -9,12 +9,12 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const ART := "res://game/ui/gear_art/gear_%s_%d.png"
 
 
-## The piece on its own, `side` units square. An unknown type falls back to
-## its glyph.
+## The piece on its own, `side` units square. An unknown type shows the
+## generic gear glyph.
 static func piece(type: String, tier: int, side: float, color := Color.WHITE) -> Control:
 	var path := ART % [type, clampi(tier, 1, 5)]
 	if not ResourceLoader.exists(path):
-		return Glyph.make(type, side, color)
+		return Glyph.make("gear", side, color)
 	var t := TextureRect.new()
 	t.texture = load(path)
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

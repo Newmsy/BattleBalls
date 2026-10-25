@@ -4,7 +4,6 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
-const Glyph := preload("res://game/ui/glyph.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
@@ -137,7 +136,7 @@ static func gear_list(shell, made: Array, tier_color: Callable, spent: int, on_c
 ## The beat before a merge's popup: three copies of the piece slide in from
 ## the sides, slam into one with a clank and a ring of sparks, then `then`
 ## runs (at once with Reduced motion). About 0.4s; taps go through.
-static func slam(shell, kind: String, col: Color, then: Callable, tier := 0) -> void:
+static func slam(shell, kind: String, col: Color, then: Callable, tier := 1) -> void:
 	if Motion.calm():
 		then.call()
 		return
@@ -147,7 +146,7 @@ static func slam(shell, kind: String, col: Color, then: Callable, tier := 0) -> 
 	var froms := [Vector2(-230, 0), Vector2(230, 0), Vector2(0, -230)]
 	var pieces: Array = []
 	for f in froms:
-		var g: Control = GearArt.piece(kind, tier, side, col) if tier > 0 else Glyph.make(kind, side, col)
+		var g: Control = GearArt.piece(kind, tier, side, col)
 		g.size = Vector2(side, side)
 		g.position = centre + f - g.size / 2.0
 		g.pivot_offset = g.size / 2.0
