@@ -157,7 +157,7 @@ var _report_after := 0 ## Msec tick a screen's slide ends: marks are logged afte
 ## tapped card's face grows into (go_from). Screens set it in build().
 var hero: Control
 var _pop_next: Array = [] ## Marks to pop once the next screen is built (pop_after).
-var _zoom_rect := Rect2() ## A painting the next go() zooms through (zoom_from).
+var _light := {} ## The door the next go() opens through (light_from): rect, color.
 
 ## Red dots are for something to do, and go once you've looked: the Fuse dot
 ## only for sets that turned fusable since your last visit to Fuse (per device).
@@ -317,39 +317,63 @@ func go(name: String, params := {}) -> void:
 	if _snaps.size() > SNAP_DEPTH:
 		_snaps[_snaps.size() - SNAP_DEPTH - 1] = null
 	_stack.append([name, params])
-	var zoom := _zoom_rect
-	_zoom_rect = Rect2()
+	var light := _light
+	_light = {}
 	_show(name, params)
-	if zoom.has_area() and _snaps[-1] != null and not Motion.calm():
-		_zoom_in(_snaps[-1], zoom)
+	if not light.is_empty() and _snaps[-1] != null and not Motion.calm():
+		_light_in(_snaps[-1], light.rect, light.color)
 	else:
 		_slide_in(_snaps[-1])
 
 
-## The next go() zooms through `painting` (a Home door's art) instead of
-## sliding: the picture grows to fill the screen and fades into the hub.
-func zoom_from(painting: Control) -> void:
-	_zoom_rect = painting.get_global_rect()
+## The next go() opens through `door` (a Home door) instead of sliding: a
+## wash of its colour spills out of it and fills the screen, then fades off
+## the new one. The paintings themselves never stretch.
+func light_from(door: Control, col: Color) -> void:
+	_light = {"rect": door.get_global_rect(), "color": col}
 
 
-func _zoom_in(old: Texture2D, rect: Rect2) -> void:
+func _light_in(old: Texture2D, rect: Rect2, col: Color) -> void:
 	var screen := get_viewport().get_visible_rect().size
 	var room := _holder.get_global_rect()
-	var pic := Motion.picture(old, rect, screen)
 	var base := _fx.get_global_rect().position
-	pic.position = rect.position - base
-	pic.pivot_offset = Vector2.ZERO
-	_fx.add_child(pic)
-	# Grow the painting (one whole picture, never warped part by part) until
-	# it covers the screen's room, keeping its shape.
-	var k := maxf(room.size.x / rect.size.x, room.size.y / rect.size.y)
-	var to := room.get_center() - rect.size * k / 2.0 - base
-	var tw := pic.create_tween().set_parallel()
-	tw.tween_property(pic, "position", to, .3).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(pic, "scale", Vector2(k, k), .3).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(pic, "modulate:a", 0.0, .16).set_delay(.18)
-	tw.chain().tween_callback(pic.queue_free)
-	_arrive(Vector2.ZERO, .3)
+	# The screen we're leaving stays up while the light grows over it.
+	var under := Motion.picture(old, room, screen)
+	under.position = room.position - base
+	_fx.add_child(under)
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, .35, .6, 1.0])
+	g.colors = PackedColorArray([Color.WHITE, col, col, Color(col, 0.0)])
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(.5, .5)
+	tex.fill_to = Vector2(.5, 0.0)
+	tex.width = 64
+	tex.height = 64
+	var glow := TextureRect.new()
+	glow.texture = tex
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.size = Vector2(80, 80)
+	glow.pivot_offset = glow.size / 2.0
+	glow.position = rect.get_center() - base - glow.size / 2.0
+	glow.scale = Vector2(.6, .6)
+	glow.modulate.a = .7
+	_fx.add_child(glow)
+	var reach := room.size.length() * 2.3 / glow.size.x
+	var tw := glow.create_tween()
+	tw.tween_property(glow, "scale", Vector2(reach, reach), .23).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	tw.parallel().tween_property(glow, "modulate:a", 1.0, .23)
+	tw.tween_callback(under.queue_free)
+	tw.tween_property(glow, "modulate:a", 0.0, .26).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(glow.queue_free)
+	# The new screen comes up once the light covers the old one.
+	var sc := _scroll
+	sc.modulate.a = 0.0
+	_hold_report(.5)
+	get_tree().create_timer(.23).timeout.connect(func():
+		if is_instance_valid(sc) and sc == _scroll:
+			_arrive(Vector2.ZERO, .26))
 
 
 ## The picture of the screen Back would return to, for the swipe back to slide
