@@ -152,7 +152,9 @@ static func _bounce_chest(shell, best_floor: int) -> void:
 	BounceChest.set_best(yesterday, best_floor)
 	shell.profile.bounce_chest = mini(shell.profile.bounce_chest, yesterday - 1)
 	shell.profile.changed.emit()
-	shell.toast("Chest ready on the Daily board")
+	shell.close_overlay()
+	shell.show_tab("play")
+	shell.go("week")
 
 
 ## Replay intro: back to just out of the tutorial (stages 1-1 to 1-3 replay

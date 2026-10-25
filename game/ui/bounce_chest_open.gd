@@ -214,6 +214,7 @@ func _spill() -> void:
 			Motion.fly(self, func(): return _flyer(r), from, card.get_global_rect().get_center(), 1, func(_k: int) -> void:
 				if phase != Phase.OPENING:
 					return
+				card.modulate.a = 1.0
 				Motion.pop(card, .3, .32)
 				_sound("twinkle", -6.0, 1.0 + .08 * i)
 				if i == _cards.size() - 1:
@@ -230,6 +231,13 @@ func _show_collect() -> void:
 	phase = Phase.OPEN
 	_collect.visible = true
 	Motion.pop(_collect, .5, .3)
+	_reported()
+
+
+## Tells the shell (and the smoke test) where Collect is now that it shows.
+func _reported() -> void:
+	if shell != null and shell.has_method("_report"):
+		shell._report("bounce_chest")
 
 
 ## Skip straight to the open chest with every reward out.
@@ -249,6 +257,7 @@ func _open_now() -> void:
 	_collect.visible = true
 	_collect.modulate.a = 1.0
 	_collect.scale = Vector2.ONE
+	_reported()
 
 
 func _kill() -> void:
@@ -283,6 +292,6 @@ class _Rays extends Control:
 			var a := TAU * i / 12.0
 			var w := .11
 			var pts := PackedVector2Array([c, c + Vector2.from_angle(a - w) * r, c + Vector2.from_angle(a + w) * r])
-			draw_colored_polygon(pts, Color(color, .16))
+			draw_colored_polygon(pts, Color(color, .1))
 		for k in 4:
 			draw_circle(c, r * (.32 - .07 * k), Color(color, .07 + .05 * k))
