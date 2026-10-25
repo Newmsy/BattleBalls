@@ -127,6 +127,8 @@ func _notification(what: int) -> void:
 
 
 func _arrive() -> void:
+	if not is_inside_tree():
+		return
 	await get_tree().process_frame
 	_place_rays()
 	if Motion.calm():
@@ -236,7 +238,7 @@ func _show_collect() -> void:
 
 ## Tells the shell (and the smoke test) where Collect is now that it shows.
 func _reported() -> void:
-	if shell != null and shell.has_method("_report"):
+	if shell != null and shell.is_inside_tree() and shell.has_method("_report"):
 		shell._report("bounce_chest")
 
 
