@@ -12,6 +12,8 @@
 ## - No cosmetic colour is close to the YOU green or FOE pink rings.
 extends RefCounted
 
+const Dyes := preload("res://game/glow/dyes.gd")
+
 const SLOTS := ["hat", "trail", "spark", "ko"]
 const SLOT_NAMES := {"hat": "Hat", "trail": "Trail", "spark": "Hit spark", "ko": "KO effect"}
 
@@ -116,6 +118,12 @@ static func bundle_full_price(b: Dictionary) -> int:
 	for id in b.items:
 		n += int(item(id).get("gems", 0))
 	return n
+
+
+## The cosmetic worn in `slot` of a loadout ({slot: id, "dye_<slot>": dye
+## id}), with its Spark Dye on (game/glow/dyes.gd), or {}.
+static func worn(loadout: Dictionary, slot: String) -> Dictionary:
+	return Dyes.apply(item(str(loadout.get(slot, ""))), str(loadout.get("dye_" + slot, "")))
 
 
 static func color(it: Dictionary, i := 0) -> Color:

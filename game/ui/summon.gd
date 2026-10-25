@@ -52,6 +52,31 @@ static func pick_in_rarity(profile, rarity: String, rng: RandomNumberGenerator) 
 	return pool[-1].id
 
 
+## One drop roll inside a set of critters (a Rift's family): the summon odds
+## and the shared pity pick the rarity (Rare or better with `rare_plus`), then
+## a critter of that rarity from `ids`, wishlisted ones counting double. A
+## rarity `ids` doesn't have falls to the nearest one down, then up.
+static func roll_in(profile, rng: RandomNumberGenerator, ids: Array, rare_plus := false) -> String:
+	var rarity := _roll_rarity(profile, rng, rare_plus)
+	var pool: Array = []
+	var order: Array = range(_rank(rarity), -1, -1) + range(_rank(rarity) + 1, Roster.RARITIES.size())
+	for k in order:
+		pool = ids.filter(func(id): return rarity_of(id) == Roster.RARITIES[k])
+		if not pool.is_empty():
+			break
+	if pool.is_empty():
+		return ""
+	var total := 0.0
+	for id in pool:
+		total += _weight(profile, id)
+	var r := rng.randf() * total
+	for id in pool:
+		r -= _weight(profile, id)
+		if r < 0.0:
+			return id
+	return pool[-1]
+
+
 ## The chance (0-1) that a roll of `id`'s rarity gives `id`.
 static func share_in_rarity(profile, id: String) -> float:
 	var rarity := rarity_of(id)
@@ -87,6 +112,11 @@ static func _has_rare_plus(ids: Array) -> bool:
 
 
 static func _roll(profile, rng: RandomNumberGenerator, rare_plus: bool) -> String:
+	return pick_in_rarity(profile, _roll_rarity(profile, rng, rare_plus), rng)
+
+
+## The rarity of one roll, with the odds, the Rare+ guarantee and the shared pity.
+static func _roll_rarity(profile, rng: RandomNumberGenerator, rare_plus: bool) -> String:
 	var r := rng.randf() * 100.0
 	var rarity := "common"
 	var acc := 0.0
@@ -103,7 +133,7 @@ static func _roll(profile, rng: RandomNumberGenerator, rare_plus: bool) -> Strin
 			rarity = "legendary"
 	if rarity == "legendary":
 		profile.legendary_pity = PITY_RESET
-	return pick_in_rarity(profile, rarity, rng)
+	return rarity
 
 
 static func _rank(rarity: String) -> int:

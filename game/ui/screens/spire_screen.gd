@@ -216,6 +216,8 @@ static func _upcoming_text(climb) -> String:
 			extra.append("Summon Egg")
 		if not r.gear.is_empty():
 			extra.append(gear_name(r.gear))
+		if n in SpireClimb.KEY_FLOORS:
+			extra.append("Rift Key")
 		var name := "floor %d" % n + (" (boss)" if Spire.is_boss(n) else "")
 		var line := "%s, %d vs %d, power %s" % [name, Spire.lineup_size(n), Spire.lineup_size(n), Kit.commas(roundi(Spire.power_at(n) * 1000.0))]
 		if not extra.is_empty():
@@ -254,6 +256,8 @@ static func _collect(shell, climb) -> void:
 		bits.append("+%d XP Chip%s" % [t.xp_chips, "" if t.xp_chips == 1 else "s"])
 	for g in t.gear:
 		bits.append(gear_name(g))
+	if t.get("keys", 0) > 0:
+		bits.append("+%d Rift Key%s" % [t.keys, "" if t.keys == 1 else "s"])
 	shell.toast(", ".join(bits))
 
 
@@ -266,6 +270,7 @@ static func grant(p, t: Dictionary) -> void:
 		_add_item(p, "XP Chip", t.xp_chips, "+200 XP to one critter.", Color("45f5a6"))
 	for g in t.gear:
 		p.add_gear(g.type, g.tier)
+	p.add_rift_keys(int(t.get("keys", 0)))
 	p.changed.emit()
 
 

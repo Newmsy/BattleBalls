@@ -10,6 +10,10 @@ const LAYERS := {
 		["_Lcrown", Rect2(116, 95, 128, 77), Vector4(0, 0, 0.5, 0), Vector2(180, 167), false, 1],
 		["_Lanvil", Rect2(36, 342, 284, 117), Vector4(0, 0, 0.5, 0), Vector2(181, 446), false, -1],
 	],
+	"adventure_rift": [
+		["_Lkey", Rect2(566, 98, 97, 102), Vector4(1, 5, 0.45, 0.2), Vector2(622, 212), false, -1],
+		["_Lpeek", Rect2(381, 136, 55, 84), Vector4(4, 3, 0.5, 0.6), Vector2(409, 217), true, -1],
+	],
 	"adventure_spire_0": [
 		["_Lflag", Rect2(183, 25, 32, 22), Vector4(2, 8, 0.7, 0), Vector2(186, 36), false, -1],
 		["_Lhero", Rect2(71, 391, 51, 78), Vector4(4, 3, 0.6, 0), Vector2(97, 467), true, -1],

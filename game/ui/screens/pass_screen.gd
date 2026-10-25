@@ -269,6 +269,10 @@ static func reward_text(r: Dictionary, beside_icon := false) -> String:
 			return "%s copy" % Roster.get_critter(r.id).name
 		"gear":
 			return "%d-star %s" % [int(r.tier), Gear.PIECES[r.type].name]
+		"rift_key":
+			return "%d Rift Key%s" % [n, "" if n == 1 else "s"]
+		"dye":
+			return "%d Spark Dye drop%s" % [n, "" if n == 1 else "s"]
 	return r.kind
 
 
@@ -290,6 +294,10 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 			g = CritterIcon.make(r.id, 1, side)
 		"gear":
 			g = Glyph.make(r.type, side * .7, BagScreen.tier_color(int(r.tier)))
+		"rift_key":
+			g = Glyph.make("key", side * .7, Color("5ce1ff"))
+		"dye":
+			g = Glyph.make("dye", side * .7, Color("ff6fd0"))
 		_:
 			g = Glyph.make("bolt", side * .7, Kit.GOOD)
 	var cc := CenterContainer.new()

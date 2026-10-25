@@ -48,6 +48,7 @@ const SCREENS := {
 	"pinata": preload("res://game/ui/screens/pinata_screen.gd"),
 	"totem": preload("res://game/ui/screens/totem_screen.gd"),
 	"wyrm": preload("res://game/ui/screens/wyrm_screen.gd"),
+	"rift": preload("res://game/ui/screens/rift_screen.gd"),
 	"glitch": preload("res://game/ui/screens/glitch_screen.gd"),
 	"bosses": preload("res://game/ui/screens/bosses_screen.gd"),
 	"factions": preload("res://game/ui/screens/factions_screen.gd"),
@@ -97,7 +98,7 @@ var build_stamp := "" ## "v0.2.0 abc1234 · account": shown at the foot of Setti
 ## Emitted when a campaign stage starts; energy is already spent.
 signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fighter: String)
 ## Emitted when a farming boss run starts from its screen ("vault" Anvil King,
-## "nest" Brood Queen, "pinata" Piñata Titan, "totem" Totem of Nine, "wyrm" Prism Wyrm, "glitch" The Glitch); energy and the run are already spent.
+## "nest" Brood Queen, "pinata" Piñata Titan, "totem" Totem of Nine, "wyrm" Prism Wyrm, "glitch" The Glitch, "rift" a Rift round); energy and the run (or the Rift Key) are already spent.
 signal boss_requested(config: Dictionary, difficulty: int, fighter: String, screen: String)
 
 var profile = UiProfile.sample()

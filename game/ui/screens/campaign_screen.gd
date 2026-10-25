@@ -29,6 +29,8 @@ const Story := preload("res://meta/story.gd")
 const StoryCards := preload("res://game/ui/story_cards.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
+const RiftScreen := preload("res://game/ui/screens/rift_screen.gd")
+const Dyes := preload("res://game/glow/dyes.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -385,6 +387,10 @@ static func result_text(r: Dictionary) -> String:
 		parts.append("got " + ", ".join(r.drops.map(func(id): return Roster.get_critter(id).name)))
 	if r.get("orbs", 0) > 0:
 		parts.append("+%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"])
+	if r.get("keys", 0) > 0:
+		parts.append("+%d Rift Key" % r.keys)
+	for d in r.get("dyes", []):
+		parts.append(Dyes.drop_text(d))
 	for g in r.get("gear", []):
 		parts.append("found a %d-star %s" % [g.tier, g.name])
 	parts.append("+%d XP" % r.xp)
@@ -409,7 +415,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 		v.add_child(star_row)
 		var drop_cards: Array = []
 		var drops_at := ResultPopup.stamp(crown_row.get_children(), r.stars, shell.sfx)
-		if not r.drops.is_empty() or not r.get("gear", []).is_empty() or r.get("orbs", 0) > 0:
+		if not r.drops.is_empty() or not r.get("gear", []).is_empty() or r.get("orbs", 0) > 0 or r.get("keys", 0) > 0 or not r.get("dyes", []).is_empty():
 			var drops := GridContainer.new()
 			drops.columns = 3
 			drops.add_theme_constant_override("h_separation", 14)
@@ -436,6 +442,9 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 				var gear_card := Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10))
 				drops.add_child(gear_card)
 				drop_cards.append([gear_card, col if g.tier >= 3 else null])
+			for card in RiftScreen.extra_cards(r.get("keys", 0), r.get("dyes", [])):
+				drops.add_child(card[0])
+				drop_cards.append(card)
 			v.add_child(Kit.vbox(8, [Kit.caption("Drops"), drops]))
 			ResultPopup.drop_in(drop_cards, shell.sfx, drops_at + .1)
 	else:

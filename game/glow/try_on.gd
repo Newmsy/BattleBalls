@@ -15,7 +15,7 @@ const DUMMY_INK := Color("1a1530")
 
 var critter_id := "vampire"
 var tier := 1
-var loadout := {} ## slot -> cosmetic id
+var loadout := {} ## slot -> cosmetic id, "dye_<slot>" -> Spark Dye id
 
 var _t := 0.0
 var _pos := Vector2(.3, .4)
@@ -89,7 +89,7 @@ func _draw() -> void:
 		draw_line(Vector2(0, i * 40.0), Vector2(size.x, i * 40.0), Color(.47, .43, 1, .07), 1.0)
 	draw_rect(rect, Color("8f7bff"), false, 2.0)
 	var r := _r_frac() * h
-	var trail := Catalog.item(str(loadout.get("trail", "")))
+	var trail := Catalog.worn(loadout, "trail")
 	if not trail.is_empty():
 		CosmeticArt.draw_trail(self, trail, _trail.map(func(p): return p * h), r, _t)
 	# The dummy: a grey practice ball, popped by your KO effect.
@@ -100,7 +100,7 @@ func _draw() -> void:
 		draw_line(dp + Vector2(-r * .3, -r * .1), dp + Vector2(-r * .1, -r * .1), DUMMY_INK, 3.0)
 		draw_line(dp + Vector2(r * .1, -r * .1), dp + Vector2(r * .3, -r * .1), DUMMY_INK, 3.0)
 	else:
-		var ko := Catalog.item(str(loadout.get("ko", "")))
+		var ko := Catalog.worn(loadout, "ko")
 		var k := (_t - POP_AT) / CosmeticArt.KO_LIFE
 		if k < 1.0:
 			if ko.is_empty():
@@ -111,10 +111,10 @@ func _draw() -> void:
 	var c := _pos * h
 	var look := _vel.normalized()
 	CritterArt.draw_critter(self, critter_id, c, r, {"t": _t, "tier": tier, "look": look})
-	var hat := Catalog.item(str(loadout.get("hat", "")))
+	var hat := Catalog.worn(loadout, "hat")
 	if not hat.is_empty():
 		CosmeticArt.draw_hat(self, hat, c, r, _t)
-	var spark := Catalog.item(str(loadout.get("spark", "")))
+	var spark := Catalog.worn(loadout, "spark")
 	for s in _sparks:
 		var k: float = s.age / CosmeticArt.SPARK_LIFE
 		if spark.is_empty():

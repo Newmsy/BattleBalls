@@ -2,8 +2,8 @@
 ## coins, hammers, Summon Eggs, Glow Gems, the pass star, gear (slot icons shell, core,
 ## charm, plus one icon per gear type), locks, the back arrow, the info "i"
 ## the tab icons and the home mode icons (target, bounce, tower, vault, ghost,
-## friends, map, swords, sparkle), the Arena's trophy, shield and token, and
-## the stat heads (heart, speed).
+## friends, map, swords, sparkle), the Arena's trophy, shield and token, the
+## stat heads (heart, speed), the Rift Key and the Spark Dye drop.
 extends Control
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
@@ -88,6 +88,44 @@ func _draw() -> void:
 			draw_rect(Rect2(Vector2(-.34, -.42) * s, Vector2(.68, .08) * s), Color("e6ecf5"))
 			draw_rect(Rect2(Vector2(.24, -.42) * s, Vector2(.1, .3) * s), Color("ff8a3d"))
 			draw_set_transform_matrix(Transform2D.IDENTITY)
+		"key":
+			# A Rift Key: a brass ring bow holding a glitch crystal (magenta
+			# and cyan halves), a shaft and two teeth, tilted, with a glint.
+			var t := Transform2D(-PI / 4.0, c)
+			draw_set_transform_matrix(t)
+			var brass := Color("e0a93a")
+			draw_rect(Rect2(Vector2(-.05, -.02) * s, Vector2(.1, .5) * s), brass.darkened(.35))
+			draw_rect(Rect2(Vector2(-.05, -.02) * s, Vector2(.05, .5) * s), brass)
+			draw_rect(Rect2(Vector2(.05, .3) * s, Vector2(.14, .07) * s), brass)
+			draw_rect(Rect2(Vector2(.05, .4) * s, Vector2(.1, .07) * s), brass)
+			var bow := Vector2(0, -.22) * s
+			draw_circle(bow, s * .24, brass.darkened(.35))
+			draw_circle(bow + Vector2(-.01, -.01) * s, s * .21, brass)
+			var gem := PackedVector2Array([bow + Vector2(0, -.14) * s, bow + Vector2(.12, 0) * s, bow + Vector2(0, .14) * s, bow + Vector2(-.12, 0) * s])
+			draw_colored_polygon(gem, Color("3ee6ff"))
+			draw_colored_polygon(PackedVector2Array([gem[0], gem[2], gem[3]]), Color("ff4fb8"))
+			draw_line(bow + Vector2(-.1, .03) * s, bow + Vector2(.06, .03) * s, Color(1, 1, 1, .7), s * .03)
+			draw_circle(bow + Vector2(-.04, -.06) * s, s * .03, Color(1, 1, 1, .9))
+			draw_set_transform_matrix(Transform2D.IDENTITY)
+		"dye":
+			# A Spark Dye: a fat paint drop in `color`, a darker rim, a lighter
+			# belly, a sparkle and a glint.
+			var drop := PackedVector2Array()
+			for i in 24:
+				var a := -PI / 2.0 + i * TAU / 24.0
+				var q := Vector2(cos(a), sin(a)) * .34
+				if sin(a) < 0.0: # The top narrows to a point.
+					q.x *= 1.0 + sin(a) * .85
+					q.y *= 1.35
+				drop.append(c + (q + Vector2(0, .1)) * s)
+			draw_colored_polygon(drop, color.darkened(.35))
+			var inner := PackedVector2Array()
+			for q in drop:
+				inner.append(c + Vector2(0, .1) * s + (q - c - Vector2(0, .1) * s) * .82)
+			draw_colored_polygon(inner, color)
+			draw_circle(c + Vector2(.04, .2) * s, s * .14, color.lightened(.25))
+			draw_circle(c + Vector2(-.1, .02) * s, s * .05, Color(1, 1, 1, .75))
+			draw_colored_polygon(CritterArt.star_pts(c + Vector2(.3, -.28) * s, s * .13, s * .04, 4), Color("fff2b0"))
 		"orb", "egg":
 			# A Summon Egg (the currency): the summon screen's matte egg, a
 			# bone shell with a violet tint and rim, speckles and a sheen.

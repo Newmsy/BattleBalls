@@ -12,6 +12,8 @@ const HomePainting := preload("res://game/ui/home_painting.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
+const FamilyRift := preload("res://meta/family_rift.gd")
+const Families := preload("res://sim/families.gd")
 
 ## The Spire painting's lit floors step up with the week's climb (0-3).
 const SPIRE_STEPS := 4
@@ -22,7 +24,8 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(shell.title_row("Adventure", {"back_mark": "adventure_back", "info_mark": "adventure_info", "info": [
 		"Campaign: the Neon Circuit, zone by zone. Stages drop critter copies, Summon Orbs and gear.",
 		"The Spire: 50 floors, one critter per floor, resets every week.",
-		"Bosses: farm coins, gear, Hammers and eggs. They open from stage 1-5."]}))
+		"Bosses: farm coins, gear, Hammers and eggs. They open from stage 1-5.",
+		"Rifts: spend a Rift Key for three fights against one family and copies of its critters."]}))
 	# The cards share the room under the title, so a tall phone shows more painting.
 	var campaign := _campaign_card(shell)
 	var now := LiveOps.now()
@@ -37,7 +40,42 @@ static func build(shell, _params: Dictionary) -> Control:
 	campaign.size_flags_stretch_ratio = 1.05
 	root.add_child(campaign)
 	root.add_child(pair)
+	root.add_child(_rift_card(shell))
 	return root
+
+
+## Rifts: a wide painted band (a Glitch tear in dusk ruins) with your keys, or
+## the run you have open. Dimmed until the Zone 1 boss is beaten.
+static func _rift_card(shell) -> Control:
+	var p = shell.profile
+	var open: bool = FamilyRift.is_unlocked(p)
+	var status: String
+	if not open:
+		status = "Opens after the Zone 1 boss"
+	elif FamilyRift.in_run(p):
+		status = "%s Rift · round %d of %d" % [Families.info(p.rift.family).name, int(p.rift.round) + 1, FamilyRift.ROUNDS.size()]
+	else:
+		status = "Copies from the family you pick"
+	var title := Kit.hbox(12, [Kit.label("Rifts", 32), Kit.amount("key", p.rift_keys(), 24, Kit.FG, Color("5ce1ff"))], BoxContainer.ALIGNMENT_BEGIN)
+	var st := Kit.label(status, 20, Color("5ce1ff") if open else Kit.MUTED)
+	st.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	st.clip_text = true
+	var gap := Control.new()
+	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	gap.custom_minimum_size.y = 36
+	var v := Kit.vbox(2, [title, gap, st])
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	PlayScreen._on_art(v)
+	var card := _painted(HomePainting.make("adventure_rift", Vector2(.62, .5), 30.0, Vector4(.18, .45, .74, .85), Kit.BG), v, Color("6a2a7a"), 16)
+	var go: Callable = (func(): shell.go("rift")) if open else (func(): shell.toast("Beat the Zone 1 boss to open Rifts."))
+	card.custom_minimum_size.y = 168
+	var b := Kit.card_button(card, go, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 32, 0)
+	if not open:
+		b.modulate = Color(1, 1, 1, .6)
+	elif FamilyRift.in_run(p) or p.rift_keys() > 0:
+		b.add_child(PlayScreen.red_dot())
+	shell.mark("rift", b)
+	return b
 
 
 ## Which Spire painting: the floors lit go up in four steps over the 50 floors.

@@ -11,6 +11,7 @@
 extends RefCounted
 
 const Catalog := preload("res://game/glow/catalog.gd")
+const Dyes := preload("res://game/glow/dyes.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
 const LiveOps := preload("res://game/liveops.gd")
 
@@ -37,6 +38,7 @@ static func defaults() -> Dictionary:
 		"gems": 0,
 		"owned": [],
 		"equipped": {},
+		"dyed": {}, ## Cosmetic id -> the Spark Dye it wears (game/glow/dyes.gd).
 		"unlocks": [], ## Non-consumable products owned (e.g. "founder").
 		"txns": [], ## Store transactions already granted (last 100).
 		"ledger": [], ## {t, what, n, why}: newest last.
@@ -96,15 +98,42 @@ func owns(id: String) -> bool:
 	return id in g().owned
 
 
-## Equipped cosmetic ids by slot, e.g. {"hat": "hat_crown"}. This is what
-## the arena draws for you; it never goes into a fight config.
+## Equipped cosmetic ids by slot, e.g. {"hat": "hat_crown"}, plus
+## "dye_<slot>" for a worn cosmetic that has a Spark Dye on. This is what the
+## arena draws for you (Catalog.worn); it never goes into a fight config.
 func loadout() -> Dictionary:
 	var out := {}
 	for slot in Catalog.SLOTS:
 		var id: String = str(g().equipped.get(slot, ""))
 		if id != "" and owns(id):
 			out[slot] = id
+			if dye_of(id) != "":
+				out["dye_" + slot] = dye_of(id)
 	return out
+
+
+## The Spark Dye cosmetic `id` wears, or "" for its own colours. A dye the
+## profile no longer has unlocked (a reset save) reads as "".
+func dye_of(id: String) -> String:
+	var d := str(g().dyed.get(id, ""))
+	if d == "" or Dyes.dye(d).is_empty() or (profile != null and not Dyes.unlocked(profile, d)):
+		return ""
+	return d
+
+
+## Puts Spark Dye `dye` on cosmetic `id` ("" takes it off). False when the
+## cosmetic isn't owned or the dye isn't unlocked.
+func set_dye(id: String, dye: String) -> bool:
+	if not owns(id):
+		return false
+	if dye == "":
+		g().dyed.erase(id)
+	elif Dyes.dye(dye).is_empty() or (profile != null and not Dyes.unlocked(profile, dye)):
+		return false
+	else:
+		g().dyed[id] = dye
+	_commit()
+	return true
 
 
 func equipped(slot: String) -> String:

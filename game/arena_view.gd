@@ -2336,7 +2336,7 @@ func _art_meter(i: int, key: String) -> float:
 func _cosmetic(i: int, slot: String) -> Dictionary:
 	if i < 0 or i >= loadouts.size():
 		return {}
-	return Catalog.item(str(loadouts[i].get(slot, "")))
+	return Catalog.worn(loadouts[i], slot)
 
 
 ## Solid ring for the player (index 0); dashed ring with four outward ticks
