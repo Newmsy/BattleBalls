@@ -27,7 +27,10 @@ const CRITTER := {
 	## whole ability from that tier up in one line (<= 60); the T1 "now" must
 	## fill in to the T1 text with the params as written. Give a tier a "now"
 	## when it adds something the line should show. Optional T5 "special": the
-	## signature's name.
+	## signature's name. "card" (T1 required, <= 105) is the whole ability from
+	## that tier up in plain words with no numbers, for fight cards; give a tier
+	## a "card" when the ability changes in kind (a new move or effect), not
+	## for bigger numbers.
 	## Numbers: write any param the sim grows (CritterDb.sim_def: *_damage,
 	## *_dps, *_burn, *_shield, *_hps, hit multipliers, *_radius) as a
 	## placeholder, never a literal, because screens show it as it fights at
@@ -39,7 +42,7 @@ const CRITTER := {
 	## stack"), durations "3s", cooldowns "every 4s", "every 3rd hit", "x2",
 	## "slow 30%", "+20% dmg taken", "per hit" / "each" for stacks.
 	"tiers": [
-		{"text": "Heals 30% of dmg dealt", "now": "Heals {heal_ratio%}% of dmg dealt"},
+		{"text": "Heals 30% of dmg dealt", "card": "Heals for part of the damage it deals.", "now": "Heals {heal_ratio%}% of dmg dealt"},
 		{"text": "Heal {^heal_ratio%} → {heal_ratio%}%", "heal_ratio": 0.35},
 		{"text": "Heal {^heal_ratio%} → {heal_ratio%}%", "heal_ratio": 0.4},
 		{"text": "Heal {^heal_ratio%} → {heal_ratio%}%", "heal_ratio": 0.45},
