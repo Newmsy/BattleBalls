@@ -36,11 +36,11 @@ const CRITTER := {
 		"trail_dps": 4.0,
 	},
 	"tiers": [
-		{"text": "Burning hits; revives once at 20% HP", "now": "Burning hits; revives once at {revive_hp%}% HP"},
+		{"text": "Burning hits; revives once at 20% HP", "card": "Its hits burn. The first time it falls, it bursts back to life.", "now": "Burning hits; revives once at {revive_hp%}% HP"},
 		{"text": "Revive HP 20% → 25%", "revive_hp": 0.25},
-		{"text": "+ After reviving it leaves a flame trail", "ability": [{"on": "always", "do": "fire_trail"}]},
+		{"text": "+ After reviving it leaves a flame trail", "card": "Its hits burn. The first time it falls, it bursts back to life and leaves a flame trail.", "ability": [{"on": "always", "do": "fire_trail"}]},
 		{"text": "Revive HP 25% → 30%", "revive_hp": 0.3},
-		{"text": "+ Sunfire every 4s · revives twice at {revive_hp%}%", "now": "Burning hits, sunfire every {sunfire_every}s; revives {revive_lives}x at {revive_hp%}%", "special": "Eternal Flame", "revive_bolts": 4, "revive_lives": 2, "revive_hp": 0.2, "ability": [{"on": "every", "secs": "sunfire_every", "do": "sunfire"}]},
+		{"text": "+ Sunfire every 4s · revives twice at {revive_hp%}%", "card": "Its hits burn and it blasts sunfire. When it falls it bursts back to life, and does it twice.", "now": "Burning hits, sunfire every {sunfire_every}s; revives {revive_lives}x at {revive_hp%}%", "special": "Eternal Flame", "revive_bolts": 4, "revive_lives": 2, "revive_hp": 0.2, "ability": [{"on": "every", "secs": "sunfire_every", "do": "sunfire"}]},
 	],
 	"chaos": {"double_trouble": {"hp": 1.05}, "glass_cannon": {"revive_hp": 0.75}}, ## Bigger beams pick off a fresh revive; in Glass Cannon a revive is worth more.
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": "ffb300", "brow": .3, "mouth": "smirk"}, "back": ["flame_crest"]},

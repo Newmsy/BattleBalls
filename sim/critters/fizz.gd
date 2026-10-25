@@ -29,11 +29,11 @@ const CRITTER := {
 		"fizz_splash_radius": 100.0,
 	},
 	"tiers": [
-		{"text": "6 shakes (bounce 1, bump 2) burst: blast 7, +6 next hit", "now": "{fizz_at} shakes (bounce 1, bump 2) burst: blast {fizz_blast}, +{fizz_damage} next hit"},
+		{"text": "6 shakes (bounce 1, bump 2) burst: blast 7, +6 next hit", "card": "Shakes up as it bounces and bumps, then bursts: a blast, and it rockets off for a big hit.", "now": "{fizz_at} shakes (bounce 1, bump 2) burst: blast {fizz_blast}, +{fizz_damage} next hit"},
 		{"text": "Bursts at 6 → 5 shakes", "fizz_at": 5.0},
-		{"text": "+ The burst leaves a puddle (slow 25%)", "now": "{fizz_at} shakes burst: blast {fizz_blast}, puddle, +{fizz_damage} next hit", "fizz_puddle": 0.25},
+		{"text": "+ The burst leaves a puddle (slow 25%)", "card": "Shakes up as it bounces and bumps, then bursts: a blast, a slowing puddle and a rocket-powered hit.", "now": "{fizz_at} shakes burst: blast {fizz_blast}, puddle, +{fizz_damage} next hit", "fizz_puddle": 0.25},
 		{"text": "Blast 7 → 10 (+{+fizz_blast_radius}% size), next hit +{^fizz_damage} → +{fizz_damage}", "fizz_damage": 8.0, "fizz_blast": 10.0, "fizz_blast_radius": 210.0},
-		{"text": "+ Burst dashes at foe; the hit splashes 6", "now": "{fizz_at} shakes: blast {fizz_blast}, puddle, dash hit +{fizz_damage}, splash {fizz_splash}", "fizz_dash": 1.0, "fizz_splash": 6.0},
+		{"text": "+ Burst dashes at foe; the hit splashes 6", "card": "Shakes up as it bounces, then bursts: a blast, a slowing puddle and a splashing dash into the foe.", "now": "{fizz_at} shakes: blast {fizz_blast}, puddle, dash hit +{fizz_damage}, splash {fizz_splash}", "fizz_dash": 1.0, "fizz_splash": 6.0},
 	],
 	"chaos": {"closing_walls": {"fizz_at": 1.5, "fizz_blast": 0.8}}, ## A shrinking arena means walls every few frames
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["ringpull"], "front": ["fizz"]},

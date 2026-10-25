@@ -31,11 +31,11 @@ const CRITTER := {
 		"breath_every": 9.0, ## It also breathes on its own this often (its stokes stay).
 	},
 	"tiers": [
-		{"text": "Hits stoke +1 dmg; at 4 or every 9s: 5 fireballs (5 dmg)", "now": "Hits stoke +{stack_add} dmg; at {stack_max} or every {breath_every}s: {fire_count} fireballs ({fire_damage} dmg)"},
+		{"text": "Hits stoke +1 dmg; at 4 or every 9s: 5 fireballs (5 dmg)", "card": "Hits stoke its fire. Fully stoked, its next hit breathes a cone of fireballs.", "now": "Hits stoke +{stack_add} dmg; at {stack_max} or every {breath_every}s: {fire_count} fireballs ({fire_damage} dmg)"},
 		{"text": "Fireballs {^fire_damage} → {fire_damage}", "fire_damage": 6.0},
-		{"text": "+ Each stoke: -5% dmg taken", "now": "Stokes +{stack_add} dmg, -{stack_armor%}% taken; at {stack_max}: {fire_count} fireballs ({fire_damage} dmg)", "stack_armor": 0.05},
+		{"text": "+ Each stoke: -5% dmg taken", "card": "Hits stoke its fire and toughen it. Fully stoked, its next hit breathes a cone of fireballs.", "now": "Stokes +{stack_add} dmg, -{stack_armor%}% taken; at {stack_max}: {fire_count} fireballs ({fire_damage} dmg)", "stack_armor": 0.05},
 		{"text": "Stokes needed 4 → 3", "stack_max": 3.0},
-		{"text": "+ The breath leaves a burning streak (5/sec)", "now": "Stokes +{stack_add} dmg, -{stack_armor%}% taken; at {stack_max}: {fire_count} fireballs + streak", "fire_streak": 5.0},
+		{"text": "+ The breath leaves a burning streak (5/sec)", "card": "Hits stoke its fire and toughen it. Fully stoked, it breathes fireballs that leave a burning streak.", "now": "Stokes +{stack_add} dmg, -{stack_armor%}% taken; at {stack_max}: {fire_count} fireballs + streak", "fire_streak": 5.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "smirk"}, "back": ["wings", "horns"], "front": ["belly"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 0.9},

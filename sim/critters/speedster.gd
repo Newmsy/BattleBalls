@@ -25,11 +25,11 @@ const CRITTER := {
 		"trail_dps": 8.0,
 	},
 	"tiers": [
-		{"text": "+12% speed per bounce up to x1.8; top speed booms (6 dmg)", "now": "+{speed_gain%}% speed per bounce up to x{max_speed_mult}; top speed booms ({sonic_damage} dmg)"},
+		{"text": "+12% speed per bounce up to x1.8; top speed booms (6 dmg)", "card": "Speeds up each wall bounce and hits harder the faster it goes; top speed booms. Hits on it reset it.", "now": "+{speed_gain%}% speed per bounce up to x{max_speed_mult}; top speed booms ({sonic_damage} dmg)"},
 		{"text": "Top speed x1.8 → 2", "max_speed_mult": 2.0},
 		{"text": "Per bounce +12% → +14%", "speed_gain": 0.14},
 		{"text": "Top speed x2 → 2.2", "max_speed_mult": 2.2},
-		{"text": "+ Above x1.3 speed: afterimage {trail_dps}/sec", "now": "+{speed_gain%}% per bounce to x{max_speed_mult}, booms, afterimage", "ability": [{"on": "always", "do": "afterimage"}]},
+		{"text": "+ Above x1.3 speed: afterimage {trail_dps}/sec", "card": "Speeds up each bounce and hits harder, trailing afterimages; top speed booms. Hits on it reset it.", "now": "+{speed_gain%}% per bounce to x{max_speed_mult}, booms, afterimage", "ability": [{"on": "always", "do": "afterimage"}]},
 	],
 	"chaos": {"rink": {"hp": 1.06}, "big_head": {"hp": 1.05}, "hyper_speed": {"speed_gain": 0.85}, "double_trouble": {"speed_gain": 0.67}}, ## Small and quick: Neon Rink and Big Head hit it more; fast twists overfeed it.
 	"art": {"eyes": {"sep": .3, "w": .21, "h": .14, "p": .09, "brow": .22, "mouth": "smirk"}, "back": ["speed_streaks"], "front": ["headband"]},

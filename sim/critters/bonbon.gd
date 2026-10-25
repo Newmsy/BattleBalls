@@ -27,11 +27,11 @@ const CRITTER := {
 		"snare_max": 0, ## T2: the ribbon stays on the floor as this many snares.
 	},
 	"tiers": [
-		{"text": "Wraps foe every 6s: stun 0.5s, then +20% dmg taken", "now": "Wraps foe every {wrap_every}s: stun {wrap_hold}s, then +{wrap_vuln%}% dmg taken"},
-		{"text": "Dmg taken +20% → +25%; ribbon left as a snare", "now": "Wraps foe every {wrap_every}s: stun {wrap_hold}s, +{wrap_vuln%}% dmg taken, snare", "wrap_vuln": 0.25, "snare_max": 1},
-		{"text": "+ The pop scatters confetti ({wrap_confetti} dmg)", "now": "Wraps every {wrap_every}s: stun {wrap_hold}s, confetti {wrap_confetti}, +{wrap_vuln%}% taken, snare", "wrap_confetti": 6.0},
+		{"text": "Wraps foe every 6s: stun 0.5s, then +20% dmg taken", "card": "Gift-wraps the foe, holding it still. Once the ribbon pops, it takes extra damage.", "now": "Wraps foe every {wrap_every}s: stun {wrap_hold}s, then +{wrap_vuln%}% dmg taken"},
+		{"text": "Dmg taken +20% → +25%; ribbon left as a snare", "card": "Gift-wraps the foe still and leaves ribbon snares. Unwrapped foes take extra damage.", "now": "Wraps foe every {wrap_every}s: stun {wrap_hold}s, +{wrap_vuln%}% dmg taken, snare", "wrap_vuln": 0.25, "snare_max": 1},
+		{"text": "+ The pop scatters confetti ({wrap_confetti} dmg)", "card": "Gift-wraps the foe still, pops in confetti and leaves ribbon snares. Foes take extra damage.", "now": "Wraps every {wrap_every}s: stun {wrap_hold}s, confetti {wrap_confetti}, +{wrap_vuln%}% taken, snare", "wrap_confetti": 6.0},
 		{"text": "Wrap every 6 → 5s; snares 1 → 2", "wrap_every": 5.0, "snare_max": 2},
-		{"text": "+ Every 3rd wrap pulls the foe to Bonbon", "wrap_pull_every": 3},
+		{"text": "+ Every 3rd wrap pulls the foe to Bonbon", "card": "Gift-wraps the foe still, sometimes reeling it in, then pops in confetti and leaves snares.", "wrap_pull_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "back": ["wrapper", "bow"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.3},

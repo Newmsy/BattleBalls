@@ -27,11 +27,11 @@ const CRITTER := {
 		"flip_pulse_radius": 220.0,
 	},
 	"tiers": [
-		{"text": "Field flips every 3s; first Pull hit x2.5", "now": "Field flips every {field_period}s; first Pull hit x{snap_mult}"},
+		{"text": "Field flips every 3s; first Pull hit x2.5", "card": "Its field flips between Pull and Push. Its first hit in each Pull snaps hard.", "now": "Field flips every {field_period}s; first Pull hit x{snap_mult}"},
 		{"text": "Field pull +14%", "field_accel": 800.0},
 		{"text": "Snap x{^snap_mult} → {snap_mult}", "snap_mult": 3.0},
 		{"text": "Flip every 3 → 2.5s", "field_period": 2.5},
-		{"text": "+ Flips fire a pulse ring: 6 + knockback", "now": "Field flips every {field_period}s (pulse {flip_pulse}); first Pull hit x{snap_mult}", "flip_pulse": 6.0},
+		{"text": "+ Flips fire a pulse ring: 6 + knockback", "card": "Its field flips between Pull and Push, sending a shockwave. Its first hit in each Pull snaps hard.", "now": "Field flips every {field_period}s (pulse {flip_pulse}); first Pull hit x{snap_mult}", "flip_pulse": 6.0},
 	],
 	"art": {"badge_top": 1.55, "body": "magnet", "pole": "2f7bff", "back": ["magnet_prongs"],
 		"eyes": {"sep": .3, "w": .19, "h": .23, "p": .1, "brow": .16, "mouth": "grin"}},

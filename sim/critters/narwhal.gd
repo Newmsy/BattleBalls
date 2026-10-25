@@ -28,11 +28,11 @@ const CRITTER := {
 		"lance_retry": 0, ## T5: a charge that misses curves round once.
 	},
 	"tiers": [
-		{"text": "Charges every 4.5s: beam 8/sec, x2 hit pins foe to a wall", "now": "Charges every {lance_every}s: beam {lance_beam_dps}/sec, x{lance_hit_mult} hit pins foe to a wall"},
+		{"text": "Charges every 4.5s: beam 8/sec, x2 hit pins foe to a wall", "card": "Charges at the foe leaving a glittering beam. Its hit skewers the foe and pins it to the next wall.", "now": "Charges every {lance_every}s: beam {lance_beam_dps}/sec, x{lance_hit_mult} hit pins foe to a wall"},
 		{"text": "Beam {^lance_beam_dps} → {lance_beam_dps}/sec", "lance_beam_dps": 10.0},
 		{"text": "Charge knockback x1.3 → x1.8", "lance_knock": 1.8},
 		{"text": "Charge every 4.5 → 3.5s", "lance_every": 3.5},
-		{"text": "+ A charge that misses curves round again", "now": "Charges every {lance_every}s (retries): beam {lance_beam_dps}/sec, x{lance_hit_mult}, pins", "lance_retry": 1},
+		{"text": "+ A charge that misses curves round again", "card": "Charges the foe, trailing a glittering beam and curving back if it misses. Its hit pins foes to walls.", "now": "Charges every {lance_every}s (retries): beam {lance_beam_dps}/sec, x{lance_hit_mult}, pins", "lance_retry": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["horn", "fluke"], "front": ["speckles"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.05},

@@ -25,11 +25,11 @@ const CRITTER := {
 		"snowball_secs": 0.0, ## T5: a roar rolls it up in a snowball this long (x1.25 size, x1.5 hits).
 	},
 	"tiers": [
-		{"text": "At 50% HP roars: 12, knockback, slow 40%", "now": "At 50% HP roars: {roar_damage}, knockback, slow {roar_slow%}%"},
+		{"text": "At 50% HP roars: 12, knockback, slow 40%", "card": "At half HP it roars out an avalanche that hurts, knocks back and slows everything nearby.", "now": "At 50% HP roars: {roar_damage}, knockback, slow {roar_slow%}%"},
 		{"text": "Avalanche {^roar_damage} → {roar_damage}", "roar_damage": 16.0},
-		{"text": "+ Roars again at 25% HP", "now": "At 50% and 25% HP roars: {roar_damage}, knockback, slow {roar_slow%}%", "ability": [{"on": "hp_below", "hp": 0.25, "do": "roar"}]},
+		{"text": "+ Roars again at 25% HP", "card": "At half HP and again when low, it roars an avalanche that hurts, knocks back and slows.", "now": "At 50% and 25% HP roars: {roar_damage}, knockback, slow {roar_slow%}%", "ability": [{"on": "hp_below", "hp": 0.25, "do": "roar"}]},
 		{"text": "Slow lasts 2 → 3s", "roar_secs": 3.0},
-		{"text": "+ Roars roll a snowball (x1.5 hits 3s), 3 drifts", "now": "At 50%/25% HP roars {roar_damage}, drifts, snowball x1.5 hits", "roar_drifts": 3.0, "snowball_secs": 3.0},
+		{"text": "+ Roars roll a snowball (x1.5 hits 3s), 3 drifts", "card": "At half HP and again when low, it roars an avalanche, leaves snow drifts and powers up its hits.", "now": "At 50%/25% HP roars {roar_damage}, drifts, snowball x1.5 hits", "roar_drifts": 3.0, "snowball_secs": 3.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "teeth"}, "back": ["horns"], "front": ["fringe"], "scale": 1.1},
 	"sound": {"ouch": "ouch_frost", "pitch": 0.7},

@@ -99,13 +99,12 @@ func build(id: String, tier: int, level: int, power: int, shell: Node, width: fl
 	art.info = false
 	var head := Kit.hbox(14, [art, side], BoxContainer.ALIGNMENT_CENTER)
 
-	# The ability as it is at this tier, with its numbers, then what each tier
-	# adds (the tiers it has in full colour, this one lit gold).
+	# The ability as it is at this tier in words, then what each tier adds
+	# with its numbers (the tiers it has in full colour, this one lit gold).
 	var text_w := width - 56.0 - 12.0 - 64.0
-	var now := Kit.label(AbilityText.now(id, tier, maxi(1, level)), 23, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var now := Kit.label(AbilityText.card(id, tier), 23, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
 	now.custom_minimum_size.x = width - 64.0 # Wrapped text measures before layout.
-	# At T1 the T1 row already says it all.
-	var ladder := Kit.vbox(6, [Kit.caption("Ability at T%d" % tier, Glyph.GOLD), now, Kit.caption("Each tier")] if tier > 1 else [Kit.caption("Ability by tier")])
+	var ladder := Kit.vbox(6, [Kit.caption("Ability at T%d" % tier, Glyph.GOLD), now, Kit.caption("Each tier")])
 	for i in Roster.MAX_TIER:
 		var here := i == tier - 1
 		var has := i < tier

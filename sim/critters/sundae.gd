@@ -33,11 +33,11 @@ const CRITTER := {
 		"split_damage": 6.0, ## ...each this much where it lands.
 	},
 	"tiers": [
-		{"text": "Hits stack scoops (+2 dmg), max 3; big hits drop one", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; big hits drop one"},
-		{"text": "Per scoop +2 → +3; puddles stay till stepped in", "stack_add": 3.0, "splat_stay": 1},
-		{"text": "+ Splats give brain freeze ({splat_dps}/sec)", "splat_dps": 3.0},
-		{"text": "Max scoops 3 → 5; + extra scoops are thrown", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; extras thrown", "stack_max": 5.0, "scoop_throw": 1},
-		{"text": "+ Sprinkles; a full stack splits: 3 scoops thrown", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; sprinkles, banana split", "spray_count": 6.0, "split_count": 3, "ability": [{"on": "hit", "do": "stack_spray"}, {"on": "hit", "do": "banana_split"}]},
+		{"text": "Hits stack scoops (+2 dmg), max 3; big hits drop one", "card": "Hits stack scoops for more damage. Big hits on it knock a scoop off into a sticky puddle.", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; big hits drop one"},
+		{"text": "Per scoop +2 → +3; puddles stay till stepped in", "card": "Hits stack scoops for more damage. Big hits on it drop scoops into sticky puddles that wait for foes.", "stack_add": 3.0, "splat_stay": 1},
+		{"text": "+ Splats give brain freeze ({splat_dps}/sec)", "card": "Hits stack scoops for more damage. Big hits on it drop scoops into brain-freeze puddles.", "splat_dps": 3.0},
+		{"text": "Max scoops 3 → 5; + extra scoops are thrown", "card": "Hits stack tall scoops for more damage and throw extras. Big hits on it drop brain-freeze puddles.", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; extras thrown", "stack_max": 5.0, "scoop_throw": 1},
+		{"text": "+ Sprinkles; a full stack splits: 3 scoops thrown", "card": "Hits stack tall scoops and throw extras; a full stack splits and flings them. Big hits drop puddles.", "now": "Hits stack scoops (+{stack_add} dmg), max {stack_max}; sprinkles, banana split", "spray_count": 6.0, "split_count": 3, "ability": [{"on": "hit", "do": "stack_spray"}, {"on": "hit", "do": "banana_split"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .17, "closed": true, "mouth": "smile"}, "back": ["scoops"], "front": ["cup"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.15},

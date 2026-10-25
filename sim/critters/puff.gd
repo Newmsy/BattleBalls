@@ -29,11 +29,11 @@ const CRITTER := {
 		"grow_end_bolts": 0.0,
 	},
 	"tiers": [
-		{"text": "Hurt: puffs up 2s (+2 dmg), spines blast 4", "now": "Hurt: puffs up {grow_secs}s (+{grow_add} dmg), spines blast {grow_pulse_damage}"},
+		{"text": "Hurt: puffs up 2s (+2 dmg), spines blast 4", "card": "When hurt, puffs up bigger and harder-hitting, and its spines blast the attacker away.", "now": "Hurt: puffs up {grow_secs}s (+{grow_add} dmg), spines blast {grow_pulse_damage}"},
 		{"text": "Puffed dmg +2 → +3", "grow_add": 3.0},
 		{"text": "Spine blast {^grow_pulse_damage} → {grow_pulse_damage}", "grow_pulse_damage": 6.0},
 		{"text": "Puff 2 → 2.5s", "grow_secs": 2.5},
-		{"text": "+ Deflating sprays 6 spines ({bolt_damage} each)", "now": "Hurt: puffs {grow_secs}s (+{grow_add} dmg), blast {grow_pulse_damage}, then {grow_end_bolts} spines", "ability": [{"on": "always", "do": "grow_end"}], "grow_end_bolts": 6.0},
+		{"text": "+ Deflating sprays 6 spines ({bolt_damage} each)", "card": "When hurt, puffs up bigger and harder-hitting, blasts the attacker away, then sprays spines.", "now": "Hurt: puffs {grow_secs}s (+{grow_add} dmg), blast {grow_pulse_damage}, then {grow_end_bolts} spines", "ability": [{"on": "always", "do": "grow_end"}], "grow_end_bolts": 6.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": -.14, "mouth": "pout"}, "back": ["sidefins"], "front": ["spots"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.15},

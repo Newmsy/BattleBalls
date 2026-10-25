@@ -31,11 +31,11 @@ const CRITTER := {
 		"overgrow_damage": 3.0, ## ...until a foe bounces off one for this.
 	},
 	"tiers": [
-		{"text": "Every 6s lashes foe to a vine 1s, snap 6; vines stay", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage}; vines stay"},
+		{"text": "Every 6s lashes foe to a vine 1s, snap 6; vines stay", "card": "Lashes the foe to a vine pillar, then the vine snaps in a burst and stays as a wall.", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage}; vines stay"},
 		{"text": "Snap {^vine_damage} → {vine_damage}", "vine_damage": 8.0},
-		{"text": "+ The snap leaves thorns ({vine_thorn_damage}/sec)", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage} + thorns", "vine_thorn_damage": 4.0},
+		{"text": "+ The snap leaves thorns ({vine_thorn_damage}/sec)", "card": "Lashes the foe to a vine pillar that snaps in a thorny burst and stays as a wall.", "now": "Every {vine_every}s lashes foe to a vine {vine_lash}s, snap {vine_damage} + thorns", "vine_thorn_damage": 4.0},
 		{"text": "Lash every 6 → 5s", "vine_every": 5.0},
-		{"text": "+ Two pillars at once", "now": "Every {vine_every}s lashes foe to 2 vines {vine_lash}s, snap {vine_damage} + thorns", "vine_pairs": 2},
+		{"text": "+ Two pillars at once", "card": "Lashes the foe between two vine pillars that snap in a thorny burst and stay as walls.", "now": "Every {vine_every}s lashes foe to 2 vines {vine_lash}s, snap {vine_damage} + thorns", "vine_pairs": 2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["flowercrown"], "front": ["vinewrap"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.1},

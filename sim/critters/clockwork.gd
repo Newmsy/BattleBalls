@@ -31,11 +31,11 @@ const CRITTER := {
 		"stop_secs": 0.4, ## ...for this long.
 	},
 	"tiers": [
-		{"text": "Ring every 5s (3, slow), stops time every 10s, rewinds", "now": "Ring every 5s ({tick_damage}, slow), stops time every {stop_every}s, rewinds"},
+		{"text": "Ring every 5s (3, slow), stops time every 10s, rewinds", "card": "Ticks out slowing rings, stops time on foes, and rewinds lost HP when low.", "now": "Ring every 5s ({tick_damage}, slow), stops time every {stop_every}s, rewinds"},
 		{"text": "Tick {^tick_damage} → {tick_damage}, clock faces 2 → 3s", "tick_damage": 4.0, "face_secs": 3.0},
-		{"text": "+ Rewinding also turns back its spot", "rewind_place": 1},
+		{"text": "+ Rewinding also turns back its spot", "card": "Ticks out slowing rings, stops time on foes, and rewinds its HP and spot when low.", "rewind_place": 1},
 		{"text": "Rewind 3 → 4s, clock faces 3 → 4s, haste +40%", "rewind_secs": 4.0, "face_secs": 4.0, "face_haste": 0.4},
-		{"text": "Tick {^tick_damage} → {tick_damage} + rewind stops time 0.6s", "now": "Ring every 5s ({tick_damage} dmg), time stops, rewind {rewind_secs}s + time stop", "rewind_stop": 0.6, "tick_damage": 6.0},
+		{"text": "Tick {^tick_damage} → {tick_damage} + rewind stops time 0.6s", "card": "Ticks out slowing rings, stops time on foes, and rewinds when low, stopping time again.", "now": "Ring every 5s ({tick_damage} dmg), time stops, rewind {rewind_secs}s + time stop", "rewind_stop": 0.6, "tick_damage": 6.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smirk"}, "back": ["gearcrown"], "front": ["clockface", "monocle"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 0.95},

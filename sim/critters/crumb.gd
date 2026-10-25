@@ -30,11 +30,11 @@ const CRITTER := {
 		"crumb_heal": 5.0, ## ...and rolling over one eats it for this.
 	},
 	"tiers": [
-		{"text": "Bites at 66/33% HP: +12% speed, crumbs to eat (+5)", "now": "Bites at 66/33% HP: +{grow_speed%}% speed, crumbs to eat (+{crumb_heal})"},
+		{"text": "Bites at 66/33% HP: +12% speed, crumbs to eat (+5)", "card": "As it gets hurt, bites break off: it speeds up, flings crumbs and drops pieces to eat.", "now": "Bites at 66/33% HP: +{grow_speed%}% speed, crumbs to eat (+{crumb_heal})"},
 		{"text": "Speed per bite +12% → +15%", "grow_speed": 0.15},
-		{"text": "+ Each bite heals 5", "now": "Bites at 66/33% HP: +{grow_speed%}% speed, heal {grow_heal}, crumbs to eat", "grow_heal": 5.0},
+		{"text": "+ Each bite heals 5", "card": "As it gets hurt, bites break off: it heals, speeds up, flings crumbs and drops pieces to eat.", "now": "Bites at 66/33% HP: +{grow_speed%}% speed, heal {grow_heal}, crumbs to eat", "grow_heal": 5.0},
 		{"text": "Speed per bite +15% → +18%", "grow_speed": 0.18},
-		{"text": "+ 3rd bite at 15% HP · crumbs 4 → 8", "now": "Bites at 66/33/15% HP: +{grow_speed%}% speed, heal {grow_heal}, crumbs", "ability": [{"on": "hp_below", "hp": 0.15, "do": "grow"}], "grow_bolts": 8.0},
+		{"text": "+ 3rd bite at 15% HP · crumbs 4 → 8", "card": "Bites break off as it gets hurt, once more near the end: each heals, speeds it up, scatters crumbs.", "now": "Bites at 66/33/15% HP: +{grow_speed%}% speed, heal {grow_heal}, crumbs", "ability": [{"on": "hp_below", "hp": 0.15, "do": "grow"}], "grow_bolts": 8.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "front": ["chips", "bite"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.3},

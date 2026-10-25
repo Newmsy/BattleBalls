@@ -32,11 +32,11 @@ const CRITTER := {
 		"wolf_damage": 3.0, ## ...each this much, slow 20%.
 	},
 	"tiers": [
-		{"text": "2nd hit freezes, shards 6 · shatter x1.6 · howls every 10s", "now": "2nd hit freezes, shards {shard_damage} · shatter x{shatter_mult} · howls every {howl_every}s"},
+		{"text": "2nd hit freezes, shards 6 · shatter x1.6 · howls every 10s", "card": "Hits freeze the foe in a burst of ice shards, then it hunts it down to shatter it. Howls up wolves.", "now": "2nd hit freezes, shards {shard_damage} · shatter x{shatter_mult} · howls every {howl_every}s"},
 		{"text": "Shards {^shard_damage} → {shard_damage}", "shard_damage": 7.0},
-		{"text": "+ Frozen foe: +15% dmg taken for 2s", "now": "Every 2nd hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_sour": 0.15},
+		{"text": "+ Frozen foe: +15% dmg taken for 2s", "card": "Hits freeze the foe brittle in a burst of shards; it hunts it down to shatter it. Howls up wolves.", "now": "Every 2nd hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_sour": 0.15},
 		{"text": "Shards {^shard_damage} → {shard_damage}, size +{+shard_radius}%", "shard_damage": 8.0, "shard_radius": 180.0},
-		{"text": "Every hit freezes · shatter x{^shatter_mult} → {shatter_mult}", "now": "Every hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_max": 1, "shard_damage": 4.0, "shatter_mult": 1.3},
+		{"text": "Every hit freezes · shatter x{^shatter_mult} → {shatter_mult}", "card": "Every hit freezes the foe brittle in a burst of shards, and it shatters it hard. Howls up ice wolves.", "now": "Every hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_max": 1, "shard_damage": 4.0, "shatter_mult": 1.3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "6fd3ff", "mouth": "fangs"}, "back": ["ears"], "front": ["ruff"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 0.8},

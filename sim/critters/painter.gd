@@ -28,11 +28,11 @@ const CRITTER := {
 		"balloon_radius": 110.0, ## ...its splash: +15% dmg taken, slow 20% for 3s.
 	},
 	"tiers": [
-		{"text": "Paint trail 3s (+10% dmg taken); paint balloon every 6s", "now": "Paint trail {paint_life}s (+{paint_vuln%}% dmg taken); paint balloon every {balloon_every}s"},
+		{"text": "Paint trail 3s (+10% dmg taken); paint balloon every 6s", "card": "Leaves a paint trail; foes on the paint take extra damage. Lobs slowing paint balloons too.", "now": "Paint trail {paint_life}s (+{paint_vuln%}% dmg taken); paint balloon every {balloon_every}s"},
 		{"text": "Dmg taken +10% → +12%", "paint_vuln": 0.12},
-		{"text": "+ A foe stays painted 1s after", "paint_linger": 1.0},
+		{"text": "+ A foe stays painted 1s after", "card": "Leaves a paint trail; painted foes take extra damage for a while. Lobs slowing paint balloons too.", "paint_linger": 1.0},
 		{"text": "Paint lasts 3 → 4s", "paint_life": 4.0},
-		{"text": "+ Every 6s the paint flashes: {paint_flash_damage} to foes on it", "now": "Paint trail {paint_life}s: +{paint_vuln%}% taken, balloons, flash every 6s", "ability": [{"on": "every", "secs": 6.0, "do": "paint_flash"}]},
+		{"text": "+ Every 6s the paint flashes: {paint_flash_damage} to foes on it", "card": "Leaves a paint trail that makes foes take extra damage and flashes to hurt them. Lobs paint balloons.", "now": "Paint trail {paint_life}s: +{paint_vuln%}% taken, balloons, flash every 6s", "ability": [{"on": "every", "secs": 6.0, "do": "paint_flash"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "front": ["splats", "beret"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.2},

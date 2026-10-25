@@ -17,11 +17,11 @@ const CRITTER := {
 	"ability": [{"on": "hit", "do": "heal"}],
 	"params": {"heal_ratio": 0.5, "overheal_cap": 25.0},
 	"tiers": [
-		{"text": "Heals 50% of dmg dealt", "now": "Heals {heal_ratio%}% of dmg dealt"},
+		{"text": "Heals 50% of dmg dealt", "card": "Heals for a big share of the damage it deals.", "now": "Heals {heal_ratio%}% of dmg dealt"},
 		{"text": "Heal 50 → 60%", "heal_ratio": 0.6},
 		{"text": "Heal 60 → 70%", "heal_ratio": 0.7},
 		{"text": "Heal 70 → 80%", "heal_ratio": 0.8},
-		{"text": "+ Overheal becomes a shield (max 25)", "now": "Heals {heal_ratio%}% of dmg dealt; overheal shields up to {overheal_cap}", "ability": [{"on": "hit", "do": "overheal"}]},
+		{"text": "+ Overheal becomes a shield (max 25)", "card": "Heals for most of the damage it deals, and extra healing becomes a shield.", "now": "Heals {heal_ratio%}% of dmg dealt; overheal shields up to {overheal_cap}", "ability": [{"on": "hit", "do": "overheal"}]},
 	],
 	"art": {"badge_top": 1.3, "eyes": {"sep": .3, "w": .19, "h": .22, "p": .1, "lid": .45, "brow": .12, "mouth": "fangs"}, "back": ["cape_collar"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},
