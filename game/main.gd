@@ -1313,6 +1313,8 @@ func _go_online() -> void:
 	if from_page != "" and from_page != "ok":
 		shell.toast("Sign-in didn't finish: " + from_page)
 	save.changed.connect(_on_save_changed)
+	backend.account_deleted.connect(save.wipe)
+	backend.account_deleted.connect(Analytics.clear_queue)
 	backend.signed_out.connect(save.reset_for_sign_out)
 	_retry_timer = Timer.new()
 	_retry_timer.wait_time = 60.0
