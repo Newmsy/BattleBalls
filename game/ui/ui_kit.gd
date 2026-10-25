@@ -22,6 +22,7 @@ const BUTTON_STYLES := {
 	"primary": [ACCENT, Color("4b3bb0"), BG],
 	"go": [GOOD, Color("1d9a65"), BG],
 	"ghost": [PANEL2, Color("0a0820"), FG],
+	"danger": [BAD, Color("8a1f35"), BG], ## Only for a step that can't be undone.
 }
 
 

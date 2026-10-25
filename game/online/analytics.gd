@@ -77,6 +77,13 @@ static func set_opt_out(value: bool) -> void:
 		_instance.set_opted_out(value)
 
 
+## Drops events not yet sent (the account they belong to was deleted).
+static func clear_queue() -> void:
+	if _instance != null:
+		_instance.queue.clear()
+		_instance.save_state()
+
+
 static func opted_out() -> bool:
 	return _instance != null and _instance.opt_out
 
