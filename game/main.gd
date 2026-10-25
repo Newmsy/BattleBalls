@@ -1172,6 +1172,7 @@ func _finish_stage() -> void:
 		fight.boss_dealt = sim.boss.max_hp - maxf(0.0, sim.boss.hp) if sim.boss != null else 0.0
 		fight.boss_max = sim.boss.max_hp if sim.boss != null else 1.0
 		var v: Dictionary = _boss_rules().finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
+		shell.glow.record_result("boss", v)
 		pve.result = BOSS_MODES[pve.boss][1].result_text(v)
 		pve.xp = v
 		report_label.text = pve.result
@@ -1180,6 +1181,7 @@ func _finish_stage() -> void:
 	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight) if sim.starters == 2 \
 		else Campaign.finish_team(profile, pve.zone, pve.stage, _team_picks(), Campaign.pair_fight(sim))
 	Intro.after_stage(profile, pve.zone, pve.stage, r)
+	shell.glow.record_result("stage", r)
 	pve.result = CampaignScreen.result_text(r)
 	pve.r = r
 	report_label.text = pve.result
@@ -1228,6 +1230,7 @@ func _settle_relay_stage() -> void:
 	else:
 		var r := Campaign.finish_team(profile, d.zone, d.stage, d.picks, d.fight)
 		Intro.after_stage(profile, d.zone, d.stage, r)
+		shell.glow.record_result("stage", r)
 		params.result = {"stage": d.stage, "r": r, "kind": "fight"}
 	shell.show_tab("play")
 	shell.go("world")
@@ -1291,7 +1294,9 @@ func _record_fight() -> void:
 	if mode != Mode.CAMPAIGN:
 		save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": FightSpeed.index()}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
-	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt)
+	var best: Dictionary = profile.best(player_type) if profile.owns(player_type) else {}
+	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt, -1,
+		{"critter": player_type, "tier": int(best.get("tier", 1)), "duo": _is_duo()})
 	if xp > 0:
 		(pass_chip.get_child(0) as Label).text = "+%d" % xp
 		pass_chip.visible = true
@@ -1583,7 +1588,7 @@ func _build_shell() -> void:
 	# Menus to a fight and back: the new picture opens out of a circle from the tap.
 	shell_layer.visibility_changed.connect(func(): Wipe.open(self, get_viewport().get_mouse_position()))
 	shell = Shell.new()
-	shell.glow = GlowState.new(save, shell.profile, Store.new())
+	shell.glow = GlowState.new(save, profile, Store.new())
 	shell.friends = friends
 	shell.profile = profile
 	shell.set_account(account)

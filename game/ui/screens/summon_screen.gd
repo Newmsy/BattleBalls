@@ -217,6 +217,7 @@ static func _pull(shell, n: int) -> void:
 		_rng = RandomNumberGenerator.new()
 		_rng.randomize()
 	var ids: Array = Summon.pull(p, n, _rng)
+	shell.glow.record("hatch", ids.size())
 	# NEW only on a critter's first copy: a second one in the same x10 is a dupe.
 	var fresh: Array = []
 	for i in ids.size():

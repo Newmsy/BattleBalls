@@ -791,7 +791,7 @@ func spend_coins(n: int) -> bool:
 	return true
 
 
-## An earned reward (Glow Pass free track, bounties): {kind, n} with kind
+## An earned reward (Glow Pass free track, quests): {kind, n} with kind
 ## orbs, coins, hammers, energy, xp_chip, copies (with id) or gear (type and tier).
 func grant(r: Dictionary) -> void:
 	var n := int(r.get("n", 1))

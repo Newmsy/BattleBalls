@@ -10,6 +10,7 @@ const Lineup := preload("res://sim/lineup.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 
 var store
@@ -86,6 +87,9 @@ func _show_result() -> void:
 		used.append(null if a == null or not aimed[i] else int(a) - MatchSim.AIM_AT_CENTRE[0])
 	_last_slots = store.pending.get("slots", [])
 	result_delta = store.finish_attack(won, used)
+	GlowState.note_fight(relay.winner, 0.0)
+	if won:
+		GlowState.note("arena_win")
 	Intro.arena_fought = true
 	sfx.on_result(relay.winner)
 	var got: int = store.history[0].get("coins", 0) if not store.history.is_empty() else 0
