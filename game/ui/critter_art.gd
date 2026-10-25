@@ -243,8 +243,6 @@ static func _soft(kind: String) -> Texture2D:
 			if kind == "core":
 				var d := (p - Vector2(-.3, -.35)).length() / 1.35
 				a = smoothstep(.55, 1.0, d)
-			elif kind == "glow": # A soft round light, brightest in the middle.
-				a = exp(-p.length_squared() * 3.5)
 			else:
 				var q := (p - Vector2(-.38, -.48)) / Vector2(.3, .2)
 				q = q.rotated(.7)
@@ -1566,9 +1564,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 						var w := .2 * (1.55 + y) / .53
 						_uline(ci, Vector2(-w, y + .035), Vector2(w, y - .035), Color("b8860b"), .035)
 			if not _sil:
-				var g := r_px(.42)
-				var lp := _to_px(lamp)
-				ci.draw_texture_rect(_soft("glow"), Rect2(lp - Vector2(g, g), Vector2(g, g) * 2.0), false, _c(Color(1, .96, .7, .75)))
+				Dot.glow(ci, _to_px(lamp), r_px(.42), _c(Color(1, .96, .7, .75)))
 			_ucirc(ci, lamp, .15, Color("fffbd0"))
 		"hive":
 			_clip_on()
