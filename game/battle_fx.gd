@@ -2648,8 +2648,7 @@ static func draw_elite_aura(ci: CanvasItem, p: Vector2, r: float, t: float) -> v
 	if r < 2.0:
 		return
 	var pulse := 0.5 + 0.5 * sin(t * 3.0)
-	Dot.circle(ci, p, r * (1.42 + 0.04 * pulse), Color(ELITE, 0.10))
-	Dot.circle(ci, p, r * 1.26, Color(ELITE, 0.16))
+	Dot.glow(ci, p, r * (1.55 + 0.04 * pulse), Color(ELITE, 0.3), 0.65)
 	var n := 12
 	for q in n: # Spikes leaning with the spin, like a saw blade.
 		var a := t * 0.6 + q * TAU / n

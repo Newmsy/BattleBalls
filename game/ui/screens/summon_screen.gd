@@ -1090,8 +1090,6 @@ class _Backdrop extends Control:
 		var c := Vector2(size.x / 2.0, size.y * .48)
 		var r := maxf(size.x, size.y) * .5
 		Dot.glow(self, c, r, Color(.42, .26, .8, .2), .25)
-		for k in 3:
-			draw_arc(c, r * (.35 + k * .17), 0.0, TAU, 72, Color(.7, .6, 1.0, .05), 2.0, true)
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 7
 		for k in 28:
