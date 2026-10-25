@@ -1343,6 +1343,438 @@
    }
   ]
  },
+ "league_bronze": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     541,
+     198
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     479,
+     59,
+     123,
+     144
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_diamond": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     198
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     395,
+     59,
+     290,
+     144
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_gold": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     214
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     447,
+     59,
+     186,
+     157
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_neon": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     214
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     395,
+     59,
+     290,
+     157
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_platinum": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     214
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     447,
+     59,
+     186,
+     157
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_silver": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     198
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     395,
+     59,
+     290,
+     144
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
  "lost_egg": {
   "size": [
    720,

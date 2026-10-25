@@ -18,11 +18,17 @@ const Families := preload("res://sim/families.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
+const Painted := preload("res://game/ui/painted.gd")
+const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 
 const Motion := preload("res://game/ui/motion.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
 const ART := "res://game/ui/versus_art/%s.png"
+## Opponent cards: the painted stage's height, and the least it shrinks to
+## when the phone is short.
+const STAGE_H := 112.0
+const STAGE_MIN := 72.0
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -78,14 +84,19 @@ static func build(shell, params: Dictionary) -> Control:
 	shell.mark("arena_refresh", refresh_btn)
 	root.add_child(Kit.hbox(0, [Kit.caption("Opponents"), Kit.spacer(), refresh_btn]))
 	var cards: Array[Dictionary] = store.offers(shell.profile)
-	var rows: Array = []
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	var tiles: Array = []
 	for i in cards.size():
-		var btn := _opponent_row(shell, store, cards[i])
+		var btn := _opponent_card(shell, store, cards[i])
 		shell.mark("arena_card_%d" % i, btn)
-		root.add_child(btn)
-		rows.append(btn)
-	# As many opponents as the phone has room for (at least three).
-	_fit_rows(shell, root, rows)
+		grid.add_child(btn)
+		tiles.append(btn)
+	root.add_child(grid)
+	# As many opponents as the phone has room for (at least two rows).
+	_fit_cards(shell, root, grid, tiles)
 
 	return root
 
@@ -102,14 +113,28 @@ static func _league_panel(shell, store) -> Control:
 		next_text = "%d to %s" % [nxt.min - t, nxt.name]
 	var count := Kit.amount("trophy", t, 30, Kit.FG, Glyph.GOLD)
 	var bar := Kit.bar(frac, lg.color)
-	var head := Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), count], BoxContainer.ALIGNMENT_CENTER)
+	var head := Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), count], BoxContainer.ALIGNMENT_BEGIN)
 	_trophy_change(shell, t, idx, head, count, bar)
 	var v := Kit.vbox(8, [
 		head,
 		bar,
-		Kit.hbox(0, [Kit.label(next_text, 22, Kit.MUTED), Kit.spacer(), Kit.label("%d W · %d L" % [store.wins, store.losses], 22, Kit.MUTED)]),
+		Kit.hbox(0, [Kit.label(next_text, 20, Kit.MUTED), Kit.spacer(), Kit.label("%d W · %d L" % [store.wins, store.losses], 20, Kit.MUTED)]),
 	])
-	return Kit.panel(v, Kit.box(Color("17143e"), lg.color, 32, 2, 20))
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_stretch_ratio = 1.5
+	PlayScreen._on_art(v)
+	# The words on the left, the league's crest on its plinth on the right
+	# (game/ui/versus_art/league_<id>.png).
+	var crest_room := Control.new()
+	crest_room.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	crest_room.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var words := Kit.hbox(8, [v, crest_room])
+	var stack := MarginContainer.new()
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(HomePainting.make("league_" + str(lg.id), Vector2(.85, .62), 29.0, Vector4(0, 0, 1, 0), Kit.BG, ART))
+	stack.add_child(PlayScreen._padded(words, 16, 16))
+	var st := Kit.box(Kit.BG, lg.color, 32, 3, 3)
+	return Kit.panel(stack, st)
 
 
 ## Back from a fight: the trophy count ticks from what you last saw to now,
@@ -202,46 +227,61 @@ static func trio_panel(shell, store, owned: Array, which := "trio") -> Control:
 	])
 
 
-## One opponent: team name in its family colour, their trophies and power,
-## their three faces, and the trophies a win or a loss is worth.
-static func _opponent_row(shell, store, offer: Dictionary) -> Button:
+## One opponent: a window onto the team's family home with their three
+## faces standing on its stage (and your trio's family edge on them), then the
+## team name in its family colour, their trophies and power, and the trophies
+## a win or a loss is worth.
+static func _opponent_card(shell, store, offer: Dictionary) -> Button:
 	var bot: Dictionary = offer.bot
 	var fam: String = bot.get("family", "")
 	var fam_col: Color = Color(Families.info(fam).color) if fam != "" else Kit.FG
 	var stake := Ladder.stake(store.trophies, int(bot.get("trophies", store.trophies)))
+	var slots: Array = bot.lineup.slots.duplicate()
+	slots.sort_custom(func(a, b): return str(a.critter) < str(b.critter))
+	var stage := Control.new()
+	stage.custom_minimum_size.y = STAGE_H
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if fam != "" and ResourceLoader.exists(Painted.ART % ("families/" + fam)):
+		var home := Painted.make("families/" + fam, {"focus": Vector2(200, 300), "at": Vector2(0.5, 0.62), "px": 1.4,
+			"radius": Vector4(19, 19, 0, 0), "bottom_fade": 0.3})
+		home.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		stage.add_child(home)
+	var faces := Kit.hbox(2, [], BoxContainer.ALIGNMENT_CENTER)
+	for s in slots:
+		faces.add_child(CritterIcon.make(s.critter, int(s.get("tier", 1)), 84))
+	faces.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	faces.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	faces.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	faces.offset_bottom = 4
+	stage.add_child(faces)
+	FamilyEdge.attach(stage, store.trio, slots.map(func(s): return str(s.critter)), 6.0, 20.0)
 	var name: Control = _fit(Kit.label(str(bot.name), 24, fam_col))
 	if fam != "":
 		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name = Kit.hbox(6, [FamilyIcon.make(fam, 28), name], BoxContainer.ALIGNMENT_CENTER)
-	var info := Kit.vbox(2, [
-		name,
-		Kit.hbox(6, [Kit.amount("trophy", int(bot.get("trophies", 0)), 20, Kit.MUTED, Glyph.GOLD), Kit.power(ArenaTeams.rating(bot), 20, Kit.MUTED)]),
-	])
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var faces := Kit.hbox(0)
-	var slots: Array = bot.lineup.slots.duplicate()
-	slots.sort_custom(func(a, b): return str(a.critter) < str(b.critter))
-	for s in slots:
-		faces.add_child(CritterIcon.make(s.critter, int(s.get("tier", 1)), 50))
-	var stakes := Kit.vbox(0, [
-		Kit.label("%+d" % int(stake.win), 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_RIGHT),
-		Kit.label("%d" % int(stake.loss), 20, Kit.BAD, HORIZONTAL_ALIGNMENT_RIGHT),
-	])
-	stakes.custom_minimum_size.x = 44
-	# Your trio's family edge on theirs, as a badge over their faces.
-	var edge := FamilyEdge.team(store.trio, slots.map(func(s): return str(s.critter)))
-	var mark := FamilyEdge.badge(edge, 20)
-	mark.custom_minimum_size.y = 20 # Holds the line when even, so faces line up row to row.
-	var foe_side := Kit.vbox(0, [mark, faces])
-	var row := Kit.hbox(8, [info, foe_side, Kit.glyph("trophy", 22, Glyph.GOLD), stakes], BoxContainer.ALIGNMENT_CENTER)
-	return Kit.card_button(row, _attack.bind(shell, store, offer), Color(fam_col, .6), Kit.PANEL, 22, 10)
+		name = Kit.hbox(6, [FamilyIcon.make(fam, 26), name], BoxContainer.ALIGNMENT_CENTER)
+	var line := Kit.hbox(6, [
+		Kit.amount("trophy", int(bot.get("trophies", 0)), 18, Kit.MUTED, Glyph.GOLD), Kit.power(ArenaTeams.rating(bot), 18, Kit.MUTED), Kit.spacer(),
+		Kit.label("%+d" % int(stake.win), 20, Kit.GOOD), Kit.label("%d" % int(stake.loss), 20, Kit.BAD),
+	], BoxContainer.ALIGNMENT_CENTER)
+	var words := Kit.vbox(0, [name, line])
+	var pad := MarginContainer.new()
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right"]:
+		pad.add_theme_constant_override("margin_" + side, 8)
+	pad.add_theme_constant_override("margin_bottom", 6)
+	pad.add_child(words)
+	var b := Kit.card_button(Kit.vbox(2, [stage, pad]), _attack.bind(shell, store, offer), Color(fam_col, .7), Kit.PANEL, 22, 3)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.set_meta("stage", stage)
+	return b
 
 
-## Hides opponent rows from the bottom while the screen is taller than the
-## room it has, keeping at least three.
-static func _fit_rows(shell, root: Control, rows: Array) -> void:
+## Fits the opponent cards to the room the screen has: whole rows of two come
+## off the bottom while it's too tall (keeping at least two rows), then the
+## painted stages get shorter.
+static func _fit_cards(shell, root: Control, grid: GridContainer, tiles: Array) -> void:
 	# Text sizes settle a frame after the screen is built.
-	if not shell.is_inside_tree():
+	if not shell.is_inside_tree() or tiles.is_empty():
 		return
 	await shell.get_tree().process_frame
 	if not is_instance_valid(shell) or not is_instance_valid(root) or not is_instance_valid(shell._scroll):
@@ -249,12 +289,19 @@ static func _fit_rows(shell, root: Control, rows: Array) -> void:
 	var room: float = shell._scroll.size.y - 32.0 # The page's top and bottom margins.
 	# Minimum sizes only update next frame, so take each hidden row off by hand.
 	var need: float = root.get_combined_minimum_size().y
-	var step: float = rows[0].get_combined_minimum_size().y + root.get_theme_constant("separation")
-	var shown := rows.size()
-	while shown > 3 and need > room:
-		shown -= 1
-		rows[shown].visible = false
+	var step: float = tiles[0].get_combined_minimum_size().y + grid.get_theme_constant("v_separation")
+	var shown := tiles.size()
+	while shown > 4 and need > room:
+		var gone := 2 if shown % 2 == 0 else 1
+		for k in gone:
+			shown -= 1
+			tiles[shown].visible = false
 		need -= step
+	if need > room:
+		var rows := ceili(shown / 2.0)
+		var stage_h := maxf(STAGE_MIN, STAGE_H - (need - room) / rows)
+		for t in tiles:
+			t.get_meta("stage").custom_minimum_size.y = stage_h
 
 
 static func _attack(shell, store, offer: Dictionary) -> void:
