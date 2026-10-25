@@ -28,6 +28,7 @@ uniform vec2 px_size = vec2(0.0); // drawn size in pixels
 uniform float corner = 0.0; // corner radius in pixels
 uniform vec4 fade = vec4(0.0); // top fade end (0-1 of the height), its strength, bottom fade start, its strength
 uniform vec3 fade_col = vec3(0.05, 0.06, 0.15);
+uniform vec2 side = vec2(0.0); // left fade end (0-1 of the width), its strength: a calm side for the words
 varying vec2 local;
 varying vec4 modulate;
 
@@ -110,6 +111,7 @@ void fragment() {
 	if (px_size.x > 0.0) {
 		float y = local.y / px_size.y;
 		float shade = max(fade.y * (1.0 - smoothstep(0.0, fade.x, y)), fade.w * smoothstep(fade.z, 1.0, y));
+		if (side.y > 0.0) shade = max(shade, side.y * (1.0 - smoothstep(side.x * 0.4, side.x, local.x / px_size.x)));
 		rgb = mix(rgb, fade_col, shade);
 		vec2 q = abs(local - px_size * 0.5) - (px_size * 0.5 - corner);
 		a *= 1.0 - smoothstep(-0.75, 0.75, length(max(q, 0.0)) - corner);

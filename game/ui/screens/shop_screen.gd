@@ -334,6 +334,10 @@ static func gem_sheet(shell) -> void:
 	var glow = shell.glow
 	var store = glow.store
 	var v := Kit.vbox(14, [Kit.hbox(10, [Glyph.make("gem", 44), Kit.label("Glow Gems", 36), Kit.spacer(), Kit.label("You have %s" % Kit.commas(glow.gems()), 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)])
+	if not store.available():
+		v.add_child(Kit.label("Gem packs are in the iPhone and Android apps.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+		shell.sheet(v)
+		return
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)

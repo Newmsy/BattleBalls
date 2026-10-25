@@ -11,6 +11,7 @@ const Motion := preload("res://game/ui/motion.gd")
 static var _seen_stars := {}
 static var _pulse_next := false
 const Kit := preload("res://game/ui/ui_kit.gd")
+const GearArt := preload("res://game/ui/gear_art.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
@@ -357,6 +358,8 @@ static func _fight(shell, z: int, i: int, fighter: String) -> void:
 
 static func _sweep(shell, z: int, i: int, fighter: String) -> void:
 	var r: Dictionary = Campaign.sweep(shell.profile, z, i, fighter, int(Time.get_unix_time_from_system()))
+	if not r.has("error"):
+		shell.glow.record_result("stage", r)
 	if r.has("error"):
 		_show_error(shell, r.error)
 		return
@@ -436,7 +439,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 				drop_cards.append([orb_card, null])
 			for g in r.get("gear", []):
 				var col := BagScreen.tier_color(g.tier)
-				var cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make(g.type, 72, col)], BoxContainer.ALIGNMENT_CENTER),
+				var cell := Kit.vbox(4, [Kit.hbox(0, [GearArt.piece(g.type, g.tier, 80, col)], BoxContainer.ALIGNMENT_CENTER),
 					Kit.hbox(0, [Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER), _fit(Kit.label(g.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
 				cell.custom_minimum_size.x = 150
 				var gear_card := Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10))

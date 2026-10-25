@@ -361,6 +361,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if shell != null and shell.glow != null and shell.glow.store != null:
+		shell.glow.store.poll()
 	var covered := _sync_cover()
 	if mode == Mode.LIVE and state == State.AIM and not live.has("aimed"):
 		_tick_live_aim(delta)
@@ -1188,6 +1190,7 @@ func _finish_stage() -> void:
 		fight.boss_dealt = sim.boss.max_hp - maxf(0.0, sim.boss.hp) if sim.boss != null else 0.0
 		fight.boss_max = sim.boss.max_hp if sim.boss != null else 1.0
 		var v: Dictionary = _boss_rules().finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
+		shell.glow.record_result("boss", v)
 		pve.result = BOSS_MODES[pve.boss][1].result_text(v)
 		if v.won and pve.boss != "rift":
 			var dye_rng := RandomNumberGenerator.new()
@@ -1203,6 +1206,7 @@ func _finish_stage() -> void:
 	var r := Campaign.finish(profile, pve.zone, pve.stage, pve.fighter, fight) if sim.starters == 2 \
 		else Campaign.finish_team(profile, pve.zone, pve.stage, _team_picks(), Campaign.pair_fight(sim))
 	Intro.after_stage(profile, pve.zone, pve.stage, r)
+	shell.glow.record_result("stage", r)
 	pve.result = CampaignScreen.result_text(r)
 	pve.r = r
 	report_label.text = pve.result
@@ -1251,6 +1255,7 @@ func _settle_relay_stage() -> void:
 	else:
 		var r := Campaign.finish_team(profile, d.zone, d.stage, d.picks, d.fight)
 		Intro.after_stage(profile, d.zone, d.stage, r)
+		shell.glow.record_result("stage", r)
 		params.result = {"stage": d.stage, "r": r, "kind": "fight"}
 	shell.show_tab("play")
 	shell.go("world")
@@ -1316,7 +1321,9 @@ func _record_fight() -> void:
 	if mode != Mode.CAMPAIGN:
 		save.data.picks = {"player": player_type, "opponent": opponent_choice, "speed": FightSpeed.index()}
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
-	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt)
+	var best: Dictionary = profile.best(player_type) if profile.owns(player_type) else {}
+	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt, -1,
+		{"critter": player_type, "tier": int(best.get("tier", 1)), "duo": _is_duo()})
 	if xp > 0:
 		(pass_chip.get_child(0) as Label).text = "+%d" % xp
 		pass_chip.visible = true
@@ -1333,6 +1340,8 @@ func _go_online() -> void:
 	if from_page != "" and from_page != "ok":
 		shell.toast("Sign-in didn't finish: " + from_page)
 	save.changed.connect(_on_save_changed)
+	backend.account_deleted.connect(save.wipe)
+	backend.account_deleted.connect(Analytics.clear_queue)
 	backend.signed_out.connect(save.reset_for_sign_out)
 	_retry_timer = Timer.new()
 	_retry_timer.wait_time = 60.0
@@ -1608,7 +1617,7 @@ func _build_shell() -> void:
 	# Menus to a fight and back: the new picture opens out of a circle from the tap.
 	shell_layer.visibility_changed.connect(func(): Wipe.open(self, get_viewport().get_mouse_position()))
 	shell = Shell.new()
-	shell.glow = GlowState.new(save, shell.profile, Store.new())
+	shell.glow = GlowState.new(save, profile, Store.make(backend))
 	shell.friends = friends
 	shell.profile = profile
 	shell.set_account(account)
@@ -2627,6 +2636,9 @@ func _read_url_params() -> Dictionary:
 		if params.get("p3", "") in BallDefs.PLAYABLE:
 			mate_type = params.p3
 	backend.disabled = params.get("offline", "") == "1"
+	# ?dev=1 shows Settings > Testing on this device from now on; ?dev=0 hides it.
+	if params.get("dev", "") in ["0", "1"]:
+		Dev.set_tools(params.dev == "1")
 	# ?live=ws://127.0.0.1:8080 points this visit's live fights at that server (and turns them on).
 	if params.get("live", "").begins_with("ws"):
 		Dev.live_url_override = params.live

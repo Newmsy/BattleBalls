@@ -18,6 +18,8 @@ const Families := preload("res://sim/families.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
+const Painted := preload("res://game/ui/painted.gd")
+const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 
 const Motion := preload("res://game/ui/motion.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
@@ -102,14 +104,28 @@ static func _league_panel(shell, store) -> Control:
 		next_text = "%d to %s" % [nxt.min - t, nxt.name]
 	var count := Kit.amount("trophy", t, 30, Kit.FG, Glyph.GOLD)
 	var bar := Kit.bar(frac, lg.color)
-	var head := Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), Kit.spacer(), count], BoxContainer.ALIGNMENT_CENTER)
+	var head := Kit.hbox(12, [Kit.label(Ladder.league_label(t), 36, lg.color), count], BoxContainer.ALIGNMENT_BEGIN)
 	_trophy_change(shell, t, idx, head, count, bar)
 	var v := Kit.vbox(8, [
 		head,
 		bar,
-		Kit.hbox(0, [Kit.label(next_text, 22, Kit.MUTED), Kit.spacer(), Kit.label("%d W · %d L" % [store.wins, store.losses], 22, Kit.MUTED)]),
+		Kit.hbox(0, [Kit.label(next_text, 20, Kit.MUTED), Kit.spacer(), Kit.label("%d W · %d L" % [store.wins, store.losses], 20, Kit.MUTED)]),
 	])
-	return Kit.panel(v, Kit.box(Color("17143e"), lg.color, 32, 2, 20))
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.size_flags_stretch_ratio = 1.5
+	PlayScreen._on_art(v)
+	# The words on the left, the league's crest on its plinth on the right
+	# (game/ui/versus_art/league_<id>.png).
+	var crest_room := Control.new()
+	crest_room.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	crest_room.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var words := Kit.hbox(8, [v, crest_room])
+	var stack := MarginContainer.new()
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(HomePainting.make("league_" + str(lg.id), Vector2(.85, .62), 29.0, Vector4(0, 0, 1, 0), Kit.BG, ART))
+	stack.add_child(PlayScreen._padded(words, 16, 16))
+	var st := Kit.box(Kit.BG, lg.color, 32, 3, 3)
+	return Kit.panel(stack, st)
 
 
 ## Back from a fight: the trophy count ticks from what you last saw to now,
@@ -203,7 +219,8 @@ static func trio_panel(shell, store, owned: Array, which := "trio") -> Control:
 
 
 ## One opponent: team name in its family colour, their trophies and power,
-## their three faces, and the trophies a win or a loss is worth.
+## their three faces standing in a strip of their family's home painting
+## (game/ui/art/families), and the trophies a win or a loss is worth.
 static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 	var bot: Dictionary = offer.bot
 	var fam: String = bot.get("family", "")
@@ -234,7 +251,19 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 	mark.custom_minimum_size.y = 20 # Holds the line when even, so faces line up row to row.
 	var foe_side := Kit.vbox(0, [mark, faces])
 	var row := Kit.hbox(8, [info, foe_side, Kit.glyph("trophy", 22, Glyph.GOLD), stakes], BoxContainer.ALIGNMENT_CENTER)
-	return Kit.card_button(row, _attack.bind(shell, store, offer), Color(fam_col, .6), Kit.PANEL, 22, 10)
+	var b := Kit.card_button(row, _attack.bind(shell, store, offer), Color(fam_col, .6), Kit.PANEL, 22, 10)
+	if fam != "" and ResourceLoader.exists(Painted.ART % ("families/" + fam)):
+		# The stage sits behind the faces; the words' side is shaded so they read.
+		var home := Painted.make("families/" + fam, {"focus": Vector2(200, 300), "at": Vector2(0.68, 0.72), "px": 1.0,
+			"radius": 19.0, "left_dark": 0.85, "right_dark": 0.35})
+		home.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		for side in ["left", "top"]:
+			home.set("offset_" + side, 3)
+		for side in ["right", "bottom"]:
+			home.set("offset_" + side, -3)
+		b.add_child(home)
+		b.move_child(home, 0)
+	return b
 
 
 ## Hides opponent rows from the bottom while the screen is taller than the

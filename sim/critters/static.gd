@@ -28,12 +28,12 @@ const CRITTER := {
 		"charge_stun": 0.15, ## ...and stuns.
 	},
 	"tiers": [
-		{"text": "Bounces zap: 5, slow 20%; stored charges +3 each on a hit", "now": "Bounces zap: {zap_damage}, slow {zap_slow%}%; stored charges +{charge_damage} each on a hit"},
+		{"text": "Bounces zap: 5, slow 20%; stored charges +3 each on a hit", "card": "Wall bounces zap and slow foes nearby and store charge; its next hit arcs it all into the foe.", "now": "Bounces zap: {zap_damage}, slow {zap_slow%}%; stored charges +{charge_damage} each on a hit"},
 		{"text": "Zap {^zap_damage} → {zap_damage}", "zap_damage": 6.0},
 		{"text": "Slow 20 → 30%", "zap_slow": 0.3},
 		{"text": "Zap size +{+zap_radius}%", "zap_radius": 190.0},
-		{"text": "+ Every 2nd bounce: big zap for {zap_big_damage}", "now": "Bounces zap nearby foes: {zap_damage}, slow {zap_slow%}% · 2nd: big {zap_big_damage}", "zap_big_every": 2, "zap_big_damage": 16.0},
+		{"text": "+ Every 2nd bounce: big zap for {zap_big_damage}", "card": "Wall bounces zap and slow foes nearby, some with a big zap, and store charge for its next hit.", "now": "Bounces zap nearby foes: {zap_damage}, slow {zap_slow%}% · 2nd: big {zap_big_damage}", "zap_big_every": 2, "zap_big_damage": 16.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["zighair"]},
+	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["zighair"], "front": ["sparks"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.35},
 }

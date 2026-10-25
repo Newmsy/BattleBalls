@@ -1,17 +1,53 @@
-## Developer switches. TOOLS_ENABLED shows the Testing section in Settings
-## (refill energy, extra orbs, free summons). Set it to false before soft launch.
+## Developer switches. The Testing section in Settings (refill energy, extra
+## eggs, free summons) is hidden from players. It shows in debug builds (F5 in
+## the editor), after a visit with ?dev=1, or after tapping the version line
+## at the foot of Settings TAP_TO_UNLOCK times; the last two stick on the device.
 extends RefCounted
 
-const TOOLS_ENABLED := true
 const SETTINGS_PATH := "user://settings.cfg"
+const TAP_TO_UNLOCK := 7
 
 static var _loaded := false
 static var _free_summons := false
+static var _tools_loaded := false
+static var _tools := false
+static var _taps := 0
 
 
-## Summons cost no orbs (Settings > Testing). Always off without TOOLS_ENABLED.
+## True when the Testing section and its shortcuts are on for this device.
+static func tools_enabled() -> bool:
+	if OS.is_debug_build():
+		return true
+	if not _tools_loaded:
+		_tools_loaded = true
+		var cfg := ConfigFile.new()
+		if cfg.load(SETTINGS_PATH) == OK:
+			_tools = cfg.get_value("dev", "tools", false)
+	return _tools
+
+
+static func set_tools(on: bool) -> void:
+	_tools_loaded = true
+	_tools = on
+	_taps = 0
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS_PATH)
+	cfg.set_value("dev", "tools", on)
+	cfg.save(SETTINGS_PATH)
+
+
+## One tap on the version line. Returns true on the tap that flips the tools.
+static func tap_version() -> bool:
+	_taps += 1
+	if _taps < TAP_TO_UNLOCK:
+		return false
+	set_tools(not tools_enabled())
+	return true
+
+
+## Summons cost no orbs (Settings > Testing). Always off without the tools.
 static func free_summons() -> bool:
-	if not TOOLS_ENABLED:
+	if not tools_enabled():
 		return false
 	if not _loaded:
 		_loaded = true
@@ -44,7 +80,7 @@ static var _live_loaded := false
 static func live_fights() -> bool:
 	if live_url_override != "":
 		return true
-	if not TOOLS_ENABLED or LIVE_SERVER == "":
+	if not tools_enabled() or LIVE_SERVER == "":
 		return false
 	if not _live_loaded:
 		_live_loaded = true

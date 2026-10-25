@@ -22,11 +22,11 @@ const CRITTER := {
 		"bulb_tilt": 0.0, ## T5: a full board deals this x on top.
 	},
 	"tiers": [
-		{"text": "+1 dmg per wall since its last hit, max 5", "now": "+{bulb_damage} dmg per wall since its last hit, max {bulb_max}"},
+		{"text": "+1 dmg per wall since its last hit, max 5", "card": "Each wall it touches before a hit makes that hit stronger.", "now": "+{bulb_damage} dmg per wall since its last hit, max {bulb_max}"},
 		{"text": "Per wall +{^bulb_damage} → +{bulb_damage}", "bulb_damage": 1.5},
-		{"text": "+ Cashing in 3+ walls knocks the foe back", "bulb_knock": 3},
+		{"text": "+ Cashing in 3+ walls knocks the foe back", "card": "Each wall it touches before a hit makes that hit stronger; big ones knock the foe back.", "bulb_knock": 3},
 		{"text": "Per wall +{^bulb_damage} → +{bulb_damage}", "bulb_damage": 2.0},
-		{"text": "+ A hit after 5 walls is a TILT! x2", "now": "+{bulb_damage} dmg per wall, max {bulb_max}; at {bulb_max}: TILT! x{bulb_tilt}", "bulb_tilt": 2.0},
+		{"text": "+ A hit after 5 walls is a TILT! x2", "card": "Each wall it touches powers up its next hit; big ones knock foes back, the biggest is a TILT!", "now": "+{bulb_damage} dmg per wall, max {bulb_max}; at {bulb_max}: TILT! x{bulb_tilt}", "bulb_tilt": 2.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "body": "chrome", "tint": true, "back": ["rears"], "front": ["bulbs"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.25},

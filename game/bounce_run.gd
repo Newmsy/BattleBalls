@@ -1,8 +1,9 @@
 ## Bounce Run: draft a trio and 3 starting boons, then climb a 20-floor map
 ## of fights, elites, events, shops, Charge Pads and chests to the Champion.
-## The run comes from sim/bounce_run.gd and the UTC day; one ranked run a day
-## posts to the shared leaderboard, then practice runs are unranked.
-## URL params: ?mode=bouncerun&day=3 (play another day's run, unranked),
+## Every run is a fresh map from sim/bounce_run.gd and they all count the
+## same: the day's best floor goes on the leaderboard and opens a chest the
+## next day (meta/bounce_chest.gd, opened on the Daily board).
+## URL params: ?mode=bouncerun&day=3 (draw maps as on another day),
 ## &offline=1 (never touch the leaderboard).
 extends Node2D
 
@@ -27,7 +28,10 @@ const A11y := preload("res://game/a11y.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const MapView := preload("res://game/bounce_run/map_view.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
 const LivingArt := preload("res://game/bounce_run/living_art.gd")
+const BounceChest := preload("res://meta/bounce_chest.gd")
+const ChestArt := preload("res://game/ui/chest_art.gd")
 const ART := "res://game/bounce_run/art/%s.png"
 
 enum State { DRAFT, START_BOONS, MAP, FLOOR, AIM, FIGHT, RESULT, BOON, EVENT, SHOP, REST, OVER }
@@ -48,7 +52,6 @@ const ABILITY := Color("8fd8ff") ## The critter's own ability, apart from boon g
 var state := State.DRAFT
 var today := 1
 var day := 1
-var ranked := true ## False for practice runs and other days.
 var setup: Dictionary
 var run: Dictionary ## Empty until the draft is done.
 var picks: Array = [] ## Draft selection in progress.
@@ -64,6 +67,7 @@ var _accumulator := 0.0
 var aimer := FightAim.new() ## Tap the arena to aim, let go to launch.
 var _result_popup: Control
 var _marks := {}
+var _page_box := Vector2.ZERO ## The page's room when it was last fitted.
 var _board_rows = null ## Leaderboard rows once fetched; null while loading.
 var _board_note := ""
 
@@ -100,8 +104,8 @@ func _ready() -> void:
 	if params.get("day", "").is_valid_int():
 		day = maxi(1, int(params.day))
 	_load()
-	# A practice run carries its own seed; the ranked run is the day's tower.
-	setup = BounceRun.generate(day, int(run.get("seed", 0)))
+	# A run carries its map's seed; a new one draws a fresh map.
+	setup = BounceRun.generate(int(run.get("day", day)), int(run.seed)) if not run.is_empty() else _fresh_setup()
 	arena_clip = Control.new()
 	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(arena_clip)
@@ -116,7 +120,7 @@ func _ready() -> void:
 	_build_ui()
 	if get_viewport():
 		get_viewport().size_changed.connect(_layout)
-	print("BOUNCERUN_READY day=%d ranked=%s cards=%s boons=%s" % [day, ranked, ",".join(setup.cards.map(func(c): return c.critter)), ",".join(setup.start_offer)])
+	print("BOUNCERUN_READY day=%d seed=%d cards=%s boons=%s" % [day, int(setup.seed), ",".join(setup.cards.map(func(c): return c.critter)), ",".join(setup.start_offer)])
 	_retry_pending_post()
 	if run.has("launched"):
 		_settle_launched_fight()
@@ -237,57 +241,93 @@ func _show_draft() -> void:
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(card)
 		_mark("br_card_%d" % i, card)
+	# Next and Menu share a row so Next stays on screen below the cards.
+	_replace_children(page, [grid, Kit.hbox(14, [_next_button(), _menu_button()])])
+	scroll.scroll_vertical = 0
+	_fit_draft(grid)
+
+
+func _next_button() -> Button:
 	var next := Kit.button("Next (%d/3)" % picks.size(), _show_start_boons, "go" if picks.size() == BounceRun.PICKS else "ghost", 32)
 	next.disabled = picks.size() != BounceRun.PICKS
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_next", next)
-	# Next and Menu share a row so Next stays on screen below the cards.
-	_replace_children(page, [grid, Kit.hbox(14, [next, _menu_button()])])
-	scroll.scroll_vertical = 0
-	_fit_draft.call_deferred(grid)
+	return next
 
 
 ## Shrinks the stacked draft cards until the page fits without scrolling:
 ## smaller critter icons first, then smaller ability text, then the rarity
 ## chips go (the tint and rim still show rarity). Small phones with Larger
-## text only. Reports the screen once it has settled.
-func _fit_draft(grid: Control) -> void:
+## text only. It all happens before the frame draws, so the cards never show
+## at their first size. Reports the screen once it has settled.
+func _fit_draft(grid: Control, step := 0, font := 19) -> void:
+	if step == 0:
+		_after_layout(_fit_draft.bind(grid, 1, font))
+		return
+	if not is_instance_valid(grid) or not grid.is_inside_tree():
+		return
 	var icons := grid.find_children("*", "", true, false).filter(func(c): return c.has_meta("draft_icon"))
 	var texts := grid.find_children("*", "Label", true, false).filter(func(c): return c.has_meta("draft_text"))
 	var chips := grid.find_children("*", "", true, false).filter(func(c): return c.has_meta("draft_chip"))
-	var font := 19
-	for _i in 14:
-		await get_tree().process_frame
-		if not is_instance_valid(grid) or not grid.is_inside_tree():
-			return
-		# Leaves room for the corner Sound toggle under the buttons.
-		var over := page.get_combined_minimum_size().y - (scroll.size.y - 36.0)
-		if over <= 0.0:
-			break
-		var side: float = icons[0].custom_minimum_size.x if icons else 0.0
-		if side > 48.0:
-			side = maxf(48.0, side - ceilf(over / 3.0))
-			for icon in icons:
-				icon.custom_minimum_size = Vector2(side, side)
-		elif font > 15:
-			font -= 1
-			for t in texts:
-				t.add_theme_font_size_override("font_size", A11y.font(font))
-		elif chips and chips[0].visible:
-			for c in chips:
-				c.visible = false
-		else:
-			break
-	_report("br_draft")
+	# Leaves room for the corner Sound toggle under the buttons.
+	var over := page.get_combined_minimum_size().y - (scroll.size.y - 36.0)
+	var side: float = icons[0].custom_minimum_size.x if icons else 0.0
+	if over <= 0.0 or step > 14:
+		_report.call_deferred("br_draft")
+		return
+	if side > 48.0:
+		side = maxf(48.0, side - ceilf(over / 3.0))
+		for icon in icons:
+			icon.custom_minimum_size = Vector2(side, side)
+	elif font > 15:
+		font -= 1
+		for t in texts:
+			t.add_theme_font_size_override("font_size", A11y.font(font))
+	elif chips and chips[0].visible:
+		for c in chips:
+			c.visible = false
+	else:
+		_report.call_deferred("br_draft")
+		return
+	_after_layout(_fit_draft.bind(grid, step + 1, font))
 
 
+## Calls `cb` once containers have re-sorted after a change, still inside
+## this frame: deferred calls queued while the queue flushes run in the same
+## flush, before anything draws. Awaiting process_frame instead would draw
+## one frame of the old layout first.
+func _after_layout(cb: Callable, hops := 8) -> void:
+	if hops <= 0:
+		cb.call()
+	else:
+		_after_layout.call_deferred(cb, hops - 1)
+
+
+## Picking or dropping a card restyles it where it is (rim and pick number)
+## rather than rebuilding the page, so nothing resizes or jumps.
 func _toggle_pick(i: int) -> void:
 	if i in picks:
 		picks.erase(i)
 	elif picks.size() < BounceRun.PICKS:
 		picks.append(i)
 	sfx.play("wall")
-	_show_draft()
+	var grid: Control = page.get_child(0)
+	for k in grid.get_child_count():
+		var card: Button = grid.get_child(k)
+		var title: Label = card.get_meta("title")
+		title.text = ("#%d  " % (picks.find(k) + 1) if k in picks else "") + _name(setup.cards[k].critter)
+		_style_card(card, setup.cards[k].critter, k in picks, false, true)
+	_swap_child(page.get_child(1), 0, _next_button())
+	_report.call_deferred("br_draft")
+
+
+## Puts `c` in place of `box`'s child at `index`.
+func _swap_child(box: Control, index: int, c: Control) -> void:
+	var old := box.get_child(index)
+	box.remove_child(old)
+	old.queue_free()
+	box.add_child(c)
+	box.move_child(c, index)
 
 
 func _show_start_boons() -> void:
@@ -299,22 +339,36 @@ func _show_start_boons() -> void:
 	for i in setup.start_offer.size():
 		var id: String = setup.start_offer[i]
 		var b := Boons.get_def(id)
-		var picked: bool = id in start_picks
-		var body := Kit.vbox(4, [Kit.hbox(8, [BoonIcon.make(b.icon, b.rarity, 40), Kit.label(b.name, 26, GOLD)]),
-			Kit.label(b.text, 20, Kit.FG if picked else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
-		var card := Kit.card_button(body, func(): _toggle_start_boon(i), GOLD if picked else Kit.LINE, Color("241f55") if picked else Kit.PANEL, 28, 16)
+		var text := Kit.label(b.text, 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		var body := Kit.vbox(4, [Kit.hbox(8, [BoonIcon.make(b.icon, b.rarity, 40), Kit.label(b.name, 26, GOLD)]), text])
+		var card := Kit.card_button(body, func(): _toggle_start_boon(i), Kit.LINE, Kit.PANEL, 28, 16)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.set_meta("text", text)
+		_style_start_boon(card, id in start_picks)
 		grid.add_child(card)
 		_mark("br_sboon_%d" % i, card)
+	var trio := Kit.hbox(12, [Kit.caption("Your trio"),
+		FighterTag.named_row(picks.map(func(i): return setup.cards[i].critter), 44, 22)], BoxContainer.ALIGNMENT_CENTER)
+	_set_page([_art("banner_draft"), trio, grid, Kit.hbox(14, [_start_button(), Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
+
+
+func _start_button() -> Button:
 	var start := Kit.button("Start run (%d/3)" % start_picks.size(), _start_run, "go" if start_picks.size() == BounceRun.START_BOONS else "ghost", 32)
 	start.disabled = start_picks.size() != BounceRun.START_BOONS
 	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_start", start)
-	var trio := Kit.hbox(12, [Kit.caption("Your trio"),
-		FighterTag.named_row(picks.map(func(i): return setup.cards[i].critter), 44, 22)], BoxContainer.ALIGNMENT_CENTER)
-	_set_page([_art("banner_draft"), trio, grid, Kit.hbox(14, [start, Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
+	return start
 
 
+func _style_start_boon(card: Button, picked: bool) -> void:
+	var st := Kit.box(Color("241f55") if picked else Kit.PANEL, GOLD if picked else Kit.LINE, 28, 3, 16)
+	for k in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+		card.add_theme_stylebox_override(k, st)
+	card.get_meta("text").add_theme_color_override("font_color", Kit.FG if picked else Kit.MUTED)
+
+
+## Restyles the picked cards in place, as the draft does: the painting above
+## them keeps its size.
 func _toggle_start_boon(i: int) -> void:
 	var id: String = setup.start_offer[i]
 	if id in start_picks:
@@ -322,7 +376,11 @@ func _toggle_start_boon(i: int) -> void:
 	elif start_picks.size() < BounceRun.START_BOONS:
 		start_picks.append(id)
 	sfx.play("wall")
-	_show_start_boons()
+	var grid: Control = page.get_child(2)
+	for k in grid.get_child_count():
+		_style_start_boon(grid.get_child(k), setup.start_offer[k] in start_picks)
+	_swap_child(page.get_child(3), 0, _start_button())
+	_report.call_deferred("br_start_boons")
 
 
 func _start_run() -> void:
@@ -447,6 +505,9 @@ func _finish_fight() -> void:
 	run.erase("launched")
 	BounceRun.record(setup, run, slot, aim, sim.winner, sim.tick, sim.team_hp(1))
 	_save_run()
+	GlowState.note_fight(sim.winner, sim.balls[0].damage_dealt, {"critter": sim.balls[0].type_id})
+	if won:
+		GlowState.note("bounce_floor", cleared_floor)
 	sfx.on_result(sim.winner)
 	print("BOUNCERUN_RESULT floor=%d won=%s ticks=%d over=%s" % [cleared_floor, won, sim.tick, run.over])
 	var info := ""
@@ -608,15 +669,30 @@ func _take_boon(id: String) -> void:
 
 
 func _finish_run() -> void:
-	if ranked:
+	if not run.get("counted", false):
+		run.counted = true
 		stats.played += 1
 		stats.best_floors = maxi(stats.best_floors, run.floor)
 		if run.floor >= BounceRun.FLOORS:
 			stats.clears += 1
-		_save.set_value("pending", str(day), run)
+		# The board keeps each player's best run of the day: post the best one.
+		var waiting: Dictionary = _save.get_value("pending", str(run.day), {})
+		if waiting.is_empty() or _beats(run, waiting):
+			_save.set_value("pending", str(run.day), run)
 		_save_run()
 		_post(run)
 	_show_over()
+
+
+## True when finished run `a` scores above `b`: floors, then lives, then time.
+static func _beats(a: Dictionary, b: Dictionary) -> bool:
+	var x := BounceRun.score(a)
+	var y := BounceRun.score(b)
+	if x.floors != y.floors:
+		return x.floors > y.floors
+	if x.lives != y.lives:
+		return x.lives > y.lives
+	return x.ticks < y.ticks
 
 
 func _show_over() -> void:
@@ -625,14 +701,14 @@ func _show_over() -> void:
 	_board_mode()
 	var s := BounceRun.score(run)
 	var cleared: bool = s.floors >= BounceRun.FLOORS
-	sub_label.text = ("Ranked" if ranked else "Practice") + " · resets 00:00 UTC"
+	sub_label.text = "Best today: floor %d" % best_today()
 	var head := Kit.label("RUN CLEARED!" if cleared else "Run over", 52, GOLD if cleared else Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	var line := Kit.label("%d/%d floors · %d lives · %s" % [s.floors, BounceRun.FLOORS, s.lives, _clock(s.ticks)], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	share_button = Kit.button("Share", func(): share_button.text = _share(), "go", 30)
-	var practice := Kit.button("Practice run", _practice, "ghost", 28)
-	_mark("br_practice", practice)
-	var items: Array = [_art("banner_victory" if cleared else "banner_defeat"), head, line, _floor_pips(s.floors), Kit.hbox(14, [share_button, practice])]
-	items.append(Kit.label("Best %d · %d/%d cleared" % [stats.best_floors, stats.clears, stats.played], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	var again := Kit.button("New run", _new_run, "ghost", 28)
+	_mark("br_new_run", again)
+	var items: Array = [_art("banner_victory" if cleared else "banner_defeat"), head, line, _floor_pips(s.floors), Kit.hbox(14, [share_button, again])]
+	items.append(_chest_row())
 	items.append(_leaderboard())
 	items.append(_menu_button())
 	_set_page(items, "br_over")
@@ -640,10 +716,33 @@ func _show_over() -> void:
 		_fetch_board()
 
 
-## An unranked run on a fresh random tower: new draft, boons and foes.
-func _practice() -> void:
-	ranked = false
-	setup = BounceRun.generate(day, randi_range(1, 999999))
+## The chest today's best floor opens tomorrow, and the floor for the next one.
+func _chest_row() -> Control:
+	var best := best_today()
+	var t := BounceChest.tier_for(best)
+	var bits: Array = []
+	if t >= 0:
+		bits.append(ChestArt.make(BounceChest.TIERS[t].id, 96.0))
+		bits.append(Kit.label("%s tomorrow" % BounceChest.TIERS[t].name, 24, BounceChest.TIERS[t].color))
+	if t < BounceChest.TIERS.size() - 1:
+		var next: Dictionary = BounceChest.TIERS[t + 1]
+		bits.append(Kit.label(("· " if t >= 0 else "") + "Floor %d: %s" % [int(next.floor), next.name], 22, Kit.MUTED))
+	return Kit.hbox(10, bits, BoxContainer.ALIGNMENT_CENTER)
+
+
+## The best floor reached in any run today (UTC).
+func best_today() -> int:
+	return int(_save.get_value("best", str(today), 0))
+
+
+## A fresh map for a new run: seeded by the day and a random draw.
+func _fresh_setup() -> Dictionary:
+	return BounceRun.generate(day, randi_range(1, 999999))
+
+
+## A new run on a fresh map: new draft, boons and foes.
+func _new_run() -> void:
+	setup = _fresh_setup()
 	run = {}
 	picks = []
 	start_picks = []
@@ -685,7 +784,7 @@ func _fetch_board() -> void:
 		_board_note = ""
 	else:
 		_board_rows = null
-		_board_note = "Offline. Score posts later." if ranked else "Offline."
+		_board_note = "Offline. Score posts later."
 	if state == State.OVER:
 		_show_over()
 
@@ -737,21 +836,24 @@ func _load() -> void:
 		return
 	for key in stats:
 		stats[key] = _save.get_value("stats", key, stats[key])
-	var ranked_run: Dictionary = _save.get_value("runs", str(day), {})
-	var practice: Dictionary = _save.get_value("practice", str(day), {})
+	run = _save.get_value("run", "current", {})
+	# Saves from before every run counted the same kept a ranked and a
+	# practice run per day: carry on today's unfinished one.
+	if run.is_empty():
+		for section in ["practice", "runs"]:
+			var old: Dictionary = _save.get_value(section, str(day), {})
+			if not old.is_empty() and not old.get("over", false):
+				run = old
 	# A run saved under older rules can't continue under these.
-	if ranked_run.get("rules", 1) != BounceRun.RULES_VERSION:
-		ranked_run = {}
-	if practice.get("rules", 1) != BounceRun.RULES_VERSION:
-		practice = {}
-	# The ranked run until it's over and a practice run has begun. Other days
-	# without a ranked run are practice only.
-	ranked = (not ranked_run.is_empty() and (not ranked_run.over or practice.is_empty())) or (day == today and ranked_run.is_empty())
-	run = ranked_run if ranked else practice
+	if run.get("rules", 1) != BounceRun.RULES_VERSION:
+		run = {}
 
 
 func _save_run() -> void:
-	_save.set_value("runs" if ranked else "practice", str(day), run)
+	_save.set_value("run", "current", run)
+	# The best floor today, from any run: it opens tomorrow's chest.
+	if not run.is_empty():
+		_save.set_value("best", str(today), maxi(best_today(), int(BounceRun.score(run).floors)))
 	for key in stats:
 		_save.set_value("stats", key, stats[key])
 	_save.save(save_path)
@@ -859,6 +961,9 @@ func _layout() -> void:
 	var page_bottom := FightLayout.pill_position(size, 1).y - 12.0
 	_place(scroll, Vector2((size.x - page_width) / 2.0, 150), Vector2(page_width, page_bottom - 150))
 	page.custom_minimum_size.x = page_width
+	if scroll.size != _page_box:
+		_page_box = scroll.size
+		_refit_page()
 	arena.queue_redraw()
 
 
@@ -940,7 +1045,10 @@ func _critter_card(critter: String, on_press: Callable, pick_no := -1, out := fa
 	var title := ("#%d  " % (pick_no + 1) if picked else "") + _name(critter)
 	var chip := Kit.chip(Roster.RARITY_NAMES[rarity], Kit.MUTED if out else col, 16)
 	chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if stacked else Control.SIZE_SHRINK_BEGIN
-	var text := Kit.vbox(2, [Kit.label(title, 28, Kit.MUTED if out else Kit.FG, align), chip])
+	var name_label := Kit.label(title, 28, Kit.MUTED if out else Kit.FG, align)
+	if stacked: # A pick number never widens its column of the grid.
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var text := Kit.vbox(2, [name_label, chip])
 	text.add_child(Kit.label("OUT", 22, PINK, align) if out else _ability_label(critter, align))
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var icon := CritterIcon.make(critter, tier, 104 if stacked else 80)
@@ -955,14 +1063,20 @@ func _critter_card(critter: String, on_press: Callable, pick_no := -1, out := fa
 		body = Kit.vbox(6, [icon, text])
 	else:
 		body = Kit.hbox(12, [icon, text])
+	var card := Kit.card_button(body, on_press, Kit.LINE, Kit.PANEL, 28, 14)
+	card.set_meta("title", text.get_child(0))
+	_style_card(card, critter, picked, out, stacked)
+	return card
+
+
+## A critter card's tint and rim: its rarity's, or a thick white rim once picked.
+func _style_card(card: Button, critter: String, picked: bool, out: bool, stacked: bool) -> void:
+	var rarity: String = Roster.get_critter(critter).rarity
 	var bg := Kit.PANEL if out else Roster.rarity_bg(rarity, Color("241f55") if picked else Kit.PANEL, 0.2)
 	var rim := Kit.LINE if out else (Kit.FG if picked else Roster.rarity_border(rarity, Kit.ACCENT if not stacked else Kit.LINE))
-	var card := Kit.card_button(body, on_press, rim, bg, 28, 14)
-	if picked:
-		var st := Kit.box(bg, rim, 28, 6, 14)
-		for k in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
-			card.add_theme_stylebox_override(k, st)
-	return card
+	var st := Kit.box(bg, rim, 28, 6 if picked else 3, 14)
+	for k in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+		card.add_theme_stylebox_override(k, st)
 
 
 ## `c` inside a plain Control of its size, so it can be scaled from its
@@ -1042,7 +1156,7 @@ func _show_rules() -> void:
 		"Elites are bigger and tougher but pay more. ? nodes hide events with choices. Shops sell boons for Buttons, which you earn in the run. Charge Pads revive, polish or clean.",
 		"Glitches are bad boons. Shops and Charge Pads clean them.",
 		"Your trio and the foes go up a tier every %d floors, up to T5 near the top." % BounceRun.FLOORS_PER_TIER,
-		"One ranked run a day, the same map for everyone. Ranked by floors, lives, then time.",
+		"Play as many runs as you like. Your best floor each day goes on the leaderboard and opens a chest the next day: floors %s, or beat the Champion." % ", ".join(BounceChest.TIERS.slice(0, -1).map(func(t): return str(t.floor))),
 	]:
 		lines.append(Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	_overlay_card(lines, Kit.box(Kit.PANEL, Kit.ACCENT, 32, 3, 28), "br_rules_close")
@@ -1255,8 +1369,8 @@ func _go_node(id: int) -> void:
 ## An event's painting, `scale` of the page width (720x440 art).
 func _art(id: String, scale := 1.0) -> Control:
 	var tex := LivingArt.make(id, ART % id)
-	var w := page.custom_minimum_size.x * scale
-	tex.custom_minimum_size = Vector2(w, w * 440.0 / 720.0)
+	tex.set_meta("art_scale", scale)
+	_size_art(tex)
 	tex.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if scale == 1.0:
 		# A page's painting runs full width and takes the page's spare height
@@ -1266,14 +1380,22 @@ func _art(id: String, scale := 1.0) -> Control:
 	return tex
 
 
+func _size_art(tex: Control) -> void:
+	var w: float = page.custom_minimum_size.x * float(tex.get_meta("art_scale"))
+	tex.custom_minimum_size = Vector2(w, w * 440.0 / 720.0)
+
+
 ## Sizes a page's full-width painting so the page exactly fits the screen:
 ## taller when there's room (up to square-ish), shorter (down to a strip)
-## when the page would scroll. Measured after a layout pass, when wrapped
-## labels know their height.
-func _fit_art() -> void:
+## when the page would scroll. Measured once the page has laid out (wrapped
+## labels know their height) but before the frame draws, so the painting
+## never shows at its first size.
+func _fit_art(settled := false) -> void:
 	if not is_inside_tree():
 		return
-	await get_tree().process_frame
+	if not settled:
+		_after_layout(_fit_art.bind(true))
+		return
 	if not is_instance_valid(page):
 		return
 	var kids := page.get_children().filter(func(c): return c is Control and c.visible)
@@ -1285,6 +1407,28 @@ func _fit_art() -> void:
 			var w: float = c.custom_minimum_size.x
 			c.custom_minimum_size.y = clampf(c.size.y + scroll.size.y - 8.0 - used, w * 0.3, w * 1.0)
 			return
+
+
+## A new window size re-fits the page in place: paintings follow the page
+## width and the draft re-shrinks from full size.
+func _refit_page() -> void:
+	if not scroll.visible or page.get_child_count() == 0:
+		return
+	if state == State.DRAFT and page.get_child(0) is GridContainer:
+		var grid: Control = page.get_child(0)
+		for c in grid.find_children("*", "", true, false):
+			if c.has_meta("draft_icon"):
+				c.custom_minimum_size = Vector2(104, 104)
+			elif c.has_meta("draft_chip"):
+				c.visible = true
+			elif c.has_meta("draft_text"):
+				c.add_theme_font_size_override("font_size", A11y.font(19))
+		_fit_draft(grid)
+		return
+	for c in page.find_children("*", "TextureRect", true, false):
+		if c.has_meta("art_scale"):
+			_size_art(c)
+	_fit_art()
 
 
 func _show_event() -> void:

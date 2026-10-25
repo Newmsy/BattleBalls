@@ -507,15 +507,20 @@ func test_scene_plays_a_run_to_the_end() -> void:
 	check(scene.run.over, "the run ended (state %d, phase %s, steps %d)" % [scene.state, BounceRun.phase(scene.setup, scene.run), steps])
 	check(seen.has(scene.State.MAP), "the map showed")
 	check_eq(BounceRun.replay(scene.setup, scene.run).log, scene.run.log, "the played run replays")
-	# Reopening the scene shows the finished ranked run, not a new draft.
+	# Reopening the scene shows the finished run, not a new draft, and
+	# doesn't count it twice.
 	var again = load("res://game/bounce_run.tscn").instantiate()
 	again.save_path = path
 	runner.root.add_child(again)
 	again._ready()
 	check_eq(again.state, again.State.OVER, "finished run is remembered")
-	check(again.ranked, "still the ranked run")
-	again._practice()
-	check(not again.ranked and again.state == again.State.DRAFT, "practice starts a fresh, unranked draft")
+	check_eq(again.stats.played, 1, "counted once")
+	check_eq(again.best_today(), BounceRun.score(scene.run).floors, "the day's best floor is saved")
+	var first_seed: int = again.setup.seed
+	again._new_run()
+	check(again.state == again.State.DRAFT and again.run.is_empty(), "a new run starts a fresh draft")
+	check(again.setup.seed != first_seed, "on a fresh map")
+	check(again.best_today() >= BounceRun.score(scene.run).floors, "the best floor stays")
 	scene.queue_free()
 	again.queue_free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

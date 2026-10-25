@@ -28,6 +28,8 @@ const VERSUS := Color("ff4fd8")
 const STYLE := Color("5ce1ff")
 const ADVENTURE := Color("45f5a6")
 const BOSS := Color("ff8a3d")
+## Kit.MUTED, a step lighter, for words over a painting.
+const ON_ART_MUTED := Color("cfcdf0")
 
 ## True on a tall phone (more than a 9:16 screen's height): the doors' badges,
 ## buttons and words grow a step so they fill the room instead of floating.
@@ -75,11 +77,11 @@ static func build(shell, _params: Dictionary) -> Control:
 static func door(shell, mark: String, title: String, sub: String, accent: Color, hub: Callable, body: Array, paint := {}) -> Control:
 	var head := Kit.vbox(0, [Kit.label(title, 34, accent), Kit.label(sub, 19, Kit.MUTED)])
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# A painted door zooms you through its painting into the hub.
+	# A painted door opens into its hub with a wash of its colour.
 	var painting: Array = [null]
 	var open_hub := func():
 		if is_instance_valid(painting[0]):
-			shell.zoom_from(painting[0])
+			shell.light_from(painting[0], accent)
 		hub.call()
 	var header := Kit.card_button(Kit.hbox(8, [head, Kit.label("›", 44, accent)], BoxContainer.ALIGNMENT_CENTER), open_hub, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 0)
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -98,7 +100,8 @@ static func door(shell, mark: String, title: String, sub: String, accent: Color,
 	# The painting sits inside the 2px border, its corners rounded to match.
 	st.set_content_margin_all(2)
 	if paint.get("hero", false):
-		var art := HomePainting.make(paint.id, paint.focus, 30.0, Vector4(.24, .5, .3, .92), Kit.BG)
+		# Its left side is kept calm for the words; the props live on the right.
+		var art: Control = HomePainting.make(paint.id, paint.focus, 30.0, Vector4(.24, .6, .3, .92), Kit.BG).calm_left(.62, .72)
 		painting[0] = art
 		# The painting shows through the spare room between the header and the rows.
 		var room := _gap()
@@ -115,7 +118,7 @@ static func door(shell, mark: String, title: String, sub: String, accent: Color,
 	band.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	# On a short phone the band is just the header's height; a tall one grows it.
 	band.custom_minimum_size.y = 130 if tall else 0
-	painting[0] = HomePainting.make(paint.id, paint.focus, 30.0, Vector4(.3, .35, .55, 1.0), bg)
+	painting[0] = HomePainting.make(paint.id, paint.focus, 30.0, Vector4(.3, .45, .55, 1.0), bg).calm_left(.62, .65)
 	band.add_child(painting[0])
 	band.add_child(_padded(header, 16, 0))
 	var rows := Kit.vbox(8, body)
@@ -134,14 +137,31 @@ static func _padded(c: Control, top: int, bottom: int) -> MarginContainer:
 	return m
 
 
-## Words over a painting get a soft shadow so they read on any part of it.
+## Words over a painting get a dark rim and a soft shadow so they read on any
+## part of it; muted words are lifted a step, since grey on paint vanishes.
 static func _on_art(n: Node) -> void:
 	if n is Label:
-		n.add_theme_color_override("font_shadow_color", Color(0, 0, 0, .7))
+		if n.get_theme_color("font_color") == Kit.MUTED:
+			n.add_theme_color_override("font_color", ON_ART_MUTED)
+		n.add_theme_color_override("font_outline_color", Color(0, 0, 0, .75))
+		n.add_theme_constant_override("outline_size", 6)
+		n.add_theme_color_override("font_shadow_color", Color(0, 0, 0, .8))
 		n.add_theme_constant_override("shadow_offset_y", 2)
-		n.add_theme_constant_override("shadow_outline_size", 6)
+		n.add_theme_constant_override("shadow_outline_size", 8)
 	for c in n.get_children():
 		_on_art(c)
+
+
+## A small count on a painting (stars, power) on a dark round pill.
+static func _art_pill(c: Control) -> Control:
+	var st := Kit.box(Color(Kit.BG, .72), Color(1, 1, 1, .1), 999, 1, 0)
+	st.content_margin_left = 10
+	st.content_margin_right = 12
+	st.content_margin_top = 2
+	st.content_margin_bottom = 2
+	var p := Kit.panel(c, st)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return p
 
 
 ## A painted round token (game/ui/home_art/tok_*.png), `side` across.
@@ -204,7 +224,12 @@ static func _adventure_door(shell) -> Control:
 	var c := campaign_state(shell.profile)
 	var name := Kit.label(c.zone.name, _s(30))
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var top := Kit.hbox(10, [name, Glyph.make("crown", 26, Kit.FG, 1), Kit.label("%d/%d" % [c.stars, c.max_stars], 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var top := Kit.hbox(10, [name, _art_pill(Kit.hbox(6, [Glyph.make("crown", 26, Kit.FG, 1), Kit.label("%d/%d" % [c.stars, c.max_stars], 22, Kit.MUTED)]))], BoxContainer.ALIGNMENT_CENTER)
+	# The next stage's power sits on a pill too: the right side is the painting's.
+	if c.power != null:
+		var row: Control = c.next_row
+		row.remove_child(c.power)
+		row.add_child(_art_pill(c.power))
 	# The zone's painting is the door's picture; the next foes' faces sit in
 	# the Next line.
 	var zone := Kit.vbox(8, [top, c.next_row])
@@ -244,11 +269,19 @@ static func _daily_door(shell) -> Control:
 		door_spot(shell, "bouncerun", token("bounce", _s(62)), "Bounce Run", "New run", DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")),
 		door_spot(shell, "daily_fotd", token_with("frame_gold", fotd, _s(62)), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
-		door_spot(shell, "daily_quests", token("quests", _s(62)), "Quests", "Soon", DAILY, week),
+		door_spot(shell, "daily_quests", token("quests", _s(62)), "Quests", _quest_line(shell), DAILY, func(): shell.go("quests"), shell.glow.quests_ready() > 0),
 	])
 	var season := LiveOps.season(t)
 	var sub := "Puzzles, runs and this week's events" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks]
 	return door(shell, "thisweek", "DAILY", sub, DAILY, week, [row], {"id": "home_daily", "focus": Vector2(.75, .5)})
+
+
+## The Quests spot's status: Claim when something is ready, else today's count.
+static func _quest_line(shell) -> String:
+	if shell.glow.quests_ready() > 0:
+		return "Claim"
+	var q: Dictionary = shell.glow.quests(LiveOps.now())
+	return "New" if (q.daily as Array).is_empty() else "%d/3" % q.chest.done
 
 
 ## Versus: Ghost Arena, then Quick fight with your fighter (tap the face to pick
@@ -346,6 +379,7 @@ static func campaign_state(p) -> Dictionary:
 		star_total += Campaign.stars_of(p, z, i)
 	var next_row: Control = Kit.label("All %d stages cleared." % stages.size(), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	var faces = null
+	var power = null
 	var foe: String = Zones.enemies(stages[next if next >= 0 else stages.size() - 1])[0]
 	if next >= 0:
 		var st: Dictionary = stages[next]
@@ -356,8 +390,9 @@ static func campaign_state(p) -> Dictionary:
 		faces = Kit.hbox(2)
 		for id in Zones.enemies(st):
 			faces.add_child(CritterIcon.face(id, 40))
-		next_row = Kit.hbox(12, [faces, next_l, Kit.power(Campaign.enemy_rating(z, next), 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
-	return {"z": z, "zone": zd, "stars": star_total, "max_stars": stages.size() * 3, "next_row": next_row, "faces": faces, "foe": foe}
+		power = Kit.power(Campaign.enemy_rating(z, next), 22, Kit.MUTED)
+		next_row = Kit.hbox(12, [faces, next_l, power], BoxContainer.ALIGNMENT_CENTER)
+	return {"z": z, "zone": zd, "stars": star_total, "max_stars": stages.size() * 3, "next_row": next_row, "faces": faces, "foe": foe, "power": power}
 
 
 ## The campaign: the main way forward, so it gets the first big card.

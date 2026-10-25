@@ -1,7 +1,7 @@
 ## The Glitch (design/bosses.md, design/glitch.md): the weekly story boss in
 ## the Corrupted Core. It rewrites the rules every 10 seconds (Static, Warp,
 ## Pull). Three tries a week; the first win pays a big bundle (Summon Eggs,
-## Lures and Hammers) and ends its week. Opens when the Zone 5 boss is
+## Lures and Hammers) and ends its week. Opens when the Zone 4 boss is
 ## beaten.
 ##
 ## Same flow as the other bosses (meta/gear_vault.gd): start() before the
@@ -19,7 +19,7 @@ const BOSS := "the_glitch"
 const KEY := "glitch"
 const ENERGY_COST := 12
 const RUNS_PER_DAY := 3 ## Tries per WEEK (the hall reads this name).
-const ZONE := 4 ## Beating this zone's boss (0-based) opens it.
+const ZONE := 3 ## Beating this zone's boss (0-based) opens it.
 ## One difficulty: check it with tools/boss_difficulty.gd --boss=the_glitch.
 const DIFFICULTIES := [{"name": "Weekly", "power": 7.5}]
 const BUNDLE := [{"kind": "orbs", "n": 10}, {"kind": "lures", "n": 2}, {"kind": "hammers", "n": 15}]

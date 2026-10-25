@@ -158,8 +158,7 @@ func _draw() -> void:
 		var rr := r * (1.55 if t == "boss" else 1.0)
 		if id in _reach:
 			rr *= 1.15
-			Dot.circle(self, p, rr * 1.5, Color(col, .14))
-			Dot.circle(self, p, rr * 1.25, Color(col, .22))
+			Dot.glow(self, p, rr * 1.6, Color(col, .36), .6)
 		var token := _tex("map_node_" + t)
 		if token:
 			# The painted token (a 150 px badge in a 160 px square): past and

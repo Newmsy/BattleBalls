@@ -27,11 +27,11 @@ const CRITTER := {
 		"illusion_swap": 0, ## 1: Foxfire blinks to a bursting illusion.
 	},
 	"tiers": [
-		{"text": "Every 6s splits off 2 illusions that burst for 8", "now": "Every 6s splits off {illusion_count} illusions that burst for {illusion_damage}"},
+		{"text": "Every 6s splits off 2 illusions that burst for 8", "card": "Splits off fox-fire illusions that burst into flame when touched.", "now": "Every 6s splits off {illusion_count} illusions that burst for {illusion_damage}"},
 		{"text": "Burst {^illusion_damage} → {illusion_damage}", "illusion_damage": 10.0},
-		{"text": "+ Illusions leave flame trails ({illusion_trail_damage}/sec)", "now": "Every 6s {illusion_count} trailing illusions that burst for {illusion_damage}", "illusion_trail_damage": 4.0},
+		{"text": "+ Illusions leave flame trails ({illusion_trail_damage}/sec)", "card": "Splits off fox-fire illusions that leave flame trails and burst into flame when touched.", "now": "Every 6s {illusion_count} trailing illusions that burst for {illusion_damage}", "illusion_trail_damage": 4.0},
 		{"text": "Illusions 2 → 3", "illusion_count": 3},
-		{"text": "+ A touched illusion swaps with Foxfire", "now": "Every 6s {illusion_count} trailing illusions burst for {illusion_damage} + swap", "illusion_swap": 1},
+		{"text": "+ A touched illusion swaps with Foxfire", "card": "Splits off flame-trailing illusions that burst when touched, and Foxfire swaps into their place.", "now": "Every 6s {illusion_count} trailing illusions burst for {illusion_damage} + swap", "illusion_swap": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smirk"}, "back": ["ears", "foxtail"], "front": ["mask"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.2},

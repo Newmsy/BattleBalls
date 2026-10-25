@@ -25,12 +25,12 @@ const CRITTER := {
 		"thunder_damage": 0.0,
 	},
 	"tiers": [
-		{"text": "Bounces store sparks (max 4); next hit chains 5/sec", "now": "Bounces store sparks (max {spark_max}); next hit chains {storm_dps}/sec"},
+		{"text": "Bounces store sparks (max 4); next hit chains 5/sec", "card": "Wall bounces store sparks; its next hit unleashes them as stunning chain lightning.", "now": "Bounces store sparks (max {spark_max}); next hit chains {storm_dps}/sec"},
 		{"text": "Lightning {^storm_dps} → {storm_dps}/sec", "storm_dps": 6.5},
-		{"text": "+ The lightning burns {storm_burn}/sec for 2s", "now": "Bounces store sparks (max {spark_max}); next hit chains {storm_dps}/sec + burn", "storm_burn": 2.0},
+		{"text": "+ The lightning burns {storm_burn}/sec for 2s", "card": "Wall bounces store sparks; its next hit unleashes them as burning chain lightning.", "now": "Bounces store sparks (max {spark_max}); next hit chains {storm_dps}/sec + burn", "storm_burn": 2.0},
 		{"text": "Max sparks 4 → 5", "spark_max": 5},
-		{"text": "+ A full charge calls a thunderclap ({thunder_damage} dmg)", "now": "Stores up to {spark_max} sparks; next hit chains {storm_dps}/sec + burn, clap", "thunder_damage": 12.0},
+		{"text": "+ A full charge calls a thunderclap ({thunder_damage} dmg)", "card": "Bounces store sparks; its next hit unleashes burning chain lightning, with a thunderclap when full.", "now": "Stores up to {spark_max} sparks; next hit chains {storm_dps}/sec + burn, clap", "thunder_damage": 12.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "ffb300", "mouth": "smirk"}, "back": ["wings", "boltcrest"]},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "ffb300", "mouth": "smirk"}, "back": ["wings", "boltcrest"], "front": ["stormbelly"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 1.0},
 }

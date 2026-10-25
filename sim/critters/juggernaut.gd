@@ -27,11 +27,11 @@ const CRITTER := {
 		"boom_double_every": 0,
 	},
 	"tiers": [
-		{"text": "Hit foes take 9 off a wall (0.3s); hits drop a rock", "now": "Hit foes take {slam_damage} off a wall ({slam_window}s); hits drop a rock"},
+		{"text": "Hit foes take 9 off a wall (0.3s); hits drop a rock", "card": "Huge and slow. Its hits knock rocks loose, and foes it sends into a wall or rock take a slam.", "now": "Hit foes take {slam_damage} off a wall ({slam_window}s); hits drop a rock"},
 		{"text": "Slam {^slam_damage} → {slam_damage}", "slam_damage": 10.0},
 		{"text": "Slam window 0.3 → 0.4s", "slam_window": 0.4},
 		{"text": "Slam {^slam_damage} → {slam_damage}", "slam_damage": 12.0},
-		{"text": "+ Hits send a shockwave: {boom_damage} + knockback", "now": "Hits: shockwave {boom_damage}; foe takes {slam_damage} off a wall in {slam_window}s", "ability": [{"on": "hit", "do": "boom"}]},
+		{"text": "+ Hits send a shockwave: {boom_damage} + knockback", "card": "Huge and slow. Hits send a shockwave and knock rocks loose; foes it sends into a wall take a slam.", "now": "Hits: shockwave {boom_damage}; foe takes {slam_damage} off a wall in {slam_window}s", "ability": [{"on": "hit", "do": "boom"}]},
 	],
 	## Chaos Weekends: fast, cramped twists favour its big hits; Double Trouble
 	## feeds Vampire's heal off them. Tuned with tools/balance.gd --modifiers.

@@ -15,6 +15,10 @@ const OPTIONS := [
 	["sound_cues", "Sound cues on screen", "Shows OVERTIME and low-HP alerts that are otherwise only heard."],
 ]
 
+## Privacy policy, terms and support pages (site/, served next to the web build).
+const SITE := "https://battleballs.vercel.app/"
+const LINKS := [["Privacy", "privacy.html"], ["Terms", "terms.html"], ["Support", "support.html"]]
+
 const MUSIC_CREDIT := "Music: \"Crypto\" by Kevin MacLeod (incompetech.com), licensed under Creative Commons: By Attribution 4.0."
 
 
@@ -29,12 +33,13 @@ static func build(shell) -> Control:
 	for o in OPTIONS:
 		v.add_child(_row(shell, o[0], o[1], o[2]))
 	v.add_child(_stats_row(shell))
-	if Dev.TOOLS_ENABLED:
+	v.add_child(_links(shell))
+	if Dev.tools_enabled():
 		v.add_child(_testing(shell))
 	# CC-BY 4.0 asks for this credit wherever the music is used.
 	v.add_child(Kit.label(MUSIC_CREDIT, 20, Color(Kit.MUTED, .7), HORIZONTAL_ALIGNMENT_LEFT, true))
 	if shell.build_stamp != "":
-		v.add_child(Kit.label("Battle Balls " + shell.build_stamp, 20, Color(Kit.MUTED, .7)))
+		v.add_child(_version(shell))
 	return v
 
 
@@ -96,7 +101,32 @@ static func _toggle(shell, key: String) -> void:
 	open(shell)
 
 
-## Playtest shortcuts on the real save. Hidden when Dev.TOOLS_ENABLED is off.
+## Account, then the privacy policy, terms and support pages.
+static func _links(shell) -> Control:
+	var row := Kit.hbox(10)
+	var acc := Kit.button("Account", func(): shell.close_overlay(); shell.go("account"), "ghost", 20, 64)
+	shell.mark("settings_account", acc)
+	row.add_child(acc)
+	for l in LINKS:
+		var b := Kit.button(l[0], func(): OS.shell_open(SITE + l[1]), "ghost", 20, 64)
+		shell.mark("settings_" + l[1].get_basename(), b)
+		row.add_child(b)
+	return row
+
+
+## The version line. Tapping it Dev.TAP_TO_UNLOCK times shows or hides Testing.
+static func _version(shell) -> Control:
+	var l := Kit.label("Battle Balls " + shell.build_stamp, 20, Color(Kit.MUTED, .7))
+	l.mouse_filter = Control.MOUSE_FILTER_STOP
+	l.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.pressed and Dev.tap_version():
+			shell.toast("Testing on." if Dev.tools_enabled() else "Testing off.")
+			open(shell))
+	shell.mark("version", l)
+	return l
+
+
+## Playtest shortcuts on the real save. Hidden unless Dev.tools_enabled().
 static func _testing(shell) -> Control:
 	var energy := Kit.button("Refill energy", func(): _refill_energy(shell), "primary", 26, 72)
 	shell.mark("dev_refill_energy", energy)
@@ -132,9 +162,29 @@ static func _testing(shell) -> Control:
 	for b in [restart, finish]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var intro_words := Kit.label("New player unlocks · step %d/%d" % [Intro.step(shell.profile), Intro.DONE], 22, Kit.MUTED)
+	# A Bounce Run chest to open on the Daily board, as if yesterday's best was that floor.
+	var chest_words := Kit.label("Bounce Run chest", 30)
+	chest_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var chests := Kit.hbox(8, [chest_words])
+	for f in [12, 20]:
+		var b := Kit.button("F%d" % f, func(): _bounce_chest(shell, f), "ghost", 24, 72)
+		b.custom_minimum_size.x = 96
+		shell.mark("dev_bounce_chest_%d" % f, b)
+		chests.add_child(b)
 	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds]),
-		Kit.hbox(16, [live_words, live]),
+		Kit.hbox(16, [live_words, live]), chests,
 		intro_words, Kit.hbox(16, [restart, finish])])
+
+
+static func _bounce_chest(shell, best_floor: int) -> void:
+	var BounceChest = load("res://meta/bounce_chest.gd")
+	var yesterday: int = load("res://sim/bounce_run.gd").day_number(Time.get_unix_time_from_system()) - 1
+	BounceChest.set_best(yesterday, best_floor)
+	shell.profile.bounce_chest = mini(shell.profile.bounce_chest, yesterday - 1)
+	shell.profile.changed.emit()
+	shell.close_overlay()
+	shell.show_tab("play")
+	shell.go("week")
 
 
 ## Replay intro: back to just out of the tutorial (stages 1-1 to 1-3 replay

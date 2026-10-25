@@ -62,6 +62,7 @@ it in the browser (MP4 on iPhone Safari); browsers without MediaRecorder get
 the same layout to screen-record. The export preset's `head_include` turns on
 `preserveDrawingBuffer` and taps the game's audio so the page can record both.
 `?sounds=1` opens the sound board: every sound with a play button.
+`?dev=1` shows Settings > Testing (refill energy, free summons...) on that device from then on (`?dev=0` hides it); so does tapping the version line at the foot of Settings 7 times. Players never see it; debug runs from the editor always do.
 `?pve=1-3&auto=1` plays campaign stage 1-3 on a fresh, unsaved profile.
 `?demo=1` loads the filled-in sample profile (unsaved), for previews and the smoke test.
 
@@ -514,9 +515,15 @@ cosmetics and the pass. Every power reward sits on the pass's free track.
 - Cosmetics are drawn by `arena_view.gd`, never passed to the sim, so fights
   still replay from angles + seed. The YOU/FOE rings, tags and HP badges are
   drawn last, over every cosmetic.
-- `game/glow/store.gd` is the store interface and, for now, a fake store
-  (purchases are free and labelled "Test store"). Real StoreKit / Play
-  Billing goes in a subclass; nothing else changes.
+- `game/glow/store.gd` is the store interface; `Store.make()` picks the store:
+  `apple_store.gd` (StoreKit, needs the godot-ios-plugins InAppStore plugin),
+  `play_store.gd` (needs the GodotGooglePlayBilling plugin), the free fake
+  store ("Test store") while Settings > Testing is on, and otherwise
+  `no_store.gd`, which sells nothing: the web build hides gem packs and the
+  paid pass. Real stores record each purchase with `record_purchase`
+  (`supabase/migrations/*_purchases.sql`) before granting it and finish the
+  transaction only after. Store product ids are the catalog ids. Receipts are
+  stored but not yet verified with Apple / Google (needs store credentials).
 - Pass levels come from play (fights, daily bounties, the weekly chest, Trick
   Shot); a new season in `liveops/liveops.json` starts a fresh pass.
 - `tests/test_glow.gd` guards the rules: no power for money, fixed prices,

@@ -165,6 +165,41 @@ func test_fake_store_grants_each_purchase_once() -> void:
 	_done()
 
 
+func test_web_store_sells_nothing() -> void:
+	var g = _fresh()
+	var none = load("res://game/glow/no_store.gd").new()
+	g.set_store(none)
+	var said := []
+	g.purchase_finished.connect(func(_id, ok, msg): said.append([ok, msg]))
+	check(not none.available() and not none.is_test(), "no money, and not the test store")
+	none.purchase("gems_450")
+	none.purchase("glow_pass")
+	check_eq(g.gems(), 0, "no free gems")
+	check(not g.pass_state().premium, "no free pass")
+	check(said.size() == 2 and not said[0][0], "the player is told it failed")
+	_done()
+
+
+## Records finish() calls, like a real store would finish transactions.
+class FinishStore extends "res://game/glow/store.gd":
+	var finished := []
+	func finish(product_id: String, txn: String) -> void:
+		finished.append([product_id, txn])
+
+
+func test_transactions_finish_only_after_the_grant() -> void:
+	var g = _fresh()
+	var s := FinishStore.new()
+	g.set_store(s)
+	s.purchased.emit("gems_80", "T1")
+	check_eq(g.gems(), 80, "granted")
+	check_eq(s.finished, [["gems_80", "T1"]], "finished after granting")
+	s.purchased.emit("gems_80", "T1")
+	check_eq(g.gems(), 80, "redelivery not granted twice")
+	check_eq(s.finished.size(), 2, "but finished again, so the store stops redelivering")
+	_done()
+
+
 func test_buying_items_and_bundles() -> void:
 	var g = _fresh()
 	check_eq(g.buy_item("hat_party"), "Not enough Glow Gems.", "can't afford")
@@ -291,39 +326,6 @@ func test_no_season_no_pass() -> void:
 	_done()
 
 
-# --- Bounties ---------------------------------------------------------------------------
-
-func test_three_different_bounties_every_day() -> void:
-	for day in 120:
-		var b := GlowPass.bounties_for(day)
-		check_eq(b.size(), GlowPass.BOUNTIES_PER_DAY, "3 bounties")
-		var kinds := {}
-		for x in b:
-			kinds[x.kind] = true
-		check_eq(kinds.size(), 3, "day %d: three different kinds" % day)
-
-
-func test_fights_fill_bounties_and_the_weekly_chest() -> void:
-	var g = _fresh()
-	var t := _t("2026-10-14")
-	var xp := 0
-	for i in 8:
-		xp += g.record_fight(0, 250.0, t)
-	var done: Array = g.bounties(t).filter(func(b): return b.done)
-	check(done.size() >= 2, "8 wins with damage finish the fight bounties (%d)" % done.size())
-	check(xp >= 8 * 30 + 2 * GlowPass.BOUNTY_XP, "XP from fights and bounties (%d)" % xp)
-	g.record_trick(t)
-	check_eq(g.week_state(t).count, g.bounties(t).filter(func(b): return b.done).size(), "week counts today's bounties")
-	g.g().week.count = GlowPass.CHEST_AFTER
-	check(g.chest_ready(t), "chest opens after 12")
-	var before: int = g.pass_xp(t)
-	check(g.open_chest(t), "opened")
-	check_eq(g.pass_xp(t), before + GlowPass.CHEST_XP, "chest XP")
-	check(not g.open_chest(t), "once a week")
-	check_eq(g.bounties(t + 86400).filter(func(b): return b.progress > 0).size(), 0, "fresh bounties tomorrow")
-	_done()
-
-
 # --- Saves and screens -----------------------------------------------------------------
 
 func test_glow_survives_the_save_and_a_cloud_adopt() -> void:
@@ -369,6 +371,12 @@ func test_shop_and_pass_screens_build() -> void:
 	check_eq(ShopScreen.daily_items(LiveOps.now()).size(), ShopScreen.DAILY_SLOTS, "six daily items")
 	ShopScreen.item_sheet(shell, "hat_crown")
 	ShopScreen.gem_sheet(shell)
+	shell.glow.set_store(load("res://game/glow/no_store.gd").new())
+	ShopScreen.gem_sheet(shell)
+	shell.go("pass")
+	check(not shell._marks.has("pass_buy"), "no real-money pass button without a store")
+	shell.glow.set_store(Store.new())
+	shell.go("shop")
 	shell.glow.buy_item("hat_crown")
 	shell.glow.equip("hat_crown")
 	shell.refresh()

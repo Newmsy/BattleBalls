@@ -28,13 +28,13 @@ const CRITTER := {
 		"thorn_patch_dps": 2.0, ## ...and a thorn patch is left for 3s.
 	},
 	"tiers": [
-		{"text": "Sends back 18% of bumps, burns; every 3rd: 8 thorns fly", "now": "Sends back {reflect_ratio%}% of bumps, burns; every 3rd: {thorn_count} thorns fly"},
+		{"text": "Sends back 18% of bumps, burns; every 3rd: 8 thorns fly", "card": "Sends part of each bump back at the attacker with a burning sting, and sometimes fires thorns.", "now": "Sends back {reflect_ratio%}% of bumps, burns; every 3rd: {thorn_count} thorns fly"},
 		{"text": "Sends back 18 → 22%", "reflect_ratio": 0.22},
 		{"text": "Burn {^reflect_burn} → {reflect_burn}/sec", "reflect_burn": 1.0},
 		{"text": "Sends back 22 → 26%", "reflect_ratio": 0.26},
-		{"text": "+ Below 50% HP: sends back 50%", "now": "Bumped: sends back {reflect_ratio%}% ({reflect_low%}% below 50% HP), burns", "reflect_low": 0.5},
+		{"text": "+ Below 50% HP: sends back 50%", "card": "Sends bumps back with a burning sting, much more when it's low, and sometimes fires thorns.", "now": "Bumped: sends back {reflect_ratio%}% ({reflect_low%}% below 50% HP), burns", "reflect_low": 0.5},
 	],
 	"chaos": {"closing_walls": {"reflect_cap": 0.7}}, ## Short fights: big hitters can't outlast the sting.
-	"art": {"eyes": {"sep": .3, "w": .17, "h": .19, "p": .09, "brow": .32, "mouth": "frown"}, "back": ["thorn_ring"], "front": ["vines"]},
+	"art": {"eyes": {"sep": .3, "w": .17, "h": .19, "p": .09, "brow": .32, "mouth": "frown"}, "front": ["bramble"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 0.8},
 }

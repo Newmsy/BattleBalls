@@ -48,7 +48,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 static func _fight(shell, fighter: String) -> void:
 	var cfg: Dictionary = GlitchCore.start(shell.profile, 0, fighter, int(Time.get_unix_time_from_system()))
-	BossCard.start(shell, cfg, 0, fighter, "glitch", "The Glitch is done for this week. It's back on Thursday!", "Beat the Zone 5 boss to face The Glitch.")
+	BossCard.start(shell, cfg, 0, fighter, "glitch", "The Glitch is done for this week. It's back on Thursday!", "Beat the Zone 4 boss to face The Glitch.")
 
 
 ## One line summing up a Glitch result, for the result popup.

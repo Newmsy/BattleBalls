@@ -25,9 +25,9 @@ const CRITTER := {
 		"teeth_damage": 5.0,
 	},
 	"tiers": [
-		{"text": "Bumps wind +12% speed (max 36%) · full: x2 hit + 3 gears", "now": "Bumps wind +{wind_step%}% speed (max {wind_cap%}%) · full: x{wind_crit} hit + {teeth_count} gears"},
+		{"text": "Bumps wind +12% speed (max 36%) · full: x2 hit + 3 gears", "card": "Bumps wind it up faster. Fully wound, its next hit unwinds hard and flings gear teeth.", "now": "Bumps wind +{wind_step%}% speed (max {wind_cap%}%) · full: x{wind_crit} hit + {teeth_count} gears"},
 		{"text": "Gear teeth 3 → 4", "teeth_count": 4},
-		{"text": "+ Fully wound: +2 contact dmg", "now": "Bumps wind +{wind_step%}% speed (max {wind_cap%}%) · full: +{wind_add}, hit x{wind_crit}", "wind_add": 2.0},
+		{"text": "+ Fully wound: +2 contact dmg", "card": "Bumps wind it up faster. Fully wound, it hits harder, then unwinds in a big gear-flinging hit.", "now": "Bumps wind +{wind_step%}% speed (max {wind_cap%}%) · full: +{wind_add}, hit x{wind_crit}", "wind_add": 2.0},
 		{"text": "Wind 12 → 16% per bump (max 48%)", "wind_step": 0.16, "wind_cap": 0.48},
 		{"text": "Unwind x{^wind_crit} → {wind_crit}", "wind_crit": 3.0},
 	],

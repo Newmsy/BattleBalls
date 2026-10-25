@@ -318,8 +318,9 @@ static func sweep(profile, zone_index: int, stage_index: int, fighter: String, n
 
 
 ## A copy from the zone's featured critters on Economy.CAMPAIGN_DROP_CHANCE of
-## wins (with a small chance of the next rarity up), Summon Eggs on the rest
-## (into `result.orbs`), plus a copy of the beaten enemy on first clear, plus
+## wins (with a small chance of the next rarity up), a Summon Egg on
+## Economy.CAMPAIGN_EGG_CHANCE of wins, watched or swept (into `result.orbs`),
+## plus a copy of the beaten enemy and a guaranteed egg on first clear, plus
 ## the zone's guaranteed reward on the boss's first clear.
 static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear: bool, result := {}) -> Array:
 	var z := Zones.zone(zone_index)
@@ -327,12 +328,17 @@ static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear:
 	var rng := Rng.new(_seed(profile.runs, zone_index, stage_index) ^ 0x5bd1e995)
 	var types: Array[String] = []
 	if rng.next_float() >= Economy.CAMPAIGN_DROP_CHANCE:
-		result.orbs = Economy.ORBS_CAMPAIGN_WIN
-		profile.orbs += Economy.ORBS_CAMPAIGN_WIN
+		pass
 	elif rng.next_float() < RARE_BONUS_CHANCE and not z.rare_bonus.is_empty():
 		types.append(z.rare_bonus[rng.range_int(0, z.rare_bonus.size() - 1)])
 	else:
 		types.append(z.featured[rng.range_int(0, z.featured.size() - 1)])
+	var eggs := Economy.ORBS_CAMPAIGN_WIN if rng.next_float() < Economy.CAMPAIGN_EGG_CHANCE else 0
+	if first_clear:
+		eggs += Economy.ORBS_FIRST_CLEAR
+	if eggs > 0:
+		result.orbs = eggs
+		profile.orbs += eggs
 	if first_clear:
 		types.append(st.enemy)
 		if Zones.is_boss(st):

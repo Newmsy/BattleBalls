@@ -1,7 +1,7 @@
 ## The Glow Pass: one per season, 50 levels, a free track for everyone and a
 ## premium track of cosmetics and gems (design/monetisation.md §4).
 ##
-## Pass XP comes from play only (fights, daily bounties, the weekly chest,
+## Pass XP comes from play only (fights, daily quests, the weekly chest,
 ## Trick Shot). Levels are never sold. Every power reward (orbs, coins,
 ## energy, XP chips, gear, the debut critter's copies) is on the free track;
 ## the premium track has none, so paying never makes anyone stronger.
@@ -18,21 +18,10 @@ const BONUS_BOX := [{"kind": "coins", "n": 500}, {"kind": "gems", "n": 5}]
 const FIGHT_XP := {"win": 30, "draw": 20, "loss": 10}
 const TRICK_XP := 150
 
-## Daily bounties (3 a day, 00:00 UTC) and the weekly chest. Each bounty is
-## {id, kind, goal, xp, text}; kinds are counted by GlowState.record().
-const BOUNTY_XP := 300
-const BOUNTIES_PER_DAY := 3
+## The weekly chest: pass XP once enough daily quests (meta/quests.gd) are
+## claimed in a week. Each daily quest also gives Quests.PASS_XP.
 const CHEST_XP := 1500
-const CHEST_AFTER := 12 ## Bounties done in a week to open the chest.
-const BOUNTY_POOL := [
-	{"id": "play5", "kind": "fight", "goal": 5, "text": "Play 5 fights"},
-	{"id": "win3", "kind": "win", "goal": 3, "text": "Win 3 fights"},
-	{"id": "dmg600", "kind": "damage", "goal": 600, "text": "Deal 600 damage"},
-	{"id": "trick", "kind": "trick", "goal": 1, "text": "Solve the Daily Trick Shot"},
-	{"id": "play8", "kind": "fight", "goal": 8, "text": "Play 8 fights"},
-	{"id": "win5", "kind": "win", "goal": 5, "text": "Win 5 fights"},
-	{"id": "dmg1000", "kind": "damage", "goal": 1000, "text": "Deal 1,000 damage"},
-]
+const CHEST_AFTER := 12 ## Daily quests claimed in a week to open the chest.
 
 ## Premium cosmetics by level: the headline at level 1, the showpiece at 50.
 const PREMIUM_COSMETICS := {1: "hat_halo", 10: "spark_neon", 20: "trail_synth", 30: "hat_visor", 40: "hat_horns", 50: "ko_fireworks"}
@@ -96,20 +85,6 @@ static func progress(xp: int) -> Vector2i:
 ## Bonus boxes earned past level 50 (capped).
 static func bonus_boxes(xp: int) -> int:
 	return clampi((xp - LEVELS * XP_PER_LEVEL) / BONUS_XP, 0, BONUS_MAX)
-
-
-## Today's bounties, picked from the pool by the day number so everyone gets
-## the same three. "Play" always comes first; the other two rotate.
-static func bounties_for(day: int) -> Array:
-	var out := [BOUNTY_POOL[0] if day % 2 == 0 else BOUNTY_POOL[4]]
-	var rest := [1, 2, 3, 5, 6]
-	var a: int = rest[posmod(day, rest.size())]
-	var b: int = rest[posmod(day * 3 + 2, rest.size())]
-	if b == a or BOUNTY_POOL[b].kind == BOUNTY_POOL[a].kind:
-		b = rest[posmod(rest.find(a) + 1, rest.size())]
-	out.append(BOUNTY_POOL[a])
-	out.append(BOUNTY_POOL[b])
-	return out
 
 
 ## 2 in the finale weekend (last week of the season, Friday on), else 1.

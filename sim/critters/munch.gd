@@ -30,12 +30,12 @@ const CRITTER := {
 		"swallow_slam": 10.0, ## ...then spits it out: the first wall it hits slams it for this.
 	},
 	"tiers": [
-		{"text": "Bites heal 4, +1 dmg; full (4): swallow, spit", "now": "Bites heal {stack_heal}, +{stack_add} dmg; full ({stack_max}): swallow, spit"},
+		{"text": "Bites heal 4, +1 dmg; full (4): swallow, spit", "card": "Bites heal it, grow it and power up its hits. When full it swallows the foe and spits it into a wall.", "now": "Bites heal {stack_heal}, +{stack_add} dmg; full ({stack_max}): swallow, spit"},
 		{"text": "Bite heal 4 → 5, spit slam 10 → 13", "stack_heal": 5.0, "swallow_slam": 13.0},
-		{"text": "+ Full of bites: -15% dmg taken", "now": "Bites heal {stack_heal}; full ({stack_max}): -{stack_full_armor%}% taken, swallow", "stack_full_armor": 0.15},
+		{"text": "+ Full of bites: -15% dmg taken", "card": "Bites heal and grow it. When full it gets tougher, then swallows the foe and spits it into a wall.", "now": "Bites heal {stack_heal}; full ({stack_max}): -{stack_full_armor%}% taken, swallow", "stack_full_armor": 0.15},
 		{"text": "Max bites 4 → 5", "stack_max": 5.0},
-		{"text": "+ Spit slam 13 → 18, burps {burp_damage} + knockback", "now": "Bites heal {stack_heal}; full: -{stack_full_armor%}% taken, swallow, burp {burp_damage}", "burp_radius": 150.0, "swallow_slam": 18.0},
+		{"text": "+ Spit slam 13 → 18, burps {burp_damage} + knockback", "card": "Bites heal and grow it. When full it gets tougher, swallows the foe, spits it at a wall and burps.", "now": "Bites heal {stack_heal}; full: -{stack_full_armor%}% taken, swallow, burp {burp_damage}", "burp_radius": 150.0, "swallow_slam": 18.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "bigmouth"}, "front": ["napkin"]},
+	"art": {"eyes": {"sep": .3, "w": .16, "h": .19, "p": .08, "dy": -.12, "mouth": "none"}, "body": "chomper", "front": ["napkin"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 0.95},
 }

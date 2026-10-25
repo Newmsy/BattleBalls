@@ -1,9 +1,10 @@
 ## The Glow Pass (design/monetisation.md §4): season progress, today's
-## bounties and the weekly chest, then all 50 levels with the free and premium
+## quests and the weekly chest, then all 50 levels with the free and premium
 ## rewards side by side. Levels come from play only and are never sold.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const GearArt := preload("res://game/ui/gear_art.gd")
 const A11y := preload("res://game/a11y.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
@@ -17,6 +18,7 @@ const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 ## Cards claimed by the last tap (their marks): they flip over when the list is rebuilt.
 static var _just_claimed: Array = []
 const Gear := preload("res://sim/gear.gd")
+const Quests := preload("res://meta/quests.gd")
 
 const GLOW := Color("ffd36b")
 const PREMIUM := Color("b366ff")
@@ -27,8 +29,8 @@ static func build(shell, _params: Dictionary) -> Control:
 	var t := LiveOps.now()
 	var root := Kit.vbox(24)
 	root.add_child(shell.title_row("Glow Pass", {"back_mark": "pass_back", "info_mark": "pass_info", "info": [
-		"Pass XP comes from play: fights give 10-30 XP, solving the Daily Trick Shot gives %d, and bounties give more." % GlowPass.TRICK_XP,
-		"Finish %d bounties in a week to open the weekly chest (+%s XP)." % [GlowPass.CHEST_AFTER, Kit.commas(GlowPass.CHEST_XP)],
+		"Pass XP comes from play: fights give 10-30 XP, solving the Daily Trick Shot gives %d, and each daily quest gives %d." % [GlowPass.TRICK_XP, Quests.PASS_XP],
+		"Finish %d daily quests in a week to open the weekly chest (+%s XP)." % [GlowPass.CHEST_AFTER, Kit.commas(GlowPass.CHEST_XP)],
 		"Premium adds looks and gems. Unlock any time to claim past levels.",
 		"Past level 50: a bonus box every %s XP (Coins and a few gems), up to %d." % [Kit.commas(GlowPass.BONUS_XP), GlowPass.BONUS_MAX],
 	]}))
@@ -59,8 +61,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	# Premium unlock.
 	if not ps.premium:
 		var store = glow.store
-		var buy := Kit.button("Unlock · " + store.price("glow_pass"), func(): store.purchase("glow_pass"), "primary", 28, 88)
-		shell.mark("pass_buy", buy)
+		var buttons := []
+		if store.available():
+			var buy := Kit.button("Unlock · " + store.price("glow_pass"), func(): store.purchase("glow_pass"), "primary", 28, 88)
+			shell.mark("pass_buy", buy)
+			buttons.append(buy)
 		var with_gems := Kit.cost_button("", Catalog.PASS_GEMS, "gem", func():
 			var err: String = glow.buy_pass_with_gems(t)
 			if err == "Not enough Glow Gems.":
@@ -69,6 +74,7 @@ static func build(shell, _params: Dictionary) -> Control:
 				shell.toast(err if err != "" else "Glow Pass unlocked!")
 				shell.refresh(), "ghost", 26, 88)
 		shell.mark("pass_gems", with_gems)
+		buttons.append(with_gems)
 		var n_cos := 0
 		var n_gems := 0
 		for l in range(1, GlowPass.LEVELS + 1):
@@ -79,16 +85,18 @@ static func build(shell, _params: Dictionary) -> Control:
 				n_gems += int(r.n)
 		root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Premium track", PREMIUM),
 			Kit.hbox(8, [Kit.label("%d looks + %s" % [n_cos, Kit.commas(n_gems)], 24), Kit.glyph("gem", 26, Kit.FG)], BoxContainer.ALIGNMENT_CENTER),
-			Kit.hbox(12, [buy, with_gems])]), Kit.box(Color("1f1440"), Color(PREMIUM, .6), 36, 2, 24)))
+			Kit.hbox(12, buttons)]), Kit.box(Color("1f1440"), Color(PREMIUM, .6), 36, 2, 24)))
 
-	# Today's bounties and the weekly chest.
-	var bv := Kit.vbox(12, [Kit.hbox(0, [Kit.caption("Bounties"), Kit.spacer(),
-		Kit.label("New in " + LiveOps.countdown(t, LiveOps.day_start(t) + LiveOps.DAY), 20, Kit.MUTED)])])
-	for b in glow.bounties(t):
-		var txt := Kit.vbox(4, [Kit.label(b.text, 24, Kit.MUTED if b.done else Kit.FG), Kit.bar(float(b.progress) / b.goal, Kit.GOOD if b.done else Kit.ACCENT, 14)])
-		txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var right: Control = Kit.chip("Done", Kit.GOOD) if b.done else Kit.label("%s/%s · +%d XP" % [Kit.commas(b.progress), Kit.commas(b.goal), b.xp], 20, Kit.MUTED)
-		bv.add_child(Kit.hbox(14, [txt, right], BoxContainer.ALIGNMENT_CENTER))
+	# Today's quests (each daily one pays pass XP) and the weekly chest.
+	var q: Dictionary = glow.quests(t)
+	var see := Kit.button("Quests", func(): shell.go("quests"), "ghost", 22, 64)
+	see.custom_minimum_size.x = 150
+	shell.mark("pass_quests", see)
+	var today := Kit.label("%d/%d today · +%d XP each" % [q.chest.done, maxi(3, int(q.chest.of)), Quests.PASS_XP], 22, Kit.FG)
+	today.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var bv := Kit.vbox(12, [Kit.hbox(0, [Kit.caption("Quests"), Kit.spacer(),
+		Kit.label("New in " + LiveOps.countdown(t, LiveOps.day_start(t) + LiveOps.DAY), 20, Kit.MUTED)]),
+		Kit.hbox(12, [today, see], BoxContainer.ALIGNMENT_CENTER)])
 	var w: Dictionary = glow.week_state(t)
 	var chest_text := Kit.label("Chest %d/%d · +%s XP" % [mini(int(w.count), GlowPass.CHEST_AFTER), GlowPass.CHEST_AFTER, Kit.commas(GlowPass.CHEST_XP)], 22,
 		Kit.GOOD if glow.chest_ready(t) else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
@@ -265,6 +273,8 @@ static func reward_text(r: Dictionary, beside_icon := false) -> String:
 			return "%d Energy" % n
 		"xp_chip":
 			return "%d XP Chip%s" % [n, "" if n == 1 else "s"]
+		"hammers":
+			return "%d Hammer%s" % [n, "" if n == 1 else "s"]
 		"copies":
 			return "%s copy" % Roster.get_critter(r.id).name
 		"gear":
@@ -289,11 +299,13 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 			g = Glyph.make("coin", side * .7)
 		"energy":
 			g = Glyph.make("energy", side * .7)
+		"hammers":
+			g = Glyph.make("hammer", side * .7)
 		"copies":
 			var CritterIcon = load("res://game/ui/critter_icon.gd")
 			g = CritterIcon.make(r.id, 1, side)
 		"gear":
-			g = Glyph.make(r.type, side * .7, BagScreen.tier_color(int(r.tier)))
+			g = GearArt.piece(r.type, int(r.tier), side * .8, BagScreen.tier_color(int(r.tier)))
 		"rift_key":
 			g = Glyph.make("key", side * .7, Color("5ce1ff"))
 		"dye":

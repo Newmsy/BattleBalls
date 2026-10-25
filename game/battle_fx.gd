@@ -2472,14 +2472,6 @@ static func draw_buzz_cloud(ci: CanvasItem, c: Vector2, r: float, age: float, li
 		Dot.circle(ci, at + Vector2(0, -3), 2.5, Color(1, 1, 1, 0.5 * a))
 
 
-## Echo copying: its chrome tinted with the foe's colour and a mirror sweep.
-static func draw_chrome_tint(ci: CanvasItem, p: Vector2, r: float, col: Color, t: float) -> void:
-	Dot.circle(ci, p, r * 0.98, Color(col, 0.22))
-	var a := fmod(t * 0.8, 1.0) * TAU
-	Dot.arc(ci, p, r * 0.75, a, a + 0.7, 10, Color(col.lightened(0.5), 0.6), 4.0, true)
-	Dot.arc(ci, p, r * 1.02, 0.0, TAU, 40, Color(col, 0.6), 2.5, true)
-
-
 ## Echo T5: its copy shield shining like a mirror.
 static func draw_mirror_shine(ci: CanvasItem, p: Vector2, r: float, t: float) -> void:
 	var rad := r * 1.18
@@ -2628,8 +2620,7 @@ static func draw_tier_aura(ci: CanvasItem, p: Vector2, r: float, tier: int, col:
 	var glow := col.lerp(ASCEND, 0.2 + 0.15 * (tier - 3))
 	var pulse := 0.5 + 0.5 * sin(t * 2.0)
 	var strength := 0.07 + 0.035 * (tier - 3)
-	for q in 4: # Stacked faint discs: a soft falloff instead of a rim.
-		Dot.circle(ci, p, r * (1.12 + 0.14 * q + 0.03 * pulse), Color(glow, strength * (1.0 - q * 0.2)))
+	Dot.glow(ci, p, r * (1.62 + 0.03 * pulse), Color(glow, strength * 2.6), 0.7)
 	if tier < 4:
 		return
 	var n := 2 if tier == 4 else 4
@@ -2649,8 +2640,7 @@ static func draw_elite_aura(ci: CanvasItem, p: Vector2, r: float, t: float) -> v
 	if r < 2.0:
 		return
 	var pulse := 0.5 + 0.5 * sin(t * 3.0)
-	Dot.circle(ci, p, r * (1.42 + 0.04 * pulse), Color(ELITE, 0.10))
-	Dot.circle(ci, p, r * 1.26, Color(ELITE, 0.16))
+	Dot.glow(ci, p, r * (1.55 + 0.04 * pulse), Color(ELITE, 0.3), 0.65)
 	var n := 12
 	for q in n: # Spikes leaning with the spin, like a saw blade.
 		var a := t * 0.6 + q * TAU / n

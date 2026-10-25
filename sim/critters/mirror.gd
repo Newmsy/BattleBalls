@@ -28,12 +28,12 @@ const CRITTER := {
 		"reflect_from": "copying",
 	},
 	"tiers": [
-		{"text": "Hurt: copies foe's ability 2.5s, full while 6 shield", "now": "Hurt: copies foe's ability {copy_secs}s, full while {copy_shield} shield"},
+		{"text": "Hurt: copies foe's ability 2.5s, full while 6 shield", "card": "When hurt, it copies the foe's ability for a short time, behind a shield.", "now": "Hurt: copies foe's ability {copy_secs}s, full while {copy_shield} shield"},
 		{"text": "Copy 2.5 → 3.5s", "copy_secs": 3.5},
 		{"text": "Copy shield {^copy_shield} → {copy_shield}", "copy_shield": 12.0},
 		{"text": "Copy every 6 → 5s max", "copy_cooldown": 5.0},
-		{"text": "+ A copy lasts until the next one", "now": "Hurt: keeps a copy of foe's ability + {copy_shield} shield, every {copy_cooldown}s", "copy_secs": 600.0},
+		{"text": "+ A copy lasts until the next one", "card": "When hurt, it copies the foe's ability and keeps it until the next copy, behind a shield.", "now": "Hurt: keeps a copy of foe's ability + {copy_shield} shield, every {copy_cooldown}s", "copy_secs": 600.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .25, "p": .1, "mouth": "smile"}, "body": "chrome"},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .25, "p": .1, "mouth": "smile"}, "body": "mirror"},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.1},
 }

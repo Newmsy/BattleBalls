@@ -29,11 +29,11 @@ const CRITTER := {
 		"ping_hit_mult": 2.0, ## T5: a hit while still swerving.
 	},
 	"tiers": [
-		{"text": "Bounces ping: swerve at foe, slow 20%", "now": "Bounces ping: swerve at foe, slow {ping_slow%}%"},
+		{"text": "Bounces ping: swerve at foe, slow 20%", "card": "Wall bounces ping: it swerves at the foe and sends out a slowing ring.", "now": "Bounces ping: swerve at foe, slow {ping_slow%}%"},
 		{"text": "Swerve speed x1.4 → 1.5", "ping_dash_mult": 1.5},
-		{"text": "+ The ping deals {ping_damage}", "now": "Bounces ping: swerve at foe, {ping_damage} dmg, slow {ping_slow%}%", "ping_damage": 4.0},
+		{"text": "+ The ping deals {ping_damage}", "card": "Wall bounces ping: it swerves at the foe and sends out a ring that hurts and slows.", "now": "Bounces ping: swerve at foe, {ping_damage} dmg, slow {ping_slow%}%", "ping_damage": 4.0},
 		{"text": "Ping size +{+ping_radius}%", "ping_radius": 220.0},
-		{"text": "+ Pings find the foe · next hit in 3s x{ping_hit_mult}", "now": "Bounces ping: swerve, {ping_damage} dmg, slow {ping_slow%}% · hit in {ping_mark}s x{ping_hit_mult}", "special": "Echolocation", "ping_hit_mult": 1.8, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
+		{"text": "+ Pings find the foe · next hit in 3s x{ping_hit_mult}", "card": "Wall bounces ping: it swerves at the foe, hurts and slows it, and its next hit on it lands hard.", "now": "Bounces ping: swerve, {ping_damage} dmg, slow {ping_slow%}% · hit in {ping_mark}s x{ping_hit_mult}", "special": "Echolocation", "ping_hit_mult": 1.8, "ping_mark": 3.0, "ability": [{"on": "strike", "do": "ping_crit"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "fangs"}, "back": ["batwings", "ears"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.3},

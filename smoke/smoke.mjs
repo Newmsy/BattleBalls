@@ -377,10 +377,10 @@ try {
     await page.close();
   }
 
-  // 2c. Shop and Glow Pass (?screen=shop): buy gems from the test store, buy this week's first bundle (it goes
+  // 2c. Shop and Glow Pass (?screen=shop, &dev=1 for the test store): buy gems from it, buy this week's first bundle (it goes
   // on at once), then fight wearing it. Then the pass: unlock the premium track from the test store.
   if (mine(68)) {
-    const { page, logs } = await openGame("?screen=shop&seed=7&today=2026-10-20&offline=1");
+    const { page, logs } = await openGame("?screen=shop&seed=7&today=2026-10-20&offline=1&dev=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN shop", 10000);
     await page.waitForTimeout(1200);
@@ -408,7 +408,7 @@ try {
     await page.close();
   }
   if (mine(15)) {
-    const { page, logs } = await openGame("?screen=pass&today=2026-10-20&offline=1");
+    const { page, logs } = await openGame("?screen=pass&today=2026-10-20&offline=1&dev=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN pass", 10000);
     await page.waitForTimeout(800);
@@ -557,7 +557,8 @@ try {
     await page.close();
   }
 
-  // 9. Quests door: the board's wide painted Quests card opens its info sheet.
+  // 9. Quests: the board's wide painted Quests door opens the Quests screen,
+  // and the free swap rolls a different quest.
   if (mine(21)) {
     const { page, logs } = await openGame("?today=2026-10-15");
     await waitForLog(logs, "BOOT_OK", 60000);
@@ -565,8 +566,38 @@ try {
     await page.waitForTimeout(800);
     await tapUi(page, logs, "thisweek", "week");
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "week_quests", "sheet");
     await page.screenshot({ path: path.join(shots, "16-quests-door.png") });
+    await tapUi(page, logs, "week_quests", "quests");
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(shots, "16b-quests.png") });
+    await page.close();
+  }
+
+  // 9a. Bounce Run chest: yesterday's best floor (set from Settings > Testing,
+  // which then opens the Daily board) turns the Daily board's Bounce Run button into Open; the chest shakes,
+  // bursts open, spills its rewards and Collect pays them.
+  if (mine(11)) {
+    const { page, logs } = await openGame("?demo=1&tutorial=0&dev=1");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "settings", "sheet");
+    await tapUi(page, logs, "dev_bounce_chest_20", "week");
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(shots, "16c-daily-bounce-chest.png") });
+    await tapUi(page, logs, "week_bounce_chest", "bounce_chest");
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: path.join(shots, "16d-bounce-chest.png") });
+    await page.mouse.click(...toPage(page, 360, 700));
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(shots, "16e-bounce-chest-opening.png") });
+    await waitForLog(logs, "UI_AT bounce_chest_collect", 15000);
+    await page.screenshot({ path: path.join(shots, "16e2-bounce-chest-open.png") });
+    const at = logs.length;
+    await tapUi(page, logs, "bounce_chest_collect");
+    console.log("bounce chest:", await waitForLogAfter(logs, at, "UI_BOUNCE_CHEST_COLLECT", 5000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "16f-bounce-chest-collected.png") });
     await page.close();
   }
 

@@ -26,11 +26,11 @@ const CRITTER := {
 		"lob_barrage_every": 0, ## Every Nth shot is a 3-shell barrage, when above 0.
 	},
 	"tiers": [
-		{"text": "Lobs a shell every 4s for 1.5", "now": "Lobs a shell every {fire_cooldown}s for {lob_damage}"},
+		{"text": "Lobs a shell every 4s for 1.5", "card": "Lobs shells at where the foe is about to be.", "now": "Lobs a shell every {fire_cooldown}s for {lob_damage}"},
 		{"text": "Shell {^lob_damage} → {lob_damage}", "lob_damage": 2.5},
-		{"text": "+ The crater burns {lob_crater_dps}/sec for 2s", "now": "Lobs a shell every {fire_cooldown}s for {lob_damage} + burning crater", "lob_crater_dps": 4.0},
+		{"text": "+ The crater burns {lob_crater_dps}/sec for 2s", "card": "Lobs shells at where the foe is heading, leaving burning craters.", "now": "Lobs a shell every {fire_cooldown}s for {lob_damage} + burning crater", "lob_crater_dps": 4.0},
 		{"text": "Shell every 4 → 3.5s", "fire_cooldown": 3.5},
-		{"text": "+ Every 3rd shot is a 3-shell barrage", "now": "Shell every {fire_cooldown}s for {lob_damage} + crater · every 3rd x3", "lob_barrage_every": 3},
+		{"text": "+ Every 3rd shot is a 3-shell barrage", "card": "Lobs shells at where the foe is heading, leaving burning craters, sometimes in a barrage.", "now": "Shell every {fire_cooldown}s for {lob_damage} + crater · every 3rd x3", "lob_barrage_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "flat"}, "back": ["barrel"], "front": ["cap"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 0.85},

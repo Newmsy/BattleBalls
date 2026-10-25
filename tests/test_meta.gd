@@ -12,6 +12,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const Relay := preload("res://sim/relay.gd")
 
+const Economy := preload("res://meta/economy.gd")
 const T0 := 1_800_000_000
 
 
@@ -144,7 +145,8 @@ func test_win_spends_energy_gives_stars_xp_and_drops() -> void:
 	check(r.won, "won")
 	check_eq(r.stars, 3, "a quick, healthy win is 3 stars")
 	check(r.first_clear, "first clear")
-	check_eq(r.drops.size() + (1 if r.orbs > 0 else 0), 2, "a copy or orbs, plus the first-clear copy")
+	check(r.drops.has(enemy), "plus the first-clear copy")
+	check(r.orbs >= Economy.ORBS_FIRST_CLEAR, "a first clear always pays an egg")
 	check(p.owns(enemy), "first clear gives the beaten critter")
 	check(Campaign.is_unlocked(p, 0, 1), "next stage opens")
 	check(p.best("vampire").level > 1, "fighter levelled")
@@ -161,7 +163,7 @@ func test_stars_track_speed_and_remaining_hp() -> void:
 	check_eq(r.stars, 2, "healthy win in overtime")
 	check_eq(Campaign.stars_of(p, 0, 0), 2, "best stars kept")
 	check(not r.first_clear, "replays aren't first clears")
-	check_eq(r.drops.size() + (1 if r.orbs > 0 else 0), 1, "replays drop one copy or orbs")
+	check(r.drops.size() <= 1 and r.orbs <= Economy.ORBS_CAMPAIGN_WIN, "replays drop at most one copy and one egg")
 
 
 func test_loss_refunds_all_but_one_energy() -> void:
@@ -207,7 +209,7 @@ func test_drops_vary_between_runs_but_are_repeatable() -> void:
 			var r: Dictionary = Campaign.finish(p, 0, 0, "vampire", _win())
 			types.append_array(r.drops)
 			orb_wins += 1 if r.orbs > 0 else 0
-		check(orb_wins > 30 and orb_wins < 55, "most wins drop orbs (%d of 60)" % orb_wins)
+		check(orb_wins > 8 and orb_wins < 30, "about 30%% of wins drop an egg (%d of 60)" % orb_wins)
 		seen[",".join(types)] = true
 		var distinct := {}
 		for t in types:
@@ -377,3 +379,18 @@ func test_foes_fight_at_their_chapters_tier_for_less_power() -> void:
 	p.add_copies(["laser", "frost"])
 	var rc: Dictionary = Campaign.start_team(p, 2, 0, Campaign.team_for(p, 3), T0)
 	check_eq(rc.tiers[1], [2, 2, 2], "zone 3 foes are T2 in the fight")
+
+
+func test_forge_stall_sells_a_few_hammers_a_day_for_coins() -> void:
+	var p = Profile.new_game(T0)
+	p.coins = Economy.FORGE_HAMMER_COINS * (Economy.FORGE_DAILY + 2)
+	var h: int = p.hammers
+	for i in Economy.FORGE_DAILY:
+		check(p.buy_forge_hammer(T0), "hammer %d sells" % (i + 1))
+	check_eq(p.hammers, h + Economy.FORGE_DAILY, "each adds a hammer")
+	check(not p.buy_forge_hammer(T0), "sold out for the day")
+	check_eq(p.forge_left(T0 + 86400), Economy.FORGE_DAILY, "restocks the next day")
+	var q = Profile.from_dict(p.to_dict(), T0)
+	check_eq(q.forge_left(T0), 0, "today's buys survive a save")
+	q.coins = 0
+	check(not q.buy_forge_hammer(T0 + 86400), "needs the coins")

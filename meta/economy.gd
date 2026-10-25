@@ -46,11 +46,17 @@ const ORBS_PER_ACCOUNT_LEVEL := 0 ## Account levels already refill energy.
 
 ## Campaign drops (Newms 2026-10-15: "heavier on orbs, 25% for a specific
 ## critter"): a win drops a copy of one of the zone's featured critters with
-## this chance, otherwise ORBS_CAMPAIGN_WIN Summon Eggs. That copy is the
-## zone's next-rarity-up critter instead with the bonus chance. First clears
-## always add the beaten enemy; a boss's first clear adds its guaranteed reward.
+## this chance. That copy is the zone's next-rarity-up critter instead with the
+## bonus chance. First clears always add the beaten enemy; a boss's first clear
+## adds its guaranteed reward.
 const CAMPAIGN_DROP_CHANCE := 0.25
+## Summon Eggs from campaign wins (Newms 2026-10-25, progression check): any
+## win, watched or swept, pays ORBS_CAMPAIGN_WIN on this chance (it was 75% of
+## wins, which made sweeping an egg tap), and a stage's first clear always
+## pays ORBS_FIRST_CLEAR on top.
+const CAMPAIGN_EGG_CHANCE := 0.3
 const ORBS_CAMPAIGN_WIN := 1
+const ORBS_FIRST_CLEAR := 1
 const CAMPAIGN_RARE_BONUS := 0.08
 
 ## Campaign drop pools per zone: six featured critters (what a win drops), the
@@ -80,6 +86,11 @@ const ZONE1_AS_BUILT := {"featured": ["spiker", "speedster", "vampire", "juggern
 ## a tier into one of the next (index 0 is 1 star, which is never merged into).
 ## Hammers come from the Anvil King (meta/gear_vault.gd), earned only, never sold.
 const GEAR_MERGE_COST := [0, 2, 4, 8, 16]
+## The Forge stall beside the Anvil King (Newms 2026-10-25, progression
+## check): coins had almost nothing to buy, so they buy a few Hammers a day.
+## Coins are earned only, so this stays earned-only too.
+const FORGE_HAMMER_COINS := 200
+const FORGE_DAILY := 5
 ## Every save starts with these (and older saves get them once), so the first
 ## merges from campaign gear don't wait for the Anvil King.
 const STARTER_HAMMERS := 10

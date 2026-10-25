@@ -79,6 +79,19 @@ const LAYERS := {
 	"frozen_vault": [
 		["_Lcritter", Rect2(95, 281, 110, 112), Vector4(4, 4, 0.6, 0), Vector2(150, 381), true, -1],
 	],
+	"gear_band_charms": [
+		["_Lrunner", Rect2(530, 91, 72, 89), Vector4(1, 3, 1.2, 0), Vector2(568, 182), false, -1],
+	],
+	"gear_band_cores": [
+		["_Lhit", Rect2(559, 91, 66, 82), Vector4(2, 4, 0.8, 0.3), Vector2(593, 179), false, -1],
+	],
+	"gear_band_shells": [
+		["_Lguard", Rect2(435, 90, 72, 87), Vector4(4, 2, 0.6, 0), Vector2(471, 174), true, -1],
+		["_Lbumper", Rect2(599, 80, 60, 74), Vector4(1, 3, 0.9, 0.4), Vector2(630, 158), true, -1],
+	],
+	"gear_forge": [
+		["_Lking", Rect2(293, 210, 76, 97), Vector4(4, 3, 0.7, 0), Vector2(331, 305), false, -1],
+	],
 	"ghost_lantern": [
 		["_Ltail", Rect2(113, 163, 229, 86), Vector4(0, 0, 0.5, 0), Vector2(224, 245), false, 1],
 		["_Llantern", Rect2(288, 31, 152, 204), Vector4(1, 7, 0.5, 0), Vector2(364, 233), false, -1],
@@ -129,6 +142,42 @@ const LAYERS := {
 	],
 	"lava_bridge": [
 		["_Lcritter", Rect2(167, 268, 78, 89), Vector4(4, 4, 0.9, 0), Vector2(207, 348), true, -1],
+	],
+	"league_bronze": [
+		["_Lb1", Rect2(370, 0, 60, 117), Vector4(2, 3, 0.4, 0.3), Vector2(400, 0), false, -1],
+		["_Lb2", Rect2(650, 0, 60, 117), Vector4(2, 3, 0.4, 0.6), Vector2(680, 0), false, -1],
+		["_Lcrest", Rect2(479, 59, 123, 144), Vector4(3, 0.03, 0.5, 0), Vector2(541, 198), false, -1],
+		["_Lfan", Rect2(619, 153, 43, 66), Vector4(4, 3, 0.8, 0), Vector2(641, 217), false, -1],
+	],
+	"league_diamond": [
+		["_Lb1", Rect2(370, 0, 60, 117), Vector4(2, 3, 0.4, 0.3), Vector2(400, 0), false, -1],
+		["_Lb2", Rect2(650, 0, 60, 117), Vector4(2, 3, 0.4, 0.6), Vector2(680, 0), false, -1],
+		["_Lcrest", Rect2(395, 59, 290, 144), Vector4(3, 0.03, 0.5, 0), Vector2(540, 198), false, -1],
+		["_Lfan", Rect2(619, 153, 43, 66), Vector4(4, 3, 0.8, 0), Vector2(641, 217), false, -1],
+	],
+	"league_gold": [
+		["_Lb1", Rect2(370, 0, 60, 117), Vector4(2, 3, 0.4, 0.3), Vector2(400, 0), false, -1],
+		["_Lb2", Rect2(650, 0, 60, 117), Vector4(2, 3, 0.4, 0.6), Vector2(680, 0), false, -1],
+		["_Lcrest", Rect2(447, 59, 186, 157), Vector4(3, 0.03, 0.5, 0), Vector2(540, 214), false, -1],
+		["_Lfan", Rect2(619, 153, 43, 66), Vector4(4, 3, 0.8, 0), Vector2(641, 217), false, -1],
+	],
+	"league_neon": [
+		["_Lb1", Rect2(370, 0, 60, 117), Vector4(2, 3, 0.4, 0.3), Vector2(400, 0), false, -1],
+		["_Lb2", Rect2(650, 0, 60, 117), Vector4(2, 3, 0.4, 0.6), Vector2(680, 0), false, -1],
+		["_Lcrest", Rect2(395, 59, 290, 157), Vector4(3, 0.03, 0.5, 0), Vector2(540, 214), false, -1],
+		["_Lfan", Rect2(619, 153, 43, 66), Vector4(4, 3, 0.8, 0), Vector2(641, 217), false, -1],
+	],
+	"league_platinum": [
+		["_Lb1", Rect2(370, 0, 60, 117), Vector4(2, 3, 0.4, 0.3), Vector2(400, 0), false, -1],
+		["_Lb2", Rect2(650, 0, 60, 117), Vector4(2, 3, 0.4, 0.6), Vector2(680, 0), false, -1],
+		["_Lcrest", Rect2(447, 59, 186, 157), Vector4(3, 0.03, 0.5, 0), Vector2(540, 214), false, -1],
+		["_Lfan", Rect2(619, 153, 43, 66), Vector4(4, 3, 0.8, 0), Vector2(641, 217), false, -1],
+	],
+	"league_silver": [
+		["_Lb1", Rect2(370, 0, 60, 117), Vector4(2, 3, 0.4, 0.3), Vector2(400, 0), false, -1],
+		["_Lb2", Rect2(650, 0, 60, 117), Vector4(2, 3, 0.4, 0.6), Vector2(680, 0), false, -1],
+		["_Lcrest", Rect2(395, 59, 290, 144), Vector4(3, 0.03, 0.5, 0), Vector2(540, 198), false, -1],
+		["_Lfan", Rect2(619, 153, 43, 66), Vector4(4, 3, 0.8, 0), Vector2(641, 217), false, -1],
 	],
 	"lost_egg": [
 		["_Legg", Rect2(259, 125, 181, 196), Vector4(2, 3, 0.8, 0), Vector2(362, 312), false, -1],

@@ -75,10 +75,14 @@ var stars: Dictionary = {}
 var runs := 0
 ## Gear Vault runs used today: {day (unix day), runs} (meta/gear_vault.gd).
 var vault := {}
+## Hammers bought at the Forge stall today: {day (unix day), bought}.
+var forge := {}
 ## Brood Queen runs used today: {day, runs} (meta/brood_nest.gd).
 var nest := {}
 ## Runs used today at the later farming bosses: {key: {day, runs}} (meta/boss_runs.gd).
 var boss_days := {}
+## The last UTC day whose Bounce Run chest was opened (meta/bounce_chest.gd).
+var bounce_chest := 0
 ## Highest level beaten at each levelled boss: {key: 0-15} (meta/boss_levels.gd).
 var boss_levels := {}
 ## Lures from the Prism Wyrm: spent on a copy of a wishlisted critter (use_lure).
@@ -405,6 +409,26 @@ func _next_gear_uid() -> int:
 	return uid
 
 
+## Hammers the Forge stall still sells today.
+func forge_left(now: int) -> int:
+	var bought := int(forge.get("bought", 0)) if int(forge.get("day", -1)) == int(now / 86400) else 0
+	return maxi(0, Economy.FORGE_DAILY - bought)
+
+
+## Buys one Hammer at the Forge stall for coins. False (nothing spent) when
+## sold out today or short of coins.
+func buy_forge_hammer(now: int) -> bool:
+	if forge_left(now) <= 0 or coins < Economy.FORGE_HAMMER_COINS:
+		return false
+	var day := int(now / 86400)
+	forge = {"day": day, "bought": Economy.FORGE_DAILY - forge_left(now) + 1}
+	coins -= Economy.FORGE_HAMMER_COINS
+	hammers += 1
+	Analytics.track("forge_hammer", {"coins": Economy.FORGE_HAMMER_COINS})
+	changed.emit()
+	return true
+
+
 func unequip(uid: int) -> void:
 	_gear(uid).on = ""
 	changed.emit()
@@ -525,7 +549,7 @@ func add_xp(id: String, amount: int) -> int:
 	var b := best(id)
 	if b.is_empty():
 		return 0
-	add_faction_xp(Talents.faction_of(id), amount)
+	add_faction_xp(Talents.faction_of(id), faction_share(amount))
 	var gained := 0
 	b.xp = b.get("xp", 0) + amount
 	var cap := Roster.level_cap(b.tier)
@@ -581,6 +605,17 @@ func talent_picks(f: String) -> Dictionary:
 
 func talent_points_free(f: String) -> int:
 	return faction_rank(f) - Talents.spent(f, talent_picks(f))
+
+
+## Faction XP from `amount` critter XP. Only a share counts (Newms
+## 2026-10-25, progression check): with all of it a main tree was full in the
+## first week; now it fills over a month or two, and Totem sigils (added in
+## full) are the way to speed one up.
+const FACTION_XP_SHARE := 0.15
+
+
+static func faction_share(amount: int) -> int:
+	return roundi(amount * FACTION_XP_SHARE)
 
 
 func add_faction_xp(f: String, amount: int) -> void:
@@ -696,7 +731,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "dyes", "rift"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "forge", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest", "dyes", "rift"]
 
 
 func to_dict() -> Dictionary:
@@ -715,7 +750,7 @@ static func from_dict(d: Dictionary, now: int):
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
 	# Saves from before hammers keep new_game's starter hammers.
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs"]:
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))
@@ -735,6 +770,9 @@ static func from_dict(d: Dictionary, now: int):
 	var v = d.get("vault", {})
 	if v is Dictionary and v.has("day"):
 		p.vault = {"day": int(v.day), "runs": int(v.get("runs", 0))}
+	var fg = d.get("forge", {})
+	if fg is Dictionary and fg.has("day"):
+		p.forge = {"day": int(fg.day), "bought": int(fg.get("bought", 0))}
 	var nst = d.get("nest", {})
 	if nst is Dictionary and nst.has("day"):
 		p.nest = {"day": int(nst.day), "runs": int(nst.get("runs", 0))}
@@ -811,7 +849,7 @@ func spend_coins(n: int) -> bool:
 	return true
 
 
-## An earned reward (Glow Pass free track, bounties): {kind, n} with kind
+## An earned reward (Glow Pass free track, quests): {kind, n} with kind
 ## orbs, coins, hammers, energy, xp_chip, rift_key, dye (random colour, or
 ## one `id`), copies (with id) or gear (type and tier).
 func grant(r: Dictionary) -> void:

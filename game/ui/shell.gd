@@ -56,6 +56,7 @@ const SCREENS := {
 	"account": preload("res://game/ui/screens/account_screen.gd"),
 	"shop": preload("res://game/ui/screens/shop_screen.gd"),
 	"pass": preload("res://game/ui/screens/pass_screen.gd"),
+	"quests": preload("res://game/ui/screens/quests_screen.gd"),
 }
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
@@ -70,6 +71,9 @@ const TOP_ALIGNED := ["critters", "dex", "bag", "shop", "pass", "campaign", "bra
 const SCROLLS := ["play", "week", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
+## Tablets and desktop: the top bar and tab buttons stay this wide in the middle
+## instead of spreading to the window's edges (the screens keep a phone column).
+const WIDE_BARS := 900.0
 const TOAST_FACE := 52.0
 
 ## Emitted when the player starts a quick fight from the Play tab.
@@ -157,7 +161,9 @@ var _report_after := 0 ## Msec tick a screen's slide ends: marks are logged afte
 ## tapped card's face grows into (go_from). Screens set it in build().
 var hero: Control
 var _pop_next: Array = [] ## Marks to pop once the next screen is built (pop_after).
-var _zoom_rect := Rect2() ## A painting the next go() zooms through (zoom_from).
+var _top_margin: MarginContainer
+var _tab_row: HBoxContainer
+var _light := {} ## The door the next go() opens through (light_from): rect, color.
 
 ## Red dots are for something to do, and go once you've looked: the Fuse dot
 ## only for sets that turned fusable since your last visit to Fuse (per device).
@@ -219,7 +225,8 @@ func build() -> void:
 	add_child(_fx)
 	profile.changed.connect(_refresh_top)
 	set_friends(friends)
-	resized.connect(func(): if current != "": refresh())
+	resized.connect(func(): _fit_wide(); if current != "": refresh())
+	_fit_wide()
 	show_tab("play")
 	# Coming back from a Ghost Arena fight lands on the Arena again.
 	if ArenaStore.reopen:
@@ -232,6 +239,8 @@ func set_profile(p) -> void:
 	if profile.changed.is_connected(_refresh_top):
 		profile.changed.disconnect(_refresh_top)
 	profile = p
+	if glow != null:
+		glow.profile = p # Pass and quest rewards land on the profile on screen.
 	_shown = {} # Another save's coins land as they are, not flying in.
 	if _built:
 		profile.changed.connect(_refresh_top)
@@ -315,39 +324,63 @@ func go(name: String, params := {}) -> void:
 	if _snaps.size() > SNAP_DEPTH:
 		_snaps[_snaps.size() - SNAP_DEPTH - 1] = null
 	_stack.append([name, params])
-	var zoom := _zoom_rect
-	_zoom_rect = Rect2()
+	var light := _light
+	_light = {}
 	_show(name, params)
-	if zoom.has_area() and _snaps[-1] != null and not Motion.calm():
-		_zoom_in(_snaps[-1], zoom)
+	if not light.is_empty() and _snaps[-1] != null and not Motion.calm():
+		_light_in(_snaps[-1], light.rect, light.color)
 	else:
 		_slide_in(_snaps[-1])
 
 
-## The next go() zooms through `painting` (a Home door's art) instead of
-## sliding: the picture grows to fill the screen and fades into the hub.
-func zoom_from(painting: Control) -> void:
-	_zoom_rect = painting.get_global_rect()
+## The next go() opens through `door` (a Home door) instead of sliding: a
+## wash of its colour spills out of it and fills the screen, then fades off
+## the new one. The paintings themselves never stretch.
+func light_from(door: Control, col: Color) -> void:
+	_light = {"rect": door.get_global_rect(), "color": col}
 
 
-func _zoom_in(old: Texture2D, rect: Rect2) -> void:
+func _light_in(old: Texture2D, rect: Rect2, col: Color) -> void:
 	var screen := get_viewport().get_visible_rect().size
 	var room := _holder.get_global_rect()
-	var pic := Motion.picture(old, rect, screen)
 	var base := _fx.get_global_rect().position
-	pic.position = rect.position - base
-	pic.pivot_offset = Vector2.ZERO
-	_fx.add_child(pic)
-	# Grow the painting (one whole picture, never warped part by part) until
-	# it covers the screen's room, keeping its shape.
-	var k := maxf(room.size.x / rect.size.x, room.size.y / rect.size.y)
-	var to := room.get_center() - rect.size * k / 2.0 - base
-	var tw := pic.create_tween().set_parallel()
-	tw.tween_property(pic, "position", to, .3).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(pic, "scale", Vector2(k, k), .3).set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(pic, "modulate:a", 0.0, .16).set_delay(.18)
-	tw.chain().tween_callback(pic.queue_free)
-	_arrive(Vector2.ZERO, .3)
+	# The screen we're leaving stays up while the light grows over it.
+	var under := Motion.picture(old, room, screen)
+	under.position = room.position - base
+	_fx.add_child(under)
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, .35, .6, 1.0])
+	g.colors = PackedColorArray([Color.WHITE, col, col, Color(col, 0.0)])
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(.5, .5)
+	tex.fill_to = Vector2(.5, 0.0)
+	tex.width = 64
+	tex.height = 64
+	var glow := TextureRect.new()
+	glow.texture = tex
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.size = Vector2(80, 80)
+	glow.pivot_offset = glow.size / 2.0
+	glow.position = rect.get_center() - base - glow.size / 2.0
+	glow.scale = Vector2(.6, .6)
+	glow.modulate.a = .7
+	_fx.add_child(glow)
+	var reach := room.size.length() * 2.3 / glow.size.x
+	var tw := glow.create_tween()
+	tw.tween_property(glow, "scale", Vector2(reach, reach), .23).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_CUBIC)
+	tw.parallel().tween_property(glow, "modulate:a", 1.0, .23)
+	tw.tween_callback(under.queue_free)
+	tw.tween_property(glow, "modulate:a", 0.0, .26).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(glow.queue_free)
+	# The new screen comes up once the light covers the old one.
+	var sc := _scroll
+	sc.modulate.a = 0.0
+	_hold_report(.5)
+	get_tree().create_timer(.23).timeout.connect(func():
+		if is_instance_valid(sc) and sc == _scroll:
+			_arrive(Vector2.ZERO, .26))
 
 
 ## The picture of the screen Back would return to, for the swipe back to slide
@@ -849,7 +882,7 @@ func _place_tab_mark() -> void:
 		return
 	var b: Control = _tab_buttons[_tab]
 	_tab_mark.visible = b.visible and _tabs.visible
-	var to := b.position.x + (b.size.x - _tab_mark.size.x) / 2.0
+	var to := _tab_row.position.x + b.position.x + (b.size.x - _tab_mark.size.x) / 2.0
 	if _tab_mark.position.x < 0.0 or Motion.calm():
 		_tab_mark.position.x = to
 		return
@@ -874,7 +907,7 @@ func _report(name: String) -> void:
 	await get_tree().process_frame
 	while Time.get_ticks_msec() < _report_after:
 		await get_tree().process_frame
-	if name != current and name not in ["overlay", "sheet", "reveal", "story"]:
+	if name != current and name not in ["overlay", "sheet", "reveal", "story", "bounce_chest"]:
 		return
 	print("UI_SCREEN ", name)
 	if name == current:
@@ -918,8 +951,7 @@ func _report_fit() -> void:
 
 func _top_bar() -> Control:
 	var m := MarginContainer.new()
-	m.add_theme_constant_override("margin_left", 22)
-	m.add_theme_constant_override("margin_right", 22)
+	_top_margin = m
 	m.add_theme_constant_override("margin_top", int(TOP_PAD))
 	m.add_theme_constant_override("margin_bottom", 12)
 	var lvl := Kit.panel(Kit.label("", 28, Kit.BG, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(Kit.ACCENT, Color("b9abff"), 999, 3, 0))
@@ -1126,6 +1158,16 @@ func _notification(what: int) -> void:
 		_refresh_top.call_deferred()
 
 
+## On a window wider than WIDE_BARS the top bar's pills and the tab buttons
+## gather in the middle, over the phone column, rather than at far corners.
+func _fit_wide() -> void:
+	var inset := maxf(0.0, (size.x - WIDE_BARS) / 2.0)
+	for side in ["left", "right"]:
+		_top_margin.add_theme_constant_override("margin_" + side, 22 + int(inset))
+	_tab_row.offset_left = inset
+	_tab_row.offset_right = -inset
+
+
 # --- Tab bar -------------------------------------------------------------------
 
 func _tab_bar() -> Control:
@@ -1142,6 +1184,7 @@ func _tab_bar() -> Control:
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	row.add_theme_constant_override("separation", 0)
 	bar.add_child(row)
+	_tab_row = row
 	for tab in TABS:
 		var id: String = tab[0]
 		var b := Button.new()
@@ -1250,8 +1293,8 @@ class _Backdrop extends Control:
 		# The wash: one quad, lighter at the top, into the base colour by mid-screen.
 		draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(w, 0), Vector2(w, h * .55), Vector2(0, h * .55)]),
 			PackedColorArray([TOP, TOP, Kit.BG, Kit.BG]))
-		for k in 4:
-			Dot.circle(self, Vector2(w * .5, -h * .05), w * (.75 - k * .14), Color(.45, .35, 1.0, .03))
+		# The glow stays phone-sized over the middle on a wide window.
+		Dot.glow(self, Vector2(w * .5, -h * .05), minf(w, 1100.0) * .8, Color(.45, .35, 1.0, .12), .4)
 		# The dot grid, offset every other row, brightest near the top.
 		var rows := int(h * .6 / GAP)
 		for j in rows:
@@ -1261,3 +1304,16 @@ class _Backdrop extends Control:
 			while x < w:
 				Dot.circle(self, Vector2(x, GAP * (j + .5)), 1.6, Color(.7, .65, 1.0, .1 * fade))
 				x += GAP
+		# Tablets and desktop: the sides fall into shadow so the middle reads as
+		# the stage, framed by a faint rim of light.
+		var side := (w - 1000.0) / 2.0
+		if side > 24.0:
+			var dark := Color(0.0, 0.0, 0.03, .55)
+			var clear := Color(0.0, 0.0, 0.03, 0.0)
+			draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(side, 0), Vector2(side, h), Vector2(0, h)]),
+				PackedColorArray([dark, clear, clear, dark]))
+			draw_polygon(PackedVector2Array([Vector2(w - side, 0), Vector2(w, 0), Vector2(w, h), Vector2(w - side, h)]),
+				PackedColorArray([clear, dark, dark, clear]))
+			var rim := Color(.55, .45, 1.0, .10)
+			draw_line(Vector2(side, 0), Vector2(side, h), rim, 2.0)
+			draw_line(Vector2(w - side, 0), Vector2(w - side, h), rim, 2.0)

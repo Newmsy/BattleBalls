@@ -171,15 +171,15 @@ func abandon() -> Array:
 	return used
 
 
-## Rewards waiting to be collected, summed: {coins, orbs, xp_chips, keys, gear: [{type, tier}...], floors}.
+## Rewards waiting to be collected, summed: {coins, orbs, hammers, keys, gear: [{type, tier}...], floors}.
 func unclaimed_total() -> Dictionary:
-	var t := {"coins": 0, "orbs": 0, "xp_chips": 0, "keys": 0, "gear": [], "floors": unclaimed.duplicate()}
+	var t := {"coins": 0, "orbs": 0, "hammers": 0, "keys": 0, "gear": [], "floors": unclaimed.duplicate()}
 	for f in unclaimed:
 		var r := Spire.reward(f)
 		t.keys += 1 if f in KEY_FLOORS else 0
 		t.coins += r.coins
 		t.orbs += r.orbs
-		t.xp_chips += r.xp_chips
+		t.hammers += r.hammers
 		if not r.gear.is_empty():
 			t.gear.append(r.gear)
 	return t

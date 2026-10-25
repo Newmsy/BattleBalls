@@ -1,5 +1,6 @@
 ## Account: save a guest's progress to an account (email code now, Apple and
-## Google once switched on), sign in on another device, or sign out. Opened
+## Google once switched on), sign in on another device, sign out, or delete
+## the account and its progress for good. Opened
 ## from the level badge in the top bar. Data and calls live in
 ## game/online/account.gd (shell.account); the screen rebuilds when it changes.
 extends RefCounted
@@ -43,6 +44,11 @@ static func build(shell, params: Dictionary) -> Control:
 
 	if acc.message != "":
 		root.add_child(Kit.label(acc.message, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	if acc.pending.is_empty():
+		var del := Kit.button("Delete account", func(): _confirm_delete(shell, acc), "ghost", 20, 64)
+		del.disabled = acc.busy
+		shell.mark("account_delete", del)
+		root.add_child(del)
 	return root
 
 
@@ -114,6 +120,19 @@ static func _confirm_sign_out(shell, acc) -> void:
 		Kit.label("Sign out on this device?", 32),
 		Kit.label("Your progress stays on your account. This device starts again as a new guest until you sign back in.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
 		Kit.button("Sign out", func(): shell.close_overlay(); acc.sign_out(), "primary", 28, 88),
+		Kit.button("Cancel", shell.close_overlay, "ghost", 24, 76),
+	])
+	shell.sheet(col)
+
+
+static func _confirm_delete(shell, acc) -> void:
+	var what := "your account (%s) and all its progress" % acc.email if acc.email != "" else "all your progress"
+	var del := Kit.button("Delete for good", func(): shell.close_overlay(); acc.delete_account(), "danger", 28, 88)
+	shell.mark("account_delete_confirm", del)
+	var col := Kit.vbox(18, [
+		Kit.label("Delete account?", 32),
+		Kit.label("This deletes %s: critters, gear, trophies, friends and purchases. It can't be undone." % what, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		del,
 		Kit.button("Cancel", shell.close_overlay, "ghost", 24, 76),
 	])
 	shell.sheet(col)

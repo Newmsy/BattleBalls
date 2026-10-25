@@ -791,6 +791,118 @@
    }
   ]
  },
+ "gear_band_charms": {
+  "size": [
+   720,
+   200
+  ],
+  "layers": [
+   {
+    "id": "runner",
+    "move": "bob 3 1.2 0",
+    "pivot": [
+     568,
+     182
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     530,
+     91,
+     72,
+     89
+    ]
+   }
+  ]
+ },
+ "gear_band_cores": {
+  "size": [
+   720,
+   200
+  ],
+  "layers": [
+   {
+    "id": "hit",
+    "move": "sway 4 0.8 0.3",
+    "pivot": [
+     593,
+     179
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     559,
+     91,
+     66,
+     82
+    ]
+   }
+  ]
+ },
+ "gear_band_shells": {
+  "size": [
+   720,
+   200
+  ],
+  "layers": [
+   {
+    "id": "guard",
+    "move": "idle 2 0.6 0",
+    "pivot": [
+     471,
+     174
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     435,
+     90,
+     72,
+     87
+    ]
+   },
+   {
+    "id": "bumper",
+    "move": "bob 3 0.9 0.4",
+    "pivot": [
+     630,
+     158
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     599,
+     80,
+     60,
+     74
+    ]
+   }
+  ]
+ },
+ "gear_forge": {
+  "size": [
+   720,
+   340
+  ],
+  "layers": [
+   {
+    "id": "king",
+    "move": "idle 3 0.7 0",
+    "pivot": [
+     331,
+     305
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     293,
+     210,
+     76,
+     97
+    ]
+   }
+  ]
+ },
  "ghost_lantern": {
   "size": [
    720,
@@ -1267,6 +1379,438 @@
      268,
      78,
      89
+    ]
+   }
+  ]
+ },
+ "league_bronze": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     541,
+     198
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     479,
+     59,
+     123,
+     144
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_diamond": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     198
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     395,
+     59,
+     290,
+     144
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_gold": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     214
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     447,
+     59,
+     186,
+     157
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_neon": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     214
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     395,
+     59,
+     290,
+     157
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_platinum": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     214
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     447,
+     59,
+     186,
+     157
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
+    ]
+   }
+  ]
+ },
+ "league_silver": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "b1",
+    "move": "sway 3 0.4 0.3",
+    "pivot": [
+     400,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     370,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "b2",
+    "move": "sway 3 0.4 0.6",
+    "pivot": [
+     680,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     650,
+     0,
+     60,
+     117
+    ]
+   },
+   {
+    "id": "crest",
+    "move": "breathe 0.03 0.5 0",
+    "pivot": [
+     540,
+     198
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     395,
+     59,
+     290,
+     144
+    ]
+   },
+   {
+    "id": "fan",
+    "move": "idle 3 0.8 0",
+    "pivot": [
+     641,
+     217
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     619,
+     153,
+     43,
+     66
     ]
    }
   ]

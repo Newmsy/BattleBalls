@@ -4,13 +4,14 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
-const Glyph := preload("res://game/ui/glyph.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const Gear := preload("res://sim/gear.gd")
 const A11y := preload("res://game/a11y.gd")
 const Motion := preload("res://game/ui/motion.gd")
+const GearArt := preload("res://game/ui/gear_art.gd")
+const LivingArt := preload("res://game/bounce_run/living_art.gd")
 
 const GOLD := Color("ffd166")
 
@@ -88,14 +89,36 @@ static func gear(shell, made: Dictionary, tier_color: Color, spent: int, on_cont
 	for line in Gear.ORDER:
 		if made.stats.has(line):
 			lines.add_child(row(LINE_GLYPHS.get(line, "gear"), tier_color, Gear.LINES[line].name, _pct(line, before.get(line, 0.0)), _pct(line, made.stats[line])))
-	var icon := Glyph.make(made.type, 120, tier_color)
-	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var body: Array = [icon, Kit.label(made.name, 34, tier_color, HORIZONTAL_ALIGNMENT_CENTER), stars(made.tier - 1, made.tier, tier_color), lines]
+	var body: Array = [_forge(made), Kit.label(made.name, 34, tier_color, HORIZONTAL_ALIGNMENT_CENTER), stars(made.tier - 1, made.tier, tier_color), lines]
 	var foot := Kit.hbox(10, [Kit.amount("hammer", "-%d" % spent, 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	if made.on != "":
 		foot.add_child(Kit.label("· still on %s" % Roster.get_critter(made.on).name, 22, Kit.MUTED))
 	body.append(foot)
 	_open(shell, "Merged!", body, on_continue, "merge_done")
+
+
+## The merge popup's header: the new piece glowing over the Anvil King's
+## anvil (tools/event_art/scenes/gear_forge.mjs, anvil at about 65% across).
+static func _forge(made: Dictionary) -> Control:
+	var art := LivingArt.make("gear_forge", "res://game/ui/gear_art/gear_forge.png")
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var piece := GearArt.piece(made.type, made.tier, 140)
+	piece.anchor_left = .653
+	piece.anchor_right = .653
+	piece.anchor_top = .42
+	piece.anchor_bottom = .42
+	piece.offset_left = -70
+	piece.offset_right = 70
+	piece.offset_top = -70
+	piece.offset_bottom = 70
+	var box := Control.new()
+	box.custom_minimum_size.y = 240
+	box.clip_contents = true
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(art)
+	box.add_child(piece)
+	return box
 
 
 ## Several merges at once (Merge all): one line per piece made.
@@ -105,7 +128,7 @@ static func gear_list(shell, made: Array, tier_color: Callable, spent: int, on_c
 		var col: Color = tier_color.call(g.tier)
 		var name := Kit.label(g.name, 24)
 		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		lines.add_child(Kit.hbox(12, [Kit.glyph(g.type, 48, col), name, stars(g.tier - 1, g.tier, col)], BoxContainer.ALIGNMENT_CENTER))
+		lines.add_child(Kit.hbox(12, [GearArt.piece(g.type, g.tier, 56, col), name, stars(g.tier - 1, g.tier, col)], BoxContainer.ALIGNMENT_CENTER))
 	_open(shell, "Merged %d!" % made.size(), [lines, Kit.hbox(0, [Kit.amount("hammer", "-%d" % spent, 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)],
 		on_continue, "merge_done")
 
@@ -113,7 +136,7 @@ static func gear_list(shell, made: Array, tier_color: Callable, spent: int, on_c
 ## The beat before a merge's popup: three copies of the piece slide in from
 ## the sides, slam into one with a clank and a ring of sparks, then `then`
 ## runs (at once with Reduced motion). About 0.4s; taps go through.
-static func slam(shell, kind: String, col: Color, then: Callable) -> void:
+static func slam(shell, kind: String, col: Color, then: Callable, tier := 1) -> void:
 	if Motion.calm():
 		then.call()
 		return
@@ -123,7 +146,7 @@ static func slam(shell, kind: String, col: Color, then: Callable) -> void:
 	var froms := [Vector2(-230, 0), Vector2(230, 0), Vector2(0, -230)]
 	var pieces: Array = []
 	for f in froms:
-		var g := Glyph.make(kind, side, col)
+		var g: Control = GearArt.piece(kind, tier, side, col)
 		g.size = Vector2(side, side)
 		g.position = centre + f - g.size / 2.0
 		g.pivot_offset = g.size / 2.0

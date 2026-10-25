@@ -1,7 +1,7 @@
 ## The Prism Wyrm (design/bosses.md): a daily boss in the Crystal Rift that
 ## pays Lures. Lures buy a guaranteed copy of a critter on your wishlist
 ## (Profile.use_lure; rarer critters cost more), so it's the targeted way to
-## chase the one you want. Opens when the Zone 4 boss is beaten. 2 runs a
+## chase the one you want. Opens when the Zone 3 boss is beaten. 2 runs a
 ## day, 10 energy a run.
 ##
 ## Same flow as the other bosses (meta/gear_vault.gd): start() before the
@@ -20,7 +20,7 @@ const BOSS := "prism_wyrm"
 const KEY := "wyrm"
 const ENERGY_COST := 10
 const RUNS_PER_DAY := 2
-const ZONE := 3 ## Beating this zone's boss (0-based) opens it.
+const ZONE := 2 ## Beating this zone's boss (0-based) opens it.
 ## The 15 levels (meta/boss_levels.gd): the Lures a win pays and the wyrm's
 ## power, BossLevels.curve(4.0, 30.8). Power moves the wyrm less than other
 ## bosses (only its shining scale takes damage), so its numbers run higher

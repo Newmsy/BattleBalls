@@ -27,11 +27,11 @@ const CRITTER := {
 		"star_damage": 5.0, ## T5: the shooting star's hit.
 	},
 	"tiers": [
-		{"text": "Stardust trail stings 2.5/sec, lasts 1.5s", "now": "Stardust trail stings {trail_dps}/sec, lasts {trail_life}s"},
+		{"text": "Stardust trail stings 2.5/sec, lasts 1.5s", "card": "Leaves a stardust trail that stings foes who cross it.", "now": "Stardust trail stings {trail_dps}/sec, lasts {trail_life}s"},
 		{"text": "Trail {^trail_dps} → {trail_dps}/sec", "trail_dps": 3.5},
-		{"text": "+ Crossing it burns {linger_dps}/sec for 2s", "now": "Stardust trail stings {trail_dps}/sec + burns, lasts {trail_life}s", "ability": [{"on": "always", "do": "linger"}]},
+		{"text": "+ Crossing it burns {linger_dps}/sec for 2s", "card": "Leaves a stardust trail that stings and burns foes who cross it.", "now": "Stardust trail stings {trail_dps}/sec + burns, lasts {trail_life}s", "ability": [{"on": "always", "do": "linger"}]},
 		{"text": "Trail lasts 1.5 → 2s", "trail_life": 2.0},
-		{"text": "+ Shooting star every 3s ({star_damage} dmg)", "now": "Burning stardust trail {trail_dps}/sec, {trail_life}s · star every 3s", "ability": [{"on": "every", "secs": 3.0, "do": "star"}]},
+		{"text": "+ Shooting star every 3s ({star_damage} dmg)", "card": "Leaves a burning stardust trail and flicks shooting stars at the foe.", "now": "Burning stardust trail {trail_dps}/sec, {trail_life}s · star every 3s", "ability": [{"on": "every", "secs": 3.0, "do": "star"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "back": ["comettail"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 1.15},

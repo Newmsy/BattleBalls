@@ -40,6 +40,13 @@ static func make(id: String, focus_at: Vector2, corner: float, fade: Vector4, fa
 	return p
 
 
+## Darkens the painting's left side, full up to 40% of `end` (a fraction of
+## the width) and fading out by `end`, so words there read on any painting.
+func calm_left(end: float, strength: float) -> Control:
+	_mat.set_shader_parameter("side", Vector2(end, strength))
+	return self
+
+
 func _draw() -> void:
 	if tex == null or size.x <= 0.0 or size.y <= 0.0:
 		return

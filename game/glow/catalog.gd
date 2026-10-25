@@ -79,7 +79,7 @@ const PRODUCTS := [
 const PASS_GEMS := 500
 
 ## Things a grant can carry. Only "gems" and "cosmetic" may ever come from a
-## purchase; the rest are earned (pass free track, bounties).
+## purchase; the rest are earned (pass free track, quests).
 const POWER_KINDS := ["orbs", "coins", "energy", "xp_chip", "copies", "gear"]
 
 

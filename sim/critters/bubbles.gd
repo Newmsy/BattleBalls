@@ -26,11 +26,11 @@ const CRITTER := {
 		"bubble_splash": 0.0, ## T5: the pop bursts as a wave.
 	},
 	"tiers": [
-		{"text": "Bubble every 5s soaks 10; pop knockback + 3 bubbles", "now": "Bubble every {bubble_every}s soaks {bubble_size}; pop knockback + {bubble_bolts} bubbles"},
+		{"text": "Bubble every 5s soaks 10; pop knockback + 3 bubbles", "card": "Blows a bubble shield that soaks a hit, then pops, knocking the attacker back.", "now": "Bubble every {bubble_every}s soaks {bubble_size}; pop knockback + {bubble_bolts} bubbles"},
 		{"text": "Soaks 10 → 12", "bubble_size": 12.0},
 		{"text": "Pop sprays 3 → 5 bubbles", "bubble_bolts": 5.0},
 		{"text": "Bubble every 5 → 4s", "bubble_every": 4.0},
-		{"text": "+ The pop bursts as a wave (8)", "now": "Bubble every {bubble_every}s soaks {bubble_size}; pop knockback, {bubble_bolts} bubbles + wave {bubble_splash}", "bubble_splash": 8.0},
+		{"text": "+ The pop bursts as a wave (8)", "card": "Blows a bubble shield that soaks a hit, then bursts in a wave that knocks the attacker back.", "now": "Bubble every {bubble_every}s soaks {bubble_size}; pop knockback, {bubble_bolts} bubbles + wave {bubble_splash}", "bubble_splash": 8.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "o"}, "body": "ghost", "tint": true, "front": ["sheen"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.35},

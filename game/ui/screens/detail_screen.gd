@@ -6,6 +6,7 @@ extends RefCounted
 const Talents := preload("res://sim/talents.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
+const GearArt := preload("res://game/ui/gear_art.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
@@ -112,7 +113,7 @@ static func build(shell, params: Dictionary) -> Control:
 		# A big icon of the piece it wears, its name and stars; an empty slot
 		# shows the slot's icon dimmed, a locked one a lock.
 		var icon_kind: String = g.type if not g.is_empty() else (slot.to_lower() if open else "lock")
-		var icon := Glyph.make(icon_kind, 96 if tall else 34, col if not g.is_empty() else Kit.MUTED)
+		var icon: Control = GearArt.piece(g.type, g.tier, 104 if tall else 40, col) if not g.is_empty() else Glyph.make(icon_kind, 96 if tall else 34, Kit.MUTED)
 		var name := Kit.label(g.name if not g.is_empty() else slot, 18, col if not g.is_empty() else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 		name.clip_text = true
 		name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -199,7 +200,7 @@ static func _slot_sheet(shell, id: String, slot: String) -> void:
 			var face := CritterIcon.face(g.on, 40)
 			face.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 			end.add_child(face)
-		var row := Kit.hbox(12, [Glyph.make(g.type, 56, col), info, end], BoxContainer.ALIGNMENT_CENTER)
+		var row := Kit.hbox(12, [GearArt.piece(g.type, g.tier, 64, col), info, end], BoxContainer.ALIGNMENT_CENTER)
 		var card := Kit.card_button(row, func():
 			p.equip(g.uid, id)
 			shell.close_overlay()
