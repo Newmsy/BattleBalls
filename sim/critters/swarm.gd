@@ -32,11 +32,11 @@ const CRITTER := {
 		"bee_poison_dps": 0.0, ## T3: launched bees poison for 2s.
 	},
 	"tiers": [
-		{"text": "3 bees sting 3; one launches every 8s", "now": "{bee_count} bees sting {bee_damage}; one launches every {bee_every}s"},
+		{"text": "3 bees sting 3; one launches every 8s", "card": "Bees circle it and sting foes they touch, and now and then one flies off at the foe.", "now": "{bee_count} bees sting {bee_damage}; one launches every {bee_every}s"},
 		{"text": "Bee sting {^bee_damage} → {bee_damage}", "bee_damage": 4.0},
-		{"text": "+ Launched bees poison {bee_poison_dps}/sec", "now": "{bee_count} bees sting {bee_damage}; a poison bee launches every {bee_every}s", "bee_poison_dps": 2.0},
+		{"text": "+ Launched bees poison {bee_poison_dps}/sec", "card": "Bees circle it and sting foes they touch, and now and then a poison bee flies at the foe.", "now": "{bee_count} bees sting {bee_damage}; a poison bee launches every {bee_every}s", "bee_poison_dps": 2.0},
 		{"text": "Bees 3 → 4", "bee_count": 4},
-		{"text": "+ Below 50% HP the whole swarm launches", "now": "{bee_count} bees sting {bee_damage}; launch every {bee_every}s, all at 50% HP", "ability": [{"on": "hp_below", "hp": 0.5, "do": "swarm_all"}]},
+		{"text": "+ Below 50% HP the whole swarm launches", "card": "Bees circle and sting, poison bees fly at the foe, and when it's low the whole swarm launches.", "now": "{bee_count} bees sting {bee_damage}; launch every {bee_every}s, all at 50% HP", "ability": [{"on": "hp_below", "hp": 0.5, "do": "swarm_all"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["bees"], "front": ["hive", "door"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.3},

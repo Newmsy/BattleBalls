@@ -26,11 +26,11 @@ const CRITTER := {
 		"blink_zap": 0.0, ## T5: beam damage a second from its old spot to its new one.
 	},
 	"tiers": [
-		{"text": "Every 2nd hit teleports behind foe; next hit +3", "now": "Every 2nd hit teleports behind foe; next hit +{blink_bonus}"},
+		{"text": "Every 2nd hit teleports behind foe; next hit +3", "card": "Every other hit, it teleports behind the foe for a stronger backstab.", "now": "Every 2nd hit teleports behind foe; next hit +{blink_bonus}"},
 		{"text": "Backstab +3 → +5", "blink_bonus": 5.0},
-		{"text": "+ The spot it leaves crackles for 5", "now": "Every 2nd hit teleports behind foe, crackles; next hit +{blink_bonus}", "blink_crackle": 5.0},
-		{"text": "Teleports every 2nd hit → every hit", "now": "Every hit teleports behind foe, crackles; next hit +{blink_bonus}", "blink_every": 1},
-		{"text": "+ Zap beam along the jump (10/sec)", "now": "Each hit: zap-teleports behind foe; next hit +{blink_bonus}", "blink_zap": 10.0},
+		{"text": "+ The spot it leaves crackles for 5", "card": "Every other hit, it teleports behind the foe for a backstab, leaving a crackling spark.", "now": "Every 2nd hit teleports behind foe, crackles; next hit +{blink_bonus}", "blink_crackle": 5.0},
+		{"text": "Teleports every 2nd hit → every hit", "card": "Every hit, it teleports behind the foe for a backstab, leaving a crackling spark.", "now": "Every hit teleports behind foe, crackles; next hit +{blink_bonus}", "blink_every": 1},
+		{"text": "+ Zap beam along the jump (10/sec)", "card": "Every hit, it zaps a beam as it teleports behind the foe for a backstab.", "now": "Each hit: zap-teleports behind foe; next hit +{blink_bonus}", "blink_zap": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "flat"}, "back": ["boltant"], "front": ["panel"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.25},

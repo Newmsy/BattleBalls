@@ -104,15 +104,10 @@ func _describe(sim, i: int) -> Dictionary:
 	if CritterDb.has(id):
 		var c := CritterDb.get_critter(id)
 		card.line = "T%d · %s" % [tier, c.get("role", "")]
-		# The ability as it is at this tier (T2-T4 numbers, not T1's); at T5 the
-		# signature follows on its own line, since alone it doesn't say what the
-		# critter does.
-		card.text = AbilityText.now(id, tier, 1, def)
+		# The ability as it is at this tier, in words (the i popup has numbers).
+		card.text = AbilityText.card(id, tier)
 		if card.text == "":
 			card.text = AbilityText.full(id)
-		var t5 := AbilityText.change(id, 5) if tier >= 5 else ""
-		if t5 != "" and t5 != card.text and not card.text.contains(t5):
-			card.text += "\nT5: " + t5
 	else:
 		card.line = "Boss"
 		card.text = _boss_line(def)

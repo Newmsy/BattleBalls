@@ -30,11 +30,11 @@ const CRITTER := {
 		"swat_damage": 6.0, ## ...for this, knocking them away.
 	},
 	"tiers": [
-		{"text": "Swats foes every 4s (6 dmg); roots at 50% HP: +3 HP/sec", "now": "Swats foes every {swat_every}s ({swat_damage} dmg); roots at 50% HP: +{root_regen} HP/sec"},
-		{"text": "Regrow 3 → 4 HP/sec · 1 root stays till hit", "root_regen": 4.0, "root_stay": 1},
-		{"text": "+ Roots erupt: {root_shove_damage} + knockback · 2 stay", "root_shove": 150.0, "root_stay": 2},
+		{"text": "Swats foes every 4s (6 dmg); roots at 50% HP: +3 HP/sec", "card": "Swats nearby foes away. At half HP it takes root: root pillars rise and regrow its HP.", "now": "Swats foes every {swat_every}s ({swat_damage} dmg); roots at 50% HP: +{root_regen} HP/sec"},
+		{"text": "Regrow 3 → 4 HP/sec · 1 root stays till hit", "card": "Swats nearby foes away. At half HP it takes root: pillars rise and regrow its HP, some until hit.", "root_regen": 4.0, "root_stay": 1},
+		{"text": "+ Roots erupt: {root_shove_damage} + knockback · 2 stay", "card": "Swats nearby foes away. At half HP its roots erupt, knocking foes back, and regrow its HP until hit.", "root_shove": 150.0, "root_stay": 2},
 		{"text": "3 roots stay until a foe hits them", "root_stay": 3},
-		{"text": "All 4 stay · takes root again at 20% HP", "now": "Swats ({swat_damage} dmg); roots at 50% and 20% HP: +{root_regen} HP/sec", "ability": [{"on": "hp_below", "hp": 0.2, "do": "root"}], "root_stay": 4},
+		{"text": "All 4 stay · takes root again at 20% HP", "card": "Swats nearby foes away. At half HP and again when low, roots erupt and regrow its HP until hit.", "now": "Swats ({swat_damage} dmg); roots at 50% and 20% HP: +{root_regen} HP/sec", "ability": [{"on": "hp_below", "hp": 0.2, "do": "root"}], "root_stay": 4},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["canopy"], "front": ["beard"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 0.7},

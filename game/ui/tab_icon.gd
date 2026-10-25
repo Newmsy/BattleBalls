@@ -44,8 +44,7 @@ func _c(col: Color) -> Color:
 
 func _glow(c: Vector2, r: float, col: Color) -> void:
 	if active:
-		Dot.circle(self, c, r, Color(col, .12))
-		Dot.circle(self, c, r * .8, Color(col, .14))
+		Dot.glow(self, c, r * 1.1, Color(col, .26), .35)
 
 
 func _sparkle(p: Vector2, r: float, col := Color.WHITE) -> void:

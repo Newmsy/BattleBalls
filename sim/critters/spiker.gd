@@ -28,11 +28,11 @@ const CRITTER := {
 		"volley_damage": 2.5,
 	},
 	"tiers": [
-		{"text": "+1.6 dmg per hit, max 10 · every 3rd hit fires 6 spikes", "now": "+{spike_damage} dmg per hit, max {spike_max} · every 3rd hit fires {volley_count} spikes"},
+		{"text": "+1.6 dmg per hit, max 10 · every 3rd hit fires 6 spikes", "card": "Grows a spike on every hit it lands for more damage, and fires spikes outward now and then.", "now": "+{spike_damage} dmg per hit, max {spike_max} · every 3rd hit fires {volley_count} spikes"},
 		{"text": "Per spike +{^spike_damage} → +{spike_damage}", "spike_damage": 1.8},
 		{"text": "Max spikes 10 → 12", "spike_max": 12},
 		{"text": "Per spike +{^spike_damage} → +{spike_damage}", "spike_damage": 2.0},
-		{"text": "+ From 3 spikes, hits fire 8 spikes ({shot_damage} dmg)", "now": "+{spike_damage} dmg per hit landed, max {spike_max}; {spike_burst_at}+: spike ring", "ability": [{"on": "hit", "do": "spike_burst"}]},
+		{"text": "+ From 3 spikes, hits fire 8 spikes ({shot_damage} dmg)", "card": "Grows a spike on every hit it lands; once spiky, its hits fire rings of spikes.", "now": "+{spike_damage} dmg per hit landed, max {spike_max}; {spike_burst_at}+: spike ring", "ability": [{"on": "hit", "do": "spike_burst"}]},
 	],
 	"art": {"eyes": {"sep": .32, "w": .24, "h": .28, "p": .12, "mouth": "grin"}, "back": ["spike_ring"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.15},

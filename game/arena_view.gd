@@ -1798,8 +1798,7 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 			var k := _bumper_flash / BUMPER_FLASH_LIFE
 			var col := BUMPER.lerp(Color.WHITE, k * 0.7)
 			Dot.circle(self, p, rad, Color(BUMPER, 0.16 + 0.3 * k))
-			for i in 3:
-				Dot.arc(self, p, rad + i * 3.0, 0, TAU, 56, Color(col, 0.3 - i * 0.08), 4.0 + i * 3.0, true)
+			Dot.glow(self, p, rad + 14.0, Color(col, 0.5), rad / (rad + 14.0))
 			Dot.arc(self, p, rad, 0, TAU, 56, col, 2.5, true)
 			Dot.circle(self, p, rad * 0.42, col)
 		else:
@@ -2032,8 +2031,7 @@ func _draw_cores(shape) -> void:
 				Dot.arc(self, p, r, -PI / 2.0, -PI / 2.0 + TAU * k, 40, Color(CORE, 0.55), 3.0, true)
 			continue
 		var beat := 0.5 + 0.5 * sin(_time * 4.0)
-		Dot.circle(self, p, r * (1.5 + 0.15 * beat), Color(CORE, 0.12))
-		Dot.circle(self, p, r * 1.15, Color(CORE, 0.18))
+		Dot.glow(self, p, r * (1.6 + 0.15 * beat), Color(CORE, 0.32), 0.55)
 		var hex := PackedVector2Array()
 		for j in 6:
 			hex.append(p + Vector2.from_angle(TAU * j / 6.0 + PI / 6.0 + _time * 0.6) * r * 0.66)

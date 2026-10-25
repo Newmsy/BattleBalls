@@ -21,10 +21,13 @@ const STATS := ["hp", "radius", "speed", "contact_damage"]
 const TIERS := 5
 ## Tier keys that are words for players, not params (game/ui/ability_text.gd):
 ## "text" (T1: the ability, T2-T5: what the tier adds), "now" (the whole ability
-## from that tier up, with "{param}"/"{param%}" filled in) and "special" (T5 name).
-const TEXT_KEYS := ["text", "now", "special"]
+## from that tier up, with "{param}"/"{param%}" filled in), "card" (the whole
+## ability from that tier up in plain words, no numbers, for fight cards) and
+## "special" (T5 name).
+const TEXT_KEYS := ["text", "now", "card", "special"]
 const TEXT_MAX := 60 ## T1 text and every tier's "now" line, once filled in.
 const CHANGE_MAX := 50 ## T2-T5 text.
+const CARD_MAX := 105 ## Every tier's "card" line.
 const ABILITY_TIER_STEP := 0.25 ## Ability damage, burn, heal and shield per tier above T1 (T5 = x2).
 const RADIUS_TIER_STEP := 0.06 ## Ability reach per tier above T1 (T5 = +24%).
 ## Damage multipliers of special hits; their bonus over x1 grows like damage.
@@ -182,6 +185,9 @@ static func _validate_text(id: String, c: Dictionary) -> Array[String]:
 	var re := RegEx.create_from_string("\\{[\\^+]?([a-z_0-9]+)%?\\}")
 	var rate := RegEx.create_from_string("[0-9}]( HP)?/s\\b")
 	var texts := {"description": str(c.description)}
+	if str(c.tiers[0].get("card", "")) == "":
+		errors.append("%s: T1 has no \"card\" line" % id)
+	var digit := RegEx.create_from_string("[0-9{}]")
 	for t in TIERS:
 		var tier: Dictionary = c.tiers[t]
 		prev = params.duplicate()
@@ -194,6 +200,11 @@ static func _validate_text(id: String, c: Dictionary) -> Array[String]:
 			errors.append("%s: tier %d text uses \"->\"; use \"→\"" % [id, t + 1])
 		if t > 0 and fill(text, params, prev).length() > CHANGE_MAX:
 			errors.append("%s: tier %d text is over %d characters" % [id, t + 1, CHANGE_MAX])
+		var card := str(tier.get("card", ""))
+		if card.length() > CARD_MAX:
+			errors.append("%s: tier %d card is over %d characters" % [id, t + 1, CARD_MAX])
+		if digit.search(card) != null:
+			errors.append("%s: tier %d card has a number; cards say what happens in words" % [id, t + 1])
 		if tier.has("now"):
 			line = str(tier.now)
 			texts["tier %d now" % (t + 1)] = line

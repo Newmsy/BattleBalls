@@ -24,11 +24,11 @@ const CRITTER := {
 		"zap_storm_every": 0, ## T5: every Nth zap is a storm of 3 arcs.
 	},
 	"tiers": [
-		{"text": "Every 4.5s an arc zaps the foe: 2, stun 0.3s", "now": "Every {zap_every}s an arc zaps the foe: {zap_damage}, stun {zap_stun}s"},
+		{"text": "Every 4.5s an arc zaps the foe: 2, stun 0.3s", "card": "Zaps the foe with an arc that stuns it for a moment.", "now": "Every {zap_every}s an arc zaps the foe: {zap_damage}, stun {zap_stun}s"},
 		{"text": "Zap {^zap_damage} → {zap_damage}", "zap_damage": 3.0},
-		{"text": "+ The arc lingers 1s as a beam ({zap_linger_dps}/sec)", "now": "Every {zap_every}s an arc zaps the foe: {zap_damage}, stun {zap_stun}s + beam", "zap_linger_dps": 3.0},
+		{"text": "+ The arc lingers 1s as a beam ({zap_linger_dps}/sec)", "card": "Zaps the foe with an arc that stuns it and lingers as a beam.", "now": "Every {zap_every}s an arc zaps the foe: {zap_damage}, stun {zap_stun}s + beam", "zap_linger_dps": 3.0},
 		{"text": "Zap every 4.5 → 3.5s", "zap_every": 3.5},
-		{"text": "+ Every 3rd zap is a storm of 3 arcs", "now": "Every {zap_every}s arc: {zap_damage}, stun {zap_stun}s + beam; 3rd: storm", "zap_storm_every": 3},
+		{"text": "+ Every 3rd zap is a storm of 3 arcs", "card": "Zaps the foe with stunning arcs that linger as beams, sometimes a storm of arcs.", "now": "Every {zap_every}s arc: {zap_damage}, stun {zap_stun}s + beam; 3rd: storm", "zap_storm_every": 3},
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "flat"}, "back": ["rodball"], "front": ["coil"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.05},

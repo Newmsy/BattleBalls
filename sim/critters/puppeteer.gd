@@ -29,11 +29,11 @@ const CRITTER := {
 		"string_ties": 1, ## T5: 2 strings (a second foe in team fights), tugging twice as hard.
 	},
 	"tiers": [
-		{"text": "Every 5s a hit strings foe, hurls: slam 8, tugs", "now": "Every {string_cooldown}s a hit strings foe, hurls: slam {string_slam}, tugs"},
+		{"text": "Every 5s a hit strings foe, hurls: slam 8, tugs", "card": "Ties a string to the foe on a hit, drags it and hurls it into a wall. Its bounces tug the foe close.", "now": "Every {string_cooldown}s a hit strings foe, hurls: slam {string_slam}, tugs"},
 		{"text": "String every 5 → 4s", "string_cooldown": 4.0},
-		{"text": "Slam 8 → 11 + stun 0.4s", "now": "Every {string_cooldown}s strings foe, hurls: slam {string_slam} + stun, tugs", "string_slam": 11.0, "string_slam_stun": 0.4},
+		{"text": "Slam 8 → 11 + stun 0.4s", "card": "Ties a string to the foe on a hit and hurls it stunned into a wall. Its bounces tug the foe close.", "now": "Every {string_cooldown}s strings foe, hurls: slam {string_slam} + stun, tugs", "string_slam": 11.0, "string_slam_stun": 0.4},
 		{"text": "String 0.7 → 1s", "string_secs": 1.0},
-		{"text": "+ 2 strings, throws harder, bows: {string_shield} shield", "now": "Every {string_cooldown}s 2 strings, hurls: slam {string_slam} + stun, bow", "string_ties": 2, "string_fling": 1.1, "ability": [{"on": "always", "do": "string_snap"}]},
+		{"text": "+ 2 strings, throws harder, bows: {string_shield} shield", "card": "Ties strings to the foe, hurls it stunned into a wall and bows behind a shield. Bounces tug the foe.", "now": "Every {string_cooldown}s 2 strings, hurls: slam {string_slam} + stun, bow", "string_ties": 2, "string_fling": 1.1, "ability": [{"on": "always", "do": "string_snap"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["controlbar", "tophat"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},

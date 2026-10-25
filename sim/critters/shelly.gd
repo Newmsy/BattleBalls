@@ -31,11 +31,11 @@ const CRITTER := {
 		"shell_hit": 1.3, ## ...its hits deal this x and fling the foe.
 	},
 	"tiers": [
-		{"text": "Below 30% HP shell spin: -40% dmg taken, +25% speed", "now": "Below 30% HP shell spin: -{grow_armor%}% dmg taken, +{grow_speed%}% speed"},
+		{"text": "Below 30% HP shell spin: -40% dmg taken, +25% speed", "card": "When low, it tucks into its shell and spins: tougher, faster and flinging foes with big hits.", "now": "Below 30% HP shell spin: -{grow_armor%}% dmg taken, +{grow_speed%}% speed"},
 		{"text": "Shell -40% → -45% dmg taken", "grow_armor": 0.45},
-		{"text": "+ Tucking in heals 8", "now": "Below 30% HP shell spin: -{grow_armor%}% taken, heal {grow_heal}", "grow_heal": 8.0},
+		{"text": "+ Tucking in heals 8", "card": "When low, it tucks in to heal and spins: tougher, faster and flinging foes with big hits.", "now": "Below 30% HP shell spin: -{grow_armor%}% taken, heal {grow_heal}", "grow_heal": 8.0},
 		{"text": "Shell -45% → -50% dmg taken", "grow_armor": 0.5},
-		{"text": "+ Tucking in slams out: {grow_pulse_damage} + knockback", "now": "Below 30% HP shell spin: slam {grow_pulse_damage}, heal {grow_heal}, -{grow_armor%}%", "grow_pulse_damage": 10.0},
+		{"text": "+ Tucking in slams out: {grow_pulse_damage} + knockback", "card": "When low, it tucks in, heals and slams out, then spins: tougher, faster and flinging foes.", "now": "Below 30% HP shell spin: slam {grow_pulse_damage}, heal {grow_heal}, -{grow_armor%}%", "grow_pulse_damage": 10.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["shellhex"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.85},

@@ -10,6 +10,8 @@
 ## (CritterDb.fill) show the numbers it fights with at that tier and level
 ## (CritterDb.fight_def; level 1 and no gear unless a screen knows better), so
 ## every screen's numbers are the real ones. The T5 "special" is its name.
+## A tier's "card" is the whole ability from that tier up in plain words with
+## no numbers (fight cards and the critter popup).
 
 const CritterDb := preload("res://sim/critter_db.gd")
 
@@ -26,6 +28,18 @@ static func now(id: String, tier: int, level := 1, def := {}) -> String:
 		if tiers[i].has("now"):
 			line = str(tiers[i].now)
 	return CritterDb.fill(line, def if not def.is_empty() else CritterDb.fight_def(id, t, level))
+
+
+## The ability as it is at `tier`, in plain words without numbers: the latest
+## "card" line from T1 up to `tier`.
+static func card(id: String, tier: int) -> String:
+	if not CritterDb.has(id):
+		return ""
+	var tiers: Array = CritterDb.get_critter(id).tiers
+	var line := ""
+	for i in clampi(tier, 1, tiers.size()):
+		line = str(tiers[i].get("card", line))
+	return line
 
 
 ## What reaching `tier` adds: "Beam 5 → 7/sec" or "+ Beam sweeps 45°".

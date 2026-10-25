@@ -23,9 +23,9 @@ const CRITTER := {
 		"split_damage": 0.0, ## Contact damage a mini adds.
 	},
 	"tiers": [
-		{"text": "At 50% HP splits into two minis"},
-		{"text": "+ Minis +{split_damage} dmg", "now": "At 50% HP splits into two minis (+{split_damage} dmg)", "split_damage": 2.0},
-		{"text": "+ Minis split again at 50% of their HP", "now": "At 50% HP splits into minis that split again (+{split_damage} dmg)", "split_gens": 2},
+		{"text": "At 50% HP splits into two minis", "card": "At half HP it tears into two smaller, faster minis."},
+		{"text": "+ Minis +{split_damage} dmg", "card": "At half HP it tears into two smaller, faster, harder-hitting minis.", "now": "At 50% HP splits into two minis (+{split_damage} dmg)", "split_damage": 2.0},
+		{"text": "+ Minis split again at 50% of their HP", "card": "At half HP it tears into two hard-hitting minis that split again when hurt.", "now": "At 50% HP splits into minis that split again (+{split_damage} dmg)", "split_gens": 2},
 		{"text": "Mini dmg +{^split_damage} → +{split_damage}", "split_damage": 3.0},
 		{"text": "Mini speed x1.15 → 1.3", "split_speed": 1.3},
 	],

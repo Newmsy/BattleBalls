@@ -2628,8 +2628,7 @@ static func draw_tier_aura(ci: CanvasItem, p: Vector2, r: float, tier: int, col:
 	var glow := col.lerp(ASCEND, 0.2 + 0.15 * (tier - 3))
 	var pulse := 0.5 + 0.5 * sin(t * 2.0)
 	var strength := 0.07 + 0.035 * (tier - 3)
-	for q in 4: # Stacked faint discs: a soft falloff instead of a rim.
-		Dot.circle(ci, p, r * (1.12 + 0.14 * q + 0.03 * pulse), Color(glow, strength * (1.0 - q * 0.2)))
+	Dot.glow(ci, p, r * (1.62 + 0.03 * pulse), Color(glow, strength * 2.6), 0.7)
 	if tier < 4:
 		return
 	var n := 2 if tier == 4 else 4
@@ -2649,8 +2648,7 @@ static func draw_elite_aura(ci: CanvasItem, p: Vector2, r: float, t: float) -> v
 	if r < 2.0:
 		return
 	var pulse := 0.5 + 0.5 * sin(t * 3.0)
-	Dot.circle(ci, p, r * (1.42 + 0.04 * pulse), Color(ELITE, 0.10))
-	Dot.circle(ci, p, r * 1.26, Color(ELITE, 0.16))
+	Dot.glow(ci, p, r * (1.55 + 0.04 * pulse), Color(ELITE, 0.3), 0.65)
 	var n := 12
 	for q in n: # Spikes leaning with the spin, like a saw blade.
 		var a := t * 0.6 + q * TAU / n

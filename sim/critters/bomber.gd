@@ -24,11 +24,11 @@ const CRITTER := {
 		"mine_chain": 0, ## 1: a blast sets off its other mines in reach.
 	},
 	"tiers": [
-		{"text": "Bounces drop mines (14 dmg), max 3", "now": "Bounces drop mines ({mine_damage} dmg), max {mine_max}"},
+		{"text": "Bounces drop mines (14 dmg), max 3", "card": "Wall bounces drop mines that blow up when a foe touches them.", "now": "Bounces drop mines ({mine_damage} dmg), max {mine_max}"},
 		{"text": "Max mines 3 → 4", "mine_max": 4},
 		{"text": "Blast size +{+mine_radius}%", "mine_radius": 90.0},
 		{"text": "Max mines 4 → 6", "mine_max": 6},
-		{"text": "+ Mines chain-detonate", "now": "Bounces drop chaining mines ({mine_damage} dmg), max {mine_max}", "mine_chain": 1},
+		{"text": "+ Mines chain-detonate", "card": "Wall bounces drop mines that set each other off in a chain.", "now": "Bounces drop chaining mines ({mine_damage} dmg), max {mine_max}", "mine_chain": 1},
 	],
 	"art": {"eyes": {"sep": .3, "w": .23, "h": .26, "p": .07, "mis": true, "mouth": "teeth"}, "body": "bomb", "front": ["fuse"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 0.85},

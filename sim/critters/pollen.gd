@@ -29,11 +29,11 @@ const CRITTER := {
 		"shot_burst_radius": 40.0,
 	},
 	"tiers": [
-		{"text": "Bumped: puffs 4 seeds (4 dmg), every 1.5s max", "now": "Bumped: puffs {shot_count} seeds ({shot_damage} dmg), every {fire_cooldown}s max"},
+		{"text": "Bumped: puffs 4 seeds (4 dmg), every 1.5s max", "card": "When bumped, puffs out drifting seeds that sting anything they touch.", "now": "Bumped: puffs {shot_count} seeds ({shot_damage} dmg), every {fire_cooldown}s max"},
 		{"text": "Seed {^shot_damage} → {shot_damage}", "shot_damage": 5.0},
 		{"text": "Seeds 4 → 6", "shot_count": 6},
 		{"text": "Puff every 1.5 → 1s max", "fire_cooldown": 1.0},
-		{"text": "+ Spent seeds burst for {shot_burst_damage}", "now": "Bumped: puffs {shot_count} bursting seeds ({shot_damage} dmg), every {fire_cooldown}s", "shot_burst_damage": 3.0},
+		{"text": "+ Spent seeds burst for {shot_burst_damage}", "card": "When bumped, puffs out drifting seeds that sting, then burst.", "now": "Bumped: puffs {shot_count} bursting seeds ({shot_damage} dmg), every {fire_cooldown}s", "shot_burst_damage": 3.0},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "o"}, "back": ["tufts"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.35},

@@ -25,11 +25,11 @@ const CRITTER := {
 		"harpoon_range": 600.0, ## ...when it is this close.
 	},
 	"tiers": [
-		{"text": "Every 4s harpoons foe in; bounces yank; reeled hit +7", "now": "Every {harpoon_every}s harpoons foe in; bounces yank; reeled hit +{yank_bonus}"},
+		{"text": "Every 4s harpoons foe in; bounces yank; reeled hit +7", "card": "Harpoons the foe so they rush together, and wall bounces yank it close. Reeled-in hits land harder.", "now": "Every {harpoon_every}s harpoons foe in; bounces yank; reeled hit +{yank_bonus}"},
 		{"text": "Yank +18%", "yank_impulse": 260.0},
 		{"text": "Reeled hit +7 → +10", "yank_bonus": 10.0},
 		{"text": "Yank +15%", "yank_impulse": 300.0},
-		{"text": "+ Every 2nd bounce: big reel-in, slow 30%", "now": "Harpoon every {harpoon_every}s; bounces yank (2nd: big) · reeled +{yank_bonus}", "yank_big_every": 2},
+		{"text": "+ Every 2nd bounce: big reel-in, slow 30%", "card": "Harpoons and yanks the foe in, sometimes with a big slowing reel. Reeled-in hits land harder.", "now": "Harpoon every {harpoon_every}s; bounces yank (2nd: big) · reeled +{yank_bonus}", "yank_big_every": 2},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "smirk"}, "back": ["hook"], "front": ["bandana"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.95},

@@ -29,11 +29,11 @@ const CRITTER := {
 		"lag_secs": 0.4, ## A foe its bomb blasts glitches back to where it was this long ago.
 	},
 	"tiers": [
-		{"text": "Teleports every 5s, leaves a lag bomb (11 dmg)", "now": "Teleports every {glitch_every}s, leaves a lag bomb ({bomb_damage} dmg)"},
+		{"text": "Teleports every 5s, leaves a lag bomb (11 dmg)", "card": "Teleports, leaving a lag bomb behind. Blasted foes glitch back to where they were.", "now": "Teleports every {glitch_every}s, leaves a lag bomb ({bomb_damage} dmg)"},
 		{"text": "Bomb {^bomb_damage} → {bomb_damage}", "bomb_damage": 14.0},
-		{"text": "+ Lands with a glitch pulse ({glitch_pulse} dmg)", "now": "Teleports every {glitch_every}s: bomb {bomb_damage}, pulse {glitch_pulse}", "glitch_pulse": 4.0},
+		{"text": "+ Lands with a glitch pulse ({glitch_pulse} dmg)", "card": "Teleports with a glitch pulse, leaving a lag bomb behind. Blasted foes glitch back in time.", "now": "Teleports every {glitch_every}s: bomb {bomb_damage}, pulse {glitch_pulse}", "glitch_pulse": 4.0},
 		{"text": "Teleport every 5 → 4s", "glitch_every": 4.0},
-		{"text": "+ Leaves a line of 3 bombs", "now": "Teleports every {glitch_every}s: {bomb_line} bombs ({bomb_damage} dmg), pulse {glitch_pulse}", "bomb_line": 3, "bomb_max": 6},
+		{"text": "+ Leaves a line of 3 bombs", "card": "Teleports with a glitch pulse, leaving a line of lag bombs. Blasted foes glitch back in time.", "now": "Teleports every {glitch_every}s: {bomb_line} bombs ({bomb_damage} dmg), pulse {glitch_pulse}", "bomb_line": 3, "bomb_max": 6},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "smile"}, "body": "pixel"},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.4},
