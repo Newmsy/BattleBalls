@@ -1,4 +1,4 @@
--- Bounce Run leaderboard: possible scores only, one per player per day,
+-- Bounce Run leaderboard: possible scores only, each player's best run of the day,
 -- ranked floors > lives > time, and no direct table access. Player ids use
 -- their own prefixes so other suites' `like 'dddddddd%'` filters miss them.
 
@@ -20,10 +20,10 @@ begin
   select * into r from public.submit_bounce_run(today, 8, 2, 9 * 1800,
     jsonb_build_object('picks', '[0,1,2]'::jsonb, 'fights', (select jsonb_agg(i) from generate_series(1, 9) i)), 1);
   assert r.rank = 1 and r.total = 1, 'first score ranks first';
-  -- A second post the same day changes nothing.
+  -- A worse run the same day changes nothing.
   select * into r from public.submit_bounce_run(today, 0, 0, 3 * 1800,
     jsonb_build_object('fights', (select jsonb_agg(i) from generate_series(1, 3) i)), 1);
-  assert (select floors from public.bounce_run_board(today) where is_me) = 8, 'first score stands';
+  assert (select floors from public.bounce_run_board(today) where is_me) = 8, 'the better score stands';
   -- Impossible scores are refused.
   begin
     perform public.submit_bounce_run(today, 5, 2, 9000, '{"fights": [1,2,3,4,5,6]}', 1);
@@ -31,7 +31,7 @@ begin
   exception when invalid_parameter_value then null;
   end;
   -- Rules 2 runs are 10 floors: floor 8 with lives left is unfinished there,
-  -- and a 10-floor clear is accepted (a no-op here, the first score stands).
+  -- and a 10-floor clear is accepted (and beats floor 8).
   begin
     perform public.submit_bounce_run(today, 8, 2, 9 * 1800, '{"fights": [1,2,3,4,5,6,7,8,9]}', 2);
     assert false, 'rules 2 runs end on floor 10 or with no lives';
@@ -39,6 +39,7 @@ begin
   end;
   perform public.submit_bounce_run(today, 10, 1, 12 * 1800,
     jsonb_build_object('fights', (select jsonb_agg(i) from generate_series(1, 12) i)), 2);
+  assert (select floors from public.bounce_run_board(today) where is_me) = 10, 'a better run replaces it';
   -- Rules 7+ (the 20-floor map): the log holds every step, only t = fight
   -- entries are fights, and floors go to 20. Floor 14, out of lives, after
   -- 10 fights (a revive and some non-fight floors in between).
@@ -90,7 +91,7 @@ begin
   -- Same floors and lives as eli, faster: ranks above eli.
   perform public.submit_bounce_run(today, 3, 0, 6 * 1000, '{"fights": [1,2,3,4,5,6]}', 1);
   assert (select array_agg(floors::int || ':' || ticks order by rank) from public.bounce_run_board(today))
-    = array['8:16200', '3:6000', '3:7200'], 'floors, then lives, then time';
+    = array['20:28800', '3:6000', '3:7200'], 'floors, then lives, then time';
   assert (select rank from public.bounce_run_board(today) where is_me) = 2, 'fay is second';
   assert (select count(*) from public.bounce_run_board(today, 1)) = 2, 'top 1 plus my own row';
   assert (select display_name from public.bounce_run_board(today) where rank = 1) = 'Guest-D500', 'guest names';

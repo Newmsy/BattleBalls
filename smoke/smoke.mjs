@@ -573,6 +573,35 @@ try {
     await page.close();
   }
 
+  // 9a. Bounce Run chest: yesterday's best floor (set from Settings > Testing)
+  // turns the Daily board's Bounce Run button into Open; the chest shakes,
+  // bursts open, spills its rewards and Collect pays them.
+  if (mine(12)) {
+    const { page, logs } = await openGame("");
+    await waitForLog(logs, "BOOT_OK", 60000);
+    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await page.waitForTimeout(800);
+    await tapUi(page, logs, "settings", "sheet");
+    await tapUi(page, logs, "dev_bounce_chest_20");
+    await page.mouse.click(...toPage(page, 360, 120));
+    await page.waitForTimeout(400);
+    await tapUi(page, logs, "thisweek", "week");
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(shots, "16c-daily-bounce-chest.png") });
+    await tapUi(page, logs, "week_bounce_chest", "bounce_chest");
+    await page.waitForTimeout(1200);
+    await page.screenshot({ path: path.join(shots, "16d-bounce-chest.png") });
+    await page.mouse.click(...toPage(page, 360, 700));
+    await page.waitForTimeout(3500);
+    await page.screenshot({ path: path.join(shots, "16e-bounce-chest-open.png") });
+    const at = logs.length;
+    await tapUi(page, logs, "bounce_chest_collect");
+    console.log("bounce chest:", await waitForLogAfter(logs, at, "UI_BOUNCE_CHEST_COLLECT", 5000));
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "16f-bounce-chest-collected.png") });
+    await page.close();
+  }
+
   // 9b. Finisher cam, then Save clip: the KO is shown zoomed in, the clip
   // plays in its "Who wins?" layout, gets recorded and downloads as a video.
   if (mine(70)) {

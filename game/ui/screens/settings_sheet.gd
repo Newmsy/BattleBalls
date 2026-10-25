@@ -132,9 +132,27 @@ static func _testing(shell) -> Control:
 	for b in [restart, finish]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var intro_words := Kit.label("New player unlocks · step %d/%d" % [Intro.step(shell.profile), Intro.DONE], 22, Kit.MUTED)
+	# A Bounce Run chest to open on the Daily board, as if yesterday's best was that floor.
+	var chest_words := Kit.label("Bounce Run chest", 30)
+	chest_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var chests := Kit.hbox(8, [chest_words])
+	for f in [12, 20]:
+		var b := Kit.button("F%d" % f, func(): _bounce_chest(shell, f), "ghost", 24, 72)
+		b.custom_minimum_size.x = 96
+		shell.mark("dev_bounce_chest_%d" % f, b)
+		chests.add_child(b)
 	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds]),
-		Kit.hbox(16, [live_words, live]),
+		Kit.hbox(16, [live_words, live]), chests,
 		intro_words, Kit.hbox(16, [restart, finish])])
+
+
+static func _bounce_chest(shell, best_floor: int) -> void:
+	var BounceChest = load("res://meta/bounce_chest.gd")
+	var yesterday: int = load("res://sim/bounce_run.gd").day_number(Time.get_unix_time_from_system()) - 1
+	BounceChest.set_best(yesterday, best_floor)
+	shell.profile.bounce_chest = mini(shell.profile.bounce_chest, yesterday - 1)
+	shell.profile.changed.emit()
+	shell.toast("Chest ready on the Daily board")
 
 
 ## Replay intro: back to just out of the tutorial (stages 1-1 to 1-3 replay

@@ -1,8 +1,9 @@
 ## Bounce Run: draft a trio and 3 starting boons, then climb a 20-floor map
 ## of fights, elites, events, shops, Charge Pads and chests to the Champion.
-## The run comes from sim/bounce_run.gd and the UTC day; one ranked run a day
-## posts to the shared leaderboard, then practice runs are unranked.
-## URL params: ?mode=bouncerun&day=3 (play another day's run, unranked),
+## Every run is a fresh map from sim/bounce_run.gd and they all count the
+## same: the day's best floor goes on the leaderboard and opens a chest the
+## next day (meta/bounce_chest.gd, opened on the Daily board).
+## URL params: ?mode=bouncerun&day=3 (draw maps as on another day),
 ## &offline=1 (never touch the leaderboard).
 extends Node2D
 
@@ -29,6 +30,8 @@ const FinisherCam := preload("res://game/finisher_cam.gd")
 const MapView := preload("res://game/bounce_run/map_view.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const LivingArt := preload("res://game/bounce_run/living_art.gd")
+const BounceChest := preload("res://meta/bounce_chest.gd")
+const ChestArt := preload("res://game/ui/chest_art.gd")
 const ART := "res://game/bounce_run/art/%s.png"
 
 enum State { DRAFT, START_BOONS, MAP, FLOOR, AIM, FIGHT, RESULT, BOON, EVENT, SHOP, REST, OVER }
@@ -49,7 +52,6 @@ const ABILITY := Color("8fd8ff") ## The critter's own ability, apart from boon g
 var state := State.DRAFT
 var today := 1
 var day := 1
-var ranked := true ## False for practice runs and other days.
 var setup: Dictionary
 var run: Dictionary ## Empty until the draft is done.
 var picks: Array = [] ## Draft selection in progress.
@@ -101,8 +103,8 @@ func _ready() -> void:
 	if params.get("day", "").is_valid_int():
 		day = maxi(1, int(params.day))
 	_load()
-	# A practice run carries its own seed; the ranked run is the day's tower.
-	setup = BounceRun.generate(day, int(run.get("seed", 0)))
+	# A run carries its map's seed; a new one draws a fresh map.
+	setup = BounceRun.generate(int(run.get("day", day)), int(run.seed)) if not run.is_empty() else _fresh_setup()
 	arena_clip = Control.new()
 	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(arena_clip)
@@ -117,7 +119,7 @@ func _ready() -> void:
 	_build_ui()
 	if get_viewport():
 		get_viewport().size_changed.connect(_layout)
-	print("BOUNCERUN_READY day=%d ranked=%s cards=%s boons=%s" % [day, ranked, ",".join(setup.cards.map(func(c): return c.critter)), ",".join(setup.start_offer)])
+	print("BOUNCERUN_READY day=%d seed=%d cards=%s boons=%s" % [day, int(setup.seed), ",".join(setup.cards.map(func(c): return c.critter)), ",".join(setup.start_offer)])
 	_retry_pending_post()
 	if run.has("launched"):
 		_settle_launched_fight()
@@ -612,15 +614,30 @@ func _take_boon(id: String) -> void:
 
 
 func _finish_run() -> void:
-	if ranked:
+	if not run.get("counted", false):
+		run.counted = true
 		stats.played += 1
 		stats.best_floors = maxi(stats.best_floors, run.floor)
 		if run.floor >= BounceRun.FLOORS:
 			stats.clears += 1
-		_save.set_value("pending", str(day), run)
+		# The board keeps each player's best run of the day: post the best one.
+		var waiting: Dictionary = _save.get_value("pending", str(run.day), {})
+		if waiting.is_empty() or _beats(run, waiting):
+			_save.set_value("pending", str(run.day), run)
 		_save_run()
 		_post(run)
 	_show_over()
+
+
+## True when finished run `a` scores above `b`: floors, then lives, then time.
+static func _beats(a: Dictionary, b: Dictionary) -> bool:
+	var x := BounceRun.score(a)
+	var y := BounceRun.score(b)
+	if x.floors != y.floors:
+		return x.floors > y.floors
+	if x.lives != y.lives:
+		return x.lives > y.lives
+	return x.ticks < y.ticks
 
 
 func _show_over() -> void:
@@ -629,14 +646,14 @@ func _show_over() -> void:
 	_board_mode()
 	var s := BounceRun.score(run)
 	var cleared: bool = s.floors >= BounceRun.FLOORS
-	sub_label.text = ("Ranked" if ranked else "Practice") + " · resets 00:00 UTC"
+	sub_label.text = "Best today: floor %d" % best_today()
 	var head := Kit.label("RUN CLEARED!" if cleared else "Run over", 52, GOLD if cleared else Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	var line := Kit.label("%d/%d floors · %d lives · %s" % [s.floors, BounceRun.FLOORS, s.lives, _clock(s.ticks)], 30, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	share_button = Kit.button("Share", func(): share_button.text = _share(), "go", 30)
-	var practice := Kit.button("Practice run", _practice, "ghost", 28)
-	_mark("br_practice", practice)
-	var items: Array = [_art("banner_victory" if cleared else "banner_defeat"), head, line, _floor_pips(s.floors), Kit.hbox(14, [share_button, practice])]
-	items.append(Kit.label("Best %d · %d/%d cleared" % [stats.best_floors, stats.clears, stats.played], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	var again := Kit.button("New run", _new_run, "ghost", 28)
+	_mark("br_new_run", again)
+	var items: Array = [_art("banner_victory" if cleared else "banner_defeat"), head, line, _floor_pips(s.floors), Kit.hbox(14, [share_button, again])]
+	items.append(_chest_row())
 	items.append(_leaderboard())
 	items.append(_menu_button())
 	_set_page(items, "br_over")
@@ -644,10 +661,33 @@ func _show_over() -> void:
 		_fetch_board()
 
 
-## An unranked run on a fresh random tower: new draft, boons and foes.
-func _practice() -> void:
-	ranked = false
-	setup = BounceRun.generate(day, randi_range(1, 999999))
+## The chest today's best floor opens tomorrow, and the floor for the next one.
+func _chest_row() -> Control:
+	var best := best_today()
+	var t := BounceChest.tier_for(best)
+	var bits: Array = []
+	if t >= 0:
+		bits.append(ChestArt.make(BounceChest.TIERS[t].id, 96.0))
+		bits.append(Kit.label("%s tomorrow" % BounceChest.TIERS[t].name, 24, BounceChest.TIERS[t].color))
+	if t < BounceChest.TIERS.size() - 1:
+		var next: Dictionary = BounceChest.TIERS[t + 1]
+		bits.append(Kit.label(("· " if t >= 0 else "") + "Floor %d: %s" % [int(next.floor), next.name], 22, Kit.MUTED))
+	return Kit.hbox(10, bits, BoxContainer.ALIGNMENT_CENTER)
+
+
+## The best floor reached in any run today (UTC).
+func best_today() -> int:
+	return int(_save.get_value("best", str(today), 0))
+
+
+## A fresh map for a new run: seeded by the day and a random draw.
+func _fresh_setup() -> Dictionary:
+	return BounceRun.generate(day, randi_range(1, 999999))
+
+
+## A new run on a fresh map: new draft, boons and foes.
+func _new_run() -> void:
+	setup = _fresh_setup()
 	run = {}
 	picks = []
 	start_picks = []
@@ -689,7 +729,7 @@ func _fetch_board() -> void:
 		_board_note = ""
 	else:
 		_board_rows = null
-		_board_note = "Offline. Score posts later." if ranked else "Offline."
+		_board_note = "Offline. Score posts later."
 	if state == State.OVER:
 		_show_over()
 
@@ -741,21 +781,24 @@ func _load() -> void:
 		return
 	for key in stats:
 		stats[key] = _save.get_value("stats", key, stats[key])
-	var ranked_run: Dictionary = _save.get_value("runs", str(day), {})
-	var practice: Dictionary = _save.get_value("practice", str(day), {})
+	run = _save.get_value("run", "current", {})
+	# Saves from before every run counted the same kept a ranked and a
+	# practice run per day: carry on today's unfinished one.
+	if run.is_empty():
+		for section in ["practice", "runs"]:
+			var old: Dictionary = _save.get_value(section, str(day), {})
+			if not old.is_empty() and not old.get("over", false):
+				run = old
 	# A run saved under older rules can't continue under these.
-	if ranked_run.get("rules", 1) != BounceRun.RULES_VERSION:
-		ranked_run = {}
-	if practice.get("rules", 1) != BounceRun.RULES_VERSION:
-		practice = {}
-	# The ranked run until it's over and a practice run has begun. Other days
-	# without a ranked run are practice only.
-	ranked = (not ranked_run.is_empty() and (not ranked_run.over or practice.is_empty())) or (day == today and ranked_run.is_empty())
-	run = ranked_run if ranked else practice
+	if run.get("rules", 1) != BounceRun.RULES_VERSION:
+		run = {}
 
 
 func _save_run() -> void:
-	_save.set_value("runs" if ranked else "practice", str(day), run)
+	_save.set_value("run", "current", run)
+	# The best floor today, from any run: it opens tomorrow's chest.
+	if not run.is_empty():
+		_save.set_value("best", str(today), maxi(best_today(), int(BounceRun.score(run).floors)))
 	for key in stats:
 		_save.set_value("stats", key, stats[key])
 	_save.save(save_path)
@@ -1046,7 +1089,7 @@ func _show_rules() -> void:
 		"Elites are bigger and tougher but pay more. ? nodes hide events with choices. Shops sell boons for Buttons, which you earn in the run. Charge Pads revive, polish or clean.",
 		"Glitches are bad boons. Shops and Charge Pads clean them.",
 		"Your trio and the foes go up a tier every %d floors, up to T5 near the top." % BounceRun.FLOORS_PER_TIER,
-		"One ranked run a day, the same map for everyone. Ranked by floors, lives, then time.",
+		"Play as many runs as you like. Your best floor each day goes on the leaderboard and opens a chest the next day: floors %s, or beat the Champion." % ", ".join(BounceChest.TIERS.slice(0, -1).map(func(t): return str(t.floor))),
 	]:
 		lines.append(Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	_overlay_card(lines, Kit.box(Kit.PANEL, Kit.ACCENT, 32, 3, 28), "br_rules_close")
