@@ -277,7 +277,7 @@ static func _dyes_card(shell) -> Control:
 static func dyes_sheet(shell) -> void:
 	var p = shell.profile
 	var v := Kit.vbox(12, [Kit.label("Spark Dyes", 36),
-		Kit.label("Earned colours for the looks you own. Drops come from Rifts, boss wins and a stage's first three crowns; fill a bar to unlock the colour. Never sold.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+		Kit.label("Recolour the looks you own. Drops come from Rifts, boss wins and a stage's first three crowns; a full bar unlocks the colour.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 	for grade in ["basic", "bright", "prism"]:
 		var grid := GridContainer.new()
 		grid.columns = 3
