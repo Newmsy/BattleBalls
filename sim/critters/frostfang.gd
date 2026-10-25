@@ -38,6 +38,6 @@ const CRITTER := {
 		{"text": "Shards {^shard_damage} → {shard_damage}, size +{+shard_radius}%", "shard_damage": 8.0, "shard_radius": 180.0},
 		{"text": "Every hit freezes · shatter x{^shatter_mult} → {shatter_mult}", "card": "Every hit freezes the foe brittle in a burst of shards, and it shatters it hard. Howls up ice wolves.", "now": "Every hit freezes (+{bite_sour%}% taken), shards {shard_damage} · x{shatter_mult}", "bite_max": 1, "shard_damage": 4.0, "shatter_mult": 1.3},
 	],
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "6fd3ff", "mouth": "fangs"}, "back": ["ears"], "front": ["ruff"]},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "6fd3ff", "mouth": "fangs"}, "back": ["ears"], "front": ["frostmarks", "ruff"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 0.8},
 }

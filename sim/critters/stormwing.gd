@@ -31,6 +31,6 @@ const CRITTER := {
 		{"text": "Max sparks 4 → 5", "spark_max": 5},
 		{"text": "+ A full charge calls a thunderclap ({thunder_damage} dmg)", "card": "Bounces store sparks; its next hit unleashes burning chain lightning, with a thunderclap when full.", "now": "Stores up to {spark_max} sparks; next hit chains {storm_dps}/sec + burn, clap", "thunder_damage": 12.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "ffb300", "mouth": "smirk"}, "back": ["wings", "boltcrest"]},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "ffb300", "mouth": "smirk"}, "back": ["wings", "boltcrest"], "front": ["stormbelly"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 1.0},
 }

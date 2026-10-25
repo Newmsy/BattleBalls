@@ -34,6 +34,6 @@ const CRITTER := {
 		{"text": "Zap size +{+zap_radius}%", "zap_radius": 190.0},
 		{"text": "+ Every 2nd bounce: big zap for {zap_big_damage}", "card": "Wall bounces zap and slow foes nearby, some with a big zap, and store charge for its next hit.", "now": "Bounces zap nearby foes: {zap_damage}, slow {zap_slow%}% · 2nd: big {zap_big_damage}", "zap_big_every": 2, "zap_big_damage": 16.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["zighair"]},
+	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["zighair"], "front": ["sparks"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.35},
 }

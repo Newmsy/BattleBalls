@@ -30,6 +30,6 @@ const CRITTER := {
 		{"text": "+ Regrowing sheds stinging spores (3/sec)", "card": "Hits plant draining moss that heals it. Left alone, it regrows HP and sheds stinging spores.", "now": "Moss {moss_dps}/sec, heals {moss_heal} HP/sec · +{regrow_hps} HP/sec, spores", "regrow_spores": 3.0},
 	],
 	"chaos": {"closing_walls": {"hp": 1.1}, "bumpers": {"hp": 1.1}}, ## Shrinking walls and bumper knocks leave no quiet moment to regrow
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["fuzz", "mushroom"]},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["fuzz", "mushroom"], "front": ["moss"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 0.9},
 }
