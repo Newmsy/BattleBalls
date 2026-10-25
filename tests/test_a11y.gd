@@ -59,8 +59,8 @@ func test_settings_sheet_builds() -> void:
 	shell.build()
 	var sheet: Control = SettingsSheet.build(shell)
 	# No sound row here: tests have no sfx (main.gd sets shell.sfx).
-	var testing := 1 if SettingsSheet.Dev.TOOLS_ENABLED else 0
+	var testing := 1 if SettingsSheet.Dev.tools_enabled() else 0
 	check(sheet.get_child_count() == SettingsSheet.OPTIONS.size() + 3 + testing, "title, a row per option, play stats, the Testing section when on and the music credit")
-	check(shell._marks.has("dev_refill_energy") == SettingsSheet.Dev.TOOLS_ENABLED, "Testing buttons only when dev tools are on")
+	check(shell._marks.has("dev_refill_energy") == SettingsSheet.Dev.tools_enabled(), "Testing buttons only when dev tools are on")
 	sheet.free()
 	shell.free()

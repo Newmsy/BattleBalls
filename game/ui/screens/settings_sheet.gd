@@ -29,12 +29,12 @@ static func build(shell) -> Control:
 	for o in OPTIONS:
 		v.add_child(_row(shell, o[0], o[1], o[2]))
 	v.add_child(_stats_row(shell))
-	if Dev.TOOLS_ENABLED:
+	if Dev.tools_enabled():
 		v.add_child(_testing(shell))
 	# CC-BY 4.0 asks for this credit wherever the music is used.
 	v.add_child(Kit.label(MUSIC_CREDIT, 20, Color(Kit.MUTED, .7), HORIZONTAL_ALIGNMENT_LEFT, true))
 	if shell.build_stamp != "":
-		v.add_child(Kit.label("Battle Balls " + shell.build_stamp, 20, Color(Kit.MUTED, .7)))
+		v.add_child(_version(shell))
 	return v
 
 
@@ -96,7 +96,19 @@ static func _toggle(shell, key: String) -> void:
 	open(shell)
 
 
-## Playtest shortcuts on the real save. Hidden when Dev.TOOLS_ENABLED is off.
+## The version line. Tapping it Dev.TAP_TO_UNLOCK times shows or hides Testing.
+static func _version(shell) -> Control:
+	var l := Kit.label("Battle Balls " + shell.build_stamp, 20, Color(Kit.MUTED, .7))
+	l.mouse_filter = Control.MOUSE_FILTER_STOP
+	l.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and e.pressed and Dev.tap_version():
+			shell.toast("Testing on." if Dev.tools_enabled() else "Testing off.")
+			open(shell))
+	shell.mark("version", l)
+	return l
+
+
+## Playtest shortcuts on the real save. Hidden unless Dev.tools_enabled().
 static func _testing(shell) -> Control:
 	var energy := Kit.button("Refill energy", func(): _refill_energy(shell), "primary", 26, 72)
 	shell.mark("dev_refill_energy", energy)

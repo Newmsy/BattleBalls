@@ -62,6 +62,7 @@ it in the browser (MP4 on iPhone Safari); browsers without MediaRecorder get
 the same layout to screen-record. The export preset's `head_include` turns on
 `preserveDrawingBuffer` and taps the game's audio so the page can record both.
 `?sounds=1` opens the sound board: every sound with a play button.
+`?dev=1` shows Settings > Testing (refill energy, free summons...) on that device from then on (`?dev=0` hides it); so does tapping the version line at the foot of Settings 7 times. Players never see it; debug runs from the editor always do.
 `?pve=1-3&auto=1` plays campaign stage 1-3 on a fresh, unsaved profile.
 `?demo=1` loads the filled-in sample profile (unsaved), for previews and the smoke test.
 
