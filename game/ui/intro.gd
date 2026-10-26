@@ -10,6 +10,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Gear := preload("res://sim/gear.gd")
 const A11y := preload("res://game/a11y.gd")
@@ -140,7 +141,7 @@ static func moment(shell, at: int) -> void:
 			shell.go(screen), "go", 30, 92)
 	shell.mark("intro_go", go)
 	var line := Kit.label(m[1], 25, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
-	line.custom_minimum_size.x = minf(600.0, shell.size.x - 100.0)
+	line.custom_minimum_size.x = ResultPopup.inner_width(shell.size.x)
 	shell.sheet(Kit.vbox(16, [
 		Kit.caption("Unlocked" if at != DONE else "All unlocked", Kit.GOOD),
 		_burst_behind(badge),

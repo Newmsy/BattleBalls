@@ -49,13 +49,23 @@ static func build(shell, params: Dictionary) -> Control:
 	if shelf.scroll != null:
 		lab.set_meta("scroll", shelf.scroll)
 	var stage := Kit.vbox(0, [lab])
+	# The chamber is a scene: it runs edge to edge, its result pill stays in the column.
+	var bleed: float = shell.bleed()
 	if not sel.is_empty():
-		stage.add_child(_result(shell, sel))
+		stage.add_child(_result(shell, sel, maxf(16.0, bleed)))
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var stage_door := _door(stage, STAGE)
+	var stage_door := _door(stage, STAGE, bleed > 0.0)
+	if bleed > 0.0:
+		# No frame: the chamber's top melts into the screen.
+		var top := _fade(Kit.BG, 90.0)
+		top.flip_v = true
+		top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		top.offset_bottom = 90.0
+		lab.add_child(top)
+		lab.move_child(top, 1)
 	# The stage takes the rest of the screen: a tall phone sees more of the lab.
 	stage_door.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	root.add_child(stage_door)
+	root.add_child(shell.edge_to_edge(stage_door))
 
 	if not sel.is_empty():
 		var btn := Kit.button("Fuse", func(): pass, "go", 34, 96)
@@ -66,8 +76,12 @@ static func build(shell, params: Dictionary) -> Control:
 
 
 ## A painted door like the Play tab's: dark tint of its accent, clipped corners.
-static func _door(content: Control, accent: Color) -> Control:
-	var d := Kit.panel(content, Kit.box(accent.darkened(.88), accent.darkened(.45), 30, 2, 0))
+## `edge`: a full-width scene with no frame at all.
+static func _door(content: Control, accent: Color, edge := false) -> Control:
+	var st := Kit.box(accent.darkened(.88), accent.darkened(.45), 30, 2, 0)
+	if edge:
+		st = Kit.box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, 0)
+	var d := Kit.panel(content, st)
 	d.clip_contents = true
 	return d
 
@@ -337,7 +351,7 @@ static func _place_slots(lab: Control) -> void:
 
 ## What this fuse gives: name and tier, power before → after and the new
 ## ability line, with the rest behind the "i".
-static func _result(shell, sel: Dictionary) -> Control:
+static func _result(shell, sel: Dictionary, inset := 16.0) -> Control:
 	var c := Roster.get_critter(sel.id)
 	var pv: Dictionary = shell.profile.fuse_preview(sel.id, sel.tier)
 	var lines := ["Max level %d → %d" % [pv.cap_before, pv.cap_after]]
@@ -354,7 +368,7 @@ static func _result(shell, sel: Dictionary) -> Control:
 	var pill := Kit.panel(Kit.hbox(8, [info, more], BoxContainer.ALIGNMENT_CENTER), Kit.box(Color(Kit.BG, .88), Color(LAB, .45), 24, 2, 12))
 	var pad := MarginContainer.new()
 	for side in ["left", "right"]:
-		pad.add_theme_constant_override("margin_" + side, 16)
+		pad.add_theme_constant_override("margin_" + side, int(inset))
 	pad.add_theme_constant_override("margin_top", -26)
 	pad.add_theme_constant_override("margin_bottom", 14)
 	pad.add_child(pill)
