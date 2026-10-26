@@ -135,6 +135,7 @@ static func start_team(profile, zone_index: int, stage_index: int, picks: Array,
 		"tiers": [slots.map(func(s): return Lineup.clean(s).tier), foes.map(func(_e): return st.tier)],
 		"gear": [slots.map(func(s): return Lineup.kit(Lineup.clean(s))), foes.map(func(_e): return null)],
 		"sizes": [picks.map(func(_p): return 1.0), sizes],
+		"tie_to": 0, # Both out together is your win.
 	}
 
 
@@ -159,7 +160,7 @@ static func team_config(profile, rc: Dictionary) -> Dictionary:
 	var foes: Array = rc.sides[1]
 	var n: int = mini(rc.sides[0].size(), foes.size())
 	var k := Zones.BRAWL_SIZE if n >= 3 else 1.0
-	var cfg := {"seed": rc.seed, "arena": rc.arena, "angles": [], "tiers": [], "powers": [], "gear": [], "sizes": []}
+	var cfg := {"seed": rc.seed, "arena": rc.arena, "angles": [], "tiers": [], "powers": [], "gear": [], "sizes": [], "tie_to": 0}
 	for j in n:
 		cfg["p%d" % (2 * j + 2)] = foes[j]
 		cfg.angles.append_array([null, null])
@@ -229,6 +230,7 @@ static func start(profile, zone_index: int, stage_index: int, fighter: String, n
 		"powers": [1.0, st.foe_power],
 		"gear": [null, null],
 		"sizes": [1.0, Zones.BOSS_SIZE if Zones.is_boss(st) else 1.0],
+		"tie_to": 0, # A double KO is your win.
 	}
 	return Lineup.apply(cfg, 0, profile.slot_of(fighter))
 
@@ -348,15 +350,15 @@ static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear:
 
 
 ## A piece on Economy.GEAR_CAMPAIGN_CHANCE of wins at Economy.gear_tier for
-## the stage, and a boss's first clear always gives one at
-## Economy.GEAR_BOSS_TIER (+1 per zone). Rolled from the run seed.
+## the stage (1-3 stars), and a boss's first clear always gives one at
+## Economy.gear_boss_tier. Rolled from the run seed.
 static func _roll_gear(profile, zone_index: int, stage_index: int, stars: int, first_clear: bool) -> Array:
 	var rng := Rng.new(_seed(profile.runs, zone_index, stage_index) ^ 0x2545f491)
 	var out := []
 	if rng.next_float() < Economy.GEAR_CAMPAIGN_CHANCE:
-		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_tier(zone_index, stage_index)))
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_tier(zone_index, stage_index, rng.next_float())))
 	if first_clear and Zones.is_boss(Zones.stage(zone_index, stage_index)):
-		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], mini(5, Economy.GEAR_BOSS_TIER + zone_index)))
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_boss_tier(zone_index)))
 	return out
 
 

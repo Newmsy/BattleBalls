@@ -94,19 +94,44 @@ const FORGE_DAILY := 5
 ## Every save starts with these (and older saves get them once), so the first
 ## merges from campaign gear don't wait for the Anvil King.
 const STARTER_HAMMERS := 10
-## A campaign win drops a piece this often (Newms 2026-10-15: 20%), better on
-## later stages and zones (gear_tier); a boss's first clear always drops one
-## at GEAR_BOSS_TIER, plus one more star per zone.
+## A campaign win drops a piece this often (Newms 2026-10-15: 20%). Campaign
+## gear tops out at 3 stars (Rare enamel, Newms 2026-10-26: "Campaign giving
+## 5 star drops is bad. Max rare"): 4 and 5 stars come from merging and the
+## hard sources (Anvil King's top levels, Spire bosses, the Bazaar's top
+## leagues). A boss's first clear always drops one at GEAR_BOSS_TIER, 3 stars
+## from GEAR_BOSS_RARE_ZONE on.
 const GEAR_CAMPAIGN_CHANCE := 0.2
+const GEAR_CAMPAIGN_MAX_TIER := 3
 const GEAR_BOSS_TIER := 2
-## Stages from this one on (0-based) in a zone drop gear one star better.
+const GEAR_BOSS_RARE_ZONE := 2
+## Stages from this one on (0-based) in a zone roll on the next zone's odds.
 const GEAR_STEP_STAGE := 6
+## Odds of a 1, 2 or 3-star campaign drop, by zone (late stages count one
+## zone on); the last row holds for every zone past it.
+const GEAR_CAMPAIGN_ODDS := [
+	[0.85, 0.15, 0.0],
+	[0.65, 0.30, 0.05],
+	[0.45, 0.42, 0.13],
+	[0.30, 0.50, 0.20],
+	[0.20, 0.50, 0.30],
+]
 
 
-## The star tier of a campaign win's gear drop: 1 star in Glow Garden's first
-## stages, +1 from GEAR_STEP_STAGE on, +1 per zone after the first, up to 5.
-static func gear_tier(zone_index: int, stage_index: int) -> int:
-	return clampi(1 + zone_index + (1 if stage_index >= GEAR_STEP_STAGE else 0), 1, 5)
+## The star tier of a campaign win's gear drop for a 0..1 `roll`: mostly 1
+## and 2 stars, never above GEAR_CAMPAIGN_MAX_TIER.
+static func gear_tier(zone_index: int, stage_index: int, roll: float) -> int:
+	var row: Array = GEAR_CAMPAIGN_ODDS[mini(zone_index + (1 if stage_index >= GEAR_STEP_STAGE else 0), GEAR_CAMPAIGN_ODDS.size() - 1)]
+	var acc := 0.0
+	for i in row.size():
+		acc += float(row[i])
+		if roll < acc:
+			return mini(i + 1, GEAR_CAMPAIGN_MAX_TIER)
+	return mini(row.size(), GEAR_CAMPAIGN_MAX_TIER)
+
+
+## A boss's first-clear piece: GEAR_BOSS_TIER, Rare from GEAR_BOSS_RARE_ZONE on.
+static func gear_boss_tier(zone_index: int) -> int:
+	return mini(GEAR_CAMPAIGN_MAX_TIER, GEAR_BOSS_TIER + (1 if zone_index >= GEAR_BOSS_RARE_ZONE else 0))
 ## The Spire's boss-floor gear is in sim/spire.gd (BOSS_GEAR).
 
 ## Pacing targets for a ~15-20 minute a day player (pve.md section 6), as

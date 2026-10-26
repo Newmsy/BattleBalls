@@ -116,12 +116,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	# Claim all.
 	var n: int = glow.claimable_count(t)
 	if n > 0:
-		var all := Kit.button("Claim all (%d)" % n, func():
-			_just_claimed = _claimable_marks(glow, t)
-			shell.reward_from(shell._marks.get("claim_all", shell))
-			var got: Array = glow.claim_all(t)
-			shell.toast("Claimed %d reward%s!" % [got.size(), "" if got.size() == 1 else "s"])
-			shell.refresh(), "go", 30, 92)
+		var all := Kit.button("Claim all (%d)" % n, func(): _claim_all(shell, t), "go", 30, 92)
 		shell.mark("claim_all", all)
 		root.add_child(all)
 
@@ -230,6 +225,49 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 		_flip(card, .06 * k)
 		_just_claimed[k] = ""
 	return card
+
+
+static var _claiming := false
+
+## Claim all: glide down to the first prize, claim everything (the cards flip
+## in a ripple) and each prize flies up: coins, eggs and energy into their
+## top-bar pills, everything else into the Bag.
+static func _claim_all(shell, t: int) -> void:
+	if _claiming:
+		return
+	var glow = shell.glow
+	var marks := _claimable_marks(glow, t)
+	var first: Control = shell._marks.get(marks[0]) if not marks.is_empty() else null
+	if first != null:
+		_claiming = true
+		await shell.glide_to(first)
+		_claiming = false
+		if not is_instance_valid(first) or shell.current != "pass":
+			return
+	var rewards := {}
+	for m in marks:
+		var p: PackedStringArray = m.split("_")
+		rewards[m] = glow.reward(int(p[2]), p[1], t)
+	_just_claimed = marks.duplicate()
+	shell.reward_from(first if first != null else shell._marks.get("claim_all", shell))
+	var got: Array = glow.claim_all(t)
+	shell.toast("Claimed %d reward%s!" % [got.size(), "" if got.size() == 1 else "s"])
+	shell.refresh()
+	await shell.get_tree().process_frame
+	await shell.get_tree().process_frame
+	var k := 0
+	for m in marks:
+		var r: Dictionary = rewards[m]
+		var card = shell._marks.get(m)
+		if r.is_empty() or r.kind in ["coins", "orbs", "energy"] or not is_instance_valid(card) or not card.is_visible_in_tree():
+			continue
+		var at: Vector2 = card.get_global_rect().position + Vector2(44, card.size.y / 2.0)
+		if at.y < 0.0 or at.y > shell.size.y:
+			continue # Scrolled out of sight: only the prizes you can see take off.
+		shell.fly_to_tab(func(): return reward_icon(shell, r, 56), at, "bag", .25 + .08 * k)
+		k += 1
+		if k >= 6:
+			break
 
 
 ## The cards a Claim all is about to claim (their marks), top to bottom.

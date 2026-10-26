@@ -22,6 +22,7 @@ const TouchInput := preload("res://game/ui/touch_input.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Motion := preload("res://game/ui/motion.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
+const Talents := preload("res://sim/talents.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -75,6 +76,8 @@ const TAB_HEIGHT := 128.0
 ## Tablets and desktop: the top bar and tab buttons stay this wide in the middle
 ## instead of spreading to the window's edges (the screens keep a phone column).
 const WIDE_BARS := 900.0
+## The stage on a wide window: _Backdrop shades the sides beyond it.
+const STAGE := 1000.0
 const TOAST_FACE := 52.0
 
 ## Emitted when the player starts a quick fight from the Play tab.
@@ -472,6 +475,38 @@ func scroll_to(c: Control) -> void:
 		sc.scroll_vertical = int(c.global_position.y - sc.global_position.y + sc.scroll_vertical - 160.0)
 
 
+## Glide the current screen down (or up) to `c`, the same spot scroll_to
+## lands on; returns when it gets there (at once with Reduced motion).
+func glide_to(c: Control, secs := .4) -> void:
+	var sc := _scroll
+	if not is_instance_valid(c) or not is_inside_tree():
+		return
+	var to := clampi(int(c.global_position.y - sc.global_position.y + sc.scroll_vertical - 160.0), 0,
+		maxi(0, int(sc.get_v_scroll_bar().max_value - sc.size.y)))
+	if Motion.calm() or absi(to - sc.scroll_vertical) < 8:
+		sc.scroll_vertical = to
+		return
+	var tw := sc.create_tween()
+	tw.tween_property(sc, "scroll_vertical", to, secs).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	await tw.finished
+
+
+## A reward that has no top-bar pill (a look, gear, chips) flies from `from`
+## (global) into a tab's icon, the Bag by default, which hops as it lands.
+func fly_to_tab(make_icon: Callable, from: Vector2, tab := "bag", delay := 0.0) -> void:
+	if not tab in _tab_icons or not _tab_buttons[tab].visible or Motion.calm():
+		return
+	var icon: Control = _tab_icons[tab]
+	if delay > 0.0:
+		await get_tree().create_timer(delay).timeout
+	if not is_instance_valid(icon):
+		return
+	Motion.fly(_fx, make_icon, from, icon.get_global_rect().get_center(), 1, func(_k: int) -> void:
+		Motion.bump(icon, 1.22, .3, true)
+		if sfx != null:
+			sfx.play("click", -8.0, 1.3))
+
+
 func _restore_scroll(at: int) -> void:
 	var sc := _scroll
 	if not is_inside_tree() or at <= 0:
@@ -569,6 +604,37 @@ func close_overlay() -> void:
 		_refresh_top.call_deferred() # Coins won while it was up fly in now.
 
 
+## How far a scene painting (a map, a tower) may reach past each side of the
+## screen's column: to the screen's edges on a phone, to the stage's rim on a
+## wide window. Scenes bleed edge to edge so they never look like a screen in
+## a screen; their buttons and text stay inside the column.
+func bleed() -> float:
+	return maxf(0.0, (minf(size.x, STAGE) - _column) / 2.0)
+
+
+## Wraps a scene so it reaches bleed() past both sides of the column (it
+## takes the column's place in a box, drawn wider). Things on it that must stay
+## clear of the screen's sides should be inset by bleed().
+func edge_to_edge(c: Control) -> Control:
+	var b := bleed()
+	if b <= 0.0:
+		return c
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.size_flags_vertical = c.size_flags_vertical
+	holder.add_child(c)
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	c.offset_left = -b
+	c.offset_right = b
+	var fit := func() -> void:
+		var m := c.get_combined_minimum_size()
+		holder.custom_minimum_size = Vector2(maxf(0.0, m.x - b * 2.0), m.y)
+	c.minimum_size_changed.connect(fit)
+	fit.call()
+	return holder
+
+
 ## Pin a screen's main action (Fuse, Summon, Climb...) under the screen,
 ## above the tab bar, so it never ends up below the fold. Cleared on every
 ## screen change.
@@ -584,7 +650,7 @@ func info(title: String, paragraphs: Array) -> void:
 	for t in paragraphs:
 		var l := Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 		# The sheet measures itself before layout, so wrapped text needs a real width.
-		l.custom_minimum_size.x = minf(640.0, size.x - 80.0)
+		l.custom_minimum_size.x = ResultPopup.inner_width(size.x)
 		v.add_child(l)
 	var ok := Kit.button("Got it", close_overlay, "ghost", 26, 80)
 	mark("info_close", ok)
@@ -1066,6 +1132,10 @@ func _refresh_top() -> void:
 		was_lit[t] = _dots[t].visible
 	_dots.fuse.visible = fusable != "" and _new_since(fusable, _badge_value("fuse_seen"))
 	_dots.summon.visible = profile.free_summon and Intro.done(profile)
+	var talents := _talent_signature()
+	if current in ["factions", "faction"]:
+		_set_badge("talents_seen", talents)
+	_dots.critters.visible = talents != "" and _new_since(talents, _badge_value("talents_seen")) and Intro.done(profile)
 	var pass_claims: int = glow.claimable_count() if glow != null and not glow.season().is_empty() else 0
 	_dots.play.visible = (friends.attention() > 0 or pass_claims > 0) and Intro.done(profile)
 	for t in _dots:
@@ -1265,6 +1335,16 @@ func _fuse_signature() -> String:
 	return ",".join(keys)
 
 
+## Factions with talent points to spend, as "fire:16" (faction:rank), so the
+## Critters dot comes back each time a rank brings a new point.
+func _talent_signature() -> String:
+	var keys: Array = []
+	for f in Talents.FACTIONS:
+		if profile.talent_points_free(f) > 0:
+			keys.append("%s:%d" % [f, profile.faction_rank(f)])
+	return ",".join(keys)
+
+
 ## True if `now` has an entry `seen` didn't.
 static func _new_since(now: String, seen: String) -> bool:
 	var old := seen.split(",")
@@ -1330,7 +1410,7 @@ class _Backdrop extends Control:
 				x += GAP
 		# Tablets and desktop: the sides fall into shadow so the middle reads as
 		# the stage, framed by a faint rim of light.
-		var side := (w - 1000.0) / 2.0
+		var side := (w - STAGE) / 2.0
 		if side > 24.0:
 			var dark := Color(0.0, 0.0, 0.03, .55)
 			var clear := Color(0.0, 0.0, 0.03, 0.0)

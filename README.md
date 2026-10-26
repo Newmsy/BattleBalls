@@ -360,9 +360,11 @@ one of the next tier, 1 to 5 stars, for coins (`Profile.merge_gear`,
 `merge_all_gear`; costs in `meta/economy.gd`). A piece's stats come from its
 type and tier alone, and every piece is worth the same power at a tier
 (+1.75% at 1 star up to +5% at 5), so three 5-star pieces are the +15%
-best-in-slot budget. Gear drops from the Gear Vault (`meta/gear_vault.gd`, a
-daily mode after the Zone 1 boss with a slot rotation by weekday), campaign
-wins, Spire boss floors and the Glow Pass free track.
+best-in-slot budget. Gear drops from the Anvil King (`meta/gear_vault.gd`, a
+daily boss after the Zone 1 boss with a slot rotation by weekday), campaign
+wins, Spire boss floors, the Glow Pass free track, the Bazaar, Bounce Run
+chests and weekly quests. Campaign drops top out at 3 stars and are mostly 1-2
+(`Economy.gear_tier`); no source drops 5 stars, which only come from merging.
 
 ## Collection battles: owned critters fight as owned
 

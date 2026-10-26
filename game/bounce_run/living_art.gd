@@ -151,6 +151,8 @@ var _t := 0.0
 var _tick := -1
 var _mat: ShaderMaterial
 var _motes: Control
+var _feather := 0.0
+var _still := false ## Only here for the soft edges: nothing to animate.
 
 
 static func make(id: String, path: String) -> TextureRect:
@@ -171,6 +173,38 @@ static func make(id: String, path: String) -> TextureRect:
 		a._motes.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		a.add_child(a._motes)
 	return a
+
+
+## Softens the painting's edges: it fades out over `px` pixels at the sides
+## `sides` turns on (left, top, right, bottom), instead of a hard stop.
+func soften(px := 36.0, sides := Vector4.ONE) -> void:
+	if _mat == null:
+		_mat = ShaderMaterial.new()
+		_mat.shader = SHADER
+		_mat.set_shader_parameter("plain", true)
+		_still = true
+		material = _mat
+	_feather = px
+	_mat.set_shader_parameter("feather", px)
+	_mat.set_shader_parameter("feather_sides", sides)
+	_fit_feather()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and _feather > 0.0:
+		_fit_feather()
+
+
+## Where the picture is drawn inside the rect, for the soft edges.
+func _fit_feather() -> void:
+	var r := Rect2(Vector2.ZERO, size)
+	if texture != null and stretch_mode == STRETCH_KEEP_ASPECT_CENTERED:
+		var ts := texture.get_size()
+		var k := minf(size.x / ts.x, size.y / ts.y)
+		r = Rect2((size - ts * k) / 2.0, ts * k)
+	var px := minf(_feather, minf(r.size.x, r.size.y) * 0.3)
+	_mat.set_shader_parameter("feather", maxf(px, 0.001))
+	_mat.set_shader_parameter("feather_rect", Vector4(r.position.x, r.position.y, r.size.x, r.size.y))
 
 
 ## The living shader set up with a painting's glow spots and moving layers
@@ -237,7 +271,7 @@ static func animate(m: ShaderMaterial, t: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if _mat == null or A11y.reduced_motion or not is_visible_in_tree():
+	if _mat == null or _still or A11y.reduced_motion or not is_visible_in_tree():
 		return
 	_t += delta
 	var tick := CritterIcon.clock()

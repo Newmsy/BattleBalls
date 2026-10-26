@@ -17,6 +17,7 @@ const SHEET_BG := Color("16133a")
 const SLIDE_SECS := .22
 const MAX_WIDTH := 760.0 ## A phone-width column on a wide screen.
 const MARGIN := 24.0 ## Kept clear round the card, so it never touches an edge.
+const PAD := 32.0 ## The card's own padding inside its border.
 const RISE := 48.0 ## How far the card rises as it fades in.
 const POP_FROM := .88 ## The scale the card grows from as it rises.
 const OUT_SECS := .12
@@ -70,7 +71,7 @@ static func content(caption_text: String, outcome: int, body: Array = [], button
 
 ## The modal's card: dark, round corners, an accent line round the edge.
 static func panel(child: Control) -> PanelContainer:
-	var st := Kit.box(SHEET_BG, Kit.ACCENT, 44, 3, 32)
+	var st := Kit.box(SHEET_BG, Kit.ACCENT, 44, 3, int(PAD))
 	var p := PanelContainer.new()
 	p.add_theme_stylebox_override("panel", st)
 	p.add_child(child)
@@ -81,6 +82,21 @@ static func panel(child: Control) -> PanelContainer:
 ## centred MAX_WIDTH column on anything wider.
 static func side(width: float) -> float:
 	return maxf(MARGIN, (width - MAX_WIDTH) / 2.0)
+
+
+## The width a card's content gets on a screen `width` wide: what wrapped
+## text should measure itself against so the card never runs off the side.
+static func inner_width(width: float) -> float:
+	return width - 2.0 * (side(width) + PAD)
+
+
+## Nothing in a card may ask to be wider than the card's inside, or the card
+## grows past the screen's right edge.
+static func _clamp_width(c: Node, limit: float) -> void:
+	if c is Control and c.custom_minimum_size.x > limit:
+		c.custom_minimum_size.x = limit
+	for k in c.get_children():
+		_clamp_width(k, limit)
 
 
 ## Fades `c` in while it rises RISE px into place (just the fade with reduced
@@ -199,7 +215,9 @@ static func frame(host: Node, content: Control, height: float, on_dim := Callabl
 	root.add_child(p)
 	# A zero-height rect across the middle, growing both ways: the card is
 	# always exactly as tall as its content, even after wrapped text reflows.
-	var x := side((host as Control).size.x if host is Control else MAX_WIDTH)
+	var w: float = (host as Control).size.x if host is Control else MAX_WIDTH
+	var x := side(w)
+	_clamp_width(content, inner_width(w))
 	p.anchor_left = 0.0
 	p.anchor_right = 1.0
 	p.anchor_top = 0.5
@@ -247,7 +265,7 @@ static func boss_result(shell, params: Dictionary, row: Control = null) -> void:
 	var xp: Dictionary = params.get("xp", {})
 	if row == null:
 		row = Kit.label(str(params.notice), 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
-		row.custom_minimum_size.x = minf(640.0, shell.size.x - 80.0) # Wrapped text needs a width first.
+		row.custom_minimum_size.x = inner_width(shell.size.x) # Wrapped text needs a width first.
 	var body: Array = [row]
 	var bars := XpBar.rows(xp, shell.sfx)
 	if bars != null:

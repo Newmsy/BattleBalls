@@ -56,7 +56,7 @@ func test_slots_carry_talents_and_rate_higher() -> void:
 	check(not bare.has("talents"), "no talents key when there are none")
 	check_eq(full.talents, Talents.suggested("spooky"), "slot keeps the tree")
 	check_eq(Lineup.clean(full), full, "re-cleaning a slot changes nothing")
-	check_near(float(Lineup.rating(full)) / Lineup.rating(bare), 1.0 + Talents.POINT_POWER * 30, 0.002, "full tree is about +10% Power Rating")
+	check_near(float(Lineup.rating(full)) / Lineup.rating(bare), 1.0 + Talents.POINT_POWER * 30, 0.002, "full tree is about +40% Power Rating")
 	var wrong := Lineup.make("vampire", 5, 50, [], {"kindling": 3})
 	check(not wrong.has("talents"), "another faction's own nodes are dropped")
 
