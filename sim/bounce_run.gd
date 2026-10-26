@@ -45,7 +45,7 @@ const RULES_VERSION := 12
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 20
-const COLS := 7 ## Map lanes (Slay the Spire uses 7).
+const COLS := 5 ## Map lanes: at most 5 nodes a floor, so they stay big on a phone.
 const PATHS := 6 ## Walks up the map that make its links.
 const DRAFT := 6 ## Critter cards in the draft.
 const PICKS := 3
@@ -228,10 +228,10 @@ static func _map(rng) -> Dictionary:
 	var below: Array = []
 	for row in FLOORS - 1:
 		if row > 0:
-			lo = clampi(lo + rng.range_int(-1, 1), 0, 2)
-			hi = clampi(hi + rng.range_int(-1, 1), COLS - 3, COLS - 1)
+			lo = clampi(lo + rng.range_int(-1, 1), 0, 1)
+			hi = clampi(hi + rng.range_int(-1, 1), COLS - 2, COLS - 1)
 		var inner: Array = _shuffled(range(lo + 1, hi), rng)
-		var lanes: Array = [lo, hi] + inner.slice(0, mini(inner.size(), rng.range_int(2, 4)))
+		var lanes: Array = [lo, hi] + inner.slice(0, mini(inner.size(), rng.range_int(1, 3)))
 		lanes.sort()
 		var here: Array = lanes.map(func(c): return row * COLS + c)
 		for i in here.size():
