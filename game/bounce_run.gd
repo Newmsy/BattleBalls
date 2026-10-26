@@ -35,6 +35,9 @@ const GlowState := preload("res://game/glow/glow_state.gd")
 const LivingArt := preload("res://game/bounce_run/living_art.gd")
 const BounceChest := preload("res://meta/bounce_chest.gd")
 const ChestArt := preload("res://game/ui/chest_art.gd")
+const BounceChestOpen := preload("res://game/ui/bounce_chest_open.gd")
+const SaveGame := preload("res://game/online/save_game.gd")
+const Profile := preload("res://meta/profile.gd")
 const ART := "res://game/bounce_run/art/%s.png"
 
 enum State { DRAFT, START_BOONS, MAP, FLOOR, AIM, FIGHT, RESULT, BOON, EVENT, SHOP, REST, OVER }
@@ -65,6 +68,7 @@ var aim := MatchSim.AIM_AT_CENTRE[0]
 var sim: MatchSim
 var stats := {"played": 0, "best_floors": 0, "clears": 0}
 var save_path := SAVE_PATH ## Tests point this elsewhere.
+var game_save_path := SaveGame.PATH ## The game save a chest pays into; tests point it elsewhere.
 
 var _save := ConfigFile.new()
 var _accumulator := 0.0
@@ -132,11 +136,31 @@ func _ready() -> void:
 		_settle_launched_fight()
 		if run.over:
 			_finish_run()
+			_offer_chest()
 			return
 	if run.is_empty():
 		_show_draft()
 	else:
 		_show_next()
+	_offer_chest()
+
+
+## Yesterday's best floor earned a chest not opened yet: it pops up over the
+## screen, however Bounce Run was opened. Collect pays into the game save.
+func _offer_chest() -> void:
+	var save = SaveGame.new(game_save_path)
+	save.load_local()
+	var d = save.data.get("profile", {})
+	if not (d is Dictionary) or d.is_empty():
+		return
+	var profile = Profile.from_dict(d, int(Time.get_unix_time_from_system()))
+	var chest := BounceChest.pending(BounceChest.best_floors(save_path), int(profile.bounce_chest), today)
+	if chest.is_empty():
+		return
+	BounceChestOpen.show_in(self, ui, chest, profile, sfx, func(_got: Array) -> void:
+		save.data.profile = profile.to_dict()
+		save.commit()
+		_offer_chest.call_deferred()) # An older one may still wait.
 
 
 func _process(delta: float) -> void:
