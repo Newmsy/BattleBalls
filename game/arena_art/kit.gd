@@ -86,11 +86,11 @@ static func line(cv: CanvasItem, pts: PackedVector2Array, col: Color, w: float, 
 	if pts.size() < 2:
 		return
 	if clip.is_empty():
-		cv.draw_polyline(pts, col, w, true)
+		Dot.pline(cv, pts, col, w, true)
 		return
 	for part in Geometry2D.intersect_polyline_with_polygon(pts, clip):
 		if part.size() >= 2:
-			cv.draw_polyline(part, col, w, true)
+			Dot.pline(cv, part, col, w, true)
 
 
 ## A filled ellipse whose colour runs through `stops` from the middle out.
@@ -409,7 +409,7 @@ static func disc(cv: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 
 
 static func ring(cv: CanvasItem, c: Vector2, r: float, col: Color, w: float, n := 48) -> void:
-	cv.draw_arc(c, r, 0.0, TAU, n, col, w, true)
+	Dot.arc(cv, c, r, 0.0, TAU, n, col, w, true)
 
 
 ## Rect corners as a polygon, rotated by `rot` about its middle.

@@ -6,6 +6,8 @@
 ## carpet with a cabinet rim. Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 const TOY := [Color("ff5a5a"), Color("ffb63f"), Color("4fc3ff"), Color("6fdc6a"), Color("b07cff")]
@@ -41,8 +43,8 @@ static func pillar(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
 	# A big chunky "A".
 	var t := Transform2D(0.12, c)
 	var w := maxf(2.0, h * 0.2)
-	cv.draw_polyline(PackedVector2Array([t * Vector2(-h * 0.45, h * 0.5), t * Vector2(0, -h * 0.55), t * Vector2(h * 0.45, h * 0.5)]), Color("fff6e0"), w, true)
-	cv.draw_line(t * Vector2(-h * 0.24, h * 0.1), t * Vector2(h * 0.24, h * 0.1), Color("fff6e0"), w, true)
+	Dot.pline(cv, PackedVector2Array([t * Vector2(-h * 0.45, h * 0.5), t * Vector2(0, -h * 0.55), t * Vector2(h * 0.45, h * 0.5)]), Color("fff6e0"), w, true)
+	Dot.line(cv, t * Vector2(-h * 0.24, h * 0.1), t * Vector2(h * 0.24, h * 0.1), Color("fff6e0"), w, true)
 
 
 ## A beach ball with pink panels, so it still reads as a bumper.
@@ -79,7 +81,7 @@ static func _toybox(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		var b := stitch[(e + 1) % stitch.size()]
 		var n := int(a.distance_to(b) / ctx.u(18.0))
 		for k in n:
-			cv.draw_line(a.lerp(b, (k + 0.15) / n), a.lerp(b, (k + 0.6) / n), Color(1, 1, 1, 0.75), ctx.u(2.5), true)
+			Dot.line(cv, a.lerp(b, (k + 0.15) / n), a.lerp(b, (k + 0.6) / n), Color(1, 1, 1, 0.75), ctx.u(2.5), true)
 	var keep := []
 	for o in ctx.obstacles:
 		keep.append([o.pos, o.radius * 1.5])
@@ -90,9 +92,9 @@ static func _toybox(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		var col: Color = TOY[ctx.rng.randi() % TOY.size()]
 		var a := p - d * ctx.u(26.0)
 		var b := p + d * ctx.u(20.0)
-		cv.draw_line(a + Vector2(2, 3) * ctx.s, b + Vector2(2, 3) * ctx.s, Color(0, 0, 0, 0.2), ctx.u(11.0), true)
-		cv.draw_line(a, b, col, ctx.u(10.0), true)
-		cv.draw_line(a.lerp(b, 0.3), a.lerp(b, 0.42), col.darkened(0.3), ctx.u(10.5), true)
+		Dot.line(cv, a + Vector2(2, 3) * ctx.s, b + Vector2(2, 3) * ctx.s, Color(0, 0, 0, 0.2), ctx.u(11.0), true)
+		Dot.line(cv, a, b, col, ctx.u(10.0), true)
+		Dot.line(cv, a.lerp(b, 0.3), a.lerp(b, 0.42), col.darkened(0.3), ctx.u(10.5), true)
 		Kit.poly(cv, PackedVector2Array([b + d.orthogonal() * ctx.u(5.0), b - d.orthogonal() * ctx.u(5.0), b + d * ctx.u(11.0)]), col.lightened(0.3))
 	for p in Kit.scatter_in(ctx, 9, ctx.u(30.0), keep): # Marbles.
 		Kit.shadow(cv, p, ctx.u(7.0), 0.3)
@@ -104,7 +106,7 @@ static func _toybox(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	Kit.blocks(ctx, ctx.u(90.0), ctx.wall, func(q, _e, i):
 		var col: Color = TOY[i % TOY.size()]
 		Kit.lit(cv, q, col.lightened(0.15), col.darkened(0.35))
-		cv.draw_line(q[0].lerp(q[3], 0.5), q[1].lerp(q[2], 0.5), Color(1, 1, 1, 0.25), ctx.u(2.0), true))
+		Dot.line(cv, q[0].lerp(q[3], 0.5), q[1].lerp(q[2], 0.5), Color(1, 1, 1, 0.25), ctx.u(2.0), true))
 	for v in Kit.offset(ctx.outline, ctx.wall * 0.5):
 		Kit.ball(cv, v, ctx.u(11.0), Color("ffe9a0"), Color("b07a1a"))
 
@@ -123,14 +125,14 @@ static func _speedway(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 			var b := loop[(e + 1) % loop.size()]
 			var n := maxi(1, int(a.distance_to(b) / ctx.u(26.0)))
 			for k in n:
-				cv.draw_line(a.lerp(b, float(k) / n), a.lerp(b, (k + 1.0) / n), Color("ff4a4a") if k % 2 else Color("ffffff"), ctx.u(7.0), false)
+				Dot.line(cv, a.lerp(b, float(k) / n), a.lerp(b, (k + 1.0) / n), Color("ff4a4a") if k % 2 else Color("ffffff"), ctx.u(7.0), false)
 	var lane := Kit.offset(ctx.outline, -ctx.u(190.0))
 	for e in lane.size():
 		var a := lane[e]
 		var b := lane[(e + 1) % lane.size()]
 		var n := maxi(1, int(a.distance_to(b) / ctx.u(40.0)))
 		for k in n:
-			cv.draw_line(a.lerp(b, (k + 0.2) / n), a.lerp(b, (k + 0.65) / n), Color(1, 1, 0.7, 0.6), ctx.u(3.0), true)
+			Dot.line(cv, a.lerp(b, (k + 0.2) / n), a.lerp(b, (k + 0.65) / n), Color(1, 1, 0.7, 0.6), ctx.u(3.0), true)
 	# Chequered start line across the bottom straight.
 	var sq := ctx.u(13.0)
 	for i in 2:
@@ -138,13 +140,13 @@ static func _speedway(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 			var p := ctx.at(560.0, 765.0) + Vector2(i * sq, j * sq)
 			if p.y > ctx.at(0, 910).y:
 				break
-			cv.draw_rect(Rect2(p, Vector2.ONE * sq), Color.WHITE if (i + j) % 2 else Color("1a1a1a"))
+			Dot.rect(cv, Rect2(p, Vector2.ONE * sq), Color.WHITE if (i + j) % 2 else Color("1a1a1a"))
 	Kit.glow(cv, c, ctx.u(150.0), Color(1, 1, 0.6, 0.18))
 	Kit.inner_shadow(cv, ctx, ctx.u(36.0), 0.45)
 	# Orange plastic track barrier.
 	Kit.blocks(ctx, ctx.u(70.0), ctx.wall, func(q, _e, i):
 		Kit.lit(cv, q, Color("ffa040") if i % 2 else Color("ff8a2a"), Color("b04a10"))
-		cv.draw_line(q[0].lerp(q[3], 0.35), q[1].lerp(q[2], 0.35), Color(1, 1, 1, 0.4), ctx.u(2.0), true))
+		Dot.line(cv, q[0].lerp(q[3], 0.35), q[1].lerp(q[2], 0.35), Color(1, 1, 1, 0.4), ctx.u(2.0), true))
 
 
 static func _pinball(cv: CanvasItem, ctx: Kit.Ctx) -> void:
@@ -180,20 +182,20 @@ static func _lab(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		var y := ctx.full.position.y + i * step
 		Kit.line(cv, PackedVector2Array([Vector2(ctx.full.position.x, y), Vector2(ctx.full.end.x, y)]), Color(0.4, 0.55, 0.7, 0.35), ctx.u(2.0), ctx.outline)
 	for o in ctx.obstacles: # Hazard rings and test markings round each bumper.
-		cv.draw_arc(o.pos, o.radius * 1.7, 0.0, TAU, 64, Color(1.0, 0.3, 0.6, 0.35), ctx.u(4.0), true)
+		Dot.arc(cv, o.pos, o.radius * 1.7, 0.0, TAU, 64, Color(1.0, 0.3, 0.6, 0.35), ctx.u(4.0), true)
 		for i in 8:
 			var a := i * TAU / 8.0
-			cv.draw_line(o.pos + Vector2.from_angle(a) * o.radius * 1.55, o.pos + Vector2.from_angle(a) * o.radius * 1.85, Color(1.0, 0.3, 0.6, 0.6), ctx.u(3.0), true)
+			Dot.line(cv, o.pos + Vector2.from_angle(a) * o.radius * 1.55, o.pos + Vector2.from_angle(a) * o.radius * 1.85, Color(1.0, 0.3, 0.6, 0.6), ctx.u(3.0), true)
 	for k in [Vector2(700, 300), Vector2(300, 700)]:
 		var p := ctx.at(k.x, k.y)
 		var box := Kit.rect_pts(p, Vector2(150, 90) * ctx.s)
 		Kit.poly(cv, box, Color(0.2, 0.4, 0.6, 0.08))
 		var loop := box.duplicate()
 		loop.append(box[0])
-		cv.draw_polyline(loop, Color(0.3, 0.5, 0.7, 0.4), ctx.u(2.0), true)
+		Dot.pline(cv, loop, Color(0.3, 0.5, 0.7, 0.4), ctx.u(2.0), true)
 		Kit.ring(cv, p, ctx.u(22.0), Color(0.3, 0.5, 0.7, 0.4), ctx.u(2.0))
-		cv.draw_line(p - Vector2(ctx.u(30.0), 0), p + Vector2(ctx.u(30.0), 0), Color(0.3, 0.5, 0.7, 0.4), ctx.u(2.0), true)
-		cv.draw_line(p - Vector2(0, ctx.u(30.0)), p + Vector2(0, ctx.u(30.0)), Color(0.3, 0.5, 0.7, 0.4), ctx.u(2.0), true)
+		Dot.line(cv, p - Vector2(ctx.u(30.0), 0), p + Vector2(ctx.u(30.0), 0), Color(0.3, 0.5, 0.7, 0.4), ctx.u(2.0), true)
+		Dot.line(cv, p - Vector2(0, ctx.u(30.0)), p + Vector2(0, ctx.u(30.0)), Color(0.3, 0.5, 0.7, 0.4), ctx.u(2.0), true)
 	Kit.inner_shadow(cv, ctx, ctx.u(34.0), 0.3, Color("2a4a6a"))
 	Kit.blocks(ctx, ctx.u(110.0), ctx.wall, func(q, _e, _i):
 		Kit.lit(cv, q, Color("e8eef4"), Color("8a98a8"))
@@ -201,7 +203,7 @@ static func _lab(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		Kit.disc(cv, mid, ctx.u(3.5), Color("4fe8ff")))
 	var trim := ctx.outline.duplicate()
 	trim.append(trim[0])
-	cv.draw_polyline(trim, Color("4fe8ff"), ctx.u(2.5), true)
+	Dot.pline(cv, trim, Color("4fe8ff"), ctx.u(2.5), true)
 
 
 static func _arcade(cv: CanvasItem, ctx: Kit.Ctx) -> void:
@@ -218,13 +220,13 @@ static func _arcade(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 				var pts := PackedVector2Array()
 				for k in 7:
 					pts.append(p + Vector2(k * ctx.u(6.0) - ctx.u(18.0), (ctx.u(6.0) if k % 2 else -ctx.u(6.0))).rotated(a))
-				cv.draw_polyline(pts, col, ctx.u(3.0), true)
+				Dot.pline(cv, pts, col, ctx.u(3.0), true)
 			1:
 				var tri := Kit.star_pts(p, ctx.u(12.0), ctx.u(12.0) * 0.5, 3, ctx.rng.randf() * TAU)
 				tri = PackedVector2Array([tri[0], tri[2], tri[4], tri[0]])
-				cv.draw_polyline(tri, col, ctx.u(3.0), true)
+				Dot.pline(cv, tri, col, ctx.u(3.0), true)
 			_:
-				cv.draw_arc(p, ctx.u(8.0), 0.0, TAU, 16, col, ctx.u(3.0), true)
+				Dot.arc(cv, p, ctx.u(8.0), 0.0, TAU, 16, col, ctx.u(3.0), true)
 	for f in ctx.floors: # A glowing pad under each portal.
 		if f.has("pos"):
 			Kit.glow(cv, f.pos, f.radius * 2.0, Color(0.6, 0.3, 1.0, 0.35))
@@ -240,11 +242,11 @@ static func _arcade(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 			Kit.ball(cv, mid + along * k, ctx.u(5.5), col.lightened(0.4), col.darkened(0.3)))
 	var trim := ctx.outline.duplicate()
 	trim.append(trim[0])
-	cv.draw_polyline(trim, Color("ff4fa8"), ctx.u(2.5), true)
+	Dot.pline(cv, trim, Color("ff4fa8"), ctx.u(2.5), true)
 
 
 static func _floorboards(cv: CanvasItem, ctx: Kit.Ctx, box: Rect2, base: Color) -> void:
-	cv.draw_rect(box, base.darkened(0.35))
+	Dot.rect(cv, box, base.darkened(0.35))
 	var h := ctx.u(36.0)
 	var y := box.position.y
 	var row := 0
@@ -265,6 +267,6 @@ static func _chrome(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	for d in [0.35, 0.7]:
 		var rail := Kit.offset(ctx.outline, ctx.wall * d)
 		rail.append(rail[0])
-		cv.draw_polyline(rail, Color(1, 1, 1, 0.55), ctx.u(2.0), true)
+		Dot.pline(cv, rail, Color(1, 1, 1, 0.55), ctx.u(2.0), true)
 	for p in Kit.along(ctx.outline, ctx.wall * 0.5, ctx.u(80.0)):
 		Kit.ball(cv, p, ctx.u(4.0), Color("ffffff"), Color("6a7488"))

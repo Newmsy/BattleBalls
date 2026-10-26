@@ -1,4 +1,6 @@
 extends Control
+
+const Dot := preload("res://game/dot.gd")
 ## Health bars for every fighter, each along the bottom of its plate
 ## (game/fight_layout.gd: the foe's plates above the arena, yours below), and
 ## the clock notched into the arena's top edge. YOU bars have a solid frame,
@@ -234,7 +236,7 @@ func _dashed_outline(r: Rect2, col: Color, w: float) -> void:
 		while t < seg:
 			var step := minf(left_over, seg - t)
 			if on:
-				draw_line(a.lerp(b, t / seg), a.lerp(b, (t + step) / seg), col, w, true)
+				Dot.line(self, a.lerp(b, t / seg), a.lerp(b, (t + step) / seg), col, w, true)
 			t += step
 			left_over -= step
 			if left_over <= 0.0:

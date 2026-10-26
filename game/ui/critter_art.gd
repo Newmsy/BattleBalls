@@ -119,7 +119,7 @@ static func _pline(ci: CanvasItem, pts: PackedVector2Array, col: Color, w: float
 
 
 static func _line(ci: CanvasItem, a: Vector2, b: Vector2, col: Color, w: float) -> void:
-	ci.draw_line(a, b, _c(col), w, true)
+	Dot.line(ci, a, b, _c(col), w, true)
 
 
 static func ellipse_pts(p: Vector2, rx: float, ry: float, rot := 0.0, a0 := 0.0, a1 := TAU, n := 28) -> PackedVector2Array:
@@ -195,7 +195,7 @@ static func _body(ci: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 	var dark := shade(col, -.2)
 	var light := shade(col, .45)
 	_circ(ci, c, r, dark)
-	ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, _c(light))
+	Dot.quad(ci, "shade", Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), _c(light))
 	_gloss(ci, c, r, col)
 	_ring(ci, c, r, shade(col, -.5), maxf(1.5, r * .07))
 
@@ -207,17 +207,13 @@ static func _shaped(ci: CanvasItem, pts: PackedVector2Array, c: Vector2, r: floa
 	var uv := PackedVector2Array()
 	for p in pts:
 		uv.append((p - c) / (r * 2.0) + Vector2(.5, .5))
-	ci.draw_colored_polygon(pts, _c(shade(col, -.2)))
-	ci.draw_colored_polygon(pts, _c(shade(col, .45)), uv, _shade_disc())
-	ci.draw_colored_polygon(pts, _c(Color(shade(col, -.6), .55)), uv, _soft("core"))
-	ci.draw_colored_polygon(pts, _c(Color(1, 1, 1, .5)), uv, _soft("sheen"))
+	Dot.poly(ci, pts, _c(shade(col, -.2)))
+	Dot.tex_poly(ci, pts, uv, _c(shade(col, .45)), "shade")
+	Dot.tex_poly(ci, pts, uv, _c(Color(shade(col, -.6), .55)), "core")
+	Dot.tex_poly(ci, pts, uv, _c(Color(1, 1, 1, .5)), "sheen")
 	var ring := pts.duplicate()
 	ring.append(pts[0])
 	_pline(ci, ring, shade(col, -.5), maxf(1.5, r * .07))
-
-
-static var _shade_tex: Texture2D
-static var _soft_tex := {}
 
 
 ## The round-ball finish over a body: a shadow wrapping the side away from
@@ -225,66 +221,8 @@ static var _soft_tex := {}
 static func _gloss(ci: CanvasItem, c: Vector2, r: float, col: Color, core := true) -> void:
 	var box := Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0)
 	if core:
-		ci.draw_texture_rect(_soft("core"), box, false, _c(Color(shade(col, -.6), .55)))
-	ci.draw_texture_rect(_soft("sheen"), box, false, _c(Color(1, 1, 1, .5)))
-
-
-## Soft extras on the body: "core" darkens the rim away from the light (a
-## shadow that wraps round the ball), "sheen" is a blurred gloss spot.
-static func _soft(kind: String) -> Texture2D:
-	if _soft_tex.has(kind):
-		return _soft_tex[kind]
-	var n := 128
-	var half := n / 2.0
-	var px := PackedByteArray()
-	px.resize(n * n * 2)
-	var i := 0
-	for y in n:
-		for x in n:
-			var p := Vector2(x + .5 - half, y + .5 - half) / (half - 1.0)
-			var edge := clampf((1.0 - p.length()) * (half - 1.0) + .5, 0.0, 1.0)
-			var a := 0.0
-			if kind == "core":
-				var d := (p - Vector2(-.3, -.35)).length() / 1.35
-				a = smoothstep(.55, 1.0, d)
-			else:
-				var q := (p - Vector2(-.38, -.48)) / Vector2(.3, .2)
-				q = q.rotated(.7)
-				a = exp(-q.length_squared() * 1.6)
-			px[i] = 255
-			px[i + 1] = int(a * edge * 255.0)
-			i += 2
-	_soft_tex[kind] = ImageTexture.create_from_image(Image.create_from_data(n, n, false, Image.FORMAT_LA8, px))
-	return _soft_tex[kind]
-
-## Alpha = how far towards the light a point is: the continuous version of a
-## stack of shrinking circles sliding towards the top-left highlight (each
-## circle nests in the one before, so the largest f whose circle holds the
-## point is the smaller root of |p - o f|^2 = (1 - .82 f)^2).
-static func _shade_disc() -> Texture2D:
-	if _shade_tex:
-		return _shade_tex
-	var n := 256
-	var half := n / 2.0
-	var o := Vector2(-.315, -.36)
-	var qa := o.length_squared() - .6724
-	var px := PackedByteArray()
-	px.resize(n * n * 2)
-	var i := 0
-	for y in n:
-		for x in n:
-			var p := Vector2(x + .5 - half, y + .5 - half) / (half - 1.0)
-			var f := 1.0
-			if (p - o).length_squared() > .0324:
-				var qb := 1.64 - 2.0 * p.dot(o)
-				var qc := p.length_squared() - 1.0
-				f = clampf((-qb + sqrt(maxf(0.0, qb * qb - 4.0 * qa * qc))) / (2.0 * qa), 0.0, 1.0)
-			var edge := clampf((1.0 - p.length()) * (half - 1.0) + .5, 0.0, 1.0)
-			px[i] = 255
-			px[i + 1] = int(f * f * (3.0 - 2.0 * f) * edge * 255.0)
-			i += 2
-	_shade_tex = ImageTexture.create_from_image(Image.create_from_data(n, n, false, Image.FORMAT_LA8, px))
-	return _shade_tex
+		Dot.quad(ci, "core", box, _c(Color(shade(col, -.6), .55)))
+	Dot.quad(ci, "sheen", box, _c(Color(1, 1, 1, .5)))
 
 
 static func _aura(ci: CanvasItem, rarity: String, c: Vector2, r: float, t: float) -> void:
@@ -321,14 +259,14 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 			var a := .7 + .2 * sin(t * 2.0)
 			_circ(ci, c, r * 1.08, Color(col, .2 * a))
 			_circ(ci, c, r, Color(col, .85 * a))
-			ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, _c(Color(col.lerp(Color.WHITE, .8), .95 * a)))
-			ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r * .7, c.y - r * .75, r * 1.2, r * 1.2), false, _c(Color(1, 1, 1, .9 * a)))
+			Dot.quad(ci, "shade", Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), _c(Color(col.lerp(Color.WHITE, .8), .95 * a)))
+			Dot.quad(ci, "shade", Rect2(c.x - r * .7, c.y - r * .75, r * 1.2, r * 1.2), _c(Color(1, 1, 1, .9 * a)))
 			_gloss(ci, c, r, col, false)
 		"ghost":
 			var a := .75 + .2 * sin(t * 2.0)
 			_circ(ci, c, r * 1.08, Color(.79, .71, 1.0, .25 * a))
 			_circ(ci, c, r, Color(.78, .7, 1.0, .6 * a))
-			ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, _c(Color(1, 1, 1, .9 * a)))
+			Dot.quad(ci, "shade", Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), _c(Color(1, 1, 1, .9 * a)))
 			_gloss(ci, c, r, Color.WHITE, false)
 		"chrome":
 			var cols := [Color("f7f9fd"), Color("c4ccd8"), Color("8a95a8"), Color("e9eef5"), Color("aab4c3"), Color("5f6a7d")]
@@ -375,23 +313,23 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 					var x0 := ceilf(-d - .5)
 					var w := (floorf(d - .5) - x0 + 1.0) * px
 					var sh := px * (.25 + .35 * _hash(jit + y))
-					ci.draw_rect(Rect2(c + Vector2(x0 * px - sh, y * px), Vector2(w, px + .5)), _c(Color(1, .2, .35, .5)))
-					ci.draw_rect(Rect2(c + Vector2(x0 * px + sh, y * px), Vector2(w, px + .5)), _c(Color(.2, .95, 1, .5)))
+					Dot.rect(ci, Rect2(c + Vector2(x0 * px - sh, y * px), Vector2(w, px + .5)), _c(Color(1, .2, .35, .5)))
+					Dot.rect(ci, Rect2(c + Vector2(x0 * px + sh, y * px), Vector2(w, px + .5)), _c(Color(.2, .95, 1, .5)))
 			for y in range(-4, 4):
 				for x in range(-4, 4):
 					if (x + .5) * (x + .5) + (y + .5) * (y + .5) <= 15.0:
-						ci.draw_rect(Rect2(c + Vector2(x, y) * px, Vector2(px + .5, px + .5)), _c(shade(col, .25) if (x + y) % 3 == 0 else col))
+						Dot.rect(ci, Rect2(c + Vector2(x, y) * px, Vector2(px + .5, px + .5)), _c(shade(col, .25) if (x + y) % 3 == 0 else col))
 			if tier >= 3:
 				# Pixel: stray pixels float off it (T3+), and scanlines roll over it at T5.
 				for i in 3:
 					var a := i * 2.1 + t * .6
 					var q := c + Vector2(cos(a), sin(a)) * r * (1.3 + .08 * sin(t * 3.0 + i))
-					ci.draw_rect(Rect2(q - Vector2(px, px) * .3, Vector2(px, px) * .6), _c(shade(col, .25 if i % 2 else -.1)))
+					Dot.rect(ci, Rect2(q - Vector2(px, px) * .3, Vector2(px, px) * .6), _c(shade(col, .25 if i % 2 else -.1)))
 				if tier >= 5:
 					for k in 2:
 						var y := (fmod(t * .5 + k * .5, 1.0) * 2.0 - 1.0) * r * .9
 						var half := _chord_x(r * .95, y)
-						ci.draw_rect(Rect2(c + Vector2(-half, y), Vector2(half * 2.0, maxf(1.0, r * .07))), _c(Color(1, 1, 1, .3)))
+						Dot.rect(ci, Rect2(c + Vector2(-half, y), Vector2(half * 2.0, maxf(1.0, r * .07))), _c(Color(1, 1, 1, .3)))
 		"eclipse":
 			if tier >= 3:
 				# Eclipse: a corona flares round the disc (longer at T5).
@@ -480,7 +418,7 @@ static func _feature(ci: CanvasItem, name: String, back: bool, col: Color, c: Ve
 			for k in [-1, 1]:
 				var panel := PackedVector2Array([c + Vector2(k * .25, -.9) * r, c + Vector2(k * 1.12, -h) * r, c + Vector2(k * .95, -.15) * r])
 				# Shaded like cloth: catches light at the tip, falls dark behind the ball.
-				ci.draw_primitive(panel, PackedColorArray([_c(shade(col, -.5)), _c(shade(col, -.15)), _c(shade(col, -.72))]), PackedVector2Array())
+				Dot.tri_colors(ci, panel, PackedColorArray([_c(shade(col, -.5)), _c(shade(col, -.15)), _c(shade(col, -.72))]))
 				_line(ci, panel[0], panel[1], Color(shade(col, .3), .7), maxf(1.0, r * .035))
 				if tier >= 3:
 					_poly(ci, PackedVector2Array([c + Vector2(k * .35, -.86) * r, c + Vector2(k * 1.02, -h + .1) * r, c + Vector2(k * .9, -.3) * r]), lining)
@@ -978,13 +916,13 @@ static func _bitten_body(ci: CanvasItem, c: Vector2, r: float, col: Color, hp_fr
 	for q in outline:
 		_poly(ci, q, dark)
 	# Same shading as _body, through the bitten outline (UVs map the ball's box).
-	var layers := [[_shade_disc(), light], [_soft("core"), Color(shade(col, -.6), .55)], [_soft("sheen"), Color(1, 1, 1, .5)]]
+	var layers := [["shade", light], ["core", Color(shade(col, -.6), .55)], ["sheen", Color(1, 1, 1, .5)]]
 	for q in outline:
 		var uv := PackedVector2Array()
 		for p in q:
 			uv.append((p - c) / (r * 2.0) + Vector2(.5, .5))
 		for layer in layers:
-			ci.draw_colored_polygon(q, _c(layer[1]), uv, layer[0])
+			Dot.tex_poly(ci, q, uv, _c(layer[1]), layer[0])
 	for q in outline:
 		var loop: PackedVector2Array = q.duplicate()
 		loop.append(q[0])
@@ -1749,7 +1687,7 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				# Mole: the helmet lamp throws a light cone that fades out (brighter at T5).
 				var beam := PackedVector2Array([_to_px(lamp), _to_px(Vector2(1.6, -1.55)), _to_px(Vector2(1.45, -.5))])
 				var warm := Color(1, .97, .7, .38 if n >= 5 else .24)
-				ci.draw_primitive(beam, PackedColorArray([warm, Color(warm, 0.0), Color(warm, 0.0)]), PackedVector2Array())
+				Dot.tri_colors(ci, beam, PackedColorArray([warm, Color(warm, 0.0), Color(warm, 0.0)]))
 			_udome(ci, Vector2(0, -.55), .85, .5, GOLD if n >= 5 else Color("e3b23c"))
 			if n >= 5:
 				for x in [-.62, -.32, .32, .62]:
@@ -1878,7 +1816,8 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 						sp.append(_to_px(p))
 					var hot := _c(Color(1, 1, 1, .95) if n < 5 else _hsl(t * 90.0 + j * 120 + k * 60, 1.0, .78, .95))
 					var cold := _c(Color(.71, .55, 1, 0))
-					ci.draw_polygon(sp, PackedColorArray([hot, cold, cold, hot]))
+					Dot.tri_colors(ci, PackedVector2Array([sp[0], sp[1], sp[2]]), PackedColorArray([hot, cold, cold]))
+					Dot.tri_colors(ci, PackedVector2Array([sp[0], sp[2], sp[3]]), PackedColorArray([hot, cold, hot]))
 					if n >= 3:
 						_uline(ci, Vector2.ZERO, Vector2(k * 1.7, 0), Color(1, 1, 1, .7), .03)
 		"key":
@@ -3058,7 +2997,7 @@ static func magnet_body(ci: CanvasItem, c: Vector2, r: float, red: Color, blue: 
 		var pts := ellipse_pts(c, r, r, 0.0, h[1], h[1] + PI, 24)
 		_poly(ci, pts, shade(h[0], -.12))
 	if not _sil:
-		ci.draw_texture_rect(_shade_disc(), Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), false, Color(1, 1, 1, .5))
+		Dot.quad(ci, "shade", Rect2(c.x - r, c.y - r, r * 2.0, r * 2.0), Color(1, 1, 1, .5))
 		_gloss(ci, c, r, red.lerp(blue, .5))
 	var axis := Vector2(cos(rot + PI / 2), sin(rot + PI / 2)) * r * .97
 	if tier >= 3 and not _sil:
@@ -3199,8 +3138,8 @@ static func _face(ci: CanvasItem, e: Dictionary, col: Color, c: Vector2, r: floa
 			continue
 		if e.get("square", false):
 			var sq := maxf(.08, open)
-			ci.draw_rect(Rect2(ec - Vector2(.12, .12 * sq) * r, Vector2(.24, .24 * sq) * r), Color.WHITE)
-			ci.draw_rect(Rect2(ec + (Vector2(-.05, -.05 * sq) + look * .05) * r, Vector2(.1, .1 * sq) * r), INK)
+			Dot.rect(ci, Rect2(ec - Vector2(.12, .12 * sq) * r, Vector2(.24, .24 * sq) * r), Color.WHITE)
+			Dot.rect(ci, Rect2(ec + (Vector2(-.05, -.05 * sq) + look * .05) * r, Vector2(.1, .1 * sq) * r), INK)
 			continue
 		var w: float = r * e.w * m
 		var h: float = r * e.h * m * maxf(.08, open)
@@ -3225,11 +3164,11 @@ static func _face(ci: CanvasItem, e: Dictionary, col: Color, c: Vector2, r: floa
 			var phi := asin(clampf(-1.0 + 2.0 * lid, -1.0, 1.0))
 			var cap := ellipse_pts(ec, w, h, 0.0, PI - phi, TAU + phi, 16)
 			_poly(ci, cap, shade(col, .05))
-			ci.draw_line(cap[0], cap[cap.size() - 1], shade(col, -.45), maxf(1.0, r * .05), true)
+			Dot.line(ci, cap[0], cap[cap.size() - 1], shade(col, -.45), maxf(1.0, r * .05), true)
 		if e.has("brow"):
 			var a: float = e.brow * r
 			var top := ec.y - h - r * .08
-			ci.draw_line(Vector2(ec.x + k * w * 1.1, top - a * .5), Vector2(ec.x - k * w * .9, top + a * .5), INK, maxf(1.6, r * .08), true)
+			Dot.line(ci, Vector2(ec.x + k * w * 1.1, top - a * .5), Vector2(ec.x - k * w * .9, top + a * .5), INK, maxf(1.6, r * .08), true)
 	if e.get("uni", false):
 		Dot.pline(ci, _quad(eye + Vector2(-.42, -.2) * r, eye + Vector2(0, -.08) * r, eye + Vector2(.42, -.2) * r, 10), INK, maxf(2.5, r * .13), true)
 	_mouth(ci, e.get("mouth", "smile"), r, eye + Vector2(0, r * .34), float(s.hp_frac), Color(e.get("mouth_ink", INK.to_html())), c)
@@ -3256,7 +3195,7 @@ static func _mouth(ci: CanvasItem, kind: String, r: float, m: Vector2, hp_frac: 
 		"smirk":
 			Dot.pline(ci, _quad(m + Vector2(-r * .13, 0), m + Vector2(r * .02, r * .08), m + Vector2(r * .15, -r * .05), 8), ink, lw, true)
 		"flat":
-			ci.draw_line(m + Vector2(-r * .12, r * .02), m + Vector2(r * .12, r * .02), ink, lw, true)
+			Dot.line(ci, m + Vector2(-r * .12, r * .02), m + Vector2(r * .12, r * .02), ink, lw, true)
 		"frown":
 			Dot.arc(ci, m + Vector2(0, r * .12), r * .12, 1.2 * PI, 1.8 * PI, 10, ink, lw, true)
 		"o":
@@ -3268,7 +3207,7 @@ static func _mouth(ci: CanvasItem, kind: String, r: float, m: Vector2, hp_frac: 
 				Dot.poly(ci, PackedVector2Array([Vector2(x - r * .035, m.y + r * .03), Vector2(x + r * .035, m.y + r * .03), Vector2(x, m.y + r * .15)]), Color.WHITE)
 		"teeth":
 			Dot.poly(ci, ellipse_pts(m + Vector2(0, -r * .06), r * .2, r * .2, 0.0, .05 * PI, .95 * PI, 12), ink)
-			ci.draw_rect(Rect2(m + Vector2(-.17, -.03) * r, Vector2(.34, .06) * r), Color.WHITE)
+			Dot.rect(ci, Rect2(m + Vector2(-.17, -.03) * r, Vector2(.34, .06) * r), Color.WHITE)
 		"pout":
 			Dot.poly(ci, ellipse_pts(m + Vector2(0, r * .02), r * .08, r * .05, 0.0, 0.0, TAU - .01, 12), Color("d9567a"))
 		"beak":
@@ -3276,7 +3215,7 @@ static func _mouth(ci: CanvasItem, kind: String, r: float, m: Vector2, hp_frac: 
 		"bigmouth":
 			Dot.poly(ci, ellipse_pts(c + Vector2(0, .35) * r, r * .6, r * .42, 0.0, 0.0, PI, 16), Color("3a0f1a"))
 			for i in range(-2, 3):
-				ci.draw_rect(Rect2(c + Vector2(i * .2 - .07, .33) * r, Vector2(.14, .12) * r), Color.WHITE)
+				Dot.rect(ci, Rect2(c + Vector2(i * .2 - .07, .33) * r, Vector2(.14, .12) * r), Color.WHITE)
 
 
 static func _hash(i: float) -> float:

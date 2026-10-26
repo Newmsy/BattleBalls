@@ -1,4 +1,6 @@
 extends Control
+
+const Dot := preload("res://game/dot.gd")
 ## The fighters' plates (game/fight_layout.gd): the foe's above the arena,
 ## yours below it, one per fighter out (a full-width plate in a 1v1 or relay,
 ## two or three side by side in a 2v2 or 3v3). Each has the face, name, tier,
@@ -261,13 +263,13 @@ func _draw_face(k: int, face: Vector2, fr: float) -> void:
 	elif CritterDb.has(card.id):
 		CritterArt.draw_critter(self, card.id, face, fr * 0.85, {"tier": card.tier})
 	else:
-		draw_circle(face, fr * 0.85, card.color)
-	draw_arc(face, fr + 5.0, 0.0, TAU, 40, Color(col, 0.2), 4.0, true)
+		Dot.circle(self, face, fr * 0.85, card.color)
+	Dot.arc(self, face, fr + 5.0, 0.0, TAU, 40, Color(col, 0.2), 4.0, true)
 	var every: int = card.get("every", 0)
 	if every > 0:
 		var b = _sim.balls[_ball[k]]
 		var frac := float(_sim.tick % every) / every if b.alive() else 0.0
-		draw_arc(face, fr + 5.0, -PI / 2.0, -PI / 2.0 + TAU * frac, 40, col, 4.0, true)
+		Dot.arc(self, face, fr + 5.0, -PI / 2.0, -PI / 2.0 + TAU * frac, 40, col, 4.0, true)
 	if not card.boss and Families.of(card.id) != "":
 		FamilyIcon.draw(self, Families.of(card.id), face + Vector2(-fr, fr) * .78, maxf(16.0, fr * .7))
 
@@ -277,9 +279,9 @@ func _draw_bench(mate: Dictionary, c: Vector2, r: float) -> void:
 	var id := str(mate.get("id", ""))
 	if CritterDb.has(id):
 		CritterArt.draw_critter(self, id, c, r * 0.85, {})
-	draw_arc(c, r + 2.0, 0.0, TAU, 28, Color(MUTED, 0.5), 2.0, true)
+	Dot.arc(self, c, r + 2.0, 0.0, TAU, 28, Color(MUTED, 0.5), 2.0, true)
 	if mate.get("out", false):
-		draw_circle(c, r + 1.0, Color(PANEL, 0.7))
+		Dot.circle(self, c, r + 1.0, Color(PANEL, 0.7))
 		var d := r * 0.5
-		draw_line(c + Vector2(-d, -d), c + Vector2(d, d), TEAM_COLORS[1], 3.0, true)
-		draw_line(c + Vector2(-d, d), c + Vector2(d, -d), TEAM_COLORS[1], 3.0, true)
+		Dot.line(self, c + Vector2(-d, -d), c + Vector2(d, d), TEAM_COLORS[1], 3.0, true)
+		Dot.line(self, c + Vector2(-d, d), c + Vector2(d, -d), TEAM_COLORS[1], 3.0, true)

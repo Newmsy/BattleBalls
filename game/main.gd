@@ -352,6 +352,11 @@ func _ready() -> void:
 	if url_params.has("perftour"): # ?perftour=1 (or =play,campaign) times every screen's open.
 		var only: Array = [] if url_params.perftour in ["", "1"] else Array(url_params.perftour.split(","))
 		preload("res://game/perf_tour.gd").run.call_deferred(shell, only)
+	if url_params.has("perfidle"): # ?perfidle=1 (or =home,summon) logs what each idle screen costs.
+		var only: Array = [] if url_params.perfidle in ["", "1"] else Array(url_params.perfidle.split(","))
+		preload("res://game/perf_tour.gd").idle.call_deferred(shell, only)
+	if url_params.has("perfblame"): # ?perfblame=home lists the nodes that cost the most draw calls.
+		preload("res://game/perf_tour.gd").blame.call_deferred(shell, url_params.perfblame)
 	friends.changed.connect(func(): if state == State.RESULT: _label_result_buttons())
 	if link_friend != "":
 		friends.set_invite(link_friend)
@@ -364,6 +369,7 @@ func _process(delta: float) -> void:
 	if shell != null and shell.glow != null and shell.glow.store != null:
 		shell.glow.store.poll()
 	var covered := _sync_cover()
+	_cap_menu_fps(covered)
 	if mode == Mode.LIVE and state == State.AIM and not live.has("aimed"):
 		_tick_live_aim(delta)
 	if state == State.FIGHT:
@@ -379,6 +385,30 @@ func _process(delta: float) -> void:
 		_poll_share_status()
 	if not covered:
 		_update_hud()
+
+
+## Battery: a menu nobody is touching runs its loop at 30 fps (its idle
+## animations tick at 15 a second anyway). A touch, a fight, a summon or
+## the first seconds after a tap (screen wipes, pops) get the full 60.
+const MENU_IDLE_FPS := 30
+const MENU_AWAKE_MS := 2500
+var _last_input_ms := 0
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton or event is InputEventScreenTouch or event is InputEventScreenDrag or (event is InputEventMouseMotion and event.button_mask != 0) or event is InputEventKey:
+		_last_input_ms = Time.get_ticks_msec()
+
+
+func _exit_tree() -> void:
+	Engine.max_fps = 0 # Other scenes (Bounce Run, Ghost Arena fights) run uncapped.
+
+
+func _cap_menu_fps(covered: bool) -> void:
+	var idle := covered and shell != null and Time.get_ticks_msec() - _last_input_ms > MENU_AWAKE_MS and shell.current != "summon"
+	var fps := MENU_IDLE_FPS if idle else 0
+	if Engine.max_fps != fps:
+		Engine.max_fps = fps
 
 
 ## The home shell is opaque and full screen: while it's up, the Quick fight

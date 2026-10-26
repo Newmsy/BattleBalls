@@ -5,6 +5,8 @@
 ## tower (slate and a glowing rune circle). Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 
@@ -45,8 +47,8 @@ static func pillar(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
 	slab.append(c + Vector2(r * 0.85, r * 0.85))
 	slab.append(c + Vector2(-r * 0.85, r * 0.85))
 	Kit.lit(cv, slab, Color("c9d0e6"), Color("5a6078"))
-	cv.draw_line(c + Vector2(0, -r * 0.55), c + Vector2(0, r * 0.35), Color("3e4356"), r * 0.13, true)
-	cv.draw_line(c + Vector2(-r * 0.32, -r * 0.2), c + Vector2(r * 0.32, -r * 0.2), Color("3e4356"), r * 0.13, true)
+	Dot.line(cv, c + Vector2(0, -r * 0.55), c + Vector2(0, r * 0.35), Color("3e4356"), r * 0.13, true)
+	Dot.line(cv, c + Vector2(-r * 0.32, -r * 0.2), c + Vector2(r * 0.32, -r * 0.2), Color("3e4356"), r * 0.13, true)
 	Kit.poly(cv, Kit.rect_pts(c + Vector2(0, r * 0.88), Vector2(r * 2.0, r * 0.25)), Color("4a5062"))
 	Kit.poly(cv, Kit.blob(c + Vector2(-0.45, 0.72) * r, r * 0.22, ctx.rng, 6, 0.3), Color("5f8a4a"))
 
@@ -57,7 +59,7 @@ static func _graveyard(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	Kit.floor_fill(cv, ctx, func(p): return Kit.ramp(["6a8f78", "3a5a48", "22382e", "131c1a"], p.distance_to(lamp) / (ctx.full.size.x * 1.2)))
 	for p in Kit.scatter_in(ctx, 320, ctx.u(4.0)):
 		var tip := p + Vector2(ctx.rng.randf_range(-ctx.u(4.0), ctx.u(4.0)), -ctx.u(ctx.rng.randf_range(8.0, 14.0)))
-		cv.draw_line(p, tip, [Color("5f8a62"), Color("3a5e44"), Color("7aa070")][ctx.rng.randi() % 3], ctx.u(2.0), true)
+		Dot.line(cv, p, tip, [Color("5f8a62"), Color("3a5e44"), Color("7aa070")][ctx.rng.randi() % 3], ctx.u(2.0), true)
 	# A winding flagstone path.
 	for i in 11:
 		var t := i / 10.0
@@ -78,13 +80,13 @@ static func _graveyard(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	var inner := Kit.along(ctx.outline, ctx.wall * 0.1, ctx.u(22.0))
 	var outer := Kit.along(ctx.outline, ctx.wall * 0.85, ctx.u(22.0))
 	for i in mini(inner.size(), outer.size()):
-		cv.draw_line(inner[i], outer[i], Color("3a3d50"), ctx.u(4.5), true)
+		Dot.line(cv, inner[i], outer[i], Color("3a3d50"), ctx.u(4.5), true)
 		var dir := (outer[i] - inner[i]).normalized()
 		Kit.poly(cv, PackedVector2Array([outer[i] + dir * ctx.u(9.0), outer[i] + dir.orthogonal() * ctx.u(5.0), outer[i] - dir.orthogonal() * ctx.u(5.0)]), Color("2b2d3a"))
 	for d in [0.3, 0.7]:
 		var rail := Kit.offset(ctx.outline, ctx.wall * d)
 		rail.append(rail[0])
-		cv.draw_polyline(rail, Color("2b2d3a"), ctx.u(4.0), true)
+		Dot.pline(cv, rail, Color("2b2d3a"), ctx.u(4.0), true)
 	for v in Kit.offset(ctx.outline, ctx.wall * 0.5):
 		Kit.ball(cv, v, ctx.u(13.0), Color("8a8ea0"), Color("2e3040"))
 	# The moon, bare trees and jack-o'-lanterns where there's room.
@@ -126,7 +128,7 @@ static func _manor(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	Kit.lit(cv, pts, Color("b8283a"), Color("6a0f1e"))
 	var b := Kit.offset(pts, -ctx.u(22.0))
 	b.append(b[0])
-	cv.draw_polyline(b, Color("d9a54a"), ctx.u(6.0), true)
+	Dot.pline(cv, b, Color("d9a54a"), ctx.u(6.0), true)
 	for k in 5:
 		var c := rug.position + Vector2(rug.size.x * (k + 0.5) / 5.0, rug.size.y / 2.0)
 		Kit.poly(cv, PackedVector2Array([c + Vector2(0, -ctx.u(60.0)), c + Vector2(ctx.u(34.0), 0), c + Vector2(0, ctx.u(60.0)), c + Vector2(-ctx.u(34.0), 0)]), Color(0.95, 0.75, 0.35, 0.35))
@@ -136,10 +138,10 @@ static func _manor(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		Kit.glow(cv, p, ctx.u(130.0), Color(1.0, 0.75, 0.35, 0.3))
 	Kit.blocks(ctx, ctx.u(110.0), ctx.wall, func(q, _e, _i):
 		Kit.lit(cv, q, Color("5a3020"), Color("24120a"))
-		cv.draw_polyline(Kit.offset(q, -ctx.u(5.0)) + PackedVector2Array([Kit.offset(q, -ctx.u(5.0))[0]]), Color(0.85, 0.6, 0.3, 0.45), ctx.u(1.5), true))
+		Dot.pline(cv, Kit.offset(q, -ctx.u(5.0)) + PackedVector2Array([Kit.offset(q, -ctx.u(5.0))[0]]), Color(0.85, 0.6, 0.3, 0.45), ctx.u(1.5), true))
 	var trim := ctx.outline.duplicate()
 	trim.append(trim[0])
-	cv.draw_polyline(trim, Color("d9a54a"), ctx.u(3.0), true)
+	Dot.pline(cv, trim, Color("d9a54a"), ctx.u(3.0), true)
 	for v in Kit.offset(ctx.outline, ctx.wall * 0.5):
 		Kit.glow(cv, v, ctx.u(30.0), Color(1.0, 0.8, 0.4, 0.6))
 		Kit.disc(cv, v, ctx.u(6.0), Color("f4ecd8"))
@@ -160,11 +162,11 @@ static func _arcane(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	# The rune circle.
 	Kit.glow(cv, c, ctx.u(260.0), Color(0.5, 0.3, 1.0, 0.3))
 	for rr in [180.0, 210.0, 120.0]:
-		cv.draw_arc(c, ctx.u(rr), 0.0, TAU, 96, Color(0.75, 0.6, 1.0, 0.25), ctx.u(10.0), true)
-		cv.draw_arc(c, ctx.u(rr), 0.0, TAU, 96, Color("c9a6ff"), ctx.u(2.5), true)
+		Dot.arc(cv, c, ctx.u(rr), 0.0, TAU, 96, Color(0.75, 0.6, 1.0, 0.25), ctx.u(10.0), true)
+		Dot.arc(cv, c, ctx.u(rr), 0.0, TAU, 96, Color("c9a6ff"), ctx.u(2.5), true)
 	var star := Kit.star_pts(c, ctx.u(180.0), ctx.u(70.0), 5)
 	star.append(star[0])
-	cv.draw_polyline(star, Color(0.3, 0.85, 1.0, 0.8), ctx.u(2.5), true)
+	Dot.pline(cv, star, Color(0.3, 0.85, 1.0, 0.8), ctx.u(2.5), true)
 	for i in 24: # Runes between the rings.
 		var a := i * TAU / 24.0
 		var p := c + Vector2.from_angle(a) * ctx.u(195.0)
@@ -172,14 +174,14 @@ static func _arcane(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		var t := d.orthogonal()
 		var g := ctx.u(7.0)
 		match i % 4:
-			0: cv.draw_polyline(PackedVector2Array([p - d * g + t * g, p + d * g, p - d * g - t * g]), Color("c9a6ff"), ctx.u(2.0), true)
-			1: cv.draw_polyline(PackedVector2Array([p - t * g, p + t * g, p + t * g + d * g]), Color("c9a6ff"), ctx.u(2.0), true)
-			2: cv.draw_arc(p, g * 0.8, 0.0, TAU, 12, Color("c9a6ff"), ctx.u(2.0), true)
-			_: cv.draw_polyline(PackedVector2Array([p - d * g, p + d * g, p + d * g + t * g * 0.8]), Color("c9a6ff"), ctx.u(2.0), true)
+			0: Dot.pline(cv, PackedVector2Array([p - d * g + t * g, p + d * g, p - d * g - t * g]), Color("c9a6ff"), ctx.u(2.0), true)
+			1: Dot.pline(cv, PackedVector2Array([p - t * g, p + t * g, p + t * g + d * g]), Color("c9a6ff"), ctx.u(2.0), true)
+			2: Dot.arc(cv, p, g * 0.8, 0.0, TAU, 12, Color("c9a6ff"), ctx.u(2.0), true)
+			_: Dot.pline(cv, PackedVector2Array([p - d * g, p + d * g, p + d * g + t * g * 0.8]), Color("c9a6ff"), ctx.u(2.0), true)
 	Kit.inner_shadow(cv, ctx, ctx.u(40.0), 0.55)
 	Kit.blocks(ctx, ctx.u(44.0), ctx.wall, func(q, _e, i):
 		Kit.lit(cv, q, Color("5a4a80") if i % 2 else Color("4e4074"), Color("1a1430"))
-		cv.draw_line(q[1], q[2], Color(0.05, 0.03, 0.12, 0.8), ctx.u(2.0), true))
+		Dot.line(cv, q[1], q[2], Color(0.05, 0.03, 0.12, 0.8), ctx.u(2.0), true))
 	var n := 0
 	for p in Kit.along(ctx.outline, ctx.wall * 0.5, ctx.u(88.0)):
 		var col := Color("c9a6ff") if n % 2 else Color("4fd8ff")
@@ -191,11 +193,11 @@ static func _arcane(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 static func _tree(cv: CanvasItem, ctx: Kit.Ctx, base: Vector2, f: float) -> void:
 	var col := Color("07050d")
 	var top := base + Vector2(ctx.u(8.0) * f, -ctx.u(100.0))
-	cv.draw_polyline(PackedVector2Array([base, base.lerp(top, 0.5) + Vector2(ctx.u(10.0) * f, 0), top]), col, ctx.u(10.0), true)
+	Dot.pline(cv, PackedVector2Array([base, base.lerp(top, 0.5) + Vector2(ctx.u(10.0) * f, 0), top]), col, ctx.u(10.0), true)
 	for k in [[0.55, 30.0, -36.0], [0.75, -26.0, -30.0], [1.0, 20.0, -24.0], [1.0, -10.0, -34.0]]:
 		var from: Vector2 = base.lerp(top, k[0])
 		var tip: Vector2 = from + Vector2(k[1] * f, k[2]) * ctx.s
-		cv.draw_polyline(PackedVector2Array([from, from.lerp(tip, 0.5) + Vector2(0, -ctx.u(6.0)), tip]), col, ctx.u(4.0), true)
+		Dot.pline(cv, PackedVector2Array([from, from.lerp(tip, 0.5) + Vector2(0, -ctx.u(6.0)), tip]), col, ctx.u(4.0), true)
 
 
 static func _pumpkin(cv: CanvasItem, ctx: Kit.Ctx, p: Vector2) -> void:
@@ -203,8 +205,8 @@ static func _pumpkin(cv: CanvasItem, ctx: Kit.Ctx, p: Vector2) -> void:
 	Kit.glow(cv, p, s * 3.0, Color(1.0, 0.55, 0.15, 0.4))
 	Kit.ball(cv, p, s, Color("ffb347"), Color("c0501a"), 0.8)
 	for x in [-0.4, 0.4]:
-		cv.draw_arc(p + Vector2(x * s, 0), s * 0.75, -1.2, 1.2, 12, Color("b5501a"), maxf(1.0, s * 0.08), true)
-	cv.draw_line(p + Vector2(0, -s * 0.8), p + Vector2(s * 0.1, -s * 1.15), Color("4a6b2a"), s * 0.2, true)
+		Dot.arc(cv, p + Vector2(x * s, 0), s * 0.75, -1.2, 1.2, 12, Color("b5501a"), maxf(1.0, s * 0.08), true)
+	Dot.line(cv, p + Vector2(0, -s * 0.8), p + Vector2(s * 0.1, -s * 1.15), Color("4a6b2a"), s * 0.2, true)
 	Kit.poly(cv, PackedVector2Array([p + Vector2(-0.5, -0.15) * s, p + Vector2(-0.3, -0.45) * s, p + Vector2(-0.1, -0.15) * s]), Color("ffe46b"))
 	Kit.poly(cv, PackedVector2Array([p + Vector2(0.1, -0.15) * s, p + Vector2(0.3, -0.45) * s, p + Vector2(0.5, -0.15) * s]), Color("ffe46b"))
 	Kit.poly(cv, PackedVector2Array([p + Vector2(-0.5, 0.15) * s, p + Vector2(0.5, 0.15) * s, p + Vector2(0.3, 0.45) * s, p + Vector2(-0.3, 0.45) * s]), Color("ffe46b"))

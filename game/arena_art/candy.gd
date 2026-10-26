@@ -4,6 +4,8 @@
 ## Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 const SPRINKLES := [Color("ff5fa2"), Color("4fc3f7"), Color("ffd54f"), Color("81e07f"), Color("b388ff"), Color("ffffff")]
@@ -17,8 +19,8 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	var step := ctx.u(80.0)
 	var x := ctx.canvas.position.x
 	while x < ctx.canvas.end.x:
-		cv.draw_rect(Rect2(x, ctx.canvas.position.y, ctx.u(26.0), ctx.canvas.size.y), Color(1, 1, 1, 0.04))
-		cv.draw_rect(Rect2(ctx.canvas.position.x, x - ctx.canvas.position.x + ctx.canvas.position.y, ctx.canvas.size.x, ctx.u(26.0)), Color(1, 1, 1, 0.04))
+		Dot.rect(cv, Rect2(x, ctx.canvas.position.y, ctx.u(26.0), ctx.canvas.size.y), Color(1, 1, 1, 0.04))
+		Dot.rect(cv, Rect2(ctx.canvas.position.x, x - ctx.canvas.position.x + ctx.canvas.position.y, ctx.canvas.size.x, ctx.u(26.0)), Color(1, 1, 1, 0.04))
 		x += step
 	for p in Kit.scatter_out(ctx, 16, ctx.u(24.0)):
 		_sweet(cv, ctx, p)
@@ -69,7 +71,7 @@ static func pillar(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
 	for i in 90:
 		var t := i / 89.0
 		spiral.append(c + Vector2.from_angle(t * TAU * 2.6 + 0.6) * r * (0.88 - t * 0.85))
-	cv.draw_polyline(spiral, stripe, r * 0.17, true)
+	Dot.pline(cv, spiral, stripe, r * 0.17, true)
 	Kit.ring(cv, c, r, Color(stripe.darkened(0.3), 0.7), r * 0.07)
 	Kit.disc(cv, c + Vector2(-0.38, -0.42) * r, r * 0.2, Color(1, 1, 1, 0.65))
 
@@ -114,11 +116,11 @@ static func _puddle(cv: CanvasItem, ctx: Kit.Ctx, stops: Array, trim: Color) -> 
 	var arc := PackedVector2Array()
 	for i in 20:
 		arc.append(c + Vector2.from_angle(-2.6 + i * 0.09) * r * 0.66)
-	cv.draw_polyline(arc, Color(1, 1, 1, 0.35), ctx.u(7.0), true)
+	Dot.pline(cv, arc, Color(1, 1, 1, 0.35), ctx.u(7.0), true)
 	var dash := shape.duplicate()
 	dash.append(shape[0])
 	for i in range(0, dash.size() - 1, 3):
-		cv.draw_line(dash[i], dash[i + 1], trim, ctx.u(4.0), true)
+		Dot.line(cv, dash[i], dash[i + 1], trim, ctx.u(4.0), true)
 
 
 static func _swirl(cv: CanvasItem, ctx: Kit.Ctx) -> void:
@@ -127,8 +129,8 @@ static func _swirl(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	for i in 120:
 		var t := i / 119.0
 		pts.append(c + Vector2.from_angle(t * TAU * 2.4) * ctx.u(10.0 + 95.0 * t))
-	cv.draw_polyline(pts, Color("b86b2c"), ctx.u(18.0), true)
-	cv.draw_polyline(pts, Color("e8a464"), ctx.u(7.0), true)
+	Dot.pline(cv, pts, Color("b86b2c"), ctx.u(18.0), true)
+	Dot.pline(cv, pts, Color("e8a464"), ctx.u(7.0), true)
 
 
 ## Honeycomb cells over the honey floor.

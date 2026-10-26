@@ -4,6 +4,8 @@
 ## and bluer. Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 
@@ -15,7 +17,7 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	for p in Kit.scatter_out(ctx, 10, ctx.u(14.0)):
 		_fish(cv, ctx, p)
 	for p in Kit.scatter_out(ctx, 18, ctx.u(6.0)):
-		cv.draw_arc(p, ctx.u(ctx.rng.randf_range(3.0, 7.0)), 0.0, TAU, 16, Color(0.85, 0.97, 1.0, 0.7), ctx.u(1.5), true)
+		Dot.arc(cv, p, ctx.u(ctx.rng.randf_range(3.0, 7.0)), 0.0, TAU, 16, Color(0.85, 0.97, 1.0, 0.7), ctx.u(1.5), true)
 
 	# The seabed: sunlit in the middle, fading to teal at the edges.
 	var light := ctx.at(450.0, 380.0)
@@ -114,7 +116,7 @@ static func _brain(cv: CanvasItem, c: Vector2, r: float, col: Color, line_col: C
 		for i in 9:
 			var x := -0.7 + i * 0.175
 			wav.append(c + Vector2(x, k + 0.12 * sin(i * 1.8)) * r)
-		cv.draw_polyline(wav, line_col, maxf(1.0, r * 0.1), true)
+		Dot.pline(cv, wav, line_col, maxf(1.0, r * 0.1), true)
 
 
 static func _fan(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float, col: Color) -> void:
@@ -124,13 +126,13 @@ static func _fan(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float, col: Color)
 		fan.append(c + Vector2.from_angle(rot - 0.8 + i * 0.16) * r)
 	Kit.grad(cv, fan, col.darkened(0.25), col.lightened(0.2), c, c + Vector2.from_angle(rot) * r)
 	for i in 5:
-		cv.draw_line(c, c + Vector2.from_angle(rot - 0.64 + i * 0.32) * r * 0.95, Color(1, 1, 1, 0.4), maxf(1.0, r * 0.05), true)
+		Dot.line(cv, c, c + Vector2.from_angle(rot - 0.64 + i * 0.32) * r * 0.95, Color(1, 1, 1, 0.4), maxf(1.0, r * 0.05), true)
 
 
 static func _anemone(cv: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 	for i in 12:
 		var a := i * TAU / 12.0
-		cv.draw_line(c, c + Vector2.from_angle(a) * r * 1.1, col, r * 0.28, true)
+		Dot.line(cv, c, c + Vector2.from_angle(a) * r * 1.1, col, r * 0.28, true)
 		Kit.disc(cv, c + Vector2.from_angle(a) * r * 1.1, r * 0.16, col.lightened(0.3))
 	Kit.ball(cv, c, r * 0.5, col.lightened(0.3), col.darkened(0.3))
 
@@ -150,4 +152,4 @@ static func _shell(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
 		fan.append(c + Vector2.from_angle(PI + 0.2 + i * (PI - 0.4) / 12.0 + rot) * r)
 	Kit.lit(cv, fan, Color("fff0e0"), Color("e0a080"))
 	for i in 5:
-		cv.draw_line(fan[0], c + Vector2.from_angle(PI + 0.5 + i * 0.55 + rot) * r * 0.95, Color("c98060"), maxf(1.0, r * 0.08), true)
+		Dot.line(cv, fan[0], c + Vector2.from_angle(PI + 0.5 + i * 0.55 + rot) * r * 0.95, Color("c98060"), maxf(1.0, r * 0.08), true)

@@ -4,6 +4,8 @@
 ## map gets its own nebula colours and planet. Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 ## Per map: two nebula colours, the planet's light and dark, its ring.
@@ -36,8 +38,8 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		var big := ctx.rng.randf() < 0.07
 		Kit.disc(cv, p, ctx.u(4.0 if big else ctx.rng.randf_range(1.0, 2.2)), Color(1, 1, 1, ctx.rng.randf_range(0.35, 0.95)))
 		if big: # A sparkle.
-			cv.draw_line(p - Vector2(ctx.u(11.0), 0), p + Vector2(ctx.u(11.0), 0), Color(1, 1, 1, 0.6), ctx.u(1.5), true)
-			cv.draw_line(p - Vector2(0, ctx.u(11.0)), p + Vector2(0, ctx.u(11.0)), Color(1, 1, 1, 0.6), ctx.u(1.5), true)
+			Dot.line(cv, p - Vector2(ctx.u(11.0), 0), p + Vector2(ctx.u(11.0), 0), Color(1, 1, 1, 0.6), ctx.u(1.5), true)
+			Dot.line(cv, p - Vector2(0, ctx.u(11.0)), p + Vector2(0, ctx.u(11.0)), Color(1, 1, 1, 0.6), ctx.u(1.5), true)
 	# A planet: out in the corner when there's room, else far off on the floor.
 	var corner := ctx.canvas.position + Vector2(ctx.u(70.0), ctx.u(70.0))
 	if Kit.room_outside(ctx, corner, ctx.u(40.0)):
@@ -49,7 +51,7 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	# The hull: riveted plates, an inner light strip and running lights.
 	Kit.blocks(ctx, ctx.u(64.0), ctx.wall, func(q, _e, i):
 		Kit.lit(cv, q, Color("56608a") if i % 2 else Color("4c5580"), Color("232842"))
-		cv.draw_line(q[1], q[2], Color(0.08, 0.09, 0.18, 0.8), ctx.u(2.0), true))
+		Dot.line(cv, q[1], q[2], Color(0.08, 0.09, 0.18, 0.8), ctx.u(2.0), true))
 	for p in Kit.along(ctx.outline, ctx.wall * 0.72, ctx.u(15.0)):
 		Kit.disc(cv, p, ctx.u(2.2), Color("a9b2d6"))
 	var n := 0
@@ -60,8 +62,8 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		n += 1
 	var edge := ctx.outline.duplicate()
 	edge.append(edge[0])
-	cv.draw_polyline(edge, Color(0.49, 0.98, 1.0, 0.25), ctx.u(7.0), true)
-	cv.draw_polyline(edge, Color("7cf9ff"), ctx.u(2.5), true)
+	Dot.pline(cv, edge, Color(0.49, 0.98, 1.0, 0.25), ctx.u(7.0), true)
+	Dot.pline(cv, edge, Color("7cf9ff"), ctx.u(2.5), true)
 
 
 ## A cratered asteroid.
@@ -73,10 +75,10 @@ static func pillar(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
 		var at: Vector2 = c + k[0] * r
 		var cr: float = k[1] * r
 		Kit.disc(cv, at, cr, Color("4a4760"))
-		cv.draw_arc(at, cr, 0.4, 2.6, 12, Color(1, 1, 1, 0.25), maxf(1.0, cr * 0.18), true)
+		Dot.arc(cv, at, cr, 0.4, 2.6, 12, Color(1, 1, 1, 0.25), maxf(1.0, cr * 0.18), true)
 	var rim := rock.duplicate()
 	rim.append(rock[0])
-	cv.draw_polyline(rim, Color(0.1, 0.1, 0.18, 0.7), maxf(1.0, r * 0.05), true)
+	Dot.pline(cv, rim, Color(0.1, 0.1, 0.18, 0.7), maxf(1.0, r * 0.05), true)
 
 
 static func _cloud(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float, col: Color, a: float) -> void:
@@ -95,7 +97,7 @@ static func _planet(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float, look: Ar
 		var t := PI + i * PI / 40.0
 		back.append(c + Vector2(cos(t) * r * 1.7, sin(t) * r * 0.32).rotated(tilt))
 		front.append(c + Vector2(cos(t - PI) * r * 1.7, sin(t - PI) * r * 0.32).rotated(tilt))
-	cv.draw_polyline(back, ring_col, r * 0.12, true)
+	Dot.pline(cv, back, ring_col, r * 0.12, true)
 	Kit.glow(cv, c, r * 1.4, Color(look[2], 0.18 * a))
 	Kit.ball(cv, c, r, Color(look[2], a), Color(look[3], a))
 	for k in 3:
@@ -103,5 +105,5 @@ static func _planet(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float, look: Ar
 		for i in 21:
 			var x := -0.85 + i * 0.085
 			band.append(c + Vector2(x, -0.3 + k * 0.28 + 0.05 * sin(i)) * r)
-		cv.draw_polyline(band, Color(1, 1, 1, 0.12 * a), r * 0.1, true)
-	cv.draw_polyline(front, ring_col, r * 0.12, true)
+		Dot.pline(cv, band, Color(1, 1, 1, 0.12 * a), r * 0.1, true)
+	Dot.pline(cv, front, ring_col, r * 0.12, true)
