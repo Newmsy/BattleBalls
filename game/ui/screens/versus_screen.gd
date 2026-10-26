@@ -53,8 +53,11 @@ static func build(shell, _params: Dictionary) -> Control:
 			cards[i].size_flags_stretch_ratio = ratios[i]
 	else:
 		# Alone, the Arena's painting keeps a sensible shape rather than
-		# stretching down the whole phone.
-		arena.custom_minimum_size.y = clampf(shell.size.y * .36, 150.0, 460.0)
+		# stretching down the whole phone. (A card button's own minimum
+		# follows its content, so the height goes on the content.)
+		for c in arena.get_children():
+			if c is MarginContainer:
+				c.custom_minimum_size.y = 400
 	var col := Kit.vbox(16, [arena])
 	if rooms.get_child_count() > 0:
 		col.add_child(rooms)

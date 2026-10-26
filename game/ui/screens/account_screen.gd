@@ -62,7 +62,9 @@ static func friends_card(shell) -> Control:
 	var news: bool = fr.attention() > 0
 	var card: Button = VersusScreen.painted(shell, "friends", "vs_friends", Vector2(.5, .75), "Friends", PlayScreen._friends_line(fr),
 		Kit.GOOD if news else PlayScreen.VERSUS, func(): shell.go("friends"), true)
-	card.custom_minimum_size.y = 160
+	for c in card.get_children():
+		if c is MarginContainer: # A card button's minimum follows its content.
+			c.custom_minimum_size.y = 150
 	if news:
 		card.add_child(PlayScreen.red_dot())
 	return card
