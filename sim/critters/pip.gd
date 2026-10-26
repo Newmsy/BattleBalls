@@ -34,6 +34,6 @@ const CRITTER := {
 		{"text": "Pea every 3 → 2.5s", "fire_cooldown": 2.5},
 		{"text": "+ Every 3rd shot is 3 peas", "card": "Spits bouncing peas the way it's rolling, sometimes a triple shot.", "now": "Bouncing pea every {fire_cooldown}s for {shot_damage} · every 3rd x{shot_big_count}", "shot_big_every": 3},
 	],
-	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["tuft"], "front": ["snout"]},
+	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["podback"], "front": ["podfront", "snout"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.4},
 }

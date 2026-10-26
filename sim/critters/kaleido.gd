@@ -32,6 +32,6 @@ const CRITTER := {
 		{"text": "Click every 4 → 3.5s", "mode_secs": 3.5},
 		{"text": "+ A 4th mode: all three at half", "card": "Clicks through modes with a pulse and mirror shards: spikes, shield, speed, then all at once.", "now": "Every {mode_secs}s pulse + spikes, shield, speed or all at half", "mode_count": 4.0},
 	],
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "swirl": true, "mouth": "smile"}, "front": ["shards"]},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "swirl": true, "mouth": "none", "dy": -.12}, "back": ["kaleidocaps"], "front": ["kaleidotube"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.25},
 }

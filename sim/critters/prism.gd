@@ -37,6 +37,6 @@ const CRITTER := {
 		{"text": "Reflect 10 → 25%", "reflect_ratio": 0.25},
 		{"text": "+ Every 3rd cast: full spectrum, 7 beams", "card": "Wall bounces cast fans of rainbow beams, sometimes a full spectrum. Ability hits on it bounce back.", "now": "Bounces cast {prism_fan} beams (3rd: 7); reflects {reflect_ratio%}% ability dmg", "prism_full_every": 3},
 	],
-	"art": {"eyes": {"sep": .3, "w": .21, "h": .26, "p": .11, "sparkle": true, "mouth": "smile"}, "body": "prism"},
+	"art": {"eyes": {"sep": .3, "w": .21, "h": .26, "p": .11, "sparkle": true, "mouth": "smile"}, "body": "prism", "back": ["rosettes"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 1.35},
 }

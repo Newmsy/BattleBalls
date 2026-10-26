@@ -33,6 +33,6 @@ const CRITTER := {
 		{"text": "Pillar size +{+seed_radius}% · 2 stay till hit", "seed_radius": 40.0, "seed_stay": 2},
 		{"text": "All 3 stay till hit · fall into 3 seeds ({seed_damage} dmg)", "card": "Wall bounces grow pillars that hurt foes and stay until hit, then fall into stinging seeds.", "now": "Bounces plant pillars ({seed_damage} on bump) till hit; fall to seeds", "seed_shots": 3, "seed_stay": 3, "ability": [{"on": "always", "do": "seed_wilt"}]},
 	],
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["leaves"], "front": ["frost_freckles"]},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["sapling"], "front": ["frost_freckles"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.35},
 }
