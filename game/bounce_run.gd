@@ -76,6 +76,12 @@ var aimer := FightAim.new() ## Tap the arena to aim, let go to launch.
 var _result_popup: Control
 var _marks := {}
 var _page_box := Vector2.ZERO ## The page's room when it was last fitted.
+## Pages with a scene on them (the map, an event's painting) run edge to edge:
+## the scene fills the screen's width (up to STAGE) and everything else on
+## the page stays in the centre column, column_w wide.
+const STAGE := 1000.0
+var _bleed := 0.0
+var _column_w := 680.0
 var _board_rows = null ## Leaderboard rows once fetched; null while loading.
 var _board_note := ""
 
@@ -1058,10 +1064,15 @@ func _layout() -> void:
 		_place(info_label, p.position, Vector2(p.size.x, 50))
 		_place(panel, p.position + Vector2(0, info_h), Vector2(p.size.x, maxf(0.0, p.size.y - info_h)))
 	var page_width := minf(680.0, size.x - 40.0)
+	_column_w = page_width
+	var bleeds := page.get_children().any(func(c): return c.has_meta("bleed"))
+	_bleed = maxf(0.0, (minf(size.x, STAGE) - page_width) / 2.0) if bleeds else 0.0
+	page_width += _bleed * 2.0
 	# Pages end above the Sound pill in the bottom corner, so it never covers a button.
 	var page_bottom := FightLayout.pill_position(size, 1).y - 12.0
 	_place(scroll, Vector2((size.x - page_width) / 2.0, 150), Vector2(page_width, page_bottom - 150))
 	page.custom_minimum_size.x = page_width
+	_fit_columns()
 	if scroll.size != _page_box:
 		_page_box = scroll.size
 		_refit_page()
@@ -1081,8 +1092,25 @@ func _set_panel(children: Array, screen: String) -> void:
 func _set_page(children: Array, screen: String) -> void:
 	_replace_children(page, children)
 	scroll.scroll_vertical = 0
+	_layout() # A page with a scene on it widens to the screen's edges.
 	_fit_art()
 	_report.call_deferred(screen)
+
+
+## On an edge-to-edge page, everything but the scene keeps to the centre
+## column (buttons and text never touch the screen's sides).
+func _fit_columns() -> void:
+	for c in page.get_children():
+		if not c is Control or c.has_meta("bleed"):
+			continue
+		if _bleed > 0.0 and c.size_flags_horizontal & Control.SIZE_FILL:
+			c.set_meta("column", true)
+		if c.has_meta("column"):
+			c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if _bleed > 0.0 else Control.SIZE_EXPAND_FILL
+			c.custom_minimum_size.x = _column_w if _bleed > 0.0 else 0.0
+	if is_instance_valid(map_view):
+		map_view.inset = _bleed
+		map_view.queue_redraw()
 
 
 func _replace_children(box: Control, children: Array) -> void:
@@ -1482,8 +1510,15 @@ func _show_map() -> void:
 	map_scroll = ScrollContainer.new()
 	map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	map_scroll.custom_minimum_size = Vector2(0, view_h)
+	map_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	map_scroll.add_child(map_view)
+	# The map runs edge to edge and melts into the page at the top and bottom.
+	var map_box := Control.new()
+	map_box.custom_minimum_size = Vector2(0, view_h)
+	map_box.set_meta("bleed", true)
+	map_box.add_child(map_scroll)
+	for top in [true, false]:
+		map_box.add_child(_edge_fade(top))
 	map_view.show_run(setup, run)
 	_mark("br_map", map_scroll)
 	for k in reach.size():
@@ -1491,13 +1526,36 @@ func _show_map() -> void:
 	print("BOUNCERUN_REACH floor=%d kinds=%s" % [run.floor + 1, ",".join(reach.map(func(id): return BounceRun.kind_of(setup, id)))])
 	var home := _menu_button()
 	home.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_set_page([_status_row(), map_scroll, home], "br_map")
+	_set_page([_status_row(), map_box, home], "br_map")
 	_scroll_map.call_deferred()
 	var tier := BounceRun.tier_at(mini(run.floor, BounceRun.FLOORS - 1))
 	if tier > int(run.get("tier_seen", 1)):
 		run.tier_seen = tier
 		_save_run()
 		_show_tier_up(tier)
+
+
+## A soft fade from the page's colour over a scene's top or bottom edge.
+func _edge_fade(top: bool) -> Control:
+	var g := Gradient.new()
+	g.set_color(0, Color(Kit.BG, 1.0 if top else 0.0))
+	g.set_color(1, Color(Kit.BG, 0.0 if top else 1.0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill_to = Vector2(0, 1)
+	gt.width = 4
+	gt.height = 64
+	var t := TextureRect.new()
+	t.texture = gt
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
+	if top:
+		t.offset_bottom = 36
+	else:
+		t.offset_top = -36
+	return t
 
 
 ## Glides the map up from the floor you just cleared to the one you pick
@@ -1542,11 +1600,13 @@ func _art(id: String, scale := 1.0) -> Control:
 		# (cropping its sides), or gives some up so the buttons stay on screen.
 		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		tex.set_meta("fill", true)
+		tex.set_meta("bleed", true) # A scene: edge to edge, soft only top and bottom.
+		tex.soften(36.0, Vector4(0, 1, 0, 1))
 	return tex
 
 
 func _size_art(tex: Control) -> void:
-	var w: float = page.custom_minimum_size.x * float(tex.get_meta("art_scale"))
+	var w: float = page.custom_minimum_size.x if tex.has_meta("bleed") else _column_w * float(tex.get_meta("art_scale"))
 	tex.custom_minimum_size = Vector2(w, w * 440.0 / 720.0)
 
 

@@ -28,9 +28,10 @@ static func build(shell, params: Dictionary) -> Control:
 	var boss_zone := open - 1
 	var glitched := not Campaign.is_cleared(p, boss_zone, Zones.zone(boss_zone).stages.size() - 1)
 	# Fill the room between the title row and the pinned button.
-	var height := clampf(shell.size.y - 520.0 - (A11y.font(40) - 40) * 2.0, 560.0, 900.0)
+	var height := clampf(shell.size.y - 480.0 - (A11y.font(40) - 40) * 2.0, 560.0, 1000.0)
 	var b: Dictionary = p.best(p.lineup)
 	var map := WorldMap.make(Zones.map_zones(), open, glitched, height, _tap.bind(shell, built, open), p.lineup, b.get("tier", 1))
+	map.bleed = shell.bleed()
 	for i in map.nodes.size():
 		shell.mark("zone_%d" % (i + 1), map.nodes[i])
 	root.add_child(map)
