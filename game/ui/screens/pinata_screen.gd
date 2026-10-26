@@ -31,12 +31,12 @@ static func build(shell, params: Dictionary) -> Control:
 
 	ResultPopup.boss_result(shell, params)
 
+	root.add_child(BossCard.prizes(shell, "Prizes", PARTY, [BossCard.prize("coin", "%s to %s" % [Kit.commas(PinataParty.coins_for(0.0, false)), Kit.commas(PinataParty.coins_for(1.0, true))])], PinataParty.XP, "pinata"))
 	root.add_child(BossLevelGrid.hero(shell, PinataParty.BOSS, PARTY))
 	var fighter: String = Campaign.fighter_for(p)
 	root.add_child(BossCard.fighter(shell, fighter, "pinata"))
 
 	root.add_child(BossCard.fight(shell, {"boss": PinataParty.BOSS, "accent": PARTY,
-		"pay": [Kit.amount("coin", "%d to %d" % [PinataParty.coins_for(0.0, false), PinataParty.coins_for(1.0, true)], 26)],
 		"cost": PinataParty.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, fighter), "label": "Smash", "mark": "pinata_go"}))
 	return root
 

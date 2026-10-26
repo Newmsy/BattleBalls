@@ -34,15 +34,16 @@ static func build(shell, params: Dictionary) -> Control:
 
 	ResultPopup.boss_result(shell, params)
 
+	var loot := []
+	for r in GlitchCore.BUNDLE:
+		loot.append(BossCard.prize(NAMES[r.kind][0], r.n))
+	root.add_child(BossCard.prizes(shell, "This week's prizes", CORE, loot, GlitchCore.WIN_XP, "glitch"))
 	root.add_child(BossLevelGrid.hero(shell, GlitchCore.BOSS, CORE))
 	var fighter: String = Campaign.fighter_for(p)
 	root.add_child(BossCard.fighter(shell, fighter, "glitch"))
 
-	var loot := []
-	for r in GlitchCore.BUNDLE:
-		loot.append(Kit.hbox(8, [Glyph.make(NAMES[r.kind][0], 22), Kit.label(("%d %s" % [r.n, NAMES[r.kind][1]]).strip_edges(), 20)], BoxContainer.ALIGNMENT_BEGIN))
 	root.add_child(BossCard.fight(shell, {"boss": GlitchCore.BOSS, "accent": CORE, "rec": GlitchCore.enemy_rating(0), "mine": p.power_of(fighter),
-		"title": "Win this week", "pay": loot, "cost": GlitchCore.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, fighter), "mark": "glitch_go"}))
+		"title": "Win this week", "cost": GlitchCore.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, fighter), "mark": "glitch_go"}))
 	return root
 
 

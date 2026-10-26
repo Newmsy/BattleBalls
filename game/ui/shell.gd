@@ -423,6 +423,23 @@ func back() -> void:
 	_slide_out(leaving)
 
 
+## The way to the current screen (tab, then each screen above it), for
+## resume() to bring back after a fight, e.g. Play > Adventure > Bosses.
+func trail() -> Array:
+	return [_tab, _stack.slice(0, -1).duplicate(true)]
+
+
+## Opens `name` on top of a trail() taken before a fight, so Back walks the
+## same way down (to the boss picker, not Home). Only the top is built.
+func resume(t: Array, name: String, params: Dictionary) -> void:
+	_tab = t[0]
+	_stack = t[1].duplicate(true)
+	_stack.append([name, params])
+	_snaps = []
+	_snaps.resize(_stack.size() - 1) # No pictures: Back rebuilds each screen.
+	_show(name, params)
+
+
 ## Rebuild the current screen in place, e.g. after the data changed. Keeps
 ## the scroll position.
 func refresh() -> void:

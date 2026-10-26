@@ -1071,7 +1071,7 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 ## A farming boss run from its screen ("vault" for the Anvil King, "nest" for
 ## the Brood Queen): aim, then fight it in the arena.
 func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: String) -> void:
-	pve = {"config": config, "vault": difficulty, "fighter": fighter, "boss": screen}
+	pve = {"config": config, "vault": difficulty, "fighter": fighter, "boss": screen, "trail": shell.trail()}
 	mode = Mode.CAMPAIGN
 	player_type = config.p1
 	opponent_type = config.p2
@@ -1220,6 +1220,7 @@ func _back_to_campaign() -> void:
 	var params := {"zone": pve.get("zone", 0)}
 	var vault := pve.has("vault")
 	var screen: String = pve.get("boss", "vault")
+	var trail: Array = pve.get("trail", [])
 	if vault and pve.has("result"):
 		params.notice = pve.result
 		params.caption = pve.caption # The result popup's caption (ResultPopup.boss_result).
@@ -1236,9 +1237,13 @@ func _back_to_campaign() -> void:
 	_show_menu()
 	_show_home()
 	shell.show_tab("play")
-	if vault:
+	if vault and trail.size() == 2 and not trail[1].is_empty():
+		shell.resume(trail, screen, params) # Back walks down to the boss picker it came from.
+	elif vault:
 		if screen == "rift":
 			shell.go("adventure") # The Rift Gate sits on the Adventure hub.
+		else:
+			shell.go("bosses") # Back lands on the boss hall.
 		shell.go(screen, params)
 	else:
 		shell.go("world") # Back from the stage list lands on the world map.
