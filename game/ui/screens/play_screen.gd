@@ -49,7 +49,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	if not Intro.done(shell.profile):
 		# A new player's first fights (game/ui/intro.gd) still see the whole
 		# Home: what isn't open yet is dimmed, with what opens it on top.
-		style = _lock(shell, style, LATER)
+		style = _lock(shell, style, LATER, "Opens later")
 		doors[1] = _lock(shell, doors[1], LATER)
 		if not Intro.shows(shell.profile, "arena"):
 			doors[2] = _lock(shell, doors[2], "Opens after stage 1-3")
@@ -72,8 +72,10 @@ const LATER := "Opens after your first Arena fight"
 
 
 ## `c` dimmed under a cover that says what opens it; a tap on it says the same.
-static func _lock(shell, c: Control, line: String) -> Control:
-	var words := Kit.label(line, 20, Kit.FG)
+## `short` replaces the chip's words on a row too slim for the whole line;
+## a tap still toasts all of it.
+static func _lock(shell, c: Control, line: String, short := "") -> Control:
+	var words := Kit.label(short if short != "" else line, 20, Kit.FG)
 	var chip := Kit.panel(Kit.hbox(8, [Glyph.make("lock", 22, Kit.FG), words], BoxContainer.ALIGNMENT_CENTER), Kit.box(Color(Kit.BG, .85), Kit.LINE, 999, 2, 10))
 	var centre := CenterContainer.new()
 	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
