@@ -967,9 +967,15 @@ func _on_live(msg: Dictionary) -> void:
 			sfx.play("launch")
 			_start_fight()
 		"ghost":
+			# Nobody near your power: a CPU foe of your critter's rarity at your
+			# tier (the one-tap Quick fight rules), on a fresh seed.
 			_close_live()
+			if pick_tiers[0] == 0 and not duo:
+				quick_tier = clampi(int(_live_slot(player_type).get("tier", 1)), 1, Lineup.MAX_TIER)
+			seed_value = _rng.randi_range(1, 99999)
 			_begin_aim()
-			info_label.text = "No live foe right now, so here's a practice fight. Drag to aim!"
+			info_label.text = "No live foe right now, so here's a CPU %s at your tier. Drag to aim!" % \
+				sim.balls[1].def.display_name
 		"error":
 			var code := str(msg.get("code", ""))
 			_cancel_live()
