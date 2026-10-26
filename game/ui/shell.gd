@@ -455,6 +455,38 @@ func scroll_to(c: Control) -> void:
 		sc.scroll_vertical = int(c.global_position.y - sc.global_position.y + sc.scroll_vertical - 160.0)
 
 
+## Glide the current screen down (or up) to `c`, the same spot scroll_to
+## lands on; returns when it gets there (at once with Reduced motion).
+func glide_to(c: Control, secs := .4) -> void:
+	var sc := _scroll
+	if not is_instance_valid(c) or not is_inside_tree():
+		return
+	var to := clampi(int(c.global_position.y - sc.global_position.y + sc.scroll_vertical - 160.0), 0,
+		maxi(0, int(sc.get_v_scroll_bar().max_value - sc.size.y)))
+	if Motion.calm() or absi(to - sc.scroll_vertical) < 8:
+		sc.scroll_vertical = to
+		return
+	var tw := sc.create_tween()
+	tw.tween_property(sc, "scroll_vertical", to, secs).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	await tw.finished
+
+
+## A reward that has no top-bar pill (a look, gear, chips) flies from `from`
+## (global) into a tab's icon, the Bag by default, which hops as it lands.
+func fly_to_tab(make_icon: Callable, from: Vector2, tab := "bag", delay := 0.0) -> void:
+	if not tab in _tab_icons or not _tab_buttons[tab].visible or Motion.calm():
+		return
+	var icon: Control = _tab_icons[tab]
+	if delay > 0.0:
+		await get_tree().create_timer(delay).timeout
+	if not is_instance_valid(icon):
+		return
+	Motion.fly(_fx, make_icon, from, icon.get_global_rect().get_center(), 1, func(_k: int) -> void:
+		Motion.bump(icon, 1.22, .3, true)
+		if sfx != null:
+			sfx.play("click", -8.0, 1.3))
+
+
 func _restore_scroll(at: int) -> void:
 	var sc := _scroll
 	if not is_inside_tree() or at <= 0:
