@@ -34,6 +34,9 @@ var _you: Control
 static var seen_open := -1
 var _from_open := 0 ## Zones open before this showing (the reveal starts after them).
 var _reveal := 1.0 ## 0..1 through the newly lit path.
+var _sky: Control
+var _islands: Array = [] ## Each zone's island painting, or null.
+var _art_count := 0 ## Paintings added so far: they stay first, in order.
 
 
 static func make(zones_: Array, open_count_: int, glitched_: bool, height: float, on_zone: Callable, fighter: String, fighter_tier: int) -> Control:
@@ -78,6 +81,7 @@ static func make(zones_: Array, open_count_: int, glitched_: bool, height: float
 	m._you.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	m._you.size = m._you.custom_minimum_size
 	m.add_child(m._you)
+	m._add_art()
 	m._from_open = open_count_
 	if seen_open > 0 and seen_open < open_count_ and not Motion.calm():
 		m._from_open = seen_open
@@ -122,6 +126,14 @@ func center(i: int) -> Vector2:
 
 
 func _layout() -> void:
+	if _sky != null:
+		_sky.position = Vector2.ZERO
+		_sky.size = size
+	for i in _islands.size():
+		if _islands[i] != null:
+			var k := 1.0 if i < open_count else LOCKED_R / OPEN_R
+			_islands[i].position = center(i) - ISLAND_NODE * k
+			_islands[i].size = _islands[i].texture.get_size() * k
 	for i in nodes.size():
 		var c := center(i)
 		var b := nodes[i]
@@ -156,26 +168,39 @@ static func _art(name: String) -> Texture2D:
 	return load(path) if ResourceLoader.exists(path) else null
 
 
-func _draw() -> void:
+## The paintings sit in their own canvas items behind the map's drawing
+## (show_behind_parent): the sky, then each zone's island, dimmed while locked.
+func _add_art() -> void:
 	var sky := _art("map_sky")
 	if sky != null:
-		# The sky covers the whole map, cropped evenly top and bottom.
-		var tex_size := sky.get_size()
-		var k := maxf(size.x / tex_size.x, size.y / tex_size.y)
-		var src := Rect2((tex_size - size / k) / 2.0, size / k)
-		draw_texture_rect_region(sky, Rect2(Vector2.ZERO, size), src)
-	else:
+		_sky = _picture(sky, Color.WHITE)
+		_sky.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	for i in zones.size():
+		var island := _art("map_island_" + str(zones[i].get("id", "")))
+		_islands.append(_picture(island, Color.WHITE if i < open_count else LOCKED_TINT) if island != null else null)
+
+
+func _picture(tex: Texture2D, tint: Color) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = tex
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.show_behind_parent = true
+	t.self_modulate = tint
+	add_child(t)
+	move_child(t, _art_count)
+	_art_count += 1
+	return t
+
+
+func _draw() -> void:
+	if _sky == null:
 		_draw_starfield()
 	_draw_path()
-	# Each zone's painted island under its node (a dim silhouette while locked).
 	for i in nodes.size():
-		var island := _art("map_island_" + str(zones[i].get("id", "")))
-		if island == null:
+		if _islands[i] == null:
 			_landmark(i, i < open_count)
-			continue
-		var open := i < open_count
-		var k := 1.0 if open else LOCKED_R / OPEN_R
-		draw_texture_rect(island, Rect2(center(i) - ISLAND_NODE * k, island.get_size() * k), false, Color.WHITE if open else LOCKED_TINT)
 	# A soft dark backing so each zone's name reads over the art.
 	for t in _labels:
 		var back := StyleBoxFlat.new()
