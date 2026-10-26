@@ -35,6 +35,11 @@ static func build(shell, params: Dictionary) -> Control:
 	if abandoned != 0:
 		shell.toast.call_deferred("Unfinished attack: counted as a loss (%d)" % abandoned)
 	var owned := owned_critters(shell.profile)
+	if store.is_new and not owned.is_empty():
+		# A first visit starts on your strongest three, attack and defence.
+		store.fill_best(owned, "defence")
+		store.fill_best(owned)
+		store.is_new = false
 	store.fit_to(owned)
 	var raids: Array = store.run_raids(shell.profile)
 	if not raids.is_empty():

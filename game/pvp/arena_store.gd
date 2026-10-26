@@ -40,6 +40,9 @@ static var seen_trophies := -1
 static var seen_league := -1
 
 var path := SAVE_PATH
+## True until this device first saves the Arena: the trios are still the
+## placeholder ones, not anything the player picked.
+var is_new := false
 var trophies := 0
 var peak := 0 ## Best trophies this season (sets the league floor).
 var trio: Array = ["vampire", "laser", "spiker"]
@@ -436,6 +439,7 @@ func save() -> void:
 func _load() -> void:
 	var f := ConfigFile.new()
 	if f.load(path) != OK:
+		is_new = true
 		return
 	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "coins", "coins_earned", "bazaar_day", "raid_day"]:
 		set(key, int(f.get_value("arena", key, get(key))))
