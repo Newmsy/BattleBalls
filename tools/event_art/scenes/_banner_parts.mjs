@@ -65,7 +65,8 @@ function accessory(kind, cx, cy, r, col) {
 
 // A critter: body, accessory, face. mood: happy | wow | tired | determined | sleepy | cheer.
 // look: pupil direction [lx, ly]. rim: optional rim-light colour from a light source side (+1 right / -1 left).
-export function critter(cx, cy, r, col, { acc = null, mood = "happy", look = [0, 0], rim = null, rimSide = 1, glow = false, sx = 1, sy = 1, tilt = 0, blushOn = true } = {}) {
+// under: extra markup painted on the body beneath the face (shading, markings).
+export function critter(cx, cy, r, col, { acc = null, mood = "happy", look = [0, 0], rim = null, rimSide = 1, glow = false, sx = 1, sy = 1, tilt = 0, blushOn = true, under = "" } = {}) {
   const g = nid("cr");
   const ey = cy - r * 0.16;
   const ex = r * 0.34;
@@ -124,6 +125,7 @@ export function critter(cx, cy, r, col, { acc = null, mood = "happy", look = [0,
     ${accessory(acc, cx, cy, r, col)}
     ${ball(cx, cy, r, col, { sx, sy, glow })}
     ${rimPath}
+    ${under}
     ${face}
     ${orbit}
   </g>`;
