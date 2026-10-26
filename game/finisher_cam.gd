@@ -39,21 +39,28 @@ static func plan(config: Dictionary):
 		cam.winner = look.winner
 		cam.loser = 1 - look.winner
 		if look.starters > 2:
-			# 2v2: the camera goes to the ball that fell last, leaning toward a winner still up.
+			# Team fights: the camera goes to the ball that fell last, leaning toward a winner still up.
 			cam.loser = _pick(look, standing, 1 - look.winner, false)
 			cam.winner = _pick(look, standing, look.winner, true)
 	return cam
 
 
-## A starting ball of `team`: the lead unless only its mate fits. `alive`
-## picks one still standing at the end; otherwise one that was standing
-## going into the final tick (so it fell on the finishing blow).
+## A starting ball of `team` (teams alternate by index: 0, 2, 4 and 1, 3, 5).
+## `alive` picks the first one still standing at the end; otherwise the one
+## that fell on the finishing blow (standing going into the final tick, down
+## after it), so a 3v3's last critter down gets the camera, not the lead.
 static func _pick(look, standing: Array, team: int, alive: bool) -> int:
-	for i in [team, team + 2]:
-		var ok: bool = look.balls[i].alive() if alive else (i < standing.size() and standing[i])
-		if ok:
-			return i
-	return team
+	var fallback := team
+	for i in range(team, look.starters, 2):
+		var ball = look.balls[i]
+		if alive:
+			if ball.alive():
+				return i
+		elif i < standing.size() and standing[i]:
+			if not ball.alive():
+				return i
+			fallback = i
+	return fallback
 
 
 ## Sim seconds from the start of slow motion to the blow, at `tick`; < 0 before it.
