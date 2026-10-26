@@ -16,6 +16,11 @@ const Motion := preload("res://game/ui/motion.gd")
 const SPOTS := [Vector2(.25, .88), Vector2(.72, .75), Vector2(.3, .62), Vector2(.74, .49), Vector2(.28, .36), Vector2(.72, .23), Vector2(.34, .09)]
 const OPEN_R := 62.0
 const LOCKED_R := 42.0
+## Painted art (tools/event_art/scenes/map_*.mjs): the sky behind the map and
+## one floating island per zone, its node centred at ISLAND_NODE.
+const ART := "res://game/ui/map_art/"
+const ISLAND_NODE := Vector2(140, 92)
+const LOCKED_TINT := Color(.4, .4, .55, .8)
 
 var zones: Array = []
 var open_count := 1 ## Zones you can play (the first open_count are lit).
@@ -145,7 +150,43 @@ func _you_spot(i: int) -> Vector2:
 	return p
 
 
+## A painting from ART, or null when there isn't one (a zone not painted yet).
+static func _art(name: String) -> Texture2D:
+	var path := ART + name + ".png"
+	return load(path) if ResourceLoader.exists(path) else null
+
+
 func _draw() -> void:
+	var sky := _art("map_sky")
+	if sky != null:
+		# The sky covers the whole map, cropped evenly top and bottom.
+		var tex_size := sky.get_size()
+		var k := maxf(size.x / tex_size.x, size.y / tex_size.y)
+		var src := Rect2((tex_size - size / k) / 2.0, size / k)
+		draw_texture_rect_region(sky, Rect2(Vector2.ZERO, size), src)
+	else:
+		_draw_starfield()
+	_draw_path()
+	# Each zone's painted island under its node (a dim silhouette while locked).
+	for i in nodes.size():
+		var island := _art("map_island_" + str(zones[i].get("id", "")))
+		if island == null:
+			_landmark(i, i < open_count)
+			continue
+		var open := i < open_count
+		var k := 1.0 if open else LOCKED_R / OPEN_R
+		draw_texture_rect(island, Rect2(center(i) - ISLAND_NODE * k, island.get_size() * k), false, Color.WHITE if open else LOCKED_TINT)
+	# A soft dark backing so each zone's name reads over the art.
+	for t in _labels:
+		var back := StyleBoxFlat.new()
+		back.bg_color = Color(Kit.BG, .55)
+		back.set_corner_radius_all(16)
+		draw_style_box(back, Rect2(t.position, t.size).grow_individual(12, 4, 12, 4))
+	_draw_nodes()
+
+
+## The plain map behind zones with no painting: stars and a horizon grid.
+func _draw_starfield() -> void:
 	# A quiet starfield and a synthwave horizon grid, seeded so it never jumps.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7
@@ -160,6 +201,8 @@ func _draw() -> void:
 		var x := size.x * k / 8.0
 		draw_line(Vector2(size.x / 2.0 + (x - size.x / 2.0) * .35, size.y * .8), Vector2(x, size.y), grid, 2.0)
 
+
+func _draw_path() -> void:
 	# The path, zone to zone. Lit up to the furthest open zone, dim after.
 	# Newly opened segments light up one after another as _reveal runs.
 	var fresh := maxi(1, open_count - _from_open)
@@ -187,11 +230,9 @@ func _draw() -> void:
 			for k in range(0, pts.size() - 1, 2):
 				draw_line(pts[k], pts[k + 1], Color(Kit.LINE, 1.0).lightened(.15), 6.0, true)
 
-	# Each zone's landmark on a little island, beside its node on the side
-	# away from its label; locked zones show theirs as a dim silhouette.
-	for i in nodes.size():
-		_landmark(i, i < open_count)
 
+
+func _draw_nodes() -> void:
 	# Nodes: a glowing disc in the zone's colour; locked ones are dim rings.
 	for i in nodes.size():
 		var c := center(i)
@@ -214,8 +255,8 @@ func _draw() -> void:
 		draw_rect(Rect2(g + Vector2(8, 7), Vector2(4, 4)), Kit.BG)
 
 
-## The island under zone i's node and the landmark that says which zone it
-## is: glowing mushrooms, chip towers, ice shards, thorny briars, an arcade
+## The drawn stand-in for a zone with no painted island: a disc of ground
+## under zone i's node and a landmark that says which zone it is: glowing mushrooms, chip towers, ice shards, thorny briars, an arcade
 ## cabinet, a falling star over a crater, a volcano.
 func _landmark(i: int, open: bool) -> void:
 	var c := center(i)
