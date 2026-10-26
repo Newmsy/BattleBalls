@@ -35,6 +35,6 @@ const CRITTER := {
 		{"text": "Lava lasts 2.5 → 3.5s", "lava_life": 3.5},
 		{"text": "+ Every 3rd hit erupts; -20% dmg taken in lava", "card": "Hits splash lingering lava and some erupt. It shrugs off hits while standing in lava.", "now": "Hits splash lava {lava_dps}/sec, 3rd erupts · -20% taken in it", "erupt_every": 3, "ability": [{"on": "guard", "do": "home_guard"}]},
 	],
-	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "grin"}, "front": ["crust", "drips"]},
+	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "grin"}, "body": "basalt", "front": ["cracks"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 0.8},
 }
