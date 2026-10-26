@@ -49,6 +49,8 @@ const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Zones := preload("res://meta/zones.gd")
 const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
+const Matchup := preload("res://game/ui/matchup.gd")
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const Account := preload("res://game/online/account.gd")
@@ -1055,8 +1057,14 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
 	_begin_aim()
-	# Tier, level and power are under the health bars.
-	info_label.text = FightSpeed.with_aim_hint("Stage " + Zones.stage_key(zone_index, stage_index))
+	# Tier, level and power are under the health bars; the line says how they
+	# stack up (a 1v1 stage: team stages say it on the stage card).
+	var line := "Stage " + Zones.stage_key(zone_index, stage_index)
+	var foes := Zones.enemies(Zones.stage(zone_index, stage_index))
+	if foes.size() == 1:
+		var odds := Matchup.rate(profile.power_of(fighter), Campaign.enemy_rating(zone_index, stage_index), FamilyEdge.team([fighter], foes))
+		line += " · %s fight" % Matchup.word(odds)
+	info_label.text = FightSpeed.with_aim_hint(line)
 
 
 ## A farming boss run from its screen ("vault" for the Anvil King, "nest" for

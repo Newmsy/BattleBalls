@@ -40,30 +40,54 @@ static var tall := false
 static func build(shell, _params: Dictionary) -> Control:
 	tall = shell.size.y > 1400.0
 	var root := Kit.vbox(14)
-	if not Intro.done(shell.profile):
-		# A new player's first fights: the campaign, then the Arena once 1-3 opens it.
-		root.add_child(campaign_card(shell))
-		if Intro.shows(shell.profile, "arena"):
-			var store = ArenaStore.open()
-			root.add_child(group("Versus", VERSUS, [mode_tile(shell, "arena", "Ghost Arena", "%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)],
-				VERSUS, func(): shell.go("arena"), "ghost")]))
-		return root
 	# One column that fills the room: the Glow Pass and Shop row on top, then
 	# the doors share the height and spread their rows out, so a tall phone has
 	# no dead band in one door. The shell keeps this first child at the top
 	# rather than centring it.
 	var doors := [_adventure_door(shell), _daily_door(shell), _versus_door(shell)]
+	var style := _style_row(shell)
+	if not Intro.done(shell.profile):
+		# A new player's first fights (game/ui/intro.gd) still see the whole
+		# Home: what isn't open yet is dimmed, with what opens it on top.
+		style = _lock(shell, style, LATER)
+		doors[1] = _lock(shell, doors[1], LATER)
+		if not Intro.shows(shell.profile, "arena"):
+			doors[2] = _lock(shell, doors[2], "Opens after stage 1-3")
 	# Each door's share of the height is roughly in step with its own size (about
 	# 410, 300 and 360 high; Adventure a little more), so the spare spreads
 	# out instead of pooling in one door.
 	for i in doors.size():
 		doors[i].size_flags_vertical = Control.SIZE_EXPAND_FILL
 		doors[i].size_flags_stretch_ratio = [4.4, 2.8, 3.5][i]
-	var col := Kit.vbox(14, [_style_row(shell)] + doors)
+	var col := Kit.vbox(14, [style] + doors)
 	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(col)
 	return root
+
+
+## What a locked part of Home says during a new player's first fights: the
+## rest of the game opens with the Trophy Room, after the first Arena fight.
+const LATER := "Opens after your first Arena fight"
+
+
+## `c` dimmed under a cover that says what opens it; a tap on it says the same.
+static func _lock(shell, c: Control, line: String) -> Control:
+	var words := Kit.label(line, 20, Kit.FG)
+	var chip := Kit.panel(Kit.hbox(8, [Glyph.make("lock", 22, Kit.FG), words], BoxContainer.ALIGNMENT_CENTER), Kit.box(Color(Kit.BG, .85), Kit.LINE, 999, 2, 10))
+	var centre := CenterContainer.new()
+	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	centre.add_child(chip)
+	var cover := Kit.card_button(Control.new(), func(): shell.toast(line), Color(0, 0, 0, 0), Color(Kit.BG, .62), 32, 0)
+	cover.add_child(centre)
+	# The cover lies over the whole of `c`, in a stack that takes c's place.
+	var stack := MarginContainer.new()
+	stack.size_flags_horizontal = c.size_flags_horizontal
+	stack.size_flags_vertical = c.size_flags_vertical
+	stack.add_child(c)
+	stack.add_child(cover)
+	return stack
 
 
 # --- The three doors ----------------------------------------------------------
@@ -240,6 +264,10 @@ static func _adventure_door(shell) -> Control:
 	shell.mark("campaign", go)
 	var climb = SpireClimb.load_file(LiveOps.now())
 	var spire := door_spot(shell, "spire", token("spire", _s(62)), "Spire", "%d/%d" % [climb.cleared, Spire.FLOORS], DAILY, func(): shell.go("spire"))
+	var intro := not Intro.done(shell.profile)
+	if intro:
+		spire = door_spot(shell, "spire", token("lock", _s(62)), "Spire", "Opens later", Kit.MUTED, func(): shell.toast(LATER))
+		spire.modulate = Color(1, 1, 1, .6)
 	var bosses: Control
 	if BossesScreen.any_open(shell.profile):
 		var left := BossesScreen.runs_left_total(shell.profile, int(Time.get_unix_time_from_system()))
@@ -247,7 +275,9 @@ static func _adventure_door(shell) -> Control:
 	else:
 		bosses = door_spot(shell, "locked_dailies", token("lock", _s(62)), "Bosses", "Opens 1-5", Kit.MUTED, _bosses_locked_info(shell))
 		bosses.modulate = Color(1, 1, 1, .6)
-	return door(shell, "adventure", "ADVENTURE", "Campaign · Spire · Bosses", ADVENTURE, func(): shell.go("adventure"),
+	# During the first fights the header goes where Continue does: the hub's
+	# other rooms aren't open yet.
+	return door(shell, "adventure", "ADVENTURE", "Campaign · Spire · Bosses", ADVENTURE, func(): shell.go("world" if intro else "adventure"),
 		[zone, Kit.hbox(10, [go, spire, bosses], BoxContainer.ALIGNMENT_CENTER)],
 		{"id": "home_zone_" + c.zone.id, "focus": Vector2(.75, .45), "hero": true})
 
@@ -299,7 +329,10 @@ static func _versus_door(shell) -> Control:
 	var fv := Kit.vbox(2, [fg, Kit.label("Friends", 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
 	fv.alignment = BoxContainer.ALIGNMENT_CENTER
 	fv.custom_minimum_size.x = 100
-	var friends := Kit.card_button(fv, func(): shell.go("friends"), VERSUS.darkened(.45), VERSUS.darkened(.8), 24, 10)
+	var intro := not Intro.done(shell.profile)
+	var friends := Kit.card_button(fv, func(): shell.toast(LATER) if intro else shell.go("friends"), VERSUS.darkened(.45), VERSUS.darkened(.8), 24, 10)
+	if intro:
+		friends.modulate = Color(1, 1, 1, .5)
 	friends.size_flags_vertical = Control.SIZE_FILL
 	if fr.attention() > 0:
 		friends.add_child(red_dot())
@@ -307,7 +340,7 @@ static func _versus_door(shell) -> Control:
 	var rows: Array = [Kit.hbox(8, [arena, friends], BoxContainer.ALIGNMENT_CENTER)]
 	if Dev.quick_fight_shown():
 		rows.append(quick_fight_row(shell))
-	return door(shell, "versus", "VERSUS", "Ghost Arena · Quick fight · Friends" if Dev.quick_fight_shown() else "Ghost Arena · Friends", VERSUS, func(): shell.go("versus"),
+	return door(shell, "versus", "VERSUS", "Ghost Arena · Quick fight · Friends" if Dev.quick_fight_shown() else "Ghost Arena · Friends", VERSUS, func(): shell.go("arena" if intro else "versus"),
 		rows,
 		{"id": "home_versus", "focus": Vector2(.75, .9)})
 
@@ -386,22 +419,6 @@ static func campaign_state(p) -> Dictionary:
 		power = Kit.power(Campaign.enemy_rating(z, next), 22, Kit.MUTED)
 		next_row = Kit.hbox(12, [faces, next_l, power], BoxContainer.ALIGNMENT_CENTER)
 	return {"z": z, "zone": zd, "stars": star_total, "max_stars": stages.size() * 3, "next_row": next_row, "faces": faces, "foe": foe, "power": power}
-
-
-## The campaign: the main way forward, so it gets the first big card.
-static func campaign_card(shell) -> Control:
-	var c := campaign_state(shell.profile)
-	var open := Kit.button("Continue", func(): shell.go("world"), "go", 32, 96)
-	shell.mark("campaign", open)
-	var zone := Kit.vbox(8, [
-		Kit.hbox(10, [Glyph.make("map", 24, Color("9be89a")), Kit.caption("Campaign · Zone %d" % (c.z + 1), Color("9be89a"))], BoxContainer.ALIGNMENT_BEGIN),
-		Kit.hbox(10, [Kit.label(c.zone.name, 40), Kit.spacer(), Glyph.make("crown", 28, Kit.FG, 1),
-			Kit.label("%d/%d" % [c.stars, c.max_stars], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
-		c.next_row,
-		open,
-	])
-	var zst := Kit.box(Color("17284a"), Color("2f5a55"), 36, 2, 24)
-	return Kit.panel(zone, zst)
 
 
 ## Quick fight with your fighter on it: tap the fighter to pick another, and

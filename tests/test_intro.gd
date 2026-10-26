@@ -28,6 +28,7 @@ func test_only_the_opened_tabs_show() -> void:
 		check(not visible.call(t), t + " waits")
 	check(not shell._marks.has("quickfight"), "no Quick fight yet")
 	check(shell._marks.has("campaign"), "the campaign is the way in")
+	check(shell._marks.has("thisweek") and shell._marks.has("spire"), "the whole Home shows from the start, the closed parts locked")
 	check(shell._coach.visible, "a hint says what to do next")
 	shell.profile.intro = Intro.DONE
 	shell.profile.changed.emit()
@@ -83,3 +84,14 @@ func test_picking_a_fighter_heads_to_the_next_stage() -> void:
 	check_eq(Intro.step(shell.profile), Intro.FIGHT_2, "picking a fighter moves on")
 	check_eq(shell.current, "campaign", "straight to the stage list")
 	shell.free()
+
+
+## Fights stay hands-off (review choice 1D): screens before a fight say how
+## it stacks up in one word.
+func test_matchup_words_follow_power_and_edges() -> void:
+	var M := preload("res://game/ui/matchup.gd")
+	check_eq(M.word(M.rate(2441, 820)), "Easy", "far ahead is easy")
+	check_eq(M.word(M.rate(1000, 1000)), "Close", "even is close")
+	check_eq(M.word(M.rate(700, 1000)), "Tough", "far behind is tough")
+	check_eq(M.word(M.rate(1000, 1000, 2)), "Easy", "a big family edge tips an even fight")
+	check_eq(M.word(M.rate(1000, 1000, -2)), "Tough", "and the other way round")
