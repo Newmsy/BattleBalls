@@ -85,6 +85,9 @@ signal play_requested
 signal watch_requested(fight: Dictionary)
 ## A friend's Rematch button: fight their saved team (unranked).
 signal rival_requested(friend: Dictionary)
+## A live fight with a friend (live fights on): meet in `room` on the live
+## server. `who` names the friend for the waiting screen.
+signal live_room_requested(room: String, who: String)
 ## A share button was tapped (kind as registered with share_link).
 signal share_tapped(kind: String)
 ## The current screen's share buttons moved (see share_targets).

@@ -120,3 +120,30 @@ func test_a_different_phone_hash_is_logged() -> void:
 	l.report("b", m.match, "edited")
 	check_eq(l.mismatches.size(), 1, "one mismatch")
 	check_eq(l.mismatches[0].player, "b", "the right player")
+
+
+func test_friends_in_a_room_meet_whatever_their_power() -> void:
+	var l := _lobby()
+	l.join("weak", "1v1", [Lineup.make("vampire", 1)], 0.0, "f:aaaa:bbbb")
+	l.join("near", "1v1", [Lineup.make("vampire", 1)], 0.0)
+	l.join("strong", "1v1", [Lineup.make("vampire", 5)], 0.0, "F:AAAA:BBBB")
+	var out := l.tick(1.0)
+	var m := _to(out, "weak", "matched")
+	check(not m.is_empty(), "the room pairs T1 with T5")
+	check_eq(_to(out, "strong", "matched").get("match"), m.get("match"), "with each other")
+	check(_to(out, "near", "matched").is_empty(), "a stranger never joins a room")
+	check(l.queue.has("near"), "and keeps waiting in the open queue")
+
+
+func test_a_room_waits_longer_and_never_gets_a_ghost() -> void:
+	var l := _lobby()
+	l.join("a", "1v1", [Lineup.make("bomber", 2)], 0.0, "C:ABCD")
+	check(_to(l.tick(Lobby.GHOST_AFTER + 1.0), "a", "ghost").is_empty(), "no ghost for a friend room")
+	check(l.queue.has("a"), "still waiting for the friend")
+	check(not _to(l.tick(Lobby.ROOM_WAIT), "a", "room_timeout").is_empty(), "told when nobody came")
+	check(l.queue.is_empty(), "and out of the queue")
+
+
+func test_room_keys_are_cleaned() -> void:
+	check_eq(Lobby.clean_room("c:ab cd!<x>"), "C:ABCDX", "only safe characters, upper case")
+	check_eq(Lobby.clean_room("x".repeat(99)).length(), Lobby.ROOM_MAX, "length capped")

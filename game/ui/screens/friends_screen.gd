@@ -10,6 +10,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const Dev := preload("res://game/dev.gd")
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -117,7 +118,51 @@ static func _code_card(shell, fr) -> Control:
 		Kit.label(code, 52, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 		Kit.hbox(14, [invite, add]),
 	])
+	if Dev.live_fights():
+		var live := Kit.button("Live fight with a code", func(): _live_code_sheet(shell), "go", 26, 84)
+		shell.mark("live_code", live)
+		col.add_child(live)
 	return Kit.panel(col)
+
+
+## One phone makes a short code and waits; the other types it in. Works
+## without being friends, and for two phones on the one test account.
+static func _live_code_sheet(shell) -> void:
+	var make := func():
+		shell.close_overlay()
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		var code := Friends.new_room_code(rng)
+		shell.live_room_requested.emit("C:" + code, "")
+	var join := func():
+		shell.close_overlay()
+		_ask_room_code(shell)
+	var make_b := Kit.button("Make a code", make, "go", 28, 84)
+	shell.mark("live_make", make_b)
+	var join_b := Kit.button("Enter a code", join, "primary", 28, 84)
+	shell.mark("live_join", join_b)
+	shell.sheet(Kit.vbox(16, [Kit.label("Live fight with a code", 34), make_b, join_b]))
+
+
+static func _ask_room_code(shell) -> void:
+	var go := func(text: String):
+		var code := Friends.normalize_code(text)
+		if code.length() != Friends.ROOM_CODE_LENGTH:
+			shell.toast("Codes are %d letters and numbers." % Friends.ROOM_CODE_LENGTH)
+			return
+		shell.live_room_requested.emit("C:" + code, "")
+	if OS.has_feature("web"):
+		var typed = JavaScriptBridge.eval("window.prompt(\"Your friend's code (4 letters and numbers):\", \"\")", true)
+		if typed is String and typed.strip_edges() != "":
+			go.call(typed)
+		return
+	var edit := LineEdit.new()
+	edit.placeholder_text = "ABCD"
+	edit.add_theme_font_size_override("font_size", 36)
+	edit.custom_minimum_size = Vector2(0, 84)
+	edit.max_length = 8
+	var join := Kit.button("Join", func(): shell.close_overlay(); go.call(edit.text), "go", 28, 84)
+	shell.sheet(Kit.vbox(16, [Kit.label("Enter a code", 34), edit, join]))
 
 
 static func _gifts_card(shell, fr) -> Control:
@@ -184,6 +229,16 @@ static func _friend_card(shell, fr, f: Dictionary) -> Control:
 	var say := Kit.button("Say…", func(): _say_sheet(shell, fr, f), "ghost", 22, 72)
 	shell.mark("say_" + str(f.name), say)
 	var actions := Kit.hbox(10, [rematch, gift, say])
+	if Dev.live_fights():
+		var now := int(Time.get_unix_time_from_system())
+		var answer := Friends.live_challenge_open(f.get("ping"), now)
+		var on_live := func():
+			if not answer:
+				fr.ping(f.id, Friends.LIVE_PRESET) # Their row then offers Join.
+			shell.live_room_requested.emit(Friends.live_room(str(fr.me.get("code", "")), str(f.code)), str(f.name))
+		var live := Kit.button("Join" if answer else "Live", on_live, "go", 22, 72)
+		shell.mark("live_" + str(f.name), live)
+		actions.add_child(live)
 	var border := Color("5ce1ff") if f.get("gift_waiting", false) else Kit.LINE
 	return Kit.panel(Kit.vbox(14, [top, actions]), Kit.box(Kit.PANEL, border, 32, 2, 20))
 
@@ -196,6 +251,8 @@ static func _say_sheet(shell, fr, f: Dictionary) -> void:
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	for i in Friends.PRESETS.size():
+		if i == Friends.LIVE_PRESET:
+			continue # Sent by the Live button.
 		var on_say := func():
 			shell.close_overlay()
 			var ok: bool = await fr.ping(f.id, i)

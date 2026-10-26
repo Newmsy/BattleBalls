@@ -73,6 +73,22 @@ func test_record_and_ping_text() -> void:
 	check_eq(Friends.ago("2026-10-14T22:00:00", at + 2 * 86400), "2d ago", "days")
 
 
+func test_live_fight_rooms_and_challenges() -> void:
+	check_eq(Friends.live_room("tttt-hhhh", "ABCDEFGH"), Friends.live_room("ABCDEFGH", "TTTTHHHH"), "same room from either phone")
+	check_eq(Friends.live_room("TTTTHHHH", "ABCDEFGH"), "F:ABCDEFGH:TTTTHHHH", "room key")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var code := Friends.new_room_code(rng)
+	check_eq(code.length(), Friends.ROOM_CODE_LENGTH, "room code length")
+	check(Array(code.split("")).all(func(c): return Friends.CODE_CHARS.contains(c)), "room code characters")
+	var at := Time.get_unix_time_from_datetime_string("2026-10-14T22:00:00")
+	var ping := {"preset": Friends.LIVE_PRESET, "at": "2026-10-14T22:00:00.5+00:00"}
+	check(Friends.live_challenge_open(ping, at + 30), "fresh challenge can be joined")
+	check(not Friends.live_challenge_open(ping, at + Friends.LIVE_PING_SECONDS + 1), "stale challenge can't")
+	check(not Friends.live_challenge_open({"preset": 1, "at": ping.at}, at), "other pings aren't challenges")
+	check(not Friends.live_challenge_open(null, at), "no ping")
+
+
 func test_offline_calls_do_nothing() -> void:
 	var f := Friends.new()
 	check_eq(f.status, "offline", "offline")

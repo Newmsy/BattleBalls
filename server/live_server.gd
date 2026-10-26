@@ -8,11 +8,11 @@
 ## server only runs with LIVE_DEV=1, where the token is taken as the player id
 ## (local testing and CI only).
 ##
-## Phone -> server: {t:"hello", token, sim_version} {t:"queue", mode, slots}
+## Phone -> server: {t:"hello", token, sim_version} {t:"queue", mode, slots, room?}
 ##   {t:"aim", match, angle} {t:"hash", match, hash} {t:"leave"}
 ## Server -> phone: {t:"welcome", player} {t:"queued"} {t:"matched", match,
 ##   side, config, aim_seconds} {t:"go", match, angles, winner, hash}
-##   {t:"ghost"} {t:"error", code}
+##   {t:"ghost"} {t:"room_timeout"} {t:"error", code}
 extends SceneTree
 
 const Lobby := preload("res://server/live_lobby.gd")
@@ -99,7 +99,7 @@ func _on_message(key: int, text: String, now: float) -> void:
 	match t:
 		"queue":
 			var slots = msg.get("slots", [])
-			_send_all(lobby.join(p.player, str(msg.get("mode", "")), slots if slots is Array else [], now))
+			_send_all(lobby.join(p.player, str(msg.get("mode", "")), slots if slots is Array else [], now, str(msg.get("room", ""))))
 		"aim":
 			_send_all(lobby.aim(p.player, int(msg.get("match", 0)), int(msg.get("angle", 0)), now))
 		"hash":

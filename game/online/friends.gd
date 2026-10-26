@@ -13,7 +13,11 @@ const MatchSim := preload("res://sim/match_sim.gd")
 signal changed
 
 ## Never reorder or remove: the server stores indexes. Append new ones (max 16).
-const PRESETS := ["GG!", "Nice shot!", "Rematch?", "Wow!", "So close!", "Good luck!", "Thanks!", "Haha!"]
+const PRESETS := ["GG!", "Nice shot!", "Rematch?", "Wow!", "So close!", "Good luck!", "Thanks!", "Haha!", "Live fight?"]
+## Sent when you challenge a friend to a live fight, so their row offers Join.
+const LIVE_PRESET := 8
+const LIVE_PING_SECONDS := 120 ## How long a challenge stays joinable.
+const ROOM_CODE_LENGTH := 4
 const CODE_LENGTH := 8
 const CODE_CHARS := "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
@@ -213,6 +217,31 @@ static func demo_overview() -> Dictionary:
 				"gift_sent": false, "gift_waiting": false, "ping": null, "record": none},
 		],
 	}
+
+
+## The live-server room two friends meet in: the same key on both phones,
+## whichever of them asks first (server/live_lobby.gd).
+static func live_room(code_a: String, code_b: String) -> String:
+	var codes := [normalize_code(code_a), normalize_code(code_b)]
+	codes.sort()
+	return "F:%s:%s" % codes
+
+
+## A short code one phone shows and the other types in, for a live fight
+## without being friends (or two phones on the one test account).
+static func new_room_code(rng: RandomNumberGenerator) -> String:
+	var out := ""
+	for i in ROOM_CODE_LENGTH:
+		out += CODE_CHARS[rng.randi_range(0, CODE_CHARS.length() - 1)]
+	return out
+
+
+## True while a friend's "Live fight?" ping is fresh enough to answer.
+static func live_challenge_open(ping, now_unix: int) -> bool:
+	if not ping is Dictionary or int(ping.get("preset", -1)) != LIVE_PRESET:
+		return false
+	var at := str(ping.get("at", ""))
+	return at.length() >= 19 and now_unix - Time.get_unix_time_from_datetime_string(at.left(19)) <= LIVE_PING_SECONDS
 
 
 ## "abcd-efgh " -> "ABCDEFGH". Anything that isn't a letter or digit is dropped.

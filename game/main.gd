@@ -247,6 +247,10 @@ var live_box: HBoxContainer
 ## No live foe turned up, so a CPU stands in. Newms: it looks like any live
 ## foe (same tag, wording and buttons); the player isn't told.
 var _stand_in := false
+## A live fight with a friend: the room both phones queue in, and who you're
+## meeting (a name, or "code ABCD"). Kept for NEW FIGHT; cleared on leaving.
+var live_room := ""
+var live_room_who := ""
 ## Where the info line and controls sit (under or beside the arena).
 var controls_rect := Rect2()
 
@@ -989,9 +993,11 @@ func _on_live(msg: Dictionary) -> void:
 			var slots := [_live_slot(player_type)]
 			if duo:
 				slots.append(_live_slot(_mate()))
-			live_client.send({"t": "queue", "mode": "2v2" if duo else "1v1", "slots": slots})
+			live_client.send({"t": "queue", "mode": "2v2" if duo else "1v1", "slots": slots, "room": live_room})
 		"queued":
-			info_label.text = "Looking for a live foe near your power..."
+			info_label.text = "Looking for a live foe near your power..." if live_room == "" \
+				else "Code %s: waiting for your friend..." % live_room.trim_prefix("C:") if live_room.begins_with("C:") \
+				else "Waiting for %s to join..." % live_room_who
 			print("LIVE_QUEUED rating=%d" % int(msg.get("rating", 0)))
 		"matched":
 			live = msg
@@ -1020,11 +1026,15 @@ func _on_live(msg: Dictionary) -> void:
 			_stand_in = true
 			_live_aim_left = 11.0 # The same aim clock as a live match (server AIM_SECONDS less 1).
 			_tick_live_aim(0.0)
+		"room_timeout":
+			var who := "Your friend" if live_room.begins_with("C:") else live_room_who
+			_cancel_live()
+			_live_note("%s didn't join. Try again together." % who)
 		"error":
 			var code := str(msg.get("code", ""))
 			_cancel_live()
-			info_label.text = "Live fights need the latest version: reload the game." if code == "update" \
-				else "The live server turned us away (%s)." % code
+			_live_note("Live fights need the latest version: reload the game." if code == "update" \
+				else "The live server turned us away (%s)." % code)
 			print("LIVE_ERROR ", code)
 
 
@@ -1034,7 +1044,7 @@ func _on_live_closed(reason: String) -> void:
 	if state == State.FIGHT or state == State.RESULT:
 		return # The fight's already in: nothing is lost.
 	_cancel_live()
-	info_label.text = "Lost the live server (%s). Try again in a bit." % reason
+	_live_note("Lost the live server (%s). Try again in a bit." % reason)
 
 
 ## The aim clock: launches whatever you've aimed when it runs out.
@@ -1076,7 +1086,18 @@ func _cancel_live() -> void:
 	live = {}
 	if mode == Mode.LIVE:
 		mode = Mode.NORMAL
+	if live_room != "":
+		_show_home() # Back to Friends, where the friend fight started.
+		return
 	_show_menu()
+
+
+## Why a live fight stopped: on the info line, or as a toast when that's
+## already back home.
+func _live_note(text: String) -> void:
+	info_label.text = text
+	if shell_layer.visible:
+		shell.toast(text)
 
 
 func _close_live() -> void:
@@ -1690,6 +1711,7 @@ func _build_shell() -> void:
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
+	shell.live_room_requested.connect(_start_live_room)
 	shell.stage_requested.connect(_start_stage)
 	shell.boss_requested.connect(_start_boss)
 	shell.share_tapped.connect(_on_shell_share)
@@ -1731,6 +1753,7 @@ func _pick_player(id: String) -> void:
 
 
 func _show_home() -> void:
+	live_room = ""
 	shell_layer.visible = true
 	sfx.toggle_hidden = true # Home has the sound switch in Settings.
 	_sync_share_targets()
@@ -1944,6 +1967,10 @@ func _skip_to_end() -> void:
 
 
 func _again() -> void:
+	if mode == Mode.LIVE and live_room != "":
+		mode = Mode.NORMAL
+		_find_live() # The same friend again.
+		return
 	if _is_quick_result():
 		_quick_fight() # New fight: a fresh foe and map, not the same one again.
 		return
@@ -2080,6 +2107,18 @@ func _start_rival(f: Dictionary) -> void:
 	print("RIVAL_MENU vs=%s ball=%s" % [str(f.name), lead])
 
 
+## A friend's Live button, or a live code: meet them on the live server with
+## the critter you have picked.
+func _start_live_room(room: String, who: String) -> void:
+	shell_layer.visible = false
+	sfx.toggle_hidden = false
+	_quick_fight_setup()
+	live_room = room
+	live_room_who = who
+	print("LIVE_ROOM ", room)
+	_find_live()
+
+
 func _record_rival() -> void:
 	var rec: Dictionary = await friends.record_rival(str(rival.id), sim.winner)
 	if not rec.is_empty() and state == State.RESULT and mode == Mode.RIVAL:
@@ -2098,6 +2137,14 @@ func _take_challenge(ball: String, challenge_seed: int, challenge_aim: int) -> v
 	_show_menu()
 
 
+func _quick_fight_setup() -> void:
+	quick_tier = 1
+	if profile != null and profile.owns(player_type):
+		quick_tier = clampi(int(profile.best(player_type).get("tier", 1)), 1, Lineup.MAX_TIER)
+	seed_value = _rng.randi_range(1, 99999)
+	_play_normal(false)
+
+
 ## Back to picking your ball against a random foe, dropping any link the page was opened with.
 func _play_normal(menu := true) -> void:
 	_board_pick = -1
@@ -2107,6 +2154,7 @@ func _play_normal(menu := true) -> void:
 	foe_aim = null
 	arena_override = url_arena
 	rival = {}
+	live_room = ""
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("history.replaceState(null, '', location.pathname)")
 	if menu:
@@ -2117,11 +2165,7 @@ func _play_normal(menu := true) -> void:
 ## Quick fight in one tap: your fighter at its best tier against a random foe
 ## of the same rarity and tier on a random arena, straight to the aim.
 func _quick_fight() -> void:
-	quick_tier = 1
-	if profile != null and profile.owns(player_type):
-		quick_tier = clampi(int(profile.best(player_type).get("tier", 1)), 1, Lineup.MAX_TIER)
-	seed_value = _rng.randi_range(1, 99999)
-	_play_normal(false)
+	_quick_fight_setup()
 	if _live_on():
 		_find_live()
 	else:

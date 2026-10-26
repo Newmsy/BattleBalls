@@ -2,7 +2,7 @@
 ## fight locally and checks its end hash matches the server's. CI runs two of
 ## them against a server to prove a whole live match works end to end.
 ##
-##   godot --headless --script res://tools/live_bot.gd -- --url=ws://127.0.0.1:8080 --name=a [--critter=vampire] [--mode=1v1]
+##   godot --headless --script res://tools/live_bot.gd -- --url=ws://127.0.0.1:8080 --name=a [--critter=vampire] [--mode=1v1] [--tier=3] [--room=F:AAAA:BBBB]
 ##
 ## Prints LIVE_BOT_OK <winner> <hash> or LIVE_BOT_FAIL <why>, exit code 0/1.
 extends SceneTree
@@ -14,7 +14,7 @@ const LiveMatch := preload("res://sim/live_match.gd")
 
 var ws := WebSocketPeer.new()
 var opts := {"url": "ws://127.0.0.1:8080", "name": "bot", "critter": "vampire", "mate": "laser", "mode": "1v1",
-	"tier": "3", "timeout": "40"}
+	"tier": "3", "timeout": "40", "room": ""}
 var started := 0.0
 var said_hello := false
 var matched := {}
@@ -55,7 +55,7 @@ func _on(msg) -> void:
 			var slots := [Lineup.make(opts.critter, int(opts.tier))]
 			if opts.mode == "2v2":
 				slots.append(Lineup.make(opts.mate, int(opts.tier)))
-			_send({"t": "queue", "mode": opts.mode, "slots": slots})
+			_send({"t": "queue", "mode": opts.mode, "slots": slots, "room": opts.room})
 		"matched":
 			print("LIVE_BOT %s matched as side %d" % [opts.name, int(msg.side)])
 			matched = msg
