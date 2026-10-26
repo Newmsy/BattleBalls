@@ -205,9 +205,21 @@ static func _equip_pick(shell, g: Dictionary) -> void:
 		if not p.slot_open(id, g.slot):
 			locked[id] = true
 	var open_ids := ids.filter(func(id): return not locked.has(id))
-	var opts := {"title": "Equip %s to" % g.name, "current": g.on, "locked": locked,
+	# Who already wears something in this slot: named under the tile, its
+	# piece in the corner (equipping swaps it off).
+	var worn := {}
+	var tags := {}
+	for w in p.gear:
+		if w.on != "" and w.slot == g.slot and w.uid != g.uid:
+			worn[w.on] = w
+			tags[w.on] = "Has " + w.name
+	if g.on != "":
+		tags[g.on] = "Wearing it"
+	var opts := {"title": "Equip %s to" % g.name, "current": g.on, "locked": locked, "tags": tags,
 		"locked_toast": "Charm slot unlocks when %%s reaches %d stars." % Gear.CHARM_TIER,
-		"on_pick": func(id): _equip(shell, g, Roster.get_critter(id))}
+		"on_pick": func(id): _equip(shell, g, Roster.get_critter(id)),
+		# What each critter already wears in this slot (equipping swaps it off).
+		"corner": func(id): return GearArt.tile(worn[id].type, worn[id].tier, 40, tier_color(worn[id].tier)) if worn.has(id) else null}
 	CritterPicker.open(shell, open_ids + ids.filter(func(id): return locked.has(id)), opts)
 
 

@@ -40,8 +40,11 @@ static func build(shell, params: Dictionary) -> Control:
 	elif not ready.is_empty():
 		sel = ready[0]
 
+	# Picking a jar swaps the selection in place (select()): rebuilding the
+	# screen redrew the whole shelf and flashed it at its start for a frame.
+	var state := {"sel": sel, "jars": {}, "params": params}
 	var root := Kit.vbox(16)
-	var shelf := _shelf(shell, ready, sel, params)
+	var shelf := _shelf(shell, ready, state)
 	root.add_child(shelf.door)
 
 	var lab := _lab(sel, 280.0)
@@ -51,6 +54,8 @@ static func build(shell, params: Dictionary) -> Control:
 	var stage := Kit.vbox(0, [lab])
 	if not sel.is_empty():
 		stage.add_child(_result(shell, sel))
+	state.lab = lab
+	state.stage = stage
 	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var stage_door := _door(stage, STAGE)
 	# The stage takes the rest of the screen: a tall phone sees more of the lab.
@@ -59,7 +64,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 	if not sel.is_empty():
 		var btn := Kit.button("Fuse", func(): pass, "go", 34, 96)
-		btn.pressed.connect(func(): _do_fuse(shell, lab, btn, sel))
+		btn.pressed.connect(func(): _do_fuse(shell, lab, btn, state.sel))
 		shell.mark("fuse", btn)
 		shell.pin(btn)
 	return root
@@ -74,7 +79,9 @@ static func _door(content: Control, accent: Color) -> Control:
 
 ## The top door: the lab wall band with the title on it, and the ready
 ## critters floating in specimen jars (tinted by rarity) on a shelf.
-static func _shelf(shell, ready: Array, sel: Dictionary, params: Dictionary) -> Dictionary:
+static func _shelf(shell, ready: Array, state: Dictionary) -> Dictionary:
+	var sel: Dictionary = state.sel
+	var params: Dictionary = state.params
 	var band := LivingArt.make("fuse_band", ART % "fuse_band")
 	band.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	band.custom_minimum_size.y = BAND_H
@@ -122,7 +129,8 @@ static func _shelf(shell, ready: Array, sel: Dictionary, params: Dictionary) -> 
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var sel_jar: Control = null
 		for s in ready:
-			var jar := _jar(s, s == sel, func(): shell.refresh_with({"id": s.id, "tier": s.tier, "x": scroll.scroll_horizontal}))
+			var jar := _jar(s, s == sel, func(): select(shell, state, s))
+			state.jars[_key(s)] = jar
 			if s == sel:
 				sel_jar = jar
 			shell.mark("ready_%s_%d" % [s.id, s.tier], jar)
@@ -149,6 +157,33 @@ static func _shelf(shell, ready: Array, sel: Dictionary, params: Dictionary) -> 
 	door.add_child(pad)
 	# The band sits behind the title and the jars' lids; the shelf hangs below it.
 	return {"door": door, "scroll": scroll}
+
+
+## Selects ready stack `s`: the jars' glow, the copies on the pads and the
+## result pill change in place. The screen's params follow, so a later
+## refresh or Back keeps the pick.
+static func select(shell, state: Dictionary, s: Dictionary) -> void:
+	var lab: Control = state.lab
+	if s == state.sel or lab.get_meta("fusing", false):
+		return
+	if not state.sel.is_empty() and state.jars.has(_key(state.sel)):
+		_light_jar(state.jars[_key(state.sel)], false)
+	state.sel = s
+	_light_jar(state.jars[_key(s)], true)
+	if not state.params.is_read_only():
+		state.params["id"] = s.id
+		state.params["tier"] = s.tier
+	_set_slots(lab, s)
+	var stage: Control = state.stage
+	for c in stage.get_children():
+		if c != lab:
+			stage.remove_child(c) # Out now, or the stage lays out old and new pills together for a frame.
+			c.queue_free()
+	stage.add_child(_result(shell, s))
+
+
+static func _key(s: Dictionary) -> String:
+	return "%s_%d" % [s.id, s.tier]
 
 
 ## A gradient from clear to `col` over the bottom of a band of height `h`.
@@ -194,15 +229,14 @@ static func _jar(s: Dictionary, on: bool, pick: Callable) -> Button:
 	b.custom_minimum_size = Vector2(JAR.x, SHELF_H)
 	b.pressed.connect(pick)
 	var k := JAR.x / 180.0
-	if on:
-		var glow := Panel.new()
-		var gs := Kit.box(Color(Kit.GOOD, .12), Kit.GOOD, 30, 3, 0)
-		gs.shadow_color = Color(Kit.GOOD, .45)
-		gs.shadow_size = 14
-		glow.add_theme_stylebox_override("panel", gs)
-		glow.position = Vector2(24, 36) * k
-		glow.size = Vector2(132, 164) * k
-		b.add_child(glow)
+	var glow := Panel.new()
+	var gs := Kit.box(Color(Kit.GOOD, .12), Kit.GOOD, 30, 3, 0)
+	gs.shadow_color = Color(Kit.GOOD, .45)
+	gs.shadow_size = 14
+	glow.add_theme_stylebox_override("panel", gs)
+	glow.position = Vector2(24, 36) * k
+	glow.size = Vector2(132, 164) * k
+	b.add_child(glow)
 	var art := TextureRect.new()
 	art.texture = load(ART % ("jar_" + c.rarity))
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -220,7 +254,7 @@ static func _jar(s: Dictionary, on: bool, pick: Callable) -> Button:
 	stars.position = Vector2(0, 168 * k - 10)
 	stars.size = Vector2(JAR.x, 20)
 	b.add_child(stars)
-	var tag := Kit.label(c.name, 18, Kit.GOOD if on else Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	var tag := Kit.label(c.name, 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	tag.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	tag.clip_text = true
 	tag.position = Vector2(-4, JAR.y + 4)
@@ -229,7 +263,16 @@ static func _jar(s: Dictionary, on: bool, pick: Callable) -> Button:
 	for ch in b.get_children():
 		if ch is Control and ch != icon:
 			ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.set_meta("glow", glow)
+	b.set_meta("tag", tag)
+	_light_jar(b, on)
 	return b
+
+
+## The picked jar glows green and its name turns green.
+static func _light_jar(b: Button, on: bool) -> void:
+	(b.get_meta("glow") as Control).visible = on
+	(b.get_meta("tag") as Label).add_theme_color_override("font_color", Kit.GOOD if on else Kit.FG)
 
 
 ## The stage: the painted chamber (cropped to its dais) with the three copies
@@ -243,6 +286,22 @@ static func _lab(sel: Dictionary, h: float) -> Control:
 	var art := LivingArt.make("fuse_chamber", ART % "fuse_chamber")
 	lab.add_child(art)
 	lab.set_meta("art", art)
+	var flash := ColorRect.new()
+	flash.color = Color(1, 1, 1, 0)
+	flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lab.add_child(flash)
+	lab.set_meta("flash", flash)
+	_set_slots(lab, sel)
+	lab.resized.connect(func(): _place_slots(lab))
+	return lab
+
+
+## Stands three copies of `sel` on the pads (under the flash), replacing any there.
+static func _set_slots(lab: Control, sel: Dictionary) -> void:
+	for s in lab.get_meta("slots", []):
+		lab.remove_child(s)
+		s.queue_free()
 	var slots: Array = []
 	for k in 3:
 		var slot: Control
@@ -254,16 +313,11 @@ static func _lab(sel: Dictionary, h: float) -> Control:
 		slot.size = Vector2(side, side)
 		slot.set_meta("pad", k)
 		lab.add_child(slot)
+		lab.move_child(slot, lab.get_child_count() - 2)
 		slots.append(slot)
 	lab.set_meta("slots", slots)
-	var flash := ColorRect.new()
-	flash.color = Color(1, 1, 1, 0)
-	flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lab.add_child(flash)
-	lab.set_meta("flash", flash)
-	lab.resized.connect(func(): _place_slots(lab))
-	return lab
+	if lab.size != Vector2.ZERO:
+		_place_slots(lab)
 
 
 ## The painting's scale and top-left corner inside a lab of `sz`: full width
@@ -463,7 +517,17 @@ static func pick_after_fuse(old: Array, now: Array, sel: Dictionary) -> Dictiona
 
 
 static func _restore_x(scroll: ScrollContainer, at: int, card: Control) -> void:
+	# Set it as soon as the row's scroll range is known, before the rebuilt
+	# shelf is first drawn: waiting a frame showed it at its start, then jumped.
+	var bar := scroll.get_h_scroll_bar()
+	var hold := func():
+		if is_instance_valid(scroll) and scroll.scroll_horizontal != at:
+			scroll.scroll_horizontal = at
+	if at > 0:
+		bar.changed.connect(hold)
 	await scroll.get_tree().process_frame
+	if bar.changed.is_connected(hold):
+		bar.changed.disconnect(hold)
 	await scroll.get_tree().process_frame
 	if not is_instance_valid(scroll):
 		return

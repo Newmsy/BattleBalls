@@ -63,6 +63,8 @@ static func build(shell, params: Dictionary) -> Control:
 		return root
 	var spec: Dictionary = climb.floor_spec()
 	var picks: Array = params.get("picks", [])
+	if not params.is_read_only():
+		params["picks"] = picks
 	root.add_child(_floor_card(spec))
 	root.add_child(_picker(shell, climb, spec, picks))
 	return root
@@ -120,39 +122,59 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 	var p = shell.profile
 	var list := fighters(p, climb)
 	var v := Kit.vbox(12)
-	v.add_child(Kit.hbox(0, [Kit.caption("Pick %d" % spec.lineup), Kit.spacer(),
-		Kit.label("%d/%d" % [picks.size(), spec.lineup], 22, Kit.MUTED)]))
+	var count := Kit.label("%d/%d" % [picks.size(), spec.lineup], 22, Kit.MUTED)
+	v.add_child(Kit.hbox(0, [Kit.caption("Pick %d" % spec.lineup), Kit.spacer(), count]))
 	if list.is_empty():
 		v.add_child(Kit.label("None of your critters can fight in the arena yet.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		return v
+	# A tap restyles the cards, count and buttons in place: rebuilding the
+	# whole screen flashed the list for a frame. `picks` is the screen's
+	# params.picks, so Back and a later refresh still see the lineup.
+	var state := {"picks": picks, "cards": {}}
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	for i in list.size():
-		grid.add_child(LazyTile.wrap(_pick_card.bind(shell, list[i], spec, picks), i, 12))
+		grid.add_child(LazyTile.wrap(_pick_card.bind(shell, list[i], spec, state), i, 12))
 	v.add_child(grid)
 	# The climb button stays put under the list, however many critters it holds.
 	var climb_btn := Kit.button("Climb", func(): _climb(shell, climb, picks), "go" if not picks.is_empty() else "ghost", 32, 96)
 	shell.mark("spire_climb", climb_btn)
 	var actions := Kit.hbox(12, [climb_btn])
-	if picks.is_empty() and spec.lineup > 1:
-		var auto := Kit.button("Suggest", func(): shell.refresh_with({"picks": suggest(list, spec)}), "ghost", 26, 96)
+	var auto: Button = null
+	if spec.lineup > 1:
+		auto = Kit.button("Suggest", func(): _set_picks(state, suggest(list, spec)), "ghost", 26, 96)
 		auto.size_flags_horizontal = Control.SIZE_SHRINK_END
 		auto.custom_minimum_size.x = 200
+		auto.visible = picks.is_empty()
 		shell.mark("spire_suggest", auto)
 		actions.add_child(auto)
+	state.update = func() -> void:
+		count.text = "%d/%d" % [picks.size(), spec.lineup]
+		Kit.style_button(climb_btn, "go" if not picks.is_empty() else "ghost")
+		if auto != null:
+			auto.visible = picks.is_empty()
+		for id in state.cards:
+			_restyle_pick(state.cards[id], picks.find(id))
 	shell.pin(actions)
 	return v
 
 
+## Replaces the lineup in place (same array as params.picks) and restyles.
+static func _set_picks(state: Dictionary, next: Array) -> void:
+	state.picks.clear()
+	state.picks.append_array(next)
+	state.update.call()
+
+
 ## One critter in the picker. Built lazily: a big collection fills many rows.
-static func _pick_card(shell, f: Dictionary, spec: Dictionary, picks: Array) -> Control:
+static func _pick_card(shell, f: Dictionary, spec: Dictionary, state: Dictionary) -> Control:
 	var p = shell.profile
-	var order: int = picks.find(f.id)
+	var picks: Array = state.picks
 	var tired: bool = f.stamina <= 0
 	var col := Kit.MUTED if tired else Kit.FG
-	var tag := Kit.label("#%d" % (order + 1) if order >= 0 else ("Tired" if tired else ""), 20, TOWER if order >= 0 else Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
+	var tag := Kit.label("", 20, Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
 	var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96, false, p.best(f.id).level)
 	if tired:
 		icon.modulate = Color(1, 1, 1, 0.35)
@@ -165,7 +187,7 @@ static func _pick_card(shell, f: Dictionary, spec: Dictionary, picks: Array) -> 
 	])
 	var on_tap := func():
 		var next := picks.duplicate()
-		if order >= 0:
+		if picks.has(f.id):
 			next.erase(f.id)
 		elif tired:
 			shell.toast("%s is tired until Monday." % Roster.get_critter(f.id).name, f.id)
@@ -175,12 +197,28 @@ static func _pick_card(shell, f: Dictionary, spec: Dictionary, picks: Array) -> 
 			return
 		else:
 			next.append(f.id)
-		shell.refresh_with({"picks": next})
-	var card := Kit.card_button(cell, on_tap, TOWER if order >= 0 else Kit.LINE, Kit.PANEL2 if order >= 0 else Kit.PANEL, 28, 10)
+		_set_picks(state, next)
+	var card := Kit.card_button(cell, on_tap, Kit.LINE, Kit.PANEL, 28, 10)
+	card.set_meta("tag", tag)
+	card.set_meta("tired", tired)
+	_restyle_pick(card, picks.find(f.id))
 	FamilyEdge.attach(card, [f.id], spec.enemies.map(func(e): return str(e.id)))
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	state.cards[f.id] = card
 	shell.mark("spire_pick_" + f.id, card)
 	return card
+
+
+## A picker card picked (`order` in the lineup, gold edge, "#2") or not (-1).
+static func _restyle_pick(card: Button, order: int) -> void:
+	if not is_instance_valid(card):
+		return
+	var st := Kit.box(Kit.PANEL2 if order >= 0 else Kit.PANEL, TOWER if order >= 0 else Kit.LINE, 28, 3, 10)
+	for s in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+		card.add_theme_stylebox_override(s, st)
+	var tag: Label = card.get_meta("tag")
+	tag.text = "#%d" % (order + 1) if order >= 0 else ("Tired" if card.get_meta("tired") else "")
+	tag.add_theme_color_override("font_color", TOWER if order >= 0 else Kit.BAD)
 
 
 ## Fresh critters closest to the floor's power, weakest first, so the best
