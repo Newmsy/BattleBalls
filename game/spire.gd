@@ -11,6 +11,9 @@ const SpireClimb := preload("res://meta/spire_climb.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
+const SaveGame := preload("res://game/online/save_game.gd")
+const Profile := preload("res://meta/profile.gd")
+const XpBar := preload("res://game/ui/xp_bar.gd")
 
 var climb
 var spec: Dictionary
@@ -46,11 +49,35 @@ func _show_result() -> void:
 	for id in r.spent:
 		spent.add_child(CritterIcon.face(id, 48))
 	var body: Array = [_reward_row(r.floor)] if r.won else []
+	body.append(XpBar.rows({"critters": _xp_gains(r)}, sfx))
 	if not r.spent.is_empty():
 		body.append(spent)
 	var back := Kit.button("Continue", _back, "go", 26, 84)
 	_mark("SpireBack", back, ResultPopup.SLIDE_SECS)
 	_popup("The Spire · Floor %d%s" % [r.floor, " · Boss" if spec.boss else ""], body, [back])
+
+
+## The XP bars for this floor, as Campaign.give_xp() keeps them. The XP
+## itself joins the profile back on the Spire screen (SpireClimb.xp_owed), so
+## the bars run on a copy of the saved profile with any XP still owed from
+## before this fight already added.
+func _xp_gains(r: Dictionary) -> Array:
+	var save := SaveGame.new()
+	save.load_local()
+	var d = save.data.get("profile")
+	if not d is Dictionary or r.spent.is_empty():
+		return []
+	var p = Profile.from_dict(d, LiveOps.now())
+	for id in climb.xp_owed:
+		var before := int(climb.xp_owed[id]) - (int(r.xp) if id in r.spent else 0)
+		if before > 0:
+			p.add_xp(id, before)
+	var gains := []
+	for id in r.spent:
+		var g: Dictionary = p.gain_xp(id, int(r.xp))
+		if not g.is_empty():
+			gains.append(g)
+	return gains
 
 
 ## The floor's reward as icons and numbers; it's added to your stock back on the Spire screen.

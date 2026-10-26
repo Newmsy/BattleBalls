@@ -26,6 +26,9 @@ var unclaimed: Array = []
 var clears: Array = []
 ## The attempt in progress: {floor, picks: [{id, power}], launched}, or empty.
 var pending: Dictionary = {}
+## Critter id -> XP earned in fights and not yet added to the profile. Kept
+## across the weekly reset, like unclaimed rewards.
+var xp_owed: Dictionary = {}
 ## Best floor of the last week played, for its end-of-week badge.
 var last_week_best := 0
 var path := PATH
@@ -50,7 +53,7 @@ func save_file() -> void:
 
 func to_dict() -> Dictionary:
 	return {"week": week, "cleared": cleared, "spent": spent, "unclaimed": unclaimed, "clears": clears,
-		"pending": pending, "last_week_best": last_week_best}
+		"pending": pending, "last_week_best": last_week_best, "xp_owed": xp_owed}
 
 
 func from_dict(d: Dictionary) -> void:
@@ -65,6 +68,11 @@ func from_dict(d: Dictionary) -> void:
 	clears = d.get("clears", [])
 	pending = d.get("pending", {})
 	last_week_best = int(d.get("last_week_best", 0))
+	xp_owed = {}
+	var x = d.get("xp_owed", {})
+	if x is Dictionary:
+		for id in x:
+			xp_owed[id] = int(x[id])
 
 
 ## Starts a fresh tower when the week has changed. Rewards already earned
@@ -132,8 +140,10 @@ func begin(picks: Array) -> void:
 
 ## Settles the pending attempt from its relay (sim/relay.gd). Every ball
 ## that came out spends Stamina, win or lose; a win clears the floor and
-## queues its reward. An unfinished relay (the player quit) is a loss; pass
-## `came_out` then, as the balls that had launched. Returns {won, floor, spent}.
+## queues its reward. Every ball that came out also earns critter XP
+## (Spire.xp), owed to the profile until the Spire screen adds it. An
+## unfinished relay (the player quit) is a loss; pass `came_out` then, as the
+## balls that had launched. Returns {won, floor, spent, xp}.
 func settle(relay, came_out := -1) -> Dictionary:
 	if pending.is_empty():
 		return {}
@@ -148,12 +158,15 @@ func settle(relay, came_out := -1) -> Dictionary:
 		spent[id] = int(spent.get(id, 0)) + 1
 		used.append(id)
 	var floor_no := int(pending.floor)
+	var xp := Spire.xp(floor_no, won)
+	for id in used:
+		xp_owed[id] = int(xp_owed.get(id, 0)) + xp
 	if won and floor_no == next_floor():
 		cleared = floor_no
 		unclaimed.append(floor_no)
 		clears.append({"floor": floor_no, "picks": picks, "aims": relay.aims[0].duplicate(), "rules": MatchSim.RULES_VERSION})
 	pending = {}
-	return {"won": won, "floor": floor_no, "spent": used}
+	return {"won": won, "floor": floor_no, "spent": used, "xp": xp}
 
 
 ## Settles an attempt that was left without a result (the app closed
@@ -182,6 +195,13 @@ func unclaimed_total() -> Dictionary:
 		t.hammers += r.hammers
 		if not r.gear.is_empty():
 			t.gear.append(r.gear)
+	return t
+
+
+## Hands the owed critter XP over ({id: xp}) and forgets it.
+func take_xp() -> Dictionary:
+	var t := xp_owed
+	xp_owed = {}
 	return t
 
 
