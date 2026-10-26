@@ -84,3 +84,43 @@ func test_opening_screen_collects() -> void:
 	check_eq(p.bounce_chest, 50, "and marked opened")
 	check(not shell.overlay_open(), "and closed")
 	shell.free()
+
+
+## Opening Bounce Run (from any button) pops up a waiting chest; Collect
+## pays into the game save.
+func test_bounce_run_opens_on_a_waiting_chest() -> void:
+	var run_path := "user://test_bounce_chest_run_%d.cfg" % OS.get_process_id()
+	var game_path := "user://test_bounce_chest_save_%d.json" % OS.get_process_id()
+	var today := BounceRun.day_number(Time.get_unix_time_from_system())
+	BounceChest.set_best(today - 1, 13, run_path)
+	var save = load("res://game/online/save_game.gd").new(game_path)
+	var p = UiProfile.sample()
+	var coins: int = p.coins
+	save.data.profile = p.to_dict()
+	save.save_local()
+	var scene = load("res://game/bounce_run.tscn").instantiate()
+	scene.save_path = run_path
+	scene.game_save_path = game_path
+	runner.root.add_child(scene)
+	scene._ready()
+	var views: Array = scene.ui.get_children().filter(func(c): return c.get_script() == load("res://game/ui/bounce_chest_open.gd"))
+	check_eq(views.size(), 1, "the chest pops up over the run")
+	if views.size() == 1:
+		check_eq(views[0].tier.id, "gold", "yesterday's floor 13")
+		views[0]._open_now()
+		views[0]._on_collect()
+		var after = load("res://game/online/save_game.gd").new(game_path)
+		after.load_local()
+		var q = Profile.from_dict(after.data.profile, 0)
+		check_eq(q.bounce_chest, today - 1, "opened in the game save")
+		check_eq(q.coins, coins + 250, "and paid")
+	scene.queue_free()
+	var again = load("res://game/bounce_run.tscn").instantiate()
+	again.save_path = run_path
+	again.game_save_path = game_path
+	runner.root.add_child(again)
+	again._ready()
+	check(again.ui.get_children().all(func(c): return c.get_script() != load("res://game/ui/bounce_chest_open.gd")), "not again")
+	again.queue_free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(run_path))
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(game_path))

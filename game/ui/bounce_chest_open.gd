@@ -1,4 +1,5 @@
-## Opening a Bounce Run chest (meta/bounce_chest.gd), over the whole shell:
+## Opening a Bounce Run chest (meta/bounce_chest.gd), over the whole shell
+## (from the Daily board) or over the Bounce Run screen when it opens:
 ## the painted chest drops in and wobbles, a tap shakes it harder and harder
 ## until the lid bursts off in a flash of light, then each reward arcs out of
 ## the chest into its slot. Collect grants them and they fly to the top bar.
@@ -17,7 +18,11 @@ const CARD := 112.0 ## Reward card side.
 
 enum Phase { ARRIVING, WAITING, OPENING, OPEN }
 
-var shell
+var shell ## The menus' shell, or null over the Bounce Run screen.
+var host ## The Bounce Run screen (game/bounce_run.gd) when there's no shell.
+var profile
+var sfx
+var on_done := Callable() ## Over the Bounce Run screen: called with the rewards once collected.
 var chest: Dictionary ## From BounceChest.pending().
 var rewards: Array
 var phase := Phase.ARRIVING
@@ -37,14 +42,36 @@ var _tw: Tween
 static func show_on(shell_, c: Dictionary) -> Control:
 	var v = load("res://game/ui/bounce_chest_open.gd").new()
 	v.shell = shell_
-	v.chest = c
-	v.rewards = BounceChest.rewards(int(c.tier), int(c.day))
-	v.tier = BounceChest.TIERS[int(c.tier)]
-	v._build()
+	v.profile = shell_.profile
+	v.sfx = shell_.sfx
+	v._setup(c)
 	shell_.overlay(v, "bounce_chest")
-	print("UI_BOUNCE_CHEST day=%d tier=%s" % [int(c.day), v.tier.id])
 	v._arrive.call_deferred()
 	return v
+
+
+## Shows chest `c` over `layer` of the Bounce Run screen `host_`. Collect
+## grants it into `profile_` and calls `done` with the rewards.
+static func show_in(host_, layer: Control, c: Dictionary, profile_, sfx_, done: Callable) -> Control:
+	var v = load("res://game/ui/bounce_chest_open.gd").new()
+	v.host = host_
+	v.profile = profile_
+	v.sfx = sfx_
+	v.on_done = done
+	v._setup(c)
+	v.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(v)
+	v._arrive.call_deferred()
+	v._reported.call_deferred()
+	return v
+
+
+func _setup(c: Dictionary) -> void:
+	chest = c
+	rewards = BounceChest.rewards(int(c.tier), int(c.day))
+	tier = BounceChest.TIERS[int(c.tier)]
+	_build()
+	print("UI_BOUNCE_CHEST day=%d tier=%s" % [int(c.day), tier.id])
 
 
 func _build() -> void:
@@ -90,6 +117,8 @@ func _build() -> void:
 	_collect.visible = false
 	if shell != null:
 		shell.mark("bounce_chest_collect", _collect)
+	elif host != null:
+		host._mark("bounce_chest_collect", _collect)
 	var foot := Kit.vbox(0, [_hint, _collect])
 	foot.custom_minimum_size.y = 110
 	col.add_child(foot)
@@ -241,6 +270,8 @@ func _show_collect() -> void:
 func _reported() -> void:
 	if shell != null and shell.is_inside_tree() and shell.has_method("_report"):
 		shell._report("bounce_chest")
+	elif host != null and host.is_inside_tree():
+		host._report("bounce_chest")
 
 
 ## Skip straight to the open chest with every reward out.
@@ -269,19 +300,24 @@ func _kill() -> void:
 
 
 func _on_collect() -> void:
-	if shell == null:
+	if profile == null:
 		return
-	var got := BounceChest.open(shell.profile, chest)
+	var got := BounceChest.open(profile, chest)
 	print("UI_BOUNCE_CHEST_COLLECT day=%d n=%d" % [int(chest.day), got.size()])
 	_sound("coins")
+	if shell == null:
+		if on_done.is_valid():
+			on_done.call(got)
+		queue_free()
+		return
 	shell.reward_from(_art)
 	shell.close_overlay()
 	shell.refresh()
 
 
 func _sound(id: String, db := 0.0, pitch := 1.0) -> void:
-	if shell != null and shell.sfx != null:
-		shell.sfx.play(id, db, pitch)
+	if sfx != null:
+		sfx.play(id, db, pitch)
 
 
 ## Soft light rays in the chest's colour, drawn once; the node turns.
