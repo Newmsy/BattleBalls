@@ -72,7 +72,7 @@ static func coach(p, screen: String) -> String:
 		ARENA:
 			return "Pick an opponent and fight!" if screen == "arena" else ("Tap Ghost Arena." if screen == "play" else "")
 		TROPHY:
-			return "Tap the Trophy Room." if screen == "arena" else ""
+			return "Tap the Trophy Room." if screen == "versus" else ""
 	return ""
 
 
@@ -133,7 +133,7 @@ static func moment(shell, at: int) -> void:
 			shell.spotlight_tab(screen)
 		elif screen == "boosts":
 			shell.show_tab("play")
-			shell.go("arena")
+			shell.go("versus")
 			shell.go("boosts")
 		else:
 			shell.show_tab("play")

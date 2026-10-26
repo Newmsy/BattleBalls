@@ -1,11 +1,13 @@
-## Account: save a guest's progress to an account (email code now, Apple and
-## Google once switched on), sign in on another device, sign out, or delete
-## the account and its progress for good. Opened
-## from the level badge in the top bar. Data and calls live in
+## Profile (the level badge): your Friends, then the account: save a
+## guest's progress to an account (email code now, Apple and Google once
+## switched on), sign in on another device, sign out, or delete the account
+## and its progress for good. Data and calls live in
 ## game/online/account.gd (shell.account); the screen rebuilds when it changes.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
+const VersusScreen := preload("res://game/ui/screens/versus_screen.gd")
 
 ## What the player has typed, kept across rebuilds.
 static var _draft := {"email": "", "code": ""}
@@ -19,7 +21,8 @@ static func build(shell, params: Dictionary) -> Control:
 		chip = Kit.chip("Guest", Kit.WARN)
 	elif acc != null and acc.status == "linked":
 		chip = Kit.chip("Saved", Kit.GOOD)
-	root.add_child(shell.title_row("Account", {"extra": [chip]}))
+	root.add_child(shell.title_row("Profile", {"extra": [chip]}))
+	root.add_child(friends_card(shell))
 
 	if acc == null or not acc.enabled():
 		root.add_child(_note("Offline", "Progress is on this device. Go online to back it up."))
@@ -50,6 +53,19 @@ static func build(shell, params: Dictionary) -> Control:
 		shell.mark("account_delete", del)
 		root.add_child(del)
 	return root
+
+
+## Friends, behind your profile (Newms 2026-10-26): a painted card with
+## what's new, opening the Friends screen.
+static func friends_card(shell) -> Control:
+	var fr = shell.friends
+	var news: bool = fr.attention() > 0
+	var card: Button = VersusScreen.painted(shell, "friends", "vs_friends", Vector2(.5, .75), "Friends", PlayScreen._friends_line(fr),
+		Kit.GOOD if news else PlayScreen.VERSUS, func(): shell.go("friends"), true)
+	card.custom_minimum_size.y = 160
+	if news:
+		card.add_child(PlayScreen.red_dot())
+	return card
 
 
 static func _save_card(shell, acc) -> Control:

@@ -308,6 +308,8 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 			g = GearArt.piece(r.type, int(r.tier), side * .8, BagScreen.tier_color(int(r.tier)))
 		"rift_key":
 			g = Glyph.make("key", side * .7, Color("5ce1ff"))
+		"tokens":
+			g = Glyph.make("token", side * .7)
 		"dye":
 			g = Glyph.make("dye", side * .7, Color("ff6fd0"))
 		_:

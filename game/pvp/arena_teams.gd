@@ -24,7 +24,7 @@ const LADDER_MAX := 0.5
 const MIN_TARGET := 900
 ## Seeded opponents (offers): how many, how far around your trophies, and how
 ## their strength grows with trophies (strength_for).
-const OFFER_COUNT := 6
+const OFFER_COUNT := 10
 const SPREAD_BELOW := 120.0
 const SPREAD_ABOVE := 180.0
 const TROPHIES_PER_TIER := 500
@@ -87,6 +87,10 @@ static func _make_offers(trophies: int, day: int, refresh: int, count: int) -> A
 		var theirs := maxi(0, trophies + roundi(offset))
 		var goal := strength_for(theirs)
 		var can: Array = fams.filter(func(f): return weakest(f) <= goal * 1.05)
+		if can.is_empty():
+			# Every theme that fits is on the list already: repeat one rather
+			# than field a team far too strong for these trophies.
+			can = Families.ids().filter(func(f): return weakest(f) <= goal * 1.05)
 		if can.is_empty():
 			can = fams.duplicate()
 			can.sort_custom(func(a, b): return weakest(a) < weakest(b))

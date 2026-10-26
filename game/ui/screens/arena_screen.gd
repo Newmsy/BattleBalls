@@ -1,6 +1,8 @@
-## Ghost Arena (design/pvp.md): your league and trophies, your trio, and the
-## three opponent cards. Picking a card starts the attack and opens the
-## relay fight scene (game/ghost_arena.gd).
+## Ghost Arena (design/pvp.md): your league and trophies (tap for the weekly
+## chests), your trio, and a list of ten opponents: other players' Defence
+## trios mixed in with themed teams. Picking one starts the attack and opens
+## the relay fight scene (game/ghost_arena.gd). The Trophy Room and Bazaar
+## are on the Versus hub.
 extends RefCounted
 
 const Matchup := preload("res://game/ui/matchup.gd")
@@ -15,6 +17,7 @@ const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
+const ArenaPlayers := preload("res://game/pvp/arena_players.gd")
 const Families := preload("res://sim/families.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const FamilyEdge := preload("res://game/ui/family_edge.gd")
@@ -26,6 +29,7 @@ const Motion := preload("res://game/ui/motion.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
 const FIGHT_SCENE := "res://game/ghost_arena.tscn"
 const ART := "res://game/ui/versus_art/%s.png"
+const ROW_H := 96.0 ## About one opponent row's height, for the list's least room.
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -49,32 +53,33 @@ static func build(shell, params: Dictionary) -> Control:
 		for r in raids:
 			dt += int(r.delta)
 		shell.toast.call_deferred("Defence held %d/%d raids (%+d)" % [held, raids.size(), dt])
+
+	store.note_league()
+	store.save()
+	# Real players' squads near your trophies come in the background; the list
+	# redraws when they arrive (game/pvp/arena_players.gd).
+	ArenaPlayers.sync(shell.backend, store, shell.profile, func():
+		if is_instance_valid(shell) and shell.current == "arena" and not shell.overlay_open():
+			shell.refresh_with({"store": store}))
 	var root := Kit.vbox(10)
 
 	var how := [
+		"Opponents are other players' Defence trios and themed teams, all near your trophies. Beating one above you wins more and losing to it costs less. One free refresh a day.",
 		"Trios fight in order; a winner stays in with its HP left. Their order is hidden. Your last shots become your ghost.",
-		"Best trio fills in your strongest three.",
-		"Opponents are themed teams with trophies near yours. Beating a team above you wins more and losing to it costs less. One free refresh a day.",
+		"Your Defence trio is the squad other players fight. Each day a few teams raid it too: holding wins trophies and Tokens.",
 		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Tokens for the Bazaar.",
-		"Set your Defence trio: each day a few teams raid it. Holding wins trophies and Tokens.",
+		"The best league you reach each week opens that league's chest when the week ends. Tap your league to see them.",
 	]
 	root.add_child(shell.title_row("Ghost Arena", {"info_mark": "arena_info", "info": how}))
-	root.add_child(_league_panel(shell, store))
-	var held_today: int = store.raids.filter(func(r): return r.held).size() if store.raid_day == ArenaStore.today() else 0
-	# A new player's first Arena win opens the Trophy Room; the rest come after.
+	var league := Kit.card_button(_league_panel(shell, store), func(): shell.go("arena_chests", {"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 32, 0)
+	shell.mark("arena_league", league)
+	root.add_child(league)
+	# A new player's first Arena win opens the Trophy Room (on the Versus hub).
 	var p = shell.profile
 	if Intro.step(p) == Intro.ARENA and Intro.arena_fought:
 		Intro.reach(p, Intro.TROPHY)
 		Intro.moment.call_deferred(shell, Intro.TROPHY)
-	var rooms := Kit.hbox(10)
-	if Intro.shows(p, "trophy"):
-		rooms.add_child(_room(shell, "arena_boosts", "room_trophy", "Trophy Room", Kit.commas(store.points), Kit.WARN, func(): shell.go("boosts", {"store": store})))
-	if Intro.done(p):
-		rooms.add_child(_room(shell, "arena_bazaar", "room_bazaar", "Bazaar", Kit.commas(store.coins), Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})))
-		rooms.add_child(_room(shell, "arena_defence", "room_defence", "Defence", "Held %d/%d" % [held_today, store.raids.size()] if not store.raids.is_empty() else "Set trio", Kit.GOOD, func(): shell.go("defence", {"store": store})))
-	if rooms.get_child_count() > 0:
-		root.add_child(rooms)
-	root.add_child(trio_panel(shell, store, owned, "trio"))
+	root.add_child(trio_panel(shell, store, owned, "trio", _defence_chip(shell, store) if Intro.done(p) else null))
 
 	var refresh_left: int = store.refreshes_left()
 	var refresh := Kit.chip("Refresh", Kit.ACCENT if refresh_left > 0 else Kit.MUTED)
@@ -86,16 +91,32 @@ static func build(shell, params: Dictionary) -> Control:
 	shell.mark("arena_refresh", refresh_btn)
 	root.add_child(Kit.hbox(0, [Kit.caption("Opponents"), Kit.spacer(), refresh_btn]))
 	var cards: Array[Dictionary] = store.offers(shell.profile)
-	var rows: Array = []
+	var list := Kit.vbox(10)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in cards.size():
 		var btn := _opponent_row(shell, store, cards[i])
 		shell.mark("arena_card_%d" % i, btn)
-		root.add_child(btn)
-		rows.append(btn)
-	# As many opponents as the phone has room for (at least three).
-	_fit_rows(shell, root, rows)
-
+		list.add_child(btn)
+	# The list is the one part of the screen that scrolls: it takes whatever
+	# height is left, and always shows at least three rows.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size.y = ROW_H * 3 + 20
+	scroll.add_child(list)
+	shell.mark("arena_list", scroll)
+	root.add_child(scroll)
 	return root
+
+
+## The Defence trio's room, as a chip beside Best trio: how it held today.
+static func _defence_chip(shell, store) -> Control:
+	var held: int = store.raids.filter(func(r): return r.held).size() if store.raid_day == ArenaStore.today() else 0
+	var text := "Defence %d/%d" % [held, store.raids.size()] if not store.raids.is_empty() else "Defence"
+	var b := Kit.card_button(Kit.chip(text, Kit.GOOD), func(): shell.go("defence", {"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
+	shell.mark("arena_defence", b)
+	return b
 
 
 static func _league_panel(shell, store) -> Control:
@@ -186,7 +207,8 @@ static func _room(shell, mark: String, art: String, title: String, line: String,
 
 
 ## Your attack trio ("trio") or Defence trio ("defence"): tap a slot to pick the team.
-static func trio_panel(shell, store, owned: Array, which := "trio") -> Control:
+## `extra` sits beside Best trio (the Arena's Defence chip).
+static func trio_panel(shell, store, owned: Array, which := "trio", extra: Control = null) -> Control:
 	var row := Kit.hbox(12, [], BoxContainer.ALIGNMENT_CENTER)
 	var slots: Array = store.slots(shell.profile, which)
 	var team: Array = store.get(which)
@@ -218,10 +240,11 @@ static func trio_panel(shell, store, owned: Array, which := "trio") -> Control:
 		shell.refresh_with({"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
 	shell.mark("%s_best_trio" % prefix, best)
 	var caption := "Your trio" if which == "trio" else "Defence trio"
-	return Kit.vbox(10, [
-		Kit.hbox(0, [Kit.caption(caption), Kit.spacer(), best], BoxContainer.ALIGNMENT_CENTER),
-		row,
-	])
+	var head := Kit.hbox(0, [Kit.caption(caption), Kit.spacer()], BoxContainer.ALIGNMENT_CENTER)
+	if extra != null:
+		head.add_child(extra)
+	head.add_child(best)
+	return Kit.vbox(10, [head, row])
 
 
 ## One opponent: team name in its family colour, their trophies and power,
@@ -272,26 +295,6 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 		b.add_child(home)
 		b.move_child(home, 0)
 	return b
-
-
-## Hides opponent rows from the bottom while the screen is taller than the
-## room it has, keeping at least three.
-static func _fit_rows(shell, root: Control, rows: Array) -> void:
-	# Text sizes settle a frame after the screen is built.
-	if not shell.is_inside_tree():
-		return
-	await shell.get_tree().process_frame
-	if not is_instance_valid(shell) or not is_instance_valid(root) or not is_instance_valid(shell._scroll):
-		return
-	var room: float = shell._scroll.size.y - 32.0 # The page's top and bottom margins.
-	# Minimum sizes only update next frame, so take each hidden row off by hand.
-	var need: float = root.get_combined_minimum_size().y
-	var step: float = rows[0].get_combined_minimum_size().y + root.get_theme_constant("separation")
-	var shown := rows.size()
-	while shown > 3 and need > room:
-		shown -= 1
-		rows[shown].visible = false
-		need -= step
 
 
 static func _attack(shell, store, offer: Dictionary) -> void:
