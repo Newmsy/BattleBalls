@@ -10,6 +10,7 @@ const A11y := preload("res://game/a11y.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const ResultBanner := preload("res://game/ui/result_banner.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
+const FactionRing := preload("res://game/ui/faction_ring.gd")
 
 enum Outcome { LOSE, WIN, DRAW }
 
@@ -248,7 +249,7 @@ static func boss_result(shell, params: Dictionary, row: Control = null) -> void:
 	if row == null:
 		row = Kit.label(str(params.notice), 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
 		row.custom_minimum_size.x = minf(640.0, shell.size.x - 80.0) # Wrapped text needs a width first.
-	var body: Array = [row]
+	var body: Array = [row, FactionRing.rows(shell.profile.take_faction_gains(), shell.sfx, .45, FactionRing.spend_in(shell))]
 	var bars := XpBar.rows(xp, shell.sfx)
 	if bars != null:
 		body.append(bars)

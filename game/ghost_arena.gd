@@ -132,6 +132,7 @@ func _result_card(got: int) -> Control:
 	var body: Array = [headline, league]
 	if rewards.get_child_count() > 0:
 		body.append(rewards)
+	body.append(_faction_rings())
 	var card := ResultPopup.content("Ghost Arena · vs " + str(bot.name), outcome, body, [back, next])
 	next.size_flags_stretch_ratio = 1.5
 	return card
