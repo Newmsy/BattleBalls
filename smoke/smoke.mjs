@@ -310,9 +310,11 @@ try {
     await tapUi(page, logs, "gear_equip", "sheet");
     await tapUi(page, logs, "pick_juggernaut", "bag");
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
-    // Three 1-star Bubble Shells now: Merge all makes a 2-star (design/gear.md).
+    // Three 1-star Bubble Shells now: Merge all asks first, then makes a 2-star (design/gear.md).
+    await tapUi(page, logs, "merge_all", "sheet");
+    await page.screenshot({ path: path.join(shots, "3g-bag-merge-confirm.png") });
     const merging = logs.length;
-    await tapUi(page, logs, "merge_all", "bag");
+    await tapUi(page, logs, "merge_confirm", "bag");
     await waitForLogAfter(logs, merging, "UI_SCREEN sheet", 5000);
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(shots, "3g-bag-merged.png") });

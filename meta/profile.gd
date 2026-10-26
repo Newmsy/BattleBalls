@@ -345,6 +345,21 @@ func gear_sets() -> Array:
 	return out
 
 
+## The three pieces merge_gear(type, tier) would use: spares first.
+func merge_pieces(type: String, tier: int) -> Array[Dictionary]:
+	return gear_of(type, tier).slice(0, 3)
+
+
+## Who wears the piece a merge of `used` makes: the strongest critter that
+## wore one of them, or "" when they were all spare.
+func merge_wearer(used: Array) -> String:
+	var wearer := ""
+	for g in used:
+		if g.on != "" and (wearer == "" or power_of(g.on) > power_of(wearer)):
+			wearer = g.on
+	return wearer
+
+
 ## 3 pieces of type+tier become 1 of the next tier, for hammers. The new piece
 ## goes on whichever critter wore one of the three (the strongest, if more
 ## than one did). Returns the new piece, or {} when it can't merge.
@@ -352,11 +367,9 @@ func merge_gear(type: String, tier: int) -> Dictionary:
 	if not can_merge_gear(type, tier):
 		return {}
 	hammers -= merge_cost(tier)
-	var used := gear_of(type, tier).slice(0, 3)
-	var wearer := ""
+	var used := merge_pieces(type, tier)
+	var wearer := merge_wearer(used)
 	for g in used:
-		if g.on != "" and (wearer == "" or power_of(g.on) > power_of(wearer)):
-			wearer = g.on
 		gear.erase(g)
 	var piece := gear_piece({"uid": _next_gear_uid(), "type": type, "tier": tier + 1, "on": wearer})
 	gear.append(piece)
