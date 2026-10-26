@@ -67,6 +67,7 @@ func test_maps_follow_the_rules() -> void:
 		check_eq(rows.size(), BounceRun.FLOORS, "day %d: every floor has nodes" % day)
 		check_eq(rows[BounceRun.FLOORS - 1], 1, "one Champion")
 		check(rows[0] >= 2, "day %d: a choice of start" % day)
+		check(rows.values().all(func(c): return c <= 5), "day %d: at most 5 nodes a floor" % day)
 		var links := 0
 		var froms := 0
 		for id in nodes:
