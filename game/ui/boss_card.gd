@@ -34,6 +34,28 @@ static func fighter(shell, id: String, prefix: String, lines := [], icon := 92) 
 	return card
 
 
+## What a win of the picked level pays, big, near the top of a boss screen:
+## `title` ("Level 13 prizes") over a row of `items` (prize() each) and the
+## win's XP. Marks `<prefix>_prizes`.
+static func prizes(shell, title: String, accent: Color, items: Array, xp: int, prefix: String) -> Control:
+	var row := Kit.hbox(22, [], BoxContainer.ALIGNMENT_CENTER)
+	for c in items:
+		row.add_child(c)
+	if xp > 0:
+		row.add_child(Kit.label("+%d XP" % xp, 26, Kit.MUTED))
+	var col := Kit.vbox(6, [Kit.caption(title, accent), row])
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.get_child(0).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var card := Kit.panel(col, Kit.box(Color(accent, .1), Color(accent, .45), 28, 2, 12))
+	shell.mark(prefix + "_prizes", card)
+	return card
+
+
+## One prize: its glyph and the amount ("3", "1+", "500 to 9,000").
+static func prize(kind: String, value, tint := Color.WHITE) -> Control:
+	return Kit.amount(kind, value, 32, Kit.FG, tint)
+
+
 ## How your power stacks up against `rec`: [text, colour].
 static func verdict(mine: int, rec: int, foe := "It's") -> Array:
 	if mine >= rec:
