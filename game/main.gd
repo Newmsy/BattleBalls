@@ -67,6 +67,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
+const Platform := preload("res://game/platform/platform.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const FightSpeed := preload("res://game/fight_speed.gd")
@@ -1546,7 +1547,7 @@ func _build_shell() -> void:
 	# Menus to a fight and back: the new picture opens out of a circle from the tap.
 	shell_layer.visibility_changed.connect(func(): Wipe.open(self, get_viewport().get_mouse_position()))
 	shell = Shell.new()
-	shell.glow = GlowState.new(save, profile, Store.make(backend))
+	shell.glow = GlowState.new(save, profile, Platform.get_current().make_store(backend))
 	shell.friends = friends
 	shell.profile = profile
 	shell.set_account(account)
@@ -2473,8 +2474,8 @@ func _share(kind: String) -> void:
 		# The page already started sharing on this tap; just watch how it went.
 		_share_pending = true
 		return
-	DisplayServer.clipboard_set(_share_url(kind))
-	report_label.text = "Link copied!"
+	if not Platform.get_current().share(_share_text(kind), _share_url(kind)):
+		report_label.text = "Link copied!"
 
 
 ## A share button on the home screens (e.g. the friend invite link).
@@ -2483,8 +2484,7 @@ func _on_shell_share(kind: String) -> void:
 		_share_pending = true
 		return
 	for t in shell.share_targets():
-		if t.kind == kind:
-			DisplayServer.clipboard_set(t.url)
+		if t.kind == kind and not Platform.get_current().share(t.text, t.url):
 			shell.toast("Link copied!")
 
 

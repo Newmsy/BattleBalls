@@ -465,6 +465,35 @@ Players only meet on the same `sim_version` (`sim/sim_version.gd`, a hash of
 `tools/probe.gd` print a hash over a varied fight set; the smoke test fails if
 they differ, which means something in `sim/` behaves differently per platform.
 
+## Store apps (Google Play, App Store)
+
+Device-specific things go through one provider per build
+(`game/platform/platform.gd`, `Platform.get_current()`): `web_platform.gd`,
+`android_platform.gd`, `ios_platform.gd`, and the base class (desktop and tests,
+does nothing). It covers haptics (`haptic("hit")`, fight buzzes from sim events
+in `fight_haptics.gd`, Settings > Vibration), sharing (clipboard until a share
+plugin lands), safe areas (the shell keeps its top bar and tabs clear of the
+notch and home bar), the store (`make_store`, see the shop section), and stubs
+for local notifications and native Google / Apple sign-in. Screens never test
+`OS.has_feature` for these themselves. Android's Back does what a left-edge
+swipe does (`game/ui/touch_input.gd`); twice at Home leaves the game.
+
+**Android.** `.github/workflows/android.yml` builds a signed `.aab` from main
+(and from PRs that touch the Android build) with `tools/ci/export_android.sh`:
+Godot 4.3's Gradle template, patched to target SDK 36 (Play's floor since
+31 Aug 2026), plus the Google Play Billing plugin 3.3 in
+`addons/GodotGooglePlayBilling` (Billing Library 9). Download it from the run's
+Artifacts. Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS`; with `PLAY_SERVICE_ACCOUNT_JSON` too, main uploads each
+build to the internal testing track as a draft. Without the keystore it signs
+with a throwaway key Play refuses. Package name `com.newms.battleballs`.
+Godot 4.3's Android libraries are 4 KB-aligned; Play blocks updates without
+16 KB page support from 1 Feb 2027, so the engine has to move to 4.5+ before then.
+
+**iOS.** The `iOS` preset exports an Xcode project (bundle id as Android, team
+id still empty). Needs a Mac with Xcode, the Apple developer account and the
+InAppStore plugin from godot-ios-plugins in `ios/plugins/`.
+
 ## Rules for changes
 
 - Fights must stay deterministic: no `randf()`, `Time`, engine physics or
