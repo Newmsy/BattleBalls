@@ -11,14 +11,29 @@
 extends RefCounted
 
 signal changed
+## The player picked a new name (already saved on the server).
+signal renamed(new_name: String)
 
 const PROVIDERS := ["apple", "google"]
 const SITE := "https://battleballs.vercel.app"
+const NAME_MIN := 3
+const NAME_MAX := 16
+## A light rude-word filter. The server (set_display_name in
+## supabase/migrations/*_rename.sql) has the same lists and has the last word;
+## this copy only gives instant feedback. Keep the two in step.
+const LEET_FROM := "013457$@" ## Undo the usual l33t swaps before checking.
+const LEET_TO := "oieastsa"
+const RUDE_PARTS := ["fuck", "fuk", "shit", "cunt", "nigg", "nigga", "fagg", "bitch", "whore",
+	"slut", "penis", "vagina", "porn", "pussy", "twat", "wank", "retard", "kike", "chink",
+	"hitler", "nazi", "rapist", "dildo", "cumshot", "jizz", "boob", "molest"]
+const RUDE_WORDS := ["ass", "arse", "fag", "cum", "cock", "dick", "tit", "tits", "sex", "rape",
+	"spic", "coon", "homo", "anal", "admin", "moderator", "mod", "staff", "battleballs", "official"]
 
 var backend ## game/online/backend.gd
 ## offline (no backend), loading, guest, linked, error (couldn't reach it)
 var status := "loading"
 var email := ""
+var display_name := "" ## The player's name as others see it ("" until loaded).
 var linked_providers: Array = [] ## e.g. ["email", "apple"]
 var providers_on := {} ## Server switches: {"apple": true, "google": false, "email": true}
 ## An email code in flight: {email, mode}, mode "save" (link this guest) or
@@ -75,6 +90,9 @@ func _refresh() -> void:
 		status = "guest" if bool(u.get("is_anonymous", false)) else "linked"
 	else:
 		status = "error"
+	var prof: Dictionary = await backend.rest("GET", "/rest/v1/profiles?select=display_name&id=eq." + backend.user_id())
+	if prof.ok and prof.data is Array and not prof.data.is_empty():
+		display_name = str(prof.data[0].display_name)
 	var settings: Dictionary = await backend.auth_call("GET", "settings")
 	if settings.ok and settings.data is Dictionary and settings.data.get("external") is Dictionary:
 		providers_on = settings.data.external
@@ -158,11 +176,95 @@ func use_provider(provider: String, mode: String) -> void:
 		JavaScriptBridge.eval("window.location.href = %s" % JSON.stringify(to), true)
 
 
+## Tidies a typed name the way the server does: trimmed, single spaces.
+static func clean_name(text: String) -> String:
+	var parts := text.strip_edges().split(" ", false)
+	return " ".join(parts)
+
+
+## Why a (cleaned) name can't be used, in words for the player; "" when it's fine.
+static func check_name(text: String) -> String:
+	return explain_name(name_problem(clean_name(text)))
+
+
+## The reason code the server would give: "" or too_short, too_long,
+## bad_chars, no_letters, rude.
+static func name_problem(text: String) -> String:
+	if text.length() < NAME_MIN:
+		return "too_short"
+	if text.length() > NAME_MAX:
+		return "too_long"
+	var letters := false
+	for ch in text:
+		var c := ch.unicode_at(0)
+		var letter := (c >= 65 and c <= 90) or (c >= 97 and c <= 122)
+		letters = letters or letter
+		if not (letter or (c >= 48 and c <= 57) or ch in " ._-"):
+			return "bad_chars"
+	if not letters:
+		return "no_letters"
+	var low := text.to_lower()
+	var swapped := ""
+	for ch in low:
+		var i := LEET_FROM.find(ch)
+		swapped += LEET_TO[i] if i >= 0 else ch
+	var squashed := ""
+	var words: Array = [""]
+	for ch in swapped:
+		if ch >= "a" and ch <= "z":
+			squashed += ch
+			words[-1] += ch
+		elif words[-1] != "":
+			words.append("")
+	for w in RUDE_PARTS:
+		if w in squashed:
+			return "rude"
+	for w in words:
+		if w in RUDE_WORDS:
+			return "rude"
+	return ""
+
+
+static func explain_name(problem: String) -> String:
+	match problem:
+		"": return ""
+		"too_short": return "Names need at least %d characters." % NAME_MIN
+		"too_long": return "Names can be up to %d characters." % NAME_MAX
+		"bad_chars": return "Use letters, numbers, spaces, - _ or . only."
+		"no_letters": return "Names need at least one letter."
+		"rude": return "Pick a friendlier name."
+	return "That name can't be used."
+
+
+## Saves a new name. Returns true when the server took it.
+func rename(text: String) -> bool:
+	var clean := clean_name(text)
+	var problem := check_name(clean)
+	if problem != "":
+		message = problem
+		changed.emit()
+		return false
+	busy = true
+	message = ""
+	changed.emit()
+	var res: Dictionary = await backend.call_rpc("set_display_name", {"p_name": clean})
+	if not res.ok:
+		var why := ""
+		if res.data is Dictionary:
+			why = str(res.data.get("message", "")).trim_prefix("name: ")
+		return _done(false, explain_name(why) if why in ["too_short", "too_long", "bad_chars", "no_letters", "rude"]
+			else ("Can't reach the server. Check your connection." if int(res.get("code", 0)) == 0 else "Couldn't change your name. Try again."))
+	display_name = str(res.data) if res.data is String else clean
+	renamed.emit(display_name)
+	return _done(true, "")
+
+
 func sign_out() -> void:
 	busy = true
 	changed.emit()
 	await backend.sign_out()
 	email = ""
+	display_name = ""
 	linked_providers = []
 	pending = {}
 	busy = false
@@ -181,6 +283,7 @@ func delete_account() -> bool:
 	if not res.is_empty():
 		return _done(false, "Can't reach the server. Check your connection." if int(res.get("code", 0)) == 0 else "Couldn't delete your account. Try again.")
 	email = ""
+	display_name = ""
 	linked_providers = []
 	pending = {}
 	busy = false
