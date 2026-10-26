@@ -56,12 +56,12 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 			for k in 3:
 				var y := -.95 - k * .24
 				var w := .36 - k * .11
-				ci.draw_line(P.call(-w, y), P.call(w * .9, y - .08), b, maxf(2.0, r * .07), true)
+				Dot.line(ci, P.call(-w, y), P.call(w * .9, y - .08), b, maxf(2.0, r * .07), true)
 			Dot.circle(ci, P.call(.04, -1.74), r * .13, b)
 		"crown":
 			var pts := [Vector2(-.48, -.78), Vector2(.48, -.78), Vector2(.52, -1.28), Vector2(.26, -1.04), Vector2(0, -1.36), Vector2(-.26, -1.04), Vector2(-.52, -1.28)]
 			poly.call(pts, a)
-			ci.draw_line(P.call(-.48, -.84), P.call(.48, -.84), a.darkened(.3), maxf(2.0, r * .08), true)
+			Dot.line(ci, P.call(-.48, -.84), P.call(.48, -.84), a.darkened(.3), maxf(2.0, r * .08), true)
 			for x in [-.52, 0.0, .52]:
 				Dot.circle(ci, P.call(x, -1.3 if x != 0.0 else -1.38), r * .08, b)
 			Dot.circle(ci, P.call(0, -.98), r * .07, b)
@@ -78,7 +78,7 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 			poly.call([Vector2(-.62, -.78), Vector2(.62, -.78), Vector2(.62, -.9), Vector2(-.62, -.9)], a)
 			poly.call([Vector2(-.36, -.88), Vector2(.36, -.88), Vector2(.4, -1.6), Vector2(-.4, -1.6)], a)
 			poly.call([Vector2(-.37, -1.0), Vector2(.37, -1.0), Vector2(.37, -1.12), Vector2(-.37, -1.12)], b)
-			ci.draw_line(P.call(-.26, -1.5), P.call(-.22, -1.1), Color(1, 1, 1, .25), maxf(2.0, r * .06), true)
+			Dot.line(ci, P.call(-.26, -1.5), P.call(-.22, -1.1), Color(1, 1, 1, .25), maxf(2.0, r * .06), true)
 		"beanie":
 			var dome := []
 			for i in 13:
@@ -87,7 +87,7 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 			poly.call(dome, a)
 			poly.call([Vector2(-.78, -.66), Vector2(.78, -.66), Vector2(.78, -.86), Vector2(-.78, -.86)], a.darkened(.25))
 			for x in [-.5, -.25, 0.0, .25, .5]:
-				ci.draw_line(P.call(x, -.68), P.call(x, -.84), b, maxf(1.5, r * .04), true)
+				Dot.line(ci, P.call(x, -.68), P.call(x, -.84), b, maxf(1.5, r * .04), true)
 			Dot.circle(ci, P.call(0, -1.42), r * .16, b)
 		"halo":
 			var bob := sin(t * 2.4) * .05
@@ -97,9 +97,9 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 			Dot.pline(ci, e, a, maxf(2.5, r * .09), true)
 		"visor":
 			poly.call([Vector2(-.82, -.44), Vector2(.82, -.44), Vector2(.7, -.68), Vector2(-.7, -.68)], Color(a, .8))
-			ci.draw_line(P.call(-.84, -.44), P.call(.84, -.44), b, maxf(2.0, r * .08), true)
+			Dot.line(ci, P.call(-.84, -.44), P.call(.84, -.44), b, maxf(2.0, r * .08), true)
 			var shine := fmod(t * .6, 1.6) - .8
-			ci.draw_line(P.call(shine - .08, -.46), P.call(shine + .04, -.66), Color(1, 1, 1, .6), maxf(2.0, r * .06), true)
+			Dot.line(ci, P.call(shine - .08, -.46), P.call(shine + .04, -.66), Color(1, 1, 1, .6), maxf(2.0, r * .06), true)
 		"cap":
 			var dome := []
 			for i in 13:
@@ -113,7 +113,7 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 			for k in [-1.0, 1.0]:
 				var pts := [Vector2(k * .3, -.86), Vector2(k * .62, -.7), Vector2(k * .74, -1.2), Vector2(k * .58, -1.48)]
 				poly.call(pts, a)
-				ci.draw_line(P.call(k * .5, -.86), P.call(k * .64, -1.3), Color(b, .6), maxf(1.5, r * .05), true)
+				Dot.line(ci, P.call(k * .5, -.86), P.call(k * .64, -1.3), Color(b, .6), maxf(1.5, r * .05), true)
 		_:
 			Dot.circle(ci, P.call(0, -1.0), r * .2, a)
 
@@ -144,22 +144,22 @@ static func draw_trail(ci: CanvasItem, it: Dictionary, pts: Array, r: float, t :
 					col = Color.from_hsv(RAINBOW[posmod(i / 2, RAINBOW.size())], .75, 1.0, f * .7)
 				else:
 					col = Color(a.lerp(b, f), f * .7)
-				ci.draw_line(p, q, col, r * (.15 + .35 * f), true)
+				Dot.line(ci, p, q, col, r * (.15 + .35 * f), true)
 			"pixel":
 				if i % 2 == 0:
 					var s := r * (.1 + .2 * f)
 					var g := Vector2(snappedf(p.x, s), snappedf(p.y, s))
-					ci.draw_rect(Rect2(g - Vector2(s, s) / 2.0, Vector2(s, s)), Color(a if (i / 2) % 2 == 0 else b, f))
+					Dot.rect(ci, Rect2(g - Vector2(s, s) / 2.0, Vector2(s, s)), Color(a if (i / 2) % 2 == 0 else b, f))
 			"bubbles":
 				if i % 3 == 0:
 					var rr := r * (.1 + .22 * (1.0 - f) + .04 * sin(t * 5.0 + i))
 					Dot.arc(ci, p, rr, 0, TAU, 16, Color(a, f * .8), maxf(1.5, r * .04), true)
 					Dot.circle(ci, p + Vector2(-rr * .35, -rr * .35), rr * .2, Color(b, f * .8))
 			"comet":
-				ci.draw_line(p, q, Color(a, f * .35), r * 1.2 * f, true)
-				ci.draw_line(p, q, Color(b, f * .8), r * .3 * f, true)
+				Dot.line(ci, p, q, Color(a, f * .35), r * 1.2 * f, true)
+				Dot.line(ci, p, q, Color(b, f * .8), r * .3 * f, true)
 			_:
-				ci.draw_line(p, q, Color(a, f * .6), r * .3 * f, true)
+				Dot.line(ci, p, q, Color(a, f * .6), r * .3 * f, true)
 
 
 # --- Hit sparks -------------------------------------------------------------------
@@ -179,7 +179,7 @@ static func draw_spark(ci: CanvasItem, it: Dictionary, p: Vector2, k: float, s :
 			for i in 7:
 				var off := Vector2(_rand(i, seed_ + floorf(k * 8.0)) - .5, _rand(i + 9, seed_) - .5) * 80.0 * s
 				var w := (14.0 + 30.0 * _rand(i + 3, seed_)) * s
-				ci.draw_rect(Rect2(p + off, Vector2(w, 6.0 * s)), Color(a if i % 2 == 0 else b, fade))
+				Dot.rect(ci, Rect2(p + off, Vector2(w, 6.0 * s)), Color(a if i % 2 == 0 else b, fade))
 		"pow":
 			var pts := CritterArt.star_pts(p, (34.0 + 24.0 * k) * s, (20.0 + 12.0 * k) * s, 10, .2)
 			Dot.poly(ci, pts, Color(a, fade))
@@ -238,13 +238,13 @@ static func draw_ko(ci: CanvasItem, it: Dictionary, p: Vector2, r: float, k: flo
 					var q := c + Vector2(gx, gy) * rr * .36
 					if q.distance_to(c) < rr * .9:
 						var lit := _rand(gx * 5 + gy, floorf(k * 12.0)) > .6
-						ci.draw_rect(Rect2(q - Vector2.ONE * rr * .15, Vector2.ONE * rr * .3), Color(a.lightened(.5) if lit else a, fade))
+						Dot.rect(ci, Rect2(q - Vector2.ONE * rr * .15, Vector2.ONE * rr * .3), Color(a.lightened(.5) if lit else a, fade))
 		"shatter":
 			for i in 24:
 				var dir := Vector2.from_angle(_rand(i, seed_) * TAU)
 				var q := p + dir * r * (.3 + 2.2 * k * (.5 + _rand(i + 3, seed_)))
 				var sz := r * .18 * (1.0 - k * .5)
-				ci.draw_rect(Rect2(q - Vector2.ONE * sz / 2.0, Vector2.ONE * sz), Color(a if i % 3 else b, fade))
+				Dot.rect(ci, Rect2(q - Vector2.ONE * sz / 2.0, Vector2.ONE * sz), Color(a if i % 3 else b, fade))
 		"fireworks":
 			for burst in 3:
 				var kk := clampf(k * 1.5 - burst * .25, 0.0, 1.0)
@@ -254,6 +254,6 @@ static func draw_ko(ci: CanvasItem, it: Dictionary, p: Vector2, r: float, k: flo
 				for i in 12:
 					var dir := Vector2.from_angle(i * TAU / 12.0)
 					var col := Color(a if burst % 2 == 0 else b, 1.0 - kk)
-					ci.draw_line(c + dir * r * 1.2 * kk * .6, c + dir * r * 1.2 * kk, col, maxf(2.0, r * .06), true)
+					Dot.line(ci, c + dir * r * 1.2 * kk * .6, c + dir * r * 1.2 * kk, col, maxf(2.0, r * .06), true)
 		_:
 			Dot.arc(ci, p, r * (1.0 + 2.0 * k), 0, TAU, 32, Color(a, fade), 4.0, true)

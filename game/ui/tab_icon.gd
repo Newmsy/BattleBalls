@@ -70,7 +70,7 @@ func _draw() -> void:
 			Dot.circle(self, u.call(0, .14), s * .36, _c(Color("c9782a")))
 			Dot.circle(self, u.call(-.03, .11), s * .32, _c(sack))
 			Dot.poly(self, PackedVector2Array([u.call(-.16, -.2), u.call(.16, -.2), u.call(.26, -.02), u.call(-.26, -.02)]), _c(sack))
-			draw_line(u.call(-.19, -.17), u.call(.19, -.17), _c(Color("ff5a7a")), s * .08, true)
+			Dot.line(self, u.call(-.19, -.17), u.call(.19, -.17), _c(Color("ff5a7a")), s * .08, true)
 			Dot.poly(self, CritterArt.star_pts(u.call(0, .17), s * .15, s * .065, 5), _c(Color("fff1b0")))
 			Dot.circle(self, u.call(-.18, .02), s * .05, _c(Color(1, 1, 1, .5)))
 			_sparkle(u.call(.36, -.3), s * .11)
@@ -96,15 +96,15 @@ func _draw() -> void:
 			var col := Color.WHITE if active else ACCENT
 			Dot.poly(self, tri, col)
 			tri.append(tri[0])
-			draw_polyline(tri, col, s * .05, true) # Softens the corners.
+			Dot.pline(self, tri, col, s * .05, true) # Softens the corners.
 		"fuse":
 			_glow(u.call(0, .04), s * .54, Color("ff5ad6"))
 			var pink := Color("ff5ad6")
 			var cyan := Color("39c6ff")
 			for k in 2:
 				var y := .0 + k * .16
-				draw_line(u.call(-.5, y - .02), u.call(-.4, y - .02), _c(Color(pink, .7)), s * .05, true)
-				draw_line(u.call(.4, y - .02), u.call(.5, y - .02), _c(Color(cyan, .7)), s * .05, true)
+				Dot.line(self, u.call(-.5, y - .02), u.call(-.4, y - .02), _c(Color(pink, .7)), s * .05, true)
+				Dot.line(self, u.call(.4, y - .02), u.call(.5, y - .02), _c(Color(cyan, .7)), s * .05, true)
 			Dot.circle(self, u.call(-.17, .06), s * .25, _c(Color("c23a9e")))
 			Dot.circle(self, u.call(-.19, .04), s * .21, _c(pink))
 			Dot.circle(self, u.call(.17, .06), s * .25, _c(Color("1a7fc4")))
@@ -131,8 +131,8 @@ func _draw() -> void:
 			Dot.poly(self, lit, _c(shell))
 			for p in [Vector2(-.12, -.18), Vector2(.12, -.06), Vector2(-.04, .2), Vector2(.16, .24), Vector2(-.18, .1), Vector2(.05, -.28)]:
 				Dot.circle(self, u.call(p.x, p.y), s * .025, _c(Color(shell.darkened(.45), .55)))
-			draw_polyline(PackedVector2Array([u.call(-.04, -.36), u.call(.03, -.25), u.call(-.03, -.17), u.call(.05, -.08)]), _c(shell.darkened(.5)), s * .025, true)
+			Dot.pline(self, PackedVector2Array([u.call(-.04, -.36), u.call(.03, -.25), u.call(-.03, -.17), u.call(.05, -.08)]), _c(shell.darkened(.5)), s * .025, true)
 			egg.append(egg[0])
-			draw_polyline(egg, _c(Color("a46be0")), s * .035, true)
+			Dot.pline(self, egg, _c(Color("a46be0")), s * .035, true)
 			Dot.circle(self, u.call(-.13, -.2), s * .06, _c(Color(1, 1, 1, .2)))
 			_sparkle(u.call(.36, -.3), s * .09)
