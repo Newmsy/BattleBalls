@@ -18,8 +18,13 @@ const BAND_GROWTH := 0.05 ## ...widening by 5% for every BAND_STEP seconds waite
 const BAND_STEP := 5.0
 const GHOST_AFTER := 15.0 ## No match by then: the phone fights a ghost instead.
 const AIM_SECONDS := 12.0 ## Aim window; a missing angle comes from the seed.
+## Friends meet in a room (a key both phones send): paired whatever their
+## power, never given a ghost, and told after ROOM_WAIT that nobody came.
+const ROOM_WAIT := 90.0
+const ROOM_CHARS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-"
+const ROOM_MAX := 40
 
-## player_id -> {mode, slots, rating, since}
+## player_id -> {mode, slots, rating, since, room}
 var queue := {}
 ## match_id -> {players: [a, b], seed, sides: [slots, slots], aims: [angle|null, angle|null], deadline, result, hashes}
 var matches := {}
@@ -38,7 +43,7 @@ func _init(seeds: Callable) -> void:
 	_seeds = seeds
 
 
-func join(pid: String, mode: String, raw_slots: Array, now: float) -> Array:
+func join(pid: String, mode: String, raw_slots: Array, now: float, room := "") -> Array:
 	var slots: Array = LiveMatch.clean_slots(raw_slots, MODES.get(mode, 0)) if MODES.has(mode) else []
 	if slots.is_empty():
 		return [[pid, {"t": "error", "code": "bad_setup"}]]
@@ -46,8 +51,18 @@ func join(pid: String, mode: String, raw_slots: Array, now: float) -> Array:
 	var rating := 0
 	for s in slots:
 		rating += Lineup.rating(s)
-	queue[pid] = {"mode": mode, "slots": slots, "rating": rating, "since": now}
-	return [[pid, {"t": "queued", "rating": rating}]]
+	room = clean_room(room)
+	queue[pid] = {"mode": mode, "slots": slots, "rating": rating, "since": now, "room": room}
+	return [[pid, {"t": "queued", "rating": rating, "room": room}]]
+
+
+## Upper-case letters, digits, ":" and "-" only, at most ROOM_MAX long.
+static func clean_room(room: String) -> String:
+	var out := ""
+	for c in room.to_upper().left(ROOM_MAX):
+		if ROOM_CHARS.contains(c):
+			out += c
+	return out
 
 
 ## A player left (closed the socket or cancelled). Mid-aim, their angle will
@@ -99,8 +114,11 @@ func tick(now: float) -> Array:
 		for j in range(i + 1, ids.size()):
 			var b: String = ids[j]
 			var qb: Dictionary = queue[b]
-			if taken.has(b) or qb.mode != qa.mode:
+			if taken.has(b) or qb.mode != qa.mode or qb.room != qa.room:
 				continue
+			if qa.room != "": # Friends: power doesn't matter.
+				best = b
+				break
 			var gap := absf(qb.rating - qa.rating) / float(maxi(1, mini(qa.rating, qb.rating)))
 			if gap <= band and gap < best_gap:
 				best = b
@@ -109,6 +127,10 @@ func tick(now: float) -> Array:
 			taken[a] = true
 			taken[best] = true
 			out.append_array(_start(a, best, now))
+		elif qa.room != "":
+			if now - qa.since >= ROOM_WAIT:
+				taken[a] = true
+				out.append([a, {"t": "room_timeout", "room": qa.room}])
 		elif now - qa.since >= GHOST_AFTER:
 			taken[a] = true
 			out.append([a, {"t": "ghost", "rating": qa.rating}])

@@ -190,7 +190,7 @@ try {
   // 1c. Live Quick fight: two browsers meet on a local live server
   // (server/live_server.gd, dev sign-in), aim, and each replays the server's
   // fight. Both must agree with the server and see opposite results.
-  if (mine(40)) {
+  if (mine(70)) {
     const godot = process.env.GODOT ?? path.join(os.homedir(), "godot", "godot");
     const port = 18090;
     const live = execFile(godot, ["--headless", "--script", "res://server/live_server.gd"],
@@ -207,6 +207,25 @@ try {
       if (side(ends[0]) === side(ends[1])) errors.push(`both live players got the same side: ${ends.join(" | ")}`);
       await a.page.close();
       await b.page.close();
+      // Friends with a live code: one makes it, the other types it in, and
+      // they meet in their own room, away from the open queue.
+      const rq = `&demo=friends&offline=1&tutorial=0&speed=4&live=ws://127.0.0.1:${port}`;
+      const host = await openGame("?f=RBNW-XYZ2&p1=vampire" + rq);
+      const guest = await openGame("?f=RBNW-XYZ2&p1=laser" + rq);
+      for (const g of [host, guest]) await waitForLog(g.logs, "UI_SCREEN friends", 60000);
+      await tapUi(host.page, host.logs, "live_code", "sheet");
+      await tapUi(host.page, host.logs, "live_make");
+      const code = (await waitForLog(host.logs, "LIVE_ROOM ", 10000)).split(":").pop();
+      await waitForLog(host.logs, "LIVE_QUEUED", 15000);
+      await host.page.screenshot({ path: path.join(shots, "1d-live-code-wait.png") });
+      guest.page.once("dialog", (d) => d.accept(code));
+      await tapUi(guest.page, guest.logs, "live_code", "sheet");
+      await tapUi(guest.page, guest.logs, "live_join");
+      const roomEnds = await Promise.all([host, guest].map(({ logs }) => waitForLog(logs, "LIVE_END ", 150000)));
+      console.log("live code fight:", code, roomEnds.join(" | "));
+      for (const e of roomEnds) if (!e.startsWith("LIVE_END ok")) errors.push(`live code fight differs from the server's: ${e}`);
+      await host.page.close();
+      await guest.page.close();
     } finally {
       live.kill();
     }
