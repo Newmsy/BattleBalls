@@ -3,6 +3,7 @@
 ## Screens live in game/ui/screens/ and are rebuilt each time they're shown.
 extends Control
 
+const Platform := preload("res://game/platform/platform.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const TabIcon := preload("res://game/ui/tab_icon.gd")
@@ -1167,6 +1168,11 @@ func _fit_wide() -> void:
 		_top_margin.add_theme_constant_override("margin_" + side, 22 + int(inset))
 	_tab_row.offset_left = inset
 	_tab_row.offset_right = -inset
+	# Keep the top bar out from under the notch and the tabs above the home bar.
+	var safe: Dictionary = Platform.get_current().safe_insets(get_viewport())
+	_top_margin.add_theme_constant_override("margin_top", int(TOP_PAD + safe.top))
+	_tabs.custom_minimum_size.y = TAB_HEIGHT + safe.bottom
+	_tab_row.offset_bottom = -safe.bottom
 
 
 # --- Tab bar -------------------------------------------------------------------

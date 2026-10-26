@@ -5,7 +5,7 @@ extends RefCounted
 const CRITTER := {
 	"no": 5,
 	"name": "Optic",
-	"type": "Laser",
+	"type": "Robot eye",
 	"rarity": "rare",
 	"rarity_power": 0.861, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"tier_power": [1.06, 1.06, 1.06, 1.10, 1.00], ## Power per tier vs its own rarity (tools/round_robin.gd --same).

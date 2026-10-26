@@ -4,6 +4,7 @@
 ## Rules live in meta/campaign.gd; this only shows them.
 extends RefCounted
 
+const Matchup := preload("res://game/ui/matchup.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Motion := preload("res://game/ui/motion.gd")
 
@@ -170,7 +171,8 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String, zone_team: Ar
 		var side: float = (260.0 if boss else 220.0) / sqrt(float(foes.size()))
 		for id in foes:
 			faces.add_child(_face(id, enemy_tier(st), side))
-		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
+		var odds := Matchup.rate(mine, rec, FamilyEdge.team(zone_team if foes.size() > 1 else [fighter], foes))
+		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Matchup.chip(odds), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
 			BoxContainer.ALIGNMENT_CENTER)
 		var parts := [vs]
 		var edge_row := _edge_row(foes, zone_team if foes.size() > 1 else [fighter])
@@ -321,6 +323,16 @@ static func _fit(l: Label) -> Label:
 	return l
 
 
+## A drop's name under its picture: two lines before anything is cut
+## ("1 Summon Egg" read as "1 Summon E...").
+static func _drop_name(text: String) -> Label:
+	var l := Kit.label(text, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.custom_minimum_size.x = 60
+	l.max_lines_visible = 2
+	return l
+
+
 ## The tier a stage's foes fight at (Zones.FOE_TIERS, by chapter).
 static func enemy_tier(st: Dictionary) -> int:
 	return st.get("tier", 1)
@@ -425,14 +437,14 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 			drops.add_theme_constant_override("v_separation", 14)
 			for id in r.drops:
 				var c := Roster.get_critter(id)
-				var cell := Kit.vbox(4, [CritterIcon.make(id, 1, 96), _fit(Kit.label(c.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
+				var cell := Kit.vbox(4, [CritterIcon.make(id, 1, 96), _drop_name(c.name)])
 				cell.custom_minimum_size.x = 150
 				var card := Kit.panel(cell, Kit.box(Kit.PANEL2, Kit.LINE, 24, 2, 10))
 				drops.add_child(card)
 				drop_cards.append([card, Roster.RARITY_COLORS.get(c.rarity) if c.rarity in ["rare", "epic", "legendary"] else null])
 			if r.get("orbs", 0) > 0:
 				var orb_cell := Kit.vbox(4, [Kit.hbox(0, [Glyph.make("orb", 84)], BoxContainer.ALIGNMENT_CENTER),
-					_fit(Kit.label("%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"], 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
+					_drop_name("%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"])])
 				orb_cell.custom_minimum_size.x = 150
 				var orb_card := Kit.panel(orb_cell, Kit.box(Kit.PANEL2, Color("c77dff"), 24, 2, 10))
 				drops.add_child(orb_card)
@@ -440,7 +452,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 			for g in r.get("gear", []):
 				var col := BagScreen.tier_color(g.tier)
 				var cell := Kit.vbox(4, [Kit.hbox(0, [GearArt.piece(g.type, g.tier, 80, col)], BoxContainer.ALIGNMENT_CENTER),
-					Kit.hbox(0, [Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER), _fit(Kit.label(g.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))])
+					Kit.hbox(0, [Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER), _drop_name(g.name)])
 				cell.custom_minimum_size.x = 150
 				var gear_card := Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10))
 				drops.add_child(gear_card)

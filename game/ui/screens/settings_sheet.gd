@@ -8,6 +8,7 @@ const A11y := preload("res://game/a11y.gd")
 const Dev := preload("res://game/dev.gd")
 const FightSpeed := preload("res://game/fight_speed.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const Platform := preload("res://game/platform/platform.gd")
 
 const OPTIONS := [
 	["reduced_motion", "Reduced motion", "No screen shake, softer hit flashes, no finisher zoom."],
@@ -32,6 +33,8 @@ static func build(shell) -> Control:
 		v.add_child(_sound_row(shell))
 	for o in OPTIONS:
 		v.add_child(_row(shell, o[0], o[1], o[2]))
+	if Platform.get_current().can_vibrate():
+		v.add_child(_vibration_row(shell))
 	v.add_child(_stats_row(shell))
 	v.add_child(_links(shell))
 	if Dev.tools_enabled():
@@ -89,6 +92,23 @@ static func _stats_row(shell) -> Control:
 	var desc := Kit.label("Anonymous. Helps balance critters.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	desc.custom_minimum_size.x = 440
 	var words := Kit.vbox(4, [Kit.label("Play stats", 30), desc])
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return Kit.hbox(16, [words, sw])
+
+
+## Vibration on hits and KOs (game/platform/fight_haptics.gd). Only shown on
+## devices that can buzz.
+static func _vibration_row(shell) -> Control:
+	var on := Platform.haptics_enabled()
+	var flip := func():
+		Platform.set_haptics_enabled(not on)
+		Platform.get_current().haptic("tap")
+		open(shell)
+	var sw := Kit.button("On" if on else "Off", flip, "go" if on else "ghost", 26, 72)
+	sw.custom_minimum_size.x = 132
+	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
+	shell.mark("haptics_toggle", sw)
+	var words := Kit.vbox(4, [Kit.label("Vibration", 30)])
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return Kit.hbox(16, [words, sw])
 

@@ -5,7 +5,7 @@ extends RefCounted
 const CRITTER := {
 	"no": 11,
 	"name": "Orbit",
-	"type": "Gravity",
+	"type": "Planet",
 	"rarity": "epic",
 	"tier_power": [1.09, 1.05, 1.00, 1.02, 1.04], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Disruptor",

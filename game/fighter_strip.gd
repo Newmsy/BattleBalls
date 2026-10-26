@@ -111,8 +111,10 @@ func _describe(sim, i: int) -> Dictionary:
 		if card.text == "":
 			card.text = AbilityText.full(id)
 	else:
-		card.line = "Boss"
+		# Tutorial foes aren't critters or bosses: practice balls in Plain's art.
+		card.line = "Practice" if def.get("tutorial", false) else "Boss"
 		card.text = _boss_line(def)
+		card.art = str(def.get("id", id))
 	for e in def.get("effects", []):
 		if e.get("on") == "every":
 			var secs: float = def.get(e.secs, 0.0) if e.secs is String else float(e.secs)
@@ -171,7 +173,7 @@ func _input(event: InputEvent) -> void:
 		return
 	for k in _n:
 		var card: Dictionary = _card[k]
-		if not card.is_empty() and not card.boss and not (foe_only and k % 2 == 0) and _rect(k).has_point(at):
+		if not card.is_empty() and not card.boss and CritterDb.has(card.id) and not (foe_only and k % 2 == 0) and _rect(k).has_point(at):
 			CritterPopup.open(self, card.id, card.tier)
 			get_viewport().set_input_as_handled()
 			return
@@ -260,8 +262,8 @@ func _draw_face(k: int, face: Vector2, fr: float) -> void:
 	var col: Color = TEAM_COLORS[k % 2]
 	if card.boss:
 		BossArt.draw(self, card.id, face, fr * 0.9, {})
-	elif CritterDb.has(card.id):
-		CritterArt.draw_critter(self, card.id, face, fr * 0.85, {"tier": card.tier})
+	elif CritterDb.has(card.get("art", card.id)):
+		CritterArt.draw_critter(self, card.get("art", card.id), face, fr * 0.85, {"tier": card.tier})
 	else:
 		Dot.circle(self, face, fr * 0.85, card.color)
 	Dot.arc(self, face, fr + 5.0, 0.0, TAU, 40, Color(col, 0.2), 4.0, true)

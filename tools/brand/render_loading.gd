@@ -1,10 +1,9 @@
-## Renders the loading screen (game/ui/splash_art.gd) to a PNG. Since
-## 2026-10-24 game/brand/loading.png is the dusk arena from
-## tools/brand/loading_scenes.mjs, so this only writes previews and clips of the
-## live intro unless you pick a code-drawn look to replace it. Needs a real renderer, not --headless:
+## Renders a preview of the live loading screen (game/ui/splash_art.gd: the
+## painting from tools/brand/loading_painted.mjs plus its moving lights) to a
+## PNG, to check the ART spots line up. Needs a real renderer, not --headless:
 ##   xvfb-run -s "-screen 0 1280x1800x24" godot --rendering-driver opengl3 \
 ##     --resolution 720x1560 --script res://tools/brand/render_loading.gd
-## Optional: -- out=<path> w=<px> h=<px> t=<seconds into the loop> look=<art|sunset|meadow|sky>
+## -- out=<path> (required) w=<px> h=<px> t=<seconds into the loop>
 ## frames=<n> also writes n frames at 30 fps to <out>_000.png... (for a preview clip).
 extends SceneTree
 
@@ -24,18 +23,17 @@ func _initialize() -> void:
 	root.add_child(vp)
 	var art = SplashArt.new()
 	art.set_process(false)
-	art.look = args.get("look", art.look)
 	art._t = float(args.get("t", "1.3"))
 	vp.add_child(art)
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	await process_frame
 	await process_frame
 	await RenderingServer.frame_post_draw
-	if art.look == "art" and not args.has("out"):
+	if not args.has("out"):
 		push_error("loading.png is the painted art itself: pass out=<path> for a preview")
 		quit(1)
 		return
-	var out: String = args.get("out", "res://game/brand/loading.png")
+	var out: String = args["out"]
 	for i in int(args.get("frames", "0")):
 		art._t += 1.0 / 30.0
 		art._live.queue_redraw()

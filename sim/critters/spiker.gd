@@ -5,7 +5,7 @@ extends RefCounted
 const CRITTER := {
 	"no": 3,
 	"name": "Prickles",
-	"type": "Spiker",
+	"type": "Cactus",
 	"rarity": "common",
 	"tier_power": [1.09, 1.09, 1.08, 1.06, 1.05], ## Power per tier vs its own rarity (tools/round_robin.gd --same).
 	"role": "Bruiser",

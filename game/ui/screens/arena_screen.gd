@@ -3,6 +3,7 @@
 ## relay fight scene (game/ghost_arena.gd).
 extends RefCounted
 
+const Matchup := preload("res://game/ui/matchup.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
@@ -35,6 +36,11 @@ static func build(shell, params: Dictionary) -> Control:
 	if abandoned != 0:
 		shell.toast.call_deferred("Unfinished attack: counted as a loss (%d)" % abandoned)
 	var owned := owned_critters(shell.profile)
+	if store.is_new and not owned.is_empty():
+		# A first visit starts on your strongest three, attack and defence.
+		store.fill_best(owned, "defence")
+		store.fill_best(owned)
+		store.is_new = false
 	store.fit_to(owned)
 	var raids: Array = store.run_raids(shell.profile)
 	if not raids.is_empty():
@@ -250,7 +256,9 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 	var mark := FamilyEdge.badge(edge, 20)
 	mark.custom_minimum_size.y = 20 # Holds the line when even, so faces line up row to row.
 	var foe_side := Kit.vbox(0, [mark, faces])
-	var row := Kit.hbox(8, [info, foe_side, Kit.glyph("trophy", 22, Glyph.GOLD), stakes], BoxContainer.ALIGNMENT_CENTER)
+	var odds := Matchup.chip(Matchup.rate(store.power(shell.profile), ArenaTeams.rating(bot), edge), 16)
+	odds.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var row := Kit.hbox(8, [info, odds, foe_side, Kit.glyph("trophy", 22, Glyph.GOLD), stakes], BoxContainer.ALIGNMENT_CENTER)
 	var b := Kit.card_button(row, _attack.bind(shell, store, offer), Color(fam_col, .6), Kit.PANEL, 22, 10)
 	if fam != "" and ResourceLoader.exists(Painted.ART % ("families/" + fam)):
 		# The stage sits behind the faces; the words' side is shaded so they read.

@@ -20,6 +20,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
+const CritterPopup := preload("res://game/ui/critter_popup.gd")
 const BoonIcon := preload("res://game/ui/boon_icon.gd")
 const RelicIcon := preload("res://game/ui/relic_icon.gd")
 const Relics := preload("res://sim/relics.gd")
@@ -36,7 +37,7 @@ const BounceChest := preload("res://meta/bounce_chest.gd")
 const ChestArt := preload("res://game/ui/chest_art.gd")
 const ART := "res://game/bounce_run/art/%s.png"
 
-enum State { DRAFT, START_BOONS, START_RELIC, MAP, FLOOR, AIM, FIGHT, RESULT, BOON, EVENT, SHOP, REST, OVER }
+enum State { DRAFT, START_BOONS, MAP, FLOOR, AIM, FIGHT, RESULT, BOON, EVENT, SHOP, REST, OVER }
 
 const SAVE_PATH := "user://bounce_run.cfg"
 const SHARE_URL := "https://battleballs.vercel.app/?mode=bouncerun"
@@ -58,6 +59,7 @@ var setup: Dictionary
 var run: Dictionary ## Empty until the draft is done.
 var picks: Array = [] ## Draft selection in progress.
 var start_picks: Array = [] ## Starting boons picked, in progress.
+var start_relic := "" ## The starting relic picked, in progress.
 var slot := 0 ## Pick slot fighting this floor.
 var aim := MatchSim.AIM_AT_CENTRE[0]
 var sim: MatchSim
@@ -77,6 +79,7 @@ var arena: ArenaView
 var arena_clip: Control ## Holds the arena; clips it while the finisher cam zooms.
 var finisher: FinisherCam
 var _hold := -1.0 ## Real seconds on the KO face so far, or -1 before the blow.
+var _zooming := false ## The finisher cam has started zooming this fight.
 var _skipped := false ## Skip also skips the finisher.
 var sfx: Sfx
 var board: BounceBoard
@@ -110,6 +113,7 @@ func _ready() -> void:
 	setup = BounceRun.generate(int(run.get("day", day)), int(run.seed)) if not run.is_empty() else _fresh_setup()
 	arena_clip = Control.new()
 	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arena_clip.clip_contents = true # Big ability effects stay inside the arena, off the cards.
 	add_child(arena_clip)
 	arena = ArenaView.new()
 	arena_clip.add_child(arena)
@@ -179,10 +183,10 @@ func _advance_fight(delta: float, speed: float) -> bool:
 		var t := sim.tick - 1.0 + arena.render_alpha
 		var z := finisher.zoom(t, maxf(0.0, _hold))
 		var target := finisher.focus(arena.ball_pos(sim.balls[finisher.loser]), arena.ball_pos(sim.balls[finisher.winner]), z)
-		var start := not arena_clip.clip_contents
+		var start := not _zooming
 		arena.set_camera(z, target if start else FinisherCam.follow(arena.cam_focus, target, delta))
 		arena.finisher_amount = clampf(finisher.progress(t) / 0.25, 0.0, 1.0)
-		arena_clip.clip_contents = true
+		_zooming = true
 	arena.advance_effects(delta * rate)
 	return _hold >= FinisherCam.HOLD
 
@@ -191,7 +195,7 @@ func _advance_fight(delta: float, speed: float) -> bool:
 func _unzoom() -> void:
 	arena.finisher_amount = 0.0
 	arena.set_camera(1.0, Vector2.ONE * MatchSim.ARENA_SIZE / 2.0)
-	arena_clip.clip_contents = false
+	_zooming = false
 
 
 ## Puts the arena (and its clip) at `at`, `side` pixels square.
@@ -332,11 +336,12 @@ func _swap_child(box: Control, index: int, c: Control) -> void:
 	box.move_child(c, index)
 
 
+## The run's starting picks on one screen: 3 boons, then a relic.
 func _show_start_boons() -> void:
 	state = State.START_BOONS
 	sfx.on_menu()
 	_board_mode()
-	sub_label.text = "Pick 3 boons"
+	sub_label.text = "Pick 3 boons and a relic"
 	var grid := _grid()
 	for i in setup.start_offer.size():
 		var id: String = setup.start_offer[i]
@@ -349,14 +354,29 @@ func _show_start_boons() -> void:
 		_style_start_boon(card, id in start_picks)
 		grid.add_child(card)
 		_mark("br_sboon_%d" % i, card)
+	var trio_ids: Array = picks.map(func(i): return setup.cards[i].critter)
 	var trio := Kit.hbox(12, [Kit.caption("Your trio"),
-		FighterTag.named_row(picks.map(func(i): return setup.cards[i].critter), 44, 22)], BoxContainer.ALIGNMENT_CENTER)
-	_set_page([_art("banner_draft"), trio, grid, Kit.hbox(14, [_start_button(), Kit.button("Back", _show_draft, "ghost", 26, 80)])], "br_start_boons")
+		FighterTag.named_row(trio_ids, 44, 22)], BoxContainer.ALIGNMENT_CENTER)
+	var items: Array = [trio, grid]
+	if not setup.relic_offer.is_empty():
+		var relics := Kit.vbox(8)
+		for i in setup.relic_offer.size():
+			var id: String = setup.relic_offer[i]
+			var card := _relic_card(id, _pick_start_relic.bind(id), trio_ids, true)
+			_style_start_relic(card, id)
+			relics.add_child(card)
+			_mark("br_srelic_%d" % i, card)
+		items.append_array([Kit.caption("Relic"), relics])
+	items.append(Kit.hbox(14, [_start_button(), Kit.button("Back", _show_draft, "ghost", 26, 80)]))
+	_set_page(items, "br_start_boons")
 
 
 func _start_button() -> Button:
-	var start := Kit.button("Next (%d/3)" % start_picks.size(), _show_start_relic, "go" if start_picks.size() == BounceRun.START_BOONS else "ghost", 32)
-	start.disabled = start_picks.size() != BounceRun.START_BOONS
+	var need_relic: bool = not setup.relic_offer.is_empty()
+	var ready: bool = start_picks.size() == BounceRun.START_BOONS and (start_relic != "" or not need_relic)
+	var start := Kit.button("Start (%d/%d)" % [start_picks.size() + (1 if start_relic != "" else 0), BounceRun.START_BOONS + (1 if need_relic else 0)],
+		func(): _start_run(start_relic), "go" if ready else "ghost", 32)
+	start.disabled = not ready
 	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_start", start)
 	return start
@@ -369,8 +389,16 @@ func _style_start_boon(card: Button, picked: bool) -> void:
 	card.get_meta("text").add_theme_color_override("font_color", Kit.FG if picked else Kit.MUTED)
 
 
-## Restyles the picked cards in place, as the draft does: the painting above
-## them keeps its size.
+## A starting relic's rim: its colour, thick once picked.
+func _style_start_relic(card: Button, id: String) -> void:
+	var picked := id == start_relic
+	var col := RelicIcon.color_of(id)
+	var st := Kit.box(Color("241f55") if picked else Kit.PANEL, col if picked else Color(col, .45), 24, 5 if picked else 2, 10)
+	for k in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+		card.add_theme_stylebox_override(k, st)
+
+
+## Restyles the picked cards in place, as the draft does, so nothing jumps.
 func _toggle_start_boon(i: int) -> void:
 	var id: String = setup.start_offer[i]
 	if id in start_picks:
@@ -378,28 +406,25 @@ func _toggle_start_boon(i: int) -> void:
 	elif start_picks.size() < BounceRun.START_BOONS:
 		start_picks.append(id)
 	sfx.play("wall")
-	var grid: Control = page.get_child(2)
+	_restyle_start()
+
+
+func _pick_start_relic(id: String) -> void:
+	start_relic = "" if start_relic == id else id
+	sfx.play("wall")
+	_restyle_start()
+
+
+func _restyle_start() -> void:
+	var grid: Control = page.get_child(1)
 	for k in grid.get_child_count():
 		_style_start_boon(grid.get_child(k), setup.start_offer[k] in start_picks)
-	_swap_child(page.get_child(3), 0, _start_button())
+	if not setup.relic_offer.is_empty():
+		var relics: Control = page.get_child(3)
+		for k in relics.get_child_count():
+			_style_start_relic(relics.get_child(k), setup.relic_offer[k])
+	_swap_child(page.get_child(page.get_child_count() - 1), 0, _start_button())
 	_report.call_deferred("br_start_boons")
-
-
-## The starting relic: tap one of setup.relic_offer to start the run.
-func _show_start_relic() -> void:
-	state = State.START_RELIC
-	sfx.on_menu()
-	_board_mode()
-	sub_label.text = "Pick a relic"
-	var items: Array = [_art("banner_draft")]
-	var trio: Array = picks.map(func(i): return setup.cards[i].critter)
-	for i in setup.relic_offer.size():
-		var id: String = setup.relic_offer[i]
-		var card := _relic_card(id, _start_run.bind(id), trio)
-		items.append(card)
-		_mark("br_srelic_%d" % i, card)
-	items.append(Kit.button("Back", _show_start_boons, "ghost", 26, 80))
-	_set_page(items, "br_start_relic")
 
 
 func _start_run(relic := "") -> void:
@@ -411,13 +436,14 @@ func _start_run(relic := "") -> void:
 
 ## A relic as a tappable card: badge, name and what it does, and a note when
 ## one of `trio` already has its ability.
-func _relic_card(id: String, on_press: Callable, trio: Array) -> Button:
+func _relic_card(id: String, on_press: Callable, trio: Array, compact := false) -> Button:
 	var col := RelicIcon.color_of(id)
-	var text := Kit.vbox(4, [Kit.label(Relics.name_of(id), 30, col), Kit.label(Relics.text_of(id), 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	var text := Kit.vbox(2 if compact else 4, [Kit.label(Relics.name_of(id), 24 if compact else 30, col),
+		Kit.label(Relics.text_of(id), 19 if compact else 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
 	if id in trio:
 		text.add_child(Kit.label(Relics.OWN_TEXT % _name(id), 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var card := Kit.card_button(Kit.hbox(14, [RelicIcon.make(id, 96), text]), on_press, col, Kit.PANEL, 28, 16)
+	var card := Kit.card_button(Kit.hbox(12 if compact else 14, [RelicIcon.make(id, 60 if compact else 96), text]), on_press, col, Kit.PANEL, 24 if compact else 28, 10 if compact else 16)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return card
 
@@ -506,7 +532,7 @@ func _launch() -> void:
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
 	arena.reset_camera()
-	arena_clip.clip_contents = false
+	_zooming = false
 	finisher = FinisherCam.plan(config)
 	_accumulator = 0.0
 	_hold = -1.0
@@ -778,6 +804,7 @@ func _new_run() -> void:
 	run = {}
 	picks = []
 	start_picks = []
+	start_relic = ""
 	_board_rows = null
 	_board_note = ""
 	_show_draft()
@@ -1081,7 +1108,7 @@ func _critter_card(critter: String, on_press: Callable, pick_no := -1, out := fa
 	if stacked: # A pick number never widens its column of the grid.
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var text := Kit.vbox(2, [name_label, chip])
-	text.add_child(Kit.label("OUT", 22, PINK, align) if out else _ability_label(critter, align))
+	text.add_child(Kit.label("OUT", 22, PINK, align) if out else _ability_label(critter, align, tier))
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var icon := CritterIcon.make(critter, tier, 104 if stacked else 80)
 	if out:
@@ -1097,6 +1124,16 @@ func _critter_card(critter: String, on_press: Callable, pick_no := -1, out := fa
 		body = Kit.hbox(12, [icon, text])
 	var card := Kit.card_button(body, on_press, Kit.LINE, Kit.PANEL, 28, 14)
 	card.set_meta("title", text.get_child(0))
+	# The card says the ability in one line; its numbers are behind the "i".
+	var info := Kit.card_button(Glyph.make("info", 22, Kit.MUTED), func(): CritterPopup.open(self, critter, tier), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 6)
+	info.anchor_left = 1.0
+	info.anchor_right = 1.0
+	info.offset_left = -50
+	info.offset_right = -6
+	info.offset_top = 6
+	info.offset_bottom = 50
+	card.add_child(info)
+	_mark("br_info_" + critter, info)
 	_style_card(card, critter, picked, out, stacked)
 	return card
 
@@ -1132,8 +1169,11 @@ func _foe_hp_frac() -> float:
 	return clampf(probe.balls[1].hp / probe.balls[1].max_hp, 0.0, 1.0)
 
 
-func _ability_label(critter: String, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
-	var what := Kit.label(_ability_text(critter), 19, ABILITY, align, true)
+## The ability as the fight cards say it, one line at `tier` (the full text
+## and numbers are in the critter popup).
+func _ability_label(critter: String, align := HORIZONTAL_ALIGNMENT_LEFT, tier := 1) -> Label:
+	var line := AbilityText.card(critter, tier)
+	var what := Kit.label(line if line != "" else _ability_text(critter), 19, ABILITY, align, true)
 	what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return what
 

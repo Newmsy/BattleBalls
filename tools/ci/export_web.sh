@@ -13,30 +13,7 @@ if [ -n "${BUILD_SHA:-}" ]; then echo "$BUILD_SHA" | cut -c1-7 > build_info.txt;
 if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
   echo "::notice::SUPABASE_URL / SUPABASE_ANON_KEY secrets not set: this build plays offline."
 else
-  python3 - <<'PY'
-import base64, json, os, re, sys
-# The dashboard's "API URL" can carry /rest/v1; the game wants the project root.
-url = re.sub(r"/(rest|auth)/v1/?$", "", os.environ["SUPABASE_URL"].strip().rstrip("/"))
-key = os.environ["SUPABASE_ANON_KEY"].strip()
-def fail(msg):
-    print(f"::error::{msg}")
-    sys.exit(1)
-if not url.startswith("https://"):
-    fail("SUPABASE_URL should look like https://<project>.supabase.co")
-if key.startswith("sb_secret_"):
-    fail("SUPABASE_ANON_KEY is a secret key. Use the publishable (or legacy anon) key; never ship a secret key.")
-if not key.startswith("sb_publishable_"):
-    parts = key.split(".")
-    try:
-        claims = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
-    except Exception:
-        fail("SUPABASE_ANON_KEY is not a Supabase publishable or anon key")
-    if claims.get("role") != "anon":
-        fail(f"SUPABASE_ANON_KEY has role {claims.get('role')!r}, expected 'anon'. Never ship the service_role key.")
-with open("backend_config.json", "w") as f:
-    json.dump({"url": url, "anon_key": key}, f)
-print("Backend config written for", url)
-PY
+  python3 tools/ci/backend_config.py
 fi
 
 timeout 180 ~/godot/godot --headless --import || true
@@ -65,3 +42,5 @@ PY
 cp liveops/liveops.json build/web/liveops.json
 # Privacy policy, terms and support pages (linked from Settings and the store listings).
 cp site/*.html site/*.css build/web/
+# The loading picture the page shows while the game downloads (game/web/shell.html).
+cp site/loading.webp build/web/

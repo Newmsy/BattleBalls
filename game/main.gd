@@ -49,6 +49,8 @@ const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Zones := preload("res://meta/zones.gd")
 const CampaignScreen := preload("res://game/ui/screens/campaign_screen.gd")
+const Matchup := preload("res://game/ui/matchup.gd")
+const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const Account := preload("res://game/online/account.gd")
@@ -65,6 +67,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
+const Platform := preload("res://game/platform/platform.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const FightSpeed := preload("res://game/fight_speed.gd")
@@ -143,6 +146,7 @@ var _last_logged_fight := "" ## Report code of the last replay sent to analytics
 var _accumulator := 0.0
 var finisher: FinisherCam
 var _hold := -1.0 ## Real seconds since the finishing blow, or -1 before it.
+var _zooming := false ## The finisher cam has started zooming this fight.
 var _skipped := false ## "Skip to end" also skips the finisher.
 var aimer := FightAim.new() ## Tap the arena to aim, let go to launch.
 var _rng := RandomNumberGenerator.new() ## UI-only randomness (new seeds), never used by the sim.
@@ -293,6 +297,7 @@ func _ready() -> void:
 	_load_profile()
 	arena_clip = Control.new()
 	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arena_clip.clip_contents = true # Big ability effects stay inside the arena, off the cards.
 	add_child(arena_clip)
 	arena = ArenaView.new()
 	arena_clip.add_child(arena)
@@ -688,10 +693,10 @@ func _advance_fight(delta: float, speed: float) -> bool:
 		var t := sim.tick - 1.0 + arena.render_alpha
 		var z := finisher.zoom(t, maxf(0.0, _hold))
 		var target := finisher.focus(arena.ball_pos(sim.balls[finisher.loser]), arena.ball_pos(sim.balls[finisher.winner]), z)
-		var start := not arena_clip.clip_contents
+		var start := not _zooming
 		arena.set_camera(z, target if start else FinisherCam.follow(arena.cam_focus, target, delta))
 		arena.finisher_amount = clampf(finisher.progress(t) / 0.25, 0.0, 1.0)
-		arena_clip.clip_contents = true
+		_zooming = true
 	arena.advance_effects(delta * rate)
 	return _hold >= FinisherCam.HOLD
 
@@ -702,7 +707,7 @@ func _prepare_fight(config: Dictionary) -> void:
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
 	arena.reset_camera()
-	arena_clip.clip_contents = false
+	_zooming = false
 	finisher = FinisherCam.plan(config)
 	_accumulator = 0.0
 	_hold = -1.0
@@ -713,7 +718,7 @@ func _prepare_fight(config: Dictionary) -> void:
 func _unzoom() -> void:
 	arena.finisher_amount = 0.0
 	arena.set_camera(1.0, Vector2.ONE * MatchSim.ARENA_SIZE / 2.0)
-	arena_clip.clip_contents = false
+	_zooming = false
 
 
 func _show_result() -> void:
@@ -1053,8 +1058,14 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
 	_begin_aim()
-	# Tier, level and power are under the health bars.
-	info_label.text = FightSpeed.with_aim_hint("Stage " + Zones.stage_key(zone_index, stage_index))
+	# Tier, level and power are under the health bars; the line says how they
+	# stack up (a 1v1 stage: team stages say it on the stage card).
+	var line := "Stage " + Zones.stage_key(zone_index, stage_index)
+	var foes := Zones.enemies(Zones.stage(zone_index, stage_index))
+	if foes.size() == 1:
+		var odds := Matchup.rate(profile.power_of(fighter), Campaign.enemy_rating(zone_index, stage_index), FamilyEdge.team([fighter], foes))
+		line += " · %s fight" % Matchup.word(odds)
+	info_label.text = FightSpeed.with_aim_hint(line)
 
 
 ## A farming boss run from its screen ("vault" for the Anvil King, "nest" for
@@ -1536,7 +1547,7 @@ func _build_shell() -> void:
 	# Menus to a fight and back: the new picture opens out of a circle from the tap.
 	shell_layer.visibility_changed.connect(func(): Wipe.open(self, get_viewport().get_mouse_position()))
 	shell = Shell.new()
-	shell.glow = GlowState.new(save, profile, Store.make(backend))
+	shell.glow = GlowState.new(save, profile, Platform.get_current().make_store(backend))
 	shell.friends = friends
 	shell.profile = profile
 	shell.set_account(account)
@@ -1732,7 +1743,8 @@ func _update_hud() -> void:
 	fight_hud.visible = state != State.CLIP
 	if sim == null:
 		fight_hud.show_fight(null)
-		menu_header.visible = state == State.MENU
+		# The onboarding draws its own headings and has no Back.
+		menu_header.visible = state == State.MENU and mode != Mode.TUTORIAL
 		return
 	var clock := "%.0fs" % sim.time()
 	if sim.in_overtime():
@@ -1790,7 +1802,7 @@ func _skip_to_end() -> void:
 		sim.step()
 	arena.clear_effects()
 	arena.reset_camera()
-	arena_clip.clip_contents = false
+	_zooming = false
 
 
 func _again() -> void:
@@ -2250,6 +2262,8 @@ func _wants_tutorial() -> bool:
 func _start_tutorial() -> void:
 	mode = Mode.TUTORIAL
 	shell_layer.visible = false
+	arena_override = Onboarding.ARENA
+	_show_only(null) # Nothing of the Quick fight menu shows behind the prologue.
 	var ob := Onboarding.new()
 	ob.main = self
 	add_child(ob)
@@ -2271,7 +2285,7 @@ func tutorial_watch(p1: String, p2: String, fight_seed: int, tags: Array, hud_na
 	player_type = p1
 	opponent_type = p2
 	seed_value = fight_seed
-	aim = MatchSim.new({"seed": fight_seed, "p1": p1, "p2": p2}).launch_angles[0]
+	aim = MatchSim.new({"seed": fight_seed, "p1": p1, "p2": p2, "arena": _pick_arena()}).launch_angles[0]
 	foe_aim = null
 	tutorial_tags = hud_names
 	tutorial_side = side
@@ -2314,6 +2328,7 @@ func tutorial_home(profile) -> Shell:
 func tutorial_end(new_profile, to_campaign := false) -> void:
 	mode = Mode.NORMAL
 	tutorial_tags = []
+	arena_override = url_arena
 	arena.ghost_dir = Vector2.ZERO
 	arena.team_tags = ArenaView.TEAM_TAGS
 	_apply_picks()
@@ -2459,8 +2474,8 @@ func _share(kind: String) -> void:
 		# The page already started sharing on this tap; just watch how it went.
 		_share_pending = true
 		return
-	DisplayServer.clipboard_set(_share_url(kind))
-	report_label.text = "Link copied!"
+	if not Platform.get_current().share(_share_text(kind), _share_url(kind)):
+		report_label.text = "Link copied!"
 
 
 ## A share button on the home screens (e.g. the friend invite link).
@@ -2469,8 +2484,7 @@ func _on_shell_share(kind: String) -> void:
 		_share_pending = true
 		return
 	for t in shell.share_targets():
-		if t.kind == kind:
-			DisplayServer.clipboard_set(t.url)
+		if t.kind == kind and not Platform.get_current().share(t.text, t.url):
 			shell.toast("Link copied!")
 
 

@@ -11,3 +11,5 @@ liveops/bracket_results.json
 # Written at export time by tools/sim_version.gd (sim/sim_version.gd).
 sim_version.txt
 __pycache__/
+# Gradle project tools/ci/export_android.sh unpacks from the Android templates.
+android/

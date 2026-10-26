@@ -474,9 +474,10 @@ func test_scene_plays_a_run_to_the_end() -> void:
 	scene._show_start_boons()
 	for i in [0, 2, 4]:
 		scene._toggle_start_boon(i)
-	scene._show_start_relic()
-	check_eq(scene.state, scene.State.START_RELIC, "then the relic pick")
-	scene._start_run(scene.setup.relic_offer[1])
+	scene._pick_start_relic(scene.setup.relic_offer[1])
+	check_eq(scene.state, scene.State.START_BOONS, "boons and the relic share one screen")
+	check(not scene._start_button().disabled, "Start opens once 3 boons and a relic are picked")
+	scene._start_run(scene.start_relic)
 	check_eq(scene.run.relics, [scene.setup.relic_offer[1]], "the run starts with that relic")
 	var steps := 0
 	var seen := {}
@@ -544,9 +545,10 @@ func test_a_fight_left_mid_way_still_counts() -> void:
 	scene._show_start_boons()
 	for i in [0, 2, 4]:
 		scene._toggle_start_boon(i)
-	scene._show_start_relic()
-	check_eq(scene.state, scene.State.START_RELIC, "then the relic pick")
-	scene._start_run(scene.setup.relic_offer[1])
+	scene._pick_start_relic(scene.setup.relic_offer[1])
+	check_eq(scene.state, scene.State.START_BOONS, "boons and the relic share one screen")
+	check(not scene._start_button().disabled, "Start opens once 3 boons and a relic are picked")
+	scene._start_run(scene.start_relic)
 	check_eq(scene.run.relics, [scene.setup.relic_offer[1]], "the run starts with that relic")
 	scene._go_node(BounceRun.next_nodes(scene.setup, scene.run)[0])
 	scene._choose_fighter(0)

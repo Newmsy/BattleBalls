@@ -17,8 +17,10 @@ const FightLayout := preload("res://game/fight_layout.gd")
 
 const SETTINGS_PATH := "user://settings.cfg"
 ## 4x was cut (Newms 2026-10-25): a pick saved as 4x (index 2) plays at 2x.
+## 2x is open from the start (Newms 2026-10-26, was level 5): a new player's
+## first fights were the slowest part of the game.
 const SPEEDS := [1.0, 2.0]
-const UNLOCK_LEVELS := [1, 5]
+const UNLOCK_LEVELS := [1, 1]
 ## The aim tip shows on every aim screen until the account reaches this level
 ## (a new player's first few fights), then the screens show nothing there.
 const AIM_HINT_BELOW_LEVEL := 3

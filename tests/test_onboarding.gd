@@ -14,7 +14,7 @@ func test_every_launch_wins_both_tutorial_fights() -> void:
 		for f in Onboarding.FIGHTS:
 			var losses := []
 			for a in range(-1800, 1800, 20):
-				var s := MatchSim.new({"seed": Onboarding.TUTORIAL_SEED, "p1": starter, "p2": f.foe, "angles": [a, f.foe_aim]}).run_to_end()
+				var s := MatchSim.new({"seed": Onboarding.TUTORIAL_SEED, "p1": starter, "p2": f.foe, "angles": [a, f.foe_aim], "arena": Onboarding.ARENA}).run_to_end()
 				if s.winner != 0:
 					losses.append(a)
 			check(losses.is_empty(), "%s vs %s loses at aims %s" % [starter, f.foe, losses])
@@ -23,15 +23,27 @@ func test_every_launch_wins_both_tutorial_fights() -> void:
 func test_the_ghost_arrow_wins_quickly() -> void:
 	for starter in Onboarding.STARTERS:
 		for f in Onboarding.FIGHTS:
-			var s := MatchSim.new({"seed": Onboarding.TUTORIAL_SEED, "p1": starter, "p2": f.foe, "angles": [f.ghost, f.foe_aim]}).run_to_end()
+			var s := MatchSim.new({"seed": Onboarding.TUTORIAL_SEED, "p1": starter, "p2": f.foe, "angles": [f.ghost, f.foe_aim], "arena": Onboarding.ARENA}).run_to_end()
 			check_eq(s.winner, 0, "%s wins %s on the ghost aim" % [starter, f.foe])
-			check(s.time < 30.0, "%s vs %s on the ghost aim took %.1fs" % [starter, f.foe, s.time])
+			check(s.time < 20.0, "%s vs %s on the ghost aim took %.1fs" % [starter, f.foe, s.time])
+
+
+## A player's first fights are short whatever they aim: the typical launch
+## wins in under 15 seconds (they were 30-40s on the seed's random map).
+func test_tutorial_fights_are_short_at_any_aim() -> void:
+	for starter in Onboarding.STARTERS:
+		for f in Onboarding.FIGHTS:
+			var times := []
+			for a in range(-1800, 1800, 60):
+				times.append(MatchSim.new({"seed": Onboarding.TUTORIAL_SEED, "p1": starter, "p2": f.foe, "angles": [a, f.foe_aim], "arena": Onboarding.ARENA}).run_to_end().time)
+			times.sort()
+			check(times[times.size() / 2] < 15.0, "%s vs %s median %.1fs" % [starter, f.foe, times[times.size() / 2]])
 
 
 func test_cold_open_is_a_close_fight() -> void:
 	var c: Dictionary = Onboarding.COLD_OPEN
-	var s := MatchSim.new({"seed": c.seed, "p1": c.p1, "p2": c.p2}).run_to_end()
-	check(s.winner >= 0, "cold open has a winner")
+	var s := MatchSim.new({"seed": c.seed, "p1": c.p1, "p2": c.p2, "arena": c.arena}).run_to_end()
+	check_eq(s.winner, 0, "Count Nibbles wins the cold open at the death")
 	check(s.time > 12.0 and s.time < 35.0, "cold open lasts %.1fs" % s.time)
 
 
