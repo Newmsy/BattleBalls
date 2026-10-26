@@ -121,20 +121,11 @@ var link_error := ""
 var auto_start := false
 var auto_clip := false ## ?clip=1: make a clip as soon as the fight ends (smoke test).
 var url_picks := false ## URL params chose the balls: don't overwrite them from the save.
-## Quick fight tiers for testing: [yours, the foe's]. Yours 0 is equal stats
-## (no tiers, the old practice fight); the foe's 0 is "same as mine".
-var pick_tiers := [0, 0]
 ## Tiers a shared fight link (&t=) was played at, for REPLAY; [0, 0] is none.
 var link_tiers := [0, 0]
-var tier_buttons: Array = []
-## Quick fight 2v2: all four balls fight at once. Your pair is
-## [player_type, mate_type]; you aim player_type, the seed aims the rest.
-var duo := false
-var mate_type := ""
 ## One-tap Quick fight: your fighter's tier, which the random foe (same
-## rarity, so equal strength) fights at too. 0 is the old equal-stats menu.
+## rarity, so equal strength) fights at too. 0 is equal stats (links, Rival).
 var quick_tier := 0
-var duo_button: Button
 
 var backend: Backend
 var save := SaveGame.new()
@@ -199,10 +190,6 @@ var result_label: Label
 var result_banner ## game/ui/result_banner.gd behind the headline row.
 var report_label: Label
 var new_seed_button: Button
-var options_row: HBoxContainer ## 1v1 / 2v2 and the "More" button.
-var tiers_row: HBoxContainer ## Tier buttons, swapped in for options_row.
-var solo_button: Button
-var more_button: Button
 ## The Quick fight menu's "i": the long ability and rules text in a card.
 var menu_info_button: Button
 ## "+5" and the pass glyph beside the result headline, when the fight earned pass XP.
@@ -334,7 +321,7 @@ func _ready() -> void:
 	else:
 		_show_menu()
 		# Shared fight links open straight on their menu; everyone else starts at home.
-		if mode == Mode.NORMAL and link_error == "" and not duo:
+		if mode == Mode.NORMAL and link_error == "":
 			_show_home()
 			if link_friend != "":
 				shell.go("friends")
@@ -479,55 +466,12 @@ func _config() -> Dictionary:
 		cfg.angles = [aim, null]
 		return cfg
 	var cfg := {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena()}
-	if _is_duo():
-		cfg.p3 = _mate()
-		cfg.p4 = _foe_mate(opponent_type)
 	var t := _fight_tiers()
 	if t[0] > 0:
 		# Same path as the progression modes: tier ability upgrades and power.
 		Lineup.apply(cfg, 0, Lineup.make(player_type, t[0]))
 		Lineup.apply(cfg, 1, Lineup.make(opponent_type, t[1]))
-		if _is_duo():
-			Lineup.apply(cfg, 2, Lineup.make(cfg.p3, t[0]))
-			Lineup.apply(cfg, 3, Lineup.make(cfg.p4, t[1]))
 	return cfg
-
-
-## A 2v2 is a Quick fight option only.
-func _is_duo() -> bool:
-	return duo and mode == Mode.NORMAL
-
-
-## Your second critter: never the same as the first.
-func _mate() -> String:
-	if mate_type in BallDefs.PLAYABLE and mate_type != player_type:
-		return mate_type
-	for id in BallDefs.PLAYABLE:
-		if id != player_type:
-			return id
-	return player_type
-
-
-## The foe's second critter, from the seed like the first, never a copy of it.
-func _foe_mate(first: String) -> String:
-	var ids: Array = BallDefs.PLAYABLE
-	var k := posmod(seed_value * 7 + 3, ids.size())
-	if ids[k] == first:
-		k = (k + 1) % ids.size()
-	return ids[k]
-
-
-func _toggle_duo() -> void:
-	duo = not duo
-	if duo:
-		mate_type = _mate()
-	_refresh_menu()
-
-
-func _set_duo(on: bool) -> void:
-	if on != _is_duo():
-		_toggle_duo()
-	_refresh_menu() # Re-presses the right half of the 1v1 / 2v2 switch.
 
 
 ## [yours, the foe's] tiers this fight plays at, or [0, 0] for equal stats.
@@ -535,46 +479,9 @@ func _set_duo(on: bool) -> void:
 func _fight_tiers() -> Array:
 	if mode == Mode.REPLAY:
 		return link_tiers
-	if mode != Mode.NORMAL:
+	if mode != Mode.NORMAL or quick_tier == 0:
 		return [0, 0]
-	if pick_tiers[0] == 0:
-		return [quick_tier, quick_tier] if quick_tier > 0 and not _is_duo() else [0, 0]
-	return [pick_tiers[0], pick_tiers[1] if pick_tiers[1] > 0 else pick_tiers[0]]
-
-
-## Taps cycle Equal (or Same), then one to five stars.
-func _cycle_tier(i: int) -> void:
-	pick_tiers[i] = (pick_tiers[i] + 1) % (Lineup.MAX_TIER + 1)
-	_refresh_menu()
-
-
-## "You" / "Foe" and gold stars out of five, or the word when tiers are off.
-func _tier_button(i: int) -> Button:
-	var b := _button("", _cycle_tier.bind(i), 22, "ghost", 68)
-	var row := Kit.hbox(8, [], BoxContainer.ALIGNMENT_CENTER)
-	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(row)
-	return b
-
-
-func _refresh_tier_buttons() -> void:
-	for b in tier_buttons:
-		b.visible = mode == Mode.NORMAL
-	for i in 2:
-		var b: Button = tier_buttons[i]
-		var row: HBoxContainer = b.get_child(0)
-		for c in row.get_children():
-			row.remove_child(c)
-			c.queue_free()
-		var n: int = pick_tiers[i]
-		var off: bool = pick_tiers[0] == 0
-		b.disabled = i == 1 and off
-		row.add_child(Kit.label("You" if i == 0 else "Foe", 22, Kit.FG if not b.disabled else Kit.MUTED))
-		if n > 0 and not (i == 1 and off):
-			row.add_child(Kit.glyph("stars", 22, Kit.FG, n))
-		else:
-			row.add_child(Kit.label("Even" if off else "Same", 20, Kit.MUTED))
+	return [quick_tier, quick_tier]
 
 
 func _show_menu() -> void:
@@ -594,40 +501,25 @@ func _show_menu() -> void:
 
 func _refresh_menu() -> void:
 	for id in player_buttons:
-		player_buttons[id].button_pressed = id == player_type or (_is_duo() and id == mate_type)
+		player_buttons[id].button_pressed = id == player_type
 	new_seed_button.disabled = mode == Mode.CHALLENGE
 	title_label.text = {Mode.CHALLENGE: "Challenge", Mode.RIVAL: "Rival"}.get(mode, "Quick fight")
 	seed_label.text = Arenas.get_def(_pick_arena()).display_name.to_upper() # The lit tile is your critter.
-	solo_button.visible = mode == Mode.NORMAL
-	duo_button.visible = mode == Mode.NORMAL
-	solo_button.button_pressed = not _is_duo()
-	duo_button.button_pressed = _is_duo()
-	more_button.text = "MORE"
 	fight_button.text = "LIVE FIGHT" if _live_on() else "FIGHT!"
-	fight_button.disabled = _is_duo() and mate_type == ""
-	if _is_duo(): # Both tiles of the pair are lit.
-		seed_label.text = ("Pick 2 · %s" % Arenas.get_def(_pick_arena()).display_name).to_upper()
-		if mate_type == "":
-			fight_button.text = "PICK 1 MORE"
-	_refresh_tier_buttons()
 	info_label.text = _menu_info_short()
 	arena.preview_types = [player_type, _pick_opponent()]
-	if _is_duo():
-		arena.preview_types = arena.preview_types + [_mate(), _foe_mate(_pick_opponent())]
 	arena.preview_arena = _pick_arena()
 	arena.queue_redraw()
 	_report_menu.call_deferred()
 
 
 ## The Quick fight menu's one line under the picks: the picked critter's
-## ability, or what this fight is (pair, rival, challenge).
+## ability, or what this fight is (rival, challenge).
 func _menu_info_short() -> String:
 	var def := BallDefs.get_def(player_type)
 	var text := AbilityText.now(player_type, maxi(1, _fight_tiers()[0]))
 	if text == "":
 		text = def.display_name
-	if _is_duo():
-		text = "Pick 2, then tap the arena to aim %s." % def.display_name
 	if mode == Mode.RIVAL:
 		text = "Beat %s's %s!" % [rival.name, BallDefs.get_def(opponent_type).display_name]
 	elif mode == Mode.CHALLENGE:
@@ -640,8 +532,6 @@ func _menu_info_short() -> String:
 func _menu_info_full() -> Array:
 	var full := AbilityText.full(player_type)
 	var lines := [full if full != "" else str(BallDefs.get_def(player_type).description)]
-	if _is_duo():
-		lines.append("2v2: tap a critter to add it to your pair or take it out.")
 	if mode == Mode.RIVAL:
 		lines.append("Unranked: only your record against them changes.")
 	return lines
@@ -674,18 +564,11 @@ func _show_menu_info() -> void:
 	ui.add_child(root)
 
 
-## "More" swaps the 1v1/2v2 row for the tier buttons, and Done swaps it back.
-func _show_options(on: bool) -> void:
-	options_row.visible = not on
-	tiers_row.visible = on
-	_refresh_menu()
-
-
 ## Logs where the menu buttons are so the smoke test can tap them ("UI_AT name x y").
 func _report_menu() -> void:
 	await get_tree().process_frame
 	_sync_cover()
-	var marks := {"menu_fight": fight_button, "menu_arena": arena_clip, "aim_launch": launch_button, "tier_you": tier_buttons[0], "tier_foe": tier_buttons[1], "menu_duo": duo_button, "menu_back": menu_back, "menu_options": more_button}
+	var marks := {"menu_fight": fight_button, "menu_arena": arena_clip, "aim_launch": launch_button, "menu_back": menu_back}
 	for id in player_buttons:
 		marks["pick_" + id] = player_buttons[id]
 	for k in marks:
@@ -704,7 +587,7 @@ func _begin_aim() -> void:
 	if mode == Mode.RIVAL:
 		foe_aim = GhostLineup.ghost_angle(rival.lineup, seed_value, 1)
 	state = State.AIM
-	var balls := 6 if pve.get("config", {}).has("p5") else (4 if _is_duo() or live.get("sides", [[]])[0].size() > 1 or pve.get("config", {}).has("p3") else 2)
+	var balls := 6 if pve.get("config", {}).has("p5") else (4 if pve.get("config", {}).has("p3") else 2)
 	aim = MatchSim.aim_at_centre(you_side, balls)
 	arena.clear_effects()
 	arena.reset_camera()
@@ -726,7 +609,7 @@ func _pick_opponent() -> String:
 	# one-tap Quick fight draws from your critter's rarity: same rarity and
 	# tier is the same power (sim/power.gd), so it's an even fight.
 	var ids: Array = BallDefs.PLAYABLE
-	if quick_tier > 0 and mode == Mode.NORMAL and not _is_duo():
+	if quick_tier > 0 and mode == Mode.NORMAL:
 		var rarity: String = CritterDb.get_critter(player_type).rarity
 		var same: Array = ids.filter(func(id): return id != player_type and CritterDb.get_critter(id).rarity == rarity)
 		if not same.is_empty():
@@ -958,11 +841,10 @@ func _set_side(side: int) -> void:
 	sfx.you_side = side
 
 
-## What you bring: your best copy (tier, level, gear, talents), or the Quick
-## fight tier you picked for testing.
+## What you bring: your best copy (tier, level, gear, talents).
 func _live_slot(id: String) -> Dictionary:
-	if pick_tiers[0] > 0 or profile == null or not profile.owns(id):
-		return Lineup.make(id, maxi(1, pick_tiers[0]))
+	if profile == null or not profile.owns(id):
+		return Lineup.make(id, 1)
 	return profile.slot_of(id)
 
 
@@ -990,10 +872,7 @@ func _find_live() -> void:
 func _on_live(msg: Dictionary) -> void:
 	match str(msg.get("t", "")):
 		"welcome":
-			var slots := [_live_slot(player_type)]
-			if duo:
-				slots.append(_live_slot(_mate()))
-			live_client.send({"t": "queue", "mode": "2v2" if duo else "1v1", "slots": slots, "room": live_room})
+			live_client.send({"t": "queue", "mode": "1v1", "slots": [_live_slot(player_type)], "room": live_room})
 		"queued":
 			info_label.text = "Looking for a live foe near your power..." if live_room == "" \
 				else "Code %s: waiting for your friend..." % live_room.trim_prefix("C:") if live_room.begins_with("C:") \
@@ -1019,8 +898,7 @@ func _on_live(msg: Dictionary) -> void:
 			# tier (the one-tap Quick fight rules), on a fresh seed, shown as a
 			# live foe.
 			_close_live()
-			if pick_tiers[0] == 0 and not duo:
-				quick_tier = clampi(int(_live_slot(player_type).get("tier", 1)), 1, Lineup.MAX_TIER)
+			quick_tier = clampi(int(_live_slot(player_type).get("tier", 1)), 1, Lineup.MAX_TIER)
 			seed_value = _rng.randi_range(1, 99999)
 			_begin_aim()
 			_stand_in = true
@@ -1086,10 +964,8 @@ func _cancel_live() -> void:
 	live = {}
 	if mode == Mode.LIVE:
 		mode = Mode.NORMAL
-	if live_room != "":
-		_show_home() # Back to Friends, where the friend fight started.
-		return
 	_show_menu()
+	_show_home() # Back where the fight started: Play, Versus or Friends.
 
 
 ## Why a live fight stopped: on the info line, or as a toast when that's
@@ -1297,7 +1173,7 @@ func _aim_back() -> void:
 	if mode == Mode.LIVE:
 		_cancel_live()
 		return
-	if mode == Mode.NORMAL and not _is_duo():
+	if mode == Mode.NORMAL:
 		_show_home() # A one-tap Quick fight has no menu to go back to.
 		return
 	if mode != Mode.CAMPAIGN:
@@ -1390,7 +1266,7 @@ func _record_fight() -> void:
 	save.record_fight(sim.winner, GhostLineup.aim_offset(aim))
 	var best: Dictionary = profile.best(player_type) if profile.owns(player_type) else {}
 	var xp: int = shell.glow.record_fight(sim.winner, sim.balls[0].damage_dealt, -1,
-		{"critter": player_type, "tier": int(best.get("tier", 1)), "duo": _is_duo()})
+		{"critter": player_type, "tier": int(best.get("tier", 1))})
 	if xp > 0:
 		(pass_chip.get_child(0) as Label).text = "+%d" % xp
 		pass_chip.visible = true
@@ -1569,9 +1445,8 @@ func _build_ui() -> void:
 	stamp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	stamp_label.visible = false
 
-	# Quick fight: pick a critter, 1v1 or 2v2, then one big FIGHT!. Tiers
-	# sit behind "More" so the screen reads like a game,
-	# not a test bench. Every row fits the panel width at any text size.
+	# Rival, Challenge and fight links: pick a critter, then one big FIGHT!.
+	# Every row fits the panel width at any text size.
 	menu_box = VBoxContainer.new()
 	menu_box.add_theme_constant_override("separation", 14)
 	seed_label = Kit.caption("")
@@ -1580,29 +1455,6 @@ func _build_ui() -> void:
 	menu_box.add_child(_pick_grid(BallDefs.PLAYABLE, _pick_player))
 	# A new seed: a new arena and a new random foe.
 	new_seed_button = _button("Shuffle", func(): seed_value = _rng.randi_range(1, 99999); _refresh_menu(), 24, "ghost", 96)
-	# Tiers to test with: tap to cycle equal stats, then one to five stars.
-	tier_buttons = [_tier_button(0), _tier_button(1)]
-	solo_button = _button("1v1", _set_duo.bind(false), 24, "ghost", 68)
-	duo_button = _button("2v2", _set_duo.bind(true), 24, "ghost", 68)
-	for b in [solo_button, duo_button]:
-		b.toggle_mode = true
-		# The picked half of the switch fills in, like a picked critter tile.
-		var on := Kit.box(ACCENT, Color(0, 0, 0, 0), 26, 0, 12)
-		on.shadow_color = Color("4b3bb0")
-		on.shadow_offset = Vector2(0, 4)
-		on.shadow_size = 1
-		b.add_theme_stylebox_override("pressed", on)
-		b.add_theme_stylebox_override("hover_pressed", on)
-		b.add_theme_color_override("font_pressed_color", Kit.BG)
-		b.add_theme_color_override("font_hover_pressed_color", Kit.BG)
-	more_button = _button("More", func(): _show_options(true), 22, "ghost", 68)
-	more_button.size_flags_stretch_ratio = 2.0
-	options_row = _row([solo_button, duo_button, more_button])
-	menu_box.add_child(options_row)
-	var done := _button("Done", func(): _show_options(false), 22, "ghost", 68)
-	tiers_row = _row(tier_buttons + [done])
-	tiers_row.visible = false
-	menu_box.add_child(tiers_row)
 	# One tap fights: FIGHT! launches at the centre, or tap the arena to aim and launch.
 	fight_button = _button("FIGHT!", func(): _find_live() if _live_on() else _fight_now(), 40, "go", 96)
 	fight_button.size_flags_stretch_ratio = 2.0
@@ -1699,15 +1551,7 @@ func _build_shell() -> void:
 		if shell.play_with in BallDefs.PLAYABLE:
 			player_type = shell.play_with
 		shell.play_with = ""
-		# 2v2 keeps the pick-a-pair menu; Quick fight goes straight to the aim.
-		duo = shell.play_duo
-		shell.play_duo = false
-		if duo:
-			quick_tier = 0
-			mate_type = _mate()
-			_play_normal()
-		else:
-			_quick_fight())
+		_quick_fight())
 	shell.watch_requested.connect(_watch_board_fight)
 	shell.backend = backend
 	shell.rival_requested.connect(_start_rival)
@@ -1729,23 +1573,6 @@ func _use_lineup() -> void:
 
 ## Picking on Quick fight also makes that critter your fighter, when you own it.
 func _pick_player(id: String) -> void:
-	if _is_duo():
-		# Like every team picker: a tap takes a critter out of your pair or
-		# puts it in, and a full pair takes no more until you take one out.
-		if id == mate_type:
-			mate_type = ""
-		elif id == player_type:
-			if mate_type == "":
-				return # keep at least the critter you aim
-			player_type = mate_type
-			mate_type = ""
-		elif mate_type == "":
-			mate_type = id
-		else:
-			info_label.text = "Pair full. Tap one to swap."
-			return
-		_refresh_menu()
-		return
 	player_type = id
 	if mode == Mode.NORMAL and shell != null:
 		shell.profile.set_lineup(id)
@@ -2016,7 +1843,7 @@ func _label_result_buttons() -> void:
 	friend_row.visible = _can_add_link_friend()
 	# Fight links and clips are 1v1 only for now. Live fights aren't
 	# shareable yet: a link replays from the seed, not the server's sides.
-	var links := not _is_duo() and mode != Mode.LIVE and not (_stand_in and mode == Mode.NORMAL)
+	var links := mode != Mode.LIVE and not (_stand_in and mode == Mode.NORMAL)
 	share_button.visible = links
 	challenge_button.visible = links and mode not in [Mode.REPLAY, Mode.RIVAL] and _board.is_empty()
 	clip_button.visible = links
@@ -2042,7 +1869,7 @@ func _label_result_buttons() -> void:
 
 ## A one-tap Quick fight (not 2v2, a board fight or a link).
 func _is_quick_result() -> bool:
-	return (mode == Mode.NORMAL or mode == Mode.LIVE) and quick_tier > 0 and not _is_duo() and _board.is_empty()
+	return (mode == Mode.NORMAL or mode == Mode.LIVE) and quick_tier > 0 and _board.is_empty()
 
 
 func _caption(b: Button, text: String) -> void:
@@ -2720,11 +2547,6 @@ func _read_url_params() -> Dictionary:
 		opponent_choice = params.p2
 		opponent_type = params.p2
 		url_picks = true
-	if params.get("duo", "") == "1": # ?duo=1 opens Quick fight in 2v2 (&p3= picks your second critter).
-		duo = true
-		url_picks = true
-		if params.get("p3", "") in BallDefs.PLAYABLE:
-			mate_type = params.p3
 	backend.disabled = params.get("offline", "") == "1"
 	# ?dev=1 shows Settings > Testing on this device from now on; ?dev=0 hides it.
 	if params.get("dev", "") in ["0", "1"]:
@@ -2732,6 +2554,9 @@ func _read_url_params() -> Dictionary:
 	# ?live=ws://127.0.0.1:8080 points this visit's live fights at that server (and turns them on).
 	if params.get("live", "").begins_with("ws"):
 		Dev.live_url_override = params.live
+	# ?quickfight=1 shows the Quick fight button with live fights off (smoke tests).
+	if params.get("quickfight", "") == "1":
+		Dev.quick_fight_override = true
 	# ?text=large turns on Larger text for this visit only (screenshots, testing).
 	if params.get("text", "") == "large":
 		A11y.ensure_loaded()
@@ -2761,7 +2586,6 @@ func _read_url_params() -> Dictionary:
 	var t := str(params.get("t", ""))
 	if t.length() == 2 and t.is_valid_int():
 		link_tiers = [clampi(int(t[0]), 1, Lineup.MAX_TIER), clampi(int(t[1]), 1, Lineup.MAX_TIER)]
-		pick_tiers = link_tiers.duplicate() # Without &r= too: ?p1=..&t=51 starts a quick fight at those tiers.
 	if params.has("r"):
 		var r := FightLink.parse_replay(params.r)
 		if r.is_empty():

@@ -46,7 +46,6 @@ const DAILY := {
 		{"id": "boss1", "kind": "boss", "goal": 1, "text": "Beat a boss", "needs": "bosses"},
 		{"id": "spire2", "kind": "spire", "goal": 2, "text": "Climb 2 Spire floors"},
 		{"id": "arena2", "kind": "arena_win", "goal": 2, "text": "Win 2 Ghost Arena fights"},
-		{"id": "duo1", "kind": "duo_win", "goal": 1, "text": "Win a 2v2 fight"},
 		{"id": "stars6", "kind": "stars", "goal": 6, "text": "Earn 6 campaign stars"},
 	],
 	"critters": [

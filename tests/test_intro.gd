@@ -34,7 +34,7 @@ func test_only_the_opened_tabs_show() -> void:
 	shell.refresh()
 	for t in Shell.TAB_IDS:
 		check(visible.call(t), t + " is open at the end")
-	check(shell._marks.has("quickfight"), "Quick fight is back")
+	check(shell._marks.has("arena"), "Versus is open")
 	check(not shell._coach.visible, "no hint once everything is open")
 	shell.free()
 

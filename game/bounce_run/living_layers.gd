@@ -231,12 +231,6 @@ const LAYERS := {
 	"vending_machine": [
 		["_Lmachine", Rect2(192, 48, 350, 345), Vector4(2, 0.5, 3.1, 0), Vector2(368, 393), false, -1],
 	],
-	"vs_duo": [
-		["_La", Rect2(93, 175, 55, 67), Vector4(4, 3, 0.8, 0), Vector2(121, 239), true, -1],
-		["_Lb", Rect2(43, 191, 55, 67), Vector4(4, 4, 1, 0.3), Vector2(71, 255), false, -1],
-		["_Lc", Rect2(213, 159, 55, 83), Vector4(4, 3, 0.8, 0.5), Vector2(241, 239), true, -1],
-		["_Ld", Rect2(263, 193, 55, 65), Vector4(4, 4, 1, 0.8), Vector2(291, 255), false, -1],
-	],
 	"vs_friends": [
 		["_Lblue", Rect2(93, 151, 68, 82), Vector4(4, 3, 0.6, 0), Vector2(127, 230), false, -1],
 		["_Lpink", Rect2(201, 149, 68, 84), Vector4(4, 3, 0.6, 0.5), Vector2(235, 230), false, -1],

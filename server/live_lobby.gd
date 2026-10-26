@@ -12,7 +12,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const LiveMatch := preload("res://sim/live_match.gd")
 
-const MODES := {"1v1": 1, "2v2": 2} ## Slots each player brings.
+const MODES := {"1v1": 1} ## Slots each player brings.
 const POWER_BAND := 0.10 ## Pair within ±10% Power Rating...
 const BAND_GROWTH := 0.05 ## ...widening by 5% for every BAND_STEP seconds waited.
 const BAND_STEP := 5.0

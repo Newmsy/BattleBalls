@@ -100,5 +100,14 @@ static func set_live_fights(on: bool) -> void:
 	cfg.save(SETTINGS_PATH)
 
 
+## Quick fight is the live mode, so its button shows only with live fights on.
+## ?quickfight=1 shows it anyway (an offline one-tap fight, for smoke tests).
+static var quick_fight_override := false
+
+
+static func quick_fight_shown() -> bool:
+	return quick_fight_override or live_fights()
+
+
 static func live_url() -> String:
 	return live_url_override if live_url_override != "" else LIVE_SERVER

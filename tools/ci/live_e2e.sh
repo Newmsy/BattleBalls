@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Plays a 1v1, a 2v2 and a friend-room live match end to end: the live server (dev
+# Plays a live match and a friend-room one end to end: the live server (dev
 # sign-in) and two pretend players (tools/live_bot.gd), each replaying the
 # fight and checking it matches the server's.
 # Usage: GODOT=~/godot/godot tools/ci/live_e2e.sh
@@ -14,12 +14,10 @@ for i in $(seq 1 40); do
   sleep 0.5
 done
 status=0
-for mode in 1v1 2v2; do
-  timeout 60 "$GODOT" --headless --script res://tools/live_bot.gd -- --url=ws://127.0.0.1:$port --name=a-$mode --mode=$mode --critter=bomber --mate=vampire &
-  a=$!
-  timeout 60 "$GODOT" --headless --script res://tools/live_bot.gd -- --url=ws://127.0.0.1:$port --name=b-$mode --mode=$mode --critter=laser --mate=frost || status=1
-  wait $a || status=1
-done
+timeout 60 "$GODOT" --headless --script res://tools/live_bot.gd -- --url=ws://127.0.0.1:$port --name=a --critter=bomber &
+a=$!
+timeout 60 "$GODOT" --headless --script res://tools/live_bot.gd -- --url=ws://127.0.0.1:$port --name=b --critter=laser || status=1
+wait $a || status=1
 # Two friends in a room meet whatever their power (T1 vs T5 never pairs in the open queue).
 timeout 60 "$GODOT" --headless --script res://tools/live_bot.gd -- --url=ws://127.0.0.1:$port --name=a-room --critter=bomber --tier=1 --room=C:E2E1 &
 a=$!

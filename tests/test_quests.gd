@@ -128,14 +128,13 @@ func test_fights_count_wins_families_and_different_critters() -> void:
 	var id: String = "vampire"
 	g.record_fight(0, 300.0, t, {"critter": id, "tier": 3})
 	g.record_fight(1, 120.0, t, {"critter": id})
-	g.record_fight(0, 80.0, t, {"critter": "laser", "duo": true})
+	g.record_fight(0, 80.0, t, {"critter": "laser"})
 	var d: Dictionary = g.g().quest_day.progress
 	check_eq(int(d.fight), 3, "fights")
 	check_eq(int(d.win), 2, "wins")
 	check_eq(int(d.damage), 500, "damage")
 	check_eq(int(d.get("win_fam:" + Families.of(id), 0)) >= 1, true, "family win")
 	check_eq(int(d.get("win_t3", 0)), 1, "T3 win")
-	check_eq(int(d.get("duo_win", 0)), 1, "2v2 win")
 	check_eq(int(g.g().quest_week.progress.critters), 2, "two different critters won")
 	g.record("bounce_floor", 4, t)
 	g.record("bounce_floor", 7, t)
