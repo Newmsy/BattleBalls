@@ -12,7 +12,7 @@
 ##
 ## Fields:
 ##   critter   whose ability it tames (icon, face badge, name "Relic of X")
-##   text      card text (sim text never says "glow")
+##   text      card text (sim text never names the looks shop)
 ##   entries   ability entries, as in a critter file
 ##   set       params as plain numbers
 ##   bump      params as a share of the holder's bump (contact) damage
