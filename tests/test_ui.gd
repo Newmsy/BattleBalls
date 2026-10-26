@@ -435,3 +435,49 @@ func test_out_of_energy_closes_the_results_and_never_replays_them() -> void:
 	shell.refresh()
 	check(not shell.overlay_open(), "a re-render doesn't replay the results")
 	shell.free()
+
+
+## Painted doors, stalls and cards are one tap target all over (Newms
+## 2026-10-26): every painting sits in a button, and nothing under that button
+## but its own inner buttons and scripted parts (critter faces) eats a tap.
+## Fight of the Day before the call is the one card whose taps are its two
+## critters.
+func test_every_painted_door_is_tappable_all_over() -> void:
+	var HomePainting = load("res://game/ui/home_painting.gd")
+	var shell = Shell.new()
+	shell.build()
+	Dev.quick_fight_override = true
+	for s in ["play", "adventure", "week", "versus", "arena"]:
+		if s == "play":
+			shell.show_tab("play")
+		else:
+			shell.go(s)
+		var found := 0
+		for n in _all(shell):
+			if n.get_script() != HomePainting or str(n.tex.resource_path).contains("league_") \
+					or str(n.tex.resource_path).contains("daily_fotd"):
+				continue
+			found += 1
+			var b: Node = n.get_parent()
+			while b != null and not b is BaseButton:
+				b = b.get_parent()
+			check(b != null, "%s: painting %s is in a button" % [s, n.tex.resource_path])
+			if b == null:
+				continue
+			for c in _all(b):
+				if c == b or not c is Control or c.get_script() != null or c.mouse_filter != Control.MOUSE_FILTER_STOP:
+					continue
+				var p: Node = c
+				while p != b and not p is BaseButton:
+					p = p.get_parent()
+				check(p != b, "%s: a %s on %s eats taps" % [s, c.get_class(), n.tex.resource_path])
+		check(found > 0, s + " has paintings")
+	Dev.quick_fight_override = false
+	shell.free()
+
+
+func _all(n: Node) -> Array:
+	var out := [n]
+	for c in n.get_children():
+		out.append_array(_all(c))
+	return out

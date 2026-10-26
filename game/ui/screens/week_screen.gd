@@ -60,7 +60,8 @@ static func _info_text() -> Array:
 ## `art` names the painting (game/ui/home_art/<art>.png); `over` sits on the
 ## painting above the caption (Fight of the Day's critters). `border` and `bg`
 ## are kept for callers but no longer change the card.
-static func tile(caption: String, accent: Color, _border: Color, _bg: Color, body: Array, action: Control = null, badge: Control = null, art := "", over: Control = null, art_h := ART_H) -> Control:
+## A tap anywhere on the card presses `door` (by default `action`, if a button).
+static func tile(caption: String, accent: Color, _border: Color, _bg: Color, body: Array, action: Control = null, badge: Control = null, art := "", over: Control = null, art_h := ART_H, door: BaseButton = null) -> Control:
 	var head := Kit.hbox(6, [line(caption.to_upper(), 18, accent)])
 	if badge != null:
 		head.add_child(badge)
@@ -83,7 +84,15 @@ static func tile(caption: String, accent: Color, _border: Color, _bg: Color, bod
 		p = Kit.panel(Kit.vbox(6, [painted(art, head, over, art_h), _pad(v)]), st)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	p.custom_minimum_size.x = 0
-	return p
+	if door == null and action is BaseButton:
+		door = action
+	if door == null:
+		return p
+	var b := Kit.tap_card(p, func():
+		if not door.disabled:
+			door.pressed.emit(), 30)
+	b.custom_minimum_size.x = 0
+	return b
 
 
 ## A painted band with `head` on its bottom edge and `over` above it. The
@@ -288,4 +297,4 @@ static func _quests(shell) -> Control:
 	shell.mark("week_quests", open)
 	var body := Kit.hbox(14, [words, rewards, open], BoxContainer.ALIGNMENT_CENTER)
 	var badge: Control = Kit.chip("Claim", Kit.GOOD, 16) if ready > 0 else null
-	return tile("Quests", QUESTS, Kit.LINE, Kit.PANEL, [body], null, badge, "daily_quests", null, 112)
+	return tile("Quests", QUESTS, Kit.LINE, Kit.PANEL, [body], null, badge, "daily_quests", null, 112, open)

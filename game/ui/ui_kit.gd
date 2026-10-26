@@ -222,10 +222,34 @@ static func card_button(content: Control, on_press: Callable, border := LINE, bg
 		m.add_theme_constant_override("margin_" + side, pad)
 	m.add_child(content)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_taps_through(content)
 	b.add_child(m)
 	m.minimum_size_changed.connect(func(): b.custom_minimum_size = m.get_combined_minimum_size())
 	b.custom_minimum_size = m.get_combined_minimum_size()
 	return b
+
+
+## Makes the whole of `card` (a painted door, stall or card) one tap that runs
+## `on_press`, not just its title or button: a clear button around it. Buttons
+## on the card still take their own taps, and drags still scroll.
+static func tap_card(card: Control, on_press: Callable, radius := 32) -> Button:
+	var b := card_button(card, on_press, Color(0, 0, 0, 0), Color(0, 0, 0, 0), radius, 0)
+	b.size_flags_horizontal = card.size_flags_horizontal
+	b.size_flags_vertical = card.size_flags_vertical
+	b.size_flags_stretch_ratio = card.size_flags_stretch_ratio
+	return b
+
+
+## Bare spacers and panels inside a card button stop taps by default, leaving
+## dead patches on the card: let them through. Buttons and anything with its
+## own script (critter faces) keep their taps.
+static func _taps_through(n: Node) -> void:
+	for c in n.get_children():
+		if c is BaseButton or c is ScrollContainer or c is LineEdit or c is TextEdit or c is Slider:
+			continue
+		if c is Control and c.get_script() == null and c.mouse_filter == Control.MOUSE_FILTER_STOP:
+			c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_taps_through(c)
 
 
 static func chip(text: String, color: Color, font_size := 18) -> PanelContainer:
