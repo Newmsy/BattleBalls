@@ -244,6 +244,9 @@ var live := {}
 var you_side := 0
 var _live_aim_left := 0.0
 var live_box: HBoxContainer
+## No live foe turned up, so a CPU stands in. Newms: it looks like any live
+## foe (same tag, wording and buttons); the player isn't told.
+var _stand_in := false
 ## Where the info line and controls sit (under or beside the arena).
 var controls_rect := Rect2()
 
@@ -370,7 +373,7 @@ func _process(delta: float) -> void:
 		shell.glow.store.poll()
 	var covered := _sync_cover()
 	_cap_menu_fps(covered)
-	if mode == Mode.LIVE and state == State.AIM and not live.has("aimed"):
+	if (mode == Mode.LIVE or (_stand_in and mode == Mode.NORMAL)) and state == State.AIM and not live.has("aimed"):
 		_tick_live_aim(delta)
 	if state == State.FIGHT:
 		if _advance_fight(delta, FightSpeed.current()):
@@ -572,6 +575,7 @@ func _refresh_tier_buttons() -> void:
 
 func _show_menu() -> void:
 	state = State.MENU
+	_stand_in = false
 	_set_side(0)
 	sim = null
 	arena.sim = null
@@ -688,6 +692,7 @@ func _report_menu() -> void:
 
 
 func _begin_aim() -> void:
+	_stand_in = false
 	if mode != Mode.LIVE:
 		_set_side(0)
 	if mode != Mode.CAMPAIGN and mode != Mode.LIVE:
@@ -732,7 +737,7 @@ func _launch() -> void:
 	arena.ghost_dir = Vector2.ZERO
 	sfx.play("launch")
 	_start_fight()
-	_count_fight = true
+	_count_fight = not _stand_in # Like a live match, a stand-in fight earns nothing.
 
 
 ## Starts (or replays) the fight described by the current config.
@@ -903,6 +908,8 @@ func _result_caption() -> String:
 		Mode.CAMPAIGN: "Campaign", Mode.LIVE: "Live fight", Mode.TUTORIAL: ""}[mode]
 	if mode == Mode.RIVAL and not rival.is_empty():
 		name = "Rival · " + str(rival.name)
+	if _stand_in and mode == Mode.NORMAL:
+		name = "Live fight"
 	return name + ((" · %dv%d" % [sim.starters / 2, sim.starters / 2]) if sim != null and sim.starters > 2 else "")
 
 
@@ -958,6 +965,7 @@ func _live_slot(id: String) -> Dictionary:
 func _find_live() -> void:
 	_close_live()
 	live = {}
+	_stand_in = false
 	mode = Mode.NORMAL
 	state = State.MENU
 	info_label.text = "Connecting to the live server..."
@@ -1002,14 +1010,16 @@ func _on_live(msg: Dictionary) -> void:
 			_start_fight()
 		"ghost":
 			# Nobody near your power: a CPU foe of your critter's rarity at your
-			# tier (the one-tap Quick fight rules), on a fresh seed.
+			# tier (the one-tap Quick fight rules), on a fresh seed, shown as a
+			# live foe.
 			_close_live()
 			if pick_tiers[0] == 0 and not duo:
 				quick_tier = clampi(int(_live_slot(player_type).get("tier", 1)), 1, Lineup.MAX_TIER)
 			seed_value = _rng.randi_range(1, 99999)
 			_begin_aim()
-			info_label.text = "No live foe right now, so here's a CPU %s at your tier. Drag to aim!" % \
-				sim.balls[1].def.display_name
+			_stand_in = true
+			_live_aim_left = 11.0 # The same aim clock as a live match (server AIM_SECONDS less 1).
+			_tick_live_aim(0.0)
 		"error":
 			var code := str(msg.get("code", ""))
 			_cancel_live()
@@ -1878,7 +1888,7 @@ func _update_hud() -> void:
 	if sim.in_overtime():
 		clock = "OVERTIME x%.1f" % sim.damage_multiplier()
 	var tags: Array = ["P1", "P2"] if mode == Mode.REPLAY else ["YOU", "FOE"]
-	if mode == Mode.LIVE:
+	if mode == Mode.LIVE or (_stand_in and mode == Mode.NORMAL):
 		tags = ["YOU", "LIVE FOE"]
 	if mode == Mode.TUTORIAL and not tutorial_tags.is_empty():
 		tags = tutorial_tags
@@ -1979,7 +1989,7 @@ func _label_result_buttons() -> void:
 	friend_row.visible = _can_add_link_friend()
 	# Fight links and clips are 1v1 only for now. Live fights aren't
 	# shareable yet: a link replays from the seed, not the server's sides.
-	var links := not _is_duo() and mode != Mode.LIVE
+	var links := not _is_duo() and mode != Mode.LIVE and not (_stand_in and mode == Mode.NORMAL)
 	share_button.visible = links
 	challenge_button.visible = links and mode not in [Mode.REPLAY, Mode.RIVAL] and _board.is_empty()
 	clip_button.visible = links
@@ -2005,7 +2015,7 @@ func _label_result_buttons() -> void:
 
 ## A one-tap Quick fight (not 2v2, a board fight or a link).
 func _is_quick_result() -> bool:
-	return mode == Mode.NORMAL and quick_tier > 0 and not _is_duo() and _board.is_empty()
+	return (mode == Mode.NORMAL or mode == Mode.LIVE) and quick_tier > 0 and not _is_duo() and _board.is_empty()
 
 
 func _caption(b: Button, text: String) -> void:
