@@ -1600,7 +1600,8 @@ func _art(id: String, scale := 1.0) -> Control:
 		# (cropping its sides), or gives some up so the buttons stay on screen.
 		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		tex.set_meta("fill", true)
-		tex.set_meta("bleed", true) # A scene: edge to edge.
+		tex.set_meta("bleed", true) # A scene: edge to edge, soft only top and bottom.
+		tex.soften(36.0, Vector4(0, 1, 0, 1))
 	return tex
 
 
