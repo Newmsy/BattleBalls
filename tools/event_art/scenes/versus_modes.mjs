@@ -4,7 +4,6 @@
 //             (see-through, wispy tails) on a misty spectral ring.
 //   vs_quick   (720x200) Quick fight: a sparring pit with ropes, your fighter
 //             warming up while a random foe steps out of a "?" gate.
-//   vs_duo     (360x280) 2v2: tag-team square ring, two pairs squaring off.
 //   vs_friends (360x280) Friends: a cosy box seat over the stands, two critters
 //             on a couch sharing a lightning gift (energy).
 import { blurs, rng, sparkle, stringLights } from "./_shop_charge_pad_glow_chest_parts.mjs";
@@ -77,29 +76,6 @@ const quick = () => {
   ${fadeL(W, H, "qL", 0.85, 0.42)}`);
 };
 
-const duo = () => {
-  const W = 360, H = 280;
-  const ropeY = [150, 172, 194];
-  return svg(W, H, `
-  <defs><linearGradient id="dS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#160a2c"/><stop offset="1" stop-color="#3a1448"/></linearGradient></defs>
-  <rect width="${W}" height="${H}" fill="url(#dS)"/>
-  ${crowd(41, { y: 108, rows: 3, x0: -10, x1: 370, cx: 180, curve: 10, step: 15, dark: -0.78 })}
-  <path d="M -10 180 L 370 180 L 370 290 L -10 290 Z" fill="#2a1240"/>
-  <path d="M 10 190 L 350 190 L 370 280 L -10 280 Z" fill="#4a1e60"/>
-  <path d="M 10 190 L 350 190" stroke="${PINK}" stroke-width="3" opacity="0.6"/>
-  ${[24, 336].map((x) => `<rect x="${x - 6}" y="120" width="12" height="80" rx="3" fill="#ff4fd8"/><circle cx="${x}" cy="120" r="8" fill="#ffb3ec"/>`).join("")}
-  ${ropeY.map((y, k) => `<path d="M 24 ${y - 30 + k * 6} L 336 ${y - 30 + k * 6}" stroke="${["#ff4fd8", "#fff0fb", "#5ce1ff"][k]}" stroke-width="3" opacity="0.75"/>`).join("")}
-  ${shadow(70, 252, 24)}${shadow(120, 236, 24)}${shadow(240, 236, 24)}${shadow(290, 252, 24)}
-  <g data-layer="a" data-move="idle 3 0.8 0">${critter(120, 212, 24, "#3fa9f5", { acc: "fin", mood: "determined", look: [0.9, 0] })}</g>
-  <g data-layer="b" data-move="idle 4 1.0 0.3">${critter(70, 228, 24, "#5fd068", { acc: "leaf", mood: "cheer", look: [0.9, 0] })}</g>
-  <g data-layer="c" data-move="idle 3 0.8 0.5">${critter(240, 212, 24, "#ff6a3d", { acc: "flame", mood: "determined", look: [-0.9, 0] })}</g>
-  <g data-layer="d" data-move="idle 4 1.0 0.8">${critter(290, 228, 24, "#ffc93c", { acc: "propeller", mood: "cheer", look: [-0.9, 0] })}</g>
-  <circle cx="180" cy="210" r="18" fill="#fff0fb" opacity="0.5" filter="url(#bl8)"/>${sparkle(180, 210, 15, "#fff", 1)}${sparkle(194, 192, 6, GOLD, 0.9)}
-  ${sky(3, 16, 0, 0, 360, 90)}
-  ${motes(2, 8, 20, 90, 340, 260, ["#ffb3ec", "#ffd36b", "#9ad8ff"])}
-  ${fadeT(W, H, "dT", 0.85, 0.36)}`);
-};
-
 const friends = () => {
   const W = 360, H = 280;
   return svg(W, H, `
@@ -127,6 +103,6 @@ const friends = () => {
 
 export const dir = "game/ui/versus_art";
 export const size = [720, 240];
-export const sizes = { vs_quick: [720, 200], vs_duo: [360, 280], vs_friends: [360, 280] };
-export const many = { vs_ghost: ghostArena, vs_quick: quick, vs_duo: duo, vs_friends: friends };
+export const sizes = { vs_quick: [720, 200], vs_friends: [360, 280] };
+export const many = { vs_ghost: ghostArena, vs_quick: quick, vs_friends: friends };
 export default ghostArena;

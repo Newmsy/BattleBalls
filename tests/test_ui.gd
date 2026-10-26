@@ -294,8 +294,14 @@ func test_home_groups_every_mode_as_a_tile() -> void:
 	var shell = Shell.new()
 	shell.build()
 	shell.show_tab("play")
-	for m in ["thisweek", "campaign", "quickfight", "trickshot", "bouncerun", "spire", "arena", "friends", "glowpass", "shop"]:
+	for m in ["thisweek", "campaign", "trickshot", "bouncerun", "spire", "arena", "friends", "glowpass", "shop"]:
 		check(shell._marks.has(m), "home has " + m)
+	check(not shell._marks.has("quickfight") or Dev.live_fights(), "Quick fight hides with live fights off")
+	check(not shell._marks.has("duo") and not shell._marks.has("hub_duo"), "no 2v2")
+	Dev.quick_fight_override = true
+	shell.refresh()
+	check(shell._marks.has("quickfight"), "Quick fight shows when it's on")
+	Dev.quick_fight_override = false
 	shell.free()
 
 

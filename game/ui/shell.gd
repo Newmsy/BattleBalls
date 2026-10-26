@@ -112,7 +112,6 @@ var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.
 var backend = null
 var play_with := "" ## Ball to pick in the arena menu on the next request_play().
-var play_duo := false ## The next request_play() opens the 2v2 pick-a-pair menu.
 ## Glow Gems, cosmetics and the Glow Pass (game/glow/glow_state.gd). main.gd
 ## sets one backed by the real save; tests get a throwaway one.
 var glow
@@ -685,9 +684,8 @@ func mark(name: String, c: Control) -> void:
 
 ## Screens call this to get back to the arena menu, optionally with `ball`
 ## picked as yours.
-func request_play(ball := "", duo := false) -> void:
+func request_play(ball := "") -> void:
 	play_with = ball
-	play_duo = duo
 	play_requested.emit()
 
 

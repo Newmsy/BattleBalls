@@ -524,7 +524,7 @@ func _count(kind: String, n: int, t: int) -> void:
 
 
 ## A finished fight: pass XP and quest progress. `ctx` says who fought:
-## {critter: id, tier: int, duo: bool, mode: "arena"/"spire"/...}. Returns the
+## {critter: id, tier: int, mode: "arena"/"spire"/...}. Returns the
 ## pass XP added.
 func record_fight(winner: int, damage: float, t := -1, ctx := {}) -> int:
 	var result := "draw"
@@ -562,8 +562,6 @@ func record_trick(t := -1) -> int:
 
 func _record_win(ctx: Dictionary, t: int) -> void:
 	var id := str(ctx.get("critter", ""))
-	if ctx.get("duo", false):
-		_count("duo_win", 1, t)
 	if id == "" or not id in BallDefs.PLAYABLE:
 		return
 	var fam := Families.of(id)

@@ -3,7 +3,7 @@
 // page error, and saves screenshots. Also opens Daily Trick Shot and solves one,
 // plays the whole onboarding, follows a Bracket of Legends from picks to the
 // final and climbs the first floor of The Spire, fights
-// the first floor of Bounce Run and plays a Quick fight 2v2.
+// the first floor of Bounce Run and runs a live fight with a code.
 // Usage: node smoke.mjs [path/to/build/web]
 import { chromium } from "playwright";
 import http from "node:http";
@@ -245,7 +245,7 @@ try {
   // goes online (signs in a guest) when the build has a backend. demo=1 gives the
   // filled-in sample profile, so there is something to fuse, equip and summon.
   if (mine(115)) {
-    const { page, logs } = await openGame("?seed=7&demo=1");
+    const { page, logs } = await openGame("?seed=7&demo=1&quickfight=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(1500);
@@ -399,7 +399,7 @@ try {
   // 2c. Shop and Glow Pass (?screen=shop, &dev=1 for the test store): buy gems from it, buy this week's first bundle (it goes
   // on at once), then fight wearing it. Then the pass: unlock the premium track from the test store.
   if (mine(68)) {
-    const { page, logs } = await openGame("?screen=shop&seed=7&today=2026-10-20&offline=1&dev=1");
+    const { page, logs } = await openGame("?screen=shop&seed=7&today=2026-10-20&offline=1&dev=1&quickfight=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN shop", 10000);
     await page.waitForTimeout(1200);
@@ -439,7 +439,7 @@ try {
 
   // 3. Wide screen: controls sit beside the arena and FIGHT! is reachable.
   if (mine(41)) {
-    const { page, logs } = await openGame("?seed=7&offline=1", { width: 1376, height: 1263 });
+    const { page, logs } = await openGame("?seed=7&offline=1&quickfight=1", { width: 1376, height: 1263 });
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(1500);
     await waitForLog(logs, "UI_SCREEN play", 10000);
@@ -1008,26 +1008,6 @@ try {
       await tapUi(page, logs, "br_boon_0", "br_map");
       await page.screenshot({ path: path.join(shots, "45b-bouncerun-map-floor2.png") });
     }
-    await page.close();
-  }
-
-  // 16. Quick fight 2v2: the menu shows both pairs, and a four-ball fight
-  // (two health bars a side) runs to a result.
-  if (mine(20)) {
-    const menu = await openGame("?duo=1&p1=vampire&p3=honey&seed=42&offline=1");
-    await waitForLog(menu.logs, "UI_AT menu_duo ", 60000);
-    await menu.page.waitForTimeout(800);
-    await menu.page.screenshot({ path: path.join(shots, "46-duo-menu.png") });
-    // A tap on the menu's arena aims and launches: no FIGHT press first.
-    await tapUi(menu.page, menu.logs, "menu_arena");
-    console.log("2v2 tap to launch:", await waitForLog(menu.logs, "FIGHT_START", 5000));
-    await menu.page.close();
-    const { page, logs } = await openGame("?duo=1&p1=vampire&p3=honey&seed=42&auto=1&speed=4&offline=1");
-    await waitForLog(logs, "FIGHT_START", 60000);
-    await page.waitForTimeout(2500);
-    await page.screenshot({ path: path.join(shots, "47-duo-fight.png") });
-    console.log("2v2 fight:", await waitForLog(logs, "MATCH_END", 90000));
-    await page.screenshot({ path: path.join(shots, "48-duo-result.png") });
     await page.close();
   }
 } catch (e) {

@@ -76,27 +76,12 @@ func test_a_missing_angle_comes_from_the_seed_at_the_deadline() -> void:
 	check_eq(MatchSim.new(LiveMatch.config(m.seed, m.sides, go.angles)).run_to_end().hash, go.hash, "replays the same")
 
 
-func test_2v2_and_modes_never_mix() -> void:
-	var l := _lobby()
-	l.join("solo", "1v1", [Lineup.make("vampire", 3)], 0.0)
-	l.join("a", "2v2", [Lineup.make("vampire", 3), Lineup.make("laser", 3)], 0.0)
-	l.join("b", "2v2", [Lineup.make("vampire", 3), Lineup.make("bomber", 3)], 0.0)
-	var out := l.tick(1.0)
-	check(_to(out, "solo", "matched").is_empty(), "1v1 player not put in a 2v2")
-	var m := _to(out, "a", "matched")
-	check_eq(_to(out, "b", "matched").match, m.match, "the 2v2 players meet")
-	var go := _to(l.aim("b", m.match, 100, 2.0) + l.aim("a", m.match, -100, 2.0), "a", "go")
-	var cfg := LiveMatch.config(m.seed, m.sides, go.angles)
-	check_eq([cfg.p1, cfg.p2, cfg.p3, cfg.p4], ["vampire", "vampire", "laser", "bomber"], "teams")
-	check_eq(MatchSim.new(cfg).run_to_end().hash, go.hash, "replays the same")
-
-
 func test_bad_setups_are_refused() -> void:
 	var l := _lobby()
-	for bad in [[], [{"critter": "not_a_critter"}], [Lineup.make("vampire"), Lineup.make("vampire")]]:
-		var mode := "2v2" if bad.size() == 2 else "1v1"
-		check(not _to(l.join("x", mode, bad, 0.0), "x", "error").is_empty(), "refused: %s" % str(bad))
-	check(not _to(l.join("x", "3v3", [Lineup.make("vampire")], 0.0), "x", "error").is_empty(), "unknown mode")
+	for bad in [[], [{"critter": "not_a_critter"}], [Lineup.make("vampire"), Lineup.make("laser")]]:
+		check(not _to(l.join("x", "1v1", bad, 0.0), "x", "error").is_empty(), "refused: %s" % str(bad))
+	for mode in ["2v2", "3v3"]:
+		check(not _to(l.join("x", mode, [Lineup.make("vampire"), Lineup.make("laser")], 0.0), "x", "error").is_empty(), "no %s" % mode)
 	check(l.queue.is_empty(), "none queued")
 
 

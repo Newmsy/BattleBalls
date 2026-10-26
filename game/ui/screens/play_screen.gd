@@ -22,6 +22,7 @@ const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
+const Dev := preload("res://game/dev.gd")
 
 const DAILY := Color("ffd36b")
 const VERSUS := Color("ff4fd8")
@@ -282,8 +283,9 @@ static func _quest_line(shell) -> String:
 	return "New" if (q.daily as Array).is_empty() else "%d/3" % q.chest.done
 
 
-## Versus: Ghost Arena, then Quick fight with your fighter (tap the face to pick
-## another), plus 2v2 and Friends. The header opens the Versus hub.
+## Versus: Ghost Arena and Friends, then Quick fight with your fighter (tap
+## the face to pick another) while live fights are on. The header opens the
+## Versus hub.
 static func _versus_door(shell) -> Control:
 	var store = ArenaStore.open()
 	var league := Kit.vbox(0, [Kit.label("Ghost Arena", _s(26)), Kit.label("%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)], 19, VERSUS)])
@@ -302,13 +304,16 @@ static func _versus_door(shell) -> Control:
 	if fr.attention() > 0:
 		friends.add_child(red_dot())
 	shell.mark("friends", friends)
-	return door(shell, "versus", "VERSUS", "Ghost Arena · Quick fight · 2v2 · Friends", VERSUS, func(): shell.go("versus"),
-		[Kit.hbox(8, [arena, friends], BoxContainer.ALIGNMENT_CENTER), quick_fight_row(shell, true)],
+	var rows: Array = [Kit.hbox(8, [arena, friends], BoxContainer.ALIGNMENT_CENTER)]
+	if Dev.quick_fight_shown():
+		rows.append(quick_fight_row(shell))
+	return door(shell, "versus", "VERSUS", "Ghost Arena · Quick fight · Friends" if Dev.quick_fight_shown() else "Ghost Arena · Friends", VERSUS, func(): shell.go("versus"),
+		rows,
 		{"id": "home_versus", "focus": Vector2(.75, .9)})
 
 
 ## Your fighter and the Quick fight button. Tap the fighter to pick another.
-static func quick_fight_row(shell, with_duo := false) -> Control:
+static func quick_fight_row(shell) -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(p.lineup)
 	var c := Roster.get_critter(p.lineup)
@@ -324,17 +329,7 @@ static func quick_fight_row(shell, with_duo := false) -> Control:
 	fight.custom_minimum_size.x = 230
 	fight.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	shell.mark("quickfight", fight)
-	var row := Kit.hbox(10, [fighter, fight], BoxContainer.ALIGNMENT_CENTER)
-	if with_duo:
-		# 2v2 (pick a pair) sits beside Quick fight: the other quick practice fight.
-		fight.custom_minimum_size.x = 210
-		var duo := Kit.button("2v2", func(): shell.request_play("", true), "ghost", 24, 80)
-		duo.custom_minimum_size.x = 104
-		duo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		shell.mark("duo", duo)
-		row.add_child(duo)
-		row.move_child(duo, 1)
-	return row
+	return Kit.hbox(10, [fighter, fight], BoxContainer.ALIGNMENT_CENTER)
 
 
 ## Above the doors: the Glow Pass bar and the Shop, slim because they're looks only.

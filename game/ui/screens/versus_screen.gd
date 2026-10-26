@@ -1,5 +1,5 @@
 ## The Versus hub, opened from the Versus door on Play: Ghost Arena, Quick
-## fight with your fighter, 2v2 and Friends. Each mode is a card with its own
+## fight with your fighter (while live fights are on) and Friends. Each mode is a card with its own
 ## painting (game/ui/versus_art, from tools/event_art/scenes/versus_modes.mjs);
 ## the cards share the room so nothing scrolls. A new PvP mode adds one card.
 extends RefCounted
@@ -8,6 +8,7 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
+const Dev := preload("res://game/dev.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 
 const ART := "res://game/ui/versus_art/%s.png"
@@ -15,29 +16,31 @@ const ART := "res://game/ui/versus_art/%s.png"
 
 static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(20)
-	root.add_child(shell.title_row("Versus", {"back_mark": "versus_back", "info_mark": "versus_info", "info": [
-		"Ghost Arena: fight other players' saved trios for trophies and Tokens.",
-		"Quick fight: your fighter against a random foe. Practice, nothing at stake.",
-		"2v2: pick a pair for a four-ball brawl.",
-		"Friends: add friends, send energy and rematch their teams."]}))
+	var quick_on := Dev.quick_fight_shown()
+	var info := ["Ghost Arena: fight other players' saved trios for trophies and Tokens."]
+	if quick_on:
+		info.append("Quick fight: your fighter against a live foe. Nothing at stake.")
+	info.append("Friends: add friends, send energy and rematch their teams.")
+	root.add_child(shell.title_row("Versus", {"back_mark": "versus_back", "info_mark": "versus_info", "info": info}))
 	var store = ArenaStore.open()
 	var arena := painted(shell, "hub_arena", "vs_ghost", Vector2(.85, .5), "Ghost Arena",
 		"%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)], PlayScreen.VERSUS, func(): shell.go("arena"), true)
 	arena.custom_minimum_size.y = 150
-	var quick := PlayScreen.quick_fight_card(shell, band("vs_quick", "Quick fight", "Random foe · practice", Color("cfc8ff")))
 	var fr = shell.friends
-	var duo := painted(shell, "hub_duo", "vs_duo", Vector2(.5, .8), "2v2", "Pick a pair", PlayScreen.VERSUS, func(): shell.request_play("", true))
 	var friends := painted(shell, "friends", "vs_friends", Vector2(.5, .75), "Friends", PlayScreen._friends_line(fr),
 		Kit.GOOD if fr.attention() > 0 else PlayScreen.VERSUS, func(): shell.go("friends"))
 	if fr.attention() > 0:
 		friends.add_child(PlayScreen.red_dot())
-	var pair := Kit.hbox(14, [duo, friends])
-	pair.custom_minimum_size.y = 170
+	friends.custom_minimum_size.y = 170
 	# Spare height grows the paintings, roughly in step with their shapes.
-	var cards := [arena, quick, pair]
+	var cards := [arena, friends]
+	var ratios := [3.0, 3.0]
+	if quick_on:
+		cards.insert(1, PlayScreen.quick_fight_card(shell, band("vs_quick", "Quick fight", "Live foe · just for fun", Color("cfc8ff"))))
+		ratios.insert(1, 3.6)
 	for i in cards.size():
 		cards[i].size_flags_vertical = Control.SIZE_EXPAND_FILL
-		cards[i].size_flags_stretch_ratio = [3.0, 3.6, 3.0][i]
+		cards[i].size_flags_stretch_ratio = ratios[i]
 	var col := Kit.vbox(16, cards)
 	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(col)
