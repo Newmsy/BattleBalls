@@ -4,6 +4,7 @@
 ## Rules live in meta/campaign.gd; this only shows them.
 extends RefCounted
 
+const Matchup := preload("res://game/ui/matchup.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Motion := preload("res://game/ui/motion.gd")
 
@@ -170,7 +171,8 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String, zone_team: Ar
 		var side: float = (260.0 if boss else 220.0) / sqrt(float(foes.size()))
 		for id in foes:
 			faces.add_child(_face(id, enemy_tier(st), side))
-		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
+		var odds := Matchup.rate(mine, rec, FamilyEdge.team(zone_team if foes.size() > 1 else [fighter], foes))
+		var vs := Kit.hbox(10, [Kit.caption("You"), Kit.power(mine, 26, power_color), Kit.spacer(), Matchup.chip(odds), Kit.spacer(), Kit.caption("Foe"), Kit.power(rec, 26)],
 			BoxContainer.ALIGNMENT_CENTER)
 		var parts := [vs]
 		var edge_row := _edge_row(foes, zone_team if foes.size() > 1 else [fighter])

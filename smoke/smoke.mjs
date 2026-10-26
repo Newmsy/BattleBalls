@@ -760,6 +760,9 @@ try {
     await waitForLog(logs, "UI_SCREEN campaign", 5000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "22i-onboard-home.png") });
+    // Home already shows every mode, the closed ones dimmed and locked.
+    await tapUi(page, logs, "back", "play");
+    await page.screenshot({ path: path.join(shots, "22j-onboard-home-locked.png") });
     console.log("onboarding:", logs.filter((l) => l.startsWith("ONBOARD")).map((l) => l.split(" ")[1]).join(" "));
     await page.close();
   }
@@ -985,9 +988,9 @@ try {
     await page.screenshot({ path: path.join(shots, "40-bouncerun-draft.png") });
     await tapUi(page, logs, "br_next", "br_start_boons");
     for (const i of [0, 1, 2]) await tapUi(page, logs, `br_sboon_${i}`, "br_start_boons");
+    await tapUi(page, logs, "br_srelic_0", "br_start_boons");
     await page.screenshot({ path: path.join(shots, "40b-bouncerun-start-boons.png") });
-    await tapUi(page, logs, "br_start", "br_start_relic");
-    await tapUi(page, logs, "br_srelic_0", "br_map");
+    await tapUi(page, logs, "br_start", "br_map");
     await page.screenshot({ path: path.join(shots, "41-bouncerun-map.png") });
     // A tap on a lit node goes straight there (floor 1 is all fights).
     await tapUi(page, logs, "br_node_0", "br_floor");
