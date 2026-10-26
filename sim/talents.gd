@@ -18,11 +18,11 @@ const MAX_RANK := 3
 const CAPSTONE_COST := 4
 ## Points spent in the rows below that open a row (index = row - 1; row 5 is the capstone).
 const ROW_GATE := [0, 5, 12, 20, 26]
-## Power Rating per active point (a full active tree is about +10%).
-const POINT_POWER := 0.0033
-## Every scaled node's `per` is multiplied by this (tools/talent_check.gd tunes
-## it so a full tree fights like about +10% power).
-const STRENGTH := 0.25
+## Power Rating per active point (a full active tree is about +40%).
+const POINT_POWER := 0.0132
+## Every scaled node's `per` is multiplied by this. Newms asked for talents
+## that feel strong (2026-10-26): 4x the old 0.25.
+const STRENGTH := 1.0
 ## Relay bonus from a capstone: per other same-faction critter in the team.
 const BOND_POWER := 0.02
 const BOND_MAX := 2

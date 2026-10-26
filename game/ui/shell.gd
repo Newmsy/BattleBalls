@@ -22,6 +22,7 @@ const TouchInput := preload("res://game/ui/touch_input.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Motion := preload("res://game/ui/motion.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
+const Talents := preload("res://sim/talents.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -1098,6 +1099,10 @@ func _refresh_top() -> void:
 		was_lit[t] = _dots[t].visible
 	_dots.fuse.visible = fusable != "" and _new_since(fusable, _badge_value("fuse_seen"))
 	_dots.summon.visible = profile.free_summon and Intro.done(profile)
+	var talents := _talent_signature()
+	if current in ["factions", "faction"]:
+		_set_badge("talents_seen", talents)
+	_dots.critters.visible = talents != "" and _new_since(talents, _badge_value("talents_seen")) and Intro.done(profile)
 	var pass_claims: int = glow.claimable_count() if glow != null and not glow.season().is_empty() else 0
 	_dots.play.visible = (friends.attention() > 0 or pass_claims > 0) and Intro.done(profile)
 	for t in _dots:
@@ -1294,6 +1299,16 @@ func _tab_bar() -> Control:
 func _fuse_signature() -> String:
 	var keys: Array = profile.ready_to_fuse().map(func(st): return "%s:%d" % [st.id, st.tier])
 	keys.sort()
+	return ",".join(keys)
+
+
+## Factions with talent points to spend, as "fire:16" (faction:rank), so the
+## Critters dot comes back each time a rank brings a new point.
+func _talent_signature() -> String:
+	var keys: Array = []
+	for f in Talents.FACTIONS:
+		if profile.talent_points_free(f) > 0:
+			keys.append("%s:%d" % [f, profile.faction_rank(f)])
 	return ",".join(keys)
 
 
