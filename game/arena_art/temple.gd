@@ -4,6 +4,8 @@
 ## Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 const TILES := [Color("dcbd84"), Color("d3b073"), Color("e2c690"), Color("cca66a")]
@@ -59,10 +61,10 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		Kit.lit(cv, q, tone.lightened(0.1), tone.darkened(0.3))
 		var loop: PackedVector2Array = q.duplicate()
 		loop.append(q[0])
-		cv.draw_polyline(loop, Color("5a4020"), ctx.u(2.0), true))
+		Dot.pline(cv, loop, Color("5a4020"), ctx.u(2.0), true))
 	var trim := Kit.offset(ctx.outline, ctx.u(2.0))
 	trim.append(trim[0])
-	cv.draw_polyline(trim, GOLD, ctx.u(3.5), true)
+	Dot.pline(cv, trim, GOLD, ctx.u(3.5), true)
 	var band := Kit.offset(ctx.outline, ctx.wall * 0.5)
 	for e in ctx.outline.size():
 		if e % 2 == 1:
@@ -78,12 +80,12 @@ static func pillar(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
 	Kit.ball(cv, c, r * 0.95, Color("f6e2b4"), Color("c09858"))
 	for i in 12:
 		var a := i * TAU / 12.0
-		cv.draw_line(c + Vector2.from_angle(a) * r * 0.6, c + Vector2.from_angle(a) * r * 0.92, Color("a88246"), r * 0.08, true)
+		Dot.line(cv, c + Vector2.from_angle(a) * r * 0.6, c + Vector2.from_angle(a) * r * 0.92, Color("a88246"), r * 0.08, true)
 	Kit.ball(cv, c, r * 0.42, Color("fff3d6"), Color("dcc08a"))
 	var ivy := PackedVector2Array()
 	for i in 16:
 		ivy.append(c + Vector2.from_angle(1.6 + i * 0.12) * r * (1.02 + 0.05 * sin(i * 1.7)))
-	cv.draw_polyline(ivy, Color("3f7a2a"), r * 0.1, true)
+	Dot.pline(cv, ivy, Color("3f7a2a"), r * 0.1, true)
 	for i in range(0, 16, 3):
 		_leaf(cv, ctx, ivy[i], r * 0.16, 1.6 + i * 0.12)
 
@@ -102,9 +104,9 @@ static func _sun(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 				Kit.poly(cv, tri, col)
 			else:
 				Kit.lit(cv, tri, GOLD, GOLD_DARK)
-		cv.draw_arc(c + o, ctx.u(68.0), 0.0, TAU, 64, col if dark else GOLD_DARK, ctx.u(9.0), true)
+		Dot.arc(cv, c + o, ctx.u(68.0), 0.0, TAU, 64, col if dark else GOLD_DARK, ctx.u(9.0), true)
 		if not dark:
-			cv.draw_arc(c, ctx.u(68.0), PI, PI * 1.6, 24, Color(1, 1, 1, 0.45), ctx.u(3.0), true)
+			Dot.arc(cv, c, ctx.u(68.0), PI, PI * 1.6, 24, Color(1, 1, 1, 0.45), ctx.u(3.0), true)
 	Kit.glow(cv, c, ctx.u(60.0), Color(1.0, 0.8, 0.35, 0.35))
 	Kit.ball(cv, c, ctx.u(24.0), GOLD, GOLD_DARK)
 
@@ -133,7 +135,7 @@ static func _vine(cv: CanvasItem, ctx: Kit.Ctx, loop: PackedVector2Array, e: int
 	for i in k + 1:
 		var t := 0.15 + 0.7 * i / float(k)
 		pts.append(a.lerp(b, t) + nrm * sin(t * 22.0 + e) * ctx.u(7.0))
-	cv.draw_polyline(pts, col, ctx.u(3.5), true)
+	Dot.pline(cv, pts, col, ctx.u(3.5), true)
 	for i in range(1, k, 3):
 		var dir := (pts[i + 1] - pts[i]).angle() + (0.9 if i % 2 else -0.9)
 		if thorns:
@@ -148,4 +150,4 @@ static func _leaf(cv: CanvasItem, ctx: Kit.Ctx, p: Vector2, size: float, rot: fl
 		leaf[i] = p + leaf[i].rotated(rot)
 	var tone: Color = [Color("5aa83a"), Color("3f8a2c"), Color("74bf48")][ctx.rng.randi() % 3]
 	Kit.lit(cv, leaf, tone.lightened(0.2), tone.darkened(0.3))
-	cv.draw_line(p - Vector2.from_angle(rot) * size * 0.8, p + Vector2.from_angle(rot) * size * 0.8, Color(0.1, 0.25, 0.08, 0.6), maxf(1.0, size * 0.08), true)
+	Dot.line(cv, p - Vector2.from_angle(rot) * size * 0.8, p + Vector2.from_angle(rot) * size * 0.8, Color(0.1, 0.25, 0.08, 0.6), maxf(1.0, size * 0.08), true)

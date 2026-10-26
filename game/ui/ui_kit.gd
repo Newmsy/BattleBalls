@@ -63,6 +63,38 @@ static func label(text: String, size := 26, color := FG, align := HORIZONTAL_ALI
 	return l
 
 
+## A soft dark shadow under `l` (`spread` px wide, `drop` px down), drawn by
+## a twin label behind it. Godot's own shadow_outline_size draws shadow and
+## text glyph by glyph from two font textures, so every letter costs its own
+## draw calls (~50 for a short line); the twin draws in two.
+static func soft_shadow(l: Label, color: Color, drop := 2, spread := 6) -> void:
+	var twin := Label.new()
+	twin.name = "SoftShadow"
+	twin.show_behind_parent = true
+	twin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	twin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	twin.offset_top = drop
+	twin.offset_bottom = drop
+	twin.add_theme_color_override("font_color", color)
+	twin.add_theme_color_override("font_outline_color", color)
+	twin.add_theme_constant_override("outline_size", spread)
+	l.add_child(twin, false, Node.INTERNAL_MODE_FRONT)
+	# The label redraws whenever its words, size or font change: copy them then.
+	var sync := func():
+		twin.text = l.text
+		twin.uppercase = l.uppercase
+		twin.visible_characters = l.visible_characters
+		twin.horizontal_alignment = l.horizontal_alignment
+		twin.vertical_alignment = l.vertical_alignment
+		twin.autowrap_mode = l.autowrap_mode
+		twin.text_overrun_behavior = l.text_overrun_behavior
+		twin.clip_text = l.clip_text
+		twin.add_theme_font_size_override("font_size", l.get_theme_font_size("font_size"))
+		twin.add_theme_constant_override("line_spacing", l.get_theme_constant("line_spacing"))
+	sync.call()
+	l.draw.connect(sync)
+
+
 ## Small uppercase section label.
 static func caption(text: String, color := MUTED) -> Label:
 	var l := label(text.to_upper(), 20, color)

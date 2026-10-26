@@ -5,6 +5,8 @@
 ## Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 
@@ -26,22 +28,22 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	if ctx.id == "alley":
 		Kit.blocks(ctx, ctx.u(30.0), ctx.wall, func(q, _e, i):
 			Kit.lit(cv, q, Color("7a3040") if i % 2 else Color("6a2838"), Color("2a0e18"))
-			cv.draw_line(q[1], q[2], Color(0.1, 0.03, 0.06, 0.8), ctx.u(2.0), true))
+			Dot.line(cv, q[1], q[2], Color(0.1, 0.03, 0.06, 0.8), ctx.u(2.0), true))
 		var mid := Kit.offset(ctx.outline, ctx.wall * 0.5)
 		for e in mid.size():
 			var a := mid[e].lerp(mid[(e + 1) % mid.size()], 0.3)
 			var b := mid[e].lerp(mid[(e + 1) % mid.size()], 0.55)
 			var col := Color("ff4fd8") if e % 2 == 0 else Color("2df5ff")
-			cv.draw_line(a, b, Color(col, 0.3), ctx.u(14.0), true)
-			cv.draw_line(a, b, col, ctx.u(4.0), true)
+			Dot.line(cv, a, b, Color(col, 0.3), ctx.u(14.0), true)
+			Dot.line(cv, a, b, col, ctx.u(4.0), true)
 		return
 	var tube := Color("2df5ff") if ctx.id != "glitch" else Color("ff4fd8")
 	Kit.strip(cv, ctx.outline, Kit.offset(ctx.outline, ctx.wall), Color("1a0a36"), Color("0a0418"))
 	var loop := Kit.offset(ctx.outline, ctx.wall * 0.45)
 	loop.append(loop[0])
-	cv.draw_polyline(loop, Color(tube, 0.18), ctx.u(22.0), true)
-	cv.draw_polyline(loop, Color(tube, 0.45), ctx.u(10.0), true)
-	cv.draw_polyline(loop, tube.lerp(Color.WHITE, 0.6), ctx.u(4.0), true)
+	Dot.pline(cv, loop, Color(tube, 0.18), ctx.u(22.0), true)
+	Dot.pline(cv, loop, Color(tube, 0.45), ctx.u(10.0), true)
+	Dot.pline(cv, loop, tube.lerp(Color.WHITE, 0.6), ctx.u(4.0), true)
 
 
 ## A chrome post with a neon cap.
@@ -138,13 +140,13 @@ static func _alley(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 			puddle[i] = p + (puddle[i] - p) * Vector2(1.0, 0.6)
 		Kit.lit(cv, puddle, Color("2a2a5a"), Color("0a0a1a"))
 		var col := Color("ff4fd8") if ctx.rng.randf() < 0.5 else Color("2df5ff")
-		cv.draw_line(p + Vector2(-r * 0.3, -r * 0.35), p + Vector2(-r * 0.3, r * 0.35), Color(col, 0.5), ctx.u(8.0), true)
-		cv.draw_line(p + Vector2(r * 0.15, -r * 0.3), p + Vector2(r * 0.15, r * 0.3), Color(col, 0.3), ctx.u(5.0), true)
+		Dot.line(cv, p + Vector2(-r * 0.3, -r * 0.35), p + Vector2(-r * 0.3, r * 0.35), Color(col, 0.5), ctx.u(8.0), true)
+		Dot.line(cv, p + Vector2(r * 0.15, -r * 0.3), p + Vector2(r * 0.15, r * 0.3), Color(col, 0.3), ctx.u(5.0), true)
 	# A manhole cover.
 	var mh := ctx.at(500.0, 640.0)
 	Kit.ball(cv, mh, ctx.u(38.0), Color("4a4a5a"), Color("1a1a24"))
 	for k in 4:
-		cv.draw_line(mh + Vector2(-ctx.u(26.0), ctx.u(-18.0 + k * 12.0)), mh + Vector2(ctx.u(26.0), ctx.u(-18.0 + k * 12.0)), Color(0, 0, 0, 0.4), ctx.u(3.0), true)
+		Dot.line(cv, mh + Vector2(-ctx.u(26.0), ctx.u(-18.0 + k * 12.0)), mh + Vector2(ctx.u(26.0), ctx.u(-18.0 + k * 12.0)), Color(0, 0, 0, 0.4), ctx.u(3.0), true)
 
 
 static func _palm(cv: CanvasItem, ctx: Kit.Ctx, base: Vector2, flip: float) -> void:
@@ -154,8 +156,8 @@ static func _palm(cv: CanvasItem, ctx: Kit.Ctx, base: Vector2, flip: float) -> v
 	for i in 9:
 		var t := i / 8.0
 		trunk.append(base.lerp(top, t) + Vector2(sin(t * PI) * ctx.u(14.0) * flip, 0))
-	cv.draw_polyline(trunk, col, ctx.u(9.0), true)
+	Dot.pline(cv, trunk, col, ctx.u(9.0), true)
 	for k in [[-50.0, 20.0], [-34.0, 38.0], [44.0, 24.0], [30.0, 42.0], [6.0, -32.0]]:
 		var tip: Vector2 = top + Vector2(k[0] * flip, k[1]) * ctx.s
 		var mid := top.lerp(tip, 0.5) + Vector2(0, -ctx.u(16.0))
-		cv.draw_polyline(PackedVector2Array([top, mid, tip]), col, ctx.u(7.0), true)
+		Dot.pline(cv, PackedVector2Array([top, mid, tip]), col, ctx.u(7.0), true)

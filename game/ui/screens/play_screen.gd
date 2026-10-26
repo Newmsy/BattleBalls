@@ -145,9 +145,7 @@ static func _on_art(n: Node) -> void:
 			n.add_theme_color_override("font_color", ON_ART_MUTED)
 		n.add_theme_color_override("font_outline_color", Color(0, 0, 0, .75))
 		n.add_theme_constant_override("outline_size", 6)
-		n.add_theme_color_override("font_shadow_color", Color(0, 0, 0, .8))
-		n.add_theme_constant_override("shadow_offset_y", 2)
-		n.add_theme_constant_override("shadow_outline_size", 8)
+		Kit.soft_shadow(n, Color(0, 0, 0, .8), 2, 8)
 	for c in n.get_children():
 		_on_art(c)
 

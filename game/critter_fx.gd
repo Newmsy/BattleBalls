@@ -41,9 +41,9 @@ static func draw_gear(ci: CanvasItem, p: Vector2, r: float, spin: float) -> void
 static func draw_thorn(ci: CanvasItem, p: Vector2, r: float, vel: Vector2) -> void:
 	var dir := vel.normalized() if vel.length() > 0.001 else Vector2.RIGHT
 	var o := dir.orthogonal()
-	ci.draw_line(p, p - dir * r * 2.5, Color(THORN, 0.3), r * 0.8, true)
+	Dot.line(ci, p, p - dir * r * 2.5, Color(THORN, 0.3), r * 0.8, true)
 	Dot.poly(ci, PackedVector2Array([p + dir * r * 2.0 + o * r * 0.3, p + o * r * 0.7 - dir * r * 0.7, p - o * r * 0.7 - dir * r * 0.7]), THORN)
-	ci.draw_line(p - dir * r * 0.6, p + dir * r * 1.6, THORN_DARK, 1.5, true)
+	Dot.line(ci, p - dir * r * 0.6, p + dir * r * 1.6, THORN_DARK, 1.5, true)
 
 
 ## Jawbreaker's candy shot: a striped hard candy rolling.
@@ -74,7 +74,7 @@ static func draw_shard(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, hue: 
 	var dir := vel.normalized() if vel.length() > 0.001 else Vector2.RIGHT
 	var o := dir.orthogonal()
 	var col: Color = SHARD_HUES[hue % SHARD_HUES.size()]
-	ci.draw_line(p, p - dir * r * 3.0, Color(col, 0.35), r * 0.7, true)
+	Dot.line(ci, p, p - dir * r * 3.0, Color(col, 0.35), r * 0.7, true)
 	Dot.poly(ci, PackedVector2Array([p + dir * r * 1.8, p + o * r * 0.55, p - dir * r * 1.2, p - o * r * 0.55]), col)
 	Dot.circle(ci, p + dir * r * 0.4, r * 0.25, Color.WHITE)
 
@@ -83,7 +83,7 @@ static func draw_shard(ci: CanvasItem, p: Vector2, r: float, vel: Vector2, hue: 
 static func draw_balloon(ci: CanvasItem, p: Vector2, r: float, t: float, hue: float) -> void:
 	var col := Color.from_hsv(fmod(hue, 1.0), 0.7, 1.0)
 	var wob := 1.0 + 0.08 * sin(t * 18.0)
-	ci.draw_line(p + Vector2(0, r * 1.1), p + Vector2(sin(t * 10.0) * r * 0.4, r * 2.2), Color(1, 1, 1, 0.6), 1.5, true)
+	Dot.line(ci, p + Vector2(0, r * 1.1), p + Vector2(sin(t * 10.0) * r * 0.4, r * 2.2), Color(1, 1, 1, 0.6), 1.5, true)
 	Dot.circle(ci, p, r * wob, col)
 	Dot.poly(ci, PackedVector2Array([p + Vector2(0, r * 0.9), p + Vector2(-r * 0.25, r * 1.2), p + Vector2(r * 0.25, r * 1.2)]), col.darkened(0.2))
 	Dot.circle(ci, p + Vector2(-r * 0.35, -r * 0.4), r * 0.25, Color(1, 1, 1, 0.75))
@@ -118,8 +118,8 @@ static func draw_rock(ci: CanvasItem, p: Vector2, r: float, k: float, seed: floa
 		pts.append(p + Vector2.from_angle(a) * r * (0.85 + 0.15 * sin(seed * 3.0 + q * 2.1)))
 	Dot.poly(ci, pts, Color(ROCK, 0.4 + 0.6 * k))
 	Dot.circle(ci, p + Vector2(-0.3, -0.35) * r, r * 0.35, Color(ROCK_HI, 0.5 * k))
-	ci.draw_line(p + Vector2(-0.2, -0.5) * r, p + Vector2(0.1, 0.0) * r, Color(0, 0, 0, 0.35 * k), 2.0, true)
-	ci.draw_line(p + Vector2(0.1, 0.0) * r, p + Vector2(0.45, 0.3) * r, Color(0, 0, 0, 0.35 * k), 2.0, true)
+	Dot.line(ci, p + Vector2(-0.2, -0.5) * r, p + Vector2(0.1, 0.0) * r, Color(0, 0, 0, 0.35 * k), 2.0, true)
+	Dot.line(ci, p + Vector2(0.1, 0.0) * r, p + Vector2(0.45, 0.3) * r, Color(0, 0, 0, 0.35 * k), 2.0, true)
 
 
 ## Crumb's dropped cookie chunk: a broken-off wedge with chips, bobbing a
@@ -157,7 +157,7 @@ static func draw_tile(ci: CanvasItem, p: Vector2, half: float, fade: float, beat
 	var col := Color.from_hsv(fmod((beat + seed) * 0.23, 1.0), 0.7, 1.0)
 	var on := (beat + seed) % 2 == 0
 	var h := half * 0.92
-	ci.draw_rect(Rect2(p - Vector2(h, h), Vector2(h, h) * 2.0), Color(col, (0.32 if on else 0.14) * fade))
+	Dot.rect(ci, Rect2(p - Vector2(h, h), Vector2(h, h) * 2.0), Color(col, (0.32 if on else 0.14) * fade))
 	ci.draw_rect(Rect2(p - Vector2(h, h), Vector2(h, h) * 2.0), Color(col, 0.7 * fade), false, 2.0)
 
 
@@ -192,7 +192,7 @@ static func draw_fx(ci: CanvasItem, k: Dictionary, a: Vector2, b: Vector2, r: fl
 					Dot.arc(ci, a, r * (1.0 + g * 2.0), 0.0, TAU, 40, Color(SONIC, 0.7 * (1.0 - g)), 4.0, true)
 		"grab": # Kraken's tentacle shooting out and dragging the foe.
 			var tip := a.lerp(b, minf(1.0, f * 3.0))
-			ci.draw_line(a, tip, Color("c77dff", 0.9 * (1.0 - f * 0.5)), 10.0, true)
+			Dot.line(ci, a, tip, Color("c77dff", 0.9 * (1.0 - f * 0.5)), 10.0, true)
 			for q in 4:
 				Dot.circle(ci, a.lerp(tip, (q + 1) / 5.0), 4.0, Color("ffd6f5", 0.8))
 		"lag": # Pixel's lag glitch: chunky ghost frames from where it was to where it snapped back.
@@ -213,13 +213,13 @@ static func draw_fx(ci: CanvasItem, k: Dictionary, a: Vector2, b: Vector2, r: fl
 			Dot.arc(ci, a, rad, 0.0, TAU, 48, Color(TIME, 0.8 * (1.0 - f)), 4.0, true)
 			for q in 12:
 				var d := Vector2.from_angle(q * TAU / 12.0)
-				ci.draw_line(a + d * rad * 0.85, a + d * rad * 0.97, Color(TIME, 0.7 * (1.0 - f)), 2.0)
-			ci.draw_line(a, a + Vector2.UP * rad * 0.7, Color(TIME, 0.9 * (1.0 - f)), 4.0)
-			ci.draw_line(a, a + Vector2.from_angle(-PI / 6.0) * rad * 0.45, Color(TIME, 0.9 * (1.0 - f)), 5.0)
+				Dot.line(ci, a + d * rad * 0.85, a + d * rad * 0.97, Color(TIME, 0.7 * (1.0 - f)), 2.0)
+			Dot.line(ci, a, a + Vector2.UP * rad * 0.7, Color(TIME, 0.9 * (1.0 - f)), 4.0)
+			Dot.line(ci, a, a + Vector2.from_angle(-PI / 6.0) * rad * 0.45, Color(TIME, 0.9 * (1.0 - f)), 5.0)
 		"swat": # Old Oak swings a branch all the way round.
 			var sweep := f * TAU
 			Dot.arc(ci, a, r, sweep - 1.2, sweep, 16, Color(LEAF, 0.6 * (1.0 - f)), 14.0, true)
-			ci.draw_line(a, a + Vector2.from_angle(sweep) * r, Color(BARK, 1.0 - f), 8.0, true)
+			Dot.line(ci, a, a + Vector2.from_angle(sweep) * r, Color(BARK, 1.0 - f), 8.0, true)
 			for q in 3:
 				Dot.circle(ci, a + Vector2.from_angle(sweep - q * 0.15) * r * (0.7 + q * 0.12), 9.0, Color(LEAF, 1.0 - f))
 		"howl": # Frostfang howls: a pale moon and sound rings.

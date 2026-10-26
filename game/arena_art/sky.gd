@@ -4,6 +4,8 @@
 ## Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 
@@ -41,8 +43,8 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		Kit.ball(cv, c, ctx.u(44.0), Color("fff6bf"), Color("ffcf3a"))
 		for k in [[150, 160], [180, 180], [160, 195], [820, 820], [845, 838]]:
 			var b := ctx.at(k[0], k[1])
-			cv.draw_polyline(PackedVector2Array([b, b + Vector2(ctx.u(7.0), -ctx.u(6.0)), b + Vector2(ctx.u(14.0), 0)]), Color("3e5f9a"), ctx.u(2.4), true)
-			cv.draw_polyline(PackedVector2Array([b + Vector2(ctx.u(14.0), 0), b + Vector2(ctx.u(21.0), -ctx.u(6.0)), b + Vector2(ctx.u(28.0), 0)]), Color("3e5f9a"), ctx.u(2.4), true)
+			Dot.pline(cv, PackedVector2Array([b, b + Vector2(ctx.u(7.0), -ctx.u(6.0)), b + Vector2(ctx.u(14.0), 0)]), Color("3e5f9a"), ctx.u(2.4), true)
+			Dot.pline(cv, PackedVector2Array([b + Vector2(ctx.u(14.0), 0), b + Vector2(ctx.u(21.0), -ctx.u(6.0)), b + Vector2(ctx.u(28.0), 0)]), Color("3e5f9a"), ctx.u(2.4), true)
 	else:
 		var bolt := PackedVector2Array()
 		for k in [[-30, -150], [30, -150], [0, -30], [50, -30], [-35, 150], [-5, 20], [-55, 20]]:
@@ -61,7 +63,7 @@ static func pillar(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
 	Kit.glow(cv, c + Vector2(r * 0.3, r * 0.9), r * 1.2, Color(0.15, 0.25, 0.55, 0.35), 0.5)
 	var rock := PackedVector2Array([c + Vector2(-r, 0.0), c + Vector2(-0.6 * r, 0.65 * r), c + Vector2(-0.1 * r, 1.4 * r), c + Vector2(0.15 * r, 0.9 * r), c + Vector2(0.55 * r, 0.75 * r), c + Vector2(r, 0.0)])
 	Kit.grad(cv, rock, Color("a8774a"), Color("4a2e1a"), c, c + Vector2(0, r * 1.4))
-	cv.draw_line(c + Vector2(0.45 * r, 0.1 * r), c + Vector2(0.45 * r, 0.95 * r), Color("dff4ff"), r * 0.12, true)
+	Dot.line(cv, c + Vector2(0.45 * r, 0.1 * r), c + Vector2(0.45 * r, 0.95 * r), Color("dff4ff"), r * 0.12, true)
 	Kit.ball(cv, c, r, Color("a8f07a"), Color("3f9a3f"), 0.55)
 	Kit.disc(cv, c + Vector2(-0.3, 0.22) * r, r * 0.1, Color("ff7ab0"))
 	Kit.disc(cv, c + Vector2(0.15, 0.3) * r, r * 0.09, Color("ffe36b"))

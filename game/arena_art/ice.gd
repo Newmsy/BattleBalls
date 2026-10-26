@@ -4,6 +4,8 @@
 ## cave outside. Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 
@@ -34,7 +36,7 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	for p in Kit.scatter_in(ctx, 26, ctx.u(30.0)):
 		var r := ctx.u(ctx.rng.randf_range(3.0, 7.0))
 		Kit.disc(cv, p, r, Color(1, 1, 1, 0.22))
-		cv.draw_arc(p, r, 0.0, TAU, 16, Color(1, 1, 1, 0.6), ctx.u(1.0), true)
+		Dot.arc(cv, p, r, 0.0, TAU, 16, Color(1, 1, 1, 0.6), ctx.u(1.0), true)
 	for k in [[0.0, 0.18], [0.62, 0.12]]:
 		var x0: float = ctx.full.position.x + ctx.full.size.x * k[0]
 		var w: float = ctx.full.size.x * k[1]
@@ -63,8 +65,8 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 		Kit.lit(cv, q, Color("e8f8ff") if i % 2 else Color("d6f0ff"), Color("7fbfe0"))
 		var loop: PackedVector2Array = q.duplicate()
 		loop.append(q[0])
-		cv.draw_polyline(loop, Color("6fb4dc"), ctx.u(2.0), true)
-		cv.draw_line(q[0].lerp(q[3], 0.3) + (q[1] - q[0]) * 0.1, q[0].lerp(q[3], 0.3) + (q[1] - q[0]) * 0.5, Color(1, 1, 1, 0.8), ctx.u(3.0), true))
+		Dot.pline(cv, loop, Color("6fb4dc"), ctx.u(2.0), true)
+		Dot.line(cv, q[0].lerp(q[3], 0.3) + (q[1] - q[0]) * 0.1, q[0].lerp(q[3], 0.3) + (q[1] - q[0]) * 0.5, Color(1, 1, 1, 0.8), ctx.u(3.0), true))
 
 
 ## A cluster of ice crystals.

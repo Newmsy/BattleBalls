@@ -1118,10 +1118,10 @@ func _draw() -> void:
 			continue
 		if sim.balls[beam.owner].type_id == "beacon": # A lighthouse cone, not a laser.
 			BattleFx.draw_cone(self, a, b, k, 10.0 * s * 3.0, 90.0 * s * 3.0)
-		draw_line(a, b, Color(col, 0.18 * k), 14.0, true)
-		draw_line(a, b, Color(col, 0.35 * k), 7.0, true)
-		draw_line(a, b, Color(col, 0.9 * k), 3.5, true)
-		draw_line(a, b, Color("e6f7ff", k), 1.4, true)
+		Dot.line(self, a, b, Color(col, 0.18 * k), 14.0, true)
+		Dot.line(self, a, b, Color(col, 0.35 * k), 7.0, true)
+		Dot.line(self, a, b, Color(col, 0.9 * k), 3.5, true)
+		Dot.line(self, a, b, Color("e6f7ff", k), 1.4, true)
 
 	for b in sim.balls:
 		if not b.alive():
@@ -1159,11 +1159,11 @@ func _draw() -> void:
 				col = Color.from_hsv(fmod(i * 0.13 + _time * 0.6, 1.0), 0.55, 1.0)
 			var a: Vector2 = k.segments[i][0] * s
 			var b: Vector2 = k.segments[i][1] * s
-			draw_line(a, b, Color(col, 0.3 * (1.0 - t)), 10.0, true)
-			draw_line(a, b, Color(col, 0.95 * (1.0 - t)), 3.0, true)
+			Dot.line(self, a, b, Color(col, 0.3 * (1.0 - t)), 10.0, true)
+			Dot.line(self, a, b, Color(col, 0.95 * (1.0 - t)), 3.0, true)
 	for k in _flashes:
 		var t: float = k.age / 0.25
-		draw_line(k.from * s, k.to * s, Color(Color.from_hsv(fmod(_time, 1.0), 0.5, 1.0), 0.9 * (1.0 - t)), 3.0, true)
+		Dot.line(self, k.from * s, k.to * s, Color(Color.from_hsv(fmod(_time, 1.0), 0.5, 1.0), 0.9 * (1.0 - t)), 3.0, true)
 
 	for b in sim.balls:
 		var trail := _cosmetic(_side(b.index), "trail")
@@ -1457,8 +1457,8 @@ func _paint_art_floor(cv: CanvasItem, shape: MatchSim, overtime: bool) -> void:
 	if overtime:
 		var closed := now.duplicate()
 		closed.append(now[0])
-		cv.draw_polyline(closed, Color(OVERTIME_BORDER, 0.3), 9.0, true)
-		cv.draw_polyline(closed, OVERTIME_BORDER, 3.0, true)
+		Dot.pline(cv, closed, Color(OVERTIME_BORDER, 0.3), 9.0, true)
+		Dot.pline(cv, closed, OVERTIME_BORDER, 3.0, true)
 
 
 func _draw_art_obstacle(o: Dictionary, p: Vector2, rad: float) -> bool:
@@ -1525,8 +1525,8 @@ func _draw_finisher_frame() -> void:
 	var view := Rect2(c - Vector2(half, half), Vector2(half, half) * 2.0)
 	var bar := view.size.y * 0.09 * finisher_amount
 	draw_set_transform(Vector2.ZERO)
-	draw_rect(Rect2(view.position, Vector2(view.size.x, bar)), Color(0, 0, 0, 0.85))
-	draw_rect(Rect2(Vector2(view.position.x, view.end.y - bar), Vector2(view.size.x, bar)), Color(0, 0, 0, 0.85))
+	Dot.rect(self, Rect2(view.position, Vector2(view.size.x, bar)), Color(0, 0, 0, 0.85))
+	Dot.rect(self, Rect2(Vector2(view.position.x, view.end.y - bar), Vector2(view.size.x, bar)), Color(0, 0, 0, 0.85))
 	if ko_ball < 0:
 		return
 	draw_set_transform(c, 0.0, Vector2.ONE / cam_zoom)
@@ -1546,8 +1546,8 @@ func _ghost_arrow(b, s: float) -> void:
 	var side := ghost_dir.orthogonal()
 	Dot.poly(self, PackedVector2Array([(to + ghost_dir * 6.0) * s, (to - ghost_dir * 52.0 + side * 37.0) * s, (to - ghost_dir * 52.0 - side * 37.0) * s]), under)
 	while dash < 260.0:
-		draw_line((from + ghost_dir * dash) * s, (from + ghost_dir * minf(dash + 22.0, 270.0)) * s, under, 11.0, true)
-		draw_line((from + ghost_dir * dash) * s, (from + ghost_dir * minf(dash + 22.0, 270.0)) * s, col, 6.0, true)
+		Dot.line(self, (from + ghost_dir * dash) * s, (from + ghost_dir * minf(dash + 22.0, 270.0)) * s, under, 11.0, true)
+		Dot.line(self, (from + ghost_dir * dash) * s, (from + ghost_dir * minf(dash + 22.0, 270.0)) * s, col, 6.0, true)
 		dash += 38.0
 	Dot.poly(self, PackedVector2Array([to * s, (to - ghost_dir * 46.0 + side * 30.0) * s, (to - ghost_dir * 46.0 - side * 30.0) * s]), col)
 
@@ -1774,12 +1774,12 @@ func _ring(lines: PackedVector2Array, c: Vector2, r: float, n: int) -> void:
 
 func _grid_line(a: Vector2, b: Vector2, clip: PackedVector2Array) -> void:
 	if clip.is_empty():
-		_cv.draw_line(a, b, _grid, 1.0)
+		Dot.line(_cv, a, b, _grid, 1.0)
 		return
 	var hits := Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([a, b]), clip)
 	for part in hits:
 		if part.size() >= 2:
-			_cv.draw_line(part[0], part[part.size() - 1], _grid, 1.0)
+			Dot.line(_cv, part[0], part[part.size() - 1], _grid, 1.0)
 
 
 func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
@@ -1886,7 +1886,7 @@ func _draw_ambient(kind: String, r: Rect2, clip: PackedVector2Array) -> void:
 					continue
 				var q := r.position + Vector2(p.x * r.size.x, p.y * r.size.y)
 				if clip.is_empty() or Geometry2D.is_point_in_polygon(q, clip):
-					draw_rect(Rect2(q, Vector2(18, 6) * view_scale * 1.4), Color(col, 0.35))
+					Dot.rect(self, Rect2(q, Vector2(18, 6) * view_scale * 1.4), Color(col, 0.35))
 				continue
 		var at := r.position + Vector2(clampf(p.x, 0.0, 1.0) * r.size.x, clampf(p.y, 0.0, 1.0) * r.size.y)
 		if not clip.is_empty() and not Geometry2D.is_point_in_polygon(at, clip):
@@ -1937,7 +1937,7 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 				_draw_lava(f, s)
 			"conveyor":
 				var rr: Rect2 = Rect2(f.rect.position * s, f.rect.size * s)
-				draw_rect(rr, Color("2a2a33"))
+				Dot.rect(self, rr, Color("2a2a33"))
 				draw_rect(rr, Color(CONVEYOR, 0.7), false, 2.0)
 				var step := 46.0 * s
 				var dir: Vector2 = f.dir
@@ -1962,7 +1962,7 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 				for edge in [v0 + 3.0, v1 - 3.0]: # Hazard stripes.
 					var sx := u0
 					while sx < u1 - 10.0:
-						draw_line(at.call(sx, edge), at.call(minf(sx + 10.0, u1), edge), Color(CONVEYOR, 0.5) if int(sx / 10.0) % 2 == 0 else Color(INK, 0.6), 4.0)
+						Dot.line(self, at.call(sx, edge), at.call(minf(sx + 10.0, u1), edge), Color(CONVEYOR, 0.5) if int(sx / 10.0) % 2 == 0 else Color(INK, 0.6), 4.0)
 						sx += 10.0
 			"launch": # A springboard: rings and chevrons bobbing upward.
 				var c: Vector2 = f.pos * s
@@ -1994,8 +1994,8 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 func _draw_lava(f: Dictionary, s: float) -> void:
 	if f.has("rect"):
 		var rr: Rect2 = Rect2(f.rect.position * s, f.rect.size * s)
-		draw_rect(rr, Color("5a1405"))
-		draw_rect(rr.grow(-3.0), Color(LAVA, 0.55))
+		Dot.rect(self, rr, Color("5a1405"))
+		Dot.rect(self, rr.grow(-3.0), Color(LAVA, 0.55))
 		var n := 6
 		for j in n:
 			var y := rr.position.y + rr.size.y * fmod(j / float(n) + _time * 0.05, 1.0)
@@ -2150,7 +2150,7 @@ func _draw_spike_walls(shape) -> void:
 	for side in [-1.0, 1.0]:
 		var x: float = r.position.x if side < 0.0 else r.end.x
 		var top: float = shape.centre.y - half
-		draw_line(Vector2(x, top) * s, Vector2(x, top + half * 2.0) * s, Color(SPIKE, 0.35), 8.0, true)
+		Dot.line(self, Vector2(x, top) * s, Vector2(x, top + half * 2.0) * s, Color(SPIKE, 0.35), 8.0, true)
 		for t in teeth:
 			var y0 := top + t * tooth
 			var tri := PackedVector2Array([Vector2(x, y0) * s, Vector2(x - side * tooth * 0.75, y0 + tooth * 0.5) * s, Vector2(x, y0 + tooth) * s])
@@ -2435,8 +2435,8 @@ func _draw_zone(z, s: float) -> void:
 			var half: float = 14.0 * s
 			if z.armed():
 				Dot.arc(self, p, z.blast_radius * s, 0.0, TAU, 40, Color("7cff4f", 0.12), 2.0, true)
-			draw_rect(Rect2(p - Vector2(half, half), Vector2(half, half) * 2.0), Color("1f4d12"))
-			draw_rect(Rect2(p - Vector2(half, half) * 0.5, Vector2(half, half)), Color("7cff4f") if on else Color("7cff4f", 0.35))
+			Dot.rect(self, Rect2(p - Vector2(half, half), Vector2(half, half) * 2.0), Color("1f4d12"))
+			Dot.rect(self, Rect2(p - Vector2(half, half) * 0.5, Vector2(half, half)), Color("7cff4f") if on else Color("7cff4f", 0.35))
 		"quake": # The Anvil King winding up a quake: a throbbing ring to get outside.
 			var pulse := 0.5 + 0.5 * absf(sin(_time * 9.0))
 			Dot.circle(self, p, z.radius * s, Color(RING_COLORS.quake, 0.05 + 0.05 * pulse))
@@ -2450,7 +2450,7 @@ func _draw_zone(z, s: float) -> void:
 				var a := k * TAU / 6.0 + floorf(_time * 6.0) * 0.7
 				var q: Vector2 = p + Vector2.from_angle(a) * z.radius * 0.55 * s
 				var half := 9.0 * s
-				draw_rect(Rect2(q - Vector2(half, half), Vector2(half, half) * 2.0), Color("ff4fd8" if k % 2 else "7cff4f", 0.5 * rot_fade))
+				Dot.rect(self, Rect2(q - Vector2(half, half), Vector2(half, half) * 2.0), Color("ff4fd8" if k % 2 else "7cff4f", 0.5 * rot_fade))
 		"warp": # The Glitch about to blink here.
 			if fmod(_time * 10.0, 1.0) < 0.6:
 				Dot.arc(self, p, z.radius * s, 0.0, TAU, 24, Color("ff4fd8", 0.8), 4.0, true)
@@ -2469,9 +2469,9 @@ func _draw_zone(z, s: float) -> void:
 			Dot.arc(self, p, r, 0.0, TAU, 48, Color(col, 0.5 * fade), 3.0, true)
 			for k in 12:
 				var d := Vector2.from_angle(k * TAU / 12.0)
-				draw_line(p + d * r * 0.85, p + d * r * 0.95, Color(col, 0.6 * fade), 2.0)
-			draw_line(p, p + Vector2.from_angle(z.age * TAU - PI / 2.0) * r * 0.7, Color(col, 0.7 * fade), 3.0)
-			draw_line(p, p + Vector2.from_angle(z.age * TAU / 12.0 - PI / 2.0) * r * 0.45, Color(col, 0.7 * fade), 4.0)
+				Dot.line(self, p + d * r * 0.85, p + d * r * 0.95, Color(col, 0.6 * fade), 2.0)
+			Dot.line(self, p, p + Vector2.from_angle(z.age * TAU - PI / 2.0) * r * 0.7, Color(col, 0.7 * fade), 3.0)
+			Dot.line(self, p, p + Vector2.from_angle(z.age * TAU / 12.0 - PI / 2.0) * r * 0.45, Color(col, 0.7 * fade), 4.0)
 		"snare":
 			# Bonbon's ribbon left on the floor: a loose pink loop with a bow.
 			var r: float = z.radius * s
@@ -2558,7 +2558,7 @@ func _draw_shot(shot, s: float) -> void:
 	match shot.kind:
 		"boon_bolt": # Rebound Bolt: a hot spark with a short tail.
 			var d: Vector2 = shot.vel.normalized()
-			draw_line(p - d * r * 3.0, p, Color("ffd166", 0.5), r * 0.9)
+			Dot.line(self, p - d * r * 3.0, p, Color("ffd166", 0.5), r * 0.9)
 			Dot.circle(self, p, r * 1.2, Color("ffd166", 0.45))
 			Dot.circle(self, p, r * 0.7, Color.WHITE)
 			return
@@ -2581,7 +2581,7 @@ func _draw_shot(shot, s: float) -> void:
 		var d: Vector2 = shot.vel.normalized()
 		var sd := d.orthogonal()
 		Dot.poly(self, PackedVector2Array([p + d * r * 1.8, p + sd * r * 0.6, p - d * r * 1.8, p - sd * r * 0.6]), BossArt.HEN_HI)
-		draw_line(p - d * r * 2.2, p + d * r * 1.8, BossArt.HEN, 2.0, true)
+		Dot.line(self, p - d * r * 2.2, p + d * r * 1.8, BossArt.HEN, 2.0, true)
 		return
 	if shot.kind == "stinger" and sim.balls[shot.owner].type_id == "zing":
 		BattleFx.draw_stinger(self, p, maxf(r, 5.0), shot.vel)
@@ -2591,9 +2591,9 @@ func _draw_shot(shot, s: float) -> void:
 		return
 	var back: Vector2 = -shot.vel.normalized() if shot.vel.length() > 0.001 else Vector2.ZERO
 	if shot.kind in ["rocket", "stinger"]:
-		draw_line(p, p + back * r * 3.0, Color(Color("ffb347") if shot.kind == "rocket" else col, 0.6), r * 0.9, true)
+		Dot.line(self, p, p + back * r * 3.0, Color(Color("ffb347") if shot.kind == "rocket" else col, 0.6), r * 0.9, true)
 	else:
-		draw_line(p, p + back * r * 2.0, Color(col, 0.25), r * 1.2, true)
+		Dot.line(self, p, p + back * r * 2.0, Color(col, 0.25), r * 1.2, true)
 	Dot.circle(self, p, r * 1.6, Color(col, 0.25))
 	Dot.circle(self, p, r, col)
 	Dot.circle(self, p + Vector2(-0.3, -0.3) * r, r * 0.4, Color.WHITE)
@@ -2623,7 +2623,7 @@ func _draw_orb(b, item: Dictionary, s: float) -> void:
 		if item.look == "wreck":
 			_draw_wreck_chain(b, item, s)
 		else:
-			draw_line(item.from * s, p, Color(col.lightened(0.25), 0.85), 4.0 * s, true)
+			Dot.line(self, item.from * s, p, Color(col.lightened(0.25), 0.85), 4.0 * s, true)
 	if item.look == "candy" and b.type_id == "jawbreaker":
 		BattleFx.draw_jawbreaker(self, p, r, int(item.get("hue", 0)), _time)
 		return
@@ -2794,7 +2794,7 @@ func _draw_piece(p, s: float, shake: Vector2) -> void:
 		"root":
 			for l in 3:
 				var a := l * TAU / 3.0 + 0.4
-				draw_line(pos, pos + Vector2(cos(a), sin(a)) * rad * 0.8, Color(cols[1], 0.8), 3.0, true)
+				Dot.line(self, pos, pos + Vector2(cos(a), sin(a)) * rad * 0.8, Color(cols[1], 0.8), 3.0, true)
 
 
 ## Ivy's lash: a taut vine from the lashed foe to each vine pillar.
@@ -2826,7 +2826,7 @@ func _dashed(a: Vector2, b: Vector2, col: Color) -> void:
 	var dir := (b - a) / maxf(length, 0.001)
 	var d := 0.0
 	while d < length:
-		draw_line(a + dir * d, a + dir * minf(d + 12.0, length), col, 2.0, true)
+		Dot.line(self, a + dir * d, a + dir * minf(d + 12.0, length), col, 2.0, true)
 		d += 22.0
 
 
@@ -2937,14 +2937,14 @@ func _draw_status(b, s: float) -> void:
 		var block := Rect2(p - Vector2(r, r) * 1.1, Vector2(r, r) * 2.2)
 		_rounded_rect(block, r * 0.25, Color(FROZEN, 0.35))
 		_rounded_rect_outline(block, r * 0.25, Color(FROZEN, 0.9), 3.0)
-		draw_line(block.position + Vector2(r * 0.3, r * 0.4), block.position + Vector2(r * 0.7, r * 0.2), Color.WHITE, 3.0, true)
+		Dot.line(self, block.position + Vector2(r * 0.3, r * 0.4), block.position + Vector2(r * 0.7, r * 0.2), Color.WHITE, 3.0, true)
 	if sim.tick < int(b.state.get("marked_until", -1)):
 		# Pounce's target ring: a crosshair that tightens.
 		var k := 1.25 + 0.1 * sin(_time * 10.0)
 		Dot.arc(self, p, r * k, 0.0, TAU, 48, Color(MARK, 0.85), 3.0, true)
 		for q in 4:
 			var d := Vector2.from_angle(q * TAU / 4.0)
-			draw_line(p + d * r * (k - 0.2), p + d * r * (k + 0.15), Color(MARK, 0.85), 3.0, true)
+			Dot.line(self, p + d * r * (k - 0.2), p + d * r * (k + 0.15), Color(MARK, 0.85), 3.0, true)
 	if sim.tick < int(b.state.get("heard_until", -1)): # Sonar T5 can hear it: sound arcs pulse on it.
 		for q in 2:
 			var f := fmod(_time * 1.5 + q * 0.5, 1.0)
@@ -2957,7 +2957,7 @@ func _draw_status(b, s: float) -> void:
 		var back: Vector2 = -b.vel.normalized()
 		for q in 3:
 			var side: Vector2 = back.orthogonal() * r * (q - 1) * 0.5
-			draw_line(p + back * r + side, p + back * r * 2.0 + side, Color(1, 1, 1, 0.45), 3.0, true)
+			Dot.line(self, p + back * r + side, p + back * r * 2.0 + side, Color(1, 1, 1, 0.45), 3.0, true)
 	if b.def.has("gear_step"):
 		_pips(p + Vector2(0, r + 38.0), int(b.state.get("gear", 0)), int(b.def.gear_max), Color("a7c957"))
 	if b.def.has("bulb_max"):
@@ -3004,7 +3004,7 @@ func _draw_forms(b, p: Vector2, r: float, s: float) -> void:
 			Dot.circle(self, p, reach, Color(col, 0.08))
 			for k in 12:
 				var a := _time * 0.6 + k * TAU / 12.0
-				draw_line(p + Vector2.from_angle(a) * r * 1.08, p + Vector2.from_angle(a) * reach, Color(col, 0.35), 3.0, true)
+				Dot.line(self, p + Vector2.from_angle(a) * r * 1.08, p + Vector2.from_angle(a) * reach, Color(col, 0.35), 3.0, true)
 		Dot.arc(self, p, r * 1.07, 0.0, TAU, 48, Color(col, 0.7), 3.0, true)
 
 
@@ -3370,7 +3370,7 @@ func _draw_cool_layer(s: float, ground: bool) -> void:
 			_draw_cool(k, s)
 	if not ground and _flash > 0.0:
 		var r := sim.arena_rect()
-		draw_rect(Rect2(r.position * s, r.size * s), Color(1, 1, 1, _flash))
+		Dot.rect(self, Rect2(r.position * s, r.size * s), Color(1, 1, 1, _flash))
 
 
 ## Per-ball art under the balls: Yo-Yo's round-the-world, Optic's triangle,
@@ -3421,7 +3421,7 @@ func _draw_cool_ground(s: float) -> void:
 				var tint := Color("ffd29a") if not moon else Color("9aa8ff")
 				if both:
 					tint = Color("ffffff")
-				draw_rect(Rect2(ar.position * s, ar.size * s), Color(tint, 0.05))
+				Dot.rect(self, Rect2(ar.position * s, ar.size * s), Color(tint, 0.05))
 	for piece in sim.pieces:
 		if piece.kind == "illusion" and _type_of(piece.owner) == "foxfire":
 			var sink: float = clampf((piece.life - piece.age) / 0.3, 0.0, 1.0)
@@ -3664,8 +3664,8 @@ func _draw_cool_status(b, p: Vector2, r: float, s: float) -> void:
 	for o in sim.balls: # Bonbon T5 ties its wrap in gold.
 		var w: Dictionary = o.state.get("wrap", {})
 		if not w.is_empty() and int(w.target) == b.index and sim.tick < int(w.pop) and o.type_id == "bonbon" and _tier_of(o.index) >= 5:
-			draw_line(p + Vector2(-r, 0), p + Vector2(r, 0), Color("ffd23f"), r * 0.1, true)
-			draw_line(p + Vector2(0, -r), p + Vector2(0, r), Color("ffd23f"), r * 0.1, true)
+			Dot.line(self, p + Vector2(-r, 0), p + Vector2(r, 0), Color("ffd23f"), r * 0.1, true)
+			Dot.line(self, p + Vector2(0, -r), p + Vector2(0, r), Color("ffd23f"), r * 0.1, true)
 			Dot.circle(self, p + Vector2(0, -r * 0.95), r * 0.13, Color("ffd23f"))
 
 
@@ -3746,10 +3746,10 @@ func _draw_cool_beam(beam, a: Vector2, b: Vector2, k: float, bi: int) -> bool:
 			return true
 		"laser": # Shimmering through the colours.
 			var col := Color.from_hsv(fmod(0.53 + 0.06 * sin(_time * 7.0 + bi), 1.0), 0.75, 1.0)
-			draw_line(a, b, Color(col, 0.2 * k), 16.0, true)
-			draw_line(a, b, Color(col, 0.4 * k), 7.0, true)
-			draw_line(a, b, Color(col, 0.9 * k), 3.5, true)
-			draw_line(a, b, Color("e6f7ff", k), 1.4, true)
+			Dot.line(self, a, b, Color(col, 0.2 * k), 16.0, true)
+			Dot.line(self, a, b, Color(col, 0.4 * k), 7.0, true)
+			Dot.line(self, a, b, Color(col, 0.9 * k), 3.5, true)
+			Dot.line(self, a, b, Color("e6f7ff", k), 1.4, true)
 			return true
 		"quasar":
 			var flaring: bool = sim.tick < int(owner.state.get("flare_until", -1))
@@ -3757,10 +3757,10 @@ func _draw_cool_beam(beam, a: Vector2, b: Vector2, k: float, bi: int) -> bool:
 			if flaring and owner.def.get("quasar_cross", 0) > 0:
 				col = Color.from_hsv(fmod(bi * 0.25 + _time * 0.6, 1.0), 0.6, 1.0)
 			var w := 1.6 if flaring else 1.0
-			draw_line(a, b, Color(col, 0.18 * k), 14.0 * w, true)
-			draw_line(a, b, Color(col, 0.4 * k), 7.0 * w, true)
-			draw_line(a, b, Color(col, 0.9 * k), 3.5 * w, true)
-			draw_line(a, b, Color(1, 1, 1, k), 1.4 * (3.5 if flaring else 1.0), true) # The flare whites out the core.
+			Dot.line(self, a, b, Color(col, 0.18 * k), 14.0 * w, true)
+			Dot.line(self, a, b, Color(col, 0.4 * k), 7.0 * w, true)
+			Dot.line(self, a, b, Color(col, 0.9 * k), 3.5 * w, true)
+			Dot.line(self, a, b, Color(1, 1, 1, k), 1.4 * (3.5 if flaring else 1.0), true) # The flare whites out the core.
 			return true
 	return false
 
@@ -3787,7 +3787,7 @@ func _draw_cool_shot(shot, p: Vector2, r: float, s: float) -> bool:
 			if shot.kind == "rocket":
 				BattleFx.draw_rocket_smoke(self, p, r, shot.vel, _time)
 		"zing":
-			draw_line(p, p + back * r * 7.0, Color(BattleFx.ZIG, 0.25), 2.0, true)
+			Dot.line(self, p, p + back * r * 7.0, Color(BattleFx.ZIG, 0.25), 2.0, true)
 	return false
 
 

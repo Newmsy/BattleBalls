@@ -114,9 +114,7 @@ static func painted(art: String, head: Control, over: Control = null, height := 
 ## Text on a painting gets a soft dark shadow so it reads on any colour.
 static func _shadowed(n: Node) -> void:
 	if n is Label:
-		n.add_theme_color_override("font_shadow_color", Color(0, 0, 0, .7))
-		n.add_theme_constant_override("shadow_offset_y", 2)
-		n.add_theme_constant_override("shadow_outline_size", 6)
+		Kit.soft_shadow(n, Color(0, 0, 0, .7), 2, 6)
 	for c in n.get_children():
 		_shadowed(c)
 

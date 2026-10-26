@@ -4,6 +4,8 @@
 ## Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 
@@ -35,15 +37,15 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 			var tone := Color("4a3c40") if (i + j) % 2 else Color("3e3236")
 			for part in Geometry2D.intersect_polygons(cell, ctx.outline):
 				Kit.lit(cv, part, tone, Color("150e10"))
-			cv.draw_polyline(PackedVector2Array([cell[3], cell[0], cell[1]]), Color(0.6, 0.45, 0.42, 0.4), ctx.u(1.6), true)
+			Dot.pline(cv, PackedVector2Array([cell[3], cell[0], cell[1]]), Color(0.6, 0.45, 0.42, 0.4), ctx.u(1.6), true)
 	for f in ctx.floors: # Heat glowing round each lava pool.
 		if f.kind == "lava" and f.has("pos"):
 			Kit.glow(cv, f.pos, f.radius * 2.3, Color(1.0, 0.45, 0.1, 0.5))
-			cv.draw_arc(f.pos, f.radius * 1.08, 0.0, TAU, 48, Color("241614"), ctx.u(8.0), true)
+			Dot.arc(cv, f.pos, f.radius * 1.08, 0.0, TAU, 48, Color("241614"), ctx.u(8.0), true)
 	for p in Kit.scatter_in(ctx, 6, ctx.u(60.0), [[ctx.centre, ctx.u(100.0)]]):
 		var shard := PackedVector2Array([p + Vector2(0, -ctx.u(14.0)), p + Vector2(ctx.u(7.0), ctx.u(6.0)), p + Vector2(-ctx.u(6.0), ctx.u(8.0))])
 		Kit.poly(cv, shard, Color("1a1028"))
-		cv.draw_line(shard[0], shard[1], Color("8a6ac0"), ctx.u(1.5), true)
+		Dot.line(cv, shard[0], shard[1], Color("8a6ac0"), ctx.u(1.5), true)
 	Kit.inner_shadow(cv, ctx, ctx.u(38.0), 0.55)
 
 	# Jagged rock walls with glowing seams.
@@ -63,5 +65,5 @@ static func pillar(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
 	Kit.shadow(cv, c, r, 0.5)
 	Kit.lit(cv, Kit.blob(c, r, ctx.rng, 8, 0.12), Color("5a4a4e"), Color("140c0d"))
 	var crack := PackedVector2Array([c + Vector2(-0.6, -0.3) * r, c + Vector2(-0.1, 0.05) * r, c + Vector2(0.2, -0.2) * r, c + Vector2(0.6, 0.35) * r])
-	cv.draw_polyline(crack, Color(1.0, 0.45, 0.1, 0.5), r * 0.22, true)
-	cv.draw_polyline(crack, Color("ffd23f"), r * 0.07, true)
+	Dot.pline(cv, crack, Color(1.0, 0.45, 0.1, 0.5), r * 0.22, true)
+	Dot.pline(cv, crack, Color("ffd23f"), r * 0.07, true)

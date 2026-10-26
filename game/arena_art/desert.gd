@@ -4,6 +4,8 @@
 ## pebbles. Render-only.
 extends RefCounted
 
+const Dot := preload("res://game/dot.gd")
+
 const Kit := preload("res://game/arena_art/kit.gd")
 
 const STRATA := [Color("c4643a"), Color("d27a48"), Color("b55530"), Color("de8c56"), Color("a94b2a"), Color("cf7444")]
@@ -14,8 +16,8 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	var k := 0
 	while y < ctx.canvas.end.y:
 		var h := ctx.u(18.0 + 6.0 * sin(k * 1.7))
-		cv.draw_rect(Rect2(ctx.canvas.position.x, y, ctx.canvas.size.x, h), STRATA[k % STRATA.size()])
-		cv.draw_rect(Rect2(ctx.canvas.position.x, y, ctx.canvas.size.x, ctx.u(2.5)), Color(1, 1, 1, 0.12))
+		Dot.rect(cv, Rect2(ctx.canvas.position.x, y, ctx.canvas.size.x, h), STRATA[k % STRATA.size()])
+		Dot.rect(cv, Rect2(ctx.canvas.position.x, y, ctx.canvas.size.x, ctx.u(2.5)), Color(1, 1, 1, 0.12))
 		y += h
 		k += 1
 
@@ -68,10 +70,10 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	Kit.blocks(ctx, ctx.u(54.0), ctx.wall, func(q, _e, i):
 		var tone: Color = STRATA[i % STRATA.size()]
 		Kit.lit(cv, q, tone.lightened(0.12), tone.darkened(0.45))
-		cv.draw_line(q[1], q[2], Color(0.25, 0.08, 0.02, 0.6), ctx.u(2.0), true))
+		Dot.line(cv, q[1], q[2], Color(0.25, 0.08, 0.02, 0.6), ctx.u(2.0), true))
 	var rim := ctx.outline.duplicate()
 	rim.append(rim[0])
-	cv.draw_polyline(rim, Color(1.0, 0.75, 0.5, 0.7), ctx.u(2.5), true)
+	Dot.pline(cv, rim, Color(1.0, 0.75, 0.5, 0.7), ctx.u(2.5), true)
 
 
 ## A ribbed barrel cactus with spines and a flower.
@@ -80,10 +82,10 @@ static func pillar(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
 	Kit.ball(cv, c, r, Color("8ee09a"), Color("1f6a2e"))
 	for i in 10:
 		var a := i * TAU / 10.0
-		cv.draw_line(c + Vector2.from_angle(a) * r * 0.2, c + Vector2.from_angle(a) * r * 0.95, Color(0.1, 0.3, 0.12, 0.7), r * 0.06, true)
+		Dot.line(cv, c + Vector2.from_angle(a) * r * 0.2, c + Vector2.from_angle(a) * r * 0.95, Color(0.1, 0.3, 0.12, 0.7), r * 0.06, true)
 	for i in 20:
 		var a := i * TAU / 20.0 + 0.15
-		cv.draw_line(c + Vector2.from_angle(a) * r * 0.95, c + Vector2.from_angle(a) * r * 1.2, Color("fff6d8"), maxf(1.0, r * 0.05), true)
+		Dot.line(cv, c + Vector2.from_angle(a) * r * 0.95, c + Vector2.from_angle(a) * r * 1.2, Color("fff6d8"), maxf(1.0, r * 0.05), true)
 	for k in [[Vector2(-0.18, -0.25), "ff6fa8"], [Vector2(0.12, -0.32), "ffa5cb"], [Vector2(-0.02, -0.1), "ff8fb8"]]:
 		Kit.disc(cv, c + k[0] * r, r * 0.16, Color(k[1]))
 	Kit.disc(cv, c + Vector2(-0.03, -0.22) * r, r * 0.09, Color("ffd23f"))
@@ -101,7 +103,7 @@ static func _clay(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 				Kit.lit(cv, part, Color("eab478"), Color("b87a44"))
 	var rim := shape.duplicate()
 	rim.append(shape[0])
-	cv.draw_polyline(rim, Color(1.0, 0.85, 0.6, 0.6), ctx.u(4.0), true)
+	Dot.pline(cv, rim, Color(1.0, 0.85, 0.6, 0.6), ctx.u(4.0), true)
 
 
 static func _pool(cv: CanvasItem, ctx: Kit.Ctx) -> void:
@@ -112,7 +114,7 @@ static func _pool(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	var water := Kit.blob(c, r, ctx.rng, 10, 0.08)
 	Kit.tris(cv, water, _shade(water, c - Vector2(r, r) * 0.4, r * 2.0, ["7ff0e0", "2fb8c8", "1a7a9a"]), Geometry2D.triangulate_polygon(water))
 	for k in 3:
-		cv.draw_arc(c + Vector2(-0.2, -0.15) * r, r * (0.3 + k * 0.18), 3.6, 4.6, 16, Color(1, 1, 1, 0.35), ctx.u(3.0), true)
+		Dot.arc(cv, c + Vector2(-0.2, -0.15) * r, r * (0.3 + k * 0.18), 3.6, 4.6, 16, Color(1, 1, 1, 0.35), ctx.u(3.0), true)
 	for i in 7: # Palm fronds reaching over the water.
 		var a := i * TAU / 7.0 + 0.3
 		var root := c + Vector2.from_angle(a) * r * 1.25
@@ -126,7 +128,7 @@ static func _skull(cv: CanvasItem, ctx: Kit.Ctx, p: Vector2) -> void:
 	var s := ctx.u(15.0)
 	Kit.shadow(cv, p, s, 0.35)
 	for sgn: float in [-1.0, 1.0]:
-		cv.draw_polyline(PackedVector2Array([p + Vector2(sgn * s * 0.9, -s * 0.4), p + Vector2(sgn * s * 1.7, -s * 0.9), p + Vector2(sgn * s * 2.2, -s * 0.4)]), Color("efe4c8"), s * 0.35, true)
+		Dot.pline(cv, PackedVector2Array([p + Vector2(sgn * s * 0.9, -s * 0.4), p + Vector2(sgn * s * 1.7, -s * 0.9), p + Vector2(sgn * s * 2.2, -s * 0.4)]), Color("efe4c8"), s * 0.35, true)
 	Kit.ball(cv, p, s, Color("fbf5e4"), Color("c9b890"))
 	Kit.disc(cv, p + Vector2(-0.38, 0.0) * s, s * 0.28, Color("5a3a22"))
 	Kit.disc(cv, p + Vector2(0.38, 0.0) * s, s * 0.28, Color("5a3a22"))
@@ -137,8 +139,8 @@ static func _bones(cv: CanvasItem, ctx: Kit.Ctx, p: Vector2) -> void:
 		var a := p + Vector2(-ctx.u(18.0), ctx.u(-9.0 + k * 9.0))
 		var b := p + Vector2(ctx.u(18.0), ctx.u(-9.0 + k * 9.0))
 		var mid := a.lerp(b, 0.5) + Vector2(0, -ctx.u(6.0))
-		cv.draw_polyline(PackedVector2Array([a, mid, b]), Color(0, 0, 0, 0.2), ctx.u(6.0), true)
-		cv.draw_polyline(PackedVector2Array([a, mid, b]), Color("efe4c8"), ctx.u(4.0), true)
+		Dot.pline(cv, PackedVector2Array([a, mid, b]), Color(0, 0, 0, 0.2), ctx.u(6.0), true)
+		Dot.pline(cv, PackedVector2Array([a, mid, b]), Color("efe4c8"), ctx.u(4.0), true)
 
 
 static func _shade(pts: PackedVector2Array, lamp: Vector2, reach: float, stops: Array) -> PackedColorArray:
