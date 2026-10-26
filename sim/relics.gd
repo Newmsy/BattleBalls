@@ -24,7 +24,7 @@ extends RefCounted
 const CritterDb := preload("res://sim/critter_db.gd")
 
 const OWN_BOOST := 0.25 ## Same as one tier of ability potency (CritterDb.ABILITY_TIER_STEP).
-const OWN_TEXT := "Your %s already has this ability: it hits 25% harder instead."
+const OWN_TEXT := "Your %s already has this ability: it hits 25%% harder instead."
 
 const DEFS := {
 	"spiker": {"text": "Every 3rd bump you land fires 3 spikes outward (60% of a bump each).",
