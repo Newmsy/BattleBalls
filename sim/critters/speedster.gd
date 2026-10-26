@@ -5,7 +5,7 @@ extends RefCounted
 const CRITTER := {
 	"no": 4,
 	"name": "Zip",
-	"type": "Speedster",
+	"type": "Sprinter",
 	"rarity": "common",
 	"role": "Skirmisher",
 	"status": "live",

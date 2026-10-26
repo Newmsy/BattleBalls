@@ -5,7 +5,7 @@ extends RefCounted
 const CRITTER := {
 	"no": 6,
 	"name": "Fuse",
-	"type": "Bomber",
+	"type": "Bomb",
 	"rarity": "rare",
 	"rarity_power": 0.922, ## Per rarity step: its kit gains more than most from rarity (tools/rarity_critters.gd).
 	"role": "Zoner",

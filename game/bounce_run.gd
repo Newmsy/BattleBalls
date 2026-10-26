@@ -77,6 +77,7 @@ var arena: ArenaView
 var arena_clip: Control ## Holds the arena; clips it while the finisher cam zooms.
 var finisher: FinisherCam
 var _hold := -1.0 ## Real seconds on the KO face so far, or -1 before the blow.
+var _zooming := false ## The finisher cam has started zooming this fight.
 var _skipped := false ## Skip also skips the finisher.
 var sfx: Sfx
 var board: BounceBoard
@@ -110,6 +111,7 @@ func _ready() -> void:
 	setup = BounceRun.generate(int(run.get("day", day)), int(run.seed)) if not run.is_empty() else _fresh_setup()
 	arena_clip = Control.new()
 	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arena_clip.clip_contents = true # Big ability effects stay inside the arena, off the cards.
 	add_child(arena_clip)
 	arena = ArenaView.new()
 	arena_clip.add_child(arena)
@@ -179,10 +181,10 @@ func _advance_fight(delta: float, speed: float) -> bool:
 		var t := sim.tick - 1.0 + arena.render_alpha
 		var z := finisher.zoom(t, maxf(0.0, _hold))
 		var target := finisher.focus(arena.ball_pos(sim.balls[finisher.loser]), arena.ball_pos(sim.balls[finisher.winner]), z)
-		var start := not arena_clip.clip_contents
+		var start := not _zooming
 		arena.set_camera(z, target if start else FinisherCam.follow(arena.cam_focus, target, delta))
 		arena.finisher_amount = clampf(finisher.progress(t) / 0.25, 0.0, 1.0)
-		arena_clip.clip_contents = true
+		_zooming = true
 	arena.advance_effects(delta * rate)
 	return _hold >= FinisherCam.HOLD
 
@@ -191,7 +193,7 @@ func _advance_fight(delta: float, speed: float) -> bool:
 func _unzoom() -> void:
 	arena.finisher_amount = 0.0
 	arena.set_camera(1.0, Vector2.ONE * MatchSim.ARENA_SIZE / 2.0)
-	arena_clip.clip_contents = false
+	_zooming = false
 
 
 ## Puts the arena (and its clip) at `at`, `side` pixels square.
@@ -506,7 +508,7 @@ func _launch() -> void:
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
 	arena.reset_camera()
-	arena_clip.clip_contents = false
+	_zooming = false
 	finisher = FinisherCam.plan(config)
 	_accumulator = 0.0
 	_hold = -1.0

@@ -16,9 +16,9 @@ static var PLAYABLE: Array = CritterDb.live_ids()
 ## critters, so they draw with Plain's art ("id" stays "plain").
 const TUTORIAL_FOES := {
 	"dummy": {"display_name": "Training Dummy", "description": "A practice target. It barely fights back.",
-		"hp": 32.0, "radius": 76.0, "speed": 380.0, "contact_damage": 3.0},
+		"hp": 22.0, "radius": 76.0, "speed": 380.0, "contact_damage": 3.0},
 	"sparring": {"display_name": "Sparring Bot", "description": "A practice bot that hits back a little.",
-		"hp": 45.0, "radius": 70.0, "speed": 420.0, "contact_damage": 5.0},
+		"hp": 32.0, "radius": 70.0, "speed": 420.0, "contact_damage": 5.0},
 }
 
 

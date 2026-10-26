@@ -169,6 +169,25 @@ func test_trio_never_holds_a_critter_twice() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
 
+## A new player's first Arena visit starts on their strongest three, not the
+## placeholder trio (which held a starter they may not have picked).
+func test_first_visit_fields_your_strongest_three() -> void:
+	var s = _fresh_store()
+	check(s.is_new, "no save yet")
+	var shell = Shell.new()
+	shell.build()
+	for id in ["supernova", "pip", "laser", "spiker"]:
+		shell.profile.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
+	var owned := ArenaScreen.owned_critters(shell.profile)
+	shell.go("arena", {"store": s})
+	check_eq(s.trio, ArenaStore.best_trio(owned), "attack trio is the strongest three")
+	check_eq(s.defence, ArenaStore.best_trio(owned), "defence too")
+	check("supernova" in s.trio, "the Legendary fights")
+	check(not ArenaStore.open(TEST_SAVE).is_new, "saved, so a later visit keeps your picks")
+	shell.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
 func test_trio_slot_opens_the_picker() -> void:
 	var s = _fresh_store()
 	var shell = Shell.new()

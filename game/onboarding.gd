@@ -16,9 +16,12 @@ const StoryCards := preload("res://game/ui/story_cards.gd")
 
 const SAVE_PATH := "user://onboarding.cfg"
 const STARTERS := ["vampire", "laser"]
-## Cold open: a close fight with seven lead changes that Count Nibbles wins at
+## Every onboarding fight plays on this arena. The map is part of a fight's
+## config, so without it the seed's random map decides how the fights go.
+const ARENA := "rink"
+## Cold open: a close fight with four lead changes that Count Nibbles wins at
 ## the death. Fixed so everyone sees the same opener.
-const COLD_OPEN := {"seed": 1202, "p1": "vampire", "p2": "laser"}
+const COLD_OPEN := {"seed": 139, "p1": "vampire", "p2": "laser", "arena": ARENA}
 ## Tutorial fights: the foe's fixed launch, and the ghost arrow's suggested aim
 ## (tenths of a degree). tests/test_onboarding.gd checks every aim wins.
 const TUTORIAL_SEED := 3
@@ -115,7 +118,15 @@ func _log(step: String, done := false) -> void:
 ## first giggle from the Glitch. Its own Skip only skips the story.
 func _prologue() -> void:
 	_log("prologue")
+	# The game's first screen: the story on the plain night sky, not over the
+	# arena and menu that the cold open will use.
+	var sky := ColorRect.new()
+	sky.color = Kit.BG
+	sky.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_play_story(Story.PROLOGUE, _cold_open)
+	_content.add_child(sky)
+	_content.move_child(sky, 0)
 
 
 func _cold_open() -> void:
