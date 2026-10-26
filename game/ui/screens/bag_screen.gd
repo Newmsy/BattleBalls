@@ -1,7 +1,8 @@
 ## Bag tab: gear (Shells, Cores and Charms, with who wears each) and items.
-## Gear is a compact list: one row per type and tier, with its effect in words,
-## who wears it and a Merge button once three match. Tap a row to move it to
-## another critter (swapping is always free) or merge (design/gear.md).
+## Gear is a 3-column grid, one tile per piece: its painting, stars, effect in
+## words and the face of who wears it. Tap a tile to move it to another critter
+## (swapping is always free) or merge; every merge asks first, showing which
+## pieces combine, what they make and the Hammers (design/gear.md).
 ## Each section opens with a painted band and every piece is its painting
 ## (game/ui/gear_art, from tools/event_art/scenes/gear_*.mjs).
 extends RefCounted
@@ -20,6 +21,7 @@ const Profile := preload("res://meta/profile.gd")
 const UpgradePopup := preload("res://game/ui/upgrade_popup.gd")
 const GearArt := preload("res://game/ui/gear_art.gd")
 const LivingArt := preload("res://game/bounce_run/living_art.gd")
+const A11y := preload("res://game/a11y.gd")
 
 static var section := "gear"
 ## What each section band says under its title.
@@ -49,13 +51,13 @@ static func build(shell, _params: Dictionary) -> Control:
 
 	if section == "gear":
 		for slot in Gear.SLOTS:
-			var list := Kit.vbox(8)
-			var n := 0
-			for r in rows(p, slot):
-				list.add_child(_gear_row(shell, r))
-				n += r.count
-			if list.get_child_count() > 0:
-				root.add_child(Kit.vbox(8, [_band(slot, n), list]))
+			var list := pieces(p, slot)
+			if list.is_empty():
+				continue
+			var grid := _grid(10)
+			for g in list:
+				grid.add_child(_gear_tile(shell, g))
+			root.add_child(Kit.vbox(10, [_band(slot, list.size()), grid]))
 		if p.gear.is_empty():
 			root.add_child(Kit.label("No gear yet.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		_pin_merge_all(shell, p)
@@ -87,7 +89,7 @@ static func _pin_merge_all(shell, p) -> void:
 		b = Kit.cost_button("Merge all", p.merge_cost(p.gear_sets()[0][1]), "hammer", func(): pass, "go", 28, 90)
 		b.disabled = true
 	else:
-		b = Kit.cost_button("Merge all (%d)" % n, plan.hammers, "hammer", _merge_all.bind(shell), "go", 28, 90)
+		b = Kit.cost_button("Merge all (%d)" % n, plan.hammers, "hammer", _confirm_merge_all.bind(shell), "go", 28, 90)
 	shell.mark("merge_all", b)
 	shell.pin(b)
 
@@ -114,68 +116,48 @@ static func _band(slot: String, n: int) -> Control:
 	return band
 
 
-## One slot's gear as rows, best first: every piece of one type and tier in one
-## row ({piece, pieces, count, wearers}). `piece` is what a tap opens: a spare
-## if there is one (so Equip to is the next step), else the worn one.
-static func rows(p, slot: String) -> Array:
-	var out := []
-	var by := {}
-	for g in p.gear:
-		if g.slot != slot:
-			continue
-		var k := "%s/%d" % [g.type, g.tier]
-		if not by.has(k):
-			by[k] = {"piece": g, "pieces": [], "count": 0, "wearers": []}
-			out.append(by[k])
-		var r: Dictionary = by[k]
-		r.pieces.append(g)
-		r.count += 1
-		if g.on != "":
-			r.wearers.append(g.on)
-		elif r.piece.on != "":
-			r.piece = g
+## One slot's gear, one entry per piece, best first: higher stars, then the
+## type order, then worn before spare.
+static func pieces(p, slot: String) -> Array:
+	var out: Array = p.gear.filter(func(g): return g.slot == slot)
 	out.sort_custom(func(a, b):
-		if a.piece.tier != b.piece.tier:
-			return a.piece.tier > b.piece.tier
-		return Gear.TYPES.find(a.piece.type) < Gear.TYPES.find(b.piece.type))
+		if a.tier != b.tier:
+			return a.tier > b.tier
+		if a.type != b.type:
+			return Gear.TYPES.find(a.type) < Gear.TYPES.find(b.type)
+		return a.on != "" and b.on == "")
 	return out
 
 
-## A gear row: icon, name, stars and count, the effect in words, then Merge
-## (with its cost) once three match, and who wears it or "Spare".
-static func _gear_row(shell, r: Dictionary) -> Control:
-	var p = shell.profile
-	var g: Dictionary = r.piece
+## A piece's painting with who wears it in the corner (nothing when spare).
+static func _piece_art(g: Dictionary, side: float, face := 0.0) -> Control:
+	var box := Control.new()
+	box.custom_minimum_size = Vector2(side, side)
+	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var art := GearArt.tile(g.type, g.tier, side, tier_color(g.tier))
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	box.add_child(art)
+	if g.on != "" and face > 0:
+		var f := CritterIcon.face(g.on, face)
+		f.position = Vector2(side - face * .7, side - face * .7)
+		box.add_child(f)
+	return box
+
+
+## A gear tile: the painting (with the wearer's face), stars and the effect.
+static func _gear_tile(shell, g: Dictionary) -> Control:
 	var col := tier_color(g.tier)
-	var name := Kit.label(g.name, 24)
-	var top := Kit.hbox(8, [name, Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_BEGIN)
-	if r.count > 1:
-		top.add_child(Kit.label("x%d" % r.count, 19, Kit.MUTED))
-	var effect := Kit.label(g.text, 19, Kit.MUTED)
-	effect.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	effect.clip_text = true
-	var words := Kit.vbox(0, [top, effect])
-	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(12, [GearArt.tile(g.type, g.tier, 72, col), words], BoxContainer.ALIGNMENT_CENTER)
-	if g.tier < Gear.MAX_TIER and p.has_gear_set(g.type, g.tier):
-		var merge := Kit.cost_button("Merge", p.merge_cost(g.tier), "hammer", _merge.bind(shell, g), "go", 19, 56)
-		merge.disabled = p.hammers < p.merge_cost(g.tier)
-		merge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		merge.size_flags_horizontal = Control.SIZE_SHRINK_END
-		merge.custom_minimum_size.x = 150
-		shell.mark("gear_row_merge_%s_%d" % [g.type, g.tier], merge)
-		row.add_child(merge)
-	if r.wearers.is_empty():
-		row.add_child(Kit.label("Spare", 19, Kit.MUTED))
-	else:
-		var faces := Kit.hbox(-10, [], BoxContainer.ALIGNMENT_END)
-		for id in r.wearers.slice(0, 3):
-			faces.add_child(CritterIcon.face(id, 44))
-		row.add_child(faces)
-	var card := Kit.card_button(row, func(): _gear_sheet(shell, g), Color(col, .45), Kit.PANEL, 22, 10)
+	var effect := Kit.label(g.text, 17, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
+	# At least two lines tall, so one-line effects keep tiles the same size.
+	effect.custom_minimum_size.y = roundf(A11y.font(17) * 2.6)
+	var stars := Glyph.make("stars", 18, col, g.tier)
+	stars.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var v := Kit.vbox(6, [_piece_art(g, 84, 40), stars, effect])
+	var card := Kit.card_button(v, func(): _gear_sheet(shell, g), Color(col, .45), Kit.PANEL, 20, 10)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for piece in r.pieces:
-		shell.mark("gear_%d" % piece.uid, card)
+	card.custom_minimum_size.x = 0
+	shell.mark("gear_%d" % g.uid, card)
 	return card
 
 
@@ -226,11 +208,74 @@ static func _merge(shell, g: Dictionary) -> void:
 static func _merge_all(shell) -> void:
 	var cost: int = shell.profile.merge_all_plan().hammers
 	var made: Array = shell.profile.merge_all_gear()
+	shell.close_overlay()
 	shell.refresh()
 	if made.size() == 1:
 		UpgradePopup.slam(shell, made[0].type, tier_color(made[0].tier), UpgradePopup.gear.bind(shell, made[0], tier_color(made[0].tier), cost), made[0].tier - 1)
 	elif not made.is_empty():
 		UpgradePopup.gear_list(shell, made, tier_color, cost)
+
+
+## Asks before a merge: the three pieces that combine (with who wears them),
+## the piece they make and its effect, who keeps it, then Merge for its cost.
+static func _confirm_merge(shell, type: String, tier: int) -> void:
+	var p = shell.profile
+	var used: Array = p.merge_pieces(type, tier)
+	var made := Profile.gear_piece({"type": type, "tier": tier + 1, "on": p.merge_wearer(used)})
+	var ins := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
+	for g in used:
+		ins.add_child(_piece_art(g, 64, 32))
+	var out := _piece_art(made, 96)
+	var flow := Kit.hbox(10, [ins, Kit.label("→", 32, Kit.MUTED), out], BoxContainer.ALIGNMENT_CENTER)
+	var col := tier_color(made.tier)
+	var body: Array = [Kit.label("Merge?", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), flow,
+		Kit.hbox(10, [Kit.label(made.name, 28, col), UpgradePopup.stars(tier, made.tier, col)], BoxContainer.ALIGNMENT_CENTER),
+		Kit.label(made.text, 24, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER, true)]
+	if made.on != "":
+		body.append(Kit.hbox(8, [Kit.label("Stays on", 22, Kit.MUTED), FighterTag.named(made.on, 40, 22)], BoxContainer.ALIGNMENT_CENTER))
+	var cost: int = p.merge_cost(tier)
+	body.append(_confirm_buttons(shell, cost, _merge.bind(shell, {"type": type, "tier": tier})))
+	shell.sheet(Kit.vbox(18, body))
+
+
+## Asks before Merge all: each merge as "3 of these → 1 of those" (repeats
+## counted), the most rows that fit, then Merge all for the total.
+static func _confirm_merge_all(shell) -> void:
+	var p = shell.profile
+	var plan: Dictionary = p.merge_all_plan()
+	var groups := []
+	for m in plan.merges:
+		if not groups.is_empty() and groups[-1].type == m[0] and groups[-1].tier == m[1]:
+			groups[-1].n += 1
+		else:
+			groups.append({"type": m[0], "tier": m[1], "n": 1})
+	var list := Kit.vbox(10)
+	for gr in groups.slice(0, 6):
+		var from := Profile.gear_piece({"type": gr.type, "tier": gr.tier})
+		var to := Profile.gear_piece({"type": gr.type, "tier": gr.tier + 1})
+		var name := Kit.label(to.name, 22)
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		list.add_child(Kit.hbox(10, [
+			_piece_art(from, 52), Kit.label("x%d" % (3 * gr.n), 22, Kit.MUTED), Kit.label("→", 24, Kit.MUTED),
+			_piece_art(to, 52), Kit.label("x%d" % gr.n, 22, Kit.MUTED), name,
+			Glyph.make("stars", 18, tier_color(to.tier), to.tier)], BoxContainer.ALIGNMENT_CENTER))
+	if groups.size() > 6:
+		list.add_child(Kit.label("+%d more" % (groups.size() - 6), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
+	var title := "Merge all?" if plan.merges.size() == 1 else "Merge all %d?" % plan.merges.size()
+	shell.sheet(Kit.vbox(18, [Kit.label(title, 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), list,
+		_confirm_buttons(shell, plan.hammers, _merge_all.bind(shell))]))
+
+
+## Cancel and Merge (with its Hammers) under a merge confirm.
+static func _confirm_buttons(shell, cost: int, on_yes: Callable) -> Control:
+	var no := Kit.button("Cancel", func(): shell.close_overlay(), "ghost", 26, 84)
+	no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.mark("merge_cancel", no)
+	var yes := Kit.cost_button("Merge", cost, "hammer", on_yes, "go", 26, 84)
+	yes.disabled = shell.profile.hammers < cost
+	yes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.mark("merge_confirm", yes)
+	return Kit.hbox(12, [no, yes])
 
 
 ## The gear sheet's header: the piece standing big on a spotlit pedestal.
@@ -271,7 +316,7 @@ static func _gear_sheet(shell, g: Dictionary) -> void:
 	if g.tier < Gear.MAX_TIER:
 		var have: int = p.gear_of(g.type, g.tier).size()
 		var cost: int = p.merge_cost(g.tier)
-		var merge := Kit.cost_button("Merge 3", cost, "hammer", _merge.bind(shell, g), "go", 26, 84) if have >= 3 else Kit.button("%d of 3 to merge" % have, _merge.bind(shell, g), "go", 26, 84)
+		var merge := Kit.cost_button("Merge 3", cost, "hammer", _confirm_merge.bind(shell, g.type, g.tier), "go", 26, 84) if have >= 3 else Kit.button("%d of 3 to merge" % have, func(): pass, "go", 26, 84)
 		merge.disabled = have < 3 or p.hammers < cost
 		merge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("gear_merge", merge)
@@ -352,11 +397,11 @@ static func _item_icon(it: Dictionary) -> Control:
 	return box
 
 
-static func _grid() -> GridContainer:
+static func _grid(gap := 14) -> GridContainer:
 	var grid := GridContainer.new()
 	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", 14)
-	grid.add_theme_constant_override("v_separation", 14)
+	grid.add_theme_constant_override("h_separation", gap)
+	grid.add_theme_constant_override("v_separation", gap)
 	return grid
 
 
