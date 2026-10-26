@@ -306,7 +306,9 @@ func tick_triggers(sim, b) -> void:
 				if sim.tick == 0:
 					_run(sim, b, e, {})
 			"every":
-				var src: Dictionary = b.relic_defs.get(e.relic, b.def) if e.has("relic") else b.def
+				if e.has("relic") and not b.relic_defs.has(e.relic):
+					continue # An Echo copy of a relic holder: no relic def, so no timer.
+				var src: Dictionary = b.relic_defs[e.relic] if e.has("relic") else b.def
 				var secs: float = src[e.secs] if e.secs is String else e.secs
 				var every := maxi(1, int(round(secs * sim.TICK_RATE)))
 				if sim.tick > 0 and sim.tick % every == 0:

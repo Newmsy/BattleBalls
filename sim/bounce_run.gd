@@ -41,7 +41,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 11
+const RULES_VERSION := 12
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 20
@@ -440,7 +440,7 @@ static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> 
 	var tier := tier_at(row)
 	var cfg := {"seed": f.seed, "arena": Arenas.pick(f.seed * 16 + run.fights), "p1": card(setup, run, slot).critter, "p2": f.critter,
 		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), f.boons], "relics": [run.get("relics", []), []], "powers": [1.0, f.power],
-		"tiers": [mini(tier + (1 if run.spar == slot else 0), 5), tier], "sizes": [1.0, f.size], "hp": [null, run.get("foe_hp")]}
+		"tiers": [mini(tier + (1 if run.spar == slot else 0), 5), tier], "sizes": [1.0, f.size], "hp": [null, run.get("foe_hp")], "tie_to": 0}
 	if run.hatchling != "":
 		cfg.p3 = run.hatchling
 		cfg.p4 = null

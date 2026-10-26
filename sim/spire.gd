@@ -130,6 +130,7 @@ static func relay_config(spec: Dictionary, picks: Array, aims: Array = []) -> Di
 		"gear": [picks.map(func(p): return Lineup.clean(p.slot).gear if p.has("slot") else null), spec.enemies.map(func(_e): return null)],
 		"talents": [picks.map(func(p): return Lineup.clean(p.slot).get("talents", {}) if p.has("slot") else null), spec.enemies.map(func(_e): return null)],
 		"sizes": [picks.map(func(_p): return 1.0), spec.enemies.map(func(e): return float(e.scale))],
+		"tie_to": 0, # Both out together is your win.
 	}
 
 

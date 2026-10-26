@@ -360,6 +360,9 @@ var finished := false
 var winner := -1 ## Ball index, or -1 for a draw (only meaningful when finished).
 var end_reason := ""
 var ko_hp: Array[float] = [] ## On a double knockout, each ball's HP going into the final tick.
+## Config `tie_to` (optional) settles ties, per mode: a double knockout or a
+## dead-even time-out goes to that side, or -1 makes it a draw. Left out, a
+## double knockout goes to whoever had more HP going into it (Quick fight).
 var launch_angles: Array[int] = []
 var starters := 2 ## Balls the fight started with (4 in a 2v2, 6 in a 3v3); later ones are split-offs.
 var boss: Ball = null ## The boss in a boss fight (sim/bosses.gd), else null.
@@ -1510,7 +1513,9 @@ func _check_end(hp_before: Array[float]) -> void:
 			if i < hp_before.size():
 				before[balls[i].team] += maxf(0.0, hp_before[i])
 		ko_hp.assign(before)
-		if before[0] == before[1]:
+		if config.has("tie_to"):
+			_finish(int(config.tie_to), "double_knockout")
+		elif before[0] == before[1]:
 			_finish(-1, "double_knockout")
 		else:
 			_finish(0 if before[0] > before[1] else 1, "double_knockout")
@@ -1519,7 +1524,7 @@ func _check_end(hp_before: Array[float]) -> void:
 	elif time() >= TIME_LIMIT:
 		var f0 := team_hp(0) / _team_max_hp(0)
 		var f1 := team_hp(1) / _team_max_hp(1)
-		_finish(-1 if f0 == f1 else (0 if f0 > f1 else 1), "time_limit")
+		_finish((int(config.get("tie_to", -1)) if f0 == f1 else (0 if f0 > f1 else 1)), "time_limit")
 
 
 func _finish(winning_index: int, reason: String) -> void:

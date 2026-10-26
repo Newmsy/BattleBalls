@@ -374,6 +374,7 @@ static func fight(a: Array, b: Array, seed_value: int, a_aims: Array, b_aims: Ar
 		"powers": [sa.powers, sb.powers],
 		"gear": [sa.gear, sb.gear],
 		"talents": [sa.talents, sb.talents],
+		"tie_to": 0, # Both out together goes to the attacker (side a).
 	})
 	return relay.run_to_end()
 
