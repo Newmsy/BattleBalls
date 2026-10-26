@@ -25,7 +25,8 @@ const RUNS_PER_DAY := 5
 const DAY_SECONDS := 86400
 const KEY := "vault" ## Its entry in profile.boss_levels.
 const BOSS := "anvil_king"
-## The 15 levels (meta/boss_levels.gd): the drop's tier, the Hammers a win
+## The 15 levels (meta/boss_levels.gd): the drop's tier (4 stars at most:
+## 5-star gear is merged, never dropped, Newms 2026-10-26), the Hammers a win
 ## gives and the boss's power (1.0 is a T1 level 1 Common; the Zone 1 boss
 ## is 1.75). Power is BossLevels.curve(1.3, 15.4): level 9 is about a coin
 ## flip for a T5 at 7,700 power. Check with tools/boss_difficulty.gd --tier=5.
@@ -39,12 +40,12 @@ const DIFFICULTIES := [
 	{"name": "Level 7", "tier": 3, "hammers": 9, "power": 8.3},
 	{"name": "Level 8", "tier": 3, "hammers": 10, "power": 11.3},
 	{"name": "Level 9", "tier": 3, "hammers": 11, "power": 15.4},
-	{"name": "Level 10", "tier": 4, "hammers": 12, "power": 17.2},
+	{"name": "Level 10", "tier": 3, "hammers": 12, "power": 17.2},
 	{"name": "Level 11", "tier": 4, "hammers": 13, "power": 19.3},
 	{"name": "Level 12", "tier": 4, "hammers": 14, "power": 21.6},
-	{"name": "Level 13", "tier": 5, "hammers": 15, "power": 24.2},
-	{"name": "Level 14", "tier": 5, "hammers": 16, "power": 27.1},
-	{"name": "Level 15", "tier": 5, "hammers": 17, "power": 30.4},
+	{"name": "Level 13", "tier": 4, "hammers": 15, "power": 24.2},
+	{"name": "Level 14", "tier": 4, "hammers": 16, "power": 27.1},
+	{"name": "Level 15", "tier": 4, "hammers": 17, "power": 30.4},
 ]
 ## By UTC weekday (0 Sunday): the slot that drops, "" for any.
 const DAYS := [

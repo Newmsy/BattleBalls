@@ -366,4 +366,4 @@ func test_boss_levels_open_one_at_a_time_and_get_stronger() -> void:
 		var want: Array = BossLevels.curve(curves[rules.KEY][0], curves[rules.KEY][1])
 		for d in BossLevels.COUNT:
 			check(absf(rules.DIFFICULTIES[d].power - want[d]) < 0.051, "%s level %d follows its curve" % [rules.KEY, d + 1])
-	check_eq(load("res://meta/gear_vault.gd").DIFFICULTIES[14].tier, 5, "Anvil King level 15 drops 5-star gear")
+	check_eq(load("res://meta/gear_vault.gd").DIFFICULTIES[14].tier, 4, "Anvil King level 15 drops 4-star gear (5 stars are merged only)")
