@@ -74,6 +74,7 @@ const FightSpeed := preload("res://game/fight_speed.gd")
 const FightLayout := preload("res://game/fight_layout.gd")
 const Dev := preload("res://game/dev.gd")
 const LiveClient := preload("res://game/online/live_client.gd")
+const LiveWaitScene := preload("res://game/ui/live_wait_scene.gd")
 const LiveMatch := preload("res://sim/live_match.gd")
 const SimVersion := preload("res://sim/sim_version.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
@@ -235,6 +236,8 @@ var live := {}
 var you_side := 0
 var _live_aim_left := 0.0
 var live_box: HBoxContainer
+## Over the arena while a live foe is found: two critters bashing in a side-scroller.
+var live_wait: LiveWaitScene
 ## No live foe turned up, so a CPU stands in. Newms: it looks like any live
 ## foe (same tag, wording and buttons); the player isn't told.
 var _stand_in := false
@@ -301,6 +304,9 @@ func _ready() -> void:
 	add_child(arena_clip)
 	arena = ArenaView.new()
 	arena_clip.add_child(arena)
+	live_wait = LiveWaitScene.new()
+	live_wait.visible = false
+	arena_clip.add_child(live_wait)
 	clip_card = ClipCard.new()
 	clip_card.visible = false
 	add_child(clip_card)
@@ -472,7 +478,14 @@ func _config() -> Dictionary:
 		return cfg
 	var cfg := {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena()}
 	var t := _fight_tiers()
-	if t[0] > 0:
+	if mode == Mode.NORMAL and quick_tier > 0:
+		# One-tap Quick fight (and the stand-in for a live foe): your fighter as
+		# you own it (tier, level, gear, talents), like a live match, against a
+		# foe of its rarity at the same tier and level.
+		var you := _live_slot(player_type)
+		Lineup.apply(cfg, 0, you)
+		Lineup.apply(cfg, 1, Lineup.make(opponent_type, int(you.tier), int(you.level)))
+	elif t[0] > 0:
 		# Same path as the progression modes: tier ability upgrades and power.
 		Lineup.apply(cfg, 0, Lineup.make(player_type, t[0]))
 		Lineup.apply(cfg, 1, Lineup.make(opponent_type, t[1]))
@@ -1720,6 +1733,10 @@ func _show_only(box: Control) -> void:
 	_sync_cover()
 	for b in [menu_box, aim_box, fight_box, result_box, live_box]:
 		b.visible = b == box
+	if box == live_box and not live_wait.visible:
+		live_wait.setup(player_type, int(_live_slot(player_type).tier))
+	live_wait.visible = box == live_box
+	arena.visible = not live_wait.visible # Covered: no need to draw it.
 	result_dim.visible = box == result_box
 	if shell_layer == null or not shell_layer.visible:
 		sfx.toggle_hidden = box == result_box # The popup covers the bottom row of pills.
