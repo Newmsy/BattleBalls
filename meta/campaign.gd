@@ -348,15 +348,15 @@ static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear:
 
 
 ## A piece on Economy.GEAR_CAMPAIGN_CHANCE of wins at Economy.gear_tier for
-## the stage, and a boss's first clear always gives one at
-## Economy.GEAR_BOSS_TIER (+1 per zone). Rolled from the run seed.
+## the stage (1-3 stars), and a boss's first clear always gives one at
+## Economy.gear_boss_tier. Rolled from the run seed.
 static func _roll_gear(profile, zone_index: int, stage_index: int, stars: int, first_clear: bool) -> Array:
 	var rng := Rng.new(_seed(profile.runs, zone_index, stage_index) ^ 0x2545f491)
 	var out := []
 	if rng.next_float() < Economy.GEAR_CAMPAIGN_CHANCE:
-		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_tier(zone_index, stage_index)))
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_tier(zone_index, stage_index, rng.next_float())))
 	if first_clear and Zones.is_boss(Zones.stage(zone_index, stage_index)):
-		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], mini(5, Economy.GEAR_BOSS_TIER + zone_index)))
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_boss_tier(zone_index)))
 	return out
 
 

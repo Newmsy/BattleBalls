@@ -389,12 +389,12 @@ static func _angles(offsets: Array, n: int, side: int) -> Array:
 ## energy refill, all for Tokens. Each item sells once a day.
 func bazaar(day: int = today()) -> Array:
 	var rng = Rng.new(hash("bazaar|%d" % day))
-	var tier := clampi(1 + Ladder.league_index(maxi(trophies, peak)), 1, 5)
+	var tier := clampi(1 + Ladder.league_index(maxi(trophies, peak)), 1, 4)
 	var types: Array = Gear.TYPES.duplicate()
 	var out: Array = []
 	for n in 3:
 		var t: String = types.pop_at(rng.range_int(0, types.size() - 1))
-		var gt := clampi(tier - 1 + n / 2, 1, 5)
+		var gt := clampi(tier - 1 + n / 2, 1, 4) # 5 stars are merged only
 		out.append({"kind": "gear", "type": t, "tier": gt, "name": Gear.PIECES[t].name, "price": 40 + 40 * gt})
 	out.append({"kind": "orbs", "n": 1, "name": "Summon Egg", "price": 120})
 	out.append({"kind": "energy", "n": 30, "name": "Energy +30", "price": 50})
