@@ -29,6 +29,9 @@ const FREE_COSMETICS := {5: "hat_cap", 15: "trail_comet", 30: "ko_stars"}
 const DEBUT_LEVELS := [10, 25, 40]
 ## Free-track gear (design/gear.md section 4): level -> [type, tier].
 const FREE_GEAR := {9: ["bubble_shell", 1], 14: ["thorn_shell", 1], 21: ["spike_core", 2], 27: ["leech_core", 2], 33: ["iron_shell", 3], 38: ["ward_charm", 3], 46: ["jet_charm", 3]}
+## Free-track Rift Keys and Spark Dye drops (design/dyes-rift-keys.md).
+const FREE_KEYS := [12, 24, 36, 48]
+const FREE_DYES := [13, 29, 37, 49]
 
 
 ## The free-track reward at `level` (1-50). `debut` is the season's debut
@@ -42,6 +45,10 @@ static func free_reward(level: int, debut := "") -> Dictionary:
 		return {"kind": "copies", "id": debut, "n": 1} if debut != "" else {"kind": "orbs", "n": 3}
 	if level in [20, 35, 45, 50]:
 		return {"kind": "gems", "n": 25}
+	if level in FREE_KEYS:
+		return {"kind": "rift_key", "n": 1}
+	if level in FREE_DYES:
+		return {"kind": "dye", "n": 2}
 	if level == 1:
 		return {"kind": "orbs", "n": 2}
 	match level % 4:

@@ -71,6 +71,46 @@
    }
   ]
  },
+ "adventure_rift": {
+  "size": [
+   720,
+   260
+  ],
+  "layers": [
+   {
+    "id": "key",
+    "move": "bob 5 0.45 0.2",
+    "pivot": [
+     622,
+     212
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     566,
+     98,
+     97,
+     102
+    ]
+   },
+   {
+    "id": "peek",
+    "move": "idle 3 0.5 0.6",
+    "pivot": [
+     409,
+     217
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     381,
+     136,
+     55,
+     84
+    ]
+   }
+  ]
+ },
  "adventure_spire_0": {
   "size": [
    360,

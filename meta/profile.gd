@@ -14,6 +14,7 @@ const Lineup := preload("res://sim/lineup.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const Economy := preload("res://meta/economy.gd")
 const Talents := preload("res://sim/talents.gd")
+const Dyes := preload("res://game/glow/dyes.gd")
 
 signal changed
 
@@ -99,6 +100,15 @@ var intro := INTRO_DONE
 const INTRO_DONE := 8
 ## Story chapters already played (meta/story.gd): zone ids and "prologue".
 var story: Array[String] = []
+## Spark Dye drops collected, by dye id (game/glow/dyes.gd). A full bar
+## unlocks the colour for the Wardrobe.
+var dyes := {}
+## The Rift run in progress (meta/family_rift.gd), {} when there is none.
+var rift := {}
+## Rift Keys live in the Bag as an item; this many at most.
+const RIFT_KEY := "Rift Key"
+const RIFT_KEY_CAP := 10
+const RIFT_KEY_TEXT := "Opens a Rift: three fights against one family for its copies."
 
 
 static func new_game(now: int, starter := STARTER):
@@ -721,7 +731,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "forge", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "forge", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest", "dyes", "rift"]
 
 
 func to_dict() -> Dictionary:
@@ -775,6 +785,16 @@ static func from_dict(d: Dictionary, now: int):
 	if bl is Dictionary:
 		for k in bl:
 			p.boss_levels[str(k)] = clampi(int(bl[k]), 0, 15)
+	var dy = d.get("dyes", {})
+	if dy is Dictionary:
+		for k in dy:
+			if not Dyes.dye(str(k)).is_empty():
+				p.dyes[str(k)] = clampi(int(dy[k]), 0, Dyes.need(str(k)))
+	var rf = d.get("rift", {})
+	if rf is Dictionary and rf.has("family"):
+		p.rift = JSON.parse_string(JSON.stringify(rf))
+		for k in ["round", "seed"]:
+			p.rift[k] = int(p.rift.get(k, 0))
 	p.stars.clear()
 	for k in d.get("stars", {}):
 		p.stars[str(k)] = int(d.stars[k])
@@ -830,7 +850,8 @@ func spend_coins(n: int) -> bool:
 
 
 ## An earned reward (Glow Pass free track, quests): {kind, n} with kind
-## orbs, coins, hammers, energy, xp_chip, copies (with id) or gear (type and tier).
+## orbs, coins, hammers, energy, xp_chip, rift_key, dye (random colour, or
+## one `id`), copies (with id) or gear (type and tier).
 func grant(r: Dictionary) -> void:
 	var n := int(r.get("n", 1))
 	match r.kind:
@@ -850,6 +871,13 @@ func grant(r: Dictionary) -> void:
 			if _item("XP Chip").is_empty():
 				items.append({"name": "XP Chip", "count": 0, "text": "+%d XP to one critter." % XP_CHIP_XP, "color": Color("45f5a6")})
 			_item("XP Chip").count = int(_item("XP Chip").count) + n
+		"rift_key":
+			add_rift_keys(n)
+		"dye":
+			var rng := RandomNumberGenerator.new()
+			rng.seed = hash([runs, dyes, n])
+			for i in n:
+				add_dye_drop(str(r.get("id", "")) if r.has("id") else Dyes.roll(self, rng))
 		"copies":
 			if str(r.id) in Roster.ids():
 				for i in n:
@@ -859,6 +887,33 @@ func grant(r: Dictionary) -> void:
 				for i in n:
 					add_gear(str(r.type), int(r.get("tier", 1)))
 	changed.emit()
+
+
+## Rift Keys in the Bag.
+func rift_keys() -> int:
+	return item_count(RIFT_KEY)
+
+
+## Adds (or with a negative `n`, spends) Rift Keys, up to RIFT_KEY_CAP. The
+## Bag row appears with the first key. Returns how many were actually added.
+func add_rift_keys(n: int) -> int:
+	if _item(RIFT_KEY).is_empty():
+		items.append({"name": RIFT_KEY, "count": 0, "text": RIFT_KEY_TEXT, "color": Color("5ce1ff")})
+	var row := _item(RIFT_KEY)
+	var before := int(row.count)
+	row.count = clampi(before + n, 0, RIFT_KEY_CAP)
+	changed.emit()
+	return int(row.count) - before
+
+
+## One Spark Dye drop toward `id`. Returns {id, drops, need, unlocked} (the
+## drop's progress for the result popup), or {} for "" or an unknown dye.
+func add_dye_drop(id: String) -> Dictionary:
+	if Dyes.dye(id).is_empty():
+		return {}
+	dyes[id] = mini(int(dyes.get(id, 0)) + 1, Dyes.need(id))
+	changed.emit()
+	return {"id": id, "drops": int(dyes[id]), "need": Dyes.need(id), "unlocked": Dyes.unlocked(self, id)}
 
 
 ## How many of a Bag item (e.g. "Energy Pack") the player holds.

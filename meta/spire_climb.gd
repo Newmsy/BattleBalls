@@ -171,11 +171,12 @@ func abandon() -> Array:
 	return used
 
 
-## Rewards waiting to be collected, summed: {coins, orbs, hammers, gear: [{type, tier}...], floors}.
+## Rewards waiting to be collected, summed: {coins, orbs, hammers, keys, gear: [{type, tier}...], floors}.
 func unclaimed_total() -> Dictionary:
-	var t := {"coins": 0, "orbs": 0, "hammers": 0, "gear": [], "floors": unclaimed.duplicate()}
+	var t := {"coins": 0, "orbs": 0, "hammers": 0, "keys": 0, "gear": [], "floors": unclaimed.duplicate()}
 	for f in unclaimed:
 		var r := Spire.reward(f)
+		t.keys += 1 if f in KEY_FLOORS else 0
 		t.coins += r.coins
 		t.orbs += r.orbs
 		t.hammers += r.hammers
@@ -190,6 +191,10 @@ func take_rewards() -> Dictionary:
 	var t := unclaimed_total()
 	unclaimed = []
 	return t
+
+
+## Boss floors that also pay a Rift Key each week (design/dyes-rift-keys.md).
+const KEY_FLOORS := [20, 40]
 
 
 ## Seconds until Monday's reset.

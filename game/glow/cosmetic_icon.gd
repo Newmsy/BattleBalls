@@ -11,12 +11,14 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 
 var item_id := ""
 var critter_id := "vampire"
+var dye := "" ## A Spark Dye on it (game/glow/dyes.gd), or "".
 var _t := 0.0
 
 
-static func make(id: String, critter: String, side: float) -> Control:
+static func make(id: String, critter: String, side: float, dye_ := "") -> Control:
 	var c = load("res://game/glow/cosmetic_icon.gd").new()
 	c.item_id = id
+	c.dye = dye_
 	c.critter_id = critter
 	c.custom_minimum_size = Vector2(side, side)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -35,7 +37,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var it := Catalog.item(item_id)
+	var it := Catalog.worn({"x": item_id, "dye_x": dye}, "x")
 	if it.is_empty():
 		return
 	var s := minf(size.x, size.y)
