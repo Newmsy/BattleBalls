@@ -65,3 +65,5 @@ PY
 cp liveops/liveops.json build/web/liveops.json
 # Privacy policy, terms and support pages (linked from Settings and the store listings).
 cp site/*.html site/*.css build/web/
+# The loading picture the page shows while the game downloads (game/web/shell.html).
+cp site/loading.webp build/web/

@@ -3,13 +3,17 @@
 	<head>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
-		<meta name="theme-color" content="#ff6fb0">
+		<meta name="theme-color" content="#0c1030">
+		<link rel="preload" as="image" href="loading.webp" type="image/webp">
 		<title>$GODOT_PROJECT_NAME</title>
 		<style>
-/* Battle Balls loading screen: the sunset arena from game/ui/splash_art.gd,
-   rendered to game/brand/loading.png (tools/brand/render_loading.gd), which
-   Godot's export serves as $GODOT_SPLASH. The game draws the same picture
-   live and calls window.bbGameReady() once it has, so the hand-over is seamless. */
+/* Battle Balls loading screen: the painted moonlit arena from
+   tools/brand/loading_painted.mjs. The page shows site/loading.webp (about
+   60 KB, preloaded above, so it's up long before the game has downloaded;
+   $GODOT_SPLASH, the full PNG, only if WebP fails) and moves a few lights
+   on it (#status-lights). The game draws the same picture live
+   (game/ui/splash_art.gd) and calls window.bbGameReady() once it has, so
+   the hand-over is seamless. */
 html, body, #canvas {
 	margin: 0;
 	padding: 0;
@@ -40,7 +44,7 @@ body {
 	inset: 0;
 	visibility: hidden;
 	overflow: hidden;
-	background: linear-gradient(#0d0a2a 0%, #2a145a 25%, #7a2a86 45%, #e2557f 56%, #3a1670 58%, #1c0c48 75%, #0b0624 100%);
+	background: linear-gradient(#0c1030 0%, #1b3460 30%, #2a6a70 50%, #22564a 56%, #0d1f24 100%);
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 	transition: opacity 0.35s ease-out;
 	z-index: 1;
@@ -57,6 +61,43 @@ body {
 	height: 100%;
 	object-fit: cover;
 	object-position: 50% 50%;
+}
+
+#status-lights {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+}
+
+/* One smooth radial gradient per light (never stacked circles); only
+   opacity and transform animate, so the browser composites them cheaply. */
+#status-lights i {
+	position: absolute;
+	border-radius: 50%;
+	will-change: opacity, transform;
+}
+
+#status-lights .glow {
+	background: radial-gradient(closest-side, var(--c) 0%, transparent 100%);
+	animation: breathe var(--s) ease-in-out var(--d) infinite alternate;
+}
+
+#status-lights .fly {
+	background: radial-gradient(closest-side, #fff 0 18%, var(--c) 30%, transparent 100%);
+	animation: rise var(--s) linear var(--d) infinite;
+}
+
+@keyframes breathe {
+	from { opacity: 0.35; transform: scale(0.94); }
+	to { opacity: 1; transform: scale(1.04); }
+}
+
+@keyframes rise {
+	0% { opacity: 0; transform: translate(0, 0); }
+	20% { opacity: 1; }
+	50% { transform: translate(var(--w), calc(var(--h) * -0.5)); }
+	80% { opacity: 0.8; }
+	100% { opacity: 0; transform: translate(0, calc(var(--h) * -1)); }
 }
 
 #status-foot {
@@ -159,8 +200,12 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	#status-bar.indeterminate #status-fill {
+	#status-bar.indeterminate #status-fill,
+	#status-lights i {
 		animation: none;
+	}
+	#status-lights .fly {
+		display: none;
 	}
 }
 		</style>
@@ -176,7 +221,8 @@ body {
 		</noscript>
 
 		<div id="status">
-			<img id="status-splash" src="$GODOT_SPLASH" alt="Battle Balls">
+			<img id="status-splash" src="loading.webp" alt="Battle Balls" onerror="this.onerror=null;this.src='$GODOT_SPLASH'">
+			<div id="status-lights"></div>
 			<div id="status-foot">
 				<div id="status-progress">
 					<div id="status-bar" class="indeterminate"><div id="status-fill"></div></div>
@@ -233,6 +279,46 @@ const engine = new Engine(GODOT_CONFIG);
 	const statusLabel = document.getElementById('status-label');
 	const statusNotice = document.getElementById('status-notice');
 	const statusTip = document.getElementById('status-tip');
+
+	// Lights on the painting, at its own pixel spots (853 x 1844, the same
+	// spots as game/ui/splash_art.gd), placed like the picture's
+	// object-fit: cover. Glows: [x, y, radius, colour, seconds per breath].
+	const ART_W = 853, ART_H = 1844;
+	const GLOWS = [
+		[426, 740, 330, 'rgba(216,242,255,0.22)', 2.8], [426, 1000, 120, 'rgba(255,243,178,0.45)', 0.6],
+		[216, 1117, 46, 'rgba(255,212,107,0.55)', 0.45], [636, 1117, 46, 'rgba(255,212,107,0.55)', 0.38],
+		[76, 1358, 64, 'rgba(255,212,107,0.55)', 0.41], [776, 1358, 64, 'rgba(255,212,107,0.55)', 0.5],
+	];
+	const FLY = ['rgba(216,255,122,0.7)', 'rgba(125,255,176,0.7)', 'rgba(255,233,168,0.7)'];
+	const lights = document.getElementById('status-lights');
+	const placed = [];
+	const place = (el, x, y, r) => placed.push([el, x, y, r]);
+	GLOWS.forEach(([x, y, r, c, s], k) => {
+		const el = document.createElement('i');
+		el.className = 'glow';
+		el.style.cssText = `--c:${c};--s:${s}s;--d:${-k * 0.37}s`;
+		lights.appendChild(el);
+		place(el, x, y, r);
+	});
+	for (let k = 0; k < 14; k++) {
+		const el = document.createElement('i');
+		el.className = 'fly';
+		el.style.cssText = `--c:${FLY[k % 3]};--s:${7 + (k * 7) % 5}s;--d:${-k * 0.83}s;--w:${(k % 2 ? 1 : -1) * (10 + (k * 13) % 25)}px;--h:${260 + (k * 53) % 220}px`;
+		lights.appendChild(el);
+		place(el, (k * 131 + 40) % ART_W, 1700 - (k * 47) % 260, 12);
+	}
+	function layoutLights() {
+		const w = statusOverlay.clientWidth, h = statusOverlay.clientHeight;
+		const sc = Math.max(w / ART_W, h / ART_H), ox = (w - ART_W * sc) / 2, oy = (h - ART_H * sc) / 2;
+		for (const [el, x, y, r] of placed) {
+			const d = 2 * r * sc;
+			el.style.left = (ox + x * sc - d / 2) + 'px';
+			el.style.top = (oy + y * sc - d / 2) + 'px';
+			el.style.width = el.style.height = d + 'px';
+		}
+	}
+	layoutLights();
+	window.addEventListener('resize', layoutLights);
 
 	const TIPS = [
 		'Bank your shot off the walls to catch a foe off guard.',
