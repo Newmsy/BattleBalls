@@ -886,6 +886,12 @@ try {
     await page.waitForTimeout(4000);
     await page.screenshot({ path: path.join(shots, "37-pinata-fight.png") });
     console.log("pinata end:", await waitForLog(logs, "BOSS_END", 120000));
+    // Back after the result walks down to the boss hall it came from, not Home.
+    const back = logs.length;
+    await waitForLogAfter(logs, back, "UI_SCREEN pinata", 10000);
+    await waitForLogAfter(logs, back, "UI_AT result_continue ", 5000);
+    await tapUi(page, logs, "result_continue");
+    await tapUi(page, logs, "back", "bosses");
     await page.close();
   }
 
