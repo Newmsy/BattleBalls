@@ -3,11 +3,11 @@
 // they match the rest of the painted screens. 853x1844 portrait; the title
 // sits in the top band and the web page's progress bar and tip sit over the
 // bottom ~16%, so that band stays quiet ground.
-// The moonlit arena ("clash" draft) is the loading picture; game/ui/splash_art.gd and
+// The moonlit arena ("marks" draft) is the loading picture; game/ui/splash_art.gd and
 // game/web/shell.html move lights at spots on it, so keep those in step.
 // Usage (from the repo root, after `cd smoke && npm ci`):
 //   node tools/brand/loading_painted.mjs [outdir] [name ...]  -> <outdir>/loading_<name>.png
-//   node tools/brand/loading_painted.mjs ship clash  -> game/brand/loading.png + site/loading.webp
+//   node tools/brand/loading_painted.mjs ship marks  -> game/brand/loading.png + site/loading.webp
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
@@ -162,10 +162,10 @@ function moonlit() {
 // texture: drifting clouds across the moon, three hill layers with moonlit
 // tree crowns, a stone-block arena wall with moss, glowing Glow Garden
 // mushrooms and bell flowers in the meadow, a stepping-stone path, framing
-// ferns, and a crowd of little critters on the far hill. Variants:
-// "festival" strings lights and bunting between the lamps and fills the
-// crowd; "clash" turns the bump into a fire-against-water face-off (the fire
-// comes from the red critter's mouth) with a burst of steam where they meet.
+// ferns, and a crowd of little critters on the far hill. `look` picks how
+// much detail the critters get (paintedCritter): "plain", "marks" (painted
+// shading and family markings), "limbs" (marks plus stubby hands and feet)
+// or "gear" (marks plus a piece of gear each).
 function cloudBand(x, y, s, lit = "#8fb0d8", body = "#2a3f6e") {
   return `<g opacity="0.92"><path d="M ${x - 150 * s} ${y} Q ${x - 140 * s} ${y - 40 * s} ${x - 90 * s} ${y - 36 * s} Q ${x - 70 * s} ${y - 80 * s} ${x - 10 * s} ${y - 70 * s} Q ${x + 30 * s} ${y - 104 * s} ${x + 80 * s} ${y - 66 * s} Q ${x + 140 * s} ${y - 70 * s} ${x + 150 * s} ${y} Z" fill="${body}"/>
     <path d="M ${x - 90 * s} ${y - 36 * s} Q ${x - 70 * s} ${y - 80 * s} ${x - 10 * s} ${y - 70 * s} Q ${x + 30 * s} ${y - 104 * s} ${x + 80 * s} ${y - 66 * s}" fill="none" stroke="${lit}" stroke-width="${6 * s}" stroke-linecap="round" opacity="0.8"/></g>`;
@@ -199,21 +199,98 @@ function fern(x, y, s, flip, col) {
   return out;
 }
 
-function moonDetail(variant = "detail") {
+
+// A critter with a painted detail pass on top of critter(). mode: "plain"
+// (just critter()), "shade" (painted shading only: a core shadow on the far
+// side, green bounce light from the grass, a moonlit sheen), "marks" (shade
+// plus the family's markings), "limbs" (marks plus stubby hands and feet;
+// pose.punch = +1/-1 throws a fist that way, pose.wave = +1/-1 waves) or
+// "gear" (marks plus one piece of gear). kind: vamp | sea | leaf | sweet | toy.
+let pcId = 0;
+function paintedCritter(cx, cy, r, col, opts, mode, kind, pose = {}) {
+  if (mode === "plain") return critter(cx, cy, r, col, opts);
+  const sx = opts.sx || 1, sy = opts.sy || 1, side = opts.rimSide || 1;
+  const id = `pc${pcId++}`, ink = shade(col, -0.62), dk = shade(col, -0.3), lt = shade(col, 0.45);
+  const marks = mode === "marks" || mode === "limbs" || mode === "gear";
+  const X = (u) => f(cx + u * r), Y = (v) => f(cy + v * r);
+  const st = `stroke="${ink}" stroke-width="${f(r * 0.05)}" stroke-linejoin="round" stroke-linecap="round"`;
+  let back = "", front = "", over = "";
+  // Painted shading, clipped to the body.
+  let paint = `<defs><clipPath id="${id}"><ellipse cx="${cx}" cy="${cy}" rx="${r * sx}" ry="${r * sy}"/></clipPath>
+    <radialGradient id="${id}c" cx="${0.5 + side * 0.45}" cy="0.9" r="0.75"><stop offset="0" stop-color="${shade(col, -0.55)}" stop-opacity="0.55"/><stop offset="1" stop-color="${shade(col, -0.55)}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0.7" stop-color="#5fd08a" stop-opacity="0"/><stop offset="1" stop-color="#5fd08a" stop-opacity="0.35"/></linearGradient></defs>
+    <g clip-path="url(#${id})"><rect x="${cx - r * 1.2}" y="${cy - r * 1.2}" width="${r * 2.4}" height="${r * 2.4}" fill="url(#${id}c)"/>
+    <rect x="${cx - r * 1.2}" y="${cy - r * 1.2}" width="${r * 2.4}" height="${r * 2.4}" fill="url(#${id}g)"/>`;
+  if (marks) {
+    if (kind === "vamp") // a widow's peak and a lighter chin
+      paint += `<path d="M ${X(-1)} ${Y(-0.7)} Q ${X(-0.35)} ${Y(-0.74)} ${X(0)} ${Y(-0.58)} Q ${X(0.35)} ${Y(-0.74)} ${X(1)} ${Y(-0.7)} L ${X(1)} ${Y(-1.1)} L ${X(-1)} ${Y(-1.1)} Z" fill="${shade(col, -0.35)}" opacity="0.7"/>
+        <ellipse cx="${cx}" cy="${Y(0.62)}" rx="${f(r * 0.5)}" ry="${f(r * 0.3)}" fill="${lt}" opacity="0.35"/>`;
+    if (kind === "sea") { // a pale belly and scale arcs
+      paint += `<ellipse cx="${cx}" cy="${Y(0.62)}" rx="${f(r * 0.62)}" ry="${f(r * 0.42)}" fill="#dff4ff" opacity="0.55"/>`;
+      for (const [u, v] of [[-0.82, 0.05], [-0.72, 0.32], [-0.86, -0.22], [0.82, 0.05], [0.72, 0.32], [0.86, -0.22], [-0.6, 0.55], [0.6, 0.55]])
+        paint += `<path d="M ${X(u - 0.1)} ${Y(v)} Q ${X(u)} ${Y(v + 0.12)} ${X(u + 0.1)} ${Y(v)}" fill="none" stroke="${shade(col, -0.35)}" stroke-width="${f(r * 0.035)}" opacity="0.7"/>`;
+    }
+    if (kind === "leaf") // leafy speckles and freckles
+      paint += [[-0.6, -0.5, 0.09], [0.55, -0.6, 0.07], [0.7, -0.2, 0.06], [-0.75, 0.1, 0.06], [0.3, -0.8, 0.05]].map(([u, v, k]) => `<ellipse cx="${X(u)}" cy="${Y(v)}" rx="${f(k * r)}" ry="${f(k * r * 0.6)}" fill="${lt}" opacity="0.6" transform="rotate(-30 ${X(u)} ${Y(v)})"/>`).join("")
+        + [-0.12, 0, 0.12].map((u) => `<circle cx="${X(-0.5 + u)}" cy="${Y(0.32 + Math.abs(u))}" r="${f(r * 0.03)}" fill="${shade(col, -0.45)}"/><circle cx="${X(0.5 + u)}" cy="${Y(0.32 + Math.abs(u))}" r="${f(r * 0.03)}" fill="${shade(col, -0.45)}"/>`).join("");
+    if (kind === "sweet") // icing on top with sprinkles
+      paint += `<path d="M ${X(-1)} ${Y(-0.5)} Q ${X(-0.7)} ${Y(-0.32)} ${X(-0.55)} ${Y(-0.5)} Q ${X(-0.4)} ${Y(-0.2)} ${X(-0.2)} ${Y(-0.48)} Q ${X(0)} ${Y(-0.3)} ${X(0.2)} ${Y(-0.5)} Q ${X(0.42)} ${Y(-0.22)} ${X(0.6)} ${Y(-0.5)} Q ${X(0.78)} ${Y(-0.34)} ${X(1)} ${Y(-0.5)} L ${X(1)} ${Y(-1.1)} L ${X(-1)} ${Y(-1.1)} Z" fill="#fff4fa" opacity="0.85"/>`
+        + [[-0.5, -0.75, 20], [-0.15, -0.85, -30], [0.25, -0.78, 50], [0.55, -0.65, -10], [-0.7, -0.6, 70], [0.05, -0.62, 10]].map(([u, v, a], k) => `<rect x="${X(u - 0.06)}" y="${Y(v - 0.02)}" width="${f(r * 0.12)}" height="${f(r * 0.04)}" rx="${f(r * 0.02)}" fill="${["#ffd36b", "#5ce1ff", "#7ee08a", "#b07cff"][k % 4]}" transform="rotate(${a} ${X(u)} ${Y(v)})"/>`).join("");
+    if (kind === "toy") // a stitched seam round the middle
+      paint += `<path d="M ${X(-1)} ${Y(0.48)} Q ${cx} ${Y(0.78)} ${X(1)} ${Y(0.48)}" fill="none" stroke="${shade(col, -0.4)}" stroke-width="${f(r * 0.05)}" stroke-dasharray="${f(r * 0.1)} ${f(r * 0.08)}"/>`;
+  }
+  // A cool moonlit sheen along the top edge.
+  paint += `<path d="M ${X(-0.75)} ${Y(-0.62)} A ${f(r * 0.98)} ${f(r * 0.98)} 0 0 1 ${X(0.75)} ${Y(-0.62)}" fill="none" stroke="#e6f4ff" stroke-width="${f(r * 0.05)}" opacity="0.45"/></g>`;
+  if (marks && kind === "vamp") // little fangs at the corners of the mouth
+    over += [-1, 1].map((d) => `<path d="M ${X(d * 0.14)} ${Y(0.33)} l ${f(-d * r * 0.035)} ${f(r * 0.12)} l ${f(-d * r * 0.05)} ${f(-r * 0.11)} Z" fill="#fff" stroke="${ink}" stroke-width="${f(r * 0.02)}"/>`).join("");
+  if (marks && kind === "sea") // a stripe on the fin
+    over += `<path d="M ${X(-0.2)} ${Y(-0.98)} Q ${X(0)} ${Y(-1.25)} ${X(0.3)} ${Y(-1.27)}" fill="none" stroke="${shade(col, -0.35)}" stroke-width="${f(r * 0.06)}" stroke-linecap="round"/>`;
+  if (mode === "limbs") {
+    const hand = (x, y, s) => `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(r * 0.2 * s)}" ry="${f(r * 0.17 * s)}" fill="${dk}" ${st}/><ellipse cx="${f(x - r * 0.05)}" cy="${f(y - r * 0.05)}" rx="${f(r * 0.07 * s)}" ry="${f(r * 0.04 * s)}" fill="#fff" opacity="0.4"/>`;
+    const foot = (x) => `<ellipse cx="${f(x)}" cy="${Y(0.98 * sy)}" rx="${f(r * 0.26)}" ry="${f(r * 0.13)}" fill="${dk}" ${st}/>`;
+    back += foot(cx - r * 0.42) + foot(cx + r * 0.42);
+    if (pose.punch) {
+      const d = pose.punch;
+      front += hand(cx + d * r * 0.98, cy + r * 0.12, 1.25) + `<path d="M ${X(d * 0.86)} ${Y(-0.04)} l ${f(d * r * 0.1)} ${f(-r * 0.04)} M ${X(d * 0.86)} ${Y(0.12)} l ${f(d * r * 0.12)} 0" ${st} fill="none" opacity="0.6"/>`;
+      back += hand(cx - d * r * 0.95, cy + r * 0.35, 1);
+    }
+    if (pose.wave) {
+      const d = pose.wave;
+      back += `<path d="M ${X(d * 0.8)} ${Y(-0.2)} q ${f(d * r * 0.25)} ${f(-r * 0.3)} ${f(d * r * 0.28)} ${f(-r * 0.6)}" fill="none" stroke="${ink}" stroke-width="${f(r * 0.16)}" stroke-linecap="round"/><path d="M ${X(d * 0.8)} ${Y(-0.2)} q ${f(d * r * 0.25)} ${f(-r * 0.3)} ${f(d * r * 0.28)} ${f(-r * 0.6)}" fill="none" stroke="${dk}" stroke-width="${f(r * 0.1)}" stroke-linecap="round"/>`
+        + hand(cx + d * r * 1.08, cy - r * 0.85, 1);
+      front += hand(cx - d * r * 0.9, cy + r * 0.4, 0.9);
+    }
+  }
+  if (mode === "gear") {
+    if (kind === "vamp") // a high cape collar behind, and a gold clasp
+      back += `<path d="M ${X(-1.05)} ${Y(0.2)} Q ${X(-1.3)} ${Y(-0.5)} ${X(-0.85)} ${Y(-0.95)} L ${X(-0.55)} ${Y(-0.2)} Z M ${X(1.05)} ${Y(0.2)} Q ${X(1.3)} ${Y(-0.5)} ${X(0.85)} ${Y(-0.95)} L ${X(0.55)} ${Y(-0.2)} Z" fill="#3a1440" ${st}/>
+        <path d="M ${X(-1.0)} ${Y(0.1)} Q ${X(-1.15)} ${Y(-0.45)} ${X(-0.85)} ${Y(-0.8)} M ${X(1.0)} ${Y(0.1)} Q ${X(1.15)} ${Y(-0.45)} ${X(0.85)} ${Y(-0.8)}" fill="none" stroke="#a0306a" stroke-width="${f(r * 0.06)}"/>`,
+      over += `<path d="M ${X(-0.55)} ${Y(0.72)} Q ${cx} ${Y(0.9)} ${X(0.55)} ${Y(0.72)}" fill="none" stroke="#3a1440" stroke-width="${f(r * 0.12)}" stroke-linecap="round"/><circle cx="${cx}" cy="${Y(0.84)}" r="${f(r * 0.1)}" fill="#ffd36b" stroke="#8a5a10" stroke-width="${f(r * 0.03)}"/>`;
+    if (kind === "sea") // diving goggles pushed up on the head
+      over += `<path d="M ${X(-0.9)} ${Y(-0.52)} Q ${cx} ${Y(-0.78)} ${X(0.9)} ${Y(-0.52)}" fill="none" stroke="#2a3a4a" stroke-width="${f(r * 0.08)}"/>
+        ${[-0.26, 0.26].map((u) => `<circle cx="${X(u)}" cy="${Y(-0.66)}" r="${f(r * 0.17)}" fill="#bff4ff" stroke="#ffc93c" stroke-width="${f(r * 0.06)}"/><path d="M ${X(u - 0.08)} ${Y(-0.7)} l ${f(r * 0.08)} ${f(-r * 0.06)}" stroke="#fff" stroke-width="${f(r * 0.04)}" stroke-linecap="round"/>`).join("")}`;
+    if (kind === "leaf") // a knitted scarf
+      over += `<path d="M ${X(-0.7)} ${Y(0.62)} Q ${cx} ${Y(0.86)} ${X(0.7)} ${Y(0.62)}" fill="none" stroke="#ff7a5a" stroke-width="${f(r * 0.2)}" stroke-linecap="round"/><path d="M ${X(0.4)} ${Y(0.72)} l ${f(r * 0.1)} ${f(r * 0.45)} l ${f(r * 0.18)} ${f(-r * 0.04)} l ${f(-r * 0.06)} ${f(-r * 0.42)} Z" fill="#ff7a5a" ${st}/>`;
+    if (kind === "sweet") // a party hat between the ears
+      over += `<path d="M ${X(-0.22)} ${Y(-0.86)} L ${X(0.02)} ${Y(-1.5)} L ${X(0.24)} ${Y(-0.88)} Z" fill="#5ce1ff" ${st}/><circle cx="${X(0.02)}" cy="${Y(-1.52)}" r="${f(r * 0.09)}" fill="#ffd36b" ${st}/><path d="M ${X(-0.12)} ${Y(-1.08)} L ${X(0.14)} ${Y(-1.12)}" stroke="#fff" stroke-width="${f(r * 0.05)}"/>`;
+    if (kind === "toy") // a tiny star badge
+      over += `<circle cx="${X(0.42)}" cy="${Y(0.55)}" r="${f(r * 0.18)}" fill="#ff5a6e" ${st}/>`;
+  }
+  return `${back}${critter(cx, cy, r, col, { ...opts, under: paint })}${over}${front}`;
+}
+
+function moonDetail(look = "plain") {
   const R = rng(11);
   const clash = [426, 1000];
-  const festival = variant === "festival", fight = variant === "clash";
   // Moon craters with a lit lower rim.
   const craters = [[360, 680, 34], [482, 800, 26], [505, 660, 16], [330, 800, 14], [440, 610, 12], [540, 735, 20], [400, 860, 11]]
     .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#d6cba4" opacity="0.55"/><path d="M ${x - r * 0.8} ${y + r * 0.4} A ${r} ${r} 0 0 0 ${x + r * 0.8} ${y + r * 0.4}" fill="none" stroke="#fffdf0" stroke-width="${f(r * 0.18)}" opacity="0.6"/>`).join("");
   // Far-hill crowd: tiny critters cheering along the ridge behind the arena.
   const crowdCols = [FAM.spooky, FAM.toybox, FAM.frost, FAM.fire, FAM.cosmic, FAM.nature, FAM.sweet, FAM.sea, FAM.tech];
-  const crowdSpots = festival
-    ? [[60, 1060, 26], [125, 1046, 24], [190, 1036, 27], [256, 1040, 22], [596, 1040, 22], [660, 1034, 27], [726, 1044, 24], [792, 1058, 26]]
-    : [[140, 1046, 26], [214, 1036, 24], [640, 1036, 24], [714, 1046, 27]];
+  const crowdSpots = [[140, 1046, 26], [214, 1036, 24], [640, 1036, 24], [714, 1046, 27]];
   const accs = ["horns", "propeller", "crystal", "flame", "orbit", "leaf", "ears", "fin", "antenna"];
-  const crowd = crowdSpots.map(([x, y, r], k) => `${critter(x, y, r, crowdCols[k % 9], { acc: accs[k % 9], mood: k % 3 ? "cheer" : "wow", look: [x < 426 ? 0.6 : -0.6, 0], rim: "#e8f4ff", rimSide: x < 426 ? -1 : 1, glow: false })}
-    ${festival && k % 2 === 0 ? `<line x1="${x + r * 0.9}" y1="${y}" x2="${x + r * 1.3}" y2="${y - r * 2.2}" stroke="#5a3a2a" stroke-width="3"/><path d="M ${x + r * 1.3} ${y - r * 2.2} l 24 8 l -24 9 Z" fill="${["#ff5a6e", "#ffc93c", "#3fa9f5", "#5fd068"][k % 4]}" stroke="#3a2a2a" stroke-width="2"/>` : ""}`).join("");
+  const crowd = crowdSpots.map(([x, y, r], k) => `${paintedCritter(x, y, r, crowdCols[k % 9], { acc: accs[k % 9], mood: k % 3 ? "cheer" : "wow", look: [x < 426 ? 0.6 : -0.6, 0], rim: "#e8f4ff", rimSide: x < 426 ? -1 : 1, glow: false }, look === "plain" ? "plain" : "shade", "")}
+  `).join("");
   // Arena wall stone blocks and moss.
   let blocks = "";
   for (let k = 0; k < 12; k++) {
@@ -233,12 +310,7 @@ function moonDetail(variant = "detail") {
      <ellipse cx="${f(x - 10 * s)}" cy="${f(y - 4 * s)}" rx="${f(32 * s)}" ry="${f(7 * s)}" fill="#6a7a70"/><ellipse cx="${x}" cy="${y}" rx="${f(24 * s)}" ry="${f(7 * s)}" fill="#7dffb0" opacity="0.55"/>`).join("");
   // The bump: a burst and trails, or the fire-and-water face-off.
   const L = [clash[0] - 128, clash[1] + 10], Rr = [clash[0] + 128, clash[1] + 10];
-  const bump = fight ? `
-    ${breath(L[0], L[1] + 39, clash[0] + 14, clash[1] + 44, 10, 54)}
-    ${breath(Rr[0], Rr[1] + 39, clash[0] - 14, clash[1] + 44, 10, 54, ["#3fa9f5", "#5cc8ff", "#1e5a8a", "#a8e4ff", "#f0fbff"])}
-    <g transform="translate(${clash[0] * 0.38} ${(clash[1] + 44) * 0.38 - 70}) scale(0.62)"><path d="M ${clash[0] - 70} ${clash[1] + 40} Q ${clash[0] - 90} ${clash[1] - 20} ${clash[0] - 40} ${clash[1] - 40} Q ${clash[0] - 40} ${clash[1] - 110} ${clash[0] + 10} ${clash[1] - 100} Q ${clash[0] + 50} ${clash[1] - 150} ${clash[0] + 70} ${clash[1] - 70} Q ${clash[0] + 110} ${clash[1] - 40} ${clash[0] + 70} ${clash[1] + 40} Z" fill="#eef4fa" stroke="#9ab0c8" stroke-width="3" opacity="0.92"/>
-    <path d="M ${clash[0] - 40} ${clash[1] - 40} Q ${clash[0] - 40} ${clash[1] - 110} ${clash[0] + 10} ${clash[1] - 100} Q ${clash[0] + 50} ${clash[1] - 150} ${clash[0] + 70} ${clash[1] - 70}" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/></g>
-    <circle cx="${clash[0]}" cy="${clash[1] + 10}" r="70" fill="#fff6c8" opacity="0.35" filter="url(#bl16)"/>` : `
+  const bump = `
     <circle cx="${clash[0]}" cy="${clash[1]}" r="90" fill="#fff6c8" opacity="0.4" filter="url(#bl24)"/>
     <path d="${(() => { let d = ""; for (let k = 0; k < 16; k++) { const a = k * Math.PI / 8, r = k % 2 ? 34 : 86 + (k % 4) * 8; d += `${k ? "L" : "M"} ${f(clash[0] + Math.cos(a) * r)} ${f(clash[1] + Math.sin(a) * r * 1.1)} `; } return d + "Z"; })()}" fill="#fff3c0" stroke="#e8a040" stroke-width="3" stroke-linejoin="round" opacity="0.9"/>
     <circle cx="${clash[0]}" cy="${clash[1]}" r="26" fill="#fffbe8"/>
@@ -246,18 +318,6 @@ function moonDetail(variant = "detail") {
   const trails = [[-1, "#ffb3a8"], [1, "#a8e4ff"]].map(([d, c]) => `
     <path d="M ${clash[0] + d * 380} ${clash[1] + 170} Q ${clash[0] + d * 300} ${clash[1] + 10} ${clash[0] + d * 200} ${clash[1] - 10}" fill="none" stroke="${c}" stroke-width="10" stroke-linecap="round" opacity="0.45" stroke-dasharray="2 20"/>
     ${[0, 1, 2].map((k) => `<path d="M ${clash[0] + d * (250 + k * 14)} ${clash[1] - 60 + k * 50} l ${d * 70} ${10 - k * 6}" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity="${0.5 - k * 0.1}"/>`).join("")}`).join("");
-  // Festival: string lights between the lamps and bunting along the wall.
-  const bulbs = (x0, y0, x1, y1, sag, n) => {
-    let out = `<path d="M ${x0} ${y0} Q ${(x0 + x1) / 2} ${(y0 + y1) / 2 + sag * 2} ${x1} ${y1}" fill="none" stroke="#1a1a2a" stroke-width="2.5"/>`;
-    for (let k = 1; k < n; k++) {
-      const t = k / n, x = (1 - t) * (1 - t) * x0 + 2 * t * (1 - t) * (x0 + x1) / 2 + t * t * x1, y = (1 - t) * (1 - t) * y0 + 2 * t * (1 - t) * ((y0 + y1) / 2 + sag * 2) + t * t * y1;
-      const c = ["#ffd36b", "#ff7ac8", "#5ce1ff", "#7ee08a"][k % 4];
-      out += `<circle cx="${f(x)}" cy="${f(y + 6)}" r="11" fill="${c}" opacity="0.35" filter="url(#bl4)"/><circle cx="${f(x)}" cy="${f(y + 6)}" r="5" fill="${c}" stroke="#1a1a2a" stroke-width="1.5"/>`;
-    }
-    return out;
-  };
-  const fest = festival ? `${bulbs(216, 1117, 636, 1117, 18, 12)}
-    ${(() => { let o = ""; for (let k = 0; k < 14; k++) { const x = 90 + k * 48; o += `<path d="M ${x} 1426 l 40 0 l -20 26 Z" fill="${["#ff5a6e", "#ffc93c", "#3fa9f5", "#5fd068", "#b07cff"][k % 5]}" stroke="#1a1a2a" stroke-width="1.5"/>`; } return o; })()}` : "";
   return svg(`
   <defs>
     <linearGradient id="dSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a0d2a"/><stop offset="0.36" stop-color="#1b3460"/><stop offset="0.56" stop-color="#2a6a74"/><stop offset="1" stop-color="#2a6a74"/></linearGradient>
@@ -287,18 +347,18 @@ function moonDetail(variant = "detail") {
   ${glowShroom(40, 1150, 30, "#7b77ff", "#b8b4ff")}${glowShroom(92, 1170, 18, "#ff8ad0", "#ffd0ec")}${glowShroom(815, 1160, 26, "#3fa9f5", "#bfe8ff")}${glowShroom(770, 1180, 16, "#7b77ff", "#b8b4ff")}
   ${bellFlower(150, 1150, 44, "#ffd36b")}${bellFlower(700, 1140, 40, "#7dffb0")}${bellFlower(728, 1150, 30, "#ff8ad0")}
   ${squareArena(426, 1290, 700, 260)}
-  ${blocks}${floorMarks}${fest}
+  ${blocks}${floorMarks}
   ${shadow(clash[0] - 125, 1310, 80, 0.45)}${shadow(clash[0] + 125, 1310, 80, 0.45)}
   ${trails}
-  ${critter(L[0], L[1], 108, fight ? FAM.fire : "#e8465a", { acc: fight ? "flame" : "horns", mood: fight ? "wow" : "determined", look: [0.8, -0.1], rim: "#fff2c8", rimSide: 1, sx: 0.94, sy: 1.04 })}
-  ${critter(Rr[0], Rr[1], 108, FAM.sea, { acc: "fin", mood: fight ? "wow" : "determined", look: [-0.8, -0.1], rim: "#fff2c8", rimSide: -1, sx: 0.94, sy: 1.04 })}
+  ${paintedCritter(L[0], L[1], 108, "#e8465a", { acc: "horns", mood: "determined", look: [0.8, -0.1], rim: "#fff2c8", rimSide: 1, sx: 0.94, sy: 1.04 }, look, "vamp", { punch: 1 })}
+  ${paintedCritter(Rr[0], Rr[1], 108, FAM.sea, { acc: "fin", mood: "determined", look: [-0.8, -0.1], rim: "#fff2c8", rimSide: -1, sx: 0.94, sy: 1.04 }, look, "sea", { punch: -1 })}
   ${bump}
   ${stones}
   ${glowShroom(60, 1640, 44, "#5a4ab0", "#9a8cff")}${glowShroom(130, 1660, 26, "#ff8ad0", "#ffd0ec")}${glowShroom(800, 1690, 38, "#3fa9f5", "#bfe8ff")}
   ${bellFlower(250, 1560, 54, "#ff8ad0")}${bellFlower(600, 1600, 50, "#ffd36b")}${bellFlower(626, 1596, 36, "#7dffb0")}
-  ${shadow(84, 1336, 46, 0.5)}${critter(84, 1290, 50, FAM.nature, { acc: "leaf", mood: "wow", look: [0.6, -0.6], rim: "#7dffb0", rimSide: 1 })}
-  ${shadow(772, 1346, 42, 0.5)}${critter(772, 1304, 46, FAM.sweet, { acc: "ears", mood: "cheer", rim: "#ffd0ec", rimSide: -1 })}
-  ${shadow(742, 1222, 26, 0.45)}${critter(742, 1196, 28, FAM.toybox, { acc: "propeller", mood: "wow", look: [-0.5, -0.7], rimSide: -1 })}
+  ${shadow(84, 1336, 46, 0.5)}${paintedCritter(84, 1290, 50, FAM.nature, { acc: "leaf", mood: "wow", look: [0.6, -0.6], rim: "#7dffb0", rimSide: 1 }, look, "leaf", { wave: 1 })}
+  ${shadow(772, 1346, 42, 0.5)}${paintedCritter(772, 1304, 46, FAM.sweet, { acc: "ears", mood: "cheer", rim: "#ffd0ec", rimSide: -1 }, look, "sweet", { wave: -1 })}
+  ${shadow(742, 1222, 26, 0.45)}${paintedCritter(742, 1196, 28, FAM.toybox, { acc: "propeller", mood: "wow", look: [-0.5, -0.7], rimSide: -1 }, look, "toy", { wave: -1 })}
   ${fern(-20, 1844, 1.5, 1, "#0d2420")}${fern(873, 1844, 1.4, -1, "#0d2420")}${fern(-10, 1844, 1.0, 1, "#123028")}
   ${motes(9, 60, 0, 1060, W, 1720, ["#d8ff7a", "#7dffb0", "#ffe9a8"])}
   ${title(250, { ink: "#0e1430" })}
@@ -409,7 +469,7 @@ function campfire() {
   ${footFade("#120c1e", 0.85)}`);
 }
 
-export const SCENES = { moonlit, detail: () => moonDetail("detail"), festival: () => moonDetail("festival"), clash: () => moonDetail("clash"), sunny, campfire };
+export const SCENES = { moonlit, detail: () => moonDetail("plain"), marks: () => moonDetail("marks"), limbs: () => moonDetail("limbs"), gear: () => moonDetail("gear"), sunny, campfire };
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   // `ship <name>` writes the loading picture itself: game/brand/loading.png
