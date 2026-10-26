@@ -40,7 +40,11 @@ const BOSS_MODES := {"vault": [GearVault, VaultScreen], "nest": [BroodNest, Nest
 	"pinata": [preload("res://meta/pinata_party.gd"), preload("res://game/ui/screens/pinata_screen.gd")],
 	"totem": [preload("res://meta/totem_shrine.gd"), preload("res://game/ui/screens/totem_screen.gd")],
 	"wyrm": [preload("res://meta/wyrm_rift.gd"), preload("res://game/ui/screens/wyrm_screen.gd")],
-	"glitch": [preload("res://meta/glitch_core.gd"), preload("res://game/ui/screens/glitch_screen.gd")]}
+	"glitch": [preload("res://meta/glitch_core.gd"), preload("res://game/ui/screens/glitch_screen.gd")],
+	"rift": [preload("res://meta/family_rift.gd"), preload("res://game/ui/screens/rift_screen.gd")]}
+const Dyes := preload("res://game/glow/dyes.gd")
+## A farming boss win drops a Spark Dye this often (design/dyes-rift-keys.md).
+const BOSS_DYE_CHANCE := 0.1
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Zones := preload("res://meta/zones.gd")
@@ -997,9 +1001,15 @@ func _on_live(msg: Dictionary) -> void:
 			sfx.play("launch")
 			_start_fight()
 		"ghost":
+			# Nobody near your power: a CPU foe of your critter's rarity at your
+			# tier (the one-tap Quick fight rules), on a fresh seed.
 			_close_live()
+			if pick_tiers[0] == 0 and not duo:
+				quick_tier = clampi(int(_live_slot(player_type).get("tier", 1)), 1, Lineup.MAX_TIER)
+			seed_value = _rng.randi_range(1, 99999)
 			_begin_aim()
-			info_label.text = "No live foe right now, so here's a practice fight. Drag to aim!"
+			info_label.text = "No live foe right now, so here's a CPU %s at your tier. Drag to aim!" % \
+				sim.balls[1].def.display_name
 		"error":
 			var code := str(msg.get("code", ""))
 			_cancel_live()
@@ -1096,6 +1106,17 @@ func _load_profile() -> void:
 			var id: String = Roster.CRITTERS[i % Roster.CRITTERS.size()].id
 			profile.stacks.append({"id": id, "tier": 1 + i % 3, "count": 1, "level": 1 + i % 20})
 			profile.seen[id] = true
+		# A few Rift Keys and dye drops, so the Rift and Wardrobe have something to show.
+		profile.add_rift_keys(3)
+		for dye in Dyes.DYES.slice(0, 6):
+			for n in Dyes.need(dye.id) if dye.grade == "basic" else 3:
+				profile.add_dye_drop(dye.id)
+		# &rift=fire opens a Rift into that family; &round=3 jumps to the Rift Boss.
+		var rift = load("res://meta/family_rift.gd")
+		if url_params.has("rift") and rift.is_unlocked(profile):
+			rift.open(profile, str(url_params.rift), 0)
+			if rift.in_run(profile):
+				profile.rift.round = clampi(int(url_params.get("round", "1")) - 1, 0, rift.ROUNDS.size() - 1)
 	# ?story=1 plays every chapter's story again (screenshots, playtests).
 	if url_params.get("story", "") == "1":
 		profile.story.clear()
@@ -1140,7 +1161,8 @@ func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: S
 	foe_aim = null
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
-	pve.caption = "%s · %s" % [Bosses.DEFS[config.p2].display_name, _boss_rules().DIFFICULTIES[difficulty].name]
+	var foe: String = Bosses.DEFS[config.p2].display_name if Bosses.DEFS.has(config.p2) else Roster.get_critter(config.p2).name
+	pve.caption = "%s · %s" % [foe, _boss_rules().DIFFICULTIES[difficulty].name]
 	_begin_aim()
 	info_label.text = FightSpeed.with_aim_hint(pve.caption)
 
@@ -1206,6 +1228,13 @@ func _finish_stage() -> void:
 		var v: Dictionary = _boss_rules().finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
 		shell.glow.record_result("boss", v)
 		pve.result = BOSS_MODES[pve.boss][1].result_text(v)
+		if v.won and pve.boss != "rift":
+			var dye_rng := RandomNumberGenerator.new()
+			dye_rng.seed = int(pve.config.seed) ^ 0x1b873593
+			if dye_rng.randf() < BOSS_DYE_CHANCE:
+				var got: Dictionary = profile.add_dye_drop(Dyes.roll(profile, dye_rng))
+				if not got.is_empty():
+					pve.result += ", " + Dyes.drop_text(got)
 		pve.xp = v
 		report_label.text = pve.result
 		print("BOSS_END boss=%s difficulty=%d won=%s" % [pve.boss, pve.vault, v.won])
@@ -1290,6 +1319,8 @@ func _back_to_campaign() -> void:
 	_show_home()
 	shell.show_tab("play")
 	if vault:
+		if screen == "rift":
+			shell.go("adventure") # The Rift Gate sits on the Adventure hub.
 		shell.go(screen, params)
 	else:
 		shell.go("world") # Back from the stage list lands on the world map.

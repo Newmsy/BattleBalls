@@ -12,7 +12,7 @@
 ##
 ## Fields:
 ##   critter   whose ability it tames (icon, face badge, name "Relic of X")
-##   text      card text (sim text never says "glow")
+##   text      card text, in plain words
 ##   entries   ability entries, as in a critter file
 ##   set       params as plain numbers
 ##   bump      params as a share of the holder's bump (contact) damage
@@ -24,7 +24,7 @@ extends RefCounted
 const CritterDb := preload("res://sim/critter_db.gd")
 
 const OWN_BOOST := 0.25 ## Same as one tier of ability potency (CritterDb.ABILITY_TIER_STEP).
-const OWN_TEXT := "Your %s already has this ability: it hits 25% harder instead."
+const OWN_TEXT := "Your %s already has this ability: it hits 25%% harder instead."
 
 const DEFS := {
 	"spiker": {"text": "Every 3rd bump you land fires 3 spikes outward (60% of a bump each).",

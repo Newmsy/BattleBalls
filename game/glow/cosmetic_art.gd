@@ -25,12 +25,24 @@ static func _rand(i: float, seed_: float) -> float:
 	return v - floorf(v)
 
 
+## A cosmetic's two colours at time `t`. A Prism Spark Dye (game/glow/dyes.gd)
+## sets `shimmer`: its colours slowly trade places.
+static func pair(it: Dictionary, t := 0.0) -> Array:
+	var a := Catalog.color(it, 0)
+	var b := Catalog.color(it, 1)
+	if not it.get("shimmer", false):
+		return [a, b]
+	var m := .5 + .5 * sin(t * 1.6)
+	return [a.lerp(b, m), b.lerp(a, m)]
+
+
 # --- Hats ------------------------------------------------------------------------
 
 ## A hat on a ball of radius `r` centred at `c`. `tilt` leans it (radians).
 static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 0.0, tilt := -0.18) -> void:
-	var a := Catalog.color(it, 0)
-	var b := Catalog.color(it, 1)
+	var ab := pair(it, t)
+	var a: Color = ab[0]
+	var b: Color = ab[1]
 	var rot := Transform2D(tilt, c)
 	var P := func(x: float, y: float) -> Vector2: return rot * (Vector2(x, y) * r)
 	var poly := func(pts: Array, col: Color) -> void:
@@ -113,8 +125,9 @@ static func draw_trail(ci: CanvasItem, it: Dictionary, pts: Array, r: float, t :
 	var n := pts.size()
 	if n < 2:
 		return
-	var a := Catalog.color(it, 0)
-	var b := Catalog.color(it, 1)
+	var ab := pair(it, t)
+	var a: Color = ab[0]
+	var b: Color = ab[1]
 	for i in range(n - 1):
 		var f := float(i + 1) / n ## 0 old -> 1 new
 		var p: Vector2 = pts[i]
@@ -153,8 +166,9 @@ static func draw_trail(ci: CanvasItem, it: Dictionary, pts: Array, r: float, t :
 
 ## A collision spark at `p`, `k` from 0 (just hit) to 1 (gone). `s` scales it.
 static func draw_spark(ci: CanvasItem, it: Dictionary, p: Vector2, k: float, s := 1.0, seed_ := 0.0) -> void:
-	var a := Catalog.color(it, 0)
-	var b := Catalog.color(it, 1)
+	var ab := pair(it, seed_ + k)
+	var a: Color = ab[0]
+	var b: Color = ab[1]
 	var fade := 1.0 - k
 	match it.style:
 		"hearts":
@@ -197,8 +211,9 @@ static func _heart(ci: CanvasItem, p: Vector2, s: float, col: Color) -> void:
 
 ## The pop when a foe is knocked out at `p` (radius `r`), `k` from 0 to 1.
 static func draw_ko(ci: CanvasItem, it: Dictionary, p: Vector2, r: float, k: float, seed_ := 0.0) -> void:
-	var a := Catalog.color(it, 0)
-	var b := Catalog.color(it, 1)
+	var ab := pair(it, seed_ + k * 3.0)
+	var a: Color = ab[0]
+	var b: Color = ab[1]
 	var fade := clampf(1.4 - k * 1.4, 0.0, 1.0)
 	match it.style:
 		"confetti":

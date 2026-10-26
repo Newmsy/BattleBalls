@@ -10,6 +10,7 @@ const Power := preload("res://sim/power.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const Relay := preload("res://sim/relay.gd")
 const Economy := preload("res://meta/economy.gd")
+const Dyes := preload("res://game/glow/dyes.gd")
 ## Gear a campaign win can drop (design/gear.md section 4): Shells and Cores,
 ## since Charms only fit 3-star critters.
 const GEAR_POOL := ["iron_shell", "bubble_shell", "thorn_shell", "spring_shell", "spike_core", "echo_core", "leech_core", "ricochet_core"]
@@ -234,13 +235,14 @@ static func start(profile, zone_index: int, stage_index: int, fighter: String, n
 
 ## Applies a finished stage fight. `fight` is MatchSim.summary() plus the
 ## player's max HP ("max_hp"). Returns what happened for the result screen:
-## {won, stars, first_clear, drops: [critter ids], gear: [new pieces], xp,
-## levels, refund, account_levels}.
+## {won, stars, first_clear, drops: [critter ids], gear: [new pieces], keys
+## (Rift Keys), dyes ([{id, drops, need, unlocked}]), xp, levels, refund,
+## account_levels}.
 static func finish(profile, zone_index: int, stage_index: int, fighter: String, fight: Dictionary) -> Dictionary:
 	var st := Zones.stage(zone_index, stage_index)
 	var key := Zones.stage_key(zone_index, stage_index)
 	var won: bool = fight.winner == 0
-	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "orbs": 0, "gear": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0, "critters": []}
+	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "orbs": 0, "gear": [], "keys": 0, "dyes": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0, "critters": []}
 	if not won:
 		result.refund = Zones.cost(st) - Zones.LOSS_COST
 		profile.refund_energy(result.refund)
@@ -256,6 +258,15 @@ static func finish(profile, zone_index: int, stage_index: int, fighter: String, 
 		stars += 1
 	result.stars = stars
 	result.first_clear = profile.stars.get(key, 0) == 0
+	# Rift Keys from each boss's first clear; a Spark Dye drop the first time
+	# a stage gets all three crowns (design/dyes-rift-keys.md).
+	result.keys = profile.add_rift_keys(1) if result.first_clear and Zones.is_boss(st) else 0
+	result.dyes = []
+	if stars == 3 and int(profile.stars.get(key, 0)) < 3:
+		var dye_rng := Rng.new(_seed(profile.runs, zone_index, stage_index) ^ 0x3c6ef372)
+		var got: Dictionary = profile.add_dye_drop(Dyes.roll(profile, dye_rng))
+		if not got.is_empty():
+			result.dyes.append(got)
 	profile.stars[key] = maxi(profile.stars.get(key, 0), stars)
 	result.xp = win_xp(zone_index, stage_index)
 	give_xp(profile, result, fighter)

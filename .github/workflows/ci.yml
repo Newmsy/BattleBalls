@@ -271,10 +271,11 @@ jobs:
   # The live-fight server (server/, design/live-quick-fight.md): builds its
   # image (PRs too, so a broken Dockerfile shows before merge); on main pushes
   # it to GitHub Packages and rolls it out to Azure Container Apps. The rollout
-  # skips (green) until the AZURE_* secrets exist.
+  # skips (green) until the AZURE_* secrets exist. It doesn't wait for the
+  # tests: the web build doesn't either, and phones only meet the server on
+  # the same sim_version, so both have to go out together after each merge.
   live_server:
     name: Live server image and deploy
-    needs: [test]
     concurrency:
       group: live-server-deploy
       cancel-in-progress: false

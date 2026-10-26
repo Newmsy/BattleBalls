@@ -66,6 +66,9 @@ func _reward_row(floor_no: int) -> Control:
 	if not rw.gear.is_empty(): # The piece's glyph and stars; its name is on the Spire screen.
 		row.add_child(Kit.glyph(str(rw.gear.type), 34, Kit.GOOD))
 		row.add_child(Kit.glyph("stars", 22, Kit.GOOD, int(rw.gear.tier)))
+	if floor_no in SpireClimb.KEY_FLOORS:
+		row.add_child(Kit.glyph("key", 34, Color("5ce1ff")))
+		row.add_child(Kit.label("1", 30))
 	return row
 
 

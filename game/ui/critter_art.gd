@@ -16,19 +16,19 @@ const CritterDb := preload("res://sim/critter_db.gd")
 
 const INK := Color("1a1530")
 ## The kit a critter's "art" can use; tests check every critter file against it.
-const BODIES := ["gradient", "bomb", "ghost", "chrome", "starfield", "prism", "magnet", "cloud", "pixel", "eclipse", "mirror", "chomper", "gumdrop"]
-const FEATURES := ["stormbelly", "sparks", "gustswirl", "frostmarks", "cape_collar", "spike_ring", "speed_streaks", "antennae", "ice_crown", "wisp_tail", "orbit_ring",
+const BODIES := ["gradient", "bomb", "ghost", "chrome", "starfield", "prism", "magnet", "cloud", "pixel", "eclipse", "mirror", "chomper", "gumdrop", "basalt"]
+const FEATURES := ["podback", "podfront", "sapling", "kaleidocaps", "kaleidotube", "rosettes", "cracks", "stormbelly", "sparks", "gustswirl", "frostmarks", "cape_collar", "spike_ring", "speed_streaks", "antennae", "ice_crown", "wisp_tail", "orbit_ring",
 	"swirl_arms", "flame_crest", "rock_band", "headband", "fuse", "frost_freckles", "seam", "magnet_prongs",
 	"antenna2", "bandana", "barrel", "batwings", "beard", "bees", "belly", "beret", "bigtail", "bite", "bloom", "boltant",
 	"boltcrest", "bow", "bulbs", "candle", "candyrings", "canopy", "cap", "chainball", "cheeks", "chestlight", "chips", "clamshell",
-	"clockface", "coil", "comettail", "controlbar", "core", "corona", "crust", "cup", "door", "dorsal", "drips", "drops", "droptop",
+	"clockface", "coil", "comettail", "controlbar", "core", "corona", "cup", "door", "dorsal", "drips", "drops", "droptop",
 	"drumhead", "ears", "embers", "fantail", "fizz", "flowercrown", "fluke", "foxtail", "frill", "fringe", "fur", "fuzz",
 	"gearcrown", "gears", "gearstick", "gills", "glowbelly", "goggles", "hardhat", "hazard", "helmet", "hive", "hook", "horn",
-	"horns", "jarlid", "jets", "key", "lamp", "leaves", "lever", "mask", "monocle", "moons", "mushroom", "napkin", "number",
+	"horns", "jarlid", "jets", "key", "lamp", "lever", "mask", "monocle", "moons", "mushroom", "napkin", "number",
 	"panel", "pearl", "pods", "pot", "rears", "reels", "ringpull", "rodball", "rope", "ruff", "scoops", "segments", "shades",
-	"shards", "sheen", "shellhex", "shine", "sidefins", "smoke", "snout", "snowflake", "speckles", "spikyhair", "splats", "spots",
+	"sheen", "shellhex", "shine", "sidefins", "smoke", "snout", "snowflake", "speckles", "spikyhair", "splats", "spots",
 	"stemleaf", "sticks", "stinger", "stripe", "stripes", "sugar", "tallcrystals", "tentacles", "tiles", "tophat",
-	"totemstack", "trunk", "tuft", "tusks", "twigs", "vinewrap", "vvisor", "whiskers", "windcurls", "wings", "witchhat",
+	"totemstack", "trunk", "tusks", "twigs", "vinewrap", "vvisor", "whiskers", "windcurls", "wings", "witchhat",
 	"wrapper", "yoyo", "zighair", "zigmark", "scales", "lens", "squid", "squidspots", "moss", "paws", "molesnout", "bramble", "dandelion"]
 const MOUTHS := ["smile", "grin", "smirk", "flat", "frown", "o", "fangs", "teeth", "pout", "beak", "bigmouth", "none"]
 const SILHOUETTE := Color("232052")
@@ -247,6 +247,8 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 		_circ(ci, c, r, Color.WHITE)
 		return
 	match style:
+		"basalt": # Magmo: dark rock; its glow comes from the cracks.
+			_body(ci, c, r, Color("4a2018"))
 		"magnet":
 			magnet_body(ci, c, r, col, Color(s.art.get("pole", "2f7bff")), s.pole_swap, tier)
 		"bomb":
@@ -794,6 +796,58 @@ static func _ubreath(ci: CanvasItem, s: Dictionary, t: float, col: Color) -> voi
 
 
 ## Chocolate sauce over a scoop centred at p with radius rad (Sundae's T5), in unit space.
+## Magmo's crack paths (unit space), revealed a few more per tier.
+const MAGMO_CRACKS := [
+	[Vector2(-.9, -.3), Vector2(-.55, -.2), Vector2(-.35, -.42), Vector2(-.05, -.38)],
+	[Vector2(.85, .35), Vector2(.55, .25), Vector2(.4, .5), Vector2(.1, .55)],
+	[Vector2(-.6, .7), Vector2(-.45, .45), Vector2(-.15, .42)],
+	[Vector2(.25, -.92), Vector2(.3, -.65), Vector2(.55, -.55), Vector2(.8, -.6)],
+	[Vector2(-.95, .2), Vector2(-.7, .25)],
+	[Vector2(.0, .95), Vector2(.05, .72), Vector2(.3, .68)],
+	[Vector2(-.3, -.95), Vector2(-.42, -.7)],
+]
+
+
+static func _arc_pts(rad: float, a0: float, a1: float, n: int, off := Vector2.ZERO) -> PackedVector2Array:
+	var p := PackedVector2Array()
+	for i in n + 1:
+		var a := lerpf(a0, a1, float(i) / n)
+		p.append(Vector2(cos(a), sin(a)) * rad + off)
+	return p
+
+
+## Pip's pod: a crescent from tip to tip, `outer` round the bottom, `inner` its top edge.
+static func _pod_pts(outer: float, inner: float, y: float) -> PackedVector2Array:
+	var pts := PackedVector2Array([Vector2(-1.42, y)])
+	pts.append_array(_arc_pts(outer, PI * .93, PI * .07, 18, Vector2(0, y + .05)))
+	pts.append(Vector2(1.42, y))
+	pts.append_array(_arc_pts(inner, PI * .1, PI * .9, 18, Vector2(0, y + .02)))
+	return pts
+
+
+## A bumpy round outline (Sprout's leafy crown).
+static func _blob_pts(cen: Vector2, rad: float, bumps: int, amp: float, rot: float) -> PackedVector2Array:
+	var p := PackedVector2Array()
+	for i in 40:
+		var a := i * TAU / 40.0
+		p.append(cen + Vector2(cos(a), sin(a)) * rad * (1.0 + amp * absf(sin(a * bumps / 2.0 + rot))))
+	return p
+
+
+## Kaleido's beads: they turn a step on each click and change colour.
+static func _beads(ci: CanvasItem, cen: Vector2, rad: float, n: int, t: float, bright: float) -> void:
+	var click := floorf(t / 1.2)
+	var ease := clampf(fmod(t, 1.2) / .3, 0.0, 1.0)
+	for i in n:
+		var a := (click + ease) * 1.3 + i * TAU / n
+		var p := cen + Vector2(cos(a), sin(a)) * rad * .5
+		var colr := Color.from_hsv(fmod(i / float(n) + click * .13, 1.0), .75, 1.0).lerp(Color.WHITE, bright * .3)
+		if i % 2 == 0:
+			_ustar(ci, p, rad * .38, rad * .16, 3, colr, a)
+		else:
+			_ucirc(ci, p, rad * .24, colr)
+
+
 static func _usauce(ci: CanvasItem, p: Vector2, rad: float) -> void:
 	var pts := ellipse_pts(p, rad * 1.04, rad * 1.04, 0.0, PI * 1.1, PI * 1.9, 10)
 	for i in 7:
@@ -1320,18 +1374,6 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 					var a := i * .3927 + .196 - t * .2
 					var L := 1.14 + .08 * sin(t * 5.0 + i)
 					_ufill(ci, PackedVector2Array([_P(a - .08, .95), _P(a, L), _P(a + .08, .95)]), Color(1, 1, .85, .8))
-		"crust":
-			_clip_on()
-			for b in [Vector3(-.6, -.5, .3), Vector3(.5, .4, .35), Vector3(.55, -.6, .2), Vector3(-.4, .6, .22)]:
-				if n >= 3:
-					# Magmo: the crust glows at its edges (T3) and bubbles with lava at T5.
-					_uell(ci, Vector2(b.x, b.y), b.z + .1, (b.z + .1) * .72, Color(1, .62, .15, .65 + .25 * sin(t * 3.0 + b.x * 4.0)))
-				_uell(ci, Vector2(b.x, b.y), b.z, b.z * .7, Color(.24, .08, .04, .55))
-			if n >= 5:
-				for i in 3:
-					var q := fmod(t * .7 + i / 3.0, 1.0)
-					var p: Vector2 = [Vector2(-.6, -.5), Vector2(.5, .42), Vector2(-.4, .6)][i]
-					_ucirc(ci, p, .05 + q * .1, Color(1, .6 + .3 * q, .2, .9 * (1.0 - q * q)))
 		"cup":
 			_clip_on()
 			_urect(ci, -1, .15, 2, 1, Color("e0a85a"))
@@ -1801,21 +1843,6 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 			var beam := Color(1, .94, .59, .18 if n < 3 else .28)
 			for b in ([a, a + PI] if n >= 5 else [a]):
 				_ufill(ci, PackedVector2Array([Vector2(0, -1.12), Vector2(cos(b) * reach, -1.32 + sin(b) * .5), Vector2(cos(b) * reach, -.92 + sin(b) * .5)]), beam)
-		"leaves":
-			if n >= 3:
-				# Sprout: a bud on a stem (T3); at T5 it flowers and seeds pop out like popcorn.
-				_uline(ci, Vector2(0, -.9), Vector2(0, -1.3), Color("3a8a3a"), .05)
-				if n >= 5:
-					for i in 3:
-						var q := fmod(t * 1.1 + i / 3.0, 1.0)
-						_uell(ci, Vector2((i - 1) * .55 * (.4 + q), -1.3 - sin(q * PI) * .6), .06, .045, Color("f6e7b0", 1.0 - q * .3))
-				else:
-					_ucirc(ci, Vector2(0, -1.36), .1, Color("ff8fb8"))
-			for k in [-1, 1]:
-				_uell(ci, Vector2(k * .35, -1.15), .32, .14, Color("3fc45a"), k * -.7)
-			if n >= 5:
-				_uline(ci, Vector2(0, -1.25), Vector2(0, -1.45), Color("3a8a3a"), .05)
-				_uflower(ci, Vector2(0, -1.5), .27, Color("fff6d8"), Color("ffb627"))
 		"lever":
 			_uline(ci, Vector2(.9, 0), Vector2(1.3, -.7), Color("c9ced8"), .07)
 			_ucirc(ci, Vector2(1.32, -.75), .13, GOLD if n >= 3 else Color("e0213b")) # Jackpot: a gold knob from T3.
@@ -2069,19 +2096,6 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				_ustar(ci, Vector2(k * .3, -.1), .2, .1, 5, Color("1a1530"))
 				if n >= 3:
 					_uglint(ci, Vector2(k * .3 - .06, -.16), .08, t, k * 2.0)
-		"shards":
-			_clip_on()
-			for i in 8:
-				var a := i * .785 + floorf(t / 1.2) * .785
-				_ufill(ci, PackedVector2Array([Vector2.ZERO, _P(a, 1.2), _P(a + .785, 1.2)]), _hsl(i * 45 + 300, .8, .65, .45))
-			_clip = false
-			if n >= 3:
-				# Kaleido: mirror shards turn round it in a kaleidoscope ring (four at T3, eight at T5).
-				var k := 8 if n >= 5 else 4
-				for i in k:
-					var a := t * .8 + i * TAU / k
-					var p := _P(a, 1.38)
-					_ufill(ci, PackedVector2Array([p + _P(a + t * 2.0, .16), p + _P(a + t * 2.0 + 2.1, .16), p + _P(a + t * 2.0 + 4.2, .16)]), _hsl(i * 360.0 / k + t * 60.0, .85, .7, .85))
 		"sheen":
 			_uarc(ci, Vector2.ZERO, .8, -2.6, -1.4, _hsl(t * 60.0, .9, .75, .6), .08)
 			_uarc(ci, Vector2.ZERO, .7, -2.4, -1.6, _hsl(t * 60.0 + 120.0, .9, .75, .5), .06)
@@ -2492,6 +2506,117 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 						for j in 2:
 							_ufill(ci, PackedVector2Array([Vector2(k * (.98 - j * .02), .0 + j * .2), Vector2(k * (.55 - j * .05), .08 + j * .2), Vector2(k * (.98 - j * .02), .14 + j * .2)]), Color("6fd3ff"))
 				_clip = false
+		"podback":
+			# Pip: a pea in its pod. The pod's open inside sits behind it.
+			_ufill(ci, _pod_pts(1.3, .2, -.05), Color("74c84a"))
+		"podfront":
+			# Spare peas wait beside it (one at T1, two at T3, three at T5); the pod's
+			# front lip wraps under it, gold-stitched at T5, with curly tendrils from T3.
+			var peas := [Vector2(-1.12, .02), Vector2(1.1, .32), Vector2(-.95, .4)]
+			for i in (1 if n < 3 else (2 if n < 5 else 3)):
+				var bob := .03 * sin(t * 3.0 + i * 2.0)
+				_ucirc(ci, peas[i] + Vector2(0, bob), .22, shade(c, -.12))
+				_uell(ci, peas[i] + Vector2(-.07, -.08 + bob), .07, .05, Color(1, 1, 1, .5), -.5)
+			_ufill(ci, _pod_pts(1.3, 1.05, .1), Color("3c8f2a"))
+			if n >= 5:
+				_ustroke(ci, _arc_pts(1.18, PI * .9, PI * .1, 16, Vector2(0, .14)), GOLD, .04)
+			if n >= 3:
+				for k in ([-1] if n < 5 else [-1, 1]):
+					var curl := PackedVector2Array()
+					for i in 14:
+						var u := i / 13.0
+						var a: float = u * 4.5 + t * .8 * k
+						curl.append(Vector2(k * (1.42 + u * .2 + cos(a) * .14 * u), -.05 - u * .45 + sin(a) * .14 * u))
+					_ustroke(ci, curl, Color("4fae3a"), .04)
+		"sapling":
+			# Sprout: two leaves (T1), a taller stem with four leaves and roots taking
+			# hold (T3), and at T5 a little tree with seeds swinging under its crown.
+			var bark := Color("7a5230")
+			if n >= 3:
+				for k in [-1.0, -.4, .4, 1.0]:
+					_utaper(ci, PackedVector2Array([Vector2(k * .35, .85), Vector2(k * .75, 1.02), Vector2(k * 1.05, 1.12 + absf(k) * .04)]), .14, .03, bark)
+			var sway := .08 * sin(t * 1.6)
+			if n >= 5:
+				_utaper(ci, PackedVector2Array([Vector2(0, -.85), Vector2(.03 + sway * .5, -1.3), Vector2(sway, -1.6)]), .2, .12, bark)
+				var crown := Vector2(sway, -1.95)
+				_ufill(ci, _blob_pts(crown, .72, 7, .12, 0.0), Color("2f8a3a"))
+				_ufill(ci, _blob_pts(crown + Vector2(-.1, -.1), .55, 6, .1, 1.0), Color("4cc45a"))
+				_uell(ci, crown + Vector2(-.2, -.22), .16, .08, Color(1, 1, 1, .3), -.4)
+				for i in 3:
+					var top := crown + Vector2((-.32 + i * .32) * 1.3, .55)
+					var seed := top + Vector2(.12 * sin(t * 2.5 + i * 1.4), .26)
+					_uline(ci, top, seed, Color("3a6a2a"), .025)
+					_uell(ci, seed + Vector2(0, .04), .07, .09, Color("c8964a"))
+					_udome(ci, seed, .08, .05, Color("6a4524"))
+			else:
+				_uline(ci, Vector2(0, -.85), Vector2(sway, -1.0 if n < 3 else -1.3), Color("3a8a3a"), .06)
+				var leaves := [[Vector2(-.3, -1.02), -.7], [Vector2(.3, -1.02), .7]]
+				if n >= 3:
+					leaves.append([Vector2(-.28 + sway, -1.3), -.9])
+					leaves.append([Vector2(.28 + sway, -1.3), .9])
+				for l in leaves:
+					var lp: Vector2 = l[0]
+					_uell(ci, lp, .3, .13, Color("3fc45a"), -l[1] + sway)
+					_uline(ci, lp - Vector2(signf(lp.x) * .2, 0), lp + Vector2(signf(lp.x) * .2, 0), Color(1, 1, 1, .25), .02)
+		"kaleidocaps":
+			# Kaleido: the brass caps of the tube through its belly (gold at T5).
+			var brass := GOLD if n >= 5 else Color("c99a3c")
+			_urect(ci, -1.0, .08, .28, .44, shade(brass, -.15), .08)
+			_urect(ci, .72, .08, .28, .44, shade(brass, -.15), .08)
+		"kaleidotube":
+			# A brass band with a bead window; the beads tumble on each click (three at
+			# T1, five at T3, seven bright ones at T5), and at T5 light fans out of the caps.
+			var brass := GOLD if n >= 5 else Color("c99a3c")
+			_clip_on()
+			_urect(ci, -1, .12, 2, .36, brass)
+			if n >= 3:
+				for y in [.16, .44]:
+					_urect(ci, -1, y, 2, .025, shade(brass, -.35))
+			_clip = false
+			var win := Vector2(0, .3)
+			_ucirc(ci, win, .34, shade(brass, -.25))
+			_ucirc(ci, win, .28, Color("1a1030"))
+			_beads(ci, win, .28, 3 if n < 3 else (5 if n < 5 else 7), t, 1.0 if n >= 5 else 0.0)
+			_uell(ci, win + Vector2(-.1, -.12), .09, .05, Color(1, 1, 1, .5), -.5)
+			if n >= 5:
+				for k in [-1, 1]:
+					var o := Vector2(k * 1.0, .3)
+					for i in 3:
+						var a: float = (PI if k < 0 else 0.0) + (i - 1) * .35 + .05 * sin(t * 3.0)
+						_ufill(ci, PackedVector2Array([o, o + _P(a - .08, .7), o + _P(a + .08, .7)]), Color.from_hsv(fmod(i / 3.0 + t * .2, 1.0), .6, 1.0, .5))
+		"rosettes":
+			# Spectra: little rainbow rosettes trail behind it (two at T1, three at T3,
+			# four bigger ones at T5). Cosmetic only.
+			var look: Vector2 = s.get("look", Vector2.RIGHT)
+			look = look.normalized() if look.length() > .01 else Vector2.RIGHT
+			var count := 2 if n < 3 else (3 if n < 5 else 4)
+			for i in count:
+				var k := fmod(t * .9 + float(i) / count, 1.0)
+				var rp := -look * (1.25 + k * 1.3) + look.orthogonal() * .15 * sin(t * 3.0 + i * 2.0)
+				var size := (.3 if n >= 5 else .24) * (1.0 - k * .6)
+				var spin := t * 2.0 + i
+				for j in 6:
+					var a := spin + j * TAU / 6.0
+					_ufill(ci, PackedVector2Array([rp, rp + _P(a - .28, size), rp + _P(a, size * 1.25), rp + _P(a + .28, size)]), Color.from_hsv(fmod(j / 6.0 + t * .3, 1.0), .55, 1.0, .75 * (1.0 - k)))
+				_ucirc(ci, rp, size * .25, Color(1, 1, 1, .8 * (1.0 - k)))
+		"cracks":
+			# Magmo: glowing cracks in a basalt crust (three at T1, five at T3, seven
+			# pulsing ones at T5); lava beads out and slides off, embers rise at T5.
+			_clip_on()
+			var pulse := .8 + .2 * sin(t * 4.0) if n >= 5 else 1.0
+			for i in (3 if n < 3 else (5 if n < 5 else 7)):
+				var pts := PackedVector2Array(MAGMO_CRACKS[i])
+				_ustroke(ci, pts, Color(1, .35, .05, .35 * pulse), .16)
+				_ustroke(ci, pts, Color(1, .6, .15, pulse), .06)
+				_ustroke(ci, pts, Color(1, .92, .6, pulse), .02)
+			_clip = false
+			for i in (1 if n < 3 else 2):
+				var k := fmod(t * .35 + i * .5, 1.0)
+				_uell(ci, Vector2(.1 - i * .55, .55 + k * .6), .07, .09 + k * .04, Color(1, .55, .12, 1.0 - k * k))
+			if n >= 5:
+				for i in 4:
+					var k := fmod(t * .6 + i * .25, 1.0)
+					_ucirc(ci, Vector2(-.5 + i * .33 + sin(t * 2.0 + i) * .08, -1.0 - k * .7), .05 * (1.0 - k) + .02, Color(1, .7, .3, 1.0 - k))
 		"moss":
 			if n < 3:
 				return
@@ -2569,15 +2694,6 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				_uell(ci, Vector2(-.25, -.95), .2, .07, Color(1, 1, 1, .8), -.3)
 				for x in [-.55, -.15, .3, .62]:
 					_ufill(ci, PackedVector2Array([Vector2(x - .06, -.74), Vector2(x, -.52), Vector2(x + .06, -.74)]), Color("cdeeff"))
-		"tuft":
-			if n >= 3:
-				# Pip: a third leaf (T3), and a golden pea bud on top at T5.
-				_uell(ci, Vector2(0, -1.2), .08, .2, Color("3fb85a"))
-			for k in [-1, 1]:
-				_uell(ci, Vector2(k * .15, -1.08), .2, .08, Color("2f9e44"), k * -.9)
-			if n >= 5:
-				_ucirc(ci, Vector2(0, -1.42), .11, GOLD)
-				_uglint(ci, Vector2(.05, -1.47), .14, t)
 		"tusks": # Thick at the cheek, sweeping out and down, then curling in to a point.
 			for k in [-1, 1]:
 				var tusk := _quad(Vector2(k * .3, .28), Vector2(k * 1.05, .78), Vector2(k * .42, 1.02), 10)
