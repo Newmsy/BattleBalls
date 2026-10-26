@@ -3,19 +3,22 @@
 ## a server.
 ##
 ## Draft 3 of DRAFT critters, then 3 of START_OFFER starting boons for the
-## whole trio, then climb a FLOORS-tall branching map (Slay the Spire style).
+## whole trio and 1 of RELIC_OFFER relics (sim/relics.gd), then climb a FLOORS-tall branching map (Slay the Spire style).
 ## Each floor you step to one of the nodes linked above you:
 ##   fight / elite  a foe you see before you commit. Send one of your living
 ##                  critters; a win earns a boon (pick 1 of 3) and Buttons, a
 ##                  loss knocks that critter out and you retry with another.
 ##                  The foe keeps the damage it took (run.foe_hp). Elites are
-##                  bigger, stronger and pay better.
+##                  bigger, stronger, pay better and always drop a relic.
 ##   mystery        usually an event with choices (EVENTS), sometimes a fight
 ##                  or a shop. What it holds is fixed for the day.
 ##   shop           spend Buttons (run-only currency) on boons and services.
 ##   rest           a Charge Pad: revive, polish a boon, or clean Glitches.
-##   chest          a treasure chest: a free pick of Rare-or-better boons.
+##   chest          a treasure chest: a relic, and a free pick of
+##                  Rare-or-better boons.
 ##   boss           the Champion on the top floor.
+## Relics are never a choice once the run is on: a drop is a random one the
+## trio doesn't hold (run.dropped names the newest for the screen).
 ## Glitches are bad boons (sim/boons.gd) that only ever come from a choice.
 ## The run ends when the Champion falls or your trio is out.
 ##
@@ -32,12 +35,13 @@ const Rng := preload("res://sim/rng.gd")
 const Arenas := preload("res://sim/arenas.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Boons := preload("res://sim/boons.gd")
+const Relics := preload("res://sim/relics.gd")
 const Families := preload("res://sim/families.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 10
+const RULES_VERSION := 11
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 20
@@ -47,6 +51,7 @@ const DRAFT := 6 ## Critter cards in the draft.
 const PICKS := 3
 const START_OFFER := 6 ## General boons offered at the start.
 const START_BOONS := 3 ## Of those, how many the trio starts with.
+const RELIC_OFFER := 3 ## Relics offered at the start; the trio takes one.
 const OFFER := 3
 const FLOORS_PER_TIER := 4
 ## Foe names by floor pair, for flavour.
@@ -133,7 +138,7 @@ const EVENTS := {
 			{"id": "wave", "name": "Wave politely"}]},
 	"sunken_wreck": {"name": "Sunken Wreck", "family": "sea", "text": "A chest glints in a sunken ship. Something big is snoring beside it.",
 		"choices": [
-			{"id": "open_chest", "name": "Open the chest", "text": "Pick a Rare-or-better boon, but your next foe is 15% stronger."},
+			{"id": "open_chest", "name": "Open the chest", "text": "A random relic, but your next foe is 15% stronger."},
 			{"id": "grab_coins", "name": "Grab some coins", "buttons": 25}]},
 	"ember_forge": {"name": "Ember Forge", "family": "fire", "text": "The anvil is still red hot.",
 		"choices": [
@@ -162,6 +167,7 @@ const EVENTS := {
 	"glitch_rift": {"name": "Glitch Rift", "family": "glitch", "text": "The floor splits into static. Something gold floats inside.",
 		"choices": [
 			{"id": "reach_in", "name": "Reach in", "text": "A Legendary boon, and two Glitches (Rusty and Sticky Floor)."},
+			{"id": "pocket_relic", "name": "Pocket the relic", "text": "A random relic, and a Glitch (Rusty)."},
 			{"id": "leave", "name": "Step back"}]},
 	"beehive": {"name": "Beehive", "family": "nature", "text": "Golden honey drips from a buzzing hive.",
 		"choices": [
@@ -205,7 +211,9 @@ static func generate(day: int, run_seed := 0) -> Dictionary:
 		# Every playable critter shows up before any repeats.
 		cards.append({"critter": critters[i % critters.size()]})
 	var start_offer: Array = _shuffled(Boons.GENERAL, rng).slice(0, START_OFFER)
-	return {"day": day, "seed": run_seed, "cards": cards, "start_offer": start_offer, "nodes": _map(rng)}
+	var nodes := _map(rng)
+	var relic_offer: Array = _shuffled(Relics.IDS, rng).slice(0, RELIC_OFFER)
+	return {"day": day, "seed": run_seed, "cards": cards, "start_offer": start_offer, "relic_offer": relic_offer, "nodes": nodes}
 
 
 ## The map: nodes keyed by id (row * COLS + col; the Champion is the only
@@ -333,12 +341,15 @@ static func _parents(nodes: Dictionary, id: int) -> Array:
 	return out
 
 
-## A fresh run for `setup` with the drafted card indices and the starting
-## boons picked from setup.start_offer.
-static func new_run(setup: Dictionary, picks: Array, start: Array) -> Dictionary:
+## A fresh run for `setup` with the drafted card indices, the starting boons
+## picked from setup.start_offer and the relic from setup.relic_offer ("" for
+## none).
+static func new_run(setup: Dictionary, picks: Array, start: Array, relic := "") -> Dictionary:
 	assert(picks.size() == PICKS and start.size() == START_BOONS)
 	assert(start.all(func(id): return id in setup.start_offer))
+	assert(relic == "" or relic in setup.get("relic_offer", []))
 	return {"day": setup.day, "seed": setup.get("seed", 0), "rules": RULES_VERSION, "picks": picks.duplicate(), "start": start.duplicate(),
+		"start_relic": relic, "relics": [] if relic == "" else [relic], "dropped": "",
 		"critters": picks.map(func(i): return setup.cards[i].critter), "boons": start.duplicate(),
 		"floor": 0, "at": -1, "done": true, "out": [false, false, false], "foe_hp": null, "ticks": 0, "fights": 0,
 		"buttons": 0, "hatchling": "", "spar": -1, "foe_boost": 0.0, "wish": false, "revealed": false,
@@ -395,6 +406,7 @@ static func go(setup: Dictionary, run: Dictionary, id: int) -> void:
 	run.foe_hp = null
 	var kind := kind_of(setup, id)
 	if kind == "chest":
+		drop_relic(setup, run)
 		run.offer = offer(setup, run, "rare")
 		_clear(setup, run)
 	elif kind == "shop":
@@ -427,13 +439,14 @@ static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> 
 	var row: int = node(setup, run.at).row
 	var tier := tier_at(row)
 	var cfg := {"seed": f.seed, "arena": Arenas.pick(f.seed * 16 + run.fights), "p1": card(setup, run, slot).critter, "p2": f.critter,
-		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), f.boons], "powers": [1.0, f.power],
+		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), f.boons], "relics": [run.get("relics", []), []], "powers": [1.0, f.power],
 		"tiers": [mini(tier + (1 if run.spar == slot else 0), 5), tier], "sizes": [1.0, f.size], "hp": [null, run.get("foe_hp")]}
 	if run.hatchling != "":
 		cfg.p3 = run.hatchling
 		cfg.p4 = null
 		cfg.angles.append(null)
 		cfg.boons.append([])
+		cfg.relics.append([])
 		cfg.powers.append(HATCH_POWER)
 		cfg.tiers.append(maxi(1, tier - 1))
 		cfg.sizes.append(HATCH_SIZE)
@@ -472,6 +485,8 @@ static func record(setup: Dictionary, run: Dictionary, slot: int, aim: int, winn
 			run.over = true
 			return
 		run.buttons += PAY.get(f.kind, PAY.fight)
+		if f.kind == "elite":
+			drop_relic(setup, run)
 		run.offer = offer(setup, run, "rare" if f.kind == "elite" else "common")
 		_clear(setup, run)
 	else:
@@ -494,6 +509,22 @@ static func take_boon(run: Dictionary, id: String) -> void:
 	run.log.append({"t": "boon", "id": id})
 	run.boons.append(id)
 	run.offer = []
+
+
+## Adds a random relic the trio doesn't hold, seeded by the day and the node
+## (`salt` tells two drops on one node apart), and names it in run.dropped.
+## Returns it, or "" when the trio holds every relic.
+static func drop_relic(setup: Dictionary, run: Dictionary, salt := 0) -> String:
+	var held: Array = run.get("relics", [])
+	var pool: Array = Relics.IDS.filter(func(id): return not id in held)
+	if pool.is_empty():
+		return ""
+	var rng := Rng.new(_base(setup.day, setup.get("seed", 0)) * 4441 + run.at * 9173 + salt * 37 + 11)
+	var id: String = pool[rng.range_int(0, pool.size() - 1)]
+	held.append(id)
+	run.relics = held
+	run.dropped = id
+	return id
 
 
 ## Boons for the node just cleared, seeded by the day and the node. Skips
@@ -705,6 +736,8 @@ static func can_choose(setup: Dictionary, run: Dictionary, choice_id: String) ->
 			return run.out.has(true) and not choice_args(setup, run, choice).is_empty()
 		"plug_in":
 			return not _robot_pool(run).is_empty()
+		"open_chest", "pocket_relic":
+			return run.get("relics", []).size() < Relics.IDS.size()
 	return choice.get("arg", "") in ["", "out_or_none"] or not choice_args(setup, run, choice).is_empty()
 
 
@@ -764,7 +797,7 @@ static func choose(setup: Dictionary, run: Dictionary, choice_id: String, arg = 
 			run.rival = true
 			return
 		"open_chest":
-			run.offer = offer(setup, run, "rare", 1)
+			drop_relic(setup, run, 1)
 			run.foe_boost = DOWNSIDE_POWER
 		"temper":
 			_polish(run, arg)
@@ -795,6 +828,9 @@ static func choose(setup: Dictionary, run: Dictionary, choice_id: String, arg = 
 			run.boons.append(_random_boon(setup, run, rng, "legendary"))
 			_glitch(run, "rusty")
 			_glitch(run, "sticky_floor")
+		"pocket_relic":
+			drop_relic(setup, run, 1)
+			_glitch(run, "rusty")
 		"scoop_honey":
 			run.boons.append(_random_boon(setup, run, rng, "epic"))
 			run.foe_boost = DOWNSIDE_POWER
@@ -876,7 +912,7 @@ static func better(a: Dictionary, b: Dictionary) -> bool:
 ## Replays a run's log from its picks and returns the rebuilt run, so a
 ## posted score can be checked against the sim: every fight is fought again.
 static func replay(setup: Dictionary, run: Dictionary) -> Dictionary:
-	var check := new_run(setup, run.picks, run.start)
+	var check := new_run(setup, run.picks, run.start, run.get("start_relic", ""))
 	for entry in run.log:
 		match entry.t:
 			"go":

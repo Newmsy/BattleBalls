@@ -66,10 +66,11 @@ static func set_free_summons(on: bool) -> void:
 	cfg.save(SETTINGS_PATH)
 
 
-## The live-fight server (server/, design/live-quick-fight.md). Empty until
-## it's hosted; ?live=wss://... (or ws://127.0.0.1:8080 for a local
-## LIVE_DEV=1 server) points one visit at a server and turns live fights on.
-const LIVE_SERVER := ""
+## The live-fight server (server/, design/live-quick-fight.md): the Azure
+## Container App battleballs-live, deployed from main by CI. ?live=wss://...
+## (or ws://127.0.0.1:8080 for a local LIVE_DEV=1 server) points one visit
+## at another server and turns live fights on.
+const LIVE_SERVER := "wss://battleballs-live.jollysky-cd3623b2.westeurope.azurecontainerapps.io"
 
 static var live_url_override := ""
 static var _live := false

@@ -232,6 +232,8 @@ func test_events_shops_and_rests() -> void:
 					check(r.critters[args[0]] in Families.MEMBERS.tech, "a Tech critter joins")
 				"reforge":
 					check(Boons.with_rarity(Boons.base_of(args[0]), "epic") in r.boons, "made Epic")
+				"open_chest", "pocket_relic":
+					check(r.relics.size() == 1 and r.dropped == r.relics[0], "a relic")
 	# Shop.
 	var r := run.duplicate(true)
 	var shop_id: int = node_id
@@ -472,7 +474,10 @@ func test_scene_plays_a_run_to_the_end() -> void:
 	scene._show_start_boons()
 	for i in [0, 2, 4]:
 		scene._toggle_start_boon(i)
-	scene._start_run()
+	scene._show_start_relic()
+	check_eq(scene.state, scene.State.START_RELIC, "then the relic pick")
+	scene._start_run(scene.setup.relic_offer[1])
+	check_eq(scene.run.relics, [scene.setup.relic_offer[1]], "the run starts with that relic")
 	var steps := 0
 	var seen := {}
 	while scene.state != scene.State.OVER and steps < 200:
@@ -539,7 +544,10 @@ func test_a_fight_left_mid_way_still_counts() -> void:
 	scene._show_start_boons()
 	for i in [0, 2, 4]:
 		scene._toggle_start_boon(i)
-	scene._start_run()
+	scene._show_start_relic()
+	check_eq(scene.state, scene.State.START_RELIC, "then the relic pick")
+	scene._start_run(scene.setup.relic_offer[1])
+	check_eq(scene.run.relics, [scene.setup.relic_offer[1]], "the run starts with that relic")
 	scene._go_node(BounceRun.next_nodes(scene.setup, scene.run)[0])
 	scene._choose_fighter(0)
 	scene._launch()

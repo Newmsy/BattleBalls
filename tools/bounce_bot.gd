@@ -24,7 +24,8 @@ static func start(setup: Dictionary, rng) -> Dictionary:
 		var b: String = setup.start_offer[rng.range_int(0, setup.start_offer.size() - 1)]
 		if not b in start_boons:
 			start_boons.append(b)
-	return BounceRun.new_run(setup, picks, start_boons)
+	var relic: String = setup.relic_offer[rng.range_int(0, setup.relic_offer.size() - 1)]
+	return BounceRun.new_run(setup, picks, start_boons, relic)
 
 
 ## Plays one step. Returns the fight result ({winner, ticks, row}) when the
@@ -91,7 +92,7 @@ static func _any(items: Array, rng):
 ## Node types a greedy path heads for first.
 const PATH_ORDER := ["chest", "rest", "shop", "mystery", "fight", "elite", "boss"]
 ## Event choices a greedy player takes when it can, best first.
-const GOOD_CHOICES := ["hatch", "swap", "reach_in", "dash", "open_chest", "scoop_honey", "kick", "pay", "chip",
+const GOOD_CHOICES := ["hatch", "swap", "reach_in", "pocket_relic", "dash", "open_chest", "scoop_honey", "kick", "pay", "chip",
 	"reforge", "temper", "wish_star", "look", "smash", "crank", "fight", "gumball", "spar", "offer_boon", "drink",
 	"plug_in", "follow_light", "read", "swap_boon", "shake_globe"]
 
@@ -108,7 +109,7 @@ static func greedy_start(setup: Dictionary, rng) -> Dictionary:
 	var order: Array = range(BounceRun.DRAFT)
 	order.sort_custom(func(a, b): return critter_rank(setup.cards[a].critter) > critter_rank(setup.cards[b].critter))
 	var start_boons: Array = setup.start_offer.slice(0, BounceRun.START_BOONS)
-	return BounceRun.new_run(setup, order.slice(0, BounceRun.PICKS), start_boons)
+	return BounceRun.new_run(setup, order.slice(0, BounceRun.PICKS), start_boons, setup.relic_offer[0])
 
 
 static func greedy_step(setup: Dictionary, run: Dictionary, rng) -> Dictionary:

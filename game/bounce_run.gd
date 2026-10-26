@@ -21,6 +21,8 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const BoonIcon := preload("res://game/ui/boon_icon.gd")
+const RelicIcon := preload("res://game/ui/relic_icon.gd")
+const Relics := preload("res://sim/relics.gd")
 const BounceBoard := preload("res://game/online/bounce_board.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
@@ -34,7 +36,7 @@ const BounceChest := preload("res://meta/bounce_chest.gd")
 const ChestArt := preload("res://game/ui/chest_art.gd")
 const ART := "res://game/bounce_run/art/%s.png"
 
-enum State { DRAFT, START_BOONS, MAP, FLOOR, AIM, FIGHT, RESULT, BOON, EVENT, SHOP, REST, OVER }
+enum State { DRAFT, START_BOONS, START_RELIC, MAP, FLOOR, AIM, FIGHT, RESULT, BOON, EVENT, SHOP, REST, OVER }
 
 const SAVE_PATH := "user://bounce_run.cfg"
 const SHARE_URL := "https://battleballs.vercel.app/?mode=bouncerun"
@@ -353,7 +355,7 @@ func _show_start_boons() -> void:
 
 
 func _start_button() -> Button:
-	var start := Kit.button("Start run (%d/3)" % start_picks.size(), _start_run, "go" if start_picks.size() == BounceRun.START_BOONS else "ghost", 32)
+	var start := Kit.button("Next (%d/3)" % start_picks.size(), _show_start_relic, "go" if start_picks.size() == BounceRun.START_BOONS else "ghost", 32)
 	start.disabled = start_picks.size() != BounceRun.START_BOONS
 	start.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_start", start)
@@ -383,11 +385,41 @@ func _toggle_start_boon(i: int) -> void:
 	_report.call_deferred("br_start_boons")
 
 
-func _start_run() -> void:
-	run = BounceRun.new_run(setup, picks, start_picks)
+## The starting relic: tap one of setup.relic_offer to start the run.
+func _show_start_relic() -> void:
+	state = State.START_RELIC
+	sfx.on_menu()
+	_board_mode()
+	sub_label.text = "Pick a relic"
+	var items: Array = [_art("banner_draft")]
+	var trio: Array = picks.map(func(i): return setup.cards[i].critter)
+	for i in setup.relic_offer.size():
+		var id: String = setup.relic_offer[i]
+		var card := _relic_card(id, _start_run.bind(id), trio)
+		items.append(card)
+		_mark("br_srelic_%d" % i, card)
+	items.append(Kit.button("Back", _show_start_boons, "ghost", 26, 80))
+	_set_page(items, "br_start_relic")
+
+
+func _start_run(relic := "") -> void:
+	run = BounceRun.new_run(setup, picks, start_picks, relic)
 	_save_run()
-	print("BOUNCERUN_START day=%d picks=%s boons=%s" % [day, picks, ",".join(start_picks)])
+	print("BOUNCERUN_START day=%d picks=%s boons=%s relic=%s" % [day, picks, ",".join(start_picks), relic])
 	_show_next()
+
+
+## A relic as a tappable card: badge, name and what it does, and a note when
+## one of `trio` already has its ability.
+func _relic_card(id: String, on_press: Callable, trio: Array) -> Button:
+	var col := RelicIcon.color_of(id)
+	var text := Kit.vbox(4, [Kit.label(Relics.name_of(id), 30, col), Kit.label(Relics.text_of(id), 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	if id in trio:
+		text.add_child(Kit.label(Relics.OWN_TEXT % _name(id), 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var card := Kit.card_button(Kit.hbox(14, [RelicIcon.make(id, 96), text]), on_press, col, Kit.PANEL, 28, 16)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return card
 
 
 func _show_floor() -> void:
@@ -432,8 +464,8 @@ func _show_floor() -> void:
 	if run.hatchling != "":
 		var hatch := Kit.label("+ your hatchling %s fights beside whoever you send" % _name(run.hatchling), 20, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true)
 		items.append(Kit.hbox(10, [CritterIcon.face(run.hatchling, 44, maxi(1, tier - 1)), _expand(hatch)]))
-	items.append(Kit.caption("Your boons"))
-	items.append(_boon_strip(run.boons, 56))
+	items.append(Kit.caption("Your boons and relics" if not run.get("relics", []).is_empty() else "Your boons"))
+	items.append(_boon_strip(run.boons, 56, true, run.get("relics", [])))
 	items.append(_menu_button())
 	_set_page(items, "br_floor")
 
@@ -595,9 +627,9 @@ func _show_boon() -> void:
 		var card := Kit.card_button(body, func(): _take_boon(id), col, Roster.rarity_bg(b.rarity, Kit.PANEL, 0.3 if b.rarity == "legendary" else 0.18), 28, 20)
 		items.append(card)
 		_mark("br_boon_%d" % i, card)
-	if not run.boons.is_empty():
-		items.append(Kit.caption("Your boons"))
-		items.append(_boon_strip(run.boons, 52))
+	if not run.boons.is_empty() or not run.get("relics", []).is_empty():
+		items.append(Kit.caption("Your boons and relics" if not run.get("relics", []).is_empty() else "Your boons"))
+		items.append(_boon_strip(run.boons, 52, true, run.get("relics", [])))
 	_set_page(items, "br_boon")
 
 
@@ -1108,7 +1140,7 @@ func _ability_label(critter: String, align := HORIZONTAL_ALIGNMENT_LEFT) -> Labe
 
 ## Boons as a wrapping row of badges, each with its name under it (names
 ## off for a foe's long list). Tap one for its card (_show_boon_info).
-func _boon_strip(ids: Array, side: float, names := true) -> Control:
+func _boon_strip(ids: Array, side: float, names := true, relics: Array = []) -> Control:
 	var flow := HFlowContainer.new()
 	flow.add_theme_constant_override("h_separation", 10)
 	flow.add_theme_constant_override("v_separation", 8)
@@ -1125,7 +1157,51 @@ func _boon_strip(ids: Array, side: float, names := true) -> Control:
 		btn.focus_mode = Control.FOCUS_NONE
 		flow.add_child(btn)
 		_mark("br_held_%d" % k if names else "br_foe_boon_%d" % k, btn)
+	for k in relics.size():
+		var id: String = relics[k]
+		var tile := Kit.vbox(2, [RelicIcon.make(id, side, side >= 48.0)])
+		if names:
+			var n := Kit.label(_name(id).replace(" ", "\n"), 16, RelicIcon.color_of(id), HORIZONTAL_ALIGNMENT_CENTER)
+			n.custom_minimum_size.x = side + 24.0
+			tile.add_child(n)
+		var btn := Kit.card_button(tile, _show_relic_info.bind(id), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 2)
+		btn.focus_mode = Control.FOCUS_NONE
+		flow.add_child(btn)
+		_mark("br_relic_%d" % k, btn)
 	return flow
+
+
+## A relic's card over the page. Tap anywhere to close.
+func _show_relic_info(id: String) -> void:
+	var col := RelicIcon.color_of(id)
+	var lines: Array = [RelicIcon.make(id, 150), Kit.label(Relics.name_of(id), 40, col, HORIZONTAL_ALIGNMENT_CENTER),
+		Kit.chip("Relic", col, 20), Kit.label(Relics.text_of(id), 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)]
+	if not run.is_empty() and id in run.critters:
+		lines.append(Kit.label(Relics.OWN_TEXT % _name(id), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+	_overlay_card(lines, Kit.box(Kit.PANEL, col, 32, 3, 28), "br_relic_close")
+	print("BOUNCERUN_RELIC_INFO %s" % id)
+	_report.call_deferred("br_relic_info")
+
+
+## A relic just dropped (an elite, the chest, an event): its card, then on.
+func _show_relic_found() -> void:
+	var id: String = run.dropped
+	run.dropped = ""
+	_save_run()
+	state = State.EVENT
+	_board_mode()
+	sub_label.text = "Relic found!"
+	sfx.play("heal")
+	print("BOUNCERUN_RELIC %s" % id)
+	var col := RelicIcon.color_of(id)
+	var body := Kit.vbox(12, [RelicIcon.make(id, 200), Kit.label(Relics.name_of(id), 40, col, HORIZONTAL_ALIGNMENT_CENTER),
+		Kit.label(Relics.text_of(id), 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)])
+	if id in run.critters:
+		body.add_child(Kit.label(Relics.OWN_TEXT % _name(id), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+	body.alignment = BoxContainer.ALIGNMENT_CENTER
+	var next := Kit.button("Continue", _show_next, "go", 30)
+	_mark("br_continue", next)
+	_set_page([_status_row(), Kit.panel(body, Kit.box(Kit.PANEL, col, 32, 3, 24)), next], "br_relic_found")
 
 
 ## A boon's card over the page: badge, name, rarity (shape and word, not just
@@ -1154,6 +1230,7 @@ func _show_rules() -> void:
 		"Draft 3 critters and 3 starting boons, then climb a %d-floor map to the Champion. Tap a glowing node to pick your path." % BounceRun.FLOORS,
 		"Fights: pick who to send. Lose and that critter is out, but the foe keeps its damage for your next send. Lose all three and the run ends.",
 		"Elites are bigger and tougher but pay more. ? nodes hide events with choices. Shops sell boons for Buttons, which you earn in the run. Charge Pads revive, polish or clean.",
+		"Relics: pick one at the start. Elites, the floor %d chest and a few events drop more. Each is a small piece of one critter's ability that your whole trio carries." % (BounceRun.CHEST_ROW + 1),
 		"Glitches are bad boons. Shops and Charge Pads clean them.",
 		"Your trio and the foes go up a tier every %d floors, up to T5 near the top." % BounceRun.FLOORS_PER_TIER,
 		"Play as many runs as you like. Your best floor each day goes on the leaderboard and opens a chest the next day: floors %s, or beat the Champion." % ", ".join(BounceChest.TIERS.slice(0, -1).map(func(t): return str(t.floor))),
@@ -1249,6 +1326,9 @@ func _url_params() -> Dictionary:
 
 ## Opens whatever the run is waiting on (sim/bounce_run.gd phase()).
 func _show_next() -> void:
+	if run.get("dropped", "") != "" and not run.over:
+		_show_relic_found()
+		return
 	match BounceRun.phase(setup, run):
 		"over":
 			_show_over()
@@ -1298,6 +1378,8 @@ func _status_row() -> Control:
 ## Your boons on a card over the page (from the status row).
 func _show_held() -> void:
 	var lines: Array = [Kit.label("Your boons", 34, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), _boon_strip(run.boons, 60)]
+	if not run.get("relics", []).is_empty():
+		lines.append_array([Kit.label("Your relics", 34, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), _boon_strip([], 60, true, run.relics)])
 	_overlay_card(lines, Kit.box(Kit.PANEL, Kit.ACCENT, 32, 3, 28), "br_held_close")
 	_report.call_deferred("br_held")
 
@@ -1556,6 +1638,10 @@ func _changes(before: Dictionary) -> Array:
 		lines.append(Kit.hbox(10, [BoonIcon.make(b.icon, _icon_rarity(b.rarity), 48), _expand(Kit.label(("Glitch: " if bad else "New boon: ") + "%s. %s" % [b.name, b.text], 22, PINK if bad else Roster.RARITY_COLORS[b.rarity], HORIZONTAL_ALIGNMENT_LEFT, true))]))
 	for id in lost:
 		lines.append(Kit.label("Gone: %s" % Boons.get_def(id).name, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
+	for id in run.get("relics", []):
+		if not id in before.get("relics", []):
+			lines.append(Kit.hbox(10, [RelicIcon.make(id, 56), _expand(Kit.label("New relic: %s. %s" % [Relics.name_of(id), Relics.text_of(id)], 22, RelicIcon.color_of(id), HORIZONTAL_ALIGNMENT_LEFT, true))]))
+			run.dropped = "" # Shown here, not again on its own card.
 	var delta: int = run.buttons - before.buttons
 	if delta != 0:
 		lines.append(Kit.amount("button", ("+%d" % delta) if delta > 0 else str(delta), 26, Kit.GOOD if delta > 0 else PINK))
