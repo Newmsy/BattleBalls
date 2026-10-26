@@ -11,6 +11,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Families := preload("res://sim/families.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const LiveOps := preload("res://game/liveops.gd")
@@ -47,7 +48,9 @@ static func build(shell, params: Dictionary) -> Control:
 
 	root.add_child(shell.title_row("The Spire", {"back_mark": "spire_back", "info_mark": "spire_info", "info": [
 		"One %d-floor tower for everyone, rebuilt every Monday. Pick your lineup for each floor; they fight in the order you pick them, and a winner stays in with the HP it has left." % Spire.FLOORS,
+		"Each floor's foes all come from one family, and they go up a tier every %d floors." % Spire.FLOORS_PER_TIER,
 		"Boss floors: the boss is huge and takes on your whole lineup alone.",
+		"Every critter that fights earns XP, more on higher floors.",
 		"Every critter that comes out to fight spends 1 of its %d Stamina, win or lose. Tired critters rest until Monday." % SpireClimb.STAMINA,
 		"Coming up: " + _upcoming_text(climb),
 	]}))
@@ -84,9 +87,8 @@ static func _floor_card(spec: Dictionary) -> Control:
 	var title := "Floor %d" % n + (" · Boss" if spec.boss else "")
 	var foes := Kit.hbox(14, [], BoxContainer.ALIGNMENT_CENTER)
 	for e in spec.enemies:
-		var tier := Spire.display_tier(e.power, Roster.rarity_base(Roster.get_critter(e.id).rarity) / 100.0)
 		var side := 150.0 if spec.boss else 104.0
-		foes.add_child(Kit.vbox(4, [FighterTag.make(e.id, tier, roundi(e.power * 1000.0), side),
+		foes.add_child(Kit.vbox(4, [FighterTag.make(e.id, int(e.tier), roundi(e.rating * 1000.0), side),
 			Kit.label(BallDefs.get_def(e.id).display_name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]))
 	# Currencies as icon + number, never their names.
 	var r := Spire.reward(n)
@@ -183,15 +185,28 @@ static func _pick_card(shell, f: Dictionary, spec: Dictionary, picks: Array) -> 
 	return card
 
 
-## Fresh critters closest to the floor's power, weakest first, so the best
-## ones are saved for the floors above.
+## Fresh critters for the floor, picked by type advantage first: of the ones
+## strong enough (counting their family edge on the floor's foes), the best
+## matchups lead, weakest first among equals so the strongest are saved for
+## the floors above. Short of those, the strongest that are left fill in.
 static func suggest(list: Array, spec: Dictionary) -> Array:
 	var need: float = Spire.power_at(spec.floor) * 0.95
-	var fresh := list.filter(func(f): return f.stamina > 0)
-	fresh.sort_custom(func(a, b): return a.power < b.power)
-	var strong := fresh.filter(func(f): return f.power >= need)
-	var pool: Array = strong if strong.size() >= spec.lineup else fresh.slice(maxi(0, fresh.size() - spec.lineup))
-	return pool.slice(0, spec.lineup).map(func(f): return f.id)
+	var foes: Array = spec.get("enemies", []).map(func(e): return str(e.id))
+	var ranked := []
+	for f in list:
+		if f.stamina <= 0:
+			continue
+		var edge := 0.0
+		for foe in foes:
+			edge += Families.edge(str(f.id), foe)
+		edge /= maxf(1.0, foes.size())
+		# A very good matchup (+2) wins about as often as a tier up (x1.25 power).
+		ranked.append({"id": f.id, "power": f.power, "edge": edge, "eff": f.power * pow(1.25, edge / 2.0)})
+	var strong := ranked.filter(func(f): return f.eff >= need)
+	strong.sort_custom(func(a, b): return a.edge > b.edge or (a.edge == b.edge and a.power < b.power))
+	var weak := ranked.filter(func(f): return f.eff < need)
+	weak.sort_custom(func(a, b): return a.eff > b.eff)
+	return (strong + weak).slice(0, spec.lineup).map(func(f): return f.id)
 
 
 static func _pips(left: int) -> Control:
@@ -242,13 +257,21 @@ static func _climb(shell, climb, picks: Array) -> void:
 	shell.get_tree().change_scene_to_file("res://game/spire.tscn")
 
 
-## Adds rewards from floors cleared since the last visit to the profile.
+## Adds XP and rewards from floors fought since the last visit to the
+## profile, with one save. The toast waits for the screen to slide in, so the
+## slide and the picker's first tiles don't share frames with it.
 static func _collect(shell, climb) -> void:
-	if climb.unclaimed.is_empty():
+	if climb.xp_owed.is_empty() and climb.unclaimed.is_empty():
 		return
+	# The XP bars were shown on the floor's result; this makes them true.
+	var xp: Dictionary = climb.take_xp()
+	for id in xp:
+		shell.profile.add_xp(id, int(xp[id]))
 	var t: Dictionary = climb.take_rewards()
 	grant(shell.profile, t)
 	climb.save_file()
+	if t.floors.is_empty():
+		return
 	var bits := ["+%d coins" % t.coins]
 	if t.orbs > 0:
 		bits.append("+%d egg%s" % [t.orbs, "" if t.orbs == 1 else "s"])
@@ -258,7 +281,11 @@ static func _collect(shell, climb) -> void:
 		bits.append(gear_name(g))
 	if t.get("keys", 0) > 0:
 		bits.append("+%d Rift Key%s" % [t.keys, "" if t.keys == 1 else "s"])
-	shell.toast(", ".join(bits))
+	var text := ", ".join(bits)
+	if shell is Node and shell.is_inside_tree():
+		shell.get_tree().create_timer(0.45).timeout.connect(func(): shell.toast(text))
+	else:
+		shell.toast(text)
 
 
 ## Puts a reward bundle (SpireClimb.take_rewards) into the profile.
