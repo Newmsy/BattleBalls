@@ -151,6 +151,7 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 		shell.mark("spire_suggest", auto)
 		actions.add_child(auto)
 	state.update = func() -> void:
+		print("UI_PICKS " + ",".join(picks))
 		count.text = "%d/%d" % [picks.size(), spec.lineup]
 		Kit.style_button(climb_btn, "go" if not picks.is_empty() else "ghost")
 		if auto != null:
