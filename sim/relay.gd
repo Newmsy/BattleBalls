@@ -1,8 +1,9 @@
 ## Deterministic lineup relay (pve.md "relay", pvp.md section 2): each side
 ## brings 1-3 balls in a fixed order and fights are 1v1 legs. The winner of a
 ## leg stays in with the HP it has left and launches again; the loser's next
-## ball comes out. A drawn leg knocks out both balls. The side with a ball
-## left at the end wins.
+## ball comes out. A double KO or drawn leg knocks out both balls. The side
+## with a ball left at the end wins; if both run out together, `tie_to`
+## (optional, a side) takes it, else it is a draw.
 ##
 ## Config: { seed: int, sides: [[type, ...], [type, ...]], aims: [[aim, ...], [aim, ...]],
 ##           powers: [[w, ...], [w, ...]], sizes: [[s, ...], [s, ...]],
@@ -69,6 +70,7 @@ func leg_config() -> Dictionary:
 		"angles": [aims[0][slot[0]], aims[1][slot[1]]],
 		"hp": carry_hp.duplicate(),
 		"gear": [gear[0][slot[0]], gear[1][slot[1]]],
+		"tie_to": -1, # A double KO knocks both balls out.
 	}
 	if config.has("arena"): # Every leg is on the same map.
 		leg.arena = config.arena
@@ -105,7 +107,7 @@ func record_leg(sim) -> void:
 	if left[0] and left[1]:
 		return
 	finished = true
-	winner = -1 if left[0] == left[1] else (0 if left[0] else 1)
+	winner = int(config.get("tie_to", -1)) if left[0] == left[1] else (0 if left[0] else 1)
 
 
 func run_to_end() -> Dictionary:

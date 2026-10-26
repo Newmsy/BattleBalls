@@ -478,8 +478,11 @@ func _config() -> Dictionary:
 	if mode == Mode.CAMPAIGN:
 		var cfg: Dictionary = pve.config.duplicate()
 		cfg.angles = [aim, null]
+		cfg.tie_to = 0 # Stages and bosses: a double KO is your win.
 		return cfg
 	var cfg := {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena()}
+	if mode in [Mode.CHALLENGE, Mode.RIVAL, Mode.TUTORIAL]:
+		cfg.tie_to = 0 # A double KO is your win; only Quick fight keeps it a double KO.
 	var t := _fight_tiers()
 	if mode == Mode.NORMAL and quick_tier > 0:
 		# One-tap Quick fight (and the stand-in for a live foe): your fighter as
