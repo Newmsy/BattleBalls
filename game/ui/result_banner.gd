@@ -84,8 +84,8 @@ func _draw() -> void:
 			Vector2(x1, top + drop + band), Vector2(x0, top + drop + band)]), Color(ink.darkened(.3), ink.a))
 		Dot.poly(self, PackedVector2Array([Vector2(x0, top + band), Vector2(x0 + sgn * h * .1, top + band), Vector2(x0, top + band + drop)]), Color(0, 0, 0, ink.a))
 	Dot.poly(self, PackedVector2Array([Vector2(c.x - half, top), Vector2(c.x + half, top), Vector2(c.x + half, top + band), Vector2(c.x - half, top + band)]), ink)
-	draw_line(Vector2(c.x - half, top + 3), Vector2(c.x + half, top + 3), Color(col, .32 if win else .18), 2.0, true)
-	draw_line(Vector2(c.x - half, top + band - 3), Vector2(c.x + half, top + band - 3), Color(col, .2 if win else .1), 2.0, true)
+	Dot.line(self, Vector2(c.x - half, top + 3), Vector2(c.x + half, top + 3), Color(col, .32 if win else .18), 2.0, true)
+	Dot.line(self, Vector2(c.x - half, top + band - 3), Vector2(c.x + half, top + band - 3), Color(col, .2 if win else .1), 2.0, true)
 	if win:
 		for sgn in [-1.0, 1.0]:
 			var p := Vector2(c.x + sgn * (half + h * .2), top - h * .08)
