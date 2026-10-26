@@ -707,7 +707,25 @@ func _show_tier_up(tier: int) -> void:
 	var new_star := Kit.glyph("stars", 44, GOLD, 1)
 	var stars := Kit.hbox(6, [old_stars, _pop_wrap(new_star)], BoxContainer.ALIGNMENT_CENTER)
 	var head := Kit.label("TIER UP!", 52, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
-	var lines: Array = [_art("banner_tier_up", 0.6), head, stars, faces,
+	head.add_theme_constant_override("outline_size", 12)
+	head.add_theme_color_override("font_outline_color", Color(.03, .02, .08, .85))
+	# The painting runs the card's full width (out over its padding) with
+	# TIER UP! and the stars over its soft bottom edge.
+	var w := minf(600.0, get_viewport().get_visible_rect().size.x - 40.0)
+	var art_h := w * 440.0 / 720.0
+	var art := LivingArt.make("banner_tier_up", ART % "banner_tier_up")
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.position = Vector2(-28, -28)
+	art.size = Vector2(w, art_h)
+	art.soften(40.0)
+	var top := Control.new()
+	top.custom_minimum_size = Vector2(w - 56.0, art_h - 28.0 + 40.0)
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(art)
+	var words := Kit.vbox(0, [head, stars])
+	top.add_child(words)
+	words.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE, Control.PRESET_MODE_MINSIZE)
+	var lines: Array = [top, faces,
 		Kit.label("Your trio fights at T%d from now on. So do the foes!" % tier, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)]
 	var burst := Panel.new()
 	burst.add_theme_stylebox_override("panel", Kit.box(Color(GOLD, 0.55), Color(0, 0, 0, 0), 999, 0, 0))
@@ -1573,6 +1591,7 @@ func _go_node(id: int) -> void:
 ## An event's painting, `scale` of the page width (720x440 art).
 func _art(id: String, scale := 1.0) -> Control:
 	var tex := LivingArt.make(id, ART % id)
+	tex.soften() # Soft edges melt into the page instead of a hard black stop.
 	tex.set_meta("art_scale", scale)
 	_size_art(tex)
 	tex.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

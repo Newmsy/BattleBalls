@@ -169,6 +169,8 @@ func _draw() -> void:
 			var dim: bool = not id in _route and (n.row < run.floor or (not id in _reach and n.row <= run.floor))
 			var tint := Color(.45, .45, .55, .55) if dim else (Color.WHITE if id in _reach or id in _route else Color(.8, .8, .88, .92))
 			draw_texture_rect(token, Rect2(p - Vector2.ONE * rr * 160.0 / 150.0, Vector2.ONE * rr * 320.0 / 150.0), false, tint)
+			if t == "event" and n.type == "mystery":
+				_event_face(n.get("event", ""), p, rr * 0.86, tint)
 			if id in _route:
 				draw_arc(p, rr + 2.0, 0.0, TAU, 40, Kit.GOOD, 4.0, true)
 		elif id in _route:
@@ -199,6 +201,24 @@ func _dashed(a: Vector2, b: Vector2, col: Color, w: float) -> void:
 	for i in steps:
 		if i % 2 == 0:
 			draw_line(a.lerp(b, float(i) / steps), a.lerp(b, minf(1.0, float(i + 1) / steps)), col, w, true)
+
+
+## A revealed event shows its own painting inside the token, so a Star Map
+## or the Ghost Lantern visibly tells you which event waits there.
+func _event_face(ev: String, p: Vector2, r: float, tint: Color) -> void:
+	var art := _tex(ev)
+	if art == null:
+		return
+	var side := minf(art.get_width(), art.get_height())
+	var corner := (Vector2(art.get_width(), art.get_height()) - Vector2.ONE * side) / 2.0
+	var pts := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	for k in 24:
+		var d := Vector2.from_angle(k * TAU / 24.0)
+		pts.append(p + d * r)
+		uvs.append((corner + (d * 0.5 + Vector2.ONE * 0.5) * side) / Vector2(art.get_width(), art.get_height()))
+	draw_colored_polygon(pts, tint, uvs, art)
+	draw_arc(p, r, 0.0, TAU, 32, Color(COLORS.event, tint.a), 3.0, true)
 
 
 ## The node type's mark, `s` its half-size.
