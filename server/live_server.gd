@@ -20,6 +20,9 @@ const SimVersion := preload("res://sim/sim_version.gd")
 
 const MAX_MESSAGE := 16384
 const HELLO_SECONDS := 10.0 ## A socket that hasn't signed in by then is dropped.
+## One live connection per account: a new sign-in closes the older one. Off
+## while playtesters share an account; turn on with real sign-in or rewards.
+const ONE_SOCKET_PER_ACCOUNT := false
 
 var lobby: Lobby
 var tcp := TCPServer.new()
@@ -133,7 +136,11 @@ func _hello(key: int, msg: Dictionary) -> void:
 	req.request(supabase_url + "/auth/v1/user", ["apikey: " + anon_key, "Authorization: Bearer " + token])
 
 
-func _signed_in(key: int, player: String) -> void:
+func _signed_in(key: int, account: String) -> void:
+	# While every playtest device shares one test account (game/online/test_user.gd),
+	# each connection counts as its own player, so two phones on that account
+	# can meet. Live fights give no rewards yet, so playing yourself gains nothing.
+	var player := account if ONE_SOCKET_PER_ACCOUNT else "%s#%d" % [account, key]
 	var old: int = by_player.get(player, -1)
 	if old != -1 and old != key and peers.has(old):
 		peers[old].ws.close(4003, "signed in elsewhere")
