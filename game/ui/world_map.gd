@@ -37,6 +37,11 @@ var _reveal := 1.0 ## 0..1 through the newly lit path.
 var _sky: Control
 var _islands: Array = [] ## Each zone's island painting, or null.
 var _art_count := 0 ## Paintings added so far: they stay first, in order.
+## How far the sky reaches past each side of the map (Shell.bleed()): the
+## painting runs edge to edge while the zones stay inside the column.
+var bleed := 0.0
+var _fades: Array[TextureRect] = [] ## Soft top and bottom edges on the sky.
+const FADE := 90.0
 
 
 static func make(zones_: Array, open_count_: int, glitched_: bool, height: float, on_zone: Callable, fighter: String, fighter_tier: int) -> Control:
@@ -127,8 +132,11 @@ func center(i: int) -> Vector2:
 
 func _layout() -> void:
 	if _sky != null:
-		_sky.position = Vector2.ZERO
-		_sky.size = size
+		_sky.position = Vector2(-bleed, 0)
+		_sky.size = size + Vector2(bleed * 2.0, 0)
+		for k in _fades.size():
+			_fades[k].position = Vector2(-bleed, 0 if k == 0 else size.y - FADE)
+			_fades[k].size = Vector2(size.x + bleed * 2.0, FADE)
 	for i in _islands.size():
 		if _islands[i] != null:
 			var k := 1.0 if i < open_count else LOCKED_R / OPEN_R
@@ -175,6 +183,18 @@ func _add_art() -> void:
 	if sky != null:
 		_sky = _picture(sky, Color.WHITE)
 		_sky.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		# The sky melts into the screen at the top and bottom: no frame.
+		for top in [true, false]:
+			var g := Gradient.new()
+			g.set_color(0, Color(Kit.BG, 1.0 if top else 0.0))
+			g.set_color(1, Color(Kit.BG, 0.0 if top else 1.0))
+			var gt := GradientTexture2D.new()
+			gt.gradient = g
+			gt.fill_from = Vector2(0, 0)
+			gt.fill_to = Vector2(0, 1)
+			gt.width = 4
+			gt.height = 64
+			_fades.append(_picture(gt, Color.WHITE))
 	for i in zones.size():
 		var island := _art("map_island_" + str(zones[i].get("id", "")))
 		_islands.append(_picture(island, Color.WHITE if i < open_count else LOCKED_TINT) if island != null else null)

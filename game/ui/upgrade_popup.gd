@@ -4,6 +4,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
@@ -103,6 +104,7 @@ static func _forge(made: Dictionary) -> Control:
 	var art := LivingArt.make("gear_forge", "res://game/ui/gear_art/gear_forge.png")
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art.soften(40.0) # No hard edge onto the sheet.
 	var piece := GearArt.piece(made.type, made.tier, 140)
 	piece.anchor_left = .653
 	piece.anchor_right = .653
@@ -203,4 +205,4 @@ static func _pct(line: String, v: float) -> String:
 
 ## Wrapped text needs a width before the modal measures itself.
 static func _text_width(shell) -> float:
-	return minf(640.0, shell.size.x - 120.0)
+	return ResultPopup.inner_width(shell.size.x)
