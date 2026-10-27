@@ -5,6 +5,7 @@ const GhostLineup := preload("res://game/online/ghost_lineup.gd")
 const Backend := preload("res://game/online/backend.gd")
 const Account := preload("res://game/online/account.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
+const Shell := preload("res://game/ui/shell.gd")
 
 ## Per process: tests/run.sh runs shards side by side.
 var TEST_SAVE := "user://test_save_%d.json" % OS.get_process_id()
@@ -304,6 +305,42 @@ func test_email_check() -> void:
 		check(Account.valid_email(good), good)
 	for bad in ["", "a@b", "@b.co", "a b@c.co", "a@b.", "a@.co"]:
 		check(not Account.valid_email(bad), bad)
+
+
+func test_name_check_matches_the_server() -> void:
+	check_eq(Account.clean_name("  Bouncy   Bob "), "Bouncy Bob", "trims and collapses spaces")
+	var cases := {"Bo": "too_short", "Seventeen letters": "too_long", "Bob!": "bad_chars", "1234": "no_letters",
+		"Sh1t Ball": "rude", "f.u.c.k": "rude", "Big Ass": "rude", "Classy Glass": "", "Peacock Dickens": "",
+		"Mo_the-Ball.2": "", "Bouncy Bob": ""}
+	for n in cases:
+		check_eq(Account.name_problem(n), cases[n], n)
+	check_eq(Account.check_name("  ok  "), Account.explain_name("too_short"), "checks the cleaned name")
+	# The client's word lists are a copy of the server's (tests/db/test_rename.sql runs the same cases).
+	var sql := ""
+	for f in DirAccess.get_files_at("res://supabase/migrations"):
+		if f.ends_with("_rename.sql"):
+			sql = FileAccess.get_file_as_string("res://supabase/migrations/" + f)
+	check(sql != "", "migration found")
+	for w in Account.RUDE_PARTS + Account.RUDE_WORDS:
+		check("'%s'" % w in sql, "server has " + w)
+
+
+func test_account_screen_shows_the_name() -> void:
+	var b := Backend.new()
+	b.url = "https://example.invalid"
+	b.key = "sb_publishable_test"
+	var acc := Account.new(b)
+	acc.status = "guest"
+	acc.display_name = "Bouncy Bob"
+	var shell = Shell.new()
+	shell.build()
+	shell.set_account(acc)
+	shell.go("account")
+	check_eq(shell.current, "account", "account screen")
+	var found := shell.find_children("*", "Label", true, false).any(func(l): return l.text == "Bouncy Bob")
+	check(found, "name shown")
+	shell.free()
+	b.free()
 
 
 func test_backend_is_offline_without_config() -> void:

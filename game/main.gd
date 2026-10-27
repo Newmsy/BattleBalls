@@ -265,6 +265,8 @@ func _ready() -> void:
 	add_child(backend)
 	friends = Friends.new(backend)
 	account = Account.new(backend)
+	# A new name shows in the Settings stamp and on the friends screen right away.
+	account.renamed.connect(func(_n): _refresh_account(); friends.refresh())
 	save.app_version = VERSION
 	save.mirrored = SaveGame.MIRRORED
 	save.test_mode = TestUser.slot() > 0

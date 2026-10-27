@@ -1,4 +1,4 @@
-## Account: save a guest's progress to an account (email code now, Apple and
+## Account: change your name, save a guest's progress to an account (email code now, Apple and
 ## Google once switched on), sign in on another device, sign out, or delete
 ## the account and its progress for good. Opened
 ## from the level badge in the top bar. Data and calls live in
@@ -8,7 +8,7 @@ extends RefCounted
 const Kit := preload("res://game/ui/ui_kit.gd")
 
 ## What the player has typed, kept across rebuilds.
-static var _draft := {"email": "", "code": ""}
+static var _draft := {"email": "", "code": "", "name": ""}
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -33,6 +33,7 @@ static func build(shell, params: Dictionary) -> Control:
 		root.add_child(Kit.vbox(14, [_note("Couldn't reach your account", "Check your connection and try again."), retry]))
 		return root
 
+	root.add_child(_name_card(shell, acc))
 	if acc.status == "linked":
 		root.add_child(_linked_card(shell, acc))
 	elif not acc.pending.is_empty():
@@ -115,6 +116,56 @@ static func _linked_card(shell, acc) -> Control:
 	return Kit.vbox(28, [Kit.panel(col), out])
 
 
+## The player's name as others see it (arena, friends, leaderboards).
+static func _name_card(shell, acc) -> Control:
+	var shown: String = acc.display_name if acc.display_name != "" else "…"
+	var change := Kit.button("Change", func(): _change_name(shell, acc), "ghost", 22, 72)
+	change.disabled = acc.busy or acc.display_name == ""
+	shell.mark("account_rename", change)
+	var col := Kit.vbox(4, [Kit.caption("Your name"), Kit.label(shown, 32)])
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return Kit.panel(Kit.hbox(16, [col, change], BoxContainer.ALIGNMENT_CENTER))
+
+
+## Web: the browser's own prompt (Godot can't raise the phone keyboard there).
+## Native: a popup with a text box.
+static func _change_name(shell, acc) -> void:
+	_draft.name = acc.display_name
+	if OS.has_feature("web"):
+		var got = JavaScriptBridge.eval("prompt(%s, %s)" % [JSON.stringify("Your new name"), JSON.stringify(_draft.name)], true)
+		if got != null and str(got).strip_edges() != acc.display_name:
+			_save_name(shell, acc, str(got))
+		return
+	var err := Kit.label("", 20, Kit.WARN, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var e := LineEdit.new()
+	e.text = _draft.name
+	e.max_length = acc.NAME_MAX
+	e.custom_minimum_size = Vector2(0, 84)
+	e.add_theme_font_size_override("font_size", 26)
+	e.text_changed.connect(func(t): _draft.name = t; err.text = acc.check_name(t))
+	shell.mark("account_name", e)
+	var save := Kit.button("Save", func():
+		err.text = acc.check_name(_draft.name)
+		if err.text == "":
+			shell.close_overlay()
+			_save_name(shell, acc, _draft.name), "go", 28, 88)
+	shell.mark("account_name_save", save)
+	shell.sheet(Kit.vbox(18, [
+		Kit.label("Change your name", 32),
+		Kit.label("%d to %d letters or numbers." % [acc.NAME_MIN, acc.NAME_MAX], 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true),
+		e, err, save,
+		Kit.button("Cancel", shell.close_overlay, "ghost", 24, 76),
+	]))
+	e.grab_focus.call_deferred()
+
+
+static func _save_name(shell, acc, text: String) -> void:
+	if await acc.rename(text):
+		shell.toast("You're now %s." % acc.display_name)
+	else:
+		shell.refresh()
+
+
 static func _confirm_sign_out(shell, acc) -> void:
 	var col := Kit.vbox(18, [
 		Kit.label("Sign out on this device?", 32),
@@ -145,7 +196,7 @@ static func _send(shell, acc, mode: String) -> void:
 
 static func _verify(shell, acc) -> void:
 	if await acc.verify_code(_draft.code):
-		_draft = {"email": "", "code": ""}
+		_draft = {"email": "", "code": "", "name": ""}
 		shell.refresh_with({})
 
 

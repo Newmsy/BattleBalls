@@ -39,11 +39,16 @@ do $$ begin
   end;
 end $$;
 
--- Profiles: rename yourself, never your trophies, never someone else.
+-- Profiles: rename yourself (only through set_display_name, see
+-- test_rename.sql), never your trophies, never someone else.
 do $$ begin
-  update public.profiles set display_name = 'Bobby' where id = 'bbbbbbbb-0000-0000-0000-000000000002';
+  perform public.set_display_name('Bobby');
   assert (select display_name from public.profiles where id = 'bbbbbbbb-0000-0000-0000-000000000002') = 'Bobby', 'rename';
-  update public.profiles set display_name = 'Hacked' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+  begin
+    update public.profiles set display_name = 'Hacked' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+    assert false, 'names are not directly writable';
+  exception when insufficient_privilege then null;
+  end;
   assert (select display_name from public.profiles where id = 'aaaaaaaa-0000-0000-0000-000000000001') = 'Guest-AAAA',
     'cannot rename others';
   begin
