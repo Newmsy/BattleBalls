@@ -182,6 +182,7 @@ static func _claim(shell, id: String) -> void:
 	if not got.is_empty():
 		if shell.sfx != null:
 			shell.sfx.play("coins")
+		PassScreen.fly_rewards(shell, got, shell._marks.get("quest_claim_" + id))
 	shell.refresh()
 
 
@@ -190,6 +191,7 @@ static func _open_chest(shell, weekly: bool) -> void:
 	if not got.is_empty():
 		if shell.sfx != null:
 			shell.sfx.play("coins")
+		PassScreen.fly_rewards(shell, got, shell._marks.get("quest_chest_" + ("week" if weekly else "day")))
 	shell.refresh()
 
 

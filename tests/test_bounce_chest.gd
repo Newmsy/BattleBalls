@@ -124,3 +124,26 @@ func test_bounce_run_opens_on_a_waiting_chest() -> void:
 	again.queue_free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(run_path))
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(game_path))
+
+
+## The cards leap out one by one: a tap while it shakes bursts it open, a
+## tap while they fly lands them all, and only then does Collect show.
+func test_cards_fly_out_and_a_tap_lands_them() -> void:
+	var shell = Shell.new()
+	shell.build()
+	runner.root.add_child(shell)
+	var view = load("res://game/ui/bounce_chest_open.gd").show_on(shell, {"day": 51, "floor": 25, "tier": 4})
+	view._open()
+	view._burst()
+	check_eq(view.phase, view.Phase.SPILLING, "a tap mid-shake bursts it open")
+	view._spill()
+	check_eq(view._flyers.size(), 5, "every card leaves the chest")
+	check(not view._collect.visible, "Collect waits for the cards")
+	check(view._cards.all(func(c): return c.modulate.a == 0.0), "no card in its slot yet")
+	view._land_all()
+	check(view._flyers.is_empty(), "a tap lands them all")
+	check(view._cards.all(func(c): return c.modulate.a == 1.0), "each in its slot")
+	check(view._collect.visible, "then Collect shows")
+	view._on_collect()
+	check(not shell.overlay_open(), "and Collect closes it")
+	shell.queue_free()
