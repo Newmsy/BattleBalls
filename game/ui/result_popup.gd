@@ -266,13 +266,8 @@ static func boss_result(shell, params: Dictionary, row: Control = null) -> void:
 	var xp: Dictionary = params.get("xp", {})
 	if row == null:
 		row = Kit.label(str(params.notice), 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
-<<<<<<< HEAD
-		row.custom_minimum_size.x = minf(640.0, shell.size.x - 80.0) # Wrapped text needs a width first.
-	var body: Array = [row, FactionRing.rows(shell.profile.take_faction_gains(), shell.sfx, .45, FactionRing.spend_in(shell))]
-=======
 		row.custom_minimum_size.x = inner_width(shell.size.x) # Wrapped text needs a width first.
-	var body: Array = [row]
->>>>>>> origin/main
+	var body: Array = [row, FactionRing.rows(shell.profile.take_faction_gains(), shell.sfx, .45, FactionRing.spend_in(shell))]
 	var bars := XpBar.rows(xp, shell.sfx)
 	if bars != null:
 		body.append(bars)
