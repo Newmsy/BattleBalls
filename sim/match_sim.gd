@@ -107,13 +107,19 @@ const ICE_SPEED := 1.3 ## Speed multiplier while a ball's centre is on ice.
 const PORTAL_COOLDOWN := 1.0 ## Seconds before a ball can take a portal again.
 ## Power cores (arena "cores"): the first ball through a lit core is
 ## Overcharged for OVERCHARGE_SECS: its "wall" and "every" abilities fire at
-## once and its ability damage is multiplied while it lasts. A taken core goes
-## dark for CORE_RESPAWN seconds. Kept mild (Newms: not polarising): in mirror
-## matches on the core maps the first taker wins ~58% (48% with no boost).
+## once, and while it lasts it moves faster and all its damage (contact and
+## ability) is multiplied. A critter with no "wall" or "every" ability (about
+## 40% of them: Vampire, Thorns, Bolt...) gets a Core Nova instead, so every
+## pickup does something you can see. A taken core goes dark for CORE_RESPAWN
+## seconds. Kept mild (Newms: not polarising).
 const CORE_FIRST := 6.0 ## Seconds into the fight a core first lights.
 const CORE_RESPAWN := 12.0
 const OVERCHARGE_SECS := 4.0
 const OVERCHARGE_ABILITY := 1.2
+const OVERCHARGE_CONTACT := 1.2
+const OVERCHARGE_SPEED := 1.2
+const CORE_NOVA_RADIUS := 170.0 ## Knocks back and nicks the taker's foes this close.
+const CORE_NOVA_DAMAGE := 8.0
 ## Crystals (obstacle kind "crystal"): crack on each ball bounce, shot, beam,
 ## pulse or blast, and shatter after CRYSTAL_HITS, nicking the breaker's foes
 ## nearby. They grow back after CRYSTAL_REGROW seconds once nothing sits there.
@@ -148,7 +154,8 @@ const BOON_BOLT_SPEED := 560.0
 const BOON_MINE_EVERY := 3 ## Bounce Mine: wall bounces per mine.
 const BOON_ZAP_EVERY := 4 ## Zap Collar: bumps per stun.
 const BOON_WIND_AT := 0.4 ## Second Wind: HP share it kicks in below.
-const BOON_FEVER_SIZE := 1.15 ## Overtime Fever.
+const BOON_FEVER_SIZE := 1.15 ## Fever.
+const BOON_FEVER_HITS := 3 ## Fever starts on this landed bump.
 const BOON_STORM_SECS := 5.0 ## Storm Heart.
 const BOON_FLING_SECS := 0.8 ## Titan Belt: a bumped foe flies at bumper speed this long.
 ## Mixed into the fight seed for the per-hit roll stream.
@@ -327,6 +334,7 @@ class Piece:
 	var blocking := false ## ...and does, once grown and clear of balls.
 	var damage := 0.0 ## Dealt to a foe of the owner that bounces off it.
 	var hits := 0 ## Above 0: breaks after this many bounces of the owner's foes.
+	var sling := 0.0 ## Seconds of bumper speed boost its owner gets bouncing off it.
 
 	## True on the piece's last tick, so its owner can act as it ends (the sim
 	## removes it right after "always" effects run).
@@ -360,6 +368,9 @@ var finished := false
 var winner := -1 ## Ball index, or -1 for a draw (only meaningful when finished).
 var end_reason := ""
 var ko_hp: Array[float] = [] ## On a double knockout, each ball's HP going into the final tick.
+## Config `tie_to` (optional) settles ties, per mode: a double knockout or a
+## dead-even time-out goes to that side, or -1 makes it a draw. Left out, a
+## double knockout goes to whoever had more HP going into it (Quick fight).
 var launch_angles: Array[int] = []
 var starters := 2 ## Balls the fight started with (4 in a 2v2, 6 in a 3v3); later ones are split-offs.
 var boss: Ball = null ## The boss in a boss fight (sim/bosses.gd), else null.
@@ -381,7 +392,8 @@ var _crystals := {}
 func _init(cfg: Dictionary) -> void:
 	config = cfg
 	arena_id = cfg.get("arena", "square")
-	arena = Arenas.get_def(arena_id)
+	# arena_def: a one-off layout (Daily Trick Shot), not one of Arenas' maps.
+	arena = cfg.arena_def if cfg.has("arena_def") else Arenas.get_def(arena_id)
 	_sides = _side_walls(arena)
 	for c in arena.get("cores", []):
 		_core_ready.append(int(round(CORE_FIRST * TICK_RATE)))
@@ -434,6 +446,9 @@ func _init(cfg: Dictionary) -> void:
 			var with := Relics.apply_to_def(def, cfg.relics[i])
 			def = with.def
 			relic_defs = with.relic_defs
+		if not cfg.get("abilities", true): # A pure aim puzzle (Daily Trick Shot): stats only.
+			def = def.duplicate()
+			def.effects = []
 		var b := Ball.new()
 		b.relic_defs = relic_defs
 		b.index = i
@@ -446,6 +461,7 @@ func _init(cfg: Dictionary) -> void:
 		b.hp = def.hp if start_hp[i] == null else clampf(float(start_hp[i]), 0.01, def.hp)
 		b.contact_damage = def.contact_damage
 		b.shield = def.get("start_shield", 0.0) # A Ward Charm (sim/gear.gd).
+		b.shield += def.get("b_bubble", 0.0) * b.max_hp # The Bubble boon.
 		b.attack = kit.get("attack", 0.0)
 		b.defense = kit.get("defense", 0.0)
 		b.crit_chance = BASE_CRIT_CHANCE + kit.get("crit_chance", 0.0)
@@ -699,14 +715,6 @@ func step() -> void:
 	for b in balls:
 		hp_before.append(b.hp)
 
-	if tick == int(round(overtime_start * TICK_RATE)):
-		for b in balls:
-			if b.def.get("overtime_shield", 0.0) > 0.0 and b.alive():
-				b.shield += b.def.overtime_shield
-				events.append({"type": "shield", "target": b.index, "amount": b.def.overtime_shield, "pos": b.pos})
-			if b.def.get("b_fever", 0.0) > 0.0 and b.alive():
-				set_mod(b, "fever", {"radius": BOON_FEVER_SIZE, "damage": 1.0 + b.def.b_fever})
-				events.append({"type": "boon", "id": "fever", "ball": b.index, "pos": b.pos})
 	# An arena may start its own slower squeeze early (shrink_start /
 	# shrink_speed); overtime's squeeze takes over once it is the tighter one.
 	var shrink_from: float = minf(overtime_start, arena.get("shrink_start", overtime_start))
@@ -890,8 +898,10 @@ func _update_cores() -> void:
 		_core_ready[i] = tick + int(round(CORE_RESPAWN * TICK_RATE))
 		for b in takers:
 			b.state.overcharge_until = tick + int(round(OVERCHARGE_SECS * TICK_RATE))
+			set_mod(b, "overcharge", {"speed": OVERCHARGE_SPEED, "damage": OVERCHARGE_CONTACT}, OVERCHARGE_SECS)
 			events.append({"type": "core", "ball": b.index, "pos": c.pos})
-			abilities.surge(self, b)
+			if not abilities.surge(self, b) and b.alive():
+				pulse(b, b.pos, CORE_NOVA_RADIUS, CORE_NOVA_DAMAGE, true, "core_nova")
 
 
 func overcharged(b: Ball) -> bool:
@@ -1020,6 +1030,10 @@ func _resolve_walls(b: Ball) -> void:
 				# rattle of a ball lashed or ringed by one.
 				if o.piece.damage > 0.0 and balls[o.piece.owner].team != b.team:
 					deal(balls[o.piece.owner], b, o.piece.damage, "pillar", o.pos + n * o.radius)
+				if o.piece.sling > 0.0 and o.piece.owner == b.index:
+					b.boost_ticks = int(round(o.piece.sling * TICK_RATE))
+					b.vel = b.vel.normalized() * b.current_speed()
+					events.append({"type": "sling", "ball": b.index, "kind": o.piece.kind, "pos": o.pos + n * o.radius})
 				if o.piece.hits > 0 and balls[o.piece.owner].team != b.team:
 					o.piece.hits -= 1
 					if o.piece.hits == 0:
@@ -1309,9 +1323,12 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		# Family edges: no rolls, so the seeded stream is the same either way.
 		var edge := 0
 		if family_edges and not h.get("env", false) and source.team != target.team:
-			edge = maxi(0, Families.edge(source.type_id, target.type_id))
-			amount *= 1.0 + Families.EDGE_BONUS[edge]
+			edge = Families.edge(source.type_id, target.type_id)
+			amount *= Families.mult_for(edge)
+			edge = maxi(0, edge) # The event only flags advantaged hits.
 		amount *= mult
+		if boss != null and target.team == boss.team and not h.get("env", false):
+			amount *= Bosses.taken(target, h.kind)
 		if amount <= 0.0:
 			continue
 		var backstab: bool = h.get("backstab", false)
@@ -1432,6 +1449,11 @@ func _boon_on_bump(source: Ball, target: Ball) -> void:
 		target.boost_ticks = int(round(BOON_FLING_SECS * TICK_RATE))
 		if target.vel.length() > 0.001:
 			target.vel = target.vel.normalized() * target.current_speed()
+	if source.def.get("b_fever", 0.0) > 0.0:
+		source.state.fever_hits = int(source.state.get("fever_hits", 0)) + 1
+		if source.state.fever_hits == BOON_FEVER_HITS:
+			set_mod(source, "fever", {"radius": BOON_FEVER_SIZE, "damage": 1.0 + source.def.b_fever})
+			events.append({"type": "boon", "id": "fever", "ball": source.index, "pos": source.pos})
 	var zap: float = source.def.get("b_zap", 0.0)
 	if zap > 0.0:
 		source.state.zap_hits = int(source.state.get("zap_hits", 0)) + 1
@@ -1510,7 +1532,9 @@ func _check_end(hp_before: Array[float]) -> void:
 			if i < hp_before.size():
 				before[balls[i].team] += maxf(0.0, hp_before[i])
 		ko_hp.assign(before)
-		if before[0] == before[1]:
+		if config.has("tie_to"):
+			_finish(int(config.tie_to), "double_knockout")
+		elif before[0] == before[1]:
 			_finish(-1, "double_knockout")
 		else:
 			_finish(0 if before[0] > before[1] else 1, "double_knockout")
@@ -1519,7 +1543,7 @@ func _check_end(hp_before: Array[float]) -> void:
 	elif time() >= TIME_LIMIT:
 		var f0 := team_hp(0) / _team_max_hp(0)
 		var f1 := team_hp(1) / _team_max_hp(1)
-		_finish(-1 if f0 == f1 else (0 if f0 > f1 else 1), "time_limit")
+		_finish((int(config.get("tie_to", -1)) if f0 == f1 else (0 if f0 > f1 else 1)), "time_limit")
 
 
 func _finish(winning_index: int, reason: String) -> void:
@@ -2121,7 +2145,7 @@ func _update_tethers() -> void:
 
 
 ## A piece (see Piece) owned by `owner` at `pos`. `opts`: kind, radius, life,
-## grow, block, vel, damage. A blocking piece whose gap to the arena's edge
+## grow, block, vel, damage, hits, sling. A blocking piece whose gap to the arena's edge
 ## would be narrower than a ball snaps onto the edge instead, so no ball gets
 ## wedged behind it; one that would leave such a gap to an arena obstacle
 ## isn't placed. Returns it, or null when not placed, or once overtime has
@@ -2138,6 +2162,7 @@ func add_piece(owner: Ball, pos: Vector2, opts: Dictionary) -> Piece:
 	p.vel = opts.get("vel", Vector2.ZERO)
 	p.damage = opts.get("damage", 0.0)
 	p.hits = opts.get("hits", 0)
+	p.sling = opts.get("sling", 0.0)
 	var r := arena_rect()
 	if p.block:
 		if arena_scale() < OBSTACLE_MIN_SCALE:
@@ -2149,10 +2174,17 @@ func add_piece(owner: Ball, pos: Vector2, opts: Dictionary) -> Piece:
 				pos[axis] = r.position[axis]
 			elif r.end[axis] - pos[axis] < gap:
 				pos[axis] = r.end[axis]
-		for wall in corner_walls(): # The same onto a cut corner.
+		for wall in corner_walls(): # The same onto a cut corner or a side.
 			var d: float = wall[0].dot(pos - centre) + wall[1]
 			if d < gap:
 				pos -= wall[0] * d
+		# A rect snap or a side's snap can leave it past a neighbouring side
+		# (round and many-sided maps): pull it back onto the outline.
+		for _pass in 3:
+			for wall in corner_walls():
+				var d: float = wall[0].dot(pos - centre) + wall[1]
+				if d < 0.0:
+					pos -= wall[0] * d
 		for o in obstacles():
 			var surface_gap: float = pos.distance_to(o.pos) - o.radius - p.radius
 			if not o.has("piece") and surface_gap > 0.0 and surface_gap < PIECE_OBSTACLE_GAP:
@@ -2170,10 +2202,11 @@ func add_piece(owner: Ball, pos: Vector2, opts: Dictionary) -> Piece:
 func inside(pos: Vector2, margin: float) -> Vector2:
 	var r := arena_rect()
 	pos = pos.clamp(r.position + Vector2.ONE * margin, r.end - Vector2.ONE * margin)
-	for wall in corner_walls():
-		var d: float = wall[0].dot(pos - centre) + wall[1]
-		if d < margin:
-			pos += wall[0] * (margin - d)
+	for _pass in 3: # Again, so a push off one side can't leave it past the next.
+		for wall in corner_walls():
+			var d: float = wall[0].dot(pos - centre) + wall[1]
+			if d < margin:
+				pos += wall[0] * (margin - d)
 	return pos
 
 

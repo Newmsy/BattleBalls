@@ -252,7 +252,7 @@ func test_totem_pays_sigils_to_todays_family() -> void:
 	check(int(p.factions[fam].xp) - xp >= r.sigils, "into today's family's tree")
 
 
-func test_wyrm_only_its_glowing_scale_takes_damage() -> void:
+func test_wyrm_glowing_scale_takes_the_damage() -> void:
 	var sim := MatchSim.new(_cfg("plain", 13, "prism_wyrm"))
 	sim.balls[0].contact_damage = 0.0
 	sim.step()
@@ -267,7 +267,7 @@ func test_wyrm_only_its_glowing_scale_takes_damage() -> void:
 	var hp: float = wyrm.hp
 	sim.deal(sim.balls[0], scale, 20.0, "test") # Armour: not glowing.
 	sim.step()
-	check(absf(wyrm.hp - hp) < 0.001, "a dull scale shrugs it off")
+	check(hp - wyrm.hp < 20.0 * (1.0 - Bosses.DEFS.prism_wyrm.armour) * 2.0, "a dull scale soaks nearly all of it")
 	wyrm.state.shine = int(scale.state.order)
 	wyrm.state.next_shine = wyrm.state.clock + 99.0
 	sim.step()
@@ -361,9 +361,9 @@ func test_boss_levels_open_one_at_a_time_and_get_stronger() -> void:
 		check_eq(rules.DIFFICULTIES.size(), BossLevels.COUNT, "%s has 15 levels" % rules.KEY)
 		for d in range(1, BossLevels.COUNT):
 			check(rules.DIFFICULTIES[d].power > rules.DIFFICULTIES[d - 1].power, "%s level %d is stronger" % [rules.KEY, d + 1])
-	var curves := {"vault": [1.3, 15.4], "nest": [1.6, 12.6], "totem": [2.9, 15.4], "wyrm": [4.0, 30.8]}
+	var curves := {"vault": [1.3, 15.4], "nest": [1.6, 16.4], "totem": [2.9, 15.4], "wyrm": [4.0, 61.6]}
 	for rules in [load("res://meta/gear_vault.gd"), load("res://meta/brood_nest.gd"), load("res://meta/totem_shrine.gd"), WyrmRift]:
 		var want: Array = BossLevels.curve(curves[rules.KEY][0], curves[rules.KEY][1])
 		for d in BossLevels.COUNT:
 			check(absf(rules.DIFFICULTIES[d].power - want[d]) < 0.051, "%s level %d follows its curve" % [rules.KEY, d + 1])
-	check_eq(load("res://meta/gear_vault.gd").DIFFICULTIES[14].tier, 5, "Anvil King level 15 drops 5-star gear")
+	check_eq(load("res://meta/gear_vault.gd").DIFFICULTIES[14].tier, 4, "Anvil King level 15 drops 4-star gear (5 stars are merged only)")

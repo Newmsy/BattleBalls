@@ -45,6 +45,7 @@ func _ready() -> void:
 		"powers": [mine.powers, theirs.powers],
 		"gear": [mine.gear, theirs.gear],
 		"talents": [mine.talents, theirs.talents],
+		"tie_to": 0, # Both out together goes to the attacker: you.
 	}), ["YOU", "GHOST"])
 
 
@@ -132,6 +133,9 @@ func _result_card(got: int) -> Control:
 	var body: Array = [headline, league]
 	if rewards.get_child_count() > 0:
 		body.append(rewards)
+		# What it earned pops in once the league bar has had its moment.
+		ResultPopup.drop_in(rewards.get_children().map(func(c): return [c, null]), sfx, ResultPopup.SLIDE_SECS + .5)
+	body.append(_faction_rings())
 	var card := ResultPopup.content("Ghost Arena · vs " + str(bot.name), outcome, body, [back, next])
 	next.size_flags_stretch_ratio = 1.5
 	return card

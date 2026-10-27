@@ -21,24 +21,24 @@ const RUNS_PER_DAY := 3
 const DAY_SECONDS := 86400
 const ZONE := 1 ## Beating this zone's boss (0-based) opens it.
 ## The 15 levels (meta/boss_levels.gd): the eggs a win pays and the boss's
-## power, BossLevels.curve(1.6, 12.6). Check with tools/boss_difficulty.gd
+## power, BossLevels.curve(1.6, 16.4). Check with tools/boss_difficulty.gd
 ## --boss=brood_queen --tier=5.
 const DIFFICULTIES := [
 	{"name": "Level 1", "orbs": 1, "power": 1.6},
 	{"name": "Level 2", "orbs": 1, "power": 2.1},
-	{"name": "Level 3", "orbs": 1, "power": 2.7},
-	{"name": "Level 4", "orbs": 2, "power": 3.5},
-	{"name": "Level 5", "orbs": 2, "power": 4.5},
-	{"name": "Level 6", "orbs": 2, "power": 5.8},
-	{"name": "Level 7", "orbs": 3, "power": 7.5},
-	{"name": "Level 8", "orbs": 3, "power": 9.7},
-	{"name": "Level 9", "orbs": 3, "power": 12.6},
-	{"name": "Level 10", "orbs": 4, "power": 14.1},
-	{"name": "Level 11", "orbs": 4, "power": 15.8},
-	{"name": "Level 12", "orbs": 4, "power": 17.7},
-	{"name": "Level 13", "orbs": 5, "power": 19.8},
-	{"name": "Level 14", "orbs": 5, "power": 22.2},
-	{"name": "Level 15", "orbs": 5, "power": 24.9},
+	{"name": "Level 3", "orbs": 1, "power": 2.9},
+	{"name": "Level 4", "orbs": 2, "power": 3.8},
+	{"name": "Level 5", "orbs": 2, "power": 5.1},
+	{"name": "Level 6", "orbs": 2, "power": 6.9},
+	{"name": "Level 7", "orbs": 3, "power": 9.2},
+	{"name": "Level 8", "orbs": 3, "power": 12.3},
+	{"name": "Level 9", "orbs": 3, "power": 16.4},
+	{"name": "Level 10", "orbs": 4, "power": 18.4},
+	{"name": "Level 11", "orbs": 4, "power": 20.6},
+	{"name": "Level 12", "orbs": 4, "power": 23.0},
+	{"name": "Level 13", "orbs": 5, "power": 25.8},
+	{"name": "Level 14", "orbs": 5, "power": 28.9},
+	{"name": "Level 15", "orbs": 5, "power": 32.4},
 ]
 const EGGS_PER_BONUS := 3 ## Every this many eggs cracked adds an orb...
 const BONUS_MAX := 2 ## ...up to this many.

@@ -1,6 +1,6 @@
 ## Family edges in menus (design/type-advantage.md section 6): green ▲ / red ▼
 ## badges for who has the edge, the "Strong vs / Weak vs" line on the critter
-## info card and the three-triangles chart popup it opens. Reads the chart in
+## info card and the nine-family chart popup it opens. Reads the chart in
 ## sim/families.gd; everything here is drawn once and never redraws.
 ## Render/UI only.
 extends RefCounted
@@ -12,6 +12,11 @@ const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 
 const LAYER := 91 ## Over the critter info card it opens from.
+
+## The chart's wheel: Fire in the middle (it has the most matchups), the rest
+## round it clockwise from the top, ordered so most arrows join neighbours.
+const HUB := "fire"
+const RING := ["nature", "frost", "sea", "tech", "cosmic", "spooky", "toybox", "sweet"]
 
 static var _chart: CanvasLayer
 
@@ -125,11 +130,11 @@ static func matchup_line(critter: String) -> Control:
 	var row := Kit.hbox(6, [], BoxContainer.ALIGNMENT_CENTER)
 	row.add_child(Kit.caption("Strong vs", Kit.GOOD))
 	for e in list(fam):
-		row.add_child(_sized(FamilyIcon.make(e[0], 38 if e[1] == 2 else 28)))
+		row.add_child(_sized(FamilyIcon.make(e[0], 34 if e[1] == 2 else 28)))
 	row.add_child(Kit.spacer())
 	row.add_child(Kit.caption("Weak vs", Kit.BAD))
 	for e in list(fam, true):
-		row.add_child(_sized(FamilyIcon.make(e[0], 38 if e[1] == 2 else 28)))
+		row.add_child(_sized(FamilyIcon.make(e[0], 34 if e[1] == 2 else 28)))
 	row.add_child(Kit.glyph("info", 26, Kit.MUTED))
 	var b := Kit.card_button(row, func(): open_chart(row, fam), Kit.LINE, Kit.PANEL, 22, 10)
 	b.set_meta("mark", "edge_line")
@@ -150,9 +155,9 @@ static func _sized(c: Control) -> Control:
 	return c
 
 
-## The chart over everything: three rock-paper-scissors triangles, each
-## family hitting the next one round its triangle harder. `focus` (a family
-## id) lights its triangle.
+## The chart over everything: a wheel of the nine families with an arrow from
+## each family to every family it has type advantage over. `focus` (a family
+## id) lights its arrows and lists its strong and weak matchups under it.
 static func open_chart(from: Node, focus := "") -> void:
 	if from == null or not from.is_inside_tree():
 		return
@@ -175,29 +180,19 @@ static func open_chart(from: Node, focus := "") -> void:
 		dim.add_theme_stylebox_override(st, dim_style)
 	dim.pressed.connect(close_chart)
 	root.add_child(dim)
-	var bonus: Array = Families.EDGE_BONUS
 	var ok := Kit.button("Got it", close_chart, "go", 24, 72)
-	var why := Kit.label("Each family hits the next one round its triangle for +%d%%. Every other matchup is even." \
-		% roundi(bonus[2] * 100.0), 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+	var why := Kit.label("Arrows point at the weaker family: +%d%% damage that way, -%d%% back. Every other matchup is even." \
+		% [roundi(Families.EDGE_BONUS * 100.0), roundi(Families.EDGE_BONUS * 100.0)], 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	why.custom_minimum_size.x = width - 44.0 # Wrapped text measures before layout.
-	var rows := [Kit.label("Family edges", 32), why]
-	var lines: Dictionary = load("res://game/family_edges.gd").LINES
-	for tri in Families.TRIANGLES:
-		var fams: Array = tri.families
-		var t := _Tri.new()
-		t.families = fams
-		t.custom_minimum_size = Vector2(200, 184)
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var words := [Kit.label(tri.name, 22, Kit.FG)]
-		for i in 3:
-			var key := "%s>%s" % [fams[i], fams[(i + 1) % 3]]
-			words.append(Kit.label(str(lines.get(key, key)).trim_suffix("!"), 20, FamilyIcon.color(fams[i]), HORIZONTAL_ALIGNMENT_LEFT, true))
-		var text := Kit.vbox(6, words)
-		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text.alignment = BoxContainer.ALIGNMENT_CENTER
-		var row: Control = Kit.hbox(10, [t, text])
-		if focus in fams:
-			row = Kit.panel(row, Kit.box(Color(Kit.ACCENT, .16), Color("ffd166"), 18, 2, 4))
+	var rows := [Kit.label("Type advantage", 32), why]
+	var wheel := _Wheel.new()
+	wheel.focus = focus
+	wheel.custom_minimum_size = Vector2(width - 44.0, minf(width - 44.0, view.y * .5))
+	wheel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rows.append(wheel)
+	if focus != "" and Families.EDGES.has(focus):
+		var row := Kit.hbox(8, [_sized(FamilyIcon.make(focus, 40)), _sized(Kit.label(str(Families.info(focus).name), 22, FamilyIcon.color(focus))), Kit.spacer(),
+			_icons(list(focus).map(func(e): return e[0]), 34, 1), _icons(list(focus, true).map(func(e): return e[0]), 34, -1)], BoxContainer.ALIGNMENT_CENTER)
 		rows.append(row)
 	rows.append(ok)
 	var body := Kit.vbox(8, rows)
@@ -246,26 +241,44 @@ class _Badge extends Control:
 		load("res://game/ui/family_edge.gd").draw_badge(self, Rect2(Vector2.ZERO, size), score)
 
 
-## One triangle: its three families with an arrow from each to the one it
-## beats.
-class _Tri extends Control:
-	var families: Array = []
+## A green ▲ (or red ▼ for `dir` -1) and then the families' icons, for a chart tile.
+static func _icons(fams: Array, side: float, dir: int) -> Control:
+	var mark := _Badge.new()
+	mark.score = dir
+	mark.custom_minimum_size = Vector2(badge_width(dir, side * .8), side * .8)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := Kit.hbox(4, [_sized(mark)], BoxContainer.ALIGNMENT_CENTER)
+	for f in fams:
+		row.add_child(_sized(FamilyIcon.make(f, side)))
+	return row
+
+
+## The wheel: Fire in the middle, the other eight round it, and an arrow in
+## the attacker's colour from each family to every family it beats.
+class _Wheel extends Control:
+	var focus := ""
 
 	func _draw() -> void:
-		var icon := minf(size.x, size.y) * .32
-		var c := size / 2.0 + Vector2(0, size.y * .08)
-		var rad := minf(size.x, size.y) * .4
-		var pts := []
-		for i in 3:
-			var a := -PI / 2.0 + TAU * i / 3.0
-			pts.append(c + Vector2(cos(a), sin(a)) * rad)
-		for i in 3:
-			var a: Vector2 = pts[i]
-			var b: Vector2 = pts[(i + 1) % 3]
-			var d := (b - a).normalized()
-			var tip := b - d * icon * .62
-			Dot.pline(self, PackedVector2Array([a + d * icon * .6, tip - d * 9.0]), Kit.GOOD, 5.0, true)
-			var n := d.orthogonal() * 8.0
-			Dot.poly(self, PackedVector2Array([tip, tip - d * 14.0 + n, tip - d * 14.0 - n]), Kit.GOOD)
-		for i in 3:
-			FamilyIcon.draw(self, families[i], pts[i], icon)
+		var c := size / 2.0
+		var rad := minf(size.x, size.y) * .5 - minf(size.x, size.y) * .09
+		var icon := minf(size.x, size.y) * .13
+		var at := {HUB: c}
+		for i in RING.size():
+			var ang := -PI / 2.0 + TAU * i / RING.size()
+			at[RING[i]] = c + Vector2(cos(ang), sin(ang)) * rad
+		for a in Families.EDGES:
+			for t in Families.EDGES[a]:
+				var lit: bool = focus == "" or focus == a or focus == t
+				_arrow(at[a], at[t], icon, Color(FamilyIcon.color(a), 1.0 if lit else .14))
+		for f in at:
+			if f == focus:
+				Dot.circle(self, at[f], icon * .6, Color("ffd166"))
+			FamilyIcon.draw(self, f, at[f], icon * (1.25 if f == HUB else 1.0))
+
+	func _arrow(a: Vector2, b: Vector2, icon: float, col: Color) -> void:
+		var d := (b - a).normalized()
+		var from := a + d * icon * .62
+		var tip := b - d * icon * .66
+		Dot.pline(self, PackedVector2Array([from, tip - d * icon * .2]), col, maxf(3.0, icon * .07), true)
+		var n := d.orthogonal() * icon * .17
+		Dot.poly(self, PackedVector2Array([tip, tip - d * icon * .34 + n, tip - d * icon * .34 - n]), col)

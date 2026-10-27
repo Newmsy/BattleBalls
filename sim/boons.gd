@@ -4,11 +4,15 @@
 ## progression. Each one is checked by tools/boon_balance.gd: holding it at
 ## equal power must win 52-62% (a tilt, BALANCE.md rule 2), never more.
 ##
+## Stacking: a run may hold the same boon more than once, at any rarities.
+## Copies add their numbers (two +6% HP boons are +12%; 9% and 14% burns are a
+## 23% burn). Legendary boons are one of a kind. See stacked().
+##
 ## Fields (all optional; several boons of the same kind add up):
 ##   hp, damage, speed      multipliers on base stats (damage scales contact
-##                          damage and every *_damage stat)
+##                          damage and every *_damage stat); their percentages
+##                          add, so +6% and +6% are +12%
 ##   bounce_heal            HP healed on every wall bounce
-##   overtime_shield        shield HP granted when overtime starts
 ##   first_strike           extra damage on your first contact hit of a fight
 ##   bank_bonus             your next contact hit after a wall bounce deals
 ##                          this much more (0.3 = +30%)
@@ -23,7 +27,8 @@
 ##   b_storm, b_fling, size  Storm Heart and Titan Belt (see MatchSim)
 ##   b_*                    the other fight-shaping boons (MECHANICS): bump
 ##                          burn, chill, pinball slams, payback, zap stuns,
-##                          wall-bounce sparks and mines, Second Wind, Fever
+##                          wall-bounce sparks and mines, Second Wind, Fever,
+##                          Bubble (a shield of b_bubble x max HP at the start)
 ##
 ## Rarity: an offered boon rolls a rarity (roll_rarity). "id" is Common;
 ## "id:rare" and "id:epic" are the same boon with bigger numbers (SCALE).
@@ -56,11 +61,12 @@ const DEFS := {
 		"icon": "heart",
 		"bounce_heal": 0.4,
 	},
+	# Was Overtime Bubble: most fights end before overtime, so it shields from the start.
 	"overtime_bubble": {
-		"name": "Overtime Bubble",
-		"text": "20 HP shield in overtime.",
+		"name": "Bubble",
+		"text": "Start every fight with a shield worth {n}% of your max HP.",
 		"icon": "bubble",
-		"overtime_shield": 20.0,
+		"b_bubble": 0.06,
 	},
 	"opening_bite": {
 		"name": "Opening Bite",
@@ -129,8 +135,8 @@ const DEFS := {
 		"b_wind": 0.06,
 	},
 	"fever": {
-		"name": "Overtime Fever",
-		"text": "In overtime, grow big and bump {n}% harder.",
+		"name": "Fever",
+		"text": "After your 3rd bump in a fight, grow big and bump {n}% harder.",
 		"icon": "thermo",
 		"b_fever": 0.16,
 	},
@@ -225,12 +231,14 @@ static var GENERAL: Array = ALL.filter(func(id): return not DEFS[id].has("for"))
 ## Fight-shaping boon fields (b_*), read by MatchSim. Damage ones are shares
 ## of the holder's bump damage, so they keep up with tier and power.
 const MECHANICS := ["b_burn", "b_chill", "b_bolt", "b_pinball", "b_mine", "b_payback", "b_zap",
-	"b_wind", "b_fever", "b_storm", "b_fling"]
+	"b_wind", "b_fever", "b_storm", "b_fling", "b_bubble"]
+## Stacked copies stop adding at these (a slow or stun past them stops the fight being one).
+const CAPS := {"b_chill": 0.5, "contact_armor": 0.5}
 
 ## Runtime boon fields the sim reads straight off the def (0 = off), MECHANICS included.
-const RUNTIME := ["bounce_heal", "overtime_shield", "first_strike", "bank_bonus", "contact_armor",
+const RUNTIME := ["bounce_heal", "first_strike", "bank_bonus", "contact_armor",
 	"boon_revive", "thorns", "lifesteal", "overcharge",
-	"b_burn", "b_chill", "b_bolt", "b_pinball", "b_mine", "b_payback", "b_zap", "b_wind", "b_fever", "b_storm", "b_fling"]
+	"b_burn", "b_chill", "b_bolt", "b_pinball", "b_mine", "b_payback", "b_zap", "b_wind", "b_fever", "b_storm", "b_fling", "b_bubble"]
 
 static var _cache := {}
 
@@ -256,7 +264,7 @@ static func get_def(id: String) -> Dictionary:
 		for key in ["hp", "damage", "speed"]:
 			if def.has(key):
 				def[key] = 1.0 + (def[key] - 1.0) * k
-		for key in ["bounce_heal", "overtime_shield", "first_strike", "bank_bonus", "contact_armor", "heal_ratio", "beam_life"] + MECHANICS:
+		for key in ["bounce_heal", "first_strike", "bank_bonus", "contact_armor", "heal_ratio", "beam_life"] + MECHANICS:
 			if def.has(key):
 				def[key] = def[key] * k
 		if not "{n}" in def.text:
@@ -313,8 +321,6 @@ static func describe(def: Dictionary) -> String:
 		bits.append("+%s%% damage after a wall bounce" % _num(def.bank_bonus * 100.0))
 	if def.has("contact_armor"):
 		bits.append("-%s%% bump damage" % _num(def.contact_armor * 100.0))
-	if def.has("overtime_shield"):
-		bits.append("%s HP shield in overtime" % _num(def.overtime_shield))
 	if def.has("heal_ratio"):
 		bits.append("+%s%% lifesteal" % _num(def.heal_ratio * 100.0))
 	if def.has("beam_max"):
@@ -341,24 +347,21 @@ static func applies_to(id: String, ability: String) -> bool:
 	return get_def(id).get("for", ability) == ability
 
 
-## A copy of a ball def with every boon in `ids` applied. Multipliers stack
-## multiplicatively, everything else adds.
+## A copy of a ball def with every boon in `ids` applied. Stat percentages
+## add (+6% and +6% HP is +12%), as does everything else, up to CAPS.
 static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 	var out := def.duplicate()
 	for key in RUNTIME: # Gear (sim/gear.gd) may have set some already.
 		out[key] = float(def.get(key, 0.0))
+	var stat := {"hp": 1.0, "speed": 1.0, "damage": 1.0}
 	for id in ids:
 		var boon := get_def(id)
 		if not applies_to(id, str(def.get("ability", ""))):
 			continue
-		out.hp *= boon.get("hp", 1.0)
+		for key in stat:
+			stat[key] += boon.get(key, 1.0) - 1.0
 		if boon.has("size"):
 			out.radius *= boon.size
-		out.speed *= boon.get("speed", 1.0)
-		var damage: float = boon.get("damage", 1.0)
-		for key in out:
-			if String(key).ends_with("_damage"):
-				out[key] *= damage
 		for key in RUNTIME:
 			out[key] += boon.get(key, 0.0)
 		for key in ["heal_ratio", "beam_life"]:
@@ -366,5 +369,39 @@ static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 				out[key] += boon.get(key, 0.0)
 		if out.has("beam_max"):
 			out.beam_max += int(boon.get("beam_max", 0))
-	out.contact_armor = minf(out.contact_armor, 0.5)
+	out.hp *= maxf(0.1, stat.hp)
+	out.speed *= maxf(0.1, stat.speed)
+	for key in out:
+		if String(key).ends_with("_damage"):
+			out[key] *= maxf(0.1, stat.damage)
+	for key in CAPS:
+		out[key] = minf(out[key], CAPS[key])
 	return out
+
+
+## One badge's worth of a stack: the def of `ids` (copies of one boon, any
+## rarities) with their numbers added, its text rewritten to the totals, and
+## `count` and `rarity` (the best copy's) filled in.
+static func stacked(ids: Array) -> Dictionary:
+	var best: String = ids[0]
+	for id in ids:
+		if RARITIES.find(rarity_of(id)) > RARITIES.find(rarity_of(best)):
+			best = id
+	var def: Dictionary = get_def(best).duplicate()
+	def.count = ids.size()
+	if ids.size() == 1 or GLITCHES.has(best):
+		return def
+	var base: Dictionary = DEFS[base_of(best)]
+	for key in ["hp", "damage", "speed"]:
+		if def.has(key):
+			def[key] = 1.0 + ids.reduce(func(t, id): return t + get_def(id)[key] - 1.0, 0.0)
+	for key in ["bounce_heal", "first_strike", "bank_bonus", "contact_armor", "heal_ratio", "beam_life", "beam_max"] + MECHANICS:
+		if def.has(key):
+			def[key] = ids.reduce(func(t, id): return t + get_def(id)[key], 0.0)
+	for key in CAPS:
+		if def.has(key):
+			def[key] = minf(def[key], CAPS[key])
+	if def.has("beam_max"):
+		def.beam_max = int(def.beam_max)
+	def.text = _fill(def.merged({"text": base.text}, true)) if "{n}" in base.text else describe(def)
+	return def

@@ -17,7 +17,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `boss_difficulty.gd` (farming boss win rates by player and boss power), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound and `tools/music/remix_crypto.py` remixes "Crypto" by Kevin MacLeod (CC-BY 4.0, see CREDITS.md) into the victory music in `game/audio/` (it reuses the drum and synth voices in `tools/music/make_music.py`); `tools/music/loop_track.py` loops a finished song seamlessly, on the beat grid and time-stretched if asked (menu, fight and overtime tracks). |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `boss_difficulty.gd` (farming boss win rates by player and boss power), `boss_matrix.gd` (every critter vs every boss and level, as CSV, with or without talents), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound and `tools/music/remix_crypto.py` remixes "Crypto" by Kevin MacLeod (CC-BY 4.0, see CREDITS.md) into the victory music in `game/audio/` (it reuses the drum and synth voices in `tools/music/make_music.py`); `tools/music/loop_track.py` loops a finished song seamlessly, on the beat grid and time-stretched if asked (menu, fight and overtime tracks). |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -142,26 +142,27 @@ being solvable or fair.
 ## Bounce Run
 
 A daily roguelite (`sim/bounce_run.gd`, `sim/boons.gd`, `game/bounce_run.gd`;
-design in the project's `design/bounce-run.md`). Draft 3 of 6 critters (each
-card shows its ability), pick 3 of 6 starting boons for the whole trio, then
-climb 10 floors and pick 1 of 3 more boons after every win. A loss knocks that critter out; lose all three
-and the run ends. Each floor's foe carries as many boons as you can hold there,
-and its power follows `FOE_POWER`: well under yours on the first floors, over
-it at the top, so most runs end around floor 7 and a full clear is rare. The run comes from the UTC day (#1 is
-2026-10-14) and is saved after every step to `user://bounce_run.cfg`.
+design in the project's `design/bounce-run.md`). Draft 3 of 6 critters, pick 3
+of 6 starting boons and a relic, then climb a 25-floor branching map (fights,
+elites, events, shops, Charge Pads, a chest) to the Champion. A loss knocks
+that critter out; lose all three and the run ends. Every run is a fresh map;
+the day's best floor goes on the leaderboard and opens a chest the next day
+(`meta/bounce_chest.gd`, a chest every 5 floors). Open it from the Daily board
+or with `?mode=bouncerun`.
 
-The first run of the day is ranked and posts to the daily leaderboard
-(`game/online/bounce_board.gd`, `supabase/migrations/*_bounce_run.sql`);
-offline it plays the same and posts later. Open it from the Play tab or with
-`?mode=bouncerun` (`&day=3` plays another day's run, unranked).
+Both sides fight at `BounceRun.tier_at` (a tier every 5 floors) with the stats
+of their rarity and tier (`sim/power.gd`), so your Legendary stays a
+Legendary. Foes get rarer up the climb (`FOE_RARITY`), carry no boons, and
+take the floor's edge (`FOE_POWER`) on top. Boons roll a seeded rarity: `id`
+is Common, `id:rare` and `id:epic` scale its numbers, Legendary boons are
+their own ids. The same boon can be taken again and stacks: the copies'
+numbers add (`Boons.stacked`), Legendaries are one of a kind.
 
 Boons are balanced by `tools/boon_balance.gd`: each one held at equal power
-must win 52-62%, and one over 65% is a miss to tune. `--runs=400` plays whole
-runs with random picks and aims and reports where they end (`--runs-from=K`
-splits the runs over processes); retune `FOE_POWER` if the median moves off
-floor 7.
-
-Your trio goes up a tier every 2 floors (`BounceRun.tier_at`, T5 on the top two). Boons roll a seeded rarity (`sim/boons.gd`): `id` is Common, `id:rare` and `id:epic` scale its numbers, and Legendary boons are their own ids with effects of their own.
+should win 52-62%. `--runs=400` (add `--greedy` for a player who drafts the
+rarest critters) plays whole runs and reports where they end
+(`--runs-from=K` splits the runs over processes). As of rules 13 a greedy
+player clears about 24% of runs and a random one ends around floor 15.
 ## Ghost Arena (PvP)
 
 Async PvP from design/pvp.md in the project files. `sim/relay.gd` runs a
@@ -360,9 +361,11 @@ one of the next tier, 1 to 5 stars, for coins (`Profile.merge_gear`,
 `merge_all_gear`; costs in `meta/economy.gd`). A piece's stats come from its
 type and tier alone, and every piece is worth the same power at a tier
 (+1.75% at 1 star up to +5% at 5), so three 5-star pieces are the +15%
-best-in-slot budget. Gear drops from the Gear Vault (`meta/gear_vault.gd`, a
-daily mode after the Zone 1 boss with a slot rotation by weekday), campaign
-wins, Spire boss floors and the Glow Pass free track.
+best-in-slot budget. Gear drops from the Anvil King (`meta/gear_vault.gd`, a
+daily boss after the Zone 1 boss with a slot rotation by weekday), campaign
+wins, Spire boss floors, the Glow Pass free track, the Bazaar, Bounce Run
+chests and weekly quests. Campaign drops top out at 3 stars and are mostly 1-2
+(`Economy.gear_tier`); no source drops 5 stars, which only come from merging.
 
 ## Collection battles: owned critters fight as owned
 
@@ -464,6 +467,35 @@ Players only meet on the same `sim_version` (`sim/sim_version.gd`, a hash of
 `sim/`; exports carry it in `sim_version.txt`). The web build's `?probe=1` and
 `tools/probe.gd` print a hash over a varied fight set; the smoke test fails if
 they differ, which means something in `sim/` behaves differently per platform.
+
+## Store apps (Google Play, App Store)
+
+Device-specific things go through one provider per build
+(`game/platform/platform.gd`, `Platform.get_current()`): `web_platform.gd`,
+`android_platform.gd`, `ios_platform.gd`, and the base class (desktop and tests,
+does nothing). It covers haptics (`haptic("hit")`, fight buzzes from sim events
+in `fight_haptics.gd`, Settings > Vibration), sharing (clipboard until a share
+plugin lands), safe areas (the shell keeps its top bar and tabs clear of the
+notch and home bar), the store (`make_store`, see the shop section), and stubs
+for local notifications and native Google / Apple sign-in. Screens never test
+`OS.has_feature` for these themselves. Android's Back does what a left-edge
+swipe does (`game/ui/touch_input.gd`); twice at Home leaves the game.
+
+**Android.** `.github/workflows/android.yml` builds a signed `.aab` from main
+(and from PRs that touch the Android build) with `tools/ci/export_android.sh`:
+Godot 4.3's Gradle template, patched to target SDK 36 (Play's floor since
+31 Aug 2026), plus the Google Play Billing plugin 3.3 in
+`addons/GodotGooglePlayBilling` (Billing Library 9). Download it from the run's
+Artifacts. Secrets: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS`; with `PLAY_SERVICE_ACCOUNT_JSON` too, main uploads each
+build to the internal testing track as a draft. Without the keystore it signs
+with a throwaway key Play refuses. Package name `com.newms.battleballs`.
+Godot 4.3's Android libraries are 4 KB-aligned; Play blocks updates without
+16 KB page support from 1 Feb 2027, so the engine has to move to 4.5+ before then.
+
+**iOS.** The `iOS` preset exports an Xcode project (bundle id as Android, team
+id still empty). Needs a Mac with Xcode, the Apple developer account and the
+InAppStore plugin from godot-ios-plugins in `ios/plugins/`.
 
 ## Rules for changes
 

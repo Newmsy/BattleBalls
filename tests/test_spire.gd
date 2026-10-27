@@ -4,6 +4,7 @@ const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const Relay := preload("res://sim/relay.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Families := preload("res://sim/families.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 
@@ -52,6 +53,11 @@ func test_floor_shapes() -> void:
 			check_eq(f.enemies.size(), f.lineup, "enemies on floor %d" % n)
 		for e in f.enemies:
 			check(BallDefs.PLAYABLE.has(e.id), "enemies are playable critters")
+			check_eq(Families.of(e.id), f.family, "floor %d foes share its family" % n)
+			check_eq(e.tier, Spire.tier_at(n), "floor %d foes' tier" % n)
+		if n > 1:
+			check(f.family != Spire.floor_def(3, n - 1).family, "each floor moves to another family")
+	check_eq([Spire.tier_at(1), Spire.tier_at(10), Spire.tier_at(11), Spire.tier_at(50)], [1, 1, 2, 5], "foes tier up every 10 floors")
 	check(Spire.power_at(50) > 4.0 * Spire.power_at(1), "the top is much harder than the bottom")
 
 
@@ -111,6 +117,47 @@ func test_a_loss_spends_stamina_and_clears_nothing() -> void:
 	check_eq(c.cleared, 0)
 	check_eq(c.stamina("vampire"), SpireClimb.STAMINA - 1)
 	check(c.unclaimed.is_empty(), "no reward for a loss")
+
+
+func test_balls_that_came_out_earn_xp() -> void:
+	var c = _climb()
+	c.cleared = 9 # Floor 10: a boss.
+	var picks := [{"id": "vampire", "power": 1.0}, {"id": "laser", "power": 1.0}]
+	c.begin(picks)
+	var relay := _relay_for(c, picks)
+	relay.winner = 0
+	var r: Dictionary = c.settle(relay, 1)
+	check_eq(r.xp, Spire.xp(10, true))
+	check_eq(c.xp_owed, {"vampire": r.xp}, "only the ball that came out earns XP")
+	check(Spire.xp(10, true) > 2 * Spire.xp(9, true) - 10, "boss floors pay double")
+	check(Spire.xp(30, true) > Spire.xp(3, true), "higher floors pay more")
+	check(Spire.xp(30, false) < Spire.xp(30, true), "a loss pays less")
+	c.roll_week(MONDAY + 7 * 86400)
+	check_eq(c.xp_owed, {"vampire": r.xp}, "owed XP survives the weekly reset")
+	var p = UiProfile.sample()
+	var b: Dictionary = p.best("vampire")
+	var before := [int(b.level), int(b.get("xp", 0))]
+	SpireScreen._collect(FakeShell.new(p), c)
+	check(c.xp_owed.is_empty(), "XP is added once")
+	check([int(b.level), int(b.get("xp", 0))] != before, "and lands on the critter")
+
+
+class FakeShell:
+	var profile
+	func _init(p) -> void:
+		profile = p
+	func toast(_t: String, _id := "") -> void:
+		pass
+
+
+func test_suggest_prefers_type_advantage() -> void:
+	# Sea beats Fire; Frost beats Sea.
+	var list := [{"id": "bubbles", "power": 3.0, "stamina": 3}, {"id": "frost", "power": 2.0, "stamina": 3},
+		{"id": "laser", "power": 1.9, "stamina": 3}]
+	var spec := {"floor": 6, "lineup": 1, "enemies": [{"id": "bubbles"}]}
+	check_eq(SpireScreen.suggest(list, spec), ["frost"], "the critter with the edge on the floor's foe")
+	spec.enemies = [{"id": "frost"}]
+	check_eq(SpireScreen.suggest(list, spec), ["laser"], "never into a bad matchup when a neutral one will do")
 
 
 func test_giving_up_and_closing_the_app() -> void:

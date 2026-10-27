@@ -13,7 +13,7 @@ const CRITTER := {
 	"status": "live",
 	"color": "8ac926",
 	"vibe": "A sunny seedling that plants something everywhere it goes.",
-	"description": "Sprout. Every wall bounce plants a seed that grows into a small pillar for 4s (up to 3); higher tiers keep pillars until a foe hits them.",
+	"description": "Sprout. Every wall bounce plants a seed out in the arena that grows into a pillar for 4s (up to 3): foes that bump it get stung, and Sprout bouncing off its own pillars is slung faster, pinball style. Higher tiers keep pillars until a foe hits them.",
 	"stats": {"hp": 130.0, "radius": 64.0, "speed": 400.0, "contact_damage": 18.5},
 	"ability": [{"on": "wall", "do": "seed"}],
 	"params": {
@@ -21,17 +21,18 @@ const CRITTER := {
 		"seed_life": 4.0,
 		"seed_grow": 0.5, ## Seconds before a seed pillar is solid.
 		"seed_max": 3,
-		"seed_damage": 0.0, ## To foes that bounce off a pillar.
+		"seed_damage": 3.0, ## To foes that bounce off a pillar.
+		"seed_sling": 1.0, ## Seconds of speed boost when Sprout bounces off its own pillar.
 		"seed_stay": 0, ## Pillars that stand until a foe bounces off them instead.
 		"seed_shots": 0, ## Seeds a wilting pillar scatters at the foe.
 		"seed_shot_damage": 4.0,
 	},
 	"tiers": [
-		{"text": "Bounces plant a pillar for 4s, max 3", "card": "Wall bounces plant seeds that grow into short-lived pillars.", "now": "Bounces plant a pillar for {seed_life}s, max {seed_max}"},
-		{"text": "Pillars last 4 → 5s · 1 stays till hit", "card": "Wall bounces plant seeds that grow into pillars; some stay until a foe hits them.", "seed_life": 5.0, "seed_stay": 1},
-		{"text": "+ Bouncing off a pillar deals {seed_damage}", "card": "Wall bounces grow pillars that hurt foes bouncing off them; some stay until hit.", "now": "Bounces plant a pillar ({seed_damage} on bump) for {seed_life}s, max {seed_max}", "seed_damage": 4.0},
+		{"text": "Bounces plant a pillar (3 on bump) for 4s, max 3", "card": "Wall bounces plant pillars in the arena that sting foes and fling Sprout faster.", "now": "Bounces plant a pillar ({seed_damage} on bump) for {seed_life}s, max {seed_max}"},
+		{"text": "Pillars last 4 → 5s · 1 stays till hit", "card": "Wall bounces plant stinging pillars that sling Sprout; one stays until a foe hits it.", "seed_life": 5.0, "seed_stay": 1},
+		{"text": "Max pillars 3 → 4 · sling lasts longer", "card": "Wall bounces grow a bigger garden of stinging pillars that fling Sprout; one stays until hit.", "seed_max": 4, "seed_sling": 1.5},
 		{"text": "Pillar size +{+seed_radius}% · 2 stay till hit", "seed_radius": 40.0, "seed_stay": 2},
-		{"text": "All 3 stay till hit · fall into 3 seeds ({seed_damage} dmg)", "card": "Wall bounces grow pillars that hurt foes and stay until hit, then fall into stinging seeds.", "now": "Bounces plant pillars ({seed_damage} on bump) till hit; fall to seeds", "seed_shots": 3, "seed_stay": 3, "ability": [{"on": "always", "do": "seed_wilt"}]},
+		{"text": "All 4 stay till hit · fall into 3 seeds ({seed_shot_damage} dmg)", "card": "Stinging pillars fling Sprout and stay until a foe hits them, then burst into seeds.", "now": "Bounces plant pillars ({seed_damage} on bump) till hit; fall to seeds", "seed_shots": 3, "seed_stay": 4, "ability": [{"on": "always", "do": "seed_wilt"}]},
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["sapling"], "front": ["frost_freckles"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.35},

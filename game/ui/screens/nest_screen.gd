@@ -30,11 +30,13 @@ static func build(shell, params: Dictionary) -> Control:
 
 	ResultPopup.boss_result(shell, params)
 
+	var level := BossLevelGrid.picked(p, BroodNest.KEY, params)
+	root.add_child(BossCard.prizes(shell, "Level %d prizes" % (level + 1), NEST, [BossCard.prize("egg", "%d+" % BroodNest.DIFFICULTIES[level].orbs)],
+		BroodNest.WIN_XP + level, "nest"))
 	root.add_child(BossLevelGrid.hero(shell, BroodNest.BOSS, NEST))
 	var fighter: String = Campaign.fighter_for(p)
 	root.add_child(BossCard.fighter(shell, fighter, "nest"))
 
-	var level := BossLevelGrid.picked(p, BroodNest.KEY, params)
 	root.add_child(BossLevelGrid.grid(shell, p, BroodNest.KEY, level, NEST, "nest"))
 	root.add_child(_card(shell, p, level, fighter, left))
 	return root
@@ -42,7 +44,7 @@ static func build(shell, params: Dictionary) -> Control:
 
 static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	return BossCard.fight(shell, {"boss": BroodNest.BOSS, "accent": NEST, "rec": BroodNest.enemy_rating(d), "mine": p.power_of(fighter), "foe": "She's",
-		"title": "Lv %d" % (d + 1), "pay": [Kit.amount("orb", "%d+" % BroodNest.DIFFICULTIES[d].orbs, 20)],
+		"title": "Level %d" % (d + 1),
 		"cost": BroodNest.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, d, fighter), "mark": "nest_go"})
 
 

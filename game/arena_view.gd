@@ -484,12 +484,16 @@ func consume_events(events: Array[Dictionary]) -> void:
 						_particles.append({"pos": e.pos + dir * 20.0, "vel": dir * _fx_rng.randf_range(200.0, 520.0) + Vector2(0, -150.0), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.8), "col": Color("bff8ff") if q % 3 else Color.WHITE, "size": _fx_rng.randf_range(3.0, 6.0)})
 					_shake = maxf(_shake, 10.0 * A11y.motion())
 					_add_popup(e.pos + Vector2(-50, -110), "SPLASH!", BattleFx.WATER, 1.2)
+				elif pk == "core_nova": # A power core's shockwave, for critters with nothing to fire.
+					_novas.append({"pos": e.pos, "radius": e.radius, "color": CORE, "age": 0.0})
+					_rings.append({"pos": e.pos, "radius": e.radius, "color": Color("fff3b0"), "age": 0.0})
+					_burst(e.pos, 14, [CORE, Color("fff3b0"), Color.WHITE], Vector2(220.0, 520.0))
 				elif pk == "nova":
 					var owner_type: String = sim.balls[e.ball].type_id if e.get("ball", -1) >= 0 and e.ball < sim.balls.size() else ""
 					_novas.append({"pos": e.pos, "radius": e.radius, "color": Color("c58bff") if owner_type == "blackhole" else Color("ffd6a5"), "age": 0.0})
 				else:
 					_rings.append({"pos": e.pos, "radius": e.radius, "color": RING_COLORS.get(e.get("kind", "boom"), BURST), "age": 0.0})
-				if e.type == "boom" or e.get("kind", "") in ["nova", "fire", "bigzap", "drum", "hammer", "quake"]:
+				if e.type == "boom" or e.get("kind", "") in ["nova", "core_nova", "fire", "bigzap", "drum", "hammer", "quake"]:
 					_shake = maxf(_shake, 8.0 * A11y.motion())
 					_spawn_particles(e.pos, 14)
 			"reflect":
@@ -743,6 +747,11 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"bumper":
 				_bumper_flash = BUMPER_FLASH_LIFE
 				_spawn_particles(e.pos, 6)
+			"sling": # Sprout slung off its own pillar: a burst of leaves and a ring.
+				var leaf: Color = PIECE_COLORS.seed[1]
+				_rings.append({"pos": e.pos, "radius": 70.0, "color": leaf, "age": 0.0})
+				_burst(e.pos, 8, [leaf, PIECE_COLORS.seed[0], Color("fff3b0")], Vector2(120.0, 320.0))
+				_squash[e.ball] = maxf(_squash[e.ball], 0.25)
 			"lava":
 				_spawn_particles(e.pos, 3)
 				_rings.append({"pos": e.pos, "radius": 40.0, "color": LAVA, "age": 0.0})
@@ -1135,7 +1144,7 @@ func _draw() -> void:
 			_draw_outflow(ball_pos(b) * s, b.radius * s, b.def.wind_range * s, ZONE_COLORS.stink.lightened(0.5), 0.5 if huffing else 0.2, 3.0 if huffing else 0.8)
 			BattleFx.draw_gusts(self, ball_pos(b) * s, b.radius * s, b.def.wind_range * s, _time, huffing)
 		if b.state.get("collapsing", false):
-			_draw_inflow(ball_pos(b) * s, b.radius * s, b.def.collapse_range * s, Color("c58bff"), 0.45)
+			_draw_inflow(ball_pos(b) * s, b.radius * s, _ability_num(b, "collapse_range") * s, Color("c58bff"), 0.45)
 		if sim.tick < int(b.state.get("dive_until", -1)):
 			_draw_dive(b, s)
 		var items := Abilities.orb_items(sim, b)
@@ -1477,8 +1486,8 @@ func _draw_art_obstacle(o: Dictionary, p: Vector2, rad: float) -> bool:
 
 
 ## The family matchup at kick-off, for an uneven 1v1: the edge family's
-## glyph, its ▲▲ / ▲, the other family's glyph, and the line ("Fire burns
-## Nature!"). Fades over the fight's first seconds; Skip jumps past it.
+## glyph, its ▲▲ / ▲, the other family's glyph, and the line ("Fire has
+## type advantage!"). Fades over the fight's first seconds; Skip jumps past it.
 func _draw_matchup(full: Rect2) -> void:
 	var m := FamilyEdges.matchup(sim)
 	if m.is_empty():
@@ -2818,7 +2827,19 @@ func _draw_prize_tells(b, s: float) -> void:
 			_dashed(Vector2(r.position.x, c.y) * s, Vector2(r.end.x, c.y) * s, Color(BEAM, blink))
 			_dashed(Vector2(c.x, r.position.y) * s, Vector2(c.x, r.end.y) * s, Color(BEAM, blink))
 		elif p.prize == "coins":
-			Dot.arc(self, b.pos * s, (b.radius + b.def.prize_coin_reach) * s, 0.0, TAU, 64, Color(RAY_COLORS.coin, blink * 0.6), 2.0, true)
+			Dot.arc(self, b.pos * s, (b.radius + _ability_num(b, "prize_coin_reach")) * s, 0.0, TAU, 64, Color(RAY_COLORS.coin, blink * 0.6), 2.0, true)
+
+
+## A ball's ability number from its own def, else from a Bounce Run relic it
+## carries: a relic's numbers live in Ball.relic_defs (sim/relics.gd), not in
+## b.def, and a missing key would stop the whole frame's drawing.
+func _ability_num(b, key: String) -> float:
+	if b.def.has(key):
+		return float(b.def[key])
+	for id in b.relic_defs:
+		if b.relic_defs[id].has(key):
+			return float(b.relic_defs[id][key])
+	return 0.0
 
 
 func _dashed(a: Vector2, b: Vector2, col: Color) -> void:
@@ -2989,12 +3010,12 @@ func _draw_forms(b, p: Vector2, r: float, s: float) -> void:
 		if b.def.has("fire_count") and n >= full: # Drako's throat glows.
 			Dot.circle(self, p + _look[b.index] * r * 0.55, r * 0.28, Color(ZONE_COLORS.fire, 0.45 + 0.3 * sin(_time * 18.0)))
 	if b.state.get("bubble", 0.0) > 0.0 and sim.tick < int(b.state.get("bubble_until", -1)):
-		var left: float = (int(b.state.bubble_until) - sim.tick) / maxf(1.0, b.def.bubble_secs * sim.TICK_RATE)
+		var left: float = (int(b.state.bubble_until) - sim.tick) / maxf(1.0, _ability_num(b, "bubble_secs") * sim.TICK_RATE)
 		BattleFx.draw_bubble(self, p, r, _time, left)
 	if b.state.get("nova_warn", false):
 		var k := 0.5 + 0.5 * sin(_time * 30.0)
 		Dot.circle(self, p, r * 1.3, Color("fff3c4", 0.25 + 0.35 * k))
-		Dot.arc(self, p, b.def.nova_radius * s, 0.0, TAU, 72, Color("ffd6a5", 0.3 * k), 3.0, true)
+		Dot.arc(self, p, _ability_num(b, "nova_radius") * s, 0.0, TAU, 72, Color("ffd6a5", 0.3 * k), 3.0, true)
 	if MODE_COLORS.has(b.type_id) and (b.state.has("mode") or b.type_id == "eclipse"):
 		var m := int(b.state.get("mode", 0))
 		var col: Color = MODE_COLORS[b.type_id][m]

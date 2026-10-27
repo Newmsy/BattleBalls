@@ -1,7 +1,7 @@
 ## Result screen wording for a finished MatchSim, shared by every mode.
-## A double knockout (both critters out on the same hit) goes to whoever had
-## more HP going into that hit; equal HP, or equal HP at the time limit, is a
-## draw. Either way the screen says what happened instead of a bare WIN.
+## In Quick fight a double knockout (both critters out on the same hit) goes
+## to whoever had more HP going into that hit; equal HP, or equal HP at the
+## time limit, is a draw. Other modes settle ties for you (MatchSim `tie_to`). Either way the screen says what happened instead of a bare WIN.
 extends RefCounted
 
 const WIN := Color("45f5a6")
@@ -22,7 +22,11 @@ static func describe(sim, names: Array, replay := false, you := 0) -> Dictionary
 		out.color = WIN
 	match sim.end_reason:
 		"double_knockout":
-			if w < 0:
+			if sim.config.has("tie_to") and w >= 0:
+				# Outside Quick fight a double KO is settled for one side.
+				out.headline = _plain_headline(sim, names, replay, you)
+				out.detail = "Double KO, your win." if w == you else "Double KO."
+			elif w < 0:
 				out.headline = "DRAW"
 				out.detail = "Double KO, same HP."
 			else:
@@ -38,7 +42,8 @@ static func describe(sim, names: Array, replay := false, you := 0) -> Dictionary
 				out.detail = "Time's up, same HP."
 			else:
 				out.headline = _plain_headline(sim, names, replay, you)
-				out.detail = "Time's up. %s had more HP left." % names[w]
+				var even: bool = sim.config.has("tie_to") and sim.team_hp(0) / sim._team_max_hp(0) == sim.team_hp(1) / sim._team_max_hp(1)
+				out.detail = ("Time's up, same HP." if even else "Time's up. %s had more HP left." % names[w])
 		_:
 			out.headline = _plain_headline(sim, names, replay, you)
 			out.detail = ""

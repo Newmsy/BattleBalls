@@ -27,6 +27,9 @@ var setup: Dictionary
 var run: Dictionary
 var selected := -1
 var row_h := 120.0 ## Pixels between floors.
+## The backdrop runs edge to edge; the lanes keep this far in from each side
+## (plus PAD) so the nodes stay in the page's column.
+var inset := 0.0
 var on_select: Callable ## Called with the node id a tap picks.
 var _press := Vector2.INF
 var _spans := {} ## Row -> its leftmost and rightmost lane.
@@ -66,7 +69,7 @@ func node_pos(id: int) -> Vector2:
 		return Vector2(size.x / 2.0, y - row_h * 0.15)
 	# A little seeded wobble, so the lanes don't read as a grid (render only).
 	var h := hash([setup.get("seed", 0), setup.day, id])
-	var lane := (size.x - 2.0 * PAD) / float(BounceRun.COLS - 1)
+	var lane := (size.x - 2.0 * (PAD + inset)) / float(BounceRun.COLS - 1)
 	var wob := Vector2(((h & 255) / 255.0 - 0.5) * lane * 0.3, (((h >> 8) & 255) / 255.0 - 0.5) * row_h * 0.2)
 	# Each floor is stretched most of the way to both edges (its order kept,
 	# so links still never cross): the map fills the width like StS's.
@@ -74,7 +77,7 @@ func node_pos(id: int) -> Vector2:
 	var sp: Vector2i = _spans.get(n.row, Vector2i(0, BounceRun.COLS - 1))
 	if sp.y > sp.x:
 		f = lerpf(f, (n.col - sp.x) / float(sp.y - sp.x), SPREAD)
-	return Vector2(PAD + (size.x - 2.0 * PAD) * f, y) + wob
+	return Vector2(PAD + inset + (size.x - 2.0 * (PAD + inset)) * f, y) + wob
 
 
 ## The map's full height for rows `row_h` apart.
@@ -92,7 +95,7 @@ func scroll_for(view_h: float) -> float:
 
 ## A node's radius: big enough to tap with a thumb.
 func _r() -> float:
-	return clampf(minf(row_h * 0.26, (size.x - 2.0 * PAD) / float(BounceRun.COLS - 1) * 0.36), 14.0, 34.0)
+	return clampf(minf(row_h * 0.26, (size.x - 2.0 * (PAD + inset)) / float(BounceRun.COLS - 1) * 0.36), 14.0, 34.0)
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -166,6 +169,8 @@ func _draw() -> void:
 			var dim: bool = not id in _route and (n.row < run.floor or (not id in _reach and n.row <= run.floor))
 			var tint := Color(.45, .45, .55, .55) if dim else (Color.WHITE if id in _reach or id in _route else Color(.8, .8, .88, .92))
 			draw_texture_rect(token, Rect2(p - Vector2.ONE * rr * 160.0 / 150.0, Vector2.ONE * rr * 320.0 / 150.0), false, tint)
+			if t == "event" and n.type == "mystery":
+				_event_face(n.get("event", ""), p, rr * 0.86, tint)
 			if id in _route:
 				draw_arc(p, rr + 2.0, 0.0, TAU, 40, Kit.GOOD, 4.0, true)
 		elif id in _route:
@@ -196,6 +201,24 @@ func _dashed(a: Vector2, b: Vector2, col: Color, w: float) -> void:
 	for i in steps:
 		if i % 2 == 0:
 			draw_line(a.lerp(b, float(i) / steps), a.lerp(b, minf(1.0, float(i + 1) / steps)), col, w, true)
+
+
+## A revealed event shows its own painting inside the token, so a Star Map
+## or the Ghost Lantern visibly tells you which event waits there.
+func _event_face(ev: String, p: Vector2, r: float, tint: Color) -> void:
+	var art := _tex(ev)
+	if art == null:
+		return
+	var side := minf(art.get_width(), art.get_height())
+	var corner := (Vector2(art.get_width(), art.get_height()) - Vector2.ONE * side) / 2.0
+	var pts := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	for k in 24:
+		var d := Vector2.from_angle(k * TAU / 24.0)
+		pts.append(p + d * r)
+		uvs.append((corner + (d * 0.5 + Vector2.ONE * 0.5) * side) / Vector2(art.get_width(), art.get_height()))
+	draw_colored_polygon(pts, tint, uvs, art)
+	draw_arc(p, r, 0.0, TAU, 32, Color(COLORS.event, tint.a), 3.0, true)
 
 
 ## The node type's mark, `s` its half-size.

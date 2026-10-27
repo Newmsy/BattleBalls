@@ -2,6 +2,9 @@ extends "res://tests/test_case.gd"
 
 const TrickShot := preload("res://sim/trick_shot.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
+const TrickReward := preload("res://meta/trick_reward.gd")
+const Profile := preload("res://meta/profile.gd")
+const Talents := preload("res://sim/talents.gd")
 
 
 func test_day_numbers_count_calendar_days() -> void:
@@ -33,7 +36,7 @@ func test_every_day_is_fair() -> void:
 
 ## The generator's fast replay must agree with the real sim on every aim.
 func test_fast_judge_matches_the_sim() -> void:
-	for day in range(1, 7):
+	for day in range(1, 13):
 		var p := TrickShot.generate(day)
 		var mismatches := []
 		for aim in 360:
@@ -51,12 +54,58 @@ func test_a_solution_banks_off_the_called_walls() -> void:
 	check(shot.time <= TrickShot.TIME_LIMIT, "hit in time")
 
 
-func test_aiming_straight_at_the_foe_is_too_early() -> void:
+func test_aiming_straight_at_the_foe_never_solves() -> void:
 	for day in range(1, 11):
 		var p := TrickShot.generate(day)
 		var to_foe: Vector2 = p.starts[1] - p.starts[0]
 		var shot := TrickShot.judge(p, posmod(roundi(rad_to_deg(to_foe.angle())), 360))
-		check_eq(shot.result, TrickShot.WRONG_WALLS, "day %d direct shot" % day)
+		check(shot.result != TrickShot.SOLVED, "day %d direct shot solved it" % day)
+
+
+## Pillars and bumpers: on the floor, clear of both starts and of each other.
+func test_layouts_have_pieces_clear_of_the_starts() -> void:
+	var with_pieces := 0
+	var bumpers := 0
+	for day in range(1, 61):
+		var p := TrickShot.generate(day)
+		with_pieces += 1 if not p.obstacles.is_empty() else 0
+		for o in p.obstacles:
+			bumpers += 1 if o.kind == "bumper" else 0
+			for s in p.starts:
+				check(s.distance_to(o.pos) >= o.radius + TrickShot.START_CLEARANCE, "day %d piece on a start" % day)
+			for q in p.obstacles:
+				if q != o:
+					check(o.pos.distance_to(q.pos) >= o.radius + q.radius + TrickShot.GAP, "day %d pieces too close" % day)
+	check(with_pieces >= 55, "most days have pieces (%d of 60)" % with_pieces)
+	check(bumpers >= 10, "bumpers turn up (%d)" % bumpers)
+
+
+## Each day draws its own pair from the whole roster.
+func test_critters_vary_by_day() -> void:
+	var shooters := {}
+	for day in range(1, 41):
+		var p := TrickShot.generate(day)
+		check(p.p1 != p.p2, "day %d is a mirror" % day)
+		check(p.p1 in TrickShot.critters() and p.p2 in TrickShot.critters(), "day %d critters live" % day)
+		shooters[p.p1] = true
+	check(shooters.size() >= 20, "only %d shooters in 40 days" % shooters.size())
+
+
+func test_a_solve_pays_once_with_faction_xp() -> void:
+	var profile = Profile.new_game(0)
+	var coins: int = profile.coins
+	var orbs: int = profile.orbs
+	var fam := Talents.faction_of("drako")
+	var xp: int = profile.faction_xp_rank(fam).xp
+	var got := TrickReward.claim(profile, 5, 1, "drako")
+	check(not got.is_empty(), "first solve pays")
+	check_eq(profile.coins, coins + 150, "coins")
+	check_eq(profile.orbs, orbs + 1, "an egg for a first-try solve")
+	check(profile.faction_xp_rank(fam).xp > xp or profile.faction_xp_rank(fam).rank > 0, "shooter's faction XP")
+	check(TrickReward.claim(profile, 5, 1, "drako").is_empty(), "same day pays once")
+	check(TrickReward.claim(profile, 4, 1, "drako").is_empty(), "an older day doesn't pay")
+	check_eq(Profile.from_dict(profile.to_dict(), 0).trick_reward, 5, "paid day saves")
+	check(TrickReward.rewards(3, "drako").size() < TrickReward.rewards(1, "drako").size(), "fewer tries pay more")
 
 
 func test_sim_start_positions_can_be_set() -> void:

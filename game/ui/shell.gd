@@ -3,6 +3,7 @@
 ## Screens live in game/ui/screens/ and are rebuilt each time they're shown.
 extends Control
 
+const Platform := preload("res://game/platform/platform.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const TabIcon := preload("res://game/ui/tab_icon.gd")
@@ -21,6 +22,7 @@ const TouchInput := preload("res://game/ui/touch_input.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Motion := preload("res://game/ui/motion.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
+const Talents := preload("res://sim/talents.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -74,6 +76,8 @@ const TAB_HEIGHT := 128.0
 ## Tablets and desktop: the top bar and tab buttons stay this wide in the middle
 ## instead of spreading to the window's edges (the screens keep a phone column).
 const WIDE_BARS := 900.0
+## The stage on a wide window: _Backdrop shades the sides beyond it.
+const STAGE := 1000.0
 const TOAST_FACE := 52.0
 
 ## Emitted when the player starts a quick fight from the Play tab.
@@ -157,6 +161,7 @@ var _pills := {} ## Currency kind -> its top bar pill (where gains fly to).
 ## are hidden (a fight) wait here and fly in once you're back.
 var _shown := {}
 var _fly_from := Vector2(-1, -1) ## Where the next gain flies from (reward_from).
+var _fly_from_kind := {} ## Pill kind -> where its next gain flies from, if not _fly_from.
 var _fx: Control ## Over everything: flying coins and eggs.
 var _report_after := 0 ## Msec tick a screen's slide ends: marks are logged after it.
 ## The current screen's big critter (the critter page's hero), which a
@@ -422,6 +427,23 @@ func back() -> void:
 	_slide_out(leaving)
 
 
+## The way to the current screen (tab, then each screen above it), for
+## resume() to bring back after a fight, e.g. Play > Adventure > Bosses.
+func trail() -> Array:
+	return [_tab, _stack.slice(0, -1).duplicate(true)]
+
+
+## Opens `name` on top of a trail() taken before a fight, so Back walks the
+## same way down (to the boss picker, not Home). Only the top is built.
+func resume(t: Array, name: String, params: Dictionary) -> void:
+	_tab = t[0]
+	_stack = t[1].duplicate(true)
+	_stack.append([name, params])
+	_snaps = []
+	_snaps.resize(_stack.size() - 1) # No pictures: Back rebuilds each screen.
+	_show(name, params)
+
+
 ## Rebuild the current screen in place, e.g. after the data changed. Keeps
 ## the scroll position.
 func refresh() -> void:
@@ -452,6 +474,38 @@ func scroll_to(c: Control) -> void:
 	if is_instance_valid(sc) and is_instance_valid(c) and sc == _scroll:
 		# A little of the card above stays in view, so it's clear where you are.
 		sc.scroll_vertical = int(c.global_position.y - sc.global_position.y + sc.scroll_vertical - 160.0)
+
+
+## Glide the current screen down (or up) to `c`, the same spot scroll_to
+## lands on; returns when it gets there (at once with Reduced motion).
+func glide_to(c: Control, secs := .4) -> void:
+	var sc := _scroll
+	if not is_instance_valid(c) or not is_inside_tree():
+		return
+	var to := clampi(int(c.global_position.y - sc.global_position.y + sc.scroll_vertical - 160.0), 0,
+		maxi(0, int(sc.get_v_scroll_bar().max_value - sc.size.y)))
+	if Motion.calm() or absi(to - sc.scroll_vertical) < 8:
+		sc.scroll_vertical = to
+		return
+	var tw := sc.create_tween()
+	tw.tween_property(sc, "scroll_vertical", to, secs).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	await tw.finished
+
+
+## A reward that has no top-bar pill (a look, gear, chips) flies from `from`
+## (global) into a tab's icon, the Bag by default, which hops as it lands.
+func fly_to_tab(make_icon: Callable, from: Vector2, tab := "bag", delay := 0.0) -> void:
+	if not tab in _tab_icons or not _tab_buttons[tab].visible or Motion.calm() or not is_inside_tree():
+		return
+	var icon: Control = _tab_icons[tab]
+	if delay > 0.0:
+		await get_tree().create_timer(delay).timeout
+	if not is_instance_valid(icon):
+		return
+	Motion.fly(_fx, make_icon, from, icon.get_global_rect().get_center(), 1, func(_k: int) -> void:
+		Motion.bump(icon, 1.22, .3, true)
+		if sfx != null:
+			sfx.play("click", -8.0, 1.3))
 
 
 func _restore_scroll(at: int) -> void:
@@ -551,6 +605,37 @@ func close_overlay() -> void:
 		_refresh_top.call_deferred() # Coins won while it was up fly in now.
 
 
+## How far a scene painting (a map, a tower) may reach past each side of the
+## screen's column: to the screen's edges on a phone, to the stage's rim on a
+## wide window. Scenes bleed edge to edge so they never look like a screen in
+## a screen; their buttons and text stay inside the column.
+func bleed() -> float:
+	return maxf(0.0, (minf(size.x, STAGE) - _column) / 2.0)
+
+
+## Wraps a scene so it reaches bleed() past both sides of the column (it
+## takes the column's place in a box, drawn wider). Things on it that must stay
+## clear of the screen's sides should be inset by bleed().
+func edge_to_edge(c: Control) -> Control:
+	var b := bleed()
+	if b <= 0.0:
+		return c
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.size_flags_vertical = c.size_flags_vertical
+	holder.add_child(c)
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	c.offset_left = -b
+	c.offset_right = b
+	var fit := func() -> void:
+		var m := c.get_combined_minimum_size()
+		holder.custom_minimum_size = Vector2(maxf(0.0, m.x - b * 2.0), m.y)
+	c.minimum_size_changed.connect(fit)
+	fit.call()
+	return holder
+
+
 ## Pin a screen's main action (Fuse, Summon, Climb...) under the screen,
 ## above the tab bar, so it never ends up below the fold. Cleared on every
 ## screen change.
@@ -566,7 +651,7 @@ func info(title: String, paragraphs: Array) -> void:
 	for t in paragraphs:
 		var l := Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 		# The sheet measures itself before layout, so wrapped text needs a real width.
-		l.custom_minimum_size.x = minf(640.0, size.x - 80.0)
+		l.custom_minimum_size.x = ResultPopup.inner_width(size.x)
 		v.add_child(l)
 	var ok := Kit.button("Got it", close_overlay, "ghost", 26, 80)
 	mark("info_close", ok)
@@ -980,7 +1065,7 @@ func _top_bar() -> Control:
 
 const PILL_HELP := {
 	"energy": "Energy: for stages and bosses. Refills over time, and on level up.",
-	"coin": "Coins: from the campaign and Piñata Titan. Buy looks.",
+	"coin": "Coins: from the campaign and Piñata Titan. Spend them in the Shop.",
 	"orb": "Summon Eggs: hatch them on Summon.",
 }
 
@@ -1040,6 +1125,7 @@ func _refresh_top() -> void:
 	_set_top("coin", profile.coins)
 	_set_top("orb", profile.orbs)
 	_fly_from = Vector2(-1, -1)
+	_fly_from_kind.clear()
 	var fusable := _fuse_signature()
 	if current == "fuse":
 		_set_badge("fuse_seen", fusable)
@@ -1048,6 +1134,10 @@ func _refresh_top() -> void:
 		was_lit[t] = _dots[t].visible
 	_dots.fuse.visible = fusable != "" and _new_since(fusable, _badge_value("fuse_seen"))
 	_dots.summon.visible = profile.free_summon and Intro.done(profile)
+	var talents := _talent_signature()
+	if current in ["factions", "faction"]:
+		_set_badge("talents_seen", talents)
+	_dots.critters.visible = talents != "" and _new_since(talents, _badge_value("talents_seen")) and Intro.done(profile)
 	var pass_claims: int = glow.claimable_count() if glow != null and not glow.season().is_empty() else 0
 	_dots.play.visible = (friends.attention() > 0 or pass_claims > 0) and Intro.done(profile)
 	for t in _dots:
@@ -1064,9 +1154,13 @@ func _refresh_top() -> void:
 
 
 ## The next coins, eggs or energy you gain fly into the top bar from `c`
-## (e.g. a Glow Pass card you claimed) instead of from the middle.
-func reward_from(c: Control) -> void:
-	_fly_from = c.get_global_rect().get_center()
+## (e.g. a Glow Pass card you claimed) instead of from the middle. With
+## `kind` (a pill: "coin", "orb", "energy") only that pill's gain does.
+func reward_from(c: Control, kind := "") -> void:
+	if kind != "":
+		_fly_from_kind[kind] = c.get_global_rect().get_center()
+	else:
+		_fly_from = c.get_global_rect().get_center()
 
 
 func _pill_text(kind: String, v: int) -> String:
@@ -1097,13 +1191,14 @@ func _set_top(kind: String, value: int, quiet := false) -> void:
 		return
 	if value < from:
 		_shown[kind] = value
-		Motion.count(l, from, value, .35, _pill_text.bind(kind))
+		# Not _pill_text.bind(kind): bind appends, which blanked the pill on every spend.
+		Motion.count(l, from, value, .35, func(v: int) -> String: return _pill_text(kind, v))
 		return
 	if not is_visible_in_tree() or overlay_open():
 		return # Held: it flies in once the popup closes or the menus come back.
 	_shown[kind] = value
 	var pill: Control = _pills[kind]
-	var start := _fly_from if _fly_from.x >= 0.0 else get_global_rect().get_center()
+	var start: Vector2 = _fly_from_kind.get(kind, _fly_from if _fly_from.x >= 0.0 else get_global_rect().get_center())
 	if Motion.calm():
 		l.text = _pill_text(kind, value)
 		return
@@ -1167,6 +1262,11 @@ func _fit_wide() -> void:
 		_top_margin.add_theme_constant_override("margin_" + side, 22 + int(inset))
 	_tab_row.offset_left = inset
 	_tab_row.offset_right = -inset
+	# Keep the top bar out from under the notch and the tabs above the home bar.
+	var safe: Dictionary = Platform.get_current().safe_insets(get_viewport())
+	_top_margin.add_theme_constant_override("margin_top", int(TOP_PAD + safe.top))
+	_tabs.custom_minimum_size.y = TAB_HEIGHT + safe.bottom
+	_tab_row.offset_bottom = -safe.bottom
 
 
 # --- Tab bar -------------------------------------------------------------------
@@ -1242,6 +1342,16 @@ func _fuse_signature() -> String:
 	return ",".join(keys)
 
 
+## Factions with talent points to spend, as "fire:16" (faction:rank), so the
+## Critters dot comes back each time a rank brings a new point.
+func _talent_signature() -> String:
+	var keys: Array = []
+	for f in Talents.FACTIONS:
+		if profile.talent_points_free(f) > 0:
+			keys.append("%s:%d" % [f, profile.faction_rank(f)])
+	return ",".join(keys)
+
+
 ## True if `now` has an entry `seen` didn't.
 static func _new_since(now: String, seen: String) -> bool:
 	var old := seen.split(",")
@@ -1307,7 +1417,7 @@ class _Backdrop extends Control:
 				x += GAP
 		# Tablets and desktop: the sides fall into shadow so the middle reads as
 		# the stage, framed by a faint rim of light.
-		var side := (w - 1000.0) / 2.0
+		var side := (w - STAGE) / 2.0
 		if side > 24.0:
 			var dark := Color(0.0, 0.0, 0.03, .55)
 			var clear := Color(0.0, 0.0, 0.03, 0.0)

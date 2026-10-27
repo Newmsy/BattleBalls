@@ -37,11 +37,13 @@ static func build(shell, params: Dictionary) -> Control:
 
 	root.add_child(_lures_row(shell, p))
 
+	var level := BossLevelGrid.picked(p, WyrmRift.KEY, params)
+	var diff: Dictionary = WyrmRift.DIFFICULTIES[level]
+	root.add_child(BossCard.prizes(shell, "%s prizes" % diff.name, RIFT, [BossCard.prize("target", diff.lures, RIFT)], WyrmRift.WIN_XP + level, "wyrm"))
 	root.add_child(BossLevelGrid.hero(shell, WyrmRift.BOSS, RIFT))
 	var fighter: String = Campaign.fighter_for(p)
 	root.add_child(BossCard.fighter(shell, fighter, "wyrm", [], 80))
 
-	var level := BossLevelGrid.picked(p, WyrmRift.KEY, params)
 	root.add_child(BossLevelGrid.grid(shell, p, WyrmRift.KEY, level, RIFT, "wyrm"))
 	root.add_child(_card(shell, p, level, fighter, left))
 	return root
@@ -82,7 +84,7 @@ static func _lure(shell, id: String) -> void:
 static func _card(shell, p, d: int, fighter: String, left: int) -> Control:
 	var diff: Dictionary = WyrmRift.DIFFICULTIES[d]
 	return BossCard.fight(shell, {"boss": WyrmRift.BOSS, "accent": RIFT, "rec": WyrmRift.enemy_rating(d), "mine": p.power_of(fighter),
-		"title": diff.name, "pay": [Kit.amount("target", diff.lures, 20, Kit.FG, RIFT)],
+		"title": diff.name,
 		"cost": WyrmRift.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, d, fighter), "mark": "wyrm_go", "height": 64})
 
 

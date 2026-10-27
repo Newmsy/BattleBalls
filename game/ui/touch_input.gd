@@ -24,6 +24,7 @@ const SHADE := 0.4 ## How dark the screen underneath starts.
 const SETTLE_SECS := 0.2
 const BACK_META := "swipe_back" ## mark_back(): the button a swipe presses.
 const BACK_WORDS := ["BACK", "CLOSE"] ## Buttons that read like Back count anyway.
+const QUIT_WINDOW_MS := 2000 ## Second Back within this leaves the game (Android).
 
 const A11y := preload("res://game/a11y.gd")
 
@@ -56,6 +57,8 @@ var _slide: Control ## The swipe-back pictures while dragging (null otherwise).
 var _top: TextureRect ## The current screen, following the finger.
 var _under: TextureRect ## The screen underneath.
 var _shade: ColorRect
+var _quit_armed := 0 ## Msec tick of a Back with nothing to go back to.
+var _quit_hint: Label
 
 
 ## Adds the handler to the scene tree once; it survives scene changes.
@@ -169,6 +172,48 @@ func _ready() -> void:
 	_hint = BackHint.new()
 	_hint.visible = false
 	layer.add_child(_hint)
+
+
+## Android's Back gesture / button (application/config/quit_on_go_back is off,
+## so the game decides): it does what a left-edge swipe would. With nothing to
+## go back to, a second Back within QUIT_WINDOW_MS leaves the game.
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_GO_BACK_REQUEST or _drag == Drag.EDGE or _slide != null:
+		return
+	var action := back_action()
+	if action.is_valid():
+		_quit_armed = 0
+		action.call()
+		return
+	var now := Time.get_ticks_msec()
+	if _quit_armed > 0 and now - _quit_armed < QUIT_WINDOW_MS:
+		get_tree().quit()
+		return
+	_quit_armed = now
+	_show_quit_hint()
+
+
+func _show_quit_hint() -> void:
+	if _quit_hint == null:
+		_quit_hint = Label.new()
+		_quit_hint.text = "Press Back again to leave"
+		_quit_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_quit_hint.add_theme_font_size_override("font_size", A11y.font(24))
+		_quit_hint.add_theme_color_override("font_color", Color.WHITE)
+		var st := StyleBoxFlat.new()
+		st.bg_color = Color(0.08, 0.07, 0.2, 0.92)
+		st.set_corner_radius_all(24)
+		st.set_content_margin_all(16)
+		_quit_hint.add_theme_stylebox_override("normal", st)
+		_quit_hint.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+		_quit_hint.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		_quit_hint.position.y -= 220
+		_hint.get_parent().add_child(_quit_hint)
+	_quit_hint.visible = true
+	_quit_hint.modulate.a = 1.0
+	var tw := _quit_hint.create_tween()
+	tw.tween_interval(QUIT_WINDOW_MS / 1000.0 - 0.3)
+	tw.tween_property(_quit_hint, "modulate:a", 0.0, 0.3)
 
 
 func _input(event: InputEvent) -> void:

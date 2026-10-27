@@ -273,6 +273,7 @@ const CRITTER_CUES := {
 }
 ## The voice and knock family per critter (see sim/families.gd).
 const Families := preload("res://sim/families.gd")
+const FightHaptics := preload("res://game/platform/fight_haptics.gd")
 ## Pitch of the edge-hit zing per attacking family, so each family's edge
 ## sounds its own; a very good hit goes a step higher still.
 const ZING_PITCH := {"nature": 0.85, "sea": 0.8, "tech": 1.2, "sweet": 1.3, "frost": 1.35, "toybox": 1.1, "spooky": 0.7, "fire": 0.95, "cosmic": 1.05}
@@ -492,6 +493,7 @@ func on_result(winner: int) -> void:
 
 ## Turns one sim step's events into sound.
 func consume_events(events: Array[Dictionary], sim) -> void:
+	FightHaptics.consume(events, sim)
 	_zone_cues(sim)
 	for e in events:
 		if e.type == "bounce":
@@ -591,6 +593,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("hit_big", -4.0, 1.2)
 				elif kind == "quasar":
 					play("hum")
+				elif kind == "core_nova": # A power core's shockwave.
+					play("nova_boom", -2.0, 1.25)
 				elif kind in ["nova", "thunder"]:
 					play("nova_boom", 0.0, 1.0 if kind == "nova" else 1.3)
 				elif kind == "frost": # Yeti's avalanche (the roar plays too).
@@ -626,6 +630,9 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("spring_boing", -2.0, 1.0)
 			"bumper": # An arena bumper: a pinball 'ding'.
 				play("pinball_ding", -2.0, 0.8)
+			"sling": # Sprout slung off its own pillar: a springy, leafy ding.
+				play("pinball_ding", -4.0, 1.25)
+				play("rustle", -6.0, 1.4)
 			"shot":
 				if e.kind == "pea":
 					play("pew")

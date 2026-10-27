@@ -116,12 +116,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	# Claim all.
 	var n: int = glow.claimable_count(t)
 	if n > 0:
-		var all := Kit.button("Claim all (%d)" % n, func():
-			_just_claimed = _claimable_marks(glow, t)
-			shell.reward_from(shell._marks.get("claim_all", shell))
-			var got: Array = glow.claim_all(t)
-			shell.toast("Claimed %d reward%s!" % [got.size(), "" if got.size() == 1 else "s"])
-			shell.refresh(), "go", 30, 92)
+		var all := Kit.button("Claim all (%d)" % n, func(): _claim_all(shell, t), "go", 30, 92)
 		shell.mark("claim_all", all)
 		root.add_child(all)
 
@@ -232,6 +227,63 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 	return card
 
 
+## Prizes just paid out from `from` (a Claim button) take off from it:
+## coins, eggs and energy into their top-bar pills, the rest into the Bag.
+static func fly_rewards(shell, got: Array, from: Control) -> void:
+	if from == null or not is_instance_valid(from) or not from.is_visible_in_tree():
+		return
+	shell.reward_from(from)
+	var at := from.get_global_rect().get_center()
+	var k := 0
+	for r in got:
+		if r is Dictionary and not r.get("kind", "") in ["coins", "orbs", "energy"]:
+			shell.fly_to_tab(func(): return reward_icon(shell, r, 56), at, "bag", .08 * k)
+			k += 1
+
+
+static var _claiming := false
+
+## Claim all: glide down to the first prize, claim everything (the cards flip
+## in a ripple) and each prize flies up: coins, eggs and energy into their
+## top-bar pills, everything else into the Bag.
+static func _claim_all(shell, t: int) -> void:
+	if _claiming:
+		return
+	var glow = shell.glow
+	var marks := _claimable_marks(glow, t)
+	var first: Control = shell._marks.get(marks[0]) if not marks.is_empty() else null
+	if first != null:
+		_claiming = true
+		await shell.glide_to(first)
+		_claiming = false
+		if not is_instance_valid(first) or shell.current != "pass":
+			return
+	var rewards := {}
+	for m in marks:
+		var p: PackedStringArray = m.split("_")
+		rewards[m] = glow.reward(int(p[2]), p[1], t)
+	_just_claimed = marks.duplicate()
+	shell.reward_from(first if first != null else shell._marks.get("claim_all", shell))
+	var got: Array = glow.claim_all(t)
+	shell.toast("Claimed %d reward%s!" % [got.size(), "" if got.size() == 1 else "s"])
+	shell.refresh()
+	await shell.get_tree().process_frame
+	await shell.get_tree().process_frame
+	var k := 0
+	for m in marks:
+		var r: Dictionary = rewards[m]
+		var card = shell._marks.get(m)
+		if r.is_empty() or r.kind in ["coins", "orbs", "energy"] or not is_instance_valid(card) or not card.is_visible_in_tree():
+			continue
+		var at: Vector2 = card.get_global_rect().position + Vector2(44, card.size.y / 2.0)
+		if at.y < 0.0 or at.y > shell.size.y:
+			continue # Scrolled out of sight: only the prizes you can see take off.
+		shell.fly_to_tab(func(): return reward_icon(shell, r, 56), at, "bag", .25 + .08 * k)
+		k += 1
+		if k >= 6:
+			break
+
+
 ## The cards a Claim all is about to claim (their marks), top to bottom.
 static func _claimable_marks(glow, t: int) -> Array:
 	var out: Array = []
@@ -283,6 +335,8 @@ static func reward_text(r: Dictionary, beside_icon := false) -> String:
 			return "%d Rift Key%s" % [n, "" if n == 1 else "s"]
 		"dye":
 			return "%d Spark Dye drop%s" % [n, "" if n == 1 else "s"]
+		"faction_xp":
+			return "%d %s XP" % [n, str(r.get("id", "")).capitalize()]
 	return r.kind
 
 
@@ -310,6 +364,8 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 			g = Glyph.make("key", side * .7, Color("5ce1ff"))
 		"dye":
 			g = Glyph.make("dye", side * .7, Color("ff6fd0"))
+		"faction_xp":
+			g = load("res://game/ui/family_icon.gd").make(str(r.get("id", "")), side * .7)
 		_:
 			g = Glyph.make("bolt", side * .7, Kit.GOOD)
 	var cc := CenterContainer.new()
