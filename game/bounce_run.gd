@@ -685,7 +685,7 @@ func _show_boon() -> void:
 		var held := _held_copies(id)
 		if held > 0:
 			# Taking it again stacks: the numbers add up (sim/boons.gd).
-			head.add_child(Kit.chip("Stack x%d" % (held + 1), GOLD))
+			head.add_child(Kit.chip("x%d" % (held + 1), GOLD))
 		var text := Kit.vbox(4, [head, Kit.label(b.text, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
 		if who != null:
 			text.add_child(who)
@@ -1081,9 +1081,13 @@ func _layout() -> void:
 	page_width += _bleed * 2.0
 	# Pages end above the Sound pill in the bottom corner, so it never covers a button.
 	var page_bottom := FightLayout.pill_position(size, 1).y - 12.0
-	_place(scroll, Vector2((size.x - page_width) / 2.0, 150), Vector2(page_width, page_bottom - 150))
 	page.custom_minimum_size.x = page_width
 	_fit_columns()
+	# The scroll can't shrink below the page's old width until that re-measures
+	# (a narrow page after an edge-to-edge one), so it is placed again after.
+	var box := Rect2(Vector2((size.x - page_width) / 2.0, 150), Vector2(page_width, page_bottom - 150))
+	_place(scroll, box.position, box.size)
+	(func(): if is_instance_valid(scroll): _place(scroll, box.position, box.size)).call_deferred()
 	if scroll.size != _page_box:
 		_page_box = scroll.size
 		_refit_page()
@@ -1116,9 +1120,13 @@ func _fit_columns() -> void:
 			continue
 		if _bleed > 0.0 and c.size_flags_horizontal & Control.SIZE_FILL:
 			c.set_meta("column", true)
+		if _bleed > 0.0 and c is Button:
+			c.set_meta("column", true) # Cards in a column (Kit.card_button) are as wide as it.
 		if c.has_meta("column"):
+			var w := _column_w if _bleed > 0.0 else 0.0
 			c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if _bleed > 0.0 else Control.SIZE_EXPAND_FILL
-			c.custom_minimum_size.x = _column_w if _bleed > 0.0 else 0.0
+			c.set_meta("min_width", w)
+			c.custom_minimum_size.x = w
 	if is_instance_valid(map_view):
 		map_view.inset = _bleed
 		map_view.queue_redraw()
