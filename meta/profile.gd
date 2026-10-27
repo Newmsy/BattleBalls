@@ -621,10 +621,12 @@ func talent_points_free(f: String) -> int:
 
 ## Faction XP every fight gives, by result: a core pillar of progression
 ## (Newms 2026-10-26), earned after basically every fight in every mode and
-## shown as a ring round the family badge on the result popup. It is shared
-## across the families of the critters that fought, so a 3v3 relay gives the
-## same total as a 1v1. Totem sigils add on top as the fast lane.
-const FACTION_FIGHT_XP := {"win": 30, "draw": 20, "loss": 10}
+## shown as a ring round the family badge on the result popup. Each family
+## on your side gets it once, however many of its critters fought. Totem
+## sigils add on top as the fast lane. Paced (2026-10-26, /mnt/project-files/
+## faction-xp/pacing) so an engaged player fills one tree in about six weeks
+## and a casual one in about four months, talents being 4x stronger now.
+const FACTION_FIGHT_XP := {"win": 8, "draw": 5, "loss": 3}
 
 ## Faction XP gained since the result popup last showed it
 ## (take_faction_gains). One entry per family: {family, xp, from_rank,
@@ -637,14 +639,13 @@ var faction_gains: Array = []
 func fight_faction_xp(fighters: Array, winner: int) -> void:
 	if fighters.is_empty():
 		return
-	var total: int = FACTION_FIGHT_XP["draw" if winner < 0 else ("win" if winner == 0 else "loss")]
-	var share := {}
-	for k in fighters.size():
-		var f := Talents.faction_of(str(fighters[k]))
-		# An even split, the remainder going to the first fighters.
-		share[f] = int(share.get(f, 0)) + total / fighters.size() + (1 if k < total % fighters.size() else 0)
-	for f in share:
-		add_faction_xp(f, share[f])
+	var xp: int = FACTION_FIGHT_XP["draw" if winner < 0 else ("win" if winner == 0 else "loss")]
+	var paid := {}
+	for id in fighters:
+		var f := Talents.faction_of(str(id))
+		if not paid.has(f):
+			paid[f] = true
+			add_faction_xp(f, xp)
 
 
 func add_faction_xp(f: String, amount: int) -> void:

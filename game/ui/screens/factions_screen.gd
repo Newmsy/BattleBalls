@@ -25,7 +25,7 @@ static func build(shell, _params: Dictionary) -> Control:
 static func info_text() -> Array:
 	return [
 		"Each faction has one talent tree, shared by all its critters.",
-		"Every fight gives Faction XP to the families of the critters that fought, more for a win. A full ring is a point, and a faction's first critter at each of 2-5 stars gives one too. Max %d per tree." % Talents.MAX_POINTS,
+		"Every fight gives Faction XP to the families of your critters that fought, more for a win, and Totem of Nine wins give extra to the day's faction. Each full ring is a point, and a faction's first critter at each of 2-5 stars gives one too. Max %d per tree." % Talents.MAX_POINTS,
 		"A critter uses the rows its stars unlock: 1 star row 1, up to 4 stars row 4, and 5 stars the capstone. Resetting a tree is free, any time.",
 		"Rows open after %s points spent." % _and_list(Talents.ROW_GATE.slice(1).map(func(g): return str(g))),
 	]

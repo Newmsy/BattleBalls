@@ -99,9 +99,9 @@ func test_every_faction_tree_fights() -> void:
 func test_points_come_from_play_and_respecs_are_free() -> void:
 	var p = Profile.new_game(T0, "vampire")
 	check_eq(p.faction_rank("spooky"), 0, "no points at the start")
-	p.fight_faction_xp(["vampire"], 0)
-	p.fight_faction_xp(["vampire"], 0)
-	check_eq(p.faction_rank("spooky"), 1, "two wins make a point")
+	for k in ceili(Profile.faction_xp_to_next(0) / float(Profile.FACTION_FIGHT_XP.win)):
+		p.fight_faction_xp(["vampire"], 0)
+	check_eq(p.faction_rank("spooky"), 1, "wins fill a rank: a point")
 	p.stacks.append({"id": "ghost", "tier": 3, "count": 1, "level": 1, "xp": 0})
 	check_eq(p.faction_rank("spooky"), 3, "a T3 Spooky critter adds T2 and T3 milestones")
 	check(not p.add_talent("spooky", "fright"), "row 3 is shut")
@@ -126,9 +126,9 @@ func test_every_fight_gives_faction_xp() -> void:
 	check_eq(int(p.factions.spooky.xp), Profile.FACTION_FIGHT_XP.loss + Profile.FACTION_FIGHT_XP.draw, "a loss and a draw still pay")
 	var gains: Array = p.take_faction_gains()
 	check_eq(gains.size(), 1, "one entry per family")
-	check_eq(int(gains[0].xp), 30, "gains add up until shown")
+	check_eq(int(gains[0].xp), Profile.FACTION_FIGHT_XP.loss + Profile.FACTION_FIGHT_XP.draw, "gains add up until shown")
 	check(p.take_faction_gains().is_empty(), "taking them clears them")
-	# A team shares one fight's XP across its families.
+	# Each family on a team gets the fight's XP once.
 	var fam := Talents.faction_of("vampire")
 	var other := ""
 	for f in Talents.FACTIONS:
@@ -137,13 +137,14 @@ func test_every_fight_gives_faction_xp() -> void:
 			break
 	var q = Profile.new_game(T0, "vampire")
 	q.fight_faction_xp(["vampire", "vampire", Talents.MEMBERS[other][0]], 0)
-	check_eq(int(q.factions[fam].xp), 20, "two of three fighters: two thirds")
-	check_eq(int(q.factions[other].xp), 10, "one of three: a third")
+	var win: int = Profile.FACTION_FIGHT_XP.win
+	check_eq(int(q.factions[fam].xp), win, "two fighters of a family: paid once")
+	check_eq(int(q.factions[other].xp), win, "the other family too")
 	q.take_faction_gains()
-	q.fight_faction_xp(["vampire"], 0)
+	q.factions[fam].xp = Profile.faction_xp_to_next(0) - 1
 	q.fight_faction_xp(["vampire"], 0)
 	var g: Dictionary = q.take_faction_gains()[0]
-	check_eq([g.from_rank, g.from_xp, g.to_rank, g.to_xp], [0, 20, 1, 40], "a rank-up keeps the before and after")
+	check_eq([g.from_rank, g.to_rank, g.to_xp], [0, 1, win - 1], "a rank-up keeps the before and after")
 
 
 func test_removing_a_point_keeps_open_rows_valid() -> void:

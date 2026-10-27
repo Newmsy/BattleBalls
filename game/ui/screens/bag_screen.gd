@@ -283,6 +283,7 @@ static func _pedestal(g: Dictionary) -> Control:
 	var art := LivingArt.make("gear_plinth", "res://game/ui/gear_art/gear_plinth.png")
 	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art.soften(40.0) # No hard edge onto the sheet.
 	var piece := GearArt.piece(g.type, g.tier, 170, tier_color(g.tier))
 	piece.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	piece.offset_left = -85
