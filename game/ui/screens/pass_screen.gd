@@ -227,6 +227,20 @@ static func _cell(shell, l: int, track: String, t: int) -> Control:
 	return card
 
 
+## Prizes just paid out from `from` (a Claim button) take off from it:
+## coins, eggs and energy into their top-bar pills, the rest into the Bag.
+static func fly_rewards(shell, got: Array, from: Control) -> void:
+	if from == null or not is_instance_valid(from) or not from.is_visible_in_tree():
+		return
+	shell.reward_from(from)
+	var at := from.get_global_rect().get_center()
+	var k := 0
+	for r in got:
+		if r is Dictionary and not r.get("kind", "") in ["coins", "orbs", "energy"]:
+			shell.fly_to_tab(func(): return reward_icon(shell, r, 56), at, "bag", .08 * k)
+			k += 1
+
+
 static var _claiming := false
 
 ## Claim all: glide down to the first prize, claim everything (the cards flip

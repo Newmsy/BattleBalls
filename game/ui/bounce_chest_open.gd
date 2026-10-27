@@ -1,9 +1,11 @@
 ## Opening a Bounce Run chest (meta/bounce_chest.gd), over the whole shell
 ## (from the Daily board) or over the Bounce Run screen when it opens:
 ## the painted chest drops in and wobbles, a tap shakes it harder and harder
-## until the lid bursts off in a flash of light, then each reward arcs out of
-## the chest into its slot. Collect grants them and they fly to the top bar.
-## Any tap during the show skips to the end. Render-only, tweens only.
+## until the lid bursts off in a flash of light, then each reward card leaps
+## out of the chest one by one, arcs over and lands in its slot with a
+## bounce. Collect grants them: coins and orbs fly to the top bar, the rest
+## to the Bag. A tap while it shakes bursts it open at once; a tap while the
+## cards fly lands them all. Render-only, tweens only.
 extends Control
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -16,7 +18,11 @@ const PassScreen := preload("res://game/ui/screens/pass_screen.gd")
 const CHEST_H := 320.0
 const CARD := 112.0 ## Reward card side.
 
-enum Phase { ARRIVING, WAITING, OPENING, OPEN }
+enum Phase { ARRIVING, WAITING, OPENING, SPILLING, OPEN }
+
+const SPILL_GAP := .32 ## Between one card leaving the chest and the next.
+const ARC_SECS := .62
+const PILLS := {"coins": "coin", "orbs": "orb", "energy": "energy"} ## Reward kind -> its top bar pill.
 
 var shell ## The menus' shell, or null over the Bounce Run screen.
 var host ## The Bounce Run screen (game/bounce_run.gd) when there's no shell.
@@ -36,6 +42,8 @@ var _cards: Array = []
 var _row: HBoxContainer
 var _collect: Button
 var _tw: Tween
+var _flyers := {} ## Card index -> its card in flight.
+var _landed := 0
 
 
 ## Shows chest `c` (BounceChest.pending()) on `shell`'s overlay layer.
@@ -193,10 +201,12 @@ func _gui_input(event: InputEvent) -> void:
 	if not ((event is InputEventMouseButton or event is InputEventScreenTouch) and event.pressed):
 		return
 	match phase:
-		Phase.WAITING:
+		Phase.ARRIVING, Phase.WAITING:
 			_open()
-		Phase.ARRIVING, Phase.OPENING:
-			_open_now()
+		Phase.OPENING:
+			_burst()
+		Phase.SPILLING:
+			_land_all()
 	accept_event()
 
 
@@ -205,6 +215,9 @@ func _open() -> void:
 	phase = Phase.OPENING
 	_kill()
 	_art.rotation = 0.0
+	_art.scale = Vector2.ONE
+	_art.modulate.a = 1.0
+	_rays.modulate.a = maxf(_rays.modulate.a, .35)
 	_hint.modulate.a = 0.0
 	_tw = create_tween()
 	for i in 3:
@@ -220,6 +233,12 @@ func _open() -> void:
 
 
 func _burst() -> void:
+	if phase == Phase.SPILLING or phase == Phase.OPEN:
+		return
+	phase = Phase.SPILLING
+	_kill()
+	_art.rotation = 0.0
+	_art.scale = Vector2.ONE
 	_sound("summon_pop", 0.0, .9)
 	var lid: TextureRect = _art.lid
 	_tw = create_tween()
@@ -233,30 +252,87 @@ func _burst() -> void:
 	_tw.tween_callback(_spill)
 
 
-## Each reward arcs from the open chest into its card, one after another.
+## Each reward card leaps out of the open chest, one after another: it
+## starts small in the chest's mouth, spins up over the chest and drops
+## into its slot, which takes it with a bounce and a spray of sparks.
 func _spill() -> void:
-	var from := _art.get_global_rect().get_center() - Vector2(0, _art.size.y * .1)
+	var base := get_global_rect().position
+	var mouth := _art.get_global_rect().get_center() - Vector2(0, _art.size.y * .15) - base
 	for i in _cards.size():
 		var card: Control = _cards[i]
 		var r: Dictionary = rewards[i]
-		var t := get_tree().create_timer(.16 * i)
-		t.timeout.connect(func() -> void:
-			if phase != Phase.OPENING or not is_instance_valid(card):
-				return
-			Motion.fly(self, func(): return _flyer(r), from, card.get_global_rect().get_center(), 1, func(_k: int) -> void:
-				if phase != Phase.OPENING:
-					return
-				card.modulate.a = 1.0
-				Motion.pop(card, .3, .32)
-				_sound("twinkle", -6.0, 1.0 + .08 * i)
-				if i == _cards.size() - 1:
-					_show_collect()))
+		var fly := _card(r)
+		fly.visible = false
+		add_child(fly)
+		_flyers[i] = fly
+		var land := card.get_global_rect().get_center() - base
+		var top := Vector2(lerpf(mouth.x, land.x, .45), minf(mouth.y, land.y) - _art.size.y * .55)
+		var spin := (1.0 if land.x >= mouth.x else -1.0) * TAU * .5
+		var tw := fly.create_tween()
+		tw.tween_interval(SPILL_GAP * i)
+		tw.tween_callback(func() -> void:
+			fly.visible = true
+			fly.size = card.size
+			fly.pivot_offset = fly.size / 2.0
+			Motion.bump(_art, 1.06, .16, true)
+			_sound("clunk", -10.0, 1.4 + .06 * i))
+		tw.tween_method(func(t: float) -> void:
+			# A quadratic arc: up out of the chest, over, down into the slot.
+			var p := mouth.lerp(top, t).lerp(top.lerp(land, t), t)
+			fly.position = p - fly.size / 2.0
+			fly.scale = Vector2.ONE * lerpf(.2, 1.0, minf(1.0, t * 1.6))
+			fly.rotation = spin * (1.0 - t), 0.0, 1.0, ARC_SECS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tw.tween_callback(_land.bind(i))
 
 
-func _flyer(r: Dictionary) -> Control:
-	var icon: Control = PassScreen.reward_icon(shell, r, 72.0)
-	icon.custom_minimum_size = Vector2(72, 72)
-	return icon
+## Card `i` lands in its slot (once, whether it flew or was skipped there).
+func _land(i: int) -> void:
+	var fly: Control = _flyers.get(i)
+	if fly == null:
+		return
+	_flyers.erase(i)
+	fly.queue_free()
+	var card: Control = _cards[i]
+	card.modulate.a = 1.0
+	card.scale = Vector2.ONE
+	if phase == Phase.SPILLING:
+		Motion.pop(card, .75, .3)
+		_sparks(card)
+		_sound("twinkle", -6.0, 1.0 + .08 * i)
+	_landed += 1
+	if _landed == _cards.size():
+		_show_collect()
+
+
+## A tap while the cards fly: every one still to come lands now.
+func _land_all() -> void:
+	for i in _flyers.keys():
+		_land(i)
+
+
+## A little ring of sparks round a card that has just landed, drawn by one
+## node that frees itself.
+func _sparks(card: Control) -> void:
+	var s := _Sparks.new()
+	s.color = tier.color
+	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	s.size = card.size * 1.8
+	s.position = card.get_global_rect().get_center() - get_global_rect().position - s.size / 2.0
+	add_child(s)
+	var tw := s.create_tween()
+	tw.tween_method(func(t: float) -> void:
+		s.t = t
+		s.queue_redraw(), 0.0, 1.0, .4).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(s.queue_free)
+
+
+## Makes a reward's flying icon without holding on to this view, which is
+## gone by the time the icons reach the top bar.
+static func _icon_maker(shell_, r: Dictionary) -> Callable:
+	return func() -> Control:
+		var icon: Control = PassScreen.reward_icon(shell_, r, 72.0)
+		icon.custom_minimum_size = Vector2(72, 72)
+		return icon
 
 
 func _show_collect() -> void:
@@ -277,6 +353,10 @@ func _reported() -> void:
 ## Skip straight to the open chest with every reward out.
 func _open_now() -> void:
 	_kill()
+	for f in _flyers.values():
+		f.queue_free()
+	_flyers.clear()
+	_landed = _cards.size()
 	phase = Phase.OPEN
 	_art.rotation = 0.0
 	_art.scale = Vector2.ONE
@@ -288,6 +368,8 @@ func _open_now() -> void:
 	for c in _cards:
 		c.modulate.a = 1.0
 		c.scale = Vector2.ONE
+	if Motion.calm():
+		Motion.cascade(_cards) # Reduced motion: the cards fade in in turn.
 	_collect.visible = true
 	_collect.modulate.a = 1.0
 	_collect.scale = Vector2.ONE
@@ -306,13 +388,39 @@ func _on_collect() -> void:
 	print("UI_BOUNCE_CHEST_COLLECT day=%d n=%d" % [int(chest.day), got.size()])
 	_sound("coins")
 	if shell == null:
-		if on_done.is_valid():
-			on_done.call(got)
-		queue_free()
+		_leave(got)
 		return
-	shell.reward_from(_art)
+	# Coins and orbs fly into their pills from their own cards, the rest into the Bag.
+	for i in _cards.size():
+		var r: Dictionary = rewards[i]
+		var card: Control = _cards[i]
+		if r.kind in PILLS:
+			shell.reward_from(card, PILLS[r.kind])
+		else:
+			shell.fly_to_tab(_icon_maker(shell, r), card.get_global_rect().get_center(), "bag", .08 * i)
 	shell.close_overlay()
 	shell.refresh()
+
+
+## Over the Bounce Run screen (no top bar): the rewards are reported (and
+## saved) at once, then the cards lift away and the view fades.
+func _leave(got: Array) -> void:
+	_collect.disabled = true
+	if on_done.is_valid():
+		on_done.call(got)
+	if Motion.calm() or not is_inside_tree():
+		queue_free()
+		return
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for i in _cards.size():
+		var c: Control = _cards[i]
+		var ct := c.create_tween().set_parallel()
+		ct.tween_property(c, "position:y", c.position.y - 160.0, .32).set_delay(.04 * i).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_BACK)
+		ct.tween_property(c, "modulate:a", 0.0, .26).set_delay(.04 * i + .06)
+	var tw := create_tween()
+	tw.tween_interval(.2)
+	tw.tween_property(self, "modulate:a", 0.0, .22)
+	tw.tween_callback(queue_free)
 
 
 func _sound(id: String, db := 0.0, pitch := 1.0) -> void:
@@ -333,3 +441,16 @@ class _Rays extends Control:
 			var pts := PackedVector2Array([c, c + Vector2.from_angle(a - w) * r, c + Vector2.from_angle(a + w) * r])
 			draw_colored_polygon(pts, Color(color, .1))
 		Dot.glow(self, c, r * .34, Color(color, .47), .3)
+
+
+## The sparks round a landed card: eight dots flying out and fading, `t` 0..1.
+class _Sparks extends Control:
+	var color := Color.WHITE
+	var t := 0.0
+
+	func _draw() -> void:
+		var c := size / 2.0
+		var r := size.x * (.3 + .2 * t)
+		var col := Color(color.lightened(.4), 1.0 - t)
+		for i in 8:
+			Dot.circle(self, c + Vector2.from_angle(TAU * i / 8.0 + .2) * r, 5.0 * (1.0 - t * .6), col)

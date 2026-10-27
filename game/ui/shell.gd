@@ -161,6 +161,7 @@ var _pills := {} ## Currency kind -> its top bar pill (where gains fly to).
 ## are hidden (a fight) wait here and fly in once you're back.
 var _shown := {}
 var _fly_from := Vector2(-1, -1) ## Where the next gain flies from (reward_from).
+var _fly_from_kind := {} ## Pill kind -> where its next gain flies from, if not _fly_from.
 var _fx: Control ## Over everything: flying coins and eggs.
 var _report_after := 0 ## Msec tick a screen's slide ends: marks are logged after it.
 ## The current screen's big critter (the critter page's hero), which a
@@ -494,7 +495,7 @@ func glide_to(c: Control, secs := .4) -> void:
 ## A reward that has no top-bar pill (a look, gear, chips) flies from `from`
 ## (global) into a tab's icon, the Bag by default, which hops as it lands.
 func fly_to_tab(make_icon: Callable, from: Vector2, tab := "bag", delay := 0.0) -> void:
-	if not tab in _tab_icons or not _tab_buttons[tab].visible or Motion.calm():
+	if not tab in _tab_icons or not _tab_buttons[tab].visible or Motion.calm() or not is_inside_tree():
 		return
 	var icon: Control = _tab_icons[tab]
 	if delay > 0.0:
@@ -1124,6 +1125,7 @@ func _refresh_top() -> void:
 	_set_top("coin", profile.coins)
 	_set_top("orb", profile.orbs)
 	_fly_from = Vector2(-1, -1)
+	_fly_from_kind.clear()
 	var fusable := _fuse_signature()
 	if current == "fuse":
 		_set_badge("fuse_seen", fusable)
@@ -1152,9 +1154,13 @@ func _refresh_top() -> void:
 
 
 ## The next coins, eggs or energy you gain fly into the top bar from `c`
-## (e.g. a Glow Pass card you claimed) instead of from the middle.
-func reward_from(c: Control) -> void:
-	_fly_from = c.get_global_rect().get_center()
+## (e.g. a Glow Pass card you claimed) instead of from the middle. With
+## `kind` (a pill: "coin", "orb", "energy") only that pill's gain does.
+func reward_from(c: Control, kind := "") -> void:
+	if kind != "":
+		_fly_from_kind[kind] = c.get_global_rect().get_center()
+	else:
+		_fly_from = c.get_global_rect().get_center()
 
 
 func _pill_text(kind: String, v: int) -> String:
@@ -1192,7 +1198,7 @@ func _set_top(kind: String, value: int, quiet := false) -> void:
 		return # Held: it flies in once the popup closes or the menus come back.
 	_shown[kind] = value
 	var pill: Control = _pills[kind]
-	var start := _fly_from if _fly_from.x >= 0.0 else get_global_rect().get_center()
+	var start: Vector2 = _fly_from_kind.get(kind, _fly_from if _fly_from.x >= 0.0 else get_global_rect().get_center())
 	if Motion.calm():
 		l.text = _pill_text(kind, value)
 		return
