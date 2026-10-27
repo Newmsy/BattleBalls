@@ -593,6 +593,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("hit_big", -4.0, 1.2)
 				elif kind == "quasar":
 					play("hum")
+				elif kind == "core_nova": # A power core's shockwave.
+					play("nova_boom", -2.0, 1.25)
 				elif kind in ["nova", "thunder"]:
 					play("nova_boom", 0.0, 1.0 if kind == "nova" else 1.3)
 				elif kind == "frost": # Yeti's avalanche (the roar plays too).
@@ -628,6 +630,9 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("spring_boing", -2.0, 1.0)
 			"bumper": # An arena bumper: a pinball 'ding'.
 				play("pinball_ding", -2.0, 0.8)
+			"sling": # Sprout slung off its own pillar: a springy, leafy ding.
+				play("pinball_ding", -4.0, 1.25)
+				play("rustle", -6.0, 1.4)
 			"shot":
 				if e.kind == "pea":
 					play("pew")

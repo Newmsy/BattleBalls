@@ -66,6 +66,7 @@ func _show_result() -> void:
 		for c in cards:
 			grid.add_child(c[0])
 		body.append(Kit.vbox(8, [Kit.caption("Rewards"), Kit.hbox(0, [grid], BoxContainer.ALIGNMENT_CENTER)]))
+	body.append(_faction_rings())
 	body.append(XpBar.rows({"critters": got.critters}, sfx))
 	if not r.spent.is_empty():
 		body.append(spent)
