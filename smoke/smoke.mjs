@@ -310,9 +310,11 @@ try {
     await tapUi(page, logs, "gear_equip", "sheet");
     await tapUi(page, logs, "pick_juggernaut", "bag");
     await page.screenshot({ path: path.join(shots, "3g-bag.png") });
-    // Three 1-star Bubble Shells now: Merge all makes a 2-star (design/gear.md).
+    // Three 1-star Bubble Shells now: Merge all asks first, then makes a 2-star (design/gear.md).
+    await tapUi(page, logs, "merge_all", "sheet");
+    await page.screenshot({ path: path.join(shots, "3g-bag-merge-confirm.png") });
     const merging = logs.length;
-    await tapUi(page, logs, "merge_all", "bag");
+    await tapUi(page, logs, "merge_confirm", "bag");
     await waitForLogAfter(logs, merging, "UI_SCREEN sheet", 5000);
     await page.waitForTimeout(400);
     await page.screenshot({ path: path.join(shots, "3g-bag-merged.png") });
@@ -547,9 +549,9 @@ try {
   // 7. A known solution of day 1 solves it.
   if (mine(13)) {
     const probe = await openGame("?mode=trickshot&day=1");
-    const [lo, hi] = (await waitForLog(probe.logs, "TRICKSHOT_READY", 60000)).match(/solutions=(\d+)-(\d+)/).slice(1).map(Number);
+    // A real solving aim: pillars and bumpers can split the window in two.
+    const aim = Number((await waitForLog(probe.logs, "TRICKSHOT_READY", 60000)).match(/solve=(\d+)/)[1]);
     await probe.page.close();
-    const aim = Math.round((lo + hi) / 2);
     const { page, logs } = await openGame(`?mode=trickshot&day=1&aim=${aim}&auto=1`);
     const result = await waitForLog(logs, "TRICKSHOT_RESULT", 60000);
     console.log("trick shot result:", result);
@@ -601,7 +603,7 @@ try {
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
     await tapUi(page, logs, "settings", "sheet");
-    await tapUi(page, logs, "dev_bounce_chest_20", "week");
+    await tapUi(page, logs, "dev_bounce_chest_25", "week");
     await page.waitForTimeout(600);
     await page.screenshot({ path: path.join(shots, "16c-daily-bounce-chest.png") });
     await tapUi(page, logs, "week_bounce_chest", "bounce_chest");
@@ -775,7 +777,10 @@ try {
     await waitForLog(logs, "UI_SCREEN spire", 10000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "16-spire.png") });
-    await tapUi(page, logs, "spire_pick_vampire", "spire");
+    // A pick restyles the cards in place (no rebuild): wait for the lineup.
+    const picked = logs.length;
+    await tapUi(page, logs, "spire_pick_vampire");
+    await waitForLogAfter(logs, picked, "UI_PICKS vampire", 5000);
     await tapUi(page, logs, "spire_climb");
     console.log("spire:", await waitForLog(logs, "SPIRE_READY", 10000));
     await page.waitForTimeout(800);
@@ -886,6 +891,12 @@ try {
     await page.waitForTimeout(4000);
     await page.screenshot({ path: path.join(shots, "37-pinata-fight.png") });
     console.log("pinata end:", await waitForLog(logs, "BOSS_END", 120000));
+    // Back after the result walks down to the boss hall it came from, not Home.
+    const back = logs.length;
+    await waitForLogAfter(logs, back, "UI_SCREEN pinata", 10000);
+    await waitForLogAfter(logs, back, "UI_AT result_continue ", 5000);
+    await tapUi(page, logs, "result_continue");
+    await tapUi(page, logs, "back", "bosses");
     await page.close();
   }
 

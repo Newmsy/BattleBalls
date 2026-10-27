@@ -1,8 +1,8 @@
 ## Family edges check (design/type-advantage.md): how often the side with the
 ## edge wins, on same-rarity pairs at real tiers, with edges on and off, and
 ## when the foe is one tier up. Targets (Newms 2026-10-22 "Bold"): very good
-## ~72%, good ~64%, and the tier-up foe still wins ~65-70% into its very-bad
-## (2026-10-22: 71% / 65%, tier-up foe 72%).
+## ~72%, and the tier-up foe still wins ~65-70% into its very-bad
+## (2026-10-22: 71%, tier-up foe 72%). The chart has no "good" level now, so that row is skipped.
 ## Usage: godot --headless --script res://tools/type_check.gd -- [--pairs=300]
 extends SceneTree
 
@@ -27,6 +27,8 @@ func _init() -> void:
 	print("| Edge | foe tier | edges on | edges off | fights |")
 	print("|---|---|---|---|---|")
 	for e in [2, 1]:
+		if by_edge[e].is_empty():
+			continue
 		for foe_tier in [1, 2]:
 			var on := _run(by_edge[e], pairs, foe_tier, true)
 			var off := _run(by_edge[e], pairs, foe_tier, false)

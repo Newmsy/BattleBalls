@@ -8,6 +8,7 @@ const RESULT_COLORS := {
 	"miss": Color("ff5a7a"),
 }
 const CALL_COLOR := Color("ffd25a")
+const TrickShot := preload("res://sim/trick_shot.gd")
 
 ## Called walls in order, e.g. ["right", "top"].
 var called_walls: Array = []
@@ -47,10 +48,10 @@ func _draw() -> void:
 	if sim == null:
 		return
 	var start := sim.balls[0].pos * s if trail.is_empty() else trail[0] * s
-	if not solutions.is_empty():
-		var r := 520.0 * s
-		var first := deg_to_rad(float(solutions.front()) - 0.5)
-		var last := deg_to_rad(float(solutions.back()) + 0.5)
+	var r := 520.0 * s
+	for w in TrickShot.windows(solutions):
+		var first := deg_to_rad(float(w[0]) - 0.5)
+		var last := deg_to_rad(float(w[1]) + 0.5)
 		var wedge := PackedVector2Array([start])
 		for i in 9:
 			wedge.append(start + Vector2.from_angle(lerpf(first, last, i / 8.0)) * r)

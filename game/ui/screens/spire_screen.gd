@@ -11,6 +11,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const Families := preload("res://sim/families.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const LiveOps := preload("res://game/liveops.gd")
@@ -47,7 +48,9 @@ static func build(shell, params: Dictionary) -> Control:
 
 	root.add_child(shell.title_row("The Spire", {"back_mark": "spire_back", "info_mark": "spire_info", "info": [
 		"One %d-floor tower for everyone, rebuilt every Monday. Pick your lineup for each floor; they fight in the order you pick them, and a winner stays in with the HP it has left." % Spire.FLOORS,
+		"Each floor's foes all come from one family, and they go up a tier every %d floors." % Spire.FLOORS_PER_TIER,
 		"Boss floors: the boss is huge and takes on your whole lineup alone.",
+		"Every critter that fights earns XP, more on higher floors.",
 		"Every critter that comes out to fight spends 1 of its %d Stamina, win or lose. Tired critters rest until Monday." % SpireClimb.STAMINA,
 		"Coming up: " + _upcoming_text(climb),
 	]}))
@@ -63,6 +66,8 @@ static func build(shell, params: Dictionary) -> Control:
 		return root
 	var spec: Dictionary = climb.floor_spec()
 	var picks: Array = params.get("picks", [])
+	if not params.is_read_only():
+		params["picks"] = picks
 	root.add_child(_floor_card(spec))
 	root.add_child(_picker(shell, climb, spec, picks))
 	return root
@@ -84,9 +89,8 @@ static func _floor_card(spec: Dictionary) -> Control:
 	var title := "Floor %d" % n + (" · Boss" if spec.boss else "")
 	var foes := Kit.hbox(14, [], BoxContainer.ALIGNMENT_CENTER)
 	for e in spec.enemies:
-		var tier := Spire.display_tier(e.power, Roster.rarity_base(Roster.get_critter(e.id).rarity) / 100.0)
 		var side := 150.0 if spec.boss else 104.0
-		foes.add_child(Kit.vbox(4, [FighterTag.make(e.id, tier, roundi(e.power * 1000.0), side),
+		foes.add_child(Kit.vbox(4, [FighterTag.make(e.id, int(e.tier), roundi(e.rating * 1000.0), side),
 			Kit.label(BallDefs.get_def(e.id).display_name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]))
 	# Currencies as icon + number, never their names.
 	var r := Spire.reward(n)
@@ -120,39 +124,60 @@ static func _picker(shell, climb, spec: Dictionary, picks: Array) -> Control:
 	var p = shell.profile
 	var list := fighters(p, climb)
 	var v := Kit.vbox(12)
-	v.add_child(Kit.hbox(0, [Kit.caption("Pick %d" % spec.lineup), Kit.spacer(),
-		Kit.label("%d/%d" % [picks.size(), spec.lineup], 22, Kit.MUTED)]))
+	var count := Kit.label("%d/%d" % [picks.size(), spec.lineup], 22, Kit.MUTED)
+	v.add_child(Kit.hbox(0, [Kit.caption("Pick %d" % spec.lineup), Kit.spacer(), count]))
 	if list.is_empty():
 		v.add_child(Kit.label("None of your critters can fight in the arena yet.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		return v
+	# A tap restyles the cards, count and buttons in place: rebuilding the
+	# whole screen flashed the list for a frame. `picks` is the screen's
+	# params.picks, so Back and a later refresh still see the lineup.
+	var state := {"picks": picks, "cards": {}}
 	var grid := GridContainer.new()
 	grid.columns = 3
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	for i in list.size():
-		grid.add_child(LazyTile.wrap(_pick_card.bind(shell, list[i], spec, picks), i, 12))
+		grid.add_child(LazyTile.wrap(_pick_card.bind(shell, list[i], spec, state), i, 12))
 	v.add_child(grid)
 	# The climb button stays put under the list, however many critters it holds.
 	var climb_btn := Kit.button("Climb", func(): _climb(shell, climb, picks), "go" if not picks.is_empty() else "ghost", 32, 96)
 	shell.mark("spire_climb", climb_btn)
 	var actions := Kit.hbox(12, [climb_btn])
-	if picks.is_empty() and spec.lineup > 1:
-		var auto := Kit.button("Suggest", func(): shell.refresh_with({"picks": suggest(list, spec)}), "ghost", 26, 96)
+	var auto: Button = null
+	if spec.lineup > 1:
+		auto = Kit.button("Suggest", func(): _set_picks(state, suggest(list, spec)), "ghost", 26, 96)
 		auto.size_flags_horizontal = Control.SIZE_SHRINK_END
 		auto.custom_minimum_size.x = 200
+		auto.visible = picks.is_empty()
 		shell.mark("spire_suggest", auto)
 		actions.add_child(auto)
+	state.update = func() -> void:
+		print("UI_PICKS " + ",".join(picks))
+		count.text = "%d/%d" % [picks.size(), spec.lineup]
+		Kit.style_button(climb_btn, "go" if not picks.is_empty() else "ghost")
+		if auto != null:
+			auto.visible = picks.is_empty()
+		for id in state.cards:
+			_restyle_pick(state.cards[id], picks.find(id))
 	shell.pin(actions)
 	return v
 
 
+## Replaces the lineup in place (same array as params.picks) and restyles.
+static func _set_picks(state: Dictionary, next: Array) -> void:
+	state.picks.clear()
+	state.picks.append_array(next)
+	state.update.call()
+
+
 ## One critter in the picker. Built lazily: a big collection fills many rows.
-static func _pick_card(shell, f: Dictionary, spec: Dictionary, picks: Array) -> Control:
+static func _pick_card(shell, f: Dictionary, spec: Dictionary, state: Dictionary) -> Control:
 	var p = shell.profile
-	var order: int = picks.find(f.id)
+	var picks: Array = state.picks
 	var tired: bool = f.stamina <= 0
 	var col := Kit.MUTED if tired else Kit.FG
-	var tag := Kit.label("#%d" % (order + 1) if order >= 0 else ("Tired" if tired else ""), 20, TOWER if order >= 0 else Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
+	var tag := Kit.label("", 20, Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
 	var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96, false, p.best(f.id).level)
 	if tired:
 		icon.modulate = Color(1, 1, 1, 0.35)
@@ -165,7 +190,7 @@ static func _pick_card(shell, f: Dictionary, spec: Dictionary, picks: Array) -> 
 	])
 	var on_tap := func():
 		var next := picks.duplicate()
-		if order >= 0:
+		if picks.has(f.id):
 			next.erase(f.id)
 		elif tired:
 			shell.toast("%s is tired until Monday." % Roster.get_critter(f.id).name, f.id)
@@ -175,23 +200,52 @@ static func _pick_card(shell, f: Dictionary, spec: Dictionary, picks: Array) -> 
 			return
 		else:
 			next.append(f.id)
-		shell.refresh_with({"picks": next})
-	var card := Kit.card_button(cell, on_tap, TOWER if order >= 0 else Kit.LINE, Kit.PANEL2 if order >= 0 else Kit.PANEL, 28, 10)
+		_set_picks(state, next)
+	var card := Kit.card_button(cell, on_tap, Kit.LINE, Kit.PANEL, 28, 10)
+	card.set_meta("tag", tag)
+	card.set_meta("tired", tired)
+	_restyle_pick(card, picks.find(f.id))
 	FamilyEdge.attach(card, [f.id], spec.enemies.map(func(e): return str(e.id)))
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	state.cards[f.id] = card
 	shell.mark("spire_pick_" + f.id, card)
 	return card
 
 
-## Fresh critters closest to the floor's power, weakest first, so the best
-## ones are saved for the floors above.
+## A picker card picked (`order` in the lineup, gold edge, "#2") or not (-1).
+static func _restyle_pick(card: Button, order: int) -> void:
+	if not is_instance_valid(card):
+		return
+	var st := Kit.box(Kit.PANEL2 if order >= 0 else Kit.PANEL, TOWER if order >= 0 else Kit.LINE, 28, 3, 10)
+	for s in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+		card.add_theme_stylebox_override(s, st)
+	var tag: Label = card.get_meta("tag")
+	tag.text = "#%d" % (order + 1) if order >= 0 else ("Tired" if card.get_meta("tired") else "")
+	tag.add_theme_color_override("font_color", TOWER if order >= 0 else Kit.BAD)
+
+
+## Fresh critters for the floor, picked by type advantage first: of the ones
+## strong enough (counting their family edge on the floor's foes), the best
+## matchups lead, weakest first among equals so the strongest are saved for
+## the floors above. Short of those, the strongest that are left fill in.
 static func suggest(list: Array, spec: Dictionary) -> Array:
 	var need: float = Spire.power_at(spec.floor) * 0.95
-	var fresh := list.filter(func(f): return f.stamina > 0)
-	fresh.sort_custom(func(a, b): return a.power < b.power)
-	var strong := fresh.filter(func(f): return f.power >= need)
-	var pool: Array = strong if strong.size() >= spec.lineup else fresh.slice(maxi(0, fresh.size() - spec.lineup))
-	return pool.slice(0, spec.lineup).map(func(f): return f.id)
+	var foes: Array = spec.get("enemies", []).map(func(e): return str(e.id))
+	var ranked := []
+	for f in list:
+		if f.stamina <= 0:
+			continue
+		var edge := 0.0
+		for foe in foes:
+			edge += Families.edge(str(f.id), foe)
+		edge /= maxf(1.0, foes.size())
+		# A very good matchup (+2) wins about as often as a tier up (x1.25 power).
+		ranked.append({"id": f.id, "power": f.power, "edge": edge, "eff": f.power * pow(1.25, edge / 2.0)})
+	var strong := ranked.filter(func(f): return f.eff >= need)
+	strong.sort_custom(func(a, b): return a.edge > b.edge or (a.edge == b.edge and a.power < b.power))
+	var weak := ranked.filter(func(f): return f.eff < need)
+	weak.sort_custom(func(a, b): return a.eff > b.eff)
+	return (strong + weak).slice(0, spec.lineup).map(func(f): return f.id)
 
 
 static func _pips(left: int) -> Control:
@@ -242,13 +296,21 @@ static func _climb(shell, climb, picks: Array) -> void:
 	shell.get_tree().change_scene_to_file("res://game/spire.tscn")
 
 
-## Adds rewards from floors cleared since the last visit to the profile.
+## Adds XP and rewards from floors fought since the last visit to the
+## profile, with one save. The toast waits for the screen to slide in, so the
+## slide and the picker's first tiles don't share frames with it.
 static func _collect(shell, climb) -> void:
-	if climb.unclaimed.is_empty():
+	if climb.xp_owed.is_empty() and climb.unclaimed.is_empty():
 		return
+	# The XP bars were shown on the floor's result; this makes them true.
+	var xp: Dictionary = climb.take_xp()
+	for id in xp:
+		shell.profile.add_xp(id, int(xp[id]))
 	var t: Dictionary = climb.take_rewards()
 	grant(shell.profile, t)
 	climb.save_file()
+	if t.floors.is_empty():
+		return
 	var bits := ["+%d coins" % t.coins]
 	if t.orbs > 0:
 		bits.append("+%d egg%s" % [t.orbs, "" if t.orbs == 1 else "s"])
@@ -258,7 +320,11 @@ static func _collect(shell, climb) -> void:
 		bits.append(gear_name(g))
 	if t.get("keys", 0) > 0:
 		bits.append("+%d Rift Key%s" % [t.keys, "" if t.keys == 1 else "s"])
-	shell.toast(", ".join(bits))
+	var text := ", ".join(bits)
+	if shell is Node and shell.is_inside_tree():
+		shell.get_tree().create_timer(0.45).timeout.connect(func(): shell.toast(text))
+	else:
+		shell.toast(text)
 
 
 ## Puts a reward bundle (SpireClimb.take_rewards) into the profile.

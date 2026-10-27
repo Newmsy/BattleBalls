@@ -1,6 +1,6 @@
 ## Bounce Run chests (Newms 2026-10-25): every run counts the same, and the
 ## best floor you reach in a UTC day opens a chest the next day. Each tier up
-## floor (4, 8, 12, 16) is a better chest; beating the Champion on floor 20
+## floor (5, 10, 15, 20) is a better chest; beating the Champion on floor 25
 ## opens the Champion Chest, the only one with gear.
 ##
 ## Best floors per day live in user://bounce_run.cfg ("best" section, written
@@ -18,15 +18,15 @@ const KEEP_DAYS := 7
 ## Lowest first. Rewards are Profile.grant() dicts; the Champion's gear piece
 ## gets its type from the day (rewards()).
 const TIERS := [
-	{"id": "bronze", "name": "Bronze Chest", "floor": 4, "color": Color("e09a5b"),
+	{"id": "bronze", "name": "Bronze Chest", "floor": 5, "color": Color("e09a5b"),
 		"rewards": [{"kind": "coins", "n": 100}]},
-	{"id": "silver", "name": "Silver Chest", "floor": 8, "color": Color("c9d6ec"),
+	{"id": "silver", "name": "Silver Chest", "floor": 10, "color": Color("c9d6ec"),
 		"rewards": [{"kind": "coins", "n": 100}, {"kind": "orbs", "n": 1}]},
-	{"id": "gold", "name": "Gold Chest", "floor": 12, "color": Color("ffc23d"),
+	{"id": "gold", "name": "Gold Chest", "floor": 15, "color": Color("ffc23d"),
 		"rewards": [{"kind": "coins", "n": 250}, {"kind": "orbs", "n": 1}, {"kind": "hammers", "n": 1}]},
-	{"id": "crystal", "name": "Crystal Chest", "floor": 16, "color": Color("6fe8ff"),
+	{"id": "crystal", "name": "Crystal Chest", "floor": 20, "color": Color("6fe8ff"),
 		"rewards": [{"kind": "coins", "n": 250}, {"kind": "orbs", "n": 2}, {"kind": "hammers", "n": 1}, {"kind": "xp_chip", "n": 1}]},
-	{"id": "champion", "name": "Champion Chest", "floor": 20, "color": Color("ff6ad5"),
+	{"id": "champion", "name": "Champion Chest", "floor": 25, "color": Color("ff6ad5"),
 		"rewards": [{"kind": "coins", "n": 450}, {"kind": "orbs", "n": 4}, {"kind": "hammers", "n": 1}, {"kind": "xp_chip", "n": 1}, {"kind": "gear", "tier": 2}]},
 ]
 

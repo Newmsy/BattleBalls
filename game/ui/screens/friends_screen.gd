@@ -170,6 +170,9 @@ static func _gifts_card(shell, fr) -> Control:
 	var on_claim := func():
 		var energy: int = await fr.claim_gifts()
 		if energy > 0:
+			var from = shell._marks.get("claim_gifts")
+			if is_instance_valid(from) and from.is_visible_in_tree():
+				shell.reward_from(from) # The energy flies up from the button.
 			Analytics.track("energy", {"delta": energy, "source": "friend_gift"})
 			shell.profile.energy += energy
 			shell.profile.changed.emit()

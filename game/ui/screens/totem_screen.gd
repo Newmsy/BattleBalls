@@ -37,6 +37,10 @@ static func build(shell, params: Dictionary) -> Control:
 
 	ResultPopup.boss_result(shell, params)
 
+	var level := BossLevelGrid.picked(p, TotemShrine.KEY, params)
+	var diff: Dictionary = TotemShrine.DIFFICULTIES[level]
+	root.add_child(BossCard.prizes(shell, "%s prizes" % diff.name, SHRINE, [BossCard.prize("sparkle", diff.sigils, Talents.COLORS[family])],
+		TotemShrine.WIN_XP + level, "totem"))
 	root.add_child(BossLevelGrid.hero(shell, TotemShrine.BOSS, SHRINE))
 	var fighter: String = Campaign.fighter_for(p)
 	var lines := []
@@ -44,7 +48,6 @@ static func build(shell, params: Dictionary) -> Control:
 		lines.append(Kit.label("+%d%% today" % roundi(Bosses.DEFS[TotemShrine.BOSS].family_bonus * 100.0), 20, Kit.GOOD))
 	root.add_child(BossCard.fighter(shell, fighter, "totem", lines))
 
-	var level := BossLevelGrid.picked(p, TotemShrine.KEY, params)
 	root.add_child(BossLevelGrid.grid(shell, p, TotemShrine.KEY, level, SHRINE, "totem"))
 	root.add_child(_card(shell, p, level, fighter, left, family))
 	return root
@@ -53,7 +56,7 @@ static func build(shell, params: Dictionary) -> Control:
 static func _card(shell, p, d: int, fighter: String, left: int, family: String) -> Control:
 	var diff: Dictionary = TotemShrine.DIFFICULTIES[d]
 	return BossCard.fight(shell, {"boss": TotemShrine.BOSS, "accent": SHRINE, "rec": TotemShrine.enemy_rating(d), "mine": p.power_of(fighter),
-		"title": diff.name, "pay": [Kit.hbox(8, [Glyph.make("sparkle", 22, Talents.COLORS[family]), Kit.label("%d" % diff.sigils, 20)], BoxContainer.ALIGNMENT_CENTER)],
+		"title": diff.name,
 		"cost": TotemShrine.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, d, fighter), "mark": "totem_go"})
 
 

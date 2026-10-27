@@ -24,6 +24,10 @@ const Sfx := preload("res://game/audio/sfx.gd")
 const Main := preload("res://game/main.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
+const FinisherCam := preload("res://game/finisher_cam.gd")
+const A11y := preload("res://game/a11y.gd")
+const FactionRing := preload("res://game/ui/faction_ring.gd")
+const FactionXp := preload("res://game/faction_xp.gd")
 
 enum State { AIM, FIGHT, LEG_END, RESULT }
 
@@ -43,6 +47,11 @@ var _accumulator := 0.0
 var _pause := 0.0
 
 var arena: ArenaView
+var arena_clip: Control ## Holds the arena; clips it while the finisher cam zooms.
+var finisher: FinisherCam ## The deciding leg's finisher; ko_tick -1 on the other legs.
+var _hold := -1.0 ## Real seconds on the KO face so far, or -1 before the blow.
+var _zooming := false
+var _skipped := false ## Skip also skips the finisher.
 var sfx: Sfx
 var fight_hud: FightHud ## Both health bars, above the arena.
 var fighter_strip: Control ## The two fighters' cards under the arena while the balls are out.
@@ -60,9 +69,13 @@ func start(r: Relay, tags := ["YOU", "FOE"]) -> void:
 	aimed.clear()
 	for i in relay.sides[0].size():
 		aimed.append(false)
+	arena_clip = Control.new()
+	arena_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	arena_clip.clip_contents = true
+	add_child(arena_clip)
 	arena = ArenaView.new()
 	arena.team_tags = tags
-	add_child(arena)
+	arena_clip.add_child(arena)
 	sfx = Sfx.new()
 	add_child(sfx)
 	_build_ui(tags)
@@ -74,16 +87,11 @@ func start(r: Relay, tags := ["YOU", "FOE"]) -> void:
 func _process(delta: float) -> void:
 	match state:
 		State.FIGHT:
-			_accumulator += delta * FightSpeed.current()
-			var steps := 0
-			while _accumulator >= MatchSim.DT and steps < 32 and not sim.finished:
-				sim.step()
-				arena.consume_events(sim.events)
-				sfx.consume_events(sim.events, sim)
-				_accumulator -= MatchSim.DT
-				steps += 1
-			if sim.finished:
+			if _advance_fight(delta, FightSpeed.current()):
+				_unzoom()
 				_end_leg()
+			_update_hud()
+			return
 		State.LEG_END:
 			_pause -= delta
 			if _pause <= 0.0:
@@ -194,10 +202,19 @@ func _launch() -> void:
 
 
 func _start_leg() -> void:
-	sim = MatchSim.new(relay.leg_config())
+	var cfg := relay.leg_config()
+	sim = MatchSim.new(cfg)
 	arena.sim = sim
 	arena.aim_dir = Vector2.ZERO
 	arena.clear_effects()
+	arena.reset_camera()
+	# Slow motion only on the blow that ends the whole relay.
+	finisher = FinisherCam.plan(cfg)
+	if finisher.ko_tick >= 0 and relay.slot[finisher.loser] + 1 < relay.sides[finisher.loser].size():
+		finisher.ko_tick = -1
+	_hold = -1.0
+	_zooming = false
+	_skipped = false
 	_accumulator = 0.0
 	state = State.FIGHT
 	fighter_strip.stats = [_stats_text(0), _stats_text(1)] # The pair now out.
@@ -210,6 +227,8 @@ func _start_leg() -> void:
 
 
 func _skip_leg() -> void:
+	_skipped = true
+	_unzoom()
 	while not sim.finished:
 		sim.step()
 	arena.clear_effects()
@@ -225,6 +244,70 @@ func _end_leg() -> void:
 	state = State.LEG_END
 	_pause = LEG_PAUSE
 	_set_panel([])
+
+
+## Steps the leg in real time at `speed`, slowing into the finisher cam on
+## the deciding blow (zoomed in, then a beat on the KO face), as in Quick
+## fight (game/main.gd). Render-only. True once the leg and any finisher are
+## over. Reduced motion keeps the KO face without slow-mo or zoom.
+func _advance_fight(delta: float, speed: float) -> bool:
+	var finishing := finisher != null and finisher.ko_tick >= 0 and not _skipped
+	var cinematic := finishing and not A11y.reduced_motion
+	var rate := speed
+	_accumulator += delta
+	var steps := 0
+	while not sim.finished and steps < 32:
+		rate = finisher.time_scale(sim.tick, speed) if cinematic else speed
+		if _accumulator < MatchSim.DT / rate:
+			break
+		_accumulator -= MatchSim.DT / rate
+		arena.snapshot_positions()
+		sim.step()
+		arena.consume_events(sim.events)
+		sfx.consume_events(sim.events, sim)
+		steps += 1
+	arena.render_alpha = 1.0 if sim.finished else clampf(_accumulator / (MatchSim.DT / rate), 0.0, 1.0)
+	if not finishing:
+		arena.advance_effects(delta * speed)
+		return sim.finished
+	if sim.finished:
+		if _hold < 0.0:
+			_hold = 0.0
+			arena.ko_ball = finisher.loser
+		else:
+			_hold += delta
+		rate = 0.5
+	if cinematic and finisher.active(sim.tick):
+		var t := sim.tick - 1.0 + arena.render_alpha
+		var z := finisher.zoom(t, maxf(0.0, _hold))
+		var target := finisher.focus(arena.ball_pos(sim.balls[finisher.loser]), arena.ball_pos(sim.balls[finisher.winner]), z)
+		var start := not _zooming
+		arena.set_camera(z, target if start else FinisherCam.follow(arena.cam_focus, target, delta))
+		arena.finisher_amount = clampf(finisher.progress(t) / 0.25, 0.0, 1.0)
+		_zooming = true
+	arena.advance_effects(delta * rate)
+	return _hold >= FinisherCam.HOLD
+
+
+## Back to the whole arena, keeping the KO face on the critter that fell.
+func _unzoom() -> void:
+	arena.finisher_amount = 0.0
+	arena.set_camera(1.0, Vector2.ONE * MatchSim.ARENA_SIZE / 2.0)
+	_zooming = false
+
+
+## Your critters that launched in this relay (the ones that fought).
+func fought() -> Array:
+	var ids := []
+	for i in mini(aimed.size(), relay.sides[0].size()):
+		if aimed[i]:
+			ids.append(str(relay.sides[0][i]))
+	return ids
+
+
+## The Faction XP rings for this relay's fight, paid into the save.
+func _faction_rings() -> Control:
+	return FactionRing.rows(FactionXp.award(fought(), relay.winner), sfx)
 
 
 ## The result popup every fight ends on, over this screen.
@@ -289,7 +372,9 @@ func _build_ui(tags: Array) -> void:
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
 	var r := FightLayout.rects(size)
-	arena.fit(r.arena.position, r.arena.size.x)
+	arena_clip.position = r.arena.position
+	arena_clip.size = r.arena.size
+	arena.fit(Vector2.ZERO, r.arena.size.x)
 	FightLayout.place_plates(fight_hud, fighter_strip, r, size)
 	var p: Rect2 = r.panel
 	var info_h := 0.0 if state == State.FIGHT else 56.0 # The aim hint, or who stays in.

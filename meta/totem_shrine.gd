@@ -26,21 +26,21 @@ const ZONE := 2 ## Beating this zone's boss (0-based) opens it.
 ## and the totem's power, BossLevels.curve(2.9, 15.4). Check with
 ## tools/boss_difficulty.gd --boss=totem_of_nine --tier=5.
 const DIFFICULTIES := [
-	{"name": "Level 1", "sigils": 60, "power": 2.9},
-	{"name": "Level 2", "sigils": 75, "power": 3.6},
-	{"name": "Level 3", "sigils": 90, "power": 4.4},
-	{"name": "Level 4", "sigils": 105, "power": 5.4},
-	{"name": "Level 5", "sigils": 120, "power": 6.7},
-	{"name": "Level 6", "sigils": 135, "power": 8.2},
-	{"name": "Level 7", "sigils": 150, "power": 10.1},
-	{"name": "Level 8", "sigils": 165, "power": 12.5},
-	{"name": "Level 9", "sigils": 180, "power": 15.4},
-	{"name": "Level 10", "sigils": 195, "power": 17.2},
-	{"name": "Level 11", "sigils": 210, "power": 19.3},
-	{"name": "Level 12", "sigils": 225, "power": 21.6},
-	{"name": "Level 13", "sigils": 240, "power": 24.2},
-	{"name": "Level 14", "sigils": 255, "power": 27.1},
-	{"name": "Level 15", "sigils": 270, "power": 30.4},
+	{"name": "Level 1", "sigils": 10, "power": 2.9},
+	{"name": "Level 2", "sigils": 14, "power": 3.6},
+	{"name": "Level 3", "sigils": 18, "power": 4.4},
+	{"name": "Level 4", "sigils": 22, "power": 5.4},
+	{"name": "Level 5", "sigils": 26, "power": 6.7},
+	{"name": "Level 6", "sigils": 30, "power": 8.2},
+	{"name": "Level 7", "sigils": 34, "power": 10.1},
+	{"name": "Level 8", "sigils": 38, "power": 12.5},
+	{"name": "Level 9", "sigils": 42, "power": 15.4},
+	{"name": "Level 10", "sigils": 46, "power": 17.2},
+	{"name": "Level 11", "sigils": 50, "power": 19.3},
+	{"name": "Level 12", "sigils": 54, "power": 21.6},
+	{"name": "Level 13", "sigils": 58, "power": 24.2},
+	{"name": "Level 14", "sigils": 62, "power": 27.1},
+	{"name": "Level 15", "sigils": 66, "power": 30.4},
 ]
 const WIN_XP := 20
 const LOSS_XP := 3
@@ -102,7 +102,7 @@ static func cancel(profile, now: int) -> void:
 static func finish(profile, difficulty: int, fighter: String, fight: Dictionary, now: int) -> Dictionary:
 	var won: bool = fight.winner == 0
 	var family := family_today(now)
-	var result := {"won": won, "family": family, "sigils": 0, "gear": [], "xp": LOSS_XP, "levels": 0, "refund": 0, "account_levels": 0, "critters": []}
+	var result := {"won": won, "family": family, "sigils": -6, "gear": [], "xp": LOSS_XP, "levels": 0, "refund": 0, "account_levels": 0, "critters": []}
 	if not won:
 		result.refund = ENERGY_COST - Zones.LOSS_COST
 		profile.refund_energy(result.refund)
