@@ -229,7 +229,8 @@ static func card_button(content: Control, on_press: Callable, border := LINE, bg
 	m.add_child(content)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(m)
-	m.minimum_size_changed.connect(func(): b.custom_minimum_size = m.get_combined_minimum_size())
+	# A "min_width" meta (a page column) keeps the card at least that wide as its content re-measures.
+	m.minimum_size_changed.connect(func(): b.custom_minimum_size = m.get_combined_minimum_size().max(Vector2(b.get_meta("min_width", 0.0), 0.0)))
 	b.custom_minimum_size = m.get_combined_minimum_size()
 	return b
 
