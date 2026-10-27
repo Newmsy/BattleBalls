@@ -392,7 +392,8 @@ var _crystals := {}
 func _init(cfg: Dictionary) -> void:
 	config = cfg
 	arena_id = cfg.get("arena", "square")
-	arena = Arenas.get_def(arena_id)
+	# arena_def: a one-off layout (Daily Trick Shot), not one of Arenas' maps.
+	arena = cfg.arena_def if cfg.has("arena_def") else Arenas.get_def(arena_id)
 	_sides = _side_walls(arena)
 	for c in arena.get("cores", []):
 		_core_ready.append(int(round(CORE_FIRST * TICK_RATE)))
@@ -445,6 +446,9 @@ func _init(cfg: Dictionary) -> void:
 			var with := Relics.apply_to_def(def, cfg.relics[i])
 			def = with.def
 			relic_defs = with.relic_defs
+		if not cfg.get("abilities", true): # A pure aim puzzle (Daily Trick Shot): stats only.
+			def = def.duplicate()
+			def.effects = []
 		var b := Ball.new()
 		b.relic_defs = relic_defs
 		b.index = i

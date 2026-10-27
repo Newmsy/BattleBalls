@@ -549,9 +549,9 @@ try {
   // 7. A known solution of day 1 solves it.
   if (mine(13)) {
     const probe = await openGame("?mode=trickshot&day=1");
-    const [lo, hi] = (await waitForLog(probe.logs, "TRICKSHOT_READY", 60000)).match(/solutions=(\d+)-(\d+)/).slice(1).map(Number);
+    // A real solving aim: pillars and bumpers can split the window in two.
+    const aim = Number((await waitForLog(probe.logs, "TRICKSHOT_READY", 60000)).match(/solve=(\d+)/)[1]);
     await probe.page.close();
-    const aim = Math.round((lo + hi) / 2);
     const { page, logs } = await openGame(`?mode=trickshot&day=1&aim=${aim}&auto=1`);
     const result = await waitForLog(logs, "TRICKSHOT_RESULT", 60000);
     console.log("trick shot result:", result);
