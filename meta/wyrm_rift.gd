@@ -22,25 +22,25 @@ const ENERGY_COST := 10
 const RUNS_PER_DAY := 2
 const ZONE := 2 ## Beating this zone's boss (0-based) opens it.
 ## The 15 levels (meta/boss_levels.gd): the Lures a win pays and the wyrm's
-## power, BossLevels.curve(4.0, 30.8). Power moves the wyrm less than other
+## power, BossLevels.curve(4.0, 61.6). Power moves the wyrm less than other
 ## bosses (only its shining scale takes damage), so its numbers run higher
 ## for the same odds. Check with tools/boss_difficulty.gd --boss=prism_wyrm --tier=5.
 const DIFFICULTIES := [
 	{"name": "Level 1", "lures": 1, "power": 4.0},
-	{"name": "Level 2", "lures": 1, "power": 5.2},
-	{"name": "Level 3", "lures": 1, "power": 6.7},
-	{"name": "Level 4", "lures": 2, "power": 8.6},
-	{"name": "Level 5", "lures": 2, "power": 11.1},
-	{"name": "Level 6", "lures": 2, "power": 14.3},
-	{"name": "Level 7", "lures": 3, "power": 18.5},
-	{"name": "Level 8", "lures": 3, "power": 23.9},
-	{"name": "Level 9", "lures": 3, "power": 30.8},
-	{"name": "Level 10", "lures": 4, "power": 34.5},
-	{"name": "Level 11", "lures": 4, "power": 38.6},
-	{"name": "Level 12", "lures": 4, "power": 43.3},
-	{"name": "Level 13", "lures": 5, "power": 48.5},
-	{"name": "Level 14", "lures": 5, "power": 54.3},
-	{"name": "Level 15", "lures": 5, "power": 60.8},
+	{"name": "Level 2", "lures": 1, "power": 5.6},
+	{"name": "Level 3", "lures": 1, "power": 7.9},
+	{"name": "Level 4", "lures": 2, "power": 11.2},
+	{"name": "Level 5", "lures": 2, "power": 15.7},
+	{"name": "Level 6", "lures": 2, "power": 22.1},
+	{"name": "Level 7", "lures": 3, "power": 31.1},
+	{"name": "Level 8", "lures": 3, "power": 43.8},
+	{"name": "Level 9", "lures": 3, "power": 61.6},
+	{"name": "Level 10", "lures": 4, "power": 69.0},
+	{"name": "Level 11", "lures": 4, "power": 77.3},
+	{"name": "Level 12", "lures": 4, "power": 86.5},
+	{"name": "Level 13", "lures": 5, "power": 96.9},
+	{"name": "Level 14", "lures": 5, "power": 108.6},
+	{"name": "Level 15", "lures": 5, "power": 121.6},
 ]
 const WIN_XP := 20
 const LOSS_XP := 3

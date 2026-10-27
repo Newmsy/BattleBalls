@@ -1315,6 +1315,8 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 			edge = maxi(0, Families.edge(source.type_id, target.type_id))
 			amount *= 1.0 + Families.EDGE_BONUS[edge]
 		amount *= mult
+		if boss != null and target.team == boss.team and not h.get("env", false):
+			amount *= Bosses.taken(target, h.kind)
 		if amount <= 0.0:
 			continue
 		var backstab: bool = h.get("backstab", false)
