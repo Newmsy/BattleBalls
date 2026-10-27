@@ -110,3 +110,17 @@ func test_relic_runs_replay() -> void:
 		var again := BounceRun.replay(setup, run)
 		check_eq(again.relics, run.relics, "replayed relics")
 		check_eq(BounceRun.score(again), BounceRun.score(run), "replayed score")
+
+
+## The fight view reads a relic's numbers from the relic's def: a ball's own
+## def has no collapse_range for Relic of Void, and reading it there stopped
+## the frame's drawing, so both critters vanished during each collapse.
+func test_view_reads_relic_numbers() -> void:
+	var sim := MatchSim.new({"seed": 3, "p1": "pip", "p2": "laser", "relics": [["blackhole", "jackpot", "bubbles", "supernova"], []]})
+	var view = preload("res://game/arena_view.gd").new()
+	var b = sim.balls[0]
+	for key in ["collapse_range", "prize_coin_reach", "bubble_secs", "nova_radius"]:
+		check(not b.def.has(key), "pip's own def has no %s" % key)
+		check(view._ability_num(b, key) > 0.0, "the view finds the relic's %s" % key)
+	check_eq(view._ability_num(sim.balls[1], "beam_life"), float(sim.balls[1].def.beam_life), "own numbers still come from the def")
+	view.free()
