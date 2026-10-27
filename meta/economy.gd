@@ -84,13 +84,17 @@ const ZONE1_AS_BUILT := {"featured": ["spiker", "speedster", "vampire", "juggern
 
 ## Gear (design/gear.md, design/bosses.md). Hammers to merge three pieces of
 ## a tier into one of the next (index 0 is 1 star, which is never merged into).
-## Hammers come from the Anvil King (meta/gear_vault.gd), earned only, never sold.
+## Hammers come from the Anvil King (meta/gear_vault.gd), never for money.
 const GEAR_MERGE_COST := [0, 2, 4, 8, 16]
-## The Forge stall beside the Anvil King (Newms 2026-10-25, progression
-## check): coins had almost nothing to buy, so they buy a few Hammers a day.
-## Coins are earned only, so this stays earned-only too.
-const FORGE_HAMMER_COINS := 200
-const FORGE_DAILY := 5
+## The Shop's daily deals (Newms 2026-10-26: moved off the Anvil King, plus
+## energy and eggs): a few buys a day each, coins only. Coins are earned only,
+## so these stay earned-only too. Prices from the progression sim
+## (/mnt/project-files/progression/daily-deals/sim_shop.py, cfg "shop").
+const DAILY_DEALS := [
+	{"id": "hammer", "kind": "hammers", "n": 1, "coins": 150, "daily": 5},
+	{"id": "energy", "kind": "energy", "n": 60, "coins": 500, "daily": 1},
+	{"id": "eggs", "kind": "orbs", "n": 3, "coins": 600, "daily": 1},
+]
 ## Every save starts with these (and older saves get them once), so the first
 ## merges from campaign gear don't wait for the Anvil King.
 const STARTER_HAMMERS := 10

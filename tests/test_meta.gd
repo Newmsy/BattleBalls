@@ -381,16 +381,31 @@ func test_foes_fight_at_their_chapters_tier_for_less_power() -> void:
 	check_eq(rc.tiers[1], [2, 2, 2], "zone 3 foes are T2 in the fight")
 
 
-func test_forge_stall_sells_a_few_hammers_a_day_for_coins() -> void:
+func test_shop_daily_deals_sell_a_few_a_day_for_coins() -> void:
 	var p = Profile.new_game(T0)
-	p.coins = Economy.FORGE_HAMMER_COINS * (Economy.FORGE_DAILY + 2)
+	var ham: Dictionary = Profile.deal("hammer")
+	p.coins = int(ham.coins) * (int(ham.daily) + 2)
 	var h: int = p.hammers
-	for i in Economy.FORGE_DAILY:
-		check(p.buy_forge_hammer(T0), "hammer %d sells" % (i + 1))
-	check_eq(p.hammers, h + Economy.FORGE_DAILY, "each adds a hammer")
-	check(not p.buy_forge_hammer(T0), "sold out for the day")
-	check_eq(p.forge_left(T0 + 86400), Economy.FORGE_DAILY, "restocks the next day")
+	for i in ham.daily:
+		check(p.buy_deal("hammer", T0), "hammer %d sells" % (i + 1))
+	check_eq(p.hammers, h + int(ham.daily), "each adds a hammer")
+	check(not p.buy_deal("hammer", T0), "sold out for the day")
+	check_eq(p.deal_left("hammer", T0 + 86400), int(ham.daily), "restocks the next day")
 	var q = Profile.from_dict(p.to_dict(), T0)
-	check_eq(q.forge_left(T0), 0, "today's buys survive a save")
+	check_eq(q.deal_left("hammer", T0), 0, "today's buys survive a save")
 	q.coins = 0
-	check(not q.buy_forge_hammer(T0 + 86400), "needs the coins")
+	check(not q.buy_deal("hammer", T0 + 86400), "needs the coins")
+	var eggs: Dictionary = Profile.deal("eggs")
+	q.coins = int(eggs.coins)
+	var o: int = q.orbs
+	check(q.buy_deal("eggs", T0), "eggs sell")
+	check_eq(q.orbs, o + int(eggs.n), "adds the eggs")
+	check_eq(q.coins, 0, "for their coins")
+	var en: Dictionary = Profile.deal("energy")
+	q.coins = int(en.coins)
+	q.energy = 0
+	q.energy_time = T0
+	check(q.buy_deal("energy", T0), "energy sells")
+	check_eq(q.energy, int(en.n), "adds a refill")
+	var old = Profile.from_dict(p.to_dict().merged({"forge": {"day": T0 / 86400, "bought": 2}, "deals": {}}, true), T0)
+	check_eq(old.deal_left("hammer", T0), int(ham.daily) - 2, "an old forge save keeps today's count")
