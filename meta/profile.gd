@@ -75,8 +75,8 @@ var stars: Dictionary = {}
 var runs := 0
 ## Gear Vault runs used today: {day (unix day), runs} (meta/gear_vault.gd).
 var vault := {}
-## Hammers bought at the Forge stall today: {day (unix day), bought}.
-var forge := {}
+## The Shop's daily deals bought today: {day (unix day), bought: {deal id: n}}.
+var deals := {}
 ## Brood Queen runs used today: {day, runs} (meta/brood_nest.gd).
 var nest := {}
 ## Runs used today at the later farming bosses: {key: {day, runs}} (meta/boss_runs.gd).
@@ -422,23 +422,37 @@ func _next_gear_uid() -> int:
 	return uid
 
 
-## Hammers the Forge stall still sells today.
-func forge_left(now: int) -> int:
-	var bought := int(forge.get("bought", 0)) if int(forge.get("day", -1)) == int(now / 86400) else 0
-	return maxi(0, Economy.FORGE_DAILY - bought)
+## Economy.DAILY_DEALS entry `id`, or {} if there is none.
+static func deal(id: String) -> Dictionary:
+	for d in Economy.DAILY_DEALS:
+		if d.id == id:
+			return d
+	return {}
 
 
-## Buys one Hammer at the Forge stall for coins. False (nothing spent) when
-## sold out today or short of coins.
-func buy_forge_hammer(now: int) -> bool:
-	if forge_left(now) <= 0 or coins < Economy.FORGE_HAMMER_COINS:
+## How many more of daily deal `id` the Shop sells today.
+func deal_left(id: String, now: int) -> int:
+	var d := deal(id)
+	if d.is_empty():
+		return 0
+	var bought := int(deals.get("bought", {}).get(id, 0)) if int(deals.get("day", -1)) == int(now / 86400) else 0
+	return maxi(0, int(d.daily) - bought)
+
+
+## Buys one of daily deal `id` for coins. False (nothing spent) when sold out
+## today or short of coins.
+func buy_deal(id: String, now: int) -> bool:
+	var d := deal(id)
+	if d.is_empty() or deal_left(id, now) <= 0 or coins < int(d.coins):
 		return false
 	var day := int(now / 86400)
-	forge = {"day": day, "bought": Economy.FORGE_DAILY - forge_left(now) + 1}
-	coins -= Economy.FORGE_HAMMER_COINS
-	hammers += 1
-	Analytics.track("forge_hammer", {"coins": Economy.FORGE_HAMMER_COINS})
-	changed.emit()
+	if int(deals.get("day", -1)) != day:
+		deals = {"day": day, "bought": {}}
+	deals.bought[id] = int(deals.bought.get(id, 0)) + 1
+	coins -= int(d.coins)
+	update_energy(now)
+	grant({"kind": d.kind, "n": d.n})
+	Analytics.track("daily_deal", {"id": id, "coins": d.coins})
 	return true
 
 
@@ -778,7 +792,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "forge", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest", "dyes", "rift"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest", "dyes", "rift"]
 
 
 func to_dict() -> Dictionary:
@@ -817,9 +831,14 @@ static func from_dict(d: Dictionary, now: int):
 	var v = d.get("vault", {})
 	if v is Dictionary and v.has("day"):
 		p.vault = {"day": int(v.day), "runs": int(v.get("runs", 0))}
-	var fg = d.get("forge", {})
-	if fg is Dictionary and fg.has("day"):
-		p.forge = {"day": int(fg.day), "bought": int(fg.get("bought", 0))}
+	var dl = d.get("deals", {})
+	if dl is Dictionary and dl.has("day") and dl.get("bought") is Dictionary:
+		p.deals = {"day": int(dl.day), "bought": {}}
+		for k in dl.bought:
+			p.deals.bought[str(k)] = int(dl.bought[k])
+	var fg = d.get("forge", {}) # The old Anvil King stall: today's hammers count.
+	if p.deals.is_empty() and fg is Dictionary and fg.has("day"):
+		p.deals = {"day": int(fg.day), "bought": {"hammer": int(fg.get("bought", 0))}}
 	var nst = d.get("nest", {})
 	if nst is Dictionary and nst.has("day"):
 		p.nest = {"day": int(nst.day), "runs": int(nst.get("runs", 0))}

@@ -1064,7 +1064,7 @@ func _top_bar() -> Control:
 
 const PILL_HELP := {
 	"energy": "Energy: for stages and bosses. Refills over time, and on level up.",
-	"coin": "Coins: from the campaign and Piñata Titan. Buy looks.",
+	"coin": "Coins: from the campaign and Piñata Titan. Spend them in the Shop.",
 	"orb": "Summon Eggs: hatch them on Summon.",
 }
 
@@ -1185,7 +1185,8 @@ func _set_top(kind: String, value: int, quiet := false) -> void:
 		return
 	if value < from:
 		_shown[kind] = value
-		Motion.count(l, from, value, .35, _pill_text.bind(kind))
+		# Not _pill_text.bind(kind): bind appends, which blanked the pill on every spend.
+		Motion.count(l, from, value, .35, func(v: int) -> String: return _pill_text(kind, v))
 		return
 	if not is_visible_in_tree() or overlay_open():
 		return # Held: it flies in once the popup closes or the menus come back.
