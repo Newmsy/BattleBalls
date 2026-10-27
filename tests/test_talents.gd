@@ -33,6 +33,41 @@ func test_every_tree_has_the_same_shape() -> void:
 		check_eq(Talents.spent(f, Talents.suggested(f)), Talents.MAX_POINTS, "%s: the suggested build spends all 30" % f)
 
 
+func test_no_tree_repeats_an_effect() -> void:
+	# Newms dislikes near-duplicate options: a node's line never repeats
+	# another node's in the same tree once the number is taken out.
+	for f in Talents.FACTIONS:
+		var seen := {}
+		for n in Talents.tree(f):
+			var line: String = n.text.replace("%s", "#")
+			check(not seen.has(line), "%s: %s repeats %s" % [f, n.name, seen.get(line, "")])
+			seen[line] = n.name
+
+
+func test_once_below_half_saves_fire_once() -> void:
+	# Reboot (shield) and Seed Pod (regrowth) each trigger once, at half HP.
+	var cfg := {"seed": 5, "angles": [null, null]}
+	Lineup.apply(cfg, 0, Lineup.make("bolt", 5))
+	Lineup.apply(cfg, 1, Lineup.make("vampire", 5))
+	var sim := MatchSim.new(cfg)
+	var b = sim.balls[0]
+	b.tal = {"reboot": 0.15, "seed_pod": 0.12}
+	b.hp = 0.4 * b.max_hp
+	var shield: float = b.shield
+	Talents.tick(sim, b)
+	check_near(b.shield - shield, 0.15 * b.max_hp, 0.001, "Reboot shields 15% of max HP")
+	sim.tick += 1
+	var hp: float = b.hp
+	Talents.tick(sim, b)
+	check(b.hp > hp, "Seed Pod regrows")
+	sim.tick = sim.tick + 5 * sim.TICK_RATE
+	shield = b.shield
+	hp = b.hp
+	Talents.tick(sim, b)
+	check_eq(b.shield, shield, "Reboot only once")
+	check_eq(b.hp, hp, "Seed Pod stops after 4s")
+
+
 func test_picks_are_cleaned_to_the_rules() -> void:
 	var f := "fire"
 	check_eq(Talents.clean(f, {"kindling": 9, "laser_eyes": 3}), {"kindling": 3}, "rank capped, unknown nodes dropped")
@@ -56,7 +91,7 @@ func test_slots_carry_talents_and_rate_higher() -> void:
 	check(not bare.has("talents"), "no talents key when there are none")
 	check_eq(full.talents, Talents.suggested("spooky"), "slot keeps the tree")
 	check_eq(Lineup.clean(full), full, "re-cleaning a slot changes nothing")
-	check_near(float(Lineup.rating(full)) / Lineup.rating(bare), 1.0 + Talents.POINT_POWER * 30, 0.002, "full tree is about +40% Power Rating")
+	check_near(float(Lineup.rating(full)) / Lineup.rating(bare), 1.0 + Talents.POINT_POWER * 30, 0.002, "full tree is about +30% Power Rating")
 	var wrong := Lineup.make("vampire", 5, 50, [], {"kindling": 3})
 	check(not wrong.has("talents"), "another faction's own nodes are dropped")
 
