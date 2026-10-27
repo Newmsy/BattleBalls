@@ -54,6 +54,18 @@ begin
     assert false, 'the map is 20 floors';
   exception when invalid_parameter_value then null;
   end;
+  -- Rules 13+ (25 floors): floor 20 with lives left is no longer a clear.
+  begin
+    perform public.submit_bounce_run(today, 20, 2, 16 * 1800, jsonb_build_object('fights',
+      (select jsonb_agg(jsonb_build_object('t', 'fight')) from generate_series(1, 16) i)), 13);
+    assert false, 'rules 13 runs end on floor 25 or with no lives';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.submit_bounce_run(today, 26, 1, 9000, '{"fights": [{"t": "fight"}]}', 13);
+    assert false, 'the rules 13 map is 25 floors';
+  exception when invalid_parameter_value then null;
+  end;
   begin
     perform public.submit_bounce_run(today, 6, 0, 2 * 1800, '{"fights": [{"t": "go"}, {"t": "fight"}, {"t": "fight"}]}', 8);
     assert false, 'three critters out takes at least three fights';

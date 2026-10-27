@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Talents := preload("res://sim/talents.gd")
 const FactionsScreen := preload("res://game/ui/screens/factions_screen.gd")
 
@@ -140,7 +141,7 @@ static func _sheet(shell, p, f: String, n: Dictionary) -> void:
 		lines.append("For every critter" if n.row == 1 else "For %d-star+ critters" % n.row)
 	for t in lines:
 		var l := Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-		l.custom_minimum_size.x = minf(640.0, shell.size.x - 80.0)
+		l.custom_minimum_size.x = ResultPopup.inner_width(shell.size.x)
 		v.add_child(l)
 	var minus := Kit.button("Remove", func():
 		if not p.remove_talent(f, n.id):

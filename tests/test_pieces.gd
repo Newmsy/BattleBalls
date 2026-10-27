@@ -72,6 +72,55 @@ func test_sprout_plants_seeds_on_edge_bounces_only() -> void:
 	check_eq(sim.pieces.size(), before, "bouncing off its own pillar plants nothing")
 
 
+func test_sprout_seeds_land_in_the_open_and_sling_it() -> void:
+	var sim := _sim("sprout")
+	var sprout := sim.balls[0]
+	sim.abilities.fire(sim, "wall", sprout, {"point": Vector2(0, 500)})
+	var p = sim.pieces_of(sprout, "seed")[0]
+	check(p.pos.x >= sim.PIECE_WALL_GAP + p.radius, "the pillar stands out in the arena, not on the wall")
+	# Sprout bouncing off its own pillar is slung on; a foe gets stung.
+	_park(sim, Vector2(700, 700), Vector2(800, 200))
+	p.blocking = true
+	sprout.pos = p.pos + Vector2(120, 0)
+	sprout.vel = Vector2(-400, 0)
+	for i in 20:
+		sim.step()
+	check(sprout.boost_ticks > 0, "bouncing off its own pillar boosts Sprout")
+	check(sprout.vel.x > 0.0, "and it bounced off")
+	var foe := sim.balls[1]
+	var hp := foe.hp
+	foe.pos = p.pos + Vector2(0, 120)
+	foe.vel = Vector2(0, -400)
+	for i in 20:
+		sim.step()
+	check(foe.hp < hp, "a foe bumping a pillar is stung from T1")
+	check_eq(foe.boost_ticks, 0, "only Sprout is slung")
+
+
+func test_pillars_stay_inside_round_maps() -> void:
+	for arena in ["cloud", "nebula", "temple", "candy"]:
+		if not preload("res://sim/arenas.gd").DEFS.has(arena):
+			continue
+		var sim := MatchSim.new({"seek": 0.0, "seed": 5, "p1": "sprout", "p2": "plain", "arena": arena})
+		var c: Vector2 = sim.centre
+		for k in 24:
+			var dir := Vector2.from_angle(TAU * k / 24.0 + 0.1)
+			var edge: Vector2 = c + dir * sim.half_size # Corner of the square's box: well outside a round map.
+			for opts in [{"radius": 30.0}, {"radius": 30.0, "block": false}]:
+				var p = sim.add_piece(sim.balls[0], edge, opts)
+				if p == null:
+					continue
+				for wall in sim.corner_walls():
+					check(wall[0].dot(p.pos - c) + wall[1] >= -0.01, arena + ": a piece placed past the edge lands inside")
+				sim.pieces.erase(p)
+			sim.pieces.clear()
+			sim.abilities.fire(sim, "wall", sim.balls[0], {"point": c + dir * 470.0})
+			for p in sim.pieces_of(sim.balls[0], "seed"):
+				for wall in sim.corner_walls():
+					check(wall[0].dot(p.pos - c) + wall[1] >= sim.PIECE_WALL_GAP, arena + ": a seed lands clear of every side")
+			sim.pieces.clear()
+
+
 func test_ivy_lashes_the_foe_then_snaps() -> void:
 	var sim := _sim("ivy")
 	_park(sim, Vector2(200, 200), Vector2(600, 600))
