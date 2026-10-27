@@ -321,6 +321,8 @@ static func reward_text(r: Dictionary, beside_icon := false) -> String:
 			return "%d Rift Key%s" % [n, "" if n == 1 else "s"]
 		"dye":
 			return "%d Spark Dye drop%s" % [n, "" if n == 1 else "s"]
+		"faction_xp":
+			return "%d %s XP" % [n, str(r.get("id", "")).capitalize()]
 	return r.kind
 
 
@@ -348,6 +350,8 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 			g = Glyph.make("key", side * .7, Color("5ce1ff"))
 		"dye":
 			g = Glyph.make("dye", side * .7, Color("ff6fd0"))
+		"faction_xp":
+			g = load("res://game/ui/family_icon.gd").make(str(r.get("id", "")), side * .7)
 		_:
 			g = Glyph.make("bolt", side * .7, Kit.GOOD)
 	var cc := CenterContainer.new()

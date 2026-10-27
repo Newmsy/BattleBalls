@@ -13,6 +13,13 @@ const TrickShotView := preload("res://game/trick_shot_view.gd")
 const A11y := preload("res://game/a11y.gd")
 const Main := preload("res://game/main.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const Sfx := preload("res://game/audio/sfx.gd")
+const Profile := preload("res://meta/profile.gd")
+const TrickReward := preload("res://meta/trick_reward.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
+const PassScreen := preload("res://game/ui/screens/pass_screen.gd")
+const Kit := preload("res://game/ui/ui_kit.gd")
+const Roster := preload("res://game/ui/roster.gd")
 
 enum State { AIM, SHOT, RESULT, DONE }
 
@@ -42,6 +49,13 @@ var _auto_shoot := false
 var _save := ConfigFile.new()
 
 var arena: TrickShotView
+var sfx: Sfx
+var ui: Control
+## What today's solve paid (meta/trick_reward.gd), shown on the result popup.
+var prize: Array = []
+## Set when this visit's last try ended the day, so the popup shows once.
+var _just_finished := false
+var _popup: Control
 var title_label: Label
 var call_label: Label
 var info_label: Label
@@ -67,10 +81,13 @@ func _ready() -> void:
 	arena = TrickShotView.new()
 	arena.called_walls = puzzle.walls
 	add_child(arena)
+	sfx = Sfx.new()
+	add_child(sfx)
+	sfx.on_menu()
 	_build_ui()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
-	print("TRICKSHOT_READY day=%d shooter=%s walls=%s solutions=%d-%d ms=%d" % [day, puzzle.p1, ",".join(puzzle.walls), puzzle.solutions.front(), puzzle.solutions.back(), Time.get_ticks_msec() - t])
+	print("TRICKSHOT_READY day=%d shooter=%s foe=%s walls=%s obstacles=%d solutions=%d-%d solve=%d ms=%d" % [day, puzzle.p1, puzzle.p2, ",".join(puzzle.walls), puzzle.obstacles.size(), puzzle.solutions.front(), puzzle.solutions.back(), puzzle.solutions[puzzle.solutions.size() / 2], Time.get_ticks_msec() - t])
 	if _is_over():
 		_show_done()
 	else:
@@ -96,6 +113,7 @@ func _process(delta: float) -> void:
 				if _linger <= 0 or sim.finished:
 					_finish_try()
 			arena.consume_events(sim.events)
+			sfx.consume_events(sim.events, sim)
 	arena.advance_effects(delta)
 
 
@@ -120,6 +138,8 @@ func _aim_towards(screen_pos: Vector2) -> bool:
 
 
 func _set_aim(value: int) -> void:
+	if posmod(value, 360) != aim and state == State.AIM:
+		sfx.play("click", -6.0, 0.8 + posmod(value, 360) / 360.0 * 0.6)
 	aim = posmod(value, 360)
 	sim = TrickShot.make_sim(puzzle, aim)
 	arena.sim = sim
@@ -130,8 +150,7 @@ func _set_aim(value: int) -> void:
 
 ## Points at the foe, which is never a solution: every puzzle calls a wall.
 func _default_aim() -> int:
-	var to_foe: Vector2 = puzzle.starts[1] - puzzle.starts[0]
-	return posmod(roundi(rad_to_deg(to_foe.angle())), 360)
+	return TrickShot.direct_aim(puzzle)
 
 
 # --- Flow -------------------------------------------------------------------
@@ -144,6 +163,8 @@ func _show_aim() -> void:
 	arena.clear_effects()
 	_set_aim(aim)
 	info_label.text = "Try %d/%d" % [tries.size() + 1, TrickShot.TRIES]
+	if not puzzle.obstacles.is_empty():
+		info_label.text += " · pillars and bumpers bounce for free"
 	var nudge := func(by: int): _set_aim(aim + by)
 	var aim_label := _label("%d°" % aim, 40)
 	aim_label.name = "Aim"
@@ -164,6 +185,7 @@ func _shoot() -> void:
 	_accumulator = 0.0
 	info_label.text = "" # The call at the top already says which walls.
 	_set_panel([_button("Skip", _skip_shot)])
+	sfx.play("launch")
 	print("TRICKSHOT_SHOT day=%d aim=%d" % [day, aim])
 
 
@@ -180,6 +202,7 @@ func _finish_try() -> void:
 	Analytics.track("trick_shot", {"result": shot.result})
 	if _is_over():
 		_record_finish()
+		_just_finished = true
 	_save_day()
 	state = State.RESULT
 	arena.ghosts = tries
@@ -197,6 +220,8 @@ func _finish_try() -> void:
 				detail = "Out of time after %d of %d walls." % [shot.walls.size(), puzzle.walls.size()]
 			else:
 				detail = "Right walls, but it missed the foe."
+	if not _is_over():
+		sfx.play("tada" if shot.result == TrickShot.SOLVED else "buzz", 0.0, 1.0 if shot.result == TrickShot.SOLVED else 0.8)
 	var result_label := _label(title, 52)
 	result_label.modulate = TrickShotView.RESULT_COLORS[shot.result]
 	info_label.text = detail
@@ -233,11 +258,52 @@ func _show_done() -> void:
 		sq.color = TrickShotView.RESULT_COLORS[t.result]
 		sq.custom_minimum_size = Vector2(56, 56)
 		grid.add_child(sq)
-	info_label.text = "Window %d°–%d° · Streak %d (best %d)" % [
-		puzzle.solutions.front(), puzzle.solutions.back(), _current_streak(), stats.best_streak]
+	var spans := TrickShot.windows(puzzle.solutions).map(func(w): return "%d°" % w[0] if w[0] == w[1] else "%d°–%d°" % w)
+	info_label.text = "Window %s · Streak %d (best %d)" % [", ".join(spans), _current_streak(), stats.best_streak]
 	var share_button := _button("Share", Callable())
 	share_button.pressed.connect(func(): share_button.text = _share())
 	_set_panel([headline, grid, _row([share_button, _button("Home", _go_menu)])])
+	if _just_finished:
+		_just_finished = false
+		_show_result_popup()
+
+
+## The day's result on the popup every mode ends on: what the solve paid and
+## the tries, with the victory tune on a solve.
+func _show_result_popup() -> void:
+	var solved := _solved()
+	sfx.on_result(0 if solved else 1)
+	var body: Array = []
+	if not prize.is_empty():
+		var cards: Array = []
+		for r in prize:
+			cards.append(_prize_card(r))
+		body.append(Kit.hbox(18, cards, BoxContainer.ALIGNMENT_CENTER))
+		ResultPopup.drop_in(cards.map(func(c): return [c, null]), sfx, 0.6)
+	var grid := HBoxContainer.new()
+	grid.alignment = BoxContainer.ALIGNMENT_CENTER
+	grid.add_theme_constant_override("separation", 12)
+	for t in tries:
+		var sq := ColorRect.new()
+		sq.color = TrickShotView.RESULT_COLORS[t.result]
+		sq.custom_minimum_size = Vector2(44, 44)
+		grid.add_child(sq)
+	body.append(grid)
+	var ok := Kit.button("Continue", func(): ResultPopup.pop_out(_popup), "go", 26, 84)
+	var content := ResultPopup.content("TRICK SHOT #%d" % day, ResultPopup.Outcome.WIN if solved else ResultPopup.Outcome.LOSE,
+		body, [ok], null, ("Solved in %d!" % tries.size()) if solved else "Not today")
+	_popup = ResultPopup.show_over(ui, content)
+	sfx.hold_victory(content)
+
+
+## A prize: its icon over its amount.
+func _prize_card(r: Dictionary) -> Control:
+	var icon := PassScreen.reward_icon(null, r, 80.0)
+	var n := int(r.get("n", 1))
+	var text := "+%d XP" % n if r.kind == "faction_xp" else ("+" + Kit.commas(n))
+	var card := Kit.vbox(4, [icon, Kit.label(text, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
+	card.custom_minimum_size = Vector2(110, 0)
+	return card
 
 
 func _go_menu() -> void:
@@ -310,10 +376,19 @@ func _record_finish() -> void:
 		stats.streak = stats.streak + 1 if stats.last_solved_day == today - 1 else 1
 		stats.last_solved_day = today
 		stats.best_streak = maxi(stats.best_streak, stats.streak)
-		# Today's solve counts for Glow Pass XP and the Trick Shot bounty.
+		# Today's solve counts for Glow Pass XP and the Trick Shot bounty, and
+		# pays its prize into the game save.
 		var save := SaveGame.new()
 		save.load_local()
 		GlowState.new(save).record_trick()
+		var d = save.data.get("profile")
+		var now := int(Time.get_unix_time_from_system())
+		# As main.gd: a save nothing has changed yet starts from a new game.
+		var profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
+		prize = TrickReward.claim(profile, day, tries.size(), puzzle.p1)
+		if not prize.is_empty():
+			save.data.profile = profile.to_dict()
+			save.commit()
 
 
 func _current_streak() -> int:
@@ -332,7 +407,7 @@ func _walls_text(walls: Array) -> String:
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	var ui := Control.new()
+	ui = Control.new()
 	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.theme = Main._neon_theme()
@@ -340,7 +415,7 @@ func _build_ui() -> void:
 	title_label = _label("TRICK SHOT #%d" % day, 48)
 	title_label.add_theme_color_override("font_outline_color", Color(Main.ACCENT, 0.45))
 	title_label.add_theme_constant_override("outline_size", 12)
-	call_label = _label("Bank off %s, then hit the foe" % _walls_text(puzzle.walls), 28)
+	call_label = _label("Bank off %s, then hit %s" % [_walls_text(puzzle.walls), Roster.get_critter(puzzle.p2).get("name", "the foe")], 28)
 	call_label.modulate = TrickShotView.CALL_COLOR
 	call_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_label = _label("", 26)
