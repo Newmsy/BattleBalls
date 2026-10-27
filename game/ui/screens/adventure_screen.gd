@@ -99,8 +99,8 @@ static func _campaign_card(shell) -> Control:
 		Kit.hbox(10, [name, Kit.glyph("crown", 26, Kit.FG), Kit.label("%d/%d" % [c.stars, c.max_stars], 24, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER),
 		room, c.next_row, go])
 	PlayScreen._on_art(v)
-	return _painted(HomePainting.make("home_zone_" + c.zone.id, Vector2(.68, .45), 30.0, Vector4(.26, .55, .45, .95), Kit.BG),
-		v, Color("2f6a5a"), 18)
+	return Kit.tap_card(_painted(HomePainting.make("home_zone_" + c.zone.id, Vector2(.68, .45), 30.0, Vector4(.26, .55, .45, .95), Kit.BG),
+		v, Color("2f6a5a"), 18), func(): shell.go("world"))
 
 
 ## A tall painted card, the whole card one button: title at the top, status at the bottom.
