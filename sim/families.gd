@@ -30,32 +30,26 @@ const MEMBERS := {
 	"cosmic": ["comet", "gravity", "prism", "quasar", "stormwing", "blackhole", "eclipse"],
 }
 
-## Family edges (Newms 2026-10-22, the "Bold" strength), simplified to three
-## rock-paper-scissors triangles (Newms 2026-10-23) so the chart is easy to
-## learn: each family is very good (2) against the next family round its
-## triangle, so very bad against the one before it, and even with the six
-## families in the other two triangles. Only the attacker gains; there is no
-## penalty side.
-const TRIANGLES := [
-	{"name": "Elements", "families": ["sea", "fire", "frost"]},
-	{"name": "Dreams", "families": ["cosmic", "sweet", "spooky"]},
-	{"name": "Playground", "families": ["tech", "toybox", "nature"]},
-]
+## Family edges (Newms 2026-10-27, replacing the 2026-10-23 triangles): only
+## matchups you could guess from the themes, Pokemon style (Sea douses Fire,
+## Fire burns Nature, Nature drinks Sea, Spooky haunts Toybox). Each family
+## has the advantage (2) over as many families as have it over them, so no
+## family is stronger on the chart; every other matchup is even. The reasons
+## are design notes only: players just see "type advantage".
 const EDGES := {
-	"sea": {"fire": 2},
-	"fire": {"frost": 2},
+	"sea": {"fire": 2, "tech": 2},
+	"fire": {"nature": 2, "frost": 2, "sweet": 2},
+	"nature": {"sea": 2},
 	"frost": {"sea": 2},
-	"cosmic": {"sweet": 2},
+	"tech": {"cosmic": 2},
 	"sweet": {"spooky": 2},
-	"spooky": {"cosmic": 2},
-	"tech": {"toybox": 2},
-	"toybox": {"nature": 2},
-	"nature": {"tech": 2},
+	"spooky": {"toybox": 2, "fire": 2},
+	"cosmic": {"spooky": 2},
+	"toybox": {"fire": 2},
 }
-## Extra damage per edge level: very good ~72% at equal power, and a ball one
-## tier up still wins ~65% into its very-bad matchup. The triangles only use
-## very good; level 1 (good, ~64%) stays for a later twist.
-const EDGE_BONUS := [0.0, 0.10, 0.20]
+## A hit on a family you have the advantage over deals +10%; a hit on one
+## that has it over you deals -10% (Newms 2026-10-27).
+const EDGE_BONUS := 0.10
 
 static var _of := {}
 
@@ -94,4 +88,10 @@ static func edge(attacker: String, target: String) -> int:
 
 ## The damage multiplier for a hit from `attacker` on `target` (critter ids).
 static func edge_mult(attacker: String, target: String) -> float:
-	return 1.0 + EDGE_BONUS[maxi(0, edge(attacker, target))]
+	return mult_for(edge(attacker, target))
+
+
+## The damage multiplier for an edge score: +10% with the advantage, -10%
+## into a weakness, 1 when even.
+static func mult_for(edge_score: int) -> float:
+	return 1.0 + EDGE_BONUS * signi(edge_score)
