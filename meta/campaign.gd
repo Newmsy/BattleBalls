@@ -199,7 +199,7 @@ static func relay_fight(relay, last) -> Dictionary:
 
 ## finish() for a team: the first pick takes the result, every pick gets the XP.
 static func finish_team(profile, zone_index: int, stage_index: int, picks: Array, fight: Dictionary) -> Dictionary:
-	var r := finish(profile, zone_index, stage_index, picks[0], fight)
+	var r := finish(profile, zone_index, stage_index, picks[0], fight, picks)
 	for k in range(1, picks.size()):
 		var g: Dictionary = profile.gain_xp(picks[k], r.xp)
 		if not g.is_empty():
@@ -239,11 +239,13 @@ static func start(profile, zone_index: int, stage_index: int, fighter: String, n
 ## player's max HP ("max_hp"). Returns what happened for the result screen:
 ## {won, stars, first_clear, drops: [critter ids], gear: [new pieces], keys
 ## (Rift Keys), dyes ([{id, drops, need, unlocked}]), xp, levels, refund,
-## account_levels}.
-static func finish(profile, zone_index: int, stage_index: int, fighter: String, fight: Dictionary) -> Dictionary:
+## account_levels}. Faction XP goes to `team`'s families (just the fighter's
+## when empty).
+static func finish(profile, zone_index: int, stage_index: int, fighter: String, fight: Dictionary, team := []) -> Dictionary:
 	var st := Zones.stage(zone_index, stage_index)
 	var key := Zones.stage_key(zone_index, stage_index)
 	var won: bool = fight.winner == 0
+	profile.fight_faction_xp(team if not team.is_empty() else [fighter], int(fight.winner))
 	var result := {"won": won, "stars": 0, "first_clear": false, "drops": [], "orbs": 0, "gear": [], "keys": 0, "dyes": [], "xp": 0, "levels": 0, "refund": 0, "account_levels": 0, "critters": []}
 	if not won:
 		result.refund = Zones.cost(st) - Zones.LOSS_COST

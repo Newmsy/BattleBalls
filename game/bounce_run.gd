@@ -9,6 +9,8 @@ extends Node2D
 
 const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
+const FactionRing := preload("res://game/ui/faction_ring.gd")
+const FactionXp := preload("res://game/faction_xp.gd")
 const FightAim := preload("res://game/fight_aim.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -614,7 +616,8 @@ func _finish_fight() -> void:
 	var caption := "Bounce Run · " + ("Run cleared" if won and run.over else "Floor %d" % cleared_floor)
 	var line := Kit.label(info, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
 	line.custom_minimum_size.x = 560.0 # Wrapped text needs a width before the sheet measures itself.
-	var body := [line, _floor_pips(BounceRun.score(run).floors)]
+	var body := [line, _floor_pips(BounceRun.score(run).floors),
+		FactionRing.rows(FactionXp.award([sim.balls[0].type_id], sim.winner, game_save_path), sfx)]
 	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
 	_result_popup = ResultPopup.show_over(ui, ResultPopup.content(caption, ResultPopup.outcome_of(sim.winner), body, [next]), _report.bind("br_result"))
 	sfx.hold_victory(_result_popup)
