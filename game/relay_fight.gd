@@ -24,6 +24,8 @@ const Sfx := preload("res://game/audio/sfx.gd")
 const Main := preload("res://game/main.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
+const FactionRing := preload("res://game/ui/faction_ring.gd")
+const FactionXp := preload("res://game/faction_xp.gd")
 
 enum State { AIM, FIGHT, LEG_END, RESULT }
 
@@ -225,6 +227,20 @@ func _end_leg() -> void:
 	state = State.LEG_END
 	_pause = LEG_PAUSE
 	_set_panel([])
+
+
+## Your critters that launched in this relay (the ones that fought).
+func fought() -> Array:
+	var ids := []
+	for i in mini(aimed.size(), relay.sides[0].size()):
+		if aimed[i]:
+			ids.append(str(relay.sides[0][i]))
+	return ids
+
+
+## The Faction XP rings for this relay's fight, paid into the save.
+func _faction_rings() -> Control:
+	return FactionRing.rows(FactionXp.award(fought(), relay.winner), sfx)
 
 
 ## The result popup every fight ends on, over this screen.

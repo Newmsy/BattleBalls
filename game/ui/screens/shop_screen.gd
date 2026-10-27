@@ -1,8 +1,10 @@
-## The cosmetics shop (design/monetisation.md §3): Featured bundles that change
-## weekly, six Daily items that rotate at 00:00 UTC, the Coin-priced
-## Collection, and your wardrobe with its Spark Dyes (earned colours for what
-## you own, never sold). Everything is cosmetic and shown before you buy it at
-## a fixed price; every item has a try-on preview.
+## The shop (design/monetisation.md §3): Daily deals (Hammers, an energy
+## refill and Summon Eggs, a few a day for coins only, Economy.DAILY_DEALS),
+## Featured bundles that change weekly, six Daily looks that rotate at 00:00
+## UTC, the Coin-priced Collection, and your wardrobe with its Spark Dyes
+## (earned colours for what you own, never sold). Anything sold for gems is
+## cosmetic and shown before you buy it at a fixed price; every look has a
+## try-on preview.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -12,6 +14,7 @@ const Catalog := preload("res://game/glow/catalog.gd")
 const CosmeticIcon := preload("res://game/glow/cosmetic_icon.gd")
 const TryOn := preload("res://game/glow/try_on.gd")
 const LiveOps := preload("res://game/liveops.gd")
+const Economy := preload("res://meta/economy.gd")
 const Dyes := preload("res://game/glow/dyes.gd")
 
 const GEM := Color("5ce1ff")
@@ -26,7 +29,14 @@ static func build(shell, _params: Dictionary) -> Control:
 	var gems_btn := Kit.card_button(Kit.hbox(8, [Kit.amount("gem", glow.gems(), 28), Kit.chip("+", GEM, 22)]),
 		func(): gem_sheet(shell), Color(GEM, .6), Kit.PANEL, 999, 10)
 	shell.mark("get_gems", gems_btn)
-	root.add_child(shell.title_row("Shop", {"back_mark": "shop_back", "eyebrow": "Looks only", "extra": [gems_btn]}))
+	root.add_child(shell.title_row("Shop", {"back_mark": "shop_back", "extra": [gems_btn]}))
+
+	# Daily deals: coins only.
+	var day_ends := LiveOps.day_start(t) + LiveOps.DAY
+	var deals := Kit.hbox(14, [])
+	for d in Economy.DAILY_DEALS:
+		deals.add_child(_deal_tile(shell, d, t))
+	root.add_child(Kit.vbox(14, [Kit.hbox(0, [Kit.caption("Daily deals", Glyph.GOLD), Kit.spacer(), Kit.label("New in " + LiveOps.countdown(t, day_ends), 20, Kit.MUTED)]), deals]))
 
 	# Featured bundles, this week.
 	var week_ends := LiveOps.week_start(t) + LiveOps.WEEK
@@ -35,9 +45,8 @@ static func build(shell, _params: Dictionary) -> Control:
 		featured.add_child(_bundle_card(shell, b))
 	root.add_child(featured)
 
-	# Daily items.
-	var day_ends := LiveOps.day_start(t) + LiveOps.DAY
-	root.add_child(Kit.vbox(14, [Kit.hbox(0, [Kit.caption("Daily"), Kit.spacer(), Kit.label("New in " + LiveOps.countdown(t, day_ends), 20, Kit.MUTED)]),
+	# Daily looks.
+	root.add_child(Kit.vbox(14, [Kit.hbox(0, [Kit.caption("Daily looks"), Kit.spacer(), Kit.label("New in " + LiveOps.countdown(t, day_ends), 20, Kit.MUTED)]),
 		_grid(shell, daily_items(t))]))
 
 	# Collection: Coin-priced basics, always here.
@@ -61,6 +70,23 @@ static func build(shell, _params: Dictionary) -> Control:
 	if shell.glow.store and shell.glow.store.is_test():
 		root.add_child(Kit.label("Test store: free in playtest.", 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 	return root
+
+
+## One daily deal: what you get, how many are left today and its coin price.
+static func _deal_tile(shell, d: Dictionary, t: int) -> Control:
+	var p = shell.profile
+	var left: int = p.deal_left(d.id, t)
+	var glyph: String = {"hammers": "hammer", "energy": "energy", "orbs": "orb"}[d.kind]
+	var buy := Kit.cost_button("", d.coins, "coin", func():
+		if p.buy_deal(d.id, LiveOps.now()):
+			shell.refresh(), "go", 22, 60)
+	buy.disabled = left <= 0 or p.coins < int(d.coins)
+	shell.mark("deal_" + d.id, buy)
+	var v := Kit.vbox(8, [_center(Kit.glyph(glyph, 64, Kit.FG)), Kit.label("+%d" % d.n, 28, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+		Kit.label("%d/%d left" % [left, d.daily], 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER), buy])
+	var card := Kit.panel(v, Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 12))
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return card
 
 
 ## This week's bundles: everyone sees the same ones.

@@ -20,6 +20,7 @@ const ResultPopup := preload("res://game/ui/result_popup.gd")
 const PassScreen := preload("res://game/ui/screens/pass_screen.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const FactionRing := preload("res://game/ui/faction_ring.gd")
 
 enum State { AIM, SHOT, RESULT, DONE }
 
@@ -53,6 +54,8 @@ var sfx: Sfx
 var ui: Control
 ## What today's solve paid (meta/trick_reward.gd), shown on the result popup.
 var prize: Array = []
+## The shooter's faction XP from that prize, for the popup's ring.
+var faction_gains: Array = []
 ## Set when this visit's last try ended the day, so the popup shows once.
 var _just_finished := false
 var _popup: Control
@@ -274,10 +277,11 @@ func _show_result_popup() -> void:
 	var solved := _solved()
 	sfx.on_result(0 if solved else 1)
 	var body: Array = []
-	if not prize.is_empty():
-		var cards: Array = []
-		for r in prize:
+	var cards: Array = []
+	for r in prize:
+		if r.kind != "faction_xp": # Shown on the faction ring below.
 			cards.append(_prize_card(r))
+	if not cards.is_empty():
 		body.append(Kit.hbox(18, cards, BoxContainer.ALIGNMENT_CENTER))
 		ResultPopup.drop_in(cards.map(func(c): return [c, null]), sfx, 0.6)
 	var grid := HBoxContainer.new()
@@ -289,6 +293,7 @@ func _show_result_popup() -> void:
 		sq.custom_minimum_size = Vector2(44, 44)
 		grid.add_child(sq)
 	body.append(grid)
+	body.append(FactionRing.rows(faction_gains, sfx, 0.9))
 	var ok := Kit.button("Continue", func(): ResultPopup.pop_out(_popup), "go", 26, 84)
 	var content := ResultPopup.content("TRICK SHOT #%d" % day, ResultPopup.Outcome.WIN if solved else ResultPopup.Outcome.LOSE,
 		body, [ok], null, ("Solved in %d!" % tries.size()) if solved else "Not today")
@@ -300,7 +305,7 @@ func _show_result_popup() -> void:
 func _prize_card(r: Dictionary) -> Control:
 	var icon := PassScreen.reward_icon(null, r, 80.0)
 	var n := int(r.get("n", 1))
-	var text := "+%d XP" % n if r.kind == "faction_xp" else ("+" + Kit.commas(n))
+	var text := "+" + Kit.commas(n)
 	var card := Kit.vbox(4, [icon, Kit.label(text, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
 	card.custom_minimum_size = Vector2(110, 0)
 	return card
@@ -386,6 +391,7 @@ func _record_finish() -> void:
 		# As main.gd: a save nothing has changed yet starts from a new game.
 		var profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
 		prize = TrickReward.claim(profile, day, tries.size(), puzzle.p1)
+		faction_gains = profile.take_faction_gains()
 		if not prize.is_empty():
 			save.data.profile = profile.to_dict()
 			save.commit()

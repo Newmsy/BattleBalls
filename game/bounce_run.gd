@@ -1,4 +1,4 @@
-## Bounce Run: draft a trio and 3 starting boons, then climb a 20-floor map
+## Bounce Run: draft a trio and 3 starting boons, then climb a 25-floor map
 ## of fights, elites, events, shops, Charge Pads and chests to the Champion.
 ## Every run is a fresh map from sim/bounce_run.gd and they all count the
 ## same: the day's best floor goes on the leaderboard and opens a chest the
@@ -9,6 +9,8 @@ extends Node2D
 
 const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
+const FactionRing := preload("res://game/ui/faction_ring.gd")
+const FactionXp := preload("res://game/faction_xp.gd")
 const FightAim := preload("res://game/fight_aim.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
@@ -22,6 +24,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const CritterPopup := preload("res://game/ui/critter_popup.gd")
 const BoonIcon := preload("res://game/ui/boon_icon.gd")
+const Power := preload("res://sim/power.gd")
 const RelicIcon := preload("res://game/ui/relic_icon.gd")
 const Relics := preload("res://sim/relics.gd")
 const BounceBoard := preload("res://game/online/bounce_board.gd")
@@ -490,7 +493,7 @@ func _show_floor() -> void:
 	sub_label.text = "Pick who to send"
 	var foe_box := Kit.vbox(8, [
 		Kit.hbox(10, [Kit.caption("Floor %d · %s · T%d" % [row + 1, foe.title, tier], rim), Kit.spacer(),
-			Kit.caption("Power %d%%" % roundi(100.0 * foe.power))]),
+			Kit.caption("Power %s" % Kit.commas(Power.rating(foe.power)), rim)]),
 		Kit.hbox(16, [CritterIcon.make(foe.critter, tier, 132 if big else 110), _expand(Kit.vbox(4, [
 			Kit.label(_name(foe.critter), 30),
 			_ability_label(foe.critter),
@@ -510,7 +513,10 @@ func _show_floor() -> void:
 	for s in BounceRun.PICKS:
 		var c := BounceRun.card(setup, run, s)
 		var out: bool = run.out[s]
-		var card := _critter_card(c.critter, func(): _choose_fighter(s), -1, out, tier + (1 if run.spar == s else 0))
+		var t := mini(tier + (1 if run.spar == s else 0), 5)
+		# Power with boons and relics, on the foe's scale (sim/bounce_run.gd boon_power).
+		var pw := Power.rating(BounceRun.stat_power(c.critter, t) * BounceRun.boon_power(run))
+		var card := _critter_card(c.critter, func(): _choose_fighter(s), -1, out, t, false, 0 if out else pw)
 		card.disabled = out
 		if not out:
 			FamilyEdge.attach(card, [c.critter], [foe.critter], 12, 26)
@@ -614,7 +620,8 @@ func _finish_fight() -> void:
 	var caption := "Bounce Run · " + ("Run cleared" if won and run.over else "Floor %d" % cleared_floor)
 	var line := Kit.label(info, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
 	line.custom_minimum_size.x = 560.0 # Wrapped text needs a width before the sheet measures itself.
-	var body := [line, _floor_pips(BounceRun.score(run).floors)]
+	var body := [line, _floor_pips(BounceRun.score(run).floors),
+		FactionRing.rows(FactionXp.award([sim.balls[0].type_id], sim.winner, game_save_path), sfx)]
 	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
 	_result_popup = ResultPopup.show_over(ui, ResultPopup.content(caption, ResultPopup.outcome_of(sim.winner), body, [next]), _report.bind("br_result"))
 	sfx.hold_victory(_result_popup)
@@ -675,6 +682,10 @@ func _show_boon() -> void:
 				if k == 0:
 					who.move_child(word, 0)
 		var head := Kit.hbox(10, [Kit.label(b.name, 32, col), Kit.spacer(), Kit.chip(Roster.RARITY_NAMES[b.rarity], col)])
+		var held := _held_copies(id)
+		if held > 0:
+			# Taking it again stacks: the numbers add up (sim/boons.gd).
+			head.add_child(Kit.chip("Stack x%d" % (held + 1), GOLD))
 		var text := Kit.vbox(4, [head, Kit.label(b.text, 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)])
 		if who != null:
 			text.add_child(who)
@@ -1166,7 +1177,8 @@ func _update_hud() -> void:
 ## icon on top with the text centred under it (the 2-column draft grid);
 ## otherwise the icon sits left of the text (full-width rows). `pick_no` >= 0
 ## marks a drafted card: a thick white rim and its pick number by the name.
-func _critter_card(critter: String, on_press: Callable, pick_no := -1, out := false, tier := 1, stacked := false) -> Button:
+## `power` > 0 shows a Power number beside the rarity.
+func _critter_card(critter: String, on_press: Callable, pick_no := -1, out := false, tier := 1, stacked := false, power := 0) -> Button:
 	var rarity: String = Roster.get_critter(critter).rarity
 	var col: Color = Roster.RARITY_COLORS[rarity]
 	var picked := pick_no >= 0
@@ -1177,7 +1189,7 @@ func _critter_card(critter: String, on_press: Callable, pick_no := -1, out := fa
 	var name_label := Kit.label(title, 28, Kit.MUTED if out else Kit.FG, align)
 	if stacked: # A pick number never widens its column of the grid.
 		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	var text := Kit.vbox(2, [name_label, chip])
+	var text := Kit.vbox(2, [name_label, chip if power <= 0 else Kit.hbox(10, [chip, Kit.caption("Power %s" % Kit.commas(power), col)])])
 	text.add_child(Kit.label("OUT", 22, PINK, align) if out else _ability_label(critter, align, tier))
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var icon := CritterIcon.make(critter, tier, 104 if stacked else 80)
@@ -1249,21 +1261,22 @@ func _ability_label(critter: String, align := HORIZONTAL_ALIGNMENT_LEFT, tier :=
 
 
 ## Boons as a wrapping row of badges, each with its name under it (names
-## off for a foe's long list). Tap one for its card (_show_boon_info).
+## off for a foe's long list). Copies of one boon share a badge with an "x2"
+## on it. Tap one for its card (_show_boon_info).
 func _boon_strip(ids: Array, side: float, names := true, relics: Array = []) -> Control:
 	var flow := HFlowContainer.new()
 	flow.add_theme_constant_override("h_separation", 10)
 	flow.add_theme_constant_override("v_separation", 8)
 	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for k in ids.size():
-		var id: String = ids[k]
-		var b := Boons.get_def(id)
-		var tile := Kit.vbox(2, [BoonIcon.make(b.icon, _icon_rarity(b.rarity), side)])
+	var stacks := _stacks(ids)
+	for k in stacks.size():
+		var b := Boons.stacked(stacks[k])
+		var tile := Kit.vbox(2, [_boon_badge(b, side)])
 		if names:
 			var n := Kit.label(b.name.replace(" ", "\n"), 16, _boon_col(b.rarity), HORIZONTAL_ALIGNMENT_CENTER)
 			n.custom_minimum_size.x = side + 24.0
 			tile.add_child(n)
-		var btn := Kit.card_button(tile, _show_boon_info.bind(id), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 2)
+		var btn := Kit.card_button(tile, _show_boon_info.bind(stacks[k]), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 2)
 		btn.focus_mode = Control.FOCUS_NONE
 		flow.add_child(btn)
 		_mark("br_held_%d" % k if names else "br_foe_boon_%d" % k, btn)
@@ -1314,17 +1327,46 @@ func _show_relic_found() -> void:
 	_set_page([_status_row(), Kit.panel(body, Kit.box(Kit.PANEL, col, 32, 3, 24)), next], "br_relic_found")
 
 
+## Boon ids grouped into stacks (copies of one boon, any rarities), in the
+## order each boon was first taken.
+static func _stacks(ids: Array) -> Array:
+	var order: Array = []
+	var by := {}
+	for id in ids:
+		var key: String = id if Boons.is_glitch(id) else Boons.base_of(id)
+		if not by.has(key):
+			by[key] = []
+			order.append(key)
+		by[key].append(id)
+	return order.map(func(key): return by[key])
+
+
+## A boon badge, with an "x2" in its corner for a stack (`b` from Boons.stacked).
+static func _boon_badge(b: Dictionary, side: float) -> Control:
+	var icon := BoonIcon.make(b.icon, _icon_rarity(b.rarity), side)
+	if int(b.get("count", 1)) > 1:
+		var tag := Kit.chip("x%d" % b.count, GOLD, maxi(14, roundi(side * 0.3)))
+		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tag.position = Vector2(side * 0.5, side * 0.6)
+		icon.add_child(tag)
+	return icon
+
+
 ## A boon's card over the page: badge, name, rarity (shape and word, not just
-## colour) and what it does. Tap anywhere to close.
-func _show_boon_info(id: String) -> void:
-	var b := Boons.get_def(id)
+## colour) and what it does; for a stack, what all the copies add up to.
+## Tap anywhere to close.
+func _show_boon_info(ids: Array) -> void:
+	var b := Boons.stacked(ids)
+	var id: String = ids[0]
 	var col := _boon_col(b.rarity)
 	var rarity: String = "Glitch" if b.rarity == "glitch" else Roster.RARITY_NAMES[b.rarity] + " boon"
+	if b.count > 1:
+		rarity = "x%d: " % b.count + ", ".join(ids.map(func(i): return Roster.RARITY_NAMES.get(Boons.rarity_of(i), "Glitch")))
 	var lines: Array = [
-		BoonIcon.make(b.icon, _icon_rarity(b.rarity), 140),
+		_boon_badge(b, 140),
 		Kit.label(b.name, 40, col, HORIZONTAL_ALIGNMENT_CENTER),
 		Kit.chip(rarity, col, 20),
-		Kit.label(b.text, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
+		Kit.label(("Together: " if b.count > 1 else "") + b.text, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
 	]
 	if b.has("for"):
 		lines.append(Kit.label("Only for critters with the %s ability." % b.for.capitalize(), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
@@ -1738,6 +1780,11 @@ func _pick(options: Array, kind: String, on_pick: Callable, back: Callable) -> v
 	_set_page(items, "br_pick")
 
 
+## How many copies of boon `id` (any rarity) the run already holds.
+func _held_copies(id: String) -> int:
+	return run.boons.filter(func(h): return Boons.base_of(h) == Boons.base_of(id)).size()
+
+
 ## BoonIcon has no Glitch look; Glitches borrow the Common badge, named in pink.
 static func _icon_rarity(rarity: String) -> String:
 	return "common" if rarity == "glitch" else rarity
@@ -1821,7 +1868,9 @@ func _show_shop() -> void:
 		var sold: bool = item in run.shop.sold
 		var price_row: Control = Kit.label("SOLD", 22, Kit.MUTED) if sold else Kit.amount("button", BounceRun.price(setup, run, item), 24)
 		price_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		var body := Kit.vbox(4, [BoonIcon.make(b.icon, b.rarity, 64), Kit.label(b.name, 21, col, HORIZONTAL_ALIGNMENT_CENTER, true),
+		# A boon you already hold shows the stack it would make.
+		var badge := _boon_badge(b.merged({"count": 1 if sold else _held_copies(id) + 1}, true), 64)
+		var body := Kit.vbox(4, [badge, Kit.label(b.name, 21, col, HORIZONTAL_ALIGNMENT_CENTER, true),
 			Kit.label(b.text, 16, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true), price_row])
 		body.get_child(0).size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		var card := Kit.card_button(body, _buy.bind(item), col, Roster.rarity_bg(b.rarity, Kit.PANEL, 0.18), 24, 10)
