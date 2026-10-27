@@ -514,14 +514,19 @@ static func find(ready: Array, id: String, tier: int) -> int:
 	return -1
 
 
-## Which stack to select after fusing `sel`: the same one while it still has
-## 3+ copies, else the one that came after it in the list, else the one now at
-## its old place (the end of the list if it was last).
+## Which stack to select after fusing `sel`: the same critter's highest tier
+## that can still fuse (three new T3s before the T2s left over), else the one
+## that came after it in the list, else the one now at its old place (the end
+## of the list if it was last).
 static func pick_after_fuse(old: Array, now: Array, sel: Dictionary) -> Dictionary:
 	if now.is_empty():
 		return {}
-	if find(now, sel.id, sel.tier) >= 0:
-		return {"id": sel.id, "tier": sel.tier}
+	var best := {}
+	for s in now:
+		if s.id == sel.id and (best.is_empty() or s.tier > best.tier):
+			best = {"id": s.id, "tier": s.tier}
+	if not best.is_empty():
+		return best
 	var i := find(old, sel.id, sel.tier)
 	for j in range(i + 1, old.size()):
 		var k := find(now, old[j].id, old[j].tier)

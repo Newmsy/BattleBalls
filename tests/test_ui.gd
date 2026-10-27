@@ -28,7 +28,11 @@ func test_fuse_continue_keeps_your_place_in_the_list() -> void:
 	var b := {"id": "b", "tier": 1}
 	var c := {"id": "c", "tier": 1}
 	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, b, c], b), b, "6 copies: the same stack stays selected")
-	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, {"id": "b", "tier": 2}, c], b), c, "stack used up: the next one in the list")
+	var b2 := {"id": "b", "tier": 2}
+	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, b2, c], b), b2, "the new tier can fuse: it is selected")
+	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, b2, b, c], b), b2, "the new tier before the copies left over")
+	check_eq(FuseScreen.pick_after_fuse([a, b2, b, c], [a, b, c], b2), b, "new tier fused: back to the leftover copies")
+	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, c], b), c, "critter used up: the next one in the list")
 	check_eq(FuseScreen.pick_after_fuse([a, b, c], [a, b], c), b, "last one used up: the new last one")
 	check_eq(FuseScreen.pick_after_fuse([a], [], a), {}, "nothing left")
 
