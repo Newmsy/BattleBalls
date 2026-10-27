@@ -446,6 +446,34 @@ func test_a_power_core_overcharges_its_taker_then_goes_dark() -> void:
 	check(sim.cores()[0].lit, "lights again")
 
 
+func test_every_critter_gets_something_from_a_core() -> void:
+	# Vampire has no bounce or timed ability, so it gets a Core Nova; Beacon's
+	# timed ability fires instead. Both move faster and hit harder for a while.
+	for p1 in ["vampire", "beacon"]:
+		var sim := _sim("arcane", p1)
+		_park(sim)
+		while sim.tick < int(MatchSim.CORE_FIRST * MatchSim.TICK_RATE):
+			sim.step()
+		var b := sim.balls[0]
+		var speed := b.speed
+		var contact := b.contact_damage
+		var foe := sim.balls[1]
+		foe.pos = Vector2(500, 620)
+		var hp := foe.hp
+		b.pos = Vector2(500, 500)
+		b.vel = Vector2.ZERO
+		sim.step()
+		var nova := sim.events.any(func(e): return e.type == "pulse" and e.get("kind", "") == "core_nova")
+		check_eq(nova, p1 == "vampire", "%s: a Core Nova only when no ability fires" % p1)
+		if p1 == "vampire":
+			check(foe.hp < hp and foe.vel.y > 0.0, "the nova nicks and knocks back a foe close by")
+		check_near(b.speed, speed * MatchSim.OVERCHARGE_SPEED, 0.01, "%s moves faster" % p1)
+		check_near(b.contact_damage, contact * MatchSim.OVERCHARGE_CONTACT, 0.01, "%s bumps harder" % p1)
+		for i in int(MatchSim.OVERCHARGE_SECS * MatchSim.TICK_RATE):
+			sim.step()
+		check_near(b.speed, speed, 0.01, "%s's speed is back to normal" % p1)
+
+
 func test_a_core_reached_together_overcharges_both() -> void:
 	var sim := _sim("nebula")
 	_park(sim)

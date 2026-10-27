@@ -484,12 +484,16 @@ func consume_events(events: Array[Dictionary]) -> void:
 						_particles.append({"pos": e.pos + dir * 20.0, "vel": dir * _fx_rng.randf_range(200.0, 520.0) + Vector2(0, -150.0), "age": 0.0, "life": _fx_rng.randf_range(0.4, 0.8), "col": Color("bff8ff") if q % 3 else Color.WHITE, "size": _fx_rng.randf_range(3.0, 6.0)})
 					_shake = maxf(_shake, 10.0 * A11y.motion())
 					_add_popup(e.pos + Vector2(-50, -110), "SPLASH!", BattleFx.WATER, 1.2)
+				elif pk == "core_nova": # A power core's shockwave, for critters with nothing to fire.
+					_novas.append({"pos": e.pos, "radius": e.radius, "color": CORE, "age": 0.0})
+					_rings.append({"pos": e.pos, "radius": e.radius, "color": Color("fff3b0"), "age": 0.0})
+					_burst(e.pos, 14, [CORE, Color("fff3b0"), Color.WHITE], Vector2(220.0, 520.0))
 				elif pk == "nova":
 					var owner_type: String = sim.balls[e.ball].type_id if e.get("ball", -1) >= 0 and e.ball < sim.balls.size() else ""
 					_novas.append({"pos": e.pos, "radius": e.radius, "color": Color("c58bff") if owner_type == "blackhole" else Color("ffd6a5"), "age": 0.0})
 				else:
 					_rings.append({"pos": e.pos, "radius": e.radius, "color": RING_COLORS.get(e.get("kind", "boom"), BURST), "age": 0.0})
-				if e.type == "boom" or e.get("kind", "") in ["nova", "fire", "bigzap", "drum", "hammer", "quake"]:
+				if e.type == "boom" or e.get("kind", "") in ["nova", "core_nova", "fire", "bigzap", "drum", "hammer", "quake"]:
 					_shake = maxf(_shake, 8.0 * A11y.motion())
 					_spawn_particles(e.pos, 14)
 			"reflect":

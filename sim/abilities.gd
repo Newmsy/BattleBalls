@@ -322,17 +322,22 @@ func tick_triggers(sim, b) -> void:
 
 ## A power core's Overcharge (MatchSim._update_cores): the ball's "wall"
 ## abilities fire as if it had just bounced, and its "every" ones fire now.
-func surge(sim, b) -> void:
+## False when it has none of either (the core then gives it a Core Nova).
+func surge(sim, b) -> bool:
 	var def: Dictionary = b.def
 	var dir: Vector2 = b.vel.normalized() if b.vel.length() > 0.001 else Vector2.UP
 	var point: Vector2 = b.pos - dir * b.radius
+	var fired := false
 	for e in def.effects:
 		if not is_same(b.def, def):
-			return
+			return true
 		if e.on == "wall":
 			_run(sim, b, e, {"point": point})
+			fired = true
 		elif e.on == "every":
 			_run(sim, b, e, {})
+			fired = true
+	return fired
 
 
 # --- Effects ------------------------------------------------------------------
