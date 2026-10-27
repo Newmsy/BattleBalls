@@ -107,13 +107,19 @@ const ICE_SPEED := 1.3 ## Speed multiplier while a ball's centre is on ice.
 const PORTAL_COOLDOWN := 1.0 ## Seconds before a ball can take a portal again.
 ## Power cores (arena "cores"): the first ball through a lit core is
 ## Overcharged for OVERCHARGE_SECS: its "wall" and "every" abilities fire at
-## once and its ability damage is multiplied while it lasts. A taken core goes
-## dark for CORE_RESPAWN seconds. Kept mild (Newms: not polarising): in mirror
-## matches on the core maps the first taker wins ~58% (48% with no boost).
+## once, and while it lasts it moves faster and all its damage (contact and
+## ability) is multiplied. A critter with no "wall" or "every" ability (about
+## 40% of them: Vampire, Thorns, Bolt...) gets a Core Nova instead, so every
+## pickup does something you can see. A taken core goes dark for CORE_RESPAWN
+## seconds. Kept mild (Newms: not polarising).
 const CORE_FIRST := 6.0 ## Seconds into the fight a core first lights.
 const CORE_RESPAWN := 12.0
 const OVERCHARGE_SECS := 4.0
 const OVERCHARGE_ABILITY := 1.2
+const OVERCHARGE_CONTACT := 1.2
+const OVERCHARGE_SPEED := 1.2
+const CORE_NOVA_RADIUS := 170.0 ## Knocks back and nicks the taker's foes this close.
+const CORE_NOVA_DAMAGE := 8.0
 ## Crystals (obstacle kind "crystal"): crack on each ball bounce, shot, beam,
 ## pulse or blast, and shatter after CRYSTAL_HITS, nicking the breaker's foes
 ## nearby. They grow back after CRYSTAL_REGROW seconds once nothing sits there.
@@ -893,8 +899,10 @@ func _update_cores() -> void:
 		_core_ready[i] = tick + int(round(CORE_RESPAWN * TICK_RATE))
 		for b in takers:
 			b.state.overcharge_until = tick + int(round(OVERCHARGE_SECS * TICK_RATE))
+			set_mod(b, "overcharge", {"speed": OVERCHARGE_SPEED, "damage": OVERCHARGE_CONTACT}, OVERCHARGE_SECS)
 			events.append({"type": "core", "ball": b.index, "pos": c.pos})
-			abilities.surge(self, b)
+			if not abilities.surge(self, b) and b.alive():
+				pulse(b, b.pos, CORE_NOVA_RADIUS, CORE_NOVA_DAMAGE, true, "core_nova")
 
 
 func overcharged(b: Ball) -> bool:

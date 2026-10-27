@@ -593,6 +593,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 					play("hit_big", -4.0, 1.2)
 				elif kind == "quasar":
 					play("hum")
+				elif kind == "core_nova": # A power core's shockwave.
+					play("nova_boom", -2.0, 1.25)
 				elif kind in ["nova", "thunder"]:
 					play("nova_boom", 0.0, 1.0 if kind == "nova" else 1.3)
 				elif kind == "frost": # Yeti's avalanche (the roar plays too).
