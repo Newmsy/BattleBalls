@@ -11,12 +11,12 @@ const Gear := preload("res://sim/gear.gd")
 
 
 func test_floors_pick_the_chest() -> void:
-	check_eq(BounceChest.tier_for(0), -1, "no chest below floor 4")
-	check_eq(BounceChest.tier_for(3), -1, "nor on floor 3")
-	check_eq(BounceChest.tier_for(4), 0, "floor 4: Bronze")
-	check_eq(BounceChest.tier_for(11), 1, "floor 11: Silver")
-	check_eq(BounceChest.tier_for(12), 2, "floor 12: Gold")
-	check_eq(BounceChest.tier_for(19), 3, "floor 19: Crystal")
+	check_eq(BounceChest.tier_for(0), -1, "no chest below floor 5")
+	check_eq(BounceChest.tier_for(4), -1, "nor on floor 4")
+	check_eq(BounceChest.tier_for(5), 0, "floor 5: Bronze")
+	check_eq(BounceChest.tier_for(14), 1, "floor 14: Silver")
+	check_eq(BounceChest.tier_for(15), 2, "floor 15: Gold")
+	check_eq(BounceChest.tier_for(24), 3, "floor 24: Crystal")
 	check_eq(BounceChest.tier_for(BounceRun.FLOORS), BounceChest.TIERS.size() - 1, "a clear: Champion")
 	check_eq(int(BounceChest.TIERS[-1].floor), BounceRun.FLOORS, "the Champion Chest is for beating the top floor")
 	for i in range(1, BounceChest.TIERS.size() - 1):
@@ -39,9 +39,9 @@ func test_better_chests_hold_more() -> void:
 
 
 func test_yesterdays_best_opens_once() -> void:
-	var best := {10: 3, 11: 13, 12: 20}
+	var best := {10: 3, 11: 16, 12: 25}
 	check_eq(BounceChest.pending(best, 0, 11), {}, "floor 3 earns nothing, today's climb isn't done")
-	check_eq(BounceChest.pending(best, 0, 12), {"day": 11, "floor": 13, "tier": 2}, "yesterday's floor 13: Gold")
+	check_eq(BounceChest.pending(best, 0, 12), {"day": 11, "floor": 16, "tier": 2}, "yesterday's floor 16: Gold")
 	check_eq(BounceChest.pending(best, 0, 13).day, 11, "the oldest unopened one first")
 	check_eq(BounceChest.pending(best, 11, 13).day, 12, "then the next")
 	check_eq(BounceChest.pending(best, 12, 13), {}, "all opened")
@@ -74,7 +74,7 @@ func test_opening_screen_collects() -> void:
 	shell.build()
 	var p = shell.profile
 	var coins: int = p.coins
-	var view = load("res://game/ui/bounce_chest_open.gd").show_on(shell, {"day": 50, "floor": 20, "tier": 4})
+	var view = load("res://game/ui/bounce_chest_open.gd").show_on(shell, {"day": 50, "floor": 25, "tier": 4})
 	check(shell.overlay_open(), "opens over the shell")
 	check_eq(view._cards.size(), 5, "a card for each reward")
 	view._open_now()
@@ -92,7 +92,7 @@ func test_bounce_run_opens_on_a_waiting_chest() -> void:
 	var run_path := "user://test_bounce_chest_run_%d.cfg" % OS.get_process_id()
 	var game_path := "user://test_bounce_chest_save_%d.json" % OS.get_process_id()
 	var today := BounceRun.day_number(Time.get_unix_time_from_system())
-	BounceChest.set_best(today - 1, 13, run_path)
+	BounceChest.set_best(today - 1, 16, run_path)
 	var save = load("res://game/online/save_game.gd").new(game_path)
 	var p = UiProfile.sample()
 	var coins: int = p.coins
@@ -106,7 +106,7 @@ func test_bounce_run_opens_on_a_waiting_chest() -> void:
 	var views: Array = scene.ui.get_children().filter(func(c): return c.get_script() == load("res://game/ui/bounce_chest_open.gd"))
 	check_eq(views.size(), 1, "the chest pops up over the run")
 	if views.size() == 1:
-		check_eq(views[0].tier.id, "gold", "yesterday's floor 13")
+		check_eq(views[0].tier.id, "gold", "yesterday's floor 16")
 		views[0]._open_now()
 		views[0]._on_collect()
 		var after = load("res://game/online/save_game.gd").new(game_path)

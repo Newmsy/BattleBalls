@@ -27,6 +27,9 @@ var setup: Dictionary
 var run: Dictionary
 var selected := -1
 var row_h := 120.0 ## Pixels between floors.
+## The backdrop runs edge to edge; the lanes keep this far in from each side
+## (plus PAD) so the nodes stay in the page's column.
+var inset := 0.0
 var on_select: Callable ## Called with the node id a tap picks.
 var _press := Vector2.INF
 var _spans := {} ## Row -> its leftmost and rightmost lane.
@@ -66,7 +69,7 @@ func node_pos(id: int) -> Vector2:
 		return Vector2(size.x / 2.0, y - row_h * 0.15)
 	# A little seeded wobble, so the lanes don't read as a grid (render only).
 	var h := hash([setup.get("seed", 0), setup.day, id])
-	var lane := (size.x - 2.0 * PAD) / float(BounceRun.COLS - 1)
+	var lane := (size.x - 2.0 * (PAD + inset)) / float(BounceRun.COLS - 1)
 	var wob := Vector2(((h & 255) / 255.0 - 0.5) * lane * 0.3, (((h >> 8) & 255) / 255.0 - 0.5) * row_h * 0.2)
 	# Each floor is stretched most of the way to both edges (its order kept,
 	# so links still never cross): the map fills the width like StS's.
@@ -74,7 +77,7 @@ func node_pos(id: int) -> Vector2:
 	var sp: Vector2i = _spans.get(n.row, Vector2i(0, BounceRun.COLS - 1))
 	if sp.y > sp.x:
 		f = lerpf(f, (n.col - sp.x) / float(sp.y - sp.x), SPREAD)
-	return Vector2(PAD + (size.x - 2.0 * PAD) * f, y) + wob
+	return Vector2(PAD + inset + (size.x - 2.0 * (PAD + inset)) * f, y) + wob
 
 
 ## The map's full height for rows `row_h` apart.
@@ -92,7 +95,7 @@ func scroll_for(view_h: float) -> float:
 
 ## A node's radius: big enough to tap with a thumb.
 func _r() -> float:
-	return clampf(minf(row_h * 0.26, (size.x - 2.0 * PAD) / float(BounceRun.COLS - 1) * 0.36), 14.0, 34.0)
+	return clampf(minf(row_h * 0.26, (size.x - 2.0 * (PAD + inset)) / float(BounceRun.COLS - 1) * 0.36), 14.0, 34.0)
 
 
 func _gui_input(event: InputEvent) -> void:

@@ -49,6 +49,7 @@ func _show_result() -> void:
 	for id in r.spent:
 		spent.add_child(CritterIcon.face(id, 48))
 	var body: Array = [_reward_row(r.floor)] if r.won else []
+	body.append(_faction_rings())
 	body.append(XpBar.rows({"critters": _xp_gains(r)}, sfx))
 	if not r.spent.is_empty():
 		body.append(spent)
