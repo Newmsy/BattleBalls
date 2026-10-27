@@ -1,8 +1,9 @@
 ## Faction talent check: each faction's suggested 30-point tree (T5, so every
 ## row is active) on its critters against the same critter bare, from random
-## launch angles. A full tree is sized at about +10% power (design/talents.md
-## section 6), so every faction should win clearly but well under the 70%+ a
-## whole tier gives, and the factions should land near each other.
+## launch angles. Since talents went 4x (2026-10-26) a full tree fights like
+## about +30% power: every faction should win big, but still lose to the same
+## critter one tier up (tools/talent_nodes.gd --mode=tier), and the factions
+## should land near each other.
 ## Usage: godot --headless --script res://tools/talent_check.gd -- [--fights=40] [--per=4] [--only=<faction>]
 ##   --fights=N  fights per critter (seeds 1..N, players swap corners every other fight)
 ##   --per=N     critters per faction (the first N in each faction's list)
@@ -15,7 +16,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 
 ## Win share band per faction (loose: Newms 2026-10-15 "we can be a bit unbalanced").
-const BAND := [0.55, 0.80]
+const BAND := [0.70, 0.93]
 
 
 func _init() -> void:
