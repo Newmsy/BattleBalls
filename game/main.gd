@@ -58,6 +58,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const ResultText := preload("res://game/result_text.gd")
 const ResultBanner := preload("res://game/ui/result_banner.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
+const FactionRing := preload("res://game/ui/faction_ring.gd")
 const FightAim := preload("res://game/fight_aim.gd")
 const FinisherCam := preload("res://game/finisher_cam.gd")
 const ClipExport := preload("res://game/clip/clip_export.gd")
@@ -74,6 +75,7 @@ const FightSpeed := preload("res://game/fight_speed.gd")
 const FightLayout := preload("res://game/fight_layout.gd")
 const Dev := preload("res://game/dev.gd")
 const LiveClient := preload("res://game/online/live_client.gd")
+const LiveWaitScene := preload("res://game/ui/live_wait_scene.gd")
 const LiveMatch := preload("res://sim/live_match.gd")
 const SimVersion := preload("res://sim/sim_version.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
@@ -141,6 +143,7 @@ var _synced_edits := -1 ## save.edits when the last sync started.
 var rival := {} ## The friend entry a RIVAL fight is against.
 var link_friend := "" ## Friend code from the link the page was opened with (&f=).
 var _count_fight := false ## The running fight came from the menu, not a replay or URL.
+var _faction_due := false ## The running fight earns Faction XP (launched by you, live or not; never a replay).
 var _last_logged_fight := "" ## Report code of the last replay sent to analytics.
 
 var _accumulator := 0.0
@@ -193,6 +196,7 @@ var _result_slide: Tween
 var result_label: Label
 var result_banner ## game/ui/result_banner.gd behind the headline row.
 var report_label: Label
+var faction_slot: VBoxContainer ## The result card's Faction XP rings (FactionRing).
 var new_seed_button: Button
 ## The Quick fight menu's "i": the long ability and rules text in a card.
 var menu_info_button: Button
@@ -235,6 +239,8 @@ var live := {}
 var you_side := 0
 var _live_aim_left := 0.0
 var live_box: HBoxContainer
+## Over the arena while a live foe is found: two critters bashing in a side-scroller.
+var live_wait: LiveWaitScene
 ## No live foe turned up, so a CPU stands in. Newms: it looks like any live
 ## foe (same tag, wording and buttons); the player isn't told.
 var _stand_in := false
@@ -301,6 +307,9 @@ func _ready() -> void:
 	add_child(arena_clip)
 	arena = ArenaView.new()
 	arena_clip.add_child(arena)
+	live_wait = LiveWaitScene.new()
+	live_wait.visible = false
+	arena_clip.add_child(live_wait)
 	clip_card = ClipCard.new()
 	clip_card.visible = false
 	add_child(clip_card)
@@ -469,10 +478,20 @@ func _config() -> Dictionary:
 	if mode == Mode.CAMPAIGN:
 		var cfg: Dictionary = pve.config.duplicate()
 		cfg.angles = [aim, null]
+		cfg.tie_to = 0 # Stages and bosses: a double KO is your win.
 		return cfg
 	var cfg := {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena()}
+	if mode in [Mode.CHALLENGE, Mode.RIVAL, Mode.TUTORIAL]:
+		cfg.tie_to = 0 # A double KO is your win; only Quick fight keeps it a double KO.
 	var t := _fight_tiers()
-	if t[0] > 0:
+	if mode == Mode.NORMAL and quick_tier > 0:
+		# One-tap Quick fight (and the stand-in for a live foe): your fighter as
+		# you own it (tier, level, gear, talents), like a live match, against a
+		# foe of its rarity at the same tier and level.
+		var you := _live_slot(player_type)
+		Lineup.apply(cfg, 0, you)
+		Lineup.apply(cfg, 1, Lineup.make(opponent_type, int(you.tier), int(you.level)))
+	elif t[0] > 0:
 		# Same path as the progression modes: tier ability upgrades and power.
 		Lineup.apply(cfg, 0, Lineup.make(player_type, t[0]))
 		Lineup.apply(cfg, 1, Lineup.make(opponent_type, t[1]))
@@ -630,11 +649,13 @@ func _launch() -> void:
 	sfx.play("launch")
 	_start_fight()
 	_count_fight = not _stand_in # Like a live match, a stand-in fight earns nothing.
+	_faction_due = true # Faction XP comes with every fight, a stand-in's too.
 
 
 ## Starts (or replays) the fight described by the current config.
 func _start_fight() -> void:
 	_count_fight = false
+	_faction_due = false
 	_set_side(you_side if mode == Mode.LIVE else 0)
 	sim = MatchSim.new(_config())
 	_prepare_fight(sim.config)
@@ -767,6 +788,7 @@ func _show_result() -> void:
 		_finish_stage()
 	if mode == Mode.LIVE:
 		_finish_live()
+	_show_faction_xp()
 	# A replay counts once, not again for every Replay tap.
 	if _count_fight or (mode == Mode.REPLAY and _report_code() != _last_logged_fight):
 		_last_logged_fight = _report_code()
@@ -790,6 +812,36 @@ func _show_result() -> void:
 	if auto_clip:
 		auto_clip = false
 		_on_clip_button()
+
+
+## Faction XP for a fight you launched, in every mode (a core pillar of
+## progression), as rings on the result card. A campaign stage and a boss
+## give theirs in meta/ and show them on their own popup.
+func _show_faction_xp() -> void:
+	for c in faction_slot.get_children():
+		c.queue_free()
+	if profile == null or mode == Mode.CAMPAIGN:
+		return
+	if _faction_due and _board_pick < 0 and mode in [Mode.NORMAL, Mode.CHALLENGE, Mode.RIVAL, Mode.LIVE]:
+		var team := []
+		for k in sim.starters:
+			if sim.balls[k].team == you_side:
+				team.append(sim.balls[k].type_id)
+		profile.fight_faction_xp(team, -1 if sim.winner < 0 else int(sim.winner != you_side))
+	_faction_due = false
+	var rings := FactionRing.rows(profile.take_faction_gains(), sfx, .45, _spend_talents)
+	if rings != null:
+		faction_slot.add_child(rings)
+
+
+## Spend on the result card: out of the fight to the faction's talent tree.
+func _spend_talents(family: String) -> void:
+	_close_live()
+	live = {}
+	mode = Mode.NORMAL
+	_show_menu()
+	_show_home()
+	shell.go("faction", {"id": family})
 
 
 ## What the result card is about, above the headline: "Quick fight · 2v2", "Fight of the Day"...
@@ -898,6 +950,7 @@ func _on_live(msg: Dictionary) -> void:
 			live.go = msg
 			sfx.play("launch")
 			_start_fight()
+			_faction_due = true
 		"ghost":
 			# Nobody near your power: a CPU foe of your critter's rarity at your
 			# tier (the one-tap Quick fight rules), on a fresh seed, shown as a
@@ -1071,7 +1124,7 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 ## A farming boss run from its screen ("vault" for the Anvil King, "nest" for
 ## the Brood Queen): aim, then fight it in the arena.
 func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: String) -> void:
-	pve = {"config": config, "vault": difficulty, "fighter": fighter, "boss": screen}
+	pve = {"config": config, "vault": difficulty, "fighter": fighter, "boss": screen, "trail": shell.trail()}
 	mode = Mode.CAMPAIGN
 	player_type = config.p1
 	opponent_type = config.p2
@@ -1144,6 +1197,7 @@ func _finish_stage() -> void:
 		fight.boss_dealt = sim.boss.max_hp - maxf(0.0, sim.boss.hp) if sim.boss != null else 0.0
 		fight.boss_max = sim.boss.max_hp if sim.boss != null else 1.0
 		var v: Dictionary = _boss_rules().finish(profile, pve.vault, pve.fighter, fight, int(Time.get_unix_time_from_system()))
+		profile.fight_faction_xp([pve.fighter], 0 if v.won else 1)
 		shell.glow.record_result("boss", v)
 		pve.result = BOSS_MODES[pve.boss][1].result_text(v)
 		if v.won and pve.boss != "rift":
@@ -1220,6 +1274,7 @@ func _back_to_campaign() -> void:
 	var params := {"zone": pve.get("zone", 0)}
 	var vault := pve.has("vault")
 	var screen: String = pve.get("boss", "vault")
+	var trail: Array = pve.get("trail", [])
 	if vault and pve.has("result"):
 		params.notice = pve.result
 		params.caption = pve.caption # The result popup's caption (ResultPopup.boss_result).
@@ -1236,9 +1291,13 @@ func _back_to_campaign() -> void:
 	_show_menu()
 	_show_home()
 	shell.show_tab("play")
-	if vault:
+	if vault and trail.size() == 2 and not trail[1].is_empty():
+		shell.resume(trail, screen, params) # Back walks down to the boss picker it came from.
+	elif vault:
 		if screen == "rift":
 			shell.go("adventure") # The Rift Gate sits on the Adventure hub.
+		else:
+			shell.go("bosses") # Back lands on the boss hall.
 		shell.go(screen, params)
 	else:
 		shell.go("world") # Back from the stage list lands on the world map.
@@ -1517,6 +1576,8 @@ func _build_ui() -> void:
 	report_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	report_label.add_theme_color_override("font_color", MUTED)
 	card.add_child(report_label)
+	faction_slot = Kit.vbox(0)
+	card.add_child(faction_slot)
 	friend_button = _button("Add friend", _add_link_friend, 22, "ghost", 72)
 	friend_row = _row([friend_button])
 	friend_row.visible = false
@@ -1715,6 +1776,10 @@ func _show_only(box: Control) -> void:
 	_sync_cover()
 	for b in [menu_box, aim_box, fight_box, result_box, live_box]:
 		b.visible = b == box
+	if box == live_box and not live_wait.visible:
+		live_wait.setup(player_type, int(_live_slot(player_type).tier))
+	live_wait.visible = box == live_box
+	arena.visible = not live_wait.visible # Covered: no need to draw it.
 	result_dim.visible = box == result_box
 	if shell_layer == null or not shell_layer.visible:
 		sfx.toggle_hidden = box == result_box # The popup covers the bottom row of pills.

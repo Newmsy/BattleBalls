@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Talents := preload("res://sim/talents.gd")
 const FactionsScreen := preload("res://game/ui/screens/factions_screen.gd")
 
@@ -41,6 +42,7 @@ static func build(shell, params: Dictionary) -> Control:
 		labels.add_child(l)
 	root.add_child(labels)
 
+	var gated := false
 	for row in range(1, 6):
 		var line := Kit.hbox(10)
 		var open := Talents.row_open(f, picks, row)
@@ -51,8 +53,14 @@ static func build(shell, params: Dictionary) -> Control:
 				line.add_child(_node(shell, p, f, n, picks, open, col))
 		if row == 5:
 			line.add_child(Kit.spacer())
-		if row > 1:
-			root.add_child(_links(row, Talents.row_open(f, picks, row), col))
+		if row > 1 and not open and not gated:
+			# The first locked row says how many more points open it.
+			gated = true
+			var gate := _gate(Talents.ROW_GATE[row - 1] - Talents.spent(f, picks, row), col)
+			shell.mark("talent_gate", gate)
+			root.add_child(gate)
+		elif row > 1:
+			root.add_child(_links(row, open, col))
 		root.add_child(line)
 	return root
 
@@ -72,6 +80,29 @@ static func _links(row: int, open: bool, col: Color) -> Control:
 		h.add_child(c)
 	h.add_theme_constant_override("separation", 10)
 	return h
+
+
+## A thin rule over the first locked row with "Spend 6 more to unlock" on it.
+static func _gate(more: int, col: Color) -> Control:
+	var st := Kit.box(Color(Kit.BG, .9), Color(col, .5), 999, 2, 0)
+	st.content_margin_left = 16
+	st.content_margin_right = 16
+	st.content_margin_top = 4
+	st.content_margin_bottom = 4
+	var pill := Kit.panel(Kit.hbox(8, [Kit.glyph("lock", 18, col), Kit.label("Spend %d more to unlock" % more, 18, col)], BoxContainer.ALIGNMENT_CENTER), st)
+	var h := Kit.hbox(0, [_rule(), pill, _rule()])
+	h.alignment = BoxContainer.ALIGNMENT_CENTER
+	return h
+
+
+static func _rule() -> Control:
+	var bar := ColorRect.new()
+	bar.color = Color(Kit.LINE, .9)
+	bar.custom_minimum_size = Vector2(0, 2)
+	var c := Kit.vbox(0, [bar])
+	c.alignment = BoxContainer.ALIGNMENT_CENTER
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return c
 
 
 static func _node(shell, p, f: String, n: Dictionary, picks: Dictionary, open: bool, col: Color) -> Control:
@@ -110,7 +141,7 @@ static func _sheet(shell, p, f: String, n: Dictionary) -> void:
 		lines.append("For every critter" if n.row == 1 else "For %d-star+ critters" % n.row)
 	for t in lines:
 		var l := Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-		l.custom_minimum_size.x = minf(640.0, shell.size.x - 80.0)
+		l.custom_minimum_size.x = ResultPopup.inner_width(shell.size.x)
 		v.add_child(l)
 	var minus := Kit.button("Remove", func():
 		if not p.remove_talent(f, n.id):

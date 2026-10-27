@@ -12,7 +12,6 @@ const BossCard := preload("res://game/ui/boss_card.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Campaign := preload("res://meta/campaign.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
-const Economy := preload("res://meta/economy.gd")
 const Gear := preload("res://sim/gear.gd")
 const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const BossLevelGrid := preload("res://game/ui/boss_level_grid.gd")
@@ -42,42 +41,35 @@ static func build(shell, params: Dictionary) -> Control:
 	var left := GearVault.runs_left(p, now)
 	root.add_child(Kit.hbox(10, [Kit.label("%d/%d runs" % [left, GearVault.RUNS_PER_DAY], 22, Kit.MUTED),
 		Kit.spacer(), Kit.amount("hammer", p.hammers)], BoxContainer.ALIGNMENT_CENTER))
-	root.add_child(_forge(shell, p, now))
 
 	if params.has("notice"):
 		var r: Dictionary = params.get("xp", {})
 		ResultPopup.boss_result(shell, params, result_row(r) if r.has("won") else null)
 
+	var level := BossLevelGrid.picked(p, GearVault.KEY, params)
+	root.add_child(_prizes(shell, level, slot))
 	root.add_child(BossLevelGrid.hero(shell, GearVault.BOSS, VAULT))
 	var fighter: String = Campaign.fighter_for(p)
 	root.add_child(BossCard.fighter(shell, fighter, "vault"))
 
-	var level := BossLevelGrid.picked(p, GearVault.KEY, params)
 	root.add_child(BossLevelGrid.grid(shell, p, GearVault.KEY, level, VAULT, "vault"))
 	root.add_child(_card(shell, p, level, fighter, now, left))
 	return root
 
 
-## The Forge stall: a few Hammers a day for coins.
-static func _forge(shell, p, now: int) -> Control:
-	var stock: int = p.forge_left(now)
-	var buy := Kit.cost_button("+1", Economy.FORGE_HAMMER_COINS, "coin", _buy.bind(shell), "go", 24, 64)
-	buy.disabled = stock <= 0 or p.coins < Economy.FORGE_HAMMER_COINS
-	shell.mark("forge_buy", buy)
-	var stall := Kit.hbox(10, [Kit.glyph("hammer", 30, Kit.FG), Kit.label("Forge stall · %d/%d left today" % [stock, Economy.FORGE_DAILY], 22, Kit.MUTED), Kit.spacer(), buy], BoxContainer.ALIGNMENT_CENTER)
-	return stall
-
-
-static func _buy(shell) -> void:
-	if shell.profile.buy_forge_hammer(int(Time.get_unix_time_from_system())):
-		shell.refresh()
+## The level's prizes: a piece of today's slot at its tier (stars) and Hammers.
+static func _prizes(shell, d: int, slot: String) -> Control:
+	var diff: Dictionary = GearVault.DIFFICULTIES[d]
+	var col := BagScreen.tier_color(diff.tier)
+	var piece := Kit.hbox(4, [Kit.glyph("shell" if slot == "" else slot.to_lower(), 38, col), Kit.glyph("stars", 22, col, diff.tier)], BoxContainer.ALIGNMENT_CENTER)
+	return BossCard.prizes(shell, "%s prizes" % diff.name, VAULT, [piece, BossCard.prize("hammer", diff.hammers)], GearVault.WIN_XP + d, "vault")
 
 
 static func _card(shell, p, d: int, fighter: String, now: int, left: int) -> Control:
 	var diff: Dictionary = GearVault.DIFFICULTIES[d]
 	var col := BagScreen.tier_color(diff.tier)
 	return BossCard.fight(shell, {"boss": GearVault.BOSS, "accent": col, "rec": GearVault.enemy_rating(d, now), "mine": p.power_of(fighter), "foe": "They're",
-		"title": diff.name, "pay": [Kit.hbox(8, [Glyph.make("stars", 20, col, diff.tier), Kit.label("+", 20, Kit.MUTED), Kit.amount("hammer", diff.hammers, 20)], BoxContainer.ALIGNMENT_CENTER)],
+		"title": diff.name,
 		"cost": GearVault.ENERGY_COST, "left": left, "on_fight": _fight.bind(shell, d, fighter), "mark": "vault_go"})
 
 

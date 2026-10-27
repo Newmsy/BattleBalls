@@ -7,6 +7,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Families := preload("res://sim/families.gd")
 const BounceBot := preload("res://tools/bounce_bot.gd")
 const Rng := preload("res://sim/rng.gd")
+const Power := preload("res://sim/power.gd")
 
 
 ## The first START_BOONS boons of the day's offer.
@@ -37,7 +38,7 @@ static func _new(day: int) -> Array:
 	return [setup, BounceRun.new_run(setup, [0, 1, 2], _start(setup))]
 
 
-## Every map has the same shape rules: a 20-floor climb, links only to the
+## Every map has the same shape rules: a 25-floor climb, links only to the
 ## next floor, no crossings, fixed rows, and the Champion on top.
 func test_maps_follow_the_rules() -> void:
 	for day in range(1, 50):
@@ -67,6 +68,7 @@ func test_maps_follow_the_rules() -> void:
 		check_eq(rows.size(), BounceRun.FLOORS, "day %d: every floor has nodes" % day)
 		check_eq(rows[BounceRun.FLOORS - 1], 1, "one Champion")
 		check(rows[0] >= 2, "day %d: a choice of start" % day)
+		check(rows.values().all(func(c): return c <= 5), "day %d: at most 5 nodes a floor" % day)
 		var links := 0
 		var froms := 0
 		for id in nodes:
@@ -137,7 +139,7 @@ func test_elites_are_bigger_and_tougher() -> void:
 			if n.type == "elite":
 				seen = true
 				check_eq(n.foe.size, BounceRun.ELITE_SIZE, "elites are bigger")
-				check_near(n.foe.power, BounceRun.FOE_POWER[n.row] * BounceRun.ELITE_POWER, 0.0001, "and stronger")
+				check_near(n.foe.power, BounceRun.FOE_POWER[n.row] * BounceRun.ELITE_POWER * BounceRun.stat_power(n.foe.critter, BounceRun.tier_at(n.row)), 0.0001, "and stronger")
 			if n.type == "boss":
 				check_eq(n.foe.size, BounceRun.BOSS_SIZE, "the Champion is big")
 	check(seen, "elites turn up")
@@ -261,7 +263,64 @@ func test_floors_get_harder() -> void:
 	check(BounceRun.FOE_POWER[0] < 1.0 and BounceRun.FOE_POWER[BounceRun.FLOORS - 1] > 1.0, "easy start, hard top")
 	for f in range(1, BounceRun.FLOORS):
 		check(BounceRun.FOE_POWER[f] > BounceRun.FOE_POWER[f - 1], "floor %d is harder than the one before" % (f + 1))
-	check_eq(range(BounceRun.FLOORS).map(func(f): return BounceRun.tier_at(f)), [1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5], "tiers by floor")
+	check_eq(range(BounceRun.FLOORS).map(func(f): return BounceRun.tier_at(f)), [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5], "tiers by floor")
+
+
+## Rarity and tier count in a run (sim/power.gd): your Legendary fights with
+## a Legendary's stats, foes get rarer up the climb, and the Champion is a
+## Legendary. Newms 2026-10-26: a late Common foe out-statted a Legendary.
+func test_rarity_and_tier_set_the_stats() -> void:
+	var setup := BounceRun.generate(7)
+	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
+	var first: int = BounceRun.next_nodes(setup, run)[0]
+	BounceRun.go(setup, run, first)
+	var cfg := BounceRun.fight_config(setup, run, 0, -450)
+	check_near(cfg.powers[0], Power.multiplier(str(BallDefs.DEFS[cfg.p1].rarity), 1, 1), 0.001, "your critter: its rarity at T1")
+	check_near(cfg.powers[1], BounceRun.FOE_POWER[0] * BounceRun.stat_power(cfg.p2, 1), 0.001, "the foe: the floor's edge on its rarity")
+	check_near(Power.multiplier("common", 5, 1), Power.multiplier("legendary", 1, 1), 0.001, "a T5 Common is a T1 Legendary")
+	var ranks := {"early": 0.0, "late": 0.0}
+	var n := {"early": 0, "late": 0}
+	for day in range(1, 30):
+		var s := BounceRun.generate(day)
+		for id in s.nodes:
+			var nd: Dictionary = s.nodes[id]
+			if not nd.has("foe"):
+				continue
+			var rank := Power.RARITIES.find(str(BallDefs.DEFS[nd.foe.critter].rarity))
+			if nd.type == "boss":
+				check_eq(rank, 4, "the Champion is a Legendary")
+			var key := "early" if nd.row < 5 else ("late" if nd.row >= 20 else "")
+			if key != "":
+				ranks[key] += rank
+				n[key] += 1
+	check(ranks.early / n.early < 1.5 and ranks.late / n.late > 2.8, "foes get rarer up the climb: %s %s" % [ranks, n])
+
+
+## Taking a boon you hold stacks it: the numbers add, and the badge says x2.
+func test_boons_stack_by_adding_up() -> void:
+	var base := BallDefs.get_def("laser")
+	var two := Boons.apply_to_def(base, ["thick_shell", "thick_shell:rare"])
+	check_near(two.hp, base.hp * (1.0 + 0.06 + 0.06 * 1.6), 0.001, "+6% and +9.6% HP is +15.6%")
+	var burns := Boons.apply_to_def(base, ["ember_rim", "ember_rim"])
+	check_near(burns.b_burn, 2.0 * Boons.get_def("ember_rim").b_burn, 0.001, "burns add")
+	var chills := Boons.apply_to_def(base, ["frost_rim:epic", "frost_rim:epic"])
+	check_near(chills.b_chill, Boons.CAPS.b_chill, 0.001, "chill stops at its cap")
+	var st := Boons.stacked(["spiky_rim", "spiky_rim:epic"])
+	check_eq(st.count, 2, "two copies")
+	check_eq(st.rarity, "epic", "the badge shows the best copy")
+	check(st.text.begins_with("+20% damage"), "the card shows the total (6%% + 13.8%%): %s" % st.text)
+	check(Boons.stacked(["ember_rim", "ember_rim"]).text.contains("18%"), "mechanic text totals: %s" % Boons.stacked(["ember_rim", "ember_rim"]).text)
+	# Offers can deal a boon you hold, never a second copy of a Legendary.
+	var setup := BounceRun.generate(3)
+	var run := BounceRun.new_run(setup, [0, 1, 2], _start(setup))
+	run.boons = Boons.GENERAL.duplicate() + Boons.LEGENDARY.duplicate()
+	var seen_held := false
+	for at in 40:
+		run.at = at
+		for id in BounceRun.offer(setup, run):
+			check(not id in Boons.LEGENDARY, "no second Legendary")
+			seen_held = seen_held or Boons.base_of(id) in run.boons
+	check(seen_held, "held boons come again")
 
 
 func test_scores_rank_floors_then_lives_then_time() -> void:
@@ -305,13 +364,11 @@ func test_stat_boons_scale_the_def() -> void:
 	check(not def.has("heal_ratio"), "vampire boon does nothing for a laser")
 
 
-func test_overtime_bubble_absorbs_damage() -> void:
+## Bubble (was Overtime Bubble) shields from the first tick: most fights
+## end before overtime.
+func test_bubble_shields_from_the_start() -> void:
 	var sim := MatchSim.new({"seed": 3, "p1": "plain", "p2": "plain", "boons": [["overtime_bubble"], []]})
-	while sim.tick <= int(MatchSim.OVERTIME_START * MatchSim.TICK_RATE) and not sim.finished:
-		sim.step()
-	if sim.finished:
-		return
-	check_near(sim.balls[0].shield, Boons.get_def("overtime_bubble").overtime_shield, 0.001, "bubble on at overtime")
+	check_near(sim.balls[0].shield, Boons.get_def("overtime_bubble").b_bubble * sim.balls[0].max_hp, 0.001, "bubble on at the start")
 	check_eq(sim.balls[1].shield, 0.0, "foe has no bubble")
 
 
@@ -443,7 +500,7 @@ func test_second_wind_and_fever_fire_once() -> void:
 				winds += int(e.id == "second_wind")
 				fevers += int(e.id == "fever")
 	check_eq(winds, 1, "Second Wind once")
-	check(fevers <= 1, "Fever at most once")
+	check_eq(fevers, 1, "Fever once, on the 3rd bump, long before overtime")
 
 
 func test_every_boon_has_text_and_a_badge() -> void:

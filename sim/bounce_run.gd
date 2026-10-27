@@ -24,7 +24,10 @@
 ##
 ## Both sides grow as you climb: your trio and the foes fight at
 ## tier_at(floor), one tier up every FLOORS_PER_TIER floors (T5 on the last
-## four), and foe power follows FOE_POWER.
+## five). Every critter, yours and the foes', fights with the stats of its
+## rarity and tier (sim/power.gd: one rarity step is one tier), so a
+## Legendary of yours stays a Legendary. Foes get rarer as you climb
+## (FOE_RARITY) and carry the floor's edge on top (FOE_POWER).
 ##
 ## A run is plain data (see new_run) so it can be saved, resumed, posted to
 ## the leaderboard and re-checked later: every step is in run.log, and
@@ -37,15 +40,16 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Boons := preload("res://sim/boons.gd")
 const Relics := preload("res://sim/relics.gd")
 const Families := preload("res://sim/families.gd")
+const Power := preload("res://sim/power.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 11
+const RULES_VERSION := 13
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
-const FLOORS := 20
-const COLS := 7 ## Map lanes (Slay the Spire uses 7).
+const FLOORS := 25
+const COLS := 5 ## Map lanes: at most 5 nodes a floor, so they stay big on a phone.
 const PATHS := 6 ## Walks up the map that make its links.
 const DRAFT := 6 ## Critter cards in the draft.
 const PICKS := 3
@@ -53,17 +57,21 @@ const START_OFFER := 6 ## General boons offered at the start.
 const START_BOONS := 3 ## Of those, how many the trio starts with.
 const RELIC_OFFER := 3 ## Relics offered at the start; the trio takes one.
 const OFFER := 3
-const FLOORS_PER_TIER := 4
-## Foe names by floor pair, for flavour.
+const FLOORS_PER_TIER := 5
+## Foe names up the climb, for flavour.
 const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Brawler", "Legend", "Champion"]
-## Foe power per floor (sim/power.gd: 1.0 is your trio's). The first floors
+## A foe's edge per floor, on top of the power of its rarity and tier
+## (sim/power.gd): 1.0 is a critter with no boons of that rarity and tier.
+## Foes carry no boons, so this is what keeps up with yours. The first floors
 ## are a warm-up and the top is a wall (tools/boon_balance.gd --runs checks
-## the curve). Foes carry no boons, so power alone makes the climb, about
-## 12% steeper each floor, 16% from floor 14, and the Champion is a wall: a
-## greedy player (tools/boon_balance.gd --runs --greedy) clears about 30% of
-## runs, a random one about 3%, and a random run's median ends on floor 13.
-const FOE_POWER := [0.55, 0.67, 0.81, 0.95, 1.11, 1.28, 1.46, 1.66, 1.86, 2.08,
-	2.31, 2.55, 2.81, 3.22, 3.71, 4.25, 4.86, 5.55, 6.31, 8.74]
+## the curve): a greedy player (--greedy) clears about 24% of runs, and a
+## random one's median run ends on floor 15.
+const FOE_POWER := [0.55, 0.68, 0.83, 0.99, 1.16, 1.35, 1.55, 1.77, 2.0, 2.24,
+	2.5, 2.77, 3.06, 3.4, 3.8, 4.2, 4.6, 5.0, 5.3, 5.6, 5.9, 6.2, 6.5, 6.8, 8.0]
+## Foe rarity odds by tier band (Common, Uncommon, Rare, Epic, Legendary):
+## early foes are mostly Common, near the top mostly Epic and Legendary. The
+## Champion is always a Legendary.
+const FOE_RARITY := [[45, 35, 15, 5, 0], [20, 35, 30, 15, 0], [5, 20, 35, 30, 10], [0, 10, 25, 40, 25], [0, 0, 15, 40, 45]]
 const DOWNSIDE_POWER := 0.15 ## A Haunted Mirror look, a Star Map wish (and a few other risky picks) make a foe this much stronger.
 const ELITE_POWER := 1.12 ## On top of the floor's power.
 const ELITE_SIZE := 1.28
@@ -73,10 +81,15 @@ const BOSS_SIZE := 1.32
 const HATCH_POWER := 0.7
 const HATCH_SIZE := 0.72
 
+## Roughly what a boon of each rarity (and a relic) adds to a critter's power,
+## for the Power numbers on screen (boon_power). Display only: fights use
+## the boons themselves.
+const BOON_WORTH := {"common": 0.07, "rare": 0.11, "epic": 0.16, "legendary": 0.25, "glitch": -0.05, "relic": 0.12}
+
 ## Fixed rows (index = floor - 1): the first is all fights, the middle all
 ## chests, the one before the Champion all Charge Pads.
-const CHEST_ROW := 9
-const REST_ROW := 18
+const CHEST_ROW := 12
+const REST_ROW := FLOORS - 2
 ## Roll weights for the other rows.
 const NODE_WEIGHTS := {"fight": 40, "mystery": 25, "elite": 12, "shop": 10, "rest": 10}
 ## What a mystery node holds, out of 100.
@@ -195,6 +208,12 @@ static func tier_at(floor_i: int) -> int:
 	return mini(1 + floor_i / FLOORS_PER_TIER, 5)
 
 
+## The stat power of `critter` at `tier`, from its rarity (sim/power.gd):
+## a T1 Common is 1.0, a T5 Legendary about 6.
+static func stat_power(critter: String, tier: int) -> float:
+	return Power.multiplier(str(BallDefs.DEFS[critter].get("rarity", "common")), tier, 1)
+
+
 ## 1 on 2026-10-14 (UTC), counting up one per day.
 static func day_number(unix_time: float) -> int:
 	return maxi(1, floori((unix_time - EPOCH_UNIX) / DAY) + 1)
@@ -228,10 +247,10 @@ static func _map(rng) -> Dictionary:
 	var below: Array = []
 	for row in FLOORS - 1:
 		if row > 0:
-			lo = clampi(lo + rng.range_int(-1, 1), 0, 2)
-			hi = clampi(hi + rng.range_int(-1, 1), COLS - 3, COLS - 1)
+			lo = clampi(lo + rng.range_int(-1, 1), 0, 1)
+			hi = clampi(hi + rng.range_int(-1, 1), COLS - 2, COLS - 1)
 		var inner: Array = _shuffled(range(lo + 1, hi), rng)
-		var lanes: Array = [lo, hi] + inner.slice(0, mini(inner.size(), rng.range_int(2, 4)))
+		var lanes: Array = [lo, hi] + inner.slice(0, mini(inner.size(), rng.range_int(1, 3)))
 		lanes.sort()
 		var here: Array = lanes.map(func(c): return row * COLS + c)
 		for i in here.size():
@@ -315,10 +334,17 @@ static func _roll_type(rng, n: Dictionary, parent_types: Array) -> String:
 static func _foe(rng, n: Dictionary) -> Dictionary:
 	var row: int = n.row
 	var kind: String = n.type if n.type in ["elite", "boss"] else "fight"
-	var critter: String = BallDefs.PLAYABLE[rng.range_int(0, BallDefs.PLAYABLE.size() - 1)]
+	var odds: Array = FOE_RARITY[tier_at(row) - 1] if kind != "boss" else [0, 0, 0, 0, 1]
+	var weights := {}
+	for k in Power.RARITIES.size():
+		if odds[k] > 0:
+			weights[Power.RARITIES[k]] = odds[k]
+	var rarity := _roll(rng, weights)
+	var of_rarity: Array = BallDefs.PLAYABLE.filter(func(c): return str(BallDefs.DEFS[c].get("rarity", "common")) == rarity)
+	var critter: String = of_rarity[rng.range_int(0, of_rarity.size() - 1)]
 	# Foes never get boons: boons are yours. Floors get harder through power.
-	var foe := {"critter": critter, "boons": [], "seed": rng.range_int(1, 999999), "power": FOE_POWER[row], "size": 1.0,
-		"title": FOE_TITLES[mini(row / 2, FOE_TITLES.size() - 2)], "kind": kind}
+	var foe := {"critter": critter, "boons": [], "seed": rng.range_int(1, 999999), "power": FOE_POWER[row] * stat_power(critter, tier_at(row)), "size": 1.0,
+		"title": FOE_TITLES[mini(row * (FOE_TITLES.size() - 1) / (FLOORS - 1), FOE_TITLES.size() - 2)], "kind": kind}
 	if kind == "elite":
 		foe.power *= ELITE_POWER
 		foe.size = ELITE_SIZE
@@ -339,6 +365,17 @@ static func _parents(nodes: Dictionary, id: int) -> Array:
 		if id in nodes[q].kids:
 			out.append(q)
 	return out
+
+
+## About how much the run's boons and relics multiply a critter's power
+## (BOON_WORTH), so the screen can put your Power next to a foe's.
+static func boon_power(run: Dictionary) -> float:
+	var k := 1.0
+	for id in run.boons:
+		k *= 1.0 + BOON_WORTH[Boons.rarity_of(id)]
+	for _r in run.get("relics", []):
+		k *= 1.0 + BOON_WORTH.relic
+	return k
 
 
 ## A fresh run for `setup` with the drafted card indices, the starting boons
@@ -438,16 +475,18 @@ static func fight_config(setup: Dictionary, run: Dictionary, slot: int, aim) -> 
 	var f := foe(setup, run)
 	var row: int = node(setup, run.at).row
 	var tier := tier_at(row)
-	var cfg := {"seed": f.seed, "arena": Arenas.pick(f.seed * 16 + run.fights), "p1": card(setup, run, slot).critter, "p2": f.critter,
-		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), f.boons], "relics": [run.get("relics", []), []], "powers": [1.0, f.power],
-		"tiers": [mini(tier + (1 if run.spar == slot else 0), 5), tier], "sizes": [1.0, f.size], "hp": [null, run.get("foe_hp")]}
+	var mine: String = card(setup, run, slot).critter
+	var my_tier := mini(tier + (1 if run.spar == slot else 0), 5)
+	var cfg := {"seed": f.seed, "arena": Arenas.pick(f.seed * 16 + run.fights), "p1": mine, "p2": f.critter,
+		"angles": [aim, null], "boons": [fighter_boons(setup, run, slot), f.boons], "relics": [run.get("relics", []), []], "powers": [stat_power(mine, my_tier), f.power],
+		"tiers": [my_tier, tier], "sizes": [1.0, f.size], "hp": [null, run.get("foe_hp")], "tie_to": 0}
 	if run.hatchling != "":
 		cfg.p3 = run.hatchling
 		cfg.p4 = null
 		cfg.angles.append(null)
 		cfg.boons.append([])
 		cfg.relics.append([])
-		cfg.powers.append(HATCH_POWER)
+		cfg.powers.append(HATCH_POWER * stat_power(run.hatchling, maxi(1, tier - 1)))
 		cfg.tiers.append(maxi(1, tier - 1))
 		cfg.sizes.append(HATCH_SIZE)
 		cfg.hp.append(null)
@@ -527,10 +566,11 @@ static func drop_relic(setup: Dictionary, run: Dictionary, salt := 0) -> String:
 	return id
 
 
-## Boons for the node just cleared, seeded by the day and the node. Skips
-## boons the trio already runs (at any rarity) and ability boons none of the
-## trio can use. Each card rolls a rarity, at least `floor_rarity`; a
-## Legendary roll swaps the card for a Legendary boon the trio doesn't have.
+## Boons for the node just cleared, seeded by the day and the node. Boons the
+## trio already runs can come again and stack (sim/boons.gd); ability boons
+## none of the trio can use never do. Each card rolls a rarity, at least
+## `floor_rarity`; a Legendary roll swaps the card for a Legendary boon the
+## trio doesn't have.
 static func offer(setup: Dictionary, run: Dictionary, floor_rarity := "common", salt := 0) -> Array:
 	var pool := _boon_pool(setup, run)
 	var held: Array = run.boons.map(func(id): return Boons.base_of(id))
@@ -545,10 +585,9 @@ static func _boon_pool(setup: Dictionary, run: Dictionary) -> Array:
 	var abilities: Array = []
 	for slot in PICKS:
 		abilities.append(BallDefs.get_def(card(setup, run, slot).critter).ability)
-	var held: Array = run.boons.map(func(id): return Boons.base_of(id))
 	var pool: Array = []
 	for id in Boons.ALL:
-		if not id in held and abilities.any(func(a): return Boons.applies_to(id, a)):
+		if abilities.any(func(a): return Boons.applies_to(id, a)):
 			pool.append(id)
 	return pool
 
@@ -772,10 +811,8 @@ static func choose(setup: Dictionary, run: Dictionary, choice_id: String, arg = 
 		"drink":
 			if arg != null:
 				run.out[int(arg)] = false
-			elif not "wall_snack" in run.boons.map(func(id): return Boons.base_of(id)):
-				run.boons.append("wall_snack")
 			else:
-				run.buttons += 15
+				run.boons.append("wall_snack")
 		"chip":
 			run.boons.erase(arg)
 			run.boons.append(_random_boon(setup, run, rng, "epic"))
@@ -856,7 +893,7 @@ static func _swappable(run: Dictionary) -> Array:
 	return run.boons.filter(func(id): return not Boons.is_glitch(id) and Boons.rarity_of(id) != "legendary")
 
 
-## A random boon the trio doesn't run, at `rarity` (a Legendary when asked
+## A random boon at `rarity` (a Legendary the trio doesn't hold when asked
 ## and one is free, else Epic).
 static func _random_boon(setup: Dictionary, run: Dictionary, rng, rarity: String) -> String:
 	var held: Array = run.boons.map(func(id): return Boons.base_of(id))

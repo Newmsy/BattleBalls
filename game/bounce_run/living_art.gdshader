@@ -29,6 +29,13 @@ uniform float corner = 0.0; // corner radius in pixels
 uniform vec4 fade = vec4(0.0); // top fade end (0-1 of the height), its strength, bottom fade start, its strength
 uniform vec3 fade_col = vec3(0.05, 0.06, 0.15);
 uniform vec2 side = vec2(0.0); // left fade end (0-1 of the width), its strength: a calm side for the words
+// Soft edges: the painting fades out over `feather` pixels at each edge of
+// its drawn rect (x, y, w, h in local pixels) that feather_sides turns on
+// (left, top, right, bottom), so it melts into the panel behind it.
+uniform float feather = 0.0;
+uniform vec4 feather_rect = vec4(0.0);
+uniform vec4 feather_sides = vec4(1.0);
+uniform bool plain = false; // a still picture: draw it as a plain TextureRect would
 varying vec2 local;
 varying vec4 modulate;
 
@@ -116,8 +123,14 @@ void fragment() {
 		vec2 q = abs(local - px_size * 0.5) - (px_size * 0.5 - corner);
 		a *= 1.0 - smoothstep(-0.75, 0.75, length(max(q, 0.0)) - corner);
 	}
+	if (feather > 0.0) {
+		vec2 lo = (local - feather_rect.xy) / feather;
+		vec2 hi = (feather_rect.xy + feather_rect.zw - local) / feather;
+		a *= mix(1.0, smoothstep(0.0, 1.0, lo.x), feather_sides.x) * mix(1.0, smoothstep(0.0, 1.0, lo.y), feather_sides.y)
+			* mix(1.0, smoothstep(0.0, 1.0, hi.x), feather_sides.z) * mix(1.0, smoothstep(0.0, 1.0, hi.y), feather_sides.w);
+	}
 	// Multiplying by the picture once more is the deeper, richer look the
 	// paintings have always had in game (fragment COLOR used to carry the
 	// texture), now applied to the composite so the layers get it too.
-	COLOR = vec4(rgb, a) * c * modulate;
+	COLOR = plain ? vec4(rgb, a) * modulate : vec4(rgb, a) * c * modulate;
 }

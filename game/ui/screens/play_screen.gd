@@ -23,6 +23,7 @@ const Intro := preload("res://game/ui/intro.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
 const Dev := preload("res://game/dev.gd")
+const Motion := preload("res://game/ui/motion.gd")
 
 const DAILY := Color("ffd36b")
 const VERSUS := Color("ff4fd8")
@@ -369,22 +370,49 @@ static func quick_fight_row(shell) -> Control:
 
 
 ## Above the doors: the Glow Pass bar and the Shop, slim because they're looks only.
+## Rewards waiting turn the whole bar gold, with a solid "N TO CLAIM" pill in
+## place of the level, which swells once as Home opens (no per-frame cost).
 static func _style_row(shell) -> Control:
 	var glow = shell.glow
 	var season: Dictionary = glow.season()
 	var n: int = 0 if season.is_empty() else glow.claimable_count()
-	var line := "Between seasons" if season.is_empty() else ("%d to claim!" % n if n > 0 else "Lv %d/50" % glow.pass_level())
-	var words := Kit.hbox(8, [Kit.label("Glow Pass", 22), Kit.spacer(), Kit.label(line, 19, DAILY if n > 0 else Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
-	var bar := Kit.vbox(6, [words, Kit.bar(0.0 if season.is_empty() else glow.pass_level() / 50.0, STYLE, 10)])
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var pass_btn := Kit.card_button(Kit.hbox(12, [Glyph.make("pass", 36, STYLE), bar], BoxContainer.ALIGNMENT_CENTER), func(): shell.go("pass"), STYLE.darkened(.5), STYLE.darkened(.86), 999, 12)
-	pass_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var accent := DAILY if n > 0 else STYLE
+	var title := Kit.label("Glow Pass", 22)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.clip_text = true
+	var right: Control
 	if n > 0:
-		pass_btn.add_child(red_dot())
+		right = _claim_pill(n)
+	else:
+		right = Kit.label("Between seasons" if season.is_empty() else "Lv %d/50" % glow.pass_level(), 19, Kit.MUTED)
+	var words := Kit.hbox(8, [title, right], BoxContainer.ALIGNMENT_CENTER)
+	var bar := Kit.vbox(6, [words, Kit.bar(0.0 if season.is_empty() else glow.pass_level() / 50.0, accent, 10)])
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	var pass_btn := Kit.card_button(Kit.hbox(12, [Glyph.make("pass", 36, accent), bar], BoxContainer.ALIGNMENT_CENTER), func(): shell.go("pass"),
+		accent if n > 0 else STYLE.darkened(.5), Color("2a2410") if n > 0 else STYLE.darkened(.86), 999, 12)
+	pass_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("glowpass", pass_btn)
 	var shop := Kit.card_button(Kit.hbox(8, [Glyph.make("sparkle", 32, STYLE), Kit.label("Shop", 22)], BoxContainer.ALIGNMENT_CENTER), func(): shell.go("shop"), STYLE.darkened(.5), STYLE.darkened(.86), 999, 12)
 	shell.mark("shop", shop)
 	return Kit.hbox(10, [pass_btn, shop], BoxContainer.ALIGNMENT_CENTER)
+
+
+## "3 TO CLAIM" in dark type on a solid gold pill: the Glow Pass's call to
+## come and collect. Sized to its words, so it never truncates.
+static func _claim_pill(n: int) -> Control:
+	var st := Kit.box(DAILY, Color(0, 0, 0, 0), 999, 0, 0)
+	st.content_margin_left = 12
+	st.content_margin_right = 12
+	st.content_margin_top = 1
+	st.content_margin_bottom = 1
+	var pill := Kit.panel(Kit.label("%d TO CLAIM" % n, 17, Kit.BG), st)
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pill.ready.connect(func():
+		if not Motion.calm():
+			Motion.bump(pill, 1.2, .5))
+	return pill
 
 
 static func _bosses_locked_info(shell) -> Callable:

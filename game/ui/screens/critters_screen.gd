@@ -11,6 +11,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Painted := preload("res://game/ui/painted.gd")
+const Talents := preload("res://sim/talents.gd")
 
 static var filter := "all"
 
@@ -36,7 +37,19 @@ static func build(shell, _params: Dictionary) -> Control:
 		func(): shell.go("dex"), Kit.ACCENT, Kit.PANEL2, 999, 12)
 	dex.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	shell.mark("critterpedia", dex)
-	var factions := Kit.card_button(Kit.label("Factions", 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), func(): shell.go("factions"), Kit.ACCENT, Kit.PANEL2, 999, 12)
+	# Talents, with a green count of points to spend across every faction.
+	var unspent := 0
+	for f in Talents.FACTIONS:
+		unspent += maxi(0, p.talent_points_free(f))
+	var tl := Kit.hbox(8, [Kit.label("Talents", 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)], BoxContainer.ALIGNMENT_CENTER)
+	if unspent > 0:
+		var count := Kit.panel(Kit.label(str(unspent), 18, Kit.BG, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(Kit.GOOD, Color(0, 0, 0, 0), 999, 0, 0))
+		var st: StyleBoxFlat = count.get_theme_stylebox("panel")
+		st.content_margin_left = 9
+		st.content_margin_right = 9
+		count.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		tl.add_child(count)
+	var factions := Kit.card_button(tl, func(): shell.go("factions"), Kit.ACCENT, Kit.PANEL2, 999, 12)
 	factions.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	shell.mark("factions", factions)
 	var meter := _Collection.new()

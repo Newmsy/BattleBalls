@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const A11y := preload("res://game/a11y.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Quests := preload("res://meta/quests.gd")
@@ -36,7 +37,14 @@ static func build(shell, _params: Dictionary) -> Control:
 	today.add_child(_chest(shell, "Daily chest", q.chest, DAILY, false))
 	var clock := Kit.label("New in " + LiveOps.countdown(t, q.day_ends), 18, Kit.MUTED)
 	var art_h := ART_H_TALL if shell.size.y >= 1400.0 else ART_H
-	root.add_child(WeekScreen.tile("Today", DAILY, Kit.LINE, Kit.PANEL, [today], null, clock, "daily_quests", null, art_h))
+	var tile := WeekScreen.tile("Today", DAILY, Kit.LINE, Kit.PANEL, [today], null, clock, "daily_quests", null, art_h)
+	# The quest board painting soaks up any spare height, so tall phones get a
+	# bigger painting instead of empty bands above and below the cards.
+	tile.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var parts: Node = tile.get_child(0)
+	parts.get_child(0).size_flags_vertical = Control.SIZE_EXPAND_FILL
+	parts.get_child(1).size_flags_vertical = Control.SIZE_FILL
+	root.add_child(tile)
 	var week := Kit.vbox(8, [Kit.hbox(0, [WeekScreen.line("THIS WEEK", 18, WEEKLY),
 		Kit.label("New in " + LiveOps.countdown(t, q.week_ends), 18, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)])
 	for v in q.weekly:
@@ -47,8 +55,17 @@ static func build(shell, _params: Dictionary) -> Control:
 	return root
 
 
-## One quest: its line and progress bar, what it pays, then Claim, a Done
-## tick or the swap button.
+## Every quest and chest row shares these right-hand columns, so bars end
+## together and reward icons, amounts and Claim / Done line up row to row.
+const COUNT_W := 100
+const ITEM_ICON := 40
+const ITEM_NUM := 48
+const STATUS_W := 104
+const GAP := 10
+
+
+## One quest: its line, a bar with the count just after it, what it pays, then
+## Claim, a Done tick or the swap button.
 static func _row(shell, v: Dictionary, accent: Color, can_swap: bool) -> Control:
 	var name := Kit.hbox(6, [], BoxContainer.ALIGNMENT_BEGIN)
 	if v.has("family") and str(v.family) != "":
@@ -57,29 +74,36 @@ static func _row(shell, v: Dictionary, accent: Color, can_swap: bool) -> Control
 	name.add_child(words)
 	var goal := int(v.goal)
 	var count := Kit.label("%s/%s" % [Kit.commas(int(v.progress)), Kit.commas(goal)], 16, Kit.MUTED)
+	count.custom_minimum_size.x = _w(COUNT_W)
 	var bar := Kit.bar(float(v.progress) / maxf(1.0, goal), Kit.GOOD if v.done else accent, 10)
 	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var left := Kit.vbox(4, [name, Kit.hbox(8, [bar, count], BoxContainer.ALIGNMENT_CENTER)])
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(10, [left, _rewards(shell, v.rewards)], BoxContainer.ALIGNMENT_CENTER)
+	var pay := _rewards(shell, v.rewards)
+	pay.custom_minimum_size.x = _item_w()
+	var row := Kit.hbox(GAP, [left, pay], BoxContainer.ALIGNMENT_CENTER)
+	var status: Control = null
 	if v.claimed:
-		row.add_child(_tick())
+		status = _tick()
 	elif v.done:
 		var claim := Kit.button("Claim", func(): _claim(shell, v.id), "go", 20, 52)
-		claim.custom_minimum_size.x = 104
 		shell.mark("quest_claim_" + str(v.id), claim)
-		row.add_child(claim)
+		status = claim
 	elif can_swap:
 		var swap := Kit.card_button(Kit.glyph("replay", 26, Kit.MUTED), func(): _swap(shell, v.id), Kit.LINE, Kit.PANEL, 18, 8)
 		swap.custom_minimum_size = Vector2(52, 52)
+		swap.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		shell.mark("quest_swap_" + str(v.id), swap)
-		row.add_child(swap)
+		status = swap
+	row.add_child(_status(status))
 	var st := Kit.box(Color(Kit.PANEL.lightened(.04)), Kit.GOOD if v.done and not v.claimed else Kit.LINE, 20, 2, 8)
 	return Kit.panel(row, st)
 
 
-## A chest row: three pips for the quests done, what it holds, and Claim.
+## A chest row: three pips for the quests done, what it holds, and Open. Its
+## last reward sits in the quests' reward column; any others reach left into
+## the count column above.
 static func _chest(shell, title: String, c: Dictionary, accent: Color, weekly: bool) -> Control:
 	var pips := Kit.hbox(4, [], BoxContainer.ALIGNMENT_CENTER)
 	for i in maxi(3, int(c.of)):
@@ -87,28 +111,55 @@ static func _chest(shell, title: String, c: Dictionary, accent: Color, weekly: b
 	var name := Kit.label(title, 20, accent)
 	var head := Kit.hbox(10, [name, pips], BoxContainer.ALIGNMENT_BEGIN)
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(10, [head, _rewards(shell, c.rewards)], BoxContainer.ALIGNMENT_CENTER)
+	var pay := _rewards(shell, c.rewards)
+	pay.alignment = BoxContainer.ALIGNMENT_END
+	pay.custom_minimum_size.x = _item_w()
+	var row := Kit.hbox(GAP, [head, pay], BoxContainer.ALIGNMENT_CENTER)
+	var status: Control = null
 	if c.claimed:
-		row.add_child(_tick())
+		status = _tick()
 	elif c.ready:
 		var open := Kit.button("Open", func(): _open_chest(shell, weekly), "go", 20, 52)
-		open.custom_minimum_size.x = 104
 		shell.mark("quest_chest_" + ("week" if weekly else "day"), open)
-		row.add_child(open)
+		status = open
+	row.add_child(_status(status))
 	var st := Kit.box(Color(0, 0, 0, 0), Color(accent, .7), 20, 2, 8)
 	return Kit.panel(row, st)
 
 
-static func _rewards(shell, rewards: Array) -> Control:
-	var h := Kit.hbox(8, [], BoxContainer.ALIGNMENT_END)
+## The status column: always the same width, empty or not, so the columns to
+## its left stay put.
+static func _status(c: Control) -> Control:
+	var cell := CenterContainer.new()
+	cell.custom_minimum_size.x = STATUS_W
+	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if c != null:
+		if c is Button:
+			c.custom_minimum_size.x = STATUS_W
+		cell.add_child(c)
+	return cell
+
+
+## Each reward is an icon and an amount in fixed-width slots, so icons and
+## numbers line up down the screen. Gear says 1 like anything else.
+static func _rewards(shell, rewards: Array) -> HBoxContainer:
+	var h := Kit.hbox(8, [], BoxContainer.ALIGNMENT_BEGIN)
 	for r in rewards:
-		var icon: Control = PassScreen.reward_icon(shell, r, ICON * (1.5 if r.kind == "gear" else 1.0))
-		var n := int(r.get("n", 1))
-		if r.kind == "gear":
-			h.add_child(icon)
-		else:
-			h.add_child(Kit.hbox(2, [icon, Kit.label(Kit.commas(n), 20)], BoxContainer.ALIGNMENT_CENTER))
+		var icon: Control = PassScreen.reward_icon(shell, r, ITEM_ICON if r.kind == "gear" else ICON)
+		icon.custom_minimum_size = Vector2(ITEM_ICON, ICON)
+		var n := Kit.label(Kit.commas(int(r.get("n", 1))), 20)
+		n.custom_minimum_size.x = _w(ITEM_NUM)
+		h.add_child(Kit.hbox(2, [icon, n], BoxContainer.ALIGNMENT_CENTER))
 	return h
+
+
+static func _item_w() -> float:
+	return ITEM_ICON + 2 + _w(ITEM_NUM)
+
+
+## A column width that grows with Larger text like the words in it.
+static func _w(px: int) -> float:
+	return float(A11y.font(px))
 
 
 static func _pip(on: bool, accent: Color) -> Control:
@@ -121,7 +172,8 @@ static func _pip(on: bool, accent: Color) -> Control:
 
 static func _tick() -> Control:
 	var c := Kit.chip("Done", Kit.GOOD, 16)
-	c.custom_minimum_size.x = 104
+	c.custom_minimum_size.x = STATUS_W
+	c.get_child(0).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return c
 
 
@@ -130,6 +182,7 @@ static func _claim(shell, id: String) -> void:
 	if not got.is_empty():
 		if shell.sfx != null:
 			shell.sfx.play("coins")
+		PassScreen.fly_rewards(shell, got, shell._marks.get("quest_claim_" + id))
 	shell.refresh()
 
 
@@ -138,6 +191,7 @@ static func _open_chest(shell, weekly: bool) -> void:
 	if not got.is_empty():
 		if shell.sfx != null:
 			shell.sfx.play("coins")
+		PassScreen.fly_rewards(shell, got, shell._marks.get("quest_chest_" + ("week" if weekly else "day")))
 	shell.refresh()
 
 

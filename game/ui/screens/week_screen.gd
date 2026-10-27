@@ -49,7 +49,7 @@ static func build(shell, _params: Dictionary) -> Control:
 static func _info_text() -> Array:
 	return [
 		"Trick Shot: one called bank shot, %d tries, the same puzzle for everyone. A new one lands at midnight." % TRICK_TRIES,
-		"Bounce Run: draft a trio and climb 20 floors, as many runs as you like. Your best floor each day opens a chest the next day.",
+		"Bounce Run: draft a trio and climb %d floors, as many runs as you like. Your best floor each day opens a chest the next day." % BounceRun.FLOORS,
 		"Fight of the Day: tap who you think wins, then watch. Correct calls in a row build your streak.",
 		"Quests: three a day and three a week, paying energy, eggs, coins and more.",
 	]
@@ -199,7 +199,7 @@ static func _bounce_run(shell) -> Control:
 	shell.mark("week_bouncerun", play)
 	var today := int(best.get(day, 0))
 	var t := BounceChest.tier_for(today)
-	var body: Array = [line("Best today: floor %d" % today if today > 0 else "Climb 20 floors", 26)]
+	var body: Array = [line("Best today: floor %d" % today if today > 0 else "Climb %d floors" % BounceRun.FLOORS, 26)]
 	if t >= 0:
 		body.append(lines("%s tomorrow" % BounceChest.TIERS[t].name, 20))
 	else:

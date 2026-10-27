@@ -119,6 +119,7 @@ const DEFS := {
 		"segments": 4, ## Body scales behind the head.
 		"segment_radius": 46.0,
 		"segment_gap": 0.42, ## Boss-clock seconds of path between scales.
+		"armour": 0.95, ## Damage the unlit scales soak: slow bruisers still chip it (was 1, all).
 		"shine_every": 2.4, ## The shine steps one scale toward the tail this often.
 		"lash_every": 3.6,
 		"lash_windup": 0.9, ## The tail's ring before it lashes: stun it to cancel.
@@ -160,6 +161,22 @@ const MINIONS := {
 	"brood_chick": {"display_name": "Chick", "radius": 30.0, "speed": 430.0, "contact_damage": 5.0},
 	"wyrm_scale": {"display_name": "Scale", "radius": 46.0, "speed": 0.0, "contact_damage": 4.0},
 }
+
+
+## What a boss (and the Prism Wyrm's scales) takes from each kind of hit. A
+## boss is a huge target that never dodges, so beams, zones, mines and other
+## ability hits land every time and kits built on them melted every boss
+## while contact critters couldn't scratch one (tools/boss_matrix.gd,
+## 2026-10-27): ability hits do less and body slams more, so every critter
+## gets a fight. Eggs and chicks take hits as usual.
+const ABILITY_TAKEN := 0.5
+const CONTACT_TAKEN := 1.5
+
+
+static func taken(target, kind: String) -> float:
+	if not (target.def.get("boss", false) or str(target.def.get("id", "")) == "wyrm_scale"):
+		return 1.0
+	return CONTACT_TAKEN if kind == "contact" else ABILITY_TAKEN
 
 
 static func has(id: String) -> bool:
@@ -470,8 +487,8 @@ static func _wyrm_at(d: Dictionary, clock: float) -> Vector2:
 
 
 ## Scales never die: what a hit takes off the shining one comes off the
-## wyrm (the head), and the rest are armour (they and the head take nothing
-## while not shining: defense 1).
+## wyrm (the head), and the rest are armour (they and the head soak `armour`
+## of a hit while not shining, the rest still comes off).
 static func _wyrm(sim, b) -> void:
 	var st: Dictionary = b.state
 	var d: Dictionary = b.def
@@ -487,18 +504,17 @@ static func _wyrm(sim, b) -> void:
 		var m = sim.balls[idx]
 		m.state.anchor = _wyrm_at(d, st.clock - int(m.state.order) * d.segment_gap)
 		var lost: float = m.max_hp - m.hp
-		if lost > 0.0:
+		if lost > 0.0: # The shining scale passes on the whole hit, armour the leak.
 			m.hp = m.max_hp
-			if int(m.state.order) == int(st.shine):
-				b.hp -= lost
+			b.hp -= lost
 	if st.clock >= st.next_shine:
 		st.next_shine = st.clock + d.shine_every
 		st.shine = (int(st.shine) + 1) % (int(d.segments) + 1)
 		var at: Vector2 = st.anchor if st.shine == 0 else sim.balls[st.scales[int(st.shine) - 1]].state.anchor
 		sim.events.append({"type": "wyrm_shine", "ball": b.index, "pos": at, "shine": st.shine})
-	b.defense = 0.0 if st.shine == 0 else 1.0
+	b.defense = 0.0 if st.shine == 0 else d.armour
 	for idx in st.scales:
-		sim.balls[idx].defense = 0.0 if int(sim.balls[idx].state.order) == int(st.shine) else 1.0
+		sim.balls[idx].defense = 0.0 if int(sim.balls[idx].state.order) == int(st.shine) else d.armour
 	if st.clock >= st.next and not st.has("act"):
 		st.next = st.clock + d.lash_every
 		var tail = sim.balls[st.scales[-1]]

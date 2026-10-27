@@ -116,7 +116,7 @@ func _glyph(c: Vector2, s: float, col: Color) -> void:
 			Dot.line(self, c + Vector2(-1, -.13) * h, c + Vector2(.25, -.13) * h, col, maxf(2.0, s * .09))
 			Dot.line(self, c + Vector2(-.8, .25) * h, c + Vector2(.85, .25) * h, col, maxf(2.0, s * .09))
 			Dot.arc(self, c + Vector2(.45, .6) * h, h * .35, -PI * .5, PI * .9, 14, col, maxf(2.0, s * .09), true)
-		"thermo": # Overtime Fever: a thermometer.
+		"thermo": # Fever: a thermometer.
 			Dot.line(self, c + Vector2(0, -.85) * h, c + Vector2(0, .35) * h, col, maxf(3.0, s * .2))
 			Dot.circle(self, c + Vector2(0, .6) * h, h * .36, col)
 			Dot.line(self, c + Vector2(0, -.1) * h, c + Vector2(0, .5) * h, INK, maxf(1.5, s * .07))

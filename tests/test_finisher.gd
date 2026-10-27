@@ -161,3 +161,35 @@ func test_clip_layout_fits_the_vertical_frame() -> void:
 	var arena := Rect2(ClipCard.ARENA_POS, Vector2.ONE * ClipCard.ARENA_SIDE)
 	check(Rect2(Vector2.ZERO, ClipCard.SIZE).encloses(arena), "arena inside the frame")
 	check(ClipCard.GO_TIME < ClipCard.TITLE_TIME, "FIGHT! flashes before the title card ends")
+
+
+## Team fights (2v2, 2v1, 3v3): the camera goes to the critter that actually
+## fell on the finishing blow, never a teammate knocked out earlier.
+func test_team_finisher_follows_the_last_ball_down() -> void:
+	var lineups := [
+		{"p1": "vampire", "p2": "laser", "p3": "laser", "p4": "vampire"},
+		{"p1": "vampire", "p2": "laser", "p3": "laser", "p4": null},
+		{"p1": "vampire", "p2": "laser", "p3": "laser", "p4": "vampire", "p5": "vampire", "p6": "laser"},
+	]
+	var checked := 0
+	var not_lead := 0
+	for lineup in lineups:
+		for s in range(1, 13):
+			var cfg: Dictionary = lineup.duplicate()
+			cfg.seed = s
+			var cam = FinisherCam.plan(cfg)
+			if cam.ko_tick < 0:
+				continue
+			var sim := MatchSim.new(cfg)
+			while sim.tick < cam.ko_tick - 1:
+				sim.step()
+			var before: Array = sim.balls.map(func(b): return b.alive())
+			sim.run_to_end()
+			check(cam.loser < sim.starters and sim.balls[cam.loser].team != sim.winner, "seed %d: loser %d is on the losing team" % [s, cam.loser])
+			check(before[cam.loser] and not sim.balls[cam.loser].alive(), "seed %d %s: loser %d fell on the final blow" % [s, lineup, cam.loser])
+			check(sim.balls[cam.winner].alive() and sim.balls[cam.winner].team == sim.winner, "seed %d: winner %d still up" % [s, cam.winner])
+			if cam.loser != 1 - sim.winner:
+				not_lead += 1
+			checked += 1
+	check(checked > 10, "checked enough team knockouts (%d)" % checked)
+	check(not_lead > 0, "some knockouts land on a non-lead ball")

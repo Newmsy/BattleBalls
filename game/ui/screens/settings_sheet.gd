@@ -186,7 +186,7 @@ static func _testing(shell) -> Control:
 	var chest_words := Kit.label("Bounce Run chest", 30)
 	chest_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var chests := Kit.hbox(8, [chest_words])
-	for f in [12, 20]:
+	for f in [15, 25]:
 		var b := Kit.button("F%d" % f, func(): _bounce_chest(shell, f), "ghost", 24, 72)
 		b.custom_minimum_size.x = 96
 		shell.mark("dev_bounce_chest_%d" % f, b)

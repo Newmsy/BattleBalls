@@ -159,6 +159,15 @@ static func button(text: String, on_press: Callable, kind := "primary", font_siz
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.add_theme_font_size_override("font_size", A11y.font(font_size))
 	b.set_meta("base_font", font_size)
+	style_button(b, kind)
+	b.pressed.connect(on_press)
+	Motion.press(b)
+	return b
+
+
+## Gives a Kit.button the look of `kind` (primary, go, ghost, danger), so a
+## screen can flip a button's look in place instead of rebuilding it.
+static func style_button(b: Button, kind: String) -> void:
 	var cols: Array = BUTTON_STYLES[kind]
 	var normal := box(cols[0], LINE if kind == "ghost" else Color(0, 0, 0, 0), 26, 2, 12)
 	# A lit top edge over the dark lip below, so buttons read as raised keys.
@@ -186,9 +195,6 @@ static func button(text: String, on_press: Callable, kind := "primary", font_siz
 	for s in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(s, cols[2])
 	b.add_theme_color_override("font_disabled_color", Color(cols[2], .5))
-	b.pressed.connect(on_press)
-	Motion.press(b)
-	return b
 
 
 ## A button with a cost: "MERGE ALL (4) · 40" then the currency's glyph, never
@@ -224,7 +230,8 @@ static func card_button(content: Control, on_press: Callable, border := LINE, bg
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_taps_through(content)
 	b.add_child(m)
-	m.minimum_size_changed.connect(func(): b.custom_minimum_size = m.get_combined_minimum_size())
+	# A "min_width" meta (a page column) keeps the card at least that wide as its content re-measures.
+	m.minimum_size_changed.connect(func(): b.custom_minimum_size = m.get_combined_minimum_size().max(Vector2(b.get_meta("min_width", 0.0), 0.0)))
 	b.custom_minimum_size = m.get_combined_minimum_size()
 	return b
 

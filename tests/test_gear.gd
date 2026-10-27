@@ -207,8 +207,18 @@ func test_campaign_boss_first_clear_drops_gear() -> void:
 	for i in 200:
 		found += Campaign.finish(p, 0, 0, "vampire", {"winner": 0, "hp": [10.0, 0.0], "time": 20.0, "max_hp": 50.0}).gear.size()
 	check(found > 20 and found < 65, "about one win in five drops gear (%d of 200)" % found)
-	check_eq(Economy.gear_tier(0, 0), 1, "early stages drop 1-star gear")
-	check(Economy.gear_tier(0, 8) > Economy.gear_tier(0, 0) and Economy.gear_tier(2, 0) > Economy.gear_tier(0, 8), "later stages and zones drop better gear")
+	check_eq(Economy.gear_tier(0, 0, 0.5), 1, "early stages drop 1-star gear")
+	var avg := func(z: int, st: int) -> float:
+		var sum := 0
+		for i in 100:
+			sum += Economy.gear_tier(z, st, i / 100.0)
+		return sum / 100.0
+	check(avg.call(0, 8) > avg.call(0, 0) and avg.call(3, 0) > avg.call(0, 8), "later stages and zones drop better gear")
+	for z in 10:
+		for st in [0, 9]:
+			check(Economy.gear_tier(z, st, 0.999) <= 3, "campaign gear tops out at 3 stars (zone %d)" % z)
+		check(Economy.gear_boss_tier(z) <= 3, "boss first clears top out at 3 stars")
+	check(avg.call(4, 9) < 2.5, "even late campaign gear is mostly 1-2 stars")
 
 
 func test_glow_pass_gear_is_free_track_only() -> void:
