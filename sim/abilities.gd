@@ -110,7 +110,7 @@ const EFFECTS := {
 	"storm": ["storm_dps", "storm_stun", "storm_burn", "thunder_radius", "thunder_damage"],
 	# Batch H: arena pieces (MatchSim.add_piece) and the set-piece legendaries.
 	"slows": [],
-	"seed": ["seed_radius", "seed_life", "seed_grow", "seed_max", "seed_damage", "seed_stay"],
+	"seed": ["seed_radius", "seed_life", "seed_grow", "seed_max", "seed_damage", "seed_stay", "seed_sling"],
 	"seed_wilt": ["seed_shots", "seed_shot_damage"],
 	"vine": ["vine_offset", "vine_radius", "vine_life", "vine_lash", "vine_slack", "vine_pairs"],
 	"vine_tick": ["vine_damage", "vine_burst_radius", "vine_thorn_damage"],
@@ -3159,11 +3159,14 @@ static func _off_obstacle(sim, point: Vector2) -> bool:
 	return false
 
 
-## Sprout: a wall bounce (the arena's edge, not a pillar) plants a seed that
+## Sprout: a wall bounce (the arena's edge, not a pillar) plants a seed a
+## step into the open arena (clear of the wall, so balls run round it) that
 ## grows into a pillar: seed_radius, seed_life seconds, solid after seed_grow.
 ## At most seed_max stand; the oldest wilting one goes first. Up to
 ## seed_stay of them stand until a foe bounces off them instead of wilting
-## (Newms 2026-10-22). seed_damage > 0 hurts foes that bounce off one.
+## (Newms 2026-10-22). seed_damage > 0 hurts foes that bounce off one, and
+## Sprout bouncing off its own pillar is slung on with a bumper speed boost
+## for seed_sling seconds: its garden turns the arena into a pinball table.
 func fx_seed(sim, b, ctx: Dictionary) -> void:
 	if not ctx.has("point") or _off_obstacle(sim, ctx.point):
 		return
@@ -3175,8 +3178,12 @@ func fx_seed(sim, b, ctx: Dictionary) -> void:
 		if wilting.is_empty():
 			staying.pop_front()
 	var stay := staying.size() < int(b.def.seed_stay)
-	sim.add_piece(b, ctx.point, {"kind": "seed", "radius": b.def.seed_radius, "life": ROOT_STAY_LIFE if stay else b.def.seed_life,
-		"grow": b.def.seed_grow, "damage": b.def.seed_damage, "hits": 1 if stay else 0})
+	var spot: Vector2 = sim.inside(ctx.point, sim.PIECE_WALL_GAP + b.def.seed_radius + SEED_STEP)
+	sim.add_piece(b, spot, {"kind": "seed", "radius": b.def.seed_radius, "life": ROOT_STAY_LIFE if stay else b.def.seed_life,
+		"grow": b.def.seed_grow, "damage": b.def.seed_damage, "hits": 1 if stay else 0, "sling": b.def.seed_sling})
+
+
+const SEED_STEP := 20.0 ## How much further than the wall-gap limit a seed lands from the wall.
 
 
 ## Sprout T5: a wilting seed pillar scatters seed_shots seeds at the nearest foe.

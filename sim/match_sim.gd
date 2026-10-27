@@ -327,6 +327,7 @@ class Piece:
 	var blocking := false ## ...and does, once grown and clear of balls.
 	var damage := 0.0 ## Dealt to a foe of the owner that bounces off it.
 	var hits := 0 ## Above 0: breaks after this many bounces of the owner's foes.
+	var sling := 0.0 ## Seconds of bumper speed boost its owner gets bouncing off it.
 
 	## True on the piece's last tick, so its owner can act as it ends (the sim
 	## removes it right after "always" effects run).
@@ -1023,6 +1024,10 @@ func _resolve_walls(b: Ball) -> void:
 				# rattle of a ball lashed or ringed by one.
 				if o.piece.damage > 0.0 and balls[o.piece.owner].team != b.team:
 					deal(balls[o.piece.owner], b, o.piece.damage, "pillar", o.pos + n * o.radius)
+				if o.piece.sling > 0.0 and o.piece.owner == b.index:
+					b.boost_ticks = int(round(o.piece.sling * TICK_RATE))
+					b.vel = b.vel.normalized() * b.current_speed()
+					events.append({"type": "sling", "ball": b.index, "kind": o.piece.kind, "pos": o.pos + n * o.radius})
 				if o.piece.hits > 0 and balls[o.piece.owner].team != b.team:
 					o.piece.hits -= 1
 					if o.piece.hits == 0:
@@ -2126,7 +2131,7 @@ func _update_tethers() -> void:
 
 
 ## A piece (see Piece) owned by `owner` at `pos`. `opts`: kind, radius, life,
-## grow, block, vel, damage. A blocking piece whose gap to the arena's edge
+## grow, block, vel, damage, hits, sling. A blocking piece whose gap to the arena's edge
 ## would be narrower than a ball snaps onto the edge instead, so no ball gets
 ## wedged behind it; one that would leave such a gap to an arena obstacle
 ## isn't placed. Returns it, or null when not placed, or once overtime has
@@ -2143,6 +2148,7 @@ func add_piece(owner: Ball, pos: Vector2, opts: Dictionary) -> Piece:
 	p.vel = opts.get("vel", Vector2.ZERO)
 	p.damage = opts.get("damage", 0.0)
 	p.hits = opts.get("hits", 0)
+	p.sling = opts.get("sling", 0.0)
 	var r := arena_rect()
 	if p.block:
 		if arena_scale() < OBSTACLE_MIN_SCALE:
@@ -2154,10 +2160,17 @@ func add_piece(owner: Ball, pos: Vector2, opts: Dictionary) -> Piece:
 				pos[axis] = r.position[axis]
 			elif r.end[axis] - pos[axis] < gap:
 				pos[axis] = r.end[axis]
-		for wall in corner_walls(): # The same onto a cut corner.
+		for wall in corner_walls(): # The same onto a cut corner or a side.
 			var d: float = wall[0].dot(pos - centre) + wall[1]
 			if d < gap:
 				pos -= wall[0] * d
+		# A rect snap or a side's snap can leave it past a neighbouring side
+		# (round and many-sided maps): pull it back onto the outline.
+		for _pass in 3:
+			for wall in corner_walls():
+				var d: float = wall[0].dot(pos - centre) + wall[1]
+				if d < 0.0:
+					pos -= wall[0] * d
 		for o in obstacles():
 			var surface_gap: float = pos.distance_to(o.pos) - o.radius - p.radius
 			if not o.has("piece") and surface_gap > 0.0 and surface_gap < PIECE_OBSTACLE_GAP:
@@ -2175,10 +2188,11 @@ func add_piece(owner: Ball, pos: Vector2, opts: Dictionary) -> Piece:
 func inside(pos: Vector2, margin: float) -> Vector2:
 	var r := arena_rect()
 	pos = pos.clamp(r.position + Vector2.ONE * margin, r.end - Vector2.ONE * margin)
-	for wall in corner_walls():
-		var d: float = wall[0].dot(pos - centre) + wall[1]
-		if d < margin:
-			pos += wall[0] * (margin - d)
+	for _pass in 3: # Again, so a push off one side can't leave it past the next.
+		for wall in corner_walls():
+			var d: float = wall[0].dot(pos - centre) + wall[1]
+			if d < margin:
+				pos += wall[0] * (margin - d)
 	return pos
 
 
