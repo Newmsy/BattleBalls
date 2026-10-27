@@ -12,7 +12,8 @@ const Roster := preload("res://game/ui/roster.gd")
 const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const FamilyEdge := preload("res://game/ui/family_edge.gd")
 
-const COLUMNS := 4
+## Three across: four squished the last column on phones.
+const COLUMNS := 3
 
 
 ## Owned critters from `ids`, strongest first (Profile.power_of).
@@ -33,7 +34,9 @@ static func by_power(profile, ids: Array) -> Array:
 ## sorted). opts: title, hint, current (id shown as picked), tags ({id: short
 ## text under the tile, e.g. "#2"}), locked ({id: true}: those tiles are dimmed
 ## with a lock and a tap only toasts `locked_toast` % name), on_pick (Callable(id)),
-## foes (critter ids you'll fight, when known: each tile gets its family-edge badge).
+## foes (critter ids you'll fight, when known: each tile gets its family-edge badge),
+## corner (Callable(id) -> Control or null: a small badge at the tile's top
+## right, e.g. the gear piece a critter already wears in that slot).
 static func open(shell, ids: Array, opts := {}) -> void:
 	var p = shell.profile
 	var tags: Dictionary = opts.get("tags", {})
@@ -42,12 +45,13 @@ static func open(shell, ids: Array, opts := {}) -> void:
 	var current: String = opts.get("current", "")
 	var on_pick: Callable = opts.get("on_pick", Callable())
 	var foes: Array = opts.get("foes", [])
+	var corner: Callable = opts.get("corner", Callable())
 	var grid := GridContainer.new()
 	grid.columns = COLUMNS
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	for id in ids:
-		grid.add_child(LazyTile.wrap(func(): return _with_edge(_cell(shell, id, tags, current, on_pick, locked.has(id), locked_toast), id, foes), grid.get_child_count(), 16))
+		grid.add_child(LazyTile.wrap(func(): return _with_corner(_with_edge(_cell(shell, id, tags, current, on_pick, locked.has(id), locked_toast), id, foes), id, corner), grid.get_child_count(), 15))
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var rows := ceili(ids.size() / float(COLUMNS))
 	var scroll := ScrollContainer.new()
@@ -102,6 +106,24 @@ static func _with_edge(tile: Button, id: String, foes: Array) -> Button:
 	return tile
 
 
+## A tile with opts.corner's badge (if any) at its top right.
+static func _with_corner(tile: Button, id: String, corner: Callable) -> Button:
+	if not corner.is_valid():
+		return tile
+	var c: Control = corner.call(id)
+	if c == null:
+		return tile
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	c.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	var sz := c.get_combined_minimum_size()
+	c.offset_left = -sz.x - 8
+	c.offset_right = -8
+	c.offset_top = 8
+	c.offset_bottom = 8 + sz.y
+	tile.add_child(c)
+	return tile
+
+
 ## Team mode: pick `size` different critters. opts: title, hint, size,
 ## current (the team now, in order), on_confirm (Callable(team: Array)),
 ## foes (as in open()). Your
@@ -150,7 +172,7 @@ static func open_team(shell, ids: Array, opts := {}) -> void:
 			var t := _with_edge(_team_cell(shell, id, toggle), id, opts.get("foes", []))
 			tiles[id] = t
 			_restyle(t, id, picks.find(id))
-			return t, grid.get_child_count(), 16))
+			return t, grid.get_child_count(), 15))
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var rows := ceili(ids.size() / float(COLUMNS))
 	var scroll := ScrollContainer.new()

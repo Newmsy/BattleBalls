@@ -628,6 +628,9 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 				play("spring_boing", -2.0, 1.0)
 			"bumper": # An arena bumper: a pinball 'ding'.
 				play("pinball_ding", -2.0, 0.8)
+			"sling": # Sprout slung off its own pillar: a springy, leafy ding.
+				play("pinball_ding", -4.0, 1.25)
+				play("rustle", -6.0, 1.4)
 			"shot":
 				if e.kind == "pea":
 					play("pew")

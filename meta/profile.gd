@@ -576,7 +576,6 @@ func add_xp(id: String, amount: int) -> int:
 	var b := best(id)
 	if b.is_empty():
 		return 0
-	add_faction_xp(Talents.faction_of(id), faction_share(amount))
 	var gained := 0
 	b.xp = b.get("xp", 0) + amount
 	var cap := Roster.level_cap(b.tier)
@@ -634,22 +633,57 @@ func talent_points_free(f: String) -> int:
 	return faction_rank(f) - Talents.spent(f, talent_picks(f))
 
 
-## Faction XP from `amount` critter XP. Only a share counts (Newms
-## 2026-10-25, progression check): with all of it a main tree was full in the
-## first week; now it fills over a month or two, and Totem sigils (added in
-## full) are the way to speed one up.
-const FACTION_XP_SHARE := 0.15
+## Faction XP every fight gives, by result: a core pillar of progression
+## (Newms 2026-10-26), earned after basically every fight in every mode and
+## shown as a ring round the family badge on the result popup. Each family
+## on your side gets it once, however many of its critters fought. Totem
+## sigils add on top as the fast lane. Paced (2026-10-26, /mnt/project-files/
+## faction-xp/pacing) so an engaged player fills one tree in about six weeks
+## and a casual one in about four months, talents being 4x stronger now.
+const FACTION_FIGHT_XP := {"win": 8, "draw": 5, "loss": 3}
+
+## Faction XP gained since the result popup last showed it
+## (take_faction_gains). One entry per family: {family, xp, from_rank,
+## from_xp, to_rank, to_xp, marks}, ranks from XP alone. Not saved.
+var faction_gains: Array = []
 
 
-static func faction_share(amount: int) -> int:
-	return roundi(amount * FACTION_XP_SHARE)
+## Faction XP for one finished fight. `fighters`: the critter ids on your
+## side; `winner`: the sim's winner (0 you, 1 them, -1 a draw).
+func fight_faction_xp(fighters: Array, winner: int) -> void:
+	if fighters.is_empty():
+		return
+	var xp: int = FACTION_FIGHT_XP["draw" if winner < 0 else ("win" if winner == 0 else "loss")]
+	var paid := {}
+	for id in fighters:
+		var f := Talents.faction_of(str(id))
+		if not paid.has(f):
+			paid[f] = true
+			add_faction_xp(f, xp)
 
 
 func add_faction_xp(f: String, amount: int) -> void:
 	if f == "" or amount <= 0:
 		return
+	var before := faction_xp_rank(f)
 	var fd := _faction(f)
 	fd.xp = int(fd.xp) + amount
+	var after := faction_xp_rank(f)
+	for g in faction_gains:
+		if g.family == f:
+			g.xp += amount
+			g.to_rank = after.rank
+			g.to_xp = after.xp
+			return
+	faction_gains.append({"family": f, "xp": amount, "from_rank": before.rank, "from_xp": before.xp,
+		"to_rank": after.rank, "to_xp": after.xp, "marks": faction_marks(f)})
+
+
+## The gains waiting for a result popup, and forgets them.
+func take_faction_gains() -> Array:
+	var out := faction_gains
+	faction_gains = []
+	return out
 
 
 ## True when one more rank can go into `node` now.

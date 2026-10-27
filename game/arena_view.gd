@@ -743,6 +743,11 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"bumper":
 				_bumper_flash = BUMPER_FLASH_LIFE
 				_spawn_particles(e.pos, 6)
+			"sling": # Sprout slung off its own pillar: a burst of leaves and a ring.
+				var leaf: Color = PIECE_COLORS.seed[1]
+				_rings.append({"pos": e.pos, "radius": 70.0, "color": leaf, "age": 0.0})
+				_burst(e.pos, 8, [leaf, PIECE_COLORS.seed[0], Color("fff3b0")], Vector2(120.0, 320.0))
+				_squash[e.ball] = maxf(_squash[e.ball], 0.25)
 			"lava":
 				_spawn_particles(e.pos, 3)
 				_rings.append({"pos": e.pos, "radius": 40.0, "color": LAVA, "age": 0.0})

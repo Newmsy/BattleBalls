@@ -603,7 +603,7 @@ try {
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
     await tapUi(page, logs, "settings", "sheet");
-    await tapUi(page, logs, "dev_bounce_chest_20", "week");
+    await tapUi(page, logs, "dev_bounce_chest_25", "week");
     await page.waitForTimeout(600);
     await page.screenshot({ path: path.join(shots, "16c-daily-bounce-chest.png") });
     await tapUi(page, logs, "week_bounce_chest", "bounce_chest");
@@ -777,7 +777,10 @@ try {
     await waitForLog(logs, "UI_SCREEN spire", 10000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "16-spire.png") });
-    await tapUi(page, logs, "spire_pick_vampire", "spire");
+    // A pick restyles the cards in place (no rebuild): wait for the lineup.
+    const picked = logs.length;
+    await tapUi(page, logs, "spire_pick_vampire");
+    await waitForLogAfter(logs, picked, "UI_PICKS vampire", 5000);
     await tapUi(page, logs, "spire_climb");
     console.log("spire:", await waitForLog(logs, "SPIRE_READY", 10000));
     await page.waitForTimeout(800);

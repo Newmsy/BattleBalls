@@ -6,6 +6,7 @@ extends RefCounted
 
 const Matchup := preload("res://game/ui/matchup.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
+const FactionRing := preload("res://game/ui/faction_ring.gd")
 const Motion := preload("res://game/ui/motion.gd")
 
 ## Crowns per stage ("zone_stage") as the list last showed them: new ones stamp in.
@@ -465,6 +466,9 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 	else:
 		v.add_child(Kit.label("Try a stronger critter, or fuse one up.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 	var spent := Zones.cost(st) - int(r.refund)
+	var rings := FactionRing.rows(shell.profile.take_faction_gains(), shell.sfx, .45, FactionRing.spend_in(shell))
+	if rings != null:
+		v.add_child(rings)
 	var bars := XpBar.rows(r, shell.sfx)
 	if bars != null:
 		v.add_child(bars)
