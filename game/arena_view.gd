@@ -1486,8 +1486,8 @@ func _draw_art_obstacle(o: Dictionary, p: Vector2, rad: float) -> bool:
 
 
 ## The family matchup at kick-off, for an uneven 1v1: the edge family's
-## glyph, its ▲▲ / ▲, the other family's glyph, and the line ("Fire burns
-## Nature!"). Fades over the fight's first seconds; Skip jumps past it.
+## glyph, its ▲▲ / ▲, the other family's glyph, and the line ("Fire has
+## type advantage!"). Fades over the fight's first seconds; Skip jumps past it.
 func _draw_matchup(full: Rect2) -> void:
 	var m := FamilyEdges.matchup(sim)
 	if m.is_empty():

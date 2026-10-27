@@ -1323,8 +1323,9 @@ func _apply_hits(hits: Array[Dictionary]) -> void:
 		# Family edges: no rolls, so the seeded stream is the same either way.
 		var edge := 0
 		if family_edges and not h.get("env", false) and source.team != target.team:
-			edge = maxi(0, Families.edge(source.type_id, target.type_id))
-			amount *= 1.0 + Families.EDGE_BONUS[edge]
+			edge = Families.edge(source.type_id, target.type_id)
+			amount *= Families.mult_for(edge)
+			edge = maxi(0, edge) # The event only flags advantaged hits.
 		amount *= mult
 		if boss != null and target.team == boss.team and not h.get("env", false):
 			amount *= Bosses.taken(target, h.kind)
