@@ -142,26 +142,27 @@ being solvable or fair.
 ## Bounce Run
 
 A daily roguelite (`sim/bounce_run.gd`, `sim/boons.gd`, `game/bounce_run.gd`;
-design in the project's `design/bounce-run.md`). Draft 3 of 6 critters (each
-card shows its ability), pick 3 of 6 starting boons for the whole trio, then
-climb 10 floors and pick 1 of 3 more boons after every win. A loss knocks that critter out; lose all three
-and the run ends. Each floor's foe carries as many boons as you can hold there,
-and its power follows `FOE_POWER`: well under yours on the first floors, over
-it at the top, so most runs end around floor 7 and a full clear is rare. The run comes from the UTC day (#1 is
-2026-10-14) and is saved after every step to `user://bounce_run.cfg`.
+design in the project's `design/bounce-run.md`). Draft 3 of 6 critters, pick 3
+of 6 starting boons and a relic, then climb a 25-floor branching map (fights,
+elites, events, shops, Charge Pads, a chest) to the Champion. A loss knocks
+that critter out; lose all three and the run ends. Every run is a fresh map;
+the day's best floor goes on the leaderboard and opens a chest the next day
+(`meta/bounce_chest.gd`, a chest every 5 floors). Open it from the Daily board
+or with `?mode=bouncerun`.
 
-The first run of the day is ranked and posts to the daily leaderboard
-(`game/online/bounce_board.gd`, `supabase/migrations/*_bounce_run.sql`);
-offline it plays the same and posts later. Open it from the Play tab or with
-`?mode=bouncerun` (`&day=3` plays another day's run, unranked).
+Both sides fight at `BounceRun.tier_at` (a tier every 5 floors) with the stats
+of their rarity and tier (`sim/power.gd`), so your Legendary stays a
+Legendary. Foes get rarer up the climb (`FOE_RARITY`), carry no boons, and
+take the floor's edge (`FOE_POWER`) on top. Boons roll a seeded rarity: `id`
+is Common, `id:rare` and `id:epic` scale its numbers, Legendary boons are
+their own ids. The same boon can be taken again and stacks: the copies'
+numbers add (`Boons.stacked`), Legendaries are one of a kind.
 
 Boons are balanced by `tools/boon_balance.gd`: each one held at equal power
-must win 52-62%, and one over 65% is a miss to tune. `--runs=400` plays whole
-runs with random picks and aims and reports where they end (`--runs-from=K`
-splits the runs over processes); retune `FOE_POWER` if the median moves off
-floor 7.
-
-Your trio goes up a tier every 2 floors (`BounceRun.tier_at`, T5 on the top two). Boons roll a seeded rarity (`sim/boons.gd`): `id` is Common, `id:rare` and `id:epic` scale its numbers, and Legendary boons are their own ids with effects of their own.
+should win 52-62%. `--runs=400` (add `--greedy` for a player who drafts the
+rarest critters) plays whole runs and reports where they end
+(`--runs-from=K` splits the runs over processes). As of rules 13 a greedy
+player clears about 24% of runs and a random one ends around floor 15.
 ## Ghost Arena (PvP)
 
 Async PvP from design/pvp.md in the project files. `sim/relay.gd` runs a

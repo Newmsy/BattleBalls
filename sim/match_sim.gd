@@ -148,7 +148,8 @@ const BOON_BOLT_SPEED := 560.0
 const BOON_MINE_EVERY := 3 ## Bounce Mine: wall bounces per mine.
 const BOON_ZAP_EVERY := 4 ## Zap Collar: bumps per stun.
 const BOON_WIND_AT := 0.4 ## Second Wind: HP share it kicks in below.
-const BOON_FEVER_SIZE := 1.15 ## Overtime Fever.
+const BOON_FEVER_SIZE := 1.15 ## Fever.
+const BOON_FEVER_HITS := 3 ## Fever starts on this landed bump.
 const BOON_STORM_SECS := 5.0 ## Storm Heart.
 const BOON_FLING_SECS := 0.8 ## Titan Belt: a bumped foe flies at bumper speed this long.
 ## Mixed into the fight seed for the per-hit roll stream.
@@ -449,6 +450,7 @@ func _init(cfg: Dictionary) -> void:
 		b.hp = def.hp if start_hp[i] == null else clampf(float(start_hp[i]), 0.01, def.hp)
 		b.contact_damage = def.contact_damage
 		b.shield = def.get("start_shield", 0.0) # A Ward Charm (sim/gear.gd).
+		b.shield += def.get("b_bubble", 0.0) * b.max_hp # The Bubble boon.
 		b.attack = kit.get("attack", 0.0)
 		b.defense = kit.get("defense", 0.0)
 		b.crit_chance = BASE_CRIT_CHANCE + kit.get("crit_chance", 0.0)
@@ -702,14 +704,6 @@ func step() -> void:
 	for b in balls:
 		hp_before.append(b.hp)
 
-	if tick == int(round(overtime_start * TICK_RATE)):
-		for b in balls:
-			if b.def.get("overtime_shield", 0.0) > 0.0 and b.alive():
-				b.shield += b.def.overtime_shield
-				events.append({"type": "shield", "target": b.index, "amount": b.def.overtime_shield, "pos": b.pos})
-			if b.def.get("b_fever", 0.0) > 0.0 and b.alive():
-				set_mod(b, "fever", {"radius": BOON_FEVER_SIZE, "damage": 1.0 + b.def.b_fever})
-				events.append({"type": "boon", "id": "fever", "ball": b.index, "pos": b.pos})
 	# An arena may start its own slower squeeze early (shrink_start /
 	# shrink_speed); overtime's squeeze takes over once it is the tighter one.
 	var shrink_from: float = minf(overtime_start, arena.get("shrink_start", overtime_start))
@@ -1435,6 +1429,11 @@ func _boon_on_bump(source: Ball, target: Ball) -> void:
 		target.boost_ticks = int(round(BOON_FLING_SECS * TICK_RATE))
 		if target.vel.length() > 0.001:
 			target.vel = target.vel.normalized() * target.current_speed()
+	if source.def.get("b_fever", 0.0) > 0.0:
+		source.state.fever_hits = int(source.state.get("fever_hits", 0)) + 1
+		if source.state.fever_hits == BOON_FEVER_HITS:
+			set_mod(source, "fever", {"radius": BOON_FEVER_SIZE, "damage": 1.0 + source.def.b_fever})
+			events.append({"type": "boon", "id": "fever", "ball": source.index, "pos": source.pos})
 	var zap: float = source.def.get("b_zap", 0.0)
 	if zap > 0.0:
 		source.state.zap_hits = int(source.state.get("zap_hits", 0)) + 1
