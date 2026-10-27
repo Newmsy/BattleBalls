@@ -5,21 +5,10 @@ extends RefCounted
 
 const Families := preload("res://sim/families.gd")
 
-## The kick-off line for the side with the edge, keyed "attacker>target".
-const LINES := {
-	# Elements.
-	"sea>fire": "Sea waves douse Fire!",
-	"fire>frost": "Fire melts Frost!",
-	"frost>sea": "Frost freezes the Sea!",
-	# Dreams.
-	"cosmic>sweet": "Cosmic comets smash Sweet!",
-	"sweet>spooky": "Sweet treats tame Spooky!",
-	"spooky>cosmic": "Spooky eclipses Cosmic!",
-	# Playground.
-	"tech>toybox": "Tech hacks the Toybox!",
-	"toybox>nature": "Toybox trucks flatten Nature!",
-	"nature>tech": "Nature's vines choke Tech!",
-}
+## The kick-off line for the side with the advantage. Plain on purpose
+## (Newms 2026-10-27): the themed reasons stay design notes.
+static func line(adv: String) -> String:
+	return "%s has type advantage!" % str(Families.info(adv).get("name", adv.capitalize()))
 
 
 ## The 1v1 matchup in `sim` from side 0's view: {edge (-2..2), "adv" and
@@ -35,7 +24,7 @@ static func matchup(sim) -> Dictionary:
 		return {}
 	var adv := Families.of(a if edge > 0 else b)
 	var other := Families.of(b if edge > 0 else a)
-	return {"edge": edge, "adv": adv, "other": other, "line": LINES.get(adv + ">" + other, "")}
+	return {"edge": edge, "adv": adv, "other": other, "line": line(adv)}
 
 
 ## `n` chevrons (▲) side by side, centred on `c`, each `w` wide.
