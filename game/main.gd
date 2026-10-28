@@ -247,6 +247,11 @@ var _stand_in := false
 ## A live fight with a friend: the room both phones queue in, and who you're
 ## meeting (a name, or "code ABCD"). Kept for NEW FIGHT; cleared on leaving.
 var live_room := ""
+## A server scaled to zero wakes on the first knock: a connection that drops
+## before the welcome is tried again a few times.
+const LIVE_RETRIES := 3
+var _live_tries := 0
+var _live_welcomed := false
 var live_room_who := ""
 ## Where the info line and controls sit (under or beside the arena).
 var controls_rect := Rect2()
@@ -907,13 +912,16 @@ func _live_slot(id: String) -> Dictionary:
 	return profile.slot_of(id)
 
 
-func _find_live() -> void:
+func _find_live(retry := false) -> void:
 	_close_live()
+	if not retry:
+		_live_tries = 0
+	_live_welcomed = false
 	live = {}
 	_stand_in = false
 	mode = Mode.NORMAL
 	state = State.MENU
-	info_label.text = "Connecting to the live server..."
+	info_label.text = "Connecting to the live server..." if not retry else "Waking the live server..."
 	_show_only(live_box)
 	var token := "guest-%d" % _rng.randi()
 	if backend.enabled() and await backend.ensure_session():
@@ -931,6 +939,7 @@ func _find_live() -> void:
 func _on_live(msg: Dictionary) -> void:
 	match str(msg.get("t", "")):
 		"welcome":
+			_live_welcomed = true
 			live_client.send({"t": "queue", "mode": "1v1", "slots": [_live_slot(player_type)], "room": live_room})
 		"queued":
 			info_label.text = "Looking for a live foe near your power..." if live_room == "" \
@@ -981,6 +990,13 @@ func _on_live_closed(reason: String) -> void:
 	print("LIVE_CLOSED ", reason)
 	if state == State.FIGHT or state == State.RESULT:
 		return # The fight's already in: nothing is lost.
+	if not _live_welcomed and _live_tries < LIVE_RETRIES and live_box.visible:
+		_live_tries += 1
+		info_label.text = "Waking the live server..."
+		await get_tree().create_timer(1.5 * _live_tries).timeout
+		if live_box.visible and live_client == null:
+			_find_live(true)
+		return
 	_cancel_live()
 	_live_note("Lost the live server (%s). Try again in a bit." % reason)
 
