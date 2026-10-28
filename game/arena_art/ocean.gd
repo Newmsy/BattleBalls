@@ -21,7 +21,11 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 
 	# The seabed: sunlit in the middle, fading to teal at the edges.
 	var light := ctx.at(450.0, 380.0)
-	var stops := ["f6e6c0", "e8d2a2", "d2ba8a", "8fa898"] if not deep else ["cfe0d8", "a9c4c0", "7fa4ac", "41687e"]
+	var stops := ["f6e6c0", "e8d2a2", "d2ba8a", "8fa898"]
+	if deep:
+		stops = ["cfe0d8", "a9c4c0", "7fa4ac", "41687e"]
+	elif ctx.id == "kelp": # A deeper, greener kelp bed.
+		stops = ["8ad0b8", "5aae9e", "3a8a86", "1f5e66"]
 	Kit.floor_fill(cv, ctx, func(p): return Kit.ramp(stops, p.distance_to(light) / (ctx.full.size.x * 0.72)))
 	var ripple := Color(0.5, 0.38, 0.2, 0.25) if not deep else Color(0.15, 0.3, 0.4, 0.25)
 	var y := ctx.full.position.y + ctx.u(30.0)

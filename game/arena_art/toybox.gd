@@ -174,14 +174,18 @@ static func _pinball(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 
 static func _lab(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	Kit.rect_fill(cv, ctx.canvas, func(p): return Kit.ramp(["3a4a5a", "1e2834"], (p - ctx.canvas.position).y / ctx.canvas.size.y))
-	Kit.floor_fill(cv, ctx, func(p): return Kit.ramp(["ffffff", "e6eef6", "c4d2e2"], p.distance_to(ctx.at(400, 380)) / (ctx.full.size.x * 0.75)))
+	Kit.floor_fill(cv, ctx, func(p): return Kit.ramp(["8ad4ff", "5ab2f0", "3a88d0"], p.distance_to(ctx.at(400, 380)) / (ctx.full.size.x * 0.75)))
+	for k in 10: # Toy Chest checks.
+		for j in 10:
+			if (k + j) % 2:
+				Kit.clip_poly(cv, Kit.rect_pts(ctx.at(50.0 + k * 100.0, 50.0 + j * 100.0), Vector2.ONE * ctx.u(100.0)), ctx.outline, Color(1, 1, 1, 0.12))
 	var step := ctx.u(100.0)
 	for i in 11:
 		var x := ctx.full.position.x + i * step
 		Kit.line(cv, PackedVector2Array([Vector2(x, ctx.full.position.y), Vector2(x, ctx.full.end.y)]), Color(0.4, 0.55, 0.7, 0.35), ctx.u(2.0), ctx.outline)
 		var y := ctx.full.position.y + i * step
 		Kit.line(cv, PackedVector2Array([Vector2(ctx.full.position.x, y), Vector2(ctx.full.end.x, y)]), Color(0.4, 0.55, 0.7, 0.35), ctx.u(2.0), ctx.outline)
-	for o in ctx.obstacles: # Hazard rings and test markings round each bumper.
+	for o in ctx.obstacles.filter(func(q): return q.pos.distance_to(ctx.centre) < 1.0): # Hazard rings round the big bumper.
 		Dot.arc(cv, o.pos, o.radius * 1.7, 0.0, TAU, 64, Color(1.0, 0.3, 0.6, 0.35), ctx.u(4.0), true)
 		for i in 8:
 			var a := i * TAU / 8.0
@@ -211,9 +215,9 @@ static func _arcade(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	Kit.floor_fill(cv, ctx, func(p): return Kit.ramp(["2a1a50", "1a0e36", "0e0620"], p.distance_to(ctx.centre) / (ctx.full.size.x * 0.65)))
 	# Classic arcade carpet: neon squiggles, triangles and rings.
 	var cols := [Color("ff4fa8"), Color("4fe8ff"), Color("ffd23f"), Color("6fff7a")]
-	for p in Kit.scatter_in(ctx, 70, ctx.u(14.0)):
+	for p in Kit.scatter_in(ctx, 24, ctx.u(14.0)):
 		var col: Color = cols[ctx.rng.randi() % cols.size()]
-		col.a = 0.55
+		col.a = 0.28
 		match ctx.rng.randi() % 3:
 			0:
 				var a := ctx.rng.randf() * TAU
@@ -227,9 +231,12 @@ static func _arcade(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 				Dot.pline(cv, tri, col, ctx.u(3.0), true)
 			_:
 				Dot.arc(cv, p, ctx.u(8.0), 0.0, TAU, 16, col, ctx.u(3.0), true)
-	for f in ctx.floors: # A glowing pad under each portal.
+	for f in ctx.floors: # A glowing rail each portal drifts along.
 		if f.has("pos"):
-			Kit.glow(cv, f.pos, f.radius * 2.0, Color(0.6, 0.3, 1.0, 0.35))
+			var reach: Vector2 = f.get("slide", Vector2.ZERO) * ctx.s
+			Kit.glow(cv, f.pos, f.radius * 1.6, Color(0.6, 0.3, 1.0, 0.25))
+			Dot.line(cv, f.pos - reach, f.pos + reach, Color(0.6, 0.3, 1.0, 0.35), f.radius * 0.5, true)
+			Dot.line(cv, f.pos - reach, f.pos + reach, Color(0.85, 0.6, 1.0, 0.5), ctx.u(3.0), true)
 	Kit.inner_shadow(cv, ctx, ctx.u(36.0), 0.55)
 	# Cabinet rim: black panels with rows of arcade buttons.
 	Kit.blocks(ctx, ctx.u(100.0), ctx.wall, func(q, _e, i):

@@ -18,7 +18,8 @@ const SAVE_PATH := "user://onboarding.cfg"
 const STARTERS := ["vampire", "laser"]
 ## Every onboarding fight plays on this arena. The map is part of a fight's
 ## config, so without it the seed's random map decides how the fights go.
-const ARENA := "rink"
+## first_rink is Neon Rink without its moving parts (sim/arenas.gd).
+const ARENA := "first_rink"
 ## Cold open: a close fight with four lead changes that Count Nibbles wins at
 ## the death. Fixed so everyone sees the same opener.
 const COLD_OPEN := {"seed": 139, "p1": "vampire", "p2": "laser", "arena": ARENA}

@@ -13,9 +13,9 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	var storm := ctx.id == "storm"
 	var top := ctx.canvas.position.y
 	var h := ctx.canvas.size.y
-	var back := ["3f97f0", "8fd0ff", "ffd9b0"] if not storm else ["1e2540", "38415e", "151a2c"]
+	var back := ["3f97f0", "8fd0ff", "ffd9b0"] if not storm else ["141a30", "222a44", "0c1020"]
 	Kit.rect_fill(cv, ctx.canvas, func(p): return Kit.ramp(back, (p.y - top) / h))
-	var floor_stops := ["5aaaf5", "a8dcff", "ffe4c4"] if not storm else ["4a5778", "3a4566", "262d48"]
+	var floor_stops := ["5aaaf5", "a8dcff", "ffe4c4"] if not storm else ["34406a", "283256", "1a2040"]
 	Kit.floor_fill(cv, ctx, func(p): return Kit.ramp(floor_stops, (p.y - top) / h), 8)
 	var c := ctx.centre
 	if not storm:

@@ -568,6 +568,9 @@ func obstacles() -> Array[Dictionary]:
 			out.append({"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind, "crystal": i, "hits": _crystals[i].hits})
 			continue
 		var d := {"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind}
+		if o.has("retract") and fmod(time(), o.retract * 2.0) >= o.retract:
+			d.kind = "pillar" # Thorns pulled in: a plain post until they come back out.
+			d.retracted = true
 		if _moving.has(i):
 			d.vel = _moving[i][1] * k
 			if o.has("bar"):
@@ -612,7 +615,8 @@ func wells() -> Array[Dictionary]:
 	if k < OBSTACLE_MIN_SCALE:
 		return out
 	for w in arena.get("wells", []):
-		out.append({"pos": centre + (w.pos - centre) * k, "reach": w.reach * k, "accel": w.accel, "core": w.core * k})
+		var at: Vector2 = _moving_at(w, time()) if w.has("orbit") or w.has("slide") else w.pos
+		out.append({"pos": centre + (at - centre) * k, "reach": w.reach * k, "accel": w.accel, "core": w.core * k})
 	return out
 
 
@@ -623,13 +627,19 @@ func floors() -> Array[Dictionary]:
 	var k := arena_scale()
 	if k < OBSTACLE_MIN_SCALE:
 		return out
+	var t := time()
 	for f in arena.get("floors", []):
 		var g: Dictionary = f.duplicate()
 		if f.has("rect"):
 			g.rect = Rect2(centre + (f.rect.position - centre) * k, f.rect.size * k)
 		else:
-			g.pos = centre + (f.pos - centre) * k
+			var at: Vector2 = _moving_at(f, t) if f.has("orbit") or f.has("slide") else f.pos
+			g.pos = centre + (at - centre) * k
 			g.radius = f.radius * k
+		if f.has("flip"): # A belt that reverses every `flip` seconds.
+			if int(t / f.flip) % 2 == 1:
+				g.dir = -f.dir
+			g.flip_in = f.flip - fmod(t, f.flip)
 		out.append(g)
 	return out
 

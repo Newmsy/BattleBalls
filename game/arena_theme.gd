@@ -136,4 +136,4 @@ const THEMES := {
 
 
 static func get_theme(id: String) -> Dictionary:
-	return THEMES.get(id, THEMES.square)
+	return THEMES.get("rink" if id == "first_rink" else id, THEMES.square)
