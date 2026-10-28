@@ -99,6 +99,7 @@ static func _lock(shell, c: Control, line: String, short := "") -> Control:
 # it. A new mode goes in one hub, and on a door only if it's the door's best tap.
 
 ## A door: a header that opens the hub, then the door's own quick actions.
+## A tap anywhere else on the door opens the hub too.
 ## `paint` puts a painting (game/ui/home_art) on it: {"id", "focus"} heads the
 ## door with a band of the painting under the title; "hero" fills the whole
 ## door with it, its words over the darkened top and bottom.
@@ -123,7 +124,7 @@ static func door(shell, mark: String, title: String, sub: String, accent: Color,
 		for c in body:
 			v.add_child(_gap())
 			v.add_child(c)
-		return Kit.panel(v, st)
+		return Kit.tap_card(Kit.panel(v, st), open_hub)
 	_on_art(header)
 	# The painting sits inside the 2px border, its corners rounded to match.
 	st.set_content_margin_all(2)
@@ -140,7 +141,7 @@ static func door(shell, mark: String, title: String, sub: String, accent: Color,
 		var stack := MarginContainer.new()
 		stack.add_child(art)
 		stack.add_child(_padded(v, 16, 16))
-		return Kit.panel(stack, st)
+		return Kit.tap_card(Kit.panel(stack, st), open_hub)
 	# A band of painting with the title on it, then the door's rows.
 	var band := MarginContainer.new()
 	band.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -150,7 +151,7 @@ static func door(shell, mark: String, title: String, sub: String, accent: Color,
 	band.add_child(painting[0])
 	band.add_child(_padded(header, 16, 0))
 	var rows := Kit.vbox(8, body)
-	return Kit.panel(Kit.vbox(0, [band, _padded(rows, 0, 16)]), st)
+	return Kit.tap_card(Kit.panel(Kit.vbox(0, [band, _padded(rows, 0, 16)]), st), open_hub)
 
 
 ## `c` inside a margin: 16px at the sides, `top` and `bottom` above and below.
@@ -470,7 +471,7 @@ static func quick_fight_card(shell, band: Control = null) -> Control:
 		return Kit.panel(card, st)
 	# The Versus hub heads it with a painted band that runs to the border.
 	st.set_content_margin_all(2)
-	return Kit.panel(Kit.vbox(0, [band, _padded(card, 8, 14)]), st)
+	return Kit.tap_card(Kit.panel(Kit.vbox(0, [band, _padded(card, 8, 14)]), st), shell.request_play, 36)
 
 
 ## The fighter picker (also opened by a Quick fight result's Change critter).
