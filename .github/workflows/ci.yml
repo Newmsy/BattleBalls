@@ -267,6 +267,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run ci.yml --repo "${{ github.repository }}" --ref main
+      # The Google Play bundle too: auto-merges don't fire push events, so
+      # without this android.yml only builds main after hand merges.
+      - name: Rebuild the Android bundle
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run android.yml --repo "${{ github.repository }}" --ref main
 
   # The live-fight server (server/, design/live-quick-fight.md): builds its
   # image (PRs too, so a broken Dockerfile shows before merge); on main pushes
