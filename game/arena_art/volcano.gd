@@ -1,6 +1,7 @@
-## Volcano (magma, inferno): cracked basalt plates with magma glowing up
-## through every crack, heat glowing round the lava pools, jagged black rock
-## walls with lava seams, smoke and embers outside. Inferno runs hotter.
+## Volcano (magma, inferno): cooled basalt plates with only a dim ember
+## glow in the cracks, so the real lava (drawn on top) is the only bright
+## thing that burns. Heat glows round the lava, jagged black rock walls with
+## lava seams, smoke and embers outside. Inferno runs hotter.
 ## Render-only.
 extends RefCounted
 
@@ -16,8 +17,8 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	for p in Kit.scatter_out(ctx, 8, ctx.u(30.0)):
 		Kit.glow(cv, p, ctx.u(80.0), Color(0.22, 0.18, 0.2, 0.6), 0.5)
 
-	# Magma underneath, then basalt plates with gaps for it to glow through.
-	var magma := ["ffd23f", "ff7a1f", "c0260f"] if not hot else ["ffb21f", "ff4a1f", "8a0f0a"]
+	# Dim embers underneath, then basalt plates with thin cracks over them.
+	var magma := ["7a2c12", "4a180c", "2a0e08"] if not hot else ["8a2a10", "561208", "2a0806"]
 	Kit.floor_fill(cv, ctx, func(p): return Kit.ramp(magma, p.distance_to(ctx.centre) / (ctx.full.size.x * 0.65)))
 	var n := 9
 	var step := ctx.full.size.x / n
@@ -33,15 +34,22 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 			var cell := PackedVector2Array([grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]])
 			var mid := (cell[0] + cell[1] + cell[2] + cell[3]) / 4.0
 			for k in 4:
-				cell[k] = mid + (cell[k] - mid) * 0.9
-			var tone := Color("4a3c40") if (i + j) % 2 else Color("3e3236")
+				cell[k] = mid + (cell[k] - mid) * 0.96
+			var tone := Color("3a3134") if (i + j) % 2 else Color("312a2d")
 			for part in Geometry2D.intersect_polygons(cell, ctx.outline):
 				Kit.lit(cv, part, tone, Color("150e10"))
 			Dot.pline(cv, PackedVector2Array([cell[3], cell[0], cell[1]]), Color(0.6, 0.45, 0.42, 0.4), ctx.u(1.6), true)
-	for f in ctx.floors: # Heat glowing round each lava pool.
-		if f.kind == "lava" and f.has("pos"):
+	for f in ctx.floors: # Heat glowing round each lava pool and strip.
+		if f.kind != "lava":
+			continue
+		if f.has("pos"):
 			Kit.glow(cv, f.pos, f.radius * 2.3, Color(1.0, 0.45, 0.1, 0.5))
 			Dot.arc(cv, f.pos, f.radius * 1.08, 0.0, TAU, 48, Color("241614"), ctx.u(8.0), true)
+		else:
+			var r: Rect2 = f.rect
+			var c := r.get_center()
+			for k in 3:
+				Kit.glow(cv, c + Vector2(0, (k - 1) * r.size.y * 0.33), r.size.x * 2.6, Color(1.0, 0.45, 0.1, 0.35))
 	for p in Kit.scatter_in(ctx, 6, ctx.u(60.0), [[ctx.centre, ctx.u(100.0)]]):
 		var shard := PackedVector2Array([p + Vector2(0, -ctx.u(14.0)), p + Vector2(ctx.u(7.0), ctx.u(6.0)), p + Vector2(-ctx.u(6.0), ctx.u(8.0))])
 		Kit.poly(cv, shard, Color("1a1028"))
@@ -61,9 +69,13 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 
 ## A basalt boulder with a glowing crack.
 static func pillar(cv: CanvasItem, ctx: Kit.Ctx, c: Vector2, r: float) -> void:
-	Kit.glow(cv, c, r * 1.5, Color(1.0, 0.4, 0.1, 0.35))
+	Kit.glow(cv, c, r * 1.6, Color(1.0, 0.45, 0.1, 0.6))
 	Kit.shadow(cv, c, r, 0.5)
-	Kit.lit(cv, Kit.blob(c, r, ctx.rng, 8, 0.12), Color("5a4a4e"), Color("140c0d"))
+	var rock := Kit.blob(c, r, ctx.rng, 8, 0.12)
+	Kit.lit(cv, rock, Color("9a8488"), Color("3a2a2c"))
+	var rim := rock.duplicate()
+	rim.append(rock[0])
+	Dot.pline(cv, rim, Color("ff8a3d"), maxf(1.5, r * 0.08), true)
 	var crack := PackedVector2Array([c + Vector2(-0.6, -0.3) * r, c + Vector2(-0.1, 0.05) * r, c + Vector2(0.2, -0.2) * r, c + Vector2(0.6, 0.35) * r])
 	Dot.pline(cv, crack, Color(1.0, 0.45, 0.1, 0.5), r * 0.22, true)
 	Dot.pline(cv, crack, Color("ffd23f"), r * 0.07, true)

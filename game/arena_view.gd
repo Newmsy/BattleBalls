@@ -79,7 +79,8 @@ const POP_BACKSTAB := Color("d68cff")
 const CRIT_POP_SCALE := 1.5
 ## Field rings (the "field" effect): Pull draws in blue, Push pushes out red.
 const FIELD_PULL := Color("4d8dff")
-const WELL := Color("b36bff")
+const WELL_COLOR := Color("b36bff")
+const WATER_WELL := Color("5ad8ff")
 const WELL_CORE := Color("07051a")
 const SPIKE := Color("ff3d7f")
 const LAVA := Color("ff5a1f")
@@ -748,6 +749,8 @@ func consume_events(events: Array[Dictionary]) -> void:
 			"bumper":
 				_bumper_flash = BUMPER_FLASH_LIFE
 				_spawn_particles(e.pos, 6)
+				if sim.arena_id == "storm": # Thunder Peak: the rod draws a strike.
+					_bolts.append({"from": e.pos + Vector2(_fx_rng.randf_range(-40.0, 40.0), -420.0), "to": e.pos, "age": 0.0, "seed": _fx_rng.randf() * 10.0})
 			"sling": # Sprout slung off its own pillar: a burst of leaves and a ring.
 				var leaf: Color = PIECE_COLORS.seed[1]
 				_rings.append({"pos": e.pos, "radius": 70.0, "color": leaf, "age": 0.0})
@@ -1811,6 +1814,12 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 			continue
 		var p: Vector2 = o.pos * s
 		var rad: float = o.radius * s
+		if o.has("retracted"): # Thorns pulled in: a hedge with buds where they'll spring out.
+			if not _draw_art_obstacle(o, p, rad):
+				Dot.circle(self, p, rad, _pillar.darkened(0.6))
+			for j in 8:
+				Dot.circle(self, p + Vector2.from_angle(j * TAU / 8.0) * rad * 0.92, rad * 0.1, Color(SPIKE, 0.75))
+			continue
 		if o.kind != "spike" and _draw_art_obstacle(o, p, rad):
 			continue
 		if o.kind == "spike":
@@ -1954,7 +1963,7 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 			"ice":
 				var c: Vector2 = f.pos * s
 				var r: float = f.radius * s
-				Dot.circle(self, c, r, Color(ICE, 0.12))
+				Dot.circle(self, c, r, Color(ICE, 0.22))
 				if _art_ctx != null: # A dark edge so the pond reads on pale themed floors.
 					Dot.arc(self, c, r + 2.0, 0, TAU, 72, Color(0.08, 0.25, 0.5, 0.45), 4.0, true)
 				Dot.arc(self, c, r, 0, TAU, 72, Color(ICE, 0.55), 2.5, true)
@@ -1968,9 +1977,14 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 			"goo":
 				var c: Vector2 = f.pos * s
 				var r: float = f.radius * s
-				Dot.circle(self, c, r, Color(GOO, 0.22))
+				var id: String = sim.arena_id if sim else preview_arena
+				if id in GOO_LOOKS:
+					_draw_goo_look(id, c, r)
+					continue
+				Dot.circle(self, c, r, Color(0.22, 0.1, 0.0, 0.45)) # A dark bed so honey reads on light floors.
+				Dot.circle(self, c, r, Color(GOO, 0.3))
 				if _art_ctx != null:
-					Dot.arc(self, c, r + 2.0, 0, TAU, 60, Color(0.3, 0.18, 0.02, 0.45), 4.0, true)
+					Dot.arc(self, c, r + 2.0, 0, TAU, 60, Color(0.3, 0.18, 0.02, 0.6), 5.0, true)
 				for j in 7: # Honeycomb cells.
 					var off := Vector2.ZERO if j == 0 else Vector2.from_angle(j * TAU / 6.0) * r * 0.5
 					var hex := PackedVector2Array()
@@ -1987,6 +2001,10 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 				var rr: Rect2 = Rect2(f.rect.position * s, f.rect.size * s)
 				Dot.rect(self, rr, Color("2a2a33"))
 				draw_rect(rr, Color(CONVEYOR, 0.7), false, 2.0)
+				if f.get("flip_in", 99.0) < 1.5: # About to reverse: the belt flashes red.
+					var blink := 0.5 + 0.5 * sin(_time * 18.0)
+					Dot.rect(self, rr, Color(1.0, 0.2, 0.15, 0.35 * blink))
+					draw_rect(rr, Color(1.0, 0.3, 0.2, blink), false, 4.0)
 				var step := 46.0 * s
 				var dir: Vector2 = f.dir
 				# Work along the belt (u) and across it (v): x/y for a
@@ -2039,11 +2057,37 @@ func _draw_floors(floors: Array[Dictionary]) -> void:
 				Dot.arc(self, c, r + 5.0, 0, TAU, 56, Color(col, 0.25), 8.0, true)
 
 
+## Slow pads that aren't honey: Syrup Swamp's glossy syrup puddles and Sand
+## Dunes' sinkhole of swirling sand.
+const GOO_LOOKS := ["syrup", "dunes"]
+
+
+func _draw_goo_look(id: String, c: Vector2, r: float) -> void:
+	if id == "syrup":
+		Dot.circle(self, c, r, Color("3a1a08"))
+		Dot.circle(self, c, r * 0.94, Color("7a3a12"))
+		Dot.circle(self, c + Vector2(-0.12, -0.1) * r, r * 0.7, Color("9a5220", 0.8))
+		Dot.arc(self, c, r * 0.62, -2.4, -1.4, 16, Color(1, 0.9, 0.7, 0.45), r * 0.08, true) # Gloss.
+		for j in 4: # Bubbles that swell and pop.
+			var ph := fmod(_time * 0.4 + j * 0.29, 1.0)
+			var at := c + Vector2.from_angle(j * 2.1 + 0.5) * r * (0.3 + 0.45 * fmod(j * 0.618, 1.0))
+			Dot.arc(self, at, r * 0.1 * ph, 0, TAU, 16, Color(1, 0.85, 0.6, 0.6 * (1.0 - ph)), 2.0, true)
+		Dot.arc(self, c, r, 0, TAU, 60, Color("c87a3a"), 2.5, true)
+		return
+	# A sinkhole: sand rings turning in toward a dark middle.
+	Dot.circle(self, c, r, Color("7a5530", 0.55))
+	for k in 4:
+		var rr := r * (1.0 - k * 0.22)
+		Dot.arc(self, c, rr, _time * (0.4 + k * 0.25), _time * (0.4 + k * 0.25) + 4.2, 32, Color("e8c48a", 0.55), 3.0, true)
+	Dot.glow(self, c, r * 0.35, Color(0.12, 0.07, 0.02, 0.9), 0.4)
+	Dot.arc(self, c, r, 0, TAU, 60, Color("c8945a"), 2.5, true)
+
+
 func _draw_lava(f: Dictionary, s: float) -> void:
 	if f.has("rect"):
 		var rr: Rect2 = Rect2(f.rect.position * s, f.rect.size * s)
 		Dot.rect(self, rr, Color("5a1405"))
-		Dot.rect(self, rr.grow(-3.0), Color(LAVA, 0.55))
+		Dot.rect(self, rr.grow(-3.0), Color(LAVA, 0.9))
 		var n := 6
 		for j in n:
 			var y := rr.position.y + rr.size.y * fmod(j / float(n) + _time * 0.05, 1.0)
@@ -2073,10 +2117,11 @@ func _draw_cores(shape) -> void:
 		var p: Vector2 = c.pos * s
 		var r: float = c.radius * s
 		var col: Color = PICKUP_COLORS.get(c.kind, CORE)
-		if not c.lit:
-			Dot.circle(self, p, r, Color(0.05, 0.03, 0.1, 0.45))
+		if not c.lit: # An empty socket: dark well, metal rim, filling back up.
+			Dot.circle(self, p, r, Color(0.03, 0.02, 0.08, 0.7))
 			var k: float = 1.0 - c.ready_in / MatchSim.CORE_RESPAWN
-			Dot.arc(self, p, r, 0, TAU, 40, Color(col, 0.18), 2.0, true)
+			Dot.arc(self, p, r + 2.0, 0, TAU, 40, Color(0.75, 0.78, 0.9, 0.45), 3.0, true)
+			Dot.arc(self, p, r * 0.55, 0, TAU, 24, Color(col, 0.3), 2.0, true)
 			if k > 0.0:
 				Dot.arc(self, p, r, -PI / 2.0, -PI / 2.0 + TAU * k, 40, Color(col, 0.55), 3.0, true)
 			continue
@@ -2191,22 +2236,24 @@ func _air_pos(b, s: float) -> Vector2:
 ## Gravity wells: a dark core, a spiral swirling in and rings flowing inward.
 func _draw_wells(wells: Array[Dictionary]) -> void:
 	var s := view_scale
+	var id: String = sim.arena_id if sim else preview_arena
+	var wcol: Color = WATER_WELL if id == "reef" else WELL_COLOR # Coral Reef's is a whirlpool.
 	for w in wells:
 		var c: Vector2 = w.pos * s
 		var reach: float = w.reach * s
-		Dot.circle(self, c, reach, Color(WELL, 0.05))
-		Dot.arc(self, c, reach, 0.0, TAU, 72, Color(WELL, 0.22), 2.0, true)
-		_draw_inflow(c, w.core * s * 1.4, reach, WELL, 0.35)
+		Dot.circle(self, c, reach, Color(wcol, 0.05))
+		Dot.arc(self, c, reach, 0.0, TAU, 72, Color(wcol, 0.22), 2.0, true)
+		_draw_inflow(c, w.core * s * 1.4, reach, wcol, 0.35)
 		for arm in 3: # A three-armed spiral, turning slowly.
 			var pts := PackedVector2Array()
 			for j in 24:
 				var f := j / 23.0
 				var a := arm * TAU / 3.0 + f * 2.6 - _time * 1.4
 				pts.append(c + Vector2.from_angle(a) * lerpf(reach * 0.9, w.core * s, f))
-			Dot.pline(self, pts, Color(WELL, 0.3), 3.0, true)
+			Dot.pline(self, pts, Color(wcol, 0.3), 3.0, true)
 		Dot.circle(self, c, w.core * s * 1.6, Color(WELL_CORE, 0.9))
-		Dot.arc(self, c, w.core * s * 1.6, 0.0, TAU, 40, WELL, 2.5, true)
-		Dot.circle(self, c, w.core * s * 0.7, Color(WELL, 0.25 + 0.15 * sin(_time * 3.0)))
+		Dot.arc(self, c, w.core * s * 1.6, 0.0, TAU, 40, wcol, 2.5, true)
+		Dot.circle(self, c, w.core * s * 0.7, Color(wcol, 0.25 + 0.15 * sin(_time * 3.0)))
 
 
 ## The spiked stretch of the left and right walls: a row of glowing teeth.

@@ -34,6 +34,10 @@
 ##   Keep a gap of 200+ to walls and other obstacles everywhere a part goes,
 ##   and moving surfaces under ~250 units/s (balls run at ~400), so a part
 ##   bats balls around but never pins one.
+## Floors and wells take orbit / slide + period too (circles only), so a
+##   portal or a well can drift. A conveyor with `flip` reverses every `flip`
+##   seconds. A spike obstacle with `retract` pulls its thorns in for every
+##   other `retract` seconds (a plain post meanwhile).
 ## start_scale: starts sit this much closer to the centre (same aim lines),
 ##   so round and hexagonal maps keep the corners' room.
 ## sides: {n, inradius, rot}: n straight walls (n even, so point-symmetric),
@@ -54,64 +58,85 @@ const DEFS := {
 	},
 	"rink": {
 		"display_name": "Neon Rink",
+		"description": "An octagon with no corners to get pinned in. Zambonis sweep each end of the ice.",
+		"corner_cut": 200.0,
+		"obstacles": [
+			{"pos": Vector2(500, 215), "radius": 26.0, "kind": "pillar", "bar": 60.0, "angle": 0.0, "slide": Vector2(90, 0), "period": 7.0},
+			{"pos": Vector2(500, 785), "radius": 26.0, "kind": "pillar", "bar": 60.0, "angle": 0.0, "slide": Vector2(-90, 0), "period": 7.0},
+		],
+	},
+	# The first fights (game/onboarding.gd): Neon Rink as it was before the
+	# Zambonis, so the tutorial's fixed aims and cold open play out as tuned.
+	# Not in the picker or the random pool.
+	"first_rink": {
+		"display_name": "Neon Rink",
 		"description": "An octagon: no corners to get pinned in.",
 		"corner_cut": 200.0,
 		"obstacles": [],
 	},
 	"pillars": {
 		"display_name": "Pillar Hall",
-		"description": "Two pillars to bounce off.",
+		"description": "Two pillars glide up and down the hall. Time your bounces.",
 		"corner_cut": 0.0,
 		# Two pillars on the centre line: four at 320/680 gave Laser so many
 		# extra bounces it beat Vampire 68% (tilt -14 points).
 		"obstacles": [
-			{"pos": Vector2(300, 500), "radius": 60.0, "kind": "pillar"},
-			{"pos": Vector2(700, 500), "radius": 60.0, "kind": "pillar"},
+			{"pos": Vector2(300, 500), "radius": 60.0, "kind": "pillar", "slide": Vector2(0, 130), "period": 5.0},
+			{"pos": Vector2(700, 500), "radius": 60.0, "kind": "pillar", "slide": Vector2(0, -130), "period": 5.0},
 		],
 	},
 	"bumpers": {
 		"display_name": "Bumper Lab",
-		"description": "Bumpers kick balls off faster for a moment.",
+		"description": "Bumpers kick balls off faster for a moment. Two of them circle the big one.",
 		"corner_cut": 0.0,
 		"obstacles": [
 			{"pos": Vector2(500, 500), "radius": 72.0, "kind": "bumper"},
-			{"pos": Vector2(285, 285), "radius": 48.0, "kind": "bumper"},
-			{"pos": Vector2(715, 715), "radius": 48.0, "kind": "bumper"},
+			{"pos": Vector2(316, 316), "radius": 40.0, "kind": "bumper", "orbit": 0.45},
+			{"pos": Vector2(684, 684), "radius": 40.0, "kind": "bumper", "orbit": 0.45},
 		],
 	},
 	"wells": {
 		"display_name": "Gravity Wells",
-		"description": "Two wells bend every path. Light critters get dragged hardest.",
+		"description": "Two wells drift round the arena bending every path. Light critters get dragged hardest.",
 		"corner_cut": 0.0,
 		"obstacles": [],
-		# On the empty diagonal so neither start sits in one.
+		# They start on the empty diagonal so neither start sits in one, then
+		# swing a quarter turn either way (never reaching a start).
 		"wells": [
-			{"pos": Vector2(320, 320), "reach": 250.0, "accel": 1100.0, "core": 26.0},
-			{"pos": Vector2(680, 680), "reach": 250.0, "accel": 1100.0, "core": 26.0},
+			{"pos": Vector2(320, 320), "reach": 250.0, "accel": 1100.0, "core": 26.0, "slide": Vector2(-90, 90), "period": 9.0},
+			{"pos": Vector2(680, 680), "reach": 250.0, "accel": 1100.0, "core": 26.0, "slide": Vector2(90, -90), "period": 9.0},
 		],
 	},
 	"spikes": {
 		"display_name": "Spike Yard",
-		"description": "Spiked posts and spiked walls nick whoever bounces off them.",
+		"description": "Spiked posts roll round the yard and spiked walls nick whoever bounces off them.",
 		"corner_cut": 0.0,
 		"obstacles": [
-			{"pos": Vector2(500, 290), "radius": 44.0, "kind": "spike"},
-			{"pos": Vector2(500, 710), "radius": 44.0, "kind": "spike"},
+			{"pos": Vector2(500, 290), "radius": 44.0, "kind": "spike", "orbit": 0.35},
+			{"pos": Vector2(500, 710), "radius": 44.0, "kind": "spike", "orbit": 0.35},
 		],
 		"spike_walls": {"half": 150.0},
 	},
 	"frost": {
 		"display_name": "Ice Pond",
-		"description": "A frozen lake in the middle: balls skate 30% faster on the ice.",
+		"description": "A frozen lake in the middle: balls skate 30% faster on the ice. Ice crystals round the shore crack open.",
 		"corner_cut": 0.0,
-		"obstacles": [],
+		"obstacles": [
+			{"pos": Vector2(330, 330), "radius": 36.0, "kind": "crystal"},
+			{"pos": Vector2(670, 670), "radius": 36.0, "kind": "crystal"},
+			{"pos": Vector2(500, 255), "radius": 36.0, "kind": "crystal"},
+			{"pos": Vector2(500, 745), "radius": 36.0, "kind": "crystal"},
+		],
 		"floors": [{"kind": "ice", "pos": Vector2(500, 500), "radius": 230.0}],
 	},
 	"magma": {
 		"display_name": "Magma Core",
-		"description": "Lava pools in the two empty corners burn whoever rolls through.",
+		"description": "Lava pools in the two empty corners burn whoever rolls through. Rolling boulders knock you toward them.",
 		"corner_cut": 0.0,
-		"obstacles": [],
+		"obstacles": [
+			{"pos": Vector2(500, 240), "radius": 38.0, "kind": "pillar", "orbit": 0.4},
+			{"pos": Vector2(500, 760), "radius": 38.0, "kind": "pillar", "orbit": 0.4},
+		],
 		"floors": [
 			{"kind": "lava", "pos": Vector2(160, 160), "radius": 150.0},
 			{"kind": "lava", "pos": Vector2(840, 840), "radius": 150.0},
@@ -119,30 +144,39 @@ const DEFS := {
 	},
 	"arcade": {
 		"display_name": "Portal Hall",
-		"description": "Two portals: roll into one, pop out of the other.",
+		"description": "Two portals drift up and down the walls: roll into one, pop out of the other. Sliding targets bat you about.",
 		"corner_cut": 0.0,
-		"obstacles": [],
+		"obstacles": [
+			{"pos": Vector2(500, 300), "radius": 30.0, "kind": "pillar", "slide": Vector2(150, 0), "period": 5.5},
+			{"pos": Vector2(500, 700), "radius": 30.0, "kind": "pillar", "slide": Vector2(-150, 0), "period": 5.5},
+		],
 		"floors": [
-			{"kind": "portal", "pos": Vector2(150, 500), "radius": 70.0, "to": 1},
-			{"kind": "portal", "pos": Vector2(850, 500), "radius": 70.0, "to": 0},
+			{"kind": "portal", "pos": Vector2(150, 500), "radius": 70.0, "to": 1, "slide": Vector2(0, 160), "period": 8.0},
+			{"kind": "portal", "pos": Vector2(850, 500), "radius": 70.0, "to": 0, "slide": Vector2(0, -160), "period": 8.0},
 		],
 	},
 	"starfall": {
 		"display_name": "Starfall Rim",
-		"description": "The rim starts closing in at 15 seconds. Fights end up close.",
+		"description": "The rim starts closing in at 15 seconds and two comets circle inside. Fights end up close.",
 		"corner_cut": 120.0,
-		"obstacles": [],
+		"obstacles": [
+			{"pos": Vector2(500, 260), "radius": 32.0, "kind": "pillar", "orbit": 0.7},
+			{"pos": Vector2(500, 740), "radius": 32.0, "kind": "pillar", "orbit": 0.7},
+		],
 		"shrink_start": 15.0,
 		"shrink_speed": 6.0,
 	},
 	"factory": {
 		"display_name": "Conveyor Factory",
-		"description": "Two belts run opposite ways. Light critters get carried furthest.",
+		"description": "Two belts run opposite ways and flip every 10 seconds. Crates at the belt ends crack open.",
 		"corner_cut": 0.0,
-		"obstacles": [],
+		"obstacles": [
+			{"pos": Vector2(130, 320), "radius": 34.0, "kind": "crystal"},
+			{"pos": Vector2(870, 680), "radius": 34.0, "kind": "crystal"},
+		],
 		"floors": [
-			{"kind": "conveyor", "rect": Rect2(80, 260, 840, 120), "dir": Vector2.RIGHT, "accel": 520.0},
-			{"kind": "conveyor", "rect": Rect2(80, 620, 840, 120), "dir": Vector2.LEFT, "accel": 520.0},
+			{"kind": "conveyor", "rect": Rect2(80, 260, 840, 120), "dir": Vector2.RIGHT, "accel": 520.0, "flip": 10.0},
+			{"kind": "conveyor", "rect": Rect2(80, 620, 840, 120), "dir": Vector2.LEFT, "accel": 520.0, "flip": 10.0},
 		],
 	},
 	"orbit": {
@@ -150,26 +184,33 @@ const DEFS := {
 		"description": "Two moons circle the middle. Time your bounces.",
 		"corner_cut": 0.0,
 		"obstacles": [
-			{"pos": Vector2(500, 280), "radius": 52.0, "kind": "pillar", "orbit": 0.55},
-			{"pos": Vector2(500, 720), "radius": 52.0, "kind": "pillar", "orbit": 0.55},
+			{"pos": Vector2(500, 280), "radius": 62.0, "kind": "pillar", "orbit": 0.55},
+			{"pos": Vector2(500, 720), "radius": 62.0, "kind": "pillar", "orbit": 0.55},
 		],
 	},
 	"hive": {
 		"display_name": "Honey Hive",
-		"description": "Sticky honey slows anyone rolling through it.",
+		"description": "Sticky honey slows anyone rolling through it. Two bees buzz round a honey pot that heals.",
 		"corner_cut": 0.0,
-		"obstacles": [],
+		"obstacles": [
+			{"pos": Vector2(500, 280), "radius": 30.0, "kind": "pillar", "orbit": 0.6},
+			{"pos": Vector2(500, 720), "radius": 30.0, "kind": "pillar", "orbit": 0.6},
+		],
 		"floors": [
 			{"kind": "goo", "pos": Vector2(300, 300), "radius": 140.0, "slow": 0.35},
 			{"kind": "goo", "pos": Vector2(700, 700), "radius": 140.0, "slow": 0.35},
-			{"kind": "goo", "pos": Vector2(500, 500), "radius": 80.0, "slow": 0.35},
 		],
+		"cores": [{"pos": Vector2(500, 500), "radius": 40.0, "kind": "heal"}],
 	},
 	"horizon": {
 		"display_name": "Event Horizon",
-		"description": "One huge well in the middle drags every fight together.",
+		"description": "One huge well drags every fight together and a spinning beam bats balls out. Power cores sit at the edge of its pull.",
 		"corner_cut": 0.0,
-		"obstacles": [],
+		"obstacles": [{"pos": Vector2(500, 500), "radius": 24.0, "kind": "pillar", "bar": 150.0, "angle": 0.0, "orbit": 0.5}],
+		"cores": [
+			{"pos": Vector2(250, 250), "radius": 40.0},
+			{"pos": Vector2(750, 750), "radius": 40.0},
+		],
 		"wells": [{"pos": Vector2(500, 500), "reach": 380.0, "accel": 900.0, "core": 34.0}],
 	},
 	"pinball": {
@@ -185,11 +226,11 @@ const DEFS := {
 	},
 	"reef": {
 		"display_name": "Coral Reef",
-		"description": "Coral to bank off, whirlpool in the middle.",
+		"description": "Coral to bank off, shells that crack open, a whirlpool in the middle.",
 		"corner_cut": 0.0,
 		"obstacles": [
-			{"pos": Vector2(500, 250), "radius": 40.0, "kind": "pillar"},
-			{"pos": Vector2(500, 750), "radius": 40.0, "kind": "pillar"},
+			{"pos": Vector2(500, 250), "radius": 40.0, "kind": "crystal"},
+			{"pos": Vector2(500, 750), "radius": 40.0, "kind": "crystal"},
 			{"pos": Vector2(250, 500), "radius": 40.0, "kind": "pillar"},
 			{"pos": Vector2(750, 500), "radius": 40.0, "kind": "pillar"},
 		],
@@ -197,9 +238,9 @@ const DEFS := {
 	},
 	"glitch": {
 		"display_name": "Glitch Grid",
-		"description": "Two pairs of portals swap you across the grid.",
+		"description": "Two pairs of portals swap you across the grid. A glitch bar spins in the middle.",
 		"corner_cut": 160.0,
-		"obstacles": [],
+		"obstacles": [{"pos": Vector2(500, 500), "radius": 24.0, "kind": "pillar", "bar": 110.0, "angle": 45.0, "orbit": -0.8}],
 		"floors": [
 			{"kind": "portal", "pos": Vector2(300, 300), "radius": 60.0, "to": 1},
 			{"kind": "portal", "pos": Vector2(700, 700), "radius": 60.0, "to": 0},
@@ -209,9 +250,12 @@ const DEFS := {
 	},
 	"inferno": {
 		"display_name": "Inferno Ring",
-		"description": "Lava runs along the side walls. Stay off the edges.",
+		"description": "Lava runs along the side walls and rock pistons shove you toward it. Stay off the edges.",
 		"corner_cut": 0.0,
-		"obstacles": [],
+		"obstacles": [
+			{"pos": Vector2(250, 500), "radius": 30.0, "kind": "pillar", "bar": 70.0, "angle": 90.0, "slide": Vector2(70, 0), "period": 4.0},
+			{"pos": Vector2(750, 500), "radius": 30.0, "kind": "pillar", "bar": 70.0, "angle": 90.0, "slide": Vector2(-70, 0), "period": 4.0},
+		],
 		"floors": [
 			{"kind": "lava", "rect": Rect2(0, 220, 60, 560)},
 			{"kind": "lava", "rect": Rect2(940, 220, 60, 560)},
@@ -219,11 +263,11 @@ const DEFS := {
 	},
 	"thorn": {
 		"display_name": "Thorn Garden",
-		"description": "Thorny walls and two hedges in the middle.",
+		"description": "Thorny walls and two hedges whose thorns spring out every few seconds.",
 		"corner_cut": 0.0,
 		"obstacles": [
-			{"pos": Vector2(330, 500), "radius": 50.0, "kind": "spike"},
-			{"pos": Vector2(670, 500), "radius": 50.0, "kind": "spike"},
+			{"pos": Vector2(330, 500), "radius": 50.0, "kind": "spike", "retract": 3.0},
+			{"pos": Vector2(670, 500), "radius": 50.0, "kind": "spike", "retract": 3.0},
 		],
 		"spike_walls": {"half": 200.0},
 	},
@@ -244,11 +288,11 @@ const DEFS := {
 	},
 	"syrup": {
 		"display_name": "Syrup Swamp",
-		"description": "Sticky syrup slows you down. Lollipops to bounce off.",
+		"description": "Sticky syrup slows you down. Swaying lollipops to bounce off.",
 		"corner_cut": 100.0,
 		"obstacles": [
-			{"pos": Vector2(640, 360), "radius": 44.0, "kind": "pillar"},
-			{"pos": Vector2(360, 640), "radius": 44.0, "kind": "pillar"},
+			{"pos": Vector2(640, 360), "radius": 44.0, "kind": "pillar", "slide": Vector2(35, 35), "period": 3.6},
+			{"pos": Vector2(360, 640), "radius": 44.0, "kind": "pillar", "slide": Vector2(-35, -35), "period": 3.6},
 		],
 		"floors": [
 			{"kind": "goo", "pos": Vector2(320, 320), "radius": 105.0, "slow": 0.3},
@@ -284,11 +328,14 @@ const DEFS := {
 	},
 	"nebula": {
 		"display_name": "Nebula Drift",
-		"description": "A round pocket of space. Two gravity wells swirl the paths round a power core.",
+		"description": "A round pocket of space. Two gravity wells swirl the paths round a power core, with asteroids drifting through.",
 		"corner_cut": 0.0,
 		"sides": {"n": 12, "inradius": 470.0, "rot": 15.0},
 		"start_scale": 0.8,
-		"obstacles": [],
+		"obstacles": [
+			{"pos": Vector2(500, 290), "radius": 28.0, "kind": "pillar", "orbit": 0.45},
+			{"pos": Vector2(500, 710), "radius": 28.0, "kind": "pillar", "orbit": 0.45},
+		],
 		"wells": [
 			{"pos": Vector2(330, 330), "reach": 210.0, "accel": 950.0, "core": 26.0},
 			{"pos": Vector2(670, 670), "reach": 210.0, "accel": 950.0, "core": 26.0},
@@ -297,13 +344,14 @@ const DEFS := {
 	},
 	"asteroid": {
 		"display_name": "Asteroid Belt",
-		"description": "Four rocks orbit the middle. Mind the gaps.",
+		"description": "Rocks orbit the middle, an inner pair one way and an outer pair the other. Mind the gaps.",
 		"corner_cut": 150.0,
 		"obstacles": [
-			{"pos": Vector2(500, 280), "radius": 36.0, "kind": "pillar", "orbit": 0.5},
-			{"pos": Vector2(500, 720), "radius": 36.0, "kind": "pillar", "orbit": 0.5},
-			{"pos": Vector2(280, 500), "radius": 36.0, "kind": "pillar", "orbit": 0.5},
-			{"pos": Vector2(720, 500), "radius": 36.0, "kind": "pillar", "orbit": 0.5},
+			# A big inner pair one way, a small outer pair the other.
+			{"pos": Vector2(500, 380), "radius": 30.0, "kind": "pillar", "orbit": 0.6},
+			{"pos": Vector2(500, 620), "radius": 30.0, "kind": "pillar", "orbit": 0.6},
+			{"pos": Vector2(180, 500), "radius": 22.0, "kind": "pillar", "orbit": -0.4},
+			{"pos": Vector2(820, 500), "radius": 22.0, "kind": "pillar", "orbit": -0.4},
 		],
 	},
 	"trench": {
@@ -365,11 +413,14 @@ const DEFS := {
 	},
 	"sunset": {
 		"display_name": "Sunset Grid",
-		"description": "Ride the belts into the sunset, or cut through the middle for the power core.",
+		"description": "Ride the belts into the sunset, or cut through the middle for the power core. Neon pylons slide across the grid.",
 		"corner_cut": 0.0,
 		"sides": {"n": 10, "inradius": 470.0, "rot": 18.0},
 		"start_scale": 0.8,
-		"obstacles": [],
+		"obstacles": [
+			{"pos": Vector2(300, 500), "radius": 26.0, "kind": "pillar", "slide": Vector2(0, 110), "period": 5.0},
+			{"pos": Vector2(700, 500), "radius": 26.0, "kind": "pillar", "slide": Vector2(0, -110), "period": 5.0},
+		],
 		"floors": [
 			{"kind": "conveyor", "rect": Rect2(300, 300, 400, 90), "dir": Vector2.RIGHT, "accel": 480.0},
 			{"kind": "conveyor", "rect": Rect2(300, 610, 400, 90), "dir": Vector2.LEFT, "accel": 480.0},
@@ -549,6 +600,14 @@ const PLAYABLE := ["square", "rink", "pillars", "bumpers", "wells", "spikes", "f
 	"sunset", "alley", "dunes", "oasis", "graveyard", "manor", "toybox", "speedway", "arcane", "prism",
 	"windmill", "pistons", "cogs"]
 
+## Maps a random fight can land on: every playable map but The Box, which
+## stays as the plain baseline (tutorial, balance runs, picked by hand).
+const RANDOM_POOL := ["rink", "pillars", "bumpers", "wells", "spikes", "frost", "magma", "arcade",
+	"starfall", "factory", "orbit", "hive", "horizon", "pinball", "reef", "glitch", "inferno", "thorn",
+	"candy", "syrup", "temple", "ruins", "nebula", "asteroid", "trench", "kelp", "storm", "cloud",
+	"sunset", "alley", "dunes", "oasis", "graveyard", "manor", "toybox", "speedway", "arcane", "prism",
+	"windmill", "pistons", "cogs"]
+
 
 ## Boss maps (sim/bosses.gd, design/bosses.md): one per boss, never in the
 ## picker. A boss fight isn't a mirror match, so these needn't be
@@ -629,7 +688,7 @@ const BOSS_ARENAS := {
 ## The map a fight with this seed is played on: every mode that rolls a map
 ## stores the result in its fight config, so later pool changes never move it.
 static func pick(seed_value: int) -> String:
-	return PLAYABLE[posmod(("arena:%d" % seed_value).hash(), PLAYABLE.size())]
+	return RANDOM_POOL[posmod(("arena:%d" % seed_value).hash(), RANDOM_POOL.size())]
 
 
 ## `obstacles` with each bar turned into a row of overlapping circles (at

@@ -8,6 +8,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/arena_art/kit.gd")
+const Dot := preload("res://game/dot.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const Candy := preload("res://game/arena_art/candy.gd")
 const Temple := preload("res://game/arena_art/temple.gd")
@@ -35,7 +36,7 @@ const FAMILIES := {
 	"dunes": "desert", "oasis": "desert",
 	"graveyard": "haunted", "manor": "haunted", "arcane": "haunted",
 	"toybox": "toybox", "speedway": "toybox", "cogs": "toybox", "pinball": "toybox", "bumpers": "toybox", "arcade": "toybox",
-	"square": "classics", "rink": "classics", "pillars": "classics", "spikes": "classics", "factory": "classics", "pistons": "classics",
+	"square": "classics", "rink": "classics", "first_rink": "classics", "pillars": "classics", "spikes": "classics", "factory": "classics", "pistons": "classics",
 }
 
 ## Sprites stand this many radii out from their centre (shadows, leaves).
@@ -89,10 +90,10 @@ static func make_ctx(id: String, s: float, margin: float) -> Kit.Ctx:
 ## floors). Tuned so every floor's middle sits near the same mid-dark level;
 ## maps not listed are dark already.
 const DIM := {
-	"rink": 0.57, "bumpers": 0.56, "square": 0.55, "frost": 0.53, "candy": 0.52, "syrup": 0.52,
-	"prism": 0.51, "kelp": 0.5, "cloud": 0.49, "reef": 0.49, "hive": 0.48, "oasis": 0.48,
+	"rink": 0.57, "first_rink": 0.57, "bumpers": 0.3, "square": 0.2, "frost": 0.53, "candy": 0.52, "syrup": 0.52,
+	"prism": 0.51, "kelp": 0.3, "cloud": 0.49, "reef": 0.49, "hive": 0.48, "oasis": 0.48,
 	"dunes": 0.46, "toybox": 0.46, "ruins": 0.39, "thorn": 0.39, "temple": 0.39, "trench": 0.33,
-	"pillars": 0.29, "spikes": 0.29, "factory": 0.1,
+	"pillars": 0.1, "spikes": 0.25, "factory": 0.1,
 }
 const DIM_COLOR := Color("0d0b1e")
 
@@ -103,6 +104,28 @@ static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
 	var dim: float = DIM.get(ctx.id, 0.0)
 	if dim > 0.0: # Over the floor only: the wall band sits outside the outline.
 		Kit.poly(cv, ctx.outline, Color(DIM_COLOR, dim))
+	_paint_orbit_tracks(cv, ctx)
+
+
+## A faint dashed track under every part that circles (not the spinning
+## bars), so players can read where it's going and when it comes round.
+static func _paint_orbit_tracks(cv: CanvasItem, ctx: Kit.Ctx) -> void:
+	var centre := Vector2.ONE * MatchSim.ARENA_SIZE / 2.0
+	var done := []
+	for o in MatchSim.new({"arena": ctx.id}).arena.get("obstacles", []):
+		if not o.has("orbit") or o.has("bar"):
+			continue
+		var pivot: Vector2 = o.get("pivot", centre)
+		var r: float = o.pos.distance_to(pivot)
+		var key := [pivot, roundi(r)]
+		if key in done:
+			continue
+		done.append(key)
+		var c := ctx.at(pivot.x, pivot.y)
+		var n := maxi(12, int(r / 18.0))
+		for i in n:
+			var a := i * TAU / n
+			Dot.arc(cv, c, r * ctx.s, a, a + TAU / n * 0.5, 6, Color(1, 1, 1, 0.16), ctx.u(o.radius * 0.35), true)
 
 
 static func _paint_family(cv: CanvasItem, ctx: Kit.Ctx) -> void:

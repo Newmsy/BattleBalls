@@ -106,7 +106,7 @@ func test_pillar_bounce_counts_as_wall_bounce_for_laser() -> void:
 
 
 func test_bumper_boosts_speed_then_wears_off() -> void:
-	var sim := _sim("bumpers")
+	var sim := _sim("pinball") # Static bumpers, so nothing else bats the ball meanwhile.
 	_park(sim)
 	var b := sim.balls[0]
 	b.pos = Vector2(500, 330)
