@@ -23,7 +23,17 @@
 ##   "launch" throws it into the air over everything (MatchSim.LAUNCH_*).
 ## cores: power cores {pos, radius}: the first ball through a lit one is
 ##   Overcharged, then it goes dark for a while (MatchSim.CORE_*).
-## orbit (on an obstacle): circles the centre at this many rad/s from pos.
+##   kind "heal" / "shield" makes it a heal or shield pickup instead
+##   (MatchSim.HEAL_PICKUP, SHIELD_PICKUP), on the same clock.
+## Moving parts (on an obstacle), driven by fight time only so replays match:
+##   orbit: circles its pivot (default the centre) at this many rad/s from pos.
+##   slide + period: swings back and forth by the `slide` offset (a sine).
+##   bar + angle: a long bar instead of a circle: `bar` units either side of
+##   pos along `angle` degrees, `radius` thick, built from overlapping circles
+##   (expand_bars). With orbit and no pivot it spins round its own middle.
+##   Keep a gap of 200+ to walls and other obstacles everywhere a part goes,
+##   and moving surfaces under ~250 units/s (balls run at ~400), so a part
+##   bats balls around but never pins one.
 ## start_scale: starts sit this much closer to the centre (same aim lines),
 ##   so round and hexagonal maps keep the corners' room.
 ## sides: {n, inradius, rot}: n straight walls (n even, so point-symmetric),
@@ -32,6 +42,8 @@
 ##   along one diagonal.
 ## shrink_start / shrink_speed: the walls start closing in early, slower.
 extends RefCounted
+
+const DMath := preload("res://sim/dmath.gd")
 
 const DEFS := {
 	"square": {
@@ -308,15 +320,20 @@ const DEFS := {
 		"display_name": "Kelp Forest",
 		"description": "Swaying kelp stalks everywhere to ricochet off.",
 		"corner_cut": 0.0,
+		# Each stalk sways across the current; mirrored stalks sway opposite ways.
 		"obstacles": [
-			{"pos": Vector2(300, 300), "radius": 26.0, "kind": "pillar"},
-			{"pos": Vector2(700, 700), "radius": 26.0, "kind": "pillar"},
-			{"pos": Vector2(320, 680), "radius": 26.0, "kind": "pillar"},
-			{"pos": Vector2(680, 320), "radius": 26.0, "kind": "pillar"},
-			{"pos": Vector2(500, 170), "radius": 26.0, "kind": "pillar"},
-			{"pos": Vector2(500, 830), "radius": 26.0, "kind": "pillar"},
-			{"pos": Vector2(170, 500), "radius": 26.0, "kind": "pillar"},
-			{"pos": Vector2(830, 500), "radius": 26.0, "kind": "pillar"},
+			{"pos": Vector2(300, 300), "radius": 26.0, "kind": "pillar", "slide": Vector2(15, -15), "period": 3.4},
+			{"pos": Vector2(700, 700), "radius": 26.0, "kind": "pillar", "slide": Vector2(-15, 15), "period": 3.4},
+			{"pos": Vector2(320, 680), "radius": 26.0, "kind": "pillar", "slide": Vector2(15, 15), "period": 4.0},
+			{"pos": Vector2(680, 320), "radius": 26.0, "kind": "pillar", "slide": Vector2(-15, -15), "period": 4.0},
+			{"pos": Vector2(500, 170), "radius": 26.0, "kind": "pillar", "slide": Vector2(22, 0), "period": 3.0},
+			{"pos": Vector2(500, 830), "radius": 26.0, "kind": "pillar", "slide": Vector2(-22, 0), "period": 3.0},
+			{"pos": Vector2(170, 500), "radius": 26.0, "kind": "pillar", "slide": Vector2(0, 22), "period": 3.0},
+			{"pos": Vector2(830, 500), "radius": 26.0, "kind": "pillar", "slide": Vector2(0, -22), "period": 3.0},
+		],
+		"cores": [
+			{"pos": Vector2(500, 330), "radius": 36.0, "kind": "shield"},
+			{"pos": Vector2(500, 670), "radius": 36.0, "kind": "shield"},
 		],
 	},
 	"storm": {
@@ -384,7 +401,7 @@ const DEFS := {
 	},
 	"oasis": {
 		"display_name": "Desert Oasis",
-		"description": "A round oasis. Wading through the pool slows you; palms to bounce off.",
+		"description": "A round oasis. Wading through the pool slows you, but springs by the palms heal.",
 		"corner_cut": 0.0,
 		"sides": {"n": 16, "inradius": 470.0, "rot": 11.25},
 		"start_scale": 0.8,
@@ -393,6 +410,10 @@ const DEFS := {
 			{"pos": Vector2(500, 710), "radius": 32.0, "kind": "pillar"},
 		],
 		"floors": [{"kind": "goo", "pos": Vector2(500, 500), "radius": 125.0, "slow": 0.25}],
+		"cores": [
+			{"pos": Vector2(290, 500), "radius": 36.0, "kind": "heal"},
+			{"pos": Vector2(710, 500), "radius": 36.0, "kind": "heal"},
+		],
 	},
 	"graveyard": {
 		"display_name": "Moonlit Graveyard",
@@ -407,9 +428,13 @@ const DEFS := {
 	},
 	"manor": {
 		"display_name": "Haunted Manor",
-		"description": "Four haunted mirrors: roll into one, come out of the one across the hall.",
+		"description": "Four haunted mirrors: roll into one, come out of the one across the hall. Ghostly wards shield you.",
 		"corner_cut": 0.0,
 		"obstacles": [{"pos": Vector2(500, 500), "radius": 48.0, "kind": "pillar"}],
+		"cores": [
+			{"pos": Vector2(320, 320), "radius": 36.0, "kind": "shield"},
+			{"pos": Vector2(680, 680), "radius": 36.0, "kind": "shield"},
+		],
 		"floors": [
 			{"kind": "portal", "pos": Vector2(500, 170), "radius": 60.0, "to": 1},
 			{"kind": "portal", "pos": Vector2(500, 830), "radius": 60.0, "to": 0},
@@ -435,9 +460,9 @@ const DEFS := {
 	},
 	"speedway": {
 		"display_name": "Slot Car Speedway",
-		"description": "Belts run round the track. Ride the loop or fight across it.",
+		"description": "Belts run round the track and a turnstile spins in the middle.",
 		"corner_cut": 180.0,
-		"obstacles": [{"pos": Vector2(500, 500), "radius": 60.0, "kind": "pillar"}],
+		"obstacles": [{"pos": Vector2(500, 500), "radius": 30.0, "kind": "pillar", "bar": 150.0, "angle": 45.0, "orbit": -0.7}],
 		"floors": [
 			{"kind": "conveyor", "rect": Rect2(270, 120, 460, 90), "dir": Vector2.LEFT, "accel": 450.0},
 			{"kind": "conveyor", "rect": Rect2(270, 790, 460, 90), "dir": Vector2.RIGHT, "accel": 450.0},
@@ -475,13 +500,54 @@ const DEFS := {
 		],
 		"floors": [{"kind": "ice", "pos": Vector2(500, 500), "radius": 120.0}],
 	},
+	"windmill": {
+		"display_name": "Windmill Hill",
+		"description": "A giant sail sweeps the whole middle. Grab a heal or a shield on the edges.",
+		"corner_cut": 0.0,
+		"obstacles": [{"pos": Vector2(500, 500), "radius": 28.0, "kind": "pillar", "bar": 240.0, "angle": 0.0, "orbit": 0.6}],
+		"cores": [
+			{"pos": Vector2(140, 500), "radius": 36.0, "kind": "heal"},
+			{"pos": Vector2(860, 500), "radius": 36.0, "kind": "heal"},
+			{"pos": Vector2(500, 140), "radius": 36.0, "kind": "shield"},
+			{"pos": Vector2(500, 860), "radius": 36.0, "kind": "shield"},
+		],
+	},
+	"pistons": {
+		"display_name": "Piston Press",
+		"description": "Two steel pistons slide across the floor. A heal waits between them.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(500, 340), "radius": 30.0, "kind": "pillar", "bar": 120.0, "angle": 0.0, "slide": Vector2(160, 0), "period": 6.0},
+			{"pos": Vector2(500, 660), "radius": 30.0, "kind": "pillar", "bar": 120.0, "angle": 0.0, "slide": Vector2(-160, 0), "period": 6.0},
+		],
+		"cores": [
+			{"pos": Vector2(500, 500), "radius": 40.0, "kind": "heal"},
+			{"pos": Vector2(150, 500), "radius": 36.0, "kind": "shield"},
+			{"pos": Vector2(850, 500), "radius": 36.0, "kind": "shield"},
+		],
+	},
+	"cogs": {
+		"display_name": "Cog Works",
+		"description": "Two turnstiles spin in the empty corners round a power core.",
+		"corner_cut": 0.0,
+		"obstacles": [
+			{"pos": Vector2(300, 300), "radius": 28.0, "kind": "pillar", "bar": 100.0, "angle": 0.0, "orbit": 0.9},
+			{"pos": Vector2(700, 700), "radius": 28.0, "kind": "pillar", "bar": 100.0, "angle": 0.0, "orbit": 0.9},
+		],
+		"cores": [
+			{"pos": Vector2(500, 500), "radius": 44.0},
+			{"pos": Vector2(380, 620), "radius": 36.0, "kind": "heal"},
+			{"pos": Vector2(620, 380), "radius": 36.0, "kind": "heal"},
+		],
+	},
 }
 
 ## Arenas offered in the in-game picker and checked by the balance sim.
 const PLAYABLE := ["square", "rink", "pillars", "bumpers", "wells", "spikes", "frost", "magma", "arcade",
 	"starfall", "factory", "orbit", "hive", "horizon", "pinball", "reef", "glitch", "inferno", "thorn",
 	"candy", "syrup", "temple", "ruins", "nebula", "asteroid", "trench", "kelp", "storm", "cloud",
-	"sunset", "alley", "dunes", "oasis", "graveyard", "manor", "toybox", "speedway", "arcane", "prism"]
+	"sunset", "alley", "dunes", "oasis", "graveyard", "manor", "toybox", "speedway", "arcane", "prism",
+	"windmill", "pistons", "cogs"]
 
 
 ## Boss maps (sim/bosses.gd, design/bosses.md): one per boss, never in the
@@ -564,6 +630,29 @@ const BOSS_ARENAS := {
 ## stores the result in its fight config, so later pool changes never move it.
 static func pick(seed_value: int) -> String:
 	return PLAYABLE[posmod(("arena:%d" % seed_value).hash(), PLAYABLE.size())]
+
+
+## `obstacles` with each bar turned into a row of overlapping circles (at
+## most `radius` apart) sharing a `bar` group id, so every obstacle check in
+## the sim (bounces, shots, beams, open spots) treats it like pillars.
+static func expand_bars(obstacles: Array) -> Array:
+	var out := []
+	for i in obstacles.size():
+		var o: Dictionary = obstacles[i]
+		if not o.has("bar"):
+			out.append(o)
+			continue
+		var dir := DMath.rotated(Vector2.RIGHT, deg_to_rad(o.get("angle", 0.0)))
+		var n := int(ceil(o.bar * 2.0 / o.radius)) + 1
+		for j in n:
+			var c: Dictionary = o.duplicate()
+			c.erase("angle")
+			c.pos = o.pos + dir * (-o.bar + o.bar * 2.0 * j / (n - 1))
+			c.bar = i
+			if o.has("orbit") and not o.has("pivot"):
+				c.pivot = o.pos
+			out.append(c)
+	return out
 
 
 static func get_def(id: String) -> Dictionary:

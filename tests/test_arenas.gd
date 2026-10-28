@@ -49,7 +49,7 @@ func test_every_arena_is_point_symmetric() -> void:
 		var cores: Array = Arenas.get_def(id).get("cores", [])
 		for k in cores:
 			var mirrored: Vector2 = c * 2.0 - k.pos
-			check(cores.any(func(v): return v.pos.distance_to(mirrored) < 0.01 and v.radius == k.radius), "%s core at %s has no mirror" % [id, k.pos])
+			check(cores.any(func(v): return v.pos.distance_to(mirrored) < 0.01 and v.radius == k.radius and v.get("kind", "core") == k.get("kind", "core")), "%s core at %s has no mirror" % [id, k.pos])
 
 
 func test_starts_are_clear_of_every_obstacle_and_corner() -> void:
@@ -531,3 +531,83 @@ func test_a_launch_pad_flies_over_balls_and_lands_with_a_pulse() -> void:
 	check(flew, "the pad throws it")
 	check(not bumped, "it flies over the other ball")
 	check(landed, "and lands with a pulse")
+
+
+## Every moving part, sampled over the first minute: the map stays
+## point-symmetric, the starts stay clear and parts never come close enough
+## to a wall or each other to pin the biggest ball.
+func test_moving_parts_stay_symmetric_and_clear() -> void:
+	var biggest := 0.0
+	for id in BallDefs.DEFS:
+		biggest = maxf(biggest, BallDefs.get_def(id).radius)
+	var moving := 0
+	for id in Arenas.PLAYABLE:
+		var sim := _sim(id)
+		if not sim.obstacles().any(func(o): return o.has("vel")):
+			continue
+		moving += 1
+		for t in range(0, 60 * MatchSim.TICK_RATE, 7):
+			sim.tick = t
+			var obs := sim.obstacles()
+			for o in obs:
+				var mirrored: Vector2 = sim.centre * 2.0 - o.pos
+				check(obs.any(func(q): return q.pos.distance_to(mirrored) < 0.01 and q.radius == o.radius), "%s part at %s has no mirror at tick %d" % [id, o.pos, t])
+				for start in MatchSim.start_positions(2, sim.arena):
+					check(start.distance_to(o.pos) - o.radius - biggest >= 40.0, "%s part sweeps over start %s at tick %d" % [id, start, t])
+				if not o.has("vel"):
+					continue
+				check(o.vel.length() < 260.0, "%s part moves at %d u/s" % [id, o.vel.length()])
+				var edge: float = minf(minf(o.pos.x, 1000.0 - o.pos.x), minf(o.pos.y, 1000.0 - o.pos.y)) - o.radius
+				for wall in sim.corner_walls():
+					edge = minf(edge, wall[0].dot(o.pos - sim.centre) + wall[1] - o.radius)
+				check(edge > biggest * 2.0 or edge >= 140.0, "%s part at %s leaves a %d gap to the wall" % [id, o.pos, edge])
+				for q in obs:
+					if q == o or (q.has("bar") and o.has("bar") and q.bar == o.bar):
+						continue
+					var gap: float = q.pos.distance_to(o.pos) - q.radius - o.radius
+					check(gap > biggest * 2.0 or gap >= 140.0, "%s parts at %s and %s leave a %d gap" % [id, o.pos, q.pos, gap])
+	check(moving >= 5, "moving maps: %d" % moving)
+
+
+func test_a_spinning_bar_bats_a_ball_and_counts_a_bounce() -> void:
+	var sim := _sim("windmill")
+	var bar := sim.obstacles().filter(func(o): return o.has("bar"))
+	check(bar.size() > 10, "the sail is a row of circles")
+	var tip: Vector2 = bar[-1].pos
+	for i in 30:
+		sim.step()
+	check(sim.obstacles().filter(func(o): return o.has("bar"))[-1].pos.distance_to(tip) > 20.0, "the sail turns")
+	# A still ball in the sail's path gets batted off at its own speed.
+	sim = _sim("windmill")
+	_park(sim)
+	var b := sim.balls[0]
+	b.pos = Vector2(620, 440) # Just ahead of the sail sweeping round clockwise (y down).
+	b.vel = Vector2(-1, 0) * 400.0
+	var hit := false
+	for i in 60:
+		sim.step()
+		if sim.events.any(func(e): return e.type == "bounce" and e.ball == 0):
+			hit = true
+			break
+	check(hit, "the sail counts as a bounce")
+	check_near(b.vel.length(), 400.0, 1.0, "a batted ball keeps its speed")
+
+
+func test_heal_and_shield_pickups() -> void:
+	var sim := MatchSim.new({"seek": 0.0, "seed": 1, "p1": "plain", "p2": "plain", "angles": [null, null], "arena": "windmill", "damage_rolls": false})
+	_park(sim)
+	var kinds := sim.cores().map(func(c): return c.kind)
+	check(kinds.has("heal") and kinds.has("shield"), "Windmill Hill has both pickups")
+	while sim.tick < int(MatchSim.CORE_FIRST * MatchSim.TICK_RATE):
+		sim.step()
+	var b := sim.balls[0]
+	b.hp = b.max_hp * 0.5
+	b.pos = Vector2(140, 500)
+	sim.step()
+	check_near(b.hp, b.max_hp * (0.5 + MatchSim.HEAL_PICKUP), 0.01, "a heal pickup heals")
+	check(sim.events.any(func(e): return e.type == "pickup" and e.kind == "heal"), "and says so")
+	check(not sim.cores()[0].lit, "then goes dark")
+	check(not sim.overcharged(b), "no Overcharge from a heal")
+	b.pos = Vector2(500, 140)
+	sim.step()
+	check_near(b.shield, b.max_hp * MatchSim.SHIELD_PICKUP, 0.01, "a shield pickup shields")

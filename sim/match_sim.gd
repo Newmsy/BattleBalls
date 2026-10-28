@@ -120,6 +120,15 @@ const OVERCHARGE_CONTACT := 1.2
 const OVERCHARGE_SPEED := 1.2
 const CORE_NOVA_RADIUS := 170.0 ## Knocks back and nicks the taker's foes this close.
 const CORE_NOVA_DAMAGE := 8.0
+## Heal and shield pickups (cores with kind "heal" / "shield"): same lighting
+## and respawn as power cores; the taker heals or gains a shield worth this
+## share of its max HP.
+const HEAL_PICKUP := 0.12
+const SHIELD_PICKUP := 0.15
+## Moving parts (obstacles with orbit or slide): a ball they bat counts as a
+## wall bounce for its abilities at most once per this many seconds, so a
+## ball riding a sweeping bar can't farm bounce abilities.
+const MOVING_BOUNCE_GAP := 0.25
 ## Crystals (obstacle kind "crystal"): crack on each ball bounce, shot, beam,
 ## pulse or blast, and shatter after CRYSTAL_HITS, nicking the breaker's foes
 ## nearby. They grow back after CRYSTAL_REGROW seconds once nothing sits there.
@@ -387,6 +396,9 @@ var _hits: Array[Dictionary] = []
 var _core_ready: Array[int] = []
 ## Crystal obstacles by index in arena.obstacles: {hits, back (tick it may regrow, broken while hits is 0)}.
 var _crystals := {}
+## Moving obstacles this tick by index in arena.obstacles: [pos, vel] at full size.
+var _moving := {}
+var _moving_tick := -1
 
 
 func _init(cfg: Dictionary) -> void:
@@ -395,6 +407,9 @@ func _init(cfg: Dictionary) -> void:
 	# arena_def: a one-off layout (Daily Trick Shot), not one of Arenas' maps.
 	arena = cfg.arena_def if cfg.has("arena_def") else Arenas.get_def(arena_id)
 	_sides = _side_walls(arena)
+	if arena.get("obstacles", []).any(func(o): return o.has("bar")):
+		arena = arena.duplicate()
+		arena.obstacles = Arenas.expand_bars(arena.obstacles)
 	for c in arena.get("cores", []):
 		_core_ready.append(int(round(CORE_FIRST * TICK_RATE)))
 	for i in arena.get("obstacles", []).size():
@@ -540,21 +555,54 @@ func obstacles() -> Array[Dictionary]:
 	var k := arena_scale()
 	if k < OBSTACLE_MIN_SCALE:
 		return out
+	if _moving_tick != tick:
+		_move_obstacles()
 	for i in arena.obstacles.size():
 		var o: Dictionary = arena.obstacles[i]
 		var at: Vector2 = o.pos
-		if o.has("orbit"): # Circles the centre at orbit rad/s, starting at pos.
-			at = centre + DMath.rotated(o.pos - centre, o.orbit * time())
+		if _moving.has(i):
+			at = _moving[i][0]
 		if o.kind == "crystal":
 			if _crystals[i].hits <= 0:
 				continue # Shattered.
 			out.append({"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind, "crystal": i, "hits": _crystals[i].hits})
 			continue
-		out.append({"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind})
+		var d := {"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind}
+		if _moving.has(i):
+			d.vel = _moving[i][1] * k
+			if o.has("bar"):
+				d.bar = o.bar
+				if o.has("orbit"):
+					d.hub = centre + (o.get("pivot", centre) - centre) * k
+		out.append(d)
 	for p in pieces:
 		if p.blocking:
 			out.append({"pos": p.pos, "radius": p.radius, "kind": p.kind, "piece": p})
 	return out
+
+
+## Where moving obstacle `o` sits at `t` seconds, at full size: it slides
+## back and forth by `slide` (a sine with this period), then circles its
+## pivot (the centre unless set) at `orbit` rad/s. Tick time only, so every
+## replay sees the same part in the same place.
+func _moving_at(o: Dictionary, t: float) -> Vector2:
+	var at: Vector2 = o.pos
+	if o.has("slide"):
+		at += o.slide * DMath.sin(TAU * t / o.period)
+	if o.has("orbit"):
+		var pivot: Vector2 = o.get("pivot", centre)
+		at = pivot + DMath.rotated(at - pivot, o.orbit * t)
+	return at
+
+
+func _move_obstacles() -> void:
+	_moving_tick = tick
+	var t := time()
+	for i in arena.get("obstacles", []).size():
+		var o: Dictionary = arena.obstacles[i]
+		if o.has("orbit") or o.has("slide"):
+			var at := _moving_at(o, t)
+			_moving[i] = [at, (at - _moving_at(o, t - DT)) / DT]
 
 
 ## Gravity wells at the current overtime scale (gone with the obstacles).
@@ -858,7 +906,8 @@ func state_hash() -> String:
 
 
 ## Power cores at the current overtime scale (gone with the obstacles): each
-## {pos, radius, lit, ready_in (seconds until it lights, 0 when lit)}.
+## {pos, radius, kind ("core", "heal" or "shield"), lit, ready_in (seconds
+## until it lights, 0 when lit)}.
 func cores() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	var k := arena_scale()
@@ -867,7 +916,7 @@ func cores() -> Array[Dictionary]:
 	var defs: Array = arena.get("cores", [])
 	for i in defs.size():
 		var left := maxi(0, _core_ready[i] - tick)
-		out.append({"pos": centre + (defs[i].pos - centre) * k, "radius": defs[i].radius * k, "lit": left == 0, "ready_in": left * DT})
+		out.append({"pos": centre + (defs[i].pos - centre) * k, "radius": defs[i].radius * k, "kind": defs[i].get("kind", "core"), "lit": left == 0, "ready_in": left * DT})
 	return out
 
 
@@ -896,12 +945,31 @@ func _update_cores() -> void:
 		if takers.is_empty():
 			continue
 		_core_ready[i] = tick + int(round(CORE_RESPAWN * TICK_RATE))
+		if c.kind != "core":
+			for b in takers:
+				_take_pickup(b, c)
+			continue
 		for b in takers:
 			b.state.overcharge_until = tick + int(round(OVERCHARGE_SECS * TICK_RATE))
 			set_mod(b, "overcharge", {"speed": OVERCHARGE_SPEED, "damage": OVERCHARGE_CONTACT}, OVERCHARGE_SECS)
 			events.append({"type": "core", "ball": b.index, "pos": c.pos})
 			if not abilities.surge(self, b) and b.alive():
 				pulse(b, b.pos, CORE_NOVA_RADIUS, CORE_NOVA_DAMAGE, true, "core_nova")
+
+
+## A heal or shield pickup taken by `b`.
+func _take_pickup(b: Ball, c: Dictionary) -> void:
+	events.append({"type": "pickup", "kind": c.kind, "ball": b.index, "pos": c.pos})
+	if c.kind == "heal":
+		var gained := minf(b.max_hp * HEAL_PICKUP, b.max_hp - b.hp)
+		if gained > 0.0:
+			b.hp += gained
+			b.healed += gained
+			events.append({"type": "heal", "target": b.index, "amount": gained, "pos": b.pos})
+	else:
+		var amount := b.max_hp * SHIELD_PICKUP
+		b.shield += amount
+		events.append({"type": "shield", "target": b.index, "amount": amount, "pos": b.pos})
 
 
 func overcharged(b: Ball) -> bool:
@@ -1014,6 +1082,27 @@ func _resolve_walls(b: Ball) -> void:
 			continue
 		var n := delta / dist if dist > 0.0001 else Vector2.UP
 		b.pos = o.pos + n * reach
+		if o.has("vel"):
+			# A moving part bats the ball: it bounces in the part's frame and
+			# keeps its own speed.
+			var rel: Vector2 = b.vel - o.vel
+			if rel.dot(n) >= 0.0:
+				continue
+			var spd := b.vel.length()
+			var out: Vector2 = rel - 2.0 * rel.dot(n) * n + o.vel
+			b.vel = out.normalized() * spd if out.length() > 0.001 else n * spd
+			var last: int = b.state.get("batted", -1000000)
+			b.state.batted = tick
+			if tick - last < int(round(MOVING_BOUNCE_GAP * TICK_RATE)):
+				continue
+			if o.kind == "bumper":
+				b.boost_ticks = int(round(BUMPER_BOOST_TIME * TICK_RATE))
+				b.vel = b.vel.normalized() * b.current_speed()
+				events.append({"type": "bumper", "ball": b.index, "pos": o.pos + n * o.radius})
+			elif o.kind == "spike":
+				_spike(b, o.pos + n * o.radius)
+			_on_wall_bounce(b, o.pos + n * o.radius, true)
+			continue
 		if b.vel.dot(n) < 0.0:
 			b.vel -= 2.0 * b.vel.dot(n) * n
 			if o.has("crystal"):

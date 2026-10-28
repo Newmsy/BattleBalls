@@ -620,6 +620,8 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 			"core": # A power core taken: a bright shine and a charge-up.
 				play("t5_shine", 0.0, 1.1)
 				play("shield_up", -4.0, 1.2)
+			"pickup": # A heal / shield pickup: a shine (its heal or shield event adds the rest).
+				play("t5_shine", -4.0, 1.4)
 			"crystal_crack":
 				play("shield_tink", -4.0, 1.3 + _rng.randf() * 0.2)
 			"crystal_break":

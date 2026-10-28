@@ -28,14 +28,14 @@ const FAMILIES := {
 	"temple": "temple", "ruins": "temple", "thorn": "temple",
 	"nebula": "space", "asteroid": "space", "wells": "space", "horizon": "space", "orbit": "space", "starfall": "space",
 	"kelp": "ocean", "trench": "ocean", "reef": "ocean",
-	"cloud": "sky", "storm": "sky",
+	"cloud": "sky", "storm": "sky", "windmill": "sky",
 	"frost": "ice", "prism": "ice",
 	"magma": "volcano", "inferno": "volcano",
 	"sunset": "synth", "alley": "synth", "glitch": "synth",
 	"dunes": "desert", "oasis": "desert",
 	"graveyard": "haunted", "manor": "haunted", "arcane": "haunted",
-	"toybox": "toybox", "speedway": "toybox", "pinball": "toybox", "bumpers": "toybox", "arcade": "toybox",
-	"square": "classics", "rink": "classics", "pillars": "classics", "spikes": "classics", "factory": "classics",
+	"toybox": "toybox", "speedway": "toybox", "cogs": "toybox", "pinball": "toybox", "bumpers": "toybox", "arcade": "toybox",
+	"square": "classics", "rink": "classics", "pillars": "classics", "spikes": "classics", "factory": "classics", "pistons": "classics",
 }
 
 ## Sprites stand this many radii out from their centre (shadows, leaves).
@@ -70,6 +70,8 @@ static func make_ctx(id: String, s: float, margin: float) -> Kit.Ctx:
 	for p in shape.arena_outline():
 		ctx.outline.append(p * s)
 	for o in shape.obstacles():
+		if o.has("vel"):
+			continue # Moving parts aren't painted into the static floor.
 		ctx.obstacles.append({"pos": o.pos * s, "radius": o.radius * s, "kind": o.kind})
 	for f in shape.floors():
 		var g: Dictionary = {"kind": f.kind}
