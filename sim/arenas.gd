@@ -366,23 +366,20 @@ const DEFS := {
 	},
 	"kelp": {
 		"display_name": "Kelp Forest",
-		"description": "Swaying kelp stalks everywhere to ricochet off.",
+		"description": "Six tall kelp stalks sway in the current. A healing spring bubbles in the middle.",
 		"corner_cut": 0.0,
 		# Each stalk sways across the current; mirrored stalks sway opposite ways.
+		# Six, not eight, and none on the start diagonal or in the middle: eight stalks walled
+		# big critters into pockets and fights ran ~50% long (tools/map_length.gd).
 		"obstacles": [
-			{"pos": Vector2(300, 300), "radius": 26.0, "kind": "pillar", "slide": Vector2(15, -15), "period": 3.4},
-			{"pos": Vector2(700, 700), "radius": 26.0, "kind": "pillar", "slide": Vector2(-15, 15), "period": 3.4},
-			{"pos": Vector2(320, 680), "radius": 26.0, "kind": "pillar", "slide": Vector2(15, 15), "period": 4.0},
-			{"pos": Vector2(680, 320), "radius": 26.0, "kind": "pillar", "slide": Vector2(-15, -15), "period": 4.0},
-			{"pos": Vector2(500, 170), "radius": 26.0, "kind": "pillar", "slide": Vector2(22, 0), "period": 3.0},
-			{"pos": Vector2(500, 830), "radius": 26.0, "kind": "pillar", "slide": Vector2(-22, 0), "period": 3.0},
-			{"pos": Vector2(170, 500), "radius": 26.0, "kind": "pillar", "slide": Vector2(0, 22), "period": 3.0},
-			{"pos": Vector2(830, 500), "radius": 26.0, "kind": "pillar", "slide": Vector2(0, -22), "period": 3.0},
+			{"pos": Vector2(210, 210), "radius": 34.0, "kind": "pillar", "slide": Vector2(20, -20), "period": 3.6},
+			{"pos": Vector2(790, 790), "radius": 34.0, "kind": "pillar", "slide": Vector2(-20, 20), "period": 3.6},
+			{"pos": Vector2(500, 210), "radius": 34.0, "kind": "pillar", "slide": Vector2(30, 0), "period": 3.2},
+			{"pos": Vector2(500, 790), "radius": 34.0, "kind": "pillar", "slide": Vector2(-30, 0), "period": 3.2},
+			{"pos": Vector2(210, 500), "radius": 34.0, "kind": "pillar", "slide": Vector2(0, 30), "period": 3.2},
+			{"pos": Vector2(790, 500), "radius": 34.0, "kind": "pillar", "slide": Vector2(0, -30), "period": 3.2},
 		],
-		"cores": [
-			{"pos": Vector2(500, 330), "radius": 36.0, "kind": "shield"},
-			{"pos": Vector2(500, 670), "radius": 36.0, "kind": "shield"},
-		],
+		"cores": [{"pos": Vector2(500, 500), "radius": 40.0, "kind": "heal"}],
 	},
 	"storm": {
 		"display_name": "Thunder Peak",
@@ -441,7 +438,7 @@ const DEFS := {
 	},
 	"dunes": {
 		"display_name": "Sand Dunes",
-		"description": "A wide desert pass with quicksand in the middle and cacti.",
+		"description": "A wide desert pass with cacti and a sinkhole of quicksand in the middle.",
 		"corner_cut": 0.0,
 		"sides": {"n": 2, "inradius": 330.0, "rot": 45.0},
 		"obstacles": [
@@ -449,6 +446,8 @@ const DEFS := {
 			{"pos": Vector2(620, 620), "radius": 30.0, "kind": "spike"},
 		],
 		"floors": [{"kind": "goo", "pos": Vector2(500, 500), "radius": 100.0, "slow": 0.35}],
+		# A sinkhole: a small well under the quicksand.
+		"wells": [{"pos": Vector2(500, 500), "reach": 120.0, "accel": 500.0, "core": 20.0}],
 	},
 	"oasis": {
 		"display_name": "Desert Oasis",
@@ -511,14 +510,16 @@ const DEFS := {
 	},
 	"speedway": {
 		"display_name": "Slot Car Speedway",
-		"description": "Belts run round the track and a turnstile spins in the middle.",
+		"description": "Belts sweep the track into the two empty corners and a turnstile spins in the middle.",
+		# The belts meet in the empty corners: running round in a loop they
+		# carried both balls the same way and fights ran ~40% long (tools/map_length.gd).
 		"corner_cut": 180.0,
 		"obstacles": [{"pos": Vector2(500, 500), "radius": 30.0, "kind": "pillar", "bar": 150.0, "angle": 45.0, "orbit": -0.7}],
 		"floors": [
 			{"kind": "conveyor", "rect": Rect2(270, 120, 460, 90), "dir": Vector2.LEFT, "accel": 450.0},
 			{"kind": "conveyor", "rect": Rect2(270, 790, 460, 90), "dir": Vector2.RIGHT, "accel": 450.0},
-			{"kind": "conveyor", "rect": Rect2(120, 270, 90, 460), "dir": Vector2.DOWN, "accel": 450.0},
-			{"kind": "conveyor", "rect": Rect2(790, 270, 90, 460), "dir": Vector2.UP, "accel": 450.0},
+			{"kind": "conveyor", "rect": Rect2(120, 270, 90, 460), "dir": Vector2.UP, "accel": 450.0},
+			{"kind": "conveyor", "rect": Rect2(790, 270, 90, 460), "dir": Vector2.DOWN, "accel": 450.0},
 		],
 	},
 	"arcane": {
@@ -553,14 +554,12 @@ const DEFS := {
 	},
 	"windmill": {
 		"display_name": "Windmill Hill",
-		"description": "A giant sail sweeps the whole middle. Grab a heal or a shield on the edges.",
+		"description": "A giant sail sweeps the whole middle. Grab a heal on the edges.",
 		"corner_cut": 0.0,
 		"obstacles": [{"pos": Vector2(500, 500), "radius": 28.0, "kind": "pillar", "bar": 240.0, "angle": 0.0, "orbit": 0.6}],
 		"cores": [
 			{"pos": Vector2(140, 500), "radius": 36.0, "kind": "heal"},
 			{"pos": Vector2(860, 500), "radius": 36.0, "kind": "heal"},
-			{"pos": Vector2(500, 140), "radius": 36.0, "kind": "shield"},
-			{"pos": Vector2(500, 860), "radius": 36.0, "kind": "shield"},
 		],
 	},
 	"pistons": {
@@ -573,8 +572,6 @@ const DEFS := {
 		],
 		"cores": [
 			{"pos": Vector2(500, 500), "radius": 40.0, "kind": "heal"},
-			{"pos": Vector2(150, 500), "radius": 36.0, "kind": "shield"},
-			{"pos": Vector2(850, 500), "radius": 36.0, "kind": "shield"},
 		],
 	},
 	"cogs": {

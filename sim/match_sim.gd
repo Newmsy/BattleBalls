@@ -123,8 +123,8 @@ const CORE_NOVA_DAMAGE := 8.0
 ## Heal and shield pickups (cores with kind "heal" / "shield"): same lighting
 ## and respawn as power cores; the taker heals or gains a shield worth this
 ## share of its max HP.
-const HEAL_PICKUP := 0.12
-const SHIELD_PICKUP := 0.15
+const HEAL_PICKUP := 0.08
+const SHIELD_PICKUP := 0.10
 ## Moving parts (obstacles with orbit or slide): a ball they bat counts as a
 ## wall bounce for its abilities at most once per this many seconds, so a
 ## ball riding a sweeping bar can't farm bounce abilities.

@@ -597,7 +597,7 @@ func test_heal_and_shield_pickups() -> void:
 	var sim := MatchSim.new({"seek": 0.0, "seed": 1, "p1": "plain", "p2": "plain", "angles": [null, null], "arena": "windmill", "damage_rolls": false})
 	_park(sim)
 	var kinds := sim.cores().map(func(c): return c.kind)
-	check(kinds.has("heal") and kinds.has("shield"), "Windmill Hill has both pickups")
+	check(kinds.has("heal"), "Windmill Hill has heal pickups")
 	while sim.tick < int(MatchSim.CORE_FIRST * MatchSim.TICK_RATE):
 		sim.step()
 	var b := sim.balls[0]
@@ -608,6 +608,16 @@ func test_heal_and_shield_pickups() -> void:
 	check(sim.events.any(func(e): return e.type == "pickup" and e.kind == "heal"), "and says so")
 	check(not sim.cores()[0].lit, "then goes dark")
 	check(not sim.overcharged(b), "no Overcharge from a heal")
-	b.pos = Vector2(500, 140)
+	# Haunted Manor's wards are shields.
+	sim = MatchSim.new({"seek": 0.0, "seed": 1, "p1": "plain", "p2": "plain", "angles": [null, null], "arena": "manor", "damage_rolls": false})
+	sim.balls[0].pos = Vector2(150, 150) # Clear of the mirrors.
+	sim.balls[1].pos = Vector2(850, 850)
+	for p in sim.balls:
+		p.vel = Vector2.ZERO
+	check(sim.cores().any(func(c): return c.kind == "shield"), "Haunted Manor has shield pickups")
+	while sim.tick < int(MatchSim.CORE_FIRST * MatchSim.TICK_RATE):
+		sim.step()
+	b = sim.balls[0]
+	b.pos = Vector2(320, 320)
 	sim.step()
 	check_near(b.shield, b.max_hp * MatchSim.SHIELD_PICKUP, 0.01, "a shield pickup shields")
