@@ -317,9 +317,9 @@ static func _quest_line(shell) -> String:
 	return "New" if (q.daily as Array).is_empty() else "%d/3" % q.chest.done
 
 
-## Versus: Ghost Arena and Friends, then Quick fight with your fighter (tap
-## the face to pick another) while live fights are on. The header opens the
-## Versus hub.
+## Versus: Ghost Arena, then Quick fight with your fighter (tap the face to
+## pick another) while live fights are on. The header opens the Versus hub
+## (Trophy Room, Bazaar, weekly chest); Friends are behind your level badge.
 static func _versus_door(shell) -> Control:
 	var store = ArenaStore.open()
 	var league := Kit.vbox(0, [Kit.label("Ghost Arena", _s(26)), Kit.label("%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)], 19, VERSUS)])
@@ -327,24 +327,13 @@ static func _versus_door(shell) -> Control:
 	var arena := Kit.card_button(Kit.hbox(12, [token("ghost", _s(64)), league], BoxContainer.ALIGNMENT_CENTER), func(): shell.go("arena"), VERSUS.darkened(.45), VERSUS.darkened(.8), 24, 10)
 	arena.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("arena", arena)
-	var fr = shell.friends
-	var fg := token("friends", 44)
-	fg.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var fv := Kit.vbox(2, [fg, Kit.label("Friends", 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
-	fv.alignment = BoxContainer.ALIGNMENT_CENTER
-	fv.custom_minimum_size.x = 100
-	var intro := not Intro.done(shell.profile)
-	var friends := Kit.card_button(fv, func(): shell.toast(LATER) if intro else shell.go("friends"), VERSUS.darkened(.45), VERSUS.darkened(.8), 24, 10)
-	if intro:
-		friends.modulate = Color(1, 1, 1, .5)
-	friends.size_flags_vertical = Control.SIZE_FILL
-	if fr.attention() > 0:
-		friends.add_child(red_dot())
-	shell.mark("friends", friends)
-	var rows: Array = [Kit.hbox(8, [arena, friends], BoxContainer.ALIGNMENT_CENTER)]
+	if store.chest_ready():
+		arena.add_child(red_dot())
+	var intro := Intro.step(shell.profile) < Intro.TROPHY
+	var rows: Array = [arena]
 	if Dev.quick_fight_shown():
 		rows.append(quick_fight_row(shell))
-	return door(shell, "versus", "VERSUS", "Ghost Arena · Quick fight · Friends" if Dev.quick_fight_shown() else "Ghost Arena · Friends", VERSUS, func(): shell.go("arena" if intro else "versus"),
+	return door(shell, "versus", "VERSUS", "Ghost Arena · Quick fight · Trophy Room" if Dev.quick_fight_shown() else "Ghost Arena · Trophy Room · Bazaar", VERSUS, func(): shell.go("arena" if intro else "versus"),
 		rows,
 		{"id": "home_versus", "focus": Vector2(.75, .9)})
 

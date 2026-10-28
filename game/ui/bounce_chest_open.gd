@@ -33,6 +33,9 @@ var chest: Dictionary ## From BounceChest.pending().
 var rewards: Array
 var phase := Phase.ARRIVING
 var tier: Dictionary
+var caption := ""
+## Grants the rewards (a chest that isn't a Bounce Run one, show_custom()).
+var collect := Callable()
 
 var _art: Control
 var _rays: Control
@@ -53,6 +56,25 @@ static func show_on(shell_, c: Dictionary) -> Control:
 	v.profile = shell_.profile
 	v.sfx = shell_.sfx
 	v._setup(c)
+	shell_.overlay(v, "bounce_chest")
+	v._arrive.call_deferred()
+	return v
+
+
+## Any other chest with the same show: `look` is {id (chest art), name,
+## color, caption}, and `on_collect` grants `rewards_` when Collect is tapped.
+static func show_custom(shell_, look: Dictionary, rewards_: Array, on_collect: Callable) -> Control:
+	var v = load("res://game/ui/bounce_chest_open.gd").new()
+	v.shell = shell_
+	v.profile = shell_.profile
+	v.sfx = shell_.sfx
+	v.rewards = rewards_
+	v.tier = look
+	v.caption = str(look.get("caption", ""))
+	v.collect = on_collect
+	v._build()
+	if look.has("tint"):
+		v._art.modulate = look.tint
 	shell_.overlay(v, "bounce_chest")
 	v._arrive.call_deferred()
 	return v
@@ -99,7 +121,7 @@ func _build() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(col)
-	col.add_child(Kit.caption("BOUNCE RUN · BEST CLIMB FLOOR %d" % int(chest.floor), Kit.MUTED))
+	col.add_child(Kit.caption(caption if caption != "" else "BOUNCE RUN · BEST CLIMB FLOOR %d" % int(chest.floor), Kit.MUTED))
 	col.add_child(Kit.label(str(tier.name).to_upper(), 52, tier.color))
 	for c in col.get_children():
 		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -384,8 +406,13 @@ func _kill() -> void:
 func _on_collect() -> void:
 	if profile == null:
 		return
-	var got := BounceChest.open(profile, chest)
-	print("UI_BOUNCE_CHEST_COLLECT day=%d n=%d" % [int(chest.day), got.size()])
+	var got: Array = rewards
+	if collect.is_valid():
+		collect.call()
+		print("UI_CHEST_COLLECT %s" % tier.id)
+	else:
+		got = BounceChest.open(profile, chest)
+		print("UI_BOUNCE_CHEST_COLLECT day=%d n=%d" % [int(chest.day), got.size()])
 	_sound("coins")
 	if shell == null:
 		_leave(got)

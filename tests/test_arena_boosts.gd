@@ -116,8 +116,8 @@ func test_boosts_screen_builds_and_buys() -> void:
 	s.points = 100
 	var shell = Shell.new()
 	shell.build()
-	shell.go("arena", {"store": s})
-	check(shell._marks.has("arena_boosts"), "arena links to boosts")
+	shell.go("versus")
+	check(shell._marks.has("arena_boosts"), "Versus links to boosts")
 	shell.go("boosts", {"store": s})
 	check_eq(shell.current, "boosts", "boosts screen")
 	# A trio family always has its row; families you own nothing of are one

@@ -3,6 +3,8 @@ extends "res://tests/test_case.gd"
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
+const ArenaPlayers := preload("res://game/pvp/arena_players.gd")
+const ArenaChest := preload("res://game/pvp/arena_chest.gd")
 const Families := preload("res://sim/families.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
@@ -221,7 +223,7 @@ func test_seeded_teams_sit_near_your_trophies_and_grow_with_them() -> void:
 		var fams := {}
 		for c in cards:
 			var team: Dictionary = c.bot
-			fams[team.family] = true
+			fams[team.family] = int(fams.get(team.family, 0)) + 1
 			check(absi(int(team.trophies) - trophies) <= ArenaTeams.SPREAD_ABOVE + 20, "%d trophies near %d" % [team.trophies, trophies])
 			var ids := ArenaGhosts.critters(team.lineup)
 			check(ids[0] != ids[1] and ids[1] != ids[2] and ids[0] != ids[2], "three different critters")
@@ -229,7 +231,7 @@ func test_seeded_teams_sit_near_your_trophies_and_grow_with_them() -> void:
 				check_eq(Families.of(id), team.family, "%s fits the %s theme" % [id, team.family])
 			var want := ArenaTeams.strength_for(int(team.trophies))
 			check(absf(ArenaTeams.rating(team) - want) <= want * 0.15, "team near %d (got %d)" % [want, ArenaTeams.rating(team)])
-		check_eq(fams.size(), cards.size(), "different themes")
+		check(fams.values().max() <= 2, "themes repeat at most once: %s" % fams)
 		check(int(cards[0].bot.trophies) < int(cards[-1].bot.trophies), "weakest first")
 	check(ArenaTeams.strength_for(2000) > ArenaTeams.strength_for(500), "teams grow with trophies")
 	check_eq(ArenaTeams.offers(300, 9), ArenaTeams.offers(300, 9), "same day, same teams")
@@ -311,13 +313,81 @@ func test_arena_hub_opens_its_rooms() -> void:
 	shell.build()
 	for id in ["laser", "vampire", "spiker", "speedster"]:
 		shell.profile.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
-	shell.go("arena", {"store": s})
-	for room in [["arena_boosts", "boosts"], ["arena_bazaar", "bazaar"], ["arena_defence", "defence"]]:
-		shell.go("arena", {"store": s})
+	# Trophy Room, Bazaar and the weekly chest are on the Versus hub.
+	for room in [["arena_boosts", "boosts"], ["arena_bazaar", "bazaar"], ["arena_chest", "arena_chests"]]:
+		shell.go("versus")
 		shell._marks[room[0]].pressed.emit()
 		check_eq(shell.current, room[1], room[1])
+	check(not shell._marks.has("friends") or shell.current != "versus", "no Friends on Versus")
+	# The Arena keeps its Defence, and its league opens the chests.
+	shell.go("arena", {"store": s})
+	check(not shell._marks.has("arena_boosts"), "no rooms in the Arena")
+	check(shell._marks.has("arena_list"), "opponent list")
+	check(shell._marks.has("arena_card_%d" % (ArenaTeams.OFFER_COUNT - 1)), "ten opponents")
+	shell._marks["arena_league"].pressed.emit()
+	check_eq(shell.current, "arena_chests", "league opens the chests")
+	shell.go("arena", {"store": s})
+	shell._marks["arena_defence"].pressed.emit()
+	check_eq(shell.current, "defence", "defence")
 	check(shell._marks.has("defence_slot_0"), "defence trio picker")
 	shell.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_real_players_mix_into_the_list() -> void:
+	var lineup := {"v": 1, "rules": MatchSim.RULES_VERSION, "aim": [10, -20, 30],
+		"slots": [{"critter": "vampire", "tier": 2, "level": 5, "gear": [], "aim": 10},
+			{"critter": "laser", "tier": 1, "level": 3, "gear": []}, {"critter": "spiker", "tier": 1, "level": 1, "gear": []}]}
+	var p := ArenaPlayers.squad({"id": "u1", "name": "Mia", "trophies": 1010, "lineup": lineup})
+	check_eq(p.name, "Mia", "their name")
+	check(p.player, "marked as a player")
+	check_eq(p.trophies, 1010, "their trophies")
+	check_eq(p.lineup.slots.size(), 3, "three critters")
+	check_eq(int(p.lineup.slots[0].aim), 10, "their aim")
+	check(ArenaPlayers.squad({"id": "u2", "name": "Old", "lineup": {"rules": -1, "slots": lineup.slots}}).is_empty(), "other rules are skipped")
+	check(ArenaPlayers.squad({"id": "u3", "name": "Solo", "lineup": {"rules": MatchSim.RULES_VERSION, "slots": [lineup.slots[0]]}}).is_empty(), "a squad is three")
+	var list := ArenaPlayers.offers(1000, 5, 0, [p, p])
+	check_eq(list.size(), ArenaPlayers.LIST_SIZE, "still ten")
+	check_eq(list.filter(func(o): return o.bot.get("player", false)).size(), 2, "both players in")
+	for i in list.size() - 1:
+		check(int(list[i].bot.trophies) <= int(list[i + 1].bot.trophies), "fewest trophies first")
+	check_eq(ArenaPlayers.offers(1000, 5, 0, []), ArenaTeams.offers(1000, 5, 0), "offline: all teams")
+	# A fight against a player's squad replays from the squad alone.
+	var s = _fresh_store()
+	s.start_attack("seeded", p, 77)
+	check_eq(s.pending_bot().name, "Mia", "attacking Mia")
+	check_eq(int(s.pending_stake().win), Ladder.stake(s.trophies, 1010).win, "stake from their trophies")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_weekly_chest_by_best_league() -> void:
+	var s = _fresh_store()
+	s.trophies = 1100
+	s.note_league(100)
+	check(s.chest.is_empty(), "nothing during the week")
+	s.trophies = 1900
+	s.note_league(100)
+	s.trophies = 1500
+	s.note_league(100)
+	check_eq(s.week_best, 3, "best league this week (Platinum)")
+	check(s.chest_ready() and s.chest.league == 3, "a new week opens last week's chest")
+	s.roll_week(102)
+	check(s.chest.week == 100, "a quiet week leaves the chest waiting")
+	var wk: int = s.chest.week
+	var p = UiProfile.new()
+	var coins_before: int = s.coins
+	var orbs_before: int = p.orbs
+	var got := ArenaChest.open(s, p)
+	check_eq(got, ArenaChest.rewards(3, wk), "what the screen showed")
+	check(s.chest.is_empty(), "opened once")
+	check(ArenaChest.open(s, p).is_empty(), "only once")
+	check_eq(s.coins, coins_before + 100, "tokens to the Bazaar")
+	check_eq(p.orbs, orbs_before + 3, "eggs")
+	for i in ArenaChest.CHESTS.size():
+		check(ArenaChest.rewards(i, 1).size() <= 5, "fits the opening row")
+	check_eq(ArenaChest.week_of(0), 0, "1970-01-01 is week 0")
+	check_eq(ArenaChest.week_of(4 * 86400), 1, "weeks start on Monday")
+	check_eq(ArenaChest.seconds_left(4 * 86400 - 60), 60, "a minute left on Sunday night")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
 

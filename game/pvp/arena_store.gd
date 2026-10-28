@@ -18,6 +18,8 @@ const Lineup := preload("res://sim/lineup.gd")
 const ArenaBoosts := preload("res://sim/arena_boosts.gd")
 const Families := preload("res://sim/families.gd")
 const ArenaTeams := preload("res://game/pvp/arena_teams.gd")
+const ArenaPlayers := preload("res://game/pvp/arena_players.gd")
+const ArenaChest := preload("res://game/pvp/arena_chest.gd")
 const Rng := preload("res://sim/rng.gd")
 const Gear := preload("res://sim/gear.gd")
 
@@ -69,6 +71,9 @@ var bazaar_day := 0
 var bought: Array = [] ## Bazaar item indexes bought on bazaar_day.
 var raid_day := 0
 var raids: Array = [] ## Today's raids on your defence: {name, family, held, delta, coins}
+var week := 0 ## The week week_best counts (ArenaChest.week_of).
+var week_best := -1 ## Best league index reached in `week`; -1 before any Arena visit.
+var chest: Dictionary = {} ## The weekly chest waiting to open: {week, league}.
 
 
 static func open(save_path := SAVE_PATH):
@@ -96,6 +101,8 @@ static func sample():
 		{"name": "Circuit Gang", "family": "tech", "held": false, "delta": -10, "coins": 0},
 		{"name": "Petal Patrol", "family": "nature", "held": true, "delta": 5, "coins": 8}]
 	s.coins_earned = 610
+	s.week = ArenaChest.this_week()
+	s.week_best = Ladder.league_index(s.trophies)
 	s.boosts = {"spooky": {"health": 3, "attack": 4, "defense": 2, "speed": 1}, "nature": {"attack": 2, "health": 1}, "fire": {"speed": 1}}
 	return s
 
@@ -105,11 +112,12 @@ static func today() -> int:
 	return d.year * 10000 + d.month * 100 + d.day
 
 
-## Today's opponents: seeded themed teams with trophies near yours, as
-## strong as their trophies say (game/pvp/arena_teams.gd). `profile` is
-## unused; kept so callers needn't change.
+## Today's opponents: other players' saved squads near your trophies
+## (game/pvp/arena_players.gd) mixed in with seeded themed teams as strong as
+## their trophies say (game/pvp/arena_teams.gd). `profile` is unused; kept so
+## callers needn't change.
 func offers(_profile = null, day: int = today()) -> Array[Dictionary]:
-	return ArenaTeams.offers(trophies, day, refreshes if refresh_day == day else 0)
+	return ArenaPlayers.offers(trophies, day, refreshes if refresh_day == day else 0)
 
 
 ## Your attack trio's summed Power Rating, as the Arena fights it.
@@ -306,6 +314,7 @@ func _apply(won: bool) -> int:
 	var delta := Ladder.stake_delta(trophies, peak, pending_stake(), won)
 	trophies += delta
 	peak = maxi(peak, trophies)
+	note_league()
 	if delta > 0:
 		points += delta
 		points_earned += delta
@@ -356,8 +365,32 @@ func run_raids(profile = null, day: int = today()) -> Array:
 		coins += got
 		coins_earned += got
 		raids.append({"name": team.name, "family": team.family, "held": held, "delta": delta, "coins": got})
+	note_league()
 	save()
 	return raids
+
+
+## A finished week's best league becomes its chest (replacing one left
+## unopened), and a new week starts counting.
+func roll_week(now_week: int = ArenaChest.this_week()) -> void:
+	if week == now_week:
+		return
+	if week_best >= 0 and week < now_week:
+		chest = {"week": week, "league": week_best}
+	week = now_week
+	week_best = -1
+
+
+## True when a finished week's chest is waiting to open.
+func chest_ready() -> bool:
+	roll_week()
+	return not chest.is_empty()
+
+
+## Counts the league you're in now towards this week's chest.
+func note_league(now_week: int = ArenaChest.this_week()) -> void:
+	roll_week(now_week)
+	week_best = maxi(week_best, Ladder.league_index(trophies))
 
 
 ## Runs a relay (sim/relay.gd) of two lineups to the end: {winner, legs, hash}.
@@ -432,7 +465,7 @@ func buy(profile, index: int, day: int = today()) -> bool:
 
 func save() -> void:
 	var f := ConfigFile.new()
-	for key in ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "points", "points_earned", "boosts", "defence", "coins", "coins_earned", "bazaar_day", "bought", "raid_day", "raids"]:
+	for key in ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "points", "points_earned", "boosts", "defence", "coins", "coins_earned", "bazaar_day", "bought", "raid_day", "raids", "week", "week_best", "chest"]:
 		f.set_value("arena", key, get(key))
 	f.save(path)
 
@@ -442,9 +475,9 @@ func _load() -> void:
 	if f.load(path) != OK:
 		is_new = true
 		return
-	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "coins", "coins_earned", "bazaar_day", "raid_day"]:
+	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "coins", "coins_earned", "bazaar_day", "raid_day", "week", "week_best"]:
 		set(key, int(f.get_value("arena", key, get(key))))
-	for key in ["history", "pending", "bought", "raids"]:
+	for key in ["history", "pending", "bought", "raids", "chest"]:
 		set(key, f.get_value("arena", key, get(key)))
 	# Saves from before Arena Points start with a point per trophy they hold.
 	points_earned = int(f.get_value("arena", "points_earned", trophies))

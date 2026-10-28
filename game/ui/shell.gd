@@ -37,6 +37,7 @@ const SCREENS := {
 	"boosts": preload("res://game/ui/screens/boosts_screen.gd"),
 	"bazaar": preload("res://game/ui/screens/bazaar_screen.gd"),
 	"defence": preload("res://game/ui/screens/defence_screen.gd"),
+	"arena_chests": preload("res://game/ui/screens/arena_chests_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"adventure": preload("res://game/ui/screens/adventure_screen.gd"),
 	"versus": preload("res://game/ui/screens/versus_screen.gd"),
@@ -140,7 +141,8 @@ var _toast: Label
 var _toast_tween: Tween
 var _toast_face ## The critter a toast is about, at its left edge.
 var _marks := {}
-var _badge: Control ## The level badge (opens the account screen).
+var _badge: Control ## The level badge (opens the profile: Friends and the account).
+var _badge_dot: Control ## Lit when friends have news.
 var _built := false
 var _overlay: Control
 var _gear: Control ## Settings button in the top bar.
@@ -738,7 +740,7 @@ func set_account(a) -> void:
 
 
 func _on_friends_changed() -> void:
-	if current in ["friends", "play"] and not overlay_open():
+	if current in ["friends", "play", "account"] and not overlay_open():
 		refresh()
 	elif current != "":
 		_refresh_top()
@@ -1049,7 +1051,20 @@ func _top_bar() -> Control:
 	_level_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_level_ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	lvl.add_child(_level_ring)
-	# The level badge opens the account screen (save progress, sign in).
+	# Friends with news light a dot on the badge (Friends live on its screen).
+	_badge_dot = Panel.new()
+	_badge_dot.add_theme_stylebox_override("panel", Kit.box(Kit.BAD, Kit.BG, 999, 3, 0))
+	_badge_dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_badge_dot.custom_minimum_size = Vector2(22, 22)
+	_badge_dot.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_badge_dot.offset_left = -18
+	_badge_dot.offset_right = 4
+	_badge_dot.offset_top = -4
+	_badge_dot.offset_bottom = 18
+	_badge_dot.visible = false
+	lvl.add_child(_badge_dot)
+	# The level badge opens the profile screen: Friends, then the account
+	# (save progress, sign in).
 	lvl.mouse_filter = Control.MOUSE_FILTER_STOP
 	lvl.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT and current != "account":
@@ -1120,6 +1135,8 @@ func _tick_energy() -> void:
 
 func _refresh_top() -> void:
 	_set_level()
+	if _badge_dot != null and friends != null:
+		_badge_dot.visible = friends.attention() > 0
 	_tick_energy()
 	_set_top("energy", profile.energy)
 	_set_top("coin", profile.coins)
