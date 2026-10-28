@@ -87,6 +87,7 @@ const PORTAL := Color("7cff9b")
 const PORTAL_B := Color("c77dff")
 const ICE := Color("bfe9ff")
 const CORE := Color("ffd23f") ## Power cores and the Overcharge aura.
+const PICKUP_COLORS := {"heal": Color("5cff8a"), "shield": Color("5cc8ff")}
 const CRYSTAL := Color("8fe3ff")
 const JUMP := Color("ff4fa3") ## Launch pads.
 const GOO := Color("ffb627")
@@ -762,6 +763,12 @@ func consume_events(events: Array[Dictionary]) -> void:
 				_burst(e.pos, 16, [CORE, Color("fff3b0"), Color.WHITE], Vector2(160.0, 420.0))
 				_add_popup(cb.pos + Vector2(0, -cb.radius - 56), "OVERCHARGE!", CORE, 1.2)
 				_shake = maxf(_shake, 5.0 * A11y.motion())
+			"pickup": # A heal or shield pickup taken (its heal / shield event shows the amount).
+				var pc: Color = PICKUP_COLORS[e.kind]
+				var pb := sim.balls[e.ball]
+				_rings.append({"pos": e.pos, "radius": 80.0, "color": pc, "age": 0.0})
+				_rings.append({"pos": pb.pos, "radius": pb.radius * 1.6, "color": pc, "age": 0.0})
+				_burst(e.pos, 10, [pc, Color.WHITE], Vector2(120.0, 320.0))
 			"crystal_crack":
 				_burst(e.pos, 5, [CRYSTAL, Color.WHITE], Vector2(80.0, 220.0))
 			"crystal_break":
@@ -1793,9 +1800,15 @@ func _grid_line(a: Vector2, b: Vector2, clip: PackedVector2Array) -> void:
 
 func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 	var s := view_scale
+	var bars := {} ## Bar id -> [first circle, last circle, hub or null].
 	for o in obstacles:
 		if o.has("piece"):
 			continue # Placed pieces draw themselves (_draw_piece).
+		if o.has("bar"):
+			if not bars.has(o.bar):
+				bars[o.bar] = [o, o]
+			bars[o.bar][1] = o
+			continue
 		var p: Vector2 = o.pos * s
 		var rad: float = o.radius * s
 		if o.kind != "spike" and _draw_art_obstacle(o, p, rad):
@@ -1817,6 +1830,32 @@ func _draw_obstacles(obstacles: Array[Dictionary]) -> void:
 			Dot.circle(self, p + Vector2(-0.25, -0.3) * rad, rad * 0.45, Color(_pillar, 0.25))
 			Dot.arc(self, p, rad + 3.0, 0, TAU, 56, Color(_pillar.lightened(0.3), 0.25), 6.0, true)
 			Dot.arc(self, p, rad, 0, TAU, 56, _pillar.lightened(0.2), 2.5, true)
+	for id in bars:
+		_draw_bar(bars[id][0], bars[id][1])
+
+
+## A moving bar (a spinning sail or a sliding piston): one rounded beam in the
+## map's pillar colour, with a hub where it spins. A handful of draw calls.
+func _draw_bar(first: Dictionary, last: Dictionary) -> void:
+	var s := view_scale
+	var a: Vector2 = first.pos * s
+	var b: Vector2 = last.pos * s
+	var r: float = first.radius * s
+	var lit := _pillar.lightened(0.35)
+	var body := _pillar.darkened(0.45)
+	var shadow := Vector2(3, 5)
+	Dot.line(self, a + shadow, b + shadow, Color(0, 0, 0, 0.35), r * 2.0)
+	for end in [a, b]:
+		Dot.circle(self, end, r + 2.5, lit)
+	Dot.line(self, a, b, lit, r * 2.0 + 5.0)
+	for end in [a, b]:
+		Dot.circle(self, end, r - 1.0, body)
+	Dot.line(self, a, b, body, r * 2.0 - 2.0)
+	Dot.line(self, a, b, Color(lit, 0.5), r * 0.35) # A shine down the middle.
+	if first.has("hub"):
+		var h: Vector2 = first.hub * s
+		Dot.circle(self, h, r * 0.75, lit)
+		Dot.circle(self, h, r * 0.4, body)
 
 
 ## Soft pools of light on the floor in the arena's theme colours.
@@ -2033,12 +2072,16 @@ func _draw_cores(shape) -> void:
 	for c in shape.cores():
 		var p: Vector2 = c.pos * s
 		var r: float = c.radius * s
+		var col: Color = PICKUP_COLORS.get(c.kind, CORE)
 		if not c.lit:
 			Dot.circle(self, p, r, Color(0.05, 0.03, 0.1, 0.45))
 			var k: float = 1.0 - c.ready_in / MatchSim.CORE_RESPAWN
-			Dot.arc(self, p, r, 0, TAU, 40, Color(CORE, 0.18), 2.0, true)
+			Dot.arc(self, p, r, 0, TAU, 40, Color(col, 0.18), 2.0, true)
 			if k > 0.0:
-				Dot.arc(self, p, r, -PI / 2.0, -PI / 2.0 + TAU * k, 40, Color(CORE, 0.55), 3.0, true)
+				Dot.arc(self, p, r, -PI / 2.0, -PI / 2.0 + TAU * k, 40, Color(col, 0.55), 3.0, true)
+			continue
+		if c.kind != "core":
+			_draw_pickup(c.kind, p, r, col)
 			continue
 		var beat := 0.5 + 0.5 * sin(_time * 4.0)
 		Dot.glow(self, p, r * (1.6 + 0.15 * beat), Color(CORE, 0.32), 0.55)
@@ -2052,6 +2095,26 @@ func _draw_cores(shape) -> void:
 		for j in 8: # Rays ticking round.
 			var a := TAU * j / 8.0 - _time * 0.8
 			Dot.pline(self, PackedVector2Array([p + Vector2.from_angle(a) * r * 1.1, p + Vector2.from_angle(a) * r * 1.4]), Color(CORE, 0.6), 2.5, true)
+
+
+## A lit heal (a green cross) or shield (a blue crest) pickup, bobbing gently.
+func _draw_pickup(kind: String, p: Vector2, r: float, col: Color) -> void:
+	var beat := 0.5 + 0.5 * sin(_time * 3.5)
+	Dot.glow(self, p, r * (1.5 + 0.15 * beat), Color(col, 0.35), 0.5)
+	Dot.circle(self, p, r * 0.9, Color(col.darkened(0.55), 0.85))
+	Dot.arc(self, p, r * 0.9, 0, TAU, 40, Color(col, 0.7 + 0.3 * beat), 2.5, true)
+	var q := p + Vector2(0, -2.0 * beat)
+	if kind == "heal":
+		var w := r * 0.22
+		var l := r * 0.55
+		Dot.rect(self, Rect2(q.x - w, q.y - l, w * 2.0, l * 2.0), Color.WHITE)
+		Dot.rect(self, Rect2(q.x - l, q.y - w, l * 2.0, w * 2.0), Color.WHITE)
+	else:
+		var crest := PackedVector2Array([q + Vector2(-0.45, -0.5) * r, q + Vector2(0.45, -0.5) * r,
+			q + Vector2(0.42, 0.08) * r, q + Vector2(0, 0.58) * r, q + Vector2(-0.42, 0.08) * r])
+		Dot.poly(self, crest, Color.WHITE)
+		Dot.poly(self, PackedVector2Array([q + Vector2(0, -0.36) * r, q + Vector2(0.28, -0.36) * r,
+			q + Vector2(0.26, 0.04) * r, q + Vector2(0, 0.38) * r]), Color(col, 0.8))
 
 
 ## The golden Overcharge aura: two rings and a few sparks crackling round.

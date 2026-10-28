@@ -2067,10 +2067,10 @@
       "p2": "spiker",
       "seed": 99
     },
-    "hash": "38098e574c970794d57ebb0b141c893698f6c31b035b5eb17a4b9acebb66c3df",
-    "reason": "double_knockout",
-    "ticks": 2418,
-    "winner": 0
+    "hash": "8dce6f156b87bc82c923997d77eb8a5c06e28e2ff816e0f93a2b45093ddf6f11",
+    "reason": "knockout",
+    "ticks": 1985,
+    "winner": 1
   },
   {
     "config": {
