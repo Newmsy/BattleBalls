@@ -105,6 +105,9 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 			for row in 2:
 				draw_rect(Rect2(k * sq, fy + row * sq, sq, sq), Color.WHITE if (k + row) % 2 == 0 else INK)
 		draw_string(Kit.FONT, Vector2(12.0, fy - 12.0), "FINISH", HORIZONTAL_ALIGNMENT_LEFT, -1, A11y.font(26), Color.WHITE)
+	_draw_floors(sim.floors())
+	_draw_wells(sim.wells())
+	_draw_cores(sim)
 	var rail := Color(theme.border)
 	for rp in c.ramps:
 		if maxf(rp.a.y, rp.b.y) < top or minf(rp.a.y, rp.b.y) > bottom:
@@ -134,6 +137,7 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 				draw_circle(at, r, Color(1, 1, 1, 0.6 * flash))
 		else:
 			draw_circle(at, r, Color(theme.pillar).lerp(Color.WHITE, flash))
+	_draw_obstacles(sim.obstacles())
 
 
 ## The baked floor, one arena-sized square after another down the shaft;

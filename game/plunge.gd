@@ -4,6 +4,8 @@
 ## already spent the energy and left the race in CritterPlunge.pending. The result pops
 ## up on the shared ResultPopup with coins, XP and the Faction XP ring, paid
 ## into the game save here (meta/critter_plunge.gd).
+## Each race opens on the course banner and a 3, 2, 1, GO! countdown
+## (game/plunge_intro.gd); the race only starts stepping on GO.
 ## URL params: ?mode=plunge&seed=5&n=8 (a practice race: no rewards, nothing
 ## spent), &course=lava (one of PlungeCourse.COURSES), &speed=2.
 extends Node2D
@@ -11,6 +13,7 @@ extends Node2D
 const Plunge := preload("res://sim/plunge.gd")
 const PlungeView := preload("res://game/plunge_view.gd")
 const PlungeStrip := preload("res://game/plunge_strip.gd")
+const PlungeIntro := preload("res://game/plunge_intro.gd")
 const CritterPlunge := preload("res://meta/critter_plunge.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
@@ -36,6 +39,8 @@ var game_save_path := SaveGame.PATH ## Tests point this elsewhere.
 var result := {} ## What finish() paid, once the race is over.
 
 var _accumulator := 0.0
+var _racing := false ## False through the countdown (game/plunge_intro.gd).
+var _intro: PlungeIntro
 var _skipping := false
 var _done := false
 var view: PlungeView
@@ -87,8 +92,14 @@ func _ready() -> void:
 	if is_inside_tree():
 		get_viewport().size_changed.connect(_layout)
 	_layout()
-	sfx.play("go")
 	sfx.play_music("fight")
+	_intro = PlungeIntro.new()
+	_intro.sfx = sfx
+	_intro.you_at = _your_spot
+	ui_root.add_child(_intro)
+	ui_root.move_child(_intro, 1) # Over the course and title, under the pills, so Skip still works.
+	_intro.start(sim.course, sim.starters)
+	_intro.go.connect(func(): _racing = true)
 	print("PLUNGE_READY seed=%d n=%d practice=%s racers=%s" % [int(cfg.seed), sim.starters, practice, ",".join(cfg.racers)])
 
 
@@ -98,8 +109,15 @@ func _notification(what: int) -> void:
 		TouchInput.clear_back(self)
 
 
+## Your racer on screen, for the countdown's ring (none when only watching).
+func _your_spot():
+	if practice:
+		return null
+	return view.get_global_transform() * (sim.balls[0].pos * view.view_scale)
+
+
 func _process(delta: float) -> void:
-	if not _done:
+	if not _done and _racing:
 		var rate := speed if speed > 0.0 else FightSpeed.current()
 		if _skipping:
 			for k in SKIP_TICKS:
@@ -138,6 +156,9 @@ func _sounds(events: Array) -> void:
 
 func _skip_race() -> void:
 	_skipping = true
+	_racing = true
+	if is_instance_valid(_intro):
+		_intro.skip()
 
 
 func _finish() -> void:

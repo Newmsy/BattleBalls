@@ -44,9 +44,9 @@ func test_golden_race() -> void:
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
 const GOLDEN_RACERS := ["thorns", "comet", "gumdrop", "frost", "prism", "honey"]
-const GOLDEN_ORDER := [1, 2, 0, 5, 4, 3]
-const GOLDEN_KOS := [3, 4]
-const GOLDEN_TICKS := 2600
+const GOLDEN_ORDER := [1, 0, 5, 2, 4, 3]
+const GOLDEN_KOS := [3, 4, 2]
+const GOLDEN_TICKS := 2707
 
 
 ## Racers are live critters, every family races, and they race with their
@@ -120,6 +120,8 @@ func test_twenty_painted_courses() -> void:
 	check_eq(ids.size(), 20, "course ids")
 	check_eq(arts.size(), 20, "course looks")
 	check_eq(plans.size(), 20, "course layouts")
+	for c in PlungeCourse.COURSES:
+		check_eq(c.plan.filter(func(k): return PlungeCourse.HAZARDS.has(k)).size(), 1, "%s has one hazard section" % c.id)
 	var picked := {}
 	for seed in range(1, 200):
 		picked[PlungeCourse.new(seed).info.id] = true
@@ -244,3 +246,36 @@ func test_scene_races_and_pays() -> void:
 	check_eq(int(after.data.profile.coins), int(p.coins) + int(scene.result.coins), "into the save")
 	scene.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+## Hazards ride on the arena's pieces and act on racers: wells pull (never
+## harder than gravity), goo drags, lava burns under the fight's hazard cap,
+## sliding bumpers move, and pickups are lit from the start.
+func test_course_hazards_act_on_racers() -> void:
+	check(PlungeCourse.WELL_ACCEL < Plunge.GRAVITY, "a well never holds a racer")
+	var kinds := {}
+	for c in PlungeCourse.COURSES:
+		var p := Plunge.new({"seed": 3, "racers": Plunge.draw_field(3, 4), "course": c.id})
+		check(not p.cores().is_empty() and p.cores().all(func(k): return k.lit), "%s has lit pickups" % c.id)
+		for f in p.floors():
+			kinds[f.kind] = true
+		if not p.wells().is_empty():
+			kinds["wells"] = true
+		if not p.obstacles().is_empty():
+			kinds["sliders"] = true
+	check_eq(kinds.keys().size(), 4, "wells, lava, goo and sliders all appear (%s)" % [kinds.keys()])
+	var lava := Plunge.new({"seed": 3, "racers": ["pip", "honey", "frost", "laser"], "course": "lava"})
+	var pool: Vector2 = lava.floors()[0].pos
+	for k in 70:
+		lava.step()
+	var b = lava.balls[0]
+	for k in 60 * 20:
+		b.pos = pool
+		b.vel = Vector2.ZERO
+		lava.step()
+	check_near(b.hazard_taken, Plunge.HAZARD_CAP * b.max_hp, 0.01, "lava burns up to the cap and no further")
+	var slide := Plunge.new({"seed": 3, "racers": Plunge.draw_field(3, 4), "course": "toys"})
+	var at: Vector2 = slide.obstacles()[0].pos
+	for k in 60:
+		slide.step()
+	check(slide.obstacles()[0].pos != at, "sliders move")

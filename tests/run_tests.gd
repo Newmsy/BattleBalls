@@ -6,10 +6,14 @@
 ##   --file=name  run only tests/test_<name>.gd (a quick local loop)
 extends SceneTree
 
-## The slowest tests (each fights the whole roster), spread one per shard
-## before the rest are dealt round-robin, so no shard gets two.
-const SLOW := ["test_mirror_matches_rarely_draw", "test_every_critter_finishes_on_every_arena",
-	"test_every_critter_always_finishes"]
+## The slowest tests (each fights the whole roster), dealt round the shards
+## heaviest first before the rest go round-robin, so no shard gets two of
+## the big four (a new test elsewhere shifts the round-robin, and two once
+## pushed a shard past CI's 20 minutes).
+const SLOW := ["test_every_critter_finishes_on_every_arena", "test_mirror_fights_are_even_on_every_arena",
+	"test_mirror_matches_rarely_draw", "test_every_critter_always_finishes",
+	"test_every_day_is_fair", "test_same_seed_same_bracket", "test_every_relic_does_something",
+	"test_every_critter_finishes_a_boss_fight"]
 
 var _failures: Array[String] = []
 var _current := ""

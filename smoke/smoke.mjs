@@ -1043,7 +1043,11 @@ try {
     const start = logs.length;
     await tapUi(page, logs, "plunge_go");
     console.log("plunge:", await waitForLogAfter(logs, start, "PLUNGE_READY", 30000));
-    await page.waitForTimeout(4000);
+    await page.waitForTimeout(700); // The course banner, then the 3, 2, 1 countdown.
+    await page.screenshot({ path: path.join(shots, "47a-plunge-banner.png") });
+    await page.waitForTimeout(1300);
+    await page.screenshot({ path: path.join(shots, "47b-plunge-countdown.png") });
+    await page.waitForTimeout(2000);
     await page.screenshot({ path: path.join(shots, "47-plunge-race.png") });
     await tapUi(page, logs, "plunge_skip");
     console.log("plunge result:", await waitForLog(logs, "PLUNGE_RESULT", 60000));
