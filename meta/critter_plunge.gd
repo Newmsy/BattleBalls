@@ -78,9 +78,11 @@ static func start(profile, fighter: String, n: int, now: int) -> Dictionary:
 ## Pays out a finished race for your racer 0 that came `place` of `n`
 ## (`knocked_out` if it didn't make it down). Returns {place, n, coins, xp,
 ## medal ("" for none), knocked_out, levels, account_levels, critters}.
-static func finish(profile, fighter: String, place: int, n: int, knocked_out: bool) -> Dictionary:
+static func finish(profile, fighter: String, place: int, n: int, knocked_out: bool, watched := true, _course := "") -> Dictionary:
 	var result := {"place": place, "n": n, "coins": coins_for(place, n), "xp": XP, "knocked_out": knocked_out,
 		"medal": "" if knocked_out else PlungeTalents.medal_for(place, n), "levels": 0, "account_levels": 0, "critters": []}
+	if not watched:
+		result.medal = ""
 	profile.grant({"kind": "coins", "n": result.coins})
 	PlungeTalents.add_medal(profile, result.medal)
 	Campaign.give_xp(profile, result, fighter)
