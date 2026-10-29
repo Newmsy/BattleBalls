@@ -10,6 +10,7 @@ extends Node2D
 
 const Plunge := preload("res://sim/plunge.gd")
 const PlungeView := preload("res://game/plunge_view.gd")
+const PlungeStrip := preload("res://game/plunge_strip.gd")
 const CritterPlunge := preload("res://meta/critter_plunge.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Sfx := preload("res://game/audio/sfx.gd")
@@ -38,6 +39,7 @@ var _accumulator := 0.0
 var _skipping := false
 var _done := false
 var view: PlungeView
+var strip: PlungeStrip
 var frame: Control
 var sfx: Sfx
 var ui_root: Control
@@ -73,14 +75,19 @@ func _ready() -> void:
 	add_child(frame)
 	view = PlungeView.new()
 	frame.add_child(view)
-	view.set_sim(sim, -1 if practice else 0)
+	view.set_race(sim, -1 if practice else 0)
+	strip = PlungeStrip.new()
+	strip.sim = sim
+	strip.you = -1 if practice else 0
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(strip)
 	_build_ui()
 	if is_inside_tree():
 		get_viewport().size_changed.connect(_layout)
 	_layout()
 	sfx.play("go")
 	sfx.play_music("fight")
-	print("PLUNGE_READY seed=%d n=%d practice=%s racers=%s" % [int(cfg.seed), sim.racers.size(), practice, ",".join(cfg.racers)])
+	print("PLUNGE_READY seed=%d n=%d practice=%s racers=%s" % [int(cfg.seed), sim.starters, practice, ",".join(cfg.racers)])
 
 
 ## The back-swipe table outlives the scene, so it must not keep a freed key.
@@ -106,29 +113,21 @@ func _process(delta: float) -> void:
 				steps += 1
 				sim.step()
 				view.consume_events(sim.events)
+				sfx.consume_events(sim.events, sim)
 				_sounds(sim.events)
 		if sim.finished:
 			_finish()
 	view.advance(delta)
 
 
+## The race's own sounds; the abilities' come from sfx.consume_events, as in a fight.
 func _sounds(events: Array) -> void:
 	for e in events:
 		match e.type:
-			"bumper":
-				sfx.play("pinball_ding", -8.0, 1.2)
-			"peg":
-				sfx.play("wall", -6.0, 1.4)
-			"bump":
-				sfx.play("hit", -8.0, 1.1)
-			"fire":
-				sfx.play({"pulse": "nova_boom", "shot": "pew", "drop": "mine_drop", "hook": "reel", "shield": "shield_up"}.get(e.verb, "zap"), -4.0)
-			"hit":
-				if e.kind == "thorns":
-					sfx.play("thorn_snap", -6.0)
-				elif e.kind != "bump":
-					sfx.play("hit", -4.0)
-			"ko":
+			"course_hit":
+				if e.bumper:
+					sfx.play("pinball_ding", -8.0, 1.2)
+			"race_ko":
 				sfx.play("ko")
 			"finish":
 				if e.place == 1:
@@ -141,17 +140,18 @@ func _skip_race() -> void:
 
 func _finish() -> void:
 	_done = true
-	var me: Plunge.Racer = sim.racers[0]
-	var knocked := me.ko_tick >= 0
+	var place: int = sim.places[0]
+	var n := sim.starters
+	var knocked: bool = sim.ko_ticks[0] >= 0
 	var gains: Array = []
 	if not practice:
-		gains = _pay(me.place, knocked)
-	print("PLUNGE_RESULT place=%d of %d ko=%s coins=%d" % [me.place, sim.racers.size(), knocked, int(result.get("coins", 0))])
-	sfx.on_result(0 if me.place == 1 else (-1 if me.place <= sim.racers.size() / 2.0 else 1))
+		gains = _pay(place, knocked)
+	print("PLUNGE_RESULT place=%d of %d ko=%s coins=%d" % [place, n, knocked, int(result.get("coins", 0))])
+	sfx.on_result(0 if place == 1 else (-1 if place <= n / 2.0 else 1))
 	_skip.visible = false
 	_speed.visible = false
 	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
-	sfx.hold_victory(ResultPopup.show_over(ui_root, _result_card(me, knocked, gains)))
+	sfx.hold_victory(ResultPopup.show_over(ui_root, _result_card(place, knocked, gains)))
 
 
 ## Pays the race into the game save; returns the Faction XP gains for the ring.
@@ -162,20 +162,24 @@ func _pay(place: int, knocked: bool) -> Array:
 	if not (d is Dictionary) or d.is_empty():
 		return []
 	var p = Profile.from_dict(d, int(Time.get_unix_time_from_system()))
-	result = CritterPlunge.finish(p, fighter, place, sim.racers.size(), knocked)
+	result = CritterPlunge.finish(p, fighter, place, sim.starters, knocked)
 	var gains: Array = p.take_faction_gains()
 	save.data.profile = p.to_dict()
 	save.commit()
 	return gains
 
 
-func _result_card(me: Plunge.Racer, knocked: bool, gains: Array) -> Control:
-	var n := sim.racers.size()
-	var outcome := ResultPopup.Outcome.WIN if me.place == 1 else (ResultPopup.Outcome.DRAW if me.place <= n / 2.0 and not knocked else ResultPopup.Outcome.LOSE)
-	var words := "Knocked out" if knocked else ("1st!" if me.place == 1 else "%s of %d" % [_ordinal(me.place), n])
+func _result_card(place: int, knocked: bool, gains: Array) -> Control:
+	var n := sim.starters
+	var outcome := ResultPopup.Outcome.WIN if place == 1 else (ResultPopup.Outcome.DRAW if place <= n / 2.0 and not knocked else ResultPopup.Outcome.LOSE)
+	var words := "Knocked out" if knocked else ("1st!" if place == 1 else "%s of %d" % [_ordinal(place), n])
 	var body: Array = [_podium()]
 	if not result.is_empty():
-		var rewards := Kit.hbox(28, [Kit.amount("coin", "+%d" % result.coins, 30), Kit.label("+%d XP" % result.xp, 26, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+		var items: Array = [Kit.amount("coin", "+%d" % result.coins, 30)]
+		if result.get("medal", "") != "":
+			items.append(Kit.amount("medal_" + result.medal, "+1", 30))
+		items.append(Kit.label("+%d XP" % result.xp, 26, Kit.MUTED))
+		var rewards := Kit.hbox(28, items, BoxContainer.ALIGNMENT_CENTER)
 		body.append(rewards)
 		ResultPopup.drop_in(rewards.get_children().map(func(c): return [c, null]), sfx, ResultPopup.SLIDE_SECS + .4)
 	if not gains.is_empty():
@@ -194,11 +198,12 @@ func _result_card(me: Plunge.Racer, knocked: bool, gains: Array) -> Control:
 func _podium() -> Control:
 	var row := Kit.hbox(18, [], BoxContainer.ALIGNMENT_CENTER)
 	for k in mini(3, sim.order.size()):
-		var r: Plunge.Racer = sim.racers[sim.order[k]]
-		if r.ko_tick >= 0:
+		var i: int = sim.order[k]
+		if sim.ko_ticks[i] >= 0:
 			break
-		var col := Kit.vbox(2, [CritterIcon.make(r.id, 1, 64), Kit.label(_ordinal(k + 1), 20, Color("ffd36b") if k == 0 else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
-			Kit.label("You" if r.index == 0 and not practice else Roster.get_critter(r.id).name, 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
+		var id: String = sim.balls[i].type_id
+		var col := Kit.vbox(2, [CritterIcon.make(id, 1, 64), Kit.label(_ordinal(k + 1), 20, Color("ffd36b") if k == 0 else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
+			Kit.label("You" if i == 0 and not practice else Roster.get_critter(id).name, 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
 		col.alignment = BoxContainer.ALIGNMENT_CENTER
 		for c in col.get_children():
 			c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -224,7 +229,7 @@ func _again() -> void:
 		return
 	var now := int(Time.get_unix_time_from_system())
 	var p = Profile.from_dict(d, now)
-	var cfg: Dictionary = CritterPlunge.start(p, fighter, sim.racers.size(), now)
+	var cfg: Dictionary = CritterPlunge.start(p, fighter, sim.starters, now)
 	if cfg.has("error"):
 		_back() # Out of energy: the Plunge screen says so and offers more.
 		return
@@ -247,7 +252,7 @@ func _build_ui() -> void:
 	ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_root.theme = Main._neon_theme()
 	layer.add_child(ui_root)
-	title = Kit.label("CRITTER PLUNGE · %d RACERS" % sim.racers.size(), 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	title = Kit.label("CRITTER PLUNGE · %d RACERS" % sim.starters, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_root.add_child(title)
 	# Speed, Skip and Sound: the bottom row of pills every fight screen has.
@@ -272,6 +277,9 @@ func _layout() -> void:
 	frame.size = Vector2(width, maxf(200.0, bottom - TITLE_H))
 	view.view_size = frame.size
 	view.view_scale = width / Plunge.WIDTH
+	view.top_pad = PlungeStrip.HEIGHT
+	strip.position = Vector2.ZERO
+	strip.size = Vector2(width, PlungeStrip.HEIGHT)
 	view.queue_redraw()
 
 

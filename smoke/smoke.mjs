@@ -1033,6 +1033,11 @@ try {
     await tapUi(page, logs, "vs_plunge", "plunge");
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "46-plunge-screen.png") });
+    await tapUi(page, logs, "plunge_talents", "sheet");
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(shots, "46b-plunge-talents.png") });
+    await tapUi(page, logs, "plunge_talents_close");
+    await page.waitForTimeout(600);
     await tapUi(page, logs, "plunge_field_8");
     await page.waitForTimeout(500);
     const start = logs.length;

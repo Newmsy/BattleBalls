@@ -16,7 +16,9 @@ const BossArt := preload("res://game/boss_art.gd")
 
 ## Your fighter: face, name, power (or `lines` in its place) and Change, which
 ## opens the critter picker; a pick becomes your lineup critter. Marks `<prefix>_fighter`.
-static func fighter(shell, id: String, prefix: String, lines := [], icon := 92) -> Control:
+## `pool` limits who can be picked (default: every playable critter) and
+## `on_pick` replaces setting the lineup (Critter Plunge keeps its own racer).
+static func fighter(shell, id: String, prefix: String, lines := [], icon := 92, pool := [], on_pick := Callable()) -> Control:
 	var p = shell.profile
 	var b: Dictionary = p.best(id)
 	var info := Kit.vbox(4, [Kit.caption("Your fighter"), Kit.label(Roster.get_critter(id).name, 30)])
@@ -25,9 +27,12 @@ static func fighter(shell, id: String, prefix: String, lines := [], icon := 92) 
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(14, [FighterTag.icon(id, b.tier, icon, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	var pick := func() -> void:
-		CritterPicker.open(shell, CritterPicker.by_power(p, BallDefs.PLAYABLE), {"title": "Your fighter", "current": id,
+		CritterPicker.open(shell, CritterPicker.by_power(p, BallDefs.PLAYABLE if pool.is_empty() else pool), {"title": "Your fighter", "current": id,
 			"on_pick": func(picked: String) -> void:
-				p.set_lineup(picked)
+				if on_pick.is_valid():
+					on_pick.call(picked)
+				else:
+					p.set_lineup(picked)
 				shell.refresh()})
 	var card := Kit.card_button(row, pick, Color("3a3480"), Kit.PANEL2, 32, 14)
 	shell.mark(prefix + "_fighter", card)

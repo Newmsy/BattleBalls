@@ -20,6 +20,8 @@
 ## level 1 Common. Each rarity step above Common also builds the ability half
 ## a tier stronger (Power.rarity_tiers); `rarity_potency: false` switches that
 ## off for kit-vs-kit audits. `sizes` (optional) scale the radius (campaign bosses).
+## `players` (optional, a list of ids) replaces p1..p6 with any number of
+## balls; with `ffa: true` each is its own team (sim/plunge.gd races them).
 ## `p3`, `p4` (optional) make it a 2v2 (`p4: null` makes it a 2v1): all four balls fight at once, p3 on
 ## p1's team and p4 on p2's. Then the per-ball arrays above may hold four
 ## entries (index 2 = p3, 3 = p4; missing ones default) and the balls start
@@ -424,11 +426,13 @@ func _init(cfg: Dictionary) -> void:
 	damage_rolls = cfg.get("damage_rolls", true)
 	family_edges = cfg.get("family_edges", true)
 	var types: Array = [cfg.get("p1", "plain"), cfg.get("p2", "plain")]
-	if cfg.has("p3"):
+	if cfg.has("players"): # Any number of balls (Critter Plunge's race field).
+		types = cfg.players.duplicate()
+	elif cfg.has("p3"):
 		types.append(cfg.p3)
 		if cfg.get("p4", "plain") != null: # null: a 2v1 (Bounce Run's hatchling).
 			types.append(cfg.get("p4", "plain"))
-	if cfg.has("p5"):
+	if cfg.has("p5") and not cfg.has("players"):
 		types.append_array([cfg.p5, cfg.get("p6", "plain")])
 	starters = types.size()
 	if mod.get("mirror", false):
@@ -467,7 +471,7 @@ func _init(cfg: Dictionary) -> void:
 		var b := Ball.new()
 		b.relic_defs = relic_defs
 		b.index = i
-		b.team = i % 2
+		b.team = i if cfg.get("ffa", false) else i % 2 # ffa: every ball for itself.
 		b.type_id = types[i]
 		b.def = def
 		b.radius = def.radius * float(sizes[i])
@@ -524,7 +528,10 @@ static func start_positions(count: int, arena_def := {}) -> Array:
 static func aim_at_centre(i: int, count := 2) -> int:
 	if count <= 2:
 		return AIM_AT_CENTRE[i]
-	var p: Vector2 = start_positions(count)[i]
+	var starts: Array = start_positions(count)
+	if i >= starts.size(): # More balls than start spots: they come with their own.
+		return 900
+	var p: Vector2 = starts[i]
 	return roundi(rad_to_deg(DMath.angle(Vector2(ARENA_SIZE, ARENA_SIZE) / 2.0 - p)) * 10.0)
 
 

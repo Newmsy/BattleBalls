@@ -70,6 +70,19 @@ func _draw() -> void:
 			Dot.poly(self, CritterArt.star_pts(c + Vector2(0, s * .01), s * .2, s * .09, 5), Color("d9a22e"))
 			Dot.poly(self, CritterArt.star_pts(c, s * .2, s * .09, 5), Color("fff0b0"))
 			Dot.circle(self, c + Vector2(-s * .2, -s * .2), s * .06, Color(1, 1, 1, .6))
+		"medal_gold", "medal_silver", "medal_bronze":
+			# Critter Plunge medals: a V ribbon over a milled disc with a
+			# raised face, a pressed star and a glint.
+			var tones: Array = {"medal_gold": ["c8901c", "ffd45c", "fff0b0"], "medal_silver": ["8a93a8", "dfe5f0", "ffffff"],
+				"medal_bronze": ["8a4b1f", "d98a4a", "ffd0a8"]}[kind]
+			var top := c + Vector2(0, -s * .5)
+			Dot.poly(self, PackedVector2Array([top + Vector2(-s * .3, 0), top + Vector2(-s * .1, 0), c + Vector2(s * .06, -s * .02), c + Vector2(-s * .14, -s * .02)]), Color("3fa9f5"))
+			Dot.poly(self, PackedVector2Array([top + Vector2(s * .3, 0), top + Vector2(s * .1, 0), c + Vector2(-s * .06, -s * .02), c + Vector2(s * .14, -s * .02)]), Color("ff5a7a"))
+			var m := c + Vector2(0, s * .14)
+			Dot.circle(self, m, s * .34, Color(tones[0]))
+			Dot.circle(self, m + Vector2(0, -s * .015), s * .29, Color(tones[1]))
+			Dot.poly(self, CritterArt.star_pts(m, s * .15, s * .065, 5), Color(tones[0]))
+			Dot.circle(self, m + Vector2(-s * .13, -s * .13), s * .045, Color(tones[2], .8))
 		"button":
 			# Bounce Run's Buttons: a cream-gold sewing button with a teal rim,
 			# a raised lip, four holes and a glint (tools/event_art/scenes/buttons_icon.mjs).

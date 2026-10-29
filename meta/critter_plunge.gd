@@ -1,6 +1,7 @@
-## Critter Plunge (sim/plunge.gd) as a Versus mode: you race your fighter
-## against a field of CPU critters at your fighter's power, so the drop and the
-## race verbs decide it, not who levelled more. Watch only: nothing to aim.
+## Critter Plunge (sim/plunge.gd) as a Versus mode: you race one of your
+## racing critters (Plunge.RACERS) against a field of CPU critters at its
+## tier, so its abilities show at their tier but the drop decides it, not who
+## levelled more. Watch only: nothing to aim.
 ## Pays coins by place, critter XP, account XP and Faction XP after every race.
 ##
 ## Same flow as the bosses (meta/pinata_party.gd): start() spends the energy
@@ -9,6 +10,7 @@ extends RefCounted
 
 const Plunge := preload("res://sim/plunge.gd")
 const Campaign := preload("res://meta/campaign.gd")
+const PlungeTalents := preload("res://meta/plunge_talents.gd")
 
 const ENERGY_COST := 4
 const FIELD_SIZES := Plunge.FIELD_SIZES
@@ -22,6 +24,24 @@ const XP := 6
 static var pending := {}
 ## Set by the race scene so the home screen reopens on the Plunge screen.
 static var reopen := false
+## The racer picked last on the Plunge screen, kept while the game runs.
+static var racer := ""
+
+
+## Who races for you: the racer picked last, else your lineup's fighter if it
+## races, else your strongest racing critter; "" when you own none.
+static func racer_for(profile) -> String:
+	if racer != "" and profile.owns(racer) and Plunge.can_race(racer):
+		return racer
+	if Plunge.can_race(profile.lineup) and Campaign.can_fight(profile, profile.lineup):
+		return profile.lineup
+	var best := ""
+	var best_power := -1
+	for id in Plunge.RACERS:
+		if profile.owns(id) and profile.power_of(id) > best_power:
+			best = id
+			best_power = profile.power_of(id)
+	return best
 
 
 ## Coins for `place` (1 = winner) out of `n` racers.
@@ -32,19 +52,18 @@ static func coins_for(place: int, n: int) -> int:
 	return LAST_COINS + roundi((WIN_COINS - LAST_COINS) * f * f)
 
 
-## The race config for `fighter` in a field of `n`: {seed, racers, powers}.
-## Your fighter is racer 0; the rest are drawn by the seed, all at its power.
+## The race config for `fighter` in a field of `n`: {seed, racers, tiers,
+## boosts}. Your fighter is racer 0 with your race talents for its family; the
+## rest are drawn by the seed, all at its tier.
 static func race_for(profile, fighter: String, n: int, seed_value: int) -> Dictionary:
 	var ids := [fighter] + Plunge.draw_field(seed_value, n - 1, [fighter])
-	var power: float = profile.fight_power(fighter) if profile != null else 1.0
-	var powers := []
-	for id in ids:
-		powers.append(power)
-	return {"seed": seed_value, "racers": ids, "powers": powers}
+	var tier: int = int(profile.best(fighter).get("tier", 1)) if profile != null else 1
+	var boosts := [PlungeTalents.effects(profile, fighter) if profile != null else null]
+	return {"seed": seed_value, "racers": ids, "tiers": ids.map(func(_id): return tier), "boosts": boosts}
 
 
 static func start(profile, fighter: String, n: int, now: int) -> Dictionary:
-	if not Campaign.can_fight(profile, fighter):
+	if not Campaign.can_fight(profile, fighter) or not Plunge.can_race(fighter):
 		return {"error": "no_ball"}
 	if not FIELD_SIZES.has(n):
 		return {"error": "field"}
@@ -58,11 +77,12 @@ static func start(profile, fighter: String, n: int, now: int) -> Dictionary:
 
 ## Pays out a finished race for your racer 0 that came `place` of `n`
 ## (`knocked_out` if it didn't make it down). Returns {place, n, coins, xp,
-## knocked_out, levels, account_levels, critters}.
+## medal ("" for none), knocked_out, levels, account_levels, critters}.
 static func finish(profile, fighter: String, place: int, n: int, knocked_out: bool) -> Dictionary:
 	var result := {"place": place, "n": n, "coins": coins_for(place, n), "xp": XP, "knocked_out": knocked_out,
-		"levels": 0, "account_levels": 0, "critters": []}
+		"medal": "" if knocked_out else PlungeTalents.medal_for(place, n), "levels": 0, "account_levels": 0, "critters": []}
 	profile.grant({"kind": "coins", "n": result.coins})
+	PlungeTalents.add_medal(profile, result.medal)
 	Campaign.give_xp(profile, result, fighter)
 	result.account_levels = profile.add_account_xp(ENERGY_COST)
 	# Faction XP as a fight pays it: a win for 1st, a draw for the top half.

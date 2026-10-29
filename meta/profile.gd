@@ -7,6 +7,7 @@
 ## data.profile; `changed` fires after every change so the owner can persist.
 extends RefCounted
 
+const PlungeTalents := preload("res://meta/plunge_talents.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
@@ -107,6 +108,8 @@ var story: Array[String] = []
 var dyes := {}
 ## The Rift run in progress (meta/family_rift.gd), {} when there is none.
 var rift := {}
+## Critter Plunge medals and race talents (meta/plunge_talents.gd).
+var plunge := PlungeTalents.clean({})
 ## Rift Keys live in the Bag as an item; this many at most.
 const RIFT_KEY := "Rift Key"
 const RIFT_KEY_CAP := 10
@@ -794,7 +797,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest", "trick_reward", "dyes", "rift"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge"]
 
 
 func to_dict() -> Dictionary:
@@ -858,6 +861,7 @@ static func from_dict(d: Dictionary, now: int):
 		for k in dy:
 			if not Dyes.dye(str(k)).is_empty():
 				p.dyes[str(k)] = clampi(int(dy[k]), 0, Dyes.need(str(k)))
+	p.plunge = PlungeTalents.clean(d.get("plunge", {}))
 	var rf = d.get("rift", {})
 	if rf is Dictionary and rf.has("family"):
 		p.rift = JSON.parse_string(JSON.stringify(rf))

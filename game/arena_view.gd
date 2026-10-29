@@ -1054,6 +1054,26 @@ func _draw() -> void:
 	var full := Rect2(Vector2.ZERO, Vector2.ONE * MatchSim.ARENA_SIZE * s)
 	# The menu has no fight yet; a fresh sim gives the arena's starting shape.
 	var shape: MatchSim = sim if sim else MatchSim.new({"arena": preview_arena})
+	_draw_stage(shape, s, shake)
+
+	if sim == null:
+		var n := preview_types.size()
+		var starts: Array = MatchSim.start_positions(n, shape.arena)
+		_pad_slots(n)
+		for i in n:
+			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
+			_draw_critter(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
+		_tag_at.clear()
+		for i in n:
+			var def := BallDefs.get_def(preview_types[i])
+			_draw_overlay(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
+		return
+	_draw_fight(s, shake, full)
+
+
+## The arena itself: floor, hazards and obstacles. Critter Plunge's view
+## draws its course here instead (game/plunge_view.gd).
+func _draw_stage(shape: MatchSim, s: float, shake: Vector2) -> void:
 	var r := shape.arena_rect()
 	var arena := Rect2(r.position * s, r.size * s)
 	var theme := ArenaTheme.get_theme(shape.arena_id)
@@ -1072,19 +1092,10 @@ func _draw() -> void:
 	_draw_crystal_stubs(shape)
 	_draw_obstacles(shape.obstacles())
 
-	if sim == null:
-		var n := preview_types.size()
-		var starts: Array = MatchSim.start_positions(n, shape.arena)
-		_pad_slots(n)
-		for i in n:
-			var def := Modifiers.apply_to_def(BallDefs.get_def(preview_types[i]), preview_modifier)
-			_draw_critter(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
-		_tag_at.clear()
-		for i in n:
-			var def := BallDefs.get_def(preview_types[i])
-			_draw_overlay(i, def, starts[i] * s, def.radius * s, def.hp, def.hp, shake)
-		return
 
+## Everything the fight puts on the stage: zones, shots, beams, critters,
+## effects, tags and pops.
+func _draw_fight(s: float, shake: Vector2, full: Rect2) -> void:
 	for z in sim.zones:
 		_draw_zone(z, s)
 		_draw_cool_zone(z, s)
