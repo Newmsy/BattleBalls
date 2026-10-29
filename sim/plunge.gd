@@ -68,7 +68,7 @@ const STAGGER_AT := 3.0
 const DAMAGE_BY_FIELD := {4: 1.1, 6: 0.75, 8: 0.6}
 ## The knockout knob (Newms 2026-10-29: about 1 racer in 10 knocked out, by
 ## health alone): every racer's HP is scaled by this for its field size.
-const HP_BY_FIELD := {4: 1.1, 6: 1.05, 8: 1.2}
+const HP_BY_FIELD := {4: 1.0, 6: 1.05, 8: 1.1}
 ## Higher tiers hit much harder in a race than they gain health, so every
 ## racer's HP also scales by the field's tier (T1..T5) to keep knockouts near
 ## 1 in 10 at every tier.
@@ -77,21 +77,34 @@ const HP_BY_TIER := [1.0, 1.25, 1.6, 2.0, 2.9]
 ## The critters that race, by family: ones whose abilities read well on a
 ## course. Others join as they're balanced in.
 const RACERS := [
-	"pip", "thorns", "whiff", # nature
-	"bubbles", "ink", "ripple", # sea
-	"laser", "static", "zapper", # tech
-	"honey", "gumdrop", "pucker", # sweet
-	"frost", "drizzle", "blizz", # frost
-	"drum", "mortar", "pinball", # toybox
-	"vampire", "sonar", "brewster", # spooky
-	"sooty", "bomber", "magmo", # fire
-	"comet", "gravity", "prism", # cosmic
+	"pip", "thorns", "whiff", "swarm", # nature
+	"bubbles", "ink", "ripple", "kraken", # sea
+	"laser", "static", "zapper", "megabot", # tech
+	"honey", "gumdrop", "pucker", "bonbon", # sweet
+	"frost", "drizzle", "blizz", "gust", # frost
+	"drum", "mortar", "pinball", "jackpot", # toybox
+	"vampire", "sonar", "brewster", "foxfire", # spooky
+	"sooty", "bomber", "magmo", "drako", # fire
+	"comet", "gravity", "prism", "eclipse", # cosmic
 ]
 
 ## Race-only scaling of a critter's ability params (multipliers), where its
-## fight numbers don't fit a race. Gravity's pull dragged the pack onto it.
+## fight numbers don't fit a race (tools/plunge_stats.gd). Gravity's pull
+## dragged the pack onto it; a stun or slow costs far more in a race, where
+## the stuck racer sinks while the field falls on.
 const RACE_TWEAKS := {
-	"gravity": {"pull_accel": 0.5},
+	"gravity": {"pull_accel": 0.8},
+	"frost": {"trail_slow": 0.5},
+	"zapper": {"zap_stun": 0.5},
+	"bonbon": {"wrap_hold": 0.7},
+	"pip": {"shot_speed": 1.4}, # Peas fly along its fall: at 600 they barely outran it.
+	"pucker": {"pucker_stun": 1.4},
+}
+## Race-only HP multipliers, for racers knocked out far more often than the
+## field (they brawl in the jams).
+const RACE_HP := {
+	"gumdrop": 1.15,
+	"pucker": 1.15,
 }
 
 var course: PlungeCourse
@@ -160,7 +173,7 @@ func _init(cfg: Dictionary) -> void:
 	var hp_scale: float = HP_BY_FIELD.get(ids.size(), HP_BY_FIELD[8 if ids.size() > 6 else (6 if ids.size() > 4 else 4)])
 	for b in balls:
 		var tier: int = clampi(int(tiers[b.index]) if b.index < tiers.size() else 1, 1, HP_BY_TIER.size())
-		b.max_hp *= hp_scale * HP_BY_TIER[tier - 1]
+		b.max_hp *= hp_scale * HP_BY_TIER[tier - 1] * RACE_HP.get(b.type_id, 1.0)
 		b.hp = b.max_hp
 		var boost = boosts[b.index] if b.index < boosts.size() else null
 		if boost is Dictionary:

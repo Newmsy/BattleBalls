@@ -63,23 +63,23 @@ const MOVER_SPEED := 340.0
 const COURSES := [
 	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "plan": ["spiral", "canes", "goo", "spiral", "canes"]},
 	{"id": "honey", "name": "Honey Chute", "art": "hive", "plan": ["comb", "flow", "goo", "comb"]},
-	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "plan": ["stair", "sundisc", "sliders", "stair"]},
+	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "plan": ["stair", "sundisc", "sliders"]},
 	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "plan": ["vines", "stumps", "sliders", "vines", "stumps"]},
 	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "plan": ["orbits", "warps", "wells", "orbits", "warps"]},
 	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "plan": ["asteroids", "bumpers", "wells", "asteroids", "bumpers"]},
 	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "plan": ["kelp", "currents", "wells", "kelp", "currents"]},
 	{"id": "trench", "name": "Deep Trench", "art": "trench", "plan": ["trench", "wells", "trench", "bumpers"]},
-	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "plan": ["trampolines", "sliders", "trampolines", "currents", "trampolines"]},
+	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "plan": ["trampolines", "sliders", "currents", "trampolines"]},
 	{"id": "storm", "name": "Storm Front", "art": "storm", "plan": ["gusts", "bumpers", "wells", "gusts", "bumpers"]},
-	{"id": "icicles", "name": "Icicle Run", "art": "frost", "plan": ["slalom", "goo", "mirrors", "slalom"]},
+	{"id": "icicles", "name": "Icicle Run", "art": "frost", "plan": ["slalom", "goo", "mirrors"]},
 	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "plan": ["mirrors", "spinners", "sliders", "mirrors", "spinners"]},
-	{"id": "lava", "name": "Lava Tubes", "art": "magma", "plan": ["tubes", "lava", "bumpers", "tubes"]},
+	{"id": "lava", "name": "Lava Tubes", "art": "magma", "plan": ["tubes", "lava", "bumpers"]},
 	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "plan": ["highway", "sliders", "highway"]},
 	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "plan": ["blocks", "warps", "lava", "blocks", "warps"]},
 	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "plan": ["dunes", "goo", "stumps", "dunes"]},
 	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "plan": ["tombs", "goo", "tombs", "bookcase", "tombs"]},
 	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "plan": ["staircase", "bookcase", "wells", "staircase", "bookcase"]},
-	{"id": "toys", "name": "Toy Chest", "art": "toybox", "plan": ["train", "tops", "sliders", "jacks", "tops"]},
+	{"id": "toys", "name": "Toy Chest", "art": "toybox", "plan": ["train", "tops", "sliders", "jacks"]},
 	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "plan": ["pops", "flippers", "sliders", "pops", "flippers"]},
 ]
 
@@ -474,12 +474,13 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 				_peg(WIDTH / 2.0, ty + 165.0, 55.0)
 			h = 4 * drop + 160.0
 		"canes":
-			# Candy canes: short slanted bars in staggered rows.
+			# Candy canes: short slanted bars in staggered rows, a racer-wide
+			# gap between one row's ends and the next's.
 			for row in 5:
 				var ry := y0 + 60.0 + row * 130.0
 				var xs := [200.0, 500.0, 800.0] if row % 2 == 0 else [350.0, 650.0]
 				for k in xs.size():
-					var tilt := Vector2(57.0, 40.0) if (row + k) % 2 == 0 else Vector2(57.0, -40.0)
+					var tilt := Vector2(48.0, 34.0) if (row + k) % 2 == 0 else Vector2(48.0, -34.0)
 					_seg(Vector2(xs[k], ry) - tilt, Vector2(xs[k], ry) + tilt, {"look": "cane"})
 				if row % 2 == 1:
 					_kickers(ry)
@@ -496,21 +497,25 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 						Vector2(cx, ry + 140.0), Vector2(cx - 60.0, ry + 105.0), Vector2(cx - 60.0, ry + 35.0)], {"look": "comb"})
 				if row % 2 == 1:
 					_kickers(ry + 70.0)
+				else:
+					# The wall cells' tops slope into the wall: a kicker there
+					# so nobody comes to rest in the corner.
+					_kickers(ry)
 			h = 4 * 190.0 + 40.0
 		"flow":
 			# Honey flows: switchback belts that carry racers along.
-			_switchbacks(y0, 3, 160.0, WIDTH - 180.0, 0.55, {"belt": 330.0, "look": "belt"})
+			_switchbacks(y0, 3, 160.0, WIDTH - 180.0, 0.65, {"belt": 330.0, "look": "belt"})
 			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 250.0), "heal")
 			h = 3 * 160.0 + 120.0
 		"highway":
 			# The strip: long gentle switchbacks, fast belts, and a jump pad
 			# off one road onto the next.
-			_switchbacks(y0, 3, 200.0, WIDTH - 170.0, 0.6, {"belt": 360.0, "look": "belt"})
+			_switchbacks(y0, 3, 200.0, WIDTH - 170.0, 0.7, {"belt": 360.0, "look": "belt"})
 			_pad(Vector2(120.0, y0 + 40.0 + 200.0 + 120.0 + 70.0), Vector2(560.0, -140.0))
 			h = 3 * 200.0 + 120.0
 		"train":
 			# The toy train: belts down switchback tracks.
-			_switchbacks(y0, 3, 170.0, WIDTH - 180.0, 0.55, {"belt": 420.0, "look": "belt"})
+			_switchbacks(y0, 3, 170.0, WIDTH - 180.0, 0.65, {"belt": 420.0, "look": "belt"})
 			h = 3 * 170.0 + 120.0
 		"stair":
 			# The temple's grand stair: full-width steps, each with its gap

@@ -66,6 +66,25 @@ func test_racers_use_their_real_abilities() -> void:
 	check(p.zones.size() + p.beams.size() > 0 or p.balls.any(func(b): return b.damage_dealt > 0.0), "abilities did something")
 
 
+## Race-only balance knobs name real params and racers, and stay tweaks
+## (an ability stays true to the fight's: numbers move, never the verb).
+## The win-share band itself is tools/plunge_stats.gd --check: it takes
+## thousands of races to measure, too many for the test run.
+func test_race_balance_knobs() -> void:
+	for id in Plunge.RACE_TWEAKS:
+		check(Plunge.RACERS.has(id), "%s is tuned and races" % id)
+		for key in Plunge.RACE_TWEAKS[id]:
+			check(BallDefs.get_def(id).has(key), "%s has %s" % [id, key])
+			var m: float = Plunge.RACE_TWEAKS[id][key]
+			check(m >= 0.25 and m <= 3.0, "%s %s x%.2f stays a tweak" % [id, key, m])
+	for id in Plunge.RACE_HP:
+		check(Plunge.RACERS.has(id), "%s's race HP and it races" % id)
+		check(Plunge.RACE_HP[id] >= 0.6 and Plunge.RACE_HP[id] <= 1.6, "%s race HP x%.2f stays a tweak" % [id, Plunge.RACE_HP[id]])
+	var plain := Plunge.new({"seed": 4, "racers": ["pip", "honey", "laser", "frost"]})
+	for b in plain.balls:
+		check_near(b.max_hp, BallDefs.get_def(b.type_id).hp * Plunge.HP_BY_FIELD[4] * Plunge.RACE_HP.get(b.type_id, 1.0), 0.01, "%s race HP" % b.type_id)
+
+
 func test_fields_are_different_live_critters() -> void:
 	for seed in range(1, 30):
 		for n in Plunge.FIELD_SIZES:
@@ -98,6 +117,16 @@ func test_course_has_no_wedges() -> void:
 					var d: float = g.pos.distance_to(Geometry2D.get_closest_point_to_segment(g.pos, rp.a, rp.b))
 					check(d - g.r - PlungeCourse.RAMP_THICK >= wide, "%s peg at %s is %.0f from a ramp" % [at, g.pos, d - g.r - PlungeCourse.RAMP_THICK])
 			check(course.finish_y > 3000.0 and course.finish_y < 7000.0, "%s course length %.0f" % [at, course.finish_y])
+			# A ramp's end either joins another ramp or leaves a racer-wide gap
+			# to it (two candy canes' ends 62 apart wedged racers for good).
+			for i in course.ramps.size():
+				for end in [course.ramps[i].a, course.ramps[i].b]:
+					for j in course.ramps.size():
+						var rp: Dictionary = course.ramps[j]
+						if j == i:
+							continue
+						var d: float = end.distance_to(Geometry2D.get_closest_point_to_segment(end, rp.a, rp.b))
+						check(d < 1.0 or d - 2.0 * PlungeCourse.RAMP_THICK >= wide, "%s ramp end %s is %.0f from a ramp" % [at, end, d - 2.0 * PlungeCourse.RAMP_THICK])
 
 
 ## Twenty courses, each a different run in an arena's painted look, and the

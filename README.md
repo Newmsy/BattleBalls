@@ -161,12 +161,15 @@ critters race with their real abilities and the fight view draws them; gravity
 and the course replace the arena walls, and a hard bounce off the course is a
 wall bounce. Race rules on top: a hit staggers, aimed abilities go for the racer
 ahead, charges are sideways swerves, stunned racers sink out of the way, and a
-racer at 0 HP is knocked out and places last. Only `Plunge.RACERS` race (3 per
-family to start); `RACE_TWEAKS` scales a fight number that doesn't fit a race.
-`DAMAGE_BY_FIELD` keeps knockouts near a quarter. Podium finishes win gold,
+racer at 0 HP is knocked out and places last. Only `Plunge.RACERS` race (4 per
+family, added in batches of one per family); `RACE_TWEAKS` scales a fight
+number that doesn't fit a race and `RACE_HP` a racer's health. `HP_BY_FIELD`
+and `HP_BY_TIER` keep knockouts near 1 in 10. Podium finishes win gold,
 silver or bronze medals, spent on per-family race talents (1 gold = 2 silver =
-4 bronze). `tools/plunge_stats.gd --races 300 --n all` prints KO rate, race
-length, gate and critter win rates. `?mode=plunge&seed=5&n=8` plays a practice
+4 bronze). `tools/plunge_stats.gd --races=600 --n=all --jobs=4 --check` prints
+KO rate, race length, gate, critter and course numbers, and fails when a racer
+wins outside 0.5-1.8x its fair share or a gate over 1.4x (too many races for
+the test run: run it when racers or courses change). `?mode=plunge&seed=5&n=8` plays a practice
 race (no rewards). Re-pin `tests/test_plunge.gd`'s golden race and bump
 `Plunge.RACE_RULES` on intentional sim changes.
 
