@@ -165,7 +165,10 @@ racer at 0 HP is knocked out and places last. Only `Plunge.RACERS` race (3 per
 family to start); `RACE_TWEAKS` scales a fight number that doesn't fit a race.
 `DAMAGE_BY_FIELD` keeps knockouts near a quarter. Podium finishes win gold,
 silver or bronze medals, spent on per-family race talents (1 gold = 2 silver =
-4 bronze). `tools/plunge_stats.gd --races 300 --n all` prints KO rate, race
+4 bronze): two shared stat talents plus the family's signature, which changes
+how one course piece treats its racers (Fire shrugs off lava, Cosmic is pulled
+less by wells, Spooky shoots out of portals...; `PlungeTalents.SIGNATURES`,
+effects at full rank in `Plunge.SIGNATURES`, passed per racer as `boosts`). `tools/plunge_stats.gd --races 300 --n all` prints KO rate, race
 length, gate and critter win rates. `?mode=plunge&seed=5&n=8` plays a practice
 race (no rewards). Re-pin `tests/test_plunge.gd`'s golden race and bump
 `Plunge.RACE_RULES` on intentional sim changes.
