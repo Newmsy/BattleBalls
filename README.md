@@ -155,7 +155,14 @@ belts; open ones end on a ledge so the field gathers. Every course has one
 hazard section (`PlungeCourse.HAZARDS`: gravity wells, lava, goo or sliding
 bumpers) with a pickup (power core, heal or shield), carried on the arena's own
 pieces so the fight view draws them. Races open on a course banner and a 3, 2,
-1, GO! countdown (`game/plunge_intro.gd`).
+1, GO! countdown (`game/plunge_intro.gd`; just GO! on Race again). The view
+(render only) follows your racer, drawn at 1.4x size, framing the leader when both fit;
+tap a face in the standings to follow another racer. Edge chips point at the
+leader or you when off screen, only your racer's combat text shows, and a close
+finish near the line slows the view to 0.3x. Once your racer is done the rest
+runs at skip speed; the result tells the race in one line
+(`game/plunge_story.gd`). Races count as fights for quests and the Glow Pass,
+plus the Plunge quests (podium, wins, courses); a skipped race drops no medal.
 The race is a MatchSim where every ball is its own team (`players` + `ffa`), so
 critters race with their real abilities and the fight view draws them; gravity
 and the course replace the arena walls, and a hard bounce off the course is a

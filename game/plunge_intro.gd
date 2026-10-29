@@ -1,7 +1,8 @@
 ## The start of a Critter Plunge race: the course's name and hazard slide
-## in over the gate, a ring calls out your racer, then a 3, 2, 1, GO!
-## countdown pops up and the gate drops on GO (`go` fires; game/plunge.gd
-## only starts the race then). A tap anywhere jumps straight to GO.
+## in further down, a ring and a YOU banner in your racer's rarity colour
+## call it out, then a 3, 2, 1, GO! countdown pops up just under the gate and
+## the gate drops on GO (`go` fires; game/plunge.gd only starts the race then). A
+## race run again goes straight to GO. A tap anywhere jumps straight to GO.
 ## Render only: the race is the same whenever it starts.
 extends Control
 
@@ -20,6 +21,8 @@ const GO_COLOR := Color("45f5a6")
 
 var sfx ## game/audio/sfx.gd, for the beeps (null in tests).
 var you_at := Callable() ## Returns your racer's spot on screen, or null.
+var gate_at := Callable() ## Returns the gate's height on screen, or null.
+var you_color := GO_COLOR ## Your racer's rarity colour, for its banner.
 
 var _banner: Control
 var _count: Label
@@ -31,8 +34,9 @@ var _pop: Tween ## The current beat's pop and fade; killed by the next beat.
 var _laid_for := Vector2.ZERO
 
 
-## Builds the overlay for `course` (a PlungeCourse) with `n` racers.
-func start(course: PlungeCourse, n: int) -> void:
+## Builds the overlay for `course` (a PlungeCourse) with `n` racers; `quick`
+## (a race run again) is just GO!.
+func start(course: PlungeCourse, n: int, quick := false) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var col := Color(ArenaTheme.get_theme(course.info.art).border)
 	var hazard := ""
@@ -52,6 +56,14 @@ func start(course: PlungeCourse, n: int) -> void:
 	_count.add_theme_color_override("font_outline_color", Color(Kit.BG, 0.9))
 	_count.visible = false
 	add_child(_count)
+	if quick:
+		_banner.visible = false
+		_tween = create_tween()
+		_tween.tween_interval(0.35)
+		_tween.tween_callback(_beat.bind("GO!", GO_COLOR, true))
+		_tween.tween_interval(0.6)
+		_tween.tween_callback(queue_free)
+		return
 	_banner.modulate.a = 0.0
 	_tween = create_tween()
 	_tween.tween_property(_banner, "modulate:a", 1.0, 0.25)
@@ -78,9 +90,11 @@ func _place() -> void:
 	var w := minf(size.x - 40.0, 620.0)
 	_banner.custom_minimum_size.x = w
 	_banner.reset_size()
-	_banner.position = Vector2((size.x - _banner.size.x) / 2.0, size.y * 0.3)
+	_banner.position = Vector2((size.x - _banner.size.x) / 2.0, size.y * 0.45)
 	_count.size = Vector2(size.x, 220)
-	_count.position = Vector2(0, size.y * 0.42 - 110.0)
+	var gate = gate_at.call() if gate_at.is_valid() else null
+	var gy: float = gate if gate != null else size.y * 0.25
+	_count.position = Vector2(0, gy + 20.0) # Just under the gate, clear of the strip and racers.
 	_count.pivot_offset = _count.size / 2.0
 
 
@@ -144,7 +158,8 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## A ring that pulses round your racer in the gate on every beat.
+## A ring that pulses round your racer in the gate on every beat, over a
+## YOU banner in its rarity colour.
 func _draw() -> void:
 	if _gone or not you_at.is_valid():
 		return
@@ -153,4 +168,10 @@ func _draw() -> void:
 		return
 	var r := 46.0 + 6.0 * (0.5 + 0.5 * sin(_clock * 6.0)) + 20.0 * _ring
 	draw_arc(at, r, 0, TAU, 48, Color(GO_COLOR, 0.85), 4.0, true)
-	draw_string(Kit.FONT, at + Vector2(-60, -r - 12.0), "YOU", HORIZONTAL_ALIGNMENT_CENTER, 120, A11y.font(26), GO_COLOR)
+	var fs := A11y.font(24)
+	var w: float = Kit.FONT.get_string_size("YOU", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 28.0
+	var h := fs * 1.5
+	var tag := Rect2(at + Vector2(-w / 2.0, r + 6.0), Vector2(w, h))
+	draw_rect(tag, you_color)
+	draw_rect(tag, Color(Kit.BG, 0.6), false, 2.0)
+	draw_string(Kit.FONT, Vector2(tag.position.x, tag.position.y + h / 2.0 + fs * 0.36), "YOU", HORIZONTAL_ALIGNMENT_CENTER, w, fs, Kit.BG)
