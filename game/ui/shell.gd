@@ -23,6 +23,7 @@ const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Motion := preload("res://game/ui/motion.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
 const Talents := preload("res://sim/talents.gd")
+const CritterPlunge := preload("res://meta/critter_plunge.gd")
 
 const SCREENS := {
 	"play": preload("res://game/ui/screens/play_screen.gd"),
@@ -41,6 +42,7 @@ const SCREENS := {
 	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"adventure": preload("res://game/ui/screens/adventure_screen.gd"),
 	"versus": preload("res://game/ui/screens/versus_screen.gd"),
+	"plunge": preload("res://game/ui/screens/plunge_screen.gd"),
 	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
 	"friends": preload("res://game/ui/screens/friends_screen.gd"),
 	"world": preload("res://game/ui/screens/world_screen.gd"),
@@ -241,6 +243,11 @@ func build() -> void:
 	if ArenaStore.reopen:
 		ArenaStore.reopen = false
 		go("arena")
+	# And from a Critter Plunge race, on the Plunge screen in Versus.
+	if CritterPlunge.reopen:
+		CritterPlunge.reopen = false
+		go("versus")
+		go("plunge")
 
 
 ## Swap in another profile (the new player from onboarding, or a newer cloud save).

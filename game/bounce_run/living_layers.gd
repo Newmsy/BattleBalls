@@ -243,6 +243,11 @@ const LAYERS := {
 		["_Lg2", Rect2(485, 102, 110, 116), Vector4(1, 6, 0.5, 0.35), Vector2(540, 212), true, -1],
 		["_Lg3", Rect2(601, 106, 118, 124), Vector4(1, 6, 0.42, 0.7), Vector2(660, 224), true, -1],
 	],
+	"vs_plunge": [
+		["_La", Rect2(372, 68, 56, 66), Vector4(1, 4, 0.8, 0), Vector2(399, 136), false, -1],
+		["_Lb", Rect2(563, 46, 50, 64), Vector4(1, 5, 0.7, 0.35), Vector2(589, 111), true, -1],
+		["_Lc", Rect2(615, 126, 47, 55), Vector4(1, 4, 0.9, 0.7), Vector2(639, 181), true, -1],
+	],
 	"vs_quick": [
 		["_Lme", Rect2(293, 93, 76, 94), Vector4(4, 4, 0.9, 0), Vector2(331, 185), true, -1],
 		["_Lfoe", Rect2(489, 116, 64, 74), Vector4(1, 4, 0.6, 0.4), Vector2(521, 188), true, -1],
