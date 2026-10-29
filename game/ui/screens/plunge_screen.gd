@@ -1,8 +1,10 @@
-## Critter Plunge, opened from its card in Versus: your racer stands on the
-## painting, pick how many racers (4, 6 or 8: bigger fields hand out more
-## medals) and your racer, see what its ability and race talents do and what
-## each podium place pays, then Race. The race runs in game/plunge.tscn; rules and payouts live in
-## meta/critter_plunge.gd and sim/plunge.gd. Fits one phone screen.
+## Critter Plunge, opened from its card in Versus: the next race's course is
+## the painting with your racer on it, pick how many racers (4 race for coins,
+## 6 for medals, 8 for better medals and more coins) and your racer, see what
+## its ability does and what the race pays, then Race. Medals buy race
+## talents; the stamp album keeps your best medal per course. The race runs in
+## game/plunge.tscn; rules and payouts live in meta/critter_plunge.gd and
+## sim/plunge.gd. Fits one phone screen.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -10,17 +12,24 @@ const BossCard := preload("res://game/ui/boss_card.gd")
 const CritterPlunge := preload("res://meta/critter_plunge.gd")
 const Plunge := preload("res://sim/plunge.gd")
 const Families := preload("res://sim/families.gd")
-const HomePainting := preload("res://game/ui/home_painting.gd")
+const Talents := preload("res://sim/talents.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
+const Profile := preload("res://meta/profile.gd")
+const CourseArt := preload("res://game/ui/plunge_course_art.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
-const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const PlungeTalents := preload("res://meta/plunge_talents.gd")
 const TalentsSheet := preload("res://game/ui/plunge_talents_sheet.gd")
+const StampsSheet := preload("res://game/ui/plunge_stamps_sheet.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
+const CritterPicker := preload("res://game/ui/critter_picker.gd")
+const FighterTag := preload("res://game/ui/fighter_tag.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
+const Roster := preload("res://game/ui/roster.gd")
 const Motion := preload("res://game/ui/motion.gd")
 
 const ACCENT := Color("27c8ff")
-const ART := "res://game/ui/versus_art/%s.png"
+const PLACES := ["1st", "2nd", "3rd", "4th", "5th"]
 
 ## The field size picked last, kept while the game runs.
 static var field := CritterPlunge.DEFAULT_FIELD
@@ -28,38 +37,50 @@ static var field := CritterPlunge.DEFAULT_FIELD
 
 static func build(shell, _params: Dictionary) -> Control:
 	var p = shell.profile
-	p.update_energy(int(Time.get_unix_time_from_system()))
+	var now := int(Time.get_unix_time_from_system())
+	p.update_energy(now)
 	var root := Kit.vbox(18)
 	root.add_child(shell.title_row("Critter Plunge", {"eyebrow": "Versus ·", "eyebrow_color": ACCENT, "info_mark": "plunge_info", "info": [
 		"Your critter races a field of others down a marble run. First to the bottom wins.",
 		"Every critter races with its own ability. A hit slows a racer down, and at 0 HP it's knocked out and places last.",
-		"Everyone races at your racer's tier, so the drop decides it.",
+		"Everyone races at your racer's tier, so the drop decides it. Power, level and gear don't count in a race.",
 		"Only some critters race for now. More join soon.",
-		"1st pays %d coins, last pays %d. Every race also gives XP and Faction XP." % [CritterPlunge.WIN_COINS, CritterPlunge.LAST_COINS],
-		"A podium finish wins a medal. Spend medals on race talents for each family."]}))
+		"4 racers race for coins only. 6 racers win medals on the podium. 8 racers win gold for 1st and 2nd, more medals and %s× coins." % str(CritterPlunge.COINS_8),
+		"Your first %d races each day pay coins. Every race gives XP and Faction XP." % CritterPlunge.PRIZE_RACES,
+		"Medals drop in races you watch to the end. Spend them on race talents for each family.",
+		"The stamp album keeps your best medal on each course."]}))
 	var fighter: String = CritterPlunge.racer_for(p)
+	var course: Dictionary = CritterPlunge.course_for(CritterPlunge.next_seed(p))
 	var hero := MarginContainer.new()
 	hero.custom_minimum_size.y = 190
 	hero.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hero.add_child(HomePainting.make("vs_plunge", Vector2(.7, .5), 28.0, Vector4(.45, .55, 1.0, 0.0), Kit.BG, ART))
+	hero.add_child(CourseArt.make_course(course.id, Vector2(.5, .2), 28.0, Vector4(.45, .55, 1.0, 0.0), Kit.BG))
+	hero.add_child(_course_name(course))
 	if fighter != "":
 		hero.add_child(_hero_racer(fighter, int(p.best(fighter).get("tier", 1))))
 	root.add_child(hero)
 	root.add_child(_field_row(shell))
-	root.add_child(_prizes(shell))
+	root.add_child(_prizes(shell, fighter, now))
 	if fighter == "":
 		root.add_child(Kit.label("None of your critters race yet. Summon one of the racers to join in.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 		return root
-	var tier: int = int(p.best(fighter).get("tier", 1))
-	var lines: Array = [Kit.power(p.power_of(fighter), 22), Kit.label(_card(fighter, tier), 20, ACCENT, HORIZONTAL_ALIGNMENT_LEFT, true)]
-	var boosts := _talent_line(p, fighter)
-	if boosts != "":
-		lines.append(Kit.label(boosts, 20, Color("ffd36b"), HORIZONTAL_ALIGNMENT_LEFT, true))
-	root.add_child(BossCard.fighter(shell, fighter, "plunge", lines, 92, Plunge.RACERS,
-		func(picked: String) -> void: CritterPlunge.racer = picked))
+	root.add_child(_fighter_card(shell, fighter))
 	root.add_child(_medals(shell, fighter))
 	root.add_child(_race_button(shell, fighter))
 	return root
+
+
+## The next course's name at the top of the painting.
+static func _course_name(course: Dictionary) -> Control:
+	var name := Kit.label(course.name, 28, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	name.add_theme_constant_override("outline_size", 10)
+	name.add_theme_color_override("font_outline_color", Color(Kit.BG, .85))
+	name.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	var box := MarginContainer.new()
+	box.add_theme_constant_override("margin_top", 14)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(name)
+	return box
 
 
 ## Your racer, big, at the foot of the painting, popping in when the screen opens.
@@ -75,33 +96,80 @@ static func _hero_racer(fighter: String, tier: int) -> Control:
 	return box
 
 
-## What a race pays: coins by place, and the podium's medals for this field size.
-static func _prizes(shell) -> Control:
-	var items: Array = [BossCard.prize("coin", "%d to %d" % [CritterPlunge.LAST_COINS, CritterPlunge.WIN_COINS])]
-	var podium: Array = PlungeTalents.PODIUM.get(field, [])
-	for k in podium.size():
-		var medal := Kit.vbox(0, [Kit.glyph("medal_" + podium[k], 38, Color.WHITE), Kit.label(["1st", "2nd", "3rd", "4th"][k], 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
-		items.append(medal)
-	return BossCard.prizes(shell, "Prizes", ACCENT, items, CritterPlunge.XP, "plunge")
+## What a race pays in this field: coins by place while prize races last, the
+## podium's medals, critter XP and Faction XP for the racer's family.
+static func _prizes(shell, fighter: String, now: int) -> Control:
+	var left := CritterPlunge.prize_races_left(shell.profile, now)
+	var items: Array = []
+	if left > 0:
+		items.append(BossCard.prize("coin", "%d to %d" % [CritterPlunge.coins_for(field, field), CritterPlunge.coins_for(1, field)]))
+	var podium: Array = CritterPlunge.PODIUM.get(field, [])
+	var k := 0
+	while k < podium.size():
+		var j := k
+		while j + 1 < podium.size() and podium[j + 1] == podium[k]:
+			j += 1
+		var places: String = PLACES[k] if j == k else "%s-%s" % [PLACES[k], PLACES[j]]
+		items.append(Kit.vbox(0, [Kit.glyph("medal_" + podium[k], 38, Color.WHITE), Kit.label(places, 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)]))
+		k = j + 1
+	var xp := Kit.vbox(2, [Kit.label("+%d XP" % CritterPlunge.XP, 22, Kit.MUTED)])
+	var fam := Talents.faction_of(fighter)
+	if fam != "":
+		var fxp: Dictionary = Profile.FACTION_FIGHT_XP
+		xp.add_child(Kit.hbox(4, [FamilyIcon.make(fam, 26), Kit.label("+%d-%d" % [fxp.loss, fxp.win], 22, FamilyIcon.color(fam))]))
+	xp.alignment = BoxContainer.ALIGNMENT_CENTER
+	items.append(xp)
+	return BossCard.prizes(shell, "Prize races left: %d" % left, ACCENT, items, 0, "plunge")
 
 
-## The racer's family race talents in one line ("+10% HP · +5% damage"), "" with none.
-static func _talent_line(p, fighter: String) -> String:
-	var fam := Families.of(fighter)
-	var parts := []
-	for tal in PlungeTalents.TALENTS:
-		var r := PlungeTalents.rank(p, fam, tal.id)
-		if r > 0:
-			parts.append(PlungeTalents.line(tal, r))
-	return " · ".join(parts)
+## Your racer: tier stars and what its ability does. Change opens the picker:
+## owned racers first, then your critters that don't race yet, greyed.
+static func _fighter_card(shell, id: String) -> Control:
+	var p = shell.profile
+	var tier: int = int(p.best(id).get("tier", 1))
+	var info := Kit.vbox(4, [Kit.caption("Your racer"), Kit.label(Roster.get_critter(id).name, 30),
+		Kit.label(_card(id, tier), 20, ACCENT, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := Kit.hbox(14, [FighterTag.icon(id, tier, 92), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
+	var pick := func() -> void:
+		var racers := CritterPicker.by_power(p, Plunge.RACERS)
+		var others := CritterPicker.by_power(p, BallDefs.PLAYABLE.filter(func(c): return not Plunge.can_race(c)))
+		var locked := {}
+		for c in others:
+			locked[c] = true
+		CritterPicker.open(shell, racers + others, {"title": "Your racer", "current": id, "locked": locked,
+			"locked_toast": "%s doesn't race yet.", "hint": "Racers: %d of %d" % [Plunge.RACERS.size(), BallDefs.PLAYABLE.size()],
+			"on_pick": func(picked: String) -> void:
+				CritterPlunge.racer = picked
+				shell.refresh()})
+	var card := Kit.card_button(row, pick, Color("3a3480"), Kit.PANEL2, 32, 14)
+	shell.mark("plunge_fighter", card)
+	return card
 
 
-## Your medals and the way into race talents.
+## Your medals over your racer's family talents in one clipped line, the way
+## into race talents and the stamp album.
 static func _medals(shell, fighter: String) -> Control:
 	var talents := Kit.button("Talents", func(): TalentsSheet.open(shell, fighter), "primary", 24, 72)
 	shell.mark("plunge_talents", talents)
-	var row := Kit.hbox(16, [TalentsSheet.medal_row(shell.profile, 26), talents], BoxContainer.ALIGNMENT_CENTER)
-	return row
+	var mine := Kit.vbox(2, [TalentsSheet.medal_row(shell.profile, 26)])
+	mine.alignment = BoxContainer.ALIGNMENT_CENTER
+	var bonus: String = PlungeTalents.summary(shell.profile, Families.of(fighter))
+	if bonus != "":
+		var line := Kit.label(bonus, 16, Color("ffd36b"), HORIZONTAL_ALIGNMENT_CENTER)
+		line.clip_text = true
+		line.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		mine.add_child(line)
+	var stamps := Kit.button("", func(): StampsSheet.open(shell), "ghost", 24, 72)
+	stamps.custom_minimum_size.x = 84
+	stamps.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var g := CenterContainer.new()
+	g.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	g.add_child(Kit.glyph("medal_gold", 40, Color.WHITE))
+	stamps.add_child(g)
+	shell.mark("plunge_stamps", stamps)
+	return Kit.hbox(14, [mine, talents, stamps], BoxContainer.ALIGNMENT_CENTER)
 
 
 ## What the critter's ability does at `tier`, in plain words.
