@@ -12,7 +12,7 @@
 ## out) the rest of the race runs at skip speed. All of that is the view:
 ## the sim steps the same race whatever happens on screen.
 ## URL params: ?mode=plunge&seed=5&n=8 (a practice race: no rewards, nothing
-## spent), &course=lava (one of PlungeCourse.COURSES), &speed=2.
+## spent), &course=lava (one of PlungeCourse.COURSES), &speed=2, &you=1 (practice as racer 0).
 extends Node2D
 
 const Plunge := preload("res://sim/plunge.gd")
@@ -54,6 +54,7 @@ static var again := false
 var sim: Plunge
 var fighter := ""
 var practice := false
+var you := 0 ## Your racer (-1 in a practice race you only watch).
 var speed := -1.0 ## A ?speed= override, else the Speed pill's pick.
 var game_save_path := SaveGame.PATH ## Tests point this elsewhere.
 var result := {} ## What finish() paid, once the race is over.
@@ -92,6 +93,7 @@ func _ready() -> void:
 	CritterPlunge.pending = {}
 	if cfg.is_empty():
 		practice = true
+		you = 0 if params.has("you") else -1 # &you=1: race as racer 0, still for nothing.
 		var n := int(params.get("n", "6")) if str(params.get("n", "")).is_valid_int() else 6
 		n = n if Plunge.FIELD_SIZES.has(n) else 6
 		var seed_value := int(params.seed) if str(params.get("seed", "")).is_valid_int() else randi_range(1, 0x7FFFFFFF)
@@ -104,9 +106,9 @@ func _ready() -> void:
 	sim = Plunge.new(cfg)
 	var tiers: Array = cfg.get("tiers", [])
 	_tier = int(tiers[0]) if not tiers.is_empty() else 1
-	story = PlungeStory.new(-1 if practice else 0)
+	story = PlungeStory.new(you)
 	sfx = PlungeSfx.new()
-	sfx.you = -1 if practice else 0
+	sfx.you = you
 	add_child(sfx)
 	frame = Control.new()
 	frame.clip_contents = true
@@ -114,10 +116,10 @@ func _ready() -> void:
 	add_child(frame)
 	view = PlungeView.new()
 	frame.add_child(view)
-	view.set_race(sim, -1 if practice else 0)
+	view.set_race(sim, you)
 	strip = PlungeStrip.new()
 	strip.sim = sim
-	strip.you = -1 if practice else 0
+	strip.you = you
 	strip.mouse_filter = Control.MOUSE_FILTER_STOP
 	strip.picked.connect(_follow)
 	chips = PlungeChips.new()
@@ -134,7 +136,7 @@ func _ready() -> void:
 	_intro.sfx = sfx
 	_intro.you_at = _your_spot
 	_intro.gate_at = _gate_y
-	if not practice:
+	if you >= 0:
 		_intro.you_color = Roster.RARITY_COLORS.get(str(Roster.get_critter(fighter).get("rarity", "common")), Roster.RARITY_COLORS.common)
 	ui_root.add_child(_intro)
 	ui_root.move_child(_intro, 1) # Over the course and title, under the pills, so Skip still works.
@@ -154,7 +156,7 @@ func _notification(what: int) -> void:
 
 ## Your racer on screen, for the countdown's ring (none when only watching).
 func _your_spot():
-	if practice:
+	if you < 0:
 		return null
 	return view.get_global_transform() * (sim.balls[0].pos * view.view_scale)
 
@@ -209,7 +211,7 @@ func _process(delta: float) -> void:
 ## Once your racer has finished or is out, a moment to see it, then the rest
 ## of the race runs at skip speed (the same race, just not shown).
 func _after_your_race(delta: float) -> void:
-	if practice or _skipping:
+	if you < 0 or _skipping:
 		return
 	if _after_you < 0.0:
 		if not sim.racing(0):
@@ -223,7 +225,7 @@ func _after_your_race(delta: float) -> void:
 ## A close finish: your racer near the line with a rival right by it slows
 ## the view onto your racer for a moment (once a race; not when only watching).
 func _photo_finish() -> void:
-	if practice or _slow_used or not sim.racing(0):
+	if you < 0 or _slow_used or not sim.racing(0):
 		return
 	var y: float = sim.balls[0].pos.y
 	if sim.finish_y - y > PHOTO_ZONE:
@@ -256,7 +258,7 @@ func _sounds(events: Array) -> void:
 
 
 func _skip_race() -> void:
-	if not _skipping and (_after_you < 0.0 or practice):
+	if not _skipping and (_after_you < 0.0 or you < 0):
 		skipped = true # Skipped before your racer was done: not watched.
 	_skipping = true
 	_racing = true
@@ -354,7 +356,7 @@ func _podium() -> Control:
 			break
 		var id: String = sim.balls[i].type_id
 		var col := Kit.vbox(2, [CritterIcon.make(id, _tier, 64), Kit.label(_ordinal(k + 1), 20, Color("ffd36b") if k == 0 else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
-			Kit.label("You" if i == 0 and not practice else Roster.get_critter(id).name, 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
+			Kit.label("You" if i == you else Roster.get_critter(id).name, 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)])
 		col.alignment = BoxContainer.ALIGNMENT_CENTER
 		for c in col.get_children():
 			c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

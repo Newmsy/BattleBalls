@@ -30,7 +30,7 @@ func _init(your_index := 0) -> void:
 
 
 ## Reads one step's events. Returns this step's callouts for your racer:
-## [{text, big}] ("+2 places!", "KO by you!").
+## [{text, big}] ("+2 places!", "KO by you!", a race talent firing).
 func watch(sim) -> Array:
 	var out := []
 	if you < 0 or you >= sim.starters:
@@ -46,6 +46,11 @@ func watch(sim) -> Array:
 				if target == you and sim.tick - _last_taken >= HIT_GAP:
 					hits_taken += 1
 					_last_taken = sim.tick
+			"talent": # Your family's signature race talent fired ("Lava-proof!").
+				if int(e.get("ball", -1)) == you:
+					var word := str(e.get("name", str(e.get("talent", "")).capitalize()))
+					if word != "":
+						out.append({"text": word if word.ends_with("!") else word + "!", "big": false})
 			"race_ko":
 				var hit: Array = _last_hit.get(e.racer, [-1, -1000])
 				var by: int = hit[0] if sim.tick - int(hit[1]) <= KO_CREDIT else -1

@@ -344,6 +344,10 @@ func test_story_reads_your_race_without_changing_it() -> void:
 		var line := story.line(p)
 		check(line != "" and not line.contains("  "), "seed %d: a story line: %s" % [seed_value, line])
 	check_eq(PlungeStory.new(-1).watch(Plunge.new({"seed": 1})), [], "nothing to tell when only watching")
+	var q := Plunge.new({"seed": 1})
+	q.events.append({"type": "talent", "ball": 0, "talent": "lava_proof", "pos": Vector2.ZERO})
+	q.events.append({"type": "talent", "ball": 2, "talent": "lava_proof", "pos": Vector2.ZERO})
+	check_eq(PlungeStory.new(0).watch(q).map(func(c): return c.text), ["Lava Proof!"], "your race talent firing, nobody else's")
 
 
 ## Skip before your racer is done and the race pays no medal (coins and XP still).
