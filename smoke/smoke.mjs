@@ -1024,6 +1024,30 @@ try {
     }
     await page.close();
   }
+
+  // 16. Critter Plunge: its card in Versus, then the Plunge screen; Race
+  // spends the energy and opens the race, Skip runs it to the result popup.
+  if (mine(12)) {
+    const { page, logs } = await openGame("?screen=versus&seed=7&offline=1");
+    await waitForLog(logs, "UI_AT vs_plunge ", 60000);
+    await tapUi(page, logs, "vs_plunge", "plunge");
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "46-plunge-screen.png") });
+    await tapUi(page, logs, "plunge_field_8");
+    await page.waitForTimeout(500);
+    const start = logs.length;
+    await tapUi(page, logs, "plunge_go");
+    console.log("plunge:", await waitForLogAfter(logs, start, "PLUNGE_READY", 30000));
+    await page.waitForTimeout(4000);
+    await page.screenshot({ path: path.join(shots, "47-plunge-race.png") });
+    await tapUi(page, logs, "plunge_skip");
+    console.log("plunge result:", await waitForLog(logs, "PLUNGE_RESULT", 60000));
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(shots, "48-plunge-result.png") });
+    await waitForLog(logs, "UI_AT plunge_back ", 5000);
+    await tapUi(page, logs, "plunge_back", "plunge");
+    await page.close();
+  }
 } catch (e) {
   errors.push(String(e.stack ?? e));
 } finally {

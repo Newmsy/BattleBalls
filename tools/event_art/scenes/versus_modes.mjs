@@ -4,6 +4,8 @@
 //             (see-through, wispy tails) on a misty spectral ring.
 //   vs_quick   (720x200) Quick fight: a sparring pit with ropes, your fighter
 //             warming up while a random foe steps out of a "?" gate.
+//   vs_plunge  (720x200) Critter Plunge: a neon marble-run board, critters
+//             tumbling down through pegs and a bumper towards a checkered finish.
 //   vs_friends (360x280) Friends: a cosy box seat over the stands, two critters
 //             on a couch sharing a lightning gift (energy).
 import { blurs, rng, sparkle, stringLights } from "./_shop_charge_pad_glow_chest_parts.mjs";
@@ -76,6 +78,44 @@ const quick = () => {
   ${fadeL(W, H, "qL", 0.85, 0.42)}`);
 };
 
+const plunge = () => {
+  const W = 720, H = 200, R = rng(21);
+  // The board: a tall glass panel, cut off top and bottom, pegs in staggered rows.
+  let pegs = "";
+  for (let row = 0; row < 6; row++) {
+    const y = 18 + row * 30;
+    for (let k = 0; k < 9; k++) {
+      const x = 300 + k * 44 + (row % 2 ? 22 : 0);
+      if (x > 700) continue;
+      pegs += `<circle cx="${x}" cy="${y}" r="9" fill="#8f7bff" opacity="0.22" filter="url(#bl4)"/><circle cx="${x}" cy="${y}" r="4.5" fill="#cfc8ff"/>`;
+    }
+  }
+  let trail = (pts, col) => `<path d="M ${pts}" stroke="${col}" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.35"/>`;
+  let checks = "";
+  for (let k = 0; k < 22; k++) for (let r = 0; r < 2; r++)
+    checks += `<rect x="${280 + k * 20}" y="${186 + r * 10}" width="20" height="10" fill="${(k + r) % 2 ? "#1a1530" : "#f2eeff"}"/>`;
+  return svg(W, H, `
+  <defs><linearGradient id="pS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e0c2c"/><stop offset="1" stop-color="#241a56"/></linearGradient>
+  <linearGradient id="pB" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1a1650" stop-opacity="0"/><stop offset="0.12" stop-color="#1a1650"/><stop offset="1" stop-color="#151244"/></linearGradient></defs>
+  <rect width="${W}" height="${H}" fill="url(#pS)"/>${sky(14, 26, 0, 0, 720, 120)}
+  <rect x="250" y="-10" width="480" height="220" fill="url(#pB)"/>
+  <path d="M 268 -10 L 268 210 M 712 -10 L 712 210" stroke="#27c8ff" stroke-width="4" opacity="0.6"/>
+  ${pegs}
+  <path d="M 268 150 L 420 176" stroke="#27c8ff" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="610" cy="118" r="24" fill="#ff4fd8" opacity="0.28" filter="url(#bl8)"/><circle cx="610" cy="118" r="17" fill="none" stroke="#ff4fd8" stroke-width="5"/><circle cx="610" cy="118" r="7" fill="#ff4fd8"/>
+  ${checks}
+  ${trail("380 -10 Q 360 30 392 52 Q 420 70 404 96", "#45f5a6")}
+  ${trail("560 -10 Q 590 30 570 60 Q 548 88 586 104", "#ffd36b")}
+  ${trail("660 10 Q 640 60 652 92 Q 668 130 640 150", "#ff7ac8")}
+  <g data-layer="a" data-move="bob 4 0.8 0">${critter(404, 104, 24, "#45f5a6", { acc: "leaf", mood: "cheer", look: [0.4, 0.6], tilt: -12 })}</g>
+  <g data-layer="b" data-move="bob 5 0.7 0.35">${critter(584, 82, 22, "#ffd36b", { acc: "ears", mood: "determined", look: [-0.3, 0.7], tilt: 10 })}</g>
+  <g data-layer="c" data-move="bob 4 0.9 0.7">${critter(640, 156, 20, "#ff7ac8", { acc: "horns", mood: "determined", look: [-0.6, 0.6], tilt: -6 })}</g>
+  <path d="M 380 128 l 12 -10 M 400 134 l 0 -14 M 420 128 l -10 -10" stroke="#cfc8ff" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+  ${sparkle(610, 118, 12, "#fff", 0.8)}
+  ${motes(9, 8, 260, 10, 710, 180, ["#cfc8ff", "#ffd36b"])}
+  ${fadeL(W, H, "pL", 0.85, 0.42)}`);
+};
+
 const friends = () => {
   const W = 360, H = 280;
   return svg(W, H, `
@@ -103,6 +143,6 @@ const friends = () => {
 
 export const dir = "game/ui/versus_art";
 export const size = [720, 240];
-export const sizes = { vs_quick: [720, 200], vs_friends: [360, 280] };
-export const many = { vs_ghost: ghostArena, vs_quick: quick, vs_friends: friends };
+export const sizes = { vs_quick: [720, 200], vs_plunge: [720, 200], vs_friends: [360, 280] };
+export const many = { vs_ghost: ghostArena, vs_quick: quick, vs_plunge: plunge, vs_friends: friends };
 export default ghostArena;

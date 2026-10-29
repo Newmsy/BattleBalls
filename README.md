@@ -139,6 +139,21 @@ Changing ball radius or speed, or adding playable balls, reshapes the
 puzzles. That is fine; `tests/test_trick_shot.gd` only fails if days stop
 being solvable or fair.
 
+## Critter Plunge
+
+A watch-only marble-run race in Versus (`sim/plunge.gd`, `meta/critter_plunge.gd`,
+`game/plunge.gd`, `game/ui/screens/plunge_screen.gd`). Your fighter and 3, 5 or 7
+CPU critters (all at your fighter's power) drop down a seeded peg course to the
+finish. Every critter has one of eight race verbs from its ability (`Plunge.VERBS`:
+pulse, shot, drop, ram, hook, shield, thorns, drain). A hit staggers the target, and
+a racer at 0 HP is knocked out and places last. Damage scales by field size
+(`DAMAGE_BY_FIELD`) so about a quarter of racers are knocked out; wall half-bumpers,
+centred peg rows and seeded mirroring keep every gate fair. Pays coins by place,
+XP and Faction XP. `tools/plunge_stats.gd --races 300 --n all` prints KO rate, race
+length, gate and verb win rates. `?mode=plunge&seed=5&n=8` plays a practice race
+(no rewards). Re-pin `tests/test_plunge.gd`'s golden race and bump
+`Plunge.RULES_VERSION` on intentional sim changes.
+
 ## Bounce Run
 
 A daily roguelite (`sim/bounce_run.gd`, `sim/boons.gd`, `game/bounce_run.gd`;

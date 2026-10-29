@@ -2575,6 +2575,62 @@
    }
   ]
  },
+ "vs_plunge": {
+  "size": [
+   720,
+   200
+  ],
+  "layers": [
+   {
+    "id": "a",
+    "move": "bob 4 0.8 0",
+    "pivot": [
+     399,
+     136
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     372,
+     68,
+     56,
+     66
+    ]
+   },
+   {
+    "id": "b",
+    "move": "bob 5 0.7 0.35",
+    "pivot": [
+     589,
+     111
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     563,
+     46,
+     50,
+     64
+    ]
+   },
+   {
+    "id": "c",
+    "move": "bob 4 0.9 0.7",
+    "pivot": [
+     639,
+     181
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     615,
+     126,
+     47,
+     55
+    ]
+   }
+  ]
+ },
  "vs_quick": {
   "size": [
    720,

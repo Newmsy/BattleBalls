@@ -1,6 +1,6 @@
 ## The Versus hub, opened from the Versus door on Play: Ghost Arena, its
-## rooms (Trophy Room, Bazaar and the weekly chest) and Quick fight with your
-## fighter (while live fights are on). Each mode is a card with its own
+## rooms (Trophy Room, Bazaar and the weekly chest), Critter Plunge (a
+## marble-run race) and Quick fight with your fighter (while live fights are on). Each mode is a card with its own
 ## painting (game/ui/versus_art, from tools/event_art/scenes/versus_modes.mjs);
 ## the cards share the room so nothing scrolls. A new PvP mode adds one card.
 ## Friends are behind the level badge (the profile screen).
@@ -27,6 +27,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var info := ["Ghost Arena: fight other players' saved trios for trophies and Tokens."]
 	if quick_on:
 		info.append("Quick fight: your fighter against a live foe. Nothing at stake.")
+	info.append("Critter Plunge: race your critter down a marble run against others, abilities flying. Coins for every place.")
 	info.append_array(["Trophy Room: spend Arena Points on stat boosts for each family, Ghost Arena only.",
 		"Bazaar: spend Tokens on gear, eggs and energy. New stock every day.",
 		"Weekly chest: the best league you reach each week opens that league's chest."])
@@ -42,29 +43,24 @@ static func build(shell, _params: Dictionary) -> Control:
 	if Intro.done(p):
 		rooms.add_child(ArenaScreen._room(shell, "arena_bazaar", "room_bazaar", "Bazaar", Kit.commas(store.coins), Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})))
 		rooms.add_child(chest_room(shell, store))
-	var cards := [arena]
-	var ratios := [3.0]
+	var plunge := Kit.card_button(band("vs_plunge", "Critter Plunge", "Marble-run race · 4 to 8 critters", Color("27c8ff")), func(): shell.go("plunge"), Color("27c8ff").darkened(.45), Color("27c8ff").darkened(.84), 28, 3)
+	plunge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.mark("vs_plunge", plunge)
+	var cards := [arena, plunge]
+	var ratios := [3.0, 2.4]
 	if quick_on:
 		cards.append(PlayScreen.quick_fight_card(shell, band("vs_quick", "Quick fight", "Live foe · just for fun", Color("cfc8ff"))))
 		ratios.append(3.6)
-	if quick_on:
-		for i in cards.size():
-			cards[i].size_flags_vertical = Control.SIZE_EXPAND_FILL
-			cards[i].size_flags_stretch_ratio = ratios[i]
-	else:
-		# Alone, the Arena's painting keeps a sensible shape rather than
-		# stretching down the whole phone. (A card button's own minimum
-		# follows its content, so the height goes on the content.)
-		for c in arena.get_children():
-			if c is MarginContainer:
-				c.custom_minimum_size.y = 400
+	# The cards share the room, each in step with its painting.
+	for i in cards.size():
+		cards[i].size_flags_vertical = Control.SIZE_EXPAND_FILL
+		cards[i].size_flags_stretch_ratio = ratios[i]
 	var col := Kit.vbox(16, [arena])
 	if rooms.get_child_count() > 0:
 		col.add_child(rooms)
 	for c in cards.slice(1):
 		col.add_child(c)
-	if quick_on:
-		col.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(col)
 	return root
 
