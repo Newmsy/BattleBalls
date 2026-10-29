@@ -146,7 +146,12 @@ A watch-only marble-run race in Versus (`sim/plunge.gd`, `sim/plunge_course.gd`,
 `game/plunge_view.gd`, `game/ui/screens/plunge_screen.gd`). Your racer and 3, 5
 or 7 CPU critters (all at your racer's tier) drop down one of 20 courses
 (`PlungeCourse.COURSES`: a fixed run of sections, details varied by the seed,
-each painted in one arena's art from `game/arena_art.gd`). Every course has one
+each painted in one arena's art from `game/arena_art.gd`) built round its own
+set piece: a gumball spiral, a honeycomb, swinging vines, drifting asteroids,
+ice chutes, lava pipes, a pinball table with flippers and so on. Set pieces use
+the arenas' moving parts (spinning, swinging and sliding bars, orbiting rocks,
+thorns), wind bands, one-way portals, launch pads, curved ramps, icy ramps and
+belts; open ones end on a ledge so the field gathers. Every course has one
 hazard section (`PlungeCourse.HAZARDS`: gravity wells, lava, goo or sliding
 bumpers) with a pickup (power core, heal or shield), carried on the arena's own
 pieces so the fight view draws them. Races open on a course banner and a 3, 2,

@@ -13,9 +13,14 @@ const Plunge := preload("res://sim/plunge.gd")
 const PlungeCourse := preload("res://sim/plunge_course.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const ArenaKit := preload("res://game/arena_art/kit.gd")
+const Backdrops := preload("res://game/plunge_backdrops.gd")
 
 const FLASH_LIFE := 0.3
 const EDGE_TRIM := 0.08 ## Share of the baked square cut off its top and bottom.
+## Ramp colours by look (PlungeCourse ramps); others wear the theme's border.
+const RAMP_LOOKS := {"ice": Color("9fe6ff"), "belt": Color("ffb347"), "cane": Color("fff4f4"), "comb": Color("f5b52e"),
+	"cloud": Color("e8f4ff"), "crystal": Color("c9a6ff"), "pipe": Color("ff7a3d"), "block": Color("39ffb6"),
+	"sand": Color("e8c27a"), "stone": Color("c9c0b0")}
 
 var you := 0 ## Your racer's index (-1 in a race you only watch).
 var view_size := Vector2(680, 900)
@@ -105,15 +110,50 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 			for row in 2:
 				draw_rect(Rect2(k * sq, fy + row * sq, sq, sq), Color.WHITE if (k + row) % 2 == 0 else INK)
 		draw_string(Kit.FONT, Vector2(12.0, fy - 12.0), "FINISH", HORIZONTAL_ALIGNMENT_LEFT, -1, A11y.font(26), Color.WHITE)
-	_draw_floors(sim.floors())
+	var seen := func(y: float, r: float) -> bool: return y + r >= top and y - r <= bottom
+	var pads: Array[Dictionary] = []
+	for f in sim.floors():
+		if f.kind == "wind":
+			if seen.call(f.rect.get_center().y, f.rect.size.y / 2.0):
+				_draw_wind(f, s)
+		elif seen.call(f.pos.y, f.radius):
+			pads.append(f)
+	_draw_floors(pads)
 	_draw_wells(sim.wells())
 	_draw_cores(sim)
 	var rail := Color(theme.border)
+	var w := PlungeCourse.RAMP_THICK * 2.0 * s
 	for rp in c.ramps:
 		if maxf(rp.a.y, rp.b.y) < top or minf(rp.a.y, rp.b.y) > bottom:
 			continue
-		draw_line(rp.a * s, rp.b * s, Color(0, 0, 0, 0.45), (PlungeCourse.RAMP_THICK * 2.0 + 10.0) * s)
-		draw_line(rp.a * s, rp.b * s, rail, PlungeCourse.RAMP_THICK * 2.0 * s)
+		var look: String = rp.get("look", "")
+		var col: Color = RAMP_LOOKS.get(look, rail)
+		draw_line(rp.a * s, rp.b * s, Color(0, 0, 0, 0.45), w + 10.0 * s)
+		draw_line(rp.a * s, rp.b * s, col, w)
+		draw_circle(rp.b * s, w / 2.0, col) # Rounds the joints of curves and shapes.
+		match look:
+			"ice": # A glint along the ice.
+				draw_line(rp.a * s, rp.b * s, Color(1, 1, 1, 0.55), w * 0.3)
+			"belt": # Chevrons running downhill along the belt.
+				var d: Vector2 = rp.down
+				var n := Vector2(-d.y, d.x) * 7.0 * s
+				var span: float = rp.a.distance_to(rp.b)
+				var start: Vector2 = rp.a if (rp.b - rp.a).dot(d) > 0.0 else rp.b
+				var k := fmod(_time * 90.0, 46.0)
+				while k < span - 8.0:
+					var p: Vector2 = (start + d * k) * s
+					draw_polyline(PackedVector2Array([p - d * 6.0 * s + n, p, p - d * 6.0 * s - n]), Color(INK, 0.8), 2.5 * s)
+					k += 46.0
+			"cane": # Candy stripes.
+				var span: float = rp.a.distance_to(rp.b)
+				var d: Vector2 = (rp.b - rp.a) / span
+				var k := 8.0
+				while k < span - 8.0:
+					draw_line((rp.a + d * k) * s, (rp.a + d * (k + 10.0)) * s, Color("ff4d6d"), w)
+					k += 26.0
+			"cloud": # Puffs along the cloud's edge.
+				for t in [0.15, 0.5, 0.85]:
+					draw_circle(rp.a.lerp(rp.b, t) * s, w * 1.3, Color(1, 1, 1, 0.9))
 	var sprites := _art_ctx != null and _bake != null
 	var art_bumper := sprites and ArenaArt.has_bumper(art)
 	for i in c.pegs.size():
@@ -137,7 +177,32 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 				draw_circle(at, r, Color(1, 1, 1, 0.6 * flash))
 		else:
 			draw_circle(at, r, Color(theme.pillar).lerp(Color.WHITE, flash))
-	_draw_obstacles(sim.obstacles())
+	var parts: Array[Dictionary] = []
+	for o in sim.obstacles(): # A margin a bar long, so a bar is drawn whole.
+		if seen.call(o.pos.y, o.radius + 300.0):
+			parts.append(o)
+	_draw_obstacles(parts)
+
+
+## A wind or current band: a faint tint with streaks blowing along it.
+func _draw_wind(f: Dictionary, s: float) -> void:
+	var r: Rect2 = f.rect
+	var rr := Rect2(r.position * s, r.size * s)
+	draw_rect(rr, Color(1, 1, 1, 0.09))
+	var d: Vector2 = f.dir
+	var along := absf(d.x) > 0.5
+	var span := r.size.x if along else r.size.y
+	var cross := r.size.y if along else r.size.x
+	var flipping: bool = f.get("flip_in", 99.0) < 0.6
+	var col := Color(1.0, 0.5, 0.4, 0.7) if flipping else Color(1, 1, 1, 0.55)
+	for k in 6:
+		var u := fmod(_time * 260.0 + k * 197.0, span + 80.0) - 40.0
+		var v := cross * (k + 0.5) / 6.0
+		var p := Vector2(u, v) if along else Vector2(v, u)
+		if (d.x < 0.0 and along) or (d.y < 0.0 and not along):
+			p = Vector2(r.size.x - p.x, p.y) if along else Vector2(p.x, r.size.y - p.y)
+		var a := (r.position + p) * s
+		draw_line(a, a - d * 70.0 * s, col, 4.0 * s)
 
 
 ## The baked floor, one arena-sized square after another down the shaft;
@@ -180,6 +245,13 @@ func _make_art_ctx(id: String, margin: float) -> ArenaKit.Ctx:
 	ctx.obstacles = []
 	ctx.floors = []
 	return ctx
+
+
+## The arena's painting, then this course's own wash and motif over it.
+func _paint_art(cv: CanvasItem) -> void:
+	super._paint_art(cv)
+	if _art_ctx != null and sim != null:
+		Backdrops.paint(cv, _art_ctx, sim.course.info.id)
 
 
 func _art_tracks() -> bool:

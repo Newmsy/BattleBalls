@@ -8,9 +8,11 @@
 ## course race (RACERS); more join as they're balanced in.
 ##
 ## Each course has a hazard section in the arenas' own pieces (gravity
-## wells, lava, goo or sliding bumpers) and pickups (power cores, heals,
-## shields): they sit in `arena` so the fight view draws them, and the race
-## runs them by its own rules (_update_wells, _update_floors, _hit_movers).
+## wells, lava, goo or sliding bumpers), its own set piece (spinners,
+## pendulums, drifting rocks, wind, portals, launch pads, thorns...) and
+## pickups (power cores, heals, shields): they sit in `arena` so the fight
+## view draws them, and the race runs them by its own rules (_update_wells,
+## _update_floors, _hit_movers).
 ##
 ## Damage changes places: a hit staggers its target (it loses speed), slows,
 ## stuns and pulls work as in a fight, and a racer at 0 HP is knocked out and
@@ -29,12 +31,12 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 6
+const RACE_RULES := 7
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
 const RADIUS := 30.0 ## Every racer races this size, whatever its fight size.
 const GRAVITY := 900.0
-const MAX_SPEED := 900.0
+const MAX_SPEED := 600.0
 const DRAG := 0.35 ## Fraction of speed lost per second in the air.
 const RACER_BOUNCE := 0.8
 const STUN_SINK := 70.0 ## How fast a stunned racer sinks (it doesn't hang in the air).
@@ -66,7 +68,7 @@ const STAGGER_AT := 3.0
 const DAMAGE_BY_FIELD := {4: 1.1, 6: 0.75, 8: 0.6}
 ## The knockout knob (Newms 2026-10-29: about 1 racer in 10 knocked out, by
 ## health alone): every racer's HP is scaled by this for its field size.
-const HP_BY_FIELD := {4: 1.25, 6: 1.25, 8: 1.25}
+const HP_BY_FIELD := {4: 1.1, 6: 1.05, 8: 1.2}
 ## Higher tiers hit much harder in a race than they gain health, so every
 ## racer's HP also scales by the field's tier (T1..T5) to keep knockouts near
 ## 1 in 10 at every tier.
@@ -108,6 +110,8 @@ var _stalled: Array[float] = []
 var _nudge_ready: Array[int] = []
 var _bounce_ready: Array[int] = []
 var _win_tick := -1
+var _parts: Array[Dictionary] = [] ## This tick's moving parts (obstacles()), fetched once.
+var _parts_tick := -1
 var _focus_y := 0.0 ## Where the pack is: the "arena" abilities see is around it.
 
 
@@ -148,7 +152,7 @@ func _init(cfg: Dictionary) -> void:
 	arena.floors = course.floors
 	arena.wells = course.wells
 	arena.cores = course.cores
-	arena.obstacles = course.movers
+	arena.obstacles = Arenas.expand_bars(course.movers)
 	_core_ready.clear()
 	for c in course.cores:
 		_core_ready.append(0) # Lit from the start.
@@ -365,13 +369,19 @@ func _resolve_walls(b: Ball) -> void:
 	b.speed = b.vel.length()
 
 
-## The sliding bumpers: a kick away, plus their own motion.
+## The course's moving parts and thorns: a bounce in the part's own frame
+## (a bumper kicks you away), and thorns hurt.
 func _hit_movers(b: Ball, hit: Dictionary) -> void:
-	for o in obstacles():
+	if _parts_tick != tick:
+		_parts_tick = tick
+		_parts = obstacles()
+	for o in _parts:
 		if o.has("piece"):
 			continue
 		var d: Vector2 = b.pos - o.pos
 		var reach: float = b.radius + o.radius
+		if d.y >= reach or d.y <= -reach or d.x >= reach or d.x <= -reach:
+			continue
 		var dist2 := d.length_squared()
 		if dist2 >= reach * reach or dist2 < 0.0001:
 			continue
@@ -381,12 +391,17 @@ func _hit_movers(b: Ball, hit: Dictionary) -> void:
 		var vn := rel.dot(n)
 		if vn >= 0.0:
 			continue
-		b.vel += n * (maxf(-vn * PlungeCourse.PEG_BOUNCE, PlungeCourse.BUMPER_KICK) - vn)
+		if o.kind == "bumper":
+			b.vel += n * (maxf(-vn * PlungeCourse.PEG_BOUNCE, PlungeCourse.BUMPER_KICK) - vn)
+		else:
+			b.vel -= n * vn * (1.0 + PlungeCourse.PEG_BOUNCE)
+			if o.kind == "spike" and b.index < starters:
+				_spike(b, o.pos + n * o.radius)
 		if -vn > hit.speed:
 			hit.speed = -vn
 			hit.point = o.pos + n * o.radius
-			hit.bumper = true
-		events.append({"type": "course_hit", "ball": b.index, "peg": null, "bumper": true, "pos": o.pos + n * o.radius})
+			hit.bumper = o.kind == "bumper"
+		events.append({"type": "course_hit", "ball": b.index, "peg": null, "bumper": o.kind == "bumper", "pos": o.pos + n * o.radius})
 
 
 ## Racers bounce off each other like marbles, not fight balls (they keep no
@@ -459,11 +474,32 @@ func _update_wells() -> void:
 			b.vel += d / dist * w.accel * (1.0 - dist / w.reach) * DT
 
 
-## Goo drags, lava burns (in half-second ticks, under the fight's hazard cap).
+## Goo drags, lava burns (in half-second ticks, under the fight's hazard
+## cap), wind pushes, a portal sends a racer on to its exit at the same
+## speed, and a launch pad throws a racer that falls onto it.
 func _update_floors() -> void:
-	for f in floors():
+	var pads := floors()
+	for f in pads:
 		for b in balls:
-			if not _on_course(b) or not on_floor(f, b.pos, b.radius * 0.5):
+			if not _on_course(b):
+				continue
+			if f.kind == "wind":
+				if f.rect.has_point(b.pos):
+					b.vel += f.dir * f.accel * DT
+				continue
+			if f.kind == "portal" or f.kind == "launch":
+				if b.pos.distance_squared_to(f.pos) > f.radius * f.radius * 0.36:
+					continue
+				if f.kind == "portal" and f.has("to") and tick >= b.portal_ready:
+					b.portal_ready = tick + int(round(PORTAL_COOLDOWN * TICK_RATE))
+					events.append({"type": "portal", "ball": b.index, "from": b.pos, "to": pads[f.to].pos})
+					b.pos = pads[f.to].pos
+				elif f.kind == "launch" and tick >= b.launch_ready and b.vel.y > 0.0:
+					b.launch_ready = tick + TICK_RATE
+					b.vel = f.kick
+					events.append({"type": "course_hit", "ball": b.index, "peg": null, "bumper": true, "pos": f.pos})
+				continue
+			if not on_floor(f, b.pos, b.radius * 0.5):
 				continue
 			if f.kind == "goo":
 				b.vel *= 1.0 - PlungeCourse.GOO_DRAG * DT
@@ -482,6 +518,14 @@ func _update_cores() -> void:
 			var b := balls[events[k].ball]
 			b.vel.y = maxf(b.vel.y, 0.0) + RUSH
 			b.speed = b.vel.length()
+
+
+## Swinging parts (pendulums, flippers) swing `swing` radians either way
+## round their pivot; the rest move as in a fight.
+func _moving_at(o: Dictionary, t: float) -> Vector2:
+	if o.has("swing"):
+		return o.pivot + DMath.rotated(o.pos - o.pivot, o.swing * DMath.sin(TAU * (t / o.period + o.phase)))
+	return super._moving_at(o, t)
 
 
 # --- Places ---------------------------------------------------------------------
