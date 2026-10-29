@@ -19,12 +19,6 @@ const Plunge := preload("res://sim/plunge.gd")
 const MEDALS := ["gold", "silver", "bronze"]
 const MEDAL_NAMES := {"gold": "Gold", "silver": "Silver", "bronze": "Bronze"}
 const VALUE := {"gold": 4, "silver": 2, "bronze": 1} ## In bronze.
-## Medal by place, per field size: bigger fields give more and better ones.
-const PODIUM := {
-	4: ["silver", "bronze"],
-	6: ["gold", "silver", "bronze"],
-	8: ["gold", "silver", "bronze", "bronze"],
-}
 const MAX_RANK := 5
 ## The price of each rank, 1 to 5.
 const PRICES := [
@@ -65,12 +59,6 @@ const SIGNATURES := {
 	"nature": {"id": "thorn", "name": "Thornproof", "text": "Thorns hurt %d%% less, heals +%d%%",
 		"full": "Thorns can't hurt it, heals +%d%%", "race": "Shrugs off thorns, heals more"},
 }
-
-
-## The medal for `place` (1 = winner) in a field of `n`, or "" for none.
-static func medal_for(place: int, n: int) -> String:
-	var row: Array = PODIUM.get(n, PODIUM[6])
-	return row[place - 1] if place >= 1 and place <= row.size() else ""
 
 
 ## `family`'s tree: the shared talents, then its signature.
