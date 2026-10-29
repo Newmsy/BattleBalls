@@ -1,7 +1,7 @@
 ## The start of a Critter Plunge race: the course's name and hazard slide
-## in below the gate, a ring and a banner in your racer's rarity colour call
-## it out, then a 3, 2, 1, GO! countdown pops up over the gate and the gate
-## drops on GO (`go` fires; game/plunge.gd only starts the race then). A
+## in further down, a ring and a YOU banner in your racer's rarity colour
+## call it out, then a 3, 2, 1, GO! countdown pops up just under the gate and
+## the gate drops on GO (`go` fires; game/plunge.gd only starts the race then). A
 ## race run again goes straight to GO. A tap anywhere jumps straight to GO.
 ## Render only: the race is the same whenever it starts.
 extends Control
@@ -94,7 +94,7 @@ func _place() -> void:
 	_count.size = Vector2(size.x, 220)
 	var gate = gate_at.call() if gate_at.is_valid() else null
 	var gy: float = gate if gate != null else size.y * 0.25
-	_count.position = Vector2(0, maxf(0.0, gy - 110.0))
+	_count.position = Vector2(0, gy + 20.0) # Just under the gate, clear of the strip and racers.
 	_count.pivot_offset = _count.size / 2.0
 
 
@@ -158,7 +158,7 @@ func _process(delta: float) -> void:
 	queue_redraw()
 
 
-## A ring that pulses round your racer in the gate on every beat, under a
+## A ring that pulses round your racer in the gate on every beat, over a
 ## YOU banner in its rarity colour.
 func _draw() -> void:
 	if _gone or not you_at.is_valid():
@@ -171,7 +171,7 @@ func _draw() -> void:
 	var fs := A11y.font(24)
 	var w: float = Kit.FONT.get_string_size("YOU", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 28.0
 	var h := fs * 1.5
-	var tag := Rect2(at + Vector2(-w / 2.0, -r - 10.0 - h), Vector2(w, h))
+	var tag := Rect2(at + Vector2(-w / 2.0, r + 6.0), Vector2(w, h))
 	draw_rect(tag, you_color)
 	draw_rect(tag, Color(Kit.BG, 0.6), false, 2.0)
 	draw_string(Kit.FONT, Vector2(tag.position.x, tag.position.y + h / 2.0 + fs * 0.36), "YOU", HORIZONTAL_ALIGNMENT_CENTER, w, fs, Kit.BG)

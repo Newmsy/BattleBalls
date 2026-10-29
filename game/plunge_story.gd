@@ -5,20 +5,23 @@
 extends RefCounted
 
 const Roster := preload("res://game/ui/roster.gd")
+const Plunge := preload("res://sim/plunge.gd")
 
 const STABLE_TICKS := 24 ## A place has to hold this long to count (jams swap places every tick).
 const HIT_GAP := 24 ## Ticks between hits that count apart (a beam is one hit).
 const KO_CREDIT := 180 ## A knockout this soon after your hit is yours.
+const CALLOUT_GAP := 120 ## Ticks between place callouts (a jam trades places back and forth).
 
 var you := 0
 var hits_taken := 0
-var places_gained := 0
 var passed_by := {} ## racer index -> times it took a place off you
 var knocked := [] ## racer indexes you knocked out
 var ko_by := -1 ## Who knocked you out (-1: the course, or not knocked out)
 
 var _place := 0 ## Your place now, by standings.
 var _stable := 0 ## Your place once it held for STABLE_TICKS.
+var _start := 0 ## Your first steady place once the gate opened.
+var _next_callout := 0
 var _since := 0
 var _ahead := [] ## Who was ahead of you at the last stable place.
 var _last_taken := -1000
@@ -59,20 +62,23 @@ func watch(sim) -> Array:
 				elif by == you:
 					knocked.append(e.racer)
 					out.append({"text": "KO by you!", "big": true})
-	if sim.racing(you):
+	if sim.racing(you) and sim.time() >= Plunge.GATE_SECONDS:
 		var order: Array = sim.standings()
 		var now := order.find(you) + 1
-		if _stable == 0:
-			_stable = now
-			_ahead = order.slice(0, now - 1)
 		if now != _place:
 			_place = now
 			_since = 0
 		_since += 1
-		if _since >= STABLE_TICKS and now != _stable:
+		if _since < STABLE_TICKS:
+			return out
+		if _start == 0:
+			_start = now
+			_stable = now
+			_ahead = order.slice(0, now - 1)
+		if now != _stable:
 			var gained := _stable - now
-			if gained > 0:
-				places_gained += gained
+			if gained > 0 and sim.tick >= _next_callout:
+				_next_callout = sim.tick + CALLOUT_GAP
 				out.append({"text": "+%d place%s!" % [gained, "" if gained == 1 else "s"], "big": false})
 			for j in order.slice(0, now - 1):
 				if not j in _ahead:
@@ -116,8 +122,9 @@ func line(sim) -> String:
 	for j in passed_by:
 		if rival < 0 or passed_by[j] > passed_by[rival]:
 			rival = j
-	if places_gained >= 2:
-		parts.append("gained %d places" % places_gained)
+	var gained := places_gained(sim)
+	if gained >= 2:
+		parts.append("gained %d places" % gained)
 	elif rival >= 0 and parts.size() < 3:
 		parts.append("lost a place to " + _name(sim, rival))
 	parts = parts.slice(0, 3)
@@ -125,6 +132,15 @@ func line(sim) -> String:
 		return ""
 	var text := " · ".join(parts)
 	return text.left(1).to_upper() + text.substr(1)
+
+
+## Places gained from your first steady place after the gate to the line (0
+## when knocked out or never steady).
+func places_gained(sim) -> int:
+	if _start == 0 or sim.ko_ticks[you] >= 0:
+		return 0
+	var final: int = sim.places[you] if sim.places[you] > 0 else _stable
+	return maxi(0, _start - final)
 
 
 static func _name(sim, i: int) -> String:
