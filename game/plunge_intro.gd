@@ -27,6 +27,7 @@ var _ring := 0.0 ## 0..1 pulse of the ring round your racer.
 var _clock := 0.0
 var _gone := false
 var _tween: Tween
+var _pop: Tween ## The current beat's pop and fade; killed by the next beat.
 var _laid_for := Vector2.ZERO
 
 
@@ -89,7 +90,10 @@ func _beat(text: String, col: Color, is_go: bool) -> void:
 	_count.add_theme_color_override("font_color", col)
 	_count.visible = true
 	_count.modulate.a = 1.0
+	if _pop != null:
+		_pop.kill() # Its fade would otherwise carry on into this beat.
 	var pop := create_tween()
+	_pop = pop
 	if A11y.reduced_motion:
 		_count.scale = Vector2.ONE
 	else:

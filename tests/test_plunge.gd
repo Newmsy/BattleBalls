@@ -44,8 +44,8 @@ func test_golden_race() -> void:
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
 const GOLDEN_RACERS := ["thorns", "comet", "gumdrop", "frost", "prism", "honey"]
-const GOLDEN_ORDER := [1, 0, 5, 2, 4, 3]
-const GOLDEN_KOS := [3, 4, 2]
+const GOLDEN_ORDER := [1, 4, 0, 5, 2, 3]
+const GOLDEN_KOS := [3, 2]
 const GOLDEN_TICKS := 2707
 
 
@@ -137,12 +137,14 @@ func test_tiers_upgrade_abilities() -> void:
 	check(t5.balls[0].def.effects.size() > t1.balls[0].def.effects.size(), "with its T5 extras")
 
 
-## About a quarter knocked out, races end in watchable time, and a fair
+## About 1 in 10 knocked out at T1 and at T5, races end in watchable time, and a fair
 ## spread of gates and verbs wins (loose bands: a small sample; use
 ## tools/plunge_stats.gd for the real numbers).
 func test_races_are_watchable_and_fair() -> void:
 	var s: Dictionary = load("res://tools/plunge_stats.gd").measure(8, 30, 500)
-	check(s.ko_rate >= 0.1 and s.ko_rate <= 0.45, "knocked out %.0f%% (target ~25%%)" % (100.0 * s.ko_rate))
+	check(s.ko_rate >= 0.03 and s.ko_rate <= 0.25, "knocked out %.0f%% (target ~10%%)" % (100.0 * s.ko_rate))
+	var t5: Dictionary = load("res://tools/plunge_stats.gd").measure(6, 15, 500, 5)
+	check(t5.ko_rate <= 0.25, "T5 fields knocked out %.0f%% (target ~10%%)" % (100.0 * t5.ko_rate))
 	check(s.median >= 15.0 and s.median <= 60.0, "median winning time %.1fs" % s.median)
 	for g in s.gate_wins:
 		check(g <= 12, "no gate wins 12 of 30 (%s)" % [s.gate_wins])

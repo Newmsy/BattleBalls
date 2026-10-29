@@ -3,7 +3,8 @@
 ## course's knockouts and length. Fair is 1.0x
 ## (wins exactly 1 race in n). Usage:
 ## godot --headless --script res://tools/plunge_stats.gd -- --races=400 --n=8
-## (--n=all runs 4, 6 and 8; --base=1000 starts at another seed.)
+## (--n=all runs 4, 6 and 8; --base=1000 starts at another seed; --tier=5
+## races the whole field at T5.)
 extends SceneTree
 
 const Plunge := preload("res://sim/plunge.gd")
@@ -14,6 +15,7 @@ func _init() -> void:
 	var sizes := [8]
 	var base := 1
 	var as_json := false
+	var tier := 1
 	for a in OS.get_cmdline_user_args():
 		if a == "--json":
 			as_json = true
@@ -23,17 +25,19 @@ func _init() -> void:
 			sizes = Plunge.FIELD_SIZES if a.get_slice("=", 1) == "all" else [int(a.get_slice("=", 1))]
 		if a.begins_with("--base="):
 			base = int(a.get_slice("=", 1))
+		if a.begins_with("--tier="):
+			tier = int(a.get_slice("=", 1))
 	for n in sizes:
 		if as_json:
-			print("JSON ", JSON.stringify(measure(n, races, base)))
+			print("JSON ", JSON.stringify(measure(n, races, base, tier)))
 		else:
-			_report(n, races, base)
+			_report(n, races, base, tier)
 	quit(0)
 
 
-func _report(n: int, races: int, base: int) -> void:
+func _report(n: int, races: int, base: int, tier: int) -> void:
 	var t0 := Time.get_ticks_msec()
-	var s := measure(n, races, base)
+	var s := measure(n, races, base, tier)
 	print("--- %d racers, %d races in %d ms (damage x%.2f)" % [n, races, Time.get_ticks_msec() - t0, Plunge.field_damage(n)])
 	print("knocked out %.1f%% · winning time median %.1fs p90 %.1fs · never finished %d" % [100.0 * s.ko_rate, s.median, s.p90, s.stuck])
 	var gates := []
@@ -51,7 +55,7 @@ func _report(n: int, races: int, base: int) -> void:
 
 
 ## The numbers above as data (tests use it too).
-static func measure(n: int, races: int, base := 1) -> Dictionary:
+static func measure(n: int, races: int, base := 1, tier := 1) -> Dictionary:
 	var gate_wins := []
 	gate_wins.resize(n)
 	gate_wins.fill(0)
@@ -63,7 +67,8 @@ static func measure(n: int, races: int, base := 1) -> Dictionary:
 	var times: Array = []
 	var courses := {}
 	for seed in range(base, base + races):
-		var p := Plunge.new({"seed": seed, "racers": Plunge.draw_field(seed, n)})
+		var field: Array = Plunge.draw_field(seed, n)
+		var p := Plunge.new({"seed": seed, "racers": field, "tiers": field.map(func(_id): return tier)})
 		var res := p.run()
 		var w: int = res.order[0]
 		gate_wins[p.lanes[w]] += 1
