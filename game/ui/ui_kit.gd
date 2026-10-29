@@ -23,6 +23,10 @@ const BUTTON_STYLES := {
 	"go": [GOOD, Color("1d9a65"), BG],
 	"ghost": [PANEL2, Color("0a0820"), FG],
 	"danger": [BAD, Color("8a1f35"), BG], ## Only for a step that can't be undone.
+	# The Home doors' own colours (Arena, Bounce Run, Critter Plunge).
+	"pink": [Color("ff4fd8"), Color("9c1f86"), BG],
+	"gold": [Color("ffc23d"), Color("a8740f"), BG],
+	"sky": [Color("27c8ff"), Color("0f6f9c"), BG],
 }
 
 

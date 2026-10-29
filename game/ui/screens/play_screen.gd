@@ -1,8 +1,10 @@
-## Play tab (home): a slim Glow Pass and Shop row under the top bar, then three
-## themed doors, Adventure, Daily and Versus. Each door shows its best taps
-## (Continue, the dailies, Ghost Arena and Quick fight); its header opens a hub screen with
-## everything in it (adventure_screen, week_screen, versus_screen). A new mode
-## goes in one hub, and on its door only if it's that door's best tap.
+## Play tab (home): a slim Glow Pass and Shop row under the top bar, then the
+## four main modes as painted doors in a 2x2 grid (Campaign, Arena, Bounce Run,
+## Critter Plunge), each with its own big button, then a strip of painted
+## tokens for everything else you play (Quests, Trick Shot, Fight of the Day,
+## Spire, Bosses). A door's › opens its hub (adventure_screen, versus_screen);
+## the strip's header opens the Daily board (week_screen). A new mode goes in
+## a hub, and on the strip only if it's played most days.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -10,6 +12,8 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const BounceRun := preload("res://sim/bounce_run.gd")
+const BounceChest := preload("res://meta/bounce_chest.gd")
+const BounceChestOpen := preload("res://game/ui/bounce_chest_open.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
@@ -19,6 +23,7 @@ const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const BossesScreen := preload("res://game/ui/screens/bosses_screen.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
+const CritterPlunge := preload("res://meta/critter_plunge.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
@@ -30,8 +35,11 @@ const VERSUS := Color("ff4fd8")
 const STYLE := Color("5ce1ff")
 const ADVENTURE := Color("45f5a6")
 const BOSS := Color("ff8a3d")
+const BOUNCE := Color("ffc23d")
+const PLUNGE := Color("27c8ff")
 ## Kit.MUTED, a step lighter, for words over a painting.
 const ON_ART_MUTED := Color("cfcdf0")
+const VERSUS_ART := "res://game/ui/versus_art/%s.png"
 
 ## True on a tall phone (more than a 9:16 screen's height): the doors' badges,
 ## buttons and words grow a step so they fill the room instead of floating.
@@ -41,26 +49,33 @@ static var tall := false
 static func build(shell, _params: Dictionary) -> Control:
 	tall = shell.size.y > 1400.0
 	var root := Kit.vbox(14)
-	# One column that fills the room: the Glow Pass and Shop row on top, then
-	# the doors share the height and spread their rows out, so a tall phone has
-	# no dead band in one door. The shell keeps this first child at the top
-	# rather than centring it.
-	var doors := [_adventure_door(shell), _daily_door(shell), _versus_door(shell)]
+	var doors := [_campaign_door(shell), _arena_door(shell), _bounce_door(shell), _plunge_door(shell)]
 	var style := _style_row(shell)
+	var strip := _more_strip(shell)
 	if not Intro.done(shell.profile):
 		# A new player's first fights (game/ui/intro.gd) still see the whole
 		# Home: what isn't open yet is dimmed, with what opens it on top.
 		style = _lock(shell, style, LATER, "Opens later")
-		doors[1] = _lock(shell, doors[1], LATER)
+		strip = _lock(shell, strip, LATER)
+		doors[2] = _lock(shell, doors[2], LATER, "Opens later")
+		doors[3] = _lock(shell, doors[3], LATER, "Opens later")
 		if not Intro.shows(shell.profile, "arena"):
-			doors[2] = _lock(shell, doors[2], "Opens after stage 1-3")
-	# Each door's share of the height is roughly in step with its own size (about
-	# 410, 300 and 360 high; Adventure a little more), so the spare spreads
-	# out instead of pooling in one door.
-	for i in doors.size():
-		doors[i].size_flags_vertical = Control.SIZE_EXPAND_FILL
-		doors[i].size_flags_stretch_ratio = [4.4, 2.8, 3.5][i]
-	var col := Kit.vbox(14, [style] + doors)
+			doors[1] = _lock(shell, doors[1], "Opens after stage 1-3", "After 1-3")
+	# Two rows of two; the top row a little taller (Campaign and Arena carry
+	# a second line).
+	var rows: Array = []
+	for i in [0, 2]:
+		var row := Kit.hbox(14, [doors[i], doors[i + 1]])
+		for d in [doors[i], doors[i + 1]]:
+			d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			d.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		row.size_flags_stretch_ratio = 1.12 if i == 0 else 1.0
+		rows.append(row)
+	var parts: Array = [style] + rows + [strip]
+	if Dev.quick_fight_shown():
+		parts.append(quick_fight_row(shell))
+	var col := Kit.vbox(14, parts)
 	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(col)
@@ -91,67 +106,6 @@ static func _lock(shell, c: Control, line: String, short := "") -> Control:
 	stack.add_child(c)
 	stack.add_child(cover)
 	return stack
-
-
-# --- The three doors ----------------------------------------------------------
-# Home is three themed doors (Adventure, Daily, Versus). Each shows its most
-# useful actions right on the door; its header opens a hub with everything in
-# it. A new mode goes in one hub, and on a door only if it's the door's best tap.
-
-## A door: a header that opens the hub, then the door's own quick actions.
-## A tap anywhere else on the door opens the hub too.
-## `paint` puts a painting (game/ui/home_art) on it: {"id", "focus"} heads the
-## door with a band of the painting under the title; "hero" fills the whole
-## door with it, its words over the darkened top and bottom.
-static func door(shell, mark: String, title: String, sub: String, accent: Color, hub: Callable, body: Array, paint := {}) -> Control:
-	var head := Kit.vbox(0, [Kit.label(title, 34, accent), Kit.label(sub, 19, Kit.MUTED)])
-	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# A painted door opens into its hub with a wash of its colour.
-	var painting: Array = [null]
-	var open_hub := func():
-		if is_instance_valid(painting[0]):
-			shell.light_from(painting[0], accent)
-		hub.call()
-	var header := Kit.card_button(Kit.hbox(8, [head, Kit.label("›", 44, accent)], BoxContainer.ALIGNMENT_CENTER), open_hub, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 0)
-	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shell.mark(mark, header)
-	var bg := accent.darkened(.86)
-	var st := Kit.box(bg, accent.darkened(.4), 32, 2, 18)
-	if paint.is_empty():
-		# Spare height goes into the gaps between the rows, so a tall door spreads
-		# out evenly instead of floating its rows in the middle.
-		var v := Kit.vbox(0, [header])
-		for c in body:
-			v.add_child(_gap())
-			v.add_child(c)
-		return Kit.tap_card(Kit.panel(v, st), open_hub)
-	_on_art(header)
-	# The painting sits inside the 2px border, its corners rounded to match.
-	st.set_content_margin_all(2)
-	if paint.get("hero", false):
-		# Its left side is kept calm for the words; the props live on the right.
-		var art: Control = HomePainting.make(paint.id, paint.focus, 30.0, Vector4(.24, .6, .3, .92), Kit.BG).calm_left(.62, .72)
-		painting[0] = art
-		# The painting shows through the spare room between the header and the rows.
-		var room := _gap()
-		room.custom_minimum_size.y = 40 if tall else 0
-		for c in body:
-			_on_art(c)
-		var v := Kit.vbox(10, [header, room] + body)
-		var stack := MarginContainer.new()
-		stack.add_child(art)
-		stack.add_child(_padded(v, 16, 16))
-		return Kit.tap_card(Kit.panel(stack, st), open_hub)
-	# A band of painting with the title on it, then the door's rows.
-	var band := MarginContainer.new()
-	band.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	# On a short phone the band is just the header's height; a tall one grows it.
-	band.custom_minimum_size.y = 130 if tall else 0
-	painting[0] = HomePainting.make(paint.id, paint.focus, 30.0, Vector4(.3, .45, .55, 1.0), bg).calm_left(.62, .65)
-	band.add_child(painting[0])
-	band.add_child(_padded(header, 16, 0))
-	var rows := Kit.vbox(8, body)
-	return Kit.tap_card(Kit.panel(Kit.vbox(0, [band, _padded(rows, 0, 16)]), st), open_hub)
 
 
 ## `c` inside a margin: 16px at the sides, `top` and `bottom` above and below.
@@ -245,97 +199,180 @@ static func door_spot(shell, mark: String, art: Control, title: String, status: 
 	return b
 
 
-## Adventure: where the campaign stands and Continue, with the Spire and the
-## bosses beside it. The header opens the Adventure hub.
-static func _adventure_door(shell) -> Control:
+# --- The four doors -----------------------------------------------------------
+# Home is four painted doors, one per main mode, each with its own big button.
+# Campaign's and Arena's doors open their hubs on a tap anywhere else (the ›);
+# Bounce Run's and Plunge's do what their button does.
+
+## A door: a painting filling it, the title and status `lines` on its darkened
+## top, and `action` (the mode's big button) along the bottom. A tap anywhere
+## else runs `on_tap`; `hub` puts a › by the title, for a door that opens a hub.
+static func mode_door(shell, mark: String, title: String, lines: Array, accent: Color, art: Control, action: Control, on_tap: Callable, hub := false) -> Control:
+	var words := Kit.vbox(2, [Kit.label(title, _s(30), accent)] + lines)
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var head := Kit.hbox(4, [words])
+	if hub:
+		var arrow := Kit.label("›", 40, accent)
+		arrow.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		head.add_child(arrow)
+	action.size_flags_vertical = Control.SIZE_SHRINK_END
+	var v := Kit.vbox(0, [head, _gap(), action])
+	_on_art(head)
+	var stack := MarginContainer.new()
+	stack.add_child(art)
+	var pad := _padded(v, 14, 14)
+	for side in ["left", "right"]:
+		pad.add_theme_constant_override("margin_" + side, 14)
+	stack.add_child(pad)
+	# The painting sits inside the 3px border, its corners rounded to match.
+	var st := Kit.box(accent.darkened(.86), accent.darkened(.2), 30, 3, 0)
+	st.set_content_margin_all(3)
+	var card := Kit.tap_card(Kit.panel(stack, st), on_tap, 30)
+	card.custom_minimum_size.x = 0
+	shell.mark(mark, card)
+	return card
+
+
+## A door's painting: cropped round `focus`, darkened under the words at the
+## top and a little under the button at the bottom.
+static func _door_art(id: String, focus: Vector2, dir := HomePainting.DIR) -> Control:
+	return HomePainting.make(id, focus, 27.0, Vector4(.42, .82, .62, .7), Kit.BG, dir)
+
+
+## A door's big button, in the door's own colour.
+static func _door_button(text: String, kind: String, on_press: Callable) -> Button:
+	return Kit.button(text, on_press, kind, _s(28), _s(80))
+
+
+## A muted status line on a door, trimmed rather than widening it.
+static func _door_line(text: String, color := Kit.MUTED, size := 19) -> Label:
+	var l := Kit.label(text, _s(size), color)
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	l.clip_text = true
+	# In a row beside a glyph or face, a clipped label needs the room given to it.
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return l
+
+
+## Campaign: the current zone's painting, its next stage and Continue. The
+## door opens the Adventure hub (Spire, Bosses, Rift).
+static func _campaign_door(shell) -> Control:
 	var c := campaign_state(shell.profile)
-	var name := Kit.label(c.zone.name, _s(30))
-	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var top := Kit.hbox(10, [name, _art_pill(Kit.hbox(6, [Glyph.make("crown", 26, Kit.FG, 1), Kit.label("%d/%d" % [c.stars, c.max_stars], 22, Kit.MUTED)]))], BoxContainer.ALIGNMENT_CENTER)
-	# The next stage's power sits on a pill too: the right side is the painting's.
-	if c.power != null:
-		var row: Control = c.next_row
-		row.remove_child(c.power)
-		row.add_child(_art_pill(c.power))
-	# The zone's painting is the door's picture; the next foes' faces sit in
-	# the Next line.
-	var zone := Kit.vbox(8, [top, c.next_row])
-	zone.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var go := Kit.button("Continue", func(): shell.go("world"), "go", _s(30), _s(88))
-	go.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	go.size_flags_stretch_ratio = 2.0
-	go.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var go := _door_button("Continue", "go", func(): shell.go("world"))
 	shell.mark("campaign", go)
-	var climb = SpireClimb.load_file(LiveOps.now())
-	var spire := door_spot(shell, "spire", token("spire", _s(62)), "Spire", "%d/%d" % [climb.cleared, Spire.FLOORS], DAILY, func(): shell.go("spire"))
 	var intro := not Intro.done(shell.profile)
-	if intro:
-		spire = door_spot(shell, "spire", token("lock", _s(62)), "Spire", "Opens later", Kit.MUTED, func(): shell.toast(LATER))
-		spire.modulate = Color(1, 1, 1, .6)
-	var bosses: Control
-	if BossesScreen.any_open(shell.profile):
-		var left := BossesScreen.runs_left_total(shell.profile, int(Time.get_unix_time_from_system()))
-		bosses = door_spot(shell, "bosses", token("bosses", _s(62)), "Bosses", "%d left" % left if left > 0 else "Done", BOSS if left > 0 else Kit.MUTED, func(): shell.go("bosses"))
-	else:
-		bosses = door_spot(shell, "locked_dailies", token("lock", _s(62)), "Bosses", "Opens 1-5", Kit.MUTED, _bosses_locked_info(shell))
-		bosses.modulate = Color(1, 1, 1, .6)
-	# During the first fights the header goes where Continue does: the hub's
+	var stars := Kit.hbox(6, [Glyph.make("crown", _s(20), Kit.FG, 1), _door_line("%d/%d" % [c.stars, c.max_stars], Kit.MUTED, 17)])
+	var lines: Array = [_door_line(c.zone.name, Kit.FG, 21), _door_line(c.next_line), stars]
+	# During the first fights the door goes where Continue does: the hub's
 	# other rooms aren't open yet.
-	return door(shell, "adventure", "ADVENTURE", "Campaign · Spire · Bosses", ADVENTURE, func(): shell.go("world" if intro else "adventure"),
-		[zone, Kit.hbox(10, [go, spire, bosses], BoxContainer.ALIGNMENT_CENTER)],
-		{"id": "home_zone_" + c.zone.id, "focus": Vector2(.75, .45), "hero": true})
+	return mode_door(shell, "adventure", "CAMPAIGN", lines, ADVENTURE,
+		_door_art("home_zone_" + c.zone.id, Vector2(.64, .7)), go,
+		func(): shell.go("world" if intro else "adventure"), true)
 
 
-## Daily: today's puzzle and run, then this week's events. The header opens the
-## Daily board (the old This Week screen).
-static func _daily_door(shell) -> Control:
+## Arena: your league and trophies, and Fight (the Ghost Arena's opponents).
+## The door opens the Versus hub (Trophy Room, Bazaar, weekly chest).
+static func _arena_door(shell) -> Control:
+	var store = ArenaStore.open()
+	var fight := _door_button("Fight", "pink", func(): shell.go("arena"))
+	shell.mark("arena", fight)
+	var lines: Array = [_door_line(Ladder.league_label(store.trophies), Kit.FG, 21),
+		Kit.hbox(6, [Glyph.make("trophy", _s(20), DAILY), _door_line(Kit.commas(store.trophies), Kit.MUTED, 17)])]
+	var intro := Intro.step(shell.profile) < Intro.TROPHY
+	var door := mode_door(shell, "versus", "ARENA", lines, VERSUS,
+		_door_art("vs_ghost", Vector2(.47, .75), VERSUS_ART), fight,
+		func(): shell.go("arena" if intro else "versus"), true)
+	if store.chest_ready():
+		door.add_child(red_dot())
+	return door
+
+
+## Bounce Run: today's best floor and a new run, or Open when yesterday's
+## best floor left a chest.
+static func _bounce_door(shell) -> Control:
+	var day := BounceRun.day_number(Time.get_unix_time_from_system())
+	var best := BounceChest.best_floors()
+	var chest := BounceChest.pending(best, int(shell.profile.bounce_chest), day) if shell.profile != null else {}
+	var lines: Array = []
+	var action: Button
+	var tap: Callable
+	if not chest.is_empty():
+		tap = func(): BounceChestOpen.show_on(shell, chest)
+		action = _door_button("Open", "gold", tap)
+		shell.mark("home_bounce_chest", action)
+		lines.append(_door_line("%s ready" % BounceChest.TIERS[int(chest.tier)].name, DAILY, 21))
+	else:
+		tap = func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")
+		action = _door_button("New run", "gold", tap)
+		shell.mark("bouncerun", action)
+		var today := int(best.get(day, 0))
+		lines.append(_door_line("Best today: floor %d" % today if today > 0 else "Climb %d floors" % BounceRun.FLOORS, Kit.FG, 21))
+		var t := BounceChest.tier_for(today)
+		if t >= 0:
+			lines.append(_door_line("%s tomorrow" % BounceChest.TIERS[t].name))
+	return mode_door(shell, "home_bounce", "BOUNCE RUN", lines, BOUNCE,
+		_door_art("daily_bounce", Vector2(.45, .6)), action, tap)
+
+
+## Critter Plunge: your racer and Race (the Plunge screen, where you pick the
+## field and your racer).
+static func _plunge_door(shell) -> Control:
+	var open := func(): shell.go("plunge")
+	var race := _door_button("Race", "sky", open)
+	shell.mark("home_plunge", race)
+	var lines: Array = [_door_line("Marble race", Kit.FG, 21)]
+	var racer: String = CritterPlunge.racer_for(shell.profile) if shell.profile != null else ""
+	if racer != "":
+		lines.append(Kit.hbox(6, [CritterIcon.face(racer, _s(26)), _door_line(Roster.get_critter(racer).name, Kit.MUTED, 17)], BoxContainer.ALIGNMENT_CENTER))
+	return mode_door(shell, "plunge_door", "PLUNGE", lines, PLUNGE,
+		_door_art("vs_plunge", Vector2(.92, .5), VERSUS_ART), race, open)
+
+
+## Under the doors: a strip of painted tokens for everything else played most
+## days. Its header opens the Daily board (Fight of the Day, Bracket, the
+## week's events).
+static func _more_strip(shell) -> Control:
 	var t := LiveOps.now()
+	var week := func(): shell.go("week")
+	var season := LiveOps.season(t)
+	var title := Kit.label("MORE TO PLAY", 20, DAILY)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var right := _door_line("" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks], Kit.MUTED, 17)
+	right.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	var header := Kit.card_button(Kit.hbox(8, [title, right, Kit.label("›", 30, DAILY)], BoxContainer.ALIGNMENT_CENTER), week, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 0)
+	shell.mark("thisweek", header)
 	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	var trick: Dictionary = WeekScreen.trick_status(day)
 	var trick_line := "Solved" if trick.solved else ("Done" if trick.tries >= WeekScreen.TRICK_TRIES else "New")
-	var week := func(): shell.go("week")
 	var f := LiveOps.fight_of_the_day(t)
-	var fotd := Kit.hbox(-12, [CritterIcon.face(f.p1, _s(30)), CritterIcon.face(f.p2, _s(30))], BoxContainer.ALIGNMENT_CENTER)
-	var row := Kit.hbox(4, [
-		door_spot(shell, "trickshot", token("trick", _s(62)), "Trick Shot", trick_line, DAILY,
+	var side := _s(56)
+	var fotd := Kit.hbox(-12, [CritterIcon.face(f.p1, _s(28)), CritterIcon.face(f.p2, _s(28))], BoxContainer.ALIGNMENT_CENTER)
+	var climb = SpireClimb.load_file(t)
+	var spire := door_spot(shell, "spire", token("spire", side), "Spire", "%d/%d" % [climb.cleared, Spire.FLOORS], DAILY, func(): shell.go("spire"))
+	var bosses: Control
+	if BossesScreen.any_open(shell.profile):
+		var left := BossesScreen.runs_left_total(shell.profile, int(Time.get_unix_time_from_system()))
+		bosses = door_spot(shell, "bosses", token("bosses", side), "Bosses", "%d left" % left if left > 0 else "Done", BOSS if left > 0 else Kit.MUTED, func(): shell.go("bosses"))
+	else:
+		bosses = door_spot(shell, "locked_dailies", token("lock", side), "Bosses", "Opens 1-5", Kit.MUTED, _bosses_locked_info(shell))
+		bosses.modulate = Color(1, 1, 1, .6)
+	var row := Kit.hbox(2, [
+		door_spot(shell, "daily_quests", token("quests", side), "Quests", _quest_line(shell), DAILY, func(): shell.go("quests"), shell.glow.quests_ready() > 0),
+		door_spot(shell, "trickshot", token("trick", side), "Trick Shot", trick_line, DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.solved and trick.tries == 0),
-		door_spot(shell, "bouncerun", token("bounce", _s(62)), "Bounce Run", "New run", DAILY,
-			func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")),
-		door_spot(shell, "daily_fotd", token_with("frame_gold", fotd, _s(62)), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
-		door_spot(shell, "daily_quests", token("quests", _s(62)), "Quests", _quest_line(shell), DAILY, func(): shell.go("quests"), shell.glow.quests_ready() > 0),
+		door_spot(shell, "daily_fotd", token_with("frame_gold", fotd, side), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
+		spire, bosses,
 	])
-	var season := LiveOps.season(t)
-	var sub := "Puzzles, runs and this week's events" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks]
-	return door(shell, "thisweek", "DAILY", sub, DAILY, week, [row], {"id": "home_daily", "focus": Vector2(.75, .5)})
-
-
+	var st := Kit.box(DAILY.darkened(.88), DAILY.darkened(.6), 28, 2, 10)
+	st.content_margin_left = 6
+	st.content_margin_right = 6
+	return Kit.panel(Kit.vbox(4, [_padded(header, 0, 0), row]), st)
 ## The Quests spot's status: Claim when something is ready, else today's count.
 static func _quest_line(shell) -> String:
 	if shell.glow.quests_ready() > 0:
 		return "Claim"
 	var q: Dictionary = shell.glow.quests(LiveOps.now())
 	return "New" if (q.daily as Array).is_empty() else "%d/3" % q.chest.done
-
-
-## Versus: Ghost Arena, then Quick fight with your fighter (tap the face to
-## pick another) while live fights are on. The header opens the Versus hub
-## (Trophy Room, Bazaar, weekly chest); Friends are behind your level badge.
-static func _versus_door(shell) -> Control:
-	var store = ArenaStore.open()
-	var league := Kit.vbox(0, [Kit.label("Ghost Arena", _s(26)), Kit.label("%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)], 19, VERSUS)])
-	league.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var arena := Kit.card_button(Kit.hbox(12, [token("ghost", _s(64)), league], BoxContainer.ALIGNMENT_CENTER), func(): shell.go("arena"), VERSUS.darkened(.45), VERSUS.darkened(.8), 24, 10)
-	arena.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shell.mark("arena", arena)
-	if store.chest_ready():
-		arena.add_child(red_dot())
-	var intro := Intro.step(shell.profile) < Intro.TROPHY
-	var rows: Array = [arena]
-	if Dev.quick_fight_shown():
-		rows.append(quick_fight_row(shell))
-	return door(shell, "versus", "VERSUS", "Ghost Arena · Quick fight · Trophy Room" if Dev.quick_fight_shown() else "Ghost Arena · Trophy Room · Bazaar", VERSUS, func(): shell.go("arena" if intro else "versus"),
-		rows,
-		{"id": "home_versus", "focus": Vector2(.75, .9)})
 
 
 ## Your fighter and the Quick fight button. Tap the fighter to pick another.
@@ -426,10 +463,12 @@ static func campaign_state(p) -> Dictionary:
 	var next_row: Control = Kit.label("All %d stages cleared." % stages.size(), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
 	var faces = null
 	var power = null
+	var next_line := "All %d stages cleared" % stages.size()
 	var foe: String = Zones.enemies(stages[next if next >= 0 else stages.size() - 1])[0]
 	if next >= 0:
 		var st: Dictionary = stages[next]
-		var next_l := Kit.label("Next: %s %s" % [Zones.stage_key(z, next), st.get("name", Roster.get_critter(st.enemy).name)], 22, Kit.MUTED)
+		next_line = "Next: %s %s" % [Zones.stage_key(z, next), st.get("name", Roster.get_critter(st.enemy).name)]
+		var next_l := Kit.label(next_line, 22, Kit.MUTED)
 		next_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		next_l.clip_text = true
 		next_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -438,7 +477,7 @@ static func campaign_state(p) -> Dictionary:
 			faces.add_child(CritterIcon.face(id, 40))
 		power = Kit.power(Campaign.enemy_rating(z, next), 22, Kit.MUTED)
 		next_row = Kit.hbox(12, [faces, next_l, power], BoxContainer.ALIGNMENT_CENTER)
-	return {"z": z, "zone": zd, "stars": star_total, "max_stars": stages.size() * 3, "next_row": next_row, "faces": faces, "foe": foe, "power": power}
+	return {"z": z, "zone": zd, "stars": star_total, "max_stars": stages.size() * 3, "next_row": next_row, "next_line": next_line, "faces": faces, "foe": foe, "power": power}
 
 
 ## Quick fight with your fighter on it: tap the fighter to pick another, and
