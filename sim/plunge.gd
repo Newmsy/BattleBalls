@@ -24,7 +24,7 @@ const Rng := preload("res://sim/rng.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RULES_VERSION := 1
+const RULES_VERSION := 2
 const TICK_RATE := 60
 const SUBSTEPS := 3
 const DT := 1.0 / TICK_RATE
@@ -49,12 +49,15 @@ const RAMP_THICK := 6.0
 const CLEAR := 100.0 ## Peg rows keep this far from the walls.
 const KICKER_R := 34.0 ## The half-bumpers on the walls, one each side per peg row.
 
-## Every racer has Derby's stall hop, so nobody wedges and loses to the course.
-const STALL_SPEED := 120.0
-const STALL := 0.5
-const HOP_COOLDOWN := 4.0
-const HOP_UP := 380.0
-const HOP_SIDE := 260.0
+## A racer that really is stuck (balanced on a peg, pinned in a pile) gets a
+## sideways nudge along the ground, never a hop: rolling stays rolling.
+const STALL_SPEED := 30.0
+const STALL := 1.5
+const NUDGE_COOLDOWN := 3.0
+const NUDGE := 140.0
+## Below this speed into a ramp, a racer settles onto it instead of bouncing,
+## so a roll is a smooth roll.
+const REST_SPEED := 90.0
 
 ## Damage.
 const HP := 100.0
@@ -130,7 +133,7 @@ class Racer:
 	var max_hp := HP
 	var potency := 1.0 ## Its race damage multiplier, from its power.
 	var slow := 0.0 ## Seconds spent under STALL_SPEED.
-	var rest := 0.0 ## Stall-hop cooldown left.
+	var rest := 0.0 ## Stall-nudge cooldown left.
 	var timer := 0.0 ## Seconds to its verb's next firing.
 	var every := 0.0 ## Its verb's timer, 0 for verbs that work on bumps.
 	var shield := 0.0 ## Shield seconds left.
@@ -162,7 +165,7 @@ var shot_scale := 1.0
 var order: Array[int] = [] ## Racer indexes by place, once finished.
 var kos: Array[int] = [] ## Racer indexes in the order they were knocked out.
 ## Events from the last step(): {type, racer, pos, ...}. Types: peg, bumper,
-## bump, hop, fire (verb), hit (by, amount, kind), ko (by), finish (place).
+## bump, fire (verb), hit (by, amount, kind), ko (by), finish (place).
 var events: Array[Dictionary] = []
 
 var _cells := {} ## grid cell (CELL square) -> obstacle refs (peg index, or -1 - ramp index)
@@ -306,11 +309,9 @@ func step() -> void:
 			r.rest = maxf(0.0, r.rest - DT)
 			r.slow = r.slow + DT if r.vel.length() < STALL_SPEED else 0.0
 			if r.slow >= STALL and r.rest <= 0.0:
-				r.rest = HOP_COOLDOWN
+				r.rest = NUDGE_COOLDOWN
 				r.slow = 0.0
-				r.vel.y -= HOP_UP
-				r.vel.x += HOP_SIDE if r.pos.x < WIDTH / 2.0 else -HOP_SIDE
-				events.append({"type": "hop", "racer": r.index, "pos": r.pos})
+				r.vel.x += NUDGE if r.pos.x < WIDTH / 2.0 else -NUDGE
 			if r.every > 0.0:
 				r.timer -= DT
 				if r.timer <= 0.0:
@@ -539,7 +540,7 @@ func _hit_ramp(r: Racer, s: Dictionary, dt: float) -> void:
 	r.pos = closest + n * reach
 	var vn := r.vel.dot(n)
 	if vn < 0.0:
-		r.vel -= n * vn * (1.0 + RAMP_BOUNCE)
+		r.vel -= n * vn * (1.0 + (RAMP_BOUNCE if -vn > REST_SPEED else 0.0))
 	var tangent := r.vel - n * r.vel.dot(n)
 	r.vel -= tangent * minf(1.0, RAMP_GRIP * dt)
 
