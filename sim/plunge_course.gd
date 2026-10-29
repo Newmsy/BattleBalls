@@ -28,39 +28,51 @@ const BUMPER_KICK := 620.0 ## Minimum speed a bumper sends you away at.
 ## Below this speed into a ramp, a racer settles onto it instead of bouncing,
 ## so a roll is a smooth roll.
 const REST_SPEED := 90.0
-const SECTIONS := ["pegs", "funnel", "zigzag", "bumpers", "split", "cups", "chutes", "steps", "gauntlet"]
+const SECTIONS := ["pegs", "funnel", "zigzag", "bumpers", "split", "cups", "chutes", "steps", "gauntlet",
+	"wells", "lava", "goo", "sliders"]
+## The hazard sections, one per course, in the arenas' own pieces: gravity
+## wells, lava, goo and sliding bumpers. Each holds a pickup too (a power
+## core, heal or shield). sim/plunge.gd runs them.
+const HAZARDS := ["wells", "lava", "goo", "sliders"]
+const WELL_ACCEL := 700.0 ## Under gravity even at full pull, so a well bends a drop but never holds it.
+const GOO_DRAG := 2.2 ## Extra drag per second in goo.
+const PICKUP_R := 34.0
 const CUP_GAP := 130.0 ## The hole in a cup's bottom: two racers wide.
 
 ## Every course: its name, the arena whose painted look it wears (`art`, a
 ## map id in game/arena_art.gd; the race never reads it) and the sections
 ## between the peg fields at the top and bottom.
 const COURSES := [
-	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "plan": ["bumpers", "cups", "funnel", "gauntlet", "bumpers"]},
-	{"id": "honey", "name": "Honey Chute", "art": "hive", "plan": ["chutes", "zigzag", "cups", "funnel", "steps"]},
-	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "plan": ["steps", "funnel", "split", "steps", "cups"]},
-	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "plan": ["split", "gauntlet", "zigzag", "chutes", "funnel"]},
-	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "plan": ["bumpers", "gauntlet", "bumpers", "split", "funnel"]},
-	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "plan": ["gauntlet", "bumpers", "chutes", "bumpers", "zigzag"]},
-	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "plan": ["chutes", "gauntlet", "steps", "chutes", "funnel"]},
-	{"id": "trench", "name": "Deep Trench", "art": "trench", "plan": ["funnel", "zigzag", "chutes", "cups", "funnel"]},
-	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "plan": ["cups", "bumpers", "zigzag", "steps", "bumpers"]},
-	{"id": "storm", "name": "Storm Front", "art": "storm", "plan": ["zigzag", "bumpers", "gauntlet", "split", "funnel"]},
-	{"id": "icicles", "name": "Icicle Run", "art": "frost", "plan": ["zigzag", "steps", "chutes", "funnel", "split"]},
-	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "plan": ["gauntlet", "split", "cups", "gauntlet", "steps"]},
-	{"id": "lava", "name": "Lava Tubes", "art": "magma", "plan": ["funnel", "chutes", "funnel", "bumpers", "zigzag"]},
-	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "plan": ["split", "zigzag", "bumpers", "steps", "split"]},
-	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "plan": ["chutes", "bumpers", "split", "gauntlet", "cups"]},
-	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "plan": ["steps", "zigzag", "cups", "split", "funnel"]},
-	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "plan": ["gauntlet", "funnel", "chutes", "split", "bumpers"]},
-	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "plan": ["steps", "cups", "steps", "gauntlet", "split"]},
-	{"id": "toys", "name": "Toy Chest", "art": "toybox", "plan": ["bumpers", "chutes", "cups", "zigzag", "steps"]},
-	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "plan": ["bumpers", "split", "bumpers", "zigzag", "bumpers"]},
+	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "plan": ["bumpers", "cups", "goo", "gauntlet", "bumpers"]},
+	{"id": "honey", "name": "Honey Chute", "art": "hive", "plan": ["chutes", "zigzag", "goo", "funnel", "steps"]},
+	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "plan": ["steps", "funnel", "sliders", "steps", "cups"]},
+	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "plan": ["split", "gauntlet", "sliders", "chutes", "funnel"]},
+	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "plan": ["bumpers", "gauntlet", "wells", "split", "funnel"]},
+	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "plan": ["gauntlet", "bumpers", "wells", "bumpers", "zigzag"]},
+	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "plan": ["chutes", "gauntlet", "wells", "chutes", "funnel"]},
+	{"id": "trench", "name": "Deep Trench", "art": "trench", "plan": ["funnel", "zigzag", "wells", "cups", "funnel"]},
+	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "plan": ["cups", "bumpers", "sliders", "steps", "bumpers"]},
+	{"id": "storm", "name": "Storm Front", "art": "storm", "plan": ["zigzag", "bumpers", "wells", "split", "funnel"]},
+	{"id": "icicles", "name": "Icicle Run", "art": "frost", "plan": ["zigzag", "steps", "goo", "funnel", "split"]},
+	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "plan": ["gauntlet", "split", "sliders", "gauntlet", "steps"]},
+	{"id": "lava", "name": "Lava Tubes", "art": "magma", "plan": ["funnel", "chutes", "lava", "bumpers", "zigzag"]},
+	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "plan": ["split", "zigzag", "sliders", "steps", "split"]},
+	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "plan": ["chutes", "bumpers", "lava", "gauntlet", "cups"]},
+	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "plan": ["steps", "zigzag", "goo", "split", "funnel"]},
+	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "plan": ["gauntlet", "funnel", "goo", "split", "bumpers"]},
+	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "plan": ["steps", "cups", "wells", "gauntlet", "split"]},
+	{"id": "toys", "name": "Toy Chest", "art": "toybox", "plan": ["bumpers", "chutes", "sliders", "zigzag", "steps"]},
+	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "plan": ["bumpers", "split", "sliders", "zigzag", "bumpers"]},
 ]
 
 var pegs: Array = [] ## [{pos, r, bumper}]
 var ramps: Array = [] ## [{a, b}] solid line segments, RAMP_THICK wide.
 var sections: Array = [] ## [{kind, y0, y1}] for the renderer.
 var finish_y := 0.0
+var floors: Array = [] ## Arena floor pads: {kind "goo" or "lava", pos, radius}.
+var wells: Array = [] ## Arena gravity wells: {pos, reach, accel, core}.
+var cores: Array = [] ## Arena pickups: {pos, radius, kind "core" / "heal" / "shield"}.
+var movers: Array = [] ## Sliding bumpers, as arena obstacles: {pos, radius, kind, slide, period}.
 var info: Dictionary ## This course's COURSES entry.
 
 var _cells := {} ## grid cell (CELL square) -> obstacle refs (peg index, or -1 - ramp index)
@@ -345,8 +357,56 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 					_peg(0.0, ry, KICKER_R, true)
 					_peg(WIDTH, ry, KICKER_R, true)
 			h = rows * 80.0 + 60.0
+		"wells":
+			# Two wells either side of the drop, a pickup between them.
+			h = 600.0
+			var wx := float(crng.range_int(260, 300))
+			var reach := float(crng.range_int(220, 250))
+			for x in [wx, WIDTH - wx]:
+				wells.append({"pos": Vector2(x, y0 + 260.0), "reach": reach, "accel": WELL_ACCEL, "core": 40.0})
+			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 260.0))
+			_peg_row(CLEAR, WIDTH - CLEAR, y0 + h - 70.0, 120.0, false)
+		"lava":
+			# Lava down both sides under a peg row that scatters racers into
+			# it; the safe middle has a heal.
+			h = 560.0
+			var edge := float(crng.range_int(290, 330))
+			_peg_row(CLEAR, WIDTH - CLEAR, y0 + 50.0, 115.0, false)
+			_peg_row(CLEAR, WIDTH - CLEAR, y0 + 140.0, 115.0, true)
+			for x in [edge / 2.0, WIDTH - edge / 2.0]:
+				for k in 2:
+					floors.append({"kind": "lava", "pos": Vector2(x, y0 + 250.0 + k * 150.0), "radius": edge / 2.0 + 10.0})
+			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 400.0), "heal")
+		"goo":
+			# Peg rows over goo puddles, in mirrored pairs: pick a lucky lane.
+			h = 560.0
+			for row in 4:
+				_peg_row(CLEAR, WIDTH - CLEAR, y0 + 60.0 + row * 120.0, 125.0, row % 2 == 1)
+			var gx := float(crng.range_int(200, 300))
+			var gy := y0 + float(crng.range_int(230, 260))
+			for x in [gx, WIDTH - gx]:
+				floors.append({"kind": "goo", "pos": Vector2(x, gy), "radius": 105.0, "slow": 0.0})
+			floors.append({"kind": "goo", "pos": Vector2(WIDTH / 2.0, gy + 200.0), "radius": 95.0, "slow": 0.0})
+			_pickup(crng, Vector2(WIDTH / 2.0, gy), "shield")
+		"sliders":
+			# Rows of bumpers sliding across, out of step with each other.
+			h = 620.0
+			var period := float(crng.range_int(26, 34)) / 10.0
+			for row in 3:
+				for x in [WIDTH / 3.0, WIDTH * 2.0 / 3.0]:
+					var phase := 1.0 if row % 2 == 0 else -1.0
+					movers.append({"pos": Vector2(x, y0 + 110.0 + row * 180.0), "radius": 34.0, "kind": "bumper",
+						"slide": Vector2(130.0 * phase, 0.0), "period": period + row * 0.4})
+			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 200.0))
 	sections.append({"kind": kind, "y0": y0, "y1": y0 + h})
 	return y0 + h
+
+
+## A pickup at `at`: `kind`, or a power core, heal or shield by the seed.
+func _pickup(crng: Rng, at: Vector2, kind := "") -> void:
+	if kind == "":
+		kind = ["core", "core", "heal", "shield"][crng.range_int(0, 3)]
+	cores.append({"pos": at, "radius": PICKUP_R, "kind": kind})
 
 
 func _ramp(ax: float, ay: float, bx: float, by: float) -> void:

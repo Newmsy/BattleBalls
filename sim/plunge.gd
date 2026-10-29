@@ -7,6 +7,11 @@
 ## bounce for "wall" abilities. Only critters whose abilities read well on a
 ## course race (RACERS); more join as they're balanced in.
 ##
+## Each course has a hazard section in the arenas' own pieces (gravity
+## wells, lava, goo or sliding bumpers) and pickups (power cores, heals,
+## shields): they sit in `arena` so the fight view draws them, and the race
+## runs them by its own rules (_update_wells, _update_floors, _hit_movers).
+##
 ## Damage changes places: a hit staggers its target (it loses speed), slows,
 ## stuns and pulls work as in a fight, and a racer at 0 HP is knocked out and
 ## places last.
@@ -24,7 +29,7 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 4
+const RACE_RULES := 5
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
 const RADIUS := 30.0 ## Every racer races this size, whatever its fight size.
@@ -51,6 +56,7 @@ const NUDGE_COOLDOWN := 3.0
 const NUDGE := 140.0
 ## Racer-on-racer bumps only hit (contact damage, "hit" abilities) when they
 ## close this fast: a pile resting together doesn't grind itself down.
+const RUSH := 320.0 ## Taking a power core also kicks the taker down the course this fast.
 const BUMP_MIN := 260.0
 ## Speed kept when a hit of STAGGER_AT or more damage lands.
 const STAGGER := 0.6
@@ -128,6 +134,17 @@ func _init(cfg: Dictionary) -> void:
 	course = PlungeCourse.new(seed_value, str(cfg.get("course", "")))
 	finish_y = course.finish_y
 	_focus_y = PlungeCourse.START_Y + 400.0
+	# The course's hazards ride on the arena's own pieces, so the fight view
+	# draws them and pickups work as in a fight; wells, goo, lava and the
+	# sliding bumpers run by the race's rules below.
+	arena = arena.duplicate()
+	arena.floors = course.floors
+	arena.wells = course.wells
+	arena.cores = course.cores
+	arena.obstacles = course.movers
+	_core_ready.clear()
+	for c in course.cores:
+		_core_ready.append(0) # Lit from the start.
 	var boosts: Array = cfg.get("boosts", [])
 	for b in balls:
 		var boost = boosts[b.index] if b.index < boosts.size() else null
@@ -328,12 +345,37 @@ func _resolve_walls(b: Ball) -> void:
 		if sp > MAX_SPEED:
 			b.vel *= MAX_SPEED / sp
 	var hit := course.collide(b, DT)
+	_hit_movers(b, hit)
 	if hit.peg != null and hit.speed >= PEG_EVENT:
 		events.append({"type": "course_hit", "ball": b.index, "peg": hit.peg, "bumper": hit.bumper, "pos": hit.point})
 	if hit.speed >= BOUNCE_MIN and tick >= _bounce_ready[b.index] and b.index < starters:
 		_bounce_ready[b.index] = tick + int(BOUNCE_GAP * TICK_RATE)
 		_on_wall_bounce(b, hit.point, true)
 	b.speed = b.vel.length()
+
+
+## The sliding bumpers: a kick away, plus their own motion.
+func _hit_movers(b: Ball, hit: Dictionary) -> void:
+	for o in obstacles():
+		if o.has("piece"):
+			continue
+		var d: Vector2 = b.pos - o.pos
+		var reach: float = b.radius + o.radius
+		var dist2 := d.length_squared()
+		if dist2 >= reach * reach or dist2 < 0.0001:
+			continue
+		var n := d / sqrt(dist2)
+		b.pos = o.pos + n * reach
+		var rel: Vector2 = b.vel - o.get("vel", Vector2.ZERO)
+		var vn := rel.dot(n)
+		if vn >= 0.0:
+			continue
+		b.vel += n * (maxf(-vn * PlungeCourse.PEG_BOUNCE, PlungeCourse.BUMPER_KICK) - vn)
+		if -vn > hit.speed:
+			hit.speed = -vn
+			hit.point = o.pos + n * o.radius
+			hit.bumper = true
+		events.append({"type": "course_hit", "ball": b.index, "peg": null, "bumper": true, "pos": o.pos + n * o.radius})
 
 
 ## Racers bounce off each other like marbles, not fight balls (they keep no
@@ -385,6 +427,50 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			var force := minf(2.0, approach / 500.0)
 			hits.append({"source": i, "target": j, "amount": a.contact_damage * force * _impact_scale(a_share) * _strike(a, b), "kind": "contact", "pos": b.pos})
 			hits.append({"source": j, "target": i, "amount": b.contact_damage * force * _impact_scale(1.0 - a_share) * _strike(b, a), "kind": "contact", "pos": a.pos})
+
+
+## A racer the course's hazards act on: still racing and out of the gate.
+func _on_course(b: Ball) -> bool:
+	return b.alive() and b.index < starters and racing(b.index) and time() >= GATE_SECONDS
+
+
+## Wells pull for real in a race: a fight's well only bends a ball at its
+## constant speed. The pull stays under gravity, so a well never holds anyone.
+func _update_wells() -> void:
+	for w in wells():
+		for b in balls:
+			if not _on_course(b):
+				continue
+			var d: Vector2 = w.pos - b.pos
+			var dist := d.length()
+			if dist <= w.core or dist >= w.reach:
+				continue
+			b.vel += d / dist * w.accel * (1.0 - dist / w.reach) * DT
+
+
+## Goo drags, lava burns (in half-second ticks, under the fight's hazard cap).
+func _update_floors() -> void:
+	for f in floors():
+		for b in balls:
+			if not _on_course(b) or not on_floor(f, b.pos, b.radius * 0.5):
+				continue
+			if f.kind == "goo":
+				b.vel *= 1.0 - PlungeCourse.GOO_DRAG * DT
+			elif f.kind == "lava" and tick >= b.lava_ready:
+				b.lava_ready = tick + TICK_RATE / 2
+				if _hazard(b, LAVA_DPS * 0.5, "lava", b.pos):
+					events.append({"type": "lava", "ball": b.index, "pos": b.pos})
+
+
+## Pickups as in a fight, and a power core also rushes its taker down.
+func _update_cores() -> void:
+	var from := events.size()
+	super._update_cores()
+	for k in range(from, events.size()):
+		if events[k].type == "core":
+			var b := balls[events[k].ball]
+			b.vel.y = maxf(b.vel.y, 0.0) + RUSH
+			b.speed = b.vel.length()
 
 
 # --- Places ---------------------------------------------------------------------
