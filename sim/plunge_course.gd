@@ -426,15 +426,15 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 260.0))
 			_peg_row(CLEAR, WIDTH - CLEAR, y0 + h - 70.0, 120.0, false)
 		"lava":
-			# Lava down both sides under a peg row that scatters racers into
-			# it; the safe middle has a heal.
+			# Lava pools down the sides under a peg row that scatters racers
+			# into them; the safe middle has a heal.
 			h = 560.0
 			var edge := float(crng.range_int(290, 330))
 			_peg_row(CLEAR, WIDTH - CLEAR, y0 + 50.0, 115.0, false)
 			_peg_row(CLEAR, WIDTH - CLEAR, y0 + 140.0, 115.0, true)
-			for x in [edge / 2.0, WIDTH - edge / 2.0]:
-				for k in 2:
-					floors.append({"kind": "lava", "pos": Vector2(x, y0 + 250.0 + k * 150.0), "radius": edge / 2.0 + 10.0})
+			# One pool each side, staggered, never stacked.
+			floors.append({"kind": "lava", "pos": Vector2(edge / 2.0, y0 + 270.0), "radius": edge / 2.0 + 10.0})
+			floors.append({"kind": "lava", "pos": Vector2(WIDTH - edge / 2.0, y0 + 420.0), "radius": edge / 2.0 + 10.0})
 			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 400.0), "heal")
 		"goo":
 			# Peg rows over goo puddles, in mirrored pairs: pick a lucky lane.

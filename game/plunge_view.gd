@@ -13,6 +13,7 @@ const Plunge := preload("res://sim/plunge.gd")
 const PlungeCourse := preload("res://sim/plunge_course.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const ArenaKit := preload("res://game/arena_art/kit.gd")
+const Backdrops := preload("res://game/plunge_backdrops.gd")
 
 const FLASH_LIFE := 0.3
 const EDGE_TRIM := 0.08 ## Share of the baked square cut off its top and bottom.
@@ -244,6 +245,13 @@ func _make_art_ctx(id: String, margin: float) -> ArenaKit.Ctx:
 	ctx.obstacles = []
 	ctx.floors = []
 	return ctx
+
+
+## The arena's painting, then this course's own wash and motif over it.
+func _paint_art(cv: CanvasItem) -> void:
+	super._paint_art(cv)
+	if _art_ctx != null and sim != null:
+		Backdrops.paint(cv, _art_ctx, sim.course.info.id)
 
 
 func _art_tracks() -> bool:
