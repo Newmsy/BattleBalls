@@ -44,9 +44,9 @@ func test_golden_race() -> void:
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
 const GOLDEN_RACERS := ["thorns", "comet", "gumdrop", "frost", "prism", "honey"]
-const GOLDEN_ORDER := [1, 5, 0, 4, 2, 3]
-const GOLDEN_KOS := [3, 2]
-const GOLDEN_TICKS := 2471
+const GOLDEN_ORDER := [1, 2, 0, 5, 4, 3]
+const GOLDEN_KOS := [3, 4]
+const GOLDEN_TICKS := 2600
 
 
 ## Racers are live critters, every family races, and they race with their
@@ -77,18 +77,54 @@ func test_fields_are_different_live_critters() -> void:
 				check(Plunge.can_race(id), "%s races" % id)
 
 
-## Pegs leave a racer-wide gap to the walls and the fork's divider; the only
-## things on a wall are the half-bumpers that kick racers back in.
+## On every course, pegs leave a racer-wide gap to the walls and to every
+## ramp and divider; the only things on a wall are the half-bumpers that kick
+## racers back in.
 func test_course_has_no_wedges() -> void:
-	for seed in range(1, 40):
-		var p := Plunge.new({"seed": seed, "racers": Plunge.draw_field(seed, 4)})
-		for g in p.course.pegs:
-			if g.bumper and g.r == PlungeCourse.KICKER_R:
-				check(g.pos.x == 0.0 or g.pos.x == Plunge.WIDTH, "seed %d kicker on a wall" % seed)
-				continue
-			var gap: float = minf(g.pos.x, Plunge.WIDTH - g.pos.x) - g.r
-			check(gap >= 2.0 * Plunge.RADIUS + 4.0, "seed %d peg at %s is %.0f from a wall" % [seed, g.pos, gap])
-		check(p.finish_y > 3000.0 and p.finish_y < 7000.0, "seed %d course length %.0f" % [seed, p.finish_y])
+	var wide := 2.0 * Plunge.RADIUS + 4.0
+	for c in PlungeCourse.COURSES:
+		for seed in range(1, 6):
+			var course := PlungeCourse.new(seed, c.id)
+			var at := "%s seed %d" % [c.id, seed]
+			for g in course.pegs:
+				if g.bumper and g.r == PlungeCourse.KICKER_R:
+					check(g.pos.x == 0.0 or g.pos.x == Plunge.WIDTH, "%s kicker on a wall" % at)
+					continue
+				if g.bumper:
+					continue
+				var gap: float = minf(g.pos.x, Plunge.WIDTH - g.pos.x) - g.r
+				check(gap >= wide, "%s peg at %s is %.0f from a wall" % [at, g.pos, gap])
+				for rp in course.ramps:
+					var d: float = g.pos.distance_to(Geometry2D.get_closest_point_to_segment(g.pos, rp.a, rp.b))
+					check(d - g.r - PlungeCourse.RAMP_THICK >= wide, "%s peg at %s is %.0f from a ramp" % [at, g.pos, d - g.r - PlungeCourse.RAMP_THICK])
+			check(course.finish_y > 3000.0 and course.finish_y < 7000.0, "%s course length %.0f" % [at, course.finish_y])
+
+
+## Twenty courses, each a different run in an arena's painted look, and the
+## seed picks among them.
+func test_twenty_painted_courses() -> void:
+	var ArenaArt = load("res://game/arena_art.gd")
+	check_eq(PlungeCourse.COURSES.size(), 20, "courses")
+	var ids := {}
+	var arts := {}
+	var plans := {}
+	for c in PlungeCourse.COURSES:
+		ids[c.id] = true
+		arts[c.art] = true
+		plans[str(c.plan)] = true
+		check(ArenaArt.family(c.art) != "", "%s wears painted art" % c.id)
+		for kind in c.plan:
+			check(PlungeCourse.SECTIONS.has(kind), "%s section %s" % [c.id, kind])
+		for k in range(1, c.plan.size()):
+			check(c.plan[k] != c.plan[k - 1], "%s repeats %s" % [c.id, c.plan[k]])
+	check_eq(ids.size(), 20, "course ids")
+	check_eq(arts.size(), 20, "course looks")
+	check_eq(plans.size(), 20, "course layouts")
+	var picked := {}
+	for seed in range(1, 200):
+		picked[PlungeCourse.new(seed).info.id] = true
+	check_eq(picked.size(), 20, "the seed picks every course")
+	check_eq(Plunge.new({"seed": 9, "racers": Plunge.draw_field(9, 4), "course": "lava"}).course.info.name, "Lava Tubes", "a course by id")
 
 
 ## Tiers bring each critter's tier upgrades into the race.

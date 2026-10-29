@@ -2,19 +2,20 @@
 ## (game/arena_view.gd) with the course in place of the arena: every ability
 ## looks exactly as it does in a fight. The camera follows the leader down
 ## the shaft. Holds no rules: everything comes from the sim's state and
-## events, so watching can never change a race. The course is flat shapes,
-## and only what is on screen is drawn (battery).
+## events, so watching can never change a race. Each course wears one
+## arena's painted art (game/arena_art.gd): its floor is baked once, like a
+## fight's, and laid down the shaft a square at a time, with the pegs and
+## bumpers as that arena's pillar and bumper sprites. Only what is on screen
+## is drawn (battery).
 extends "res://game/arena_view.gd"
 
 const Plunge := preload("res://sim/plunge.gd")
 const PlungeCourse := preload("res://sim/plunge_course.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
+const ArenaKit := preload("res://game/arena_art/kit.gd")
 
-const BG := Color("0e0c2a")
-const BAND := Color("151244")
-const PEG := Color("8f7bff")
-const RAMP := Color("27c8ff")
 const FLASH_LIFE := 0.3
+const EDGE_TRIM := 0.08 ## Share of the baked square cut off its top and bottom.
 
 var you := 0 ## Your racer's index (-1 in a race you only watch).
 var view_size := Vector2(680, 900)
@@ -81,21 +82,22 @@ func to_world(screen_pos: Vector2) -> Vector2:
 	return (get_global_transform().affine_inverse() * screen_pos) / view_scale
 
 
-## The course where the arena would be: section bands, the gate, ramps, pegs
-## and bumpers, and the finish line. World y runs down the shaft.
-func _draw_stage(_shape, s: float, _shake: Vector2) -> void:
+## The course where the arena would be: the painted floor, the gate, ramps,
+## pegs and bumpers, and the finish line. World y runs down the shaft.
+func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 	var c: PlungeCourse = sim.course
 	var top := camera_y - 80.0
 	var bottom := camera_y + (view_size.y - top_pad) / s + 80.0
-	draw_rect(Rect2(0.0, top * s, Plunge.WIDTH * s, (bottom - top) * s), BG)
-	for i in c.sections.size():
-		var sec: Dictionary = c.sections[i]
-		if sec.y1 < top or sec.y0 > bottom or i % 2 == 0:
-			continue
-		draw_rect(Rect2(0.0, sec.y0 * s, Plunge.WIDTH * s, (sec.y1 - sec.y0) * s), BAND)
+	var art: String = c.info.art
+	var theme := ArenaTheme.get_theme(art)
+	_bake_art_if_needed(art)
+	if _art_ctx != null and _bake != null:
+		_draw_floor_tiles(top, bottom, s, shake)
+	else:
+		draw_rect(Rect2(0.0, top * s, Plunge.WIDTH * s, (bottom - top) * s), Color(theme.fill))
 	if sim.time() < Plunge.GATE_SECONDS:
 		var gy := (PlungeCourse.START_Y + Plunge.RADIUS + 4.0) * s
-		draw_line(Vector2(0.0, gy), Vector2(Plunge.WIDTH * s, gy), Color(RAMP, 0.8), 4.0)
+		draw_line(Vector2(0.0, gy), Vector2(Plunge.WIDTH * s, gy), Color(theme.border), 4.0)
 	var fy: float = sim.finish_y * s
 	if sim.finish_y < bottom:
 		var sq := 20.0
@@ -103,24 +105,86 @@ func _draw_stage(_shape, s: float, _shake: Vector2) -> void:
 			for row in 2:
 				draw_rect(Rect2(k * sq, fy + row * sq, sq, sq), Color.WHITE if (k + row) % 2 == 0 else INK)
 		draw_string(Kit.FONT, Vector2(12.0, fy - 12.0), "FINISH", HORIZONTAL_ALIGNMENT_LEFT, -1, A11y.font(26), Color.WHITE)
+	var rail := Color(theme.border)
 	for rp in c.ramps:
 		if maxf(rp.a.y, rp.b.y) < top or minf(rp.a.y, rp.b.y) > bottom:
 			continue
-		draw_line(rp.a * s, rp.b * s, Color(RAMP, 0.35), (PlungeCourse.RAMP_THICK * 2.0 + 10.0) * s)
-		draw_line(rp.a * s, rp.b * s, RAMP, PlungeCourse.RAMP_THICK * 2.0 * s)
+		draw_line(rp.a * s, rp.b * s, Color(0, 0, 0, 0.45), (PlungeCourse.RAMP_THICK * 2.0 + 10.0) * s)
+		draw_line(rp.a * s, rp.b * s, rail, PlungeCourse.RAMP_THICK * 2.0 * s)
+	var sprites := _art_ctx != null and _bake != null
+	var art_bumper := sprites and ArenaArt.has_bumper(art)
 	for i in c.pegs.size():
 		var p: Dictionary = c.pegs[i]
 		if p.pos.y < top or p.pos.y > bottom:
 			continue
 		var flash: float = _peg_flash.get(i, 0.0) / FLASH_LIFE
 		var at: Vector2 = p.pos * s
-		if p.bumper:
-			draw_circle(at, (p.r + 10.0 * flash) * s, Color(BUMPER, 0.25 + 0.4 * flash))
-			draw_arc(at, p.r * s, 0, TAU, 28, BUMPER, 5.0 * s)
-			draw_circle(at, p.r * 0.45 * s, BUMPER)
+		var r: float = p.r * s
+		if p.bumper and art_bumper:
+			_sprite(1, at, r)
+			if flash > 0.0:
+				draw_circle(at, r, Color(1, 1, 1, 0.5 * flash))
+		elif p.bumper:
+			draw_circle(at, r + 10.0 * flash * s, Color(BUMPER, 0.25 + 0.4 * flash))
+			draw_arc(at, r, 0, TAU, 28, BUMPER, 5.0 * s)
+			draw_circle(at, r * 0.45, BUMPER)
+		elif sprites:
+			_sprite(0, at, r)
+			if flash > 0.0:
+				draw_circle(at, r, Color(1, 1, 1, 0.6 * flash))
 		else:
-			draw_circle(at, (p.r + 6.0) * s, Color(PEG, 0.18 + 0.5 * flash))
-			draw_circle(at, p.r * s, PEG.lerp(Color.WHITE, flash))
+			draw_circle(at, r, Color(theme.pillar).lerp(Color.WHITE, flash))
+
+
+## The baked floor, one arena-sized square after another down the shaft;
+## every other square is flipped so the joins match. The wall band from the
+## arena's sides runs down both edges.
+func _draw_floor_tiles(top: float, bottom: float, s: float, shake: Vector2) -> void:
+	var tex := _bake.get_texture()
+	var m := frame_margin()
+	var side := Plunge.WIDTH * s
+	# The square's top and bottom edges are shaded like walls: leave them out.
+	var trim := side * EDGE_TRIM
+	var src := Rect2(Vector2(m, m + trim) * _art_k, Vector2(side, side - 2.0 * trim) * _art_k)
+	var wall := _art_ctx.wall
+	var left_wall := Rect2(Vector2(m - wall, m + trim) * _art_k, Vector2(wall, side - 2.0 * trim) * _art_k)
+	var right_wall := Rect2(Vector2(m + side, m + trim) * _art_k, Vector2(wall, side - 2.0 * trim) * _art_k)
+	var band := wall * 0.5
+	for k in range(int(floorf(top / Plunge.WIDTH)), int(floorf(bottom / Plunge.WIDTH)) + 1):
+		if k % 2 == 0:
+			draw_set_transform(shake + Vector2(0.0, k * side))
+		else:
+			draw_set_transform(shake + Vector2(0.0, (k + 1) * side), 0.0, Vector2(1.0, -1.0))
+		draw_texture_rect_region(tex, Rect2(0.0, 0.0, side, side), src)
+		draw_texture_rect_region(tex, Rect2(0.0, 0.0, band, side), left_wall)
+		draw_texture_rect_region(tex, Rect2(side - band, 0.0, band, side), right_wall)
+	draw_set_transform(shake)
+
+
+## Sprite `slot` (0 pillar, 1 bumper) from the baked art, radius `r` at `at`.
+func _sprite(slot: int, at: Vector2, r: float) -> void:
+	var e := r * ArenaArt.SPRITE_EXTENT
+	draw_texture_rect_region(_bake.get_texture(), Rect2(at - Vector2(e, e), Vector2(e, e) * 2.0), _art_src(slot))
+
+
+## The course's arena art over a plain square: no walls but the shaft's
+## sides, nothing on the floor, so it tiles.
+func _make_art_ctx(id: String, margin: float) -> ArenaKit.Ctx:
+	var ctx := ArenaArt.make_ctx(id, view_scale, margin)
+	ctx.outline = PackedVector2Array([ctx.full.position, Vector2(ctx.full.end.x, ctx.full.position.y), ctx.full.end, Vector2(ctx.full.position.x, ctx.full.end.y)])
+	ctx.centre = ctx.full.get_center()
+	ctx.obstacles = []
+	ctx.floors = []
+	return ctx
+
+
+func _art_tracks() -> bool:
+	return false
+
+
+## Sprites are baked at bumper size; pegs shrink them.
+func _art_sprite_r(_id: String) -> float:
+	return 36.0 * view_scale
 
 
 ## Tags sit under each racer; the fight's square-arena clamping doesn't apply.

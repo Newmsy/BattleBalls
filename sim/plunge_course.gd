@@ -1,6 +1,8 @@
 ## A Critter Plunge course: pegs, bumpers and ramps down a 1000-wide shaft,
-## built from the seed, plus the collisions racers have with it. The race
-## itself is sim/plunge.gd.
+## plus the collisions racers have with it. There are 20 courses (COURSES),
+## each a fixed run of sections in one arena's painted look; the seed picks
+## the course and varies each section's details. The race itself is
+## sim/plunge.gd.
 ##
 ## Course rules that keep the start fair: half-bumpers on the walls kick
 ## racers back in (a clear gutter let wall gates free-fall), peg rows are
@@ -26,12 +28,40 @@ const BUMPER_KICK := 620.0 ## Minimum speed a bumper sends you away at.
 ## Below this speed into a ramp, a racer settles onto it instead of bouncing,
 ## so a roll is a smooth roll.
 const REST_SPEED := 90.0
-const SECTIONS := ["pegs", "funnel", "zigzag", "bumpers", "split"]
+const SECTIONS := ["pegs", "funnel", "zigzag", "bumpers", "split", "cups", "chutes", "steps", "gauntlet"]
+const CUP_GAP := 130.0 ## The hole in a cup's bottom: two racers wide.
+
+## Every course: its name, the arena whose painted look it wears (`art`, a
+## map id in game/arena_art.gd; the race never reads it) and the sections
+## between the peg fields at the top and bottom.
+const COURSES := [
+	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "plan": ["bumpers", "cups", "funnel", "gauntlet", "bumpers"]},
+	{"id": "honey", "name": "Honey Chute", "art": "hive", "plan": ["chutes", "zigzag", "cups", "funnel", "steps"]},
+	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "plan": ["steps", "funnel", "split", "steps", "cups"]},
+	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "plan": ["split", "gauntlet", "zigzag", "chutes", "funnel"]},
+	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "plan": ["bumpers", "gauntlet", "bumpers", "split", "funnel"]},
+	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "plan": ["gauntlet", "bumpers", "chutes", "bumpers", "zigzag"]},
+	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "plan": ["chutes", "gauntlet", "steps", "chutes", "funnel"]},
+	{"id": "trench", "name": "Deep Trench", "art": "trench", "plan": ["funnel", "zigzag", "chutes", "cups", "funnel"]},
+	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "plan": ["cups", "bumpers", "zigzag", "steps", "bumpers"]},
+	{"id": "storm", "name": "Storm Front", "art": "storm", "plan": ["zigzag", "bumpers", "gauntlet", "split", "funnel"]},
+	{"id": "icicles", "name": "Icicle Run", "art": "frost", "plan": ["zigzag", "steps", "chutes", "funnel", "split"]},
+	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "plan": ["gauntlet", "split", "cups", "gauntlet", "steps"]},
+	{"id": "lava", "name": "Lava Tubes", "art": "magma", "plan": ["funnel", "chutes", "funnel", "bumpers", "zigzag"]},
+	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "plan": ["split", "zigzag", "bumpers", "steps", "split"]},
+	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "plan": ["chutes", "bumpers", "split", "gauntlet", "cups"]},
+	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "plan": ["steps", "zigzag", "cups", "split", "funnel"]},
+	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "plan": ["gauntlet", "funnel", "chutes", "split", "bumpers"]},
+	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "plan": ["steps", "cups", "steps", "gauntlet", "split"]},
+	{"id": "toys", "name": "Toy Chest", "art": "toybox", "plan": ["bumpers", "chutes", "cups", "zigzag", "steps"]},
+	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "plan": ["bumpers", "split", "bumpers", "zigzag", "bumpers"]},
+]
 
 var pegs: Array = [] ## [{pos, r, bumper}]
 var ramps: Array = [] ## [{a, b}] solid line segments, RAMP_THICK wide.
 var sections: Array = [] ## [{kind, y0, y1}] for the renderer.
 var finish_y := 0.0
+var info: Dictionary ## This course's COURSES entry.
 
 var _cells := {} ## grid cell (CELL square) -> obstacle refs (peg index, or -1 - ramp index)
 var _near := {} ## grid cell -> every ref in it and the 8 cells round it, once each
@@ -40,8 +70,17 @@ var _peg_pos := PackedVector2Array()
 var _peg_r := PackedFloat64Array()
 
 
-func _init(seed_value: int) -> void:
+## The course `course_id`, or one the seed picks when it's "".
+func _init(seed_value: int, course_id := "") -> void:
+	info = find(course_id) if course_id != "" else COURSES[Rng.new(seed_value * 17 + 5).range_int(0, COURSES.size() - 1)]
 	_build(Rng.new(seed_value * 7919 + 1))
+
+
+static func find(course_id: String) -> Dictionary:
+	for c in COURSES:
+		if c.id == course_id:
+			return c
+	return COURSES[0]
 
 
 ## Keeps a racer (anything with pos, vel and radius) inside the shaft and off
@@ -126,20 +165,15 @@ func _hit_ramp(r, s: Dictionary, dt: float, hit: Dictionary) -> void:
 
 # --- Building ------------------------------------------------------------------
 
-## A peg field under the gate, five seeded sections (no kind twice in a row,
-## each mirrored left-right on a coin flip) and a peg field before the finish.
+## A peg field under the gate, the course's sections (each mirrored
+## left-right on a coin flip) and a peg field before the finish.
 func _build(crng: Rng) -> void:
 	var y := START_Y + 120.0
 	y = _section(crng, "pegs", y)
-	var last := "pegs"
-	for k in 5:
-		var kind: String = SECTIONS[crng.range_int(0, SECTIONS.size() - 1)]
-		while kind == last:
-			kind = SECTIONS[crng.range_int(0, SECTIONS.size() - 1)]
+	for kind in info.plan:
 		var p0 := pegs.size()
 		var r0 := ramps.size()
 		y = _section(crng, kind, y)
-		last = kind
 		if crng.range_int(0, 1) == 1:
 			for q in range(p0, pegs.size()):
 				pegs[q].pos = Vector2(WIDTH - pegs[q].pos.x, pegs[q].pos.y)
@@ -230,9 +264,9 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 			for t in turns:
 				var ty := y0 + 40.0 + t * drop
 				if t % 2 == 0:
-					_ramp(0.0, ty, WIDTH - 190.0, ty + drop * 0.55)
+					_ramp(0.0, ty, WIDTH - 190.0, ty + drop * 0.7)
 				else:
-					_ramp(WIDTH, ty, 190.0, ty + drop * 0.55)
+					_ramp(WIDTH, ty, 190.0, ty + drop * 0.7)
 			h = turns * drop + 120.0
 		"bumpers":
 			# A garden of bumpers that fling racers about.
@@ -260,6 +294,57 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 			else:
 				_ramp(0.0, y0 + 140.0, WIDTH / 2.0 - 120.0, y0 + 300.0)
 				_ramp(WIDTH / 2.0, y0 + 420.0, 120.0, y0 + 560.0)
+		"cups":
+			# Two rows of V cups with a hole in each: drop in, roll out the bottom.
+			# The lower row sits half a cup over, with kickers in its wall gaps.
+			var deep := float(crng.range_int(100, 130))
+			for row in 2:
+				var ry := y0 + 60.0 + row * (deep + 170.0)
+				var n := 3 if row == 0 else 2
+				var w := WIDTH / 3.0
+				var left := 0.0 if row == 0 else w / 2.0
+				for c in n:
+					var cx := left + w * (c + 0.5)
+					_ramp(cx - w / 2.0 + 6.0, ry, cx - CUP_GAP / 2.0, ry + deep)
+					_ramp(cx + w / 2.0 - 6.0, ry, cx + CUP_GAP / 2.0, ry + deep)
+				if row == 1:
+					_peg(0.0, ry + deep / 2.0, KICKER_R, true)
+					_peg(WIDTH, ry + deep / 2.0, KICKER_R, true)
+			h = 60.0 + 2.0 * deep + 170.0 + 150.0
+		"chutes":
+			# Three lanes split by walls, each with its own peg rows.
+			h = float(crng.range_int(560, 660))
+			var w := WIDTH / 3.0
+			_ramp(w, y0 + 50.0, w, y0 + h - 70.0)
+			_ramp(2.0 * w, y0 + 50.0, 2.0 * w, y0 + h - 70.0)
+			_peg(w, y0 + 50.0, 14.0, true)
+			_peg(2.0 * w, y0 + 50.0, 14.0, true)
+			var rows := int((h - 160.0) / 100.0)
+			for row in rows:
+				for lane in 3:
+					_peg_row(lane * w + 70.0, (lane + 1) * w - 70.0, y0 + 120.0 + row * 100.0, 110.0, (row + lane) % 2 == 1)
+		"steps":
+			# Short shelves from alternate walls: hop, hop, hop down.
+			var shelves := crng.range_int(5, 6)
+			var drop := float(crng.range_int(105, 120))
+			var reach := float(crng.range_int(400, 440))
+			for t in shelves:
+				var ty := y0 + 40.0 + t * drop
+				if t % 2 == 0:
+					_ramp(0.0, ty, reach, ty + 55.0)
+				else:
+					_ramp(WIDTH, ty, WIDTH - reach, ty + 55.0)
+			h = shelves * drop + 140.0
+		"gauntlet":
+			# Tight peg rows: a slow, jostling squeeze.
+			var rows := crng.range_int(6, 7)
+			for row in rows:
+				var ry := y0 + 40.0 + row * 80.0
+				_peg_row(CLEAR, WIDTH - CLEAR, ry, 98.0, row % 2 == 1)
+				if row % 2 == 0:
+					_peg(0.0, ry, KICKER_R, true)
+					_peg(WIDTH, ry, KICKER_R, true)
+			h = rows * 80.0 + 60.0
 	sections.append({"kind": kind, "y0": y0, "y1": y0 + h})
 	return y0 + h
 

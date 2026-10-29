@@ -1,5 +1,5 @@
 ## Critter Plunge: a marble-run race where critters fight on the way down.
-## 4, 6 or 8 critters drop from a gate through a seeded course
+## 4, 6 or 8 critters drop from a gate through one of 20 courses
 ## (sim/plunge_course.gd); first over the line wins. Each critter races with
 ## its real ability: this is a MatchSim (sim/match_sim.gd) where every ball is
 ## its own team, so sim/abilities.gd runs unchanged. Gravity and the course
@@ -13,8 +13,8 @@
 ##
 ## Deterministic like MatchSim: the same config always gives the same race.
 ##
-## Config: {seed: int, racers: [ids], tiers: [int]?, boosts: [{tough, power,
-## steady} or null]?}. Everyone races at the same power, so the drop and the
+## Config: {seed: int, racers: [ids], course: id?, tiers: [int]?, boosts:
+## [{tough, power, steady} or null]?}; with no course the seed picks one. Everyone races at the same power, so the drop and the
 ## abilities decide it; boosts are your race talents (meta/plunge_talents.gd):
 ## tough adds that share of HP, power of damage, and steady takes that share
 ## off the speed a hit costs.
@@ -24,7 +24,7 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 3
+const RACE_RULES := 4
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
 const RADIUS := 30.0 ## Every racer races this size, whatever its fight size.
@@ -125,7 +125,7 @@ func _init(cfg: Dictionary) -> void:
 	config.merge(cfg, true)
 	overtime_start = INF
 	damage_scale = field_damage(ids.size())
-	course = PlungeCourse.new(seed_value)
+	course = PlungeCourse.new(seed_value, str(cfg.get("course", "")))
 	finish_y = course.finish_y
 	_focus_y = PlungeCourse.START_Y + 400.0
 	var boosts: Array = cfg.get("boosts", [])

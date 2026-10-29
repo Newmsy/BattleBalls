@@ -98,13 +98,15 @@ const DIM := {
 const DIM_COLOR := Color("0d0b1e")
 
 
-## Floor, walls and props for the whole canvas.
-static func paint(cv: CanvasItem, ctx: Kit.Ctx) -> void:
+## Floor, walls and props for the whole canvas; `tracks` false leaves out
+## the map's orbit tracks (Critter Plunge borrows the look, not the map).
+static func paint(cv: CanvasItem, ctx: Kit.Ctx, tracks := true) -> void:
 	_paint_family(cv, ctx)
 	var dim: float = DIM.get(ctx.id, 0.0)
 	if dim > 0.0: # Over the floor only: the wall band sits outside the outline.
 		Kit.poly(cv, ctx.outline, Color(DIM_COLOR, dim))
-	_paint_orbit_tracks(cv, ctx)
+	if tracks:
+		_paint_orbit_tracks(cv, ctx)
 
 
 ## A faint dashed track under every part that circles (not the spinning

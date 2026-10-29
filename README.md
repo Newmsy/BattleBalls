@@ -144,7 +144,9 @@ being solvable or fair.
 A watch-only marble-run race in Versus (`sim/plunge.gd`, `sim/plunge_course.gd`,
 `meta/critter_plunge.gd`, `meta/plunge_talents.gd`, `game/plunge.gd`,
 `game/plunge_view.gd`, `game/ui/screens/plunge_screen.gd`). Your racer and 3, 5
-or 7 CPU critters (all at your racer's tier) drop down a seeded peg course.
+or 7 CPU critters (all at your racer's tier) drop down one of 20 courses
+(`PlungeCourse.COURSES`: a fixed run of sections, details varied by the seed,
+each painted in one arena's art from `game/arena_art.gd`).
 The race is a MatchSim where every ball is its own team (`players` + `ffa`), so
 critters race with their real abilities and the fight view draws them; gravity
 and the course replace the arena walls, and a hard bounce off the course is a

@@ -5,7 +5,7 @@
 ## up on the shared ResultPopup with coins, XP and the Faction XP ring, paid
 ## into the game save here (meta/critter_plunge.gd).
 ## URL params: ?mode=plunge&seed=5&n=8 (a practice race: no rewards, nothing
-## spent), &speed=2.
+## spent), &course=lava (one of PlungeCourse.COURSES), &speed=2.
 extends Node2D
 
 const Plunge := preload("res://sim/plunge.gd")
@@ -63,6 +63,8 @@ func _ready() -> void:
 		n = n if Plunge.FIELD_SIZES.has(n) else 6
 		var seed_value := int(params.seed) if str(params.get("seed", "")).is_valid_int() else randi_range(1, 0x7FFFFFFF)
 		cfg = {"seed": seed_value, "racers": Plunge.draw_field(seed_value, n)}
+		if params.has("course"):
+			cfg.course = str(params.course)
 		fighter = str(cfg.racers[0])
 	if str(params.get("speed", "")).is_valid_float():
 		speed = clampf(float(params.speed), 0.25, 8.0)
@@ -191,7 +193,7 @@ func _result_card(place: int, knocked: bool, gains: Array) -> Control:
 	again.size_flags_stretch_ratio = 1.5
 	_mark("plunge_back", back, 1.0)
 	_mark("plunge_again", again, 1.0)
-	return ResultPopup.content("Critter Plunge · %d racers" % n, outcome, body, [back, again], CritterIcon.make(fighter, 1, 72), words)
+	return ResultPopup.content("%s · %d racers" % [sim.course.info.name, n], outcome, body, [back, again], CritterIcon.make(fighter, 1, 72), words)
 
 
 ## The top three, faces and names, so you see who beat you.
@@ -252,7 +254,7 @@ func _build_ui() -> void:
 	ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_root.theme = Main._neon_theme()
 	layer.add_child(ui_root)
-	title = Kit.label("CRITTER PLUNGE · %d RACERS" % sim.starters, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+	title = Kit.label("%s · %d RACERS" % [sim.course.info.name.to_upper(), sim.starters], 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui_root.add_child(title)
 	# Speed, Skip and Sound: the bottom row of pills every fight screen has.

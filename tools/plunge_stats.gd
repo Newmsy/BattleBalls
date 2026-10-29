@@ -1,5 +1,6 @@
 ## Headless Critter Plunge stats (sim/plunge.gd): knockout rate, race length,
-## and how often each starting gate and each racing critter wins. Fair is 1.0x
+## how often each starting gate and each racing critter wins, and each
+## course's knockouts and length. Fair is 1.0x
 ## (wins exactly 1 race in n). Usage:
 ## godot --headless --script res://tools/plunge_stats.gd -- --races=400 --n=8
 ## (--n=all runs 4, 6 and 8; --base=1000 starts at another seed.)
@@ -44,6 +45,9 @@ func _report(n: int, races: int, base: int) -> void:
 	for id in ids:
 		var d: Dictionary = s.critters[id]
 		print("%-9s win %.2fx  KO %4.1f%%  (%d entries)" % [id, d.share, 100.0 * d.ko, d.entries])
+	for id in s.courses:
+		var c: Dictionary = s.courses[id]
+		print("%-9s KO %4.1f%%  winning time %.1fs  (%d races)" % [id, 100.0 * c.kos / (c.races * n), c.time / c.races, c.races])
 
 
 ## The numbers above as data (tests use it too).
@@ -57,6 +61,7 @@ static func measure(n: int, races: int, base := 1) -> Dictionary:
 	var kos := 0
 	var stuck := 0
 	var times: Array = []
+	var courses := {}
 	for seed in range(base, base + races):
 		var p := Plunge.new({"seed": seed, "racers": Plunge.draw_field(seed, n)})
 		var res := p.run()
@@ -64,6 +69,11 @@ static func measure(n: int, races: int, base := 1) -> Dictionary:
 		gate_wins[p.lanes[w]] += 1
 		kos += res.kos.size()
 		times.append(res.win_time)
+		var c: Dictionary = courses.get(p.course.info.id, {"races": 0, "kos": 0, "time": 0.0})
+		c.races += 1
+		c.kos += res.kos.size()
+		c.time += res.win_time
+		courses[p.course.info.id] = c
 		for i in p.starters:
 			var id: String = p.balls[i].type_id
 			entries[id] = entries.get(id, 0) + 1
@@ -79,4 +89,4 @@ static func measure(n: int, races: int, base := 1) -> Dictionary:
 		critters[id] = {"share": float(wins.get(id, 0)) / entries[id] * n, "ko": float(knocked.get(id, 0)) / entries[id], "entries": entries[id]}
 	return {"n": n, "races": races, "kos": kos, "entries": entries, "wins": wins, "knocked": knocked, "times": times,
 		"ko_rate": float(kos) / (races * n), "median": times[races / 2], "p90": times[races * 9 / 10], "stuck": stuck,
-		"gate_wins": gate_wins, "critters": critters}
+		"gate_wins": gate_wins, "critters": critters, "courses": courses}
