@@ -13,6 +13,8 @@ const Families := preload("res://sim/families.gd")
 const Profile := preload("res://meta/profile.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
 const PlungeTalents := preload("res://meta/plunge_talents.gd")
+const Campaign := preload("res://meta/campaign.gd")
+const MatchSim := preload("res://sim/match_sim.gd")
 
 const T0 := 1_800_000_000
 
@@ -152,8 +154,9 @@ func test_races_are_watchable_and_fair() -> void:
 
 func test_coins_slide_with_place() -> void:
 	for n in Plunge.FIELD_SIZES:
-		check_eq(CritterPlunge.coins_for(1, n), CritterPlunge.WIN_COINS, "%d racers: 1st" % n)
-		check_eq(CritterPlunge.coins_for(n, n), CritterPlunge.LAST_COINS, "%d racers: last" % n)
+		var mult := CritterPlunge.COINS_8 if n == 8 else 1.0
+		check_eq(CritterPlunge.coins_for(1, n), roundi(CritterPlunge.WIN_COINS * mult), "%d racers: 1st" % n)
+		check_eq(CritterPlunge.coins_for(n, n), roundi(CritterPlunge.LAST_COINS * mult), "%d racers: last" % n)
 		for k in range(1, n):
 			check(CritterPlunge.coins_for(k, n) > CritterPlunge.coins_for(k + 1, n), "%d racers: %d pays more than %d" % [n, k, k + 1])
 
@@ -169,6 +172,10 @@ func test_start_spends_energy_and_races_your_fighter() -> void:
 	check_eq(cfg.racers.size(), 8, "field of 8")
 	check_eq(cfg.racers.count(fighter), 1, "your fighter races once")
 	check(cfg.tiers.all(func(x): return x == cfg.tiers[0]), "everyone at your tier")
+	check_eq(cfg.course, CritterPlunge.course_for(cfg.seed).id, "on the course the screen showed")
+	check_eq(Plunge.new(cfg).course.info.id, Plunge.new({"seed": cfg.seed, "racers": cfg.racers}).course.info.id, "the seed's own course")
+	var next := CritterPlunge.course_for(CritterPlunge.next_seed(p))
+	check_eq(CritterPlunge.start(p, fighter, 6, T0).course, next.id, "the screen's next course is the one raced")
 	check_eq(CritterPlunge.start(p, fighter, 5, T0).get("error", ""), "field", "only 4, 6 or 8")
 	p.energy = 0
 	check_eq(CritterPlunge.start(p, fighter, 6, T0).get("error", ""), "energy", "no energy, no race")
@@ -178,21 +185,89 @@ func test_finish_pays_coins_xp_and_faction_xp() -> void:
 	var p = Profile.new_game(T0)
 	var fighter: String = p.lineup
 	var coins: int = p.coins
-	var r := CritterPlunge.finish(p, fighter, 2, 6, false)
+	var r := CritterPlunge.finish(p, fighter, 2, 6, false, true, "vines", T0)
 	check_eq(p.coins, coins + CritterPlunge.coins_for(2, 6), "coins by place")
 	check_eq(r.xp, CritterPlunge.XP, "critter XP")
 	check(not p.take_faction_gains().is_empty(), "Faction XP after every race")
 	check_eq(r.medal, "silver", "2nd of 6 wins silver")
 	check_eq(PlungeTalents.medals(p).silver, 1, "the medal is kept")
-	check_eq(CritterPlunge.finish(p, fighter, 1, 6, true).medal, "", "no medal when knocked out")
+	check_eq(CritterPlunge.finish(p, fighter, 1, 6, true, true, "", T0).medal, "", "no medal when knocked out")
+	var skipped := CritterPlunge.finish(p, fighter, 1, 6, false, false, "vines", T0)
+	check_eq(skipped.medal, "", "no medal when skipped")
+	check(skipped.coins > 0, "a skipped race still pays coins")
+	check_eq(CritterPlunge.stamp(p, "vines"), "silver", "a skipped win stamps nothing")
 
 
+## Coins for the day's first 8 races only; medals and XP after that.
+func test_prize_races_a_day() -> void:
+	var p = Profile.new_game(T0)
+	var fighter: String = p.lineup
+	for k in CritterPlunge.PRIZE_RACES:
+		check_eq(CritterPlunge.prize_races_left(p, T0), CritterPlunge.PRIZE_RACES - k, "left before race %d" % k)
+		check(CritterPlunge.finish(p, fighter, 1, 6, false, true, "", T0).coins > 0, "race %d pays coins" % k)
+	var coins: int = p.coins
+	var r := CritterPlunge.finish(p, fighter, 1, 6, false, true, "", T0)
+	check_eq(r.coins, 0, "no coins after the prize races")
+	check_eq(p.coins, coins, "none paid")
+	check_eq(r.medal, "gold", "the medal still drops")
+	check_eq(CritterPlunge.prize_races_left(p, T0 + 86400), CritterPlunge.PRIZE_RACES, "a new day, new prize races")
+	var back = Profile.from_dict(p.to_dict(), T0)
+	check_eq(CritterPlunge.prize_races_left(back, T0), 0, "saved")
+
+
+## 4 racers race for coins, 6 for medals, 8 for better medals and more coins.
 func test_medals_by_place_and_field() -> void:
-	check_eq(PlungeTalents.medal_for(1, 8), "gold", "8: 1st gold")
-	check_eq(PlungeTalents.medal_for(4, 8), "bronze", "8: 4th bronze")
-	check_eq(PlungeTalents.medal_for(5, 8), "", "8: 5th nothing")
-	check_eq(PlungeTalents.medal_for(1, 4), "silver", "4: 1st silver")
-	check_eq(PlungeTalents.medal_for(3, 4), "", "4: 3rd nothing")
+	check_eq(CritterPlunge.medal_for(1, 8), "gold", "8: 1st gold")
+	check_eq(CritterPlunge.medal_for(2, 8), "gold", "8: 2nd gold")
+	check_eq(CritterPlunge.medal_for(3, 8), "silver", "8: 3rd silver")
+	check_eq(CritterPlunge.medal_for(5, 8), "bronze", "8: 5th bronze")
+	check_eq(CritterPlunge.medal_for(6, 8), "", "8: 6th nothing")
+	check_eq(CritterPlunge.medal_for(1, 6), "gold", "6: 1st gold")
+	check_eq(CritterPlunge.medal_for(4, 6), "", "6: 4th nothing")
+	check_eq(CritterPlunge.medal_for(1, 4), "", "4: coins only")
+	check(CritterPlunge.coins_for(1, 8) > CritterPlunge.coins_for(1, 6), "8 pays more coins")
+
+
+## The stamp album: the best medal per course, never downgraded, saved.
+func test_stamps_keep_the_best_medal() -> void:
+	var p = Profile.new_game(T0)
+	var fighter: String = p.lineup
+	CritterPlunge.finish(p, fighter, 3, 6, false, true, "lava", T0)
+	check_eq(CritterPlunge.stamp(p, "lava"), "bronze", "bronze stamp")
+	CritterPlunge.finish(p, fighter, 1, 6, false, true, "lava", T0)
+	check_eq(CritterPlunge.stamp(p, "lava"), "gold", "upgraded to gold")
+	CritterPlunge.finish(p, fighter, 2, 6, false, true, "lava", T0)
+	check_eq(CritterPlunge.stamp(p, "lava"), "gold", "never downgraded")
+	CritterPlunge.finish(p, fighter, 1, 6, false, true, "nowhere", T0)
+	check_eq(p.plunge_stamps.size(), 1, "only real courses")
+	var back = Profile.from_dict(p.to_dict(), T0)
+	check_eq(back.plunge_stamps, {"lava": "gold"}, "saved")
+	check_eq(CritterPlunge.clean_stamps({"lava": "tin", "vines": "silver", "x": "gold"}), {"vines": "silver"}, "cleaned")
+
+
+## Race talents stay in Critter Plunge: a profile with every one maxed builds
+## the same fight configs as one with none (every fight takes your critter
+## from Profile.slot_of through Lineup.apply).
+func test_race_talents_never_reach_a_fight() -> void:
+	var plain = Profile.new_game(T0)
+	var boosted = Profile.new_game(T0)
+	var fighter: String = plain.lineup
+	var fam := Families.of(fighter)
+	for k in 200:
+		PlungeTalents.add_medal(boosted, "gold")
+	for tal in PlungeTalents.TALENTS:
+		while PlungeTalents.buy(boosted, fam, tal.id):
+			pass
+	var fx := PlungeTalents.effects(boosted, fighter)
+	check(fx.values().any(func(v): return float(v) > 0.0), "the race talents are bought: %s" % [fx])
+	check_eq(boosted.slot_of(fighter), plain.slot_of(fighter), "your critter's fight slot")
+	var a := Campaign.start(plain, 0, 0, fighter, T0)
+	var b := Campaign.start(boosted, 0, 0, fighter, T0)
+	check(not a.has("error"), "a stage fight: %s" % [a])
+	check_eq(b, a, "same stage fight config")
+	check(not b.has("boosts"), "no race boosts in a fight")
+	check_eq(MatchSim.new(b).balls[0].max_hp, MatchSim.new(a).balls[0].max_hp, "same HP in the fight")
+	check_eq(Campaign.start_team(boosted, 0, 0, [fighter], T0), Campaign.start_team(plain, 0, 0, [fighter], T0), "same team fight config")
 
 
 ## 1 gold = 2 silver = 4 bronze: higher medals break to pay for lower ones.
@@ -315,3 +390,27 @@ func test_course_parts_act_on_racers() -> void:
 	for k in 30:
 		pin.step()
 	check(pin.obstacles()[flipper].pos.distance_to(tip) > 5.0, "flippers swing")
+
+
+## The Plunge screen builds with talents, medals and stamps (the demo's
+## &plunge=1 profile), shows no power, and opens the stamp album and picker.
+func test_screen_and_stamp_album_build() -> void:
+	var shell = load("res://game/ui/shell.gd").new()
+	shell.build()
+	shell.profile.lineup = "vampire"
+	CritterPlunge.demo(shell.profile)
+	check(shell.profile.plunge_stamps.size() >= 9, "the demo has stamps")
+	check_eq(load("res://game/ui/plunge_stamps_sheet.gd").count(shell.profile), shell.profile.plunge_stamps.size(), "album count")
+	for n in Plunge.FIELD_SIZES:
+		load("res://game/ui/screens/plunge_screen.gd").field = n
+		shell.go("plunge")
+		check_eq(shell.current, "plunge", "builds with %d racers" % n)
+	check(shell._marks.has("plunge_stamps") and shell._marks.has("plunge_talents"), "talents and stamps buttons")
+	shell._marks.plunge_stamps.pressed.emit()
+	check(shell._marks.has("plunge_stamp_lava"), "the album has a tile per course")
+	shell.close_overlay()
+	shell._marks.plunge_fighter.pressed.emit()
+	check(shell._marks.has("pick_vampire"), "the picker lists your racers")
+	shell.close_overlay()
+	load("res://game/ui/screens/plunge_screen.gd").field = CritterPlunge.DEFAULT_FIELD
+	shell.free()
