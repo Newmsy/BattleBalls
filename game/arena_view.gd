@@ -1430,9 +1430,7 @@ func _bake_art_if_needed(id: String) -> void:
 	_bake_key = key
 	var m := frame_margin()
 	var span := MatchSim.ARENA_SIZE * view_scale + 2.0 * m
-	var r := 8.0
-	for o in MatchSim.new({"arena": id}).obstacles():
-		r = maxf(r, o.radius * view_scale)
+	var r := _art_sprite_r(id)
 	var cell := r * 2.0 * ArenaArt.SPRITE_EXTENT
 	var k := minf(clampf(screen * ART_SUPERSAMPLE, 1.0, 4.0), ART_MAX_TEXTURE / (span + cell + 8.0))
 	if _bake == null:
@@ -1444,7 +1442,7 @@ func _bake_art_if_needed(id: String) -> void:
 		_painter.view = self
 		_bake.add_child(_painter)
 		add_child(_bake)
-	_art_ctx = ArenaArt.make_ctx(id, view_scale, m)
+	_art_ctx = _make_art_ctx(id, m)
 	_art_k = k
 	_art_r = r
 	_art_atlas = Vector2(span - m + 4.0, -m)
@@ -1455,10 +1453,29 @@ func _bake_art_if_needed(id: String) -> void:
 	_bake.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
+## The painter's view of map `id` with a frame `margin` wide round it.
+func _make_art_ctx(id: String, margin: float) -> ArenaArt.Kit.Ctx:
+	return ArenaArt.make_ctx(id, view_scale, margin)
+
+
+## Whether the baked art shows the map's orbit tracks.
+func _art_tracks() -> bool:
+	return true
+
+
+## How big the pillar and bumper sprites are baked, in pixels: the biggest
+## obstacle on the map.
+func _art_sprite_r(id: String) -> float:
+	var r := 8.0
+	for o in MatchSim.new({"arena": id}).obstacles():
+		r = maxf(r, o.radius * view_scale)
+	return r
+
+
 func _paint_art(cv: CanvasItem) -> void:
 	if _art_ctx == null:
 		return
-	ArenaArt.paint(cv, _art_ctx)
+	ArenaArt.paint(cv, _art_ctx, _art_tracks())
 	var cell := _art_r * 2.0 * ArenaArt.SPRITE_EXTENT
 	ArenaArt.pillar(cv, _art_ctx, _art_atlas + Vector2.ONE * cell / 2.0, _art_r)
 	ArenaArt.bumper(cv, _art_ctx, _art_atlas + Vector2(cell / 2.0, cell * 1.5), _art_r)
