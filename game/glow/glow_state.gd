@@ -19,6 +19,7 @@ const Families := preload("res://sim/families.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const BossesScreen := preload("res://game/ui/screens/bosses_screen.gd")
+const Plunge := preload("res://sim/plunge.gd")
 
 const LEDGER_MAX := 300
 
@@ -49,7 +50,7 @@ static func defaults() -> Dictionary:
 		"ledger": [], ## {t, what, n, why}: newest last.
 		"pass": {"season": "", "xp": 0, "premium": false, "free": [], "paid": [], "boxes": 0},
 		"quest_day": {"day": -1, "list": [], "progress": {}, "claimed": [], "chest": false, "swapped": false, "counted": false},
-		"quest_week": {"week": -1, "list": [], "progress": {}, "claimed": [], "chest": false, "won_with": []},
+		"quest_week": {"week": -1, "list": [], "progress": {}, "claimed": [], "chest": false, "won_with": [], "courses": []},
 		"quest_carry": [], ## Finished, unclaimed quest rewards from a day or week gone by.
 		"week": {"week": -1, "count": 0, "chest": false},
 	}
@@ -554,6 +555,21 @@ func record_result(kind: String, r: Dictionary, t := -1) -> void:
 	_commit()
 
 
+## A Critter Plunge race (game/plunge.gd): a podium finish, a win, and the
+## course for "Race on 5 different courses". The fight itself counts
+## through record_fight.
+func record_plunge(place: int, knocked_out: bool, course: String, t := -1) -> void:
+	if not knocked_out and place >= 1 and place <= 3:
+		_count("plunge_podium", 1, t)
+	if place == 1:
+		_count("plunge_win", 1, t)
+	var w := _quest_week(t)
+	if course != "" and not course in w.courses:
+		w.courses.append(course)
+		w.progress.plunge_courses = w.courses.size()
+	_commit()
+
+
 ## Solved the Daily Trick Shot.
 func record_trick(t := -1) -> int:
 	record("trick", 1, t)
@@ -582,9 +598,11 @@ func quest_ctx() -> Dictionary:
 	var fams := {}
 	var rare := false
 	var t3 := false
+	var racer := false
 	for s in profile.stacks:
 		if int(s.count) <= 0 or not str(s.id) in BallDefs.PLAYABLE:
 			continue
+		racer = racer or Plunge.can_race(str(s.id))
 		var f := Families.of(str(s.id))
 		if f != "":
 			fams[f] = true
@@ -593,7 +611,7 @@ func quest_ctx() -> Dictionary:
 		if int(s.tier) >= 3:
 			t3 = true
 	return {"bosses": BossesScreen.any_open(profile), "families": fams.keys(), "rare": rare, "t3": t3,
-		"fuse": not profile.ready_to_fuse().is_empty(), "egg": int(profile.orbs) > 0 or bool(profile.free_summon)}
+		"fuse": not profile.ready_to_fuse().is_empty(), "egg": int(profile.orbs) > 0 or bool(profile.free_summon), "racer": racer}
 
 
 ## Rewards from quests finished but never claimed before their day or week
@@ -656,7 +674,7 @@ func _quest_week(t: int) -> Dictionary:
 	var w: Dictionary = g().quest_week
 	if int(w.week) != _week(t):
 		_carry_over(w, Quests.WEEKLY_CHEST, 0, 0)
-		w.merge({"week": _week(t), "list": [], "progress": {}, "claimed": [], "chest": false, "won_with": []}, true)
+		w.merge({"week": _week(t), "list": [], "progress": {}, "claimed": [], "chest": false, "won_with": [], "courses": []}, true)
 	return w
 
 

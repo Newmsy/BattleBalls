@@ -21,17 +21,18 @@
 ## Deterministic like MatchSim: the same config always gives the same race.
 ##
 ## Config: {seed: int, racers: [ids], course: id?, tiers: [int]?, boosts:
-## [{tough, power, steady} or null]?}; with no course the seed picks one. Everyone races at the same power, so the drop and the
-## abilities decide it; boosts are your race talents (meta/plunge_talents.gd):
-## tough adds that share of HP, power of damage, and steady takes that share
-## off the speed a hit costs.
+## [{tough, power, <signature>} or null]?}; with no course the seed picks one. Everyone races at the same power, so the drop and the
+## abilities decide it; boosts are race talents (meta/plunge_talents.gd), one
+## per racer: tough adds that share of HP, power of damage, and a family's
+## signature (SIGNATURES) changes how one course piece treats that racer, from
+## 0 to its full effect at share 1.
 extends "res://sim/match_sim.gd"
 
 const PlungeCourse := preload("res://sim/plunge_course.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 7
+const RACE_RULES := 8
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
 const RADIUS := 30.0 ## Every racer races this size, whatever its fight size.
@@ -73,6 +74,15 @@ const HP_BY_FIELD := {4: 1.1, 6: 1.05, 8: 1.2}
 ## racer's HP also scales by the field's tier (T1..T5) to keep knockouts near
 ## 1 in 10 at every tier.
 const HP_BY_TIER := [1.0, 1.25, 1.6, 2.0, 2.9]
+## Each family's signature race talent at full share (rank 5): what it does to
+## one course piece. lava: share of lava damage taken off. ice: share added to
+## an icy ramp's or belt's push. current: share taken off goo drag and wind.
+## orbit: share taken off a well's pull. core: share added to a power core's
+## rush. shield: start shield, as a share of max HP. portal: downward speed a
+## portal's exit adds, as a share of MAX_SPEED. spring: share added to launch pads' and bumpers' kick.
+## thorn: share taken off thorn damage, and added to heal pickups.
+const SIGNATURES := {"lava": 1.0, "ice": 0.6, "current": 0.6, "orbit": 0.7, "core": 0.6,
+	"shield": 0.2, "portal": 0.45, "spring": 0.3, "thorn": 1.0}
 
 ## The critters that race, by family: ones whose abilities read well on a
 ## course. Others join as they're balanced in.
@@ -105,7 +115,7 @@ var kos: Array[int] = [] ## Racer indexes in the order they were knocked out.
 var damage_scale := 1.0
 
 var _starts: Array[Vector2] = []
-var _steady: Array[float] = []
+var _boost: Array[Dictionary] = [] ## Racer -> its signature shares ({} for none).
 var _stalled: Array[float] = []
 var _nudge_ready: Array[int] = []
 var _bounce_ready: Array[int] = []
@@ -163,11 +173,16 @@ func _init(cfg: Dictionary) -> void:
 		b.max_hp *= hp_scale * HP_BY_TIER[tier - 1]
 		b.hp = b.max_hp
 		var boost = boosts[b.index] if b.index < boosts.size() else null
+		var sig := {}
 		if boost is Dictionary:
 			b.max_hp *= 1.0 + float(boost.get("tough", 0.0))
 			b.hp = b.max_hp
 			b.attack += float(boost.get("power", 0.0))
-		_steady.append(float(boost.get("steady", 0.0)) if boost is Dictionary else 0.0)
+			for key in SIGNATURES:
+				if float(boost.get(key, 0.0)) > 0.0:
+					sig[key] = clampf(float(boost[key]), 0.0, 1.0)
+		_boost.append(sig)
+		b.shield += b.max_hp * _sig(b, "shield") * SIGNATURES.shield
 		if RACE_TWEAKS.has(b.type_id):
 			b.def = b.def.duplicate()
 			for key in RACE_TWEAKS[b.type_id]:
@@ -198,6 +213,17 @@ static func field_damage(n: int) -> float:
 
 static func can_race(id: String) -> bool:
 	return RACERS.has(id)
+
+
+## `b`'s share (0 to 1) of signature talent `key`: 0 for a racer without it
+## and for anything that isn't a racer.
+func _sig(b: Ball, key: String) -> float:
+	return float(_boost[b.index].get(key, 0.0)) if b.index < _boost.size() else 0.0
+
+
+## A signature talent just did something you can see (render only).
+func _talent(b: Ball, key: String, pos: Vector2) -> void:
+	events.append({"type": "talent", "ball": b.index, "talent": key, "pos": pos})
 
 
 ## `n` different racing critters for a seed, never one in `exclude`.
@@ -271,7 +297,7 @@ func step() -> void:
 			_knock_out(i)
 			continue
 		if b.hp < hp_before[i] - STAGGER_AT and time() >= GATE_SECONDS:
-			b.vel *= STAGGER + (1.0 - STAGGER) * _steady[i]
+			b.vel *= STAGGER
 		if b.pos.y >= finish_y:
 			_cross_line(i)
 			continue
@@ -360,6 +386,9 @@ func _resolve_walls(b: Ball) -> void:
 		if sp > MAX_SPEED:
 			b.vel *= MAX_SPEED / sp
 	var hit := course.collide(b, DT)
+	_slide(b, hit)
+	if hit.bumper and hit.peg != null:
+		_spring(b, b.pos - hit.peg, hit.peg)
 	_hit_movers(b, hit)
 	if hit.peg != null and hit.speed >= PEG_EVENT:
 		events.append({"type": "course_hit", "ball": b.index, "peg": hit.peg, "bumper": hit.bumper, "pos": hit.point})
@@ -367,6 +396,42 @@ func _resolve_walls(b: Ball) -> void:
 		_bounce_ready[b.index] = tick + int(BOUNCE_GAP * TICK_RATE)
 		_on_wall_bounce(b, hit.point, true)
 	b.speed = b.vel.length()
+
+
+## Frost's signature: an icy ramp or belt it touched pushes it along harder.
+func _slide(b: Ball, hit: Dictionary) -> void:
+	var share := _sig(b, "ice")
+	var s = hit.get("ramp")
+	if share <= 0.0 or s == null:
+		return
+	if s.has("ice"):
+		b.vel += s.down * PlungeCourse.ICE_ACCEL * share * SIGNATURES.ice * DT
+	elif b.vel.dot(s.down) < PlungeCourse.BELT_TOP * (1.0 + share * SIGNATURES.ice):
+		b.vel += s.down * s.belt * share * SIGNATURES.ice * DT
+
+
+## Toybox's signature: a bumper that just kicked it (from `out`, the way it
+## was kicked) flings it further sideways, never higher.
+func _spring(b: Ball, out: Vector2, at: Vector2) -> void:
+	var share := _sig(b, "spring")
+	if share <= 0.0 or out.length_squared() < 0.0001:
+		return
+	b.vel.x += out.normalized().x * PlungeCourse.BUMPER_KICK * share * SIGNATURES.spring
+	_talent(b, "spring", at)
+
+
+## Nature's signature takes its share off a thorn's hit (none at all at full).
+func _spike(b: Ball, point: Vector2) -> void:
+	var cut := _sig(b, "thorn") * SIGNATURES.thorn
+	if cut <= 0.0:
+		super._spike(b, point)
+		return
+	if not b.alive() or tick < b.spike_ready:
+		return
+	b.spike_ready = tick + int(round(SPIKE_COOLDOWN * TICK_RATE))
+	_talent(b, "thorn", point)
+	if cut < 1.0 and _hazard(b, SPIKE_DAMAGE * (1.0 - cut), "spike", point):
+		events.append({"type": "spike", "ball": b.index, "pos": point})
 
 
 ## The course's moving parts and thorns: a bounce in the part's own frame
@@ -393,6 +458,7 @@ func _hit_movers(b: Ball, hit: Dictionary) -> void:
 			continue
 		if o.kind == "bumper":
 			b.vel += n * (maxf(-vn * PlungeCourse.PEG_BOUNCE, PlungeCourse.BUMPER_KICK) - vn)
+			_spring(b, n, o.pos + n * o.radius)
 		else:
 			b.vel -= n * vn * (1.0 + PlungeCourse.PEG_BOUNCE)
 			if o.kind == "spike" and b.index < starters:
@@ -471,12 +537,13 @@ func _update_wells() -> void:
 			var dist := d.length()
 			if dist <= w.core or dist >= w.reach:
 				continue
-			b.vel += d / dist * w.accel * (1.0 - dist / w.reach) * DT
+			b.vel += d / dist * w.accel * (1.0 - dist / w.reach) * (1.0 - _sig(b, "orbit") * SIGNATURES.orbit) * DT
 
 
 ## Goo drags, lava burns (in half-second ticks, under the fight's hazard
 ## cap), wind pushes, a portal sends a racer on to its exit at the same
-## speed, and a launch pad throws a racer that falls onto it.
+## speed, and a launch pad throws a racer that falls onto it. Signature
+## talents soften goo, wind and lava, and add to portals and pads.
 func _update_floors() -> void:
 	var pads := floors()
 	for f in pads:
@@ -485,7 +552,7 @@ func _update_floors() -> void:
 				continue
 			if f.kind == "wind":
 				if f.rect.has_point(b.pos):
-					b.vel += f.dir * f.accel * DT
+					b.vel += f.dir * f.accel * (1.0 - _sig(b, "current") * SIGNATURES.current) * DT
 				continue
 			if f.kind == "portal" or f.kind == "launch":
 				if b.pos.distance_squared_to(f.pos) > f.radius * f.radius * 0.36:
@@ -494,30 +561,50 @@ func _update_floors() -> void:
 					b.portal_ready = tick + int(round(PORTAL_COOLDOWN * TICK_RATE))
 					events.append({"type": "portal", "ball": b.index, "from": b.pos, "to": pads[f.to].pos})
 					b.pos = pads[f.to].pos
+					if _sig(b, "portal") > 0.0:
+						b.vel.y = maxf(b.vel.y, 0.0) + _sig(b, "portal") * SIGNATURES.portal * MAX_SPEED
+						_talent(b, "portal", b.pos)
 				elif f.kind == "launch" and tick >= b.launch_ready and b.vel.y > 0.0:
 					b.launch_ready = tick + TICK_RATE
-					b.vel = f.kick
+					b.vel = f.kick * (1.0 + _sig(b, "spring") * SIGNATURES.spring)
+					if _sig(b, "spring") > 0.0:
+						_talent(b, "spring", f.pos)
 					events.append({"type": "course_hit", "ball": b.index, "peg": null, "bumper": true, "pos": f.pos})
 				continue
 			if not on_floor(f, b.pos, b.radius * 0.5):
 				continue
 			if f.kind == "goo":
-				b.vel *= 1.0 - PlungeCourse.GOO_DRAG * DT
+				b.vel *= 1.0 - PlungeCourse.GOO_DRAG * (1.0 - _sig(b, "current") * SIGNATURES.current) * DT
 			elif f.kind == "lava" and tick >= b.lava_ready:
 				b.lava_ready = tick + TICK_RATE / 2
-				if _hazard(b, LAVA_DPS * 0.5, "lava", b.pos):
+				var cut := _sig(b, "lava") * SIGNATURES.lava
+				if cut > 0.0:
+					_talent(b, "lava", b.pos)
+				if cut < 1.0 and _hazard(b, LAVA_DPS * 0.5 * (1.0 - cut), "lava", b.pos):
 					events.append({"type": "lava", "ball": b.index, "pos": b.pos})
 
 
 ## Pickups as in a fight, and a power core also rushes its taker down.
+## Tech's signature rushes it harder; Nature's heals it more.
 func _update_cores() -> void:
 	var from := events.size()
 	super._update_cores()
 	for k in range(from, events.size()):
-		if events[k].type == "core":
-			var b := balls[events[k].ball]
-			b.vel.y = maxf(b.vel.y, 0.0) + RUSH
+		var e: Dictionary = events[k]
+		if e.type == "core":
+			var b := balls[e.ball]
+			b.vel.y = maxf(b.vel.y, 0.0) + RUSH * (1.0 + _sig(b, "core") * SIGNATURES.core)
 			b.speed = b.vel.length()
+			if _sig(b, "core") > 0.0:
+				_talent(b, "core", b.pos)
+		elif e.type == "pickup" and e.kind == "heal" and _sig(balls[e.ball], "thorn") > 0.0:
+			var b := balls[e.ball]
+			var more := minf(b.max_hp * HEAL_PICKUP * _sig(b, "thorn") * SIGNATURES.thorn, b.max_hp - b.hp)
+			if more > 0.0:
+				b.hp += more
+				b.healed += more
+				events.append({"type": "heal", "target": b.index, "amount": more, "pos": b.pos})
+				_talent(b, "thorn", b.pos)
 
 
 ## Swinging parts (pendulums, flippers) swing `swing` radians either way

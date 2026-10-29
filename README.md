@@ -155,7 +155,14 @@ belts; open ones end on a ledge so the field gathers. Every course has one
 hazard section (`PlungeCourse.HAZARDS`: gravity wells, lava, goo or sliding
 bumpers) with a pickup (power core, heal or shield), carried on the arena's own
 pieces so the fight view draws them. Races open on a course banner and a 3, 2,
-1, GO! countdown (`game/plunge_intro.gd`).
+1, GO! countdown (`game/plunge_intro.gd`; just GO! on Race again). The view
+(render only) follows your racer, drawn at 1.4x size, framing the leader when both fit;
+tap a face in the standings to follow another racer. Edge chips point at the
+leader or you when off screen, only your racer's combat text shows, and a close
+finish near the line slows the view to 0.3x. Once your racer is done the rest
+runs at skip speed; the result tells the race in one line
+(`game/plunge_story.gd`). Races count as fights for quests and the Glow Pass,
+plus the Plunge quests (podium, wins, courses); a skipped race drops no medal.
 The race is a MatchSim where every ball is its own team (`players` + `ffa`), so
 critters race with their real abilities and the fight view draws them; gravity
 and the course replace the arena walls, and a hard bounce off the course is a
@@ -163,9 +170,19 @@ wall bounce. Race rules on top: a hit staggers, aimed abilities go for the racer
 ahead, charges are sideways swerves, stunned racers sink out of the way, and a
 racer at 0 HP is knocked out and places last. Only `Plunge.RACERS` race (3 per
 family to start); `RACE_TWEAKS` scales a fight number that doesn't fit a race.
-`DAMAGE_BY_FIELD` keeps knockouts near a quarter. Podium finishes win gold,
-silver or bronze medals, spent on per-family race talents (1 gold = 2 silver =
-4 bronze). `tools/plunge_stats.gd --races 300 --n all` prints KO rate, race
+`DAMAGE_BY_FIELD` keeps knockouts near a quarter. Field size is a trade-off
+(`CritterPlunge.PODIUM`): 4 racers race for coins only, 6 for gold, silver or
+bronze on the podium, 8 for gold to 1st and 2nd and 1.5x coins. Coins pay for
+the first 8 races a day; medals drop only in races watched to the end and are
+spent on per-family race talents (1 gold = 2 silver = 4 bronze): two shared
+stat talents plus the family's signature, which changes how one course piece
+treats its racers (Fire shrugs off lava, Cosmic is pulled less by wells, Spooky
+shoots out of portals...; `PlungeTalents.SIGNATURES`, effects at full rank in
+`Plunge.SIGNATURES`, passed per racer as `boosts`). The best medal on each
+course is its stamp (`Profile.plunge_stamps`, the stamp album). The next race's
+seed comes from the profile (`CritterPlunge.next_seed`), so the Plunge screen
+paints its course before you race (`?demo=1&plunge=1` adds talents, medals and
+stamps for screenshots). `tools/plunge_stats.gd --races 300 --n all` prints KO rate, race
 length, gate and critter win rates. `?mode=plunge&seed=5&n=8` plays a practice
 race (no rewards). Re-pin `tests/test_plunge.gd`'s golden race and bump
 `Plunge.RACE_RULES` on intentional sim changes.

@@ -110,6 +110,9 @@ var dyes := {}
 var rift := {}
 ## Critter Plunge medals and race talents (meta/plunge_talents.gd).
 var plunge := PlungeTalents.clean({})
+## Critter Plunge stamps: the best medal won on each course, {course id: medal}
+## (meta/critter_plunge.gd).
+var plunge_stamps := {}
 ## Rift Keys live in the Bag as an item; this many at most.
 const RIFT_KEY := "Rift Key"
 const RIFT_KEY_CAP := 10
@@ -797,7 +800,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps"]
 
 
 func to_dict() -> Dictionary:
@@ -862,6 +865,7 @@ static func from_dict(d: Dictionary, now: int):
 			if not Dyes.dye(str(k)).is_empty():
 				p.dyes[str(k)] = clampi(int(dy[k]), 0, Dyes.need(str(k)))
 	p.plunge = PlungeTalents.clean(d.get("plunge", {}))
+	p.plunge_stamps = load("res://meta/critter_plunge.gd").clean_stamps(d.get("plunge_stamps", {}))
 	var rf = d.get("rift", {})
 	if rf is Dictionary and rf.has("family"):
 		p.rift = JSON.parse_string(JSON.stringify(rf))

@@ -1038,6 +1038,11 @@ try {
     await page.screenshot({ path: path.join(shots, "46b-plunge-talents.png") });
     await tapUi(page, logs, "plunge_talents_close");
     await page.waitForTimeout(600);
+    await tapUi(page, logs, "plunge_stamps", "sheet");
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(shots, "46c-plunge-stamps.png") });
+    await tapUi(page, logs, "plunge_stamps_close");
+    await page.waitForTimeout(600);
     await tapUi(page, logs, "plunge_field_8");
     await page.waitForTimeout(500);
     const start = logs.length;
@@ -1055,6 +1060,21 @@ try {
     await page.screenshot({ path: path.join(shots, "48-plunge-result.png") });
     await waitForLog(logs, "UI_AT plunge_back ", 5000);
     await tapUi(page, logs, "plunge_back", "plunge");
+    await page.close();
+  }
+
+  // 16b. The Plunge screen with race talents, medals and stamps (&plunge=1)
+  // still fits a small phone with Larger text, in every field size (any
+  // UI_OVERFLOW fails the run).
+  if (mine(6)) {
+    const { page, logs } = await openGame("?demo=1&plunge=1&screen=plunge&text=large&seed=7&offline=1", { width: 375, height: 667 });
+    await waitForLog(logs, "UI_FIT plunge ", 60000);
+    for (const n of [4, 8]) {
+      await tapUi(page, logs, `plunge_field_${n}`);
+      await page.waitForTimeout(600);
+    }
+    console.log("plunge with talents:", logs.filter((l) => l.startsWith("UI_FIT plunge ")).pop());
+    await page.screenshot({ path: path.join(shots, "46d-plunge-talents-small-large.png") });
     await page.close();
   }
 } catch (e) {
