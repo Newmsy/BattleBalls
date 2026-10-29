@@ -13,6 +13,9 @@ const Families := preload("res://sim/families.gd")
 const Profile := preload("res://meta/profile.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
 const PlungeTalents := preload("res://meta/plunge_talents.gd")
+const PlungeStory := preload("res://game/plunge_story.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
+const Quests := preload("res://meta/quests.gd")
 
 const T0 := 1_800_000_000
 
@@ -243,9 +246,13 @@ func test_scene_races_and_pays() -> void:
 		scene._process(0.016)
 	check(scene._done, "the race ends")
 	check(scene.result.get("coins", 0) >= CritterPlunge.LAST_COINS, "paid coins: %s" % [scene.result])
+	check(scene.skipped, "skipped from the start: not watched")
+	check_eq(scene.result.get("medal", "x"), "", "so no medal")
 	var after := SaveGame.new(path)
 	after.load_local()
 	check_eq(int(after.data.profile.coins), int(p.coins) + int(scene.result.coins), "into the save")
+	check_eq(int(after.data.glow.quest_day.progress.get("fight", 0)), 1, "counts as a fight for quests")
+	check_eq(after.data.glow.quest_week.courses, [scene.sim.course.info.id], "and its course")
 	scene.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
@@ -315,3 +322,63 @@ func test_course_parts_act_on_racers() -> void:
 	for k in 30:
 		pin.step()
 	check(pin.obstacles()[flipper].pos.distance_to(tip) > 5.0, "flippers swing")
+
+
+## Your race read from the events (game/plunge_story.gd): watching every
+## step leaves the race as it was, and the story only names what happened.
+func test_story_reads_your_race_without_changing_it() -> void:
+	for seed_value in [5, 21, 77]:
+		var cfg := {"seed": seed_value, "racers": Plunge.draw_field(seed_value, 8)}
+		var plain := _race(cfg)
+		var p := Plunge.new(cfg)
+		var story := PlungeStory.new(0)
+		var callouts := []
+		while not p.finished:
+			p.step()
+			callouts.append_array(story.watch(p))
+		check_eq(p.order, plain.order, "seed %d: same race while watched" % seed_value)
+		for j in story.knocked:
+			check(j in p.kos and j != 0, "seed %d: you only knock out racers that went out" % seed_value)
+		check_eq(callouts.filter(func(c): return c.text == "KO by you!").size(), story.knocked.size(), "a callout per knockout")
+		check(story.ko_by < 0 or p.ko_ticks[0] >= 0, "knocked out by someone only when out")
+		var line := story.line(p)
+		check(line != "" and not line.contains("  "), "seed %d: a story line: %s" % [seed_value, line])
+	check_eq(PlungeStory.new(-1).watch(Plunge.new({"seed": 1})), [], "nothing to tell when only watching")
+
+
+## Skip before your racer is done and the race pays no medal (coins and XP still).
+func test_unwatched_races_drop_no_medal() -> void:
+	var p = Profile.new_game(T0)
+	var r := CritterPlunge.finish(p, p.lineup, 1, 8, false, false, "lava")
+	check_eq(r.medal, "", "skipped: no medal")
+	check_eq(r.coins, CritterPlunge.coins_for(1, 8), "still coins")
+	check_eq(CritterPlunge.finish(p, p.lineup, 1, 8, false, true, "lava").medal, "gold", "watched: gold")
+
+
+## A race counts as a fight (Glow Pass, "Play 4 fights") and for the Plunge
+## quests: podium, wins and distinct courses this week.
+func test_races_count_for_quests() -> void:
+	var path := "user://test_plunge_quests.json"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var g = GlowState.new(SaveGame.new(path))
+	g.record_plunge(1, false, "lava")
+	g.record_plunge(3, false, "lava")
+	g.record_plunge(2, true, "ice")
+	g.record_plunge(6, false, "")
+	var day: Dictionary = g.g().quest_day.progress
+	var week: Dictionary = g.g().quest_week.progress
+	check_eq(int(day.get("plunge_podium", 0)), 2, "podium: 1st and 3rd, not a knockout")
+	check_eq(int(week.get("plunge_win", 0)), 1, "one win")
+	check_eq(int(week.get("plunge_courses", 0)), 2, "two different courses")
+	var ctx := {"bosses": true, "families": ["frost"], "rare": true, "t3": true, "fuse": true, "egg": true, "racer": true}
+	var none := ctx.duplicate()
+	none.racer = false
+	var seen := {}
+	for d in 120:
+		for q in Quests.roll_day(d, none) + Quests.roll_week(d, none):
+			check(not str(q.id) in ["plunge_pod", "w_plunge3", "w_courses5"], "no Plunge quest without a racer")
+		for q in Quests.roll_day(d, ctx) + Quests.roll_week(d, ctx):
+			seen[q.id] = true
+	for id in ["plunge_pod", "w_plunge3", "w_courses5"]:
+		check(seen.has(id), "%s rolls for a racer" % id)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
