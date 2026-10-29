@@ -44,9 +44,9 @@ func test_golden_race() -> void:
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
 const GOLDEN_RACERS := ["thorns", "comet", "gumdrop", "frost", "prism", "honey"]
-const GOLDEN_ORDER := [1, 4, 0, 5, 2, 3]
-const GOLDEN_KOS := [3, 2]
-const GOLDEN_TICKS := 2707
+const GOLDEN_ORDER := [1, 5, 4, 3, 2, 0]
+const GOLDEN_KOS := []
+const GOLDEN_TICKS := 1758
 
 
 ## Racers are live critters, every family races, and they race with their
@@ -265,7 +265,8 @@ func test_course_hazards_act_on_racers() -> void:
 			kinds["wells"] = true
 		if not p.obstacles().is_empty():
 			kinds["sliders"] = true
-	check_eq(kinds.keys().size(), 4, "wells, lava, goo and sliders all appear (%s)" % [kinds.keys()])
+	for kind in ["wells", "lava", "goo", "sliders", "wind", "portal", "launch"]:
+		check(kinds.has(kind), "%s appear on some course" % kind)
 	var lava := Plunge.new({"seed": 3, "racers": ["pip", "honey", "frost", "laser"], "course": "lava"})
 	var pool: Vector2 = lava.floors()[0].pos
 	for k in 70:
@@ -281,3 +282,36 @@ func test_course_hazards_act_on_racers() -> void:
 	for k in 60:
 		slide.step()
 	check(slide.obstacles()[0].pos != at, "sliders move")
+
+
+## The set pieces' parts do what they look like: a portal sends a racer on,
+## a launch pad throws one, wind pushes, flippers swing.
+func test_course_parts_act_on_racers() -> void:
+	var placed := func(course: String, kind: String, test: Callable) -> void:
+		var p := Plunge.new({"seed": 3, "racers": Plunge.draw_field(3, 4), "course": course})
+		for k in 70:
+			p.step()
+		var pads: Array = p.floors()
+		for i in pads.size():
+			var f: Dictionary = pads[i]
+			if f.kind == kind and (kind != "portal" or f.has("to")):
+				var b = p.balls[0]
+				b.pos = f.rect.get_center() if f.has("rect") else f.pos
+				b.vel = Vector2(0.0, 50.0)
+				p.step()
+				test.call(p, b, f, pads)
+				return
+		check(false, "%s has a %s" % [course, kind])
+	placed.call("nebula", "portal", func(p, b, f, pads): check(b.pos.distance_to(pads[f.to].pos) < 30.0, "a portal sends a racer to its exit"))
+	placed.call("clouds", "launch", func(p, b, f, _pads): check(b.vel.y < -300.0, "a launch pad throws a racer up"))
+	placed.call("storm", "wind", func(p, b, f, _pads): check(signf(b.vel.x) == signf(f.dir.x), "wind pushes a racer along"))
+	var pin := Plunge.new({"seed": 3, "racers": Plunge.draw_field(3, 4), "course": "pinball"})
+	var flipper := -1
+	for i in pin.arena.obstacles.size():
+		if pin.arena.obstacles[i].has("swing"):
+			flipper = i
+	check(flipper >= 0, "pinball has flippers")
+	var tip: Vector2 = pin.obstacles()[flipper].pos
+	for k in 30:
+		pin.step()
+	check(pin.obstacles()[flipper].pos.distance_to(tip) > 5.0, "flippers swing")
