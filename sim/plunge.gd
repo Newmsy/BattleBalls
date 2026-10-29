@@ -29,7 +29,7 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 5
+const RACE_RULES := 6
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
 const RADIUS := 30.0 ## Every racer races this size, whatever its fight size.
@@ -54,16 +54,23 @@ const STALL_SPEED := 30.0
 const STALL := 1.5
 const NUDGE_COOLDOWN := 3.0
 const NUDGE := 140.0
+const RUSH := 320.0 ## Taking a power core also kicks the taker down the course this fast.
 ## Racer-on-racer bumps only hit (contact damage, "hit" abilities) when they
 ## close this fast: a pile resting together doesn't grind itself down.
-const RUSH := 320.0 ## Taking a power core also kicks the taker down the course this fast.
 const BUMP_MIN := 260.0
 ## Speed kept when a hit of STAGGER_AT or more damage lands.
 const STAGGER := 0.6
 const STAGGER_AT := 3.0
-## The knockout knob: most damage happens in jams, so crowded fields need
-## less of it. Tuned for about 1 racer in 4 knocked out.
+## Damage by field size: most damage happens in jams, so crowded fields
+## need less of it.
 const DAMAGE_BY_FIELD := {4: 1.1, 6: 0.75, 8: 0.6}
+## The knockout knob (Newms 2026-10-29: about 1 racer in 10 knocked out, by
+## health alone): every racer's HP is scaled by this for its field size.
+const HP_BY_FIELD := {4: 1.25, 6: 1.25, 8: 1.25}
+## Higher tiers hit much harder in a race than they gain health, so every
+## racer's HP also scales by the field's tier (T1..T5) to keep knockouts near
+## 1 in 10 at every tier.
+const HP_BY_TIER := [1.0, 1.25, 1.6, 2.0, 2.9]
 
 ## The critters that race, by family: ones whose abilities read well on a
 ## course. Others join as they're balanced in.
@@ -146,7 +153,11 @@ func _init(cfg: Dictionary) -> void:
 	for c in course.cores:
 		_core_ready.append(0) # Lit from the start.
 	var boosts: Array = cfg.get("boosts", [])
+	var hp_scale: float = HP_BY_FIELD.get(ids.size(), HP_BY_FIELD[8 if ids.size() > 6 else (6 if ids.size() > 4 else 4)])
 	for b in balls:
+		var tier: int = clampi(int(tiers[b.index]) if b.index < tiers.size() else 1, 1, HP_BY_TIER.size())
+		b.max_hp *= hp_scale * HP_BY_TIER[tier - 1]
+		b.hp = b.max_hp
 		var boost = boosts[b.index] if b.index < boosts.size() else null
 		if boost is Dictionary:
 			b.max_hp *= 1.0 + float(boost.get("tough", 0.0))
