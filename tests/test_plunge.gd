@@ -13,6 +13,11 @@ const Families := preload("res://sim/families.gd")
 const Profile := preload("res://meta/profile.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
 const PlungeTalents := preload("res://meta/plunge_talents.gd")
+const Campaign := preload("res://meta/campaign.gd")
+const MatchSim := preload("res://sim/match_sim.gd")
+const PlungeStory := preload("res://game/plunge_story.gd")
+const GlowState := preload("res://game/glow/glow_state.gd")
+const Quests := preload("res://meta/quests.gd")
 
 const T0 := 1_800_000_000
 
@@ -181,8 +186,9 @@ func test_races_are_watchable_and_fair() -> void:
 
 func test_coins_slide_with_place() -> void:
 	for n in Plunge.FIELD_SIZES:
-		check_eq(CritterPlunge.coins_for(1, n), CritterPlunge.WIN_COINS, "%d racers: 1st" % n)
-		check_eq(CritterPlunge.coins_for(n, n), CritterPlunge.LAST_COINS, "%d racers: last" % n)
+		var mult := CritterPlunge.COINS_8 if n == 8 else 1.0
+		check_eq(CritterPlunge.coins_for(1, n), roundi(CritterPlunge.WIN_COINS * mult), "%d racers: 1st" % n)
+		check_eq(CritterPlunge.coins_for(n, n), roundi(CritterPlunge.LAST_COINS * mult), "%d racers: last" % n)
 		for k in range(1, n):
 			check(CritterPlunge.coins_for(k, n) > CritterPlunge.coins_for(k + 1, n), "%d racers: %d pays more than %d" % [n, k, k + 1])
 
@@ -198,6 +204,10 @@ func test_start_spends_energy_and_races_your_fighter() -> void:
 	check_eq(cfg.racers.size(), 8, "field of 8")
 	check_eq(cfg.racers.count(fighter), 1, "your fighter races once")
 	check(cfg.tiers.all(func(x): return x == cfg.tiers[0]), "everyone at your tier")
+	check_eq(cfg.course, CritterPlunge.course_for(cfg.seed).id, "on the course the screen showed")
+	check_eq(Plunge.new(cfg).course.info.id, Plunge.new({"seed": cfg.seed, "racers": cfg.racers}).course.info.id, "the seed's own course")
+	var next := CritterPlunge.course_for(CritterPlunge.next_seed(p))
+	check_eq(CritterPlunge.start(p, fighter, 6, T0).course, next.id, "the screen's next course is the one raced")
 	check_eq(CritterPlunge.start(p, fighter, 5, T0).get("error", ""), "field", "only 4, 6 or 8")
 	p.energy = 0
 	check_eq(CritterPlunge.start(p, fighter, 6, T0).get("error", ""), "energy", "no energy, no race")
@@ -207,21 +217,89 @@ func test_finish_pays_coins_xp_and_faction_xp() -> void:
 	var p = Profile.new_game(T0)
 	var fighter: String = p.lineup
 	var coins: int = p.coins
-	var r := CritterPlunge.finish(p, fighter, 2, 6, false)
+	var r := CritterPlunge.finish(p, fighter, 2, 6, false, true, "vines", T0)
 	check_eq(p.coins, coins + CritterPlunge.coins_for(2, 6), "coins by place")
 	check_eq(r.xp, CritterPlunge.XP, "critter XP")
 	check(not p.take_faction_gains().is_empty(), "Faction XP after every race")
 	check_eq(r.medal, "silver", "2nd of 6 wins silver")
 	check_eq(PlungeTalents.medals(p).silver, 1, "the medal is kept")
-	check_eq(CritterPlunge.finish(p, fighter, 1, 6, true).medal, "", "no medal when knocked out")
+	check_eq(CritterPlunge.finish(p, fighter, 1, 6, true, true, "", T0).medal, "", "no medal when knocked out")
+	var skipped := CritterPlunge.finish(p, fighter, 1, 6, false, false, "vines", T0)
+	check_eq(skipped.medal, "", "no medal when skipped")
+	check(skipped.coins > 0, "a skipped race still pays coins")
+	check_eq(CritterPlunge.stamp(p, "vines"), "silver", "a skipped win stamps nothing")
 
 
+## Coins for the day's first 8 races only; medals and XP after that.
+func test_prize_races_a_day() -> void:
+	var p = Profile.new_game(T0)
+	var fighter: String = p.lineup
+	for k in CritterPlunge.PRIZE_RACES:
+		check_eq(CritterPlunge.prize_races_left(p, T0), CritterPlunge.PRIZE_RACES - k, "left before race %d" % k)
+		check(CritterPlunge.finish(p, fighter, 1, 6, false, true, "", T0).coins > 0, "race %d pays coins" % k)
+	var coins: int = p.coins
+	var r := CritterPlunge.finish(p, fighter, 1, 6, false, true, "", T0)
+	check_eq(r.coins, 0, "no coins after the prize races")
+	check_eq(p.coins, coins, "none paid")
+	check_eq(r.medal, "gold", "the medal still drops")
+	check_eq(CritterPlunge.prize_races_left(p, T0 + 86400), CritterPlunge.PRIZE_RACES, "a new day, new prize races")
+	var back = Profile.from_dict(p.to_dict(), T0)
+	check_eq(CritterPlunge.prize_races_left(back, T0), 0, "saved")
+
+
+## 4 racers race for coins, 6 for medals, 8 for better medals and more coins.
 func test_medals_by_place_and_field() -> void:
-	check_eq(PlungeTalents.medal_for(1, 8), "gold", "8: 1st gold")
-	check_eq(PlungeTalents.medal_for(4, 8), "bronze", "8: 4th bronze")
-	check_eq(PlungeTalents.medal_for(5, 8), "", "8: 5th nothing")
-	check_eq(PlungeTalents.medal_for(1, 4), "silver", "4: 1st silver")
-	check_eq(PlungeTalents.medal_for(3, 4), "", "4: 3rd nothing")
+	check_eq(CritterPlunge.medal_for(1, 8), "gold", "8: 1st gold")
+	check_eq(CritterPlunge.medal_for(2, 8), "gold", "8: 2nd gold")
+	check_eq(CritterPlunge.medal_for(3, 8), "silver", "8: 3rd silver")
+	check_eq(CritterPlunge.medal_for(5, 8), "bronze", "8: 5th bronze")
+	check_eq(CritterPlunge.medal_for(6, 8), "", "8: 6th nothing")
+	check_eq(CritterPlunge.medal_for(1, 6), "gold", "6: 1st gold")
+	check_eq(CritterPlunge.medal_for(4, 6), "", "6: 4th nothing")
+	check_eq(CritterPlunge.medal_for(1, 4), "", "4: coins only")
+	check(CritterPlunge.coins_for(1, 8) > CritterPlunge.coins_for(1, 6), "8 pays more coins")
+
+
+## The stamp album: the best medal per course, never downgraded, saved.
+func test_stamps_keep_the_best_medal() -> void:
+	var p = Profile.new_game(T0)
+	var fighter: String = p.lineup
+	CritterPlunge.finish(p, fighter, 3, 6, false, true, "lava", T0)
+	check_eq(CritterPlunge.stamp(p, "lava"), "bronze", "bronze stamp")
+	CritterPlunge.finish(p, fighter, 1, 6, false, true, "lava", T0)
+	check_eq(CritterPlunge.stamp(p, "lava"), "gold", "upgraded to gold")
+	CritterPlunge.finish(p, fighter, 2, 6, false, true, "lava", T0)
+	check_eq(CritterPlunge.stamp(p, "lava"), "gold", "never downgraded")
+	CritterPlunge.finish(p, fighter, 1, 6, false, true, "nowhere", T0)
+	check_eq(p.plunge_stamps.size(), 1, "only real courses")
+	var back = Profile.from_dict(p.to_dict(), T0)
+	check_eq(back.plunge_stamps, {"lava": "gold"}, "saved")
+	check_eq(CritterPlunge.clean_stamps({"lava": "tin", "vines": "silver", "x": "gold"}), {"vines": "silver"}, "cleaned")
+
+
+## Race talents stay in Critter Plunge: a profile with every one maxed builds
+## the same fight configs as one with none (every fight takes your critter
+## from Profile.slot_of through Lineup.apply).
+func test_race_talents_never_reach_a_fight() -> void:
+	var plain = Profile.new_game(T0)
+	var boosted = Profile.new_game(T0)
+	var fighter: String = plain.lineup
+	var fam := Families.of(fighter)
+	for k in 200:
+		PlungeTalents.add_medal(boosted, "gold")
+	for tal in PlungeTalents.TALENTS:
+		while PlungeTalents.buy(boosted, fam, tal.id):
+			pass
+	var fx := PlungeTalents.effects(boosted, fighter)
+	check(fx.values().any(func(v): return float(v) > 0.0), "the race talents are bought: %s" % [fx])
+	check_eq(boosted.slot_of(fighter), plain.slot_of(fighter), "your critter's fight slot")
+	var a := Campaign.start(plain, 0, 0, fighter, T0)
+	var b := Campaign.start(boosted, 0, 0, fighter, T0)
+	check(not a.has("error"), "a stage fight: %s" % [a])
+	check_eq(b, a, "same stage fight config")
+	check(not b.has("boosts"), "no race boosts in a fight")
+	check_eq(MatchSim.new(b).balls[0].max_hp, MatchSim.new(a).balls[0].max_hp, "same HP in the fight")
+	check_eq(Campaign.start_team(boosted, 0, 0, [fighter], T0), Campaign.start_team(plain, 0, 0, [fighter], T0), "same team fight config")
 
 
 ## 1 gold = 2 silver = 4 bronze: higher medals break to pay for lower ones.
@@ -272,9 +350,13 @@ func test_scene_races_and_pays() -> void:
 		scene._process(0.016)
 	check(scene._done, "the race ends")
 	check(scene.result.get("coins", 0) >= CritterPlunge.LAST_COINS, "paid coins: %s" % [scene.result])
+	check(scene.skipped, "skipped from the start: not watched")
+	check_eq(scene.result.get("medal", "x"), "", "so no medal")
 	var after := SaveGame.new(path)
 	after.load_local()
 	check_eq(int(after.data.profile.coins), int(p.coins) + int(scene.result.coins), "into the save")
+	check_eq(int(after.data.glow.quest_day.progress.get("fight", 0)), 1, "counts as a fight for quests")
+	check_eq(after.data.glow.quest_week.courses, [scene.sim.course.info.id], "and its course")
 	scene.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
 
@@ -344,3 +426,91 @@ func test_course_parts_act_on_racers() -> void:
 	for k in 30:
 		pin.step()
 	check(pin.obstacles()[flipper].pos.distance_to(tip) > 5.0, "flippers swing")
+
+
+## The Plunge screen builds with talents, medals and stamps (the demo's
+## &plunge=1 profile), shows no power, and opens the stamp album and picker.
+func test_screen_and_stamp_album_build() -> void:
+	var shell = load("res://game/ui/shell.gd").new()
+	shell.build()
+	shell.profile.lineup = "vampire"
+	CritterPlunge.demo(shell.profile)
+	check(shell.profile.plunge_stamps.size() >= 9, "the demo has stamps")
+	check_eq(load("res://game/ui/plunge_stamps_sheet.gd").count(shell.profile), shell.profile.plunge_stamps.size(), "album count")
+	for n in Plunge.FIELD_SIZES:
+		load("res://game/ui/screens/plunge_screen.gd").field = n
+		shell.go("plunge")
+		check_eq(shell.current, "plunge", "builds with %d racers" % n)
+	check(shell._marks.has("plunge_stamps") and shell._marks.has("plunge_talents"), "talents and stamps buttons")
+	shell._marks.plunge_stamps.pressed.emit()
+	check(shell._marks.has("plunge_stamp_lava"), "the album has a tile per course")
+	shell.close_overlay()
+	shell._marks.plunge_fighter.pressed.emit()
+	check(shell._marks.has("pick_vampire"), "the picker lists your racers")
+	shell.close_overlay()
+	load("res://game/ui/screens/plunge_screen.gd").field = CritterPlunge.DEFAULT_FIELD
+	shell.free()
+
+
+## Your race read from the events (game/plunge_story.gd): watching every
+## step leaves the race as it was, and the story only names what happened.
+func test_story_reads_your_race_without_changing_it() -> void:
+	for seed_value in [5, 21, 77]:
+		var cfg := {"seed": seed_value, "racers": Plunge.draw_field(seed_value, 8)}
+		var plain := _race(cfg)
+		var p := Plunge.new(cfg)
+		var story := PlungeStory.new(0)
+		var callouts := []
+		while not p.finished:
+			p.step()
+			callouts.append_array(story.watch(p))
+		check_eq(p.order, plain.order, "seed %d: same race while watched" % seed_value)
+		for j in story.knocked:
+			check(j in p.kos and j != 0, "seed %d: you only knock out racers that went out" % seed_value)
+		check_eq(callouts.filter(func(c): return c.text == "KO by you!").size(), story.knocked.size(), "a callout per knockout")
+		check(story.ko_by < 0 or p.ko_ticks[0] >= 0, "knocked out by someone only when out")
+		var line := story.line(p)
+		check(line != "" and not line.contains("  "), "seed %d: a story line: %s" % [seed_value, line])
+	check_eq(PlungeStory.new(-1).watch(Plunge.new({"seed": 1})), [], "nothing to tell when only watching")
+	var q := Plunge.new({"seed": 1})
+	q.events.append({"type": "talent", "ball": 0, "talent": "lava_proof", "pos": Vector2.ZERO})
+	q.events.append({"type": "talent", "ball": 2, "talent": "lava_proof", "pos": Vector2.ZERO})
+	check_eq(PlungeStory.new(0).watch(q).map(func(c): return c.text), ["Lava Proof!"], "your race talent firing, nobody else's")
+
+
+## Skip before your racer is done and the race pays no medal (coins and XP still).
+func test_unwatched_races_drop_no_medal() -> void:
+	var p = Profile.new_game(T0)
+	var r := CritterPlunge.finish(p, p.lineup, 1, 8, false, false, "lava")
+	check_eq(r.medal, "", "skipped: no medal")
+	check_eq(r.coins, CritterPlunge.coins_for(1, 8), "still coins")
+	check_eq(CritterPlunge.finish(p, p.lineup, 1, 8, false, true, "lava").medal, "gold", "watched: gold")
+
+
+## A race counts as a fight (Glow Pass, "Play 4 fights") and for the Plunge
+## quests: podium, wins and distinct courses this week.
+func test_races_count_for_quests() -> void:
+	var path := "user://test_plunge_quests.json"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var g = GlowState.new(SaveGame.new(path))
+	g.record_plunge(1, false, "lava")
+	g.record_plunge(3, false, "lava")
+	g.record_plunge(2, true, "ice")
+	g.record_plunge(6, false, "")
+	var day: Dictionary = g.g().quest_day.progress
+	var week: Dictionary = g.g().quest_week.progress
+	check_eq(int(day.get("plunge_podium", 0)), 2, "podium: 1st and 3rd, not a knockout")
+	check_eq(int(week.get("plunge_win", 0)), 1, "one win")
+	check_eq(int(week.get("plunge_courses", 0)), 2, "two different courses")
+	var ctx := {"bosses": true, "families": ["frost"], "rare": true, "t3": true, "fuse": true, "egg": true, "racer": true}
+	var none := ctx.duplicate()
+	none.racer = false
+	var seen := {}
+	for d in 120:
+		for q in Quests.roll_day(d, none) + Quests.roll_week(d, none):
+			check(not str(q.id) in ["plunge_pod", "w_plunge3", "w_courses5"], "no Plunge quest without a racer")
+		for q in Quests.roll_day(d, ctx) + Quests.roll_week(d, ctx):
+			seen[q.id] = true
+	for id in ["plunge_pod", "w_plunge3", "w_courses5"]:
+		check(seen.has(id), "%s rolls for a racer" % id)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

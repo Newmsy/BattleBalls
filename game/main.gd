@@ -1091,6 +1091,8 @@ func _load_profile() -> void:
 			profile.seen[id] = true
 		# A few Rift Keys and dye drops, so the Rift and Wardrobe have something to show.
 		profile.add_rift_keys(3)
+		if url_params.has("plunge"): # &plunge=1: race talents, medals and stamps bought.
+			load("res://meta/critter_plunge.gd").demo(profile)
 		for dye in Dyes.DYES.slice(0, 6):
 			for n in Dyes.need(dye.id) if dye.grade == "basic" else 3:
 				profile.add_dye_drop(dye.id)

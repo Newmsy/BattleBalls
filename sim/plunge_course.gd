@@ -190,6 +190,8 @@ func _hit_ramp(r, s: Dictionary, dt: float, hit: Dictionary) -> void:
 	if vn < 0.0:
 		_note(hit, -vn, closest, false)
 		r.vel -= n * vn * (1.0 + (RAMP_BOUNCE if -vn > REST_SPEED else 0.0))
+	if s.has("ice") or s.has("belt"):
+		hit.ramp = s # The race's Frost talent reads it.
 	if s.has("ice"):
 		r.vel += s.down * ICE_ACCEL * dt
 	else:

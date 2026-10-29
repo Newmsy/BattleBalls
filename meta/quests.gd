@@ -11,6 +11,8 @@
 ## Progress is counted by kind ("win", "trick", "win_fam:frost", ...) for the
 ## whole day or week, so whatever was played before the quests were rolled
 ## still counts. Kinds in MAX_KINDS keep the best value instead of a sum.
+## Critter Plunge races count as "plunge_podium", "plunge_win" and
+## "plunge_courses" (distinct courses this week, kept by GlowState).
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
@@ -47,6 +49,7 @@ const DAILY := {
 		{"id": "spire2", "kind": "spire", "goal": 2, "text": "Climb 2 Spire floors"},
 		{"id": "arena2", "kind": "arena_win", "goal": 2, "text": "Win 2 Ghost Arena fights"},
 		{"id": "stars6", "kind": "stars", "goal": 6, "text": "Earn 6 campaign stars"},
+		{"id": "plunge_pod", "kind": "plunge_podium", "goal": 1, "text": "Finish on the podium in Critter Plunge", "needs": "racer"},
 	],
 	"critters": [
 		{"id": "fam3", "kind": "win_fam", "goal": 3, "text": "Win 3 fights with a %s critter", "needs": "family"},
@@ -69,11 +72,13 @@ const WEEKLY := {
 		{"id": "w_spire8", "kind": "spire", "goal": 8, "text": "Climb 8 Spire floors"},
 		{"id": "w_arena8", "kind": "arena_win", "goal": 8, "text": "Win 8 Ghost Arena fights"},
 		{"id": "w_trick4", "kind": "trick", "goal": 4, "text": "Solve 4 Trick Shots"},
+		{"id": "w_plunge3", "kind": "plunge_win", "goal": 3, "text": "Win 3 Plunges", "needs": "racer"},
 	],
 	"habit": [
 		{"id": "w_chest5", "kind": "chest", "goal": 5, "text": "Clear 5 daily chests"},
 		{"id": "w_fotd5", "kind": "fotd", "goal": 5, "text": "Call 5 Fights of the Day"},
 		{"id": "w_crit5", "kind": "critters", "goal": 5, "text": "Win with 5 different critters"},
+		{"id": "w_courses5", "kind": "plunge_courses", "goal": 5, "text": "Race on 5 different courses", "needs": "racer"},
 	],
 }
 const DAILY_SLOTS := ["warmup", "mode", "critters"]
@@ -128,7 +133,8 @@ static func family_for(seed_value: int, owned: Array) -> String:
 
 
 ## Whether a quest can roll for this player. `ctx` comes from the game:
-## {bosses: bool, families: [ids], rare: bool, t3: bool, fuse: bool, egg: bool}.
+## {bosses: bool, families: [ids], rare: bool, t3: bool, fuse: bool, egg: bool,
+## racer: bool (owns a critter that races in Critter Plunge)}.
 static func eligible(q: Dictionary, ctx: Dictionary) -> bool:
 	match str(q.get("needs", "")):
 		"":
@@ -145,6 +151,8 @@ static func eligible(q: Dictionary, ctx: Dictionary) -> bool:
 			return bool(ctx.get("fuse", false))
 		"egg":
 			return bool(ctx.get("egg", false))
+		"racer":
+			return bool(ctx.get("racer", false))
 	return false
 
 

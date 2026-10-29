@@ -1,7 +1,10 @@
 ## Draws a Critter Plunge race (sim/plunge.gd). It is the fight view
 ## (game/arena_view.gd) with the course in place of the arena: every ability
-## looks exactly as it does in a fight. The camera follows the leader down
-## the shaft. Holds no rules: everything comes from the sim's state and
+## looks exactly as it does in a fight. The camera follows your racer down
+## the shaft, framing the leader too when both fit (a tap on a face in the
+## standings follows that racer instead); a race you only watch follows the
+## leader. Racers are drawn 1.4x their race size so they read as critters,
+## and only your racer's hits and status words pop up. Holds no rules: everything comes from the sim's state and
 ## events, so watching can never change a race. Each course wears one
 ## arena's painted art (game/arena_art.gd): its floor is baked once, like a
 ## fight's, and laid down the shaft a square at a time, with the pegs and
@@ -16,6 +19,8 @@ const ArenaKit := preload("res://game/arena_art/kit.gd")
 const Backdrops := preload("res://game/plunge_backdrops.gd")
 
 const FLASH_LIFE := 0.3
+const DRAW_SCALE := 1.4 ## Racers are drawn this much bigger than they race.
+const LINE_FLASH := 0.6 ## Seconds of the photo-finish flash at the line.
 const EDGE_TRIM := 0.08 ## Share of the baked square cut off its top and bottom.
 ## Ramp colours by look (PlungeCourse ramps); others wear the theme's border.
 const RAMP_LOOKS := {"ice": Color("9fe6ff"), "belt": Color("ffb347"), "cane": Color("fff4f4"), "comb": Color("f5b52e"),
@@ -26,6 +31,10 @@ var you := 0 ## Your racer's index (-1 in a race you only watch).
 var view_size := Vector2(680, 900)
 var top_pad := 0.0 ## Screen pixels above the course (the standings strip).
 var camera_y := 0.0 ## World y at the top of the view.
+var follow := -1 ## A racer tapped in the standings to follow instead of yours.
+var lock_you := false ## The photo finish holds the camera on your racer.
+
+var _line_flash := 0.0
 
 var _peg_flash := {} ## peg index -> seconds left
 var _peg_at := {} ## Vector2 -> peg index, to flash the peg a bounce names.
@@ -41,6 +50,8 @@ func set_race(s: Plunge, your_index := 0) -> void:
 	_peg_flash.clear()
 	clear_effects()
 	camera_y = 0.0
+	follow = -1
+	lock_you = false
 
 
 func _side(i: int) -> int:
@@ -48,7 +59,9 @@ func _side(i: int) -> int:
 
 
 func consume_events(events: Array[Dictionary]) -> void:
+	var before := _popups.size()
 	super.consume_events(events)
+	_keep_own_popups(before, events)
 	for e in events:
 		if e.type == "course_hit" and _peg_at.has(e.peg):
 			_peg_flash[_peg_at[e.peg]] = FLASH_LIFE
@@ -58,29 +71,107 @@ func consume_events(events: Array[Dictionary]) -> void:
 			_add_popup(e.pos, "KO!", POP_DAMAGE, 1.4)
 
 
+## Combat text only for the racer you watch: popups the fight view just
+## added that sit on anyone else, and weren't dealt by that racer, go.
+func _keep_own_popups(before: int, events: Array[Dictionary]) -> void:
+	var subj := subject()
+	if subj < 0 or _popups.size() <= before:
+		return
+	var team: int = sim.balls[subj].team
+	var teams := {team: true}
+	for e in events:
+		var src: int = e.get("source", e.get("owner", -1))
+		if src >= 0 and src < sim.balls.size() and sim.balls[src].team == team:
+			for key in ["target", "ball"]:
+				var t: int = e.get(key, -1)
+				if t >= 0 and t < sim.balls.size():
+					teams[sim.balls[t].team] = true
+	for k in range(_popups.size() - 1, before - 1, -1):
+		var at: Vector2 = _popups[k].pos
+		var best = null
+		var best_d := INF
+		for b in sim.balls: # Popups sit just above the ball they're about.
+			var d: float = at.distance_squared_to(b.pos + Vector2(0, -b.radius - 40.0))
+			if d < best_d:
+				best_d = d
+				best = b
+		if best == null or not teams.has(best.team):
+			_popups.remove_at(k)
+
+
+## A callout over your racer: "+1 place!", "KO by you!".
+func callout(text: String, big := false) -> void:
+	if you < 0 or sim == null:
+		return
+	var b := sim.balls[you]
+	_add_popup(b.pos + Vector2(0, -b.radius * DRAW_SCALE - 70.0), text, POP_CRIT if big else TEAM_COLORS[0], 1.4 if big else 1.2)
+
+
+## A white flash across the finish line (the photo finish).
+func flash_line() -> void:
+	_line_flash = LINE_FLASH
+
+
 func advance(delta: float) -> void:
 	advance_effects(delta)
+	_line_flash = maxf(0.0, _line_flash - delta)
 	for k in _peg_flash.keys():
 		_peg_flash[k] -= delta
 		if _peg_flash[k] <= 0.0:
 			_peg_flash.erase(k)
 	if sim != null:
-		var course_h := (view_size.y - top_pad) / view_scale
-		var target_y := _focus_y() - course_h * 0.4
+		var course_h := _course_h()
+		var subj := subject()
+		var y: float = sim.finish_y if subj < 0 else sim.balls[subj].pos.y
+		var target_y := y - course_h * 0.4
+		var lead := leader()
+		if subj >= 0 and lead >= 0 and lead != subj and not lock_you:
+			# Frame the leader too, but keep the racer you follow in the middle 60%.
+			var mid: float = (y + sim.balls[lead].pos.y) / 2.0
+			target_y = clampf(mid - course_h * 0.5, y - course_h * 0.8, y - course_h * 0.2)
 		target_y = clampf(target_y, 0.0, maxf(0.0, sim.finish_y + 220.0 - course_h))
-		var ease := 1.0 if A11y.reduced_motion else minf(1.0, delta * 4.0)
+		var ease := 1.0 if A11y.reduced_motion else minf(1.0, delta * (8.0 if lock_you else 4.0))
 		camera_y = lerpf(camera_y, target_y, ease)
 	position = Vector2(0.0, top_pad - camera_y * view_scale)
 	queue_redraw()
 
 
-## The camera follows the leader still racing, so it stays on the action
-## after a win.
-func _focus_y() -> float:
+func _course_h() -> float:
+	return (view_size.y - top_pad) / view_scale
+
+
+## Whose race the camera is on: yours (held there by the photo finish), a
+## racer tapped in the standings, else the leader still racing. A racer that
+## finished stays followed (it waits past the line); a knocked out one doesn't.
+func subject() -> int:
+	if sim == null:
+		return -1
+	if lock_you and you >= 0:
+		return you
+	if follow >= 0 and follow < sim.starters and sim.ko_ticks[follow] < 0:
+		return follow
+	if you >= 0 and sim.ko_ticks[you] < 0:
+		return you
+	return leader()
+
+
+## The leader still racing, -1 once nobody is.
+func leader() -> int:
 	for i in sim.standings():
 		if sim.racing(i):
-			return sim.balls[i].pos.y
-	return sim.finish_y
+			return i
+	return -1
+
+
+## Where racer `i` is against the view: -1 above it, 0 on screen, 1 below.
+func screen_side(i: int) -> int:
+	var y: float = sim.balls[i].pos.y
+	var r: float = sim.balls[i].radius
+	if y + r < camera_y:
+		return -1
+	if y - r > camera_y + _course_h():
+		return 1
+	return 0
 
 
 func to_world(screen_pos: Vector2) -> Vector2:
@@ -110,6 +201,9 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 			for row in 2:
 				draw_rect(Rect2(k * sq, fy + row * sq, sq, sq), Color.WHITE if (k + row) % 2 == 0 else INK)
 		draw_string(Kit.FONT, Vector2(12.0, fy - 12.0), "FINISH", HORIZONTAL_ALIGNMENT_LEFT, -1, A11y.font(26), Color.WHITE)
+		if _line_flash > 0.0:
+			var a := _line_flash / LINE_FLASH
+			draw_rect(Rect2(0.0, fy - 60.0 * s, Plunge.WIDTH * s, 100.0 * s), Color(1, 1, 1, 0.75 * a * a))
 	var seen := func(y: float, r: float) -> bool: return y + r >= top and y - r <= bottom
 	var pads: Array[Dictionary] = []
 	for f in sim.floors():
@@ -268,14 +362,24 @@ func _place_tags(s: float, _ko_ball: int) -> void:
 	_tag_at.clear()
 	for b in sim.balls:
 		if b.alive():
-			_tag_at[b.index] = ball_pos(b) * s + Vector2(0, b.radius * s + 22.0)
+			_tag_at[b.index] = ball_pos(b) * s + Vector2(0, b.radius * DRAW_SCALE * s + 22.0)
+
+
+## Racers drawn bigger than they race (render only: the sim's size is unchanged).
+func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2, ko := false) -> void:
+	super._draw_critter(i, def, pos, r * (DRAW_SCALE if i < sim.starters else 1.0), hp, max_hp, shake, ko)
 
 
 ## Only your racer carries a ring, tag and HP badge: eight would bury the
-## race, and the strip up top has everyone's HP.
+## race, and the strip up top has everyone's HP. A thin pulsing ring keeps
+## it easy to find all race long.
 func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, max_hp: float, shake: Vector2) -> void:
-	if i == you:
-		super._draw_overlay(i, def, pos, r, hp, max_hp, shake)
+	if i != you:
+		return
+	r *= DRAW_SCALE
+	super._draw_overlay(i, def, pos, r, hp, max_hp, shake)
+	var pulse := 0.5 + 0.5 * sin(_time * 5.0) * A11y.motion()
+	draw_arc(pos, r + 9.0 + 3.0 * pulse, 0, TAU, 40, Color(TEAM_COLORS[0], 0.35 + 0.35 * pulse), 2.0, true)
 
 
 ## No 1v1 matchup card over a race.
