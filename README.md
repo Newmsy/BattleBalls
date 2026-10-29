@@ -141,18 +141,23 @@ being solvable or fair.
 
 ## Critter Plunge
 
-A watch-only marble-run race in Versus (`sim/plunge.gd`, `meta/critter_plunge.gd`,
-`game/plunge.gd`, `game/ui/screens/plunge_screen.gd`). Your fighter and 3, 5 or 7
-CPU critters (all at your fighter's power) drop down a seeded peg course to the
-finish. Every critter has one of eight race verbs from its ability (`Plunge.VERBS`:
-pulse, shot, drop, ram, hook, shield, thorns, drain). A hit staggers the target, and
-a racer at 0 HP is knocked out and places last. Damage scales by field size
-(`DAMAGE_BY_FIELD`) so about a quarter of racers are knocked out; wall half-bumpers,
-centred peg rows and seeded mirroring keep every gate fair. Pays coins by place,
-XP and Faction XP. `tools/plunge_stats.gd --races 300 --n all` prints KO rate, race
-length, gate and verb win rates. `?mode=plunge&seed=5&n=8` plays a practice race
-(no rewards). Re-pin `tests/test_plunge.gd`'s golden race and bump
-`Plunge.RULES_VERSION` on intentional sim changes.
+A watch-only marble-run race in Versus (`sim/plunge.gd`, `sim/plunge_course.gd`,
+`meta/critter_plunge.gd`, `meta/plunge_talents.gd`, `game/plunge.gd`,
+`game/plunge_view.gd`, `game/ui/screens/plunge_screen.gd`). Your racer and 3, 5
+or 7 CPU critters (all at your racer's tier) drop down a seeded peg course.
+The race is a MatchSim where every ball is its own team (`players` + `ffa`), so
+critters race with their real abilities and the fight view draws them; gravity
+and the course replace the arena walls, and a hard bounce off the course is a
+wall bounce. Race rules on top: a hit staggers, aimed abilities go for the racer
+ahead, charges are sideways swerves, stunned racers sink out of the way, and a
+racer at 0 HP is knocked out and places last. Only `Plunge.RACERS` race (3 per
+family to start); `RACE_TWEAKS` scales a fight number that doesn't fit a race.
+`DAMAGE_BY_FIELD` keeps knockouts near a quarter. Podium finishes win gold,
+silver or bronze medals, spent on per-family race talents (1 gold = 2 silver =
+4 bronze). `tools/plunge_stats.gd --races 300 --n all` prints KO rate, race
+length, gate and critter win rates. `?mode=plunge&seed=5&n=8` plays a practice
+race (no rewards). Re-pin `tests/test_plunge.gd`'s golden race and bump
+`Plunge.RACE_RULES` on intentional sim changes.
 
 ## Bounce Run
 

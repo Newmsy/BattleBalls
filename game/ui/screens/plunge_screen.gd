@@ -1,17 +1,19 @@
 ## Critter Plunge, opened from its card in Versus: pick how many racers (4,
-## 6 or 8) and your fighter, see its race verb and what a race pays, then
-## Race. The race runs in game/plunge.tscn; rules and payouts live in
+## 6 or 8) and your racer, see what its ability does and what a race pays,
+## then Race. The race runs in game/plunge.tscn; rules and payouts live in
 ## meta/critter_plunge.gd and sim/plunge.gd. Fits one phone screen.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
 const BossCard := preload("res://game/ui/boss_card.gd")
-const Campaign := preload("res://meta/campaign.gd")
 const CritterPlunge := preload("res://meta/critter_plunge.gd")
 const Plunge := preload("res://sim/plunge.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
 const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
+const PlungeTalents := preload("res://meta/plunge_talents.gd")
+const TalentsSheet := preload("res://game/ui/plunge_talents_sheet.gd")
 
 const ACCENT := Color("27c8ff")
 const ART := "res://game/ui/versus_art/%s.png"
@@ -26,9 +28,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(18)
 	root.add_child(shell.title_row("Critter Plunge", {"eyebrow": "Versus ·", "eyebrow_color": ACCENT, "info_mark": "plunge_info", "info": [
 		"Your critter races a field of others down a marble run. First to the bottom wins.",
-		"Every critter has a race move from its ability that hurts the racers around it. A hit slows a racer down, and at 0 HP it's knocked out and places last.",
-		"Everyone races at your fighter's power, so the drop decides it.",
-		"1st pays %d coins, last pays %d. Every race also gives XP and Faction XP." % [CritterPlunge.WIN_COINS, CritterPlunge.LAST_COINS]]}))
+		"Every critter races with its own ability. A hit slows a racer down, and at 0 HP it's knocked out and places last.",
+		"Everyone races at your racer's tier, so the drop decides it.",
+		"Only some critters race for now. More join soon.",
+		"1st pays %d coins, last pays %d. Every race also gives XP and Faction XP." % [CritterPlunge.WIN_COINS, CritterPlunge.LAST_COINS],
+		"A podium finish wins a medal. Spend medals on race talents for each family."]}))
 	var hero := MarginContainer.new()
 	hero.custom_minimum_size.y = 190
 	hero.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -36,12 +40,34 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(hero)
 	root.add_child(_field_row(shell))
 	root.add_child(BossCard.prizes(shell, "Prizes", ACCENT, [BossCard.prize("coin", "%d to %d" % [CritterPlunge.LAST_COINS, CritterPlunge.WIN_COINS])], CritterPlunge.XP, "plunge"))
-	var fighter: String = Campaign.fighter_for(p)
-	var verb := Plunge.verb_of(fighter)
+	var fighter: String = CritterPlunge.racer_for(p)
+	if fighter == "":
+		root.add_child(Kit.label("None of your critters race yet. Summon one of the racers to join in.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+		return root
+	var tier: int = int(p.best(fighter).get("tier", 1))
 	root.add_child(BossCard.fighter(shell, fighter, "plunge", [Kit.power(p.power_of(fighter), 22),
-		Kit.label("%s: %s" % [Plunge.VERB_NAMES[verb], Plunge.VERB_TEXT[verb]], 20, ACCENT, HORIZONTAL_ALIGNMENT_LEFT, true)]))
+		Kit.label(_card(fighter, tier), 20, ACCENT, HORIZONTAL_ALIGNMENT_LEFT, true)], 92, Plunge.RACERS,
+		func(picked: String) -> void: CritterPlunge.racer = picked))
+	root.add_child(_medals(shell, fighter))
 	root.add_child(_race_button(shell, fighter))
 	return root
+
+
+## Your medals and the way into race talents.
+static func _medals(shell, fighter: String) -> Control:
+	var talents := Kit.button("Talents", func(): TalentsSheet.open(shell, fighter), "primary", 24, 72)
+	shell.mark("plunge_talents", talents)
+	var row := Kit.hbox(16, [TalentsSheet.medal_row(shell.profile, 26), talents], BoxContainer.ALIGNMENT_CENTER)
+	return row
+
+
+## What the critter's ability does at `tier`, in plain words.
+static func _card(id: String, tier: int) -> String:
+	var line := ""
+	var tiers: Array = CritterDb.get_critter(id).get("tiers", [])
+	for k in mini(tier, tiers.size()):
+		line = str(tiers[k].get("card", line))
+	return line
 
 
 ## 4, 6 or 8 racers, side by side.

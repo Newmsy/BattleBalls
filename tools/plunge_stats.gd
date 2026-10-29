@@ -1,5 +1,5 @@
 ## Headless Critter Plunge stats (sim/plunge.gd): knockout rate, race length,
-## and how often each starting gate and each race verb wins. Fair is 1.0x
+## and how often each starting gate and each racing critter wins. Fair is 1.0x
 ## (wins exactly 1 race in n). Usage:
 ## godot --headless --script res://tools/plunge_stats.gd -- --races=400 --n=8
 ## (--n=all runs 4, 6 and 8; --base=1000 starts at another seed.)
@@ -39,9 +39,11 @@ func _report(n: int, races: int, base: int) -> void:
 	for g in n:
 		gates.append("%.1f%%" % (100.0 * s.gate_wins[g] / races))
 	print("gate wins (fair %.1f%%): %s" % [100.0 / n, " ".join(gates)])
-	for v in s.verbs:
-		var d: Dictionary = s.verbs[v]
-		print("%-7s win %.2fx  KO %4.1f%%  (%d entries)" % [v, d.share, 100.0 * d.ko, d.entries])
+	var ids: Array = s.critters.keys()
+	ids.sort_custom(func(a, b): return s.critters[a].share > s.critters[b].share)
+	for id in ids:
+		var d: Dictionary = s.critters[id]
+		print("%-9s win %.2fx  KO %4.1f%%  (%d entries)" % [id, d.share, 100.0 * d.ko, d.entries])
 
 
 ## The numbers above as data (tests use it too).
@@ -58,23 +60,23 @@ static func measure(n: int, races: int, base := 1) -> Dictionary:
 	for seed in range(base, base + races):
 		var p := Plunge.new({"seed": seed, "racers": Plunge.draw_field(seed, n)})
 		var res := p.run()
-		var w: Plunge.Racer = p.racers[res.order[0]]
-		gate_wins[w.lane] += 1
+		var w: int = res.order[0]
+		gate_wins[p.lanes[w]] += 1
 		kos += res.kos.size()
 		times.append(res.win_time)
-		for r in p.racers:
-			entries[r.verb] = entries.get(r.verb, 0) + 1
-			if r == w:
-				wins[r.verb] = wins.get(r.verb, 0) + 1
-			if r.ko_tick >= 0:
-				knocked[r.verb] = knocked.get(r.verb, 0) + 1
-			elif r.finish_tick < 0:
+		for i in p.starters:
+			var id: String = p.balls[i].type_id
+			entries[id] = entries.get(id, 0) + 1
+			if i == w:
+				wins[id] = wins.get(id, 0) + 1
+			if p.ko_ticks[i] >= 0:
+				knocked[id] = knocked.get(id, 0) + 1
+			elif p.finish_ticks[i] < 0:
 				stuck += 1
 	times.sort()
-	var verbs := {}
-	for v in Plunge.VERB_STATS:
-		if entries.has(v):
-			verbs[v] = {"share": float(wins.get(v, 0)) / entries[v] * n, "ko": float(knocked.get(v, 0)) / entries[v], "entries": entries[v]}
+	var critters := {}
+	for id in entries:
+		critters[id] = {"share": float(wins.get(id, 0)) / entries[id] * n, "ko": float(knocked.get(id, 0)) / entries[id], "entries": entries[id]}
 	return {"n": n, "races": races, "kos": kos, "entries": entries, "wins": wins, "knocked": knocked, "times": times,
 		"ko_rate": float(kos) / (races * n), "median": times[races / 2], "p90": times[races * 9 / 10], "stuck": stuck,
-		"gate_wins": gate_wins, "verbs": verbs}
+		"gate_wins": gate_wins, "critters": critters}
