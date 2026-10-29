@@ -422,6 +422,7 @@ func test_screen_and_stamp_album_build() -> void:
 	load("res://game/ui/screens/plunge_screen.gd").field = CritterPlunge.DEFAULT_FIELD
 	shell.free()
 
+
 ## Your race read from the events (game/plunge_story.gd): watching every
 ## step leaves the race as it was, and the story only names what happened.
 func test_story_reads_your_race_without_changing_it() -> void:
