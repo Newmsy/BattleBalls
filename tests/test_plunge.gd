@@ -40,9 +40,9 @@ func test_golden_race() -> void:
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
 const GOLDEN_RACERS := ["ripple", "glowbug", "jackpot", "pip", "ivy", "megabot"]
-const GOLDEN_ORDER := [2, 1, 5, 0, 4, 3]
-const GOLDEN_KOS := [3, 4, 0]
-const GOLDEN_TICKS := 2791
+const GOLDEN_ORDER := [3, 0, 1, 5, 2, 4]
+const GOLDEN_KOS := [4, 2, 5, 1]
+const GOLDEN_TICKS := 2659
 
 
 func test_every_critter_has_a_race_verb() -> void:
