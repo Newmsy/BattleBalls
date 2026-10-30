@@ -168,9 +168,11 @@ critters race with their real abilities and the fight view draws them; gravity
 and the course replace the arena walls, and a hard bounce off the course is a
 wall bounce. Race rules on top: a hit staggers, aimed abilities go for the racer
 ahead, charges are sideways swerves, stunned racers sink out of the way, and a
-racer at 0 HP is knocked out and places last. Only `Plunge.RACERS` race (3 per
-family to start); `RACE_TWEAKS` scales a fight number that doesn't fit a race.
-`DAMAGE_BY_FIELD` keeps knockouts near a quarter. Field size is a trade-off
+racer at 0 HP is knocked out and places last. Only `Plunge.RACERS` race (4 per
+family, added in batches of one per family); `RACE_TWEAKS` scales a fight
+number that doesn't fit a race (0 switches a T5 swap off) and `RACE_HP` a
+racer's health. `HP_BY_FIELD`
+and `HP_BY_TIER` keep knockouts near 1 in 10. Field size is a trade-off
 (`CritterPlunge.PODIUM`): 4 racers race for coins only, 6 for gold, silver or
 bronze on the podium, 8 for gold to 1st and 2nd and 1.5x coins. Coins pay for
 the first 8 races a day; medals drop only in races watched to the end and are
@@ -182,8 +184,11 @@ shoots out of portals...; `PlungeTalents.SIGNATURES`, effects at full rank in
 course is its stamp (`Profile.plunge_stamps`, the stamp album). The next race's
 seed comes from the profile (`CritterPlunge.next_seed`), so the Plunge screen
 paints its course before you race (`?demo=1&plunge=1` adds talents, medals and
-stamps for screenshots). `tools/plunge_stats.gd --races 300 --n all` prints KO rate, race
-length, gate and critter win rates. `?mode=plunge&seed=5&n=8` plays a practice
+stamps for screenshots). `tools/plunge_stats.gd --races=600 --n=all --jobs=4 --check`
+prints KO rate, race length, gate, critter and course numbers, and fails when a
+racer wins outside 0.5-1.8x its fair share or a gate over 1.4x (too many races
+for the test run, and balance checks stay out of PR CI: run it at T1 and
+`--tier=5` when racers or courses change). `?mode=plunge&seed=5&n=8` plays a practice
 race (no rewards). Re-pin `tests/test_plunge.gd`'s golden race and bump
 `Plunge.RACE_RULES` on intentional sim changes.
 
