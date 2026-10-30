@@ -176,11 +176,15 @@ and `HP_BY_TIER` keep knockouts near 1 in 10. Field size is a trade-off
 (`CritterPlunge.PODIUM`): 4 racers race for coins only, 6 for gold, silver or
 bronze on the podium, 8 for gold to 1st and 2nd and 1.5x coins. Coins pay for
 the first 8 races a day; medals drop only in races watched to the end and are
-spent on per-family race talents (1 gold = 2 silver = 4 bronze): two shared
-stat talents plus the family's signature, which changes how one course piece
-treats its racers (Fire shrugs off lava, Cosmic is pulled less by wells, Spooky
-shoots out of portals...; `PlungeTalents.SIGNATURES`, effects at full rank in
-`Plunge.SIGNATURES`, passed per racer as `boosts`). Medals also climb the
+spent on per-family race talents (1 gold = 2 silver = 4 bronze), up to rank 10
+each: three shared talents (HP, damage, and Swift: top speed and less air
+drag) plus the family's signature, its own way to race that works on every
+course (Fire's bumps set rivals burning, Frost skates every ramp, Sea rides out
+hits, Cosmic falls hard and shoves, Tech overclocks when slow, Sweet shields
+twice, Spooky phases through bumps, Toybox springs off hard bounces, Nature
+regrows HP; `PlungeTalents.SIGNATURES`, effects at full rank in
+`Plunge.SIGNATURES`, passed per racer as `boosts`). A maxed tree against a bare
+field wins about twice its fair share. Medals also climb the
 Plunge league (`meta/plunge_league.gd`, the arena's six leagues and crests):
 league points are every medal ever won (gold 4, silver 2, bronze 1, kept in
 `Profile.plunge.points`; spending medals never lowers them, so a league is never
@@ -193,7 +197,8 @@ lists every league's points and coins), and a promotion gets its own band on the
 result popup. `tools/plunge_shot.gd` and `tools/plunge_promo_shot.gd` render both
 to PNGs under xvfb-run at any league's points. Your racer keeps the
 talents you bought, so matching your league keeps a race near fair
-(`plunge_stats.gd --you=3 --field=3`). The best medal on each
+(`plunge_stats.gd --you=4 --field=4`; `--only=sig --fam=each` compares the
+families' signatures). The best medal on each
 course is its stamp (`Profile.plunge_stamps`, the stamp album). The next race's
 seed comes from the profile (`CritterPlunge.next_seed`), so the Plunge screen
 paints its course before you race (`?demo=1&plunge=1` adds talents, medals and

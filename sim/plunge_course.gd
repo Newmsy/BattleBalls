@@ -84,7 +84,7 @@ const COURSES := [
 ]
 
 var pegs: Array = [] ## [{pos, r, bumper}]
-var ramps: Array = [] ## [{a, b}] solid line segments, RAMP_THICK wide.
+var ramps: Array = [] ## [{a, b, down}] solid line segments, RAMP_THICK wide; `down` points downhill along it.
 var sections: Array = [] ## [{kind, y0, y1}] for the renderer.
 var finish_y := 0.0
 var floors: Array = [] ## Arena floor pads: {kind "goo" or "lava", pos, radius}.
@@ -190,8 +190,7 @@ func _hit_ramp(r, s: Dictionary, dt: float, hit: Dictionary) -> void:
 	if vn < 0.0:
 		_note(hit, -vn, closest, false)
 		r.vel -= n * vn * (1.0 + (RAMP_BOUNCE if -vn > REST_SPEED else 0.0))
-	if s.has("ice") or s.has("belt"):
-		hit.ramp = s # The race's Frost talent reads it.
+	hit.ramp = s # The race's Frost and Tech talents read it.
 	if s.has("ice"):
 		r.vel += s.down * ICE_ACCEL * dt
 	else:
@@ -221,11 +220,10 @@ func _build(crng: Rng) -> void:
 		_peg_r.append(p.r)
 	for i in ramps.size():
 		var s: Dictionary = ramps[i]
-		if s.has("ice") or s.has("belt"):
-			var d: Vector2 = s.b - s.a
-			if d.y < 0.0:
-				d = -d
-			s.down = d / d.length()
+		var d: Vector2 = s.b - s.a
+		if d.y < 0.0:
+			d = -d
+		s.down = d / d.length() if d.length_squared() > 0.0 else Vector2.DOWN # Downhill along it (a flat one: a to b).
 		_bucket(-i - 1, Vector2(minf(s.a.x, s.b.x), minf(s.a.y, s.b.y)) - Vector2.ONE * RAMP_THICK, Vector2(maxf(s.a.x, s.b.x), maxf(s.a.y, s.b.y)) + Vector2.ONE * RAMP_THICK)
 	# A racer touches what is within its radius (under CELL): one cell all round covers it.
 	for key in _cells:

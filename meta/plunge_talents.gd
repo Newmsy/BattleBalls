@@ -6,9 +6,9 @@
 ## medals). Your talents help your own racer, in Critter Plunge only; the
 ## CPU field gets its own at your league's rank (at_rank, meta/plunge_league.gd).
 ##
-## Each tree is the two shared stat talents (TALENTS) and the family's own
-## signature talent (SIGNATURES), which changes how one course piece treats
-## its racers (sim/plunge.gd SIGNATURES has what each does at full rank).
+## Each tree is the three shared talents (TALENTS: HP, damage, speed) and the
+## family's own signature talent (SIGNATURES), its own way to race on every
+## course (sim/plunge.gd SIGNATURES has what each does at full rank).
 ##
 ## Saved in Profile.plunge: {medals: {gold, silver, bronze}, talents:
 ## {family: {talent id: rank}}, points: every medal ever won, in bronze (the
@@ -35,36 +35,38 @@ const PRICES := [
 	{"gold": 5, "silver": 5, "bronze": 4},
 	{"gold": 6, "silver": 6, "bronze": 6},
 ]
-## The two talents every family's tree has. `per` is what each rank adds;
+## The three talents every family's tree has. `per` is what each rank adds;
 ## `short` is the summary's form and `race` the payoff on the course.
 const TALENTS := [
-	{"id": "tough", "name": "Thick Skin", "text": "+%d%% HP", "short": "+%d%% HP", "per": 0.05,
+	{"id": "tough", "name": "Thick Skin", "text": "+%s%% HP", "short": "+%s%% HP", "per": 0.05,
 		"race": "Takes more hits before a knockout"},
-	{"id": "power", "name": "Hard Hitter", "text": "+%d%% damage", "short": "+%d%% dmg", "per": 0.05,
+	{"id": "power", "name": "Hard Hitter", "text": "+%s%% damage", "short": "+%s%% dmg", "per": 0.05,
 		"race": "Its hits slow rivals down more"},
+	{"id": "swift", "name": "Swift", "text": "+%s%% top speed", "short": "+%s%% spd", "per": 0.02,
+		"race": "Less air drag, a faster drop"},
 ]
-## Each family's signature talent, tied to one course piece. Its `text` shows
-## the effect at a rank (sim/plunge.gd SIGNATURES is the full effect, at
-## MAX_RANK); `full` replaces the text at MAX_RANK.
+## Each family's signature talent: its own way to race, on every course. Its
+## `text` shows the effect at a rank (sim/plunge.gd SIGNATURES is the full
+## effect, at MAX_RANK; Plunge.shown the number in the text).
 const SIGNATURES := {
-	"fire": {"id": "lava", "name": "Lava-proof", "text": "Lava burns it %d%% less", "full": "Lava can't burn it",
-		"race": "Rolls through lava pools"},
-	"frost": {"id": "ice", "name": "Ice Skates", "text": "Ice and belts speed it +%d%%",
-		"race": "Faster down icy ramps and belts"},
-	"sea": {"id": "current", "name": "Riptide", "text": "Goo and wind slow it %d%% less",
-		"race": "Swims through goo and currents"},
-	"cosmic": {"id": "orbit", "name": "Star Anchor", "text": "Gravity wells pull it %d%% less",
-		"race": "Drops straight past gravity wells"},
-	"tech": {"id": "core", "name": "Overclock", "text": "Power-core rush +%d%%",
-		"race": "Power cores fire it down faster"},
-	"sweet": {"id": "shield", "name": "Sugar Shell", "text": "Starts with a %d%% HP shield",
-		"race": "Shielded from the gate"},
-	"spooky": {"id": "portal", "name": "Phantom Exit", "text": "Portals fling it on +%d%% speed",
-		"race": "Shoots out of portals"},
-	"toybox": {"id": "spring", "name": "Spring Loaded", "text": "Pads and bumpers kick it +%d%%",
-		"race": "Flies further off pads and bumpers"},
-	"nature": {"id": "thorn", "name": "Thornproof", "text": "Thorns hurt %d%% less, heals +%d%%",
-		"full": "Thorns can't hurt it, heals +%d%%", "race": "Shrugs off thorns, heals more"},
+	"fire": {"id": "lava", "name": "Scorch", "text": "Its bumps burn rivals %s HP/s",
+		"race": "Leaves rivals burning"},
+	"frost": {"id": "ice", "name": "Ice Skates", "text": "Every ramp speeds it +%s%%",
+		"race": "Every ramp is slick for it"},
+	"sea": {"id": "current", "name": "Wave Rider", "text": "Hits slow it %s%% less, then it surges",
+		"race": "Rides the hits on down"},
+	"cosmic": {"id": "orbit", "name": "Heavy Star", "text": "+%s%% gravity, hard to shove",
+		"race": "Falls hard through the pack"},
+	"tech": {"id": "core", "name": "Overclock", "text": "A power rush every %ss",
+		"race": "Rushes on when it slows"},
+	"sweet": {"id": "shield", "name": "Sugar Shell", "text": "Starts with a %s%% HP shield",
+		"race": "Shielded twice, a sugar rush when it breaks"},
+	"spooky": {"id": "portal", "name": "Ghost Step", "text": "Phases through a bump every %ss",
+		"race": "Slips through rivals and moving parts"},
+	"toybox": {"id": "spring", "name": "Spring Loaded", "text": "Hard bounces kick it on +%s%%",
+		"race": "Bounces off the course faster"},
+	"nature": {"id": "thorn", "name": "Regrowth", "text": "Heals and breaks free every %ss",
+		"race": "Shakes off slows and stuns, rolls on"},
 }
 
 
@@ -147,7 +149,7 @@ static func rank(profile, family: String, talent: String) -> int:
 	return int(profile.plunge.get("talents", {}).get(family, {}).get(talent, 0))
 
 
-## Every rank bought in `family`'s tree (0 to 30).
+## Every rank bought in `family`'s tree (0 to 40).
 static func ranks(profile, family: String) -> int:
 	var n := 0
 	for tal in talents(family):
@@ -204,7 +206,7 @@ static func buy(profile, family: String, talent: String) -> bool:
 
 
 ## What `critter`'s family talents give it in a race (sim/plunge.gd boosts):
-## {tough, power} as shares (0.25 = +25%) and, once it has a rank, the
+## {tough, power, swift} as shares (0.25 = +25%) and, once it has a rank, the
 ## family's signature id as a share of its full effect (rank / MAX_RANK).
 static func effects(profile, critter: String) -> Dictionary:
 	var fam := Families.of(critter)
@@ -229,19 +231,19 @@ static func at_rank(critter: String, r: int) -> Dictionary:
 	return out
 
 
-## A talent's line at `r` ranks ("+15% HP", "Lava burns it 60% less").
+## A talent's line at `r` ranks ("+15% HP", "A power rush every 6.5s").
 static func line(talent: Dictionary, r: int) -> String:
 	return _fill(talent.full if r >= MAX_RANK and talent.has("full") else talent.text, _value(talent, r))
 
 
-## A talent's short form at `r` ranks, for summaries ("+15% HP", "Lava-proof 3/10").
+## A talent's short form at `r` ranks, for summaries ("+15% HP", "Scorch 3/10").
 static func short(talent: Dictionary, r: int) -> String:
 	if talent.has("short"):
 		return _fill(talent.short, _value(talent, r))
 	return "%s %d/%d" % [talent.name, r, MAX_RANK]
 
 
-## `family`'s talents you have, on one line ("+15% HP · +5% dmg · Lava-proof
+## `family`'s talents you have, on one line ("+15% HP · +5% dmg · Scorch
 ## 3/10"), or "" with none.
 static func summary(profile, family: String) -> String:
 	var parts := []
@@ -252,15 +254,14 @@ static func summary(profile, family: String) -> String:
 	return " · ".join(parts)
 
 
-## The percent a talent shows at `r` ranks.
-static func _value(talent: Dictionary, r: int) -> int:
-	if talent.has("per"):
-		return roundi(talent.per * r * 100.0)
-	return roundi(Plunge.SIGNATURES[talent.id] * r * 100.0 / MAX_RANK)
+## The number a talent shows at `r` ranks: whole, or to one decimal under 10.
+static func _value(talent: Dictionary, r: int) -> String:
+	var v: float = talent.per * r * 100.0 if talent.has("per") else Plunge.shown(talent.id, float(r) / MAX_RANK)
+	return str(roundi(v)) if absf(v - roundf(v)) < 0.05 or v >= 10.0 else "%.1f" % v
 
 
-static func _fill(text: String, v: int) -> String:
+static func _fill(text: String, v: String) -> String:
 	var args := []
-	for k in text.count("%d"):
+	for k in text.count("%s"):
 		args.append(v)
 	return text % args if not args.is_empty() else text
