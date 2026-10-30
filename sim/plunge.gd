@@ -73,7 +73,7 @@ const HP_BY_FIELD := {4: 1.0, 6: 1.05, 8: 1.1}
 ## Higher tiers hit much harder in a race than they gain health, so every
 ## racer's HP also scales by the field's tier (T1..T5) to keep knockouts near
 ## 1 in 10 at every tier.
-const HP_BY_TIER := [1.0, 1.25, 1.6, 2.0, 2.9]
+const HP_BY_TIER := [1.0, 1.25, 1.6, 2.0, 2.6]
 ## Each family's signature race talent at full share (rank 5): what it does to
 ## one course piece. lava: share of lava damage taken off. ice: share added to
 ## an icy ramp's or belt's push. current: share taken off goo drag and wind.
@@ -109,6 +109,11 @@ const RACE_TWEAKS := {
 	"bonbon": {"wrap_hold": 0.7},
 	"pip": {"shot_speed": 1.4}, # Peas fly along its fall: at 600 they barely outran it.
 	"pucker": {"pucker_stun": 1.4},
+	# T5 honey lobs pulled and held the racer ahead every 6s: it won 2.3x.
+	"honey": {"honey_lob": 3.0, "honey_stick": 0.6},
+	# T5 Foxfire blinked to whichever illusion was touched, mostly back up
+	# the course (0.3x at T5): no swap in a race (0 switches it off).
+	"foxfire": {"illusion_swap": 0.0},
 }
 ## Race-only HP multipliers, for racers knocked out far more often than the
 ## field (they brawl in the jams).
