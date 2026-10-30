@@ -11,6 +11,8 @@ const Families := preload("res://sim/families.gd")
 const Profile := preload("res://meta/profile.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const A11y := preload("res://game/a11y.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
+const PlungeLadder := preload("res://game/ui/plunge_ladder.gd")
 
 const T0 := 1_800_000_000
 const COLUMN := 664.0 ## The phone column: 720 less the side margins.
@@ -144,8 +146,10 @@ func test_finish_reports_points_and_promotion() -> void:
 	check_eq([r.points, r.promoted], [0, false], "no medal, no points")
 
 
-## The screen builds in every league, with the crest in the medal row, and
-## still fits the phone column with Larger text.
+## The screen builds in every league with the ladder on the course card
+## (your rung the big one, the next league's perks beside it, none past
+## Neon) and your league's coins on the prize, and still fits the phone
+## column with Larger text.
 func test_screen_shows_the_league_and_fits() -> void:
 	var shell = load("res://game/ui/shell.gd").new()
 	shell.build()
@@ -153,13 +157,62 @@ func test_screen_shows_the_league_and_fits() -> void:
 	CritterPlunge.demo(shell.profile)
 	A11y.large_text = true
 	for i in PlungeLeague.LEAGUES.size():
-		shell.profile.plunge.points = PlungeLeague.LEAGUES[i].min
+		var lg: Dictionary = PlungeLeague.LEAGUES[i]
+		shell.profile.plunge.points = lg.min
 		shell.go("plunge")
-		check_eq(shell.current, "plunge", "builds in %s" % PlungeLeague.LEAGUES[i].id)
-		check(shell._marks.has("plunge_league"), "the league crest is on screen")
+		check_eq(shell.current, "plunge", "builds in %s" % lg.id)
+		check(shell._marks.has("plunge_league"), "the ladder is on screen")
+		var card = shell._marks.get("plunge_league")
+		check_eq(card.idx, i, "%s: your rung" % lg.id)
+		card.size = Vector2(COLUMN, 300)
+		var r: Array = card.rungs()
+		check(r[i][1] > r[(i + 1) % r.size()][1], "%s: your rung is the big one" % lg.id)
+		check_eq(card._perks != null, i + 1 < PlungeLeague.LEAGUES.size(), "%s: the next league's perks" % lg.id)
+		check_eq(shell._marks.has("plunge_league_coins"), lg.coins > 1.0, "%s: its coins on the prize" % lg.id)
 		var margin = shell._scroll.get_child(0)
 		var need: Vector2 = margin.get_child(0).get_combined_minimum_size()
-		check(need.x <= COLUMN, "%s fits the column with Larger text: %d of %d" % [PlungeLeague.LEAGUES[i].id, need.x, COLUMN])
+		check(need.x <= COLUMN, "%s fits the column with Larger text: %d of %d" % [lg.id, need.x, COLUMN])
 		check(need.y <= ROOM_SMALL, "and the height: %d of %d" % [need.y, ROOM_SMALL])
 	A11y.large_text = false
 	shell.free()
+
+
+## The rungs climb from Bronze at the foot to Neon on top, all inside the
+## card, and the rail fills past your league toward the next.
+func test_ladder_rungs() -> void:
+	var card = PlungeLadder.make(78, Control.new(), "Storm Front", null, "zapper", 1, Control.new())
+	card.size = Vector2(COLUMN, 300)
+	var r: Array = card.rungs()
+	check_eq(card.idx, 1, "78 points: Silver")
+	for i in range(1, r.size()):
+		check(r[i][0] < r[i - 1][0], "%s above %s" % [PlungeLeague.LEAGUES[i].id, PlungeLeague.LEAGUES[i - 1].id])
+	check(r[-1][0] - r[-1][1] / 2.0 >= 0.0 and r[0][0] + r[0][1] / 2.0 <= 300.0, "all six inside the card")
+	var fy: float = card.fill_y(r)
+	check(fy < r[1][0] and fy > r[2][0], "the rail is past Silver, short of Gold")
+	card.free()
+
+
+## A promotion gets its own band (the new crest to drop in, the league's
+## perks) and the medal joins the rewards; without one the medal is still
+## the big moment.
+func test_result_shows_the_promotion() -> void:
+	var p = Profile.new_game(T0)
+	CritterPlunge.pending = {"cfg": CritterPlunge.race_for(p, p.lineup, 6, 11), "fighter": p.lineup}
+	var scene = load("res://game/plunge.tscn").instantiate()
+	runner.root.add_child(scene)
+	scene._ready()
+	scene.result = {"coins": 115, "xp": 6, "medal": "gold", "points": 4, "league": 2, "promoted": true}
+	var card: Control = scene._result_card(1, false, [])
+	var band: Control = card.find_child("PlungePromoted", true, false)
+	check(band != null, "the promotion band")
+	check(band != null and band.has_meta("crest"), "with the new crest to drop in")
+	check(card.find_child("PlungeMedal", true, false) == null, "the medal goes to the rewards")
+	var h := card.get_combined_minimum_size().y + 2.0 * ResultPopup.PAD
+	check(h <= 1280.0 - 2.0 * ResultPopup.MARGIN, "the popup fits a phone: %d" % h)
+	card.free()
+	scene.result = {"coins": 115, "xp": 6, "medal": "gold", "points": 4, "league": 1, "promoted": false}
+	card = scene._result_card(1, false, [])
+	check(card.find_child("PlungePromoted", true, false) == null, "no promotion, no band")
+	check(card.find_child("PlungeMedal", true, false) != null, "the medal drops in big")
+	card.free()
+	scene.free()
