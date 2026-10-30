@@ -2,7 +2,8 @@
 ## the painting with your racer on it, pick how many racers (4 race for coins,
 ## 6 for medals, 8 for better medals and more coins) and your racer, see what
 ## its ability does and what the race pays, then Race. Medals buy race
-## talents; the stamp album keeps your best medal per course. The race runs in
+## talents and climb your league (its crest and how far to the next, by the
+## medals); the stamp album keeps your best medal per course. The race runs in
 ## game/plunge.tscn; rules and payouts live in meta/critter_plunge.gd and
 ## sim/plunge.gd. Fits one phone screen.
 extends RefCounted
@@ -19,6 +20,8 @@ const CourseArt := preload("res://game/ui/plunge_course_art.gd")
 const EnergySheet := preload("res://game/ui/energy_sheet.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const PlungeTalents := preload("res://meta/plunge_talents.gd")
+const PlungeLeague := preload("res://meta/plunge_league.gd")
+const Ladder := preload("res://game/pvp/ladder.gd")
 const TalentsSheet := preload("res://game/ui/plunge_talents_sheet.gd")
 const StampsSheet := preload("res://game/ui/plunge_stamps_sheet.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
@@ -48,6 +51,7 @@ static func build(shell, _params: Dictionary) -> Control:
 		"4 racers race for coins only. 6 racers win medals on the podium. 8 racers win gold for 1st and 2nd, more medals and %s× coins." % str(CritterPlunge.COINS_8),
 		"Your first %d races each day pay coins. Every race gives XP and Faction XP." % CritterPlunge.PRIZE_RACES,
 		"Medals drop in races you watch to the end. Spend them on race talents for each family.",
+		"Medals also raise your league. Each league races a stronger field and pays more coins.",
 		"The stamp album keeps your best medal on each course."]}))
 	var fighter: String = CritterPlunge.racer_for(p)
 	var course: Dictionary = CritterPlunge.course_for(CritterPlunge.next_seed(p))
@@ -100,9 +104,10 @@ static func _hero_racer(fighter: String, tier: int) -> Control:
 ## podium's medals, critter XP and Faction XP for the racer's family.
 static func _prizes(shell, fighter: String, now: int) -> Control:
 	var left := CritterPlunge.prize_races_left(shell.profile, now)
+	var league := PlungeLeague.index(shell.profile)
 	var items: Array = []
 	if left > 0:
-		items.append(BossCard.prize("coin", "%d to %d" % [CritterPlunge.coins_for(field, field), CritterPlunge.coins_for(1, field)]))
+		items.append(BossCard.prize("coin", "%d to %d" % [CritterPlunge.coins_for(field, field, league), CritterPlunge.coins_for(1, field, league)]))
 	var podium: Array = CritterPlunge.PODIUM.get(field, [])
 	var k := 0
 	while k < podium.size():
@@ -147,8 +152,9 @@ static func _fighter_card(shell, id: String) -> Control:
 	return card
 
 
-## Your medals over your racer's family talents in one clipped line, the way
-## into race talents and the stamp album.
+## Your league's crest over a thin bar to the next league, your medals over
+## your racer's family talents in one clipped line, the way into race
+## talents and the stamp album.
 static func _medals(shell, fighter: String) -> Control:
 	var talents := Kit.button("Talents", func(): TalentsSheet.open(shell, fighter), "primary", 24, 72)
 	shell.mark("plunge_talents", talents)
@@ -169,7 +175,28 @@ static func _medals(shell, fighter: String) -> Control:
 	g.add_child(Kit.glyph("medal_gold", 40, Color.WHITE))
 	stamps.add_child(g)
 	shell.mark("plunge_stamps", stamps)
-	return Kit.hbox(14, [mine, talents, stamps], BoxContainer.ALIGNMENT_CENTER)
+	return Kit.hbox(14, [_league(shell), mine, talents, stamps], BoxContainer.ALIGNMENT_CENTER)
+
+
+## Your league: its crest, and under it a thin bar to the next one.
+static func _league(shell) -> Control:
+	var pts := PlungeTalents.points(shell.profile)
+	var idx := PlungeLeague.index_for(pts)
+	var col := Kit.vbox(4, [crest(idx, 46), Kit.bar(PlungeLeague.progress(pts), Ladder.LEAGUES[idx].color, 6)])
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	shell.mark("plunge_league", col)
+	return col
+
+
+## League `idx`'s crest (game/ui/versus_art/league_<id>_Lcrest.png), `h` tall.
+static func crest(idx: int, h: int) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load("res://game/ui/versus_art/league_%s_Lcrest.png" % PlungeLeague.LEAGUES[idx].id)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.custom_minimum_size = Vector2(h * 2, h)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 
 ## What the critter's ability does at `tier`, in plain words.

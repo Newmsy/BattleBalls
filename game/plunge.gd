@@ -2,8 +2,9 @@
 ## marble run (sim/plunge.gd) and fight on the way; you watch. Opened from
 ## the Plunge screen in Versus (game/ui/screens/plunge_screen.gd), which has
 ## already spent the energy and left the race in CritterPlunge.pending. The result pops
-## up on the shared ResultPopup with coins, XP and the Faction XP ring, paid
-## into the game save here (meta/critter_plunge.gd).
+## up on the shared ResultPopup with coins, XP, league points and the
+## Faction XP ring, paid into the game save here (meta/critter_plunge.gd); a
+## new league's crest drops in big beside the medal that reached it.
 ## Each race opens on the course banner and a 3, 2, 1, GO! countdown
 ## (game/plunge_intro.gd; just GO! on "Race again"); the race only starts
 ## stepping on GO. The camera rides with your racer (game/plunge_view.gd),
@@ -38,6 +39,9 @@ const PlungeChips := preload("res://game/plunge_chips.gd")
 const PlungeCourse := preload("res://sim/plunge_course.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Analytics := preload("res://game/online/analytics.gd")
+const PlungeLeague := preload("res://meta/plunge_league.gd")
+const PlungeScreen := preload("res://game/ui/screens/plunge_screen.gd")
+const Ladder := preload("res://game/pvp/ladder.gd")
 
 const SKIP_TICKS := 360 ## Ticks a frame while skipping: fast, never a frozen frame.
 const TITLE_H := 64.0
@@ -322,16 +326,25 @@ func _result_card(place: int, knocked: bool, gains: Array) -> Control:
 		var medal := str(result.get("medal", ""))
 		if medal != "": # The medal is the moment: it drops in big, before the rest.
 			var col: Color = MEDAL_COLORS.get(medal, Color.WHITE)
-			var hero := Kit.vbox(2, [Kit.glyph("medal_" + medal, 96, Color.WHITE), Kit.label("%s medal!" % medal.capitalize(), 24, col, HORIZONTAL_ALIGNMENT_CENTER)])
-			hero.alignment = BoxContainer.ALIGNMENT_CENTER
-			for c in hero.get_children():
-				c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			var hero := _hero(Kit.glyph("medal_" + medal, 96, Color.WHITE), "%s medal!" % medal.capitalize(), col)
 			hero.name = "PlungeMedal"
-			body.append(hero)
-			ResultPopup.drop_in([[hero, col]], sfx, start)
-			start += .5
+			var heroes: Array = [[hero, col]]
+			if result.get("promoted", false): # A new league: its crest drops in beside it.
+				var lg: Dictionary = PlungeLeague.LEAGUES[int(result.league)]
+				var lc: Color = Ladder.LEAGUES[int(result.league)].color
+				var up := _hero(PlungeScreen.crest(int(result.league), 96), "%s league!" % lg.name, lc)
+				up.name = "PlungeLeagueUp"
+				heroes.append([up, lc])
+			var row := Kit.hbox(40, heroes.map(func(h): return h[0]), BoxContainer.ALIGNMENT_CENTER)
+			body.append(row)
+			ResultPopup.drop_in(heroes, sfx, start)
+			start += .5 + .3 * (heroes.size() - 1)
 		var items: Array = [Kit.amount("coin", "+%d" % result.coins, 30)]
 		items.append(Kit.label("+%d XP" % result.xp, 26, Kit.MUTED))
+		if int(result.get("points", 0)) > 0: # League points: your crest and what the medal added.
+			var pts := Kit.hbox(4, [PlungeScreen.crest(int(result.league), 30), Kit.label("+%d" % result.points, 26, Ladder.LEAGUES[int(result.league)].color)])
+			pts.name = "PlungePoints"
+			items.append(pts)
 		var rewards := Kit.hbox(28, items, BoxContainer.ALIGNMENT_CENTER)
 		body.append(rewards)
 		ResultPopup.drop_in(rewards.get_children().map(func(c): return [c, null]), sfx, start)
@@ -345,6 +358,15 @@ func _result_card(place: int, knocked: bool, gains: Array) -> Control:
 	_mark("plunge_back", back, 1.0)
 	_mark("plunge_again", again_btn, 1.0)
 	return ResultPopup.content("%s · %d racers" % [sim.course.info.name, n], outcome, body, [back, again_btn], CritterIcon.make(fighter, _tier, 72), words)
+
+
+## A big thing over its words, both centred: the medal, a new league's crest.
+static func _hero(big: Control, words: String, col: Color) -> Control:
+	var hero := Kit.vbox(2, [big, Kit.label(words, 24, col, HORIZONTAL_ALIGNMENT_CENTER)])
+	hero.alignment = BoxContainer.ALIGNMENT_CENTER
+	for c in hero.get_children():
+		c.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return hero
 
 
 ## The top three, faces and names, so you see who beat you.
