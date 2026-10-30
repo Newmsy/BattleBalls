@@ -110,8 +110,8 @@ func test_the_field_scales_with_the_league() -> void:
 				check_eq(cfg.boosts[k], null, "Bronze: no field talents")
 				continue
 			var fx: Dictionary = cfg.boosts[k]
-			check_near(fx.tough, 0.05 * r, 0.001, "%s: %s's HP" % [PlungeLeague.LEAGUES[i].id, id])
-			check_near(fx.power, 0.05 * r, 0.001, "%s: %s's damage" % [PlungeLeague.LEAGUES[i].id, id])
+			check_near(fx.tough, 0.03 * r, 0.001, "%s: %s's HP" % [PlungeLeague.LEAGUES[i].id, id])
+			check_near(fx.power, 0.02 * r, 0.001, "%s: %s's damage" % [PlungeLeague.LEAGUES[i].id, id])
 			check_near(fx.swift, 0.02 * r, 0.001, "%s: %s's top speed" % [PlungeLeague.LEAGUES[i].id, id])
 			var sig: String = PlungeTalents.signature(Families.of(id)).id
 			check_near(fx[sig], float(r) / PlungeTalents.MAX_RANK, 0.001, "%s: %s's own signature" % [PlungeLeague.LEAGUES[i].id, id])
@@ -119,7 +119,7 @@ func test_the_field_scales_with_the_league() -> void:
 	var cfg := CritterPlunge.race_for(neon, neon.lineup, 6, 11)
 	var race := Plunge.new(cfg)
 	var plain := Plunge.new({"seed": 11, "racers": cfg.racers, "tiers": cfg.tiers})
-	check_near(race.balls[1].max_hp, plain.balls[1].max_hp * 1.5, 0.01, "Neon: +50% HP in the race")
+	check_near(race.balls[1].max_hp, plain.balls[1].max_hp * 1.3, 0.01, "Neon: +30% HP in the race")
 	check_near(race.balls[0].max_hp, plain.balls[0].max_hp, 0.01, "you: no talents bought, none")
 
 

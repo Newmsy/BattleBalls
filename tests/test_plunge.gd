@@ -201,7 +201,7 @@ func test_tiers_upgrade_abilities() -> void:
 	var t1 := Plunge.new({"seed": 3, "racers": ["honey", "laser", "pip", "bomber"]})
 	var t5 := Plunge.new({"seed": 3, "racers": ["honey", "laser", "pip", "bomber"], "tiers": [5, 5, 5, 5]})
 	check_eq(t5.balls[0].def.effects, BallDefs.get_def("honey", 5).effects, "T5 honey races as T5")
-	check_eq(t5.balls[0].def.honey_pull, BallDefs.get_def("honey", 5).honey_pull, "with its T5 numbers")
+	check_near(t5.balls[0].def.honey_pull, BallDefs.get_def("honey", 5).honey_pull * Plunge.RACE_TWEAKS.honey.get("honey_pull", 1.0), 0.001, "with its T5 numbers (and race tweaks)")
 	check(t5.balls[0].def.effects.size() > t1.balls[0].def.effects.size(), "with its T5 extras")
 
 
@@ -358,7 +358,7 @@ func test_talents_buy_save_and_boost_your_racer() -> void:
 	var cfg := CritterPlunge.race_for(p, "vampire", 4, 9)
 	var race := Plunge.new(cfg)
 	var plain := Plunge.new({"seed": 9, "racers": cfg.racers, "tiers": cfg.tiers})
-	check_near(race.balls[0].max_hp, plain.balls[0].max_hp * 1.1, 0.01, "+10% HP for a Spooky racer")
+	check_near(race.balls[0].max_hp, plain.balls[0].max_hp * 1.06, 0.01, "+6% HP for a Spooky racer")
 	check_near(race.balls[1].max_hp, plain.balls[1].max_hp, 0.01, "the field gets none")
 
 
