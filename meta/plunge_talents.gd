@@ -21,14 +21,19 @@ const Plunge := preload("res://sim/plunge.gd")
 const MEDALS := ["gold", "silver", "bronze"]
 const MEDAL_NAMES := {"gold": "Gold", "silver": "Silver", "bronze": "Bronze"}
 const VALUE := {"gold": 4, "silver": 2, "bronze": 1} ## In bronze.
-const MAX_RANK := 5
-## The price of each rank, 1 to 5.
+const MAX_RANK := 10
+## The price of each rank, 1 to 10.
 const PRICES := [
 	{"bronze": 3},
 	{"silver": 1, "bronze": 2},
 	{"gold": 1, "silver": 1, "bronze": 2},
 	{"gold": 1, "silver": 2, "bronze": 4},
 	{"gold": 2, "silver": 3, "bronze": 4},
+	{"gold": 2, "silver": 4, "bronze": 4},
+	{"gold": 3, "silver": 4, "bronze": 4},
+	{"gold": 4, "silver": 4, "bronze": 4},
+	{"gold": 5, "silver": 5, "bronze": 4},
+	{"gold": 6, "silver": 6, "bronze": 6},
 ]
 ## The two talents every family's tree has. `per` is what each rank adds;
 ## `short` is the summary's form and `race` the payoff on the course.
@@ -142,7 +147,7 @@ static func rank(profile, family: String, talent: String) -> int:
 	return int(profile.plunge.get("talents", {}).get(family, {}).get(talent, 0))
 
 
-## Every rank bought in `family`'s tree (0 to 15).
+## Every rank bought in `family`'s tree (0 to 30).
 static func ranks(profile, family: String) -> int:
 	var n := 0
 	for tal in talents(family):
@@ -229,7 +234,7 @@ static func line(talent: Dictionary, r: int) -> String:
 	return _fill(talent.full if r >= MAX_RANK and talent.has("full") else talent.text, _value(talent, r))
 
 
-## A talent's short form at `r` ranks, for summaries ("+15% HP", "Lava-proof 3/5").
+## A talent's short form at `r` ranks, for summaries ("+15% HP", "Lava-proof 3/10").
 static func short(talent: Dictionary, r: int) -> String:
 	if talent.has("short"):
 		return _fill(talent.short, _value(talent, r))
@@ -237,7 +242,7 @@ static func short(talent: Dictionary, r: int) -> String:
 
 
 ## `family`'s talents you have, on one line ("+15% HP · +5% dmg · Lava-proof
-## 3/5"), or "" with none.
+## 3/10"), or "" with none.
 static func summary(profile, family: String) -> String:
 	var parts := []
 	for tal in talents(family):

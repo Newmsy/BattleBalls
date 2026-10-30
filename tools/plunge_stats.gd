@@ -6,8 +6,8 @@
 ## (--n=all runs 4, 6 and 8; --base=1000 starts at another seed; --tier=5
 ## races the whole field at T5; --course=icicles races one course only;
 ## --jobs=4 splits the races over 4 Godot processes; --check exits 1 when
-## the balance bands below fail; --you=3 --field=5 gives racer 1 every race
-## talent of its family at rank 3 and the rest at rank 5, the way a league
+## the balance bands below fail; --you=6 --field=10 gives racer 1 every race
+## talent of its family at rank 6 and the rest at rank 10, the way a league
 ## does (meta/plunge_league.gd), and reports how racer 1 does.)
 ## It warns about any gate or racer outside its band, and about racers still
 ## on the course 12 s after the winner (placed by height).

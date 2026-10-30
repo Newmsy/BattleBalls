@@ -115,7 +115,7 @@ func test_the_field_scales_with_the_league() -> void:
 	var cfg := CritterPlunge.race_for(neon, neon.lineup, 6, 11)
 	var race := Plunge.new(cfg)
 	var plain := Plunge.new({"seed": 11, "racers": cfg.racers, "tiers": cfg.tiers})
-	check_near(race.balls[1].max_hp, plain.balls[1].max_hp * 1.25, 0.01, "Neon: +25% HP in the race")
+	check_near(race.balls[1].max_hp, plain.balls[1].max_hp * 1.5, 0.01, "Neon: +50% HP in the race")
 	check_near(race.balls[0].max_hp, plain.balls[0].max_hp, 0.01, "you: no talents bought, none")
 
 

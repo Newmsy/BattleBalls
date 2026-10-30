@@ -74,15 +74,15 @@ const HP_BY_FIELD := {4: 1.0, 6: 1.05, 8: 1.1}
 ## racer's HP also scales by the field's tier (T1..T5) to keep knockouts near
 ## 1 in 10 at every tier.
 const HP_BY_TIER := [1.0, 1.25, 1.6, 2.0, 2.6]
-## Each family's signature race talent at full share (rank 5): what it does to
+## Each family's signature race talent at full share (rank 10): what it does to
 ## one course piece. lava: share of lava damage taken off. ice: share added to
 ## an icy ramp's or belt's push. current: share taken off goo drag and wind.
 ## orbit: share taken off a well's pull. core: share added to a power core's
 ## rush. shield: start shield, as a share of max HP. portal: downward speed a
 ## portal's exit adds, as a share of MAX_SPEED. spring: share added to launch pads' and bumpers' kick.
 ## thorn: share taken off thorn damage, and added to heal pickups.
-const SIGNATURES := {"lava": 1.0, "ice": 0.6, "current": 0.6, "orbit": 0.7, "core": 0.6,
-	"shield": 0.2, "portal": 0.45, "spring": 0.3, "thorn": 1.0}
+const SIGNATURES := {"lava": 1.0, "ice": 1.2, "current": 0.9, "orbit": 0.9, "core": 1.2,
+	"shield": 0.4, "portal": 0.9, "spring": 0.6, "thorn": 1.0}
 
 ## The critters that race, by family: ones whose abilities read well on a
 ## course. Others join as they're balanced in.

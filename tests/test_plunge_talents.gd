@@ -36,8 +36,8 @@ func test_every_family_has_a_signature() -> void:
 		check(not sig.is_empty(), "%s has a signature" % fam)
 		check(Plunge.SIGNATURES.has(sig.get("id", "")), "%s's signature runs in the race" % fam)
 		check_eq(PlungeTalents.talents(fam).size(), 3, "%s: two shared talents and its own" % fam)
-	check_eq(PlungeTalents.line(PlungeTalents.signature("fire"), 3), "Lava burns it 60% less", "a rank's line")
-	check_eq(PlungeTalents.line(PlungeTalents.signature("fire"), 5), "Lava can't burn it", "full rank")
+	check_eq(PlungeTalents.line(PlungeTalents.signature("fire"), 6), "Lava burns it 60% less", "a rank's line")
+	check_eq(PlungeTalents.line(PlungeTalents.signature("fire"), 10), "Lava can't burn it", "full rank")
 
 
 func test_fire_rolls_through_lava() -> void:
@@ -52,8 +52,8 @@ func test_fire_rolls_through_lava() -> void:
 			p.step()
 		taken.append(b.hazard_taken)
 	check(taken[0] > 0.0, "lava burns a plain racer")
-	check_near(taken[1], taken[0] * 0.4, 0.01, "rank 3 takes 60% off")
-	check_eq(taken[2], 0.0, "a rank 5 Fire racer takes no lava damage")
+	check_near(taken[1], taken[0] * 0.4, 0.01, "rank 6 takes 60% off")
+	check_eq(taken[2], 0.0, "a rank 10 Fire racer takes no lava damage")
 
 
 func test_cosmic_is_pulled_less() -> void:
@@ -136,7 +136,7 @@ func test_tech_core_rushes_harder() -> void:
 
 func test_sweet_starts_shielded() -> void:
 	var p := Plunge.new({"seed": 3, "racers": FIELD, "boosts": [{"shield": 0.6}]})
-	check_near(p.balls[0].shield, p.balls[0].max_hp * Plunge.SIGNATURES.shield * 0.6, 0.01, "rank 3's shield")
+	check_near(p.balls[0].shield, p.balls[0].max_hp * Plunge.SIGNATURES.shield * 0.6, 0.01, "rank 6's shield")
 	check_eq(p.balls[1].shield, 0.0, "the field starts bare")
 
 
@@ -175,16 +175,16 @@ func test_nature_shrugs_off_thorns() -> void:
 	var p := _race("graves", {"thorn": 1.0})
 	var b = p.balls[0]
 	p._spike(b, b.pos)
-	check_eq(b.hazard_taken, 0.0, "a rank 5 Nature racer takes no thorn damage")
+	check_eq(b.hazard_taken, 0.0, "a rank 10 Nature racer takes no thorn damage")
 	var plain = p.balls[1]
 	p._spike(plain, plain.pos)
 	check(plain.hazard_taken > 0.0, "thorns hurt the rest")
 
 
 func test_steady_ranks_become_the_signature() -> void:
-	var d := PlungeTalents.clean({"medals": {"gold": 2}, "talents": {"fire": {"steady": 3, "tough": 2}, "sea": {"steady": 4, "current": 3}}})
+	var d := PlungeTalents.clean({"medals": {"gold": 2}, "talents": {"fire": {"steady": 3, "tough": 2}, "sea": {"steady": 8, "current": 3}}})
 	check_eq(d.talents.fire, {"tough": 2, "lava": 3}, "Steady 3 becomes Lava-proof 3")
-	check_eq(d.talents.sea, {"current": 5}, "never past the top rank")
+	check_eq(d.talents.sea, {"current": 10}, "never past the top rank")
 	check_eq(d.medals.gold, 2, "medals kept")
 	var p = Profile.new_game(T0)
 	var saved: Dictionary = p.to_dict()
@@ -200,7 +200,7 @@ func test_signature_buys_into_the_race_and_the_summary() -> void:
 	check(PlungeTalents.buy(p, "fire", "lava"), "buys the signature")
 	check(not PlungeTalents.buy(p, "fire", "portal"), "not another family's")
 	check(PlungeTalents.buy(p, "fire", "tough"), "and a shared one")
-	check_eq(PlungeTalents.effects(p, "sooty"), {"tough": 0.05, "power": 0.0, "lava": 0.2}, "the race boosts")
-	check_eq(PlungeTalents.summary(p, "fire"), "+5% HP · Lava-proof 1/5", "the summary")
+	check_eq(PlungeTalents.effects(p, "sooty"), {"tough": 0.05, "power": 0.0, "lava": 0.1}, "the race boosts")
+	check_eq(PlungeTalents.summary(p, "fire"), "+5% HP · Lava-proof 1/10", "the summary")
 	check_eq(PlungeTalents.summary(p, "sea"), "", "nothing yet")
 	check_eq(PlungeTalents.ranks(p, "fire"), 2, "ranks in the tree")
