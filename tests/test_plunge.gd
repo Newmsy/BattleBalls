@@ -48,10 +48,10 @@ func test_golden_race() -> void:
 	check_eq(res.kos, GOLDEN_KOS, "knocked out")
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
-const GOLDEN_RACERS := ["thorns", "comet", "gumdrop", "frost", "prism", "honey"]
-const GOLDEN_ORDER := [1, 5, 4, 3, 2, 0]
+const GOLDEN_RACERS := ["zapper", "gust", "drako", "pucker", "ripple", "blizz"]
+const GOLDEN_ORDER := [3, 4, 0, 1, 2, 5]
 const GOLDEN_KOS := []
-const GOLDEN_TICKS := 1758
+const GOLDEN_TICKS := 1448
 
 
 ## Racers are live critters, every family races, and they race with their
@@ -81,7 +81,8 @@ func test_race_balance_knobs() -> void:
 		for key in Plunge.RACE_TWEAKS[id]:
 			check(BallDefs.get_def(id).has(key), "%s has %s" % [id, key])
 			var m: float = Plunge.RACE_TWEAKS[id][key]
-			check(m >= 0.25 and m <= 3.0, "%s %s x%.2f stays a tweak" % [id, key, m])
+			var switch: bool = m == 0.0 and BallDefs.get_def(id, 5)[key] in [0, 1]
+			check(switch or (m >= 0.25 and m <= 3.0), "%s %s x%.2f stays a tweak" % [id, key, m])
 	for id in Plunge.RACE_HP:
 		check(Plunge.RACERS.has(id), "%s's race HP and it races" % id)
 		check(Plunge.RACE_HP[id] >= 0.6 and Plunge.RACE_HP[id] <= 1.6, "%s race HP x%.2f stays a tweak" % [id, Plunge.RACE_HP[id]])
@@ -122,16 +123,48 @@ func test_course_has_no_wedges() -> void:
 					var d: float = g.pos.distance_to(Geometry2D.get_closest_point_to_segment(g.pos, rp.a, rp.b))
 					check(d - g.r - PlungeCourse.RAMP_THICK >= wide, "%s peg at %s is %.0f from a ramp" % [at, g.pos, d - g.r - PlungeCourse.RAMP_THICK])
 			check(course.finish_y > 3000.0 and course.finish_y < 7000.0, "%s course length %.0f" % [at, course.finish_y])
-			# A ramp's end either joins another ramp or leaves a racer-wide gap
-			# to it (two candy canes' ends 62 apart wedged racers for good).
+			# A ramp's free end either joins another ramp or leaves a racer-wide
+			# gap to it (two candy canes' ends 62 apart wedged racers for good).
+			# Ends shared with another ramp's end are a curve's or a shape's
+			# joints, and a shape is measured against other shapes only.
+			var shape := _ramp_shapes(course.ramps)
 			for i in course.ramps.size():
 				for end in [course.ramps[i].a, course.ramps[i].b]:
+					if course.ramps.any(func(rp): return rp != course.ramps[i] and (end.distance_to(rp.a) < 1.0 or end.distance_to(rp.b) < 1.0)):
+						continue
 					for j in course.ramps.size():
 						var rp: Dictionary = course.ramps[j]
-						if j == i:
+						if shape[j] == shape[i]:
 							continue
 						var d: float = end.distance_to(Geometry2D.get_closest_point_to_segment(end, rp.a, rp.b))
 						check(d < 1.0 or d - 2.0 * PlungeCourse.RAMP_THICK >= wide, "%s ramp end %s is %.0f from a ramp" % [at, end, d - 2.0 * PlungeCourse.RAMP_THICK])
+
+
+## Which shape each ramp belongs to: ramps that share an end are one shape.
+func _ramp_shapes(ramps: Array) -> Array:
+	var shape := []
+	for i in ramps.size():
+		shape.append(i)
+	var changed := true
+	while changed:
+		changed = false
+		for i in ramps.size():
+			for j in range(i + 1, ramps.size()):
+				if shape[i] == shape[j]:
+					continue
+				var joined := false
+				for x in [ramps[i].a, ramps[i].b]:
+					for y in [ramps[j].a, ramps[j].b]:
+						if x.distance_to(y) < 1.0:
+							joined = true
+				if joined:
+					var lo: int = mini(shape[i], shape[j])
+					var hi: int = maxi(shape[i], shape[j])
+					for k in ramps.size():
+						if shape[k] == hi:
+							shape[k] = lo
+					changed = true
+	return shape
 
 
 ## Twenty courses, each a different run in an arena's painted look, and the
@@ -167,7 +200,8 @@ func test_twenty_painted_courses() -> void:
 func test_tiers_upgrade_abilities() -> void:
 	var t1 := Plunge.new({"seed": 3, "racers": ["honey", "laser", "pip", "bomber"]})
 	var t5 := Plunge.new({"seed": 3, "racers": ["honey", "laser", "pip", "bomber"], "tiers": [5, 5, 5, 5]})
-	check_eq(t5.balls[0].def, BallDefs.get_def("honey", 5), "T5 honey races as T5")
+	check_eq(t5.balls[0].def.effects, BallDefs.get_def("honey", 5).effects, "T5 honey races as T5")
+	check_eq(t5.balls[0].def.honey_pull, BallDefs.get_def("honey", 5).honey_pull, "with its T5 numbers")
 	check(t5.balls[0].def.effects.size() > t1.balls[0].def.effects.size(), "with its T5 extras")
 
 

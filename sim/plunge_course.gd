@@ -621,9 +621,9 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 				var by := y0 + 260.0 + k * 230.0
 				_wind(Rect2(306.0, by, WIDTH - 612.0, 110.0), Vector2.RIGHT if k % 2 == 0 else Vector2.LEFT, 650.0, 1.8)
 				if k % 2 == 0:
-					_seg(Vector2(306.0, by + 140.0), Vector2(520.0, by + 200.0), {"look": "stone"})
+					_seg(Vector2(300.0, by + 140.0), Vector2(520.0, by + 200.0), {"look": "stone"})
 				else:
-					_seg(Vector2(WIDTH - 306.0, by + 140.0), Vector2(WIDTH - 520.0, by + 200.0), {"look": "stone"})
+					_seg(Vector2(WIDTH - 300.0, by + 140.0), Vector2(WIDTH - 520.0, by + 200.0), {"look": "stone"})
 		"trampolines":
 			# Cloud trampolines: puffy cups with a launch pad in the middle.
 			var rows := [[270.0, 730.0], [500.0], [270.0, 730.0]]
@@ -661,12 +661,13 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 				_curve(a, c, b, {"ice": true, "look": "ice"})
 			h = 4 * drop + 120.0
 		"mirrors":
-			# Crystal mirrors at 45 degrees in a diamond grid: ricochets.
+			# Crystal mirrors at 45 degrees in a diamond grid: ricochets, a
+			# racer-wide gap between one row's ends and the next's.
 			for row in 5:
 				var ry := y0 + 60.0 + row * 140.0
 				var xs := [170.0, 390.0, 610.0, 830.0] if row % 2 == 0 else [280.0, 500.0, 720.0]
 				for k in xs.size():
-					var tilt := Vector2(40.0, 40.0) if (row + k) % 2 == 0 else Vector2(40.0, -40.0)
+					var tilt := Vector2(35.0, 35.0) if (row + k) % 2 == 0 else Vector2(35.0, -35.0)
 					_seg(Vector2(xs[k], ry) - tilt, Vector2(xs[k], ry) + tilt, {"look": "crystal"})
 				if row % 2 == 1:
 					_kickers(ry)
@@ -692,8 +693,9 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 					c.x = WIDTH - c.x
 					b.x = WIDTH - b.x
 				_curve(a, c, b, {"look": "pipe"})
-				var prev := _bez(a, c, b, 0.375) - Vector2(0.0, 115.0)
-				for k in range(4, 8):
+				# The roof starts a racer-wide gap under the tube above.
+				var prev := _bez(a, c, b, 0.55) - Vector2(0.0, 115.0)
+				for k in range(5, 8):
 					var p := _bez(a, c, b, k / 8.0) - Vector2(0.0, 115.0)
 					_seg(prev, p, {"look": "pipe"})
 					prev = p
@@ -730,9 +732,10 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 					prev = nxt
 			h = 2 * 300.0 + 120.0
 		"tombs":
-			# Tombstones in crooked rows, thorns that snap out between them.
+			# Tombstones in crooked rows, thorns that snap out between them; the
+			# first row a racer-wide drop under the opening lips.
 			for row in 5:
-				var ry := y0 + 70.0 + row * 160.0
+				var ry := y0 + 80.0 + row * 160.0
 				var xs := [200.0, 500.0, 800.0] if row % 2 == 0 else [350.0, 650.0]
 				for k in xs.size():
 					var lean := 14.0 if (row + k) % 2 == 0 else -14.0
