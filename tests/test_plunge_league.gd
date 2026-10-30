@@ -109,6 +109,7 @@ func test_the_field_scales_with_the_league() -> void:
 			var fx: Dictionary = cfg.boosts[k]
 			check_near(fx.tough, 0.05 * r, 0.001, "%s: %s's HP" % [PlungeLeague.LEAGUES[i].id, id])
 			check_near(fx.power, 0.05 * r, 0.001, "%s: %s's damage" % [PlungeLeague.LEAGUES[i].id, id])
+			check_near(fx.swift, 0.02 * r, 0.001, "%s: %s's top speed" % [PlungeLeague.LEAGUES[i].id, id])
 			var sig: String = PlungeTalents.signature(Families.of(id)).id
 			check_near(fx[sig], float(r) / PlungeTalents.MAX_RANK, 0.001, "%s: %s's own signature" % [PlungeLeague.LEAGUES[i].id, id])
 	var neon = _with_points(PlungeLeague.LEAGUES[-1].min)
