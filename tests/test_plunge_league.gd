@@ -13,6 +13,7 @@ const Ladder := preload("res://game/pvp/ladder.gd")
 const A11y := preload("res://game/a11y.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const PlungeLadder := preload("res://game/ui/plunge_ladder.gd")
+const PlungeScreen := preload("res://game/ui/screens/plunge_screen.gd")
 
 const T0 := 1_800_000_000
 const COLUMN := 664.0 ## The phone column: 720 less the side margins.
@@ -169,10 +170,14 @@ func test_screen_shows_the_league_and_fits() -> void:
 		check(r[i][1] > r[(i + 1) % r.size()][1], "%s: your rung is the big one" % lg.id)
 		check_eq(card._perks != null, i + 1 < PlungeLeague.LEAGUES.size(), "%s: the next league's perks" % lg.id)
 		check_eq(shell._marks.has("plunge_league_coins"), lg.coins > 1.0, "%s: its coins on the prize" % lg.id)
-		var margin = shell._scroll.get_child(0)
-		var need: Vector2 = margin.get_child(0).get_combined_minimum_size()
-		check(need.x <= COLUMN, "%s fits the column with Larger text: %d of %d" % [lg.id, need.x, COLUMN])
-		check(need.y <= ROOM_SMALL, "and the height: %d of %d" % [need.y, ROOM_SMALL])
+		for n in [4, 6, 8]:
+			PlungeScreen.field = n
+			shell.go("plunge")
+			var margin = shell._scroll.get_child(0)
+			var need: Vector2 = margin.get_child(0).get_combined_minimum_size()
+			check(need.x <= COLUMN, "%s, %d racers fits the column with Larger text: %d of %d" % [lg.id, n, need.x, COLUMN])
+			check(need.y <= ROOM_SMALL, "and the height: %d of %d" % [need.y, ROOM_SMALL])
+		PlungeScreen.field = CritterPlunge.DEFAULT_FIELD
 	A11y.large_text = false
 	shell.free()
 

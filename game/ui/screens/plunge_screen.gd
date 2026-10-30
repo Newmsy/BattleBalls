@@ -33,6 +33,7 @@ const Motion := preload("res://game/ui/motion.gd")
 const PlungeLadder := preload("res://game/ui/plunge_ladder.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
+const A11y := preload("res://game/a11y.gd")
 
 const ACCENT := Color("27c8ff")
 const PLACES := ["1st", "2nd", "3rd", "4th", "5th"]
@@ -126,6 +127,9 @@ static func _prizes(shell, fighter: String, now: int) -> Control:
 			st.content_margin_left = 4
 			st.content_margin_right = 12
 			var tag := Kit.panel(Kit.hbox(2, [crest(league, 24), Kit.label("×%s" % str(k), 20, col)]), st)
+			if field == 8 and A11y.large_text: # The 8 field's podium is wider: just the number, in the league's colour.
+				tag.get_child(0).get_child(0).free()
+				st.content_margin_left = 12
 			tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			shell.mark("plunge_league_coins", tag)
 			coins.add_child(tag)

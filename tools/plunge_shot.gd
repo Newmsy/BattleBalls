@@ -37,6 +37,7 @@ func _initialize() -> void:
 	p.plunge.points = int(a.points)
 	var now := int(Time.get_unix_time_from_system())
 	BossRuns.use(p, CritterPlunge.PRIZE_KEY, CritterPlunge.PRIZE_RACES, now, CritterPlunge.PRIZE_RACES - int(a.prize))
+	load("res://game/ui/screens/plunge_screen.gd").field = int(a.get("field", "6"))
 	shell.go("plunge")
 	for i in 30:
 		await process_frame
