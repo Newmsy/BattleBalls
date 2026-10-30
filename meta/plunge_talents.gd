@@ -3,14 +3,16 @@
 ## one tree per family, that make that family's critters race better. For
 ## spending, 1 gold = 2 silver = 4 bronze: a price asks for a mix, and a
 ## higher medal can stand in for lower ones (the change comes back as lower
-## medals). Talents only help your own racer, in Critter Plunge only.
+## medals). Your talents help your own racer, in Critter Plunge only; the
+## CPU field gets its own at your league's rank (at_rank, meta/plunge_league.gd).
 ##
 ## Each tree is the two shared stat talents (TALENTS) and the family's own
 ## signature talent (SIGNATURES), which changes how one course piece treats
 ## its racers (sim/plunge.gd SIGNATURES has what each does at full rank).
 ##
 ## Saved in Profile.plunge: {medals: {gold, silver, bronze}, talents:
-## {family: {talent id: rank}}}.
+## {family: {talent id: rank}}, points: every medal ever won, in bronze (the
+## league's points; spending medals never lowers it)}.
 extends RefCounted
 
 const Families := preload("res://sim/families.gd")
@@ -73,7 +75,7 @@ static func signature(family: String) -> Dictionary:
 ## A save's Plunge data with every key there and nothing that isn't. Old
 ## saves' Steady ranks (a retired talent) become the signature's.
 static func clean(d) -> Dictionary:
-	var out := {"medals": {"gold": 0, "silver": 0, "bronze": 0}, "talents": {}}
+	var out := {"medals": {"gold": 0, "silver": 0, "bronze": 0}, "talents": {}, "points": 0}
 	if not (d is Dictionary):
 		return out
 	var m = d.get("medals", {})
@@ -95,7 +97,33 @@ static func clean(d) -> Dictionary:
 						ranks[tal.id] = r
 				if not ranks.is_empty():
 					out.talents[str(fam)] = ranks
+	# Saves from before the league: what the medals in hand and the talents
+	# bought are worth.
+	out.points = maxi(0, int(d.points)) if d.has("points") else worth(out.medals) + _spent(out.talents)
 	return out
+
+
+## What `m` ({gold, silver, bronze}) is worth in bronze.
+static func worth(m: Dictionary) -> int:
+	var n := 0
+	for k in MEDALS:
+		n += int(m.get(k, 0)) * VALUE[k]
+	return n
+
+
+## Every medal ever won, in bronze: the league's points.
+static func points(profile) -> int:
+	return int(profile.plunge.get("points", 0))
+
+
+## What every rank in `talents` ({family: {talent id: rank}}) cost, in bronze.
+static func _spent(talents: Dictionary) -> int:
+	var n := 0
+	for fam in talents:
+		for id in talents[fam]:
+			for r in int(talents[fam][id]):
+				n += worth(PRICES[r])
+	return n
 
 
 static func medals(profile) -> Dictionary:
@@ -107,6 +135,7 @@ static func add_medal(profile, medal: String) -> void:
 		return
 	profile.plunge = clean(profile.plunge)
 	profile.plunge.medals[medal] += 1
+	profile.plunge.points += VALUE[medal]
 
 
 static func rank(profile, family: String, talent: String) -> int:
@@ -180,6 +209,18 @@ static func effects(profile, critter: String) -> Dictionary:
 	var sig := signature(fam)
 	if not sig.is_empty() and rank(profile, fam, sig.id) > 0:
 		out[sig.id] = float(rank(profile, fam, sig.id)) / MAX_RANK
+	return out
+
+
+## What a racer of `critter`'s family gets with every talent of its tree at
+## rank `r` (effects()' form): the CPU field's talents in a league.
+static func at_rank(critter: String, r: int) -> Dictionary:
+	var out := {}
+	for tal in TALENTS:
+		out[tal.id] = tal.per * r
+	var sig := signature(Families.of(critter))
+	if not sig.is_empty() and r > 0:
+		out[sig.id] = float(r) / MAX_RANK
 	return out
 
 
