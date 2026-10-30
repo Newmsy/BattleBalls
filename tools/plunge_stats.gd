@@ -74,8 +74,8 @@ func _init() -> void:
 		else:
 			_report(s, Time.get_ticks_msec() - t0)
 		if not ranks.is_empty():
-			print("racer 1 at rank %d, the field at rank %d: wins %.1f%% (fair %.1f%%), %.2f league points a race" % [ranks[0], ranks[1],
-				100.0 * s.you_wins / races, 100.0 / n, float(s.you_points) / races])
+			print("racer 1 at rank %d, the field at rank %d: wins %.1f%% (fair %.1f%%), knocked out %.1f%%, %.2f league points a race" % [ranks[0], ranks[1],
+				100.0 * s.you_wins / races, 100.0 / n, 100.0 * s.you_kos / races, float(s.you_points) / races])
 		for id in s.entries:
 			won[id] = won.get(id, 0.0) + s.wins.get(id, 0)
 			fair[id] = fair.get(id, 0.0) + float(s.entries[id]) / n
@@ -140,6 +140,7 @@ static func tally(n: int, races: int, base := 1, tier := 1, course := "", ranks 
 	var courses := {}
 	var you_wins := 0
 	var you_points := 0
+	var you_kos := 0
 	for seed in range(base, base + races):
 		var field: Array = Plunge.draw_field(seed, n)
 		var cfg := {"seed": seed, "racers": field, "tiers": field.map(func(_id): return tier)}
@@ -154,7 +155,9 @@ static func tally(n: int, races: int, base := 1, tier := 1, course := "", ranks 
 		var w: int = res.order[0]
 		if w == 0:
 			you_wins += 1
-		if p.ko_ticks[0] < 0:
+		if p.ko_ticks[0] >= 0:
+			you_kos += 1
+		else:
 			you_points += PlungeTalents.VALUE.get(CritterPlunge.medal_for(p.places[0], n), 0)
 		gate_wins[p.lanes[w]] += 1
 		kos += res.kos.size()
@@ -177,7 +180,7 @@ static func tally(n: int, races: int, base := 1, tier := 1, course := "", ranks 
 				stuck_at[where] = stuck_at.get(where, 0) + 1
 		courses[p.course.info.id] = c
 	return {"n": n, "races": races, "kos": kos, "entries": entries, "wins": wins, "knocked": knocked, "times": times,
-		"stuck": stuck, "stuck_at": stuck_at, "gate_wins": gate_wins, "courses": courses, "you_wins": you_wins, "you_points": you_points}
+		"stuck": stuck, "stuck_at": stuck_at, "gate_wins": gate_wins, "courses": courses, "you_wins": you_wins, "you_points": you_points, "you_kos": you_kos}
 
 
 static func _section_at(p, y: float) -> String:
@@ -194,6 +197,7 @@ static func merge(a: Dictionary, b: Dictionary) -> void:
 	a.stuck += int(b.stuck)
 	a.you_wins += int(b.you_wins)
 	a.you_points += int(b.you_points)
+	a.you_kos += int(b.you_kos)
 	a.times.append_array(b.times)
 	for g in a.gate_wins.size():
 		a.gate_wins[g] += int(b.gate_wins[g])
