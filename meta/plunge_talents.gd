@@ -38,9 +38,9 @@ const PRICES := [
 ## The three talents every family's tree has. `per` is what each rank adds;
 ## `short` is the summary's form and `race` the payoff on the course.
 const TALENTS := [
-	{"id": "tough", "name": "Thick Skin", "text": "+%s%% HP", "short": "+%s%% HP", "per": 0.05,
+	{"id": "tough", "name": "Thick Skin", "text": "+%s%% HP", "short": "+%s%% HP", "per": 0.03,
 		"race": "Takes more hits before a knockout"},
-	{"id": "power", "name": "Hard Hitter", "text": "+%s%% damage", "short": "+%s%% dmg", "per": 0.05,
+	{"id": "power", "name": "Hard Hitter", "text": "+%s%% damage", "short": "+%s%% dmg", "per": 0.02,
 		"race": "Its hits slow rivals down more"},
 	{"id": "swift", "name": "Swift", "text": "+%s%% top speed", "short": "+%s%% spd", "per": 0.02,
 		"race": "Less air drag, a faster drop"},
@@ -50,7 +50,7 @@ const TALENTS := [
 ## effect, at MAX_RANK; Plunge.shown the number in the text).
 const SIGNATURES := {
 	"fire": {"id": "lava", "name": "Scorch", "text": "Its bumps burn rivals %s HP/s",
-		"race": "Leaves rivals burning"},
+		"race": "Leaves rivals burning and runs hot"},
 	"frost": {"id": "ice", "name": "Ice Skates", "text": "Every ramp speeds it +%s%%",
 		"race": "Every ramp is slick for it"},
 	"sea": {"id": "current", "name": "Wave Rider", "text": "Hits slow it %s%% less, then it surges",

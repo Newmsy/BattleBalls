@@ -179,8 +179,8 @@ the first 8 races a day; medals drop only in races watched to the end and are
 spent on per-family race talents (1 gold = 2 silver = 4 bronze), up to rank 10
 each: three shared talents (HP, damage, and Swift: top speed and less air
 drag) plus the family's signature, its own way to race that works on every
-course (Fire's bumps set rivals burning, Frost skates every ramp, Sea rides out
-hits, Cosmic falls hard and shoves, Tech overclocks when slow, Sweet shields
+course (Fire's bumps set rivals burning and it runs hot, Frost skates every
+ramp, Sea rides out hits, Cosmic falls hard and shoves, Tech overclocks when slow, Sweet shields
 twice, Spooky phases through bumps, Toybox springs off hard bounces, Nature
 regrows HP; `PlungeTalents.SIGNATURES`, effects at full rank in
 `Plunge.SIGNATURES`, passed per racer as `boosts`). A maxed tree against a bare
@@ -197,8 +197,8 @@ lists every league's points and coins), and a promotion gets its own band on the
 result popup. `tools/plunge_shot.gd` and `tools/plunge_promo_shot.gd` render both
 to PNGs under xvfb-run at any league's points. Your racer keeps the
 talents you bought, so matching your league keeps a race near fair
-(`plunge_stats.gd --you=4 --field=4`; `--only=sig --fam=each` compares the
-families' signatures). The best medal on each
+(`plunge_stats.gd --you=4 --field=4`, which also prints each family's win
+share; `--only=sig --fam=each` compares the families' signatures). The best medal on each
 course is its stamp (`Profile.plunge_stamps`, the stamp album). The next race's
 seed comes from the profile (`CritterPlunge.next_seed`), so the Plunge screen
 paints its course before you race (`?demo=1&plunge=1` adds talents, medals and
