@@ -37,6 +37,8 @@ const CritterDb := preload("res://sim/critter_db.gd")
 const RACE_RULES := 10
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
+const PART_CELL := 200.0 ## Band height for finding the moving parts near the race.
+const PART_REACH := 360.0 ## How far from a racer or shot a part is still placed each tick.
 const RADIUS := 30.0 ## Every racer races this size, whatever its fight size.
 const GRAVITY := 900.0
 const MAX_SPEED := 600.0
@@ -191,6 +193,11 @@ var _bounce_ready: Array[int] = []
 var _win_tick := -1
 var _parts: Array[Dictionary] = [] ## This tick's moving parts (obstacles()), fetched once.
 var _parts_tick := -1
+var _parts_by_cell := {} ## Band -> indexes into _parts, this tick.
+var _part_r_max := 0.0 ## The biggest moving part's radius.
+var _part_cells := {} ## Course band (PART_CELL tall) -> moving parts that can ever reach it.
+var _near_tick := -1
+var _near: Array[Dictionary] = [] ## This tick's moving parts near the race (obstacles()).
 var _focus_y := 0.0 ## Where the pack is: the "arena" abilities see is around it.
 
 
@@ -232,6 +239,7 @@ func _init(cfg: Dictionary) -> void:
 	arena.wells = course.wells
 	arena.cores = course.cores
 	arena.obstacles = Arenas.expand_bars(course.movers)
+	_index_parts()
 	_core_ready.clear()
 	for c in course.cores:
 		_core_ready.append(0) # Lit from the start.
@@ -614,7 +622,34 @@ func _hit_movers(b: Ball, hit: Dictionary) -> void:
 	if _parts_tick != tick:
 		_parts_tick = tick
 		_parts = obstacles()
-	for o in _parts:
+		_parts_by_cell.clear()
+		for k in _parts.size():
+			var c := floori(_parts[k].pos.y / PART_CELL)
+			if not _parts_by_cell.has(c):
+				_parts_by_cell[c] = []
+			_parts_by_cell[c].append(k)
+	# Only parts in the bands round it can be in reach; once a bounce moves
+	# it, the rest of the list is checked in full, so the order is the fight's.
+	var reach_y: float = b.radius + _part_r_max
+	var near: Array = []
+	for c in range(floori((b.pos.y - reach_y) / PART_CELL), floori((b.pos.y + reach_y) / PART_CELL) + 1):
+		near.append_array(_parts_by_cell.get(c, []))
+	near.sort()
+	var moved := -1
+	var at := 0
+	while true:
+		var k: int
+		if moved < 0:
+			if at >= near.size():
+				break
+			k = near[at]
+			at += 1
+		else:
+			k = moved
+			moved += 1
+			if k >= _parts.size():
+				break
+		var o: Dictionary = _parts[k]
 		if o.has("piece"):
 			continue
 		var d: Vector2 = b.pos - o.pos
@@ -628,6 +663,8 @@ func _hit_movers(b: Ball, hit: Dictionary) -> void:
 			continue # Ghost Step: it passes through.
 		var n := d / sqrt(dist2)
 		b.pos = o.pos + n * reach
+		if moved < 0:
+			moved = k + 1
 		var rel: Vector2 = b.vel - o.get("vel", Vector2.ZERO)
 		var vn := rel.dot(n)
 		if vn >= 0.0:
@@ -803,11 +840,104 @@ func _update_cores() -> void:
 			b.speed = b.vel.length()
 
 
+## Where a moving part can ever be, by band down the course, so a tick only
+## moves the parts near the race (battery: a course is mostly moving parts).
+func _index_parts() -> void:
+	_part_cells.clear()
+	for i in arena.obstacles.size():
+		var o: Dictionary = arena.obstacles[i]
+		_part_r_max = maxf(_part_r_max, o.radius)
+		var y: float = o.pos.y
+		var reach: float = o.radius + o.get("slide", Vector2.ZERO).length()
+		if o.has("orbit") or o.has("swing"):
+			if not o.has("pivot"):
+				reach = INF # Round the arena's centre: always placed.
+			else:
+				y = o.pivot.y
+				reach += o.pos.distance_to(o.pivot)
+		var lo := -1 if reach == INF else floori((y - reach) / PART_CELL)
+		var hi := -1 if reach == INF else floori((y + reach) / PART_CELL)
+		for c in range(lo, hi + 1):
+			if not _part_cells.has(c):
+				_part_cells[c] = []
+			_part_cells[c].append(i)
+
+
+## The course's moving parts near a racer, a shot or the "arena" abilities
+## see (arena_rect), placed just as the fight places every obstacle: a part
+## further off can't touch anything this tick, so skipping it changes
+## nothing, bit for bit.
+func obstacles() -> Array[Dictionary]:
+	if not _crystals.is_empty() or arena_scale() != 1.0:
+		return super.obstacles()
+	if _near_tick != tick:
+		_near_tick = tick
+		_near = _parts_near()
+	var out := _near.duplicate()
+	for p in pieces:
+		if p.blocking:
+			out.append({"pos": p.pos, "radius": p.radius, "kind": p.kind, "piece": p})
+	return out
+
+
+func _parts_near() -> Array[Dictionary]:
+	var cells := {-1: true}
+	var mark := func(y: float, reach: float) -> void:
+		for c in range(floori((y - reach) / PART_CELL), floori((y + reach) / PART_CELL) + 1):
+			cells[c] = true
+	mark.call(_focus_y, WIDTH / 2.0 + PART_REACH)
+	for b in balls:
+		if b.alive():
+			mark.call(b.pos.y, PART_REACH)
+	for sh in shots:
+		mark.call(sh.pos.y, PART_REACH)
+	return _place_parts(cells.keys())
+
+
+## The parts that can be between world y `top` and `bottom` now, for the
+## view (render only: it reads, the race's own list is untouched).
+func parts_between(top: float, bottom: float) -> Array[Dictionary]:
+	var cells := [-1]
+	for c in range(floori(top / PART_CELL), floori(bottom / PART_CELL) + 1):
+		cells.append(c)
+	return _place_parts(cells)
+
+
+## Places the parts that can reach these bands, in course order, exactly as
+## the fight's obstacles() places them.
+func _place_parts(cells: Array) -> Array[Dictionary]:
+	var ids := {}
+	for c in cells:
+		for i in _part_cells.get(c, []):
+			ids[i] = true
+	var order := ids.keys()
+	order.sort()
+	var out: Array[Dictionary] = []
+	var t := time()
+	var k := arena_scale()
+	for i in order:
+		var o: Dictionary = arena.obstacles[i]
+		var moving: bool = o.has("orbit") or o.has("slide") # As the fight tells a moving part (a swing carries a slide).
+		var at: Vector2 = _moving_at(o, t) if moving else o.pos
+		var d := {"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind}
+		if o.has("retract") and fmod(t, o.retract * 2.0) >= o.retract:
+			d.kind = "pillar" # Thorns pulled in: a plain post until they come back out.
+			d.retracted = true
+		if moving:
+			d.vel = (at - _moving_at(o, t - DT)) / DT * k
+			if o.has("bar"):
+				d.bar = o.bar
+				if o.has("orbit"):
+					d.hub = centre + (o.get("pivot", centre) - centre) * k
+		out.append(d)
+	return out
+
+
 ## Swinging parts (pendulums, flippers) swing `swing` radians either way
 ## round their pivot; the rest move as in a fight.
 func _moving_at(o: Dictionary, t: float) -> Vector2:
 	if o.has("swing"):
-		return o.pivot + DMath.rotated(o.pos - o.pivot, o.swing * DMath.sin(TAU * (t / o.period + o.phase)))
+		return o.pivot + _rotated_now(o.pos - o.pivot, o.swing * _sincos_now(TAU * (t / o.period + o.phase))[0])
 	return super._moving_at(o, t)
 
 

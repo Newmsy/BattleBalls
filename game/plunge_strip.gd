@@ -3,7 +3,9 @@
 ## with OUT; a bar flashes red on a hit. A tap on a face follows that racer
 ## (`picked`); the followed racer wears a white ring. Render only: it redraws
 ## when the standings or HP change, at most 15 times a second, and stops once
-## the race is over (battery).
+## the race is over (battery). The race keeps it in its own SubViewport that
+## only renders on those redraws, so the rest of the time it costs the frame
+## one texture (game/plunge.gd); taps come in through tap().
 extends Control
 
 signal picked(racer: int)
@@ -51,18 +53,32 @@ func _process(delta: float) -> void:
 	var now := [sim.standings(), hp, sim.kos.size(), follow, _flash.keys()]
 	if now != _seen or not _flash.is_empty():
 		_seen = now
-		queue_redraw()
+		refresh()
 	_over = sim.finished
 
 
-## A tap on a face picks that racer (mouse only: touches arrive as mouse too).
-func _gui_input(event: InputEvent) -> void:
+## Redraws, and renders its SubViewport once with the new drawing.
+func refresh() -> void:
+	queue_redraw()
+	var vp := get_viewport()
+	if vp is SubViewport:
+		vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+
+## A tap on a face picks that racer (mouse only: touches arrive as mouse
+## too); true when it was one.
+func tap(event: InputEvent) -> bool:
 	if sim == null or not (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
-		return
+		return false
 	var order := sim.standings()
 	var k := clampi(int(event.position.x / (size.x / order.size())), 0, order.size() - 1)
 	picked.emit(order[k])
-	accept_event()
+	return true
+
+
+func _gui_input(event: InputEvent) -> void:
+	if tap(event):
+		accept_event()
 
 
 func _draw() -> void:

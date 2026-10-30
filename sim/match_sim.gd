@@ -401,6 +401,8 @@ var _crystals := {}
 ## Moving obstacles this tick by index in arena.obstacles: [pos, vel] at full size.
 var _moving := {}
 var _moving_tick := -1
+var _trig := {} ## Angle -> DMath._sincos of it, this tick (moving parts share angles).
+var _trig_tick := -1
 
 
 func _init(cfg: Dictionary) -> void:
@@ -598,11 +600,33 @@ func obstacles() -> Array[Dictionary]:
 func _moving_at(o: Dictionary, t: float) -> Vector2:
 	var at: Vector2 = o.pos
 	if o.has("slide"):
-		at += o.slide * DMath.sin(TAU * t / o.period)
+		at += o.slide * _sincos_now(TAU * t / o.period)[0]
 	if o.has("orbit"):
 		var pivot: Vector2 = o.get("pivot", centre)
-		at = pivot + DMath.rotated(at - pivot, o.orbit * t)
+		at = pivot + _rotated_now(at - pivot, o.orbit * t)
 	return at
+
+
+## DMath._sincos, remembered for the tick: every circle of a bar (and every
+## part on the same clock) turns by the same angle, so the trig is done once.
+## Bit for bit the same numbers, just fewer of them.
+func _sincos_now(x: float) -> Array:
+	if _trig_tick != tick:
+		_trig_tick = tick
+		_trig.clear()
+	var sc = _trig.get(x)
+	if sc == null:
+		sc = DMath._sincos(x)
+		_trig[x] = sc
+	return sc
+
+
+## DMath.rotated with the tick's remembered trig.
+func _rotated_now(v: Vector2, a: float) -> Vector2:
+	var sc := _sincos_now(a)
+	var x := float(v.x)
+	var y := float(v.y)
+	return Vector2(x * sc[1] - y * sc[0], x * sc[0] + y * sc[1])
 
 
 func _move_obstacles() -> void:
