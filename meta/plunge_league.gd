@@ -15,11 +15,11 @@ const PlungeTalents := preload("res://meta/plunge_talents.gd")
 
 const LEAGUES := [
 	{"id": "bronze", "name": "Bronze", "min": 0, "rank": 0, "coins": 1.0},
-	{"id": "silver", "name": "Silver", "min": 20, "rank": 1, "coins": 1.15},
-	{"id": "gold", "name": "Gold", "min": 100, "rank": 2, "coins": 1.3},
-	{"id": "platinum", "name": "Platinum", "min": 250, "rank": 3, "coins": 1.5},
-	{"id": "diamond", "name": "Diamond", "min": 450, "rank": 4, "coins": 1.75},
-	{"id": "neon", "name": "Neon", "min": 700, "rank": 5, "coins": 2.0},
+	{"id": "silver", "name": "Silver", "min": 20, "rank": 2, "coins": 1.15},
+	{"id": "gold", "name": "Gold", "min": 100, "rank": 4, "coins": 1.3},
+	{"id": "platinum", "name": "Platinum", "min": 250, "rank": 6, "coins": 1.5},
+	{"id": "diamond", "name": "Diamond", "min": 450, "rank": 8, "coins": 1.75},
+	{"id": "neon", "name": "Neon", "min": 700, "rank": 10, "coins": 2.0},
 ]
 
 

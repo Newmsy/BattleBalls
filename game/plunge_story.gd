@@ -6,6 +6,7 @@ extends RefCounted
 
 const Roster := preload("res://game/ui/roster.gd")
 const Plunge := preload("res://sim/plunge.gd")
+const PlungeTalents := preload("res://meta/plunge_talents.gd")
 
 const STABLE_TICKS := 24 ## A place has to hold this long to count (jams swap places every tick).
 const HIT_GAP := 24 ## Ticks between hits that count apart (a beam is one hit).
@@ -49,9 +50,9 @@ func watch(sim) -> Array:
 				if target == you and sim.tick - _last_taken >= HIT_GAP:
 					hits_taken += 1
 					_last_taken = sim.tick
-			"talent": # Your family's signature race talent fired ("Lava-proof!").
+			"talent": # Your family's signature race talent fired ("Scorch!").
 				if int(e.get("ball", -1)) == you:
-					var word := str(e.get("name", str(e.get("talent", "")).capitalize()))
+					var word := str(e.get("name", talent_name(str(e.get("talent", "")))))
 					if word != "":
 						out.append({"text": word if word.ends_with("!") else word + "!", "big": false})
 			"race_ko":
@@ -86,6 +87,14 @@ func watch(sim) -> Array:
 			_stable = now
 			_ahead = order.slice(0, now - 1)
 	return out
+
+
+## A signature talent's name by its id ("lava" -> "Scorch").
+static func talent_name(id: String) -> String:
+	for fam in PlungeTalents.SIGNATURES:
+		if PlungeTalents.SIGNATURES[fam].id == id:
+			return PlungeTalents.SIGNATURES[fam].name
+	return id.capitalize()
 
 
 ## A minion or shot names its owner's racer; summoned balls belong to their team.

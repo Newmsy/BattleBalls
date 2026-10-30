@@ -2,7 +2,7 @@
 ## the painting with your racer on it, pick how many racers (4 race for coins,
 ## 6 for medals, 8 for better medals and more coins) and your racer, see what
 ## its ability does and what the race pays, then Race. Medals buy race
-## talents and climb your league (its crest and how far to the next, by the
+## talents and climb your league (the ladder down the course card, by the
 ## medals); the stamp album keeps your best medal per course. The race runs in
 ## game/plunge.tscn; rules and payouts live in meta/critter_plunge.gd and
 ## sim/plunge.gd. Fits one phone screen.
@@ -30,9 +30,14 @@ const FighterTag := preload("res://game/ui/fighter_tag.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Motion := preload("res://game/ui/motion.gd")
+const PlungeLadder := preload("res://game/ui/plunge_ladder.gd")
+const Glyph := preload("res://game/ui/glyph.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
+const A11y := preload("res://game/a11y.gd")
 
 const ACCENT := Color("27c8ff")
 const PLACES := ["1st", "2nd", "3rd", "4th", "5th"]
+const HERO_H := 250 ## The course card's least height: the six rungs still read.
 
 ## The field size picked last, kept while the game runs.
 static var field := CritterPlunge.DEFAULT_FIELD
@@ -55,13 +60,13 @@ static func build(shell, _params: Dictionary) -> Control:
 		"The stamp album keeps your best medal on each course."]}))
 	var fighter: String = CritterPlunge.racer_for(p)
 	var course: Dictionary = CritterPlunge.course_for(CritterPlunge.next_seed(p))
-	var hero := MarginContainer.new()
-	hero.custom_minimum_size.y = 190
+	var tier := int(p.best(fighter).get("tier", 1)) if fighter != "" else 1
+	var rival: String = Plunge.draw_field(CritterPlunge.next_seed(p), 1, [fighter])[0]
+	var painting := CourseArt.make_course(course.id, Vector2(.62, .2), 28.0, Vector4(.45, .55, 1.0, 0.0), Kit.BG)
+	var hero := PlungeLadder.make(PlungeTalents.points(p), painting, course.name, _hero_racer(fighter, tier) if fighter != "" else null, rival, tier, _league_info(shell))
+	hero.custom_minimum_size.y = HERO_H
 	hero.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hero.add_child(CourseArt.make_course(course.id, Vector2(.5, .2), 28.0, Vector4(.45, .55, 1.0, 0.0), Kit.BG))
-	hero.add_child(_course_name(course))
-	if fighter != "":
-		hero.add_child(_hero_racer(fighter, int(p.best(fighter).get("tier", 1))))
+	shell.mark("plunge_league", hero)
 	root.add_child(hero)
 	root.add_child(_field_row(shell))
 	root.add_child(_prizes(shell, fighter, now))
@@ -74,30 +79,37 @@ static func build(shell, _params: Dictionary) -> Control:
 	return root
 
 
-## The next course's name at the top of the painting.
-static func _course_name(course: Dictionary) -> Control:
-	var name := Kit.label(course.name, 28, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
-	name.add_theme_constant_override("outline_size", 10)
-	name.add_theme_color_override("font_outline_color", Color(Kit.BG, .85))
-	name.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	var box := MarginContainer.new()
-	box.add_theme_constant_override("margin_top", 14)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(name)
-	return box
-
-
 ## Your racer, big, at the foot of the painting, popping in when the screen opens.
 static func _hero_racer(fighter: String, tier: int) -> Control:
-	var icon := CritterIcon.make(fighter, tier, 150)
-	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	icon.size_flags_vertical = Control.SIZE_SHRINK_END
-	var box := MarginContainer.new()
-	box.add_theme_constant_override("margin_bottom", 18)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(icon)
+	var icon := CritterIcon.make(fighter, tier, 170)
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	Motion.pop(icon, 0.4, .35, .1)
-	return box
+	return icon
+
+
+## The league's "i": every league's crest, its points and its coins, yours
+## on a band.
+static func _league_info(shell) -> Control:
+	var open := func() -> void:
+		var mine := PlungeLeague.index(shell.profile)
+		var rows := Kit.vbox(4)
+		for i in range(PlungeLeague.LEAGUES.size() - 1, -1, -1):
+			var lg: Dictionary = PlungeLeague.LEAGUES[i]
+			var col: Color = Ladder.LEAGUES[i].color
+			var name := Kit.label(lg.name, 28, col)
+			name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var row := Kit.hbox(12, [crest(i, 44), name, Kit.label(str(lg.min), 24, Kit.MUTED), Kit.amount("coin", "×%s" % str(lg.coins), 24, PlungeLadder.GOLD)], BoxContainer.ALIGNMENT_CENTER)
+			row.get_child(3).custom_minimum_size.x = 110
+			var st := Kit.box(Color(col, .16) if i == mine else Color(0, 0, 0, 0), Color(col, .6) if i == mine else Color(0, 0, 0, 0), 18, 2, 6)
+			rows.add_child(Kit.panel(row, st))
+		var ok := Kit.button("Got it", shell.close_overlay, "ghost", 26, 80)
+		shell.mark("info_close", ok)
+		var words := Kit.label("Every medal adds league points: gold 4, silver 2, bronze 1. A league is never lost.", 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		words.custom_minimum_size.x = ResultPopup.inner_width(shell.size.x)
+		shell.sheet(Kit.vbox(18, [Kit.label("Leagues", 36), rows, words, ok]))
+	var b := Kit.card_button(Glyph.make("info", 28, Kit.FG), open, Color(Kit.FG, .7), Color(Kit.BG, .55), 999, 10)
+	shell.mark("plunge_league_info", b)
+	return b
 
 
 ## What a race pays in this field: coins by place while prize races last, the
@@ -106,8 +118,22 @@ static func _prizes(shell, fighter: String, now: int) -> Control:
 	var left := CritterPlunge.prize_races_left(shell.profile, now)
 	var league := PlungeLeague.index(shell.profile)
 	var items: Array = []
-	if left > 0:
-		items.append(BossCard.prize("coin", "%d to %d" % [CritterPlunge.coins_for(field, field, league), CritterPlunge.coins_for(1, field, league)]))
+	if left > 0: # The coins, with your league's multiplier on them.
+		var coins := BossCard.prize("coin", "%d–%d" % [CritterPlunge.coins_for(field, field, league), CritterPlunge.coins_for(1, field, league)])
+		var k: float = PlungeLeague.LEAGUES[league].coins
+		if k > 1.0:
+			var col: Color = Ladder.LEAGUES[league].color
+			var st := Kit.box(Color(Kit.BG, .6), Color(col, .7), 999, 2, 0)
+			st.content_margin_left = 4
+			st.content_margin_right = 12
+			var tag := Kit.panel(Kit.hbox(2, [crest(league, 24), Kit.label("×%s" % str(k), 20, col)]), st)
+			if field == 8 and A11y.large_text: # The 8 field's podium is wider: just the number, in the league's colour.
+				tag.get_child(0).get_child(0).free()
+				st.content_margin_left = 12
+			tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			shell.mark("plunge_league_coins", tag)
+			coins.add_child(tag)
+		items.append(coins)
 	var podium: Array = CritterPlunge.PODIUM.get(field, [])
 	var k := 0
 	while k < podium.size():
@@ -152,14 +178,15 @@ static func _fighter_card(shell, id: String) -> Control:
 	return card
 
 
-## Your league's crest over a thin bar to the next league, your medals over
-## your racer's family talents in one clipped line, the way into race
-## talents and the stamp album.
+## Your medals over your racer's family talents in one clipped line, the
+## way into race talents and the stamp album. (Your league is the ladder on
+## the course card.)
 static func _medals(shell, fighter: String) -> Control:
 	var talents := Kit.button("Talents", func(): TalentsSheet.open(shell, fighter), "primary", 24, 72)
 	shell.mark("plunge_talents", talents)
 	var mine := Kit.vbox(2, [TalentsSheet.medal_row(shell.profile, 26)])
 	mine.alignment = BoxContainer.ALIGNMENT_CENTER
+	mine.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var bonus: String = PlungeTalents.summary(shell.profile, Families.of(fighter))
 	if bonus != "":
 		var line := Kit.label(bonus, 16, Color("ffd36b"), HORIZONTAL_ALIGNMENT_CENTER)
@@ -175,28 +202,12 @@ static func _medals(shell, fighter: String) -> Control:
 	g.add_child(Kit.glyph("medal_gold", 40, Color.WHITE))
 	stamps.add_child(g)
 	shell.mark("plunge_stamps", stamps)
-	return Kit.hbox(14, [_league(shell), mine, talents, stamps], BoxContainer.ALIGNMENT_CENTER)
-
-
-## Your league: its crest, and under it a thin bar to the next one.
-static func _league(shell) -> Control:
-	var pts := PlungeTalents.points(shell.profile)
-	var idx := PlungeLeague.index_for(pts)
-	var col := Kit.vbox(4, [crest(idx, 46), Kit.bar(PlungeLeague.progress(pts), Ladder.LEAGUES[idx].color, 6)])
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	shell.mark("plunge_league", col)
-	return col
+	return Kit.hbox(14, [mine, talents, stamps], BoxContainer.ALIGNMENT_CENTER)
 
 
 ## League `idx`'s crest (game/ui/versus_art/league_<id>_Lcrest.png), `h` tall.
 static func crest(idx: int, h: int) -> TextureRect:
-	var t := TextureRect.new()
-	t.texture = load("res://game/ui/versus_art/league_%s_Lcrest.png" % PlungeLeague.LEAGUES[idx].id)
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	t.custom_minimum_size = Vector2(h * 2, h)
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return t
+	return PlungeLadder.crest(idx, h)
 
 
 ## What the critter's ability does at `tier`, in plain words.

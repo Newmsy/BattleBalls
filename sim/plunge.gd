@@ -21,10 +21,12 @@
 ## Deterministic like MatchSim: the same config always gives the same race.
 ##
 ## Config: {seed: int, racers: [ids], course: id?, tiers: [int]?, boosts:
-## [{tough, power, <signature>} or null]?}; with no course the seed picks one. Everyone races at the same power, so the drop and the
+## [{tough, power, swift, <signature>} or null]?}; with no course the seed
+## picks one. Everyone races at the same power, so the drop and the
 ## abilities decide it; boosts are race talents (meta/plunge_talents.gd), one
-## per racer: tough adds that share of HP, power of damage, and a family's
-## signature (SIGNATURES) changes how one course piece treats that racer, from
+## per racer: tough adds that share of HP, power of damage, swift of top
+## speed (and takes SWIFT_DRAG times it off air drag), and a family's
+## signature (SIGNATURES) changes how that racer races on every course, from
 ## 0 to its full effect at share 1.
 extends "res://sim/match_sim.gd"
 
@@ -74,15 +76,49 @@ const HP_BY_FIELD := {4: 1.0, 6: 1.05, 8: 1.1}
 ## racer's HP also scales by the field's tier (T1..T5) to keep knockouts near
 ## 1 in 10 at every tier.
 const HP_BY_TIER := [1.0, 1.25, 1.6, 2.0, 2.6]
-## Each family's signature race talent at full share (rank 5): what it does to
-## one course piece. lava: share of lava damage taken off. ice: share added to
-## an icy ramp's or belt's push. current: share taken off goo drag and wind.
-## orbit: share taken off a well's pull. core: share added to a power core's
-## rush. shield: start shield, as a share of max HP. portal: downward speed a
-## portal's exit adds, as a share of MAX_SPEED. spring: share added to launch pads' and bumpers' kick.
-## thorn: share taken off thorn damage, and added to heal pickups.
-const SIGNATURES := {"lava": 1.0, "ice": 0.6, "current": 0.6, "orbit": 0.7, "core": 0.6,
-	"shield": 0.2, "portal": 0.45, "spring": 0.3, "thorn": 1.0}
+## Swift (a shared race talent): air drag drops by this times its top-speed share.
+const SWIFT_DRAG := 1.5
+## Each family's signature race talent at full share (rank 10). Every one
+## works in every race, on every course:
+## lava (Scorch): its hard bumps set the rival burning, this many HP a second
+##   for SCORCH_SECS.
+## ice (Ice Skates): every ramp is slick for it: pushed along downhill by this
+##   share of an icy ramp's push (on icy ramps and belts, on top of theirs).
+## current (Wave Rider): share of the speed a stagger takes that it keeps,
+##   and it surges on down at WAVE_SURGE times that.
+## orbit (Heavy Star): share added to its gravity; in a bump it weighs
+##   1 + HEAVY_BUMP times its share (rivals push it less, it shoves them more).
+## core (Overclock): seconds between power rushes (a RUSH down the course, once
+##   it's slow), from SLOW_EVERY.core at the lowest share.
+## shield (Sugar Shell): start shield, as a share of max HP, and SHIELD_AGAIN
+##   of that again once it's halfway down; each one's break is a sugar rush
+##   (SUGAR_TOP).
+## portal (Ghost Step): seconds between phasing through a rival or a moving
+##   part (for PHASE_SECS, when hits don't stagger it either), from
+##   SLOW_EVERY.portal at the lowest share.
+## spring (Spring Loaded): a hard bounce off the course (BOUNCE_MIN) kicks it
+##   on down and sideways at this share of MAX_SPEED.
+## thorn (Regrowth): seconds between regrowing REGROW_HEAL of its max HP and
+##   shaking off slows and stuns (then rolling on at REGROW_SURGE), from
+##   SLOW_EVERY.thorn at the lowest share.
+const SIGNATURES := {"lava": 18.0, "ice": 0.8, "current": 1.0, "orbit": 0.12, "core": 4.0,
+	"shield": 0.25, "portal": 2.0, "spring": 0.12, "thorn": 1.5}
+const SLOW_EVERY := {"core": 9.0, "portal": 8.0, "thorn": 5.0}
+const SCORCH_SECS := 3.0
+const HEAVY_BUMP := 1.0
+const SHIELD_AGAIN := 1.0
+const PHASE_SECS := 0.8
+const WAVE_SURGE := 350.0
+const REGROW_HEAL := 0.05
+const REGROW_SURGE := 150.0
+## Sugar Shell's rush when a shell breaks, at full share: a RUSH down, then
+## SUGAR_TOP more top speed and gravity for SUGAR_SECS.
+const SUGAR_TOP := 0.6
+const SUGAR_SECS := 3.0
+## Overclock waits until its racer is moving down the course slower than this share of MAX_SPEED.
+const OVERCLOCK_BELOW := 0.5
+## A signature calls out (the "talent" event) at most this often per racer.
+const TALENT_GAP := 3.0
 
 ## The critters that race, by family: ones whose abilities read well on a
 ## course. Others join as they're balanced in.
@@ -134,6 +170,13 @@ var damage_scale := 1.0
 
 var _starts: Array[Vector2] = []
 var _boost: Array[Dictionary] = [] ## Racer -> its signature shares ({} for none).
+var _swift: Array[float] = [] ## Racer -> its Swift share (top speed added).
+var _sig_ready: Array[int] = [] ## Racer -> tick its Overclock or Ghost Step is ready again.
+var _phase_until: Array[int] = [] ## Racer -> tick its Ghost Step phase ends.
+var _reshield: Array[bool] = [] ## Racer -> Sugar Shell's second shield is still to come.
+var _shelled: Array[bool] = [] ## Racer -> its Sugar Shell holds (its break gives a rush).
+var _rush_until: Array[int] = [] ## Racer -> tick its sugar rush ends.
+var _talent_ready: Array[int] = []
 var _stalled: Array[float] = []
 var _nudge_ready: Array[int] = []
 var _bounce_ready: Array[int] = []
@@ -192,14 +235,27 @@ func _init(cfg: Dictionary) -> void:
 		b.hp = b.max_hp
 		var boost = boosts[b.index] if b.index < boosts.size() else null
 		var sig := {}
+		var swift := 0.0
 		if boost is Dictionary:
 			b.max_hp *= 1.0 + float(boost.get("tough", 0.0))
 			b.hp = b.max_hp
 			b.attack += float(boost.get("power", 0.0))
+			swift = clampf(float(boost.get("swift", 0.0)), 0.0, 0.5)
 			for key in SIGNATURES:
 				if float(boost.get(key, 0.0)) > 0.0:
 					sig[key] = clampf(float(boost[key]), 0.0, 1.0)
 		_boost.append(sig)
+		_swift.append(swift)
+		_reshield.append(sig.has("shield"))
+		_shelled.append(sig.has("shield"))
+		_rush_until.append(0)
+		_phase_until.append(0)
+		_talent_ready.append(0)
+		var timed := "core"
+		for key in SLOW_EVERY:
+			if sig.has(key):
+				timed = key
+		_sig_ready.append(int(round((GATE_SECONDS + _every(b, timed)) * TICK_RATE)))
 		b.shield += b.max_hp * _sig(b, "shield") * SIGNATURES.shield
 		if RACE_TWEAKS.has(b.type_id):
 			b.def = b.def.duplicate()
@@ -239,8 +295,34 @@ func _sig(b: Ball, key: String) -> float:
 	return float(_boost[b.index].get(key, 0.0)) if b.index < _boost.size() else 0.0
 
 
-## A signature talent just did something you can see (render only).
+## Seconds between Overclock's rushes, Ghost Step's phases or Regrowth's
+## heals (`key`) for `b`.
+func _every(b: Ball, key: String) -> float:
+	return every(key, _sig(b, key))
+
+
+## Seconds between Overclock's rushes, Ghost Step's phases or Regrowth's heals at `share`.
+static func every(key: String, share: float) -> float:
+	return lerpf(SLOW_EVERY[key], SIGNATURES[key], share)
+
+
+## What signature `key` does at `share`, as its talent text shows it: HP a
+## second (lava), seconds (core, portal, thorn) or a percent.
+static func shown(key: String, share: float) -> float:
+	match key:
+		"lava":
+			return SIGNATURES.lava * share
+		"core", "portal", "thorn":
+			return every(key, share)
+	return SIGNATURES[key] * share * 100.0
+
+
+## A signature talent just did something you can see (render only), at most
+## once per TALENT_GAP for each racer.
 func _talent(b: Ball, key: String, pos: Vector2) -> void:
+	if b.index >= _talent_ready.size() or tick < _talent_ready[b.index]:
+		return
+	_talent_ready[b.index] = tick + int(TALENT_GAP * TICK_RATE)
 	events.append({"type": "talent", "ball": b.index, "talent": key, "pos": pos})
 
 
@@ -315,10 +397,15 @@ func step() -> void:
 			_knock_out(i)
 			continue
 		if b.hp < hp_before[i] - STAGGER_AT and time() >= GATE_SECONDS:
-			b.vel *= STAGGER
+			b.vel *= stagger_keep(b)
+			if _sig(b, "current") > 0.0: # Wave Rider surges on.
+				b.vel.y += WAVE_SURGE * _sig(b, "current") * SIGNATURES.current
+				_talent(b, "current", b.pos)
 		if b.pos.y >= finish_y:
 			_cross_line(i)
 			continue
+		if not _boost[i].is_empty() and time() >= GATE_SECONDS:
+			_signature_tick(b)
 		_stalled[i] = _stalled[i] + DT if b.vel.length() < STALL_SPEED and time() >= GATE_SECONDS else 0.0
 		if _stalled[i] >= STALL and tick >= _nudge_ready[i]:
 			_nudge_ready[i] = tick + int(NUDGE_COOLDOWN * TICK_RATE)
@@ -330,6 +417,51 @@ func step() -> void:
 		_focus_y = sum / n
 	if order.size() + kos.size() >= starters or time() >= RACE_LIMIT or (_win_tick >= 0 and tick - _win_tick >= int(AFTER_WIN * TICK_RATE)):
 		_settle()
+
+
+## The share of its speed `b` keeps when a hit staggers it: Sea's Wave
+## Rider keeps more, and Ghost Step mid-phase all of it.
+func stagger_keep(b: Ball) -> float:
+	if b.index < _phase_until.size() and tick < _phase_until[b.index]:
+		return 1.0
+	var ride := _sig(b, "current") * SIGNATURES.current
+	return STAGGER + (1.0 - STAGGER) * ride if ride > 0.0 else STAGGER
+
+
+## Signatures that run on the clock: Nature's Regrowth heals and shakes off
+## slows and stuns every few seconds (and rolls on, if it was hurt or held),
+## and Sweet's Sugar Shell rushes when it breaks and shields again once,
+## halfway down.
+func _signature_tick(b: Ball) -> void:
+	if _sig(b, "thorn") > 0.0 and tick >= _sig_ready[b.index]:
+		_sig_ready[b.index] = tick + int(round(_every(b, "thorn") * TICK_RATE))
+		var held := tick < b.stun_until or tick < b.slow_until or b.state.has("shot_slow") or status_amount(b, "slow") > 0.0
+		b.stun_until = mini(b.stun_until, tick)
+		b.slow_until = mini(b.slow_until, tick)
+		b.state.erase("shot_slow")
+		for key in b.statuses.keys():
+			if b.statuses[key].kind == "slow":
+				b.statuses.erase(key)
+		var gained := minf(b.max_hp * REGROW_HEAL, b.max_hp - b.hp)
+		if gained > 0.0:
+			b.hp += gained
+			b.healed += gained
+			events.append({"type": "heal", "target": b.index, "amount": gained, "pos": b.pos})
+		if held or gained > 0.0: # Back on its feet, it rolls on.
+			b.vel.y = maxf(b.vel.y, 0.0) + REGROW_SURGE * _sig(b, "thorn")
+			_talent(b, "thorn", b.pos)
+	if _shelled[b.index] and b.shield <= 0.0:
+		_shelled[b.index] = false # The shell broke: a sugar rush.
+		b.vel.y = maxf(b.vel.y, 0.0) + RUSH * _sig(b, "shield")
+		_rush_until[b.index] = tick + int(round(SUGAR_SECS * TICK_RATE))
+		_talent(b, "shield", b.pos)
+	if _reshield[b.index] and progress(b.index) >= 0.5:
+		_reshield[b.index] = false
+		_shelled[b.index] = true
+		var amount := b.max_hp * _sig(b, "shield") * SIGNATURES.shield * SHIELD_AGAIN
+		b.shield += amount
+		events.append({"type": "shield", "target": b.index, "amount": amount, "pos": b.pos})
+		_talent(b, "shield", b.pos)
 
 
 # --- MatchSim hooks --------------------------------------------------------------
@@ -398,58 +530,73 @@ func _resolve_walls(b: Ball) -> void:
 		b.vel = Vector2(0.0, STUN_SINK)
 		b.pos += b.vel * DT
 	else:
-		b.vel.y += GRAVITY * DT
-		b.vel *= 1.0 - DRAG * DT
+		var swift := _swift[b.index] if b.index < _swift.size() else 0.0
+		var top := MAX_SPEED * (1.0 + swift) # Swift: a higher top speed and less drag.
+		var fall := 1.0 + _sig(b, "orbit") * SIGNATURES.orbit # Heavy Star falls harder.
+		if b.index < _rush_until.size() and tick < _rush_until[b.index]: # A sugar rush.
+			top *= 1.0 + SUGAR_TOP * _sig(b, "shield")
+			fall += SUGAR_TOP * _sig(b, "shield")
+		b.vel.y += GRAVITY * fall * DT
+		b.vel *= 1.0 - DRAG * (1.0 - swift * SWIFT_DRAG) * DT
 		var sp := b.vel.length()
-		if sp > MAX_SPEED:
-			b.vel *= MAX_SPEED / sp
+		if sp > top:
+			b.vel *= top / sp
 	var hit := course.collide(b, DT)
-	_slide(b, hit)
-	if hit.bumper and hit.peg != null:
-		_spring(b, b.pos - hit.peg, hit.peg)
+	if b.index < _boost.size() and not _boost[b.index].is_empty():
+		_slide(b, hit)
+		_overclock(b, hit)
 	_hit_movers(b, hit)
 	if hit.peg != null and hit.speed >= PEG_EVENT:
 		events.append({"type": "course_hit", "ball": b.index, "peg": hit.peg, "bumper": hit.bumper, "pos": hit.point})
 	if hit.speed >= BOUNCE_MIN and tick >= _bounce_ready[b.index] and b.index < starters:
 		_bounce_ready[b.index] = tick + int(BOUNCE_GAP * TICK_RATE)
+		_spring(b, hit.point)
 		_on_wall_bounce(b, hit.point, true)
 	b.speed = b.vel.length()
 
 
-## Frost's signature: an icy ramp or belt it touched pushes it along harder.
+## Frost's Ice Skates: every ramp it touches is slick, pushing it on
+## downhill; an icy ramp or belt pushes it harder still.
 func _slide(b: Ball, hit: Dictionary) -> void:
-	var share := _sig(b, "ice")
+	var share := _sig(b, "ice") * SIGNATURES.ice
 	var s = hit.get("ramp")
 	if share <= 0.0 or s == null:
 		return
+	var down: Vector2 = s.down
+	if absf(down.y) < 0.1 and b.vel.dot(down) < 0.0:
+		down = -down # A flat ramp: on the way it's rolling.
+	b.vel += down * PlungeCourse.ICE_ACCEL * share * DT
 	if s.has("ice"):
-		b.vel += s.down * PlungeCourse.ICE_ACCEL * share * SIGNATURES.ice * DT
-	elif b.vel.dot(s.down) < PlungeCourse.BELT_TOP * (1.0 + share * SIGNATURES.ice):
-		b.vel += s.down * s.belt * share * SIGNATURES.ice * DT
+		b.vel += down * PlungeCourse.ICE_ACCEL * share * DT
+	elif s.has("belt") and b.vel.dot(down) < PlungeCourse.BELT_TOP * (1.0 + share):
+		b.vel += down * s.belt * share * DT
+	_talent(b, "ice", b.pos)
 
 
-## Toybox's signature: a bumper that just kicked it (from `out`, the way it
-## was kicked) flings it further sideways, never higher.
-func _spring(b: Ball, out: Vector2, at: Vector2) -> void:
+## Tech's Overclock: every few seconds, once it's slow, a power rush down
+## the course (along the ramp it's on, if any).
+func _overclock(b: Ball, hit: Dictionary) -> void:
+	if _sig(b, "core") <= 0.0 or tick < _sig_ready[b.index] or tick < b.stun_until:
+		return
+	var s = hit.get("ramp")
+	var dir: Vector2 = s.down if s != null and s.down.y > 0.1 else Vector2.DOWN
+	var along := b.vel.dot(dir)
+	if along >= MAX_SPEED * OVERCLOCK_BELOW:
+		return
+	_sig_ready[b.index] = tick + int(round(_every(b, "core") * TICK_RATE))
+	b.vel += dir * (maxf(0.0, -along) + RUSH)
+	_talent(b, "core", b.pos)
+
+
+## Toybox's Spring Loaded: a hard bounce off the course kicks it on, down
+## and the way it was going sideways.
+func _spring(b: Ball, at: Vector2) -> void:
 	var share := _sig(b, "spring")
-	if share <= 0.0 or out.length_squared() < 0.0001:
+	if share <= 0.0:
 		return
-	b.vel.x += out.normalized().x * PlungeCourse.BUMPER_KICK * share * SIGNATURES.spring
+	var dir := Vector2(0.6 * signf(b.vel.x), 1.0).normalized()
+	b.vel += dir * MAX_SPEED * SIGNATURES.spring * share
 	_talent(b, "spring", at)
-
-
-## Nature's signature takes its share off a thorn's hit (none at all at full).
-func _spike(b: Ball, point: Vector2) -> void:
-	var cut := _sig(b, "thorn") * SIGNATURES.thorn
-	if cut <= 0.0:
-		super._spike(b, point)
-		return
-	if not b.alive() or tick < b.spike_ready:
-		return
-	b.spike_ready = tick + int(round(SPIKE_COOLDOWN * TICK_RATE))
-	_talent(b, "thorn", point)
-	if cut < 1.0 and _hazard(b, SPIKE_DAMAGE * (1.0 - cut), "spike", point):
-		events.append({"type": "spike", "ball": b.index, "pos": point})
 
 
 ## The course's moving parts and thorns: a bounce in the part's own frame
@@ -468,6 +615,8 @@ func _hit_movers(b: Ball, hit: Dictionary) -> void:
 		var dist2 := d.length_squared()
 		if dist2 >= reach * reach or dist2 < 0.0001:
 			continue
+		if b.index < starters and _phase(b):
+			continue # Ghost Step: it passes through.
 		var n := d / sqrt(dist2)
 		b.pos = o.pos + n * reach
 		var rel: Vector2 = b.vel - o.get("vel", Vector2.ZERO)
@@ -476,7 +625,6 @@ func _hit_movers(b: Ball, hit: Dictionary) -> void:
 			continue
 		if o.kind == "bumper":
 			b.vel += n * (maxf(-vn * PlungeCourse.PEG_BOUNCE, PlungeCourse.BUMPER_KICK) - vn)
-			_spring(b, n, o.pos + n * o.radius)
 		else:
 			b.vel -= n * vn * (1.0 + PlungeCourse.PEG_BOUNCE)
 			if o.kind == "spike" and b.index < starters:
@@ -511,22 +659,30 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			if dist >= reach:
 				continue
 			var n := delta / dist if dist > 0.0001 else Vector2.RIGHT
+			if j < starters and (_phase(a) or _phase(b)):
+				continue # Ghost Step: it passes through.
 			var overlap := reach - dist
-			a.pos -= n * overlap * 0.5
-			b.pos += n * overlap * 0.5
 			var approach := (a.vel - b.vel).dot(n)
+			# Heavy Star: rivals push it less (and it them more).
+			var a_heavy := 1.0 + _sig(a, "orbit") * HEAVY_BUMP
+			var b_heavy := 1.0 + _sig(b, "orbit") * HEAVY_BUMP
+			var a_push := 0.5 if a_heavy == b_heavy else b_heavy / (a_heavy + b_heavy)
+			a.pos -= n * overlap * a_push
+			b.pos += n * overlap * (1.0 - a_push)
 			if approach <= 0.0:
 				continue
 			var a_share := clampf(a.vel.dot(n) / approach, 0.0, 1.0)
-			var impulse := approach * (1.0 + RACER_BOUNCE) * 0.5
-			a.vel -= n * impulse
-			b.vel += n * impulse
+			var impulse := approach * (1.0 + RACER_BOUNCE)
+			a.vel -= n * impulse * a_push
+			b.vel += n * impulse * (1.0 - a_push)
 			a.speed = a.vel.length()
 			b.speed = b.vel.length()
 			if approach < BUMP_MIN:
 				continue
 			var contact := a.pos + n * a.radius
 			events.append({"type": "collide", "a": i, "b": j, "pos": contact})
+			if a_heavy != b_heavy:
+				_talent(a if a_heavy > b_heavy else b, "orbit", contact)
 			abilities.fire(self, "bump", a, {"other": b})
 			abilities.fire(self, "bump", b, {"other": a})
 			var key := "%d:%d" % [i, j]
@@ -537,6 +693,29 @@ func _resolve_ball_collisions(hits: Array[Dictionary]) -> void:
 			var force := minf(2.0, approach / 500.0)
 			hits.append({"source": i, "target": j, "amount": a.contact_damage * force * _impact_scale(a_share) * _strike(a, b), "kind": "contact", "pos": b.pos})
 			hits.append({"source": j, "target": i, "amount": b.contact_damage * force * _impact_scale(1.0 - a_share) * _strike(b, a), "kind": "contact", "pos": a.pos})
+			_scorch(a, b, contact)
+			_scorch(b, a, contact)
+
+
+## Ghost Step: whether racer `b` passes through rivals and moving parts now.
+## A touch while its phase is ready starts one.
+func _phase(b: Ball) -> bool:
+	if tick < _phase_until[b.index]:
+		return true
+	if _sig(b, "portal") <= 0.0 or tick < _sig_ready[b.index]:
+		return false
+	_phase_until[b.index] = tick + int(round(PHASE_SECS * TICK_RATE))
+	_sig_ready[b.index] = tick + int(round(_every(b, "portal") * TICK_RATE))
+	_talent(b, "portal", b.pos)
+	return true
+
+
+## Fire's Scorch: `b`'s hard bump on `other` sets it burning.
+func _scorch(b: Ball, other: Ball, at: Vector2) -> void:
+	var share := _sig(b, "lava")
+	if share > 0.0:
+		add_burn(b, other, SIGNATURES.lava * share, SCORCH_SECS)
+		_talent(b, "lava", at)
 
 
 ## A racer the course's hazards act on: still racing and out of the gate.
@@ -555,13 +734,12 @@ func _update_wells() -> void:
 			var dist := d.length()
 			if dist <= w.core or dist >= w.reach:
 				continue
-			b.vel += d / dist * w.accel * (1.0 - dist / w.reach) * (1.0 - _sig(b, "orbit") * SIGNATURES.orbit) * DT
+			b.vel += d / dist * w.accel * (1.0 - dist / w.reach) * DT
 
 
 ## Goo drags, lava burns (in half-second ticks, under the fight's hazard
 ## cap), wind pushes, a portal sends a racer on to its exit at the same
-## speed, and a launch pad throws a racer that falls onto it. Signature
-## talents soften goo, wind and lava, and add to portals and pads.
+## speed, and a launch pad throws a racer that falls onto it.
 func _update_floors() -> void:
 	var pads := floors()
 	for f in pads:
@@ -570,7 +748,7 @@ func _update_floors() -> void:
 				continue
 			if f.kind == "wind":
 				if f.rect.has_point(b.pos):
-					b.vel += f.dir * f.accel * (1.0 - _sig(b, "current") * SIGNATURES.current) * DT
+					b.vel += f.dir * f.accel * DT
 				continue
 			if f.kind == "portal" or f.kind == "launch":
 				if b.pos.distance_squared_to(f.pos) > f.radius * f.radius * 0.36:
@@ -579,31 +757,22 @@ func _update_floors() -> void:
 					b.portal_ready = tick + int(round(PORTAL_COOLDOWN * TICK_RATE))
 					events.append({"type": "portal", "ball": b.index, "from": b.pos, "to": pads[f.to].pos})
 					b.pos = pads[f.to].pos
-					if _sig(b, "portal") > 0.0:
-						b.vel.y = maxf(b.vel.y, 0.0) + _sig(b, "portal") * SIGNATURES.portal * MAX_SPEED
-						_talent(b, "portal", b.pos)
 				elif f.kind == "launch" and tick >= b.launch_ready and b.vel.y > 0.0:
 					b.launch_ready = tick + TICK_RATE
-					b.vel = f.kick * (1.0 + _sig(b, "spring") * SIGNATURES.spring)
-					if _sig(b, "spring") > 0.0:
-						_talent(b, "spring", f.pos)
+					b.vel = f.kick
 					events.append({"type": "course_hit", "ball": b.index, "peg": null, "bumper": true, "pos": f.pos})
 				continue
 			if not on_floor(f, b.pos, b.radius * 0.5):
 				continue
 			if f.kind == "goo":
-				b.vel *= 1.0 - PlungeCourse.GOO_DRAG * (1.0 - _sig(b, "current") * SIGNATURES.current) * DT
+				b.vel *= 1.0 - PlungeCourse.GOO_DRAG * DT
 			elif f.kind == "lava" and tick >= b.lava_ready:
 				b.lava_ready = tick + TICK_RATE / 2
-				var cut := _sig(b, "lava") * SIGNATURES.lava
-				if cut > 0.0:
-					_talent(b, "lava", b.pos)
-				if cut < 1.0 and _hazard(b, LAVA_DPS * 0.5 * (1.0 - cut), "lava", b.pos):
+				if _hazard(b, LAVA_DPS * 0.5, "lava", b.pos):
 					events.append({"type": "lava", "ball": b.index, "pos": b.pos})
 
 
 ## Pickups as in a fight, and a power core also rushes its taker down.
-## Tech's signature rushes it harder; Nature's heals it more.
 func _update_cores() -> void:
 	var from := events.size()
 	super._update_cores()
@@ -611,18 +780,8 @@ func _update_cores() -> void:
 		var e: Dictionary = events[k]
 		if e.type == "core":
 			var b := balls[e.ball]
-			b.vel.y = maxf(b.vel.y, 0.0) + RUSH * (1.0 + _sig(b, "core") * SIGNATURES.core)
+			b.vel.y = maxf(b.vel.y, 0.0) + RUSH
 			b.speed = b.vel.length()
-			if _sig(b, "core") > 0.0:
-				_talent(b, "core", b.pos)
-		elif e.type == "pickup" and e.kind == "heal" and _sig(balls[e.ball], "thorn") > 0.0:
-			var b := balls[e.ball]
-			var more := minf(b.max_hp * HEAL_PICKUP * _sig(b, "thorn") * SIGNATURES.thorn, b.max_hp - b.hp)
-			if more > 0.0:
-				b.hp += more
-				b.healed += more
-				events.append({"type": "heal", "target": b.index, "amount": more, "pos": b.pos})
-				_talent(b, "thorn", b.pos)
 
 
 ## Swinging parts (pendulums, flippers) swing `swing` radians either way

@@ -4,7 +4,8 @@
 ## already spent the energy and left the race in CritterPlunge.pending. The result pops
 ## up on the shared ResultPopup with coins, XP, league points and the
 ## Faction XP ring, paid into the game save here (meta/critter_plunge.gd); a
-## new league's crest drops in big beside the medal that reached it.
+## new league gets its own band, the old crest stepping up to the new one
+## (game/ui/plunge_ladder.gd), with the medal among the rewards.
 ## Each race opens on the course banner and a 3, 2, 1, GO! countdown
 ## (game/plunge_intro.gd; just GO! on "Race again"); the race only starts
 ## stepping on GO. The camera rides with your racer (game/plunge_view.gd),
@@ -42,6 +43,7 @@ const Analytics := preload("res://game/online/analytics.gd")
 const PlungeLeague := preload("res://meta/plunge_league.gd")
 const PlungeScreen := preload("res://game/ui/screens/plunge_screen.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
+const PlungeLadder := preload("res://game/ui/plunge_ladder.gd")
 
 const SKIP_TICKS := 360 ## Ticks a frame while skipping: fast, never a frozen frame.
 const TITLE_H := 64.0
@@ -324,22 +326,22 @@ func _result_card(place: int, knocked: bool, gains: Array) -> Control:
 	if not result.is_empty():
 		var start := ResultPopup.SLIDE_SECS + .4
 		var medal := str(result.get("medal", ""))
-		if medal != "": # The medal is the moment: it drops in big, before the rest.
+		var items: Array = [Kit.amount("coin", "+%d" % result.coins, 30)]
+		if result.get("promoted", false): # A new league is the moment: its band, the medal joins the rewards.
+			var rival: String = sim.balls[1 if you == 0 else 0].type_id
+			var band := PlungeLadder.promoted(int(result.league) - 1, int(result.league), rival, _tier, ResultPopup.PAD - 3.0)
+			body.append(band)
+			ResultPopup.drop_in([[band.get_meta("crest"), Ladder.LEAGUES[int(result.league)].color]], sfx, start)
+			start += .5
+			if medal != "":
+				items.push_front(Kit.hbox(4, [Kit.glyph("medal_" + medal, 40, Color.WHITE), Kit.label("+1", 30, Kit.FG)]))
+		elif medal != "": # The medal is the moment: it drops in big, before the rest.
 			var col: Color = MEDAL_COLORS.get(medal, Color.WHITE)
 			var hero := _hero(Kit.glyph("medal_" + medal, 96, Color.WHITE), "%s medal!" % medal.capitalize(), col)
 			hero.name = "PlungeMedal"
-			var heroes: Array = [[hero, col]]
-			if result.get("promoted", false): # A new league: its crest drops in beside it.
-				var lg: Dictionary = PlungeLeague.LEAGUES[int(result.league)]
-				var lc: Color = Ladder.LEAGUES[int(result.league)].color
-				var up := _hero(PlungeScreen.crest(int(result.league), 96), "%s league!" % lg.name, lc)
-				up.name = "PlungeLeagueUp"
-				heroes.append([up, lc])
-			var row := Kit.hbox(40, heroes.map(func(h): return h[0]), BoxContainer.ALIGNMENT_CENTER)
-			body.append(row)
-			ResultPopup.drop_in(heroes, sfx, start)
-			start += .5 + .3 * (heroes.size() - 1)
-		var items: Array = [Kit.amount("coin", "+%d" % result.coins, 30)]
+			body.append(Kit.hbox(40, [hero], BoxContainer.ALIGNMENT_CENTER))
+			ResultPopup.drop_in([[hero, col]], sfx, start)
+			start += .5
 		items.append(Kit.label("+%d XP" % result.xp, 26, Kit.MUTED))
 		if int(result.get("points", 0)) > 0: # League points: your crest and what the medal added.
 			var pts := Kit.hbox(4, [PlungeScreen.crest(int(result.league), 30), Kit.label("+%d" % result.points, 26, Ladder.LEAGUES[int(result.league)].color)])
@@ -360,7 +362,7 @@ func _result_card(place: int, knocked: bool, gains: Array) -> Control:
 	return ResultPopup.content("%s · %d racers" % [sim.course.info.name, n], outcome, body, [back, again_btn], CritterIcon.make(fighter, _tier, 72), words)
 
 
-## A big thing over its words, both centred: the medal, a new league's crest.
+## A big thing over its words, both centred: the medal.
 static func _hero(big: Control, words: String, col: Color) -> Control:
 	var hero := Kit.vbox(2, [big, Kit.label(words, 24, col, HORIZONTAL_ALIGNMENT_CENTER)])
 	hero.alignment = BoxContainer.ALIGNMENT_CENTER

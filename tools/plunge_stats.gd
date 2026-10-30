@@ -6,15 +6,19 @@
 ## (--n=all runs 4, 6 and 8; --base=1000 starts at another seed; --tier=5
 ## races the whole field at T5; --course=icicles races one course only;
 ## --jobs=4 splits the races over 4 Godot processes; --check exits 1 when
-## the balance bands below fail; --you=3 --field=5 gives racer 1 every race
-## talent of its family at rank 3 and the rest at rank 5, the way a league
-## does (meta/plunge_league.gd), and reports how racer 1 does.)
+## the balance bands below fail; --you=6 --field=10 gives racer 1 every race
+## talent of its family at rank 6 and the rest at rank 10, the way a league
+## does (meta/plunge_league.gd), and reports how racer 1 does; with them,
+## --fam=fire makes racer 1 one of that family's racers, --fam=each runs
+## every family in turn and reports what its talents gain it, and --only=sig (or
+## tough, power, swift) gives racer 1 only that talent of its tree.)
 ## It warns about any gate or racer outside its band, and about racers still
 ## on the course 12 s after the winner (placed by height).
 extends SceneTree
 
 const Plunge := preload("res://sim/plunge.gd")
 const PlungeTalents := preload("res://meta/plunge_talents.gd")
+const Families := preload("res://sim/families.gd")
 const CritterPlunge := preload("res://meta/critter_plunge.gd")
 
 ## Warn past these (fair 1.0x).
@@ -60,12 +64,19 @@ func _init() -> void:
 		if a.begins_with("--course="):
 			course = a.get_slice("=", 1)
 		if a.begins_with("--you="):
-			ranks = [int(a.get_slice("=", 1)), ranks[1] if ranks.size() > 1 else 0]
+			ranks = [int(a.get_slice("=", 1)), ranks[1] if ranks.size() > 1 else 0, ranks[2] if ranks.size() > 2 else "", ranks[3] if ranks.size() > 3 else ""]
 		if a.begins_with("--field="):
-			ranks = [ranks[0] if ranks.size() > 0 else 0, int(a.get_slice("=", 1))]
+			ranks = [ranks[0] if ranks.size() > 0 else 0, int(a.get_slice("=", 1)), ranks[2] if ranks.size() > 2 else "", ranks[3] if ranks.size() > 3 else ""]
+		if a.begins_with("--fam=") or a.begins_with("--only="):
+			while ranks.size() < 4:
+				ranks.append(0 if ranks.size() < 2 else "")
+			ranks[2 if a.begins_with("--fam=") else 3] = a.get_slice("=", 1)
 	var won := {}
 	var fair := {}
 	var gates_ok := true
+	if ranks.size() > 2 and ranks[2] == "each":
+		_each_family(sizes[0], races, base, tier, course, jobs, ranks)
+		return
 	for n in sizes:
 		var t0 := Time.get_ticks_msec()
 		var s := _measure_jobs(n, races, base, tier, course, jobs, ranks)
@@ -74,8 +85,8 @@ func _init() -> void:
 		else:
 			_report(s, Time.get_ticks_msec() - t0)
 		if not ranks.is_empty():
-			print("racer 1 at rank %d, the field at rank %d: wins %.1f%% (fair %.1f%%), knocked out %.1f%%, %.2f league points a race" % [ranks[0], ranks[1],
-				100.0 * s.you_wins / races, 100.0 / n, 100.0 * s.you_kos / races, float(s.you_points) / races])
+			print("racer 1 at rank %d, the field at rank %d: wins %.1f%% (fair %.1f%%), knocked out %.1f%%, %.2f league points a race, mean place %.2f" % [ranks[0], ranks[1],
+				100.0 * s.you_wins / races, 100.0 / n, 100.0 * s.you_kos / races, float(s.you_points) / races, float(s.you_place) / races])
 		for id in s.entries:
 			won[id] = won.get(id, 0.0) + s.wins.get(id, 0)
 			fair[id] = fair.get(id, 0.0) + float(s.entries[id]) / n
@@ -89,6 +100,28 @@ func _init() -> void:
 	if check:
 		print("CHECK %s: racers outside %.1f-%.1fx %s, gates %s" % ["ok" if bad.is_empty() and gates_ok else "FAILED", CHECK_LOW, CHECK_HIGH, bad, "ok" if gates_ok else "over %.1fx" % GATE_WARN])
 	quit(1 if check and not (bad.is_empty() and gates_ok) else 0)
+
+
+## --fam=each: racer 1 from each family in turn, with its talents and then
+## bare on the same seeds (the family's own racers aren't all even), and
+## what the talents gained it, against the mean gain over the families.
+func _each_family(n: int, races: int, base: int, tier: int, course: String, jobs: int, ranks: Array) -> void:
+	var gains := {}
+	for fam in Families.MEMBERS:
+		var r := ranks.duplicate()
+		r[2] = fam
+		var s := _measure_jobs(n, races, base, tier, course, jobs, r)
+		r[0] = 0
+		var bare := _measure_jobs(n, races, base, tier, course, jobs, r)
+		gains[fam] = 100.0 * (s.you_wins - bare.you_wins) / races
+		print("%-7s wins %.1f%% (bare %.1f%%, fair %.1f%%): %+.1f points, knocked out %.1f%%, mean place %.2f (bare %.2f)" % [fam, 100.0 * s.you_wins / races,
+			100.0 * bare.you_wins / races, 100.0 / n, gains[fam], 100.0 * s.you_kos / races, float(s.you_place) / races, float(bare.you_place) / races])
+	var mean := 0.0
+	for fam in gains:
+		mean += gains[fam]
+	mean /= gains.size()
+	print("mean gain %.1f points: %s" % [mean, " ".join(gains.keys().map(func(f): return "%s %.2fx" % [f, gains[f] / mean if mean != 0.0 else 0.0]))])
+	quit(0)
 
 
 func _report(s: Dictionary, ms: int) -> void:
@@ -125,7 +158,8 @@ static func measure(n: int, races: int, base := 1, tier := 1, course := "") -> D
 
 ## Raw counts for `races` races from seed `base`: they add up across runs
 ## (merge), so a run can be split over processes.
-## `ranks`: [racer 1's talent rank, the rest's], or [] for none.
+## `ranks`: [racer 1's talent rank, the rest's, racer 1's family or "", the
+## one talent racer 1 gets ("sig" for its signature) or "" for all], or [] for none.
 static func tally(n: int, races: int, base := 1, tier := 1, course := "", ranks := []) -> Dictionary:
 	var gate_wins := []
 	gate_wins.resize(n)
@@ -141,20 +175,32 @@ static func tally(n: int, races: int, base := 1, tier := 1, course := "", ranks 
 	var you_wins := 0
 	var you_points := 0
 	var you_kos := 0
+	var you_place := 0
+	var fam: String = ranks[2] if ranks.size() > 2 else ""
+	var only: String = ranks[3] if ranks.size() > 3 else ""
 	for seed in range(base, base + races):
 		var field: Array = Plunge.draw_field(seed, n)
+		if fam != "":
+			var mine: Array = Families.MEMBERS[fam].filter(func(id): return Plunge.can_race(id))
+			var id: String = mine[seed % mine.size()]
+			field = [id] + Plunge.draw_field(seed, n - 1, [id])
 		var cfg := {"seed": seed, "racers": field, "tiers": field.map(func(_id): return tier)}
 		if course != "":
 			cfg.course = course
 		if not ranks.is_empty():
 			cfg.boosts = []
 			for k in n:
-				cfg.boosts.append(PlungeTalents.at_rank(field[k], ranks[0] if k == 0 else ranks[1]))
+				var fx := PlungeTalents.at_rank(field[k], ranks[0] if k == 0 else ranks[1])
+				if k == 0 and only != "":
+					var key: String = PlungeTalents.signature(Families.of(field[0])).id if only == "sig" else only
+					fx = {key: fx.get(key, 0.0)}
+				cfg.boosts.append(fx)
 		var p := Plunge.new(cfg)
 		var res := p.run()
 		var w: int = res.order[0]
 		if w == 0:
 			you_wins += 1
+		you_place += p.places[0]
 		if p.ko_ticks[0] >= 0:
 			you_kos += 1
 		else:
@@ -180,7 +226,7 @@ static func tally(n: int, races: int, base := 1, tier := 1, course := "", ranks 
 				stuck_at[where] = stuck_at.get(where, 0) + 1
 		courses[p.course.info.id] = c
 	return {"n": n, "races": races, "kos": kos, "entries": entries, "wins": wins, "knocked": knocked, "times": times,
-		"stuck": stuck, "stuck_at": stuck_at, "gate_wins": gate_wins, "courses": courses, "you_wins": you_wins, "you_points": you_points, "you_kos": you_kos}
+		"stuck": stuck, "stuck_at": stuck_at, "gate_wins": gate_wins, "courses": courses, "you_wins": you_wins, "you_points": you_points, "you_kos": you_kos, "you_place": you_place}
 
 
 static func _section_at(p, y: float) -> String:
@@ -198,6 +244,7 @@ static func merge(a: Dictionary, b: Dictionary) -> void:
 	a.you_wins += int(b.you_wins)
 	a.you_points += int(b.you_points)
 	a.you_kos += int(b.you_kos)
+	a.you_place += int(b.you_place)
 	a.times.append_array(b.times)
 	for g in a.gate_wins.size():
 		a.gate_wins[g] += int(b.gate_wins[g])
