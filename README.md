@@ -180,7 +180,15 @@ spent on per-family race talents (1 gold = 2 silver = 4 bronze): two shared
 stat talents plus the family's signature, which changes how one course piece
 treats its racers (Fire shrugs off lava, Cosmic is pulled less by wells, Spooky
 shoots out of portals...; `PlungeTalents.SIGNATURES`, effects at full rank in
-`Plunge.SIGNATURES`, passed per racer as `boosts`). The best medal on each
+`Plunge.SIGNATURES`, passed per racer as `boosts`). Medals also climb the
+Plunge league (`meta/plunge_league.gd`, the arena's six leagues and crests):
+league points are every medal ever won (gold 4, silver 2, bronze 1, kept in
+`Profile.plunge.points`; spending medals never lowers them, so a league is never
+lost), and `PlungeLeague.LEAGUES` holds each league's points, the rank the CPU
+field gets in every talent of its own family's tree (Bronze 0 to Neon 5) and its
+coin multiplier (1x to 2x, still only the 8 prize races). Your racer keeps the
+talents you bought, so matching your league keeps a race near fair
+(`plunge_stats.gd --you=3 --field=3`). The best medal on each
 course is its stamp (`Profile.plunge_stamps`, the stamp album). The next race's
 seed comes from the profile (`CritterPlunge.next_seed`), so the Plunge screen
 paints its course before you race (`?demo=1&plunge=1` adds talents, medals and

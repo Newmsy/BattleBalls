@@ -6,12 +6,16 @@
 ## (--n=all runs 4, 6 and 8; --base=1000 starts at another seed; --tier=5
 ## races the whole field at T5; --course=icicles races one course only;
 ## --jobs=4 splits the races over 4 Godot processes; --check exits 1 when
-## the balance bands below fail.)
+## the balance bands below fail; --you=3 --field=5 gives racer 1 every race
+## talent of its family at rank 3 and the rest at rank 5, the way a league
+## does (meta/plunge_league.gd), and reports how racer 1 does.)
 ## It warns about any gate or racer outside its band, and about racers still
 ## on the course 12 s after the winner (placed by height).
 extends SceneTree
 
 const Plunge := preload("res://sim/plunge.gd")
+const PlungeTalents := preload("res://meta/plunge_talents.gd")
+const CritterPlunge := preload("res://meta/critter_plunge.gd")
 
 ## Warn past these (fair 1.0x).
 const GATE_WARN := 1.4
@@ -34,6 +38,7 @@ func _init() -> void:
 	var jobs := 1
 	var course := ""
 	var check := false
+	var ranks := []
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--worker="):
 			_work(a.get_slice("=", 1))
@@ -54,16 +59,23 @@ func _init() -> void:
 			jobs = int(a.get_slice("=", 1))
 		if a.begins_with("--course="):
 			course = a.get_slice("=", 1)
+		if a.begins_with("--you="):
+			ranks = [int(a.get_slice("=", 1)), ranks[1] if ranks.size() > 1 else 0]
+		if a.begins_with("--field="):
+			ranks = [ranks[0] if ranks.size() > 0 else 0, int(a.get_slice("=", 1))]
 	var won := {}
 	var fair := {}
 	var gates_ok := true
 	for n in sizes:
 		var t0 := Time.get_ticks_msec()
-		var s := _measure_jobs(n, races, base, tier, course, jobs)
+		var s := _measure_jobs(n, races, base, tier, course, jobs, ranks)
 		if as_json:
 			print("JSON ", JSON.stringify(s))
 		else:
 			_report(s, Time.get_ticks_msec() - t0)
+		if not ranks.is_empty():
+			print("racer 1 at rank %d, the field at rank %d: wins %.1f%% (fair %.1f%%), knocked out %.1f%%, %.2f league points a race" % [ranks[0], ranks[1],
+				100.0 * s.you_wins / races, 100.0 / n, 100.0 * s.you_kos / races, float(s.you_points) / races])
 		for id in s.entries:
 			won[id] = won.get(id, 0.0) + s.wins.get(id, 0)
 			fair[id] = fair.get(id, 0.0) + float(s.entries[id]) / n
@@ -113,7 +125,8 @@ static func measure(n: int, races: int, base := 1, tier := 1, course := "") -> D
 
 ## Raw counts for `races` races from seed `base`: they add up across runs
 ## (merge), so a run can be split over processes.
-static func tally(n: int, races: int, base := 1, tier := 1, course := "") -> Dictionary:
+## `ranks`: [racer 1's talent rank, the rest's], or [] for none.
+static func tally(n: int, races: int, base := 1, tier := 1, course := "", ranks := []) -> Dictionary:
 	var gate_wins := []
 	gate_wins.resize(n)
 	gate_wins.fill(0)
@@ -125,14 +138,27 @@ static func tally(n: int, races: int, base := 1, tier := 1, course := "") -> Dic
 	var stuck_at := {}
 	var times: Array = []
 	var courses := {}
+	var you_wins := 0
+	var you_points := 0
+	var you_kos := 0
 	for seed in range(base, base + races):
 		var field: Array = Plunge.draw_field(seed, n)
 		var cfg := {"seed": seed, "racers": field, "tiers": field.map(func(_id): return tier)}
 		if course != "":
 			cfg.course = course
+		if not ranks.is_empty():
+			cfg.boosts = []
+			for k in n:
+				cfg.boosts.append(PlungeTalents.at_rank(field[k], ranks[0] if k == 0 else ranks[1]))
 		var p := Plunge.new(cfg)
 		var res := p.run()
 		var w: int = res.order[0]
+		if w == 0:
+			you_wins += 1
+		if p.ko_ticks[0] >= 0:
+			you_kos += 1
+		else:
+			you_points += PlungeTalents.VALUE.get(CritterPlunge.medal_for(p.places[0], n), 0)
 		gate_wins[p.lanes[w]] += 1
 		kos += res.kos.size()
 		times.append(res.win_time)
@@ -154,7 +180,7 @@ static func tally(n: int, races: int, base := 1, tier := 1, course := "") -> Dic
 				stuck_at[where] = stuck_at.get(where, 0) + 1
 		courses[p.course.info.id] = c
 	return {"n": n, "races": races, "kos": kos, "entries": entries, "wins": wins, "knocked": knocked, "times": times,
-		"stuck": stuck, "stuck_at": stuck_at, "gate_wins": gate_wins, "courses": courses}
+		"stuck": stuck, "stuck_at": stuck_at, "gate_wins": gate_wins, "courses": courses, "you_wins": you_wins, "you_points": you_points, "you_kos": you_kos}
 
 
 static func _section_at(p, y: float) -> String:
@@ -169,6 +195,9 @@ static func merge(a: Dictionary, b: Dictionary) -> void:
 	a.races += int(b.races)
 	a.kos += int(b.kos)
 	a.stuck += int(b.stuck)
+	a.you_wins += int(b.you_wins)
+	a.you_points += int(b.you_points)
+	a.you_kos += int(b.you_kos)
 	a.times.append_array(b.times)
 	for g in a.gate_wins.size():
 		a.gate_wins[g] += int(b.gate_wins[g])
@@ -198,10 +227,10 @@ static func summarize(t: Dictionary) -> Dictionary:
 
 ## Splits the races over `jobs` Godot processes (the sim is not thread-safe;
 ## processes share nothing), each a run of seeds.
-func _measure_jobs(n: int, races: int, base: int, tier: int, course: String, jobs: int) -> Dictionary:
+func _measure_jobs(n: int, races: int, base: int, tier: int, course: String, jobs: int, ranks: Array) -> Dictionary:
 	jobs = clampi(jobs, 1, races)
 	if jobs == 1:
-		return summarize(tally(n, races, base, tier, course))
+		return summarize(tally(n, races, base, tier, course, ranks))
 	var stem := "user://plunge_stats_%d_" % OS.get_process_id()
 	var running := []
 	var from := base
@@ -210,7 +239,7 @@ func _measure_jobs(n: int, races: int, base: int, tier: int, course: String, job
 		var path := ProjectSettings.globalize_path(stem + str(w) + ".bin")
 		DirAccess.remove_absolute(path + ".out")
 		var f := FileAccess.open(path, FileAccess.WRITE)
-		f.store_var({"n": n, "races": count, "base": from, "tier": tier, "course": course})
+		f.store_var({"n": n, "races": count, "base": from, "tier": tier, "course": course, "ranks": ranks})
 		f.close()
 		from += count
 		var pid := OS.create_process(OS.get_executable_path(), ["--headless", "--quiet", "--path", ProjectSettings.globalize_path("res://"),
@@ -241,7 +270,7 @@ func _work(path: String) -> void:
 	var job: Dictionary = f.get_var()
 	f.close()
 	var o := FileAccess.open(path + ".tmp", FileAccess.WRITE)
-	o.store_var(tally(job.n, job.races, job.base, job.tier, job.course))
+	o.store_var(tally(job.n, job.races, job.base, job.tier, job.course, job.ranks))
 	o.close()
 	DirAccess.rename_absolute(path + ".tmp", path + ".out")
 	quit(0)
