@@ -1,7 +1,7 @@
 ## Critter Plunge race talents, a sheet over the Plunge screen: your medals,
 ## the nine families (yours picked first), each with a bar of the ranks it
 ## has and dimmed when you own none of its racers, and the picked family's
-## three talents (two shared, then its signature in the family's colour),
+## four talents (three shared, then its signature in the family's colour),
 ## each with its rank, what it does on the course, what the next rank costs
 ## and Buy (meta/plunge_talents.gd). Fits one phone screen.
 extends RefCounted
@@ -43,7 +43,7 @@ static func _build(shell, racer: String) -> Control:
 		mid.add_child(icon)
 		b.add_child(mid)
 		shell.mark("plunge_fam_" + fam, b)
-		var cell := Kit.vbox(4, [b, Kit.bar(float(PlungeTalents.ranks(p, fam)) / (PlungeTalents.MAX_RANK * 3), FamilyIcon.color(fam), 6)])
+		var cell := Kit.vbox(4, [b, Kit.bar(float(PlungeTalents.ranks(p, fam)) / (PlungeTalents.MAX_RANK * PlungeTalents.talents(fam).size()), FamilyIcon.color(fam), 6)])
 		if not on and not races_for(p, fam):
 			cell.modulate.a = 0.4 # No racer of yours to use it.
 		fams.add_child(cell)
@@ -100,6 +100,7 @@ static func _talent_row(shell, racer: String, tal: Dictionary) -> Control:
 			shell.close_overlay()
 			open(shell, racer), "go" if can else "ghost", 22, 60)
 		buy.disabled = not can
+		buy.custom_minimum_size.x = 128 # As wide whatever the price beside it.
 		shell.mark("plunge_buy_" + tal.id, buy)
 		row.add_child(Kit.vbox(4, [price, buy]))
 	if sig:
