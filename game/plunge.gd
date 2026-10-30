@@ -48,10 +48,11 @@ const PlungeLadder := preload("res://game/ui/plunge_ladder.gd")
 const SKIP_TICKS := 360 ## Ticks a frame while skipping: fast, never a frozen frame.
 const TITLE_H := 64.0
 const AFTER_YOU := 1.5 ## Seconds watched after your racer is done, then skip to the result.
-const SLOW_RATE := 0.3 ## The photo finish's speed...
-const SLOW_SECS := 0.8 ## ...for at most this long (real seconds).
-const PHOTO_ZONE := 120.0 ## World px before the line where a photo finish can start...
-const PHOTO_GAP := 40.0 ## ...with a rival this close to your racer.
+const SLOW_RATE := 0.3 ## The finish slow-mo's speed...
+const SLOW_SECS := 3.0 ## ...for at most this long (real seconds).
+const SLOW_AFTER := 0.6 ## Real seconds it holds once your racer is over the line.
+const PHOTO_ZONE := 420.0 ## World px before the line where the slow-mo can start...
+const PHOTO_GAP := 160.0 ## ...with your racer in front or a rival this close.
 const MEDAL_COLORS := {"gold": Color("ffd36b"), "silver": Color("d9e2ec"), "bronze": Color("e0a46a")}
 
 ## Set by "Race again": the next race's countdown is just GO!.
@@ -228,21 +229,27 @@ func _after_your_race(delta: float) -> void:
 		_skipping = true
 
 
-## A close finish: your racer near the line with a rival right by it slows
-## the view onto your racer for a moment (once a race; not when only watching).
+## The run-in: your racer near the line, in front or on the podium with a
+## rival right by it, slows the view onto your racer until it is over (once a race; not
+## when only watching).
 func _photo_finish() -> void:
 	if you < 0 or _slow_used or not sim.racing(0):
 		return
 	var y: float = sim.balls[0].pos.y
 	if sim.finish_y - y > PHOTO_ZONE:
 		return
+	var place: int = sim.standings().find(0)
+	var go: bool = place == 0
 	for j in range(1, sim.starters):
-		var close: bool = sim.racing(j) and absf(sim.balls[j].pos.y - y) <= PHOTO_GAP
-		if close or (sim.finish_ticks[j] >= 0 and sim.tick - sim.finish_ticks[j] <= 6):
-			_slow_used = true
-			_slow = SLOW_SECS
-			view.lock_you = true
-			return
+		if go or place > 2:
+			break
+		go = sim.racing(j) and absf(sim.balls[j].pos.y - y) <= PHOTO_GAP
+	if go:
+		_slow_used = true
+		_slow = SLOW_SECS
+		view.lock_you = true
+		view.follow = -1
+		strip.follow = -1
 
 
 ## The race's own sounds; the abilities' come from sfx.consume_events, as in a fight.
@@ -260,7 +267,7 @@ func _sounds(events: Array) -> void:
 				if _slow > 0.0:
 					view.flash_line()
 					if e.racer == 0:
-						_slow = minf(_slow, 0.3) # A beat to see it, then on.
+						_slow = minf(_slow, SLOW_AFTER) # A beat to see it, then on.
 
 
 func _skip_race() -> void:
