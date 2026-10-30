@@ -63,23 +63,23 @@ const MOVER_SPEED := 340.0
 const COURSES := [
 	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "plan": ["spiral", "canes", "goo", "spiral", "canes"]},
 	{"id": "honey", "name": "Honey Chute", "art": "hive", "plan": ["comb", "flow", "goo", "comb"]},
-	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "plan": ["stair", "sundisc", "sliders", "stair"]},
+	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "plan": ["stair", "sundisc", "sliders"]},
 	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "plan": ["vines", "stumps", "sliders", "vines", "stumps"]},
 	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "plan": ["orbits", "warps", "wells", "orbits", "warps"]},
 	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "plan": ["asteroids", "bumpers", "wells", "asteroids", "bumpers"]},
 	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "plan": ["kelp", "currents", "wells", "kelp", "currents"]},
 	{"id": "trench", "name": "Deep Trench", "art": "trench", "plan": ["trench", "wells", "trench", "bumpers"]},
-	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "plan": ["trampolines", "sliders", "trampolines", "currents", "trampolines"]},
+	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "plan": ["trampolines", "sliders", "currents", "trampolines"]},
 	{"id": "storm", "name": "Storm Front", "art": "storm", "plan": ["gusts", "bumpers", "wells", "gusts", "bumpers"]},
-	{"id": "icicles", "name": "Icicle Run", "art": "frost", "plan": ["slalom", "goo", "mirrors", "slalom"]},
+	{"id": "icicles", "name": "Icicle Run", "art": "frost", "plan": ["slalom", "goo", "mirrors"]},
 	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "plan": ["mirrors", "spinners", "sliders", "mirrors", "spinners"]},
-	{"id": "lava", "name": "Lava Tubes", "art": "magma", "plan": ["tubes", "lava", "bumpers", "tubes"]},
+	{"id": "lava", "name": "Lava Tubes", "art": "magma", "plan": ["tubes", "lava", "bumpers"]},
 	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "plan": ["highway", "sliders", "highway"]},
 	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "plan": ["blocks", "warps", "lava", "blocks", "warps"]},
 	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "plan": ["dunes", "goo", "stumps", "dunes"]},
 	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "plan": ["tombs", "goo", "tombs", "bookcase", "tombs"]},
 	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "plan": ["staircase", "bookcase", "wells", "staircase", "bookcase"]},
-	{"id": "toys", "name": "Toy Chest", "art": "toybox", "plan": ["train", "tops", "sliders", "jacks", "tops"]},
+	{"id": "toys", "name": "Toy Chest", "art": "toybox", "plan": ["train", "tops", "sliders", "jacks"]},
 	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "plan": ["pops", "flippers", "sliders", "pops", "flippers"]},
 ]
 
@@ -476,12 +476,13 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 				_peg(WIDTH / 2.0, ty + 165.0, 55.0)
 			h = 4 * drop + 160.0
 		"canes":
-			# Candy canes: short slanted bars in staggered rows.
+			# Candy canes: short slanted bars in staggered rows, a racer-wide
+			# gap between one row's ends and the next's.
 			for row in 5:
 				var ry := y0 + 60.0 + row * 130.0
 				var xs := [200.0, 500.0, 800.0] if row % 2 == 0 else [350.0, 650.0]
 				for k in xs.size():
-					var tilt := Vector2(57.0, 40.0) if (row + k) % 2 == 0 else Vector2(57.0, -40.0)
+					var tilt := Vector2(48.0, 34.0) if (row + k) % 2 == 0 else Vector2(48.0, -34.0)
 					_seg(Vector2(xs[k], ry) - tilt, Vector2(xs[k], ry) + tilt, {"look": "cane"})
 				if row % 2 == 1:
 					_kickers(ry)
@@ -498,21 +499,25 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 						Vector2(cx, ry + 140.0), Vector2(cx - 60.0, ry + 105.0), Vector2(cx - 60.0, ry + 35.0)], {"look": "comb"})
 				if row % 2 == 1:
 					_kickers(ry + 70.0)
+				else:
+					# The wall cells' tops slope into the wall: a kicker there
+					# so nobody comes to rest in the corner.
+					_kickers(ry)
 			h = 4 * 190.0 + 40.0
 		"flow":
 			# Honey flows: switchback belts that carry racers along.
-			_switchbacks(y0, 3, 160.0, WIDTH - 180.0, 0.55, {"belt": 330.0, "look": "belt"})
+			_switchbacks(y0, 3, 160.0, WIDTH - 180.0, 0.65, {"belt": 330.0, "look": "belt"})
 			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 250.0), "heal")
 			h = 3 * 160.0 + 120.0
 		"highway":
 			# The strip: long gentle switchbacks, fast belts, and a jump pad
 			# off one road onto the next.
-			_switchbacks(y0, 3, 200.0, WIDTH - 170.0, 0.6, {"belt": 360.0, "look": "belt"})
+			_switchbacks(y0, 3, 200.0, WIDTH - 170.0, 0.7, {"belt": 360.0, "look": "belt"})
 			_pad(Vector2(120.0, y0 + 40.0 + 200.0 + 120.0 + 70.0), Vector2(560.0, -140.0))
 			h = 3 * 200.0 + 120.0
 		"train":
 			# The toy train: belts down switchback tracks.
-			_switchbacks(y0, 3, 170.0, WIDTH - 180.0, 0.55, {"belt": 420.0, "look": "belt"})
+			_switchbacks(y0, 3, 170.0, WIDTH - 180.0, 0.65, {"belt": 420.0, "look": "belt"})
 			h = 3 * 170.0 + 120.0
 		"stair":
 			# The temple's grand stair: full-width steps, each with its gap
@@ -616,9 +621,9 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 				var by := y0 + 260.0 + k * 230.0
 				_wind(Rect2(306.0, by, WIDTH - 612.0, 110.0), Vector2.RIGHT if k % 2 == 0 else Vector2.LEFT, 650.0, 1.8)
 				if k % 2 == 0:
-					_seg(Vector2(306.0, by + 140.0), Vector2(520.0, by + 200.0), {"look": "stone"})
+					_seg(Vector2(300.0, by + 140.0), Vector2(520.0, by + 200.0), {"look": "stone"})
 				else:
-					_seg(Vector2(WIDTH - 306.0, by + 140.0), Vector2(WIDTH - 520.0, by + 200.0), {"look": "stone"})
+					_seg(Vector2(WIDTH - 300.0, by + 140.0), Vector2(WIDTH - 520.0, by + 200.0), {"look": "stone"})
 		"trampolines":
 			# Cloud trampolines: puffy cups with a launch pad in the middle.
 			var rows := [[270.0, 730.0], [500.0], [270.0, 730.0]]
@@ -656,12 +661,13 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 				_curve(a, c, b, {"ice": true, "look": "ice"})
 			h = 4 * drop + 120.0
 		"mirrors":
-			# Crystal mirrors at 45 degrees in a diamond grid: ricochets.
+			# Crystal mirrors at 45 degrees in a diamond grid: ricochets, a
+			# racer-wide gap between one row's ends and the next's.
 			for row in 5:
 				var ry := y0 + 60.0 + row * 140.0
 				var xs := [170.0, 390.0, 610.0, 830.0] if row % 2 == 0 else [280.0, 500.0, 720.0]
 				for k in xs.size():
-					var tilt := Vector2(40.0, 40.0) if (row + k) % 2 == 0 else Vector2(40.0, -40.0)
+					var tilt := Vector2(35.0, 35.0) if (row + k) % 2 == 0 else Vector2(35.0, -35.0)
 					_seg(Vector2(xs[k], ry) - tilt, Vector2(xs[k], ry) + tilt, {"look": "crystal"})
 				if row % 2 == 1:
 					_kickers(ry)
@@ -687,8 +693,9 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 					c.x = WIDTH - c.x
 					b.x = WIDTH - b.x
 				_curve(a, c, b, {"look": "pipe"})
-				var prev := _bez(a, c, b, 0.375) - Vector2(0.0, 115.0)
-				for k in range(4, 8):
+				# The roof starts a racer-wide gap under the tube above.
+				var prev := _bez(a, c, b, 0.55) - Vector2(0.0, 115.0)
+				for k in range(5, 8):
 					var p := _bez(a, c, b, k / 8.0) - Vector2(0.0, 115.0)
 					_seg(prev, p, {"look": "pipe"})
 					prev = p
@@ -725,9 +732,10 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 					prev = nxt
 			h = 2 * 300.0 + 120.0
 		"tombs":
-			# Tombstones in crooked rows, thorns that snap out between them.
+			# Tombstones in crooked rows, thorns that snap out between them; the
+			# first row a racer-wide drop under the opening lips.
 			for row in 5:
-				var ry := y0 + 70.0 + row * 160.0
+				var ry := y0 + 80.0 + row * 160.0
 				var xs := [200.0, 500.0, 800.0] if row % 2 == 0 else [350.0, 650.0]
 				for k in xs.size():
 					var lean := 14.0 if (row + k) % 2 == 0 else -14.0
