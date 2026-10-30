@@ -34,7 +34,7 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 9
+const RACE_RULES := 10
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
 const RADIUS := 30.0 ## Every racer races this size, whatever its fight size.
@@ -81,7 +81,8 @@ const SWIFT_DRAG := 1.5
 ## Each family's signature race talent at full share (rank 10). Every one
 ## works in every race, on every course:
 ## lava (Scorch): its hard bumps set the rival burning, this many HP a second
-##   for SCORCH_SECS.
+##   for SCORCH_SECS, and it runs hot: SCORCH_TOP times its share more top
+##   speed and gravity for SCORCH_HOT seconds.
 ## ice (Ice Skates): every ramp is slick for it: pushed along downhill by this
 ##   share of an icy ramp's push (on icy ramps and belts, on top of theirs).
 ## current (Wave Rider): share of the speed a stagger takes that it keeps,
@@ -101,19 +102,24 @@ const SWIFT_DRAG := 1.5
 ## thorn (Regrowth): seconds between regrowing REGROW_HEAL of its max HP and
 ##   shaking off slows and stuns (then rolling on at REGROW_SURGE), from
 ##   SLOW_EVERY.thorn at the lowest share.
-const SIGNATURES := {"lava": 18.0, "ice": 0.8, "current": 1.0, "orbit": 0.12, "core": 4.0,
-	"shield": 0.25, "portal": 2.0, "spring": 0.12, "thorn": 1.5}
+const SIGNATURES := {"lava": 14.0, "ice": 0.8, "current": 1.0, "orbit": 0.15, "core": 4.0,
+	"shield": 0.16, "portal": 2.5, "spring": 0.15, "thorn": 1.5}
 const SLOW_EVERY := {"core": 9.0, "portal": 8.0, "thorn": 5.0}
-const SCORCH_SECS := 3.0
+## Scorch is short (at full rank its burn ticks still stagger) and its
+## racer runs hot: a 3 s burn of 18 HP/s took a third of a bare racer's HP
+## and won Fire little (a bare racer in a Neon field was knocked out 39%).
+const SCORCH_SECS := 1.5
+const SCORCH_TOP := 0.4
+const SCORCH_HOT := 1.5
 const HEAVY_BUMP := 1.0
 const SHIELD_AGAIN := 1.0
-const PHASE_SECS := 0.8
+const PHASE_SECS := 0.6
 const WAVE_SURGE := 350.0
 const REGROW_HEAL := 0.05
-const REGROW_SURGE := 150.0
+const REGROW_SURGE := 250.0
 ## Sugar Shell's rush when a shell breaks, at full share: a RUSH down, then
 ## SUGAR_TOP more top speed and gravity for SUGAR_SECS.
-const SUGAR_TOP := 0.6
+const SUGAR_TOP := 0.35
 const SUGAR_SECS := 3.0
 ## Overclock waits until its racer is moving down the course slower than this share of MAX_SPEED.
 const OVERCLOCK_BELOW := 0.5
@@ -145,8 +151,9 @@ const RACE_TWEAKS := {
 	"bonbon": {"wrap_hold": 0.7},
 	"pip": {"shot_speed": 1.4}, # Peas fly along its fall: at 600 they barely outran it.
 	"pucker": {"pucker_stun": 1.4},
-	# T5 honey lobs pulled and held the racer ahead every 6s: it won 2.3x.
-	"honey": {"honey_lob": 3.0, "honey_stick": 0.6},
+	# T5 honey lobs pulled and held the racer ahead every 6s: it won 2.3x,
+	# and still 2x in fields of 8 with a lob every 18s: a quarter of the pull.
+	"honey": {"honey_lob": 3.0, "honey_stick": 0.6, "honey_pull": 0.25},
 	# T5 Foxfire blinked to whichever illusion was touched, mostly back up
 	# the course (0.3x at T5): no swap in a race (0 switches it off).
 	"foxfire": {"illusion_swap": 0.0},
@@ -175,7 +182,8 @@ var _sig_ready: Array[int] = [] ## Racer -> tick its Overclock or Ghost Step is 
 var _phase_until: Array[int] = [] ## Racer -> tick its Ghost Step phase ends.
 var _reshield: Array[bool] = [] ## Racer -> Sugar Shell's second shield is still to come.
 var _shelled: Array[bool] = [] ## Racer -> its Sugar Shell holds (its break gives a rush).
-var _rush_until: Array[int] = [] ## Racer -> tick its sugar rush ends.
+var _rush_until: Array[int] = [] ## Racer -> tick its sugar rush (or Scorch's heat) ends.
+var _rush_top: Array[float] = [] ## Racer -> the top speed and gravity share its rush adds.
 var _talent_ready: Array[int] = []
 var _stalled: Array[float] = []
 var _nudge_ready: Array[int] = []
@@ -249,6 +257,7 @@ func _init(cfg: Dictionary) -> void:
 		_reshield.append(sig.has("shield"))
 		_shelled.append(sig.has("shield"))
 		_rush_until.append(0)
+		_rush_top.append(0.0)
 		_phase_until.append(0)
 		_talent_ready.append(0)
 		var timed := "core"
@@ -453,7 +462,7 @@ func _signature_tick(b: Ball) -> void:
 	if _shelled[b.index] and b.shield <= 0.0:
 		_shelled[b.index] = false # The shell broke: a sugar rush.
 		b.vel.y = maxf(b.vel.y, 0.0) + RUSH * _sig(b, "shield")
-		_rush_until[b.index] = tick + int(round(SUGAR_SECS * TICK_RATE))
+		_rush(b, SUGAR_TOP * _sig(b, "shield"), SUGAR_SECS)
 		_talent(b, "shield", b.pos)
 	if _reshield[b.index] and progress(b.index) >= 0.5:
 		_reshield[b.index] = false
@@ -533,9 +542,9 @@ func _resolve_walls(b: Ball) -> void:
 		var swift := _swift[b.index] if b.index < _swift.size() else 0.0
 		var top := MAX_SPEED * (1.0 + swift) # Swift: a higher top speed and less drag.
 		var fall := 1.0 + _sig(b, "orbit") * SIGNATURES.orbit # Heavy Star falls harder.
-		if b.index < _rush_until.size() and tick < _rush_until[b.index]: # A sugar rush.
-			top *= 1.0 + SUGAR_TOP * _sig(b, "shield")
-			fall += SUGAR_TOP * _sig(b, "shield")
+		if b.index < _rush_until.size() and tick < _rush_until[b.index]: # A sugar rush or Scorch's heat.
+			top *= 1.0 + _rush_top[b.index]
+			fall += _rush_top[b.index]
 		b.vel.y += GRAVITY * fall * DT
 		b.vel *= 1.0 - DRAG * (1.0 - swift * SWIFT_DRAG) * DT
 		var sp := b.vel.length()
@@ -710,12 +719,22 @@ func _phase(b: Ball) -> bool:
 	return true
 
 
-## Fire's Scorch: `b`'s hard bump on `other` sets it burning.
+## Fire's Scorch: `b`'s hard bump on `other` sets it burning, and `b`
+## runs hot for a moment.
 func _scorch(b: Ball, other: Ball, at: Vector2) -> void:
 	var share := _sig(b, "lava")
 	if share > 0.0:
 		add_burn(b, other, SIGNATURES.lava * share, SCORCH_SECS)
+		_rush(b, SCORCH_TOP * share, SCORCH_HOT) # It runs hot.
 		_talent(b, "lava", at)
+
+
+## A rush for `b`: `top` more top speed and gravity for `secs` (the
+## stronger of two at once, to the later end).
+func _rush(b: Ball, top: float, secs: float) -> void:
+	var until := tick + int(round(secs * TICK_RATE))
+	_rush_top[b.index] = top if tick >= _rush_until[b.index] else maxf(_rush_top[b.index], top)
+	_rush_until[b.index] = maxi(_rush_until[b.index], until)
 
 
 ## A racer the course's hazards act on: still racing and out of the gate.

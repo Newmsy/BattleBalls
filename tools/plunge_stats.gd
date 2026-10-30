@@ -97,6 +97,17 @@ func _init() -> void:
 	ids.sort_custom(func(a, b): return won[a] / fair[a] > won[b] / fair[b])
 	var bad := ids.filter(func(id): return won[id] / fair[id] < CHECK_LOW or won[id] / fair[id] > CHECK_HIGH)
 	print("pooled win share: %s" % " ".join(ids.map(func(id): return "%s %.2f" % [id, won[id] / fair[id]])))
+	# By family too: with the whole field at one rank (--you=N --field=N), a
+	# strong signature shows as its whole family winning.
+	var fam_won := {}
+	var fam_fair := {}
+	for id in ids:
+		var f := Families.of(id)
+		fam_won[f] = fam_won.get(f, 0.0) + won[id]
+		fam_fair[f] = fam_fair.get(f, 0.0) + fair[id]
+	var fams: Array = fam_won.keys()
+	fams.sort_custom(func(a, b): return fam_won[a] / fam_fair[a] > fam_won[b] / fam_fair[b])
+	print("pooled family win share: %s" % " ".join(fams.map(func(f): return "%s %.2f" % [f, fam_won[f] / fam_fair[f]])))
 	if check:
 		print("CHECK %s: racers outside %.1f-%.1fx %s, gates %s" % ["ok" if bad.is_empty() and gates_ok else "FAILED", CHECK_LOW, CHECK_HIGH, bad, "ok" if gates_ok else "over %.1fx" % GATE_WARN])
 	quit(1 if check and not (bad.is_empty() and gates_ok) else 0)
