@@ -278,6 +278,11 @@ const CRITTER_CUES := {
 	"kernel": {"pop": [["fizzpop", 0.0, 1.3], ["crackle", -4.0, 1.4]], "shot:kernel": [], "shot_pop:kernel": [], "damage:shot": [["crunch", -6.0, 1.5]]},
 	"gourdo": {"scare": [["ghost_wooo", 0.0, 1.2], ["spook_hit", -4.0, 1.0]], "stun": [["dizzy", -4.0, 1.2]]},
 	"boomer": {"throw": [["whoosh", -2.0, 1.3]], "catch": [["candy_clack", -2.0, 0.8]], "damage:boomerang": [["knock_toybox", 0.0, 1.2]], "grow": []},
+	"beans": {"bean:bean_hot": [["nom", 0.0, 1.2], ["hiss", -6.0, 1.1]], "bean:bean_sour": [["nom", 0.0, 1.2], ["sour", -4.0, 1.0]], "bean:bean_fizz": [["nom", 0.0, 1.2], ["fizzpop", -2.0, 1.1]], "bean:bean_rainbow": [["nom", 0.0, 1.0], ["tada", -4.0, 1.2]], "zone": [["squelch", -8.0, 1.4]]},
+	"shade": {"shadow_hit": [["fox_whisper", -2.0, 0.9], ["whoosh", -6.0, 0.8]], "shadow_swap": [["eclipse_flip", -2.0, 1.0]]},
+	"astra": {"star": [["twinkle", -4.0, 1.3]], "constellation": [["prism_ray", -2.0, 0.9], ["twinkle", -2.0, 0.8]]},
+	"blaze": {"ignite": [["whoosh", -2.0, 0.8], ["stoke", -4.0, 1.0]], "firestorm": [["kaboom", -2.0, 1.1], ["crackle", -2.0, 0.9]]},
+	"rift": {"rift": [["hum", -6.0, 0.7]], "warp": [["warble", -2.0, 0.6], ["zoom", -6.0, 0.7]]},
 }
 ## The voice and knock family per critter (see sim/families.gd).
 const Families := preload("res://sim/families.gd")

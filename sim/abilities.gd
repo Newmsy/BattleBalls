@@ -261,6 +261,17 @@ const EFFECTS := {
 	"scare_wall": ["scare_stun"],
 	"boomerang": ["boom_speed", "boom_count"],
 	"boomer_tick": ["boom_pull", "boom_damage", "boom_radius", "boom_catch_secs"],
+	# Round 2 Rares and Epics: Beans, Shade, Astra, Blaze, Rift.
+	"bean_drop": ["bean_max", "bean_life", "bean_rainbow"],
+	"bean_tick": ["bean_heal", "bean_burn", "bean_sour", "bean_secs", "bean_fizz_damage"],
+	"shadow_tick": ["shadow_delay", "shadow_damage", "shadow_two", "shadow_swap"],
+	"star_pin": ["astra_damage", "astra_slow", "astra_slow_secs", "astra_linger"],
+	"star_tick": ["astra_edge_damage"],
+	"ignite": ["blaze_dps", "blaze_secs"],
+	"blaze_tick": ["trail_speed", "trail_heal", "trail_radius", "trail_life", "trail_dps", "firestorm_damage"],
+	"rift_open": ["portal_radius", "portal_count", "portal_secs"],
+	"rift_tick": ["warp_slow"],
+	"rift_hit": ["warp_mult"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -4292,3 +4303,257 @@ func fx_boomer_tick(sim, b, _ctx: Dictionary) -> void:
 				if b.def.boom_catch_secs > 0.0:
 					sim.set_mod(b, "catch", {"speed": 1.3}, b.def.boom_catch_secs)
 	b.state.boomerangs = flights
+
+
+# --- Round 2 critters, Rares and Epics (2026-10-31) -----------------------------
+
+const BEAN_FLAVOURS := ["bean_hot", "bean_sour", "bean_fizz"]
+
+
+## Beans: every wall bounce drops a jelly bean (bean_max at once), hot, sour
+## and fizzy in turn; at T5 every bean_rainbow-th is a rainbow bean.
+func fx_bean_drop(sim, b, ctx: Dictionary) -> void:
+	var n := int(b.state.get("beans_dropped", 0))
+	b.state.beans_dropped = n + 1
+	var kind: String = BEAN_FLAVOURS[n % 3]
+	if int(b.def.bean_rainbow) > 0 and (n + 1) % int(b.def.bean_rainbow) == 0:
+		kind = "bean_rainbow"
+	var own := _own_zones(sim, b).filter(func(z): return z.kind.begins_with("bean_"))
+	while own.size() >= int(b.def.bean_max):
+		sim.zones.erase(own.pop_front())
+	var at: Vector2 = ctx.get("point", b.pos)
+	var inward: Vector2 = (sim.centre - at).normalized() if (sim.centre - at).length() > 0.001 else Vector2.ZERO
+	sim.add_zone(b, sim.inside(at + inward * (b.radius + 30.0), 30.0), {"kind": kind, "radius": 22.0, "life": b.def.bean_life, "arm": 0.4})
+	sim.events.append({"type": "zone", "ball": b.index, "kind": kind, "pos": at})
+
+
+## A foe rolling over a bean eats it and gets its flavour: hot burns
+## (bean_burn), sour makes it take bean_sour more, fizzy bounces it away for
+## bean_fizz. Beans eating its own bean heals bean_heal.
+func fx_bean_tick(sim, b, _ctx: Dictionary) -> void:
+	for z in _own_zones(sim, b):
+		if not z.kind.begins_with("bean_") or not z.armed():
+			continue
+		if b.alive() and b.pos.distance_to(z.pos) < z.radius + b.radius:
+			sim.zones.erase(z)
+			_heal_now(sim, b, b.def.bean_heal)
+			sim.events.append({"type": "bean", "ball": b.index, "source": b.index, "pos": z.pos, "kind": z.kind})
+			continue
+		for o in sim.foes(b):
+			if sim.airborne(o) or o.pos.distance_to(z.pos) > z.radius + o.radius:
+				continue
+			sim.zones.erase(z)
+			var all: bool = z.kind == "bean_rainbow"
+			if all or z.kind == "bean_hot":
+				sim.add_burn(b, o, b.def.bean_burn, b.def.bean_secs)
+			if all or z.kind == "bean_sour":
+				sim.add_status(b, o, "sour:%d" % b.index, "vulnerable", b.def.bean_sour, b.def.bean_secs)
+			if all or z.kind == "bean_fizz":
+				sim.deal(b, o, b.def.bean_fizz_damage, "fizz", z.pos)
+				var away: Vector2 = o.pos - z.pos
+				if sim.ability_moves() and away.length() > 0.001:
+					o.vel = away.normalized() * o.current_speed()
+			sim.events.append({"type": "bean", "ball": o.index, "source": b.index, "pos": z.pos, "kind": z.kind})
+			break
+
+
+## Shade: its shadow replays its path shadow_delay seconds behind and hits
+## foes it touches for shadow_damage. T5 (shadow_two): a second shadow twice
+## as far back, and every shadow_swap seconds Shade swaps places with it.
+func fx_shadow_tick(sim, b, _ctx: Dictionary) -> void:
+	if not b.state.has("shade_trail"):
+		b.state.shade_trail = []
+	var trail: Array = b.state.shade_trail
+	trail.append(b.pos)
+	var lag := int(round(b.def.shadow_delay * sim.TICK_RATE))
+	var keep := lag * (2 if (int(b.def.shadow_two) > 0) else 1) + 1
+	while trail.size() > keep:
+		trail.pop_front()
+	var shadows := [lag]
+	if (int(b.def.shadow_two) > 0):
+		shadows.append(lag * 2)
+	var cool: Dictionary = b.state.get("shadow_cd", {})
+	b.state.shadow_cd = cool
+	for back in shadows:
+		if trail.size() <= back:
+			continue
+		var p: Vector2 = trail[trail.size() - 1 - back]
+		for o in sim.foes(b):
+			if sim.airborne(o) or o.pos.distance_to(p) > o.radius + b.radius * 0.9:
+				continue
+			if sim.tick < int(cool.get(o.index, 0)):
+				continue
+			cool[o.index] = sim.tick + int(0.6 * sim.TICK_RATE)
+			sim.deal(b, o, b.def.shadow_damage, "shadow", p)
+			sim.events.append({"type": "shadow_hit", "ball": o.index, "source": b.index, "pos": p})
+	if (int(b.def.shadow_two) > 0) and b.def.shadow_swap > 0.0 and trail.size() > lag * 2:
+		var every := int(round(b.def.shadow_swap * sim.TICK_RATE))
+		if sim.tick > 0 and sim.tick % every == 0 and sim.ability_moves():
+			var to: Vector2 = trail[0]
+			if sim._open_spot(b, to):
+				sim.teleport(b, to)
+				sim.keep_inside(b)
+				trail.clear()
+				sim.events.append({"type": "shadow_swap", "ball": b.index, "pos": to})
+
+
+## Astra: every wall bounce pins a star; every 3rd joins the last three into a
+## constellation that flashes, hitting foes inside for astra_damage and
+## slowing them astra_slow for astra_slow_secs. T5 (astra_linger): it stays
+## lit and its outline stings foes crossing it for astra_edge_damage.
+func fx_star_pin(sim, b, ctx: Dictionary) -> void:
+	var stars: Array = b.state.get("astra_stars", [])
+	var at: Vector2 = ctx.get("point", b.pos)
+	var inward: Vector2 = (sim.centre - at).normalized() if (sim.centre - at).length() > 0.001 else Vector2.ZERO
+	stars.append(at + inward * 12.0)
+	b.state.astra_stars = stars
+	sim.events.append({"type": "star", "ball": b.index, "pos": at, "n": stars.size()})
+	if stars.size() < 3:
+		return
+	var tri: Array = stars.duplicate()
+	b.state.astra_stars = []
+	b.state.star_flash = {"points": tri, "tick": sim.tick}
+	sim.events.append({"type": "constellation", "ball": b.index, "pos": (tri[0] + tri[1] + tri[2]) / 3.0, "points": tri})
+	for o in sim.foes(b):
+		if sim.airborne(o) or not _in_triangle(o.pos, tri, o.radius * 0.5):
+			continue
+		sim.deal(b, o, b.def.astra_damage, "star", o.pos)
+		sim.slow_for(o, b.def.astra_slow, b.def.astra_slow_secs)
+	if b.def.astra_linger > 0.0:
+		b.state.astra_lit = {"points": tri, "until": sim.tick + int(round(b.def.astra_linger * sim.TICK_RATE))}
+
+
+func fx_star_tick(sim, b, _ctx: Dictionary) -> void:
+	var lit: Dictionary = b.state.get("astra_lit", {})
+	if lit.is_empty():
+		return
+	if sim.tick >= int(lit.until):
+		b.state.erase("astra_lit")
+		return
+	var pts: Array = lit.points
+	var cool: Dictionary = b.state.get("lit_cd", {})
+	b.state.lit_cd = cool
+	for o in sim.foes(b):
+		if sim.airborne(o) or sim.tick < int(cool.get(o.index, 0)):
+			continue
+		for i in 3:
+			var q := Geometry2D.get_closest_point_to_segment(o.pos, pts[i], pts[(i + 1) % 3])
+			if q.distance_to(o.pos) <= o.radius:
+				cool[o.index] = sim.tick + int(0.5 * sim.TICK_RATE)
+				sim.deal(b, o, b.def.astra_edge_damage, "star", q)
+				break
+
+
+static func _in_triangle(p: Vector2, t: Array, margin: float) -> bool:
+	if Geometry2D.point_is_inside_triangle(p, t[0], t[1], t[2]):
+		return true
+	for i in 3:
+		if Geometry2D.get_closest_point_to_segment(p, t[i], t[(i + 1) % 3]).distance_to(p) <= margin:
+			return true
+	return false
+
+
+## Blaze: its hits set the foe ablaze for blaze_secs (burning blaze_dps). A
+## blazing foe drops a fire trail (trail_dps to Blaze's foes); Blaze rolling
+## through it is trail_speed faster and heals trail_heal HP/sec. T5
+## (firestorm_damage): when the blaze ends the whole trail erupts.
+func fx_ignite(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if t == null or not t.alive():
+		return
+	sim.add_burn(b, t, b.def.blaze_dps, b.def.blaze_secs)
+	var was: Dictionary = b.state.get("ablaze", {})
+	b.state.ablaze = {"target": t.index, "until": sim.tick + int(round(b.def.blaze_secs * sim.TICK_RATE))}
+	t.state.ablaze_until = b.state.ablaze.until
+	if was.is_empty():
+		sim.events.append({"type": "ignite", "ball": t.index, "source": b.index, "pos": t.pos})
+
+
+func fx_blaze_tick(sim, b, _ctx: Dictionary) -> void:
+	var on := false
+	for z in _own_zones(sim, b, "fire"):
+		if b.pos.distance_to(z.pos) < z.radius + b.radius * 0.5:
+			on = true
+			break
+	if on:
+		sim.set_mod(b, "stoke", {"speed": 1.0 + b.def.trail_speed}, 0.5)
+		b.state.stoked_until = sim.tick + int(0.5 * sim.TICK_RATE)
+		if sim.tick % (sim.TICK_RATE / 2) == 0:
+			_heal_now(sim, b, b.def.trail_heal * 0.5)
+	var ab: Dictionary = b.state.get("ablaze", {})
+	if ab.is_empty():
+		return
+	var t = sim.balls[ab.target]
+	if sim.tick >= int(ab.until) or not t.alive():
+		b.state.erase("ablaze")
+		if b.def.firestorm_damage > 0.0:
+			var trail := _own_zones(sim, b, "fire")
+			var pts := []
+			for z in trail:
+				pts.append(z.pos)
+				sim.zones.erase(z)
+			if not pts.is_empty():
+				sim.events.append({"type": "firestorm", "ball": b.index, "pos": pts[0], "points": pts})
+				for o in sim.foes(b):
+					for p in pts:
+						if o.pos.distance_to(p) <= o.radius + b.def.trail_radius * 1.6 and not sim.airborne(o):
+							sim.deal(b, o, b.def.firestorm_damage, "firestorm", p)
+							break
+		return
+	if sim.tick % 9 == 0 and not sim.airborne(t):
+		_cap_zones(sim, b, "fire", 14)
+		sim.add_zone(b, t.pos, {"kind": "fire", "radius": b.def.trail_radius, "life": b.def.trail_life, "arm": 0.4, "dps": b.def.trail_dps})
+
+
+## Rift: its last two wall bounces open a linked portal pair for portal_secs
+## (portal_count at T5: a loop of three). Any ball entering a portal comes
+## out of the next one; Rift's first hit after a warp lands warp_mult x, and
+## at T5 a foe coming out is dizzy (warp_slow slower for 1s).
+func fx_rift_open(sim, b, ctx: Dictionary) -> void:
+	var at: Vector2 = ctx.get("point", b.pos)
+	var inward: Vector2 = (sim.centre - at).normalized() if (sim.centre - at).length() > 0.001 else Vector2.ZERO
+	var marks: Array = b.state.get("rift_marks", [])
+	marks.append(sim.inside(at + inward * (b.def.portal_radius + 20.0), b.def.portal_radius + 10.0))
+	while marks.size() > int(b.def.portal_count):
+		marks.pop_front()
+	b.state.rift_marks = marks
+	if marks.size() >= 2:
+		b.state.rift_portals = {"points": marks.duplicate(), "until": sim.tick + int(round(b.def.portal_secs * sim.TICK_RATE))}
+		sim.events.append({"type": "rift", "ball": b.index, "pos": at, "points": marks.duplicate()})
+
+
+func fx_rift_tick(sim, b, _ctx: Dictionary) -> void:
+	var portals: Dictionary = b.state.get("rift_portals", {})
+	if portals.is_empty():
+		return
+	if sim.tick >= int(portals.until):
+		b.state.erase("rift_portals")
+		b.state.rift_marks = []
+		return
+	if not sim.ability_moves():
+		return
+	var pts: Array = portals.points
+	for o in sim.balls:
+		if not o.alive() or sim.airborne(o) or sim.tick < o.portal_ready or o.anchored:
+			continue
+		for i in pts.size():
+			if o.pos.distance_to(pts[i]) > b.def.portal_radius:
+				continue
+			var to: Vector2 = pts[(i + 1) % pts.size()]
+			var out: Vector2 = (sim.centre - to).normalized() if (sim.centre - to).length() > 0.001 else Vector2.RIGHT
+			o.portal_ready = sim.tick + int(0.8 * sim.TICK_RATE)
+			sim.events.append({"type": "warp", "ball": o.index, "source": b.index, "pos": pts[i], "to": to})
+			sim.teleport(o, to + out * (b.def.portal_radius * 0.5))
+			o.vel = out * o.vel.length()
+			sim.keep_inside(o)
+			if o == b:
+				b.state.warped = true
+			elif o.team != b.team and b.def.warp_slow > 0.0:
+				sim.slow_for(o, b.def.warp_slow, 1.0)
+			break
+
+
+func fx_rift_hit(sim, b, ctx: Dictionary) -> void:
+	if b.state.get("warped", false):
+		b.state.warped = false
+		ctx.mult *= b.def.warp_mult
