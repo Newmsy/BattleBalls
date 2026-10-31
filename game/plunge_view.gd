@@ -21,6 +21,7 @@ const Backdrops := preload("res://game/plunge_backdrops.gd")
 const FLASH_LIFE := 0.3
 const DRAW_SCALE := 1.4 ## Racers are drawn this much bigger than they race.
 const LINE_FLASH := 0.6 ## Seconds of the photo-finish flash at the line.
+const OFF_VIEW := 400.0 ## World px past the view's edge a racer's effects can still reach into it.
 const EDGE_TRIM := 0.08 ## Share of the baked square cut off its top and bottom.
 ## Ramp colours by look (PlungeCourse ramps); others wear the theme's border.
 const RAMP_LOOKS := {"ice": Color("9fe6ff"), "belt": Color("ffb347"), "cane": Color("fff4f4"), "comb": Color("f5b52e"),
@@ -122,12 +123,12 @@ func advance(delta: float) -> void:
 	if sim != null:
 		var course_h := _course_h()
 		var subj := subject()
-		var y: float = sim.finish_y if subj < 0 else sim.balls[subj].pos.y
+		var y: float = sim.finish_y if subj < 0 else ball_pos(sim.balls[subj]).y
 		var target_y := y - course_h * 0.4
 		var lead := leader()
 		if subj >= 0 and lead >= 0 and lead != subj and not lock_you:
 			# Frame the leader too, but keep the racer you follow in the middle 60%.
-			var mid: float = (y + sim.balls[lead].pos.y) / 2.0
+			var mid: float = (y + ball_pos(sim.balls[lead]).y) / 2.0
 			target_y = clampf(mid - course_h * 0.5, y - course_h * 0.8, y - course_h * 0.2)
 		target_y = clampf(target_y, 0.0, maxf(0.0, sim.finish_y + 220.0 - course_h))
 		var ease := 1.0 if A11y.reduced_motion else minf(1.0, delta * (8.0 if lock_you else 4.0))
@@ -193,17 +194,17 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 		draw_rect(Rect2(0.0, top * s, Plunge.WIDTH * s, (bottom - top) * s), Color(theme.fill))
 	if sim.time() < Plunge.GATE_SECONDS:
 		var gy := (PlungeCourse.START_Y + Plunge.RADIUS + 4.0) * s
-		draw_line(Vector2(0.0, gy), Vector2(Plunge.WIDTH * s, gy), Color(theme.border), 4.0)
+		Dot.line(self, Vector2(0.0, gy), Vector2(Plunge.WIDTH * s, gy), Color(theme.border), 4.0)
 	var fy: float = sim.finish_y * s
 	if sim.finish_y < bottom:
 		var sq := 20.0
 		for k in int(Plunge.WIDTH * s / sq) + 1:
 			for row in 2:
-				draw_rect(Rect2(k * sq, fy + row * sq, sq, sq), Color.WHITE if (k + row) % 2 == 0 else INK)
+				Dot.rect(self, Rect2(k * sq, fy + row * sq, sq, sq), Color.WHITE if (k + row) % 2 == 0 else INK)
 		draw_string(Kit.FONT, Vector2(12.0, fy - 12.0), "FINISH", HORIZONTAL_ALIGNMENT_LEFT, -1, A11y.font(26), Color.WHITE)
 		if _line_flash > 0.0:
 			var a := _line_flash / LINE_FLASH
-			draw_rect(Rect2(0.0, fy - 60.0 * s, Plunge.WIDTH * s, 100.0 * s), Color(1, 1, 1, 0.75 * a * a))
+			Dot.rect(self, Rect2(0.0, fy - 60.0 * s, Plunge.WIDTH * s, 100.0 * s), Color(1, 1, 1, 0.75 * a * a))
 	var seen := func(y: float, r: float) -> bool: return y + r >= top and y - r <= bottom
 	var pads: Array[Dictionary] = []
 	for f in sim.floors():
@@ -222,12 +223,12 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 			continue
 		var look: String = rp.get("look", "")
 		var col: Color = RAMP_LOOKS.get(look, rail)
-		draw_line(rp.a * s, rp.b * s, Color(0, 0, 0, 0.45), w + 10.0 * s)
-		draw_line(rp.a * s, rp.b * s, col, w)
-		draw_circle(rp.b * s, w / 2.0, col) # Rounds the joints of curves and shapes.
+		Dot.line(self, rp.a * s, rp.b * s, Color(0, 0, 0, 0.45), w + 10.0 * s)
+		Dot.line(self, rp.a * s, rp.b * s, col, w)
+		Dot.circle(self, rp.b * s, w / 2.0, col) # Rounds the joints of curves and shapes.
 		match look:
 			"ice": # A glint along the ice.
-				draw_line(rp.a * s, rp.b * s, Color(1, 1, 1, 0.55), w * 0.3)
+				Dot.line(self, rp.a * s, rp.b * s, Color(1, 1, 1, 0.55), w * 0.3)
 			"belt": # Chevrons running downhill along the belt.
 				var d: Vector2 = rp.down
 				var n := Vector2(-d.y, d.x) * 7.0 * s
@@ -236,18 +237,18 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 				var k := fmod(_time * 90.0, 46.0)
 				while k < span - 8.0:
 					var p: Vector2 = (start + d * k) * s
-					draw_polyline(PackedVector2Array([p - d * 6.0 * s + n, p, p - d * 6.0 * s - n]), Color(INK, 0.8), 2.5 * s)
+					Dot.pline(self, PackedVector2Array([p - d * 6.0 * s + n, p, p - d * 6.0 * s - n]), Color(INK, 0.8), 2.5 * s)
 					k += 46.0
 			"cane": # Candy stripes.
 				var span: float = rp.a.distance_to(rp.b)
 				var d: Vector2 = (rp.b - rp.a) / span
 				var k := 8.0
 				while k < span - 8.0:
-					draw_line((rp.a + d * k) * s, (rp.a + d * (k + 10.0)) * s, Color("ff4d6d"), w)
+					Dot.line(self, (rp.a + d * k) * s, (rp.a + d * (k + 10.0)) * s, Color("ff4d6d"), w)
 					k += 26.0
 			"cloud": # Puffs along the cloud's edge.
 				for t in [0.15, 0.5, 0.85]:
-					draw_circle(rp.a.lerp(rp.b, t) * s, w * 1.3, Color(1, 1, 1, 0.9))
+					Dot.circle(self, rp.a.lerp(rp.b, t) * s, w * 1.3, Color(1, 1, 1, 0.9))
 	var sprites := _art_ctx != null and _bake != null
 	var art_bumper := sprites and ArenaArt.has_bumper(art)
 	for i in c.pegs.size():
@@ -260,20 +261,24 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 		if p.bumper and art_bumper:
 			_sprite(1, at, r)
 			if flash > 0.0:
-				draw_circle(at, r, Color(1, 1, 1, 0.5 * flash))
+				Dot.circle(self, at, r, Color(1, 1, 1, 0.5 * flash))
 		elif p.bumper:
-			draw_circle(at, r + 10.0 * flash * s, Color(BUMPER, 0.25 + 0.4 * flash))
-			draw_arc(at, r, 0, TAU, 28, BUMPER, 5.0 * s)
-			draw_circle(at, r * 0.45, BUMPER)
+			Dot.circle(self, at, r + 10.0 * flash * s, Color(BUMPER, 0.25 + 0.4 * flash))
+			Dot.ring(self, at, r, 5.0 * s, BUMPER, false)
+			Dot.circle(self, at, r * 0.45, BUMPER)
 		elif sprites:
 			_sprite(0, at, r)
 			if flash > 0.0:
-				draw_circle(at, r, Color(1, 1, 1, 0.6 * flash))
+				Dot.circle(self, at, r, Color(1, 1, 1, 0.6 * flash))
 		else:
-			draw_circle(at, r, Color(theme.pillar).lerp(Color.WHITE, flash))
+			Dot.circle(self, at, r, Color(theme.pillar).lerp(Color.WHITE, flash))
 	var parts: Array[Dictionary] = []
-	for o in sim.obstacles(): # A margin a bar long, so a bar is drawn whole.
+	var back := (1.0 - render_alpha) * Plunge.DT # Moving parts drawn between steps too.
+	for o in sim.parts_between(top, bottom): # Bands round the view: a bar is drawn whole.
 		if seen.call(o.pos.y, o.radius + 300.0):
+			if back > 0.0 and o.has("vel"):
+				o = o.duplicate()
+				o.pos -= o.vel * back
 			parts.append(o)
 	_draw_obstacles(parts)
 
@@ -282,7 +287,7 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 func _draw_wind(f: Dictionary, s: float) -> void:
 	var r: Rect2 = f.rect
 	var rr := Rect2(r.position * s, r.size * s)
-	draw_rect(rr, Color(1, 1, 1, 0.09))
+	Dot.rect(self, rr, Color(1, 1, 1, 0.09))
 	var d: Vector2 = f.dir
 	var along := absf(d.x) > 0.5
 	var span := r.size.x if along else r.size.y
@@ -296,7 +301,7 @@ func _draw_wind(f: Dictionary, s: float) -> void:
 		if (d.x < 0.0 and along) or (d.y < 0.0 and not along):
 			p = Vector2(r.size.x - p.x, p.y) if along else Vector2(p.x, r.size.y - p.y)
 		var a := (r.position + p) * s
-		draw_line(a, a - d * 70.0 * s, col, 4.0 * s)
+		Dot.line(self, a, a - d * 70.0 * s, col, 4.0 * s)
 
 
 ## The baked floor, one arena-sized square after another down the shaft;
@@ -379,7 +384,14 @@ func _draw_overlay(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	r *= DRAW_SCALE
 	super._draw_overlay(i, def, pos, r, hp, max_hp, shake)
 	var pulse := 0.5 + 0.5 * sin(_time * 5.0) * A11y.motion()
-	draw_arc(pos, r + 9.0 + 3.0 * pulse, 0, TAU, 40, Color(TEAM_COLORS[0], 0.35 + 0.35 * pulse), 2.0, true)
+	Dot.ring(self, pos, r + 9.0 + 3.0 * pulse, 2.0, Color(TEAM_COLORS[0], 0.35 + 0.35 * pulse))
+
+
+## Racers well above or below the view aren't drawn at all (battery: a race
+## spreads out down a long shaft).
+func _off_view(b) -> bool:
+	var m: float = b.radius * DRAW_SCALE + OFF_VIEW
+	return b.pos.y + m < camera_y or b.pos.y - m > camera_y + _course_h()
 
 
 ## No 1v1 matchup card over a race.

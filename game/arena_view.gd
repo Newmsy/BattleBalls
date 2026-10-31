@@ -1093,6 +1093,12 @@ func _draw_stage(shape: MatchSim, s: float, shake: Vector2) -> void:
 	_draw_obstacles(shape.obstacles())
 
 
+## True for a ball well out of the view: its critter and effects aren't
+## drawn (a race's long shaft; a fight shows the whole arena).
+func _off_view(_b) -> bool:
+	return false
+
+
 ## Everything the fight puts on the stage: zones, shots, beams, critters,
 ## effects, tags and pops.
 func _draw_fight(s: float, shake: Vector2, full: Rect2) -> void:
@@ -1104,6 +1110,8 @@ func _draw_fight(s: float, shake: Vector2, full: Rect2) -> void:
 		_draw_piece(p, s, shake)
 		_draw_cool_piece(p, s)
 	for b in sim.balls:
+		if _off_view(b):
+			continue
 		_draw_lash(b, s)
 		_draw_prize_tells(b, s)
 
@@ -1154,7 +1162,7 @@ func _draw_fight(s: float, shake: Vector2, full: Rect2) -> void:
 		Dot.line(self, a, b, Color("e6f7ff", k), 1.4, true)
 
 	for b in sim.balls:
-		if not b.alive():
+		if not b.alive() or _off_view(b):
 			continue
 		if b.def.has("field_range"):
 			_draw_field(b, s)
@@ -1239,7 +1247,7 @@ func _draw_fight(s: float, shake: Vector2, full: Rect2) -> void:
 					var from: Vector2 = ball_pos(b) + (o.pos - b.pos).normalized() * b.radius
 					BattleFx.draw_bolt(self, from * s, ball_pos(o) * s, 0.12, float(o.index) + floorf(_time * 14.0), Color("8fb8ff"))
 	for b in sim.balls:
-		if b.alive() and b.charge_ticks == 0:
+		if b.alive() and b.charge_ticks == 0 and not _off_view(b):
 			var base_speed: float = b.base.get("speed", b.def.get("speed", b.speed))
 			if base_speed > 0.0 and b.type_id in SWIMMERS:
 				BattleFx.draw_bubble_trail(self, ball_pos(b) * s, b.radius * s, b.vel, b.vel.length() / base_speed, _time)
@@ -1248,6 +1256,8 @@ func _draw_fight(s: float, shake: Vector2, full: Rect2) -> void:
 	if sim.boss != null and sim.boss.def.id == "prism_wyrm" and sim.boss.alive():
 		_draw_wyrm_spine(sim.boss, s)
 	for b in sim.balls:
+		if _off_view(b):
+			continue
 		if b.alive() and b.type_id == "leviathan" and sim.tick < int(b.state.get("dive_until", -1)):
 			BattleFx.draw_fin(self, ball_pos(b) * s, b.radius * s, b.vel, _time)
 		elif b.alive() and b.state.get("digging", false) and sim.tick < int(b.state.get("phase_until", -1)):
@@ -1300,7 +1310,7 @@ func _draw_fight(s: float, shake: Vector2, full: Rect2) -> void:
 	# cosmetic (design/monetisation.md §1 rule 3).
 	_place_tags(s, ko_ball)
 	for b in sim.balls:
-		if b.alive() or b.index == ko_ball:
+		if (b.alive() or b.index == ko_ball) and not _off_view(b):
 			_draw_overlay(b.index, b.def, _air_pos(b, s), b.radius * s * (1.0 + 0.3 * _air(b)), b.hp, b.max_hp, shake)
 
 	for p in _popups:

@@ -75,6 +75,8 @@ var _skipping := false
 var _done := false
 var view: PlungeView
 var strip: PlungeStrip
+var _strip_vp: SubViewport ## The standings' own texture, rendered when they change.
+var _strip_box: TextureRect
 var frame: Control
 var sfx: Sfx
 var ui_root: Control
@@ -127,13 +129,26 @@ func _ready() -> void:
 	strip = PlungeStrip.new()
 	strip.sim = sim
 	strip.you = you
-	strip.mouse_filter = Control.MOUSE_FILTER_STOP
 	strip.picked.connect(_follow)
+	# The standings render into their own texture only when they change (battery).
+	_strip_vp = SubViewport.new()
+	_strip_vp.transparent_bg = true
+	_strip_vp.disable_3d = true
+	_strip_vp.size_2d_override_stretch = true
+	_strip_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	_strip_vp.add_child(strip)
+	_strip_box = TextureRect.new()
+	_strip_box.texture = _strip_vp.get_texture()
+	_strip_box.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_strip_box.stretch_mode = TextureRect.STRETCH_SCALE
+	_strip_box.mouse_filter = Control.MOUSE_FILTER_STOP
+	_strip_box.gui_input.connect(_tap_strip)
+	_strip_box.add_child(_strip_vp)
 	chips = PlungeChips.new()
 	chips.view = view
 	chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame.add_child(chips)
-	frame.add_child(strip)
+	frame.add_child(_strip_box)
 	_build_ui()
 	if is_inside_tree():
 		get_viewport().size_changed.connect(_layout)
@@ -173,6 +188,11 @@ func _gate_y():
 	return (view.get_global_transform() * (Vector2(0.0, PlungeCourse.START_Y) * view.view_scale)).y
 
 
+func _tap_strip(event: InputEvent) -> void:
+	if strip.tap(event):
+		_strip_box.accept_event()
+
+
 ## A tap on a face in the standings follows that racer; a tap on it again,
 ## or on your own, goes back to yours.
 func _follow(i: int) -> void:
@@ -201,6 +221,7 @@ func _process(delta: float) -> void:
 			while _accumulator >= Plunge.DT and steps < 64 and not sim.finished:
 				_accumulator -= Plunge.DT
 				steps += 1
+				view.snapshot_positions()
 				sim.step()
 				view.consume_events(sim.events)
 				sfx.consume_events(sim.events, sim)
@@ -208,6 +229,8 @@ func _process(delta: float) -> void:
 				for c in story.watch(sim):
 					view.callout(c.text, c.big)
 				_photo_finish()
+		# Between the last two steps, so the race moves every frame, slow-mo included.
+		view.render_alpha = 1.0 if sim.finished or _skipping else clampf(_accumulator / Plunge.DT, 0.0, 1.0)
 		_after_your_race(delta)
 		if sim.finished:
 			_finish()
@@ -464,8 +487,16 @@ func _layout() -> void:
 	view.view_size = frame.size
 	view.view_scale = width / Plunge.WIDTH
 	view.top_pad = PlungeStrip.HEIGHT
+	var strip_size := Vector2(width, PlungeStrip.HEIGHT)
+	_strip_box.position = Vector2.ZERO
+	_strip_box.size = strip_size
+	# Rendered at the screen's own resolution, so the faces and text stay sharp.
+	var px := get_viewport().get_final_transform().get_scale().x if is_inside_tree() else 1.0
+	_strip_vp.size = Vector2i((strip_size * maxf(1.0, px)).ceil())
+	_strip_vp.size_2d_override = Vector2i(strip_size.ceil())
 	strip.position = Vector2.ZERO
-	strip.size = Vector2(width, PlungeStrip.HEIGHT)
+	strip.size = strip_size
+	strip.refresh()
 	chips.position = Vector2.ZERO
 	chips.size = frame.size
 	chips.top_pad = PlungeStrip.HEIGHT

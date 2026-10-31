@@ -408,7 +408,7 @@ func test_course_hazards_act_on_racers() -> void:
 			kinds[f.kind] = true
 		if not p.wells().is_empty():
 			kinds["wells"] = true
-		if not p.obstacles().is_empty():
+		if not _all_parts(p).is_empty():
 			kinds["sliders"] = true
 	for kind in ["wells", "lava", "goo", "sliders", "wind", "portal", "launch"]:
 		check(kinds.has(kind), "%s appear on some course" % kind)
@@ -423,10 +423,16 @@ func test_course_hazards_act_on_racers() -> void:
 		lava.step()
 	check_near(b.hazard_taken, Plunge.HAZARD_CAP * b.max_hp, 0.01, "lava burns up to the cap and no further")
 	var slide := Plunge.new({"seed": 3, "racers": Plunge.draw_field(3, 4), "course": "toys"})
-	var at: Vector2 = slide.obstacles()[0].pos
+	var at: Vector2 = _all_parts(slide)[0].pos
 	for k in 60:
 		slide.step()
-	check(slide.obstacles()[0].pos != at, "sliders move")
+	check(_all_parts(slide)[0].pos != at, "sliders move")
+
+
+## Every moving part on the course, in course order (obstacles() only
+## places the ones near the race).
+static func _all_parts(p: Plunge) -> Array[Dictionary]:
+	return p.parts_between(0.0, p.finish_y + 1000.0)
 
 
 ## The set pieces' parts do what they look like: a portal sends a racer on,
@@ -456,10 +462,10 @@ func test_course_parts_act_on_racers() -> void:
 		if pin.arena.obstacles[i].has("swing"):
 			flipper = i
 	check(flipper >= 0, "pinball has flippers")
-	var tip: Vector2 = pin.obstacles()[flipper].pos
+	var tip: Vector2 = _all_parts(pin)[flipper].pos
 	for k in 30:
 		pin.step()
-	check(pin.obstacles()[flipper].pos.distance_to(tip) > 5.0, "flippers swing")
+	check(_all_parts(pin)[flipper].pos.distance_to(tip) > 5.0, "flippers swing")
 
 
 ## The Plunge screen builds with talents, medals and stamps (the demo's
