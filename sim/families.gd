@@ -21,13 +21,13 @@ const FAMILIES := [
 const MEMBERS := {
 	"nature": ["juggernaut", "spiker", "pip", "tumble", "mossy", "glowbug", "thorns", "pollen", "whiff", "zing", "mole", "sprout", "swarm", "old_oak", "ivy"],
 	"sea": ["bubbles", "puff", "shelly", "fin", "minnow", "ink", "clam", "ripple", "hook", "beacon", "leviathan", "kraken"],
-	"tech": ["static", "cogs", "bolt", "laser", "zigzag", "zapper", "wrecker", "gearbox", "mirror", "magnet", "megabot", "clockwork"],
+	"tech": ["static", "cogs", "bolt", "laser", "zigzag", "zapper", "wrecker", "gearbox", "mirror", "magnet", "megabot", "clockwork", "boing"],
 	"sweet": ["crumb", "gumdrop", "honey", "fizz", "pucker", "jawbreaker", "munch", "splitter", "sundae", "bonbon"],
-	"frost": ["frost", "drizzle", "yeti", "gust", "mammoth", "blizz", "pounce", "frostfang", "narwhal", "glacia"],
-	"toybox": ["pinball", "drum", "painter", "mortar", "disco", "yoyo", "pixel", "kaleido", "jackpot"],
-	"spooky": ["vampire", "flicker", "sonar", "totem", "brewster", "ghost", "puppeteer", "foxfire"],
-	"fire": ["speedster", "sooty", "magmo", "bomber", "drako", "phoenix", "supernova"],
-	"cosmic": ["comet", "gravity", "prism", "quasar", "stormwing", "blackhole", "eclipse"],
+	"frost": ["frost", "drizzle", "yeti", "gust", "mammoth", "blizz", "pounce", "frostfang", "narwhal", "glacia", "snowbo"],
+	"toybox": ["pinball", "drum", "painter", "mortar", "disco", "yoyo", "pixel", "kaleido", "jackpot", "boomer"],
+	"spooky": ["vampire", "flicker", "sonar", "totem", "brewster", "ghost", "puppeteer", "foxfire", "gourdo"],
+	"fire": ["speedster", "sooty", "magmo", "bomber", "drako", "phoenix", "supernova", "kernel"],
+	"cosmic": ["comet", "gravity", "prism", "quasar", "stormwing", "blackhole", "eclipse", "zorp", "snooze"],
 }
 
 ## Family edges (Newms 2026-10-27, replacing the 2026-10-23 triangles): only

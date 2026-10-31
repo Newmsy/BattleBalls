@@ -270,6 +270,14 @@ const CRITTER_CUES := {
 	"narwhal": {"charge": [["whale_call", 0.0, 1.0]], "beam": [["twinkle", -4.0, 0.9]], "lance": [["snap", 0.0, 1.1], ["shing", -4.0, 1.0]]},
 	"eclipse": {"mode": [["eclipse_flip", 0.0, 1.0]], "pulse:flare": [], "heal": [], "damage:burn": []},
 	"bonbon": {"wrap": [["ribbon", 0.0, 1.0]], "wrap_pop": [["confetti_pop", 0.0, 1.0]], "stun": [], "pulse:confetti": []},
+	# Round 2 critters (2026-10-31), from the existing sound kit.
+	"boing": {"spring": [["spring_boing", 0.0, 1.0]], "zone:spring": [["click", -6.0, 1.3]], "stun": [["dizzy", -4.0, 1.4]]},
+	"snowbo": {"snow": [["frost_crunch", -3.0, 1.2, "stacks", 0.1]], "snowball": [["snow_burst", 0.0, 1.0]], "bowl": [["thwomp", -2.0, 1.2]], "stun": [], "charge": []},
+	"zorp": {"abduct": [["warble", 0.0, 1.3]], "drop": [["thwomp", -3.0, 1.1]], "stun": [], "pulse:thud": [], "charge": [["whoosh", -4.0, 1.4]]},
+	"snooze": {"wake": [["ticktock", -2.0, 1.4], ["tada", -4.0, 1.2]], "doze": [["hum", -10.0, 0.7]], "pulse:roar": [["roar", -3.0, 1.3]], "grow": []},
+	"kernel": {"pop": [["fizzpop", 0.0, 1.3], ["crackle", -4.0, 1.4]], "shot:kernel": [], "shot_pop:kernel": [], "damage:shot": [["crunch", -6.0, 1.5]]},
+	"gourdo": {"scare": [["ghost_wooo", 0.0, 1.2], ["spook_hit", -4.0, 1.0]], "stun": [["dizzy", -4.0, 1.2]]},
+	"boomer": {"throw": [["whoosh", -2.0, 1.3]], "catch": [["candy_clack", -2.0, 0.8]], "damage:boomerang": [["knock_toybox", 0.0, 1.2]], "grow": []},
 }
 ## The voice and knock family per critter (see sim/families.gd).
 const Families := preload("res://sim/families.gd")

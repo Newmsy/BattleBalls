@@ -21,6 +21,7 @@ const RarityMark := preload("res://game/ui/rarity_mark.gd")
 const Abilities := preload("res://sim/abilities.gd")
 const BattleFx := preload("res://game/battle_fx.gd")
 const CritterFx := preload("res://game/critter_fx.gd")
+const R2Fx := preload("res://game/critter_fx_r2.gd")
 const ArenaTheme := preload("res://game/arena_theme.gd")
 const ArenaArt := preload("res://game/arena_art.gd")
 const Families := preload("res://sim/families.gd")
@@ -376,6 +377,7 @@ func consume_events(events: Array[Dictionary]) -> void:
 	var hitters: Array = [] ## Balls that dealt damage this step, so a heal right after is life steal.
 	for e in events:
 		_cool_event(e)
+		R2Fx.event(self, sim, e)
 		match e.type:
 			"damage":
 				_hit[e.target] = HIT_LIFE
@@ -1277,6 +1279,7 @@ func _draw_fight(s: float, shake: Vector2, full: Rect2) -> void:
 				_draw_overcharge(b, _air_pos(b, s), b.radius * s)
 			_draw_critter(b.index, b.def, _air_pos(b, s), b.radius * s * (1.0 + 0.3 * air), b.hp, b.max_hp, shake)
 			_draw_status(b, s)
+			R2Fx.draw_ball(self, sim, b, s, _time)
 		elif b.index == ko_ball:
 			_draw_critter(b.index, b.def, ball_pos(b) * s, b.radius * s, 0.0, b.max_hp, shake, true)
 
@@ -2364,6 +2367,7 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 		"live_tail": sim != null and i < sim.balls.size() and sim.balls[i].state.has("path"),
 		"stacks": int(sim.balls[i].state.get("spikes", 0)) if sim and i < sim.balls.size() else 0, "flash": _grow_flash[i] if i < 2 else 0.0,
 		"phased": sim != null and i < sim.balls.size() and sim.tick < int(sim.balls[i].state.get("phase_until", -1)),
+		"awake": sim != null and i < sim.balls.size() and sim.tick < int(sim.balls[i].state.get("awake_until", -1)),
 		"wind": _art_meter(i, "wind"), "pressure": _art_meter(i, "pressure"),
 		"live_stacks": int(sim.balls[i].state.get("stacks", 0)) if sim and i < sim.balls.size() and sim.balls[i].def.has("stack_max") else -1})
 	if art_id != def.id:
@@ -2538,6 +2542,8 @@ func _draw_field(m, s: float) -> void:
 func _draw_zone(z, s: float) -> void:
 	var fade: float = clampf(1.0 - z.age / z.life, 0.0, 1.0)
 	var p: Vector2 = z.pos * s
+	if R2Fx.draw_zone(self, z, p, s, fade, _time):
+		return
 	match z.kind:
 		"mine" when z.owner >= 0 and z.owner < sim.balls.size() and sim.balls[z.owner].type_id == "bomber":
 			BattleFx.draw_bomb(self, p, s, z.armed(), z.blast_radius, z.age, z.pos.x * 0.01, _time)
@@ -2676,6 +2682,8 @@ func _draw_shot(shot, s: float) -> void:
 	var p: Vector2 = shot.pos * s
 	var r: float = shot.radius * s
 	if _draw_cool_shot(shot, p, r, s):
+		return
+	if R2Fx.draw_shot(self, shot, p, r, _time):
 		return
 	if shot.lob:
 		var t: float = clampf(shot.age / shot.flight, 0.0, 1.0)

@@ -12,11 +12,13 @@
 extends RefCounted
 
 const Dot := preload("res://game/dot.gd")
+const R2 := preload("res://game/ui/critter_art_r2.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 const INK := Color("1a1530")
 ## The kit a critter's "art" can use; tests check every critter file against it.
-const BODIES := ["gradient", "bomb", "ghost", "chrome", "starfield", "prism", "magnet", "cloud", "pixel", "eclipse", "mirror", "chomper", "gumdrop", "basalt"]
+const BODIES := ["gradient", "bomb", "ghost", "chrome", "starfield", "prism", "magnet", "cloud", "pixel", "eclipse", "mirror", "chomper", "gumdrop", "basalt",
+	"bean", "shadow", "swirl"] # The last row is drawn in critter_art_r2.gd.
 const FEATURES := ["podback", "podfront", "sapling", "kaleidocaps", "kaleidotube", "rosettes", "cracks", "stormbelly", "sparks", "gustswirl", "frostmarks", "cape_collar", "spike_ring", "speed_streaks", "antennae", "ice_crown", "wisp_tail", "orbit_ring",
 	"swirl_arms", "flame_crest", "rock_band", "headband", "fuse", "frost_freckles", "seam", "magnet_prongs",
 	"antenna2", "bandana", "barrel", "batwings", "beard", "bees", "belly", "beret", "bigtail", "bite", "bloom", "boltant",
@@ -29,7 +31,12 @@ const FEATURES := ["podback", "podfront", "sapling", "kaleidocaps", "kaleidotube
 	"sheen", "shellhex", "shine", "sidefins", "smoke", "snout", "snowflake", "speckles", "spikyhair", "splats", "spots",
 	"stemleaf", "sticks", "stinger", "stripe", "stripes", "sugar", "tallcrystals", "tentacles", "tiles", "tophat",
 	"totemstack", "trunk", "tusks", "twigs", "vinewrap", "vvisor", "whiskers", "windcurls", "wings", "witchhat",
-	"wrapper", "yoyo", "zighair", "zigmark", "scales", "lens", "squid", "squidspots", "moss", "paws", "molesnout", "bramble", "dandelion"]
+	"wrapper", "yoyo", "zighair", "zigmark", "scales", "lens", "squid", "squidspots", "moss", "paws", "molesnout", "bramble", "dandelion",
+	# Round-2 critters, drawn in critter_art_r2.gd:
+	"springcoil", "carrot", "snowcap", "saucer", "ufodome", "nightcap", "craters", "popcorn", "kernelband",
+	"pumpkinface", "pumpkinstem", "boomerang", "toystripes", "beanbuddies", "beanspecks", "shadowtwin", "shadowcrown",
+	"constellation", "starpins", "blazecrest", "blazeembers", "portals", "riftrim", "reaperhood", "scythe", "reaperface",
+	"chimney", "wheels", "cowcatcher"]
 const MOUTHS := ["smile", "grin", "smirk", "flat", "frown", "o", "fangs", "teeth", "pout", "beak", "bigmouth", "none"]
 const SILHOUETTE := Color("232052")
 ## Tier looks: from T3 a critter gets a small step up on its own body, and at T5
@@ -384,6 +391,8 @@ static func _body_for(ci: CanvasItem, style: String, col: Color, c: Vector2, r: 
 				var a0 := i * TAU / segs
 				var h := fmod(float(i) / segs + t * .32, 1.0)
 				Dot.arc(ci, c, r, a0, a0 + TAU / segs + .02, 3, _c(Color.from_hsv(h, .7, 1.0)), maxf(2.0, r * .09), true)
+		_ when style in R2.BODIES:
+			R2.body(ci, style, col, c, r, s)
 		_:
 			_body(ci, c, r, col)
 
@@ -2888,6 +2897,8 @@ static func _kit_feature(ci: CanvasItem, name: String, c: Color, t: float, n: in
 				var fork := PackedVector2Array([Vector2(-.45, .05), Vector2(-.62, .35), Vector2(-.42, .5), Vector2(-.7, .72)])
 				_ustroke(ci, fork, Color(.12, .12, .12, .55), .07)
 				_ustroke(ci, fork, Color(1, .95, .4, .7), .03)
+		_:
+			R2.feature(ci, name, c, t, n, s)
 
 
 ## Flux's two-pole body: red and blue halves split down the middle. `swap`
@@ -3130,7 +3141,7 @@ static func _face(ci: CanvasItem, e: Dictionary, col: Color, c: Vector2, r: floa
 			Dot.circle(ci, ec, r * .14, Color(1, 1, 1, .25))
 			_ell(ci, ec, r * .07, r * .07 * maxf(.15, open), Color.WHITE)
 			continue
-		if e.get("closed", false):
+		if e.get("closed", false) and not s.get("awake", false): # Snooze opens its eyes when woken.
 			Dot.arc(ci, ec + Vector2(0, -r * .02), r * e.w, .15 * PI, .85 * PI, 10, INK, maxf(1.5, r * .07), true)
 			continue
 		if e.get("wink", false) and k > 0:
