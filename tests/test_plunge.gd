@@ -49,9 +49,9 @@ func test_golden_race() -> void:
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
 const GOLDEN_RACERS := ["zapper", "gust", "drako", "pucker", "ripple", "blizz"]
-const GOLDEN_ORDER := [2, 1, 0, 5, 4, 3]
+const GOLDEN_ORDER := [2, 1, 0, 3, 4, 5]
 const GOLDEN_KOS := []
-const GOLDEN_TICKS := 2087
+const GOLDEN_TICKS := 2417
 
 
 ## Racers are live critters, every family races, and they race with their
@@ -121,7 +121,8 @@ func test_course_has_no_wedges() -> void:
 				check(gap >= wide, "%s peg at %s is %.0f from a wall" % [at, g.pos, gap])
 				for rp in course.ramps:
 					var d: float = g.pos.distance_to(Geometry2D.get_closest_point_to_segment(g.pos, rp.a, rp.b))
-					check(d - g.r - PlungeCourse.RAMP_THICK >= wide, "%s peg at %s is %.0f from a ramp" % [at, g.pos, d - g.r - PlungeCourse.RAMP_THICK])
+					var th: float = rp.get("thick", PlungeCourse.RAMP_THICK)
+					check(d - g.r - th >= wide, "%s peg at %s is %.0f from a ramp" % [at, g.pos, d - g.r - th])
 			check(course.finish_y > 6000.0 and course.finish_y < 14000.0, "%s course length %.0f" % [at, course.finish_y])
 			# A ramp's free end either joins another ramp or leaves a racer-wide
 			# gap to it (two candy canes' ends 62 apart wedged racers for good).
@@ -137,7 +138,8 @@ func test_course_has_no_wedges() -> void:
 						if shape[j] == shape[i]:
 							continue
 						var d: float = end.distance_to(Geometry2D.get_closest_point_to_segment(end, rp.a, rp.b))
-						check(d < 1.0 or d - 2.0 * PlungeCourse.RAMP_THICK >= wide, "%s ramp end %s is %.0f from a ramp" % [at, end, d - 2.0 * PlungeCourse.RAMP_THICK])
+						var gap: float = d - course.ramps[i].get("thick", PlungeCourse.RAMP_THICK) - rp.get("thick", PlungeCourse.RAMP_THICK)
+						check(d < 1.0 or gap >= wide, "%s ramp end %s is %.0f from a ramp" % [at, end, gap])
 
 
 ## Which shape each ramp belongs to: ramps that share an end are one shape.
@@ -167,19 +169,24 @@ func _ramp_shapes(ramps: Array) -> Array:
 	return shape
 
 
-## Every course is mostly moving pieces (Newms 2026-10-29: most of each
-## course moves), built from its own three shared pieces and its own
-## machine, and every moving part stays under the mover speed, so it bats
-## racers about but never pins one.
+## Every course is about half moving (Newms 2026-10-31: "land for 50%
+## moving"), built from its own three static set pieces, three moving pieces
+## and its own machine, and every moving part stays under the mover speed,
+## so it bats racers about but never pins one.
 func test_courses_are_moving_machines() -> void:
 	var sets := {}
 	var machines := {}
 	for c in PlungeCourse.COURSES:
 		var pieces: Array = c.plan.filter(func(k): return PlungeCourse.PIECES.has(k))
-		var own := {}
+		var moving_kinds := {}
 		for k in pieces:
+			moving_kinds[k] = true
+		check_eq(moving_kinds.size(), 3, "%s uses three moving pieces" % c.id)
+		var statics: Array = c.plan.filter(func(k): return PlungeCourse.STATICS.has(k))
+		var own := {}
+		for k in statics:
 			own[k] = true
-		check_eq(own.size(), 3, "%s uses three shared pieces" % c.id)
+		check_eq(own.size(), 3, "%s uses three static set pieces" % c.id)
 		var key := own.keys()
 		key.sort()
 		sets[str(key)] = true
@@ -191,14 +198,14 @@ func test_courses_are_moving_machines() -> void:
 		for sec in p.course.sections:
 			if p.course.movers.any(func(o): return o.pos.y >= sec.y0 and o.pos.y < sec.y1 and (o.has("orbit") or o.has("slide") or o.has("blink"))):
 				moving += sec.y1 - sec.y0
-		check(moving / p.finish_y >= 0.7, "%s is %.0f%% moving" % [c.id, 100.0 * moving / p.finish_y])
+		check(moving / p.finish_y >= 0.4 and moving / p.finish_y <= 0.65, "%s is %.0f%% moving (about half)" % [c.id, 100.0 * moving / p.finish_y])
 		for k in 8:
 			for o in _all_parts(p):
 				if o.has("vel"):
 					check(o.vel.length() <= PlungeCourse.MOVER_SPEED + 1.0, "%s part at %s moves %.0f" % [c.id, o.pos, o.vel.length()])
 			for t in 37:
 				p.step()
-	check_eq(sets.size(), 20, "no two courses share their pieces")
+	check_eq(sets.size(), 20, "no two courses share their static set pieces")
 	check_eq(machines.size(), 20, "every course has its own machine")
 
 

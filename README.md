@@ -146,18 +146,19 @@ A watch-only marble-run race in Versus (`sim/plunge.gd`, `sim/plunge_course.gd`,
 `game/plunge_view.gd`, `game/ui/screens/plunge_screen.gd`). Your racer and 3, 5
 or 7 CPU critters (all at your racer's tier) drop down one of 20 courses
 (`PlungeCourse.COURSES`: a fixed run of sections, details varied by the seed,
-each painted in one arena's art from `game/arena_art.gd`). Courses are moving
-machines, at least 70% of their height moving: each uses its own three of the
-shared chunky pieces (`PlungeCourse.PIECES`: sliding bricks, turning gap rings,
-flapping slabs, spinning crosses, bobbing bumpers, seesaws, pendulums), one
-hazard section (`PlungeCourse.HAZARDS`: gravity wells, lava, goo or sliding
+each painted in one arena's art from `game/arena_art.gd`). Courses are about
+half moving: each uses its own three of the static set pieces
+(`PlungeCourse.STATICS`: curved funnels, pop bumpers, hook slides, lanes, gem
+blocks, rooftops; chunky, drawn in pale stone), three of the moving pieces
+(`PlungeCourse.PIECES`: sliding bricks, turning gap rings, flapping slabs,
+spinning crosses, bobbing bumpers, seesaws, pendulums, in the course's colour),
+one hazard section (`PlungeCourse.HAZARDS`: gravity wells, lava, goo or sliding
 bumpers, with a pickup: power core, heal or shield) and its own signature
 machine (`PlungeCourse.MACHINES`: a gumball globe, rope bridges whose planks
 flip, an orrery with portals, pressure doors, a sandworm, coffin trapdoors, a
-plunger ramp and so on). No peg fields: the gate drops onto sliding bricks, and
+plunger ramp and so on). No pin rows or plain slanted beams: the gate drops onto sliding bricks, and
 sections mirror on a coin flip so no gate is the lucky one; wall half-bumpers
-sit wherever no piece comes near a wall. Pieces are drawn as solid shapes in the
-course's tint, and each course dresses its finish with its own props
+sit wherever no piece comes near a wall. Each course dresses its finish with its own props
 (`game/plunge_finish.gd`). `tools/plunge_course_shot.gd` renders whole courses
 to PNGs. Races open on a course banner and a 3, 2,
 1, GO! countdown (`game/plunge_intro.gd`; just GO! on Race again). The view
