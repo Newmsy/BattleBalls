@@ -34,11 +34,11 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 11
+const RACE_RULES := 12
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
-const PART_CELL := 200.0 ## Band height for finding the moving parts near the race.
-const PART_REACH := 360.0 ## How far from a racer or shot a part is still placed each tick.
+const PART_CELL := 100.0 ## Band height for finding the moving parts near the race.
+const PART_REACH := 150.0 ## How far from a racer or shot a part is still placed each tick (past a racer's reach plus a part's).
 const RADIUS := 30.0 ## Every racer races this size, whatever its fight size.
 const GRAVITY := 900.0
 const MAX_SPEED := 600.0
@@ -197,6 +197,10 @@ var _parts_tick := -1
 var _parts_by_cell := {} ## Band -> indexes into _parts, this tick.
 var _part_r_max := 0.0 ## The biggest moving part's radius.
 var _part_cells := {} ## Course band (PART_CELL tall) -> moving parts that can ever reach it.
+var _part_moving: Array[bool] = [] ## Per course part: whether it moves (as the fight tells).
+var _view_key := [] ## parts_between's last [tick, bands], and its parts (render only).
+var _view_parts: Array[Dictionary] = []
+var _part_last := {} ## Moving part -> [tick, where it was placed], so its speed reuses last tick's spot.
 var _near_tick := -1
 var _near: Array[Dictionary] = [] ## This tick's moving parts near the race (obstacles()).
 var _focus_y := 0.0 ## Where the pack is: the "arena" abilities see is around it.
@@ -848,8 +852,10 @@ func _update_cores() -> void:
 ## moves the parts near the race (battery: a course is mostly moving parts).
 func _index_parts() -> void:
 	_part_cells.clear()
+	_part_moving.clear()
 	for i in arena.obstacles.size():
 		var o: Dictionary = arena.obstacles[i]
+		_part_moving.append(o.has("orbit") or o.has("slide")) # As the fight tells a moving part (a swing carries a slide).
 		_part_r_max = maxf(_part_r_max, o.radius)
 		var y: float = o.pos.y
 		var reach: float = o.radius + o.get("slide", Vector2.ZERO).length()
@@ -889,7 +895,7 @@ func _parts_near() -> Array[Dictionary]:
 	var mark := func(y: float, reach: float) -> void:
 		for c in range(floori((y - reach) / PART_CELL), floori((y + reach) / PART_CELL) + 1):
 			cells[c] = true
-	mark.call(_focus_y, WIDTH / 2.0 + PART_REACH)
+	mark.call(_focus_y, PART_REACH)
 	for b in balls:
 		if b.alive():
 			mark.call(b.pos.y, PART_REACH)
@@ -902,10 +908,17 @@ func _parts_near() -> Array[Dictionary]:
 ## view (render only: it reads, the race's own list is untouched). Blinked
 ## out parts come too, marked `ghost`, so the view can show where they'll be.
 func parts_between(top: float, bottom: float) -> Array[Dictionary]:
+	var lo := floori(top / PART_CELL)
+	var hi := floori(bottom / PART_CELL)
+	var key := [tick, lo, hi]
+	if key == _view_key: # Drawn again before the next tick (battery): same parts.
+		return _view_parts
 	var cells := [-1]
-	for c in range(floori(top / PART_CELL), floori(bottom / PART_CELL) + 1):
+	for c in range(lo, hi + 1):
 		cells.append(c)
-	return _place_parts(cells, true)
+	_view_key = key
+	_view_parts = _place_parts(cells, true)
+	return _view_parts
 
 
 ## Places the parts that can reach these bands, in course order, exactly as
@@ -928,7 +941,7 @@ func _place_parts(cells: Array, ghosts := false) -> Array[Dictionary]:
 			if not ghosts:
 				continue
 			ghost = true
-		var moving: bool = o.has("orbit") or o.has("slide") # As the fight tells a moving part (a swing carries a slide).
+		var moving: bool = _part_moving[i]
 		var at: Vector2 = _moving_at(o, t) if moving else o.pos
 		var d := {"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind}
 		if ghost:
@@ -941,7 +954,12 @@ func _place_parts(cells: Array, ghosts := false) -> Array[Dictionary]:
 			d.kind = "pillar" # Thorns pulled in: a plain post until they come back out.
 			d.retracted = true
 		if moving:
-			d.vel = (at - _moving_at(o, t - DT)) / DT * k
+			# Where it was last tick: remembered when it was placed then.
+			var last = _part_last.get(i)
+			var was: Vector2 = last[1] if last != null and last[0] == tick - 1 else _moving_at(o, t - DT)
+			if not ghosts:
+				_part_last[i] = [tick, at]
+			d.vel = (at - was) / DT * k
 			if o.has("bar"):
 				d.bar = o.bar
 				if o.has("orbit"):

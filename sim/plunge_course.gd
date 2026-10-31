@@ -50,7 +50,15 @@ const MACHINES := ["globe", "dipper", "sundial", "bridges", "orrery", "tumbler",
 ## wells, lava, goo and sliding bumpers. Each holds a pickup too (a power
 ## core, heal or shield). sim/plunge.gd runs them.
 const HAZARDS := ["wells", "lava", "goo", "sliders"]
-const SECTIONS := PIECES + MACHINES + HAZARDS
+## The shared static set pieces (each course uses its own three): curved
+## funnels, pop bumpers, hook slides that fling racers across, lanes, gem
+## blocks and rooftops. Never rows of pins or plain slanted beams.
+const STATICS := ["funnels", "poppers", "hooks", "lanes", "gems", "roofs"]
+## Static set pieces are chunky like the moving ones: this thick (each
+## side of the line) and drawn in the course's colour.
+const SET_THICK := 16.0
+const SET := {"thick": SET_THICK, "look": "set"}
+const SECTIONS := PIECES + MACHINES + HAZARDS + STATICS
 const WELL_ACCEL := 700.0 ## Under gravity even at full pull, so a well bends a drop but never holds it.
 const GOO_DRAG := 2.2 ## Extra drag per second in goo.
 const PICKUP_R := 34.0
@@ -59,36 +67,37 @@ const BELT_TOP := 300.0 ## Belts push racers along up to this speed. ## How hard
 ## Movers stay under this speed where they bat racers (the arenas' rule: a
 ## part bats balls around but never pins one).
 const MOVER_SPEED := 340.0
-const BEAD := 1.25 ## Circles along a moving piece sit this many radii apart.
+const BEAD := 1.9 ## Circles along a moving piece sit this many radii apart.
 const KICK_EVERY := 260.0 ## Wall half-bumpers this far apart down the course.
 ## Sections whose pieces meet the walls themselves (no half-bumpers there).
-const WALLED := ["slabs", "globe", "bridges", "doors", "bobsled", "trapdoors", "scoops", "plunger"]
+const WALLED := ["funnels", "hooks", "lanes", "slabs", "globe", "bridges", "doors", "bobsled", "trapdoors", "scoops", "plunger"]
 
 ## Every course: its name, the arena whose painted look it wears (`art`, a
 ## map id in game/arena_art.gd; the race never reads it), the colour its
 ## moving pieces are painted (`tint`, render only) and the sections under
-## the opener: its three shared pieces round its hazard and its machine.
+## the opener: its own three static set pieces, three moving pieces, its
+## hazard and its machine, about half of it moving.
 const COURSES := [
-	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "tint": "ff7eb6", "plan": ["bricks", "crosses", "goo", "bobbers", "globe", "bricks", "crosses", "bobbers"]},
-	{"id": "honey", "name": "Honey Chute", "art": "hive", "tint": "f5b52e", "plan": ["slabs", "seesaws", "goo", "pendulums", "dipper", "slabs", "seesaws", "pendulums"]},
-	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "tint": "e8c36a", "plan": ["bricks", "rings", "sliders", "slabs", "sundial", "bricks", "rings", "slabs"]},
-	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "tint": "7fd36b", "plan": ["pendulums", "crosses", "sliders", "seesaws", "bridges", "pendulums", "crosses", "seesaws"]},
-	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "tint": "b38cff", "plan": ["rings", "bobbers", "wells", "crosses", "orrery", "rings", "bobbers", "crosses"]},
-	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "tint": "a59a8e", "plan": ["bobbers", "bricks", "wells", "pendulums", "tumbler", "bobbers", "bricks", "pendulums", "bobbers", "bricks", "pendulums", "bobbers"]},
-	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "tint": "4fd9a0", "plan": ["pendulums", "rings", "wells", "seesaws", "kelpwave", "pendulums", "rings", "seesaws"]},
-	{"id": "trench", "name": "Deep Trench", "art": "trench", "tint": "4aa8ff", "plan": ["slabs", "crosses", "wells", "bricks", "doors", "slabs", "crosses", "bricks"]},
-	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "tint": "f4f8ff", "plan": ["seesaws", "bobbers", "sliders", "rings", "blimps", "seesaws", "bobbers", "rings"]},
-	{"id": "storm", "name": "Storm Front", "art": "storm", "tint": "9aa6ff", "plan": ["crosses", "pendulums", "wells", "bricks", "turbines", "crosses", "pendulums", "bricks", "crosses", "bricks"]},
-	{"id": "icicles", "name": "Icicle Run", "art": "frost", "tint": "bfeaff", "plan": ["slabs", "bobbers", "goo", "rings", "bobsled", "slabs", "bobbers"]},
-	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "tint": "8ff0ff", "plan": ["crosses", "rings", "sliders", "seesaws", "pistons", "crosses", "rings", "seesaws"]},
-	{"id": "lava", "name": "Lava Tubes", "art": "magma", "tint": "ff8a3d", "plan": ["bricks", "bobbers", "lava", "slabs", "lavalamp", "bricks", "bobbers", "slabs"]},
-	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "tint": "ff5fd2", "plan": ["bricks", "seesaws", "sliders", "crosses", "traffic", "bricks", "seesaws", "crosses", "bricks", "crosses"]},
-	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "tint": "5cf2ff", "plan": ["rings", "bricks", "lava", "bobbers", "shuffle", "rings", "bricks", "bobbers"]},
-	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "tint": "e2b56f", "plan": ["seesaws", "slabs", "goo", "bricks", "sandworm", "seesaws", "slabs", "bricks"]},
-	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "tint": "9db0b8", "plan": ["pendulums", "slabs", "goo", "crosses", "trapdoors", "pendulums", "slabs", "crosses"]},
-	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "tint": "c58cff", "plan": ["bobbers", "seesaws", "wells", "pendulums", "stairs", "bobbers", "seesaws", "pendulums", "bobbers", "seesaws", "pendulums", "seesaws"]},
-	{"id": "toys", "name": "Toy Chest", "art": "toybox", "tint": "ffcf4d", "plan": ["rings", "pendulums", "sliders", "crosses", "scoops", "rings", "pendulums", "crosses"]},
-	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "tint": "ff6fae", "plan": ["bobbers", "crosses", "sliders", "seesaws", "plunger", "bobbers", "crosses", "seesaws"]},
+	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "tint": "ff7eb6", "plan": ["funnels", "bricks", "goo", "poppers", "globe", "hooks", "crosses", "funnels", "bobbers"]},
+	{"id": "honey", "name": "Honey Chute", "art": "hive", "tint": "f5b52e", "plan": ["gems", "slabs", "goo", "roofs", "dipper", "lanes", "seesaws", "gems", "pendulums"]},
+	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "tint": "e8c36a", "plan": ["gems", "bricks", "sliders", "funnels", "sundial", "lanes", "rings", "gems", "slabs"]},
+	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "tint": "7fd36b", "plan": ["poppers", "pendulums", "sliders", "hooks", "bridges", "roofs", "crosses", "poppers", "seesaws"]},
+	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "tint": "b38cff", "plan": ["poppers", "rings", "wells", "roofs", "orrery", "funnels", "bobbers", "poppers", "crosses"]},
+	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "tint": "a59a8e", "plan": ["gems", "bobbers", "wells", "hooks", "tumbler", "lanes", "bricks", "gems", "pendulums"]},
+	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "tint": "4fd9a0", "plan": ["funnels", "pendulums", "wells", "gems", "kelpwave", "roofs", "rings", "funnels", "seesaws"]},
+	{"id": "trench", "name": "Deep Trench", "art": "trench", "tint": "4aa8ff", "plan": ["lanes", "slabs", "wells", "roofs", "doors", "poppers", "crosses", "lanes", "bricks"]},
+	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "tint": "f4f8ff", "plan": ["gems", "seesaws", "sliders", "funnels", "blimps", "hooks", "bobbers", "gems", "rings"]},
+	{"id": "storm", "name": "Storm Front", "art": "storm", "tint": "9aa6ff", "plan": ["poppers", "crosses", "wells", "hooks", "turbines", "lanes", "pendulums", "poppers", "bricks"]},
+	{"id": "icicles", "name": "Icicle Run", "art": "frost", "tint": "bfeaff", "plan": ["poppers", "slabs", "goo", "lanes", "bobsled", "funnels", "bobbers", "poppers", "rings"]},
+	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "tint": "8ff0ff", "plan": ["roofs", "crosses", "sliders", "hooks", "pistons", "gems", "rings", "roofs", "seesaws"]},
+	{"id": "lava", "name": "Lava Tubes", "art": "magma", "tint": "ff8a3d", "plan": ["funnels", "bricks", "lava", "hooks", "lavalamp", "roofs", "bobbers", "funnels", "slabs"]},
+	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "tint": "ff5fd2", "plan": ["lanes", "bricks", "sliders", "gems", "traffic", "poppers", "seesaws", "lanes", "crosses"]},
+	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "tint": "5cf2ff", "plan": ["gems", "rings", "lava", "funnels", "shuffle", "poppers", "bricks", "gems", "bobbers"]},
+	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "tint": "e2b56f", "plan": ["hooks", "seesaws", "goo", "lanes", "sandworm", "roofs", "slabs", "hooks", "bricks"]},
+	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "tint": "9db0b8", "plan": ["lanes", "pendulums", "goo", "roofs", "trapdoors", "funnels", "slabs", "lanes", "crosses"]},
+	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "tint": "c58cff", "plan": ["roofs", "bobbers", "wells", "poppers", "stairs", "gems", "seesaws", "roofs", "pendulums"]},
+	{"id": "toys", "name": "Toy Chest", "art": "toybox", "tint": "ffcf4d", "plan": ["funnels", "rings", "sliders", "hooks", "scoops", "lanes", "pendulums", "funnels", "crosses"]},
+	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "tint": "ff6fae", "plan": ["hooks", "bobbers", "sliders", "gems", "plunger", "poppers", "crosses", "hooks", "seesaws"]},
 ]
 
 var pegs: Array = [] ## [{pos, r, bumper}]
@@ -188,7 +197,7 @@ func _hit_ramp(r, s: Dictionary, dt: float, hit: Dictionary) -> void:
 	var t := clampf((r.pos - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
 	var closest := a + ab * t
 	var d: Vector2 = r.pos - closest
-	var reach: float = r.radius + RAMP_THICK
+	var reach: float = r.radius + s.get("thick", RAMP_THICK)
 	var dist2 := d.length_squared()
 	if dist2 >= reach * reach or dist2 < 0.0001:
 		return
@@ -247,7 +256,8 @@ func _build(crng: Rng) -> void:
 		if d.y < 0.0:
 			d = -d
 		s.down = d / d.length() if d.length_squared() > 0.0 else Vector2.DOWN # Downhill along it (a flat one: a to b).
-		_bucket(-i - 1, Vector2(minf(s.a.x, s.b.x), minf(s.a.y, s.b.y)) - Vector2.ONE * RAMP_THICK, Vector2(maxf(s.a.x, s.b.x), maxf(s.a.y, s.b.y)) + Vector2.ONE * RAMP_THICK)
+		var th: float = s.get("thick", RAMP_THICK)
+		_bucket(-i - 1, Vector2(minf(s.a.x, s.b.x), minf(s.a.y, s.b.y)) - Vector2.ONE * th, Vector2(maxf(s.a.x, s.b.x), maxf(s.a.y, s.b.y)) + Vector2.ONE * th)
 	# A racer touches what is within its radius (under CELL): one cell all round covers it.
 	for key in _cells:
 		var cx: int = key % 64 - 8
@@ -483,13 +493,14 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 			# Rings with three gaps turning both ways, close enough that the way
 			# down is through them: drop in, ride round, fall out when a gap
 			# comes by.
+			# Two then one, big and few (battery: a ring is many circles).
 			var spin := _jit(crng, 0.95, 1.2)
-			for row in 3:
-				var ry := y0 + 170.0 + row * 290.0
-				var xs := [180.0, 500.0, 820.0] if row % 2 == 0 else [340.0, 660.0]
+			for row in 2:
+				var ry := y0 + 190.0 + row * 330.0
+				var xs := [270.0, 730.0] if row == 0 else [500.0]
 				for j in xs.size():
-					_ring(Vector2(xs[j], ry), 130.0, 16.0, spin if (row + j) % 2 == 0 else -spin, 3, 0.75, _jit(crng, 0.0, TAU))
-			h = 3 * 290.0 + 100.0
+					_ring(Vector2(xs[j], ry), 150.0, 18.0, spin if (row + j) % 2 == 0 else -spin, 3, 0.75, _jit(crng, 0.0, TAU))
+			h = 330.0 + 190.0 + 200.0
 		"slabs":
 			# Long slabs from alternate walls, flapping on their hinge like a
 			# zigzag of see-saws, so no two drops off them are alike.
@@ -833,6 +844,74 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 			_rod(Vector2(250.0, fy), Vector2(410.0, fy + 60.0), 14.0, _swinging(Vector2(250.0, fy), 0.45, period, 0.0))
 			_rod(Vector2(WIDTH - 250.0, fy), Vector2(WIDTH - 410.0, fy + 60.0), 14.0, _swinging(Vector2(WIDTH - 250.0, fy), -0.45, period, 0.0))
 			h = 1060.0
+		# --- The static set pieces -------------------------------------------------
+		"funnels":
+			# Curved funnels: one wall-to-wall funnel, then two side by side
+			# round a peak, each with a racer-wide mouth.
+			var ya := y0 + 60.0
+			_curve(Vector2(0.0, ya), Vector2(260.0, ya + 40.0), Vector2(440.0, ya + 200.0), SET)
+			_curve(Vector2(WIDTH, ya), Vector2(WIDTH - 260.0, ya + 40.0), Vector2(WIDTH - 440.0, ya + 200.0), SET)
+			var yb := ya + 430.0
+			_curve(Vector2(0.0, yb), Vector2(120.0, yb + 30.0), Vector2(190.0, yb + 170.0), SET)
+			_curve(Vector2(WIDTH, yb), Vector2(WIDTH - 120.0, yb + 30.0), Vector2(WIDTH - 190.0, yb + 170.0), SET)
+			_curve(Vector2(310.0, yb + 170.0), Vector2(400.0, yb + 10.0), Vector2(500.0, yb), SET)
+			_curve(Vector2(500.0, yb), Vector2(600.0, yb + 10.0), Vector2(690.0, yb + 170.0), SET)
+			h = 430.0 + 300.0
+		"poppers":
+			# Big pop bumpers in a honeycomb: racers ricochet between them.
+			for row in 4:
+				var ry := y0 + 110.0 + row * 185.0
+				var xs := [250.0, 500.0, 750.0] if row % 2 == 0 else [375.0, 625.0]
+				for x in xs:
+					_peg(x + _jit(crng, -20.0, 20.0), ry, _jit(crng, 44.0, 54.0), true)
+			h = 4 * 185.0 + 80.0
+		"hooks":
+			# Hook slides from alternate walls: a steep drop that levels out
+			# and throws racers off its end across the shaft.
+			for k in 3:
+				var hy := y0 + 40.0 + k * 380.0
+				var left := k % 2 == 0
+				var a := Vector2(0.0 if left else WIDTH, hy)
+				var c := Vector2(150.0 if left else WIDTH - 150.0, hy + 260.0)
+				var b := Vector2(540.0 if left else WIDTH - 540.0, hy + 250.0)
+				_curve(a, c, b, SET)
+			h = 3 * 380.0 + 200.0
+		"lanes":
+			# Three lanes split by two walls, each lane with its own bumpers
+			# zigzagging down it: which lane you drop into is your race.
+			var top := y0 + 80.0
+			var deep := 720.0
+			for x in [WIDTH / 3.0, 2.0 * WIDTH / 3.0]:
+				_seg(Vector2(x, top), Vector2(x, top + deep), SET)
+			for lane in 3:
+				var lx := lane * WIDTH / 3.0
+				for k in 4:
+					var x := lx + (75.0 if (k + lane) % 2 == 0 else WIDTH / 3.0 - 75.0)
+					_peg(x, top + 110.0 + k * 160.0, 30.0, true)
+			h = 80.0 + deep + 80.0
+		"gems":
+			# Big cut gems: diamonds racers glance off, two then one then two.
+			var rad := 95.0
+			for row in 3:
+				var gy := y0 + 140.0 + row * 270.0
+				var xs := [260.0, 740.0] if row % 2 == 0 else [500.0]
+				for x in xs:
+					var c := Vector2(x, gy)
+					var pts := [c + Vector2(0.0, -rad), c + Vector2(rad, 0.0), c + Vector2(0.0, rad), c + Vector2(-rad, 0.0)]
+					for q in 4:
+						_seg(pts[q], pts[(q + 1) % 4], SET)
+			h = 3 * 270.0 + 80.0
+		"roofs":
+			# Rooftops: peaked roofs in staggered rows; racers slide off the
+			# eaves onto the next.
+			for row in 4:
+				var ry := y0 + 60.0 + row * 220.0
+				var xs := [270.0, 730.0] if row % 2 == 0 else [500.0]
+				for x in xs:
+					var apex := Vector2(x, ry)
+					_seg(apex, apex + Vector2(-130.0, 95.0), SET)
+					_seg(apex, apex + Vector2(130.0, 95.0), SET)
+			h = 4 * 220.0 + 60.0
 	sections.append({"kind": kind, "y0": y0, "y1": y0 + h})
 	return y0 + h
 

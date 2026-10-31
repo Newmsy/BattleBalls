@@ -224,6 +224,16 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 		if maxf(rp.a.y, rp.b.y) < top or minf(rp.a.y, rp.b.y) > bottom:
 			continue
 		var look: String = rp.get("look", "")
+		if look == "set": # A static set piece: chunky, in pale stone touched by the course colour (the moving pieces wear it full).
+			var tint := Color("e6e2da").lerp(Color(c.info.get("tint", theme.border)), 0.3)
+			var sw: float = rp.thick * 2.0 * s
+			Dot.line(self, rp.a * s + Vector2(0, 5.0 * s), rp.b * s + Vector2(0, 5.0 * s), Color(0, 0, 0, 0.4), sw)
+			for e in [rp.a, rp.b]:
+				Dot.circle(self, e * s, sw / 2.0, tint.darkened(0.45))
+			Dot.line(self, rp.a * s, rp.b * s, tint.darkened(0.45), sw)
+			Dot.line(self, rp.a * s, rp.b * s, tint.darkened(0.15), sw * 0.7)
+			Dot.line(self, rp.a * s - Vector2(0, sw * 0.18), rp.b * s - Vector2(0, sw * 0.18), Color(tint.lightened(0.4), 0.7), sw * 0.18)
+			continue
 		var col: Color = RAMP_LOOKS.get(look, rail)
 		Dot.line(self, rp.a * s, rp.b * s, Color(0, 0, 0, 0.45), w + 10.0 * s)
 		Dot.line(self, rp.a * s, rp.b * s, col, w)
