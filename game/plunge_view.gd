@@ -17,6 +17,7 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const ArenaKit := preload("res://game/arena_art/kit.gd")
 const Backdrops := preload("res://game/plunge_backdrops.gd")
+const Finish := preload("res://game/plunge_finish.gd")
 
 const FLASH_LIFE := 0.3
 const DRAW_SCALE := 1.4 ## Racers are drawn this much bigger than they race.
@@ -197,6 +198,7 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 		Dot.line(self, Vector2(0.0, gy), Vector2(Plunge.WIDTH * s, gy), Color(theme.border), 4.0)
 	var fy: float = sim.finish_y * s
 	if sim.finish_y < bottom:
+		Finish.paint(self, c.info.id, fy, Plunge.WIDTH * s, s, Color(c.info.get("tint", theme.border)), _time)
 		var sq := 20.0
 		for k in int(Plunge.WIDTH * s / sq) + 1:
 			for row in 2:
@@ -280,7 +282,67 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 				o = o.duplicate()
 				o.pos -= o.vel * back
 			parts.append(o)
-	_draw_obstacles(parts)
+	_draw_obstacles(_draw_pieces(parts, theme))
+
+
+## The course's moving pieces in its own colour: each group of circles as
+## one thick rounded line (a few draw calls a piece), single tinted parts as
+## balls, and blinked-out parts as faint outlines. Returns the rest (plain
+## bumpers, thorns, pillars) for the fight view to draw.
+func _draw_pieces(parts: Array[Dictionary], theme: Dictionary) -> Array[Dictionary]:
+	var s := view_scale
+	var rest: Array[Dictionary] = []
+	var groups := {} ## group id -> [points], in course order.
+	var group_r := {}
+	var group_tint := {}
+	for o in parts:
+		if o.has("ghost"):
+			Dot.ring(self, o.pos * s, o.radius * s, 2.0, Color(_tint(o, theme), 0.35))
+			continue
+		if o.has("group"):
+			if not groups.has(o.group):
+				groups[o.group] = PackedVector2Array()
+				group_r[o.group] = o.radius
+				group_tint[o.group] = _tint(o, theme)
+			groups[o.group].append(o.pos * s)
+			continue
+		if o.has("tint") and o.kind == "pillar":
+			_draw_ball_part(o.pos * s, o.radius * s, _tint(o, theme))
+			continue
+		rest.append(o)
+	var shadow := Vector2(3, 5)
+	for g in groups:
+		var pts: PackedVector2Array = groups[g]
+		var w: float = group_r[g] * 2.0 * s
+		var col: Color = group_tint[g]
+		if pts.size() == 1:
+			_draw_ball_part(pts[0], w / 2.0, col)
+			continue
+		var moved := PackedVector2Array()
+		for p in pts:
+			moved.append(p + shadow)
+		Dot.pline(self, moved, Color(0, 0, 0, 0.35), w)
+		Dot.pline(self, pts, col.lightened(0.35), w + 4.0)
+		for end in [pts[0], pts[pts.size() - 1]]:
+			Dot.circle(self, end, w / 2.0 + 2.0, col.lightened(0.35))
+		Dot.pline(self, pts, col.darkened(0.15), w - 2.0)
+		for end in [pts[0], pts[pts.size() - 1]]:
+			Dot.circle(self, end, w / 2.0 - 1.0, col.darkened(0.15))
+		Dot.pline(self, pts, Color(1, 1, 1, 0.35), w * 0.22) # A shine down the middle.
+	return rest
+
+
+func _tint(o: Dictionary, theme: Dictionary) -> Color:
+	var t: String = o.get("tint", "")
+	return Color(t) if t != "" else Color(theme.pillar)
+
+
+## A round moving part (a planet, a lava blob, a rock): a shaded ball.
+func _draw_ball_part(at: Vector2, r: float, col: Color) -> void:
+	Dot.circle(self, at + Vector2(3, 5), r, Color(0, 0, 0, 0.35))
+	Dot.circle(self, at, r + 2.0, col.lightened(0.35))
+	Dot.circle(self, at, r, col.darkened(0.15))
+	Dot.circle(self, at + Vector2(-0.3, -0.35) * r, r * 0.4, Color(1, 1, 1, 0.3))
 
 
 ## A wind or current band: a faint tint with streaks blowing along it.
