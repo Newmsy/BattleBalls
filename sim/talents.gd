@@ -39,10 +39,10 @@ const MEMBERS := {
 	"nature": ["glowbug", "ivy", "juggernaut", "mole", "mossy", "old_oak", "pip", "pollen", "spiker", "sprout", "swarm", "thorns", "tumble", "whiff", "zing"],
 	"sea": ["beacon", "bubbles", "clam", "fin", "hook", "ink", "kraken", "leviathan", "minnow", "puff", "ripple", "shelly"],
 	"tech": ["bolt", "clockwork", "cogs", "gearbox", "laser", "magnet", "megabot", "mirror", "static", "wrecker", "zapper", "zigzag", "boing"],
-	"spooky": ["brewster", "flicker", "foxfire", "ghost", "puppeteer", "sonar", "totem", "vampire", "gourdo", "shade"],
+	"spooky": ["brewster", "flicker", "foxfire", "ghost", "puppeteer", "sonar", "totem", "vampire", "gourdo", "shade", "reaper"],
 	"cosmic": ["blackhole", "comet", "eclipse", "gravity", "prism", "quasar", "stormwing", "zorp", "snooze", "astra", "rift"],
 	"sweet": ["bonbon", "crumb", "fizz", "gumdrop", "honey", "jawbreaker", "munch", "pucker", "splitter", "sundae", "beans"],
-	"toybox": ["disco", "drum", "jackpot", "kaleido", "mortar", "painter", "pinball", "pixel", "yoyo", "boomer"],
+	"toybox": ["disco", "drum", "jackpot", "kaleido", "mortar", "painter", "pinball", "pixel", "yoyo", "boomer", "choo"],
 }
 
 ## Nodes every tree shares. Column 0 is Core, column 2 Ability; column 1 is

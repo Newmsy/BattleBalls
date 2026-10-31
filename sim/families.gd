@@ -24,8 +24,8 @@ const MEMBERS := {
 	"tech": ["static", "cogs", "bolt", "laser", "zigzag", "zapper", "wrecker", "gearbox", "mirror", "magnet", "megabot", "clockwork", "boing"],
 	"sweet": ["crumb", "gumdrop", "honey", "fizz", "pucker", "jawbreaker", "munch", "splitter", "sundae", "bonbon", "beans"],
 	"frost": ["frost", "drizzle", "yeti", "gust", "mammoth", "blizz", "pounce", "frostfang", "narwhal", "glacia", "snowbo"],
-	"toybox": ["pinball", "drum", "painter", "mortar", "disco", "yoyo", "pixel", "kaleido", "jackpot", "boomer"],
-	"spooky": ["vampire", "flicker", "sonar", "totem", "brewster", "ghost", "puppeteer", "foxfire", "gourdo", "shade"],
+	"toybox": ["pinball", "drum", "painter", "mortar", "disco", "yoyo", "pixel", "kaleido", "jackpot", "boomer", "choo"],
+	"spooky": ["vampire", "flicker", "sonar", "totem", "brewster", "ghost", "puppeteer", "foxfire", "gourdo", "shade", "reaper"],
 	"fire": ["speedster", "sooty", "magmo", "bomber", "drako", "phoenix", "supernova", "kernel", "blaze"],
 	"cosmic": ["comet", "gravity", "prism", "quasar", "stormwing", "blackhole", "eclipse", "zorp", "snooze", "astra", "rift"],
 }

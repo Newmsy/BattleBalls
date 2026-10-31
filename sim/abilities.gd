@@ -272,6 +272,12 @@ const EFFECTS := {
 	"rift_open": ["portal_radius", "portal_count", "portal_secs"],
 	"rift_tick": ["warp_slow"],
 	"rift_hit": ["warp_mult"],
+	# Round 2 Legendaries: Reaper, Choo.
+	"doom": ["doom_secs"],
+	"doom_break": ["soul_heal"],
+	"doom_tick": ["reap_damage", "harvest_radius", "harvest_damage"],
+	"lay_track": ["loop_radius", "whistle_stun"],
+	"train_tick": ["train_speed", "train_laps", "train_cars", "train_damage", "carry_secs"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -4557,3 +4563,122 @@ func fx_rift_hit(sim, b, ctx: Dictionary) -> void:
 	if b.state.get("warped", false):
 		b.state.warped = false
 		ctx.mult *= b.def.warp_mult
+
+
+# --- Round 2 critters, Legendaries (2026-10-31) ---------------------------------
+
+## Reaper: every doom_every seconds it dooms the nearest foe: a countdown of
+## doom_secs, then a scythe sweep for reap_damage. The foe bumping Reaper
+## first breaks the curse. T5 (harvest_radius): the sweep also circles Reaper
+## (harvest_damage), and a broken curse leaves a soul that heals soul_heal.
+func fx_doom(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null or b.state.has("reaper_doom"):
+		return
+	var at: int = sim.tick + int(round(b.def.doom_secs * sim.TICK_RATE))
+	b.state.reaper_doom = {"target": f.index, "at": at}
+	f.state.doomed = {"source": b.index, "from": sim.tick, "at": at}
+	sim.events.append({"type": "doom", "ball": f.index, "source": b.index, "pos": f.pos})
+
+
+func fx_doom_break(sim, b, ctx: Dictionary) -> void:
+	var o = ctx.get("other")
+	var doom: Dictionary = b.state.get("reaper_doom", {})
+	if o == null or doom.is_empty() or o.index != int(doom.target):
+		return
+	b.state.erase("reaper_doom")
+	o.state.erase("doomed")
+	sim.events.append({"type": "doom_break", "ball": o.index, "source": b.index, "pos": o.pos})
+	if b.def.soul_heal > 0.0:
+		_heal_now(sim, b, b.def.soul_heal)
+
+
+func fx_doom_tick(sim, b, _ctx: Dictionary) -> void:
+	var doom: Dictionary = b.state.get("reaper_doom", {})
+	if doom.is_empty() or sim.tick < int(doom.at):
+		return
+	b.state.erase("reaper_doom")
+	var f = sim.balls[doom.target]
+	f.state.erase("doomed")
+	if not f.alive():
+		return
+	sim.events.append({"type": "reap", "ball": f.index, "source": b.index, "pos": f.pos})
+	sim.deal(b, f, b.def.reap_damage, "reap", f.pos)
+	if b.def.harvest_radius > 0.0:
+		sim.pulse(b, b.pos, b.def.harvest_radius, b.def.harvest_damage, true, "harvest")
+
+
+## Choo: every train_every seconds it lays a loop of track (loop_radius)
+## through the foe's spot and a train of train_cars runs it train_laps times
+## at train_speed. A foe the train hits takes train_damage and is carried
+## along the rails for carry_secs. T5 (whistle_stun): foes near the loop are
+## stunned as the train sets off.
+func fx_lay_track(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	var r: float = b.def.loop_radius
+	var to_mid: Vector2 = sim.centre - f.pos
+	var dir: Vector2 = to_mid.normalized() if to_mid.length() > 0.001 else Vector2.UP
+	var c: Vector2 = sim.inside(f.pos + dir * r, r + 30.0)
+	var start: float = DMath.angle(c - f.pos) # Opposite the foe: it reaches the foe's spot halfway round.
+	b.state.choo = {"c": c, "r": r, "ang": start, "run": 0.0, "hit": {}, "carry": {}}
+	# The rails, for the renderer (a zone with no effect, drawn under the balls).
+	_cap_zones(sim, b, "track", 1)
+	sim.add_zone(b, c, {"kind": "track", "radius": r, "life": TAU * r * float(b.def.train_laps) / b.def.train_speed + 0.4})
+	sim.events.append({"type": "track", "ball": b.index, "pos": c, "radius": r})
+	if b.def.whistle_stun > 0.0:
+		for o in sim.foes(b):
+			if absf(o.pos.distance_to(c) - r) < o.radius + 60.0:
+				sim.stun(b, o, b.def.whistle_stun)
+
+
+func fx_train_tick(sim, b, _ctx: Dictionary) -> void:
+	if not b.state.has("choo"):
+		return
+	var ch: Dictionary = b.state.choo
+	var r: float = ch.r
+	var step: float = b.def.train_speed / r * sim.DT
+	ch.ang = float(ch.ang) + step
+	ch.run = float(ch.run) + step
+	var carry: Dictionary = ch.carry
+	if float(ch.run) >= TAU * float(b.def.train_laps):
+		for i in carry:
+			_drop_off(sim, b, sim.balls[i], ch)
+		b.state.erase("choo")
+		return
+	var car_r: float = 26.0
+	var gap: float = (car_r * 2.2) / r
+	var hit: Dictionary = ch.hit
+	for o in sim.foes(b):
+		if not o.alive() or sim.airborne(o) or o.anchored:
+			continue
+		if carry.has(o.index):
+			if sim.tick >= int(carry[o.index]):
+				carry.erase(o.index)
+				_drop_off(sim, b, o, ch)
+			elif sim.ability_moves():
+				var a: float = float(ch.ang) + (car_r + o.radius + 6.0) / r
+				o.pos = ch.c + DMath.from_angle(a) * r
+				o.vel = -DMath.from_angle(a).orthogonal() * o.current_speed()
+			continue
+		if sim.tick < int(hit.get(o.index, 0)):
+			continue
+		for k in int(b.def.train_cars):
+			var a: float = float(ch.ang) - k * gap
+			var p: Vector2 = ch.c + DMath.from_angle(a) * r
+			if p.distance_to(o.pos) < car_r + o.radius:
+				hit[o.index] = sim.tick + int(0.8 * sim.TICK_RATE)
+				sim.deal(b, o, b.def.train_damage, "train", p)
+				sim.events.append({"type": "choo_hit", "ball": o.index, "source": b.index, "pos": p})
+				if k == 0:
+					carry[o.index] = sim.tick + int(round(b.def.carry_secs * sim.TICK_RATE))
+				break
+
+
+static func _drop_off(sim, _b, o, ch: Dictionary) -> void:
+	if not o.alive() or not sim.ability_moves():
+		return
+	var a: float = ch.ang
+	o.vel = -DMath.from_angle(a).orthogonal() * o.current_speed()
+	sim.keep_inside(o)

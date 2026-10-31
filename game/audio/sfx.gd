@@ -283,6 +283,8 @@ const CRITTER_CUES := {
 	"astra": {"star": [["twinkle", -4.0, 1.3]], "constellation": [["prism_ray", -2.0, 0.9], ["twinkle", -2.0, 0.8]]},
 	"blaze": {"ignite": [["whoosh", -2.0, 0.8], ["stoke", -4.0, 1.0]], "firestorm": [["kaboom", -2.0, 1.1], ["crackle", -2.0, 0.9]]},
 	"rift": {"rift": [["hum", -6.0, 0.7]], "warp": [["warble", -2.0, 0.6], ["zoom", -6.0, 0.7]]},
+	"reaper": {"doom": [["ghost_wooo", -2.0, 0.7], ["totem_knock", -4.0, 0.6]], "doom_break": [["shing", -4.0, 1.3]], "reap": [["swipe", 0.0, 0.7], ["shing", -2.0, 0.8]]},
+	"choo": {"track": [["ticktock", -4.0, 1.4], ["foghorn", -4.0, 1.6]], "choo_hit": [["knock_toybox", 0.0, 0.9], ["candy_clack", -4.0, 1.0]]},
 }
 ## The voice and knock family per critter (see sim/families.gd).
 const Families := preload("res://sim/families.gd")

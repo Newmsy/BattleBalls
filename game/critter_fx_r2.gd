@@ -37,6 +37,18 @@ static func draw_zone(ci: CanvasItem, z, p: Vector2, s: float, fade: float, t: f
 				Dot.arc(ci, p + Vector2(0, -k * 2.0) * s, rr, 0.0, TAU, 28, Color(STEEL.lightened(0.1 * k), a), maxf(2.0, r * 0.1), true)
 			Dot.circle(ci, p + Vector2(0, -6.0) * s, r * 0.22, Color("5cf0b0", a * (0.6 + 0.4 * sin(t * 6.0))))
 			return true
+		"track":
+			# Choo's toy railway: two wooden rails with sleepers.
+			var r: float = z.radius * s
+			var a := minf(1.0, fade * 4.0) * minf(1.0, z.age * 4.0)
+			for k in 28:
+				var ang := k * TAU / 28.0
+				var d := Vector2(cos(ang), sin(ang))
+				Dot.line(ci, p + d * (r - 20.0 * s), p + d * (r + 20.0 * s), Color(WOOD_DARK, 0.85 * a), 7.0 * s, true)
+			for off in [-12.0, 12.0]:
+				Dot.arc(ci, p, r + off * s, 0.0, TAU, 64, Color(STEEL_DARK, a), 5.0 * s, true)
+				Dot.arc(ci, p, r + off * s, 0.0, TAU, 64, Color(STEEL, 0.8 * a), 2.0 * s, true)
+			return true
 		"bean_hot", "bean_sour", "bean_fizz", "bean_rainbow":
 			# A glossy jelly bean on the floor, coloured by flavour; rainbow cycles.
 			var col: Color = BEAN_COLORS.get(z.kind, Color.WHITE)
@@ -76,6 +88,7 @@ static func draw_shot(ci: CanvasItem, shot, p: Vector2, r: float, t: float) -> b
 ## beam on a lifted foe, a scared foe's sweat and Boing's launch streaks.
 static func draw_ball(ci: CanvasItem, sim, b, s: float, t: float) -> void:
 	_draw_r2b(ci, sim, b, s, t)
+	_draw_r2c(ci, sim, b, s, t)
 	if b.state.has("boomerangs"):
 		for fl in b.state.boomerangs:
 			draw_boomerang(ci, fl.pos * s, 26.0 * s, fl.age * 14.0, int(sim.balls[b.index].def.get("tier", 1)) >= 5)
@@ -169,6 +182,56 @@ static func _draw_r2b(ci: CanvasItem, sim, b, s: float, t: float) -> void:
 			Dot.line(ci, base, base.lerp(tip, 0.6), Color("ffd23f", 0.85), r * 0.1, true)
 
 
+## Reaper's countdown over a doomed foe and Choo's train.
+static func _draw_r2c(ci: CanvasItem, sim, b, s: float, t: float) -> void:
+	if b.alive() and b.state.has("doomed"):
+		var d: Dictionary = b.state.doomed
+		var p: Vector2 = b.pos * s
+		var r: float = b.radius * s
+		var total := maxf(1.0, float(int(d.at) - int(d.from)))
+		var left := clampf(float(int(d.at) - sim.tick) / total, 0.0, 1.0)
+		var c := p + Vector2(0, -r - 82.0 * s)
+		Dot.circle(ci, c, 26.0 * s, Color(0.05, 0.05, 0.1, 0.8))
+		Dot.arc(ci, c, 26.0 * s, -PI * 0.5, -PI * 0.5 + TAU * left, 32, Color("5cf0f0"), 4.0 * s, true)
+		var n := ceili(left * total / sim.TICK_RATE)
+		# A little skull: dome, eyes, jaw; it pulses each count.
+		var pulse := 1.0 + 0.15 * maxf(0.0, sin(t * TAU))
+		Dot.circle(ci, c + Vector2(0, -2) * s, 14.0 * s * pulse, Color("e8eef5"))
+		Dot.circle(ci, c + Vector2(-5, -3) * s, 3.5 * s, Color("12131c"))
+		Dot.circle(ci, c + Vector2(5, -3) * s, 3.5 * s, Color("12131c"))
+		for k in 3:
+			Dot.line(ci, c + Vector2(-5 + k * 5, 7) * s, c + Vector2(-5 + k * 5, 11) * s, Color("12131c"), 1.5 * s, true)
+		if n > 0:
+			for k in n:
+				Dot.circle(ci, c + Vector2((k - (n - 1) * 0.5) * 12.0, 36.0) * s, 4.0 * s, Color("5cf0f0"))
+	if b.state.has("choo"):
+		var ch: Dictionary = b.state.choo
+		var r: float = float(ch.r)
+		var gap: float = (26.0 * 2.2) / r
+		var gold := int(b.def.get("tier", 1)) >= 5
+		for k in range(int(b.def.get("train_cars", 3)) - 1, -1, -1):
+			var a: float = float(ch.ang) - k * gap
+			var q: Vector2 = (ch.c + Vector2(cos(a), sin(a)) * r) * s
+			var fwd := Vector2(-sin(a), cos(a))
+			var side := fwd.orthogonal()
+			var body := Color("e8433f") if k == 0 else (Color("3d7be8") if k % 2 == 1 else Color("ffd23f"))
+			var w := 30.0 * s
+			var pts := PackedVector2Array([q + fwd * w + side * w * 0.75, q + fwd * w - side * w * 0.75, q - fwd * w - side * w * 0.75, q - fwd * w + side * w * 0.75])
+			Dot.poly(ci, pts, body.darkened(0.3))
+			var inner := PackedVector2Array()
+			for v in pts:
+				inner.append(q + (v - q) * 0.8)
+			Dot.poly(ci, inner, body)
+			for e in [-1.0, 1.0]:
+				Dot.circle(ci, q + side * w * 0.8 * e + fwd * w * 0.45, 6.0 * s, Color("ffd23f") if gold else Color("2a2a33"))
+				Dot.circle(ci, q + side * w * 0.8 * e - fwd * w * 0.45, 6.0 * s, Color("ffd23f") if gold else Color("2a2a33"))
+			if k == 0:
+				Dot.circle(ci, q + fwd * w * 0.4, 8.0 * s, Color("2a2a33"))
+				for m in 3: # Puffs of smoke.
+					var age := fmod(t * 1.5 + m / 3.0, 1.0)
+					Dot.circle(ci, q + fwd * w * 0.4 - fwd * age * 40.0 * s + Vector2(0, -age * 30.0 * s), (6.0 + age * 10.0) * s, Color(1, 1, 1, 0.5 * (1.0 - age)))
+
+
 static func _star(ci: CanvasItem, p: Vector2, size: float, col: Color) -> void:
 	var pts := PackedVector2Array()
 	for k in 8:
@@ -213,5 +276,13 @@ static func event(view, sim, e: Dictionary) -> void:
 			view._add_popup(e.pos + Vector2(0, -40), "FIRESTORM!", FLAME, 1.2)
 		"warp":
 			view._add_popup(e.to + Vector2(0, -50), "WARP!", RIFT_A, 0.9)
+		"doom":
+			view._add_popup(e.pos + Vector2(0, -sim.balls[e.ball].radius - 130), "DOOMED!", Color("5cf0f0"), 1.1)
+		"doom_break":
+			view._add_popup(e.pos + Vector2(0, -sim.balls[e.ball].radius - 40), "CURSE BROKEN!", Color("e8eef5"), 1.0)
+		"reap":
+			view._add_popup(e.pos + Vector2(0, -sim.balls[e.ball].radius - 40), "REAPED!", Color("5cf0f0"), 1.3)
+		"track":
+			view._add_popup(e.pos, "CHOO CHOO!", Color("ffd23f"), 1.1)
 		"pop":
 			view._add_popup(e.pos + Vector2(0, -sim.balls[e.ball].radius - 30), "POP!", POPCORN, 1.0)
