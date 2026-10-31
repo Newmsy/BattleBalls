@@ -245,6 +245,22 @@ const EFFECTS := {
 	"relic_nth": ["relic_every", "relic_do"],
 	"relic_spikes": ["shot_count", "shot_speed", "shot_damage"],
 	"relic_nova": ["nova_every", "nova_radius", "nova_damage"],
+	# Round 2 critters (2026-10-31): Boing, Snowbo, Zorp, Snooze, Kernel, Gourdo, Boomer.
+	"spring": ["spring_radius", "spring_life", "spring_max"],
+	"spring_tick": ["spring_boost", "spring_secs"],
+	"spring_hit": ["spring_hit_mult", "spring_stun"],
+	"snowpack": ["snow_size", "snow_slow", "snow_secs", "snow_max", "snow_freeze"],
+	"snow_bowl": ["snow_hit", "bowl_mult"],
+	"abduct": ["lift_secs"],
+	"abduct_tick": ["drop_radius", "drop_damage", "abduct_slam_damage"],
+	"snooze": ["sleep_slow"],
+	"snooze_guard": ["sleep_armor"],
+	"wake": ["wake_speed", "wake_damage", "wake_secs", "wake_roar_radius", "wake_roar_damage"],
+	"kernel_pop": ["pop_every", "pop_count", "pop_speed", "pop_life", "pop_damage", "pop_puff_radius", "pop_puff_damage"],
+	"scare": ["scare_secs", "scare_vuln"],
+	"scare_wall": ["scare_stun"],
+	"boomerang": ["boom_speed", "boom_count"],
+	"boomer_tick": ["boom_pull", "boom_damage", "boom_radius", "boom_catch_secs"],
 }
 
 ## Problems with a live critter's ability entries (see CritterDb.validate).
@@ -4026,3 +4042,253 @@ func fx_relic_nova(sim, b, _ctx: Dictionary) -> void:
 		sim.set_mod(b, "relic_swell", {"radius": 1.12}, 1.0)
 	elif t == 0:
 		sim.pulse(b, b.pos, b.def.nova_radius, b.def.nova_damage, false, "nova")
+
+
+# --- Round 2 critters (2026-10-31) ----------------------------------------------
+
+## Boing: every wall bounce leaves a spring pad (spring_max at once).
+func fx_spring(sim, b, ctx: Dictionary) -> void:
+	_cap_zones(sim, b, "spring", int(b.def.spring_max))
+	var at: Vector2 = ctx.get("point", b.pos)
+	# Set the pad just inside the wall, where the next pass will cross it.
+	var inward: Vector2 = (sim.centre - at).normalized() if (sim.centre - at).length() > 0.001 else Vector2.ZERO
+	sim.add_zone(b, at + inward * b.def.spring_radius, {"kind": "spring", "radius": b.def.spring_radius, "life": b.def.spring_life, "arm": 0.3})
+	sim.events.append({"type": "zone", "ball": b.index, "kind": "spring", "pos": at})
+	_spring_launch(sim, b, at)
+
+
+static func _spring_launch(sim, b, at: Vector2) -> void:
+	if not sim.ability_moves():
+		return
+	b.state.spring_ready = sim.tick + int(0.5 * sim.TICK_RATE)
+	b.state.launched_until = sim.tick + int(round(b.def.spring_secs * sim.TICK_RATE))
+	sim.set_mod(b, "spring", {"speed": 1.0 + b.def.spring_boost}, b.def.spring_secs)
+	sim.events.append({"type": "spring", "source": b.index, "ball": b.index, "pos": at, "launch": true})
+
+
+## Boing rolling over its own pad is launched (spring_boost faster for
+## spring_secs); a foe rolling over one is bounced straight back.
+func fx_spring_tick(sim, b, _ctx: Dictionary) -> void:
+	if not sim.ability_moves():
+		return
+	for z in _own_zones(sim, b, "spring"):
+		if not z.armed():
+			continue
+		if b.pos.distance_to(z.pos) < z.radius + b.radius * 0.5 and sim.tick >= int(b.state.get("spring_ready", 0)):
+			_spring_launch(sim, b, z.pos)
+		for o in sim.foes(b):
+			if sim.airborne(o) or o.pos.distance_to(z.pos) > z.radius + o.radius * 0.5:
+				continue
+			if sim.tick < int(z.next_hit.get(o.index, 0)):
+				continue
+			z.next_hit[o.index] = sim.tick + int(0.6 * sim.TICK_RATE)
+			o.vel = -o.vel
+			sim.events.append({"type": "spring", "source": b.index, "ball": o.index, "pos": z.pos, "launch": false})
+
+
+## A hit while launched lands spring_hit_mult x (and stuns spring_stun at T5).
+func fx_spring_hit(sim, b, ctx: Dictionary) -> void:
+	if sim.tick >= int(b.state.get("launched_until", -1)):
+		return
+	ctx.mult *= b.def.spring_hit_mult
+	if b.def.spring_stun > 0.0:
+		sim.stun(b, ctx.target, b.def.spring_stun)
+
+
+## Snowbo: every hit packs snow on the foe, up to snow_max lumps: each makes
+## it snow_size bigger and snow_slow slower for snow_secs. With snow_freeze
+## (T5) a full coat freezes it into a snowball that Snowbo's next hit bowls.
+func fx_snowpack(sim, b, ctx: Dictionary) -> void:
+	var t = ctx.get("target")
+	if t == null or not t.alive():
+		return
+	var key := "snow:%d" % b.index
+	var held: Dictionary = b.state.get(key + ":%d" % t.index, {})
+	var n := 1
+	if not held.is_empty() and sim.tick < int(held.until):
+		n = mini(int(held.n) + 1, int(b.def.snow_max))
+	b.state[key + ":%d" % t.index] = {"n": n, "until": sim.tick + int(round(b.def.snow_secs * sim.TICK_RATE))}
+	t.state.snow = n
+	t.state.snow_until = sim.tick + int(round(b.def.snow_secs * sim.TICK_RATE))
+	sim.set_mod(t, key, {"radius": 1.0 + b.def.snow_size * n, "speed": maxf(0.4, 1.0 - b.def.snow_slow * n)}, b.def.snow_secs)
+	sim.events.append({"type": "snow", "ball": t.index, "source": b.index, "pos": t.pos, "stacks": n})
+	if b.def.snow_freeze > 0.0 and n >= int(b.def.snow_max) and sim.stun(b, t, b.def.snow_freeze):
+		b.state.bowl = {"target": t.index, "until": sim.tick + 2 * sim.TICK_RATE}
+		sim.events.append({"type": "snowball", "ball": t.index, "source": b.index, "pos": t.pos})
+
+
+## Snowbo's hit on a frozen snowball bowls it: bowl_mult x, flung far away.
+func fx_snow_bowl(sim, b, ctx: Dictionary) -> void:
+	var held: Dictionary = b.state.get("snow:%d:%d" % [b.index, ctx.target.index], {})
+	if not held.is_empty() and sim.tick < int(held.until):
+		ctx.mult *= 1.0 + b.def.snow_hit * int(held.n)
+	var bowl: Dictionary = b.state.get("bowl", {})
+	if bowl.is_empty() or sim.tick > int(bowl.until) or ctx.target.index != int(bowl.target):
+		return
+	b.state.erase("bowl")
+	ctx.mult *= b.def.bowl_mult
+	var t = ctx.target
+	var key := "snow:%d" % b.index
+	sim.clear_mod(t, key)
+	b.state.erase(key + ":%d" % t.index)
+	t.state.snow = 0
+	sim.charge(t, t.pos - b.pos, 1.8, 0.6)
+	sim.events.append({"type": "bowl", "ball": t.index, "source": b.index, "pos": t.pos})
+
+
+## Zorp: beams the nearest foe up, held lift_secs (a stun), then drops it.
+func fx_abduct(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null or not sim.stun(b, f, b.def.lift_secs):
+		return
+	b.state.lift = {"target": f.index, "drop": f.stun_until}
+	f.state.lifted_until = f.stun_until
+	sim.events.append({"type": "abduct", "ball": f.index, "source": b.index, "pos": f.pos})
+
+
+## The drop: a thud (drop_damage round it); at T5 (abduct_slam_damage) the
+## foe is flung at the nearest wall and slammed into it.
+func fx_abduct_tick(sim, b, _ctx: Dictionary) -> void:
+	var lift: Dictionary = b.state.get("lift", {})
+	if lift.is_empty() or sim.tick < int(lift.drop):
+		return
+	b.state.erase("lift")
+	var f = sim.balls[lift.target]
+	if not f.alive():
+		return
+	sim.pulse(b, f.pos, b.def.drop_radius, b.def.drop_damage, false, "thud")
+	sim.events.append({"type": "drop", "ball": f.index, "source": b.index, "pos": f.pos})
+	if b.def.abduct_slam_damage > 0.0 and sim.ability_moves():
+		var r: Rect2 = sim.arena_rect()
+		var gaps := [f.pos.x - r.position.x, r.end.x - f.pos.x, f.pos.y - r.position.y, r.end.y - f.pos.y]
+		var dirs := [Vector2.LEFT, Vector2.RIGHT, Vector2.UP, Vector2.DOWN]
+		var best := 0
+		for i in 4:
+			if gaps[i] < gaps[best]:
+				best = i
+		sim.charge(f, dirs[best], 1.6, 0.8)
+		f.state.slam = {"source": b.index, "until": sim.tick + sim.TICK_RATE, "damage": b.def.abduct_slam_damage}
+
+
+## Snooze: asleep it rolls sleep_slow slower...
+func fx_snooze(sim, b, _ctx: Dictionary) -> void:
+	if sim.tick < int(b.state.get("awake_until", -1)):
+		return
+	if sim.has_mod(b, "awake"):
+		sim.clear_mod(b, "awake")
+	if not sim.has_mod(b, "sleep"):
+		sim.set_mod(b, "sleep", {"speed": 1.0 - b.def.sleep_slow})
+		if sim.tick > 0:
+			sim.events.append({"type": "doze", "ball": b.index, "pos": b.pos})
+
+
+## ...and takes sleep_armor less damage.
+func fx_snooze_guard(sim, b, ctx: Dictionary) -> void:
+	if sim.tick >= int(b.state.get("awake_until", -1)):
+		ctx.mult *= 1.0 - b.def.sleep_armor
+
+
+## A foe's bump wakes it for wake_secs: wake_speed faster and wake_damage
+## harder; at T5 (wake_roar_radius) waking roars a knockback ring.
+func fx_wake(sim, b, ctx: Dictionary) -> void:
+	var o = ctx.get("other")
+	if o == null or o.team == b.team or sim.tick < int(b.state.get("awake_until", -1)):
+		return
+	b.state.awake_until = sim.tick + int(round(b.def.wake_secs * sim.TICK_RATE))
+	sim.clear_mod(b, "sleep")
+	sim.set_mod(b, "awake", {"speed": 1.0 + b.def.wake_speed, "add": b.def.wake_damage}, b.def.wake_secs)
+	sim.events.append({"type": "wake", "ball": b.index, "pos": b.pos})
+	if b.def.wake_roar_radius > 0.0:
+		sim.pulse(b, b.pos, b.def.wake_roar_radius, b.def.wake_roar_damage, true, "roar")
+
+
+## Kernel: every pop_every-th wall bounce pops pop_count hot kernels that
+## ricochet round the arena; at T5 each puffs (pop_puff_damage) at its end.
+func fx_kernel_pop(sim, b, _ctx: Dictionary) -> void:
+	b.state.heat = int(b.state.get("heat", 0)) + 1
+	if b.state.heat < int(b.def.pop_every):
+		return
+	b.state.heat = 0
+	var n := int(b.def.pop_count)
+	var base: Vector2 = b.vel.normalized() if b.vel.length() > 0.001 else Vector2.RIGHT
+	for k in n:
+		var dir: Vector2 = DMath.rotated(base, TAU * (k + 0.5) / n)
+		sim.add_shot(b, b.pos + dir * b.radius, dir * b.def.pop_speed, {"kind": "kernel", "radius": 10.0, "damage": b.def.pop_damage,
+			"life": b.def.pop_life, "bounces": 8, "burst_radius": b.def.pop_puff_radius, "burst_damage": b.def.pop_puff_damage})
+	sim.events.append({"type": "pop", "ball": b.index, "pos": b.pos})
+
+
+## Gourdo: flashes a scary face; the nearest foe turns tail (flies straight
+## away from it) and takes scare_vuln more damage for scare_secs.
+func fx_scare(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	if sim.ability_moves():
+		var away: Vector2 = f.pos - b.pos
+		if away.length() > 0.001:
+			f.vel = away.normalized() * f.current_speed()
+		sim.charge(b, f.pos - b.pos, 1.5, b.def.scare_secs)
+	sim.add_status(b, f, "scare:%d" % b.index, "vulnerable", b.def.scare_vuln, b.def.scare_secs)
+	f.state.scared_until = sim.tick + int(round(b.def.scare_secs * sim.TICK_RATE))
+	sim.events.append({"type": "scare", "ball": f.index, "source": b.index, "pos": b.pos})
+
+
+## T5: a fleeing foe that runs into a wall is scared stiff (scare_stun).
+func fx_scare_wall(sim, b, ctx: Dictionary) -> void:
+	var o = ctx.get("other")
+	if o == null or b.def.scare_stun <= 0.0 or o.team == b.team or sim.status(o, "scare:%d" % b.index).is_empty():
+		return
+	sim.clear_status(o, "scare:%d" % b.index)
+	o.state.scared_until = sim.tick
+	sim.stun(b, o, b.def.scare_stun)
+
+
+## Boomer: throws boom_count boomerangs at the nearest foe. They fly out,
+## curve and come home (boomer_tick moves them).
+func fx_boomerang(sim, b, _ctx: Dictionary) -> void:
+	var f = sim.nearest_foe(b)
+	if f == null:
+		return
+	var aim: Vector2 = f.pos - b.pos
+	var dir: Vector2 = aim.normalized() if aim.length() > 0.001 else Vector2.RIGHT
+	var flights: Array = b.state.get("boomerangs", [])
+	var n := int(b.def.boom_count)
+	for k in n:
+		var d: Vector2 = DMath.rotated(dir, 0.0 if n == 1 else (k - (n - 1) / 2.0) * 0.6)
+		var side := 1.0 if k % 2 == 0 else -1.0
+		flights.append({"pos": b.pos + d * b.radius, "vel": d * b.def.boom_speed + d.orthogonal() * side * b.def.boom_speed * 0.3, "age": 0.0, "hit": {}})
+	b.state.boomerangs = flights
+	sim.events.append({"type": "throw", "ball": b.index, "pos": b.pos})
+
+
+## Moves the boomerangs: pulled home at boom_pull, each hits a foe once on
+## the way out and once on the way back; caught (T5: boom_catch_secs of speed) at home.
+func fx_boomer_tick(sim, b, _ctx: Dictionary) -> void:
+	var flights: Array = b.state.get("boomerangs", [])
+	if flights.is_empty():
+		return
+	var r: Rect2 = sim.arena_rect()
+	for fl in flights.duplicate():
+		fl.age += sim.DT
+		var home: Vector2 = b.pos - fl.pos
+		if home.length() > 0.001:
+			fl.vel += home.normalized() * b.def.boom_pull * sim.DT
+		fl.pos += fl.vel * sim.DT
+		fl.pos = fl.pos.clamp(r.position, r.end)
+		var back: bool = fl.vel.dot(home) > 0.0
+		for o in sim.foes(b):
+			if sim.airborne(o) or o.pos.distance_to(fl.pos) > o.radius + b.def.boom_radius:
+				continue
+			var key := "%d:%s" % [o.index, "back" if back else "out"]
+			if fl.hit.has(key):
+				continue
+			fl.hit[key] = true
+			sim.deal(b, o, b.def.boom_damage, "boomerang", fl.pos)
+		if (fl.age > 0.5 and home.length() < b.radius + b.def.boom_radius) or fl.age > 4.0:
+			flights.erase(fl)
+			if fl.age <= 4.0:
+				sim.events.append({"type": "catch", "ball": b.index, "pos": b.pos})
+				if b.def.boom_catch_secs > 0.0:
+					sim.set_mod(b, "catch", {"speed": 1.3}, b.def.boom_catch_secs)
+	b.state.boomerangs = flights
