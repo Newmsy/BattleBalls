@@ -34,7 +34,7 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 10
+const RACE_RULES := 11
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
 const PART_CELL := 200.0 ## Band height for finding the moving parts near the race.
@@ -73,7 +73,8 @@ const STAGGER_AT := 3.0
 const DAMAGE_BY_FIELD := {4: 1.1, 6: 0.75, 8: 0.6}
 ## The knockout knob (Newms 2026-10-29: about 1 racer in 10 knocked out, by
 ## health alone): every racer's HP is scaled by this for its field size.
-const HP_BY_FIELD := {4: 1.0, 6: 1.05, 8: 1.1}
+## About half again for the moving-machine courses, whose races run longer.
+const HP_BY_FIELD := {4: 1.3, 6: 1.4, 8: 1.45}
 ## Higher tiers hit much harder in a race than they gain health, so every
 ## racer's HP also scales by the field's tier (T1..T5) to keep knockouts near
 ## 1 in 10 at every tier.
@@ -559,10 +560,10 @@ func _resolve_walls(b: Ball) -> void:
 		if sp > top:
 			b.vel *= top / sp
 	var hit := course.collide(b, DT)
+	_hit_movers(b, hit)
 	if b.index < _boost.size() and not _boost[b.index].is_empty():
 		_slide(b, hit)
 		_overclock(b, hit)
-	_hit_movers(b, hit)
 	if hit.peg != null and hit.speed >= PEG_EVENT:
 		events.append({"type": "course_hit", "ball": b.index, "peg": hit.peg, "bumper": hit.bumper, "pos": hit.point})
 	if hit.speed >= BOUNCE_MIN and tick >= _bounce_ready[b.index] and b.index < starters:
@@ -679,6 +680,9 @@ func _hit_movers(b: Ball, hit: Dictionary) -> void:
 			hit.speed = -vn
 			hit.point = o.pos + n * o.radius
 			hit.bumper = o.kind == "bumper"
+		if not hit.has("ramp"): # Rolling along a moving piece: downhill along its surface, for Ice Skates and Overclock.
+			var down := Vector2(-n.y, n.x)
+			hit.ramp = {"down": down if down.y >= 0.0 else -down}
 		events.append({"type": "course_hit", "ball": b.index, "peg": null, "bumper": o.kind == "bumper", "pos": o.pos + n * o.radius})
 
 
@@ -895,17 +899,19 @@ func _parts_near() -> Array[Dictionary]:
 
 
 ## The parts that can be between world y `top` and `bottom` now, for the
-## view (render only: it reads, the race's own list is untouched).
+## view (render only: it reads, the race's own list is untouched). Blinked
+## out parts come too, marked `ghost`, so the view can show where they'll be.
 func parts_between(top: float, bottom: float) -> Array[Dictionary]:
 	var cells := [-1]
 	for c in range(floori(top / PART_CELL), floori(bottom / PART_CELL) + 1):
 		cells.append(c)
-	return _place_parts(cells)
+	return _place_parts(cells, true)
 
 
 ## Places the parts that can reach these bands, in course order, exactly as
-## the fight's obstacles() places them.
-func _place_parts(cells: Array) -> Array[Dictionary]:
+## the fight's obstacles() places them. A part with `blink` is there for
+## `blink` seconds, then gone as long (from `blink_at` seconds in).
+func _place_parts(cells: Array, ghosts := false) -> Array[Dictionary]:
 	var ids := {}
 	for c in cells:
 		for i in _part_cells.get(c, []):
@@ -917,9 +923,20 @@ func _place_parts(cells: Array) -> Array[Dictionary]:
 	var k := arena_scale()
 	for i in order:
 		var o: Dictionary = arena.obstacles[i]
+		var ghost := false
+		if o.has("blink") and fmod(t + o.blink_at, o.blink * 2.0) >= o.blink:
+			if not ghosts:
+				continue
+			ghost = true
 		var moving: bool = o.has("orbit") or o.has("slide") # As the fight tells a moving part (a swing carries a slide).
 		var at: Vector2 = _moving_at(o, t) if moving else o.pos
 		var d := {"pos": centre + (at - centre) * k, "radius": o.radius * k, "kind": o.kind}
+		if ghost:
+			d.ghost = true
+		if o.has("tint"): # How the view paints it (render only).
+			d.tint = o.tint
+		if o.has("group"):
+			d.group = o.group
 		if o.has("retract") and fmod(t, o.retract * 2.0) >= o.retract:
 			d.kind = "pillar" # Thorns pulled in: a plain post until they come back out.
 			d.retracted = true
@@ -935,9 +952,17 @@ func _place_parts(cells: Array) -> Array[Dictionary]:
 
 ## Swinging parts (pendulums, flippers) swing `swing` radians either way
 ## round their pivot; the rest move as in a fight.
+## A slide with a `phase` runs that far through its period ahead (rows and
+## worm segments out of step).
 func _moving_at(o: Dictionary, t: float) -> Vector2:
 	if o.has("swing"):
 		return o.pivot + _rotated_now(o.pos - o.pivot, o.swing * _sincos_now(TAU * (t / o.period + o.phase))[0])
+	if o.has("phase") and o.has("slide"):
+		var at: Vector2 = o.pos + o.slide * _sincos_now(TAU * (t / o.period + o.phase))[0]
+		if o.has("orbit"):
+			var pivot: Vector2 = o.get("pivot", centre)
+			at = pivot + _rotated_now(at - pivot, o.orbit * t)
+		return at
 	return super._moving_at(o, t)
 
 

@@ -1,32 +1,36 @@
-## A Critter Plunge course: pegs, bumpers and ramps down a 1000-wide shaft,
-## plus the collisions racers have with it. There are 20 courses (COURSES),
-## each a fixed run of sections in one arena's painted look, built round its
-## own set piece (a gumball spiral, a honeycomb, swinging vines, a pinball
-## table...); the seed picks the course and varies each section's details.
+## A Critter Plunge course: a 1000-wide shaft of big moving pieces, plus the
+## collisions racers have with its still parts. There are 20 courses
+## (COURSES), each in one arena's painted look. Under sliding bricks at the
+## gate, a course is three of the shared moving pieces (sliding bricks, gap
+## rings, rocking slabs, spinning crosses, bobbing bumpers, seesaws,
+## pendulums; no two courses share a set), its hazard section and its own
+## signature machine (a gumball globe, a sandworm, a scoop wheel...). The
+## seed picks the course and varies each section's phases and speeds.
 ## The race itself is sim/plunge.gd.
 ##
-## Besides pegs and ramps (curved ones are runs of short ramps), sections
-## lay down the arenas' own moving parts and pads, which the race runs:
-## spinning, swinging and sliding bars and rocks (`movers`), wind and
-## current bands, one-way portals and launch pads (`floors`), gravity wells
-## and pickups. Ramps can be icy (no grip, they speed you up) or belts (they
-## push you along).
+## Moving pieces are `movers`: rows of circles that move as one (sliding,
+## swinging on a hinge or turning round a hub) and are drawn as one thick
+## line (their `group`). Still ramps only gather the field into a machine;
+## ramps can be icy (no grip, they speed you up). Floors add wind and
+## current bands, one-way portals and launch pads; there are gravity wells
+## and pickups too.
 ##
-## Course rules that keep the start fair: half-bumpers on the walls kick
-## racers back in (a clear gutter let wall gates free-fall), peg rows are
-## centred, and the seed mirrors each middle section. Nothing lets a racer
-## skip course pieces (a peg-phasing shield won 2.4x its share).
+## Course rules: pieces keep a racer-wide gap to the walls and to each other
+## wherever they move, so nothing pins a racer, flat pieces are tilted or
+## rocking so nobody rides one for good, and the seed mirrors each section.
+## Nothing lets a racer skip course pieces (a peg-phasing shield won 2.4x
+## its share).
 ##
 ## Only +, *, sqrt and sim/rng.gd, so every platform agrees.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
+const DMath := preload("res://sim/dmath.gd")
 
 const WIDTH := 1000.0
 const START_Y := 90.0
 const CELL := 100.0 ## Collision grid cell size; more than a racer's reach.
 const RAMP_THICK := 6.0
-const CLEAR := 100.0 ## Peg rows keep this far from the walls.
 const KICKER_R := 34.0 ## The half-bumpers on the walls, one each side per peg row.
 const WALL_BOUNCE := 0.55
 const PEG_BOUNCE := 0.6
@@ -36,51 +40,55 @@ const BUMPER_KICK := 620.0 ## Minimum speed a bumper sends you away at.
 ## Below this speed into a ramp, a racer settles onto it instead of bouncing,
 ## so a roll is a smooth roll.
 const REST_SPEED := 90.0
-const SECTIONS := ["pegs", "bumpers", "wells", "lava", "goo", "sliders", "spiral", "canes", "comb", "flow",
-	"highway", "train", "stair", "sundisc", "vines", "stumps", "orbits", "warps", "asteroids", "kelp", "currents",
-	"trench", "trampolines", "gusts", "slalom", "mirrors", "spinners", "tubes", "blocks", "dunes", "tombs",
-	"staircase", "bookcase", "tops", "jacks", "pops", "flippers"]
+## The shared moving pieces (each course uses its own three), the hazard
+## sections and each course's own signature machine.
+const PIECES := ["bricks", "rings", "slabs", "crosses", "bobbers", "seesaws", "pendulums"]
+const MACHINES := ["globe", "dipper", "sundial", "bridges", "orrery", "tumbler", "kelpwave", "doors", "blimps",
+	"turbines", "bobsled", "pistons", "lavalamp", "traffic", "shuffle", "sandworm", "trapdoors", "stairs", "scoops",
+	"plunger"]
 ## The hazard sections, one per course, in the arenas' own pieces: gravity
 ## wells, lava, goo and sliding bumpers. Each holds a pickup too (a power
 ## core, heal or shield). sim/plunge.gd runs them.
 const HAZARDS := ["wells", "lava", "goo", "sliders"]
+const SECTIONS := PIECES + MACHINES + HAZARDS
 const WELL_ACCEL := 700.0 ## Under gravity even at full pull, so a well bends a drop but never holds it.
 const GOO_DRAG := 2.2 ## Extra drag per second in goo.
 const PICKUP_R := 34.0
-## Open sections (set pieces racers mostly fall past) end on a ledge.
-const LEDGED := ["tombs", "vines", "stumps", "orbits", "warps", "asteroids", "kelp", "currents", "gusts", "spinners",
-	"sundisc", "bookcase", "tops", "jacks", "pops"]
-const LEDGE_SLOPE := 0.24
 const ICE_ACCEL := 320.0
 const BELT_TOP := 300.0 ## Belts push racers along up to this speed. ## How hard an icy ramp speeds a racer along it.
 ## Movers stay under this speed where they bat racers (the arenas' rule: a
 ## part bats balls around but never pins one).
 const MOVER_SPEED := 340.0
+const BEAD := 1.25 ## Circles along a moving piece sit this many radii apart.
+const KICK_EVERY := 260.0 ## Wall half-bumpers this far apart down the course.
+## Sections whose pieces meet the walls themselves (no half-bumpers there).
+const WALLED := ["slabs", "globe", "bridges", "doors", "bobsled", "trapdoors", "scoops", "plunger"]
 
 ## Every course: its name, the arena whose painted look it wears (`art`, a
-## map id in game/arena_art.gd; the race never reads it) and the sections
-## under the short peg field below the gate.
+## map id in game/arena_art.gd; the race never reads it), the colour its
+## moving pieces are painted (`tint`, render only) and the sections under
+## the opener: its three shared pieces round its hazard and its machine.
 const COURSES := [
-	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "plan": ["spiral", "canes", "goo", "spiral", "canes"]},
-	{"id": "honey", "name": "Honey Chute", "art": "hive", "plan": ["comb", "flow", "goo", "comb"]},
-	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "plan": ["stair", "sundisc", "sliders"]},
-	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "plan": ["vines", "stumps", "sliders", "vines", "stumps"]},
-	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "plan": ["orbits", "warps", "wells", "orbits", "warps"]},
-	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "plan": ["asteroids", "bumpers", "wells", "asteroids", "bumpers"]},
-	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "plan": ["kelp", "currents", "wells", "kelp", "currents"]},
-	{"id": "trench", "name": "Deep Trench", "art": "trench", "plan": ["trench", "wells", "trench", "bumpers"]},
-	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "plan": ["trampolines", "sliders", "currents", "trampolines"]},
-	{"id": "storm", "name": "Storm Front", "art": "storm", "plan": ["gusts", "bumpers", "wells", "gusts", "bumpers"]},
-	{"id": "icicles", "name": "Icicle Run", "art": "frost", "plan": ["slalom", "goo", "mirrors"]},
-	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "plan": ["mirrors", "spinners", "sliders", "mirrors", "spinners"]},
-	{"id": "lava", "name": "Lava Tubes", "art": "magma", "plan": ["tubes", "lava", "bumpers"]},
-	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "plan": ["highway", "sliders", "highway"]},
-	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "plan": ["blocks", "warps", "lava", "blocks", "warps"]},
-	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "plan": ["dunes", "goo", "stumps", "dunes"]},
-	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "plan": ["tombs", "goo", "tombs", "bookcase", "tombs"]},
-	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "plan": ["staircase", "bookcase", "wells", "staircase", "bookcase"]},
-	{"id": "toys", "name": "Toy Chest", "art": "toybox", "plan": ["train", "tops", "sliders", "jacks"]},
-	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "plan": ["pops", "flippers", "sliders", "pops", "flippers"]},
+	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "tint": "ff7eb6", "plan": ["bricks", "crosses", "goo", "bobbers", "globe", "bricks", "crosses", "bobbers"]},
+	{"id": "honey", "name": "Honey Chute", "art": "hive", "tint": "f5b52e", "plan": ["slabs", "seesaws", "goo", "pendulums", "dipper", "slabs", "seesaws", "pendulums"]},
+	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "tint": "e8c36a", "plan": ["bricks", "rings", "sliders", "slabs", "sundial", "bricks", "rings", "slabs"]},
+	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "tint": "7fd36b", "plan": ["pendulums", "crosses", "sliders", "seesaws", "bridges", "pendulums", "crosses", "seesaws"]},
+	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "tint": "b38cff", "plan": ["rings", "bobbers", "wells", "crosses", "orrery", "rings", "bobbers", "crosses"]},
+	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "tint": "a59a8e", "plan": ["bobbers", "bricks", "wells", "pendulums", "tumbler", "bobbers", "bricks", "pendulums", "bobbers", "bricks", "pendulums", "bobbers"]},
+	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "tint": "4fd9a0", "plan": ["pendulums", "rings", "wells", "seesaws", "kelpwave", "pendulums", "rings", "seesaws"]},
+	{"id": "trench", "name": "Deep Trench", "art": "trench", "tint": "4aa8ff", "plan": ["slabs", "crosses", "wells", "bricks", "doors", "slabs", "crosses", "bricks"]},
+	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "tint": "f4f8ff", "plan": ["seesaws", "bobbers", "sliders", "rings", "blimps", "seesaws", "bobbers", "rings"]},
+	{"id": "storm", "name": "Storm Front", "art": "storm", "tint": "9aa6ff", "plan": ["crosses", "pendulums", "wells", "bricks", "turbines", "crosses", "pendulums", "bricks", "crosses", "bricks"]},
+	{"id": "icicles", "name": "Icicle Run", "art": "frost", "tint": "bfeaff", "plan": ["slabs", "bobbers", "goo", "rings", "bobsled", "slabs", "bobbers"]},
+	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "tint": "8ff0ff", "plan": ["crosses", "rings", "sliders", "seesaws", "pistons", "crosses", "rings", "seesaws"]},
+	{"id": "lava", "name": "Lava Tubes", "art": "magma", "tint": "ff8a3d", "plan": ["bricks", "bobbers", "lava", "slabs", "lavalamp", "bricks", "bobbers", "slabs"]},
+	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "tint": "ff5fd2", "plan": ["bricks", "seesaws", "sliders", "crosses", "traffic", "bricks", "seesaws", "crosses", "bricks", "crosses"]},
+	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "tint": "5cf2ff", "plan": ["rings", "bricks", "lava", "bobbers", "shuffle", "rings", "bricks", "bobbers"]},
+	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "tint": "e2b56f", "plan": ["seesaws", "slabs", "goo", "bricks", "sandworm", "seesaws", "slabs", "bricks"]},
+	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "tint": "9db0b8", "plan": ["pendulums", "slabs", "goo", "crosses", "trapdoors", "pendulums", "slabs", "crosses"]},
+	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "tint": "c58cff", "plan": ["bobbers", "seesaws", "wells", "pendulums", "stairs", "bobbers", "seesaws", "pendulums", "bobbers", "seesaws", "pendulums", "seesaws"]},
+	{"id": "toys", "name": "Toy Chest", "art": "toybox", "tint": "ffcf4d", "plan": ["rings", "pendulums", "sliders", "crosses", "scoops", "rings", "pendulums", "crosses"]},
+	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "tint": "ff6fae", "plan": ["bobbers", "crosses", "sliders", "seesaws", "plunger", "bobbers", "crosses", "seesaws"]},
 ]
 
 var pegs: Array = [] ## [{pos, r, bumper}]
@@ -93,6 +101,7 @@ var cores: Array = [] ## Arena pickups: {pos, radius, kind "core" / "heal" / "sh
 var movers: Array = [] ## Moving parts, as arena obstacles (sim/arenas.gd): {pos, radius, kind, slide/period,
 ## orbit/pivot, bar/angle}, or `swing` (radians either way round `pivot`, over `period`, from `phase`).
 var info: Dictionary ## This course's COURSES entry.
+var _gid := 0 ## The last moving piece's group id (its circles share one).
 
 var _cells := {} ## grid cell (CELL square) -> obstacle refs (peg index, or -1 - ramp index)
 var _near := {} ## grid cell -> every ref in it and the 8 cells round it, once each
@@ -202,17 +211,31 @@ func _hit_ramp(r, s: Dictionary, dt: float, hit: Dictionary) -> void:
 
 # --- Building ------------------------------------------------------------------
 
-## A short peg field under the gate (it spreads the field fairly), then the
+## Sliding bricks under the gate (they spread the field fairly), then the
 ## course's sections, each mirrored left-right on a coin flip.
 func _build(crng: Rng) -> void:
 	var y := START_Y + 120.0
-	y = _section(crng, "pegs", y)
+	var first := [pegs.size(), ramps.size(), floors.size(), wells.size(), cores.size(), movers.size()]
+	y = _section(crng, "opener", y)
+	if crng.range_int(0, 1) == 1:
+		_mirror(first)
 	for kind in info.plan:
 		var at := [pegs.size(), ramps.size(), floors.size(), wells.size(), cores.size(), movers.size()]
 		y = _section(crng, kind, y)
 		if crng.range_int(0, 1) == 1:
 			_mirror(at)
 	finish_y = y + 80.0
+	# Half-bumpers down both walls wherever no piece comes near that wall,
+	# so a gate by the wall can't free-fall past the pieces (and no piece
+	# ever pinches a racer against one).
+	var ky := START_Y + 300.0
+	while ky < finish_y - 150.0:
+		var open := sections.any(func(sec): return ky >= sec.y0 and ky < sec.y1 and not WALLED.has(sec.kind))
+		if open:
+			for x in [0.0, WIDTH]:
+				if _wall_clear(x, ky):
+					_peg(x, ky, KICKER_R, true)
+		ky += KICK_EVERY
 	for i in pegs.size():
 		var p: Dictionary = pegs[i]
 		_bucket(i, p.pos - Vector2.ONE * p.r, p.pos + Vector2.ONE * p.r)
@@ -292,27 +315,32 @@ func _peg(x: float, y: float, r := 12.0, bumper := false) -> void:
 	pegs.append({"pos": Vector2(x, y), "r": r, "bumper": bumper})
 
 
-## The half-bumpers on both walls at `y`.
-func _kickers(y: float) -> void:
-	_peg(0.0, y, KICKER_R, true)
-	_peg(WIDTH, y, KICKER_R, true)
-
-
-## A row of pegs `gap` apart between `lo` and `hi`, centred between them so
-## both sides get the same gap; `half` rows sit half a gap over.
-func _peg_row(lo: float, hi: float, y: float, gap: float, half: bool) -> void:
-	var c := (lo + hi) / 2.0
-	var m := 0.5 if half else 0.0
-	var q := -int((hi - lo) / gap) - 1
-	while q <= int((hi - lo) / gap) + 1:
-		var x := c + (q + m) * gap
-		if x >= lo and x <= hi:
-			_peg(x, y)
-		q += 1
-
-
-func _ramp(ax: float, ay: float, bx: float, by: float) -> void:
-	ramps.append({"a": Vector2(ax, ay), "b": Vector2(bx, by)})
+## Whether a half-bumper on the wall at `x` (0 or WIDTH), height `y`, stays
+## a racer-wide gap clear of everything that can ever come near it: where a
+## moving circle can go is taken as its slide, or its whole circle round its
+## pivot.
+func _wall_clear(x: float, y: float) -> bool:
+	var keep := KICKER_R + 2.0 * 30.0 + 8.0
+	for o in movers:
+		var c: Vector2 = o.pos
+		var reach: float = o.radius
+		if o.has("pivot"):
+			reach += c.distance_to(o.pivot)
+			c = o.pivot
+		var slide: Vector2 = o.get("slide", Vector2.ZERO)
+		var lo_x := c.x - reach - absf(slide.x)
+		var hi_x := c.x + reach + absf(slide.x)
+		var lo_y := c.y - reach - absf(slide.y)
+		var hi_y := c.y + reach + absf(slide.y)
+		if y + keep < lo_y or y - keep > hi_y:
+			continue
+		if (x == 0.0 and lo_x < keep) or (x == WIDTH and hi_x > WIDTH - keep):
+			return false
+	for f in floors:
+		if f.kind == "portal" or f.kind == "launch":
+			if absf(f.pos.y - y) < keep + f.radius and absf(f.pos.x - x) < keep + f.radius:
+				return false
+	return true
 
 
 ## A ramp from `a` to `b` carrying `extra` (look, ice, belt).
@@ -336,25 +364,6 @@ func _curve(a: Vector2, c: Vector2, b: Vector2, extra := {}, n := 8) -> void:
 		prev = p
 
 
-## A closed shape of ramps through `pts`.
-func _shape(pts: Array, extra := {}) -> void:
-	for k in pts.size():
-		_seg(pts[k], pts[(k + 1) % pts.size()], extra)
-
-
-## A bar `half` long either side of `pos` at `angle` degrees, `radius` thick.
-func _bar(pos: Vector2, half: float, angle: float, radius: float, extra: Dictionary) -> void:
-	var o := {"pos": pos, "bar": half, "angle": angle, "radius": radius, "kind": "pillar"}
-	o.merge(extra, true)
-	movers.append(o)
-
-
-## A pendulum hanging `length` from `pivot`, swinging `swing` radians either way.
-func _pendulum(pivot: Vector2, length: float, radius: float, swing: float, period: float, phase: float) -> void:
-	_bar(pivot + Vector2(0.0, length / 2.0), length / 2.0, 90.0, radius,
-		{"pivot": pivot, "swing": swing, "period": period, "phase": phase, "slide": Vector2.ZERO})
-
-
 ## A wind or current band: pushes everything in `rect` along `dir` at
 ## `accel`, reversing every `flip` seconds when set.
 func _wind(rect: Rect2, dir: Vector2, accel: float, flip := 0.0) -> void:
@@ -375,443 +384,457 @@ func _pad(at: Vector2, kick: Vector2) -> void:
 	floors.append({"kind": "launch", "pos": at, "radius": 48.0, "kick": kick})
 
 
-## Ramps that switch back and forth from the walls (`turns` of them, `drop`
-## apart), each reaching `reach` across and falling `fall` of `drop`.
-func _switchbacks(y0: float, turns: int, drop: float, reach: float, fall: float, extra := {}) -> void:
-	for t in turns:
-		var ty := y0 + 40.0 + t * drop
-		if t % 2 == 0:
-			_seg(Vector2(0.0, ty), Vector2(reach, ty + drop * fall), extra)
-		else:
-			_seg(Vector2(WIDTH, ty), Vector2(WIDTH - reach, ty + drop * fall), extra)
+## A moving piece: circles BEAD radii apart along `pts`, all moving as one
+## (`move`: orbit/pivot, slide/period/phase or swing/pivot/period/phase) and
+## drawn as one thick line (`group`). `kind` "bumper" kicks.
+func _chain(pts: Array, r: float, move: Dictionary, kind := "pillar") -> void:
+	_gid += 1
+	var tint: String = info.get("tint", "")
+	var step := r * BEAD
+	for k in range(pts.size() - 1):
+		var a: Vector2 = pts[k]
+		var b: Vector2 = pts[k + 1]
+		var n := maxi(1, int(ceil(a.distance_to(b) / step)))
+		for j in range(0 if k == 0 else 1, n + 1):
+			var o := {"pos": a.lerp(b, float(j) / n), "radius": r, "kind": kind, "group": _gid, "tint": tint}
+			o.merge(move)
+			movers.append(o)
+
+
+## A straight rod from `a` to `b`.
+func _rod(a: Vector2, b: Vector2, r: float, move: Dictionary) -> void:
+	_chain([a, b], r, move)
+
+
+## A rod `half` long either side of `c` at `deg` degrees.
+func _rod_at(c: Vector2, half: float, deg: float, r: float, move: Dictionary) -> void:
+	var d := Vector2(DMath.cos(deg_to_rad(deg)), DMath.sin(deg_to_rad(deg))) * half
+	_rod(c - d, c + d, r, move)
+
+
+## Swinging round `pivot` by `swing` radians either way.
+static func _swinging(pivot: Vector2, swing: float, period: float, phase: float) -> Dictionary:
+	return {"pivot": pivot, "swing": swing, "period": period, "phase": phase, "slide": Vector2.ZERO}
+
+
+## Sliding by `by` (a sine over `period`), `phase` of the way through.
+static func _sliding(by: Vector2, period: float, phase := 0.0) -> Dictionary:
+	return {"slide": by, "period": period, "phase": phase}
+
+
+## Turning round `pivot` at `spin` rad/s.
+static func _turning(pivot: Vector2, spin: float) -> Dictionary:
+	return {"pivot": pivot, "orbit": spin}
+
+
+## A ring of radius `rad` round `c` turning at `spin`, with `gaps` openings
+## each `gap` radians wide, the first centred at `start` radians.
+func _ring(c: Vector2, rad: float, r: float, spin: float, gaps: int, gap: float, start: float) -> void:
+	var arc := TAU / gaps - gap
+	for g in gaps:
+		var a0 := start + gap / 2.0 + g * TAU / gaps
+		var pts := []
+		var n := maxi(2, int(ceil(arc * rad / (r * BEAD))))
+		for k in n + 1:
+			var a := a0 + arc * k / n
+			pts.append(c + Vector2(DMath.cos(a), DMath.sin(a)) * rad)
+		# Every circle of the arc turns round the ring's centre.
+		_gid += 1
+		var tint: String = info.get("tint", "")
+		for p in pts:
+			movers.append({"pos": p, "radius": r, "kind": "pillar", "group": _gid, "tint": tint, "pivot": c, "orbit": spin})
+
+
+## A number from `lo` to `hi` by the seed.
+static func _jit(crng: Rng, lo: float, hi: float) -> float:
+	return lo + (hi - lo) * crng.range_int(0, 100) / 100.0
+
+
+## A V of still ramps from both walls down to a mouth `mouth` wide at `x`.
+func _hopper(y: float, x: float, mouth: float, drop: float, extra := {}) -> void:
+	_seg(Vector2(0.0, y), Vector2(x - mouth / 2.0, y + drop), extra)
+	_seg(Vector2(WIDTH, y), Vector2(x + mouth / 2.0, y + drop), extra)
 
 
 ## Adds one section starting at `y0` and returns where the next one starts.
+## Every section is moving pieces; still ramps only gather the field into a
+## machine. The seed varies phases and speeds, and mirrors the section.
 func _section(crng: Rng, kind: String, y0: float) -> float:
 	var h := 0.0
 	match kind:
-		"pegs":
-			# Staggered rows, with a half-bumper on each wall per row.
-			var rows := crng.range_int(5, 6)
-			var gap := float(crng.range_int(110, 130))
+		# --- The opener and the shared moving pieces -------------------------------
+		"opener", "bricks":
+			# Rounded bricks sliding across, tilted so nobody rides one for
+			# good; rows of two short bricks and one long one, opposite ways.
+			var rows := 3 if kind == "opener" else 5
+			var period := _jit(crng, 3.4, 4.0)
 			for row in rows:
-				var ry := y0 + 40.0 + row * 96.0
-				_peg_row(CLEAR, WIDTH - CLEAR, ry, gap, row % 2 == 1)
-				_kickers(ry)
-			h = rows * 96.0 + 40.0
-			# A lip off each wall turns the outside lanes in, so no gate can
-			# fall past whatever the first section starts with.
-			_ramp(0.0, y0 + h + 30.0, 250.0, y0 + h + 120.0)
-			_ramp(WIDTH, y0 + h + 30.0, WIDTH - 250.0, y0 + h + 120.0)
-			h += 160.0
-		"bumpers":
-			# A garden of bumpers that fling racers about.
-			var count := crng.range_int(5, 7)
-			var placed: Array[Vector2] = []
-			var tries := 0
-			h = 640.0
-			while placed.size() < count and tries < 200:
-				tries += 1
-				var p := Vector2(crng.range_int(110, 890), y0 + crng.range_int(90, int(h) - 90))
-				if placed.all(func(q): return q.distance_to(p) >= 210.0):
-					placed.append(p)
-					_peg(p.x, p.y, 36.0, true)
-		"wells":
-			# Two wells either side of the drop, a pickup between them.
-			h = 600.0
-			var wx := float(crng.range_int(260, 300))
-			var reach := float(crng.range_int(220, 250))
-			for x in [wx, WIDTH - wx]:
-				wells.append({"pos": Vector2(x, y0 + 260.0), "reach": reach, "accel": WELL_ACCEL, "core": 40.0})
-			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 260.0))
-			_peg_row(CLEAR, WIDTH - CLEAR, y0 + h - 70.0, 120.0, false)
-		"lava":
-			# Lava pools down the sides under a peg row that scatters racers
-			# into them; the safe middle has a heal.
-			h = 560.0
-			var edge := float(crng.range_int(290, 330))
-			_peg_row(CLEAR, WIDTH - CLEAR, y0 + 50.0, 115.0, false)
-			_peg_row(CLEAR, WIDTH - CLEAR, y0 + 140.0, 115.0, true)
-			# One pool each side, staggered, never stacked.
-			floors.append({"kind": "lava", "pos": Vector2(edge / 2.0, y0 + 270.0), "radius": edge / 2.0 + 10.0})
-			floors.append({"kind": "lava", "pos": Vector2(WIDTH - edge / 2.0, y0 + 420.0), "radius": edge / 2.0 + 10.0})
-			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 400.0), "heal")
-		"goo":
-			# Peg rows over goo puddles, in mirrored pairs: pick a lucky lane.
-			h = 560.0
+				var ry := y0 + 70.0 + row * 160.0
+				var tilt := 12.0 if row % 2 == 0 else -12.0
+				var dir := 1.0 if row % 2 == 0 else -1.0
+				var ph := row * 0.21
+				if row % 2 == 0:
+					for x in [300.0, 700.0]:
+						_rod_at(Vector2(x, ry), 90.0, tilt, 18.0, _sliding(Vector2(110.0 * dir, 0.0), period, ph))
+				else:
+					_rod_at(Vector2(500.0, ry), 110.0, tilt, 18.0, _sliding(Vector2(150.0 * dir, 0.0), period, ph))
+			h = rows * 160.0 + 60.0
+		"rings":
+			# Rings with three gaps turning both ways, close enough that the way
+			# down is through them: drop in, ride round, fall out when a gap
+			# comes by.
+			var spin := _jit(crng, 0.95, 1.2)
+			for row in 3:
+				var ry := y0 + 170.0 + row * 290.0
+				var xs := [180.0, 500.0, 820.0] if row % 2 == 0 else [340.0, 660.0]
+				for j in xs.size():
+					_ring(Vector2(xs[j], ry), 130.0, 16.0, spin if (row + j) % 2 == 0 else -spin, 3, 0.75, _jit(crng, 0.0, TAU))
+			h = 3 * 290.0 + 100.0
+		"slabs":
+			# Long slabs from alternate walls, flapping on their hinge like a
+			# zigzag of see-saws, so no two drops off them are alike.
+			var period := _jit(crng, 2.6, 3.0)
+			for k in 4:
+				var y := y0 + 60.0 + k * 240.0
+				var left := k % 2 == 0
+				var pivot := Vector2(0.0 if left else WIDTH, y)
+				var a := deg_to_rad(15.0)
+				var tip := pivot + Vector2(DMath.cos(a) * (1.0 if left else -1.0), DMath.sin(a)) * 620.0
+				_rod(pivot, tip, 18.0, _swinging(pivot, 0.11 if left else -0.11, period, k * 0.3))
+			h = 4 * 240.0 + 140.0
+		"crosses":
+			# Spinning crosses: two on one row, one on the next.
+			var spin := _jit(crng, 1.2, 1.5)
 			for row in 4:
-				_peg_row(CLEAR, WIDTH - CLEAR, y0 + 60.0 + row * 120.0, 125.0, row % 2 == 1)
-			var gx := float(crng.range_int(200, 300))
-			var gy := y0 + float(crng.range_int(230, 260))
+				var ry := y0 + 150.0 + row * 250.0
+				var xs := [270.0, 730.0] if row % 2 == 0 else [500.0]
+				for j in xs.size():
+					var c := Vector2(xs[j], ry)
+					var s := spin if (row + j) % 2 == 0 else -spin
+					var turn := _jit(crng, 0.0, 90.0)
+					_rod_at(c, 125.0, turn, 17.0, _turning(c, s))
+					_rod_at(c, 125.0, turn + 90.0, 17.0, _turning(c, s))
+			h = 4 * 250.0 + 60.0
+		"bobbers":
+			# Big bumpers bobbing up and down, out of step.
+			var period := _jit(crng, 2.0, 2.6)
+			var at := [Vector2(250.0, 130.0), Vector2(750.0, 130.0), Vector2(500.0, 330.0), Vector2(200.0, 540.0),
+				Vector2(800.0, 540.0), Vector2(500.0, 740.0)]
+			for k in at.size():
+				movers.append({"pos": Vector2(at[k].x, y0 + at[k].y), "radius": 52.0, "kind": "bumper",
+					"slide": Vector2(0.0, 55.0), "period": period, "phase": k * 0.17})
+			h = 880.0
+		"seesaws":
+			# Seesaws tipping racers off one end, then the other.
+			var period := _jit(crng, 2.6, 3.2)
+			for row in 4:
+				var ry := y0 + 110.0 + row * 230.0
+				var xs := [260.0, 740.0] if row % 2 == 0 else [500.0]
+				for j in xs.size():
+					var c := Vector2(xs[j], ry)
+					# Tipped a little one way on average, so a racer always rolls off.
+					var tip := 12.0 if (row + j) % 2 == 0 else -12.0
+					_rod_at(c, 150.0 if xs.size() == 1 else 120.0, tip, 17.0, _swinging(c, 0.35, period, (row + j) * 0.25))
+			h = 4 * 230.0 + 60.0
+		"pendulums":
+			# Heavy pendulums swinging across the drop, out of step.
+			var period := _jit(crng, 2.6, 3.1)
+			var at := [Vector2(260.0, 30.0), Vector2(740.0, 30.0), Vector2(500.0, 330.0), Vector2(260.0, 630.0), Vector2(740.0, 630.0)]
+			for k in at.size():
+				var pivot := Vector2(at[k].x, y0 + at[k].y)
+				var swing := _swinging(pivot, 0.45, period + k * 0.15, k * 0.29)
+				_rod(pivot, pivot + Vector2(0.0, 230.0), 16.0, swing)
+				movers.append({"pos": pivot + Vector2(0.0, 240.0), "radius": 40.0, "kind": "pillar", "group": _gid,
+					"tint": info.get("tint", "")}.merged(swing))
+			h = 960.0
+		# --- The hazards -----------------------------------------------------------
+		"wells":
+			# Two wells, each with a moon circling it; a pickup between them.
+			h = 640.0
+			var wx := _jit(crng, 250.0, 290.0)
+			for x in [wx, WIDTH - wx]:
+				var c := Vector2(x, y0 + 300.0)
+				wells.append({"pos": c, "reach": 230.0, "accel": WELL_ACCEL, "core": 40.0})
+				movers.append({"pos": c + Vector2(0.0, -150.0), "radius": 38.0, "kind": "pillar", "pivot": c,
+					"orbit": 0.8 if x < WIDTH / 2.0 else -0.8, "tint": info.get("tint", "")})
+			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 300.0))
+		"lava":
+			# Lava pools down the sides, sliding bumpers knocking racers at them;
+			# the safe middle has a heal.
+			h = 640.0
+			var edge := _jit(crng, 260.0, 300.0)
+			floors.append({"kind": "lava", "pos": Vector2(edge / 2.0, y0 + 300.0), "radius": edge / 2.0 + 10.0})
+			floors.append({"kind": "lava", "pos": Vector2(WIDTH - edge / 2.0, y0 + 470.0), "radius": edge / 2.0 + 10.0})
+			var period := _jit(crng, 4.5, 5.0)
+			movers.append({"pos": Vector2(500.0, y0 + 150.0), "radius": 40.0, "kind": "bumper", "slide": Vector2(220.0, 0.0), "period": period})
+			movers.append({"pos": Vector2(500.0, y0 + 330.0), "radius": 40.0, "kind": "bumper", "slide": Vector2(-220.0, 0.0), "period": period})
+			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 520.0), "heal")
+		"goo":
+			# Goo puddles with a sweeping bar ploughing through them.
+			h = 620.0
+			var gx := _jit(crng, 220.0, 290.0)
 			for x in [gx, WIDTH - gx]:
-				floors.append({"kind": "goo", "pos": Vector2(x, gy), "radius": 105.0, "slow": 0.0})
-			floors.append({"kind": "goo", "pos": Vector2(WIDTH / 2.0, gy + 200.0), "radius": 95.0, "slow": 0.0})
-			_pickup(crng, Vector2(WIDTH / 2.0, gy), "shield")
+				floors.append({"kind": "goo", "pos": Vector2(x, y0 + 220.0), "radius": 110.0, "slow": 0.0})
+			floors.append({"kind": "goo", "pos": Vector2(WIDTH / 2.0, y0 + 430.0), "radius": 100.0, "slow": 0.0})
+			var period := _jit(crng, 3.4, 4.0)
+			_rod_at(Vector2(500.0, y0 + 110.0), 150.0, 8.0, 18.0, _sliding(Vector2(170.0, 0.0), period))
+			_rod_at(Vector2(500.0, y0 + 330.0), 150.0, -8.0, 18.0, _sliding(Vector2(-170.0, 0.0), period))
+			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 220.0), "shield")
 		"sliders":
 			# Rows of bumpers sliding across, out of step with each other.
-			h = 620.0
-			var period := float(crng.range_int(26, 34)) / 10.0
+			h = 640.0
+			var period := _jit(crng, 2.6, 3.4)
 			for row in 3:
 				for x in [WIDTH / 3.0, WIDTH * 2.0 / 3.0]:
 					var phase := 1.0 if row % 2 == 0 else -1.0
 					movers.append({"pos": Vector2(x, y0 + 110.0 + row * 180.0), "radius": 34.0, "kind": "bumper",
 						"slide": Vector2(130.0 * phase, 0.0), "period": period + row * 0.4})
 			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 200.0))
-		"spiral":
-			# Gumdrop: curved shelves winding down round a column of gumball
-			# jars, each shelf tipping racers past the next jar.
-			var drop := 175.0
-			for t in 4:
-				var ty := y0 + 40.0 + t * drop
-				var a := Vector2(0.0, ty)
-				var b := Vector2(360.0, ty + 150.0)
-				var c := Vector2(180.0, ty + 45.0)
-				if t % 2 == 1:
-					a.x = WIDTH
-					b.x = WIDTH - b.x
-					c.x = WIDTH - c.x
-				_curve(a, c, b, {"look": "cane"})
-				_peg(WIDTH / 2.0, ty + 165.0, 55.0)
-			h = 4 * drop + 160.0
-		"canes":
-			# Candy canes: short slanted bars in staggered rows, a racer-wide
-			# gap between one row's ends and the next's.
-			for row in 5:
-				var ry := y0 + 60.0 + row * 130.0
-				var xs := [200.0, 500.0, 800.0] if row % 2 == 0 else [350.0, 650.0]
-				for k in xs.size():
-					var tilt := Vector2(48.0, 34.0) if (row + k) % 2 == 0 else Vector2(48.0, -34.0)
-					_seg(Vector2(xs[k], ry) - tilt, Vector2(xs[k], ry) + tilt, {"look": "cane"})
-				if row % 2 == 1:
-					_kickers(ry)
-			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 255.0))
-			h = 5 * 130.0 + 60.0
-		"comb":
-			# Honeycomb: solid hex cells in a honeycomb, racers rattling down
-			# the gaps between them.
-			for row in 4:
-				var ry := y0 + 50.0 + row * 190.0
-				var xs := [60.0, 280.0, 500.0, 720.0, 940.0] if row % 2 == 0 else [170.0, 390.0, 610.0, 830.0]
-				for cx in xs:
-					_shape([Vector2(cx, ry), Vector2(cx + 60.0, ry + 35.0), Vector2(cx + 60.0, ry + 105.0),
-						Vector2(cx, ry + 140.0), Vector2(cx - 60.0, ry + 105.0), Vector2(cx - 60.0, ry + 35.0)], {"look": "comb"})
-				if row % 2 == 1:
-					_kickers(ry + 70.0)
-				else:
-					# The wall cells' tops slope into the wall: a kicker there
-					# so nobody comes to rest in the corner.
-					_kickers(ry)
-			h = 4 * 190.0 + 40.0
-		"flow":
-			# Honey flows: switchback belts that carry racers along.
-			_switchbacks(y0, 3, 160.0, WIDTH - 180.0, 0.65, {"belt": 330.0, "look": "belt"})
-			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 250.0), "heal")
-			h = 3 * 160.0 + 120.0
-		"highway":
-			# The strip: long gentle switchbacks, fast belts, and a jump pad
-			# off one road onto the next.
-			_switchbacks(y0, 3, 200.0, WIDTH - 170.0, 0.7, {"belt": 360.0, "look": "belt"})
-			_pad(Vector2(120.0, y0 + 40.0 + 200.0 + 120.0 + 70.0), Vector2(560.0, -140.0))
-			h = 3 * 200.0 + 120.0
-		"train":
-			# The toy train: belts down switchback tracks.
-			_switchbacks(y0, 3, 170.0, WIDTH - 180.0, 0.65, {"belt": 420.0, "look": "belt"})
-			h = 3 * 170.0 + 120.0
-		"stair":
-			# The temple's grand stair: full-width steps, each with its gap
-			# somewhere else.
-			var gaps := [260.0, 740.0, 400.0, 600.0]
-			for t in 4:
-				var ty := y0 + 40.0 + t * 165.0
-				var gx: float = gaps[t]
-				_seg(Vector2(0.0, ty), Vector2(gx - 95.0, ty + 110.0), {"look": "stone"})
-				_seg(Vector2(WIDTH, ty), Vector2(gx + 95.0, ty + 110.0), {"look": "stone"})
-			h = 4 * 165.0 + 100.0
-		"sundisc":
-			# A great sun disc spinning in the middle, two small ones under it.
-			_bar(Vector2(WIDTH / 2.0, y0 + 260.0), 190.0, 0.0, 18.0, {"orbit": 1.0})
-			_bar(Vector2(190.0, y0 + 490.0), 80.0, 0.0, 16.0, {"orbit": -1.5})
-			_bar(Vector2(WIDTH - 190.0, y0 + 490.0), 80.0, 0.0, 16.0, {"orbit": 1.5})
-			_kickers(y0 + 260.0)
-			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 490.0))
-			h = 620.0
-		"vines":
-			# Vines swinging across the drop, out of step with each other.
-			_pendulum(Vector2(300.0, y0 + 30.0), 230.0, 15.0, 0.42, 2.6, 0.0)
-			_pendulum(Vector2(700.0, y0 + 30.0), 230.0, 15.0, 0.42, 3.0, 0.5)
-			_pendulum(Vector2(500.0, y0 + 340.0), 230.0, 15.0, 0.42, 2.8, 0.25)
-			_kickers(y0 + 150.0)
-			_kickers(y0 + 460.0)
-			h = 640.0
-		"stumps":
-			# Fat pillar stumps, far apart: big shapes, not little pegs.
-			var placed: Array[Vector2] = []
-			var tries := 0
-			h = 620.0
-			while placed.size() < 5 and tries < 300:
-				tries += 1
-				var r := float(crng.range_int(48, 58))
-				var p := Vector2(crng.range_int(int(r) + 70, int(WIDTH - r) - 70), y0 + crng.range_int(90, int(h) - 90))
-				if placed.all(func(q): return q.distance_to(p) >= 240.0):
-					placed.append(p)
-					_peg(p.x, p.y, r)
-			_kickers(y0 + 200.0)
-			_kickers(y0 + 420.0)
-		"orbits":
-			# Planetoids circling one big well.
-			var hub := Vector2(WIDTH / 2.0, y0 + 300.0)
-			wells.append({"pos": hub, "reach": 320.0, "accel": WELL_ACCEL, "core": 40.0})
-			for k in 3:
-				var at: Vector2 = hub + [Vector2(190.0, 0.0), Vector2(-95.0, 164.5), Vector2(-95.0, -164.5)][k]
-				movers.append({"pos": at, "radius": 42.0, "kind": "pillar", "orbit": 0.6, "pivot": hub})
-			_kickers(y0 + 150.0)
-			_kickers(y0 + 450.0)
-			h = 640.0
-		"warps":
-			# Portals that warp racers across the shaft, between peg rows.
-			for row in 3:
-				_peg_row(CLEAR, WIDTH - CLEAR, y0 + 50.0 + row * 210.0, 125.0, row % 2 == 1)
-				_kickers(y0 + 50.0 + row * 210.0)
-			_portal(Vector2(230.0, y0 + 150.0), Vector2(WIDTH - 230.0, y0 + 360.0))
-			_portal(Vector2(WIDTH - 230.0, y0 + 150.0), Vector2(230.0, y0 + 360.0))
-			h = 560.0
-		"asteroids":
-			# Big rocks drifting slowly across, at their own speeds.
-			for k in 6:
-				var r := float(crng.range_int(40, 60))
-				var x := float(crng.range_int(330, 670))
-				var amp := minf(float(crng.range_int(170, 250)), minf(x - r - 70.0, WIDTH - x - r - 70.0))
-				movers.append({"pos": Vector2(x, y0 + 80.0 + k * 105.0), "radius": r, "kind": "pillar",
-					"slide": Vector2(amp if k % 2 == 0 else -amp, 0.0), "period": float(crng.range_int(40, 70)) / 10.0})
-			_kickers(y0 + 200.0)
-			_kickers(y0 + 500.0)
-			h = 720.0
-		"kelp":
-			# Kelp stalks swaying side to side.
-			for k in 3:
-				_bar(Vector2(250.0 + k * 250.0, y0 + 220.0), 160.0, 90.0, 14.0,
-					{"slide": Vector2(70.0 if k % 2 == 0 else -70.0, 0.0), "period": 3.2 + k * 0.4})
+		# --- The machines, one per course -------------------------------------------
+		"globe":
+			# Gumdrop: a hopper over a great turning gumball globe. Racers wait
+			# in the hopper till a gap comes round, tumble inside, and drop out
+			# the bottom into the coin chute.
+			_hopper(y0, 500.0, 150.0, 210.0, {"look": "cane"})
+			var c := Vector2(500.0, y0 + 520.0)
+			_ring(c, 270.0, 20.0, 0.75, 2, 0.62, -PI / 2.0)
+			_hopper(y0 + 760.0, 500.0, 160.0, 230.0, {"look": "cane"})
+			h = 1100.0
+		"dipper":
+			# Honey: a giant honey dipper turning in the middle of the shaft,
+			# its ridges out of step so racers corkscrew down it, goo either side.
+			for k in 7:
+				var c := Vector2(500.0, y0 + 90.0 + k * 125.0)
+				var half := 150.0 if k % 2 == 0 else 120.0
+				_rod_at(c, half, k * 26.0, 16.0, _turning(c, 0.9))
 			for k in 2:
-				_bar(Vector2(375.0 + k * 250.0, y0 + 590.0), 150.0, 90.0, 14.0,
-					{"slide": Vector2(-70.0 if k == 0 else 70.0, 0.0), "period": 3.6 + k * 0.4})
-			_kickers(y0 + 220.0)
-			_kickers(y0 + 590.0)
-			h = 780.0
-		"currents":
-			# Upward currents either side: floaty, slow-motion lanes, a quick
-			# middle between them.
-			_wind(Rect2(120.0, y0 + 40.0, 230.0, 520.0), Vector2.UP, 520.0)
-			_wind(Rect2(WIDTH - 350.0, y0 + 40.0, 230.0, 520.0), Vector2.UP, 520.0)
-			for k in 4:
-				_peg(WIDTH / 2.0 + (40.0 if k % 2 == 0 else -40.0), y0 + 90.0 + k * 130.0)
-			_kickers(y0 + 300.0)
-			_pickup(crng, Vector2(235.0, y0 + 300.0))
-			h = 600.0
-		"trench":
-			# The long dark shaft: a funnel into a narrow trench with
-			# currents pushing across it.
+				floors.append({"kind": "goo", "pos": Vector2(140.0 if k == 0 else 860.0, y0 + 300.0 + k * 300.0), "radius": 90.0, "slow": 0.0})
 			h = 1000.0
-			_ramp(0.0, y0, 300.0, y0 + 180.0)
-			_ramp(WIDTH, y0, WIDTH - 300.0, y0 + 180.0)
-			_ramp(300.0, y0 + 180.0, 300.0, y0 + h - 60.0)
-			_ramp(WIDTH - 300.0, y0 + 180.0, WIDTH - 300.0, y0 + h - 60.0)
-			for k in 3:
-				var by := y0 + 260.0 + k * 230.0
-				_wind(Rect2(306.0, by, WIDTH - 612.0, 110.0), Vector2.RIGHT if k % 2 == 0 else Vector2.LEFT, 650.0, 1.8)
-				if k % 2 == 0:
-					_seg(Vector2(300.0, by + 140.0), Vector2(520.0, by + 200.0), {"look": "stone"})
-				else:
-					_seg(Vector2(WIDTH - 300.0, by + 140.0), Vector2(WIDTH - 520.0, by + 200.0), {"look": "stone"})
-		"trampolines":
-			# Cloud trampolines: puffy cups with a launch pad in the middle.
-			var rows := [[270.0, 730.0], [500.0], [270.0, 730.0]]
+		"sundial":
+			# Sunstone: a stone sun disc with four great spokes turning across
+			# the shaft, two little discs under it.
+			var c := Vector2(500.0, y0 + 380.0)
+			movers.append({"pos": c, "radius": 70.0, "kind": "pillar", "tint": "ffd76a"})
+			var turn := _jit(crng, 0.0, 90.0)
+			for k in 4:
+				var a := deg_to_rad(turn + k * 90.0)
+				var d := Vector2(DMath.cos(a), DMath.sin(a))
+				_rod(c + d * 80.0, c + d * 370.0, 20.0, _turning(c, 0.5))
+			for x in [230.0, 770.0]:
+				var cc := Vector2(x, y0 + 860.0)
+				_rod_at(cc, 120.0, 0.0, 16.0, _turning(cc, 1.3 if x < 500.0 else -1.3))
+			h = 1040.0
+		"bridges":
+			# Vine Ruins: rope bridges whose planks flip down one after another.
+			var period := _jit(crng, 2.8, 3.2)
 			for row in 3:
-				var ry := y0 + 80.0 + row * 230.0
-				for x in rows[row]:
-					_seg(Vector2(x - 130.0, ry), Vector2(x - 45.0, ry + 60.0), {"look": "cloud"})
-					_seg(Vector2(x + 130.0, ry), Vector2(x + 45.0, ry + 60.0), {"look": "cloud"})
-					var side := 1.0 if x < WIDTH / 2.0 else -1.0
-					if x == WIDTH / 2.0:
-						side = 1.0 if crng.range_int(0, 1) == 0 else -1.0
-					_pad(Vector2(x, ry + 50.0), Vector2(260.0 * side, -720.0))
-				_kickers(ry + 30.0)
-			h = 3 * 230.0 + 100.0
-		"gusts":
-			# Gust bands that blow the field one way, then the other.
-			for k in 3:
-				var by := y0 + 50.0 + k * 210.0
-				_wind(Rect2(0.0, by, WIDTH, 110.0), Vector2.RIGHT if k % 2 == 0 else Vector2.LEFT, 700.0, 1.5)
-				_peg_row(CLEAR, WIDTH - CLEAR, by + 160.0, 170.0, k % 2 == 1)
-				_kickers(by + 55.0)
-			h = 3 * 210.0 + 80.0
-		"slalom":
-			# Ice slides: curved icy chutes that speed racers up.
-			var drop := 220.0
-			for t in 4:
-				var ty := y0 + 40.0 + t * drop
-				var a := Vector2(0.0, ty)
-				var c := Vector2(415.0, ty + drop * 0.25)
-				var b := Vector2(WIDTH - 170.0, ty + drop * 0.55)
-				if t % 2 == 1:
-					a.x = WIDTH
-					c.x = WIDTH - c.x
-					b.x = WIDTH - b.x
-				_curve(a, c, b, {"ice": true, "look": "ice"})
-			h = 4 * drop + 120.0
-		"mirrors":
-			# Crystal mirrors at 45 degrees in a diamond grid: ricochets, a
-			# racer-wide gap between one row's ends and the next's.
-			for row in 5:
-				var ry := y0 + 60.0 + row * 140.0
-				var xs := [170.0, 390.0, 610.0, 830.0] if row % 2 == 0 else [280.0, 500.0, 720.0]
-				for k in xs.size():
-					var tilt := Vector2(35.0, 35.0) if (row + k) % 2 == 0 else Vector2(35.0, -35.0)
-					_seg(Vector2(xs[k], ry) - tilt, Vector2(xs[k], ry) + tilt, {"look": "crystal"})
-				if row % 2 == 1:
-					_kickers(ry)
-			h = 5 * 140.0 + 60.0
-		"spinners":
-			# A crystal spinner in the middle, two quick little ones round it.
-			_bar(Vector2(WIDTH / 2.0, y0 + 290.0), 150.0, 0.0, 16.0, {"orbit": 1.2})
-			_bar(Vector2(210.0, y0 + 120.0), 80.0, 0.0, 15.0, {"orbit": -1.7})
-			_bar(Vector2(WIDTH - 210.0, y0 + 460.0), 80.0, 0.0, 15.0, {"orbit": 1.7})
-			_kickers(y0 + 290.0)
-			_pickup(crng, Vector2(WIDTH - 210.0, y0 + 160.0))
-			h = 580.0
-		"tubes":
-			# Lava tubes: curved pipes that carry racers back and forth.
-			var drop := 240.0
+				var ry := y0 + 120.0 + row * 300.0
+				for k in 4:
+					# Each plank hangs 35 degrees down and swings 35 either way:
+					# shut (flat, a gap too narrow to pass) to wide open.
+					var hinge := Vector2(40.0 + k * 245.0, ry)
+					var a := deg_to_rad(35.0)
+					_rod(hinge, hinge + Vector2(DMath.cos(a), DMath.sin(a)) * 205.0, 14.0, _swinging(hinge, -0.6, period, k * 0.18 + row * 0.5))
+			h = 3 * 300.0 + 160.0
+		"orrery":
+			# Nebula: planets on long arms round a central well, each at its own
+			# speed.
+			var c := Vector2(500.0, y0 + 420.0)
+			wells.append({"pos": c, "reach": 200.0, "accel": WELL_ACCEL, "core": 40.0})
+			var arms := [[130.0, 0.9, 34.0], [230.0, -0.65, 42.0], [330.0, 0.48, 48.0]]
+			for k in arms.size():
+				var arm: Array = arms[k]
+				var a := _jit(crng, 0.0, TAU)
+				var d := Vector2(DMath.cos(a), DMath.sin(a))
+				_rod(c + d * 40.0, c + d * arm[0], 8.0, _turning(c, arm[1]))
+				movers.append({"pos": c + d * arm[0], "radius": arm[2], "kind": "pillar", "pivot": c, "orbit": arm[1], "tint": "ffd27a"})
+			# Wormholes from the top corners to the far bottom ones.
+			_portal(Vector2(130.0, y0 + 90.0), Vector2(WIDTH - 130.0, y0 + 820.0))
+			_portal(Vector2(WIDTH - 130.0, y0 + 90.0), Vector2(130.0, y0 + 820.0))
+			h = 900.0
+		"tumbler":
+			# Rock Belt: one huge lumpy asteroid turning slowly; racers sit in
+			# its craters until they roll off.
+			var c := Vector2(500.0, y0 + 420.0)
+			var lumps := [[0.0, 150.0, 95.0], [1.1, 170.0, 80.0], [2.0, 140.0, 100.0], [3.0, 175.0, 75.0], [4.1, 150.0, 90.0], [5.2, 165.0, 80.0]]
+			movers.append({"pos": c, "radius": 120.0, "kind": "pillar", "pivot": c, "orbit": 0.35, "tint": info.get("tint", "")})
+			for l in lumps:
+				var d := Vector2(DMath.cos(l[0]), DMath.sin(l[0]))
+				movers.append({"pos": c + d * l[1], "radius": l[2], "kind": "pillar", "pivot": c, "orbit": 0.35, "tint": info.get("tint", "")})
+			h = 900.0
+		"kelpwave":
+			# Kelp: tall stalks swaying as one wave, bubble columns lifting
+			# racers back up between them.
+			var period := _jit(crng, 3.0, 3.6)
+			for row in 2:
+				var base := y0 + 470.0 + row * 460.0
+				for k in 4:
+					var root := Vector2(200.0 + k * 200.0, base)
+					_rod(root, root - Vector2(0.0, 330.0), 14.0, _swinging(root, 0.25, period, k * 0.12 + row * 0.5))
+				for x in [300.0, 700.0]:
+					_wind(Rect2(x - 30.0, base - 380.0, 60.0, 330.0), Vector2.UP, 600.0)
+			h = 1000.0
+		"doors":
+			# Deep Trench: pressure doors sliding shut from both walls on one
+			# beat, tilted in so racers roll to the slot.
+			var period := _jit(crng, 2.8, 3.2)
+			for k in 4:
+				var y := y0 + 100.0 + k * 230.0
+				var a := deg_to_rad(9.0)
+				for side in [-1.0, 1.0]:
+					var c := Vector2(500.0 + side * 350.0, y)
+					var d := Vector2(DMath.cos(a) * side, -DMath.sin(a))
+					_rod(c - d * 230.0, c + d * 230.0, 20.0, _sliding(Vector2(-side * 60.0, 0.0), period, k * 0.08))
+			h = 4 * 230.0 + 120.0
+		"blimps":
+			# Cloud Hop: two big blimps drifting across, their propeller wash
+			# blowing racers the way they go.
+			var period := _jit(crng, 6.0, 7.0)
+			for k in 2:
+				var y := y0 + 200.0 + k * 400.0
+				var dir := 1.0 if k == 0 else -1.0
+				_rod_at(Vector2(500.0, y), 150.0, 0.0, 52.0, _sliding(Vector2(220.0 * dir, 0.0), period))
+				_wind(Rect2(60.0, y + 90.0, WIDTH - 120.0, 90.0), Vector2.RIGHT * dir, 500.0, period / 2.0)
+			h = 900.0
+		"turbines":
+			# Storm Front: three-bladed wind turbines, a gust band between.
+			var at := [Vector2(290.0, 210.0), Vector2(710.0, 480.0), Vector2(290.0, 750.0)]
+			for k in at.size():
+				var c := Vector2(at[k].x, y0 + at[k].y)
+				var s := 1.3 if k % 2 == 0 else -1.3
+				var turn := _jit(crng, 0.0, 120.0)
+				for b in 3:
+					var a := deg_to_rad(turn + b * 120.0)
+					_rod(c, c + Vector2(DMath.cos(a), DMath.sin(a)) * 170.0, 15.0, _turning(c, s))
+			_wind(Rect2(0.0, y0 + 330.0, WIDTH, 70.0), Vector2.RIGHT, 650.0, 1.6)
+			_wind(Rect2(0.0, y0 + 600.0, WIDTH, 70.0), Vector2.LEFT, 650.0, 1.6)
+			h = 960.0
+		"bobsled":
+			# Icicle Run: icy bobsled chutes, each running into a swinging
+			# paddle that sends racers into the next.
+			var drop := 260.0
 			for t in 3:
 				var ty := y0 + 40.0 + t * drop
 				var a := Vector2(0.0, ty)
-				var c := Vector2(300.0, ty + 180.0)
-				var b := Vector2(WIDTH - 180.0, ty + drop * 0.85)
+				var c := Vector2(380.0, ty + drop * 0.3)
+				var b := Vector2(WIDTH - 220.0, ty + drop * 0.55)
+				var sw := 1.0
 				if t % 2 == 1:
 					a.x = WIDTH
 					c.x = WIDTH - c.x
 					b.x = WIDTH - b.x
-				_curve(a, c, b, {"look": "pipe"})
-				# The roof starts a racer-wide gap under the tube above.
-				var prev := _bez(a, c, b, 0.55) - Vector2(0.0, 115.0)
-				for k in range(5, 8):
-					var p := _bez(a, c, b, k / 8.0) - Vector2(0.0, 115.0)
-					_seg(prev, p, {"look": "pipe"})
-					prev = p
-			h = 3 * drop + 140.0
-		"blocks":
-			# Glitch blocks: a grid of diamonds.
-			for row in 4:
-				var ry := y0 + 70.0 + row * 170.0
-				var xs := [180.0, 500.0, 820.0] if row % 2 == 0 else [340.0, 660.0]
-				for x in xs:
-					_shape([Vector2(x, ry - 55.0), Vector2(x + 55.0, ry), Vector2(x, ry + 55.0), Vector2(x - 55.0, ry)], {"look": "block"})
-				if row % 2 == 1:
-					_kickers(ry)
-			_pickup(crng, Vector2(WIDTH / 2.0, y0 + 240.0))
-			h = 4 * 170.0 + 60.0
-		"dunes":
-			# Rolling dunes: wavy slopes racers roll up and over, quicksand in
-			# the dips.
-			for t in 2:
-				var ty := y0 + 40.0 + t * 300.0
-				var prev := Vector2(0.0, ty)
-				for k in 3:
-					var nx := 280.0 * (k + 1)
-					var nxt := Vector2(nx, ty + nx * 0.31)
-					var c := Vector2((prev.x + nx) / 2.0, nxt.y - 15.0)
-					var dip := _bez(prev, c, nxt, 0.9)
-					if t % 2 == 1:
-						_curve(Vector2(WIDTH - prev.x, prev.y), Vector2(WIDTH - c.x, c.y), Vector2(WIDTH - nxt.x, nxt.y), {"look": "sand"}, 6)
-						dip.x = WIDTH - dip.x
-					else:
-						_curve(prev, c, nxt, {"look": "sand"}, 6)
-					if k == 1:
-						floors.append({"kind": "goo", "pos": dip - Vector2(0.0, 30.0), "radius": 60.0, "slow": 0.0})
-					prev = nxt
-			h = 2 * 300.0 + 120.0
-		"tombs":
-			# Tombstones in crooked rows, thorns that snap out between them; the
-			# first row a racer-wide drop under the opening lips.
+					sw = -1.0
+				# The last bend is a snow run-out, not ice: it brakes the field.
+				_curve(a, c, b, {"ice": true, "look": "ice"} if t < 2 else {})
+				var pivot := Vector2(WIDTH - 90.0 if t % 2 == 0 else 90.0, ty - 20.0)
+				_rod(pivot, pivot + Vector2(0.0, 150.0), 14.0, _swinging(pivot, 0.5 * sw, 1.8, t * 0.3))
+			h = 3 * drop + 160.0
+		"pistons":
+			# Crystal Cave: a row of crystal pistons pounding down in turn like
+			# piano keys; slip under one on its way up.
+			var period := _jit(crng, 2.2, 2.6)
+			for row in 2:
+				var y := y0 + 140.0 + row * 420.0
+				for k in 5:
+					var x := 110.0 + k * 195.0 + (90.0 if row == 1 and k < 4 else 0.0)
+					if row == 1 and k == 4:
+						continue
+					_rod(Vector2(x, y - 90.0), Vector2(x, y + 90.0), 26.0, _sliding(Vector2(0.0, 80.0), period, k * 0.2))
+			h = 900.0
+		"lavalamp":
+			# Lava Tubes: blobs drifting up the tube against the racers.
+			var period := _jit(crng, 4.8, 5.4)
+			var at := [Vector2(250.0, 300.0), Vector2(750.0, 420.0), Vector2(500.0, 620.0), Vector2(220.0, 820.0), Vector2(780.0, 900.0)]
+			for k in at.size():
+				movers.append({"pos": Vector2(at[k].x, y0 + at[k].y), "radius": 62.0 - k * 3.0, "kind": "pillar",
+					"slide": Vector2(0.0, 230.0), "period": period + k * 0.3, "phase": k * 0.23, "tint": "ff9f40"})
+			h = 1160.0
+		"traffic":
+			# Sunset Strip: neon cars zooming across five lanes.
+			var period := _jit(crng, 6.2, 7.0)
+			for k in 5:
+				var y := y0 + 100.0 + k * 170.0
+				var dir := 1.0 if k % 2 == 0 else -1.0
+				_rod_at(Vector2(500.0, y), 70.0, 0.0, 26.0, _sliding(Vector2(300.0 * dir, 0.0), period, k * 0.17))
+			h = 5 * 170.0 + 80.0
+		"shuffle":
+			# Glitch Grid: a block field that flickers between two layouts
+			# every couple of seconds.
 			for row in 5:
-				var ry := y0 + 80.0 + row * 160.0
-				var xs := [200.0, 500.0, 800.0] if row % 2 == 0 else [350.0, 650.0]
-				for k in xs.size():
-					var lean := 14.0 if (row + k) % 2 == 0 else -14.0
-					_seg(Vector2(xs[k] - lean, ry - 50.0), Vector2(xs[k] + lean, ry + 50.0), {"look": "stone"})
-				if row % 2 == 1:
-					_kickers(ry)
-					movers.append({"pos": Vector2(WIDTH / 2.0, ry + 10.0), "radius": 24.0, "kind": "spike", "retract": 1.4})
-			h = 5 * 160.0 + 60.0
-		"staircase":
-			# The haunted staircase: shelves down both walls and a chandelier
-			# swinging in the stairwell.
-			for t in 5:
-				var ty := y0 + 40.0 + t * 112.0
-				if t % 2 == 0:
-					_seg(Vector2(0.0, ty), Vector2(300.0, ty + 55.0), {"look": "stone"})
-				else:
-					_seg(Vector2(WIDTH, ty), Vector2(WIDTH - 300.0, ty + 55.0), {"look": "stone"})
-			_pendulum(Vector2(WIDTH / 2.0, y0 + 20.0), 280.0, 18.0, 0.33, 3.2, 0.0)
-			h = 5 * 112.0 + 140.0
-		"bookcase":
-			# A spinning bookcase and the secret passages either side of it.
-			_bar(Vector2(WIDTH / 2.0, y0 + 260.0), 130.0, 90.0, 22.0, {"orbit": 0.9})
-			_portal(Vector2(180.0, y0 + 110.0), Vector2(WIDTH - 180.0, y0 + 430.0))
-			_portal(Vector2(WIDTH - 180.0, y0 + 110.0), Vector2(180.0, y0 + 430.0))
-			_kickers(y0 + 260.0)
-			h = 560.0
-		"tops":
-			# Spinning tops: little spinners all over.
-			var tops := [[300.0, 120.0, -2.0], [700.0, 120.0, 2.0], [500.0, 330.0, 2.0], [250.0, 530.0, 2.2], [750.0, 530.0, -2.2]]
-			for tp in tops:
-				_bar(Vector2(tp[0], y0 + tp[1]), 72.0, 0.0, 15.0, {"orbit": tp[2]})
-			_kickers(y0 + 330.0)
-			h = 640.0
-		"jacks":
-			# Jack-in-the-box pads that throw racers up and across, bumpers
-			# to land on.
-			_pad(Vector2(250.0, y0 + 150.0), Vector2(300.0, -650.0))
-			_pad(Vector2(WIDTH - 250.0, y0 + 150.0), Vector2(-300.0, -650.0))
-			_pad(Vector2(WIDTH / 2.0, y0 + 420.0), Vector2(320.0 if crng.range_int(0, 1) == 0 else -320.0, -700.0))
-			_peg(WIDTH / 2.0, y0 + 170.0, 36.0, true)
-			_peg(200.0, y0 + 440.0, 36.0, true)
-			_peg(WIDTH - 200.0, y0 + 440.0, 36.0, true)
-			_kickers(y0 + 300.0)
-			h = 600.0
-		"pops":
-			# Pop bumpers in clusters, pinball style.
-			for at in [Vector2(500.0, 120.0), Vector2(425.0, 235.0), Vector2(575.0, 235.0), Vector2(220.0, 420.0), Vector2(780.0, 420.0), Vector2(500.0, 480.0)]:
-				_peg(at.x, y0 + at.y, 38.0, true)
-			_kickers(y0 + 200.0)
-			_kickers(y0 + 480.0)
-			h = 600.0
-		"flippers":
-			# Flippers: lanes guide racers onto two flippers that flick them
-			# on, with the drain between them.
-			_ramp(0.0, y0 + 40.0, 230.0, y0 + 220.0)
-			_ramp(WIDTH, y0 + 40.0, WIDTH - 230.0, y0 + 220.0)
-			var period := float(crng.range_int(14, 18)) / 10.0
-			_bar(Vector2(250.0 + 78.0, y0 + 240.0 + 32.0), 85.0, 22.5, 14.0,
-				{"pivot": Vector2(250.0, y0 + 240.0), "swing": 0.5, "period": period, "phase": 0.0, "slide": Vector2.ZERO})
-			_bar(Vector2(WIDTH - 250.0 - 78.0, y0 + 240.0 + 32.0), 85.0, 157.5, 14.0,
-				{"pivot": Vector2(WIDTH - 250.0, y0 + 240.0), "swing": -0.5, "period": period, "phase": 0.0, "slide": Vector2.ZERO})
-			_peg(WIDTH / 2.0, y0 + 450.0, 38.0, true)
-			_kickers(y0 + 450.0)
-			h = 540.0
-	if LEDGED.has(kind):
-		h += _ledge(crng, y0 + h + 40.0) + 40.0
+				var y := y0 + 100.0 + row * 170.0
+				for layout in 2:
+					var xs := [200.0, 500.0, 800.0] if (row + layout) % 2 == 0 else [350.0, 650.0]
+					for x in xs:
+						movers.append({"pos": Vector2(x, y + layout * 40.0), "radius": 46.0, "kind": "pillar",
+							"blink": 2.0, "blink_at": layout * 2.0, "tint": info.get("tint", "")})
+			h = 5 * 170.0 + 100.0
+		"sandworm":
+			# Dune Slide: two sandworms sweeping across the slope in an S.
+			var period := _jit(crng, 6.2, 6.8)
+			for w in 2:
+				var y := y0 + 250.0 + w * 450.0
+				var dir := 1.0 if w == 0 else -1.0
+				_gid += 1
+				for k in 9:
+					var x := 500.0 - dir * (k - 4) * 50.0
+					movers.append({"pos": Vector2(x, y + 50.0 * DMath.sin(k * 0.8)), "radius": 46.0 - absf(k - 2) * 2.5, "kind": "pillar",
+						"slide": Vector2(180.0 * dir, 0.0), "period": period, "phase": -k * 0.04, "group": _gid, "tint": "c9924d"})
+			h = 1000.0
+		"trapdoors":
+			# Grave Drop: rows of coffin lids that flip open on a beat, a row
+			# opening while the one below shuts.
+			var period := _jit(crng, 3.0, 3.4)
+			for row in 3:
+				var ry := y0 + 100.0 + row * 300.0
+				for pair in [[30.0, 1.0], [470.0, -1.0], [530.0, 1.0], [970.0, -1.0]]:
+					var hinge := Vector2(pair[0], ry)
+					var a := deg_to_rad(40.0)
+					var dir: float = pair[1]
+					var tip := hinge + Vector2(DMath.cos(a) * dir, DMath.sin(a)) * 210.0
+					_rod(hinge, tip, 14.0, _swinging(hinge, -0.7 * dir, period, row * 0.5))
+				if row < 2: # Thorns between the coffins snap out and back.
+					movers.append({"pos": Vector2(500.0, ry + 170.0), "radius": 26.0, "kind": "spike", "retract": 1.4})
+			h = 3 * 300.0 + 180.0
+		"stairs":
+			# Haunted Stairs: flights of stairs shifting between landings, and
+			# the clock's pendulum in the middle.
+			var period := _jit(crng, 4.0, 4.6)
+			for k in 4:
+				var c := Vector2(500.0, y0 + 120.0 + k * 230.0)
+				_rod_at(c, 190.0, 25.0 if k % 2 == 0 else -25.0, 17.0, _sliding(Vector2(170.0 * (1.0 if k % 2 == 0 else -1.0), 0.0), period, k * 0.25))
+			h = 4 * 230.0 + 100.0
+		"scoops":
+			# Toy Chest: a scoop wheel. A hopper drops racers into the middle;
+			# cups at the bottom scoop them up and tip them out on the way round.
+			_hopper(y0, 500.0, 170.0, 200.0)
+			var c := Vector2(500.0, y0 + 600.0)
+			movers.append({"pos": c, "radius": 46.0, "kind": "bumper", "tint": "ffcf4d"})
+			for k in 6:
+				var a := TAU * k / 6.0
+				var d := Vector2(DMath.cos(a), DMath.sin(a))
+				var side := Vector2(-d.y, d.x)
+				var rim := c + d * 260.0
+				_rod(c + d * 60.0, rim, 7.0, _turning(c, 0.5))
+				# A cup opening toward the hub: a back on the rim and two sides.
+				_chain([rim - side * 55.0 - d * 70.0, rim - side * 55.0, rim + side * 55.0, rim + side * 55.0 - d * 70.0], 12.0, _turning(c, 0.5))
+			h = 1000.0
+		"plunger":
+			# Pinball: a lane rolls racers off onto a big spring pad that fires
+			# them back up past the spinners; flippers at the bottom.
+			_seg(Vector2(0.0, y0 + 40.0), Vector2(500.0, y0 + 200.0))
+			floors.append({"kind": "launch", "pos": Vector2(760.0, y0 + 400.0), "radius": 90.0, "kick": Vector2(-450.0, -850.0)})
+			for at in [Vector2(250.0, 360.0), Vector2(520.0, 560.0), Vector2(800.0, 640.0)]:
+				var cc := Vector2(at.x, y0 + at.y)
+				_rod_at(cc, 80.0, 0.0, 15.0, _turning(cc, 2.1))
+			var period := _jit(crng, 1.5, 1.8)
+			var fy := y0 + 900.0
+			_seg(Vector2(0.0, fy - 120.0), Vector2(250.0, fy))
+			_seg(Vector2(WIDTH, fy - 120.0), Vector2(WIDTH - 250.0, fy))
+			_rod(Vector2(250.0, fy), Vector2(410.0, fy + 60.0), 14.0, _swinging(Vector2(250.0, fy), 0.45, period, 0.0))
+			_rod(Vector2(WIDTH - 250.0, fy), Vector2(WIDTH - 410.0, fy + 60.0), 14.0, _swinging(Vector2(WIDTH - 250.0, fy), -0.45, period, 0.0))
+			h = 1060.0
 	sections.append({"kind": kind, "y0": y0, "y1": y0 + h})
 	return y0 + h
-
-
-## A ledge across the shaft under an open section: both sides slope to a
-## gap somewhere along it, so the field gathers, rolls and jostles before it
-## drops on. Returns its height.
-func _ledge(crng: Rng, y: float) -> float:
-	var gx := float(crng.range_int(330, 670))
-	_seg(Vector2(0.0, y), Vector2(gx - 80.0, y + (gx - 80.0) * LEDGE_SLOPE))
-	_seg(Vector2(WIDTH, y), Vector2(gx + 80.0, y + (WIDTH - gx - 80.0) * LEDGE_SLOPE))
-	return maxf(gx - 80.0, WIDTH - gx - 80.0) * LEDGE_SLOPE + 110.0
 
 
 ## A pickup at `at`: `kind`, or a power core, heal or shield by the seed.

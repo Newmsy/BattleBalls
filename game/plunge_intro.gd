@@ -1,4 +1,4 @@
-## The start of a Critter Plunge race: the course's name and hazard slide
+## The start of a Critter Plunge race: the course's name, machine and hazard slide
 ## in further down, a ring and a YOU banner in your racer's rarity colour
 ## call it out, then a 3, 2, 1, GO! countdown pops up just under the gate and
 ## the gate drops on GO (`go` fires; game/plunge.gd only starts the race then). A
@@ -14,6 +14,13 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 signal go
 
 const HAZARD_NAMES := {"wells": "Gravity wells", "lava": "Lava pools", "goo": "Sticky goo", "sliders": "Sliding bumpers"}
+## Each course's signature machine, named on its banner.
+const MACHINE_NAMES := {"globe": "Gumball globe", "dipper": "Honey dipper", "sundial": "Sun dial gate",
+	"bridges": "Rope bridges", "orrery": "Planet orrery", "tumbler": "Tumbling asteroid", "kelpwave": "Kelp wave",
+	"doors": "Pressure doors", "blimps": "Blimps", "turbines": "Wind turbines", "bobsled": "Bobsled run",
+	"pistons": "Crystal pistons", "lavalamp": "Lava lamp", "traffic": "Highway traffic", "shuffle": "Glitch shuffle",
+	"sandworm": "Sandworms", "trapdoors": "Coffin trapdoors", "stairs": "Shifting stairs", "scoops": "Scoop wheel",
+	"plunger": "Plunger and flippers"}
 const BANNER_SECS := 1.3 ## The course banner holds this long before the count.
 const BEAT := 0.7 ## Seconds between 3, 2, 1 and GO.
 const COUNT_COLORS := [Color("ff6b8a"), Color("ffd166"), Color("7cf5d0")]
@@ -42,7 +49,9 @@ func start(course: PlungeCourse, n: int, quick := false) -> void:
 	var hazard := ""
 	for kind in course.info.plan:
 		if HAZARD_NAMES.has(kind):
-			hazard = HAZARD_NAMES[kind]
+			hazard = HAZARD_NAMES[kind] if hazard == "" else hazard + " · " + HAZARD_NAMES[kind]
+		elif MACHINE_NAMES.has(kind):
+			hazard = MACHINE_NAMES[kind] if hazard == "" else MACHINE_NAMES[kind] + " · " + hazard
 	var lines := Kit.vbox(4, [
 		Kit.label("%d RACERS" % n, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
 		Kit.label(course.info.name.to_upper(), 48, col, HORIZONTAL_ALIGNMENT_CENTER)])
