@@ -165,7 +165,8 @@ to PNGs. Races open on a course banner and a 3, 2,
 (render only) follows your racer, drawn at 1.4x size, framing the leader when both fit;
 tap a face in the standings to follow another racer. Edge chips point at the
 leader or you when off screen, only your racer's combat text shows, and a close
-finish near the line slows the view to 0.3x. Once your racer is done the rest
+finish near the line slows the view to 0.3x (every course ends in an empty drop,
+`PlungeCourse.FINISH_DROP`, so the slow-mo opens on a clean fall to the line). Once your racer is done the rest
 runs at skip speed; the result tells the race in one line
 (`game/plunge_story.gd`). Races count as fights for quests and the Glow Pass,
 plus the Plunge quests (podium, wins, courses); a skipped race drops no medal.

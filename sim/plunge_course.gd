@@ -68,6 +68,10 @@ const BELT_TOP := 300.0 ## Belts push racers along up to this speed. ## How hard
 ## part bats balls around but never pins one).
 const MOVER_SPEED := 340.0
 const BEAD := 1.9 ## Circles along a moving piece sit this many radii apart.
+## Empty space above the finish line, nothing in it (Newms 2026-10-31): the
+## finish slow-mo starts as a racer drops into it, so the run-in is always a
+## clean fall to the line, never stuck on the last piece.
+const FINISH_DROP := 340.0
 const KICK_EVERY := 260.0 ## Wall half-bumpers this far apart down the course.
 ## Sections whose pieces meet the walls themselves (no half-bumpers there).
 const WALLED := ["funnels", "hooks", "lanes", "slabs", "globe", "bridges", "doors", "bobsled", "trapdoors", "scoops", "plunger"]
@@ -233,7 +237,7 @@ func _build(crng: Rng) -> void:
 		y = _section(crng, kind, y)
 		if crng.range_int(0, 1) == 1:
 			_mirror(at)
-	finish_y = y + 80.0
+	finish_y = y + FINISH_DROP # An empty drop to the line: the photo finish always sees a clean fall.
 	# Half-bumpers down both walls wherever no piece comes near that wall,
 	# so a gate by the wall can't free-fall past the pieces (and no piece
 	# ever pinches a racer against one).

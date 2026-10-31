@@ -51,7 +51,7 @@ func test_golden_race() -> void:
 const GOLDEN_RACERS := ["zapper", "gust", "drako", "pucker", "ripple", "blizz"]
 const GOLDEN_ORDER := [2, 1, 0, 3, 4, 5]
 const GOLDEN_KOS := []
-const GOLDEN_TICKS := 2417
+const GOLDEN_TICKS := 2443
 
 
 ## Racers are live critters, every family races, and they race with their
@@ -211,6 +211,34 @@ func test_courses_are_moving_machines() -> void:
 
 ## Twenty courses, each a different run in an arena's painted look, and the
 ## seed picks among them.
+## Nothing above the finish line for the photo finish's whole zone, so
+## the slow-mo always opens on a clean fall to the line.
+func test_finish_drop_is_empty() -> void:
+	var PlungeScene = load("res://game/plunge.gd")
+	check(PlungeScene.PHOTO_ZONE < PlungeCourse.FINISH_DROP, "the slow-mo starts inside the empty drop")
+	for c in PlungeCourse.COURSES:
+		for seed in [1, 2]:
+			var course := PlungeCourse.new(seed, c.id)
+			var top: float = course.finish_y - PlungeCourse.FINISH_DROP + Plunge.RADIUS
+			for g in course.pegs:
+				check(g.pos.y + g.r < top, "%s peg at %s in the finish drop" % [c.id, g.pos])
+			for rp in course.ramps:
+				check(maxf(rp.a.y, rp.b.y) < top, "%s ramp in the finish drop" % c.id)
+			for o in course.movers:
+				var low: float = o.pos.y + absf(o.get("slide", Vector2.ZERO).y)
+				if o.has("swing"): # Lowest point of its swing.
+					for k in 9:
+						var a: float = o.swing * (k / 4.0 - 1.0)
+						low = maxf(low, o.pivot.y + (o.pos - o.pivot).rotated(a).y)
+				elif o.has("orbit"): # Round the whole circle.
+					var pivot: Vector2 = o.get("pivot", o.pos)
+					low = pivot.y + o.pos.distance_to(pivot) + absf(o.get("slide", Vector2.ZERO).length())
+				check(low + o.radius < top, "%s moving part at %s reaches the finish drop" % [c.id, o.pos])
+			for f in course.floors:
+				var fy: float = f.rect.end.y if f.has("rect") else f.pos.y + f.get("radius", 0.0)
+				check(fy < top, "%s floor in the finish drop" % c.id)
+
+
 func test_twenty_painted_courses() -> void:
 	var ArenaArt = load("res://game/arena_art.gd")
 	check_eq(PlungeCourse.COURSES.size(), 20, "courses")
