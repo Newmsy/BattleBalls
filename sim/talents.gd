@@ -34,15 +34,15 @@ const NAMES := {"fire": "Fire", "frost": "Frost", "nature": "Nature", "sea": "Se
 const COLORS := {"fire": Color("ff7a3d"), "frost": Color("8fe3ff"), "nature": Color("6ee36b"), "sea": Color("3db8ff"),
 	"tech": Color("ffd84a"), "spooky": Color("b07bff"), "cosmic": Color("ff6bd6"), "sweet": Color("ff9ec4"), "toybox": Color("ff5a5a")}
 const MEMBERS := {
-	"fire": ["bomber", "drako", "magmo", "phoenix", "sooty", "speedster", "supernova", "kernel"],
+	"fire": ["bomber", "drako", "magmo", "phoenix", "sooty", "speedster", "supernova", "kernel", "blaze"],
 	"frost": ["blizz", "drizzle", "frost", "frostfang", "glacia", "gust", "mammoth", "narwhal", "pounce", "yeti", "snowbo"],
 	"nature": ["glowbug", "ivy", "juggernaut", "mole", "mossy", "old_oak", "pip", "pollen", "spiker", "sprout", "swarm", "thorns", "tumble", "whiff", "zing"],
 	"sea": ["beacon", "bubbles", "clam", "fin", "hook", "ink", "kraken", "leviathan", "minnow", "puff", "ripple", "shelly"],
 	"tech": ["bolt", "clockwork", "cogs", "gearbox", "laser", "magnet", "megabot", "mirror", "static", "wrecker", "zapper", "zigzag", "boing"],
-	"spooky": ["brewster", "flicker", "foxfire", "ghost", "puppeteer", "sonar", "totem", "vampire", "gourdo"],
-	"cosmic": ["blackhole", "comet", "eclipse", "gravity", "prism", "quasar", "stormwing", "zorp", "snooze"],
-	"sweet": ["bonbon", "crumb", "fizz", "gumdrop", "honey", "jawbreaker", "munch", "pucker", "splitter", "sundae"],
-	"toybox": ["disco", "drum", "jackpot", "kaleido", "mortar", "painter", "pinball", "pixel", "yoyo", "boomer"],
+	"spooky": ["brewster", "flicker", "foxfire", "ghost", "puppeteer", "sonar", "totem", "vampire", "gourdo", "shade", "reaper"],
+	"cosmic": ["blackhole", "comet", "eclipse", "gravity", "prism", "quasar", "stormwing", "zorp", "snooze", "astra", "rift"],
+	"sweet": ["bonbon", "crumb", "fizz", "gumdrop", "honey", "jawbreaker", "munch", "pucker", "splitter", "sundae", "beans"],
+	"toybox": ["disco", "drum", "jackpot", "kaleido", "mortar", "painter", "pinball", "pixel", "yoyo", "boomer", "choo"],
 }
 
 ## Nodes every tree shares. Column 0 is Core, column 2 Ability; column 1 is
