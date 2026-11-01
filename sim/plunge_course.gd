@@ -5,8 +5,9 @@
 ## rings, rocking slabs, spinning crosses, bobbing bumpers, seesaws,
 ## pendulums; no two courses share a set), its hazard section and its own
 ## signature machine (a gumball globe, a sandworm, a scoop wheel...).
-## Rebuilt courses (an `opener` in COURSES) are instead their own opener and
-## six own sections round the machine (sim/plunge_sets.gd). The
+## Every course is now instead its own opener (`opener` in COURSES) and six
+## own sections round its machine (sim/plunge_sets.gd); the shared sections
+## are kept for courses that list them. The
 ## seed picks the course and varies each section's phases and speeds.
 ## The race itself is sim/plunge.gd.
 ##
@@ -90,21 +91,21 @@ const COURSES := [
 	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "tint": "e8c36a", "plan": ["ss_mirrors", "ss_plates", "ss_boulder", "sundial", "ss_sandpits", "ss_darts", "ss_altars"], "opener": "ss_steps"},
 	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "tint": "7fd36b", "plan": ["vn_trapeze", "vn_arches", "vn_logroll", "bridges", "vn_roots", "vn_flytraps", "vn_waterfall"], "opener": "vn_canopy"},
 	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "tint": "b38cff", "plan": ["nb_asteroids", "nb_stars", "nb_comets", "orrery", "nb_saturn", "nb_pulsar", "nb_wormholes"], "opener": "nb_warp"},
-	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "tint": "a59a8e", "plan": ["gems", "bobbers", "wells", "hooks", "tumbler", "lanes", "bricks", "gems", "pendulums"]},
-	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "tint": "4fd9a0", "plan": ["funnels", "pendulums", "wells", "gems", "kelpwave", "roofs", "rings", "funnels", "seesaws"]},
-	{"id": "trench", "name": "Deep Trench", "art": "trench", "tint": "4aa8ff", "plan": ["lanes", "slabs", "wells", "roofs", "doors", "poppers", "crosses", "lanes", "bricks"]},
-	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "tint": "f4f8ff", "plan": ["gems", "seesaws", "sliders", "funnels", "blimps", "hooks", "bobbers", "gems", "rings"]},
-	{"id": "storm", "name": "Storm Front", "art": "storm", "tint": "9aa6ff", "plan": ["poppers", "crosses", "wells", "hooks", "turbines", "lanes", "pendulums", "poppers", "bricks"]},
-	{"id": "icicles", "name": "Icicle Run", "art": "frost", "tint": "bfeaff", "plan": ["poppers", "slabs", "goo", "lanes", "bobsled", "funnels", "bobbers", "poppers", "rings"]},
-	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "tint": "8ff0ff", "plan": ["roofs", "crosses", "sliders", "hooks", "pistons", "gems", "rings", "roofs", "seesaws"]},
-	{"id": "lava", "name": "Lava Tubes", "art": "magma", "tint": "ff8a3d", "plan": ["funnels", "bricks", "lava", "hooks", "lavalamp", "roofs", "bobbers", "funnels", "slabs"]},
-	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "tint": "ff5fd2", "plan": ["lanes", "bricks", "sliders", "gems", "traffic", "poppers", "seesaws", "lanes", "crosses"]},
-	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "tint": "5cf2ff", "plan": ["gems", "rings", "lava", "funnels", "shuffle", "poppers", "bricks", "gems", "bobbers"]},
-	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "tint": "e2b56f", "plan": ["hooks", "seesaws", "goo", "lanes", "sandworm", "roofs", "slabs", "hooks", "bricks"]},
-	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "tint": "9db0b8", "plan": ["lanes", "pendulums", "goo", "roofs", "trapdoors", "funnels", "slabs", "lanes", "crosses"]},
-	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "tint": "c58cff", "plan": ["roofs", "bobbers", "wells", "poppers", "stairs", "gems", "seesaws", "roofs", "pendulums"]},
-	{"id": "toys", "name": "Toy Chest", "art": "toybox", "tint": "ffcf4d", "plan": ["funnels", "rings", "sliders", "hooks", "scoops", "lanes", "pendulums", "funnels", "crosses"]},
-	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "tint": "ff6fae", "plan": ["hooks", "bobbers", "sliders", "gems", "plunger", "poppers", "crosses", "hooks", "seesaws"]},
+	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "tint": "a59a8e", "plan": ["rk_gravel", "rk_carts", "rk_geode", "tumbler", "rk_crusher", "rk_ledges", "rk_drill"], "opener": "rk_crater"},
+	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "tint": "4fd9a0", "plan": ["kp_clams", "kp_currents", "kp_jellies", "kelpwave", "kp_anchors", "kp_wreck", "kp_seagrass"], "opener": "kp_bubbles"},
+	{"id": "trench", "name": "Deep Trench", "art": "trench", "tint": "4aa8ff", "plan": ["tr_vents", "tr_angler", "tr_ribs", "doors", "tr_sonar", "tr_pearls", "tr_sub"], "opener": "tr_bell"},
+	{"id": "clouds", "name": "Cloud Hop", "art": "cloud", "tint": "f4f8ff", "plan": ["cl_kites", "cl_pads", "cl_thunder", "blimps", "cl_ledges", "cl_windmill", "cl_balloons"], "opener": "cl_rainbow"},
+	{"id": "storm", "name": "Storm Front", "art": "storm", "tint": "9aa6ff", "plan": ["st_rods", "st_tornado", "st_gusts", "turbines", "st_hail", "st_lines", "st_vanes"], "opener": "st_drain"},
+	{"id": "icicles", "name": "Icicle Run", "art": "frost", "tint": "bfeaff", "plan": ["ic_rink", "ic_skijump", "ic_avalanche", "bobsled", "ic_drifts", "ic_gears", "ic_crevasse"], "opener": "ic_cave"},
+	{"id": "crystal", "name": "Crystal Cave", "art": "prism", "tint": "8ff0ff", "plan": ["cr_lanes", "cr_prisms", "cr_shards", "pistons", "cr_bridge", "cr_spiral", "cr_orbit"], "opener": "cr_geode"},
+	{"id": "lava", "name": "Lava Tubes", "art": "magma", "tint": "ff8a3d", "plan": ["lv_obsidian", "lv_lavafall", "lv_wheel", "lavalamp", "lv_crust", "lv_pumice", "lv_chimneys"], "opener": "lv_volcano"},
+	{"id": "sunset", "name": "Sunset Strip", "art": "sunset", "tint": "ff5fd2", "plan": ["su_signs", "su_billboards", "su_carwash", "traffic", "su_skyline", "su_tolls", "su_surf"], "opener": "su_onramp"},
+	{"id": "glitch", "name": "Glitch Grid", "art": "glitch", "tint": "5cf2ff", "plan": ["gl_lag", "gl_firewall", "gl_copy", "shuffle", "gl_bitflip", "gl_circuit", "gl_cursor"], "opener": "gl_boot"},
+	{"id": "dunes", "name": "Dune Slide", "art": "dunes", "tint": "e2b56f", "plan": ["dn_ridges", "dn_tumbleweeds", "dn_pyramid", "sandworm", "dn_scarabs", "dn_oasis", "dn_caravan"], "opener": "dn_hourglass"},
+	{"id": "graves", "name": "Grave Drop", "art": "graveyard", "tint": "9db0b8", "plan": ["gv_headstones", "gv_lanterns", "gv_fog", "trapdoors", "gv_bones", "gv_crosses", "gv_bats"], "opener": "gv_gate"},
+	{"id": "manor", "name": "Haunted Stairs", "art": "manor", "tint": "c58cff", "plan": ["mn_portraits", "mn_chandelier", "mn_passage", "stairs", "mn_furniture", "mn_banister", "mn_clock"], "opener": "mn_doors"},
+	{"id": "toys", "name": "Toy Chest", "art": "toybox", "tint": "ffcf4d", "plan": ["ty_marblerun", "ty_train", "ty_abc", "scoops", "ty_dominoes", "ty_crayons", "ty_jacks"], "opener": "ty_chest"},
+	{"id": "pinball", "name": "Pinball Plunge", "art": "pinball", "tint": "ff6fae", "plan": ["pb_inlanes", "pb_pops", "pb_slings", "plunger", "pb_targets", "pb_lanes", "pb_multiball"], "opener": "pb_bumpers"},
 ]
 
 var pegs: Array = [] ## [{pos, r, bumper}]
@@ -711,7 +712,7 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 			for k in 2:
 				var y := y0 + 200.0 + k * 400.0
 				var dir := 1.0 if k == 0 else -1.0
-				_rod_at(Vector2(500.0, y), 150.0, 0.0, 52.0, _sliding(Vector2(220.0 * dir, 0.0), period))
+				_rod_at(Vector2(500.0, y), 150.0, 8.0 * dir, 52.0, _sliding(Vector2(220.0 * dir, 0.0), period)) # Nose down: nobody rides it.
 				_wind(Rect2(60.0, y + 90.0, WIDTH - 120.0, 90.0), Vector2.RIGHT * dir, 500.0, period / 2.0)
 			h = 900.0
 		"turbines":
