@@ -14,7 +14,8 @@ const SLOW := ["test_every_critter_finishes_on_every_arena", "test_mirror_fights
 	"test_mirror_matches_rarely_draw", "test_every_critter_always_finishes",
 	"test_every_day_is_fair", "test_same_seed_same_bracket", "test_every_relic_does_something",
 	"test_every_critter_finishes_a_boss_fight", "test_story_reads_your_race_without_changing_it",
-	"test_races_are_watchable_and_fair", "test_every_signature_fires_on_every_course"]
+	"test_races_are_watchable_and_fair", "test_every_signature_fires_on_every_course",
+	"test_photo_finish_fires_in_most_races"]
 
 var _failures: Array[String] = []
 var _current := ""
