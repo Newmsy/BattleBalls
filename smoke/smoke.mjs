@@ -1027,12 +1027,12 @@ try {
     await page.close();
   }
 
-  // 16. Critter Plunge: its door on Home, then the Plunge screen; Race
+  // 16. Critter Plunge: the Plunge screen (Home's door opens it; the URL
+  // screen keeps the race's return on it too); Race
   // spends the energy and opens the race, Skip runs it to the result popup.
   if (mine(12)) {
-    const { page, logs } = await openGame("?screen=play&seed=7&offline=1");
-    await waitForLog(logs, "UI_AT home_plunge ", 60000);
-    await tapUi(page, logs, "home_plunge", "plunge");
+    const { page, logs } = await openGame("?screen=plunge&seed=7&offline=1");
+    await waitForLog(logs, "UI_SCREEN plunge", 60000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "46-plunge-screen.png") });
     await tapUi(page, logs, "plunge_talents", "sheet");
