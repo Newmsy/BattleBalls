@@ -5,6 +5,7 @@
 ## tools/event_art/scenes/daily_*.mjs).
 extends RefCounted
 
+const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
@@ -196,6 +197,8 @@ static func _bounce_run(shell) -> Control:
 		art.add_child(ChestArt.make(str(t.id), 84.0))
 		return tile("Bounce Run", Color("ffc23d"), Kit.LINE, Kit.PANEL, [art, lines(t.name, 22)], open, Kit.chip("Chest", Kit.WARN, 16), "daily_bounce")
 	var play := _action("Play", func(): shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn"))
+	if not Intro.mode_open(shell.profile, "bouncerun"):
+		play = _action("After 1-%d" % (Intro.MODE_STAGE.bouncerun + 1), shell.toast.bind(Intro.mode_line("bouncerun")), "ghost")
 	shell.mark("week_bouncerun", play)
 	var today := int(best.get(day, 0))
 	var t := BounceChest.tier_for(today)

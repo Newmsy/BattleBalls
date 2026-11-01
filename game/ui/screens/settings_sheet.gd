@@ -212,6 +212,7 @@ static func _bounce_chest(shell, best_floor: int) -> void:
 static func _set_intro(shell, step: int) -> void:
 	var p = shell.profile
 	p.intro = step
+	p.paced = step < Intro.DONE
 	Intro.arena_fought = false
 	p.changed.emit()
 	shell.close_overlay()

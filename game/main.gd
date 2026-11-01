@@ -1080,6 +1080,7 @@ func _load_profile() -> void:
 		# fights, like it skips the tutorial (game/ui/intro.gd).
 		if not d is Dictionary and not url_params.is_empty():
 			profile.intro = Profile.INTRO_DONE
+			profile.paced = false
 			Story.skip_all(profile)
 	if demo_profile:
 		Story.skip_all(profile)
@@ -1108,6 +1109,7 @@ func _load_profile() -> void:
 	# ?intro=N jumps the guided first fights to step N (0 = just out of the tutorial).
 	if str(url_params.get("intro", "")).is_valid_int():
 		profile.intro = clampi(int(url_params.intro), 0, Profile.INTRO_DONE)
+		profile.paced = profile.intro < Profile.INTRO_DONE
 	profile.changed.connect(_save_profile)
 	FightSpeed.set_account_level(profile.account_level)
 
@@ -1190,6 +1192,7 @@ func _start_url_stage() -> void:
 	var now := int(Time.get_unix_time_from_system())
 	profile = Profile.new_game(now)
 	profile.intro = Profile.INTRO_DONE
+	profile.paced = false
 	Story.skip_all(profile)
 	profile_unsaved = true
 	shell.set_profile(profile)
