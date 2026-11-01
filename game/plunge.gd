@@ -52,7 +52,7 @@ const SLOW_RATE := 0.3 ## The finish slow-mo's speed...
 const SLOW_SECS := 3.0 ## ...for at most this long (real seconds).
 const SLOW_AFTER := 0.6 ## Real seconds it holds once your racer is over the line.
 const PHOTO_ZONE := 300.0 ## World px before the line where the slow-mo can start (inside the course's empty finish drop)...
-const PHOTO_GAP := 160.0 ## ...with your racer in front or a rival this close.
+const PHOTO_GAP := 250.0 ## ...with your racer on the podium or a rival this close.
 const MEDAL_COLORS := {"gold": Color("ffd36b"), "silver": Color("d9e2ec"), "bronze": Color("e0a46a")}
 
 ## Set by "Race again": the next race's countdown is just GO!.
@@ -252,27 +252,34 @@ func _after_your_race(delta: float) -> void:
 		_skipping = true
 
 
-## The run-in: your racer near the line, in front or on the podium with a
-## rival right by it, slows the view onto your racer until it is over (once a race; not
+## The run-in: your racer near the line, on the podium or with a rival
+## right by it, slows the view onto your racer until it is over (once a race; not
 ## when only watching).
 func _photo_finish() -> void:
-	if you < 0 or _slow_used or not sim.racing(0):
+	if you < 0 or _slow_used:
 		return
-	var y: float = sim.balls[0].pos.y
-	if sim.finish_y - y > PHOTO_ZONE:
-		return
-	var place: int = sim.standings().find(0)
-	var go: bool = place == 0
-	for j in range(1, sim.starters):
-		if go or place > 2:
-			break
-		go = sim.racing(j) and absf(sim.balls[j].pos.y - y) <= PHOTO_GAP
-	if go:
+	if photo_ready(sim):
 		_slow_used = true
 		_slow = SLOW_SECS
 		view.lock_you = true
 		view.follow = -1
 		strip.follow = -1
+
+
+## Whether racer 0 is on its run-in: in the empty drop before the line,
+## on the podium or with a rival close by.
+static func photo_ready(race) -> bool:
+	if not race.racing(0):
+		return false
+	var y: float = race.balls[0].pos.y
+	if race.finish_y - y > PHOTO_ZONE:
+		return false
+	if race.standings().find(0) <= 2: # On the podium.
+		return true
+	for j in range(1, race.starters):
+		if race.racing(j) and absf(race.balls[j].pos.y - y) <= PHOTO_GAP:
+			return true # Racing a rival for the line.
+	return false
 
 
 ## The race's own sounds; the abilities' come from sfx.consume_events, as in a fight.

@@ -239,6 +239,26 @@ func test_finish_drop_is_empty() -> void:
 				check(fy < top, "%s floor in the finish drop" % c.id)
 
 
+## The finish slow-mo opens in most races your racer finishes (Newms
+## 2026-11-01: after the empty drop it had all but stopped firing).
+func test_photo_finish_fires_in_most_races() -> void:
+	var PlungeScene = load("res://game/plunge.gd")
+	var fired := 0
+	var reached := 0
+	for seed in range(1, 13):
+		var p := Plunge.new({"seed": seed, "racers": Plunge.draw_field(seed, 8)})
+		var seen := false
+		var on := false
+		while not p.finished and not on:
+			p.step()
+			if p.racing(0) and p.finish_y - p.balls[0].pos.y <= PlungeScene.PHOTO_ZONE:
+				seen = true
+			on = PlungeScene.photo_ready(p)
+		reached += int(seen or on)
+		fired += int(on)
+	check(fired * 3 >= reached, "slow-mo fired in %d of %d run-ins" % [fired, reached])
+
+
 func test_twenty_painted_courses() -> void:
 	var ArenaArt = load("res://game/arena_art.gd")
 	check_eq(PlungeCourse.COURSES.size(), 20, "courses")
