@@ -45,6 +45,11 @@ static func build(shell, _params: Dictionary) -> Control:
 		rooms.add_child(chest_room(shell, store))
 	var plunge := Kit.card_button(band("vs_plunge", "Critter Plunge", "Marble-run race · 4 to 8 critters", Color("27c8ff")), func(): shell.go("plunge"), Color("27c8ff").darkened(.45), Color("27c8ff").darkened(.84), 28, 3)
 	plunge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if not Intro.mode_open(p, "plunge"):
+		# A paced player's Plunge opens with a later zone 1 stage.
+		plunge = Kit.card_button(band("vs_plunge", "Critter Plunge", Intro.mode_line("plunge"), Kit.MUTED), shell.toast.bind(Intro.mode_line("plunge")), Kit.LINE, Kit.PANEL, 28, 3)
+		plunge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		plunge.modulate = Color(1, 1, 1, .6)
 	shell.mark("vs_plunge", plunge)
 	var cards := [arena, plunge]
 	var ratios := [3.0, 2.4]

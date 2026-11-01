@@ -101,6 +101,10 @@ var factions := {}
 ## before it existed load as done.
 var intro := INTRO_DONE
 const INTRO_DONE := 8
+## True for a player who started after the main modes were paced out: Bounce
+## Run and Critter Plunge then open with campaign stages (Intro.MODE_STAGE).
+## Older saves and saves opened from links load false (everything open).
+var paced := false
 ## Story chapters already played (meta/story.gd): zone ids and "prologue".
 var story: Array[String] = []
 ## Spark Dye drops collected, by dye id (game/glow/dyes.gd). A full bar
@@ -129,6 +133,7 @@ static func new_game(now: int, starter := STARTER):
 func setup_new_game(now: int, starter := STARTER) -> void:
 	energy_time = now
 	intro = 0
+	paced = true
 	coins = 200
 	lineup = starter
 	stacks.assign([{"id": starter, "tier": 1, "count": 1, "level": 1, "xp": 0}])
@@ -800,7 +805,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "paced", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps"]
 
 
 func to_dict() -> Dictionary:
@@ -827,6 +832,7 @@ static func from_dict(d: Dictionary, now: int):
 	if ct is Array:
 		p.campaign_team = ct.map(func(id): return str(id))
 	p.intro = clampi(int(d.get("intro", INTRO_DONE)), 0, INTRO_DONE)
+	p.paced = bool(d.get("paced", false))
 	p.free_summon = bool(d.get("free_summon", true))
 	p.seen = d.get("seen", {})
 	p.story.clear()

@@ -95,3 +95,30 @@ func test_matchup_words_follow_power_and_edges() -> void:
 	check_eq(M.word(M.rate(700, 1000)), "Tough", "far behind is tough")
 	check_eq(M.word(M.rate(1000, 1000, 2)), "Easy", "a big family edge tips an even fight")
 	check_eq(M.word(M.rate(1000, 1000, -2)), "Tough", "and the other way round")
+
+
+func test_bounce_run_and_plunge_open_with_later_stages_for_a_new_player() -> void:
+	var p = Profile.new_game(1_800_000_000)
+	p.intro = Intro.DONE
+	check(not Intro.mode_open(p, "bouncerun") and not Intro.mode_open(p, "plunge"), "both wait after the guided fights")
+	var r := {"won": true, "first_clear": true}
+	Intro.after_stage(p, 0, 5, r)
+	check(not r.has("intro"), "1-6 opens neither")
+	r = {"won": true, "first_clear": true}
+	p.stars["1-7"] = 1
+	Intro.after_stage(p, 0, 6, r)
+	check_eq(r.get("intro"), Intro.BOUNCE_RUN, "1-7 shows Bounce Run opening")
+	check(Intro.mode_open(p, "bouncerun") and not Intro.mode_open(p, "plunge"), "Bounce Run first")
+	r = {"won": true, "first_clear": false}
+	Intro.after_stage(p, 0, 6, r)
+	check(not r.has("intro"), "a replay doesn't show it again")
+	p.stars["1-9"] = 1
+	r = {"won": true, "first_clear": true}
+	Intro.after_stage(p, 0, 8, r)
+	check_eq(r.get("intro"), Intro.PLUNGE, "1-9 shows Critter Plunge opening")
+	check(Intro.mode_open(p, "plunge"), "then Plunge")
+	var d: Dictionary = p.to_dict()
+	check(Profile.from_dict(d, 1_800_000_000).paced, "pacing survives a save")
+	d.erase("paced")
+	d.stars = {}
+	check(Intro.mode_open(Profile.from_dict(d, 1_800_000_000), "plunge"), "older saves keep every mode open")

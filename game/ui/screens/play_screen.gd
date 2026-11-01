@@ -61,6 +61,11 @@ static func build(shell, _params: Dictionary) -> Control:
 		doors[3] = _lock(shell, doors[3], LATER, "Opens later")
 		if not Intro.shows(shell.profile, "arena"):
 			doors[1] = _lock(shell, doors[1], "Opens after stage 1-3", "After 1-3")
+	else:
+		# A paced player's Bounce Run and Plunge open with later zone 1 stages.
+		for d in [[2, "bouncerun"], [3, "plunge"]]:
+			if not Intro.mode_open(shell.profile, d[1]):
+				doors[d[0]] = _lock(shell, doors[d[0]], Intro.mode_line(d[1]), "After 1-%d" % (Intro.MODE_STAGE[d[1]] + 1))
 	# Two rows of two; the top row a little taller (Campaign and Arena carry
 	# a second line).
 	var rows: Array = []

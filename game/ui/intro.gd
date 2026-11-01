@@ -7,6 +7,10 @@
 ## this existed load as DONE, and so does any new save started with URL params
 ## (smoke tests, links), the same rule as the tutorial. ?intro=1 forces it.
 ## Settings > Testing can restart or finish it.
+## Past the guided fights the other two main modes open with zone 1 stages,
+## spaced evenly with the rest (Newms, 2026-11-01):
+##   1-3 Arena -> 1-5 Bosses -> 1-7 Bounce Run -> 1-9 Critter Plunge
+##   -> 1-11 Gear Vault and Rift.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -15,6 +19,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const Gear := preload("res://sim/gear.gd")
 const A11y := preload("res://game/a11y.gd")
 const Motion := preload("res://game/ui/motion.gd")
+const Zones := preload("res://meta/zones.gd")
 
 ## Set when a Ghost Arena fight finishes this session; the Arena screen
 ## then opens the Trophy Room for a new player.
@@ -34,8 +39,17 @@ const MOMENTS := {
 	EQUIP: ["Bag", "You found gear! Equip it to make a critter stronger.", "bag", "bag"],
 	ARENA: ["Ghost Arena", "Take your trio up against other players' teams.", "ghost", "arena"],
 	TROPHY: ["Trophy Room", "Your Arena win earned points. Spend them on stat boosts.", "trophy", "boosts"],
-	DONE: ["Everything!", "Daily runs, the Spire, Quick fight, friends and more are all open now.", "play", ""],
+	DONE: ["Everything!", "Quests, Trick Shot, the Spire, friends and more are all open now.", "play", ""],
+	BOUNCE_RUN: ["Bounce Run", "Draft a trio and climb the floors. Your best floor each day opens a chest.", "bounce", "bouncerun"],
+	PLUNGE: ["Critter Plunge", "Race your critters down a marble run, abilities flying. Medals for the podium.", "medal_gold", "plunge"],
 }
+
+## The main modes that open with a zone 1 stage (0-based) for a paced player,
+## and the moment each shows. The stage's first win opens it.
+const BOUNCE_RUN := 100
+const PLUNGE := 101
+const MODE_STAGE := {"bouncerun": 6, "plunge": 8}
+const MODE_MOMENT := {"bouncerun": BOUNCE_RUN, "plunge": PLUNGE}
 
 
 static func step(p) -> int:
@@ -49,6 +63,19 @@ static func done(p) -> bool:
 ## True when `feature` (a tab, a Play tile, an Arena room) is open for this player.
 static func shows(p, feature: String) -> bool:
 	return step(p) >= OPENS_AT.get(feature, DONE)
+
+
+## True when main mode `mode` ("bouncerun" or "plunge") is open: after the
+## guided fights, and for a paced player once its zone 1 stage is won.
+static func mode_open(p, mode: String) -> bool:
+	if not done(p):
+		return false
+	return p == null or not p.get("paced") or int(p.stars.get(Zones.stage_key(0, MODE_STAGE[mode]), 0)) > 0
+
+
+## What a closed main mode says: the stage that opens it.
+static func mode_line(mode: String) -> String:
+	return "Opens after stage 1-%d" % (int(MODE_STAGE[mode]) + 1)
 
 
 ## The one-line hint for this screen at this step, or "".
@@ -91,7 +118,14 @@ static func reach(p, to: int) -> bool:
 ## (with a guaranteed piece of gear), 1-3 the Ghost Arena. Adds what it gave
 ## to the result `r` and sets r.intro to the step reached, for the popup.
 static func after_stage(p, zone: int, stage: int, r: Dictionary) -> void:
-	if done(p) or zone != 0 or not r.get("won", false):
+	if zone != 0 or not r.get("won", false):
+		return
+	if done(p):
+		# A paced player's first win of a mode's stage opens that mode.
+		for mode in MODE_STAGE:
+			if p.paced and stage == MODE_STAGE[mode] and r.get("first_clear", false):
+				r.intro = MODE_MOMENT[mode]
+				print("INTRO_MODE %s" % mode)
 		return
 	if stage == 0 and step(p) < SUMMON:
 		if int(r.get("orbs", 0)) == 0:
@@ -129,7 +163,9 @@ static func moment(shell, at: int) -> void:
 		var screen: String = m[3]
 		if screen == "":
 			return
-		if screen in shell.TAB_IDS:
+		if screen == "bouncerun":
+			shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")
+		elif screen in shell.TAB_IDS:
 			shell.show_tab(screen)
 			shell.spotlight_tab(screen)
 		elif screen == "boosts":
