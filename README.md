@@ -156,12 +156,13 @@ one hazard section (`PlungeCourse.HAZARDS`: gravity wells, lava, goo or sliding
 bumpers, with a pickup: power core, heal or shield) and its own signature
 machine (`PlungeCourse.MACHINES`: a gumball globe, rope bridges whose planks
 flip, an orrery with portals, pressure doors, a sandworm, coffin trapdoors, a
-plunger ramp and so on). Courses are being rebuilt so at least 75% of each is
-its own (Newms 2026-11-01): a rebuilt course (one with an `opener` in
-`COURSES`) is its own opener and six own sections round its machine
-(`sim/plunge_sets.gd`, e.g. Gumdrop's candy canes, lollipops and taffy puller,
-Nebula's warp gate, comets and pulsar), about half of them moving;
-`tests/test_plunge.gd` checks the share. No pin rows or plain slanted beams: the gate drops onto sliding bricks, and
+plunger ramp and so on). At least 75% of every course is its own (Newms
+2026-11-01): each is its own opener (`opener` in `COURSES`) and six own
+sections round its machine (`sim/plunge_sets.gd`, 140 in all, e.g. Gumdrop's
+candy canes, lollipops and taffy puller, Nebula's warp gate, comets and
+pulsar, Pinball's slingshots and drop targets), about half of them moving;
+`tests/test_plunge.gd` checks the share. The shared statics, pieces and
+hazards above are no longer on any course. No pin rows or plain slanted beams: the gate drops onto sliding bricks, and
 sections mirror on a coin flip so no gate is the lucky one; wall half-bumpers
 sit wherever no piece comes near a wall. Each course dresses its finish with its own props
 (`game/plunge_finish.gd`). `tools/plunge_course_shot.gd` renders whole courses

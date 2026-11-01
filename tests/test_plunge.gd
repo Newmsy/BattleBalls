@@ -49,9 +49,9 @@ func test_golden_race() -> void:
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
 const GOLDEN_RACERS := ["zapper", "gust", "drako", "pucker", "ripple", "blizz"]
-const GOLDEN_ORDER := [2, 1, 0, 3, 4, 5]
+const GOLDEN_ORDER := [4, 0, 2, 5, 1, 3]
 const GOLDEN_KOS := []
-const GOLDEN_TICKS := 2443
+const GOLDEN_TICKS := 1782
 
 
 ## Racers are live critters, every family races, and they race with their
@@ -527,10 +527,10 @@ func test_course_hazards_act_on_racers() -> void:
 		lava.step()
 	check_near(b.hazard_taken, Plunge.HAZARD_CAP * b.max_hp, 0.01, "lava burns up to the cap and no further")
 	var slide := Plunge.new({"seed": 3, "racers": Plunge.draw_field(3, 4), "course": "toys"})
-	var at: Vector2 = _all_parts(slide)[0].pos
+	var at: Array = _all_parts(slide).map(func(o): return o.pos)
 	for k in 60:
 		slide.step()
-	check(_all_parts(slide)[0].pos != at, "sliders move")
+	check(_all_parts(slide).map(func(o): return o.pos) != at, "sliders move")
 
 
 ## Every moving part on the course, in course order (obstacles() only
