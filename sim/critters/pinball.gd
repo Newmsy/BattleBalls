@@ -30,4 +30,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "body": "chrome", "tint": true, "back": ["rears"], "front": ["bulbs"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.25},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Multiball", "text": "Lights +{+bulb_max} more bulbs, each worth {%bulb_damage}% more.",
+		"add": {"bulb_max": 3}, "mul": {"bulb_damage": 1.8}, "proof": "bump"},
 }

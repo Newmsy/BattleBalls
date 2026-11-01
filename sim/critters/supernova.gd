@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["corona"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 0.85},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Hypernova", "text": "Goes nova {%nova_every}% sooner, {%nova_damage}% harder.",
+		"mul": {"nova_every": 0.6, "nova_damage": 1.3}, "proof": "dmg"},
 }

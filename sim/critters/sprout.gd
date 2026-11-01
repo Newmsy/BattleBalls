@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["sapling"], "front": ["frost_freckles"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.35},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Wild Garden", "text": "+{+seed_max} more pillars that last +{+seed_life}s; wilting ones fire seeds.",
+		"add": {"seed_max": 3, "seed_life": 3.0, "seed_shots": 3}, "mul": {"seed_damage": 1.5, "seed_shot_damage": 1.5}, "ability": [{"on": "always", "do": "seed_wilt"}], "proof": "dmg"},
 }

@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "smile"}, "body": "eclipse"},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 0.9},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Totality", "text": "Flips {%eclipse_secs}% faster; corona {%sun_radius}% wider, moon heals more.",
+		"mul": {"eclipse_secs": 0.6, "sun_radius": 1.4, "moon_hps": 1.6}, "proof": "dmg"},
 }

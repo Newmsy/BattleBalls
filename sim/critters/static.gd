@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["zighair"], "front": ["sparks"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.35},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Overload", "text": "Zaps {%zap_radius}% wider and {%zap_damage}% harder; +{+charge_max} charges.",
+		"add": {"charge_max": 2}, "mul": {"zap_radius": 1.3, "zap_damage": 1.4}, "proof": "dmg"},
 }

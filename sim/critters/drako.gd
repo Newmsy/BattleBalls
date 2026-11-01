@@ -39,4 +39,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "smirk"}, "back": ["wings", "horns"], "front": ["belly"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 0.9},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Inferno", "text": "Breathes +{+fire_count} more fireballs, after 1 fewer stoke.",
+		"add": {"fire_count": 4, "stack_max": -1}, "proof": "dmg"},
 }

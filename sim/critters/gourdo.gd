@@ -29,4 +29,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"none": true, "mouth": "none"}, "back": ["pumpkinstem"], "front": ["pumpkinface"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 0.95},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Fright Night", "text": "Scares last +{+scare_secs}s; a scared foe hitting a wall freezes +{+scare_stun}s.",
+		"add": {"scare_secs": 0.8, "scare_vuln": 0.2, "scare_stun": 0.5}, "proof": "slow"},
 }

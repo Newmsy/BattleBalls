@@ -31,4 +31,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .18, "h": .22, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["starpins"], "front": ["constellation"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 1.2},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Star Chart", "text": "Constellations hit {%astra_damage}% harder, stay lit +{+astra_linger}s.",
+		"add": {"astra_linger": 1.5, "astra_slow_secs": 1.0}, "mul": {"astra_damage": 1.5}, "proof": "dmg"},
 }

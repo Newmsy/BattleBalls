@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "smirk"}, "back": ["hook"], "front": ["bandana"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.95},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Reel Master", "text": "Harpoons {%harpoon_every}% more often; yanks pull {%yank_impulse}% harder.",
+		"add": {"yank_bonus": 6.0}, "mul": {"harpoon_every": 0.5, "yank_impulse": 1.4}, "proof": "event:harpoon"},
 }

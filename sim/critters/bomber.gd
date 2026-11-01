@@ -32,4 +32,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .23, "h": .26, "p": .07, "mis": true, "mouth": "teeth"}, "body": "bomb", "front": ["fuse"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 0.85},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Minefield", "text": "+{+mine_max} more mines, with {%mine_radius}% bigger blasts.",
+		"add": {"mine_max": 3}, "mul": {"mine_radius": 1.3}, "proof": "dmg"},
 }

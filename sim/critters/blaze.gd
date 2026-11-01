@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .22, "p": .1, "brow": .14, "mouth": "grin"}, "back": ["blazecrest"], "front": ["blazeembers"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 1.05},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Firestorm", "text": "Burns last +{+blaze_secs}s, {%blaze_dps}% hotter; fire trails {%trail_radius}% wider.",
+		"add": {"blaze_secs": 2.0}, "mul": {"blaze_dps": 1.6, "trail_radius": 1.4}, "proof": "dmg"},
 }

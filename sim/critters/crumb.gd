@@ -38,4 +38,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "front": ["chips", "bite"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.3},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Fresh Batch", "text": "Bites off at 85% HP too; +{+grow_bolts} crumbs, pieces heal {%crumb_heal}% more.",
+		"add": {"grow_bolts": 4}, "mul": {"crumb_heal": 1.6}, "ability": [{"on": "hp_below", "hp": 0.85, "do": "grow"}], "proof": "dmg"},
 }

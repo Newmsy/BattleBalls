@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["gearstick"], "front": ["number", "goggles"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.05},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Overdrive", "text": "Shifts {%gear_every}% faster; top-gear slams hit +{+gear_slam_mult}x.",
+		"add": {"gear_slam_mult": 1.0, "gear_keep": 1}, "mul": {"gear_every": 0.65}, "proof": "bump"},
 }

@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "pout"}, "back": ["stemleaf"], "front": ["bloom"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.25},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Sour Power", "text": "Sour lasts +{+sour_secs}s and builds +{+sour_amount%}% a hit; splash {%pucker_damage}% bigger.",
+		"add": {"sour_secs": 6.0, "sour_amount": 0.1, "sour_max": 0.2}, "mul": {"pucker_damage": 1.6}, "proof": "bump"},
 }

@@ -31,4 +31,7 @@ const CRITTER := {
 	],
 	"art": {"body": "swirl", "eyes": {"sep": .34, "w": .19, "h": .23, "p": .1, "swirl": true, "mouth": "o"}, "back": ["portals"], "front": ["riftrim"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 0.85},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Wormhole Net", "text": "+{+portal_count} more portal, open +{+portal_secs}s longer; warps hit +{+warp_mult}x.",
+		"add": {"portal_count": 1, "portal_secs": 2.0, "warp_mult": 0.6}, "proof": "bump"},
 }

@@ -40,4 +40,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "flat"}, "back": ["wings", "stinger"], "front": ["stripes"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.4},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Hive Mind", "text": "Fires +{+shot_count} more stinger per bounce, {%fire_cooldown}% more often.",
+		"add": {"shot_count": 1}, "mul": {"fire_cooldown": 0.6}, "proof": "dmg"},
 }

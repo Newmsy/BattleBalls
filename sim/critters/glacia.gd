@@ -38,4 +38,7 @@ const CRITTER := {
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smirk"}, "back": ["tallcrystals", "cape_collar"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.05},
 	"chaos": {"rink": {"hp": 1.02}, "pillars": {"hp": 1.02}},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Frozen Crown", "text": "+{+ring_count} more ice pillars a ring; shards hit {%shard_damage}% harder.",
+		"add": {"ring_count": 3}, "mul": {"shard_damage": 1.3}, "proof": "dmg"},
 }

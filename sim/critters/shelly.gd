@@ -39,4 +39,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["shellhex"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.85},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Shell Shock", "text": "Tucks into its shell at 90% HP too; shell hits deal +{+shell_hit}x.",
+		"add": {"shell_hit": 0.6, "grow_armor": 0.1}, "ability": [{"on": "hp_below", "hp": 0.9, "do": "grow"}], "proof": "bump"},
 }

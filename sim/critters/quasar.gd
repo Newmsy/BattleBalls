@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "none"}, "back": ["jets"], "front": ["core"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 0.8},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Pulsar", "text": "Beams {%quasar_length}% longer, spin {%quasar_spin}% faster, plus a cross.",
+		"add": {"quasar_cross": 1}, "mul": {"quasar_length": 1.3, "quasar_spin": 1.4}, "proof": "dmg"},
 }

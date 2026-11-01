@@ -31,4 +31,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "none"}, "back": ["fur"], "front": ["tusks", "trunk"], "scale": 1.12},
 	"sound": {"ouch": "ouch_frost", "pitch": 0.7},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Ice Age", "text": "Wall slams hit {%slam_damage}% harder, freeze +{+slam_freeze}s, +{+slam_window}s to land.",
+		"add": {"slam_freeze": 0.4, "slam_window": 0.5}, "mul": {"slam_damage": 1.6}, "proof": "dmg"},
 }

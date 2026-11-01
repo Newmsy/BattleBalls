@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "teeth"}, "back": ["horns"], "front": ["fringe"], "scale": 1.1},
 	"sound": {"ouch": "ouch_frost", "pitch": 0.7},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Avalanche", "text": "Roars at 85% HP too; roars {%roar_radius}% wider, slow +{+roar_secs}s longer.",
+		"add": {"roar_secs": 1.0}, "mul": {"roar_radius": 1.25}, "ability": [{"on": "hp_below", "hp": 0.85, "do": "roar"}], "proof": "slow"},
 }

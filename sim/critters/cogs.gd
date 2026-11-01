@@ -34,4 +34,7 @@ const CRITTER := {
 	"chaos": {"glass_cannon": {"wind_step": 0.7}}, ## Glass Cannon bumps hurt more, so each wind-up is worth more
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "flat"}, "back": ["gears", "key"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.0},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Overwound", "text": "Winds up {%wind_step}% faster; unwinding flings +{+teeth_count} more teeth.",
+		"add": {"teeth_count": 3}, "mul": {"wind_step": 1.6}, "proof": "dmg"},
 }

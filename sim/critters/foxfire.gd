@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smirk"}, "back": ["ears", "foxtail"], "front": ["mask"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.2},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Fox Pack", "text": "+{+illusion_count} more illusions that last +{+illusion_life}s.",
+		"add": {"illusion_count": 2, "illusion_life": 2.0}, "mul": {"illusion_damage": 1.3}, "proof": "dmg"},
 }

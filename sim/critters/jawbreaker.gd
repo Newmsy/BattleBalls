@@ -39,4 +39,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smirk"}, "back": ["moons"], "front": ["candyrings"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.0},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Candy Crush", "text": "Starts with +{+candy_start} candies, holds +{+candy_max} more, fires more often.",
+		"add": {"candy_start": 2, "candy_max": 2}, "mul": {"candy_shot_every": 0.6}, "proof": "dmg"},
 }

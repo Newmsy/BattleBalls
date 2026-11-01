@@ -25,4 +25,7 @@ const CRITTER := {
 	],
 	"art": {"badge_top": 1.3, "eyes": {"sep": .3, "w": .19, "h": .22, "p": .1, "lid": .45, "brow": .12, "mouth": "fangs"}, "back": ["cape_collar"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"id": "sharper_fangs", "name": "Sharper Fangs", "text": "Heal +{+heal_ratio%}% of damage dealt. Overheal becomes a shield (+{+overheal_cap}).",
+		"add": {"heal_ratio": 0.4, "overheal_cap": 40.0}, "ability": [{"on": "hit", "do": "overheal"}], "proof": "hp"},
 }

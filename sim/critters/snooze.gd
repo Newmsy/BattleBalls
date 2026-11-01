@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "closed": true, "mouth": "o"}, "back": ["nightcap"], "front": ["craters"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 0.9},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Sleepwalker", "text": "Stays awake +{+wake_secs}s longer; awake hits +{+wake_damage}.",
+		"add": {"wake_secs": 3.0, "wake_damage": 6.0}, "proof": "bump"},
 }

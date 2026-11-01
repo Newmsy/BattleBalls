@@ -41,4 +41,7 @@ const CRITTER := {
 	"art": {"eyes": {"none": true, "mouth": "grin"}, "back": ["lever"], "front": ["reels"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.1},
 	"chaos": {"rink": {"hp": 1.07}}, ## Quick and light: the cut corners of the rink catch it more.
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Lucky Streak", "text": "Spins {%spin_every}% more often; every prize pays {%prize_mult}% more.",
+		"mul": {"spin_every": 0.6, "prize_mult": 1.4}, "proof": "dmg"},
 }

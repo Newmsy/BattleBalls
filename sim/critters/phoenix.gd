@@ -45,4 +45,7 @@ const CRITTER := {
 	"chaos": {"double_trouble": {"hp": 1.05}, "glass_cannon": {"revive_hp": 0.75}}, ## Bigger beams pick off a fresh revive; in Glass Cannon a revive is worth more.
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .2, "p": .1, "iris": "ffb300", "brow": .3, "mouth": "smirk"}, "back": ["flame_crest"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 1.25},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Rebirth", "text": "Revives +{+revive_lives} more time; its scorch and sunfire burn {%scorch_dps}% hotter.",
+		"add": {"revive_lives": 1, "revive_hp": 0.15}, "mul": {"scorch_dps": 1.8, "sunfire_damage": 1.8, "sunfire_burn": 1.8}, "proof": "dmg"},
 }

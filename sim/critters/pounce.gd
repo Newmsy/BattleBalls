@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smirk"}, "back": ["ears"], "front": ["spots", "whiskers"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.15},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Apex Hunter", "text": "Marks {%mark_cooldown}% more often; marked hits deal +{+marked_mult}x.",
+		"add": {"marked_mult": 1.5}, "mul": {"mark_cooldown": 0.5}, "proof": "bump"},
 }

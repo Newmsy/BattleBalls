@@ -40,4 +40,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smirk"}, "back": ["candle"], "front": ["drips"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.2},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Bonfire", "text": "Relights {%relight_radius}% wider and {%relight_damage}% hotter, scorching the foe.",
+		"mul": {"relight_radius": 1.4, "relight_damage": 1.8, "scorch_dps": 2.0}, "ability": [{"on": "hit", "do": "scorch"}], "proof": "dmg"},
 }

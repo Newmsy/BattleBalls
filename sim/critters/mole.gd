@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "none"}, "back": ["paws"], "front": ["helmet", "molesnout"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.1},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Tunnel Rush", "text": "Digs {%dig_every}% more often, bursts {%dig_radius}% wider, +{+dig_clods} clods.",
+		"add": {"dig_clods": 3}, "mul": {"dig_every": 0.6, "dig_radius": 1.3}, "proof": "dmg"},
 }

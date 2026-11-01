@@ -42,4 +42,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"visor": true, "mouth": "none"}, "back": ["pods"], "front": ["vvisor", "chestlight"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 0.75},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Rocket Barrage", "text": "Salvos every 2nd hit, with +{+shot_count} more rockets.",
+		"add": {"salvo_hits": -1, "shot_count": 3}, "proof": "dmg"},
 }

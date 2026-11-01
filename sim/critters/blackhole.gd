@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "dot": true, "mouth": "none", "ink": "ffffff", "mouth_ink": "e8e0ff"}, "body": "starfield", "back": ["swirl_arms"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 0.6},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Event Horizon", "text": "Collapses {%collapse_every}% more often, pulling from {%collapse_radius}% further.",
+		"mul": {"collapse_every": 0.6, "collapse_radius": 1.3}, "proof": "dmg"},
 }

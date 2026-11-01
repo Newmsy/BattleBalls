@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .19, "h": .2, "p": .09, "lid": .55, "mouth": "o"}, "back": ["ice_crown"], "front": ["frost_freckles"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.25},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Blizzard Trail", "text": "Icy trail {%trail_width}% wider, lasts +{+trail_life}s, slows +{+trail_slow%}% more.",
+		"add": {"trail_life": 1.5, "trail_slow": 0.1}, "mul": {"trail_width": 1.6}, "proof": "slow"},
 }

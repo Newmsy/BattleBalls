@@ -32,4 +32,7 @@ const CRITTER := {
 	"chaos": {"hyper_speed": {"twig_damage": 0.75}}, ## Hyper Speed piles on twigs too fast
 	"art": {"eyes": {"sep": .3, "w": .11, "h": .12, "p": .07, "mouth": "smirk"}, "front": ["twigs"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.05},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Tumbleweed Storm", "text": "+{+twig_max} max twigs, each {%twig_damage}% harder; keeps more when bumped.",
+		"add": {"twig_max": 4, "twig_keep": 0.5}, "mul": {"twig_damage": 1.5}, "proof": "bump"},
 }

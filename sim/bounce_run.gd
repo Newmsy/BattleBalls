@@ -45,7 +45,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 
 ## Bump when a change alters how a run plays out (boons, generation, fight
 ## rules), so the server only compares runs played on the same rules.
-const RULES_VERSION := 13
+const RULES_VERSION := 14
 const EPOCH_UNIX := 1791936000 ## 2026-10-14 00:00 UTC: Bounce Run #1.
 const DAY := 86400
 const FLOORS := 25
@@ -57,6 +57,9 @@ const START_OFFER := 6 ## General boons offered at the start.
 const START_BOONS := 3 ## Of those, how many the trio starts with.
 const RELIC_OFFER := 3 ## Relics offered at the start; the trio takes one.
 const OFFER := 3
+## Chance (out of 100) that a boon offer's last card is one of the trio's own
+## critter boons. Newms (2026-11-01): about 3-4 of them a run.
+const CRITTER_BOON_CHANCE := 40
 const FLOORS_PER_TIER := 5
 ## Foe names up the climb, for flavour.
 const FOE_TITLES := ["Rookie", "Rascal", "Scrapper", "Bruiser", "Hotshot", "Veteran", "Ace", "Brawler", "Legend", "Champion"]
@@ -578,6 +581,21 @@ static func offer(setup: Dictionary, run: Dictionary, floor_rarity := "common", 
 	var out: Array = []
 	for id in _shuffled(pool, rng).slice(0, OFFER + (1 if run.wish else 0)):
 		out.append(_with_roll(rng, id, held + out.map(func(o): return Boons.base_of(o)), floor_rarity))
+	# Now and then the last card is one of the trio's own critter boons
+	# (always Epic): about CRITTER_BOONS_PER_RUN of them show up in a run.
+	var mine := _critter_pool(setup, run)
+	if not mine.is_empty() and rng.range_int(0, 99) < CRITTER_BOON_CHANCE:
+		out[-1] = mine[rng.range_int(0, mine.size() - 1)]
+	return out
+
+
+## The trio's own critter boons (sim/boons.gd CRITTER), one per critter that has one.
+static func _critter_pool(setup: Dictionary, run: Dictionary) -> Array:
+	var out: Array = []
+	for slot in PICKS:
+		var id := Boons.for_critter(card(setup, run, slot).critter)
+		if id != "" and not id in out:
+			out.append(id)
 	return out
 
 
@@ -586,7 +604,7 @@ static func _boon_pool(setup: Dictionary, run: Dictionary) -> Array:
 	for slot in PICKS:
 		abilities.append(BallDefs.get_def(card(setup, run, slot).critter).ability)
 	var pool: Array = []
-	for id in Boons.ALL:
+	for id in Boons.GENERAL:
 		if abilities.any(func(a): return Boons.applies_to(id, a)):
 			pool.append(id)
 	return pool

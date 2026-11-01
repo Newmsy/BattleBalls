@@ -39,4 +39,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["flowercrown"], "front": ["vinewrap"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.1},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Strangler Vine", "text": "+{+vine_pairs} more vine pillar each time, {%vine_every}% more often.",
+		"add": {"vine_pairs": 1}, "mul": {"vine_every": 0.7}, "proof": "dmg"},
 }

@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .16, "h": .18, "p": .12, "iris": "1c1c26", "mouth": "none"}, "back": ["snowcap"], "front": ["carrot"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.1},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Snowball Fight", "text": "Packs +{+snow_max} more lumps of snow, each +{+snow_hit%}% more, for +{+snow_secs}s.",
+		"add": {"snow_max": 2, "snow_hit": 0.1, "snow_secs": 2.0}, "proof": "bump"},
 }

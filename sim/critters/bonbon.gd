@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "back": ["wrapper", "bow"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.3},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Gift Wrap", "text": "Wraps {%wrap_every}% more often, +{+wrap_hold}s longer; +{+snare_max} snares.",
+		"add": {"snare_max": 2, "wrap_vuln": 0.15, "wrap_hold": 0.3}, "mul": {"wrap_every": 0.6}, "proof": "slow"},
 }

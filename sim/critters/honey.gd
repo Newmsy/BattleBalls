@@ -40,4 +40,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "front": ["jarlid", "drips"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 0.85},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Honey Flood", "text": "Lobs honey globs at the foe that pull it in; crushes +{+honey_crush}x.",
+		"add": {"honey_crush": 0.5, "honey_pull": 300.0}, "mul": {"honey_lob": 0.7}, "ability": [{"on": "every", "secs": "honey_lob", "do": "honey_lob"}], "proof": "event:honey_stuck"},
 }

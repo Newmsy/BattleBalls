@@ -40,4 +40,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["bees"], "front": ["hive", "door"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.3},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Angry Hive", "text": "+{+bee_count} more bees, launched at the foe {%bee_every}% more often.",
+		"add": {"bee_count": 3}, "mul": {"bee_every": 0.5}, "proof": "dmg"},
 }

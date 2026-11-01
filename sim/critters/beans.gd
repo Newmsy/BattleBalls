@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"body": "bean", "eyes": {"sep": .3, "w": .19, "h": .23, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["beanbuddies"], "front": ["beanspecks"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.3},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Jelly Jar", "text": "+{+bean_max} more beans that last +{+bean_life}s; flavours {%bean_burn}% stronger.",
+		"add": {"bean_max": 3, "bean_life": 4.0}, "mul": {"bean_burn": 1.5, "bean_fizz_damage": 1.5}, "proof": "dmg"},
 }

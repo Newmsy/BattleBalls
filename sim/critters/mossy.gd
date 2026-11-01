@@ -32,4 +32,7 @@ const CRITTER := {
 	"chaos": {"closing_walls": {"hp": 1.1}, "bumpers": {"hp": 1.1}}, ## Shrinking walls and bumper knocks leave no quiet moment to regrow
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["fuzz", "mushroom"], "front": ["moss"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 0.9},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Overgrowth", "text": "Moss drains {%moss_dps}% more and heals {%moss_heal}% more, for +{+moss_secs}s.",
+		"add": {"moss_secs": 2.0}, "mul": {"moss_dps": 2.0, "moss_heal": 2.0}, "proof": "dmg"},
 }

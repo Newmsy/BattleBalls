@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "dy": .2, "mouth": "smile"}, "body": "gumdrop", "front": ["sugar"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.2},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Bubblegum", "text": "Gum strings {%gum_string_cooldown}% more often; gum slows more and stings.",
+		"add": {"gum_slow": 0.15, "gum_cap": 0.15, "gum_burn": 2.0}, "mul": {"gum_string_cooldown": 0.4}, "proof": "slow"},
 }

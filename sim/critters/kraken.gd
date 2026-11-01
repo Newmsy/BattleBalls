@@ -44,4 +44,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "beak"}, "back": ["tentacles"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.75},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Many Arms", "text": "+{+tentacle_count} more tentacles that hit {%tentacle_damage}% harder.",
+		"add": {"tentacle_count": 2}, "mul": {"tentacle_damage": 1.4}, "proof": "dmg"},
 }

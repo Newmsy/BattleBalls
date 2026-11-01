@@ -31,4 +31,7 @@ const CRITTER := {
 	],
 	"art": {"badge_top": 1.4, "eyes": {"sep": .32, "w": .22, "h": .3, "p": .14, "iris": "0d1230", "mouth": "o"}, "back": ["ufodome"], "front": ["saucer"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 1.4},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Mothership", "text": "Abducts {%abduct_every}% more often; drops thud {%drop_damage}% harder, into walls.",
+		"add": {"lift_secs": 0.3, "abduct_slam_damage": 6.0}, "mul": {"abduct_every": 0.6, "drop_damage": 2.0, "drop_radius": 1.3}, "proof": "slow"},
 }

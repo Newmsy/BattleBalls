@@ -38,4 +38,7 @@ const CRITTER := {
 	"chaos": {"big_head": {"contact_damage": 0.97}, "hyper_speed": {"contact_damage": 0.97}, "double_trouble": {"contact_damage": 1.1}},
 	"art": {"eyes": {"sep": .24, "w": .11, "h": .12, "p": .08, "uni": true, "mouth": "flat"}, "front": ["rock_band"], "scale": 1.15},
 	"sound": {},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Landslide", "text": "+{+rock_max} rocks that last +{+rock_life}s. Wall slams hit {%slam_damage}% harder.",
+		"add": {"rock_max": 2, "rock_life": 2.0}, "mul": {"slam_damage": 1.5}, "proof": "dmg"},
 }

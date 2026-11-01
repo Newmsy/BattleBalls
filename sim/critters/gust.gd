@@ -39,4 +39,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["windcurls"], "front": ["gustswirl"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.2},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Hurricane", "text": "Huffs {%huff_every}% more often; twisters spin +{+whirl_secs}s longer.",
+		"add": {"whirl_secs": 1.5, "gust_slam": 4.0}, "mul": {"huff_every": 0.6}, "proof": "dmg"},
 }

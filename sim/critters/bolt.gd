@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "flat"}, "back": ["boltant"], "front": ["panel"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.25},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Blink Strike", "text": "Backstabs +{+blink_bonus}; every jump crackles and leaves a zap beam.",
+		"add": {"blink_bonus": 12.0, "blink_crackle": 8.0, "blink_zap": 6.0}, "proof": "bump"},
 }

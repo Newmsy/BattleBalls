@@ -37,4 +37,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "flat"}, "back": ["totemstack"], "scale": .9},
 	"sound": {"ouch": "ouch_spooky", "pitch": 0.85},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Tall Totem", "text": "Starts with a face; +{+stack_max} more faces, each {%face_damage}% stronger.",
+		"add": {"stack_max": 2, "face_armor": 0.05}, "mul": {"face_damage": 1.6}, "ability": [{"on": "start", "do": "face"}], "proof": "bump"},
 }

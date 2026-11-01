@@ -14,6 +14,7 @@ const FactionXp := preload("res://game/faction_xp.gd")
 const FightAim := preload("res://game/fight_aim.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 const Boons := preload("res://sim/boons.gd")
 const BounceRun := preload("res://sim/bounce_run.gd")
 const ArenaView := preload("res://game/arena_view.gd")
@@ -1377,7 +1378,7 @@ func _show_boon_info(ids: Array) -> void:
 		Kit.label(("Together: " if b.count > 1 else "") + b.text, 26, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
 	]
 	if b.has("for"):
-		lines.append(Kit.label("Only for critters with the %s ability." % b.for.capitalize(), 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+		lines.append(Kit.label("Only for %s." % CritterDb.get_critter(b.for).name, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 	_overlay_card(lines, Kit.box(Roster.rarity_bg(b.rarity, Kit.PANEL, 0.18), col, 32, 3, 28), "br_boon_close")
 	print("BOUNCERUN_BOON_INFO %s" % id)
 	_report.call_deferred("br_boon_info")

@@ -37,4 +37,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "square": true, "mouth": "smile"}, "body": "pixel"},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.4},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Glitch Storm", "text": "Teleports {%glitch_every}% more often, leaving +{+bomb_line} more lag bombs.",
+		"add": {"bomb_line": 2, "bomb_max": 4}, "mul": {"glitch_every": 0.5, "bomb_damage": 1.3}, "proof": "dmg"},
 }

@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "frown"}, "back": ["smoke"], "front": ["embers"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 0.8},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Coal Bed", "text": "Drops hot patches {%patch_every}% more often, {%patch_radius}% wider.",
+		"mul": {"patch_every": 0.55, "patch_radius": 1.35}, "proof": "dmg"},
 }

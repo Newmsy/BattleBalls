@@ -32,4 +32,7 @@ const CRITTER := {
 	"chaos": {"closing_walls": {"chomp_mult": 0.75}, "glass_cannon": {"chomp_mult": 1.2}}, ## Closing Walls crowds foes into more bites; Glass Cannon fights end before many bites land
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "teeth"}, "back": ["dorsal"], "front": ["belly"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.95},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Feeding Frenzy", "text": "Big bites come 1 hit sooner and deal +{+chomp_mult}x damage.",
+		"add": {"chomp_every": -1, "chomp_mult": 1.0}, "proof": "bump"},
 }

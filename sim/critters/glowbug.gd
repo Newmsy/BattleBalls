@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["antenna2"], "front": ["glowbelly"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.4},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Firefly Swarm", "text": "+{+moon_count} more light-bugs circle it, stinging {%moon_damage}% harder.",
+		"add": {"moon_count": 2}, "mul": {"moon_damage": 1.3}, "proof": "dmg"},
 }

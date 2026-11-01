@@ -41,4 +41,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["fantail"], "front": ["scales"], "scale": 0.85},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.4},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "School's In", "text": "Panics at 75% HP too, with +{+school_count} more fish for +{+school_secs}s.",
+		"add": {"school_count": 2, "school_secs": 4.0}, "ability": [{"on": "hp_below", "hp": 0.75, "do": "grow"}], "proof": "dmg"},
 }

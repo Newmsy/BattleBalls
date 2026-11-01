@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .25, "p": .1, "mouth": "smile"}, "body": "mirror"},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.1},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Hall of Mirrors", "text": "Copies {%copy_cooldown}% more often, +{+copy_secs}s longer, +{+copy_shield} shield.",
+		"add": {"copy_secs": 2.0, "copy_shield": 10.0}, "mul": {"copy_cooldown": 0.5}, "proof": "heal"},
 }

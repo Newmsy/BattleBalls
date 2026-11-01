@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "front": ["splats", "beret"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.2},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Splash Zone", "text": "Paint {%paint_width}% wider, lasts +{+paint_life}s; balloons {%balloon_every}% more often.",
+		"add": {"paint_life": 2.0}, "mul": {"paint_width": 1.5, "balloon_every": 0.6}, "proof": "dmg"},
 }
