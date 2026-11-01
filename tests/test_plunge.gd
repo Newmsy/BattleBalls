@@ -49,9 +49,9 @@ func test_golden_race() -> void:
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
 const GOLDEN_RACERS := ["zapper", "gust", "drako", "pucker", "ripple", "blizz"]
-const GOLDEN_ORDER := [4, 0, 2, 5, 1, 3]
+const GOLDEN_ORDER := [5, 3, 1, 0, 4, 2]
 const GOLDEN_KOS := []
-const GOLDEN_TICKS := 1782
+const GOLDEN_TICKS := 1887
 
 
 ## Racers are live critters, every family races, and they race with their

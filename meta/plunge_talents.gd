@@ -41,7 +41,7 @@ const TALENTS := [
 	{"id": "tough", "name": "Thick Skin", "text": "+%s%% HP", "short": "+%s%% HP", "per": 0.03,
 		"race": "Takes more hits before a knockout"},
 	{"id": "power", "name": "Hard Hitter", "text": "+%s%% damage", "short": "+%s%% dmg", "per": 0.02,
-		"race": "Its hits slow rivals down more"},
+		"race": "Knocks rivals out sooner"},
 	{"id": "swift", "name": "Swift", "text": "+%s%% top speed", "short": "+%s%% spd", "per": 0.02,
 		"race": "Less air drag, a faster drop"},
 ]
