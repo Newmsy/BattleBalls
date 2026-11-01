@@ -124,6 +124,9 @@ var play_with := "" ## Ball to pick in the arena menu on the next request_play()
 var glow
 var current := ""
 var current_params := {}
+## True when this shell opened on the Arena or Plunge screen because a fight or
+## race just ended there, so a URL ?screen= doesn't send it elsewhere.
+var reopened := false
 var _stack: Array = []
 ## Pictures of the screens under the current one (one per _stack entry below
 ## the top, null when not taken), for the swipe back (TouchInput).
@@ -242,11 +245,12 @@ func build() -> void:
 	# Coming back from a Ghost Arena fight lands on the Arena again.
 	if ArenaStore.reopen:
 		ArenaStore.reopen = false
+		reopened = true
 		go("arena")
-	# And from a Critter Plunge race, on the Plunge screen in Versus.
+	# And from a Critter Plunge race, on the Plunge screen (Back goes Home).
 	if CritterPlunge.reopen:
 		CritterPlunge.reopen = false
-		go("versus")
+		reopened = true
 		go("plunge")
 
 

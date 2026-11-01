@@ -1,6 +1,6 @@
 ## Critter Plunge race screen: your fighter and a CPU field drop down a
 ## marble run (sim/plunge.gd) and fight on the way; you watch. Opened from
-## the Plunge screen in Versus (game/ui/screens/plunge_screen.gd), which has
+## the Plunge screen (game/ui/screens/plunge_screen.gd), which has
 ## already spent the energy and left the race in CritterPlunge.pending. The result pops
 ## up on the shared ResultPopup with coins, XP, league points and the
 ## Faction XP ring, paid into the game save here (meta/critter_plunge.gd); a

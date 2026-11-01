@@ -1,4 +1,4 @@
-## Critter Plunge (sim/plunge.gd) as a Versus mode: you race one of your
+## Critter Plunge (sim/plunge.gd) as a main mode (its own door on Home): you race one of your
 ## racing critters (Plunge.RACERS) against a field of CPU critters at its
 ## tier, so its abilities show at their tier but the drop decides it, not who
 ## levelled more. Watch only: nothing to aim.

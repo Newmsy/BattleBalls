@@ -182,7 +182,7 @@ static func _testing(shell) -> Control:
 	for b in [restart, finish]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var intro_words := Kit.label("New player unlocks · step %d/%d" % [Intro.step(shell.profile), Intro.DONE], 22, Kit.MUTED)
-	# A Bounce Run chest to open on the Daily board, as if yesterday's best was that floor.
+	# A Bounce Run chest to open on Home's Bounce Run door, as if yesterday's best was that floor.
 	var chest_words := Kit.label("Bounce Run chest", 30)
 	chest_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var chests := Kit.hbox(8, [chest_words])
@@ -204,7 +204,6 @@ static func _bounce_chest(shell, best_floor: int) -> void:
 	shell.profile.changed.emit()
 	shell.close_overlay()
 	shell.show_tab("play")
-	shell.go("week")
 
 
 ## Replay intro: back to just out of the tutorial (stages 1-1 to 1-3 replay

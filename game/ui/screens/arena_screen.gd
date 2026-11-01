@@ -188,24 +188,6 @@ static func owned_critters(profile) -> Array:
 	return CritterPicker.by_power(profile, BallDefs.PLAYABLE.filter(func(id): return profile.owns(id)))
 
 
-## A hub tile: an arch-topped doorway painting of the room
-## (game/ui/versus_art/room_*.png), its name and one status line.
-static func _room(shell, mark: String, art: String, title: String, line: String, col: Color, on_press: Callable) -> Button:
-	var pic := HomePainting.make(art, Vector2(.5, .5), 52.0, Vector4(0, 0, .6, .9), Kit.BG.lerp(col, .10), ART)
-	pic.custom_minimum_size.y = 104
-	var words := Kit.vbox(0, [Kit.label(title, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), Kit.label(line, 18, col, HORIZONTAL_ALIGNMENT_CENTER)])
-	var v := Kit.vbox(2, [pic, words])
-	var b := Kit.card_button(v, on_press, Color(col, .8), Color(col, .10), 24, 3)
-	# The tile's top follows the doorway's arch.
-	var st: StyleBoxFlat = b.get_theme_stylebox("normal")
-	st.corner_radius_top_left = 55
-	st.corner_radius_top_right = 55
-	st.content_margin_bottom = 8
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	shell.mark(mark, b)
-	return b
-
-
 ## Your attack trio ("trio") or Defence trio ("defence"): tap a slot to pick the team.
 ## `extra` sits beside Best trio (the Arena's Defence chip).
 static func trio_panel(shell, store, owned: Array, which := "trio", extra: Control = null) -> Control:

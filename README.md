@@ -141,7 +141,7 @@ being solvable or fair.
 
 ## Critter Plunge
 
-A watch-only marble-run race in Versus (`sim/plunge.gd`, `sim/plunge_course.gd`,
+A watch-only marble-run race with its own door on Home (`sim/plunge.gd`, `sim/plunge_course.gd`,
 `meta/critter_plunge.gd`, `meta/plunge_talents.gd`, `game/plunge.gd`,
 `game/plunge_view.gd`, `game/ui/screens/plunge_screen.gd`). Your racer and 3, 5
 or 7 CPU critters (all at your racer's tier) drop down one of 20 courses

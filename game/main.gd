@@ -350,6 +350,8 @@ func _ready() -> void:
 				_settle_relay_stage()
 			elif SpireScreen.should_open(url_params):
 				shell.go("spire")
+			elif shell.reopened:
+				pass # Back from an Arena fight or a Plunge race: stay where the shell reopened.
 			elif url_params.get("screen", "") in Shell.TAB_IDS:
 				shell.show_tab(url_params.screen) # ?screen=fuse
 			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen not in ["detail", "dex_entry"] or url_params.has("id")):

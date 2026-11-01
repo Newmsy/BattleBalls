@@ -595,7 +595,7 @@ try {
   }
 
   // 9a. Bounce Run chest: yesterday's best floor (set from Settings > Testing,
-  // which then opens the Daily board) turns the Daily board's Bounce Run button into Open; the chest shakes,
+  // which then goes Home) turns the Bounce Run door's button into Open; the chest shakes,
   // bursts open, spills its rewards and Collect pays them.
   if (mine(11)) {
     const { page, logs } = await openGame("?demo=1&tutorial=0&dev=1");
@@ -603,10 +603,12 @@ try {
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
     await tapUi(page, logs, "settings", "sheet");
-    await tapUi(page, logs, "dev_bounce_chest_25", "week");
+    const before = logs.length;
+    await tapUi(page, logs, "dev_bounce_chest_25");
+    await waitForLogAfter(logs, before, "UI_AT home_bounce_chest ", 5000);
     await page.waitForTimeout(600);
-    await page.screenshot({ path: path.join(shots, "16c-daily-bounce-chest.png") });
-    await tapUi(page, logs, "week_bounce_chest", "bounce_chest");
+    await page.screenshot({ path: path.join(shots, "16c-home-bounce-chest.png") });
+    await tapUi(page, logs, "home_bounce_chest", "bounce_chest");
     await page.waitForTimeout(1200);
     await page.screenshot({ path: path.join(shots, "16d-bounce-chest.png") });
     await page.mouse.click(...toPage(page, 360, 700));
@@ -657,7 +659,7 @@ try {
 
   // 10. Ghost Arena: Play -> Arena screen -> pick a card -> play the relay to a result -> back to the Arena.
   if (mine(25)) {
-    const { page, logs } = await openGame("?seed=7&offline=1");
+    const { page, logs } = await openGame("?screen=play&seed=7&offline=1");
     await waitForLog(logs, "UI_SCREEN play", 60000);
     await page.waitForTimeout(800);
     // The Arena card sits below the fold on a phone: scroll the Play tab first.
@@ -811,7 +813,7 @@ try {
   // 13. Campaign: a new player opens the Glow Garden map from the Play tab,
   // fights stage 1-1, and comes back to the map with the result.
   if (mine(54)) {
-    const { page, logs } = await openGame("?seed=7&offline=1");
+    const { page, logs } = await openGame("?screen=play&seed=7&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
@@ -988,7 +990,7 @@ try {
   // below the fold), draft three critters and three boons, pick a node on the
   // map and fight floor 1.
   if (mine(27)) {
-    const home = await openGame("?seed=7&offline=1");
+    const home = await openGame("?screen=play&seed=7&offline=1");
     await waitForLog(home.logs, "UI_AT bouncerun ", 60000);
     await home.page.close();
     const { page, logs } = await openGame("?mode=bouncerun&offline=1");
@@ -1025,12 +1027,12 @@ try {
     await page.close();
   }
 
-  // 16. Critter Plunge: its card in Versus, then the Plunge screen; Race
+  // 16. Critter Plunge: the Plunge screen (Home's door opens it; the URL
+  // screen keeps the race's return on it too); Race
   // spends the energy and opens the race, Skip runs it to the result popup.
   if (mine(12)) {
-    const { page, logs } = await openGame("?screen=versus&seed=7&offline=1");
-    await waitForLog(logs, "UI_AT vs_plunge ", 60000);
-    await tapUi(page, logs, "vs_plunge", "plunge");
+    const { page, logs } = await openGame("?screen=plunge&seed=7&offline=1");
+    await waitForLog(logs, "UI_SCREEN plunge", 60000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "46-plunge-screen.png") });
     await tapUi(page, logs, "plunge_talents", "sheet");
