@@ -179,7 +179,7 @@ plus the Plunge quests (podium, wins, courses); a skipped race drops no medal.
 The race is a MatchSim where every ball is its own team (`players` + `ffa`), so
 critters race with their real abilities and the fight view draws them; gravity
 and the course replace the arena walls, and a hard bounce off the course is a
-wall bounce. Race rules on top: a hit staggers, aimed abilities go for the racer
+wall bounce. Race rules on top: an ability or hazard hit staggers (racer bumps hurt but never brake, and bounce off each other without losing speed), aimed abilities go for the racer
 ahead, charges are sideways swerves, stunned racers sink out of the way, and a
 racer at 0 HP is knocked out and places last. Only `Plunge.RACERS` race (4 per
 family, added in batches of one per family); `RACE_TWEAKS` scales a fight

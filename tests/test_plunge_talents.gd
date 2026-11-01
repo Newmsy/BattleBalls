@@ -137,10 +137,27 @@ func test_sea_rides_out_hits() -> void:
 		var b = q.balls[0]
 		b.pos = Vector2(500.0, q.finish_y - 600.0)
 		b.vel = Vector2(0.0, 300.0)
-		q.add_hit(q.balls[2], b, 40.0, "contact", b.pos)
+		q.add_hit(q.balls[2], b, 40.0, "ability", b.pos)
 		q.step()
 		speeds.append(b.vel.length())
 	check(speeds[1] > speeds[0] * 1.2, "Wave Rider keeps its speed: %s" % [speeds])
+
+
+## Racer-on-racer bumps hurt but never stagger, so a pair rolling together
+## doesn't brake into a clump (Newms 2026-11-01).
+func test_bumps_hurt_without_braking() -> void:
+	var speeds := []
+	for kind in ["contact", "ability"]:
+		var q := _race({})
+		var b = q.balls[0]
+		b.pos = Vector2(500.0, q.finish_y - 600.0)
+		b.vel = Vector2(0.0, 300.0)
+		var hp: float = b.hp
+		q.add_hit(q.balls[2], b, 40.0, kind, b.pos)
+		q.step()
+		check(b.hp < hp - Plunge.STAGGER_AT, "a %s hit hurts" % kind)
+		speeds.append(b.vel.length())
+	check(speeds[0] > speeds[1] * 1.3, "a bump keeps its speed, an ability hit staggers: %s" % [speeds])
 
 
 func test_cosmic_falls_hard_and_shoves() -> void:

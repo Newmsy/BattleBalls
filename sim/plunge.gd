@@ -14,7 +14,8 @@
 ## view draws them, and the race runs them by its own rules (_update_wells,
 ## _update_floors, _hit_movers).
 ##
-## Damage changes places: a hit staggers its target (it loses speed), slows,
+## Damage changes places: an ability or hazard hit staggers its target (it
+## loses speed; racer-on-racer bumps hurt but never stagger), slows,
 ## stuns and pulls work as in a fight, and a racer at 0 HP is knocked out and
 ## places last.
 ##
@@ -34,7 +35,7 @@ const PlungeCourse := preload("res://sim/plunge_course.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 15
+const RACE_RULES := 16
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
 const PART_CELL := 100.0 ## Band height for finding the moving parts near the race.
@@ -43,7 +44,7 @@ const RADIUS := 30.0 ## Every racer races this size, whatever its fight size.
 const GRAVITY := 900.0
 const MAX_SPEED := 600.0
 const DRAG := 0.35 ## Fraction of speed lost per second in the air.
-const RACER_BOUNCE := 0.8
+const RACER_BOUNCE := 1.0
 const STUN_SINK := 70.0 ## How fast a stunned racer sinks (it doesn't hang in the air).
 const CHARGE_SIDE := 260.0 ## Sideways speed of a charge at x1.
 const GATE_SECONDS := 1.0
@@ -65,12 +66,12 @@ const RUSH := 320.0 ## Taking a power core also kicks the taker down the course 
 ## Racer-on-racer bumps only hit (contact damage, "hit" abilities) when they
 ## close this fast: a pile resting together doesn't grind itself down.
 const BUMP_MIN := 260.0
-## Speed kept when a hit of STAGGER_AT or more damage lands.
+## Speed kept when a hit of STAGGER_AT or more damage lands (bumps excepted).
 const STAGGER := 0.6
 const STAGGER_AT := 3.0
 ## Damage by field size: most damage happens in jams, so crowded fields
 ## need less of it.
-const DAMAGE_BY_FIELD := {4: 1.1, 6: 0.75, 8: 0.6}
+const DAMAGE_BY_FIELD := {4: 1.17, 6: 0.78, 8: 0.65}
 ## The knockout knob (Newms 2026-10-29: about 1 racer in 10 knocked out, by
 ## health alone): every racer's HP is scaled by this for its field size.
 ## About half again for the moving-machine courses, whose races run longer.
@@ -89,7 +90,8 @@ const SWIFT_DRAG := 1.5
 ## ice (Ice Skates): every ramp is slick for it: pushed along downhill by this
 ##   share of an icy ramp's push (on icy ramps and belts, on top of theirs).
 ## current (Wave Rider): share of the speed a stagger takes that it keeps,
-##   and it surges on down at WAVE_SURGE times that.
+##   and it surges on down at WAVE_SURGE times that after any hard hit, bumps
+##   included.
 ## orbit (Heavy Star): share added to its gravity; in a bump it weighs
 ##   1 + HEAVY_BUMP times its share (rivals push it less, it shoves them more).
 ## core (Overclock): seconds between power rushes (a RUSH down the course, once
@@ -409,6 +411,14 @@ func step() -> void:
 	for b in balls:
 		hp_before.append(b.hp)
 	super.step()
+	# Racer-on-racer bumps hurt but never stagger: two racers rolling
+	# together would otherwise brake each other into a slow clump.
+	var bumped: Array[float] = []
+	bumped.resize(balls.size())
+	bumped.fill(0.0)
+	for e in events:
+		if e.type == "damage" and e.kind == "contact":
+			bumped[e.target] += e.amount
 	var sum := 0.0
 	var n := 0
 	for i in starters:
@@ -419,7 +429,8 @@ func step() -> void:
 			_knock_out(i)
 			continue
 		if b.hp < hp_before[i] - STAGGER_AT and time() >= GATE_SECONDS:
-			b.vel *= stagger_keep(b)
+			if b.hp < hp_before[i] - bumped[i] - STAGGER_AT:
+				b.vel *= stagger_keep(b)
 			if _sig(b, "current") > 0.0: # Wave Rider surges on.
 				b.vel.y += WAVE_SURGE * _sig(b, "current") * SIGNATURES.current
 				_talent(b, "current", b.pos)

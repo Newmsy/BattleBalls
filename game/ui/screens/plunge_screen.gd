@@ -50,7 +50,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var root := Kit.vbox(18)
 	root.add_child(shell.title_row("Critter Plunge", {"eyebrow": "Versus ·", "eyebrow_color": ACCENT, "info_mark": "plunge_info", "info": [
 		"Your critter races a field of others down a marble run. First to the bottom wins.",
-		"Every critter races with its own ability. A hit slows a racer down, and at 0 HP it's knocked out and places last.",
+		"Every critter races with its own ability. Ability hits slow a racer down, and at 0 HP it's knocked out and places last.",
 		"Everyone races at your racer's tier, so the drop decides it. Power, level and gear don't count in a race.",
 		"Only some critters race for now. More join soon.",
 		"4 racers race for coins only. 6 racers win medals on the podium. 8 racers win gold for 1st and 2nd, more medals and %s× coins." % str(CritterPlunge.COINS_8),
