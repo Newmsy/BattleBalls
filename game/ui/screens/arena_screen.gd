@@ -193,6 +193,8 @@ static func owned_critters(profile) -> Array:
 static func _room(shell, mark: String, art: String, title: String, line: String, col: Color, on_press: Callable) -> Button:
 	var pic := HomePainting.make(art, Vector2(.5, .5), 52.0, Vector4(0, 0, .6, .9), Kit.BG.lerp(col, .10), ART)
 	pic.custom_minimum_size.y = 104
+	# A tall row (the Versus hub) gives the doorway the extra height.
+	pic.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var words := Kit.vbox(0, [Kit.label(title, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), Kit.label(line, 18, col, HORIZONTAL_ALIGNMENT_CENTER)])
 	var v := Kit.vbox(2, [pic, words])
 	var b := Kit.card_button(v, on_press, Color(col, .8), Color(col, .10), 24, 3)

@@ -243,10 +243,9 @@ func build() -> void:
 	if ArenaStore.reopen:
 		ArenaStore.reopen = false
 		go("arena")
-	# And from a Critter Plunge race, on the Plunge screen in Versus.
+	# And from a Critter Plunge race, on the Plunge screen (Back goes Home).
 	if CritterPlunge.reopen:
 		CritterPlunge.reopen = false
-		go("versus")
 		go("plunge")
 
 

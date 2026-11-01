@@ -1,4 +1,4 @@
-## Critter Plunge, opened from its card in Versus: the next race's course is
+## Critter Plunge, opened from its door on Home: the next race's course is
 ## the painting with your racer on it, pick how many racers (4 race for coins,
 ## 6 for medals, 8 for better medals and more coins) and your racer, see what
 ## its ability does and what the race pays, then Race. Medals buy race
@@ -48,7 +48,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var now := int(Time.get_unix_time_from_system())
 	p.update_energy(now)
 	var root := Kit.vbox(18)
-	root.add_child(shell.title_row("Critter Plunge", {"eyebrow": "Versus ·", "eyebrow_color": ACCENT, "info_mark": "plunge_info", "info": [
+	root.add_child(shell.title_row("Critter Plunge", {"info_mark": "plunge_info", "info": [
 		"Your critter races a field of others down a marble run. First to the bottom wins.",
 		"Every critter races with its own ability. Ability hits slow a racer down, and at 0 HP it's knocked out and places last.",
 		"Everyone races at your racer's tier, so the drop decides it. Power, level and gear don't count in a race.",

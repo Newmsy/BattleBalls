@@ -1,9 +1,10 @@
-## The Versus hub, opened from the Versus door on Play: Ghost Arena, its
-## rooms (Trophy Room, Bazaar and the weekly chest), Critter Plunge (a
-## marble-run race) and Quick fight with your fighter (while live fights are on). Each mode is a card with its own
+## The Versus hub, opened from the Arena door's › on Play: Ghost Arena, its
+## rooms (Trophy Room, Bazaar and the weekly chest) and Quick fight with your
+## fighter (while live fights are on). Each mode is a card with its own
 ## painting (game/ui/versus_art, from tools/event_art/scenes/versus_modes.mjs);
 ## the cards share the room so nothing scrolls. A new PvP mode adds one card.
-## Friends are behind the level badge (the profile screen).
+## Critter Plunge has its own door on Home, so it isn't here too. Friends are
+## behind the level badge (the profile screen).
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -27,7 +28,6 @@ static func build(shell, _params: Dictionary) -> Control:
 	var info := ["Ghost Arena: fight other players' saved trios for trophies and Tokens."]
 	if quick_on:
 		info.append("Quick fight: your fighter against a live foe. Nothing at stake.")
-	info.append("Critter Plunge: race your critter down a marble run against others, abilities flying. Coins for every place.")
 	info.append_array(["Trophy Room: spend Arena Points on stat boosts for each family, Ghost Arena only.",
 		"Bazaar: spend Tokens on gear, eggs and energy. New stock every day.",
 		"Weekly chest: the best league you reach each week opens that league's chest."])
@@ -43,25 +43,20 @@ static func build(shell, _params: Dictionary) -> Control:
 	if Intro.done(p):
 		rooms.add_child(ArenaScreen._room(shell, "arena_bazaar", "room_bazaar", "Bazaar", Kit.commas(store.coins), Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})))
 		rooms.add_child(chest_room(shell, store))
-	var plunge := Kit.card_button(band("vs_plunge", "Critter Plunge", "Marble-run race · 4 to 8 critters", Color("27c8ff")), func(): shell.go("plunge"), Color("27c8ff").darkened(.45), Color("27c8ff").darkened(.84), 28, 3)
-	plunge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if not Intro.mode_open(p, "plunge"):
-		# A paced player's Plunge opens with a later zone 1 stage.
-		plunge = Kit.card_button(band("vs_plunge", "Critter Plunge", Intro.mode_line("plunge"), Kit.MUTED), shell.toast.bind(Intro.mode_line("plunge")), Kit.LINE, Kit.PANEL, 28, 3)
-		plunge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		plunge.modulate = Color(1, 1, 1, .6)
-	shell.mark("vs_plunge", plunge)
-	var cards := [arena, plunge]
-	var ratios := [3.0, 2.4]
+	var cards := [arena]
+	var ratios := [3.0]
 	if quick_on:
 		cards.append(PlayScreen.quick_fight_card(shell, band("vs_quick", "Quick fight", "Live foe · just for fun", Color("cfc8ff"))))
 		ratios.append(3.6)
-	# The cards share the room, each in step with its painting.
+	# The cards share the room, each in step with its painting. The rooms grow
+	# too, so with Ghost Arena alone over them the doorways stand tall.
 	for i in cards.size():
 		cards[i].size_flags_vertical = Control.SIZE_EXPAND_FILL
 		cards[i].size_flags_stretch_ratio = ratios[i]
 	var col := Kit.vbox(16, [arena])
 	if rooms.get_child_count() > 0:
+		rooms.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		rooms.size_flags_stretch_ratio = 1.0 if quick_on else 1.3
 		col.add_child(rooms)
 	for c in cards.slice(1):
 		col.add_child(c)
@@ -76,11 +71,12 @@ static func chest_room(shell, store) -> Button:
 	var ready: bool = store.chest_ready()
 	var league: int = int(store.chest.league) if ready else Ladder.league_index(store.trophies)
 	var look := ArenaChest.look(league)
-	var art := ChestArt.make(str(look.id), 92.0)
+	var art := ChestArt.make(str(look.id), 128.0)
 	if look.has("tint"):
 		art.modulate = look.tint
 	var pic := CenterContainer.new()
 	pic.custom_minimum_size.y = 104
+	pic.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pic.add_child(art)
 	var col: Color = look.color
