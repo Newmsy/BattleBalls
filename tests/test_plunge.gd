@@ -170,42 +170,55 @@ func _ramp_shapes(ramps: Array) -> Array:
 
 
 ## Every course is about half moving (Newms 2026-10-31: "land for 50%
-## moving"), built from its own three static set pieces, three moving pieces
-## and its own machine, and every moving part stays under the mover speed,
-## so it bats racers about but never pins one.
+## moving") round its own machine, every moving part stays under the mover
+## speed, and at least 75% of a rebuilt course's height is sections no
+## other course has (Newms 2026-11-01: "75% minimum for uniqueness").
+## Courses not yet rebuilt still use three shared static set pieces and
+## three shared moving pieces, no two the same set.
 func test_courses_are_moving_machines() -> void:
 	var sets := {}
 	var machines := {}
+	var used := {} ## section kind -> how many courses use it
 	for c in PlungeCourse.COURSES:
-		var pieces: Array = c.plan.filter(func(k): return PlungeCourse.PIECES.has(k))
-		var moving_kinds := {}
-		for k in pieces:
-			moving_kinds[k] = true
-		check_eq(moving_kinds.size(), 3, "%s uses three moving pieces" % c.id)
-		var statics: Array = c.plan.filter(func(k): return PlungeCourse.STATICS.has(k))
-		var own := {}
-		for k in statics:
-			own[k] = true
-		check_eq(own.size(), 3, "%s uses three static set pieces" % c.id)
-		var key := own.keys()
-		key.sort()
-		sets[str(key)] = true
+		var kinds := {}
+		for k in c.plan + [c.get("opener", "opener")]:
+			kinds[k] = true
+		for k in kinds:
+			used[k] = used.get(k, 0) + 1
+	for c in PlungeCourse.COURSES:
 		var mine: Array = c.plan.filter(func(k): return PlungeCourse.MACHINES.has(k))
 		check_eq(mine.size(), 1, "%s has one machine" % c.id)
 		machines[mine[0]] = true
+		if not c.has("opener"):
+			var moving_kinds := {}
+			for k in c.plan.filter(func(k): return PlungeCourse.PIECES.has(k)):
+				moving_kinds[k] = true
+			check_eq(moving_kinds.size(), 3, "%s uses three moving pieces" % c.id)
+			var own := {}
+			for k in c.plan.filter(func(k): return PlungeCourse.STATICS.has(k)):
+				own[k] = true
+			check_eq(own.size(), 3, "%s uses three static set pieces" % c.id)
+			var key := own.keys()
+			key.sort()
+			check(not sets.has(str(key)), "%s shares its static set pieces" % c.id)
+			sets[str(key)] = true
 		var p := Plunge.new({"seed": 5, "racers": Plunge.draw_field(5, 4), "course": c.id})
 		var moving := 0.0
+		var unique := 0.0
 		for sec in p.course.sections:
 			if p.course.movers.any(func(o): return o.pos.y >= sec.y0 and o.pos.y < sec.y1 and (o.has("orbit") or o.has("slide") or o.has("blink"))):
 				moving += sec.y1 - sec.y0
+			if used.get(sec.kind, 0) == 1:
+				unique += sec.y1 - sec.y0
 		check(moving / p.finish_y >= 0.4 and moving / p.finish_y <= 0.65, "%s is %.0f%% moving (about half)" % [c.id, 100.0 * moving / p.finish_y])
+		if c.has("opener"):
+			check(unique / p.finish_y >= 0.75, "%s is only %.0f%% its own" % [c.id, 100.0 * unique / p.finish_y])
 		for k in 8:
 			for o in _all_parts(p):
 				if o.has("vel"):
 					check(o.vel.length() <= PlungeCourse.MOVER_SPEED + 1.0, "%s part at %s moves %.0f" % [c.id, o.pos, o.vel.length()])
 			for t in 37:
 				p.step()
-	check_eq(sets.size(), 20, "no two courses share their static set pieces")
 	check_eq(machines.size(), 20, "every course has its own machine")
 
 
@@ -271,14 +284,15 @@ func test_twenty_painted_courses() -> void:
 		plans[str(c.plan)] = true
 		check(ArenaArt.family(c.art) != "", "%s wears painted art" % c.id)
 		for kind in c.plan:
-			check(PlungeCourse.SECTIONS.has(kind), "%s section %s" % [c.id, kind])
+			check(PlungeCourse.SECTIONS.has(kind) or PlungeCourse.Sets.MOVING.has(kind), "%s section %s" % [c.id, kind])
 		for k in range(1, c.plan.size()):
 			check(c.plan[k] != c.plan[k - 1], "%s repeats %s" % [c.id, c.plan[k]])
 	check_eq(ids.size(), 20, "course ids")
 	check_eq(arts.size(), 20, "course looks")
 	check_eq(plans.size(), 20, "course layouts")
 	for c in PlungeCourse.COURSES:
-		check_eq(c.plan.filter(func(k): return PlungeCourse.HAZARDS.has(k)).size(), 1, "%s has one hazard section" % c.id)
+		if not c.has("opener"): # Rebuilt courses carry their hazards in their own sections.
+			check_eq(c.plan.filter(func(k): return PlungeCourse.HAZARDS.has(k)).size(), 1, "%s has one hazard section" % c.id)
 	var picked := {}
 	for seed in range(1, 200):
 		picked[PlungeCourse.new(seed).info.id] = true

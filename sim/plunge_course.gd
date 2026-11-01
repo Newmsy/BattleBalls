@@ -4,7 +4,9 @@
 ## gate, a course is three of the shared moving pieces (sliding bricks, gap
 ## rings, rocking slabs, spinning crosses, bobbing bumpers, seesaws,
 ## pendulums; no two courses share a set), its hazard section and its own
-## signature machine (a gumball globe, a sandworm, a scoop wheel...). The
+## signature machine (a gumball globe, a sandworm, a scoop wheel...).
+## Rebuilt courses (an `opener` in COURSES) are instead their own opener and
+## six own sections round the machine (sim/plunge_sets.gd). The
 ## seed picks the course and varies each section's phases and speeds.
 ## The race itself is sim/plunge.gd.
 ##
@@ -25,6 +27,7 @@
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
+const Sets := preload("res://sim/plunge_sets.gd")
 const DMath := preload("res://sim/dmath.gd")
 
 const WIDTH := 1000.0
@@ -82,11 +85,11 @@ const WALLED := ["funnels", "hooks", "lanes", "slabs", "globe", "bridges", "door
 ## the opener: its own three static set pieces, three moving pieces, its
 ## hazard and its machine, about half of it moving.
 const COURSES := [
-	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "tint": "ff7eb6", "plan": ["funnels", "bricks", "goo", "poppers", "globe", "hooks", "crosses", "funnels", "bobbers"]},
-	{"id": "honey", "name": "Honey Chute", "art": "hive", "tint": "f5b52e", "plan": ["gems", "slabs", "goo", "roofs", "dipper", "lanes", "seesaws", "gems", "pendulums"]},
-	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "tint": "e8c36a", "plan": ["gems", "bricks", "sliders", "funnels", "sundial", "lanes", "rings", "gems", "slabs"]},
-	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "tint": "7fd36b", "plan": ["poppers", "pendulums", "sliders", "hooks", "bridges", "roofs", "crosses", "poppers", "seesaws"]},
-	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "tint": "b38cff", "plan": ["poppers", "rings", "wells", "roofs", "orrery", "funnels", "bobbers", "poppers", "crosses"]},
+	{"id": "gumdrop", "name": "Gumdrop Drop", "art": "candy", "tint": "ff7eb6", "plan": ["gd_canes", "gd_lollipops", "gd_hills", "globe", "gd_taffy", "gd_wafers", "gd_licorice"], "opener": "gd_chute"},
+	{"id": "honey", "name": "Honey Chute", "art": "hive", "tint": "f5b52e", "plan": ["hn_comb", "hn_swarm", "hn_jars", "dipper", "hn_spoons", "hn_pollen", "hn_smoker"], "opener": "hn_hive"},
+	{"id": "sunstone", "name": "Sunstone Steps", "art": "temple", "tint": "e8c36a", "plan": ["ss_mirrors", "ss_plates", "ss_boulder", "sundial", "ss_sandpits", "ss_darts", "ss_altars"], "opener": "ss_steps"},
+	{"id": "vines", "name": "Vine Ruins", "art": "ruins", "tint": "7fd36b", "plan": ["vn_trapeze", "vn_arches", "vn_logroll", "bridges", "vn_roots", "vn_flytraps", "vn_waterfall"], "opener": "vn_canopy"},
+	{"id": "nebula", "name": "Nebula Fall", "art": "nebula", "tint": "b38cff", "plan": ["nb_asteroids", "nb_stars", "nb_comets", "orrery", "nb_saturn", "nb_pulsar", "nb_wormholes"], "opener": "nb_warp"},
 	{"id": "rocks", "name": "Rock Belt", "art": "asteroid", "tint": "a59a8e", "plan": ["gems", "bobbers", "wells", "hooks", "tumbler", "lanes", "bricks", "gems", "pendulums"]},
 	{"id": "kelp", "name": "Kelp Forest", "art": "kelp", "tint": "4fd9a0", "plan": ["funnels", "pendulums", "wells", "gems", "kelpwave", "roofs", "rings", "funnels", "seesaws"]},
 	{"id": "trench", "name": "Deep Trench", "art": "trench", "tint": "4aa8ff", "plan": ["lanes", "slabs", "wells", "roofs", "doors", "poppers", "crosses", "lanes", "bricks"]},
@@ -229,7 +232,7 @@ func _hit_ramp(r, s: Dictionary, dt: float, hit: Dictionary) -> void:
 func _build(crng: Rng) -> void:
 	var y := START_Y + 120.0
 	var first := [pegs.size(), ramps.size(), floors.size(), wells.size(), cores.size(), movers.size()]
-	y = _section(crng, "opener", y)
+	y = _section(crng, info.get("opener", "opener"), y)
 	if crng.range_int(0, 1) == 1:
 		_mirror(first)
 	for kind in info.plan:
@@ -243,7 +246,7 @@ func _build(crng: Rng) -> void:
 	# ever pinches a racer against one).
 	var ky := START_Y + 300.0
 	while ky < finish_y - 150.0:
-		var open := sections.any(func(sec): return ky >= sec.y0 and ky < sec.y1 and not WALLED.has(sec.kind))
+		var open := sections.any(func(sec): return ky >= sec.y0 and ky < sec.y1 and not WALLED.has(sec.kind) and not Sets.WALLED.has(sec.kind))
 		if open:
 			for x in [0.0, WIDTH]:
 				if _wall_clear(x, ky):
@@ -916,6 +919,8 @@ func _section(crng: Rng, kind: String, y0: float) -> float:
 					_seg(apex, apex + Vector2(-130.0, 95.0), SET)
 					_seg(apex, apex + Vector2(130.0, 95.0), SET)
 			h = 4 * 220.0 + 60.0
+		_: # The course's own sections (sim/plunge_sets.gd).
+			h = Sets.build(self, crng, kind, y0)
 	sections.append({"kind": kind, "y0": y0, "y1": y0 + h})
 	return y0 + h
 
