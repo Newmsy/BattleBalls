@@ -121,7 +121,7 @@ func _result_card(got: int) -> Control:
 	])
 	var rewards := Kit.hbox(28, [], BoxContainer.ALIGNMENT_CENTER)
 	if got > 0:
-		rewards.add_child(Kit.hbox(6, [Kit.glyph("token", 34, Color.WHITE), Kit.label("+%d" % got, 30)], BoxContainer.ALIGNMENT_CENTER))
+		rewards.add_child(Kit.hbox(6, [Kit.glyph("arena_coin", 34, Color.WHITE), Kit.label("+%d" % got, 30)], BoxContainer.ALIGNMENT_CENTER))
 	if result_delta > 0:
 		# Every trophy won is also a Trophy Room point.
 		rewards.add_child(Kit.hbox(6, [Kit.glyph("points", 30, Kit.WARN), Kit.label("+%d" % result_delta, 26, Kit.WARN)], BoxContainer.ALIGNMENT_CENTER))

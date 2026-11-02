@@ -1,7 +1,7 @@
 ## Real players in the Ghost Arena (Newms 2026-10-26): your Defence trio is
 ## saved online (public.arena_defences, with your Arena trophies) for others
 ## to fight, and other players' squads near your trophies are fetched to mix
-## in with the seeded teams, under their own names. A squad is a full lineup,
+## in with the seeded squads, under their own names. A squad is a full lineup,
 ## so a fight against it replays like any team. Offline, or before anyone
 ## else has a squad, the list is all seeded teams (never labelled as CPU).
 extends RefCounted
@@ -60,22 +60,15 @@ static func squad(row) -> Dictionary:
 		"name": name if name.length() >= 2 else "Player",
 		"family": main_family(slots),
 		"player": true,
+		"level": ArenaTeams.level_for(clampi(int(row.get("trophies", 0)), 0, 20000), absi(hash(str(row.get("id", "")))) % 9 - 4),
 		"trophies": clampi(int(row.get("trophies", 0)), 0, 20000),
 		"lineup": {"v": 1, "slots": slots, "aim": aims},
 	}
 
 
-## The family most of a squad comes from (the first critter's on a tie), for
-## its colour and home painting.
+## The family most of a squad comes from, for its colour and painting.
 static func main_family(slots: Array) -> String:
-	var count := {}
-	var best := ""
-	for s in slots:
-		var f := Families.of(str(s.critter))
-		count[f] = int(count.get(f, 0)) + 1
-		if best == "" or count[f] > count[best]:
-			best = f
-	return best
+	return ArenaTeams.main_family(slots)
 
 
 ## Saves your Defence trio online (once you have fought in the Arena) and

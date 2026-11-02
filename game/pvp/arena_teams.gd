@@ -1,10 +1,12 @@
-## Themed Arena teams: until online play opens, every Ghost Arena opponent is
-## a seeded team from one family (a Frost Squad, a Toybox Gang...), built to
-## a target strength. Attack opponents sit near your trophies and are as
-## strong as their trophies (strength_for), so higher trophies mean stronger
-## teams; daily raids on your defence are sized to your defence (target).
-## Everything comes from fixed seeds, so a team (and the fight against it)
-## replays from its config alone.
+## Seeded Arena opponents. Every opponent that isn't a real player's saved
+## squad (game/pvp/arena_players.gd) is built here to look like one
+## (Newms 2026-11-02): a player-style name, an account level and a mixed
+## squad of different critters, built to a target strength. Attack
+## opponents sit near your trophies and are as strong as their trophies
+## (strength_for); daily raids on your defence are sized to your defence
+## (target). Everything comes from fixed seeds, so a squad (and the fight
+## against it) replays from its config alone. `size` is 3 for the 3v3
+## Series and 2 for the 2v2 League.
 extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
@@ -34,17 +36,17 @@ const TROPHIES_PER_TIER := 500
 const FRESH_TRIO := 3750
 const MAX_STRENGTH := 25200 ## About a maxed T5 trio in gear (x1.4 with the rarity step).
 
-const TEAM_NAMES := {
-	"nature": ["Bramble Bunch", "Moss Mob", "Petal Patrol"],
-	"sea": ["Tide Crew", "Reef Raiders", "Bubble Squad"],
-	"tech": ["Circuit Gang", "Bolt Brigade", "Gear Crew"],
-	"sweet": ["Sugar Rush", "Candy Crew", "Fizz Gang"],
-	"frost": ["Frost Squad", "Ice Pack", "Snow Patrol"],
-	"toybox": ["Toybox Gang", "Pinball Posse", "Arcade Crew"],
-	"spooky": ["Haunt House", "Night Shift", "Ghoul Gang"],
-	"fire": ["Ember Gang", "Blaze Crew", "Cinder Squad"],
-	"cosmic": ["Star Fleet", "Orbit Crew", "Comet Club"],
-}
+## Player-style names (name_for): two halves run together in a few styles,
+## or a short first name, sometimes with digits.
+const NAME_A := ["frost", "moss", "pixel", "nova", "bouncy", "zap", "echo", "comet", "lucky", "turbo",
+	"sneaky", "sunny", "mega", "tiny", "shadow", "neon", "bubble", "rocket", "ember", "glitch",
+	"cosmo", "pinball", "sugar", "storm", "wobbly", "jelly", "spark", "orbit", "fizzy", "maple"]
+const NAME_B := ["byte", "maya", "bea", "wizard", "king", "fox", "kid", "queen", "rider", "panda",
+	"ace", "bun", "pop", "ninja", "otter", "moth", "drake", "boop", "star", "chip",
+	"loop", "dash", "wave", "gnome", "pilot", "tiger", "yeti", "zebra", "bean", "duck"]
+const FIRST := ["Zed", "Nova", "Kaz", "Tobi", "Remy", "Juno", "Ollie", "Pip", "Sasha", "Leo",
+	"Ivy", "Max", "Noor", "Kai", "Yuki", "Rio", "Bex", "Finn", "Luca", "Ada"]
+const NAME_TAGS := ["_Plays", "TV", "GG", "_YT", "xo"]
 
 
 ## Rating a team should have on `card`, for a player whose trio rates
@@ -54,54 +56,38 @@ static func target(mine: int, trophies: int, card: String) -> int:
 	return maxi(MIN_TARGET * 3, roundi(mine * ladder * CARD_SCALE[card]))
 
 
-## offers() and weakest() are pure, and building teams is the slowest part of
+## offers() is pure, and building teams is the slowest part of
 ## opening the Arena, so both are kept for the session.
 static var _offers_cache := {}
-static var _weakest_cache := {}
 
 
-## Today's opponents, weakest first: OFFER_COUNT seeded themed teams, each
-## with its own trophies a little below or above yours and as strong as a
+## Today's opponents, weakest first: OFFER_COUNT seeded player-style squads,
+## each with its own trophies a little below or above yours and as strong as a
 ## player on those trophies (strength_for). {card: "seeded", bot}; a bot is
 ## a full lineup, so the fight needs nothing else to replay. Stable for
 ## (day, refresh, trophies to the nearest 50).
-static func offers(trophies: int, day: int, refresh := 0, count := OFFER_COUNT) -> Array[Dictionary]:
-	var key := "%d|%d|%d|%d" % [day, refresh, trophies, count]
+static func offers(trophies: int, day: int, refresh := 0, count := OFFER_COUNT, size := 3) -> Array[Dictionary]:
+	var key := "%d|%d|%d|%d|%d" % [day, refresh, trophies, count, size]
 	if not _offers_cache.has(key):
-		_offers_cache[key] = _make_offers(trophies, day, refresh, count)
+		_offers_cache[key] = _make_offers(trophies, day, refresh, count, size)
 	var out: Array[Dictionary] = []
 	for c in _offers_cache[key]:
 		out.append(c.duplicate(true))
 	return out
 
 
-static func _make_offers(trophies: int, day: int, refresh: int, count: int) -> Array[Dictionary]:
-	var rng = Rng.new(hash("teams|%d|%d|%d" % [day, refresh, trophies / 50]))
-	var fams: Array = Families.ids()
+static func _make_offers(trophies: int, day: int, refresh: int, count: int, size := 3) -> Array[Dictionary]:
+	var rng = Rng.new(hash("teams|%d|%d|%d|%d" % [day, refresh, trophies / 50, size]))
 	var cards: Array[Dictionary] = []
+	var names := {}
 	for i in count:
 		# Spread evenly from SPREAD_BELOW under you to SPREAD_ABOVE over you,
 		# with a little jitter so the numbers don't look stepped.
 		var t := float(i) / maxf(1.0, count - 1.0)
 		var offset := lerpf(-SPREAD_BELOW, SPREAD_ABOVE, t) + rng.range_int(-20, 20)
 		var theirs := maxi(0, trophies + roundi(offset))
-		var goal := strength_for(theirs)
-		var can: Array = fams.filter(func(f): return weakest(f) <= goal * 1.05)
-		if can.is_empty():
-			# Every theme that fits is on the list already: repeat one rather
-			# than field a team far too strong for these trophies.
-			can = Families.ids().filter(func(f): return weakest(f) <= goal * 1.05)
-		if can.is_empty():
-			can = fams.duplicate()
-			can.sort_custom(func(a, b): return weakest(a) < weakest(b))
-			can = [can[0]]
-		var fam: String = can[rng.range_int(0, can.size() - 1)]
-		fams.erase(fam)
-		if fams.is_empty():
-			fams = Families.ids()
-		var team := make(fam, goal, rng.range_int(1, 0x7FFFFFFF))
-		team.id = "team-%d-%d-%d" % [day, refresh, i]
-		team.trophies = theirs
+		var team := make_player(strength_for(theirs) * size / 3, rng.range_int(1, 0x7FFFFFFF), theirs, size, names)
+		team.id = "team-%d-%d-%d%s" % [day, refresh, i, "" if size == 3 else "-%d" % size]
 		cards.append({"card": "seeded", "bot": team})
 	return cards
 
@@ -112,20 +98,20 @@ static func strength_for(trophies: int) -> int:
 	return mini(MAX_STRENGTH, roundi(FRESH_TRIO * pow(1.25, maxi(0, trophies) / float(TROPHIES_PER_TIER))))
 
 
-## One themed team of three different critters from `family`, levelled so
-## the trio's summed Power Rating lands as close to `goal` as it can.
-static func make(family: String, goal: int, seed_value: int) -> Dictionary:
+## One player-style squad of `size` different critters from any family,
+## levelled so its summed Power Rating lands as close to `goal` as it can.
+## `trophies` sets their level; `taken` (name -> true) keeps names on one
+## list apart.
+static func make_player(goal: int, seed_value: int, trophies := 0, size := 3, taken := {}) -> Dictionary:
 	var rng = Rng.new(seed_value)
-	var per := goal / 3.0
-	var members: Array = Families.MEMBERS[family].filter(func(id): return id in BallDefs.PLAYABLE)
+	var per := goal / float(size)
 	# Critters that can be built down to the goal; rarer ones only when the
 	# goal is high enough for them even at 1 star.
-	var fits: Array = members.filter(func(id): return Lineup.rating(Lineup.make(id)) <= per * 1.05)
-	if fits.size() < 3:
-		members.sort_custom(func(a, b): return Lineup.rating(Lineup.make(a)) < Lineup.rating(Lineup.make(b)))
-		fits = members.slice(0, 3)
+	var fits: Array = _by_base().filter(func(id): return _base_rating(id) <= per * 1.05)
+	if fits.size() < size:
+		fits = _by_base().slice(0, size)
 	var picks: Array = []
-	while picks.size() < 3:
+	while picks.size() < size:
 		picks.append(fits.pop_at(rng.range_int(0, fits.size() - 1)))
 	var slots: Array = []
 	var shots: Array = []
@@ -134,25 +120,74 @@ static func make(family: String, goal: int, seed_value: int) -> Dictionary:
 		s.aim = rng.range_int(-ArenaGhosts.AIM_SPREAD, ArenaGhosts.AIM_SPREAD)
 		shots.append(s.aim)
 		slots.append(s)
-	var names: Array = TEAM_NAMES[family]
+	var name := name_for(rng)
+	for n in 6:
+		if not taken.has(name):
+			break
+		name = name_for(rng)
+	taken[name] = true
 	return {
 		"id": "team",
-		"name": names[rng.range_int(0, names.size() - 1)],
-		"family": family,
-		"is_bot": true,
-		"trophies": 0,
+		"name": name,
+		"family": main_family(slots),
+		"level": level_for(trophies, rng.range_int(-4, 4)),
+		"trophies": trophies,
 		"lineup": {"v": 1, "slots": slots, "aim": shots},
 	}
 
 
-## The weakest team a family can field: its three weakest critters at 1 star.
-static func weakest(family: String) -> int:
-	if _weakest_cache.has(family):
-		return _weakest_cache[family]
-	var r: Array = Families.MEMBERS[family].filter(func(id): return id in BallDefs.PLAYABLE).map(func(id): return Lineup.rating(Lineup.make(id)))
-	r.sort()
-	_weakest_cache[family] = r[0] + r[1] + r[2]
-	return _weakest_cache[family]
+## A player-style name from `rng` (sim/rng.gd), at most 14 letters.
+static func name_for(rng) -> String:
+	var a: String = NAME_A[rng.range_int(0, NAME_A.size() - 1)]
+	var b: String = NAME_B[rng.range_int(0, NAME_B.size() - 1)]
+	var first: String = FIRST[rng.range_int(0, FIRST.size() - 1)]
+	var out := ""
+	match rng.range_int(0, 6):
+		0: out = a + b
+		1: out = a + "_" + b
+		2: out = a.capitalize() + b.capitalize()
+		3: out = first
+		4: out = first + NAME_TAGS[rng.range_int(0, NAME_TAGS.size() - 1)]
+		5: out = a + b + str(rng.range_int(2, 99))
+		_: out = first.to_lower() + "_" + b
+	return out.replace(" ", "").left(14)
+
+
+## A plausible account level for a player on `trophies`.
+static func level_for(trophies: int, jitter := 0) -> int:
+	return clampi(5 + maxi(0, trophies) / 70 + jitter, 3, 99)
+
+
+## The family most of a squad comes from (the first critter's on a tie), for
+## its colour and home painting.
+static func main_family(slots: Array) -> String:
+	var count := {}
+	var best := ""
+	for s in slots:
+		var f := Families.of(str(s.critter))
+		count[f] = int(count.get(f, 0)) + 1
+		if best == "" or count[f] > count[best]:
+			best = f
+	return best
+
+
+static var _base_cache := {}
+static var _by_base_cache: Array = []
+
+
+## A critter's rating at 1 star, level 1, no gear.
+static func _base_rating(id: String) -> int:
+	if not _base_cache.has(id):
+		_base_cache[id] = Lineup.rating(Lineup.make(id))
+	return _base_cache[id]
+
+
+## Every playable critter, weakest at 1 star first.
+static func _by_base() -> Array:
+	if _by_base_cache.is_empty():
+		_by_base_cache = BallDefs.PLAYABLE.duplicate()
+		_by_base_cache.sort_custom(func(a, b): return _base_rating(a) < _base_rating(b) or (_base_rating(a) == _base_rating(b) and a < b))
+	return _by_base_cache.duplicate()
 
 
 ## The team's summed Power Rating.
