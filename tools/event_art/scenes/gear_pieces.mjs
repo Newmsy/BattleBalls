@@ -9,6 +9,8 @@
 import { f } from "./_map_token.mjs";
 
 export const size = [192, 192];
+// A small icon, already drawn bigger than it shows: stays 1x (see render.mjs).
+export const scale = 1;
 export const transparent = true;
 export const dir = "game/ui/gear_art";
 

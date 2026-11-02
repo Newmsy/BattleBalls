@@ -10,6 +10,9 @@ extends Control
 const SHADER := preload("res://game/ui/painted.gdshader")
 const Families := preload("res://sim/families.gd")
 const ART := "res://game/ui/art/%s.png"
+## The PNGs are rendered at this many pixels per painting unit
+## (tools/critters_art/render.mjs); `focus` and `px` are in painting units.
+const ART_SCALE := 2.0
 
 var texture: Texture2D
 var focus := Vector2(-1, -1)
@@ -21,9 +24,9 @@ var _mat: ShaderMaterial
 static func make(art: String, opts := {}) -> Control:
 	var p := new()
 	p.texture = load(ART % art)
-	p.focus = opts.get("focus", Vector2(p.texture.get_width(), p.texture.get_height()) / 2.0)
+	p.focus = opts["focus"] * ART_SCALE if opts.has("focus") else Vector2(p.texture.get_size()) / 2.0
 	p.at = opts.get("at", Vector2(0.5, 0.5))
-	p.px = opts.get("px", 0.0)
+	p.px = opts.get("px", 0.0) * ART_SCALE
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p._mat = ShaderMaterial.new()
 	p._mat.shader = SHADER

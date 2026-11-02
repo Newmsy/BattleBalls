@@ -231,8 +231,8 @@ static func material_for(id: String, path: String) -> ShaderMaterial:
 	m.set_shader_parameter("spot_move", moves)
 	m.set_shader_parameter("glow_col", cols)
 	m.set_shader_parameter("sweep", 1.0)
-	var tex: Texture2D = load(path)
-	m.set_shader_parameter("art_px", tex.get_size() if tex != null else Vector2(W, H))
+	# The painting's size in scene units (its PNG is Layers.SCALE times this).
+	m.set_shader_parameter("art_px", Layers.SIZES.get(id, sz))
 	var lrects: Array[Vector4] = []
 	var lmoves: Array[Vector4] = []
 	var pivots: Array[Vector2] = []

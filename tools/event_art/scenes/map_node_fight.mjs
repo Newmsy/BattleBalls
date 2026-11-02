@@ -4,6 +4,8 @@ import { ball, eye, burst, INK } from "../../brand/parts.mjs";
 import { token, twinkle } from "./_map_token.mjs";
 
 export const size = [160, 160];
+// A small icon, already drawn bigger than it shows: stays 1x (see render.mjs).
+export const scale = 1;
 export const transparent = true;
 
 const CY = "#3ee6ff";

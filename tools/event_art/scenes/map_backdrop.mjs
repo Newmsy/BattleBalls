@@ -15,6 +15,8 @@ import { shade } from "../../brand/parts.mjs";
 import { blurs, rng } from "./_shop_charge_pad_glow_chest_parts.mjs";
 
 export const size = [720, 4000];
+// Soft backdrop shown huge: stays 1x to keep GPU memory down (see render.mjs).
+export const scale = 1;
 const W = 720, H = 4000;
 
 const f = (n) => n.toFixed(1);
