@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "wink": true, "mouth": "flat"}, "back": ["barrel"], "front": ["cap"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 0.85},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Barrage", "text": "Lobs {%fire_cooldown}% more often; shells blast {%lob_radius}% wider.",
+		"mul": {"fire_cooldown": 0.6, "lob_radius": 1.3}, "proof": "dmg"},
 }

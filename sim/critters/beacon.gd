@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "smile"}, "back": ["lamp"], "front": ["stripes"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.9},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Twin Lamps", "text": "Shines a 2nd beam backwards, {%lamp_every}% more often.",
+		"add": {"lamp_back": 1}, "mul": {"lamp_every": 0.7}, "proof": "dmg"},
 }

@@ -37,4 +37,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "o"}, "front": ["dandelion"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.35},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Seed Storm", "text": "Puffs +{+shot_count} more seeds, {%fire_cooldown}% more often.",
+		"add": {"shot_count": 4}, "mul": {"fire_cooldown": 0.6}, "proof": "dmg"},
 }

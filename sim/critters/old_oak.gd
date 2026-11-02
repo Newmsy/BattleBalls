@@ -39,4 +39,7 @@ const CRITTER := {
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "smile"}, "back": ["canopy"], "front": ["beard"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 0.7},
 	"chaos": {"pillars": {"hp": 1.05}, "bumpers": {"hp": 1.04}}, ## Obstacles crowd out its root pillars.
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Deep Roots", "text": "Swats {%swat_every}% more often, {%swat_radius}% wider. Takes root at 75% HP too.",
+		"mul": {"swat_every": 0.6, "swat_radius": 1.3}, "ability": [{"on": "hp_below", "hp": 0.75, "do": "root"}], "proof": "dmg"},
 }

@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["witchhat"], "front": ["pot"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Double Boil", "text": "Lobs +{+brew_count} more potions, {%fire_cooldown}% more often.",
+		"add": {"brew_count": 2}, "mul": {"fire_cooldown": 0.7}, "proof": "dmg"},
 }

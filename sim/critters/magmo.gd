@@ -37,4 +37,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "mouth": "grin"}, "body": "basalt", "front": ["cracks"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 0.8},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Eruption", "text": "+{+lava_max} more lava puddles, {%lava_radius}% bigger and {%lava_dps}% hotter.",
+		"add": {"lava_max": 3, "lava_life": 1.5}, "mul": {"lava_radius": 1.35, "lava_dps": 1.5}, "proof": "dmg"},
 }

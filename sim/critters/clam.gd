@@ -39,4 +39,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "none"}, "front": ["clamshell", "pearl"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.9},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Pearl Diver", "text": "Fires +{+shot_count} more pearls, {%fire_cooldown}% more often.",
+		"add": {"shot_count": 2}, "mul": {"fire_cooldown": 0.7}, "proof": "dmg"},
 }

@@ -410,10 +410,15 @@ func fx_beam(sim, b, ctx: Dictionary) -> void:
 	if not ctx.has("point") or not b.has_bounce or b.last_bounce.distance_to(ctx.point) < sim.MIN_BEAM_LENGTH:
 		return
 	sim.add_beam(b, b.last_bounce, ctx.point)
-	# Laser T5: also links the bounce before last to this one (a triangle).
-	if b.def.get("beam_link", 0) > 0 and b.state.has("bounce_before") and b.state.bounce_before.distance_to(ctx.point) >= sim.MIN_BEAM_LENGTH:
-		sim.add_beam(b, b.state.bounce_before, ctx.point)
-	b.state.bounce_before = b.last_bounce
+	# Laser T5 (and its Prism boon): also links the bounces before last to
+	# this one, beam_link of them (one makes a triangle).
+	var links: int = b.def.get("beam_link", 0)
+	var older: Array = b.state.get("bounces_before", [])
+	for k in mini(links, older.size()):
+		if older[k].distance_to(ctx.point) >= sim.MIN_BEAM_LENGTH:
+			sim.add_beam(b, older[k], ctx.point)
+	older.push_front(b.last_bounce)
+	b.state.bounces_before = older.slice(0, maxi(1, links))
 
 
 ## A pull/push field that flips every field_period seconds (Pull first). It

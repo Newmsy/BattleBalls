@@ -39,4 +39,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .21, "h": .26, "p": .11, "sparkle": true, "mouth": "smile"}, "body": "prism", "back": ["rosettes"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 1.35},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Full Spectrum", "text": "Casts +{+prism_fan} more rainbow beams, {%prism_damage}% harder.",
+		"add": {"prism_fan": 2, "beam_max": 6}, "mul": {"prism_damage": 1.4}, "proof": "dmg"},
 }

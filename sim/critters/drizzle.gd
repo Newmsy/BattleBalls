@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "pout"}, "body": "cloud", "back": ["drops"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.1},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Monsoon", "text": "Rains {%rain_every}% more often on a {%rain_radius}% wider spot.",
+		"mul": {"rain_every": 0.6, "rain_radius": 1.35}, "proof": "dmg"},
 }

@@ -30,4 +30,7 @@ const CRITTER := {
 	],
 	"art": {"body": "shadow", "eyes": {"sep": .3, "w": .17, "h": .25, "p": .05, "glow": "b7a6ff", "mouth": "none"}, "back": ["shadowtwin"], "front": ["shadowcrown"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.15},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Shadow Twin", "text": "A 2nd shadow follows it; shadows hit {%shadow_damage}% harder.",
+		"add": {"shadow_two": 1}, "mul": {"shadow_damage": 1.4}, "proof": "dmg"},
 }

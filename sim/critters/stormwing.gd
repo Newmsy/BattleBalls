@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "ffb300", "mouth": "smirk"}, "back": ["wings", "boltcrest"], "front": ["stormbelly"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 1.0},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Thunderhead", "text": "Stores +{+spark_max} more sparks; chain lightning {%storm_dps}% stronger.",
+		"add": {"spark_max": 3}, "mul": {"storm_dps": 1.5}, "proof": "dmg"},
 }

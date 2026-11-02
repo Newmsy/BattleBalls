@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["snowflake"], "front": ["cheeks"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.3},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Whiteout", "text": "+{+mine_max} more snowflake mines that blast {%mine_damage}% harder, wider.",
+		"add": {"mine_max": 3, "frost_secs": 2.0}, "mul": {"mine_radius": 1.3, "mine_damage": 1.4}, "proof": "dmg"},
 }

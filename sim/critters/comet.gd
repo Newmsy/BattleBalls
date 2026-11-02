@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "grin"}, "back": ["comettail"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 1.15},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Meteor Shower", "text": "Shooting stars every 3s; stardust lasts +{+trail_life}s.",
+		"add": {"trail_life": 1.5}, "mul": {"star_damage": 1.3}, "ability": [{"on": "every", "secs": 3.0, "do": "star"}], "proof": "dmg"},
 }

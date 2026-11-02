@@ -37,4 +37,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .13, "p": .1, "lid": .3, "mouth": "fangs"}, "back": ["batwings", "ears"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.3},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Echolocation", "text": "Pings {%ping_radius}% wider, sting for +{+ping_damage}, slow +{+ping_slow%}% more.",
+		"add": {"ping_damage": 4.0, "ping_slow": 0.15}, "mul": {"ping_radius": 1.4}, "proof": "dmg"},
 }

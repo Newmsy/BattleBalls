@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "swirl": true, "mouth": "none", "dy": -.12}, "back": ["kaleidocaps"], "front": ["kaleidotube"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.25},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Hall of Shards", "text": "Clicks {%mode_secs}% faster, shattering +{+mode_shards} more shards.",
+		"add": {"mode_shards": 4}, "mul": {"mode_secs": 0.6}, "proof": "dmg"},
 }

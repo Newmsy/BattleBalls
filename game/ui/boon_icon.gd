@@ -21,6 +21,13 @@ static func make(icon_: String, rarity_: String, side: float) -> Control:
 	g.custom_minimum_size = Vector2(side, side)
 	g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	g.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	if icon_.begins_with("critter:"): # A critter boon wears that critter's face.
+		var face: Control = load("res://game/ui/critter_icon.gd").make(icon_.get_slice(":", 1), 1, side * .56)
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		face.position = Vector2(side * .13, side * .13)
+		face.size = Vector2(side * .56, side * .56)
+		g.add_child(face)
+		g.move_child(face, 0)
 	return g
 
 

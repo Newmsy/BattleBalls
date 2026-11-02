@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["popcorn"], "front": ["kernelband"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 1.25},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Popcorn Party", "text": "Pops every 2nd bounce sooner, with +{+pop_count} more kernels.",
+		"add": {"pop_every": -1, "pop_count": 3}, "proof": "dmg"},
 }

@@ -37,4 +37,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": -.14, "mouth": "pout"}, "back": ["sidefins"], "front": ["spots"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.15},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Spike Ball", "text": "Puffs up +{+grow_secs}s longer, hitting +{+grow_add} harder; spine blast {%grow_pulse_damage}% harder.",
+		"add": {"grow_secs": 1.5, "grow_add": 2}, "mul": {"grow_pulse_damage": 1.8, "grow_pulse_radius": 1.3}, "proof": "dmg"},
 }

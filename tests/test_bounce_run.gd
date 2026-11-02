@@ -360,8 +360,9 @@ func test_stat_boons_scale_the_def() -> void:
 	check_near(def.hp, BallDefs.get_def("laser").hp * Boons.get_def("thick_shell").hp, 0.001, "hp")
 	var base := BallDefs.get_def("laser")
 	check_near(def.beam_damage, base.beam_damage * Boons.get_def("spiky_rim").damage, 0.001, "beam damage")
-	check_eq(def.beam_max, base.beam_max + Boons.get_def("prism").beam_max, "prism adds beams")
-	check(not def.has("heal_ratio"), "vampire boon does nothing for a laser")
+	check_eq(def.beam_link, base.beam_link + Boons.get_def("prism").add.beam_link, "prism adds beams")
+	check_eq(def.beam_max, base.beam_max + Boons.get_def("prism").add.beam_max, "and room for them")
+	check(not def.has("heal_ratio") and def.effects.size() == base.effects.size(), "vampire boon does nothing for a laser")
 
 
 ## Bubble (was Overtime Bubble) shields from the first tick: most fights
@@ -508,8 +509,9 @@ func test_every_boon_has_text_and_a_badge() -> void:
 	for id in Boons.ALL + Boons.LEGENDARY:
 		for r in ["common", "rare", "epic"] if not id in Boons.LEGENDARY else ["legendary"]:
 			var def := Boons.get_def(Boons.with_rarity(id, r))
-			check(not "{" in def.text and def.text.length() < 70, "%s %s text: %s" % [id, r, def.text])
-		check('"%s"' % Boons.get_def(id).icon in src, "%s has a drawn badge" % id)
+			check(not "{" in def.text and def.text.length() < 80, "%s %s text: %s" % [id, r, def.text])
+		var icon: String = Boons.get_def(id).icon
+		check('"%s"' % icon in src or icon == "critter:" + Boons.get_def(id).get("for", ""), "%s has a drawn badge" % id)
 	check(Boons.get_def("ember_rim:epic").b_burn > Boons.get_def("ember_rim").b_burn, "mechanic boons scale with rarity")
 	check(Boons.get_def("ember_rim:epic").text != Boons.get_def("ember_rim").text, "and their text shows it")
 

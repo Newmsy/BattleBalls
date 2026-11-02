@@ -40,4 +40,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .14, "iris": "6fd3ff", "mouth": "fangs"}, "back": ["ears"], "front": ["frostmarks", "ruff"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 0.8},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Pack Leader", "text": "Howls {%howl_every}% more often, with +{+wolf_count} more ice wolves.",
+		"add": {"wolf_count": 2}, "mul": {"howl_every": 0.5}, "proof": "dmg"},
 }

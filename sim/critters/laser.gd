@@ -29,4 +29,7 @@ const CRITTER := {
 	"chaos": {"big_head": {"beam_damage": 1.2}, "hyper_speed": {"beam_damage": 1.3}, "double_trouble": {"beam_damage": 0.9}},
 	"art": {"badge_top": 1.6, "eyes": {"one": true, "w": .4, "h": .4, "p": .16, "iris": "0a7bb0", "glow": "7fe6ff", "mouth": "none"}, "back": ["antennae"], "front": ["lens"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.0},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"id": "prism", "name": "Prism", "text": "Every bounce fires {+beam_link} more beam, to an older bounce. Beams +{+beam_life}s.",
+		"add": {"beam_link": 1, "beam_max": 4, "beam_life": 0.5}, "proof": "event:beam"},
 }

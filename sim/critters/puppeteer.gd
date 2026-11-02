@@ -37,4 +37,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["controlbar", "tophat"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.0},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Marionette", "text": "Ties strings {%string_cooldown}% more often; throws slam {%string_slam}% harder.",
+		"mul": {"string_cooldown": 0.5, "string_slam": 1.6}, "proof": "dmg"},
 }

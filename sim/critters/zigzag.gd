@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "grin"}, "back": ["spikyhair"], "front": ["zigmark"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.35},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Forked Bolt", "text": "Zigzags +{+zz_segments} more bounces; beams last +{+zz_life}s.",
+		"add": {"zz_segments": 2, "zz_life": 1.0, "beam_max": 4}, "proof": "dmg"},
 }

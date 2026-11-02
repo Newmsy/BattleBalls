@@ -32,4 +32,7 @@ const CRITTER := {
 	],
 	"art": {"badge_top": 1.55, "eyes": {"sep": .28, "w": .15, "h": .2, "p": .07, "glow": "5cf0f0", "iris": "5cf0f0", "mouth": "none"}, "back": ["scythe", "reaperhood"], "front": ["reaperface"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 0.7},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Soul Harvest", "text": "Dooms {%doom_every}% more often; the countdown is 1s shorter.",
+		"add": {"doom_secs": -1.0}, "mul": {"doom_every": 0.6, "reap_damage": 1.3}, "proof": "dmg"},
 }

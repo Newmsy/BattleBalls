@@ -30,4 +30,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["sticks"], "front": ["drumhead", "rope"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.0},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Drum Roll", "text": "Shockwaves {%boom_radius}% wider and {%boom_damage}% harder; slam into walls.",
+		"add": {"boom_slam": 5.0}, "mul": {"boom_radius": 1.35, "boom_damage": 1.5}, "proof": "dmg"},
 }

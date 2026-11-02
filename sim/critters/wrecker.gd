@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"visor": true, "mouth": "flat"}, "back": ["chainball"], "front": ["hazard", "hardhat"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 0.75},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Double Chain", "text": "Swings {%wreck_spin}% faster on a {%wreck_orbit}% longer chain.",
+		"mul": {"wreck_spin": 1.5, "wreck_orbit": 1.3, "wreck_damage": 1.3}, "proof": "dmg"},
 }

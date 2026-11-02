@@ -34,4 +34,7 @@ const CRITTER := {
 	"chaos": {"rink": {"hp": 1.06}, "big_head": {"hp": 1.05}, "hyper_speed": {"speed_gain": 0.85}, "double_trouble": {"speed_gain": 0.67}}, ## Small and quick: Neon Rink and Big Head hit it more; fast twists overfeed it.
 	"art": {"eyes": {"sep": .3, "w": .21, "h": .14, "p": .09, "brow": .22, "mouth": "smirk"}, "back": ["speed_streaks"], "front": ["headband"]},
 	"sound": {"ouch": "ouch_fire", "pitch": 1.3},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Afterburner", "text": "Burning afterimage at speed; speeds up +{+speed_gain%}% more a bounce.",
+		"add": {"max_speed_mult": 0.3, "speed_gain": 0.08}, "mul": {"trail_dps": 2.0, "sonic_damage": 1.5}, "ability": [{"on": "always", "do": "afterimage"}], "proof": "dmg"},
 }

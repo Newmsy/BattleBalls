@@ -39,4 +39,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smirk"}, "back": ["gearcrown"], "front": ["clockface", "monocle"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 0.95},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Time Lord", "text": "Stops time {%stop_every}% more often, +{+stop_secs}s longer.",
+		"add": {"stop_secs": 0.3}, "mul": {"stop_every": 0.5, "tick_radius": 1.3}, "proof": "slow"},
 }

@@ -35,4 +35,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["droptop"], "front": ["shine"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.3},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Tidal Wave", "text": "Ripples reach {%ripple_reach}% further; waves hit {%ripple_wave_damage}% harder.",
+		"mul": {"ripple_reach": 1.5, "ripple_wave_damage": 1.5, "ripple_wave_radius": 1.25}, "proof": "dmg"},
 }

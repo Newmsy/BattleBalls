@@ -53,6 +53,7 @@ Before the stats:
 In the PR that adds or changes it:
 - Optional: a quick `godot --headless --script res://tools/balance.gd -- --fights=50 --power-step --only=<id>`
   sanity check. Balance never blocks a PR; misses get fixed in the next balance tune.
+- Its Bounce Run boon (`"boon"` in its file, see below): every live critter has one.
 - Set `"status": "live"` in its file (`sim/critters/<id>.gd`) so the game, CI and the audit include it.
 - Golden replays and unit tests for the ability, as for any sim change.
 
@@ -129,3 +130,19 @@ A new boon should do something you can see in the fight (a burn, a spark, a
 mine, a stun, a slam), not just add a stat or two (Newms). Its damage is a
 share of the holder's bump damage (the `b_*` fields), so it keeps up with
 tiers and power, and rarity scales that share.
+
+### Critter boons
+
+Every live critter has its own boon (`"boon"` in `sim/critters/<id>.gd`),
+offered only when it's in your trio. Newms (2026-11-01): they're **Epic+
+strength** (always Epic) because they help one critter, and about **3-4 show
+up a run** (`BounceRun.CRITTER_BOON_CHANCE`, 40% of offers end in one; bots see
+3.5-3.9). The 52-62% band doesn't apply: holding one against the same critter
+without it wins ~85% on average.
+- It must visibly change the critter's signature: more of the thing (beams,
+  mines, moons, pellets), more often, bigger, or its T5 trick early (`ability`).
+- `add` / `mul` change its own params; check the number actually binds (Optic's
+  old "+1 beam" raised a cap of 6 it never reached, so it did nothing).
+- `proof` names what `tests/test_critter_boons.gd` measures against Plain at
+  T1 and T5; the boon must lift it by 12%+. A boon that only unlocks the T5
+  trick needs something that also grows at T5.

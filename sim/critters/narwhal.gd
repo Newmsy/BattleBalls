@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "smile"}, "back": ["horn", "fluke"], "front": ["speckles"]},
 	"sound": {"ouch": "ouch_frost", "pitch": 1.05},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Jousting Horn", "text": "Charges {%lance_every}% more often; horn beams last +{+lance_beam_life}s.",
+		"add": {"lance_beam_life": 1.0}, "mul": {"lance_every": 0.6}, "proof": "dmg"},
 }

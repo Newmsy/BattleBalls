@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "sparkle": true, "mouth": "o"}, "body": "ghost", "tint": true, "front": ["sheen"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.35},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Foam Party", "text": "Blows bubbles {%bubble_every}% more often; pops spray +{+bubble_bolts} bubbles.",
+		"add": {"bubble_bolts": 4}, "mul": {"bubble_every": 0.6}, "proof": "dmg"},
 }

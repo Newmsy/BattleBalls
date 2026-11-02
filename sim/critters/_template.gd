@@ -55,4 +55,10 @@ const CRITTER := {
 	## ouch: a sound from game/audio/sfx.gd RULES, normally its family's voice
 	## (ouch_nature, ouch_sea...); pitch makes it this critter's own voice.
 	"sound": {"ouch": "ouch_nature", "pitch": 1.1},
+	## Its Bounce Run boon (sim/boons.gd, BALANCE.md "Critter boons"): always
+	## Epic, only for this critter. add/mul change params ({+key}, {+key%} and
+	## {%key} fill the text); ability adds entries; proof is what
+	## tests/test_critter_boons.gd checks goes up.
+	"boon": {"name": "My Boon", "text": "Heal +{+heal_ratio%}% of damage dealt.",
+		"add": {"heal_ratio": 0.3}, "proof": "hp"},
 }

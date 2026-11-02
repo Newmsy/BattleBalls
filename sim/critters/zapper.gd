@@ -32,4 +32,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "flat"}, "back": ["rodball"], "front": ["coil"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.05},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Tesla Coil", "text": "Zaps {%zap_every}% more often and stuns +{+zap_stun}s longer.",
+		"add": {"zap_stun": 0.2}, "mul": {"zap_every": 0.55}, "proof": "slow"},
 }

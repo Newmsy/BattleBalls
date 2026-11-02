@@ -37,4 +37,7 @@ const CRITTER := {
 	"chaos": {"closing_walls": {"reflect_cap": 0.7}}, ## Short fights: big hitters can't outlast the sting.
 	"art": {"eyes": {"sep": .3, "w": .17, "h": .19, "p": .09, "brow": .32, "mouth": "frown"}, "front": ["bramble"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 0.8},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Bramble Crown", "text": "Thorn bursts come a bump sooner, +{+thorn_count} thorns. Sends back +{+reflect_ratio%}%.",
+		"add": {"thorn_every": -1, "thorn_count": 4, "reflect_ratio": 0.1}, "proof": "dmg"},
 }

@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "beak"}, "back": ["squid"], "front": ["squidspots"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 1.15},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Ink Bomb", "text": "Squirts {%ink_cooldown}% more often; clouds {%ink_radius}% bigger and stingier.",
+		"mul": {"ink_cooldown": 0.6, "ink_radius": 1.3, "ink_dps": 1.6}, "proof": "dmg"},
 }

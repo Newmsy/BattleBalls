@@ -38,4 +38,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .17, "closed": true, "mouth": "smile"}, "back": ["orbit_ring"], "front": ["orbit_ring"]},
 	"sound": {"ouch": "ouch_cosmic", "pitch": 0.7},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Moon Ring", "text": "+{+moon_count} more molten moons, {%moon_damage}% harder.",
+		"add": {"moon_count": 2}, "mul": {"moon_damage": 1.3}, "proof": "dmg"},
 }

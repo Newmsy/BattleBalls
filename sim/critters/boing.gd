@@ -33,4 +33,7 @@ const CRITTER := {
 	],
 	"art": {"body": "chrome", "eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["springcoil"], "front": []},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.3},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Spring Loaded", "text": "+{+spring_max} more springs that last +{+spring_life}s; launched hits +{+spring_hit_mult}x.",
+		"add": {"spring_max": 3, "spring_life": 2.0, "spring_hit_mult": 0.6}, "proof": "bump"},
 }

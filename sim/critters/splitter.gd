@@ -31,4 +31,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mis": true, "mouth": "smile"}, "front": ["seam"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.15},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Mitosis", "text": "Splits at 90% HP instead; minis +{+split_speed%}% faster, burst for +{+split_damage}.",
+		"add": {"split_speed": 0.15, "split_damage": 3.0}, "ability": [{"on": "hp_below", "hp": 0.9, "do": "split"}], "proof": "balls"},
 }

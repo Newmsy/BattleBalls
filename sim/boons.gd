@@ -17,8 +17,16 @@
 ##   bank_bonus             your next contact hit after a wall bounce deals
 ##                          this much more (0.3 = +30%)
 ##   contact_armor          share of incoming contact damage ignored
-##   heal_ratio, beam_max, beam_life   added to that ability's stat; only
-##                          critters with the ability (`for`) get them
+##   Critter boons (one per critter, from the "boon" key of its file in
+##   sim/critters/, see CRITTER_KEYS): only that critter (`for`) gets them.
+##   add                    {param: amount} added to the critter's ability
+##                          params (whole numbers stay whole)
+##   mul                    {param: factor} multiplies them (several add up
+##                          like stat percentages)
+##   ability                ability entries the critter gains, if it lacks them
+##                          (most unlock its T5 trick early)
+##   Text placeholders: {+key} the add amount, {+key%} it as a percentage,
+##   {%key} the mul as a percentage change.
 ##   Legendary only:
 ##   boon_revive            once per fight, get back up at this share of max HP
 ##   thorns                 share of contact damage taken hit back at the bumper
@@ -35,6 +43,8 @@
 ## Legendary boons are their own ids (LEGENDARY), each with an effect no
 ## other boon has.
 extends RefCounted
+
+const CritterDb := preload("res://sim/critter_db.gd")
 
 const DEFS := {
 	"thick_shell": {
@@ -140,21 +150,6 @@ const DEFS := {
 		"icon": "thermo",
 		"b_fever": 0.16,
 	},
-	"sharper_fangs": {
-		"name": "Sharper Fangs",
-		"text": "+6% lifesteal.",
-		"icon": "fang",
-		"for": "vampire",
-		"heal_ratio": 0.06,
-	},
-	"prism": {
-		"name": "Prism",
-		"text": "+1 beam, beams +0.5s.",
-		"icon": "beam",
-		"for": "laser",
-		"beam_max": 1,
-		"beam_life": 0.5,
-	},
 	"phoenix_feather": {
 		"name": "Phoenix Feather",
 		"text": "Revive once at 28% HP.",
@@ -219,14 +214,25 @@ const ODDS := [58, 27, 11, 4]
 const SCALE := {"common": 1.0, "rare": 1.6, "epic": 2.3}
 const LEGENDARY := ["phoenix_feather", "thorn_crown", "vampire_kiss", "overcharge", "storm_heart", "titan_belt"]
 
-## Every boon, in a fixed order (offers and drafts index into this).
-const ALL := ["thick_shell", "spiky_rim", "zoomies", "wall_snack", "overtime_bubble",
-	"opening_bite", "bank_shot", "bumper_guard", "sharper_fangs", "prism", "ember_rim",
+## Boons any critter can use, in a fixed order (offers and drafts index into this).
+const BASE := ["thick_shell", "spiky_rim", "zoomies", "wall_snack", "overtime_bubble",
+	"opening_bite", "bank_shot", "bumper_guard", "ember_rim",
 	"frost_rim", "rebound_bolt", "pinball", "bounce_mine", "payback", "zap_collar",
 	"second_wind", "fever"]
+## A critter boon's keys in its critter file ("boon"). Its numbers are its
+## Epic numbers: critter boons only ever come as Epic. "id" is optional
+## (default "c_<critter>"); "proof" names what tests/test_critter_boons.gd
+## measures to show it changes the fight.
+const CRITTER_KEYS := ["id", "name", "text", "add", "mul", "ability", "proof"]
+
+## Critter boons by id, built from the critter files.
+static var CRITTER := _critter_boons()
+## Every boon, in a fixed order: the general ones, then one per critter in
+## Critterpedia order.
+static var ALL: Array = BASE + CRITTER.keys()
 
 ## Boons any critter can use (no `for`): the starting picks come from these.
-static var GENERAL: Array = ALL.filter(func(id): return not DEFS[id].has("for"))
+static var GENERAL: Array = BASE.duplicate()
 
 ## Fight-shaping boon fields (b_*), read by MatchSim. Damage ones are shares
 ## of the holder's bump damage, so they keep up with tier and power.
@@ -243,6 +249,34 @@ const RUNTIME := ["bounce_heal", "first_strike", "bank_bonus", "contact_armor",
 static var _cache := {}
 
 
+static func _critter_boons() -> Dictionary:
+	var out := {}
+	for cid in CritterDb.live_ids():
+		var c := CritterDb.get_critter(cid)
+		if not c.has("boon"):
+			continue
+		var b: Dictionary = c.boon.duplicate(true)
+		var id: String = b.get("id", "c_" + cid)
+		b.erase("id")
+		b["for"] = cid
+		b["icon"] = "critter:" + cid
+		out[id] = b
+	return out
+
+
+## The base def of a boon id without its rarity: general, Legendary or critter.
+static func _base_def(base: String) -> Dictionary:
+	return DEFS[base] if DEFS.has(base) else CRITTER.get(base, {})
+
+
+## The id of `critter`'s own boon, or "" when it has none.
+static func for_critter(critter: String) -> String:
+	for id in CRITTER:
+		if CRITTER[id]["for"] == critter:
+			return id
+	return ""
+
+
 ## The boon's def, with `rarity` filled in. "id:rare" / "id:epic" scale the
 ## Common's numbers by SCALE and rewrite its text to match.
 static func get_def(id: String) -> Dictionary:
@@ -254,22 +288,25 @@ static func get_def(id: String) -> Dictionary:
 		_cache[id] = g
 		return g
 	var base := base_of(id)
-	assert(DEFS.has(base), "Unknown boon id: %s" % id)
-	var def: Dictionary = DEFS[base].duplicate()
+	assert(DEFS.has(base) or CRITTER.has(base), "Unknown boon id: %s" % id)
+	var def: Dictionary = _base_def(base).duplicate(true)
 	var rarity := id.get_slice(":", 1) if ":" in id else str(def.get("rarity", "common"))
+	if CRITTER.has(base): # Critter boons are always Epic (Newms: Epic+ strength, they help one critter).
+		rarity = "epic"
+		def.erase("rarity")
 	assert(rarity in RARITIES, "Unknown boon rarity: %s" % id)
 	def.rarity = rarity
-	if SCALE.get(rarity, 1.0) != 1.0:
+	if SCALE.get(rarity, 1.0) != 1.0 and not CRITTER.has(base):
 		var k: float = SCALE[rarity]
 		for key in ["hp", "damage", "speed"]:
 			if def.has(key):
 				def[key] = 1.0 + (def[key] - 1.0) * k
-		for key in ["bounce_heal", "first_strike", "bank_bonus", "contact_armor", "heal_ratio", "beam_life"] + MECHANICS:
+		for key in ["bounce_heal", "first_strike", "bank_bonus", "contact_armor"] + MECHANICS:
 			if def.has(key):
 				def[key] = def[key] * k
-		if not "{n}" in def.text:
+		if not "{" in def.text:
 			def.text = describe(def)
-	if "{n}" in def.text:
+	if "{" in def.text:
 		def.text = _fill(def)
 	_cache[id] = def
 	return def
@@ -291,7 +328,7 @@ static func rarity_of(id: String) -> String:
 ## The id of `base` at `rarity` (Common has no suffix; Legendary boons are
 ## their own ids).
 static func with_rarity(base: String, rarity: String) -> String:
-	return base if rarity in ["common", "legendary"] else "%s:%s" % [base, rarity]
+	return base if rarity in ["common", "legendary"] or CRITTER.has(base) else "%s:%s" % [base, rarity]
 
 
 ## A seeded rarity roll (one rng draw) using ODDS.
@@ -321,16 +358,21 @@ static func describe(def: Dictionary) -> String:
 		bits.append("+%s%% damage after a wall bounce" % _num(def.bank_bonus * 100.0))
 	if def.has("contact_armor"):
 		bits.append("-%s%% bump damage" % _num(def.contact_armor * 100.0))
-	if def.has("heal_ratio"):
-		bits.append("+%s%% lifesteal" % _num(def.heal_ratio * 100.0))
-	if def.has("beam_max"):
-		bits.append("+%d beam, beams +%ss" % [def.beam_max, _num(def.beam_life)])
 	var text := ", ".join(bits) + "."
 	return text[0].to_upper() + text.substr(1)
 
 
-## A mechanic boon's text with its number in place of {n}.
+## A boon's text with its numbers in place: {n} for a mechanic boon, and a
+## critter boon's {+key}, {+key%} and {%key}.
 static func _fill(def: Dictionary) -> String:
+	if def.has("add") or def.has("mul"):
+		var t: String = def.text
+		for key in def.get("add", {}):
+			var v = def.add[key]
+			t = t.replace("{+%s%%}" % key, _num(float(v) * 100.0)).replace("{+%s}" % key, str(v) if v is int else _num(v))
+		for key in def.get("mul", {}):
+			t = t.replace("{%%%s}" % key, _num(absf(def.mul[key] - 1.0) * 100.0))
+		return t
 	for key in MECHANICS:
 		if def.has(key):
 			var x: float = def[key]
@@ -339,7 +381,9 @@ static func _fill(def: Dictionary) -> String:
 
 
 static func _num(x: float) -> String:
-	return str(roundi(x)) if absf(x - roundf(x)) < 0.05 or x >= 10.0 else "%.1f" % x
+	if absf(x - roundf(x)) < 0.05 or x >= 10.0:
+		return str(roundi(x))
+	return ("%.2f" % x).trim_suffix("0") if absf(x * 10.0 - roundf(x * 10.0)) > 0.04 else "%.1f" % x
 
 
 ## True when the boon does something for a ball with this ability.
@@ -354,6 +398,7 @@ static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 	for key in RUNTIME: # Gear (sim/gear.gd) may have set some already.
 		out[key] = float(def.get(key, 0.0))
 	var stat := {"hp": 1.0, "speed": 1.0, "damage": 1.0}
+	var mul := {}
 	for id in ids:
 		var boon := get_def(id)
 		if not applies_to(id, str(def.get("ability", ""))):
@@ -364,11 +409,17 @@ static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 			out.radius *= boon.size
 		for key in RUNTIME:
 			out[key] += boon.get(key, 0.0)
-		for key in ["heal_ratio", "beam_life"]:
-			if out.has(key):
-				out[key] += boon.get(key, 0.0)
-		if out.has("beam_max"):
-			out.beam_max += int(boon.get("beam_max", 0))
+		for key in boon.get("add", {}):
+			var v = boon.add[key]
+			out[key] = out.get(key, 0) + v if out.get(key, 0) is int and v is int else float(out.get(key, 0.0)) + float(v)
+		for key in boon.get("mul", {}):
+			mul[key] = mul.get(key, 1.0) + boon.mul[key] - 1.0
+		for e in boon.get("ability", []):
+			if not out.get("effects", []).has(e):
+				out.effects = out.get("effects", []) + [e]
+	for key in mul:
+		if out.has(key):
+			out[key] = out[key] * maxf(0.2, mul[key])
 	out.hp *= maxf(0.1, stat.hp)
 	out.speed *= maxf(0.1, stat.speed)
 	for key in out:
@@ -387,21 +438,26 @@ static func stacked(ids: Array) -> Dictionary:
 	for id in ids:
 		if RARITIES.find(rarity_of(id)) > RARITIES.find(rarity_of(best)):
 			best = id
-	var def: Dictionary = get_def(best).duplicate()
+	var def: Dictionary = get_def(best).duplicate(true)
 	def.count = ids.size()
 	if ids.size() == 1 or GLITCHES.has(best):
 		return def
-	var base: Dictionary = DEFS[base_of(best)]
+	var base: Dictionary = _base_def(base_of(best))
 	for key in ["hp", "damage", "speed"]:
 		if def.has(key):
 			def[key] = 1.0 + ids.reduce(func(t, id): return t + get_def(id)[key] - 1.0, 0.0)
-	for key in ["bounce_heal", "first_strike", "bank_bonus", "contact_armor", "heal_ratio", "beam_life", "beam_max"] + MECHANICS:
+	for key in ["bounce_heal", "first_strike", "bank_bonus", "contact_armor"] + MECHANICS:
 		if def.has(key):
 			def[key] = ids.reduce(func(t, id): return t + get_def(id)[key], 0.0)
+	for key in def.get("add", {}):
+		def.add[key] = ids.reduce(func(t, id): return t + get_def(id).add[key], 0 if def.add[key] is int else 0.0)
+	for key in def.get("mul", {}):
+		def.mul[key] = 1.0 + ids.reduce(func(t, id): return t + get_def(id).mul[key] - 1.0, 0.0)
 	for key in CAPS:
 		if def.has(key):
 			def[key] = minf(def[key], CAPS[key])
-	if def.has("beam_max"):
-		def.beam_max = int(def.beam_max)
-	def.text = _fill(def.merged({"text": base.text}, true)) if "{n}" in base.text else describe(def)
+	if "{" in base.text:
+		def.text = _fill(def.merged({"text": base.text}, true))
+	elif not def.has("for"):
+		def.text = describe(def)
 	return def

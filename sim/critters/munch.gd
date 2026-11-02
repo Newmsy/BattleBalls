@@ -38,4 +38,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .16, "h": .19, "p": .08, "dy": -.12, "mouth": "none"}, "body": "chomper", "front": ["napkin"]},
 	"sound": {"ouch": "ouch_sweet", "pitch": 0.95},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Bottomless", "text": "Bites hit +{+stack_add} harder each; swallows 1 bite sooner, spits harder.",
+		"add": {"stack_max": -1, "stack_add": 2}, "mul": {"swallow_slam": 1.5, "stack_heal": 1.75}, "proof": "bump"},
 }

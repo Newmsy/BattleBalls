@@ -31,4 +31,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "smile"}, "back": ["bigtail"], "front": ["stripe"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.05},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Big Stink", "text": "Stink cloud {%stink_radius}% wider, {%stink_dps}% stronger, slows +{+stink_slow%}%.",
+		"add": {"stink_slow": 0.15}, "mul": {"stink_radius": 1.4, "stink_dps": 1.5}, "proof": "dmg"},
 }

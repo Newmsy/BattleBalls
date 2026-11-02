@@ -34,4 +34,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .15, "h": .24, "hollow": true, "mouth": "o"}, "body": "ghost", "back": ["wisp_tail"]},
 	"sound": {"ouch": "ouch_spooky", "pitch": 1.45},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Haunt", "text": "Phases {%phase_every}% more often; ambush hits deal +{+ambush_mult}x.",
+		"add": {"ambush_mult": 1.0}, "mul": {"phase_every": 0.6}, "proof": "bump"},
 }

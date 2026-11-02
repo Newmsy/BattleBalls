@@ -164,10 +164,20 @@ static func validate(id: String, c: Dictionary) -> Array[String]:
 		for key in c.chaos[mod]:
 			if not (c.stats.has(key) or c.params.has(key)):
 				errors.append("%s: chaos.%s changes \"%s\", which isn't in stats or params" % [id, mod, key])
+	if c.has("boon"): # Its Bounce Run boon (sim/boons.gd).
+		for key in c.boon:
+			if not key in ["id", "name", "text", "add", "mul", "ability", "proof"]:
+				errors.append("%s: boon has unknown key \"%s\"" % [id, key])
+		for key in c.boon.get("add", {}).keys() + c.boon.get("mul", {}).keys():
+			if not (c.params.has(key) or c.stats.has(key)):
+				errors.append("%s: boon changes \"%s\", which isn't in stats or params" % [id, key])
+		if not (c.boon.get("name", "") is String and c.boon.get("text", "") is String and c.boon.name != "" and c.boon.text != ""):
+			errors.append("%s: boon needs a name and text" % id)
 	if c.status == "live":
 		var all: Array = c.ability.duplicate()
 		for t in c.tiers:
 			all.append_array(t.get("ability", []))
+		all.append_array(c.get("boon", {}).get("ability", []))
 		errors.append_array(Abilities.validate(id, all, c.params))
 	return errors
 

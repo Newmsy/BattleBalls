@@ -36,4 +36,7 @@ const CRITTER := {
 	],
 	"art": {"eyes": {"sep": .3, "w": .24, "h": .28, "p": .1, "mouth": "o"}, "back": ["podback"], "front": ["podfront", "snout"]},
 	"sound": {"ouch": "ouch_nature", "pitch": 1.4},
+	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
+	"boon": {"name": "Pea Pod", "text": "Spits +{+shot_count} more peas a shot, {%fire_cooldown}% more often.",
+		"add": {"shot_count": 2}, "mul": {"fire_cooldown": 0.7}, "proof": "dmg"},
 }
