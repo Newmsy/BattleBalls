@@ -4,6 +4,7 @@
 extends Node2D
 
 const Dot := preload("res://game/dot.gd")
+const WebSharpness := preload("res://game/web_sharpness.gd")
 const BossArt := preload("res://game/boss_art.gd")
 const MatchSim := preload("res://sim/match_sim.gd")
 const Bosses := preload("res://sim/bosses.gd")
@@ -4080,3 +4081,11 @@ func _text_centered(pos: Vector2, text: String, size: int, color: Color, outline
 	var baseline := pos + Vector2(-width / 2.0, size * 0.35)
 	draw_string_outline(FONT, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, outline, Color(Color("0b0a1f"), color.a))
 	draw_string(FONT, baseline, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
+
+
+## On the web, a fight on screen draws at 2x instead of the menus' 3x (battery).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_ENTER_TREE or what == NOTIFICATION_VISIBILITY_CHANGED:
+		WebSharpness.arena_showing(self, is_visible_in_tree())
+	elif what == NOTIFICATION_EXIT_TREE:
+		WebSharpness.arena_showing(self, false)
