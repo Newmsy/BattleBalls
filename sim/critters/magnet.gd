@@ -38,5 +38,5 @@ const CRITTER := {
 	"sound": {"ouch": "ouch_tech", "pitch": 1.0},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
 	"boon": {"name": "Polarity", "text": "Field flips {%field_period}% faster and pulls harder; snaps hit +{+snap_mult}x.",
-		"add": {"snap_mult": 1.5}, "mul": {"field_period": 0.8, "field_accel": 1.3}, "proof": "bump"},
+		"add": {"snap_mult": 2.5}, "mul": {"field_period": 0.8, "field_accel": 1.3}, "proof": "bump"},
 }

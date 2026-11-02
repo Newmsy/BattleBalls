@@ -35,6 +35,6 @@ const CRITTER := {
 	"art": {"badge_top": 1.6, "eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mouth": "grin"}, "back": ["chimney", "wheels"], "front": ["cowcatcher"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.0},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
-	"boon": {"name": "Express Line", "text": "Trains run {%train_every}% more often, with +{+train_cars} more cars.",
-		"add": {"train_cars": 2}, "mul": {"train_every": 0.6}, "proof": "dmg"},
+	"boon": {"name": "Express Line", "text": "Trains run {%train_every}% more often, +{+train_cars} more cars, {%train_damage}% harder.",
+		"add": {"train_cars": 2}, "mul": {"train_every": 0.6, "train_damage": 1.8}, "proof": "dmg"},
 }

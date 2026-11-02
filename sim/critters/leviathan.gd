@@ -46,6 +46,6 @@ const CRITTER := {
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "lid": .43, "mouth": "none"}, "back": ["segments", "frill"], "front": ["gills"]},
 	"sound": {"ouch": "ouch_sea", "pitch": 0.7},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
-	"boon": {"name": "Deep Coils", "text": "+{+tail_count} tail segments; dives {%dive_every}% more often.",
-		"add": {"tail_count": 2}, "mul": {"dive_every": 0.65}, "proof": "dmg"},
+	"boon": {"name": "Deep Coils", "text": "+{+tail_count} tail segments biting {%tail_damage}% harder; dives {%dive_every}% more often.",
+		"add": {"tail_count": 2}, "mul": {"dive_every": 0.65, "tail_damage": 2.0, "wave_damage": 1.5}, "proof": "dmg"},
 }
