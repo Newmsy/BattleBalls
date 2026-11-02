@@ -23,6 +23,9 @@
 ##                          params (whole numbers stay whole)
 ##   mul                    {param: factor} multiplies them (several add up
 ##                          like stat percentages)
+##   Stacked copies add their gains, but a cut (negative add, or a factor
+##   under 1, like "trains 40% more often") counts once: piling up trigger
+##   rate made Choo's trains crowd each other out.
 ##   ability                ability entries the critter gains, if it lacks them
 ##                          (most unlock its T5 trick early)
 ##   Text placeholders: {+key} the add amount, {+key%} it as a percentage,
@@ -399,6 +402,8 @@ static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 		out[key] = float(def.get(key, 0.0))
 	var stat := {"hp": 1.0, "speed": 1.0, "damage": 1.0}
 	var mul := {}
+	var fast := {}
+	var cut := {}
 	for id in ids:
 		var boon := get_def(id)
 		if not applies_to(id, str(def.get("ability", ""))):
@@ -411,12 +416,27 @@ static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 			out[key] += boon.get(key, 0.0)
 		for key in boon.get("add", {}):
 			var v = boon.add[key]
-			out[key] = out.get(key, 0) + v if out.get(key, 0) is int and v is int else float(out.get(key, 0.0)) + float(v)
+			if v < 0: # A faster cooldown or a shorter count: the best one counts, never stacks.
+				cut[key] = mini(cut.get(key, 0), v) if v is int else minf(cut.get(key, 0.0), v)
+			else:
+				out[key] = out.get(key, 0) + v if out.get(key, 0) is int and v is int else float(out.get(key, 0.0)) + float(v)
 		for key in boon.get("mul", {}):
-			mul[key] = mul.get(key, 1.0) + boon.mul[key] - 1.0
+			var f: float = boon.mul[key]
+			if f < 1.0: # Likewise "more often": copies stack strength, not trigger rate.
+				fast[key] = minf(fast.get(key, 1.0), f)
+			else:
+				mul[key] = mul.get(key, 1.0) + f - 1.0
 		for e in boon.get("ability", []):
 			if not out.get("effects", []).has(e):
 				out.effects = out.get("effects", []) + [e]
+	for key in cut: # Never down to 0 (an "every 0th bounce" would divide by zero).
+		var was = out.get(key, 0)
+		if was is int and cut[key] is int:
+			out[key] = maxi(mini(was, 1), was + cut[key])
+		else:
+			out[key] = maxf(float(was) * 0.25, float(was) + float(cut[key]))
+	for key in fast:
+		mul[key] = mul.get(key, 1.0) * fast[key]
 	for key in mul:
 		if out.has(key):
 			out[key] = out[key] * maxf(0.2, mul[key])
@@ -450,9 +470,11 @@ static func stacked(ids: Array) -> Dictionary:
 		if def.has(key):
 			def[key] = ids.reduce(func(t, id): return t + get_def(id)[key], 0.0)
 	for key in def.get("add", {}):
-		def.add[key] = ids.reduce(func(t, id): return t + get_def(id).add[key], 0 if def.add[key] is int else 0.0)
+		if def.add[key] >= 0: # Cuts (negative) count once, as in apply_to_def.
+			def.add[key] = ids.reduce(func(t, id): return t + get_def(id).add[key], 0 if def.add[key] is int else 0.0)
 	for key in def.get("mul", {}):
-		def.mul[key] = 1.0 + ids.reduce(func(t, id): return t + get_def(id).mul[key] - 1.0, 0.0)
+		if def.mul[key] >= 1.0: # "More often" counts once too.
+			def.mul[key] = 1.0 + ids.reduce(func(t, id): return t + get_def(id).mul[key] - 1.0, 0.0)
 	for key in CAPS:
 		if def.has(key):
 			def[key] = minf(def[key], CAPS[key])

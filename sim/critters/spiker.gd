@@ -38,5 +38,5 @@ const CRITTER := {
 	"sound": {"ouch": "ouch_nature", "pitch": 1.15},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
 	"boon": {"name": "Porcupine", "text": "Spike volleys come a spike sooner, with +{+volley_count} spikes each.",
-		"add": {"volley_count": 4, "volley_every": -1}, "mul": {"volley_damage": 1.3}, "proof": "dmg"},
+		"add": {"volley_count": 4, "volley_every": -1}, "mul": {"volley_damage": 2.2}, "proof": "dmg"},
 }

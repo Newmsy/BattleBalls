@@ -35,6 +35,6 @@ const CRITTER := {
 	"art": {"eyes": {"none": true, "mouth": "grin"}, "front": ["tiles", "shades"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.15},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
-	"boon": {"name": "Saturday Night", "text": "+{+disco_rays} more light rays, {%disco_length}% longer.",
-		"add": {"disco_rays": 4}, "mul": {"disco_length": 1.3}, "proof": "dmg"},
+	"boon": {"name": "Saturday Night", "text": "+{+disco_rays} more light rays, {%disco_length}% longer and {%disco_damage}% hotter.",
+		"add": {"disco_rays": 4}, "mul": {"disco_length": 1.3, "disco_damage": 1.6}, "proof": "dmg"},
 }

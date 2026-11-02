@@ -35,5 +35,5 @@ const CRITTER := {
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.2},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
 	"boon": {"name": "Bubblegum", "text": "Gum strings {%gum_string_cooldown}% more often; gum slows more and stings.",
-		"add": {"gum_slow": 0.15, "gum_cap": 0.15, "gum_burn": 2.0}, "mul": {"gum_string_cooldown": 0.4}, "proof": "slow"},
+		"add": {"gum_slow": 0.15, "gum_cap": 0.15, "gum_burn": 4.0, "gum_secs": 1.0}, "mul": {"gum_string_cooldown": 0.4}, "proof": "slow"},
 }

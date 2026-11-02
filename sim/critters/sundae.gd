@@ -43,5 +43,5 @@ const CRITTER := {
 	"sound": {"ouch": "ouch_sweet", "pitch": 1.15},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
 	"boon": {"name": "Triple Scoop", "text": "+{+stack_max} more scoops on top, each +{+stack_add} dmg.",
-		"add": {"stack_max": 2, "stack_add": 3}, "proof": "bump"},
+		"add": {"stack_max": 2, "stack_add": 7}, "proof": "bump"},
 }

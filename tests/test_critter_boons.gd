@@ -70,6 +70,33 @@ func test_stacked_boons_add_up() -> void:
 	check_eq(def.beam_link, two.add.beam_link, "and the def gets both")
 
 
+## Copies stack strength, never trigger rate: Choo with two Express Lines
+## used to run trains every 1.4s and do less than with one.
+func test_stacking_never_hurts() -> void:
+	var one := Boons.apply_to_def(CritterDb.sim_def("choo"), ["c_choo"])
+	var two := Boons.apply_to_def(CritterDb.sim_def("choo"), ["c_choo", "c_choo"])
+	check_eq(two.train_every, one.train_every, "trains don't come any sooner")
+	check(two.train_cars > one.train_cars and two.train_damage > one.train_damage, "but are longer and hit harder")
+	for cid in CritterDb.live_ids():
+		var id := Boons.for_critter(cid)
+		var a := Boons.apply_to_def(CritterDb.sim_def(cid), [id])
+		var b := Boons.apply_to_def(CritterDb.sim_def(cid), [id, id, id])
+		var base := CritterDb.sim_def(cid)
+		for key in Boons.get_def(id).get("mul", {}).keys() + Boons.get_def(id).get("add", {}).keys():
+			if not base.has(key) or not (base[key] is float or base[key] is int):
+				continue
+			var up := float(a[key]) >= float(base[key])
+			check(float(b[key]) >= float(a[key]) if up else float(b[key]) == float(a[key]), "%s x3 %s: %s -> %s" % [id, key, a[key], b[key]])
+		for tier in range(1, 6): # A cut never reaches 0 ("every 0th bounce").
+			var t := CritterDb.sim_def(cid, tier)
+			var c := Boons.apply_to_def(t, [id, id])
+			for key in Boons.get_def(id).get("add", {}):
+				if t.get(key) is int and t[key] >= 1:
+					check(c[key] >= 1, "%s T%d %s stays >= 1 (%s)" % [id, tier, key, c[key]])
+	var dmg := [measure("choo", ["c_choo"], "dmg"), measure("choo", ["c_choo", "c_choo"], "dmg")]
+	check(dmg[1] > dmg[0], "two Express Lines out-damage one (%s -> %s)" % dmg)
+
+
 func test_nature_boons_work() -> void:
 	_family("nature")
 

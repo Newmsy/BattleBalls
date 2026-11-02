@@ -39,6 +39,6 @@ const CRITTER := {
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "mis": true, "mouth": "smirk"}, "front": ["yoyo"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.2},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
-	"boon": {"name": "Around the World", "text": "+{+yoyo_strings} more string; swings last +{+yoyo_secs}s and cut {%yoyo_dps}% deeper.",
-		"add": {"yoyo_strings": 1, "yoyo_secs": 0.6}, "mul": {"yoyo_string": 1.4, "yoyo_dps": 1.6}, "proof": "dmg"},
+	"boon": {"name": "Around the World", "text": "Swings a bounce sooner, +{+yoyo_strings} more string; swings last +{+yoyo_secs}s and cut {%yoyo_dps}% deeper.",
+		"add": {"yoyo_every": -1, "yoyo_strings": 1, "yoyo_secs": 0.6}, "mul": {"yoyo_string": 1.4, "yoyo_dps": 3.0}, "proof": "dmg"},
 }
