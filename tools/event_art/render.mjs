@@ -26,6 +26,12 @@
 // anything static drawn over a moving part must be its own still layer.
 // Layer rects, moves and pivots go to tools/event_art/layers.json and
 // game/bounce_run/living_layers.gd (what LivingArt reads).
+// Every PNG is rendered at SCALE times its size (1440x880 for a 720x440
+// scene) so it stays sharp on 3x phone screens: the game only ever reads a
+// painting's proportions, and every rect, pivot and size above (and in
+// layers.json / living_layers.gd) stays in scene units. A scene can
+// `export const scale = 1` to stay 1x (the 720x4000 Bounce Run map backdrop:
+// 2x would cost ~46 MB of GPU memory for a soft sky).
 // Usage (from the repo root): node tools/event_art/render.mjs [name ...]
 import { createRequire } from "node:module";
 import fs from "node:fs";
@@ -48,7 +54,9 @@ const names = fs.readdirSync(src).filter((f) => f.endsWith(".mjs") && !f.startsW
   .filter((n) => !only.length || only.includes(n));
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-const page = await browser.newPage({ viewport: { width: 720, height: 440 } });
+const SCALE = 2;
+const pages = {};
+const pageAt = async (s) => (pages[s] ||= await browser.newPage({ viewport: { width: 720, height: 440 }, deviceScaleFactor: s }));
 const cut = await browser.newPage();
 const manifestFile = path.join(here, "layers.json");
 const manifest = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, "utf8")) : {};
@@ -57,10 +65,11 @@ const manifest = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manife
 const ONLY = (id) => `svg{visibility:hidden}[data-layer="${id}"],defs,defs *,clipPath,clipPath *,mask,mask *,pattern *{visibility:visible}`;
 const BLINK = ".la-eye{display:none}.la-shut{display:inline}";
 
-// The smallest box (padded 2px, within the picture) holding every visible
-// pixel of a transparent screenshot, or null when it's empty.
-async function usedRect(png, W, H) {
-  return cut.evaluate(async ([b64, W, H]) => {
+// The smallest box (padded 2px, within the picture, in scene units) holding
+// every visible pixel of a transparent SCALE-times screenshot, or null when
+// it's empty.
+async function usedRect(png, w, h, S) {
+  const r = await cut.evaluate(async ([b64, W, H]) => {
     const img = new Image();
     img.src = "data:image/png;base64," + b64;
     await img.decode();
@@ -74,9 +83,11 @@ async function usedRect(png, W, H) {
       if (d[(y * W + x) * 4 + 3] > 2) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
     }
     if (x1 < 0) return null;
-    x0 = Math.max(0, x0 - 2); y0 = Math.max(0, y0 - 2);
-    return [x0, y0, Math.min(W, x1 + 3) - x0, Math.min(H, y1 + 3) - y0];
-  }, [png.toString("base64"), W, H]);
+    return [x0, y0, x1 + 1, y1 + 1];
+  }, [png.toString("base64"), w * S, h * S]);
+  if (!r) return null;
+  const x0 = Math.max(0, Math.floor(r[0] / S) - 2), y0 = Math.max(0, Math.floor(r[1] / S) - 2);
+  return [x0, y0, Math.min(w, Math.ceil(r[2] / S) + 2) - x0, Math.min(h, Math.ceil(r[3] / S) + 2) - y0];
 }
 
 // Godot's import settings for a new PNG (lossy, like the paintings).
@@ -91,6 +102,8 @@ for (const n of names) {
   const [W, H] = mod.size || [720, 440];
   const bg = mod.transparent ? "transparent" : "#0D0F26";
   const out = mod.dir ? path.join(repo, mod.dir) : dst;
+  const S = mod.scale || SCALE;
+  const page = await pageAt(S);
   fs.mkdirSync(out, { recursive: true });
   for (const [name, draw] of mod.many ? Object.entries(mod.many) : [[n, mod.default]]) {
     const [w, h] = (mod.sizes && mod.sizes[name]) || [W, H];
@@ -117,7 +130,7 @@ for (const n of names) {
       await page.evaluate(() => { document.body.style.background = "transparent"; });
       await style(ONLY(l.id));
       const full = await page.screenshot({ clip: { x: 0, y: 0, width: w, height: h }, omitBackground: true });
-      const rect = await usedRect(full, w, h);
+      const rect = await usedRect(full, w, h, S);
       if (!rect) continue;
       const clip = { x: rect[0], y: rect[1], width: rect[2], height: rect[3] };
       const lf = path.join(out, `${name}_L${l.id}.png`);
@@ -139,12 +152,17 @@ for (const n of names) {
       if (!made.has(f.replace(/\.import$/, ""))) fs.rmSync(path.join(out, f));
     }
     await page.evaluate((bg) => { document.body.style.background = bg; }, bg);
-    if (kept.length) manifest[name] = { size: [w, h], layers: kept };
+    if (kept.length && S != SCALE) throw new Error(`${name}: living layers need scale ${SCALE}`);
+    if (kept.length) manifest[name] = { size: [w, h], file: path.relative(repo, file), layers: kept };
     else delete manifest[name];
   }
 }
 await browser.close();
 
+// Pictures whose PNG is gone (a full run also drops ones no scene made).
+for (const [k, v] of Object.entries(manifest)) {
+  if (v.file ? !fs.existsSync(path.join(repo, v.file)) : !only.length) delete manifest[k];
+}
 // The manifest, and the same as GDScript constants for the game.
 const sorted = Object.fromEntries(Object.keys(manifest).sort().map((k) => [k, manifest[k]]));
 fs.writeFileSync(manifestFile, JSON.stringify(sorted, null, 1) + "\n");
@@ -166,5 +184,7 @@ for (const [k, v] of Object.entries(sorted)) {
   }
   gd += `\t],\n`;
 }
-gd += "}\n";
+gd += "}\n\n## Each painting's size in scene units (its PNG is SCALE times this).\nconst SIZES := {\n";
+for (const [k, v] of Object.entries(sorted)) gd += `\t"${k}": Vector2(${v.size.join(", ")}),\n`;
+gd += `}\nconst SCALE := ${SCALE}.0\n`;
 fs.writeFileSync(path.join(repo, "game/bounce_run/living_layers.gd"), gd);

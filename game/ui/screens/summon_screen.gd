@@ -978,7 +978,7 @@ class _Hall extends Control:
 	## portal about 45% down and as much of the egg crescent as fits.
 	func _fit() -> Array:
 		var dest := Rect2(-BLEED, 0, size.x + BLEED * 2.0, size.y)
-		var tex := Vector2(_art.get_size())
+		var tex := Vector2(_art.get_size()) / LivingArt.Layers.SCALE # in painting units
 		var s := maxf(dest.size.x / tex.x, dest.size.y / tex.y)
 		var src_size := dest.size / s
 		var y := clampf(PORTAL.y - src_size.y * .45, 0.0, tex.y - src_size.y)
@@ -1010,7 +1010,9 @@ class _Hall extends Control:
 		var dest: Rect2 = f[0]
 		# Drawn from the shader's own origin so its edge mask doesn't clip the bleed.
 		draw_set_transform(dest.position)
-		draw_texture_rect_region(_art, Rect2(Vector2.ZERO, dest.size), f[1])
+		var src: Rect2 = f[1]
+		var k: float = LivingArt.Layers.SCALE # the PNG is rendered at k times the painting's units
+		draw_texture_rect_region(_art, Rect2(Vector2.ZERO, dest.size), Rect2(src.position * k, src.size * k))
 
 
 ## The vortex inside the portal ring: a deep well with three spiral arms and

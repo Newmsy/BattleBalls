@@ -4,6 +4,8 @@ import { coin } from "./_shop_charge_pad_glow_chest_parts.mjs";
 import { token, twinkle } from "./_map_token.mjs";
 
 export const size = [160, 160];
+// A small icon, already drawn bigger than it shows: stays 1x (see render.mjs).
+export const scale = 1;
 export const transparent = true;
 
 const GD = "#ffd34e";

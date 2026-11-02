@@ -4,6 +4,7 @@
    360,
    560
   ],
+  "file": "game/ui/home_art/adventure_bosses.png",
   "layers": [
    {
     "id": "hammer",
@@ -15,9 +16,9 @@
     "blink": false,
     "follow": "",
     "rect": [
-     223,
+     222,
      93,
-     137,
+     138,
      199
     ]
    },
@@ -63,10 +64,10 @@
     "blink": false,
     "follow": "",
     "rect": [
-     36,
+     35,
      342,
-     284,
-     117
+     285,
+     118
     ]
    }
   ]
@@ -76,6 +77,7 @@
    720,
    260
   ],
+  "file": "game/ui/home_art/adventure_rift.png",
   "layers": [
    {
     "id": "key",
@@ -87,9 +89,9 @@
     "blink": false,
     "follow": "",
     "rect": [
-     566,
+     567,
      98,
-     97,
+     95,
      102
     ]
    },
@@ -104,9 +106,9 @@
     "follow": "",
     "rect": [
      381,
-     136,
+     135,
      55,
-     84
+     85
     ]
    }
   ]
@@ -116,6 +118,7 @@
    360,
    560
   ],
+  "file": "game/ui/home_art/adventure_spire_0.png",
   "layers": [
    {
     "id": "flag",
@@ -146,7 +149,7 @@
      71,
      391,
      51,
-     78
+     79
     ]
    }
   ]
@@ -156,6 +159,7 @@
    360,
    560
   ],
+  "file": "game/ui/home_art/adventure_spire_1.png",
   "layers": [
    {
     "id": "flag",
@@ -186,7 +190,7 @@
      71,
      391,
      51,
-     78
+     79
     ]
    }
   ]
@@ -196,6 +200,7 @@
    360,
    560
   ],
+  "file": "game/ui/home_art/adventure_spire_2.png",
   "layers": [
    {
     "id": "flag",
@@ -226,7 +231,7 @@
      71,
      391,
      51,
-     78
+     79
     ]
    }
   ]
@@ -236,6 +241,7 @@
    360,
    560
   ],
+  "file": "game/ui/home_art/adventure_spire_3.png",
   "layers": [
    {
     "id": "flag",
@@ -266,7 +272,7 @@
      71,
      391,
      51,
-     78
+     79
     ]
    }
   ]
@@ -276,6 +282,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/banner_boon.png",
   "layers": [
    {
     "id": "orb",
@@ -332,6 +339,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/banner_defeat.png",
   "layers": [
    {
     "id": "sea",
@@ -404,6 +412,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/banner_draft.png",
   "layers": [
    {
     "id": "pick0",
@@ -460,6 +469,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/banner_tier_up.png",
   "layers": [
    {
     "id": "critter",
@@ -471,9 +481,9 @@
     "blink": true,
     "follow": "",
     "rect": [
-     294,
+     293,
      102,
-     136,
+     137,
      216
     ]
    },
@@ -488,9 +498,9 @@
     "follow": "",
     "rect": [
      216,
-     141,
+     142,
      288,
-     243
+     241
     ]
    }
   ]
@@ -500,6 +510,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/banner_victory.png",
   "layers": [
    {
     "id": "sides",
@@ -559,10 +570,10 @@
     "blink": false,
     "follow": "champ",
     "rect": [
-     309,
-     171,
-     102,
-     102
+     308,
+     170,
+     104,
+     104
     ]
    }
   ]
@@ -572,6 +583,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/beehive.png",
   "layers": [
    {
     "id": "hive",
@@ -602,7 +614,7 @@
      153,
      109,
      470,
-     195
+     196
     ]
    },
    {
@@ -616,9 +628,9 @@
     "follow": "",
     "rect": [
      205,
-     89,
+     88,
      378,
-     218
+     220
     ]
    }
   ]
@@ -628,6 +640,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/candy_fountain.png",
   "layers": [
    {
     "id": "fizz",
@@ -674,7 +687,7 @@
      183,
      298,
      354,
-     85
+     86
     ]
    },
    {
@@ -700,6 +713,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/charge_pad.png",
   "layers": [
    {
     "id": "sleeper",
@@ -724,6 +738,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/ember_forge.png",
   "layers": [
    {
     "id": "critter",
@@ -748,6 +763,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/fallen_star.png",
   "layers": [
    {
     "id": "critter",
@@ -759,10 +775,10 @@
     "blink": true,
     "follow": "",
     "rect": [
-     104,
-     238,
-     144,
-     144
+     103,
+     237,
+     146,
+     146
     ]
    }
   ]
@@ -772,6 +788,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/frozen_vault.png",
   "layers": [
    {
     "id": "critter",
@@ -783,10 +800,10 @@
     "blink": true,
     "follow": "",
     "rect": [
-     95,
+     94,
      281,
-     110,
-     112
+     112,
+     113
     ]
    }
   ]
@@ -796,6 +813,7 @@
    720,
    200
   ],
+  "file": "game/ui/gear_art/gear_band_charms.png",
   "layers": [
    {
     "id": "runner",
@@ -820,6 +838,7 @@
    720,
    200
   ],
+  "file": "game/ui/gear_art/gear_band_cores.png",
   "layers": [
    {
     "id": "hit",
@@ -844,6 +863,7 @@
    720,
    200
   ],
+  "file": "game/ui/gear_art/gear_band_shells.png",
   "layers": [
    {
     "id": "guard",
@@ -873,7 +893,7 @@
     "rect": [
      599,
      80,
-     60,
+     61,
      74
     ]
    }
@@ -884,6 +904,7 @@
    720,
    340
   ],
+  "file": "game/ui/gear_art/gear_forge.png",
   "layers": [
    {
     "id": "king",
@@ -895,9 +916,9 @@
     "blink": false,
     "follow": "",
     "rect": [
-     293,
+     292,
      210,
-     76,
+     77,
      97
     ]
    }
@@ -908,6 +929,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/ghost_lantern.png",
   "layers": [
    {
     "id": "tail",
@@ -919,7 +941,7 @@
     "blink": false,
     "follow": "lantern",
     "rect": [
-     113,
+     112,
      163,
      229,
      86
@@ -968,9 +990,9 @@
     "follow": "",
     "rect": [
      127,
-     303,
+     302,
      102,
-     118
+     119
     ]
    }
   ]
@@ -980,6 +1002,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/glitch_rift.png",
   "layers": [
    {
     "id": "orb",
@@ -991,10 +1014,10 @@
     "blink": false,
     "follow": "",
     "rect": [
-     206,
-     84,
-     312,
-     312
+     205,
+     83,
+     314,
+     314
     ]
    },
    {
@@ -1020,6 +1043,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/glow_chest.png",
   "layers": [
    {
     "id": "floaters",
@@ -1050,7 +1074,7 @@
      96,
      271,
      113,
-     127
+     126
     ]
    }
   ]
@@ -1060,6 +1084,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/gumball_machine.png",
   "layers": [
    {
     "id": "critter",
@@ -1084,6 +1109,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/haunted_mirror.png",
   "layers": [
    {
     "id": "ghost",
@@ -1095,10 +1121,10 @@
     "blink": false,
     "follow": "",
     "rect": [
-     280,
+     279,
      95,
-     208,
-     253
+     210,
+     254
     ]
    },
    {
@@ -1140,6 +1166,7 @@
    720,
    440
   ],
+  "file": "game/ui/home_art/home_zone_bramble_hollow.png",
   "layers": [
    {
     "id": "guardian",
@@ -1164,6 +1191,7 @@
    720,
    440
   ],
+  "file": "game/ui/home_art/home_zone_circuit_lab.png",
   "layers": [
    {
     "id": "guardian",
@@ -1176,9 +1204,9 @@
     "follow": "",
     "rect": [
      645,
-     196,
+     195,
      60,
-     90
+     91
     ]
    }
   ]
@@ -1188,6 +1216,7 @@
    720,
    440
   ],
+  "file": "game/ui/home_art/home_zone_frostbite_caves.png",
   "layers": [
    {
     "id": "guardian",
@@ -1200,9 +1229,9 @@
     "follow": "",
     "rect": [
      641,
-     209,
+     208,
      60,
-     75
+     76
     ]
    }
   ]
@@ -1212,6 +1241,7 @@
    720,
    440
   ],
+  "file": "game/ui/home_art/home_zone_glow_garden.png",
   "layers": [
    {
     "id": "guardian",
@@ -1236,6 +1266,7 @@
    720,
    440
   ],
+  "file": "game/ui/home_art/home_zone_haunted_arcade.png",
   "layers": [
    {
     "id": "guardian",
@@ -1260,6 +1291,7 @@
    720,
    440
   ],
+  "file": "game/ui/home_art/home_zone_magma_core.png",
   "layers": [
    {
     "id": "guardian",
@@ -1284,6 +1316,7 @@
    720,
    440
   ],
+  "file": "game/ui/home_art/home_zone_starfall_rim.png",
   "layers": [
    {
     "id": "guardian",
@@ -1308,6 +1341,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/jack_in_the_box.png",
   "layers": [
    {
     "id": "mobile",
@@ -1338,7 +1372,7 @@
      291,
      168,
      196,
-     48
+     49
     ]
    },
    {
@@ -1364,6 +1398,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/lava_bridge.png",
   "layers": [
    {
     "id": "critter",
@@ -1388,6 +1423,7 @@
    720,
    260
   ],
+  "file": "game/ui/versus_art/league_bronze.png",
   "layers": [
    {
     "id": "b1",
@@ -1432,9 +1468,9 @@
     "follow": "",
     "rect": [
      479,
-     59,
+     58,
      123,
-     144
+     145
     ]
    },
    {
@@ -1448,9 +1484,9 @@
     "follow": "",
     "rect": [
      619,
-     153,
+     152,
      43,
-     66
+     67
     ]
    }
   ]
@@ -1460,6 +1496,7 @@
    720,
    260
   ],
+  "file": "game/ui/versus_art/league_diamond.png",
   "layers": [
    {
     "id": "b1",
@@ -1504,9 +1541,9 @@
     "follow": "",
     "rect": [
      395,
-     59,
+     58,
      290,
-     144
+     145
     ]
    },
    {
@@ -1520,9 +1557,9 @@
     "follow": "",
     "rect": [
      619,
-     153,
+     152,
      43,
-     66
+     67
     ]
    }
   ]
@@ -1532,6 +1569,7 @@
    720,
    260
   ],
+  "file": "game/ui/versus_art/league_gold.png",
   "layers": [
    {
     "id": "b1",
@@ -1576,9 +1614,9 @@
     "follow": "",
     "rect": [
      447,
-     59,
+     58,
      186,
-     157
+     158
     ]
    },
    {
@@ -1592,9 +1630,9 @@
     "follow": "",
     "rect": [
      619,
-     153,
+     152,
      43,
-     66
+     67
     ]
    }
   ]
@@ -1604,6 +1642,7 @@
    720,
    260
   ],
+  "file": "game/ui/versus_art/league_neon.png",
   "layers": [
    {
     "id": "b1",
@@ -1648,9 +1687,9 @@
     "follow": "",
     "rect": [
      395,
-     59,
+     58,
      290,
-     157
+     158
     ]
    },
    {
@@ -1664,9 +1703,9 @@
     "follow": "",
     "rect": [
      619,
-     153,
+     152,
      43,
-     66
+     67
     ]
    }
   ]
@@ -1676,6 +1715,7 @@
    720,
    260
   ],
+  "file": "game/ui/versus_art/league_platinum.png",
   "layers": [
    {
     "id": "b1",
@@ -1720,9 +1760,9 @@
     "follow": "",
     "rect": [
      447,
-     59,
+     58,
      186,
-     157
+     158
     ]
    },
    {
@@ -1736,9 +1776,9 @@
     "follow": "",
     "rect": [
      619,
-     153,
+     152,
      43,
-     66
+     67
     ]
    }
   ]
@@ -1748,6 +1788,7 @@
    720,
    260
   ],
+  "file": "game/ui/versus_art/league_silver.png",
   "layers": [
    {
     "id": "b1",
@@ -1792,9 +1833,9 @@
     "follow": "",
     "rect": [
      395,
-     59,
+     58,
      290,
-     144
+     145
     ]
    },
    {
@@ -1808,9 +1849,9 @@
     "follow": "",
     "rect": [
      619,
-     153,
+     152,
      43,
-     66
+     67
     ]
    }
   ]
@@ -1820,6 +1861,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/lost_egg.png",
   "layers": [
    {
     "id": "egg",
@@ -1860,6 +1902,7 @@
    720,
    760
   ],
+  "file": "game/ui/art/summon/portal_hall.png",
   "layers": [
    {
     "id": "back",
@@ -1916,6 +1959,7 @@
    240,
    220
   ],
+  "file": "game/ui/versus_art/room_bazaar.png",
   "layers": [
    {
     "id": "seller",
@@ -1956,6 +2000,7 @@
    240,
    220
   ],
+  "file": "game/ui/versus_art/room_defence.png",
   "layers": [
    {
     "id": "l",
@@ -1986,7 +2031,7 @@
      95,
      11,
      51,
-     78
+     79
     ]
    },
    {
@@ -2012,6 +2057,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/scrap_robot.png",
   "layers": [
    {
     "id": "robot",
@@ -2041,7 +2087,7 @@
     "rect": [
      280,
      273,
-     290,
+     289,
      150
     ]
    },
@@ -2068,6 +2114,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/shop.png",
   "layers": [
    {
     "id": "keeper",
@@ -2079,10 +2126,10 @@
     "blink": true,
     "follow": "",
     "rect": [
-     242,
-     120,
-     236,
-     236
+     243,
+     121,
+     234,
+     234
     ]
    },
    {
@@ -2112,9 +2159,9 @@
     "follow": "",
     "rect": [
      20,
-     367,
-     691,
-     73
+     366,
+     692,
+     74
     ]
    }
   ]
@@ -2124,6 +2171,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/snow_globe.png",
   "layers": [
    {
     "id": "critter",
@@ -2164,6 +2212,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/star_map.png",
   "layers": [
    {
     "id": "critter",
@@ -2176,9 +2225,9 @@
     "follow": "",
     "rect": [
      64,
-     298,
+     299,
      134,
-     135
+     133
     ]
    }
   ]
@@ -2188,6 +2237,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/sunken_wreck.png",
   "layers": [
    {
     "id": "sleeper",
@@ -2199,9 +2249,9 @@
     "blink": false,
     "follow": "",
     "rect": [
-     410,
+     409,
      143,
-     284,
+     286,
      219
     ]
    },
@@ -2260,6 +2310,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/tide_pool_trader.png",
   "layers": [
    {
     "id": "crab",
@@ -2274,7 +2325,7 @@
      149,
      98,
      426,
-     259
+     260
     ]
    },
    {
@@ -2316,6 +2367,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/training_dummy.png",
   "layers": [
    {
     "id": "dummy",
@@ -2328,9 +2380,9 @@
     "follow": "",
     "rect": [
      293,
-     68,
+     67,
      165,
-     260
+     261
     ]
    }
   ]
@@ -2340,6 +2392,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/vending_machine.png",
   "layers": [
    {
     "id": "machine",
@@ -2352,81 +2405,9 @@
     "follow": "",
     "rect": [
      192,
-     48,
+     49,
      350,
-     345
-    ]
-   }
-  ]
- },
- "vs_duo": {
-  "size": [
-   360,
-   280
-  ],
-  "layers": [
-   {
-    "id": "a",
-    "move": "idle 3 0.8 0",
-    "pivot": [
-     121,
-     239
-    ],
-    "blink": true,
-    "follow": "",
-    "rect": [
-     93,
-     175,
-     55,
-     67
-    ]
-   },
-   {
-    "id": "b",
-    "move": "idle 4 1.0 0.3",
-    "pivot": [
-     71,
-     255
-    ],
-    "blink": false,
-    "follow": "",
-    "rect": [
-     43,
-     191,
-     55,
-     67
-    ]
-   },
-   {
-    "id": "c",
-    "move": "idle 3 0.8 0.5",
-    "pivot": [
-     241,
-     239
-    ],
-    "blink": true,
-    "follow": "",
-    "rect": [
-     213,
-     159,
-     55,
-     83
-    ]
-   },
-   {
-    "id": "d",
-    "move": "idle 4 1.0 0.8",
-    "pivot": [
-     291,
-     255
-    ],
-    "blink": false,
-    "follow": "",
-    "rect": [
-     263,
-     193,
-     55,
-     65
+     344
     ]
    }
   ]
@@ -2436,6 +2417,7 @@
    360,
    280
   ],
+  "file": "game/ui/versus_art/vs_friends.png",
   "layers": [
    {
     "id": "blue",
@@ -2479,10 +2461,10 @@
     "blink": false,
     "follow": "",
     "rect": [
-     140,
+     139,
      107,
-     80,
-     83
+     82,
+     84
     ]
    },
    {
@@ -2508,6 +2490,7 @@
    720,
    240
   ],
+  "file": "game/ui/versus_art/vs_ghost.png",
   "layers": [
    {
     "id": "me",
@@ -2580,6 +2563,7 @@
    720,
    200
   ],
+  "file": "game/ui/versus_art/vs_plunge.png",
   "layers": [
    {
     "id": "a",
@@ -2624,9 +2608,9 @@
     "follow": "",
     "rect": [
      615,
-     126,
+     125,
      47,
-     55
+     56
     ]
    }
   ]
@@ -2636,6 +2620,7 @@
    720,
    200
   ],
+  "file": "game/ui/versus_art/vs_quick.png",
   "layers": [
    {
     "id": "me",
@@ -2647,9 +2632,9 @@
     "blink": true,
     "follow": "",
     "rect": [
-     293,
+     292,
      93,
-     76,
+     77,
      94
     ]
    },
@@ -2676,6 +2661,7 @@
    720,
    440
   ],
+  "file": "game/bounce_run/art/wandering_rival.png",
   "layers": [
    {
     "id": "scarf",
@@ -2688,9 +2674,9 @@
     "follow": "rival",
     "rect": [
      141,
-     302,
+     301,
      173,
-     95
+     96
     ]
    },
    {
@@ -2704,9 +2690,9 @@
     "follow": "rival",
     "rect": [
      420,
-     164,
+     163,
      92,
-     74
+     75
     ]
    },
    {
@@ -2722,7 +2708,7 @@
      248,
      151,
      211,
-     212
+     213
     ]
    },
    {

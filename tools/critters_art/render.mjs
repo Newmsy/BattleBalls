@@ -8,6 +8,8 @@
 // ~110 at (200, 250), calm on the right for text. Files starting with _ are
 // shared parts. A scene's `many` export (a check image with a critter on the
 // stage) is not rendered here.
+// PNGs are rendered at 2x the scene size so they stay sharp on 3x phone
+// screens; painted.gd works in scene units (ART_SCALE).
 // Usage (from the repo root): node tools/critters_art/render.mjs [name ...]
 import { createRequire } from "node:module";
 import fs from "node:fs";
@@ -30,7 +32,7 @@ const names = fs.readdirSync(src).filter((f) => f.endsWith(".mjs") && !f.startsW
   .filter((n) => !only.length || only.includes(n));
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
-const page = await browser.newPage({ viewport: { width: 780, height: 460 } });
+const page = await browser.newPage({ viewport: { width: 780, height: 460 }, deviceScaleFactor: 2 });
 for (const n of names) {
   const mod = await import(pathToFileURL(path.join(src, n + ".mjs")).href);
   const [W, H] = mod.size;
