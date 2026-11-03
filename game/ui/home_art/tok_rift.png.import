@@ -2,22 +2,22 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bims6bhwlflkg"
-path="res://.godot/imported/adventure_rift.png-32cf777a00c78ec38164defce492ace5.ctex"
+uid="uid://pvf6nom4uj5b"
+path="res://.godot/imported/tok_rift.png-120808b1158ab49b26ea88cd193b1120.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://game/ui/home_art/adventure_rift.png"
-dest_files=["res://.godot/imported/adventure_rift.png-32cf777a00c78ec38164defce492ace5.ctex"]
+source_file="res://game/ui/home_art/tok_rift.png"
+dest_files=["res://.godot/imported/tok_rift.png-120808b1158ab49b26ea88cd193b1120.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.85
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
