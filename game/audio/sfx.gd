@@ -351,13 +351,10 @@ var _ends := {} ## sound name -> end times of the copies started
 var _music: AudioStreamPlayer ## The current track.
 var _music_out: AudioStreamPlayer ## The previous track while it fades out.
 var _music_track := ""
-<<<<<<< HEAD
 ## The music is meant to be playing. _music.playing cannot say: by the time
 ## _exit_tree runs on a scene change, the players (children) have already left
 ## the tree and stopped, so every reload forgot the position.
 var _music_on := false
-=======
->>>>>>> origin/claude/project-thread-dg9ta4
 ## The mode session's track (a MUSIC key, e.g. "arena", "spire", "bounce";
 ## "fight" for fights with no mode track of their own; "" = none: the menu
 ## loop on screens, "fight" in fights). Set it with set_theme.
@@ -986,11 +983,7 @@ func play_music(track: String) -> void:
 
 ## Remembers where the playing track is before it stops or its scene goes.
 func _save_track_pos() -> void:
-<<<<<<< HEAD
 	if _carries_on(_music_track) and _music != null and _music_on:
-=======
-	if _carries_on(_music_track) and _music != null and _music.playing:
->>>>>>> origin/claude/project-thread-dg9ta4
 		_track_pos[_music_track] = _music.get_playback_position()
 
 
