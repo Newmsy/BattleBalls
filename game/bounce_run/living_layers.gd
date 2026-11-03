@@ -4,32 +4,6 @@
 ## the index of the layer it rides along with (-1 none)].
 ## Kinds: 0 still, 1 bob, 2 sway, 3 breathe, 4 idle (see LivingArt).
 const LAYERS := {
-	"adventure_bosses": [
-		["_Lhammer", Rect2(222, 93, 138, 199), Vector4(2, 4, 0.5, 0.3), Vector2(250, 300), false, -1],
-		["_Lking", Rect2(75, 149, 207, 213), Vector4(4, 4, 0.5, 0), Vector2(180, 359), true, -1],
-		["_Lcrown", Rect2(116, 95, 128, 77), Vector4(0, 0, 0.5, 0), Vector2(180, 167), false, 1],
-		["_Lanvil", Rect2(35, 342, 285, 118), Vector4(0, 0, 0.5, 0), Vector2(181, 446), false, -1],
-	],
-	"adventure_rift": [
-		["_Lkey", Rect2(567, 98, 95, 102), Vector4(1, 5, 0.45, 0.2), Vector2(622, 212), false, -1],
-		["_Lpeek", Rect2(381, 135, 55, 85), Vector4(4, 3, 0.5, 0.6), Vector2(409, 217), true, -1],
-	],
-	"adventure_spire_0": [
-		["_Lflag", Rect2(183, 25, 32, 22), Vector4(2, 8, 0.7, 0), Vector2(186, 36), false, -1],
-		["_Lhero", Rect2(71, 391, 51, 79), Vector4(4, 3, 0.6, 0), Vector2(97, 467), true, -1],
-	],
-	"adventure_spire_1": [
-		["_Lflag", Rect2(183, 25, 32, 22), Vector4(2, 8, 0.7, 0), Vector2(186, 36), false, -1],
-		["_Lhero", Rect2(71, 391, 51, 79), Vector4(4, 3, 0.6, 0), Vector2(97, 467), true, -1],
-	],
-	"adventure_spire_2": [
-		["_Lflag", Rect2(183, 25, 32, 22), Vector4(2, 8, 0.7, 0), Vector2(186, 36), false, -1],
-		["_Lhero", Rect2(71, 391, 51, 79), Vector4(4, 3, 0.6, 0), Vector2(97, 467), true, -1],
-	],
-	"adventure_spire_3": [
-		["_Lflag", Rect2(183, 25, 32, 22), Vector4(2, 8, 0.7, 0), Vector2(186, 36), false, -1],
-		["_Lhero", Rect2(71, 391, 51, 79), Vector4(4, 3, 0.6, 0), Vector2(97, 467), true, -1],
-	],
 	"banner_boon": [
 		["_Lorb", Rect2(226, 4, 292, 292), Vector4(1, 6, 0.5, 0), Vector2(372, 254), false, -1],
 		["_Lhero", Rect2(146, 251, 122, 156), Vector4(4, 4, 0.6, 0.4), Vector2(209, 412), true, -1],
@@ -272,12 +246,6 @@ const LAYERS := {
 
 ## Each painting's size in scene units (its PNG is SCALE times this).
 const SIZES := {
-	"adventure_bosses": Vector2(360, 560),
-	"adventure_rift": Vector2(720, 260),
-	"adventure_spire_0": Vector2(360, 560),
-	"adventure_spire_1": Vector2(360, 560),
-	"adventure_spire_2": Vector2(360, 560),
-	"adventure_spire_3": Vector2(360, 560),
 	"banner_boon": Vector2(720, 440),
 	"banner_defeat": Vector2(720, 440),
 	"banner_draft": Vector2(720, 440),

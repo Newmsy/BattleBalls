@@ -40,7 +40,6 @@ const SCREENS := {
 	"defence": preload("res://game/ui/screens/defence_screen.gd"),
 	"arena_chests": preload("res://game/ui/screens/arena_chests_screen.gd"),
 	"week": preload("res://game/ui/screens/week_screen.gd"),
-	"adventure": preload("res://game/ui/screens/adventure_screen.gd"),
 	"versus": preload("res://game/ui/screens/versus_screen.gd"),
 	"plunge": preload("res://game/ui/screens/plunge_screen.gd"),
 	"bracket": preload("res://game/ui/screens/bracket_screen.gd"),
