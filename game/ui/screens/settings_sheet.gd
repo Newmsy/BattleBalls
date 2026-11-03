@@ -9,6 +9,9 @@ const Dev := preload("res://game/dev.gd")
 const FightSpeed := preload("res://game/fight_speed.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const Platform := preload("res://game/platform/platform.gd")
+const Motion := preload("res://game/ui/motion.gd")
+
+const SWITCH_W := 136.0
 
 const OPTIONS := [
 	["reduced_motion", "Reduced motion", "No screen shake, softer hit flashes, no finisher zoom."],
@@ -28,14 +31,20 @@ static func open(shell) -> void:
 
 
 static func build(shell) -> Control:
-	var v := Kit.vbox(22, [Kit.label("Settings", 40)])
+	var v := Kit.vbox(18, [Kit.label("Settings", 40)])
+	# Sound and feel, then accessibility, then play stats: one card each,
+	# rows split by hairlines, every switch the same pill in the same column.
+	var feel: Array = []
 	if shell.sfx != null:
-		v.add_child(_sound_row(shell))
-	for o in OPTIONS:
-		v.add_child(_row(shell, o[0], o[1], o[2]))
+		feel.append(_sound_row(shell))
 	if Platform.get_current().can_vibrate():
-		v.add_child(_vibration_row(shell))
-	v.add_child(_stats_row(shell))
+		feel.append(_vibration_row(shell))
+	feel.append(_stats_row(shell))
+	v.add_child(_group(feel))
+	var access: Array = []
+	for o in OPTIONS:
+		access.append(_row(shell, o[0], o[1], o[2]))
+	v.add_child(_group(access))
 	v.add_child(_links(shell))
 	if Dev.tools_enabled():
 		v.add_child(_testing(shell))
@@ -46,35 +55,86 @@ static func build(shell) -> Control:
 	return v
 
 
+## Rows in one card, a hairline between each.
+static func _group(rows: Array) -> Control:
+	var col := Kit.vbox(12)
+	for i in rows.size():
+		if i > 0:
+			var line := ColorRect.new()
+			line.color = Kit.LINE
+			line.custom_minimum_size.y = 2
+			line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			col.add_child(line)
+		col.add_child(rows[i])
+	return Kit.panel(col, Kit.box(Kit.PANEL2, Kit.LINE, 26, 2, 18))
+
+
+## An on/off switch: a pill with a knob that sits right and lights green when
+## on, left and dark when off, with ON or OFF in words beside the knob.
+static func switch(on: bool, on_press: Callable, word := "") -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(SWITCH_W, 60)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_END
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var st := Kit.box(Kit.GOOD if on else Color("0f0d2a"), Color(0, 0, 0, 0) if on else Kit.LINE, 999, 2, 0)
+	for s in ["normal", "hover", "focus", "pressed", "hover_pressed"]:
+		b.add_theme_stylebox_override(s, st)
+	b.add_theme_stylebox_override("disabled", Kit.box(Color(st.bg_color, .35), Kit.LINE, 999, 2, 0))
+	b.pressed.connect(on_press)
+	Motion.press(b)
+	var knob := Panel.new()
+	knob.custom_minimum_size = Vector2(46, 46)
+	knob.add_theme_stylebox_override("panel", Kit.box(Kit.BG if on else Kit.MUTED, Color(0, 0, 0, 0), 999, 0, 0))
+	knob.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var text := Kit.label(word if word != "" else ("ON" if on else "OFF"), 20, Kit.BG if on else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row := Kit.hbox(4, [text, knob] if on else [knob, text], BoxContainer.ALIGNMENT_CENTER)
+	var m := MarginContainer.new()
+	m.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 7)
+	m.add_child(row)
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in [row, knob, text]:
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(m)
+	return b
+
+
+## A setting's words on the left, its switch on the right.
+static func _line(title: String, text: String, sw: Control) -> Control:
+	var words := Kit.vbox(2, [Kit.label(title, 28)])
+	if text != "":
+		var desc := Kit.label(text, 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		desc.custom_minimum_size.x = 380
+		words.add_child(desc)
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	return Kit.hbox(16, [words, sw], BoxContainer.ALIGNMENT_CENTER)
+
+
 ## Sound: all, effects only (music off), or off. The same switch as the
 ## corner toggle in fights.
 static func _sound_row(shell) -> Control:
 	var sfx = shell.sfx
-	var words: Dictionary = {"all": "On", "sfx": "No music", "off": "Off"}
-	var sw := Kit.button(words[sfx.mode], func():
-		sfx.cycle_mode()
-		open(shell), "go" if sfx.mode != "off" else "ghost", 24, 72)
-	sw.custom_minimum_size.x = 170
-	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
-	shell.mark("sound_mode", sw)
-	var text := Kit.vbox(4, [Kit.label("Sound", 30)])
-	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.hbox(16, [text, sw])
+	var seg := Kit.hbox(6)
+	for m in [["all", "On"], ["sfx", "No music"], ["off", "Off"]]:
+		var lit: bool = sfx.mode == m[0]
+		var b := Kit.button(m[1], func():
+			while sfx.mode != m[0]:
+				sfx.cycle_mode()
+			open(shell), "go" if lit else "ghost", 20, 60)
+		b.size_flags_horizontal = Control.SIZE_SHRINK_END
+		b.custom_minimum_size.x = 150 if m[0] == "sfx" else 92
+		seg.add_child(b)
+	shell.mark("sound_mode", seg.get_child(0))
+	return _line("Sound", "", seg)
 
 
 static func _row(shell, key: String, title: String, text: String) -> Control:
-	var on := A11y.get_value(key)
-	var sw := Kit.button("On" if on else "Off", func(): _toggle(shell, key), "go" if on else "ghost", 26, 72)
-	sw.custom_minimum_size.x = 132
-	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var sw := switch(A11y.get_value(key), func(): _toggle(shell, key))
 	shell.mark("a11y_" + key, sw)
-	var words := Kit.vbox(4, [Kit.label(title, 30)])
-	if text != "":
-		var desc := Kit.label(text, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-		desc.custom_minimum_size.x = 440
-		words.add_child(desc)
-	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.hbox(16, [words, sw])
+	return _line(title, text, sw)
 
 
 ## Anonymous play stats (game/online/analytics.gd), on by default. Turning
@@ -85,15 +145,9 @@ static func _stats_row(shell) -> Control:
 		Analytics.set_opt_out(on)
 		shell.toast("Play stats off. Anything already sent is deleted." if on else "Thanks! Anonymous play stats are on.")
 		open(shell)
-	var sw := Kit.button("On" if on else "Off", flip, "go" if on else "ghost", 26, 72)
-	sw.custom_minimum_size.x = 132
-	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var sw := switch(on, flip)
 	shell.mark("stats_toggle", sw)
-	var desc := Kit.label("Anonymous. Helps balance critters.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
-	desc.custom_minimum_size.x = 440
-	var words := Kit.vbox(4, [Kit.label("Play stats", 30), desc])
-	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.hbox(16, [words, sw])
+	return _line("Play stats", "Anonymous. Helps balance critters.", sw)
 
 
 ## Vibration on hits and KOs (game/platform/fight_haptics.gd). Only shown on
@@ -104,13 +158,9 @@ static func _vibration_row(shell) -> Control:
 		Platform.set_haptics_enabled(not on)
 		Platform.get_current().haptic("tap")
 		open(shell)
-	var sw := Kit.button("On" if on else "Off", flip, "go" if on else "ghost", 26, 72)
-	sw.custom_minimum_size.x = 132
-	sw.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var sw := switch(on, flip)
 	shell.mark("haptics_toggle", sw)
-	var words := Kit.vbox(4, [Kit.label("Vibration", 30)])
-	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	return Kit.hbox(16, [words, sw])
+	return _line("Vibration", "", sw)
 
 
 static func _toggle(shell, key: String) -> void:
