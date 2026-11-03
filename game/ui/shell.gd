@@ -5,6 +5,7 @@ extends Control
 
 const Platform := preload("res://game/platform/platform.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Spotlight := preload("res://game/ui/spotlight.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const TabIcon := preload("res://game/ui/tab_icon.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
@@ -171,6 +172,10 @@ var _scroll_settle := 0.0 ## Seconds left before a scroll counts as settled.
 var _settling := false
 var _coach: Label ## A new player's next step (game/ui/intro.gd), above the footer.
 var _coach_box: MarginContainer ## _coach with room under it, clear of the Play disc.
+var _spot: Spotlight ## Dims the screen round a new player's next tap (game/ui/spotlight.gd).
+## A guided step a caller lights by hand (the tutorial's first fuse):
+## {"target": mark, "text": hint}. Empty: the intro step decides.
+var guide := {}
 var _level_ring: Control ## Account XP around the level badge.
 var _tab_icons := {} ## Tab id -> TabIcon; PLAY's disc is lit only on Play's home.
 var _tab_labels := {}
@@ -243,6 +248,10 @@ func build() -> void:
 	col.add_child(_footer)
 	_tabs = _tab_bar()
 	col.add_child(_tabs)
+	_spot = Spotlight.new()
+	_spot.fallback = _coach
+	_spot.blocked = overlay_open
+	add_child(_spot)
 	_overlay = Control.new()
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1234,10 +1243,27 @@ func _refresh_top() -> void:
 	# A new player sees only the tabs their first fights have opened.
 	for t in _tab_buttons:
 		_tab_buttons[t].visible = Intro.shows(profile, t)
-	var hint := Intro.coach(profile, current)
+	var hint := Intro.coach(profile, current, current_params)
 	_coach.text = hint
 	_coach.visible = hint != ""
 	_coach_box.visible = _coach.visible
+	_light_step(str(guide.get("target", Intro.target(profile, current, current_params))), str(guide.get("text", hint)))
+
+
+## Light a guided step (`guide`) by hand, or with {} hand it back to the intro.
+func set_guide(g: Dictionary) -> void:
+	guide = g
+	_refresh_top()
+
+
+## Spotlight the control marked `aim` with `text` beside it, if it's on screen.
+func _light_step(aim: String, text: String) -> void:
+	if _spot == null:
+		return
+	var c = _marks.get(aim)
+	if aim.begins_with("tab_") and aim.substr(4) in _tab_buttons:
+		c = _tab_buttons[aim.substr(4)]
+	_spot.show_on(c if aim != "" and is_instance_valid(c) and c is Control else null, text)
 
 
 ## The next coins, eggs or energy you gain fly into the top bar from `c`

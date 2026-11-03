@@ -122,3 +122,49 @@ func test_bounce_run_and_plunge_open_with_later_stages_for_a_new_player() -> voi
 	d.erase("paced")
 	d.stars = {}
 	check(Intro.mode_open(Profile.from_dict(d, 1_800_000_000), "plunge"), "older saves keep every mode open")
+
+
+## Each guided step lights the one control to tap (Newms 2026-11-03): the
+## target is on the screen it names, and the hint follows it.
+func test_every_guided_step_lights_a_control_that_exists() -> void:
+	var shell = Shell.new()
+	shell.profile = Profile.new_game(1_800_000_000)
+	shell.size = Vector2(720, 1280)
+	shell.build()
+	var p = shell.profile
+	var cases := [
+		[Intro.FIGHT_1, "play", {}], [Intro.FIGHT_1, "world", {}], [Intro.FIGHT_1, "campaign", {"zone": 0}],
+		[Intro.SUMMON, "summon", {}], [Intro.SUMMON, "play", {}],
+		[Intro.FIGHTER, "critters", {}], [Intro.FIGHTER, "detail", {"id": p.lineup}],
+		[Intro.EQUIP, "bag", {}], [Intro.EQUIP, "play", {}],
+		[Intro.ARENA, "play", {}],
+	]
+	p.add_gear("bubble_shell", 1)
+	for c in cases:
+		p.intro = c[0]
+		if c[1] in Shell.TAB_IDS:
+			shell.show_tab(c[1])
+		else:
+			shell.go(c[1], c[2])
+		var aim := Intro.target(p, c[1], c[2])
+		check(aim != "", "step %d on %s has a target" % [c[0], c[1]])
+		var found = shell._marks.get(aim) if not aim.begins_with("tab_") else shell._tab_buttons.get(aim.substr(4))
+		check(found is Control, "step %d on %s: %s is on screen" % [c[0], c[1], aim])
+		check_eq(shell._spot.target, found, "step %d on %s: the spotlight follows %s" % [c[0], c[1], aim])
+	p.intro = Intro.DONE
+	shell.show_tab("play")
+	check(shell._spot.target == null, "no spotlight once everything is open")
+	shell.free()
+
+
+func test_the_hint_names_the_button_on_screen() -> void:
+	var p = Profile.new_game(1_800_000_000)
+	p.intro = Intro.FIGHTER
+	check(Intro.coach(p, "detail", {"id": p.lineup}).contains("Your fighter"), "your fighter already: the hint says its button")
+	check(Intro.coach(p, "detail", {"id": "spiker"}).contains("Pick"), "another critter: Pick")
+	p.intro = Intro.EQUIP
+	var old: Dictionary = p.add_gear("bubble_shell", 1)
+	var fresh: Dictionary = p.add_gear("spike_core", 1)
+	check_eq(Intro.target(p, "bag", {}), "gear_%d" % fresh.uid, "the newest piece is the one to tap")
+	check_eq(Intro.target(p, "detail", {"id": p.lineup}), "slot_core", "and its slot on the critter page")
+	check(old.uid != fresh.uid, "two pieces")
