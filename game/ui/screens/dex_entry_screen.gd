@@ -12,6 +12,7 @@ const Families := preload("res://sim/families.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const Painted := preload("res://game/ui/painted.gd")
+const Boons := preload("res://sim/boons.gd")
 
 ## Base stats with the roster's top value, so the bars compare critters.
 const STATS := [["HP", "hp"], ["DMG", "contact_damage"], ["SPEED", "speed"], ["SIZE", "radius"]]
@@ -26,7 +27,8 @@ static func build(shell, params: Dictionary) -> Control:
 	var rcol: Color = Roster.RARITY_COLORS[c.rarity]
 	var root := Kit.vbox(18)
 	var more := [c.vibe, AbilityText.full(c.id), "You own %d." % p.total_copies(c.id) if owned else "Summon it or win it in the campaign.",
-		"Starts at T1. Fuse 3 → next tier. " + AbilityText.EVERY_TIER, "Numbers are at level 1 with no gear."]
+		"Starts at T1. Fuse 3 → next tier. " + AbilityText.EVERY_TIER, "Numbers are at level 1 with no gear.",
+		"Ascension: a 5-star critter spends 10 Ascension Sparks per level, up to A5. Each level adds half of its Bounce Run boon, in every fight."]
 	root.add_child(shell.title_row(c.name, {"extra": [Kit.chip(Roster.RARITY_NAMES[c.rarity], rcol)], "info_mark": "dex_info", "info": more}))
 
 	# Hero: the art, then number, type, family and role.
@@ -71,6 +73,25 @@ static func build(shell, params: Dictionary) -> Control:
 		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		ladder.add_child(Kit.hbox(12, [tag, l]))
 	root.add_child(Kit.panel(ladder, Kit.box(Kit.PANEL, Kit.LINE, 28, 2, 18)))
+
+	# Ascension (5-star critters, 10 Sparks a level): its Bounce Run boon at
+	# half strength per level. One line here (what A5 gives, or yours); every
+	# level's numbers sit behind the "i" so the page never scrolls.
+	var boon := Boons.for_critter(c.id)
+	if boon != "":
+		var have: int = p.ascend_level(c.id) if owned else 0
+		var lines: Array = ["Each Ascension level adds half of %s's Bounce Run boon, %s, in every fight. 5-star critters only; 10 Ascension Sparks a level." % [c.name, Boons.get_def(boon).name]]
+		for lv in range(1, Boons.ASCEND_MAX + 1):
+			lines.append("A%d%s: %s" % [lv, " (yours)" if lv == have else "", Boons.ascended(c.id, lv).text])
+		var show_lv: int = have if have > 0 else Boons.ASCEND_MAX
+		# One row (short phones have no room for more): a purple A-level tag,
+		# the boon at that level, and the "i" with every level.
+		var tag := Kit.panel(Kit.hbox(2, [Kit.glyph("spark", 22.0, Kit.BG), Kit.label("A%d" % show_lv, 20, Kit.BG)], BoxContainer.ALIGNMENT_CENTER), Kit.box(Glyph.PURPLE, Color(0, 0, 0, 0), 12, 0, 4))
+		tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var l := Kit.label("%s: %s" % [Boons.get_def(boon).name, Boons.ascended(c.id, show_lv).text], 19, Kit.FG if have > 0 else Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var row_a := Kit.hbox(12, [tag, l, shell.info_button("Ascension", lines, "dex_ascend_info")], BoxContainer.ALIGNMENT_CENTER)
+		root.add_child(Kit.panel(row_a, Kit.box(Kit.PANEL, Color(Glyph.PURPLE, .45), 28, 2, 12)))
 
 	var row := Kit.hbox(16)
 	if c.live:

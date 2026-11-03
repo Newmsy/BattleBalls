@@ -34,6 +34,6 @@ const CRITTER := {
 	"art": {"eyes": {"sep": .3, "w": .2, "h": .24, "p": .1, "brow": .06, "mouth": "grin"}, "back": ["boomerang"], "front": ["toystripes"]},
 	"sound": {"ouch": "ouch_toybox", "pitch": 1.1},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
-	"boon": {"name": "Twin Rang", "text": "Throws +{+boom_count} more boomerang, {%throw_every}% more often.",
+	"boon": {"name": "Twin Rang", "text": "Throws +{+boom_count} more boomerang{s:boom_count}, {%throw_every}% more often.",
 		"add": {"boom_count": 1}, "mul": {"throw_every": 0.7}, "proof": "dmg"},
 }
