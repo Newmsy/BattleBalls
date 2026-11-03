@@ -49,7 +49,7 @@ const MODES := {
 	LEAGUE: {"name": "2v2 League", "size": 2, "color": Color("27c8ff"), "art": "vs_league", "team": "Your pair", "short": "2v2"},
 }
 ## What each mode keeps of its own; everything else is shared.
-const MODE_KEYS := ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "defence", "raid_day", "raids"]
+const MODE_KEYS := ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "defence", "raid_day", "raids", "week", "week_best", "chest"]
 
 ## Set by the arena fight scene so the home screen reopens on the Arena.
 static var reopen := false
@@ -136,7 +136,8 @@ func _fresh(m: String) -> Dictionary:
 	var n: int = MODES[m].size
 	var team: Array = ["vampire", "laser", "spiker"].slice(0, n)
 	return {"trophies": 0, "peak": 0, "trio": team, "shots": team.map(func(_c): return 0), "refresh_day": 0, "refreshes": 0,
-		"wins": 0, "losses": 0, "history": [], "pending": {}, "defence": team.duplicate(), "raid_day": 0, "raids": []}
+		"wins": 0, "losses": 0, "history": [], "pending": {}, "defence": team.duplicate(), "raid_day": 0, "raids": [],
+		"week": 0, "week_best": -1, "chest": {}}
 
 
 ## Trophies in mode `m` (either mode, whichever is in use).
@@ -495,7 +496,18 @@ func roll_week(now_week: int = ArenaChest.this_week()) -> void:
 	week_best = -1
 
 
-## True when a finished week's chest is waiting to open.
+## True when either mode has a finished week's chest waiting.
+func any_chest_ready() -> bool:
+	if chest_ready():
+		return true
+	var m := mode
+	use(LEAGUE if m == SERIES else SERIES)
+	var other := chest_ready()
+	use(m)
+	return other
+
+
+## True when a finished week's chest is waiting to open (this mode's).
 func chest_ready() -> bool:
 	roll_week()
 	return not chest.is_empty()
@@ -599,7 +611,7 @@ func buy(profile, index: int, day: int = today()) -> bool:
 ## the 2v2 League's are in "league"; shared ones in "arena".
 func save() -> void:
 	var f := ConfigFile.new()
-	for key in ["points", "points_earned", "boosts", "coins", "coins_earned", "bazaar_day", "bought", "week", "week_best", "chest", "tokens", "token_clock", "mode"]:
+	for key in ["points", "points_earned", "boosts", "coins", "coins_earned", "bazaar_day", "bought", "tokens", "token_clock", "mode"]:
 		f.set_value("arena", key, get(key))
 	for key in MODE_KEYS:
 		var mine = get(key)
@@ -613,9 +625,9 @@ func _load() -> void:
 	if f.load(path) != OK:
 		is_new = true
 		return
-	for key in ["coins", "coins_earned", "bazaar_day", "week", "week_best", "tokens", "token_clock"]:
+	for key in ["coins", "coins_earned", "bazaar_day", "tokens", "token_clock"]:
 		set(key, int(f.get_value("arena", key, get(key))))
-	for key in ["bought", "chest"]:
+	for key in ["bought"]:
 		set(key, f.get_value("arena", key, get(key)))
 	_load_mode(f, "arena", SERIES)
 	# Saves from before Arena Points start with a point per trophy they hold.
@@ -647,9 +659,9 @@ func _load() -> void:
 ## Loads one mode's fields from `section` into the top-level fields.
 func _load_mode(f: ConfigFile, section: String, m: String) -> void:
 	var n: int = MODES[m].size
-	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "raid_day"]:
+	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "raid_day", "week", "week_best"]:
 		set(key, int(f.get_value(section, key, get(key))))
-	for key in ["history", "pending", "raids"]:
+	for key in ["history", "pending", "raids", "chest"]:
 		set(key, f.get_value(section, key, get(key)))
 	var saved_trio: Array = f.get_value(section, "trio", trio)
 	var saved_shots: Array = f.get_value(section, "shots", shots)

@@ -275,11 +275,10 @@ static func _campaign_door(shell) -> Control:
 		func(): shell.go("world" if intro else "adventure"), true)
 
 
-## Arena: the mode last played, its league and trophies, the Arena Tokens
-## you hold, and Fight: straight into a fight in that mode against the
-## opponent nearest your trophies (arena_screen.gd fight_now). The door
-## opens the Arena hub (both modes, Trophy Room, Bazaar, weekly chest).
-## During a new player's first fights, Fight and the door open the Series.
+## Arena: the mode last played, its league and trophies, and the Arena
+## Tokens you hold. Fight and the door both open the Arena hub, where you
+## pick the 3v3 Series, the 2v2 League, the Trophy Room... (Newms
+## 2026-11-03). During a new player's first fights they open the Series.
 static func _arena_door(shell) -> Control:
 	var store = ArenaStore.open()
 	var intro := Intro.step(shell.profile) < Intro.TROPHY
@@ -287,7 +286,7 @@ static func _arena_door(shell) -> Control:
 		if intro:
 			shell.go("arena", {"mode": ArenaStore.SERIES})
 		else:
-			load("res://game/ui/screens/arena_screen.gd").fight_now(shell))
+			shell.go("versus"))
 	shell.mark("arena", fight)
 	var m: Dictionary = ArenaStore.MODES[store.mode]
 	var n: int = store.tokens_now()
@@ -298,7 +297,7 @@ static func _arena_door(shell) -> Control:
 	var door := mode_door(shell, "versus", "ARENA", lines, VERSUS,
 		_door_art(str(m.art), Vector2(.46, .8), VERSUS_ART), fight,
 		func(): shell.go("arena" if intro else "versus"), true)
-	if store.chest_ready():
+	if store.any_chest_ready():
 		door.add_child(red_dot())
 	return door
 

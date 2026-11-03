@@ -80,7 +80,7 @@ static func build(shell, params: Dictionary) -> Control:
 		"Both pairs fight at once. The last pair standing wins." if league_mode else "Trios fight in order; a winner stays in with its HP left. Their order is hidden. Your last shots become your ghost.",
 		"Your Defence is the team other players fight. Each day a few raid it: holding wins trophies and Arena Coins.",
 		"Every trophy you win also earns an Arena Point for the Trophy Room. Every fight earns Arena Coins for the Bazaar.",
-		"Your best league each week, in either mode, opens that league's chest when the week ends. Tap your league to see them.",
+		"Your best league here each week opens this mode's chest for that league when the week ends. Tap your league to see them.",
 	]
 	root.add_child(shell.title_row(str(m.name), {"eyebrow": "ARENA", "eyebrow_color": m.color, "info_mark": "arena_info", "info": how,
 		"extra": [token_pill(shell, store)]}))
