@@ -368,6 +368,11 @@ static var _audio_unlocked := false
 ## (the music keeps "playing" through the load); -1 once a fight paused it.
 static var _menu_pos := 0.0
 static var _menu_left_at := -1.0
+## Tracks that pick up where they stopped next time they play, instead of
+## starting over (a new Plunge race carries the race music on), and where
+## each stopped, in seconds into its file. Static: "Race again" reloads the scene.
+const RESUMES := ["plunge"]
+static var _track_pos := {}
 var _victory_hold: WeakRef ## The results popup the victory tune plays under.
 var _victory_at := 0.0
 var _menu_pending := false
@@ -435,6 +440,7 @@ func _notification(what: int) -> void:
 
 func _exit_tree() -> void:
 	_save_menu_pos(true) # A scene change: the next screen's Sfx carries on from here.
+	_save_track_pos()
 
 
 func _input(event: InputEvent) -> void:
@@ -1002,6 +1008,7 @@ func play_music(track: String) -> void:
 		return
 	if track != "menu":
 		_save_menu_pos(false)
+	_save_track_pos()
 	_music_track = track
 	if mode != "all":
 		_stop_music()
@@ -1009,6 +1016,21 @@ func play_music(track: String) -> void:
 	if not _audio_unlocked:
 		return # Starts on the first tap (_input).
 	_start_music(track)
+
+
+## Remembers where a RESUMES track is before it stops or its scene goes.
+func _save_track_pos() -> void:
+	if _music_track in RESUMES and _music != null and _music.playing:
+		_track_pos[_music_track] = _music.get_playback_position()
+
+
+## Where a track starts: the menu loop and RESUMES tracks pick up where they
+## were (inside the file's length), everything else from the top.
+func _start_pos(track: String, length: float) -> float:
+	if track == "menu":
+		return _menu_resume(Time.get_ticks_msec() / 1000.0, length, MENU_LOOP_FROM)
+	var at: float = _track_pos.get(track, 0.0)
+	return at if at < length else 0.0
 
 
 ## Remembers where the menu loop is before it stops. running: the music should
@@ -1051,7 +1073,7 @@ func _start_music(track: String) -> void:
 		_fade.tween_callback(old.stop)
 	_music.stream = stream
 	_music.volume_db = info[1] + MASTER_DB
-	_music.play(_menu_resume(Time.get_ticks_msec() / 1000.0, stream.get_length(), MENU_LOOP_FROM) if track == "menu" else 0.0)
+	_music.play(_start_pos(track, stream.get_length()))
 
 
 func _stop_music() -> void:
