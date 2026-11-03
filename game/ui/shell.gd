@@ -71,7 +71,7 @@ const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## the main action in pin(). See design/ui.md, "No scrolling".
 ## Play fits one screen (its doors); it scrolls only with Larger text.
 ## Growing lists read top-down, so they never get centred (see _show).
-const TOP_ALIGNED := ["critters", "dex", "bag", "shop", "pass", "campaign", "bracket", "world"]
+const TOP_ALIGNED := ["critters", "dex", "bag", "shop", "pass", "campaign", "bracket", "world", "account"]
 const SCROLLS := ["play", "week", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
