@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bqe5g65jjpfeu"
-path="res://.godot/imported/daily_bracket.png-6113562c44ed7c8ffba8b8bf4be9d69f.ctex"
+uid="uid://kshmcpi75cq7"
+path="res://.godot/imported/bosses_hall_Lqueen.png-3305692bd6fd9210a966dbc91f4fb27b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://game/ui/home_art/daily_bracket.png"
-dest_files=["res://.godot/imported/daily_bracket.png-6113562c44ed7c8ffba8b8bf4be9d69f.ctex"]
+source_file="res://game/ui/home_art/bosses_hall_Lqueen.png"
+dest_files=["res://.godot/imported/bosses_hall_Lqueen.png-3305692bd6fd9210a966dbc91f4fb27b.ctex"]
 
 [params]
 

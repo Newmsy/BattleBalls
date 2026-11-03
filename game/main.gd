@@ -211,7 +211,7 @@ var friend_button: Button
 var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
-var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
+var _board_pick := -1 ## The side the player called in the board fight being watched, or -1.
 ## The player's collection, energy and campaign progress, kept in save.data.profile.
 var profile
 ## The campaign stage being fought: {config, zone, stage, fighter, result?},
@@ -225,7 +225,7 @@ var pve_param := ""
 var demo_profile := false
 var demo_stars := 0 ## ?demo=1&stars=3: every Zone 1 stage starred (UI screenshots).
 var profile_unsaved := false
-## The board fight being watched (Fight of the Day, a Bracket of Legends game):
+## The board fight being watched (a Bracket of Legends game):
 ## its title and the screen to go back to. Empty otherwise.
 var _board := {}
 var aim_back_button: Button
@@ -379,7 +379,6 @@ func _ready() -> void:
 				shell._spark_check.call_deferred()
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
-				shell.go("week")
 				shell.go("bracket")
 	if url_params.has("perftour"): # ?perftour=1 (or =play,campaign) times every screen's open.
 		var only: Array = [] if url_params.perftour in ["", "1"] else Array(url_params.perftour.split(","))
@@ -1739,7 +1738,7 @@ func _build_shell() -> void:
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
-	LiveOps.fetch(self, func(): if shell.current in ["play", "week", "bracket"]: shell.refresh())
+	LiveOps.fetch(self, func(): if shell.current in ["play", "bracket"]: shell.refresh())
 
 
 ## Quick fight starts on the fighter chosen in the home screen (Use in lineup).
@@ -2020,7 +2019,7 @@ func _label_result_buttons() -> void:
 	again_button.text = {Mode.NORMAL: "REMATCH", Mode.CHALLENGE: "TRY AGAIN", Mode.REPLAY: "BEAT THIS SHOT", Mode.RIVAL: "REMATCH", Mode.CAMPAIGN: "", Mode.LIVE: "FIGHT AGAIN", Mode.TUTORIAL: ""}[mode]
 	change_button.text = {Mode.REPLAY: "PLAY MY OWN", Mode.RIVAL: "FRIENDS"}.get(mode, "CHANGE CRITTER")
 	if not _board.is_empty():
-		change_button.text = "BRACKET" if _board.return_to == "bracket" else "DAILY"
+		change_button.text = "BRACKET"
 	(share_button.get_meta("caption") as Label).text = "SEND" if mode == Mode.CHALLENGE else "SHARE"
 	# A link from someone who isn't a friend yet offers to add them.
 	friend_row.visible = _can_add_link_friend()
@@ -2182,7 +2181,7 @@ func _quick_fight() -> void:
 		_begin_aim()
 
 
-## Watch the Fight of the Day from the This Week board, as a replay.
+## Watch a board fight (a Bracket of Legends game), as a replay.
 func _watch_board_fight(f: Dictionary) -> void:
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
@@ -2196,7 +2195,7 @@ func _watch_board_fight(f: Dictionary) -> void:
 	link_tiers = [0, 0]
 	arena_override = f.get("arena", "square")
 	_board_pick = f.pick
-	_board = {"title": f.get("board_title", "Fight of the Day"), "return_to": f.get("return_to", "week"), "return_params": f.get("return_params", {})}
+	_board = {"title": f.get("board_title", "Bracket of Legends"), "return_to": f.get("return_to", "bracket"), "return_params": f.get("return_params", {})}
 	_start_fight()
 
 
@@ -2205,9 +2204,7 @@ func _back_to_board() -> void:
 	_play_normal()
 	_show_home()
 	shell.show_tab("play")
-	shell.go("week")
-	if from.return_to != "week":
-		shell.go(from.return_to, from.return_params)
+	shell.go(from.return_to, from.return_params)
 
 
 func _label(text: String, font_size: int) -> Label:

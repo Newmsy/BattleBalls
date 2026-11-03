@@ -1,5 +1,5 @@
 ## Bounce Run chests (meta/bounce_chest.gd): the day's best floor opens a
-## chest the next day, once, and the Daily board's Bounce Run card opens it.
+## chest the next day, once, and the Bounce Run door on Home opens it.
 extends "res://tests/test_case.gd"
 
 const BounceChest := preload("res://meta/bounce_chest.gd")

@@ -28,7 +28,7 @@ func test_only_the_opened_tabs_show() -> void:
 		check(not visible.call(t), t + " waits")
 	check(not shell._marks.has("quickfight"), "no Quick fight yet")
 	check(shell._marks.has("campaign"), "the campaign is the way in")
-	check(shell._marks.has("thisweek") and shell._marks.has("spire"), "the whole Home shows from the start, the closed parts locked")
+	check(shell._marks.has("daily_quests") and shell._marks.has("spire"), "the whole Home shows from the start, the closed parts locked")
 	check(shell._coach.visible, "a hint says what to do next")
 	shell.profile.intro = Intro.DONE
 	shell.profile.changed.emit()

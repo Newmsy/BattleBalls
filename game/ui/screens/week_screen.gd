@@ -1,21 +1,15 @@
-## The Daily board: today's Trick Shot, the Fight of the Day, the Bracket of
-## Legends when one is on, and the Quests door, all from the live-ops schedule
-## (game/liveops.gd). Opened from the "More to play" strip on Home. Bounce Run
-## has its own door on Home, so it isn't here too. Every card wears a painted fair stall (game/ui/home_art/daily_*.png,
+## Shared painted-card helpers (tile, painted, line, lines) and Trick Shot's
+## daily status. The Daily board that used to live here was removed
+## (2026-11-03): Quests, Trick Shot, Spire, Bosses and the Bracket of Legends
+## all sit on Home's "More to play" strip, and Fight of the Day is gone.
+## Cards wear painted fair stalls (game/ui/home_art/daily_*.png,
 ## tools/event_art/scenes/daily_*.mjs).
 extends RefCounted
 
-const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
-const Glyph := preload("res://game/ui/glyph.gd")
-const CritterIcon := preload("res://game/ui/critter_icon.gd")
-const LiveOps := preload("res://game/liveops.gd")
-const TrickShot := preload("res://sim/trick_shot.gd")
-const BallDefs := preload("res://sim/ball_defs.gd")
-const BracketScreen := preload("res://game/ui/screens/bracket_screen.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
+const TrickShot := preload("res://sim/trick_shot.gd")
 
-const SAVE_PATH := "user://this_week.cfg"
 const TRICK_SAVE := "user://trick_shot.cfg"
 const TRICK_TRIES := 3
 const QUESTS := Color("ffd36b")
@@ -23,35 +17,7 @@ const QUESTS := Color("ffd36b")
 const ART_H := 132
 
 
-static func build(shell, _params: Dictionary) -> Control:
-	var t := LiveOps.now()
-	var root := Kit.vbox(14)
-	var season := LiveOps.season(t)
-	root.add_child(shell.title_row("Daily", {"back_mark": "week_back", "info_mark": "week_info", "info": _info_text(),
-		"eyebrow": "" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks]}))
-	var tiles: Array = [_trick_shot(shell), _fight(shell, t)]
-	var bracket := BracketScreen.board_card(shell, t, tile)
-	if bracket != null:
-		tiles.append(bracket)
-	# Two cards a row; an odd one out takes the whole row.
-	for i in range(0, tiles.size(), 2):
-		var row := Kit.hbox(12, tiles.slice(i, i + 2))
-		row.alignment = BoxContainer.ALIGNMENT_BEGIN
-		root.add_child(row)
-	root.add_child(_quests(shell))
-	return root
-
-
-## The long-form rules behind the board's "i" button.
-static func _info_text() -> Array:
-	return [
-		"Trick Shot: one called bank shot, %d tries, the same puzzle for everyone. A new one lands at midnight." % TRICK_TRIES,
-		"Fight of the Day: tap who you think wins, then watch. Correct calls in a row build your streak.",
-		"Quests: three a day and three a week, paying energy, eggs, coins and more.",
-	]
-
-
-## One card of the board: a painted stall with the caption on it, then a
+## One painted card: a painted stall with the caption on it, then a
 ## body and the card's action at the bottom, lined up with its neighbour's.
 ## `art` names the painting (game/ui/home_art/<art>.png); `over` sits on the
 ## painting above the caption (Fight of the Day's critters). `border` and `bg`
@@ -151,32 +117,7 @@ static func lines(text: String, size := 21, color := Kit.FG) -> Label:
 	return l
 
 
-static func _action(text: String, on_press: Callable, kind := "go") -> Button:
-	return Kit.button(text, on_press, kind, 22, 64)
-
-
 # --- Daily Trick Shot --------------------------------------------------------------
-
-static func _trick_shot(shell) -> Control:
-	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
-	var s := trick_status(day)
-	var status := "%d tries" % TRICK_TRIES
-	var label := "Play"
-	if s.solved:
-		status = "Solved in %d %s. Streak %d." % [s.tries, "try" if s.tries == 1 else "tries", s.streak]
-		label = "Result"
-	elif s.tries >= TRICK_TRIES:
-		status = "Out of tries. New shot at midnight."
-		label = "Result"
-	elif s.tries > 0:
-		status = "%d %s left." % [TRICK_TRIES - s.tries, "try" if TRICK_TRIES - s.tries == 1 else "tries"]
-		label = "Keep trying"
-	var play := _action(label, func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"))
-	shell.mark("week_trickshot", play)
-	var done: bool = s.solved or s.tries >= TRICK_TRIES
-	return tile("Trick Shot", Color("9be89a"), Kit.LINE, Kit.PANEL,
-		[line("Daily #%d" % day, 26), lines(status, 20)], play, Kit.chip("Done" if done else "New", Kit.GOOD if done else Kit.WARN, 16), "daily_trick")
-
 
 ## { tries, solved, streak } for Trick Shot `day`, from its save file.
 static func trick_status(day: int) -> Dictionary:
@@ -186,86 +127,3 @@ static func trick_status(day: int) -> Dictionary:
 	var tries: Array = cfg.get_value("days", str(day), [])
 	return {"tries": tries.size(), "solved": tries.any(func(x): return x.result == TrickShot.SOLVED),
 		"streak": cfg.get_value("stats", "streak", 0)}
-
-
-# --- Fight of the Day ----------------------------------------------------------------
-
-## Today's two critters stand in the painted ring; before the call, tapping
-## one picks it and starts the fight.
-static func _fight(shell, t: int) -> Control:
-	var f := LiveOps.fight_of_the_day(t)
-	var names := [BallDefs.get_def(f.p1).display_name, BallDefs.get_def(f.p2).display_name]
-	var pick := pick_for(f.date)
-	var ring := Kit.hbox(0, [], BoxContainer.ALIGNMENT_CENTER)
-	for i in 2:
-		var id: String = f.p1 if i == 0 else f.p2
-		var side: Control = CritterIcon.make(id, 1, 84)
-		if pick < 0:
-			side = Kit.card_button(side, func(): call_fight(shell, f, i), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 40, 0)
-			shell.mark("fotd_pick%d" % i, side)
-		elif pick != i:
-			side.modulate = Color(1, 1, 1, .55)
-		side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		ring.add_child(side)
-	var vs := line("%s vs %s" % names, 20)
-	var body: Array = [vs]
-	var action: Control = null
-	if pick < 0:
-		body.append(lines("Tap who wins, then watch.", 20, Kit.MUTED))
-	else:
-		var right: bool = pick == f.winner
-		body.append(lines("%s Streak %d." % ["Called it!" if right else "Not this time.", fight_streak(t)], 20, Kit.GOOD if right else Kit.FG))
-		action = _action("Watch again", func(): shell.watch(f.merged({"pick": pick})), "ghost")
-		shell.mark("fotd_watch", action)
-	return tile("Fight of the Day", Color("ffc23d"), Color("5a4a1e"), Kit.PANEL, body, action, null, "daily_fotd", ring)
-
-
-## Locks in the pick for today and starts the fight in the arena.
-static func call_fight(shell, f: Dictionary, pick: int) -> void:
-	var cfg := ConfigFile.new()
-	cfg.load(SAVE_PATH)
-	cfg.set_value("fotd", f.date, [pick, pick == f.winner])
-	cfg.save(SAVE_PATH)
-	shell.glow.record("fotd")
-	shell.watch(f.merged({"pick": pick}))
-
-
-## The side picked on `date` ("YYYY-MM-DD"), or -1.
-static func pick_for(date: String) -> int:
-	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) != OK:
-		return -1
-	return cfg.get_value("fotd", date, [-1])[0]
-
-
-## Correct calls in a row, ending today (or yesterday, before today's call).
-static func fight_streak(t: int) -> int:
-	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) != OK:
-		return 0
-	var day := LiveOps.day_start(t)
-	if not cfg.has_section_key("fotd", Time.get_date_string_from_unix_time(day)):
-		day -= LiveOps.DAY
-	var n := 0
-	while cfg.get_value("fotd", Time.get_date_string_from_unix_time(day), [-1, false])[1]:
-		n += 1
-		day -= LiveOps.DAY
-	return n
-
-
-# --- Quests ---------------------------------------------------------------------
-
-## The wide Quests door along the bottom: today's quests done, what they
-## pay, and the way in. A chip says when something is ready to claim.
-static func _quests(shell) -> Control:
-	var q: Dictionary = shell.glow.quests(LiveOps.now())
-	var ready: int = shell.glow.quests_ready()
-	var rewards := Kit.hbox(14, [Kit.glyph("energy", 34, Color.WHITE), Kit.glyph("egg", 34, Color.WHITE), Kit.glyph("coin", 34, Color.WHITE)], BoxContainer.ALIGNMENT_CENTER)
-	var words := lines("%d/3 done today" % q.chest.done if not (q.daily as Array).is_empty() else "Three new quests", 20)
-	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var open := _action("Quests", func(): shell.go("quests"))
-	open.custom_minimum_size.x = 180
-	shell.mark("week_quests", open)
-	var body := Kit.hbox(14, [words, rewards, open], BoxContainer.ALIGNMENT_CENTER)
-	var badge: Control = Kit.chip("Claim", Kit.GOOD, 16) if ready > 0 else null
-	return tile("Quests", QUESTS, Kit.LINE, Kit.PANEL, [body], null, badge, "daily_quests", null, 112, open)

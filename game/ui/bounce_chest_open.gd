@@ -1,5 +1,5 @@
 ## Opening a Bounce Run chest (meta/bounce_chest.gd), over the whole shell
-## (from the Daily board) or over the Bounce Run screen when it opens:
+## (from the Bounce Run door on Home) or over the Bounce Run screen when it opens:
 ## the painted chest drops in and wobbles, a tap shakes it harder and harder
 ## until the lid bursts off in a flash of light, then each reward card leaps
 ## out of the chest one by one, arcs over and lands in its slot with a

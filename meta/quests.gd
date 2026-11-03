@@ -44,7 +44,6 @@ const DAILY := {
 	"mode": [
 		{"id": "trick", "kind": "trick", "goal": 1, "text": "Solve the Trick Shot"},
 		{"id": "bounce6", "kind": "bounce_floor", "goal": 6, "text": "Reach floor 6 in Bounce Run"},
-		{"id": "fotd", "kind": "fotd", "goal": 1, "text": "Call the Fight of the Day"},
 		{"id": "boss1", "kind": "boss", "goal": 1, "text": "Beat a boss", "needs": "bosses"},
 		{"id": "spire2", "kind": "spire", "goal": 2, "text": "Climb 2 Spire floors"},
 		{"id": "arena2", "kind": "arena_win", "goal": 2, "text": "Win 2 Ghost Arena fights"},
@@ -76,7 +75,6 @@ const WEEKLY := {
 	],
 	"habit": [
 		{"id": "w_chest5", "kind": "chest", "goal": 5, "text": "Clear 5 daily chests"},
-		{"id": "w_fotd5", "kind": "fotd", "goal": 5, "text": "Call 5 Fights of the Day"},
 		{"id": "w_crit5", "kind": "critters", "goal": 5, "text": "Win with 5 different critters"},
 		{"id": "w_courses5", "kind": "plunge_courses", "goal": 5, "text": "Race on 5 different courses", "needs": "racer"},
 	],
@@ -84,6 +82,9 @@ const WEEKLY := {
 const DAILY_SLOTS := ["warmup", "mode", "critters"]
 const WEEKLY_SLOTS := ["grind", "challenge", "habit"]
 const MAX_KINDS := ["bounce_floor"]
+## Quest kinds whose mode was removed (Fight of the Day, 2026-11-03). One
+## already rolled into a save is swapped for a fresh one (refresh_retired).
+const RETIRED := ["fotd"]
 
 
 ## What a daily quest in `slot` pays on `day`. "Go somewhere" pays coins and
@@ -200,6 +201,25 @@ static func swap(q: Dictionary, day: int, ctx: Dictionary) -> Dictionary:
 	if i < 0:
 		return {}
 	return roll_one(DAILY[q.slot], q.slot, day_seed(day, i), ctx, q.rewards, [q.id])
+
+
+## Swaps every quest in `list` whose kind is RETIRED for the next one in its
+## slot (same rewards). `idx` is the day, or the week when `weekly`. Returns
+## whether anything changed.
+static func refresh_retired(list: Array, weekly: bool, idx: int, ctx: Dictionary) -> bool:
+	var changed := false
+	var slots: Array = WEEKLY_SLOTS if weekly else DAILY_SLOTS
+	for i in list.size():
+		var q: Dictionary = list[i]
+		var s := slots.find(str(q.get("slot", "")))
+		if str(q.get("kind", "")) not in RETIRED or s < 0:
+			continue
+		var pool: Array = (WEEKLY if weekly else DAILY)[q.slot]
+		var next := roll_one(pool, q.slot, day_seed(idx * 31 + 7, s) if weekly else day_seed(idx, s), ctx, q.get("rewards", []), [q.id])
+		if not next.is_empty():
+			list[i] = next
+			changed = true
+	return changed
 
 
 static func day_seed(day: int, slot_index: int) -> int:
