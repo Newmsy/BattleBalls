@@ -90,6 +90,8 @@ enum State { MENU, AIM, FIGHT, RESULT, CLIP }
 ## TUTORIAL: onboarding drives the arena. CAMPAIGN: a campaign stage (energy
 ## already spent). LIVE: a Quick fight against a real player, refereed by the
 ## live server (Settings > Testing for now; design/live-quick-fight.md).
+## Boss screens whose fights play the boss music (Rifts have their own feel).
+const BOSS_MUSIC_SCREENS := ["vault", "nest", "pinata", "totem", "wyrm", "glitch"]
 enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL, TUTORIAL, CAMPAIGN, LIVE }
 
 ## Onboarding fights report here instead of showing the result panel.
@@ -699,7 +701,7 @@ func _start_fight() -> void:
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
 		info_label.text = str(_board.title) if not _board.is_empty() else "Replay"
-	sfx.fight_theme = "arena" if mode == Mode.CAMPAIGN and pve.has("arena_duo") else ""
+	sfx.fight_theme = _fight_music()
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -1164,6 +1166,17 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 		var odds := Matchup.rate(profile.power_of(fighter), Campaign.enemy_rating(zone_index, stage_index), FamilyEdge.team([fighter], foes))
 		line += " · %s fight" % Matchup.word(odds)
 	info_label.text = FightSpeed.with_aim_hint(line)
+
+
+## Which mode's fight music this fight plays (Sfx.fight_theme; "" = shared).
+func _fight_music() -> String:
+	if mode != Mode.CAMPAIGN:
+		return ""
+	if pve.has("arena_duo"):
+		return "arena"
+	if pve.get("boss", "") in BOSS_MUSIC_SCREENS:
+		return "boss"
+	return ""
 
 
 ## A farming boss run from its screen ("vault" for the Anvil King, "nest" for

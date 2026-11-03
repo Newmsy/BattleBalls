@@ -300,7 +300,8 @@ const MASTER_DB := -7.0
 ## fights (3v3 Series and 2v2 League, via fight_theme): "Final Stretch", its
 ## overtime the same loop at 140 BPM; Bounce Run between fights (via
 ## menu_theme): "Amber Coastline"; Plunge races: "The Great Brass Caper";
-## the Spire screen and between Spire legs: "Gravity's End";
+## the Spire screen and between Spire legs: "Gravity's End"; boss fights
+## (fight_theme "boss"): "Against the Titan", its overtime 10% faster;
 ## other fights and
 ## overtime: "Neon Pulse" at 120 and 140 BPM (both FreeMusic AI, looped by
 ## tools/music/loop_track.py); victory: remixed from "Crypto" by Kevin MacLeod
@@ -318,6 +319,8 @@ const MUSIC := {
 	"bounce": ["music_bounce", -11.0, true],
 	"plunge": ["music_plunge", -11.0, true],
 	"spire": ["music_spire", -11.0, true],
+	"boss": ["music_boss", -11.0, true],
+	"boss_overtime": ["music_boss_overtime", -10.0, true],
 	"victory": ["music_victory", -9.0, true],
 }
 const VICTORY_LOOP_FROM := 3.0 / 1.1 ## Crypto's 3 s bar, sped up 1.1x.
@@ -325,7 +328,7 @@ const VICTORY_LOOP_FROM := 3.0 / 1.1 ## Crypto's 3 s bar, sped up 1.1x.
 ## (loop_track.py --intro prints it as loop_from).
 const MENU_LOOP_FROM := 78.2
 ## Tracks that play an intro once and then loop from here (seconds into the file).
-const LOOP_FROM := {"menu": MENU_LOOP_FROM, "arena": 40.0, "bounce": 52.58, "plunge": 42.36, "spire": 11.22}
+const LOOP_FROM := {"menu": MENU_LOOP_FROM, "arena": 40.0, "bounce": 52.58, "plunge": 42.36, "spire": 11.22, "boss": 56.2}
 ## Seconds a track change fades over, so music never cuts with a click.
 const MUSIC_FADE := 0.3
 ## After a win, how long the victory tune waits for a results popup to hold
