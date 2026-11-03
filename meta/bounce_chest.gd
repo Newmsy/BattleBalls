@@ -54,14 +54,15 @@ static func odds(tier: int) -> Array:
 	return out
 
 
-## What chest `tier` from `day` holds.
-static func rewards(tier: int, day: int) -> Array:
-	var out := ChestDrops.roll(odds(tier), day * 9173 + 29)
+## What chest `tier` from `day` holds for the player with chest `salt`
+## (Profile.chest_seed(); 0 = the plain roll).
+static func rewards(tier: int, day: int, salt := 0) -> Array:
+	var out := ChestDrops.roll(odds(tier), ChestDrops.salted(day * 9173 + 29, salt))
 	for g in out:
 		if g.kind == "gear":
 			var types := Gear.PIECES.keys()
 			types.sort()
-			g.type = types[Rng.new(day * 7349 + 11).range_int(0, types.size() - 1)]
+			g.type = types[Rng.new(ChestDrops.salted(day * 7349 + 11, salt)).range_int(0, types.size() - 1)]
 	return out
 
 
@@ -104,7 +105,7 @@ static func pending(best: Dictionary, opened_through: int, today: int) -> Dictio
 static func open(profile, chest: Dictionary) -> Array:
 	if chest.is_empty() or int(chest.day) <= int(profile.bounce_chest):
 		return []
-	var got := rewards(int(chest.tier), int(chest.day))
+	var got := rewards(int(chest.tier), int(chest.day), profile.chest_seed())
 	profile.bounce_chest = int(chest.day)
 	for r in got:
 		profile.grant(r)

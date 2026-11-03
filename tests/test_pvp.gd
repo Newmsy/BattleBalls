@@ -476,7 +476,7 @@ func test_weekly_chest_by_best_league() -> void:
 	var coins_before: int = s.coins
 	var orbs_before: int = p.orbs
 	var got := ArenaChest.open(s, p)
-	check_eq(got, ArenaChest.rewards(3, wk), "what the screen showed")
+	check_eq(got, ArenaChest.rewards(3, wk, p.chest_seed()), "what the screen showed")
 	check(s.chest.is_empty(), "opened once")
 	check(ArenaChest.open(s, p).is_empty(), "only once")
 	var tokens := 0

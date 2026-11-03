@@ -49,7 +49,7 @@ static func _now_card(shell, store, ready: bool) -> Control:
 		var open := Kit.button("Open", func():
 			var shown := look.duplicate()
 			shown.caption = "GHOST ARENA · WEEKLY CHEST"
-			BounceChestOpen.show_custom(shell, shown, ArenaChest.rewards(league, int(store.chest.week)), func():
+			BounceChestOpen.show_custom(shell, shown, ArenaChest.rewards(league, int(store.chest.week), shell.profile.chest_seed()), func():
 				ArenaChest.open(store, shell.profile)), "go", 28, 80)
 		shell.mark("chest_open", open)
 		words.add_child(open)

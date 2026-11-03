@@ -98,7 +98,7 @@ static func show_in(host_, layer: Control, c: Dictionary, profile_, sfx_, done: 
 
 func _setup(c: Dictionary) -> void:
 	chest = c
-	rewards = BounceChest.rewards(int(c.tier), int(c.day))
+	rewards = BounceChest.rewards(int(c.tier), int(c.day), profile.chest_seed() if profile != null else 0)
 	tier = BounceChest.TIERS[int(c.tier)]
 	_build()
 	print("UI_BOUNCE_CHEST day=%d tier=%s" % [int(c.day), tier.id])

@@ -31,6 +31,14 @@ static func roll(table: Array, seed_value: int) -> Array:
 	return out
 
 
+## A roll seed for `base` (the chest's day or week seed) mixed with a
+## player's salt (Profile.chest_seed()); salt 0 leaves `base` as it is.
+static func salted(base: int, salt: int) -> int:
+	if salt == 0:
+		return base
+	return (base ^ ((salt * 0x9E3779B1) & 0x3FFFFFFF)) & 0x7FFFFFFF
+
+
 ## The average amount of one entry, for tests and balance checks.
 static func mean(e: Dictionary) -> float:
 	if e.has("lo"):

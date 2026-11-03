@@ -126,6 +126,10 @@ var sparks := 0
 ## Ascension level by critter id (1-5; missing = 0).
 var ascension := {}
 const ASCEND_COST := 10
+## This player's own twist on chest rolls (Arena and Bounce Run chests), so
+## two players opening the same week's chest get different drops. 0 = not
+## made yet (chest_seed() makes it).
+var chest_salt := 0
 ## Rift Keys live in the Bag as an item; this many at most.
 const RIFT_KEY := "Rift Key"
 const RIFT_KEY_CAP := 10
@@ -254,6 +258,13 @@ func can_ascend_any() -> bool:
 
 
 ## Spends ASCEND_COST Sparks to raise `id` one Ascension level. Returns the new level, or -1.
+## The player's chest salt, made on first use and saved with the profile.
+func chest_seed() -> int:
+	if chest_salt <= 0:
+		chest_salt = 1 + randi() % 0x3FFFFFFF
+	return chest_salt
+
+
 func ascend(id: String) -> int:
 	if ascend_block(id) != "":
 		return -1
@@ -855,7 +866,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "paced", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps", "sparks", "ascension"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "paced", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps", "sparks", "ascension", "chest_salt"]
 
 
 func to_dict() -> Dictionary:
@@ -874,7 +885,7 @@ static func from_dict(d: Dictionary, now: int):
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
 	# Saves from before hammers keep new_game's starter hammers.
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest", "trick_reward", "sparks"]:
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest", "trick_reward", "sparks", "chest_salt"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))
