@@ -12,6 +12,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Painted := preload("res://game/ui/painted.gd")
 const Talents := preload("res://sim/talents.gd")
+const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 
 static var filter := "all"
 
@@ -167,6 +168,9 @@ static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 		win.offset_bottom = 193
 		t.add_child(win)
 		t.move_child(win, 0)
+	if k.tier >= Roster.MAX_TIER and shell.profile.ascend_block(k.id) == "":
+		# Enough Sparks to ascend it: a red dot until it's spent.
+		t.add_child(PlayScreen.red_dot())
 	shell.mark(mark_as, t)
 	return t
 

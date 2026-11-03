@@ -507,10 +507,16 @@ func test_weekly_chest_by_best_league() -> void:
 	check_eq(got, ArenaChest.rewards(3, wk), "what the screen showed")
 	check(s.chest.is_empty(), "opened once")
 	check(ArenaChest.open(s, p).is_empty(), "only once")
-	check_eq(s.coins, coins_before + 100, "tokens to the Bazaar")
-	check_eq(p.orbs, orbs_before + 3, "eggs")
+	var tokens := 0
+	var eggs := 0
+	for r in got:
+		tokens += int(r.n) if r.kind == "tokens" else 0
+		eggs += int(r.n) if r.kind == "orbs" else 0
+	check(tokens >= 140 and tokens <= 260, "Platinum tokens roll 140-260: %d" % tokens)
+	check_eq(s.coins, coins_before + tokens, "tokens to the Bazaar")
+	check_eq(p.orbs, orbs_before + eggs, "eggs")
 	for i in ArenaChest.CHESTS.size():
-		check(ArenaChest.rewards(i, 1).size() <= 5, "fits the opening row")
+		check(ArenaChest.odds(i).size() <= 6, "fits the opening row")
 	check_eq(ArenaChest.week_of(0), 0, "1970-01-01 is week 0")
 	check_eq(ArenaChest.week_of(4 * 86400), 1, "weeks start on Monday")
 	check_eq(ArenaChest.seconds_left(4 * 86400 - 60), 60, "a minute left on Sunday night")
