@@ -297,19 +297,20 @@ const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
 ## Music per track: [file, volume dB, loops]. Menu: "Velvet Horizon"; Arena
-## fights (3v3 Series and 2v2 League, via fight_theme): "Final Stretch", its
-## overtime the same loop at 140 BPM; Bounce Run between fights (via
-## menu_theme): "Amber Coastline"; Plunge races: "The Great Brass Caper";
-## the Spire screen and between Spire legs: "Gravity's End"; boss fights
-## (fight_theme "boss"): "Against the Titan", its overtime 10% faster;
-## other fights and
-## overtime: "Neon Pulse" at 120 and 140 BPM (both FreeMusic AI, looped by
-## tools/music/loop_track.py); victory: remixed from "Crypto" by Kevin MacLeod
-## (CC-BY 4.0, credited in CREDITS.md and Settings) by tools/music/remix_crypto.py.
-## All render at the same loudness, so these set the mix.
-## The menu loop plays across every screen outside fights and picks up where it
-## left off; overtime is the fight theme faster; victory loops
-## past its one-bar hit (VICTORY_LOOP_FROM) while the win screen is up.
+## (hub and fights): "Final Stretch", overtime the same loop at 140 BPM;
+## Bounce Run: "Amber Coastline"; Plunge: "The Great Brass Caper"; the Spire:
+## "Gravity's End"; Bosses: "Against the Titan", overtime 10% faster; every
+## other fight and its overtime: "Neon Pulse" at 120 and 140 BPM (all looped by
+## tools/music/loop_track.py). "victory" (a remix of "Crypto" by Kevin MacLeod,
+## CC-BY 4.0, credited in CREDITS.md and Settings) is kept for the sound board
+## only. All render at the same loudness, so these set the mix.
+## ONE TRACK PER MODE SESSION (Newms 2026-11-03): a mode with its own track
+## (theme) plays it on its screens, while aiming, through its fights and over
+## its results, with no switch or restart in between; every track picks up
+## where it last stopped. Only overtime changes it (to the mode's faster
+## variant where one exists). Wins and losses are short jingles over the
+## music; the victory tune is no longer used. The menu loop plays across every
+## other screen and picks up where it left off.
 const MUSIC := {
 	"menu": ["music_menu", -11.0, true],
 	"fight": ["music_fight", -11.0, true],
@@ -331,9 +332,6 @@ const MENU_LOOP_FROM := 78.2
 const LOOP_FROM := {"menu": MENU_LOOP_FROM, "arena": 40.0, "bounce": 52.58, "plunge": 42.36, "spire": 11.22, "boss": 56.2}
 ## Seconds a track change fades over, so music never cuts with a click.
 const MUSIC_FADE := 0.3
-## After a win, how long the victory tune waits for a results popup to hold
-## it (hold_victory) before the menu music takes over.
-const VICTORY_GRACE := 1.6
 ## Contact damage at or above this share of the target's max HP is a "big hit".
 const BIG_HIT_SHARE := 0.18
 const LOW_HP_SHARE := 0.35
@@ -353,12 +351,14 @@ var _ends := {} ## sound name -> end times of the copies started
 var _music: AudioStreamPlayer ## The current track.
 var _music_out: AudioStreamPlayer ## The previous track while it fades out.
 var _music_track := ""
-## Which mode's fight music plays ("" = the shared fight track). Set before
-## on_fight_start; see _fight_track.
-var fight_theme := ""
-## The track that plays between fights on this scene ("" = the menu loop),
-## e.g. "bounce" on the Bounce Run map. See _menu_track.
-var menu_theme := ""
+## The music is meant to be playing. _music.playing cannot say: by the time
+## _exit_tree runs on a scene change, the players (children) have already left
+## the tree and stopped, so every reload forgot the position.
+var _music_on := false
+## The mode session's track (a MUSIC key, e.g. "arena", "spire", "bounce";
+## "fight" for fights with no mode track of their own; "" = none: the menu
+## loop on screens, "fight" in fights). Set it with set_theme.
+var theme := ""
 var _fade: Tween
 ## Web: browsers start audio on the first tap, so the first track waits for it.
 static var _audio_unlocked := false
@@ -368,9 +368,11 @@ static var _audio_unlocked := false
 ## (the music keeps "playing" through the load); -1 once a fight paused it.
 static var _menu_pos := 0.0
 static var _menu_left_at := -1.0
-var _victory_hold: WeakRef ## The results popup the victory tune plays under.
-var _victory_at := 0.0
-var _menu_pending := false
+## Where each track (but the menu loop, which has its own clock above, and the
+## overtime variants, which always start fresh) last stopped, in seconds into
+## its file, so the next fight, leg, race or scene carries it on. Static:
+## fights and races are their own scenes.
+static var _track_pos := {}
 var _was_overtime := false
 var _heartbeat_in := 0.0
 var _rain_in := 0.0
@@ -435,6 +437,7 @@ func _notification(what: int) -> void:
 
 func _exit_tree() -> void:
 	_save_menu_pos(true) # A scene change: the next screen's Sfx carries on from here.
+	_save_track_pos()
 
 
 func _input(event: InputEvent) -> void:
@@ -447,13 +450,6 @@ func _input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	_clock += delta
-	if _music_track == "victory" and (_menu_pending or _victory_hold != null):
-		var hold: Control = _victory_hold.get_ref() if _victory_hold else null
-		var held := hold != null and _shown(hold)
-		if not held and (_victory_hold != null or _clock - _victory_at > VICTORY_GRACE):
-			_menu_pending = false
-			_victory_hold = null
-			play_music(_menu_track())
 	if fight_sim == null or fight_sim.finished:
 		return
 	_rain_in -= delta
@@ -477,28 +473,7 @@ func _process(delta: float) -> void:
 
 func on_menu() -> void:
 	fight_sim = null
-	if _music_track == "victory": # Hand over once the win screen is gone (_process).
-		_menu_pending = true
-		return
 	play_music(_menu_track())
-
-
-## Whether a popup is still up: attached and not hidden by its parents.
-static func _shown(node: Node) -> bool:
-	if node.get_parent() == null:
-		return false
-	while node is CanvasItem:
-		if not node.visible:
-			return false
-		node = node.get_parent()
-	return true
-
-
-## Keeps the victory tune playing while this popup (a win's results) is up;
-## the menu music takes over once it closes.
-func hold_victory(popup: Control) -> void:
-	if _music_track == "victory":
-		_victory_hold = weakref(popup)
 
 
 func on_aim_drag(pull: float) -> void:
@@ -510,7 +485,6 @@ func on_fight_start(sim) -> void:
 	_wall_sound = wall_sound(sim.arena_id)
 	_was_overtime = false
 	_heartbeat_in = 0.0
-	_menu_pending = false
 	_zones_heard = {}
 	play("go")
 	play_music(_fight_track(""))
@@ -518,16 +492,10 @@ func on_fight_start(sim) -> void:
 
 func on_result(winner: int) -> void:
 	fight_sim = null
-	_menu_pending = false
-	_victory_hold = null
-	if winner == 0 and mode == "all": # The victory fanfare is the win jingle.
-		_victory_at = _clock
-		play_music("victory")
-		return
+	# The music carries on (one track per session); the result is a jingle.
 	var jingle := "draw" if winner < 0 else ("win" if winner == 0 else "lose")
 	if is_inside_tree():
 		get_tree().create_timer(0.45).timeout.connect(func(): play(jingle))
-	play_music(_menu_track())
 
 
 ## Turns one sim step's events into sound.
@@ -971,29 +939,30 @@ func playing_count(name: String) -> int:
 	return _ends.get(name, []).filter(func(t): return t > _clock).size()
 
 
-## The fight or overtime track for this fight: the mode's own (fight_theme,
-## e.g. "arena" -> "arena" / "arena_overtime") when it has one, else the shared
-## "fight" / "overtime". kind: "" for the fight, "overtime" for overtime.
+## The fight or overtime track for this session. kind: "" for the fight,
+## "overtime" for overtime. Overtime switches to the theme's faster variant
+## when it has one; a mode track without one just carries on.
 func _fight_track(kind: String) -> String:
-	if fight_theme != "":
-		var own := fight_theme + ("_" + kind if kind != "" else "")
-		if MUSIC.has(own):
-			return own
-	return kind if kind != "" else "fight"
+	var t := theme if MUSIC.has(theme) else "fight"
+	if kind == "":
+		return t
+	if t == "fight":
+		return "overtime"
+	return t + "_overtime" if MUSIC.has(t + "_overtime") else t
 
 
-## The between-fights track: the scene's own (menu_theme) when it has one,
-## else the menu loop.
+## The track between fights: the session's (theme) when it has one, else the
+## menu loop.
 func _menu_track() -> String:
-	return menu_theme if menu_theme != "" and MUSIC.has(menu_theme) else "menu"
+	return theme if theme != "" and MUSIC.has(theme) else "menu"
 
 
-## A screen with its own music was opened or left (shell.gd SCREEN_MUSIC):
-## switch now if a between-fights track is playing, else just remember it.
-func set_menu_theme(theme: String) -> void:
-	var was := _menu_track()
-	menu_theme = theme
-	if _music_track == was and was != _menu_track():
+## Starts a mode session's music (shell.gd SCREEN_MUSIC on each screen, and
+## each fight scene). Out of a fight it switches now (or carries on if it's
+## already the track); mid-fight it only takes effect afterwards.
+func set_theme(t: String) -> void:
+	theme = t
+	if fight_sim == null and _music_track != "":
 		play_music(_menu_track())
 
 
@@ -1002,6 +971,7 @@ func play_music(track: String) -> void:
 		return
 	if track != "menu":
 		_save_menu_pos(false)
+	_save_track_pos()
 	_music_track = track
 	if mode != "all":
 		_stop_music()
@@ -1011,10 +981,30 @@ func play_music(track: String) -> void:
 	_start_music(track)
 
 
+## Remembers where the playing track is before it stops or its scene goes.
+func _save_track_pos() -> void:
+	if _carries_on(_music_track) and _music != null and _music_on:
+		_track_pos[_music_track] = _music.get_playback_position()
+
+
+## Every track but the menu loop (its own clock) and the overtime variants.
+static func _carries_on(track: String) -> bool:
+	return track != "" and track != "menu" and not track.ends_with("overtime")
+
+
+## Where a track starts: where it last stopped (inside the file's length);
+## overtime variants from the top.
+func _start_pos(track: String, length: float) -> float:
+	if track == "menu":
+		return _menu_resume(Time.get_ticks_msec() / 1000.0, length, MENU_LOOP_FROM)
+	var at: float = _track_pos.get(track, 0.0) if _carries_on(track) else 0.0
+	return at if at < length else 0.0
+
+
 ## Remembers where the menu loop is before it stops. running: the music should
 ## count on through a scene load; otherwise (a fight) it waits where it was.
 func _save_menu_pos(running: bool) -> void:
-	if _music_track == "menu" and _music != null and _music.playing:
+	if _music_track == "menu" and _music != null and _music_on:
 		_menu_pos = _music.get_playback_position()
 		_menu_left_at = Time.get_ticks_msec() / 1000.0 if running else -1.0
 	elif not running and _menu_left_at >= 0.0: # A fight scene opened straight after a scene change.
@@ -1051,7 +1041,8 @@ func _start_music(track: String) -> void:
 		_fade.tween_callback(old.stop)
 	_music.stream = stream
 	_music.volume_db = info[1] + MASTER_DB
-	_music.play(_menu_resume(Time.get_ticks_msec() / 1000.0, stream.get_length(), MENU_LOOP_FROM) if track == "menu" else 0.0)
+	_music.play(_start_pos(track, stream.get_length()))
+	_music_on = true
 
 
 func _stop_music() -> void:
@@ -1059,6 +1050,7 @@ func _stop_music() -> void:
 		_fade.kill()
 	_music.stop()
 	_music_out.stop()
+	_music_on = false
 
 
 func sound_names() -> Array:

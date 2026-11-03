@@ -132,7 +132,7 @@ func _ready() -> void:
 	arena = ArenaView.new()
 	arena_clip.add_child(arena)
 	sfx = Sfx.new()
-	sfx.menu_theme = "bounce" # The run's own music between fights.
+	sfx.theme = "bounce" # The run's music for the whole run, fights included.
 	add_child(sfx)
 	board = BounceBoard.new()
 	add_child(board)
@@ -626,7 +626,6 @@ func _finish_fight() -> void:
 		FactionRing.rows(FactionXp.award([sim.balls[0].type_id], sim.winner, game_save_path), sfx)]
 	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
 	_result_popup = ResultPopup.show_over(ui, ResultPopup.content(caption, ResultPopup.outcome_of(sim.winner), body, [next]), _report.bind("br_result"))
-	sfx.hold_victory(_result_popup)
 
 
 ## One pip per floor: cleared ones lit gold, the rest dim.

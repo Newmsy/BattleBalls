@@ -153,7 +153,8 @@ func _ready() -> void:
 	if is_inside_tree():
 		get_viewport().size_changed.connect(_layout)
 	_layout()
-	sfx.play_music("plunge") # The race has its own music, not the fight theme.
+	sfx.theme = "plunge" # The race music runs through the race, results and the next race.
+	sfx.on_menu()
 	_intro = PlungeIntro.new()
 	_intro.sfx = sfx
 	_intro.you_at = _your_spot
@@ -324,7 +325,7 @@ func _finish() -> void:
 	_skip.visible = false
 	_speed.visible = false
 	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
-	sfx.hold_victory(ResultPopup.show_over(ui_root, _result_card(place, knocked, gains), func(): _covered = true))
+	ResultPopup.show_over(ui_root, _result_card(place, knocked, gains), func(): _covered = true)
 
 
 ## The race counts for quests and the Glow Pass like a fight (a win for 1st),
