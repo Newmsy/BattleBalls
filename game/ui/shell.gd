@@ -21,6 +21,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const TouchInput := preload("res://game/ui/touch_input.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Motion := preload("res://game/ui/motion.gd")
+const SparkShow := preload("res://game/ui/spark_show.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
 const Talents := preload("res://sim/talents.gd")
 const CritterPlunge := preload("res://meta/critter_plunge.gd")
@@ -598,11 +599,23 @@ func overlay(c: Control, tag := "overlay") -> void:
 	_report.call_deferred(tag)
 
 
+## New Ascension Sparks (from anywhere) get their moment once, as soon as
+## no popup is in the way (SparkShow).
+func _spark_check() -> void:
+	if profile == null or int(profile.get("spark_news")) <= 0 or overlay_open():
+		return
+	var n: int = profile.spark_news
+	profile.spark_news = 0
+	SparkShow.play(self, n, profile.sparks, profile.ASCEND_COST)
+
+
 func overlay_open() -> bool:
 	return _overlay.mouse_filter == Control.MOUSE_FILTER_STOP
 
 
 func close_overlay() -> void:
+	if overlay_open():
+		_spark_check.call_deferred()
 	var was_open := overlay_open()
 	var was_sheet := _overlay_tag == "sheet" and was_open
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -869,6 +882,7 @@ func _show(name: String, params: Dictionary) -> void:
 			Motion.flash(_marks[m], Color(1.4, 1.5, 1.2), .5)
 	_pop_next = []
 	_report.call_deferred(name)
+	_spark_check.call_deferred()
 
 
 # --- Screen changes --------------------------------------------------------------

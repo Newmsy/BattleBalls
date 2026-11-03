@@ -123,6 +123,7 @@ var plunge_stamps := {}
 ## critter's Ascension a level (A1-A5). Each level keeps half its Bounce Run
 ## boon for good (sim/boons.gd ascended()) and turns one tier star purple.
 var sparks := 0
+var spark_news := 0 ## Sparks gained but not yet celebrated (SparkShow plays them once).
 ## Ascension level by critter id (1-5; missing = 0).
 var ascension := {}
 const ASCEND_COST := 10
@@ -241,6 +242,13 @@ func ascend_block(id: String) -> String:
 	if sparks < ASCEND_COST:
 		return "Needs %d" % ASCEND_COST
 	return ""
+
+
+## Adds Ascension Sparks from anywhere; the shell celebrates them (SparkShow).
+func add_sparks(n: int) -> void:
+	if n > 0:
+		sparks += n
+		spark_news += n
 
 
 ## Whether any critter you own can ascend right now (the red dots).
@@ -683,6 +691,39 @@ func faction_marks(f: String) -> int:
 	return top - 1
 
 
+## Past rank 30 a family keeps levelling (Newms 2026-11-03): each level
+## costs FACTION_OVER_XP, about what ranks 25 to 30 cost, and pays one
+## Ascension Spark.
+const FACTION_OVER_XP := 2500
+
+
+## Faction level with the levels past 30: {level, xp, need}. Below 30 it is
+## the shown rank (XP ranks + tier milestones); XP ranks that would go past
+## 30 cost FACTION_OVER_XP each instead.
+func faction_level(f: String, marks := -1) -> Dictionary:
+	if marks < 0:
+		marks = faction_marks(f)
+	var xp := int(factions.get(f, {}).get("xp", 0))
+	var rank := 0
+	while rank < 100000:
+		var need := faction_level_need(rank + marks, rank)
+		if xp < need:
+			return {"level": rank + marks, "xp": xp, "need": need}
+		xp -= need
+		rank += 1
+	return {"level": rank + marks, "xp": xp, "need": FACTION_OVER_XP}
+
+
+## XP to go from shown level `level` to the next (`xp_rank`: the XP rank under it).
+static func faction_level_need(level: int, xp_rank: int) -> int:
+	return faction_xp_to_next(xp_rank) if level < Talents.MAX_POINTS else FACTION_OVER_XP
+
+
+## Levels past 30 a family has reached.
+func faction_over(f: String) -> int:
+	return maxi(0, int(faction_level(f).level) - Talents.MAX_POINTS)
+
+
 ## Faction Rank: talent points earned in that tree (XP ranks + tier milestones), max 30.
 func faction_rank(f: String) -> int:
 	return mini(Talents.MAX_POINTS, faction_xp_rank(f).rank + faction_marks(f))
@@ -729,17 +770,30 @@ func add_faction_xp(f: String, amount: int) -> void:
 	if f == "" or amount <= 0:
 		return
 	var before := faction_xp_rank(f)
+	var lv_before := faction_level(f)
 	var fd := _faction(f)
 	fd.xp = int(fd.xp) + amount
 	var after := faction_xp_rank(f)
+	var lv := faction_level(f)
+	# Each level past 30 pays one Spark, once (marks moving can't pay twice).
+	var over := maxi(0, int(lv.level) - Talents.MAX_POINTS)
+	var paid := int(fd.get("over_paid", 0))
+	var new_sparks := maxi(0, over - paid)
+	if new_sparks > 0:
+		fd.over_paid = over
+		add_sparks(new_sparks)
 	for g in faction_gains:
 		if g.family == f:
 			g.xp += amount
 			g.to_rank = after.rank
 			g.to_xp = after.xp
+			g.to_level = lv.level
+			g.to_lxp = lv.xp
+			g.sparks += new_sparks
 			return
 	faction_gains.append({"family": f, "xp": amount, "from_rank": before.rank, "from_xp": before.xp,
-		"to_rank": after.rank, "to_xp": after.xp, "marks": faction_marks(f)})
+		"to_rank": after.rank, "to_xp": after.xp, "marks": faction_marks(f),
+		"from_level": lv_before.level, "from_lxp": lv_before.xp, "to_level": lv.level, "to_lxp": lv.xp, "sparks": new_sparks})
 
 
 ## The gains waiting for a result popup, and forgets them.
@@ -855,7 +909,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "paced", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps", "sparks", "ascension"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "paced", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps", "sparks", "spark_news", "ascension"]
 
 
 func to_dict() -> Dictionary:
@@ -874,7 +928,7 @@ static func from_dict(d: Dictionary, now: int):
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
 	# Saves from before hammers keep new_game's starter hammers.
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest", "trick_reward", "sparks"]:
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest", "trick_reward", "sparks", "spark_news"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))
@@ -952,6 +1006,8 @@ static func from_dict(d: Dictionary, now: int):
 			if f in Talents.FACTIONS and fs[f] is Dictionary:
 				p.factions[f] = {"xp": maxi(0, int(fs[f].get("xp", 0))), "picks": {}}
 				p.factions[f].picks = Talents.clean(f, fs[f].get("picks", {}))
+				if int(fs[f].get("over_paid", 0)) > 0:
+					p.factions[f].over_paid = int(fs[f].over_paid)
 				p._trim_picks(f)
 	if d.has("items"):
 		p.items.clear()
@@ -1012,7 +1068,7 @@ func grant(r: Dictionary) -> void:
 		"rift_key":
 			add_rift_keys(n)
 		"spark":
-			sparks += n
+			add_sparks(n)
 		"faction_xp":
 			add_faction_xp(str(r.get("id", "")), n)
 		"dye":

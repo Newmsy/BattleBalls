@@ -14,6 +14,9 @@ const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
 const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
+const Talents := preload("res://sim/talents.gd")
+const Shell := preload("res://game/ui/shell.gd")
+const SparkShow := preload("res://game/ui/spark_show.gd")
 
 
 func test_ascended_boon_scales_by_half_per_level() -> void:
@@ -132,3 +135,45 @@ func test_ascend_red_dot() -> void:
 	check(not p.can_ascend_any(), "no Sparks, no dot")
 	p.sparks = 10
 	check_eq(p.can_ascend_any(), p.ascend_block("juggernaut") == "", "a T5 with a boon and 10 Sparks lights it")
+
+
+func test_talent_ranks_past_30_pay_sparks() -> void:
+	var p = Profile.new_game(0)
+	p.sparks = 0
+	var f := "nature"
+	var marks: int = p.faction_marks(f)
+	# Exactly to rank 30.
+	var to30 := 0
+	for r in Talents.MAX_POINTS - marks:
+		to30 += Profile.faction_xp_to_next(r)
+	p.add_faction_xp(f, to30)
+	check_eq(int(p.faction_level(f).level), Talents.MAX_POINTS, "rank 30")
+	check_eq(p.sparks, 0, "no Spark at 30")
+	p.take_faction_gains()
+	p.add_faction_xp(f, Profile.FACTION_OVER_XP - 1)
+	check_eq(p.sparks, 0, "not yet")
+	p.add_faction_xp(f, 1)
+	check_eq(p.sparks, 1, "rank 31 pays a Spark")
+	check_eq(p.spark_news, 1, "and it gets its moment")
+	var g: Dictionary = p.take_faction_gains()[0]
+	check_eq([g.from_level, g.to_level, g.sparks], [30, 31, 1], "the ring shows it")
+	p.add_faction_xp(f, Profile.FACTION_OVER_XP * 2)
+	check_eq(p.sparks, 3, "one per level")
+	var back = Profile.from_dict(p.to_dict(), 0)
+	back.add_faction_xp(f, 1)
+	check_eq(back.sparks, 3, "never paid twice after a reload")
+	check_eq(p.faction_rank(f), Talents.MAX_POINTS, "talent points stay capped at 30")
+
+
+func test_spark_show_plays_once() -> void:
+	var shell = Shell.new()
+	shell.build()
+	runner.root.add_child(shell)
+	shell.profile.add_sparks(2)
+	shell._spark_check()
+	check_eq(shell.profile.spark_news, 0, "celebrated")
+	var shows: Array = shell._fx.get_children().filter(func(c): return c.get_script() == SparkShow)
+	check_eq(shows.size(), 1, "one Spark moment")
+	shell._spark_check()
+	check_eq(shell._fx.get_children().filter(func(c): return c.get_script() == SparkShow).size(), 1, "only once")
+	shell.queue_free()

@@ -342,7 +342,7 @@ static func grant(p, t: Dictionary) -> void:
 	for g in t.gear:
 		p.add_gear(g.type, g.tier)
 	p.add_rift_keys(int(t.get("keys", 0)))
-	p.sparks += int(t.get("sparks", 0))
+	p.add_sparks(int(t.get("sparks", 0)))
 	p.changed.emit()
 
 

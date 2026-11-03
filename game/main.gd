@@ -373,6 +373,10 @@ func _ready() -> void:
 							break
 				if who in Roster.ids():
 					preload("res://game/ui/ascend_show.gd").play(shell, who, clampi(int(url_params.get("level", "2")), 1, 5))
+			# ?sparkshow=1 plays the Ascension Spark moment (as if one just dropped).
+			if url_params.has("sparkshow"):
+				shell.profile.add_sparks(maxi(1, int(url_params.sparkshow)))
+				shell._spark_check.call_deferred()
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")

@@ -51,15 +51,18 @@ static func make(g: Dictionary, side := BIG, sfx = null, delay := .45, on_spend 
 	var of := Kit.label("", 22, Kit.MUTED)
 	var box: BoxContainer
 	var pill: Control
+	var spark := int(g.get("sparks", 0)) > 0 # Past 30 a level pays an Ascension Spark.
+	if spark:
+		on_spend = Callable()
 	if side >= BIG:
-		pill = _pill("+1 TALENT POINT", 20)
+		pill = _spark_pill(20) if spark else _pill("+1 TALENT POINT", 20)
 		var info := Kit.vbox(6, [
 			Kit.hbox(8, [Kit.label("+%d" % int(g.xp), 30, Kit.GOOD), Kit.label(name + " XP", 26)]),
 			of, pill])
 		info.alignment = BoxContainer.ALIGNMENT_CENTER
 		box = Kit.hbox(20, [ring, info], BoxContainer.ALIGNMENT_CENTER)
 	else:
-		pill = _pill("+1 POINT", 16)
+		pill = _spark_pill(16) if spark else _pill("+1 POINT", 16)
 		box = Kit.vbox(4, [ring, Kit.hbox(6, [Kit.label("+%d" % int(g.xp), 22, Kit.GOOD), Kit.label(name, 20)], BoxContainer.ALIGNMENT_CENTER), pill])
 		box.alignment = BoxContainer.ALIGNMENT_CENTER
 	if on_spend.is_valid():
@@ -89,6 +92,17 @@ static func spend_in(shell) -> Callable:
 		shell.go("faction", {"id": family})
 
 
+## "+1 SPARK" in Ascension purple with the Spark glyph.
+static func _spark_pill(font_size: int) -> Control:
+	var st := Kit.box(Color("b46cff"), Color("b46cff"), 999, 0, 2)
+	st.content_margin_left = 14
+	st.content_margin_right = 16
+	var row := Kit.hbox(4, [Kit.glyph("spark", font_size * 1.3, Color.WHITE), Kit.label("+1 SPARK", font_size, Color("1a0b33"))], BoxContainer.ALIGNMENT_CENTER)
+	var p := Kit.panel(row, st)
+	p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return p
+
+
 static func _pill(text: String, font_size: int) -> Control:
 	var st := Kit.box(GOLD, GOLD, 999, 0, 2)
 	st.content_margin_left = 16
@@ -98,38 +112,36 @@ static func _pill(text: String, font_size: int) -> Control:
 	return p
 
 
-## The shown rank: talent points from XP plus tier milestones, at most the cap.
-static func _shown(xp_rank: int, marks: int) -> int:
-	return mini(Talents.MAX_POINTS, xp_rank + marks)
-
-
-## How far into rank `rank` `xp` is, 0..1 (full at the cap).
-static func _frac(rank: int, xp: int) -> float:
-	return 1.0 if rank >= Talents.MAX_POINTS else clampf(xp / float(Profile.faction_xp_to_next(rank)), 0.0, 1.0)
+## XP to go from shown level `level` to the next; past 30 each level costs
+## Profile.FACTION_OVER_XP and pays an Ascension Spark.
+static func _need(level: int, marks: int) -> int:
+	return Profile.faction_level_need(level, level - marks)
 
 
 static func _play(box: Control, ring: _Ring, g: Dictionary, of: Label, pill: Control, sfx, delay: float) -> void:
-	var from_rank := int(g.from_rank)
-	var to_rank := int(g.to_rank)
 	var marks := int(g.get("marks", 0))
-	var ups := to_rank - from_rank
-	var capped := to_rank >= Talents.MAX_POINTS
-	var start := _frac(from_rank, int(g.from_xp))
-	# The whole gain as one number: whole ranks plus the fraction into the
+	# Levels (shown rank, going on past 30); older gains only had XP ranks.
+	var from_lv := int(g.get("from_level", mini(Talents.MAX_POINTS, int(g.from_rank) + marks)))
+	var to_lv := int(g.get("to_level", mini(Talents.MAX_POINTS, int(g.to_rank) + marks)))
+	var from_xp := int(g.get("from_lxp", g.from_xp))
+	var to_xp := int(g.get("to_lxp", g.to_xp))
+	var ups := to_lv - from_lv
+	var start := clampf(from_xp / float(_need(from_lv, marks)), 0.0, 1.0)
+	# The whole gain as one number: whole levels plus the fraction into the
 	# next, run by one eased tween (as XpBar does for levels).
-	var total: float = ups + (0.0 if capped else _frac(to_rank, int(g.to_xp)))
+	var total: float = ups + clampf(to_xp / float(_need(to_lv, marks)), 0.0, 1.0)
 	var show := func(p: float) -> void:
 		var whole := int(p + 0.0001)
 		while ring.reached < mini(whole, ups):
 			ring.reached += 1
 			_rank_up(box, ring, pill, sfx)
-		var rank := from_rank + mini(whole, ups)
-		ring.rank = _shown(rank, marks)
-		ring.fill = 1.0 if (capped and p >= total - 0.0001) else p - whole
-		var need := Profile.faction_xp_to_next(rank)
-		of.text = "MAX" if rank >= Talents.MAX_POINTS else "%d / %d" % [roundi(ring.fill * need), need]
+		var lv := from_lv + mini(whole, ups)
+		ring.rank = lv
+		ring.fill = p - whole
+		var need := _need(lv, marks)
+		of.text = "%d / %d" % [roundi(ring.fill * need), need]
 		ring.queue_redraw()
-	ring.rank = _shown(from_rank, marks)
+	ring.rank = from_lv
 	ring.fill = start
 	show.call(start)
 	if A11y.reduced_motion:

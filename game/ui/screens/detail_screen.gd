@@ -240,7 +240,7 @@ static func _ascension_sheet(shell, cid: String) -> void:
 	var have := Kit.amount("spark", "%d" % p.sparks, 26, Kit.FG, Glyph.PURPLE)
 	have.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(have)
-	v.add_child(Kit.label("Sparks drop from weekly Arena chests, daily Bounce Run chests and Spire boss floors.", 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+	v.add_child(Kit.label("Sparks drop from weekly Arena chests, daily Bounce Run chests, Spire boss floors and every family talent rank past 30.", 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 	var block: String = p.ascend_block(cid)
 	var btn: Button
 	if block == "Max":

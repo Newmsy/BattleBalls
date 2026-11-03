@@ -26,7 +26,7 @@ static func build(shell, _params: Dictionary) -> Control:
 static func info_text() -> Array:
 	return [
 		"Each faction has one talent tree, shared by all its critters.",
-		"Every fight gives Faction XP to the families of your critters that fought, more for a win, and Totem of Nine wins give extra to the day's faction. Each full ring is a point, and a faction's first critter at each of 2-5 stars gives one too. Max %d per tree." % Talents.MAX_POINTS,
+		"Every fight gives Faction XP to the families of your critters that fought, more for a win, and Totem of Nine wins give extra to the day's faction. Each full ring is a point, and a faction's first critter at each of 2-5 stars gives one too. Max %d per tree; every rank past that gives an Ascension Spark." % Talents.MAX_POINTS,
 		"A critter uses the rows its stars unlock: 1 star row 1, up to 4 stars row 4, and 5 stars the capstone. Resetting a tree is free, any time.",
 		"Rows open after %s points spent." % _and_list(Talents.ROW_GATE.slice(1).map(func(g): return str(g))),
 	]
@@ -44,14 +44,16 @@ static func _tile(shell, p, f: String) -> Control:
 	var rank: int = p.faction_rank(f)
 	var free: int = p.talent_points_free(f)
 	var next: Dictionary = p.faction_xp_rank(f)
+	var lv: Dictionary = p.faction_level(f)
 	var owned := 0
 	for id in Talents.MEMBERS[f]:
 		if p.owns(id):
 			owned += 1
 	var v := Kit.vbox(6, [
 		Kit.label(Talents.NAMES[f], 28, col, HORIZONTAL_ALIGNMENT_CENTER),
-		Kit.label("Rank %d" % rank, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-		Kit.bar(1.0 if rank >= Talents.MAX_POINTS else float(next.xp) / float(next.need), col, 12),
+		Kit.label("Rank %d" % maxi(rank, int(lv.level)), 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+		# Past 30 the bar fills toward the next level and its Ascension Spark.
+		Kit.bar(float(lv.xp) / float(lv.need) if rank >= Talents.MAX_POINTS else float(next.xp) / float(next.need), Color("b46cff") if rank >= Talents.MAX_POINTS else col, 12),
 		Kit.label("%d/%d critters" % [owned, Talents.MEMBERS[f].size()], 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER),
 	])
 	var badge := Kit.label("%d to spend" % free if free > 0 else " ", 18, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER)
