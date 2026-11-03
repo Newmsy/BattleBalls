@@ -16,6 +16,7 @@ const TryOn := preload("res://game/glow/try_on.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Economy := preload("res://meta/economy.gd")
 const Dyes := preload("res://game/glow/dyes.gd")
+const Seasons := preload("res://game/glow/seasons.gd")
 
 const GEM := Color("5ce1ff")
 const DAILY_SLOTS := 6
@@ -244,9 +245,9 @@ static func item_sheet(shell, id: String) -> void:
 static func _where_text(it: Dictionary) -> String:
 	match it.where:
 		"pass_free":
-			return "From the Glow Pass free track."
+			return "From the %s Glow Pass free track." % Seasons.SETS[it.season].name if Seasons.has(str(it.get("season", ""))) else "From the Glow Pass free track."
 		"pass_premium":
-			return "On this season's Glow Pass."
+			return "From the %s Glow Pass." % Seasons.SETS[it.season].name if Seasons.has(str(it.get("season", ""))) else "On this season's Glow Pass."
 		"founder":
 			return "Part of the Founder Pack."
 	return ""

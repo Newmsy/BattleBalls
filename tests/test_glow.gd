@@ -5,6 +5,7 @@ extends "res://tests/test_case.gd"
 
 const Catalog := preload("res://game/glow/catalog.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
+const Seasons := preload("res://game/glow/seasons.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
@@ -109,6 +110,51 @@ func test_cosmetics_stay_clear_of_the_team_ring_colours() -> void:
 			for team in ArenaView.TEAM_COLORS:
 				var d := Vector3(c.r - team.r, c.g - team.g, c.b - team.b).length()
 				check(d > 0.25, "%s colour %d is too close to a team ring" % [it.id, i])
+
+
+func test_every_season_set_is_complete_and_never_sold() -> void:
+	var seen := {}
+	for id in Seasons.SETS:
+		var ss: Dictionary = Seasons.SETS[id]
+		check(str(ss.name) != "" and Color.html_is_valid(str(ss.accent)), "%s has a name and accent" % id)
+		for track in ["premium", "free"]:
+			var levels: Array = Seasons.PREMIUM_LEVELS if track == "premium" else Seasons.FREE_LEVELS
+			check_eq(ss[track].size(), levels.size(), "%s %s fills every cosmetic level" % [id, track])
+			for l in levels:
+				var it := Catalog.item(Seasons.cosmetic(id, track, l))
+				check(not it.is_empty(), "%s %s L%d is a real cosmetic" % [id, track, l])
+				check_eq(it.get("where"), "pass_" + track, "%s %s L%d is a pass exclusive" % [id, track, l])
+				check_eq(it.get("season"), id, "%s %s L%d belongs to its season" % [id, track, l])
+				check(not seen.has(it.get("id")), "%s appears in one season only" % it.get("id"))
+				seen[it.get("id")] = true
+		var paid_gems := 0
+		var cos := 0
+		for l in range(1, GlowPass.LEVELS + 1):
+			var p := GlowPass.premium_reward(l, id)
+			if p.get("kind") == "gems":
+				paid_gems += int(p.n)
+			elif p.get("kind") == "cosmetic":
+				cos += 1
+			else:
+				check(p.is_empty(), "%s premium L%d is cosmetic or gems only" % [id, l])
+		check_eq(paid_gems, 400, "%s premium gems" % id)
+		check_eq(cos, Seasons.PREMIUM_LEVELS.size(), "%s premium looks" % id)
+	for it in Catalog.ITEMS:
+		if it.has("season"):
+			check(seen.has(it.id), "%s is on its season's pass" % it.id)
+
+
+func test_a_season_set_drives_the_pass_rewards() -> void:
+	var glow = _fresh()
+	LiveOps.use({"version": 1, "revision": 1, "fights": [], "seasons": [
+		{"name": "Season A", "start": "2026-10-12", "weeks": 7, "debut": "bomber", "pass": "s1_neon_nights"}]})
+	var t := _t("2026-10-14")
+	check_eq(glow.reward(1, "premium", t).get("id"), Seasons.cosmetic("s1_neon_nights", "premium", 1), "premium L1 is the season's headline")
+	check_eq(glow.reward(5, "free", t).get("id"), Seasons.cosmetic("s1_neon_nights", "free", 5), "free L5 is the season's look")
+	check_eq(glow.reward(10, "free", t).get("id"), "bomber", "debut copies stay on the free track")
+	check(LiveOps.validate({"version": 1, "revision": 1, "fights": [], "brackets": [], "seasons": [
+		{"name": "S", "start": "2026-10-12", "weeks": 7, "pass": "nope"}]}).size() > 0, "an unknown pass set is rejected")
+	check(LiveOps.validate(LiveOps._read(LiveOps.BUNDLED)).is_empty(), "the bundled schedule is valid")
 
 
 # --- Cosmetics never touch the sim ---------------------------------------------------

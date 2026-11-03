@@ -335,8 +335,8 @@ func add_xp(n: int, why: String, t := -1) -> int:
 
 func reward(level: int, track: String, t := -1) -> Dictionary:
 	if track == "free":
-		return GlowPass.free_reward(level, str(season(t).get("debut", "")))
-	return GlowPass.premium_reward(level)
+		return GlowPass.free_reward(level, str(season(t).get("debut", "")), str(season(t).get("pass", "")))
+	return GlowPass.premium_reward(level, str(season(t).get("pass", "")))
 
 
 func claimed(level: int, track: String, t := -1) -> bool:

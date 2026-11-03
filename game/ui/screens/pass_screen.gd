@@ -9,6 +9,7 @@ const A11y := preload("res://game/a11y.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
+const Seasons := preload("res://game/glow/seasons.gd")
 const CosmeticIcon := preload("res://game/glow/cosmetic_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const LiveOps := preload("res://game/liveops.gd")
@@ -22,6 +23,8 @@ const Quests := preload("res://meta/quests.gd")
 
 const GLOW := Color("ffd36b")
 const PREMIUM := Color("b366ff")
+## Premium levels shown as the season's showcase before you unlock it.
+const SHOWCASE := [1, 20, 50]
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -50,7 +53,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	lvl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	lvl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bar_text := ("Bonus box: %d / %d XP" if level >= GlowPass.LEVELS else "%d / %d XP to level %d") % ([prog.x, prog.y] if level >= GlowPass.LEVELS else [prog.x, prog.y, level + 1])
-	var info := Kit.vbox(6, [Kit.label("%s · week %d of %d" % [season.name, season.week, season.weeks], 24, GLOW),
+	var info := Kit.vbox(6, [Kit.label("%s · week %d of %d" % [season.name, season.week, season.weeks], 24, Seasons.accent(str(season.get("pass", "")), GLOW)),
 		Kit.bar(float(prog.x) / prog.y, GLOW, 22), Kit.label(bar_text, 22, Kit.MUTED),
 		Kit.label("Ends in " + LiveOps.countdown(t, season.ends), 20, Kit.MUTED)])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -78,12 +81,20 @@ static func build(shell, _params: Dictionary) -> Control:
 		var n_cos := 0
 		var n_gems := 0
 		for l in range(1, GlowPass.LEVELS + 1):
-			var r := GlowPass.premium_reward(l)
+			var r: Dictionary = glow.reward(l, "premium", t)
 			if r.get("kind") == "cosmetic":
 				n_cos += 1
 			elif r.get("kind") == "gems":
 				n_gems += int(r.n)
-		root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Premium track", PREMIUM),
+		# The season's headline looks, so you can see what Premium holds.
+		var show := Kit.hbox(10, [], BoxContainer.ALIGNMENT_CENTER)
+		for l in SHOWCASE:
+			var r: Dictionary = glow.reward(l, "premium", t)
+			if r.get("kind") == "cosmetic":
+				var ic := CosmeticIcon.make(r.id, shell.profile.lineup, 120)
+				ic.tooltip_text = Catalog.item(r.id).get("name", "")
+				show.add_child(ic)
+		root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Premium track", PREMIUM), show,
 			Kit.hbox(8, [Kit.label("%d looks + %s" % [n_cos, Kit.commas(n_gems)], 24), Kit.glyph("gem", 26, Kit.FG)], BoxContainer.ALIGNMENT_CENTER),
 			Kit.hbox(12, buttons)]), Kit.box(Color("1f1440"), Color(PREMIUM, .6), 36, 2, 24)))
 
