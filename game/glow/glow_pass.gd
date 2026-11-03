@@ -2,9 +2,10 @@
 ## premium track of cosmetics and gems (design/monetisation.md §4).
 ##
 ## Pass XP comes from play only (fights, daily quests, the weekly chest,
-## Trick Shot). Levels are never sold. Every power reward (orbs, coins,
-## energy, XP chips, gear, the debut critter's copies) is on the free track;
-## the premium track has none, so paying never makes anyone stronger.
+## Trick Shot). Levels are never sold. The free track carries every kind of
+## reward (orbs, coins, energy, XP chips, gear, the debut critter's copies).
+## The premium track adds cosmetics, gems, and Summon Eggs and energy on its
+## odd levels (Newms 2026-11-03: premium may carry eggs and energy).
 extends RefCounted
 
 const Seasons := preload("res://game/glow/seasons.gd")
@@ -69,7 +70,14 @@ static func free_reward(level: int, debut := "", pass_set := "") -> Dictionary:
 	return {"kind": "orbs", "n": 3}
 
 
-## The premium-track reward at `level`, or {} for none. Cosmetics and gems only.
+## Premium-track Summon Eggs and energy, on the odd levels without a look:
+## eggs and energy take turns.
+const PREMIUM_EGGS := 2
+const PREMIUM_ENERGY := 20
+
+
+## The premium-track reward at `level`, or {} for none: cosmetics, gems,
+## Summon Eggs and energy (never gear, copies or XP chips).
 static func premium_reward(level: int, pass_set := "") -> Dictionary:
 	if Seasons.has(pass_set):
 		if level in Seasons.PREMIUM_LEVELS:
@@ -78,7 +86,9 @@ static func premium_reward(level: int, pass_set := "") -> Dictionary:
 		return {"kind": "cosmetic", "id": PREMIUM_COSMETICS[level]}
 	if level % 2 == 0:
 		return {"kind": "gems", "n": 20}
-	return {}
+	if level % 4 == 3:
+		return {"kind": "orbs", "n": PREMIUM_EGGS}
+	return {"kind": "energy", "n": PREMIUM_ENERGY}
 
 
 static func level_for(xp: int) -> int:

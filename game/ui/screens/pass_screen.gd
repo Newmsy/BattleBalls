@@ -34,7 +34,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(shell.title_row("Glow Pass", {"back_mark": "pass_back", "info_mark": "pass_info", "info": [
 		"Pass XP comes from play: fights give 10-30 XP, solving the Daily Trick Shot gives %d, and each daily quest gives %d." % [GlowPass.TRICK_XP, Quests.PASS_XP],
 		"Finish %d daily quests in a week to open the weekly chest (+%s XP)." % [GlowPass.CHEST_AFTER, Kit.commas(GlowPass.CHEST_XP)],
-		"Premium adds looks and gems. Unlock any time to claim past levels.",
+		"Premium adds looks, gems, Summon Eggs and energy. Unlock any time to claim past levels.",
 		"Past level 50: a bonus box every %s XP (Coins and a few gems), up to %d." % [Kit.commas(GlowPass.BONUS_XP), GlowPass.BONUS_MAX],
 	]}))
 	var season: Dictionary = glow.season(t)
@@ -79,13 +79,13 @@ static func build(shell, _params: Dictionary) -> Control:
 		shell.mark("pass_gems", with_gems)
 		buttons.append(with_gems)
 		var n_cos := 0
-		var n_gems := 0
+		var totals := {"gems": 0, "orbs": 0, "energy": 0}
 		for l in range(1, GlowPass.LEVELS + 1):
 			var r: Dictionary = glow.reward(l, "premium", t)
 			if r.get("kind") == "cosmetic":
 				n_cos += 1
-			elif r.get("kind") == "gems":
-				n_gems += int(r.n)
+			elif totals.has(r.get("kind")):
+				totals[r.kind] += int(r.n)
 		# The season's headline looks, so you can see what Premium holds.
 		var show := Kit.hbox(10, [], BoxContainer.ALIGNMENT_CENTER)
 		for l in SHOWCASE:
@@ -95,7 +95,7 @@ static func build(shell, _params: Dictionary) -> Control:
 				ic.tooltip_text = Catalog.item(r.id).get("name", "")
 				show.add_child(ic)
 		root.add_child(Kit.panel(Kit.vbox(12, [Kit.caption("Premium track", PREMIUM), show,
-			Kit.hbox(8, [Kit.label("%d looks + %s" % [n_cos, Kit.commas(n_gems)], 24), Kit.glyph("gem", 26, Kit.FG)], BoxContainer.ALIGNMENT_CENTER),
+			Kit.hbox(16, [Kit.label("%d looks" % n_cos, 24), Kit.amount("gem", totals.gems, 24), Kit.amount("orb", totals.orbs, 24), Kit.amount("energy", totals.energy, 24)], BoxContainer.ALIGNMENT_CENTER),
 			Kit.hbox(12, buttons)]), Kit.box(Color("1f1440"), Color(PREMIUM, .6), 36, 2, 24)))
 
 	# Today's quests (each daily one pays pass XP) and the weekly chest.

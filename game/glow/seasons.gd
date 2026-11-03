@@ -5,8 +5,9 @@
 ##
 ## The plan for the next five seasons lives in the project's
 ## design/glow-pass-seasons.md. Rules (tests/test_glow.gd checks them):
-## - Premium levels hold cosmetics only; free levels hold the power rewards
-##   plus a few cosmetics. Every cosmetic here is a pass exclusive in
+## - PREMIUM_LEVELS hold the season's looks (the other premium levels give
+##   gems, Summon Eggs and energy: game/glow/glow_pass.gd); free levels hold
+##   the power rewards plus a few looks. Every cosmetic here is a pass exclusive in
 ##   game/glow/catalog.gd (where pass_premium / pass_free) and never sold.
 ## - Old pass cosmetics never come back as they were: each set is new.
 ## - Premium cosmetics sit on the levels in PREMIUM_LEVELS, so the premium

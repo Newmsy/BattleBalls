@@ -56,17 +56,21 @@ func test_money_only_buys_gems_cosmetics_and_the_pass() -> void:
 			check(not Catalog.item(id).is_empty(), "%s gives a real cosmetic" % p.id)
 
 
-func test_premium_track_has_no_power_and_free_track_has_it_all() -> void:
+func test_premium_track_has_eggs_and_energy_and_free_track_has_it_all() -> void:
 	var free_kinds := {}
 	var free_gems := 0
 	var paid_gems := 0
+	var paid_kinds := {}
 	var orbs := 0
 	for l in range(1, GlowPass.LEVELS + 1):
 		var p := GlowPass.premium_reward(l)
 		if not p.is_empty():
-			check(p.kind in ["cosmetic", "gems"], "premium L%d is a cosmetic or gems, not %s" % [l, p.kind])
+			check(p.kind in ["cosmetic", "gems", "orbs", "energy"], "premium L%d is a look, gems, eggs or energy, not %s" % [l, p.kind])
+			paid_kinds[p.kind] = true
 			if p.kind == "gems":
 				paid_gems += int(p.n)
+			elif p.kind in ["orbs", "energy"]:
+				pass
 			else:
 				check_eq(Catalog.item(p.id).where, "pass_premium", "premium L%d cosmetic is a pass exclusive" % l)
 		var f := GlowPass.free_reward(l, "bomber")
@@ -81,6 +85,7 @@ func test_premium_track_has_no_power_and_free_track_has_it_all() -> void:
 		check(free_kinds.has(k), "free track has %s" % k)
 	check_eq(free_gems, 100, "free track gems")
 	check_eq(paid_gems, 400, "premium track gems")
+	check(paid_kinds.has("orbs") and paid_kinds.has("energy"), "premium track has Summon Eggs and energy")
 	check(orbs >= 24 and orbs <= 36, "about 30 Summon Orbs on the free track (%d)" % orbs)
 	check(GlowPass.free_reward(10, "").kind == "orbs", "no debut critter: orbs instead of copies")
 
@@ -132,15 +137,24 @@ func test_every_season_set_is_complete_and_never_sold() -> void:
 				seen[it.get("id")] = true
 		var paid_gems := 0
 		var cos := 0
+		var eggs := 0
+		var energy := 0
 		for l in range(1, GlowPass.LEVELS + 1):
 			var p := GlowPass.premium_reward(l, id)
-			if p.get("kind") == "gems":
-				paid_gems += int(p.n)
-			elif p.get("kind") == "cosmetic":
-				cos += 1
-			else:
-				check(p.is_empty(), "%s premium L%d is cosmetic or gems only" % [id, l])
+			match p.get("kind"):
+				"gems":
+					paid_gems += int(p.n)
+				"cosmetic":
+					cos += 1
+				"orbs":
+					eggs += int(p.n)
+				"energy":
+					energy += int(p.n)
+				_:
+					check(false, "%s premium L%d is a look, gems, eggs or energy" % [id, l])
 		check_eq(paid_gems, 400, "%s premium gems" % id)
+		check_eq(eggs, 20, "%s premium Summon Eggs" % id)
+		check_eq(energy, 180, "%s premium energy" % id)
 		check_eq(cos, Seasons.PREMIUM_LEVELS.size(), "%s premium looks" % id)
 	for it in Catalog.ITEMS:
 		if it.has("season"):
