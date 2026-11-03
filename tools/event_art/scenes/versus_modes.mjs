@@ -6,6 +6,10 @@
 //             warming up while a random foe steps out of a "?" gate.
 //   vs_plunge  (720x200) Critter Plunge: a neon marble-run board, critters
 //             tumbling down through pegs and a bumper towards a checkered finish.
+//   vs_series  (720x240) Arena 3v3 Series: your trio lined up facing their
+//             trio across a pink-lit ring, a three-lamp series board above.
+//   vs_league  (720x240) Arena 2v2 League: two pairs squared up on a cyan
+//             doubles court, league pennants over the stands.
 //   vs_friends (360x280) Friends: a cosy box seat over the stands, two critters
 //             on a couch sharing a lightning gift (energy).
 import { blurs, rng, sparkle, stringLights } from "./_shop_charge_pad_glow_chest_parts.mjs";
@@ -116,6 +120,75 @@ const plunge = () => {
   ${fadeL(W, H, "pL", 0.85, 0.42)}`);
 };
 
+// The Arena's two modes share one stadium: `n` critters a side face off
+// across a glowing centre line, lit in the mode's colour.
+const MINE = [["#3fa9f5", "fin"], ["#ffc93c", "ears"], ["#5fd068", "leaf"]];
+const THEIRS = [["#ff6a3d", "horns"], ["#b07cff", "crystal"], ["#ff7ac8", "ears"]];
+const duel = (n, accent, seed, extra) => () => {
+  const W = 720, H = 240, R = rng(seed);
+  const floor = `<ellipse cx="470" cy="198" rx="300" ry="44" fill="${shade(accent, -0.82)}"/>
+  <ellipse cx="470" cy="198" rx="300" ry="44" fill="none" stroke="${accent}" stroke-width="3" opacity="0.75"/>
+  <ellipse cx="470" cy="198" rx="300" ry="44" fill="none" stroke="${accent}" stroke-width="12" opacity="0.18" filter="url(#bl6)"/>
+  <path d="M 470 156 L 470 240" stroke="${accent}" stroke-width="4" opacity="0.8"/>
+  <path d="M 470 156 L 470 240" stroke="${accent}" stroke-width="14" opacity="0.2" filter="url(#bl6)"/>`;
+  // At most 4 moving layers a painting: a trio moves as one group a side.
+  let mine = "", theirs = "", shadows = "";
+  const gap = n == 3 ? 52 : 64;
+  for (let i = 0; i < n; i++) {
+    const dx = i * gap, dy = (i % 2) * 14 - (n == 3 ? 4 : 0);
+    const [mc, ma] = MINE[i], [tc, ta] = THEIRS[i];
+    const r = n == 3 ? 24 : 28;
+    const mx = 400 - dx, tx = 540 + dx, y = 178 - dy;
+    shadows += shadow(mx, y + r * 0.95, r, 0.55) + shadow(tx, y + r * 0.95, r, 0.55);
+    const m = critter(mx, y, r, mc, { acc: ma, mood: "determined", look: [0.9, 0], rim: "#e9e2ff", rimSide: 1 });
+    const th = critter(tx, y, r, tc, { acc: ta, mood: "determined", look: [-0.9, 0], blushOn: false });
+    if (n == 2) {
+      mine += `<g data-layer="m${i}" data-move="idle 3 ${f(0.6 + i * 0.12)} ${f(i * 0.3)}">${m}</g>`;
+      theirs += `<g data-layer="t${i}" data-move="idle 3 ${f(0.55 + i * 0.1)} ${f(0.5 + i * 0.25)}">${th}</g>`;
+    } else {
+      mine += m;
+      theirs += th;
+    }
+  }
+  const fighters = shadows + (n == 2 ? mine + theirs
+    : `<g data-layer="m" data-move="idle 3 0.6 0">${mine}</g><g data-layer="t" data-move="idle 3 0.55 0.5">${theirs}</g>`);
+  let mist = "";
+  for (let k = 0; k < 10; k++) mist += `<ellipse cx="${f(200 + R() * 560)}" cy="${f(196 + R() * 40)}" rx="${f(50 + R() * 70)}" ry="${f(8 + R() * 10)}" fill="${accent}" opacity="${f(0.03 + R() * 0.05)}" filter="url(#bl8)"/>`;
+  return svg(W, H, `
+  <defs><linearGradient id="d${seed}S" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a0a26"/><stop offset="1" stop-color="${shade(accent, -0.72)}"/></linearGradient></defs>
+  <rect width="${W}" height="${H}" fill="url(#d${seed}S)"/>${sky(seed, 30, 0, 0, 720, 100)}
+  ${crowd(seed + 3, { y: 70, rows: 3, cx: 470, curve: 16, dark: -0.8, wave: 0.08 })}
+  <path d="M -10 136 Q 470 120 740 138 L 740 250 L -10 250 Z" fill="#120a2c"/>
+  <path d="M -10 136 Q 470 120 740 138" stroke="${accent}" stroke-width="2" fill="none" opacity="0.45"/>
+  ${extra()}
+  ${floor}${mist}${fighters}
+  ${sparkle(470, 150, 12, "#fff", 0.9)}${sparkle(486, 136, 5, accent, 0.9)}
+  ${motes(seed + 1, 12, 200, 90, 720, 230, ["#ffffff", accent, "#ffd36b"])}
+  ${fadeL(W, H, "d" + seed + "L", 0.8, 0.42)}`);
+};
+
+// A series board: three lamps over the ring, two lit.
+const seriesBoard = () => {
+  let lamps = "";
+  for (let k = 0; k < 3; k++) {
+    const x = 430 + k * 40, on = k < 2;
+    lamps += `<circle cx="${x}" cy="44" r="${on ? 16 : 0}" fill="${PINK}" opacity="0.35" filter="url(#bl8)"/><circle cx="${x}" cy="44" r="11" fill="${on ? PINK : "#2a1a48"}" stroke="#0a0620" stroke-width="3"/>`;
+  }
+  return `<rect x="400" y="22" width="140" height="44" rx="12" fill="#140a2c" stroke="${PINK}" stroke-width="2.5" opacity="0.95"/>${lamps}
+  <path d="M 420 66 L 414 110 M 520 66 L 526 110" stroke="#3a2a60" stroke-width="5"/>`;
+};
+
+// League pennants on a line over the stands.
+const pennants = () => {
+  const cols = [CYAN, "#ffffff", "#27c8ff", GOLD, CYAN, "#ffffff", "#27c8ff", GOLD, CYAN];
+  let out = `<path d="M 250 30 Q 470 62 720 30" stroke="#cfc8ff" stroke-width="2" fill="none" opacity="0.6"/>`;
+  cols.forEach((c, k) => {
+    const x = 270 + k * 52, y = 30 + Math.sin(((x - 250) / 470) * Math.PI) * 24;
+    out += `<path d="M ${x - 12} ${f(y)} L ${x + 12} ${f(y)} L ${x} ${f(y + 30)} Z" fill="${c}" opacity="0.85" stroke="#0a0620" stroke-width="1.5"/>`;
+  });
+  return out;
+};
+
 const friends = () => {
   const W = 360, H = 280;
   return svg(W, H, `
@@ -144,5 +217,6 @@ const friends = () => {
 export const dir = "game/ui/versus_art";
 export const size = [720, 240];
 export const sizes = { vs_quick: [720, 200], vs_plunge: [720, 200], vs_friends: [360, 280] };
-export const many = { vs_ghost: ghostArena, vs_quick: quick, vs_plunge: plunge, vs_friends: friends };
+export const many = { vs_ghost: ghostArena, vs_quick: quick, vs_plunge: plunge, vs_friends: friends,
+  vs_series: duel(3, PINK, 41, seriesBoard), vs_league: duel(2, "#27c8ff", 52, pennants) };
 export default ghostArena;

@@ -1,4 +1,4 @@
-## Ghost Arena fight: your trio against an opponent's saved trio as a relay
+## 3v3 Series fight (the Arena's relay mode): your trio against an opponent's saved trio as a relay
 ## (sim/relay.gd), on the shared relay fight screen (game/relay_fight.gd).
 ## Each of your balls is aimed by you when it first comes out; the ghost
 ## fires its saved shots. Opened from the Arena screen with an attack already
@@ -22,7 +22,7 @@ var _last_slots: Array = []
 
 
 func _ready() -> void:
-	store = ArenaStore.open()
+	store = ArenaStore.open(ArenaStore.SAVE_PATH, ArenaStore.SERIES)
 	bot = store.pending_bot()
 	if bot.is_empty():
 		_back_to_arena.call_deferred()
@@ -122,7 +122,7 @@ func _result_card(got: int) -> Control:
 	])
 	var rewards := Kit.hbox(28, [], BoxContainer.ALIGNMENT_CENTER)
 	if got > 0:
-		rewards.add_child(Kit.hbox(6, [Kit.glyph("token", 34, Color.WHITE), Kit.label("+%d" % got, 30)], BoxContainer.ALIGNMENT_CENTER))
+		rewards.add_child(Kit.hbox(6, [Kit.glyph("arena_coin", 34, Color.WHITE), Kit.label("+%d" % got, 30)], BoxContainer.ALIGNMENT_CENTER))
 	if result_delta > 0:
 		# Every trophy won is also a Trophy Room point.
 		rewards.add_child(Kit.hbox(6, [Kit.glyph("points", 30, Kit.WARN), Kit.label("+%d" % result_delta, 26, Kit.WARN)], BoxContainer.ALIGNMENT_CENTER))
@@ -137,7 +137,7 @@ func _result_card(got: int) -> Control:
 		# What it earned pops in once the league bar has had its moment.
 		ResultPopup.drop_in(rewards.get_children().map(func(c): return [c, null]), sfx, ResultPopup.SLIDE_SECS + .5)
 	body.append(_faction_rings())
-	var card := ResultPopup.content("Ghost Arena · vs " + str(bot.name), outcome, body, [back, next])
+	var card := ResultPopup.content("3v3 Series · vs " + str(bot.name), outcome, body, [back, next])
 	next.size_flags_stretch_ratio = 1.5
 	return card
 
@@ -151,11 +151,12 @@ static func _league_frac(trophies: int) -> float:
 	return float(trophies - lo) / float(Ladder.LEAGUES[idx + 1].min - lo)
 
 
-## Straight into another attack: a fresh seeded team near your new trophies,
-## with the same trio as this fight.
+## Straight into another attack, for another Arena Token: a fresh opponent
+## near your new trophies, with the same trio as this fight. Out of tokens,
+## it goes back to the Arena (which says when the next one comes).
 func _next_fight() -> void:
 	var offers: Array = store.offers()
-	if offers.is_empty() or _last_slots.is_empty():
+	if offers.is_empty() or _last_slots.is_empty() or not store.spend_token():
 		_back_to_arena()
 		return
 	var offer: Dictionary = offers[randi_range(0, offers.size() - 1)]

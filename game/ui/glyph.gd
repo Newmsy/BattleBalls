@@ -2,7 +2,7 @@
 ## coins, hammers, Summon Eggs, Glow Gems, the pass star, gear (slot icons shell, core,
 ## charm, plus one icon per gear type), locks, the back arrow, the info "i"
 ## the tab icons and the home mode icons (target, bounce, tower, vault, ghost,
-## friends, map, swords, sparkle), the Arena's trophy, shield and token, the
+## friends, map, swords, sparkle), the Arena's trophy, shield, token and coin, the
 ## stat heads (heart, speed), the Rift Key, the Spark Dye drop and the
 ## Ascension Spark. Tier stars turn purple with Ascension (tier_stars()).
 extends Control
@@ -383,9 +383,16 @@ func _draw() -> void:
 			Dot.poly(self, CritterArt.star_pts(c, s * .5, s * .3, 8), color)
 			Dot.circle(self, c, s * .17, Color("0b0a1f"))
 			Dot.circle(self, c, s * .09, color)
+		"arena_coin":
+			# Arena Coins (the Bazaar's money): a magenta coin with a diamond,
+			# so it never reads as the gold coin or the Arena Token.
+			Dot.circle(self, c, s * .48, Color("ff4fd8"))
+			Dot.circle(self, c, s * .37, Color("8a1f78"))
+			Dot.circle(self, c + Vector2(-s * .15, -s * .17), s * .07, Color(1, 1, 1, .35))
+			Dot.poly(self, PackedVector2Array([c + Vector2(0, -.22) * s, c + Vector2(.15, 0) * s, c + Vector2(0, .22) * s, c + Vector2(-.15, 0) * s]), Color("ffd1f5"))
 		"token":
-			# The Arena's Token: a magenta hexagon with crossed swords, so it never
-			# reads as the gold coin.
+			# An Arena Token (one per Arena fight): a magenta hexagon with
+			# crossed swords, so it never reads as a coin.
 			var hexa := PackedVector2Array()
 			for i in 6:
 				var a := i * TAU / 6

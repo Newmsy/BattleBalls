@@ -1,6 +1,6 @@
-## Arena Bazaar: spend Tokens, won only in the Ghost Arena, on a daily
+## Arena Bazaar: spend Arena Coins, won only in the Arena, on a daily
 ## stock of gear at your league's tier, a Summon Egg and an energy top-up.
-## Tokens are never sold for money. Reached from the Arena hub.
+## Arena Coins are never sold for money. Reached from the Arena hub.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -19,12 +19,12 @@ static func build(shell, params: Dictionary) -> Control:
 		store = ArenaStore.open()
 	var root := Kit.vbox(12)
 	var how := [
-		"Tokens come only from the Ghost Arena: about 15 for a win (more against a team above you), %d for a loss, %d for each raid your Defence holds." % [
+		"Arena Coins come only from the Arena: about 15 for a win (more against a team above you), %d for a loss, %d for each raid your Defence holds." % [
 			ArenaStore.COINS_LOSS, ArenaStore.COINS_DEFENCE],
 		"The stock changes every day and each item sells once. Gear gets better as your league climbs.",
 	]
 	root.add_child(shell.title_row("Bazaar", {"info_mark": "bazaar_info", "info": how}))
-	var bank := Kit.hbox(10, [Kit.amount("token", store.coins, 30), Kit.spacer(), Kit.label("New stock tomorrow", 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
+	var bank := Kit.hbox(10, [Kit.amount("arena_coin", store.coins, 30), Kit.spacer(), Kit.label("New stock tomorrow", 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.panel(bank, Kit.box(Color("17143e"), COIN, 28, 2, 16)))
 	var stock: Array = store.bazaar()
 	for i in stock.size():
@@ -41,7 +41,7 @@ static func _item(shell, store, item: Dictionary, i: int) -> Control:
 			sub = "%d-star %s gear" % [item.tier, Gear.PIECES[item.type].slot]
 	var sold: bool = store.is_bought(i)
 	var afford: bool = store.coins >= int(item.price)
-	var price := Kit.amount("token", item.price, 24, Kit.FG if afford else Kit.MUTED)
+	var price := Kit.amount("arena_coin", item.price, 24, Kit.FG if afford else Kit.MUTED)
 	var info := Kit.vbox(2, [Kit.label(str(item.name), 28)])
 	if sub != "":
 		info.add_child(Kit.label(sub, 20, Kit.MUTED))
@@ -54,7 +54,7 @@ static func _item(shell, store, item: Dictionary, i: int) -> Control:
 		elif sold:
 			shell.toast("Sold out until tomorrow.")
 		else:
-			shell.toast("Need %d more Tokens" % (int(item.price) - store.coins)), Kit.LINE if sold else Color(COIN, .7), Kit.PANEL, 24, 12)
+			shell.toast("Need %d more Arena Coins" % (int(item.price) - store.coins)), Kit.LINE if sold else Color(COIN, .7), Kit.PANEL, 24, 12)
 	if sold:
 		btn.modulate = Color(1, 1, 1, .5)
 	shell.mark("bazaar_item_%d" % i, btn)

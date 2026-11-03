@@ -365,7 +365,7 @@ static func reward_icon(shell, r: Dictionary, side: float) -> Control:
 		"rift_key":
 			g = Glyph.make("key", side * .7, Color("5ce1ff"))
 		"tokens":
-			g = Glyph.make("token", side * .7)
+			g = Glyph.make("arena_coin", side * .7)
 		"dye":
 			g = Glyph.make("dye", side * .7, Color("ff6fd0"))
 		"spark":
