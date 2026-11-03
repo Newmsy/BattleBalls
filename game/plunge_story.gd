@@ -63,7 +63,7 @@ func watch(sim) -> Array:
 				elif by == you:
 					knocked.append(e.racer)
 					out.append({"text": "KO by you!", "big": true})
-	if sim.racing(you) and sim.time() >= Plunge.GATE_SECONDS:
+	if sim.racing(you) and sim.out_of_gate(you):
 		var order: Array = sim.standings()
 		var now := order.find(you) + 1
 		if now != _place:

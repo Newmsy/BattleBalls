@@ -14,10 +14,11 @@ const T0 := 1_800_000_000
 const FIELD := ["pip", "honey", "frost", "laser"]
 
 
-## A race with racer 0 boosted by `boost`, past the gate.
+## A race with racer 0 boosted by `boost`, past the gate (every gate open:
+## some open late, sim/plunge_gate_delays.gd).
 func _race(boost: Dictionary, course := "rocks", seed_value := 3) -> Plunge:
 	var p := Plunge.new({"seed": seed_value, "racers": FIELD, "course": course, "boosts": [boost]})
-	for k in 70:
+	while p.tick < p.release.max() + 10:
 		p.step()
 	return p
 
