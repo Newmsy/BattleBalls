@@ -3,6 +3,7 @@
 ## ladder and the flavour text sit behind the "i"; Pick (your fighter) and Fuse are pinned.
 extends RefCounted
 
+const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 const Talents := preload("res://sim/talents.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -54,7 +55,10 @@ static func build(shell, params: Dictionary) -> Control:
 		fchip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		shell.mark("detail_faction", fchip)
 		side.add_child(fchip)
-	if is_best and Boons.for_critter(c.id) != "":
+	# Below 5 stars Ascension is a small chip; at 5 stars it's the big
+	# pinned Ascend button (_ascend_button).
+	var can_ascend: bool = is_best and Boons.for_critter(c.id) != ""
+	if can_ascend and b.tier < Roster.MAX_TIER:
 		side.add_child(_ascension_chip(shell, c, b))
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -172,8 +176,26 @@ static func build(shell, params: Dictionary) -> Control:
 	var fuse := Kit.button("Fuse T%d" % ready.get("tier", b.tier), func(): shell.open_tab("fuse", {"id": c.id, "tier": ready.tier}), "go", 26, 90)
 	fuse.disabled = ready.is_empty()
 	shell.mark("fuse_this", fuse)
-	shell.pin(Kit.hbox(16, [lineup, fuse]))
+	var pinned: Array = [lineup, fuse]
+	if can_ascend and b.tier >= Roster.MAX_TIER:
+		pinned = [lineup, _ascend_button(shell, c.id)] if fuse.disabled else [lineup, fuse, _ascend_button(shell, c.id)]
+	shell.pin(Kit.hbox(16, pinned))
 	return root
+
+
+## The big purple Ascend button pinned at the bottom of a 5-star critter's
+## page (Newms 2026-11-03), with a red dot when you have the Sparks. It opens
+## the Ascension sheet.
+static func _ascend_button(shell, cid: String) -> Button:
+	var p = shell.profile
+	var lv: int = p.ascend_level(cid)
+	var block: String = p.ascend_block(cid)
+	var words := "Ascended" if block == "Max" else ("Ascend A%d" % (lv + 1))
+	var btn := Kit.button(words, _ascension_sheet.bind(shell, cid), "purple" if block != "Max" else "ghost", 26, 90)
+	if block == "":
+		btn.add_child(PlayScreen.red_dot())
+	shell.mark("detail_ascend", btn)
+	return btn
 
 
 ## Ascension (Newms 2026-11-02): a chip under the hero ("A2" in purple, or
@@ -209,7 +231,7 @@ static func _ascension_sheet(shell, cid: String) -> void:
 	var have := Kit.amount("spark", "%d" % p.sparks, 26, Kit.FG, Glyph.PURPLE)
 	have.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_child(have)
-	v.add_child(Kit.label("Sparks drop from weekly Arena chests and daily Bounce Run chests.", 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+	v.add_child(Kit.label("Sparks drop from weekly Arena chests, daily Bounce Run chests and Spire boss floors.", 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
 	var block: String = p.ascend_block(cid)
 	var btn: Button
 	if block == "Max":

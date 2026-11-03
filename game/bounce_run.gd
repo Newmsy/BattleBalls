@@ -1397,8 +1397,26 @@ func _show_rules() -> void:
 		"Play as many runs as you like. Your best floor each day goes on the leaderboard and opens a chest the next day: floors %s, or beat the Champion." % ", ".join(BounceChest.TIERS.slice(0, -1).map(func(t): return str(t.floor))),
 	]:
 		lines.append(Kit.label(t, 23, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
-	_overlay_card(lines, Kit.box(Kit.PANEL, Kit.ACCENT, 32, 3, 28), "br_rules_close")
+	var chests := Kit.button("Chests", _show_chests, "ghost", 26, 70)
+	_mark("br_chests", chests)
+	lines.append(chests)
+	var card := _overlay_card(lines, Kit.box(Kit.PANEL, Kit.ACCENT, 32, 3, 28), "br_rules_close")
+	chests.pressed.connect(func(): card.get_parent().get_parent().queue_free())
 	_report.call_deferred("br_rules")
+
+
+## Every daily chest and its drop table (ranges, chances, the Spark chance).
+func _show_chests() -> void:
+	var Chests = load("res://game/ui/screens/arena_chests_screen.gd")
+	var lines: Array = [Kit.label("Daily chests", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]
+	for i in range(BounceChest.TIERS.size() - 1, -1, -1):
+		var t: Dictionary = BounceChest.TIERS[i]
+		var head := Kit.label("%s · floor %d" % [t.name, int(t.floor)], 22, t.color)
+		var words := Kit.vbox(2, [head, Chests.drops_row(null, BounceChest.odds(i), 30.0)])
+		words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lines.append(Kit.hbox(10, [ChestArt.make(str(t.id), 56.0), words], BoxContainer.ALIGNMENT_CENTER))
+	_overlay_card(lines, Kit.box(Kit.PANEL, Kit.ACCENT, 32, 3, 24), "br_chests_close")
+	_report.call_deferred("br_chests")
 
 
 ## A card over the page on a dimmed backdrop; tapping outside or Close shuts it.

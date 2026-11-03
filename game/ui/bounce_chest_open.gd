@@ -165,6 +165,8 @@ func _card(r: Dictionary) -> Control:
 	var bits: Array = [icon]
 	if r.kind != "gear":
 		bits.append(Kit.label(Kit.commas(int(r.get("n", 1))), 28, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))
+	elif int(r.get("n", 1)) > 1:
+		bits.append(Kit.label("x%d" % int(r.n), 28, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))
 	var v := Kit.vbox(2, bits)
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	var p := Kit.panel(v, Kit.box(Color("1d1648"), Color(tier.color, .6), 24, 2, 8))
