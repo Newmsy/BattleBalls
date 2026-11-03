@@ -103,6 +103,8 @@ func test_menu_music_resumes() -> void:
 	Sfx._menu_left_at = 100.0
 	check_eq(Sfx._menu_resume(100.5, 160.0), 30.5, "a scene change keeps counting")
 	check_eq(Sfx._menu_resume(250.0, 160.0), 20.0, "and wraps round the loop")
+	check_eq(Sfx._menu_resume(250.0, 160.0, 100.0), 120.0, "past the end it wraps to the loop start, not the intro")
+	check_eq(Sfx._menu_resume(150.0, 160.0, 100.0), 80.0, "still in the first play-through it just counts on")
 	var sfx := _sfx()
 	sfx._save_menu_pos(false) # A fight opened right after the scene change.
 	check_eq(Sfx._menu_left_at, -1.0, "a fight stops the clock")

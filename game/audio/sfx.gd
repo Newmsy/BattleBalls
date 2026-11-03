@@ -296,7 +296,7 @@ const ZING_PITCH := {"nature": 0.85, "sea": 0.8, "tech": 1.2, "sweet": 1.3, "fro
 const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
-## Music per track: [file, volume dB, loops]. Menu: "Nocturnal Menu"; fight and
+## Music per track: [file, volume dB, loops]. Menu: "Velvet Horizon"; fight and
 ## overtime: "Neon Pulse" at 120 and 140 BPM (both FreeMusic AI, looped by
 ## tools/music/loop_track.py); victory: remixed from "Crypto" by Kevin MacLeod
 ## (CC-BY 4.0, credited in CREDITS.md and Settings) by tools/music/remix_crypto.py.
@@ -311,6 +311,9 @@ const MUSIC := {
 	"victory": ["music_victory", -9.0, true],
 }
 const VICTORY_LOOP_FROM := 3.0 / 1.1 ## Crypto's 3 s bar, sped up 1.1x.
+## The menu file plays its intro once, then loops from here to its end
+## (loop_track.py --intro prints it as loop_from).
+const MENU_LOOP_FROM := 78.2
 ## Seconds a track change fades over, so music never cuts with a click.
 const MUSIC_FADE := 0.3
 ## After a win, how long the victory tune waits for a results popup to hold
@@ -972,10 +975,14 @@ func _save_menu_pos(running: bool) -> void:
 		_menu_left_at = -1.0
 
 
-## Where the menu loop picks up, in seconds into a loop `length` long.
-static func _menu_resume(now: float, length: float) -> float:
+## Where the menu loop picks up, in seconds into a file `length` long whose
+## loop runs from `loop_from` to its end (the part before plays once).
+static func _menu_resume(now: float, length: float, loop_from := 0.0) -> float:
 	var at := _menu_pos + (now - _menu_left_at if _menu_left_at >= 0.0 else 0.0)
-	return fmod(at, length) if length > 0.0 else 0.0
+	if length <= 0.0 or at < length:
+		return maxf(at, 0.0)
+	var span := length - loop_from
+	return loop_from + fmod(at - loop_from, span) if span > 0.0 else 0.0
 
 
 func _start_music(track: String) -> void:
@@ -984,7 +991,7 @@ func _start_music(track: String) -> void:
 	if stream == null or not is_inside_tree():
 		return
 	stream.loop = info[2]
-	stream.loop_offset = VICTORY_LOOP_FROM if track == "victory" else 0.0
+	stream.loop_offset = VICTORY_LOOP_FROM if track == "victory" else (MENU_LOOP_FROM if track == "menu" else 0.0)
 	if _fade:
 		_fade.kill()
 	_music_out.stop()
@@ -997,7 +1004,7 @@ func _start_music(track: String) -> void:
 		_fade.tween_callback(old.stop)
 	_music.stream = stream
 	_music.volume_db = info[1] + MASTER_DB
-	_music.play(_menu_resume(Time.get_ticks_msec() / 1000.0, stream.get_length()) if track == "menu" else 0.0)
+	_music.play(_menu_resume(Time.get_ticks_msec() / 1000.0, stream.get_length(), MENU_LOOP_FROM) if track == "menu" else 0.0)
 
 
 func _stop_music() -> void:
