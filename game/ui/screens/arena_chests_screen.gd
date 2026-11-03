@@ -12,6 +12,8 @@ const ArenaChest := preload("res://game/pvp/arena_chest.gd")
 const ChestArt := preload("res://game/ui/chest_art.gd")
 const BounceChestOpen := preload("res://game/ui/bounce_chest_open.gd")
 const PassScreen := preload("res://game/ui/screens/pass_screen.gd")
+const ChestDrops := preload("res://meta/chest_drops.gd")
+const Gear := preload("res://sim/gear.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -65,19 +67,35 @@ static func _chest_row(shell, league: int, mine: bool) -> Control:
 	var lg: Dictionary = Ladder.LEAGUES[league]
 	var look := ArenaChest.look(league)
 	var head := Kit.hbox(8, [Kit.label(lg.name, 24, lg.color), Kit.amount("trophy", "%s+" % Kit.commas(int(lg.min)), 18, Kit.MUTED, Glyph.GOLD)], BoxContainer.ALIGNMENT_BEGIN)
-	var stuff := Kit.hbox(10, [], BoxContainer.ALIGNMENT_BEGIN)
-	for r in ArenaChest.rewards(league, ArenaChest.this_week()):
-		var bits: Array = [PassScreen.reward_icon(shell, r, 40.0)]
-		if r.kind != "gear":
-			bits.append(Kit.label(Kit.commas(int(r.get("n", 1))), 20, Kit.FG))
-		stuff.add_child(Kit.hbox(2, bits, BoxContainer.ALIGNMENT_CENTER))
-	var words := Kit.vbox(2, [head, stuff])
+	var words := Kit.vbox(2, [head, drops_row(shell, ArenaChest.odds(league), 36.0)])
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(12, [_art(look, 64.0), words], BoxContainer.ALIGNMENT_CENTER)
 	var st := Kit.box(Color(lg.color, .14) if mine else Kit.PANEL, Color(lg.color, .9) if mine else Kit.LINE, 22, 3 if mine else 1, 8)
 	var p := Kit.panel(row, st)
 	shell.mark("chest_%s" % lg.id, p)
 	return p
+
+
+## A chest's drop table as icons with their ranges and chances ("200-400",
+## "50%"); the Ascension Spark chance sits last, in purple. Shared with the
+## Bounce Run rules.
+static func drops_row(shell, table: Array, side: float) -> HFlowContainer:
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 10)
+	flow.add_theme_constant_override("v_separation", 2)
+	flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	flow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for e in table:
+		var r: Dictionary = e.duplicate()
+		if r.kind == "gear" and not r.has("type"):
+			r.type = "iron_shell"
+		var bits: Array = [PassScreen.reward_icon(shell, r, side)]
+		var words := ChestDrops.text(e, Kit.commas)
+		if r.kind == "gear":
+			words = ("%d-star" % int(r.tier)) + ("" if int(e.get("n", 1)) == 1 else " x%d" % int(e.n))
+		bits.append(Kit.label(words, roundi(side * .5), Glyph.PURPLE if r.kind == "spark" else Kit.FG))
+		flow.add_child(Kit.hbox(2, bits, BoxContainer.ALIGNMENT_CENTER))
+	return flow
 
 
 static func _art(look: Dictionary, height: float) -> Control:

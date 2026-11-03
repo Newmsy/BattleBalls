@@ -3,6 +3,8 @@
 extends "res://tests/test_case.gd"
 
 const BounceChest := preload("res://meta/bounce_chest.gd")
+const ChestDrops := preload("res://meta/chest_drops.gd")
+const Kit := preload("res://game/ui/ui_kit.gd")
 const BounceRun := preload("res://sim/bounce_run.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const Profile := preload("res://meta/profile.gd")
@@ -24,18 +26,39 @@ func test_floors_pick_the_chest() -> void:
 
 
 func test_better_chests_hold_more() -> void:
-	var worth := func(rs: Array) -> int:
-		var w := 0
-		for r in rs:
-			w += {"coins": 1, "orbs": 100, "hammers": 60, "xp_chip": 60, "gear": 200}[r.kind] * int(r.get("n", 1))
+	# Ranges and chances (Newms 2026-11-03): compare what each chest holds on average.
+	var worth := func(table: Array) -> float:
+		var w := 0.0
+		for e in table:
+			w += {"coins": 1, "orbs": 100, "hammers": 60, "xp_chip": 60, "gear": 200, "spark": 0}[e.kind] * ChestDrops.mean(e)
 		return w
 	for i in range(1, BounceChest.TIERS.size()):
-		check(worth.call(BounceChest.rewards(i, 9)) > worth.call(BounceChest.rewards(i - 1, 9)), "%s beats %s" % [BounceChest.TIERS[i].id, BounceChest.TIERS[i - 1].id])
+		check(worth.call(BounceChest.odds(i)) > worth.call(BounceChest.odds(i - 1)), "%s beats %s" % [BounceChest.TIERS[i].id, BounceChest.TIERS[i - 1].id])
 	var champ := BounceChest.rewards(BounceChest.TIERS.size() - 1, 9)
 	var gear: Array = champ.filter(func(r): return r.kind == "gear")
 	check_eq(gear.size(), 1, "only the Champion Chest has gear")
 	check(Gear.PIECES.has(gear[0].type), "a real piece")
 	check_eq(BounceChest.rewards(4, 9), champ, "the same piece all day")
+	for i in range(0, BounceChest.TIERS.size() - 1):
+		check(BounceChest.odds(i).all(func(e): return e.kind != "gear"), "no gear below the Champion")
+
+
+func test_chest_drops_roll_ranges_with_the_same_average() -> void:
+	var table := [{"kind": "coins", "lo": 300, "hi": 600, "step": 10}, {"kind": "orbs", "n": 2, "pct": 50}, {"kind": "hammers", "n": 1}]
+	var sum := {"coins": 0, "orbs": 0, "hammers": 0}
+	var coin_seen := {}
+	for d in 4000:
+		for r in ChestDrops.roll(table, d * 9173 + 29):
+			sum[r.kind] += int(r.n)
+			if r.kind == "coins":
+				check(int(r.n) >= 300 and int(r.n) <= 600 and int(r.n) % 10 == 0, "coins in range, in tens")
+				coin_seen[int(r.n)] = true
+	check(absf(sum.coins / 4000.0 - 450.0) < 12.0, "coins average 450: %.1f" % (sum.coins / 4000.0))
+	check(absf(sum.orbs / 4000.0 - 1.0) < 0.08, "eggs average 1: %.2f" % (sum.orbs / 4000.0))
+	check_eq(sum.hammers, 4000, "fixed items always drop")
+	check(coin_seen.size() > 25, "coins really vary")
+	check_eq(ChestDrops.text({"kind": "coins", "lo": 300, "hi": 600}, Kit.commas), "300-600", "range text")
+	check_eq(ChestDrops.text({"kind": "spark", "n": 1, "pct": 5}, Kit.commas), "5%", "chance text")
 
 
 func test_yesterdays_best_opens_once() -> void:
@@ -51,9 +74,14 @@ func test_yesterdays_best_opens_once() -> void:
 	var orbs: int = p.orbs
 	var c := BounceChest.pending(best, p.bounce_chest, 12)
 	var got := BounceChest.open(p, c)
-	check_eq(got.size(), 3, "Gold: coins, an egg and a hammer")
-	check_eq(p.coins, coins + 250, "coins paid")
-	check_eq(p.orbs, orbs + 1, "egg paid")
+	check_eq(got, BounceChest.rewards(2, 11), "Gold: what the chest showed")
+	var paid := {"coins": 0, "orbs": 0}
+	for r in got:
+		if paid.has(r.kind):
+			paid[r.kind] += int(r.n)
+	check(paid.coins >= 150 and paid.coins <= 350, "Gold coins 150-350: %d" % paid.coins)
+	check_eq(p.coins, coins + paid.coins, "coins paid")
+	check_eq(p.orbs, orbs + paid.orbs, "eggs paid")
 	check_eq(p.bounce_chest, 11, "marked opened")
 	check_eq(BounceChest.open(p, c), [], "never twice")
 	check_eq(Profile.from_dict(p.to_dict(), 0).bounce_chest, 11, "saved with the profile")
@@ -76,11 +104,15 @@ func test_opening_screen_collects() -> void:
 	var coins: int = p.coins
 	var view = load("res://game/ui/bounce_chest_open.gd").show_on(shell, {"day": 50, "floor": 25, "tier": 4})
 	check(shell.overlay_open(), "opens over the shell")
-	check_eq(view._cards.size(), 5, "a card for each reward")
+	var due := BounceChest.rewards(4, 50)
+	check_eq(view._cards.size(), due.size(), "a card for each reward")
+	var due_coins := 0
+	for r in due:
+		due_coins += int(r.n) if r.kind == "coins" else 0
 	view._open_now()
 	check(view._collect.visible, "Collect shows once it's open")
 	view._on_collect()
-	check_eq(p.coins, coins + 450, "collected")
+	check_eq(p.coins, coins + due_coins, "collected")
 	check_eq(p.bounce_chest, 50, "and marked opened")
 	check(not shell.overlay_open(), "and closed")
 	shell.free()
@@ -137,7 +169,7 @@ func test_cards_fly_out_and_a_tap_lands_them() -> void:
 	view._burst()
 	check_eq(view.phase, view.Phase.SPILLING, "a tap mid-shake bursts it open")
 	view._spill()
-	check_eq(view._flyers.size(), 5, "every card leaves the chest")
+	check_eq(view._flyers.size(), BounceChest.rewards(4, 51).size(), "every card leaves the chest")
 	check(not view._collect.visible, "Collect waits for the cards")
 	check(view._cards.all(func(c): return c.modulate.a == 0.0), "no card in its slot yet")
 	view._land_all()
