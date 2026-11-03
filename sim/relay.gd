@@ -74,7 +74,7 @@ func leg_config() -> Dictionary:
 	}
 	if config.has("arena"): # Every leg is on the same map.
 		leg.arena = config.arena
-	for key in ["powers", "sizes", "tiers", "talents"]:
+	for key in ["powers", "sizes", "tiers", "talents", "ascend"]:
 		if config.has(key):
 			leg[key] = [config[key][0][slot[0]], config[key][1][slot[1]]]
 	if config.has("arena"):

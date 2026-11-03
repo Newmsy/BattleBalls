@@ -5,7 +5,8 @@
 ## the slots, the seed and the launch angles alone.
 ##
 ## Slot: {critter, tier, level, gear: [{slot, tier, stats: {line: value}}],
-##        talents: {node: rank}} (talents optional: the faction tree, sim/talents.gd).
+##        talents: {node: rank}, ascend: 1-5} (talents optional: the faction tree,
+##        sim/talents.gd; ascend optional: Ascension, only at T5, sim/boons.gd).
 ## Reading a slot clamps everything to the game's rules (tier 1-5, level up to
 ## the tier's cap, one piece per gear slot, a Charm only from 3 stars, no line
 ## above a 5-star piece's), so a tampered lineup can't field a T9 or stack ten
@@ -19,9 +20,12 @@ const Power := preload("res://sim/power.gd")
 const Gear := preload("res://sim/gear.gd")
 const Talents := preload("res://sim/talents.gd")
 const ArenaBoosts := preload("res://sim/arena_boosts.gd")
+const Boons := preload("res://sim/boons.gd")
 
 const MAX_TIER := 5
 const GEAR_SLOTS := Gear.SLOTS
+## Power Rating per Ascension level (about what half a critter boon is worth).
+const ASCEND_POWER := 0.08
 
 
 ## Highest level a critter can reach at `tier` (game/ui/roster.gd agrees).
@@ -29,8 +33,15 @@ static func level_cap(tier: int) -> int:
 	return tier * 10
 
 
-static func make(critter: String, tier := 1, level := 1, gear: Array = [], talents := {}) -> Dictionary:
-	return clean({"critter": critter, "tier": tier, "level": level, "gear": gear, "talents": talents})
+static func make(critter: String, tier := 1, level := 1, gear: Array = [], talents := {}, ascend := 0) -> Dictionary:
+	return clean({"critter": critter, "tier": tier, "level": level, "gear": gear, "talents": talents, "ascend": ascend})
+
+
+## A slot's Ascension level: 0 unless it's T5 and its critter has a boon.
+static func ascend_of(slot: Dictionary) -> int:
+	if clampi(int(slot.get("tier", 1)), 1, MAX_TIER) < MAX_TIER or Boons.for_critter(str(slot.get("critter", ""))) == "":
+		return 0
+	return clampi(int(slot.get("ascend", 0)), 0, Boons.ASCEND_MAX)
 
 
 ## A slot with every value inside the rules.
@@ -61,6 +72,9 @@ static func clean(slot: Dictionary) -> Dictionary:
 	var talents := Talents.clean(Talents.faction_of(critter), slot.get("talents", {}), tier)
 	if not talents.is_empty():
 		out.talents = talents
+	var asc := ascend_of(out.merged({"ascend": slot.get("ascend", 0)}))
+	if asc > 0:
+		out.ascend = asc
 	return out
 
 
@@ -86,7 +100,7 @@ static func power(slot: Dictionary) -> float:
 ## scale.
 static func rating(slot: Dictionary) -> int:
 	var s := clean(slot)
-	return Power.rating(power(s) * (1.0 + Gear.gear_power(s.gear)) * (1.0 + ArenaBoosts.power(s.get("boost", {}))) * (1.0 + talent_power(s)))
+	return Power.rating(power(s) * (1.0 + Gear.gear_power(s.gear)) * (1.0 + ArenaBoosts.power(s.get("boost", {}))) * (1.0 + talent_power(s)) * (1.0 + ASCEND_POWER * int(s.get("ascend", 0))))
 
 
 ## What a slot's active talents add to its Power Rating, as a fraction.
@@ -110,9 +124,9 @@ static func bond(slots: Array, i: int) -> float:
 
 
 ## One side of a relay (sim/relay.gd) or the per-ball MatchSim keys, from its
-## slots: {sides, tiers, powers, gear, talents}.
+## slots: {sides, tiers, powers, gear, talents, ascend}.
 static func side(slots: Array) -> Dictionary:
-	var out := {"sides": [], "tiers": [], "powers": [], "gear": [], "talents": []}
+	var out := {"sides": [], "tiers": [], "powers": [], "gear": [], "talents": [], "ascend": []}
 	var cleaned: Array = slots.map(func(raw): return clean(raw))
 	for i in cleaned.size():
 		var s: Dictionary = cleaned[i]
@@ -121,20 +135,22 @@ static func side(slots: Array) -> Dictionary:
 		out.powers.append(power(s) * bond(cleaned, i))
 		out.gear.append(kit(s))
 		out.talents.append(s.get("talents", {}))
+		out.ascend.append(int(s.get("ascend", 0)))
 	return out
 
 
 ## Adds one fighter's setup to a MatchSim config as player `i` (0 or 1).
 static func apply(cfg: Dictionary, i: int, slot: Dictionary) -> Dictionary:
 	var s := clean(slot)
-	for key in ["tiers", "powers", "gear", "talents"]:
+	for key in ["tiers", "powers", "gear", "talents", "ascend"]:
 		if not cfg.has(key):
-			cfg[key] = [1, 1] if key == "tiers" else ([1.0, 1.0] if key == "powers" else [null, null])
+			cfg[key] = [1, 1] if key == "tiers" else ([1.0, 1.0] if key == "powers" else ([0, 0] if key == "ascend" else [null, null]))
 		while cfg[key].size() <= i: # A 2v2's mates (i = 2, 3).
-			cfg[key].append(1 if key == "tiers" else (1.0 if key == "powers" else null))
+			cfg[key].append(1 if key == "tiers" else (1.0 if key == "powers" else (0 if key == "ascend" else null)))
 	cfg["p%d" % (i + 1)] = s.critter
 	cfg.tiers[i] = s.tier
 	cfg.powers[i] = power(s)
 	cfg.gear[i] = kit(s)
 	cfg.talents[i] = s.get("talents", {})
+	cfg.ascend[i] = int(s.get("ascend", 0))
 	return cfg

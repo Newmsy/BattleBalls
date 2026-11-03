@@ -45,6 +45,7 @@ func _ready() -> void:
 		"powers": [mine.powers, theirs.powers],
 		"gear": [mine.gear, theirs.gear],
 		"talents": [mine.talents, theirs.talents],
+		"ascend": [mine.ascend, theirs.ascend],
 		"tie_to": 0, # Both out together goes to the attacker: you.
 	}), ["YOU", "GHOST"])
 

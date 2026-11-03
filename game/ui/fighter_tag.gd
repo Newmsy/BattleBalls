@@ -10,7 +10,9 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const Glyph := preload("res://game/ui/glyph.gd")
 const ART_SHRINK := .7
+const SHORT_SIDE := 80.0
 
 
 ## Power Rating of a lineup slot ({critter, tier, level, gear}): the number
@@ -32,20 +34,27 @@ static func make(critter: String, tier: int, power: int, side: float, power_colo
 ## A lineup slot as make() shows it.
 static func of_slot(slot: Dictionary, side: float, power_color := Kit.FG) -> Control:
 	var s := Lineup.clean(slot)
-	return make(s.critter, s.tier, rating(s), side, power_color, false, s.level)
+	var font := 20 if side < 100.0 else 22
+	var p := Kit.power(rating(s), font, power_color)
+	p.alignment = BoxContainer.ALIGNMENT_CENTER
+	return Kit.vbox(0, [icon(s.critter, s.tier, side, false, s.level, rating(s), int(s.get("ascend", 0))), p])
 
 
 ## The critter with its stars and level above it, for rows that show power elsewhere.
 ## The art box is trimmed to the ball (less empty margin), so the header
 ## and critter together take about the height the bare icon used to.
-static func icon(critter: String, tier: int, side: float, silhouette := false, level := 0, power := 0) -> Control:
+## `ascend`: its Ascension level, which turns that many stars purple at T5.
+static func icon(critter: String, tier: int, side: float, silhouette := false, level := 0, power := 0, ascend := 0) -> Control:
 	var art := CritterIcon.make(critter, tier, side * ART_SHRINK, false, silhouette)
 	art.info_level = level # Its mini Critterpedia card shows these too.
 	art.info_power = power
 	art.radius_frac /= ART_SHRINK
 	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	# Tier as gold stars (the same stars as the critter screen), level beside them.
-	var head := Kit.hbox(6, [Kit.glyph("stars", 22, Kit.FG, tier)], BoxContainer.ALIGNMENT_CENTER)
+	# Narrow tiles (under SHORT_SIDE) show "5" and one star (purple "2" for an A2) instead of a row of five.
+	var stars: Control = Glyph.tier_short(22, tier, ascend, 18) if side < SHORT_SIDE else Glyph.tier_stars(22, tier, ascend)
+	stars.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var head := Kit.hbox(6, [stars], BoxContainer.ALIGNMENT_CENTER)
 	if level > 0:
 		head.add_child(Kit.label("Lv%d" % level, 18, Kit.MUTED))
 	head.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

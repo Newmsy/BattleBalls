@@ -78,7 +78,7 @@ static func _cell(shell, id: String, tags: Dictionary, current: String, on_pick:
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var pow := Kit.power(p.power_of(id), 16)
 	pow.alignment = BoxContainer.ALIGNMENT_CENTER
-	var cell := Kit.vbox(0, [FighterTag.icon(id, b.get("tier", 1), 76, false, b.get("level", 0)), name, pow])
+	var cell := Kit.vbox(0, [FighterTag.icon(id, b.get("tier", 1), 76, false, b.get("level", 0), 0, p.ascend_level(id)), name, pow])
 	var tag: String = tags.get(id, "")
 	if lock:
 		cell.add_child(Kit.hbox(0, [Kit.glyph("lock", 24, Kit.FG)], BoxContainer.ALIGNMENT_CENTER))
@@ -198,7 +198,7 @@ static func _slot(shell, id: String, k: int) -> Control:
 		face.custom_minimum_size = Vector2(84, 84)
 	else:
 		var b: Dictionary = p.best(id)
-		face = FighterTag.icon(id, b.get("tier", 1), 84, false, b.get("level", 0))
+		face = FighterTag.icon(id, b.get("tier", 1), 84, false, b.get("level", 0), 0, p.ascend_level(id))
 	var name := Kit.label("%d · %s" % [k + 1, Roster.get_critter(id).name] if id != "" else "Empty", 16, Kit.FG if id != "" else Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
 	name.clip_text = true
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -218,7 +218,7 @@ static func _team_cell(shell, id: String, toggle: Callable) -> Button:
 	var pow := Kit.power(p.power_of(id), 16)
 	pow.alignment = BoxContainer.ALIGNMENT_CENTER
 	var tag := Kit.label("", 16, Kit.ACCENT, HORIZONTAL_ALIGNMENT_CENTER)
-	var tile := Kit.card_button(Kit.vbox(0, [FighterTag.icon(id, b.get("tier", 1), 76, false, b.get("level", 0)), name, pow, tag]),
+	var tile := Kit.card_button(Kit.vbox(0, [FighterTag.icon(id, b.get("tier", 1), 76, false, b.get("level", 0), 0, p.ascend_level(id)), name, pow, tag]),
 		toggle.bind(id), Kit.LINE, Kit.PANEL, 20, 6)
 	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tile.set_meta("tag", tag)

@@ -152,7 +152,12 @@ static func _testing(shell) -> Control:
 	shell.mark("dev_refill_energy", energy)
 	var orbs := Kit.button("+10 eggs", func(): _add_orbs(shell), "ghost", 26, 72)
 	shell.mark("dev_add_orbs", orbs)
-	for b in [energy, orbs]:
+	var sparks := Kit.button("+10 Sparks", func():
+		shell.profile.grant({"kind": "spark", "n": 10})
+		shell.toast("+10 Ascension Sparks")
+		shell.refresh(), "ghost", 26, 72)
+	shell.mark("dev_add_sparks", sparks)
+	for b in [energy, orbs, sparks]:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var free := Dev.free_summons()
 	var sw := Kit.button("On" if free else "Off", func(): Dev.set_free_summons(not free); open(shell), "go" if free else "ghost", 26, 72)
@@ -191,7 +196,7 @@ static func _testing(shell) -> Control:
 		b.custom_minimum_size.x = 96
 		shell.mark("dev_bounce_chest_%d" % f, b)
 		chests.add_child(b)
-	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds]),
+	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs, sparks]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds]),
 		Kit.hbox(16, [live_words, live]), chests,
 		intro_words, Kit.hbox(16, [restart, finish])])
 

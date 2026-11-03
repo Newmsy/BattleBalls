@@ -40,9 +40,16 @@ static func tier_for(best_floor: int) -> int:
 	return t
 
 
+## Chance (out of 100) each chest tier also holds an Ascension Spark: up to
+## 5% at the Champion Chest (Newms 2026-11-02).
+const SPARK_CHANCE := [1, 2, 3, 4, 5]
+
+
 ## What chest `tier` from `day` holds.
 static func rewards(tier: int, day: int) -> Array:
 	var out: Array = []
+	if Rng.new(day * 9173 + 29).range_int(0, 99) < int(SPARK_CHANCE[tier]):
+		out.append({"kind": "spark", "n": 1})
 	for r in TIERS[tier].rewards:
 		var g: Dictionary = r.duplicate()
 		if g.kind == "gear":

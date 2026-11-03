@@ -15,6 +15,8 @@ const BagScreen := preload("res://game/ui/screens/bag_screen.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 const Painted := preload("res://game/ui/painted.gd")
+const Boons := preload("res://sim/boons.gd")
+const AscendShow := preload("res://game/ui/ascend_show.gd")
 
 
 static func build(shell, params: Dictionary) -> Control:
@@ -43,7 +45,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var stats := Kit.hbox(18)
 	for st in [["HP", str(roundi(fight.hp))], ["DMG", str(roundi(fight.contact_damage))], ["SPEED", str(roundi(fight.speed))]]:
 		stats.add_child(Kit.vbox(0, [Kit.label(st[0], 19, Kit.MUTED), Kit.label(st[1], 28)]))
-	var side := Kit.vbox(8, [Glyph.make("stars", 30, Kit.FG, b.tier, Roster.MAX_TIER), Kit.label("%s · %s" % [c.type, c.role], 22, Kit.MUTED),
+	var side := Kit.vbox(8, [Glyph.tier_stars(30, b.tier, p.ascend_level(c.id) if is_best else 0, Roster.MAX_TIER), Kit.label("%s · %s" % [c.type, c.role], 22, Kit.MUTED),
 		Kit.power(power, 36), stats])
 	var faction := Talents.faction_of(c.id)
 	if faction != "":
@@ -52,6 +54,8 @@ static func build(shell, params: Dictionary) -> Control:
 		fchip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		shell.mark("detail_faction", fchip)
 		side.add_child(fchip)
+	if is_best and Boons.for_critter(c.id) != "":
+		side.add_child(_ascension_chip(shell, c, b))
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
 	var tall: bool = shell.size.y >= 1400.0
@@ -170,6 +174,63 @@ static func build(shell, params: Dictionary) -> Control:
 	shell.mark("fuse_this", fuse)
 	shell.pin(Kit.hbox(16, [lineup, fuse]))
 	return root
+
+
+## Ascension (Newms 2026-11-02): a chip under the hero ("A2" in purple, or
+## "Ascend") that opens the Ascension sheet. Keeps the screen from growing.
+static func _ascension_chip(shell, c: Dictionary, b: Dictionary) -> Control:
+	var p = shell.profile
+	var lv: int = p.ascend_level(c.id)
+	var ready: bool = p.ascend_block(c.id) == ""
+	var words := ("Ascension %d" % lv) if lv > 0 else "Ascension"
+	var chip := Kit.hbox(6, [Kit.glyph("spark", 22, Glyph.PURPLE), Kit.label(words + ("  +" if ready else ""), 18, Glyph.PURPLE)], BoxContainer.ALIGNMENT_CENTER)
+	var btn := Kit.card_button(chip, _ascension_sheet.bind(shell, c.id), Color(Glyph.PURPLE, .8 if ready else .4), Color(Glyph.PURPLE, .12), 999, 6)
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	shell.mark("detail_ascend", btn)
+	return btn
+
+
+## The Ascension sheet: the stars, its boon now and at the next level, the
+## Sparks you hold and Ascend (10 Sparks a level, 5-star critters only).
+static func _ascension_sheet(shell, cid: String) -> void:
+	var p = shell.profile
+	var c := Roster.get_critter(cid)
+	var b: Dictionary = p.best(cid)
+	var lv: int = p.ascend_level(cid)
+	var id := Boons.for_critter(cid)
+	var name: String = Boons.get_def(id).name
+	var v := Kit.vbox(14, [Kit.label("%s · Ascension" % c.name, 32, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+		_centered(Glyph.tier_stars(40, b.tier, lv, Roster.MAX_TIER)),
+		Kit.label("Each level keeps half of %s's Bounce Run boon, %s, in every fight, and turns a star purple." % [c.name, name], 21, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)])
+	if lv > 0:
+		v.add_child(Kit.label("Now · A%d: %s" % [lv, Boons.ascended(cid, lv).text], 22, Glyph.PURPLE, HORIZONTAL_ALIGNMENT_LEFT, true))
+	if lv < Boons.ASCEND_MAX:
+		v.add_child(Kit.label("A%d: %s" % [lv + 1, Boons.ascended(cid, lv + 1).text], 22, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true))
+	var have := Kit.amount("spark", "%d" % p.sparks, 26, Kit.FG, Glyph.PURPLE)
+	have.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_child(have)
+	v.add_child(Kit.label("Sparks drop from weekly Arena chests and daily Bounce Run chests.", 18, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true))
+	var block: String = p.ascend_block(cid)
+	var btn: Button
+	if block == "Max":
+		btn = Kit.button("Fully ascended", func(): pass, "ghost", 26, 84)
+		btn.disabled = true
+	elif block == "Needs T5":
+		btn = Kit.button("Opens at 5 stars", func(): pass, "ghost", 26, 84)
+		btn.disabled = true
+	else:
+		btn = Kit.cost_button("Ascend", p.ASCEND_COST, "spark", func():
+			var got: int = p.ascend(cid)
+			shell.close_overlay()
+			if got > 0:
+				AscendShow.play(shell, cid, got, shell.refresh)
+			else:
+				shell.refresh(), "go", 26, 84)
+		btn.get_meta("row").get_child(1).color = Glyph.PURPLE
+		btn.disabled = block != ""
+	shell.mark("ascend_btn", btn)
+	v.add_child(btn)
+	shell.sheet(v)
 
 
 ## Pick a piece for one of a critter's gear slots: every piece that fits,
