@@ -6,6 +6,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Idle := preload("res://game/ui/idle.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
@@ -45,6 +46,8 @@ static func _now_card(shell, store, ready: bool) -> Control:
 	var league: int = int(store.chest.league) if ready else maxi(store.week_best, Ladder.league_index(store.trophies))
 	var look := ArenaChest.look(league)
 	var art := _art(look, 120.0)
+	if ready:
+		Idle.breathe(art, .1, .6) # Waiting to be opened.
 	var words := Kit.vbox(6)
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if ready:
@@ -57,6 +60,7 @@ static func _now_card(shell, store, ready: bool) -> Control:
 			BounceChestOpen.show_custom(shell, shown, ArenaChest.rewards(league, ArenaChest.roll_week(int(store.chest.week), store.mode)), func():
 				ArenaChest.open(store, shell.profile)), "go", 28, 80)
 		shell.mark("chest_open", open)
+		Idle.breathe(open, .05)
 		words.add_child(open)
 	else:
 		words.add_child(Kit.caption("This week"))
@@ -74,7 +78,10 @@ static func _chest_row(shell, league: int, mine: bool) -> Control:
 	var head := Kit.hbox(8, [Kit.label(lg.name, 24, lg.color), Kit.amount("trophy", "%s+" % Kit.commas(int(lg.min)), 18, Kit.MUTED, Glyph.GOLD)], BoxContainer.ALIGNMENT_BEGIN)
 	var words := Kit.vbox(2, [head, drops_row(shell, ArenaChest.odds(league), 36.0)])
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(12, [_art(look, 64.0), words], BoxContainer.ALIGNMENT_CENTER)
+	var art := _art(look, 64.0)
+	if mine:
+		Idle.breathe(art, .06, .5) # The chest you're on course for this week.
+	var row := Kit.hbox(12, [art, words], BoxContainer.ALIGNMENT_CENTER)
 	var st := Kit.box(Color(lg.color, .14) if mine else Kit.PANEL, Color(lg.color, .9) if mine else Kit.LINE, 22, 3 if mine else 1, 8)
 	var p := Kit.panel(row, st)
 	shell.mark("chest_%s" % lg.id, p)

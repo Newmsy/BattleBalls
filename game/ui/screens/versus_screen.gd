@@ -10,6 +10,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Idle := preload("res://game/ui/idle.gd")
 const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
@@ -140,6 +141,8 @@ static func chest_tile(shell, store, m: String) -> Button:
 	var look := ArenaChest.look(league, m)
 	var col: Color = look.color
 	var chest := ArenaChestsScreen.chest_art(look, 96.0, m)
+	if ready:
+		Idle.breathe(chest, .1, .6) # Last week's chest is waiting to be opened.
 	var centre := CenterContainer.new()
 	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	centre.add_child(chest)
