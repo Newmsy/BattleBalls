@@ -9,6 +9,8 @@ const Idle := preload("res://game/ui/idle.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Talents := preload("res://sim/talents.gd")
 const FactionsScreen := preload("res://game/ui/screens/factions_screen.gd")
+const Painted := preload("res://game/ui/painted.gd")
+const FamilyIcon := preload("res://game/ui/family_icon.gd")
 
 const COLUMNS := ["Core", "Faction", "Ability"]
 
@@ -20,7 +22,7 @@ static func build(shell, params: Dictionary) -> Control:
 		f = "fire"
 	var col: Color = Talents.COLORS[f]
 	var picks: Dictionary = p.talent_picks(f)
-	var root := Kit.vbox(16)
+	var root := Kit.vbox(16 if shell.size.y >= 1400.0 else 12)
 	root.add_child(shell.title_row(Talents.NAMES[f], {"eyebrow": "Faction talents", "eyebrow_color": col, "info_title": "Factions", "info_mark": "faction_info", "info": FactionsScreen.info_text()}))
 
 	var free: int = p.talent_points_free(f)
@@ -35,7 +37,25 @@ static func build(shell, params: Dictionary) -> Control:
 		_suggest(p, f)
 		shell.refresh(), Kit.LINE, Kit.PANEL, 999, 10)
 	shell.mark("talent_suggest", auto)
-	root.add_child(Kit.hbox(10, [status, auto, reset], BoxContainer.ALIGNMENT_CENTER))
+	# The faction's painted home as a band over the tree, taking the page's
+	# spare height; its badge on the left, the rank and buttons along its foot.
+	var foot := Kit.panel(Kit.hbox(10, [status, auto, reset], BoxContainer.ALIGNMENT_CENTER), Kit.box(Color(0.04, 0.03, 0.12, .72), Color(0, 0, 0, 0), 999, 0, 6))
+	foot.get_theme_stylebox("panel").content_margin_left = 16
+	var badge := FamilyIcon.make(f, 64)
+	badge.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var tall: bool = shell.size.y >= 1400.0
+	var gap := Control.new()
+	gap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var band := Kit.vbox(8, [badge, gap, foot] if tall else [foot])
+	band.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if ResourceLoader.exists(Painted.ART % ("families/" + f)):
+		var stage := Painted.stage(Talents.MEMBERS[f][0], band, {"at": Vector2(.5, .5), "right_dark": 0.0, "top_dark": 0.0, "bottom_dark": .8, "pad": Vector2(18, 14 if tall else 4)})
+		stage.custom_minimum_size.y = 150 if tall else 0
+		stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		root.add_child(stage)
+	else:
+		root.add_child(foot)
 
 	var labels := Kit.hbox(10)
 	for c in COLUMNS:
