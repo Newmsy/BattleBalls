@@ -17,6 +17,7 @@ const Roster := preload("res://game/ui/roster.gd")
 const Motion := preload("res://game/ui/motion.gd")
 const Families := preload("res://sim/families.gd")
 const Boons := preload("res://sim/boons.gd")
+const Painted := preload("res://game/ui/painted.gd")
 
 const GATHER := 1.4
 const FLASH := 0.3
@@ -34,6 +35,7 @@ var _icon: Control
 var _card: Control
 var _fx: Control
 var _front: Control
+var _home: Control ## The family's home painting (the Critters screen's), fading in after the pop.
 var _done := false
 
 
@@ -58,10 +60,18 @@ func setup(shell, cid: String, level: int, on_close := Callable()) -> void:
 	for i in N:
 		_parts.append([rng.randf_range(0.0, TAU), rng.randf_range(.55, 1.0), rng.randf_range(.6, 1.2), rng.randf_range(-1.0, 1.0), rng.randf_range(0.0, .35)])
 	var bg := ColorRect.new()
-	bg.color = Color(0.03, 0.02, 0.08, .97)
+	bg.color = Color(0.03, 0.02, 0.08, 1.0)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
+	# Newms 2026-11-03: the critter's family home (the same painting as its
+	# critter screen) fades in behind it once the flash pops, the ball on its lit stage.
+	var home := Painted.habitat(cid)
+	if home != "":
+		_home = Painted.make(home, {"focus": Vector2(200, 340), "at": Vector2(0.5, 0.36), "bottom_dark": 0.75})
+		_home.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_home.modulate.a = 0.0
+		add_child(_home)
 	var fx := Control.new() # Draws behind the ball.
 	fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fx.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -119,6 +129,9 @@ func _process(delta: float) -> void:
 		sc = 1.0 + .18 * exp(-6.0 * k) * cos(k * 18.0)
 	_icon.modulate = Color(glow, glow, glow)
 	_icon.scale = Vector2(sc, sc)
+	if _home != null and t >= GATHER + FLASH * .6 and _home.modulate.a == 0.0:
+		_home.modulate.a = 0.01
+		_home.create_tween().tween_property(_home, "modulate:a", 1.0, .7).set_ease(Tween.EASE_OUT)
 	if t >= GATHER + FLASH + .5 and _card.modulate.a == 0.0:
 		_card.create_tween().tween_property(_card, "modulate:a", 1.0, .3)
 	_fx.queue_redraw()
@@ -126,6 +139,8 @@ func _process(delta: float) -> void:
 	if t >= END and not _done:
 		_done = true
 		_card.modulate.a = 1.0
+		if _home != null:
+			_home.modulate.a = 1.0
 		set_process(false) # Settled: nothing redraws until it closes.
 
 
