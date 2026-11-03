@@ -117,6 +117,9 @@ func loadout() -> Dictionary:
 			out[slot] = id
 			if dye_of(id) != "":
 				out["dye_" + slot] = dye_of(id)
+	for key in g().equipped:
+		if str(key).begins_with("skin_") and owns(str(g().equipped[key])):
+			out[key] = str(g().equipped[key])
 	return out
 
 
@@ -152,7 +155,7 @@ func equip(id: String) -> bool:
 	var it := Catalog.item(id)
 	if it.is_empty() or not owns(id):
 		return false
-	g().equipped[it.slot] = id
+	g().equipped[Catalog.wear_key(it)] = id
 	_commit()
 	return true
 
@@ -167,7 +170,7 @@ func unequip(slot: String) -> void:
 ## Buys one cosmetic with gems or coins. Returns "" or why it failed.
 func buy_item(id: String) -> String:
 	var it := Catalog.item(id)
-	if it.is_empty() or it.where not in ["shop", "basic"]:
+	if it.is_empty() or it.where not in ["shop", "basic"] or not Catalog.released(it, _now(-1)):
 		return "That isn't for sale."
 	if owns(id):
 		return "You already own it."
@@ -189,7 +192,7 @@ func buy_item(id: String) -> String:
 ## price drops by their full price so nobody pays twice.
 func buy_bundle(id: String) -> String:
 	var b := Catalog.bundle(id)
-	if b.is_empty():
+	if b.is_empty() or not Catalog.released(b, _now(-1)):
 		return "That isn't for sale."
 	var cost := bundle_price(b)
 	if cost <= 0:
@@ -335,8 +338,8 @@ func add_xp(n: int, why: String, t := -1) -> int:
 
 func reward(level: int, track: String, t := -1) -> Dictionary:
 	if track == "free":
-		return GlowPass.free_reward(level, str(season(t).get("debut", "")))
-	return GlowPass.premium_reward(level)
+		return GlowPass.free_reward(level, str(season(t).get("debut", "")), str(season(t).get("pass", "")))
+	return GlowPass.premium_reward(level, str(season(t).get("pass", "")))
 
 
 func claimed(level: int, track: String, t := -1) -> bool:

@@ -2,10 +2,13 @@
 ## premium track of cosmetics and gems (design/monetisation.md §4).
 ##
 ## Pass XP comes from play only (fights, daily quests, the weekly chest,
-## Trick Shot). Levels are never sold. Every power reward (orbs, coins,
-## energy, XP chips, gear, the debut critter's copies) is on the free track;
-## the premium track has none, so paying never makes anyone stronger.
+## Trick Shot). Levels are never sold. The free track carries every kind of
+## reward (orbs, coins, energy, XP chips, gear, the debut critter's copies).
+## The premium track adds cosmetics, gems, and Summon Eggs and energy on its
+## odd levels (Newms 2026-11-03: premium may carry eggs and energy).
 extends RefCounted
+
+const Seasons := preload("res://game/glow/seasons.gd")
 
 const LEVELS := 50
 const XP_PER_LEVEL := 1000
@@ -23,7 +26,9 @@ const TRICK_XP := 150
 const CHEST_XP := 1500
 const CHEST_AFTER := 12 ## Daily quests claimed in a week to open the chest.
 
-## Premium cosmetics by level: the headline at level 1, the showpiece at 50.
+## The Preseason's cosmetics by level (a season with a `pass` set in
+## liveops.json uses game/glow/seasons.gd instead): the headline at level 1,
+## the showpiece at 50.
 const PREMIUM_COSMETICS := {1: "hat_halo", 10: "spark_neon", 20: "trail_synth", 30: "hat_visor", 40: "hat_horns", 50: "ko_fireworks"}
 const FREE_COSMETICS := {5: "hat_cap", 15: "trail_comet", 30: "ko_stars"}
 const DEBUT_LEVELS := [10, 25, 40]
@@ -35,9 +40,13 @@ const FREE_DYES := [13, 29, 37, 49]
 
 
 ## The free-track reward at `level` (1-50). `debut` is the season's debut
-## critter id, or "" (then those levels give Summon Eggs instead).
-static func free_reward(level: int, debut := "") -> Dictionary:
-	if FREE_COSMETICS.has(level):
+## critter id, or "" (then those levels give Summon Eggs instead). `pass_set` is the
+## season's cosmetic set (game/glow/seasons.gd), or "" for the Preseason's.
+static func free_reward(level: int, debut := "", pass_set := "") -> Dictionary:
+	if Seasons.has(pass_set):
+		if level in Seasons.FREE_LEVELS:
+			return {"kind": "cosmetic", "id": Seasons.cosmetic(pass_set, "free", level)}
+	elif FREE_COSMETICS.has(level):
 		return {"kind": "cosmetic", "id": FREE_COSMETICS[level]}
 	if FREE_GEAR.has(level):
 		return {"kind": "gear", "type": FREE_GEAR[level][0], "tier": FREE_GEAR[level][1]}
@@ -61,13 +70,25 @@ static func free_reward(level: int, debut := "") -> Dictionary:
 	return {"kind": "orbs", "n": 3}
 
 
-## The premium-track reward at `level`, or {} for none. Cosmetics and gems only.
-static func premium_reward(level: int) -> Dictionary:
-	if PREMIUM_COSMETICS.has(level):
+## Premium-track Summon Eggs and energy, on the odd levels without a look:
+## eggs and energy take turns.
+const PREMIUM_EGGS := 2
+const PREMIUM_ENERGY := 20
+
+
+## The premium-track reward at `level`, or {} for none: cosmetics, gems,
+## Summon Eggs and energy (never gear, copies or XP chips).
+static func premium_reward(level: int, pass_set := "") -> Dictionary:
+	if Seasons.has(pass_set):
+		if level in Seasons.PREMIUM_LEVELS:
+			return {"kind": "cosmetic", "id": Seasons.cosmetic(pass_set, "premium", level)}
+	elif PREMIUM_COSMETICS.has(level):
 		return {"kind": "cosmetic", "id": PREMIUM_COSMETICS[level]}
 	if level % 2 == 0:
 		return {"kind": "gems", "n": 20}
-	return {}
+	if level % 4 == 3:
+		return {"kind": "orbs", "n": PREMIUM_EGGS}
+	return {"kind": "energy", "n": PREMIUM_ENERGY}
 
 
 static func level_for(xp: int) -> int:

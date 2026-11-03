@@ -5,6 +5,8 @@ extends "res://tests/test_case.gd"
 
 const Catalog := preload("res://game/glow/catalog.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
+const Seasons := preload("res://game/glow/seasons.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
@@ -54,17 +56,21 @@ func test_money_only_buys_gems_cosmetics_and_the_pass() -> void:
 			check(not Catalog.item(id).is_empty(), "%s gives a real cosmetic" % p.id)
 
 
-func test_premium_track_has_no_power_and_free_track_has_it_all() -> void:
+func test_premium_track_has_eggs_and_energy_and_free_track_has_it_all() -> void:
 	var free_kinds := {}
 	var free_gems := 0
 	var paid_gems := 0
+	var paid_kinds := {}
 	var orbs := 0
 	for l in range(1, GlowPass.LEVELS + 1):
 		var p := GlowPass.premium_reward(l)
 		if not p.is_empty():
-			check(p.kind in ["cosmetic", "gems"], "premium L%d is a cosmetic or gems, not %s" % [l, p.kind])
+			check(p.kind in ["cosmetic", "gems", "orbs", "energy"], "premium L%d is a look, gems, eggs or energy, not %s" % [l, p.kind])
+			paid_kinds[p.kind] = true
 			if p.kind == "gems":
 				paid_gems += int(p.n)
+			elif p.kind in ["orbs", "energy"]:
+				pass
 			else:
 				check_eq(Catalog.item(p.id).where, "pass_premium", "premium L%d cosmetic is a pass exclusive" % l)
 		var f := GlowPass.free_reward(l, "bomber")
@@ -79,6 +85,7 @@ func test_premium_track_has_no_power_and_free_track_has_it_all() -> void:
 		check(free_kinds.has(k), "free track has %s" % k)
 	check_eq(free_gems, 100, "free track gems")
 	check_eq(paid_gems, 400, "premium track gems")
+	check(paid_kinds.has("orbs") and paid_kinds.has("energy"), "premium track has Summon Eggs and energy")
 	check(orbs >= 24 and orbs <= 36, "about 30 Summon Orbs on the free track (%d)" % orbs)
 	check(GlowPass.free_reward(10, "").kind == "orbs", "no debut critter: orbs instead of copies")
 
@@ -88,7 +95,9 @@ func test_shop_prices_are_fixed_gems_or_coins() -> void:
 	for it in Catalog.ITEMS:
 		check(not ids.has(it.id), "unique id " + it.id)
 		ids[it.id] = true
-		check(it.slot in Catalog.SLOTS, "%s has a known slot" % it.id)
+		check(it.slot in Catalog.SLOTS or it.slot == Catalog.SKIN, "%s has a known slot" % it.id)
+		if it.slot == Catalog.SKIN:
+			check(CritterDb.has(str(it.get("critter", ""))), "%s is for a real critter" % it.id)
 		match it.where:
 			"shop":
 				check(it.has("gems") and not it.has("coins") and int(it.gems) > 0, "%s has a gem price" % it.id)
@@ -111,6 +120,103 @@ func test_cosmetics_stay_clear_of_the_team_ring_colours() -> void:
 				check(d > 0.25, "%s colour %d is too close to a team ring" % [it.id, i])
 
 
+func test_every_season_set_is_complete_and_never_sold() -> void:
+	var seen := {}
+	for id in Seasons.SETS:
+		var ss: Dictionary = Seasons.SETS[id]
+		check(str(ss.name) != "" and Color.html_is_valid(str(ss.accent)), "%s has a name and accent" % id)
+		for track in ["premium", "free"]:
+			var levels: Array = Seasons.PREMIUM_LEVELS if track == "premium" else Seasons.FREE_LEVELS
+			check_eq(ss[track].size(), levels.size(), "%s %s fills every cosmetic level" % [id, track])
+			for l in levels:
+				var it := Catalog.item(Seasons.cosmetic(id, track, l))
+				check(not it.is_empty(), "%s %s L%d is a real cosmetic" % [id, track, l])
+				check_eq(it.get("where"), "pass_" + track, "%s %s L%d is a pass exclusive" % [id, track, l])
+				check_eq(it.get("season"), id, "%s %s L%d belongs to its season" % [id, track, l])
+				check(not seen.has(it.get("id")), "%s appears in one season only" % it.get("id"))
+				seen[it.get("id")] = true
+		var paid_gems := 0
+		var cos := 0
+		var eggs := 0
+		var energy := 0
+		for l in range(1, GlowPass.LEVELS + 1):
+			var p := GlowPass.premium_reward(l, id)
+			match p.get("kind"):
+				"gems":
+					paid_gems += int(p.n)
+				"cosmetic":
+					cos += 1
+				"orbs":
+					eggs += int(p.n)
+				"energy":
+					energy += int(p.n)
+				_:
+					check(false, "%s premium L%d is a look, gems, eggs or energy" % [id, l])
+		check_eq(paid_gems, 400, "%s premium gems" % id)
+		check_eq(eggs, 20, "%s premium Summon Eggs" % id)
+		check_eq(energy, 180, "%s premium energy" % id)
+		check_eq(cos, Seasons.PREMIUM_LEVELS.size(), "%s premium looks" % id)
+	for it in Catalog.ITEMS:
+		if it.has("season"):
+			check(seen.has(it.id), "%s is on its season's pass" % it.id)
+
+
+func test_season_shop_sets_open_with_their_season() -> void:
+	var glow = _fresh()
+	LiveOps.use({"version": 1, "revision": 1, "fights": [], "seasons": [
+		{"name": "Season A", "start": "2026-10-12", "weeks": 7, "pass": "s1_neon_nights"},
+		{"name": "Season B", "start": "2026-11-30", "weeks": 7, "pass": "s2_frost_fest"}]})
+	var a_day := _t("2026-10-14")
+	var b_day := _t("2026-12-02")
+	var b_bundle := Catalog.bundle("bundle_s2")
+	check(not Catalog.released(b_bundle, a_day), "next season's set is hidden")
+	check(Catalog.released(b_bundle, b_day), "it opens with its season")
+	check(Catalog.released(Catalog.bundle("bundle_s1"), b_day), "and an old season's set stays")
+	check_eq(ShopScreen.featured_bundles(a_day)[0].id, "bundle_s1", "the running season's set leads Featured")
+	check_eq(ShopScreen.featured_bundles(b_day)[0].id, "bundle_s2", "then the next one")
+	for day in range(0, 60):
+		for it in ShopScreen.daily_items(a_day + day * 86400):
+			check(Catalog.released(it, a_day + day * 86400), "daily looks only show released looks (%s)" % it.id)
+	LiveOps.now_override = a_day
+	glow._add_gems(5000, "test")
+	check_eq(glow.buy_item("hat_s2_hat_shop"), "That isn't for sale.", "can't buy a look before its season")
+	check_eq(glow.buy_bundle("bundle_s2"), "That isn't for sale.", "nor its bundle")
+	check_eq(glow.buy_item("hat_s1_hoodie_shop"), "", "this season's look is on sale")
+	LiveOps.now_override = 0
+	for b in Catalog.BUNDLES:
+		if b.has("capsule"):
+			check(Seasons.has(str(b.capsule)), "%s names a real season" % b.id)
+			for id in b.items:
+				check_eq(Catalog.item(id).get("capsule"), b.capsule, "%s holds its own season's looks" % b.id)
+
+
+func test_skins_are_worn_per_critter() -> void:
+	var glow = _fresh()
+	glow._add_gems(5000, "test")
+	check_eq(glow.buy_item("skin_vampire_midnight"), "", "a skin is bought like any look")
+	check(glow.equip("skin_vampire_midnight"), "and worn")
+	check_eq(glow.loadout().get("skin_vampire"), "skin_vampire_midnight", "worn as that critter's skin")
+	check(not glow.loadout().has("skin"), "not as a slot every critter shares")
+	check_eq(Catalog.skin_for(glow.loadout(), "vampire").get("id"), "skin_vampire_midnight", "the arena finds it for that critter")
+	check(Catalog.skin_for(glow.loadout(), "laser").is_empty(), "and only that critter")
+	check(not ShopScreen.daily_items(_t("2026-10-14")).any(func(it): return it.slot == Catalog.SKIN), "skins have their own shelf, not Daily looks")
+	glow.unequip("skin_vampire")
+	check(not glow.loadout().has("skin_vampire"), "taken off")
+
+
+func test_a_season_set_drives_the_pass_rewards() -> void:
+	var glow = _fresh()
+	LiveOps.use({"version": 1, "revision": 1, "fights": [], "seasons": [
+		{"name": "Season A", "start": "2026-10-12", "weeks": 7, "debut": "bomber", "pass": "s1_neon_nights"}]})
+	var t := _t("2026-10-14")
+	check_eq(glow.reward(1, "premium", t).get("id"), Seasons.cosmetic("s1_neon_nights", "premium", 1), "premium L1 is the season's headline")
+	check_eq(glow.reward(5, "free", t).get("id"), Seasons.cosmetic("s1_neon_nights", "free", 5), "free L5 is the season's look")
+	check_eq(glow.reward(10, "free", t).get("id"), "bomber", "debut copies stay on the free track")
+	check(LiveOps.validate({"version": 1, "revision": 1, "fights": [], "brackets": [], "seasons": [
+		{"name": "S", "start": "2026-10-12", "weeks": 7, "pass": "nope"}]}).size() > 0, "an unknown pass set is rejected")
+	check(LiveOps.validate(LiveOps._read(LiveOps.BUNDLED)).is_empty(), "the bundled schedule is valid")
+
+
 # --- Cosmetics never touch the sim ---------------------------------------------------
 
 func test_cosmetics_do_not_change_a_fight() -> void:
@@ -122,7 +228,7 @@ func test_cosmetics_do_not_change_a_fight() -> void:
 	var view := ArenaView.new()
 	view.sim = dressed
 	view.loadouts = [{"hat": "hat_crown", "trail": "trail_rainbow", "spark": "spark_pow", "ko": "ko_confetti"},
-		{"hat": "hat_phones", "trail": "trail_pixel", "spark": "spark_glitch", "ko": "ko_disco"}]
+		{"hat": "hat_phones", "trail": "trail_pixel", "spark": "spark_glitch", "ko": "ko_disco", "skin_laser": "skin_laser_chrome"}]
 	while not dressed.finished:
 		dressed.step()
 		view.consume_events(dressed.events)

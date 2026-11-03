@@ -49,9 +49,36 @@ func test_golden_race() -> void:
 	check_eq(p.tick, GOLDEN_TICKS, "race length in ticks")
 
 const GOLDEN_RACERS := ["zapper", "gust", "drako", "pucker", "ripple", "blizz"]
-const GOLDEN_ORDER := [5, 3, 1, 0, 4, 2]
+const GOLDEN_ORDER := [3, 1, 4, 0, 2, 5]
 const GOLDEN_KOS := []
-const GOLDEN_TICKS := 1887
+const GOLDEN_TICKS := 1532
+
+
+## The starting gate is fair (Newms 2026-11-02): every course holds the
+## gates its opener favours a moment after GO (sim/plunge_gate_delays.gd,
+## measured by tools/plunge_gates.gd), a held racer stays in its gate until
+## then, and the delays stay short enough to read as a staggered gate.
+func test_gate_delays_hold_favoured_gates() -> void:
+	var GateDelays = load("res://sim/plunge_gate_delays.gd")
+	for c in PlungeCourse.COURSES:
+		check(GateDelays.DELAYS.has(c.id), "%s has gate delays" % c.id)
+		for n in GateDelays.DELAYS.get(c.id, {}):
+			var pairs: Array = GateDelays.DELAYS[c.id][n]
+			check(Plunge.FIELD_SIZES.has(n) and pairs.size() == n / 2, "%s/%d: one delay per gate pair" % [c.id, n])
+			check(pairs.min() == 0.0 and pairs.max() <= 3.0, "%s/%d: first gate opens on GO, none held past 3 s (%s)" % [c.id, n, pairs])
+	var p := Plunge.new({"seed": 9, "racers": Plunge.draw_field(9, 8), "course": "lava"})
+	var held := range(8).filter(func(i): return p.release[i] > p.release.min())
+	check(not held.is_empty(), "lava holds some gates")
+	var last: int = p.release.max()
+	while p.tick < last - 1:
+		p.step()
+	for i in held:
+		if p.tick < p.release[i]:
+			check_eq(p.balls[i].pos, p._starts[i], "racer %d waits in its gate" % i)
+			check(not p.out_of_gate(i), "racer %d is not out yet" % i)
+	for i in 8:
+		if p.release[i] == p.release.min():
+			check(p.balls[i].pos.y > PlungeCourse.START_Y + 20.0, "racer %d left on GO" % i)
 
 
 ## Racers are live critters, every family races, and they race with their
@@ -544,7 +571,7 @@ static func _all_parts(p: Plunge) -> Array[Dictionary]:
 func test_course_parts_act_on_racers() -> void:
 	var placed := func(course: String, kind: String, test: Callable) -> void:
 		var p := Plunge.new({"seed": 3, "racers": Plunge.draw_field(3, 4), "course": course})
-		for k in 70:
+		while p.tick < p.release[0] + 10: # Racer 0 out of its gate (some gates open late).
 			p.step()
 		var pads: Array = p.floors()
 		for i in pads.size():
