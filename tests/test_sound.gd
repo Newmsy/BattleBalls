@@ -96,6 +96,18 @@ func test_music_flow() -> void:
 	sfx.free()
 
 
+## A new Plunge race carries the race music on from where the last one
+## stopped; other tracks start from the top.
+func test_plunge_music_carries_on() -> void:
+	var sfx := _sfx()
+	Sfx._track_pos = {"plunge": 37.5}
+	check_eq(sfx._start_pos("plunge", 138.0), 37.5, "picks up where the last race left it")
+	check_eq(sfx._start_pos("plunge", 30.0), 0.0, "a stale spot past the end starts over")
+	check_eq(sfx._start_pos("boss", 116.0), 0.0, "other tracks start from the top")
+	Sfx._track_pos = {}
+	sfx.free()
+
+
 ## A mode with its own fight music (Arena) uses it for the fight and its
 ## overtime; a theme with no tracks falls back to the shared ones.
 func test_fight_theme_picks_mode_music() -> void:
