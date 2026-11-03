@@ -6,6 +6,7 @@ extends "res://tests/test_case.gd"
 const Catalog := preload("res://game/glow/catalog.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
 const Seasons := preload("res://game/glow/seasons.gd")
+const CritterDb := preload("res://sim/critter_db.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
@@ -89,7 +90,9 @@ func test_shop_prices_are_fixed_gems_or_coins() -> void:
 	for it in Catalog.ITEMS:
 		check(not ids.has(it.id), "unique id " + it.id)
 		ids[it.id] = true
-		check(it.slot in Catalog.SLOTS, "%s has a known slot" % it.id)
+		check(it.slot in Catalog.SLOTS or it.slot == Catalog.SKIN, "%s has a known slot" % it.id)
+		if it.slot == Catalog.SKIN:
+			check(CritterDb.has(str(it.get("critter", ""))), "%s is for a real critter" % it.id)
 		match it.where:
 			"shop":
 				check(it.has("gems") and not it.has("coins") and int(it.gems) > 0, "%s has a gem price" % it.id)
@@ -173,6 +176,20 @@ func test_season_shop_sets_open_with_their_season() -> void:
 				check_eq(Catalog.item(id).get("capsule"), b.capsule, "%s holds its own season's looks" % b.id)
 
 
+func test_skins_are_worn_per_critter() -> void:
+	var glow = _fresh()
+	glow._add_gems(5000, "test")
+	check_eq(glow.buy_item("skin_vampire_midnight"), "", "a skin is bought like any look")
+	check(glow.equip("skin_vampire_midnight"), "and worn")
+	check_eq(glow.loadout().get("skin_vampire"), "skin_vampire_midnight", "worn as that critter's skin")
+	check(not glow.loadout().has("skin"), "not as a slot every critter shares")
+	check_eq(Catalog.skin_for(glow.loadout(), "vampire").get("id"), "skin_vampire_midnight", "the arena finds it for that critter")
+	check(Catalog.skin_for(glow.loadout(), "laser").is_empty(), "and only that critter")
+	check(not ShopScreen.daily_items(_t("2026-10-14")).any(func(it): return it.slot == Catalog.SKIN), "skins have their own shelf, not Daily looks")
+	glow.unequip("skin_vampire")
+	check(not glow.loadout().has("skin_vampire"), "taken off")
+
+
 func test_a_season_set_drives_the_pass_rewards() -> void:
 	var glow = _fresh()
 	LiveOps.use({"version": 1, "revision": 1, "fights": [], "seasons": [
@@ -197,7 +214,7 @@ func test_cosmetics_do_not_change_a_fight() -> void:
 	var view := ArenaView.new()
 	view.sim = dressed
 	view.loadouts = [{"hat": "hat_crown", "trail": "trail_rainbow", "spark": "spark_pow", "ko": "ko_confetti"},
-		{"hat": "hat_phones", "trail": "trail_pixel", "spark": "spark_glitch", "ko": "ko_disco"}]
+		{"hat": "hat_phones", "trail": "trail_pixel", "spark": "spark_glitch", "ko": "ko_disco", "skin_laser": "skin_laser_chrome"}]
 	while not dressed.finished:
 		dressed.step()
 		view.consume_events(dressed.events)

@@ -2364,6 +2364,7 @@ func _draw_critter(i: int, def: Dictionary, pos: Vector2, r: float, hp: float, m
 	if def.id == "mirror" and sim != null and i < sim.balls.size() and CritterDb.has(String(sim.balls[i].state.get("copy_of", ""))):
 		art_id = sim.balls[i].state.copy_of
 	CritterArt.draw_critter(self, art_id, Vector2.ZERO, r, {"t": _time, "tier": _tier_of(i), "look": look, "blink": blink, "grey": art_id != def.id,
+		"skin": Catalog.skin_for(loadouts[_side(i)], art_id) if _side(i) >= 0 and _side(i) < loadouts.size() and art_id == def.id else {},
 		"hit": minf(_hit[i], 0.12) if A11y.reduced_motion else _hit[i], "eye_flash": _eye_flash[i], "hp_frac": hp / max_hp, "pole_swap": _pole_swap[i], "ko": ko,
 		"live_tail": sim != null and i < sim.balls.size() and sim.balls[i].state.has("path"),
 		"stacks": int(sim.balls[i].state.get("spikes", 0)) if sim and i < sim.balls.size() else 0, "flash": _grow_flash[i] if i < 2 else 0.0,

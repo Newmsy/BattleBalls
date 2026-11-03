@@ -117,6 +117,9 @@ func loadout() -> Dictionary:
 			out[slot] = id
 			if dye_of(id) != "":
 				out["dye_" + slot] = dye_of(id)
+	for key in g().equipped:
+		if str(key).begins_with("skin_") and owns(str(g().equipped[key])):
+			out[key] = str(g().equipped[key])
 	return out
 
 
@@ -152,7 +155,7 @@ func equip(id: String) -> bool:
 	var it := Catalog.item(id)
 	if it.is_empty() or not owns(id):
 		return false
-	g().equipped[it.slot] = id
+	g().equipped[Catalog.wear_key(it)] = id
 	_commit()
 	return true
 

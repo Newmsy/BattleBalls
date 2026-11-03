@@ -50,6 +50,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	root.add_child(Kit.vbox(14, [Kit.hbox(0, [Kit.caption("Daily looks"), Kit.spacer(), Kit.label("New in " + LiveOps.countdown(t, day_ends), 20, Kit.MUTED)]),
 		_grid(shell, daily_items(t))]))
 
+	# Critter skins, always here: the ones for critters you own first.
+	var skins := Catalog.items_in(Catalog.SKIN).filter(func(it): return Catalog.released(it, t))
+	skins.sort_custom(func(a, b): return int(not shell.profile.best(a.critter).is_empty()) > int(not shell.profile.best(b.critter).is_empty()))
+	root.add_child(Kit.vbox(14, [Kit.caption("Critter skins"), _grid(shell, skins)]))
+
 	# Collection: Coin-priced basics, always here.
 	var basics := Catalog.ITEMS.filter(func(it): return it.where == "basic")
 	root.add_child(Kit.vbox(14, [Kit.caption("Collection"), _grid(shell, basics)]))
@@ -110,7 +115,7 @@ static func featured_bundles(t: int) -> Array:
 ## Today's six gem items, the same for everyone, at least one per slot.
 static func daily_items(t: int) -> Array:
 	var day := floori(float(LiveOps.day_start(t) - LiveOps.EPOCH) / LiveOps.DAY)
-	var pool := Catalog.ITEMS.filter(func(it): return it.where == "shop" and Catalog.released(it, t))
+	var pool := Catalog.ITEMS.filter(func(it): return it.where == "shop" and it.slot != Catalog.SKIN and Catalog.released(it, t))
 	var out := []
 	for slot in Catalog.SLOTS:
 		var in_slot := pool.filter(func(it): return it.slot == slot)
@@ -141,7 +146,7 @@ static func _grid(shell, items: Array) -> GridContainer:
 static func _tile(shell, it: Dictionary) -> Control:
 	var owned: bool = shell.glow.owns(it.id)
 	var v := Kit.vbox(4, [_center(CosmeticIcon.make(it.id, _critter(shell), 120)), Kit.label(it.name, 21, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true),
-		_center(_price(it, owned, shell.glow.equipped(it.slot) == it.id))])
+		_center(_price(it, owned, shell.glow.equipped(Catalog.wear_key(it)) == it.id))])
 	var rarity := look_rarity(it)
 	var card := Kit.card_button(v, func(): item_sheet(shell, it.id), Roster.rarity_border(rarity, Kit.LINE), Roster.rarity_bg(rarity, Kit.PANEL, .16), 28, 10)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -205,25 +210,27 @@ static func item_sheet(shell, id: String) -> void:
 	var glow = shell.glow
 	var it := Catalog.item(id)
 	var look: Dictionary = glow.loadout().duplicate()
-	look[it.slot] = id
+	var key := Catalog.wear_key(it)
+	look[key] = id
 	look["dye_" + it.slot] = glow.dye_of(id)
 	var p = shell.profile
-	var tier: int = p.best(p.lineup).get("tier", 1)
+	var who: String = str(it.critter) if it.slot == Catalog.SKIN else p.lineup
+	var tier: int = maxi(1, int(p.best(who).get("tier", 1)))
 	var v := Kit.vbox(16, [
 		Kit.hbox(12, [Kit.label(it.name, 36), Kit.spacer(), Kit.chip(Catalog.SLOT_NAMES[it.slot], Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER),
-		TryOn.make(p.lineup, tier, look, 320.0),
+		TryOn.make(who, tier, look, 320.0),
 	])
 	var where := _where_text(it)
 	if where != "":
 		v.add_child(Kit.label(where, 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
-	if glow.owns(id):
+	if glow.owns(id) and it.slot != Catalog.SKIN:
 		v.add_child(_swatches(shell, id))
 	var btn: Button
 	if glow.owns(id):
-		var worn: bool = glow.equipped(it.slot) == id
+		var worn: bool = glow.equipped(key) == id
 		btn = Kit.button("Take off" if worn else "Wear it", func():
 			if worn:
-				glow.unequip(it.slot)
+				glow.unequip(key)
 			else:
 				glow.equip(id)
 			shell.close_overlay()

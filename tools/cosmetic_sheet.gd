@@ -55,6 +55,8 @@ func _initialize() -> void:
 			var c := Vector2(gx + CELL / 2.0, gy + LABEL + CELL / 2.0)
 			var s := CELL
 			match it.slot:
+				"skin":
+					CritterArt.draw_critter(canvas, str(it.critter), c + Vector2(0, s * .05), s * .28, {"t": t, "look": Vector2(.3, .2), "skin": it})
 				"hat":
 					var r := s * .24
 					var at := c + Vector2(0, s * .14)

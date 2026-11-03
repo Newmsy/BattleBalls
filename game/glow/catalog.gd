@@ -16,7 +16,11 @@ const Dyes := preload("res://game/glow/dyes.gd")
 const LiveOps := preload("res://game/liveops.gd")
 
 const SLOTS := ["hat", "trail", "spark", "ko"]
-const SLOT_NAMES := {"hat": "Hat", "trail": "Trail", "spark": "Hit spark", "ko": "KO effect"}
+const SLOT_NAMES := {"hat": "Hat", "trail": "Trail", "spark": "Hit spark", "ko": "KO effect", "skin": "Skin"}
+## Skins are their own slot, one per critter: `critter` names who wears it,
+## colors[0] is its body colour and `art` swaps keys of that critter's art
+## (game/ui/critter_art.gd). Worn as loadout["skin_<critter>"].
+const SKIN := "skin"
 
 ## where: shop (gems), basic (coins, basic colours only), pass_free,
 ## pass_premium, founder. Pass cosmetics are never sold in the shop.
@@ -72,6 +76,16 @@ const ITEMS := [
 	{"id": "hat_s5_cap_shop", "slot": "hat", "name": "Propeller Cap", "style": "propeller", "colors": ["3d9bff", "ffc23d"], "where": "shop", "gems": 450, "capsule": "s5_summer_splash"},
 	{"id": "trail_s5_tail_shop", "slot": "trail", "name": "Kite Tail", "style": "kite", "colors": ["ff8a3d", "3d9bff"], "where": "shop", "gems": 400, "capsule": "s5_summer_splash"},
 	{"id": "ko_s5_confetti_shop", "slot": "ko", "name": "Beach Confetti", "style": "confetti", "colors": ["ffc23d", "3fa9f5"], "where": "shop", "gems": 500, "capsule": "s5_summer_splash"},
+	# Critter skins: a new body colour and look for one critter.
+	{"id": "skin_vampire_midnight", "slot": "skin", "critter": "vampire", "name": "Midnight Count", "colors": ["3d3bb0", "c9c6ff"], "where": "shop", "gems": 900},
+	{"id": "skin_laser_chrome", "slot": "skin", "critter": "laser", "name": "Chrome Optic", "colors": ["8fb8ff", "ffc23d"], "where": "shop", "gems": 1200,
+		"art": {"body": "chrome", "tint": true, "eyes": {"one": true, "w": .4, "h": .4, "p": .16, "iris": "b07a10", "glow": "ffd36b", "mouth": "none"}}},
+	{"id": "skin_bomber_gold", "slot": "skin", "critter": "bomber", "name": "Golden Fuse", "colors": ["d9a531", "fff2b0"], "where": "shop", "gems": 1000},
+	{"id": "skin_ghost_pumpkin", "slot": "skin", "critter": "ghost", "name": "Pumpkin Wisp", "colors": ["ff8a1e", "ffd6a0"], "where": "shop", "gems": 1000, "art": {"tint": true}},
+	{"id": "skin_frost_aurora", "slot": "skin", "critter": "frost", "name": "Aurora Chill", "colors": ["b07cff", "e6d6ff"], "where": "shop", "gems": 900},
+	{"id": "skin_phoenix_blue", "slot": "skin", "critter": "phoenix", "name": "Blue Flame Ember", "colors": ["3d9bff", "bfe6ff"], "where": "shop", "gems": 1000},
+	{"id": "skin_speedster_violet", "slot": "skin", "critter": "speedster", "name": "Violet Zip", "colors": ["8f7bff", "f0eeff"], "where": "shop", "gems": 900},
+	{"id": "skin_pip_gold", "slot": "skin", "critter": "pip", "name": "Golden Pip", "colors": ["ffd23f", "fff2b0"], "where": "shop", "gems": 900},
 	# Season 1: Neon Nights pass (game/glow/seasons.gd). Never sold.
 	{"id": "hat_s1_shades", "slot": "hat", "name": "Night Drive Shades", "style": "shades", "colors": ["ff3df0", "5ce1ff"], "where": "pass_premium", "season": "s1_neon_nights"},
 	{"id": "spark_s1_tube", "slot": "spark", "name": "Neon Tubes", "style": "tube", "colors": ["5ce1ff", "ff3df0"], "where": "pass_premium", "season": "s1_neon_nights"},
@@ -233,6 +247,16 @@ static func bundle_full_price(b: Dictionary) -> int:
 ## id}), with its Spark Dye on (game/glow/dyes.gd), or {}.
 static func worn(loadout: Dictionary, slot: String) -> Dictionary:
 	return Dyes.apply(item(str(loadout.get(slot, ""))), str(loadout.get("dye_" + slot, "")))
+
+
+## The skin a loadout puts on `critter`, or {}.
+static func skin_for(loadout: Dictionary, critter: String) -> Dictionary:
+	return item(str(loadout.get("skin_" + critter, "")))
+
+
+## Where an item is worn in a loadout: its slot, or "skin_<critter>".
+static func wear_key(it: Dictionary) -> String:
+	return "skin_" + str(it.get("critter", "")) if it.get("slot") == SKIN else str(it.get("slot", ""))
 
 
 static func color(it: Dictionary, i := 0) -> Color:
