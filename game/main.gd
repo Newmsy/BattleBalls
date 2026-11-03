@@ -354,6 +354,8 @@ func _ready() -> void:
 			elif shell.reopened:
 				pass # Back from an Arena fight or a Plunge race: stay where the shell reopened.
 			elif url_params.get("screen", "") in Shell.TAB_IDS:
+				if url_params.screen == "bag" and url_params.has("section"):
+					Shell.SCREENS.bag.section = url_params.section # ?screen=bag&section=items
 				shell.show_tab(url_params.screen) # ?screen=fuse
 			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen not in ["detail", "dex_entry"] or url_params.has("id")):
 				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
