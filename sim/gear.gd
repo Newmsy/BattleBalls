@@ -2,9 +2,10 @@
 ## A ball's gear is known setup, like its critter and tier, so a fight still
 ## replays from the seed and the launch angles alone.
 ##
-## Pieces come in twelve types over three slots (PIECES) and five tiers. Three
-## of the same type and tier merge into the next tier (meta/profile.gd), like
-## critters (design/gear.md). In a fight a piece is {slot, tier, stats:
+## Pieces come in twelve types over three slots (PIECES) and ten tiers: 1-5
+## stars, then five Emberforged tiers past 5 stars (tiers 6-10). Three of the
+## same type and tier merge into the next star tier, two 5-star-or-better
+## pieces forge into the next forged one (meta/profile.gd, design/gear.md). In a fight a piece is {slot, tier, stats:
 ## {line: value}}. MatchSim takes each
 ## ball's gear as a list of pieces or as already summed stat totals; both go
 ## through totals(), which also clamps every line, so a tampered lineup can't
@@ -36,9 +37,14 @@ const LINES := {
 }
 const ORDER := ["attack", "health", "defense", "speed", "crit_chance", "crit_damage", "cooldown",
 	"thorns", "mend", "lifesteal", "ricochet", "ward", "revive"]
-const MAX_TIER := 5
-## Share of the 5-star value each tier gives (index 0 is 1 star).
-const TIER_SHARE := [0.35, 0.5, 0.65, 0.8, 1.0]
+const MAX_TIER := 10
+## The top star tier; tiers above it are Emberforged 1-5 (forged by two of a
+## kind, never dropped).
+const STAR_TIERS := 5
+## Share of the 5-star value each tier gives (index 0 is 1 star). Each forged
+## tier adds 10%, so three Emberforged 5 pieces are +22.5% power: more than
+## full 5-star gear (+15%), still less than one critter tier (+25%).
+const TIER_SHARE := [0.35, 0.5, 0.65, 0.8, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5]
 ## Power one 5-star piece adds to the Power Rating (+5%).
 const PIECE_POWER := 0.05
 const SLOTS := ["Shell", "Core", "Charm"]
@@ -91,7 +97,7 @@ static func totals(gear) -> Dictionary:
 	return sum
 
 
-## A piece's value for `line` at `tier` (1-5), as its only line. An old gear
+## A piece's value for `line` at `tier` (1-10), as its only line. An old gear
 ## rarity name works too (Common is 1 star up to Legendary 5 stars).
 static func value(line: String, tier) -> float:
 	return LINES[line].t5 * TIER_SHARE[tier_of(tier) - 1]
@@ -114,7 +120,7 @@ static func stats_for(type: String, tier: int) -> Dictionary:
 	return out
 
 
-## Power a piece adds at `tier`, as a fraction (+1.75% to +5%).
+## Power a piece adds at `tier`, as a fraction (+1.75% to +7.5%).
 static func tier_power(tier: int) -> float:
 	return PIECE_POWER * TIER_SHARE[tier_of(tier) - 1]
 

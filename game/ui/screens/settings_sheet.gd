@@ -246,8 +246,20 @@ static func _testing(shell) -> Control:
 		b.custom_minimum_size.x = 96
 		shell.mark("dev_bounce_chest_%d" % f, b)
 		chests.add_child(b)
+	# Two 5-star pieces and the hammers to forge them (Emberforged gear).
+	var forge_words := Kit.label("Forge test", 30)
+	forge_words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var forge := Kit.button("+2 5★ gear", func():
+		var p = shell.profile
+		var type: String = ["spike_core", "iron_shell", "phoenix_charm", "echo_core"][p.gear.size() % 4]
+		p.add_gear(type, 5)
+		p.add_gear(type, 5)
+		p.hammers += 100
+		shell.toast("+2 5-star gear, +100 hammers")
+		shell.refresh(), "ghost", 24, 72)
+	shell.mark("dev_forge_gear", forge)
 	return Kit.vbox(8, [Kit.label("Testing", 30), Kit.hbox(16, [energy, orbs, sparks]), Kit.hbox(16, [words, sw]), Kit.hbox(16, [speed_words, speeds]),
-		Kit.hbox(16, [live_words, live]), chests,
+		Kit.hbox(16, [live_words, live]), chests, Kit.hbox(16, [forge_words, forge]),
 		intro_words, Kit.hbox(16, [restart, finish])])
 
 

@@ -13,6 +13,7 @@ const A11y := preload("res://game/a11y.gd")
 const Motion := preload("res://game/ui/motion.gd")
 const GearArt := preload("res://game/ui/gear_art.gd")
 const LivingArt := preload("res://game/bounce_run/living_art.gd")
+const GearTier := preload("res://game/ui/gear_tier.gd")
 
 const GOLD := Color("ffd166")
 
@@ -89,13 +90,22 @@ static func gear(shell, made: Dictionary, tier_color: Color, spent: int, on_cont
 	var lines := Kit.vbox(12)
 	for line in Gear.ORDER:
 		if made.stats.has(line):
-			lines.add_child(row(LINE_GLYPHS.get(line, "gear"), tier_color, Gear.LINES[line].name, _pct(line, before.get(line, 0.0)), _pct(line, made.stats[line])))
+			var was: float = before.get(line, 0.0)
+			var now: float = made.stats[line]
+			# Forged steps are small: a decimal shows the gain when whole numbers tie.
+			var fine := _pct(line, was) == _pct(line, now)
+			lines.add_child(row(LINE_GLYPHS.get(line, "gear"), tier_color, Gear.LINES[line].name, _pct(line, was, fine), _pct(line, now, fine)))
+	var forged := GearTier.forged(made.tier)
 	var body: Array = [_forge(made), Kit.label(made.name, 34, tier_color, HORIZONTAL_ALIGNMENT_CENTER), stars(made.tier - 1, made.tier, tier_color), lines]
+	if forged:
+		var rank := Kit.label(GearTier.label(made.tier), 28, GearTier.HOT, HORIZONTAL_ALIGNMENT_CENTER)
+		Motion.pop(rank, 1.6, .35, .3)
+		body.insert(2, rank)
 	var foot := Kit.hbox(10, [Kit.amount("hammer", "-%d" % spent, 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	if made.on != "":
 		foot.add_child(Kit.label("· still on %s" % Roster.get_critter(made.on).name, 22, Kit.MUTED))
 	body.append(foot)
-	_open(shell, "Merged!", body, on_continue, "merge_done")
+	_open(shell, "Forged!" if forged else "Merged!", body, on_continue, "merge_done", GearTier.EMBER if forged else Kit.GOOD)
 
 
 ## The merge popup's header: the new piece glowing over the Anvil King's
@@ -106,6 +116,7 @@ static func _forge(made: Dictionary) -> Control:
 	art.set_anchors_preset(Control.PRESET_FULL_RECT)
 	art.soften(40.0) # No hard edge onto the sheet.
 	var piece := GearArt.piece(made.type, made.tier, 140)
+	var glow: Control = _ember_glow(made.tier)
 	piece.anchor_left = .653
 	piece.anchor_right = .653
 	piece.anchor_top = .42
@@ -119,8 +130,45 @@ static func _forge(made: Dictionary) -> Control:
 	box.clip_contents = true
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(art)
+	if glow != null:
+		for k in ["anchor_left", "anchor_right", "anchor_top", "anchor_bottom"]:
+			glow.set(k, piece.get(k))
+		glow.offset_left = -130
+		glow.offset_right = 130
+		glow.offset_top = -130
+		glow.offset_bottom = 130
+		box.add_child(glow)
 	box.add_child(piece)
 	return box
+
+
+## A soft ember heat haze behind an Emberforged piece (one smooth radial
+## gradient, hotter per forged level), breathing slowly. null below 6 stars.
+static func _ember_glow(tier: int) -> Control:
+	if not GearTier.forged(tier):
+		return null
+	var g := Gradient.new()
+	var heat := .45 + .1 * GearTier.level(tier)
+	g.set_color(0, Color(GearTier.HOT, heat))
+	g.set_offset(0, 0.0)
+	g.set_color(1, Color(GearTier.EMBER, 0.0))
+	g.add_point(.45, Color(GearTier.EMBER, heat * .55))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(.5, .5)
+	tex.fill_to = Vector2(1, .5)
+	tex.width = 128
+	tex.height = 128
+	var t := TextureRect.new()
+	t.texture = tex
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not Motion.calm():
+		var tw := t.create_tween().set_loops()
+		tw.tween_property(t, "modulate:a", .6, .9).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(t, "modulate:a", 1.0, .9).set_trans(Tween.TRANS_SINE)
+	return t
 
 
 ## Several merges at once (Merge all): one line per piece made.
@@ -135,17 +183,20 @@ static func gear_list(shell, made: Array, tier_color: Callable, spent: int, on_c
 		on_continue, "merge_done")
 
 
-## The beat before a merge's popup: three copies of the piece slide in from
-## the sides, slam into one with a clank and a ring of sparks, then `then`
-## runs (at once with Reduced motion). About 0.4s; taps go through.
-static func slam(shell, kind: String, col: Color, then: Callable, tier := 1) -> void:
+## The beat before a merge's popup: `n` copies of the piece (3, or 2 when
+## forging) slide in from the sides, slam into one with a clank and a ring of
+## sparks, then `then` runs (at once with Reduced motion). Forging past 5
+## stars also throws a burst of ember sparks and a white-hot flash. About
+## 0.4s; taps go through.
+static func slam(shell, kind: String, col: Color, then: Callable, tier := 1, n := 3) -> void:
 	if Motion.calm():
 		then.call()
 		return
 	var layer: Control = shell._fx
 	var centre: Vector2 = shell.get_global_rect().get_center() - layer.get_global_rect().position
 	var side := 120.0
-	var froms := [Vector2(-230, 0), Vector2(230, 0), Vector2(0, -230)]
+	var froms := [Vector2(-230, 0), Vector2(230, 0), Vector2(0, -230)].slice(0, clampi(n, 1, 3))
+	var forging := GearTier.forged(tier + 1)
 	var pieces: Array = []
 	for f in froms:
 		var g: Control = GearArt.piece(kind, tier, side, col)
@@ -173,6 +224,8 @@ static func slam(shell, kind: String, col: Color, then: Callable, tier := 1) -> 
 		out.tween_property(ring, "scale", Vector2(3, 3), .4).set_ease(Tween.EASE_OUT)
 		out.tween_property(ring, "modulate:a", 0.0, .4)
 		out.chain().tween_callback(ring.queue_free)
+		if forging:
+			_ember_burst(shell, layer, centre, 8 + 2 * GearTier.level(tier + 1))
 		for g in pieces:
 			var fade: Tween = g.create_tween().set_parallel()
 			fade.tween_property(g, "scale", Vector2(1.4, 1.4), .14)
@@ -181,8 +234,40 @@ static func slam(shell, kind: String, col: Color, then: Callable, tier := 1) -> 
 		then.call())
 
 
-static func _open(shell, title: String, body: Array, on_continue: Callable, mark_as: String) -> void:
-	var v := Kit.vbox(16, [Kit.label(title, 40, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER)])
+## Ember sparks flung out from `centre` and a white-hot flash: the forge
+## moment. A handful of small rounded panels, gone in half a second.
+static func _ember_burst(shell, layer: Control, centre: Vector2, count: int) -> void:
+	if shell.sfx != null:
+		shell.sfx.play("clunk", 2.0, .7)
+	var flash := Panel.new()
+	flash.add_theme_stylebox_override("panel", Kit.box(Color(GearTier.HOT, .85), Color(0, 0, 0, 0), 999, 0, 0))
+	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flash.size = Vector2(90, 90)
+	flash.position = centre - flash.size / 2.0
+	flash.pivot_offset = flash.size / 2.0
+	layer.add_child(flash)
+	var ft := flash.create_tween().set_parallel()
+	ft.tween_property(flash, "scale", Vector2(2.6, 2.6), .3).set_ease(Tween.EASE_OUT)
+	ft.tween_property(flash, "modulate:a", 0.0, .3)
+	ft.chain().tween_callback(flash.queue_free)
+	for i in count:
+		var a := TAU * (float(i) + .5 * float(i % 2)) / float(count)
+		var spark := Panel.new()
+		var big := 10.0 + 6.0 * float(i % 3)
+		spark.add_theme_stylebox_override("panel", Kit.box(GearTier.HOT if i % 2 == 0 else GearTier.EMBER, Color(0, 0, 0, 0), 999, 0, 0))
+		spark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		spark.size = Vector2(big, big)
+		spark.position = centre - spark.size / 2.0
+		layer.add_child(spark)
+		var reach := 150.0 + 40.0 * float(i % 3)
+		var st := spark.create_tween().set_parallel()
+		st.tween_property(spark, "position", centre + Vector2(cos(a), sin(a)) * reach - spark.size / 2.0, .5).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		st.tween_property(spark, "modulate:a", 0.0, .5).set_ease(Tween.EASE_IN)
+		st.chain().tween_callback(spark.queue_free)
+
+
+static func _open(shell, title: String, body: Array, on_continue: Callable, mark_as: String, title_color := Kit.GOOD) -> void:
+	var v := Kit.vbox(16, [Kit.label(title, 40, title_color, HORIZONTAL_ALIGNMENT_CENTER)])
 	for c in body:
 		v.add_child(c)
 	# What changed arrives line by line.
@@ -198,8 +283,10 @@ static func _open(shell, title: String, body: Array, on_continue: Callable, mark
 	shell.sheet(v)
 
 
-static func _pct(line: String, v: float) -> String:
+static func _pct(line: String, v: float, fine := false) -> String:
 	var pct := 100.0 * v
+	if fine and not Gear.LINES[line].has("dp"):
+		return "%.1f%%" % pct
 	return ("%.1f%%" % pct).replace(".0%", "%") if Gear.LINES[line].has("dp") else "%d%%" % roundi(pct)
 
 

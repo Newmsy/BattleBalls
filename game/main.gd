@@ -1114,6 +1114,13 @@ func _load_profile() -> void:
 			var id: String = Roster.CRITTERS[i % Roster.CRITTERS.size()].id
 			profile.stacks.append({"id": id, "tier": 1 + i % 3, "count": 1, "level": 1 + i % 20})
 			profile.seen[id] = true
+		# &forged=1: Emberforged gear (tiers 6-10) and two 5-stars ready to forge.
+		if url_params.has("forged"):
+			for t in range(6, 11):
+				profile.add_gear(["spike_core", "iron_shell", "phoenix_charm", "echo_core", "ward_charm"][t - 6], t)
+			profile.add_gear("iron_shell", 5)
+			profile.add_gear("iron_shell", 5)
+			profile.hammers += 100
 		# A few Rift Keys and dye drops, so the Rift and Wardrobe have something to show.
 		profile.add_rift_keys(3)
 		if url_params.has("plunge"): # &plunge=1: race talents, medals and stamps bought.

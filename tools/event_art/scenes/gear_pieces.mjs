@@ -5,7 +5,10 @@
 // from the top left with the same outline; the type is the emblem inlaid on
 // it, and the enamel behind the emblem is the piece's rarity colour (1 star
 // grey ... 5 stars gold). No tile: the game draws the tile and tier rim.
-// 12 types x 5 tiers -> game/ui/gear_art/gear_<type>_<tier>.png.
+// Emberforged (tiers 6-10, past 5 stars): the metal turns blackened obsidian,
+// the enamel runs ember red to white-hot by forged level, and a heat glow
+// (and more floating embers each level) hugs the silhouette.
+// 12 types x 10 tiers -> game/ui/gear_art/gear_<type>_<tier>.png.
 import { f } from "./_map_token.mjs";
 
 export const size = [192, 192];
@@ -17,7 +20,12 @@ export const dir = "game/ui/gear_art";
 
 const INK = "#1a1430";
 const TIER = ["#c9d3e0", "#4cd98a", "#3d9bff", "#b366ff", "#ffc23d"];
-const METAL = ["#f3e6c8", "#c9b48a", "#7d6a52"]; // light, mid, dark brass-steel
+const BRASS = ["#f3e6c8", "#c9b48a", "#7d6a52"]; // light, mid, dark brass-steel
+const OBSIDIAN = ["#8a6a66", "#3a2a34", "#160f1c"]; // Emberforged: blackened, still lit top left
+// Emberforged 1-5 enamel: ember red to white-hot.
+const FORGE = ["#d8302a", "#ee4a2c", "#ff6a30", "#ff8f45", "#ffc27a"];
+const EMBER = "#ff5a36", HOT = "#ffe39a";
+let METAL = BRASS;
 
 const defs = (enamel) => `<defs>
   <linearGradient id="mt" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="${METAL[0]}"/><stop offset="0.5" stop-color="${METAL[1]}"/><stop offset="1" stop-color="${METAL[2]}"/></linearGradient>
@@ -98,9 +106,34 @@ const BODY = { Shell: shield, Core: orb, Charm: pendant };
 
 export function piece(id, tier) {
   const slot = SLOT_OF(id);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 160 160">${defs(TIER[tier - 1])}<g transform="translate(80 80) scale(1.08) translate(-80 -79)">${BODY[slot](E[id], id)}</g></svg>`;
+  if (tier <= 5) {
+    METAL = BRASS;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 160 160">${defs(TIER[tier - 1])}<g transform="translate(80 80) scale(1.08) translate(-80 -79)">${BODY[slot](E[id], id)}</g></svg>`;
+  }
+  const lvl = tier - 5;
+  METAL = OBSIDIAN;
+  const body = BODY[slot](E[id], id);
+  const metalDefs = defs(FORGE[lvl - 1]);
+  METAL = BRASS;
+  // Heat glow round the silhouette: blurred alpha flooded ember, under the piece.
+  const glow = `<filter id="heat" x="-30%" y="-30%" width="160%" height="160%">
+    <feMorphology in="SourceAlpha" operator="dilate" radius="${1 + lvl * 0.4}" result="d"/>
+    <feGaussianBlur in="d" stdDeviation="${2.5 + lvl * 0.7}" result="b"/>
+    <feFlood flood-color="${EMBER}" flood-opacity="${0.55 + lvl * 0.08}"/><feComposite in2="b" operator="in" result="g"/>
+    <feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <radialGradient id="ah" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${HOT}" stop-opacity="${0.12 + lvl * 0.05}"/><stop offset="0.6" stop-color="${EMBER}" stop-opacity="${0.06 + lvl * 0.03}"/><stop offset="1" stop-color="${EMBER}" stop-opacity="0"/></radialGradient>`;
+  // Floating embers: two more each level, placed round the piece.
+  const sparks = Array.from({ length: 1 + lvl * 2 }, (_, k) => {
+    const a = k * 2.399 + 0.6, rr = 52 + (k % 3) * 7;
+    const x = 80 + Math.cos(a) * rr, y = 78 + Math.sin(a) * rr * 0.92, s = 1.6 + (k % 3) * 0.7;
+    return `<circle cx="${f(x)}" cy="${f(y)}" r="${f(s + 1.2)}" fill="${EMBER}" opacity="0.5"/><circle cx="${f(x)}" cy="${f(y)}" r="${f(s)}" fill="${HOT}"/>`;
+  }).join("");
+  const d = metalDefs.replace("</defs>", `${glow}</defs>`);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 160 160">${d}
+    <ellipse cx="80" cy="78" rx="74" ry="72" fill="url(#ah)"/>
+    <g transform="translate(80 80) scale(1.08) translate(-80 -79)"><g filter="url(#heat)">${body}</g>${sparks}</g></svg>`;
 }
 
 export const many = {};
-for (const id of Object.keys(E)) for (let t = 1; t <= 5; t++) many[`gear_${id}_${t}`] = () => piece(id, t);
+for (const id of Object.keys(E)) for (let t = 1; t <= 10; t++) many[`gear_${id}_${t}`] = () => piece(id, t);
 export default many.gear_iron_shell_1;
