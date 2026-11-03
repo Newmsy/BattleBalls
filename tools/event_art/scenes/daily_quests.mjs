@@ -60,13 +60,13 @@ export default () => {
     ${[cx - 44, cx + 44].map((x) => `<circle cx="${x}" cy="${cy + 22}" r="15" fill="#3a2418" stroke="#140a06" stroke-width="3"/><circle cx="${x}" cy="${cy + 22}" r="5" fill="#c08a5a"/>`).join("")}
     ${coin(cx + 40, cy - 22, 15)}${coin(cx + 52, cy - 28, 13)}${coin(cx + 30, cy - 30, 12)}${coin(cx + 44, cy - 36, 12)}
     ${egg(cx - 36, cy - 48, 40, "#c8b4e8", "#8a6ac0")}${egg(cx - 2, cy - 44, 34, "#a8d8a8", "#5a9a6a")}
-    <circle cx="${cx + 2}" cy="${cy - 92}" r="30" fill="${CYAN}" opacity="0.28" filter="url(#bl12)"/>
-    <path d="M ${cx + 8} ${cy - 122} L ${cx - 12} ${cy - 88} L ${cx + 2} ${cy - 88} L ${cx - 8} ${cy - 60} L ${cx + 18} ${cy - 98} L ${cx + 4} ${cy - 98} L ${cx + 14} ${cy - 122} Z" fill="#fff2a0" stroke="#b07a1a" stroke-width="2.5" stroke-linejoin="round"/>
+    <g data-layer="bolt" data-move="bob 4 0.45 0.2"><circle cx="${cx + 2}" cy="${cy - 92}" r="30" fill="${CYAN}" opacity="0.28" filter="url(#bl12)"/>
+    <path d="M ${cx + 8} ${cy - 122} L ${cx - 12} ${cy - 88} L ${cx + 2} ${cy - 88} L ${cx - 8} ${cy - 60} L ${cx + 18} ${cy - 98} L ${cx + 4} ${cy - 98} L ${cx + 14} ${cy - 122} Z" fill="#fff2a0" stroke="#b07a1a" stroke-width="2.5" stroke-linejoin="round"/></g>
     ${sparkle(cx + 26, cy - 112, 9, "#fff8dc", 0.95)}${sparkle(cx + 64, cy - 52, 7, "#fff8dc", 0.85)}`;
   // A critter on tiptoe pinning one more note, another reading the board.
-  const kids = `${shadow(268, 214, 26, 0.55)}${critter(268, 186, 24, "#ffc93c", { acc: "propeller", mood: "cheer", tilt: 10, look: [0.6, -0.5] })}
-    <g transform="rotate(-12 296 150)">${note(286, 132, 34, 30, 0, "", R)}</g>
-    ${shadow(470, 222, 22, 0.55)}${critter(470, 198, 20, "#3fa9f5", { acc: "fin", mood: "happy", look: [-0.6, -0.6] })}`;
+  const kids = `${shadow(268, 214, 26, 0.55)}<g data-layer="pinner" data-move="idle 4 0.6 0">${critter(268, 186, 24, "#ffc93c", { acc: "propeller", mood: "cheer", tilt: 10, look: [0.6, -0.5] })}</g>
+    <g data-layer="pinned" data-move="sway 4 0.6 0" data-pivot="296 134" data-follow="pinner"><g transform="rotate(-12 296 150)">${note(286, 132, 34, 30, 0, "", R)}</g></g>
+    ${shadow(470, 222, 22, 0.55)}<g data-layer="reader" data-move="idle 3 0.5 0.4">${critter(470, 198, 20, "#3fa9f5", { acc: "fin", mood: "happy", look: [-0.6, -0.6] })}</g>`;
   return svg(W, H, `${dawn("qd", W, H, 150, { sx: 410, sr: 40 })}
   ${stringLights(-10, 26, 360, 44, 14, 14, LIGHTS, 5)}${stringLights(340, 44, 730, 22, 14, 14, LIGHTS, 5)}
   ${board}${cart}${kids}

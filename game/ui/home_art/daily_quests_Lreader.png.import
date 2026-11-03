@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cx0e0js0rf4eb"
-path="res://.godot/imported/adventure_spire_1_Lhero_blink.png-5242e0a6fea7a33e7292528f035d5c50.ctex"
+uid="uid://y48k3u68dwnc"
+path="res://.godot/imported/daily_quests_Lreader.png-dba15f14110da562a299490366e7167f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://game/ui/home_art/adventure_spire_1_Lhero_blink.png"
-dest_files=["res://.godot/imported/adventure_spire_1_Lhero_blink.png-5242e0a6fea7a33e7292528f035d5c50.ctex"]
+source_file="res://game/ui/home_art/daily_quests_Lreader.png"
+dest_files=["res://.godot/imported/daily_quests_Lreader.png-dba15f14110da562a299490366e7167f.ctex"]
 
 [params]
 

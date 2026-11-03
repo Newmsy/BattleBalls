@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Idle := preload("res://game/ui/idle.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
@@ -74,11 +75,11 @@ static func _count_chip(fr) -> Control:
 	return Kit.chip("%d friend%s" % [n, "" if n == 1 else "s"], Kit.ACCENT) if fr.status == "ready" else null
 
 
-## Your fighter, dozing: the empty-state picture. Drawn once (no per-frame cost).
+## Your fighter, dozing: the empty-state picture. Only the "z Z z" drifts.
 static func _sleepy(shell) -> Control:
 	var icon := CritterIcon.make(shell.profile.lineup, 1, 180)
 	icon.still = true
-	var zzz := Kit.label("z Z z", 34, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)
+	var zzz := Idle.drift(Kit.label("z Z z", 34, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER))
 	var c := CenterContainer.new()
 	c.add_child(Kit.vbox(0, [zzz, icon]))
 	return c

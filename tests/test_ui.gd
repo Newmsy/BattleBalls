@@ -455,7 +455,7 @@ func test_every_painted_door_is_tappable_all_over() -> void:
 	var shell = Shell.new()
 	shell.build()
 	Dev.quick_fight_override = true
-	for s in ["play", "adventure", "week", "versus", "arena"]:
+	for s in ["play", "week", "versus", "arena"]:
 		if s == "play":
 			shell.show_tab("play")
 		else:

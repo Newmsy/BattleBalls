@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c50ydvx5a3hok"
-path="res://.godot/imported/adventure_bosses_Lking_blink.png-3a01eda9e6117a61696205efa31c80cc.ctex"
+uid="uid://bwd3adxf1us0w"
+path="res://.godot/imported/daily_quests_Lreader_blink.png-0d69581fdc307b1a1beff2e502ebbd71.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://game/ui/home_art/adventure_bosses_Lking_blink.png"
-dest_files=["res://.godot/imported/adventure_bosses_Lking_blink.png-3a01eda9e6117a61696205efa31c80cc.ctex"]
+source_file="res://game/ui/home_art/daily_quests_Lreader_blink.png"
+dest_files=["res://.godot/imported/daily_quests_Lreader_blink.png-0d69581fdc307b1a1beff2e502ebbd71.ctex"]
 
 [params]
 
