@@ -243,6 +243,16 @@ func ascend_block(id: String) -> String:
 	return ""
 
 
+## Whether any critter you own can ascend right now (the red dots).
+func can_ascend_any() -> bool:
+	if sparks < ASCEND_COST:
+		return false
+	for st in stacks:
+		if int(st.tier) >= Lineup.MAX_TIER and int(st.count) > 0 and ascend_block(str(st.id)) == "":
+			return true
+	return false
+
+
 ## Spends ASCEND_COST Sparks to raise `id` one Ascension level. Returns the new level, or -1.
 func ascend(id: String) -> int:
 	if ascend_block(id) != "":

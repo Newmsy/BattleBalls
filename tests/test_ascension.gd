@@ -9,6 +9,11 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const Profile := preload("res://meta/profile.gd")
 const BounceChest := preload("res://meta/bounce_chest.gd")
 const ArenaChest := preload("res://game/pvp/arena_chest.gd")
+const ChestDrops := preload("res://meta/chest_drops.gd")
+const Spire := preload("res://sim/spire.gd")
+const SpireClimb := preload("res://meta/spire_climb.gd")
+const SpireScreen := preload("res://game/ui/screens/spire_screen.gd")
+const UiProfile := preload("res://game/ui/ui_profile.gd")
 
 
 func test_ascended_boon_scales_by_half_per_level() -> void:
@@ -90,3 +95,40 @@ func test_spark_drop_rates() -> void:
 	for d in 4000:
 		low += BounceChest.rewards(0, d).filter(func(r): return r.kind == "spark").size()
 	check(low < n[0], "lower chests drop fewer")
+
+
+func test_spire_boss_floors_drop_sparks() -> void:
+	var hits := 0
+	for w in 2000:
+		for f in Spire.BOSS_FLOORS:
+			hits += 1 if SpireClimb.spark_drop(w, f) else 0
+		check(not SpireClimb.spark_drop(w, 7), "only boss floors")
+	check(hits > 800 and hits < 1200, "~10%% of boss clears: %d / 10000" % hits)
+	var c = SpireClimb.new()
+	c.week = 0
+	var w := 0
+	while not SpireClimb.spark_drop(w, 10):
+		w += 1
+	c.week = w
+	c.unclaimed = [9, 10]
+	var p = UiProfile.new()
+	var before: int = p.sparks
+	SpireScreen.grant(p, c.take_rewards())
+	check_eq(p.sparks, before + 1, "the Spark reaches the profile")
+
+
+func test_arena_chest_doubled_on_average() -> void:
+	# Weekly Arena chests hold twice the old fixed amounts, on average.
+	var old := [300, 450, 600, 800, 1000, 1200]
+	for i in ArenaChest.CHESTS.size():
+		for e in ArenaChest.odds(i):
+			if e.kind == "coins":
+				check_eq(ChestDrops.mean(e), old[i] * 2.0, "league %d coins doubled" % i)
+
+
+func test_ascend_red_dot() -> void:
+	var p = UiProfile.new()
+	p.sparks = 0
+	check(not p.can_ascend_any(), "no Sparks, no dot")
+	p.sparks = 10
+	check_eq(p.can_ascend_any(), p.ascend_block("juggernaut") == "", "a T5 with a boon and 10 Sparks lights it")

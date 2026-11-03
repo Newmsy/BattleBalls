@@ -1170,7 +1170,7 @@ func _refresh_top() -> void:
 	var talents := _talent_signature()
 	if current in ["factions", "faction"]:
 		_set_badge("talents_seen", talents)
-	_dots.critters.visible = talents != "" and _new_since(talents, _badge_value("talents_seen")) and Intro.done(profile)
+	_dots.critters.visible = ((talents != "" and _new_since(talents, _badge_value("talents_seen"))) or profile.can_ascend_any()) and Intro.done(profile)
 	var pass_claims: int = glow.claimable_count() if glow != null and not glow.season().is_empty() else 0
 	_dots.play.visible = (friends.attention() > 0 or pass_claims > 0) and Intro.done(profile)
 	for t in _dots:
