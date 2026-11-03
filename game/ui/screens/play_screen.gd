@@ -300,7 +300,7 @@ static func _arena_door(shell) -> Control:
 	var door := mode_door(shell, "versus", "ARENA", lines, VERSUS,
 		_door_art(str(m.art), Vector2(.46, .8), VERSUS_ART), fight,
 		func(): shell.go("arena" if intro else "versus"), true)
-	if store.chest_ready():
+	if store.any_chest_ready():
 		door.add_child(red_dot())
 	return door
 

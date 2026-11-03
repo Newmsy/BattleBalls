@@ -53,14 +53,31 @@ static func time_text(seconds: int) -> String:
 	return "%dm" % maxi(1, m)
 
 
-## How the chest for `league` looks, for ChestArt and the opening show.
-static func look(league: int) -> Dictionary:
+## Each Arena mode has its own weekly chest (Newms 2026-11-03): the same
+## drops, a look of its own. The League's chests are cooled towards its cyan
+## and both carry their mode's badge (arena_chests_screen.gd chest_art).
+const MODE_LOOK := {
+	"series": {"badge": "3v3", "badge_color": Color("ff4fd8"), "tint": Color(1, 1, 1)},
+	"league": {"badge": "2v2", "badge_color": Color("27c8ff"), "tint": Color(0.78, 1.0, 1.22)},
+}
+
+
+## How `mode`'s chest for `league` looks, for ChestArt and the opening show.
+static func look(league: int, mode := "series") -> Dictionary:
 	var lg: Dictionary = Ladder.LEAGUES[league]
 	var c: Dictionary = CHESTS[league]
-	var out := {"id": c.art, "name": "%s Chest" % lg.name, "color": lg.color}
-	if c.has("tint"):
-		out.tint = c.tint
+	var m: Dictionary = MODE_LOOK.get(mode, MODE_LOOK.series)
+	var out := {"id": c.art, "name": "%s Chest" % lg.name, "color": lg.color, "badge": m.badge, "badge_color": m.badge_color}
+	var tint: Color = c.get("tint", Color(1, 1, 1)) * m.tint
+	if tint != Color(1, 1, 1):
+		out.tint = tint
 	return out
+
+
+## The week number `mode`'s rewards roll from, so the two modes' chests in
+## one week roll differently (the 3v3 Series keeps the plain week).
+static func roll_week(week: int, mode := "series") -> int:
+	return week if mode == "series" else week + 100003
 
 
 ## Chance (out of 100) each league's chest also holds an Ascension Spark: up
@@ -87,13 +104,13 @@ static func rewards(league: int, week: int) -> Array:
 	return out
 
 
-## Opens the store's waiting chest into `profile` and the store. Returns
+## Opens the store's waiting chest (its current mode's) into `profile` and the store. Returns
 ## the rewards given (empty when there is none).
 static func open(store, profile) -> Array:
 	store.roll_week()
 	if store.chest.is_empty():
 		return []
-	var got := rewards(int(store.chest.league), int(store.chest.week))
+	var got := rewards(int(store.chest.league), roll_week(int(store.chest.week), store.mode))
 	for r in got:
 		if r.kind == "tokens":
 			store.coins += int(r.n)
