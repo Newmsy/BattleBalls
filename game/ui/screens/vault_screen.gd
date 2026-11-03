@@ -44,7 +44,8 @@ static func build(shell, params: Dictionary) -> Control:
 
 	if params.has("notice"):
 		var r: Dictionary = params.get("xp", {})
-		ResultPopup.boss_result(shell, params, result_row(r) if r.has("won") else null)
+		# A win's gear and Hammers drop in as cards (boss_result); a loss keeps its refund line.
+		ResultPopup.boss_result(shell, params, result_row(r) if r.has("won") and not r.won else null)
 
 	var level := BossLevelGrid.picked(p, GearVault.KEY, params)
 	root.add_child(_prizes(shell, level, slot))

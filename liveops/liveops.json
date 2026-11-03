@@ -1,9 +1,13 @@
 {
   "version": 1,
-  "revision": 5,
+  "revision": 6,
   "seasons": [
     {"name": "Preseason", "start": "2026-10-12", "weeks": 7},
-    {"name": "Season 1: Neon Nights", "start": "2026-11-30", "weeks": 7}
+    {"name": "Season 1: Neon Nights", "start": "2026-11-30", "weeks": 7, "debut": "magnet", "pass": "s1_neon_nights"},
+    {"name": "Season 2: Frost Fest", "start": "2027-01-18", "weeks": 7, "debut": "snowbo", "pass": "s2_frost_fest"},
+    {"name": "Season 3: Glow Garden", "start": "2027-03-08", "weeks": 7, "debut": "glowbug", "pass": "s3_glow_garden"},
+    {"name": "Season 4: Abyss Lights", "start": "2027-04-26", "weeks": 7, "debut": "hook", "pass": "s4_abyss_lights"},
+    {"name": "Season 5: Summer Splash", "start": "2027-06-14", "weeks": 7, "debut": "sundae", "pass": "s5_summer_splash"}
   ],
   "fights": [],
   "brackets": [

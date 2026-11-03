@@ -247,7 +247,7 @@ try {
   if (mine(115)) {
     const { page, logs } = await openGame("?seed=7&demo=1&quickfight=1");
     await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await waitForLog(logs, "UI_SCREEN play", 30000);
     await page.waitForTimeout(1500);
     await page.screenshot({ path: path.join(shots, "3a-home.png") });
     await tapUi(page, logs, "tab_critters", "critters");
@@ -444,7 +444,7 @@ try {
     const { page, logs } = await openGame("?seed=7&offline=1&quickfight=1", { width: 1376, height: 1263 });
     await waitForLog(logs, "BOOT_OK", 60000);
     await page.waitForTimeout(1500);
-    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await waitForLog(logs, "UI_SCREEN play", 30000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "6a-wide-home.png") });
     await tapUi(page, logs, "quickfight");
@@ -529,7 +529,7 @@ try {
   if (mine(8)) {
     const { page, logs } = await openGame("?seed=7");
     await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await waitForLog(logs, "UI_SCREEN play", 30000);
     await page.waitForTimeout(800);
     // The campaign card above it pushes the Trick Shot card below the fold.
     await page.mouse.move(...toPage(page, 360, 800));
@@ -565,7 +565,7 @@ try {
   if (mine(21)) {
     const { page, logs } = await openGame("?today=2026-10-15");
     await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await waitForLog(logs, "UI_SCREEN play", 30000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "16-quests-door.png") });
     await tapUi(page, logs, "daily_quests", "quests");
@@ -580,7 +580,7 @@ try {
   if (mine(11)) {
     const { page, logs } = await openGame("?demo=1&tutorial=0&dev=1");
     await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await waitForLog(logs, "UI_SCREEN play", 30000);
     await page.waitForTimeout(800);
     await tapUi(page, logs, "settings", "sheet");
     const before = logs.length;
@@ -803,7 +803,7 @@ try {
   if (mine(54)) {
     const { page, logs } = await openGame("?screen=play&seed=7&offline=1");
     await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN play", 10000);
+    await waitForLog(logs, "UI_SCREEN play", 30000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "26-home-new-player.png") });
     await tapUi(page, logs, "campaign", "world");

@@ -193,9 +193,14 @@ func _draw_stage(_shape, s: float, shake: Vector2) -> void:
 		_draw_floor_tiles(top, bottom, s, shake)
 	else:
 		draw_rect(Rect2(0.0, top * s, Plunge.WIDTH * s, (bottom - top) * s), Color(theme.fill))
-	if sim.time() < Plunge.GATE_SECONDS:
-		var gy := (PlungeCourse.START_Y + Plunge.RADIUS + 4.0) * s
-		Dot.line(self, Vector2(0.0, gy), Vector2(Plunge.WIDTH * s, gy), Color(theme.border), 4.0)
+	# The gate: each racer's flap drops when its gate opens (a course can
+	# hold some gates a moment so no gate starts ahead).
+	var gy := (PlungeCourse.START_Y + Plunge.RADIUS + 4.0) * s
+	var lane_w := Plunge.WIDTH / float(sim.starters)
+	for i in sim.starters:
+		if not sim.out_of_gate(i):
+			var x0: float = lane_w * sim.lanes[i] * s
+			Dot.line(self, Vector2(x0, gy), Vector2(x0 + lane_w * s, gy), Color(theme.border), 4.0)
 	var fy: float = sim.finish_y * s
 	if sim.finish_y < bottom:
 		Finish.paint(self, c.info.id, fy, Plunge.WIDTH * s, s, Color(c.info.get("tint", theme.border)), _time)

@@ -70,7 +70,7 @@ const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## the main action in pin(). See design/ui.md, "No scrolling".
 ## Play fits one screen (its doors); it scrolls only with Larger text.
 ## Growing lists read top-down, so they never get centred (see _show).
-const TOP_ALIGNED := ["critters", "dex", "bag", "shop", "pass", "campaign", "bracket", "world"]
+const TOP_ALIGNED := ["critters", "dex", "bag", "shop", "pass", "campaign", "bracket", "world", "account"]
 const SCROLLS := ["play", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
@@ -606,6 +606,8 @@ func close_overlay() -> void:
 	var was_sheet := _overlay_tag == "sheet" and was_open
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_overlay_tag = ""
+	if was_open:
+		_send_home(_overlay)
 	for c in _overlay.get_children():
 		if was_sheet and not Motion.calm() and c is Control:
 			# The sheet shrinks away on top while the screen under it is live.
@@ -619,6 +621,23 @@ func close_overlay() -> void:
 		overlay_closed.emit()
 	if is_inside_tree() and profile != null:
 		_refresh_top.call_deferred() # Coins won while it was up fly in now.
+
+
+## Reward cards tagged with ResultPopup.send_home in a closing popup: their
+## coins and eggs fly from the card into the top bar, the rest into a tab.
+func _send_home(root: Node) -> void:
+	var flown := 0
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		stack.append_array(n.get_children())
+		if not n is Control or not n.is_visible_in_tree():
+			continue
+		if n.has_meta("home_pill"):
+			reward_from(n, str(n.get_meta("home_pill")))
+		elif n.has_meta("home_tab") and flown < 6:
+			fly_to_tab(n.get_meta("home_icon"), n.get_global_rect().get_center(), str(n.get_meta("home_tab")), .06 * flown)
+			flown += 1
 
 
 ## How far a scene painting (a map, a tower) may reach past each side of the

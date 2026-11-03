@@ -291,19 +291,48 @@ static func _face(id: String, tier: int, side: float, silhouette := false) -> Co
 	return art
 
 
-## A stage you can't fight yet: its number, the foe's silhouette and a lock.
+## A stage you can't fight yet: its number, the foe's silhouette backlit in
+## the zone's colour with a "?" on it, and a lock.
 static func _locked_row(z: int, i: int, st: Dictionary, boss: bool) -> Control:
 	var art := Kit.hbox(0, [], BoxContainer.ALIGNMENT_CENTER)
 	var foes := Zones.enemies(st)
+	var tint: Color = Kit.BAD if boss else Kit.ACCENT
 	for id in foes:
-		art.add_child(_face(id, 1, (92.0 if boss else 76.0) / sqrt(float(foes.size())), true))
+		var side := (92.0 if boss else 76.0) / sqrt(float(foes.size()))
+		var lit := _Backlit.new()
+		lit.tint = tint
+		lit.custom_minimum_size = Vector2(side, side) * FighterTag.ART_SHRINK
+		lit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var face := _face(id, 1, side, true)
+		face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		lit.add_child(face)
+		var q := Kit.label("?", int(side * .42), Color(tint.lightened(.55), .85), HORIZONTAL_ALIGNMENT_CENTER)
+		q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		q.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		q.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lit.add_child(q)
+		art.add_child(lit)
 	var key := Kit.label(Zones.stage_key(z, i), 24, Kit.MUTED)
 	key.custom_minimum_size.x = 64
-	var row := Kit.hbox(14, [key, art, Kit.spacer(), Glyph.make("lock", 26, Kit.MUTED)])
+	var lock := Kit.panel(Glyph.make("lock", 24, Kit.MUTED), Kit.box(Color("0f0d2a"), Kit.LINE, 999, 2, 8))
+	lock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var row := Kit.hbox(14, [key, art, Kit.spacer()])
+	if boss:
+		row.add_child(Kit.chip("BOSS", Kit.BAD.darkened(.15), 16))
+	row.add_child(lock)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var card := Kit.panel(row, Kit.box(Kit.PANEL, Kit.BAD.darkened(.4) if boss else Kit.LINE, 28, 2, 10))
-	card.modulate = Color(1, 1, 1, .7)
+	card.modulate = Color(1, 1, 1, .85)
 	return card
+
+
+## A soft glow behind a locked stage's silhouette, so its shape reads on the dark card.
+class _Backlit extends Control:
+	const Dot := preload("res://game/dot.gd")
+	var tint := Color.WHITE
+
+	func _draw() -> void:
+		Dot.glow(self, size / 2.0, minf(size.x, size.y) * .62, Color(tint, .32), .35)
 
 
 ## A stage's three crown slots, `won` of them gold (crowns, not stars: a
@@ -441,6 +470,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 				var cell := Kit.vbox(4, [CritterIcon.make(id, 1, 96), _drop_name(c.name)])
 				cell.custom_minimum_size.x = 150
 				var card := Kit.panel(cell, Kit.box(Kit.PANEL2, Kit.LINE, 24, 2, 10))
+				ResultPopup.send_home(card, "", "critters", func(): return CritterIcon.face(id, 56)) # Flies to Critters on Continue.
 				drops.add_child(card)
 				drop_cards.append([card, Roster.RARITY_COLORS.get(c.rarity) if c.rarity in ["rare", "epic", "legendary"] else null])
 			if r.get("orbs", 0) > 0:
@@ -448,6 +478,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 					_drop_name("%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"])])
 				orb_cell.custom_minimum_size.x = 150
 				var orb_card := Kit.panel(orb_cell, Kit.box(Kit.PANEL2, Color("c77dff"), 24, 2, 10))
+				ResultPopup.send_home(orb_card, "orb")
 				drops.add_child(orb_card)
 				drop_cards.append([orb_card, null])
 			for g in r.get("gear", []):
@@ -456,6 +487,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 					Kit.hbox(0, [Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER), _drop_name(g.name)])
 				cell.custom_minimum_size.x = 150
 				var gear_card := Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10))
+				ResultPopup.send_home(gear_card, "", "bag", func(): return GearArt.piece(g.type, g.tier, 48, col))
 				drops.add_child(gear_card)
 				drop_cards.append([gear_card, col if g.tier >= 3 else null])
 			for card in RiftScreen.extra_cards(r.get("keys", 0), r.get("dyes", [])):

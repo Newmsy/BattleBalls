@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Idle := preload("res://game/ui/idle.gd")
 const A11y := preload("res://game/a11y.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const LiveOps := preload("res://game/liveops.gd")
@@ -89,6 +90,7 @@ static func _row(shell, v: Dictionary, accent: Color, can_swap: bool) -> Control
 	elif v.done:
 		var claim := Kit.button("Claim", func(): _claim(shell, v.id), "go", 20, 52)
 		shell.mark("quest_claim_" + str(v.id), claim)
+		Idle.breathe(claim, .06, .7)
 		status = claim
 	elif can_swap:
 		var swap := Kit.card_button(Kit.glyph("replay", 26, Kit.MUTED), func(): _swap(shell, v.id), Kit.LINE, Kit.PANEL, 18, 8)
@@ -121,6 +123,7 @@ static func _chest(shell, title: String, c: Dictionary, accent: Color, weekly: b
 	elif c.ready:
 		var open := Kit.button("Open", func(): _open_chest(shell, weekly), "go", 20, 52)
 		shell.mark("quest_chest_" + ("week" if weekly else "day"), open)
+		Idle.breathe(open, .06, .7)
 		status = open
 	row.add_child(_status(status))
 	var st := Kit.box(Color(0, 0, 0, 0), Color(accent, .7), 20, 2, 8)

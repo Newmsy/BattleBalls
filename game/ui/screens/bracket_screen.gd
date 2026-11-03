@@ -145,6 +145,7 @@ static func _choose(shell, ev: Dictionary, id: String) -> void:
 		return
 	shell.toast("%s is your champion." % _name(id), id)
 	Legends.submit_pick(shell.backend, ev, id)
+	shell.pop_after(["champ_" + id]) # The pick's card pops gold.
 	shell.refresh()
 
 

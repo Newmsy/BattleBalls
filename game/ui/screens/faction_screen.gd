@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Idle := preload("res://game/ui/idle.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const Talents := preload("res://sim/talents.gd")
 const FactionsScreen := preload("res://game/ui/screens/factions_screen.gd")
@@ -25,6 +26,7 @@ static func build(shell, params: Dictionary) -> Control:
 	var free: int = p.talent_points_free(f)
 	var status := Kit.label("Rank %d  ·  %d point%s to spend" % [p.faction_rank(f), free, "" if free == 1 else "s"], 24, Kit.GOOD if free > 0 else Kit.MUTED)
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.mark("talent_status", status)
 	var reset := Kit.card_button(Kit.label("Reset", 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), func():
 		p.reset_talents(f)
 		shell.refresh(), Kit.LINE, Kit.PANEL, 999, 10)
@@ -124,6 +126,8 @@ static func _node(shell, p, f: String, n: Dictionary, picks: Dictionary, open: b
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if not open:
 		b.modulate = Color(1, 1, 1, .55)
+	elif p.can_add_talent(f, n.id):
+		Idle.breathe(node, .08, .6) # a point could go here
 	shell.mark("talent_" + n.id, b)
 	return b
 
@@ -146,12 +150,15 @@ static func _sheet(shell, p, f: String, n: Dictionary) -> void:
 	var minus := Kit.button("Remove", func():
 		if not p.remove_talent(f, n.id):
 			shell.toast("Higher rows still need these points.")
+		else:
+			shell.pop_after(["talent_status"])
 		shell.close_overlay()
 		shell.refresh(), "ghost", 24, 80)
 	minus.disabled = rank <= 0
 	var plus := Kit.button("Add", func():
 		p.add_talent(f, n.id)
 		shell.close_overlay()
+		shell.pop_after(["talent_" + n.id, "talent_status"]) # The ring fills with a pop.
 		shell.refresh(), "go", 24, 80)
 	plus.disabled = not p.can_add_talent(f, n.id)
 	shell.mark("talent_minus", minus)
