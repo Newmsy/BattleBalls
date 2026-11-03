@@ -132,6 +132,7 @@ func _ready() -> void:
 	arena = ArenaView.new()
 	arena_clip.add_child(arena)
 	sfx = Sfx.new()
+	sfx.menu_theme = "bounce" # The run's own music between fights.
 	add_child(sfx)
 	board = BounceBoard.new()
 	add_child(board)

@@ -153,7 +153,7 @@ func _ready() -> void:
 	if is_inside_tree():
 		get_viewport().size_changed.connect(_layout)
 	_layout()
-	sfx.play_music("fight")
+	sfx.play_music("plunge") # The race has its own music, not the fight theme.
 	_intro = PlungeIntro.new()
 	_intro.sfx = sfx
 	_intro.you_at = _your_spot

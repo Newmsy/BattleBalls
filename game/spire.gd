@@ -24,6 +24,7 @@ var spec: Dictionary
 
 
 func _ready() -> void:
+	menu_music = "spire" # The Spire's own music while aiming, as on its screen.
 	climb = SpireClimb.load_file(LiveOps.now())
 	if climb.pending.is_empty() or int(climb.pending.floor) != climb.next_floor():
 		climb.pending = {}

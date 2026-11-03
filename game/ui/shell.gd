@@ -72,6 +72,8 @@ const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## Play fits one screen (its doors); it scrolls only with Larger text.
 ## Growing lists read top-down, so they never get centred (see _show).
 const TOP_ALIGNED := ["critters", "dex", "bag", "shop", "pass", "campaign", "bracket", "world", "account"]
+## Screens with their own music instead of the menu loop (Sfx tracks).
+const SCREEN_MUSIC := {"spire": "spire"}
 const SCROLLS := ["play", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
@@ -832,6 +834,8 @@ func _show(name: String, params: Dictionary) -> void:
 		Analytics.track("screen", {"name": name})
 	current = name
 	current_params = params
+	if sfx != null:
+		sfx.set_menu_theme(SCREEN_MUSIC.get(name, ""))
 	_shown_at = Engine.get_frames_drawn()
 	hero = null
 	_marks.clear()

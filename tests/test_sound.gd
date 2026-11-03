@@ -96,6 +96,35 @@ func test_music_flow() -> void:
 	sfx.free()
 
 
+## A mode with its own fight music (Arena) uses it for the fight and its
+## overtime; a theme with no tracks falls back to the shared ones.
+func test_fight_theme_picks_mode_music() -> void:
+	var sfx := _sfx()
+	check_eq(sfx._fight_track(""), "fight", "no theme: shared fight")
+	check_eq(sfx._fight_track("overtime"), "overtime", "no theme: shared overtime")
+	sfx.fight_theme = "arena"
+	check_eq(sfx._fight_track(""), "arena", "arena fight")
+	check_eq(sfx._fight_track("overtime"), "arena_overtime", "arena overtime")
+	check_eq(sfx._menu_track(), "menu", "no menu theme: the menu loop")
+	sfx.menu_theme = "bounce"
+	check_eq(sfx._menu_track(), "bounce", "Bounce Run plays its own between fights")
+	sfx.menu_theme = "nothing_here"
+	check_eq(sfx._menu_track(), "menu", "unknown menu theme falls back")
+	sfx.menu_theme = ""
+	sfx._music_track = "menu"
+	sfx.set_menu_theme("spire")
+	check_eq(sfx._music_track, "spire", "opening the Spire switches the music")
+	sfx.set_menu_theme("")
+	check_eq(sfx._music_track, "menu", "leaving it goes back to the menu loop")
+	sfx._music_track = "fight"
+	sfx.set_menu_theme("spire")
+	check_eq(sfx._music_track, "fight", "never mid-fight")
+	sfx.fight_theme = "nothing_here"
+	check_eq(sfx._fight_track(""), "fight", "unknown theme falls back")
+	check_eq(sfx._fight_track("overtime"), "overtime", "and for overtime")
+	sfx.free()
+
+
 ## The menu loop carries on where it was: on through a scene change (the new
 ## screen's Sfx counts the load time), and paused through a fight.
 func test_menu_music_resumes() -> void:

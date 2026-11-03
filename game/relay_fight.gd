@@ -53,6 +53,8 @@ var _hold := -1.0 ## Real seconds on the KO face so far, or -1 before the blow.
 var _zooming := false
 var _skipped := false ## Skip also skips the finisher.
 var sfx: Sfx
+var music_theme := "" ## Sfx.fight_theme for this screen's fights ("" = the shared fight music).
+var menu_music := "" ## Sfx.menu_theme between legs ("" = the menu loop).
 var fight_hud: FightHud ## Both health bars, above the arena.
 var fighter_strip: Control ## The two fighters' cards under the arena while the balls are out.
 var info_label: Label
@@ -77,6 +79,8 @@ func start(r: Relay, tags := ["YOU", "FOE"]) -> void:
 	arena.team_tags = tags
 	arena_clip.add_child(arena)
 	sfx = Sfx.new()
+	sfx.fight_theme = music_theme
+	sfx.menu_theme = menu_music
 	add_child(sfx)
 	_build_ui(tags)
 	get_viewport().size_changed.connect(_layout)
