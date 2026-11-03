@@ -45,7 +45,7 @@ const TOKEN_SECONDS := 3600
 const SERIES := "series"
 const LEAGUE := "league"
 const MODES := {
-	SERIES: {"name": "3v3 Series", "size": 3, "color": Color("ff4fd8"), "art": "vs_ghost", "team": "Your trio", "short": "3v3"},
+	SERIES: {"name": "3v3 Series", "size": 3, "color": Color("ff4fd8"), "art": "vs_series", "team": "Your trio", "short": "3v3"},
 	LEAGUE: {"name": "2v2 League", "size": 2, "color": Color("27c8ff"), "art": "vs_league", "team": "Your pair", "short": "2v2"},
 }
 ## What each mode keeps of its own; everything else is shared.

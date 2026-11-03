@@ -296,7 +296,7 @@ static func _arena_door(shell) -> Control:
 	if not intro:
 		lines.append(Kit.hbox(6, [Glyph.make("token", _s(20)), _door_line("%d/%d · %s" % [n, ArenaStore.TOKEN_MAX, m.short], Kit.FG if n > 0 else Kit.BAD, 17)]))
 	var door := mode_door(shell, "versus", "ARENA", lines, VERSUS,
-		_door_art(str(m.art), Vector2(.6, .75), VERSUS_ART), fight,
+		_door_art(str(m.art), Vector2(.46, .8), VERSUS_ART), fight,
 		func(): shell.go("arena" if intro else "versus"), true)
 	if store.chest_ready():
 		door.add_child(red_dot())

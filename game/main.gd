@@ -1169,7 +1169,7 @@ func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: S
 ## (p1, p3) against theirs (p2, p4), all at once, in the campaign's team
 ## fight flow; the result goes back to the League page (_back_to_campaign).
 func _start_arena_duo() -> void:
-	var store = ArenaStore.open("", ArenaStore.LEAGUE)
+	var store = ArenaStore.open(ArenaStore.SAVE_PATH, ArenaStore.LEAGUE)
 	var bot: Dictionary = store.pending_bot()
 	if store.pending.is_empty() or bot.is_empty():
 		return
@@ -1253,7 +1253,7 @@ func _finish_stage() -> void:
 	var fight := sim.summary()
 	fight.max_hp = sim.balls[0].max_hp
 	if pve.has("arena_duo"):
-		var store = ArenaStore.open("", ArenaStore.LEAGUE)
+		var store = ArenaStore.open(ArenaStore.SAVE_PATH, ArenaStore.LEAGUE)
 		var won := sim.winner == 0 or sim.winner < 0 # Both out together goes to the attacker.
 		var delta: int = store.finish_attack(won)
 		var got: int = int(store.history[0].get("coins", 0)) if not store.history.is_empty() else 0
@@ -1315,7 +1315,7 @@ func _aim_back() -> void:
 		return
 	if pve.has("arena_duo"):
 		# Not launched yet: the attack is called off and its token comes back.
-		var store = ArenaStore.open("", ArenaStore.LEAGUE)
+		var store = ArenaStore.open(ArenaStore.SAVE_PATH, ArenaStore.LEAGUE)
 		store.pending = {}
 		store.tokens = mini(ArenaStore.TOKEN_MAX, store.tokens + 1)
 		store.save()

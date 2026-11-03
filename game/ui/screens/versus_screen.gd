@@ -93,7 +93,10 @@ static func room_tile(shell, mark: String, art: Control, title: String, status: 
 	art.custom_minimum_size = Vector2(0, 70)
 	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var v := Kit.vbox(4, [art, Kit.hbox(8, [_fit(Kit.label(title, 26)), Kit.spacer(), status], BoxContainer.ALIGNMENT_CENTER)])
+	var name := _fit(Kit.label(title, 26))
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name.custom_minimum_size.x = 60
+	var v := Kit.vbox(4, [art, Kit.hbox(8, [name, status], BoxContainer.ALIGNMENT_CENTER)])
 	var b := Kit.card_button(v, on_press, Color(col, .7), Color(col, .08), 24, 8)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark(mark, b)
