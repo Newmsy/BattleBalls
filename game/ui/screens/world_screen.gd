@@ -28,7 +28,9 @@ static func build(shell, params: Dictionary) -> Control:
 	var boss_zone := open - 1
 	var glitched := not Campaign.is_cleared(p, boss_zone, Zones.zone(boss_zone).stages.size() - 1)
 	# Fill the room between the title row and the pinned button.
-	var height := clampf(shell.size.y - 480.0 - (A11y.font(40) - 40) * 2.0, 560.0, 1000.0)
+	# A new player's hint line (Intro.coach) takes room under the screen too.
+	var hint := 80.0 if preload("res://game/ui/intro.gd").coach(p, "world") != "" else 0.0
+	var height := clampf(shell.size.y - 480.0 - hint - (A11y.font(40) - 40) * 2.0, 560.0, 1000.0)
 	var b: Dictionary = p.best(p.lineup)
 	var map := WorldMap.make(Zones.map_zones(), open, glitched, height, _tap.bind(shell, built, open), p.lineup, b.get("tier", 1))
 	map.bleed = shell.bleed()
