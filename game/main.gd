@@ -701,7 +701,7 @@ func _start_fight() -> void:
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
 		info_label.text = str(_board.title) if not _board.is_empty() else "Replay"
-	sfx.fight_theme = _fight_music()
+	sfx.theme = _fight_music()
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -838,7 +838,6 @@ func _show_result() -> void:
 		return
 	_show_only(result_box)
 	_slide_in_result()
-	sfx.hold_victory(result_box) # A win's tune plays while the result is up.
 	if auto_clip:
 		auto_clip = false
 		_on_clip_button()
@@ -1168,7 +1167,7 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 	info_label.text = FightSpeed.with_aim_hint(line)
 
 
-## Which mode's fight music this fight plays (Sfx.fight_theme; "" = shared).
+## Which mode's music this fight plays (Sfx.theme; "fight" = the shared fight track).
 func _fight_music() -> String:
 	if mode != Mode.CAMPAIGN:
 		return ""

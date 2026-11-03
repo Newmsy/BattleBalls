@@ -393,8 +393,6 @@ static func _duo_result(shell, store, params: Dictionary) -> void:
 	next.size_flags_stretch_ratio = 1.5
 	var outcome: int = ResultPopup.outcome_of(int(d.get("winner", 0)))
 	var popup := ResultPopup.content("2v2 League · vs " + str(d.get("name", "?")), outcome, body, [back, next])
-	if shell.sfx != null:
-		shell.sfx.hold_victory(popup)
 	shell.sheet(popup)
 
 

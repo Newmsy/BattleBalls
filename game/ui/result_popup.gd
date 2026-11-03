@@ -358,7 +358,5 @@ static func boss_result(shell, params: Dictionary, row: Control = null) -> void:
 	var ok := Kit.button("Continue", shell.close_overlay, "go", 26, 84)
 	shell.mark("result_continue", ok)
 	var popup := content(str(params.get("caption", "Boss")), Outcome.WIN if xp.get("won", false) else Outcome.LOSE, body, [ok])
-	if shell.sfx != null:
-		shell.sfx.hold_victory(popup) # A win's tune plays while this is up.
 	shell.sheet(popup)
 	params.erase("notice")
