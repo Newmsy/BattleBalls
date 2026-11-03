@@ -30,6 +30,6 @@ const CRITTER := {
 	"art": {"badge_top": 1.6, "eyes": {"one": true, "w": .4, "h": .4, "p": .16, "iris": "0a7bb0", "glow": "7fe6ff", "mouth": "none"}, "back": ["antennae"], "front": ["lens"]},
 	"sound": {"ouch": "ouch_tech", "pitch": 1.0},
 	## Bounce Run boon (sim/boons.gd): always Epic, only for this critter.
-	"boon": {"id": "prism", "name": "Prism", "text": "Every bounce fires {+beam_link} more beam, to an older bounce. Beams +{+beam_life}s.",
+	"boon": {"id": "prism", "name": "Prism", "text": "Every bounce fires {+beam_link} more beam{s:beam_link}, to an older bounce. Beams +{+beam_life}s.",
 		"add": {"beam_link": 1, "beam_max": 4, "beam_life": 0.5}, "proof": "event:beam"},
 }

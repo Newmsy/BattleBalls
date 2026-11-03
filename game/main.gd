@@ -90,6 +90,8 @@ enum State { MENU, AIM, FIGHT, RESULT, CLIP }
 ## TUTORIAL: onboarding drives the arena. CAMPAIGN: a campaign stage (energy
 ## already spent). LIVE: a Quick fight against a real player, refereed by the
 ## live server (Settings > Testing for now; design/live-quick-fight.md).
+## Boss screens whose fights play the boss music (Rifts have their own feel).
+const BOSS_MUSIC_SCREENS := ["vault", "nest", "pinata", "totem", "wyrm", "glitch"]
 enum Mode { NORMAL, REPLAY, CHALLENGE, RIVAL, TUTORIAL, CAMPAIGN, LIVE }
 
 ## Onboarding fights report here instead of showing the result panel.
@@ -211,7 +213,7 @@ var friend_button: Button
 var _share_pending := false
 var shell_layer: CanvasLayer ## Home screen and menus (game/ui), drawn over the arena.
 var shell: Shell
-var _board_pick := -1 ## The side the player called for the Fight of the Day being watched, or -1.
+var _board_pick := -1 ## The side the player called in the board fight being watched, or -1.
 ## The player's collection, energy and campaign progress, kept in save.data.profile.
 var profile
 ## The campaign stage being fought: {config, zone, stage, fighter, result?},
@@ -225,7 +227,7 @@ var pve_param := ""
 var demo_profile := false
 var demo_stars := 0 ## ?demo=1&stars=3: every Zone 1 stage starred (UI screenshots).
 var profile_unsaved := false
-## The board fight being watched (Fight of the Day, a Bracket of Legends game):
+## The board fight being watched (a Bracket of Legends game):
 ## its title and the screen to go back to. Empty otherwise.
 var _board := {}
 var aim_back_button: Button
@@ -354,6 +356,8 @@ func _ready() -> void:
 			elif shell.reopened:
 				pass # Back from an Arena fight or a Plunge race: stay where the shell reopened.
 			elif url_params.get("screen", "") in Shell.TAB_IDS:
+				if url_params.screen == "bag" and url_params.has("section"):
+					Shell.SCREENS.bag.section = url_params.section # ?screen=bag&section=items
 				shell.show_tab(url_params.screen) # ?screen=fuse
 			elif url_params.get("screen", "") in Shell.SCREENS and (url_params.screen not in ["detail", "dex_entry"] or url_params.has("id")):
 				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
@@ -373,9 +377,12 @@ func _ready() -> void:
 							break
 				if who in Roster.ids():
 					preload("res://game/ui/ascend_show.gd").play(shell, who, clampi(int(url_params.get("level", "2")), 1, 5))
+			# ?sparkshow=1 plays the Ascension Spark moment (as if one just dropped).
+			if url_params.has("sparkshow"):
+				shell.profile.add_sparks(maxi(1, int(url_params.sparkshow)))
+				shell._spark_check.call_deferred()
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
-				shell.go("week")
 				shell.go("bracket")
 	if url_params.has("perftour"): # ?perftour=1 (or =play,campaign) times every screen's open.
 		var only: Array = [] if url_params.perftour in ["", "1"] else Array(url_params.perftour.split(","))
@@ -694,6 +701,7 @@ func _start_fight() -> void:
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
 		info_label.text = str(_board.title) if not _board.is_empty() else "Replay"
+	sfx.fight_theme = _fight_music()
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 
@@ -1158,6 +1166,17 @@ func _start_stage(config: Dictionary, zone_index: int, stage_index: int, fighter
 		var odds := Matchup.rate(profile.power_of(fighter), Campaign.enemy_rating(zone_index, stage_index), FamilyEdge.team([fighter], foes))
 		line += " · %s fight" % Matchup.word(odds)
 	info_label.text = FightSpeed.with_aim_hint(line)
+
+
+## Which mode's fight music this fight plays (Sfx.fight_theme; "" = shared).
+func _fight_music() -> String:
+	if mode != Mode.CAMPAIGN:
+		return ""
+	if pve.has("arena_duo"):
+		return "arena"
+	if pve.get("boss", "") in BOSS_MUSIC_SCREENS:
+		return "boss"
+	return ""
 
 
 ## A farming boss run from its screen ("vault" for the Anvil King, "nest" for
@@ -1735,7 +1754,7 @@ func _build_shell() -> void:
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
-	LiveOps.fetch(self, func(): if shell.current in ["play", "week", "bracket"]: shell.refresh())
+	LiveOps.fetch(self, func(): if shell.current in ["play", "bracket"]: shell.refresh())
 
 
 ## Quick fight starts on the fighter chosen in the home screen (Use in lineup).
@@ -2016,7 +2035,7 @@ func _label_result_buttons() -> void:
 	again_button.text = {Mode.NORMAL: "REMATCH", Mode.CHALLENGE: "TRY AGAIN", Mode.REPLAY: "BEAT THIS SHOT", Mode.RIVAL: "REMATCH", Mode.CAMPAIGN: "", Mode.LIVE: "FIGHT AGAIN", Mode.TUTORIAL: ""}[mode]
 	change_button.text = {Mode.REPLAY: "PLAY MY OWN", Mode.RIVAL: "FRIENDS"}.get(mode, "CHANGE CRITTER")
 	if not _board.is_empty():
-		change_button.text = "BRACKET" if _board.return_to == "bracket" else "DAILY"
+		change_button.text = "BRACKET"
 	(share_button.get_meta("caption") as Label).text = "SEND" if mode == Mode.CHALLENGE else "SHARE"
 	# A link from someone who isn't a friend yet offers to add them.
 	friend_row.visible = _can_add_link_friend()
@@ -2178,7 +2197,7 @@ func _quick_fight() -> void:
 		_begin_aim()
 
 
-## Watch the Fight of the Day from the This Week board, as a replay.
+## Watch a board fight (a Bracket of Legends game), as a replay.
 func _watch_board_fight(f: Dictionary) -> void:
 	shell_layer.visible = false
 	sfx.toggle_hidden = false
@@ -2192,7 +2211,7 @@ func _watch_board_fight(f: Dictionary) -> void:
 	link_tiers = [0, 0]
 	arena_override = f.get("arena", "square")
 	_board_pick = f.pick
-	_board = {"title": f.get("board_title", "Fight of the Day"), "return_to": f.get("return_to", "week"), "return_params": f.get("return_params", {})}
+	_board = {"title": f.get("board_title", "Bracket of Legends"), "return_to": f.get("return_to", "bracket"), "return_params": f.get("return_params", {})}
 	_start_fight()
 
 
@@ -2201,9 +2220,7 @@ func _back_to_board() -> void:
 	_play_normal()
 	_show_home()
 	shell.show_tab("play")
-	shell.go("week")
-	if from.return_to != "week":
-		shell.go(from.return_to, from.return_params)
+	shell.go(from.return_to, from.return_params)
 
 
 func _label(text: String, font_size: int) -> Label:

@@ -2916,7 +2916,8 @@ func _draw_piece(p, s: float, shake: Vector2) -> void:
 		var owner = sim.balls[p.owner]
 		var look: Vector2 = p.vel.normalized() if p.vel.length() > 0.001 else Vector2.RIGHT
 		draw_set_transform(pos + shake)
-		CritterArt.draw_critter(self, owner.def.id, Vector2.ZERO, p.radius * s, {"t": _time, "tier": tiers[p.owner], "look": look})
+		CritterArt.draw_critter(self, owner.def.id, Vector2.ZERO, p.radius * s, {"t": _time, "tier": tiers[p.owner], "look": look,
+			"skin": Catalog.skin_for(loadouts[_side(p.owner)], owner.def.id) if _side(p.owner) >= 0 and _side(p.owner) < loadouts.size() else {}})
 		draw_set_transform(shake)
 		Dot.circle(self, pos, p.radius * s * 1.04, Color(ARENA_FILL, 0.45))
 		for f in 5:

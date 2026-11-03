@@ -357,6 +357,79 @@
    }
   ]
  },
+ "bosses_hall": {
+  "size": [
+   720,
+   520
+  ],
+  "file": "game/ui/home_art/bosses_hall.png",
+  "layers": [
+   {
+    "id": "glitch",
+    "move": "bob 5 0.6 0.2",
+    "pivot": [
+     150,
+     343
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     57,
+     195,
+     186,
+     186
+    ]
+   },
+   {
+    "id": "queen",
+    "move": "bob 4 0.8 0.5",
+    "pivot": [
+     215,
+     474
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     119,
+     309,
+     206,
+     206
+    ]
+   },
+   {
+    "id": "pinata",
+    "move": "sway 5 0.45 0",
+    "pivot": [
+     505,
+     0
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     405,
+     0,
+     200,
+     486
+    ]
+   },
+   {
+    "id": "king",
+    "move": "idle 3 0.5 0",
+    "pivot": [
+     362,
+     492
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     215,
+     245,
+     290,
+     275
+    ]
+   }
+  ]
+ },
  "candy_fountain": {
   "size": [
    720,

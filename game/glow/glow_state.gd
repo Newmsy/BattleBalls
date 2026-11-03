@@ -10,6 +10,7 @@
 ## game/glow/cosmetic_art.gd and never change a fight.
 extends RefCounted
 
+const CritterArt := preload("res://game/ui/critter_art.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
 const Dyes := preload("res://game/glow/dyes.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
@@ -89,7 +90,18 @@ func g() -> Dictionary:
 		cur["pass"][track] = cur["pass"][track].map(func(v): return int(v))
 	save.data["glow"] = cur
 	_checked = cur
+	_sync_skins()
 	return cur
+
+
+## Tells the critter art which skins you wear, so every screen draws them.
+func _sync_skins() -> void:
+	var worn := {}
+	for key in g().equipped:
+		var it := Catalog.item(str(g().equipped[key]))
+		if str(key).begins_with("skin_") and it.get("slot") == Catalog.SKIN and owns(it.id):
+			worn[str(it.critter)] = it
+	CritterArt.worn_skins = worn
 
 
 ## JSON turns ints into floats, so numbers count as one type.
@@ -415,6 +427,9 @@ func quests(t := -1) -> Dictionary:
 			d.list = Quests.roll_day(_day(t), ctx)
 		if (w.list as Array).is_empty():
 			w.list = Quests.roll_week(_week(t), ctx)
+		var daily_changed := Quests.refresh_retired(d.list, false, _day(t), ctx)
+		if Quests.refresh_retired(w.list, true, _week(t), ctx) or daily_changed:
+			_commit()
 	settle()
 	var out := {"daily": _views(d), "weekly": _views(w), "swap": not d.swapped,
 		"day_ends": LiveOps.day_start(_now(t)) + LiveOps.DAY, "week_ends": LiveOps.week_start(_now(t)) + LiveOps.WEEK}
@@ -729,6 +744,7 @@ func _log(what: String, n: int, why: String) -> void:
 
 
 func _commit() -> void:
+	_sync_skins()
 	save.commit()
 	changed.emit()
 

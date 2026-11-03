@@ -51,6 +51,11 @@ static var _grey := false
 static var _hit_shape := PackedVector2Array()
 
 
+## Critter id -> the skin you wear on it (a catalog entry). Kept in step by
+## GlowState; read when a draw call doesn't name a skin.
+static var worn_skins := {}
+
+
 static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Dictionary = {}) -> void:
 	var d := CritterDb.get_critter(id)
 	var st := {"t": 0.0, "tier": 1, "look": Vector2.RIGHT, "blink": 0.0, "hit": 0.0, "flash": 0.0, "stacks": 0, "hp_frac": 1.0, "pole_swap": 0.0}
@@ -58,8 +63,11 @@ static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Di
 	var art: Dictionary = d.art
 	var col := Color(d.color)
 	# A skin (game/glow/catalog.gd, slot "skin") recolours the body and may
-	# swap art keys; render-only like every cosmetic.
-	var skin: Dictionary = s.get("skin", {})
+	# swap art keys; render-only like every cosmetic. Tier features still draw
+	# on top. Without a "skin" key the critter wears your skin (worn_skins, set
+	# by game/glow/glow_state.gd), so it shows on every screen; fights pass
+	# "skin" explicitly so a foe's copy stays plain.
+	var skin: Dictionary = s["skin"] if s.has("skin") else worn_skins.get(id, {})
 	if not skin.is_empty():
 		col = Color(str(skin.colors[0]))
 		if skin.has("art"):

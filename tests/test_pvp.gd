@@ -381,7 +381,7 @@ func test_arena_hub_opens_its_rooms() -> void:
 	for id in ["laser", "vampire", "spiker", "speedster"]:
 		shell.profile.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
 	# Trophy Room, Bazaar and the weekly chest are on the Arena hub.
-	for room in [["arena_boosts", "boosts"], ["arena_bazaar", "bazaar"], ["arena_chest", "arena_chests"]]:
+	for room in [["arena_boosts", "boosts"], ["arena_bazaar", "bazaar"], ["arena_chest_series", "arena_chests"], ["arena_chest_league", "arena_chests"]]:
 		shell.go("versus")
 		shell._marks[room[0]].pressed.emit()
 		check_eq(shell.current, room[1], room[1])
@@ -455,6 +455,34 @@ func test_real_players_mix_into_the_list() -> void:
 	s.start_attack("seeded", p, 77)
 	check_eq(s.pending_bot().name, "Mia", "attacking Mia")
 	check_eq(int(s.pending_stake().win), Ladder.stake(s.trophies, 1010).win, "stake from their trophies")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_each_mode_has_its_own_weekly_chest() -> void:
+	var s = _fresh_store()
+	s.trophies = 1900
+	s.note_league(100)
+	s.use(ArenaStore.LEAGUE)
+	s.trophies = 500
+	s.note_league(100)
+	check_eq(s.week_best, 1, "the League counts its own league (Silver)")
+	s.roll_week(101)
+	check_eq(int(s.chest.league), 1, "a Silver League chest")
+	s.save()
+	var again = ArenaStore.open(TEST_SAVE, ArenaStore.SERIES)
+	check(again.chest_ready() and int(again.chest.league) == 3, "and a Platinum Series chest, apart")
+	check(again.any_chest_ready(), "either chest lights the door")
+	var series_look := ArenaChest.look(3, ArenaStore.SERIES)
+	var league_look := ArenaChest.look(3, ArenaStore.LEAGUE)
+	check_eq(series_look.id, league_look.id, "the same chest")
+	check(series_look.badge != league_look.badge and series_look.get("tint", Color.WHITE) != league_look.get("tint", Color.WHITE), "in its own look")
+	check(ArenaChest.roll_week(100, ArenaStore.SERIES) != ArenaChest.roll_week(100, ArenaStore.LEAGUE), "rolled apart")
+	var p = UiProfile.new()
+	check_eq(ArenaChest.open(again, p), ArenaChest.rewards(3, 100, p.chest_seed()), "Series chest opens")
+	again.use(ArenaStore.LEAGUE)
+	check(again.chest_ready(), "the League's still waits")
+	check_eq(ArenaChest.open(again, p), ArenaChest.rewards(1, ArenaChest.roll_week(100, ArenaStore.LEAGUE), p.chest_seed()), "League chest opens")
+	check(not again.any_chest_ready(), "both opened")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
 

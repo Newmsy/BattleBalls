@@ -10,6 +10,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Idle := preload("res://game/ui/idle.gd")
 const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
@@ -19,6 +20,7 @@ const Intro := preload("res://game/ui/intro.gd")
 const ArenaChest := preload("res://game/pvp/arena_chest.gd")
 const ChestArt := preload("res://game/ui/chest_art.gd")
 const ArenaScreen := preload("res://game/ui/screens/arena_screen.gd")
+const ArenaChestsScreen := preload("res://game/ui/screens/arena_chests_screen.gd")
 
 const ART := "res://game/ui/versus_art/%s.png"
 
@@ -31,7 +33,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	var info := ["Every Arena fight costs an Arena Token. You get one an hour and hold up to %d." % ArenaStore.TOKEN_MAX,
 		"3v3 Series: three critters each, one at a time. A winner stays in with its HP left.",
 		"2v2 League: two critters each, all on the field at once.",
-		"Each mode has its own trophies and league. Your best league in either opens the weekly chest."]
+		"Each mode has its own trophies, league and weekly chest: your best league each week opens that league's chest."]
 	if quick_on:
 		info.append("Quick fight: your fighter against a live foe. Nothing at stake.")
 	info.append_array(["Trophy Room: spend Arena Points on stat boosts for each family, in both Arena modes.",
@@ -64,9 +66,12 @@ static func build(shell, _params: Dictionary) -> Control:
 			row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			col.add_child(row)
 	if Intro.done(p):
-		var chest := chest_row(shell, store)
-		chest.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		col.add_child(chest)
+		# Each mode's own weekly chest, side by side.
+		var was: String = store.mode
+		var chests := Kit.hbox(12, [chest_tile(shell, store, ArenaStore.SERIES), chest_tile(shell, store, ArenaStore.LEAGUE)])
+		store.use(was)
+		chests.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		col.add_child(chests)
 	if quick_on:
 		var quick := PlayScreen.quick_fight_card(shell, band("vs_quick", "Quick fight", "Live foe · just for fun", Color("cfc8ff")))
 		quick.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -126,26 +131,32 @@ static func room_row(shell, mark: String, art: Control, title: String, status: S
 	return b
 
 
-## The weekly chest's row: the chest your league earns and Open when last
-## week's is waiting, else the time left this week.
-static func chest_row(shell, store) -> Button:
+## One mode's weekly chest as a half-width tile: the chest its league
+## earns (in the mode's look), and Open when last week's is waiting, else
+## the time left this week. Opens that mode's chests.
+static func chest_tile(shell, store, m: String) -> Button:
+	store.use(m)
 	var ready: bool = store.chest_ready()
-	var league: int = int(store.chest.league) if ready else Ladder.league_index(store.trophies)
-	var look := ArenaChest.look(league)
-	var chest := ChestArt.make(str(look.id), 124.0)
-	if look.has("tint"):
-		chest.modulate = look.tint
+	var league: int = int(store.chest.league) if ready else maxi(store.week_best, Ladder.league_index(store.trophies))
+	var look := ArenaChest.look(league, m)
 	var col: Color = look.color
-	var pic := PanelContainer.new()
-	pic.add_theme_stylebox_override("panel", Kit.box(Color(col, .14), Color(0, 0, 0, 0), 22, 0, 0))
-	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var chest := ArenaChestsScreen.chest_art(look, 96.0, m)
+	if ready:
+		Idle.breathe(chest, .1, .6) # Last week's chest is waiting to be opened.
 	var centre := CenterContainer.new()
 	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	centre.add_child(chest)
-	pic.add_child(centre)
-	var line := "Open now!" if ready else "Opens in " + ArenaChest.time_text(ArenaChest.seconds_left())
-	return room_row(shell, "arena_chest", pic, "Weekly chest", line, "Your best league this week", Kit.GOOD if ready else col,
-		func(): shell.go("arena_chests", {"store": store}), ready)
+	var line := Kit.label("Open now!" if ready else ArenaChest.time_text(ArenaChest.seconds_left()), 20, Kit.GOOD if ready else Kit.MUTED)
+	var name := _fit(Kit.label(look.name, 22, col))
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name.custom_minimum_size.x = 60
+	var v := Kit.vbox(2, [centre, name, line])
+	var b := Kit.card_button(v, func(): shell.go("arena_chests", {"store": store, "mode": m}), Color(col, .7), Color(col, .08), 24, 8)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if ready:
+		b.add_child(PlayScreen.red_dot())
+	shell.mark("arena_chest_" + m, b)
+	return b
 
 
 ## A card that is all painting, its title and status line over the top-left.

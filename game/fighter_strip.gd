@@ -263,7 +263,9 @@ func _draw_face(k: int, face: Vector2, fr: float) -> void:
 	if card.boss:
 		BossArt.draw(self, card.id, face, fr * 0.9, {})
 	elif CritterDb.has(card.get("art", card.id)):
-		CritterArt.draw_critter(self, card.get("art", card.id), face, fr * 0.85, {"tier": card.tier})
+		# Your skin on your side only; a foe's copy stays plain.
+		var st := {"tier": card.tier} if k % 2 == 0 else {"tier": card.tier, "skin": {}}
+		CritterArt.draw_critter(self, card.get("art", card.id), face, fr * 0.85, st)
 	else:
 		Dot.circle(self, face, fr * 0.85, card.color)
 	Dot.arc(self, face, fr + 5.0, 0.0, TAU, 40, Color(col, 0.2), 4.0, true)

@@ -296,7 +296,13 @@ const ZING_PITCH := {"nature": 0.85, "sea": 0.8, "tech": 1.2, "sweet": 1.3, "fro
 const RAIN_EVERY := 0.9
 ## Applied to every sound and the music so busy moments don't clip.
 const MASTER_DB := -7.0
-## Music per track: [file, volume dB, loops]. Menu: "Nocturnal Menu"; fight and
+## Music per track: [file, volume dB, loops]. Menu: "Velvet Horizon"; Arena
+## fights (3v3 Series and 2v2 League, via fight_theme): "Final Stretch", its
+## overtime the same loop at 140 BPM; Bounce Run between fights (via
+## menu_theme): "Amber Coastline"; Plunge races: "The Great Brass Caper";
+## the Spire screen and between Spire legs: "Gravity's End"; boss fights
+## (fight_theme "boss"): "Against the Titan", its overtime 10% faster;
+## other fights and
 ## overtime: "Neon Pulse" at 120 and 140 BPM (both FreeMusic AI, looped by
 ## tools/music/loop_track.py); victory: remixed from "Crypto" by Kevin MacLeod
 ## (CC-BY 4.0, credited in CREDITS.md and Settings) by tools/music/remix_crypto.py.
@@ -308,9 +314,21 @@ const MUSIC := {
 	"menu": ["music_menu", -11.0, true],
 	"fight": ["music_fight", -11.0, true],
 	"overtime": ["music_overtime", -10.0, true],
+	"arena": ["music_arena", -11.0, true],
+	"arena_overtime": ["music_arena_overtime", -10.0, true],
+	"bounce": ["music_bounce", -11.0, true],
+	"plunge": ["music_plunge", -11.0, true],
+	"spire": ["music_spire", -11.0, true],
+	"boss": ["music_boss", -11.0, true],
+	"boss_overtime": ["music_boss_overtime", -10.0, true],
 	"victory": ["music_victory", -9.0, true],
 }
 const VICTORY_LOOP_FROM := 3.0 / 1.1 ## Crypto's 3 s bar, sped up 1.1x.
+## The menu file plays its intro once, then loops from here to its end
+## (loop_track.py --intro prints it as loop_from).
+const MENU_LOOP_FROM := 78.2
+## Tracks that play an intro once and then loop from here (seconds into the file).
+const LOOP_FROM := {"menu": MENU_LOOP_FROM, "arena": 40.0, "bounce": 52.58, "plunge": 42.36, "spire": 11.22, "boss": 56.2}
 ## Seconds a track change fades over, so music never cuts with a click.
 const MUSIC_FADE := 0.3
 ## After a win, how long the victory tune waits for a results popup to hold
@@ -335,6 +353,12 @@ var _ends := {} ## sound name -> end times of the copies started
 var _music: AudioStreamPlayer ## The current track.
 var _music_out: AudioStreamPlayer ## The previous track while it fades out.
 var _music_track := ""
+## Which mode's fight music plays ("" = the shared fight track). Set before
+## on_fight_start; see _fight_track.
+var fight_theme := ""
+## The track that plays between fights on this scene ("" = the menu loop),
+## e.g. "bounce" on the Bounce Run map. See _menu_track.
+var menu_theme := ""
 var _fade: Tween
 ## Web: browsers start audio on the first tap, so the first track waits for it.
 static var _audio_unlocked := false
@@ -429,7 +453,7 @@ func _process(delta: float) -> void:
 		if not held and (_victory_hold != null or _clock - _victory_at > VICTORY_GRACE):
 			_menu_pending = false
 			_victory_hold = null
-			play_music("menu")
+			play_music(_menu_track())
 	if fight_sim == null or fight_sim.finished:
 		return
 	_rain_in -= delta
@@ -456,7 +480,7 @@ func on_menu() -> void:
 	if _music_track == "victory": # Hand over once the win screen is gone (_process).
 		_menu_pending = true
 		return
-	play_music("menu")
+	play_music(_menu_track())
 
 
 ## Whether a popup is still up: attached and not hidden by its parents.
@@ -489,7 +513,7 @@ func on_fight_start(sim) -> void:
 	_menu_pending = false
 	_zones_heard = {}
 	play("go")
-	play_music("fight")
+	play_music(_fight_track(""))
 
 
 func on_result(winner: int) -> void:
@@ -503,7 +527,7 @@ func on_result(winner: int) -> void:
 	var jingle := "draw" if winner < 0 else ("win" if winner == 0 else "lose")
 	if is_inside_tree():
 		get_tree().create_timer(0.45).timeout.connect(func(): play(jingle))
-	play_music("menu")
+	play_music(_menu_track())
 
 
 ## Turns one sim step's events into sound.
@@ -840,7 +864,7 @@ func consume_events(events: Array[Dictionary], sim) -> void:
 		_was_overtime = true
 		_tick_in = 0.0
 		play("overtime")
-		play_music("overtime")
+		play_music(_fight_track("overtime"))
 	if _was_overtime and not sim.finished:
 		# A clock ticking faster and faster the longer overtime runs.
 		_tick_in -= SIM_DT
@@ -947,6 +971,32 @@ func playing_count(name: String) -> int:
 	return _ends.get(name, []).filter(func(t): return t > _clock).size()
 
 
+## The fight or overtime track for this fight: the mode's own (fight_theme,
+## e.g. "arena" -> "arena" / "arena_overtime") when it has one, else the shared
+## "fight" / "overtime". kind: "" for the fight, "overtime" for overtime.
+func _fight_track(kind: String) -> String:
+	if fight_theme != "":
+		var own := fight_theme + ("_" + kind if kind != "" else "")
+		if MUSIC.has(own):
+			return own
+	return kind if kind != "" else "fight"
+
+
+## The between-fights track: the scene's own (menu_theme) when it has one,
+## else the menu loop.
+func _menu_track() -> String:
+	return menu_theme if menu_theme != "" and MUSIC.has(menu_theme) else "menu"
+
+
+## A screen with its own music was opened or left (shell.gd SCREEN_MUSIC):
+## switch now if a between-fights track is playing, else just remember it.
+func set_menu_theme(theme: String) -> void:
+	var was := _menu_track()
+	menu_theme = theme
+	if _music_track == was and was != _menu_track():
+		play_music(_menu_track())
+
+
 func play_music(track: String) -> void:
 	if _music_track == track and (_music.playing or mode != "all"):
 		return
@@ -972,10 +1022,14 @@ func _save_menu_pos(running: bool) -> void:
 		_menu_left_at = -1.0
 
 
-## Where the menu loop picks up, in seconds into a loop `length` long.
-static func _menu_resume(now: float, length: float) -> float:
+## Where the menu loop picks up, in seconds into a file `length` long whose
+## loop runs from `loop_from` to its end (the part before plays once).
+static func _menu_resume(now: float, length: float, loop_from := 0.0) -> float:
 	var at := _menu_pos + (now - _menu_left_at if _menu_left_at >= 0.0 else 0.0)
-	return fmod(at, length) if length > 0.0 else 0.0
+	if length <= 0.0 or at < length:
+		return maxf(at, 0.0)
+	var span := length - loop_from
+	return loop_from + fmod(at - loop_from, span) if span > 0.0 else 0.0
 
 
 func _start_music(track: String) -> void:
@@ -984,7 +1038,7 @@ func _start_music(track: String) -> void:
 	if stream == null or not is_inside_tree():
 		return
 	stream.loop = info[2]
-	stream.loop_offset = VICTORY_LOOP_FROM if track == "victory" else 0.0
+	stream.loop_offset = VICTORY_LOOP_FROM if track == "victory" else LOOP_FROM.get(track, 0.0)
 	if _fade:
 		_fade.kill()
 	_music_out.stop()
@@ -997,7 +1051,7 @@ func _start_music(track: String) -> void:
 		_fade.tween_callback(old.stop)
 	_music.stream = stream
 	_music.volume_db = info[1] + MASTER_DB
-	_music.play(_menu_resume(Time.get_ticks_msec() / 1000.0, stream.get_length()) if track == "menu" else 0.0)
+	_music.play(_menu_resume(Time.get_ticks_msec() / 1000.0, stream.get_length(), MENU_LOOP_FROM) if track == "menu" else 0.0)
 
 
 func _stop_music() -> void:

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dojsep8u7vh0m"
-path="res://.godot/imported/daily_trick.png-c1aa4e7bf7e33cf486fc15077473c1ac.ctex"
+uid="uid://28hcxde730ij"
+path="res://.godot/imported/bosses_hall_Lpinata.png-8fae7e1227aae63ffafb0f3aaedb7cbe.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://game/ui/home_art/daily_trick.png"
-dest_files=["res://.godot/imported/daily_trick.png-c1aa4e7bf7e33cf486fc15077473c1ac.ctex"]
+source_file="res://game/ui/home_art/bosses_hall_Lpinata.png"
+dest_files=["res://.godot/imported/bosses_hall_Lpinata.png-8fae7e1227aae63ffafb0f3aaedb7cbe.ctex"]
 
 [params]
 

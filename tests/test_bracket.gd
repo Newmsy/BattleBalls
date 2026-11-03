@@ -135,8 +135,8 @@ func test_bracket_screen_builds_in_every_phase() -> void:
 	shell.build()
 	for day in ["2026-10-14", "2026-10-25", "2026-11-01", "2026-12-20"]:
 		LiveOps.now_override = _at(day)
-		shell.go("week")
-		check_eq(shell.current, "week", "board on " + day)
+		shell.show_tab("play")
+		check_eq(shell._marks.has("bracket"), not Legends.current(_at(day)).is_empty(), "Home's Bracket spot on " + day)
 		shell.go("bracket")
 		check_eq(shell.current, "bracket", "bracket on " + day)
 		shell.refresh_with({"round": 0})

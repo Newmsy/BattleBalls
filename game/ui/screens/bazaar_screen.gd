@@ -50,6 +50,12 @@ static func _item(shell, store, item: Dictionary, i: int) -> Control:
 	var btn := Kit.card_button(row, func():
 		if store.buy(shell.profile, i):
 			shell.toast("Bought %s." % item.name)
+			# The buy takes off from its row: eggs and energy into their pills, gear into the Bag.
+			var from: Control = shell._marks.get("bazaar_item_%d" % i, shell)
+			if item.kind == "gear":
+				shell.fly_to_tab(func(): return GearArt.tile(item.type, item.tier, 48, BagScreen.tier_color(item.tier)), from.get_global_rect().get_center(), "bag")
+			else:
+				shell.reward_from(from, "orb" if item.kind == "orbs" else "energy")
 			shell.refresh_with({"store": store})
 		elif sold:
 			shell.toast("Sold out until tomorrow.")

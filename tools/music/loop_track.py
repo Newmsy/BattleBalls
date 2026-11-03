@@ -4,6 +4,11 @@ near the beginning, one later) that sound most alike, cuts between them and
 folds the audio just before the first onto the loop's end, so playback flows
 from the end straight back to the start.
 
+With --intro T the file instead plays from T seconds of the song once and then
+loops: it runs from T to the loop's end, and the game's loop_offset jumps back
+to the loop's start (printed as "loop_from"). Good for songs that only repeat
+well over a short stretch.
+
 With --bpm the cut points sit on the beat grid and the loop is a whole number
 of bars long (--bars, several to choose from), and --stretch speeds the loop
 up or down without changing its pitch.
@@ -11,6 +16,27 @@ up or down without changing its pitch.
 Used for:
 - music_menu.ogg: "Nocturnal Menu" (FreeMusic AI, https://www.freemusic.ai/song/8gDPk9kFvR)
     loop_track.py nocturnal-menu.mp3 music_menu.ogg
+- music_menu.ogg: "Velvet Horizon" (AI-generated, ~84 BPM), intro from 19.8 s (one bar before the drop), then
+  a 45 s loop (sfx.gd MENU_LOOP_FROM = the printed loop_from):
+    loop_track.py velvet-horizon.mp3 music_menu.ogg --from 92-115 --to 135-162 --intro 19.8
+- music_arena.ogg / music_arena_overtime.ogg: "Final Stretch" (AI-generated, ~125 BPM),
+  Arena fights: intro from the drop at 15.2 s, then a 60 s loop (sfx.gd LOOP_FROM
+  "arena" = the printed loop_from); overtime is the loop alone at 140 BPM:
+    loop_track.py final-stretch.mp3 music_arena.ogg --from 55-57 --to 115-117 --intro 15.2
+    loop_track.py final-stretch.mp3 music_arena_overtime.ogg --from 55-57 --to 115-117 --stretch 1.12
+- music_bounce.ogg: "Amber Coastline" (AI-generated, ~105 BPM), the Bounce Run map
+  and picks: intro from one bar before the drop, then an 88 s loop:
+    loop_track.py amber-coastline.mp3 music_bounce.ogg --from 68-69 --to 155.5-157 --intro 16.1
+- music_plunge.ogg: "The Great Brass Caper" (AI-generated, ~140 BPM), Plunge races:
+  from the start, then a 96 s loop:
+    loop_track.py great-brass-caper.mp3 music_plunge.ogg --from 42-43 --to 138-139 --intro 0
+- music_spire.ogg: "Gravity's End" (AI-generated, ~109 BPM), the Spire screen and
+  between Spire legs: from the start, then a 148 s loop:
+    loop_track.py gravitys-end.mp3 music_spire.ogg --from 10.5-11.5 --to 159-160 --intro 0
+- music_boss.ogg / music_boss_overtime.ogg: "Against the Titan" (AI-generated,
+  ~136 BPM), boss fights: from the start, then a 60 s loop; overtime 10% faster:
+    loop_track.py against-the-titan.mp3 music_boss.ogg --from 56-57 --to 116-117 --intro 0
+    loop_track.py against-the-titan.mp3 music_boss_overtime.ogg --from 56-57 --to 116-117 --stretch 1.1
 - music_fight.ogg / music_overtime.ogg: "Neon Pulse" (FreeMusic AI, 140 BPM,
   https://www.freemusic.ai/song/fWpO3tKXjn), slowed to 120 BPM for fights:
     loop_track.py neon-pulse.mp3 music_fight.ogg --bpm 140.04 --bars 16,24,32 --from 30-90 --to 50-185 --stretch 0.857
@@ -99,6 +125,7 @@ def main():
     ap.add_argument("--bpm", type=float, default=0.0)
     ap.add_argument("--bars", default="8,16,32")
     ap.add_argument("--stretch", type=float, default=1.0)
+    ap.add_argument("--intro", type=float, default=-1.0)
     args = ap.parse_args()
     x = load(args.song)
     a, e, score = find_loop(x, [float(v) for v in args.start.split("-")], [float(v) for v in args.end.split("-")],
@@ -107,10 +134,11 @@ def main():
         x = load(args.song, args.stretch)
         a, e = a / args.stretch, e / args.stretch
     sa, se, f = int(round(a * SR)), int(round(e * SR)), int(FADE * SR)
-    loop = x[:, sa:se].copy()
+    si = int(round(args.intro / args.stretch * SR)) if args.intro >= 0 else sa
+    loop = x[:, si:se].copy()
     w = np.sin(np.linspace(0, np.pi / 2, f)) ** 2
     loop[:, -f:] = loop[:, -f:] * (1 - w) + x[:, sa - f:sa] * w
-    loop *= RMS / np.sqrt(np.mean(loop ** 2))
+    loop *= RMS / np.sqrt(np.mean(loop[:, sa - si:] ** 2))  # The looping part sets the level.
     # Soft limiter, as in make_music.py: transparent below ~0.6.
     loop = np.where(np.abs(loop) < 0.6, loop, np.sign(loop) * (0.6 + 0.35 * np.tanh((np.abs(loop) - 0.6) / 0.35)))
     pcm = (np.clip(loop.T, -1, 1) * 32767).astype("<i2").tobytes()
@@ -118,6 +146,8 @@ def main():
                     "-c:a", "libvorbis", "-q:a", "0", "-map_metadata", "-1", "-fflags", "+bitexact",
                     "-flags:a", "+bitexact", args.out], input=pcm, check=True)
     print("loop %.2f s -> %.2f s (%.1f s, match %.2f) -> %s" % (a, e, e - a, score, args.out))
+    if si != sa:
+        print("loop_from %.4f s into the file (file is %.2f s)" % ((sa - si) / SR, loop.shape[1] / SR))
 
 
 if __name__ == "__main__":

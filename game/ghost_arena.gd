@@ -27,6 +27,7 @@ func _ready() -> void:
 	if bot.is_empty():
 		_back_to_arena.call_deferred()
 		return
+	music_theme = "arena"
 	marks = {"launch": "arena_launch", "out": "arena_forfeit", "skip": "arena_skip"}
 	var ghost_aims: Array = []
 	for i in bot.lineup.slots.size():

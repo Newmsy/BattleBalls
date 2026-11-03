@@ -138,6 +138,7 @@ static func _stat_button(shell, store, fam: String, line: String, col: Color) ->
 			shell.toast("%s %s is maxed: %s." % [fname, lname, ArenaBoosts.text(line, lv)])
 		elif store.upgrade(fam, line):
 			shell.toast("%s %s %d/%d: %s." % [fname, lname, lv + 1, ArenaBoosts.MAX_LEVEL, ArenaBoosts.text(line, lv + 1)])
+			shell.pop_after(["boost_%s_%s" % [fam, line]]) # The new pip snaps in with a pop.
 			shell.refresh_with({"store": store})
 		else:
 			shell.toast("Need %d more points" % (c - store.points)),

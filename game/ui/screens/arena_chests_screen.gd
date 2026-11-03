@@ -1,10 +1,12 @@
-## Weekly Arena chests (game/pvp/arena_chest.gd): last week's chest to open
-## (or this week's so far and the time left), then every league's chest and
-## what it holds, as icons and numbers. Opened from the league banner in the
-## Ghost Arena and the chest tile on the Versus hub.
+## Weekly Arena chests for one Arena mode (params.mode; each mode has its
+## own, game/pvp/arena_chest.gd): last week's chest to open (or this week's
+## so far and the time left), then every league's chest and what it holds,
+## as icons and numbers. Opened from a mode page's league banner and the
+## chest tiles on the Arena hub.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Idle := preload("res://game/ui/idle.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
@@ -20,11 +22,14 @@ static func build(shell, params: Dictionary) -> Control:
 	var store = params.get("store", null)
 	if store == null:
 		store = ArenaStore.open()
+	store.use(str(params.get("mode", store.mode)))
+	_mode = store.mode
 	var ready: bool = store.chest_ready()
 	store.save()
 	var root := Kit.vbox(14)
-	root.add_child(shell.title_row("Weekly Chests", {"info_mark": "chests_info", "info": [
-		"The best league you reach each week (Monday to Sunday) opens that league's chest when the week ends.",
+	var m: Dictionary = ArenaStore.MODES[store.mode]
+	root.add_child(shell.title_row("Weekly Chests", {"eyebrow": str(m.name).to_upper(), "eyebrow_color": m.color, "info_mark": "chests_info", "info": [
+		"The best league you reach in %s each week (Monday to Sunday) opens that league's chest when the week ends. The other mode has its own." % m.name,
 		"Attacks and defence raids both count. An unopened chest waits until next week's replaces it.",
 	]}))
 	root.add_child(_now_card(shell, store, ready))
@@ -41,6 +46,8 @@ static func _now_card(shell, store, ready: bool) -> Control:
 	var league: int = int(store.chest.league) if ready else maxi(store.week_best, Ladder.league_index(store.trophies))
 	var look := ArenaChest.look(league)
 	var art := _art(look, 120.0)
+	if ready:
+		Idle.breathe(art, .1, .6) # Waiting to be opened.
 	var words := Kit.vbox(6)
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if ready:
@@ -48,10 +55,12 @@ static func _now_card(shell, store, ready: bool) -> Control:
 		words.add_child(Kit.label(look.name, 30, look.color))
 		var open := Kit.button("Open", func():
 			var shown := look.duplicate()
-			shown.caption = "GHOST ARENA · WEEKLY CHEST"
-			BounceChestOpen.show_custom(shell, shown, ArenaChest.rewards(league, int(store.chest.week), shell.profile.chest_seed()), func():
+			shown = ArenaChest.look(league, store.mode)
+			shown.caption = "%s · WEEKLY CHEST" % str(ArenaStore.MODES[store.mode].name).to_upper()
+			BounceChestOpen.show_custom(shell, shown, ArenaChest.rewards(league, ArenaChest.roll_week(int(store.chest.week), store.mode), shell.profile.chest_seed()), func():
 				ArenaChest.open(store, shell.profile)), "go", 28, 80)
 		shell.mark("chest_open", open)
+		Idle.breathe(open, .05)
 		words.add_child(open)
 	else:
 		words.add_child(Kit.caption("This week"))
@@ -69,12 +78,18 @@ static func _chest_row(shell, league: int, mine: bool) -> Control:
 	var head := Kit.hbox(8, [Kit.label(lg.name, 24, lg.color), Kit.amount("trophy", "%s+" % Kit.commas(int(lg.min)), 18, Kit.MUTED, Glyph.GOLD)], BoxContainer.ALIGNMENT_BEGIN)
 	var words := Kit.vbox(2, [head, drops_row(shell, ArenaChest.odds(league), 36.0)])
 	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(12, [_art(look, 64.0), words], BoxContainer.ALIGNMENT_CENTER)
+	var art := _art(look, 64.0)
+	if mine:
+		Idle.breathe(art, .06, .5) # The chest you're on course for this week.
+	var row := Kit.hbox(12, [art, words], BoxContainer.ALIGNMENT_CENTER)
 	var st := Kit.box(Color(lg.color, .14) if mine else Kit.PANEL, Color(lg.color, .9) if mine else Kit.LINE, 22, 3 if mine else 1, 8)
 	var p := Kit.panel(row, st)
 	shell.mark("chest_%s" % lg.id, p)
 	return p
 
+
+## The mode whose chests this screen shows (set by build()).
+static var _mode := "series"
 
 ## A chest's drop table as icons with their ranges and chances ("200-400",
 ## "50%"); the Ascension Spark chance sits last, in purple. Shared with the
@@ -99,7 +114,31 @@ static func drops_row(shell, table: Array, side: float) -> HFlowContainer:
 
 
 static func _art(look: Dictionary, height: float) -> Control:
+	return chest_art(look, height, _mode)
+
+
+## A weekly chest in `mode`'s look: the league's painted chest, tinted
+## for the mode, with the mode's badge on its front.
+static func chest_art(look: Dictionary, height: float, mode := "series") -> Control:
 	var art := ChestArt.make(str(look.id), height)
-	if look.has("tint"):
-		art.modulate = look.tint
-	return art
+	var m: Dictionary = ArenaChest.MODE_LOOK.get(mode, ArenaChest.MODE_LOOK.series)
+	var tint: Color = look.get("tint", Color(1, 1, 1))
+	if not look.has("badge"):
+		tint *= m.tint # A look made without the mode.
+	if tint != Color(1, 1, 1):
+		art.modulate = tint
+	var badge := Kit.chip(str(m.badge), m.badge_color, maxi(12, roundi(height * .16)))
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var st = badge.get_theme_stylebox("panel")
+	if st is StyleBoxFlat:
+		st.bg_color = Color(Kit.BG, .88)
+	var holder := Control.new()
+	holder.custom_minimum_size = art.custom_minimum_size
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(art)
+	holder.add_child(badge)
+	# Bottom right of the chest, drawn untinted.
+	badge.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	badge.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	return holder

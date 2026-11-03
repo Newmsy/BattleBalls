@@ -298,7 +298,7 @@ func test_home_groups_every_mode_as_a_tile() -> void:
 	var shell = Shell.new()
 	shell.build()
 	shell.show_tab("play")
-	for m in ["thisweek", "campaign", "trickshot", "bouncerun", "spire", "arena", "glowpass", "shop"]:
+	for m in ["campaign", "trickshot", "bouncerun", "spire", "arena", "glowpass", "shop"]:
 		check(shell._marks.has(m), "home has " + m)
 	# Friends are behind the level badge (the profile screen).
 	shell.go("account")
@@ -455,7 +455,7 @@ func test_every_painted_door_is_tappable_all_over() -> void:
 	var shell = Shell.new()
 	shell.build()
 	Dev.quick_fight_override = true
-	for s in ["play", "week", "versus", "arena"]:
+	for s in ["play", "bosses", "versus", "arena"]:
 		if s == "play":
 			shell.show_tab("play")
 		else:
@@ -463,7 +463,7 @@ func test_every_painted_door_is_tappable_all_over() -> void:
 		var found := 0
 		for n in _all(shell):
 			if n.get_script() != HomePainting or str(n.tex.resource_path).contains("league_") \
-					or str(n.tex.resource_path).contains("daily_fotd"):
+					or str(n.tex.resource_path).contains("bosses_hall"):
 				continue
 			found += 1
 			var b: Node = n.get_parent()

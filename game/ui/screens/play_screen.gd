@@ -1,10 +1,11 @@
 ## Play tab (home): a slim Glow Pass and Shop row under the top bar, then the
 ## four main modes as painted doors in a 2x2 grid (Campaign, Arena, Bounce Run,
 ## Critter Plunge), each with its own big button, then a strip of painted
-## tokens for everything else you play (Quests, Trick Shot, Fight of the Day,
-## Spire, Bosses, Rifts). The Campaign door goes to the world map and the
-## Arena door (and its Fight) to the Arena hub (versus_screen); the strip's header opens the Daily board (week_screen). A new mode goes in
-## a hub, and on the strip only if it's played most days.
+## tokens for everything else you play (Quests, Trick Shot, Spire, Bosses,
+## Rifts, and the Bracket of Legends while one is on). The Campaign door goes
+## to the world map and the Arena door (and its Fight) to the Arena hub
+## (versus_screen). A new mode goes in a hub, and on the strip only if it's
+## played most days.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -17,6 +18,7 @@ const BounceChestOpen := preload("res://game/ui/bounce_chest_open.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const WeekScreen := preload("res://game/ui/screens/week_screen.gd")
+const Legends := preload("res://game/legends.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const Spire := preload("res://sim/spire.gd")
@@ -298,7 +300,7 @@ static func _arena_door(shell) -> Control:
 	var door := mode_door(shell, "versus", "ARENA", lines, VERSUS,
 		_door_art(str(m.art), Vector2(.46, .8), VERSUS_ART), fight,
 		func(): shell.go("arena" if intro else "versus"), true)
-	if store.chest_ready():
+	if store.any_chest_ready():
 		door.add_child(red_dot())
 	return door
 
@@ -345,24 +347,20 @@ static func _plunge_door(shell) -> Control:
 
 
 ## Under the doors: a strip of painted tokens for everything else played most
-## days. Its header opens the Daily board (Fight of the Day, Bracket, the
-## week's events).
+## days. The Bracket of Legends joins it while one is on.
 static func _more_strip(shell) -> Control:
 	var t := LiveOps.now()
-	var week := func(): shell.go("week")
 	var season := LiveOps.season(t)
 	var title := Kit.label("MORE TO PLAY", 20, DAILY)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var right := _door_line("" if season.is_empty() else "%s · week %d of %d" % [season.name, season.week, season.weeks], Kit.MUTED, 17)
 	right.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	var header := Kit.card_button(Kit.hbox(8, [title, right, Kit.label("›", 30, DAILY)], BoxContainer.ALIGNMENT_CENTER), week, Color(0, 0, 0, 0), Color(0, 0, 0, 0), 16, 0)
-	shell.mark("thisweek", header)
+	var header := Kit.hbox(8, [title, right], BoxContainer.ALIGNMENT_CENTER)
+	header.custom_minimum_size.y = 36
 	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	var trick: Dictionary = WeekScreen.trick_status(day)
 	var trick_line := "Solved" if trick.solved else ("Done" if trick.tries >= WeekScreen.TRICK_TRIES else "New")
-	var f := LiveOps.fight_of_the_day(t)
 	var side := _s(56)
-	var fotd := Kit.hbox(-12, [CritterIcon.face(f.p1, _s(28)), CritterIcon.face(f.p2, _s(28))], BoxContainer.ALIGNMENT_CENTER)
 	var climb = SpireClimb.load_file(t)
 	var spire := door_spot(shell, "spire", token("spire", side), "Spire", "%d/%d" % [climb.cleared, Spire.FLOORS], DAILY, func(): shell.go("spire"))
 	var bosses: Control
@@ -376,9 +374,11 @@ static func _more_strip(shell) -> Control:
 		door_spot(shell, "daily_quests", token("quests", side), "Quests", _quest_line(shell), DAILY, func(): shell.go("quests"), shell.glow.quests_ready() > 0),
 		door_spot(shell, "trickshot", token("trick", side), "Trick Shot", trick_line, DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.solved and trick.tries == 0),
-		door_spot(shell, "daily_fotd", token_with("frame_gold", fotd, side), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
 		spire, bosses, _rift_spot(shell, side),
 	])
+	var bracket := _bracket_spot(shell, t, side)
+	if bracket != null:
+		row.add_child(bracket)
 	var st := Kit.box(DAILY.darkened(.88), DAILY.darkened(.6), 28, 2, 10)
 	st.content_margin_left = 6
 	st.content_margin_right = 6
@@ -407,6 +407,19 @@ static func _quest_line(shell) -> String:
 		return "Claim"
 	var q: Dictionary = shell.glow.quests(LiveOps.now())
 	return "New" if (q.daily as Array).is_empty() else "%d/3" % q.chest.done
+
+
+## The Bracket of Legends spot, only while one is on (picks open, running or
+## just finished): a gold frame with a trophy, its phase underneath.
+static func _bracket_spot(shell, t: int, side: int) -> Control:
+	var ev := Legends.current(t)
+	if ev.is_empty():
+		return null
+	var phase := Legends.phase(ev, t)
+	var line: String = {"picks": "Pick" if Legends.pick_of(ev) == "" else "Picked", "live": "Live", "done": "Final"}.get(phase, "Open")
+	var cup := Glyph.make("trophy", side * .42, DAILY)
+	return door_spot(shell, "bracket", token_with("frame_gold", cup, side), "Bracket", line, DAILY,
+		func(): shell.go("bracket"), phase == "picks" and Legends.pick_of(ev) == "")
 
 
 ## Your fighter and the Quick fight button. Tap the fighter to pick another.
