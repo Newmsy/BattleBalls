@@ -1394,10 +1394,8 @@ func _back_to_campaign() -> void:
 	if vault and trail.size() == 2 and not trail[1].is_empty():
 		shell.resume(trail, screen, params) # Back walks down to the boss picker it came from.
 	elif vault:
-		if screen == "rift":
-			shell.go("adventure") # The Rift Gate sits on the Adventure hub.
-		else:
-			shell.go("bosses") # Back lands on the boss hall.
+		if screen != "rift":
+			shell.go("bosses") # Back lands on the boss hall; the Rift Gate's on Home.
 		shell.go(screen, params)
 	else:
 		shell.go("world") # Back from the stage list lands on the world map.
