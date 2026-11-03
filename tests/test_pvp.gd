@@ -380,7 +380,7 @@ func test_arena_hub_opens_its_rooms() -> void:
 	shell.build()
 	for id in ["laser", "vampire", "spiker", "speedster"]:
 		shell.profile.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
-	# Trophy Room, Bazaar and the weekly chest are on the Versus hub.
+	# Trophy Room, Bazaar and the weekly chest are on the Arena hub.
 	for room in [["arena_boosts", "boosts"], ["arena_bazaar", "bazaar"], ["arena_chest", "arena_chests"]]:
 		shell.go("versus")
 		shell._marks[room[0]].pressed.emit()
@@ -397,6 +397,37 @@ func test_arena_hub_opens_its_rooms() -> void:
 	shell._marks["arena_defence"].pressed.emit()
 	check_eq(shell.current, "defence", "defence")
 	check(shell._marks.has("defence_slot_0"), "defence trio picker")
+	shell.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_arena_hub_picks_a_mode_and_league_fights_spend_tokens() -> void:
+	var s = _fresh_store()
+	s.save()
+	var shell = Shell.new()
+	shell.build()
+	for id in ["laser", "vampire", "spiker", "speedster"]:
+		shell.profile.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
+	shell.go("versus")
+	check(shell._marks.has("arena_tokens"), "tokens on the hub")
+	check(shell._marks.has("hub_series") and shell._marks.has("hub_league"), "both mode doors")
+	shell.go("arena", {"store": s, "mode": ArenaStore.LEAGUE})
+	check_eq(s.mode, ArenaStore.LEAGUE, "the League page")
+	check(shell._marks.has("arena_slot_1") and not shell._marks.has("arena_slot_2"), "a pair, not a trio")
+	check(shell._marks.has("arena_tokens"), "tokens on the mode page")
+	var fights := []
+	shell.arena_duo_requested.connect(func(): fights.append(s.pending.duplicate()))
+	s.tokens = 1
+	s.token_clock = ArenaStore.now_unix()
+	shell._marks.arena_card_0.pressed.emit()
+	check_eq(fights.size(), 1, "a League fight starts")
+	check_eq(s.tokens, 0, "for a token")
+	check_eq(fights[0].slots.size(), 2, "with the pair")
+	s.settle_abandoned()
+	shell.go("arena", {"store": s, "mode": ArenaStore.LEAGUE})
+	shell._marks.arena_card_0.pressed.emit()
+	check_eq(fights.size(), 1, "no token, no fight")
+	check(s.pending.is_empty(), "nothing started")
 	shell.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 

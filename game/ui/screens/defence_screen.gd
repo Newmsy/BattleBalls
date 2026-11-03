@@ -1,6 +1,7 @@
-## Arena Defence: the trio other players fight once online play opens. Until
-## then a few seeded themed teams raid it each day (ArenaStore.run_raids);
-## holding wins trophies and Arena Coins. Reached from the Arena hub.
+## Arena Defence, for one Arena mode (the store's): the team other players
+## fight. A few seeded player-style squads raid it each day too
+## (ArenaStore.run_raids); holding wins trophies and Arena Coins. Reached
+## from a mode's page.
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
@@ -15,14 +16,15 @@ static func build(shell, params: Dictionary) -> Control:
 	var store = params.get("store", null)
 	if store == null:
 		store = ArenaStore.open()
+	store.use(str(params.get("mode", store.mode)))
 	var owned := ArenaScreen.owned_critters(shell.profile)
 	store.fit_to(owned)
 	var root := Kit.vbox(12)
 	var how := [
-		"Your Defence trio gets raided by %d teams near its power each day, using your attack trio's last saved shots." % ArenaStore.RAIDS_PER_DAY,
+		"Your Defence gets raided by %d players near its power each day, using your attack team's last saved shots." % ArenaStore.RAIDS_PER_DAY,
 		"Each raid you hold wins +5 trophies and %d Arena Coins. A lost raid costs a few trophies, capped each day, never below your league floor." % ArenaStore.COINS_DEFENCE,
 	]
-	root.add_child(shell.title_row("Defence", {"info_mark": "defence_info", "info": how}))
+	root.add_child(shell.title_row("Defence", {"eyebrow": str(ArenaStore.MODES[store.mode].name).to_upper(), "eyebrow_color": ArenaStore.MODES[store.mode].color, "info_mark": "defence_info", "info": how}))
 	var pow := Kit.hbox(10, [Kit.label("Defence power", 24, Kit.MUTED), Kit.spacer(), Kit.power(store.power(shell.profile, "defence"), 30)], BoxContainer.ALIGNMENT_CENTER)
 	root.add_child(Kit.panel(pow, Kit.box(Color("17143e"), Kit.GOOD, 28, 2, 16)))
 	root.add_child(ArenaScreen.trio_panel(shell, store, owned, "defence"))
@@ -33,7 +35,7 @@ static func build(shell, params: Dictionary) -> Control:
 		var fam: Dictionary = Families.info(str(r.family))
 		var col: Color = Color(fam.get("color", "ffffff"))
 		var line := Kit.hbox(10, [
-			FamilyIcon.chip(str(r.family)) if not fam.is_empty() else Kit.chip("?", col),
+			FamilyIcon.make(str(r.family), 32) if not fam.is_empty() else Kit.chip("?", col),
 			Kit.label(str(r.name), 24),
 			Kit.spacer(),
 			Kit.label("Held" if r.held else "Lost", 24, Kit.GOOD if r.held else Kit.BAD),

@@ -1,9 +1,10 @@
-## The Versus hub, opened from the Arena door's › on Play: Ghost Arena on its
-## painting, then its rooms (Trophy Room, Bazaar and the weekly chest) as wide
-## rows, doorway painting beside what each is for, and Quick fight with your
-## fighter (while live fights are on). Paintings are game/ui/versus_art (from
-## tools/event_art/scenes/versus_*.mjs); the cards share the room so nothing
-## scrolls. A new PvP mode adds one card.
+## The Arena hub (the "versus" screen), opened from the Arena door on Home:
+## the Arena Tokens you hold, the two modes as painted doors (the 3v3
+## Series and the 2v2 League, each with its league and trophies), then the
+## rooms they share (Trophy Room, Bazaar, weekly chest), and Quick fight
+## with your fighter while live fights are on. Paintings are
+## game/ui/versus_art (from tools/event_art/scenes/versus_*.mjs); the cards
+## share the room so nothing scrolls.
 ## Critter Plunge has its own door on Home, so it isn't here too. Friends are
 ## behind the level badge (the profile screen).
 extends RefCounted
@@ -17,39 +18,55 @@ const Ladder := preload("res://game/pvp/ladder.gd")
 const Intro := preload("res://game/ui/intro.gd")
 const ArenaChest := preload("res://game/pvp/arena_chest.gd")
 const ChestArt := preload("res://game/ui/chest_art.gd")
+const ArenaScreen := preload("res://game/ui/screens/arena_screen.gd")
 
 const ART := "res://game/ui/versus_art/%s.png"
 
 
 static func build(shell, _params: Dictionary) -> Control:
-	var root := Kit.vbox(20)
+	var root := Kit.vbox(16)
 	var quick_on := Dev.quick_fight_shown()
 	var p = shell.profile
-	var info := ["Ghost Arena: fight other players' saved trios for trophies and Tokens."]
+	var store = ArenaStore.open()
+	var info := ["Every Arena fight costs an Arena Token. You get one an hour and hold up to %d." % ArenaStore.TOKEN_MAX,
+		"3v3 Series: three critters each, one at a time. A winner stays in with its HP left.",
+		"2v2 League: two critters each, all on the field at once.",
+		"Each mode has its own trophies and league. Your best league in either opens the weekly chest."]
 	if quick_on:
 		info.append("Quick fight: your fighter against a live foe. Nothing at stake.")
-	info.append_array(["Trophy Room: spend Arena Points on stat boosts for each family, Ghost Arena only.",
-		"Bazaar: spend Tokens on gear, eggs and energy. New stock every day.",
-		"Weekly chest: the best league you reach each week opens that league's chest."])
-	root.add_child(shell.title_row("Versus", {"back_mark": "versus_back", "info_mark": "versus_info", "info": info}))
-	var store = ArenaStore.open()
-	var arena := painted(shell, "hub_arena", "vs_ghost", Vector2(.85, .5), "Ghost Arena",
-		"%s · %s" % [Ladder.league_label(store.trophies), Kit.commas(store.trophies)], PlayScreen.VERSUS, func(): shell.go("arena"), true)
-	arena.custom_minimum_size.y = 220
-	# The Arena's rooms, a level up from the Arena itself: one wide row each,
-	# its doorway painting beside what it's for.
-	var col := Kit.vbox(14, [arena])
-	var rows: Array = []
-	if Intro.shows(p, "trophy"):
-		rows.append(room_row(shell, "arena_boosts", _room_art("room_trophy", Kit.WARN), "Trophy Room", Kit.commas(store.points) + " Arena Points", "Stat boosts for each family", Kit.WARN, func(): shell.go("boosts", {"store": store})))
+	info.append_array(["Trophy Room: spend Arena Points on stat boosts for each family, in both Arena modes.",
+		"Bazaar: spend Arena Coins on gear, eggs and energy. New stock every day."])
+	root.add_child(shell.title_row("Arena", {"back_mark": "versus_back", "info_mark": "versus_info", "info": info,
+		"extra": [ArenaScreen.token_pill(shell, store)]}))
+	var col := Kit.vbox(12)
+	var doors: Array = [mode_door(shell, store, ArenaStore.SERIES)]
 	if Intro.done(p):
-		rows.append(room_row(shell, "arena_bazaar", _room_art("room_bazaar", Color("ff4fd8")), "Bazaar", Kit.commas(store.coins) + " Tokens", "Gear, eggs and energy, new daily", Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})))
-		rows.append(chest_row(shell, store))
-	arena.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	arena.size_flags_stretch_ratio = 1.5
-	for r in rows:
-		r.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		col.add_child(r)
+		doors.append(mode_door(shell, store, ArenaStore.LEAGUE))
+	for d in doors:
+		d.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		d.size_flags_stretch_ratio = 1.4
+		col.add_child(d)
+	var rooms: Array = []
+	if Intro.shows(p, "trophy"):
+		rooms.append(["arena_boosts", "room_trophy", "Trophy Room", store.points, "points", Kit.WARN, func(): shell.go("boosts", {"store": store})])
+	if Intro.done(p):
+		rooms.append(["arena_bazaar", "room_bazaar", "Bazaar", store.coins, "arena_coin", Color("ff4fd8"), func(): shell.go("bazaar", {"store": store})])
+	if rooms.size() == 2:
+		# Side by side, so the modes get the room.
+		var pair := Kit.hbox(12)
+		for r in rooms:
+			pair.add_child(room_tile(shell, r[0], _room_art(r[1], r[5]), r[2], Kit.amount(r[4], r[3], 22, Kit.FG, r[5]), r[5], r[6]))
+		pair.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		col.add_child(pair)
+	else:
+		for r in rooms:
+			var row := room_row(shell, r[0], _room_art(r[1], r[5]), r[2], Kit.commas(r[3]) + " Arena Points", "Stat boosts for each family", r[5], r[6])
+			row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			col.add_child(row)
+	if Intro.done(p):
+		var chest := chest_row(shell, store)
+		chest.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		col.add_child(chest)
 	if quick_on:
 		var quick := PlayScreen.quick_fight_card(shell, band("vs_quick", "Quick fight", "Live foe · just for fun", Color("cfc8ff")))
 		quick.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -58,6 +75,29 @@ static func build(shell, _params: Dictionary) -> Control:
 	col.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(col)
 	return root
+
+
+## One Arena mode as a painted door: its name, league and trophies, and a ›.
+static func mode_door(shell, store, m: String) -> Button:
+	var d: Dictionary = ArenaStore.MODES[m]
+	var t: int = store.trophies_in(m)
+	var b := painted(shell, "hub_" + m, str(d.art), Vector2(.72, .62), str(d.name),
+		"%s · %s" % [Ladder.league_label(t), Kit.commas(t)], d.color, func(): shell.go("arena", {"store": store, "mode": m}), true)
+	b.custom_minimum_size.y = 170
+	return b
+
+
+## A room as a half-width tile: its doorway painting over its name and
+## what you hold to spend there.
+static func room_tile(shell, mark: String, art: Control, title: String, status: Control, col: Color, on_press: Callable) -> Button:
+	art.custom_minimum_size = Vector2(0, 70)
+	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var v := Kit.vbox(4, [art, Kit.hbox(8, [_fit(Kit.label(title, 26)), Kit.spacer(), status], BoxContainer.ALIGNMENT_CENTER)])
+	var b := Kit.card_button(v, on_press, Color(col, .7), Color(col, .08), 24, 8)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	shell.mark(mark, b)
+	return b
 
 
 ## A room's doorway painting, framed for the left of its row.
