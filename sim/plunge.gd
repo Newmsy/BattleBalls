@@ -246,7 +246,7 @@ func _init(cfg: Dictionary) -> void:
 	# without it a few ticks either way decided who went first every time.
 	var jitter := Rng.new(seed_value * 977 + 11)
 	for i in ids.size():
-		var wait := GateDelays.delay(course.info.id, ids.size(), lanes[i]) + GateDelays.JITTER * jitter.next_float()
+		var wait := GateDelays.delay(course.info.id, ids.size(), lanes[i]) + GateDelays.jitter(course.info.id) * jitter.next_float()
 		release.append(int(round((GATE_SECONDS + wait) * TICK_RATE)))
 	_focus_y = PlungeCourse.START_Y + 400.0
 	# The course's hazards ride on the arena's own pieces, so the fight view

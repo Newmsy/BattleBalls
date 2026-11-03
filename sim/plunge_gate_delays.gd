@@ -14,6 +14,10 @@ extends RefCounted
 ## Each gate also waits a seeded 0 to JITTER s more (sim/plunge.gd), so
 ## neighbouring gates open in a different order every race.
 const JITTER := 0.5
+## Courses whose opener is a hopper racers leave single file (Gumdrop's
+## gumball chute, Honey's hive door) need more: whoever reaches the hole a
+## tick first goes through first, so a fixed delay only moved the lucky gate.
+const JITTER_BY_COURSE := {"gumdrop": 1.2, "honey": 1.2}
 
 const DELAYS := {
 	"clouds": {4: [0.55, 0.00], 6: [1.05, 0.55, 0.00], 8: [0.60, 0.50, 0.20, 0.00]},
@@ -21,8 +25,8 @@ const DELAYS := {
 	"dunes": {4: [0.00, 0.50], 6: [0.00, 0.35, 0.65], 8: [0.00, 0.35, 0.50, 0.80]},
 	"glitch": {4: [0.00, 0.15], 6: [0.00, 0.50, 0.45], 8: [0.05, 0.00, 0.25, 0.75]},
 	"graves": {4: [0.00, 0.60], 6: [0.00, 0.35, 1.00], 8: [0.00, 0.45, 0.75, 1.15]},
-	"gumdrop": {4: [0.00, 0.40], 6: [0.00, 0.40, 0.75], 8: [0.00, 0.30, 0.10, 0.65]},
-	"honey": {4: [0.00, 0.65], 6: [0.00, 0.45, 0.90], 8: [0.00, 0.70, 0.85, 1.15]},
+	"gumdrop": {4: [0.00, 0.35], 6: [0.00, 0.45, 0.55], 8: [0.00, 0.30, 0.55, 0.85]},
+	"honey": {4: [0.00, 0.65], 6: [0.00, 0.55, 1.00], 8: [0.00, 0.35, 0.70, 0.95]},
 	"icicles": {4: [0.00, 0.15], 6: [0.55, 0.00, 0.60], 8: [0.75, 0.15, 0.00, 0.45]},
 	"kelp": {4: [0.55, 0.00], 6: [0.25, 0.00, 0.35], 8: [0.30, 0.40, 0.00, 0.65]},
 	"lava": {4: [0.00, 0.55], 6: [0.00, 0.50, 0.90], 8: [0.00, 0.30, 0.55, 0.80]},
@@ -44,3 +48,7 @@ static func delay(course: String, n: int, gate: int) -> float:
 	var pairs: Array = by_n.get(n, [])
 	var k := mini(gate, n - 1 - gate)
 	return float(pairs[k]) if k < pairs.size() else 0.0
+
+
+static func jitter(course: String) -> float:
+	return float(JITTER_BY_COURSE.get(course, JITTER))
