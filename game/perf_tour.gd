@@ -13,6 +13,7 @@ const TOUR := [
 	["pass", {}], ["world", {}], ["campaign", {}], ["campaign", {"zone": 2}], ["campaign", {"zone": 3}], ["campaign", {"zone": 6}],
 	["bosses", {}], ["factions", {}], ["faction", {"id": "spooky"}], ["vault", {}],
 	["nest", {}], ["pinata", {}], ["totem", {}], ["wyrm", {}], ["glitch", {}],
+	["versus", {}], ["arena", {"mode": "league"}], ["arena_chests", {}], ["rift", {}], ["quests", {}], ["plunge", {}],
 ]
 
 
@@ -25,7 +26,7 @@ static func run(shell, only: Array = []) -> void:
 			if not only.is_empty() and entry[0] not in only:
 				continue
 			var params: Dictionary = entry[1].duplicate()
-			if entry[0] in ["arena", "boosts", "bazaar", "defence"]:
+			if entry[0] in ["arena", "boosts", "bazaar", "defence", "arena_chests"]:
 				params.store = preload("res://game/pvp/arena_store.gd").sample()
 			var t0 := Time.get_ticks_usec()
 			shell.go(entry[0], params)
