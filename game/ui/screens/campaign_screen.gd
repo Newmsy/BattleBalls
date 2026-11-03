@@ -291,19 +291,48 @@ static func _face(id: String, tier: int, side: float, silhouette := false) -> Co
 	return art
 
 
-## A stage you can't fight yet: its number, the foe's silhouette and a lock.
+## A stage you can't fight yet: its number, the foe's silhouette backlit in
+## the zone's colour with a "?" on it, and a lock.
 static func _locked_row(z: int, i: int, st: Dictionary, boss: bool) -> Control:
 	var art := Kit.hbox(0, [], BoxContainer.ALIGNMENT_CENTER)
 	var foes := Zones.enemies(st)
+	var tint: Color = Kit.BAD if boss else Kit.ACCENT
 	for id in foes:
-		art.add_child(_face(id, 1, (92.0 if boss else 76.0) / sqrt(float(foes.size())), true))
+		var side := (92.0 if boss else 76.0) / sqrt(float(foes.size()))
+		var lit := _Backlit.new()
+		lit.tint = tint
+		lit.custom_minimum_size = Vector2(side, side) * FighterTag.ART_SHRINK
+		lit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var face := _face(id, 1, side, true)
+		face.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		lit.add_child(face)
+		var q := Kit.label("?", int(side * .42), Color(tint.lightened(.55), .85), HORIZONTAL_ALIGNMENT_CENTER)
+		q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		q.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		q.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lit.add_child(q)
+		art.add_child(lit)
 	var key := Kit.label(Zones.stage_key(z, i), 24, Kit.MUTED)
 	key.custom_minimum_size.x = 64
-	var row := Kit.hbox(14, [key, art, Kit.spacer(), Glyph.make("lock", 26, Kit.MUTED)])
+	var lock := Kit.panel(Glyph.make("lock", 24, Kit.MUTED), Kit.box(Color("0f0d2a"), Kit.LINE, 999, 2, 8))
+	lock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var row := Kit.hbox(14, [key, art, Kit.spacer()])
+	if boss:
+		row.add_child(Kit.chip("BOSS", Kit.BAD.darkened(.15), 16))
+	row.add_child(lock)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	var card := Kit.panel(row, Kit.box(Kit.PANEL, Kit.BAD.darkened(.4) if boss else Kit.LINE, 28, 2, 10))
-	card.modulate = Color(1, 1, 1, .7)
+	card.modulate = Color(1, 1, 1, .85)
 	return card
+
+
+## A soft glow behind a locked stage's silhouette, so its shape reads on the dark card.
+class _Backlit extends Control:
+	const Dot := preload("res://game/dot.gd")
+	var tint := Color.WHITE
+
+	func _draw() -> void:
+		Dot.glow(self, size / 2.0, minf(size.x, size.y) * .62, Color(tint, .32), .35)
 
 
 ## A stage's three crown slots, `won` of them gold (crowns, not stars: a
