@@ -33,6 +33,10 @@ Used for:
 - music_spire.ogg: "Gravity's End" (AI-generated, ~109 BPM), the Spire screen and
   between Spire legs: from the start, then a 148 s loop:
     loop_track.py gravitys-end.mp3 music_spire.ogg --from 10.5-11.5 --to 159-160 --intro 0
+- music_boss.ogg / music_boss_overtime.ogg: "Against the Titan" (AI-generated,
+  ~136 BPM), boss fights: from the start, then a 60 s loop; overtime 10% faster:
+    loop_track.py against-the-titan.mp3 music_boss.ogg --from 56-57 --to 116-117 --intro 0
+    loop_track.py against-the-titan.mp3 music_boss_overtime.ogg --from 56-57 --to 116-117 --stretch 1.1
 - music_fight.ogg / music_overtime.ogg: "Neon Pulse" (FreeMusic AI, 140 BPM,
   https://www.freemusic.ai/song/fWpO3tKXjn), slowed to 120 BPM for fights:
     loop_track.py neon-pulse.mp3 music_fight.ogg --bpm 140.04 --bars 16,24,32 --from 30-90 --to 50-185 --stretch 0.857

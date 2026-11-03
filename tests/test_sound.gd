@@ -119,6 +119,9 @@ func test_fight_theme_picks_mode_music() -> void:
 	sfx._music_track = "fight"
 	sfx.set_menu_theme("spire")
 	check_eq(sfx._music_track, "fight", "never mid-fight")
+	sfx.fight_theme = "boss"
+	check_eq(sfx._fight_track(""), "boss", "boss fight")
+	check_eq(sfx._fight_track("overtime"), "boss_overtime", "boss overtime")
 	sfx.fight_theme = "nothing_here"
 	check_eq(sfx._fight_track(""), "fight", "unknown theme falls back")
 	check_eq(sfx._fight_track("overtime"), "overtime", "and for overtime")
