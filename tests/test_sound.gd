@@ -109,6 +109,19 @@ func test_plunge_music_carries_on() -> void:
 	sfx.free()
 
 
+## "Race again" reloads the scene. The players leave the tree (and stop)
+## before Sfx's own _exit_tree runs, which must still save the spot.
+func test_scene_reload_keeps_the_spot() -> void:
+	var sfx := _sfx()
+	sfx._music_track = "plunge"
+	sfx._music_on = true # Started; the player itself already reads as stopped.
+	Sfx._track_pos = {}
+	sfx._exit_tree()
+	check(Sfx._track_pos.has("plunge"), "the next race picks up where this one stopped")
+	Sfx._track_pos = {}
+	sfx.free()
+
+
 ## A mode with its own fight music (Arena) uses it for the fight and its
 ## overtime; a theme with no tracks falls back to the shared ones.
 func test_fight_theme_picks_mode_music() -> void:

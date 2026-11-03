@@ -351,6 +351,10 @@ var _ends := {} ## sound name -> end times of the copies started
 var _music: AudioStreamPlayer ## The current track.
 var _music_out: AudioStreamPlayer ## The previous track while it fades out.
 var _music_track := ""
+## The music is meant to be playing. _music.playing cannot say: by the time
+## _exit_tree runs on a scene change, the players (children) have already left
+## the tree and stopped, so every reload forgot the position.
+var _music_on := false
 ## The mode session's track (a MUSIC key, e.g. "arena", "spire", "bounce";
 ## "fight" for fights with no mode track of their own; "" = none: the menu
 ## loop on screens, "fight" in fights). Set it with set_theme.
@@ -979,7 +983,7 @@ func play_music(track: String) -> void:
 
 ## Remembers where the playing track is before it stops or its scene goes.
 func _save_track_pos() -> void:
-	if _carries_on(_music_track) and _music != null and _music.playing:
+	if _carries_on(_music_track) and _music != null and _music_on:
 		_track_pos[_music_track] = _music.get_playback_position()
 
 
@@ -1000,7 +1004,7 @@ func _start_pos(track: String, length: float) -> float:
 ## Remembers where the menu loop is before it stops. running: the music should
 ## count on through a scene load; otherwise (a fight) it waits where it was.
 func _save_menu_pos(running: bool) -> void:
-	if _music_track == "menu" and _music != null and _music.playing:
+	if _music_track == "menu" and _music != null and _music_on:
 		_menu_pos = _music.get_playback_position()
 		_menu_left_at = Time.get_ticks_msec() / 1000.0 if running else -1.0
 	elif not running and _menu_left_at >= 0.0: # A fight scene opened straight after a scene change.
@@ -1038,6 +1042,7 @@ func _start_music(track: String) -> void:
 	_music.stream = stream
 	_music.volume_db = info[1] + MASTER_DB
 	_music.play(_start_pos(track, stream.get_length()))
+	_music_on = true
 
 
 func _stop_music() -> void:
@@ -1045,6 +1050,7 @@ func _stop_music() -> void:
 		_fade.kill()
 	_music.stop()
 	_music_out.stop()
+	_music_on = false
 
 
 func sound_names() -> Array:
