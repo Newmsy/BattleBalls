@@ -394,6 +394,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if ui == null:
+		return # ?probe=1 runs its check and never builds the game.
 	if shell != null and shell.glow != null and shell.glow.store != null:
 		shell.glow.store.poll()
 	var covered := _sync_cover()

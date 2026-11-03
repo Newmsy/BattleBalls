@@ -1041,9 +1041,9 @@ func _report(name: String) -> void:
 	all["account"] = _badge
 	all["settings"] = _gear
 	for k in all:
-		var c: Control = all[k]
-		if is_instance_valid(c) and c.is_visible_in_tree():
-			var p := c.get_global_rect().get_center()
+		var c = all[k] # Untyped: a mark freed since (a sheet closed) can't go in a Control var.
+		if is_instance_valid(c) and c is Control and c.is_visible_in_tree():
+			var p: Vector2 = c.get_global_rect().get_center()
 			print("UI_AT %s %d %d" % [k, roundi(p.x), roundi(p.y)])
 
 
