@@ -399,7 +399,7 @@ static func quick_fight_row(shell) -> Control:
 	var name := Kit.label(c.name, 24)
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name.clip_text = true
-	var info := Kit.vbox(0, [name, Kit.hbox(8, [Glyph.make("stars", 20, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 18, Kit.MUTED), Kit.power(p.power_of(p.lineup), 18)])])
+	var info := Kit.vbox(0, [name, Kit.hbox(8, [Glyph.tier_stars(20, b.tier, p.ascend_level(p.lineup)), Kit.label("Lv %d" % b.level, 18, Kit.MUTED), Kit.power(p.power_of(p.lineup), 18)])])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var fighter := Kit.card_button(Kit.hbox(10, [CritterIcon.make(p.lineup, b.tier, 64), info], BoxContainer.ALIGNMENT_CENTER), func(): pick_fighter(shell), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 20, 0)
 	fighter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -508,7 +508,7 @@ static func quick_fight_card(shell, band: Control = null) -> Control:
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name.clip_text = true
 	var info := Kit.vbox(2, [Kit.hbox(8, [Glyph.make("swords", 22, Kit.MUTED), Kit.caption("Your fighter")]), name,
-		Kit.hbox(10, [Glyph.make("stars", 22, Kit.FG, b.tier), Kit.label("Lv %d" % b.level, 20, Kit.MUTED), Kit.power(p.power_of(p.lineup), 20)])])
+		Kit.hbox(10, [Glyph.tier_stars(22, b.tier, p.ascend_level(p.lineup)), Kit.label("Lv %d" % b.level, 20, Kit.MUTED), Kit.power(p.power_of(p.lineup), 20)])])
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row := Kit.hbox(14, [CritterIcon.make(p.lineup, b.tier, 88), info])
 	row.alignment = BoxContainer.ALIGNMENT_CENTER

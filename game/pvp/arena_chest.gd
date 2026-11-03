@@ -60,10 +60,17 @@ static func look(league: int) -> Dictionary:
 	return out
 
 
+## Chance (out of 100) each league's chest also holds an Ascension Spark: up
+## to 10% at the top league (Newms 2026-11-02).
+const SPARK_CHANCE := [2, 4, 5, 6, 8, 10]
+
+
 ## What `league`'s chest from `week` holds; the gear piece's type comes from
 ## the week.
 static func rewards(league: int, week: int) -> Array:
 	var out: Array = []
+	if Rng.new(week * 6151 + 17).range_int(0, 99) < int(SPARK_CHANCE[league]):
+		out.append({"kind": "spark", "n": 1})
 	for r in CHESTS[league].rewards:
 		var g: Dictionary = r.duplicate()
 		if g.kind == "gear":

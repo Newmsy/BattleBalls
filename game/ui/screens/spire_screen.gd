@@ -178,7 +178,7 @@ static func _pick_card(shell, f: Dictionary, spec: Dictionary, state: Dictionary
 	var tired: bool = f.stamina <= 0
 	var col := Kit.MUTED if tired else Kit.FG
 	var tag := Kit.label("", 20, Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
-	var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96, false, p.best(f.id).level)
+	var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96, false, p.best(f.id).level, 0, p.ascend_level(f.id))
 	if tired:
 		icon.modulate = Color(1, 1, 1, 0.35)
 	var cell := Kit.vbox(4, [

@@ -144,7 +144,7 @@ static func _shelf(shell, ready: Array, state: Dictionary) -> Dictionary:
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var sel_jar: Control = null
 		for s in ready:
-			var jar := _jar(s, s == sel, func(): select(shell, state, s))
+			var jar := _jar(s, s == sel, func(): select(shell, state, s), shell.profile.ascend_level(s.id))
 			state.jars[_key(s)] = jar
 			if s == sel:
 				sel_jar = jar
@@ -234,7 +234,7 @@ static func _find_label(n: Node, text: String) -> Label:
 ## One ready stack: its critter and tier stars floating in a jar tinted by its
 ## rarity, the count on the jar's base and its name under it. The picked
 ## jar glows green.
-static func _jar(s: Dictionary, on: bool, pick: Callable) -> Button:
+static func _jar(s: Dictionary, on: bool, pick: Callable, ascend := 0) -> Button:
 	var c := Roster.get_critter(s.id)
 	var b := Button.new()
 	b.flat = true
@@ -265,7 +265,7 @@ static func _jar(s: Dictionary, on: bool, pick: Callable) -> Button:
 	n.position = Vector2(0, 207 * k - 13)
 	n.size = Vector2(JAR.x, 26)
 	b.add_child(n)
-	var stars := _center(Glyph.make("stars", 16, Color("ffd36b"), s.tier))
+	var stars := _center(Glyph.tier_stars(16, s.tier, ascend))
 	stars.position = Vector2(0, 168 * k - 10)
 	stars.size = Vector2(JAR.x, 20)
 	b.add_child(stars)

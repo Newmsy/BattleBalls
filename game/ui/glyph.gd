@@ -3,7 +3,8 @@
 ## charm, plus one icon per gear type), locks, the back arrow, the info "i"
 ## the tab icons and the home mode icons (target, bounce, tower, vault, ghost,
 ## friends, map, swords, sparkle), the Arena's trophy, shield, token and coin, the
-## stat heads (heart, speed), the Rift Key and the Spark Dye drop.
+## stat heads (heart, speed), the Rift Key, the Spark Dye drop and the
+## Ascension Spark. Tier stars turn purple with Ascension (tier_stars()).
 extends Control
 
 const Dot := preload("res://game/dot.gd")
@@ -11,11 +12,14 @@ const Dot := preload("res://game/dot.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const GOLD := Color("ffc23d")
 const OFF := Color("3b3770")
+## Ascension's colour: purple tier stars and the Ascension Spark.
+const PURPLE := Color("b46cff")
 
 var kind := "stars"
 var count := 1
 var of := 0 ## For stars: total slots drawn (dim ones after `count`).
 var color := Color.WHITE
+var purple := 0 ## For stars: how many of the lit ones (from the left) are purple.
 
 
 static func make(kind_: String, side: float, color_ := Color.WHITE, count_ := 1, of_ := 0) -> Control:
@@ -32,6 +36,29 @@ static func make(kind_: String, side: float, color_ := Color.WHITE, count_ := 1,
 	return g
 
 
+## A critter's tier stars: `tier` lit (of `of` slots), the first `ascend`
+## purple once it's T5 (Newms: T5 A2 = 2 purple, 3 gold).
+static func tier_stars(side: float, tier: int, ascend := 0, of := 0) -> Control:
+	var g = make("stars", side, Color.WHITE, tier, of)
+	g.purple = clampi(ascend, 0, tier) if tier >= 5 else 0
+	return g
+
+
+## The narrow form: "N" and one star. N gold-starred is the tier; an
+## Ascended T5 shows its Ascension level by a purple star instead.
+static func tier_short(side: float, tier: int, ascend := 0, font := 0) -> Control:
+	var Kit = load("res://game/ui/ui_kit.gd")
+	var asc := tier >= 5 and ascend > 0
+	var star = make("stars", side, Color.WHITE, 1)
+	star.purple = 1 if asc else 0
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 2)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(Kit.label(str(ascend if asc else tier), font if font > 0 else int(side * 1.1), PURPLE if asc else GOLD))
+	row.add_child(star)
+	return row
+
+
 func _draw() -> void:
 	var s := size.y
 	var c := Vector2(s / 2.0, s / 2.0)
@@ -41,7 +68,7 @@ func _draw() -> void:
 			var step := custom_minimum_size.x / slots
 			for i in slots:
 				var p := Vector2(step * (i + .5), s / 2.0)
-				Dot.poly(self, CritterArt.star_pts(p, s * .48, s * .2, 5), GOLD if i < count else OFF)
+				Dot.poly(self, CritterArt.star_pts(p, s * .48, s * .2, 5), (PURPLE if i < purple else GOLD) if i < count else OFF)
 		"bolt":
 			var pts := PackedVector2Array([Vector2(.58, .02), Vector2(.15, .58), Vector2(.47, .58), Vector2(.38, .98), Vector2(.85, .38), Vector2(.53, .38)])
 			for i in pts.size():
@@ -122,6 +149,12 @@ func _draw() -> void:
 			Dot.line(self, bow + Vector2(-.1, .03) * s, bow + Vector2(.06, .03) * s, Color(1, 1, 1, .7), s * .03)
 			Dot.circle(self, bow + Vector2(-.04, -.06) * s, s * .03, Color(1, 1, 1, .9))
 			draw_set_transform_matrix(Transform2D.IDENTITY)
+		"spark":
+			# An Ascension Spark: a four-point purple star with a pale core.
+			Dot.poly(self, CritterArt.star_pts(c, s * .5, s * .16, 4), color.darkened(.3))
+			Dot.poly(self, CritterArt.star_pts(c, s * .42, s * .13, 4), color)
+			Dot.poly(self, CritterArt.star_pts(c, s * .2, s * .07, 4), color.lightened(.6))
+			Dot.circle(self, c + Vector2(s * .28, -s * .28), s * .06, Color(1, 1, 1, .8))
 		"dye":
 			# A Spark Dye: a fat paint drop in `color`, a darker rim, a lighter
 			# belly, a sparkle and a glint.

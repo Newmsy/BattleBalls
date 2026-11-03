@@ -15,7 +15,7 @@ static func sample():
 	p.seen = {}
 	for s in [["vampire", 2, 1, 14], ["vampire", 1, 3, 6], ["juggernaut", 1, 2, 7], ["spiker", 2, 1, 12],
 			["spiker", 1, 1, 3], ["speedster", 1, 3, 9], ["bomber", 1, 1, 3],
-			["thorns", 1, 1, 2], ["splitter", 1, 1, 5]]:
+			["thorns", 1, 1, 2], ["splitter", 1, 1, 5], ["juggernaut", 5, 1, 50]]:
 		p.stacks.append({"id": s[0], "tier": s[1], "count": s[2], "level": s[3]})
 		p.seen[s[0]] = true
 	p.gear.assign([
@@ -34,6 +34,8 @@ static func sample():
 		{"uid": 13, "type": "ward_charm", "tier": 2, "on": ""},
 		{"uid": 14, "type": "phoenix_charm", "tier": 3, "on": ""},
 	].map(func(g): return gear_piece(g)))
+	p.ascension = {"juggernaut": 2} # A T5 A2: two purple stars, three gold.
+	p.sparks = 6
 	p.factions = {"spooky": {"xp": 900, "picks": {"siphon": 3, "launch_kick": 2, "haunt": 1}}, "nature": {"xp": 300, "picks": {}}}
 	p.items.assign([
 		{"name": "Energy Pack", "count": 3, "text": "+30 energy. Can go over the max.", "color": Color("5ce1ff")},

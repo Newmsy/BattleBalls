@@ -405,8 +405,8 @@ static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 	var fast := {}
 	var cut := {}
 	for id in ids:
-		var boon := get_def(id)
-		if not applies_to(id, str(def.get("ability", ""))):
+		var boon: Dictionary = id if id is Dictionary else get_def(id) # A Dictionary: an Ascension (ascended()).
+		if boon.get("for", def.get("ability", "")) != def.get("ability", ""):
 			continue
 		for key in stat:
 			stat[key] += boon.get(key, 1.0) - 1.0
@@ -448,6 +448,46 @@ static func apply_to_def(def: Dictionary, ids: Array) -> Dictionary:
 	for key in CAPS:
 		out[key] = minf(out[key], CAPS[key])
 	return out
+
+
+## Ascension (Newms 2026-11-02): a T5 critter's own boon, kept for good at
+## ASCEND_SHARE of its Bounce Run strength per level (A1-A5), in every fight
+## its lineup slot plays. Gains scale with the level; a cut ("more often", a
+## shorter count) scales too but never past the boon's own, like stacking.
+const ASCEND_SHARE := 0.5
+const ASCEND_MAX := 5
+
+## The def of `critter`'s boon at Ascension `level` (0 or no boon: {}).
+## apply_to_def takes it in place of an id.
+static func ascended(critter: String, level: int) -> Dictionary:
+	var id := for_critter(critter)
+	level = clampi(level, 0, ASCEND_MAX)
+	if id == "" or level == 0:
+		return {}
+	var k := ASCEND_SHARE * level
+	var cut_k := minf(1.0, k)
+	var def: Dictionary = _base_def(id).duplicate(true)
+	def.rarity = "ascended"
+	def.level = level
+	var add := {}
+	for key in def.get("add", {}):
+		var v = def.add[key]
+		var f := k if v >= 0 else cut_k
+		if v is int:
+			add[key] = signi(v) * maxi(1, roundi(absi(v) * f))
+		else:
+			add[key] = float(v) * f
+	if def.has("add"):
+		def.add = add
+	var mul := {}
+	for key in def.get("mul", {}):
+		var m: float = def.mul[key]
+		mul[key] = 1.0 + (m - 1.0) * (k if m >= 1.0 else cut_k)
+	if def.has("mul"):
+		def.mul = mul
+	if "{" in def.text:
+		def.text = _fill(def)
+	return def
 
 
 ## One badge's worth of a stack: the def of `ids` (copies of one boon, any

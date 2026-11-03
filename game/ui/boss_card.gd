@@ -25,7 +25,7 @@ static func fighter(shell, id: String, prefix: String, lines := [], icon := 92, 
 	for l in (lines if not lines.is_empty() else [Kit.power(p.power_of(id), 24)]):
 		info.add_child(l)
 	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var row := Kit.hbox(14, [FighterTag.icon(id, b.tier, icon, false, b.level), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
+	var row := Kit.hbox(14, [FighterTag.icon(id, b.tier, icon, false, b.level, 0, shell.profile.ascend_level(id)), info, Kit.chip("Change", Kit.ACCENT)], BoxContainer.ALIGNMENT_CENTER)
 	var pick := func() -> void:
 		CritterPicker.open(shell, CritterPicker.by_power(p, BallDefs.PLAYABLE if pool.is_empty() else pool), {"title": "Your fighter", "current": id,
 			"on_pick": func(picked: String) -> void:
