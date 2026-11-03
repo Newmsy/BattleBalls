@@ -10,6 +10,7 @@ const UiProfile := preload("res://game/ui/ui_profile.gd")
 const Profile := preload("res://meta/profile.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const Gear := preload("res://sim/gear.gd")
+const ArenaChest := preload("res://game/pvp/arena_chest.gd")
 
 
 func test_floors_pick_the_chest() -> void:
@@ -74,7 +75,7 @@ func test_yesterdays_best_opens_once() -> void:
 	var orbs: int = p.orbs
 	var c := BounceChest.pending(best, p.bounce_chest, 12)
 	var got := BounceChest.open(p, c)
-	check_eq(got, BounceChest.rewards(2, 11), "Gold: what the chest showed")
+	check_eq(got, BounceChest.rewards(2, 11, p.chest_seed()), "Gold: what the chest showed")
 	var paid := {"coins": 0, "orbs": 0}
 	for r in got:
 		if paid.has(r.kind):
@@ -104,7 +105,7 @@ func test_opening_screen_collects() -> void:
 	var coins: int = p.coins
 	var view = load("res://game/ui/bounce_chest_open.gd").show_on(shell, {"day": 50, "floor": 25, "tier": 4})
 	check(shell.overlay_open(), "opens over the shell")
-	var due := BounceChest.rewards(4, 50)
+	var due := BounceChest.rewards(4, 50, p.chest_seed())
 	check_eq(view._cards.size(), due.size(), "a card for each reward")
 	var due_coins := 0
 	for r in due:
@@ -145,7 +146,11 @@ func test_bounce_run_opens_on_a_waiting_chest() -> void:
 		after.load_local()
 		var q = Profile.from_dict(after.data.profile, 0)
 		check_eq(q.bounce_chest, today - 1, "opened in the game save")
-		check_eq(q.coins, coins + 250, "and paid")
+		var paid := 0
+		for r in BounceChest.rewards(2, today - 1, q.chest_salt):
+			paid += int(r.n) if r.kind == "coins" else 0
+		check(paid > 0 and q.chest_salt > 0, "a Gold chest pays coins, rolled with the player's saved salt")
+		check_eq(q.coins, coins + paid, "and paid")
 	scene.queue_free()
 	var again = load("res://game/bounce_run.tscn").instantiate()
 	again.save_path = run_path
@@ -169,7 +174,7 @@ func test_cards_fly_out_and_a_tap_lands_them() -> void:
 	view._burst()
 	check_eq(view.phase, view.Phase.SPILLING, "a tap mid-shake bursts it open")
 	view._spill()
-	check_eq(view._flyers.size(), BounceChest.rewards(4, 51).size(), "every card leaves the chest")
+	check_eq(view._flyers.size(), BounceChest.rewards(4, 51, shell.profile.chest_seed()).size(), "every card leaves the chest")
 	check(not view._collect.visible, "Collect waits for the cards")
 	check(view._cards.all(func(c): return c.modulate.a == 0.0), "no card in its slot yet")
 	view._land_all()
@@ -179,3 +184,25 @@ func test_cards_fly_out_and_a_tap_lands_them() -> void:
 	view._on_collect()
 	check(not shell.overlay_open(), "and Collect closes it")
 	shell.queue_free()
+
+
+func test_each_player_rolls_their_own_chest() -> void:
+	var a = UiProfile.sample()
+	var b = UiProfile.sample()
+	a.chest_salt = 101
+	b.chest_salt = 202
+	var differ := 0
+	for d in 40:
+		if BounceChest.rewards(4, d, a.chest_seed()) != BounceChest.rewards(4, d, b.chest_seed()):
+			differ += 1
+		check_eq(BounceChest.rewards(4, d, a.chest_seed()), BounceChest.rewards(4, d, 101), "the same player, the same chest")
+	check(differ > 30, "two players' Champion chests differ most days: %d / 40" % differ)
+	var arena_differ := 0
+	for w in 40:
+		if ArenaChest.rewards(5, w, 101) != ArenaChest.rewards(5, w, 202):
+			arena_differ += 1
+	check(arena_differ > 30, "and their Arena chests: %d / 40" % arena_differ)
+	var fresh = UiProfile.new()
+	check(fresh.chest_seed() > 0 and fresh.chest_seed() == fresh.chest_seed(), "a salt is made once and kept")
+	var back = load("res://meta/profile.gd").from_dict(a.to_dict(), 0)
+	check_eq(back.chest_salt, 101, "the salt is saved")

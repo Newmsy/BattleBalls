@@ -92,15 +92,15 @@ static func odds(league: int) -> Array:
 	return out
 
 
-## What `league`'s chest from `week` holds; the gear piece's type comes from
-## the week.
-static func rewards(league: int, week: int) -> Array:
-	var out := ChestDrops.roll(odds(league), week * 6151 + 17)
+## What `league`'s chest from `week` holds for the player with chest `salt`
+## (Profile.chest_seed(); 0 = the plain roll).
+static func rewards(league: int, week: int, salt := 0) -> Array:
+	var out := ChestDrops.roll(odds(league), ChestDrops.salted(week * 6151 + 17, salt))
 	for g in out:
 		if g.kind == "gear":
 			var types := Gear.PIECES.keys()
 			types.sort()
-			g.type = types[Rng.new(week * 7919 + 3).range_int(0, types.size() - 1)]
+			g.type = types[Rng.new(ChestDrops.salted(week * 7919 + 3, salt)).range_int(0, types.size() - 1)]
 	return out
 
 
@@ -110,7 +110,7 @@ static func open(store, profile) -> Array:
 	store.roll_week()
 	if store.chest.is_empty():
 		return []
-	var got := rewards(int(store.chest.league), roll_week(int(store.chest.week), store.mode))
+	var got := rewards(int(store.chest.league), roll_week(int(store.chest.week), store.mode), profile.chest_seed() if profile != null else 0)
 	for r in got:
 		if r.kind == "tokens":
 			store.coins += int(r.n)

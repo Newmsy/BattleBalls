@@ -170,8 +170,12 @@ func test_spark_show_plays_once() -> void:
 	shell.build()
 	runner.root.add_child(shell)
 	shell.profile.add_sparks(2)
+	var saves := [0]
+	shell.profile.changed.connect(func(): saves[0] += 1)
 	shell._spark_check()
 	check_eq(shell.profile.spark_news, 0, "celebrated")
+	check(saves[0] > 0, "and saved as celebrated, so a reload doesn't play it again")
+	check_eq(Profile.from_dict(shell.profile.to_dict(), 0).spark_news, 0, "a reloaded save has no news")
 	var shows: Array = shell._fx.get_children().filter(func(c): return c.get_script() == SparkShow)
 	check_eq(shows.size(), 1, "one Spark moment")
 	shell._spark_check()

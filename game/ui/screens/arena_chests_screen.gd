@@ -57,7 +57,7 @@ static func _now_card(shell, store, ready: bool) -> Control:
 			var shown := look.duplicate()
 			shown = ArenaChest.look(league, store.mode)
 			shown.caption = "%s · WEEKLY CHEST" % str(ArenaStore.MODES[store.mode].name).to_upper()
-			BounceChestOpen.show_custom(shell, shown, ArenaChest.rewards(league, ArenaChest.roll_week(int(store.chest.week), store.mode)), func():
+			BounceChestOpen.show_custom(shell, shown, ArenaChest.rewards(league, ArenaChest.roll_week(int(store.chest.week), store.mode), shell.profile.chest_seed()), func():
 				ArenaChest.open(store, shell.profile)), "go", 28, 80)
 		shell.mark("chest_open", open)
 		Idle.breathe(open, .05)

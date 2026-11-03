@@ -607,6 +607,10 @@ func _spark_check() -> void:
 		return
 	var n: int = profile.spark_news
 	profile.spark_news = 0
+	# Saved at once: otherwise the save kept the old count, and the next
+	# reload (back from a fight scene, a relaunch, a cloud sync) played the
+	# same Sparks' moment again.
+	profile.changed.emit()
 	SparkShow.play(self, n, profile.sparks, profile.ASCEND_COST)
 
 
