@@ -86,7 +86,7 @@ static func defence_delta(trophies: int, peak_trophies: int, card: String, attac
 
 ## What an attack on an opponent with `theirs` trophies is worth to a player
 ## on `mine`: beating someone above you wins more and losing to them costs
-## less, and the other way round. {win, loss, coins} (coins are Tokens).
+## less, and the other way round. {win, loss, coins} (coins are Arena Coins).
 static func stake(mine: int, theirs: int) -> Dictionary:
 	var gap := clampi(theirs - mine, -STAKE_GAP, STAKE_GAP)
 	return {

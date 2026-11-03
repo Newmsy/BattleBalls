@@ -2558,6 +2558,79 @@
    }
   ]
  },
+ "vs_league": {
+  "size": [
+   720,
+   240
+  ],
+  "file": "game/ui/versus_art/vs_league.png",
+  "layers": [
+   {
+    "id": "m0",
+    "move": "idle 3 0.6 0.0",
+    "pivot": [
+     401,
+     210
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     369,
+     136,
+     64,
+     76
+    ]
+   },
+   {
+    "id": "m1",
+    "move": "idle 3 0.7 0.3",
+    "pivot": [
+     337,
+     196
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     305,
+     120,
+     64,
+     78
+    ]
+   },
+   {
+    "id": "t0",
+    "move": "idle 3 0.6 0.5",
+    "pivot": [
+     541,
+     210
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     509,
+     138,
+     64,
+     74
+    ]
+   },
+   {
+    "id": "t1",
+    "move": "idle 3 0.7 0.8",
+    "pivot": [
+     605,
+     196
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     573,
+     117,
+     64,
+     81
+    ]
+   }
+  ]
+ },
  "vs_plunge": {
   "size": [
    720,
@@ -2652,6 +2725,47 @@
      116,
      64,
      74
+    ]
+   }
+  ]
+ },
+ "vs_series": {
+  "size": [
+   720,
+   240
+  ],
+  "file": "game/ui/versus_art/vs_series.png",
+  "layers": [
+   {
+    "id": "m",
+    "move": "idle 3 0.6 0",
+    "pivot": [
+     349,
+     209
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     269,
+     130,
+     159,
+     82
+    ]
+   },
+   {
+    "id": "t",
+    "move": "idle 3 0.55 0.5",
+    "pivot": [
+     593,
+     209
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     513,
+     128,
+     159,
+     84
     ]
    }
   ]

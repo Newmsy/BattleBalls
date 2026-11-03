@@ -243,6 +243,12 @@ const LAYERS := {
 		["_Lg2", Rect2(485, 102, 110, 116), Vector4(1, 6, 0.5, 0.35), Vector2(540, 212), true, -1],
 		["_Lg3", Rect2(601, 106, 118, 124), Vector4(1, 6, 0.42, 0.7), Vector2(660, 224), true, -1],
 	],
+	"vs_league": [
+		["_Lm0", Rect2(369, 136, 64, 76), Vector4(4, 3, 0.6, 0), Vector2(401, 210), true, -1],
+		["_Lm1", Rect2(305, 120, 64, 78), Vector4(4, 3, 0.7, 0.3), Vector2(337, 196), true, -1],
+		["_Lt0", Rect2(509, 138, 64, 74), Vector4(4, 3, 0.6, 0.5), Vector2(541, 210), true, -1],
+		["_Lt1", Rect2(573, 117, 64, 81), Vector4(4, 3, 0.7, 0.8), Vector2(605, 196), true, -1],
+	],
 	"vs_plunge": [
 		["_La", Rect2(372, 68, 56, 66), Vector4(1, 4, 0.8, 0), Vector2(399, 136), false, -1],
 		["_Lb", Rect2(563, 46, 50, 64), Vector4(1, 5, 0.7, 0.35), Vector2(589, 111), true, -1],
@@ -251,6 +257,10 @@ const LAYERS := {
 	"vs_quick": [
 		["_Lme", Rect2(292, 93, 77, 94), Vector4(4, 4, 0.9, 0), Vector2(331, 185), true, -1],
 		["_Lfoe", Rect2(489, 116, 64, 74), Vector4(1, 4, 0.6, 0.4), Vector2(521, 188), true, -1],
+	],
+	"vs_series": [
+		["_Lm", Rect2(269, 130, 159, 82), Vector4(4, 3, 0.6, 0), Vector2(349, 209), true, -1],
+		["_Lt", Rect2(513, 128, 159, 84), Vector4(4, 3, 0.55, 0.5), Vector2(593, 209), true, -1],
 	],
 	"wandering_rival": [
 		["_Lscarf", Rect2(141, 301, 173, 96), Vector4(2, 7, 1.1, 0), Vector2(297, 323), false, 2],
@@ -317,8 +327,10 @@ const SIZES := {
 	"vending_machine": Vector2(720, 440),
 	"vs_friends": Vector2(360, 280),
 	"vs_ghost": Vector2(720, 240),
+	"vs_league": Vector2(720, 240),
 	"vs_plunge": Vector2(720, 200),
 	"vs_quick": Vector2(720, 200),
+	"vs_series": Vector2(720, 240),
 	"wandering_rival": Vector2(720, 440),
 }
 const SCALE := 2.0

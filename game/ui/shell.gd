@@ -114,6 +114,9 @@ signal stage_requested(config: Dictionary, zone_index: int, stage_index: int, fi
 ## Emitted when a farming boss run starts from its screen ("vault" Anvil King,
 ## "nest" Brood Queen, "pinata" Piñata Titan, "totem" Totem of Nine, "wyrm" Prism Wyrm, "glitch" The Glitch, "rift" a Rift round); energy and the run (or the Rift Key) are already spent.
 signal boss_requested(config: Dictionary, difficulty: int, fighter: String, screen: String)
+## Emitted when a 2v2 League attack starts (game/ui/screens/arena_screen.gd):
+## the token is spent and ArenaStore.pending holds the fight.
+signal arena_duo_requested
 
 var profile = UiProfile.sample()
 ## The online backend (game/online/backend.gd), or null in tests.
@@ -242,11 +245,13 @@ func build() -> void:
 	resized.connect(func(): _fit_wide(); if current != "": refresh())
 	_fit_wide()
 	show_tab("play")
-	# Coming back from a Ghost Arena fight lands on the Arena again.
+	# Coming back from a 3v3 Series fight lands on its page again (Back goes
+	# to the Arena hub).
 	if ArenaStore.reopen:
 		ArenaStore.reopen = false
 		reopened = true
-		go("arena")
+		go("versus")
+		go("arena", {"mode": ArenaStore.SERIES})
 	# And from a Critter Plunge race, on the Plunge screen (Back goes Home).
 	if CritterPlunge.reopen:
 		CritterPlunge.reopen = false

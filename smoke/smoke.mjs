@@ -657,7 +657,7 @@ try {
     await page.close();
   }
 
-  // 10. Ghost Arena: Play -> Arena screen -> pick a card -> play the relay to a result -> back to the Arena.
+  // 10. Arena 3v3 Series: Play -> Fight (or the Series page and a card) -> play the relay to a result -> back to the Series.
   if (mine(25)) {
     const { page, logs } = await openGame("?screen=play&seed=7&offline=1");
     await waitForLog(logs, "UI_SCREEN play", 60000);
@@ -671,9 +671,16 @@ try {
       await page.waitForTimeout(250);
     }
     await page.waitForTimeout(600);
-    await tapUi(page, logs, "arena", "arena");
-    await page.screenshot({ path: path.join(shots, "18-arena.png") });
-    await tapUi(page, logs, "arena_card_0");
+    // Home's Fight opens the 3v3 Series during a new player's first fights,
+    // and goes straight into a fight after that (Arena Tokens pay for it).
+    const tapped = logs.length;
+    await tapUi(page, logs, "arena");
+    for (let i = 0; i < 40 && !logs.slice(tapped).some((l) => l.startsWith("UI_SCREEN arena") || l.startsWith("ARENA_READY")); i++)
+      await page.waitForTimeout(250);
+    if (!logs.slice(tapped).some((l) => l.startsWith("ARENA_READY"))) {
+      await page.screenshot({ path: path.join(shots, "18-arena.png") });
+      await tapUi(page, logs, "arena_card_0");
+    }
     console.log("ghost arena:", await waitForLog(logs, "ARENA_READY", 10000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "19-arena-intro.png") });
@@ -857,6 +864,31 @@ try {
     await page.waitForTimeout(4000);
     await page.screenshot({ path: path.join(shots, "32-anvil-king-fight.png") });
     console.log("boss end:", await waitForLog(logs, "BOSS_END", 120000));
+    await page.close();
+  }
+
+  // 14b2. The Arena hub's 2v2 League: its page, a fight on Arena Tokens (both
+  // pairs at once), and back to the League page with the result popup.
+  if (mine(30)) {
+    const { page, logs } = await openGame("?demo=1&stars=3&screen=versus&speed=4&offline=1");
+    await waitForLog(logs, "UI_SCREEN versus", 60000);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "31b-arena-hub.png") });
+    await tapUi(page, logs, "hub_league", "arena");
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(shots, "31c-arena-league.png") });
+    await tapUi(page, logs, "arena_card_0");
+    console.log("league fight:", await waitForLog(logs, "ARENA_READY", 10000));
+    await page.waitForTimeout(500);
+    await page.mouse.click(...toPage(page, 20 + 170, 990 + 42)); // Launch
+    console.log("league start:", await waitForLog(logs, "FIGHT_START", 5000));
+    await page.waitForTimeout(3000);
+    await page.screenshot({ path: path.join(shots, "31d-arena-league-fight.png") });
+    console.log("league end:", await waitForLog(logs, "ARENA_RESULT", 120000));
+    const back = logs.length;
+    await waitForLogAfter(logs, back, "UI_SCREEN arena", 15000);
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: path.join(shots, "31e-arena-league-result.png") });
     await page.close();
   }
 
