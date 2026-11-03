@@ -298,7 +298,6 @@ func _show_result_popup() -> void:
 	var content := ResultPopup.content("TRICK SHOT #%d" % day, ResultPopup.Outcome.WIN if solved else ResultPopup.Outcome.LOSE,
 		body, [ok], null, ("Solved in %d!" % tries.size()) if solved else "Not today")
 	_popup = ResultPopup.show_over(ui, content)
-	sfx.hold_victory(content)
 
 
 ## A prize: its icon over its amount.

@@ -53,8 +53,9 @@ var _hold := -1.0 ## Real seconds on the KO face so far, or -1 before the blow.
 var _zooming := false
 var _skipped := false ## Skip also skips the finisher.
 var sfx: Sfx
-var music_theme := "" ## Sfx.fight_theme for this screen's fights ("" = the shared fight music).
-var menu_music := "" ## Sfx.menu_theme between legs ("" = the menu loop).
+## The Sfx.theme for the whole relay, aiming between legs included, so the
+## music never flips between legs ("fight" = the shared fight track).
+var music_theme := "fight"
 var fight_hud: FightHud ## Both health bars, above the arena.
 var fighter_strip: Control ## The two fighters' cards under the arena while the balls are out.
 var info_label: Label
@@ -79,8 +80,7 @@ func start(r: Relay, tags := ["YOU", "FOE"]) -> void:
 	arena.team_tags = tags
 	arena_clip.add_child(arena)
 	sfx = Sfx.new()
-	sfx.fight_theme = music_theme
-	sfx.menu_theme = menu_music
+	sfx.theme = music_theme
 	add_child(sfx)
 	_build_ui(tags)
 	get_viewport().size_changed.connect(_layout)
@@ -317,7 +317,7 @@ func _faction_rings() -> Control:
 ## The result popup every fight ends on, over this screen.
 func _popup(caption: String, body: Array, buttons: Array) -> void:
 	sfx.toggle_hidden = true # The popup covers the bottom row of pills.
-	sfx.hold_victory(ResultPopup.show_over(ui_root, ResultPopup.content(caption, ResultPopup.outcome_of(relay.winner), body, buttons)))
+	ResultPopup.show_over(ui_root, ResultPopup.content(caption, ResultPopup.outcome_of(relay.winner), body, buttons))
 
 
 # --- UI ---------------------------------------------------------------------

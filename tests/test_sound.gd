@@ -64,8 +64,10 @@ func test_sounds_stay_on_the_master_bus() -> void:
 	sfx.free()
 
 
-## The menu loop plays from the start; a win plays the victory tune until its
-## popup closes; overtime switches to the faster theme.
+## One track per session: with no mode track, the menu loop on screens and
+## the fight track in fights, and a result never switches the music (the win
+## or loss is a jingle). A mode track (Spire) runs through aiming, fights,
+## results and the next fight with no switch.
 func test_music_flow() -> void:
 	var sfx := _sfx()
 	sfx.mode = "all"
@@ -76,34 +78,33 @@ func test_music_flow() -> void:
 	sfx.on_fight_start(sim)
 	check_eq(sfx._music_track, "fight", "fight music")
 	sfx.on_result(0)
-	check_eq(sfx._music_track, "victory", "after a win")
-	var popup := Control.new()
-	runner.root.add_child(popup)
+	check_eq(sfx._music_track, "fight", "a win doesn't switch the music")
 	sfx.on_menu()
-	sfx.hold_victory(popup)
-	sfx._process(Sfx.VICTORY_GRACE + 0.1)
-	check_eq(sfx._music_track, "victory", "victory while its popup is up")
-	popup.free()
-	sfx._process(0.1)
-	check_eq(sfx._music_track, "menu", "menu once the popup closes")
+	check_eq(sfx._music_track, "menu", "back to the menu loop on the screens")
+	sfx.set_theme("spire")
+	check_eq(sfx._music_track, "spire", "the Spire screen")
 	sfx.on_fight_start(sim)
+	check_eq(sfx._music_track, "spire", "its fights keep it")
+	sfx.set_theme("spire")
+	check_eq(sfx._music_track, "spire", "no change mid-fight")
 	sfx.on_result(1)
-	check_eq(sfx._music_track, "menu", "after a loss")
-	sfx.on_result(0)
 	sfx.on_menu()
-	sfx._process(Sfx.VICTORY_GRACE + 0.1)
-	check_eq(sfx._music_track, "menu", "menu after a win with no popup")
+	check_eq(sfx._music_track, "spire", "aiming the next leg keeps it")
+	sfx.set_theme("")
+	check_eq(sfx._music_track, "menu", "leaving the mode goes back to the menu loop")
 	sfx.free()
 
 
-## A new Plunge race carries the race music on from where the last one
-## stopped; other tracks start from the top.
+## A new Plunge race (or fight, leg, scene) carries the music on from where
+## it last stopped; overtime variants start from the top.
 func test_plunge_music_carries_on() -> void:
 	var sfx := _sfx()
 	Sfx._track_pos = {"plunge": 37.5}
 	check_eq(sfx._start_pos("plunge", 138.0), 37.5, "picks up where the last race left it")
 	check_eq(sfx._start_pos("plunge", 30.0), 0.0, "a stale spot past the end starts over")
-	check_eq(sfx._start_pos("boss", 116.0), 0.0, "other tracks start from the top")
+	Sfx._track_pos = {"plunge": 37.5, "boss": 20.0, "boss_overtime": 9.0}
+	check_eq(sfx._start_pos("boss", 116.0), 20.0, "every mode track carries on")
+	check_eq(sfx._start_pos("boss_overtime", 60.0), 0.0, "overtime always starts fresh")
 	Sfx._track_pos = {}
 	sfx.free()
 
@@ -114,29 +115,22 @@ func test_fight_theme_picks_mode_music() -> void:
 	var sfx := _sfx()
 	check_eq(sfx._fight_track(""), "fight", "no theme: shared fight")
 	check_eq(sfx._fight_track("overtime"), "overtime", "no theme: shared overtime")
-	sfx.fight_theme = "arena"
+	check_eq(sfx._menu_track(), "menu", "no theme: the menu loop on screens")
+	sfx.theme = "arena"
 	check_eq(sfx._fight_track(""), "arena", "arena fight")
 	check_eq(sfx._fight_track("overtime"), "arena_overtime", "arena overtime")
-	check_eq(sfx._menu_track(), "menu", "no menu theme: the menu loop")
-	sfx.menu_theme = "bounce"
-	check_eq(sfx._menu_track(), "bounce", "Bounce Run plays its own between fights")
-	sfx.menu_theme = "nothing_here"
-	check_eq(sfx._menu_track(), "menu", "unknown menu theme falls back")
-	sfx.menu_theme = ""
-	sfx._music_track = "menu"
-	sfx.set_menu_theme("spire")
-	check_eq(sfx._music_track, "spire", "opening the Spire switches the music")
-	sfx.set_menu_theme("")
-	check_eq(sfx._music_track, "menu", "leaving it goes back to the menu loop")
-	sfx._music_track = "fight"
-	sfx.set_menu_theme("spire")
-	check_eq(sfx._music_track, "fight", "never mid-fight")
-	sfx.fight_theme = "boss"
-	check_eq(sfx._fight_track(""), "boss", "boss fight")
+	check_eq(sfx._menu_track(), "arena", "arena screens and aiming")
+	sfx.theme = "boss"
 	check_eq(sfx._fight_track("overtime"), "boss_overtime", "boss overtime")
-	sfx.fight_theme = "nothing_here"
+	sfx.theme = "bounce"
+	check_eq(sfx._fight_track(""), "bounce", "Bounce Run fights keep the run's music")
+	check_eq(sfx._fight_track("overtime"), "bounce", "and overtime with no faster version")
+	sfx.theme = "fight"
+	check_eq(sfx._menu_track(), "fight", "a relay with no mode track keeps the fight track between legs")
+	check_eq(sfx._fight_track("overtime"), "overtime", "and its overtime")
+	sfx.theme = "nothing_here"
 	check_eq(sfx._fight_track(""), "fight", "unknown theme falls back")
-	check_eq(sfx._fight_track("overtime"), "overtime", "and for overtime")
+	check_eq(sfx._menu_track(), "menu", "and on screens")
 	sfx.free()
 
 
