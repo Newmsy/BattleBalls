@@ -11,6 +11,7 @@ const Glyph := preload("res://game/ui/glyph.gd")
 const BossArt := preload("res://game/boss_art.gd")
 const Bosses := preload("res://sim/bosses.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
+const Idle := preload("res://game/ui/idle.gd")
 
 ## The splash never gets shorter than this, so the bosses stay in view.
 const SPLASH_MIN := 190
@@ -100,6 +101,8 @@ static func _card(shell, p, h: Dictionary, now: int) -> Control:
 	var icon: Control = BossArt.icon(h.rules.BOSS, 68) if open else Glyph.make("lock", 40, Kit.MUTED)
 	if not open:
 		icon.custom_minimum_size = Vector2(68, 68)
+	elif left > 0:
+		Idle.breathe(icon, .08, .55) # Runs left: the boss stirs, waiting for you.
 	var row := Kit.hbox(14, [icon, info, rewards], BoxContainer.ALIGNMENT_CENTER)
 	var go: Callable = (func(): shell.go(h.screen)) if open else shell.info.bind(Bosses.DEFS[h.rules.BOSS].display_name, [Bosses.DEFS[h.rules.BOSS].description, h.lock + " to open it."])
 	var card := Kit.card_button(row, go, accent.darkened(.45) if open else Kit.PANEL2, accent.darkened(.84) if open else Kit.PANEL, 28, 10)
