@@ -28,13 +28,15 @@ const CosmeticIcon := preload("res://game/glow/cosmetic_icon.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const PlungeTalents := preload("res://meta/plunge_talents.gd")
 const ShopScreen := preload("res://game/ui/screens/shop_screen.gd")
+const GearTier := preload("res://game/ui/gear_tier.gd")
 
 static var section := "gear"
 ## What each section band says under its title.
 const SLOT_LINES := {"Shell": "Keep you alive", "Core": "Hit harder", "Charm": "Speed and tricks · 3★ critters"}
 const BAND_H := 140.0
 
-const GEAR_INFO := ["3 of a kind → 1 with a star more (max 5). Costs Hammers.",
+const GEAR_INFO := ["3 of a kind → 1 with a star more, up to 5 stars. Costs Hammers.",
+	"Past 5 stars, forge 2 of a kind → Emberforged, up to Emberforged 5.",
 	"Shells keep you alive, Cores hit harder, Charms (from 3-star critters) speed you or your ability up.",
 	"Get gear from the Anvil King, campaign wins, Spire boss floors and the Glow Pass free track."]
 
@@ -219,9 +221,10 @@ static func _icon_box(g: Control, col: Color) -> Control:
 	return box
 
 
-## The rim and star colour of a gear tier: the rarity ladder, grey to gold.
+## The rim and star colour of a gear tier: the rarity ladder, grey to gold,
+## then Emberforged ember (GearTier).
 static func tier_color(tier: int) -> Color:
-	return Roster.RARITY_COLORS[Gear.RARITY_TIERS.keys()[clampi(tier, 1, Gear.MAX_TIER) - 1]]
+	return GearTier.color(tier)
 
 
 ## Merge all, pinned under the grid while any set is complete.
@@ -307,9 +310,9 @@ static func _gear_tile(shell, g: Dictionary) -> Control:
 	return card
 
 
-## "3-star Iron Shell".
+## "3-star Iron Shell" or "Emberforged 2 Iron Shell".
 static func piece_name(g: Dictionary) -> String:
-	return "%d-star %s" % [g.tier, g.name]
+	return GearTier.piece_name(g.tier, g.name)
 
 
 static func _equip(shell, g: Dictionary, c: Dictionary) -> void:
@@ -364,7 +367,8 @@ static func _merge(shell, g: Dictionary) -> void:
 		shell.toast("Need more Hammers.")
 		return
 	print("UI_MERGED %s T%d" % [made.type, made.tier])
-	UpgradePopup.slam(shell, made.type, tier_color(made.tier), UpgradePopup.gear.bind(shell, made, tier_color(made.tier), cost), made.tier - 1)
+	UpgradePopup.slam(shell, made.type, tier_color(made.tier), UpgradePopup.gear.bind(shell, made, tier_color(made.tier), cost), made.tier - 1,
+		Profile.merge_need(made.tier - 1))
 
 
 static func _merge_all(shell) -> void:
@@ -378,8 +382,9 @@ static func _merge_all(shell) -> void:
 		UpgradePopup.gear_list(shell, made, tier_color, cost)
 
 
-## Asks before a merge: the three pieces that combine (with who wears them),
-## the piece they make and its effect, who keeps it, then Merge for its cost.
+## Asks before a merge: the pieces that combine (three, or two to forge past
+## 5 stars, with who wears them), the piece they make and its effect, who
+## keeps it, then Merge (or Forge) for its cost.
 static func _confirm_merge(shell, type: String, tier: int) -> void:
 	var p = shell.profile
 	var used: Array = p.merge_pieces(type, tier)
@@ -390,13 +395,16 @@ static func _confirm_merge(shell, type: String, tier: int) -> void:
 	var out := _piece_art(made, 96)
 	var flow := Kit.hbox(10, [ins, Kit.label("→", 32, Kit.MUTED), out], BoxContainer.ALIGNMENT_CENTER)
 	var col := tier_color(made.tier)
-	var body: Array = [Kit.label("Merge?", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), flow,
+	var forge := Profile.is_forge(tier)
+	var body: Array = [Kit.label("Forge?" if forge else "Merge?", 36, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER), flow,
 		Kit.hbox(10, [Kit.label(made.name, 28, col), UpgradePopup.stars(tier, made.tier, col)], BoxContainer.ALIGNMENT_CENTER),
 		Kit.label(made.text, 24, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER, true)]
 	if made.on != "":
 		body.append(Kit.hbox(8, [Kit.label("Stays on", 22, Kit.MUTED), FighterTag.named(made.on, 40, 22)], BoxContainer.ALIGNMENT_CENTER))
 	var cost: int = p.merge_cost(tier)
-	body.append(_confirm_buttons(shell, cost, _merge.bind(shell, {"type": type, "tier": tier})))
+	if forge:
+		body.insert(3, Kit.label(GearTier.label(made.tier), 24, col, HORIZONTAL_ALIGNMENT_CENTER))
+	body.append(_confirm_buttons(shell, cost, _merge.bind(shell, {"type": type, "tier": tier}), "Forge" if forge else "Merge"))
 	shell.sheet(Kit.vbox(18, body))
 
 
@@ -429,11 +437,11 @@ static func _confirm_merge_all(shell) -> void:
 
 
 ## Cancel and Merge (with its Hammers) under a merge confirm.
-static func _confirm_buttons(shell, cost: int, on_yes: Callable) -> Control:
+static func _confirm_buttons(shell, cost: int, on_yes: Callable, verb := "Merge") -> Control:
 	var no := Kit.button("Cancel", func(): shell.close_overlay(), "ghost", 26, 84)
 	no.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("merge_cancel", no)
-	var yes := Kit.cost_button("Merge", cost, "hammer", on_yes, "go", 26, 84)
+	var yes := Kit.cost_button(verb, cost, "hammer", on_yes, "go", 26, 84)
 	yes.disabled = shell.profile.hammers < cost
 	yes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("merge_confirm", yes)
@@ -464,7 +472,10 @@ static func _pedestal(g: Dictionary) -> Control:
 static func _gear_sheet(shell, g: Dictionary) -> void:
 	var p = shell.profile
 	var col := tier_color(g.tier)
-	var info := Kit.vbox(6, [Kit.label(g.name, 36), Kit.hbox(10, [Glyph.make("stars", 26, col, g.tier), Kit.chip(g.slot, col)], BoxContainer.ALIGNMENT_BEGIN)])
+	var head := Kit.hbox(10, [Glyph.make("stars", 26, col, g.tier), Kit.chip(g.slot, col)], BoxContainer.ALIGNMENT_BEGIN)
+	if GearTier.forged(g.tier):
+		head.add_child(Kit.chip(GearTier.label(g.tier), col))
+	var info := Kit.vbox(6, [Kit.label(g.name, 36), head])
 	var wearer: Control = Kit.label("Not equipped", 22, Kit.MUTED)
 	if g.on != "":
 		wearer = Kit.hbox(8, [Kit.label("Worn by", 22, Kit.MUTED), FighterTag.named(g.on, 44, 22, Kit.FG)], BoxContainer.ALIGNMENT_BEGIN)
@@ -479,8 +490,11 @@ static func _gear_sheet(shell, g: Dictionary) -> void:
 	if g.tier < Gear.MAX_TIER:
 		var have: int = p.gear_of(g.type, g.tier).size()
 		var cost: int = p.merge_cost(g.tier)
-		var merge := Kit.cost_button("Merge 3", cost, "hammer", _confirm_merge.bind(shell, g.type, g.tier), "go", 26, 84) if have >= 3 else Kit.button("%d of 3 to merge" % have, func(): pass, "go", 26, 84)
-		merge.disabled = have < 3 or p.hammers < cost
+		var need: int = Profile.merge_need(g.tier)
+		var verb := "Forge" if Profile.is_forge(g.tier) else "Merge"
+		var merge := Kit.cost_button("%s %d" % [verb, need], cost, "hammer", _confirm_merge.bind(shell, g.type, g.tier), "go", 26, 84) if have >= need \
+			else Kit.button("%d of %d to %s" % [have, need, verb.to_lower()], func(): pass, "go", 26, 84)
+		merge.disabled = have < need or p.hammers < cost
 		merge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("gear_merge", merge)
 		buttons.add_child(merge)

@@ -239,10 +239,9 @@ static func boss_rewards(r: Dictionary, sfx = null) -> Control:
 		if counts.has(str(b.kind)):
 			counts[b.kind] += int(b.n)
 	for g in r.get("gear", []):
-		var gear = load("res://sim/gear.gd")
-		var col: Color = load("res://game/ui/roster.gd").RARITY_COLORS[gear.RARITY_TIERS.keys()[clampi(int(g.tier), 1, gear.MAX_TIER) - 1]]
+		var col: Color = load("res://game/ui/gear_tier.gd").color(int(g.tier))
 		var art: Control = load("res://game/ui/gear_art.gd").piece(g.type, g.tier, 64, col)
-		items.append({"icon": art, "text": "%d-star" % int(g.tier), "glow": col if int(g.tier) >= 3 else null,
+		items.append({"icon": art, "text": load("res://game/ui/gear_tier.gd").label(int(g.tier)), "glow": col if int(g.tier) >= 3 else null,
 			"tab": "bag", "home_icon": func(): return load("res://game/ui/gear_art.gd").piece(g.type, g.tier, 48, col)})
 	for k in counts:
 		if counts[k] > 0:

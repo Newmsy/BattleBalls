@@ -85,7 +85,11 @@ const ZONE1_AS_BUILT := {"featured": ["spiker", "speedster", "vampire", "juggern
 ## Gear (design/gear.md, design/bosses.md). Hammers to merge three pieces of
 ## a tier into one of the next (index 0 is 1 star, which is never merged into).
 ## Hammers come from the Anvil King (meta/gear_vault.gd), never for money.
-const GEAR_MERGE_COST := [0, 2, 4, 8, 16]
+## Past 5 stars it's forging (Emberforged 1-5): two pieces, more hammers.
+const GEAR_MERGE_COST := [0, 2, 4, 8, 16, 24, 32, 40, 48, 64]
+## Pieces a merge takes: three while the stars climb, two to forge past them.
+const GEAR_MERGE_NEED := 3
+const GEAR_FORGE_NEED := 2
 ## The Shop's daily deals (Newms 2026-10-26: moved off the Anvil King, plus
 ## energy and eggs): a few buys a day each, coins only. Coins are earned only,
 ## so these stay earned-only too. Prices from the progression sim

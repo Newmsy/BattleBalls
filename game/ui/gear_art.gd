@@ -12,7 +12,7 @@ const ART := "res://game/ui/gear_art/gear_%s_%d.png"
 ## The piece on its own, `side` units square. An unknown type shows the
 ## generic gear glyph.
 static func piece(type: String, tier: int, side: float, color := Color.WHITE) -> Control:
-	var path := ART % [type, clampi(tier, 1, 5)]
+	var path := ART % [type, clampi(tier, 1, 10)]
 	if not ResourceLoader.exists(path):
 		return Glyph.make("gear", side, color)
 	var t := TextureRect.new()

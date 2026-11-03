@@ -24,7 +24,7 @@ func _player(hammers := 10000):
 func test_every_piece_is_worth_the_same_power_at_a_tier() -> void:
 	for type in Gear.TYPES:
 		check(Gear.PIECES[type].slot in Gear.SLOTS, "%s has a slot" % type)
-		for tier in range(1, 6):
+		for tier in range(1, Gear.MAX_TIER + 1):
 			check_near(Gear.stats_power(Gear.stats_for(type, tier)), Gear.tier_power(tier), 0.001, "%s %d-star" % [type, tier])
 	check_near(Gear.tier_power(5), 0.05, 0.0001, "a 5-star piece is +5%")
 	check_eq(Gear.TYPES.size(), 12, "twelve pieces")
@@ -39,6 +39,16 @@ func test_full_best_in_slot_stays_inside_the_budget() -> void:
 	var full := Gear.tier_power(5) * Gear.SLOTS.size()
 	check_near(full, 0.15, 0.001, "three 5-star pieces")
 	check(full < 0.25, "gear never replaces a tier")
+	# Emberforged 5 (tier 10) is the long, long goal: stronger, still under a tier.
+	var forged := Gear.tier_power(Gear.MAX_TIER) * Gear.SLOTS.size()
+	check(forged > full, "Emberforged gear beats 5-star gear")
+	check(forged < 0.25, "even Emberforged 5 never replaces a tier")
+	for tier in range(2, Gear.MAX_TIER + 1):
+		check(Gear.TIER_SHARE[tier - 1] > Gear.TIER_SHARE[tier - 2], "tier %d is stronger than %d" % [tier, tier - 1])
+	for type in Gear.TYPES:
+		var stats := Gear.stats_for(type, Gear.MAX_TIER)
+		for line in stats:
+			check(stats[line] <= float(Gear.LINES[line].max), "%s Emberforged 5 stays under the %s clamp" % [type, line])
 
 
 func test_three_of_a_kind_merge_into_the_next_tier() -> void:
@@ -64,9 +74,30 @@ func test_merging_needs_hammers_and_stops_at_five_stars() -> void:
 	check(p.merge_gear("spike_core", 1).is_empty(), "nothing happens")
 	check_eq(p.gear.size(), 3, "nothing lost")
 	for i in 3:
-		p.add_gear("spike_core", 5)
+		p.add_gear("spike_core", Gear.MAX_TIER)
 	p.hammers = 99999
-	check(not p.has_gear_set("spike_core", 5), "5 stars is the top")
+	check(not p.has_gear_set("spike_core", Gear.MAX_TIER), "Emberforged 5 is the top")
+
+
+func test_two_five_stars_forge_into_emberforged() -> void:
+	var p = _player()
+	p.add_gear("spike_core", 5)
+	check(not p.can_merge_gear("spike_core", 5), "one 5-star can't forge")
+	p.add_gear("spike_core", 5)
+	check(p.can_merge_gear("spike_core", 5), "two 5-stars forge")
+	var made: Dictionary = p.merge_gear("spike_core", 5)
+	check_eq(made.tier, 6, "Emberforged 1")
+	check_eq(p.hammers, 10000 - Economy.GEAR_MERGE_COST[5], "costs hammers")
+	check_eq(p.gear.size(), 1, "both used up")
+	check(made.stats.attack > Gear.stats_for("spike_core", 5).attack, "stronger than 5 stars")
+	check_eq(Profile.gear_piece({"type": "spike_core", "tier": 10}).tier, 10, "a saved Emberforged 5 loads as one")
+	# Merge all never forges: that's one deliberate piece at a time.
+	p.add_gear("jet_charm", 5)
+	p.add_gear("jet_charm", 5)
+	check(p.gear_sets().is_empty(), "no Merge all for forging")
+	check(p.merge_all_plan().merges.is_empty(), "Merge all leaves 5-stars alone")
+	# Drops never change: nothing drops forged gear.
+	check(Economy.GEAR_CAMPAIGN_MAX_TIER <= 5, "campaign gear still tops out low")
 
 
 func test_merged_piece_stays_on_the_critter_that_wore_one() -> void:

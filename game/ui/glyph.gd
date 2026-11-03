@@ -4,7 +4,8 @@
 ## the tab icons and the home mode icons (target, bounce, tower, vault, ghost,
 ## friends, map, swords, sparkle), the Arena's trophy, shield, token and coin, the
 ## stat heads (heart, speed), the Rift Key, the Spark Dye drop and the
-## Ascension Spark. Tier stars turn purple with Ascension (tier_stars()).
+## Ascension Spark. Tier stars turn purple with Ascension (tier_stars()), and
+## gear past 5 stars lights them ember (Emberforged, game/ui/gear_tier.gd).
 extends Control
 
 const Dot := preload("res://game/dot.gd")
@@ -14,12 +15,16 @@ const GOLD := Color("ffc23d")
 const OFF := Color("3b3770")
 ## Ascension's colour: purple tier stars and the Ascension Spark.
 const PURPLE := Color("b46cff")
+## Emberforged gear (game/ui/gear_tier.gd): ember stars with a white-hot core.
+const EMBER := Color("ff5a36")
+const EMBER_HOT := Color("ffe39a")
 
 var kind := "stars"
 var count := 1
 var of := 0 ## For stars: total slots drawn (dim ones after `count`).
 var color := Color.WHITE
 var purple := 0 ## For stars: how many of the lit ones (from the left) are purple.
+var forged := 0 ## For stars: how many of the lit ones (from the left) are Emberforged.
 
 
 static func make(kind_: String, side: float, color_ := Color.WHITE, count_ := 1, of_ := 0) -> Control:
@@ -28,6 +33,11 @@ static func make(kind_: String, side: float, color_ := Color.WHITE, count_ := 1,
 	g.color = color_
 	g.count = count_
 	g.of = of_
+	# Gear past 5 stars (tiers 6-10): five stars, the first tier-5 Emberforged.
+	if kind_ == "stars" and of_ == 0 and count_ > 5:
+		g.count = 5
+		g.forged = mini(count_ - 5, 5)
+		count_ = 5
 	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# Drawn from its own height: a taller row must not blow the icon up.
 	g.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -68,6 +78,10 @@ func _draw() -> void:
 			var step := custom_minimum_size.x / slots
 			for i in slots:
 				var p := Vector2(step * (i + .5), s / 2.0)
+				if i < forged:
+					Dot.poly(self, CritterArt.star_pts(p, s * .5, s * .21, 5), EMBER)
+					Dot.poly(self, CritterArt.star_pts(p, s * .24, s * .1, 5), EMBER_HOT)
+					continue
 				Dot.poly(self, CritterArt.star_pts(p, s * .48, s * .2, 5), (PURPLE if i < purple else GOLD) if i < count else OFF)
 		"bolt":
 			var pts := PackedVector2Array([Vector2(.58, .02), Vector2(.15, .58), Vector2(.47, .58), Vector2(.38, .98), Vector2(.85, .38), Vector2(.53, .38)])

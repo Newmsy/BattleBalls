@@ -410,26 +410,38 @@ static func merge_cost(tier: int) -> int:
 ## checked by merge_gear, so the Bag can show "4 hammers" on a set you can't
 ## afford yet.
 func has_gear_set(type: String, tier: int) -> bool:
-	return tier < Gear.MAX_TIER and gear_of(type, tier).size() >= 3
+	return tier < Gear.MAX_TIER and gear_of(type, tier).size() >= merge_need(tier)
+
+
+## Pieces a merge of `tier` takes: three below 5 stars, two to forge from 5
+## stars up (Emberforged).
+static func merge_need(tier: int) -> int:
+	return Economy.GEAR_FORGE_NEED if is_forge(tier) else Economy.GEAR_MERGE_NEED
+
+
+## True when merging `tier` pieces is forging: the result is Emberforged.
+static func is_forge(tier: int) -> bool:
+	return tier >= Gear.STAR_TIERS
 
 
 func can_merge_gear(type: String, tier: int) -> bool:
 	return has_gear_set(type, tier) and hammers >= merge_cost(tier)
 
 
-## Every [type, tier] with a full set, lowest tier first.
+## Every [type, tier] with a full set below 5 stars, lowest tier first (Merge
+## all). Forging past 5 stars is always one piece at a time, by hand.
 func gear_sets() -> Array:
 	var out := []
-	for tier in range(1, Gear.MAX_TIER):
+	for tier in range(1, Gear.STAR_TIERS):
 		for type in Gear.TYPES:
 			if has_gear_set(type, tier):
 				out.append([type, tier])
 	return out
 
 
-## The three pieces merge_gear(type, tier) would use: spares first.
+## The pieces merge_gear(type, tier) would use (merge_need): spares first.
 func merge_pieces(type: String, tier: int) -> Array[Dictionary]:
-	return gear_of(type, tier).slice(0, 3)
+	return gear_of(type, tier).slice(0, merge_need(tier))
 
 
 ## Who wears the piece a merge of `used` makes: the strongest critter that
@@ -442,7 +454,7 @@ func merge_wearer(used: Array) -> String:
 	return wearer
 
 
-## 3 pieces of type+tier become 1 of the next tier, for hammers. The new piece
+## 3 pieces of type+tier (2 from 5 stars up) become 1 of the next tier, for hammers. The new piece
 ## goes on whichever critter wore one of the three (the strongest, if more
 ## than one did). Returns the new piece, or {} when it can't merge.
 func merge_gear(type: String, tier: int) -> Dictionary:
@@ -469,7 +481,7 @@ func merge_all_plan() -> Dictionary:
 		counts[k] = counts.get(k, 0) + 1
 	var plan := {"merges": [], "hammers": 0}
 	var budget := hammers
-	for tier in range(1, Gear.MAX_TIER):
+	for tier in range(1, Gear.STAR_TIERS):
 		for type in Gear.TYPES:
 			var k := "%s/%d" % [type, tier]
 			while counts.get(k, 0) >= 3 and budget >= merge_cost(tier):
