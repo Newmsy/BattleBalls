@@ -1286,6 +1286,7 @@ func _finish_stage() -> void:
 				var got: Dictionary = profile.add_dye_drop(Dyes.roll(profile, dye_rng))
 				if not got.is_empty():
 					pve.result += ", " + Dyes.drop_text(got)
+					v.dyes = [got] # Shown as a card on the result (ResultPopup.boss_rewards).
 		pve.xp = v
 		report_label.text = pve.result
 		print("BOSS_END boss=%s difficulty=%d won=%s" % [pve.boss, pve.vault, v.won])

@@ -172,6 +172,10 @@ static func _equip(shell, g: Dictionary, c: Dictionary) -> void:
 		return
 	shell.close_overlay()
 	shell.toast("%s equipped to %s." % [g.name, c.name], c.id)
+	# The piece hops off its Bag card into the Critters tab, where it's now worn.
+	var card: Control = shell._marks.get("gear_%d" % g.uid)
+	if is_instance_valid(card):
+		shell.fly_to_tab(func(): return _piece_art(g, 56, 28), card.get_global_rect().get_center(), "critters")
 	shell.refresh()
 	if Intro.step(shell.profile) == Intro.EQUIP and Intro.reach(shell.profile, Intro.FIGHT_3):
 		Intro.to_campaign(shell)
@@ -349,7 +353,12 @@ static func _item_sheet(shell, it: Dictionary) -> void:
 	var act: Button
 	match it.name:
 		"Energy Pack":
-			act = Kit.button("Use 1", func(): shell.close_overlay(); if p.use_energy_pack(): shell.toast("+30 energy"); shell.refresh(), "primary", 28, 90)
+			act = Kit.button("Use 1", func():
+				shell.reward_from(shell._marks.get("item_use", shell), "energy") # The bolts fly up from the button.
+				shell.close_overlay()
+				if p.use_energy_pack():
+					shell.toast("+30 energy")
+				shell.refresh(), "primary", 28, 90)
 			act.disabled = it.count <= 0
 		"Summon Egg":
 			act = Kit.button("Summon", func(): shell.show_tab("summon"), "primary", 28, 90)

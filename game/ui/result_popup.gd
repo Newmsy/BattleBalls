@@ -11,6 +11,8 @@ const Kit := preload("res://game/ui/ui_kit.gd")
 const ResultBanner := preload("res://game/ui/result_banner.gd")
 const XpBar := preload("res://game/ui/xp_bar.gd")
 const FactionRing := preload("res://game/ui/faction_ring.gd")
+const Glyph := preload("res://game/ui/glyph.gd")
+const Motion := preload("res://game/ui/motion.gd")
 
 enum Outcome { LOSE, WIN, DRAW }
 
@@ -180,6 +182,86 @@ static func drop_in(cards: Array, sfx = null, start := 1.0) -> void:
 		at += .14
 
 
+## What a result paid, as a row of cards that drop in one by one, each
+## number counting up as its card lands. `items`: [{"icon": Control,
+## "n": int (0 for none), "text": String (under the icon, instead of a
+## number), "glow": Color or null, "pill": a top-bar pill ("coin", "orb",
+## "energy"), or "tab" + "home_icon" (see send_home)}]. Whatever a card
+## shows flies from it to its pill or tab when the popup closes.
+static func reward_cards(items: Array, sfx = null, start := .55) -> Control:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 10)
+	var cards: Array = []
+	var at := start
+	for it in items:
+		var icon: Control = it.icon
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		var n := int(it.get("n", 0))
+		var words := Kit.label(str(it.get("text", "")) if n == 0 else "+0", 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
+		var glow = it.get("glow")
+		var card := Kit.panel(Kit.vbox(4, [icon, words]), Kit.box(Kit.PANEL2, Color(glow, .8) if glow is Color else Kit.LINE, 22, 2, 10))
+		card.custom_minimum_size.x = 104
+		send_home(card, str(it.get("pill", "")), str(it.get("tab", "")), it.get("home_icon", Callable()))
+		row.add_child(card)
+		cards.append([card, glow])
+		if n > 0:
+			if A11y.motion() == 0.0:
+				words.text = "+" + Kit.commas(n)
+			else:
+				Motion.count(words, 0, n, .45, func(v: int) -> String: return "+" + Kit.commas(v), at + .1)
+		at += .14
+	drop_in(cards, sfx, start)
+	return row
+
+
+## Tags a reward card so that when its popup closes (shell.close_overlay)
+## what it shows flies from it: into a top-bar `pill` ("coin", "orb",
+## "energy"), or as `icon` (a Callable making a Control) into a tab's icon.
+static func send_home(card: Control, pill := "", tab := "", icon := Callable()) -> Control:
+	if pill != "":
+		card.set_meta("home_pill", pill)
+	elif tab != "" and icon.is_valid():
+		card.set_meta("home_tab", tab)
+		card.set_meta("home_icon", icon)
+	return card
+
+
+## A boss result's prizes ({coins, orbs, hammers, lures, sigils, bundle,
+## gear, dyes, xp}, whichever it has) as reward_cards.
+static func boss_rewards(r: Dictionary, sfx = null) -> Control:
+	var items: Array = []
+	var pill_of := {"coins": ["coin", "coin"], "orbs": ["orb", "orb"], "hammers": ["hammer", ""], "lures": ["target", ""]}
+	var counts := {}
+	for k in pill_of:
+		counts[k] = int(r.get(k, 0))
+	for b in r.get("bundle", []):
+		if counts.has(str(b.kind)):
+			counts[b.kind] += int(b.n)
+	for g in r.get("gear", []):
+		var gear = load("res://sim/gear.gd")
+		var col: Color = load("res://game/ui/roster.gd").RARITY_COLORS[gear.RARITY_TIERS.keys()[clampi(int(g.tier), 1, gear.MAX_TIER) - 1]]
+		var art: Control = load("res://game/ui/gear_art.gd").piece(g.type, g.tier, 64, col)
+		items.append({"icon": art, "text": "%d-star" % int(g.tier), "glow": col if int(g.tier) >= 3 else null,
+			"tab": "bag", "home_icon": func(): return load("res://game/ui/gear_art.gd").piece(g.type, g.tier, 48, col)})
+	for k in counts:
+		if counts[k] > 0:
+			var jackpot: bool = k == "coins" and r.get("broken", false)
+			var glyph: String = pill_of[k][0]
+			items.append({"icon": Glyph.make(glyph, 56, Kit.FG), "n": counts[k], "pill": pill_of[k][1], "glow": Color("ffd34e") if jackpot else null,
+				"tab": "bag", "home_icon": func(): return Glyph.make(glyph, 46, Kit.FG)})
+	if int(r.get("sigils", 0)) > 0:
+		var fam_col: Color = load("res://sim/talents.gd").COLORS.get(str(r.get("family", "")), Kit.ACCENT)
+		items.append({"icon": Glyph.make("token", 56, fam_col), "n": int(r.sigils), "glow": fam_col})
+	for d in r.get("dyes", []):
+		var dye: Dictionary = load("res://game/glow/dyes.gd").dye(str(d.id))
+		var col := Color(dye.colors[0])
+		items.append({"icon": Glyph.make("dye", 56, col), "text": "Unlocked!" if d.unlocked else "%d/%d" % [d.drops, d.need], "glow": col if d.unlocked else null})
+	if items.is_empty():
+		return null
+	return reward_cards(items, sfx)
+
+
 ## A closed popup (frame's root) shrinks and fades away, then frees itself.
 ## It takes no taps meanwhile, so the screen under it is live at once.
 static func pop_out(root: Control) -> void:
@@ -264,6 +346,8 @@ static func boss_result(shell, params: Dictionary, row: Control = null) -> void:
 	if not params.has("notice"):
 		return
 	var xp: Dictionary = params.get("xp", {})
+	if row == null and xp.get("won", xp.has("broken")):
+		row = boss_rewards(xp, shell.sfx) # Won: the prizes drop in as cards.
 	if row == null:
 		row = Kit.label(str(params.notice), 24, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
 		row.custom_minimum_size.x = inner_width(shell.size.x) # Wrapped text needs a width first.

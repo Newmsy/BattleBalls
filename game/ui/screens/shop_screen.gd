@@ -79,6 +79,13 @@ static func _deal_tile(shell, d: Dictionary, t: int) -> Control:
 	var glyph: String = {"hammers": "hammer", "energy": "energy", "orbs": "orb"}[d.kind]
 	var buy := Kit.cost_button("", d.coins, "coin", func():
 		if p.buy_deal(d.id, LiveOps.now()):
+			# What you bought takes off from its button: into its top-bar pill, or the Bag for Hammers.
+			var from: Control = shell._marks.get("deal_" + d.id, shell)
+			if d.kind == "hammers":
+				shell.fly_to_tab(func(): return Kit.glyph("hammer", 46, Kit.FG), from.get_global_rect().get_center(), "bag")
+			else:
+				shell.reward_from(from, "energy" if d.kind == "energy" else "orb")
+			shell.pop_after(["deal_" + d.id])
 			shell.refresh(), "go", 22, 60)
 	buy.disabled = left <= 0 or p.coins < int(d.coins)
 	shell.mark("deal_" + d.id, buy)
