@@ -733,6 +733,79 @@
    }
   ]
  },
+ "daily_quests": {
+  "size": [
+   720,
+   240
+  ],
+  "file": "game/ui/home_art/daily_quests.png",
+  "layers": [
+   {
+    "id": "bolt",
+    "move": "bob 4 0.45 0.2",
+    "pivot": [
+     602,
+     126
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     552,
+     44,
+     100,
+     100
+    ]
+   },
+   {
+    "id": "pinner",
+    "move": "idle 4 0.6 0",
+    "pivot": [
+     273,
+     218
+    ],
+    "blink": false,
+    "follow": "",
+    "rect": [
+     245,
+     151,
+     55,
+     65
+    ]
+   },
+   {
+    "id": "pinned",
+    "move": "sway 4 0.6 0",
+    "pivot": [
+     296,
+     134
+    ],
+    "blink": false,
+    "follow": "pinner",
+    "rect": [
+     280,
+     125,
+     48,
+     45
+    ]
+   },
+   {
+    "id": "reader",
+    "move": "idle 3 0.5 0.4",
+    "pivot": [
+     471,
+     221
+    ],
+    "blink": true,
+    "follow": "",
+    "rect": [
+     447,
+     167,
+     47,
+     56
+    ]
+   }
+  ]
+ },
  "ember_forge": {
   "size": [
    720,

@@ -70,6 +70,12 @@ const LAYERS := {
 	"charge_pad": [
 		["_Lsleeper", Rect2(278, 135, 185, 224), Vector4(3, 0.03, 0.3, 0), Vector2(371, 357), false, -1],
 	],
+	"daily_quests": [
+		["_Lbolt", Rect2(552, 44, 100, 100), Vector4(1, 4, 0.45, 0.2), Vector2(602, 126), false, -1],
+		["_Lpinner", Rect2(245, 151, 55, 65), Vector4(4, 4, 0.6, 0), Vector2(273, 218), false, -1],
+		["_Lpinned", Rect2(280, 125, 48, 45), Vector4(2, 4, 0.6, 0), Vector2(296, 134), false, 1],
+		["_Lreader", Rect2(447, 167, 47, 56), Vector4(4, 3, 0.5, 0.4), Vector2(471, 221), true, -1],
+	],
 	"ember_forge": [
 		["_Lcritter", Rect2(450, 204, 200, 186), Vector4(4, 3, 0.6, 0), Vector2(559, 380), true, -1],
 	],
@@ -286,6 +292,7 @@ const SIZES := {
 	"beehive": Vector2(720, 440),
 	"candy_fountain": Vector2(720, 440),
 	"charge_pad": Vector2(720, 440),
+	"daily_quests": Vector2(720, 240),
 	"ember_forge": Vector2(720, 440),
 	"fallen_star": Vector2(720, 440),
 	"frozen_vault": Vector2(720, 440),

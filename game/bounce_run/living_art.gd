@@ -106,6 +106,8 @@ const SPECS := {
 	"room_defence": {"size": Vector2(240, 220), "motes": Color("45f5a6"), "spots": [
 		[120, 152, 46, 46, GLOW, 0.35, 0.4, 0.0, Color("45f5a6")]]},
 	# Home's Adventure door paintings (game/ui/home_art, HomePainting): the gate glows.
+	"daily_quests": {"motes": Color("ffe2a0"), "size": Vector2(720, 240), "spots": [
+		[180, 40, 190, 22, FLICKER, 0.5, 0.8, 0.0, Color("ffd36b")], [535, 36, 190, 18, FLICKER, 0.5, 0.7, 0.5, Color("ffd36b")]]},
 	"home_zone_glow_garden": {"motes": Color("7dffb0"), "spots": [
 		[604, 186, 70, 80, GLOW, 0.35, 0.4, 0.0, Color("7dffb0")]]},
 	"home_zone_circuit_lab": {"motes": Color("39d7ff"), "spots": [
