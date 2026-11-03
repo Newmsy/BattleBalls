@@ -169,9 +169,17 @@ static func _stat_tile(shell, kind: String, col: Color, name: String, value, tex
 	return _tile(shell, _icon_box(Glyph.make(kind, 64, col), col), name, amount, "stat_" + name.to_lower().replace(" ", "_"), open)
 
 
+## An info sheet's header: the icon, then its name over the amount, taking
+## the rest of the row so a short name never squeezes into a narrow column.
+static func _sheet_head(icon: Control, name: String, amount: String, col: Color) -> Control:
+	var words := Kit.vbox(4, [Kit.label(name, 34, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), Kit.label(amount, 30, col.lightened(.2))])
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return Kit.hbox(18, [icon, words])
+
+
 static func _stat_sheet(shell, kind: String, col: Color, name: String, amount: String, text: String, go_to: String) -> void:
-	var v := Kit.vbox(18, [Kit.hbox(18, [_icon_box(Glyph.make(kind, 80, col), col), Kit.label(name, 34, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)]),
-		Kit.amount(kind, amount, 30, Kit.FG, col),
+	var v := Kit.vbox(18, [_sheet_head(_icon_box(Glyph.make(kind, 80, col), col), name, amount, col),
 		Kit.label(text, 26, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 	if go_to != "":
 		var b := Kit.button("Go", func(): shell.close_overlay(); shell.go(go_to), "primary", 28, 90)
@@ -487,7 +495,7 @@ static func _gear_sheet(shell, g: Dictionary) -> void:
 
 static func _item_sheet(shell, it: Dictionary) -> void:
 	var p = shell.profile
-	var v := Kit.vbox(18, [Kit.hbox(18, [_item_icon(it), Kit.label("%s  x%d" % [it.name, it.count], 34)]), Kit.label(it.text, 26, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	var v := Kit.vbox(18, [_sheet_head(_item_icon(it), it.name, "x%d" % it.count, it.color), Kit.label(it.text, 26, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
 	var act: Button
 	match it.name:
 		"Energy Pack":
