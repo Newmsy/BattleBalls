@@ -11,6 +11,7 @@ const Zones := preload("res://meta/zones.gd")
 const Dot := preload("res://game/dot.gd")
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const Motion := preload("res://game/ui/motion.gd")
+const ArtLayers := preload("res://game/bounce_run/living_layers.gd")
 
 ## Node centres as fractions of the map, zone 1 first (bottom).
 const SPOTS := [Vector2(.25, .88), Vector2(.72, .75), Vector2(.3, .62), Vector2(.74, .49), Vector2(.28, .36), Vector2(.72, .23), Vector2(.34, .09)]
@@ -141,7 +142,7 @@ func _layout() -> void:
 		if _islands[i] != null:
 			var k := 1.0 if i < open_count else LOCKED_R / OPEN_R
 			_islands[i].position = center(i) - ISLAND_NODE * k
-			_islands[i].size = _islands[i].texture.get_size() * k
+			_islands[i].size = _islands[i].texture.get_size() / ArtLayers.SCALE * k
 	for i in nodes.size():
 		var c := center(i)
 		var b := nodes[i]

@@ -275,17 +275,28 @@ static func _campaign_door(shell) -> Control:
 		func(): shell.go("world" if intro else "adventure"), true)
 
 
-## Arena: your league and trophies, and Fight (the Ghost Arena's opponents).
-## The door opens the Versus hub (Trophy Room, Bazaar, weekly chest).
+## Arena: the mode last played, its league and trophies, the Arena Tokens
+## you hold, and Fight: straight into a fight in that mode against the
+## opponent nearest your trophies (arena_screen.gd fight_now). The door
+## opens the Arena hub (both modes, Trophy Room, Bazaar, weekly chest).
+## During a new player's first fights, Fight and the door open the Series.
 static func _arena_door(shell) -> Control:
 	var store = ArenaStore.open()
-	var fight := _door_button("Fight", "pink", func(): shell.go("arena"))
+	var intro := Intro.step(shell.profile) < Intro.TROPHY
+	var fight := _door_button("Fight", "pink", func():
+		if intro:
+			shell.go("arena", {"mode": ArenaStore.SERIES})
+		else:
+			load("res://game/ui/screens/arena_screen.gd").fight_now(shell))
 	shell.mark("arena", fight)
+	var m: Dictionary = ArenaStore.MODES[store.mode]
+	var n: int = store.tokens_now()
 	var lines: Array = [_door_line(Ladder.league_label(store.trophies), Kit.FG, 21),
 		Kit.hbox(6, [Glyph.make("trophy", _s(20), DAILY), _door_line(Kit.commas(store.trophies), Kit.MUTED, 17)])]
-	var intro := Intro.step(shell.profile) < Intro.TROPHY
+	if not intro:
+		lines.append(Kit.hbox(6, [Glyph.make("token", _s(20)), _door_line("%d/%d · %s" % [n, ArenaStore.TOKEN_MAX, m.short], Kit.FG if n > 0 else Kit.BAD, 17)]))
 	var door := mode_door(shell, "versus", "ARENA", lines, VERSUS,
-		_door_art("vs_ghost", Vector2(.47, .75), VERSUS_ART), fight,
+		_door_art(str(m.art), Vector2(.46, .8), VERSUS_ART), fight,
 		func(): shell.go("arena" if intro else "versus"), true)
 	if store.chest_ready():
 		door.add_child(red_dot())

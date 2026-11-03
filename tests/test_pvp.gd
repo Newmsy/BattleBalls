@@ -216,25 +216,92 @@ func test_trio_slot_opens_the_picker() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
 
-func test_seeded_teams_sit_near_your_trophies_and_grow_with_them() -> void:
+func test_seeded_squads_look_like_players_near_your_trophies() -> void:
 	for trophies in [0, 112, 1500, 4000]:
 		var cards := ArenaTeams.offers(trophies, 20261015)
 		check_eq(cards.size(), ArenaTeams.OFFER_COUNT, "a full list")
-		var fams := {}
+		var names := {}
+		var mixed := 0
 		for c in cards:
 			var team: Dictionary = c.bot
-			fams[team.family] = int(fams.get(team.family, 0)) + 1
+			check(not team.has("is_bot"), "never labelled as a bot")
+			check(not names.has(team.name), "unique name " + team.name)
+			names[team.name] = true
+			check(str(team.name).length() >= 2 and str(team.name).length() <= 14, "a player-style name: " + team.name)
+			check(int(team.level) >= 3, "has a level")
 			check(absi(int(team.trophies) - trophies) <= ArenaTeams.SPREAD_ABOVE + 20, "%d trophies near %d" % [team.trophies, trophies])
 			var ids := ArenaGhosts.critters(team.lineup)
 			check(ids[0] != ids[1] and ids[1] != ids[2] and ids[0] != ids[2], "three different critters")
+			var fams := {}
 			for id in ids:
-				check_eq(Families.of(id), team.family, "%s fits the %s theme" % [id, team.family])
+				fams[Families.of(id)] = true
+			if fams.size() > 1:
+				mixed += 1
+			check_eq(team.family, ArenaTeams.main_family(team.lineup.slots), "coloured by its main family")
 			var want := ArenaTeams.strength_for(int(team.trophies))
 			check(absf(ArenaTeams.rating(team) - want) <= want * 0.15, "team near %d (got %d)" % [want, ArenaTeams.rating(team)])
-		check(fams.values().max() <= 2, "themes repeat at most once: %s" % fams)
+		check(mixed >= cards.size() / 2, "most squads mix families (%d)" % mixed)
 		check(int(cards[0].bot.trophies) < int(cards[-1].bot.trophies), "weakest first")
 	check(ArenaTeams.strength_for(2000) > ArenaTeams.strength_for(500), "teams grow with trophies")
 	check_eq(ArenaTeams.offers(300, 9), ArenaTeams.offers(300, 9), "same day, same teams")
+
+
+func test_arena_tokens_charge_hourly_and_cap_at_ten() -> void:
+	var s = _fresh_store()
+	var t0 := 1_800_000_000
+	check_eq(s.tokens_now(t0), ArenaStore.TOKEN_MAX, "a new save starts full")
+	check_eq(s.next_token_in(t0), 0, "nothing charging when full")
+	check(s.spend_token(t0), "spend one")
+	check_eq(s.tokens, ArenaStore.TOKEN_MAX - 1, "one gone")
+	check_eq(s.next_token_in(t0 + 600), ArenaStore.TOKEN_SECONDS - 600, "next one in under an hour")
+	for i in ArenaStore.TOKEN_MAX - 1:
+		check(s.spend_token(t0 + 700), "spend %d" % i)
+	check_eq(s.tokens_now(t0 + 700), 0, "out")
+	check(not s.spend_token(t0 + 700), "can't fight with none")
+	check_eq(s.tokens_now(t0 + ArenaStore.TOKEN_SECONDS + 5), 1, "one an hour after the first was spent")
+	check_eq(s.tokens_now(t0 + ArenaStore.TOKEN_SECONDS * 3 + 5), 3, "three after three hours")
+	check_eq(s.tokens_now(t0 + ArenaStore.TOKEN_SECONDS * 40), ArenaStore.TOKEN_MAX, "never past the cap")
+	s.spend_token(t0 + ArenaStore.TOKEN_SECONDS * 40)
+	var again = ArenaStore.open(TEST_SAVE)
+	check_eq(again.tokens_now(t0 + ArenaStore.TOKEN_SECONDS * 40), ArenaStore.TOKEN_MAX - 1, "saved")
+	check_eq(ArenaStore.clock_text(41 * 60 + 12), "41:12", "clock")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_league_mode_keeps_its_own_ladder_and_pair() -> void:
+	var s = _fresh_store()
+	s.trophies = 900
+	s.save()
+	s.use(ArenaStore.LEAGUE)
+	check_eq(s.size(), 2, "pairs")
+	check_eq(s.trophies, 0, "a fresh League ladder")
+	check_eq(s.trio.size(), 2, "a pair")
+	check_eq(s.trophies_in(ArenaStore.SERIES), 900, "the Series kept its trophies")
+	var cards: Array = s.offers(null, 20261103)
+	check_eq(cards.size(), ArenaTeams.OFFER_COUNT, "a full list")
+	for c in cards:
+		check_eq(c.bot.lineup.slots.size(), 2, "pairs to fight")
+	s.start_attack(cards[0].card, cards[0].bot, 77, s.slots())
+	check_eq(s.pending.mode, ArenaStore.LEAGUE, "the attack knows its mode")
+	var r := ArenaStore.fight(s.pending.slots, cards[0].bot.lineup.slots, 77, [], [])
+	check_eq(r, ArenaStore.fight(s.pending.slots, cards[0].bot.lineup.slots, 77, [], []), "a 2v2 replays")
+	s.finish_attack(r.winner == 0)
+	var league_trophies: int = s.trophies
+	check(league_trophies != 0 or r.winner != 0, "League trophies moved")
+	check_eq(s.history.size(), 1, "League history")
+	var again = ArenaStore.open(TEST_SAVE)
+	check_eq(again.mode, ArenaStore.LEAGUE, "reopens on the mode last played")
+	check_eq(again.trophies, league_trophies, "League saved")
+	check_eq(again.trio.size(), 2, "pair saved")
+	again.use(ArenaStore.SERIES)
+	check_eq(again.trophies, 900, "Series saved")
+	check_eq(again.trio.size(), 3, "trio saved")
+	check(again.history.is_empty(), "histories apart")
+	var raids: Array = again.run_raids(null, 20261103)
+	check_eq(raids.size(), ArenaStore.RAIDS_PER_DAY, "Series raids")
+	again.use(ArenaStore.LEAGUE)
+	check_eq(again.run_raids(null, 20261103).size(), ArenaStore.RAIDS_PER_DAY, "League raids its own pair")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 
 
 func test_stakes_follow_the_trophy_gap() -> void:
@@ -313,7 +380,7 @@ func test_arena_hub_opens_its_rooms() -> void:
 	shell.build()
 	for id in ["laser", "vampire", "spiker", "speedster"]:
 		shell.profile.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
-	# Trophy Room, Bazaar and the weekly chest are on the Versus hub.
+	# Trophy Room, Bazaar and the weekly chest are on the Arena hub.
 	for room in [["arena_boosts", "boosts"], ["arena_bazaar", "bazaar"], ["arena_chest", "arena_chests"]]:
 		shell.go("versus")
 		shell._marks[room[0]].pressed.emit()
@@ -330,6 +397,37 @@ func test_arena_hub_opens_its_rooms() -> void:
 	shell._marks["arena_defence"].pressed.emit()
 	check_eq(shell.current, "defence", "defence")
 	check(shell._marks.has("defence_slot_0"), "defence trio picker")
+	shell.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_arena_hub_picks_a_mode_and_league_fights_spend_tokens() -> void:
+	var s = _fresh_store()
+	s.save()
+	var shell = Shell.new()
+	shell.build()
+	for id in ["laser", "vampire", "spiker", "speedster"]:
+		shell.profile.stacks.append({"id": id, "tier": 1, "count": 1, "level": 1})
+	shell.go("versus")
+	check(shell._marks.has("arena_tokens"), "tokens on the hub")
+	check(shell._marks.has("hub_series") and shell._marks.has("hub_league"), "both mode doors")
+	shell.go("arena", {"store": s, "mode": ArenaStore.LEAGUE})
+	check_eq(s.mode, ArenaStore.LEAGUE, "the League page")
+	check(shell._marks.has("arena_slot_1") and not shell._marks.has("arena_slot_2"), "a pair, not a trio")
+	check(shell._marks.has("arena_tokens"), "tokens on the mode page")
+	var fights := []
+	shell.arena_duo_requested.connect(func(): fights.append(s.pending.duplicate()))
+	s.tokens = 1
+	s.token_clock = ArenaStore.now_unix()
+	shell._marks.arena_card_0.pressed.emit()
+	check_eq(fights.size(), 1, "a League fight starts")
+	check_eq(s.tokens, 0, "for a token")
+	check_eq(fights[0].slots.size(), 2, "with the pair")
+	s.settle_abandoned()
+	shell.go("arena", {"store": s, "mode": ArenaStore.LEAGUE})
+	shell._marks.arena_card_0.pressed.emit()
+	check_eq(fights.size(), 1, "no token, no fight")
+	check(s.pending.is_empty(), "nothing started")
 	shell.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
 

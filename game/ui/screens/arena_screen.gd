@@ -1,8 +1,12 @@
-## Ghost Arena (design/pvp.md): your league and trophies (tap for the weekly
-## chests), your trio, and a list of ten opponents: other players' Defence
-## trios mixed in with themed teams. Picking one starts the attack and opens
-## the relay fight scene (game/ghost_arena.gd). The Trophy Room and Bazaar
-## are on the Versus hub.
+## One Arena mode's page (params.mode: ArenaStore.SERIES, the 3v3 Series,
+## or LEAGUE, the 2v2 League; the mode last played when left out), under an
+## "ARENA" eyebrow with the Arena Tokens left: your league and trophies in
+## that mode (tap for the weekly chests), your team, and ten opponents:
+## other players' Defence squads mixed in with seeded player-style squads.
+## Picking one spends a token, starts the attack and opens its fight: the
+## relay fight scene (game/ghost_arena.gd) for the Series, a 2v2 in the main
+## fight screen for the League (shell.arena_duo_requested). The Trophy Room,
+## Bazaar and weekly chest are on the Arena hub (versus_screen.gd).
 extends RefCounted
 
 const Matchup := preload("res://game/ui/matchup.gd")
@@ -24,6 +28,8 @@ const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const HomePainting := preload("res://game/ui/home_painting.gd")
 const Painted := preload("res://game/ui/painted.gd")
 const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
+const ResultPopup := preload("res://game/ui/result_popup.gd")
+const FactionRing := preload("res://game/ui/faction_ring.gd")
 
 const Motion := preload("res://game/ui/motion.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
@@ -36,11 +42,16 @@ static func build(shell, params: Dictionary) -> Control:
 	var store = params.get("store", null)
 	if store == null:
 		store = ArenaStore.open()
+	store.use(str(params.get("mode", store.mode)))
+	var m: Dictionary = ArenaStore.MODES[store.mode]
+	var league_mode: bool = store.mode == ArenaStore.LEAGUE
 	var abandoned: int = store.settle_abandoned()
 	if abandoned != 0:
 		shell.toast.call_deferred("Unfinished attack: counted as a loss (%d)" % abandoned)
 	var owned := owned_critters(shell.profile)
-	if store.is_new and not owned.is_empty():
+	# A first visit (to either mode) starts on your strongest team.
+	var first_league: bool = league_mode and store.wins + store.losses == 0 and store.raid_day == 0 and store.pending.is_empty()
+	if (store.is_new or first_league) and not owned.is_empty():
 		# A first visit starts on your strongest three, attack and defence.
 		store.fill_best(owned, "defence")
 		store.fill_best(owned)
@@ -64,14 +75,16 @@ static func build(shell, params: Dictionary) -> Control:
 	var root := Kit.vbox(10)
 
 	var how := [
-		"Opponents are other players' Defence trios and themed teams, all near your trophies. Beating one above you wins more and losing to it costs less. One free refresh a day.",
-		"Trios fight in order; a winner stays in with its HP left. Their order is hidden. Your last shots become your ghost.",
-		"Your Defence trio is the squad other players fight. Each day a few teams raid it too: holding wins trophies and Tokens.",
-		"Every trophy you win also earns an Arena Point for the Trophy Room. Every attack earns Tokens for the Bazaar.",
-		"The best league you reach each week opens that league's chest when the week ends. Tap your league to see them.",
+		"Every fight costs an Arena Token. You get one an hour and hold up to %d." % ArenaStore.TOKEN_MAX,
+		"Opponents are players near your trophies. Beating one above you wins more and losing to it costs less. One free refresh a day.",
+		"Both pairs fight at once. The last pair standing wins." if league_mode else "Trios fight in order; a winner stays in with its HP left. Their order is hidden. Your last shots become your ghost.",
+		"Your Defence is the team other players fight. Each day a few raid it: holding wins trophies and Arena Coins.",
+		"Every trophy you win also earns an Arena Point for the Trophy Room. Every fight earns Arena Coins for the Bazaar.",
+		"Your best league each week, in either mode, opens that league's chest when the week ends. Tap your league to see them.",
 	]
-	root.add_child(shell.title_row("Ghost Arena", {"info_mark": "arena_info", "info": how}))
-	var league := Kit.card_button(_league_panel(shell, store), func(): shell.go("arena_chests", {"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 32, 0)
+	root.add_child(shell.title_row(str(m.name), {"eyebrow": "ARENA", "eyebrow_color": m.color, "info_mark": "arena_info", "info": how,
+		"extra": [token_pill(shell, store)]}))
+	var league := Kit.card_button(_league_panel(shell, store), func(): shell.go("arena_chests", {"store": store, "mode": store.mode}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 32, 0)
 	shell.mark("arena_league", league)
 	root.add_child(league)
 	# A new player's first Arena win opens the Trophy Room (on the Versus hub).
@@ -80,6 +93,7 @@ static func build(shell, params: Dictionary) -> Control:
 		Intro.reach(p, Intro.TROPHY)
 		Intro.moment.call_deferred(shell, Intro.TROPHY)
 	root.add_child(trio_panel(shell, store, owned, "trio", _defence_chip(shell, store) if Intro.done(p) else null))
+	_duo_result.call_deferred(shell, store, params)
 
 	var refresh_left: int = store.refreshes_left()
 	var refresh := Kit.chip("Refresh", Kit.ACCENT if refresh_left > 0 else Kit.MUTED)
@@ -114,7 +128,7 @@ static func build(shell, params: Dictionary) -> Control:
 static func _defence_chip(shell, store) -> Control:
 	var held: int = store.raids.filter(func(r): return r.held).size() if store.raid_day == ArenaStore.today() else 0
 	var text := "Defence %d/%d" % [held, store.raids.size()] if not store.raids.is_empty() else "Defence"
-	var b := Kit.card_button(Kit.chip(text, Kit.GOOD), func(): shell.go("defence", {"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
+	var b := Kit.card_button(Kit.chip(text, Kit.GOOD), func(): shell.go("defence", {"store": store, "mode": store.mode}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
 	shell.mark("arena_defence", b)
 	return b
 
@@ -195,9 +209,13 @@ static func trio_panel(shell, store, owned: Array, which := "trio", extra: Contr
 	var slots: Array = store.slots(shell.profile, which)
 	var team: Array = store.get(which)
 	var prefix := "arena" if which == "trio" else "defence"
-	for i in 3:
+	var n: int = store.size()
+	var pair := n == 2
+	var team_name: String = ArenaStore.MODES[store.mode].team if which == "trio" else ("Defence pair" if pair else "Defence trio")
+	for i in n:
 		var critter: String = team[i]
-		var name := _fit(Kit.label("%d · %s" % [i + 1, BallDefs.get_def(critter).display_name], 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))
+		var text: String = BallDefs.get_def(critter).display_name if pair else "%d · %s" % [i + 1, BallDefs.get_def(critter).display_name]
+		var name := _fit(Kit.label(text, 20, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER))
 		var content := Kit.vbox(0, [
 			name,
 			FighterTag.of_slot(slots[i], 72),
@@ -210,19 +228,18 @@ static func trio_panel(shell, store, owned: Array, which := "trio", extra: Contr
 					store.set_slot(k, picks[k], which)
 				shell.refresh_with({"store": store})
 			CritterPicker.open_team(shell, owned, {
-				"title": "Your trio" if which == "trio" else "Defence trio",
-				"hint": "Slot 1 fights first.",
-				"size": mini(3, owned.size()), "current": team, "on_confirm": on_team,
+				"title": team_name,
+				"hint": "Both fight at once." if pair else "Slot 1 fights first.",
+				"size": mini(n, owned.size()), "current": team, "on_confirm": on_team,
 			}), Kit.LINE, Kit.PANEL2, 28, 10)
 		slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("%s_slot_%d" % [prefix, i], slot)
 		row.add_child(slot)
-	var best := Kit.card_button(Kit.chip("Best trio", Kit.ACCENT), func():
+	var best := Kit.card_button(Kit.chip("Best pair" if pair else "Best trio", Kit.ACCENT), func():
 		store.fill_best(owned, which)
 		shell.refresh_with({"store": store}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
 	shell.mark("%s_best_trio" % prefix, best)
-	var caption := "Your trio" if which == "trio" else "Defence trio"
-	var head := Kit.hbox(0, [Kit.caption(caption), Kit.spacer()], BoxContainer.ALIGNMENT_CENTER)
+	var head := Kit.hbox(0, [Kit.caption(team_name), Kit.spacer()], BoxContainer.ALIGNMENT_CENTER)
 	if extra != null:
 		head.add_child(extra)
 	head.add_child(best)
@@ -237,10 +254,10 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 	var fam: String = bot.get("family", "")
 	var fam_col: Color = Color(Families.info(fam).color) if fam != "" else Kit.FG
 	var stake := Ladder.stake(store.trophies, int(bot.get("trophies", store.trophies)))
-	var name: Control = _fit(Kit.label(str(bot.name), 24, fam_col))
-	if fam != "":
-		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		name = Kit.hbox(6, [FamilyIcon.make(fam, 28), name], BoxContainer.ALIGNMENT_CENTER)
+	var name: Control = _fit(Kit.label(str(bot.name), 24, Kit.FG))
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if bot.has("level"):
+		name = Kit.hbox(8, [level_badge(int(bot.level)), name], BoxContainer.ALIGNMENT_CENTER)
 	var info := Kit.vbox(2, [
 		name,
 		Kit.hbox(6, [Kit.amount("trophy", int(bot.get("trophies", 0)), 20, Kit.MUTED, Glyph.GOLD), Kit.power(ArenaTeams.rating(bot), 20, Kit.MUTED)]),
@@ -280,8 +297,105 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 
 
 static func _attack(shell, store, offer: Dictionary) -> void:
+	if not store.spend_token():
+		shell.toast(out_of_tokens(store))
+		return
+	start_fight(shell, store, offer)
+
+
+## Starts the attack on `offer` (a token already spent) and opens its fight.
+static func start_fight(shell, store, offer: Dictionary) -> void:
 	store.start_attack(offer.card, offer.bot, randi_range(1, 0x7FFFFFFF), store.slots(shell.profile))
-	shell.get_tree().change_scene_to_file(FIGHT_SCENE)
+	if store.mode == ArenaStore.LEAGUE:
+		shell.arena_duo_requested.emit()
+	else:
+		shell.get_tree().change_scene_to_file(FIGHT_SCENE)
+
+
+## What a tap says with no tokens left.
+static func out_of_tokens(store) -> String:
+	return "Out of Arena Tokens. Next one in " + ArenaStore.clock_text(store.next_token_in())
+
+
+## Home's Fight: straight into a fight in the mode last played, against the
+## opponent nearest your trophies, for a token. False (with a toast) when
+## out of tokens or there's no team to fight with.
+static func fight_now(shell) -> bool:
+	var store = ArenaStore.open()
+	var owned := owned_critters(shell.profile)
+	if owned.size() < store.size():
+		shell.go("arena", {"store": store})
+		return false
+	if store.is_new:
+		store.fill_best(owned, "defence")
+		store.fill_best(owned)
+		store.is_new = false
+	store.fit_to(owned)
+	var offers: Array = store.offers(shell.profile)
+	if offers.is_empty():
+		return false
+	var t: int = store.trophies
+	offers.sort_custom(func(a, b): return absi(int(a.bot.trophies) - t) < absi(int(b.bot.trophies) - t))
+	if not store.spend_token():
+		shell.toast(out_of_tokens(store))
+		return false
+	start_fight(shell, store, offers[0])
+	return true
+
+
+## The Arena Tokens you hold, as icon + "7/10"; a tap says when the next one comes.
+static func token_pill(shell, store) -> Control:
+	var n: int = store.tokens_now()
+	var row := Kit.hbox(6, [Kit.glyph("token", 30, Color.WHITE), Kit.label("%d/%d" % [n, ArenaStore.TOKEN_MAX], 24, Kit.FG if n > 0 else Kit.BAD)], BoxContainer.ALIGNMENT_CENTER)
+	var b := Kit.card_button(row, func():
+		var secs: int = store.next_token_in()
+		shell.toast("Arena Tokens full" if secs == 0 else "Next Arena Token in " + ArenaStore.clock_text(secs)), Kit.LINE, Kit.PANEL, 999, 6)
+	shell.mark("arena_tokens", b)
+	return b
+
+
+## An account level as a small badge, as players' rows show it.
+static func level_badge(level: int) -> Control:
+	var l := Kit.label(str(level), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var p := Kit.panel(l, Kit.box(Kit.ACCENT, Kit.ACCENT.lightened(.3), 10, 1, 6))
+	p.custom_minimum_size = Vector2(40, 0)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return p
+
+
+## Back from a 2v2 League fight (main.gd passes params.duo): its result popup.
+## Shows once: a refresh doesn't bring it back.
+static func _duo_result(shell, store, params: Dictionary) -> void:
+	if not params.has("duo") or not is_instance_valid(shell):
+		return
+	var d: Dictionary = params.duo
+	params.erase("duo")
+	var delta := int(d.get("delta", 0))
+	var col: Color = Kit.GOOD if delta > 0 else (Kit.BAD if delta < 0 else Kit.MUTED)
+	var head := Kit.hbox(12, [Kit.glyph("trophy", 64, Color("ffc23d")), Kit.label("%+d" % delta, 72, col)], BoxContainer.ALIGNMENT_CENTER)
+	var rewards := Kit.hbox(28, [], BoxContainer.ALIGNMENT_CENTER)
+	if int(d.get("coins", 0)) > 0:
+		rewards.add_child(Kit.hbox(6, [Kit.glyph("arena_coin", 34, Color.WHITE), Kit.label("+%d" % int(d.coins), 30)], BoxContainer.ALIGNMENT_CENTER))
+	if delta > 0:
+		rewards.add_child(Kit.hbox(6, [Kit.glyph("points", 30, Kit.WARN), Kit.label("+%d" % delta, 26, Kit.WARN)], BoxContainer.ALIGNMENT_CENTER))
+	var body: Array = [head, Kit.label(Ladder.league_label(store.trophies), 26, Ladder.league(store.trophies).color, HORIZONTAL_ALIGNMENT_CENTER)]
+	if rewards.get_child_count() > 0:
+		body.append(rewards)
+	var rings = FactionRing.rows(shell.profile.take_faction_gains(), shell.sfx, .45, FactionRing.spend_in(shell))
+	if rings != null:
+		body.append(rings)
+	var next := Kit.button("Next fight", func():
+		shell.close_overlay()
+		fight_now(shell), "go", 26, 84)
+	var back := Kit.button("Back", shell.close_overlay, "ghost", 26, 84)
+	shell.mark("arena_next", next)
+	shell.mark("arena_back", back)
+	next.size_flags_stretch_ratio = 1.5
+	var outcome: int = ResultPopup.outcome_of(int(d.get("winner", 0)))
+	var popup := ResultPopup.content("2v2 League · vs " + str(d.get("name", "?")), outcome, body, [back, next])
+	if shell.sfx != null:
+		shell.sfx.hold_victory(popup)
+	shell.sheet(popup)
 
 
 ## A label that ends in "..." rather than widening the screen.

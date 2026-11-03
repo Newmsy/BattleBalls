@@ -26,12 +26,30 @@ const Gear := preload("res://sim/gear.gd")
 const SAVE_PATH := "user://ghost_arena.cfg"
 const HISTORY_SIZE := 10
 const FREE_REFRESHES := 1
-## Tokens (Arena Coins in code and saves) won per attack (by card) and per lost attack, and per raid
+## Arena Coins (the Bazaar money; `coins` in code and saves) won per attack (by card) and per lost attack, and per raid
 ## your defence holds. Spent only in the Bazaar.
 const COINS_WIN := {"easier": 10, "even": 15, "harder": 25}
 const COINS_LOSS := 3
 const COINS_DEFENCE := 8
 const RAIDS_PER_DAY := 3
+## Arena Tokens (Newms 2026-11-02): every Arena fight costs one. One comes
+## back every TOKEN_SECONDS, up to TOKEN_MAX held. Never sold.
+const TOKEN_MAX := 10
+const TOKEN_SECONDS := 3600
+
+## The Arena's two modes (Newms 2026-11-02), each with its own trophies,
+## league, team, Defence and opponents: the 3v3 Series (a relay of three,
+## sim/relay.gd) and the 2v2 League (two critters each on the field at
+## once, a 2v2 MatchSim). Points, boosts, coins, tokens and the weekly chest
+## are shared.
+const SERIES := "series"
+const LEAGUE := "league"
+const MODES := {
+	SERIES: {"name": "3v3 Series", "size": 3, "color": Color("ff4fd8"), "art": "vs_series", "team": "Your trio", "short": "3v3"},
+	LEAGUE: {"name": "2v2 League", "size": 2, "color": Color("27c8ff"), "art": "vs_league", "team": "Your pair", "short": "2v2"},
+}
+## What each mode keeps of its own; everything else is shared.
+const MODE_KEYS := ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "defence", "raid_day", "raids"]
 
 ## Set by the arena fight scene so the home screen reopens on the Arena.
 static var reopen := false
@@ -42,6 +60,10 @@ static var seen_trophies := -1
 static var seen_league := -1
 
 var path := SAVE_PATH
+## The mode the top-level MODE_KEYS fields hold now (use()); the other
+## mode's are kept in _other. Saved as the last mode played.
+var mode := SERIES
+var _other: Dictionary = {}
 ## True until this device first saves the Arena: the trios are still the
 ## placeholder ones, not anything the player picked.
 var is_new := false
@@ -65,7 +87,7 @@ var boosts: Dictionary = {} ## {family: {line: level}}
 ## The trio other players (and, offline, the daily raids) fight. Same rules
 ## as `trio`: three different owned critters.
 var defence: Array = ["vampire", "laser", "spiker"]
-var coins := 0 ## Tokens to spend in the Bazaar (shown as Tokens).
+var coins := 0 ## Arena Coins to spend in the Bazaar.
 var coins_earned := 0
 var bazaar_day := 0
 var bought: Array = [] ## Bazaar item indexes bought on bazaar_day.
@@ -74,13 +96,57 @@ var raids: Array = [] ## Today's raids on your defence: {name, family, held, del
 var week := 0 ## The week week_best counts (ArenaChest.week_of).
 var week_best := -1 ## Best league index reached in `week`; -1 before any Arena visit.
 var chest: Dictionary = {} ## The weekly chest waiting to open: {week, league}.
+## Arena Tokens held (see tokens_now()) and the unix time the next one
+## started charging. A new save starts full.
+var tokens := TOKEN_MAX
+var token_clock := 0
 
 
-static func open(save_path := SAVE_PATH):
+## `with_mode`: SERIES or LEAGUE, or "" for the mode last played.
+static func open(save_path := SAVE_PATH, with_mode := ""):
 	var s = load("res://game/pvp/arena_store.gd").new()
 	s.path = save_path
+	s._other = s._fresh(LEAGUE)
 	s._load()
+	if with_mode != "":
+		s.use(with_mode)
 	return s
+
+
+## Switches the store to `m`: the mode fields (MODE_KEYS) now hold its state.
+func use(m: String) -> void:
+	if m == mode or not MODES.has(m):
+		return
+	var cur := {}
+	for k in MODE_KEYS:
+		cur[k] = get(k)
+	for k in MODE_KEYS:
+		set(k, _other[k])
+	_other = cur
+	mode = m
+
+
+## Team size in the current mode (3 or 2).
+func size() -> int:
+	return int(MODES[mode].size)
+
+
+## A mode's state before any play.
+func _fresh(m: String) -> Dictionary:
+	var n: int = MODES[m].size
+	var team: Array = ["vampire", "laser", "spiker"].slice(0, n)
+	return {"trophies": 0, "peak": 0, "trio": team, "shots": team.map(func(_c): return 0), "refresh_day": 0, "refreshes": 0,
+		"wins": 0, "losses": 0, "history": [], "pending": {}, "defence": team.duplicate(), "raid_day": 0, "raids": []}
+
+
+## Trophies in mode `m` (either mode, whichever is in use).
+func trophies_in(m: String) -> int:
+	return int(trophies) if m == mode else int(_other.trophies)
+
+
+## Your best trophies over both modes (the Bazaar's stock tier).
+func best_trophies() -> int:
+	return maxi(maxi(trophies, peak), maxi(int(_other.trophies), int(_other.peak)))
 
 
 ## A filled-in store for ?demo=1 screenshots, saved apart from the real one.
@@ -97,9 +163,9 @@ static func sample():
 	s.defence = ["spiker", "vampire", "speedster"]
 	s.coins = 140
 	s.raid_day = today()
-	s.raids = [{"name": "Frost Squad", "family": "frost", "held": true, "delta": 5, "coins": 8},
-		{"name": "Circuit Gang", "family": "tech", "held": false, "delta": -10, "coins": 0},
-		{"name": "Petal Patrol", "family": "nature", "held": true, "delta": 5, "coins": 8}]
+	s.raids = [{"name": "frostbyte92", "family": "frost", "held": true, "delta": 5, "coins": 8},
+		{"name": "Kaz_Plays", "family": "tech", "held": false, "delta": -10, "coins": 0},
+		{"name": "MossyMaya", "family": "nature", "held": true, "delta": 5, "coins": 8}]
 	s.coins_earned = 610
 	s.week = ArenaChest.this_week()
 	s.week_best = Ladder.league_index(s.trophies)
@@ -112,12 +178,59 @@ static func today() -> int:
 	return d.year * 10000 + d.month * 100 + d.day
 
 
+static func now_unix() -> int:
+	return int(Time.get_unix_time_from_system())
+
+
+## Brings tokens up to date: one per TOKEN_SECONDS since token_clock, up to
+## TOKEN_MAX. Returns the tokens held.
+func tokens_now(now: int = now_unix()) -> int:
+	if tokens >= TOKEN_MAX or token_clock <= 0 or now < token_clock:
+		# Full (or a clock that ran backwards): the next one starts charging now.
+		token_clock = now
+		return tokens
+	var got := (now - token_clock) / TOKEN_SECONDS
+	if got > 0:
+		tokens = mini(TOKEN_MAX, tokens + got)
+		token_clock = now if tokens >= TOKEN_MAX else token_clock + got * TOKEN_SECONDS
+	return tokens
+
+
+## Seconds until the next token, or 0 when full.
+func next_token_in(now: int = now_unix()) -> int:
+	if tokens_now(now) >= TOKEN_MAX:
+		return 0
+	return maxi(1, TOKEN_SECONDS - (now - token_clock))
+
+
+## Spends one token for a fight. False (and nothing spent) when out.
+func spend_token(now: int = now_unix()) -> bool:
+	if tokens_now(now) <= 0:
+		return false
+	if tokens >= TOKEN_MAX:
+		token_clock = now # The first token spent from full starts the clock.
+	tokens -= 1
+	save()
+	return true
+
+
+## "41:12" until the next token (or "1:02:00" past an hour).
+static func clock_text(secs: int) -> String:
+	if secs >= 3600:
+		return "%d:%02d:%02d" % [secs / 3600, secs / 60 % 60, secs % 60]
+	return "%d:%02d" % [secs / 60, secs % 60]
+
+
 ## Today's opponents: other players' saved squads near your trophies
-## (game/pvp/arena_players.gd) mixed in with seeded themed teams as strong as
-## their trophies say (game/pvp/arena_teams.gd). `profile` is unused; kept so
+## (game/pvp/arena_players.gd) mixed in with seeded player-style squads as
+## strong as their trophies say (game/pvp/arena_teams.gd). `profile` is unused; kept so
 ## callers needn't change.
 func offers(_profile = null, day: int = today()) -> Array[Dictionary]:
-	return ArenaPlayers.offers(trophies, day, refreshes if refresh_day == day else 0)
+	var refresh: int = refreshes if refresh_day == day else 0
+	if mode == LEAGUE:
+		# Real players' pairs aren't online yet: the League is all seeded squads.
+		return ArenaTeams.offers(trophies, day, refresh, ArenaTeams.OFFER_COUNT, 2)
+	return ArenaPlayers.offers(trophies, day, refresh)
 
 
 ## Your attack trio's summed Power Rating, as the Arena fights it.
@@ -156,11 +269,11 @@ func set_slot(slot: int, critter: String, which := "trio") -> void:
 	save()
 
 
-## The strongest trio from `owned` (strongest first): its first three.
-## Repeats only when the player owns fewer than three critters.
-static func best_trio(owned: Array) -> Array:
+## The strongest team from `owned` (strongest first): its first `n`.
+## Repeats only when the player owns fewer than `n` critters.
+static func best_trio(owned: Array, n := 3) -> Array:
 	var out: Array = []
-	for i in 3:
+	for i in n:
 		out.append(owned[i] if i < owned.size() else owned[i % owned.size()])
 	return out
 
@@ -169,7 +282,7 @@ static func best_trio(owned: Array) -> Array:
 func fill_best(owned: Array, which := "trio") -> void:
 	if owned.is_empty():
 		return
-	set(which, best_trio(owned))
+	set(which, best_trio(owned, size()))
 	save()
 
 
@@ -181,9 +294,11 @@ func fit_to(owned: Array) -> bool:
 		return false
 	var a := _fit(trio, owned)
 	var b := _fit(defence, owned)
-	if a or b:
+	var c := _fit(_other.trio, owned)
+	var d := _fit(_other.defence, owned)
+	if a or b or c or d:
 		save()
-	return a or b
+	return a or b or c or d
 
 
 func _fit(team: Array, owned: Array) -> bool:
@@ -272,7 +387,7 @@ func lineup(profile = null, which := "trio") -> Dictionary:
 func start_attack(card: String, bot, seed_value: int, attack_slots: Array = []) -> void:
 	settle_abandoned()
 	var foe: Dictionary = bot if bot is Dictionary else ArenaGhosts.by_id(str(bot))
-	pending = {"card": card, "bot_id": str(foe.get("id", "")), "bot": foe, "seed": seed_value, "arena": Arenas.pick(seed_value),
+	pending = {"card": card, "mode": mode, "bot_id": str(foe.get("id", "")), "bot": foe, "seed": seed_value, "arena": Arenas.pick(seed_value),
 		"slots": attack_slots if not attack_slots.is_empty() else slots()}
 	if not Ladder.CARDS.has(card):
 		pending.stake = Ladder.stake(trophies, int(foe.get("trophies", trophies)))
@@ -338,7 +453,7 @@ func pending_bot() -> Dictionary:
 	return ArenaGhosts.by_id(str(pending.get("bot_id", "")))
 
 
-## Today's raids on your defence: RAIDS_PER_DAY seeded themed teams at even
+## Today's raids on your defence: RAIDS_PER_DAY seeded player-style squads at even
 ## strength fight your defence trio, on the first Arena visit of the day.
 ## Held raids win trophies and coins; lost ones cost a few trophies (capped,
 ## Ladder.defence_delta). Returns the raids just fought (empty if already
@@ -349,11 +464,10 @@ func run_raids(profile = null, day: int = today()) -> Array:
 	raid_day = day
 	raids = []
 	var mine := slots(profile, "defence")
-	var rng = Rng.new(hash("raids|%d" % day))
+	var rng = Rng.new(hash("raids|%d" % day) if mode == SERIES else hash("raids|%s|%d" % [mode, day]))
 	var lost := 0
 	for n in RAIDS_PER_DAY:
-		var fams: Array = Families.ids()
-		var team := ArenaTeams.make(fams[rng.range_int(0, fams.size() - 1)], ArenaTeams.target(power(profile, "defence"), trophies, "even"), rng.range_int(1, 0x7FFFFFFF))
+		var team := ArenaTeams.make_player(ArenaTeams.target(power(profile, "defence"), trophies, "even"), rng.range_int(1, 0x7FFFFFFF), trophies, size())
 		var r := fight(team.lineup.slots, mine, rng.range_int(1, 0x7FFFFFFF), team.lineup.aim, shots)
 		var held: bool = r.winner == 1
 		var delta := Ladder.defence_delta(trophies, peak, "even", not held, lost)
@@ -396,6 +510,10 @@ func note_league(now_week: int = ArenaChest.this_week()) -> void:
 ## Runs a relay (sim/relay.gd) of two lineups to the end: {winner, legs, hash}.
 ## Aims are offsets off the centre line, per slot.
 static func fight(a: Array, b: Array, seed_value: int, a_aims: Array, b_aims: Array) -> Dictionary:
+	if a.size() == 2 and b.size() == 2:
+		var sim = load("res://sim/match_sim.gd").new(duo_config(a, b, seed_value))
+		sim.run_to_end()
+		return {"winner": sim.winner, "hash": sim.state_hash()}
 	var sa := Lineup.side(a)
 	var sb := Lineup.side(b)
 	var relay = load("res://sim/relay.gd").new({
@@ -412,6 +530,19 @@ static func fight(a: Array, b: Array, seed_value: int, a_aims: Array, b_aims: Ar
 	return relay.run_to_end()
 
 
+## A 2v2 League fight as a MatchSim config: a's pair are p1 and p3, b's
+## p2 and p4, all on the field at once, on the arena the seed picks. Both
+## sides' launch angles come from the seed (the attacker aims p1 in the fight
+## scene). Both out together goes to the attacker.
+static func duo_config(a: Array, b: Array, seed_value: int) -> Dictionary:
+	var cfg := {"seed": seed_value, "arena": Arenas.pick(seed_value), "tie_to": 0}
+	Lineup.apply(cfg, 0, a[0])
+	Lineup.apply(cfg, 1, b[0])
+	Lineup.apply(cfg, 2, a[1])
+	Lineup.apply(cfg, 3, b[1])
+	return cfg
+
+
 static func _angles(offsets: Array, n: int, side: int) -> Array:
 	var out: Array = []
 	for i in n:
@@ -423,7 +554,7 @@ static func _angles(offsets: Array, n: int, side: int) -> Array:
 ## energy refill, all for Tokens. Each item sells once a day.
 func bazaar(day: int = today()) -> Array:
 	var rng = Rng.new(hash("bazaar|%d" % day))
-	var tier := clampi(1 + Ladder.league_index(maxi(trophies, peak)), 1, 4)
+	var tier := clampi(1 + Ladder.league_index(best_trophies()), 1, 4)
 	var types: Array = Gear.TYPES.duplicate()
 	var out: Array = []
 	for n in 3:
@@ -463,10 +594,16 @@ func buy(profile, index: int, day: int = today()) -> bool:
 	return true
 
 
+## The 3v3 Series' fields stay in the "arena" section, as they always were;
+## the 2v2 League's are in "league"; shared ones in "arena".
 func save() -> void:
 	var f := ConfigFile.new()
-	for key in ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "points", "points_earned", "boosts", "defence", "coins", "coins_earned", "bazaar_day", "bought", "raid_day", "raids", "week", "week_best", "chest"]:
+	for key in ["points", "points_earned", "boosts", "coins", "coins_earned", "bazaar_day", "bought", "week", "week_best", "chest", "tokens", "token_clock", "mode"]:
 		f.set_value("arena", key, get(key))
+	for key in MODE_KEYS:
+		var mine = get(key)
+		f.set_value("arena", key, mine if mode == SERIES else _other[key])
+		f.set_value("league", key, mine if mode == LEAGUE else _other[key])
 	f.save(path)
 
 
@@ -475,10 +612,11 @@ func _load() -> void:
 	if f.load(path) != OK:
 		is_new = true
 		return
-	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "coins", "coins_earned", "bazaar_day", "raid_day", "week", "week_best"]:
+	for key in ["coins", "coins_earned", "bazaar_day", "week", "week_best", "tokens", "token_clock"]:
 		set(key, int(f.get_value("arena", key, get(key))))
-	for key in ["history", "pending", "bought", "raids", "chest"]:
+	for key in ["bought", "chest"]:
 		set(key, f.get_value("arena", key, get(key)))
+	_load_mode(f, "arena", SERIES)
 	# Saves from before Arena Points start with a point per trophy they hold.
 	points_earned = int(f.get_value("arena", "points_earned", trophies))
 	points = maxi(0, int(f.get_value("arena", "points", points_earned)))
@@ -492,14 +630,34 @@ func _load() -> void:
 					if ArenaBoosts.LINES.has(str(line)):
 						lines[str(line)] = clampi(int(saved_boosts[fam][line]), 0, ArenaBoosts.MAX_LEVEL)
 				boosts[str(fam)] = lines
-	var saved_trio: Array = f.get_value("arena", "trio", trio)
-	var saved_shots: Array = f.get_value("arena", "shots", shots)
-	if saved_trio.size() == 3 and saved_trio.all(func(c): return c in BallDefs.PLAYABLE):
+	# The League's fields load through the same checks, then go aside.
+	var series := {}
+	for k in MODE_KEYS:
+		series[k] = get(k)
+	mode = LEAGUE
+	for k in MODE_KEYS:
+		set(k, _other[k])
+	_load_mode(f, "league", LEAGUE)
+	_other = series
+	if str(f.get_value("arena", "mode", SERIES)) != LEAGUE:
+		use(SERIES)
+
+
+## Loads one mode's fields from `section` into the top-level fields.
+func _load_mode(f: ConfigFile, section: String, m: String) -> void:
+	var n: int = MODES[m].size
+	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "raid_day"]:
+		set(key, int(f.get_value(section, key, get(key))))
+	for key in ["history", "pending", "raids"]:
+		set(key, f.get_value(section, key, get(key)))
+	var saved_trio: Array = f.get_value(section, "trio", trio)
+	var saved_shots: Array = f.get_value(section, "shots", shots)
+	if saved_trio.size() == n and saved_trio.all(func(c): return c in BallDefs.PLAYABLE):
 		trio = saved_trio
-	var saved_defence: Array = f.get_value("arena", "defence", trio)
-	if saved_defence.size() == 3 and saved_defence.all(func(c): return c in BallDefs.PLAYABLE):
+	var saved_defence: Array = f.get_value(section, "defence", trio)
+	if saved_defence.size() == n and saved_defence.all(func(c): return c in BallDefs.PLAYABLE):
 		defence = saved_defence
 	else:
 		defence = trio.duplicate()
-	if saved_shots.size() == 3:
+	if saved_shots.size() == n:
 		shots = saved_shots

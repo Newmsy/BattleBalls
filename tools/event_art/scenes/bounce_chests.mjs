@@ -9,6 +9,8 @@ import { shade } from "../../brand/parts.mjs";
 import { blurs, sparkle, rng } from "./_shop_charge_pad_glow_chest_parts.mjs";
 
 export const size = [400, 360];
+// A small icon, already drawn bigger than it shows: stays 1x (see render.mjs).
+export const scale = 1;
 export const transparent = true;
 export const HINGE = [200, 180];
 

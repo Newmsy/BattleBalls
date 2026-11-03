@@ -31,6 +31,7 @@ const Story := preload("res://meta/story.gd")
 const Friends := preload("res://game/online/friends.gd")
 const Profile := preload("res://meta/profile.gd")
 const Campaign := preload("res://meta/campaign.gd")
+const ArenaStore := preload("res://game/pvp/arena_store.gd")
 const GearVault := preload("res://meta/gear_vault.gd")
 const VaultScreen := preload("res://game/ui/screens/vault_screen.gd")
 const BroodNest := preload("res://meta/brood_nest.gd")
@@ -857,6 +858,8 @@ func _spend_talents(family: String) -> void:
 func _result_caption() -> String:
 	if not _board.is_empty():
 		return str(_board.title)
+	if mode == Mode.CAMPAIGN and pve.has("arena_duo"):
+		return "2v2 League"
 	var name: String = {Mode.NORMAL: "Quick fight", Mode.REPLAY: "Replay", Mode.CHALLENGE: "Challenge", Mode.RIVAL: "Rival",
 		Mode.CAMPAIGN: "Campaign", Mode.LIVE: "Live fight", Mode.TUTORIAL: ""}[mode]
 	if mode == Mode.RIVAL and not rival.is_empty():
@@ -1162,6 +1165,36 @@ func _start_boss(config: Dictionary, difficulty: int, fighter: String, screen: S
 	info_label.text = FightSpeed.with_aim_hint(pve.caption)
 
 
+## A 2v2 League attack (ArenaStore.pending, token already spent): your pair
+## (p1, p3) against theirs (p2, p4), all at once, in the campaign's team
+## fight flow; the result goes back to the League page (_back_to_campaign).
+func _start_arena_duo() -> void:
+	var store = ArenaStore.open(ArenaStore.SAVE_PATH, ArenaStore.LEAGUE)
+	var bot: Dictionary = store.pending_bot()
+	if store.pending.is_empty() or bot.is_empty():
+		return
+	var mine: Array = store.pending.get("slots", store.slots(profile))
+	var cfg := ArenaStore.duo_config(mine, bot.lineup.slots, int(store.pending.seed))
+	var rate := func(slots: Array) -> int:
+		var total := 0
+		for s in slots:
+			total += Lineup.rating(s)
+		return total
+	pve = {"config": cfg, "arena_duo": true, "fighter": cfg.p1, "trail": shell.trail(), "foe": str(bot.name),
+		"pair_powers": [Kit.commas(rate.call(mine)), Kit.commas(rate.call(bot.lineup.slots))]}
+	mode = Mode.CAMPAIGN
+	player_type = cfg.p1
+	opponent_type = cfg.p2
+	seed_value = int(cfg.seed)
+	foe_aim = null
+	shell_layer.visible = false
+	sfx.toggle_hidden = false
+	pve.caption = "2v2 League · vs " + str(bot.name)
+	print("ARENA_READY bot=%s card=%s seed=%d mode=league" % [bot.id, store.pending.card, int(store.pending.seed)])
+	_begin_aim()
+	info_label.text = FightSpeed.with_aim_hint(pve.caption)
+
+
 ## Your critters in a 2v2 or 3v3 campaign stage: p1, p3 (and p5).
 func _team_picks() -> Array:
 	var picks := []
@@ -1174,6 +1207,8 @@ func _team_picks() -> Array:
 ## "Power 2,250 vs 3,100" for a 2v2 or 3v3 stage, short enough for one line.
 ## A campaign team stage's power per side (yours first), shown by the arena.
 func _pair_powers() -> Array:
+	if pve.has("pair_powers"):
+		return pve.pair_powers
 	var mine := 0
 	for id in _team_picks():
 		mine += profile.power_of(id)
@@ -1217,6 +1252,15 @@ func _start_url_stage() -> void:
 func _finish_stage() -> void:
 	var fight := sim.summary()
 	fight.max_hp = sim.balls[0].max_hp
+	if pve.has("arena_duo"):
+		var store = ArenaStore.open(ArenaStore.SAVE_PATH, ArenaStore.LEAGUE)
+		var won := sim.winner == 0 or sim.winner < 0 # Both out together goes to the attacker.
+		var delta: int = store.finish_attack(won)
+		var got: int = int(store.history[0].get("coins", 0)) if not store.history.is_empty() else 0
+		profile.fight_faction_xp(_team_picks(), 0 if won else 1)
+		pve.duo = {"delta": delta, "coins": got, "winner": 0 if won else 1, "name": pve.get("foe", "?")}
+		print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s mode=league" % [won, delta, store.trophies, sim.state_hash()])
+		return
 	if pve.has("vault"):
 		fight.cracked = int(sim.boss.state.get("cracked", 0)) if sim.boss != null else 0
 		fight.boss_dealt = sim.boss.max_hp - maxf(0.0, sim.boss.hp) if sim.boss != null else 0.0
@@ -1269,7 +1313,13 @@ func _aim_back() -> void:
 	if mode != Mode.CAMPAIGN:
 		_show_menu()
 		return
-	if pve.has("vault"):
+	if pve.has("arena_duo"):
+		# Not launched yet: the attack is called off and its token comes back.
+		var store = ArenaStore.open(ArenaStore.SAVE_PATH, ArenaStore.LEAGUE)
+		store.pending = {}
+		store.tokens = mini(ArenaStore.TOKEN_MAX, store.tokens + 1)
+		store.save()
+	elif pve.has("vault"):
 		_boss_rules().cancel(profile, int(Time.get_unix_time_from_system()))
 	else:
 		profile.refund_energy(Zones.cost(Zones.stage(pve.zone, pve.stage)))
@@ -1296,6 +1346,21 @@ func _settle_relay_stage() -> void:
 
 
 func _back_to_campaign() -> void:
+	if pve.has("arena_duo"):
+		var trail: Array = pve.get("trail", [])
+		var params := {"mode": ArenaStore.LEAGUE}
+		if pve.has("duo"):
+			params.duo = pve.duo
+		mode = Mode.NORMAL
+		pve = {}
+		_show_menu()
+		_show_home()
+		shell.show_tab("play")
+		if trail.size() == 2:
+			shell.resume(trail, "arena", params)
+		else:
+			shell.go("arena", params)
+		return
 	var params := {"zone": pve.get("zone", 0)}
 	var vault := pve.has("vault")
 	var screen: String = pve.get("boss", "vault")
@@ -1655,6 +1720,7 @@ func _build_shell() -> void:
 	shell.live_room_requested.connect(_start_live_room)
 	shell.stage_requested.connect(_start_stage)
 	shell.boss_requested.connect(_start_boss)
+	shell.arena_duo_requested.connect(_start_arena_duo)
 	shell.share_tapped.connect(_on_shell_share)
 	shell.share_layout_changed.connect(_sync_share_targets)
 	shell_layer.add_child(shell)
@@ -1874,7 +1940,7 @@ func _side_stats(side: int) -> String:
 			parts.append("Lv%d" % int(b.level))
 		parts.append("%s power" % Kit.commas(profile.power_of(pve.fighter)))
 	elif side == 1:
-		var rating := Power.rating(pve.config.powers[1]) if pve.has("vault") else Campaign.enemy_rating(pve.zone, pve.stage)
+		var rating := Power.rating(pve.config.powers[1]) if pve.has("vault") or pve.has("arena_duo") else Campaign.enemy_rating(pve.zone, pve.stage)
 		parts.append("%s power" % Kit.commas(rating))
 	return " · ".join(parts)
 

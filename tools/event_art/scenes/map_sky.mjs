@@ -7,6 +7,8 @@
 import { blurs, rng } from "./_shop_charge_pad_glow_chest_parts.mjs";
 
 export const size = [720, 1000];
+// Soft backdrop shown huge: stays 1x to keep GPU memory down (see render.mjs).
+export const scale = 1;
 export const dir = "game/ui/map_art";
 
 const W = 720, H = 1000;
