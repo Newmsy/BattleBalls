@@ -262,6 +262,7 @@ static func _result_row(r: Dictionary) -> Control:
 		for id in r.get("copies", []):
 			var c := Roster.get_critter(id)
 			var card := Kit.panel(Kit.vbox(2, [CritterIcon.make(id, 1, 84), Kit.label(c.name, 18, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)]), Kit.box(Kit.PANEL2, Kit.LINE, 22, 2, 8))
+			ResultPopup.send_home(card, "", "critters", func(): return CritterIcon.face(id, 56)) # Flies to Critters on Continue.
 			grid.add_child(card)
 			cards.append([card, Roster.RARITY_COLORS.get(c.rarity) if c.rarity in ["rare", "epic", "legendary"] else null])
 		for card in extra_cards(0, r.get("dyes", [])):

@@ -5,6 +5,7 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Idle := preload("res://game/ui/idle.gd")
 const Talents := preload("res://sim/talents.gd")
 
 
@@ -57,6 +58,8 @@ static func _tile(shell, p, f: String) -> Control:
 	])
 	var badge := Kit.label("%d to spend" % free if free > 0 else " ", 18, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER)
 	v.add_child(badge)
+	if free > 0:
+		Idle.breathe(badge, .12, .6)
 	var t := Kit.card_button(v, func(): shell.go("faction", {"id": f}), Color(col, .7 if free > 0 else .35), Kit.PANEL, 28, 12)
 	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("faction_" + f, t)

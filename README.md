@@ -164,7 +164,13 @@ pulsar, Pinball's slingshots and drop targets), about half of them moving;
 `tests/test_plunge.gd` checks the share. The shared statics, pieces and
 hazards above are no longer on any course. No pin rows or plain slanted beams: the gate drops onto sliding bricks, and
 sections mirror on a coin flip so no gate is the lucky one; wall half-bumpers
-sit wherever no piece comes near a wall. Each course dresses its finish with its own props
+sit wherever no piece comes near a wall. Each course's opener still favoured
+some gates (mostly the middle ones, ~2x their share in 8-racer fields), so the
+gate is staggered: the gates a course favours open a moment after GO
+(`sim/plunge_gate_delays.gd`, per course and field size, up to ~2 s; the view
+drops each gate's flap as it opens). `tools/plunge_gates.gd` measures win share
+and mean place by gate on every course and `--calibrate` rewrites the delays;
+re-run it whenever an opener or early section changes. Each course dresses its finish with its own props
 (`game/plunge_finish.gd`). `tools/plunge_course_shot.gd` renders whole courses
 to PNGs. Races open on a course banner and a 3, 2,
 1, GO! countdown (`game/plunge_intro.gd`; just GO! on Race again). The view

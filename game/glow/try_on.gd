@@ -110,7 +110,7 @@ func _draw() -> void:
 				CosmeticArt.draw_ko(self, ko, dp, r, k, float(_hits))
 	var c := _pos * h
 	var look := _vel.normalized()
-	CritterArt.draw_critter(self, critter_id, c, r, {"t": _t, "tier": tier, "look": look})
+	CritterArt.draw_critter(self, critter_id, c, r, {"t": _t, "tier": tier, "look": look, "skin": Catalog.skin_for(loadout, critter_id)})
 	var hat := Catalog.worn(loadout, "hat")
 	if not hat.is_empty():
 		CosmeticArt.draw_hat(self, hat, c, r, _t)
