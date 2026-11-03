@@ -13,9 +13,14 @@
 extends RefCounted
 
 const Dyes := preload("res://game/glow/dyes.gd")
+const LiveOps := preload("res://game/liveops.gd")
 
 const SLOTS := ["hat", "trail", "spark", "ko"]
-const SLOT_NAMES := {"hat": "Hat", "trail": "Trail", "spark": "Hit spark", "ko": "KO effect"}
+const SLOT_NAMES := {"hat": "Hat", "trail": "Trail", "spark": "Hit spark", "ko": "KO effect", "skin": "Skin"}
+## Skins are their own slot, one per critter: `critter` names who wears it,
+## colors[0] is its body colour and `art` swaps keys of that critter's art
+## (game/ui/critter_art.gd). Worn as loadout["skin_<critter>"].
+const SKIN := "skin"
 
 ## where: shop (gems), basic (coins, basic colours only), pass_free,
 ## pass_premium, founder. Pass cosmetics are never sold in the shop.
@@ -51,14 +56,126 @@ const ITEMS := [
 	{"id": "ko_pixel", "slot": "ko", "name": "Pixel Shatter", "style": "shatter", "colors": ["8f7bff", "5ce1ff"], "where": "shop", "gems": 500},
 	{"id": "ko_fireworks", "slot": "ko", "name": "Fireworks", "style": "fireworks", "colors": ["ffc23d", "b366ff"], "where": "pass_premium"},
 	{"id": "ko_stars", "slot": "ko", "name": "Starburst", "style": "confetti", "colors": ["fff2b0", "c9d3e0"], "where": "pass_free"},
+	# Neon Nights shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s1_hoodie_shop", "slot": "hat", "name": "Night Hoodie", "style": "hoodie", "colors": ["5b3fd0", "ff3df0"], "where": "shop", "gems": 450, "capsule": "s1_neon_nights"},
+	{"id": "spark_s1_surge_shop", "slot": "spark", "name": "Power Surge", "style": "zap", "colors": ["5ce1ff", "fff2b0"], "where": "shop", "gems": 350, "capsule": "s1_neon_nights"},
+	{"id": "ko_s1_disco_shop", "slot": "ko", "name": "Afterparty Disco", "style": "disco", "colors": ["ff3df0", "5ce1ff"], "where": "shop", "gems": 500, "capsule": "s1_neon_nights"},
+	# Frost Fest shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s2_hat_shop", "slot": "hat", "name": "Ski Hat", "style": "pompom", "colors": ["e0402a", "f0fcff"], "where": "shop", "gems": 450, "capsule": "s2_frost_fest"},
+	{"id": "spark_s2_splat_shop", "slot": "spark", "name": "Snowball Splat", "style": "snowball", "colors": ["f0fcff", "8fe6ff"], "where": "shop", "gems": 350, "capsule": "s2_frost_fest"},
+	{"id": "ko_s2_confetti_shop", "slot": "ko", "name": "Snow Confetti", "style": "confetti", "colors": ["f0fcff", "8fb8ff"], "where": "shop", "gems": 500, "capsule": "s2_frost_fest"},
+	# Glow Garden shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s3_ears_shop", "slot": "hat", "name": "Bunny Ears", "style": "bunny", "colors": ["f0eeff", "ffb3e6"], "where": "shop", "gems": 450, "capsule": "s3_glow_garden"},
+	{"id": "trail_s3_trail_shop", "slot": "trail", "name": "Vine Trail", "style": "vines", "colors": ["b8e05a", "ffe066"], "where": "shop", "gems": 400, "capsule": "s3_glow_garden"},
+	{"id": "ko_s3_pop_shop", "slot": "ko", "name": "Pollen Pop", "style": "shatter", "colors": ["ffe066", "c9a0ff"], "where": "shop", "gems": 500, "capsule": "s3_glow_garden"},
+	# Abyss Lights shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s4_hat_shop", "slot": "hat", "name": "Pirate Hat", "style": "pirate", "colors": ["2a2550", "ffc23d"], "where": "shop", "gems": 450, "capsule": "s4_abyss_lights"},
+	{"id": "spark_s4_sparks_shop", "slot": "spark", "name": "Pearl Sparks", "style": "pearl", "colors": ["f6f0ff", "c9c6ff"], "where": "shop", "gems": 350, "capsule": "s4_abyss_lights"},
+	{"id": "ko_s4_confetti_shop", "slot": "ko", "name": "Treasure Confetti", "style": "confetti", "colors": ["ffc23d", "fff2b0"], "where": "shop", "gems": 500, "capsule": "s4_abyss_lights"},
+	# Summer Splash shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s5_cap_shop", "slot": "hat", "name": "Propeller Cap", "style": "propeller", "colors": ["3d9bff", "ffc23d"], "where": "shop", "gems": 450, "capsule": "s5_summer_splash"},
+	{"id": "trail_s5_tail_shop", "slot": "trail", "name": "Kite Tail", "style": "kite", "colors": ["ff8a3d", "3d9bff"], "where": "shop", "gems": 400, "capsule": "s5_summer_splash"},
+	{"id": "ko_s5_confetti_shop", "slot": "ko", "name": "Beach Confetti", "style": "confetti", "colors": ["ffc23d", "3fa9f5"], "where": "shop", "gems": 500, "capsule": "s5_summer_splash"},
+	# Critter skins: a new body colour and look for one critter.
+	{"id": "skin_vampire_midnight", "slot": "skin", "critter": "vampire", "name": "Midnight Count", "colors": ["3d3bb0", "c9c6ff"], "where": "shop", "gems": 900},
+	{"id": "skin_laser_chrome", "slot": "skin", "critter": "laser", "name": "Chrome Optic", "colors": ["8fb8ff", "ffc23d"], "where": "shop", "gems": 1200,
+		"art": {"body": "chrome", "tint": true, "eyes": {"one": true, "w": .4, "h": .4, "p": .16, "iris": "b07a10", "glow": "ffd36b", "mouth": "none"}}},
+	{"id": "skin_bomber_gold", "slot": "skin", "critter": "bomber", "name": "Golden Fuse", "colors": ["d9a531", "fff2b0"], "where": "shop", "gems": 1000},
+	{"id": "skin_ghost_pumpkin", "slot": "skin", "critter": "ghost", "name": "Pumpkin Wisp", "colors": ["ff8a1e", "ffd6a0"], "where": "shop", "gems": 1000, "art": {"tint": true}},
+	{"id": "skin_frost_aurora", "slot": "skin", "critter": "frost", "name": "Aurora Chill", "colors": ["b07cff", "e6d6ff"], "where": "shop", "gems": 900},
+	{"id": "skin_phoenix_blue", "slot": "skin", "critter": "phoenix", "name": "Blue Flame Ember", "colors": ["3d9bff", "bfe6ff"], "where": "shop", "gems": 1000},
+	{"id": "skin_speedster_violet", "slot": "skin", "critter": "speedster", "name": "Violet Zip", "colors": ["8f7bff", "f0eeff"], "where": "shop", "gems": 900},
+	{"id": "skin_pip_gold", "slot": "skin", "critter": "pip", "name": "Golden Pip", "colors": ["ffd23f", "fff2b0"], "where": "shop", "gems": 900},
+	# Season 1: Neon Nights pass (game/glow/seasons.gd). Never sold.
+	{"id": "hat_s1_shades", "slot": "hat", "name": "Night Drive Shades", "style": "shades", "colors": ["ff3df0", "5ce1ff"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "spark_s1_tube", "slot": "spark", "name": "Neon Tubes", "style": "tube", "colors": ["5ce1ff", "ff3df0"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "trail_s1_streak", "slot": "trail", "name": "Taillights", "style": "streak", "colors": ["ff8a3d", "b366ff"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "hat_s1_antenna", "slot": "hat", "name": "Glow Antennae", "style": "antenna", "colors": ["c9d3e0", "ffc23d"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "ko_s1_sign", "slot": "ko", "name": "Neon KO Sign", "style": "sign", "colors": ["ff3df0", "5ce1ff"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "trail_s1_grid", "slot": "trail", "name": "Synth Grid", "style": "grid", "colors": ["b366ff", "5ce1ff"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "hat_s1_visor", "slot": "hat", "name": "Midnight Visor", "style": "visor", "colors": ["ff3df0", "ffc23d"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "spark_s1_notes", "slot": "spark", "name": "Bass Notes", "style": "notes", "colors": ["ffc23d", "b366ff"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "hat_s1_mohawk", "slot": "hat", "name": "Neon Mohawk", "style": "mohawk", "colors": ["ff3df0", "5ce1ff"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "ko_s1_fireworks", "slot": "ko", "name": "Skyline Fireworks", "style": "fireworks", "colors": ["5ce1ff", "ff8a3d"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "ko_s1_eq", "slot": "ko", "name": "Bass Drop", "style": "eq", "colors": ["5ce1ff", "ff3df0"], "where": "pass_premium", "season": "s1_neon_nights"},
+	{"id": "hat_s1_cap", "slot": "hat", "name": "Night Shift Cap", "style": "cap", "colors": ["8f7bff", "fff2b0"], "where": "pass_free", "season": "s1_neon_nights"},
+	{"id": "trail_s1_comet", "slot": "trail", "name": "Neon Comet", "style": "comet", "colors": ["ff3df0", "fff2b0"], "where": "pass_free", "season": "s1_neon_nights"},
+	{"id": "spark_s1_rings", "slot": "spark", "name": "Bassline Rings", "style": "rings", "colors": ["ffc23d", "ff3df0"], "where": "pass_free", "season": "s1_neon_nights"},
+	# Season 2: Frost Fest pass (game/glow/seasons.gd). Never sold.
+	{"id": "hat_s2_antlers", "slot": "hat", "name": "Frost Antlers", "style": "antlers", "colors": ["c9a27a", "dff6ff"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "spark_s2_sparks", "slot": "spark", "name": "Snowflake Sparks", "style": "flake", "colors": ["dff6ff", "8fe6ff"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "trail_s2_trail", "slot": "trail", "name": "Flurry Trail", "style": "snow", "colors": ["f0fcff", "8fb8ff"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "hat_s2_earmuffs", "slot": "hat", "name": "Cosy Earmuffs", "style": "earmuffs", "colors": ["b07cff", "f0eeff"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "ko_s2_shatter", "slot": "ko", "name": "Ice Shatter", "style": "shards", "colors": ["8fe6ff", "f0fcff"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "trail_s2_ribbon", "slot": "trail", "name": "Aurora Ribbon", "style": "ribbon", "colors": ["5ce1ff", "b07cff"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "hat_s2_scarf", "slot": "hat", "name": "Knitted Scarf", "style": "scarf", "colors": ["e0402a", "fff2b0"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "spark_s2_stars", "slot": "spark", "name": "Frost Stars", "style": "stars", "colors": ["8fe6ff", "f0fcff"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "hat_s2_crown", "slot": "hat", "name": "Ice Crown", "style": "crown", "colors": ["9fe8ff", "f0fcff"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "ko_s2_hailstorm", "slot": "ko", "name": "Hailstorm", "style": "shatter", "colors": ["dff6ff", "8f7bff"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "ko_s2_globe", "slot": "ko", "name": "Snow Globe", "style": "globe", "colors": ["dff6ff", "3d3bb0"], "where": "pass_premium", "season": "s2_frost_fest"},
+	{"id": "hat_s2_beanie", "slot": "hat", "name": "Frost Beanie", "style": "beanie", "colors": ["3d9bff", "f0fcff"], "where": "pass_free", "season": "s2_frost_fest"},
+	{"id": "trail_s2_breath", "slot": "trail", "name": "Frosty Breath", "style": "bubbles", "colors": ["dff6ff", "ffffff"], "where": "pass_free", "season": "s2_frost_fest"},
+	{"id": "spark_s2_rings", "slot": "spark", "name": "Chill Rings", "style": "rings", "colors": ["8fe6ff", "8f7bff"], "where": "pass_free", "season": "s2_frost_fest"},
+	# Season 3: Glow Garden pass (game/glow/seasons.gd). Never sold.
+	{"id": "hat_s3_crown", "slot": "hat", "name": "Blossom Crown", "style": "flowercrown", "colors": ["ffc23d", "ffb3e6"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "spark_s3_pops", "slot": "spark", "name": "Blossom Pops", "style": "bloom", "colors": ["ffc23d", "f0eeff"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "trail_s3_drift", "slot": "trail", "name": "Petal Drift", "style": "petals", "colors": ["ffb3e6", "fff2b0"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "hat_s3_sprout", "slot": "hat", "name": "Little Sprout", "style": "sprout", "colors": ["b8e05a", "ffe066"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "ko_s3_burst", "slot": "ko", "name": "Butterfly Burst", "style": "butterflies", "colors": ["c9a0ff", "ffc23d"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "trail_s3_trail", "slot": "trail", "name": "Firefly Trail", "style": "fireflies", "colors": ["ffe066", "f0ffb0"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "hat_s3_halo", "slot": "hat", "name": "Daisy Halo", "style": "halo", "colors": ["ffffff", "ffe066"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "spark_s3_stars", "slot": "spark", "name": "Pollen Stars", "style": "stars", "colors": ["ffe066", "ff9e3d"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "hat_s3_antennae", "slot": "hat", "name": "Bumble Antennae", "style": "antenna", "colors": ["2a2550", "ffc23d"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "ko_s3_shower", "slot": "ko", "name": "Petal Shower", "style": "confetti", "colors": ["ffb3e6", "f0eeff"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "ko_s3_bloom", "slot": "ko", "name": "Giant Bloom", "style": "bigbloom", "colors": ["c9a0ff", "ffe066"], "where": "pass_premium", "season": "s3_glow_garden"},
+	{"id": "hat_s3_cap", "slot": "hat", "name": "Gardener's Cap", "style": "cap", "colors": ["c9a27a", "fff2b0"], "where": "pass_free", "season": "s3_glow_garden"},
+	{"id": "trail_s3_breeze", "slot": "trail", "name": "Spring Breeze", "style": "comet", "colors": ["fff2b0", "c9a0ff"], "where": "pass_free", "season": "s3_glow_garden"},
+	{"id": "spark_s3_rings", "slot": "spark", "name": "Ripple Rings", "style": "rings", "colors": ["ffb3e6", "fff2b0"], "where": "pass_free", "season": "s3_glow_garden"},
+	# Season 4: Abyss Lights pass (game/glow/seasons.gd). Never sold.
+	{"id": "hat_s4_lure", "slot": "hat", "name": "Angler Lure", "style": "lure", "colors": ["3d3bb0", "a6fff0"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "spark_s4_pops", "slot": "spark", "name": "Bubble Pops", "style": "bubblepop", "colors": ["9fe8ff", "ffffff"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "trail_s4_cloud", "slot": "trail", "name": "Ink Cloud", "style": "ink", "colors": ["6f4cc0", "c9c6ff"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "hat_s4_cap", "slot": "hat", "name": "Jelly Cap", "style": "jelly", "colors": ["b07cff", "a6fff0"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "ko_s4_whirlpool", "slot": "ko", "name": "Whirlpool", "style": "whirlpool", "colors": ["2fb6e8", "c9c6ff"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "trail_s4_ribbon", "slot": "trail", "name": "Kelp Ribbon", "style": "ribbon", "colors": ["2fb6e8", "6f6bff"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "hat_s4_crown", "slot": "hat", "name": "Coral Crown", "style": "crown", "colors": ["ff8a3d", "ffd6a0"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "spark_s4_pings", "slot": "spark", "name": "Sonar Pings", "style": "rings", "colors": ["2fd6ff", "a6fff0"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "hat_s4_horns", "slot": "hat", "name": "Reef Horns", "style": "horns", "colors": ["ff9e3d", "fff2b0"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "ko_s4_burst", "slot": "ko", "name": "Plankton Burst", "style": "shatter", "colors": ["a6fff0", "3d9bff"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "ko_s4_school", "slot": "ko", "name": "Fish School", "style": "school", "colors": ["2fd6ff", "ffc23d"], "where": "pass_premium", "season": "s4_abyss_lights"},
+	{"id": "hat_s4_mask", "slot": "hat", "name": "Diving Mask", "style": "visor", "colors": ["2fb6e8", "f0fcff"], "where": "pass_free", "season": "s4_abyss_lights"},
+	{"id": "trail_s4_bubbles", "slot": "trail", "name": "Deep Bubbles", "style": "bubbles", "colors": ["2fd6ff", "c9c6ff"], "where": "pass_free", "season": "s4_abyss_lights"},
+	{"id": "spark_s4_sparks", "slot": "spark", "name": "Starfish Sparks", "style": "stars", "colors": ["ff9e3d", "ffd6a0"], "where": "pass_free", "season": "s4_abyss_lights"},
+	# Season 5: Summer Splash pass (game/glow/seasons.gd). Never sold.
+	{"id": "hat_s5_hat", "slot": "hat", "name": "Straw Sun Hat", "style": "sunhat", "colors": ["e8c47a", "3d9bff"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "spark_s5_sparks", "slot": "spark", "name": "Splash Sparks", "style": "splash", "colors": ["3fa9f5", "dff6ff"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "trail_s5_wake", "slot": "trail", "name": "Jet Ski Wake", "style": "wake", "colors": ["dff6ff", "ffffff"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "hat_s5_ring", "slot": "hat", "name": "Rubber Ring", "style": "float", "colors": ["ff9e3d", "ffffff"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "ko_s5_crash", "slot": "ko", "name": "Wave Crash", "style": "wave", "colors": ["3fa9f5", "dff6ff"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "trail_s5_ribbon", "slot": "trail", "name": "Sunset Ribbon", "style": "ribbon", "colors": ["ff8a3d", "b366ff"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "hat_s5_shades", "slot": "hat", "name": "Beach Shades", "style": "shades", "colors": ["ffc23d", "3d3bb0"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "spark_s5_jams", "slot": "spark", "name": "Summer Jams", "style": "notes", "colors": ["ffe066", "3fa9f5"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "hat_s5_mohawk", "slot": "hat", "name": "Palm Mohawk", "style": "mohawk", "colors": ["e8c47a", "ffe066"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "ko_s5_bonfire", "slot": "ko", "name": "Beach Bonfire", "style": "fireworks", "colors": ["ff8a3d", "ffe066"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "ko_s5_sun", "slot": "ko", "name": "Midsummer Sun", "style": "sunburst", "colors": ["ffd23f", "ff8a3d"], "where": "pass_premium", "season": "s5_summer_splash"},
+	{"id": "hat_s5_cap", "slot": "hat", "name": "Lifeguard Cap", "style": "cap", "colors": ["e0402a", "ffffff"], "where": "pass_free", "season": "s5_summer_splash"},
+	{"id": "trail_s5_breeze", "slot": "trail", "name": "Sea Breeze", "style": "comet", "colors": ["9fe8ff", "ffffff"], "where": "pass_free", "season": "s5_summer_splash"},
+	{"id": "spark_s5_rings", "slot": "spark", "name": "Splash Rings", "style": "rings", "colors": ["3fa9f5", "fff2b0"], "where": "pass_free", "season": "s5_summer_splash"},
 ]
 
 ## Featured bundles: fixed contents, separate prices shown, honest saving.
+## A `capsule` bundle is a season's shop set (see `released`).
 const BUNDLES := [
 	{"id": "bundle_party", "name": "Party Starter", "items": ["hat_party", "trail_sparkle", "ko_confetti"], "gems": 950},
 	{"id": "bundle_glitch", "name": "Glitch Mode", "items": ["hat_phones", "trail_pixel", "spark_glitch", "ko_pixel"], "gems": 1350},
 	{"id": "bundle_royal", "name": "Royal Court", "items": ["hat_crown", "spark_hearts", "ko_disco"], "gems": 1050},
 	{"id": "bundle_comic", "name": "Comic Book", "items": ["hat_tophat", "spark_pow", "trail_rainbow"], "gems": 1100},
+	# Season sets: featured first while their season runs.
+	{"id": "bundle_s1", "name": "Neon Nights Set", "items": ["hat_s1_hoodie_shop", "spark_s1_surge_shop", "ko_s1_disco_shop"], "gems": 1100, "capsule": "s1_neon_nights"},
+	{"id": "bundle_s2", "name": "Frost Fest Set", "items": ["hat_s2_hat_shop", "spark_s2_splat_shop", "ko_s2_confetti_shop"], "gems": 1100, "capsule": "s2_frost_fest"},
+	{"id": "bundle_s3", "name": "Glow Garden Set", "items": ["hat_s3_ears_shop", "trail_s3_trail_shop", "ko_s3_pop_shop"], "gems": 1150, "capsule": "s3_glow_garden"},
+	{"id": "bundle_s4", "name": "Abyss Lights Set", "items": ["hat_s4_hat_shop", "spark_s4_sparks_shop", "ko_s4_confetti_shop"], "gems": 1100, "capsule": "s4_abyss_lights"},
+	{"id": "bundle_s5", "name": "Summer Splash Set", "items": ["hat_s5_cap_shop", "trail_s5_tail_shop", "ko_s5_confetti_shop"], "gems": 1150, "capsule": "s5_summer_splash"},
 ]
 
 ## Real-money products, bought through game/glow/store.gd. kind: gems
@@ -104,6 +221,12 @@ static func product(id: String) -> Dictionary:
 	return {}
 
 
+## Whether a shop look or bundle is on sale at `t`: a season's shop set
+## (`capsule`) opens when its season starts and then stays.
+static func released(it: Dictionary, t: int) -> bool:
+	return not it.has("capsule") or LiveOps.pass_started(str(it.capsule), t)
+
+
 static func items_in(slot: String) -> Array:
 	return ITEMS.filter(func(it): return it.slot == slot)
 
@@ -124,6 +247,16 @@ static func bundle_full_price(b: Dictionary) -> int:
 ## id}), with its Spark Dye on (game/glow/dyes.gd), or {}.
 static func worn(loadout: Dictionary, slot: String) -> Dictionary:
 	return Dyes.apply(item(str(loadout.get(slot, ""))), str(loadout.get("dye_" + slot, "")))
+
+
+## The skin a loadout puts on `critter`, or {}.
+static func skin_for(loadout: Dictionary, critter: String) -> Dictionary:
+	return item(str(loadout.get("skin_" + critter, "")))
+
+
+## Where an item is worn in a loadout: its slot, or "skin_<critter>".
+static func wear_key(it: Dictionary) -> String:
+	return "skin_" + str(it.get("critter", "")) if it.get("slot") == SKIN else str(it.get("slot", ""))
 
 
 static func color(it: Dictionary, i := 0) -> Color:

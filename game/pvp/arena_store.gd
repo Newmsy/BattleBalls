@@ -154,6 +154,7 @@ func best_trophies() -> int:
 static func sample():
 	var s = load("res://game/pvp/arena_store.gd").new()
 	s.path = "user://demo_ghost_arena.cfg"
+	s._other = s._fresh(LEAGUE) # The 2v2 League's side, or switching modes breaks.
 	s.trophies = 1240
 	s.peak = 1240
 	s.wins = 41

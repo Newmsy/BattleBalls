@@ -24,6 +24,6 @@ const ID := 1
 static func slot() -> int:
 	if ID <= 0:
 		return 0
-	if OS.has_feature("web") and JavaScriptBridge.eval("navigator.webdriver === true", true) == true:
+	if OS.has_feature("web") and str(JavaScriptBridge.eval("String(navigator.webdriver === true)", true)) == "true":
 		return 0
 	return ID

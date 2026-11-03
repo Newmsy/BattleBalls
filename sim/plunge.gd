@@ -32,10 +32,11 @@
 extends "res://sim/match_sim.gd"
 
 const PlungeCourse := preload("res://sim/plunge_course.gd")
+const GateDelays := preload("res://sim/plunge_gate_delays.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
 
 ## Bump whenever a change alters race outcomes.
-const RACE_RULES := 16
+const RACE_RULES := 17
 const FIELD_SIZES := [4, 6, 8]
 const WIDTH := PlungeCourse.WIDTH
 const PART_CELL := 100.0 ## Band height for finding the moving parts near the race.
@@ -173,6 +174,9 @@ const RACE_HP := {
 var course: PlungeCourse
 var finish_y := 0.0
 var lanes: Array[int] = [] ## Racer -> its gate, 0 = leftmost.
+## Racer -> the tick its gate opens: GATE_SECONDS plus its course's delay
+## for that gate (sim/plunge_gate_delays.gd), so no gate starts ahead.
+var release: Array[int] = []
 var places: Array[int] = [] ## Racer -> 1 = winner; 0 while racing.
 var finish_ticks: Array[int] = []
 var ko_ticks: Array[int] = []
@@ -237,6 +241,13 @@ func _init(cfg: Dictionary) -> void:
 	damage_scale = field_damage(ids.size())
 	course = PlungeCourse.new(seed_value, str(cfg.get("course", "")))
 	finish_y = course.finish_y
+	# Plus a seeded jitter, so the gates drop in a different ragged order each
+	# race: in a field of 8 neighbouring gates queue for the opener, and
+	# without it a few ticks either way decided who went first every time.
+	var jitter := Rng.new(seed_value * 977 + 11)
+	for i in ids.size():
+		var wait := GateDelays.delay(course.info.id, ids.size(), lanes[i]) + GateDelays.jitter(course.info.id) * jitter.next_float()
+		release.append(int(round((GATE_SECONDS + wait) * TICK_RATE)))
 	_focus_y = PlungeCourse.START_Y + 400.0
 	# The course's hazards ride on the arena's own pieces, so the fight view
 	# draws them and pickups work as in a fight; wells, goo, lava and the
@@ -279,7 +290,7 @@ func _init(cfg: Dictionary) -> void:
 		for key in SLOW_EVERY:
 			if sig.has(key):
 				timed = key
-		_sig_ready.append(int(round((GATE_SECONDS + _every(b, timed)) * TICK_RATE)))
+		_sig_ready.append(release[b.index] + int(round(_every(b, timed) * TICK_RATE)))
 		b.shield += b.max_hp * _sig(b, "shield") * SIGNATURES.shield
 		if RACE_TWEAKS.has(b.type_id):
 			b.def = b.def.duplicate()
@@ -367,6 +378,11 @@ func racing(i: int) -> bool:
 	return places[i] == 0 and ko_ticks[i] < 0
 
 
+## Whether racer `i`'s gate has opened (split-offs are never held).
+func out_of_gate(i: int) -> bool:
+	return tick >= (release[i] if i < release.size() else int(GATE_SECONDS * TICK_RATE))
+
+
 ## How far down the course racer `i` is, 0 at the gate to 1 at the finish.
 func progress(i: int) -> float:
 	if places[i] > 0 and ko_ticks[i] < 0:
@@ -428,7 +444,7 @@ func step() -> void:
 		if not b.alive():
 			_knock_out(i)
 			continue
-		if b.hp < hp_before[i] - STAGGER_AT and time() >= GATE_SECONDS:
+		if b.hp < hp_before[i] - STAGGER_AT and out_of_gate(i):
 			if b.hp < hp_before[i] - bumped[i] - STAGGER_AT:
 				b.vel *= stagger_keep(b)
 			if _sig(b, "current") > 0.0: # Wave Rider surges on.
@@ -437,9 +453,9 @@ func step() -> void:
 		if b.pos.y >= finish_y:
 			_cross_line(i)
 			continue
-		if not _boost[i].is_empty() and time() >= GATE_SECONDS:
+		if not _boost[i].is_empty() and out_of_gate(i):
 			_signature_tick(b)
-		_stalled[i] = _stalled[i] + DT if b.vel.length() < STALL_SPEED and time() >= GATE_SECONDS else 0.0
+		_stalled[i] = _stalled[i] + DT if b.vel.length() < STALL_SPEED and out_of_gate(i) else 0.0
 		if _stalled[i] >= STALL and tick >= _nudge_ready[i]:
 			_nudge_ready[i] = tick + int(NUDGE_COOLDOWN * TICK_RATE)
 			_stalled[i] = 0.0
@@ -556,7 +572,7 @@ func charge(b: Ball, dir: Vector2, mult: float, secs: float) -> void:
 func _resolve_walls(b: Ball) -> void:
 	if b.index < starters and not racing(b.index):
 		return
-	if time() < GATE_SECONDS:
+	if not out_of_gate(b.index):
 		b.pos = _starts[b.index] if b.index < _starts.size() else b.pos
 		return
 	if tick < b.stun_until: # Stunned (frozen, stuck in honey): it sinks slowly.
@@ -795,7 +811,7 @@ func _rush(b: Ball, top: float, secs: float) -> void:
 
 ## A racer the course's hazards act on: still racing and out of the gate.
 func _on_course(b: Ball) -> bool:
-	return b.alive() and b.index < starters and racing(b.index) and time() >= GATE_SECONDS
+	return b.alive() and b.index < starters and racing(b.index) and out_of_gate(b.index)
 
 
 ## Wells pull for real in a race: a fight's well only bends a ball at its

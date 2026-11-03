@@ -43,6 +43,11 @@ func _draw() -> void:
 	var s := minf(size.x, size.y)
 	var c := Vector2(size.x / 2.0, size.y / 2.0)
 	match it.slot:
+		"skin":
+			var r := s * .3
+			var at := c + Vector2(0, s * .04)
+			CritterArt.draw_critter(self, str(it.critter), at, r, {"t": _t, "look": Vector2(.3, .2), "skin": it})
+			_badge(at, r)
 		"hat":
 			var r := s * .26
 			var at := c + Vector2(0, s * .14)

@@ -594,6 +594,8 @@ class _Capsule extends Control:
 		_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(_content)
+		if is_new:
+			add_child(_new_sticker(big))
 		if not animate:
 			return
 		_open_t = 0.0
@@ -741,11 +743,27 @@ class _Capsule extends Control:
 		_draw_new_tag()
 
 	func _draw_new_tag() -> void:
-		if not is_new:
-			return
-		var tag := Vector2(size.x / 2.0, side * .1)
-		draw_rect(Rect2(tag - Vector2(side * .2, side * .07), Vector2(side * .4, side * .14)), Kit.BAD)
-		draw_string(Kit.FONT, tag + Vector2(-side * .17, side * .045), "NEW", HORIZONTAL_ALIGNMENT_CENTER, side * .34, int(side * .12), Color.WHITE)
+		pass # The NEW sticker is a child (_new_sticker) so it sits over the critter's ears, not under them.
+
+	## A tilted red NEW sticker on the top right of a first copy, over the face.
+	func _new_sticker(big: bool) -> Control:
+		var st := PanelContainer.new()
+		var box := Kit.box(Kit.BAD, Color.WHITE, 999, 3 if big else 2, 0)
+		box.content_margin_left = 18 if big else 10
+		box.content_margin_right = box.content_margin_left
+		box.content_margin_top = 2
+		box.content_margin_bottom = 2
+		box.shadow_color = Color(0, 0, 0, .35)
+		box.shadow_size = 6
+		st.add_theme_stylebox_override("panel", box)
+		st.add_child(Kit.label("NEW", 30 if big else 17, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER))
+		st.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sz := st.get_combined_minimum_size()
+		st.size = sz
+		st.position = Vector2(maxf(size.x, custom_minimum_size.x) * .5 + side * .12, side * .1) - sz / 2.0
+		st.pivot_offset = sz / 2.0
+		st.rotation = .14
+		return st
 
 	## The shell's body colour: a matte bone shell with a hint of the family.
 	func _shell_color() -> Color:
@@ -1087,8 +1105,21 @@ class _Vortex extends Control:
 ## stars. Drawn once.
 class _Backdrop extends Control:
 	const Dot := preload("res://game/dot.gd")
+	const HALL := preload("res://game/ui/art/summon/portal_hall.png")
+	const PAD := 40.0 ## _reveal's panel padding.
 
 	func _draw() -> void:
+		# The Portal Hall the eggs just dropped from, deep in shadow so the
+		# critters stand out: covers the screen, the portal near the top.
+		# The reveal panel's padding insets this child: reach out to the screen edges.
+		var full := Rect2(-Vector2(PAD, PAD), size + Vector2(PAD, PAD) * 2.0)
+		var tex := Vector2(HALL.get_size())
+		var fit := maxf(full.size.x / tex.x, full.size.y / tex.y)
+		var src := full.size / fit
+		var portal_y := tex.y * (300.0 / 760.0) # _Hall.PORTAL.y in the 720x760 painting
+		var top := clampf(portal_y - src.y * .22, 0.0, tex.y - src.y)
+		draw_texture_rect_region(HALL, full, Rect2(Vector2((tex.x - src.x) / 2.0, top), src), Color(.34, .3, .5))
+		draw_rect(full, Color(0.07, 0.04, 0.18, .45))
 		var c := Vector2(size.x / 2.0, size.y * .48)
 		var r := maxf(size.x, size.y) * .5
 		Dot.glow(self, c, r, Color(.42, .26, .8, .2), .25)

@@ -38,13 +38,15 @@ func test_dates_land_in_the_right_week() -> void:
 	var wed := _at("2026-10-14")
 	check_eq(LiveOps.season(wed).week, 1, "preseason week 1")
 	check_eq(LiveOps.season(_at("2026-11-30")).name, "Season 1: Neon Nights", "Season 1 follows preseason")
-	check_eq(LiveOps.season(_at("2027-01-18")), {}, "after the last season")
+	check_eq(LiveOps.season(_at("2027-01-18")).name, "Season 2: Frost Fest", "Season 2 follows Season 1")
+	check_eq(LiveOps.season(_at("2027-01-18")).pass, "s2_frost_fest", "a season names its pass set")
+	check_eq(LiveOps.season(_at("2027-08-02")), {}, "after the last season")
 	check_eq(LiveOps.countdown(0, LiveOps.DAY + 7200), "1d 2h", "countdown")
 
 
 ## With no schedule the clock rotation takes over.
 func test_fallbacks_need_no_schedule() -> void:
-	LiveOps.use({})
+	LiveOps.use({"seasons": []}) # Not {}: that falls back to the bundled file.
 	var t := _at("2027-03-03")
 	check_eq(LiveOps.season(t), {}, "no season")
 	check(LiveOps.fight_of_the_day(t).winner >= 0, "a fight")

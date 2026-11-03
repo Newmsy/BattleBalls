@@ -11,6 +11,7 @@ const CritterDb := preload("res://sim/critter_db.gd")
 const Families := preload("res://sim/families.gd")
 const FamilyIcon := preload("res://game/ui/family_icon.gd")
 const AbilityText := preload("res://game/ui/ability_text.gd")
+const Painted := preload("res://game/ui/painted.gd")
 
 ## Base stats with the roster's top value, so the bars compare critters.
 const STATS := [["HP", "hp"], ["DMG", "contact_damage"], ["SPEED", "speed"], ["SIZE", "radius"]]
@@ -38,7 +39,13 @@ static func build(shell, params: Dictionary) -> Control:
 	var side := Kit.vbox(10, [Kit.label("#%03d" % d.no, 26, Kit.MUTED), Kit.label(c.type, 30, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true), tags, found])
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
-	root.add_child(Kit.hbox(16, [CritterIcon.make(c.id, p.best(c.id).get("tier", 1), 190, true), side], BoxContainer.ALIGNMENT_CENTER))
+	# The critter on the lit stage of its family's home, as on its critter page.
+	var hero := Kit.hbox(16, [CritterIcon.make(c.id, p.best(c.id).get("tier", 1), 220 if shell.size.y >= 1400.0 else 190, true), side], BoxContainer.ALIGNMENT_CENTER)
+	var stage := Painted.stage(c.id, hero, {"pad": Vector2(26, 18)})
+	# The stage takes the room the page has spare, so tall phones show more painting, not a gap.
+	hero.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(stage)
 
 	# Stats as it fights at T1 level 1 (rarity included, like its ability
 	# numbers), with bars against the roster's best.
