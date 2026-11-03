@@ -699,6 +699,7 @@ func _start_fight() -> void:
 	arena.team_tags = ["P1", "P2"] if mode == Mode.REPLAY else ArenaView.TEAM_TAGS
 	if mode == Mode.REPLAY:
 		info_label.text = str(_board.title) if not _board.is_empty() else "Replay"
+	sfx.fight_theme = "arena" if mode == Mode.CAMPAIGN and pve.has("arena_duo") else ""
 	sfx.on_fight_start(sim)
 	print("FIGHT_START ", _report_code())
 

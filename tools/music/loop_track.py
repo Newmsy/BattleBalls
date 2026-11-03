@@ -16,9 +16,23 @@ up or down without changing its pitch.
 Used for:
 - music_menu.ogg: "Nocturnal Menu" (FreeMusic AI, https://www.freemusic.ai/song/8gDPk9kFvR)
     loop_track.py nocturnal-menu.mp3 music_menu.ogg
-- music_menu.ogg: "Velvet Horizon" (FreeMusic AI, ~84 BPM), intro from 19.8 s (one bar before the drop), then
+- music_menu.ogg: "Velvet Horizon" (AI-generated, ~84 BPM), intro from 19.8 s (one bar before the drop), then
   a 45 s loop (sfx.gd MENU_LOOP_FROM = the printed loop_from):
     loop_track.py velvet-horizon.mp3 music_menu.ogg --from 92-115 --to 135-162 --intro 19.8
+- music_arena.ogg / music_arena_overtime.ogg: "Final Stretch" (AI-generated, ~125 BPM),
+  Arena fights: intro from the drop at 15.2 s, then a 60 s loop (sfx.gd LOOP_FROM
+  "arena" = the printed loop_from); overtime is the loop alone at 140 BPM:
+    loop_track.py final-stretch.mp3 music_arena.ogg --from 55-57 --to 115-117 --intro 15.2
+    loop_track.py final-stretch.mp3 music_arena_overtime.ogg --from 55-57 --to 115-117 --stretch 1.12
+- music_bounce.ogg: "Amber Coastline" (AI-generated, ~105 BPM), the Bounce Run map
+  and picks: intro from one bar before the drop, then an 88 s loop:
+    loop_track.py amber-coastline.mp3 music_bounce.ogg --from 68-69 --to 155.5-157 --intro 16.1
+- music_plunge.ogg: "The Great Brass Caper" (AI-generated, ~140 BPM), Plunge races:
+  from the start, then a 96 s loop:
+    loop_track.py great-brass-caper.mp3 music_plunge.ogg --from 42-43 --to 138-139 --intro 0
+- music_spire.ogg: "Gravity's End" (AI-generated, ~109 BPM), the Spire screen and
+  between Spire legs: from the start, then a 148 s loop:
+    loop_track.py gravitys-end.mp3 music_spire.ogg --from 10.5-11.5 --to 159-160 --intro 0
 - music_fight.ogg / music_overtime.ogg: "Neon Pulse" (FreeMusic AI, 140 BPM,
   https://www.freemusic.ai/song/fWpO3tKXjn), slowed to 120 BPM for fights:
     loop_track.py neon-pulse.mp3 music_fight.ogg --bpm 140.04 --bars 16,24,32 --from 30-90 --to 50-185 --stretch 0.857
