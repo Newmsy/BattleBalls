@@ -1288,6 +1288,11 @@ func _finish_stage() -> void:
 		var delta: int = store.finish_attack(won)
 		var got: int = int(store.history[0].get("coins", 0)) if not store.history.is_empty() else 0
 		profile.fight_faction_xp(_team_picks(), 0 if won else 1)
+		# A 2v2 League fight is an Arena fight like a 3v3 Series one: it moves
+		# a new player on to the Trophy Room and counts for Arena quests.
+		Intro.arena_fought = true
+		if won:
+			shell.glow.record("arena_win")
 		pve.duo = {"delta": delta, "coins": got, "winner": 0 if won else 1, "name": pve.get("foe", "?")}
 		print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s mode=league" % [won, delta, store.trophies, sim.state_hash()])
 		return

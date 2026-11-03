@@ -89,7 +89,9 @@ static func build(shell, params: Dictionary) -> Control:
 	root.add_child(league)
 	# A new player's first Arena win opens the Trophy Room (on the Versus hub).
 	var p = shell.profile
-	if Intro.step(p) == Intro.ARENA and Intro.arena_fought:
+	# Any Arena fight on record counts too (a relaunch since, or 2v2 League
+	# fights from before they counted), so no save stays stuck here.
+	if Intro.step(p) == Intro.ARENA and (Intro.arena_fought or int(store.wins) + int(store.losses) > 0):
 		Intro.reach(p, Intro.TROPHY)
 		Intro.moment.call_deferred(shell, Intro.TROPHY)
 	root.add_child(trio_panel(shell, store, owned, "trio", _defence_chip(shell, store) if Intro.done(p) else null))
