@@ -46,6 +46,37 @@ static func habitat(critter_id: String) -> String:
 	return "" if fam == "" or not ResourceLoader.exists(ART % ("families/" + fam)) else "families/" + fam
 
 
+## A framed stage of `critter_id`'s family home with `content` on top (a
+## critter on the lit left, words on the darker right), as on the critter
+## page. Outside a family it's a plain panel. `opts` overrides the painting's
+## crop (focus, at, right_dark, ...); "pad" sets the inner margins.
+static func stage(critter_id: String, content: Control, opts := {}) -> PanelContainer:
+	const Kit := preload("res://game/ui/ui_kit.gd")
+	var st := PanelContainer.new()
+	st.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var home := habitat(critter_id)
+	if home != "":
+		var o := {"focus": Vector2(200, 250), "at": Vector2(0.2, 0.5), "radius": 30.0, "right_dark": 0.8, "top_dark": 0.4}
+		o.merge(opts, true)
+		st.add_child(make(home, o))
+	else:
+		var bg := Panel.new()
+		bg.add_theme_stylebox_override("panel", Kit.box(Kit.PANEL, Color(0, 0, 0, 0), 30, 0, 0))
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		st.add_child(bg)
+	var frame := Panel.new()
+	frame.add_theme_stylebox_override("panel", Kit.box(Color(0, 0, 0, 0), Color("3a3480"), 30, 3, 0))
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	st.add_child(frame)
+	var m := MarginContainer.new()
+	var pad: Vector2 = opts.get("pad", Vector2(22, 16))
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, int(pad.x if side in ["left", "right"] else pad.y))
+	m.add_child(content)
+	st.add_child(m)
+	return st
+
+
 func _on_resized() -> void:
 	_mat.set_shader_parameter("size", size)
 	queue_redraw()

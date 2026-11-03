@@ -121,26 +121,9 @@ static func hero_card(shell, acc) -> Control:
 		tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tiles.add_child(tile)
 
-	var stack := PanelContainer.new()
-	stack.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	var home := Painted.habitat(lead)
-	if home != "":
-		stack.add_child(Painted.make(home, {"focus": Vector2(200, 250), "at": Vector2(0.2, 0.5), "radius": 30.0, "right_dark": 0.8, "bottom_dark": 0.6}))
-	else:
-		var bg := Panel.new()
-		bg.add_theme_stylebox_override("panel", Kit.box(Kit.PANEL, Color(0, 0, 0, 0), 30, 0, 0))
-		stack.add_child(bg)
-	var frame := Panel.new()
-	frame.add_theme_stylebox_override("panel", Kit.box(Color(0, 0, 0, 0), Color("3a3480"), 30, 3, 0))
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.add_child(frame)
-	var m := MarginContainer.new()
-	for side_name in ["left", "right", "top", "bottom"]:
-		m.add_theme_constant_override("margin_" + side_name, 22 if side_name in ["left", "right"] else 16)
 	var col := Kit.vbox(12, [top, tiles])
 	col.alignment = BoxContainer.ALIGNMENT_END
-	m.add_child(col)
-	stack.add_child(m)
+	var stack := Painted.stage(lead, col, {"top_dark": 0.0, "bottom_dark": 0.6})
 	stack.custom_minimum_size.y = 400 if shell.size.y >= 1400.0 else 0
 	# The whole card opens your fighter's page.
 	var card := Kit.tap_card(stack, func(): shell.go_from("detail", {"id": lead}, face), 30)
