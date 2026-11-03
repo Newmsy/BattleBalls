@@ -12,6 +12,7 @@ const CritterIcon := preload("res://game/ui/critter_icon.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const Painted := preload("res://game/ui/painted.gd")
 const Talents := preload("res://sim/talents.gd")
+const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 
 static var filter := "all"
 
@@ -129,7 +130,7 @@ static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 	var c := Roster.get_critter(k.id)
 	var info := Kit.hbox(6, [Kit.label("Lv %d" % k.level, 20, Kit.MUTED), Kit.power(k.power, 20, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	var stars := CenterContainer.new()
-	stars.add_child(Glyph.make("stars", 22, Kit.FG, k.tier))
+	stars.add_child(Glyph.tier_stars(22, k.tier, shell.profile.ascend_level(k.id)))
 	var name := Kit.label(c.name, 23, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
 	name.clip_text = true
 	name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -167,6 +168,9 @@ static func _tile(shell, k: Dictionary, mark_as: String) -> Control:
 		win.offset_bottom = 193
 		t.add_child(win)
 		t.move_child(win, 0)
+	if k.tier >= Roster.MAX_TIER and shell.profile.ascend_block(k.id) == "":
+		# Enough Sparks to ascend it: a red dot until it's spent.
+		t.add_child(PlayScreen.red_dot())
 	shell.mark(mark_as, t)
 	return t
 

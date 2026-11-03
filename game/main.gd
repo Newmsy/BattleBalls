@@ -363,6 +363,16 @@ func _ready() -> void:
 				if demo_profile and url_params.screen in ["arena", "boosts", "bazaar", "defence"]:
 					screen_params.store = preload("res://game/pvp/arena_store.gd").sample()
 				shell.go(url_params.screen, screen_params)
+			# ?ascendshow=fire plays the Ascension reveal for a critter of that family (or ?ascendshow=<critter id>).
+			if url_params.has("ascendshow"):
+				var who: String = url_params.ascendshow
+				if not who in Roster.ids():
+					for f in preload("res://sim/families.gd").MEMBERS.get(who, []):
+						if preload("res://sim/boons.gd").for_critter(f) != "":
+							who = f
+							break
+				if who in Roster.ids():
+					preload("res://game/ui/ascend_show.gd").play(shell, who, clampi(int(url_params.get("level", "2")), 1, 5))
 			# ?mode=bracket opens Bracket of Legends (try ?mode=bracket&today=2026-10-24).
 			if url_params.get("mode", "") == "bracket":
 				shell.go("week")

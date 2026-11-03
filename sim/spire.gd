@@ -129,6 +129,7 @@ static func relay_config(spec: Dictionary, picks: Array, aims: Array = []) -> Di
 		"tiers": [picks.map(func(p): return Lineup.clean(p.slot).tier if p.has("slot") else 1), spec.enemies.map(func(e): return int(e.get("tier", 1)))],
 		"gear": [picks.map(func(p): return Lineup.clean(p.slot).gear if p.has("slot") else null), spec.enemies.map(func(_e): return null)],
 		"talents": [picks.map(func(p): return Lineup.clean(p.slot).get("talents", {}) if p.has("slot") else null), spec.enemies.map(func(_e): return null)],
+		"ascend": [picks.map(func(p): return int(Lineup.clean(p.slot).get("ascend", 0)) if p.has("slot") else 0), spec.enemies.map(func(_e): return 0)],
 		"sizes": [picks.map(func(_p): return 1.0), spec.enemies.map(func(e): return float(e.scale))],
 		"tie_to": 0, # Both out together is your win.
 	}

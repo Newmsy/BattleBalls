@@ -10,24 +10,26 @@ extends RefCounted
 
 const Rng := preload("res://sim/rng.gd")
 const Gear := preload("res://sim/gear.gd")
+const ChestDrops := preload("res://meta/chest_drops.gd")
 
 const SAVE_PATH := "user://bounce_run.cfg"
 ## Unopened chests older than this many days are gone.
 const KEEP_DAYS := 7
 
-## Lowest first. Rewards are Profile.grant() dicts; the Champion's gear piece
-## gets its type from the day (rewards()).
+## Lowest first. Rewards are ChestDrops tables (ranges and chances, with the
+## same averages as the old fixed chests); the Champion's gear piece gets its
+## type from the day (rewards()).
 const TIERS := [
 	{"id": "bronze", "name": "Bronze Chest", "floor": 5, "color": Color("e09a5b"),
-		"rewards": [{"kind": "coins", "n": 100}]},
+		"rewards": [{"kind": "coins", "lo": 50, "hi": 150, "step": 10}]},
 	{"id": "silver", "name": "Silver Chest", "floor": 10, "color": Color("c9d6ec"),
-		"rewards": [{"kind": "coins", "n": 100}, {"kind": "orbs", "n": 1}]},
+		"rewards": [{"kind": "coins", "lo": 50, "hi": 150, "step": 10}, {"kind": "orbs", "n": 2, "pct": 50}]},
 	{"id": "gold", "name": "Gold Chest", "floor": 15, "color": Color("ffc23d"),
-		"rewards": [{"kind": "coins", "n": 250}, {"kind": "orbs", "n": 1}, {"kind": "hammers", "n": 1}]},
+		"rewards": [{"kind": "coins", "lo": 150, "hi": 350, "step": 10}, {"kind": "orbs", "n": 2, "pct": 50}, {"kind": "hammers", "n": 2, "pct": 50}]},
 	{"id": "crystal", "name": "Crystal Chest", "floor": 20, "color": Color("6fe8ff"),
-		"rewards": [{"kind": "coins", "n": 250}, {"kind": "orbs", "n": 2}, {"kind": "hammers", "n": 1}, {"kind": "xp_chip", "n": 1}]},
+		"rewards": [{"kind": "coins", "lo": 150, "hi": 350, "step": 10}, {"kind": "orbs", "lo": 1, "hi": 3}, {"kind": "hammers", "n": 2, "pct": 50}, {"kind": "xp_chip", "n": 2, "pct": 50}]},
 	{"id": "champion", "name": "Champion Chest", "floor": 25, "color": Color("ff6ad5"),
-		"rewards": [{"kind": "coins", "n": 450}, {"kind": "orbs", "n": 4}, {"kind": "hammers", "n": 1}, {"kind": "xp_chip", "n": 1}, {"kind": "gear", "tier": 2}]},
+		"rewards": [{"kind": "coins", "lo": 300, "hi": 600, "step": 10}, {"kind": "orbs", "lo": 2, "hi": 6}, {"kind": "hammers", "n": 2, "pct": 50}, {"kind": "xp_chip", "n": 2, "pct": 50}, {"kind": "gear", "tier": 2}]},
 ]
 
 
@@ -40,16 +42,26 @@ static func tier_for(best_floor: int) -> int:
 	return t
 
 
+## Chance (out of 100) each chest tier also holds an Ascension Spark: up to
+## 5% at the Champion Chest (Newms 2026-11-02).
+const SPARK_CHANCE := [1, 2, 3, 4, 5]
+
+
+## The drop table chest `tier` shows: its items, then the Spark chance.
+static func odds(tier: int) -> Array:
+	var out: Array = TIERS[tier].rewards.duplicate()
+	out.append({"kind": "spark", "n": 1, "pct": int(SPARK_CHANCE[tier])})
+	return out
+
+
 ## What chest `tier` from `day` holds.
 static func rewards(tier: int, day: int) -> Array:
-	var out: Array = []
-	for r in TIERS[tier].rewards:
-		var g: Dictionary = r.duplicate()
+	var out := ChestDrops.roll(odds(tier), day * 9173 + 29)
+	for g in out:
 		if g.kind == "gear":
 			var types := Gear.PIECES.keys()
 			types.sort()
 			g.type = types[Rng.new(day * 7349 + 11).range_int(0, types.size() - 1)]
-		out.append(g)
 	return out
 
 

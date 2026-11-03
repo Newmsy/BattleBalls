@@ -448,6 +448,7 @@ func _init(cfg: Dictionary) -> void:
 	var sizes: Array = _per_ball(cfg.get("sizes", []), 1.0)
 	var gear: Array = _per_ball(cfg.get("gear", []), null)
 	var talents: Array = _per_ball(cfg.get("talents", []), null)
+	var ascend: Array = _per_ball(cfg.get("ascend", []), 0) # Ascension levels (sim/boons.gd ascended()).
 	# Off only for kit-vs-kit audits (tools/balance.gd): real fights give rarity its ability tiers.
 	var rarity_potency: bool = cfg.get("rarity_potency", true)
 	for i in starters:
@@ -460,6 +461,9 @@ func _init(cfg: Dictionary) -> void:
 			power *= DMath.ipow(float(raw.get("rarity_power", 1.0)), maxi(0, Power.RARITIES.find(str(raw.get("rarity", ""))))) * float(raw.get("tier_power", 1.0))
 		var def := Modifiers.apply_to_def(Gear.apply_def(Power.scale_def(raw, power), kit), modifier)
 		def = Modifiers.apply_arena_tweaks(def, arena_id)
+		var asc := Boons.ascended(types[i], int(ascend[i])) if not is_boss and ascend[i] != null else {}
+		if not asc.is_empty():
+			def = Boons.apply_to_def(def, [asc])
 		if cfg.has("boons") and i < cfg.boons.size():
 			def = Boons.apply_to_def(def, cfg.boons[i])
 		var relic_defs := {}

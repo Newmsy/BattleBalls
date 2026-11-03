@@ -186,10 +186,11 @@ func abandon() -> Array:
 
 ## Rewards waiting to be collected, summed: {coins, orbs, hammers, keys, gear: [{type, tier}...], floors}.
 func unclaimed_total() -> Dictionary:
-	var t := {"coins": 0, "orbs": 0, "hammers": 0, "keys": 0, "gear": [], "floors": unclaimed.duplicate()}
+	var t := {"coins": 0, "orbs": 0, "hammers": 0, "keys": 0, "sparks": 0, "gear": [], "floors": unclaimed.duplicate()}
 	for f in unclaimed:
 		var r := Spire.reward(f)
 		t.keys += 1 if f in KEY_FLOORS else 0
+		t.sparks += 1 if spark_drop(week, f) else 0
 		t.coins += r.coins
 		t.orbs += r.orbs
 		t.hammers += r.hammers
@@ -211,6 +212,20 @@ func take_rewards() -> Dictionary:
 	var t := unclaimed_total()
 	unclaimed = []
 	return t
+
+
+## Boss floors (10, 20 ... 50) whose first clear each week has a
+## SPARK_CHANCE% chance of an Ascension Spark (Newms 2026-11-03).
+const SPARK_CHANCE := 10
+
+
+## Whether floor `floor_no`'s first clear in `week` drops a Spark.
+static func spark_drop(week_no: int, floor_no: int) -> bool:
+	if not Spire.is_boss(floor_no):
+		return false
+	var h := (week_no * 0x9E3779B1 + floor_no * 0x27D4EB2F + 0x165667B1) & 0xFFFFFFFF
+	h = ((h ^ (h >> 15)) * 0x2C1B3C6D) & 0xFFFFFFFF
+	return ((h ^ (h >> 12)) & 0x7FFFFFFF) % 100 < SPARK_CHANCE
 
 
 ## Boss floors that also pay a Rift Key each week (design/dyes-rift-keys.md).

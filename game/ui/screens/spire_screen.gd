@@ -102,6 +102,8 @@ static func _floor_card(spec: Dictionary) -> Control:
 		reward.add_child(Kit.amount("hammer", r.hammers, 22, Kit.GOOD, Kit.FG))
 	if not r.gear.is_empty():
 		bits.append(gear_name(r.gear))
+	if spec.boss:
+		reward.add_child(Kit.hbox(2, [Kit.glyph("spark", 26.0, Glyph.PURPLE), Kit.label("%d%%" % SpireClimb.SPARK_CHANCE, 22, Glyph.PURPLE)]))
 	if not bits.is_empty():
 		var more := Kit.label("· " + ", ".join(bits), 22, Kit.GOOD, HORIZONTAL_ALIGNMENT_LEFT, true)
 		more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -178,7 +180,7 @@ static func _pick_card(shell, f: Dictionary, spec: Dictionary, state: Dictionary
 	var tired: bool = f.stamina <= 0
 	var col := Kit.MUTED if tired else Kit.FG
 	var tag := Kit.label("", 20, Kit.BAD, HORIZONTAL_ALIGNMENT_CENTER)
-	var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96, false, p.best(f.id).level)
+	var icon := FighterTag.icon(f.id, p.best(f.id).tier, 96, false, p.best(f.id).level, 0, p.ascend_level(f.id))
 	if tired:
 		icon.modulate = Color(1, 1, 1, 0.35)
 	var cell := Kit.vbox(4, [
@@ -272,6 +274,8 @@ static func _upcoming_text(climb) -> String:
 			extra.append(gear_name(r.gear))
 		if n in SpireClimb.KEY_FLOORS:
 			extra.append("Rift Key")
+		if Spire.is_boss(n):
+			extra.append("%d%% Ascension Spark" % SpireClimb.SPARK_CHANCE)
 		var name := "floor %d" % n + (" (boss)" if Spire.is_boss(n) else "")
 		var line := "%s, %d vs %d, power %s" % [name, Spire.lineup_size(n), Spire.lineup_size(n), Kit.commas(roundi(Spire.power_at(n) * 1000.0))]
 		if not extra.is_empty():
@@ -320,6 +324,8 @@ static func _collect(shell, climb) -> void:
 		bits.append(gear_name(g))
 	if t.get("keys", 0) > 0:
 		bits.append("+%d Rift Key%s" % [t.keys, "" if t.keys == 1 else "s"])
+	if t.get("sparks", 0) > 0:
+		bits.append("+%d Ascension Spark%s!" % [t.sparks, "" if t.sparks == 1 else "s"])
 	var text := ", ".join(bits)
 	if shell is Node and shell.is_inside_tree():
 		shell.get_tree().create_timer(0.45).timeout.connect(func(): shell.toast(text))
@@ -336,6 +342,7 @@ static func grant(p, t: Dictionary) -> void:
 	for g in t.gear:
 		p.add_gear(g.type, g.tier)
 	p.add_rift_keys(int(t.get("keys", 0)))
+	p.sparks += int(t.get("sparks", 0))
 	p.changed.emit()
 
 

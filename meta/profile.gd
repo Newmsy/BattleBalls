@@ -16,6 +16,7 @@ const Analytics := preload("res://game/online/analytics.gd")
 const Economy := preload("res://meta/economy.gd")
 const Talents := preload("res://sim/talents.gd")
 const Dyes := preload("res://game/glow/dyes.gd")
+const Boons := preload("res://sim/boons.gd")
 
 signal changed
 
@@ -117,6 +118,14 @@ var plunge := PlungeTalents.clean({})
 ## Critter Plunge stamps: the best medal won on each course, {course id: medal}
 ## (meta/critter_plunge.gd).
 var plunge_stamps := {}
+## Ascension (Newms 2026-11-02): Ascension Sparks drop from weekly Arena
+## chests and daily Bounce Run chests; ASCEND_COST of them raise one T5
+## critter's Ascension a level (A1-A5). Each level keeps half its Bounce Run
+## boon for good (sim/boons.gd ascended()) and turns one tier star purple.
+var sparks := 0
+## Ascension level by critter id (1-5; missing = 0).
+var ascension := {}
+const ASCEND_COST := 10
 ## Rift Keys live in the Bag as an item; this many at most.
 const RIFT_KEY := "Rift Key"
 const RIFT_KEY_CAP := 10
@@ -190,8 +199,10 @@ func power_of(id: String) -> int:
 	var b := best(id)
 	if b.is_empty():
 		return 0
-	var t := Lineup.talent_power(slot_of(id))
-	return Roster.power(id, b.tier, b.level, (1.0 + gear_power(id)) * (1.0 + t) - 1.0)
+	var s := slot_of(id)
+	var t := Lineup.talent_power(s)
+	var a := Lineup.ASCEND_POWER * int(s.get("ascend", 0))
+	return Roster.power(id, b.tier, b.level, (1.0 + gear_power(id)) * (1.0 + t) * (1.0 + a) - 1.0)
 
 
 ## The fight multiplier for a critter's best stack: the same number as
@@ -200,7 +211,7 @@ func fight_power(id: String) -> float:
 	var b := best(id)
 	if b.is_empty():
 		return 1.0
-	return Power.multiplier(Roster.get_critter(id).rarity, b.tier, b.level) * (1.0 + gear_power(id)) * (1.0 + Lineup.talent_power(slot_of(id)))
+	return Power.multiplier(Roster.get_critter(id).rarity, b.tier, b.level) * (1.0 + gear_power(id)) * (1.0 + Lineup.talent_power(slot_of(id))) * (1.0 + Lineup.ASCEND_POWER * int(slot_of(id).get("ascend", 0)))
 
 
 ## The critter's best stack as a lineup slot (sim/lineup.gd): what it brings
@@ -210,7 +221,46 @@ func slot_of(id: String) -> Dictionary:
 	if b.is_empty():
 		return {}
 	var pieces: Array = gear_on(id).map(func(g): return gear_piece(g))
-	return Lineup.make(id, b.tier, b.level, pieces, talent_picks(Talents.faction_of(id)))
+	return Lineup.make(id, b.tier, b.level, pieces, talent_picks(Talents.faction_of(id)), ascend_level(id))
+
+
+## The critter's Ascension level, 0-5 (only a T5 copy carries it into fights).
+func ascend_level(id: String) -> int:
+	return clampi(int(ascension.get(id, 0)), 0, Boons.ASCEND_MAX)
+
+
+## Why `id` can't ascend now ("" when it can): it needs a T5 copy, a boon,
+## a level left and ASCEND_COST Sparks.
+func ascend_block(id: String) -> String:
+	if Boons.for_critter(id) == "":
+		return "No boon"
+	if ascend_level(id) >= Boons.ASCEND_MAX:
+		return "Max"
+	if int(best(id).get("tier", 0)) < Lineup.MAX_TIER:
+		return "Needs T5"
+	if sparks < ASCEND_COST:
+		return "Needs %d" % ASCEND_COST
+	return ""
+
+
+## Whether any critter you own can ascend right now (the red dots).
+func can_ascend_any() -> bool:
+	if sparks < ASCEND_COST:
+		return false
+	for st in stacks:
+		if int(st.tier) >= Lineup.MAX_TIER and int(st.count) > 0 and ascend_block(str(st.id)) == "":
+			return true
+	return false
+
+
+## Spends ASCEND_COST Sparks to raise `id` one Ascension level. Returns the new level, or -1.
+func ascend(id: String) -> int:
+	if ascend_block(id) != "":
+		return -1
+	sparks -= ASCEND_COST
+	ascension[id] = ascend_level(id) + 1
+	changed.emit()
+	return int(ascension[id])
 
 
 func found_count() -> int:
@@ -805,7 +855,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "paced", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "paced", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps", "sparks", "ascension"]
 
 
 func to_dict() -> Dictionary:
@@ -824,7 +874,7 @@ static func from_dict(d: Dictionary, now: int):
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
 	# Saves from before hammers keep new_game's starter hammers.
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest", "trick_reward"]:
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest", "trick_reward", "sparks"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
 	p.lineup = str(d.get("lineup", STARTER))
@@ -870,6 +920,12 @@ static func from_dict(d: Dictionary, now: int):
 		for k in dy:
 			if not Dyes.dye(str(k)).is_empty():
 				p.dyes[str(k)] = clampi(int(dy[k]), 0, Dyes.need(str(k)))
+	var asc = d.get("ascension", {})
+	if asc is Dictionary:
+		for k in asc:
+			var lv := clampi(int(asc[k]), 0, Boons.ASCEND_MAX)
+			if lv > 0 and Boons.for_critter(str(k)) != "":
+				p.ascension[str(k)] = lv
 	p.plunge = PlungeTalents.clean(d.get("plunge", {}))
 	p.plunge_stamps = load("res://meta/critter_plunge.gd").clean_stamps(d.get("plunge_stamps", {}))
 	var rf = d.get("rift", {})
@@ -932,7 +988,7 @@ func spend_coins(n: int) -> bool:
 
 
 ## An earned reward (Glow Pass free track, quests): {kind, n} with kind
-## orbs, coins, hammers, energy, xp_chip, rift_key, dye (random colour, or
+## orbs, coins, hammers, energy, xp_chip, rift_key, spark, dye (random colour, or
 ## one `id`), copies (with id) or gear (type and tier).
 func grant(r: Dictionary) -> void:
 	var n := int(r.get("n", 1))
@@ -955,6 +1011,8 @@ func grant(r: Dictionary) -> void:
 			_item("XP Chip").count = int(_item("XP Chip").count) + n
 		"rift_key":
 			add_rift_keys(n)
+		"spark":
+			sparks += n
 		"faction_xp":
 			add_faction_xp(str(r.get("id", "")), n)
 		"dye":
