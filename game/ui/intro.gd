@@ -98,7 +98,7 @@ static func coach(p, screen: String) -> String:
 		FIGHT_3:
 			return "Win stage 1-3." if screen in ["world", "campaign", "play"] else ""
 		ARENA:
-			return "Pick an opponent and fight!" if screen == "arena" else ("Tap Ghost Arena." if screen == "play" else "")
+			return "Pick an opponent and fight!" if screen == "arena" else ("Tap Fight on the Arena door." if screen == "play" else "")
 		TROPHY:
 			return "Tap the Trophy Room." if screen == "versus" else ""
 	return ""

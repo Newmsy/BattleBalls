@@ -170,6 +170,7 @@ var sfx = null
 var _scroll_settle := 0.0 ## Seconds left before a scroll counts as settled.
 var _settling := false
 var _coach: Label ## A new player's next step (game/ui/intro.gd), above the footer.
+var _coach_box: MarginContainer ## _coach with room under it, clear of the Play disc.
 var _level_ring: Control ## Account XP around the level badge.
 var _tab_icons := {} ## Tab id -> TabIcon; PLAY's disc is lit only on Play's home.
 var _tab_labels := {}
@@ -222,13 +223,19 @@ func build() -> void:
 	_holder.clip_contents = true
 	col.add_child(_holder)
 	_coach = Kit.label("", 24, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)
-	var cst := Kit.box(Color("1c3a2e"), Kit.GOOD, 999, 2, 12)
+	var cst := Kit.box(Color("1c3a2e"), Kit.GOOD, 999, 2, 8)
 	cst.content_margin_left = 24
 	cst.content_margin_right = 24
 	_coach.add_theme_stylebox_override("normal", cst)
 	_coach.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_coach.visible = false
-	col.add_child(_coach)
+	# Room underneath: the Play tab's big disc rises above the tab bar and
+	# would cover the hint's lower half.
+	_coach_box = MarginContainer.new()
+	_coach_box.add_theme_constant_override("margin_bottom", 28)
+	_coach_box.add_child(_coach)
+	_coach_box.visible = false
+	col.add_child(_coach_box)
 	_footer = MarginContainer.new()
 	_footer.add_theme_constant_override("margin_top", 10)
 	_footer.add_theme_constant_override("margin_bottom", 14)
@@ -1230,6 +1237,7 @@ func _refresh_top() -> void:
 	var hint := Intro.coach(profile, current)
 	_coach.text = hint
 	_coach.visible = hint != ""
+	_coach_box.visible = _coach.visible
 
 
 ## The next coins, eggs or energy you gain fly into the top bar from `c`
