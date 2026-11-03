@@ -2,7 +2,7 @@
 ## four main modes as painted doors in a 2x2 grid (Campaign, Arena, Bounce Run,
 ## Critter Plunge), each with its own big button, then a strip of painted
 ## tokens for everything else you play (Quests, Trick Shot, Fight of the Day,
-## Spire, Bosses). A door's › opens its hub (adventure_screen, versus_screen);
+## Spire, Bosses, Rifts). A door's › opens its hub (adventure_screen, versus_screen);
 ## the strip's header opens the Daily board (week_screen). A new mode goes in
 ## a hub, and on the strip only if it's played most days.
 extends RefCounted
@@ -21,6 +21,8 @@ const LiveOps := preload("res://game/liveops.gd")
 const TrickShot := preload("res://sim/trick_shot.gd")
 const Spire := preload("res://sim/spire.gd")
 const SpireClimb := preload("res://meta/spire_climb.gd")
+const FamilyRift := preload("res://meta/family_rift.gd")
+const Zones := preload("res://meta/zones.gd")
 const BossesScreen := preload("res://game/ui/screens/bosses_screen.gd")
 const CritterPicker := preload("res://game/ui/critter_picker.gd")
 const CritterPlunge := preload("res://meta/critter_plunge.gd")
@@ -377,12 +379,31 @@ static func _more_strip(shell) -> Control:
 		door_spot(shell, "trickshot", token("trick", side), "Trick Shot", trick_line, DAILY,
 			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.solved and trick.tries == 0),
 		door_spot(shell, "daily_fotd", token_with("frame_gold", fotd, side), "Fight of Day", "Call it" if WeekScreen.pick_for(f.date) < 0 else "Called", DAILY, week),
-		spire, bosses,
+		spire, bosses, _rift_spot(shell, side),
 	])
 	var st := Kit.box(DAILY.darkened(.88), DAILY.darkened(.6), 28, 2, 10)
 	st.content_margin_left = 6
 	st.content_margin_right = 6
 	return Kit.panel(Kit.vbox(4, [_padded(header, 0, 0), row]), st)
+## Rifts on the strip: the keys you hold (red dot while one can be spent), the
+## round of a run you have open, or (dimmed) the Zone 1 boss that opens them.
+## The Adventure hub keeps its big Rift card; this makes it findable from Home.
+static func _rift_spot(shell, side: int) -> Control:
+	var p = shell.profile
+	if p == null or not FamilyRift.is_unlocked(p):
+		var locked := door_spot(shell, "home_rift", token("lock", side), "Rifts", "Opens 1-%d" % Zones.zone(0).stages.size(), Kit.MUTED,
+			func(): shell.toast("Beat the Zone 1 boss to open Rifts."))
+		locked.modulate = Color(1, 1, 1, .6)
+		return locked
+	var keys: int = p.rift_keys()
+	var status := "%d key%s" % [keys, "" if keys == 1 else "s"] if keys > 0 else "No keys"
+	if FamilyRift.in_run(p):
+		status = "Round %d/%d" % [int(p.rift.round) + 1, FamilyRift.ROUNDS.size()]
+	var live: bool = FamilyRift.in_run(p) or keys > 0
+	return door_spot(shell, "home_rift", token("rift", side), "Rifts", status, STYLE if live else Kit.MUTED,
+		func(): shell.go("rift"), live)
+
+
 ## The Quests spot's status: Claim when something is ready, else today's count.
 static func _quest_line(shell) -> String:
 	if shell.glow.quests_ready() > 0:
@@ -464,7 +485,6 @@ static func _bosses_locked_info(shell) -> Callable:
 
 ## The furthest open zone: its stars and its next stage as a row of faces.
 static func campaign_state(p) -> Dictionary:
-	var Zones := preload("res://meta/zones.gd")
 	var Campaign := preload("res://meta/campaign.gd")
 	var z := 0
 	for zi in range(1, Zones.ZONES.size()):
