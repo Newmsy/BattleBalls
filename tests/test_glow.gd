@@ -7,6 +7,7 @@ const Catalog := preload("res://game/glow/catalog.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
 const Seasons := preload("res://game/glow/seasons.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
+const CritterArt := preload("res://game/ui/critter_art.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
 const Store := preload("res://game/glow/store.gd")
 const SaveGame := preload("res://game/online/save_game.gd")
@@ -200,8 +201,10 @@ func test_skins_are_worn_per_critter() -> void:
 	check_eq(Catalog.skin_for(glow.loadout(), "vampire").get("id"), "skin_vampire_midnight", "the arena finds it for that critter")
 	check(Catalog.skin_for(glow.loadout(), "laser").is_empty(), "and only that critter")
 	check(not ShopScreen.daily_items(_t("2026-10-14")).any(func(it): return it.slot == Catalog.SKIN), "skins have their own shelf, not Daily looks")
+	check_eq(CritterArt.worn_skins.get("vampire", {}).get("id"), "skin_vampire_midnight", "every screen's critter art knows the skin")
 	glow.unequip("skin_vampire")
 	check(not glow.loadout().has("skin_vampire"), "taken off")
+	check(not CritterArt.worn_skins.has("vampire"), "and off everywhere")
 
 
 func test_a_season_set_drives_the_pass_rewards() -> void:

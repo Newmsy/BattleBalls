@@ -2,22 +2,28 @@
 ## to check critter art (game/ui/critter_art.gd). Needs a display, e.g. xvfb-run.
 ## Usage: godot --script res://tools/critter_sheet.gd -- --tiers=1,3,5 --page=0 --per=30 --cols=5 --t=0.7 --out=/tmp/sheet.png
 ## --ids=vampire,laser draws just those critters (page/per then apply to that list); --cell=200 draws them bigger.
+## --skins=skin_laser_chrome,... puts those skins (game/glow/catalog.gd) on their critters.
 extends SceneTree
 
 const CritterArt := preload("res://game/ui/critter_art.gd")
 const CritterDb := preload("res://sim/critter_db.gd")
+const Catalog := preload("res://game/glow/catalog.gd")
 
 var CELL := 116.0
 const LABEL := 22.0
 
 
 func _initialize() -> void:
-	var a := {"tiers": "1,3,5", "page": "0", "per": "30", "cols": "5", "t": "0.7", "out": "user://critter_sheet.png", "ids": "", "cell": "116"}
+	var a := {"tiers": "1,3,5", "page": "0", "per": "30", "cols": "5", "t": "0.7", "out": "user://critter_sheet.png", "ids": "", "cell": "116", "skins": ""}
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--") and "=" in arg:
 			var kv := arg.substr(2).split("=", true, 1)
 			a[kv[0]] = kv[1]
 	CELL = float(a.cell)
+	if a.skins != "":
+		for sid in a.skins.split(","):
+			var it := Catalog.item(sid)
+			CritterArt.worn_skins[str(it.critter)] = it
 	var tiers: Array = Array(a.tiers.split(",")).map(func(x): return int(x))
 	var ids: Array = CritterDb.ids().filter(func(id): return id != "plain")
 	if a.ids != "":
