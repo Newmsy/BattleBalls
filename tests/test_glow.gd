@@ -144,6 +144,35 @@ func test_every_season_set_is_complete_and_never_sold() -> void:
 			check(seen.has(it.id), "%s is on its season's pass" % it.id)
 
 
+func test_season_shop_sets_open_with_their_season() -> void:
+	var glow = _fresh()
+	LiveOps.use({"version": 1, "revision": 1, "fights": [], "seasons": [
+		{"name": "Season A", "start": "2026-10-12", "weeks": 7, "pass": "s1_neon_nights"},
+		{"name": "Season B", "start": "2026-11-30", "weeks": 7, "pass": "s2_frost_fest"}]})
+	var a_day := _t("2026-10-14")
+	var b_day := _t("2026-12-02")
+	var b_bundle := Catalog.bundle("bundle_s2")
+	check(not Catalog.released(b_bundle, a_day), "next season's set is hidden")
+	check(Catalog.released(b_bundle, b_day), "it opens with its season")
+	check(Catalog.released(Catalog.bundle("bundle_s1"), b_day), "and an old season's set stays")
+	check_eq(ShopScreen.featured_bundles(a_day)[0].id, "bundle_s1", "the running season's set leads Featured")
+	check_eq(ShopScreen.featured_bundles(b_day)[0].id, "bundle_s2", "then the next one")
+	for day in range(0, 60):
+		for it in ShopScreen.daily_items(a_day + day * 86400):
+			check(Catalog.released(it, a_day + day * 86400), "daily looks only show released looks (%s)" % it.id)
+	LiveOps.now_override = a_day
+	glow._add_gems(5000, "test")
+	check_eq(glow.buy_item("hat_s2_hat_shop"), "That isn't for sale.", "can't buy a look before its season")
+	check_eq(glow.buy_bundle("bundle_s2"), "That isn't for sale.", "nor its bundle")
+	check_eq(glow.buy_item("hat_s1_hoodie_shop"), "", "this season's look is on sale")
+	LiveOps.now_override = 0
+	for b in Catalog.BUNDLES:
+		if b.has("capsule"):
+			check(Seasons.has(str(b.capsule)), "%s names a real season" % b.id)
+			for id in b.items:
+				check_eq(Catalog.item(id).get("capsule"), b.capsule, "%s holds its own season's looks" % b.id)
+
+
 func test_a_season_set_drives_the_pass_rewards() -> void:
 	var glow = _fresh()
 	LiveOps.use({"version": 1, "revision": 1, "fights": [], "seasons": [

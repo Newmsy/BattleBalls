@@ -185,6 +185,14 @@ static func season(t: int) -> Dictionary:
 	return {}
 
 
+## Whether a season with Glow Pass set `pass_set` has started by `t`.
+static func pass_started(pass_set: String, t: int) -> bool:
+	for s in data().get("seasons", []):
+		if str(s.get("pass", "")) == pass_set and _monday(s.start) <= t:
+			return true
+	return false
+
+
 ## Today's Fight of the Day: { date, p1, p2, seed, angles, title, winner,
 ## time }. `winner` is 0 or 1 (the sim is deterministic, so it is known).
 static func fight_of_the_day(t: int) -> Dictionary:

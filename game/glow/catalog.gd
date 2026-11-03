@@ -13,6 +13,7 @@
 extends RefCounted
 
 const Dyes := preload("res://game/glow/dyes.gd")
+const LiveOps := preload("res://game/liveops.gd")
 
 const SLOTS := ["hat", "trail", "spark", "ko"]
 const SLOT_NAMES := {"hat": "Hat", "trail": "Trail", "spark": "Hit spark", "ko": "KO effect"}
@@ -51,6 +52,26 @@ const ITEMS := [
 	{"id": "ko_pixel", "slot": "ko", "name": "Pixel Shatter", "style": "shatter", "colors": ["8f7bff", "5ce1ff"], "where": "shop", "gems": 500},
 	{"id": "ko_fireworks", "slot": "ko", "name": "Fireworks", "style": "fireworks", "colors": ["ffc23d", "b366ff"], "where": "pass_premium"},
 	{"id": "ko_stars", "slot": "ko", "name": "Starburst", "style": "confetti", "colors": ["fff2b0", "c9d3e0"], "where": "pass_free"},
+	# Neon Nights shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s1_hoodie_shop", "slot": "hat", "name": "Night Hoodie", "style": "hoodie", "colors": ["5b3fd0", "ff3df0"], "where": "shop", "gems": 450, "capsule": "s1_neon_nights"},
+	{"id": "spark_s1_surge_shop", "slot": "spark", "name": "Power Surge", "style": "zap", "colors": ["5ce1ff", "fff2b0"], "where": "shop", "gems": 350, "capsule": "s1_neon_nights"},
+	{"id": "ko_s1_disco_shop", "slot": "ko", "name": "Afterparty Disco", "style": "disco", "colors": ["ff3df0", "5ce1ff"], "where": "shop", "gems": 500, "capsule": "s1_neon_nights"},
+	# Frost Fest shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s2_hat_shop", "slot": "hat", "name": "Ski Hat", "style": "pompom", "colors": ["e0402a", "f0fcff"], "where": "shop", "gems": 450, "capsule": "s2_frost_fest"},
+	{"id": "spark_s2_splat_shop", "slot": "spark", "name": "Snowball Splat", "style": "snowball", "colors": ["f0fcff", "8fe6ff"], "where": "shop", "gems": 350, "capsule": "s2_frost_fest"},
+	{"id": "ko_s2_confetti_shop", "slot": "ko", "name": "Snow Confetti", "style": "confetti", "colors": ["f0fcff", "8fb8ff"], "where": "shop", "gems": 500, "capsule": "s2_frost_fest"},
+	# Glow Garden shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s3_ears_shop", "slot": "hat", "name": "Bunny Ears", "style": "bunny", "colors": ["f0eeff", "ffb3e6"], "where": "shop", "gems": 450, "capsule": "s3_glow_garden"},
+	{"id": "trail_s3_trail_shop", "slot": "trail", "name": "Vine Trail", "style": "vines", "colors": ["b8e05a", "ffe066"], "where": "shop", "gems": 400, "capsule": "s3_glow_garden"},
+	{"id": "ko_s3_pop_shop", "slot": "ko", "name": "Pollen Pop", "style": "shatter", "colors": ["ffe066", "c9a0ff"], "where": "shop", "gems": 500, "capsule": "s3_glow_garden"},
+	# Abyss Lights shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s4_hat_shop", "slot": "hat", "name": "Pirate Hat", "style": "pirate", "colors": ["2a2550", "ffc23d"], "where": "shop", "gems": 450, "capsule": "s4_abyss_lights"},
+	{"id": "spark_s4_sparks_shop", "slot": "spark", "name": "Pearl Sparks", "style": "pearl", "colors": ["f6f0ff", "c9c6ff"], "where": "shop", "gems": 350, "capsule": "s4_abyss_lights"},
+	{"id": "ko_s4_confetti_shop", "slot": "ko", "name": "Treasure Confetti", "style": "confetti", "colors": ["ffc23d", "fff2b0"], "where": "shop", "gems": 500, "capsule": "s4_abyss_lights"},
+	# Summer Splash shop set: in the shop from its season on (game/glow/seasons.gd).
+	{"id": "hat_s5_cap_shop", "slot": "hat", "name": "Propeller Cap", "style": "propeller", "colors": ["3d9bff", "ffc23d"], "where": "shop", "gems": 450, "capsule": "s5_summer_splash"},
+	{"id": "trail_s5_tail_shop", "slot": "trail", "name": "Kite Tail", "style": "kite", "colors": ["ff8a3d", "3d9bff"], "where": "shop", "gems": 400, "capsule": "s5_summer_splash"},
+	{"id": "ko_s5_confetti_shop", "slot": "ko", "name": "Beach Confetti", "style": "confetti", "colors": ["ffc23d", "3fa9f5"], "where": "shop", "gems": 500, "capsule": "s5_summer_splash"},
 	# Season 1: Neon Nights pass (game/glow/seasons.gd). Never sold.
 	{"id": "hat_s1_shades", "slot": "hat", "name": "Night Drive Shades", "style": "shades", "colors": ["ff3df0", "5ce1ff"], "where": "pass_premium", "season": "s1_neon_nights"},
 	{"id": "spark_s1_tube", "slot": "spark", "name": "Neon Tubes", "style": "tube", "colors": ["5ce1ff", "ff3df0"], "where": "pass_premium", "season": "s1_neon_nights"},
@@ -129,11 +150,18 @@ const ITEMS := [
 ]
 
 ## Featured bundles: fixed contents, separate prices shown, honest saving.
+## A `capsule` bundle is a season's shop set (see `released`).
 const BUNDLES := [
 	{"id": "bundle_party", "name": "Party Starter", "items": ["hat_party", "trail_sparkle", "ko_confetti"], "gems": 950},
 	{"id": "bundle_glitch", "name": "Glitch Mode", "items": ["hat_phones", "trail_pixel", "spark_glitch", "ko_pixel"], "gems": 1350},
 	{"id": "bundle_royal", "name": "Royal Court", "items": ["hat_crown", "spark_hearts", "ko_disco"], "gems": 1050},
 	{"id": "bundle_comic", "name": "Comic Book", "items": ["hat_tophat", "spark_pow", "trail_rainbow"], "gems": 1100},
+	# Season sets: featured first while their season runs.
+	{"id": "bundle_s1", "name": "Neon Nights Set", "items": ["hat_s1_hoodie_shop", "spark_s1_surge_shop", "ko_s1_disco_shop"], "gems": 1100, "capsule": "s1_neon_nights"},
+	{"id": "bundle_s2", "name": "Frost Fest Set", "items": ["hat_s2_hat_shop", "spark_s2_splat_shop", "ko_s2_confetti_shop"], "gems": 1100, "capsule": "s2_frost_fest"},
+	{"id": "bundle_s3", "name": "Glow Garden Set", "items": ["hat_s3_ears_shop", "trail_s3_trail_shop", "ko_s3_pop_shop"], "gems": 1150, "capsule": "s3_glow_garden"},
+	{"id": "bundle_s4", "name": "Abyss Lights Set", "items": ["hat_s4_hat_shop", "spark_s4_sparks_shop", "ko_s4_confetti_shop"], "gems": 1100, "capsule": "s4_abyss_lights"},
+	{"id": "bundle_s5", "name": "Summer Splash Set", "items": ["hat_s5_cap_shop", "trail_s5_tail_shop", "ko_s5_confetti_shop"], "gems": 1150, "capsule": "s5_summer_splash"},
 ]
 
 ## Real-money products, bought through game/glow/store.gd. kind: gems
@@ -177,6 +205,12 @@ static func product(id: String) -> Dictionary:
 		if p.id == id:
 			return p
 	return {}
+
+
+## Whether a shop look or bundle is on sale at `t`: a season's shop set
+## (`capsule`) opens when its season starts and then stays.
+static func released(it: Dictionary, t: int) -> bool:
+	return not it.has("capsule") or LiveOps.pass_started(str(it.capsule), t)
 
 
 static func items_in(slot: String) -> Array:

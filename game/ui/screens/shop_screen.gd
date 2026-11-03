@@ -94,15 +94,23 @@ static func _deal_tile(shell, d: Dictionary, t: int) -> Control:
 static func featured_bundles(t: int) -> Array:
 	var week := floori(float(LiveOps.week_start(t) - LiveOps.EPOCH) / LiveOps.WEEK)
 	var out := []
-	for i in FEATURED:
-		out.append(Catalog.BUNDLES[posmod(week * FEATURED + i, Catalog.BUNDLES.size())])
+	# The running season's shop set leads while its season runs.
+	var season_set := str(LiveOps.season(t).get("pass", ""))
+	for b in Catalog.BUNDLES:
+		if str(b.get("capsule", "")) == season_set and season_set != "":
+			out.append(b)
+	var pool := Catalog.BUNDLES.filter(func(b): return Catalog.released(b, t) and b not in out)
+	var k := 0
+	while out.size() < FEATURED and k < pool.size():
+		out.append(pool[posmod(week * FEATURED + k, pool.size())])
+		k += 1
 	return out
 
 
 ## Today's six gem items, the same for everyone, at least one per slot.
 static func daily_items(t: int) -> Array:
 	var day := floori(float(LiveOps.day_start(t) - LiveOps.EPOCH) / LiveOps.DAY)
-	var pool := Catalog.ITEMS.filter(func(it): return it.where == "shop")
+	var pool := Catalog.ITEMS.filter(func(it): return it.where == "shop" and Catalog.released(it, t))
 	var out := []
 	for slot in Catalog.SLOTS:
 		var in_slot := pool.filter(func(it): return it.slot == slot)

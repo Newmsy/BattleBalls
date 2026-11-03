@@ -218,6 +218,55 @@ static func draw_hat(ci: CanvasItem, it: Dictionary, c: Vector2, r: float, t := 
 			Dot.pline(ci, e, a, maxf(4.0, r * .3), true)
 			for j in [3, 8, 13]:
 				Dot.line(ci, e[j - 1], e[j], b, maxf(4.0, r * .3), true)
+		"hoodie": # A hood pulled up over the head, drawstrings hanging.
+			var hood := []
+			for i in 15:
+				var ang := PI * .92 + PI * 1.16 * i / 14.0
+				hood.append(Vector2(cos(ang) * 1.04, -.08 + sin(ang) * 1.0))
+			for i in 15:
+				var ang := PI * 2.08 - PI * 1.16 * i / 14.0
+				hood.append(Vector2(cos(ang) * .8, .02 + sin(ang) * .74))
+			poly.call(hood, a)
+			for k in [-1.0, 1.0]:
+				Dot.line(ci, P.call(k * .9, .1), P.call(k * .86, .5), b, maxf(1.5, r * .06), true)
+				Dot.circle(ci, P.call(k * .86, .52), r * .07, b)
+		"pompom": # A ski hat with ear flaps and a big pom-pom.
+			var dome := []
+			for i in 13:
+				var ang := PI + PI * i / 12.0
+				dome.append(Vector2(cos(ang) * .76, -.7 + sin(ang) * .66))
+			poly.call(dome, a)
+			for k in [-1.0, 1.0]:
+				poly.call([Vector2(k * .76, -.72), Vector2(k * .5, -.72), Vector2(k * .62, -.36)], a)
+				Dot.line(ci, P.call(k * .62, -.36), P.call(k * .64, -.1), b, maxf(1.5, r * .05), true)
+			for x in [-.5, -.17, .17, .5]:
+				poly.call([Vector2(x - .1, -.86), Vector2(x + .1, -.86), Vector2(x, -1.02)], b)
+			for j in 7:
+				Dot.circle(ci, P.call(0, -1.42) + Vector2.from_angle(j * TAU / 7.0) * r * .12, r * .12, b)
+			Dot.circle(ci, P.call(0, -1.42), r * .14, b)
+		"bunny": # Two tall floppy ears.
+			for k in [-1.0, 1.0]:
+				var flop := sin(t * 2.0 + k) * .05 + (.12 if k > 0 else 0.0)
+				CritterArt._ell(ci, P.call(k * .3 + flop, -1.36), r * .18, r * .5, a, tilt + k * .2 + flop)
+				CritterArt._ell(ci, P.call(k * .3 + flop, -1.32), r * .08, r * .36, b, tilt + k * .2 + flop)
+		"pirate": # A tricorn hat with a skull badge.
+			poly.call([Vector2(-1.0, -.8), Vector2(-.5, -1.42), Vector2(0, -1.24), Vector2(.5, -1.42), Vector2(1.0, -.8), Vector2(.5, -.92), Vector2(0, -.84), Vector2(-.5, -.92)], a)
+			Dot.pline(ci, PackedVector2Array([P.call(-1.0, -.8), P.call(-.5, -.92), P.call(0, -.84), P.call(.5, -.92), P.call(1.0, -.8)]), b, maxf(2.0, r * .06), true)
+			Dot.circle(ci, P.call(0, -1.08), r * .12, Color("f0eeff"))
+			Dot.line(ci, P.call(-.14, -.94), P.call(.14, -.94), Color("f0eeff"), maxf(1.5, r * .05), true)
+		"propeller": # A beanie with a spinning propeller.
+			var dome := []
+			for i in 13:
+				var ang := PI + PI * i / 12.0
+				dome.append(Vector2(cos(ang) * .7, -.76 + sin(ang) * .5))
+			poly.call(dome, a)
+			for x in [-.35, 0.0, .35]:
+				Dot.line(ci, P.call(x * .9, -1.24 + absf(x) * .3), P.call(x, -.78), b, maxf(1.5, r * .05), true)
+			Dot.line(ci, P.call(0, -1.26), P.call(0, -1.42), INK, maxf(1.5, r * .05), true)
+			var spin := cos(t * 14.0)
+			CritterArt._ell(ci, P.call(spin * .2, -1.44), r * .26 * absf(spin) + 1.0, r * .06, b, tilt)
+			CritterArt._ell(ci, P.call(-spin * .2, -1.44), r * .26 * absf(spin) + 1.0, r * .06, a.lightened(.3), tilt)
+			Dot.circle(ci, P.call(0, -1.44), r * .06, INK)
 		_:
 			Dot.circle(ci, P.call(0, -1.0), r * .2, a)
 
@@ -299,6 +348,20 @@ static func draw_trail(ci: CanvasItem, it: Dictionary, pts: Array, r: float, t :
 					Dot.line(ci, p - side, p - side + back, Color(a, f * .8), maxf(1.5, r * .08), true)
 					if i % 6 == 0:
 						Dot.circle(ci, p, r * .06, Color(b, f))
+			"vines": # A leafy vine.
+				Dot.line(ci, p, q, Color(a.darkened(.25), f * .9), maxf(1.5, r * .08), true)
+				if i % 3 == 0:
+					var side := 1.0 if i % 6 == 0 else -1.0
+					var nv := (q - p).orthogonal().normalized() * side
+					CritterArt._ell(ci, p + nv * r * .22, r * (.12 + .16 * f), r * (.06 + .07 * f), Color(a if i % 9 else b, f), nv.angle())
+			"kite": # A kite tail with little bows.
+				var wave := (q - p).orthogonal().normalized() * sin(i * .5 - t * 5.0) * r * .2
+				Dot.line(ci, p + wave, q + wave, Color(b.darkened(.3), f * .8), maxf(1.5, r * .05), true)
+				if i % 3 == 0:
+					var d := (q - p).orthogonal().normalized() * r * (.14 + .2 * f)
+					var col := Color(a if i % 6 == 0 else b, f)
+					Dot.poly(ci, PackedVector2Array([p + wave, p + wave + d + (q - p).normalized() * r * .1, p + wave + d - (q - p).normalized() * r * .1]), col)
+					Dot.poly(ci, PackedVector2Array([p + wave, p + wave - d + (q - p).normalized() * r * .1, p + wave - d - (q - p).normalized() * r * .1]), col)
 			_:
 				Dot.line(ci, p, q, Color(a, f * .6), r * .3 * f, true)
 
@@ -381,6 +444,25 @@ static func draw_spark(ci: CanvasItem, it: Dictionary, p: Vector2, k: float, s :
 				var dr := (5.0 - 2.0 * k) * s
 				Dot.circle(ci, cen, dr, Color(a if i % 2 == 0 else b, fade))
 				Dot.poly(ci, PackedVector2Array([cen + dir.orthogonal() * dr, cen - dir.orthogonal() * dr, cen - dir * dr * 2.6]), Color(a if i % 2 == 0 else b, fade))
+		"zap": # Little lightning bolts.
+			for i in 4:
+				var d := Vector2.from_angle(i * TAU / 4.0 + .8 + seed_)
+				var n := d.orthogonal()
+				var o := p + d * (8.0 + 40.0 * k) * s
+				var bolt := PackedVector2Array([o, o + d * 10.0 * s + n * 6.0 * s, o + d * 14.0 * s - n * 3.0 * s, o + d * 26.0 * s + n * 3.0 * s])
+				Dot.pline(ci, bolt, Color(a if i % 2 == 0 else b, fade), 4.0 * s, true)
+		"snowball": # A snowball splat with flying clumps.
+			Dot.circle(ci, p, (14.0 - 6.0 * k) * s, Color(a, fade))
+			for i in 7:
+				var dir := Vector2.from_angle(i * TAU / 7.0 + seed_)
+				Dot.circle(ci, p + dir * (10.0 + 40.0 * k) * s, (6.0 - 2.0 * k) * s, Color(a if i % 2 == 0 else b, fade))
+		"pearl": # Pearls bouncing out, each with a shine.
+			for i in 5:
+				var dir := Vector2.from_angle(i * TAU / 5.0 + seed_)
+				var cen := p + dir * (10.0 + 44.0 * k) * s
+				Dot.circle(ci, cen, 7.0 * s, Color(a, fade))
+				Dot.circle(ci, cen + Vector2(-2.5, -2.5) * s, 2.4 * s, Color(1, 1, 1, fade))
+				Dot.arc(ci, cen, 7.0 * s, 0.3, 2.0, 8, Color(b, fade), 1.5 * s, true)
 		_:
 			Dot.poly(ci, CritterArt.star_pts(p, (10.0 + 70.0 * k) * s, (5.0 + 30.0 * k) * s, 8), Color(a, fade))
 

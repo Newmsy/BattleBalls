@@ -167,7 +167,7 @@ func unequip(slot: String) -> void:
 ## Buys one cosmetic with gems or coins. Returns "" or why it failed.
 func buy_item(id: String) -> String:
 	var it := Catalog.item(id)
-	if it.is_empty() or it.where not in ["shop", "basic"]:
+	if it.is_empty() or it.where not in ["shop", "basic"] or not Catalog.released(it, _now(-1)):
 		return "That isn't for sale."
 	if owns(id):
 		return "You already own it."
@@ -189,7 +189,7 @@ func buy_item(id: String) -> String:
 ## price drops by their full price so nobody pays twice.
 func buy_bundle(id: String) -> String:
 	var b := Catalog.bundle(id)
-	if b.is_empty():
+	if b.is_empty() or not Catalog.released(b, _now(-1)):
 		return "That isn't for sale."
 	var cost := bundle_price(b)
 	if cost <= 0:
