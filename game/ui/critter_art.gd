@@ -55,13 +55,21 @@ static func draw_critter(ci: CanvasItem, id: String, c: Vector2, r: float, s: Di
 	var d := CritterDb.get_critter(id)
 	var st := {"t": 0.0, "tier": 1, "look": Vector2.RIGHT, "blink": 0.0, "hit": 0.0, "flash": 0.0, "stacks": 0, "hp_frac": 1.0, "pole_swap": 0.0}
 	st.merge(s, true)
-	st.art = d.art
+	var art: Dictionary = d.art
+	var col := Color(d.color)
+	# A skin (game/glow/catalog.gd, slot "skin") recolours the body and may
+	# swap art keys; render-only like every cosmetic.
+	var skin: Dictionary = s.get("skin", {})
+	if not skin.is_empty():
+		col = Color(str(skin.colors[0]))
+		if skin.has("art"):
+			art = art.duplicate()
+			art.merge(skin.art, true)
+	st.art = art
 	st.id = id
 	_sil = st.get("silhouette", false)
 	_grey = st.get("grey", false)
 	_hit_shape = PackedVector2Array()
-	var art: Dictionary = d.art
-	var col := Color(d.color)
 	r *= art.get("scale", 1.0)
 	if not _sil:
 		_aura(ci, d.rarity, c, r, st.t)

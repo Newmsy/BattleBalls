@@ -22,7 +22,7 @@ All dates are `YYYY-MM-DD`, UTC. Weeks start Monday 00:00 UTC.
 |---|---|---|
 | `version` | number | The format version. Bump it only if the format changes. |
 | `revision` | number | **Bump it on every edit.** A cached or downloaded schedule is only used if its revision is at least the bundled one, so an old cache never hides a newer build's plan. |
-| `seasons` | `{name, start, weeks, debut?}` | `start` is a Monday. Seven weeks per season (design/monetisation.md). Each season gets a fresh Glow Pass; `debut` (a roster id) is the critter whose 3 copies sit on the pass's free track. |
+| `seasons` | `{name, start, weeks, debut?, pass?}` | `start` is a Monday. Seven weeks per season (design/monetisation.md). Each season gets a fresh Glow Pass; `debut` (a roster id) is the critter whose 3 copies sit on the pass's free track; `pass` names the season's cosmetic set in `game/glow/seasons.gd` (without one, the Preseason's looks). |
 | `fights` | `{date, p1, p2, seed, angles?, title?}` | Optional showcase fights; `p1`/`p2` must be playable in the sim. Days without one get a close fight generated from the date. |
 | `brackets` | `{week, seed, name?, entrants?}` | Bracket of Legends (`game/legends.gd`, `sim/bracket.gd`). `week` is the Monday of the week its rounds come out; picks open the Monday before. `entrants` (2 to 64 playable ids) defaults to every playable critter in the build. A season with no entry gets one in its last week. |
 

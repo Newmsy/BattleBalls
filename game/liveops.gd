@@ -15,6 +15,7 @@ const MatchSim := preload("res://sim/match_sim.gd")
 const BallDefs := preload("res://sim/ball_defs.gd")
 const Rng := preload("res://sim/rng.gd")
 const Roster := preload("res://game/ui/roster.gd")
+const Seasons := preload("res://game/glow/seasons.gd")
 
 const BUNDLED := "res://liveops/liveops.json"
 const CACHE := "user://liveops.json"
@@ -111,6 +112,8 @@ static func validate(d: Dictionary) -> Array:
 			errors.append("season %s must start on a Monday" % s.name)
 		elif s.has("debut") and Roster.CRITTERS.all(func(c): return c.id != s.get("debut")):
 			errors.append("season debut critter unknown: %s" % [s.get("debut")])
+		elif s.has("pass") and not Seasons.has(str(s.get("pass"))):
+			errors.append("season pass set unknown: %s" % [s.get("pass")])
 	for f in d.get("fights", []):
 		if not f is Dictionary or date_unix(f.get("date")) < 0:
 			errors.append("fight needs a date: %s" % [f])
@@ -169,16 +172,25 @@ static func day_start(t: int) -> int:
 
 # --- What's on -------------------------------------------------------------------
 
-## { name, week, weeks, starts, ends, debut } for the season running at `t`,
-## or {}. `debut` is the season's debut critter id, or "".
+## { name, week, weeks, starts, ends, debut, pass } for the season running at
+## `t`, or {}. `debut` is the season's debut critter id, or ""; `pass` its
+## Glow Pass cosmetic set (game/glow/seasons.gd), or "" for the Preseason's.
 static func season(t: int) -> Dictionary:
 	for s in data().get("seasons", []):
 		var start := _monday(s.start)
 		var end := start + int(s.weeks) * WEEK
 		if t >= start and t < end:
 			return {"name": s.name, "week": (t - start) / WEEK + 1, "weeks": int(s.weeks), "starts": start, "ends": end,
-				"debut": str(s.get("debut", ""))}
+				"debut": str(s.get("debut", "")), "pass": str(s.get("pass", ""))}
 	return {}
+
+
+## Whether a season with Glow Pass set `pass_set` has started by `t`.
+static func pass_started(pass_set: String, t: int) -> bool:
+	for s in data().get("seasons", []):
+		if str(s.get("pass", "")) == pass_set and _monday(s.start) <= t:
+			return true
+	return false
 
 
 ## Today's Fight of the Day: { date, p1, p2, seed, angles, title, winner,
