@@ -373,6 +373,7 @@ static func _fill(def: Dictionary) -> String:
 		for key in def.get("add", {}):
 			var v = def.add[key]
 			t = t.replace("{+%s%%}" % key, _num(float(v) * 100.0)).replace("{+%s}" % key, str(v) if v is int else _num(v))
+			t = t.replace("{s:%s}" % key, "" if float(v) == 1.0 else "s") # "1 more beam", "2 more beams"
 		for key in def.get("mul", {}):
 			t = t.replace("{%%%s}" % key, _num(absf(def.mul[key] - 1.0) * 100.0))
 		return t
