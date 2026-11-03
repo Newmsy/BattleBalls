@@ -208,6 +208,38 @@ func test_boss_hall_and_boss_screens_build() -> void:
 	shell.free()
 
 
+func test_boss_wins_show_their_prizes_as_cards() -> void:
+	var RP = load("res://game/ui/result_popup.gd")
+	var Talents = load("res://sim/talents.gd")
+	var base := {"won": true, "xp": 10, "levels": 0, "account_levels": 0, "critters": []}
+	var cases := {
+		"nest": {"orbs": 4, "bonus": 0, "cracked": 0},
+		"pinata": {"broken": true, "frac": 1.0, "coins": 300, "gear": []},
+		"glitch": {"bundle": [{"kind": "orbs", "n": 3}, {"kind": "hammers", "n": 2}]},
+		"totem": {"sigils": 12, "family": Talents.faction_of("phoenix")},
+		"wyrm": {"lures": 2},
+		"vault": {"gear": [{"type": "shell", "tier": 3}], "hammers": 5, "refund": 0},
+	}
+	for k in cases:
+		var r: Dictionary = base.merged(cases[k])
+		var row = RP.boss_rewards(r)
+		check(row != null, k + ": a won fight shows prize cards")
+		if row != null:
+			var want: int = {"nest": 1, "pinata": 1, "glitch": 2, "totem": 1, "wyrm": 1, "vault": 2}[k]
+			check_eq(row.get_child_count(), want, k + ": one card per prize")
+			row.free()
+	var dyed = RP.boss_rewards(base.merged({"lures": 1, "dyes": [{"id": "dye_frost", "drops": 1, "need": 5, "unlocked": false}]}))
+	check_eq(dyed.get_child_count(), 2, "a dye drop gets its own card")
+	dyed.free()
+	check(RP.boss_rewards({"won": false, "xp": 5}) == null, "a loss has no prize cards")
+	var Shell = load("res://game/ui/shell.gd")
+	var shell = Shell.new()
+	shell.build()
+	shell.go("nest", {"notice": "Won", "caption": "Brood Queen", "xp": base.merged(cases.nest)})
+	check(shell.overlay_open(), "the boss result pops up with its cards")
+	shell.free()
+
+
 func test_totem_lights_todays_family_and_rings_out_orbs() -> void:
 	var Talents = load("res://sim/talents.gd")
 	var cfg := _cfg("phoenix", 9, "totem_of_nine")

@@ -441,6 +441,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 				var cell := Kit.vbox(4, [CritterIcon.make(id, 1, 96), _drop_name(c.name)])
 				cell.custom_minimum_size.x = 150
 				var card := Kit.panel(cell, Kit.box(Kit.PANEL2, Kit.LINE, 24, 2, 10))
+				ResultPopup.send_home(card, "", "critters", func(): return CritterIcon.face(id, 56)) # Flies to Critters on Continue.
 				drops.add_child(card)
 				drop_cards.append([card, Roster.RARITY_COLORS.get(c.rarity) if c.rarity in ["rare", "epic", "legendary"] else null])
 			if r.get("orbs", 0) > 0:
@@ -448,6 +449,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 					_drop_name("%d Summon Egg%s" % [r.orbs, "" if r.orbs == 1 else "s"])])
 				orb_cell.custom_minimum_size.x = 150
 				var orb_card := Kit.panel(orb_cell, Kit.box(Kit.PANEL2, Color("c77dff"), 24, 2, 10))
+				ResultPopup.send_home(orb_card, "orb")
 				drops.add_child(orb_card)
 				drop_cards.append([orb_card, null])
 			for g in r.get("gear", []):
@@ -456,6 +458,7 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 					Kit.hbox(0, [Glyph.make("stars", 18, col, g.tier)], BoxContainer.ALIGNMENT_CENTER), _drop_name(g.name)])
 				cell.custom_minimum_size.x = 150
 				var gear_card := Kit.panel(cell, Kit.box(Kit.PANEL2, Color(col, .6), 24, 2, 10))
+				ResultPopup.send_home(gear_card, "", "bag", func(): return GearArt.piece(g.type, g.tier, 48, col))
 				drops.add_child(gear_card)
 				drop_cards.append([gear_card, col if g.tier >= 3 else null])
 			for card in RiftScreen.extra_cards(r.get("keys", 0), r.get("dyes", [])):

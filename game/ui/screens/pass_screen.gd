@@ -4,9 +4,11 @@
 extends RefCounted
 
 const Kit := preload("res://game/ui/ui_kit.gd")
+const Idle := preload("res://game/ui/idle.gd")
 const GearArt := preload("res://game/ui/gear_art.gd")
 const A11y := preload("res://game/a11y.gd")
 const Glyph := preload("res://game/ui/glyph.gd")
+const Motion := preload("res://game/ui/motion.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
 const Seasons := preload("res://game/glow/seasons.gd")
@@ -52,6 +54,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	lvl.custom_minimum_size = Vector2(104, 112)
 	lvl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	lvl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shell.mark("pass_medal", lvl)
 	var bar_text := ("Bonus box: %d / %d XP" if level >= GlowPass.LEVELS else "%d / %d XP to level %d") % ([prog.x, prog.y] if level >= GlowPass.LEVELS else [prog.x, prog.y, level + 1])
 	var info := Kit.vbox(6, [Kit.label("%s · week %d of %d" % [season.name, season.week, season.weeks], 24, Seasons.accent(str(season.get("pass", "")), GLOW)),
 		Kit.bar(float(prog.x) / prog.y, GLOW, 22), Kit.label(bar_text, 22, Kit.MUTED),
@@ -114,10 +117,11 @@ static func build(shell, _params: Dictionary) -> Control:
 	chest_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var chest_row := Kit.hbox(12, [chest_text], BoxContainer.ALIGNMENT_CENTER)
 	if glow.chest_ready(t):
-		var open := Kit.button("Open", func(): glow.open_chest(t); shell.toast("+%s pass XP from the weekly chest!" % Kit.commas(GlowPass.CHEST_XP)); shell.refresh(), "go", 24, 70)
+		var open := Kit.button("Open", func(): _open_chest(shell, t), "go", 24, 70)
 		open.custom_minimum_size.x = 150
 		open.size_flags_horizontal = Control.SIZE_SHRINK_END
 		shell.mark("open_chest", open)
+		Idle.breathe(open, .05)
 		chest_row.add_child(open)
 	elif w.chest:
 		chest_row.add_child(Kit.chip("Opened", Kit.GOOD))
@@ -129,6 +133,7 @@ static func build(shell, _params: Dictionary) -> Control:
 	if n > 0:
 		var all := Kit.button("Claim all (%d)" % n, func(): _claim_all(shell, t), "go", 30, 92)
 		shell.mark("claim_all", all)
+		Idle.breathe(all, .03)
 		root.add_child(all)
 
 	# The levels.
@@ -253,6 +258,24 @@ static func fly_rewards(shell, got: Array, from: Control) -> void:
 
 
 static var _claiming := false
+
+## The weekly chest: its pass XP flies as sparkles from Open into the medal,
+## which hops as they land.
+static func _open_chest(shell, t: int) -> void:
+	var btn: Control = shell._marks.get("open_chest", shell)
+	var from := btn.get_global_rect().get_center()
+	shell.glow.open_chest(t)
+	shell.toast("+%s pass XP from the weekly chest!" % Kit.commas(GlowPass.CHEST_XP))
+	shell.refresh()
+	await shell.get_tree().process_frame # The rebuilt page is laid out by now.
+	var medal: Control = shell._marks.get("pass_medal")
+	if not is_instance_valid(medal) or Motion.calm():
+		return
+	Motion.fly(shell._fx, func(): return Glyph.make("sparkle", 40, GLOW), from, medal.get_global_rect().get_center(), 6, func(k: int) -> void:
+		Motion.bump(medal, 1.12, .2)
+		if k == 5:
+			Motion.flash(medal, Color(1.6, 1.5, 1.1), .5))
+
 
 ## Claim all: glide down to the first prize, claim everything (the cards flip
 ## in a ripple) and each prize flies up: coins, eggs and energy into their
