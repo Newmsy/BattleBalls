@@ -10,6 +10,7 @@
 ## game/glow/cosmetic_art.gd and never change a fight.
 extends RefCounted
 
+const CritterArt := preload("res://game/ui/critter_art.gd")
 const Catalog := preload("res://game/glow/catalog.gd")
 const Dyes := preload("res://game/glow/dyes.gd")
 const GlowPass := preload("res://game/glow/glow_pass.gd")
@@ -89,7 +90,18 @@ func g() -> Dictionary:
 		cur["pass"][track] = cur["pass"][track].map(func(v): return int(v))
 	save.data["glow"] = cur
 	_checked = cur
+	_sync_skins()
 	return cur
+
+
+## Tells the critter art which skins you wear, so every screen draws them.
+func _sync_skins() -> void:
+	var worn := {}
+	for key in g().equipped:
+		var it := Catalog.item(str(g().equipped[key]))
+		if str(key).begins_with("skin_") and it.get("slot") == Catalog.SKIN and owns(it.id):
+			worn[str(it.critter)] = it
+	CritterArt.worn_skins = worn
 
 
 ## JSON turns ints into floats, so numbers count as one type.
@@ -732,6 +744,7 @@ func _log(what: String, n: int, why: String) -> void:
 
 
 func _commit() -> void:
+	_sync_skins()
 	save.commit()
 	changed.emit()
 
