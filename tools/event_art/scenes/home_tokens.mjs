@@ -1,9 +1,10 @@
 // Home screen: painted round tokens for the door actions, in the Bounce Run map-node style
 // (shared _map_token frame): Spire, Bosses, Trick Shot, Bounce Run, Quests,
-// Ghost Arena, Friends and a lock, plus an empty gold frame that the game
+// Ghost Arena, Friends, Rifts and a lock, plus an empty gold frame that the game
 // fills with today's Fight of the Day faces.
 import { token, twinkle } from "./_map_token.mjs";
 import { critter, sparkle } from "./_banner_parts.mjs";
+import { tear, key } from "./_rift_parts.mjs";
 
 export const size = [160, 160];
 // A small icon, already drawn bigger than it shows: stays 1x (see render.mjs).
@@ -70,9 +71,15 @@ const friends = () => token(VIOLET, `
   ${critter(100, 92, 22, "#ff7ac8", { acc: "ears", mood: "cheer" })}
   <path d="M 80 56 q -8 -10 -14 -2 q -4 8 14 18 q 18 -10 14 -18 q -6 -8 -14 2 Z" fill="#ff6a8a" stroke="#7a1a3a" stroke-width="2"/>`, { face: "#5a4ac0" });
 
+// Rifts: the Glitch tear with the brass Rift Key in front of it.
+const rift = () => token(CYAN, `
+  ${tear(74, 78, 54, 96, 7, 0.9)}
+  ${key(100, 100, 0.78, -40)}
+  ${twinkle(112, 44, 6, "#fff", 0.9)}`, { face: "#6a2a9a" });
+
 export const many = {
   tok_spire: spire, tok_bosses: bosses, tok_trick: trick, tok_bounce: bounce, tok_quests: quests,
-  tok_ghost: ghost, tok_friends: friends, tok_lock: lock,
+  tok_ghost: ghost, tok_friends: friends, tok_rift: rift, tok_lock: lock,
   tok_frame_gold: () => token(GOLD, "", { face: "#c88a3e" }),
 };
 export default spire;

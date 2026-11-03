@@ -652,11 +652,12 @@ try {
     }
     await page.waitForTimeout(600);
     // Home's Fight opens the 3v3 Series during a new player's first fights,
-    // and goes straight into a fight after that (Arena Tokens pay for it).
+    // and the Arena hub after that (pick the Series there).
     const tapped = logs.length;
     await tapUi(page, logs, "arena");
-    for (let i = 0; i < 40 && !logs.slice(tapped).some((l) => l.startsWith("UI_SCREEN arena") || l.startsWith("ARENA_READY")); i++)
+    for (let i = 0; i < 40 && !logs.slice(tapped).some((l) => l.startsWith("UI_SCREEN arena") || l.startsWith("UI_SCREEN versus") || l.startsWith("ARENA_READY")); i++)
       await page.waitForTimeout(250);
+    if (logs.slice(tapped).some((l) => l.startsWith("UI_SCREEN versus"))) await tapUi(page, logs, "hub_series", "arena");
     if (!logs.slice(tapped).some((l) => l.startsWith("ARENA_READY"))) {
       await page.screenshot({ path: path.join(shots, "18-arena.png") });
       await tapUi(page, logs, "arena_card_0");

@@ -8,7 +8,7 @@ extends RefCounted
 const TOUR := [
 	["play", {}], ["critters", {}], ["detail", {"id": "vampire"}], ["dex", {}],
 	["dex_entry", {"id": "vampire"}], ["bag", {}], ["fuse", {}], ["summon", {}],
-	["week", {}], ["arena", {}], ["boosts", {}], ["bazaar", {}], ["defence", {}],
+	["arena", {}], ["boosts", {}], ["bazaar", {}], ["defence", {}],
 	["spire", {}], ["bracket", {}], ["friends", {}], ["account", {}], ["shop", {}],
 	["pass", {}], ["world", {}], ["campaign", {}], ["campaign", {"zone": 2}], ["campaign", {"zone": 3}], ["campaign", {"zone": 6}],
 	["bosses", {}], ["factions", {}], ["faction", {"id": "spooky"}], ["vault", {}],

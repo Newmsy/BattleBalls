@@ -1,4 +1,4 @@
-// Shared pieces for the Rift art (adventure_rift.mjs, rift_tear.mjs): a
+// Shared pieces for the Rift art (rift_tear.mjs, home_tokens.mjs tok_rift): a
 // Glitch tear hanging in the air (jagged, magenta and cyan split edges,
 // static and scanlines inside, a deep violet glow through it), the nine
 // family shards drifting round it, and the brass Rift Key with its glitch
