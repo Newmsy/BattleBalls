@@ -413,7 +413,7 @@ func _report(screen: String) -> void:
 	print("UI_SCREEN ", screen)
 	_marks["skip"] = _skip
 	for k in _marks:
-		var c: Control = _marks[k]
-		if is_instance_valid(c) and c.is_visible_in_tree():
-			var p := c.get_global_rect().get_center()
+		var c = _marks[k] # Untyped: a mark freed since can't go in a Control var.
+		if is_instance_valid(c) and c is Control and c.is_visible_in_tree():
+			var p: Vector2 = c.get_global_rect().get_center()
 			print("UI_AT %s %d %d" % [k, roundi(p.x), roundi(p.y)])
