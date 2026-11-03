@@ -22,6 +22,12 @@ const UpgradePopup := preload("res://game/ui/upgrade_popup.gd")
 const GearArt := preload("res://game/ui/gear_art.gd")
 const LivingArt := preload("res://game/bounce_run/living_art.gd")
 const A11y := preload("res://game/a11y.gd")
+const Catalog := preload("res://game/glow/catalog.gd")
+const Dyes := preload("res://game/glow/dyes.gd")
+const CosmeticIcon := preload("res://game/glow/cosmetic_icon.gd")
+const ArenaStore := preload("res://game/pvp/arena_store.gd")
+const PlungeTalents := preload("res://meta/plunge_talents.gd")
+const ShopScreen := preload("res://game/ui/screens/shop_screen.gd")
 
 static var section := "gear"
 ## What each section band says under its title.
@@ -33,7 +39,9 @@ const GEAR_INFO := ["3 of a kind → 1 with a star more (max 5). Costs Hammers."
 	"Get gear from the Anvil King, campaign wins, Spire boss floors and the Glow Pass free track."]
 
 
-static func build(shell, _params: Dictionary) -> Control:
+static func build(shell, params: Dictionary) -> Control:
+	if params.has("section"):
+		section = str(params.section)
 	var p = shell.profile
 	var root := Kit.vbox(22)
 	root.add_child(shell.title_row("Bag", {"back": false, "extra": [Kit.amount("hammer", p.hammers)],
@@ -62,15 +70,145 @@ static func build(shell, _params: Dictionary) -> Control:
 			root.add_child(Kit.label("No gear yet.", 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true))
 		_pin_merge_all(shell, p)
 	else:
-		var grid := _grid()
-		for it in p.items:
-			var v := Kit.vbox(6, [_center(_item_icon(it)), Kit.label(it.name, 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true), Kit.label("x%d" % it.count, 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
-			var card := Kit.card_button(v, func(): _item_sheet(shell, it), Kit.LINE, Kit.PANEL, 28, 14)
-			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			shell.mark("item_" + it.name.replace(" ", "_"), card)
-			grid.add_child(card)
-		root.add_child(grid)
+		_items_tab(shell, root)
 	return root
+
+
+## Items: everything the save tracks, one section each, every tile a 3-column
+## card that opens an info sheet. Consumables, then currencies, Arena and
+## Plunge spends, chests waiting, Spark Dyes and owned cosmetics.
+static func _items_tab(shell, root: VBoxContainer) -> void:
+	var p = shell.profile
+	var tiles := []
+	for it in p.items:
+		tiles.append(_item_tile(shell, it))
+	root.add_child(_section("Items", tiles))
+
+	var glow = shell.glow
+	var cur := [
+		_stat_tile(shell, "coin", Glyph.GOLD, "Coins", p.coins, "Spend in the Shop and on fusing, levels and talents."),
+		_stat_tile(shell, "gem", Color("5ce1ff"), "Glow Gems", glow.gems() if glow else 0, "Buy looks in the Shop and the Glow Pass.", "shop"),
+		_stat_tile(shell, "hammer", Color("c9d3e0"), "Hammers", p.hammers, "Merge three gear pieces into one with a star more. From the Anvil King."),
+		_stat_tile(shell, "spark", Color("b07cff"), "Ascension Sparks", p.sparks, "%d Sparks ascend a 5-star critter one level (up to 5). From weekly Arena chests, the daily Bounce Run chest, Spire boss floors and talent ranks past 30." % Profile.ASCEND_COST),
+		_stat_tile(shell, "target", Color("7af0ff"), "Lures", p.lures, "Buy a copy of a wishlisted critter. From the Prism Wyrm.", "wyrm"),
+	]
+	root.add_child(_section("Currencies", cur))
+
+	var store = ArenaStore.open()
+	root.add_child(_section("Arena", [
+		_stat_tile(shell, "points", Color("ffd23f"), "Arena Points", store.points, "Spend on Arena boosts for a family.", "boosts"),
+		_stat_tile(shell, "arena_coin", Color("ffb13d"), "Arena Coins", store.coins, "Spend in the Arena Bazaar.", "bazaar"),
+		_stat_tile(shell, "token", Color("5ce1ff"), "Arena Tokens", "%d/%d" % [store.tokens_now(), ArenaStore.TOKEN_MAX], "One Arena fight each. One comes back every hour, up to %d." % ArenaStore.TOKEN_MAX, "arena"),
+	]))
+
+	var medals: Dictionary = PlungeTalents.medals(p)
+	var med := []
+	for m in ["gold", "silver", "bronze"]:
+		med.append(_stat_tile(shell, "medal_" + m, Color.WHITE, "%s Medals" % m.capitalize(), int(medals.get(m, 0)), "Won in Critter Plunge races. Spend on Plunge talents.", "plunge"))
+	root.add_child(_section("Plunge Medals", med))
+
+	var chests := []
+	if store.any_chest_ready():
+		chests.append(_stat_tile(shell, "trophy", Color("ffd23f"), "Arena Chest", "Ready", "Last week's best league chest is waiting.", "arena_chests"))
+	var boxes: int = glow.boxes_ready() if glow else 0
+	if boxes > 0:
+		chests.append(_stat_tile(shell, "pass", Color("ff6fd0"), "Pass Bonus Box", boxes, "Glow Pass bonus boxes to open.", "pass"))
+	if not chests.is_empty():
+		root.add_child(_section("Chests waiting", chests))
+
+	var dyes := []
+	for d in Dyes.DYES:
+		dyes.append(_dye_tile(shell, d))
+	root.add_child(_section("Spark Dyes", dyes, "%d/%d" % [Dyes.unlocked_count(p), Dyes.DYES.size()]))
+
+	var looks := []
+	if glow:
+		for slot in Catalog.SLOTS + [Catalog.SKIN]:
+			for it in Catalog.items_in(slot):
+				if glow.owns(it.id):
+					looks.append(_look_tile(shell, it))
+	if looks.is_empty():
+		root.add_child(Kit.vbox(10, [Kit.caption("Cosmetics"), Kit.label("None yet. Find looks in the Shop and on the Glow Pass.", 22, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)]))
+	else:
+		root.add_child(_section("Cosmetics", looks, str(looks.size())))
+
+
+## A section: caption (with an optional count on the right) over a 3-column grid.
+static func _section(title: String, tiles: Array, count := "") -> Control:
+	var head := Kit.hbox(0, [Kit.caption(title)])
+	if count != "":
+		head.add_child(Kit.spacer())
+		head.add_child(Kit.label(count, 20, Kit.MUTED))
+	var grid := _grid()
+	for t in tiles:
+		grid.add_child(t)
+	return Kit.vbox(10, [head, grid])
+
+
+## The tile every Items card shares: an icon, the name and a count line.
+static func _tile(shell, icon: Control, name: String, line: String, mark: String, on_tap: Callable, dim := false) -> Control:
+	var title := Kit.label(name, 20, Kit.MUTED if dim else Kit.FG, HORIZONTAL_ALIGNMENT_CENTER, true)
+	title.custom_minimum_size.y = roundf(A11y.font(20) * 2.4) # Two lines, so tiles line up.
+	var v := Kit.vbox(4, [_center(icon), title, Kit.label(line, 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
+	var card := Kit.card_button(v, on_tap, Kit.LINE, Kit.PANEL, 24, 10)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.custom_minimum_size.x = 0
+	shell.mark(mark, card)
+	return card
+
+
+static func _item_tile(shell, it: Dictionary) -> Control:
+	return _tile(shell, _item_icon(it), it.name, "x%d" % it.count, "item_" + it.name.replace(" ", "_"), func(): _item_sheet(shell, it))
+
+
+## A currency or count: its glyph, name and amount; tap for what it's for
+## and, when it has one, a button to where it's spent.
+static func _stat_tile(shell, kind: String, col: Color, name: String, value, text: String, go_to := "") -> Control:
+	var amount: String = Kit.commas(value) if value is int else str(value)
+	var open := func(): _stat_sheet(shell, kind, col, name, amount, text, go_to)
+	return _tile(shell, _icon_box(Glyph.make(kind, 64, col), col), name, amount, "stat_" + name.to_lower().replace(" ", "_"), open)
+
+
+static func _stat_sheet(shell, kind: String, col: Color, name: String, amount: String, text: String, go_to: String) -> void:
+	var v := Kit.vbox(18, [Kit.hbox(18, [_icon_box(Glyph.make(kind, 80, col), col), Kit.label(name, 34, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)]),
+		Kit.amount(kind, amount, 30, Kit.FG, col),
+		Kit.label(text, 26, Kit.MUTED, HORIZONTAL_ALIGNMENT_LEFT, true)])
+	if go_to != "":
+		var b := Kit.button("Go", func(): shell.close_overlay(); shell.go(go_to), "primary", 28, 90)
+		shell.mark("stat_go", b)
+		v.add_child(b)
+	shell.sheet(v)
+
+
+static func _dye_tile(shell, d: Dictionary) -> Control:
+	var p = shell.profile
+	var have := Dyes.unlocked(p, d.id)
+	var col := Color(d.colors[0])
+	var icon := _icon_box(Glyph.make("dye", 64, col if have or Dyes.drops(p, d.id) > 0 else Color(col, .35)), col)
+	var line := "Unlocked" if have else "%d/%d" % [Dyes.drops(p, d.id), Dyes.need(d.id)]
+	return _tile(shell, icon, d.name, line, "dye_" + d.id, func(): ShopScreen.dyes_sheet(shell), not have)
+
+
+static func _look_tile(shell, it: Dictionary) -> Control:
+	var icon := CosmeticIcon.make(it.id, shell.profile.lineup, 80, shell.glow.dye_of(it.id))
+	return _tile(shell, icon, it.name, Catalog.SLOT_NAMES.get(it.slot, ""), "look_" + it.id, func(): _look_sheet(shell, it))
+
+
+static func _look_sheet(shell, it: Dictionary) -> void:
+	var worn: bool = shell.glow.equipped(Catalog.wear_key(it)) == it.id
+	var v := Kit.vbox(18, [_center(CosmeticIcon.make(it.id, shell.profile.lineup, 180, shell.glow.dye_of(it.id))),
+		Kit.label(it.name, 34, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+		Kit.label(Catalog.SLOT_NAMES.get(it.slot, "") + (" · Wearing" if worn else ""), 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER)])
+	var b := Kit.button("Wardrobe", func(): shell.close_overlay(); shell.go("shop"), "primary", 28, 90)
+	shell.mark("look_wardrobe", b)
+	v.add_child(b)
+	shell.sheet(v)
+
+
+static func _icon_box(g: Control, col: Color) -> Control:
+	var box := Kit.panel(g, Kit.box(Color(col, .15), Color(col, .5), 22, 2, 10))
+	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return box
 
 
 ## The rim and star colour of a gear tier: the rarity ladder, grey to gold.
@@ -413,10 +551,7 @@ static func _use_chip(shell, id: String) -> void:
 
 static func _item_icon(it: Dictionary) -> Control:
 	var kind: String = {"Energy Pack": "energy", "Summon Egg": "orb", Profile.RIFT_KEY: "key"}.get(it.name, "bolt")
-	var g := Glyph.make(kind, 80, it.color)
-	var box := Kit.panel(g, Kit.box(Color(it.color, .15), Color(it.color, .5), 24, 2, 12))
-	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	return box
+	return _icon_box(Glyph.make(kind, 64, it.color), it.color)
 
 
 static func _grid(gap := 14) -> GridContainer:
