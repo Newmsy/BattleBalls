@@ -672,15 +672,18 @@ try {
     }
     await page.waitForTimeout(600);
     // Home's Fight opens the 3v3 Series during a new player's first fights,
-    // and goes straight into a fight after that (Arena Tokens pay for it).
+    // and the Arena hub (pick a mode) after that.
     const tapped = logs.length;
     await tapUi(page, logs, "arena");
-    for (let i = 0; i < 40 && !logs.slice(tapped).some((l) => l.startsWith("UI_SCREEN arena") || l.startsWith("ARENA_READY")); i++)
-      await page.waitForTimeout(250);
-    if (!logs.slice(tapped).some((l) => l.startsWith("ARENA_READY"))) {
-      await page.screenshot({ path: path.join(shots, "18-arena.png") });
-      await tapUi(page, logs, "arena_card_0");
+    const seen = () => logs.slice(tapped).find((l) => l.startsWith("UI_SCREEN arena") || l.startsWith("UI_SCREEN versus"));
+    for (let i = 0; i < 40 && !seen(); i++) await page.waitForTimeout(250);
+    if (seen()?.startsWith("UI_SCREEN versus")) {
+      await page.waitForTimeout(600);
+      await tapUi(page, logs, "hub_series", "arena");
     }
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(shots, "18-arena.png") });
+    await tapUi(page, logs, "arena_card_0");
     console.log("ghost arena:", await waitForLog(logs, "ARENA_READY", 10000));
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "19-arena-intro.png") });
