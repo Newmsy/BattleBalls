@@ -561,34 +561,14 @@ try {
     await page.close();
   }
 
-  // 8. Daily board on a Saturday: open it from the Play tab, call
-  // the Fight of the Day, watch it to the end and come back to the board.
-  if (mine(22)) {
-    const { page, logs } = await openGame("?today=2026-10-17&speed=4");
-    await waitForLog(logs, "BOOT_OK", 60000);
-    await waitForLog(logs, "UI_SCREEN play", 10000);
-    await page.waitForTimeout(800);
-    await tapUi(page, logs, "thisweek", "week");
-    await page.screenshot({ path: path.join(shots, "14-this-week.png") });
-    await tapUi(page, logs, "fotd_pick0");
-    console.log("fight of the day:", await waitForLog(logs, "FIGHT_START", 5000));
-    console.log("fight of the day end:", await waitForLog(logs, "MATCH_END", 90000));
-    await page.waitForTimeout(800);
-    await page.screenshot({ path: path.join(shots, "15-fotd-result.png") });
-    await page.close();
-  }
-
-  // 9. Quests: the board's wide painted Quests door opens the Quests screen,
-  // and the free swap rolls a different quest.
+  // 9. Quests: Home's Quests spot opens the Quests screen.
   if (mine(21)) {
     const { page, logs } = await openGame("?today=2026-10-15");
     await waitForLog(logs, "BOOT_OK", 60000);
     await waitForLog(logs, "UI_SCREEN play", 10000);
     await page.waitForTimeout(800);
-    await tapUi(page, logs, "thisweek", "week");
-    await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "16-quests-door.png") });
-    await tapUi(page, logs, "week_quests", "quests");
+    await tapUi(page, logs, "daily_quests", "quests");
     await page.waitForTimeout(600);
     await page.screenshot({ path: path.join(shots, "16b-quests.png") });
     await page.close();

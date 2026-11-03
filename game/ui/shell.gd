@@ -39,7 +39,6 @@ const SCREENS := {
 	"bazaar": preload("res://game/ui/screens/bazaar_screen.gd"),
 	"defence": preload("res://game/ui/screens/defence_screen.gd"),
 	"arena_chests": preload("res://game/ui/screens/arena_chests_screen.gd"),
-	"week": preload("res://game/ui/screens/week_screen.gd"),
 	"adventure": preload("res://game/ui/screens/adventure_screen.gd"),
 	"versus": preload("res://game/ui/screens/versus_screen.gd"),
 	"plunge": preload("res://game/ui/screens/plunge_screen.gd"),
@@ -66,14 +65,14 @@ const SCREENS := {
 const TABS := [["critters", "Critters"], ["bag", "Bag"], ["play", "Play"], ["fuse", "Fuse"], ["summon", "Summon"]]
 const TAB_IDS := ["critters", "bag", "play", "fuse", "summon"]
 ## Screens that hold a list which keeps growing (collection, Critterpedia, gear, the shop,
-## the pass track, friends, the stage map, the Spire's critter picker, the
-## week's events and the bracket). Every other screen must fit a
+## the pass track, friends, the stage map, the Spire's critter picker and
+## the bracket). Every other screen must fit a
 ## 720x1280 phone without scrolling: put detail behind an "i" (info()) and
 ## the main action in pin(). See design/ui.md, "No scrolling".
 ## Play fits one screen (its doors); it scrolls only with Larger text.
 ## Growing lists read top-down, so they never get centred (see _show).
 const TOP_ALIGNED := ["critters", "dex", "bag", "shop", "pass", "campaign", "bracket", "world"]
-const SCROLLS := ["play", "week", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
+const SCROLLS := ["play", "critters", "dex", "bag", "shop", "pass", "friends", "campaign", "spire", "bracket", "boosts"]
 const TOP_PAD := 28.0
 const TAB_HEIGHT := 128.0
 ## Tablets and desktop: the top bar and tab buttons stay this wide in the middle
@@ -85,9 +84,9 @@ const TOAST_FACE := 52.0
 
 ## Emitted when the player starts a quick fight from the Play tab.
 signal play_requested
-## Emitted to watch a fight in the arena, e.g. the Fight of the Day. `fight`
+## Emitted to watch a fight in the arena, e.g. a Bracket of Legends game. `fight`
 ## has p1, p2, seed, angles and pick (the side the player called, or -1), and
-## optionally board_title, return_to (the screen to come back to, default "week")
+## optionally board_title, return_to (the screen to come back to, default "bracket")
 ## and return_params.
 signal watch_requested(fight: Dictionary)
 ## A friend's Rematch button: fight their saved team (unranked).

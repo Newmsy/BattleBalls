@@ -61,6 +61,12 @@ const LAYERS := {
 		["_Lbees1", Rect2(153, 109, 470, 196), Vector4(1, 6, 1.4, 0), Vector2(388, 296), true, -1],
 		["_Lbees2", Rect2(205, 88, 378, 220), Vector4(1, 6, 1.3, 0.5), Vector2(394, 302), true, -1],
 	],
+	"bosses_hall": [
+		["_Lglitch", Rect2(57, 195, 186, 186), Vector4(1, 5, 0.6, 0.2), Vector2(150, 343), false, -1],
+		["_Lqueen", Rect2(119, 309, 206, 206), Vector4(1, 4, 0.8, 0.5), Vector2(215, 474), false, -1],
+		["_Lpinata", Rect2(405, 0, 200, 486), Vector4(2, 5, 0.45, 0), Vector2(505, 0), false, -1],
+		["_Lking", Rect2(215, 245, 290, 275), Vector4(4, 3, 0.5, 0), Vector2(362, 492), false, -1],
+	],
 	"candy_fountain": [
 		["_Lfizz", Rect2(238, 0, 239, 284), Vector4(3, 0.04, 0.9, 0), Vector2(360, 208), false, -1],
 		["_Lcritter", Rect2(472, 244, 100, 100), Vector4(1, 5, 0.7, 0.3), Vector2(522, 333), true, -1],
@@ -284,6 +290,7 @@ const SIZES := {
 	"banner_tier_up": Vector2(720, 440),
 	"banner_victory": Vector2(720, 440),
 	"beehive": Vector2(720, 440),
+	"bosses_hall": Vector2(720, 520),
 	"candy_fountain": Vector2(720, 440),
 	"charge_pad": Vector2(720, 440),
 	"ember_forge": Vector2(720, 440),

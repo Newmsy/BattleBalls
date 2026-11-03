@@ -35,7 +35,7 @@ const MIRRORED := [
 	"user://spire.json", # meta/spire_climb.gd
 	"user://bounce_run.cfg", # game/bounce_run.gd
 	"user://trick_shot.cfg", # game/trick_shot.gd
-	"user://this_week.cfg", # game/ui/screens/week_screen.gd (Fight of the Day)
+	"user://this_week.cfg", # old Fight of the Day picks (removed 2026-11-03)
 	"user://legends.cfg", # game/legends.gd
 	"user://onboarding.cfg", # game/onboarding.gd
 ]

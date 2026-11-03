@@ -412,6 +412,9 @@ func quests(t := -1) -> Dictionary:
 			d.list = Quests.roll_day(_day(t), ctx)
 		if (w.list as Array).is_empty():
 			w.list = Quests.roll_week(_week(t), ctx)
+		var daily_changed := Quests.refresh_retired(d.list, false, _day(t), ctx)
+		if Quests.refresh_retired(w.list, true, _week(t), ctx) or daily_changed:
+			_commit()
 	settle()
 	var out := {"daily": _views(d), "weekly": _views(w), "swap": not d.swapped,
 		"day_ends": LiveOps.day_start(_now(t)) + LiveOps.DAY, "week_ends": LiveOps.week_start(_now(t)) + LiveOps.WEEK}

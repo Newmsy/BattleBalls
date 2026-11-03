@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b8xyl354h8osw"
-path="res://.godot/imported/daily_fotd.png-f9a177e8271ece9adbeea42ae0544df8.ctex"
+uid="uid://d2d3418ty5lac"
+path="res://.godot/imported/bosses_hall_Lking.png-6d7b85d0e696413a06442897a8b1856f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://game/ui/home_art/daily_fotd.png"
-dest_files=["res://.godot/imported/daily_fotd.png-f9a177e8271ece9adbeea42ae0544df8.ctex"]
+source_file="res://game/ui/home_art/bosses_hall_Lking.png"
+dest_files=["res://.godot/imported/bosses_hall_Lking.png-6d7b85d0e696413a06442897a8b1856f.ctex"]
 
 [params]
 

@@ -69,16 +69,15 @@ func test_fight_of_the_day_replays_exactly() -> void:
 	_reset()
 
 
-func test_board_builds_and_starts_the_fight() -> void:
+func test_home_strip_builds_and_board_fights_start() -> void:
 	_reset()
 	var shell = Shell.new()
 	shell.build()
-	for date in ["2026-10-14", "2026-10-17"]:
+	for date in ["2026-10-14", "2026-10-17", "2026-12-20"]:
 		LiveOps.now_override = _at(date)
-		shell.go("week")
-		check_eq(shell.current, "week", "board on " + date)
-		check(shell._marks.has("week_quests"), "Quests door on the board")
-		check(not shell._marks.has("week_chaos") and not shell._marks.has("try_shot"), "no Chaos or Try-a-Critter cards")
+		shell.show_tab("play")
+		check(shell._marks.has("daily_quests"), "Quests on Home on " + date)
+		check(not shell._marks.has("daily_fotd"), "no Fight of the Day call on " + date)
 	var got := []
 	shell.watch_requested.connect(func(f): got.append(f))
 	var f := LiveOps.fight_of_the_day(LiveOps.now())

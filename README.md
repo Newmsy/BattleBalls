@@ -12,7 +12,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `meta/` | Progression outside a fight: the player profile (collection, fusion, energy, account level, campaign stars), campaign zones, drops. Pure logic, clock passed in. Saved in the SaveGame as `data.profile`. |
 | `sim/critters/` | One file per critter: everything about it (see Adding a critter). |
 | `game/` | The playable scene: menu, aim, fight rendering, result. Reads the sim and meta; never changes their rules. |
-| `liveops/` | The live-ops schedule (`liveops.json`): seasons, Fight of the Day, Bracket of Legends. See its README. |
+| `liveops/` | The live-ops schedule (`liveops.json`): seasons, Bracket of Legends (and the old Fight of the Day generator, no longer shown). See its README. |
 | `game/online/` | Offline-first online layer: Supabase guest accounts, local + cloud save, Ghost Arena lineups. |
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |
@@ -231,7 +231,7 @@ of 6 starting boons and a relic, then climb a 25-floor branching map (fights,
 elites, events, shops, Charge Pads, a chest) to the Champion. A loss knocks
 that critter out; lose all three and the run ends. Every run is a fresh map;
 the day's best floor goes on the leaderboard and opens a chest the next day
-(`meta/bounce_chest.gd`, a chest every 5 floors). Open it from the Daily board
+(`meta/bounce_chest.gd`, a chest every 5 floors). Open it from the Bounce Run door on Home
 or with `?mode=bouncerun`.
 
 Both sides fight at `BounceRun.tier_at` (a tier every 5 floors) with the stats

@@ -187,15 +187,27 @@ func test_progress_without_a_profile_waits_for_the_roll() -> void:
 	_done()
 
 
-func test_the_quests_screen_opens_from_the_daily_board() -> void:
+func test_the_quests_screen_opens_from_home() -> void:
 	var shell = Shell.new()
 	shell.glow = _fresh(shell.profile)
 	shell.build()
 	shell.show_tab("play")
-	shell.go("week")
-	check(shell._marks.has("week_quests"), "the Quests door")
-	shell._marks.week_quests.pressed.emit()
+	check(shell._marks.has("daily_quests"), "the Quests spot on Home")
+	check(not "week" in Shell.SCREENS and not shell._marks.has("thisweek"), "no Daily board")
+	shell._marks.daily_quests.pressed.emit()
 	check_eq(shell.current, "quests", "opens the Quests screen")
 	check(shell._marks.has("quest_swap_" + str(shell.glow.quests().daily[0].id)), "a swap button")
 	shell.free()
 	_done()
+
+
+func test_retired_quests_are_swapped_out() -> void:
+	var old := {"id": "w_fotd5", "kind": "fotd", "goal": 5, "slot": "habit", "rewards": [{"kind": "coins", "n": 1}], "text": "Call 5 Fights of the Day"}
+	var list := [old]
+	check(Quests.refresh_retired(list, true, 100, {}), "a Fight of the Day quest is replaced")
+	check(str(list[0].kind) != "fotd" and list[0].slot == "habit", "by another habit quest")
+	check_eq(list[0].rewards, old.rewards, "with the same rewards")
+	check(not Quests.refresh_retired(list, true, 100, {}), "nothing left to replace")
+	for pool in Quests.DAILY.values() + Quests.WEEKLY.values():
+		for q in pool:
+			check(not str(q.kind) in Quests.RETIRED, "%s isn't retired" % q.id)

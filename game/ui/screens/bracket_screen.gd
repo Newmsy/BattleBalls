@@ -361,35 +361,3 @@ static func _date(t: int) -> String:
 	var d := Time.get_date_dict_from_unix_time(t)
 	var months := ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 	return "%s %d %s" % [WEEKDAYS[LiveOps._weekday(t)], d.day, months[d.month - 1]]
-
-
-## The bracket card on the Daily board, built with WeekScreen.tile.
-static func board_card(shell, t: int, tile: Callable) -> Control:
-	var ev := Legends.current(t)
-	if ev.is_empty():
-		return null
-	var b := Legends.bracket(ev)
-	var phase := Legends.phase(ev, t)
-	var pick := Legends.pick_of(ev)
-	var text := ""
-	var button := "Open"
-	match phase:
-		"picks":
-			text = "Picks lock in %s." % LiveOps.countdown(t, Legends.locks(ev))
-			button = "Change pick" if pick != "" else "Pick"
-		"live":
-			text = "%s out today." % b.round_name(Legends.rounds_out(ev, t) - 1)
-			button = "Watch"
-		"done":
-			var known := Legends.champion_known(ev, t) and b.has_match(b.rounds - 1, 0)
-			text = "Champion: %s." % _name(b.champion()) if known else "The final is out."
-			button = "See the final" if not known else button
-	if pick != "" and phase != "done":
-		text += " Yours: %s." % _name(pick)
-	var go := Kit.button(button, func(): shell.go("bracket"), "primary", 22, 64)
-	shell.mark("week_bracket", go)
-	var words := Kit.label(text, 20, Kit.FG, HORIZONTAL_ALIGNMENT_LEFT, true)
-	words.max_lines_visible = 2
-	words.custom_minimum_size.x = 200
-	return tile.call("Bracket", GOLD, Color("7a5a12"), Color("1f1806"), [words], go,
-		Kit.chip({"picks": "Picks", "live": "Live", "done": "Final"}[phase], GOLD, 16), "daily_bracket")
