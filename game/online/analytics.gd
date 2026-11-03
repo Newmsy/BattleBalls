@@ -200,10 +200,10 @@ func _forget() -> void:
 ## browsers (the smoke test) are marked as test traffic.
 func apply_privacy_signals(params: Dictionary) -> void:
 	if OS.has_feature("web"):
-		if JavaScriptBridge.eval("navigator.webdriver === true", true) == true:
+		if str(JavaScriptBridge.eval("String(navigator.webdriver === true)", true)) == "true":
 			is_test = true
 		if not FileAccess.file_exists(_state_path) and \
-				JavaScriptBridge.eval("navigator.globalPrivacyControl === true || navigator.doNotTrack === '1'", true) == true:
+				str(JavaScriptBridge.eval("String(navigator.globalPrivacyControl === true || navigator.doNotTrack === '1')", true)) == "true":
 			opt_out = true
 			save_state()
 	match str(params.get("analytics", "")):

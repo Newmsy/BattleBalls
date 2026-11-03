@@ -48,21 +48,30 @@ static func build(shell, params: Dictionary) -> Control:
 		stats.add_child(Kit.vbox(0, [Kit.label(st[0], 19, Kit.MUTED), Kit.label(st[1], 28)]))
 	var side := Kit.vbox(8, [Glyph.tier_stars(30, b.tier, p.ascend_level(c.id) if is_best else 0, Roster.MAX_TIER), Kit.label("%s · %s" % [c.type, c.role], 22, Kit.MUTED),
 		Kit.power(power, 36), stats])
+	var tall: bool = shell.size.y >= 1400.0
+	# The talents and Ascension chips share one row (wrapping if they must),
+	# so a 16:9 phone's page still fits without scrolling.
+	var chip_row := HFlowContainer.new()
+	chip_row.add_theme_constant_override("h_separation", 8)
+	chip_row.add_theme_constant_override("v_separation", 6)
 	var faction := Talents.faction_of(c.id)
 	if faction != "":
 		# Its faction's talent tree, one tap away.
 		var fchip := Kit.card_button(Kit.chip(Talents.NAMES[faction] + " talents", Talents.COLORS[faction]), func(): shell.go("faction", {"id": faction}), Color(0, 0, 0, 0), Color(0, 0, 0, 0), 999, 0)
 		fchip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		shell.mark("detail_faction", fchip)
-		side.add_child(fchip)
+		chip_row.add_child(fchip)
 	# Below 5 stars Ascension is a small chip; at 5 stars it's the big
 	# pinned Ascend button (_ascend_button).
 	var can_ascend: bool = is_best and Boons.for_critter(c.id) != ""
 	if can_ascend and b.tier < Roster.MAX_TIER:
-		side.add_child(_ascension_chip(shell, c, b))
+		chip_row.add_child(_ascension_chip(shell, c, b))
+	if chip_row.get_child_count() > 0:
+		side.add_child(chip_row)
+	else:
+		chip_row.free()
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.alignment = BoxContainer.ALIGNMENT_CENTER
-	var tall: bool = shell.size.y >= 1400.0
 	var hero := CritterIcon.make(c.id, b.tier, 220, true)
 	shell.hero = hero # A tapped card's face grows into it (shell.go_from).
 	var hero_row := Kit.hbox(16, [hero, side], BoxContainer.ALIGNMENT_CENTER)
