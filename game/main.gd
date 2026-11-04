@@ -233,6 +233,9 @@ var _board := {}
 var aim_back_button: Button
 var tutorial_tags: Array = [] ## HUD names during onboarding fights.
 var tutorial_side := 0 ## The ball the player is rooting for, for the result jingle.
+## Who takes a tutorial double KO: 0 (you) in the tutorial fights, -1 (a
+## draw) in the cold open you only watch.
+var tutorial_tie_to := 0
 var url_params := {}
 ## Live fights: the server connection while finding a foe or in a match, the
 ## server's "matched" message (plus "go" once both have aimed), and the sim
@@ -512,6 +515,8 @@ func _config() -> Dictionary:
 	var cfg := {"seed": seed_value, "p1": player_type, "p2": opponent_type, "angles": [aim, foe_aim], "arena": _pick_arena()}
 	if mode in [Mode.CHALLENGE, Mode.RIVAL, Mode.TUTORIAL]:
 		cfg.tie_to = 0 # A double KO is your win; only Quick fight keeps it a double KO.
+	if mode == Mode.TUTORIAL:
+		cfg.tie_to = tutorial_tie_to
 	var t := _fight_tiers()
 	if mode == Mode.NORMAL and quick_tier > 0:
 		# One-tap Quick fight (and the stand-in for a live foe): your fighter as
@@ -779,7 +784,7 @@ func _show_result() -> void:
 	if mode == Mode.TUTORIAL:
 		print("MATCH_END winner=%d reason=%s ticks=%d hash=%s" % [sim.winner, sim.end_reason, sim.tick, sim.state_hash()])
 		_show_only(null)
-		sfx.on_result(0 if sim.winner == tutorial_side else 1)
+		sfx.on_result(0 if sim.winner in [tutorial_side, -1] else 1)
 		tutorial_fight_ended.emit(sim.winner)
 		return
 	var you := sim.balls[you_side]
@@ -2484,6 +2489,7 @@ func tutorial_watch(p1: String, p2: String, fight_seed: int, tags: Array, hud_na
 	foe_aim = null
 	tutorial_tags = hud_names
 	tutorial_side = side
+	tutorial_tie_to = -1
 	_start_fight()
 	arena.team_tags = tags
 
@@ -2497,6 +2503,7 @@ func tutorial_aim(p1: String, p2: String, fight_seed: int, foe_angle: int, ghost
 	foe_aim = foe_angle
 	tutorial_tags = ["You", BallDefs.get_def(p2).display_name]
 	tutorial_side = 0
+	tutorial_tie_to = 0
 	state = State.AIM
 	aim = ghost_angle
 	arena.clear_effects()

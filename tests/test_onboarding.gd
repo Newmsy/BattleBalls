@@ -42,8 +42,9 @@ func test_tutorial_fights_are_short_at_any_aim() -> void:
 
 func test_cold_open_is_a_close_fight() -> void:
 	var c: Dictionary = Onboarding.COLD_OPEN
-	var s := MatchSim.new({"seed": c.seed, "p1": c.p1, "p2": c.p2, "arena": c.arena}).run_to_end()
-	check_eq(s.winner, 0, "Count Nibbles wins the cold open at the death")
+	var s := MatchSim.new({"seed": c.seed, "p1": c.p1, "p2": c.p2, "arena": c.arena, "tie_to": -1}).run_to_end()
+	check_eq(s.winner, -1, "the cold open ends in a tie")
+	check_eq(s.reason, "double_knockout", "both balls fall on the same hit")
 	check(s.time > 12.0 and s.time < 35.0, "cold open lasts %.1fs" % s.time)
 
 
