@@ -264,18 +264,21 @@ static func _door_line(text: String, color := Kit.MUTED, size := 19) -> Label:
 
 
 ## Campaign: the current zone's painting, its next stage and Continue. A tap
-## anywhere on the door does what Continue does (the world map).
+## anywhere on the door does what Continue does: the zone's stage list, with
+## the world map one Back away.
 static func _campaign_door(shell) -> Control:
 	var c := campaign_state(shell.profile)
-	var go := _door_button("Continue", "go", func(): shell.go("world"))
+	var to_stages := func():
+		shell.go("world")
+		shell.go("campaign", {"zone": c.z})
+	var go := _door_button("Continue", "go", to_stages)
 	shell.mark("campaign", go)
 	var stars := Kit.hbox(6, [Glyph.make("crown", _s(20), Kit.FG, 1), _door_line("%d/%d" % [c.stars, c.max_stars], Kit.MUTED, 17)])
 	var lines: Array = [_door_line(c.zone.name, Kit.FG, 21), _door_line(c.next_line), stars]
 	# The whole door goes where Continue does: Spire, Bosses and Rifts are on
 	# the strip under the doors.
 	return mode_door(shell, "adventure", "CAMPAIGN", lines, ADVENTURE,
-		_door_art("home_zone_" + c.zone.id, Vector2(.64, .7)), go,
-		func(): shell.go("world"))
+		_door_art("home_zone_" + c.zone.id, Vector2(.64, .7)), go, to_stages)
 
 
 ## Arena: the mode last played, its league and trophies, the Arena Tokens
@@ -363,6 +366,8 @@ static func _more_strip(shell) -> Control:
 	var side := _s(56)
 	var climb = SpireClimb.load_file(t)
 	var spire := door_spot(shell, "spire", token("spire", side), "Spire", "%d/%d" % [climb.cleared, Spire.FLOORS], DAILY, func(): shell.go("spire"))
+	if Intro.done(shell.profile) and not Intro.side_open(shell.profile, "spire"):
+		spire = _side_locked(shell, "spire", side)
 	var bosses: Control
 	if BossesScreen.any_open(shell.profile):
 		var left := BossesScreen.runs_left_total(shell.profile, int(Time.get_unix_time_from_system()))
@@ -370,11 +375,13 @@ static func _more_strip(shell) -> Control:
 	else:
 		bosses = door_spot(shell, "locked_dailies", token("lock", side), "Bosses", "Opens 1-5", Kit.MUTED, _bosses_locked_info(shell))
 		bosses.modulate = Color(1, 1, 1, .6)
+	var trick_spot := door_spot(shell, "trickshot", token("trick", side), "Trick Shot", trick_line, DAILY,
+			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.solved and trick.tries == 0)
+	if Intro.done(shell.profile) and not Intro.side_open(shell.profile, "trickshot"):
+		trick_spot = _side_locked(shell, "trickshot", side)
 	var row := Kit.hbox(2, [
 		door_spot(shell, "daily_quests", token("quests", side), "Quests", _quest_line(shell), DAILY, func(): shell.go("quests"), shell.glow.quests_ready() > 0),
-		door_spot(shell, "trickshot", token("trick", side), "Trick Shot", trick_line, DAILY,
-			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.solved and trick.tries == 0),
-		spire, bosses, _rift_spot(shell, side),
+		trick_spot, spire, bosses, _rift_spot(shell, side),
 	])
 	var bracket := _bracket_spot(shell, t, side)
 	if bracket != null:
@@ -383,6 +390,17 @@ static func _more_strip(shell) -> Control:
 	st.content_margin_left = 6
 	st.content_margin_right = 6
 	return Kit.panel(Kit.vbox(4, [_padded(header, 0, 0), row]), st)
+## A strip spot a paced new player hasn't opened yet: a dim lock and the
+## stage that opens it (Intro.SIDE_STAGE).
+static func _side_locked(shell, key: String, side: int) -> Control:
+	var n: int = int(Intro.SIDE_STAGE[key]) + 1
+	var name: String = {"trickshot": "Trick Shot", "spire": "Spire"}[key]
+	var locked := door_spot(shell, "locked_" + key, token("lock", side), name, "Opens 1-%d" % n, Kit.MUTED,
+		func(): shell.toast("Win stage 1-%d to open %s." % [n, name]))
+	locked.modulate = Color(1, 1, 1, .6)
+	return locked
+
+
 ## Rifts on the strip: the keys you hold (red dot while one can be spent), the
 ## round of a run you have open, or (dimmed) the stage that opens them.
 static func _rift_spot(shell, side: int) -> Control:

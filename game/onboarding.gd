@@ -13,6 +13,7 @@ const BallDefs := preload("res://sim/ball_defs.gd")
 const Analytics := preload("res://game/online/analytics.gd")
 const Story := preload("res://meta/story.gd")
 const StoryCards := preload("res://game/ui/story_cards.gd")
+const Zones := preload("res://meta/zones.gd")
 
 const SAVE_PATH := "user://onboarding.cfg"
 const STARTERS := ["vampire", "laser"]
@@ -276,7 +277,20 @@ func _on_profile_changed() -> void:
 	if is_instance_valid(_shell):
 		_shell.set_guide({"target": "", "text": ""})
 	_coach_say("Tier 2! A stronger ability and more power.")
-	get_tree().create_timer(2.2).timeout.connect(_chapter_one)
+	_after_fused_popup()
+
+
+## Chapter 1 waits for the "Fused!" popup: it opens about a second after the
+## fuse, and the story starts once Continue closes it (or after 4 s if it
+## never opens).
+func _after_fused_popup() -> void:
+	var t0 := Time.get_ticks_msec()
+	while is_instance_valid(_shell) and not _shell.overlay_open() and Time.get_ticks_msec() - t0 < 4000:
+		await get_tree().process_frame
+	while is_instance_valid(_shell) and _shell.overlay_open():
+		await get_tree().process_frame
+	await get_tree().create_timer(.4).timeout
+	_chapter_one()
 
 
 ## Chapter 1's story, then the boss it leaves behind. The campaign won't
@@ -286,6 +300,15 @@ func _chapter_one() -> void:
 	_coach.visible = false
 	profile.story.append("glow_garden")
 	_play_story(Story.chapter(0), _boss_teaser)
+
+
+## Zone 1's boss stage, counted from 1 (the teaser names it).
+static func boss_stage() -> int:
+	var stages: Array = Zones.zone(0).stages
+	for i in stages.size():
+		if Zones.is_boss(stages[i]):
+			return i + 1
+	return stages.size()
 
 
 func _boss_teaser() -> void:
@@ -298,7 +321,7 @@ func _boss_teaser() -> void:
 		Kit.caption("Zone 1 · Glow Garden", Color("9be89a")),
 		_centered(boss),
 		Kit.label("MEGA BOULDER", 48, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
-		Kit.label("waits at stage 10.", 25, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
+		Kit.label("waits at stage 1-%d." % boss_stage(), 25, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
 		Kit.label("Your T2 %s is ready." % Roster.get_critter(starter).name, 26, Kit.GOOD, HORIZONTAL_ALIGNMENT_CENTER, true),
 		go,
 	]), "full", "onboard_boss")

@@ -103,7 +103,7 @@ func test_bounce_run_and_plunge_open_with_later_stages_for_a_new_player() -> voi
 	check(not Intro.mode_open(p, "bouncerun") and not Intro.mode_open(p, "plunge"), "both wait after the guided fights")
 	var r := {"won": true, "first_clear": true}
 	Intro.after_stage(p, 0, 5, r)
-	check(not r.has("intro"), "1-6 opens neither")
+	check(r.get("intro") not in [Intro.BOUNCE_RUN, Intro.PLUNGE], "1-6 opens neither")
 	r = {"won": true, "first_clear": true}
 	p.stars["1-7"] = 1
 	Intro.after_stage(p, 0, 6, r)
@@ -168,3 +168,66 @@ func test_the_hint_names_the_button_on_screen() -> void:
 	check_eq(Intro.target(p, "bag", {}), "gear_%d" % fresh.uid, "the newest piece is the one to tap")
 	check_eq(Intro.target(p, "detail", {"id": p.lineup}), "slot_core", "and its slot on the critter page")
 	check(old.uid != fresh.uid, "two pieces")
+
+
+func test_the_boss_teaser_names_the_real_boss_stage() -> void:
+	var Onboarding := preload("res://game/onboarding.gd")
+	var Zones := preload("res://meta/zones.gd")
+	var n: int = Onboarding.boss_stage()
+	check(Zones.is_boss(Zones.zone(0).stages[n - 1]), "stage 1-%d is Mega Boulder" % n)
+
+
+## The Trophy step ends when you buy a boost, not when the room opens.
+func test_the_trophy_step_ends_on_a_bought_boost() -> void:
+	var ArenaStore := preload("res://game/pvp/arena_store.gd")
+	var Families := preload("res://sim/families.gd")
+	var path := "user://test_intro_trophy_%d.cfg" % OS.get_process_id()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var store = ArenaStore.open(path)
+	store.points = 24
+	var shell = Shell.new()
+	shell.profile = Profile.new_game(1_800_000_000)
+	shell.profile.intro = Intro.TROPHY
+	shell.build()
+	shell.go("boosts", {"store": store})
+	check_eq(Intro.step(shell.profile), Intro.TROPHY, "opening the room isn't the end")
+	check(shell._marks.has("boost_trophy_pick"), "one boost is lit")
+	check_eq(shell._marks.boost_trophy_pick, shell._marks.get("boost_%s_attack" % Families.of(store.trio[0])), "your lead critter's family, Attack")
+	shell._marks.boost_trophy_pick.pressed.emit()
+	check_eq(Intro.step(shell.profile), Intro.DONE, "buying it opens everything")
+	shell.free()
+	var broke = ArenaStore.open(path)
+	broke.points = 0
+	var p = Profile.new_game(1_800_000_000)
+	p.intro = Intro.TROPHY
+	var shell2 = Shell.new()
+	shell2.profile = p
+	shell2.build()
+	shell2.go("boosts", {"store": broke})
+	check_eq(Intro.step(p), Intro.DONE, "with nothing to spend it opens at once")
+	shell2.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+## After the guided fights the side features arrive one stage at a time:
+## Trick Shot 1-4, Bosses 1-5, the Spire 1-6, Rifts 1-11, each with its moment.
+func test_side_features_open_one_stage_at_a_time() -> void:
+	var p = Profile.new_game(1_800_000_000)
+	p.intro = Intro.DONE
+	check(not Intro.side_open(p, "trickshot") and not Intro.side_open(p, "spire"), "both wait after the guided fights")
+	for c in [[3, Intro.TRICK_SHOT], [4, Intro.BOSSES], [5, Intro.SPIRE], [10, Intro.RIFTS]]:
+		var r := {"won": true, "first_clear": true}
+		p.stars["1-%d" % (c[0] + 1)] = 1
+		Intro.after_stage(p, 0, c[0], r)
+		check_eq(r.get("intro"), c[1], "1-%d shows its moment" % (c[0] + 1))
+		check(Intro.MOMENTS.has(c[1]), "and the moment exists")
+	check(Intro.side_open(p, "trickshot") and Intro.side_open(p, "spire"), "open once their stages are won")
+	var shell = Shell.new()
+	shell.profile = Profile.new_game(1_800_000_000)
+	shell.profile.intro = Intro.DONE
+	shell.build()
+	shell.show_tab("play")
+	check(shell._marks.has("locked_trickshot") and shell._marks.has("locked_spire"), "Home shows them locked with their stage")
+	shell.free()
+	var old = Profile.new()
+	check(Intro.side_open(old, "spire"), "older saves keep everything open")

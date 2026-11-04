@@ -621,3 +621,37 @@ func test_a_fight_left_mid_way_still_counts() -> void:
 	scene.queue_free()
 	again.queue_free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+## A player's first run offers "Pick for me": it fills the draft, three boons
+## and a relic, leaving Start one tap away. Later runs don't offer it.
+func test_first_run_can_pick_for_you() -> void:
+	var path := "user://test_bounce_run_auto.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var scene = load("res://game/bounce_run.tscn").instantiate()
+	scene.save_path = path
+	runner.root.add_child(scene)
+	scene._ready()
+	check(scene._marks.has("br_auto"), "the first run's draft offers Pick for me")
+	scene._pick_for_me()
+	check_eq(scene.state, scene.State.START_BOONS, "it moves on to the start screen")
+	check_eq(scene.picks.size(), BounceRun.PICKS, "with a full trio")
+	check_eq(scene.start_picks.size(), BounceRun.START_BOONS, "and three boons")
+	check(scene.start_relic in scene.setup.relic_offer, "and a relic")
+	check(not scene._start_button().disabled, "so Start is ready")
+	var best := 0.0
+	for c in scene.setup.cards:
+		best = maxf(best, BounceRun.stat_power(c.critter, 1))
+	var got: Array = scene.picks.map(func(i): return BounceRun.stat_power(scene.setup.cards[i].critter, 1))
+	check(best in got, "the strongest critter on offer is in the trio")
+	scene.queue_free()
+	var later = load("res://game/bounce_run.tscn").instantiate()
+	later.save_path = path
+	runner.root.add_child(later)
+	later._ready()
+	later.stats.played = 1
+	later._marks.clear()
+	later._show_draft()
+	check(not later._marks.has("br_auto"), "later runs draft by hand")
+	later.queue_free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

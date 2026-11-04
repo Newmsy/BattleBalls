@@ -37,11 +37,15 @@ const MOMENTS := {
 	SUMMON: ["Summon", "You won a Summon Egg! Hatch a new critter.", "summon", "summon"],
 	FIGHTER: ["Critters", "Your collection lives here. Pick who fights for you.", "critters", "critters"],
 	EQUIP: ["Bag", "You found gear! Equip it to make a critter stronger.", "bag", "bag"],
-	ARENA: ["Ghost Arena", "Take your trio up against other players' teams.", "ghost", "arena"],
+	ARENA: ["Arena", "Take your trio up against other players' teams.", "ghost", "arena"],
 	TROPHY: ["Trophy Room", "Your Arena win earned points. Spend them on stat boosts.", "trophy", "boosts"],
-	DONE: ["Everything!", "Quests, Trick Shot, the Spire, friends and more are all open now.", "play", ""],
+	DONE: ["Daily Quests", "Daily quests, friends and the Glow Pass are open. More opens as you clear Glow Garden.", "play", ""],
 	BOUNCE_RUN: ["Bounce Run", "Draft a trio and climb the floors. Your best floor each day opens a chest.", "bounce", "bouncerun"],
 	PLUNGE: ["Critter Plunge", "Race your critters down a marble run, abilities flying. Medals for the podium.", "medal_gold", "plunge"],
+	TRICK_SHOT: ["Trick Shot", "A new bank shot every day. Three tries to find the angle.", "target", "trickshot"],
+	BOSSES: ["Bosses", "Giant bosses with big prizes. A few tries a day.", "hammer", "bosses"],
+	SPIRE: ["The Spire", "Fifty floors, one fight each. How high can you climb?", "tower", "spire"],
+	RIFTS: ["Rifts", "Spend a Rift Key to dive into one family's rift for dyes and rewards.", "key", "rift"],
 }
 
 ## The main modes that open with a zone 1 stage (0-based) for a paced player,
@@ -50,6 +54,16 @@ const BOUNCE_RUN := 100
 const PLUNGE := 101
 const MODE_STAGE := {"bouncerun": 6, "plunge": 8}
 const MODE_MOMENT := {"bouncerun": BOUNCE_RUN, "plunge": PLUNGE}
+## The side features on Home's "More to play" strip that open with a zone 1
+## stage for a paced player, so they arrive one at a time after the guided
+## fights (Quests opens with the guided fights' end). Bosses (1-5) and Rifts
+## (1-11) have their own gates; they only get the moment here.
+const TRICK_SHOT := 102
+const BOSSES := 103
+const SPIRE := 104
+const RIFTS := 105
+const SIDE_STAGE := {"trickshot": 3, "spire": 5}
+const STAGE_MOMENT := {3: TRICK_SHOT, 4: BOSSES, 5: SPIRE, 10: RIFTS}
 
 
 static func step(p) -> int:
@@ -71,6 +85,14 @@ static func mode_open(p, mode: String) -> bool:
 	if not done(p):
 		return false
 	return p == null or not p.get("paced") or int(p.stars.get(Zones.stage_key(0, MODE_STAGE[mode]), 0)) > 0
+
+
+## True when side feature `key` ("trickshot" or "spire") is open: after the
+## guided fights, and for a paced player once its zone 1 stage is won.
+static func side_open(p, key: String) -> bool:
+	if not done(p):
+		return false
+	return p == null or not p.get("paced") or int(p.stars.get(Zones.stage_key(0, SIDE_STAGE[key]), 0)) > 0
 
 
 ## What a closed main mode says: the stage that opens it.
@@ -103,6 +125,8 @@ static func coach(p, screen: String, params := {}) -> String:
 		ARENA:
 			return "Pick an opponent and fight!" if screen == "arena" else ("Tap Fight on the Arena door." if screen == "play" else "")
 		TROPHY:
+			if screen == "boosts":
+				return "Tap a boost to make your trio stronger."
 			return "Tap the Trophy Room." if screen == "versus" else ""
 	return ""
 
@@ -140,6 +164,8 @@ static func target(p, screen: String, params := {}) -> String:
 				return "arena"
 			return "arena_card_0" if screen == "arena" else ""
 		TROPHY:
+			if screen == "boosts":
+				return "boost_trophy_pick"
 			return "arena_boosts" if screen == "versus" else ""
 	return ""
 
@@ -175,6 +201,10 @@ static func after_stage(p, zone: int, stage: int, r: Dictionary) -> void:
 			if p.paced and stage == MODE_STAGE[mode] and r.get("first_clear", false):
 				r.intro = MODE_MOMENT[mode]
 				print("INTRO_MODE %s" % mode)
+		# And the side features, one stage at a time.
+		if p.paced and r.get("first_clear", false) and STAGE_MOMENT.has(stage):
+			r.intro = STAGE_MOMENT[stage]
+			print("INTRO_SIDE %d" % stage)
 		return
 	if stage == 0 and step(p) < SUMMON:
 		if int(r.get("orbs", 0)) == 0:
@@ -202,18 +232,20 @@ static func to_campaign(shell) -> void:
 ## The "New: X unlocked" moment: a sheet with the feature's badge and one
 ## line, and a button that takes you there.
 static func moment(shell, at: int) -> void:
-	if not MOMENTS.has(at):
+	if not MOMENTS.has(at) or not is_instance_valid(shell):
 		return
 	var m: Array = MOMENTS[at]
 	var badge := Kit.panel(Glyph.make(m[2], 96, Kit.ACCENT), Kit.box(Color("221e55"), Kit.ACCENT, 999, 3, 26))
 	badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var go := Kit.button("Show me" if at != DONE else "Nice!", func():
+	var go := Kit.button("Nice!" if at == DONE else "Show me", func():
 		shell.close_overlay()
 		var screen: String = m[3]
 		if screen == "":
 			return
 		if screen == "bouncerun":
 			shell.get_tree().change_scene_to_file("res://game/bounce_run.tscn")
+		elif screen == "trickshot":
+			shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn")
 		elif screen in shell.TAB_IDS:
 			shell.show_tab(screen)
 			shell.spotlight_tab(screen)
@@ -228,7 +260,7 @@ static func moment(shell, at: int) -> void:
 	var line := Kit.label(m[1], 25, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true)
 	line.custom_minimum_size.x = ResultPopup.inner_width(shell.size.x)
 	shell.sheet(Kit.vbox(16, [
-		Kit.caption("Unlocked" if at != DONE else "All unlocked", Kit.GOOD),
+		Kit.caption("Unlocked", Kit.GOOD),
 		_burst_behind(badge),
 		Kit.label(m[0], 44, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
 		line,

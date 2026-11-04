@@ -19,17 +19,29 @@ const STAT_GLYPHS := {"health": "heart", "attack": "swords", "defense": "shield"
 const STAT_COLORS := {"health": Color("ff5c8a"), "attack": Color("ffb02e"), "defense": Color("4fe08a"), "speed": Color("5ce1ff")}
 
 
+## A new player's guided boost: the family whose Attack button is lit.
+static var _pick := ""
+
+
 static func build(shell, params: Dictionary) -> Control:
 	var store = params.get("store", null)
 	if store == null:
 		store = ArenaStore.open()
 	var root := Kit.vbox(8)
-	# The last of a new player's guided steps: the rest of the game opens.
-	if Intro.step(shell.profile) == Intro.TROPHY and Intro.reach(shell.profile, Intro.DONE):
-		Intro.moment.call_deferred(shell, Intro.DONE)
+	# The last of a new player's guided steps: buy one boost (your lead
+	# critter's family, Attack), then the rest of the game opens. With
+	# nothing to spend it opens at once.
+	_pick = ""
+	if Intro.step(shell.profile) == Intro.TROPHY:
+		var fam: String = Families.of(store.trio[0]) if not store.trio.is_empty() and str(store.trio[0]) != "" else ""
+		var cost: int = store.next_cost(fam, "attack") if fam != "" else 0
+		if cost > 0 and store.points >= cost:
+			_pick = fam
+		elif Intro.reach(shell.profile, Intro.DONE):
+			Intro.moment.call_deferred(shell, Intro.DONE)
 	var how := [
-		"Every trophy you win in the Ghost Arena also earns an Arena Point (the amber arrow). Losing never costs points.",
-		"Spend points on a family's Health, Attack, Defense and Speed. Every critter of that family gets the boost in the Ghost Arena, attacking and defending.",
+		"Every trophy you win in the Arena also earns an Arena Point (the amber arrow). Losing never costs points.",
+		"Spend points on a family's Health, Attack, Defense and Speed. Every critter of that family gets the boost in the Arena, attacking and defending.",
 		"%d levels per stat. Max boost is about +%d%% power." % [
 			ArenaBoosts.MAX_LEVEL, roundi(100.0 * ArenaBoosts.LINE_POWER * ArenaBoosts.ORDER.size())],
 		"Reset is free: every point comes back.",
@@ -95,6 +107,8 @@ static func _family_row(shell, store, fam: String, in_trio: bool) -> Control:
 		var btn := _stat_button(shell, store, fam, line, col)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		shell.mark("boost_%s_%s" % [fam, line], btn)
+		if fam == _pick and line == "attack":
+			shell.mark("boost_trophy_pick", btn)
 		row.add_child(btn)
 	return Kit.panel(row, Kit.box(Kit.PANEL, col if in_trio else Kit.LINE, 22, 2, 8))
 
@@ -139,7 +153,10 @@ static func _stat_button(shell, store, fam: String, line: String, col: Color) ->
 		elif store.upgrade(fam, line):
 			shell.toast("%s %s %d/%d: %s." % [fname, lname, lv + 1, ArenaBoosts.MAX_LEVEL, ArenaBoosts.text(line, lv + 1)])
 			shell.pop_after(["boost_%s_%s" % [fam, line]]) # The new pip snaps in with a pop.
+			var last_step: bool = Intro.step(shell.profile) == Intro.TROPHY and Intro.reach(shell.profile, Intro.DONE)
 			shell.refresh_with({"store": store})
+			if last_step:
+				Intro.moment.call_deferred(shell, Intro.DONE)
 		else:
 			shell.toast("Need %d more points" % (c - store.points)),
 		col if afford else Kit.LINE, Kit.PANEL2, 18, 6)
