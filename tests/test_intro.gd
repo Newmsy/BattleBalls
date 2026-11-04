@@ -103,7 +103,7 @@ func test_bounce_run_and_plunge_open_with_later_stages_for_a_new_player() -> voi
 	check(not Intro.mode_open(p, "bouncerun") and not Intro.mode_open(p, "plunge"), "both wait after the guided fights")
 	var r := {"won": true, "first_clear": true}
 	Intro.after_stage(p, 0, 5, r)
-	check(not r.has("intro"), "1-6 opens neither")
+	check(r.get("intro") not in [Intro.BOUNCE_RUN, Intro.PLUNGE], "1-6 opens neither")
 	r = {"won": true, "first_clear": true}
 	p.stars["1-7"] = 1
 	Intro.after_stage(p, 0, 6, r)
@@ -207,3 +207,27 @@ func test_the_trophy_step_ends_on_a_bought_boost() -> void:
 	check_eq(Intro.step(p), Intro.DONE, "with nothing to spend it opens at once")
 	shell2.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+
+
+## After the guided fights the side features arrive one stage at a time:
+## Trick Shot 1-4, Bosses 1-5, the Spire 1-6, Rifts 1-11, each with its moment.
+func test_side_features_open_one_stage_at_a_time() -> void:
+	var p = Profile.new_game(1_800_000_000)
+	p.intro = Intro.DONE
+	check(not Intro.side_open(p, "trickshot") and not Intro.side_open(p, "spire"), "both wait after the guided fights")
+	for c in [[3, Intro.TRICK_SHOT], [4, Intro.BOSSES], [5, Intro.SPIRE], [10, Intro.RIFTS]]:
+		var r := {"won": true, "first_clear": true}
+		p.stars["1-%d" % (c[0] + 1)] = 1
+		Intro.after_stage(p, 0, c[0], r)
+		check_eq(r.get("intro"), c[1], "1-%d shows its moment" % (c[0] + 1))
+		check(Intro.MOMENTS.has(c[1]), "and the moment exists")
+	check(Intro.side_open(p, "trickshot") and Intro.side_open(p, "spire"), "open once their stages are won")
+	var shell = Shell.new()
+	shell.profile = Profile.new_game(1_800_000_000)
+	shell.profile.intro = Intro.DONE
+	shell.build()
+	shell.show_tab("play")
+	check(shell._marks.has("locked_trickshot") and shell._marks.has("locked_spire"), "Home shows them locked with their stage")
+	shell.free()
+	var old = Profile.new()
+	check(Intro.side_open(old, "spire"), "older saves keep everything open")
