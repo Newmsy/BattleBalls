@@ -168,3 +168,42 @@ func test_the_hint_names_the_button_on_screen() -> void:
 	check_eq(Intro.target(p, "bag", {}), "gear_%d" % fresh.uid, "the newest piece is the one to tap")
 	check_eq(Intro.target(p, "detail", {"id": p.lineup}), "slot_core", "and its slot on the critter page")
 	check(old.uid != fresh.uid, "two pieces")
+
+
+func test_the_boss_teaser_names_the_real_boss_stage() -> void:
+	var Onboarding := preload("res://game/onboarding.gd")
+	var Zones := preload("res://meta/zones.gd")
+	var n: int = Onboarding.boss_stage()
+	check(Zones.is_boss(Zones.zone(0).stages[n - 1]), "stage 1-%d is Mega Boulder" % n)
+
+
+## The Trophy step ends when you buy a boost, not when the room opens.
+func test_the_trophy_step_ends_on_a_bought_boost() -> void:
+	var ArenaStore := preload("res://game/pvp/arena_store.gd")
+	var Families := preload("res://sim/families.gd")
+	var path := "user://test_intro_trophy_%d.cfg" % OS.get_process_id()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	var store = ArenaStore.open(path)
+	store.points = 24
+	var shell = Shell.new()
+	shell.profile = Profile.new_game(1_800_000_000)
+	shell.profile.intro = Intro.TROPHY
+	shell.build()
+	shell.go("boosts", {"store": store})
+	check_eq(Intro.step(shell.profile), Intro.TROPHY, "opening the room isn't the end")
+	check(shell._marks.has("boost_trophy_pick"), "one boost is lit")
+	check_eq(shell._marks.boost_trophy_pick, shell._marks.get("boost_%s_attack" % Families.of(store.trio[0])), "your lead critter's family, Attack")
+	shell._marks.boost_trophy_pick.pressed.emit()
+	check_eq(Intro.step(shell.profile), Intro.DONE, "buying it opens everything")
+	shell.free()
+	var broke = ArenaStore.open(path)
+	broke.points = 0
+	var p = Profile.new_game(1_800_000_000)
+	p.intro = Intro.TROPHY
+	var shell2 = Shell.new()
+	shell2.profile = p
+	shell2.build()
+	shell2.go("boosts", {"store": broke})
+	check_eq(Intro.step(p), Intro.DONE, "with nothing to spend it opens at once")
+	shell2.free()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

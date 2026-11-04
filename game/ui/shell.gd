@@ -1228,7 +1228,11 @@ func _refresh_top() -> void:
 	for t in _dots:
 		was_lit[t] = _dots[t].visible
 	_dots.fuse.visible = fusable != "" and _new_since(fusable, _badge_value("fuse_seen"))
-	_dots.summon.visible = profile.free_summon and Intro.done(profile)
+	# Eggs pile up from fights: a dot each time another x10 is ready, gone once you've looked.
+	var tens := str(profile.orbs / 10) if profile.orbs >= 10 else ""
+	if current == "summon":
+		_set_badge("summon_seen", tens)
+	_dots.summon.visible = (profile.free_summon or (tens != "" and tens != _badge_value("summon_seen"))) and Intro.done(profile)
 	var talents := _talent_signature()
 	if current in ["factions", "faction"]:
 		_set_badge("talents_seen", talents)

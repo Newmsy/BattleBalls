@@ -737,6 +737,10 @@ try {
     const before = logs.length;
     await tapUi(page, logs, "fuse");
     console.log("onboarding fusion:", await waitForLogAfter(logs, before, "UI_FUSED", 5000));
+    // The story waits for Continue on the "Fused!" popup.
+    await waitForLogAfter(logs, before, "UI_AT fuse_done", 10000);
+    await page.waitForTimeout(600);
+    await tapUi(page, logs, "fuse_done");
     // Chapter 1's story, skipped, then the boss it leaves behind.
     await waitForLogAfter(logs, before, "UI_SCREEN onboard_story", 10000);
     await tapUi(page, logs, "story_next");
@@ -806,7 +810,9 @@ try {
     await waitForLog(logs, "UI_SCREEN play", 30000);
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "26-home-new-player.png") });
-    await tapUi(page, logs, "campaign", "world");
+    // Continue goes straight to the zone's stage list; Back is the world map.
+    await tapUi(page, logs, "campaign", "campaign");
+    await tapUi(page, logs, "back", "world");
     await page.screenshot({ path: path.join(shots, "27-world-map.png") });
     await tapUi(page, logs, "zone_1", "campaign");
     await page.screenshot({ path: path.join(shots, "27-campaign-map.png") });

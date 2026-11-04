@@ -37,7 +37,7 @@ const MOMENTS := {
 	SUMMON: ["Summon", "You won a Summon Egg! Hatch a new critter.", "summon", "summon"],
 	FIGHTER: ["Critters", "Your collection lives here. Pick who fights for you.", "critters", "critters"],
 	EQUIP: ["Bag", "You found gear! Equip it to make a critter stronger.", "bag", "bag"],
-	ARENA: ["Ghost Arena", "Take your trio up against other players' teams.", "ghost", "arena"],
+	ARENA: ["Arena", "Take your trio up against other players' teams.", "ghost", "arena"],
 	TROPHY: ["Trophy Room", "Your Arena win earned points. Spend them on stat boosts.", "trophy", "boosts"],
 	DONE: ["Everything!", "Quests, Trick Shot, the Spire, friends and more are all open now.", "play", ""],
 	BOUNCE_RUN: ["Bounce Run", "Draft a trio and climb the floors. Your best floor each day opens a chest.", "bounce", "bouncerun"],
@@ -103,6 +103,8 @@ static func coach(p, screen: String, params := {}) -> String:
 		ARENA:
 			return "Pick an opponent and fight!" if screen == "arena" else ("Tap Fight on the Arena door." if screen == "play" else "")
 		TROPHY:
+			if screen == "boosts":
+				return "Tap a boost to make your trio stronger."
 			return "Tap the Trophy Room." if screen == "versus" else ""
 	return ""
 
@@ -140,6 +142,8 @@ static func target(p, screen: String, params := {}) -> String:
 				return "arena"
 			return "arena_card_0" if screen == "arena" else ""
 		TROPHY:
+			if screen == "boosts":
+				return "boost_trophy_pick"
 			return "arena_boosts" if screen == "versus" else ""
 	return ""
 
@@ -202,7 +206,7 @@ static func to_campaign(shell) -> void:
 ## The "New: X unlocked" moment: a sheet with the feature's badge and one
 ## line, and a button that takes you there.
 static func moment(shell, at: int) -> void:
-	if not MOMENTS.has(at):
+	if not MOMENTS.has(at) or not is_instance_valid(shell):
 		return
 	var m: Array = MOMENTS[at]
 	var badge := Kit.panel(Glyph.make(m[2], 96, Kit.ACCENT), Kit.box(Color("221e55"), Kit.ACCENT, 999, 3, 26))

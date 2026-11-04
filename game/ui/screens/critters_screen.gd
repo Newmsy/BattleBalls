@@ -4,6 +4,8 @@
 ## The Critterpedia button opens every critter, found or not (dex_screen.gd).
 extends RefCounted
 
+const Intro := preload("res://game/ui/intro.gd")
+
 const FamilyEdge := preload("res://game/ui/family_edge.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const LazyTile := preload("res://game/ui/lazy_tile.gd")
@@ -43,7 +45,9 @@ static func build(shell, _params: Dictionary) -> Control:
 	for f in Talents.FACTIONS:
 		unspent += maxi(0, p.talent_points_free(f))
 	var tl := Kit.hbox(8, [Kit.label("Talents", 22, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER)], BoxContainer.ALIGNMENT_CENTER)
-	if unspent > 0:
+	# The count waits until a new player's guided steps are done, so it
+	# doesn't pull the eye from the step's spotlight.
+	if unspent > 0 and Intro.done(p):
 		var count := Kit.panel(Kit.label(str(unspent), 18, Kit.BG, HORIZONTAL_ALIGNMENT_CENTER), Kit.box(Kit.GOOD, Color(0, 0, 0, 0), 999, 0, 0))
 		var st: StyleBoxFlat = count.get_theme_stylebox("panel")
 		st.content_margin_left = 9

@@ -56,6 +56,8 @@ static func build(shell, params: Dictionary) -> Control:
 		store.fill_best(owned, "defence")
 		store.fill_best(owned)
 		store.is_new = false
+		# The defence was only just set: today's raids start tomorrow.
+		store.raid_day = store.today()
 	store.fit_to(owned)
 	var raids: Array = store.run_raids(shell.profile)
 	if not raids.is_empty():
@@ -332,6 +334,8 @@ static func fight_now(shell) -> bool:
 		store.fill_best(owned, "defence")
 		store.fill_best(owned)
 		store.is_new = false
+		# The defence was only just set: today's raids start tomorrow.
+		store.raid_day = store.today()
 	store.fit_to(owned)
 	var offers: Array = store.offers(shell.profile)
 	if offers.is_empty():

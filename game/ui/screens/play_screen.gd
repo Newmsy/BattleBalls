@@ -264,18 +264,21 @@ static func _door_line(text: String, color := Kit.MUTED, size := 19) -> Label:
 
 
 ## Campaign: the current zone's painting, its next stage and Continue. A tap
-## anywhere on the door does what Continue does (the world map).
+## anywhere on the door does what Continue does: the zone's stage list, with
+## the world map one Back away.
 static func _campaign_door(shell) -> Control:
 	var c := campaign_state(shell.profile)
-	var go := _door_button("Continue", "go", func(): shell.go("world"))
+	var to_stages := func():
+		shell.go("world")
+		shell.go("campaign", {"zone": c.z})
+	var go := _door_button("Continue", "go", to_stages)
 	shell.mark("campaign", go)
 	var stars := Kit.hbox(6, [Glyph.make("crown", _s(20), Kit.FG, 1), _door_line("%d/%d" % [c.stars, c.max_stars], Kit.MUTED, 17)])
 	var lines: Array = [_door_line(c.zone.name, Kit.FG, 21), _door_line(c.next_line), stars]
 	# The whole door goes where Continue does: Spire, Bosses and Rifts are on
 	# the strip under the doors.
 	return mode_door(shell, "adventure", "CAMPAIGN", lines, ADVENTURE,
-		_door_art("home_zone_" + c.zone.id, Vector2(.64, .7)), go,
-		func(): shell.go("world"))
+		_door_art("home_zone_" + c.zone.id, Vector2(.64, .7)), go, to_stages)
 
 
 ## Arena: the mode last played, its league and trophies, the Arena Tokens
