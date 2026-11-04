@@ -47,6 +47,7 @@ var _skip: Button
 var _marks := {}
 var _fight := 0
 var _cold_pick := ""
+var _shell ## The home shell during the guided first fuse.
 
 
 ## True once this device has finished or skipped the onboarding.
@@ -261,9 +262,10 @@ func _fusion() -> void:
 	_log("fusion")
 	_clear()
 	_skip.visible = false
-	var shell = main.tutorial_home(profile)
-	shell.open_tab("fuse", {"id": starter, "tier": 1})
-	_coach_say("Tap FUSE!")
+	_shell = main.tutorial_home(profile)
+	_shell.open_tab("fuse", {"id": starter, "tier": 1})
+	# The screen dims round the Fuse button, with the hint beside it.
+	_shell.set_guide({"target": "fuse", "text": "Tap FUSE!"})
 	profile.changed.connect(_on_profile_changed)
 
 
@@ -271,6 +273,8 @@ func _on_profile_changed() -> void:
 	if profile.best(starter).get("tier", 1) < 2:
 		return
 	profile.changed.disconnect(_on_profile_changed)
+	if is_instance_valid(_shell):
+		_shell.set_guide({"target": "", "text": ""})
 	_coach_say("Tier 2! A stronger ability and more power.")
 	get_tree().create_timer(2.2).timeout.connect(_chapter_one)
 

@@ -78,8 +78,9 @@ static func mode_line(mode: String) -> String:
 	return "Opens after stage 1-%d" % (int(MODE_STAGE[mode]) + 1)
 
 
-## The one-line hint for this screen at this step, or "".
-static func coach(p, screen: String) -> String:
+## The one-line hint for this screen at this step, or "". `params` are the
+## screen's (the critter page's critter).
+static func coach(p, screen: String, params := {}) -> String:
 	match step(p):
 		FIGHT_1:
 			return "Win stage 1-1." if screen in ["world", "campaign"] else ("Tap Continue and win stage 1-1." if screen == "play" else "")
@@ -87,6 +88,8 @@ static func coach(p, screen: String) -> String:
 			return "Tap Free x1 to summon a critter." if screen == "summon" else "Open the Summon tab."
 		FIGHTER:
 			if screen == "detail":
+				if p.lineup == str(params.get("id", "")):
+					return "Tap Your fighter to fight with it."
 				return "Tap Pick to make it your fighter."
 			return "Tap a critter to see it." if screen == "critters" else "Open the Critters tab and pick your fighter."
 		FIGHT_2:
@@ -102,6 +105,52 @@ static func coach(p, screen: String) -> String:
 		TROPHY:
 			return "Tap the Trophy Room." if screen == "versus" else ""
 	return ""
+
+
+## The control the spotlight lights for this screen at this step (a shell
+## mark, or "tab_<id>" for a tab), or "" for none.
+static func target(p, screen: String, params := {}) -> String:
+	var stage := {FIGHT_1: 1, FIGHT_2: 2, FIGHT_3: 3}
+	var at := step(p)
+	if at in stage:
+		match screen:
+			"play":
+				return "campaign"
+			"world":
+				return "enter_zone"
+			"campaign":
+				return "stage_1_%d" % stage[at] if int(params.get("zone", 0)) == 0 else ""
+		return ""
+	match at:
+		SUMMON:
+			return "pull1" if screen == "summon" else "tab_summon"
+		FIGHTER:
+			if screen == "detail":
+				return "detail_fighter"
+			return "tile_" + str(p.lineup) if screen == "critters" else "tab_critters"
+		EQUIP:
+			var g := newest_gear(p)
+			if screen == "detail":
+				return "slot_" + str(g.get("slot", "")).to_lower() if not g.is_empty() else ""
+			if screen == "bag":
+				return "gear_%d" % int(g.uid) if not g.is_empty() else ""
+			return "tab_bag"
+		ARENA:
+			if screen == "play":
+				return "arena"
+			return "arena_card_0" if screen == "arena" else ""
+		TROPHY:
+			return "arena_boosts" if screen == "versus" else ""
+	return ""
+
+
+## The piece of gear a new player last won and hasn't put on, or {}.
+static func newest_gear(p) -> Dictionary:
+	var best := {}
+	for g in p.gear:
+		if str(g.get("on", "")) == "" and (best.is_empty() or int(g.uid) > int(best.uid)):
+			best = g
+	return best
 
 
 ## Moves the player on to `to` if they're before it; returns true if they moved.
