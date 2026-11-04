@@ -283,7 +283,14 @@ func _show_draft() -> void:
 		grid.add_child(card)
 		_mark("br_card_%d" % i, card)
 	# Next and Menu share a row so Next stays on screen below the cards.
-	_replace_children(page, [grid, Kit.hbox(14, [_next_button(), _menu_button()])])
+	var row := Kit.hbox(14, [_next_button(), _menu_button()])
+	if stats.played == 0:
+		# A player's first run: seven picks before a single fight is a lot.
+		var auto := Kit.button("Pick for me", _pick_for_me, "primary", 26)
+		_mark("br_auto", auto)
+		row.add_child(auto)
+		row.move_child(auto, 1)
+	_replace_children(page, [grid, row])
 	scroll.scroll_vertical = 0
 	_fit_draft(grid)
 
@@ -294,6 +301,29 @@ func _next_button() -> Button:
 	next.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mark("br_next", next)
 	return next
+
+
+## Fills the whole start for the player: the three strongest critters on
+## offer, the rarest starting boons and the first relic, then shows the start
+## screen with all of it picked, one tap from the first floor.
+func _pick_for_me() -> void:
+	var order: Array = range(setup.cards.size())
+	order.sort_custom(func(a, b):
+		var pa := BounceRun.stat_power(setup.cards[a].critter, 1)
+		var pb := BounceRun.stat_power(setup.cards[b].critter, 1)
+		return pa > pb if pa != pb else a < b)
+	picks = order.slice(0, BounceRun.PICKS)
+	var boons: Array = setup.start_offer.duplicate()
+	var rank := func(id): return Boons.RARITIES.find(Boons.rarity_of(id))
+	var by_rarity: Array = range(boons.size())
+	by_rarity.sort_custom(func(a, b):
+		var ra: int = rank.call(boons[a])
+		var rb: int = rank.call(boons[b])
+		return ra > rb if ra != rb else a < b)
+	start_picks = by_rarity.slice(0, BounceRun.START_BOONS).map(func(i): return boons[i])
+	start_relic = "" if setup.relic_offer.is_empty() else str(setup.relic_offer[0])
+	sfx.play("wall")
+	_show_start_boons()
 
 
 ## Shrinks the stacked draft cards until the page fits without scrolling:
