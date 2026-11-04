@@ -21,9 +21,10 @@ const STARTERS := ["vampire", "laser"]
 ## config, so without it the seed's random map decides how the fights go.
 ## first_rink is Neon Rink without its moving parts (sim/arenas.gd).
 const ARENA := "first_rink"
-## Cold open: a close fight with four lead changes that Count Nibbles wins at
-## the death. Fixed so everyone sees the same opener.
-const COLD_OPEN := {"seed": 139, "p1": "vampire", "p2": "laser", "arena": ARENA}
+## Cold open: a close fight with three lead changes that ends in a double KO,
+## both balls falling on the same hit, so whichever one you bet on, nobody
+## loses. Fixed so everyone sees the same opener; it plays with `tie_to` -1.
+const COLD_OPEN := {"seed": 3087, "p1": "vampire", "p2": "laser", "arena": ARENA}
 ## Tutorial fights: the foe's fixed launch, and the ghost arrow's suggested aim
 ## (tenths of a degree). tests/test_onboarding.gd checks every aim wins.
 const TUTORIAL_SEED := 3
@@ -170,15 +171,15 @@ func _on_cold_pick(id: String) -> void:
 
 func _cold_open_result(winner: int) -> void:
 	var won_id: String = [COLD_OPEN.p1, COLD_OPEN.p2][winner] if winner >= 0 else ""
-	var title := "DRAW!"
-	var sub := "Nobody saw that coming."
+	var title := "DOUBLE KO!"
+	var sub := "They knocked each other out on the same hit!"
 	if won_id != "":
 		title = "%s WINS!" % BallDefs.get_def(won_id).display_name.to_upper()
 		sub = "You called it!" if won_id == _cold_pick else "Not this time!"
 	var next := Kit.button("Next", _starter_pick, "go", 32, 96)
 	_mark("next", next)
 	_show(Kit.vbox(16, [
-		Kit.label(title, 44, Kit.GOOD if won_id == _cold_pick else Kit.WARN, HORIZONTAL_ALIGNMENT_CENTER),
+		Kit.label(title, 44, Kit.GOOD if won_id in [_cold_pick, ""] else Kit.WARN, HORIZONTAL_ALIGNMENT_CENTER),
 		Kit.label(sub, 24, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
 		next,
 	]), "controls", "onboard_cold_result")
