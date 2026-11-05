@@ -370,6 +370,11 @@ func _ready() -> void:
 				if demo_profile and url_params.screen in ["arena", "boosts", "bazaar", "defence"]:
 					screen_params.store = preload("res://game/pvp/arena_store.gd").sample()
 				shell.go(url_params.screen, screen_params)
+			# ?seasonshow=1 (with ?demo=1) pops up a season's end on a demo Arena.
+			if demo_profile and url_params.has("seasonshow"):
+				var st = preload("res://game/pvp/arena_store.gd").sample()
+				st.season_chest = {"season": "Preseason", "league": 3}
+				preload("res://game/ui/screens/versus_screen.gd").season_popup.call_deferred(shell, st, "series")
 			# ?ascendshow=fire plays the Ascension reveal for a critter of that family (or ?ascendshow=<critter id>).
 			if url_params.has("ascendshow"):
 				var who: String = url_params.ascendshow
@@ -1305,7 +1310,8 @@ func _finish_stage() -> void:
 		Intro.arena_fought = true
 		if won:
 			shell.glow.record("arena_win")
-		pve.duo = {"delta": delta, "coins": got, "winner": 0 if won else 1, "name": pve.get("foe", "?")}
+		pve.duo = {"delta": delta, "coins": got, "winner": 0 if won else 1, "name": pve.get("foe", "?"),
+			"entry": store.history[0] if not store.history.is_empty() else {}}
 		print("ARENA_RESULT won=%s delta=%d trophies=%d hash=%s mode=league" % [won, delta, store.trophies, sim.state_hash()])
 		return
 	if pve.has("vault"):

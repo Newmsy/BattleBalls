@@ -11,6 +11,7 @@ const SaveGame := preload("res://game/online/save_game.gd")
 const UiProfile := preload("res://game/ui/ui_profile.gd")
 const LiveOps := preload("res://game/liveops.gd")
 const Families := preload("res://sim/families.gd")
+const BallDefs := preload("res://sim/ball_defs.gd")
 const Shell := preload("res://game/ui/shell.gd")
 const QuestsScreen := preload("res://game/ui/screens/quests_screen.gd")
 
@@ -140,6 +141,26 @@ func test_fights_count_wins_families_and_different_critters() -> void:
 	g.record("bounce_floor", 7, t)
 	g.record("bounce_floor", 5, t)
 	check_eq(int(g.g().quest_day.progress.bounce_floor), 7, "best floor, not a sum")
+	_done()
+
+
+func test_relay_wins_count_each_quest_once_for_the_team() -> void:
+	# Arena and Spire wins name the whole team: a frost trio with one T3
+	# counts one family win, one T3 win and three different critters.
+	var g = _fresh()
+	var t := _t("2026-10-14")
+	var frost: Array = []
+	for id in BallDefs.PLAYABLE:
+		if Families.of(id) == "frost" and frost.size() < 3:
+			frost.append(id)
+	g.record_fight(0, 450.0, t, {"critters": frost, "tiers": [1, 3, 1]})
+	var d: Dictionary = g.g().quest_day.progress
+	check_eq(int(d.get("win_fam:frost", 0)), 1, "one family win for the whole team")
+	check_eq(int(d.get("win_t3", 0)), 1, "a T3 on the team counts once")
+	check_eq(int(d.damage), 450, "relay damage counts")
+	check_eq(int(g.g().quest_week.progress.critters), 3, "every critter that fought counts as won with")
+	g.record_fight(1, 50.0, t, {"critters": frost, "tiers": [3, 3, 3]})
+	check_eq(int(g.g().quest_day.progress.get("win_t3", 0)), 1, "a loss counts nothing")
 	_done()
 
 

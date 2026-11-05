@@ -47,7 +47,7 @@ func _show_result() -> void:
 	# popup shows what you got (the Spire screen used to add it later).
 	var got := _grant(r)
 	climb.save_file()
-	GlowState.note_fight(0 if r.won else 1, 0.0)
+	GlowState.note_fight(0 if r.won else 1, dealt, quest_ctx())
 	if r.won:
 		GlowState.note("spire")
 	sfx.on_result(0 if r.won else 1)

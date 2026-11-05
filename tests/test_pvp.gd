@@ -533,3 +533,85 @@ func test_arena_screen_and_fight_scene_build() -> void:
 	var scene: PackedScene = load("res://game/ghost_arena.tscn")
 	check(scene != null, "fight scene loads")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_win_streak_adds_bonus_trophies_and_coins() -> void:
+	var s = _fresh_store()
+	var bot := ArenaTeams.make_player(500, 7, 0, 3)
+	var deltas: Array = []
+	var coins: Array = []
+	for i in 4:
+		var before: int = s.coins
+		s.start_attack("even", bot, 10 + i)
+		deltas.append(s.finish_attack(true))
+		coins.append(s.coins - before)
+	check_eq(deltas, [25, 25, 29, 31], "the third win in a row starts the streak bonus")
+	check_eq(coins, [15, 15, 19, 21], "Arena Coins too")
+	check_eq(s.streak, 4, "four in a row")
+	check_eq(int(s.history[0].bonus), 6, "the bonus is on the result")
+	check_eq(ArenaStore.streak_bonus(20), 10, "capped")
+	s.start_attack("even", bot, 99)
+	s.finish_attack(false)
+	check_eq(s.streak, 0, "a loss ends it")
+	s.start_attack("even", bot, 100)
+	s.save()
+	var again = ArenaStore.open(TEST_SAVE)
+	again.settle_abandoned()
+	check_eq(again.streak, 0, "an abandoned attack ends it too")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_revenge_on_a_raider() -> void:
+	var s = _fresh_store()
+	var raids: Array = s.run_raids(null, ArenaStore.today())
+	check_eq(raids.size(), ArenaStore.RAIDS_PER_DAY, "today's raids")
+	var offer: Dictionary = s.revenge_offer(0)
+	check_eq(str(offer.bot.name), str(raids[0].name), "the raider rebuilds from its seed")
+	for r in s.raids:
+		r.held = true
+	s.raids[1].held = false
+	var offers: Array = s.revenge_offers()
+	check(offers.size() == 1 and int(offers[0].raid) == 1, "only a raider who won is offered")
+	var plain := Ladder.stake(s.trophies, int(offers[0].bot.trophies))
+	s.start_attack(ArenaStore.REVENGE, offers[0].bot, 5, [], 1)
+	check_eq(int(s.pending_stake().win), roundi(int(plain.win) * 1.5), "1.5x trophies")
+	check(s.revenge_offers().is_empty(), "once per raid")
+	var before: int = s.trophies
+	s.finish_attack(true)
+	check_eq(s.trophies - before, roundi(int(plain.win) * 1.5), "paid on the win")
+	check(bool(s.history[0].revenge), "the result knows it was revenge")
+	check(s.revenge_offers(ArenaStore.today() + 1).is_empty(), "raids are only avenged the same day")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))
+
+
+func test_season_end_pays_crest_and_chest_and_soft_resets() -> void:
+	var s = _fresh_store()
+	s.roll_season("Old Season")
+	check(s.season_chest.is_empty() and s.crests.is_empty(), "a first season only starts counting")
+	s.wins = 12
+	s.trophies = 1900
+	s.peak = 2900
+	s.roll_season("New Season")
+	check_eq(s.season_chest, {"season": "Old Season", "league": 4}, "a Diamond chest for the best league reached")
+	check_eq(s.crests.size(), 1, "and its crest")
+	check_eq(s.trophies, 1450, "trophies above 1,000 are halved")
+	check_eq(s.peak, 1450, "the new season's peak starts there")
+	check(s.any_chest_ready(), "the door lights up")
+	s.use(ArenaStore.LEAGUE)
+	check(s.season_chest.is_empty(), "a mode never played pays nothing")
+	s.use(ArenaStore.SERIES)
+	var p = UiProfile.new()
+	var want := ArenaChest.season_rewards(4, "Old Season", ArenaStore.SERIES, p.chest_seed())
+	var weekly := ArenaChest.rewards(4, 1, 0)
+	check(want.size() >= weekly.size() - 1, "the weekly chest's items")
+	check_eq(ArenaChest.season_rewards(4, "Old Season", ArenaStore.LEAGUE, 0) != ArenaChest.season_rewards(4, "Old Season", ArenaStore.SERIES, 0), true, "each mode rolls its own")
+	check_eq(ArenaChest.open_season(s, p), want, "opens into the profile")
+	check(s.season_chest.is_empty(), "once")
+	check_eq(s.crests.size(), 1, "the crest stays")
+	if ArenaStore.season_now() != "":
+		s.roll_seasons(ArenaStore.season_now())
+		s.save()
+		var again = ArenaStore.open(TEST_SAVE)
+		check_eq(again.crests.size(), 2, "crests are saved")
+		check_eq(again.season, ArenaStore.season_now(), "the running season")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(TEST_SAVE))

@@ -98,14 +98,14 @@ static func gear(shell, made: Dictionary, tier_color: Color, spent: int, on_cont
 	var forged := GearTier.forged(made.tier)
 	var body: Array = [_forge(made), Kit.label(made.name, 34, tier_color, HORIZONTAL_ALIGNMENT_CENTER), stars(made.tier - 1, made.tier, tier_color), lines]
 	if forged:
-		var rank := Kit.label(GearTier.label(made.tier), 28, GearTier.HOT, HORIZONTAL_ALIGNMENT_CENTER)
+		var rank := Kit.label(GearTier.label(made.tier), 28, GearTier.hot(made.tier), HORIZONTAL_ALIGNMENT_CENTER)
 		Motion.pop(rank, 1.6, .35, .3)
 		body.insert(2, rank)
 	var foot := Kit.hbox(10, [Kit.amount("hammer", "-%d" % spent, 22, Kit.MUTED)], BoxContainer.ALIGNMENT_CENTER)
 	if made.on != "":
 		foot.add_child(Kit.label("· still on %s" % Roster.get_critter(made.on).name, 22, Kit.MUTED))
 	body.append(foot)
-	_open(shell, "Forged!" if forged else "Merged!", body, on_continue, "merge_done", GearTier.EMBER if forged else Kit.GOOD)
+	_open(shell, "Forged!" if forged else "Merged!", body, on_continue, "merge_done", GearTier.color(made.tier) if forged else Kit.GOOD)
 
 
 ## The merge popup's header: the new piece glowing over the Anvil King's
@@ -149,10 +149,13 @@ static func _ember_glow(tier: int) -> Control:
 		return null
 	var g := Gradient.new()
 	var heat := .45 + .1 * GearTier.level(tier)
-	g.set_color(0, Color(GearTier.HOT, heat))
+	var cols: Array = GearTier.colors(tier)
+	# Several colours: a white haze the tween below tints through them.
+	var col: Color = cols[0] if cols.size() == 1 else Color.WHITE
+	g.set_color(0, Color(GearTier.hot(tier) if cols.size() == 1 else Color.WHITE, heat))
 	g.set_offset(0, 0.0)
-	g.set_color(1, Color(GearTier.EMBER, 0.0))
-	g.add_point(.45, Color(GearTier.EMBER, heat * .55))
+	g.set_color(1, Color(col, 0.0))
+	g.add_point(.45, Color(col, heat * .55))
 	var tex := GradientTexture2D.new()
 	tex.gradient = g
 	tex.fill = GradientTexture2D.FILL_RADIAL
@@ -166,8 +169,13 @@ static func _ember_glow(tier: int) -> Control:
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if not Motion.calm():
 		var tw := t.create_tween().set_loops()
-		tw.tween_property(t, "modulate:a", .6, .9).set_trans(Tween.TRANS_SINE)
-		tw.tween_property(t, "modulate:a", 1.0, .9).set_trans(Tween.TRANS_SINE)
+		if cols.size() == 1:
+			tw.tween_property(t, "modulate:a", .6, .9).set_trans(Tween.TRANS_SINE)
+			tw.tween_property(t, "modulate:a", 1.0, .9).set_trans(Tween.TRANS_SINE)
+		else:
+			# Higher levels cycle the haze through their colours (a rainbow at 5).
+			for c in cols:
+				tw.tween_property(t, "modulate", Color(c).lerp(Color.WHITE, .25), .7).set_trans(Tween.TRANS_SINE)
 	return t
 
 
@@ -225,7 +233,7 @@ static func slam(shell, kind: String, col: Color, then: Callable, tier := 1, n :
 		out.tween_property(ring, "modulate:a", 0.0, .4)
 		out.chain().tween_callback(ring.queue_free)
 		if forging:
-			_ember_burst(shell, layer, centre, 8 + 2 * GearTier.level(tier + 1))
+			_ember_burst(shell, layer, centre, tier + 1)
 		for g in pieces:
 			var fade: Tween = g.create_tween().set_parallel()
 			fade.tween_property(g, "scale", Vector2(1.4, 1.4), .14)
@@ -236,11 +244,14 @@ static func slam(shell, kind: String, col: Color, then: Callable, tier := 1, n :
 
 ## Ember sparks flung out from `centre` and a white-hot flash: the forge
 ## moment. A handful of small rounded panels, gone in half a second.
-static func _ember_burst(shell, layer: Control, centre: Vector2, count: int) -> void:
+static func _ember_burst(shell, layer: Control, centre: Vector2, made_tier: int) -> void:
+	var count := 8 + 2 * GearTier.level(made_tier)
+	var cols: Array = GearTier.colors(made_tier)
+	var hot := GearTier.hot(made_tier)
 	if shell.sfx != null:
 		shell.sfx.play("clunk", 2.0, .7)
 	var flash := Panel.new()
-	flash.add_theme_stylebox_override("panel", Kit.box(Color(GearTier.HOT, .85), Color(0, 0, 0, 0), 999, 0, 0))
+	flash.add_theme_stylebox_override("panel", Kit.box(Color(hot, .85), Color(0, 0, 0, 0), 999, 0, 0))
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	flash.size = Vector2(90, 90)
 	flash.position = centre - flash.size / 2.0
@@ -254,7 +265,7 @@ static func _ember_burst(shell, layer: Control, centre: Vector2, count: int) -> 
 		var a := TAU * (float(i) + .5 * float(i % 2)) / float(count)
 		var spark := Panel.new()
 		var big := 10.0 + 6.0 * float(i % 3)
-		spark.add_theme_stylebox_override("panel", Kit.box(GearTier.HOT if i % 2 == 0 else GearTier.EMBER, Color(0, 0, 0, 0), 999, 0, 0))
+		spark.add_theme_stylebox_override("panel", Kit.box(hot if i % 3 == 0 else cols[i % cols.size()], Color(0, 0, 0, 0), 999, 0, 0))
 		spark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		spark.size = Vector2(big, big)
 		spark.position = centre - spark.size / 2.0

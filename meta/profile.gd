@@ -614,11 +614,29 @@ func spend_orbs(n: int) -> bool:
 	if orbs < n:
 		return false
 	orbs -= n
-	var item := _item("Summon Egg")
-	if not item.is_empty():
-		item.count = orbs
+	_sync_eggs()
 	changed.emit()
 	return true
+
+
+## Adds Summon Eggs from anywhere (drops, the Bazaar, rewards), keeping the
+## Bag's Summon Egg row on the same count as the top bar. Doesn't emit
+## `changed`: callers do, once they're done.
+func add_orbs(n: int) -> void:
+	orbs += n
+	_sync_eggs()
+
+
+## The Bag's Summon Egg row shows `orbs`: eggs added straight to `orbs`
+## (older code, older saves) left it behind the top bar's count.
+func _sync_eggs() -> void:
+	var item := _item("Summon Egg")
+	if item.is_empty():
+		if orbs <= 0:
+			return
+		items.append({"name": "Summon Egg", "count": 0, "text": EGG_TEXT, "color": Color("c86bff")})
+		item = items[-1]
+	item.count = orbs
 
 
 # --- Levels -------------------------------------------------------------------
@@ -1040,6 +1058,7 @@ static func from_dict(d: Dictionary, now: int):
 				p.items[-1].name = "Summon Egg"
 			if p.items[-1].name == "Summon Egg":
 				p.items[-1].text = EGG_TEXT # Older saves kept a longer line.
+	p._sync_eggs()
 	if not p.owns(p.lineup):
 		p.lineup = p.stacks[0].id
 	# A converted Charm on a critter under 3 stars goes back to the Bag.
@@ -1073,8 +1092,7 @@ func grant(r: Dictionary) -> void:
 	var n := int(r.get("n", 1))
 	match r.kind:
 		"orbs":
-			orbs += n
-			_item("Summon Egg").count = orbs
+			add_orbs(n)
 		"coins":
 			coins += n
 		"hammers":

@@ -120,3 +120,40 @@ static func open(store, profile) -> Array:
 	store.chest = {}
 	store.save()
 	return got
+
+
+## The season chest (Newms 2026-11-05): when a Glow Pass season ends, each
+## Arena mode you played pays the chest of the best league you reached in
+## it, with twice the weekly chest's items (the Spark chance stays).
+static func season_look(league: int, mode := "series") -> Dictionary:
+	var out := look(league, mode)
+	out.name = "%s Season Chest" % Ladder.LEAGUES[league].name
+	return out
+
+
+## What the season chest for `league` from `season_name` holds (`mode` and
+## the player's chest `salt` make each roll its own).
+static func season_rewards(league: int, season_name: String, mode := "series", salt := 0) -> Array:
+	var got := rewards(league, roll_week(absi(hash("season|" + season_name)) % 1000003 + 200003, mode), salt)
+	for r in got:
+		if r.kind != "gear" and r.kind != "spark" and r.has("n"):
+			r.n = int(r.n) * 2
+	return got
+
+
+## Opens the store's season chest (its current mode's) into `profile` and
+## the store. Returns the rewards given (empty when there is none).
+static func open_season(store, profile) -> Array:
+	if store.season_chest.is_empty():
+		return []
+	var c: Dictionary = store.season_chest
+	var got := season_rewards(int(c.league), str(c.season), store.mode, profile.chest_seed() if profile != null else 0)
+	for r in got:
+		if r.kind == "tokens":
+			store.coins += int(r.n)
+			store.coins_earned += int(r.n)
+		elif profile != null:
+			profile.grant(r)
+	store.season_chest = {}
+	store.save()
+	return got
