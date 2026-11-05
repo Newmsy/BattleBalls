@@ -30,6 +30,7 @@ const Painted := preload("res://game/ui/painted.gd")
 const PlayScreen := preload("res://game/ui/screens/play_screen.gd")
 const ResultPopup := preload("res://game/ui/result_popup.gd")
 const FactionRing := preload("res://game/ui/faction_ring.gd")
+const ArenaBadges := preload("res://game/ui/arena_badges.gd")
 
 const Motion := preload("res://game/ui/motion.gd")
 const LevelUp := preload("res://game/ui/level_up.gd")
@@ -82,7 +83,10 @@ static func build(shell, params: Dictionary) -> Control:
 		"Both pairs fight at once. The last pair standing wins." if league_mode else "Trios fight in order; a winner stays in with its HP left. Their order is hidden. Your last shots become your ghost.",
 		"Your Defence is the team other players fight. Each day a few raid it: holding wins trophies and Arena Coins.",
 		"Every trophy you win also earns an Arena Point for the Trophy Room. Every fight earns Arena Coins for the Bazaar.",
+		"Win %d in a row for a streak: each win on it adds bonus trophies and Arena Coins. A loss ends it." % ArenaStore.STREAK_FROM,
+		"A raider who beats your Defence shows up here for Revenge: beat them back for %sx trophies." % str(ArenaStore.REVENGE_MULT),
 		"Your best league here each week opens this mode's chest for that league when the week ends. Tap your league to see them.",
+		"When a Glow Pass season ends, your best league in it wins a crest and a Season Chest, and trophies above %s are halved." % Kit.commas(Ladder.SEASON_PIVOT),
 	]
 	root.add_child(shell.title_row(str(m.name), {"eyebrow": "ARENA", "eyebrow_color": m.color, "info_mark": "arena_info", "info": how,
 		"extra": [token_pill(shell, store)]}))
@@ -111,6 +115,12 @@ static func build(shell, params: Dictionary) -> Control:
 	var cards: Array[Dictionary] = store.offers(shell.profile)
 	var list := Kit.vbox(10)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Today's raiders who beat your Defence lead the list, for Revenge.
+	var revenge: Array = store.revenge_offers()
+	for i in revenge.size():
+		var btn := _opponent_row(shell, store, revenge[i])
+		shell.mark("arena_revenge_%d" % i, btn)
+		list.add_child(btn)
 	for i in cards.size():
 		var btn := _opponent_row(shell, store, cards[i])
 		shell.mark("arena_card_%d" % i, btn)
@@ -154,7 +164,7 @@ static func _league_panel(shell, store) -> Control:
 	var v := Kit.vbox(8, [
 		head,
 		bar,
-		Kit.hbox(0, [Kit.label(next_text, 20, Kit.MUTED), Kit.spacer(), Kit.label("%d W · %d L" % [store.wins, store.losses], 20, Kit.MUTED)]),
+		Kit.hbox(0, [Kit.label(next_text, 20, Kit.MUTED), Kit.spacer(), _record(shell, store)]),
 	])
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.size_flags_stretch_ratio = 1.5
@@ -171,6 +181,15 @@ static func _league_panel(shell, store) -> Control:
 	stack.add_child(PlayScreen._padded(words, 16, 16))
 	var st := Kit.box(Kit.BG, lg.color, 32, 3, 3)
 	return Kit.panel(stack, st)
+
+
+## Wins and losses, or the win streak's flame while you're on one.
+static func _record(shell, store) -> Control:
+	if int(store.streak) < ArenaStore.STREAK_FROM:
+		return Kit.label("%d W · %d L" % [store.wins, store.losses], 20, Kit.MUTED)
+	var flame := ArenaBadges.streak(int(store.streak), 18)
+	shell.mark("arena_streak", flame)
+	return flame
 
 
 ## Back from a fight: the trophy count ticks from what you last saw to now,
@@ -258,10 +277,15 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 	var fam: String = bot.get("family", "")
 	var fam_col: Color = Color(Families.info(fam).color) if fam != "" else Kit.FG
 	var stake := Ladder.stake(store.trophies, int(bot.get("trophies", store.trophies)))
+	var avenge: bool = offer.get("card", "") == ArenaStore.REVENGE
+	if avenge:
+		stake.win = ArenaStore.revenge_win(int(stake.win))
 	var name: Control = _fit(Kit.label(str(bot.name), 24, Kit.FG))
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if bot.has("level"):
 		name = Kit.hbox(8, [level_badge(int(bot.level)), name], BoxContainer.ALIGNMENT_CENTER)
+	if avenge:
+		name = Kit.vbox(2, [ArenaBadges.revenge(), name])
 	var info := Kit.vbox(2, [
 		name,
 		Kit.hbox(6, [Kit.amount("trophy", int(bot.get("trophies", 0)), 20, Kit.MUTED, Glyph.GOLD), Kit.power(ArenaTeams.rating(bot), 20, Kit.MUTED)]),
@@ -285,7 +309,7 @@ static func _opponent_row(shell, store, offer: Dictionary) -> Button:
 	var odds := Matchup.chip(Matchup.rate(store.power(shell.profile), ArenaTeams.rating(bot), edge), 16)
 	odds.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var row := Kit.hbox(8, [info, odds, foe_side, Kit.glyph("trophy", 22, Glyph.GOLD), stakes], BoxContainer.ALIGNMENT_CENTER)
-	var b := Kit.card_button(row, _attack.bind(shell, store, offer), Color(fam_col, .6), Kit.PANEL, 22, 10)
+	var b := Kit.card_button(row, _attack.bind(shell, store, offer), ArenaBadges.REVENGE if avenge else Color(fam_col, .6), Kit.PANEL, 22, 10)
 	if fam != "" and ResourceLoader.exists(Painted.ART % ("families/" + fam)):
 		# The stage sits behind the faces; the words' side is shaded so they read.
 		var home := Painted.make("families/" + fam, {"focus": Vector2(200, 300), "at": Vector2(0.68, 0.72), "px": 1.0,
@@ -309,7 +333,7 @@ static func _attack(shell, store, offer: Dictionary) -> void:
 
 ## Starts the attack on `offer` (a token already spent) and opens its fight.
 static func start_fight(shell, store, offer: Dictionary) -> void:
-	store.start_attack(offer.card, offer.bot, randi_range(1, 0x7FFFFFFF), store.slots(shell.profile))
+	store.start_attack(offer.card, offer.bot, randi_range(1, 0x7FFFFFFF), store.slots(shell.profile), int(offer.get("raid", -1)))
 	if store.mode == ArenaStore.LEAGUE:
 		shell.arena_duo_requested.emit()
 	else:
@@ -385,6 +409,9 @@ static func _duo_result(shell, store, params: Dictionary) -> void:
 	if delta > 0:
 		rewards.add_child(Kit.hbox(6, [Kit.glyph("points", 30, Kit.WARN), Kit.label("+%d" % delta, 26, Kit.WARN)], BoxContainer.ALIGNMENT_CENTER))
 	var body: Array = [head, Kit.label(Ladder.league_label(store.trophies), 26, Ladder.league(store.trophies).color, HORIZONTAL_ALIGNMENT_CENTER)]
+	var extra = ArenaBadges.result_row(d.get("entry", {}))
+	if extra != null:
+		body.append(extra)
 	if rewards.get_child_count() > 0:
 		body.append(rewards)
 	var rings = FactionRing.rows(shell.profile.take_faction_gains(), shell.sfx, .45, FactionRing.spend_in(shell))

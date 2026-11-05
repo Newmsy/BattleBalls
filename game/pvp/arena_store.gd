@@ -22,6 +22,7 @@ const ArenaPlayers := preload("res://game/pvp/arena_players.gd")
 const ArenaChest := preload("res://game/pvp/arena_chest.gd")
 const Rng := preload("res://sim/rng.gd")
 const Gear := preload("res://sim/gear.gd")
+const LiveOps := preload("res://game/liveops.gd")
 
 const SAVE_PATH := "user://ghost_arena.cfg"
 const HISTORY_SIZE := 10
@@ -36,6 +37,15 @@ const RAIDS_PER_DAY := 3
 ## back every TOKEN_SECONDS, up to TOKEN_MAX held. Never sold.
 const TOKEN_MAX := 10
 const TOKEN_SECONDS := 3600
+## Win streaks (Newms 2026-11-05): from the STREAK_FROM-th win in a row,
+## each win adds streak_bonus() trophies and as many Arena Coins. A loss
+## ends the streak.
+const STREAK_FROM := 3
+## Revenge (Newms 2026-11-05): a raider who beat your Defence today can be
+## attacked back from the opponent list or Defence, for REVENGE_MULT x the
+## trophies a win is worth. Once per raid.
+const REVENGE := "revenge"
+const REVENGE_MULT := 1.5
 
 ## The Arena's two modes (Newms 2026-11-02), each with its own trophies,
 ## league, team, Defence and opponents: the 3v3 Series (a relay of three,
@@ -49,7 +59,7 @@ const MODES := {
 	LEAGUE: {"name": "2v2 League", "size": 2, "color": Color("27c8ff"), "art": "vs_league", "team": "Your pair", "short": "2v2"},
 }
 ## What each mode keeps of its own; everything else is shared.
-const MODE_KEYS := ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "defence", "raid_day", "raids", "week", "week_best", "chest"]
+const MODE_KEYS := ["trophies", "peak", "trio", "shots", "refresh_day", "refreshes", "wins", "losses", "history", "pending", "defence", "raid_day", "raids", "week", "week_best", "chest", "streak", "season", "season_chest", "crests"]
 
 ## Set by the arena fight scene so the home screen reopens on the Arena.
 static var reopen := false
@@ -96,6 +106,13 @@ var raids: Array = [] ## Today's raids on your defence: {name, family, held, del
 var week := 0 ## The week week_best counts (ArenaChest.week_of).
 var week_best := -1 ## Best league index reached in `week`; -1 before any Arena visit.
 var chest: Dictionary = {} ## The weekly chest waiting to open: {week, league}.
+var streak := 0 ## Wins in a row (a loss ends it).
+## The Glow Pass season (LiveOps) `peak` counts, by name; "" before the
+## first visit. When a new one starts, the last one's league pays a crest and
+## season_chest ({season, league}), and trophies soft-reset (roll_season()).
+var season := ""
+var season_chest: Dictionary = {}
+var crests: Array = [] ## Season crests won, oldest first: {season, league}
 ## Arena Tokens held (see tokens_now()) and the unix time the next one
 ## started charging. A new save starts full.
 var tokens := TOKEN_MAX
@@ -110,7 +127,72 @@ static func open(save_path := SAVE_PATH, with_mode := ""):
 	s._load()
 	if with_mode != "":
 		s.use(with_mode)
+	s.roll_seasons()
 	return s
+
+
+## The name of the Glow Pass season running now ("" between seasons).
+static func season_now() -> String:
+	return str(LiveOps.season(now_unix()).get("name", ""))
+
+
+## roll_season() for both modes; saves when either changed.
+func roll_seasons(now_season: String = season_now()) -> void:
+	var changed := roll_season(now_season)
+	var m := mode
+	use(LEAGUE if m == SERIES else SERIES)
+	changed = roll_season(now_season) or changed
+	use(m)
+	if changed and not is_new: # A new store saves on its first real visit.
+		save()
+
+
+## A new season (Newms 2026-11-05): the season just ended pays this mode a
+## crest and a chest for the best league reached in it (`peak`), if you
+## played, and trophies soft-reset (Ladder.season_reset). The first season
+## seen only starts counting. True when anything changed.
+func roll_season(now_season: String) -> bool:
+	if now_season == "" or now_season == season:
+		return false
+	var was := season
+	season = now_season
+	if was == "":
+		return true
+	if wins + losses > 0:
+		var lg := Ladder.league_index(peak)
+		season_chest = {"season": was, "league": lg}
+		crests.append({"season": was, "league": lg})
+	trophies = Ladder.season_reset(trophies)
+	peak = trophies
+	return true
+
+
+## Trophies (and as many Arena Coins) a win adds on a streak of `n` wins in
+## a row: +4 on the third, 2 more each win after, at most +10.
+static func streak_bonus(n: int) -> int:
+	if n < STREAK_FROM:
+		return 0
+	return mini(4 + 2 * (n - STREAK_FROM), 10)
+
+
+## Today's raiders who beat your Defence and haven't been attacked back,
+## as opponent offers ({card: REVENGE, bot, raid}).
+func revenge_offers(day: int = today()) -> Array:
+	var out: Array = []
+	if raid_day != day:
+		return out
+	for i in raids.size():
+		var r: Dictionary = raids[i]
+		if not r.held and not r.get("avenged", false) and r.has("seed"):
+			out.append(revenge_offer(i))
+	return out
+
+
+## Raid `i`'s squad, rebuilt from its seed, as an opponent offer.
+func revenge_offer(i: int) -> Dictionary:
+	var r: Dictionary = raids[i]
+	var bot := ArenaTeams.make_player(int(r.goal), int(r.seed), int(r.get("trophies", trophies)), size())
+	return {"card": REVENGE, "bot": bot, "raid": i}
 
 
 ## Switches the store to `m`: the mode fields (MODE_KEYS) now hold its state.
@@ -137,7 +219,7 @@ func _fresh(m: String) -> Dictionary:
 	var team: Array = ["vampire", "laser", "spiker"].slice(0, n)
 	return {"trophies": 0, "peak": 0, "trio": team, "shots": team.map(func(_c): return 0), "refresh_day": 0, "refreshes": 0,
 		"wins": 0, "losses": 0, "history": [], "pending": {}, "defence": team.duplicate(), "raid_day": 0, "raids": [],
-		"week": 0, "week_best": -1, "chest": {}}
+		"week": 0, "week_best": -1, "chest": {}, "streak": 0, "season": "", "season_chest": {}, "crests": []}
 
 
 ## Trophies in mode `m` (either mode, whichever is in use).
@@ -165,9 +247,14 @@ static func sample():
 	s.defence = ["spiker", "vampire", "speedster"]
 	s.coins = 140
 	s.raid_day = today()
+	# The raider who won is a real seeded squad, so Revenge has someone to fight.
+	var raider := ArenaTeams.make_player(1500, 424242, 1260, 3)
 	s.raids = [{"name": "frostbyte92", "family": "frost", "held": true, "delta": 5, "coins": 8},
-		{"name": "Kaz_Plays", "family": "tech", "held": false, "delta": -10, "coins": 0},
+		{"name": raider.name, "family": raider.family, "held": false, "delta": -10, "coins": 0, "goal": 1500, "seed": 424242, "trophies": 1260},
 		{"name": "MossyMaya", "family": "nature", "held": true, "delta": 5, "coins": 8}]
+	s.streak = 4
+	s.season = season_now()
+	s.crests = [{"season": "Preseason", "league": 2}]
 	s.coins_earned = 610
 	s.week = ArenaChest.this_week()
 	s.week_best = Ladder.league_index(s.trophies)
@@ -386,14 +473,25 @@ func lineup(profile = null, which := "trio") -> Dictionary:
 ## `bot`: the opponent, as a full team (ArenaTeams) or a pool bot's id.
 ## A seeded team carries its own trophies, so what the attack is worth
 ## (Ladder.stake) is fixed here, when it starts.
-func start_attack(card: String, bot, seed_value: int, attack_slots: Array = []) -> void:
+## `raid`: the raid (index in `raids`) this attack avenges, or -1.
+func start_attack(card: String, bot, seed_value: int, attack_slots: Array = [], raid := -1) -> void:
 	settle_abandoned()
 	var foe: Dictionary = bot if bot is Dictionary else ArenaGhosts.by_id(str(bot))
 	pending = {"card": card, "mode": mode, "bot_id": str(foe.get("id", "")), "bot": foe, "seed": seed_value, "arena": Arenas.pick(seed_value),
 		"slots": attack_slots if not attack_slots.is_empty() else slots()}
 	if not Ladder.CARDS.has(card):
 		pending.stake = Ladder.stake(trophies, int(foe.get("trophies", trophies)))
+	if card == REVENGE:
+		pending.stake.win = revenge_win(int(pending.stake.win))
+		pending.revenge = {"raid": raid, "day": raid_day}
+		if raid >= 0 and raid < raids.size():
+			raids[raid].avenged = true # One go per raid, win or lose.
 	save()
+
+
+## What a revenge win is worth when a plain win is worth `win`.
+static func revenge_win(win: int) -> int:
+	return roundi(win * REVENGE_MULT)
 
 
 ## {win, loss, coins} for the attack in progress.
@@ -428,7 +526,13 @@ func settle_abandoned() -> int:
 
 
 func _apply(won: bool) -> int:
-	var delta := Ladder.stake_delta(trophies, peak, pending_stake(), won)
+	var bonus := 0
+	if won:
+		streak += 1
+		bonus = streak_bonus(streak)
+	else:
+		streak = 0
+	var delta := Ladder.stake_delta(trophies, peak, pending_stake(), won) + bonus
 	trophies += delta
 	peak = maxi(peak, trophies)
 	note_league()
@@ -439,11 +543,12 @@ func _apply(won: bool) -> int:
 		wins += 1
 	else:
 		losses += 1
-	var got: int = int(pending_stake().coins) if won else COINS_LOSS
+	var got: int = int(pending_stake().coins) + bonus if won else COINS_LOSS
 	coins += got
 	coins_earned += got
 	var bot: Dictionary = pending_bot()
-	history.push_front({"name": bot.get("name", "?"), "card": pending.card, "won": won, "delta": delta, "coins": got})
+	history.push_front({"name": bot.get("name", "?"), "card": pending.card, "won": won, "delta": delta, "coins": got,
+		"streak": streak, "bonus": bonus, "revenge": pending.has("revenge")})
 	history = history.slice(0, HISTORY_SIZE)
 	return delta
 
@@ -469,7 +574,10 @@ func run_raids(profile = null, day: int = today()) -> Array:
 	var rng = Rng.new(hash("raids|%d" % day) if mode == SERIES else hash("raids|%s|%d" % [mode, day]))
 	var lost := 0
 	for n in RAIDS_PER_DAY:
-		var team := ArenaTeams.make_player(ArenaTeams.target(power(profile, "defence"), trophies, "even"), rng.range_int(1, 0x7FFFFFFF), trophies, size())
+		var goal := ArenaTeams.target(power(profile, "defence"), trophies, "even")
+		var team_seed := rng.range_int(1, 0x7FFFFFFF)
+		var at := trophies
+		var team := ArenaTeams.make_player(goal, team_seed, at, size())
 		var r := fight(team.lineup.slots, mine, rng.range_int(1, 0x7FFFFFFF), team.lineup.aim, shots)
 		var held: bool = r.winner == 1
 		var delta := Ladder.defence_delta(trophies, peak, "even", not held, lost)
@@ -480,7 +588,9 @@ func run_raids(profile = null, day: int = today()) -> Array:
 		var got := COINS_DEFENCE if held else 0
 		coins += got
 		coins_earned += got
-		raids.append({"name": team.name, "family": team.family, "held": held, "delta": delta, "coins": got})
+		# The squad's goal and seed rebuild it for a revenge attack.
+		raids.append({"name": team.name, "family": team.family, "held": held, "delta": delta, "coins": got,
+			"goal": goal, "seed": team_seed, "trophies": at})
 	note_league()
 	save()
 	return raids
@@ -499,11 +609,11 @@ func roll_week(now_week: int = ArenaChest.this_week()) -> void:
 
 ## True when either mode has a finished week's chest waiting.
 func any_chest_ready() -> bool:
-	if chest_ready():
+	if chest_ready() or not season_chest.is_empty():
 		return true
 	var m := mode
 	use(LEAGUE if m == SERIES else SERIES)
-	var other := chest_ready()
+	var other: bool = chest_ready() or not season_chest.is_empty()
 	use(m)
 	return other
 
@@ -660,9 +770,10 @@ func _load() -> void:
 ## Loads one mode's fields from `section` into the top-level fields.
 func _load_mode(f: ConfigFile, section: String, m: String) -> void:
 	var n: int = MODES[m].size
-	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "raid_day", "week", "week_best"]:
+	for key in ["trophies", "peak", "refresh_day", "refreshes", "wins", "losses", "raid_day", "week", "week_best", "streak"]:
 		set(key, int(f.get_value(section, key, get(key))))
-	for key in ["history", "pending", "raids", "chest"]:
+	season = str(f.get_value(section, "season", season))
+	for key in ["history", "pending", "raids", "chest", "season_chest", "crests"]:
 		set(key, f.get_value(section, key, get(key)))
 	var saved_trio: Array = f.get_value(section, "trio", trio)
 	var saved_shots: Array = f.get_value(section, "shots", shots)

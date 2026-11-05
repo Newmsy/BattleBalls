@@ -15,9 +15,8 @@ const GOLD := Color("ffc23d")
 const OFF := Color("3b3770")
 ## Ascension's colour: purple tier stars and the Ascension Spark.
 const PURPLE := Color("b46cff")
-## Emberforged gear (game/ui/gear_tier.gd): ember stars with a white-hot core.
-const EMBER := Color("ff5a36")
-const EMBER_HOT := Color("ffe39a")
+## Emberforged gear: each forged star in its level's colour, with a bright core.
+const GearTier := preload("res://game/ui/gear_tier.gd")
 
 var kind := "stars"
 var count := 1
@@ -79,8 +78,9 @@ func _draw() -> void:
 			for i in slots:
 				var p := Vector2(step * (i + .5), s / 2.0)
 				if i < forged:
-					Dot.poly(self, CritterArt.star_pts(p, s * .5, s * .21, 5), EMBER)
-					Dot.poly(self, CritterArt.star_pts(p, s * .24, s * .1, 5), EMBER_HOT)
+					var fc: Color = GearTier.STAR_COLORS[i]
+					Dot.poly(self, CritterArt.star_pts(p, s * .5, s * .21, 5), fc)
+					Dot.poly(self, CritterArt.star_pts(p, s * .24, s * .1, 5), fc.lerp(Color.WHITE, .6))
 					continue
 				Dot.poly(self, CritterArt.star_pts(p, s * .48, s * .2, 5), (PURPLE if i < purple else GOLD) if i < count else OFF)
 		"bolt":
@@ -404,6 +404,20 @@ func _draw() -> void:
 			Dot.circle(self, c, s * .37, Color("8a1f78"))
 			Dot.circle(self, c + Vector2(-s * .15, -s * .17), s * .07, Color(1, 1, 1, .35))
 			Dot.poly(self, PackedVector2Array([c + Vector2(0, -.22) * s, c + Vector2(.15, 0) * s, c + Vector2(0, .22) * s, c + Vector2(-.15, 0) * s]), Color("ffd1f5"))
+		"flame":
+			# An Arena win streak: a flame, orange outside, gold inside, a
+			# white-hot core.
+			for layer in [[1.0, Color("ff5a1f")], [.66, Color("ffb13d")], [.36, Color("fff2c0")]]:
+				var k: float = layer[0]
+				var h := s * .48 * k
+				var w := s * .42 * k
+				var base := Vector2(c.x, s * .98 - h)
+				var pts := PackedVector2Array()
+				for i in 24:
+					# A teardrop: a point on top, round at the bottom.
+					var t := i / 24.0 * TAU
+					pts.append(base + Vector2(w * sin(t) * sin(t / 2.0), -h * cos(t)))
+				Dot.poly(self, pts, layer[1])
 		"token":
 			# An Arena Token (one per Arena fight): a magenta hexagon with
 			# crossed swords, so it never reads as a coin.
