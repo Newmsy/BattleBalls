@@ -37,6 +37,7 @@ var state := State.AIM
 var relay: Relay
 var sim: MatchSim
 var aimed: Array[bool] = []
+var dealt := 0.0 ## Damage your balls dealt over every leg so far (quest progress).
 var aim := 0 ## Current aim for your ball, tenths of a degree, screen space.
 var aimer := FightAim.new()
 ## The names the smoke test taps these by ("UI_AT name x y").
@@ -239,6 +240,7 @@ func _skip_leg() -> void:
 
 
 func _end_leg() -> void:
+	dealt += sim.balls[0].damage_dealt
 	relay.record_leg(sim)
 	var w := sim.winner
 	if w == -1:
@@ -307,6 +309,19 @@ func fought() -> Array:
 		if aimed[i]:
 			ids.append(str(relay.sides[0][i]))
 	return ids
+
+
+## Who fought for the quests (GlowState.note_fight): your launched critters
+## and their tiers, so Arena and Spire wins count for "Win with a Frost
+## critter", "Win with a Rare or better" and the like.
+func quest_ctx() -> Dictionary:
+	var ids := fought()
+	var tiers := []
+	var cfg_tiers: Array = relay.config.get("tiers", [[], []])[0] if relay.config.has("tiers") else []
+	for i in mini(aimed.size(), relay.sides[0].size()):
+		if aimed[i]:
+			tiers.append(int(cfg_tiers[i]) if i < cfg_tiers.size() else 1)
+	return {"critters": ids, "tiers": tiers}
 
 
 ## The Faction XP rings for this relay's fight, paid into the save.

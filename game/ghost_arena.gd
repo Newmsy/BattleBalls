@@ -90,7 +90,7 @@ func _show_result() -> void:
 		used.append(null if a == null or not aimed[i] else int(a) - MatchSim.AIM_AT_CENTRE[0])
 	_last_slots = store.pending.get("slots", [])
 	result_delta = store.finish_attack(won, used)
-	GlowState.note_fight(relay.winner, 0.0)
+	GlowState.note_fight(relay.winner, dealt, quest_ctx())
 	if won:
 		GlowState.note("arena_win")
 	Intro.arena_fought = true
