@@ -208,7 +208,7 @@ static func after_stage(p, zone: int, stage: int, r: Dictionary) -> void:
 		return
 	if stage == 0 and step(p) < SUMMON:
 		if int(r.get("orbs", 0)) == 0:
-			p.orbs += 1
+			p.add_orbs(1)
 			r.orbs = 1
 		reach(p, SUMMON)
 		r.intro = SUMMON

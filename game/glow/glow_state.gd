@@ -594,21 +594,36 @@ func record_trick(t := -1) -> int:
 	return add_xp(GlowPass.TRICK_XP, "trick shot", t)
 
 
+## A win's quest progress. `ctx` names who won it: {critter, tier} for one
+## ball, or {critters: [ids], tiers: [t]} for a relay (Arena, Spire), where a
+## win counts once per quest however many of the team qualify.
 func _record_win(ctx: Dictionary, t: int) -> void:
-	var id := str(ctx.get("critter", ""))
-	if id == "" or not id in BallDefs.PLAYABLE:
-		return
-	var fam := Families.of(id)
-	if fam != "":
-		_count("win_fam:" + fam, 1, t)
-	if CritterDb.RARITIES.find(str(CritterDb.get_critter(id).rarity)) >= 2:
-		_count("win_rare", 1, t)
-	if int(ctx.get("tier", 1)) >= 3:
-		_count("win_t3", 1, t)
+	var ids: Array = ctx.get("critters", [ctx.get("critter", "")])
+	var tiers: Array = ctx.get("tiers", [ctx.get("tier", 1)])
+	var fams := {}
+	var rare := false
+	var t3 := false
 	var w := _quest_week(t)
-	if not id in w.won_with:
-		w.won_with.append(id)
-		w.progress.critters = w.won_with.size()
+	for i in ids.size():
+		var id := str(ids[i])
+		if id == "" or not id in BallDefs.PLAYABLE:
+			continue
+		var fam := Families.of(id)
+		if fam != "":
+			fams[fam] = true
+		if CritterDb.RARITIES.find(str(CritterDb.get_critter(id).rarity)) >= 2:
+			rare = true
+		if int(tiers[i] if i < tiers.size() else 1) >= 3:
+			t3 = true
+		if not id in w.won_with:
+			w.won_with.append(id)
+			w.progress.critters = w.won_with.size()
+	for fam in fams:
+		_count("win_fam:" + fam, 1, t)
+	if rare:
+		_count("win_rare", 1, t)
+	if t3:
+		_count("win_t3", 1, t)
 
 
 ## What the player has, for which quests can roll (Quests.eligible).

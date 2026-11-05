@@ -336,8 +336,7 @@ static func _collect(shell, climb) -> void:
 ## Puts a reward bundle (SpireClimb.take_rewards) into the profile.
 static func grant(p, t: Dictionary) -> void:
 	p.coins += int(t.coins)
-	p.orbs += int(t.orbs)
-	_add_item(p, "Summon Egg", 0, "", Color("c86bff")).count = p.orbs
+	p.add_orbs(int(t.orbs))
 	p.hammers += int(t.get("hammers", 0))
 	for g in t.gear:
 		p.add_gear(g.type, g.tier)
@@ -349,16 +348,6 @@ static func grant(p, t: Dictionary) -> void:
 ## "3-star Iron Shell" for a gear reward {type, tier}.
 static func gear_name(g: Dictionary) -> String:
 	return "%d-star %s" % [g.tier, Gear.PIECES[g.type].name]
-
-
-static func _add_item(p, name: String, n: int, text: String, color: Color) -> Dictionary:
-	for i in p.items:
-		if i.name == name:
-			i.count += n
-			return i
-	var item := {"name": name, "count": n, "text": text, "color": color}
-	p.items.append(item)
-	return item
 
 
 ## The tower beside the floor card: stacked stone tiers narrowing to a flag at

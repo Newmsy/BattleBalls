@@ -342,7 +342,7 @@ static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear:
 		eggs += Economy.ORBS_FIRST_CLEAR
 	if eggs > 0:
 		result.orbs = eggs
-		profile.orbs += eggs
+		profile.add_orbs(eggs)
 	if first_clear:
 		types.append(st.enemy)
 		if Zones.is_boss(st):

@@ -707,7 +707,7 @@ func buy(profile, index: int, day: int = today()) -> bool:
 		"gear":
 			profile.add_gear(item.type, item.tier)
 		"orbs":
-			profile.orbs += int(item.n)
+			profile.add_orbs(int(item.n))
 			profile.changed.emit()
 		"energy":
 			profile.energy += int(item.n)

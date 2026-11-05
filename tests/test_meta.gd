@@ -147,6 +147,7 @@ func test_win_spends_energy_gives_stars_xp_and_drops() -> void:
 	check(r.first_clear, "first clear")
 	check(r.drops.has(enemy), "plus the first-clear copy")
 	check(r.orbs >= Economy.ORBS_FIRST_CLEAR, "a first clear always pays an egg")
+	check_eq(p.item_count("Summon Egg"), p.orbs, "the Bag's egg row counts the dropped eggs too")
 	check(p.owns(enemy), "first clear gives the beaten critter")
 	check(Campaign.is_unlocked(p, 0, 1), "next stage opens")
 	check(p.best("vampire").level > 1, "fighter levelled")
@@ -216,6 +217,19 @@ func test_drops_vary_between_runs_but_are_repeatable() -> void:
 			distinct[t] = true
 		check(distinct.size() >= 3, "drops spread across the featured critters")
 	check_eq(seen.size(), 1, "same history gives the same drops")
+
+
+func test_eggs_added_anywhere_keep_the_bag_row_in_step() -> void:
+	var p = Profile.new_game(T0)
+	p.add_orbs(3)
+	p.grant({"kind": "orbs", "n": 2})
+	check_eq(p.orbs, Profile.STARTER_ORBS + 5, "eggs added")
+	check_eq(p.item_count("Summon Egg"), p.orbs, "Bag row matches")
+	# A save whose row fell behind (eggs added straight to orbs) loads in step.
+	var d: Dictionary = p.to_dict()
+	d.orbs = 40
+	var q = Profile.from_dict(d, T0)
+	check_eq(q.item_count("Summon Egg"), 40, "row brought up to the egg count on load")
 
 
 func test_save_round_trip() -> void:

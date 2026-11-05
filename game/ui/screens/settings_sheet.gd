@@ -296,7 +296,7 @@ static func _refill_energy(shell) -> void:
 
 
 static func _add_orbs(shell) -> void:
-	shell.profile.orbs += 10
+	shell.profile.add_orbs(10)
 	shell.profile.changed.emit()
 	shell.toast("+10 eggs")
 	shell.refresh()
