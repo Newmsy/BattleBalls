@@ -15,9 +15,8 @@ const GOLD := Color("ffc23d")
 const OFF := Color("3b3770")
 ## Ascension's colour: purple tier stars and the Ascension Spark.
 const PURPLE := Color("b46cff")
-## Emberforged gear (game/ui/gear_tier.gd): ember stars with a white-hot core.
-const EMBER := Color("ff5a36")
-const EMBER_HOT := Color("ffe39a")
+## Emberforged gear: each forged star in its level's colour, with a bright core.
+const GearTier := preload("res://game/ui/gear_tier.gd")
 
 var kind := "stars"
 var count := 1
@@ -79,8 +78,9 @@ func _draw() -> void:
 			for i in slots:
 				var p := Vector2(step * (i + .5), s / 2.0)
 				if i < forged:
-					Dot.poly(self, CritterArt.star_pts(p, s * .5, s * .21, 5), EMBER)
-					Dot.poly(self, CritterArt.star_pts(p, s * .24, s * .1, 5), EMBER_HOT)
+					var fc: Color = GearTier.STAR_COLORS[i]
+					Dot.poly(self, CritterArt.star_pts(p, s * .5, s * .21, 5), fc)
+					Dot.poly(self, CritterArt.star_pts(p, s * .24, s * .1, 5), fc.lerp(Color.WHITE, .6))
 					continue
 				Dot.poly(self, CritterArt.star_pts(p, s * .48, s * .2, 5), (PURPLE if i < purple else GOLD) if i < count else OFF)
 		"bolt":
