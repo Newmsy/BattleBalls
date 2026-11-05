@@ -22,27 +22,43 @@ const STAR_CLEAN_FRACTION := 0.3
 const WIN_XP_BASE := 10
 const WIN_XP_PER_STAGE := 4
 const LOSS_XP := 3
+## Hard and Nightmare (Zones.DIFFICULTIES) pay a little more than Normal: XP
+## and the chances of a critter copy, an egg, a gear piece and the rarer copy
+## all go up by this much, and gear drops this many stars higher.
+const DIFFICULTY_REWARD := [1.0, 1.2, 1.4]
+const DIFFICULTY_GEAR_STARS := [0, 1, 2]
 ## Stage XP is multiplied by the zone number (zone 1 x1 ... zone 7 x7): a level
 ## costs 10 x level (Profile.xp_to_next) and later zones are fought at much
 ## higher levels, so a win keeps moving the bar about as much as in zone 1.
 static func zone_xp_mult(zone_index: int) -> int:
-	return zone_index + 1
+	return Zones.base(zone_index) + 1
+
+
+## Hard and Nightmare's share more of every reward (DIFFICULTY_REWARD).
+static func reward_mult(zone_index: int) -> float:
+	return DIFFICULTY_REWARD[Zones.difficulty(zone_index)]
 
 
 ## Critter XP for winning stage `stage_index` of zone `zone_index`.
 static func win_xp(zone_index: int, stage_index: int) -> int:
-	return (WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index) * zone_xp_mult(zone_index)
+	return roundi((WIN_XP_BASE + WIN_XP_PER_STAGE * stage_index) * zone_xp_mult(zone_index) * reward_mult(zone_index))
 
 
 ## Critter XP for losing a stage in zone `zone_index`.
 static func loss_xp(zone_index: int) -> int:
-	return LOSS_XP * zone_xp_mult(zone_index)
+	return roundi(LOSS_XP * zone_xp_mult(zone_index) * reward_mult(zone_index))
+
+
+## True once a difficulty's first stage is open: Normal always, Hard once
+## Normal's last boss is beaten, Nightmare once Hard's is.
+static func difficulty_open(profile, diff: int) -> bool:
+	return is_unlocked(profile, Zones.index(0, diff), 0)
 
 
 
 static func is_unlocked(profile, zone_index: int, stage_index: int) -> bool:
 	if stage_index == 0:
-		return zone_index == 0 or is_cleared(profile, zone_index - 1, Zones.zone(zone_index - 1).stages.size() - 1)
+		return zone_index == 0 or (zone_index < Zones.count() and is_cleared(profile, zone_index - 1, Zones.zone(zone_index - 1).stages.size() - 1))
 	return is_cleared(profile, zone_index, stage_index - 1)
 
 
@@ -134,6 +150,10 @@ static func start_team(profile, zone_index: int, stage_index: int, picks: Array,
 		"powers": [slots.map(func(s): return Lineup.power(s)), foes.map(func(_e): return float(st.foe_power))],
 		"tiers": [slots.map(func(s): return Lineup.clean(s).tier), foes.map(func(_e): return st.tier)],
 		"gear": [slots.map(func(s): return Lineup.kit(Lineup.clean(s))), foes.map(func(_e): return null)],
+		# Your critters fight as you own them, talents and Ascension included;
+		# Nightmare foes are ascended (Zones.foe_ascend).
+		"talents": [slots.map(func(s): return Lineup.clean(s).get("talents", {})), foes.map(func(_e): return null)],
+		"ascend": [slots.map(func(s): return int(Lineup.clean(s).get("ascend", 0))), foes.map(func(_e): return int(st.ascend))],
 		"sizes": [picks.map(func(_p): return 1.0), sizes],
 		"tie_to": 0, # Both out together is your win.
 	}
@@ -170,6 +190,11 @@ static func team_config(profile, rc: Dictionary) -> Dictionary:
 		cfg.sizes.append_array([k, rc.sizes[1][j] * k])
 	for j in n:
 		Lineup.apply(cfg, 2 * j, profile.slot_of(rc.sides[0][j]))
+	if rc.has("ascend"):
+		while cfg.ascend.size() < 2 * n:
+			cfg.ascend.append(0)
+		for j in n:
+			cfg.ascend[2 * j + 1] = int(rc.ascend[1][j])
 	return cfg
 
 
@@ -232,6 +257,8 @@ static func start(profile, zone_index: int, stage_index: int, fighter: String, n
 		"sizes": [1.0, Zones.BOSS_SIZE if Zones.is_boss(st) else 1.0],
 		"tie_to": 0, # A double KO is your win.
 	}
+	if int(st.ascend) > 0:
+		cfg.ascend = [0, int(st.ascend)]
 	return Lineup.apply(cfg, 0, profile.slot_of(fighter))
 
 
@@ -331,13 +358,14 @@ static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear:
 	var st := Zones.stage(zone_index, stage_index)
 	var rng := Rng.new(_seed(profile.runs, zone_index, stage_index) ^ 0x5bd1e995)
 	var types: Array[String] = []
-	if rng.next_float() >= Economy.CAMPAIGN_DROP_CHANCE:
+	var more := reward_mult(zone_index)
+	if rng.next_float() >= Economy.CAMPAIGN_DROP_CHANCE * more:
 		pass
-	elif rng.next_float() < RARE_BONUS_CHANCE and not z.rare_bonus.is_empty():
+	elif rng.next_float() < RARE_BONUS_CHANCE * more and not z.rare_bonus.is_empty():
 		types.append(z.rare_bonus[rng.range_int(0, z.rare_bonus.size() - 1)])
 	else:
 		types.append(z.featured[rng.range_int(0, z.featured.size() - 1)])
-	var eggs := Economy.ORBS_CAMPAIGN_WIN if rng.next_float() < Economy.CAMPAIGN_EGG_CHANCE else 0
+	var eggs := Economy.ORBS_CAMPAIGN_WIN if rng.next_float() < Economy.CAMPAIGN_EGG_CHANCE * more else 0
 	if first_clear:
 		eggs += Economy.ORBS_FIRST_CLEAR
 	if eggs > 0:
@@ -357,10 +385,12 @@ static func _roll_drops(profile, zone_index: int, stage_index: int, first_clear:
 static func _roll_gear(profile, zone_index: int, stage_index: int, stars: int, first_clear: bool) -> Array:
 	var rng := Rng.new(_seed(profile.runs, zone_index, stage_index) ^ 0x2545f491)
 	var out := []
-	if rng.next_float() < Economy.GEAR_CAMPAIGN_CHANCE:
-		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_tier(zone_index, stage_index, rng.next_float())))
+	var base := Zones.base(zone_index)
+	var up: int = DIFFICULTY_GEAR_STARS[Zones.difficulty(zone_index)]
+	if rng.next_float() < Economy.GEAR_CAMPAIGN_CHANCE * reward_mult(zone_index):
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_tier(base, stage_index, rng.next_float()) + up))
 	if first_clear and Zones.is_boss(Zones.stage(zone_index, stage_index)):
-		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_boss_tier(zone_index)))
+		out.append(profile.add_gear(GEAR_POOL[rng.range_int(0, GEAR_POOL.size() - 1)], Economy.gear_boss_tier(base) + up))
 	return out
 
 

@@ -269,12 +269,14 @@ static func _door_line(text: String, color := Kit.MUTED, size := 19) -> Label:
 static func _campaign_door(shell) -> Control:
 	var c := campaign_state(shell.profile)
 	var to_stages := func():
+		preload("res://game/ui/screens/world_screen.gd").shown = Zones.difficulty(c.z)
 		shell.go("world")
 		shell.go("campaign", {"zone": c.z})
 	var go := _door_button("Continue", "go", to_stages)
 	shell.mark("campaign", go)
 	var stars := Kit.hbox(6, [Glyph.make("crown", _s(20), Kit.FG, 1), _door_line("%d/%d" % [c.stars, c.max_stars], Kit.MUTED, 17)])
-	var lines: Array = [_door_line(c.zone.name, Kit.FG, 21), _door_line(c.next_line), stars]
+	var zone_line: String = c.zone.name if Zones.difficulty(c.z) == 0 else "%s · %s" % [Zones.DIFFICULTY_NAMES[Zones.difficulty(c.z)], c.zone.name]
+	var lines: Array = [_door_line(zone_line, Kit.FG, 21), _door_line(c.next_line), stars]
 	# The whole door goes where Continue does: Spire, Bosses and Rifts are on
 	# the strip under the doors.
 	return mode_door(shell, "adventure", "CAMPAIGN", lines, ADVENTURE,
@@ -515,7 +517,7 @@ static func _bosses_locked_info(shell) -> Callable:
 static func campaign_state(p) -> Dictionary:
 	var Campaign := preload("res://meta/campaign.gd")
 	var z := 0
-	for zi in range(1, Zones.ZONES.size()):
+	for zi in range(1, Zones.count()): # Hard and Nightmare count on after Normal.
 		if Campaign.is_unlocked(p, zi, 0): z = zi
 	var zd: Dictionary = Zones.zone(z)
 	var stages: Array = zd.stages

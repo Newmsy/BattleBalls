@@ -45,14 +45,18 @@ static func build(shell, params: Dictionary) -> Control:
 	var root := Kit.vbox(22)
 
 	var extra := []
-	var has_story := not Story.chapter(z).is_empty()
+	var diff := Zones.difficulty(z)
+	var has_story := diff == 0 and not Story.chapter(z).is_empty()
 	if has_story:
 		var replay := Kit.card_button(Kit.label("Story", 22), play_story.bind(shell, z), Kit.LINE, Kit.PANEL, 999, 14)
 		replay.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		shell.mark("story", replay)
 		extra.append(replay)
-	root.add_child(shell.title_row(zone.name, {"eyebrow": ("Zone %d · Team of 3" % (z + 1)) if zone.lineup == 3 else ("Zone %d · %dv%d" % [z + 1, zone.lineup, zone.lineup]),
-		"eyebrow_color": Color("9be89a"), "extra": extra}))
+	var eyebrow: String = ("Zone %d · Team of 3" % (Zones.base(z) + 1)) if zone.lineup == 3 else ("Zone %d · %dv%d" % [Zones.base(z) + 1, zone.lineup, zone.lineup])
+	if diff > 0:
+		eyebrow = "%s · %s" % [Zones.DIFFICULTY_NAMES[diff], eyebrow]
+	root.add_child(shell.title_row(zone.name, {"eyebrow": eyebrow,
+		"eyebrow_color": Color(Zones.DIFFICULTY_COLORS[diff]), "extra": extra}))
 
 	# The top bar shows the energy count; this only says when the next one lands.
 	var wait: int = p.seconds_to_next_energy(now)
@@ -155,6 +159,8 @@ static func _stage_card(shell, p, z: int, i: int, fighter: String, zone_team: Ar
 		title.add_child(_fit(Kit.label(name, 28)))
 	if boss:
 		title.add_child(Kit.chip("BOSS", Kit.BAD))
+	if int(st.get("ascend", 0)) > 0: # Nightmare foes are ascended.
+		title.add_child(Kit.chip("A%d" % int(st.ascend), Color(Zones.DIFFICULTY_COLORS[2])))
 	if Zones.zone(z).lineup == 3: # Trios zones mix relays, 2v2s and 3v3 brawls.
 		title.add_child(Kit.chip(Zones.format_label(z, i), Kit.ACCENT))
 	var border := Kit.BAD.darkened(.3) if boss else Kit.GOOD.darkened(.5)
@@ -522,13 +528,15 @@ static func _result_popup(shell, z: int, i: int, r: Dictionary, kind: String, fi
 		shell.sheet(v)
 		return
 	# The first win over a chapter's boss leads on into the next chapter and its story.
-	var next_zone: bool = r.won and r.first_clear and Zones.is_boss(st) and z + 1 < Zones.ZONES.size()
+	# Normal's last boss opens Hard, and Hard's opens Nightmare.
+	var next_zone: bool = r.won and r.first_clear and Zones.is_boss(st) and z + 1 < Zones.count()
+	var next_diff: bool = next_zone and Zones.difficulty(z + 1) > Zones.difficulty(z)
 	var ok := Kit.button("Continue", shell.close_overlay, "ghost" if r.won and (i + 1 < Zones.zone(z).stages.size() or next_zone) else "go", 26, 84)
 	ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	shell.mark("result_continue", ok)
 	buttons.add_child(ok)
 	if next_zone:
-		var chapter := Kit.button("Next chapter", func():
+		var chapter := Kit.button(("Play %s" % Zones.DIFFICULTY_NAMES[Zones.difficulty(z + 1)]) if next_diff else "Next chapter", func():
 			shell.close_overlay()
 			shell.go("campaign", {"zone": z + 1}), "go", 26, 84)
 		chapter.size_flags_horizontal = Control.SIZE_EXPAND_FILL
