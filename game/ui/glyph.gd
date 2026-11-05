@@ -404,6 +404,20 @@ func _draw() -> void:
 			Dot.circle(self, c, s * .37, Color("8a1f78"))
 			Dot.circle(self, c + Vector2(-s * .15, -s * .17), s * .07, Color(1, 1, 1, .35))
 			Dot.poly(self, PackedVector2Array([c + Vector2(0, -.22) * s, c + Vector2(.15, 0) * s, c + Vector2(0, .22) * s, c + Vector2(-.15, 0) * s]), Color("ffd1f5"))
+		"flame":
+			# An Arena win streak: a flame, orange outside, gold inside, a
+			# white-hot core.
+			for layer in [[1.0, Color("ff5a1f")], [.66, Color("ffb13d")], [.36, Color("fff2c0")]]:
+				var k: float = layer[0]
+				var h := s * .48 * k
+				var w := s * .42 * k
+				var base := Vector2(c.x, s * .98 - h)
+				var pts := PackedVector2Array()
+				for i in 24:
+					# A teardrop: a point on top, round at the bottom.
+					var t := i / 24.0 * TAU
+					pts.append(base + Vector2(w * sin(t) * sin(t / 2.0), -h * cos(t)))
+				Dot.poly(self, pts, layer[1])
 		"token":
 			# An Arena Token (one per Arena fight): a magenta hexagon with
 			# crossed swords, so it never reads as a coin.

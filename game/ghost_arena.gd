@@ -8,6 +8,7 @@ extends "res://game/relay_fight.gd"
 const Intro := preload("res://game/ui/intro.gd")
 const Lineup := preload("res://sim/lineup.gd")
 const ArenaStore := preload("res://game/pvp/arena_store.gd")
+const ArenaBadges := preload("res://game/ui/arena_badges.gd")
 const ArenaGhosts := preload("res://game/pvp/arena_ghosts.gd")
 const Ladder := preload("res://game/pvp/ladder.gd")
 const GlowState := preload("res://game/glow/glow_state.gd")
@@ -133,6 +134,10 @@ func _result_card(got: int) -> Control:
 	_mark("arena_back", back, ResultPopup.SLIDE_SECS)
 	var outcome := ResultPopup.outcome_of(relay.winner)
 	var body: Array = [headline, league]
+	# A win streak's flame and bonus, or a revenge (game/ui/arena_badges.gd).
+	var extra = ArenaBadges.result_row(store.history[0]) if not store.history.is_empty() else null
+	if extra != null:
+		body.append(extra)
 	if rewards.get_child_count() > 0:
 		body.append(rewards)
 		# What it earned pops in once the league bar has had its moment.

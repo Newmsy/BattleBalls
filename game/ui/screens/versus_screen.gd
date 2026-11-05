@@ -21,8 +21,15 @@ const ArenaChest := preload("res://game/pvp/arena_chest.gd")
 const ChestArt := preload("res://game/ui/chest_art.gd")
 const ArenaScreen := preload("res://game/ui/screens/arena_screen.gd")
 const ArenaChestsScreen := preload("res://game/ui/screens/arena_chests_screen.gd")
+const BounceChestOpen := preload("res://game/ui/bounce_chest_open.gd")
+const Motion := preload("res://game/ui/motion.gd")
 
 const ART := "res://game/ui/versus_art/%s.png"
+## A league's crest, cut from its banner painting (game/ui/versus_art).
+const CREST := "res://game/ui/versus_art/league_%s_Lcrest.png"
+
+## Season-end popups already shown this session, by "season|mode".
+static var _season_shown := {}
 
 
 static func build(shell, _params: Dictionary) -> Control:
@@ -33,7 +40,8 @@ static func build(shell, _params: Dictionary) -> Control:
 	var info := ["Every Arena fight costs an Arena Token. You get one an hour and hold up to %d." % ArenaStore.TOKEN_MAX,
 		"3v3 Series: three critters each, one at a time. A winner stays in with its HP left.",
 		"2v2 League: two critters each, all on the field at once.",
-		"Each mode has its own trophies, league and weekly chest: your best league each week opens that league's chest."]
+		"Each mode has its own trophies, league and weekly chest: your best league each week opens that league's chest.",
+		"When a Glow Pass season ends, your best league in each mode wins its crest and a Season Chest, and trophies above %s are halved." % Kit.commas(Ladder.SEASON_PIVOT)]
 	if quick_on:
 		info.append("Quick fight: your fighter against a live foe. Nothing at stake.")
 	info.append_array(["Trophy Room: spend Arena Points on stat boosts for each family, in both Arena modes.",
@@ -72,6 +80,17 @@ static func build(shell, _params: Dictionary) -> Control:
 		store.use(was)
 		chests.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		col.add_child(chests)
+		var crests := crest_row(store)
+		if crests != null:
+			col.add_child(crests)
+		# A season just ended: its crest and chest pop up, once a session.
+		for m in [ArenaStore.SERIES, ArenaStore.LEAGUE]:
+			store.use(m)
+			if not store.season_chest.is_empty() and not _season_shown.has(str(store.season_chest.season) + "|" + m):
+				_season_shown[str(store.season_chest.season) + "|" + m] = true
+				season_popup.call_deferred(shell, store, m)
+				break
+		store.use(was)
 	if quick_on:
 		var quick := PlayScreen.quick_fight_card(shell, band("vs_quick", "Quick fight", "Live foe · just for fun", Color("cfc8ff")))
 		quick.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -136,6 +155,8 @@ static func room_row(shell, mark: String, art: Control, title: String, status: S
 ## the time left this week. Opens that mode's chests.
 static func chest_tile(shell, store, m: String) -> Button:
 	store.use(m)
+	if not store.season_chest.is_empty():
+		return _season_tile(shell, store, m)
 	var ready: bool = store.chest_ready()
 	var league: int = int(store.chest.league) if ready else maxi(store.week_best, Ladder.league_index(store.trophies))
 	var look := ArenaChest.look(league, m)
@@ -157,6 +178,102 @@ static func chest_tile(shell, store, m: String) -> Button:
 		b.add_child(PlayScreen.red_dot())
 	shell.mark("arena_chest_" + m, b)
 	return b
+
+
+## A mode's Season Chest waiting to open, as its chest tile: a tap pops up
+## the season's crest and opens it.
+static func _season_tile(shell, store, m: String) -> Button:
+	var league := int(store.season_chest.league)
+	var look := ArenaChest.season_look(league, m)
+	var col: Color = look.color
+	var chest := ArenaChestsScreen.chest_art(look, 96.0, m)
+	Idle.breathe(chest, .1, .6)
+	var centre := CenterContainer.new()
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	centre.add_child(chest)
+	var name := _fit(Kit.label(look.name, 22, col))
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name.custom_minimum_size.x = 60
+	var v := Kit.vbox(2, [centre, name, Kit.label("Season over! Open", 20, Kit.GOOD)])
+	var b := Kit.card_button(v, func(): season_popup(shell, store, m), Color(col, .9), Color(col, .14), 24, 8)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.add_child(PlayScreen.red_dot())
+	shell.mark("arena_chest_" + m, b)
+	return b
+
+
+## The end of a season in mode `m`: the crest of the best league you
+## reached, then its Season Chest to open.
+static func season_popup(shell, store, m: String) -> void:
+	if not is_instance_valid(shell) or shell.overlay_open():
+		return
+	store.use(m)
+	if store.season_chest.is_empty():
+		return
+	var c: Dictionary = store.season_chest
+	var league := int(c.league)
+	var lg: Dictionary = Ladder.LEAGUES[league]
+	var md: Dictionary = ArenaStore.MODES[m]
+	var crest := crest_art(league, 220.0)
+	var open := Kit.button("Open Season Chest", func():
+		shell.close_overlay()
+		store.use(m)
+		var look := ArenaChest.season_look(league, m)
+		look.caption = "%s · %s" % [str(md.name).to_upper(), str(c.season).to_upper()]
+		BounceChestOpen.show_custom(shell, look, ArenaChest.season_rewards(league, str(c.season), m, shell.profile.chest_seed()), func():
+			store.use(m)
+			ArenaChest.open_season(store, shell.profile)
+			shell.refresh()), "go", 26, 84)
+	shell.mark("season_open", open)
+	var body := Kit.vbox(10, [
+		Kit.label(str(md.name).to_upper() + " · SEASON OVER", 20, md.color, HORIZONTAL_ALIGNMENT_CENTER),
+		Kit.label(str(c.season), 34, Kit.FG, HORIZONTAL_ALIGNMENT_CENTER),
+		crest,
+		Kit.label("%s crest" % lg.name, 32, lg.color, HORIZONTAL_ALIGNMENT_CENTER),
+		Kit.label("Your best league this season. Trophies above %s are halved for the new one." % Kit.commas(Ladder.SEASON_PIVOT), 20, Kit.MUTED, HORIZONTAL_ALIGNMENT_CENTER, true),
+		open,
+	])
+	shell.sheet(body)
+	Motion.pop(crest, .5, .35, .15)
+
+
+## League `league`'s crest, `height` tall.
+static func crest_art(league: int, height: float) -> Control:
+	var tex := TextureRect.new()
+	tex.texture = load(CREST % str(Ladder.LEAGUES[league].id))
+	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tex.custom_minimum_size = Vector2(height * 1.18, height)
+	tex.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return tex
+
+
+## The season crests you've won in both modes, newest first, as a strip:
+## each crest with its mode and season under it. null before the first.
+static func crest_row(store) -> Control:
+	var all: Array = []
+	var was: String = store.mode
+	for m in [ArenaStore.SERIES, ArenaStore.LEAGUE]:
+		store.use(m)
+		for c in store.crests:
+			all.append([m, c])
+	store.use(was)
+	if all.is_empty():
+		return null
+	all.reverse()
+	var row := Kit.hbox(10, [Kit.caption("Crests")], BoxContainer.ALIGNMENT_BEGIN)
+	for e in all.slice(0, 6):
+		var md: Dictionary = ArenaStore.MODES[e[0]]
+		row.add_child(Kit.vbox(0, [crest_art(int(e[1].league), 44.0), Kit.label("%s %s" % [md.short, season_tag(str(e[1].season))], 14, md.color, HORIZONTAL_ALIGNMENT_CENTER)]))
+	return row
+
+
+## "S1" for "Season 1: Neon Nights", "Pre" for the Preseason.
+static func season_tag(season_name: String) -> String:
+	if season_name.begins_with("Season "):
+		return "S" + season_name.trim_prefix("Season ").get_slice(":", 0)
+	return season_name.left(3)
 
 
 ## A card that is all painting, its title and status line over the top-left.
