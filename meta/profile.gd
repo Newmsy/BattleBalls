@@ -87,6 +87,9 @@ var boss_days := {}
 var bounce_chest := 0
 ## The last Daily Trick Shot day whose solve was paid (meta/trick_reward.gd).
 var trick_reward := 0
+## Which of that day's Trick Shots were paid: bit 0 for the 1-star, 1 the
+## 2-star, 2 the 3-star.
+var trick_levels := 0
 ## Highest level beaten at each levelled boss: {key: 0-15} (meta/boss_levels.gd).
 var boss_levels := {}
 ## Lures from the Prism Wyrm: spent on a copy of a wishlisted critter (use_lure).
@@ -950,7 +953,7 @@ func account_xp_to_next() -> int:
 # --- Save ---------------------------------------------------------------------
 
 const _SAVED := ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "lineup", "campaign_team",
-	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "paced", "story", "bounce_chest", "trick_reward", "dyes", "rift", "plunge", "plunge_stamps", "sparks", "spark_news", "ascension", "chest_salt"]
+	"seen", "stacks", "gear", "items", "free_summon", "legendary_pity", "stars", "runs", "wishlist", "vault", "deals", "nest", "boss_days", "boss_levels", "factions", "intro", "paced", "story", "bounce_chest", "trick_reward", "trick_levels", "dyes", "rift", "plunge", "plunge_stamps", "sparks", "spark_news", "ascension", "chest_salt"]
 
 
 func to_dict() -> Dictionary:
@@ -969,9 +972,12 @@ static func from_dict(d: Dictionary, now: int):
 	if not d.get("stacks", []) is Array or d.get("stacks", []).is_empty():
 		return p
 	# Saves from before hammers keep new_game's starter hammers.
-	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest", "trick_reward", "sparks", "spark_news", "chest_salt"]:
+	for k in ["account_level", "account_xp", "energy", "energy_time", "coins", "hammers", "orbs", "lures", "legendary_pity", "runs", "bounce_chest", "trick_reward", "trick_levels", "sparks", "spark_news", "chest_salt"]:
 		if d.has(k):
 			p.set(k, int(d[k]))
+	# Saves from before three Trick Shots a day only paid the one puzzle.
+	if d.has("trick_reward") and not d.has("trick_levels") and p.trick_reward > 0:
+		p.trick_levels = 1
 	p.lineup = str(d.get("lineup", STARTER))
 	var ct = d.get("campaign_team", [])
 	if ct is Array:

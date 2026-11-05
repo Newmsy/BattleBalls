@@ -119,11 +119,22 @@ static func lines(text: String, size := 21, color := Kit.FG) -> Label:
 
 # --- Daily Trick Shot --------------------------------------------------------------
 
-## { tries, solved, streak } for Trick Shot `day`, from its save file.
+## { tries, solved, streak } for Trick Shot `day`'s 1-star puzzle, from its
+## save file, plus over all the day's puzzles: { solved_n, done_n, played }
+## (solves, puzzles finished, any try at all).
 static func trick_status(day: int) -> Dictionary:
 	var cfg := ConfigFile.new()
+	var out := {"tries": 0, "solved": false, "streak": 0, "solved_n": 0, "done_n": 0, "played": false}
 	if cfg.load(TRICK_SAVE) != OK:
-		return {"tries": 0, "solved": false, "streak": 0}
-	var tries: Array = cfg.get_value("days", str(day), [])
-	return {"tries": tries.size(), "solved": tries.any(func(x): return x.result == TrickShot.SOLVED),
-		"streak": cfg.get_value("stats", "streak", 0)}
+		return out
+	out.streak = cfg.get_value("stats", "streak", 0)
+	for lv in range(1, TrickShot.LEVELS + 1):
+		var tries: Array = cfg.get_value("days", str(day) if lv == 1 else "%d-%d" % [day, lv], [])
+		var solved := tries.any(func(x): return x.result == TrickShot.SOLVED)
+		if lv == 1:
+			out.tries = tries.size()
+			out.solved = solved
+		out.solved_n += 1 if solved else 0
+		out.done_n += 1 if solved or tries.size() >= TRICK_TRIES else 0
+		out.played = out.played or not tries.is_empty()
+	return out

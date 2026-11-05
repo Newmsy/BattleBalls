@@ -471,7 +471,8 @@ func _init(cfg: Dictionary) -> void:
 			var with := Relics.apply_to_def(def, cfg.relics[i])
 			def = with.def
 			relic_defs = with.relic_defs
-		if not cfg.get("abilities", true): # A pure aim puzzle (Daily Trick Shot): stats only.
+		var abilities = cfg.get("abilities", true) # Or one per ball (a 3-star Trick Shot: yours on, the foe's off).
+		if not (abilities[i] if abilities is Array and i < abilities.size() else (abilities if not abilities is Array else true)): # A pure aim puzzle (Daily Trick Shot): stats only.
 			def = def.duplicate()
 			def.effects = []
 		var b := Ball.new()

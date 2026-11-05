@@ -133,6 +133,7 @@ jobs:
           BUILD_SHA: ${{ github.event.pull_request.head.sha }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          TRICK_SHOT_DAYS: "1"
         run: tools/ci/export_web.sh
       - uses: actions/setup-node@v4
         with:
