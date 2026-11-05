@@ -6,10 +6,10 @@
 // it, and the enamel behind the emblem is the piece's rarity colour (1 star
 // grey ... 5 stars gold). No tile: the game draws the tile and tier rim.
 // Emberforged (tiers 6-10, past 5 stars): the metal turns blackened obsidian,
-// the enamel runs a gradient that gains a colour each level (Newms
-// 2026-11-05: "mixed colour gradients as we get higher, up to rainbow"):
-// ruby, + topaz, + jade, + sky, then the full rainbow at Emberforged 5
-// (game/ui/gear_tier.gd LADDER), and a glow in those colours
+// each level has its own enamel with no colour shared with the level below
+// (Newms 2026-11-05 picked this: up to rainbow, levels 3-5 must not look
+// alike): ruby, sunset (ruby-topaz), ocean (jade-sky), blossom (rose-sun),
+// then rainbow bands (game/ui/gear_tier.gd LADDER), glow to match
 // (and more floating embers each level) hugs the silhouette.
 // 12 types x 10 tiers -> game/ui/gear_art/gear_<type>_<tier>.png.
 import { f } from "./_map_token.mjs";
@@ -27,8 +27,19 @@ const BRASS = ["#f3e6c8", "#c9b48a", "#7d6a52"]; // light, mid, dark brass-steel
 const OBSIDIAN = ["#8a6a66", "#3a2a34", "#160f1c"]; // Emberforged: blackened, still lit top left
 // Emberforged 1-5 enamel gradients (match game/ui/gear_tier.gd LADDER).
 const RUBY = "#e8203e", TOPAZ = "#ff9a1a", SUN = "#ffe14a", JADE = "#1ee0a8", SKY = "#4fc3ff", ROSE = "#ff6ad0";
-const FORGE = [[RUBY], [RUBY, TOPAZ], [RUBY, TOPAZ, JADE], [RUBY, TOPAZ, JADE, SKY], [RUBY, TOPAZ, SUN, JADE, SKY, ROSE]];
+const RAINBOW = [RUBY, TOPAZ, SUN, JADE, SKY, ROSE];
+const FORGE = [{ cols: [RUBY] }, { cols: [RUBY, TOPAZ] }, { cols: [JADE, SKY] },
+  { cols: [ROSE, SUN] }, { cols: RAINBOW, bands: true }];
 let EMBER = RUBY, HOT = "#ffffff";
+// Hard-edged bands: each colour a flat stripe.
+const bands = (cols) => cols.map((c, i) => `<stop offset="${f(i / cols.length)}" stop-color="${c}"/><stop offset="${f((i + 1) / cols.length)}" stop-color="${c}"/>`).join("");
+// Soft rays fanning out behind the piece (Emberforged 5).
+// They fade out before the picture's edge so no ray is cut square.
+const rays = (cols) => `<radialGradient id="rf" cx="0.5" cy="0.5" r="0.5"><stop offset="0.55" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>
+  <mask id="rm"><circle cx="80" cy="78" r="76" fill="url(#rf)"/></mask><g mask="url(#rm)">${Array.from({ length: 12 }, (_, k) => {
+  const a = k * Math.PI / 6, b = a + 0.16;
+  return `<path d="M 80 78 L ${f(80 + Math.cos(a) * 76)} ${f(78 + Math.sin(a) * 76)} L ${f(80 + Math.cos(b) * 76)} ${f(78 + Math.sin(b) * 76)} Z" fill="${cols[k % cols.length]}" opacity="0.75"/>`;
+}).join("")}</g>`;
 // A gradient's stops, shaded a little darker towards the bottom right.
 const stops = (cols, o = 1) => cols.length === 1
   ? `<stop offset="0" stop-color="${mix(cols[0], "#ffffff", 0.12)}" stop-opacity="${o}"/><stop offset="1" stop-color="${mix(cols[0], "#0d0f26", 0.45)}" stop-opacity="${o}"/>`
@@ -119,13 +130,14 @@ export function piece(id, tier) {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 160 160">${defs(TIER[tier - 1])}<g transform="translate(80 80) scale(1.08) translate(-80 -79)">${BODY[slot](E[id], id)}</g></svg>`;
   }
   const lvl = tier - 5;
-  const cols = FORGE[lvl - 1];
+  const sp = FORGE[lvl - 1];
+  const cols = sp.cols;
   EMBER = cols[Math.floor((cols.length - 1) / 2)];
   HOT = mix(EMBER, "#ffffff", 0.6);
   METAL = OBSIDIAN;
   const body = BODY[slot](E[id], id);
   const metalDefs = defs(cols[0]).replace(/<radialGradient id="en"[\s\S]*?<\/radialGradient>/,
-    `<linearGradient id="en" x1="0.1" y1="0.05" x2="0.9" y2="0.95">${stops(cols)}</linearGradient>`);
+    `<linearGradient id="en" x1="0.1" y1="0.05" x2="0.9" y2="0.95">${sp.bands ? bands(cols) : stops(cols)}</linearGradient>`);
   METAL = BRASS;
   // Heat glow round the silhouette: blurred alpha flooded ember, under the piece.
   const glow = `<filter id="heat" x="-30%" y="-30%" width="160%" height="160%">
@@ -144,7 +156,7 @@ export function piece(id, tier) {
   }).join("");
   const d = metalDefs.replace("</defs>", `${glow}</defs>`);
   return `<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 160 160">${d}
-    <ellipse cx="80" cy="78" rx="52" ry="54" fill="url(#ah)" filter="url(#haze)"/>
+    ${sp.rays ? rays(sp.rays) : ""}<ellipse cx="80" cy="78" rx="52" ry="54" fill="url(#ah)" filter="url(#haze)"/>
     <g transform="translate(80 80) scale(1.08) translate(-80 -79)"><g filter="url(#heat)">${body}</g>${sparks}</g></svg>`;
 }
 

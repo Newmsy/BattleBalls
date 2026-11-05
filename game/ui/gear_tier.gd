@@ -1,9 +1,8 @@
 ## How a gear tier looks and reads everywhere: 1-5 stars climb the rarity
-## ladder (grey to gold), then Emberforged 1-5 (tiers 6-10) gain a colour
-## each level, up to a rainbow (Newms 2026-11-05: "mixed colour gradients as
-## we get higher, up to rainbow"): ruby, ruby-topaz, + jade, + sky, then the
-## full rainbow. An Emberforged piece shows five stars, each forged one (from
-## the left) in the colour that level added, so Emberforged 5 shows a rainbow
+## ladder (grey to gold), then Emberforged 1-5 (tiers 6-10) each get their own
+## look, up to a rainbow (Newms 2026-11-05): ruby, sunset (ruby-topaz), ocean
+## (jade-sky), blossom (rose-sun), then rainbow bands. An Emberforged piece shows five stars, each forged one
+## (from the left) in its level's colour, so Emberforged 5 shows a rainbow
 ## row. The painted pieces use the same colours
 ## (tools/event_art/scenes/gear_pieces.mjs FORGE).
 extends RefCounted
@@ -17,12 +16,12 @@ const SUN := Color("ffe14a")
 const JADE := Color("1ee0a8")
 const SKY := Color("4fc3ff")
 const ROSE := Color("ff6ad0")
-## Each forged level's gradient: one more colour per level, then a rainbow.
-const LADDER := [[RUBY], [RUBY, TOPAZ], [RUBY, TOPAZ, JADE], [RUBY, TOPAZ, JADE, SKY], [RUBY, TOPAZ, SUN, JADE, SKY, ROSE]]
+## Each forged level's colours (its gradient or bands), then a rainbow.
+const LADDER := [[RUBY], [RUBY, TOPAZ], [JADE, SKY], [ROSE, SUN], [RUBY, TOPAZ, SUN, JADE, SKY, ROSE]]
 ## The star each forged level lights, from the left (an Emberforged 5 row is a rainbow).
-const STAR_COLORS := [RUBY, TOPAZ, JADE, SKY, ROSE]
+const STAR_COLORS := [RUBY, TOPAZ, SKY, ROSE, SUN]
 ## Rims and names: the colour a level added; the rainbow level reads near-white.
-const COLORS := [RUBY, TOPAZ, JADE, SKY, Color("fff2fb")]
+const COLORS := [RUBY, TOPAZ, SKY, ROSE, Color("fff2fb")]
 const NAME := "Emberforged"
 
 
