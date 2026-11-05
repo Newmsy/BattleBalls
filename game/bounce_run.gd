@@ -631,7 +631,7 @@ func _finish_fight() -> void:
 	run.erase("launched")
 	BounceRun.record(setup, run, slot, aim, sim.winner, sim.tick, sim.team_hp(1))
 	_save_run()
-	GlowState.note_fight(sim.winner, sim.balls[0].damage_dealt, {"critter": sim.balls[0].type_id})
+	GlowState.note_fight(sim.winner, sim.balls[0].damage_dealt, {"critter": sim.balls[0].type_id, "tier": int(sim.config.get("tiers", [1])[0])})
 	if won:
 		GlowState.note("bounce_floor", cleared_floor)
 	sfx.on_result(sim.winner)
