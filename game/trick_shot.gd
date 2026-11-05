@@ -1,7 +1,8 @@
-## Daily Trick Shot: aim -> shoot -> see the result, three tries a day, then
-## a shareable result grid. The puzzle comes from sim/trick_shot.gd and the
-## local date. URL params: ?mode=trickshot&day=12&aim=166&auto=1
-## (day picks a puzzle, aim presets the aim in degrees, auto shoots at once).
+## Daily Trick Shot: three puzzles a day (1, 2 and 3 stars, tabs at the top),
+## each aim -> shoot -> see the result with three tries, then a shareable
+## result grid. Puzzles come from sim/trick_shot.gd and the local date.
+## URL params: ?mode=trickshot&day=12&level=2&aim=166&auto=1 (day picks a
+## day, level its puzzle, aim presets the aim in degrees, auto shoots at once).
 extends Node2D
 
 const TouchInput := preload("res://game/ui/touch_input.gd")
@@ -21,6 +22,9 @@ const PassScreen := preload("res://game/ui/screens/pass_screen.gd")
 const Kit := preload("res://game/ui/ui_kit.gd")
 const Roster := preload("res://game/ui/roster.gd")
 const FactionRing := preload("res://game/ui/faction_ring.gd")
+const AbilityText := preload("res://game/ui/ability_text.gd")
+const Arenas := preload("res://sim/arenas.gd")
+const CritterArt := preload("res://game/ui/critter_art.gd")
 
 enum State { AIM, SHOT, RESULT, DONE }
 
@@ -32,6 +36,9 @@ const SHOT_SPEED := 1.5
 const LINGER_TICKS := 40 ## Ticks shown after the decisive moment.
 const SQUARES := {"solved": "🟩", "wrong_walls": "🟨", "miss": "🟥"}
 
+
+## Which of the day's puzzles is open; kept when the scene reloads for a tab.
+static var level := 1
 
 var state := State.AIM
 var today := 1
@@ -63,6 +70,7 @@ var title_label: Label
 var call_label: Label
 var info_label: Label
 var panel: VBoxContainer
+var tabs: HBoxContainer
 
 
 func _ready() -> void:
@@ -73,8 +81,10 @@ func _ready() -> void:
 	var params := _url_params()
 	if params.get("day", "").is_valid_int():
 		day = maxi(1, int(params.day))
+	if params.get("level", "").is_valid_int():
+		level = clampi(int(params.level), 1, TrickShot.LEVELS)
 	var t := Time.get_ticks_msec()
-	puzzle = TrickShot.generate(day)
+	puzzle = TrickShot.daily(day, level)
 	aim = _default_aim()
 	if params.get("aim", "").is_valid_int():
 		aim = posmod(int(params.aim), 360)
@@ -90,7 +100,7 @@ func _ready() -> void:
 	_build_ui()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
-	print("TRICKSHOT_READY day=%d shooter=%s foe=%s walls=%s obstacles=%d solutions=%d-%d solve=%d ms=%d" % [day, puzzle.p1, puzzle.p2, ",".join(puzzle.walls), puzzle.obstacles.size(), puzzle.solutions.front(), puzzle.solutions.back(), puzzle.solutions[puzzle.solutions.size() / 2], Time.get_ticks_msec() - t])
+	print("TRICKSHOT_READY day=%d level=%d shooter=%s foe=%s walls=%s obstacles=%d solutions=%d-%d solve=%d ms=%d" % [day, level, puzzle.p1, puzzle.p2, ",".join(puzzle.walls), puzzle.obstacles.size(), puzzle.solutions.front(), puzzle.solutions.back(), puzzle.solutions[puzzle.solutions.size() / 2], Time.get_ticks_msec() - t])
 	if _is_over():
 		_show_done()
 	else:
@@ -165,9 +175,7 @@ func _show_aim() -> void:
 	arena.solutions = []
 	arena.clear_effects()
 	_set_aim(aim)
-	info_label.text = "Try %d/%d" % [tries.size() + 1, TrickShot.TRIES]
-	if not puzzle.obstacles.is_empty():
-		info_label.text += " · pillars and bumpers bounce for free"
+	info_label.text = "Try %d/%d · %s" % [tries.size() + 1, TrickShot.TRIES, _hint()]
 	var nudge := func(by: int): _set_aim(aim + by)
 	var aim_label := _label("%d°" % aim, 40)
 	aim_label.name = "Aim"
@@ -189,6 +197,7 @@ func _shoot() -> void:
 	info_label.text = "" # The call at the top already says which walls.
 	_set_panel([_button("Skip", _skip_shot)])
 	sfx.play("launch")
+	_refresh_tabs()
 	print("TRICKSHOT_SHOT day=%d aim=%d" % [day, aim])
 
 
@@ -208,6 +217,7 @@ func _finish_try() -> void:
 		_just_finished = true
 	_save_day()
 	state = State.RESULT
+	_refresh_tabs()
 	arena.ghosts = tries
 	var title := "TRICK SHOT!"
 	var detail := "Called it."
@@ -295,7 +305,7 @@ func _show_result_popup() -> void:
 	body.append(grid)
 	body.append(FactionRing.rows(faction_gains, sfx, 0.9))
 	var ok := Kit.button("Continue", func(): ResultPopup.pop_out(_popup), "go", 26, 84)
-	var content := ResultPopup.content("TRICK SHOT #%d" % day, ResultPopup.Outcome.WIN if solved else ResultPopup.Outcome.LOSE,
+	var content := ResultPopup.content("TRICK SHOT #%d %s" % [day, _stars(level)], ResultPopup.Outcome.WIN if solved else ResultPopup.Outcome.LOSE,
 		body, [ok], null, ("Solved in %d!" % tries.size()) if solved else "Not today")
 	_popup = ResultPopup.show_over(ui, content)
 
@@ -329,7 +339,7 @@ func share_text() -> String:
 	for t in tries:
 		squares += SQUARES[t.result]
 	var score := str(tries.size()) if _solved() else "X"
-	return "Battle Balls Trick Shot #%d %s/%d\n%s\n%s" % [day, score, TrickShot.TRIES, squares, SHARE_URL]
+	return "Battle Balls Trick Shot #%d %s %s/%d\n%s\n%s" % [day, _stars(level), score, TrickShot.TRIES, squares, SHARE_URL]
 
 
 ## Opens the share sheet where there is one, else copies. Returns a button label.
@@ -354,30 +364,36 @@ func _load() -> void:
 		return
 	for key in stats:
 		stats[key] = _save.get_value("stats", key, stats[key])
-	tries = _save.get_value(_tries_section(), str(day), [])
+	tries = _save.get_value(_tries_section(), day_key(day, level), [])
 
 
 func _tries_section() -> String:
 	return "days"
 
 
+## Where a puzzle's tries are saved: the day for the 1-star (as before three
+## a day), "day-level" for the others.
+static func day_key(d: int, lv: int) -> String:
+	return str(d) if lv == 1 else "%d-%d" % [d, lv]
+
+
 func _save_day() -> void:
-	_save.set_value(_tries_section(), str(day), tries)
+	_save.set_value(_tries_section(), day_key(day, level), tries)
 	for key in stats:
 		_save.set_value("stats", key, stats[key])
 	_save.save(SAVE_PATH)
 
 
-## Counts a finished day. Streaks only follow today's puzzle, not replays of old days.
+## Counts a finished puzzle. The streak is days in a row with a solve (any of
+## the three), and only follows today's puzzles, not replays of old days.
 func _record_finish() -> void:
 	stats.played += 1
 	if not _solved():
-		if day == today:
-			stats.streak = 0
 		return
 	stats.solved += 1
 	if day == today:
-		stats.streak = stats.streak + 1 if stats.last_solved_day == today - 1 else 1
+		if stats.last_solved_day != today:
+			stats.streak = stats.streak + 1 if stats.last_solved_day == today - 1 else 1
 		stats.last_solved_day = today
 		stats.best_streak = maxi(stats.best_streak, stats.streak)
 		# Today's solve counts for Glow Pass XP and the Trick Shot bounty, and
@@ -389,7 +405,7 @@ func _record_finish() -> void:
 		var now := int(Time.get_unix_time_from_system())
 		# As main.gd: a save nothing has changed yet starts from a new game.
 		var profile = Profile.from_dict(d, now) if d is Dictionary else Profile.new_game(now)
-		prize = TrickReward.claim(profile, day, tries.size(), puzzle.p1)
+		prize = TrickReward.claim(profile, day, tries.size(), puzzle.p1, level)
 		faction_gains = profile.take_faction_gains()
 		if not prize.is_empty():
 			save.data.profile = profile.to_dict()
@@ -417,9 +433,19 @@ func _build_ui() -> void:
 	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ui.theme = Main._neon_theme()
 	layer.add_child(ui)
-	title_label = _label("TRICK SHOT #%d" % day, 48)
+	title_label = _label("TRICK SHOT #%d" % day, 44)
 	title_label.add_theme_color_override("font_outline_color", Color(Main.ACCENT, 0.45))
 	title_label.add_theme_constant_override("outline_size", 12)
+	tabs = HBoxContainer.new()
+	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	tabs.add_theme_constant_override("separation", 12)
+	for lv in range(1, TrickShot.LEVELS + 1):
+		var b := Kit.button("", _open_level.bind(lv), "go" if lv == level else "ghost", 26, 64)
+		b.custom_minimum_size.x = 150
+		b.name = "L%d" % lv
+		b.set_meta("mark", "")
+		b.draw.connect(_draw_tab.bind(b, lv))
+		tabs.add_child(b)
 	call_label = _label("Bank off %s, then hit %s" % [_walls_text(puzzle.walls), Roster.get_critter(puzzle.p2).get("name", "the foe")], 28)
 	call_label.modulate = TrickShotView.CALL_COLOR
 	call_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -427,15 +453,16 @@ func _build_ui() -> void:
 	info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	panel = VBoxContainer.new()
 	panel.add_theme_constant_override("separation", 16)
-	for c in [title_label, call_label, info_label, panel]:
+	for c in [title_label, tabs, call_label, info_label, panel]:
 		ui.add_child(c)
+	_refresh_tabs()
 
 
 ## Same shape as the main screen: portrait stacks arena over the panel, wide
 ## screens put the panel beside the arena.
 func _layout() -> void:
 	var size := get_viewport().get_visible_rect().size
-	var top := 190.0
+	var top := 240.0
 	var bottom_margin := 40.0
 	var panel_width := 680.0
 	var side: float
@@ -451,11 +478,67 @@ func _layout() -> void:
 		panel_width = maxf(side, minf(ARENA_PIXELS, size.x - 40.0))
 		panel_pos = Vector2((size.x - panel_width) / 2.0, top + side + 20.0)
 	arena.fit(Vector2(left, top), side)
-	_place(title_label, Vector2(0, 30), Vector2(size.x, 60))
-	_place(call_label, Vector2(20, 100), Vector2(size.x - 40, 80))
+	_place(title_label, Vector2(0, 20), Vector2(size.x, 56))
+	_place(tabs, Vector2(20, 84), Vector2(size.x - 40, 60))
+	_place(call_label, Vector2(20, 152), Vector2(size.x - 40, 80))
 	_place(info_label, panel_pos, Vector2(panel_width, 90))
 	_place(panel, panel_pos + Vector2(0, 100), Vector2(panel_width, PANEL_HEIGHT - 100.0))
 	arena.queue_redraw()
+
+
+## "★★" for a 2-star puzzle (share text; the font has no star).
+static func _stars(lv: int) -> String:
+	return "★".repeat(lv)
+
+
+## A tab: its gold stars, with a tick once solved or dimmed once out of tries.
+func _draw_tab(b: Button, lv: int) -> void:
+	var mark: String = b.get_meta("mark")
+	var r := 13.0
+	var gap := 30.0
+	var width := gap * (lv - 1) + (34.0 if mark == "solved" else 0.0)
+	var c := b.size / 2.0 - Vector2(width / 2.0, 0)
+	var gold := Color("#ffd166") if mark != "out" else Color("#ffd166", 0.35)
+	for i in lv:
+		var p := c + Vector2(gap * i, 0)
+		b.draw_colored_polygon(CritterArt.star_pts(p, r, r * 0.45, 5), gold)
+	if mark == "solved":
+		var t := c + Vector2(gap * (lv - 1) + 34.0, 0)
+		b.draw_polyline(PackedVector2Array([t + Vector2(-9, 0), t + Vector2(-2, 8), t + Vector2(11, -9)]), Color.WHITE, 5.0, true)
+
+
+## Each tab shows its stars and a tick once that puzzle is solved (dimmed
+## once it's out of tries).
+func _refresh_tabs() -> void:
+	for lv in range(1, TrickShot.LEVELS + 1):
+		var t: Array = tries if lv == level else _save.get_value(_tries_section(), day_key(day, lv), [])
+		var mark := ""
+		if t.any(func(x): return x.result == TrickShot.SOLVED):
+			mark = "solved"
+		elif t.size() >= TrickShot.TRIES:
+			mark = "out"
+		var b: Button = tabs.get_node("L%d" % lv)
+		b.set_meta("mark", mark)
+		b.disabled = state == State.SHOT and lv != level
+		b.queue_redraw()
+
+
+func _open_level(lv: int) -> void:
+	if lv == level or state == State.SHOT:
+		return
+	level = lv
+	get_tree().reload_current_scene()
+
+
+## The aim line's hint: what makes this puzzle tick.
+func _hint() -> String:
+	if puzzle.get("abilities", false):
+		return "%s's ability is on: %s" % [Roster.get_critter(puzzle.p1).get("name", "Your critter"), AbilityText.now(puzzle.p1, 1)]
+	if puzzle.has("arena"):
+		return "on %s: everything on the floor counts" % Arenas.DEFS.get(puzzle.arena, {}).get("display_name", "a painted map")
+	if not puzzle.obstacles.is_empty():
+		return "pillars and bumpers bounce for free"
+	return "one wall, then the foe"
 
 
 func _place(c: Control, pos: Vector2, size: Vector2) -> void:

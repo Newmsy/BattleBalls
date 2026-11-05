@@ -364,7 +364,7 @@ static func _more_strip(shell) -> Control:
 	header.custom_minimum_size.y = 36
 	var day := maxi(1, TrickShot.day_number(Time.get_date_dict_from_system()))
 	var trick: Dictionary = WeekScreen.trick_status(day)
-	var trick_line := "Solved" if trick.solved else ("Done" if trick.tries >= WeekScreen.TRICK_TRIES else "New")
+	var trick_line := "New" if not trick.played else "%d/%d solved" % [trick.solved_n, TrickShot.LEVELS]
 	var side := _s(56)
 	var climb = SpireClimb.load_file(t)
 	var spire := door_spot(shell, "spire", token("spire", side), "Spire", "%d/%d" % [climb.cleared, Spire.FLOORS], DAILY, func(): shell.go("spire"))
@@ -378,7 +378,7 @@ static func _more_strip(shell) -> Control:
 		bosses = door_spot(shell, "locked_dailies", token("lock", side), "Bosses", "Opens 1-5", Kit.MUTED, _bosses_locked_info(shell))
 		bosses.modulate = Color(1, 1, 1, .6)
 	var trick_spot := door_spot(shell, "trickshot", token("trick", side), "Trick Shot", trick_line, DAILY,
-			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.solved and trick.tries == 0)
+			func(): shell.get_tree().change_scene_to_file("res://game/trick_shot.tscn"), not trick.played)
 	if Intro.done(shell.profile) and not Intro.side_open(shell.profile, "trickshot"):
 		trick_spot = _side_locked(shell, "trickshot", side)
 	var row := Kit.hbox(2, [

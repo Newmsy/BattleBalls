@@ -97,15 +97,50 @@ func test_a_solve_pays_once_with_faction_xp() -> void:
 	var orbs: int = profile.orbs
 	var fam := Talents.faction_of("drako")
 	var xp: int = profile.faction_xp_rank(fam).xp
-	var got := TrickReward.claim(profile, 5, 1, "drako")
+	var got := TrickReward.claim(profile, 5, 1, "drako", 2)
 	check(not got.is_empty(), "first solve pays")
 	check_eq(profile.coins, coins + 150, "coins")
-	check_eq(profile.orbs, orbs + 1, "an egg for a first-try solve")
+	check_eq(profile.orbs, orbs + 1, "an egg for a first-try 2-star solve")
 	check(profile.faction_xp_rank(fam).xp > xp or profile.faction_xp_rank(fam).rank > 0, "shooter's faction XP")
-	check(TrickReward.claim(profile, 5, 1, "drako").is_empty(), "same day pays once")
-	check(TrickReward.claim(profile, 4, 1, "drako").is_empty(), "an older day doesn't pay")
-	check_eq(Profile.from_dict(profile.to_dict(), 0).trick_reward, 5, "paid day saves")
-	check(TrickReward.rewards(3, "drako").size() < TrickReward.rewards(1, "drako").size(), "fewer tries pay more")
+	check(TrickReward.claim(profile, 5, 1, "drako", 2).is_empty(), "same puzzle pays once")
+	check(not TrickReward.claim(profile, 5, 2, "drako", 1).is_empty(), "the day's other puzzles pay too")
+	check(TrickReward.claim(profile, 4, 1, "drako", 3).is_empty(), "an older day doesn't pay")
+	var saved = Profile.from_dict(profile.to_dict(), 0)
+	check_eq(saved.trick_reward, 5, "paid day saves")
+	check(TrickReward.paid(saved, 5, 1) and TrickReward.paid(saved, 5, 2) and not TrickReward.paid(saved, 5, 3), "paid puzzles save")
+	check(not TrickReward.claim(profile, 6, 1, "drako", 2).is_empty(), "a new day pays again")
+	check(TrickReward.rewards(3, "drako")[0].n < TrickReward.rewards(1, "drako")[0].n, "fewer tries pay more")
+	for level in [1, 2]:
+		check(TrickReward.rewards(1, "drako", level)[0].n < TrickReward.rewards(1, "drako", level + 1)[0].n, "%d stars pay more" % (level + 1))
+
+
+## A save from before three puzzles a day had paid that day's one puzzle.
+func test_old_saves_keep_the_paid_puzzle() -> void:
+	var d: Dictionary = Profile.new_game(0).to_dict()
+	d.trick_reward = 9
+	d.erase("trick_levels")
+	var p = Profile.from_dict(d, 0)
+	check(TrickReward.paid(p, 9, 1) and not TrickReward.paid(p, 9, 2), "1-star paid, 2-star open")
+
+
+## 2-star puzzles sit on a painted map, 3-star ones need the shooter's
+## ability; both are judged by the real sim, so stay deterministic.
+func test_harder_levels() -> void:
+	for day in [1, 2]:
+		var two := TrickShot.generate(day, "", 2)
+		check(two.get("arena", "") in TrickShot.maps(), "day %d 2-star on a painted map" % day)
+		check(two.solutions.size() >= 1, "day %d 2-star solvable" % day)
+		for aim in [two.solutions[0], two.solutions[-1]]:
+			check_eq(TrickShot.judge(two, aim).result, TrickShot.SOLVED, "day %d 2-star aim %d solves" % [day, aim])
+		var three := TrickShot.generate(day, "", 3)
+		check(three.get("abilities", false) and three.p1 in TrickShot.flight_critters(), "day %d 3-star uses an ability" % day)
+		var plain := three.duplicate()
+		plain.erase("abilities")
+		var needs: int = three.solutions.filter(func(a): return TrickShot.fast_judge(plain, a) != TrickShot.SOLVED).size()
+		check(needs * 2 >= three.solutions.size(), "day %d 3-star: the ability decides" % day)
+		check_eq(TrickShot.from_json(JSON.parse_string(JSON.stringify(TrickShot.to_json(three)))), three, "day %d round trips through JSON" % day)
+	check_eq(TrickShot.generate(1, "", 2), TrickShot.generate(1, "", 2), "deterministic")
+
 
 
 func test_sim_start_positions_can_be_set() -> void:

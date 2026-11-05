@@ -147,8 +147,23 @@ gets the same one with no server. The generator tries setups until 4-12 of
 the 360 whole-degree aims solve it; a test checks every day of the first year.
 Progress and streaks are saved to `user://trick_shot.cfg`.
 
-Open it from the menu's Trick Shot button or with
-`?mode=trickshot` (`&day=12` for another day, `&aim=166&auto=1` to shoot at once).
+Each day has three puzzles, picked from tabs at the top and paid separately
+(`meta/trick_reward.gd`, more for more stars):
+- 1 star: one called wall on the plain floor with pillars and bumpers,
+  judged by the fast replay (`fast_judge`).
+- 2 stars: two called walls on a painted square map (`TrickShot.maps()`),
+  whose moving pieces count.
+- 3 stars: the shooter's ability is on (a critter from `flight_critters()`,
+  whose ability bends its flight), and at least half the solving aims would
+  miss without it.
+
+2- and 3-star puzzles are judged with the real sim, seconds each, so
+`tools/trick_shot_days.gd` builds the next two weeks at export
+(`tools/ci/export_web.sh`, four shards) into `liveops/trick_shots.json`
+(not in git). A day missing from it is built on the device.
+
+Open it from the menu's Trick Shot button or with `?mode=trickshot` (`&day=12`
+for another day, `&level=3` for its 3-star, `&aim=166&auto=1` to shoot at once).
 
 Changing ball radius or speed, or adding playable balls, reshapes the
 puzzles. That is fine; `tests/test_trick_shot.gd` only fails if days stop

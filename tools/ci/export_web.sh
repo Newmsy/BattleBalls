@@ -19,6 +19,14 @@ fi
 timeout 180 ~/godot/godot --headless --import || true
 # Every scheduled Bracket of Legends, fought out now so phones don't have to.
 timeout 300 ~/godot/godot --headless --script res://tools/bracket_results.gd
+# The coming days' 2- and 3-star Trick Shots, built now (the real sim judges
+# them, which takes a phone far too long). Four shards, one per core;
+# TRICK_SHOT_DAYS days ahead (the smoke test only needs today's).
+for k in 1 2 3 4; do
+  timeout 900 ~/godot/godot --headless --script res://tools/trick_shot_days.gd -- --days=${TRICK_SHOT_DAYS:-14} --shard=$k/4 > /dev/null &
+done
+wait
+timeout 60 ~/godot/godot --headless --script res://tools/trick_shot_days.gd -- --merge=4
 # The fight-rules fingerprint live matches pair by (sim/sim_version.gd).
 timeout 120 ~/godot/godot --headless --script res://tools/sim_version.gd
 mkdir -p build/web

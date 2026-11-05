@@ -559,6 +559,20 @@ try {
     await page.waitForTimeout(800);
     await page.screenshot({ path: path.join(shots, "13-trickshot-solved.png") });
     await page.close();
+    // Today's 3-star (an ability puzzle) comes bundled with the export and
+    // its solving aim solves it in the browser too.
+    const probe3 = await openGame("?mode=trickshot&level=3");
+    const ready3 = await waitForLog(probe3.logs, "TRICKSHOT_READY", 60000);
+    console.log("trick shot 3-star:", ready3);
+    await probe3.page.close();
+    const day3 = Number(ready3.match(/day=(\d+)/)[1]);
+    const aim3 = Number(ready3.match(/solve=(\d+)/)[1]);
+    const run3 = await openGame(`?mode=trickshot&day=${day3}&level=3&aim=${aim3}&auto=1`);
+    const result3 = await waitForLog(run3.logs, "TRICKSHOT_RESULT", 60000);
+    if (!result3.includes("result=solved")) throw new Error(`Aim ${aim3} should solve day ${day3}'s 3-star: ${result3}`);
+    await run3.page.waitForTimeout(800);
+    await run3.page.screenshot({ path: path.join(shots, "13-trickshot-3star.png") });
+    await run3.page.close();
   }
 
   // 9. Quests: Home's Quests spot opens the Quests screen.
