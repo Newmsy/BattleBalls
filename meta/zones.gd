@@ -257,31 +257,100 @@ static func map_zones() -> Array:
 	return ZONES + COMING
 
 
+## Campaign difficulties (Newms 2026-11-05): the seven zones are played on
+## Normal, then again on Hard, then on Nightmare. A zone index counts on
+## through them: 0-6 are Normal, 7-13 Hard, 14-20 Nightmare, so a stage is
+## still (zone index, stage index) everywhere it travels (fight setup,
+## results, replays). Hard's first stage opens with Normal's last boss, and
+## Nightmare's with Hard's. Hard and Nightmare foes are all T5; Nightmare's
+## are ascended too (A1).
+const DIFFICULTIES := ["normal", "hard", "nightmare"]
+const DIFFICULTY_NAMES := ["Normal", "Hard", "Nightmare"]
+## Before a stage key ("H3-4"); Normal keys stay "3-4" so old saves still read.
+const DIFFICULTY_KEYS := ["", "H", "N"]
+const DIFFICULTY_COLORS := ["9be89a", "ffb547", "c77dff"]
+## Recommended Power on Hard and Nightmare runs on its own curve across all
+## 77 stages, from the first stage's to the last's (Power Rating / 1000, the
+## scale players see: rarity, tier, level, gear, talents and Ascension). Hard
+## climbs from about where Normal ends to a maxed T5 team; Nightmare from
+## there to a maxed T5 A3 team. Tuned with tools/campaign_difficulty.gd
+## (2026-11-05, maxed Epic/Legendary teams, 96 fights a stage): Hard's last
+## boss 42% for A0 teams; Nightmare's zone bosses 56-94% for A3 teams and its
+## last boss 39% (6% for A0), so Ascension is what clears Nightmare.
+const CURVE := [[], [15.0, 30.0], [28.0, 32.0]]
+## Nightmare foes' Ascension by zone. Foe Ascension hits much harder than
+## power (Ember Reborn at A2 held A3 teams to 24%), so it stays at A1.
+const NIGHTMARE_ASCEND := [1, 1, 1, 1, 1, 1, 1]
+
+
+static func difficulty(zone_index: int) -> int:
+	return clampi(zone_index / ZONES.size(), 0, DIFFICULTIES.size() - 1)
+
+
+## The zone's place on the map (0-6) whatever the difficulty.
+static func base(zone_index: int) -> int:
+	return zone_index % ZONES.size()
+
+
+## The zone index of map zone `base_index` on difficulty `diff`.
+static func index(base_index: int, diff: int) -> int:
+	return base_index + diff * ZONES.size()
+
+
+## Every zone index on every difficulty.
+static func count() -> int:
+	return ZONES.size() * DIFFICULTIES.size()
+
+
 static func zone(zone_index: int) -> Dictionary:
-	return ZONES[zone_index]
+	return ZONES[base(zone_index)]
+
+
+## Foe Ascension on a zone (0 off Nightmare).
+static func foe_ascend(zone_index: int) -> int:
+	return NIGHTMARE_ASCEND[base(zone_index)] if difficulty(zone_index) == 2 else 0
+
+
+## Recommended Power of a stage on Hard or Nightmare (CURVE).
+static func _curve_power(zone_index: int, stage_index: int) -> float:
+	var ends: Array = CURVE[difficulty(zone_index)]
+	var k := 0
+	var total := 0
+	for z in ZONES.size():
+		if z == base(zone_index):
+			k = total + stage_index
+		total += ZONES[z].stages.size()
+	var t := float(k) / float(maxi(1, total - 1))
+	return float(ends[0]) * pow(float(ends[1]) / float(ends[0]), t)
 
 
 ## A stage as it is fought: a duo stage in a trios zone keeps its first two
 ## foes; `tier` and `foe_power` are what its foes fight at.
 static func stage(zone_index: int, stage_index: int) -> Dictionary:
-	var st: Dictionary = ZONES[zone_index].stages[stage_index].duplicate()
-	if ZONES[zone_index].lineup == 3 and format(zone_index, stage_index) == "duo" and st.get("enemies", []).size() > 2:
+	var st: Dictionary = zone(zone_index).stages[stage_index].duplicate()
+	if zone(zone_index).lineup == 3 and format(zone_index, stage_index) == "duo" and st.get("enemies", []).size() > 2:
 		st.enemies = st.enemies.slice(0, 2)
 		st.enemy = st.enemies[0]
 	st.tier = foe_tier(zone_index)
-	st.power = st.power * DMath.ipow(ZONE_POWER_STEP, zone_index)
+	if difficulty(zone_index) == 0:
+		st.power = st.power * DMath.ipow(ZONE_POWER_STEP, zone_index)
+	else:
+		st.power = _curve_power(zone_index, stage_index)
 	st.foe_power = st.power * FOE_POWER[st.tier - 1]
+	st.ascend = foe_ascend(zone_index)
 	return st
 
 
 ## The tier the zone's foes fight at (FOE_TIERS).
 static func foe_tier(zone_index: int) -> int:
+	if difficulty(zone_index) > 0:
+		return FOE_TIERS[-1]
 	return FOE_TIERS[mini(zone_index, FOE_TIERS.size() - 1)]
 
 
 ## How a stage is fought: "solo" (zone 1), "duo" (2v2 at once), "relay" or "brawl" (3v3 at once).
 static func format(zone_index: int, stage_index: int) -> String:
-	var zn: Dictionary = ZONES[zone_index]
+	var zn: Dictionary = zone(zone_index)
 	var st: Dictionary = zn.stages[stage_index]
 	if st.has("format"):
 		return st.format
@@ -296,7 +365,7 @@ static func format(zone_index: int, stage_index: int) -> String:
 
 ## Critters you bring to a stage: 2 for a duo, else the zone's lineup.
 static func team_size(zone_index: int, stage_index: int) -> int:
-	return 2 if format(zone_index, stage_index) == "duo" else ZONES[zone_index].lineup
+	return 2 if format(zone_index, stage_index) == "duo" else zone(zone_index).lineup
 
 
 ## The stage's format as a short chip: "3V3", "2V2", "RELAY" (empty for solo).
@@ -305,7 +374,7 @@ static func format_label(zone_index: int, stage_index: int) -> String:
 
 
 static func stage_key(zone_index: int, stage_index: int) -> String:
-	return "%d-%d" % [zone_index + 1, stage_index + 1]
+	return "%s%d-%d" % [DIFFICULTY_KEYS[difficulty(zone_index)], base(zone_index) + 1, stage_index + 1]
 
 
 static func cost(st: Dictionary) -> int:

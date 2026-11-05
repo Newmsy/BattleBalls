@@ -366,7 +366,7 @@ func _ready() -> void:
 				# ?screen=shop, ?screen=pass, ?screen=detail&id=vampire...
 				var screen_params := {"id": url_params.id} if url_params.has("id") else {}
 				if url_params.has("zone"):
-					screen_params.zone = clampi(int(url_params.zone) - 1, 0, Zones.ZONES.size() - 1) # ?screen=campaign&zone=2
+					screen_params.zone = clampi(int(url_params.zone) - 1, 0, Zones.count() - 1) # ?screen=campaign&zone=2 (8-14 Hard, 15-21 Nightmare)
 				if demo_profile and url_params.screen in ["arena", "boosts", "bazaar", "defence"]:
 					screen_params.store = preload("res://game/pvp/arena_store.gd").sample()
 				shell.go(url_params.screen, screen_params)
@@ -1105,7 +1105,7 @@ func _load_profile() -> void:
 		for k in Zones.zone(0).stages.size() if demo_stars > 0 else 0:
 			profile.stars[Zones.stage_key(0, k)] = demo_stars
 		# &zones=2: the first N zones fully starred (opens later bosses).
-		for z in clampi(int(url_params.get("zones", "0")), 0, Zones.ZONES.size()):
+		for z in clampi(int(url_params.get("zones", "0")), 0, Zones.count()): # 8+ star Hard too
 			for k in Zones.zone(z).stages.size():
 				profile.stars[Zones.stage_key(z, k)] = maxi(1, demo_stars)
 	else:

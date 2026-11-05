@@ -17,7 +17,7 @@ mobile Safari as a web build and later ships to iOS / Google Play.
 | `supabase/` | Database migrations (tables, row-level security, RPCs). CI applies them to the live project from `main`. |
 | `game/glow/` | Glow Gems, cosmetics, the shop's store layer and the Glow Pass. Render-only: never read by `sim/`. |
 | `tests/` | Headless test suite: unit tests, determinism, golden replays. `tests/db/` tests the migrations on plain Postgres. |
-| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `boon_balance.gd` (Bounce Run boons), `boss_difficulty.gd` (farming boss win rates by player and boss power), `boss_matrix.gd` (every critter vs every boss and level, as CSV, with or without talents), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound and `tools/music/remix_crypto.py` remixes "Crypto" by Kevin MacLeod (CC-BY 4.0, see CREDITS.md) into the victory music in `game/audio/` (it reuses the drum and synth voices in `tools/music/make_music.py`); `tools/music/loop_track.py` loops a finished song seamlessly, on the beat grid and time-stretched if asked (menu, fight and overtime tracks). |
+| `tools/` | Headless utilities: `balance.gd` (win-rate matrix), `pve_difficulty.gd` (campaign stage win rates by player power), `campaign_difficulty.gd` (Hard and Nightmare win rates for maxed teams by Ascension), `boon_balance.gd` (Bounce Run boons), `boss_difficulty.gd` (farming boss win rates by player and boss power), `boss_matrix.gd` (every critter vs every boss and level, as CSV, with or without talents), `record_golden.gd`. `tools/sfx/make_sfx.py` renders every sound and `tools/music/remix_crypto.py` remixes "Crypto" by Kevin MacLeod (CC-BY 4.0, see CREDITS.md) into the victory music in `game/audio/` (it reuses the drum and synth voices in `tools/music/make_music.py`); `tools/music/loop_track.py` loops a finished song seamlessly, on the beat grid and time-stretched if asked (menu, fight and overtime tracks). |
 | `smoke/` | Playwright smoke test that plays the web build in a phone-sized browser. |
 
 ## Commands
@@ -121,6 +121,21 @@ Share links (`game/fight_link.gd`) need no server because fights are
 deterministic: `?r=1.laser.vampire.11.-300.1066` replays one exact fight, and
 `?c=1.laser.11.-300` challenges a friend to beat that ball and shot. Result
 screens make both links (Share fight, Challenge friend).
+
+## Campaign difficulties
+
+The seven zones are played on Normal, then Hard, then Nightmare (Newms
+2026-11-05). A zone index counts on through them (`Zones.index(base, diff)`:
+0-6 Normal, 7-13 Hard, 14-20 Nightmare), so a stage is still `(zone, stage)`
+everywhere it travels; Hard and Nightmare keys get an `H` or `N` in front
+(`H3-4`), and Normal's keys are unchanged. Hard opens when Normal's last boss
+falls, Nightmare when Hard's does. Their foes are T5 (Nightmare's at A1), their
+Recommended Power runs on `Zones.CURVE`, and wins pay more
+(`Campaign.DIFFICULTY_REWARD`, gear `DIFFICULTY_GEAR_STARS` higher). The world
+map shows Normal / Hard / Nightmare tabs once Hard is open. Nightmare is tuned
+so a maxed A3 team clears it and an A0 team mostly can't:
+`tools/campaign_difficulty.gd -- --diff=2 --ascend=3` (re-run after power or
+Ascension changes).
 
 ## Daily Trick Shot
 

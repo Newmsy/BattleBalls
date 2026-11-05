@@ -423,3 +423,48 @@ func test_shop_daily_deals_sell_a_few_a_day_for_coins() -> void:
 	check_eq(q.energy, int(en.n), "adds a refill")
 	var old = Profile.from_dict(p.to_dict().merged({"forge": {"day": T0 / 86400, "bought": 2}, "deals": {}}, true), T0)
 	check_eq(old.deal_left("hammer", T0), int(ham.daily) - 2, "an old forge save keeps today's count")
+
+
+func test_hard_and_nightmare_open_after_the_difficulty_before() -> void:
+	var p = Profile.new_game(T0)
+	var hard := Zones.index(0, 1)
+	var nightmare := Zones.index(0, 2)
+	check(not Campaign.difficulty_open(p, 1) and not Campaign.difficulty_open(p, 2), "only Normal at the start")
+	for z in Zones.ZONES.size():
+		for s in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, s)] = 1
+	check(Campaign.difficulty_open(p, 1), "Normal's last boss opens Hard")
+	check(Campaign.is_unlocked(p, hard, 0) and not Campaign.is_unlocked(p, hard, 1), "Hard starts at its first stage")
+	check(not Campaign.difficulty_open(p, 2), "Nightmare waits for Hard")
+	check_eq(Zones.stage_key(hard, 2), "H1-3", "Hard stage keys")
+	check_eq(Zones.stage_key(nightmare, 10), "N1-11", "Nightmare stage keys")
+	check_eq(Zones.stage_key(2, 3), "3-4", "Normal keys unchanged, so old saves still read")
+	check(not Campaign.is_unlocked(p, Zones.count(), 0), "nothing past Nightmare")
+
+
+func test_each_difficulty_is_harder_and_pays_more() -> void:
+	for z in Zones.ZONES.size():
+		var n: int = Zones.zone(z).stages.size()
+		for s in [0, n - 1]:
+			var normal := Zones.stage(z, s)
+			var hard := Zones.stage(Zones.index(z, 1), s)
+			var nightmare := Zones.stage(Zones.index(z, 2), s)
+			check(hard.power > normal.power and nightmare.power > hard.power, "harder each step (zone %d stage %d)" % [z + 1, s + 1])
+			check_eq(hard.tier, 5, "Hard foes are T5")
+			check(nightmare.ascend > 0 and hard.ascend == 0 and normal.ascend == 0, "only Nightmare foes are ascended")
+			check(Campaign.win_xp(Zones.index(z, 2), s) > Campaign.win_xp(Zones.index(z, 1), s) and Campaign.win_xp(Zones.index(z, 1), s) > Campaign.win_xp(z, s), "more XP each step")
+	check(Zones.zone(Zones.index(3, 2)).id == Zones.zone(3).id, "same zones on every difficulty")
+
+
+func test_nightmare_foes_fight_ascended_and_your_relay_keeps_its_ascension() -> void:
+	var p = Profile.new_game(T0)
+	for z in Zones.count():
+		for s in Zones.zone(z).stages.size():
+			p.stars[Zones.stage_key(z, s)] = 1
+	var solo := Campaign.start(p, Zones.index(0, 2), 0, Profile.STARTER, T0)
+	check_eq(int(solo.ascend[1]), Zones.NIGHTMARE_ASCEND[0], "the solo foe is ascended")
+	p.add_copies(["vampire", "laser"])
+	var z := Zones.index(2, 2)
+	var rc: Dictionary = Campaign.start_team(p, z, 0, [Profile.STARTER, "vampire", "laser"], T0 + 1)
+	check(rc.has("ascend") and rc.has("talents"), "relays carry Ascension and talents")
+	check(rc.ascend[1].all(func(a): return a == Zones.NIGHTMARE_ASCEND[2]), "every Nightmare foe ascended")
